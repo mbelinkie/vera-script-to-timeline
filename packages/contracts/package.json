@@ -1,0 +1,15 @@
+{
+  "name": "@vera/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "types": "./src/generated/contracts.ts",
+  "exports": {
+    ".": "./src/generated/contracts.ts"
+  },
+  "scripts": {
+    "lint": "eslint src test --max-warnings=0",
+    "typecheck": "tsc --project tsconfig.json",
+    "test": "vitest run"
+  }
+}

@@ -12,6 +12,8 @@
     "packages/*"
   ],
   "scripts": {
+    "generate:contracts": "node packages/contracts/scripts/generate-contracts.mjs",
+    "check:contracts-generated": "node packages/contracts/scripts/generate-contracts.mjs --check",
     "lint:typescript": "npm run lint --workspaces --if-present",
     "typecheck:typescript": "npm run typecheck --workspaces --if-present",
     "test:typescript": "npm run test --workspaces --if-present",
@@ -20,12 +22,15 @@
     "typecheck:python": "uv run --frozen mypy python tests",
     "test:python": "uv run --frozen pytest",
     "check:python": "npm run lint:python && npm run typecheck:python && npm run test:python",
-    "validate": "npm run check:typescript && npm run check:python"
+    "validate": "npm run check:contracts-generated && npm run check:typescript && npm run check:python"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "24.13.3",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
     "eslint": "10.9.1",
+    "json-schema-to-typescript": "15.0.4",
     "typescript": "6.0.3",
     "typescript-eslint": "8.68.0",
     "vitest": "4.1.11"

@@ -1,0 +1,615 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.vera.video/contracts/script-document-v1.schema.json",
+  "title": "ScriptDocumentV1",
+  "description": "Editor-independent canonical ScriptDocument serialization for Phase 1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "projectId",
+    "title",
+    "activeDraft",
+    "ideaOutline",
+    "extras",
+    "liveHeadSequence",
+    "liveStateVector",
+    "liveContentHash"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "script-document/v1"
+    },
+    "id": {
+      "$ref": "#/$defs/EntityId"
+    },
+    "projectId": {
+      "$ref": "#/$defs/EntityId"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "activeDraft": {
+      "$ref": "#/$defs/ActiveDraft"
+    },
+    "ideaOutline": {
+      "description": "Reserved document surface. It is empty until the Phase 3 Ideas contract is introduced.",
+      "type": "array",
+      "maxItems": 0,
+      "items": false
+    },
+    "extras": {
+      "description": "Reserved document surface. It is empty until the Phase 3 Extras contract is introduced.",
+      "type": "array",
+      "maxItems": 0,
+      "items": false
+    },
+    "liveHeadSequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "liveStateVector": {
+      "description": "Base64-encoded acknowledged collaborative state-vector evidence; may be empty before collaboration exists.",
+      "type": "string",
+      "contentEncoding": "base64"
+    },
+    "liveContentHash": {
+      "$ref": "#/$defs/ContentHash"
+    }
+  },
+  "$defs": {
+    "EntityId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "ContentHash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "EntityVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "DocumentReference": {
+      "description": "Immutable identity evidence for the ScriptDocument materialization consumed by a build.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "documentId",
+        "projectId",
+        "liveHeadSequence",
+        "contentHash"
+      ],
+      "properties": {
+        "documentId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "projectId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "liveHeadSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "contentHash": {
+          "$ref": "#/$defs/ContentHash"
+        }
+      }
+    },
+    "ActiveDraft": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blocks"
+      ],
+      "properties": {
+        "blocks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DraftBlock"
+          }
+        }
+      }
+    },
+    "DraftBlock": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/SectionBlock"
+        },
+        {
+          "$ref": "#/$defs/NarrationBlock"
+        },
+        {
+          "$ref": "#/$defs/DirectionBlock"
+        },
+        {
+          "$ref": "#/$defs/VisualBlock"
+        },
+        {
+          "$ref": "#/$defs/NoteDraftBlock"
+        }
+      ]
+    },
+    "SectionBlock": {
+      "description": "A human-readable section heading and optional chapter marker source.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id",
+        "orderKey",
+        "title",
+        "version"
+      ],
+      "properties": {
+        "type": {
+          "const": "section"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "orderKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
+    "NarrationToken": {
+      "description": "A stable spoken-token identity plus offsets into NarrationBlock.text. Offset and text agreement is checked semantically in Slice 1.1.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "value",
+        "startOffset",
+        "endOffset"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "startOffset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endOffset": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "TextAnchorRange": {
+      "description": "A semantic range whose boundaries attach before or after stable tokens. Token existence, order, and quoted-text agreement are semantic validation concerns.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blockId",
+        "startTokenId",
+        "endTokenId",
+        "startAffinity",
+        "endAffinity",
+        "quotedText",
+        "anchorVersion"
+      ],
+      "properties": {
+        "blockId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "startTokenId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "endTokenId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "startAffinity": {
+          "$ref": "#/$defs/AnchorAffinity"
+        },
+        "endAffinity": {
+          "$ref": "#/$defs/AnchorAffinity"
+        },
+        "quotedText": {
+          "type": "string",
+          "minLength": 1
+        },
+        "anchorVersion": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
+    "AnchorAffinity": {
+      "type": "string",
+      "enum": [
+        "before",
+        "after"
+      ]
+    },
+    "HostVisibilitySpan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "range",
+        "state",
+        "source",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "range": {
+          "$ref": "#/$defs/TextAnchorRange"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "on_camera",
+            "voiceover"
+          ]
+        },
+        "source": {
+          "description": "The authoring source of the span; Phase 1 does not infer missing state.",
+          "const": "authored"
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
+    "VisualEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "range",
+        "source",
+        "presentationMode",
+        "framingPolicy",
+        "motionPreset",
+        "audioPolicy",
+        "layer",
+        "transitionIn",
+        "transitionOut",
+        "timingOverrides",
+        "status",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "range": {
+          "$ref": "#/$defs/TextAnchorRange"
+        },
+        "source": {
+          "$ref": "#/$defs/Phase1VisualSource"
+        },
+        "presentationMode": {
+          "type": "string",
+          "enum": [
+            "full_frame",
+            "overlay"
+          ]
+        },
+        "framingPolicy": {
+          "type": "string",
+          "enum": [
+            "contain",
+            "cover",
+            "native"
+          ]
+        },
+        "motionPreset": {
+          "description": "Phase 1 supports no authored motion preset.",
+          "const": "none"
+        },
+        "audioPolicy": {
+          "type": "string",
+          "enum": [
+            "mute",
+            "use_source"
+          ]
+        },
+        "layer": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "transitionIn": {
+          "$ref": "#/$defs/NullableHardCut"
+        },
+        "transitionOut": {
+          "$ref": "#/$defs/NullableHardCut"
+        },
+        "timingOverrides": {
+          "description": "Explicit frame overrides arrive in Phase 5 and are unavailable in Phase 1.",
+          "type": "null"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ready",
+            "unresolved",
+            "failed"
+          ]
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
+    "Phase1VisualSource": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/LocalMediaVisualSource"
+        },
+        {
+          "$ref": "#/$defs/PlaceholderVisualSource"
+        }
+      ]
+    },
+    "LocalMediaVisualSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "mediaReferenceId",
+        "mediaKind",
+        "label"
+      ],
+      "properties": {
+        "kind": {
+          "const": "local_media"
+        },
+        "mediaReferenceId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "mediaKind": {
+          "type": "string",
+          "enum": [
+            "still",
+            "video"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "PlaceholderVisualSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "description",
+        "unresolvedVisual"
+      ],
+      "properties": {
+        "kind": {
+          "const": "placeholder"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unresolvedVisual": {
+          "const": true
+        }
+      }
+    },
+    "NullableHardCut": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/HardCut"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "HardCut": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "durationFrames"
+      ],
+      "properties": {
+        "kind": {
+          "const": "hard_cut"
+        },
+        "durationFrames": {
+          "const": 0
+        }
+      }
+    },
+    "NarrationBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id",
+        "orderKey",
+        "text",
+        "tokens",
+        "hostVisibilitySpans",
+        "visualEvents",
+        "timingPolicy",
+        "state",
+        "notes",
+        "version"
+      ],
+      "properties": {
+        "type": {
+          "const": "narration"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "orderKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tokens": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/NarrationToken"
+          }
+        },
+        "hostVisibilitySpans": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/HostVisibilitySpan"
+          }
+        },
+        "visualEvents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/VisualEvent"
+          }
+        },
+        "timingPolicy": {
+          "const": "narration_spine"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "active",
+            "excluded"
+          ]
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
+    "DirectionBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id",
+        "orderKey",
+        "text",
+        "buildBehavior",
+        "version"
+      ],
+      "properties": {
+        "type": {
+          "const": "direction"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "orderKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "buildBehavior": {
+          "type": "string",
+          "enum": [
+            "none",
+            "timeline_marker"
+          ]
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
+    "VisualBlock": {
+      "description": "A readable standalone visual row whose event remains anchored to narration text.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id",
+        "orderKey",
+        "event",
+        "version"
+      ],
+      "properties": {
+        "type": {
+          "const": "visual"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "orderKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event": {
+          "$ref": "#/$defs/VisualEvent"
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
+    "NoteDraftBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id",
+        "orderKey",
+        "text",
+        "state",
+        "version"
+      ],
+      "properties": {
+        "type": {
+          "const": "note_draft"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "orderKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state": {
+          "const": "excluded"
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    }
+  }
+}

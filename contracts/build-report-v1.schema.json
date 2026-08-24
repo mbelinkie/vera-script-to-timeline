@@ -1,0 +1,277 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.vera.video/contracts/build-report-v1.schema.json",
+  "title": "BuildReportV1",
+  "description": "Human-traceable structured report for one immutable Phase 1 timeline build.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "buildId",
+    "buildClass",
+    "status",
+    "temporaryNarration",
+    "sourceDocument",
+    "manifest",
+    "timeline",
+    "summary",
+    "eventResults",
+    "issues",
+    "manualCompletionItems"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "build-report/v1"
+    },
+    "id": {
+      "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+    },
+    "buildId": {
+      "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+    },
+    "buildClass": {
+      "type": "string",
+      "enum": [
+        "preview",
+        "release"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ready",
+        "ready_with_warnings",
+        "blocked",
+        "failed"
+      ]
+    },
+    "temporaryNarration": {
+      "description": "True when any temporary synthetic speech remains in the build.",
+      "type": "boolean"
+    },
+    "sourceDocument": {
+      "$ref": "script-document-v1.schema.json#/$defs/DocumentReference"
+    },
+    "manifest": {
+      "$ref": "#/$defs/ManifestReference"
+    },
+    "timeline": {
+      "$ref": "timeline-manifest-v1.schema.json#/$defs/TimelineSettings"
+    },
+    "summary": {
+      "$ref": "#/$defs/BuildSummary"
+    },
+    "eventResults": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EventBuildResult"
+      }
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BuildIssue"
+      }
+    },
+    "manualCompletionItems": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ManualCompletionItem"
+      }
+    }
+  },
+  "$defs": {
+    "ManifestReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "contentHash"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "contentHash": {
+          "$ref": "script-document-v1.schema.json#/$defs/ContentHash"
+        }
+      }
+    },
+    "BuildSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceCount",
+        "eventCount",
+        "markerCount",
+        "placedCount",
+        "placeholderCount",
+        "manualCompletionCount",
+        "warningCount",
+        "errorCount"
+      ],
+      "properties": {
+        "sourceCount": {
+          "$ref": "#/$defs/Count"
+        },
+        "eventCount": {
+          "$ref": "#/$defs/Count"
+        },
+        "markerCount": {
+          "$ref": "#/$defs/Count"
+        },
+        "placedCount": {
+          "$ref": "#/$defs/Count"
+        },
+        "placeholderCount": {
+          "$ref": "#/$defs/Count"
+        },
+        "manualCompletionCount": {
+          "$ref": "#/$defs/Count"
+        },
+        "warningCount": {
+          "$ref": "#/$defs/Count"
+        },
+        "errorCount": {
+          "$ref": "#/$defs/Count"
+        }
+      }
+    },
+    "Count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "EventBuildResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eventId",
+        "disposition",
+        "sourceId",
+        "trackId",
+        "recordRange",
+        "message"
+      ],
+      "properties": {
+        "eventId": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "disposition": {
+          "type": "string",
+          "enum": [
+            "placed",
+            "placeholder",
+            "manual_completion",
+            "blocked"
+          ]
+        },
+        "sourceId": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "trackId": {
+          "$ref": "timeline-manifest-v1.schema.json#/$defs/TrackId"
+        },
+        "recordRange": {
+          "$ref": "timeline-manifest-v1.schema.json#/$defs/FrameRange"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "BuildIssue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "severity",
+        "code",
+        "message",
+        "entity"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "info",
+            "warning",
+            "error",
+            "blocking"
+          ]
+        },
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entity": {
+          "$ref": "#/$defs/EntityReference"
+        }
+      }
+    },
+    "EntityReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "document",
+            "block",
+            "visual_event",
+            "timeline_event",
+            "source",
+            "marker",
+            "build"
+          ]
+        },
+        "id": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        }
+      }
+    },
+    "ManualCompletionItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "code",
+        "description",
+        "action",
+        "entity"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entity": {
+          "$ref": "#/$defs/EntityReference"
+        }
+      }
+    }
+  }
+}

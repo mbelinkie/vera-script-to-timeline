@@ -1,0 +1,822 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.vera.video/contracts/timeline-manifest-v1.schema.json",
+  "title": "TimelineManifestV1",
+  "description": "Editor-neutral, integer-frame canonical timeline manifest shared by Free and Studio delivery adapters.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "buildId",
+    "sourceDocument",
+    "timeline",
+    "tracks",
+    "sources",
+    "events",
+    "transitions",
+    "markers"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "timeline-manifest/v1"
+    },
+    "id": {
+      "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+    },
+    "buildId": {
+      "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+    },
+    "sourceDocument": {
+      "$ref": "script-document-v1.schema.json#/$defs/DocumentReference"
+    },
+    "timeline": {
+      "$ref": "#/$defs/TimelineSettings"
+    },
+    "tracks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/Track"
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MediaSource"
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TimelineEvent"
+      }
+    },
+    "transitions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/HardCutTransition"
+      }
+    },
+    "markers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TimelineMarker"
+      }
+    }
+  },
+  "$defs": {
+    "RationalRate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "numerator",
+        "denominator"
+      ],
+      "properties": {
+        "numerator": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "denominator": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "TimelineSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frameRate",
+        "width",
+        "height",
+        "audioSampleRate",
+        "startFrame",
+        "durationFrames"
+      ],
+      "properties": {
+        "frameRate": {
+          "$ref": "#/$defs/RationalRate"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "audioSampleRate": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "startFrame": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "durationFrames": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "VideoTrackId": {
+      "type": "string",
+      "enum": [
+        "V1",
+        "V2",
+        "V3",
+        "V4",
+        "V5"
+      ]
+    },
+    "PictureContentTrackId": {
+      "type": "string",
+      "enum": [
+        "V1",
+        "V2",
+        "V3",
+        "V4"
+      ]
+    },
+    "AudioTrackId": {
+      "type": "string",
+      "enum": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5"
+      ]
+    },
+    "SubtitleTrackId": {
+      "const": "S1"
+    },
+    "TrackId": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/VideoTrackId"
+        },
+        {
+          "$ref": "#/$defs/AudioTrackId"
+        },
+        {
+          "$ref": "#/$defs/SubtitleTrackId"
+        }
+      ]
+    },
+    "Track": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/VideoTrack"
+        },
+        {
+          "$ref": "#/$defs/AudioTrack"
+        },
+        {
+          "$ref": "#/$defs/SubtitleTrack"
+        }
+      ]
+    },
+    "VideoTrack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "index",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/VideoTrackId"
+        },
+        "kind": {
+          "const": "video"
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "AudioTrack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "index",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/AudioTrackId"
+        },
+        "kind": {
+          "const": "audio"
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "SubtitleTrack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "index",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/SubtitleTrackId"
+        },
+        "kind": {
+          "const": "subtitle"
+        },
+        "index": {
+          "const": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "ProjectRelativePath": {
+      "description": "POSIX-style project-relative locator. Identity comes from the content hash, never this path.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    },
+    "MediaSource": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/VideoSource"
+        },
+        {
+          "$ref": "#/$defs/StillSource"
+        },
+        {
+          "$ref": "#/$defs/AudioSource"
+        },
+        {
+          "$ref": "#/$defs/PlaceholderSource"
+        }
+      ]
+    },
+    "VideoSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "path",
+        "contentHash",
+        "durationFrames",
+        "frameRate",
+        "width",
+        "height",
+        "audioChannels"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "kind": {
+          "const": "video"
+        },
+        "path": {
+          "$ref": "#/$defs/ProjectRelativePath"
+        },
+        "contentHash": {
+          "$ref": "script-document-v1.schema.json#/$defs/ContentHash"
+        },
+        "durationFrames": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "frameRate": {
+          "$ref": "#/$defs/RationalRate"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "audioChannels": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "StillSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "path",
+        "contentHash",
+        "width",
+        "height"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "kind": {
+          "const": "still"
+        },
+        "path": {
+          "$ref": "#/$defs/ProjectRelativePath"
+        },
+        "contentHash": {
+          "$ref": "script-document-v1.schema.json#/$defs/ContentHash"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "AudioSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "path",
+        "contentHash",
+        "durationFrames",
+        "sampleRate",
+        "channels"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "kind": {
+          "const": "audio"
+        },
+        "path": {
+          "$ref": "#/$defs/ProjectRelativePath"
+        },
+        "contentHash": {
+          "$ref": "script-document-v1.schema.json#/$defs/ContentHash"
+        },
+        "durationFrames": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sampleRate": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "channels": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "PlaceholderSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "label",
+        "reason"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "kind": {
+          "const": "placeholder"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "FrameRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "startFrame",
+        "durationFrames"
+      ],
+      "properties": {
+        "startFrame": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "durationFrames": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "EventProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "documentId",
+        "blockId",
+        "authoringKind",
+        "authoringId"
+      ],
+      "properties": {
+        "documentId": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "blockId": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "authoringKind": {
+          "type": "string",
+          "enum": [
+            "visual_event",
+            "narration_block"
+          ]
+        },
+        "authoringId": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        }
+      }
+    },
+    "TimingPrecision": {
+      "description": "Honest precision of the alignment used to resolve a semantic anchor into integer frames.",
+      "type": "string",
+      "enum": [
+        "word",
+        "sentence",
+        "cue",
+        "frame"
+      ]
+    },
+    "TimelineEvent": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/VideoEvent"
+        },
+        {
+          "$ref": "#/$defs/StillEvent"
+        },
+        {
+          "$ref": "#/$defs/AudioEvent"
+        },
+        {
+          "$ref": "#/$defs/PlaceholderEvent"
+        }
+      ]
+    },
+    "VideoEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "sourceId",
+        "trackId",
+        "recordRange",
+        "sourceRange",
+        "timingPrecision",
+        "alignmentVersion",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "kind": {
+          "const": "video"
+        },
+        "sourceId": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "trackId": {
+          "$ref": "#/$defs/PictureContentTrackId"
+        },
+        "recordRange": {
+          "$ref": "#/$defs/FrameRange"
+        },
+        "sourceRange": {
+          "$ref": "#/$defs/FrameRange"
+        },
+        "timingPrecision": {
+          "$ref": "#/$defs/TimingPrecision"
+        },
+        "alignmentVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provenance": {
+          "$ref": "#/$defs/EventProvenance"
+        }
+      }
+    },
+    "StillEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "sourceId",
+        "trackId",
+        "recordRange",
+        "timingPrecision",
+        "alignmentVersion",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "kind": {
+          "const": "still"
+        },
+        "sourceId": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "trackId": {
+          "$ref": "#/$defs/PictureContentTrackId"
+        },
+        "recordRange": {
+          "$ref": "#/$defs/FrameRange"
+        },
+        "timingPrecision": {
+          "$ref": "#/$defs/TimingPrecision"
+        },
+        "alignmentVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provenance": {
+          "$ref": "#/$defs/EventProvenance"
+        }
+      }
+    },
+    "AudioEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "sourceId",
+        "trackId",
+        "recordRange",
+        "sourceRange",
+        "timingPrecision",
+        "alignmentVersion",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "kind": {
+          "const": "audio"
+        },
+        "sourceId": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "trackId": {
+          "$ref": "#/$defs/AudioTrackId"
+        },
+        "recordRange": {
+          "$ref": "#/$defs/FrameRange"
+        },
+        "sourceRange": {
+          "$ref": "#/$defs/FrameRange"
+        },
+        "timingPrecision": {
+          "$ref": "#/$defs/TimingPrecision"
+        },
+        "alignmentVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provenance": {
+          "$ref": "#/$defs/EventProvenance"
+        }
+      }
+    },
+    "PlaceholderEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "sourceId",
+        "trackId",
+        "recordRange",
+        "timingPrecision",
+        "alignmentVersion",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "kind": {
+          "const": "placeholder"
+        },
+        "sourceId": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "trackId": {
+          "const": "V5"
+        },
+        "recordRange": {
+          "$ref": "#/$defs/FrameRange"
+        },
+        "timingPrecision": {
+          "$ref": "#/$defs/TimingPrecision"
+        },
+        "alignmentVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provenance": {
+          "$ref": "#/$defs/EventProvenance"
+        }
+      }
+    },
+    "HardCutTransition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "fromEventId",
+        "toEventId",
+        "atFrame",
+        "durationFrames"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "kind": {
+          "const": "hard_cut"
+        },
+        "fromEventId": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "toEventId": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "atFrame": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "durationFrames": {
+          "const": 0
+        }
+      }
+    },
+    "MarkerProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "documentId",
+        "blockId",
+        "authoringKind",
+        "authoringId"
+      ],
+      "properties": {
+        "documentId": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "blockId": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "authoringKind": {
+          "const": "script_marker"
+        },
+        "authoringId": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        }
+      }
+    },
+    "TimelineMarker": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/PlacedMarker"
+        },
+        {
+          "$ref": "#/$defs/UnplacedMarker"
+        }
+      ]
+    },
+    "PlacedMarker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "state",
+        "frame",
+        "name",
+        "note",
+        "color",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "state": {
+          "const": "placed"
+        },
+        "frame": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        },
+        "color": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provenance": {
+          "$ref": "#/$defs/MarkerProvenance"
+        }
+      }
+    },
+    "UnplacedMarker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "state",
+        "name",
+        "note",
+        "color",
+        "reason",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "state": {
+          "const": "unplaced"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        },
+        "color": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provenance": {
+          "$ref": "#/$defs/MarkerProvenance"
+        }
+      }
+    }
+  }
+}

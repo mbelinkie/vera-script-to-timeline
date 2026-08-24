@@ -68,6 +68,37 @@ mypy, and pytest. CI installs from both lockfiles and invokes this exact
 command. Contract and fixture workstreams should extend this command rather
 than creating a separate acceptance path.
 
+### Contract schemas and generated types
+
+The JSON Schema Draft 2020-12 files in [`contracts/`](./contracts) are the
+single source of truth for the first-draft `ScriptDocument v1`,
+`TimelineManifest v1`, and `BuildReport v1` contracts. Their checked-in,
+schema-derived language types live at:
+
+- `packages/contracts/src/generated/contracts.ts`
+- `python/vera_timeline_agent/generated/contracts/`
+
+Regenerate both language outputs with the pinned npm and uv dependency graphs:
+
+```sh
+npm run generate:contracts
+```
+
+Do not edit generated files by hand. To verify that checked-in output is an
+exact byte-for-byte regeneration without changing the worktree, run:
+
+```sh
+npm run check:contracts-generated
+```
+
+The currentness check runs first in `npm run validate`. The contract test
+workspace also compiles all three schemas together, resolves their explicit
+cross-schema references offline, accepts representative Phase 1 instances,
+and rejects focused invalid instances. Cross-record semantics such as complete
+OC/VO token coverage and VO visual coverage intentionally remain the Slice 1.1
+semantic validator's responsibility; JSON Schema validates structure rather
+than pretending to enforce those comparisons.
+
 Individual groups are available for diagnosis:
 
 ```sh
