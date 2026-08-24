@@ -75,9 +75,9 @@ changes, why, compatibility impact, regenerated outputs, and acceptance impact.
 | Date | Agent/workstream | Assignment | State | Result |
 | --- | --- | --- | --- | --- |
 | 2026-08-24 | Orchestrator | Locate authoritative repository/spec; initialize assigned workspace from `origin/main`; establish progress record | Complete | Spec and slice ritual reviewed; workspace now tracks the product repository |
-| 2026-08-24 | Tooling workstream | Monorepo, CI, developer commands, guardrails, decision/capability document scaffolds | Queued | — |
-| 2026-08-24 | Contracts workstream | Three JSON Schemas, generated types, schema/type tests | Queued | — |
-| 2026-08-24 | Fixtures workstream | Deterministic media kit, descriptors/hashes, validation tests | Queued | — |
+| 2026-08-24 | Tooling workstream | Monorepo, CI, developer commands, guardrails, decision/capability document scaffolds | Agent complete | Integrated as `178b668`; clean npm/uv installs and the pinned-toolchain `npm run validate` pass independently. Remote CI and producer acceptance remain pending. |
+| 2026-08-24 | Contracts workstream | Three JSON Schemas, generated types, schema/type tests | In progress | Assigned on `codex/slice-0.1-contracts`; bounded to contracts, generated models, tests, and validation-ratchet integration. |
+| 2026-08-24 | Fixtures workstream | Deterministic media kit, descriptors/hashes, validation tests | In progress | Assigned on `codex/slice-0.1-fixtures`; bounded to deterministic media, descriptors, hashes, tests, and validation-ratchet integration. |
 | 2026-08-24 | Integration/review workstream | Merge audit, fresh-clone simulation, acceptance script verification | Queued | — |
 
 ## Producer decisions and external checks
