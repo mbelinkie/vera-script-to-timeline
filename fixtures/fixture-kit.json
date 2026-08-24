@@ -1,0 +1,200 @@
+{
+  "schemaVersion": 1,
+  "kitId": "vera.slice-0.1.synthetic-media-kit.v1",
+  "description": "Canonical compact synthetic media for Slice 0.2 handcrafted-timeline tests.",
+  "canonicalSettings": {
+    "video": {
+      "frameRate": {
+        "numerator": 24000,
+        "denominator": 1001
+      },
+      "width": 1920,
+      "height": 1080,
+      "pixelAspectRatio": "1/1"
+    },
+    "audio": {
+      "sampleRateHz": 48000,
+      "channels": 2
+    }
+  },
+  "provenance": {
+    "sourceType": "procedurally_generated_synthetic",
+    "generatedBy": "fixtures/generate_fixtures.py::canonical_kit",
+    "containsThirdPartyMedia": false,
+    "containsProductionMedia": false
+  },
+  "generation": {
+    "command": "uv run --frozen python -m fixtures.generate_fixtures",
+    "ffmpegVersion": "8.1.2",
+    "ffprobeVersion": "8.1.2",
+    "versionCaveat": "Checked-in bytes are canonical; exact regeneration also requires the same linked libx264, FFmpeg build configuration, Python, and zlib behavior."
+  },
+  "assets": [
+    {
+      "id": "clip.establishing-blue.v1",
+      "role": "establishing-picture",
+      "kind": "video",
+      "path": "media/clip-establishing-blue.mp4",
+      "description": "Blue full-frame clip with a left-edge white locator block.",
+      "provenance": {
+        "sourceType": "procedurally_generated_synthetic",
+        "generatedBy": "fixtures/generate_fixtures.py::video_establishing_blue",
+        "containsThirdPartyMedia": false,
+        "containsProductionMedia": false
+      },
+      "sha256": "f04abe75cbddf55fac6e6949b246b12781e6a496c5434283f1bfd1b83e2559f3",
+      "sizeBytes": 5830,
+      "media": {
+        "streamCount": 1,
+        "formatName": "mov,mp4,m4a,3gp,3g2,mj2",
+        "codecType": "video",
+        "codecName": "h264",
+        "durationSeconds": "2.002000",
+        "profile": "High",
+        "pixelFormat": "yuv420p",
+        "width": 1920,
+        "height": 1080,
+        "frameRate": "24000/1001",
+        "timeBase": "1/24000",
+        "durationTs": 48048,
+        "frameCount": 48
+      }
+    },
+    {
+      "id": "clip.cutaway-orange.v1",
+      "role": "research-cutaway",
+      "kind": "video",
+      "path": "media/clip-cutaway-orange.mp4",
+      "description": "Orange full-frame clip with a centered white locator block.",
+      "provenance": {
+        "sourceType": "procedurally_generated_synthetic",
+        "generatedBy": "fixtures/generate_fixtures.py::video_cutaway_orange",
+        "containsThirdPartyMedia": false,
+        "containsProductionMedia": false
+      },
+      "sha256": "ad4f20f6b0ea828b59fc94fa1c254e3630e0a3a21daec754f082a910d549f964",
+      "sizeBytes": 5607,
+      "media": {
+        "streamCount": 1,
+        "formatName": "mov,mp4,m4a,3gp,3g2,mj2",
+        "codecType": "video",
+        "codecName": "h264",
+        "durationSeconds": "2.002000",
+        "profile": "High",
+        "pixelFormat": "yuv420p",
+        "width": 1920,
+        "height": 1080,
+        "frameRate": "24000/1001",
+        "timeBase": "1/24000",
+        "durationTs": 48048,
+        "frameCount": 48
+      }
+    },
+    {
+      "id": "clip.detail-green.v1",
+      "role": "detail-broll",
+      "kind": "video",
+      "path": "media/clip-detail-green.mp4",
+      "description": "Green full-frame clip with a right-edge white locator block.",
+      "provenance": {
+        "sourceType": "procedurally_generated_synthetic",
+        "generatedBy": "fixtures/generate_fixtures.py::video_detail_green",
+        "containsThirdPartyMedia": false,
+        "containsProductionMedia": false
+      },
+      "sha256": "1d8f86f69770ca5d6f596033400f531456d181a37a69b8afb8e8629db06c2cbd",
+      "sizeBytes": 5852,
+      "media": {
+        "streamCount": 1,
+        "formatName": "mov,mp4,m4a,3gp,3g2,mj2",
+        "codecType": "video",
+        "codecName": "h264",
+        "durationSeconds": "2.002000",
+        "profile": "High",
+        "pixelFormat": "yuv420p",
+        "width": 1920,
+        "height": 1080,
+        "frameRate": "24000/1001",
+        "timeBase": "1/24000",
+        "durationTs": 48048,
+        "frameCount": 48
+      }
+    },
+    {
+      "id": "still.reference-grid.v1",
+      "role": "full-frame-still",
+      "kind": "still",
+      "path": "media/still-reference-grid.png",
+      "description": "Purple grid still with a centered white reference panel.",
+      "provenance": {
+        "sourceType": "procedurally_generated_synthetic",
+        "generatedBy": "fixtures/generate_fixtures.py::still_reference_grid",
+        "containsThirdPartyMedia": false,
+        "containsProductionMedia": false
+      },
+      "sha256": "fa2ab99265a93b59115d507be563adc4afa2b4f85992c8ac8eba2fbc28c294b3",
+      "sizeBytes": 18233,
+      "media": {
+        "streamCount": 1,
+        "formatName": "png_pipe",
+        "codecType": "video",
+        "codecName": "png",
+        "pixelFormat": "rgb24",
+        "width": 1920,
+        "height": 1080
+      }
+    },
+    {
+      "id": "still.reference-bars.v1",
+      "role": "alternate-still",
+      "kind": "still",
+      "path": "media/still-reference-bars.png",
+      "description": "Cyan four-band still with a dark horizontal reference bar.",
+      "provenance": {
+        "sourceType": "procedurally_generated_synthetic",
+        "generatedBy": "fixtures/generate_fixtures.py::still_reference_bars",
+        "containsThirdPartyMedia": false,
+        "containsProductionMedia": false
+      },
+      "sha256": "6af7a425c4c30e93b107ccfce260f8838eda7e38bc8424a5b21e74eec5355a03",
+      "sizeBytes": 12165,
+      "media": {
+        "streamCount": 1,
+        "formatName": "png_pipe",
+        "codecType": "video",
+        "codecName": "png",
+        "pixelFormat": "rgb24",
+        "width": 1920,
+        "height": 1080
+      }
+    },
+    {
+      "id": "audio.ambient-bed.v1",
+      "role": "timeline-audio-bed",
+      "kind": "audio",
+      "path": "media/audio-ambient-bed.wav",
+      "description": "Three-second stereo synthetic triangle-wave audio bed.",
+      "provenance": {
+        "sourceType": "procedurally_generated_synthetic",
+        "generatedBy": "fixtures/generate_fixtures.py::audio_ambient_bed",
+        "containsThirdPartyMedia": false,
+        "containsProductionMedia": false
+      },
+      "sha256": "36358d42a4e0290b5c358841fd15e8aa368f47d7c498b179028e9e4d4209e131",
+      "sizeBytes": 576044,
+      "media": {
+        "streamCount": 1,
+        "formatName": "wav",
+        "codecType": "audio",
+        "codecName": "pcm_s16le",
+        "durationSeconds": "3.000000",
+        "sampleFormat": "s16",
+        "sampleRateHz": 48000,
+        "channels": 2,
+        "channelLayout": "unspecified",
+        "timeBase": "1/48000",
+        "durationTs": 144000
+      }
+    }
+  ]
+}
