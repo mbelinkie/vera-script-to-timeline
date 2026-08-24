@@ -341,7 +341,7 @@ def verify_inventory(descriptor: dict[str, Any], root: Path = FIXTURES_DIR) -> N
     media_root = root / "media"
     actual = {
         path.relative_to(root).as_posix()
-        for path in media_root.iterdir()
+        for path in media_root.rglob("*")
         if path.is_file()
     }
     if actual != declared:

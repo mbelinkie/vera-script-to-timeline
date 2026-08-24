@@ -84,6 +84,17 @@
         }
       }
     },
+    "TimelineFrameRate": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/RationalRate"
+        }
+      ],
+      "default": {
+        "numerator": 24000,
+        "denominator": 1001
+      }
+    },
     "TimelineSettings": {
       "type": "object",
       "additionalProperties": false,
@@ -97,19 +108,22 @@
       ],
       "properties": {
         "frameRate": {
-          "$ref": "#/$defs/RationalRate"
+          "$ref": "#/$defs/TimelineFrameRate"
         },
         "width": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "default": 1920
         },
         "height": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "default": 1080
         },
         "audioSampleRate": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "default": 48000
         },
         "startFrame": {
           "type": "integer",
@@ -121,49 +135,18 @@
         }
       }
     },
-    "VideoTrackId": {
-      "type": "string",
-      "enum": [
-        "V1",
-        "V2",
-        "V3",
-        "V4",
-        "V5"
-      ]
-    },
-    "PictureContentTrackId": {
-      "type": "string",
-      "enum": [
-        "V1",
-        "V2",
-        "V3",
-        "V4"
-      ]
-    },
-    "AudioTrackId": {
-      "type": "string",
-      "enum": [
-        "A1",
-        "A2",
-        "A3",
-        "A4",
-        "A5"
-      ]
-    },
-    "SubtitleTrackId": {
-      "const": "S1"
-    },
     "TrackId": {
-      "oneOf": [
-        {
-          "$ref": "#/$defs/VideoTrackId"
-        },
-        {
-          "$ref": "#/$defs/AudioTrackId"
-        },
-        {
-          "$ref": "#/$defs/SubtitleTrackId"
-        }
+      "description": "Stable opaque track identity. Media kind and ordering are separate structural fields; consumers must not infer either from this string.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "TrackKind": {
+      "type": "string",
+      "enum": [
+        "video",
+        "audio",
+        "subtitle"
       ]
     },
     "Track": {
@@ -190,15 +173,14 @@
       ],
       "properties": {
         "id": {
-          "$ref": "#/$defs/VideoTrackId"
+          "$ref": "#/$defs/TrackId"
         },
         "kind": {
           "const": "video"
         },
         "index": {
           "type": "integer",
-          "minimum": 1,
-          "maximum": 5
+          "minimum": 1
         },
         "name": {
           "type": "string",
@@ -217,15 +199,14 @@
       ],
       "properties": {
         "id": {
-          "$ref": "#/$defs/AudioTrackId"
+          "$ref": "#/$defs/TrackId"
         },
         "kind": {
           "const": "audio"
         },
         "index": {
           "type": "integer",
-          "minimum": 1,
-          "maximum": 5
+          "minimum": 1
         },
         "name": {
           "type": "string",
@@ -244,13 +225,14 @@
       ],
       "properties": {
         "id": {
-          "$ref": "#/$defs/SubtitleTrackId"
+          "$ref": "#/$defs/TrackId"
         },
         "kind": {
           "const": "subtitle"
         },
         "index": {
-          "const": 1
+          "type": "integer",
+          "minimum": 1
         },
         "name": {
           "type": "string",
@@ -507,6 +489,7 @@
         "kind",
         "sourceId",
         "trackId",
+        "trackKind",
         "recordRange",
         "sourceRange",
         "timingPrecision",
@@ -524,7 +507,10 @@
           "$ref": "script-document-v1.schema.json#/$defs/EntityId"
         },
         "trackId": {
-          "$ref": "#/$defs/PictureContentTrackId"
+          "$ref": "#/$defs/TrackId"
+        },
+        "trackKind": {
+          "const": "video"
         },
         "recordRange": {
           "$ref": "#/$defs/FrameRange"
@@ -552,6 +538,7 @@
         "kind",
         "sourceId",
         "trackId",
+        "trackKind",
         "recordRange",
         "timingPrecision",
         "alignmentVersion",
@@ -568,7 +555,10 @@
           "$ref": "script-document-v1.schema.json#/$defs/EntityId"
         },
         "trackId": {
-          "$ref": "#/$defs/PictureContentTrackId"
+          "$ref": "#/$defs/TrackId"
+        },
+        "trackKind": {
+          "const": "video"
         },
         "recordRange": {
           "$ref": "#/$defs/FrameRange"
@@ -593,6 +583,7 @@
         "kind",
         "sourceId",
         "trackId",
+        "trackKind",
         "recordRange",
         "sourceRange",
         "timingPrecision",
@@ -610,7 +601,10 @@
           "$ref": "script-document-v1.schema.json#/$defs/EntityId"
         },
         "trackId": {
-          "$ref": "#/$defs/AudioTrackId"
+          "$ref": "#/$defs/TrackId"
+        },
+        "trackKind": {
+          "const": "audio"
         },
         "recordRange": {
           "$ref": "#/$defs/FrameRange"
@@ -638,6 +632,7 @@
         "kind",
         "sourceId",
         "trackId",
+        "trackKind",
         "recordRange",
         "timingPrecision",
         "alignmentVersion",
@@ -654,7 +649,10 @@
           "$ref": "script-document-v1.schema.json#/$defs/EntityId"
         },
         "trackId": {
-          "const": "V5"
+          "$ref": "#/$defs/TrackId"
+        },
+        "trackKind": {
+          "const": "video"
         },
         "recordRange": {
           "$ref": "#/$defs/FrameRange"

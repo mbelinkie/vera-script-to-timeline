@@ -206,21 +206,30 @@ export interface RationalRate {
   denominator: number;
 }
 export interface VideoTrack {
-  id: "V1" | "V2" | "V3" | "V4" | "V5";
+  /**
+   * Stable opaque track identity. Media kind and ordering are separate structural fields; consumers must not infer either from this string.
+   */
+  id: string;
   kind: "video";
   index: number;
   name: string;
 }
 export interface AudioTrack {
-  id: "A1" | "A2" | "A3" | "A4" | "A5";
+  /**
+   * Stable opaque track identity. Media kind and ordering are separate structural fields; consumers must not infer either from this string.
+   */
+  id: string;
   kind: "audio";
   index: number;
   name: string;
 }
 export interface SubtitleTrack {
-  id: "S1";
+  /**
+   * Stable opaque track identity. Media kind and ordering are separate structural fields; consumers must not infer either from this string.
+   */
+  id: string;
   kind: "subtitle";
-  index: 1;
+  index: number;
   name: string;
 }
 export interface VideoSource {
@@ -270,7 +279,11 @@ export interface VideoEvent {
   id: string;
   kind: "video";
   sourceId: string;
-  trackId: "V1" | "V2" | "V3" | "V4";
+  /**
+   * Stable opaque track identity. Media kind and ordering are separate structural fields; consumers must not infer either from this string.
+   */
+  trackId: string;
+  trackKind: "video";
   recordRange: FrameRange;
   sourceRange: FrameRange;
   /**
@@ -294,7 +307,11 @@ export interface StillEvent {
   id: string;
   kind: "still";
   sourceId: string;
-  trackId: "V1" | "V2" | "V3" | "V4";
+  /**
+   * Stable opaque track identity. Media kind and ordering are separate structural fields; consumers must not infer either from this string.
+   */
+  trackId: string;
+  trackKind: "video";
   recordRange: FrameRange;
   /**
    * Honest precision of the alignment used to resolve a semantic anchor into integer frames.
@@ -307,7 +324,11 @@ export interface AudioEvent {
   id: string;
   kind: "audio";
   sourceId: string;
-  trackId: "A1" | "A2" | "A3" | "A4" | "A5";
+  /**
+   * Stable opaque track identity. Media kind and ordering are separate structural fields; consumers must not infer either from this string.
+   */
+  trackId: string;
+  trackKind: "audio";
   recordRange: FrameRange;
   sourceRange: FrameRange;
   /**
@@ -321,7 +342,11 @@ export interface PlaceholderEvent {
   id: string;
   kind: "placeholder";
   sourceId: string;
-  trackId: "V5";
+  /**
+   * Stable opaque track identity. Media kind and ordering are separate structural fields; consumers must not infer either from this string.
+   */
+  trackId: string;
+  trackKind: "video";
   recordRange: FrameRange;
   /**
    * Honest precision of the alignment used to resolve a semantic anchor into integer frames.
@@ -401,8 +426,11 @@ export interface EventBuildResult {
   eventId: string;
   disposition: "placed" | "placeholder" | "manual_completion" | "blocked";
   sourceId: string;
-  trackId:
-    ("V1" | "V2" | "V3" | "V4" | "V5") | ("A1" | "A2" | "A3" | "A4" | "A5") | "S1";
+  /**
+   * Stable opaque track identity. Media kind and ordering are separate structural fields; consumers must not infer either from this string.
+   */
+  trackId: string;
+  trackKind: "video" | "audio" | "subtitle";
   recordRange: FrameRange;
   message: string;
 }

@@ -150,6 +150,7 @@
         "disposition",
         "sourceId",
         "trackId",
+        "trackKind",
         "recordRange",
         "message"
       ],
@@ -171,6 +172,9 @@
         },
         "trackId": {
           "$ref": "timeline-manifest-v1.schema.json#/$defs/TrackId"
+        },
+        "trackKind": {
+          "$ref": "timeline-manifest-v1.schema.json#/$defs/TrackKind"
         },
         "recordRange": {
           "$ref": "timeline-manifest-v1.schema.json#/$defs/FrameRange"

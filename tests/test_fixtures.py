@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import copy
+import os
+import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
 from fixtures.validate_fixtures import (
     EXPECTED_KIND_COUNTS,
+    FIXTURES_DIR,
     FixtureValidationError,
     descriptor_assets,
     ffprobe_available,
@@ -48,6 +52,19 @@ def test_inventory_has_exact_required_kinds_and_no_undeclared_media() -> None:
     verify_inventory(descriptor)
 
 
+def test_inventory_rejects_undeclared_media_in_nested_directories(
+    tmp_path: Path,
+) -> None:
+    fixture_root = tmp_path / "fixtures"
+    shutil.copytree(FIXTURES_DIR / "media", fixture_root / "media")
+    nested = fixture_root / "media" / "undeclared"
+    nested.mkdir()
+    (nested / "extra.mp4").write_bytes(b"not declared")
+
+    with pytest.raises(FixtureValidationError, match=r"undeclared/extra\.mp4"):
+        verify_inventory(load_descriptor(), fixture_root)
+
+
 def test_checked_in_sizes_and_sha256_hashes_match() -> None:
     verify_hashes(load_descriptor())
 
@@ -72,3 +89,33 @@ def test_standalone_verification_command() -> None:
         "3 video clips, 2 stills, 1 audio bed; hashes verified; "
         "FFprobe metadata verified"
     ) in result.stdout
+
+
+def test_standalone_verifier_explicitly_reports_missing_ffprobe(
+    tmp_path: Path,
+) -> None:
+    environment = {**os.environ, "PATH": str(tmp_path)}
+    result = subprocess.run(
+        [sys.executable, "fixtures/validate_fixtures.py"],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+    assert "hashes verified; FFprobe unavailable; metadata skipped" in result.stdout
+    assert "metadata verified" not in result.stdout
+
+    required = subprocess.run(
+        [
+            sys.executable,
+            "fixtures/validate_fixtures.py",
+            "--require-ffprobe",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+    assert required.returncode == 1
+    assert "FFprobe is required but was not found on PATH" in required.stderr
+    assert "metadata verified" not in required.stdout

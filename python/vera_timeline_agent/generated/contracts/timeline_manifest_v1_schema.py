@@ -13,8 +13,12 @@ class RationalRate(TypedDict):
     denominator: int
 
 
+class TimelineFrameRate(RationalRate):
+    pass
+
+
 class TimelineSettings(TypedDict):
-    frameRate: RationalRate
+    frameRate: TimelineFrameRate
     width: int
     height: int
     audioSampleRate: int
@@ -22,39 +26,30 @@ class TimelineSettings(TypedDict):
     durationFrames: int
 
 
-type VideoTrackId = Literal["V1", "V2", "V3", "V4", "V5"]
+type TrackId = str
 
 
-type PictureContentTrackId = Literal["V1", "V2", "V3", "V4"]
-
-
-type AudioTrackId = Literal["A1", "A2", "A3", "A4", "A5"]
-
-
-type SubtitleTrackId = Literal["S1"]
-
-
-type TrackId = VideoTrackId | AudioTrackId | SubtitleTrackId
+type TrackKind = Literal["video", "audio", "subtitle"]
 
 
 class VideoTrack(TypedDict):
-    id: VideoTrackId
+    id: TrackId
     kind: Literal["video"]
     index: int
     name: str
 
 
 class AudioTrack(TypedDict):
-    id: AudioTrackId
+    id: TrackId
     kind: Literal["audio"]
     index: int
     name: str
 
 
 class SubtitleTrack(TypedDict):
-    id: SubtitleTrackId
+    id: TrackId
     kind: Literal["subtitle"]
-    index: Literal[1]
+    index: int
     name: str
 
 
@@ -118,7 +113,8 @@ class VideoEvent(TypedDict):
     id: script_document_v1_schema.EntityId
     kind: Literal["video"]
     sourceId: script_document_v1_schema.EntityId
-    trackId: PictureContentTrackId
+    trackId: TrackId
+    trackKind: Literal["video"]
     recordRange: FrameRange
     sourceRange: FrameRange
     timingPrecision: TimingPrecision
@@ -130,7 +126,8 @@ class StillEvent(TypedDict):
     id: script_document_v1_schema.EntityId
     kind: Literal["still"]
     sourceId: script_document_v1_schema.EntityId
-    trackId: PictureContentTrackId
+    trackId: TrackId
+    trackKind: Literal["video"]
     recordRange: FrameRange
     timingPrecision: TimingPrecision
     alignmentVersion: str
@@ -141,7 +138,8 @@ class AudioEvent(TypedDict):
     id: script_document_v1_schema.EntityId
     kind: Literal["audio"]
     sourceId: script_document_v1_schema.EntityId
-    trackId: AudioTrackId
+    trackId: TrackId
+    trackKind: Literal["audio"]
     recordRange: FrameRange
     sourceRange: FrameRange
     timingPrecision: TimingPrecision
@@ -153,7 +151,8 @@ class PlaceholderEvent(TypedDict):
     id: script_document_v1_schema.EntityId
     kind: Literal["placeholder"]
     sourceId: script_document_v1_schema.EntityId
-    trackId: Literal["V5"]
+    trackId: TrackId
+    trackKind: Literal["video"]
     recordRange: FrameRange
     timingPrecision: TimingPrecision
     alignmentVersion: str

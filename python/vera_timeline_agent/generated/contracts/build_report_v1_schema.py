@@ -31,6 +31,7 @@ class EventBuildResult(TypedDict):
     disposition: Literal["placed", "placeholder", "manual_completion", "blocked"]
     sourceId: script_document_v1_schema.EntityId
     trackId: timeline_manifest_v1_schema.TrackId
+    trackKind: timeline_manifest_v1_schema.TrackKind
     recordRange: timeline_manifest_v1_schema.FrameRange
     message: str
 

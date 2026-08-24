@@ -28,6 +28,7 @@ const schemas: AnySchemaObject[] = schemaPaths.map((relativePath) => {
   );
   return parsed as AnySchemaObject;
 });
+const timelineManifestSchema = schemas[1]!;
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 formatsModule.default.default(ajv);
@@ -122,13 +123,98 @@ describe("contract schemas", () => {
     });
   });
 
-  it("rejects audio placements on picture tracks", () => {
+  it("expresses event target-track compatibility through structural kind", () => {
     const invalid = structuredClone(validTimelineManifest);
-    Reflect.set(invalid.events[2]!, "trackId", "V1");
+    Reflect.set(invalid.events[2]!, "trackKind", "video");
     expectInvalid(validators.manifest!, invalid, {
-      keyword: "enum",
-      instancePath: "/events/2/trackId",
+      keyword: "const",
+      instancePath: "/events/2/trackKind",
     });
+  });
+
+  it("accepts bounded opaque track IDs and positive indices above the examples", () => {
+    const manifest = structuredClone(validTimelineManifest);
+    manifest.tracks[0].id = "opaque-track-id-without-a-kind-prefix";
+    manifest.tracks[0].index = 101;
+    manifest.tracks[5]!.index = 42;
+    manifest.tracks[10]!.index = 7;
+    manifest.events[0]!.trackId = manifest.tracks[0].id;
+    expect(
+      validators.manifest?.(manifest),
+      JSON.stringify(validators.manifest?.errors, null, 2),
+    ).toBe(true);
+  });
+
+  it("rejects overlong track IDs", () => {
+    const invalid = structuredClone(validTimelineManifest);
+    invalid.tracks[0].id = "x".repeat(129);
+    expectInvalid(validators.manifest!, invalid, {
+      keyword: "maxLength",
+      instancePath: "/tracks/0/id",
+    });
+  });
+
+  it("rejects empty track IDs and non-positive indices", () => {
+    const emptyId = structuredClone(validTimelineManifest);
+    emptyId.tracks[0].id = "";
+    expectInvalid(validators.manifest!, emptyId, {
+      keyword: "minLength",
+      instancePath: "/tracks/0/id",
+    });
+
+    const zeroIndex = structuredClone(validTimelineManifest);
+    zeroIndex.tracks[10]!.index = 0;
+    expectInvalid(validators.manifest!, zeroIndex, {
+      keyword: "minimum",
+      instancePath: "/tracks/10/index",
+    });
+  });
+
+  it("keeps visual layer indices positive without a five-layer ceiling", () => {
+    const document = structuredClone(validScriptDocument);
+    const narration = document.activeDraft.blocks.find(
+      (block) => block.type === "narration",
+    );
+    expect(narration?.type).toBe("narration");
+    narration!.visualEvents[0]!.layer = 99;
+    expect(
+      validators.script?.(document),
+      JSON.stringify(validators.script?.errors, null, 2),
+    ).toBe(true);
+  });
+
+  it("publishes D-0004 values as defaults while accepting alternate settings", () => {
+    const timelineSettings = (
+      timelineManifestSchema.$defs as Record<string, AnySchemaObject>
+    ).TimelineSettings!;
+    const properties = timelineSettings.properties as Record<
+      string,
+      AnySchemaObject
+    >;
+    const timelineFrameRate = (
+      timelineManifestSchema.$defs as Record<string, AnySchemaObject>
+    ).TimelineFrameRate!;
+    expect(properties.frameRate?.$ref).toBe("#/$defs/TimelineFrameRate");
+    expect(timelineFrameRate.default).toEqual({
+      numerator: 24000,
+      denominator: 1001,
+    });
+    expect(properties.width?.default).toBe(1920);
+    expect(properties.height?.default).toBe(1080);
+    expect(properties.audioSampleRate?.default).toBe(48000);
+
+    const alternate = structuredClone(validTimelineManifest);
+    alternate.timeline = {
+      ...alternate.timeline,
+      frameRate: { numerator: 25, denominator: 1 },
+      width: 3840,
+      height: 2160,
+      audioSampleRate: 96000,
+    };
+    expect(
+      validators.manifest?.(alternate),
+      JSON.stringify(validators.manifest?.errors, null, 2),
+    ).toBe(true);
   });
 
   it("rejects BuildReport event results with an unknown disposition", () => {

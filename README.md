@@ -27,6 +27,8 @@ The checked-in version files and CI use:
 - npm `11.17.0` (also pinned by `packageManager`)
 - [uv](https://docs.astral.sh/uv/) `0.12.5`
 - CPython `3.12.14` (managed by uv from `.python-version`)
+- FFmpeg and FFprobe `8.1.2` for canonical fixture regeneration and the
+  producer's required media-metadata acceptance check
 
 Git and a POSIX-compatible terminal are also required. Repository scripts use
 portable npm/Node/Python commands and run on macOS as well as the Ubuntu CI
@@ -62,11 +64,26 @@ The single top-level validation command is:
 npm run validate
 ```
 
-It runs TypeScript lint, strict typechecking, and tests in every npm workspace
-that provides those scripts, followed by Python Ruff lint/format checks, strict
-mypy, and pytest. CI installs from both lockfiles and invokes this exact
-command. Contract and fixture workstreams should extend this command rather
-than creating a separate acceptance path.
+It first proves that checked-in contract types are byte-current, then runs
+TypeScript lint, strict typechecking, and tests in every npm workspace, followed
+by Python Ruff lint/format checks, strict mypy, and pytest. Pytest validates the
+fixture descriptor, exact media inventory, sizes, hashes, and (when FFprobe is
+available) metadata. CI installs from both lockfiles and invokes this exact
+command.
+
+An environment without FFprobe does **not** claim metadata verification: the
+FFprobe-specific pytest checks are reported as skipped, and the standalone
+verifier prints `FFprobe unavailable; metadata skipped`. The producer
+acceptance path must require metadata rather than permit that skip:
+
+```sh
+uv run --frozen python fixtures/validate_fixtures.py --require-ffprobe
+```
+
+Canonical fixture regeneration additionally requires FFmpeg. The generator
+fails explicitly if either executable is absent or if FFmpeg/FFprobe is not the
+recorded `8.1.2` version; see [`fixtures/README.md`](./fixtures/README.md) for
+the byte-reproduction caveat.
 
 ### Contract schemas and generated types
 
@@ -98,6 +115,13 @@ and rejects focused invalid instances. Cross-record semantics such as complete
 OC/VO token coverage and VO visual coverage intentionally remain the Slice 1.1
 semantic validator's responsibility; JSON Schema validates structure rather
 than pretending to enforce those comparisons.
+
+`TimelineManifest v1` track IDs are bounded opaque identities. Track media kind
+and positive ordering index are separate structural fields; consumers must not
+infer either from names such as `V1` or `A1`. The section 9.2 track labels are
+representative sample/default values only while D-P004 remains pending.
+D-0004's 24000/1001 rate, 1920x1080 dimensions, and 48 kHz sample rate are
+schema defaults, not constants; explicit positive alternatives are valid.
 
 Individual groups are available for diagnosis:
 
