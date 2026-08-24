@@ -12,7 +12,7 @@ Last updated: 2026-08-24
 
 - **Phase:** 0 — Foundations and Resolve capability spike
 - **Active slice:** 0.1 — Repository, contracts, and fixture scaffold
-- **Overall state:** Agent complete; producer acceptance and remote CI remain pending
+- **Overall state:** Agent complete; producer acceptance remains pending
 - **Source specification:** `docs/Script-to-Timeline Product Spec - Fable Rev2.md`
 
 ## Status legend
@@ -28,7 +28,7 @@ Last updated: 2026-08-24
 
 | Slice | Status | Owner | Depends on | Verification / notes |
 | --- | --- | --- | --- | --- |
-| 0.1 Repository, contracts, and fixture scaffold | Agent complete | Orchestrator + bounded implementation agents | — | Integrated through `5028ed8`; clean detached-worktree bootstrap and one-command validation pass. Producer acceptance and remote CI remain pending. |
+| 0.1 Repository, contracts, and fixture scaffold | Agent complete | Orchestrator + bounded implementation agents | — | Integrated through `5028ed8`; clean detached-worktree bootstrap and one-command validation pass. GitHub Actions run `32789057717` is green; producer acceptance remains pending. |
 | 0.2 Handcrafted manifest → OTIO package | Queued | Unassigned | 0.1 accepted | Contract consumer; `/contracts` and `/fixtures` freeze after 0.1 acceptance |
 | 0.3 Resolve Free import trial | Queued | Producer + agent recorder | 0.2 accepted | Requires the actual Resolve Free installation and manual import evidence |
 | 0.4 Resolve Studio scripting spike | Queued | Unassigned | 0.2 accepted | Requires supported desktop Studio and external scripting availability |
@@ -117,9 +117,13 @@ before their dependent slices close:
   and one audio bed; all recorded hashes and metadata match.
 - The full sequence was reproduced in a clean detached worktree without
   lockfile changes.
+- GitHub Actions `Validate` run
+  [32789057717](https://github.com/mbelinkie/vera-script-to-timeline/actions/runs/32789057717)
+  passed on `main` at `4893c40`, including locked installs, the same top-level
+  validation command, and the lockfile-diff guard.
 
 ## Acceptance history
 
 No slice has yet received producer acceptance. Slice 0.1 is ready for the
-producer checklist in `docs/plans/slice-0.1-integration-review.md`; remote
-GitHub Actions must also be green before acceptance.
+producer checklist in `docs/plans/slice-0.1-integration-review.md`; required
+remote GitHub Actions validation is green.
