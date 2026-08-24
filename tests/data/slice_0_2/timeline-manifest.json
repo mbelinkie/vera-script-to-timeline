@@ -1,0 +1,306 @@
+{
+  "schemaVersion": "timeline-manifest/v1",
+  "id": "00000000-0000-4000-8000-000000000102",
+  "buildId": "00000000-0000-4000-8000-000000000103",
+  "sourceDocument": {
+    "documentId": "00000000-0000-4000-8000-000000000100",
+    "projectId": "00000000-0000-4000-8000-000000000101",
+    "liveHeadSequence": 1,
+    "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "timeline": {
+    "frameRate": {
+      "numerator": 24000,
+      "denominator": 1001
+    },
+    "width": 1920,
+    "height": 1080,
+    "audioSampleRate": 48000,
+    "startFrame": 0,
+    "durationFrames": 72
+  },
+  "tracks": [
+    {
+      "id": "video-primary",
+      "kind": "video",
+      "index": 1,
+      "name": "V1 Presenter / A-roll"
+    },
+    {
+      "id": "video-research",
+      "kind": "video",
+      "index": 2,
+      "name": "V2 Research clips"
+    },
+    {
+      "id": "video-broll-stills",
+      "kind": "video",
+      "index": 3,
+      "name": "V3 B-roll / stills"
+    },
+    {
+      "id": "video-graphics",
+      "kind": "video",
+      "index": 4,
+      "name": "V4 Graphics / titles"
+    },
+    {
+      "id": "video-debug",
+      "kind": "video",
+      "index": 5,
+      "name": "V5 Debug / placeholders"
+    },
+    {
+      "id": "audio-narration-1",
+      "kind": "audio",
+      "index": 1,
+      "name": "A1 Narration 1"
+    },
+    {
+      "id": "audio-narration-2",
+      "kind": "audio",
+      "index": 2,
+      "name": "A2 Narration 2"
+    },
+    {
+      "id": "audio-source-1",
+      "kind": "audio",
+      "index": 3,
+      "name": "A3 Source audio 1"
+    },
+    {
+      "id": "audio-source-2",
+      "kind": "audio",
+      "index": 4,
+      "name": "A4 Source audio 2"
+    },
+    {
+      "id": "audio-music-sfx",
+      "kind": "audio",
+      "index": 5,
+      "name": "A5 Music / SFX"
+    },
+    {
+      "id": "subtitle-english",
+      "kind": "subtitle",
+      "index": 1,
+      "name": "S1 Required English subtitles"
+    }
+  ],
+  "sources": [
+    {
+      "id": "00000000-0000-4000-8000-000000000201",
+      "kind": "video",
+      "path": "media/clip-establishing-blue.mp4",
+      "contentHash": "sha256:f04abe75cbddf55fac6e6949b246b12781e6a496c5434283f1bfd1b83e2559f3",
+      "durationFrames": 48,
+      "frameRate": {
+        "numerator": 24000,
+        "denominator": 1001
+      },
+      "width": 1920,
+      "height": 1080,
+      "audioChannels": 0
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000202",
+      "kind": "video",
+      "path": "media/clip-cutaway-orange.mp4",
+      "contentHash": "sha256:ad4f20f6b0ea828b59fc94fa1c254e3630e0a3a21daec754f082a910d549f964",
+      "durationFrames": 48,
+      "frameRate": {
+        "numerator": 24000,
+        "denominator": 1001
+      },
+      "width": 1920,
+      "height": 1080,
+      "audioChannels": 0
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000203",
+      "kind": "video",
+      "path": "media/clip-detail-green.mp4",
+      "contentHash": "sha256:1d8f86f69770ca5d6f596033400f531456d181a37a69b8afb8e8629db06c2cbd",
+      "durationFrames": 48,
+      "frameRate": {
+        "numerator": 24000,
+        "denominator": 1001
+      },
+      "width": 1920,
+      "height": 1080,
+      "audioChannels": 0
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000204",
+      "kind": "still",
+      "path": "media/still-reference-grid.png",
+      "contentHash": "sha256:fa2ab99265a93b59115d507be563adc4afa2b4f85992c8ac8eba2fbc28c294b3",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000205",
+      "kind": "audio",
+      "path": "media/audio-ambient-bed.wav",
+      "contentHash": "sha256:36358d42a4e0290b5c358841fd15e8aa368f47d7c498b179028e9e4d4209e131",
+      "durationFrames": 72,
+      "sampleRate": 48000,
+      "channels": 2
+    }
+  ],
+  "events": [
+    {
+      "id": "00000000-0000-4000-8000-000000000301",
+      "kind": "video",
+      "sourceId": "00000000-0000-4000-8000-000000000201",
+      "trackId": "video-broll-stills",
+      "trackKind": "video",
+      "recordRange": {
+        "startFrame": 0,
+        "durationFrames": 18
+      },
+      "sourceRange": {
+        "startFrame": 2,
+        "durationFrames": 18
+      },
+      "timingPrecision": "frame",
+      "alignmentVersion": "slice-0.2-handcrafted-v1",
+      "provenance": {
+        "documentId": "00000000-0000-4000-8000-000000000100",
+        "blockId": "00000000-0000-4000-8000-000000000401",
+        "authoringKind": "visual_event",
+        "authoringId": "00000000-0000-4000-8000-000000000301"
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000302",
+      "kind": "video",
+      "sourceId": "00000000-0000-4000-8000-000000000202",
+      "trackId": "video-broll-stills",
+      "trackKind": "video",
+      "recordRange": {
+        "startFrame": 18,
+        "durationFrames": 18
+      },
+      "sourceRange": {
+        "startFrame": 4,
+        "durationFrames": 18
+      },
+      "timingPrecision": "frame",
+      "alignmentVersion": "slice-0.2-handcrafted-v1",
+      "provenance": {
+        "documentId": "00000000-0000-4000-8000-000000000100",
+        "blockId": "00000000-0000-4000-8000-000000000402",
+        "authoringKind": "visual_event",
+        "authoringId": "00000000-0000-4000-8000-000000000302"
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000303",
+      "kind": "video",
+      "sourceId": "00000000-0000-4000-8000-000000000203",
+      "trackId": "video-broll-stills",
+      "trackKind": "video",
+      "recordRange": {
+        "startFrame": 36,
+        "durationFrames": 18
+      },
+      "sourceRange": {
+        "startFrame": 6,
+        "durationFrames": 18
+      },
+      "timingPrecision": "frame",
+      "alignmentVersion": "slice-0.2-handcrafted-v1",
+      "provenance": {
+        "documentId": "00000000-0000-4000-8000-000000000100",
+        "blockId": "00000000-0000-4000-8000-000000000403",
+        "authoringKind": "visual_event",
+        "authoringId": "00000000-0000-4000-8000-000000000303"
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000304",
+      "kind": "still",
+      "sourceId": "00000000-0000-4000-8000-000000000204",
+      "trackId": "video-broll-stills",
+      "trackKind": "video",
+      "recordRange": {
+        "startFrame": 54,
+        "durationFrames": 18
+      },
+      "timingPrecision": "frame",
+      "alignmentVersion": "slice-0.2-handcrafted-v1",
+      "provenance": {
+        "documentId": "00000000-0000-4000-8000-000000000100",
+        "blockId": "00000000-0000-4000-8000-000000000404",
+        "authoringKind": "visual_event",
+        "authoringId": "00000000-0000-4000-8000-000000000304"
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000305",
+      "kind": "audio",
+      "sourceId": "00000000-0000-4000-8000-000000000205",
+      "trackId": "audio-narration-1",
+      "trackKind": "audio",
+      "recordRange": {
+        "startFrame": 0,
+        "durationFrames": 72
+      },
+      "sourceRange": {
+        "startFrame": 0,
+        "durationFrames": 72
+      },
+      "timingPrecision": "frame",
+      "alignmentVersion": "slice-0.2-handcrafted-v1",
+      "provenance": {
+        "documentId": "00000000-0000-4000-8000-000000000100",
+        "blockId": "00000000-0000-4000-8000-000000000405",
+        "authoringKind": "narration_block",
+        "authoringId": "00000000-0000-4000-8000-000000000405"
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "00000000-0000-4000-8000-000000000501",
+      "kind": "hard_cut",
+      "fromEventId": "00000000-0000-4000-8000-000000000301",
+      "toEventId": "00000000-0000-4000-8000-000000000302",
+      "atFrame": 18,
+      "durationFrames": 0
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000502",
+      "kind": "hard_cut",
+      "fromEventId": "00000000-0000-4000-8000-000000000302",
+      "toEventId": "00000000-0000-4000-8000-000000000303",
+      "atFrame": 36,
+      "durationFrames": 0
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000503",
+      "kind": "hard_cut",
+      "fromEventId": "00000000-0000-4000-8000-000000000303",
+      "toEventId": "00000000-0000-4000-8000-000000000304",
+      "atFrame": 54,
+      "durationFrames": 0
+    }
+  ],
+  "markers": [
+    {
+      "id": "00000000-0000-4000-8000-000000000601",
+      "state": "placed",
+      "frame": 33,
+      "name": "Producer review",
+      "note": "Confirm the orange cutaway exits cleanly.",
+      "color": "Blue",
+      "provenance": {
+        "documentId": "00000000-0000-4000-8000-000000000100",
+        "blockId": "00000000-0000-4000-8000-000000000406",
+        "authoringKind": "script_marker",
+        "authoringId": "00000000-0000-4000-8000-000000000601"
+      }
+    }
+  ]
+}

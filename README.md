@@ -134,7 +134,42 @@ npm run test:typescript
 npm run lint:python
 npm run typecheck:python
 npm run test:python
+npm run test:otio-package
 ```
+
+The full Python test discovery used by `npm run validate` includes the Slice
+0.2 OTIO package tests; `test:otio-package` is only the faster focused form.
+
+## Slice 0.2 producer package
+
+Slice 0.2 consumes the handcrafted schema-valid manifest under
+`tests/data/slice_0_2/` and the frozen synthetic fixture bytes. From a locked
+install at the repository root, generate and parse-verify the producer package
+with:
+
+```sh
+uv run --frozen python -m vera_timeline_agent.otio_package \
+  tests/data/slice_0_2/timeline-manifest.json \
+  --media-root fixtures \
+  --output out/slice-0.2-package
+```
+
+The exact output location is `out/slice-0.2-package/`. Repeating the
+command safely re-verifies and reuses an identical package; it refuses to
+replace an unrelated, invalid, or different-manifest path. A successful
+command has already verified the canonical manifest, schema-valid build
+report, exact package inventory, copied-media hashes, OTIO parseability, event
+and source/record ranges, track metadata, one marker, and the absence of OTIO
+transition objects.
+
+Open `IMPORT_INSTRUCTIONS.md` in the output folder first. It explains how to
+inspect `build-report.json`, keep the project-relative media paths intact, and
+manually import `timeline.otio` in DaVinci Resolve. V3 contains three trimmed
+synthetic video clips followed by one still; A1 contains the frozen ambient WAV
+used explicitly as **synthetic test narration**; and the timeline has one blue
+producer marker and hard cuts only. The command proves package consistency,
+not Resolve behavior—actual Resolve Free import fidelity is the producer-run
+Slice 0.3 trial.
 
 ## Slice workflow
 

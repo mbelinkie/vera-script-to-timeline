@@ -21,6 +21,7 @@
     "lint:python": "uv run --frozen ruff check . && uv run --frozen ruff format --check .",
     "typecheck:python": "uv run --frozen mypy python tests",
     "test:python": "uv run --frozen pytest",
+    "test:otio-package": "uv run --frozen pytest tests/test_otio_package.py",
     "check:python": "npm run lint:python && npm run typecheck:python && npm run test:python",
     "validate": "npm run check:contracts-generated && npm run check:typescript && npm run check:python"
   },
