@@ -87,7 +87,8 @@ before their dependent slices close:
 
 - Primary local-agent OS.
 - Exact Resolve Free and Studio versions/installations to test.
-- Timeline frame rate, resolution, and audio sample rate.
+- Timeline frame rate, resolution, and audio sample rate: **resolved by D-0004**
+  as configurable settings with defaults of 23.976 fps, 1920×1080, and 48 kHz.
 - Track naming convention (the specification's section 9.2 map is the default).
 - Slice 0.3 OTIO-versus-FCPXML fallback decision, based on recorded evidence.
 
