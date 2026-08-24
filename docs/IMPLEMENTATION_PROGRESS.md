@@ -11,8 +11,8 @@ Last updated: 2026-08-24
 ## Current milestone
 
 - **Phase:** 0 — Foundations and Resolve capability spike
-- **Active slice:** 0.1 — Repository, contracts, and fixture scaffold
-- **Overall state:** Agent complete; producer acceptance remains pending
+- **Active slice:** 0.2 — Handcrafted manifest → OTIO package
+- **Overall state:** Slice 0.1 accepted; Slice 0.2 starting
 - **Source specification:** `docs/Script-to-Timeline Product Spec - Fable Rev2.md`
 
 ## Status legend
@@ -28,8 +28,8 @@ Last updated: 2026-08-24
 
 | Slice | Status | Owner | Depends on | Verification / notes |
 | --- | --- | --- | --- | --- |
-| 0.1 Repository, contracts, and fixture scaffold | Agent complete | Orchestrator + bounded implementation agents | — | Integrated through `5028ed8`; clean detached-worktree bootstrap and one-command validation pass. GitHub Actions run `32789057717` is green; producer acceptance remains pending. |
-| 0.2 Handcrafted manifest → OTIO package | Queued | Unassigned | 0.1 accepted | Contract consumer; `/contracts` and `/fixtures` freeze after 0.1 acceptance |
+| 0.1 Repository, contracts, and fixture scaffold | Accepted | Orchestrator + bounded implementation agents | — | Producer accepted on 2026-08-24 after clean detached-worktree validation and green GitHub Actions runs `32789057717` and `32789138346`. Contracts and fixtures are now frozen. |
+| 0.2 Handcrafted manifest → OTIO package | In progress | Orchestrator + bounded implementation agent | 0.1 accepted | Contract consumer; `/contracts` and `/fixtures` are frozen and require an explicit producer-approved change note before modification |
 | 0.3 Resolve Free import trial | Queued | Producer + agent recorder | 0.2 accepted | Requires the actual Resolve Free installation and manual import evidence |
 | 0.4 Resolve Studio scripting spike | Queued | Unassigned | 0.2 accepted | Requires supported desktop Studio and external scripting availability |
 
@@ -79,6 +79,7 @@ changes, why, compatibility impact, regenerated outputs, and acceptance impact.
 | 2026-08-24 | Contracts workstream | Three JSON Schemas, generated types, schema/type tests | Agent complete | Integrated as `3d9c3c4`; three Draft 2020-12 schemas, generated TypeScript/Python models, positive/negative tests, and byte-currentness checks. |
 | 2026-08-24 | Fixtures workstream | Deterministic media kit, descriptors/hashes, validation tests | Agent complete | Integrated as `83b7b74`; exactly three clips, two stills, and one audio bed with strict inventory, SHA-256, FFprobe metadata, regeneration, and verifier tests. |
 | 2026-08-24 | Integration/review workstream | Merge audit, fresh-clone simulation, acceptance script verification | Agent complete | Integrated as `5028ed8`; removed premature fixed track-name/count constraints, proved configurable delivery settings, tightened fixture verification, and passed a clean detached-worktree bootstrap. |
+| 2026-08-24 | Producer | Run/confirm Slice 0.1 acceptance | Accepted | Producer explicitly accepted Slice 0.1 after local clean-worktree validation and GitHub Actions passed. Contracts and fixtures are frozen from this point. |
 
 ## Producer decisions and external checks
 
@@ -124,6 +125,10 @@ before their dependent slices close:
 
 ## Acceptance history
 
-No slice has yet received producer acceptance. Slice 0.1 is ready for the
-producer checklist in `docs/plans/slice-0.1-integration-review.md`; required
-remote GitHub Actions validation is green.
+### Slice 0.1 — Accepted 2026-08-24
+
+The producer explicitly accepted Slice 0.1. The documented one-command
+validation passed in a clean detached worktree, and GitHub Actions validation
+was green. The canonical contracts and deterministic fixture kit are frozen as
+of this acceptance; any later modification requires an explicit change note
+and producer approval.
