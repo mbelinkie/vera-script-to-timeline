@@ -12,10 +12,78 @@ databases or UI dependencies.
 
 ## Current status
 
-The repository is in pre-implementation product-definition status. The current
-build sequence and acceptance ladder are documented in
+The repository is in Phase 0 foundation work. The current build sequence and
+acceptance ladder are documented in
 [`docs/Script-to-Timeline Product Spec - Fable Rev2.md`](./docs/Script-to-Timeline%20Product%20Spec%20-%20Fable%20Rev2.md).
 
 Earlier product specifications are retained under [`docs/archive`](./docs/archive)
 for decision history. Revision 2 is authoritative when those documents differ.
 
+## Prerequisites
+
+The checked-in version files and CI use:
+
+- Node.js `24.19.0` (see `.nvmrc`)
+- npm `11.17.0` (also pinned by `packageManager`)
+- [uv](https://docs.astral.sh/uv/) `0.12.5`
+- CPython `3.12.14` (managed by uv from `.python-version`)
+
+Git and a POSIX-compatible terminal are also required. Repository scripts use
+portable npm/Node/Python commands and run on macOS as well as the Ubuntu CI
+runner.
+
+With `nvm` and uv installed, prepare the pinned runtimes:
+
+```sh
+nvm install
+nvm use
+npm install --global npm@11.17.0
+uv python install 3.12.14
+```
+
+## Fresh-clone bootstrap
+
+Install exactly the dependency graphs recorded in both lockfiles:
+
+```sh
+npm ci
+uv sync --frozen
+```
+
+Use `npm install` only when intentionally changing JavaScript dependencies and
+`uv lock` only when intentionally changing Python dependencies. Commit the
+corresponding lockfile change with the dependency change.
+
+## Validation
+
+The single top-level validation command is:
+
+```sh
+npm run validate
+```
+
+It runs TypeScript lint, strict typechecking, and tests in every npm workspace
+that provides those scripts, followed by Python Ruff lint/format checks, strict
+mypy, and pytest. CI installs from both lockfiles and invokes this exact
+command. Contract and fixture workstreams should extend this command rather
+than creating a separate acceptance path.
+
+Individual groups are available for diagnosis:
+
+```sh
+npm run check:typescript
+npm run check:python
+npm run lint:typescript
+npm run typecheck:typescript
+npm run test:typescript
+npm run lint:python
+npm run typecheck:python
+npm run test:python
+```
+
+## Slice workflow
+
+Agent guardrails live in [`AGENTS.md`](./AGENTS.md). Decisions and unresolved
+producer choices are tracked in [`DECISIONS.md`](./DECISIONS.md); only observed,
+version-stamped Resolve behavior belongs in
+[`CAPABILITIES.md`](./CAPABILITIES.md).

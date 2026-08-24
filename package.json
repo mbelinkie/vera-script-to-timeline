@@ -1,0 +1,33 @@
+{
+  "name": "vera-script-to-timeline",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Workspace tooling for VERA Script to Timeline",
+  "packageManager": "npm@11.17.0",
+  "engines": {
+    "node": ">=24.19.0 <25",
+    "npm": "11.17.0"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "lint:typescript": "npm run lint --workspaces --if-present",
+    "typecheck:typescript": "npm run typecheck --workspaces --if-present",
+    "test:typescript": "npm run test --workspaces --if-present",
+    "check:typescript": "npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript",
+    "lint:python": "uv run --frozen ruff check . && uv run --frozen ruff format --check .",
+    "typecheck:python": "uv run --frozen mypy python tests",
+    "test:python": "uv run --frozen pytest",
+    "check:python": "npm run lint:python && npm run typecheck:python && npm run test:python",
+    "validate": "npm run check:typescript && npm run check:python"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.13.3",
+    "eslint": "10.9.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.68.0",
+    "vitest": "4.1.11"
+  }
+}

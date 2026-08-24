@@ -3,9 +3,14 @@
 .env.*
 !.env.example
 node_modules/
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.py[cod]
 dist/
 out/
 coverage/
 test-results/
 *.log
-
