@@ -344,8 +344,18 @@ def load_resolve_adapter(local: LocalFacts) -> ResolveAdapter:
     if spec is None or spec.loader is None:
         raise StudioSpikeError(f"cannot load Resolve scripting module: {module_path}")
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    resolve = module.scriptapp("Resolve")
+    previous_module = sys.modules.get(spec.name)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        if previous_module is None:
+            sys.modules.pop(spec.name, None)
+        else:
+            sys.modules[spec.name] = previous_module
+        raise
+    loaded_module = sys.modules.get(spec.name, module)
+    resolve = loaded_module.scriptapp("Resolve")
     if resolve is None:
         raise StudioSpikeError("Resolve returned no scripting connection")
     return PublicResolveAdapter(resolve)

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 import pytest
@@ -14,6 +16,7 @@ from vera_timeline_agent.studio_spike import (
     PublicResolveAdapter,
     StudioSpikeError,
     detect_local_capabilities,
+    load_resolve_adapter,
     run_delivery,
 )
 from vera_timeline_agent.studio_spike_cli import main
@@ -327,6 +330,76 @@ def test_connection_and_probe_failures_are_actionable_and_nonmutating(
     )
     assert probe.status == "stopped_safely"
     assert [call[0] for call in adapter.calls] == ["connected_facts", "probe"]
+
+
+def test_vendor_bridge_uses_module_replacement_from_sys_modules(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    standard_local: LocalFacts,
+) -> None:
+    module_name = "DaVinciResolveScript"
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+    wrapper = tmp_path / f"{module_name}.py"
+    wrapper.write_text(
+        "\n".join(
+            (
+                "import sys",
+                "from types import ModuleType",
+                "replacement = ModuleType(__name__)",
+                "replacement.scriptapp = lambda name: ('replacement', name)",
+                "sys.modules[__name__] = replacement",
+            )
+        ),
+        encoding="utf-8",
+    )
+    local = LocalFacts(
+        **(
+            standard_local.__dict__
+            | {
+                "scripting_module_path": str(wrapper),
+            }
+        )
+    )
+
+    adapter = load_resolve_adapter(local)
+
+    assert isinstance(adapter, PublicResolveAdapter)
+    assert adapter.resolve == ("replacement", "Resolve")
+
+
+def test_vendor_bridge_failed_import_restores_prior_sys_modules_entry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    standard_local: LocalFacts,
+) -> None:
+    module_name = "DaVinciResolveScript"
+    prior = ModuleType(module_name)
+    monkeypatch.setitem(sys.modules, module_name, prior)
+    wrapper = tmp_path / f"{module_name}.py"
+    wrapper.write_text(
+        "\n".join(
+            (
+                "import sys",
+                "from types import ModuleType",
+                "sys.modules[__name__] = ModuleType(__name__)",
+                "raise RuntimeError('bridge import failed')",
+            )
+        ),
+        encoding="utf-8",
+    )
+    local = LocalFacts(
+        **(
+            standard_local.__dict__
+            | {
+                "scripting_module_path": str(wrapper),
+            }
+        )
+    )
+
+    with pytest.raises(RuntimeError, match="bridge import failed"):
+        load_resolve_adapter(local)
+
+    assert sys.modules[module_name] is prior
 
 
 def test_preflight_is_nonmutating_and_surfaces_public_api_gap(
