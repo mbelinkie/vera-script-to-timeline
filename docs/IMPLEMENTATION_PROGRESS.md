@@ -13,7 +13,8 @@ Last updated: 2026-08-24
 - **Phase:** 0 — Foundations and Resolve capability spike
 - **Active slices:** 0.3 — Resolve Free import trial; 0.4 — Resolve Studio
   scripting spike
-- **Overall state:** Slices 0.1 and 0.2 accepted; Slices 0.3 and 0.4 unblocked
+- **Overall state:** Slices 0.1 and 0.2 accepted; Slice 0.3 producer trial in
+  progress; Slice 0.4 agent-complete and awaiting producer acceptance
 - **Source specification:** `docs/Script-to-Timeline Product Spec - Fable Rev2.md`
 
 ## Status legend
@@ -31,8 +32,8 @@ Last updated: 2026-08-24
 | --- | --- | --- | --- | --- |
 | 0.1 Repository, contracts, and fixture scaffold | Accepted | Orchestrator + bounded implementation agents | — | Producer accepted on 2026-08-24 after clean detached-worktree validation and green GitHub Actions runs `32789057717` and `32789138346`. Contracts and fixtures are now frozen. |
 | 0.2 Handcrafted manifest → OTIO package | Accepted | Orchestrator + bounded implementation and review agents | 0.1 accepted | Producer explicitly accepted on 2026-08-24 after package inspection, independent review, fresh-worktree verification, and green CI. `/contracts` and `/fixtures` remain frozen and unchanged. |
-| 0.3 Resolve Free import trial | In progress | Producer + agent preparer/recorder | 0.2 accepted | Automated dual-input preparation is implemented; actual Resolve Free manual imports and producer evidence remain required |
-| 0.4 Resolve Studio scripting spike | Agent complete | Assigned Slice 0.4 worktree | 0.2 accepted | Fail-closed API/CLI and automated tests complete; real producer Studio preflight/build and capability evidence remain required for acceptance |
+| 0.3 Resolve Free import trial | In progress | Producer + agent preparer/recorder | 0.2 accepted | Automated dual-input preparation and hardened FCPXML verification are integrated and CI-green; actual Resolve Free manual imports, comparison evidence, and D-P005 remain required |
+| 0.4 Resolve Studio scripting spike | Agent complete | Bounded implementation, hardening, and review agents | 0.2 accepted | Fail-closed API/CLI, independent review, and automated checks are complete and CI-green; real producer Studio preflight/build and capability evidence remain required for acceptance |
 
 ## Slice 0.1 orchestration plan
 
@@ -87,6 +88,9 @@ changes, why, compatibility impact, regenerated outputs, and acceptance impact.
 | 2026-08-24 | Slice 0.3 preparation workstream | Prepare deterministic OTIO/FCPXML inputs and the producer evidence workflow without launching Resolve | Agent complete | Added a stdlib-only FCPXML evidence spike, dual-input command, semantic/self-containment checks, alternate-setting/track-map coverage, and manual worksheet. Detected local installation facts are explicitly untested; producer imports and D-P005 remain pending. |
 | 2026-08-24 | Slice 0.4 implementation workstream | Add a supported-API Studio spike over the accepted Slice 0.2 package with fail-closed edition/install/scripting gates | Agent complete | Added local detection, nonmutating preflight, injected Resolve adapter, exact manifest assembly/reopen/verification flow, CLI, safety/order tests, and honest Fusion public-API gap reporting. No real Resolve connection or UI action was performed; producer acceptance remains pending. |
 | 2026-08-24 | Slices 0.3/0.4 independent integration review | Audit FCPXML portability/security, Resolve API semantics, preflight/mutation boundaries, and verification completeness | Agent complete | Corrected the Resolve sample-rate key and timeline start handling; removed invented OS/minimum-version decisions; added partial-project reporting, source/lane and symlink-tree checks, project-name preflight, media-identity/settings/bins/title/marker verification, and explicit nonmutating-probe limitations. Frozen Slice 0.1/0.2 boundaries remain unchanged. |
+| 2026-08-24 | Slices 0.3/0.4 boundary-hardening workstreams | Close successive independent findings without changing accepted contracts, fixtures, generated types, or Slice 0.2 evidence | Agent complete | Integrated `6199288`, `c316194`, `76ef9c1`, and `51166da`: corrected public Resolve API semantics, exact topology verification, documented-path media mapping, timeline-page gating, transition rejection, and fail-closed preflight/mutation boundaries. |
+| 2026-08-24 | Final bounded fixer and fresh read-only review | Close cross-kind FCPXML resource-ID and Resolve install/connected-identity findings, then independently rereview the final commit | Agent complete | Integrated `f972afa`: all direct FCPXML resource IDs must be nonempty and globally unique; package-receipt classification requires the canonical app path, Blackmagic bundle ID, parseable matching version/build, and matching receipt; connected identity validates and compares all documented `GetVersion()` fields. Fresh review reported no findings. |
+| 2026-08-24 | Orchestrator integration and CI | Integrate Slices 0.3/0.4 commits, rerun the full repository gate, audit frozen boundaries, push, and monitor CI | Complete | Main includes `447c08b` through `f972afa`; local validation passed with 82 Python tests, 16 contract tests, and 1 tooling test. Frozen-boundary diff is empty. GitHub Actions `32801825210` passed. |
 
 ## Producer decisions and external checks
 
@@ -173,14 +177,52 @@ before their dependent slices close:
   settings, relative paths, hashes, and exact inventory.
 - Repeated builds are byte-identical; alternate 24 fps, 1280×720, 44.1 kHz,
   reordered/custom track IDs/names/indices are covered.
-- Locked `npm ci` and `uv sync --frozen` pass. Integrated full-validation
-  counts are recorded in the integration-review work log and CI evidence.
+- Locked `npm ci` and `uv sync --frozen` pass. Integrated validation passes
+  with 82 Python tests, 16 contract tests, 1 TypeScript tooling test, Ruff,
+  formatting, strict mypy, and generated-contract currentness.
 - `/contracts`, `/fixtures`, generated contract outputs, the accepted Slice
   0.2 manifest, and accepted Slice 0.2 tests remain unchanged.
 - macOS/Resolve package facts are recorded only as detected-not-yet-tested.
   Resolve was not launched and no import capability is claimed.
 - Producer manual OTIO/FCPXML imports, retained evidence, capability rows, and
   the FCPXML maintain-or-park decision remain the Slice 0.3 acceptance gate.
+
+## Slices 0.3 and 0.4 integrated verification result
+
+- Main contains the bounded implementation and hardening sequence
+  `447c08b`, `3c1f1a6`, `6199288`, `c316194`, `76ef9c1`, `51166da`, and
+  `f972afa`.
+- Full local `npm run validate` passes:
+  - generated contract output is current;
+  - 16 contract tests and 1 TypeScript tooling test pass;
+  - Ruff lint and format checks pass;
+  - strict mypy passes for 19 source/test files; and
+  - all 82 Python tests pass.
+- GitHub Actions `Validate` run
+  [32801825210](https://github.com/mbelinkie/vera-script-to-timeline/actions/runs/32801825210)
+  passed on `main` at `f972afa`, including locked installs, the repository
+  validation command, and the lockfile-diff guard.
+- The diff from accepted Slice 0.2 commit `c4a093c` is empty for
+  `/contracts`, `/fixtures`, generated TypeScript/Python contract output,
+  `tests/test_otio_package.py`, and `tests/data/slice_0_2/`. Dependency and
+  lock entries are unchanged; `package.json` adds only the focused
+  `test:free-trial` script.
+- FCPXML verification rejects transitions and requires every direct resource
+  (`format` and all `asset` elements) to have a nonempty, globally unique ID.
+- Resolve package-receipt classification now requires the exact canonical
+  application path, expected Blackmagic bundle identifier, parseable matching
+  bundle marketing/build encoding, and matching `ManifestLite` receipt.
+  Custom or copied configured bundles fail closed before importing the API.
+- Connected Resolve identity requires the documented five-field
+  `[major, minor, patch, build, suffix]` response. Version, build, and suffix
+  must match the local bundle identity before mutation; malformed or differing
+  values stop safely. The public API still cannot prove the connected
+  executable path, and that limitation is reported explicitly.
+- A final fresh read-only review reran 51 focused Slice 0.3/0.4 tests plus
+  Ruff and mypy and reported no actionable findings.
+- No agent launched Resolve, automated its UI, connected to it, or mutated a
+  Resolve project. Detected machine facts remain unverified until the producer
+  performs the documented Slice 0.3 and Slice 0.4 acceptance procedures.
 
 ## Acceptance history
 
