@@ -7,15 +7,21 @@ expectations are not capability evidence.
 
 ## Current status
 
-Slice 0.1 tooling does not test Resolve or interchange behavior. No Resolve
-Free, Resolve Studio, OTIO, or FCPXML capability is claimed yet.
+Slice 0.3 automation prepares and locally verifies dual trial inputs but does
+not test Resolve behavior. No Resolve Free, Resolve Studio, OTIO-import, or
+FCPXML-import capability is claimed yet. Noninteractive local inspection on
+2026-08-24 detected macOS 15.1 build 24B83 (x86_64) and the standard
+Blackmagic application at `/Applications/DaVinci Resolve/DaVinci Resolve.app`
+reporting 21.0.4 / build 21.0.40005, with the `ManifestLite` package receipt
+and no application `_MASReceipt`. These facts are detected-not-yet-tested and
+do not establish edition or import capability.
 
 ## Resolve Free import observations
 
 | Resolve version / installation | OS | Format | Item counts and durations | Track names/order | Media links | Markers | Transitions | Evidence | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Pending Slice 0.3 | Pending | OTIO | Not tested | Not tested | Not tested | Not tested | Not tested | — | Unverified |
-| Pending Slice 0.3 | Pending | FCPXML | Not tested | Not tested | Not tested | Not tested | Not tested | — | Unverified |
+| Detected, not yet tested: standard Blackmagic Resolve 21.0.4 (21.0.40005), ManifestLite, no MAS receipt | macOS 15.1 (24B83), x86_64 | OTIO | Not tested | Not tested | Not tested | Not tested | Not tested | `docs/slice-0.3-resolve-free-trial.md` pending worksheet | Unverified |
+| Detected, not yet tested: standard Blackmagic Resolve 21.0.4 (21.0.40005), ManifestLite, no MAS receipt | macOS 15.1 (24B83), x86_64 | FCPXML | Not tested | Not tested | Not tested | Not tested | Not tested | `docs/slice-0.3-resolve-free-trial.md` pending worksheet | Unverified |
 
 ## Resolve Studio automation observations
 

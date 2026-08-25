@@ -135,6 +135,7 @@ npm run lint:python
 npm run typecheck:python
 npm run test:python
 npm run test:otio-package
+npm run test:free-trial
 ```
 
 The full Python test discovery used by `npm run validate` includes the Slice
@@ -170,6 +171,26 @@ used explicitly as **synthetic test narration**; and the timeline has one blue
 producer marker and hard cuts only. The command proves package consistency,
 not Resolve behavior—actual Resolve Free import fidelity is the producer-run
 Slice 0.3 trial.
+
+## Slice 0.3 Resolve Free dual-input trial
+
+Generate deterministic, independently self-contained OTIO and FCPXML inputs
+from the exact accepted Slice 0.2 manifest/media with:
+
+```sh
+uv run --frozen python -m vera_timeline_agent.free_trial \
+  tests/data/slice_0_2/timeline-manifest.json \
+  --media-root fixtures \
+  --output out/slice-0.3-free-trial
+```
+
+The command schema/semantic-verifies both formats against the manifest, checks
+media hashes and self-containment, and refuses to replace different output.
+It does not launch Resolve or prove import behavior. Follow
+[`docs/slice-0.3-resolve-free-trial.md`](docs/slice-0.3-resolve-free-trial.md)
+to manually import both files into separate fresh Resolve Free projects and
+record the comparison. FCPXML remains a trial artifact unless that evidence
+supports and the producer records a maintained-fallback decision.
 
 ## Slice workflow
 

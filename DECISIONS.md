@@ -24,9 +24,9 @@ into an implementation assumption.
 
 | ID | Status | Decision needed | Known constraint / evidence required |
 | --- | --- | --- | --- |
-| D-P001 | Pending producer | Primary local-agent OS | Must be named before dependent Phase 0 work closes; this tooling scaffold does not infer it from the machine used to develop the repository. |
-| D-P002 | Pending producer | Exact Resolve Free and Resolve Studio versions/installations to test | Must be recorded from the actual supported desktop installations. |
-| D-P005 | Pending producer | Maintain FCPXML as a fallback or park it | Slice 0.3 must decide from recorded OTIO-versus-FCPXML import evidence. |
+| D-P001 | Pending producer | Primary local-agent OS | Local inspection detected macOS 15.1 build 24B83, x86_64; the producer must confirm whether this is the primary local-agent OS. |
+| D-P002 | Pending producer | Exact Resolve Free and Resolve Studio versions/installations to test | Standard Blackmagic Resolve 21.0.4 / build 21.0.40005, ManifestLite, no MAS receipt was detected locally but has not been opened or tested. Producer confirmation inside the application is required. |
+| D-P005 | Pending producer | Maintain FCPXML as a fallback or park it | The deterministic FCPXML evidence spike is a trial artifact only. Slice 0.3 must decide from recorded OTIO-versus-FCPXML imports into actual Resolve Free. |
 
 ## Decision record template
 

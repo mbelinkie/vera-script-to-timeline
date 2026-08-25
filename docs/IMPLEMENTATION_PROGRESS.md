@@ -31,7 +31,7 @@ Last updated: 2026-08-24
 | --- | --- | --- | --- | --- |
 | 0.1 Repository, contracts, and fixture scaffold | Accepted | Orchestrator + bounded implementation agents | — | Producer accepted on 2026-08-24 after clean detached-worktree validation and green GitHub Actions runs `32789057717` and `32789138346`. Contracts and fixtures are now frozen. |
 | 0.2 Handcrafted manifest → OTIO package | Accepted | Orchestrator + bounded implementation and review agents | 0.1 accepted | Producer explicitly accepted on 2026-08-24 after package inspection, independent review, fresh-worktree verification, and green CI. `/contracts` and `/fixtures` remain frozen and unchanged. |
-| 0.3 Resolve Free import trial | Queued | Producer + agent recorder | 0.2 accepted | Requires the actual Resolve Free installation and manual import evidence |
+| 0.3 Resolve Free import trial | In progress | Producer + agent preparer/recorder | 0.2 accepted | Automated dual-input preparation is implemented; actual Resolve Free manual imports and producer evidence remain required |
 | 0.4 Resolve Studio scripting spike | Queued | Unassigned | 0.2 accepted | Requires supported desktop Studio and external scripting availability |
 
 ## Slice 0.1 orchestration plan
@@ -84,6 +84,7 @@ changes, why, compatibility impact, regenerated outputs, and acceptance impact.
 | 2026-08-24 | Slice 0.2 implementation workstream | Build a deterministic, self-contained OTIO import package from a handcrafted manifest without modifying frozen inputs | Agent complete | Integrated as `ceae4fc`; added the exact-pinned Python OTIO package API/CLI, schema and semantic validation, atomic/idempotent publication, relative packaged media, import instructions, build report, and adjustable delivery/track-map coverage. |
 | 2026-08-24 | Slice 0.2 independent review workstream | Audit implementation, package boundaries, OTIO fidelity, determinism, and acceptance coverage | Agent complete | Integrated as `27e47d3`; rejected symlink/hard-link escapes, tightened hard-cut and identity semantics, added adversarial OTIO timing checks, and independently reproduced the full validation/package workflow in a fresh detached worktree. No unresolved code findings. |
 | 2026-08-24 | Producer | Open and inspect the Slice 0.2 self-contained package, instructions, and event report | Accepted | Producer explicitly accepted Slice 0.2. Slices 0.3 and 0.4 are now unblocked; Resolve import fidelity remains a Slice 0.3 concern. |
+| 2026-08-24 | Slice 0.3 preparation workstream | Prepare deterministic OTIO/FCPXML inputs and the producer evidence workflow without launching Resolve | Agent complete | Added a stdlib-only FCPXML evidence spike, dual-input command, semantic/self-containment checks, alternate-setting/track-map coverage, and manual worksheet. Detected local installation facts are explicitly untested; producer imports and D-P005 remain pending. |
 
 ## Producer decisions and external checks
 
@@ -160,6 +161,24 @@ before their dependent slices close:
 - The producer explicitly accepted Slice 0.2 on 2026-08-24 after opening and
   inspecting the package, instructions, and event report. Actual Resolve
   import fidelity remains the separate Slice 0.3 acceptance gate.
+
+## Slice 0.3 automated preparation result
+
+- No dependency was added and both lockfiles remain unchanged.
+- The dual-input command emits separate self-contained OTIO and FCPXML inputs
+  from the exact accepted Slice 0.2 manifest/media and verifies both against
+  five events, one marker, five sources, all tracks, three hard cuts, timeline
+  settings, relative paths, hashes, and exact inventory.
+- Repeated builds are byte-identical; alternate 24 fps, 1280×720, 44.1 kHz,
+  reordered/custom track IDs/names/indices are covered.
+- Locked `npm ci` and `uv sync --frozen` pass. Full validation passes with 16
+  contract tests, 1 TypeScript tooling test, and 36 Python tests.
+- `/contracts`, `/fixtures`, generated contract outputs, the accepted Slice
+  0.2 manifest, and accepted Slice 0.2 tests remain unchanged.
+- macOS/Resolve package facts are recorded only as detected-not-yet-tested.
+  Resolve was not launched and no import capability is claimed.
+- Producer manual OTIO/FCPXML imports, retained evidence, capability rows, and
+  the FCPXML maintain-or-park decision remain the Slice 0.3 acceptance gate.
 
 ## Acceptance history
 
