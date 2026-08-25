@@ -12,7 +12,8 @@ Last updated: 2026-08-24
 
 - **Phase:** 0 — Foundations and Resolve capability spike
 - **Active slice:** 0.2 — Handcrafted manifest → OTIO package
-- **Overall state:** Slice 0.1 accepted; Slice 0.2 starting
+- **Overall state:** Slice 0.1 accepted; Slice 0.2 agent complete and awaiting
+  producer acceptance
 - **Source specification:** `docs/Script-to-Timeline Product Spec - Fable Rev2.md`
 
 ## Status legend
@@ -29,7 +30,7 @@ Last updated: 2026-08-24
 | Slice | Status | Owner | Depends on | Verification / notes |
 | --- | --- | --- | --- | --- |
 | 0.1 Repository, contracts, and fixture scaffold | Accepted | Orchestrator + bounded implementation agents | — | Producer accepted on 2026-08-24 after clean detached-worktree validation and green GitHub Actions runs `32789057717` and `32789138346`. Contracts and fixtures are now frozen. |
-| 0.2 Handcrafted manifest → OTIO package | In progress | Orchestrator + bounded implementation agent | 0.1 accepted | Contract consumer; `/contracts` and `/fixtures` are frozen and require an explicit producer-approved change note before modification |
+| 0.2 Handcrafted manifest → OTIO package | Agent complete | Orchestrator + bounded implementation and review agents | 0.1 accepted | Implemented in `ceae4fc` and independently hardened in `27e47d3`; automated and fresh-worktree checks pass; producer acceptance pending. `/contracts` and `/fixtures` remain frozen and unchanged. |
 | 0.3 Resolve Free import trial | Queued | Producer + agent recorder | 0.2 accepted | Requires the actual Resolve Free installation and manual import evidence |
 | 0.4 Resolve Studio scripting spike | Queued | Unassigned | 0.2 accepted | Requires supported desktop Studio and external scripting availability |
 
@@ -80,6 +81,8 @@ changes, why, compatibility impact, regenerated outputs, and acceptance impact.
 | 2026-08-24 | Fixtures workstream | Deterministic media kit, descriptors/hashes, validation tests | Agent complete | Integrated as `83b7b74`; exactly three clips, two stills, and one audio bed with strict inventory, SHA-256, FFprobe metadata, regeneration, and verifier tests. |
 | 2026-08-24 | Integration/review workstream | Merge audit, fresh-clone simulation, acceptance script verification | Agent complete | Integrated as `5028ed8`; removed premature fixed track-name/count constraints, proved configurable delivery settings, tightened fixture verification, and passed a clean detached-worktree bootstrap. |
 | 2026-08-24 | Producer | Run/confirm Slice 0.1 acceptance | Accepted | Producer explicitly accepted Slice 0.1 after local clean-worktree validation and GitHub Actions passed. Contracts and fixtures are frozen from this point. |
+| 2026-08-24 | Slice 0.2 implementation workstream | Build a deterministic, self-contained OTIO import package from a handcrafted manifest without modifying frozen inputs | Agent complete | Integrated as `ceae4fc`; added the exact-pinned Python OTIO package API/CLI, schema and semantic validation, atomic/idempotent publication, relative packaged media, import instructions, build report, and adjustable delivery/track-map coverage. |
+| 2026-08-24 | Slice 0.2 independent review workstream | Audit implementation, package boundaries, OTIO fidelity, determinism, and acceptance coverage | Agent complete | Integrated as `27e47d3`; rejected symlink/hard-link escapes, tightened hard-cut and identity semantics, added adversarial OTIO timing checks, and independently reproduced the full validation/package workflow in a fresh detached worktree. No unresolved code findings. |
 
 ## Producer decisions and external checks
 
@@ -122,6 +125,36 @@ before their dependent slices close:
   [32789057717](https://github.com/mbelinkie/vera-script-to-timeline/actions/runs/32789057717)
   passed on `main` at `4893c40`, including locked installs, the same top-level
   validation command, and the lockfile-diff guard.
+
+## Slice 0.2 verification result
+
+- Locked dependency installation passes with exact pins for
+  `opentimelineio==0.18.1` and `jsonschema==4.25.1`.
+- Pinned Node 24.19.0 full validation passes:
+  - 16 contract tests and 1 TypeScript tooling test.
+  - 31 Python tests.
+  - Ruff, formatting, strict mypy, and generated-contract currentness.
+- A fresh detached-worktree bootstrap and full validation pass without
+  lockfile changes.
+- The frozen `/contracts` and `/fixtures` boundaries remain unchanged; the
+  Slice 0.2 manifest lives under `tests/data/slice_0_2/` and treats the
+  accepted fixture media as read-only input.
+- The generated producer package is available at
+  `out/slice-0.2-package/` and is self-contained: one manifest, one OTIO
+  timeline, one build report, import instructions, and five packaged media
+  files referenced only by relative paths.
+- Independent verification confirms event-for-event OTIO fidelity for three
+  trimmed video clips, one still, one audio placement, one marker, explicit
+  hard cuts, source ranges, record ranges, track assignments, media hashes,
+  nonzero start frames, and alternate 1280×720 / 44.1 kHz delivery settings.
+- Adversarial checks reject external/symlinked/hard-linked package media and
+  reject OTIO source-timing tampering even when duplicated VERA metadata is
+  left unchanged.
+- Deterministic generation produces byte-identical packages, and rerunning an
+  unchanged build reuses the existing package idempotently.
+- **Producer acceptance is pending.** Slice 0.2 must not be marked accepted,
+  and dependent Slices 0.3 and 0.4 must not start, until the producer performs
+  the documented inspection/import steps and explicitly accepts the slice.
 
 ## Acceptance history
 
