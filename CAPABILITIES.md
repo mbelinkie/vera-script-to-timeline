@@ -8,11 +8,13 @@ expectations are not capability evidence.
 ## Current status
 
 Slice 0.3 automation prepares and locally verifies dual trial inputs. Producer
-testing has begun in real Resolve Free 21 on an Intel Mac: the FCPXML import
-did not contain the expected marker. The remaining FCPXML observations and the
-OTIO comparison have not yet been recorded, so this is partial evidence rather
-than Slice 0.3 acceptance. Slice 0.4 code/test doubles exercise the Studio
-adapter boundary, but no real Studio installation has been tested.
+testing in real Resolve Free 21 on an Intel Mac found that OTIO imported all
+five expected linked items and retained the expected marker. FCPXML imported
+the same five items only after the producer redirected Resolve to the packaged
+media and did not retain the marker. No other difference was observed. The
+evidence supports parking FCPXML, but D-P005 and Slice 0.3 acceptance remain
+pending explicit producer approval. Slice 0.4 code/test doubles exercise the
+Studio adapter boundary, but no real Studio installation has been tested.
 Noninteractive inspection on 2026-08-24 detected macOS 15.1 build 24B83
 (x86_64), the default-path application bundle at
 `/Applications/DaVinci Resolve/DaVinci Resolve.app` reporting 21.0.4 / build
@@ -26,8 +28,8 @@ connection, or automation.
 
 | Resolve version / installation | OS | Format | Item counts and durations | Track names/order | Media links | Markers | Transitions | Evidence | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Producer reported Resolve Free 21; default-path bundle separately detected as 21.0.4 (21.0.40005) | Intel Mac; exact in-application OS details not recorded | OTIO | Not recorded | Not recorded | Not recorded | Not recorded | Not recorded | `docs/slice-0.3-resolve-free-trial.md` | Pending producer observation |
-| Producer reported Resolve Free 21 installed from Blackmagic download; default-path bundle separately detected as 21.0.4 (21.0.40005) | Intel Mac; exact in-application OS details not recorded | FCPXML | Not recorded | Not recorded | Not recorded | Expected marker missing | Not recorded | Producer worksheet update at `docs/slice-0.3-resolve-free-trial.md`, 2026-08-24 | Partial observation: marker fidelity failed |
+| Producer reported Resolve Free 21; default-path bundle separately detected as 21.0.4 (21.0.40005) | macOS 15.1 (24B83), x86_64 | OTIO | 4 picture + 1 audio; no timing discrepancy noticed | No discrepancy noticed | All 5 linked; no relink issue reported | Expected marker present | No discrepancy noticed | Producer worksheet at `docs/slice-0.3-resolve-free-trial.md`, 2026-08-24 | Producer-observed import passed |
+| Producer reported Resolve Free 21 installed from Blackmagic download; default-path bundle separately detected as 21.0.4 (21.0.40005) | macOS 15.1 (24B83), x86_64 | FCPXML | 4 picture + 1 audio after media redirect; no timing discrepancy noticed | No discrepancy noticed | All 5 linked after manual redirect to packaged media | Expected marker missing | No discrepancy noticed | Producer worksheet at `docs/slice-0.3-resolve-free-trial.md`, 2026-08-24 | Producer-observed import completed with marker and initial-linking discrepancies |
 
 ## Resolve Studio automation observations
 
