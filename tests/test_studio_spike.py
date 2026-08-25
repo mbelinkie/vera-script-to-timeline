@@ -102,8 +102,8 @@ class RecordingAdapter:
     def configure_tracks(self, tracks: Sequence[Mapping[str, Any]]) -> None:
         self.calls.append(("configure_tracks", tuple(dict(track) for track in tracks)))
 
-    def place_event(self, event: Mapping[str, Any]) -> None:
-        self.calls.append(("place_event", dict(event)))
+    def place_events(self, events: Sequence[Mapping[str, Any]]) -> None:
+        self.calls.append(("place_events", list(events)))
 
     def insert_fusion_title(self, title_name: str, record_frame: int) -> None:
         self.calls.append(("insert_fusion_title", (title_name, record_frame)))
@@ -536,8 +536,8 @@ def test_success_has_exact_order_frames_settings_tracks_marker_and_reopen(
         "import_media",
         "create_timeline",
         "configure_tracks",
-        *("place_event" for _ in range(5)),
         "insert_fusion_title",
+        "place_events",
         "add_marker",
         "save_close_reopen",
         "verify",
@@ -551,7 +551,7 @@ def test_success_has_exact_order_frames_settings_tracks_marker_and_reopen(
         "timelineResolutionHeight": "1080",
         "timelineSampleRate": "48000",
     }
-    events = [value for name, value in adapter.calls if name == "place_event"]
+    events = next(value for name, value in adapter.calls if name == "place_events")
     assert [event["recordRange"]["startFrame"] for event in events] == [
         0,
         18,
@@ -782,13 +782,26 @@ def test_public_import_maps_reordered_results_by_documented_file_path(
 
 
 def test_public_adapter_translates_manifest_ranges_to_documented_clip_info() -> None:
+    class Media:
+        def __init__(self, source_id: str) -> None:
+            self.source_id = source_id
+            self.mark_calls: list[tuple[object, ...]] = []
+
+        def SetMarkInOut(self, *values: object) -> bool:
+            self.mark_calls.append(("set", *values))
+            return True
+
+        def ClearMarkInOut(self, *values: object) -> bool:
+            self.mark_calls.append(("clear", *values))
+            return True
+
     class Pool:
         def __init__(self) -> None:
             self.values: list[list[dict[str, Any]]] = []
 
         def AppendToTimeline(self, values: list[dict[str, Any]]) -> list[object]:
             self.values.append(values)
-            return [object()]
+            return [object() for _ in values]
 
     manifest = json.loads(MANIFEST.read_text())
     pool = Pool()
@@ -796,18 +809,51 @@ def test_public_adapter_translates_manifest_ranges_to_documented_clip_info() -> 
     adapter.pool = pool
     adapter.timeline = object()
     adapter.media_by_source = {
-        source["id"]: f"media:{source['id']}" for source in manifest["sources"]
+        source["id"]: Media(source["id"]) for source in manifest["sources"]
     }
     adapter._track_id_map = {
         track["id"]: track["index"] for track in manifest["tracks"]
     }
-    for event in manifest["events"]:
-        adapter.place_event(event)
-    assert [call[0]["startFrame"] for call in pool.values] == [2, 4, 6, 0, 0]
-    assert [call[0]["endFrame"] for call in pool.values] == [19, 21, 23, 17, 71]
-    assert [call[0]["recordFrame"] for call in pool.values] == [0, 18, 36, 54, 0]
-    assert [call[0]["trackIndex"] for call in pool.values] == [3, 3, 3, 3, 1]
-    assert [call[0]["mediaType"] for call in pool.values] == [1, 1, 1, 1, 2]
+    adapter.place_events(manifest["events"])
+    assert len(pool.values) == 1
+    values = pool.values[0]
+    assert [info["startFrame"] for info in values] == [2, 4, 6, 0, 0]
+    assert [info["endFrame"] for info in values] == [20, 22, 24, 19, 72]
+    assert [info["recordFrame"] for info in values] == [0, 18, 36, 54, 0]
+    assert [info["trackIndex"] for info in values] == [3, 3, 3, 3, 1]
+    assert [info["mediaType"] for info in values] == [1, 1, 1, 1, 2]
+    still_media = adapter.media_by_source[manifest["events"][3]["sourceId"]]
+    assert still_media.mark_calls == [
+        ("set", 0, 18, "video"),
+        ("clear", "video"),
+    ]
+
+
+def test_public_adapter_fails_before_append_when_still_mark_range_is_rejected() -> None:
+    class Still:
+        def SetMarkInOut(self, *values: object) -> bool:
+            return False
+
+        def ClearMarkInOut(self, *values: object) -> bool:
+            raise AssertionError("a rejected mark range must not be cleared")
+
+    class Pool:
+        def AppendToTimeline(self, values: list[dict[str, Any]]) -> list[object]:
+            raise AssertionError("rejected still range must stop before append")
+
+    adapter = PublicResolveAdapter(object())
+    adapter.pool = Pool()
+    adapter.media_by_source = {"still-source": Still()}
+    adapter._track_id_map = {"video-track": 1}
+    event = {
+        "id": "still-event",
+        "kind": "still",
+        "sourceId": "still-source",
+        "trackId": "video-track",
+        "recordRange": {"startFrame": 0, "durationFrames": 18},
+    }
+    with pytest.raises(StudioSpikeError, match="could not set the 18-frame range"):
+        adapter.place_events([event])
 
 
 def test_public_verifier_checks_media_identity_and_observable_result() -> None:
@@ -838,10 +884,12 @@ def test_public_verifier_checks_media_identity_and_observable_result() -> None:
             media_id: str | None = None,
             *,
             fusion_names: tuple[str, ...] = (),
+            duration: int = 18,
         ) -> None:
             self.name = name
             self.media = Media(media_id) if media_id is not None else None
             self.fusion_names = fusion_names
+            self.duration = duration
 
         def GetName(self) -> str:
             return self.name
@@ -850,7 +898,7 @@ def test_public_verifier_checks_media_identity_and_observable_result() -> None:
             return 0
 
         def GetDuration(self, _: bool) -> int:
-            return 18
+            return self.duration
 
         def GetSourceStartFrame(self) -> int:
             return 2
@@ -864,7 +912,7 @@ def test_public_verifier_checks_media_identity_and_observable_result() -> None:
         def GetFusionCompNameList(self) -> list[str]:
             return list(self.fusion_names)
 
-    title = Item("Text+", fusion_names=("Composition 1",))
+    title = Item("Text+", fusion_names=("Composition 1",), duration=120)
     event = Item("event", "wrong-media-id")
 
     class Timeline:
@@ -875,7 +923,7 @@ def test_public_verifier_checks_media_identity_and_observable_result() -> None:
             return 0
 
         def GetEndFrame(self) -> int:
-            return 18
+            return 120
 
         def GetTrackName(self, kind: str, index: int) -> str:
             assert (kind, index) == ("video", 2)
@@ -946,7 +994,7 @@ def test_public_verifier_checks_media_identity_and_observable_result() -> None:
     adapter.fusion_title_fingerprint = (
         "Text+",
         0,
-        18,
+        120,
         ("Composition 1",),
     )
 

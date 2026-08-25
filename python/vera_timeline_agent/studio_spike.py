@@ -108,7 +108,7 @@ class ResolveAdapter(Protocol):
 
     def configure_tracks(self, tracks: Sequence[Mapping[str, Any]]) -> None: ...
 
-    def place_event(self, event: Mapping[str, Any]) -> None: ...
+    def place_events(self, events: Sequence[Mapping[str, Any]]) -> None: ...
 
     def insert_fusion_title(self, title_name: str, record_frame: int) -> None: ...
 
@@ -291,12 +291,11 @@ def run_delivery(
         adapter.import_media(sources)
         adapter.create_timeline(timeline_name)
         adapter.configure_tracks(cast(list[Mapping[str, Any]], manifest["tracks"]))
-        for event in cast(list[Mapping[str, Any]], manifest["events"]):
-            adapter.place_event(event)
         start_frame = cast(
             int, cast(Mapping[str, Any], manifest["timeline"])["startFrame"]
         )
         adapter.insert_fusion_title(fusion_title, start_frame)
+        adapter.place_events(cast(list[Mapping[str, Any]], manifest["events"]))
         for marker in cast(list[Mapping[str, Any]], manifest["markers"]):
             custom_data = json.dumps(
                 {"markerId": marker["id"], "provenance": marker["provenance"]},
@@ -551,22 +550,56 @@ class PublicResolveAdapter:
                 if not self.timeline.SetTrackName(kind, index, track["name"]):
                     raise StudioSpikeError(f"SetTrackName failed for {kind} {index}")
 
-    def place_event(self, event: Mapping[str, Any]) -> None:
-        record = cast(Mapping[str, int], event["recordRange"])
-        source = cast(Mapping[str, int], event.get("sourceRange", {}))
-        start = source.get("startFrame", 0)
-        duration = source.get("durationFrames", record["durationFrames"])
-        info = {
-            "mediaPoolItem": self.media_by_source[cast(str, event["sourceId"])],
-            "startFrame": start,
-            "endFrame": start + duration - 1,
-            "mediaType": 2 if event["kind"] == "audio" else 1,
-            "trackIndex": self._track_index(cast(str, event["trackId"])),
-            "recordFrame": record["startFrame"],
-        }
-        placed = self.pool.AppendToTimeline([info])
-        if not isinstance(placed, (list, tuple)) or len(placed) != 1:
-            raise StudioSpikeError(f"AppendToTimeline failed for event {event['id']}")
+    def place_events(self, events: Sequence[Mapping[str, Any]]) -> None:
+        infos: list[dict[str, Any]] = []
+        marked_stills: list[tuple[Any, str]] = []
+        try:
+            for event in events:
+                record = cast(Mapping[str, int], event["recordRange"])
+                source = cast(Mapping[str, int], event.get("sourceRange", {}))
+                start = source.get("startFrame", 0)
+                duration = source.get("durationFrames", record["durationFrames"])
+                source_id = cast(str, event["sourceId"])
+                media = self.media_by_source[source_id]
+                if event["kind"] == "still":
+                    # Resolve 21 ignores clipInfo.endFrame for a one-frame still and
+                    # otherwise inserts the user-preference default (120 frames on
+                    # the tested installation). A documented temporary MediaPoolItem
+                    # mark range makes the authored occurrence duration explicit.
+                    # Resolve 21 also treats the documented mark out value as an
+                    # exclusive bound, matching clipInfo.endFrame.
+                    if not media.SetMarkInOut(0, duration, "video"):
+                        raise StudioSpikeError(
+                            f"still event {event['id']} could not set the "
+                            f"{duration}-frame range"
+                        )
+                    marked_stills.append((media, cast(str, event["id"])))
+                infos.append(
+                    {
+                        "mediaPoolItem": media,
+                        "startFrame": start,
+                        # Resolve 21 treats clipInfo.endFrame as an exclusive bound
+                        # for ordinary media. For a one-frame still it subtracts an
+                        # additional frame when intersecting clipInfo with the
+                        # temporary mark range, so the observed API requires one
+                        # compensating frame to retain the authored duration.
+                        "endFrame": start
+                        + duration
+                        + (1 if event["kind"] == "still" else 0),
+                        "mediaType": 2 if event["kind"] == "audio" else 1,
+                        "trackIndex": self._track_index(cast(str, event["trackId"])),
+                        "recordFrame": record["startFrame"],
+                    }
+                )
+            placed = self.pool.AppendToTimeline(infos)
+        finally:
+            for media, event_id in marked_stills:
+                if not media.ClearMarkInOut("video"):
+                    raise StudioSpikeError(
+                        f"still event {event_id} could not clear its temporary range"
+                    )
+        if not isinstance(placed, (list, tuple)) or len(placed) != len(infos):
+            raise StudioSpikeError("AppendToTimeline failed to place every event")
 
     def _track_index(self, track_id: str) -> int:
         # Event adapters receive IDs, while the public API receives indices. The
@@ -629,10 +662,15 @@ class PublicResolveAdapter:
         timeline = cast(Mapping[str, Any], manifest["timeline"])
         expected_start = cast(int, timeline["startFrame"])
         expected_end = expected_start + cast(int, timeline["durationFrames"])
+        if self.fusion_title_fingerprint is not None:
+            _, title_start, title_duration, _ = self.fusion_title_fingerprint
+            expected_end = max(expected_end, title_start + title_duration)
         if self.timeline.GetStartFrame() != expected_start:
             discrepancies.append("timeline start frame differs from manifest")
         if self.timeline.GetEndFrame() != expected_end:
-            discrepancies.append("timeline end frame differs from manifest")
+            discrepancies.append(
+                "timeline end frame differs from manifest media and inserted title"
+            )
         self._verify_bins(discrepancies)
         expected_tracks = cast(list[Mapping[str, Any]], manifest["tracks"])
         expected_track_counts = {

@@ -16,9 +16,14 @@ producer accepted Slice 0.3 and approved D-P005 to park FCPXML. Slice 0.4
 producer preflight connected through the supported external API to real
 DaVinci Resolve Studio 21.0.4 build 5 with external scripting available. The
 connected identity agreed with the detected local bundle and the preflight
-reported no discrepancies or project mutation. The real build and manual
-inspection remain pending, so project creation/reopen/verification capability
-is not yet claimed.
+reported no discrepancies or project mutation. On 2026-08-25 the supported
+API then created project
+`VERA Slice 0.4 Producer Acceptance 20260825-021704`, saved it, closed it,
+reopened it, and verified every public-API-observable spike requirement with
+no discrepancy. The producer visually inspected the result and explicitly
+accepted Slice 0.4 on 2026-08-25, including the documented V1/120-frame Text+
+limitation. The limitation remains open and is isolated in
+`docs/resolve-text-plus-destination-track-limitation.md`.
 Noninteractive inspection on 2026-08-24 detected macOS 15.1 build 24B83
 (x86_64), the default-path application bundle at
 `/Applications/DaVinci Resolve/DaVinci Resolve.app` reporting 21.0.4 / build
@@ -39,17 +44,16 @@ connection, or automation.
 
 | Resolve version / installation | OS | Edition detection | External scripting | Create/reopen/verify result | Safety-boundary result | Evidence | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 21.0.4 / default-path bundle with matching ManifestLite receipt, build 21.0.40005 | macOS 15.1 x86_64 | Real API connection reported `DaVinci Resolve Studio`, version 21.0.4, build 5, empty suffix | Available through the supported local external scripting API | Not attempted by preflight; build remains pending | First real attempt stopped safely before mutation on the vendor-wrapper loading defect; post-fix preflight returned `preflight_passed` with no discrepancies and no mutation | Producer terminal JSON, 2026-08-25; loader fix `94bdd53`; green GitHub Actions run `32808424418`; orchestration record in `docs/IMPLEMENTATION_PROGRESS.md` | Connected preflight observed; build unverified |
+| 21.0.4 / default-path bundle with matching ManifestLite receipt, build 21.0.40005 | macOS 15.1 x86_64 | Real API connection reported `DaVinci Resolve Studio`, version 21.0.4, build 5, empty suffix | Available through the supported local external scripting API | Project `VERA Slice 0.4 Producer Acceptance 20260825-021704` was created, configured, populated, saved, closed, reopened, and verified with no public-API-observable discrepancies. The verified timeline is `VERA build 00000000-0000-4000-8000-000000000103`. | Initial bridge-loader attempt and two pre-restart connection attempts stopped safely before mutation. Every post-restart preflight passed without mutation. Failed uniquely named build attempts were retained rather than overwritten or deleted; the final uniquely named build verified. | Producer terminal JSON and Resolve project, 2026-08-25; loader fix `94bdd53`; still-range hardening in the current Slice 0.4 diff; orchestration records in `docs/IMPLEMENTATION_PROGRESS.md` and `docs/ORCHESTRATION_PROGRESS_2026-08-25.md`; focused limitation note in `docs/resolve-text-plus-destination-track-limitation.md` | Accepted Slice 0.4 baseline; V1/120-frame Text+ limitation retained as an open capability gap |
 
 ## Minimum supported versions
 
 - Resolve Free: **Tested baseline is Resolve Free 21 on the detected 21.0.4 /
   build 21.0.40005 bundle. A true minimum is not claimed without lower-version
   evidence.**
-- Resolve Studio: **Connected baseline is Studio 21.0.4 / API build 5 on the
-  detected 21.0.4 / bundle build 21.0.40005 installation. A true minimum and
-  successful build capability are not claimed without the pending build and
-  lower-version evidence.**
+- Resolve Studio: **Tested build baseline is Studio 21.0.4 / API build 5 on
+  the detected 21.0.4 / bundle build 21.0.40005 installation. A true minimum
+  is not claimed without lower-version evidence.**
 
 ## Installed public API gaps relevant to Slice 0.4
 
@@ -70,6 +74,16 @@ build success. The bounded spike also rejects nonzero timeline starts before
 loading the vendor bridge, requires a documented timeline page before mutation,
 and cannot prove the connected executable path because the public API does not
 report it.
+
+Resolve 21.0.4 ignored `AppendToTimeline`'s ordinary requested end frame for a
+one-frame PNG and initially inserted the user-preference default duration of
+120 frames. `MediaPoolItem.SetClipProperty("Duration", ...)` returned false.
+The documented media-pool mark range did control the still, but its interaction
+with `clipInfo.endFrame` required an observed one-frame compensation: mark out
+18 plus clip end 19 produced the required 18-frame occurrence, while mark out
+18 plus clip end 18 produced 17 frames. The final build uses that checked
+Resolve 21 behavior, clears the temporary mark immediately after append, and
+verifies the reopened occurrence duration and media identity.
 
 ## Interchange decision
 

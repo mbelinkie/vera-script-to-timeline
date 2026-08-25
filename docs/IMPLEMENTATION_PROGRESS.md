@@ -10,11 +10,13 @@ Last updated: 2026-08-25
 
 ## Current milestone
 
-- **Phase:** 0 gate open; all other work paused while Slice 0.4 acceptance finishes
-- **Active slice:** 0.4 — Resolve Studio acceptance
-- **Overall state:** Slices 0.1, 0.2, and 0.3 accepted; Slice 0.4 agent-complete
-  with the producer's real Studio preflight passed and the one-time build still
-  required; Slice 1.1 implementation is paused at the producer's request
+- **Phase:** 0 gate closed; Phase 1 may proceed
+- **Active slice:** 1.1 — resume the preserved ScriptDocument validator work
+- **Overall state:** Slices 0.1 through 0.4 are accepted. The producer accepted
+  Slice 0.4 on 2026-08-25, including its documented V1 Text+ destination-track
+  limitation. The limitation remains an open capability gap in
+  `docs/resolve-text-plus-destination-track-limitation.md`; acceptance does not
+  claim that it is solved. The producer's pause on Slice 1.1 is now cleared.
 - **Source specification:** `docs/Script-to-Timeline Product Spec - Fable Rev2.md`
 
 ## Status legend
@@ -34,8 +36,8 @@ Last updated: 2026-08-25
 | 0.1 Repository, contracts, and fixture scaffold | Accepted | Orchestrator + bounded implementation agents | — | Producer accepted on 2026-08-24 after clean detached-worktree validation and green GitHub Actions runs `32789057717` and `32789138346`. Contracts and fixtures are now frozen. |
 | 0.2 Handcrafted manifest → OTIO package | Accepted | Orchestrator + bounded implementation and review agents | 0.1 accepted | Producer explicitly accepted on 2026-08-24 after package inspection, independent review, fresh-worktree verification, and green CI. `/contracts` and `/fixtures` remain frozen and unchanged. |
 | 0.3 Resolve Free import trial | Accepted | Producer + agent preparer/recorder | 0.2 accepted | Producer accepted on 2026-08-24. OTIO retained the marker and linked all five items; FCPXML required a manual media redirect and omitted the marker. D-P005 parks FCPXML with no observed compensating advantage. |
-| 0.4 Resolve Studio scripting spike | Agent complete | Bounded implementation, hardening, and review agents | 0.2 accepted | Producer connected to real Resolve Studio 21.0.4 and passed the nonmutating preflight on 2026-08-25 with no discrepancies. The one-time producer build, inspection, capability evidence, and explicit acceptance remain required. |
-| 1.1 ScriptDocument v1 and validator | Paused | Orchestrator + bounded implementation/review agents | D-0006 semantic decisions, D-0007 sequencing exception, and producer resume instruction | Provisional work was stopped and preserved in its isolated worktree when the producer asked to pause all other work until Slice 0.4 finishes. The accepted schema remains unchanged. |
+| 0.4 Resolve Studio scripting spike | Accepted | Producer + bounded implementation, hardening, and review agents | 0.2 accepted | Producer explicitly accepted on 2026-08-25 after visual inspection and accepted the documented V1/120-frame Text+ public-API limitation as spike evidence. The limitation remains open in `docs/resolve-text-plus-destination-track-limitation.md`. |
+| 1.1 ScriptDocument v1 and validator | In progress | Orchestrator + bounded implementation/review agents | D-0006 semantic decisions; Phase 0 accepted | The producer's pause ended when Slice 0.4 was accepted. Resume the preserved isolated-worktree implementation without changing the accepted schema. |
 
 ## Slice 0.1 orchestration plan
 
@@ -100,6 +102,8 @@ changes, why, compatibility impact, regenerated outputs, and acceptance impact.
 | 2026-08-25 | Producer + Slice 0.4 fixer | Exercise the real nonmutating Studio preflight and correct the vendor bridge loader without crossing the mutation boundary | Complete | The first correctly located run stopped safely with no discrepancies or mutation because Blackmagic's Python wrapper replaced itself in `sys.modules` and the loader retained the stale wrapper object. Commit `94bdd53` now consumes the vendor's replacement module and restores prior module state on failure; 43 focused Studio tests, the full 84-test Python/16-contract/1-tooling gate, frozen-boundary audit, and GitHub Actions run `32808424418` passed. |
 | 2026-08-25 | Producer | Rerun the Slice 0.4 connected preflight against actual Resolve Studio | Complete | Connected to DaVinci Resolve Studio 21.0.4 build 5 through the supported external scripting API. Local bundle 21.0.4/build 21.0.40005 and connected identity agreed, `scripting_available` was true, discrepancies were empty, status was `preflight_passed`, and the command reported no project mutation. The one-time build remains pending. |
 | 2026-08-25 | Producer | Pause all non-Slice-0.4 work | Active | Slice 1.1 implementation was interrupted and preserved in its isolated worktree. It will not resume until the producer finishes Slice 0.4 or explicitly changes this instruction. |
+| 2026-08-25 | Producer + Slice 0.4 bounded fixer | Run the one-time real Studio build, investigate only observed discrepancies, and retry with unique projects | Agent complete | Initial retained projects exposed Resolve 21's default 120-frame still insertion and a 17-frame mark/clip-info intersection. A retained supported-API probe established the exact range rule. The final unique project `VERA Slice 0.4 Producer Acceptance 20260825-021704` saved, closed, reopened, and returned `verified` with no discrepancy. Focused validation passes with 44 Studio tests, Ruff, and strict mypy; clean locked installs and the pinned Node 24.19.0 full gate pass with 85 Python tests, and the frozen-boundary audit is empty. Producer visual acceptance remains. |
+| 2026-08-25 | Producer | Visually inspect and accept Slice 0.4 | Accepted | Producer explicitly accepted Slice 0.4, including the documented V1/120-frame Text+ limitation. Phase 0 is closed; the limitation remains an open capability gap in `docs/resolve-text-plus-destination-track-limitation.md`, and Slice 1.1 may resume. |
 
 ## Producer decisions and external checks
 
@@ -120,13 +124,13 @@ before their dependent slices close:
 - The assigned workspace began as an empty Git repository; it has been
   initialized from the authoritative GitHub repository without modifying the
   separate desktop checkout.
-- The producer's real Resolve Studio 21.0.4 connection and nonmutating
-  preflight passed. Slice 0.4 still requires the documented one-time build,
-  manual inspection, retained capability evidence, and explicit producer
-  acceptance; test doubles cannot replace those observations.
-- Slice 1.1 is technically independent of Resolve and remains authorized by
-  D-0007, but all work on it is paused by the producer until Slice 0.4 is
-  finished.
+- The producer's real Resolve Studio 21.0.4 connection, nonmutating preflight,
+  and final unique build passed. The project saved, reopened, and passed all
+  public-API-observable checks. The producer visually inspected it and accepted
+  Slice 0.4, including the separately documented Text+ limitation.
+- Slice 1.1 is now active. Its preserved implementation must still pass final
+  integration review and the producer acceptance procedure before its two
+  canonical semantic inputs freeze.
 - Contract workstreams must not independently invent incompatible event or
   block shapes; the spec's canonical model and Phase 0/1 boundaries govern.
 
@@ -236,9 +240,11 @@ before their dependent slices close:
   executable path, and that limitation is reported explicitly.
 - A final fresh read-only review reran 51 focused Slice 0.3/0.4 tests plus
   Ruff and mypy and reported no actionable findings.
-- No agent launched Resolve, automated its UI, connected to it, or mutated a
-  Resolve project. Subsequent producer-run evidence below now verifies the real
-  Studio connection and nonmutating preflight; the build remains unverified.
+- No agent launched Resolve or automated its UI. With explicit producer
+  authorization, the supported API connected to the producer-opened Studio
+  instance and created only uniquely named generated Slice 0.4 projects. The
+  final project passed save/reopen verification; failed generated projects and
+  the capability probe were retained rather than overwritten or deleted.
 
 ## Slice 0.4 producer preflight evidence
 
@@ -265,10 +271,49 @@ before their dependent slices close:
 - The public API and preflight limitations reported by the command remain in
   force: no stock Fusion-title enumeration or title destination-track proof,
   no connected executable-path report, and no nonmutating proof of the calls
-  that create/configure/import/assemble/insert. The producer build and manual
-  inspection remain the acceptance gate.
+  that create/configure/import/assemble/insert.
+- The first producer-authorized build retained the still at Resolve's default
+  120-frame duration. The next attempts established that a documented
+  MediaPoolItem mark range controls a still but interacts with
+  `clipInfo.endFrame` differently from ordinary media. A retained probe matrix
+  proved that mark out 18 plus clip end 19 creates the required 18-frame still.
+- Final project `VERA Slice 0.4 Producer Acceptance 20260825-021704`, timeline
+  `VERA build 00000000-0000-4000-8000-000000000103`, returned status
+  `verified` after save/close/reopen with no discrepancies. The producer
+  visually inspected the result and explicitly accepted Slice 0.4 on
+  2026-08-25, including the documented V1/120-frame Text+ limitation.
+
+## Slice 0.4 final automated verification
+
+- A clean detached worktree containing the intended Slice 0.4 tracked diff and
+  orchestration evidence completed locked `npm ci` and `uv sync --frozen`
+  installs successfully.
+- With pinned Node 24.19.0, the top-level `npm run validate` gate passed:
+  generated contract output was current; TypeScript lint and typecheck passed;
+  16 contract tests and 1 tooling test passed; Ruff lint and format checks
+  passed; strict mypy passed for 19 source/test files; and all **85 Python
+  tests** passed, including 44 focused Studio spike tests.
+- `git diff --check` passed. The diff from accepted Slice 0.2 commit `c4a093c`
+  remained empty for `/contracts`, `/fixtures`, generated TypeScript/Python
+  contract output, `tests/data/slice_0_2/`, `tests/test_otio_package.py`,
+  `package-lock.json`, and `uv.lock`.
+- Unrelated dashboard and probe-script changes in the producer's main checkout
+  were excluded from the clean verification and left untouched.
 
 ## Acceptance history
+
+### Slice 0.4 — Accepted 2026-08-25
+
+The final uniquely named Resolve Studio 21.0.4 project was created through the
+supported public scripting API, saved, closed, reopened, and verified with no
+public-API-observable discrepancy. Clean locked installs, the full pinned
+validation gate, 85 Python tests, and the frozen-boundary audit passed. The
+producer visually inspected the project and explicitly accepted Slice 0.4,
+including the observed behavior that `Text+` landed on V1 for 120 frames because
+the installed public API does not expose destination-track or duration
+arguments for title insertion. That behavior is accepted as bounded spike
+evidence, not as a solved product capability; the focused open issue is in
+`docs/resolve-text-plus-destination-track-limitation.md`. Phase 0 is closed.
 
 ### Slice 0.3 — Accepted 2026-08-24
 
