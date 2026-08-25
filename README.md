@@ -192,6 +192,52 @@ to manually import both files into separate fresh Resolve Free projects and
 record the comparison. FCPXML remains a trial artifact unless that evidence
 supports and the producer records a maintained-fallback decision.
 
+## Slice 0.4 Studio scripting spike
+
+The Slice 0.4 CLI always consumes and re-verifies the accepted Slice 0.2
+package. First inspect local facts without importing or connecting to Resolve:
+
+```sh
+uv run --frozen python -m vera_timeline_agent.studio_spike_cli detect
+```
+
+Prove the Free safety boundary (this never imports, connects to, or invokes
+the Resolve API):
+
+```sh
+uv run --frozen python -m vera_timeline_agent.studio_spike_cli run \
+  out/slice-0.2-package --mode free
+```
+
+For producer acceptance only, manually start the supported standard desktop
+Resolve Studio installation and enable local external scripting in Resolve
+preferences. Run the nonmutating connected preflight:
+
+```sh
+uv run --frozen python -m vera_timeline_agent.studio_spike_cli run \
+  out/slice-0.2-package --mode studio --action preflight
+```
+
+After reviewing its detected and connected facts, authorize one uniquely
+named spike project build (replace the name for each attempt; existing projects
+are never reused or overwritten):
+
+```sh
+uv run --frozen python -m vera_timeline_agent.studio_spike_cli run \
+  out/slice-0.2-package --mode studio --action build \
+  --project-name "VERA Slice 0.4 Producer Acceptance 2026-08-24"
+```
+
+The build path creates bins/tracks from the adjustable manifest, imports and
+places its three trimmed videos, still, and synthetic narration at exact
+record/source frames, requests the stock `Text+` Fusion title, adds marker
+custom data, saves, closes/reopens, and verifies public-API-observable track
+names, item counts/ranges, and marker data. The public API cannot enumerate
+stock Fusion titles or select/prove the title's destination track, so the CLI
+reports that bounded manual-completion item. Do not record a Studio capability
+until the producer performs and inspects this real run; automated doubles are
+not Resolve evidence.
+
 ## Slice workflow
 
 Agent guardrails live in [`AGENTS.md`](./AGENTS.md). Decisions and unresolved

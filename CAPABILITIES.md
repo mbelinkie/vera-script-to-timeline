@@ -7,14 +7,14 @@ expectations are not capability evidence.
 
 ## Current status
 
-Slice 0.3 automation prepares and locally verifies dual trial inputs but does
-not test Resolve behavior. No Resolve Free, Resolve Studio, OTIO-import, or
-FCPXML-import capability is claimed yet. Noninteractive local inspection on
-2026-08-24 detected macOS 15.1 build 24B83 (x86_64) and the standard
-Blackmagic application at `/Applications/DaVinci Resolve/DaVinci Resolve.app`
-reporting 21.0.4 / build 21.0.40005, with the `ManifestLite` package receipt
-and no application `_MASReceipt`. These facts are detected-not-yet-tested and
-do not establish edition or import capability.
+Slice 0.3 automation prepares and locally verifies dual trial inputs, and
+Slice 0.4 code/test doubles exercise the Studio adapter boundary. Neither has
+tested real Resolve behavior. Noninteractive inspection on 2026-08-24 detected
+macOS 15.1 build 24B83 (x86_64), the standard Blackmagic application at
+`/Applications/DaVinci Resolve/DaVinci Resolve.app` reporting 21.0.4 / build
+21.0.40005, the `ManifestLite` package receipt, no application `_MASReceipt`,
+and installed scripting bridge/documentation. These are detected facts, not
+evidence of edition, import fidelity, a Studio connection, or automation.
 
 ## Resolve Free import observations
 
@@ -28,11 +28,23 @@ do not establish edition or import capability.
 | Resolve version / installation | OS | Edition detection | External scripting | Create/reopen/verify result | Safety-boundary result | Evidence | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Pending Slice 0.4 | Pending | Not tested | Not tested | Not tested | Not tested | — | Unverified |
+| 21.0.4 / standard Blackmagic bundle, build 21.0.40005 | macOS 15.1 x86_64 | Not observed; bundle name is edition-neutral | Not attempted | Not attempted | Automated test doubles only; no real project mutation | Local `Info.plist`, receipt/module/docs presence; producer-run commands remain pending | Detected only / unverified |
 
 ## Minimum supported versions
 
 - Resolve Free: **Unresolved; requires Slice 0.3 evidence.**
 - Resolve Studio: **Unresolved; requires Slice 0.4 evidence.**
+
+## Installed public API gaps relevant to Slice 0.4
+
+The installed Resolve 21 documentation exposes
+`InsertFusionTitleIntoTimeline(titleName)` and playhead positioning, but no
+supported stock Fusion-title enumeration API and no supported destination
+track selection API for title insertion. The spike can request `Text+` at the
+frame-zero playhead and report whether insertion returned an item; it cannot
+prove from the public API that the title was stock or force/prove V4 placement.
+That remains an explicit manual-completion/capability observation, never a
+private-API or UI-automation fallback.
 
 ## Observation template
 

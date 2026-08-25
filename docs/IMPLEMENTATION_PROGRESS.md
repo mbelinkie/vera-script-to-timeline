@@ -32,7 +32,7 @@ Last updated: 2026-08-24
 | 0.1 Repository, contracts, and fixture scaffold | Accepted | Orchestrator + bounded implementation agents | — | Producer accepted on 2026-08-24 after clean detached-worktree validation and green GitHub Actions runs `32789057717` and `32789138346`. Contracts and fixtures are now frozen. |
 | 0.2 Handcrafted manifest → OTIO package | Accepted | Orchestrator + bounded implementation and review agents | 0.1 accepted | Producer explicitly accepted on 2026-08-24 after package inspection, independent review, fresh-worktree verification, and green CI. `/contracts` and `/fixtures` remain frozen and unchanged. |
 | 0.3 Resolve Free import trial | In progress | Producer + agent preparer/recorder | 0.2 accepted | Automated dual-input preparation is implemented; actual Resolve Free manual imports and producer evidence remain required |
-| 0.4 Resolve Studio scripting spike | Queued | Unassigned | 0.2 accepted | Requires supported desktop Studio and external scripting availability |
+| 0.4 Resolve Studio scripting spike | Agent complete | Assigned Slice 0.4 worktree | 0.2 accepted | Fail-closed API/CLI and automated tests complete; real producer Studio preflight/build and capability evidence remain required for acceptance |
 
 ## Slice 0.1 orchestration plan
 
@@ -85,6 +85,7 @@ changes, why, compatibility impact, regenerated outputs, and acceptance impact.
 | 2026-08-24 | Slice 0.2 independent review workstream | Audit implementation, package boundaries, OTIO fidelity, determinism, and acceptance coverage | Agent complete | Integrated as `27e47d3`; rejected symlink/hard-link escapes, tightened hard-cut and identity semantics, added adversarial OTIO timing checks, and independently reproduced the full validation/package workflow in a fresh detached worktree. No unresolved code findings. |
 | 2026-08-24 | Producer | Open and inspect the Slice 0.2 self-contained package, instructions, and event report | Accepted | Producer explicitly accepted Slice 0.2. Slices 0.3 and 0.4 are now unblocked; Resolve import fidelity remains a Slice 0.3 concern. |
 | 2026-08-24 | Slice 0.3 preparation workstream | Prepare deterministic OTIO/FCPXML inputs and the producer evidence workflow without launching Resolve | Agent complete | Added a stdlib-only FCPXML evidence spike, dual-input command, semantic/self-containment checks, alternate-setting/track-map coverage, and manual worksheet. Detected local installation facts are explicitly untested; producer imports and D-P005 remain pending. |
+| 2026-08-24 | Slice 0.4 implementation workstream | Add a supported-API Studio spike over the accepted Slice 0.2 package with fail-closed edition/install/scripting gates | Agent complete | Added local detection, nonmutating preflight, injected Resolve adapter, exact manifest assembly/reopen/verification flow, CLI, safety/order tests, and honest Fusion public-API gap reporting. No real Resolve connection or UI action was performed; producer acceptance remains pending. |
 
 ## Producer decisions and external checks
 
