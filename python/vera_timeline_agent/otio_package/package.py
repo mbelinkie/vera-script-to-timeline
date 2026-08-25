@@ -156,6 +156,8 @@ def _validate_semantics(manifest: JsonObject, media_root: Path) -> None:
     track_by_id = _unique_by_id(tracks, "track")
     source_by_id = _unique_by_id(sources, "source")
     event_by_id = _unique_by_id(events, "event")
+    _unique_by_id(transitions, "transition")
+    _unique_by_id(markers, "marker")
     track_slots: set[tuple[str, int]] = set()
     for track in tracks:
         slot = (track["kind"], track["index"])
@@ -228,20 +230,28 @@ def _validate_semantics(manifest: JsonObject, media_root: Path) -> None:
                 )
         events_by_track[track_id].append(event)
 
+    adjacent_boundaries: set[tuple[str, str, int]] = set()
     for track_id, track_events in events_by_track.items():
         ordered = sorted(
             track_events, key=lambda event: event["recordRange"]["startFrame"]
         )
         for previous, current in pairwise(ordered):
-            if (
-                _range_end(previous["recordRange"])
-                > current["recordRange"]["startFrame"]
-            ):
+            previous_end = _range_end(previous["recordRange"])
+            current_start = cast(int, current["recordRange"]["startFrame"])
+            if previous_end > current_start:
                 raise PackageBuildError(
                     f"event {current['id']} overlaps {previous['id']} on track "
                     f"{track_id}"
                 )
+            if (
+                previous_end == current_start
+                and track_by_id[track_id]["kind"] == "video"
+            ):
+                adjacent_boundaries.add(
+                    (cast(str, previous["id"]), cast(str, current["id"]), previous_end)
+                )
 
+    declared_boundaries: set[tuple[str, str, int]] = set()
     for transition in transitions:
         transition_id = cast(str, transition["id"])
         from_event = event_by_id.get(transition["fromEventId"])
@@ -259,6 +269,26 @@ def _validate_semantics(manifest: JsonObject, media_root: Path) -> None:
             raise PackageBuildError(
                 f"hard cut {transition_id} is not an adjacent same-track boundary"
             )
+        boundary = (
+            cast(str, transition["fromEventId"]),
+            cast(str, transition["toEventId"]),
+            cast(int, at_frame),
+        )
+        if boundary in declared_boundaries:
+            raise PackageBuildError(
+                f"hard cut {transition_id} duplicates an already declared boundary"
+            )
+        declared_boundaries.add(boundary)
+
+    missing_boundaries = adjacent_boundaries - declared_boundaries
+    if missing_boundaries:
+        formatted = ", ".join(
+            f"{from_id}->{to_id}@{frame}"
+            for from_id, to_id, frame in sorted(missing_boundaries)
+        )
+        raise PackageBuildError(
+            f"missing hard cut declarations for adjacent event boundaries: {formatted}"
+        )
 
     for marker in markers:
         if marker["state"] != "placed":
@@ -781,10 +811,20 @@ def _verify_structure(package_root: Path, manifest: JsonObject) -> list[JsonObje
         IMPORT_INSTRUCTIONS_FILENAME,
         *(cast(str, source["path"]) for source in media_sources),
     }
+    entries = list(package_root.rglob("*"))
+    for path in entries:
+        relative_path = path.relative_to(package_root).as_posix()
+        if path.is_symlink():
+            raise _verification_error(
+                f"package contains a symbolic link and is not self-contained: "
+                f"{relative_path}"
+            )
+        if not path.is_file() and not path.is_dir():
+            raise _verification_error(
+                f"package contains an unsupported filesystem entry: {relative_path}"
+            )
     actual = {
-        path.relative_to(package_root).as_posix()
-        for path in package_root.rglob("*")
-        if path.is_file()
+        path.relative_to(package_root).as_posix() for path in entries if path.is_file()
     }
     if actual != expected:
         raise _verification_error(
@@ -800,6 +840,11 @@ def _verify_media(package_root: Path, sources: list[JsonObject]) -> None:
     for source in sources:
         project_path = cast(str, source["path"])
         path = package_root / PurePosixPath(project_path)
+        if path.stat(follow_symlinks=False).st_nlink != 1:
+            raise _verification_error(
+                f"media file is hard-linked and is not an independent package copy: "
+                f"{project_path}"
+            )
         actual = _sha256_file(path)
         expected = cast(str, source["contentHash"])[len(_HASH_PREFIX) :]
         if actual != expected:
@@ -994,6 +1039,10 @@ def verify_otio_package(package_dir: Path | str) -> VerificationResult:
     package_root = Path(package_dir)
     if not package_root.is_dir():
         raise PackageBuildError(f"package directory does not exist: {package_root}")
+    if package_root.is_symlink():
+        raise _verification_error(
+            f"package root is a symbolic link and is not self-contained: {package_root}"
+        )
     manifest_path = package_root / MANIFEST_FILENAME
     manifest = _load_json_object(manifest_path, "canonical timeline manifest")
     validate_timeline_manifest(manifest)

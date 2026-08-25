@@ -334,6 +334,60 @@ def test_verifier_rejects_a_schema_valid_but_incomplete_report(tmp_path: Path) -
         verify_otio_package(output)
 
 
+def test_verifier_compares_parsed_otio_timing_not_duplicated_metadata(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "package"
+    result = build_otio_package(HANDCRAFTED_MANIFEST, MEDIA_ROOT, output)
+    timeline = otio.adapters.read_from_file(str(result.otio_path))
+    clip = next(
+        child
+        for track in timeline.tracks
+        for child in track
+        if isinstance(child, otio.schema.Clip)
+    )
+    assert clip.source_range is not None
+    clip.source_range = otio.opentime.TimeRange(
+        start_time=clip.source_range.start_time + otio.opentime.RationalTime(1, 1),
+        duration=clip.source_range.duration,
+    )
+    otio.adapters.write_to_file(
+        timeline,
+        str(result.otio_path),
+        adapter_name="otio_json",
+    )
+
+    with pytest.raises(PackageBuildError, match="OTIO event differs from manifest"):
+        verify_otio_package(output)
+
+
+def test_verifier_rejects_external_symlink_and_hard_link_media(
+    tmp_path: Path,
+) -> None:
+    symlink_output = tmp_path / "symlink-package"
+    build_otio_package(HANDCRAFTED_MANIFEST, MEDIA_ROOT, symlink_output)
+    relative_media_path = load_handcrafted_manifest()["sources"][0]["path"]
+    symlink_media = symlink_output / relative_media_path
+    symlink_media.unlink()
+    symlink_media.symlink_to(MEDIA_ROOT / relative_media_path)
+
+    with pytest.raises(PackageBuildError, match="symbolic link"):
+        verify_otio_package(symlink_output)
+    with pytest.raises(PackageBuildError, match="not the same verified package"):
+        build_otio_package(HANDCRAFTED_MANIFEST, MEDIA_ROOT, symlink_output)
+
+    hard_link_output = tmp_path / "hard-link-package"
+    build_otio_package(HANDCRAFTED_MANIFEST, MEDIA_ROOT, hard_link_output)
+    hard_link_media = hard_link_output / relative_media_path
+    external_copy = tmp_path / "external-copy.mp4"
+    external_copy.write_bytes(hard_link_media.read_bytes())
+    hard_link_media.unlink()
+    hard_link_media.hardlink_to(external_copy)
+
+    with pytest.raises(PackageBuildError, match="hard-linked"):
+        verify_otio_package(hard_link_output)
+
+
 ManifestMutation = Callable[[dict[str, Any]], None]
 
 
@@ -368,6 +422,10 @@ def overlap_record_ranges(manifest: dict[str, Any]) -> None:
     manifest["events"][1]["recordRange"]["startFrame"] = 17
 
 
+def omit_hard_cuts(manifest: dict[str, Any]) -> None:
+    manifest["transitions"] = []
+
+
 def target_incompatible_track(manifest: dict[str, Any]) -> None:
     manifest["events"][-1]["trackId"] = "video-primary"
 
@@ -382,6 +440,7 @@ def target_incompatible_track(manifest: dict[str, Any]) -> None:
         (overrun_source_range, "exceeds source duration"),
         (require_implicit_retime, "requires a retime"),
         (overlap_record_ranges, "overlaps"),
+        (omit_hard_cuts, "missing hard cut declarations"),
         (target_incompatible_track, "does not match target track kind"),
     ],
 )
