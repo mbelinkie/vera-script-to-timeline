@@ -12,9 +12,9 @@ testing in real Resolve Free 21 on an Intel Mac found that OTIO imported all
 five expected linked items and retained the expected marker. FCPXML imported
 the same five items only after the producer redirected Resolve to the packaged
 media and did not retain the marker. No other difference was observed. The
-evidence supports parking FCPXML, but D-P005 and Slice 0.3 acceptance remain
-pending explicit producer approval. Slice 0.4 code/test doubles exercise the
-Studio adapter boundary, but no real Studio installation has been tested.
+producer accepted Slice 0.3 and approved D-P005 to park FCPXML. Slice 0.4
+code/test doubles exercise the Studio adapter boundary, but no real Studio
+installation has been tested.
 Noninteractive inspection on 2026-08-24 detected macOS 15.1 build 24B83
 (x86_64), the default-path application bundle at
 `/Applications/DaVinci Resolve/DaVinci Resolve.app` reporting 21.0.4 / build
@@ -28,7 +28,7 @@ connection, or automation.
 
 | Resolve version / installation | OS | Format | Item counts and durations | Track names/order | Media links | Markers | Transitions | Evidence | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Producer reported Resolve Free 21; default-path bundle separately detected as 21.0.4 (21.0.40005) | macOS 15.1 (24B83), x86_64 | OTIO | 4 picture + 1 audio; no timing discrepancy noticed | No discrepancy noticed | All 5 linked; no relink issue reported | Expected marker present | No discrepancy noticed | Producer worksheet at `docs/slice-0.3-resolve-free-trial.md`, 2026-08-24 | Producer-observed import passed |
+| Producer reported Resolve Free 21; default-path bundle separately detected as 21.0.4 (21.0.40005) | macOS 15.1 (24B83), x86_64 | OTIO | 4 picture + 1 audio; no timing discrepancy noticed | No discrepancy noticed | All 5 linked; no relink issue reported | Expected marker present | No discrepancy noticed | Producer worksheet at `docs/slice-0.3-resolve-free-trial.md`, 2026-08-24 | Accepted Slice 0.3 baseline |
 | Producer reported Resolve Free 21 installed from Blackmagic download; default-path bundle separately detected as 21.0.4 (21.0.40005) | macOS 15.1 (24B83), x86_64 | FCPXML | 4 picture + 1 audio after media redirect; no timing discrepancy noticed | No discrepancy noticed | All 5 linked after manual redirect to packaged media | Expected marker missing | No discrepancy noticed | Producer worksheet at `docs/slice-0.3-resolve-free-trial.md`, 2026-08-24 | Producer-observed import completed with marker and initial-linking discrepancies |
 
 ## Resolve Studio automation observations
@@ -40,7 +40,9 @@ connection, or automation.
 
 ## Minimum supported versions
 
-- Resolve Free: **Unresolved; requires Slice 0.3 evidence.**
+- Resolve Free: **Tested baseline is Resolve Free 21 on the detected 21.0.4 /
+  build 21.0.40005 bundle. A true minimum is not claimed without lower-version
+  evidence.**
 - Resolve Studio: **Unresolved; requires Slice 0.4 evidence.**
 
 ## Installed public API gaps relevant to Slice 0.4
@@ -62,6 +64,14 @@ build success. The bounded spike also rejects nonzero timeline starts before
 loading the vendor bridge, requires a documented timeline page before mutation,
 and cannot prove the connected executable path because the public API does not
 report it.
+
+## Interchange decision
+
+OTIO is the maintained interchange path for the tested Resolve Free workflow.
+FCPXML is parked under accepted decision D-P005: it required a manual media
+redirect, omitted the expected marker, and closed no observed OTIO gap. The
+bounded deterministic FCPXML spike remains in the repository as contingency
+evidence, not as a committed product output path.
 
 ## Observation template
 

@@ -19,14 +19,14 @@ into an implementation assumption.
 | D-0003 | Accepted | CI runs on Ubuntu 24.04, while repository commands must also run on the producer's macOS-compatible local toolchain. | Slice 0.1 explicitly permits Ubuntu CI but requires macOS-compatible code. |
 | D-0004 | Accepted | Default channel delivery settings are 23.976 fps, 1920×1080, and 48 kHz. They are configurable project/build settings, not hard-coded invariants. | Approved by the producer on 2026-08-24. Fixtures may use these defaults, while contracts and later compilation/delivery paths must permit explicit alternatives. |
 | D-0005 | Accepted | Use the specification section 9.2 track map as the default: V1 presenter/A-roll, V2 research clips, V3 B-roll/stills, V4 graphics/titles, V5 debug/placeholders; A1–A2 narration, A3–A4 source audio, A5 music/SFX; S1 required English subtitles. Track names, IDs, and additional tracks remain adjustable rather than contract invariants. | Approved by the producer on 2026-08-24. Slice 0.2 may emit this default map, while the manifest contract continues to represent track identity, kind, index, and label structurally. |
+| D-P005 | Accepted | Park FCPXML rather than maintain it as a product fallback. OTIO remains the maintained interchange path for the tested Resolve Free workflow; the deterministic FCPXML spike remains contingency evidence only. | Approved by the producer on 2026-08-24 after the Slice 0.3 comparison. OTIO imported all five expected linked items and retained the marker. FCPXML required a manual media redirect and omitted the marker, with no compensating advantage observed. |
 
 ## Pending producer decisions
 
 | ID | Status | Decision needed | Known constraint / evidence required |
 | --- | --- | --- | --- |
 | D-P001 | Pending producer | Primary local-agent OS | Local inspection detected macOS 15.1 build 24B83 on x86_64, but detection is not producer approval of the supported primary environment. |
-| D-P002 | Pending producer | Exact Resolve Free and Resolve Studio editions/installations to test | The default-path bundle at `/Applications/DaVinci Resolve/DaVinci Resolve.app` is objectively version 21.0.4, build 21.0.40005, with a matching `ManifestLite` 21.0.4 receipt, no MAS receipt, and installed scripting module/docs. Its edition, connected executable identity, import fidelity, and successful external connection remain unobserved until producer runs; no capability is inferred from the bundle. |
-| D-P005 | Pending producer | Maintain FCPXML as a fallback or park it | The deterministic FCPXML evidence spike is a trial artifact only. Slice 0.3 must decide from recorded OTIO-versus-FCPXML imports into actual Resolve Free. |
+| D-P002 | Pending producer | Exact Resolve Studio installation to test; retain or refine the tested Free baseline | The producer accepted Slice 0.3 after testing Resolve Free 21 from the Blackmagic download on the detected default-path bundle (21.0.4, build 21.0.40005). No Studio installation is currently available, so the Studio target, connected executable identity, and successful external connection remain unresolved. |
 
 ## Decision record template
 

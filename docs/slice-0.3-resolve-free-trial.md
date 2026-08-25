@@ -107,7 +107,7 @@ the trial environment. Detection is not a capability observation.
 - Does FCPXML close a material OTIO gap? State exact evidence: no. The producer
   observed no advantage over OTIO; FCPXML instead introduced two additional
   import discrepancies.
-- Proposed D-P005 outcome: **park FCPXML** (pending explicit producer approval)
+- D-P005 outcome: **park FCPXML** (producer approved 2026-08-24)
 - Rationale and compatibility/acceptance impact: OTIO preserved the expected
   marker and linked all five sources without a reported relink issue. FCPXML
   preserved the five timeline items after manual relinking but omitted the
@@ -115,7 +115,6 @@ the trial environment. Detection is not a capability observation.
   did not close an observed OTIO gap. The deterministic spike remains available
   as contingency evidence rather than a supported product path.
 
-After both observations are complete, transfer only objective results and
-evidence locators into `CAPABILITIES.md`; resolve D-P001, D-P002, and D-P005 in
-`DECISIONS.md`. The producer—not the generated package or agent report—accepts
-the slice.
+The objective results are recorded in `CAPABILITIES.md`, and D-P005 is resolved
+in `DECISIONS.md`. D-P001 and the Studio portion of D-P002 remain pending. The
+producer accepted Slice 0.3 on 2026-08-24.

@@ -11,10 +11,9 @@ Last updated: 2026-08-24
 ## Current milestone
 
 - **Phase:** 0 — Foundations and Resolve capability spike
-- **Active slices:** 0.3 — Resolve Free import trial; 0.4 — Resolve Studio
-  scripting spike
-- **Overall state:** Slices 0.1 and 0.2 accepted; Slice 0.3 producer trial in
-  progress; Slice 0.4 agent-complete and awaiting producer acceptance
+- **Active slice:** 0.4 — Resolve Studio scripting spike
+- **Overall state:** Slices 0.1, 0.2, and 0.3 accepted; Slice 0.4 agent-complete
+  and awaiting producer access to Resolve Studio
 - **Source specification:** `docs/Script-to-Timeline Product Spec - Fable Rev2.md`
 
 ## Status legend
@@ -32,7 +31,7 @@ Last updated: 2026-08-24
 | --- | --- | --- | --- | --- |
 | 0.1 Repository, contracts, and fixture scaffold | Accepted | Orchestrator + bounded implementation agents | — | Producer accepted on 2026-08-24 after clean detached-worktree validation and green GitHub Actions runs `32789057717` and `32789138346`. Contracts and fixtures are now frozen. |
 | 0.2 Handcrafted manifest → OTIO package | Accepted | Orchestrator + bounded implementation and review agents | 0.1 accepted | Producer explicitly accepted on 2026-08-24 after package inspection, independent review, fresh-worktree verification, and green CI. `/contracts` and `/fixtures` remain frozen and unchanged. |
-| 0.3 Resolve Free import trial | In progress | Producer + agent preparer/recorder | 0.2 accepted | Producer completed the OTIO/FCPXML comparison: OTIO retained the marker and linked all five items; FCPXML required a manual media redirect and omitted the marker, with no observed compensating advantage. D-P005 and explicit slice acceptance remain required. |
+| 0.3 Resolve Free import trial | Accepted | Producer + agent preparer/recorder | 0.2 accepted | Producer accepted on 2026-08-24. OTIO retained the marker and linked all five items; FCPXML required a manual media redirect and omitted the marker. D-P005 parks FCPXML with no observed compensating advantage. |
 | 0.4 Resolve Studio scripting spike | Agent complete | Bounded implementation, hardening, and review agents | 0.2 accepted | Fail-closed API/CLI, independent review, and automated checks are complete and CI-green; real producer Studio preflight/build and capability evidence remain required for acceptance |
 
 ## Slice 0.1 orchestration plan
@@ -91,7 +90,7 @@ changes, why, compatibility impact, regenerated outputs, and acceptance impact.
 | 2026-08-24 | Slices 0.3/0.4 boundary-hardening workstreams | Close successive independent findings without changing accepted contracts, fixtures, generated types, or Slice 0.2 evidence | Agent complete | Integrated `6199288`, `c316194`, `76ef9c1`, and `51166da`: corrected public Resolve API semantics, exact topology verification, documented-path media mapping, timeline-page gating, transition rejection, and fail-closed preflight/mutation boundaries. |
 | 2026-08-24 | Final bounded fixer and fresh read-only review | Close cross-kind FCPXML resource-ID and Resolve install/connected-identity findings, then independently rereview the final commit | Agent complete | Integrated `f972afa`: all direct FCPXML resource IDs must be nonempty and globally unique; package-receipt classification requires the canonical app path, Blackmagic bundle ID, parseable matching version/build, and matching receipt; connected identity validates and compares all documented `GetVersion()` fields. Fresh review reported no findings. |
 | 2026-08-24 | Orchestrator integration and CI | Integrate Slices 0.3/0.4 commits, rerun the full repository gate, audit frozen boundaries, push, and monitor CI | Complete | Main includes `447c08b` through `f972afa`; local validation passed with 82 Python tests, 16 contract tests, and 1 tooling test. Frozen-boundary diff is empty. GitHub Actions `32801825210` passed. |
-| 2026-08-24 | Producer | Import both Slice 0.3 trial formats in actual Resolve Free and record observed behavior | Complete; decision pending | OTIO imported all five expected linked items and retained the marker. FCPXML imported the five items after a manual redirect to packaged media but omitted the marker. No other difference was observed. Evidence supports parking FCPXML; producer approval of D-P005 and Slice 0.3 remain pending. |
+| 2026-08-24 | Producer | Import both Slice 0.3 trial formats in actual Resolve Free and record observed behavior | Accepted | OTIO imported all five expected linked items and retained the marker. FCPXML imported the five items after a manual redirect to packaged media but omitted the marker. No other difference was observed. Producer approved D-P005 to park FCPXML and accepted Slice 0.3. |
 
 ## Producer decisions and external checks
 
@@ -104,16 +103,17 @@ before their dependent slices close:
   as configurable settings with defaults of 23.976 fps, 1920×1080, and 48 kHz.
 - Track naming convention: **resolved by D-0005**; use the specification's
   section 9.2 map as the adjustable default rather than a contract invariant.
-- Slice 0.3 OTIO-versus-FCPXML fallback decision, based on recorded evidence.
+- Slice 0.3 OTIO-versus-FCPXML fallback decision: **resolved by D-P005**; park
+  FCPXML and maintain OTIO for the tested Free workflow.
 
 ## Risks / blockers
 
 - The assigned workspace began as an empty Git repository; it has been
   initialized from the authoritative GitHub repository without modifying the
   separate desktop checkout.
-- Slice 0.3 and the producer-observed portion of Slice 0.4 require interactive
-  access to the team's actual Resolve installations. Those checks cannot be
-  replaced by automated mocks.
+- The producer-observed portion of Slice 0.4 requires access to an actual
+  Resolve Studio installation. No Studio installation is currently available;
+  that check cannot be replaced by automated mocks.
 - Contract workstreams must not independently invent incompatible event or
   block shapes; the spec's canonical model and Phase 0/1 boundaries govern.
 
@@ -183,10 +183,12 @@ before their dependent slices close:
   formatting, strict mypy, and generated-contract currentness.
 - `/contracts`, `/fixtures`, generated contract outputs, the accepted Slice
   0.2 manifest, and accepted Slice 0.2 tests remain unchanged.
-- macOS/Resolve package facts are recorded only as detected-not-yet-tested.
-  Resolve was not launched and no import capability is claimed.
-- Producer manual OTIO/FCPXML imports, retained evidence, capability rows, and
-  the FCPXML maintain-or-park decision remain the Slice 0.3 acceptance gate.
+- Repository detection facts remain distinct from producer observation. The
+  producer manually tested both formats in Resolve Free 21 and accepted the
+  recorded OTIO baseline.
+- Producer evidence showed FCPXML omitted the marker and required a manual
+  media redirect without closing an OTIO gap. D-P005 parks FCPXML, and the
+  producer accepted Slice 0.3 on 2026-08-24.
 
 ## Slices 0.3 and 0.4 integrated verification result
 
@@ -226,6 +228,17 @@ before their dependent slices close:
   performs the documented Slice 0.3 and Slice 0.4 acceptance procedures.
 
 ## Acceptance history
+
+### Slice 0.3 — Accepted 2026-08-24
+
+The producer manually imported both generated trial formats in Resolve Free 21
+on the detected Intel macOS environment. OTIO imported all five expected linked
+items and retained the expected marker. FCPXML imported the five items only
+after a manual redirect to packaged media and omitted the marker; no other
+difference or compensating advantage was observed. The producer approved
+D-P005 to park FCPXML and explicitly accepted Slice 0.3. The deterministic
+FCPXML spike remains contingency evidence rather than a maintained product
+path.
 
 ### Slice 0.2 — Accepted 2026-08-24
 
