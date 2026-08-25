@@ -125,6 +125,46 @@ def test_fcpxml_verifier_rejects_semantic_and_media_tampering(tmp_path: Path) ->
         verify_fcpxml_input(result.fcpxml_input_dir)
 
 
+def test_fcpxml_verifier_rejects_transition_and_duplicate_identities(
+    tmp_path: Path,
+) -> None:
+    result = build_free_trial(MANIFEST, MEDIA_ROOT, tmp_path / "transition")
+    fcpxml = result.fcpxml_input_dir / FCPXML_FILENAME
+    tree = ET.parse(fcpxml)
+    gap = tree.getroot().find("./library/event/project/sequence/spine/gap")
+    assert gap is not None
+    gap.insert(1, ET.Element("transition", name="unexpected dissolve"))
+    tree.write(fcpxml, encoding="utf-8", xml_declaration=True)
+    with pytest.raises(PackageBuildError, match="requires hard cuts"):
+        verify_fcpxml_input(result.fcpxml_input_dir)
+
+    result = build_free_trial(MANIFEST, MEDIA_ROOT, tmp_path / "duplicate-event")
+    fcpxml = result.fcpxml_input_dir / FCPXML_FILENAME
+    tree = ET.parse(fcpxml)
+    clips = tree.getroot().findall(
+        "./library/event/project/sequence/spine/gap/asset-clip"
+    )
+    first_id = clips[0].find("./metadata/md[@key='vera.eventId']")
+    second_id = clips[1].find("./metadata/md[@key='vera.eventId']")
+    assert first_id is not None and second_id is not None
+    second_id.set("value", cast(str, first_id.get("value")))
+    tree.write(fcpxml, encoding="utf-8", xml_declaration=True)
+    with pytest.raises(PackageBuildError, match=r"event identities.*duplicate"):
+        verify_fcpxml_input(result.fcpxml_input_dir)
+
+    result = build_free_trial(MANIFEST, MEDIA_ROOT, tmp_path / "duplicate-source")
+    fcpxml = result.fcpxml_input_dir / FCPXML_FILENAME
+    tree = ET.parse(fcpxml)
+    assets = tree.getroot().findall("./resources/asset")
+    first_source = assets[0].find("./metadata/md[@key='vera.sourceId']")
+    second_source = assets[1].find("./metadata/md[@key='vera.sourceId']")
+    assert first_source is not None and second_source is not None
+    second_source.set("value", cast(str, first_source.get("value")))
+    tree.write(fcpxml, encoding="utf-8", xml_declaration=True)
+    with pytest.raises(PackageBuildError, match=r"asset/source identities.*duplicate"):
+        verify_fcpxml_input(result.fcpxml_input_dir)
+
+
 def test_existing_different_output_is_preserved(tmp_path: Path) -> None:
     output = tmp_path / "trial"
     output.mkdir()

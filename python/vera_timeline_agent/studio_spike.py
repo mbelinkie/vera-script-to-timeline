@@ -6,6 +6,7 @@ import importlib.util
 import json
 import platform
 import plistlib
+import subprocess
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
@@ -19,6 +20,8 @@ DEFAULT_SCRIPTING_ROOT = Path(
     "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting"
 )
 MANIFEST_NAME = "timeline-manifest.json"
+BLACKMAGIC_RECEIPT_ID = "com.blackmagic-design.ManifestLite"
+TIMELINE_PAGES = frozenset({"cut", "edit", "color", "fairlight", "deliver"})
 
 JsonObject = dict[str, Any]
 
@@ -41,6 +44,8 @@ class LocalFacts:
     bundle_version: str | None
     bundle_build: str | None
     mas_receipt: bool
+    package_receipt_id: str | None
+    package_receipt_version: str | None
     scripting_module_path: str
     scripting_module_installed: bool
     scripting_docs_path: str
@@ -132,12 +137,19 @@ def detect_local_capabilities(
     docs = scripting_root / "README.txt"
     app_installed = app_path.is_dir()
     mas_receipt = receipt.is_file()
+    package_receipt_id, package_receipt_version = _blackmagic_package_receipt()
     if not app_installed:
         install_source = "missing"
     elif mas_receipt:
         install_source = "mac_app_store"
+    elif (
+        package_receipt_id == BLACKMAGIC_RECEIPT_ID
+        and package_receipt_version
+        == _optional_string(bundle.get("CFBundleShortVersionString"))
+    ):
+        install_source = "blackmagic_package_receipt"
     else:
-        install_source = "blackmagic_standard"
+        install_source = "unknown_non_mas"
     mac_version = platform.mac_ver()[0]
     return LocalFacts(
         os_name="macOS" if sys.platform == "darwin" else platform.system(),
@@ -150,6 +162,8 @@ def detect_local_capabilities(
         bundle_version=_optional_string(bundle.get("CFBundleShortVersionString")),
         bundle_build=_optional_string(bundle.get("CFBundleVersion")),
         mas_receipt=mas_receipt,
+        package_receipt_id=package_receipt_id,
+        package_receipt_version=package_receipt_version,
         scripting_module_path=str(module),
         scripting_module_installed=module.is_file(),
         scripting_docs_path=str(docs),
@@ -216,7 +230,7 @@ def run_delivery(
             ),
             local=local,
         )
-    connected_stop = _connected_studio_stop(connected)
+    connected_stop = _connected_studio_stop(local, connected)
     if connected_stop is not None:
         return CapabilityResult(
             status="stopped_safely",
@@ -239,6 +253,9 @@ def run_delivery(
     manual = (
         "The public API can insert a named Fusion title at the playhead but cannot "
         "enumerate stock Fusion titles or select/prove its destination video track.",
+        "The public API reports the connected product/version but not its executable "
+        "path; version agreement cannot prove the running process came from the "
+        "receipt-associated bundle detected on disk.",
         *probe_gaps,
     )
     if action == "preflight":
@@ -334,7 +351,9 @@ class PublicResolveAdapter:
         self.expected_timeline_name: str | None = None
         self.expected_settings: dict[str, str] = {}
         self.created_bins: list[str] = []
-        self.fusion_title_id: str | None = None
+        self.fusion_title_fingerprint: tuple[str, int, int, tuple[str, ...]] | None = (
+            None
+        )
 
     def connected_facts(self) -> ConnectedFacts:
         product = str(self.resolve.GetProductName())
@@ -345,6 +364,15 @@ class PublicResolveAdapter:
         return ConnectedFacts(product, edition, version, build, True)
 
     def probe(self, settings: Mapping[str, str]) -> tuple[str, ...]:
+        if not callable(getattr(self.resolve, "GetCurrentPage", None)):
+            raise StudioSpikeError("Resolve has no callable GetCurrentPage")
+        current_page = self.resolve.GetCurrentPage()
+        if current_page not in TIMELINE_PAGES:
+            allowed = ", ".join(sorted(TIMELINE_PAGES))
+            raise StudioSpikeError(
+                "Resolve must already be on a timeline page before preflight "
+                f"({allowed}); current page is {current_page!r}"
+            )
         manager = self.resolve.GetProjectManager()
         if manager is None:
             raise StudioSpikeError("GetProjectManager returned no object")
@@ -509,15 +537,17 @@ class PublicResolveAdapter:
         return cast(int, suffix_map[track_id])
 
     def insert_fusion_title(self, title_name: str, record_frame: int) -> None:
+        current_page = self.resolve.GetCurrentPage()
+        if current_page not in TIMELINE_PAGES:
+            raise StudioSpikeError(
+                "Resolve left the supported timeline page before Fusion insertion"
+            )
         if not self.timeline.SetCurrentTimecode(_frame_timecode(record_frame)):
             raise StudioSpikeError("could not position playhead for Fusion title")
         title = self.timeline.InsertFusionTitleIntoTimeline(title_name)
         if title is None:
             raise StudioSpikeError(f"Fusion title is unavailable: {title_name}")
-        title_id = title.GetUniqueId()
-        if not isinstance(title_id, str) or not title_id:
-            raise StudioSpikeError("inserted Fusion title has no public unique ID")
-        self.fusion_title_id = title_id
+        self.fusion_title_fingerprint = _fusion_title_fingerprint(title)
 
     def add_marker(self, marker: Mapping[str, Any], custom_data: str) -> None:
         if not self.timeline.AddMarker(
@@ -565,8 +595,33 @@ class PublicResolveAdapter:
             discrepancies.append("timeline end frame differs from manifest")
         self._verify_bins(discrepancies)
         expected_tracks = cast(list[Mapping[str, Any]], manifest["tracks"])
+        expected_track_counts = {
+            kind: max(
+                (
+                    cast(int, track["index"])
+                    for track in expected_tracks
+                    if track["kind"] == kind
+                ),
+                default=0,
+            )
+            for kind in ("video", "audio", "subtitle")
+        }
+        actual_items_by_slot: dict[tuple[str, int], list[Any]] = {}
+        for kind, expected_count in expected_track_counts.items():
+            actual_count = self.timeline.GetTrackCount(kind)
+            if actual_count != expected_count:
+                discrepancies.append(
+                    f"{kind} track count: expected {expected_count}, got {actual_count}"
+                )
+            for index in range(1, actual_count + 1):
+                actual_items_by_slot[(kind, index)] = list(
+                    self.timeline.GetItemListInTrack(kind, index)
+                )
         for track in expected_tracks:
             kind, index, name = track["kind"], track["index"], track["name"]
+            if cast(int, index) > self.timeline.GetTrackCount(cast(str, kind)):
+                discrepancies.append(f"{kind} track {index} is missing")
+                continue
             actual = self.timeline.GetTrackName(kind, index)
             if actual != name:
                 discrepancies.append(
@@ -583,8 +638,25 @@ class PublicResolveAdapter:
                 track_index[cast(str, event["trackId"])],
             )
             by_slot.setdefault(slot, []).append(event)
-        for (kind, index), expected_events in by_slot.items():
-            actual_items = list(self.timeline.GetItemListInTrack(kind, index))
+        title_matches = [
+            item
+            for (kind, _), items in actual_items_by_slot.items()
+            if kind == "video"
+            for item in items
+            if _matches_fusion_title(item, self.fusion_title_fingerprint)
+        ]
+        if len(title_matches) != 1:
+            discrepancies.append(
+                "expected exactly one reopened Fusion title matching the inserted "
+                f"public fingerprint, got {len(title_matches)}"
+            )
+        title_object_id = id(title_matches[0]) if len(title_matches) == 1 else None
+        for slot, actual_slot_items in actual_items_by_slot.items():
+            kind, index = slot
+            expected_events = by_slot.get(slot, [])
+            actual_items = [
+                item for item in actual_slot_items if id(item) != title_object_id
+            ]
             if len(actual_items) != len(expected_events):
                 discrepancies.append(
                     f"{kind} track {index}: expected {len(expected_events)} manifest "
@@ -626,13 +698,6 @@ class PublicResolveAdapter:
                     discrepancies.append(
                         f"event {expected_event['id']}: source media identity mismatch"
                     )
-        title_ids = {
-            item.GetUniqueId()
-            for index in range(1, self.timeline.GetTrackCount("video") + 1)
-            for item in self.timeline.GetItemListInTrack("video", index)
-        }
-        if self.fusion_title_id not in title_ids:
-            discrepancies.append("inserted Fusion title was not found after reopen")
         actual_markers = self.timeline.GetMarkers()
         for marker in cast(list[Mapping[str, Any]], manifest["markers"]):
             custom = json.dumps(
@@ -674,6 +739,61 @@ def _optional_string(value: object) -> str | None:
     return value if isinstance(value, str) else None
 
 
+def _blackmagic_package_receipt() -> tuple[str | None, str | None]:
+    try:
+        result = subprocess.run(
+            ["pkgutil", "--pkg-info-plist", BLACKMAGIC_RECEIPT_ID],
+            check=True,
+            capture_output=True,
+            timeout=5,
+        )
+        value = plistlib.loads(result.stdout)
+    except (OSError, subprocess.SubprocessError, plistlib.InvalidFileException):
+        return None, None
+    if not isinstance(value, dict):
+        return None, None
+    receipt_id = _optional_string(value.get("pkgid"))
+    receipt_version = _optional_string(value.get("pkg-version"))
+    if receipt_id != BLACKMAGIC_RECEIPT_ID:
+        return None, None
+    return receipt_id, receipt_version
+
+
+def _fusion_title_fingerprint(item: Any) -> tuple[str, int, int, tuple[str, ...]]:
+    name = item.GetName()
+    start = item.GetStart(False)
+    duration = item.GetDuration(False)
+    composition_count = item.GetFusionCompCount()
+    composition_names = item.GetFusionCompNameList()
+    if (
+        not isinstance(name, str)
+        or not name
+        or not isinstance(start, int)
+        or not isinstance(duration, int)
+        or duration <= 0
+        or not isinstance(composition_count, int)
+        or composition_count < 1
+        or not isinstance(composition_names, (list, tuple))
+        or len(composition_names) != composition_count
+        or not all(isinstance(value, str) and value for value in composition_names)
+    ):
+        raise StudioSpikeError(
+            "inserted Fusion title lacks a stable documented public fingerprint"
+        )
+    return name, start, duration, tuple(composition_names)
+
+
+def _matches_fusion_title(
+    item: Any, expected: tuple[str, int, int, tuple[str, ...]] | None
+) -> bool:
+    if expected is None:
+        return False
+    try:
+        return _fusion_title_fingerprint(item) == expected
+    except (AttributeError, StudioSpikeError, TypeError):
+        return False
+
+
 def _local_studio_stop(local: LocalFacts) -> str | None:
     if not local.app_installed:
         return "DaVinci Resolve is not installed at the configured application path."
@@ -682,6 +802,12 @@ def _local_studio_stop(local: LocalFacts) -> str | None:
             "The Mac App Store Resolve build is not an allowed external-scripting "
             "target. Install supported standard desktop Resolve Studio; no API was "
             "imported."
+        )
+    if local.install_source != "blackmagic_package_receipt":
+        return (
+            "Resolve exists, but no matching affirmative Blackmagic package receipt "
+            "identifies this default bundle; the Studio spike fails closed before "
+            "importing the API."
         )
     if not local.scripting_module_installed:
         return (
@@ -693,7 +819,7 @@ def _local_studio_stop(local: LocalFacts) -> str | None:
     return None
 
 
-def _connected_studio_stop(connected: ConnectedFacts) -> str | None:
+def _connected_studio_stop(local: LocalFacts, connected: ConnectedFacts) -> str | None:
     if not connected.scripting_available:
         return (
             "External scripting is unavailable or disabled; no project mutation "
@@ -704,6 +830,12 @@ def _connected_studio_stop(connected: ConnectedFacts) -> str | None:
             f"Connected product {connected.product_name!r} is not Studio; the verified "
             "package remains ready for manual Free import and no project mutation "
             "occurred."
+        )
+    if local.bundle_version and connected.version != local.bundle_version:
+        return (
+            "The connected Resolve version does not match the affirmatively detected "
+            f"bundle ({connected.version!r} versus {local.bundle_version!r}); no "
+            "project mutation occurred."
         )
     return None
 

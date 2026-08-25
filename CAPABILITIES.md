@@ -10,25 +10,26 @@ expectations are not capability evidence.
 Slice 0.3 automation prepares and locally verifies dual trial inputs, and
 Slice 0.4 code/test doubles exercise the Studio adapter boundary. Neither has
 tested real Resolve behavior. Noninteractive inspection on 2026-08-24 detected
-macOS 15.1 build 24B83 (x86_64), the standard Blackmagic application at
+macOS 15.1 build 24B83 (x86_64), the default-path application bundle at
 `/Applications/DaVinci Resolve/DaVinci Resolve.app` reporting 21.0.4 / build
-21.0.40005, the `ManifestLite` package receipt, no application `_MASReceipt`,
-and installed scripting bridge/documentation. These are detected facts, not
-evidence of edition, import fidelity, a Studio connection, or automation.
+21.0.40005, a matching `ManifestLite` 21.0.4 package receipt, no application
+`_MASReceipt`, and installed scripting bridge/documentation. These are
+detected facts, not proof of the connected executable path and not evidence of
+edition, import fidelity, a Studio connection, or automation.
 
 ## Resolve Free import observations
 
 | Resolve version / installation | OS | Format | Item counts and durations | Track names/order | Media links | Markers | Transitions | Evidence | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Detected, not yet tested: standard Blackmagic Resolve 21.0.4 (21.0.40005), ManifestLite, no MAS receipt | macOS 15.1 (24B83), x86_64 | OTIO | Not tested | Not tested | Not tested | Not tested | Not tested | `docs/slice-0.3-resolve-free-trial.md` pending worksheet | Unverified |
-| Detected, not yet tested: standard Blackmagic Resolve 21.0.4 (21.0.40005), ManifestLite, no MAS receipt | macOS 15.1 (24B83), x86_64 | FCPXML | Not tested | Not tested | Not tested | Not tested | Not tested | `docs/slice-0.3-resolve-free-trial.md` pending worksheet | Unverified |
+| Detected, not yet tested: default-path Resolve 21.0.4 (21.0.40005), matching ManifestLite receipt, no MAS receipt | macOS 15.1 (24B83), x86_64 | OTIO | Not tested | Not tested | Not tested | Not tested | Not tested | `docs/slice-0.3-resolve-free-trial.md` pending worksheet | Unverified |
+| Detected, not yet tested: default-path Resolve 21.0.4 (21.0.40005), matching ManifestLite receipt, no MAS receipt | macOS 15.1 (24B83), x86_64 | FCPXML | Not tested | Not tested | Not tested | Not tested | Not tested | `docs/slice-0.3-resolve-free-trial.md` pending worksheet | Unverified |
 
 ## Resolve Studio automation observations
 
 | Resolve version / installation | OS | Edition detection | External scripting | Create/reopen/verify result | Safety-boundary result | Evidence | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Pending Slice 0.4 | Pending | Not tested | Not tested | Not tested | Not tested | — | Unverified |
-| 21.0.4 / standard Blackmagic bundle, build 21.0.40005 | macOS 15.1 x86_64 | Not observed; bundle name is edition-neutral | Not attempted | Not attempted | Automated test doubles only; no real project mutation | Local `Info.plist`, receipt/module/docs presence; producer-run commands remain pending | Detected only / unverified |
+| 21.0.4 / default-path bundle with matching ManifestLite receipt, build 21.0.40005 | macOS 15.1 x86_64 | Not observed; bundle name is edition-neutral | Not attempted | Not attempted | Automated test doubles only; no real project mutation | Local `Info.plist`, receipt/module/docs presence; producer-run commands remain pending | Detected only / unverified |
 
 ## Minimum supported versions
 
@@ -51,7 +52,9 @@ current Project/MediaPool settings and method surfaces. It cannot exercise
 project creation, setting mutation, import, timeline assembly, or title
 insertion. The CLI reports that gap instead of treating preflight as proof of
 build success. The bounded spike also rejects nonzero timeline starts before
-loading the vendor bridge.
+loading the vendor bridge, requires a documented timeline page before mutation,
+and cannot prove the connected executable path because the public API does not
+report it.
 
 ## Observation template
 

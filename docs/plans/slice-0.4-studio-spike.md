@@ -73,7 +73,8 @@ the explicitly authorized connected path.
 3. Run the documented Free command and confirm it stops at the verified
    package without a Resolve connection.
 4. Manually start the supported standard desktop Resolve Studio installation,
-   enable external local scripting in Resolve preferences, and run the exact
+   enable external local scripting in Resolve preferences, open a current
+   project on a documented timeline page such as Edit, and run the exact
    documented Studio `preflight` command. Review its detected versus observed
    facts and capability/manual-completion results.
 5. Run the documented Studio `build` command once, watch the newly named spike

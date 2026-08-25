@@ -243,10 +243,29 @@ def _build_fcpxml(manifest: JsonObject) -> bytes:
 
 
 def _md(element: ET.Element) -> dict[str, str]:
-    return {
-        cast(str, item.get("key")): cast(str, item.get("value"))
-        for item in element.findall("./metadata/md")
-    }
+    metadata_elements = element.findall("./metadata")
+    if len(metadata_elements) > 1:
+        raise PackageBuildError(f"FCPXML {element.tag} has duplicate metadata blocks")
+    result: dict[str, str] = {}
+    for item in element.findall("./metadata/md"):
+        key = item.get("key")
+        value = item.get("value")
+        if key is None or value is None:
+            raise PackageBuildError(f"FCPXML {element.tag} metadata is incomplete")
+        if key in result:
+            raise PackageBuildError(
+                f"FCPXML {element.tag} has duplicate metadata key {key!r}"
+            )
+        result[key] = value
+    return result
+
+
+def _require_child_tags(element: ET.Element, expected: list[str], label: str) -> None:
+    actual = [child.tag for child in element]
+    if actual != expected:
+        raise PackageBuildError(
+            f"FCPXML {label} children differ: expected {expected}, got {actual}"
+        )
 
 
 def _verify_fcpxml_semantics(path: Path, manifest: JsonObject) -> None:
@@ -256,9 +275,30 @@ def _verify_fcpxml_semantics(path: Path, manifest: JsonObject) -> None:
         raise PackageBuildError(f"FCPXML is not parseable: {error}") from error
     if root.tag != "fcpxml" or root.get("version") != "1.10":
         raise PackageBuildError("FCPXML root/version differs from the trial format")
+    if root.findall(".//transition"):
+        raise PackageBuildError(
+            "FCPXML contains a transition; the trial manifest requires hard cuts"
+        )
+    _require_child_tags(root, ["resources", "library"], "root")
+    resources = root.find("./resources")
+    library = root.find("./library")
+    if resources is None or library is None:
+        raise PackageBuildError("FCPXML resources/library hierarchy is incomplete")
+    assets = resources.findall("./asset")
+    _require_child_tags(resources, ["format", *("asset" for _ in assets)], "resources")
+    _require_child_tags(library, ["event"], "library")
+    event_element = library.find("./event")
+    if event_element is None:
+        raise PackageBuildError("FCPXML library has no event")
+    _require_child_tags(event_element, ["project"], "event")
+    project_element = event_element.find("./project")
+    if project_element is None:
+        raise PackageBuildError("FCPXML event has no project")
+    _require_child_tags(project_element, ["sequence"], "project")
     sequence = root.find("./library/event/project/sequence")
     if sequence is None:
         raise PackageBuildError("FCPXML has no sequence")
+    _require_child_tags(sequence, ["metadata", "spine"], "sequence")
     timeline = cast(JsonObject, manifest["timeline"])
     rate = cast(dict[str, int], timeline["frameRate"])
     if (
@@ -283,14 +323,41 @@ def _verify_fcpxml_semantics(path: Path, manifest: JsonObject) -> None:
         or _frames(cast(str, gap.get("duration")), rate) != timeline["durationFrames"]
     ):
         raise PackageBuildError("FCPXML primary storyline differs from manifest")
-    assets = root.findall("./resources/asset")
+    spine = sequence.find("./spine")
+    if spine is None:
+        raise PackageBuildError("FCPXML sequence has no spine")
+    _require_child_tags(spine, ["gap"], "spine")
+    expected_event_count = len(cast(list[JsonObject], manifest["events"]))
+    expected_marker_count = len(cast(list[JsonObject], manifest["markers"]))
+    _require_child_tags(
+        gap,
+        [
+            *("asset-clip" for _ in range(expected_event_count)),
+            *("marker" for _ in range(expected_marker_count)),
+        ],
+        "primary gap",
+    )
+    asset_records: list[tuple[ET.Element, dict[str, str]]] = [
+        (asset, _md(asset)) for asset in assets
+    ]
+    asset_ids = [asset.get("id") for asset, _ in asset_records]
+    source_ids = [metadata.get("vera.sourceId") for _, metadata in asset_records]
+    if (
+        any(value is None or value == "" for value in asset_ids)
+        or len(set(asset_ids)) != len(asset_ids)
+        or any(value is None or value == "" for value in source_ids)
+        or len(set(source_ids)) != len(source_ids)
+    ):
+        raise PackageBuildError(
+            "FCPXML asset/source identities are missing or duplicate"
+        )
     actual_sources = {
-        _md(asset)["vera.sourceId"]: {
+        cast(str, metadata.get("vera.sourceId")): {
             "path": asset.get("src"),
-            "kind": _md(asset)["vera.kind"],
-            "contentHash": _md(asset)["vera.contentHash"],
+            "kind": metadata.get("vera.kind"),
+            "contentHash": metadata.get("vera.contentHash"),
         }
-        for asset in assets
+        for asset, metadata in asset_records
     }
     expected_sources = {
         source["id"]: {
@@ -303,7 +370,8 @@ def _verify_fcpxml_semantics(path: Path, manifest: JsonObject) -> None:
     if actual_sources != expected_sources:
         raise PackageBuildError("FCPXML sources differ from manifest")
     source_id_by_ref = {
-        cast(str, asset.get("id")): _md(asset)["vera.sourceId"] for asset in assets
+        cast(str, asset.get("id")): cast(str, metadata.get("vera.sourceId"))
+        for asset, metadata in asset_records
     }
     track_by_id = {
         track["id"]: track for track in cast(list[JsonObject], manifest["tracks"])
@@ -312,6 +380,12 @@ def _verify_fcpxml_semantics(path: Path, manifest: JsonObject) -> None:
     actual_events = {}
     for clip in clips:
         metadata = _md(clip)
+        event_id = metadata.get("vera.eventId")
+        if not event_id or event_id in actual_events:
+            raise PackageBuildError("FCPXML event identities are missing or duplicate")
+        source_id = source_id_by_ref.get(cast(str, clip.get("ref")))
+        if source_id is None:
+            raise PackageBuildError("FCPXML event references an unknown asset")
         lane_value = clip.get("lane")
         if lane_value is None:
             raise PackageBuildError("FCPXML event has no lane")
@@ -319,10 +393,10 @@ def _verify_fcpxml_semantics(path: Path, manifest: JsonObject) -> None:
             lane = int(lane_value)
         except ValueError as error:
             raise PackageBuildError("FCPXML event lane is not an integer") from error
-        actual_events[metadata["vera.eventId"]] = {
-            "sourceId": source_id_by_ref.get(cast(str, clip.get("ref"))),
-            "trackId": metadata["vera.trackId"],
-            "trackKind": metadata["vera.trackKind"],
+        actual_events[event_id] = {
+            "sourceId": source_id,
+            "trackId": metadata.get("vera.trackId"),
+            "trackKind": metadata.get("vera.trackKind"),
             "lane": lane,
             "recordStart": _frames(cast(str, clip.get("offset")), rate),
             "sourceStart": _frames(cast(str, clip.get("start")), rate),
@@ -361,13 +435,18 @@ def _verify_fcpxml_semantics(path: Path, manifest: JsonObject) -> None:
     if actual_hard_cuts != manifest["transitions"]:
         raise PackageBuildError("FCPXML hard cuts differ from manifest")
     markers = root.findall("./library/event/project/sequence/spine/gap/marker")
+    marker_ids = [_md(marker).get("vera.markerId") for marker in markers]
+    if any(not marker_id for marker_id in marker_ids) or len(set(marker_ids)) != len(
+        marker_ids
+    ):
+        raise PackageBuildError("FCPXML marker identities are missing or duplicate")
     actual_markers = [
         {
-            "id": _md(marker)["vera.markerId"],
+            "id": _md(marker).get("vera.markerId"),
             "frame": _frames(cast(str, marker.get("start")), rate),
             "name": marker.get("value"),
             "note": marker.get("note"),
-            "color": _md(marker)["vera.color"],
+            "color": _md(marker).get("vera.color"),
         }
         for marker in markers
     ]

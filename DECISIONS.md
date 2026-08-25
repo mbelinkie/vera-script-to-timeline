@@ -25,7 +25,7 @@ into an implementation assumption.
 | ID | Status | Decision needed | Known constraint / evidence required |
 | --- | --- | --- | --- |
 | D-P001 | Pending producer | Primary local-agent OS | Local inspection detected macOS 15.1 build 24B83 on x86_64, but detection is not producer approval of the supported primary environment. |
-| D-P002 | Pending producer | Exact Resolve Free and Resolve Studio editions/installations to test | The standard Blackmagic bundle at `/Applications/DaVinci Resolve/DaVinci Resolve.app` is objectively version 21.0.4, build 21.0.40005, with a `ManifestLite` receipt, no MAS receipt, and installed scripting module/docs. Its edition, import fidelity, and successful external connection remain unobserved until producer runs; no capability is inferred from the bundle. |
+| D-P002 | Pending producer | Exact Resolve Free and Resolve Studio editions/installations to test | The default-path bundle at `/Applications/DaVinci Resolve/DaVinci Resolve.app` is objectively version 21.0.4, build 21.0.40005, with a matching `ManifestLite` 21.0.4 receipt, no MAS receipt, and installed scripting module/docs. Its edition, connected executable identity, import fidelity, and successful external connection remain unobserved until producer runs; no capability is inferred from the bundle. |
 | D-P005 | Pending producer | Maintain FCPXML as a fallback or park it | The deterministic FCPXML evidence spike is a trial artifact only. Slice 0.3 must decide from recorded OTIO-versus-FCPXML imports into actual Resolve Free. |
 
 ## Decision record template

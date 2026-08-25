@@ -29,9 +29,10 @@ or relink either result until the initial state and evidence are recorded.
 Repository-side detection on 2026-08-24 found, but has **not tested**:
 
 - macOS 15.1 build 24B83, x86_64;
-- standard `/Applications/DaVinci Resolve/DaVinci Resolve.app` reporting
+- default-path `/Applications/DaVinci Resolve/DaVinci Resolve.app` reporting
   version 21.0.4 and build 21.0.40005;
-- installed package receipt `com.blackmagic-design.ManifestLite`; and
+- matching installed package receipt `com.blackmagic-design.ManifestLite`
+  version 21.0.4; and
 - no `_MASReceipt` in the application bundle.
 
 Confirm the edition/version/build in Resolve itself before treating these as

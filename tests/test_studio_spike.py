@@ -11,6 +11,7 @@ from vera_timeline_agent.studio_spike import (
     ConnectedFacts,
     LocalFacts,
     PublicResolveAdapter,
+    StudioSpikeError,
     detect_local_capabilities,
     run_delivery,
 )
@@ -36,11 +37,13 @@ def standard_local() -> LocalFacts:
         architecture="x86_64",
         app_path="/Applications/DaVinci Resolve/DaVinci Resolve.app",
         app_installed=True,
-        install_source="blackmagic_standard",
+        install_source="blackmagic_package_receipt",
         bundle_name="DaVinci Resolve",
         bundle_version="21.0.4",
         bundle_build="21.0.40005",
         mas_receipt=False,
+        package_receipt_id="com.blackmagic-design.ManifestLite",
+        package_receipt_version="21.0.4",
         scripting_module_path="/sdk/DaVinciResolveScript.py",
         scripting_module_installed=True,
         scripting_docs_path="/sdk/README.txt",
@@ -134,12 +137,21 @@ def test_detects_objective_local_facts_without_import_or_connection(
     (sdk / "README.txt").write_text("installed docs")
     monkeypatch.setattr("platform.mac_ver", lambda: ("15.1", ("", "", ""), ""))
     monkeypatch.setattr("platform.machine", lambda: "x86_64")
+    monkeypatch.setattr(
+        "vera_timeline_agent.studio_spike._blackmagic_package_receipt",
+        lambda: ("com.blackmagic-design.ManifestLite", "21.0.4"),
+    )
     facts = detect_local_capabilities(app, sdk)
-    assert facts.install_source == "blackmagic_standard"
+    assert facts.install_source == "blackmagic_package_receipt"
     assert facts.bundle_version == "21.0.4"
     assert facts.bundle_build == "21.0.40005"
     assert facts.mas_receipt is False
     assert facts.scripting_module_installed and facts.scripting_docs_installed
+    monkeypatch.setattr(
+        "vera_timeline_agent.studio_spike._blackmagic_package_receipt",
+        lambda: ("com.blackmagic-design.ManifestLite", "20.0.0"),
+    )
+    assert detect_local_capabilities(app, sdk).install_source == "unknown_non_mas"
 
 
 def test_free_never_constructs_or_invokes_resolve_adapter(
@@ -194,6 +206,14 @@ def test_studio_rejects_nonzero_timeline_start_before_connection(
         ),
         ({"scripting_module_installed": False}, "module is missing"),
         ({"scripting_docs_installed": False}, "documentation is missing"),
+        (
+            {
+                "install_source": "unknown_non_mas",
+                "package_receipt_id": None,
+                "package_receipt_version": None,
+            },
+            "no matching affirmative Blackmagic package receipt",
+        ),
     ],
 )
 def test_local_safety_stops_before_adapter_factory(
@@ -222,6 +242,7 @@ def test_local_safety_stops_before_adapter_factory(
     [
         ConnectedFacts("DaVinci Resolve", "free", "21.0.4", "21.0.40005", True),
         ConnectedFacts("DaVinci Resolve Studio", "studio", "21.0.4", "5", False),
+        ConnectedFacts("DaVinci Resolve Studio", "studio", "20.0.0", "1", True),
     ],
 )
 def test_connected_safety_stops_after_observation_but_before_mutation(
@@ -284,6 +305,15 @@ def test_preflight_is_nonmutating_and_surfaces_public_api_gap(
 def test_preflight_reports_older_studio_without_inventing_support_minimum(
     package: Path, standard_local: LocalFacts
 ) -> None:
+    older_local = LocalFacts(
+        **(
+            standard_local.__dict__
+            | {
+                "bundle_version": "20.3.2",
+                "package_receipt_version": "20.3.2",
+            }
+        )
+    )
     adapter = RecordingAdapter(
         ConnectedFacts("DaVinci Resolve Studio", "studio", "20.3.2", "9", True)
     )
@@ -291,7 +321,7 @@ def test_preflight_reports_older_studio_without_inventing_support_minimum(
         package,
         "studio",
         adapter_factory=lambda _: adapter,
-        local_facts=standard_local,
+        local_facts=older_local,
     )
     assert result.status == "preflight_passed"
     assert result.connected is not None and result.connected.version == "20.3.2"
@@ -500,6 +530,60 @@ def test_public_adapter_sets_and_checks_frame_zero_timeline_start() -> None:
     assert timeline.timecode == "00:00:00:00"
 
 
+def test_public_preflight_rejects_non_timeline_page_before_project_probe() -> None:
+    class Resolve:
+        def GetCurrentPage(self) -> str:
+            return "media"
+
+        def GetProjectManager(self) -> object:
+            raise AssertionError("unsupported page crossed the preflight stop")
+
+    adapter = PublicResolveAdapter(Resolve())
+    with pytest.raises(StudioSpikeError, match="timeline page"):
+        adapter.probe({"timelineFrameRate": "24"})
+
+
+def test_public_title_insertion_uses_only_documented_item_surface() -> None:
+    class Title:
+        def GetName(self) -> str:
+            return "Text+"
+
+        def GetStart(self, _: bool) -> int:
+            return 0
+
+        def GetDuration(self, _: bool) -> int:
+            return 120
+
+        def GetFusionCompCount(self) -> int:
+            return 1
+
+        def GetFusionCompNameList(self) -> list[str]:
+            return ["Composition 1"]
+
+    class Timeline:
+        def SetCurrentTimecode(self, value: str) -> bool:
+            assert value == "00:00:00:00"
+            return True
+
+        def InsertFusionTitleIntoTimeline(self, name: str) -> Title:
+            assert name == "Text+"
+            return Title()
+
+    class Resolve:
+        def GetCurrentPage(self) -> str:
+            return "edit"
+
+    adapter = PublicResolveAdapter(Resolve())
+    adapter.timeline = Timeline()
+    adapter.insert_fusion_title("Text+", 0)
+    assert adapter.fusion_title_fingerprint == (
+        "Text+",
+        0,
+        120,
+        ("Composition 1",),
+    )
+
+
 def test_public_import_maps_reordered_results_by_documented_file_path(
     tmp_path: Path,
 ) -> None:
@@ -590,12 +674,19 @@ def test_public_verifier_checks_media_identity_and_observable_result() -> None:
             return self.media_id
 
     class Item:
-        def __init__(self, unique_id: str, media_id: str | None = None) -> None:
-            self.unique_id = unique_id
+        def __init__(
+            self,
+            name: str,
+            media_id: str | None = None,
+            *,
+            fusion_names: tuple[str, ...] = (),
+        ) -> None:
+            self.name = name
             self.media = Media(media_id) if media_id is not None else None
+            self.fusion_names = fusion_names
 
-        def GetUniqueId(self) -> str:
-            return self.unique_id
+        def GetName(self) -> str:
+            return self.name
 
         def GetStart(self, _: bool) -> int:
             return 0
@@ -609,8 +700,14 @@ def test_public_verifier_checks_media_identity_and_observable_result() -> None:
         def GetMediaPoolItem(self) -> Media | None:
             return self.media
 
-    title = Item("title-id")
-    event = Item("event-id", "wrong-media-id")
+        def GetFusionCompCount(self) -> int:
+            return len(self.fusion_names)
+
+        def GetFusionCompNameList(self) -> list[str]:
+            return list(self.fusion_names)
+
+    title = Item("Text+", fusion_names=("Composition 1",))
+    event = Item("event", "wrong-media-id")
 
     class Timeline:
         def GetName(self) -> str:
@@ -626,12 +723,16 @@ def test_public_verifier_checks_media_identity_and_observable_result() -> None:
             assert (kind, index) == ("video", 2)
             return "Pictures"
 
+        def __init__(self) -> None:
+            self.video_count = 2
+            self.items: dict[int, list[Item]] = {1: [title], 2: [event]}
+
         def GetTrackCount(self, kind: str) -> int:
-            return 2 if kind == "video" else 0
+            return self.video_count if kind == "video" else 0
 
         def GetItemListInTrack(self, kind: str, index: int) -> list[Item]:
             assert kind == "video"
-            return {1: [title], 2: [event]}[index]
+            return self.items.get(index, [])
 
         def GetMarkers(self) -> dict[int, dict[str, Any]]:
             return {3: marker_info}
@@ -675,21 +776,35 @@ def test_public_verifier_checks_media_identity_and_observable_result() -> None:
             }
         ],
     }
+    timeline_object = Timeline()
     adapter = PublicResolveAdapter(object())
     adapter.project = Project()
     adapter.pool = Pool()
-    adapter.timeline = Timeline()
+    adapter.timeline = timeline_object
     adapter.expected_project_name = "Project"
     adapter.expected_timeline_name = "Timeline"
     adapter.expected_settings = {"timelineFrameRate": "24"}
     adapter.media_id_by_source = {"source-1": "expected-media-id"}
-    adapter.fusion_title_id = "title-id"
+    adapter.fusion_title_fingerprint = (
+        "Text+",
+        0,
+        18,
+        ("Composition 1",),
+    )
 
     assert adapter.verify(manifest) == (
         "event event-1: source media identity mismatch",
     )
     event.media = Media("expected-media-id")
     assert adapter.verify(manifest) == ()
+    timeline_object.items = {1: [], 2: [title, event]}
+    assert adapter.verify(manifest) == ()
+    timeline_object.items = {1: [title], 2: [event]}
+    timeline_object.video_count = 3
+    assert "video track count: expected 2, got 3" in adapter.verify(manifest)
+    timeline_object.video_count = 2
+    timeline_object.items[1].append(Item("stray", "unexpected-media-id"))
+    assert "video track 1: expected 0 manifest items, got 1" in adapter.verify(manifest)
 
 
 def test_cli_detect_does_not_need_resolve(

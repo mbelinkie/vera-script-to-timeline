@@ -211,7 +211,9 @@ uv run --frozen python -m vera_timeline_agent.studio_spike_cli run \
 
 For producer acceptance only, manually start the supported standard desktop
 Resolve Studio installation and enable local external scripting in Resolve
-preferences. Run the nonmutating connected preflight:
+preferences. Open a current project and leave Resolve on the Edit page (Cut,
+Color, Fairlight, or Deliver also exposes the documented playhead API). Run the
+nonmutating connected preflight:
 
 ```sh
 uv run --frozen python -m vera_timeline_agent.studio_spike_cli run \
@@ -233,11 +235,15 @@ places its three trimmed videos, still, and synthetic narration at exact
 record/source frames, requests the named `Text+` Fusion title, adds marker
 custom data, saves, closes/reopens, and verifies public-API-observable project,
 timeline, setting, bin, track, media-identity, item-range, title-presence, and
-marker data. This bounded spike rejects nonzero timeline starts before loading
-the Resolve bridge. The public API cannot enumerate stock Fusion titles or
-select/prove the title's destination track, and nonmutating preflight cannot
-prove mutation-only calls, so the CLI reports those bounded manual-completion
-items. Do not record a Studio capability
+marker data, including exact track counts and rejection of unaccounted items.
+The title is tracked only through documented TimelineItem name/range/Fusion
+composition surfaces; no private item identity API is used. This bounded spike
+rejects nonzero timeline starts before loading the Resolve bridge and rejects a
+non-timeline Resolve page during nonmutating preflight. The public API cannot
+enumerate stock Fusion titles, select/prove the title's destination track, or
+report the connected executable path, and nonmutating preflight cannot prove
+mutation-only calls, so the CLI reports those bounded manual-completion items.
+Do not record a Studio capability
 until the producer performs and inspects this real run; automated doubles are
 not Resolve evidence. A failure after the build is authorized can leave a
 partial project; the CLI reports `mutation_failed` and the project must be
