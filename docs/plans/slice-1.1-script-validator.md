@@ -1,14 +1,15 @@
-# Slice 1.1 — ScriptDocument validator planning brief
+# Slice 1.1 — ScriptDocument validator implementation plan
 
 ## Status and gate
 
-This is a planning-only artifact prepared while Slice 0.4 awaits the
-producer's real Resolve Studio run. Slice 1.1 has no technical dependency on
-Resolve, but the specification requires the Phase 0 gate to pass before Phase
-1 formally begins. Implementation therefore remains queued unless the
-producer explicitly authorizes provisional parallel work.
+**Agent complete; producer acceptance pending.** The producer approved all
+seven semantic decisions and the provisional sequencing exception in D-0006
+and D-0007. The producer then accepted Slice 0.4 on 2026-08-25, closing the
+Phase 0 gate. Implementation, automated verification, frozen-boundary audit,
+and independent review are complete; only the documented producer acceptance
+procedure can close Slice 1.1.
 
-This planning pass does **not** modify the accepted `ScriptDocument v1`
+This slice does **not** modify the accepted `ScriptDocument v1`
 schema, generated contract types, `/fixtures`, accepted test data, or any
 Phase 0 acceptance evidence.
 
@@ -153,27 +154,27 @@ They require producer approval before tests or script inputs freeze them.
 - Any change to `TimelineManifest v1`, `BuildReport v1`, `/fixtures`, accepted
   Phase 0 data/tests, dependencies, or lockfiles.
 
-## Proposed file boundary
+## Implementation file boundary
 
-Subject to implementation review, Slice 1.1 is expected to add one focused
-TypeScript workspace and test data, for example:
+The validator is implemented beside the generated ScriptDocument types in the
+existing `@vera/contracts` workspace, rather than adding another workspace:
 
 ```text
-packages/script-validator/
-  package.json
-  tsconfig.json
-  src/index.ts
-  src/semantic-validator.ts
-  src/cli.ts
-  test/semantic-validator.test.ts
-  test/cli.test.ts
+packages/contracts/
+  src/script-validator.ts
+  src/script-validator-cli.ts
+  test/script-validator.test.ts
+  test/script-validator-cli.test.ts
 tests/data/slice_1_1/
   minimal.script-document.json
   torture.script-document.json
 ```
 
-Existing contract files and generated models remain unchanged unless a later
-approved contract-change note identifies an exact unavoidable delta.
+This keeps the pure validator directly coupled to the accepted generated type
+it validates and reuses the repository's already pinned Ajv dependencies. No
+dependency or lockfile change is needed. Existing contract files and generated
+models remain unchanged unless a later approved contract-change note identifies
+an exact unavoidable delta.
 
 ## Test matrix
 
@@ -211,6 +212,15 @@ Automated completion requires:
    data, and lockfiles have no unintended diff; and
 4. an independent review reports no unresolved correctness or boundary issue.
 
+All four conditions passed on 2026-08-25. The final combined tree used pinned
+Node 24.19.0 after clean `npm ci` and `uv sync --frozen` installs; generated
+contracts were current, TypeScript lint/typecheck passed, 59 contract/validator
+tests and 1 tooling test passed, Ruff and strict mypy passed, and all 85 Python
+tests passed. The diff is empty across frozen contracts, fixtures, generated
+types, accepted Slice 0.2 data/tests, and both lockfiles. A final independent
+read-only review of commit `4fe34ab` against accepted Slice 0.4 commit
+`9dfacb4` reported no findings.
+
 Producer acceptance requires:
 
 1. run the documented CLI against both canonical script inputs and see a
@@ -222,6 +232,9 @@ Producer acceptance requires:
    the affected narration row/token range; and
 5. explicitly accept the semantic decisions, canonical inputs, and Slice 1.1.
 
+The exact producer procedure is maintained in
+`docs/slice-1.1-script-validator-acceptance.md`.
+
 ## Contract-change trigger
 
 If implementation discovers that the accepted schema cannot express an
@@ -231,11 +244,9 @@ generated TypeScript and Python outputs, affected tests/data, schema-version
 choice, and producer-acceptance impact. The producer must approve that note
 before the contract or generated files change.
 
-## Authorization needed to start implementation
+## Authorization record
 
-Before implementation agents are dispatched, the producer must approve:
-
-1. the seven recommended semantic decisions above; and
-2. either normal sequencing after Slice 0.4 acceptance, or an explicit
-   exception allowing Slice 1.1 implementation to proceed provisionally while
-   the formal Phase 0 gate remains open.
+- D-0006 records producer approval of all seven semantic decisions.
+- D-0007 records the earlier provisional sequencing exception.
+- Producer acceptance of Slice 0.4 on 2026-08-25 closed Phase 0 and removed the
+  temporary pause on this work.

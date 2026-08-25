@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "script-document/v1",
+  "id": "11000000-0000-4000-8000-000000000001",
+  "projectId": "11000000-0000-4000-8000-000000000002",
+  "title": "Slice 1.1 minimal script",
+  "activeDraft": {
+    "blocks": [
+      {
+        "type": "section",
+        "id": "11000000-0000-4000-8000-000000000003",
+        "orderKey": "a0",
+        "title": "Opening",
+        "version": 1
+      },
+      {
+        "type": "narration",
+        "id": "11000000-0000-4000-8000-000000000004",
+        "orderKey": "a1",
+        "text": "Hello world.",
+        "tokens": [
+          {
+            "id": "11000000-0000-4000-8000-000000000005",
+            "value": "Hello",
+            "startOffset": 0,
+            "endOffset": 5
+          },
+          {
+            "id": "11000000-0000-4000-8000-000000000006",
+            "value": "world",
+            "startOffset": 6,
+            "endOffset": 11
+          }
+        ],
+        "hostVisibilitySpans": [
+          {
+            "id": "11000000-0000-4000-8000-000000000007",
+            "range": {
+              "blockId": "11000000-0000-4000-8000-000000000004",
+              "startTokenId": "11000000-0000-4000-8000-000000000005",
+              "endTokenId": "11000000-0000-4000-8000-000000000006",
+              "startAffinity": "before",
+              "endAffinity": "after",
+              "quotedText": "Hello world",
+              "anchorVersion": 1
+            },
+            "state": "voiceover",
+            "source": "authored",
+            "version": 1
+          }
+        ],
+        "visualEvents": [
+          {
+            "id": "11000000-0000-4000-8000-000000000008",
+            "range": {
+              "blockId": "11000000-0000-4000-8000-000000000004",
+              "startTokenId": "11000000-0000-4000-8000-000000000005",
+              "endTokenId": "11000000-0000-4000-8000-000000000006",
+              "startAffinity": "before",
+              "endAffinity": "after",
+              "quotedText": "Hello world",
+              "anchorVersion": 1
+            },
+            "source": {
+              "kind": "placeholder",
+              "description": "Choose an opening visual",
+              "unresolvedVisual": true
+            },
+            "presentationMode": "full_frame",
+            "framingPolicy": "native",
+            "motionPreset": "none",
+            "audioPolicy": "mute",
+            "layer": 5,
+            "transitionIn": null,
+            "transitionOut": null,
+            "timingOverrides": null,
+            "status": "unresolved",
+            "version": 1
+          }
+        ],
+        "timingPolicy": "narration_spine",
+        "state": "active",
+        "notes": [],
+        "version": 1
+      }
+    ]
+  },
+  "ideaOutline": [],
+  "extras": [],
+  "liveHeadSequence": 1,
+  "liveStateVector": "AQID",
+  "liveContentHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+}

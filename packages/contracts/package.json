@@ -5,7 +5,8 @@
   "type": "module",
   "types": "./src/generated/contracts.ts",
   "exports": {
-    ".": "./src/generated/contracts.ts"
+    ".": "./src/generated/contracts.ts",
+    "./script-validator": "./src/script-validator.ts"
   },
   "scripts": {
     "lint": "eslint src test --max-warnings=0",

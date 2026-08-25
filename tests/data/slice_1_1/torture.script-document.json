@@ -1,0 +1,301 @@
+{
+  "schemaVersion": "script-document/v1",
+  "id": "12000000-0000-4000-8000-000000000001",
+  "projectId": "12000000-0000-4000-8000-000000000002",
+  "title": "Slice 1.1 torture script",
+  "activeDraft": {
+    "blocks": [
+      {
+        "type": "section",
+        "id": "12000000-0000-4000-8000-000000000003",
+        "orderKey": "a0",
+        "title": "Mid-sentence coverage",
+        "version": 1
+      },
+      {
+        "type": "direction",
+        "id": "12000000-0000-4000-8000-000000000004",
+        "orderKey": "a1",
+        "text": "Keep the paragraph intact through every visual cut.",
+        "buildBehavior": "timeline_marker",
+        "version": 1
+      },
+      {
+        "type": "narration",
+        "id": "12000000-0000-4000-8000-000000000005",
+        "orderKey": "a2",
+        "text": "Meet me here, then look beyond.",
+        "tokens": [
+          {
+            "id": "12000000-0000-4000-8000-000000000006",
+            "value": "Meet",
+            "startOffset": 0,
+            "endOffset": 4
+          },
+          {
+            "id": "12000000-0000-4000-8000-000000000007",
+            "value": "me",
+            "startOffset": 5,
+            "endOffset": 7
+          },
+          {
+            "id": "12000000-0000-4000-8000-000000000008",
+            "value": "here",
+            "startOffset": 8,
+            "endOffset": 12
+          },
+          {
+            "id": "12000000-0000-4000-8000-000000000009",
+            "value": "then",
+            "startOffset": 14,
+            "endOffset": 18
+          },
+          {
+            "id": "12000000-0000-4000-8000-000000000010",
+            "value": "look",
+            "startOffset": 19,
+            "endOffset": 23
+          },
+          {
+            "id": "12000000-0000-4000-8000-000000000011",
+            "value": "beyond",
+            "startOffset": 24,
+            "endOffset": 30
+          }
+        ],
+        "hostVisibilitySpans": [
+          {
+            "id": "12000000-0000-4000-8000-000000000012",
+            "range": {
+              "blockId": "12000000-0000-4000-8000-000000000005",
+              "startTokenId": "12000000-0000-4000-8000-000000000006",
+              "endTokenId": "12000000-0000-4000-8000-000000000007",
+              "startAffinity": "before",
+              "endAffinity": "after",
+              "quotedText": "Meet me",
+              "anchorVersion": 1
+            },
+            "state": "on_camera",
+            "source": "authored",
+            "version": 1
+          },
+          {
+            "id": "12000000-0000-4000-8000-000000000013",
+            "range": {
+              "blockId": "12000000-0000-4000-8000-000000000005",
+              "startTokenId": "12000000-0000-4000-8000-000000000008",
+              "endTokenId": "12000000-0000-4000-8000-000000000009",
+              "startAffinity": "before",
+              "endAffinity": "after",
+              "quotedText": "here, then",
+              "anchorVersion": 1
+            },
+            "state": "voiceover",
+            "source": "authored",
+            "version": 1
+          },
+          {
+            "id": "12000000-0000-4000-8000-000000000014",
+            "range": {
+              "blockId": "12000000-0000-4000-8000-000000000005",
+              "startTokenId": "12000000-0000-4000-8000-000000000010",
+              "endTokenId": "12000000-0000-4000-8000-000000000010",
+              "startAffinity": "before",
+              "endAffinity": "after",
+              "quotedText": "look",
+              "anchorVersion": 1
+            },
+            "state": "on_camera",
+            "source": "authored",
+            "version": 1
+          },
+          {
+            "id": "12000000-0000-4000-8000-000000000015",
+            "range": {
+              "blockId": "12000000-0000-4000-8000-000000000005",
+              "startTokenId": "12000000-0000-4000-8000-000000000011",
+              "endTokenId": "12000000-0000-4000-8000-000000000011",
+              "startAffinity": "before",
+              "endAffinity": "after",
+              "quotedText": "beyond",
+              "anchorVersion": 1
+            },
+            "state": "voiceover",
+            "source": "authored",
+            "version": 1
+          }
+        ],
+        "visualEvents": [
+          {
+            "id": "12000000-0000-4000-8000-000000000016",
+            "range": {
+              "blockId": "12000000-0000-4000-8000-000000000005",
+              "startTokenId": "12000000-0000-4000-8000-000000000006",
+              "endTokenId": "12000000-0000-4000-8000-000000000007",
+              "startAffinity": "before",
+              "endAffinity": "after",
+              "quotedText": "Meet me",
+              "anchorVersion": 1
+            },
+            "source": {
+              "kind": "local_media",
+              "mediaReferenceId": "12000000-0000-4000-8000-000000000017",
+              "mediaKind": "still",
+              "label": "Name card"
+            },
+            "presentationMode": "overlay",
+            "framingPolicy": "contain",
+            "motionPreset": "none",
+            "audioPolicy": "mute",
+            "layer": 4,
+            "transitionIn": null,
+            "transitionOut": null,
+            "timingOverrides": null,
+            "status": "ready",
+            "version": 1
+          },
+          {
+            "id": "12000000-0000-4000-8000-000000000018",
+            "range": {
+              "blockId": "12000000-0000-4000-8000-000000000005",
+              "startTokenId": "12000000-0000-4000-8000-000000000008",
+              "endTokenId": "12000000-0000-4000-8000-000000000008",
+              "startAffinity": "before",
+              "endAffinity": "after",
+              "quotedText": "here",
+              "anchorVersion": 1
+            },
+            "source": {
+              "kind": "local_media",
+              "mediaReferenceId": "12000000-0000-4000-8000-000000000019",
+              "mediaKind": "video",
+              "label": "First VO visual"
+            },
+            "presentationMode": "full_frame",
+            "framingPolicy": "cover",
+            "motionPreset": "none",
+            "audioPolicy": "use_source",
+            "layer": 2,
+            "transitionIn": null,
+            "transitionOut": {
+              "kind": "hard_cut",
+              "durationFrames": 0
+            },
+            "timingOverrides": null,
+            "status": "ready",
+            "version": 1
+          },
+          {
+            "id": "12000000-0000-4000-8000-000000000020",
+            "range": {
+              "blockId": "12000000-0000-4000-8000-000000000005",
+              "startTokenId": "12000000-0000-4000-8000-000000000009",
+              "endTokenId": "12000000-0000-4000-8000-000000000009",
+              "startAffinity": "before",
+              "endAffinity": "after",
+              "quotedText": "then",
+              "anchorVersion": 1
+            },
+            "source": {
+              "kind": "placeholder",
+              "description": "Resolve second VO visual",
+              "unresolvedVisual": true
+            },
+            "presentationMode": "full_frame",
+            "framingPolicy": "native",
+            "motionPreset": "none",
+            "audioPolicy": "mute",
+            "layer": 5,
+            "transitionIn": {
+              "kind": "hard_cut",
+              "durationFrames": 0
+            },
+            "transitionOut": null,
+            "timingOverrides": null,
+            "status": "unresolved",
+            "version": 1
+          }
+        ],
+        "timingPolicy": "narration_spine",
+        "state": "active",
+        "notes": [
+          "Exercises mid-sentence cuts and adjacent VO coverage."
+        ],
+        "version": 1
+      },
+      {
+        "type": "narration",
+        "id": "12000000-0000-4000-8000-000000000021",
+        "orderKey": "a3",
+        "text": "Unused alternative.",
+        "tokens": [
+          {
+            "id": "12000000-0000-4000-8000-000000000022",
+            "value": "Unused",
+            "startOffset": 0,
+            "endOffset": 6
+          },
+          {
+            "id": "12000000-0000-4000-8000-000000000023",
+            "value": "alternative",
+            "startOffset": 7,
+            "endOffset": 18
+          }
+        ],
+        "hostVisibilitySpans": [],
+        "visualEvents": [],
+        "timingPolicy": "narration_spine",
+        "state": "excluded",
+        "notes": [],
+        "version": 1
+      },
+      {
+        "type": "visual",
+        "id": "12000000-0000-4000-8000-000000000024",
+        "orderKey": "a4",
+        "event": {
+          "id": "12000000-0000-4000-8000-000000000025",
+          "range": {
+            "blockId": "12000000-0000-4000-8000-000000000005",
+            "startTokenId": "12000000-0000-4000-8000-000000000011",
+            "endTokenId": "12000000-0000-4000-8000-000000000011",
+            "startAffinity": "before",
+            "endAffinity": "after",
+            "quotedText": "beyond",
+            "anchorVersion": 1
+          },
+          "source": {
+            "kind": "local_media",
+            "mediaReferenceId": "12000000-0000-4000-8000-000000000026",
+            "mediaKind": "still",
+            "label": "Final VO visual"
+          },
+          "presentationMode": "full_frame",
+          "framingPolicy": "contain",
+          "motionPreset": "none",
+          "audioPolicy": "mute",
+          "layer": 3,
+          "transitionIn": null,
+          "transitionOut": null,
+          "timingOverrides": null,
+          "status": "ready",
+          "version": 1
+        },
+        "version": 1
+      },
+      {
+        "type": "note_draft",
+        "id": "12000000-0000-4000-8000-000000000027",
+        "orderKey": "a5",
+        "text": "A deliberately excluded scratch note.",
+        "state": "excluded",
+        "version": 1
+      }
+    ]
+  },
+  "ideaOutline": [],
+  "extras": [],
+  "liveHeadSequence": 7,
+  "liveStateVector": "BAUG",
+  "liveContentHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+}

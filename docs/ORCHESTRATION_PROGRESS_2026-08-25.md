@@ -12,8 +12,9 @@ and producer acceptance remains the only mechanism that closes a slice.
 - The Text+ limitation remains an open capability problem, recorded separately
   in `docs/resolve-text-plus-destination-track-limitation.md`.
 - Active bounded slice: **1.1 — ScriptDocument v1 and validator**.
-- Resume the preserved uncommitted implementation in the isolated
-  `codex/slice-1.1-implementation` worktree.
+- Slice 1.1 is agent-complete after implementation, full verification, and a
+  final independent no-findings review. Producer acceptance is pending and is
+  the only mechanism that closes the slice.
 
 ## Slice 0.4 bounded execution record
 
@@ -81,10 +82,43 @@ inspection/acceptance.
 | Slice 0.4 independent staged-diff review | Read-only; no Resolve connection or mutation | Dispatch failed | Local Codex CLI provider authentication timed out and then returned HTTP 401; no repository or Resolve side effect occurred. |
 | Slice 1.1 preserved-worktree audit | Read-only; producer pause enforced | Dispatch failed | Same local subagent authentication failure; preserved worktree unchanged. |
 | Phase 1 roadmap/dependency audit | Read-only | Dispatch failed | Same local subagent authentication failure; no file change. |
+| Slice 1.1 implementation reviews | Read-only final-state audits | Complete | Successive reviews found and prompted fixes for exact affinity boundaries, canonical fixture-shape ratchets, complete CLI references/output, DraftBlock schema-noise collapse, and active-draft-wide ID scope. Final review of `4fe34ab` against accepted `9dfacb4` reported no findings. |
 
-Subagents will be retried when local CLI authentication is healthy. The
-orchestrator may continue the explicitly authorized Slice 0.4 acceptance flow
-without weakening its checks or boundaries.
+Local CLI authentication later recovered. Slice 1.1 received successive
+read-only reviews, and the final rebased review completed with no findings.
+
+## Slice 1.1 bounded execution record
+
+### Scope and exclusions
+
+- Added a pure TypeScript structural/semantic validator and file CLI, two
+  canonical script inputs, positive/negative tests, and a producer acceptance
+  procedure.
+- Enforces the approved D-0006 token, anchor, ownership, coverage, qualifying
+  visual, excluded-narration, and uniqueness decisions without repair or
+  inferred defaults.
+- Excludes voice synthesis, compilation, package generation, Resolve work,
+  editor/persistence work, media probing, and any contract or fixture change.
+- Reuses already pinned Ajv dependencies; no dependency or lockfile changed.
+
+### Automated checks and review
+
+- Focused lint, strict TypeScript typecheck, and **59** contract/validator tests
+  pass; exact canonical pass output and the producer-required broken-copy
+  failure are regression-tested.
+- Clean detached locked installs passed. With pinned Node 24.19.0, the combined
+  accepted Slice 0.4 + Slice 1.1 tree passed generated-type currentness,
+  TypeScript checks, 1 tooling test, Ruff, strict mypy, and **85 Python tests**.
+- Frozen contracts, fixtures, generated types, accepted Slice 0.2 data/tests,
+  and both lockfiles have no diff; `git diff --check` passes.
+- Final independent read-only review reported no findings.
+
+### Producer gate
+
+Run `docs/slice-1.1-script-validator-acceptance.md`, judge the two readable pass
+reports and exact broken-copy complaint, then explicitly accept or reject the
+semantic decisions, canonical inputs, and Slice 1.1. Until then, status remains
+agent-complete rather than accepted.
 
 ## Producer acceptance checklist for Slice 0.4
 
@@ -106,6 +140,8 @@ without weakening its checks or boundaries.
 
 - Slice 0.4 requires no further acceptance decision. Its Text+ limitation is
   an open capability investigation, not a reopened Phase 0 gate.
+- Slice 1.1 requires explicit producer acceptance after the documented CLI
+  walkthrough. Slice 1.2 does not start before that gate.
 - Slice 1.2 will require a producer-approved initial cloud voice-provider
   selection, but that decision is outside the current gate and must not be
   guessed early.

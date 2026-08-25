@@ -11,12 +11,13 @@ Last updated: 2026-08-25
 ## Current milestone
 
 - **Phase:** 0 gate closed; Phase 1 may proceed
-- **Active slice:** 1.1 — resume the preserved ScriptDocument validator work
+- **Active slice:** 1.1 — agent-complete; producer acceptance pending
 - **Overall state:** Slices 0.1 through 0.4 are accepted. The producer accepted
   Slice 0.4 on 2026-08-25, including its documented V1 Text+ destination-track
   limitation. The limitation remains an open capability gap in
   `docs/resolve-text-plus-destination-track-limitation.md`; acceptance does not
-  claim that it is solved. The producer's pause on Slice 1.1 is now cleared.
+  claim that it is solved. Slice 1.1 implementation and agent verification are
+  complete; producer acceptance is the remaining gate.
 - **Source specification:** `docs/Script-to-Timeline Product Spec - Fable Rev2.md`
 
 ## Status legend
@@ -37,7 +38,7 @@ Last updated: 2026-08-25
 | 0.2 Handcrafted manifest → OTIO package | Accepted | Orchestrator + bounded implementation and review agents | 0.1 accepted | Producer explicitly accepted on 2026-08-24 after package inspection, independent review, fresh-worktree verification, and green CI. `/contracts` and `/fixtures` remain frozen and unchanged. |
 | 0.3 Resolve Free import trial | Accepted | Producer + agent preparer/recorder | 0.2 accepted | Producer accepted on 2026-08-24. OTIO retained the marker and linked all five items; FCPXML required a manual media redirect and omitted the marker. D-P005 parks FCPXML with no observed compensating advantage. |
 | 0.4 Resolve Studio scripting spike | Accepted | Producer + bounded implementation, hardening, and review agents | 0.2 accepted | Producer explicitly accepted on 2026-08-25 after visual inspection and accepted the documented V1/120-frame Text+ public-API limitation as spike evidence. The limitation remains open in `docs/resolve-text-plus-destination-track-limitation.md`. |
-| 1.1 ScriptDocument v1 and validator | In progress | Orchestrator + bounded implementation/review agents | D-0006 semantic decisions; Phase 0 accepted | The producer's pause ended when Slice 0.4 was accepted. Resume the preserved isolated-worktree implementation without changing the accepted schema. |
+| 1.1 ScriptDocument v1 and validator | Agent complete | Orchestrator + bounded implementation/review agents | D-0006 semantic decisions; Phase 0 accepted | Pure TypeScript validator and CLI, two canonical inputs, exact row-level diagnostics, 59 contract/validator tests, clean pinned full gate, frozen-boundary audit, and final independent no-findings review passed. Producer acceptance remains required. |
 
 ## Slice 0.1 orchestration plan
 
@@ -104,6 +105,7 @@ changes, why, compatibility impact, regenerated outputs, and acceptance impact.
 | 2026-08-25 | Producer | Pause all non-Slice-0.4 work | Active | Slice 1.1 implementation was interrupted and preserved in its isolated worktree. It will not resume until the producer finishes Slice 0.4 or explicitly changes this instruction. |
 | 2026-08-25 | Producer + Slice 0.4 bounded fixer | Run the one-time real Studio build, investigate only observed discrepancies, and retry with unique projects | Agent complete | Initial retained projects exposed Resolve 21's default 120-frame still insertion and a 17-frame mark/clip-info intersection. A retained supported-API probe established the exact range rule. The final unique project `VERA Slice 0.4 Producer Acceptance 20260825-021704` saved, closed, reopened, and returned `verified` with no discrepancy. Focused validation passes with 44 Studio tests, Ruff, and strict mypy; clean locked installs and the pinned Node 24.19.0 full gate pass with 85 Python tests, and the frozen-boundary audit is empty. Producer visual acceptance remains. |
 | 2026-08-25 | Producer | Visually inspect and accept Slice 0.4 | Accepted | Producer explicitly accepted Slice 0.4, including the documented V1/120-frame Text+ limitation. Phase 0 is closed; the limitation remains an open capability gap in `docs/resolve-text-plus-destination-track-limitation.md`, and Slice 1.1 may resume. |
+| 2026-08-25 | Slice 1.1 implementation and review workstreams | Implement and independently harden the pure ScriptDocument validator, CLI, canonical inputs, and producer acceptance path | Agent complete | Commit `4fe34ab` adds deterministic structural/semantic validation and exact row/entity/token diagnostics without changing frozen contracts or fixtures. Successive reviews closed affinity, fixture-shape, CLI-output, schema-noise, and ID-scope ratchet gaps; the final review reported no findings. |
 
 ## Producer decisions and external checks
 
@@ -299,6 +301,22 @@ before their dependent slices close:
   `package-lock.json`, and `uv.lock`.
 - Unrelated dashboard and probe-script changes in the producer's main checkout
   were excluded from the clean verification and left untouched.
+
+## Slice 1.1 automated verification
+
+- Clean detached `npm ci` and `uv sync --frozen` installs passed with pinned
+  Node 24.19.0 and npm 11.17.0.
+- The combined accepted Slice 0.4 + Slice 1.1 tree passed `npm run validate`:
+  generated contracts current, TypeScript lint/typecheck, **59**
+  contract/validator tests, **1** tooling test, Ruff, strict mypy, and **85**
+  Python tests.
+- Both canonical CLI inputs pass and print every row with type, order key, and
+  ID. The documented broken copy exits nonzero with the exact Row 2
+  `VOICEOVER_VISUAL_GAP` and frozen token range.
+- `git diff --check` passed. No accepted contract, fixture, generated type,
+  Slice 0.2 data/test, or lockfile changed.
+- Final independent read-only review of `4fe34ab` against `9dfacb4` reported no
+  findings. Producer acceptance remains pending and authoritative.
 
 ## Acceptance history
 
