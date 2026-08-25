@@ -236,7 +236,9 @@ names, item counts/ranges, and marker data. The public API cannot enumerate
 stock Fusion titles or select/prove the title's destination track, so the CLI
 reports that bounded manual-completion item. Do not record a Studio capability
 until the producer performs and inspects this real run; automated doubles are
-not Resolve evidence.
+not Resolve evidence. A failure after the build is authorized can leave a
+partial project; the CLI reports `mutation_failed` and the project must be
+inspected manually rather than treated as a nonmutating safety stop.
 
 ## Slice workflow
 

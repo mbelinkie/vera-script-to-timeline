@@ -10,7 +10,7 @@ and only after that preflight passes, it uses the installed public Resolve 21
 scripting API to create a uniquely named project and bins, import the five
 accepted media files, configure the manifest timeline settings and adjustable
 track map, place three trimmed videos, one still, and the synthetic narration
-at their exact manifest frames, add one stock Fusion title and the manifest
+at their exact manifest frames, request one named Fusion title and add the manifest
 marker with custom data, save, close/reopen, and verify the observable result.
 
 Detection reports OS/version/architecture, application path, install source,
@@ -46,10 +46,13 @@ the explicitly authorized connected path.
 - Prove Free delivery returns after package verification without importing,
   connecting to, or invoking the Resolve API.
 - Prove Studio stops without mutation for Free edition, App Store install,
-  missing module, failed/disabled connection, unsupported version/build, and
-  incomplete/nonconforming preflight, with actionable diagnostics.
+  missing module, failed/disabled connection, and incomplete/nonconforming
+  preflight, with actionable diagnostics. Report the connected version without
+  inventing a minimum supported version before producer evidence exists.
 - Prove the complete nonmutating probe precedes the first mutation, and every
   failure before that boundary produces zero project mutation.
+- Prove failures after the mutation boundary report that a partial project may
+  remain instead of describing the run as a safe, nonmutating stop.
 - With strict doubles, verify exact project/bin/import/settings/track/event/
   marker/save/reopen/verification calls, exact record and source frames,
   adjustable settings and track maps, and discrepancies/manual-completion

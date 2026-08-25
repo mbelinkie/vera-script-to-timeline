@@ -189,7 +189,6 @@ def test_local_safety_stops_before_adapter_factory(
     "connected",
     [
         ConnectedFacts("DaVinci Resolve", "free", "21.0.4", "21.0.40005", True),
-        ConnectedFacts("DaVinci Resolve Studio", "studio", "20.3.2", "9", True),
         ConnectedFacts("DaVinci Resolve Studio", "studio", "21.0.4", "5", False),
     ],
 )
@@ -246,6 +245,22 @@ def test_preflight_is_nonmutating_and_surfaces_public_api_gap(
     assert "cannot enumerate stock Fusion titles" in result.manual_completion[0]
 
 
+def test_preflight_reports_older_studio_without_inventing_support_minimum(
+    package: Path, standard_local: LocalFacts
+) -> None:
+    adapter = RecordingAdapter(
+        ConnectedFacts("DaVinci Resolve Studio", "studio", "20.3.2", "9", True)
+    )
+    result = run_delivery(
+        package,
+        "studio",
+        adapter_factory=lambda _: adapter,
+        local_facts=standard_local,
+    )
+    assert result.status == "preflight_passed"
+    assert result.connected is not None and result.connected.version == "20.3.2"
+
+
 def test_success_has_exact_order_frames_settings_tracks_marker_and_reopen(
     package: Path, standard_local: LocalFacts
 ) -> None:
@@ -284,7 +299,7 @@ def test_success_has_exact_order_frames_settings_tracks_marker_and_reopen(
         "timelinePlaybackFrameRate": "23.976",
         "timelineResolutionWidth": "1920",
         "timelineResolutionHeight": "1080",
-        "audioSampleRate": "48000",
+        "timelineSampleRate": "48000",
     }
     events = [value for name, value in adapter.calls if name == "place_event"]
     assert [event["recordRange"]["startFrame"] for event in events] == [
@@ -363,10 +378,63 @@ def test_adjusted_manifest_settings_and_track_map_flow_without_constants(
     )
     assert settings["timelineResolutionWidth"] == "1280"
     assert settings["timelineResolutionHeight"] == "720"
-    assert settings["audioSampleRate"] == "44100"
+    assert settings["timelineSampleRate"] == "44100"
     tracks = next(value for name, value in adapter.calls if name == "configure_tracks")
     assert tracks[2]["name"] == "Picture inserts — adjusted"
     assert tracks[5]["name"] == "Temporary voice — adjusted"
+
+
+def test_post_mutation_failure_reports_possible_partial_project(
+    package: Path, standard_local: LocalFacts
+) -> None:
+    class FailingAdapter(RecordingAdapter):
+        def configure_project(self, settings: Mapping[str, str]) -> None:
+            super().configure_project(settings)
+            raise RuntimeError("injected project-setting failure")
+
+    adapter = FailingAdapter()
+    result = run_delivery(
+        package,
+        "studio",
+        action="build",
+        adapter_factory=lambda _: adapter,
+        local_facts=standard_local,
+        project_name="Partial project test",
+    )
+    assert result.status == "mutation_failed"
+    assert "partial project may remain" in result.message
+    assert [name for name, _ in adapter.calls] == [
+        "connected_facts",
+        "probe",
+        "create_project",
+        "configure_project",
+    ]
+
+
+def test_public_adapter_sets_and_checks_frame_zero_timeline_start() -> None:
+    class Timeline:
+        def __init__(self) -> None:
+            self.timecode: str | None = None
+
+        def SetStartTimecode(self, value: str) -> bool:
+            self.timecode = value
+            return True
+
+        def GetStartFrame(self) -> int:
+            return 0
+
+    timeline = Timeline()
+
+    class Pool:
+        def CreateEmptyTimeline(self, name: str) -> Timeline:
+            assert name == "VERA test"
+            return timeline
+
+    adapter = PublicResolveAdapter(object())
+    adapter.pool = Pool()
+    adapter.create_timeline("VERA test")
+    assert adapter.timeline is timeline
+    assert timeline.timecode == "00:00:00:00"
 
 
 def test_public_adapter_translates_manifest_ranges_to_documented_clip_info() -> None:

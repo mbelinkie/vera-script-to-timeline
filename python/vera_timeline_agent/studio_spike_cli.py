@@ -53,7 +53,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         sys.stdout.write(result.to_json())
         return (
-            0 if result.status not in {"stopped_safely", "verification_failed"} else 2
+            0
+            if result.status
+            not in {"stopped_safely", "mutation_failed", "verification_failed"}
+            else 2
         )
     except (PackageBuildError, StudioSpikeError, OSError, ValueError) as error:
         print(f"Slice 0.4 failed safely: {error}", file=sys.stderr)

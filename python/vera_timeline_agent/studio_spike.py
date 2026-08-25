@@ -18,14 +18,13 @@ DEFAULT_APP_PATH = Path("/Applications/DaVinci Resolve/DaVinci Resolve.app")
 DEFAULT_SCRIPTING_ROOT = Path(
     "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting"
 )
-MINIMUM_API_VERSION = (21, 0, 4)
 MANIFEST_NAME = "timeline-manifest.json"
 
 JsonObject = dict[str, Any]
 
 
 class StudioSpikeError(RuntimeError):
-    """An actionable, fail-closed Studio spike error."""
+    """An actionable Studio spike error."""
 
 
 @dataclass(frozen=True)
@@ -239,26 +238,42 @@ def run_delivery(
     timeline_name = f"VERA build {manifest['buildId']}"
     settings = _project_settings(cast(Mapping[str, Any], manifest["timeline"]))
     sources = _resolved_sources(package_dir, manifest)
-    adapter.create_project(resolved_project_name)
-    adapter.configure_project(settings)
-    adapter.create_bin("VERA Slice 0.4")
-    adapter.create_bin("Accepted Media")
-    adapter.import_media(sources)
-    adapter.create_timeline(timeline_name)
-    adapter.configure_tracks(cast(list[Mapping[str, Any]], manifest["tracks"]))
-    for event in cast(list[Mapping[str, Any]], manifest["events"]):
-        adapter.place_event(event)
-    start_frame = cast(int, cast(Mapping[str, Any], manifest["timeline"])["startFrame"])
-    adapter.insert_fusion_title(fusion_title, start_frame)
-    for marker in cast(list[Mapping[str, Any]], manifest["markers"]):
-        custom_data = json.dumps(
-            {"markerId": marker["id"], "provenance": marker["provenance"]},
-            sort_keys=True,
-            separators=(",", ":"),
+    try:
+        adapter.create_project(resolved_project_name)
+        adapter.configure_project(settings)
+        adapter.create_bin("VERA Slice 0.4")
+        adapter.create_bin("Accepted Media")
+        adapter.import_media(sources)
+        adapter.create_timeline(timeline_name)
+        adapter.configure_tracks(cast(list[Mapping[str, Any]], manifest["tracks"]))
+        for event in cast(list[Mapping[str, Any]], manifest["events"]):
+            adapter.place_event(event)
+        start_frame = cast(
+            int, cast(Mapping[str, Any], manifest["timeline"])["startFrame"]
         )
-        adapter.add_marker(marker, custom_data)
-    adapter.save_close_reopen(resolved_project_name)
-    discrepancies = adapter.verify(manifest)
+        adapter.insert_fusion_title(fusion_title, start_frame)
+        for marker in cast(list[Mapping[str, Any]], manifest["markers"]):
+            custom_data = json.dumps(
+                {"markerId": marker["id"], "provenance": marker["provenance"]},
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            adapter.add_marker(marker, custom_data)
+        adapter.save_close_reopen(resolved_project_name)
+        discrepancies = adapter.verify(manifest)
+    except Exception as error:
+        return CapabilityResult(
+            status="mutation_failed",
+            message=(
+                "Studio build failed after project mutation was authorized. A partial "
+                f"project may remain and must be inspected manually. Detail: {error}"
+            ),
+            local=local,
+            connected=connected,
+            project_name=resolved_project_name,
+            timeline_name=timeline_name,
+            manual_completion=manual,
+        )
     return CapabilityResult(
         status="verified" if not discrepancies else "verification_failed",
         message=(
@@ -355,6 +370,10 @@ class PublicResolveAdapter:
         self.timeline = self.pool.CreateEmptyTimeline(name)
         if self.timeline is None:
             raise StudioSpikeError(f"CreateEmptyTimeline failed for {name}")
+        if not self.timeline.SetStartTimecode("00:00:00:00"):
+            raise StudioSpikeError("SetStartTimecode failed for frame-zero spike")
+        if self.timeline.GetStartFrame() != 0:
+            raise StudioSpikeError("timeline did not retain the frame-zero start")
 
     def configure_tracks(self, tracks: Sequence[Mapping[str, Any]]) -> None:
         self._track_id_map = {
@@ -537,22 +556,7 @@ def _connected_studio_stop(connected: ConnectedFacts) -> str | None:
             "package remains ready for manual Free import and no project mutation "
             "occurred."
         )
-    version = _version_tuple(connected.version)
-    if version < MINIMUM_API_VERSION:
-        minimum = ".".join(str(value) for value in MINIMUM_API_VERSION)
-        return (
-            f"Resolve Studio {connected.version} is unsupported; require {minimum} "
-            "or newer."
-        )
     return None
-
-
-def _version_tuple(version: str) -> tuple[int, int, int]:
-    values: list[int] = []
-    for part in version.split(".")[:3]:
-        digits = "".join(character for character in part if character.isdigit())
-        values.append(int(digits or 0))
-    return cast(tuple[int, int, int], tuple((*values, 0, 0)[:3]))
 
 
 def _load_manifest(package_dir: Path) -> JsonObject:
@@ -579,7 +583,7 @@ def _project_settings(timeline: Mapping[str, Any]) -> dict[str, str]:
         "timelinePlaybackFrameRate": f"{rate_value:.3f}".rstrip("0").rstrip("."),
         "timelineResolutionWidth": str(timeline["width"]),
         "timelineResolutionHeight": str(timeline["height"]),
-        "audioSampleRate": str(timeline["audioSampleRate"]),
+        "timelineSampleRate": str(timeline["audioSampleRate"]),
     }
 
 
