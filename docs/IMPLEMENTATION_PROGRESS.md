@@ -11,13 +11,16 @@ Last updated: 2026-08-25
 ## Current milestone
 
 - **Phase:** 0 gate closed; Phase 1 may proceed
-- **Active slice:** 1.1 — agent-complete; producer acceptance pending
+- **Active slice:** 1.2 — planning and provider evaluation
 - **Overall state:** Slices 0.1 through 0.4 are accepted. The producer accepted
   Slice 0.4 on 2026-08-25, including its documented V1 Text+ destination-track
   limitation. The limitation remains an open capability gap in
   `docs/resolve-text-plus-destination-track-limitation.md`; acceptance does not
-  claim that it is solved. Slice 1.1 implementation and agent verification are
-  complete; producer acceptance is the remaining gate.
+  claim that it is solved. The producer explicitly accepted Slice 1.1 on
+  2026-08-25, freezing its two canonical semantic inputs. Under D-0008,
+  later automated-only slices may be accepted by the orchestrator after their
+  bounded acceptance evidence and independent review pass; irreducibly manual
+  acceptance remains with the producer. Slice 1.2 is active.
 - **Source specification:** `docs/Script-to-Timeline Product Spec - Fable Rev2.md`
 
 ## Status legend
@@ -26,7 +29,9 @@ Last updated: 2026-08-25
 - `In progress` — assigned and actively being implemented
 - `Agent complete` — implementation and automated checks reported complete;
   producer acceptance is still required
-- `Accepted` — producer ran the acceptance script successfully
+- `Accepted` — the producer explicitly accepted the slice, or the orchestrator
+  accepted an automated-only slice under D-0008 after all required evidence
+  passed
 - `Paused` — authorized work is preserved but intentionally not active
 - `Blocked` — cannot proceed without a recorded decision or external condition
 
@@ -38,7 +43,8 @@ Last updated: 2026-08-25
 | 0.2 Handcrafted manifest → OTIO package | Accepted | Orchestrator + bounded implementation and review agents | 0.1 accepted | Producer explicitly accepted on 2026-08-24 after package inspection, independent review, fresh-worktree verification, and green CI. `/contracts` and `/fixtures` remain frozen and unchanged. |
 | 0.3 Resolve Free import trial | Accepted | Producer + agent preparer/recorder | 0.2 accepted | Producer accepted on 2026-08-24. OTIO retained the marker and linked all five items; FCPXML required a manual media redirect and omitted the marker. D-P005 parks FCPXML with no observed compensating advantage. |
 | 0.4 Resolve Studio scripting spike | Accepted | Producer + bounded implementation, hardening, and review agents | 0.2 accepted | Producer explicitly accepted on 2026-08-25 after visual inspection and accepted the documented V1/120-frame Text+ public-API limitation as spike evidence. The limitation remains open in `docs/resolve-text-plus-destination-track-limitation.md`. |
-| 1.1 ScriptDocument v1 and validator | Agent complete | Orchestrator + bounded implementation/review agents | D-0006 semantic decisions; Phase 0 accepted | Pure TypeScript validator and CLI, two canonical inputs, exact row-level diagnostics, 59 contract/validator tests, clean pinned full gate, frozen-boundary audit, and final independent no-findings review passed. Producer acceptance remains required. |
+| 1.1 ScriptDocument v1 and validator | Accepted | Orchestrator + bounded implementation/review agents | D-0006 semantic decisions; Phase 0 accepted | Producer explicitly accepted on 2026-08-25 after the pure TypeScript validator and CLI, two canonical inputs, exact row-level diagnostics, 59 contract/validator tests, clean pinned full gate, frozen-boundary audit, and final independent no-findings review passed. The canonical inputs are now frozen. |
+| 1.2 Voice adapter and block asset cache | In progress | Orchestrator + bounded research/implementation/review agents | Slice 1.1 accepted | Provider comparison, bounded contract/cache design, and FFmpeg-normalization planning are active. Final acceptance remains manual because the specification requires the producer to hear generated files and observe cache behavior. |
 
 ## Slice 0.1 orchestration plan
 
@@ -106,6 +112,8 @@ changes, why, compatibility impact, regenerated outputs, and acceptance impact.
 | 2026-08-25 | Producer + Slice 0.4 bounded fixer | Run the one-time real Studio build, investigate only observed discrepancies, and retry with unique projects | Agent complete | Initial retained projects exposed Resolve 21's default 120-frame still insertion and a 17-frame mark/clip-info intersection. A retained supported-API probe established the exact range rule. The final unique project `VERA Slice 0.4 Producer Acceptance 20260825-021704` saved, closed, reopened, and returned `verified` with no discrepancy. Focused validation passes with 44 Studio tests, Ruff, and strict mypy; clean locked installs and the pinned Node 24.19.0 full gate pass with 85 Python tests, and the frozen-boundary audit is empty. Producer visual acceptance remains. |
 | 2026-08-25 | Producer | Visually inspect and accept Slice 0.4 | Accepted | Producer explicitly accepted Slice 0.4, including the documented V1/120-frame Text+ limitation. Phase 0 is closed; the limitation remains an open capability gap in `docs/resolve-text-plus-destination-track-limitation.md`, and Slice 1.1 may resume. |
 | 2026-08-25 | Slice 1.1 implementation and review workstreams | Implement and independently harden the pure ScriptDocument validator, CLI, canonical inputs, and producer acceptance path | Agent complete | Commit `4fe34ab` adds deterministic structural/semantic validation and exact row/entity/token diagnostics without changing frozen contracts or fixtures. Successive reviews closed affinity, fixture-shape, CLI-output, schema-noise, and ID-scope ratchet gaps; the final review reported no findings. |
+| 2026-08-25 | Producer | Accept Slice 1.1 and delegate later automated-only acceptance | Accepted | Producer explicitly accepted Slice 1.1. Its canonical semantic inputs are frozen. D-0008 records that the orchestrator may accept later slices whose full done condition is objectively automated, while manual listening, visual inspection, credentials/authorization, and irreducible human judgment remain producer gates. |
+| 2026-08-25 | Slice 1.2 orchestration | Bound provider research, cache/contract design, and deterministic FFmpeg normalization before implementation | In progress | Slice 1.2 begins from the accepted Slice 1.1 inputs. No frozen contract, fixture, generated type, accepted test/data, or lockfile change is authorized without a separate approved change note. |
 
 ## Producer decisions and external checks
 
@@ -130,9 +138,11 @@ before their dependent slices close:
   and final unique build passed. The project saved, reopened, and passed all
   public-API-observable checks. The producer visually inspected it and accepted
   Slice 0.4, including the separately documented Text+ limitation.
-- Slice 1.1 is now active. Its preserved implementation must still pass final
-  integration review and the producer acceptance procedure before its two
-  canonical semantic inputs freeze.
+- Slice 1.1 is accepted and its two canonical semantic inputs are frozen.
+- Slice 1.2 is active. Its cloud synthesis path may require provider
+  credentials and its done condition requires the producer to hear generated
+  files and observe cache reuse/regeneration; implementation should proceed to
+  that manual gate without pausing for ordinary design choices.
 - Contract workstreams must not independently invent incompatible event or
   block shapes; the spec's canonical model and Phase 0/1 boundaries govern.
 
@@ -316,9 +326,19 @@ before their dependent slices close:
 - `git diff --check` passed. No accepted contract, fixture, generated type,
   Slice 0.2 data/test, or lockfile changed.
 - Final independent read-only review of `4fe34ab` against `9dfacb4` reported no
-  findings. Producer acceptance remains pending and authoritative.
+  findings. The producer explicitly accepted Slice 1.1 on 2026-08-25; its two
+  canonical semantic inputs are frozen for Slice 1.3 reuse.
 
 ## Acceptance history
+
+### Slice 1.1 — Accepted 2026-08-25
+
+The producer explicitly accepted Slice 1.1 after implementation, clean locked
+verification, frozen-boundary audit, the exact canonical CLI evidence, and a
+final independent no-findings review passed. The minimal and torture
+`ScriptDocument` inputs under `tests/data/slice_1_1/` are frozen as semantic
+inputs for Slice 1.3; changing them requires an explicit change note and
+producer approval.
 
 ### Slice 0.4 — Accepted 2026-08-25
 

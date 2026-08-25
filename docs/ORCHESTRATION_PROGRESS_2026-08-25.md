@@ -2,7 +2,7 @@
 
 This is the working orchestration log for the current execution run. The
 authoritative long-lived slice states remain in `docs/IMPLEMENTATION_PROGRESS.md`,
-and producer acceptance remains the only mechanism that closes a slice.
+and acceptance follows the producer's standing delegation in D-0008.
 
 ## Current gate
 
@@ -11,10 +11,13 @@ and producer acceptance remains the only mechanism that closes a slice.
   accepted Slice 0.4, including the documented V1/120-frame Text+ limitation.
 - The Text+ limitation remains an open capability problem, recorded separately
   in `docs/resolve-text-plus-destination-track-limitation.md`.
-- Active bounded slice: **1.1 — ScriptDocument v1 and validator**.
-- Slice 1.1 is agent-complete after implementation, full verification, and a
-  final independent no-findings review. Producer acceptance is pending and is
-  the only mechanism that closes the slice.
+- Slice 1.1 was explicitly accepted by the producer on 2026-08-25; its two
+  canonical semantic inputs are now frozen.
+- Active bounded slice: **1.2 — Voice adapter and block asset cache**.
+- Under D-0008, automated-only slices may be accepted autonomously after all
+  bounded checks, boundary audits, acceptance procedures, and independent
+  review pass. Slice 1.2 still has a manual producer gate because its done
+  condition requires listening to generated files and observing cache behavior.
 
 ## Slice 0.4 bounded execution record
 
@@ -113,12 +116,11 @@ read-only reviews, and the final rebased review completed with no findings.
   and both lockfiles have no diff; `git diff --check` passes.
 - Final independent read-only review reported no findings.
 
-### Producer gate
+### Producer gate — passed
 
-Run `docs/slice-1.1-script-validator-acceptance.md`, judge the two readable pass
-reports and exact broken-copy complaint, then explicitly accept or reject the
-semantic decisions, canonical inputs, and Slice 1.1. Until then, status remains
-agent-complete rather than accepted.
+The producer explicitly accepted the semantic decisions, canonical inputs, and
+Slice 1.1 on 2026-08-25 after the documented evidence passed. The canonical
+inputs are frozen for later compiler goldens.
 
 ## Producer acceptance checklist for Slice 0.4
 
@@ -140,8 +142,11 @@ agent-complete rather than accepted.
 
 - Slice 0.4 requires no further acceptance decision. Its Text+ limitation is
   an open capability investigation, not a reopened Phase 0 gate.
-- Slice 1.1 requires explicit producer acceptance after the documented CLI
-  walkthrough. Slice 1.2 does not start before that gate.
-- Slice 1.2 will require a producer-approved initial cloud voice-provider
-  selection, but that decision is outside the current gate and must not be
-  guessed early.
+- Slice 1.1 is accepted; no decision remains open.
+- The orchestrator will select Slice 1.2's initial cloud voice provider from a
+  current evidence-based comparison and record the rationale rather than stop
+  for an ordinary design choice. Provider credentials or account authorization,
+  if unavailable, remain an external gate.
+- Slice 1.2's final acceptance remains manual because the producer must hear
+  each normalized block file and observe all-reused and exactly-one-regenerated
+  command results.

@@ -2,12 +2,12 @@
 
 ## Status and gate
 
-**Agent complete; producer acceptance pending.** The producer approved all
+**Accepted on 2026-08-25.** The producer approved all
 seven semantic decisions and the provisional sequencing exception in D-0006
 and D-0007. The producer then accepted Slice 0.4 on 2026-08-25, closing the
 Phase 0 gate. Implementation, automated verification, frozen-boundary audit,
-and independent review are complete; only the documented producer acceptance
-procedure can close Slice 1.1.
+and independent review completed, and the producer explicitly accepted Slice
+1.1. The two canonical semantic inputs are now frozen for Slice 1.3 reuse.
 
 This slice does **not** modify the accepted `ScriptDocument v1`
 schema, generated contract types, `/fixtures`, accepted test data, or any
@@ -59,8 +59,8 @@ separate contract-change note and approval before implementation.
    that demonstrates the exact row-level complaint.
 
 The two new script inputs are not part of the accepted `/fixtures` media
-boundary. Producer acceptance of Slice 1.1 will freeze them as semantic inputs
-for reuse by the Slice 1.3 compiler goldens.
+boundary. Producer acceptance of Slice 1.1 froze them as semantic inputs for
+reuse by the Slice 1.3 compiler goldens.
 
 ## Proposed internal API
 
@@ -234,6 +234,9 @@ Producer acceptance requires:
 
 The exact producer procedure is maintained in
 `docs/slice-1.1-script-validator-acceptance.md`.
+
+The producer explicitly accepted Slice 1.1 on 2026-08-25. All acceptance
+requirements above are therefore closed, and the canonical inputs are frozen.
 
 ## Contract-change trigger
 
