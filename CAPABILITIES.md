@@ -7,22 +7,27 @@ expectations are not capability evidence.
 
 ## Current status
 
-Slice 0.3 automation prepares and locally verifies dual trial inputs, and
-Slice 0.4 code/test doubles exercise the Studio adapter boundary. Neither has
-tested real Resolve behavior. Noninteractive inspection on 2026-08-24 detected
-macOS 15.1 build 24B83 (x86_64), the default-path application bundle at
+Slice 0.3 automation prepares and locally verifies dual trial inputs. Producer
+testing has begun in real Resolve Free 21 on an Intel Mac: the FCPXML import
+did not contain the expected marker. The remaining FCPXML observations and the
+OTIO comparison have not yet been recorded, so this is partial evidence rather
+than Slice 0.3 acceptance. Slice 0.4 code/test doubles exercise the Studio
+adapter boundary, but no real Studio installation has been tested.
+Noninteractive inspection on 2026-08-24 detected macOS 15.1 build 24B83
+(x86_64), the default-path application bundle at
 `/Applications/DaVinci Resolve/DaVinci Resolve.app` reporting 21.0.4 / build
 21.0.40005, a matching `ManifestLite` 21.0.4 package receipt, no application
 `_MASReceipt`, and installed scripting bridge/documentation. These are
 detected facts, not proof of the connected executable path and not evidence of
-edition, import fidelity, a Studio connection, or automation.
+the exact in-application patch/build, complete import fidelity, a Studio
+connection, or automation.
 
 ## Resolve Free import observations
 
 | Resolve version / installation | OS | Format | Item counts and durations | Track names/order | Media links | Markers | Transitions | Evidence | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Detected, not yet tested: default-path Resolve 21.0.4 (21.0.40005), matching ManifestLite receipt, no MAS receipt | macOS 15.1 (24B83), x86_64 | OTIO | Not tested | Not tested | Not tested | Not tested | Not tested | `docs/slice-0.3-resolve-free-trial.md` pending worksheet | Unverified |
-| Detected, not yet tested: default-path Resolve 21.0.4 (21.0.40005), matching ManifestLite receipt, no MAS receipt | macOS 15.1 (24B83), x86_64 | FCPXML | Not tested | Not tested | Not tested | Not tested | Not tested | `docs/slice-0.3-resolve-free-trial.md` pending worksheet | Unverified |
+| Producer reported Resolve Free 21; default-path bundle separately detected as 21.0.4 (21.0.40005) | Intel Mac; exact in-application OS details not recorded | OTIO | Not recorded | Not recorded | Not recorded | Not recorded | Not recorded | `docs/slice-0.3-resolve-free-trial.md` | Pending producer observation |
+| Producer reported Resolve Free 21 installed from Blackmagic download; default-path bundle separately detected as 21.0.4 (21.0.40005) | Intel Mac; exact in-application OS details not recorded | FCPXML | Not recorded | Not recorded | Not recorded | Expected marker missing | Not recorded | Producer worksheet update at `docs/slice-0.3-resolve-free-trial.md`, 2026-08-24 | Partial observation: marker fidelity failed |
 
 ## Resolve Studio automation observations
 

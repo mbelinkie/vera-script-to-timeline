@@ -15,11 +15,11 @@ or relink either result until the initial state and evidence are recorded.
 
 ## Environment (record before import)
 
-- Date/time and observer:
-- OS product/version/build and architecture:
-- Resolve edition:
-- Resolve version/build shown inside the application:
-- Install source (Blackmagic download, App Store, other):
+- Date/time and observer: Matt, 8/24 11:10
+- OS product/version/build and architecture: Mac Intel
+- Resolve edition: Free
+- Resolve version/build shown inside the application: 21
+- Install source (Blackmagic download, App Store, other): download
 - Package/receipt evidence locator:
 - Trial package path or retained archive:
 - Manifest SHA-256:
@@ -70,14 +70,14 @@ the trial environment. Detection is not a capability observation.
 - Media link status for each of five sources:
 - Marker name/frame/note/color:
 - Cuts/transitions at frames 18/36/54:
-- Discrepancies from the expected manifest facts:
+- Discrepancies from the expected manifest facts: the marker is missing
 - Evidence locators (screenshots, exported timeline, notes/logs):
 
 ## Comparison and exit decision
 
 - Gaps common to both:
 - OTIO-only gaps:
-- FCPXML-only gaps:
+- FCPXML-only gaps: marker
 - Does FCPXML close a material OTIO gap? State exact evidence:
 - Proposed D-P005 outcome: **maintain FCPXML fallback / park FCPXML**
 - Rationale and compatibility/acceptance impact:
