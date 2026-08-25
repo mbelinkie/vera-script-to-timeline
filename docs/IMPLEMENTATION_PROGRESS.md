@@ -157,8 +157,9 @@ before their dependent slices close:
   passed on `main` at `c8f2862`, including locked installs, the full repository
   validation command, and the lockfile-diff guard.
 - **Producer acceptance is pending.** Slice 0.2 must not be marked accepted,
-  and dependent Slices 0.3 and 0.4 must not start, until the producer performs
-  the documented inspection/import steps and explicitly accepts the slice.
+  and dependent Slices 0.3 and 0.4 must not start, until the producer opens the
+  folder, reads the instructions and report, and explicitly accepts the slice.
+  Actual Resolve import fidelity is the separate Slice 0.3 acceptance gate.
 
 ## Acceptance history
 
