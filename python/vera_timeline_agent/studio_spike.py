@@ -974,7 +974,6 @@ def _project_settings(timeline: Mapping[str, Any]) -> dict[str, str]:
     rate_value = rate["numerator"] / rate["denominator"]
     return {
         "timelineFrameRate": f"{rate_value:.3f}".rstrip("0").rstrip("."),
-        "timelinePlaybackFrameRate": f"{rate_value:.3f}".rstrip("0").rstrip("."),
         "timelineResolutionWidth": str(timeline["width"]),
         "timelineResolutionHeight": str(timeline["height"]),
         "timelineSampleRate": str(timeline["audioSampleRate"]),

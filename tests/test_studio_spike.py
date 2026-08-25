@@ -547,7 +547,6 @@ def test_success_has_exact_order_frames_settings_tracks_marker_and_reopen(
     )
     assert settings == {
         "timelineFrameRate": "23.976",
-        "timelinePlaybackFrameRate": "23.976",
         "timelineResolutionWidth": "1920",
         "timelineResolutionHeight": "1080",
         "timelineSampleRate": "48000",

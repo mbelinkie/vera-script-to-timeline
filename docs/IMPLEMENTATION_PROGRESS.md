@@ -6,15 +6,15 @@ contract boundaries, verification, producer acceptance, decisions, and
 follow-up work. A slice is complete only after its automated checks pass **and**
 the producer runs its acceptance script successfully.
 
-Last updated: 2026-08-24
+Last updated: 2026-08-25
 
 ## Current milestone
 
-- **Phase:** 0 gate open; provisional Phase 1 work authorized by D-0007
-- **Active slices:** 0.4 — Resolve Studio acceptance; 1.1 — Script validator
+- **Phase:** 0 gate open; all other work paused while Slice 0.4 acceptance finishes
+- **Active slice:** 0.4 — Resolve Studio acceptance
 - **Overall state:** Slices 0.1, 0.2, and 0.3 accepted; Slice 0.4 agent-complete
-  and awaiting producer access to Resolve Studio; Slice 1.1 implementation is
-  in progress under the approved bounded sequencing exception
+  with the producer's real Studio preflight passed and the one-time build still
+  required; Slice 1.1 implementation is paused at the producer's request
 - **Source specification:** `docs/Script-to-Timeline Product Spec - Fable Rev2.md`
 
 ## Status legend
@@ -24,6 +24,7 @@ Last updated: 2026-08-24
 - `Agent complete` — implementation and automated checks reported complete;
   producer acceptance is still required
 - `Accepted` — producer ran the acceptance script successfully
+- `Paused` — authorized work is preserved but intentionally not active
 - `Blocked` — cannot proceed without a recorded decision or external condition
 
 ## Slice tracker
@@ -33,8 +34,8 @@ Last updated: 2026-08-24
 | 0.1 Repository, contracts, and fixture scaffold | Accepted | Orchestrator + bounded implementation agents | — | Producer accepted on 2026-08-24 after clean detached-worktree validation and green GitHub Actions runs `32789057717` and `32789138346`. Contracts and fixtures are now frozen. |
 | 0.2 Handcrafted manifest → OTIO package | Accepted | Orchestrator + bounded implementation and review agents | 0.1 accepted | Producer explicitly accepted on 2026-08-24 after package inspection, independent review, fresh-worktree verification, and green CI. `/contracts` and `/fixtures` remain frozen and unchanged. |
 | 0.3 Resolve Free import trial | Accepted | Producer + agent preparer/recorder | 0.2 accepted | Producer accepted on 2026-08-24. OTIO retained the marker and linked all five items; FCPXML required a manual media redirect and omitted the marker. D-P005 parks FCPXML with no observed compensating advantage. |
-| 0.4 Resolve Studio scripting spike | Agent complete | Bounded implementation, hardening, and review agents | 0.2 accepted | Fail-closed API/CLI, independent review, and automated checks are complete and CI-green; real producer Studio preflight/build and capability evidence remain required for acceptance |
-| 1.1 ScriptDocument v1 and validator | In progress | Orchestrator + bounded implementation/review agents | D-0006 semantic decisions and D-0007 sequencing exception | Producer approved the bounded semantic rules and provisional implementation on 2026-08-24. The accepted schema remains unchanged unless a separately approved contract-change note proves necessary. |
+| 0.4 Resolve Studio scripting spike | Agent complete | Bounded implementation, hardening, and review agents | 0.2 accepted | Producer connected to real Resolve Studio 21.0.4 and passed the nonmutating preflight on 2026-08-25 with no discrepancies. The one-time producer build, inspection, capability evidence, and explicit acceptance remain required. |
+| 1.1 ScriptDocument v1 and validator | Paused | Orchestrator + bounded implementation/review agents | D-0006 semantic decisions, D-0007 sequencing exception, and producer resume instruction | Provisional work was stopped and preserved in its isolated worktree when the producer asked to pause all other work until Slice 0.4 finishes. The accepted schema remains unchanged. |
 
 ## Slice 0.1 orchestration plan
 
@@ -96,6 +97,9 @@ changes, why, compatibility impact, regenerated outputs, and acceptance impact.
 | 2026-08-24 | Slice 1.1 read-only planning workstreams | Independently bound the validator slice and audit `ScriptDocument v1` against the exact Phase 1 requirements while Slice 0.4 awaits Studio | Complete | Both audits found the named structures already present and generated types current. The missing surface is the pure TypeScript semantic validator, CLI, semantic tests, and two canonical script inputs. No files in the frozen contract/fixture boundaries were changed. |
 | 2026-08-24 | Orchestrator | Synthesize Slice 1.1 scope, semantic recommendations, test matrix, contract-change trigger, and acceptance path | Complete | Added `docs/plans/slice-1.1-script-validator.md`. Slice 1.1 remains queued pending producer approval of the semantic decisions and either Slice 0.4 acceptance or an explicit provisional sequencing exception. |
 | 2026-08-24 | Producer | Decide Slice 1.1 semantics and whether implementation may proceed before Slice 0.4 acceptance | Accepted | Approved all seven semantic recommendations and provisional implementation. Recorded as D-0006 and D-0007; the exception does not close the Phase 0 gate or alter Slice 0.4's acceptance requirement. |
+| 2026-08-25 | Producer + Slice 0.4 fixer | Exercise the real nonmutating Studio preflight and correct the vendor bridge loader without crossing the mutation boundary | Complete | The first correctly located run stopped safely with no discrepancies or mutation because Blackmagic's Python wrapper replaced itself in `sys.modules` and the loader retained the stale wrapper object. Commit `94bdd53` now consumes the vendor's replacement module and restores prior module state on failure; 43 focused Studio tests, the full 84-test Python/16-contract/1-tooling gate, frozen-boundary audit, and GitHub Actions run `32808424418` passed. |
+| 2026-08-25 | Producer | Rerun the Slice 0.4 connected preflight against actual Resolve Studio | Complete | Connected to DaVinci Resolve Studio 21.0.4 build 5 through the supported external scripting API. Local bundle 21.0.4/build 21.0.40005 and connected identity agreed, `scripting_available` was true, discrepancies were empty, status was `preflight_passed`, and the command reported no project mutation. The one-time build remains pending. |
+| 2026-08-25 | Producer | Pause all non-Slice-0.4 work | Active | Slice 1.1 implementation was interrupted and preserved in its isolated worktree. It will not resume until the producer finishes Slice 0.4 or explicitly changes this instruction. |
 
 ## Producer decisions and external checks
 
@@ -116,12 +120,13 @@ before their dependent slices close:
 - The assigned workspace began as an empty Git repository; it has been
   initialized from the authoritative GitHub repository without modifying the
   separate desktop checkout.
-- The producer-observed portion of Slice 0.4 requires access to an actual
-  Resolve Studio installation. No Studio installation is currently available;
-  that check cannot be replaced by automated mocks.
-- Slice 1.1 is technically independent of Resolve. D-0007 authorizes its
-  provisional implementation before Slice 0.4 acceptance, but does not close
-  the specification's Phase 0 gate or authorize Resolve-dependent later work.
+- The producer's real Resolve Studio 21.0.4 connection and nonmutating
+  preflight passed. Slice 0.4 still requires the documented one-time build,
+  manual inspection, retained capability evidence, and explicit producer
+  acceptance; test doubles cannot replace those observations.
+- Slice 1.1 is technically independent of Resolve and remains authorized by
+  D-0007, but all work on it is paused by the producer until Slice 0.4 is
+  finished.
 - Contract workstreams must not independently invent incompatible event or
   block shapes; the spec's canonical model and Phase 0/1 boundaries govern.
 
@@ -232,8 +237,36 @@ before their dependent slices close:
 - A final fresh read-only review reran 51 focused Slice 0.3/0.4 tests plus
   Ruff and mypy and reported no actionable findings.
 - No agent launched Resolve, automated its UI, connected to it, or mutated a
-  Resolve project. Detected machine facts remain unverified until the producer
-  performs the documented Slice 0.3 and Slice 0.4 acceptance procedures.
+  Resolve project. Subsequent producer-run evidence below now verifies the real
+  Studio connection and nonmutating preflight; the build remains unverified.
+
+## Slice 0.4 producer preflight evidence
+
+- On 2026-08-25 the producer ran the connected preflight from outside the
+  repository using `uv --directory`, proving the documented workflow does not
+  depend on the caller's current directory.
+- The initial real connection attempt stopped safely before mutation with
+  `module 'DaVinciResolveScript' has no attribute 'scriptapp'`. Inspection
+  showed that Blackmagic's installed wrapper replaces its own canonical
+  `sys.modules` entry with the native `fusionscript` extension while executing;
+  the repository loader had retained the stale wrapper object.
+- Commit `94bdd53` registers the wrapper under its canonical name during
+  execution, consumes the vendor-provided replacement module, and restores the
+  previous entry when execution fails. Focused and full local validation,
+  frozen-boundary review, and GitHub Actions run
+  [32808424418](https://github.com/mbelinkie/vera-script-to-timeline/actions/runs/32808424418)
+  passed.
+- The producer's post-fix preflight connected through the supported API to
+  `DaVinci Resolve Studio` 21.0.4 build 5 with external scripting available.
+  The connected five-field identity agreed with the detected default-path
+  bundle 21.0.4/build 21.0.40005 and matching `ManifestLite` receipt. The
+  result had status `preflight_passed`, no discrepancies, and explicitly made
+  no project mutation.
+- The public API and preflight limitations reported by the command remain in
+  force: no stock Fusion-title enumeration or title destination-track proof,
+  no connected executable-path report, and no nonmutating proof of the calls
+  that create/configure/import/assemble/insert. The producer build and manual
+  inspection remain the acceptance gate.
 
 ## Acceptance history
 

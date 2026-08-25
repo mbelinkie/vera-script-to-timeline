@@ -13,8 +13,12 @@ five expected linked items and retained the expected marker. FCPXML imported
 the same five items only after the producer redirected Resolve to the packaged
 media and did not retain the marker. No other difference was observed. The
 producer accepted Slice 0.3 and approved D-P005 to park FCPXML. Slice 0.4
-code/test doubles exercise the Studio adapter boundary, but no real Studio
-installation has been tested.
+producer preflight connected through the supported external API to real
+DaVinci Resolve Studio 21.0.4 build 5 with external scripting available. The
+connected identity agreed with the detected local bundle and the preflight
+reported no discrepancies or project mutation. The real build and manual
+inspection remain pending, so project creation/reopen/verification capability
+is not yet claimed.
 Noninteractive inspection on 2026-08-24 detected macOS 15.1 build 24B83
 (x86_64), the default-path application bundle at
 `/Applications/DaVinci Resolve/DaVinci Resolve.app` reporting 21.0.4 / build
@@ -35,15 +39,17 @@ connection, or automation.
 
 | Resolve version / installation | OS | Edition detection | External scripting | Create/reopen/verify result | Safety-boundary result | Evidence | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Pending Slice 0.4 | Pending | Not tested | Not tested | Not tested | Not tested | — | Unverified |
-| 21.0.4 / default-path bundle with matching ManifestLite receipt, build 21.0.40005 | macOS 15.1 x86_64 | Not observed; bundle name is edition-neutral | Not attempted | Not attempted | Automated test doubles only; no real project mutation | Local `Info.plist`, receipt/module/docs presence; producer-run commands remain pending | Detected only / unverified |
+| 21.0.4 / default-path bundle with matching ManifestLite receipt, build 21.0.40005 | macOS 15.1 x86_64 | Real API connection reported `DaVinci Resolve Studio`, version 21.0.4, build 5, empty suffix | Available through the supported local external scripting API | Not attempted by preflight; build remains pending | First real attempt stopped safely before mutation on the vendor-wrapper loading defect; post-fix preflight returned `preflight_passed` with no discrepancies and no mutation | Producer terminal JSON, 2026-08-25; loader fix `94bdd53`; green GitHub Actions run `32808424418`; orchestration record in `docs/IMPLEMENTATION_PROGRESS.md` | Connected preflight observed; build unverified |
 
 ## Minimum supported versions
 
 - Resolve Free: **Tested baseline is Resolve Free 21 on the detected 21.0.4 /
   build 21.0.40005 bundle. A true minimum is not claimed without lower-version
   evidence.**
-- Resolve Studio: **Unresolved; requires Slice 0.4 evidence.**
+- Resolve Studio: **Connected baseline is Studio 21.0.4 / API build 5 on the
+  detected 21.0.4 / bundle build 21.0.40005 installation. A true minimum and
+  successful build capability are not claimed without the pending build and
+  lower-version evidence.**
 
 ## Installed public API gaps relevant to Slice 0.4
 
