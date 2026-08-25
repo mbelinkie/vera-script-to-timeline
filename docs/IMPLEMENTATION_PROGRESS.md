@@ -11,9 +11,9 @@ Last updated: 2026-08-24
 ## Current milestone
 
 - **Phase:** 0 — Foundations and Resolve capability spike
-- **Active slice:** 0.2 — Handcrafted manifest → OTIO package
-- **Overall state:** Slice 0.1 accepted; Slice 0.2 agent complete and awaiting
-  producer acceptance
+- **Active slices:** 0.3 — Resolve Free import trial; 0.4 — Resolve Studio
+  scripting spike
+- **Overall state:** Slices 0.1 and 0.2 accepted; Slices 0.3 and 0.4 unblocked
 - **Source specification:** `docs/Script-to-Timeline Product Spec - Fable Rev2.md`
 
 ## Status legend
@@ -30,7 +30,7 @@ Last updated: 2026-08-24
 | Slice | Status | Owner | Depends on | Verification / notes |
 | --- | --- | --- | --- | --- |
 | 0.1 Repository, contracts, and fixture scaffold | Accepted | Orchestrator + bounded implementation agents | — | Producer accepted on 2026-08-24 after clean detached-worktree validation and green GitHub Actions runs `32789057717` and `32789138346`. Contracts and fixtures are now frozen. |
-| 0.2 Handcrafted manifest → OTIO package | Agent complete | Orchestrator + bounded implementation and review agents | 0.1 accepted | Implemented in `ceae4fc` and independently hardened in `27e47d3`; automated and fresh-worktree checks pass; producer acceptance pending. `/contracts` and `/fixtures` remain frozen and unchanged. |
+| 0.2 Handcrafted manifest → OTIO package | Accepted | Orchestrator + bounded implementation and review agents | 0.1 accepted | Producer explicitly accepted on 2026-08-24 after package inspection, independent review, fresh-worktree verification, and green CI. `/contracts` and `/fixtures` remain frozen and unchanged. |
 | 0.3 Resolve Free import trial | Queued | Producer + agent recorder | 0.2 accepted | Requires the actual Resolve Free installation and manual import evidence |
 | 0.4 Resolve Studio scripting spike | Queued | Unassigned | 0.2 accepted | Requires supported desktop Studio and external scripting availability |
 
@@ -83,6 +83,7 @@ changes, why, compatibility impact, regenerated outputs, and acceptance impact.
 | 2026-08-24 | Producer | Run/confirm Slice 0.1 acceptance | Accepted | Producer explicitly accepted Slice 0.1 after local clean-worktree validation and GitHub Actions passed. Contracts and fixtures are frozen from this point. |
 | 2026-08-24 | Slice 0.2 implementation workstream | Build a deterministic, self-contained OTIO import package from a handcrafted manifest without modifying frozen inputs | Agent complete | Integrated as `ceae4fc`; added the exact-pinned Python OTIO package API/CLI, schema and semantic validation, atomic/idempotent publication, relative packaged media, import instructions, build report, and adjustable delivery/track-map coverage. |
 | 2026-08-24 | Slice 0.2 independent review workstream | Audit implementation, package boundaries, OTIO fidelity, determinism, and acceptance coverage | Agent complete | Integrated as `27e47d3`; rejected symlink/hard-link escapes, tightened hard-cut and identity semantics, added adversarial OTIO timing checks, and independently reproduced the full validation/package workflow in a fresh detached worktree. No unresolved code findings. |
+| 2026-08-24 | Producer | Open and inspect the Slice 0.2 self-contained package, instructions, and event report | Accepted | Producer explicitly accepted Slice 0.2. Slices 0.3 and 0.4 are now unblocked; Resolve import fidelity remains a Slice 0.3 concern. |
 
 ## Producer decisions and external checks
 
@@ -156,12 +157,19 @@ before their dependent slices close:
   [32792300917](https://github.com/mbelinkie/vera-script-to-timeline/actions/runs/32792300917)
   passed on `main` at `c8f2862`, including locked installs, the full repository
   validation command, and the lockfile-diff guard.
-- **Producer acceptance is pending.** Slice 0.2 must not be marked accepted,
-  and dependent Slices 0.3 and 0.4 must not start, until the producer opens the
-  folder, reads the instructions and report, and explicitly accepts the slice.
-  Actual Resolve import fidelity is the separate Slice 0.3 acceptance gate.
+- The producer explicitly accepted Slice 0.2 on 2026-08-24 after opening and
+  inspecting the package, instructions, and event report. Actual Resolve
+  import fidelity remains the separate Slice 0.3 acceptance gate.
 
 ## Acceptance history
+
+### Slice 0.2 — Accepted 2026-08-24
+
+The producer explicitly accepted Slice 0.2 after inspecting the self-contained
+package, its import instructions, and the build report. Automated checks parse
+the OTIO back against the handcrafted manifest event-for-event, independent
+review found no unresolved issues, and CI is green. Slices 0.3 and 0.4 are
+unblocked; the accepted package remains the unchanged evidence input for both.
 
 ### Slice 0.1 — Accepted 2026-08-24
 
