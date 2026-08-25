@@ -230,11 +230,14 @@ uv run --frozen python -m vera_timeline_agent.studio_spike_cli run \
 
 The build path creates bins/tracks from the adjustable manifest, imports and
 places its three trimmed videos, still, and synthetic narration at exact
-record/source frames, requests the stock `Text+` Fusion title, adds marker
-custom data, saves, closes/reopens, and verifies public-API-observable track
-names, item counts/ranges, and marker data. The public API cannot enumerate
-stock Fusion titles or select/prove the title's destination track, so the CLI
-reports that bounded manual-completion item. Do not record a Studio capability
+record/source frames, requests the named `Text+` Fusion title, adds marker
+custom data, saves, closes/reopens, and verifies public-API-observable project,
+timeline, setting, bin, track, media-identity, item-range, title-presence, and
+marker data. This bounded spike rejects nonzero timeline starts before loading
+the Resolve bridge. The public API cannot enumerate stock Fusion titles or
+select/prove the title's destination track, and nonmutating preflight cannot
+prove mutation-only calls, so the CLI reports those bounded manual-completion
+items. Do not record a Studio capability
 until the producer performs and inspects this real run; automated doubles are
 not Resolve evidence. A failure after the build is authorized can leave a
 partial project; the CLI reports `mutation_failed` and the project must be

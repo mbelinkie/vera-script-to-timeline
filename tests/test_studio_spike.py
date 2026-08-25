@@ -67,11 +67,14 @@ class RecordingAdapter:
         self.calls.append(("connected_facts", None))
         return self.connected
 
-    def probe(self) -> tuple[str, ...]:
-        self.calls.append(("probe", None))
+    def probe(self, settings: Mapping[str, str]) -> tuple[str, ...]:
+        self.calls.append(("probe", dict(settings)))
         if self.probe_error:
             raise self.probe_error
         return ()
+
+    def check_project_name_available(self, name: str) -> None:
+        self.calls.append(("check_project_name_available", name))
 
     def create_project(self, name: str) -> None:
         self.calls.append(("create_project", name))
@@ -150,6 +153,35 @@ def test_free_never_constructs_or_invokes_resolve_adapter(
     )
     assert result.status == "ready_to_import"
     assert "not imported, connected, or invoked" in result.message
+
+
+def test_studio_rejects_nonzero_timeline_start_before_connection(
+    tmp_path: Path, standard_local: LocalFacts
+) -> None:
+    manifest = json.loads(MANIFEST.read_text())
+    manifest["timeline"]["startFrame"] = 100
+    for event in manifest["events"]:
+        event["recordRange"]["startFrame"] += 100
+    for transition in manifest["transitions"]:
+        transition["atFrame"] += 100
+    for marker in manifest["markers"]:
+        marker["frame"] += 100
+    adjusted = tmp_path / "nonzero-start.json"
+    adjusted.write_text(json.dumps(manifest))
+    package = tmp_path / "nonzero-package"
+    build_otio_package(adjusted, MEDIA_ROOT, package)
+
+    def forbidden(_: LocalFacts) -> RecordingAdapter:
+        raise AssertionError("nonzero start crossed the pre-connection stop")
+
+    result = run_delivery(
+        package,
+        "studio",
+        adapter_factory=forbidden,
+        local_facts=standard_local,
+    )
+    assert result.status == "stopped_safely"
+    assert "frame-zero" in result.message
 
 
 @pytest.mark.parametrize(
@@ -241,7 +273,11 @@ def test_preflight_is_nonmutating_and_surfaces_public_api_gap(
         local_facts=standard_local,
     )
     assert result.status == "preflight_passed"
-    assert [call[0] for call in adapter.calls] == ["connected_facts", "probe"]
+    assert [call[0] for call in adapter.calls] == [
+        "connected_facts",
+        "probe",
+        "check_project_name_available",
+    ]
     assert "cannot enumerate stock Fusion titles" in result.manual_completion[0]
 
 
@@ -261,6 +297,31 @@ def test_preflight_reports_older_studio_without_inventing_support_minimum(
     assert result.connected is not None and result.connected.version == "20.3.2"
 
 
+def test_project_name_collision_stops_before_mutation(
+    package: Path, standard_local: LocalFacts
+) -> None:
+    class CollisionAdapter(RecordingAdapter):
+        def check_project_name_available(self, name: str) -> None:
+            super().check_project_name_available(name)
+            raise RuntimeError("project already exists")
+
+    adapter = CollisionAdapter()
+    result = run_delivery(
+        package,
+        "studio",
+        action="build",
+        adapter_factory=lambda _: adapter,
+        local_facts=standard_local,
+        project_name="Existing project",
+    )
+    assert result.status == "stopped_safely"
+    assert [name for name, _ in adapter.calls] == [
+        "connected_facts",
+        "probe",
+        "check_project_name_available",
+    ]
+
+
 def test_success_has_exact_order_frames_settings_tracks_marker_and_reopen(
     package: Path, standard_local: LocalFacts
 ) -> None:
@@ -278,6 +339,7 @@ def test_success_has_exact_order_frames_settings_tracks_marker_and_reopen(
     assert names == [
         "connected_facts",
         "probe",
+        "check_project_name_available",
         "create_project",
         "configure_project",
         "create_bin",
@@ -406,6 +468,7 @@ def test_post_mutation_failure_reports_possible_partial_project(
     assert [name for name, _ in adapter.calls] == [
         "connected_facts",
         "probe",
+        "check_project_name_available",
         "create_project",
         "configure_project",
     ]
@@ -464,6 +527,130 @@ def test_public_adapter_translates_manifest_ranges_to_documented_clip_info() -> 
     assert [call[0]["recordFrame"] for call in pool.values] == [0, 18, 36, 54, 0]
     assert [call[0]["trackIndex"] for call in pool.values] == [3, 3, 3, 3, 1]
     assert [call[0]["mediaType"] for call in pool.values] == [1, 1, 1, 1, 2]
+
+
+def test_public_verifier_checks_media_identity_and_observable_result() -> None:
+    custom = json.dumps(
+        {"markerId": "marker-1", "provenance": {"kind": "test"}},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    marker_info = {
+        "color": "Blue",
+        "duration": 1,
+        "note": "note",
+        "name": "review",
+        "customData": custom,
+    }
+
+    class Media:
+        def __init__(self, media_id: str) -> None:
+            self.media_id = media_id
+
+        def GetMediaId(self) -> str:
+            return self.media_id
+
+    class Item:
+        def __init__(self, unique_id: str, media_id: str | None = None) -> None:
+            self.unique_id = unique_id
+            self.media = Media(media_id) if media_id is not None else None
+
+        def GetUniqueId(self) -> str:
+            return self.unique_id
+
+        def GetStart(self, _: bool) -> int:
+            return 0
+
+        def GetDuration(self, _: bool) -> int:
+            return 18
+
+        def GetSourceStartFrame(self) -> int:
+            return 2
+
+        def GetMediaPoolItem(self) -> Media | None:
+            return self.media
+
+    title = Item("title-id")
+    event = Item("event-id", "wrong-media-id")
+
+    class Timeline:
+        def GetName(self) -> str:
+            return "Timeline"
+
+        def GetStartFrame(self) -> int:
+            return 0
+
+        def GetEndFrame(self) -> int:
+            return 18
+
+        def GetTrackName(self, kind: str, index: int) -> str:
+            assert (kind, index) == ("video", 2)
+            return "Pictures"
+
+        def GetTrackCount(self, kind: str) -> int:
+            return 2 if kind == "video" else 0
+
+        def GetItemListInTrack(self, kind: str, index: int) -> list[Item]:
+            assert kind == "video"
+            return {1: [title], 2: [event]}[index]
+
+        def GetMarkers(self) -> dict[int, dict[str, Any]]:
+            return {3: marker_info}
+
+        def GetMarkerByCustomData(self, value: str) -> dict[str, Any]:
+            return marker_info if value == custom else {}
+
+    class Project:
+        def GetName(self) -> str:
+            return "Project"
+
+        def GetSetting(self, key: str) -> str:
+            assert key == "timelineFrameRate"
+            return "24"
+
+    class Pool:
+        def GetRootFolder(self) -> object:
+            return object()
+
+    manifest = {
+        "timeline": {"startFrame": 0, "durationFrames": 18},
+        "tracks": [{"id": "pictures", "kind": "video", "index": 2, "name": "Pictures"}],
+        "events": [
+            {
+                "id": "event-1",
+                "sourceId": "source-1",
+                "trackId": "pictures",
+                "trackKind": "video",
+                "recordRange": {"startFrame": 0, "durationFrames": 18},
+                "sourceRange": {"startFrame": 2, "durationFrames": 18},
+            }
+        ],
+        "markers": [
+            {
+                "id": "marker-1",
+                "frame": 3,
+                "color": "Blue",
+                "name": "review",
+                "note": "note",
+                "provenance": {"kind": "test"},
+            }
+        ],
+    }
+    adapter = PublicResolveAdapter(object())
+    adapter.project = Project()
+    adapter.pool = Pool()
+    adapter.timeline = Timeline()
+    adapter.expected_project_name = "Project"
+    adapter.expected_timeline_name = "Timeline"
+    adapter.expected_settings = {"timelineFrameRate": "24"}
+    adapter.media_id_by_source = {"source-1": "expected-media-id"}
+    adapter.fusion_title_id = "title-id"
+
+    assert adapter.verify(manifest) == (
+        "event event-1: source media identity mismatch",
+    )
+    event.media = Media("expected-media-id")
+    assert adapter.verify(manifest) == ()
 
 
 def test_cli_detect_does_not_need_resolve(

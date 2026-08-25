@@ -49,12 +49,15 @@ the explicitly authorized connected path.
   missing module, failed/disabled connection, and incomplete/nonconforming
   preflight, with actionable diagnostics. Report the connected version without
   inventing a minimum supported version before producer evidence exists.
-- Prove the complete nonmutating probe precedes the first mutation, and every
-  failure before that boundary produces zero project mutation.
+- Prove the available nonmutating project-manager/current-project probes and
+  project-name collision check precede the first mutation, report the build
+  surfaces they cannot exercise, and ensure every failure before that boundary
+  produces zero project mutation.
 - Prove failures after the mutation boundary report that a partial project may
   remain instead of describing the run as a safe, nonmutating stop.
 - With strict doubles, verify exact project/bin/import/settings/track/event/
-  marker/save/reopen/verification calls, exact record and source frames,
+  marker/save/reopen/verification calls, exact media identities and record/source
+  frames,
   adjustable settings and track maps, and discrepancies/manual-completion
   results for public-API gaps including stock Fusion-title proof.
 - Exercise the CLI's detection, nonmutating preflight, and Free safety
@@ -75,7 +78,7 @@ the explicitly authorized connected path.
    facts and capability/manual-completion results.
 5. Run the documented Studio `build` command once, watch the newly named spike
    project/timeline appear, then inspect its bins, tracks, five manifest media
-   placements, stock Fusion title, marker/custom-data result, saved/reopened
+   placements, requested Fusion title, marker/custom-data result, saved/reopened
    state, and verification output. Record the real observation and evidence in
    `CAPABILITIES.md`; producer observation remains authoritative and is the
    only action that can accept the slice.

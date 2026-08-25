@@ -82,7 +82,9 @@ class ResolveAdapter(Protocol):
 
     def connected_facts(self) -> ConnectedFacts: ...
 
-    def probe(self) -> tuple[str, ...]: ...
+    def probe(self, settings: Mapping[str, str]) -> tuple[str, ...]: ...
+
+    def check_project_name_available(self, name: str) -> None: ...
 
     def create_project(self, name: str) -> None: ...
 
@@ -185,6 +187,20 @@ def run_delivery(
     stop = _local_studio_stop(local)
     if stop is not None:
         return CapabilityResult(status="stopped_safely", message=stop, local=local)
+    manifest = _load_manifest(package_dir)
+    timeline = cast(Mapping[str, Any], manifest["timeline"])
+    if timeline["startFrame"] != 0:
+        return CapabilityResult(
+            status="stopped_safely",
+            message=(
+                "The bounded Studio spike supports only a frame-zero timeline start; "
+                "no Resolve API was imported and no project mutation occurred."
+            ),
+            local=local,
+        )
+    resolved_project_name = project_name or f"VERA Studio Spike {manifest['buildId']}"
+    timeline_name = f"VERA build {manifest['buildId']}"
+    settings = _project_settings(timeline)
     if adapter_factory is None:
         adapter_factory = load_resolve_adapter
     try:
@@ -209,7 +225,8 @@ def run_delivery(
             connected=connected,
         )
     try:
-        probe_gaps = adapter.probe()
+        probe_gaps = adapter.probe(settings)
+        adapter.check_project_name_available(resolved_project_name)
     except Exception as error:
         return CapabilityResult(
             status="stopped_safely",
@@ -233,10 +250,6 @@ def run_delivery(
             manual_completion=manual,
         )
 
-    manifest = _load_manifest(package_dir)
-    resolved_project_name = project_name or f"VERA Studio Spike {manifest['buildId']}"
-    timeline_name = f"VERA build {manifest['buildId']}"
-    settings = _project_settings(cast(Mapping[str, Any], manifest["timeline"]))
     sources = _resolved_sources(package_dir, manifest)
     try:
         adapter.create_project(resolved_project_name)
@@ -277,7 +290,8 @@ def run_delivery(
     return CapabilityResult(
         status="verified" if not discrepancies else "verification_failed",
         message=(
-            "Studio project saved, reopened, and verified against the manifest."
+            "Studio project saved, reopened, and verified for all "
+            "public-API-observable spike requirements."
             if not discrepancies
             else "Studio project reopened but verification found discrepancies."
         ),
@@ -315,6 +329,12 @@ class PublicResolveAdapter:
         self.pool: Any = None
         self.timeline: Any = None
         self.media_by_source: dict[str, Any] = {}
+        self.media_id_by_source: dict[str, str] = {}
+        self.expected_project_name: str | None = None
+        self.expected_timeline_name: str | None = None
+        self.expected_settings: dict[str, str] = {}
+        self.created_bins: list[str] = []
+        self.fusion_title_id: str | None = None
 
     def connected_facts(self) -> ConnectedFacts:
         product = str(self.resolve.GetProductName())
@@ -324,37 +344,76 @@ class PublicResolveAdapter:
         edition = "studio" if "studio" in product.casefold() else "free"
         return ConnectedFacts(product, edition, version, build, True)
 
-    def probe(self) -> tuple[str, ...]:
+    def probe(self, settings: Mapping[str, str]) -> tuple[str, ...]:
         manager = self.resolve.GetProjectManager()
         if manager is None:
             raise StudioSpikeError("GetProjectManager returned no object")
+        for method in (
+            "GetProjectListInCurrentFolder",
+            "GetCurrentProject",
+            "CreateProject",
+            "SaveProject",
+            "CloseProject",
+            "LoadProject",
+        ):
+            if not callable(getattr(manager, method, None)):
+                raise StudioSpikeError(f"project manager has no callable {method}")
         if not isinstance(manager.GetProjectListInCurrentFolder(), (list, tuple)):
             raise StudioSpikeError("project-list probe returned an unsupported value")
         self.manager = manager
-        return ()
+        gaps = [
+            "Nonmutating preflight cannot prove project creation, setting mutation, "
+            "media import, timeline assembly, or Fusion-title insertion; those calls "
+            "are checked only after the producer authorizes the build."
+        ]
+        current = manager.GetCurrentProject()
+        if current is None:
+            gaps.append(
+                "No current project was available to nonmutatingly inspect Project "
+                "settings and MediaPool method surfaces."
+            )
+            return tuple(gaps)
+        if not callable(getattr(current, "GetSetting", None)):
+            raise StudioSpikeError("current project has no callable GetSetting")
+        for key in settings:
+            if current.GetSetting(key) in (None, ""):
+                raise StudioSpikeError(f"current project does not expose setting {key}")
+        pool = current.GetMediaPool()
+        if pool is None:
+            raise StudioSpikeError("current project has no media pool")
+        for method in ("ImportMedia", "CreateEmptyTimeline", "AddSubFolder"):
+            if not callable(getattr(pool, method, None)):
+                raise StudioSpikeError(f"media pool has no callable {method}")
+        return tuple(gaps)
 
-    def create_project(self, name: str) -> None:
+    def check_project_name_available(self, name: str) -> None:
         if name in self.manager.GetProjectListInCurrentFolder():
             raise StudioSpikeError(
                 f"project already exists; refusing to overwrite or reuse it: {name}"
             )
+
+    def create_project(self, name: str) -> None:
+        self.check_project_name_available(name)
         self.project = self.manager.CreateProject(name)
         if self.project is None:
             raise StudioSpikeError(f"CreateProject failed for {name}")
         self.pool = self.project.GetMediaPool()
         if self.pool is None:
             raise StudioSpikeError("created project has no media pool")
+        self.expected_project_name = name
 
     def configure_project(self, settings: Mapping[str, str]) -> None:
         for key, value in settings.items():
             if not self.project.SetSetting(key, value):
                 raise StudioSpikeError(f"SetSetting failed for {key}={value}")
+        self.expected_settings = dict(settings)
 
     def create_bin(self, name: str) -> None:
         parent = self.pool.GetCurrentFolder()
         folder = self.pool.AddSubFolder(parent, name)
         if folder is None or not self.pool.SetCurrentFolder(folder):
             raise StudioSpikeError(f"could not create/select media bin {name}")
+        self.created_bins.append(name)
 
     def import_media(self, sources: Sequence[tuple[str, Path]]) -> None:
         paths = [str(path) for _, path in sources]
@@ -365,6 +424,12 @@ class PublicResolveAdapter:
             source_id: item
             for (source_id, _), item in zip(sources, imported, strict=True)
         }
+        self.media_id_by_source = {}
+        for source_id, item in self.media_by_source.items():
+            media_id = item.GetMediaId()
+            if not isinstance(media_id, str) or not media_id:
+                raise StudioSpikeError(f"imported source has no media ID: {source_id}")
+            self.media_id_by_source[source_id] = media_id
 
     def create_timeline(self, name: str) -> None:
         self.timeline = self.pool.CreateEmptyTimeline(name)
@@ -374,6 +439,7 @@ class PublicResolveAdapter:
             raise StudioSpikeError("SetStartTimecode failed for frame-zero spike")
         if self.timeline.GetStartFrame() != 0:
             raise StudioSpikeError("timeline did not retain the frame-zero start")
+        self.expected_timeline_name = name
 
     def configure_tracks(self, tracks: Sequence[Mapping[str, Any]]) -> None:
         self._track_id_map = {
@@ -429,8 +495,13 @@ class PublicResolveAdapter:
     def insert_fusion_title(self, title_name: str, record_frame: int) -> None:
         if not self.timeline.SetCurrentTimecode(_frame_timecode(record_frame)):
             raise StudioSpikeError("could not position playhead for Fusion title")
-        if self.timeline.InsertFusionTitleIntoTimeline(title_name) is None:
+        title = self.timeline.InsertFusionTitleIntoTimeline(title_name)
+        if title is None:
             raise StudioSpikeError(f"Fusion title is unavailable: {title_name}")
+        title_id = title.GetUniqueId()
+        if not isinstance(title_id, str) or not title_id:
+            raise StudioSpikeError("inserted Fusion title has no public unique ID")
+        self.fusion_title_id = title_id
 
     def add_marker(self, marker: Mapping[str, Any], custom_data: str) -> None:
         if not self.timeline.AddMarker(
@@ -458,6 +529,25 @@ class PublicResolveAdapter:
 
     def verify(self, manifest: Mapping[str, Any]) -> tuple[str, ...]:
         discrepancies: list[str] = []
+        if self.project.GetName() != self.expected_project_name:
+            discrepancies.append("reopened project name differs from requested name")
+        if self.timeline.GetName() != self.expected_timeline_name:
+            discrepancies.append("reopened timeline name differs from requested name")
+        for key, expected_value in self.expected_settings.items():
+            actual = str(self.project.GetSetting(key))
+            if actual != expected_value:
+                discrepancies.append(
+                    f"project setting {key}: expected {expected_value!r}, "
+                    f"got {actual!r}"
+                )
+        timeline = cast(Mapping[str, Any], manifest["timeline"])
+        expected_start = cast(int, timeline["startFrame"])
+        expected_end = expected_start + cast(int, timeline["durationFrames"])
+        if self.timeline.GetStartFrame() != expected_start:
+            discrepancies.append("timeline start frame differs from manifest")
+        if self.timeline.GetEndFrame() != expected_end:
+            discrepancies.append("timeline end frame differs from manifest")
+        self._verify_bins(discrepancies)
         expected_tracks = cast(list[Mapping[str, Any]], manifest["tracks"])
         for track in expected_tracks:
             kind, index, name = track["kind"], track["index"], track["name"]
@@ -477,16 +567,16 @@ class PublicResolveAdapter:
                 track_index[cast(str, event["trackId"])],
             )
             by_slot.setdefault(slot, []).append(event)
-        for (kind, index), expected in by_slot.items():
+        for (kind, index), expected_events in by_slot.items():
             actual_items = list(self.timeline.GetItemListInTrack(kind, index))
-            if len(actual_items) != len(expected):
+            if len(actual_items) != len(expected_events):
                 discrepancies.append(
-                    f"{kind} track {index}: expected {len(expected)} manifest "
+                    f"{kind} track {index}: expected {len(expected_events)} manifest "
                     f"items, got {len(actual_items)}"
                 )
                 continue
             expected_order = sorted(
-                expected, key=lambda item: item["recordRange"]["startFrame"]
+                expected_events, key=lambda item: item["recordRange"]["startFrame"]
             )
             actual_order = sorted(actual_items, key=lambda item: item.GetStart(False))
             for expected_event, actual in zip(
@@ -509,6 +599,25 @@ class PublicResolveAdapter:
                     discrepancies.append(
                         f"event {expected_event['id']}: source start mismatch"
                     )
+                media_item = actual.GetMediaPoolItem()
+                actual_media_id = (
+                    media_item.GetMediaId() if media_item is not None else None
+                )
+                expected_media_id = self.media_id_by_source.get(
+                    cast(str, expected_event["sourceId"])
+                )
+                if actual_media_id != expected_media_id:
+                    discrepancies.append(
+                        f"event {expected_event['id']}: source media identity mismatch"
+                    )
+        title_ids = {
+            item.GetUniqueId()
+            for index in range(1, self.timeline.GetTrackCount("video") + 1)
+            for item in self.timeline.GetItemListInTrack("video", index)
+        }
+        if self.fusion_title_id not in title_ids:
+            discrepancies.append("inserted Fusion title was not found after reopen")
+        actual_markers = self.timeline.GetMarkers()
         for marker in cast(list[Mapping[str, Any]], manifest["markers"]):
             custom = json.dumps(
                 {"markerId": marker["id"], "provenance": marker["provenance"]},
@@ -518,7 +627,31 @@ class PublicResolveAdapter:
             found = self.timeline.GetMarkerByCustomData(custom)
             if not found:
                 discrepancies.append(f"marker {marker['id']}: custom data not found")
+                continue
+            info = actual_markers.get(marker["frame"])
+            expected_info = {
+                "color": marker["color"],
+                "duration": 1,
+                "note": marker["note"],
+                "name": marker["name"],
+                "customData": custom,
+            }
+            if not isinstance(info, Mapping) or any(
+                info.get(key) != value for key, value in expected_info.items()
+            ):
+                discrepancies.append(f"marker {marker['id']}: fields differ")
         return tuple(discrepancies)
+
+    def _verify_bins(self, discrepancies: list[str]) -> None:
+        folder = self.pool.GetRootFolder()
+        for name in self.created_bins:
+            children = folder.GetSubFolderList() if folder is not None else []
+            folder = next(
+                (child for child in children if child.GetName() == name), None
+            )
+            if folder is None:
+                discrepancies.append(f"media bin path is missing at {name!r}")
+                return
 
 
 def _optional_string(value: object) -> str | None:

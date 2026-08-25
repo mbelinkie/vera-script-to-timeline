@@ -46,6 +46,13 @@ prove from the public API that the title was stock or force/prove V4 placement.
 That remains an explicit manual-completion/capability observation, never a
 private-API or UI-automation fallback.
 
+Nonmutating preflight can inspect the project manager and, when one is open,
+current Project/MediaPool settings and method surfaces. It cannot exercise
+project creation, setting mutation, import, timeline assembly, or title
+insertion. The CLI reports that gap instead of treating preflight as proof of
+build success. The bounded spike also rejects nonzero timeline starts before
+loading the vendor bridge.
+
 ## Observation template
 
 For each run, retain the exact application edition/version, operating system,

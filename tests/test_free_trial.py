@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import shutil
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -132,6 +133,18 @@ def test_existing_different_output_is_preserved(tmp_path: Path) -> None:
     with pytest.raises(PackageBuildError, match="different contents"):
         build_free_trial(MANIFEST, MEDIA_ROOT, output)
     assert sentinel.read_text() == "keep"
+
+
+def test_fcpxml_verifier_rejects_symlinked_media_ancestor(tmp_path: Path) -> None:
+    result = build_free_trial(MANIFEST, MEDIA_ROOT, tmp_path / "trial")
+    media = result.fcpxml_input_dir / "media"
+    external = tmp_path / "external-media"
+    shutil.copytree(media, external)
+    shutil.rmtree(media)
+    media.symlink_to(external, target_is_directory=True)
+
+    with pytest.raises(PackageBuildError, match="symbolic link"):
+        verify_fcpxml_input(result.fcpxml_input_dir)
 
 
 def test_documented_cli_builds_both_verified_inputs(tmp_path: Path) -> None:

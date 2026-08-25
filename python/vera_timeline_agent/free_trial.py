@@ -393,8 +393,22 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _verify_safe_tree(root: Path, label: str) -> None:
+    if not root.is_dir() or root.is_symlink():
+        raise PackageBuildError(f"{label} root is not a self-contained directory")
+    for path in root.rglob("*"):
+        relative = path.relative_to(root).as_posix()
+        if path.is_symlink():
+            raise PackageBuildError(f"{label} contains a symbolic link: {relative}")
+        if not path.is_file() and not path.is_dir():
+            raise PackageBuildError(
+                f"{label} contains an unsupported filesystem entry: {relative}"
+            )
+
+
 def verify_fcpxml_input(input_dir: Path) -> tuple[int, int, int]:
     """Verify one FCPXML input is semantic and wholly self-contained."""
+    _verify_safe_tree(input_dir, "FCPXML input")
     manifest = _load_manifest(input_dir / MANIFEST_FILENAME)
     _verify_fcpxml_semantics(input_dir / FCPXML_FILENAME, manifest)
     expected = {
@@ -462,6 +476,15 @@ def build_free_trial(
                 raise PackageBuildError(
                     f"output already exists and is not a directory: {output_dir}"
                 )
+            try:
+                _verify_safe_tree(output_dir, "existing trial output")
+                verify_otio_package(output_dir / OTIO_INPUT_DIRECTORY)
+                verify_fcpxml_input(output_dir / FCPXML_INPUT_DIRECTORY)
+            except PackageBuildError as error:
+                raise PackageBuildError(
+                    f"output already exists with different contents or an unsafe "
+                    f"tree: {output_dir}"
+                ) from error
             existing = {
                 path.relative_to(output_dir).as_posix(): path.read_bytes()
                 for path in output_dir.rglob("*")

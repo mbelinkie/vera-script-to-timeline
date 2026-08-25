@@ -86,6 +86,7 @@ changes, why, compatibility impact, regenerated outputs, and acceptance impact.
 | 2026-08-24 | Producer | Open and inspect the Slice 0.2 self-contained package, instructions, and event report | Accepted | Producer explicitly accepted Slice 0.2. Slices 0.3 and 0.4 are now unblocked; Resolve import fidelity remains a Slice 0.3 concern. |
 | 2026-08-24 | Slice 0.3 preparation workstream | Prepare deterministic OTIO/FCPXML inputs and the producer evidence workflow without launching Resolve | Agent complete | Added a stdlib-only FCPXML evidence spike, dual-input command, semantic/self-containment checks, alternate-setting/track-map coverage, and manual worksheet. Detected local installation facts are explicitly untested; producer imports and D-P005 remain pending. |
 | 2026-08-24 | Slice 0.4 implementation workstream | Add a supported-API Studio spike over the accepted Slice 0.2 package with fail-closed edition/install/scripting gates | Agent complete | Added local detection, nonmutating preflight, injected Resolve adapter, exact manifest assembly/reopen/verification flow, CLI, safety/order tests, and honest Fusion public-API gap reporting. No real Resolve connection or UI action was performed; producer acceptance remains pending. |
+| 2026-08-24 | Slices 0.3/0.4 independent integration review | Audit FCPXML portability/security, Resolve API semantics, preflight/mutation boundaries, and verification completeness | Agent complete | Corrected the Resolve sample-rate key and timeline start handling; removed invented OS/minimum-version decisions; added partial-project reporting, source/lane and symlink-tree checks, project-name preflight, media-identity/settings/bins/title/marker verification, and explicit nonmutating-probe limitations. Frozen Slice 0.1/0.2 boundaries remain unchanged. |
 
 ## Producer decisions and external checks
 
@@ -172,8 +173,8 @@ before their dependent slices close:
   settings, relative paths, hashes, and exact inventory.
 - Repeated builds are byte-identical; alternate 24 fps, 1280×720, 44.1 kHz,
   reordered/custom track IDs/names/indices are covered.
-- Locked `npm ci` and `uv sync --frozen` pass. Full validation passes with 16
-  contract tests, 1 TypeScript tooling test, and 36 Python tests.
+- Locked `npm ci` and `uv sync --frozen` pass. Integrated full-validation
+  counts are recorded in the integration-review work log and CI evidence.
 - `/contracts`, `/fixtures`, generated contract outputs, the accepted Slice
   0.2 manifest, and accepted Slice 0.2 tests remain unchanged.
 - macOS/Resolve package facts are recorded only as detected-not-yet-tested.
