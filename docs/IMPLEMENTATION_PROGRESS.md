@@ -13,7 +13,8 @@ Last updated: 2026-08-24
 - **Phase:** 0 — Foundations and Resolve capability spike
 - **Active slice:** 0.4 — Resolve Studio scripting spike
 - **Overall state:** Slices 0.1, 0.2, and 0.3 accepted; Slice 0.4 agent-complete
-  and awaiting producer access to Resolve Studio
+  and awaiting producer access to Resolve Studio; Slice 1.1 planning is
+  complete without crossing the Phase 0 gate
 - **Source specification:** `docs/Script-to-Timeline Product Spec - Fable Rev2.md`
 
 ## Status legend
@@ -33,6 +34,7 @@ Last updated: 2026-08-24
 | 0.2 Handcrafted manifest → OTIO package | Accepted | Orchestrator + bounded implementation and review agents | 0.1 accepted | Producer explicitly accepted on 2026-08-24 after package inspection, independent review, fresh-worktree verification, and green CI. `/contracts` and `/fixtures` remain frozen and unchanged. |
 | 0.3 Resolve Free import trial | Accepted | Producer + agent preparer/recorder | 0.2 accepted | Producer accepted on 2026-08-24. OTIO retained the marker and linked all five items; FCPXML required a manual media redirect and omitted the marker. D-P005 parks FCPXML with no observed compensating advantage. |
 | 0.4 Resolve Studio scripting spike | Agent complete | Bounded implementation, hardening, and review agents | 0.2 accepted | Fail-closed API/CLI, independent review, and automated checks are complete and CI-green; real producer Studio preflight/build and capability evidence remain required for acceptance |
+| 1.1 ScriptDocument v1 and validator | Queued | Orchestrator planning; implementation unassigned | Phase 0 gate / 0.4 accepted, unless producer authorizes provisional work | Two independent read-only audits found no required schema delta and bounded a pure TypeScript validator/CLI. Planning may continue; contracts, generated types, fixtures, and implementation remain untouched pending semantic decisions and sequencing approval. |
 
 ## Slice 0.1 orchestration plan
 
@@ -91,6 +93,8 @@ changes, why, compatibility impact, regenerated outputs, and acceptance impact.
 | 2026-08-24 | Final bounded fixer and fresh read-only review | Close cross-kind FCPXML resource-ID and Resolve install/connected-identity findings, then independently rereview the final commit | Agent complete | Integrated `f972afa`: all direct FCPXML resource IDs must be nonempty and globally unique; package-receipt classification requires the canonical app path, Blackmagic bundle ID, parseable matching version/build, and matching receipt; connected identity validates and compares all documented `GetVersion()` fields. Fresh review reported no findings. |
 | 2026-08-24 | Orchestrator integration and CI | Integrate Slices 0.3/0.4 commits, rerun the full repository gate, audit frozen boundaries, push, and monitor CI | Complete | Main includes `447c08b` through `f972afa`; local validation passed with 82 Python tests, 16 contract tests, and 1 tooling test. Frozen-boundary diff is empty. GitHub Actions `32801825210` passed. |
 | 2026-08-24 | Producer | Import both Slice 0.3 trial formats in actual Resolve Free and record observed behavior | Accepted | OTIO imported all five expected linked items and retained the marker. FCPXML imported the five items after a manual redirect to packaged media but omitted the marker. No other difference was observed. Producer approved D-P005 to park FCPXML and accepted Slice 0.3. |
+| 2026-08-24 | Slice 1.1 read-only planning workstreams | Independently bound the validator slice and audit `ScriptDocument v1` against the exact Phase 1 requirements while Slice 0.4 awaits Studio | Complete | Both audits found the named structures already present and generated types current. The missing surface is the pure TypeScript semantic validator, CLI, semantic tests, and two canonical script inputs. No files in the frozen contract/fixture boundaries were changed. |
+| 2026-08-24 | Orchestrator | Synthesize Slice 1.1 scope, semantic recommendations, test matrix, contract-change trigger, and acceptance path | Complete | Added `docs/plans/slice-1.1-script-validator.md`. Slice 1.1 remains queued pending producer approval of the semantic decisions and either Slice 0.4 acceptance or an explicit provisional sequencing exception. |
 
 ## Producer decisions and external checks
 
@@ -114,6 +118,10 @@ before their dependent slices close:
 - The producer-observed portion of Slice 0.4 requires access to an actual
   Resolve Studio installation. No Studio installation is currently available;
   that check cannot be replaced by automated mocks.
+- Slice 1.1 is technically independent of Resolve, but formally starting Phase
+  1 before Slice 0.4 acceptance requires an explicit producer exception to the
+  specification's phase gate. Its planning brief is complete; implementation
+  remains queued.
 - Contract workstreams must not independently invent incompatible event or
   block shapes; the spec's canonical model and Phase 0/1 boundaries govern.
 
