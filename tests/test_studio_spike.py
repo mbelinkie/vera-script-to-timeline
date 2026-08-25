@@ -500,6 +500,45 @@ def test_public_adapter_sets_and_checks_frame_zero_timeline_start() -> None:
     assert timeline.timecode == "00:00:00:00"
 
 
+def test_public_import_maps_reordered_results_by_documented_file_path(
+    tmp_path: Path,
+) -> None:
+    one = (tmp_path / "one.mov").resolve()
+    two = (tmp_path / "two.wav").resolve()
+
+    class Item:
+        def __init__(self, path: Path, media_id: str) -> None:
+            self.path = path
+            self.media_id = media_id
+
+        def GetClipProperty(self, name: str) -> str:
+            assert name == "File Path"
+            return str(self.path)
+
+        def GetMediaId(self) -> str:
+            return self.media_id
+
+    first = Item(one, "media-one")
+    second = Item(two, "media-two")
+
+    class Pool:
+        def ImportMedia(self, paths: list[str]) -> list[Item]:
+            assert paths == [str(one), str(two)]
+            return [second, first]
+
+    adapter = PublicResolveAdapter(object())
+    adapter.pool = Pool()
+    adapter.import_media([("source-one", one), ("source-two", two)])
+    assert adapter.media_by_source == {
+        "source-one": first,
+        "source-two": second,
+    }
+    assert adapter.media_id_by_source == {
+        "source-one": "media-one",
+        "source-two": "media-two",
+    }
+
+
 def test_public_adapter_translates_manifest_ranges_to_documented_clip_info() -> None:
     class Pool:
         def __init__(self) -> None:

@@ -420,9 +420,25 @@ class PublicResolveAdapter:
         imported = self.pool.ImportMedia(paths)
         if not isinstance(imported, (list, tuple)) or len(imported) != len(sources):
             raise StudioSpikeError("ImportMedia did not return one item per source")
+        expected_by_path = {path.resolve(): source_id for source_id, path in sources}
+        imported_by_path: dict[Path, Any] = {}
+        for item in imported:
+            file_path = item.GetClipProperty("File Path")
+            if not isinstance(file_path, str) or not file_path:
+                raise StudioSpikeError("imported media item has no File Path property")
+            resolved = Path(file_path).resolve()
+            if resolved in imported_by_path:
+                raise StudioSpikeError(
+                    f"ImportMedia returned duplicate path: {resolved}"
+                )
+            imported_by_path[resolved] = item
+        if imported_by_path.keys() != expected_by_path.keys():
+            raise StudioSpikeError(
+                "ImportMedia returned paths that differ from sources"
+            )
         self.media_by_source = {
-            source_id: item
-            for (source_id, _), item in zip(sources, imported, strict=True)
+            source_id: imported_by_path[path]
+            for path, source_id in expected_by_path.items()
         }
         self.media_id_by_source = {}
         for source_id, item in self.media_by_source.items():
