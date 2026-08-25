@@ -286,6 +286,11 @@ def _verify_fcpxml_semantics(path: Path, manifest: JsonObject) -> None:
         raise PackageBuildError("FCPXML resources/library hierarchy is incomplete")
     assets = resources.findall("./asset")
     _require_child_tags(resources, ["format", *("asset" for _ in assets)], "resources")
+    resource_ids = [resource.get("id") for resource in resources]
+    if any(value is None or value == "" for value in resource_ids) or len(
+        set(resource_ids)
+    ) != len(resource_ids):
+        raise PackageBuildError("FCPXML resource IDs are missing or duplicate")
     _require_child_tags(library, ["event"], "library")
     event_element = library.find("./event")
     if event_element is None:
@@ -340,14 +345,10 @@ def _verify_fcpxml_semantics(path: Path, manifest: JsonObject) -> None:
     asset_records: list[tuple[ET.Element, dict[str, str]]] = [
         (asset, _md(asset)) for asset in assets
     ]
-    asset_ids = [asset.get("id") for asset, _ in asset_records]
     source_ids = [metadata.get("vera.sourceId") for _, metadata in asset_records]
-    if (
-        any(value is None or value == "" for value in asset_ids)
-        or len(set(asset_ids)) != len(asset_ids)
-        or any(value is None or value == "" for value in source_ids)
-        or len(set(source_ids)) != len(source_ids)
-    ):
+    if any(value is None or value == "" for value in source_ids) or len(
+        set(source_ids)
+    ) != len(source_ids):
         raise PackageBuildError(
             "FCPXML asset/source identities are missing or duplicate"
         )

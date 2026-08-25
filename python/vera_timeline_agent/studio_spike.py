@@ -6,6 +6,7 @@ import importlib.util
 import json
 import platform
 import plistlib
+import re
 import subprocess
 import sys
 from collections.abc import Callable, Mapping, Sequence
@@ -21,7 +22,9 @@ DEFAULT_SCRIPTING_ROOT = Path(
 )
 MANIFEST_NAME = "timeline-manifest.json"
 BLACKMAGIC_RECEIPT_ID = "com.blackmagic-design.ManifestLite"
+BLACKMAGIC_BUNDLE_ID = "com.blackmagic-design.DaVinciResolve"
 TIMELINE_PAGES = frozenset({"cut", "edit", "color", "fairlight", "deliver"})
+VERSION_PATTERN = re.compile(r"([0-9]+)\.([0-9]+)\.([0-9]+)")
 
 JsonObject = dict[str, Any]
 
@@ -41,6 +44,7 @@ class LocalFacts:
     app_installed: bool
     install_source: str
     bundle_name: str | None
+    bundle_identifier: str | None
     bundle_version: str | None
     bundle_build: str | None
     mas_receipt: bool
@@ -61,6 +65,7 @@ class ConnectedFacts:
     version: str
     build: str
     scripting_available: bool
+    suffix: str = ""
 
 
 @dataclass(frozen=True)
@@ -138,14 +143,19 @@ def detect_local_capabilities(
     app_installed = app_path.is_dir()
     mas_receipt = receipt.is_file()
     package_receipt_id, package_receipt_version = _blackmagic_package_receipt()
+    bundle_identifier = _optional_string(bundle.get("CFBundleIdentifier"))
+    bundle_version = _optional_string(bundle.get("CFBundleShortVersionString"))
+    bundle_build = _optional_string(bundle.get("CFBundleVersion"))
     if not app_installed:
         install_source = "missing"
     elif mas_receipt:
         install_source = "mac_app_store"
     elif (
-        package_receipt_id == BLACKMAGIC_RECEIPT_ID
-        and package_receipt_version
-        == _optional_string(bundle.get("CFBundleShortVersionString"))
+        app_path == DEFAULT_APP_PATH
+        and bundle_identifier == BLACKMAGIC_BUNDLE_ID
+        and _bundle_identity(bundle_version, bundle_build) is not None
+        and package_receipt_id == BLACKMAGIC_RECEIPT_ID
+        and package_receipt_version == bundle_version
     ):
         install_source = "blackmagic_package_receipt"
     else:
@@ -159,8 +169,9 @@ def detect_local_capabilities(
         app_installed=app_installed,
         install_source=install_source,
         bundle_name=_optional_string(bundle.get("CFBundleDisplayName")),
-        bundle_version=_optional_string(bundle.get("CFBundleShortVersionString")),
-        bundle_build=_optional_string(bundle.get("CFBundleVersion")),
+        bundle_identifier=bundle_identifier,
+        bundle_version=bundle_version,
+        bundle_build=bundle_build,
         mas_receipt=mas_receipt,
         package_receipt_id=package_receipt_id,
         package_receipt_version=package_receipt_version,
@@ -253,8 +264,12 @@ def run_delivery(
     manual = (
         "The public API can insert a named Fusion title at the playhead but cannot "
         "enumerate stock Fusion titles or select/prove its destination video track.",
-        "The public API reports the connected product/version but not its executable "
-        "path; version agreement cannot prove the running process came from the "
+        "The identity gate compares documented GetVersion fields "
+        "[major, minor, patch, build, suffix] with the bundle marketing/build "
+        "values. It supports the observed numeric macOS bundle build encoding and "
+        "fails closed for other encodings or a nonempty suffix.",
+        "The public API does not report its executable path; full version/build "
+        "agreement still cannot prove the running process came from the "
         "receipt-associated bundle detected on disk.",
         *probe_gaps,
     )
@@ -356,12 +371,27 @@ class PublicResolveAdapter:
         )
 
     def connected_facts(self) -> ConnectedFacts:
-        product = str(self.resolve.GetProductName())
-        fields = list(self.resolve.GetVersion())
-        version = ".".join(str(value) for value in fields[:3])
-        build = str(fields[3]) if len(fields) > 3 else "unknown"
+        product = self.resolve.GetProductName()
+        if not isinstance(product, str) or not product:
+            raise StudioSpikeError("GetProductName returned an invalid value")
+        fields = self.resolve.GetVersion()
+        if not isinstance(fields, (list, tuple)) or len(fields) != 5:
+            raise StudioSpikeError(
+                "GetVersion must return [major, minor, patch, build, suffix]"
+            )
+        numeric = fields[:4]
+        if any(
+            not isinstance(value, int) or isinstance(value, bool) or value < 0
+            for value in numeric
+        ) or not isinstance(fields[4], str):
+            raise StudioSpikeError(
+                "GetVersion returned malformed major/minor/patch/build/suffix fields"
+            )
+        major, minor, patch, build = cast(tuple[int, int, int, int], tuple(numeric))
+        suffix = fields[4]
+        version = f"{major}.{minor}.{patch}"
         edition = "studio" if "studio" in product.casefold() else "free"
-        return ConnectedFacts(product, edition, version, build, True)
+        return ConnectedFacts(product, edition, version, str(build), True, suffix)
 
     def probe(self, settings: Mapping[str, str]) -> tuple[str, ...]:
         if not callable(getattr(self.resolve, "GetCurrentPage", None)):
@@ -739,6 +769,44 @@ def _optional_string(value: object) -> str | None:
     return value if isinstance(value, str) else None
 
 
+def _bundle_identity(
+    bundle_version: str | None, bundle_build: str | None
+) -> tuple[int, int, int, int, str] | None:
+    """Parse the observed numeric Resolve macOS bundle identity, or fail closed."""
+    if bundle_version is None or bundle_build is None:
+        return None
+    version_match = VERSION_PATTERN.fullmatch(bundle_version)
+    build_match = VERSION_PATTERN.fullmatch(bundle_build)
+    if version_match is None or build_match is None:
+        return None
+    major, minor, patch = (int(value) for value in version_match.groups())
+    build_major, build_minor, encoded_patch_build = (
+        int(value) for value in build_match.groups()
+    )
+    encoded_patch, build = divmod(encoded_patch_build, 10_000)
+    if (build_major, build_minor, encoded_patch) != (major, minor, patch):
+        return None
+    return major, minor, patch, build, ""
+
+
+def _connected_identity(
+    connected: ConnectedFacts,
+) -> tuple[int, int, int, int, str] | None:
+    if (
+        not isinstance(connected.version, str)
+        or not isinstance(connected.build, str)
+        or not isinstance(connected.suffix, str)
+        or not connected.build.isascii()
+        or not connected.build.isdigit()
+    ):
+        return None
+    version_match = VERSION_PATTERN.fullmatch(connected.version)
+    if version_match is None:
+        return None
+    major, minor, patch = (int(value) for value in version_match.groups())
+    return major, minor, patch, int(connected.build), connected.suffix
+
+
 def _blackmagic_package_receipt() -> tuple[str | None, str | None]:
     try:
         result = subprocess.run(
@@ -803,11 +871,37 @@ def _local_studio_stop(local: LocalFacts) -> str | None:
             "target. Install supported standard desktop Resolve Studio; no API was "
             "imported."
         )
+    if Path(local.app_path) != DEFAULT_APP_PATH:
+        return (
+            "The configured application path is not the standard default Resolve "
+            "bundle path. A system-global package receipt cannot identify a custom "
+            "or copied bundle, so the Studio spike fails closed before importing "
+            "the API."
+        )
     if local.install_source != "blackmagic_package_receipt":
         return (
             "Resolve exists, but no matching affirmative Blackmagic package receipt "
             "identifies this default bundle; the Studio spike fails closed before "
             "importing the API."
+        )
+    if local.bundle_identifier != BLACKMAGIC_BUNDLE_ID:
+        return (
+            "The configured bundle identifier is missing or does not identify "
+            "standard desktop Resolve; the Studio spike fails closed before "
+            "importing the API."
+        )
+    if _bundle_identity(local.bundle_version, local.bundle_build) is None:
+        return (
+            "The configured bundle version/build identity is missing or malformed; "
+            "the Studio spike fails closed before importing the API."
+        )
+    if (
+        local.package_receipt_id != BLACKMAGIC_RECEIPT_ID
+        or local.package_receipt_version != local.bundle_version
+    ):
+        return (
+            "The system package receipt does not affirmatively match the configured "
+            "default bundle; the Studio spike fails closed before importing the API."
         )
     if not local.scripting_module_installed:
         return (
@@ -831,11 +925,20 @@ def _connected_studio_stop(local: LocalFacts, connected: ConnectedFacts) -> str 
             "package remains ready for manual Free import and no project mutation "
             "occurred."
         )
-    if local.bundle_version and connected.version != local.bundle_version:
+    local_identity = _bundle_identity(local.bundle_version, local.bundle_build)
+    connected_identity = _connected_identity(connected)
+    if connected_identity is None:
         return (
-            "The connected Resolve version does not match the affirmatively detected "
-            f"bundle ({connected.version!r} versus {local.bundle_version!r}); no "
+            "The connected Resolve returned a malformed version/build identity; no "
             "project mutation occurred."
+        )
+    if local_identity is None or connected_identity != local_identity:
+        return (
+            "The connected Resolve full version/build identity does not match the "
+            "affirmatively detected bundle "
+            f"({connected.version!r}, build {connected.build!r}, suffix "
+            f"{connected.suffix!r} versus {local.bundle_version!r}, bundle build "
+            f"{local.bundle_build!r}); no project mutation occurred."
         )
     return None
 

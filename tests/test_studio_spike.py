@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 from vera_timeline_agent.otio_package import build_otio_package
 from vera_timeline_agent.studio_spike import (
+    BLACKMAGIC_BUNDLE_ID,
     ConnectedFacts,
     LocalFacts,
     PublicResolveAdapter,
@@ -39,6 +40,7 @@ def standard_local() -> LocalFacts:
         app_installed=True,
         install_source="blackmagic_package_receipt",
         bundle_name="DaVinci Resolve",
+        bundle_identifier=BLACKMAGIC_BUNDLE_ID,
         bundle_version="21.0.4",
         bundle_build="21.0.40005",
         mas_receipt=False,
@@ -60,7 +62,7 @@ class RecordingAdapter:
         discrepancies: tuple[str, ...] = (),
     ) -> None:
         self.connected = connected or ConnectedFacts(
-            "DaVinci Resolve Studio", "studio", "21.0.4", "21.0.40005", True
+            "DaVinci Resolve Studio", "studio", "21.0.4", "5", True
         )
         self.probe_error = probe_error
         self.discrepancies = discrepancies
@@ -126,6 +128,7 @@ def test_detects_objective_local_facts_without_import_or_connection(
         plistlib.dump(
             {
                 "CFBundleDisplayName": "DaVinci Resolve",
+                "CFBundleIdentifier": BLACKMAGIC_BUNDLE_ID,
                 "CFBundleShortVersionString": "21.0.4",
                 "CFBundleVersion": "21.0.40005",
             },
@@ -138,11 +141,16 @@ def test_detects_objective_local_facts_without_import_or_connection(
     monkeypatch.setattr("platform.mac_ver", lambda: ("15.1", ("", "", ""), ""))
     monkeypatch.setattr("platform.machine", lambda: "x86_64")
     monkeypatch.setattr(
+        "vera_timeline_agent.studio_spike.DEFAULT_APP_PATH",
+        app,
+    )
+    monkeypatch.setattr(
         "vera_timeline_agent.studio_spike._blackmagic_package_receipt",
         lambda: ("com.blackmagic-design.ManifestLite", "21.0.4"),
     )
     facts = detect_local_capabilities(app, sdk)
     assert facts.install_source == "blackmagic_package_receipt"
+    assert facts.bundle_identifier == BLACKMAGIC_BUNDLE_ID
     assert facts.bundle_version == "21.0.4"
     assert facts.bundle_build == "21.0.40005"
     assert facts.mas_receipt is False
@@ -152,6 +160,37 @@ def test_detects_objective_local_facts_without_import_or_connection(
         lambda: ("com.blackmagic-design.ManifestLite", "20.0.0"),
     )
     assert detect_local_capabilities(app, sdk).install_source == "unknown_non_mas"
+
+
+def test_custom_bundle_does_not_inherit_system_package_receipt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    canonical = tmp_path / "Applications/DaVinci Resolve.app"
+    copied = tmp_path / "Copies/DaVinci Resolve.app"
+    contents = copied / "Contents"
+    contents.mkdir(parents=True)
+    import plistlib
+
+    with (contents / "Info.plist").open("wb") as stream:
+        plistlib.dump(
+            {
+                "CFBundleDisplayName": "DaVinci Resolve",
+                "CFBundleIdentifier": BLACKMAGIC_BUNDLE_ID,
+                "CFBundleShortVersionString": "21.0.4",
+                "CFBundleVersion": "21.0.40005",
+            },
+            stream,
+        )
+    monkeypatch.setattr("vera_timeline_agent.studio_spike.DEFAULT_APP_PATH", canonical)
+    monkeypatch.setattr(
+        "vera_timeline_agent.studio_spike._blackmagic_package_receipt",
+        lambda: ("com.blackmagic-design.ManifestLite", "21.0.4"),
+    )
+
+    facts = detect_local_capabilities(copied, tmp_path / "Scripting")
+
+    assert facts.package_receipt_version == "21.0.4"
+    assert facts.install_source == "unknown_non_mas"
 
 
 def test_free_never_constructs_or_invokes_resolve_adapter(
@@ -206,6 +245,11 @@ def test_studio_rejects_nonzero_timeline_start_before_connection(
         ),
         ({"scripting_module_installed": False}, "module is missing"),
         ({"scripting_docs_installed": False}, "documentation is missing"),
+        ({"bundle_version": "21.x.4"}, "bundle version/build identity"),
+        ({"bundle_build": "21.0.not-a-build"}, "bundle version/build identity"),
+        ({"bundle_identifier": None}, "bundle identifier"),
+        ({"app_path": "/tmp/DaVinci Resolve copy.app"}, "configured application path"),
+        ({"package_receipt_version": "20.0.0"}, "does not affirmatively match"),
         (
             {
                 "install_source": "unknown_non_mas",
@@ -240,9 +284,11 @@ def test_local_safety_stops_before_adapter_factory(
 @pytest.mark.parametrize(
     "connected",
     [
-        ConnectedFacts("DaVinci Resolve", "free", "21.0.4", "21.0.40005", True),
+        ConnectedFacts("DaVinci Resolve", "free", "21.0.4", "5", True),
         ConnectedFacts("DaVinci Resolve Studio", "studio", "21.0.4", "5", False),
         ConnectedFacts("DaVinci Resolve Studio", "studio", "20.0.0", "1", True),
+        ConnectedFacts("DaVinci Resolve Studio", "studio", "21.0.4", "6", True),
+        ConnectedFacts("DaVinci Resolve Studio", "studio", "21.0.4", "5", True, "b"),
     ],
 )
 def test_connected_safety_stops_after_observation_but_before_mutation(
@@ -310,6 +356,7 @@ def test_preflight_reports_older_studio_without_inventing_support_minimum(
             standard_local.__dict__
             | {
                 "bundle_version": "20.3.2",
+                "bundle_build": "20.3.20009",
                 "package_receipt_version": "20.3.2",
             }
         )
@@ -325,6 +372,45 @@ def test_preflight_reports_older_studio_without_inventing_support_minimum(
     )
     assert result.status == "preflight_passed"
     assert result.connected is not None and result.connected.version == "20.3.2"
+    assert result.connected.build == "9"
+
+
+def test_public_adapter_reports_documented_full_version_identity() -> None:
+    class Resolve:
+        def GetProductName(self) -> str:
+            return "DaVinci Resolve Studio"
+
+        def GetVersion(self) -> list[object]:
+            return [21, 0, 4, 5, ""]
+
+    assert PublicResolveAdapter(Resolve()).connected_facts() == ConnectedFacts(
+        "DaVinci Resolve Studio", "studio", "21.0.4", "5", True, ""
+    )
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        [21, 0, 4, 5],
+        [21, 0, "4", 5, ""],
+        [21, 0, 4, "5", ""],
+        [21, 0, 4, 5, None],
+        [21, -1, 4, 5, ""],
+        [21, 0, 4, 5, "", "unexpected"],
+    ],
+)
+def test_public_adapter_rejects_malformed_documented_version_fields(
+    fields: list[object],
+) -> None:
+    class Resolve:
+        def GetProductName(self) -> str:
+            return "DaVinci Resolve Studio"
+
+        def GetVersion(self) -> list[object]:
+            return fields
+
+    with pytest.raises(StudioSpikeError, match="GetVersion"):
+        PublicResolveAdapter(Resolve()).connected_facts()
 
 
 def test_project_name_collision_stops_before_mutation(

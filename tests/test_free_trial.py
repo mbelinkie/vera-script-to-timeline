@@ -165,6 +165,38 @@ def test_fcpxml_verifier_rejects_transition_and_duplicate_identities(
         verify_fcpxml_input(result.fcpxml_input_dir)
 
 
+@pytest.mark.parametrize("resource_tag", ["format", "asset"])
+def test_fcpxml_verifier_rejects_missing_resource_ids(
+    tmp_path: Path, resource_tag: str
+) -> None:
+    result = build_free_trial(MANIFEST, MEDIA_ROOT, tmp_path / resource_tag)
+    fcpxml = result.fcpxml_input_dir / FCPXML_FILENAME
+    tree = ET.parse(fcpxml)
+    resource = tree.getroot().find(f"./resources/{resource_tag}")
+    assert resource is not None
+    del resource.attrib["id"]
+    tree.write(fcpxml, encoding="utf-8", xml_declaration=True)
+
+    with pytest.raises(PackageBuildError, match=r"resource IDs.*missing"):
+        verify_fcpxml_input(result.fcpxml_input_dir)
+
+
+def test_fcpxml_verifier_rejects_duplicate_format_and_asset_id(
+    tmp_path: Path,
+) -> None:
+    result = build_free_trial(MANIFEST, MEDIA_ROOT, tmp_path / "cross-kind-duplicate")
+    fcpxml = result.fcpxml_input_dir / FCPXML_FILENAME
+    tree = ET.parse(fcpxml)
+    format_element = tree.getroot().find("./resources/format")
+    asset = tree.getroot().find("./resources/asset")
+    assert format_element is not None and asset is not None
+    asset.set("id", cast(str, format_element.get("id")))
+    tree.write(fcpxml, encoding="utf-8", xml_declaration=True)
+
+    with pytest.raises(PackageBuildError, match=r"resource IDs.*duplicate"):
+        verify_fcpxml_input(result.fcpxml_input_dir)
+
+
 def test_existing_different_output_is_preserved(tmp_path: Path) -> None:
     output = tmp_path / "trial"
     output.mkdir()
