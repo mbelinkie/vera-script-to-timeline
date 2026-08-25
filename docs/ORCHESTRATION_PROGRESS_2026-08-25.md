@@ -86,6 +86,9 @@ inspection/acceptance.
 | Slice 1.1 preserved-worktree audit | Read-only; producer pause enforced | Dispatch failed | Same local subagent authentication failure; preserved worktree unchanged. |
 | Phase 1 roadmap/dependency audit | Read-only | Dispatch failed | Same local subagent authentication failure; no file change. |
 | Slice 1.1 implementation reviews | Read-only final-state audits | Complete | Successive reviews found and prompted fixes for exact affinity boundaries, canonical fixture-shape ratchets, complete CLI references/output, DraftBlock schema-noise collapse, and active-draft-wide ID scope. Final review of `4fe34ab` against accepted `9dfacb4` reported no findings. |
+| Slice 1.2 provider comparison | Read-only current official-document research | Complete | Compared AWS Polly, Google Cloud TTS, Azure Speech, and ElevenLabs across timing, pronunciation, price, data handling, API burden, limits, identity, and credentials. Recommended AWS Polly Neural with explicit content-policy and managed-voice-version caveats. |
+| Slice 1.2 contract/cache audit | Read-only repository/spec design | Complete | Defined a Python provider boundary, two-level synthesis/normalization cache, internal narration-asset records, deterministic CLI evidence, failure semantics, dependency boundary, and tests without changing frozen shared contracts. |
+| Slice 1.2 FFmpeg normalization | Read-only capability and command probe | Complete | Confirmed FFmpeg/FFprobe 8.1.2, two-pass loudnorm and required PCM/WAV capabilities; repeated full-filter runs matched under the same fingerprint. Recommended mono 48 kHz PCM-24, -16 LUFS, -1.5 dBTP, LRA 7, exact sample preservation, and no timing concealment. |
 
 Local CLI authentication later recovered. Slice 1.1 received successive
 read-only reviews, and the final rebased review completed with no findings.
@@ -150,3 +153,7 @@ inputs are frozen for later compiler goldens.
 - Slice 1.2's final acceptance remains manual because the producer must hear
   each normalized block file and observe all-reused and exactly-one-regenerated
   command results.
+- D-0009 through D-0011 close the ordinary Slice 1.2 implementation choices.
+  The still-manual live gate is the producer's AWS data-policy attestation,
+  authorization of the first billable command, listening judgment, and cache
+  observation. Implementation proceeds without those live side effects.

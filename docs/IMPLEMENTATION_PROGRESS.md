@@ -3,8 +3,9 @@
 This document is the orchestration record for implementing
 `Script-to-Timeline Product Spec - Fable Rev2.md`. It tracks slice ownership,
 contract boundaries, verification, producer acceptance, decisions, and
-follow-up work. A slice is complete only after its automated checks pass **and**
-the producer runs its acceptance script successfully.
+follow-up work. A slice is complete only after its bounded acceptance evidence
+passes and it is accepted explicitly by the producer or, for automated-only
+slices, by the orchestrator under D-0008.
 
 Last updated: 2026-08-25
 
@@ -44,7 +45,7 @@ Last updated: 2026-08-25
 | 0.3 Resolve Free import trial | Accepted | Producer + agent preparer/recorder | 0.2 accepted | Producer accepted on 2026-08-24. OTIO retained the marker and linked all five items; FCPXML required a manual media redirect and omitted the marker. D-P005 parks FCPXML with no observed compensating advantage. |
 | 0.4 Resolve Studio scripting spike | Accepted | Producer + bounded implementation, hardening, and review agents | 0.2 accepted | Producer explicitly accepted on 2026-08-25 after visual inspection and accepted the documented V1/120-frame Text+ public-API limitation as spike evidence. The limitation remains open in `docs/resolve-text-plus-destination-track-limitation.md`. |
 | 1.1 ScriptDocument v1 and validator | Accepted | Orchestrator + bounded implementation/review agents | D-0006 semantic decisions; Phase 0 accepted | Producer explicitly accepted on 2026-08-25 after the pure TypeScript validator and CLI, two canonical inputs, exact row-level diagnostics, 59 contract/validator tests, clean pinned full gate, frozen-boundary audit, and final independent no-findings review passed. The canonical inputs are now frozen. |
-| 1.2 Voice adapter and block asset cache | In progress | Orchestrator + bounded research/implementation/review agents | Slice 1.1 accepted | Provider comparison, bounded contract/cache design, and FFmpeg-normalization planning are active. Final acceptance remains manual because the specification requires the producer to hear generated files and observe cache behavior. |
+| 1.2 Voice adapter and block asset cache | In progress | Orchestrator + bounded research/implementation/review agents | Slice 1.1 accepted | Plan bound in `docs/plans/slice-1.2-voice-cache.md`; D-0009 through D-0011 select AWS Polly Neural, the explicit cloud-data/cost gate, and the FFmpeg normalization profile. Implementation is next. Final acceptance remains manual because the producer must hear generated files and observe cache behavior. |
 
 ## Slice 0.1 orchestration plan
 
@@ -114,6 +115,7 @@ changes, why, compatibility impact, regenerated outputs, and acceptance impact.
 | 2026-08-25 | Slice 1.1 implementation and review workstreams | Implement and independently harden the pure ScriptDocument validator, CLI, canonical inputs, and producer acceptance path | Agent complete | Commit `4fe34ab` adds deterministic structural/semantic validation and exact row/entity/token diagnostics without changing frozen contracts or fixtures. Successive reviews closed affinity, fixture-shape, CLI-output, schema-noise, and ID-scope ratchet gaps; the final review reported no findings. |
 | 2026-08-25 | Producer | Accept Slice 1.1 and delegate later automated-only acceptance | Accepted | Producer explicitly accepted Slice 1.1. Its canonical semantic inputs are frozen. D-0008 records that the orchestrator may accept later slices whose full done condition is objectively automated, while manual listening, visual inspection, credentials/authorization, and irreducible human judgment remain producer gates. |
 | 2026-08-25 | Slice 1.2 orchestration | Bound provider research, cache/contract design, and deterministic FFmpeg normalization before implementation | In progress | Slice 1.2 begins from the accepted Slice 1.1 inputs. No frozen contract, fixture, generated type, accepted test/data, or lockfile change is authorized without a separate approved change note. |
+| 2026-08-25 | Slice 1.2 research workstreams | Compare current cloud providers, audit the repository/cache boundary, and prove a deterministic FFmpeg approach | Complete | Independent read-only workstreams selected AWS Polly Neural, found no shared-contract change necessary, designed two-layer immutable caching, and verified FFmpeg/FFprobe 8.1.2 capabilities plus same-fingerprint repeated output. The bounded plan and D-0009 through D-0011 record the choices and caveats. |
 
 ## Producer decisions and external checks
 
