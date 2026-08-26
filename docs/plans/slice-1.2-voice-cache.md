@@ -2,15 +2,15 @@
 
 ## Status and gate
 
-**Authorized for implementation.** Slice 1.1 is accepted and its minimal and
-torture `ScriptDocument` inputs are frozen. This plan binds Slice 1.2 before
-code changes begin.
+**Accepted on 2026-08-25.** Slice 1.1 is accepted and its minimal and torture
+`ScriptDocument` inputs remain frozen. This plan bound Slice 1.2 before code
+changes began; implementation, automated verification, live cache evidence,
+producer listening, and producer acceptance all completed inside that boundary.
 
-The slice remains producer-gated even under D-0008: its done condition requires
-the producer to hear generated audio and observe live cache behavior. Agents may
-complete implementation, automated verification, provider-independent tests,
-and independent review without stopping, but may not claim that listening,
-provider authorization, or a billable cloud call occurred.
+The slice remained producer-gated even under D-0008 because its done condition
+required the producer to hear generated audio and observe live cache behavior.
+That manual gate passed on 2026-08-25; the recorded acceptance does not imply
+that an agent independently authorized provider terms or billable calls.
 
 ## Provider evaluation and decision
 
@@ -23,9 +23,12 @@ Current official documentation was reviewed on 2026-08-25.
 | Azure Speech | SDK `WordBoundary` events include audio offset and input character position | SSML phoneme, lexicon, alias, prosody | Region/currency dependent; 0.5M Neural characters/month on F0 | Strong timing but a heavier native SDK/event surface; reviewed public material did not establish a clear TTS-specific retention period |
 | ElevenLabs | Audio and original/normalized character start/end alignment in one response | Versioned pronunciation dictionaries and model-specific IPA/alias controls | Approximately $50–$100/M characters for the compared API models | Finest timing and simple REST; materially higher cost, default logging, and account/plan-dependent training and zero-retention controls |
 
-Initial provider: **AWS Polly Neural**, profile
-`aws-polly-joanna-neural-en-us-v1`, voice `Joanna`, engine `neural`, language
-`en-US`, and default region `us-east-1`. The provider adapter records the exact
+Initial provider: **AWS Polly Neural**. D-0012 supersedes D-0009's proposed
+voice default: profile `aws-polly-matthew-neural-en-us-v1`, voice `Matthew`,
+engine `neural`, language `en-US`, and region `us-east-1` are the default;
+profile `aws-polly-joanna-neural-en-us-v1` keeps `Joanna` as a named selectable
+alternative. The Slice 1.2 CLI exposes `--voice-profile`; project persistence
+and an app menu remain Phase 2 work. The provider adapter records the exact
 region, engine, voice ID, language, SDK/adapter versions, request IDs, input and
 output hashes, and an honest `voiceVersion: provider_not_supplied`. It must not
 invent immutable vendor identity. Output bytes are cached immutably so later
@@ -44,6 +47,7 @@ Official sources:
 - [Polly lexicons](https://docs.aws.amazon.com/polly/latest/dg/managing-lexicons.html)
 - [Polly pricing](https://aws.amazon.com/polly/pricing/)
 - [Polly limits](https://docs.aws.amazon.com/polly/latest/dg/limits.html)
+- [Polly prosody support](https://docs.aws.amazon.com/polly/latest/dg/prosody-tag.html)
 - [AWS Service Terms](https://aws.amazon.com/service-terms/) (updated 2026-08-20)
 - [Google SSML timepoints](https://cloud.google.com/text-to-speech/docs/ssml)
 - [Google Cloud TTS data logging](https://cloud.google.com/text-to-speech/docs/data-logging)
@@ -98,7 +102,9 @@ Official sources:
 - Slice 1.3 anchor-to-frame compilation, manifests, build reports, and goldens.
 - Resolve placement, package writing, or any Free/Studio workflow.
 - Authoring UI, persistence service, collaboration, durable jobs, or editor
-  voice controls.
+  voice controls. The requested project-level Matthew/Joanna selector is filed
+  for Phase 2 project persistence and build UI; Slice 1.2 proves its underlying
+  named-profile semantics through the CLI only.
 - Recorded/locked host takes, replacement timing previews, and final mixing.
 - A local/offline provider.
 - Provider-side lexicon creation/deletion or any other remote resource mutation.
@@ -184,6 +190,9 @@ quarantined, overwritten, or silently regenerated.
 
 Profile `vera-temporary-narration-v1`:
 
+- deterministic dialogue peak conditioning with FFmpeg `acompressor`
+  (threshold `0.125`, ratio `4:1`, 1 ms attack, 50 ms release, no makeup gain)
+  before loudness measurement;
 - measured two-pass FFmpeg `loudnorm`;
 - integrated loudness -16.0 LUFS, true peak no higher than -1.5 dBTP, LRA
   target/cap 7 LU;
@@ -199,6 +208,27 @@ The installed producer pair is FFmpeg/FFprobe 8.1.2. Integration tests require
 the needed capabilities and assert semantic output on CI; byte identity is
 claimed only for repeated runs under the same tool fingerprint, not across
 unrelated FFmpeg builds or CPU architectures.
+
+### Live-acceptance correction note — 2026-08-25
+
+The first credentialed run exposed two bounded provider/media compatibility
+issues before any ready asset was published. Polly Neural rejects the SSML
+`pitch` attribute even at the neutral `0%` value, so adapter v1 now omits that
+no-op attribute for Neural profiles and explicitly rejects any non-neutral
+Neural pitch request before network access. Standard-engine profiles retain
+pitch output. The raw Polly responses then proved that linear gain alone could
+not simultaneously reach -16 LUFS and remain below -1.5 dBTP for normal
+dialogue crest factors, so normalizer v2 adds the deterministic compressor
+documented above before the existing measured two-pass `loudnorm` process.
+
+Scope was limited to Neural SSML compatibility and conformance with the
+already-locked normalization targets. No shared contract, frozen fixture,
+golden file, voice profile, provider policy, cache immutability rule, or UI was
+changed; no dependency was added. Regression coverage now proves neutral
+Neural pitch omission, non-neutral Neural pitch rejection, and high-crest
+dialogue target compliance. Forty-two focused narration tests and the clean
+repository gate (59 TypeScript tests, 1 tooling test, 127 Python tests, Ruff,
+formatting, strict mypy, and generated-contract currentness) pass.
 
 ## Files and dependency justification
 
@@ -278,4 +308,3 @@ data-policy attestation:
 5. confirm excluded narration produced no asset and no request; and
 6. explicitly accept or reject voice quality, pronunciation, normalization,
    timing evidence, and cache behavior.
-
