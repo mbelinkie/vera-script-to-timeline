@@ -6,8 +6,8 @@
 D-0014 was authorized on 2026-08-26. Slices 1.1 and 1.2 and the Text+
 follow-up are accepted. The accepted minimal and torture ScriptDocuments
 remain frozen and are reused read-only. Two consecutive full local validation
-gates pass; final independent review, two CI runs, and producer acceptance
-remain.
+gates and final independent no-findings review pass; two CI runs and producer
+acceptance remain.
 
 This plan records the complete decision bundle so implementation can proceed
 without question-by-question producer involvement after the contract gate.
