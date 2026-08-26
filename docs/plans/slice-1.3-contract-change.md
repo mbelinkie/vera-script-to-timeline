@@ -2,7 +2,7 @@
 
 ## Status and authorization gate
 
-**Proposed; producer approval required before implementation.** Slice 1.3 is
+**Approved by the producer on 2026-08-26.** Slice 1.3 is
 the first TypeScript consumer of the Python narration cache. Slice 1.2
 deliberately kept `NarrationAudioAsset` internal and requires an explicit
 contract-change note if a later slice needs cross-language serialization. That
@@ -149,7 +149,7 @@ part of Slice 1.3 acceptance.
 
 ## Producer decision
 
-Approve or reject this note as one bundle. Approval authorizes creation of
+The producer explicitly approved D-0014 on 2026-08-26. This authorizes creation of
 `CompilerDependencies v1`, the three additive manifest precision values,
 generated-type regeneration, and the acceptance changes above. Any further
 shared-contract change discovered during implementation requires a new note.

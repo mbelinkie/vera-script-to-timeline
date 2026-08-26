@@ -12,8 +12,8 @@ Last updated: 2026-08-26
 ## Current milestone
 
 - **Phase:** 0 gate closed; Phase 1 may proceed
-- **Active slice:** 1.3 — compiler plan complete; implementation blocked on
-  producer approval of the explicit cross-language contract-change note
+- **Active slice:** 1.3 — compiler core implementation in progress under
+  producer-approved D-0014
 - **Overall state:** Slices 0.1 through 0.4 are accepted. The producer accepted
   Slice 0.4 on 2026-08-25, including its documented V1 Text+ destination-track
   limitation. The accepted pinned-template follow-up now resolves destination
@@ -30,8 +30,8 @@ Last updated: 2026-08-26
   retained real-Resolve projects passed visual inspection. Slice 1.3 is now
   bounded in `docs/plans/slice-1.3-compiler-core.md`. Two independent read-only
   audits confirmed that its Python-to-TypeScript narration boundary triggers
-  Slice 1.2's explicit contract-change gate; D-0014 awaits one bundled producer
-  approval before implementation.
+  Slice 1.2's explicit contract-change gate; the producer approved D-0014 on
+  2026-08-26 and implementation is unblocked.
 - **Source specification:** `docs/Script-to-Timeline Product Spec - Fable Rev2.md`
 
 ## Status legend
@@ -56,7 +56,7 @@ Last updated: 2026-08-26
 | 0.4 Resolve Studio scripting spike | Accepted | Producer + bounded implementation, hardening, and review agents | 0.2 accepted | Producer explicitly accepted on 2026-08-25 after visual inspection and accepted the documented V1/120-frame Text+ public-API limitation as spike evidence. The later accepted pinned-template follow-up resolves track/duration control for the shipped Text+ path without rewriting this historical result. |
 | 1.1 ScriptDocument v1 and validator | Accepted | Orchestrator + bounded implementation/review agents | D-0006 semantic decisions; Phase 0 accepted | Producer explicitly accepted on 2026-08-25 after the pure TypeScript validator and CLI, two canonical inputs, exact row-level diagnostics, 59 contract/validator tests, clean pinned full gate, frozen-boundary audit, and final independent no-findings review passed. The canonical inputs are now frozen. |
 | 1.2 Voice adapter and block asset cache | Accepted | Orchestrator + bounded research/implementation/review agents | Slice 1.1 accepted | Provider, source mapping, immutable cache, FFmpeg normalization, CLI, 42 focused tests, clean 127-test gate, live generation/reuse/invalidation, and producer listening acceptance passed. The producer declared the slice complete on 2026-08-25. |
-| 1.3 Compiler core: anchors to frames to manifest | Blocked | Orchestrator + Terra audit/review agents | Slice 1.2 accepted; D-0014 contract approval pending | Bounded plan and contract-change note complete. The required shared input is `CompilerDependencies v1`; `TimelineManifest v1` needs honest derived-end precision labels. No contract, fixture, generated type, or compiler code changes before producer approval. |
+| 1.3 Compiler core: anchors to frames to manifest | In progress | Orchestrator + Terra implementation/review agents | Slice 1.2 accepted; D-0014 accepted | Bounded plan and contract-change note approved. Implementing `CompilerDependencies v1`, honest manifest precision, the pure compiler, narrow narration adapter, deterministic dependency inputs, and byte-identical manifest/report goldens. |
 | Text+ pinned-template capability follow-up | Accepted | Producer + bounded implementation/review | Slice 1.2 complete; Slice 0.4 limitation follow-up | Validation project `VERA TextPlus Template Validation 20260825-230705` proved stock/template fingerprint equivalence and exact 24-/72-frame duration control. Integrated project `VERA TextPlus Integrated Acceptance 20260825-234847` verified one hash-pinned Text+ on manifest track `video-graphics`/V4 at frame 0 for 72 frames after save/reopen, with exact event accounting. The producer visually accepted both projects on 2026-08-25. D-0013 resolves track/duration control for the shipped pinned-template path; stock catalog enumeration remains open. |
 
 ## Slice 0.1 orchestration plan
@@ -139,6 +139,7 @@ changes, why, compatibility impact, regenerated outputs, and acceptance impact.
 | 2026-08-25 | Producer + Text+ Studio integration | Replace stock insertion with the pinned-template production path and verify one integrated build | Accepted | Project `VERA TextPlus Integrated Acceptance 20260825-234847` passed nonmutating preflight, saved, closed, reopened, and verified one 72-frame Text+ at frame 0 on `video-graphics`/V4 with no unexpected title or manifest-event discrepancy. The producer visually inspected and explicitly accepted the retained build. D-0013 records the shipped-path decision. |
 | 2026-08-26 | Text+ final verification | Run focused/static/full gates, wheel inspection, and frozen/dependency audits after producer acceptance | Complete | Sixty-three focused tests, Ruff/formatting, and strict mypy passed. A clean intended-tree checkout under Node 24.19.0/npm 11.17.0 passed generated-contract checks, 59 contract tests, 1 tooling-smoke test, 4 progress tests, strict mypy over 38 files, and all 146 Python tests. The wheel contained both pinned assets and the `.drb` hash matched. `git diff --check` and frozen-boundary audits passed; no Text+ dependency or lock entry was added. Existing destructive untracked probes were preserved, excluded, and never run. |
 | 2026-08-26 | Slice 1.3 planning and independent audits | Bound the compiler slice and determine whether accepted narration records can cross into TypeScript without a contract change | Blocked | Two independent Terra read-only audits found the explicit Slice 1.2 cross-language trigger is met and the current manifest cannot honestly label derived word ends. Added the bounded compiler plan, contract-change note, and pending D-0014 decision. No contract, fixture, generated type, compiler code, dependency, or frozen input changed; implementation awaits one bundled producer approval. |
+| 2026-08-26 | Producer | Approve Slice 1.3 contract and deterministic compiler decisions | Accepted | The producer explicitly approved D-0014, authorizing `CompilerDependencies v1`, three additive timing-precision values, generated-type regeneration, and the bounded compiler semantics/acceptance changes. No broader shared-contract change is authorized. |
 
 ## Producer decisions and external checks
 

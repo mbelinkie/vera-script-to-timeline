@@ -2,10 +2,9 @@
 
 ## Status and gate
 
-**Planned; implementation blocked only on producer approval of
-`slice-1.3-contract-change.md`.** Slices 1.1 and 1.2 and the Text+ follow-up are
-accepted. The accepted minimal and torture ScriptDocuments remain frozen and
-will be reused read-only.
+**Authorized for implementation by D-0014 on 2026-08-26.** Slices 1.1 and 1.2
+and the Text+ follow-up are accepted. The accepted minimal and torture
+ScriptDocuments remain frozen and will be reused read-only.
 
 This plan records the complete decision bundle so implementation can proceed
 without question-by-question producer involvement after the contract gate.
