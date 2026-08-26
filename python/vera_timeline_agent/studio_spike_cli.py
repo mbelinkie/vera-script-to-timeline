@@ -26,6 +26,8 @@ def parser() -> argparse.ArgumentParser:
     )
     delivery.add_argument("--project-name")
     delivery.add_argument("--fusion-title", default="Text+")
+    delivery.add_argument("--fusion-title-track-id", default="video-graphics")
+    delivery.add_argument("--fusion-title-duration-frames", type=int)
     return value
 
 
@@ -50,6 +52,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             action=arguments.action,
             project_name=arguments.project_name,
             fusion_title=arguments.fusion_title,
+            fusion_title_track_id=arguments.fusion_title_track_id,
+            fusion_title_duration_frames=arguments.fusion_title_duration_frames,
         )
         sys.stdout.write(result.to_json())
         return (

@@ -24,6 +24,10 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["python/vera_timeline_agent"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"python/vera_timeline_agent/assets/text_plus_template.drb" = "vera_timeline_agent/assets/text_plus_template.drb"
+"python/vera_timeline_agent/assets/text_plus_template.json" = "vera_timeline_agent/assets/text_plus_template.json"
+
 [tool.mypy]
 python_version = "3.12"
 strict = true

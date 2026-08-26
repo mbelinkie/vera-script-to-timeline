@@ -232,22 +232,52 @@ uv run --frozen python -m vera_timeline_agent.studio_spike_cli run \
 
 The build path creates bins/tracks from the adjustable manifest, imports and
 places its three trimmed videos, still, and synthetic narration at exact
-record/source frames, requests the named `Text+` Fusion title, adds marker
-custom data, saves, closes/reopens, and verifies public-API-observable project,
-timeline, setting, bin, track, media-identity, item-range, title-presence, and
-marker data, including exact track counts and rejection of unaccounted items.
-The title is tracked only through documented TimelineItem name/range/Fusion
-composition surfaces; no private item identity API is used. This bounded spike
-rejects nonzero timeline starts before loading the Resolve bridge and rejects a
-non-timeline Resolve page during nonmutating preflight. The public API cannot
-enumerate stock Fusion titles, select/prove the title's destination track, or
-report the connected executable path, and nonmutating preflight cannot prove
-mutation-only calls, so the CLI reports those bounded manual-completion items.
+record/source frames, imports the hash-pinned `Text+` template bin, appends one
+title on the resolved destination track, adds marker custom data, saves,
+closes/reopens, and verifies project, timeline, setting, bin, track,
+media-identity, item-range, title fingerprint, marker data, and exact event
+accounting through documented public APIs. `--fusion-title` is retained for CLI
+compatibility but accepts only `Text+`; `--fusion-title-track-id` defaults to
+`video-graphics`, and `--fusion-title-duration-frames` defaults to the manifest
+timeline duration. There is no fallback to nondeterministic stock insertion.
+The public API still cannot enumerate stock Fusion titles or report the
+connected executable path, and nonmutating preflight cannot prove mutation-only
+calls, so the CLI reports those bounded manual-completion items.
 Do not record a Studio capability
 until the producer performs and inspects this real run; automated doubles are
 not Resolve evidence. A failure after the build is authorized can leave a
 partial project; the CLI reports `mutation_failed` and the project must be
 inspected manually rather than treated as a nonmutating safety stop.
+
+### Pinned Text+ destination-track validation
+
+VERA versions the producer-authored `Text+` media-pool generator template and
+its SHA-256 provenance under `vera_timeline_agent/assets`. Before using it in a
+Studio build, run the isolated, nonmutating capability preflight from the Edit
+page of the producer-authored template project, whose timeline must still
+contain the original stock Text+ item:
+
+```sh
+uv run --frozen python -m vera_timeline_agent.text_plus_validation_cli \
+  --action preflight \
+  --project-name "VERA TextPlus Template Validation YYYYMMDD-HHMMSS"
+```
+
+Only after that command reports `preflight_passed`, run the same unique name
+with `--action build`. The build creates and retains one audit project, compares
+the stock and template Fusion tool-registration fingerprints, measures the
+generator end-frame rule around 24 frames, confirms it at 72 frames on V4,
+saves, closes, reopens, and verifies the result. It never deletes a project,
+timeline, imported bin, or template clip. Any post-creation failure reports
+`mutation_failed` and names the retained partial project.
+
+The producer accepted validation project
+`VERA TextPlus Template Validation 20260825-230705` and integrated project
+`VERA TextPlus Integrated Acceptance 20260825-234847` on 2026-08-25. The
+shipped pinned-template path is therefore the supported Text+ destination-track
+and duration solution for the tested Resolve Studio 21.0.4 build 5 baseline.
+This does not claim stock-title catalog enumeration or arbitrary Fusion-title
+support.
 
 ## Slice workflow
 

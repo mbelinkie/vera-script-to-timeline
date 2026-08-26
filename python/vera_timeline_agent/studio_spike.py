@@ -15,6 +15,12 @@ from pathlib import Path
 from typing import Any, Protocol, cast
 
 from vera_timeline_agent.otio_package import verify_otio_package
+from vera_timeline_agent.text_plus_template import (
+    DEFAULT_TEXT_PLUS_TEMPLATE_METADATA,
+    TemplateValidationError,
+    TextPlusTemplate,
+    validate_text_plus_template,
+)
 
 DEFAULT_APP_PATH = Path("/Applications/DaVinci Resolve/DaVinci Resolve.app")
 DEFAULT_SCRIPTING_ROOT = Path(
@@ -69,6 +75,30 @@ class ConnectedFacts:
 
 
 @dataclass(frozen=True)
+class TextPlusPlacement:
+    """Internal deterministic placement request for the pinned Text+ asset."""
+
+    title_name: str
+    track_id: str
+    track_index: int
+    record_frame: int
+    duration_frames: int
+
+
+@dataclass(frozen=True)
+class TitlePlacementEvidence:
+    """Public-API-observable evidence for one pinned Text+ placement."""
+
+    title_name: str
+    track_id: str
+    track_index: int
+    record_frame: int
+    duration_frames: int
+    asset_sha256: str
+    fusion_tool_registration_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class CapabilityResult:
     """Honest outcome from detection, preflight, assembly, or verification."""
 
@@ -81,6 +111,7 @@ class CapabilityResult:
     verified: bool = False
     discrepancies: tuple[str, ...] = ()
     manual_completion: tuple[str, ...] = ()
+    title_placement: TitlePlacementEvidence | None = None
 
     def to_json(self) -> str:
         """Serialize a stable human/machine-readable CLI result."""
@@ -110,7 +141,9 @@ class ResolveAdapter(Protocol):
 
     def place_events(self, events: Sequence[Mapping[str, Any]]) -> None: ...
 
-    def insert_fusion_title(self, title_name: str, record_frame: int) -> None: ...
+    def insert_text_plus(
+        self, placement: TextPlusPlacement, template: TextPlusTemplate
+    ) -> TitlePlacementEvidence: ...
 
     def add_marker(self, marker: Mapping[str, Any], custom_data: str) -> None: ...
 
@@ -191,6 +224,9 @@ def run_delivery(
     local_facts: LocalFacts | None = None,
     project_name: str | None = None,
     fusion_title: str = "Text+",
+    fusion_title_track_id: str = "video-graphics",
+    fusion_title_duration_frames: int | None = None,
+    template_metadata: Path = DEFAULT_TEXT_PLUS_TEMPLATE_METADATA,
 ) -> CapabilityResult:
     """Verify the accepted package, then safely preflight or assemble Studio."""
     if mode not in {"free", "studio"}:
@@ -223,6 +259,22 @@ def run_delivery(
             ),
             local=local,
         )
+    try:
+        template = validate_text_plus_template(
+            template_metadata, require_validated_duration_rule=True
+        )
+        title_placement = _resolve_text_plus_placement(
+            manifest,
+            title_name=fusion_title,
+            track_id=fusion_title_track_id,
+            duration_frames=fusion_title_duration_frames,
+        )
+    except (StudioSpikeError, TemplateValidationError) as error:
+        return CapabilityResult(
+            status="stopped_safely",
+            message=f"Pinned Text+ preflight failed before API connection: {error}",
+            local=local,
+        )
     resolved_project_name = project_name or f"VERA Studio Spike {manifest['buildId']}"
     timeline_name = f"VERA build {manifest['buildId']}"
     settings = _project_settings(timeline)
@@ -249,6 +301,14 @@ def run_delivery(
             local=local,
             connected=connected,
         )
+    template_stop = _template_connected_stop(template, connected)
+    if template_stop is not None:
+        return CapabilityResult(
+            status="stopped_safely",
+            message=template_stop,
+            local=local,
+            connected=connected,
+        )
     try:
         probe_gaps = adapter.probe(settings)
         adapter.check_project_name_available(resolved_project_name)
@@ -262,8 +322,8 @@ def run_delivery(
             connected=connected,
         )
     manual = (
-        "The public API can insert a named Fusion title at the playhead but cannot "
-        "enumerate stock Fusion titles or select/prove its destination video track.",
+        "The public API cannot enumerate the local stock Fusion-title catalog. "
+        "This build instead uses the producer-authored, hash-pinned Text+ template.",
         "The identity gate compares documented GetVersion fields "
         "[major, minor, patch, build, suffix] with the bundle marketing/build "
         "values. It supports the observed numeric macOS bundle build encoding and "
@@ -283,6 +343,7 @@ def run_delivery(
         )
 
     sources = _resolved_sources(package_dir, manifest)
+    title_evidence: TitlePlacementEvidence | None = None
     try:
         adapter.create_project(resolved_project_name)
         adapter.configure_project(settings)
@@ -291,10 +352,7 @@ def run_delivery(
         adapter.import_media(sources)
         adapter.create_timeline(timeline_name)
         adapter.configure_tracks(cast(list[Mapping[str, Any]], manifest["tracks"]))
-        start_frame = cast(
-            int, cast(Mapping[str, Any], manifest["timeline"])["startFrame"]
-        )
-        adapter.insert_fusion_title(fusion_title, start_frame)
+        title_evidence = adapter.insert_text_plus(title_placement, template)
         adapter.place_events(cast(list[Mapping[str, Any]], manifest["events"]))
         for marker in cast(list[Mapping[str, Any]], manifest["markers"]):
             custom_data = json.dumps(
@@ -317,6 +375,7 @@ def run_delivery(
             project_name=resolved_project_name,
             timeline_name=timeline_name,
             manual_completion=manual,
+            title_placement=title_evidence,
         )
     return CapabilityResult(
         status="verified" if not discrepancies else "verification_failed",
@@ -333,6 +392,7 @@ def run_delivery(
         verified=not discrepancies,
         discrepancies=discrepancies,
         manual_completion=manual,
+        title_placement=title_evidence,
     )
 
 
@@ -375,9 +435,8 @@ class PublicResolveAdapter:
         self.expected_timeline_name: str | None = None
         self.expected_settings: dict[str, str] = {}
         self.created_bins: list[str] = []
-        self.fusion_title_fingerprint: tuple[str, int, int, tuple[str, ...]] | None = (
-            None
-        )
+        self.title_placement_evidence: TitlePlacementEvidence | None = None
+        self.text_plus_template: TextPlusTemplate | None = None
 
     def connected_facts(self) -> ConnectedFacts:
         product = self.resolve.GetProductName()
@@ -435,11 +494,9 @@ class PublicResolveAdapter:
         ]
         current = manager.GetCurrentProject()
         if current is None:
-            gaps.append(
-                "No current project was available to nonmutatingly inspect Project "
-                "settings and MediaPool method surfaces."
+            raise StudioSpikeError(
+                "an open current project is required to inspect Studio API surfaces"
             )
-            return tuple(gaps)
         if not callable(getattr(current, "GetSetting", None)):
             raise StudioSpikeError("current project has no callable GetSetting")
         for key in settings:
@@ -448,9 +505,32 @@ class PublicResolveAdapter:
         pool = current.GetMediaPool()
         if pool is None:
             raise StudioSpikeError("current project has no media pool")
-        for method in ("ImportMedia", "CreateEmptyTimeline", "AddSubFolder"):
+        for method in (
+            "ImportMedia",
+            "CreateEmptyTimeline",
+            "AddSubFolder",
+            "GetRootFolder",
+            "GetCurrentFolder",
+            "SetCurrentFolder",
+            "ImportFolderFromFile",
+            "AppendToTimeline",
+        ):
             if not callable(getattr(pool, method, None)):
                 raise StudioSpikeError(f"media pool has no callable {method}")
+        root = pool.GetRootFolder()
+        if root is None:
+            raise StudioSpikeError("current media pool has no root folder")
+        for method in ("GetSubFolderList", "GetClipList"):
+            if not callable(getattr(root, method, None)):
+                raise StudioSpikeError(f"media pool root has no callable {method}")
+        if not callable(getattr(current, "GetCurrentTimeline", None)):
+            raise StudioSpikeError("current project has no callable GetCurrentTimeline")
+        current_timeline = current.GetCurrentTimeline()
+        if current_timeline is None:
+            raise StudioSpikeError("current project has no timeline for API preflight")
+        for method in ("GetTrackCount", "GetItemListInTrack"):
+            if not callable(getattr(current_timeline, method, None)):
+                raise StudioSpikeError(f"current timeline has no callable {method}")
         return tuple(gaps)
 
     def check_project_name_available(self, name: str) -> None:
@@ -609,18 +689,51 @@ class PublicResolveAdapter:
             raise StudioSpikeError("track ID map was not initialized")
         return cast(int, suffix_map[track_id])
 
-    def insert_fusion_title(self, title_name: str, record_frame: int) -> None:
+    def insert_text_plus(
+        self, placement: TextPlusPlacement, template: TextPlusTemplate
+    ) -> TitlePlacementEvidence:
         current_page = self.resolve.GetCurrentPage()
         if current_page not in TIMELINE_PAGES:
             raise StudioSpikeError(
                 "Resolve left the supported timeline page before Fusion insertion"
             )
-        if not self.timeline.SetCurrentTimecode(_frame_timecode(record_frame)):
-            raise StudioSpikeError("could not position playhead for Fusion title")
-        title = self.timeline.InsertFusionTitleIntoTimeline(title_name)
-        if title is None:
-            raise StudioSpikeError(f"Fusion title is unavailable: {title_name}")
-        self.fusion_title_fingerprint = _fusion_title_fingerprint(title)
+        if template.append_end_frame_delta is None:
+            raise StudioSpikeError(
+                "pinned Text+ template has no validated duration rule"
+            )
+        from .text_plus_validation import (
+            append_template_item,
+            fingerprint_fusion_item,
+            import_template_generator,
+        )
+
+        generator = import_template_generator(self.pool, template)
+        title = append_template_item(
+            self.pool,
+            generator,
+            self.timeline,
+            start_frame=0,
+            end_frame=placement.duration_frames + template.append_end_frame_delta,
+            record_frame=placement.record_frame,
+            track_index=placement.track_index,
+        )
+        if title.GetStart(False) != placement.record_frame:
+            raise StudioSpikeError("Text+ landed at an unexpected record frame")
+        if title.GetDuration(False) != placement.duration_frames:
+            raise StudioSpikeError("Text+ landed with an unexpected duration")
+        fingerprint = fingerprint_fusion_item(title, template)
+        evidence = TitlePlacementEvidence(
+            title_name=placement.title_name,
+            track_id=placement.track_id,
+            track_index=placement.track_index,
+            record_frame=placement.record_frame,
+            duration_frames=placement.duration_frames,
+            asset_sha256=template.sha256,
+            fusion_tool_registration_ids=fingerprint.tool_registration_ids,
+        )
+        self.title_placement_evidence = evidence
+        self.text_plus_template = template
+        return evidence
 
     def add_marker(self, marker: Mapping[str, Any], custom_data: str) -> None:
         if not self.timeline.AddMarker(
@@ -662,9 +775,12 @@ class PublicResolveAdapter:
         timeline = cast(Mapping[str, Any], manifest["timeline"])
         expected_start = cast(int, timeline["startFrame"])
         expected_end = expected_start + cast(int, timeline["durationFrames"])
-        if self.fusion_title_fingerprint is not None:
-            _, title_start, title_duration, _ = self.fusion_title_fingerprint
-            expected_end = max(expected_end, title_start + title_duration)
+        if self.title_placement_evidence is not None:
+            expected_end = max(
+                expected_end,
+                self.title_placement_evidence.record_frame
+                + self.title_placement_evidence.duration_frames,
+            )
         if self.timeline.GetStartFrame() != expected_start:
             discrepancies.append("timeline start frame differs from manifest")
         if self.timeline.GetEndFrame() != expected_end:
@@ -716,19 +832,39 @@ class PublicResolveAdapter:
                 track_index[cast(str, event["trackId"])],
             )
             by_slot.setdefault(slot, []).append(event)
-        title_matches = [
-            item
-            for (kind, _), items in actual_items_by_slot.items()
-            if kind == "video"
-            for item in items
-            if _matches_fusion_title(item, self.fusion_title_fingerprint)
-        ]
+        title_matches: list[tuple[tuple[str, int], Any]] = []
+        title_evidence = self.title_placement_evidence
+        text_plus_template = self.text_plus_template
+        if title_evidence is None or text_plus_template is None:
+            discrepancies.append("pinned Text+ placement evidence is missing")
+        else:
+            try:
+                from .text_plus_validation import find_imported_template_generator
+
+                find_imported_template_generator(self.pool, text_plus_template)
+            except (AttributeError, StudioSpikeError, TypeError, ValueError) as error:
+                discrepancies.append(f"pinned Text+ template bin differs: {error}")
+            for slot, items in actual_items_by_slot.items():
+                if slot[0] != "video":
+                    continue
+                for item in items:
+                    if _matches_text_plus_placement(
+                        item,
+                        title_evidence,
+                        text_plus_template,
+                    ):
+                        title_matches.append((slot, item))
         if len(title_matches) != 1:
             discrepancies.append(
-                "expected exactly one reopened Fusion title matching the inserted "
+                "expected exactly one reopened pinned Text+ matching the inserted "
                 f"public fingerprint, got {len(title_matches)}"
             )
-        title_object_id = id(title_matches[0]) if len(title_matches) == 1 else None
+        elif title_evidence is not None and title_matches[0][0] != (
+            "video",
+            title_evidence.track_index,
+        ):
+            discrepancies.append("reopened pinned Text+ is on the wrong video track")
+        title_object_id = id(title_matches[0][1]) if len(title_matches) == 1 else None
         for slot, actual_slot_items in actual_items_by_slot.items():
             kind, index = slot
             expected_events = by_slot.get(slot, [])
@@ -811,6 +947,100 @@ class PublicResolveAdapter:
             if folder is None:
                 discrepancies.append(f"media bin path is missing at {name!r}")
                 return
+
+
+def _resolve_text_plus_placement(
+    manifest: Mapping[str, Any],
+    *,
+    title_name: str,
+    track_id: str,
+    duration_frames: int | None,
+) -> TextPlusPlacement:
+    if title_name != "Text+":
+        raise StudioSpikeError(
+            "the pinned template supports only Text+; arbitrary Fusion titles "
+            "are not available"
+        )
+    if not isinstance(track_id, str) or not track_id:
+        raise StudioSpikeError("Fusion title track ID must be nonempty")
+    tracks = cast(list[Mapping[str, Any]], manifest["tracks"])
+    matches = [track for track in tracks if track["id"] == track_id]
+    if len(matches) != 1:
+        raise StudioSpikeError(
+            f"Fusion title track ID must identify exactly one track: {track_id!r}"
+        )
+    track = matches[0]
+    if track["kind"] != "video":
+        raise StudioSpikeError("Fusion title destination must be a video track")
+    timeline = cast(Mapping[str, Any], manifest["timeline"])
+    resolved_duration = (
+        cast(int, timeline["durationFrames"])
+        if duration_frames is None
+        else duration_frames
+    )
+    if (
+        not isinstance(resolved_duration, int)
+        or isinstance(resolved_duration, bool)
+        or resolved_duration <= 0
+    ):
+        raise StudioSpikeError("Fusion title duration must be a positive integer")
+    title_start = cast(int, timeline["startFrame"])
+    title_end = title_start + resolved_duration
+    for event in cast(list[Mapping[str, Any]], manifest["events"]):
+        if event["trackId"] != track_id:
+            continue
+        record = cast(Mapping[str, int], event["recordRange"])
+        event_start = record["startFrame"]
+        event_end = event_start + record["durationFrames"]
+        if title_start < event_end and event_start < title_end:
+            raise StudioSpikeError(
+                f"Fusion title overlaps manifest event {event['id']} on {track_id!r}"
+            )
+    return TextPlusPlacement(
+        title_name=title_name,
+        track_id=track_id,
+        track_index=cast(int, track["index"]),
+        record_frame=title_start,
+        duration_frames=resolved_duration,
+    )
+
+
+def _template_connected_stop(
+    template: TextPlusTemplate, connected: ConnectedFacts
+) -> str | None:
+    if template.validated_resolve_version is None:
+        return (
+            "The pinned Text+ template lacks a producer-accepted Resolve validation "
+            "version; no project mutation occurred."
+        )
+    observed = f"{connected.version}.{int(connected.build):04d}"
+    if observed != template.validated_resolve_version:
+        return (
+            "The pinned Text+ duration rule was validated only on Resolve "
+            f"{template.validated_resolve_version}, not connected {observed}; no "
+            "project mutation occurred."
+        )
+    return None
+
+
+def _matches_text_plus_placement(
+    item: Any, evidence: TitlePlacementEvidence, template: TextPlusTemplate
+) -> bool:
+    try:
+        if (
+            item.GetName() != evidence.title_name
+            or item.GetStart(False) != evidence.record_frame
+            or item.GetDuration(False) != evidence.duration_frames
+        ):
+            return False
+        from .text_plus_validation import fingerprint_fusion_item
+
+        fingerprint = fingerprint_fusion_item(item, template)
+        return (
+            fingerprint.tool_registration_ids == evidence.fusion_tool_registration_ids
+        )
+    except (AttributeError, StudioSpikeError, TypeError, ValueError):
+        return False
 
 
 def _optional_string(value: object) -> str | None:

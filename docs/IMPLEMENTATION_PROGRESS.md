@@ -7,21 +7,27 @@ follow-up work. A slice is complete only after its bounded acceptance evidence
 passes and it is accepted explicitly by the producer or, for automated-only
 slices, by the orchestrator under D-0008.
 
-Last updated: 2026-08-25
+Last updated: 2026-08-26
 
 ## Current milestone
 
 - **Phase:** 0 gate closed; Phase 1 may proceed
-- **Active slice:** 1.2 — planning and provider evaluation
+- **Active slice:** None; the Text+ pinned-template follow-up is accepted and
+  the next bounded slice has not been selected
 - **Overall state:** Slices 0.1 through 0.4 are accepted. The producer accepted
   Slice 0.4 on 2026-08-25, including its documented V1 Text+ destination-track
-  limitation. The limitation remains an open capability gap in
-  `docs/resolve-text-plus-destination-track-limitation.md`; acceptance does not
-  claim that it is solved. The producer explicitly accepted Slice 1.1 on
+  limitation. The accepted pinned-template follow-up now resolves destination
+  track and duration control for the shipped Text+ path; stock-title catalog
+  enumeration remains open. The producer explicitly accepted Slice 1.1 on
   2026-08-25, freezing its two canonical semantic inputs. Under D-0008,
   later automated-only slices may be accepted by the orchestrator after their
   bounded acceptance evidence and independent review pass; irreducibly manual
-  acceptance remains with the producer. Slice 1.2 is active.
+  acceptance remains with the producer. Slice 1.2 implementation and
+  automated verification and the mechanical live cache acceptance are
+  complete. The producer listened and explicitly accepted Slice 1.2 on
+  2026-08-25. The producer subsequently declared Slice 1.2 complete and
+  authorized and accepted this separately bounded Text+ follow-up after both
+  retained real-Resolve projects passed visual inspection.
 - **Source specification:** `docs/Script-to-Timeline Product Spec - Fable Rev2.md`
 
 ## Status legend
@@ -43,9 +49,10 @@ Last updated: 2026-08-25
 | 0.1 Repository, contracts, and fixture scaffold | Accepted | Orchestrator + bounded implementation agents | — | Producer accepted on 2026-08-24 after clean detached-worktree validation and green GitHub Actions runs `32789057717` and `32789138346`. Contracts and fixtures are now frozen. |
 | 0.2 Handcrafted manifest → OTIO package | Accepted | Orchestrator + bounded implementation and review agents | 0.1 accepted | Producer explicitly accepted on 2026-08-24 after package inspection, independent review, fresh-worktree verification, and green CI. `/contracts` and `/fixtures` remain frozen and unchanged. |
 | 0.3 Resolve Free import trial | Accepted | Producer + agent preparer/recorder | 0.2 accepted | Producer accepted on 2026-08-24. OTIO retained the marker and linked all five items; FCPXML required a manual media redirect and omitted the marker. D-P005 parks FCPXML with no observed compensating advantage. |
-| 0.4 Resolve Studio scripting spike | Accepted | Producer + bounded implementation, hardening, and review agents | 0.2 accepted | Producer explicitly accepted on 2026-08-25 after visual inspection and accepted the documented V1/120-frame Text+ public-API limitation as spike evidence. The limitation remains open in `docs/resolve-text-plus-destination-track-limitation.md`. |
+| 0.4 Resolve Studio scripting spike | Accepted | Producer + bounded implementation, hardening, and review agents | 0.2 accepted | Producer explicitly accepted on 2026-08-25 after visual inspection and accepted the documented V1/120-frame Text+ public-API limitation as spike evidence. The later accepted pinned-template follow-up resolves track/duration control for the shipped Text+ path without rewriting this historical result. |
 | 1.1 ScriptDocument v1 and validator | Accepted | Orchestrator + bounded implementation/review agents | D-0006 semantic decisions; Phase 0 accepted | Producer explicitly accepted on 2026-08-25 after the pure TypeScript validator and CLI, two canonical inputs, exact row-level diagnostics, 59 contract/validator tests, clean pinned full gate, frozen-boundary audit, and final independent no-findings review passed. The canonical inputs are now frozen. |
-| 1.2 Voice adapter and block asset cache | In progress | Orchestrator + bounded research/implementation/review agents | Slice 1.1 accepted | Plan bound in `docs/plans/slice-1.2-voice-cache.md`; D-0009 through D-0011 select AWS Polly Neural, the explicit cloud-data/cost gate, and the FFmpeg normalization profile. Implementation is next. Final acceptance remains manual because the producer must hear generated files and observe cache behavior. |
+| 1.2 Voice adapter and block asset cache | Accepted | Orchestrator + bounded research/implementation/review agents | Slice 1.1 accepted | Provider, source mapping, immutable cache, FFmpeg normalization, CLI, 42 focused tests, clean 127-test gate, live generation/reuse/invalidation, and producer listening acceptance passed. The producer declared the slice complete on 2026-08-25. |
+| Text+ pinned-template capability follow-up | Accepted | Producer + bounded implementation/review | Slice 1.2 complete; Slice 0.4 limitation follow-up | Validation project `VERA TextPlus Template Validation 20260825-230705` proved stock/template fingerprint equivalence and exact 24-/72-frame duration control. Integrated project `VERA TextPlus Integrated Acceptance 20260825-234847` verified one hash-pinned Text+ on manifest track `video-graphics`/V4 at frame 0 for 72 frames after save/reopen, with exact event accounting. The producer visually accepted both projects on 2026-08-25. D-0013 resolves track/duration control for the shipped pinned-template path; stock catalog enumeration remains open. |
 
 ## Slice 0.1 orchestration plan
 
@@ -111,11 +118,21 @@ changes, why, compatibility impact, regenerated outputs, and acceptance impact.
 | 2026-08-25 | Producer | Rerun the Slice 0.4 connected preflight against actual Resolve Studio | Complete | Connected to DaVinci Resolve Studio 21.0.4 build 5 through the supported external scripting API. Local bundle 21.0.4/build 21.0.40005 and connected identity agreed, `scripting_available` was true, discrepancies were empty, status was `preflight_passed`, and the command reported no project mutation. The one-time build remains pending. |
 | 2026-08-25 | Producer | Pause all non-Slice-0.4 work | Active | Slice 1.1 implementation was interrupted and preserved in its isolated worktree. It will not resume until the producer finishes Slice 0.4 or explicitly changes this instruction. |
 | 2026-08-25 | Producer + Slice 0.4 bounded fixer | Run the one-time real Studio build, investigate only observed discrepancies, and retry with unique projects | Agent complete | Initial retained projects exposed Resolve 21's default 120-frame still insertion and a 17-frame mark/clip-info intersection. A retained supported-API probe established the exact range rule. The final unique project `VERA Slice 0.4 Producer Acceptance 20260825-021704` saved, closed, reopened, and returned `verified` with no discrepancy. Focused validation passes with 44 Studio tests, Ruff, and strict mypy; clean locked installs and the pinned Node 24.19.0 full gate pass with 85 Python tests, and the frozen-boundary audit is empty. Producer visual acceptance remains. |
-| 2026-08-25 | Producer | Visually inspect and accept Slice 0.4 | Accepted | Producer explicitly accepted Slice 0.4, including the documented V1/120-frame Text+ limitation. Phase 0 is closed; the limitation remains an open capability gap in `docs/resolve-text-plus-destination-track-limitation.md`, and Slice 1.1 may resume. |
+| 2026-08-25 | Producer | Visually inspect and accept Slice 0.4 | Accepted | Producer explicitly accepted Slice 0.4, including the documented V1/120-frame Text+ limitation. Phase 0 closed and Slice 1.1 resumed. The later accepted pinned-template follow-up resolves track/duration control for the shipped Text+ path while retaining the original observation. |
 | 2026-08-25 | Slice 1.1 implementation and review workstreams | Implement and independently harden the pure ScriptDocument validator, CLI, canonical inputs, and producer acceptance path | Agent complete | Commit `4fe34ab` adds deterministic structural/semantic validation and exact row/entity/token diagnostics without changing frozen contracts or fixtures. Successive reviews closed affinity, fixture-shape, CLI-output, schema-noise, and ID-scope ratchet gaps; the final review reported no findings. |
 | 2026-08-25 | Producer | Accept Slice 1.1 and delegate later automated-only acceptance | Accepted | Producer explicitly accepted Slice 1.1. Its canonical semantic inputs are frozen. D-0008 records that the orchestrator may accept later slices whose full done condition is objectively automated, while manual listening, visual inspection, credentials/authorization, and irreducible human judgment remain producer gates. |
 | 2026-08-25 | Slice 1.2 orchestration | Bound provider research, cache/contract design, and deterministic FFmpeg normalization before implementation | In progress | Slice 1.2 begins from the accepted Slice 1.1 inputs. No frozen contract, fixture, generated type, accepted test/data, or lockfile change is authorized without a separate approved change note. |
 | 2026-08-25 | Slice 1.2 research workstreams | Compare current cloud providers, audit the repository/cache boundary, and prove a deterministic FFmpeg approach | Complete | Independent read-only workstreams selected AWS Polly Neural, found no shared-contract change necessary, designed two-layer immutable caching, and verified FFmpeg/FFprobe 8.1.2 capabilities plus same-fingerprint repeated output. The bounded plan and D-0009 through D-0011 record the choices and caveats. |
+| 2026-08-25 | Slice 1.2 implementation | Implement the bounded provider, source mapping, cache, normalization, service, CLI, and acceptance path without a cloud call | Complete | Added the narrow Python provider protocol and Polly adapter, UTF-8 SSML-to-accepted-UTF-16 source mapping, exact-text/SSML identity separation, immutable raw/normalized/block cache layers, verified two-pass FFmpeg normalization, deterministic audible failed placeholders, active-only per-block processing, preflight cost/data gates, and the producer acceptance procedure. Added exact-pinned `boto3==1.43.79` with the plan's recorded signing/credential/retry justification. |
+| 2026-08-25 | Slice 1.2 automated verification | Reproduce the intended tree under pinned clean installs and audit frozen boundaries | Complete | Thirty-nine focused narration tests pass. After D-0012, a clean detached worktree passed locked `npm ci`, `uv sync --frozen`, and the pinned Node 24.19.0/npm 11.17.0 full gate: 59 contract/validator tests, 1 tooling test, Ruff, strict mypy over 33 files, and 124 Python tests. `git diff --check`, lock audit, generated-contract currentness, same-tool byte repetition, and the frozen-boundary audit pass. The producer checkout's top-level gate is independently obstructed by unrelated untracked Resolve probe lint errors; those files were preserved and excluded from the clean evidence. No provider call occurred. |
+| 2026-08-25 | Slice 1.2 producer voice selection | Select the initial voice before the billable listening/cache acceptance | Complete | The producer selected Matthew Neural as the default, retained Joanna Neural as an explicit alternative, and selected `provider_terms_accepted` for the acceptance invocation. D-0012 records the bounded profile change. The named choice is exposed by the Slice 1.2 CLI and participates in immutable synthesis identity. Both documented preflights passed with two active blocks, 86 billed request-characters, a $0.001376 estimate, the correct selected voice, explicit exclusion, and no provider call or cache write. A project-level app selector is proposed for Phase 2 rather than added to this no-UI slice. |
+| 2026-08-25 | Slice 1.2 first live Matthew attempt | Generate the two active acceptance blocks with the producer-selected profile and attestation | Blocked | With explicit producer authorization, the command reached Polly in `us-east-1` using the default profile from the shared credentials file. AWS rejected both synthesis attempts with `UnrecognizedClientException: The security token included in the request is invalid`. No ready synthesis or synthesis-cache entry was produced. Both blocks emitted deterministic audible failed placeholders and retained explicit failed asset records, proving the designed failure behavior without shortening the narration spine. The configured `default` profile contains a static access-key/secret-key pair and no session token; the producer must replace or repair those credentials before retry. |
+| 2026-08-25 | Slice 1.2 live-acceptance corrections | Resolve compatibility failures exposed only by real Polly dialogue | Complete | Repaired credentials passed STS. Official Polly documentation confirmed Neural supports prosody rate/volume but not pitch; the adapter now omits neutral Neural pitch and fails non-neutral requests before network access. The resulting raw Polly dialogue exposed an impossible linear-gain combination of -16 LUFS and -1.5 dBTP, so normalizer v2 adds deterministic 4:1 dialogue peak conditioning before measured two-pass `loudnorm`. No contract, fixture, golden, dependency, provider policy, cache rule, or UI changed. Forty-two focused tests and a clean isolated full gate pass: 59 TypeScript tests, 1 tooling test, 127 Python tests, generated-contract currentness, Ruff/formatting, and strict mypy. |
+| 2026-08-25 | Slice 1.2 mechanical live acceptance | Prove live Matthew generation, immutable reuse/invalidation, normalization, timing provenance, and exclusion | Complete | Authorized Polly synthesis produced two ready Matthew Neural raw results (two request IDs per block), then normalization generated compliant mono 48 kHz PCM-24 assets at -16.01/-16.06 LUFS and -2.66/-2.76 dBTP. An unchanged rerun reported `synthesis=reused normalization=reused` for both blocks with `generated=0 reused=2`. Editing only `Hello world.` to `Hello worlds.` validated and produced exactly one generated block while the untouched block fully reused; the edited asset measured -15.97 LUFS/-2.82 dBTP. Timing is honestly labeled `word_start_with_derived_end`; no asset directory or cached request contains excluded block `12000000-0000-4000-8000-000000000021` / `Unused alternative.` |
+| 2026-08-25 | Producer | Listen to and accept Slice 1.2 | Accepted | The producer listened to the two original Matthew Neural assets and the one-block edited asset, then explicitly stated `Accept Slice 1.2`. This accepts voice quality and the Matthew default, Joanna named-alternative availability, pronunciation/authored-text fidelity, normalization/sample format/completeness, honest timing precision, cache reuse/invalidation behavior, exclusion, and failed-placeholder behavior. The separate independent no-findings review remains the final orchestration gate before Slice 1.2 is marked closed. |
+| 2026-08-25 | Producer + Text+ capability validation | Validate the pinned `.drb` against stock Text+ and prove deterministic duration/track behavior | Accepted | Project `VERA TextPlus Template Validation 20260825-230705` proved identical public Fusion fingerprints, the `duration + 1` end-frame rule at 24 and 72 frames, canonical V4 placement, and save/reopen identity. The producer visually inspected and accepted the retained project. |
+| 2026-08-25 | Producer + Text+ Studio integration | Replace stock insertion with the pinned-template production path and verify one integrated build | Accepted | Project `VERA TextPlus Integrated Acceptance 20260825-234847` passed nonmutating preflight, saved, closed, reopened, and verified one 72-frame Text+ at frame 0 on `video-graphics`/V4 with no unexpected title or manifest-event discrepancy. The producer visually inspected and explicitly accepted the retained build. D-0013 records the shipped-path decision. |
+| 2026-08-26 | Text+ final verification | Run focused/static/full gates, wheel inspection, and frozen/dependency audits after producer acceptance | Complete | Sixty-three focused tests, Ruff/formatting, and strict mypy passed. A clean intended-tree checkout under Node 24.19.0/npm 11.17.0 passed generated-contract checks, 59 contract tests, 1 tooling-smoke test, 4 progress tests, strict mypy over 38 files, and all 146 Python tests. The wheel contained both pinned assets and the `.drb` hash matched. `git diff --check` and frozen-boundary audits passed; no Text+ dependency or lock entry was added. Existing destructive untracked probes were preserved, excluded, and never run. |
 
 ## Producer decisions and external checks
 
@@ -131,6 +148,17 @@ before their dependent slices close:
 - Slice 0.3 OTIO-versus-FCPXML fallback decision: **resolved by D-P005**; park
   FCPXML and maintain OTIO for the tested Free workflow.
 
+## Proposed follow-up work
+
+- **Phase 2 project voice setting:** persist the selected named voice profile
+  with project settings in Slice 2.1 and expose a Matthew/Joanna selector in
+  the Slice 2.7 build interface. The UI must show Matthew as the default,
+  preserve Joanna as an alternative, pass the stable profile ID to the local
+  agent, and warn that changing the project profile regenerates active
+  synthetic narration blocks. This is not part of Slice 1.2 acceptance and
+  does not authorize a shared-contract change before the Phase 2 slice is
+  bound.
+
 ## Risks / blockers
 
 - The assigned workspace began as an empty Git repository; it has been
@@ -141,10 +169,12 @@ before their dependent slices close:
   public-API-observable checks. The producer visually inspected it and accepted
   Slice 0.4, including the separately documented Text+ limitation.
 - Slice 1.1 is accepted and its two canonical semantic inputs are frozen.
-- Slice 1.2 is active. Its cloud synthesis path may require provider
-  credentials and its done condition requires the producer to hear generated
-  files and observe cache reuse/regeneration; implementation should proceed to
-  that manual gate without pausing for ordinary design choices.
+- Slice 1.2 implementation, automated verification, and mechanical live cache
+  acceptance are complete. Authorized Polly calls generated the two original
+  blocks and the one edited block; unchanged work reused the immutable cache
+  without provider calls. The producer listened and explicitly accepted the
+  slice on 2026-08-25. An independent no-findings review remains before final
+  closure.
 - Contract workstreams must not independently invent incompatible event or
   block shapes; the spec's canonical model and Phase 0/1 boundaries govern.
 
@@ -282,10 +312,13 @@ before their dependent slices close:
   bundle 21.0.4/build 21.0.40005 and matching `ManifestLite` receipt. The
   result had status `preflight_passed`, no discrepancies, and explicitly made
   no project mutation.
-- The public API and preflight limitations reported by the command remain in
-  force: no stock Fusion-title enumeration or title destination-track proof,
-  no connected executable-path report, and no nonmutating proof of the calls
-  that create/configure/import/assemble/insert.
+- The stock insertion and preflight limitations reported by the original
+  command remain valid historical observations: no stock Fusion-title
+  enumeration or destination-track argument on that call, no connected
+  executable-path report, and no nonmutating proof of calls that create,
+  configure, import, assemble, or insert. The later pinned-template follow-up
+  resolves production Text+ track/duration control through a different
+  documented API path.
 - The first producer-authorized build retained the still at Resolve's default
   120-frame duration. The next attempts established that a documented
   MediaPoolItem mark range controls a still but interacts with
@@ -332,6 +365,20 @@ before their dependent slices close:
   canonical semantic inputs are frozen for Slice 1.3 reuse.
 
 ## Acceptance history
+
+### Text+ pinned-template capability follow-up — Accepted 2026-08-25
+
+The producer visually accepted both retained Resolve Studio 21.0.4 build 5
+projects. The validation run proved the pinned generator matches the stock
+Text+ public Fusion fingerprint and established exact end-frame behavior. The
+integrated run imported the retained provenance bin, placed one Text+ on the
+manifest-resolved V4 at frame 0 for 72 frames, and passed save/reopen identity,
+fingerprint, destination, duration, negative-other-track, and exact-accounting
+verification. D-0013 makes this the shipped production path. Stock catalog
+enumeration and arbitrary Fusion titles remain outside the capability claim.
+Final focused/static checks, wheel-content verification, the clean 146-test
+repository gate, `git diff --check`, and frozen/dependency audits passed on
+2026-08-26.
 
 ### Slice 1.1 — Accepted 2026-08-25
 

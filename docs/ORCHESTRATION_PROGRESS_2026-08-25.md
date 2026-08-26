@@ -153,7 +153,9 @@ inputs are frozen for later compiler goldens.
 - Slice 1.2's final acceptance remains manual because the producer must hear
   each normalized block file and observe all-reused and exactly-one-regenerated
   command results.
-- D-0009 through D-0011 close the ordinary Slice 1.2 implementation choices.
-  The still-manual live gate is the producer's AWS data-policy attestation,
-  authorization of the first billable command, listening judgment, and cache
-  observation. Implementation proceeds without those live side effects.
+- D-0009 through D-0012 close the ordinary Slice 1.2 implementation choices.
+  D-0012 makes Matthew Neural the default and keeps Joanna Neural selectable;
+  the producer selected `provider_terms_accepted` for the acceptance run. The
+  still-manual live gate is authorization of the first billable command,
+  listening judgment, and cache observation. Implementation and preflight
+  proceed without those live side effects.

@@ -15,11 +15,18 @@ from vera_timeline_agent.studio_spike import (
     LocalFacts,
     PublicResolveAdapter,
     StudioSpikeError,
+    TextPlusPlacement,
+    TitlePlacementEvidence,
     detect_local_capabilities,
     load_resolve_adapter,
     run_delivery,
 )
 from vera_timeline_agent.studio_spike_cli import main
+from vera_timeline_agent.text_plus_template import (
+    TextPlusTemplate,
+    validate_text_plus_template,
+)
+from vera_timeline_agent.text_plus_validation import FusionFingerprint
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = REPOSITORY_ROOT / "tests/data/slice_0_2/timeline-manifest.json"
@@ -105,8 +112,19 @@ class RecordingAdapter:
     def place_events(self, events: Sequence[Mapping[str, Any]]) -> None:
         self.calls.append(("place_events", list(events)))
 
-    def insert_fusion_title(self, title_name: str, record_frame: int) -> None:
-        self.calls.append(("insert_fusion_title", (title_name, record_frame)))
+    def insert_text_plus(
+        self, placement: TextPlusPlacement, template: TextPlusTemplate
+    ) -> TitlePlacementEvidence:
+        self.calls.append(("insert_text_plus", (placement, template.sha256)))
+        return TitlePlacementEvidence(
+            placement.title_name,
+            placement.track_id,
+            placement.track_index,
+            placement.record_frame,
+            placement.duration_frames,
+            template.sha256,
+            template.expected_tool_registration_ids,
+        )
 
     def add_marker(self, marker: Mapping[str, Any], custom_data: str) -> None:
         self.calls.append(("add_marker", (dict(marker), custom_data)))
@@ -418,10 +436,10 @@ def test_preflight_is_nonmutating_and_surfaces_public_api_gap(
         "probe",
         "check_project_name_available",
     ]
-    assert "cannot enumerate stock Fusion titles" in result.manual_completion[0]
+    assert "cannot enumerate the local stock" in result.manual_completion[0]
 
 
-def test_preflight_reports_older_studio_without_inventing_support_minimum(
+def test_preflight_rejects_resolve_version_without_template_validation(
     package: Path, standard_local: LocalFacts
 ) -> None:
     older_local = LocalFacts(
@@ -443,9 +461,10 @@ def test_preflight_reports_older_studio_without_inventing_support_minimum(
         adapter_factory=lambda _: adapter,
         local_facts=older_local,
     )
-    assert result.status == "preflight_passed"
+    assert result.status == "stopped_safely"
     assert result.connected is not None and result.connected.version == "20.3.2"
     assert result.connected.build == "9"
+    assert adapter.calls == [("connected_facts", None)]
 
 
 def test_public_adapter_reports_documented_full_version_identity() -> None:
@@ -536,7 +555,7 @@ def test_success_has_exact_order_frames_settings_tracks_marker_and_reopen(
         "import_media",
         "create_timeline",
         "configure_tracks",
-        "insert_fusion_title",
+        "insert_text_plus",
         "place_events",
         "add_marker",
         "save_close_reopen",
@@ -573,6 +592,62 @@ def test_success_has_exact_order_frames_settings_tracks_marker_and_reopen(
         18,
         72,
     ]
+    assert result.title_placement is not None
+    assert result.title_placement.track_id == "video-graphics"
+    assert result.title_placement.track_index == 4
+    assert result.title_placement.duration_frames == 72
+
+
+@pytest.mark.parametrize(
+    ("arguments", "message"),
+    [
+        ({"fusion_title": "Lower Third"}, "supports only Text+"),
+        ({"fusion_title_track_id": "missing-track"}, "exactly one track"),
+        ({"fusion_title_track_id": "audio-narration-1"}, "video track"),
+        ({"fusion_title_track_id": "video-broll-stills"}, "overlaps manifest event"),
+        ({"fusion_title_duration_frames": 0}, "positive integer"),
+    ],
+)
+def test_invalid_text_plus_request_stops_before_connection(
+    package: Path,
+    standard_local: LocalFacts,
+    arguments: dict[str, Any],
+    message: str,
+) -> None:
+    adapter = RecordingAdapter()
+    result = run_delivery(
+        package,
+        "studio",
+        action="build",
+        adapter_factory=lambda _: adapter,
+        local_facts=standard_local,
+        **arguments,
+    )
+
+    assert result.status == "stopped_safely"
+    assert message in result.message
+    assert adapter.calls == []
+
+
+def test_text_plus_track_and_duration_overrides_flow_to_adapter(
+    package: Path, standard_local: LocalFacts
+) -> None:
+    adapter = RecordingAdapter()
+    result = run_delivery(
+        package,
+        "studio",
+        action="build",
+        adapter_factory=lambda _: adapter,
+        local_facts=standard_local,
+        fusion_title_track_id="video-debug",
+        fusion_title_duration_frames=24,
+    )
+
+    assert result.status == "verified"
+    placement, _ = next(
+        value for name, value in adapter.calls if name == "insert_text_plus"
+    )
+    assert placement == TextPlusPlacement("Text+", "video-debug", 5, 0, 24)
     tracks = next(value for name, value in adapter.calls if name == "configure_tracks")
     assert [(track["kind"], track["index"], track["name"]) for track in tracks] == [
         (track["kind"], track["index"], track["name"])
@@ -701,44 +776,70 @@ def test_public_preflight_rejects_non_timeline_page_before_project_probe() -> No
         adapter.probe({"timelineFrameRate": "24"})
 
 
-def test_public_title_insertion_uses_only_documented_item_surface() -> None:
+def test_public_title_insertion_uses_validated_template_clip_info(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class Title:
-        def GetName(self) -> str:
-            return "Text+"
-
         def GetStart(self, _: bool) -> int:
             return 0
 
         def GetDuration(self, _: bool) -> int:
-            return 120
-
-        def GetFusionCompCount(self) -> int:
-            return 1
-
-        def GetFusionCompNameList(self) -> list[str]:
-            return ["Composition 1"]
-
-    class Timeline:
-        def SetCurrentTimecode(self, value: str) -> bool:
-            assert value == "00:00:00:00"
-            return True
-
-        def InsertFusionTitleIntoTimeline(self, name: str) -> Title:
-            assert name == "Text+"
-            return Title()
+            return 72
 
     class Resolve:
         def GetCurrentPage(self) -> str:
             return "edit"
 
+    captured: dict[str, Any] = {}
+    generator = object()
+    title = Title()
+
+    def fake_import(pool: Any, template: TextPlusTemplate) -> object:
+        captured["import"] = (pool, template.sha256)
+        return generator
+
+    def fake_append(
+        pool: Any,
+        value: Any,
+        timeline: Any,
+        **kwargs: Any,
+    ) -> Title:
+        captured["append"] = (pool, value, timeline, kwargs)
+        return title
+
+    monkeypatch.setattr(
+        "vera_timeline_agent.text_plus_validation.import_template_generator",
+        fake_import,
+    )
+    monkeypatch.setattr(
+        "vera_timeline_agent.text_plus_validation.append_template_item",
+        fake_append,
+    )
+    monkeypatch.setattr(
+        "vera_timeline_agent.text_plus_validation.fingerprint_fusion_item",
+        lambda item, template: FusionFingerprint(1, ("MediaOut", "TextPlus"), 1),
+    )
+    template = validate_text_plus_template(require_validated_duration_rule=True)
+    placement = TextPlusPlacement("Text+", "video-graphics", 4, 0, 72)
     adapter = PublicResolveAdapter(Resolve())
-    adapter.timeline = Timeline()
-    adapter.insert_fusion_title("Text+", 0)
-    assert adapter.fusion_title_fingerprint == (
+    adapter.pool = object()
+    adapter.timeline = object()
+    evidence = adapter.insert_text_plus(placement, template)
+
+    assert captured["append"][3] == {
+        "start_frame": 0,
+        "end_frame": 73,
+        "record_frame": 0,
+        "track_index": 4,
+    }
+    assert evidence == TitlePlacementEvidence(
         "Text+",
+        "video-graphics",
+        4,
         0,
-        120,
-        ("Composition 1",),
+        72,
+        template.sha256,
+        ("MediaOut", "TextPlus"),
     )
 
 
@@ -856,7 +957,9 @@ def test_public_adapter_fails_before_append_when_still_mark_range_is_rejected() 
         adapter.place_events([event])
 
 
-def test_public_verifier_checks_media_identity_and_observable_result() -> None:
+def test_public_verifier_checks_media_identity_and_observable_result(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     custom = json.dumps(
         {"markerId": "marker-1", "provenance": {"kind": "test"}},
         sort_keys=True,
@@ -991,11 +1094,24 @@ def test_public_verifier_checks_media_identity_and_observable_result() -> None:
     adapter.expected_timeline_name = "Timeline"
     adapter.expected_settings = {"timelineFrameRate": "24"}
     adapter.media_id_by_source = {"source-1": "expected-media-id"}
-    adapter.fusion_title_fingerprint = (
+    template = validate_text_plus_template(require_validated_duration_rule=True)
+    adapter.text_plus_template = template
+    adapter.title_placement_evidence = TitlePlacementEvidence(
         "Text+",
+        "title-track",
+        1,
         0,
         120,
-        ("Composition 1",),
+        template.sha256,
+        ("MediaOut", "TextPlus"),
+    )
+    monkeypatch.setattr(
+        "vera_timeline_agent.text_plus_validation.find_imported_template_generator",
+        lambda pool, expected: object(),
+    )
+    monkeypatch.setattr(
+        "vera_timeline_agent.text_plus_validation.fingerprint_fusion_item",
+        lambda item, expected: FusionFingerprint(1, ("MediaOut", "TextPlus"), 1),
     )
 
     assert adapter.verify(manifest) == (
@@ -1004,7 +1120,9 @@ def test_public_verifier_checks_media_identity_and_observable_result() -> None:
     event.media = Media("expected-media-id")
     assert adapter.verify(manifest) == ()
     timeline_object.items = {1: [], 2: [title, event]}
-    assert adapter.verify(manifest) == ()
+    assert "reopened pinned Text+ is on the wrong video track" in adapter.verify(
+        manifest
+    )
     timeline_object.items = {1: [title], 2: [event]}
     timeline_object.video_count = 3
     assert "video track count: expected 2, got 3" in adapter.verify(manifest)

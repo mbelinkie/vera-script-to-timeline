@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "vera-text-plus-template-v1",
+  "assetFile": "text_plus_template.drb",
+  "sha256": "4a984512f1c7eba6f15a4ea8104a6bb4953e50e4f8aa816a53138daf818372ac",
+  "sizeBytes": 8875,
+  "authoringResolveVersion": "21.0.4.0005",
+  "expectedBinName": "VERA Text+ Template",
+  "archiveClipName": "Fusion Title",
+  "expectedClipName": "Text+",
+  "validatedResolveVersion": "21.0.4.0005",
+  "validationProjectName": "VERA TextPlus Template Validation 20260825-230705",
+  "appendEndFrameDelta": 1,
+  "expectedToolRegistrationIds": [
+    "MediaOut",
+    "TextPlus"
+  ],
+  "expectedTopology": {
+    "mediaPoolItems": 1,
+    "generators": 1,
+    "fusionCompositions": 1,
+    "textPlusTools": 1
+  }
+}

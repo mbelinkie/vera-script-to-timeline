@@ -22,8 +22,13 @@ API then created project
 reopened it, and verified every public-API-observable spike requirement with
 no discrepancy. The producer visually inspected the result and explicitly
 accepted Slice 0.4 on 2026-08-25, including the documented V1/120-frame Text+
-limitation. The limitation remains open and is isolated in
-`docs/resolve-text-plus-destination-track-limitation.md`.
+limitation. A separately bounded follow-up then validated the producer-authored
+pinned Text+ template against stock, proved exact duration control, and placed
+the title on V4 through `AppendToTimeline`. Integrated project
+`VERA TextPlus Integrated Acceptance 20260825-234847` saved, closed, reopened,
+and verified without discrepancy, and the producer visually accepted it on
+2026-08-25. Destination-track and duration control are resolved for the shipped
+pinned-template path; stock-title catalog enumeration remains open.
 Noninteractive inspection on 2026-08-24 detected macOS 15.1 build 24B83
 (x86_64), the default-path application bundle at
 `/Applications/DaVinci Resolve/DaVinci Resolve.app` reporting 21.0.4 / build
@@ -44,7 +49,8 @@ connection, or automation.
 
 | Resolve version / installation | OS | Edition detection | External scripting | Create/reopen/verify result | Safety-boundary result | Evidence | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 21.0.4 / default-path bundle with matching ManifestLite receipt, build 21.0.40005 | macOS 15.1 x86_64 | Real API connection reported `DaVinci Resolve Studio`, version 21.0.4, build 5, empty suffix | Available through the supported local external scripting API | Project `VERA Slice 0.4 Producer Acceptance 20260825-021704` was created, configured, populated, saved, closed, reopened, and verified with no public-API-observable discrepancies. The verified timeline is `VERA build 00000000-0000-4000-8000-000000000103`. | Initial bridge-loader attempt and two pre-restart connection attempts stopped safely before mutation. Every post-restart preflight passed without mutation. Failed uniquely named build attempts were retained rather than overwritten or deleted; the final uniquely named build verified. | Producer terminal JSON and Resolve project, 2026-08-25; loader fix `94bdd53`; still-range hardening in the current Slice 0.4 diff; orchestration records in `docs/IMPLEMENTATION_PROGRESS.md` and `docs/ORCHESTRATION_PROGRESS_2026-08-25.md`; focused limitation note in `docs/resolve-text-plus-destination-track-limitation.md` | Accepted Slice 0.4 baseline; V1/120-frame Text+ limitation retained as an open capability gap |
+| 21.0.4 / default-path bundle with matching ManifestLite receipt, build 21.0.40005 | macOS 15.1 x86_64 | Real API connection reported `DaVinci Resolve Studio`, version 21.0.4, build 5, empty suffix | Available through the supported local external scripting API | Project `VERA Slice 0.4 Producer Acceptance 20260825-021704` was created, configured, populated, saved, closed, reopened, and verified with no public-API-observable discrepancies. The verified timeline is `VERA build 00000000-0000-4000-8000-000000000103`. | Initial bridge-loader attempt and two pre-restart connection attempts stopped safely before mutation. Every post-restart preflight passed without mutation. Failed uniquely named build attempts were retained rather than overwritten or deleted; the final uniquely named build verified. | Producer terminal JSON and Resolve project, 2026-08-25; loader fix `94bdd53`; still-range hardening in the current Slice 0.4 diff; orchestration records in `docs/IMPLEMENTATION_PROGRESS.md` and `docs/ORCHESTRATION_PROGRESS_2026-08-25.md`; focused limitation note in `docs/resolve-text-plus-destination-track-limitation.md` | Accepted Slice 0.4 baseline; original V1/120-frame Text+ limitation retained as historical evidence and resolved for the shipped pinned path by the following row |
+| 21.0.4 / default-path bundle with matching ManifestLite receipt, build 21.0.40005 | macOS 15.1 x86_64 | Real API connection reported `DaVinci Resolve Studio`, version 21.0.4, build 5, empty suffix | Available through the supported local external scripting API | Validation project `VERA TextPlus Template Validation 20260825-230705` proved stock/template fingerprint equivalence and the generator end-frame rule at 24 and 72 frames. Integrated project `VERA TextPlus Integrated Acceptance 20260825-234847`, timeline `VERA build 00000000-0000-4000-8000-000000000103`, retained the imported template bin and verified exactly one Text+ at frame 0 for 72 frames on manifest track `video-graphics`/V4 after save/reopen, with no unexpected item and exact manifest-event accounting. | Both preflights stopped before mutation unless all asset, identity, page, project-name, and method gates passed. Failed validation projects were retained; no project, timeline, or imported bin was deleted. The accepted integrated run had no discrepancy. | Pinned asset SHA-256 `4a984512f1c7eba6f15a4ea8104a6bb4953e50e4f8aa816a53138daf818372ac`; structured CLI JSON and retained Resolve projects, 2026-08-25; `docs/plans/text-plus-template-validation.md`; producer visual acceptance | Accepted pinned-template capability; Text+ track/duration limitation resolved for this shipped path. Stock catalog enumeration remains open. |
 
 ## Minimum supported versions
 
@@ -55,16 +61,17 @@ connection, or automation.
   the detected 21.0.4 / bundle build 21.0.40005 installation. A true minimum
   is not claimed without lower-version evidence.**
 
-## Installed public API gaps relevant to Slice 0.4
+## Remaining public API gaps relevant to Text+
 
 The installed Resolve 21 documentation exposes
 `InsertFusionTitleIntoTimeline(titleName)` and playhead positioning, but no
 supported stock Fusion-title enumeration API and no supported destination
-track selection API for title insertion. The spike can request `Text+` at the
-frame-zero playhead and report whether insertion returned an item; it cannot
-prove from the public API that the title was stock or force/prove V4 placement.
-That remains an explicit manual-completion/capability observation, never a
-private-API or UI-automation fallback.
+track selection API for that insertion call. The accepted production path does
+not use it: VERA imports its hash-pinned Text+ media-pool generator and uses
+documented `AppendToTimeline` clip information to select the manifest-resolved
+track, start, and duration. The public API still cannot enumerate the stock
+Fusion-title catalog, so VERA supports only the shipped `Text+` asset and does
+not infer arbitrary title availability.
 
 Nonmutating preflight can inspect the project manager and, when one is open,
 current Project/MediaPool settings and method surfaces. It cannot exercise
