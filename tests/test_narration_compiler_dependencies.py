@@ -171,9 +171,9 @@ def test_failed_asset_preserves_duration_and_reason_with_unavailable_marks() -> 
         "sampleRate": 48_000,
         "channels": 1,
     }
-    assert dependency["timing"]["precision"] == "none"  # type: ignore[index]
-    assert dependency["timing"]["marks"] == []  # type: ignore[index]
-    assert dependency["timing"]["contentHash"] == sha256_bytes(timing)  # type: ignore[index]
+    assert dependency["timing"]["precision"] == "none"
+    assert dependency["timing"]["marks"] == []
+    assert dependency["timing"]["contentHash"] == sha256_bytes(timing)
 
 
 def test_rejects_tampered_timing_and_unsafe_audio_locator() -> None:

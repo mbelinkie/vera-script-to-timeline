@@ -138,6 +138,50 @@ describe("Slice 1.3 compiler", () => {
     if (!result.ok) return;
     const visual = result.manifest.events.find((event) => event.id === "11000000-0000-4000-8000-000000000008");
     expect(visual?.recordRange).toEqual({ startFrame: 12, durationFrames: 36 });
+    expect(result.manifest.transitions).toEqual([
+      expect.objectContaining({
+        kind: "hard_cut",
+        fromEventId: "11000000-0000-4000-8000-000000000009",
+        toEventId: "11000000-0000-4000-8000-000000000008",
+        atFrame: 12,
+        durationFrames: 0,
+      }),
+    ]);
+  });
+
+  it("uses the exact sample-derived block end for a final derived word end", () => {
+    const dependencies = dependenciesFixture("minimal");
+    dependencies.narration[0]!.audio.durationSamples = 40_040;
+    const result = compileTimeline(documentFixture("minimal"), dependencies);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.manifest.timeline.durationFrames).toBe(20);
+    expect(
+      result.manifest.events.find(
+        (event) => event.id === "11000000-0000-4000-8000-000000000008",
+      )?.recordRange,
+    ).toEqual({ startFrame: 0, durationFrames: 20 });
+  });
+
+  it("compiles an alternate NTSC rational rate without floating-point drift", () => {
+    const dependencies = dependenciesFixture("minimal");
+    dependencies.build.timeline.frameRate = {
+      numerator: 30_000,
+      denominator: 1_001,
+    };
+    const result = compileTimeline(documentFixture("minimal"), dependencies);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.manifest.timeline.durationFrames).toBe(60);
+  });
+
+  it("does not compare provider mark values to authored token text", () => {
+    const dependencies = dependenciesFixture("minimal");
+    dependencies.narration[0]!.timing.marks[0]!.value = "pronunciation-alias";
+    const result = compileTimeline(documentFixture("minimal"), dependencies);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.report.status).toBe("ready_with_warnings");
   });
 
   it("accepts sentence timing only for complete sentence coverage", () => {
@@ -148,6 +192,42 @@ describe("Slice 1.3 compiler", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.manifest.events.find((event) => event.kind === "placeholder")?.timingPrecision).toBe("sentence_start_with_derived_end");
+  });
+
+  it("rejects sentence marks that cut through an accepted token", () => {
+    const dependencies = dependenciesFixture("minimal");
+    dependencies.narration[0]!.timing.precision = "sentence_start";
+    dependencies.narration[0]!.timing.marks = [
+      {
+        kind: "sentence",
+        timeMs: 0,
+        startUtf16: 1,
+        endUtf16: 12,
+        value: "ello world.",
+      },
+    ];
+    const result = compileTimeline(documentFixture("minimal"), dependencies);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.report.status).toBe("blocked");
+    expect(result.report.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "NARRATION_TIMING_UNAVAILABLE" }),
+      ]),
+    );
+  });
+
+  it("does not invent a transition for an abutting cross-track switch", () => {
+    const result = compileFixture("torture");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(
+      result.manifest.transitions.some(
+        (transition) =>
+          transition.fromEventId === "12000000-0000-4000-8000-000000000018" &&
+          transition.toEventId === "12000000-0000-4000-8000-000000000020",
+      ),
+    ).toBe(false);
   });
 
   it("preserves duration and emits a blocking slate for failed narration", () => {

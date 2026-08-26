@@ -2,9 +2,12 @@
 
 ## Status and gate
 
-**Authorized for implementation by D-0014 on 2026-08-26.** Slices 1.1 and 1.2
-and the Text+ follow-up are accepted. The accepted minimal and torture
-ScriptDocuments remain frozen and will be reused read-only.
+**Agent implementation and local verification complete; acceptance pending.**
+D-0014 was authorized on 2026-08-26. Slices 1.1 and 1.2 and the Text+
+follow-up are accepted. The accepted minimal and torture ScriptDocuments
+remain frozen and are reused read-only. Two consecutive full local validation
+gates pass; final independent review, two CI runs, and producer acceptance
+remain.
 
 This plan records the complete decision bundle so implementation can proceed
 without question-by-question producer involvement after the contract gate.
