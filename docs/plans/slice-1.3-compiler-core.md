@@ -2,12 +2,12 @@
 
 ## Status and gate
 
-**Agent implementation and local verification complete; acceptance pending.**
+**Agent implementation and automated verification complete; acceptance pending.**
 D-0014 was authorized on 2026-08-26. Slices 1.1 and 1.2 and the Text+
 follow-up are accepted. The accepted minimal and torture ScriptDocuments
 remain frozen and are reused read-only. Two consecutive full local validation
-gates and final independent no-findings review pass; two CI runs and producer
-acceptance remain.
+gates, two CI executions, and final independent no-findings review pass;
+producer acceptance remains.
 
 This plan records the complete decision bundle so implementation can proceed
 without question-by-question producer involvement after the contract gate.
@@ -289,12 +289,16 @@ its anchored picture events carry the derived word/sentence label.
 No Resolve, AWS, listening, import, or visual inspection is required.
 
 1. Read the generated torture `build-report.json`.
-2. Choose the quoted narration sentence/block identified in the acceptance
-   note and confirm its reported absolute frame range.
-3. Find the matching narration event in `timeline-manifest.json` and confirm
-   the same range plus document/block provenance.
-4. Confirm the report labels derived timing honestly and identifies the V5
-   unresolved placeholder.
+2. Find narration `Meet me here, then look beyond.` in the report and confirm
+   its end-exclusive frame range `0-48`, `precision=frame`, and
+   `alignment=provider-timing/v1`.
+3. Find event `c4562c2e-21e7-5296-982b-d043f0eb5e01` in the manifest and
+   confirm A1 record/source ranges `0-48`, document provenance
+   `12000000-0000-4000-8000-000000000001`, and narration-block provenance
+   `12000000-0000-4000-8000-000000000005`.
+4. Confirm derived anchors are labeled `word_start_with_derived_end` with
+   `provider-timing/v1`, and confirm the V5 unresolved placeholder spans
+   frames `24-28` with the warning and `RESOLVE_OR_REPLACE_VISUAL` manual item.
 5. Explicitly accept Slice 1.3. Producer acceptance freezes the new Slice 1.3
    dependency inputs and goldens.
 

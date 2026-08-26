@@ -12,8 +12,8 @@ Last updated: 2026-08-26
 ## Current milestone
 
 - **Phase:** 0 gate closed; Phase 1 may proceed
-- **Active slice:** 1.3 — compiler core agent implementation and independent
-  review complete; two CI runs and producer acceptance remain
+- **Active slice:** 1.3 — compiler core agent implementation, independent
+  review, and automated verification complete; producer acceptance remains
 - **Overall state:** Slices 0.1 through 0.4 are accepted. The producer accepted
   Slice 0.4 on 2026-08-25, including its documented V1 Text+ destination-track
   limitation. The accepted pinned-template follow-up now resolves destination
@@ -32,9 +32,10 @@ Last updated: 2026-08-26
   audits confirmed that its Python-to-TypeScript narration boundary triggers
   Slice 1.2's explicit contract-change gate; the producer approved D-0014 on
   2026-08-26. The pure compiler, narrow adapter, dependency contract, and new
-  goldens are implemented, two consecutive full local gates pass, and final
-  independent review reports no unresolved findings. Two CI runs and the small
-  report-trace producer check remain before acceptance.
+  goldens are implemented, two consecutive full local gates and two CI
+  executions pass, and final independent review reports no unresolved
+  findings. Only the small report-trace producer check remains before
+  acceptance.
 - **Source specification:** `docs/Script-to-Timeline Product Spec - Fable Rev2.md`
 
 ## Status legend
@@ -143,7 +144,7 @@ changes, why, compatibility impact, regenerated outputs, and acceptance impact.
 | 2026-08-26 | Text+ final verification | Run focused/static/full gates, wheel inspection, and frozen/dependency audits after producer acceptance | Complete | Sixty-three focused tests, Ruff/formatting, and strict mypy passed. A clean intended-tree checkout under Node 24.19.0/npm 11.17.0 passed generated-contract checks, 59 contract tests, 1 tooling-smoke test, 4 progress tests, strict mypy over 38 files, and all 146 Python tests. The wheel contained both pinned assets and the `.drb` hash matched. `git diff --check` and frozen-boundary audits passed; no Text+ dependency or lock entry was added. Existing destructive untracked probes were preserved, excluded, and never run. |
 | 2026-08-26 | Slice 1.3 planning and independent audits | Bound the compiler slice and determine whether accepted narration records can cross into TypeScript without a contract change | Blocked | Two independent Terra read-only audits found the explicit Slice 1.2 cross-language trigger is met and the current manifest cannot honestly label derived word ends. Added the bounded compiler plan, contract-change note, and pending D-0014 decision. No contract, fixture, generated type, compiler code, dependency, or frozen input changed; implementation awaits one bundled producer approval. |
 | 2026-08-26 | Producer | Approve Slice 1.3 contract and deterministic compiler decisions | Accepted | The producer explicitly approved D-0014, authorizing `CompilerDependencies v1`, three additive timing-precision values, generated-type regeneration, and the bounded compiler semantics/acceptance changes. No broader shared-contract change is authorized. |
-| 2026-08-26 | Slice 1.3 implementation and verification | Implement the approved compiler contract, pure compiler, adapter boundary, deterministic inputs, goldens, and automated acceptance evidence | Agent complete | Added exact rational narration-spine and anchor compilation, adjustable track routing, source audio, placeholders, hard cuts, markers, canonical manifest/report bytes, failed-timing blocked outputs, and the Python cache projection. Independent Terra reviews exposed and drove fixes for failed-asset timing hashes, exact sample-derived final ends, partial-token sentence marks, locale-dependent ordering, still source-audio requests, cross-track reporting, UUIDv5 source identities, unsafe/cumulative frame arithmetic, and missing hard-cut/timing regressions. Focused checks pass with 48 TypeScript compiler/schema tests and 5 Python adapter tests. Two consecutive full gates each pass generated-currentness, lint, typecheck, 87 TypeScript tests, 1 tooling test, and all 151 Python tests. `git diff --check`, accepted-data/fixture boundaries, and both lockfiles are clean. Final independent review reports no unresolved findings. Two CI runs and producer report-trace acceptance remain. |
+| 2026-08-26 | Slice 1.3 implementation and verification | Implement the approved compiler contract, pure compiler, adapter boundary, deterministic inputs, goldens, and automated acceptance evidence | Agent complete | Added exact rational narration-spine and anchor compilation, adjustable track routing, source audio, placeholders, hard cuts, markers, canonical manifest/report bytes, failed-timing blocked outputs, and the Python cache projection. Independent Terra reviews exposed and drove fixes for failed-asset timing hashes, exact sample-derived final ends, partial-token sentence marks, locale-dependent ordering, still source-audio requests, cross-track reporting, UUIDv5 source identities, unsafe/cumulative frame arithmetic, and missing hard-cut/timing regressions. Focused checks pass with 48 TypeScript compiler/schema tests and 5 Python adapter tests. Two consecutive pinned-Node full gates each pass generated-currentness, lint, typecheck, 91 TypeScript tests, 1 tooling test, and all 151 Python tests. GitHub Actions run `32981513588`, attempts 1 and 2, passes the same repository validation and lockfile-immutability check on reviewed commit `3bcdcde`. `git diff --check`, accepted-data/fixture boundaries, and both lockfiles are clean. Final independent review reports no unresolved findings. Only producer report-trace acceptance remains. |
 
 ## Producer decisions and external checks
 
