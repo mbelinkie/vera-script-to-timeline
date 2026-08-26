@@ -11,15 +11,18 @@ import { describe, expect, it } from "vitest";
 
 import {
   validBuildReport,
+  validCompilerDependencies,
   validScriptDocument,
   validTimelineManifest,
 } from "./samples.js";
+import type { NarrationDependency } from "../src/generated/contracts.js";
 
 const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const schemaPaths = [
   "contracts/script-document-v1.schema.json",
   "contracts/timeline-manifest-v1.schema.json",
   "contracts/build-report-v1.schema.json",
+  "contracts/compiler-dependencies-v1.schema.json",
 ] as const;
 
 const schemas: AnySchemaObject[] = schemaPaths.map((relativePath) => {
@@ -40,6 +43,9 @@ const validators = {
   script: ajv.getSchema("https://schemas.vera.video/contracts/script-document-v1.schema.json"),
   manifest: ajv.getSchema("https://schemas.vera.video/contracts/timeline-manifest-v1.schema.json"),
   report: ajv.getSchema("https://schemas.vera.video/contracts/build-report-v1.schema.json"),
+  dependencies: ajv.getSchema(
+    "https://schemas.vera.video/contracts/compiler-dependencies-v1.schema.json",
+  ),
 };
 
 function expectInvalid(
@@ -67,6 +73,7 @@ describe("contract schemas", () => {
     ["ScriptDocument", validators.script, validScriptDocument],
     ["TimelineManifest", validators.manifest, validTimelineManifest],
     ["BuildReport", validators.report, validBuildReport],
+    ["CompilerDependencies", validators.dependencies, validCompilerDependencies],
   ])("accepts a representative %s v1 instance", (_name, validate, value) => {
     expect(validate?.(value), JSON.stringify(validate?.errors, null, 2)).toBe(
       true,
@@ -223,6 +230,82 @@ describe("contract schemas", () => {
     expectInvalid(validators.report!, invalid, {
       keyword: "enum",
       instancePath: "/eventResults/0/disposition",
+    });
+  });
+
+  it("accepts all approved honest compiled timing-precision labels", () => {
+    const manifest = structuredClone(validTimelineManifest);
+    Reflect.set(
+      manifest.events[0]!,
+      "timingPrecision",
+      "word_start_with_derived_end",
+    );
+    Reflect.set(
+      manifest.events[1]!,
+      "timingPrecision",
+      "sentence_start_with_derived_end",
+    );
+    Reflect.set(manifest.events[2]!, "timingPrecision", "unavailable");
+    expect(
+      validators.manifest?.(manifest),
+      JSON.stringify(validators.manifest?.errors, null, 2),
+    ).toBe(true);
+  });
+
+  it("requires a failure reason only for failed narration dependencies", () => {
+    const failed = structuredClone(validCompilerDependencies);
+    failed.narration[0]!.status = "failed";
+    expectInvalid(validators.dependencies!, failed, {
+      keyword: "required",
+      instancePath: "/narration/0",
+    });
+
+    const readyWithFailure = structuredClone(validCompilerDependencies);
+    Reflect.set(readyWithFailure.narration[0]!, "failureReason", "provider down");
+    expectInvalid(validators.dependencies!, readyWithFailure, {
+      keyword: "not",
+      instancePath: "/narration/0",
+    });
+  });
+
+  it("accepts the serialized Python adapter boundary fixture", () => {
+    const boundary = JSON.parse(
+      readFileSync(
+        `${repositoryRoot}tests/data/slice_1_3/python-adapter.ready-narration-dependency.json`,
+        "utf8",
+      ),
+    ) as unknown;
+    const dependencies = structuredClone(validCompilerDependencies);
+    dependencies.narration = [boundary as NarrationDependency];
+    expect(
+      validators.dependencies?.(dependencies),
+      JSON.stringify(validators.dependencies?.errors, null, 2),
+    ).toBe(true);
+  });
+
+  it("enforces resolved-video and resolved-still field shapes", () => {
+    const videoWithoutStart = structuredClone(validCompilerDependencies);
+    Reflect.deleteProperty(videoWithoutStart.resolvedVisuals[0]!, "sourceStartFrame");
+    expectInvalid(validators.dependencies!, videoWithoutStart, {
+      keyword: "required",
+      instancePath: "/resolvedVisuals/0",
+    });
+
+    const stillWithVideoFields = structuredClone(validCompilerDependencies);
+    stillWithVideoFields.resolvedVisuals[0]!.source =
+      validTimelineManifest.sources.find((source) => source.kind === "still")!;
+    expectInvalid(validators.dependencies!, stillWithVideoFields, {
+      keyword: "not",
+      instancePath: "/resolvedVisuals/0",
+    });
+  });
+
+  it("rejects structurally invalid timing-mark ranges", () => {
+    const invalid = structuredClone(validCompilerDependencies);
+    invalid.narration[0]!.timing.marks[0]!.endUtf16 = 0;
+    expectInvalid(validators.dependencies!, invalid, {
+      keyword: "minimum",
+      instancePath: "/narration/0/timing/marks/0/endUtf16",
     });
   });
 });

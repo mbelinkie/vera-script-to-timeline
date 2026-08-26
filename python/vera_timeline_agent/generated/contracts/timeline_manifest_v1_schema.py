@@ -106,7 +106,15 @@ class EventProvenance(TypedDict):
     authoringId: script_document_v1_schema.EntityId
 
 
-type TimingPrecision = Literal["word", "sentence", "cue", "frame"]
+type TimingPrecision = Literal[
+    "word",
+    "sentence",
+    "cue",
+    "frame",
+    "word_start_with_derived_end",
+    "sentence_start_with_derived_end",
+    "unavailable",
+]
 
 
 class VideoEvent(TypedDict):

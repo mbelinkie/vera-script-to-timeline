@@ -1,0 +1,144 @@
+{
+  "buildId": "13000000-0000-4000-8000-000000000001",
+  "events": [
+    {
+      "alignmentVersion": "provider-timing/v1",
+      "id": "11000000-0000-4000-8000-000000000008",
+      "kind": "placeholder",
+      "provenance": {
+        "authoringId": "11000000-0000-4000-8000-000000000008",
+        "authoringKind": "visual_event",
+        "blockId": "11000000-0000-4000-8000-000000000004",
+        "documentId": "11000000-0000-4000-8000-000000000001"
+      },
+      "recordRange": {
+        "durationFrames": 48,
+        "startFrame": 0
+      },
+      "sourceId": "13d410cc-62c5-5a27-9b6b-053a187e0b2b",
+      "timingPrecision": "word_start_with_derived_end",
+      "trackId": "video-5",
+      "trackKind": "video"
+    },
+    {
+      "alignmentVersion": "provider-timing/v1",
+      "id": "ec8b13e3-0a81-58b6-8369-3bcd0c3f18ab",
+      "kind": "audio",
+      "provenance": {
+        "authoringId": "11000000-0000-4000-8000-000000000004",
+        "authoringKind": "narration_block",
+        "blockId": "11000000-0000-4000-8000-000000000004",
+        "documentId": "11000000-0000-4000-8000-000000000001"
+      },
+      "recordRange": {
+        "durationFrames": 48,
+        "startFrame": 0
+      },
+      "sourceId": "4eeba533-f7af-5ce0-bc7a-93a6d1ca8e06",
+      "sourceRange": {
+        "durationFrames": 48,
+        "startFrame": 0
+      },
+      "timingPrecision": "frame",
+      "trackId": "audio-1",
+      "trackKind": "audio"
+    }
+  ],
+  "id": "13000000-0000-4000-8000-000000000002",
+  "markers": [
+    {
+      "color": "Blue",
+      "frame": 0,
+      "id": "6e95c71c-8c72-522d-a679-567429037366",
+      "name": "Opening",
+      "note": "Section: Opening",
+      "provenance": {
+        "authoringId": "11000000-0000-4000-8000-000000000003",
+        "authoringKind": "script_marker",
+        "blockId": "11000000-0000-4000-8000-000000000003",
+        "documentId": "11000000-0000-4000-8000-000000000001"
+      },
+      "state": "placed"
+    }
+  ],
+  "schemaVersion": "timeline-manifest/v1",
+  "sourceDocument": {
+    "contentHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "documentId": "11000000-0000-4000-8000-000000000001",
+    "liveHeadSequence": 1,
+    "projectId": "11000000-0000-4000-8000-000000000002"
+  },
+  "sources": [
+    {
+      "id": "13d410cc-62c5-5a27-9b6b-053a187e0b2b",
+      "kind": "placeholder",
+      "label": "UNRESOLVED VISUAL: Choose an opening visual",
+      "reason": "Authored visual event 11000000-0000-4000-8000-000000000008 is unresolved."
+    },
+    {
+      "channels": 1,
+      "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "durationFrames": 48,
+      "id": "4eeba533-f7af-5ce0-bc7a-93a6d1ca8e06",
+      "kind": "audio",
+      "path": "Media/Narration/minimal.wav",
+      "sampleRate": 48000
+    }
+  ],
+  "timeline": {
+    "audioSampleRate": 48000,
+    "durationFrames": 48,
+    "frameRate": {
+      "denominator": 1001,
+      "numerator": 24000
+    },
+    "height": 1080,
+    "startFrame": 0,
+    "width": 1920
+  },
+  "tracks": [
+    {
+      "id": "video-1",
+      "index": 1,
+      "kind": "video",
+      "name": "Presenter"
+    },
+    {
+      "id": "video-2",
+      "index": 2,
+      "kind": "video",
+      "name": "Primary B-roll"
+    },
+    {
+      "id": "video-3",
+      "index": 3,
+      "kind": "video",
+      "name": "Secondary B-roll"
+    },
+    {
+      "id": "video-4",
+      "index": 4,
+      "kind": "video",
+      "name": "Overlays"
+    },
+    {
+      "id": "video-5",
+      "index": 5,
+      "kind": "video",
+      "name": "Placeholders"
+    },
+    {
+      "id": "audio-1",
+      "index": 1,
+      "kind": "audio",
+      "name": "Narration"
+    },
+    {
+      "id": "audio-3",
+      "index": 3,
+      "kind": "audio",
+      "name": "Source audio"
+    }
+  ],
+  "transitions": []
+}

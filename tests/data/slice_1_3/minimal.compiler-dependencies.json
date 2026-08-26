@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "compiler-dependencies/v1",
+  "build": {
+    "buildId": "13000000-0000-4000-8000-000000000001",
+    "manifestId": "13000000-0000-4000-8000-000000000002",
+    "reportId": "13000000-0000-4000-8000-000000000003",
+    "buildClass": "preview",
+    "timeline": {
+      "frameRate": { "numerator": 24000, "denominator": 1001 },
+      "width": 1920,
+      "height": 1080,
+      "audioSampleRate": 48000,
+      "startFrame": 0
+    }
+  },
+  "tracks": [
+    { "id": "video-1", "kind": "video", "index": 1, "name": "Presenter" },
+    { "id": "video-2", "kind": "video", "index": 2, "name": "Primary B-roll" },
+    { "id": "video-3", "kind": "video", "index": 3, "name": "Secondary B-roll" },
+    { "id": "video-4", "kind": "video", "index": 4, "name": "Overlays" },
+    { "id": "video-5", "kind": "video", "index": 5, "name": "Placeholders" },
+    { "id": "audio-1", "kind": "audio", "index": 1, "name": "Narration" },
+    { "id": "audio-3", "kind": "audio", "index": 3, "name": "Source audio" }
+  ],
+  "roles": {
+    "presenterTrackId": "video-1",
+    "placeholderTrackId": "video-5",
+    "narrationTrackId": "audio-1",
+    "sourceAudioTrackId": "audio-3"
+  },
+  "narration": [
+    {
+      "blockId": "11000000-0000-4000-8000-000000000004",
+      "blockRevision": 1,
+      "assetId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": "ready",
+      "textHash": "sha256:aa3ec16e6acc809d8b2818662276256abfd2f1b441cb51574933f3d4bd115d11",
+      "audioHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "audio": {
+        "locator": "Media/Narration/minimal.wav",
+        "durationSamples": 96000,
+        "sampleRate": 48000,
+        "channels": 1
+      },
+      "timing": {
+        "recordVersion": "provider-timing/v1",
+        "contentHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "alignmentVersion": "provider-timing/v1",
+        "precision": "word_start_with_derived_end",
+        "marks": [
+          { "kind": "word", "timeMs": 0, "startUtf16": 0, "endUtf16": 5, "value": "Hello" },
+          { "kind": "word", "timeMs": 500, "startUtf16": 6, "endUtf16": 11, "value": "world" }
+        ]
+      }
+    }
+  ],
+  "resolvedVisuals": []
+}

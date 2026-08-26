@@ -28,6 +28,7 @@ const schemaFiles = [
   "script-document-v1.schema.json",
   "timeline-manifest-v1.schema.json",
   "build-report-v1.schema.json",
+  "compiler-dependencies-v1.schema.json",
 ];
 
 function readJson(path) {
@@ -45,14 +46,20 @@ async function generateTypeScript(outputDirectory) {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     title: "VeraContractsV1",
     description:
-      "Generated aggregate type surface for the three Slice 0.1 contracts.",
+      "Generated aggregate type surface for the VERA shared contracts.",
     type: "object",
     additionalProperties: false,
-    required: ["scriptDocument", "timelineManifest", "buildReport"],
+    required: [
+      "scriptDocument",
+      "timelineManifest",
+      "buildReport",
+      "compilerDependencies",
+    ],
     properties: {
       scriptDocument: { $ref: schemaFiles[0] },
       timelineManifest: { $ref: schemaFiles[1] },
       buildReport: { $ref: schemaFiles[2] },
+      compilerDependencies: { $ref: schemaFiles[3] },
     },
   };
 
@@ -77,7 +84,7 @@ async function generateTypeScript(outputDirectory) {
       trailingComma: "all",
       useTabs: false,
     },
-    unknownAny: false,
+    unknownAny: true,
     unreachableDefinitions: false,
   });
   writeFileSync(join(outputDirectory, "contracts.ts"), generated);
@@ -120,13 +127,19 @@ function generatePython(outputDirectory) {
   writeFileSync(
     join(outputDirectory, "__init__.py"),
     [
-      '"""Generated root models for the Slice 0.1 JSON contracts."""',
+      '"""Generated root models for the VERA shared JSON contracts."""',
       "",
       "from .build_report_v1_schema import BuildReportV1",
+      "from .compiler_dependencies_v1_schema import CompilerDependenciesV1",
       "from .script_document_v1_schema import ScriptDocumentV1",
       "from .timeline_manifest_v1_schema import TimelineManifestV1",
       "",
-      '__all__ = ["BuildReportV1", "ScriptDocumentV1", "TimelineManifestV1"]',
+      "__all__ = [",
+      '    "BuildReportV1",',
+      '    "CompilerDependenciesV1",',
+      '    "ScriptDocumentV1",',
+      '    "TimelineManifestV1",',
+      "]",
       "",
     ].join("\n"),
   );

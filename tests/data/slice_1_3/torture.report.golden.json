@@ -1,0 +1,211 @@
+{
+  "buildClass": "preview",
+  "buildId": "14000000-0000-4000-8000-000000000001",
+  "eventResults": [
+    {
+      "disposition": "placed",
+      "eventId": "c4562c2e-21e7-5296-982b-d043f0eb5e01",
+      "message": "Narration \"Meet me here, then look beyond.\" frames 0-48; precision=frame; alignment=provider-timing/v1.",
+      "recordRange": {
+        "durationFrames": 48,
+        "startFrame": 0
+      },
+      "sourceId": "d6353de3-fa74-576a-b895-b058f15f1951",
+      "trackId": "audio-1",
+      "trackKind": "audio"
+    },
+    {
+      "disposition": "placed",
+      "eventId": "12000000-0000-4000-8000-000000000016",
+      "message": "Placed visual \"Name card\".",
+      "recordRange": {
+        "durationFrames": 9,
+        "startFrame": 1
+      },
+      "sourceId": "14000000-0000-4000-8000-000000000004",
+      "trackId": "video-4",
+      "trackKind": "video"
+    },
+    {
+      "disposition": "placeholder",
+      "eventId": "fd859e7a-ec47-57df-a5be-bf57e6c21d5b",
+      "message": "Presenter/A-roll footage is unresolved for on-camera span 12000000-0000-4000-8000-000000000012.",
+      "recordRange": {
+        "durationFrames": 9,
+        "startFrame": 1
+      },
+      "sourceId": "397e7b04-1c65-526e-a724-e6986618a28c",
+      "trackId": "video-1",
+      "trackKind": "video"
+    },
+    {
+      "disposition": "placed",
+      "eventId": "0a812b23-9c92-5725-85bb-4492082d8253",
+      "message": "Placed source audio for visual \"First VO visual\".",
+      "recordRange": {
+        "durationFrames": 14,
+        "startFrame": 10
+      },
+      "sourceId": "14000000-0000-4000-8000-000000000006",
+      "trackId": "audio-3",
+      "trackKind": "audio"
+    },
+    {
+      "disposition": "placed",
+      "eventId": "12000000-0000-4000-8000-000000000018",
+      "message": "Placed visual \"First VO visual\".",
+      "recordRange": {
+        "durationFrames": 14,
+        "startFrame": 10
+      },
+      "sourceId": "14000000-0000-4000-8000-000000000005",
+      "trackId": "video-2",
+      "trackKind": "video"
+    },
+    {
+      "disposition": "placeholder",
+      "eventId": "12000000-0000-4000-8000-000000000020",
+      "message": "Authored visual event 12000000-0000-4000-8000-000000000020 is unresolved.",
+      "recordRange": {
+        "durationFrames": 4,
+        "startFrame": 24
+      },
+      "sourceId": "416eb7e3-5917-5413-965b-7b272c59275b",
+      "trackId": "video-5",
+      "trackKind": "video"
+    },
+    {
+      "disposition": "placeholder",
+      "eventId": "e197c61e-baf0-560f-ba7a-f2f1aa2d200e",
+      "message": "Presenter/A-roll footage is unresolved for on-camera span 12000000-0000-4000-8000-000000000014.",
+      "recordRange": {
+        "durationFrames": 4,
+        "startFrame": 28
+      },
+      "sourceId": "40c4ee60-c38c-5d42-ac0e-1f1fc596a61c",
+      "trackId": "video-1",
+      "trackKind": "video"
+    },
+    {
+      "disposition": "placed",
+      "eventId": "12000000-0000-4000-8000-000000000025",
+      "message": "Placed visual \"Final VO visual\".",
+      "recordRange": {
+        "durationFrames": 16,
+        "startFrame": 32
+      },
+      "sourceId": "14000000-0000-4000-8000-000000000007",
+      "trackId": "video-3",
+      "trackKind": "video"
+    }
+  ],
+  "id": "14000000-0000-4000-8000-000000000003",
+  "issues": [
+    {
+      "code": "PRESENTER_FOOTAGE_UNRESOLVED",
+      "entity": {
+        "id": "fd859e7a-ec47-57df-a5be-bf57e6c21d5b",
+        "kind": "timeline_event"
+      },
+      "id": "740dfc8e-1344-5683-8419-4bb69388e064",
+      "message": "Presenter/A-roll footage is unresolved for on-camera span 12000000-0000-4000-8000-000000000012.",
+      "severity": "warning"
+    },
+    {
+      "code": "TEMPORARY_NARRATION",
+      "entity": {
+        "id": "14000000-0000-4000-8000-000000000001",
+        "kind": "build"
+      },
+      "id": "a387d2e9-ace9-5b9b-b534-77de32284039",
+      "message": "Temporary synthetic narration remains in this build.",
+      "severity": "warning"
+    },
+    {
+      "code": "PRESENTER_FOOTAGE_UNRESOLVED",
+      "entity": {
+        "id": "e197c61e-baf0-560f-ba7a-f2f1aa2d200e",
+        "kind": "timeline_event"
+      },
+      "id": "afb0983a-a0f2-5ed9-bc09-63e87bae542e",
+      "message": "Presenter/A-roll footage is unresolved for on-camera span 12000000-0000-4000-8000-000000000014.",
+      "severity": "warning"
+    },
+    {
+      "code": "VISUAL_UNRESOLVED",
+      "entity": {
+        "id": "12000000-0000-4000-8000-000000000020",
+        "kind": "visual_event"
+      },
+      "id": "b4bd93f3-31cb-5efe-995e-23b2c720c580",
+      "message": "Authored visual event 12000000-0000-4000-8000-000000000020 is unresolved.",
+      "severity": "warning"
+    }
+  ],
+  "manifest": {
+    "contentHash": "sha256:62eacc5d746cee11760cff335e26fc591431742622ed3bf7f292bcf5001fc8ef",
+    "id": "14000000-0000-4000-8000-000000000002"
+  },
+  "manualCompletionItems": [
+    {
+      "action": "Replace this placeholder with presenter/A-roll footage.",
+      "code": "REPLACE_PRESENTER_PLACEHOLDER",
+      "description": "Presenter/A-roll footage is unresolved for on-camera span 12000000-0000-4000-8000-000000000014.",
+      "entity": {
+        "id": "e197c61e-baf0-560f-ba7a-f2f1aa2d200e",
+        "kind": "timeline_event"
+      },
+      "id": "2e83b9e5-96ae-5d43-b12b-336c7392d99f"
+    },
+    {
+      "action": "Resolve or replace this authored visual.",
+      "code": "RESOLVE_OR_REPLACE_VISUAL",
+      "description": "Authored visual event 12000000-0000-4000-8000-000000000020 is unresolved.",
+      "entity": {
+        "id": "12000000-0000-4000-8000-000000000020",
+        "kind": "visual_event"
+      },
+      "id": "c4467e2f-f330-56cb-a950-c6f7fade77f6"
+    },
+    {
+      "action": "Replace this placeholder with presenter/A-roll footage.",
+      "code": "REPLACE_PRESENTER_PLACEHOLDER",
+      "description": "Presenter/A-roll footage is unresolved for on-camera span 12000000-0000-4000-8000-000000000012.",
+      "entity": {
+        "id": "fd859e7a-ec47-57df-a5be-bf57e6c21d5b",
+        "kind": "timeline_event"
+      },
+      "id": "dd2adb23-b002-5c7e-802e-6e72a0509244"
+    }
+  ],
+  "schemaVersion": "build-report/v1",
+  "sourceDocument": {
+    "contentHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "documentId": "12000000-0000-4000-8000-000000000001",
+    "liveHeadSequence": 7,
+    "projectId": "12000000-0000-4000-8000-000000000002"
+  },
+  "status": "ready_with_warnings",
+  "summary": {
+    "errorCount": 0,
+    "eventCount": 8,
+    "manualCompletionCount": 3,
+    "markerCount": 2,
+    "placedCount": 5,
+    "placeholderCount": 3,
+    "sourceCount": 8,
+    "warningCount": 4
+  },
+  "temporaryNarration": true,
+  "timeline": {
+    "audioSampleRate": 48000,
+    "durationFrames": 48,
+    "frameRate": {
+      "denominator": 1001,
+      "numerator": 24000
+    },
+    "height": 1080,
+    "startFrame": 0,
+    "width": 1920
+  }
+}

@@ -3,13 +3,36 @@
  * Do not edit by hand.
  */
 
+export type NarrationDependency = {
+  [k: string]: unknown;
+} & {
+  blockId: string;
+  blockRevision: number;
+  assetId: string;
+  status: "ready" | "failed";
+  textHash: string;
+  audioHash: string;
+  audio: NarrationAudio;
+  timing: NarrationTiming;
+  failureReason?: string;
+};
+export type ResolvedVisualDependency = {
+  [k: string]: unknown;
+} & {
+  mediaReferenceId: string;
+  source: VideoSource | StillSource;
+  sourceStartFrame?: number;
+  sourceAudio?: ResolvedSourceAudio;
+};
+
 /**
- * Generated aggregate type surface for the three Slice 0.1 contracts.
+ * Generated aggregate type surface for the VERA shared contracts.
  */
 export interface VeraContractsV1 {
   scriptDocument: ScriptDocumentV1;
   timelineManifest: TimelineManifestV1;
   buildReport: BuildReportV1;
+  compilerDependencies: CompilerDependenciesV1;
 }
 /**
  * Editor-independent canonical ScriptDocument serialization for Phase 1.
@@ -289,7 +312,14 @@ export interface VideoEvent {
   /**
    * Honest precision of the alignment used to resolve a semantic anchor into integer frames.
    */
-  timingPrecision: "word" | "sentence" | "cue" | "frame";
+  timingPrecision:
+    | "word"
+    | "sentence"
+    | "cue"
+    | "frame"
+    | "word_start_with_derived_end"
+    | "sentence_start_with_derived_end"
+    | "unavailable";
   alignmentVersion: string;
   provenance: EventProvenance;
 }
@@ -316,7 +346,14 @@ export interface StillEvent {
   /**
    * Honest precision of the alignment used to resolve a semantic anchor into integer frames.
    */
-  timingPrecision: "word" | "sentence" | "cue" | "frame";
+  timingPrecision:
+    | "word"
+    | "sentence"
+    | "cue"
+    | "frame"
+    | "word_start_with_derived_end"
+    | "sentence_start_with_derived_end"
+    | "unavailable";
   alignmentVersion: string;
   provenance: EventProvenance;
 }
@@ -334,7 +371,14 @@ export interface AudioEvent {
   /**
    * Honest precision of the alignment used to resolve a semantic anchor into integer frames.
    */
-  timingPrecision: "word" | "sentence" | "cue" | "frame";
+  timingPrecision:
+    | "word"
+    | "sentence"
+    | "cue"
+    | "frame"
+    | "word_start_with_derived_end"
+    | "sentence_start_with_derived_end"
+    | "unavailable";
   alignmentVersion: string;
   provenance: EventProvenance;
 }
@@ -351,7 +395,14 @@ export interface PlaceholderEvent {
   /**
    * Honest precision of the alignment used to resolve a semantic anchor into integer frames.
    */
-  timingPrecision: "word" | "sentence" | "cue" | "frame";
+  timingPrecision:
+    | "word"
+    | "sentence"
+    | "cue"
+    | "frame"
+    | "word_start_with_derived_end"
+    | "sentence_start_with_derived_end"
+    | "unavailable";
   alignmentVersion: string;
   provenance: EventProvenance;
 }
@@ -458,4 +509,80 @@ export interface ManualCompletionItem {
   description: string;
   action: string;
   entity: EntityReference;
+}
+/**
+ * Verified build dependencies consumed by the pure Slice 1.3 compiler.
+ */
+export interface CompilerDependenciesV1 {
+  schemaVersion: "compiler-dependencies/v1";
+  build: BuildContext;
+  /**
+   * @minItems 1
+   */
+  tracks: [
+    VideoTrack | AudioTrack | SubtitleTrack,
+    ...(VideoTrack | AudioTrack | SubtitleTrack)[],
+  ];
+  roles: TrackRoles;
+  narration: NarrationDependency[];
+  resolvedVisuals: ResolvedVisualDependency[];
+}
+export interface BuildContext {
+  buildId: string;
+  manifestId: string;
+  reportId: string;
+  buildClass: "preview" | "release";
+  timeline: CompilerTimelineSettings;
+}
+export interface CompilerTimelineSettings {
+  frameRate: RationalRate;
+  width: number;
+  height: number;
+  audioSampleRate: number;
+  startFrame: number;
+}
+export interface TrackRoles {
+  /**
+   * Stable opaque track identity. Media kind and ordering are separate structural fields; consumers must not infer either from this string.
+   */
+  presenterTrackId: string;
+  /**
+   * Stable opaque track identity. Media kind and ordering are separate structural fields; consumers must not infer either from this string.
+   */
+  placeholderTrackId: string;
+  /**
+   * Stable opaque track identity. Media kind and ordering are separate structural fields; consumers must not infer either from this string.
+   */
+  narrationTrackId: string;
+  /**
+   * Stable opaque track identity. Media kind and ordering are separate structural fields; consumers must not infer either from this string.
+   */
+  sourceAudioTrackId: string;
+}
+export interface NarrationAudio {
+  /**
+   * POSIX-style project-relative locator. Identity comes from the content hash, never this path.
+   */
+  locator: string;
+  durationSamples: number;
+  sampleRate: number;
+  channels: number;
+}
+export interface NarrationTiming {
+  recordVersion: string;
+  contentHash: string;
+  alignmentVersion: string;
+  precision: "word_start_with_derived_end" | "sentence_start" | "none";
+  marks: TimingMark[];
+}
+export interface TimingMark {
+  kind: "word" | "sentence";
+  timeMs: number;
+  startUtf16: number;
+  endUtf16: number;
+  value: string;
+}
+export interface ResolvedSourceAudio {
+  source: AudioSource;
+  sourceStartFrame: number;
 }

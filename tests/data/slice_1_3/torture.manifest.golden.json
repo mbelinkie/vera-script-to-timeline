@@ -1,0 +1,331 @@
+{
+  "buildId": "14000000-0000-4000-8000-000000000001",
+  "events": [
+    {
+      "alignmentVersion": "provider-timing/v1",
+      "id": "c4562c2e-21e7-5296-982b-d043f0eb5e01",
+      "kind": "audio",
+      "provenance": {
+        "authoringId": "12000000-0000-4000-8000-000000000005",
+        "authoringKind": "narration_block",
+        "blockId": "12000000-0000-4000-8000-000000000005",
+        "documentId": "12000000-0000-4000-8000-000000000001"
+      },
+      "recordRange": {
+        "durationFrames": 48,
+        "startFrame": 0
+      },
+      "sourceId": "d6353de3-fa74-576a-b895-b058f15f1951",
+      "sourceRange": {
+        "durationFrames": 48,
+        "startFrame": 0
+      },
+      "timingPrecision": "frame",
+      "trackId": "audio-1",
+      "trackKind": "audio"
+    },
+    {
+      "alignmentVersion": "provider-timing/v1",
+      "id": "fd859e7a-ec47-57df-a5be-bf57e6c21d5b",
+      "kind": "placeholder",
+      "provenance": {
+        "authoringId": "12000000-0000-4000-8000-000000000012",
+        "authoringKind": "narration_block",
+        "blockId": "12000000-0000-4000-8000-000000000005",
+        "documentId": "12000000-0000-4000-8000-000000000001"
+      },
+      "recordRange": {
+        "durationFrames": 9,
+        "startFrame": 1
+      },
+      "sourceId": "397e7b04-1c65-526e-a724-e6986618a28c",
+      "timingPrecision": "word_start_with_derived_end",
+      "trackId": "video-1",
+      "trackKind": "video"
+    },
+    {
+      "alignmentVersion": "provider-timing/v1",
+      "id": "12000000-0000-4000-8000-000000000016",
+      "kind": "still",
+      "provenance": {
+        "authoringId": "12000000-0000-4000-8000-000000000016",
+        "authoringKind": "visual_event",
+        "blockId": "12000000-0000-4000-8000-000000000005",
+        "documentId": "12000000-0000-4000-8000-000000000001"
+      },
+      "recordRange": {
+        "durationFrames": 9,
+        "startFrame": 1
+      },
+      "sourceId": "14000000-0000-4000-8000-000000000004",
+      "timingPrecision": "word_start_with_derived_end",
+      "trackId": "video-4",
+      "trackKind": "video"
+    },
+    {
+      "alignmentVersion": "provider-timing/v1",
+      "id": "12000000-0000-4000-8000-000000000018",
+      "kind": "video",
+      "provenance": {
+        "authoringId": "12000000-0000-4000-8000-000000000018",
+        "authoringKind": "visual_event",
+        "blockId": "12000000-0000-4000-8000-000000000005",
+        "documentId": "12000000-0000-4000-8000-000000000001"
+      },
+      "recordRange": {
+        "durationFrames": 14,
+        "startFrame": 10
+      },
+      "sourceId": "14000000-0000-4000-8000-000000000005",
+      "sourceRange": {
+        "durationFrames": 14,
+        "startFrame": 10
+      },
+      "timingPrecision": "word_start_with_derived_end",
+      "trackId": "video-2",
+      "trackKind": "video"
+    },
+    {
+      "alignmentVersion": "provider-timing/v1",
+      "id": "0a812b23-9c92-5725-85bb-4492082d8253",
+      "kind": "audio",
+      "provenance": {
+        "authoringId": "12000000-0000-4000-8000-000000000018",
+        "authoringKind": "visual_event",
+        "blockId": "12000000-0000-4000-8000-000000000005",
+        "documentId": "12000000-0000-4000-8000-000000000001"
+      },
+      "recordRange": {
+        "durationFrames": 14,
+        "startFrame": 10
+      },
+      "sourceId": "14000000-0000-4000-8000-000000000006",
+      "sourceRange": {
+        "durationFrames": 14,
+        "startFrame": 10
+      },
+      "timingPrecision": "word_start_with_derived_end",
+      "trackId": "audio-3",
+      "trackKind": "audio"
+    },
+    {
+      "alignmentVersion": "provider-timing/v1",
+      "id": "12000000-0000-4000-8000-000000000020",
+      "kind": "placeholder",
+      "provenance": {
+        "authoringId": "12000000-0000-4000-8000-000000000020",
+        "authoringKind": "visual_event",
+        "blockId": "12000000-0000-4000-8000-000000000005",
+        "documentId": "12000000-0000-4000-8000-000000000001"
+      },
+      "recordRange": {
+        "durationFrames": 4,
+        "startFrame": 24
+      },
+      "sourceId": "416eb7e3-5917-5413-965b-7b272c59275b",
+      "timingPrecision": "word_start_with_derived_end",
+      "trackId": "video-5",
+      "trackKind": "video"
+    },
+    {
+      "alignmentVersion": "provider-timing/v1",
+      "id": "e197c61e-baf0-560f-ba7a-f2f1aa2d200e",
+      "kind": "placeholder",
+      "provenance": {
+        "authoringId": "12000000-0000-4000-8000-000000000014",
+        "authoringKind": "narration_block",
+        "blockId": "12000000-0000-4000-8000-000000000005",
+        "documentId": "12000000-0000-4000-8000-000000000001"
+      },
+      "recordRange": {
+        "durationFrames": 4,
+        "startFrame": 28
+      },
+      "sourceId": "40c4ee60-c38c-5d42-ac0e-1f1fc596a61c",
+      "timingPrecision": "word_start_with_derived_end",
+      "trackId": "video-1",
+      "trackKind": "video"
+    },
+    {
+      "alignmentVersion": "provider-timing/v1",
+      "id": "12000000-0000-4000-8000-000000000025",
+      "kind": "still",
+      "provenance": {
+        "authoringId": "12000000-0000-4000-8000-000000000025",
+        "authoringKind": "visual_event",
+        "blockId": "12000000-0000-4000-8000-000000000024",
+        "documentId": "12000000-0000-4000-8000-000000000001"
+      },
+      "recordRange": {
+        "durationFrames": 16,
+        "startFrame": 32
+      },
+      "sourceId": "14000000-0000-4000-8000-000000000007",
+      "timingPrecision": "word_start_with_derived_end",
+      "trackId": "video-3",
+      "trackKind": "video"
+    }
+  ],
+  "id": "14000000-0000-4000-8000-000000000002",
+  "markers": [
+    {
+      "color": "Blue",
+      "frame": 0,
+      "id": "1d9d72f4-6584-5ddd-a22c-fc13d3c2a397",
+      "name": "Mid-sentence coverage",
+      "note": "Section: Mid-sentence coverage",
+      "provenance": {
+        "authoringId": "12000000-0000-4000-8000-000000000003",
+        "authoringKind": "script_marker",
+        "blockId": "12000000-0000-4000-8000-000000000003",
+        "documentId": "12000000-0000-4000-8000-000000000001"
+      },
+      "state": "placed"
+    },
+    {
+      "color": "Yellow",
+      "frame": 0,
+      "id": "c85b31a8-0f61-5f57-8701-99737e1e00f8",
+      "name": "Direction",
+      "note": "Keep the paragraph intact through every visual cut.",
+      "provenance": {
+        "authoringId": "12000000-0000-4000-8000-000000000004",
+        "authoringKind": "script_marker",
+        "blockId": "12000000-0000-4000-8000-000000000004",
+        "documentId": "12000000-0000-4000-8000-000000000001"
+      },
+      "state": "placed"
+    }
+  ],
+  "schemaVersion": "timeline-manifest/v1",
+  "sourceDocument": {
+    "contentHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "documentId": "12000000-0000-4000-8000-000000000001",
+    "liveHeadSequence": 7,
+    "projectId": "12000000-0000-4000-8000-000000000002"
+  },
+  "sources": [
+    {
+      "contentHash": "sha256:1414141414141414141414141414141414141414141414141414141414141414",
+      "height": 300,
+      "id": "14000000-0000-4000-8000-000000000004",
+      "kind": "still",
+      "path": "Media/Resolved/name-card.png",
+      "width": 1200
+    },
+    {
+      "audioChannels": 2,
+      "contentHash": "sha256:1515151515151515151515151515151515151515151515151515151515151515",
+      "durationFrames": 120,
+      "frameRate": {
+        "denominator": 1001,
+        "numerator": 24000
+      },
+      "height": 1080,
+      "id": "14000000-0000-4000-8000-000000000005",
+      "kind": "video",
+      "path": "Media/Resolved/first-vo.mov",
+      "width": 1920
+    },
+    {
+      "channels": 2,
+      "contentHash": "sha256:1616161616161616161616161616161616161616161616161616161616161616",
+      "durationFrames": 120,
+      "id": "14000000-0000-4000-8000-000000000006",
+      "kind": "audio",
+      "path": "Media/Resolved/first-vo-source.wav",
+      "sampleRate": 48000
+    },
+    {
+      "contentHash": "sha256:1717171717171717171717171717171717171717171717171717171717171717",
+      "height": 1080,
+      "id": "14000000-0000-4000-8000-000000000007",
+      "kind": "still",
+      "path": "Media/Resolved/final-vo.png",
+      "width": 1920
+    },
+    {
+      "id": "397e7b04-1c65-526e-a724-e6986618a28c",
+      "kind": "placeholder",
+      "label": "PRESENTER: Meet me",
+      "reason": "Presenter/A-roll footage is unresolved for on-camera span 12000000-0000-4000-8000-000000000012."
+    },
+    {
+      "id": "40c4ee60-c38c-5d42-ac0e-1f1fc596a61c",
+      "kind": "placeholder",
+      "label": "PRESENTER: look",
+      "reason": "Presenter/A-roll footage is unresolved for on-camera span 12000000-0000-4000-8000-000000000014."
+    },
+    {
+      "id": "416eb7e3-5917-5413-965b-7b272c59275b",
+      "kind": "placeholder",
+      "label": "UNRESOLVED VISUAL: Resolve second VO visual",
+      "reason": "Authored visual event 12000000-0000-4000-8000-000000000020 is unresolved."
+    },
+    {
+      "channels": 1,
+      "contentHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "durationFrames": 48,
+      "id": "d6353de3-fa74-576a-b895-b058f15f1951",
+      "kind": "audio",
+      "path": "Media/Narration/torture.wav",
+      "sampleRate": 48000
+    }
+  ],
+  "timeline": {
+    "audioSampleRate": 48000,
+    "durationFrames": 48,
+    "frameRate": {
+      "denominator": 1001,
+      "numerator": 24000
+    },
+    "height": 1080,
+    "startFrame": 0,
+    "width": 1920
+  },
+  "tracks": [
+    {
+      "id": "video-1",
+      "index": 1,
+      "kind": "video",
+      "name": "Presenter"
+    },
+    {
+      "id": "video-2",
+      "index": 2,
+      "kind": "video",
+      "name": "Primary B-roll"
+    },
+    {
+      "id": "video-3",
+      "index": 3,
+      "kind": "video",
+      "name": "Secondary B-roll"
+    },
+    {
+      "id": "video-4",
+      "index": 4,
+      "kind": "video",
+      "name": "Overlays"
+    },
+    {
+      "id": "video-5",
+      "index": 5,
+      "kind": "video",
+      "name": "Placeholders"
+    },
+    {
+      "id": "audio-1",
+      "index": 1,
+      "kind": "audio",
+      "name": "Narration"
+    },
+    {
+      "id": "audio-3",
+      "index": 3,
+      "kind": "audio",
+      "name": "Source audio"
+    }
+  ],
+  "transitions": []
+}

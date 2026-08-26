@@ -330,8 +330,82 @@ export const validBuildReport: BuildReportV1 = {
   ],
   manualCompletionItems: [],
 };
+
+export const validCompilerDependencies: CompilerDependenciesV1 = {
+  schemaVersion: "compiler-dependencies/v1",
+  build: {
+    buildId: ids.build,
+    manifestId: ids.manifest,
+    reportId: ids.report,
+    buildClass: "preview",
+    timeline: {
+      frameRate: { numerator: 24000, denominator: 1001 },
+      width: 1920,
+      height: 1080,
+      audioSampleRate: 48000,
+      startFrame: 0,
+    },
+  },
+  tracks: validTimelineManifest.tracks,
+  roles: {
+    presenterTrackId: "track-01",
+    placeholderTrackId: "track-05",
+    narrationTrackId: "track-06",
+    sourceAudioTrackId: "track-08",
+  },
+  narration: [
+    {
+      blockId: ids.narration,
+      blockRevision: 1,
+      assetId: "f".repeat(64),
+      status: "ready",
+      textHash: documentHash,
+      audioHash,
+      audio: {
+        locator: "Media/Narration/block/source.wav",
+        durationSamples: 480000,
+        sampleRate: 48000,
+        channels: 1,
+      },
+      timing: {
+        recordVersion: "provider-timing/v1",
+        contentHash: manifestHash,
+        alignmentVersion: "aws-polly-neural-v1",
+        precision: "word_start_with_derived_end",
+        marks: [
+          {
+            kind: "word",
+            timeMs: 0,
+            startUtf16: 0,
+            endUtf16: 5,
+            value: "Hello",
+          },
+          {
+            kind: "word",
+            timeMs: 450,
+            startUtf16: 6,
+            endUtf16: 11,
+            value: "world",
+          },
+        ],
+      },
+    },
+  ],
+  resolvedVisuals: [
+    {
+      mediaReferenceId: ids.videoSource,
+      source: validTimelineManifest.sources.find((source) => source.kind === "video")!,
+      sourceStartFrame: 24,
+      sourceAudio: {
+        source: validTimelineManifest.sources.find((source) => source.kind === "audio")!,
+        sourceStartFrame: 24,
+      },
+    },
+  ],
+};
 import type {
   BuildReportV1,
+  CompilerDependenciesV1,
   ScriptDocumentV1,
   TimelineManifestV1,
 } from "../src/generated/contracts.js";

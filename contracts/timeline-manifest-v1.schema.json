@@ -462,7 +462,10 @@
         "word",
         "sentence",
         "cue",
-        "frame"
+        "frame",
+        "word_start_with_derived_end",
+        "sentence_start_with_derived_end",
+        "unavailable"
       ]
     },
     "TimelineEvent": {

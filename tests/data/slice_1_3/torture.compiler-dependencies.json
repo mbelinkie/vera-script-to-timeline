@@ -1,0 +1,112 @@
+{
+  "schemaVersion": "compiler-dependencies/v1",
+  "build": {
+    "buildId": "14000000-0000-4000-8000-000000000001",
+    "manifestId": "14000000-0000-4000-8000-000000000002",
+    "reportId": "14000000-0000-4000-8000-000000000003",
+    "buildClass": "preview",
+    "timeline": {
+      "frameRate": { "numerator": 24000, "denominator": 1001 },
+      "width": 1920,
+      "height": 1080,
+      "audioSampleRate": 48000,
+      "startFrame": 0
+    }
+  },
+  "tracks": [
+    { "id": "video-1", "kind": "video", "index": 1, "name": "Presenter" },
+    { "id": "video-2", "kind": "video", "index": 2, "name": "Primary B-roll" },
+    { "id": "video-3", "kind": "video", "index": 3, "name": "Secondary B-roll" },
+    { "id": "video-4", "kind": "video", "index": 4, "name": "Overlays" },
+    { "id": "video-5", "kind": "video", "index": 5, "name": "Placeholders" },
+    { "id": "audio-1", "kind": "audio", "index": 1, "name": "Narration" },
+    { "id": "audio-3", "kind": "audio", "index": 3, "name": "Source audio" }
+  ],
+  "roles": {
+    "presenterTrackId": "video-1",
+    "placeholderTrackId": "video-5",
+    "narrationTrackId": "audio-1",
+    "sourceAudioTrackId": "audio-3"
+  },
+  "narration": [
+    {
+      "blockId": "12000000-0000-4000-8000-000000000005",
+      "blockRevision": 1,
+      "assetId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "status": "ready",
+      "textHash": "sha256:03ab7b4c9519cb58aca7f1ed9989ead4a509f343cba1ba8699410b8600aea433",
+      "audioHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "audio": {
+        "locator": "Media/Narration/torture.wav",
+        "durationSamples": 96000,
+        "sampleRate": 48000,
+        "channels": 1
+      },
+      "timing": {
+        "recordVersion": "provider-timing/v1",
+        "contentHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "alignmentVersion": "provider-timing/v1",
+        "precision": "word_start_with_derived_end",
+        "marks": [
+          { "kind": "word", "timeMs": 25, "startUtf16": 0, "endUtf16": 4, "value": "Meet" },
+          { "kind": "word", "timeMs": 250, "startUtf16": 5, "endUtf16": 7, "value": "me" },
+          { "kind": "word", "timeMs": 387, "startUtf16": 8, "endUtf16": 12, "value": "here" },
+          { "kind": "word", "timeMs": 987, "startUtf16": 14, "endUtf16": 18, "value": "then" },
+          { "kind": "word", "timeMs": 1162, "startUtf16": 19, "endUtf16": 23, "value": "look" },
+          { "kind": "word", "timeMs": 1325, "startUtf16": 24, "endUtf16": 30, "value": "beyond" }
+        ]
+      }
+    }
+  ],
+  "resolvedVisuals": [
+    {
+      "mediaReferenceId": "12000000-0000-4000-8000-000000000017",
+      "source": {
+        "id": "14000000-0000-4000-8000-000000000004",
+        "kind": "still",
+        "path": "Media/Resolved/name-card.png",
+        "contentHash": "sha256:1414141414141414141414141414141414141414141414141414141414141414",
+        "width": 1200,
+        "height": 300
+      }
+    },
+    {
+      "mediaReferenceId": "12000000-0000-4000-8000-000000000019",
+      "source": {
+        "id": "14000000-0000-4000-8000-000000000005",
+        "kind": "video",
+        "path": "Media/Resolved/first-vo.mov",
+        "contentHash": "sha256:1515151515151515151515151515151515151515151515151515151515151515",
+        "durationFrames": 120,
+        "frameRate": { "numerator": 24000, "denominator": 1001 },
+        "width": 1920,
+        "height": 1080,
+        "audioChannels": 2
+      },
+      "sourceStartFrame": 10,
+      "sourceAudio": {
+        "source": {
+          "id": "14000000-0000-4000-8000-000000000006",
+          "kind": "audio",
+          "path": "Media/Resolved/first-vo-source.wav",
+          "contentHash": "sha256:1616161616161616161616161616161616161616161616161616161616161616",
+          "durationFrames": 120,
+          "sampleRate": 48000,
+          "channels": 2
+        },
+        "sourceStartFrame": 10
+      }
+    },
+    {
+      "mediaReferenceId": "12000000-0000-4000-8000-000000000026",
+      "source": {
+        "id": "14000000-0000-4000-8000-000000000007",
+        "kind": "still",
+        "path": "Media/Resolved/final-vo.png",
+        "contentHash": "sha256:1717171717171717171717171717171717171717171717171717171717171717",
+        "width": 1920,
+        "height": 1080
+      }
+    }
+  ]
+}

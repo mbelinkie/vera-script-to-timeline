@@ -1,0 +1,24 @@
+{
+  "blockId": "10000000-0000-4000-8000-000000000001",
+  "blockRevision": 2,
+  "assetId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "status": "ready",
+  "textHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "audioHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "audio": {
+    "locator": "build-assets/narration/clip.wav",
+    "durationSamples": 96000,
+    "sampleRate": 48000,
+    "channels": 1
+  },
+  "timing": {
+    "recordVersion": "provider-timing/v1",
+    "contentHash": "sha256:b55fbda48e6f9568ec7be687fe978aaa8f0b06dbd488ea0420cc542d68b6c1f7",
+    "alignmentVersion": "provider-timing/v1",
+    "precision": "word_start_with_derived_end",
+    "marks": [
+      { "kind": "word", "timeMs": 0, "startUtf16": 0, "endUtf16": 4, "value": "vair-uh" },
+      { "kind": "sentence", "timeMs": 0, "startUtf16": 0, "endUtf16": 11, "value": "VERA says hi" }
+    ]
+  }
+}

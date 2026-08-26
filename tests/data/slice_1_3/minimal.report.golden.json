@@ -1,0 +1,99 @@
+{
+  "buildClass": "preview",
+  "buildId": "13000000-0000-4000-8000-000000000001",
+  "eventResults": [
+    {
+      "disposition": "placeholder",
+      "eventId": "11000000-0000-4000-8000-000000000008",
+      "message": "Authored visual event 11000000-0000-4000-8000-000000000008 is unresolved.",
+      "recordRange": {
+        "durationFrames": 48,
+        "startFrame": 0
+      },
+      "sourceId": "13d410cc-62c5-5a27-9b6b-053a187e0b2b",
+      "trackId": "video-5",
+      "trackKind": "video"
+    },
+    {
+      "disposition": "placed",
+      "eventId": "ec8b13e3-0a81-58b6-8369-3bcd0c3f18ab",
+      "message": "Narration \"Hello world.\" frames 0-48; precision=frame; alignment=provider-timing/v1.",
+      "recordRange": {
+        "durationFrames": 48,
+        "startFrame": 0
+      },
+      "sourceId": "4eeba533-f7af-5ce0-bc7a-93a6d1ca8e06",
+      "trackId": "audio-1",
+      "trackKind": "audio"
+    }
+  ],
+  "id": "13000000-0000-4000-8000-000000000003",
+  "issues": [
+    {
+      "code": "VISUAL_UNRESOLVED",
+      "entity": {
+        "id": "11000000-0000-4000-8000-000000000008",
+        "kind": "visual_event"
+      },
+      "id": "6bd8c331-da32-5bd5-8754-c171f1c0a1d3",
+      "message": "Authored visual event 11000000-0000-4000-8000-000000000008 is unresolved.",
+      "severity": "warning"
+    },
+    {
+      "code": "TEMPORARY_NARRATION",
+      "entity": {
+        "id": "13000000-0000-4000-8000-000000000001",
+        "kind": "build"
+      },
+      "id": "76711476-16d4-50aa-918d-7694c68dd3a8",
+      "message": "Temporary synthetic narration remains in this build.",
+      "severity": "warning"
+    }
+  ],
+  "manifest": {
+    "contentHash": "sha256:986146936db159b8ef1cbe35f610da13c870dbf9a677ce2bcf22c4e6245726a7",
+    "id": "13000000-0000-4000-8000-000000000002"
+  },
+  "manualCompletionItems": [
+    {
+      "action": "Resolve or replace this authored visual.",
+      "code": "RESOLVE_OR_REPLACE_VISUAL",
+      "description": "Authored visual event 11000000-0000-4000-8000-000000000008 is unresolved.",
+      "entity": {
+        "id": "11000000-0000-4000-8000-000000000008",
+        "kind": "visual_event"
+      },
+      "id": "9264ace0-61ad-549f-8616-e5dec15333c8"
+    }
+  ],
+  "schemaVersion": "build-report/v1",
+  "sourceDocument": {
+    "contentHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "documentId": "11000000-0000-4000-8000-000000000001",
+    "liveHeadSequence": 1,
+    "projectId": "11000000-0000-4000-8000-000000000002"
+  },
+  "status": "ready_with_warnings",
+  "summary": {
+    "errorCount": 0,
+    "eventCount": 2,
+    "manualCompletionCount": 1,
+    "markerCount": 1,
+    "placedCount": 1,
+    "placeholderCount": 1,
+    "sourceCount": 2,
+    "warningCount": 2
+  },
+  "temporaryNarration": true,
+  "timeline": {
+    "audioSampleRate": 48000,
+    "durationFrames": 48,
+    "frameRate": {
+      "denominator": 1001,
+      "numerator": 24000
+    },
+    "height": 1080,
+    "startFrame": 0,
+    "width": 1920
+  }
+}
