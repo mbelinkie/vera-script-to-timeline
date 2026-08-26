@@ -39,6 +39,12 @@ jobs:
       - name: Install Python dependencies
         run: uv sync --frozen
 
+      # Slice 1.2 narration normalization already requires the system FFmpeg
+      # executable; install it explicitly because ubuntu-24.04 does not include
+      # it in PATH on a clean runner.
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install --yes ffmpeg
+
       - name: Run repository validation
         run: npm run validate
 

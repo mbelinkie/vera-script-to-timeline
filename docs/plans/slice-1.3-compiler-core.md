@@ -254,6 +254,9 @@ its anchored picture events carry the derived word/sentence label.
   byte-identical.
 - No dependency or lockfile change. Implementation uses Node/TypeScript standard
   library crypto and the repository's existing Ajv/Vitest toolchain.
+- CI explicitly installs the already-required Slice 1.2 system FFmpeg tool on
+  the clean Linux runner. This is test-environment provisioning, not a new
+  product dependency, and changes neither lockfile.
 
 ## Test-first implementation order
 
