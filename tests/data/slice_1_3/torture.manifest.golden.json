@@ -57,7 +57,7 @@
         "durationFrames": 9,
         "startFrame": 1
       },
-      "sourceId": "14000000-0000-4000-8000-000000000004",
+      "sourceId": "a4e6ee69-ce08-5290-b96a-890320e57c50",
       "timingPrecision": "word_start_with_derived_end",
       "trackId": "video-4",
       "trackKind": "video"
@@ -76,7 +76,7 @@
         "durationFrames": 14,
         "startFrame": 10
       },
-      "sourceId": "14000000-0000-4000-8000-000000000005",
+      "sourceId": "4b2aab54-ac08-5edb-ab90-3e78a57d09d3",
       "sourceRange": {
         "durationFrames": 14,
         "startFrame": 10
@@ -99,7 +99,7 @@
         "durationFrames": 14,
         "startFrame": 10
       },
-      "sourceId": "14000000-0000-4000-8000-000000000006",
+      "sourceId": "8b7c8639-bbdc-5c97-8694-0240986cde53",
       "sourceRange": {
         "durationFrames": 14,
         "startFrame": 10
@@ -160,7 +160,7 @@
         "durationFrames": 16,
         "startFrame": 32
       },
-      "sourceId": "14000000-0000-4000-8000-000000000007",
+      "sourceId": "e5e9b8d8-a603-57d1-ba86-2577f0e98c6d",
       "timingPrecision": "word_start_with_derived_end",
       "trackId": "video-3",
       "trackKind": "video"
@@ -206,45 +206,6 @@
   },
   "sources": [
     {
-      "contentHash": "sha256:1414141414141414141414141414141414141414141414141414141414141414",
-      "height": 300,
-      "id": "14000000-0000-4000-8000-000000000004",
-      "kind": "still",
-      "path": "Media/Resolved/name-card.png",
-      "width": 1200
-    },
-    {
-      "audioChannels": 2,
-      "contentHash": "sha256:1515151515151515151515151515151515151515151515151515151515151515",
-      "durationFrames": 120,
-      "frameRate": {
-        "denominator": 1001,
-        "numerator": 24000
-      },
-      "height": 1080,
-      "id": "14000000-0000-4000-8000-000000000005",
-      "kind": "video",
-      "path": "Media/Resolved/first-vo.mov",
-      "width": 1920
-    },
-    {
-      "channels": 2,
-      "contentHash": "sha256:1616161616161616161616161616161616161616161616161616161616161616",
-      "durationFrames": 120,
-      "id": "14000000-0000-4000-8000-000000000006",
-      "kind": "audio",
-      "path": "Media/Resolved/first-vo-source.wav",
-      "sampleRate": 48000
-    },
-    {
-      "contentHash": "sha256:1717171717171717171717171717171717171717171717171717171717171717",
-      "height": 1080,
-      "id": "14000000-0000-4000-8000-000000000007",
-      "kind": "still",
-      "path": "Media/Resolved/final-vo.png",
-      "width": 1920
-    },
-    {
       "id": "397e7b04-1c65-526e-a724-e6986618a28c",
       "kind": "placeholder",
       "label": "PRESENTER: Meet me",
@@ -263,6 +224,37 @@
       "reason": "Authored visual event 12000000-0000-4000-8000-000000000020 is unresolved."
     },
     {
+      "audioChannels": 2,
+      "contentHash": "sha256:1515151515151515151515151515151515151515151515151515151515151515",
+      "durationFrames": 120,
+      "frameRate": {
+        "denominator": 1001,
+        "numerator": 24000
+      },
+      "height": 1080,
+      "id": "4b2aab54-ac08-5edb-ab90-3e78a57d09d3",
+      "kind": "video",
+      "path": "Media/Resolved/first-vo.mov",
+      "width": 1920
+    },
+    {
+      "channels": 2,
+      "contentHash": "sha256:1616161616161616161616161616161616161616161616161616161616161616",
+      "durationFrames": 120,
+      "id": "8b7c8639-bbdc-5c97-8694-0240986cde53",
+      "kind": "audio",
+      "path": "Media/Resolved/first-vo-source.wav",
+      "sampleRate": 48000
+    },
+    {
+      "contentHash": "sha256:1414141414141414141414141414141414141414141414141414141414141414",
+      "height": 300,
+      "id": "a4e6ee69-ce08-5290-b96a-890320e57c50",
+      "kind": "still",
+      "path": "Media/Resolved/name-card.png",
+      "width": 1200
+    },
+    {
       "channels": 1,
       "contentHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
       "durationFrames": 48,
@@ -270,6 +262,14 @@
       "kind": "audio",
       "path": "Media/Narration/torture.wav",
       "sampleRate": 48000
+    },
+    {
+      "contentHash": "sha256:1717171717171717171717171717171717171717171717171717171717171717",
+      "height": 1080,
+      "id": "e5e9b8d8-a603-57d1-ba86-2577f0e98c6d",
+      "kind": "still",
+      "path": "Media/Resolved/final-vo.png",
+      "width": 1920
     }
   ],
   "timeline": {

@@ -22,7 +22,7 @@
         "durationFrames": 9,
         "startFrame": 1
       },
-      "sourceId": "14000000-0000-4000-8000-000000000004",
+      "sourceId": "a4e6ee69-ce08-5290-b96a-890320e57c50",
       "trackId": "video-4",
       "trackKind": "video"
     },
@@ -46,7 +46,7 @@
         "durationFrames": 14,
         "startFrame": 10
       },
-      "sourceId": "14000000-0000-4000-8000-000000000006",
+      "sourceId": "8b7c8639-bbdc-5c97-8694-0240986cde53",
       "trackId": "audio-3",
       "trackKind": "audio"
     },
@@ -58,7 +58,7 @@
         "durationFrames": 14,
         "startFrame": 10
       },
-      "sourceId": "14000000-0000-4000-8000-000000000005",
+      "sourceId": "4b2aab54-ac08-5edb-ab90-3e78a57d09d3",
       "trackId": "video-2",
       "trackKind": "video"
     },
@@ -94,7 +94,7 @@
         "durationFrames": 16,
         "startFrame": 32
       },
-      "sourceId": "14000000-0000-4000-8000-000000000007",
+      "sourceId": "e5e9b8d8-a603-57d1-ba86-2577f0e98c6d",
       "trackId": "video-3",
       "trackKind": "video"
     }
@@ -110,6 +110,26 @@
       "id": "740dfc8e-1344-5683-8419-4bb69388e064",
       "message": "Presenter/A-roll footage is unresolved for on-camera span 12000000-0000-4000-8000-000000000012.",
       "severity": "warning"
+    },
+    {
+      "code": "CROSS_TRACK_CUT_IMPLIED",
+      "entity": {
+        "id": "12000000-0000-4000-8000-000000000018",
+        "kind": "timeline_event"
+      },
+      "id": "790518dc-45fe-51eb-a998-7a7ab5fd4056",
+      "message": "Picture changes from track video-4 event 12000000-0000-4000-8000-000000000016 to track video-2 event 12000000-0000-4000-8000-000000000018 at frame 10; the hard cut is implied by the track switch.",
+      "severity": "info"
+    },
+    {
+      "code": "CROSS_TRACK_CUT_IMPLIED",
+      "entity": {
+        "id": "e197c61e-baf0-560f-ba7a-f2f1aa2d200e",
+        "kind": "timeline_event"
+      },
+      "id": "9186a2b2-8258-56cf-94a4-bd0997f51a83",
+      "message": "Picture changes from track video-5 event 12000000-0000-4000-8000-000000000020 to track video-1 event e197c61e-baf0-560f-ba7a-f2f1aa2d200e at frame 28; the hard cut is implied by the track switch.",
+      "severity": "info"
     },
     {
       "code": "TEMPORARY_NARRATION",
@@ -140,10 +160,40 @@
       "id": "b4bd93f3-31cb-5efe-995e-23b2c720c580",
       "message": "Authored visual event 12000000-0000-4000-8000-000000000020 is unresolved.",
       "severity": "warning"
+    },
+    {
+      "code": "CROSS_TRACK_CUT_IMPLIED",
+      "entity": {
+        "id": "12000000-0000-4000-8000-000000000025",
+        "kind": "timeline_event"
+      },
+      "id": "b802129f-3c8a-584b-80cf-2f5a0e85c003",
+      "message": "Picture changes from track video-1 event e197c61e-baf0-560f-ba7a-f2f1aa2d200e to track video-3 event 12000000-0000-4000-8000-000000000025 at frame 32; the hard cut is implied by the track switch.",
+      "severity": "info"
+    },
+    {
+      "code": "CROSS_TRACK_CUT_IMPLIED",
+      "entity": {
+        "id": "12000000-0000-4000-8000-000000000020",
+        "kind": "timeline_event"
+      },
+      "id": "c943ba97-543a-5ade-bf6b-f1c7a8495555",
+      "message": "Picture changes from track video-2 event 12000000-0000-4000-8000-000000000018 to track video-5 event 12000000-0000-4000-8000-000000000020 at frame 24; the hard cut is implied by the track switch.",
+      "severity": "info"
+    },
+    {
+      "code": "CROSS_TRACK_CUT_IMPLIED",
+      "entity": {
+        "id": "12000000-0000-4000-8000-000000000018",
+        "kind": "timeline_event"
+      },
+      "id": "df1e0149-e8e6-5c78-9764-d6e7165d4ff2",
+      "message": "Picture changes from track video-1 event fd859e7a-ec47-57df-a5be-bf57e6c21d5b to track video-2 event 12000000-0000-4000-8000-000000000018 at frame 10; the hard cut is implied by the track switch.",
+      "severity": "info"
     }
   ],
   "manifest": {
-    "contentHash": "sha256:62eacc5d746cee11760cff335e26fc591431742622ed3bf7f292bcf5001fc8ef",
+    "contentHash": "sha256:a0bdb16c3fca5776d26d78a0fe877552f7febf163b673a8da225769aed07d9bf",
     "id": "14000000-0000-4000-8000-000000000002"
   },
   "manualCompletionItems": [

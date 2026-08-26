@@ -102,6 +102,14 @@ function asSafeNumber(value: bigint, label: string): number {
   return Number(value);
 }
 
+function safeAdd(left: number, right: number, label: string): number {
+  return asSafeNumber(
+    checkedInteger(left, `${label} left operand`) +
+      checkedInteger(right, `${label} right operand`),
+    label,
+  );
+}
+
 export function ceilDivide(numerator: bigint, denominator: bigint): bigint {
   if (numerator < 0n || denominator <= 0n) {
     throw new RangeError("ceilDivide accepts a nonnegative numerator and positive denominator");
@@ -203,6 +211,11 @@ export function compileTimeline(documentInput: unknown, dependenciesInput: unkno
   if (!validateDependencies(dependenciesInput)) {
     return fail(...schemaDiagnostics(validateDependencies.errors, "DEPENDENCIES"));
   }
+  const unsafeIntegers = [
+    ...unsafeIntegerDiagnostics(documentInput, ""),
+    ...unsafeIntegerDiagnostics(dependenciesInput, ""),
+  ];
+  if (unsafeIntegers.length > 0) return fail(...unsafeIntegers);
 
   const document = documentInput as ScriptDocumentV1;
   const dependencies = dependenciesInput;
@@ -217,6 +230,27 @@ export function compileTimeline(documentInput: unknown, dependenciesInput: unkno
       message: error instanceof Error ? error.message : String(error),
     });
   }
+}
+
+function unsafeIntegerDiagnostics(value: unknown, path: string): CompileDiagnostic[] {
+  if (typeof value === "number") {
+    return Number.isInteger(value) && !Number.isSafeInteger(value)
+      ? [{
+          code: "INTEGER_UNSAFE",
+          message: `${path || "/"}: integer exceeds JavaScript's exact safe range`,
+          jsonPath: path || "/",
+        }]
+      : [];
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) => unsafeIntegerDiagnostics(item, `${path}/${index}`));
+  }
+  if (value !== null && typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>).flatMap(([key, item]) =>
+      unsafeIntegerDiagnostics(item, `${path}/${key}`),
+    );
+  }
+  return [];
 }
 
 function validatePreconditions(document: ScriptDocumentV1, dependencies: CompilerDependenciesV1): CompileDiagnostic[] {
@@ -265,6 +299,9 @@ function validatePreconditions(document: ScriptDocumentV1, dependencies: Compile
   const requiredVisualIds = new Set<string>();
   for (const { event } of occurrences) {
     if (event.status !== "ready" || event.source.kind !== "local_media") continue;
+    if (event.audioPolicy === "use_source" && event.source.mediaKind === "still") {
+      diagnostics.push(diag("VISUAL_SOURCE_AUDIO_UNAVAILABLE", `Still visual event ${event.id} cannot provide requested source audio.`, event.id));
+    }
     requiredVisualIds.add(event.source.mediaReferenceId);
     const resolved = visualById.get(event.source.mediaReferenceId);
     if (!resolved) diagnostics.push(diag("VISUAL_DEPENDENCY_MISSING", `Resolved media is missing for visual event ${event.id}.`, event.id));
@@ -341,7 +378,8 @@ function compileValidated(document: ScriptDocumentV1, dependencies: CompilerDepe
   for (const block of active) {
     const dependency = dependencyByBlock.get(block.id)!;
     const durationFrames = frameDurationForSamples(dependency.audio.durationSamples, dependency.audio.sampleRate, dependencies.build.timeline.frameRate);
-    const timing: BlockTiming = { block, dependency, startFrame: cursor, durationFrames, endFrame: cursor + durationFrames };
+    const endFrame = safeAdd(cursor, durationFrames, "narration block end frame");
+    const timing: BlockTiming = { block, dependency, startFrame: cursor, durationFrames, endFrame };
     const requiredRanges: TextAnchorRange[] = [
       ...block.hostVisibilitySpans.map((span) => span.range),
       ...(occurrencesByTarget.get(block.id) ?? []).map((item) => item.event.range),
@@ -356,7 +394,7 @@ function compileValidated(document: ScriptDocumentV1, dependencies: CompilerDepe
       }
     }
     timingByBlock.set(block.id, timing);
-    cursor += durationFrames;
+    cursor = endFrame;
   }
 
   const sources: MediaSource[] = [];
@@ -393,6 +431,7 @@ function compileValidated(document: ScriptDocumentV1, dependencies: CompilerDepe
   sortAndValidateEvents(events, dependencies.tracks);
   deduplicateSources(sources);
   const transitions = buildHardCuts(events);
+  issues.push(...buildCrossTrackCutIssues(events));
   sources.sort((a, b) => compareText(a.id, b.id));
   markers.sort((a, b) => (("frame" in a ? a.frame : Number.MAX_SAFE_INTEGER) - ("frame" in b ? b.frame : Number.MAX_SAFE_INTEGER)) || compareText(a.id, b.id));
   eventResults.sort((a, b) => a.recordRange.startFrame - b.recordRange.startFrame || compareText(a.eventId, b.eventId));
@@ -531,8 +570,10 @@ function resolveRange(
 }
 
 function frameRange(blockStart: number, blockEnd: number, startMs: number, endMs: number | undefined, rate: RationalRate, precision: ResolvedAnchor["precision"], alignmentVersion: string): ResolvedAnchor {
-  const startFrame = blockStart + frameAtMilliseconds(startMs, rate);
-  const endFrame = endMs === undefined ? blockEnd : blockStart + frameAtMilliseconds(endMs, rate);
+  const startFrame = safeAdd(blockStart, frameAtMilliseconds(startMs, rate), "anchor start frame");
+  const endFrame = endMs === undefined
+    ? blockEnd
+    : safeAdd(blockStart, frameAtMilliseconds(endMs, rate), "anchor end frame");
   if (endFrame <= startFrame) throw new Error("An authored anchor collapses to zero frames at the build frame rate.");
   return { startFrame, durationFrames: endFrame - startFrame, precision, alignmentVersion };
 }
@@ -660,25 +701,33 @@ function compileVisual(
   const dependency = resolvedVisuals.get(authored.source.mediaReferenceId)!;
   const videoTrack = dependencies.tracks.find((track) => track.kind === "video" && track.index === authored.layer);
   if (!videoTrack) throw new Error(`Visual event ${authored.id} requires missing video layer ${authored.layer}.`);
-  sources.push(dependency.source);
+  const visualSource = {
+    ...dependency.source,
+    id: stableUuid(`visual-source:${authored.source.mediaReferenceId}`),
+  };
+  sources.push(visualSource);
   const provenance = { documentId: document.id, blockId: occurrence.ownerBlockId, authoringKind: "visual_event" as const, authoringId: authored.id };
-  if (dependency.source.kind === "still") {
-    const event: TimelineEvent = { id: authored.id, kind: "still", sourceId: dependency.source.id, trackId: videoTrack.id, trackKind: "video", recordRange: rangeOf(resolved), timingPrecision: resolved.precision, alignmentVersion: resolved.alignmentVersion, provenance };
+  if (visualSource.kind === "still") {
+    const event: TimelineEvent = { id: authored.id, kind: "still", sourceId: visualSource.id, trackId: videoTrack.id, trackKind: "video", recordRange: rangeOf(resolved), timingPrecision: resolved.precision, alignmentVersion: resolved.alignmentVersion, provenance };
     events.push(event);
     results.push(resultFor(event, "placed", `Placed visual "${authored.source.label}".`));
     return;
   }
   const sourceStart = dependency.sourceStartFrame!;
-  if (!sameRate(dependency.source.frameRate, dependencies.build.timeline.frameRate)) throw new Error(`Video source for ${authored.id} requires unsupported retiming.`);
-  if (sourceStart + resolved.durationFrames > dependency.source.durationFrames) throw new Error(`Video source for ${authored.id} is too short for its authored range.`);
-  const event: TimelineEvent = { id: authored.id, kind: "video", sourceId: dependency.source.id, trackId: videoTrack.id, trackKind: "video", recordRange: rangeOf(resolved), sourceRange: { startFrame: sourceStart, durationFrames: resolved.durationFrames }, timingPrecision: resolved.precision, alignmentVersion: resolved.alignmentVersion, provenance };
+  if (!sameRate(visualSource.frameRate, dependencies.build.timeline.frameRate)) throw new Error(`Video source for ${authored.id} requires unsupported retiming.`);
+  if (safeAdd(sourceStart, resolved.durationFrames, "video source end frame") > visualSource.durationFrames) throw new Error(`Video source for ${authored.id} is too short for its authored range.`);
+  const event: TimelineEvent = { id: authored.id, kind: "video", sourceId: visualSource.id, trackId: videoTrack.id, trackKind: "video", recordRange: rangeOf(resolved), sourceRange: { startFrame: sourceStart, durationFrames: resolved.durationFrames }, timingPrecision: resolved.precision, alignmentVersion: resolved.alignmentVersion, provenance };
   events.push(event);
   results.push(resultFor(event, "placed", `Placed visual "${authored.source.label}".`));
   if (authored.audioPolicy === "use_source") {
     if (!dependency.sourceAudio) throw new Error(`Visual event ${authored.id} requests source audio but none was resolved.`);
-    if (dependency.sourceAudio.sourceStartFrame + resolved.durationFrames > dependency.sourceAudio.source.durationFrames) throw new Error(`Source audio for ${authored.id} is too short for its authored range.`);
-    sources.push(dependency.sourceAudio.source);
-    const audioEvent: AudioEvent = { id: stableUuid(`source-audio-event:${authored.id}`), kind: "audio", sourceId: dependency.sourceAudio.source.id, trackId: dependencies.roles.sourceAudioTrackId, trackKind: "audio", recordRange: rangeOf(resolved), sourceRange: { startFrame: dependency.sourceAudio.sourceStartFrame, durationFrames: resolved.durationFrames }, timingPrecision: resolved.precision, alignmentVersion: resolved.alignmentVersion, provenance };
+    if (safeAdd(dependency.sourceAudio.sourceStartFrame, resolved.durationFrames, "source audio end frame") > dependency.sourceAudio.source.durationFrames) throw new Error(`Source audio for ${authored.id} is too short for its authored range.`);
+    const sourceAudio = {
+      ...dependency.sourceAudio.source,
+      id: stableUuid(`source-audio-source:${authored.source.mediaReferenceId}`),
+    };
+    sources.push(sourceAudio);
+    const audioEvent: AudioEvent = { id: stableUuid(`source-audio-event:${authored.id}`), kind: "audio", sourceId: sourceAudio.id, trackId: dependencies.roles.sourceAudioTrackId, trackKind: "audio", recordRange: rangeOf(resolved), sourceRange: { startFrame: dependency.sourceAudio.sourceStartFrame, durationFrames: resolved.durationFrames }, timingPrecision: resolved.precision, alignmentVersion: resolved.alignmentVersion, provenance };
     events.push(audioEvent);
     results.push(resultFor(audioEvent, "placed", `Placed source audio for visual "${authored.source.label}".`));
   }
@@ -723,7 +772,7 @@ function sortAndValidateEvents(events: TimelineEvent[], tracks: Track[]): void {
     eventIds.add(event.id);
     const priorEnd = lastEnd.get(event.trackId);
     if (priorEnd !== undefined && event.recordRange.startFrame < priorEnd) throw new Error(`Timeline events overlap on track ${event.trackId}.`);
-    lastEnd.set(event.trackId, event.recordRange.startFrame + event.recordRange.durationFrames);
+    lastEnd.set(event.trackId, safeAdd(event.recordRange.startFrame, event.recordRange.durationFrames, "timeline event end frame"));
   }
 }
 
@@ -751,11 +800,30 @@ function buildHardCuts(events: TimelineEvent[]): HardCutTransition[] {
     for (let index = 1; index < trackEvents.length; index += 1) {
       const from = trackEvents[index - 1]!;
       const to = trackEvents[index]!;
-      const boundary = from.recordRange.startFrame + from.recordRange.durationFrames;
+      const boundary = safeAdd(from.recordRange.startFrame, from.recordRange.durationFrames, "hard-cut boundary frame");
       if (boundary === to.recordRange.startFrame) transitions.push({ id: stableUuid(`hard-cut:${trackId}:${from.id}:${to.id}:${boundary}`), kind: "hard_cut", fromEventId: from.id, toEventId: to.id, atFrame: boundary, durationFrames: 0 });
     }
   }
   return transitions.sort((a, b) => a.atFrame - b.atFrame || compareText(a.id, b.id));
+}
+
+function buildCrossTrackCutIssues(events: TimelineEvent[]): BuildIssue[] {
+  const picture = events.filter((event) => event.trackKind === "video");
+  const issues: BuildIssue[] = [];
+  for (const from of picture) {
+    const boundary = safeAdd(from.recordRange.startFrame, from.recordRange.durationFrames, "cross-track cut boundary frame");
+    for (const to of picture) {
+      if (from.trackId === to.trackId || to.recordRange.startFrame !== boundary) continue;
+      issues.push({
+        id: stableUuid(`issue:CROSS_TRACK_CUT_IMPLIED:${from.id}:${to.id}:${boundary}`),
+        severity: "info",
+        code: "CROSS_TRACK_CUT_IMPLIED",
+        message: `Picture changes from track ${from.trackId} event ${from.id} to track ${to.trackId} event ${to.id} at frame ${boundary}; the hard cut is implied by the track switch.`,
+        entity: { kind: "timeline_event", id: to.id },
+      });
+    }
+  }
+  return issues;
 }
 
 function assertSchema(valid: boolean, errors: ErrorObject[] | null | undefined, message: string): asserts valid {

@@ -119,6 +119,7 @@ describe("Slice 1.3 compiler", () => {
     ]);
     expect(result.manifest.events.some((event) => event.kind === "audio" && event.trackId === "audio-3")).toBe(true);
     expect(result.manifest.events.filter((event) => event.kind === "placeholder" && event.trackId === "video-1")).toHaveLength(2);
+    expect(result.manifest.sources.every((source) => source.id[14] === "5")).toBe(true);
     expect(result.report.manifest.contentHash).toBe(sha256CanonicalJson(result.manifest));
   });
 
@@ -228,6 +229,65 @@ describe("Slice 1.3 compiler", () => {
           transition.toEventId === "12000000-0000-4000-8000-000000000020",
       ),
     ).toBe(false);
+    const issue = result.report.issues.find(
+      (candidate) =>
+        candidate.code === "CROSS_TRACK_CUT_IMPLIED" &&
+        candidate.message.includes(
+          "event 12000000-0000-4000-8000-000000000018 to track video-5 event 12000000-0000-4000-8000-000000000020 at frame 24",
+        ),
+    );
+    expect(issue?.severity).toBe("info");
+  });
+
+  it("rejects source-audio policy on a still instead of silently dropping it", () => {
+    const document = documentFixture("torture");
+    narrationAt(document, 2).visualEvents[0]!.audioPolicy = "use_source";
+    const result = compileTimeline(document, dependenciesFixture("torture"));
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.diagnostics).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ code: "VISUAL_SOURCE_AUDIO_UNAVAILABLE" }),
+        ]),
+      );
+    }
+  });
+
+  it.each([
+    ["timeline start", (dependencies: CompilerDependenciesV1) => {
+      dependencies.build.timeline.startFrame = Number.MAX_SAFE_INTEGER + 1;
+    }],
+    ["visual source start", (dependencies: CompilerDependenciesV1) => {
+      dependencies.resolvedVisuals[1]!.sourceStartFrame =
+        Number.MAX_SAFE_INTEGER + 1;
+    }],
+  ])("rejects an unsafe integer in %s before identity-bearing arithmetic", (_name, mutate) => {
+    const dependencies = dependenciesFixture("torture");
+    mutate(dependencies);
+    const result = compileTimeline(documentFixture("torture"), dependencies);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.diagnostics).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ code: "INTEGER_UNSAFE" }),
+        ]),
+      );
+    }
+  });
+
+  it("rejects cumulative frame overflow from individually safe integers", () => {
+    const dependencies = dependenciesFixture("minimal");
+    dependencies.build.timeline.startFrame = Number.MAX_SAFE_INTEGER - 1;
+    const result = compileTimeline(documentFixture("minimal"), dependencies);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.diagnostics).toEqual([
+        expect.objectContaining({
+          code: "COMPILATION_PRECONDITION_FAILED",
+          message: "narration block end frame exceeds JavaScript's safe integer range",
+        }),
+      ]);
+    }
   });
 
   it("preserves duration and emits a blocking slate for failed narration", () => {
