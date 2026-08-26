@@ -12,8 +12,7 @@ Last updated: 2026-08-26
 ## Current milestone
 
 - **Phase:** 0 gate closed; Phase 1 may proceed
-- **Active slice:** 1.3 — compiler core agent implementation, independent
-  review, and automated verification complete; producer acceptance remains
+- **Active slice:** None — Slice 1.3 accepted; the next slice is not yet bounded
 - **Overall state:** Slices 0.1 through 0.4 are accepted. The producer accepted
   Slice 0.4 on 2026-08-25, including its documented V1 Text+ destination-track
   limitation. The accepted pinned-template follow-up now resolves destination
@@ -34,8 +33,9 @@ Last updated: 2026-08-26
   2026-08-26. The pure compiler, narrow adapter, dependency contract, and new
   goldens are implemented, two consecutive full local gates and two CI
   executions pass, and final independent review reports no unresolved
-  findings. Only the small report-trace producer check remains before
-  acceptance.
+  findings. The producer explicitly accepted Slice 1.3 on 2026-08-26 after
+  receiving the exact report-to-manifest trace. Its dependency inputs and
+  goldens are now frozen.
 - **Source specification:** `docs/Script-to-Timeline Product Spec - Fable Rev2.md`
 
 ## Status legend
@@ -60,7 +60,7 @@ Last updated: 2026-08-26
 | 0.4 Resolve Studio scripting spike | Accepted | Producer + bounded implementation, hardening, and review agents | 0.2 accepted | Producer explicitly accepted on 2026-08-25 after visual inspection and accepted the documented V1/120-frame Text+ public-API limitation as spike evidence. The later accepted pinned-template follow-up resolves track/duration control for the shipped Text+ path without rewriting this historical result. |
 | 1.1 ScriptDocument v1 and validator | Accepted | Orchestrator + bounded implementation/review agents | D-0006 semantic decisions; Phase 0 accepted | Producer explicitly accepted on 2026-08-25 after the pure TypeScript validator and CLI, two canonical inputs, exact row-level diagnostics, 59 contract/validator tests, clean pinned full gate, frozen-boundary audit, and final independent no-findings review passed. The canonical inputs are now frozen. |
 | 1.2 Voice adapter and block asset cache | Accepted | Orchestrator + bounded research/implementation/review agents | Slice 1.1 accepted | Provider, source mapping, immutable cache, FFmpeg normalization, CLI, 42 focused tests, clean 127-test gate, live generation/reuse/invalidation, and producer listening acceptance passed. The producer declared the slice complete on 2026-08-25. |
-| 1.3 Compiler core: anchors to frames to manifest | Agent complete | Orchestrator + Terra implementation/review agents | Slice 1.2 accepted; D-0014 accepted | Implemented `CompilerDependencies v1`, honest manifest precision, the pure compiler, narrow narration adapter, deterministic dependency inputs, and byte-identical manifest/report goldens. Two consecutive full local gates and final no-findings review pass; two CI runs and producer report-trace acceptance remain. |
+| 1.3 Compiler core: anchors to frames to manifest | Accepted | Orchestrator + Terra implementation/review agents | Slice 1.2 accepted; D-0014 accepted | Implemented `CompilerDependencies v1`, honest manifest precision, the pure compiler, narrow narration adapter, deterministic dependency inputs, and byte-identical manifest/report goldens. Two consecutive pinned-Node full gates, GitHub Actions run `32981513588` attempts 1 and 2, final no-findings review, and the producer's explicit report-trace acceptance passed on 2026-08-26. Slice 1.3 dependency inputs and goldens are now frozen. |
 | Text+ pinned-template capability follow-up | Accepted | Producer + bounded implementation/review | Slice 1.2 complete; Slice 0.4 limitation follow-up | Validation project `VERA TextPlus Template Validation 20260825-230705` proved stock/template fingerprint equivalence and exact 24-/72-frame duration control. Integrated project `VERA TextPlus Integrated Acceptance 20260825-234847` verified one hash-pinned Text+ on manifest track `video-graphics`/V4 at frame 0 for 72 frames after save/reopen, with exact event accounting. The producer visually accepted both projects on 2026-08-25. D-0013 resolves track/duration control for the shipped pinned-template path; stock catalog enumeration remains open. |
 
 ## Slice 0.1 orchestration plan
@@ -145,6 +145,7 @@ changes, why, compatibility impact, regenerated outputs, and acceptance impact.
 | 2026-08-26 | Slice 1.3 planning and independent audits | Bound the compiler slice and determine whether accepted narration records can cross into TypeScript without a contract change | Blocked | Two independent Terra read-only audits found the explicit Slice 1.2 cross-language trigger is met and the current manifest cannot honestly label derived word ends. Added the bounded compiler plan, contract-change note, and pending D-0014 decision. No contract, fixture, generated type, compiler code, dependency, or frozen input changed; implementation awaits one bundled producer approval. |
 | 2026-08-26 | Producer | Approve Slice 1.3 contract and deterministic compiler decisions | Accepted | The producer explicitly approved D-0014, authorizing `CompilerDependencies v1`, three additive timing-precision values, generated-type regeneration, and the bounded compiler semantics/acceptance changes. No broader shared-contract change is authorized. |
 | 2026-08-26 | Slice 1.3 implementation and verification | Implement the approved compiler contract, pure compiler, adapter boundary, deterministic inputs, goldens, and automated acceptance evidence | Agent complete | Added exact rational narration-spine and anchor compilation, adjustable track routing, source audio, placeholders, hard cuts, markers, canonical manifest/report bytes, failed-timing blocked outputs, and the Python cache projection. Independent Terra reviews exposed and drove fixes for failed-asset timing hashes, exact sample-derived final ends, partial-token sentence marks, locale-dependent ordering, still source-audio requests, cross-track reporting, UUIDv5 source identities, unsafe/cumulative frame arithmetic, and missing hard-cut/timing regressions. Focused checks pass with 48 TypeScript compiler/schema tests and 5 Python adapter tests. Two consecutive pinned-Node full gates each pass generated-currentness, lint, typecheck, 91 TypeScript tests, 1 tooling test, and all 151 Python tests. GitHub Actions run `32981513588`, attempts 1 and 2, passes the same repository validation and lockfile-immutability check on reviewed commit `3bcdcde`. `git diff --check`, accepted-data/fixture boundaries, and both lockfiles are clean. Final independent review reports no unresolved findings. Only producer report-trace acceptance remains. |
+| 2026-08-26 | Producer | Accept Slice 1.3 report-to-manifest trace and close the compiler slice | Accepted | The producer explicitly stated `Accept Slice 1.3` after receiving the exact torture trace: narration `Meet me here, then look beyond.` at end-exclusive frames `0-48`, matching A1 manifest event and provenance, honest derived timing labels, and the unresolved V5 placeholder at frames `24-28`. This acceptance freezes the new Slice 1.3 dependency inputs and manifest/report goldens. |
 
 ## Producer decisions and external checks
 
@@ -377,6 +378,18 @@ before their dependent slices close:
   canonical semantic inputs are frozen for Slice 1.3 reuse.
 
 ## Acceptance history
+
+### Slice 1.3 — Accepted 2026-08-26
+
+The producer explicitly accepted Slice 1.3 after receiving the exact torture
+report-to-manifest trace. The accepted evidence matches narration `Meet me
+here, then look beyond.` at end-exclusive frames `0-48` to its A1 event and
+document/block provenance, labels derived anchors honestly, and retains the V5
+unresolved placeholder at frames `24-28` with its warning and manual action.
+Two consecutive pinned local gates, two green CI attempts on reviewed commit
+`3bcdcde`, a green documentation-closure run, clean frozen-boundary and lockfile
+audits, and the final independent no-findings review passed. The Slice 1.3
+dependency inputs and manifest/report goldens are frozen as of this acceptance.
 
 ### Text+ pinned-template capability follow-up — Accepted 2026-08-25
 

@@ -2,12 +2,13 @@
 
 ## Status and gate
 
-**Agent implementation and automated verification complete; acceptance pending.**
+**Accepted by the producer on 2026-08-26.**
 D-0014 was authorized on 2026-08-26. Slices 1.1 and 1.2 and the Text+
 follow-up are accepted. The accepted minimal and torture ScriptDocuments
 remain frozen and are reused read-only. Two consecutive full local validation
-gates, two CI executions, and final independent no-findings review pass;
-producer acceptance remains.
+gates, two CI executions, final independent no-findings review, and the
+producer's explicit report-to-manifest trace acceptance pass. The new Slice
+1.3 dependency inputs and goldens are now frozen.
 
 This plan records the complete decision bundle so implementation can proceed
 without question-by-question producer involvement after the contract gate.
