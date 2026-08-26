@@ -142,10 +142,10 @@ Approval adds these automated requirements to Slice 1.3:
 6. two consecutive byte-identical golden runs; and
 7. the full repository validation gate twice plus two consecutive CI passes.
 
-Producer acceptance remains the specification's small human check: read the
-generated build report and trace one quoted narration sentence/block to its
-integer frame range. No Resolve, cloud, listening, or visual-media action is
-part of Slice 1.3 acceptance.
+The producer completed the specification's small human check on 2026-08-26
+and explicitly accepted Slice 1.3 after receiving the exact build-report to
+manifest trace. No Resolve, cloud, listening, or visual-media action was part
+of Slice 1.3 acceptance.
 
 ## Producer decision
 
@@ -153,3 +153,8 @@ The producer explicitly approved D-0014 on 2026-08-26. This authorizes creation 
 `CompilerDependencies v1`, the three additive manifest precision values,
 generated-type regeneration, and the acceptance changes above. Any further
 shared-contract change discovered during implementation requires a new note.
+The producer subsequently accepted Slice 1.3 on 2026-08-26. The approved
+`CompilerDependencies v1` surface, additive manifest timing-precision values,
+regenerated TypeScript/Python types, and all dependency inputs, adapter fixture,
+and minimal/torture manifest/report goldens under `tests/data/slice_1_3/` are
+now frozen. Changing any of them requires an explicit approved change note.
