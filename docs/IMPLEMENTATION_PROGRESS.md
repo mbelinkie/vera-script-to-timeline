@@ -1,5 +1,10 @@
 # Implementation Progress
 
+> **Historical orchestration snapshot.** Live slice status, ownership,
+> dependencies, priority, and model routing moved to the **VERA
+> Script-to-Timeline Roadmap** on 2026-08-28. This document preserves decisions,
+> work logs, and acceptance evidence; its tracker rows are no longer updated.
+
 This document is the orchestration record for implementing
 `Script-to-Timeline Product Spec - Fable Rev2.md`. It tracks slice ownership,
 contract boundaries, verification, producer acceptance, decisions, and
@@ -12,7 +17,7 @@ Last updated: 2026-08-26
 ## Current milestone
 
 - **Phase:** 0 gate closed; Phase 1 may proceed
-- **Active slice:** None — Slice 1.3 accepted; the next slice is not yet bounded
+- **Active slice:** Slice 1.4 package writer and verification
 - **Overall state:** Slices 0.1 through 0.4 are accepted. The producer accepted
   Slice 0.4 on 2026-08-25, including its documented V1 Text+ destination-track
   limitation. The accepted pinned-template follow-up now resolves destination
@@ -35,7 +40,12 @@ Last updated: 2026-08-26
   executions pass, and final independent review reports no unresolved
   findings. The producer explicitly accepted Slice 1.3 on 2026-08-26 after
   receiving the exact report-to-manifest trace. Its dependency inputs and
-  goldens are now frozen.
+  goldens are now frozen. The producer approved D-0015 on 2026-08-26: after
+  Slice 1.4, the bounded Fusion semantic-input capability spike is Slice 1.5;
+  the former unstarted Slices 1.5–1.7 are renumbered 1.6–1.8. The spike's
+  scope and later productization sequence are linked from the authoritative
+  specification and recorded in the
+  [curated Fusion graphics plan](plans/curated-fusion-graphics.md).
 - **Source specification:** `docs/Script-to-Timeline Product Spec - Fable Rev2.md`
 
 ## Status legend
@@ -61,6 +71,8 @@ Last updated: 2026-08-26
 | 1.1 ScriptDocument v1 and validator | Accepted | Orchestrator + bounded implementation/review agents | D-0006 semantic decisions; Phase 0 accepted | Producer explicitly accepted on 2026-08-25 after the pure TypeScript validator and CLI, two canonical inputs, exact row-level diagnostics, 59 contract/validator tests, clean pinned full gate, frozen-boundary audit, and final independent no-findings review passed. The canonical inputs are now frozen. |
 | 1.2 Voice adapter and block asset cache | Accepted | Orchestrator + bounded research/implementation/review agents | Slice 1.1 accepted | Provider, source mapping, immutable cache, FFmpeg normalization, CLI, 42 focused tests, clean 127-test gate, live generation/reuse/invalidation, and producer listening acceptance passed. The producer declared the slice complete on 2026-08-25. |
 | 1.3 Compiler core: anchors to frames to manifest | Accepted | Orchestrator + Terra implementation/review agents | Slice 1.2 accepted; D-0014 accepted | Implemented `CompilerDependencies v1`, honest manifest precision, the pure compiler, narrow narration adapter, deterministic dependency inputs, and byte-identical manifest/report goldens. Two consecutive pinned-Node full gates, GitHub Actions run `32981513588` attempts 1 and 2, final no-findings review, and the producer's explicit report-trace acceptance passed on 2026-08-26. Slice 1.3 dependency inputs and goldens are now frozen. |
+| 1.4 Package writer and verification | In progress | Orchestrator + Terra implementation/review agents | Slice 1.3 accepted | Bounded in `docs/plans/slice-1.4-package-writer.md`. No shared contract, generated type, fixture, accepted test/data, golden, dependency, or lockfile change is authorized. Automated package verification may reach agent-complete; Resolve Free import/playback and manual-list comparison remain producer acceptance. |
+| 1.5 Fusion semantic-input capability spike | Queued | Unassigned | Slice 1.4 accepted; D-0015 accepted | Bounded in the [curated Fusion graphics plan](plans/curated-fusion-graphics.md). Proves typed lower-third values and animation persist through save/reopen before production Studio assembly. No shared-contract change or graphics-product implementation is authorized. |
 | Text+ pinned-template capability follow-up | Accepted | Producer + bounded implementation/review | Slice 1.2 complete; Slice 0.4 limitation follow-up | Validation project `VERA TextPlus Template Validation 20260825-230705` proved stock/template fingerprint equivalence and exact 24-/72-frame duration control. Integrated project `VERA TextPlus Integrated Acceptance 20260825-234847` verified one hash-pinned Text+ on manifest track `video-graphics`/V4 at frame 0 for 72 frames after save/reopen, with exact event accounting. The producer visually accepted both projects on 2026-08-25. D-0013 resolves track/duration control for the shipped pinned-template path; stock catalog enumeration remains open. |
 
 ## Slice 0.1 orchestration plan
@@ -146,6 +158,8 @@ changes, why, compatibility impact, regenerated outputs, and acceptance impact.
 | 2026-08-26 | Producer | Approve Slice 1.3 contract and deterministic compiler decisions | Accepted | The producer explicitly approved D-0014, authorizing `CompilerDependencies v1`, three additive timing-precision values, generated-type regeneration, and the bounded compiler semantics/acceptance changes. No broader shared-contract change is authorized. |
 | 2026-08-26 | Slice 1.3 implementation and verification | Implement the approved compiler contract, pure compiler, adapter boundary, deterministic inputs, goldens, and automated acceptance evidence | Agent complete | Added exact rational narration-spine and anchor compilation, adjustable track routing, source audio, placeholders, hard cuts, markers, canonical manifest/report bytes, failed-timing blocked outputs, and the Python cache projection. Independent Terra reviews exposed and drove fixes for failed-asset timing hashes, exact sample-derived final ends, partial-token sentence marks, locale-dependent ordering, still source-audio requests, cross-track reporting, UUIDv5 source identities, unsafe/cumulative frame arithmetic, and missing hard-cut/timing regressions. Focused checks pass with 48 TypeScript compiler/schema tests and 5 Python adapter tests. Two consecutive pinned-Node full gates each pass generated-currentness, lint, typecheck, 91 TypeScript tests, 1 tooling test, and all 151 Python tests. GitHub Actions run `32981513588`, attempts 1 and 2, passes the same repository validation and lockfile-immutability check on reviewed commit `3bcdcde`. `git diff --check`, accepted-data/fixture boundaries, and both lockfiles are clean. Final independent review reports no unresolved findings. Only producer report-trace acceptance remains. |
 | 2026-08-26 | Producer | Accept Slice 1.3 report-to-manifest trace and close the compiler slice | Accepted | The producer explicitly stated `Accept Slice 1.3` after receiving the exact torture trace: narration `Meet me here, then look beyond.` at end-exclusive frames `0-48`, matching A1 manifest event and provenance, honest derived timing labels, and the unresolved V5 placeholder at frames `24-28`. This acceptance freezes the new Slice 1.3 dependency inputs and manifest/report goldens. |
+| 2026-08-26 | Slice 1.4 planning and read-only audits | Bound the package writer after confirming the accepted Slice 1.3 branch and auditing the Slice 0.2 converter, contracts, tests, and dirty workspace | In progress | Fast-forwarded local `main` to accepted Slice 1.3 commit `fdb026e`, preserved unrelated user changes, and added the bounded Slice 1.4 plan. Audits found no shared-contract change is needed: package `ready_to_import` stays an internal verified state, while the compiler report and its manual list remain authoritative. |
+| 2026-08-26 | Producer | Insert the Fusion semantic-input spike before production Studio assembly | Accepted | Approved D-0015: the bounded capability proof is now Slice 1.5, and the former unstarted Slices 1.5–1.7 are renumbered 1.6–1.8. The authoritative spec links the [curated Fusion graphics plan](plans/curated-fusion-graphics.md); the spike does not alter Slice 1.4, shared contracts, or the later curated-graphics product scope. |
 
 ## Producer decisions and external checks
 

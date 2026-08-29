@@ -12,11 +12,15 @@
     "packages/*"
   ],
   "scripts": {
+    "roadmap": "node scripts/roadmap.mjs",
+    "test:roadmap": "node --test scripts/roadmap.test.mjs",
+    "progress": "node scripts/project-progress.mjs",
+    "test:progress": "node --test scripts/project-progress.test.mjs",
     "generate:contracts": "node packages/contracts/scripts/generate-contracts.mjs",
     "check:contracts-generated": "node packages/contracts/scripts/generate-contracts.mjs --check",
-    "lint:typescript": "npm run lint --workspaces --if-present",
+    "lint:typescript": "eslint scripts/*.mjs --max-warnings=0 && npm run lint --workspaces --if-present",
     "typecheck:typescript": "npm run typecheck --workspaces --if-present",
-    "test:typescript": "npm run test --workspaces --if-present",
+    "test:typescript": "npm run test --workspaces --if-present && npm run test:progress && npm run test:roadmap",
     "check:typescript": "npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript",
     "lint:python": "uv run --frozen ruff check . && uv run --frozen ruff format --check .",
     "typecheck:python": "uv run --frozen mypy python tests",

@@ -9,7 +9,7 @@ import {
   buildProgressModel,
   escapeHtml,
   loadProgressModel,
-  parseProgressTracker,
+  parseProjectItems,
   parseRoadmap,
   renderDashboard,
   writeDashboard,
@@ -20,7 +20,22 @@ const repositoryRoot = path.resolve(
   "..",
 );
 
-test("parses the current authoritative roadmap and progress tracker", async () => {
+const projectData = {
+  items: [
+    {
+      status: "Done",
+      labels: ["model:terra", "effort:high", "type:implementation"],
+      content: { number: 101, title: "Slice 0.1 — Repository scaffold", url: "https://example.test/101" },
+    },
+    {
+      status: "In progress",
+      labels: ["model:terra", "effort:high", "type:implementation"],
+      content: { number: 114, title: "Slice 1.4 — Package writer", url: "https://example.test/114" },
+    },
+  ],
+};
+
+test("parses the authoritative roadmap and GitHub Project items", async () => {
   const specification = await readFile(
     path.join(
       repositoryRoot,
@@ -29,37 +44,75 @@ test("parses the current authoritative roadmap and progress tracker", async () =
     ),
     "utf8",
   );
-  const progressDocument = await readFile(
-    path.join(repositoryRoot, "docs", "IMPLEMENTATION_PROGRESS.md"),
-    "utf8",
-  );
   const phases = parseRoadmap(specification);
-  const tracker = parseProgressTracker(progressDocument);
+  const tracker = parseProjectItems(projectData);
 
   assert.equal(phases.length, 11);
   assert.equal(
     phases.reduce((total, phase) => total + phase.slices.length, 0),
-    59,
+    60,
   );
   assert.equal(phases[0].slices[0].id, "0.1");
   assert.equal(phases.at(-1).slices.at(-1).id, "10.4");
-  assert.equal(tracker.statuses.get("0.4"), "Agent complete");
-  assert.equal(tracker.statuses.get("1.1"), "Paused");
+  assert.match(phases[8].promise, /^edit viewer-facing English subtitle copy/);
+  assert.match(phases[10].gate, /sole edited prior timeline intact\.$/);
+  assert.equal(tracker.statuses.get("0.1"), "Accepted");
+  assert.equal(tracker.statuses.get("1.4"), "In progress");
+  assert.deepEqual(tracker.routes.get("1.4"), {
+    model: "terra",
+    effort: "high",
+    issueNumber: 114,
+    url: "https://example.test/114",
+    projectStatus: "In progress",
+  });
 });
 
-test("calculates accepted and weighted progress without overstating acceptance", async () => {
-  const model = await loadProgressModel(repositoryRoot);
+test("calculates accepted and weighted progress without overstating acceptance", () => {
+  const phases = [
+    {
+      id: 0,
+      name: "Foundation",
+      promise: "test the boundary",
+      gate: "the boundary works",
+      slices: [
+        { id: "0.1", name: "Accepted work" },
+        { id: "0.2", name: "Agent-complete work" },
+        { id: "0.3", name: "Active work" },
+      ],
+    },
+    {
+      id: 1,
+      name: "Future",
+      promise: "build the future",
+      gate: "the future works",
+      slices: [
+        { id: "1.1", name: "Paused work" },
+        { id: "1.2", name: "Blocked work" },
+        { id: "1.3", name: "Queued work" },
+      ],
+    },
+  ];
+  const model = buildProgressModel(phases, {
+    lastUpdated: "today",
+    statuses: new Map([
+      ["0.1", "Accepted"],
+      ["0.2", "Agent complete"],
+      ["0.3", "In progress"],
+      ["1.1", "Paused"],
+      ["1.2", "Blocked"],
+    ]),
+  });
 
-  assert.equal(model.totalPhases, 11);
+  assert.equal(model.totalPhases, 2);
   assert.equal(model.acceptedPhases, 0);
-  assert.equal(model.totalSlices, 59);
-  assert.equal(model.acceptedSlices, 3);
-  assert.equal(model.estimatedUnits, 4.4);
-  assert.equal(model.statusCounts.Queued, 54);
-  assert.equal(model.phases[0].acceptedPercent, 75);
-  assert.equal(model.phases[0].estimatedPercent, 97.5);
+  assert.equal(model.totalSlices, 6);
+  assert.equal(model.acceptedSlices, 1);
+  assert.equal(model.estimatedUnits, 3.15);
+  assert.equal(model.statusCounts.Queued, 1);
+  assert.ok(Math.abs(model.phases[0].acceptedPercent - 33.333_333) < 0.000_001);
+  assert.equal(model.phases[0].estimatedPercent, 80);
   assert.equal(model.phases[1].acceptedPercent, 0);
-  assert.ok(Math.abs(model.phases[1].estimatedPercent - 7.142_857) < 0.000_001);
+  assert.equal(model.phases[1].estimatedPercent, 25);
 });
 
 test("rejects tracker rows that do not exist in the roadmap", () => {
@@ -92,18 +145,25 @@ test("renders escaped, deterministic HTML and writes the dashboard", async () =>
     "&lt;script data-name=&quot;test&quot;&gt;&amp;&lt;/script&gt;",
   );
 
-  const model = await loadProgressModel(repositoryRoot);
+  const model = await loadProgressModel(repositoryRoot, { projectData });
   const firstRender = renderDashboard(model);
   const secondRender = renderDashboard(model);
   assert.equal(firstRender, secondRender);
   assert.match(firstRender, /VERA Project Progress/);
-  assert.match(firstRender, /7\.5%/);
+  assert.ok(firstRender.includes(`${model.estimatedPercent.toFixed(1)}%`));
   assert.doesNotMatch(firstRender, /undefined/);
 
   const temporaryDirectory = await mkdtemp(
     path.join(os.tmpdir(), "vera-progress-"),
   );
   const outputPath = path.join(temporaryDirectory, "nested", "index.html");
-  await writeDashboard(repositoryRoot, outputPath);
-  assert.equal(await readFile(outputPath, "utf8"), firstRender);
+  const originalGhPath = process.env.PATH;
+  process.env.PATH = "";
+  await assert.rejects(() => writeDashboard(repositoryRoot, outputPath), /GitHub Project is unavailable/);
+  process.env.PATH = originalGhPath;
+  const htmlPath = path.join(temporaryDirectory, "fixture", "index.html");
+  const html = renderDashboard(model);
+  await (await import("node:fs/promises")).mkdir(path.dirname(htmlPath), { recursive: true });
+  await (await import("node:fs/promises")).writeFile(htmlPath, html, "utf8");
+  assert.equal(await readFile(htmlPath, "utf8"), firstRender);
 });

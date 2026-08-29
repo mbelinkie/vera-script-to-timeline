@@ -1,5 +1,9 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
 import path from "node:path";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
 
 export const STATUS_WEIGHTS = Object.freeze({
   Accepted: 1,
@@ -29,6 +33,10 @@ function normalizeMarkdownText(value) {
     .replaceAll("**", "")
     .replaceAll("`", "")
     .trim();
+}
+
+function lowerCaseFirst(value) {
+  return value.length === 0 ? value : value[0].toLowerCase() + value.slice(1);
 }
 
 function roadmapSection(specification) {
@@ -86,7 +94,9 @@ export function parseRoadmap(specification) {
     const body = roadmap.slice(bodyStart, bodyEnd);
     const ladderPhase = ladder.get(id);
     const gateMatch = body.match(
-      new RegExp(`\\n\\*\\*Phase ${id} gate:\\*\\* ([\\s\\S]*?)\\s*$`),
+      new RegExp(
+        `\\n\\*\\*Phase ${id} gate:\\*\\* ([\\s\\S]*?)(?:\\n\\n---)?\\s*$`,
+      ),
     );
     const slices = [
       ...body.matchAll(/^\*\*Slice (\d+\.\d+) — (.+?)\.\*\*/gm),
@@ -106,7 +116,7 @@ export function parseRoadmap(specification) {
     return {
       id,
       name,
-      promise: ladderPhase.promise,
+      promise: lowerCaseFirst(ladderPhase.promise),
       gate: normalizeMarkdownText(gateMatch[1]),
       slices,
     };
@@ -124,15 +134,9 @@ export function parseRoadmap(specification) {
 
 export function parseProgressTracker(progressDocument) {
   const trackerStart = progressDocument.indexOf("## Slice tracker");
-  if (trackerStart === -1) {
-    throw new Error("Could not find the slice tracker");
-  }
-
+  if (trackerStart === -1) throw new Error("Could not find the slice tracker");
   const trackerEnd = progressDocument.indexOf("\n## ", trackerStart + 1);
-  const tracker = progressDocument.slice(
-    trackerStart,
-    trackerEnd === -1 ? progressDocument.length : trackerEnd,
-  );
+  const tracker = progressDocument.slice(trackerStart, trackerEnd === -1 ? progressDocument.length : trackerEnd);
   const statuses = new Map();
   const rowPattern =
     /^\|\s*(\d+\.\d+)\s+[^|]*\|\s*(Queued|In progress|Agent complete|Accepted|Paused|Blocked)\s*\|/gm;
@@ -148,6 +152,44 @@ export function parseProgressTracker(progressDocument) {
   const lastUpdated =
     progressDocument.match(/^Last updated:\s*(.+)$/m)?.[1]?.trim() ?? "Unknown";
   return { statuses, lastUpdated };
+}
+
+const PROJECT_STATUS = Object.freeze({
+  Inbox: "Queued",
+  Backlog: "Queued",
+  Ready: "Queued",
+  "In progress": "In progress",
+  Blocked: "Blocked",
+  "In review": "Agent complete",
+  Done: "Accepted",
+});
+
+export function parseProjectItems(projectDocument) {
+  const statuses = new Map();
+  const routes = new Map();
+  for (const item of projectDocument.items ?? []) {
+    const match = item.content?.title?.match(/\b(?:Slice\s+)?(\d+\.\d+)\b/i);
+    if (!match) continue;
+    const sliceId = match[1];
+    if (statuses.has(sliceId)) throw new Error(`Multiple project issues map to Slice ${sliceId}`);
+    const labels = item.labels ?? [];
+    const models = labels.filter((label) => label.startsWith("model:"));
+    const efforts = labels.filter((label) => label.startsWith("effort:"));
+    if (models.length !== 1 || efforts.length !== 1) {
+      throw new Error(`Slice ${sliceId} must have exactly one model and one effort label`);
+    }
+    const status = PROJECT_STATUS[item.status];
+    if (!status) throw new Error(`Slice ${sliceId} has unsupported project status: ${item.status}`);
+    statuses.set(sliceId, status);
+    routes.set(sliceId, {
+      model: models[0].slice("model:".length),
+      effort: efforts[0].slice("effort:".length),
+      issueNumber: item.content.number,
+      url: item.content.url,
+      projectStatus: item.status,
+    });
+  }
+  return { statuses, routes, lastUpdated: "live GitHub Project" };
 }
 
 function percentage(value, total) {
@@ -170,7 +212,7 @@ export function buildProgressModel(phases, tracker) {
   const modeledPhases = phases.map((phase) => {
     const slices = phase.slices.map((slice) => {
       const status = tracker.statuses.get(slice.id) ?? "Queued";
-      return { ...slice, status, weight: STATUS_WEIGHTS[status] };
+      return { ...slice, status, route: tracker.routes?.get(slice.id) ?? null, weight: STATUS_WEIGHTS[status] };
     });
     const accepted = slices.filter((slice) => slice.status === "Accepted").length;
     const estimatedUnits = slices.reduce((sum, slice) => sum + slice.weight, 0);
@@ -231,7 +273,8 @@ function renderSlice(slice) {
                   <span class="slice-dot" aria-hidden="true"></span>
                   <span class="slice-id">${escapeHtml(slice.id)}</span>
                   <span class="slice-name">${escapeHtml(slice.name)}</span>
-                  <span class="status-label">${escapeHtml(slice.status)}</span>
+                  <span class="routing-label">${slice.route ? `${escapeHtml(slice.route.model)} · ${escapeHtml(slice.route.effort)}` : "not yet routed"}</span>
+                  <span class="status-label">${escapeHtml(slice.route?.projectStatus ?? slice.status)}</span>
                 </li>`;
 }
 
@@ -394,15 +437,17 @@ export function renderDashboard(model) {
     .phase-body { padding: 0 20px 22px 78px; }
     .phase-promise { margin: 0 0 17px; max-width: 760px; color: var(--muted); }
     .slice-list { display: grid; gap: 1px; margin: 0; padding: 0; list-style: none; border-radius: 12px; overflow: hidden; }
-    .slice { display: grid; grid-template-columns: 12px 48px minmax(0, 1fr) 112px; gap: 10px; align-items: center; min-height: 43px; padding: 9px 13px; background: rgba(8,11,19,.48); }
+    .slice { display: grid; grid-template-columns: 12px 48px minmax(0, 1fr) 112px 100px; gap: 10px; align-items: center; min-height: 43px; padding: 9px 13px; background: rgba(8,11,19,.48); }
     .slice-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
     .slice.accepted .slice-dot { background: var(--green); box-shadow: 0 0 12px rgba(112,221,164,.44); }
     .slice.agent-complete .slice-dot { background: var(--violet); box-shadow: 0 0 12px rgba(165,138,255,.44); }
     .slice.in-progress .slice-dot { background: var(--cyan); box-shadow: 0 0 12px rgba(96,216,238,.44); }
+    .slice.paused .slice-dot { background: var(--amber); }
     .slice.blocked .slice-dot { background: var(--red); }
     .slice-id { color: var(--muted); font-size: .82rem; font-variant-numeric: tabular-nums; }
     .slice-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .status-label { color: var(--muted); font-size: .75rem; text-align: right; }
+    .routing-label { color: var(--violet); font-size: .72rem; text-align: right; }
     .phase-gate { margin: 16px 0 0; max-width: 850px; color: var(--muted); font-size: .82rem; }
     .phase-gate span { margin-right: 7px; color: var(--amber); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
     .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 22px; color: var(--muted); font-size: .78rem; }
@@ -425,7 +470,7 @@ export function renderDashboard(model) {
       .phase-body { padding: 0 12px 16px; }
       .phase-state { display: none; }
       .slice { grid-template-columns: 10px 38px minmax(0, 1fr); }
-      .status-label { grid-column: 3; text-align: left; }
+      .routing-label, .status-label { grid-column: 3; text-align: left; }
       .section-heading { align-items: start; flex-direction: column; }
     }
     @media (prefers-reduced-motion: reduce) { .phase-meter > span { transition: none; } }
@@ -435,7 +480,7 @@ export function renderDashboard(model) {
   <main class="shell" id="progress-dashboard">
     <p class="eyebrow">VERA · Project flight recorder</p>
     <h1>From script<br>to finished timeline.</h1>
-    <p class="intro">A just-for-fun view of the full roadmap. It is generated from the authoritative product spec and the producer-controlled slice tracker—not a separate project plan.</p>
+    <p class="intro">A read-only view of the durable product roadmap overlaid with live GitHub Project status and exact model routing—not a separate project plan.</p>
 
     <section class="hero" aria-label="Overall progress">
       <div class="orbit-card">
@@ -465,7 +510,7 @@ export function renderDashboard(model) {
 
     <div class="section-heading">
       <h2>The eleven-phase climb</h2>
-      <span class="updated">Tracker updated ${escapeHtml(model.lastUpdated)} · ${model.acceptedPhases}/${model.totalPhases} phase gates complete</span>
+      <span class="updated">Status from ${escapeHtml(model.lastUpdated)} · ${model.acceptedPhases}/${model.totalPhases} phase gates complete</span>
     </div>
     <section class="roadmap" aria-label="Roadmap phases">${model.phases.map(renderPhase).join("")}
     </section>
@@ -473,6 +518,7 @@ export function renderDashboard(model) {
       <span><b>Accepted</b> 100%</span>
       <span><b>Agent complete</b> 90%</span>
       <span><b>In progress</b> 50%</span>
+      <span><b>Paused</b> 50%</span>
       <span><b>Blocked</b> 25%</span>
       <span><b>Queued</b> 0%</span>
     </div>
@@ -514,25 +560,36 @@ export function renderDashboard(model) {
 `;
 }
 
-export async function loadProgressModel(repositoryRoot) {
+export async function loadProgressModel(repositoryRoot, options = {}) {
   const specificationPath = path.join(
     repositoryRoot,
     "docs",
     "Script-to-Timeline Product Spec - Fable Rev2.md",
   );
-  const progressPath = path.join(
-    repositoryRoot,
-    "docs",
-    "IMPLEMENTATION_PROGRESS.md",
-  );
-  const [specification, progressDocument] = await Promise.all([
+  const configPath = path.join(repositoryRoot, ".github", "vera-roadmap.json");
+  const [specification, projectConfig] = await Promise.all([
     readFile(specificationPath, "utf8"),
-    readFile(progressPath, "utf8"),
+    readFile(configPath, "utf8").then(JSON.parse),
   ]);
+  let projectDocument = options.projectData;
+  if (!projectDocument) {
+    try {
+      const { stdout } = await execFileAsync("gh", [
+        "project", "item-list", String(projectConfig.projectNumber),
+        "--owner", projectConfig.owner, "--limit", "500", "--format", "json",
+      ], { cwd: repositoryRoot, maxBuffer: 10 * 1024 * 1024 });
+      projectDocument = JSON.parse(stdout);
+    } catch (error) {
+      throw new Error(
+        `GitHub Project is unavailable: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+  }
 
   return buildProgressModel(
     parseRoadmap(specification),
-    parseProgressTracker(progressDocument),
+    parseProjectItems(projectDocument),
   );
 }
 

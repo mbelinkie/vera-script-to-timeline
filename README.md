@@ -141,6 +141,33 @@ npm run test:free-trial
 The full Python test discovery used by `npm run validate` includes the Slice
 0.2 OTIO package tests; `test:otio-package` is only the faster focused form.
 
+## Project progress dashboard
+
+Generate a self-contained, read-only roadmap dashboard from the authoritative
+product spec and the live GitHub Project:
+
+```sh
+npm run progress
+```
+
+The command prints a terminal summary and writes
+`out/project-progress/index.html`. On macOS, generate it and open it in the
+default browser with:
+
+```sh
+npm run progress -- --open
+```
+
+You can also double-click `Open VERA Progress.command` in Finder from the
+repository's top-level folder. The launcher finds the repository relative to
+itself, regenerates the dashboard, and opens it in the default browser.
+
+The dashboard keeps strict producer-accepted completion separate from a
+lighthearted weighted estimate (`Accepted` 100%, `Agent complete` 90%,
+`In progress`/`Paused` 50%, `Blocked` 25%, and `Queued` 0%). It never changes
+project status: maintain issue state and routing on the GitHub roadmap, then
+regenerate the view.
+
 ## Slice 0.2 producer package
 
 Slice 0.2 consumes the handcrafted schema-valid manifest under

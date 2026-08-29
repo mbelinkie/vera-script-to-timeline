@@ -1,8 +1,11 @@
 # Repository Agent Instructions
 
 These instructions apply to the entire repository. Before working, read the
-authoritative slice in `docs/Script-to-Timeline Product Spec - Fable Rev2.md`,
-the relevant plan under `docs/plans/`, and `docs/IMPLEMENTATION_PROGRESS.md`.
+assigned Ready issue on the GitHub Project configured in
+`.github/vera-roadmap.json`, the authoritative slice in
+`docs/Script-to-Timeline Product Spec - Fable Rev2.md`, and the relevant plan.
+`docs/IMPLEMENTATION_PROGRESS.md` is retained as a historical orchestration and
+acceptance record, not a live tracker.
 
 ## Slice ritual
 
@@ -15,10 +18,16 @@ the relevant plan under `docs/plans/`, and `docs/IMPLEMENTATION_PROGRESS.md`.
   and the producer acceptance checklist.
 - Producer acceptance is authoritative. An agent self-report never closes a
   slice.
+- Require one Ready issue, one task, and one dedicated branch/worktree. Claim
+  only an exact `model:*` and `effort:*` match through `npm run roadmap`.
 
 ## Standing guardrails
 
 - Do not expand a slice's scope; file discovered work as proposed new slices.
+- File out-of-scope discoveries as Inbox issues and do not start them. If the
+  assigned profile is insufficient, stop, mark the issue Blocked with
+  `needs:model-escalation`, retain evidence, release the claim, and wait for
+  steward-approved relabeling.
 - Do not modify `/contracts`, `/fixtures`, golden files, or previously accepted
   acceptance tests without an explicit contract-change or fixture-change note
   approved by the producer.
