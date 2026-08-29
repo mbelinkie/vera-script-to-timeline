@@ -6,6 +6,9 @@ Working title: Assembly. Status: scoped and sequenced for implementation.
 Prepared 13 August 2026; Revision 2 prepared 24 August 2026; Revision 2.1
 (same day) integrates Part 3 — recorded performance ingest and conform — as
 Phases 6–7 of the ladder, re-scoped to the team's actual shoot practice.
+Revision 2.2, prepared 26 August 2026, inserts a bounded Fusion
+semantic-input capability spike before production Studio assembly and
+renumbers only the Phase 1 slices that had not begun.
 
 Revision 2 supersedes the working draft of 24 August 2026 ("Revision 1"). It
 preserves Revision 1's product thinking — which was strong — and changes three
@@ -121,6 +124,14 @@ splicing is deferred behind an explicit contract hook). Subtitles, the
 graphics/music library, and Regeneration Review move to Phases 8–10 — the
 recorded conform is what turns rough cuts into finished-feeling videos, so it
 outranks them.
+
+**Revision 2.2** adds Slice 1.5 as an early capability gate for writing typed
+semantic values into a hash-pinned Fusion lower-third template, then reading
+and verifying them after save/reopen in Resolve Studio. This does not move the
+curated graphics product, its shared contracts, or its authoring UI out of
+Phase 9/Phase 2 integration; it proves the risky Resolve boundary before the
+production Studio adapter is finalized. The former Slices 1.5–1.7 are
+renumbered 1.6–1.8.
 
 ### 1.2 Suite phases
 
@@ -1565,21 +1576,36 @@ rate, duration, parseability) gating `ready_to_import`.
 cut plays with temp narration; the report's manual-completion list matches
 what they see.
 
-**Slice 1.5 — Studio assembly from the same build.** The agent consumes the
+**Slice 1.5 — Fusion semantic-input capability spike.** Before production
+Studio assembly, use a producer-authored, hash-pinned lower-third template and
+an internal test request to prove the documented Resolve/Fusion APIs can find
+the expected composition and controls, set required primary text, optional
+secondary text, and accent color, read the exact values back, save/reopen, and
+verify them again. Place the template through the accepted pinned-template
+path on V4 at two exact durations. Do not change shared contracts, frozen
+fixtures, or accepted tests; do not implement the curated graphics product or
+its authoring UI. Record version-stamped behavior in `CAPABILITIES.md`. See
+the [curated Fusion graphics plan](plans/curated-fusion-graphics.md) for the
+bounded spike and later productization sequence.
+*Done when:* automated checks prove unexpected graph/control identities fail
+closed, and the producer visually accepts correct data, placement, duration,
+and animation at both tested durations after save/reopen.
+
+**Slice 1.6 — Studio assembly from the same build.** The agent consumes the
 same package via the Studio API path proven in Slice 0.4: new project or
 selected project, deterministic bins, new timeline named from build ID,
 verification against the manifest, discrepancy report.
 *Done when:* the producer runs one command and gets a verified Studio timeline
 identical (per verification) to the Free import of the same build.
 
-**Slice 1.6 — Durable build jobs.** `VideoBuildJob` with the section 9.6
+**Slice 1.7 — Durable build jobs.** `VideoBuildJob` with the section 9.6
 stage model, idempotency keys, leases, resume-from-last-verified-artifact, and
 a CLI status view. Kill the agent mid-build and restart it.
 *Done when:* the producer starts a build, force-quits the agent during speech
 generation, restarts it, and the build completes without regenerating finished
 blocks.
 
-**Slice 1.7 — First real script.** One-time, agent-assisted conversion of the
+**Slice 1.8 — First real script.** One-time, agent-assisted conversion of the
 "OEV25 Finland" document (or the current production's script) into a
 `ScriptDocument` fixture, reviewed by the producer for row types and
 OC/VO/coverage intent. This replaces Revision 1's heuristic-importer product
@@ -2282,7 +2308,7 @@ is part of every phase gate.
 | Field-level override rules (`locked`, `project_overridable`, …) with policy enforcement | Occurrence settings on placed uses; conventions instead of enforcement | A template's fields are being changed in ways that break brand consistency in practice |
 | `MusicRightsSnapshot` with license evidence, territories, expiry, and rights-based release blocking | License note and attribution fields on the cue; missing-bytes blocking only | Monetization/clearance review becomes real, a license actually carries an expiry, or a third party requires evidence |
 | Scheduled webpage monitoring (daily/weekly, material-change detection) | Capture-on-add plus manual recapture with immutable revisions | A build is actually burned by a stale capture more than once |
-| Heuristic legacy Google Docs importer with inference-review queue | Agent-assisted, producer-reviewed one-time conversion per legacy doc (Slice 1.7 pattern) | The back catalog grows beyond supervised conversion, or outside writers must self-import |
+| Heuristic legacy Google Docs importer with inference-review queue | Agent-assisted, producer-reviewed one-time conversion per legacy doc (Slice 1.8 pattern) | The back catalog grows beyond supervised conversion, or outside writers must self-import |
 | Revoked-editor private recovery export of unsynced local text | Prompt session termination on role removal | The team grows beyond people who can coordinate a role change in chat |
 | FCPXML as a perpetually maintained second interchange format | OTIO primary; FCPXML only if Slice 0.3 evidence demands it | Slice 0.3 finds OTIO gaps on tested versions, or a Resolve update breaks OTIO import |
 | Generated-image and stock-search adapters with candidate review | Placeholders and writer-supplied assets | The core loop is stable and placeholder resolution is the measured bottleneck (Revision 1's own criterion) |
@@ -2525,5 +2551,4 @@ existing research clip workflow.
 - Adobe Podcast Enhance Speech — documented upload/process/download browser
   workflow with plan/file limits; treated as optional and replaceable, never
   architectural infrastructure
-
 

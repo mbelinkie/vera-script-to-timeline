@@ -1,5 +1,10 @@
 # Slice 1.3 — Compiler core plan
 
+> **Historical numbering note:** D-0015 later inserted the Fusion
+> semantic-input capability spike as Slice 1.5 and renumbered the former
+> unstarted Slices 1.5–1.7 as 1.6–1.8. Forward references below retain the
+> numbering in force when this accepted plan was written.
+
 ## Status and gate
 
 **Accepted by the producer on 2026-08-26.**
