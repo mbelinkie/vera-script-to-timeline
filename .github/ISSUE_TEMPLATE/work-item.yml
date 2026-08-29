@@ -44,9 +44,10 @@ body:
     id: dependencies
     attributes:
       label: Dependencies
-      description: Link dependencies or write "None".
+      description: Use one `- Blocked by #123` or `- Blocked by owner/repo#123` line per prerequisite, or write `None`. Parent/sub-issue links do not imply ordering.
+      value: "None"
     validations:
       required: true
   - type: markdown
     attributes:
-      value: "Before Ready, leave exactly one `model:*` and one `effort:*` routing label."
+      value: "Before Ready, leave exactly one `model:*` and one `effort:*` routing label, then use `npm run roadmap -- ready <issue>`. This command verifies acceptance and requires every dependency to be closed and Done."

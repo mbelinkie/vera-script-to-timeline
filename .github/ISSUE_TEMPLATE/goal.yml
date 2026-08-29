@@ -25,6 +25,15 @@ body:
   - type: textarea
     id: dependencies
     attributes:
-      label: Dependencies and child work
+      label: Dependencies
+      description: Use one `- Blocked by #123` or `- Blocked by owner/repo#123` line per prerequisite, or write `None`.
+      value: "None"
+    validations:
+      required: true
+  - type: textarea
+    id: child_work
+    attributes:
+      label: Child work
+      description: Link bounded sub-issues. These links roll up scope but do not imply execution order.
     validations:
       required: true

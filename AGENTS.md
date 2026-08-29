@@ -20,6 +20,10 @@ acceptance record, not a live tracker.
   slice.
 - Require one Ready issue, one task, and one dedicated branch/worktree. Claim
   only an exact `model:*` and `effort:*` match through `npm run roadmap`.
+- Record prerequisites under `## Dependencies` as `- Blocked by #123` or
+  `- Blocked by owner/repo#123`, or `None`; hierarchy alone does not imply
+  ordering. Promote only with `npm run roadmap -- ready <issue>`. Both Ready
+  promotion and claim require every dependency to be closed and `Done`.
 
 ## Standing guardrails
 

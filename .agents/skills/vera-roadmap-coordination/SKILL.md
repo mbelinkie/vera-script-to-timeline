@@ -10,11 +10,14 @@ Use the GitHub Project configured in `.github/vera-roadmap.json` as the sole liv
 ## Required flow
 
 1. Inspect the issue with `npm run roadmap -- inspect <issue>`.
-2. Begin only when Status is `Ready`, dependencies are resolved, acceptance criteria are complete, and exactly one supported `model:*` plus one `effort:*` label exists.
-3. Claim with the exact running profile, task identity, and dedicated branch: `npm run roadmap -- claim <issue> --model <exact-model> --effort <effort> --task <task> --branch <branch>`.
-4. Keep work inside issue scope. File discoveries in Inbox and do not start them.
-5. Move implementation to `In review` with actual evidence. Manual listening, visual inspection, Resolve testing, and producer judgment remain there until accepted.
-6. Close only with named acceptance authority and retained evidence.
+2. Record prerequisites under `## Dependencies` as one `- Blocked by #123` or `- Blocked by owner/repo#123` entry per issue, or `None`. Parent/sub-issue hierarchy does not imply ordering. Use `npm run roadmap -- ready <issue>`; it moves the issue to `Ready` only after every dependency is closed and `Done` on its own VERA roadmap.
+3. Begin only when Status is `Ready`, dependencies are resolved, acceptance criteria are complete, and exactly one supported `model:*` plus one `effort:*` label exists. The claim command revalidates dependency state to catch manual board moves and races.
+4. Claim with the exact running profile, task identity, and dedicated branch: `npm run roadmap -- claim <issue> --model <exact-model> --effort <effort> --task <task> --branch <branch>`.
+5. Keep work inside issue scope. File discoveries in Inbox and do not start them.
+6. Move implementation to `In review` with actual evidence. Manual listening, visual inspection, Resolve testing, and producer judgment remain there until accepted.
+7. Close only with named acceptance authority and retained evidence.
+
+For design-first work, create and accept the bounded design issue before implementation. Keep implementation in `Backlog` or `Blocked` with `Blocked by` the design issue; only its accepted `Done` state unlocks `Ready`.
 
 ## Routing
 
