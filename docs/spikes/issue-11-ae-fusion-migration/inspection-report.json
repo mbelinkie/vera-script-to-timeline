@@ -27,6 +27,95 @@
       ]
     }
   },
+  "reference_render_baseline": {
+    "access": "read-only",
+    "source_location": "producer-supplied animations/renders/EV23 lower third 2-2-24",
+    "provenance": {
+      "frame_count": 152,
+      "numbered_frames": "00000 through 00151",
+      "total_bytes": 12060746,
+      "frame_format": "PNG RGBA, 1920x1080, square pixels",
+      "metadata_creator": "Adobe After Effects",
+      "authoritative_frame_rate": "unknown; no FPS metadata in the PNG sequence",
+      "ordered_manifest_sha256": "257125cab46a0524388845bd1e0ea5987881db96ecb9bde1ccd30f6498bdb526",
+      "manifest_digest_definition": "SHA-256 over ordered filename\\0size\\0file_sha256\\n records"
+    },
+    "observed_variant": {
+      "primary_text": "\u201cSong Title Goes Here\u201d",
+      "secondary_text": "SINGER GOES HERE",
+      "country_identity": "United Kingdom",
+      "year_label": "2024",
+      "inferred_icon_style": "heart_flag",
+      "inferred_country_name_in_icon": true,
+      "limits": "One single-line heart-flag configuration only; no evidence for long copy, empty secondary text, full-circle, override, custom identity, or alternate duration behavior."
+    },
+    "phases": {
+      "blank_before": [0, 0],
+      "entrance": [1, 77],
+      "stable_hold": [78, 120],
+      "exit": [121, 146],
+      "blank_after": [147, 151],
+      "hold_reference_frame": 90,
+      "first_visible_frame": 1,
+      "last_visible_frame": 146
+    },
+    "measured_1080p_geometry": {
+      "coordinate_system": "inclusive full-canvas pixel coordinates; measured at hold frame 90",
+      "whole_graphic": {
+        "bbox": "x=73..1061, y=738..996",
+        "size_px": "989x259",
+        "margins_px": {
+          "left": 73,
+          "right": 858,
+          "bottom": 83
+        }
+      },
+      "shared_badge_ring_center_px": [223, 887],
+      "badge": {
+        "bbox": "approximately x=114..332, y=778..996",
+        "size_px": "approximately 219x219",
+        "shape": "opaque white circle with a black-outlined heart/flag inset"
+      },
+      "country_year_ribbon": {
+        "blue_bbox": "x=73..323, y=738..973",
+        "dark_label_bbox": "x=83..309, y=746..955",
+        "shape": "upper-left annular arc; approximate inner/outer radii 112/150 px and 38 px band",
+        "label": "uppercase country and year on curved baseline"
+      },
+      "primary_bar": {
+        "bbox": "x=320..1061, y=806..907",
+        "size_px": "742x102",
+        "relationship": "hard-edged bar begins approximately 13 px behind the badge; badge masks its left edge"
+      },
+      "secondary_bar": {
+        "bbox": "approximately x=283..696, y=916..996",
+        "size_px": "approximately 414x81",
+        "relationship": "hard-edged bar begins approximately 50 px behind the badge; 8 clear rows separate it from the primary bar"
+      }
+    },
+    "observed_z_order": [
+      "primary and secondary bars behind badge",
+      "annular ribbon behind badge",
+      "country/year label above ribbon",
+      "heart/flag above badge",
+      "primary and secondary type above their bars"
+    ],
+    "observed_motion": {
+      "entrance": "Radial white stroke/donut grows from the badge center; the heart/flag grows from center and quarter-turns from left-facing to downward with directional blur around frames 39-41; annular ribbon/label rotate and trim into the upper-left arc; primary bar wipes left-to-right frames 43-68, primary text follows about 7 frames later and settles near 77; secondary bar starts near 59 and text near 64, both settle by 78.",
+      "exit": "Text, bars, and annular label/ribbon retract right-to-left through frame 137; primary and secondary text end by 133, secondary bar by 136, primary bar/ribbon by 137; frame 138 is badge-only; the badge then collapses toward its fixed center through frame 146 with expo-like scale/opacity behavior.",
+      "interpolation_limit": "Motion descriptions are visual observations, not decoded After Effects keyframe interpolation."
+    },
+    "rendered_color_evidence_not_approved_tokens": {
+      "accent_ribbon_primary_bar": "RGBA(134,169,216,217), approximately #86A9D8 at 85.1% alpha",
+      "secondary_bar": "RGBA(0,0,0,217), approximately 85.1% alpha",
+      "badge_and_secondary_type": "#FFFFFF opaque",
+      "primary_type_and_heart_outline": "#000000 opaque",
+      "flag_red": "#E2373F",
+      "flag_navy": "#003876",
+      "curved_label": "approximately #212A35 at alpha 244",
+      "limit": "Samples are render evidence without authoritative ICC/color-management or brand approval."
+    }
+  },
   "compositions": [
     "EV23 lower third 2-2-24"
   ],
@@ -188,11 +277,12 @@
     "Tint"
   ],
   "protected_timing_regions": {
-    "status": "not extractable",
-    "manual_check": "The producer must identify and approve entrance, protected hold, and exit boundaries from a source reference render."
+    "status": "observed baseline; source semantics still unverified",
+    "observed_baseline": "frames 78-120 are visibly stable in the supplied render; exit begins 121",
+    "manual_check": "The producer must confirm the source composition FPS, timing semantics, duration-scaling rule, and whether the observed hold is protected."
   },
   "unsupported_or_ambiguous": [
-    "No exact composition duration, frame rate, canvas size, safe-area geometry, or protected timing region is recoverable from this binary-string inspection.",
+    "The supplied baseline render is 1920x1080, but source composition duration, frame rate, safe-area policy, and protected-region semantics remain unverified.",
     "No authoritative source color values, approved logo list, font licensing evidence, or delivery-resolution policy was supplied.",
     "The semantic meaning of the two icon toggles is inferred from their labels and expressions; their viewer-facing presentation requires reference-render review.",
     "The inspector never evaluates expressions, opens After Effects, renders frames, or modifies source materials."
