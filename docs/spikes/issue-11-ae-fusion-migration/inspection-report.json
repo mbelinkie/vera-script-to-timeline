@@ -1,0 +1,200 @@
+{
+  "schema_version": "vera-after-effects-inspection-v1",
+  "inspection": {
+    "workflow": "python -m vera_timeline_agent.after_effects_inspection_cli <read-only-aep> --collection-report <read-only-report>",
+    "mode": "read-only",
+    "source": {
+      "file_name": "OEV lower third.aep",
+      "format": "After Effects big-endian RIFX project",
+      "size_bytes": 2440851,
+      "sha256": "2ee1bc759fb5b46d28e0b723c4986fe8177ab96ff93fa6deb7f866311127288f"
+    },
+    "collection_report": {
+      "collected_file_count": 99,
+      "declared_effects": [
+        "Checkbox Control",
+        "Color Control",
+        "Layer Control",
+        "Set Matte",
+        "Slider Control",
+        "Stroke",
+        "Tint",
+        "country"
+      ],
+      "declared_fonts": [
+        "Arial Narrow",
+        "ITC Franklin Gothic LT Pro"
+      ]
+    }
+  },
+  "compositions": [
+    "EV23 lower third 2-2-24"
+  ],
+  "relevant_layers": [
+    {
+      "source_name": "controller",
+      "role": "Holds source controls and drives country/icon expressions."
+    },
+    {
+      "source_name": "Main Text",
+      "role": "Primary editable text layer."
+    },
+    {
+      "source_name": "Sub-Text",
+      "role": "Secondary editable text layer."
+    },
+    {
+      "source_name": "COUNTRY 2022",
+      "role": "Country label driven by country, year, and override expressions."
+    },
+    {
+      "source_name": "year",
+      "role": "Editable year text layer."
+    },
+    {
+      "source_name": "override",
+      "role": "Editable country-name override text layer."
+    },
+    {
+      "source_name": "Circle Motion",
+      "role": "Shape-layer motion treatment."
+    }
+  ],
+  "exposed_controls": [
+    {
+      "source_name": "Main Text",
+      "semantic_id": "primary_text",
+      "type": "text",
+      "migration_status": "required"
+    },
+    {
+      "source_name": "Sub-Text",
+      "semantic_id": "secondary_text",
+      "type": "text",
+      "migration_status": "optional"
+    },
+    {
+      "source_name": "Country",
+      "semantic_id": "country_identity",
+      "type": "choice",
+      "migration_status": "required"
+    },
+    {
+      "source_name": "year",
+      "semantic_id": "year_label",
+      "type": "text",
+      "migration_status": "required"
+    },
+    {
+      "source_name": "circle text",
+      "semantic_id": "country_name_in_icon_enabled",
+      "type": "boolean",
+      "migration_status": "producer-confirmed optional"
+    },
+    {
+      "source_name": "full circle",
+      "semantic_id": "icon_style",
+      "type": "choice",
+      "migration_status": "producer-confirmed optional"
+    },
+    {
+      "source_name": "override",
+      "semantic_id": "country_name_override_enabled",
+      "type": "boolean",
+      "migration_status": "conditional"
+    },
+    {
+      "source_name": "override text",
+      "semantic_id": "country_name_override",
+      "type": "text",
+      "migration_status": "conditional"
+    }
+  ],
+  "implementation_controls_not_for_editor_exposure": [
+    "color",
+    "textshift1",
+    "boxheight1",
+    "boxshift1",
+    "textshift2",
+    "boxheight2",
+    "boxshift2",
+    "finetune"
+  ],
+  "dropdowns": [
+    {
+      "source_name": "Country",
+      "semantic_id": "country_identity",
+      "option_count": 50,
+      "options": [
+        "Albania", "Armenia", "Australia", "Austria", "Azerbaijan", "Belarus",
+        "Belgium", "Blank", "Bosnia", "Bulgaria", "Croatia", "Cyprus", "Czech",
+        "Denmark", "Estonia", "Finland", "France", "Georgia", "Germany", "Greece",
+        "Hungary", "Iceland", "Ireland", "Israel", "Italy", "Latvia", "Lithuania",
+        "Luxembourg", "Macedonia", "Malta", "Moldova", "Monaco", "Montenegro",
+        "Netherlands", "Norway", "Poland", "Portugal", "Romania", "Russia",
+        "San Marino", "Serbia", "Slovakia", "Slovenia", "Spain", "Sweden",
+        "Switzerland", "Turkey", "Ukraine", "United Kingdom", "Otis / Custom (w full)"
+      ],
+      "persistence_rule": "Persist a stable semantic value, never an After Effects dropdown index."
+    }
+  ],
+  "expressions_and_keyframes": {
+    "expressions": [
+      {
+        "source": "Ease and Wizz 2.0.6",
+        "easing": "inOutExpo",
+        "evidence": "Serialized expression text states 'inOutExpo : All keyframes'."
+      },
+      {
+        "source": "country-layer-selector",
+        "evidence": "Serialized expression selects a layer from country and full-circle controls."
+      }
+    ],
+    "animated_surfaces_detected": [
+      "Trim Paths start/end",
+      "Scale",
+      "Opacity"
+    ],
+    "exact_keyframe_times_values_and_interpolation": "not extractable from the inspected opaque AEP records"
+  },
+  "fonts": {
+    "serialized_font_ids": [
+      "FranklinGothicLTPro-DmCm",
+      "FranklinGothicLTPro-BkXCm"
+    ],
+    "collection_report_families": [
+      "Arial Narrow",
+      "ITC Franklin Gothic LT Pro"
+    ],
+    "license_status": "not supplied; producer confirmation required before packaging or substitution"
+  },
+  "footage": {
+    "source_reference_count": 99,
+    "categories": [
+      "country icon/flag variants",
+      "one custom portrait image",
+      "one logo image"
+    ],
+    "local_collection_count": 99,
+    "asset_handling": "Read-only inspection only; no source asset, font, logo, or media bytes are included in this repository."
+  },
+  "effects": [
+    "Checkbox Control",
+    "Color Control",
+    "Layer Control",
+    "Set Matte",
+    "Slider Control",
+    "Stroke",
+    "Tint"
+  ],
+  "protected_timing_regions": {
+    "status": "not extractable",
+    "manual_check": "The producer must identify and approve entrance, protected hold, and exit boundaries from a source reference render."
+  },
+  "unsupported_or_ambiguous": [
+    "No exact composition duration, frame rate, canvas size, safe-area geometry, or protected timing region is recoverable from this binary-string inspection.",
+    "No authoritative source color values, approved logo list, font licensing evidence, or delivery-resolution policy was supplied.",
+    "The semantic meaning of the two icon toggles is inferred from their labels and expressions; their viewer-facing presentation requires reference-render review.",
+    "The inspector never evaluates expressions, opens After Effects, renders frames, or modifies source materials."
+  ]
+}
