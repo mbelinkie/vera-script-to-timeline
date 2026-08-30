@@ -197,52 +197,8 @@
       "semantic_id": "country_name_override",
       "type": "text",
       "migration_status": "conditional"
-    },
-    {
-      "source_name": "Matt-Belinkie.jpg",
-      "semantic_id": "custom_identity_media",
-      "type": "media_reference",
-      "migration_status": "conditional; source asset must be separately approved"
     }
   ],
-  "all_discovered_source_editable_inputs": {
-    "purpose": "Full source-control inventory discovered from serialized AEP and Essential Graphics evidence. It records controls the producer can change in the source; it does not decide which later Fusion editor inputs are exposed.",
-    "editorial_and_variant_controls": [
-      "Main Text (text)",
-      "Sub-Text (text)",
-      "Country (50-option dropdown)",
-      "year (text)",
-      "circle text (checkbox)",
-      "full circle (checkbox)",
-      "override (checkbox)",
-      "override text (text)",
-      "Matt-Belinkie.jpg (media replacement)"
-    ],
-    "implementation_and_fine_tuning_controls": [
-      "color (Color Control)",
-      "textshift1 (Slider Control)",
-      "boxheight1 (Slider Control)",
-      "boxshift1 (Slider Control)",
-      "textshift2 (Slider Control)",
-      "boxheight2 (Slider Control)",
-      "boxshift2 (Slider Control)",
-      "finetune (Slider Control)"
-    ],
-    "limit": "This is the complete discovered serialized control inventory, not a claim that every direct After Effects property or numeric range is decoded from the opaque project binary."
-  },
-  "future_editor_exposure_recommendation": {
-    "do_not_expose_without_producer_decision": [
-      "color",
-      "textshift1",
-      "boxheight1",
-      "boxshift1",
-      "textshift2",
-      "boxheight2",
-      "boxshift2",
-      "finetune"
-    ],
-    "reason": "These source mechanics support layout and styling; retain them in the inspection record while preferring typed semantic and data-driven Fusion controls."
-  },
   "dropdowns": [
     {
       "source_name": "Country",

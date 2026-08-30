@@ -81,19 +81,6 @@ node names, filesystem paths, and dropdown positions.
 | `country_name_in_icon_enabled` | producer-confirmed boolean | Include only if R10 shows a deliberate viewer-facing variant. | circle text |
 | `country_name_override_enabled` | conditional boolean | Enables the following value; otherwise it has no effect. | override |
 | `country_name_override` | conditional text | Required when the override is enabled; validate it as human-readable. | override text |
-| `custom_identity_media` | conditional media reference | Candidate replacement artwork for a custom identity; separate license/provenance approval required. | Matt-Belinkie.jpg |
-
-### Full source-editable inventory
-
-The inspection report explicitly retains every discovered source-editable
-control—not only the recommended future editor controls. In addition to the
-table above, the source has `color`, `textshift1`, `boxheight1`, `boxshift1`,
-`textshift2`, `boxheight2`, `boxshift2`, and `finetune` controls. They are
-recorded as implementation/fine-tuning controls because their exact ranges,
-layout semantics, and future-editor suitability are not decoded from the opaque
-AEP binary. The Fusion implementation should derive layout from semantic copy
-and approved constraints unless the producer explicitly asks to expose one.
-
 ## Must preserve
 
 - The information hierarchy and semantic inputs above.

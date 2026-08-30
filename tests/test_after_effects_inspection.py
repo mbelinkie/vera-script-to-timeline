@@ -23,7 +23,7 @@ def _project_bytes() -> bytes:
             b'fontEditValue":"FranklinGothicLTPro-BkXCm"\x00',
             b"// Ease and Wizz 2.0.6 : inOutExpo : All keyframes\x00",
             b'thisComp.layer("controller").effect("country")("Menu")\x00',
-            b"ESC-HEART-LUXEMBOURG-BLACK.png\x00Luxembourg.png\x00Matt-Belinkie.jpg\x00",
+            b"ESC-HEART-LUXEMBOURG-BLACK.png\x00Luxembourg.png\x00",
             b"ADBE Vector Trim Start\x00ADBE Vector Trim End\x00",
         )
     )
@@ -48,14 +48,12 @@ def test_inspection_reports_semantic_controls_and_explicit_limits(
         "year_label",
         "icon_style",
         "country_name_override_enabled",
-        "custom_identity_media",
     }
     assert report["dropdowns"][0]["option_count"] == 3
     assert report["expressions"][0]["easing"] == "ease_and_wizz_in_out_expo"
     assert report["footage"] == [
         "ESC-HEART-LUXEMBOURG-BLACK.png",
         "Luxembourg.png",
-        "Matt-Belinkie.jpg",
     ]
     assert any("exact keyframe times" in value for value in report["limitations"])
     assert any("protected timing regions" in value for value in report["limitations"])
