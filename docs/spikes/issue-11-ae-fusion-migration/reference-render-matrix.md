@@ -22,7 +22,7 @@ producer-supervised source-render check rather than an invented visual result.
 
 | ID | Phase | Text case | Control variant | Requested duration | Source evidence to inspect | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| B00 | Baseline sequence | `“Song Title Goes Here”` / `SINGER GOES HERE` | Observed UK/2024 heart-flag with curved country/year ring; values inferred from visible render | 152 frames; FPS unknown | 1920×1080 PNG sequence; first visible 1; entrance 1–77; stable hold 78–120; reference frame 90; exit 121–146; blank 147–151. See inspection report for geometry/motion. | Inspected read-only; not a substitute for R01–R12 |
+| B00 | Baseline sequence | `“Song Title Goes Here”` / `SINGER GOES HERE` | Observed UK/2024 heart-flag with curved country/year ring; values inferred from visible render | 152 frames; FPS unknown | 1920×1080 PNG sequence; first visible 1; entrance 1–77; stable hold 78–120; forensic measurement anchor 90; **producer-approved placement reference 100 for #12**; exit 121–146; blank 147–151. See inspection report for geometry/motion. | Producer accepted as the #12 placement reference; not a substitute for R01–R12 behavior coverage |
 | R01 | Entrance | Short: `Song Title` / `Artist` | `country_identity=Luxembourg`; default icon treatment | 72 frames | first visible pixel, icon/text ordering, trim/scale/opacity progression | Awaiting producer source render |
 | R02 | Hold | Short: `Song Title` / `Artist` | Same as R01 | 72 frames | protected hold, alignment, country/year legibility, no residual motion | Awaiting producer source render |
 | R03 | Exit | Short: `Song Title` / `Artist` | Same as R01 | 72 frames | exit direction, final visible pixel, overlap with protected hold | Awaiting producer source render |

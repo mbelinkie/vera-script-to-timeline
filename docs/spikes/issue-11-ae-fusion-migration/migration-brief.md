@@ -50,6 +50,12 @@ and exits at frames 121–146; frame 90 is the forensic hold reference. The PNG
 sequence has no authoritative FPS metadata, so these are frame observations,
 not timecode or a duration policy.
 
+For the follow-on #12 Fusion-package work, the producer has accepted **B00
+frame 100** from the retained `EV23 lower third 2-2-24` image sequence as the
+placement comparison reference. It is inside the stable hold; use it for the
+held layout, overlap, and relative position comparison. Frame 90 remains the
+measurement anchor used by this investigation.
+
 - Entrance: a radial white stroke/donut grows from badge center; the heart/flag
   grows centrally, turns from left-facing to downward around frames 39–41 with
   directional blur, and the annular ribbon/label rotates and trims into place.
