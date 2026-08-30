@@ -104,6 +104,7 @@ def _source_controls(text: str) -> list[dict[str, str]]:
         "full circle": "boolean",
         "override": "boolean",
         "override text": "text",
+        "Matt-Belinkie.jpg": "media_replacement",
         "color": "color",
         "textshift1": "number",
         "boxheight1": "number",
@@ -172,6 +173,13 @@ def _semantic_controls(text: str) -> list[dict[str, str]]:
             "country_name_override",
             "text",
             "Explicit country-name override when enabled.",
+        ),
+        (
+            "Matt-Belinkie.jpg",
+            "custom_identity_media",
+            "media_reference",
+            "Custom-identity media replacement; asset eligibility requires "
+            "producer approval.",
         ),
     )
     return [
