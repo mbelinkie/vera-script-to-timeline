@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "roadmap": "node scripts/roadmap.mjs",
-    "test:roadmap": "node --test scripts/roadmap.test.mjs",
+    "test:roadmap": "node --test scripts/roadmap.test.mjs scripts/roadmap-rate-limit.test.mjs",
     "progress": "node scripts/project-progress.mjs",
     "test:progress": "node --test scripts/project-progress.test.mjs",
     "generate:contracts": "node packages/contracts/scripts/generate-contracts.mjs",

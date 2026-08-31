@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { assertMutationBudget, formatRateLimitReport, parseRateLimitResponse } from "./roadmap-rate-limit.mjs";
 
 export const MODEL_CLASSES = ["luna", "terra", "sol"];
 export const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
@@ -56,6 +57,16 @@ function runGh(args, input) {
     throw new Error((result.stderr || result.stdout || "GitHub command failed").trim());
   }
   return result.stdout.trim();
+}
+
+function rateLimit() {
+  return parseRateLimitResponse(runGh(["api", "rate_limit", "--include"]));
+}
+
+function guardMutation(requiredRequests, graphqlRequests = 0) {
+  const parsed = rateLimit();
+  assertMutationBudget(parsed, requiredRequests, graphqlRequests);
+  return parsed;
 }
 
 function routeClass(model) {
@@ -270,7 +281,7 @@ async function main() {
   const settings = await config();
   const repository = settings.repository;
   if (!parsed.command || parsed.flags.has("help")) {
-    console.log("Usage: npm run roadmap -- <inspect|create|ready|claim|block|escalate|review|complete> [issue] [flags]");
+    console.log("Usage: npm run roadmap -- <inspect|rate-limit|create|ready|claim|block|escalate|review|complete> [issue] [flags]");
     return;
   }
 
@@ -283,6 +294,7 @@ async function main() {
     if (!MODEL_CLASSES.includes(model) || !EFFORTS.includes(effort)) throw new Error("Unsupported model or effort");
     const body = await readFile(path.resolve(bodyPath), "utf8");
     if (!acceptanceReady(body)) throw new Error("Issue body needs a heading named 'Acceptance criteria' and a checklist or numbered criteria");
+    guardMutation(3, parsed.flags.has("parent") ? 1 : 0);
     const url = runGh([
       "issue",
       "create",
@@ -304,6 +316,11 @@ async function main() {
     const number = Number(url.split("/").at(-1));
     if (parsed.flags.has("parent")) await linkSubIssue(settings, Number(parsed.flags.get("parent")), number);
     console.log(url);
+    return;
+  }
+
+  if (parsed.command === "rate-limit") {
+    console.log(formatRateLimitReport(rateLimit()));
     return;
   }
 
@@ -350,6 +367,7 @@ async function main() {
     }
     validateReadyRequirements(settings, issue, projectCache);
     assertClaimAvailable(issue.comments);
+    guardMutation(1);
     setStatus(settings, issue.url, "Ready");
     console.log(`Ready ${issue.url}`);
     return;
@@ -364,6 +382,7 @@ async function main() {
     if (item.status !== "Ready") throw new Error(`Issue must be Ready before claim; current status is ${item.status ?? "unknown"}`);
     validateReadyRequirements(settings, issue, projectCache);
     assertClaimAvailable(issue.comments);
+    guardMutation(2);
     const claim = {
       state: "active",
       model,
@@ -380,12 +399,14 @@ async function main() {
 
   const evidence = required(parsed.flags, "evidence");
   if (parsed.command === "block") {
+    guardMutation(2);
     addComment(repository, number, `Blocked.\n\nConfirmed evidence: ${evidence}`);
     setStatus(settings, issue.url, "Blocked");
   } else if (parsed.command === "escalate") {
     const recommendedModel = required(parsed.flags, "recommend-model");
     const recommendedEffort = required(parsed.flags, "recommend-effort");
     if (!MODEL_CLASSES.includes(recommendedModel) || !EFFORTS.includes(recommendedEffort)) throw new Error("Unsupported recommended profile");
+    guardMutation(3);
     runGh(["issue", "edit", String(number), "--repo", repository, "--add-label", "needs:model-escalation"]);
     const prior = latestClaim(issue.comments);
     const released = {
@@ -400,10 +421,12 @@ async function main() {
     );
     setStatus(settings, issue.url, "Blocked");
   } else if (parsed.command === "review") {
+    guardMutation(2);
     addComment(repository, number, `Implementation is ready for acceptance review.\n\nEvidence: ${evidence}`);
     setStatus(settings, issue.url, "In review");
   } else if (parsed.command === "complete") {
     const acceptedBy = required(parsed.flags, "accepted-by");
+    guardMutation(3);
     addComment(repository, number, `Accepted by ${acceptedBy}.\n\nAcceptance evidence: ${evidence}`);
     setStatus(settings, issue.url, "Done");
     runGh(["issue", "close", String(number), "--repo", repository, "--reason", "completed"]);
