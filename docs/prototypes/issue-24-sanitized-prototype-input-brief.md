@@ -46,12 +46,18 @@ authority.
 | --- | --- | --- |
 | **Section: Why the Signal Changes** |  | Section block; no duration by itself |
 | `[OC] A quiet harbor can still hide a moving pattern.` | Citation: “Coastal Sensor Primer,” `https://source-a.example.invalid/primer` | Citation card; no visual duration |
-| `Keep this calm; pause after “harbor.”` |  | Direction plus typed pause/performance annotation; not spoken |
-| `[OC] Watch the marker behind me [VO] as the tide turns and the reading begins to drift.` | Visual request: wide harbor footage with source audio muted, then a sensor close-up | One intact narration paragraph; two successive full-frame visual ranges begin inside it |
-|  | Candidate A: `https://media-a.example.invalid/harbor`, `00:12–00:19`; Candidate B: `https://media-b.example.invalid/sensor`, `01:03–01:10` | Right-only multiple-candidate visual request; no candidate selected initially |
+| `Keep this calm.` |  | Ordinary Direction block; excluded from prompter by default |
+|  | Comment: `@Editor Could we simplify “moving pattern”?` | Exact-range Comment anchored to the preceding narration, with optional stable-user mention, reply/resolve controls, and no build effect |
+| `[OC] Watch the marker behind me [PAUSE] [VO] as the tide turns and the reading begins to drift.` | Typed pause annotation, `Include in prompter: On` | Non-spoken typed annotation visible in prompter and sidecar; setting defaults on |
+|  | Sequence: wide harbor Clip (`Mute source audio`) followed by a sensor close-up Clip (`Use source audio`) | Timed Picture → Clip sequence; both play consecutively over successive exact ranges without splitting the paragraph |
+|  | Option A: `https://media-a.example.invalid/harbor`, `00:12–00:19`; Option B: `https://media-b.example.invalid/sensor`, `01:03–01:10` | Right-only Option set; no option selected initially and Release blocked by default |
+|  | Comparison stack: three fictional treatments on organized alternate Resolve tracks | Distinct comparison intent; explicit `Choose in Resolve` policy and choice marker |
 | `[VO] The instrument calls this the Lunara effect.` | Pronunciation: `Lunara` → `loo-NAH-rah` | Exact text annotation; not a visual and not spoken as an instruction |
-| `[VO] The public dashboard shows the same change from another angle.` | Webpage capture: `https://page.example.invalid/dashboard`; capture only the fictional trend panel | Web Capture card with requested region and unresolved immutable-artifact state |
-| `[OC] Here is the sensor before the trial began.` | Imported still `asset-demo-still-01`; contain without crop | Durable Local Still card with verified fictional identity separate from its locator |
+| `[VO] The public dashboard shows the same change from another angle.` | Webpage Capture: `https://page.example.invalid/dashboard`; fictional trend panel; policy `On build`; motion `Slow drift — top left v1` | Capture card with region/provenance, pre-build revision state, immutable-artifact history, and selected versioned motion preset |
+| `[VO] The archive preserves one view each morning.` | Periodic Webpage Capture: `https://page.example.invalid/archive`; motion `Slow drift — top center v1` | Periodic policy with bounded configurable retention; pinned/checkpoint/build-referenced revisions protected |
+| `[OC] Here is the sensor before the trial began.` | Uploaded Image `asset-demo-still-01`; contain; motion `None v1` | Durable managed image artifact with verified fictional identity separate from original locator |
+| `[VO] A second still shows the repaired housing.` | Linked Image `https://images.example.invalid/housing.png`; motion `Slow zoom — center v1` | Automatically acquire locally, then expose verifying/ready/failed status, hash, dimensions, and provenance |
+| `[VO] This frozen screenshot came from an earlier review.` | User-uploaded screenshot `asset-demo-screenshot-01` | Image subtype, not recapturable Capture, because no authoritative live relationship is retained |
 | `[VO] In one trial, the blue series rises while the amber series holds steady.` | Two-series chart: blue `12, 18, 27`; amber `14, 15, 15`; cite data snapshot `demo-v1` | Derived Graphic card with semantic inputs, source/version, and pinned-template placeholder |
 | `[VO] The operator described the change as “slow, then sudden.”` | Logged source clip, selected range `00:24–00:32`; transcript excerpt shown; source audio on | Source Clip card with immutable evidence and occurrence range |
 | `[VO] A short chime marks the second reading.` | Music/SFX cue `demo-chime-v1`; start at the anchored phrase; license note fictional | Music/SFX card with pinned fictional revision and explicit cue intent |
@@ -59,8 +65,9 @@ authority.
 | `Variant A: [OC] We adjust only after the second reading.` |  | Variant group `closing-line`; selected choice |
 | `Variant B: [OC] The second reading tells us when to adjust.` |  | Same variant group; inactive but readable |
 | `Variant C: [OC] Timing decides the adjustment.` |  | Same variant group; inactive but readable |
-| `[VO] A final comparison confirms the pattern.` | `[possible superseded] Earlier map treatment` plus highlight-review signal | Formatting/superseded review; no automatic exclusion or semantic mapping |
-|  | `Add a map somewhere near the comparison.` | Right-only Unplaced Graphic request; original proximity visible, no invented anchor/duration |
+| `[VO] A final comparison confirms the pattern.` | `Propose cut` on “final”; attributed pending strikethrough | Explicit review action only; accept parks the cut text, reject restores it, and pending never silently changes build content |
+|  | `Add a map somewhere near the comparison.` Duration `4s`, end anchored to “pattern.” | Right-only Graphic using duration+end three-point timing; interval is derivable without a start anchor |
+|  | `Add an establishing still.` Duration `3s` only | Unplaced/incomplete timed Picture; no nearest-row attachment and Release cannot derive an interval |
 |  | Local audio reference: `[unresolved local reference]` | Reference card; requires import/relink before any build use; no absolute path |
 |  | Production note: `Check the on-screen units in Resolve.` | Point-anchored Production marker; zero duration |
 | `[OC] The result is simple: observe, compare, then act.` |  | Narration-only row; no missing-visual warning because host remains on camera |
@@ -71,47 +78,60 @@ Show these beside the Draft without letting them enter validation, prompter,
 voice generation, duration, or build preview:
 
 - Idea: “Explain why the first reading can be misleading.”
-- Extra: an unused alternative paragraph with one stale visual reference.
+- Section-linked parked Extra: an unused paragraph with one stale visual
+  reference, represented once and shown both collapsed under **Why the Signal
+  Changes** and in global Extras.
 - Excluded draft note: “Verify the fictional units before publication.”
-- Superseded fragment awaiting confirmation from the formatting-review state.
+- Content parked by an accepted `Propose cut`, with attribution and history.
 
 ## 6. Required interactions and visible states
 
 ### 6.1 Anchoring and asymmetry
 
-1. Hovering or focusing a Visual card highlights its exact narration words.
+1. Hovering or focusing a Picture card highlights its exact narration words.
 2. Hovering or focusing highlighted words emphasizes the attached card.
 3. The continuous OC→VO paragraph remains one paragraph while two picture
    events attach to successive ranges.
 4. The right-only candidate row displays an explicit attachment control; its
    legacy vertical position does not create an anchor.
-5. The Unplaced map request stays in an Unplaced state until the user chooses a
-   range, a point, Extras, or dismissal.
+5. The duration-only establishing still stays Unplaced until the user adds a
+   start or end, parks it in Extras, or dismisses it; nearest-row placement is
+   never offered as an inferred default.
+6. Timing accepts start+end, start+duration, or duration+end. If all three are
+   present they must agree; contradictory values show a blocking conflict.
 
 ### 6.2 Typed right-lane roles
 
-Citation, Visual request, Source Clip, Graphic, Production marker, Draft note,
-and Reference must be distinguishable by visible label, icon, accessible name,
-and inspector fields—not color alone. Changing a role must show which fields
-and build behavior will change before confirmation.
+Timed Picture is a parent role with `Unresolved visual`, Clip, Image, Capture,
+and Graphic subtypes. It must remain distinguishable from Audio cue, Citation,
+Editor note/timeline marker, Draft note, Reference, and Comment by visible
+label, icon, accessible name, and inspector fields—not color alone. Clip shows
+`Mute`/`Use source audio`; Graphic shows semantic script data plus pinned
+template. Changing a role previews changed fields and build behavior.
 
 ### 6.3 Variants and candidates
 
 - The `closing-line` group shows exactly one active choice.
 - Only the active choice appears in prompter/build preview.
 - Inactive choices remain readable and lossless beside the group.
-- The source-candidate request may have zero or one selected candidate.
-- A release attempt with no selected candidate follows the explicit unresolved
-  placeholder/block policy; it never chooses the first URL.
+- A Sequence schedules all members consecutively.
+- An Option set may have zero or one selected candidate and never chooses the
+  first URL. Release blocks while it is unresolved unless the Producer changes
+  that set's resolution policy to `Choose in Resolve`.
+- A Comparison stack intentionally shows every candidate on organized
+  alternate Resolve tracks with a choice marker; it is not an unresolved
+  Option set or a Sequence.
 
 ### 6.4 Formatting review
 
-- Highlight, color, bold, italic, underline, and strikethrough appear as
-  preserved source formatting plus review signals.
+- Highlight, color, bold, italic, and underline may appear as preserved source
+  formatting but remain nonsemantic.
+- Strikethrough appears only after the attributed `Propose cut` action; there
+  is no decorative strikethrough control.
 - No formatting cue silently assigns OC/VO, role, status, ownership, active
   Draft membership, build eligibility, or timeline action.
-- Confirming `superseded` may move content to Extras; rejecting it restores
-  ordinary active/inactive classification without deleting text.
+- Accepting a proposed cut removes it from active Draft and preserves it as
+  section-linked parked material/history. Rejecting restores normal text.
 
 ### 6.5 Graphics and asset durability
 
@@ -124,12 +144,43 @@ and build behavior will change before confirmation.
 - A missing locator never erases the asset intent or substitutes unrelated
   media.
 
-### 6.6 Status and accessibility
+### 6.6 Image, capture, and motion
 
-Exercise these states: ready, unresolved, unplaced, needs classification,
-candidate selection required, possible superseded, stale reference, failed,
-and excluded. Each state needs text/icon/non-color distinction, keyboard
-access, an accessible name, and one relevant remediation action.
+- Upload Image creates a verified managed artifact using the authorized import
+  policy. Link Image automatically acquires a local immutable artifact and
+  exposes progress/failure without requiring a separate download command.
+- A user-uploaded screenshot is an Image unless the user explicitly creates or
+  preserves a live Capture relationship. A VERA-created webpage/screen Capture
+  retains capture parameters, provenance, and recapture revisions.
+- Capture policy choices are `Now`, `On build`, and `Periodic`. Preview them
+  without contacting real URLs. Every build freezes the exact immutable
+  revision it used.
+- Periodic revision history displays configurable bounded retention. Pinned,
+  checkpoint-referenced, and build-referenced captures are protected; only
+  unreferenced periodic revisions may age out.
+- Every Image/Capture occurrence selects a versioned motion preset. Show
+  `None`, `Slow drift — top left`, `Slow drift — top center`, and
+  `Slow zoom — center`, with room for future registered presets.
+
+### 6.7 Comments and prompter annotations
+
+- A Comment can anchor to text, a card, an Idea, an Extra, or between blocks;
+  it supports optional `@user`, replies, resolve/reopen, attribution, and an
+  explicit stale/reattach state. It never enters narration, duration, prompter,
+  or timeline output.
+- Pronunciation, pause, pacing, and emphasis are typed exact-range annotations.
+  `Include in prompter` defaults on. The visible prompter uses unmistakably
+  non-spoken cues such as `[PRONUNCIATION: Lunara = loo-NAH-rah]`, `[PAUSE]`,
+  and `[EMPHASIZE: second]`; ordinary Direction blocks remain excluded.
+
+### 6.8 Status and accessibility
+
+Exercise these states: ready, acquiring, unresolved, unplaced, incomplete
+timing, timing conflict, needs classification, option selection required,
+choose in Resolve, proposed cut, stale comment anchor, stale reference,
+capture due, retention-protected, failed, and excluded. Each needs text/icon/
+non-color distinction, keyboard access, an accessible name, and one relevant
+remediation action.
 
 ## 7. Required scenario views
 
@@ -138,16 +189,24 @@ access, an accessible name, and one relevant remediation action.
 2. **Classify right-lane item** — role picker and role-specific inspector.
 3. **Attach Unplaced item** — range/point/Extras/dismiss choices with no default
    nearest-row binding.
-4. **Choose source candidate** — compare candidates, select one, clear the
-   selection, and see deterministic build impact.
+4. **Choose collection behavior** — compare Sequence, Option set, and
+   Comparison stack; select/clear an option and inspect deterministic Preview,
+   Release, and Resolve impact.
 5. **Choose narration variant** — switch active choice without deleting other
    variants.
-6. **Review imported formatting** — accept/reject possible-superseded state and
-   prove other formatting remains nonsemantic.
+6. **Review proposed cut** — propose, accept, and reject a cut while proving
+   ordinary formatting remains nonsemantic and accepted content is parked.
 7. **Inspect derived graphic provenance** — semantic inputs, data version,
    citation, template version, and build readiness.
 8. **Resolve local reference** — unresolved, imported, relinked, and failed
    states using fictional locator labels only.
+9. **Acquire image and configure capture** — uploaded Image, automatically
+   acquired linked Image, uploaded screenshot, Capture timing policy, revision
+   history/retention, and motion preset.
+10. **Review section-linked Extras** — one parked identity visible under the
+    section and in global Extras, with restore behavior.
+11. **Comment and prompter review** — optional directed mention, stale-comment
+    repair, annotation include toggle, and visibly non-spoken prompter output.
 
 Every view must be testable at `1280 × 800` and `1024 × 768` as a real reflow,
 with pointer and keyboard operation. Exact visual tokens come only from the
@@ -160,22 +219,30 @@ The later prototype is incomplete unless it visibly exercises all of these:
 - [ ] section heading;
 - [ ] ordinary narration;
 - [ ] inline OC/VO transition;
-- [ ] performance direction, pause, and pronunciation;
+- [ ] ordinary Direction plus typed pause/pronunciation with default-on visible
+      prompter cues;
+- [ ] Comment with optional stable-user mention and no build behavior;
 - [ ] narration spanning multiple visual changes;
 - [ ] generic unresolved visual request;
 - [ ] logged clip with range, transcript excerpt, and source-audio policy;
-- [ ] webpage capture and durable local still;
+- [ ] uploaded Image, automatically acquired linked Image, and uploaded
+      screenshot treated as Image;
+- [ ] Webpage Capture with `Now`, `On build`, and `Periodic` policies,
+      immutable revisions, bounded/protected retention, and motion presets;
 - [ ] Music/SFX cue with pinned identity and explicit intent;
 - [ ] Citation that is not a visual;
 - [ ] full-screen text graphic;
 - [ ] data-derived graphic with provenance;
-- [ ] multiple candidate sources/ranges;
+- [ ] Sequence, Option set, and Comparison stack, including Release policy;
 - [ ] mutually exclusive narration variants;
 - [ ] right-only anchored and right-only Unplaced items;
-- [ ] formatting and possible-superseded review;
+- [ ] nonsemantic formatting and explicit `Propose cut` review;
 - [ ] local/non-durable asset reference;
 - [ ] production point marker;
-- [ ] Ideas, Extras, excluded note, and stale reference;
+- [ ] Ideas, section-linked parked/global Extras, excluded note, stale comment,
+      and stale reference;
+- [ ] start+end, start+duration, duration+end, incomplete timing, and timing
+      conflict states;
 - [ ] left-only, right-only, paired, and blank presentation;
 - [ ] deterministic active Draft/build inclusion; and
 - [ ] issue #21 token authority and both required viewports.

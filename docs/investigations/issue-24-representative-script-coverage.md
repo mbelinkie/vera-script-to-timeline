@@ -1,7 +1,7 @@
 # Representative-script coverage audit
 
 - Issue: [#24 — Audit a representative script against the Script-to-Timeline content model](https://github.com/mbelinkie/vera-script-to-timeline/issues/24)
-- Status: proposed for Producer acceptance
+- Status: Producer decisions recorded; complete artifact awaiting acceptance
 - Decision authority: Producer
 - Evidence class: private source, sanitized findings
 - Scope: content vocabulary, authoring presentation, and issue #13 handoff only
@@ -95,25 +95,31 @@ from a table row or the nearest nonempty left cell.
 | Ordinary narration, jokes, quoted setup, and conclusions | §§2, 3, 6.1–6.3, 7 | `NarrationBlock.text` and stable `NarrationToken`s | Edit as normal prose; build and prompter use only active spoken text. | Covered |
 | Inline on-camera and voiceover changes | §§2, 3, 6.2, 6.5, 7 | `HostVisibilitySpan { range, state }` | Non-color cue plus restrained styling; spans may start/end mid-paragraph and must cover every spoken token exactly once. | Covered |
 | Parenthetical direction and performance notes | §§3, 6.3, 6.5 | `DirectionBlock`; `NarrationBlock.notes[]` for block-level notes | Render muted/non-spoken; allow explicit inclusion policy in performance-beat sidecars; never speak it by default. | Covered |
-| Pauses, pacing, emphasis, and delivery instructions inside speech | §§6.5, 8.3 | Voice settings and pronunciation/performance inputs are specified, but frozen v1 has only free-form `notes[]` | Show typed inline annotations or inspector chips distinct from narration and preserve them in the prompter sidecar/synthesis input by policy. | Missing |
-| Pronunciation guidance, including phonetic and plain-language forms | §§3, 6.5, 8.3 | Pronunciation dictionary/overrides are specified outside frozen v1 | Show a pronunciation annotation tied to exact text with readable alias/phoneme and preview; never make the note spoken prose. | Missing |
+| Pauses, pacing, emphasis, and delivery instructions inside speech | §§6.5, 8.3 | Voice settings and pronunciation/performance inputs are specified, but frozen v1 has only free-form `notes[]` | Show typed exact-range annotations distinct from narration. `Include in prompter` defaults on and emits a visibly non-spoken cue such as `[PAUSE]` or `[EMPHASIZE: second]`; the same typed data enters the performance sidecar/synthesis input. | Missing |
+| Pronunciation guidance, including phonetic and plain-language forms | §§3, 6.5, 8.3 | Pronunciation dictionary/overrides are specified outside frozen v1 | Show a typed pronunciation annotation tied to exact text with readable alias/phoneme and preview. `Include in prompter` defaults on and emits a visibly non-spoken cue such as `[PRONUNCIATION: Lunara = loo-NAH-rah]`. | Missing |
 | Questions, reminders, and drafting commentary | §§3, 6.3, 6.6 | `NoteDraftBlock`, `IdeaItem`, `StoredFragment`, or comment thread depending intent | Ask the author to classify as private note, Idea, Extra, comment, or production marker; position alone is insufficient. | Design decision required |
+| Collaborative discussion, optionally directed to a specific user | §§5, 6.8 | Anchored comment thread with replies, stable-user mentions, resolve/reopen, attribution, and stale-anchor repair | Allow comments on text, typed cards, Ideas, Extras, or between blocks, with an optional `@user` mention. Comments never affect narration, timing, prompter, or build output. | Covered |
 
 ### 4.2 Visual, source, and evidence roles
 
 | Observed content family | Product-spec authority | Canonical representation | Planned authoring behavior | Status |
 | --- | --- | --- | --- | --- |
-| Generic clip/B-roll/still request | §§3, 6.2–6.4, 8.4, 13 | `VisualEvent` with `PlaceholderVisualSource` | Preserve request text on an anchored full-frame/overlay card; unresolved status remains visible and may compile to a labeled slate by policy. | Covered |
+| Generic picture/B-roll request | §§3, 6.2–6.4, 8.4, 13 | `VisualEvent` with `PlaceholderVisualSource` | Preserve request text on an anchored full-frame/overlay card. Its subtype remains `Unresolved visual` until classified; it is not a sibling media kind that overlaps Clip, Image, Capture, or Graphic. | Covered |
 | Resolved local still or video | §§6.3, 8.2, 8.4 | `VisualEvent` with `LocalMediaVisualSource`; `MediaReference`/`LocalMediaImport` in later phases | Preview framing/audio/range and expose verified import/relink state; paths remain locators, never identity. | Covered |
 | Logged research clip | §§6.11, 7, 8.1 | `VisualEvent`, `MediaReference`, and `ClipUsageRange` | Display title/excerpt and occurrence-specific use range while preserving research-owned evidence and immutable bounds. | Covered |
 | Source URL with exact in/out or timestamp range | §§3, 6.11, 7, 8.1 | `MediaReference.requestedInOut`, `ClipUsageRange`, and transcript snapshot | Keep link, readable range, precision, and selected frames together; range never floats as an untyped note. | Covered |
 | Transcript excerpt or quoted source speech | §§3, 6.11, 8.1 | Immutable transcript snapshot plus occurrence-readable excerpt | Display as evidence on the clip card/inspector; it does not become host narration or a citation by proximity. | Covered |
-| Source-audio instruction, including mute/silent footage | §§3, 7, 8.1, 8.4 | `VisualEvent.audioPolicy` and later usage settings | Expose explicit `Mute`/`Use source` state on the visual card; do not infer from link type or formatting. | Covered |
-| Direct image or webpage/screen reference | §§6.4, 8.4 | Planned `MediaReference` with URL/capture provenance | Preserve as a reference in authoring; build uses only an authorized immutable artifact or explicit placeholder. | Covered |
+| Source-audio instruction, including mute/silent footage | §§3, 7, 8.1, 8.4 | `VisualEvent.audioPolicy` and later usage settings | Expose explicit `Mute`/`Use source` state on the Clip card; do not infer from link type or formatting. | Covered |
+| Directly uploaded image | §§6.4, 8.2, 8.4 | Imported `MediaReference` plus immutable managed artifact and retained provenance | Import through an explicit copy/move/reference policy, verify/hash the bytes, and retain durable project-managed storage separately from the original locator. | Covered |
+| Linked image URL | §§6.4, 8.2, 8.4 | URL-backed `MediaReference` resolved to an immutable local artifact | Automatically acquire the original full-resolution asset locally when added, then verify type/dimensions, hash, and provenance. The quiet acquisition must still expose failure, retry, and artifact status. | Covered |
+| User-supplied screenshot | §§6.4, 8.4 | Uploaded image unless a live capture relationship is explicitly retained | Treat a manually uploaded screenshot as an Image, not as a recapturable webpage, because its source page and capture parameters are not authoritative. | Design decision required |
+| VERA-created webpage or screen capture | §§6.4, 8.4 | Versioned Capture request plus immutable capture artifacts and provenance | Distinguish capture intent from Image: retain requested/final URL, region, viewport, adapter, time, warnings, revision history, and an explicit recapture policy. | Covered |
+| Capture timing and version policy | §8.4 and §14 currently ship capture-on-add/manual recapture and defer scheduled monitoring | No accepted entity expresses `now`, `on build`, or `periodic` capture policy plus retention | Offer Capture now, Capture immediately before build/render, or Periodic capture. Freeze the exact resulting artifact into every build; keep bounded history without pruning pinned/checkpoint/build-referenced revisions. | Missing |
+| Still/capture animation | §8.4 supports explicit motion presets | Visual occurrence setting referencing a versioned motion-preset identity | Every Image or Capture exposes a motion setting. Built-ins are `None`, `Slow drift — top left`, `Slow drift — top center`, and `Slow zoom — center`; future presets extend the registry without changing old builds. | Design decision required |
 | Citation, article, report, or evidence link not intended on screen | §§3, 6.3 | Planned `citation` row/card; no frozen-v1 citation block yet | Use a visibly typed Citation card, preserved in script/build report, with no timeline duration by default. | Covered |
 | Production-only instruction or Resolve task | §§6.13, 7, 13 | Planned `ScriptVideoMarker` | Point-anchor to a word, event edge, or between blocks; no duration; unplaced if anchor is lost. | Covered |
 | Music, sound file, or audio cue reference | §§6.3, 7 | Planned `MusicCueUse`/template revision; simpler production note before Phase 9 | Type as Music/SFX when it is timeline intent; type as Reference when it is only supporting material. Never treat an arbitrary file mention as approved media. | Covered |
-| Right-column role inferred only from prose/position | §§3, 6.1–6.4 | Existing typed entities cover final roles, but no accepted classification workflow binds legacy text to them | Require an explicit role picker: Visual, Citation, Source clip/audio, Graphic, Production marker, Draft note, or Reference. | Design decision required |
+| Right-column role inferred only from prose/position | §§3, 6.1–6.4 | Existing typed entities cover final roles, but no accepted classification workflow binds legacy text to them | Require a hierarchical role picker: timed Picture (`Unresolved visual`, `Clip`, `Image`, `Capture`, or `Graphic`), Audio cue, Citation, Editor note/timeline marker, Draft note, or Reference. `Clip` exposes `Mute`/`Use source audio`; `Graphic` is semantic script data rendered by a pinned template. | Design decision required |
 
 ### 4.3 Graphics and provenance
 
@@ -122,15 +128,15 @@ from a table row or the nearest nonempty left cell.
 | Full-screen text or long-text graphic instruction | §§3, 6.3, 7 | Placeholder `VisualEvent` now; later `GraphicUse` with pinned template revision | Show editable semantic text and intended presentation, not a pasted screenshot as the only source of truth. | Covered |
 | Map, chart, comparison, or other derived graphic | §§3, 6.3, 7 | `GraphicUse.semanticInputs` and immutable template revision | Author semantic inputs and preview the graphic while keeping it anchored like any visual. | Covered |
 | Data/source provenance for a derived graphic | §§7, 8.4 and §4 principles 8–10 establish provenance, but no explicit graphic-evidence relationship is defined | No accepted canonical relationship from `GraphicUse` to source citations/data snapshot | Require source citations, data snapshot/version, derivation note, and template revision to survive together. | Missing |
-| Multiple candidate visual treatments for the same words | §§6.2, 8.4 support one authored event/source at build time | No candidate-set/selection entity in the canonical model | Preserve all candidates under one request, identify one selected candidate, and never compile the first or nearest candidate implicitly. | Missing |
+| Multiple candidate visual treatments for the same words | §§6.2, 8.4 support one authored event/source at build time | No sequence/option/comparison-set entity in the canonical model | Preserve explicit intent: a Sequence plays all items consecutively; an Option set has zero or one selected candidate; a Comparison stack sends organized candidates to alternate Resolve tracks with a choose marker. Never infer intent or select the first item. | Missing |
 
 ### 4.4 Editorial alternatives, formatting, and asset durability
 
 | Observed content family | Product-spec authority | Canonical representation | Planned authoring behavior | Status |
 | --- | --- | --- | --- | --- |
 | Mutually exclusive narration or visual alternatives | §§3, 6.6 preserve unused material, but do not express mutual exclusion | No `VariantGroup`/active-choice concept | Present a first-class variant group with exactly one active choice for Draft/build; keep other choices adjacent and lossless. | Missing |
-| Superseded or struck material | §§6.6, 6.9 and §4 principle 6 preserve history/Extras | `StoredFragment`/history after explicit classification; strikethrough itself is not canonical meaning | On supervised conversion, flag as `possible superseded`; require confirmation before moving to Extras or exclusion. | Design decision required |
-| Highlight color, foreground color, bold, italic, and underline | §§6.1, 6.6 and §4 principle 1 preserve readable formatting but define no production semantics | Rich-text/editor presentation only; frozen v1 does not serialize arbitrary formatting | Preserve when useful for human review, but never infer OC/VO, readiness, selection, ownership, build eligibility, or timeline action from appearance. | Design decision required |
+| Proposed editorial cut | §§6.6, 6.8–6.9 and §4 principle 6 preserve history/Extras, while full suggestion mode is deferred | No accepted typed `Propose cut` review action | Strikethrough exists only as the visible, attributed pending-cut proposal. Accepting removes the text from active Draft while preserving it as section-linked parked material/history; rejecting restores ordinary text. A proposal never silently changes a build. | Missing |
+| Highlight color, foreground color, bold, italic, and underline | §§6.1, 6.6 and §4 principle 1 preserve readable formatting but define no production semantics | Rich-text/editor presentation only; frozen v1 does not serialize arbitrary formatting | Preserve when useful for human review, but never infer OC/VO, readiness, selection, ownership, build eligibility, or timeline action from appearance. Generic decorative strikethrough is not offered because strikethrough is reserved for `Propose cut`. | Design decision required |
 | “Add somewhere,” placement questions, and unresolved position | §§6.13, 13 and §4 principle 11 require honest incompleteness | Marker-only unplaced state exists; general unplaced content does not | Keep in an Unplaced queue with original order/proximity evidence; explicit reattachment or dismissal only. | Missing |
 | Reference to a local path, folder, discussion thread, or unattached sound file | §§8.2, 13 and §4 principles 9 and 12 | `MediaReference`/`LocalMediaImport` only after an authorized verified import; otherwise placeholder/reference note | Show `Reference not durable`; require import, verified relink, or replacement before build use. Never publish or store a private absolute path as identity. | Covered |
 | Saved asset with a durable verified identity | §§7, 8.2 and §4 principles 9–10 | `MediaReference`, `ResolvedArtifact`, `MaterializedMedia` | Display artifact identity/version and current locator state separately; missing locators do not erase intent. | Covered |
@@ -140,17 +146,22 @@ from a table row or the nearest nonempty left cell.
 | ID | Proposed decision for Producer acceptance | Rationale | Follow-up owner |
 | --- | --- | --- | --- |
 | D24-01 | Table rows are never canonical edit, shot, paragraph, or anchor boundaries. | Only 85 of 547 rows pair both sides; narration and visual material are independently placed. | #13 incorporates the rule; later import/authoring work must prove it. |
-| D24-02 | Right-column material must carry an explicit role: Visual, Citation, Source clip/audio, Graphic, Production marker, Draft note, or Reference. | The same legacy lane contains build events, evidence, instructions, and non-build notes. | Producer accepts taxonomy; later authoring design implements it. |
-| D24-03 | A right-only item attaches by exact text range or explicit point-between-blocks anchor. Ambiguous items remain Unplaced; proximity is evidence, not authority. | Silent nearest-row attachment would invent timing and meaning. | Producer accepts behavior; a bounded model/design follow-up supplies the missing general unplaced state. |
-| D24-04 | Mutually exclusive alternatives become a first-class variant group with exactly one active Draft/build choice; other choices remain losslessly adjacent. | Extras preserves material but does not state exclusivity or active choice. | After acceptance, roadmap steward files a contract/design issue; no change in #24. |
-| D24-05 | Multiple candidate links/ranges remain one request with explicit candidates and one nullable selected candidate. No implicit first-link selection. | Candidate preservation and build determinism require separate proposal and choice identities. | After acceptance, roadmap steward files a bounded candidate-selection issue. |
-| D24-06 | Formatting is never imported as production semantics. Strikethrough triggers a `possible superseded` review; highlights/colors remain human emphasis until classified. | Source formatting is inconsistent and cannot safely determine visibility, readiness, or build scope. | #13 prototype shows conversion-review states; later import design owns mapping UI. |
-| D24-07 | Derived graphics must retain semantic inputs, data/source citations, snapshot/version, derivation note, and pinned template revision together. | A screenshot or instruction alone cannot reproduce or audit a chart/map later. | After acceptance, roadmap steward files a bounded graphic-provenance contract issue. |
+| D24-02 | Right-column material uses a hierarchical taxonomy: timed Picture (`Unresolved visual`, `Clip`, `Image`, `Capture`, `Graphic`), Audio cue, Citation, Editor note/timeline marker, Draft note, or Reference. | `Visual` is a parent behavior, not a peer of Clip; the lane also contains evidence and non-build notes. | #13 proves the taxonomy; later authoring work implements it. |
+| D24-03 | A timed Picture attaches to an exact text range or an explicit point designated as its start or end, and needs any consistent two of start, end, and duration. It may remain Unplaced while drafting, but Release blocks until an interval is derivable. | Proximity invents meaning; three-point editing permits start+end, start+duration, or duration+end without requiring all three. | A bounded model/design follow-up supplies general Unplaced and timing-validation behavior. |
+| D24-04 | Mutually exclusive alternatives are first-class variant groups with exactly one active Draft/build choice. Removed-but-retained material is instead one section-linked parked `StoredFragment`, shown collapsed beneath its section and also in global Extras. | Optional parked material and alternate authored choices have different intent; the two views must not duplicate content identity. | Later authoring/contract design owns variant and section-linked Extras behavior. |
+| D24-05 | Source collections carry explicit intent: Sequence (all consecutive), Option set (zero or one selected), or Comparison stack (organized alternate Resolve tracks plus a choose marker). No first-link selection is implicit. Release blocks on an unresolved Option set unless the Producer explicitly changes its resolution policy to `Choose in Resolve`. | Selection, succession, and editorial comparison have different deterministic timeline behavior. | Later candidate/group design owns schema and Resolve mapping. |
+| D24-06 | Formatting never controls production semantics. Strikethrough exists only as the attributed visual state of an explicit `Propose cut` action; accept parks the cut content with history and reject restores it. | Decorative formatting and editorial decisions must not be conflated; pending proposals cannot silently change build content. | A bounded review-semantics follow-up is required because full suggestion mode is currently deferred. |
+| D24-07 | Derived graphics retain semantic inputs, data/source citations, snapshot/version, derivation note, and pinned template revision together. | A screenshot or instruction alone cannot reproduce or audit a chart/map later. | A bounded graphic-provenance contract issue follows acceptance. |
 | D24-08 | Paths, folders, and discussion references are locators/hints only. Build-eligible assets require a durable ID, verified bytes, and retained provenance. | The product already separates identity from locator and forbids silent substitution. | Existing Phase 5 asset workflow; #13 shows unresolved/relink presentation. |
-| D24-09 | Citations and transcript evidence are not visuals unless the author explicitly promotes them to a visual event. | A supporting source link must not acquire screen time merely because it is in the right lane. | #13 prototype distinguishes Citation and Visual cards. |
-| D24-10 | Public artifacts use only aggregate counts, generalized roles, and fictional examples; the source document and URL remain private evidence. | Issue #24 and the delegation explicitly require confidentiality. | Every reviewer and follow-up issue author. |
+| D24-09 | Citations and transcript evidence are not pictures unless the author explicitly promotes them to a timed Picture event. | A supporting source must not acquire screen time because of lane position. | #13 prototype distinguishes Citation and Picture cards. |
+| D24-10 | Comments are first-class collaborative threads with optional stable-user mentions, replies, resolve/reopen, and stale-anchor repair; they have no timeline/build effect. | Discussion must not be overloaded into Draft notes or Resolve markers. | Existing Phase 3 contract; #13 proves the authoring distinction. |
+| D24-11 | Image and Capture are distinct Picture subtypes. An Image is uploaded or linked; linked images are automatically acquired to verified local managed storage. A user-uploaded screenshot is an Image unless it explicitly retains a live Capture relationship. | Bytes alone do not establish recapture intent or provenance. | Phase 5 media design plus a bounded acquisition-taxonomy follow-up. |
+| D24-12 | A Capture declares `Now`, `On build`, or `Periodic`. Each attempt creates an immutable revision; a build freezes the exact revision it used. Periodic history is bounded by configurable retention, but pinned, checkpoint-referenced, or build-referenced revisions are never pruned. | Freshness must be deliberate, reproducible, and storage-bounded. | Revives scheduled capture as an accepted bounded follow-up; retention count/age remains later design input. |
+| D24-13 | Every Image and Capture occurrence has a versioned motion preset. Initial choices are `None`, `Slow drift — top left`, `Slow drift — top center`, and `Slow zoom — center`; later presets can be added without changing frozen builds. | Motion is per-use editorial intent, not a property inferred from source type. | Phase 5 design/contract follow-up. |
+| D24-14 | Pronunciation and performance instructions are typed exact-range annotations with `Include in prompter` on by default. Included annotations render as unmistakably non-spoken bracketed cues in the prompter as well as its sidecar. | The person performing needs to see the direction; free-form notes are not deterministic enough. | Bounded prompter/annotation contract follow-up. |
+| D24-15 | Public artifacts use only aggregate counts, generalized roles, and fictional examples; the source document and URL remain private evidence. | Issue #24 and the delegation explicitly require confidentiality. | Every reviewer and follow-up issue author. |
 
-Producer acceptance of D24-01 through D24-10 makes them the investigation's
+Producer acceptance of D24-01 through D24-15 makes them the investigation's
 decision output. It does not amend `ScriptDocument v1` or authorize
 implementation.
 
@@ -160,10 +171,13 @@ No follow-up issue is created by this investigation before Producer acceptance.
 
 | Proposed bounded follow-up | Trigger | Current owner | Relationship to frozen contracts |
 | --- | --- | --- | --- |
-| Variant groups and candidate-source selection design | Producer accepts D24-04 and D24-05 | Roadmap steward files an Inbox design/contract issue | Must propose exact schema/version and migration impact before any contract edit. |
-| Typed right-lane roles and general Unplaced anchoring | Producer accepts D24-02 and D24-03 | Roadmap steward files an Inbox authoring-model issue | Must not overload `VisualEvent.status` or marker-only `unplaced`. |
-| Typed narration annotations for pronunciation/performance | Producer accepts the Missing findings in §4.1 | Roadmap steward files an Inbox contract/design issue | Must state prompter, synthesis, validator, and migration effects. |
+| Variant groups, section-linked parked material, and candidate collection modes | Producer accepts D24-04 and D24-05 | Roadmap steward files bounded Inbox design/contract issue(s) after #24 acceptance | Must distinguish Variant, StoredFragment, Sequence, Option set, and Comparison stack identities and state exact Resolve/release behavior. |
+| Typed right-lane roles, general Unplaced anchoring, and three-point timing | Producer accepts D24-02 and D24-03 | Roadmap steward files a bounded Inbox authoring-model issue after #24 acceptance | Must not overload `VisualEvent.status` or marker-only `unplaced`; must validate the two-of-three timing rule and disagreement when all three values exist. |
+| Typed narration annotations for pronunciation/performance | Producer accepts D24-14 | Roadmap steward files a bounded Inbox contract/design issue after #24 acceptance | Must state visible prompter, sidecar, synthesis, validator, and migration effects while leaving ordinary direction blocks excluded. |
 | Derived-graphic provenance relationship | Producer accepts D24-07 | Roadmap steward files an Inbox graphics-contract issue | Must preserve existing `GraphicUse` and template-version guarantees. |
+| Image acquisition taxonomy, capture policies/retention, and motion presets | Producer accepts D24-11 through D24-13 | Roadmap steward files bounded Phase 5 design/contract issues after #24 acceptance | Scheduled capture is explicitly revived from §14; exact retention count/age is still a design input. Existing build snapshots must keep immutable artifact identity. |
+| `Propose cut` review semantics | Producer accepts D24-06 | Roadmap steward files a bounded Inbox review-model issue after #24 acceptance | This is narrower than general track changes; it must state collaboration, history, Draft/Extras, prompter, and build effects. |
+| Comments with optional directed mentions | Producer accepts D24-10 | Existing Phase 3 scope; no new issue required unless prototype review finds a gap | Must remain separate from Draft notes and Editor/Resolve markers. |
 | Supervised legacy conversion review | Producer accepts D24-06 and the Unplaced behavior | Roadmap steward decides whether this belongs in the later authoring/import slice | Heuristic self-service import remains deferred; no parser is authorized here. |
 
 ## 7. Edit-boundary and anchor validation
@@ -174,16 +188,28 @@ The accepted design must pass these sample-grounded invariants:
    cuts without being split.
 2. A single legacy row may contain only narration, only visual/reference
    material, both, or neither; none of those shapes implies duration.
-3. A full-frame visual covers an exact narration token range; an overlay may
-   overlap on-camera text but cannot satisfy voiceover coverage by itself.
-4. A Citation, Reference, Draft note, or Production marker contributes no
-   picture duration unless explicitly promoted to a Visual event.
+3. A timed Picture is buildable only when any two of start, end, and duration
+   derive one interval: start+end, start+duration, or duration+end. If all
+   three are supplied they must agree; one anchor alone or duration alone is
+   not enough. An overlay may overlap on-camera text but cannot satisfy
+   voiceover coverage by itself.
+4. A Citation, Reference, Draft note, or Editor note/timeline marker contributes
+   no picture duration unless explicitly promoted to a timed Picture event.
 5. A right-only item with no confident range remains Unplaced. Conversion may
    preserve its source order and neighboring block IDs as evidence, but must
    not silently bind it.
-6. Multiple candidates and alternatives do not create overlapping build
-   events until one candidate/variant is selected.
-7. Paragraph boundaries remain writing structure; frame timing remains
+6. A Sequence schedules every member consecutively. An Option set schedules
+   only its selected member; Release blocks if unresolved unless its Producer-
+   set policy is `Choose in Resolve`. A Comparison stack intentionally places
+   organized alternates and a choice marker rather than pretending one won.
+7. A parked fragment appears under its source section and in global Extras by
+   reference to one identity, and it never enters active Draft/build output.
+8. Comments and included prompter annotations remain visibly different:
+   comments never enter output, while included typed annotations render as
+   non-spoken prompter cues and sidecar data.
+9. Every Image/Capture build freezes verified bytes, source provenance, the
+   selected motion-preset version, and—for Capture—the exact capture revision.
+10. Paragraph boundaries remain writing structure; frame timing remains
    compiled output or an explicit timing override.
 
 ## 8. Exact bounded impact on issue #13
@@ -203,24 +229,37 @@ do not change. Its Claude brief needs only the following bounded additions.
 
 > - **Content-language coverage** — a focused scenario proving continuous
 >   narration across multiple visual cuts, left-only/right-only asymmetry,
->   typed right-lane roles, exact and unplaced anchors, variants, multiple
->   source candidates, formatting-review signals, derived-graphic provenance,
->   and unresolved local references without treating rows as edit boundaries.
+>   hierarchical right-lane roles, exact/unplaced/three-point timing, variants,
+>   section-linked parked material, Sequences, Option sets, Comparison stacks,
+>   uploaded/linked images, versioned capture policies and motion presets,
+>   typed visible prompter cues, comments/mentions, `Propose cut`, derived-
+>   graphic provenance, and unresolved local references without treating rows
+>   as edit boundaries.
 
 ### 8.3 Add to section 7.4, Required high-fidelity evidence
 
-> - Prove that Citation, Visual, Source clip/audio, Graphic, Production marker,
->   Draft note, and Reference cards remain distinguishable by text/icon and
->   accessible name, not color alone.
+> - Prove that timed Picture and its `Unresolved visual`, Clip, Image, Capture,
+>   and Graphic subtypes remain distinguishable from Audio cue, Citation,
+>   Editor note/timeline marker, Draft note, Reference, and Comment by text/icon
+>   and accessible name, not color alone.
 > - Prove hover, focus, and keyboard traversal between exact narration ranges
->   and attached cards; prove Unplaced items have no invented range or
->   duration.
-> - Prove only the selected variant and selected source candidate participate
->   in active Draft/build previews; all alternatives remain readable.
-> - Prove formatting cues enter an explicit review state and never silently
->   assign OC/VO, build scope, status, or ownership.
+>   and attached cards; prove Unplaced items have no invented interval and the
+>   two-of-three timing rule exposes incomplete or contradictory timing.
+> - Prove Variants, Sequences, Option sets, and Comparison stacks have visibly
+>   distinct build behavior; unresolved Option sets block Release unless their
+>   Producer-set policy is `Choose in Resolve`.
+> - Prove a section-linked parked fragment appears both collapsed under its
+>   section and in global Extras without duplication or active-build inclusion.
+> - Prove formatting remains nonsemantic and only an attributed `Propose cut`
+>   action creates strikethrough; accept parks content and reject restores it.
 > - Prove derived graphics show source/version provenance and unresolved local
 >   references show import/relink/remediation without exposing absolute paths.
+> - Prove upload and linked-image acquisition, Capture `Now`/`On build`/
+>   `Periodic` policy, immutable revisions/retention state, and versioned motion
+>   presets without performing real network or media actions.
+> - Prove typed pronunciation/performance annotations default to visible non-
+>   spoken prompter cues, and Comments with optional mentions remain discussion
+>   only.
 
 ### 8.4 Replace the generic fixture bullet in section 8.3
 
@@ -234,8 +273,9 @@ Replace `safe, fictional content and sanitization rules` with:
 
 > Review the issue #24 additions and sanitized prototype brief. **Expected:**
 > every accepted sample content family has a visible authoring treatment; rows
-> are never edit boundaries; unresolved choices remain explicit; and issue #21
-> still exclusively owns visual-token decisions.
+> are never edit boundaries; unresolved choices, capture freshness, timing, and
+> review states remain explicit; and issue #21 still exclusively owns visual-
+> token decisions.
 
 These edits are the entire #13 handoff. They do not reopen its artifact
 structure decision, add a dependency on issue #21, authorize high-fidelity UI,
@@ -250,10 +290,11 @@ or alter any contract.
    **Expected:** every observed structural and semantic family has a product-
    spec mapping, canonical-model mapping, planned authoring behavior, and one
    of the four allowed statuses.
-3. Review D24-01 through D24-10 in §5.
-   **Expected:** rows are rejected as edit boundaries; typed roles, anchoring,
-   variants, candidates, formatting, graphics provenance, and asset durability
-   each have an explicit decision.
+3. Review D24-01 through D24-15 in §5.
+   **Expected:** rows are rejected as edit boundaries; roles, timing, variants,
+   parked material, candidate modes, comments, image/capture acquisition,
+   motion, prompter cues, review semantics, graphics provenance, and asset
+   durability each have an explicit decision.
 4. Review §6.
    **Expected:** genuine Missing work has a bounded owner/trigger, but no
    follow-up issue or contract change has been created prematurely.
