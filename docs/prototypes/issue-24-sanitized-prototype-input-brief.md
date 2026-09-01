@@ -59,7 +59,8 @@ authority.
 | `[OC] Here is the sensor before the trial began.` | Uploaded Image `asset-demo-still-01`; contain; motion `None v1` | Durable managed image artifact with verified fictional identity separate from original locator |
 | `[VO] A second still shows the repaired housing.` | Linked Image `https://images.example.invalid/housing.png`; motion `Slow zoom — center v1` | Automatically acquire locally, then expose verifying/ready/failed status, hash, dimensions, and provenance |
 | `[VO] This frozen screenshot came from an earlier review.` | User-uploaded screenshot `asset-demo-screenshot-01` | Image subtype, not recapturable Capture, because no authoritative live relationship is retained |
-| `[VO] In one trial, the blue series rises while the amber series holds steady.` | Two-series chart: blue `12, 18, 27`; amber `14, 15, 15`; cite data snapshot `demo-v1` | Derived Graphic card with semantic inputs, source/version, and pinned-template placeholder |
+| `[VO] In one trial, the first bar reaches eighteen, then the second reaches twenty-seven.` | Bar chart: `reading-1 = 18`, `reading-2 = 27`; cue `bar:reading-1 → emphasis` over “first bar,” then `bar:reading-2 → emphasis` over “second”; cite snapshot `demo-v1` | One pinned Fusion Graphic with semantic inputs and two ordered exact-range highlight cues; completed target returns to base |
+| `[VO] In the summary table, the west station needs attention.` | Table: fictional east/west/north rows; cue `row:west → emphasis` over “west station” | Fusion template publishes a stable row target and maps semantic emphasis to its own versioned color/control values |
 | `[VO] The operator described the change as “slow, then sudden.”` | Logged source clip, selected range `00:24–00:32`; transcript excerpt shown; source audio on | Source Clip card with immutable evidence and occurrence range |
 | `[VO] Viewers saw the demonstration in its original online context.` | YouTube page composite from fictional Clip `harbor-demo`, range `00:24–00:32`; description and two fictional comments visible; motion `Slow zoom — center v1` | One-action compound Picture: moving clip inside a high-resolution fictional watch-page capture, pinned layout, source-audio policy, page revision, and whole-composite motion |
 | `[VO] A short chime marks the second reading.` | Music/SFX cue `demo-chime-v1`; start at the anchored phrase; license note fictional | Music/SFX card with pinned fictional revision and explicit cue intent |
@@ -140,6 +141,24 @@ behavior.
 
 - The chart card shows semantic values, fictional data snapshot/version,
   citation relationship, template placeholder, and unresolved/render state.
+- The pinned Fusion template publishes a human-readable target manifest. The
+  prototype includes `bar:reading-1`, `bar:reading-2`, and `row:west`, with
+  target kind, label, allowed semantic states, and verified template-control
+  binding; authoring never exposes internal Fusion node names.
+- A highlight cue selects one or more published targets, a template-defined
+  state such as `emphasis` or `muted`, an exact narration range/interval, and an
+  optional supported transition. The actual colors and Fusion parameters come
+  from the pinned template revision, not from #24.
+- Preview the two bar cues sequentially inside one chart and the row cue in the
+  table. A start-only cue may explicitly last until the next cue or Graphic end;
+  otherwise the two-of-three timing rule applies. Completed cues return to base
+  unless the next cue continues the state.
+- Disjoint targets may be active together. Contradictory overlapping states on
+  the same target create a blocking cue conflict with direct remediation.
+- Studio evidence shows the template controls/keyframes at compiled cue times.
+  Free uses the package's declared live/baked/manual fallback and reports which
+  representation it used. The build freezes template revision, inputs/data
+  provenance, cue schedule, resolved control values, and render identity.
 - The long-text card keeps editable text as data rather than baking it into an
   image.
 - The local audio reference shows `Reference not durable`, Import, Relink, and
@@ -227,7 +246,8 @@ behavior.
 Exercise these states: ready, acquiring, unresolved, unplaced, incomplete
 timing, timing conflict, needs classification, option selection required,
 choose in Resolve, proposed cut, stale comment anchor, stale reference,
-capture due, spotlight proposed, spotlight stale, page refresh available,
+capture due, spotlight proposed, spotlight stale, graphic target missing,
+graphic cue conflict, template update available, page refresh available,
 composite generating, retention-protected, failed, and excluded. Each needs
 text/icon/non-color distinction, keyboard access, an accessible name, and one
 relevant remediation action.
@@ -248,19 +268,23 @@ relevant remediation action.
    ordinary formatting remains nonsemantic and accepted content is parked.
 7. **Inspect derived graphic provenance** — semantic inputs, data version,
    citation, template version, and build readiness.
-8. **Resolve local reference** — unresolved, imported, relinked, and failed
+8. **Cue infographic emphasis** — select stable semantic table/bar targets,
+   add multiple narration-anchored cues to one chart, preview transitions and
+   resets, expose a same-target conflict, and inspect Studio keyframes plus the
+   declared Free fallback without choosing actual colors.
+9. **Resolve local reference** — unresolved, imported, relinked, and failed
    states using fictional locator labels only.
-9. **Acquire image and configure capture** — uploaded Image, automatically
+10. **Acquire image and configure capture** — uploaded Image, automatically
    acquired linked Image, uploaded screenshot, Capture timing policy, revision
    history/retention, and motion preset.
-10. **Review section-linked Extras** — one parked identity visible under the
+11. **Review section-linked Extras** — one parked identity visible under the
     section and in global Extras, with restore behavior.
-11. **Comment and prompter review** — optional directed mention, stale-comment
+12. **Comment and prompter review** — optional directed mention, stale-comment
     repair, annotation include toggle, and visibly non-spoken prompter output.
-12. **Present Clip on YouTube page** — apply the one-action treatment, inspect
+13. **Present Clip on YouTube page** — apply the one-action treatment, inspect
     separate Clip/page revisions, refresh the fictional play count, toggle
     description/comments visibility, and preview slow zoom on the composite.
-13. **Spotlight critical webpage text** — select fictional OCR words/lines,
+14. **Spotlight critical webpage text** — select fictional OCR words/lines,
     inspect and adjust the generated inverse matte, compare the manual rectangle,
     set its active phrase, inspect the nested-sequence handoff, recapture the
     page, and resolve a stale target without silently moving it.
@@ -296,6 +320,10 @@ The later prototype is incomplete unless it visibly exercises all of these:
 - [ ] Citation that is not a visual;
 - [ ] full-screen text graphic;
 - [ ] data-derived graphic with provenance;
+- [ ] pinned Fusion template with stable semantic row/bar targets, several
+      exact-range highlight cues on one graphic, template-defined emphasis,
+      transition/reset and conflict behavior, Studio keyframes, honest Free
+      fallback, and no #24 color selection;
 - [ ] Sequence, Option set, and Comparison stack, including Release policy;
 - [ ] mutually exclusive narration variants;
 - [ ] right-only anchored and right-only Unplaced items;
