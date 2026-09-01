@@ -20,9 +20,12 @@ and state the exact bounded impact on issue #13's Claude instructions.
    - issue #13's proposed VERA suite design contract and Claude brief.
 3. Record one coverage status for every observed family: `Covered`, `Design
    decision required`, `Intentionally excluded`, or `Missing`.
-4. Resolve or assign explicit follow-ups for variants, typed right-column
-   roles, right-only anchors, multiple source candidates, formatting,
-   graphics provenance, and non-durable asset references.
+4. Resolve or assign explicit follow-ups for variants and section-linked
+   parked material; hierarchical right-column roles; unplaced/three-point
+   timing; Sequences, Option sets, and Comparison stacks; comments/mentions;
+   `Propose cut`; image acquisition; capture timing/retention; motion presets;
+   typed visible prompter annotations; graphics provenance; and non-durable
+   asset references.
 5. Create a fictional, sanitized prototype input brief that exercises every
    accepted content family without reproducing the private script.
 6. State the exact additions issue #13 must make before its Claude brief can be
