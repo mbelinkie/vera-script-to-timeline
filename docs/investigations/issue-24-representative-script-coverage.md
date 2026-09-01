@@ -116,10 +116,11 @@ from a table row or the nearest nonempty left cell.
 | VERA-created webpage or screen capture | §§6.4, 8.4 | Versioned Capture request plus immutable capture artifacts and provenance | Distinguish capture intent from Image: retain requested/final URL, region, viewport, adapter, time, warnings, revision history, and an explicit recapture policy. | Covered |
 | Capture timing and version policy | §8.4 and §14 currently ship capture-on-add/manual recapture and defer scheduled monitoring | No accepted entity expresses `now`, `on build`, or `periodic` capture policy plus retention | Offer Capture now, Capture immediately before build/render, or Periodic capture. Freeze the exact resulting artifact into every build; keep bounded history without pruning pinned/checkpoint/build-referenced revisions. | Missing |
 | Still/capture animation | §8.4 supports explicit motion presets | Visual occurrence setting referencing a versioned motion-preset identity | Every Image or Capture exposes a motion setting. Built-ins are `None`, `Slow drift — top left`, `Slow drift — top center`, and `Slow zoom — center`; future presets extend the registry without changing old builds. | Design decision required |
+| YouTube watch-page presentation | §§6.4, 8.1–8.4 cover the source Clip, page Capture, artifact resolution, and motion separately | No accepted compound source/treatment binds a clip occurrence, watch-page capture, composite layout, and motion into one reproducible unit | From any compatible YouTube Clip, `Present on YouTube page` creates a nested composite: the chosen moving clip replaces the captured player area while the high-resolution page capture keeps the description and requested visible comments. A second optional `Refresh page now` action captures current public page state, including play count, as a new immutable page revision. | Missing |
 | Citation, article, report, or evidence link not intended on screen | §§3, 6.3 | Planned `citation` row/card; no frozen-v1 citation block yet | Use a visibly typed Citation card, preserved in script/build report, with no timeline duration by default. | Covered |
 | Production-only instruction or Resolve task | §§6.13, 7, 13 | Planned `ScriptVideoMarker` | Point-anchor to a word, event edge, or between blocks; no duration; unplaced if anchor is lost. | Covered |
 | Music, sound file, or audio cue reference | §§6.3, 7 | Planned `MusicCueUse`/template revision; simpler production note before Phase 9 | Type as Music/SFX when it is timeline intent; type as Reference when it is only supporting material. Never treat an arbitrary file mention as approved media. | Covered |
-| Right-column role inferred only from prose/position | §§3, 6.1–6.4 | Existing typed entities cover final roles, but no accepted classification workflow binds legacy text to them | Require a hierarchical role picker: timed Picture (`Unresolved visual`, `Clip`, `Image`, `Capture`, or `Graphic`), Audio cue, Citation, Editor note/timeline marker, Draft note, or Reference. `Clip` exposes `Mute`/`Use source audio`; `Graphic` is semantic script data rendered by a pinned template. | Design decision required |
+| Right-column role inferred only from prose/position | §§3, 6.1–6.4 | Existing typed entities cover final roles, but no accepted classification workflow binds legacy text to them | Require a hierarchical role picker: timed Picture (`Unresolved visual`, `Clip`, `Image`, `Capture`, `YouTube page composite`, or `Graphic`), Audio cue, Citation, Editor note/timeline marker, Draft note, or Reference. `Clip` exposes `Mute`/`Use source audio`; `Graphic` is semantic script data rendered by a pinned template. | Design decision required |
 
 ### 4.3 Graphics and provenance
 
@@ -160,8 +161,9 @@ from a table row or the nearest nonempty left cell.
 | D24-13 | Every Image and Capture occurrence has a versioned motion preset. Initial choices are `None`, `Slow drift — top left`, `Slow drift — top center`, and `Slow zoom — center`; later presets can be added without changing frozen builds. | Motion is per-use editorial intent, not a property inferred from source type. | Phase 5 design/contract follow-up. |
 | D24-14 | Pronunciation and performance instructions are typed exact-range annotations with `Include in prompter` on by default. Included annotations render as unmistakably non-spoken bracketed cues in the prompter as well as its sidecar. | The person performing needs to see the direction; free-form notes are not deterministic enough. | Bounded prompter/annotation contract follow-up. |
 | D24-15 | Public artifacts use only aggregate counts, generalized roles, and fictional examples; the source document and URL remain private evidence. | Issue #24 and the delegation explicitly require confidentiality. | Every reviewer and follow-up issue author. |
+| D24-16 | `YouTube page composite` is a first-class compound Picture treatment available from any compatible YouTube Clip in one primary action. It binds the clip occurrence, immutable high-resolution watch-page capture with description/requested visible comments, player-area placement, pinned composite-template revision, audio policy, and versioned motion preset. Initial creation captures the page; `Refresh page now` optionally records current public page state such as play count as a new selected revision. Existing builds never change. | The Producer currently assembles this as two captures plus a nested edit; preserving the parts and derivation makes the convenient action reproducible instead of baking an unauditable screen recording. | Bounded compound-media authoring/contract and Resolve-materialization follow-up. |
 
-Producer acceptance of D24-01 through D24-15 makes them the investigation's
+Producer acceptance of D24-01 through D24-16 makes them the investigation's
 decision output. It does not amend `ScriptDocument v1` or authorize
 implementation.
 
@@ -176,6 +178,7 @@ No follow-up issue is created by this investigation before Producer acceptance.
 | Typed narration annotations for pronunciation/performance | Producer accepts D24-14 | Roadmap steward files a bounded Inbox contract/design issue after #24 acceptance | Must state visible prompter, sidecar, synthesis, validator, and migration effects while leaving ordinary direction blocks excluded. |
 | Derived-graphic provenance relationship | Producer accepts D24-07 | Roadmap steward files an Inbox graphics-contract issue | Must preserve existing `GraphicUse` and template-version guarantees. |
 | Image acquisition taxonomy, capture policies/retention, and motion presets | Producer accepts D24-11 through D24-13 | Roadmap steward files bounded Phase 5 design/contract issues after #24 acceptance | Scheduled capture is explicitly revived from §14; exact retention count/age is still a design input. Existing build snapshots must keep immutable artifact identity. |
+| One-action YouTube watch-page composite | Producer accepts D24-16 | Roadmap steward files a bounded Inbox compound-media design/contract issue after #24 acceptance | Must reuse authoritative research/YouTube clip identity and Capture artifacts rather than duplicate acquisition; freeze clip revision, page-capture revision, layout/template, audio policy, motion preset, and rendered/nested artifact in the build snapshot. Public anonymous capture ships first; authenticated/personalized page capture remains separately authorized. |
 | `Propose cut` review semantics | Producer accepts D24-06 | Roadmap steward files a bounded Inbox review-model issue after #24 acceptance | This is narrower than general track changes; it must state collaboration, history, Draft/Extras, prompter, and build effects. |
 | Comments with optional directed mentions | Producer accepts D24-10 | Existing Phase 3 scope; no new issue required unless prototype review finds a gap | Must remain separate from Draft notes and Editor/Resolve markers. |
 | Supervised legacy conversion review | Producer accepts D24-06 and the Unplaced behavior | Roadmap steward decides whether this belongs in the later authoring/import slice | Heuristic self-service import remains deferred; no parser is authorized here. |
@@ -209,7 +212,11 @@ The accepted design must pass these sample-grounded invariants:
    non-spoken prompter cues and sidecar data.
 9. Every Image/Capture build freezes verified bytes, source provenance, the
    selected motion-preset version, and—for Capture—the exact capture revision.
-10. Paragraph boundaries remain writing structure; frame timing remains
+10. A YouTube page composite freezes its clip revision independently from its
+   page-capture revision. Refreshing play count, description, or visible
+   comments creates a new page revision and cannot rewrite an earlier build or
+   silently change the selected video in/out.
+11. Paragraph boundaries remain writing structure; frame timing remains
    compiled output or an explicit timing override.
 
 ## 8. Exact bounded impact on issue #13
@@ -232,6 +239,7 @@ do not change. Its Claude brief needs only the following bounded additions.
 >   hierarchical right-lane roles, exact/unplaced/three-point timing, variants,
 >   section-linked parked material, Sequences, Option sets, Comparison stacks,
 >   uploaded/linked images, versioned capture policies and motion presets,
+>   one-action YouTube watch-page composites,
 >   typed visible prompter cues, comments/mentions, `Propose cut`, derived-
 >   graphic provenance, and unresolved local references without treating rows
 >   as edit boundaries.
@@ -239,9 +247,9 @@ do not change. Its Claude brief needs only the following bounded additions.
 ### 8.3 Add to section 7.4, Required high-fidelity evidence
 
 > - Prove that timed Picture and its `Unresolved visual`, Clip, Image, Capture,
->   and Graphic subtypes remain distinguishable from Audio cue, Citation,
->   Editor note/timeline marker, Draft note, Reference, and Comment by text/icon
->   and accessible name, not color alone.
+>   `YouTube page composite`, and Graphic subtypes remain distinguishable from
+>   Audio cue, Citation, Editor note/timeline marker, Draft note, Reference, and
+>   Comment by text/icon and accessible name, not color alone.
 > - Prove hover, focus, and keyboard traversal between exact narration ranges
 >   and attached cards; prove Unplaced items have no invented interval and the
 >   two-of-three timing rule exposes incomplete or contradictory timing.
@@ -257,6 +265,10 @@ do not change. Its Claude brief needs only the following bounded additions.
 > - Prove upload and linked-image acquisition, Capture `Now`/`On build`/
 >   `Periodic` policy, immutable revisions/retention state, and versioned motion
 >   presets without performing real network or media actions.
+> - Prove that `Present on YouTube page` turns a compatible Clip into a nested
+>   composite in one primary action; description/comments remain visible,
+>   `Refresh page now` produces a newly selected immutable page revision, slow
+>   zoom applies to the whole composite, and prior builds remain unchanged.
 > - Prove typed pronunciation/performance annotations default to visible non-
 >   spoken prompter cues, and Comments with optional mentions remain discussion
 >   only.
@@ -290,11 +302,11 @@ or alter any contract.
    **Expected:** every observed structural and semantic family has a product-
    spec mapping, canonical-model mapping, planned authoring behavior, and one
    of the four allowed statuses.
-3. Review D24-01 through D24-15 in §5.
+3. Review D24-01 through D24-16 in §5.
    **Expected:** rows are rejected as edit boundaries; roles, timing, variants,
    parked material, candidate modes, comments, image/capture acquisition,
-   motion, prompter cues, review semantics, graphics provenance, and asset
-   durability each have an explicit decision.
+   motion, YouTube page composites, prompter cues, review semantics, graphics
+   provenance, and asset durability each have an explicit decision.
 4. Review §6.
    **Expected:** genuine Missing work has a bounded owner/trigger, but no
    follow-up issue or contract change has been created prematurely.

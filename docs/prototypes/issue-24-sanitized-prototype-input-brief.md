@@ -60,6 +60,7 @@ authority.
 | `[VO] This frozen screenshot came from an earlier review.` | User-uploaded screenshot `asset-demo-screenshot-01` | Image subtype, not recapturable Capture, because no authoritative live relationship is retained |
 | `[VO] In one trial, the blue series rises while the amber series holds steady.` | Two-series chart: blue `12, 18, 27`; amber `14, 15, 15`; cite data snapshot `demo-v1` | Derived Graphic card with semantic inputs, source/version, and pinned-template placeholder |
 | `[VO] The operator described the change as “slow, then sudden.”` | Logged source clip, selected range `00:24–00:32`; transcript excerpt shown; source audio on | Source Clip card with immutable evidence and occurrence range |
+| `[VO] Viewers saw the demonstration in its original online context.` | YouTube page composite from fictional Clip `harbor-demo`, range `00:24–00:32`; description and two fictional comments visible; motion `Slow zoom — center v1` | One-action compound Picture: moving clip inside a high-resolution fictional watch-page capture, pinned layout, source-audio policy, page revision, and whole-composite motion |
 | `[VO] A short chime marks the second reading.` | Music/SFX cue `demo-chime-v1`; start at the anchored phrase; license note fictional | Music/SFX card with pinned fictional revision and explicit cue intent |
 | `[OC] That distinction matters because the next step depends on timing.` | Full-screen text: `MEASURE FIRST / ADJUST SECOND` | Long-text Graphic card; overlay/full-frame choice visible |
 | `Variant A: [OC] We adjust only after the second reading.` |  | Variant group `closing-line`; selected choice |
@@ -103,11 +104,12 @@ voice generation, duration, or build preview:
 ### 6.2 Typed right-lane roles
 
 Timed Picture is a parent role with `Unresolved visual`, Clip, Image, Capture,
-and Graphic subtypes. It must remain distinguishable from Audio cue, Citation,
-Editor note/timeline marker, Draft note, Reference, and Comment by visible
-label, icon, accessible name, and inspector fields—not color alone. Clip shows
-`Mute`/`Use source audio`; Graphic shows semantic script data plus pinned
-template. Changing a role previews changed fields and build behavior.
+`YouTube page composite`, and Graphic subtypes. It must remain distinguishable
+from Audio cue, Citation, Editor note/timeline marker, Draft note, Reference,
+and Comment by visible label, icon, accessible name, and inspector fields—not
+color alone. Clip shows `Mute`/`Use source audio`; Graphic shows semantic script
+data plus pinned template. Changing a role previews changed fields and build
+behavior.
 
 ### 6.3 Variants and candidates
 
@@ -173,14 +175,37 @@ template. Changing a role previews changed fields and build behavior.
   non-spoken cues such as `[PRONUNCIATION: Lunara = loo-NAH-rah]`, `[PAUSE]`,
   and `[EMPHASIZE: second]`; ordinary Direction blocks remain excluded.
 
-### 6.8 Status and accessibility
+### 6.8 YouTube page composite
+
+- Every compatible YouTube Clip card offers `Present on YouTube page`. One
+  action captures the current public watch-page state and creates a nested
+  composite in which the selected moving clip occupies the captured player
+  area while the description and requested visible comments remain readable.
+- The quick inspector exposes clip in/out and audio policy, page region,
+  description/comments visibility, captured play count, page-capture revision,
+  composite-template revision, and whole-composite motion preset. It does not
+  require the author to create or align two separate cards.
+- `Refresh page now` is an optional second action while authoring. It captures
+  the current public page state—including a newer play count—as a new immutable
+  revision and selects it for the active Draft; earlier revisions and builds
+  remain unchanged. `On build` may instead be chosen when build-time freshness
+  is desired.
+- The Clip and page Capture retain separate identities. Refreshing page chrome
+  never changes the selected video, in/out, source audio policy, or transcript
+  evidence. The build snapshot pins both revisions, layout/template, motion,
+  and resulting nested artifact.
+- The prototype uses only fictional page text, channel identity, counts,
+  description, and comments. Public anonymous capture is the baseline;
+  authenticated or personalized page state is not silently accessed.
+
+### 6.9 Status and accessibility
 
 Exercise these states: ready, acquiring, unresolved, unplaced, incomplete
 timing, timing conflict, needs classification, option selection required,
 choose in Resolve, proposed cut, stale comment anchor, stale reference,
-capture due, retention-protected, failed, and excluded. Each needs text/icon/
-non-color distinction, keyboard access, an accessible name, and one relevant
-remediation action.
+capture due, page refresh available, composite generating, retention-protected,
+failed, and excluded. Each needs text/icon/non-color distinction, keyboard
+access, an accessible name, and one relevant remediation action.
 
 ## 7. Required scenario views
 
@@ -207,6 +232,9 @@ remediation action.
     section and in global Extras, with restore behavior.
 11. **Comment and prompter review** — optional directed mention, stale-comment
     repair, annotation include toggle, and visibly non-spoken prompter output.
+12. **Present Clip on YouTube page** — apply the one-action treatment, inspect
+    separate Clip/page revisions, refresh the fictional play count, toggle
+    description/comments visibility, and preview slow zoom on the composite.
 
 Every view must be testable at `1280 × 800` and `1024 × 768` as a real reflow,
 with pointer and keyboard operation. Exact visual tokens come only from the
@@ -229,6 +257,9 @@ The later prototype is incomplete unless it visibly exercises all of these:
       screenshot treated as Image;
 - [ ] Webpage Capture with `Now`, `On build`, and `Periodic` policies,
       immutable revisions, bounded/protected retention, and motion presets;
+- [ ] one-action YouTube page composite with moving Clip, high-resolution page
+      capture, visible fictional description/comments, refreshable play count,
+      separate immutable revisions, pinned layout, and whole-composite motion;
 - [ ] Music/SFX cue with pinned identity and explicit intent;
 - [ ] Citation that is not a visual;
 - [ ] full-screen text graphic;
