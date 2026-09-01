@@ -4,7 +4,13 @@ import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { assertMutationBudget, formatRateLimitReport, parseRateLimitResponse } from "./roadmap-rate-limit.mjs";
+import {
+  assertGraphqlBudget,
+  formatGraphqlRateLimitReport,
+  parseGraphqlRateLimitResponse,
+  plannedGraphqlPoints,
+} from "./roadmap-rate-limit.mjs";
+import { acquireRoadmapLock } from "./roadmap-lock.mjs";
 
 export const MODEL_CLASSES = ["luna", "terra", "sol"];
 export const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
@@ -16,6 +22,71 @@ const VERA_ROADMAPS = new Map([
 ]);
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+const RATE_LIMIT_QUERY = `query RoadmapRateLimit {
+  rateLimit { limit remaining used resetAt cost }
+}`;
+
+const ISSUE_PROJECT_QUERY = `query RoadmapIssue($owner: String!, $name: String!, $number: Int!, $projectNumber: Int!) {
+  repository(owner: $owner, name: $name) {
+    escalationLabel: label(name: "needs:model-escalation") { id }
+    issue(number: $number) {
+      id number title url state body
+      labels(first: 100) { nodes { id name description color } }
+      comments(last: 100) { nodes { body } pageInfo { hasPreviousPage startCursor } }
+      projectItems(first: 100) {
+        nodes {
+          id
+          project { id number title }
+          fieldValueByName(name: "Status") {
+            ... on ProjectV2ItemFieldSingleSelectValue { name }
+          }
+          fieldValues(first: 30) {
+            nodes {
+              ... on ProjectV2ItemFieldSingleSelectValue {
+                name
+                field { ... on ProjectV2SingleSelectField { name } }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  user(login: $owner) {
+    projectV2(number: $projectNumber) {
+      id number title
+      field(name: "Status") {
+        ... on ProjectV2SingleSelectField { id name options { id name } }
+      }
+    }
+  }
+  rateLimit { limit remaining used resetAt cost }
+}`;
+
+const ISSUE_COMMENT_PAGE_QUERY = `query RoadmapIssueComments($owner: String!, $name: String!, $number: Int!, $before: String!) {
+  repository(owner: $owner, name: $name) {
+    issue(number: $number) {
+      comments(last: 100, before: $before) {
+        nodes { body }
+        pageInfo { hasPreviousPage startCursor }
+      }
+    }
+  }
+  rateLimit { limit remaining used resetAt cost }
+}`;
+
+const PROJECT_METADATA_QUERY = `query RoadmapProject($owner: String!, $projectNumber: Int!) {
+  user(login: $owner) {
+    projectV2(number: $projectNumber) {
+      id number title
+      field(name: "Status") {
+        ... on ProjectV2SingleSelectField { id name options { id name } }
+      }
+    }
+  }
+  rateLimit { limit remaining used resetAt cost }
+}`;
 
 export function parseArguments(values) {
   const [command, ...rest] = values;
@@ -46,13 +117,17 @@ function required(flags, name) {
   return value.trim();
 }
 
-function runGh(args, input) {
-  const result = spawnSync("gh", args, {
+function runGhResult(args, input) {
+  return spawnSync("gh", args, {
     cwd: root,
     encoding: "utf8",
     input,
     env: process.env,
   });
+}
+
+function runGh(args, input) {
+  const result = runGhResult(args, input);
   if (result.status !== 0) {
     throw new Error((result.stderr || result.stdout || "GitHub command failed").trim());
   }
@@ -60,13 +135,52 @@ function runGh(args, input) {
 }
 
 function rateLimit() {
-  return parseRateLimitResponse(runGh(["api", "rate_limit", "--include"]));
+  const result = runGhResult(["api", "graphql", "--include", "-f", `query=${RATE_LIMIT_QUERY}`]);
+  const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
+  return parseGraphqlRateLimitResponse(output);
 }
 
-function guardMutation(requiredRequests, graphqlRequests = 0) {
-  const parsed = rateLimit();
-  assertMutationBudget(parsed, requiredRequests, graphqlRequests);
-  return parsed;
+function preflightGraphql(operationNames) {
+  const snapshot = rateLimit();
+  assertGraphqlBudget(snapshot, plannedGraphqlPoints(operationNames));
+  return snapshot;
+}
+
+function restCoreRateLimit() {
+  const core = JSON.parse(runGh(["api", "rate_limit", "--jq", ".resources.core"]));
+  const values = [core.limit, core.remaining, core.used, core.reset].map(Number);
+  if (!values.every((value) => Number.isSafeInteger(value) && value >= 0)) {
+    throw new Error("GitHub REST core rate-limit response was incomplete");
+  }
+  return { limit: values[0], remaining: values[1], used: values[2], reset: values[3] };
+}
+
+function guardMutation(requiredRestRequests, graphqlOperationNames) {
+  const graphql = preflightGraphql(graphqlOperationNames);
+  if (requiredRestRequests > 0) {
+    const core = restCoreRateLimit();
+    if (core.remaining < requiredRestRequests) {
+      const resetAt = new Date(core.reset * 1000).toISOString();
+      throw new Error(
+        `Insufficient GitHub REST core budget: planned work needs ${requiredRestRequests} request(s), but ${core.remaining} remain. ` +
+          `Safe retry: at or after ${resetAt}. No mutation was attempted.`,
+      );
+    }
+  }
+  return graphql;
+}
+
+function runGraphql(query, variables = {}) {
+  const args = ["api", "graphql", "-f", `query=${query}`];
+  for (const [name, value] of Object.entries(variables)) {
+    args.push(Number.isInteger(value) || typeof value === "boolean" ? "-F" : "-f", `${name}=${value}`);
+  }
+  const payload = JSON.parse(runGh(args));
+  if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+    throw new Error(payload.errors.map((error) => error.message ?? String(error)).join("; "));
+  }
+  if (!payload.data) throw new Error("GitHub GraphQL response had no data");
+  return payload.data;
 }
 
 function routeClass(model) {
@@ -177,29 +291,154 @@ async function config() {
   return JSON.parse(await readFile(path.join(root, ".github", "vera-roadmap.json"), "utf8"));
 }
 
-function issueView(repository, number) {
-  return JSON.parse(runGh(["issue", "view", String(number), "--repo", repository, "--json", "number,title,url,state,body,labels,comments"]));
+function repositoryParts(repository) {
+  const [owner, name, ...extra] = repository.split("/");
+  if (!owner || !name || extra.length > 0) throw new Error(`Invalid GitHub repository: ${repository}`);
+  return { owner, name };
 }
 
 function labelsOf(issue) {
   return issue.labels.map((label) => label.name);
 }
 
-function addToProject(settings, url) {
-  runGh(["project", "item-add", String(settings.projectNumber), "--owner", settings.owner, "--url", url]);
+function statusContext(project, itemId = null) {
+  const field = project?.field;
+  if (!project?.id || !field?.id || !Array.isArray(field.options)) {
+    throw new Error("Configured roadmap project has no usable Status field");
+  }
+  return {
+    projectId: project.id,
+    projectNumber: project.number,
+    projectTitle: project.title,
+    itemId,
+    statusFieldId: field.id,
+    statusOptions: new Map(field.options.map((option) => [option.name, option.id])),
+  };
 }
 
-function setStatus(settings, url, status) {
-  if (!STATUSES.includes(status)) throw new Error(`Unsupported status: ${status}`);
-  runGh(["project", "item-edit", String(settings.projectNumber), "--owner", settings.owner, "--url", url, "--field", "Status", "--value", status]);
+function projectMetadata(settings) {
+  const data = runGraphql(PROJECT_METADATA_QUERY, { owner: settings.owner, projectNumber: settings.projectNumber });
+  if (!data.user?.projectV2) throw new Error("Configured roadmap project was not found");
+  return statusContext(data.user.projectV2);
 }
 
-function projectItems(settings) {
-  return JSON.parse(runGh(["project", "item-list", String(settings.projectNumber), "--owner", settings.owner, "--limit", "500", "--format", "json"])).items;
+function applyLifecycleMutation(context, issueId, { status, comment = null, escalationLabelId = null, close = false }) {
+  if (!context.itemId) throw new Error("Issue is not on the configured roadmap project");
+  const optionId = context.statusOptions.get(status);
+  if (!optionId) throw new Error(`Configured roadmap project has no Status option named ${status}`);
+  runGraphql(
+    `mutation RoadmapLifecycle(
+      $issueId: ID!,
+      $comment: String!,
+      $writeComment: Boolean!,
+      $labelId: ID!,
+      $writeLabel: Boolean!,
+      $projectId: ID!,
+      $itemId: ID!,
+      $fieldId: ID!,
+      $optionId: String!,
+      $writeStatus: Boolean!,
+      $closeIssue: Boolean!
+    ) {
+      label: addLabelsToLabelable(input: { labelableId: $issueId, labelIds: [$labelId] }) @include(if: $writeLabel) {
+        labelable { ... on Node { id } }
+      }
+      comment: addComment(input: { subjectId: $issueId, body: $comment }) @include(if: $writeComment) {
+        commentEdge { node { id } }
+      }
+      status: updateProjectV2ItemFieldValue(input: {
+        projectId: $projectId,
+        itemId: $itemId,
+        fieldId: $fieldId,
+        value: { singleSelectOptionId: $optionId }
+      }) @include(if: $writeStatus) { projectV2Item { id } }
+      close: closeIssue(input: { issueId: $issueId }) @include(if: $closeIssue) { issue { id } }
+    }`,
+    {
+      issueId,
+      comment: comment ?? "",
+      writeComment: comment !== null,
+      labelId: escalationLabelId ?? issueId,
+      writeLabel: escalationLabelId !== null,
+      projectId: context.projectId,
+      itemId: context.itemId,
+      fieldId: context.statusFieldId,
+      optionId,
+      writeStatus: true,
+      closeIssue: close,
+    },
+  );
 }
 
-function projectItem(settings, number, items = projectItems(settings)) {
-  return items.find((item) => item.content?.number === number && item.content?.repository === settings.repository);
+function projectFields(item) {
+  return new Map(
+    (item?.fieldValues?.nodes ?? [])
+      .filter((value) => value?.field?.name && typeof value.name === "string")
+      .map((value) => [value.field.name, value.name]),
+  );
+}
+
+function issueProjectSnapshot(settings, number) {
+  const { owner, name } = repositoryParts(settings.repository);
+  const data = runGraphql(ISSUE_PROJECT_QUERY, { owner, name, number, projectNumber: settings.projectNumber });
+  const rawIssue = data.repository?.issue;
+  const project = data.user?.projectV2;
+  if (!rawIssue) throw new Error(`Issue #${number} was not found in ${settings.repository}`);
+  if (!project) throw new Error("Configured roadmap project was not found");
+  const rawItem = (rawIssue.projectItems?.nodes ?? []).find((candidate) => candidate.project?.id === project.id);
+  const fields = projectFields(rawItem);
+  let comments = rawIssue.comments?.nodes ?? [];
+  let commentsPage = rawIssue.comments?.pageInfo;
+  while (commentsPage?.hasPreviousPage && !latestClaim(comments)) {
+    preflightGraphql(["issueCommentPage"]);
+    const pageData = runGraphql(ISSUE_COMMENT_PAGE_QUERY, {
+      owner,
+      name,
+      number,
+      before: commentsPage.startCursor,
+    });
+    const page = pageData.repository?.issue?.comments;
+    if (!page) throw new Error(`Could not read older claim history for issue #${number}`);
+    comments = [...(page.nodes ?? []), ...comments];
+    commentsPage = page.pageInfo;
+  }
+  const issue = {
+    id: rawIssue.id,
+    number: rawIssue.number,
+    title: rawIssue.title,
+    url: rawIssue.url,
+    state: rawIssue.state,
+    body: rawIssue.body,
+    labels: rawIssue.labels?.nodes ?? [],
+    comments,
+  };
+  const item = rawItem
+    ? {
+        id: rawItem.id,
+        title: issue.title,
+        repository: `https://github.com/${settings.repository}`,
+        status: rawItem.fieldValueByName?.name ?? fields.get("Status") ?? null,
+        priority: fields.get("Priority") ?? null,
+        size: fields.get("Size") ?? null,
+        workstream: fields.get("Workstream") ?? null,
+        acceptance: fields.get("Acceptance") ?? null,
+        labels: labelsOf(issue),
+        content: {
+          body: issue.body,
+          number: issue.number,
+          repository: settings.repository,
+          title: issue.title,
+          type: "Issue",
+          url: issue.url,
+        },
+      }
+    : null;
+  return {
+    issue,
+    item,
+    context: statusContext(project, rawItem?.id ?? null),
+    escalationLabelId: data.repository?.escalationLabel?.id ?? null,
+  };
 }
 
 function roadmapForRepository(settings, repository) {
@@ -209,22 +448,50 @@ function roadmapForRepository(settings, repository) {
   return { ...roadmap, repository };
 }
 
-function dependencyStates(settings, issueNumberValue, body, projectCache = new Map()) {
+function dependencyStates(settings, issueNumberValue, body) {
   const dependencies = parseDependencies(body, settings.repository);
-  return dependencies.map((dependency) => {
+  if (dependencies.length === 0) return [];
+  const definitions = [];
+  const selections = [];
+  const variables = {};
+  const configured = dependencies.map((dependency, index) => {
     if (dependency.repository === settings.repository && dependency.number === issueNumberValue) {
       throw new Error("An issue cannot depend on itself");
     }
     const dependencySettings = roadmapForRepository(settings, dependency.repository);
-    const dependencyIssue = issueView(dependency.repository, dependency.number);
-    let items = projectCache.get(dependency.repository);
-    if (!items) {
-      items = projectItems(dependencySettings);
-      projectCache.set(dependency.repository, items);
-    }
-    const dependencyItem = projectItem(dependencySettings, dependency.number, items);
+    const { owner, name } = repositoryParts(dependency.repository);
+    definitions.push(`$owner${index}: String!`, `$name${index}: String!`, `$number${index}: Int!`);
+    variables[`owner${index}`] = owner;
+    variables[`name${index}`] = name;
+    variables[`number${index}`] = dependency.number;
+    selections.push(`dependency${index}: repository(owner: $owner${index}, name: $name${index}) {
+      issue(number: $number${index}) {
+        title url state
+        projectItems(first: 100) {
+          nodes {
+            project { number }
+            fieldValueByName(name: "Status") {
+              ... on ProjectV2ItemFieldSingleSelectValue { name }
+            }
+          }
+        }
+      }
+    }`);
+    return { dependency, dependencySettings };
+  });
+  const query = `query RoadmapDependencies(${definitions.join(", ")}) {
+    ${selections.join("\n")}
+    rateLimit { limit remaining used resetAt cost }
+  }`;
+  const data = runGraphql(query, variables);
+  return configured.map(({ dependency, dependencySettings }, index) => {
+    const dependencyIssue = data[`dependency${index}`]?.issue;
+    if (!dependencyIssue) throw new Error(`Dependency ${dependency.repository}#${dependency.number} was not found`);
+    const dependencyItem = (dependencyIssue.projectItems?.nodes ?? []).find(
+      (candidate) => candidate.project?.number === dependencySettings.projectNumber,
+    );
     const issueState = dependencyIssue.state;
-    const projectStatus = dependencyItem?.status ?? null;
+    const projectStatus = dependencyItem?.fieldValueByName?.name ?? null;
     return {
       ...dependency,
       title: dependencyIssue.title,
@@ -236,10 +503,6 @@ function dependencyStates(settings, issueNumberValue, body, projectCache = new M
   });
 }
 
-function addComment(repository, number, body) {
-  runGh(["issue", "comment", String(number), "--repo", repository, "--body-file", "-"], body);
-}
-
 function claimMarker(claim) {
   return `<!-- vera-claim ${JSON.stringify(claim)} -->`;
 }
@@ -248,7 +511,7 @@ function acceptanceReady(body) {
   return /^#{2,3} Acceptance criteria\s*$/im.test(body) && /- \[ \] |\n\d+\. /m.test(body);
 }
 
-function validateReadyRequirements(settings, issue, projectCache) {
+function validateReadyRequirements(settings, issue) {
   if (issue.state !== "OPEN") throw new Error("Only open issues can become or remain Ready");
   const labels = labelsOf(issue);
   routingProfile(labels);
@@ -256,30 +519,46 @@ function validateReadyRequirements(settings, issue, projectCache) {
   if (!acceptanceReady(issue.body)) {
     throw new Error("Issue body needs a heading named 'Acceptance criteria' and a checklist or numbered criteria");
   }
-  const dependencies = dependencyStates(settings, issue.number, issue.body, projectCache);
+  const dependencies = dependencyStates(settings, issue.number, issue.body);
   assertDependenciesResolved(dependencies);
   return dependencies;
 }
 
-async function linkSubIssue(settings, parentNumber, childNumber) {
+function createIssue(settings, title, body, labels) {
+  const args = ["api", "-X", "POST", `repos/${settings.repository}/issues`, "-f", `title=${title}`, "-f", `body=${body}`];
+  for (const label of labels) args.push("-f", `labels[]=${label}`);
+  const created = JSON.parse(runGh(args));
+  if (!created.node_id || !created.html_url || !Number.isInteger(created.number)) {
+    throw new Error("GitHub issue creation response was incomplete");
+  }
+  return { id: created.node_id, number: created.number, url: created.html_url };
+}
+
+function addToProject(context, contentId) {
+  const data = runGraphql(
+    `mutation AddRoadmapItem($projectId: ID!, $contentId: ID!) {
+      addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
+        item { id }
+      }
+    }`,
+    { projectId: context.projectId, contentId },
+  );
+  const itemId = data.addProjectV2ItemById?.item?.id;
+  if (!itemId) throw new Error("GitHub did not return the new roadmap item ID");
+  return { ...context, itemId };
+}
+
+async function linkSubIssue(settings, parentNumber, childId) {
   const parentId = runGh(["api", `repos/${settings.repository}/issues/${parentNumber}`, "--jq", ".node_id"]);
-  const childId = runGh(["api", `repos/${settings.repository}/issues/${childNumber}`, "--jq", ".node_id"]);
-  runGh([
-    "api",
-    "graphql",
-    "-f",
-    "query=mutation($parent:ID!,$child:ID!){addSubIssue(input:{issueId:$parent,subIssueId:$child}){issue{id}}}",
-    "-f",
-    `parent=${parentId}`,
-    "-f",
-    `child=${childId}`,
-  ]);
+  runGraphql(
+    "mutation LinkSubIssue($parent: ID!, $child: ID!) { addSubIssue(input: { issueId: $parent, subIssueId: $child }) { issue { id } } }",
+    { parent: parentId, child: childId },
+  );
 }
 
 async function main() {
   const parsed = parseArguments(process.argv.slice(2));
   const settings = await config();
-  const repository = settings.repository;
   if (!parsed.command || parsed.flags.has("help")) {
     console.log("Usage: npm run roadmap -- <inspect|rate-limit|create|ready|claim|block|escalate|review|complete> [issue] [flags]");
     return;
@@ -294,45 +573,32 @@ async function main() {
     if (!MODEL_CLASSES.includes(model) || !EFFORTS.includes(effort)) throw new Error("Unsupported model or effort");
     const body = await readFile(path.resolve(bodyPath), "utf8");
     if (!acceptanceReady(body)) throw new Error("Issue body needs a heading named 'Acceptance criteria' and a checklist or numbered criteria");
-    guardMutation(3, parsed.flags.has("parent") ? 1 : 0);
-    const url = runGh([
-      "issue",
-      "create",
-      "--repo",
-      repository,
-      "--title",
-      title,
-      "--body-file",
-      bodyPath,
-      "--label",
-      `model:${model}`,
-      "--label",
-      `effort:${effort}`,
-      "--label",
-      `type:${type}`,
-    ]);
-    addToProject(settings, url);
-    setStatus(settings, url, "Inbox");
-    const number = Number(url.split("/").at(-1));
-    if (parsed.flags.has("parent")) await linkSubIssue(settings, Number(parsed.flags.get("parent")), number);
-    console.log(url);
+    preflightGraphql(["projectMetadata"]);
+    const metadata = projectMetadata(settings);
+    const graphqlMutations = ["projectAdd", "lifecycleMutation"];
+    if (parsed.flags.has("parent")) graphqlMutations.push("subIssueLink");
+    guardMutation(parsed.flags.has("parent") ? 2 : 1, graphqlMutations);
+    const created = createIssue(settings, title, body, [`model:${model}`, `effort:${effort}`, `type:${type}`]);
+    const context = addToProject(metadata, created.id);
+    applyLifecycleMutation(context, created.id, { status: "Inbox" });
+    if (parsed.flags.has("parent")) await linkSubIssue(settings, Number(parsed.flags.get("parent")), created.id);
+    console.log(created.url);
     return;
   }
 
   if (parsed.command === "rate-limit") {
-    console.log(formatRateLimitReport(rateLimit()));
+    console.log(formatGraphqlRateLimitReport(rateLimit()));
     return;
   }
 
   const number = issueNumber(parsed);
-  const issue = issueView(repository, number);
-  const items = projectItems(settings);
-  const item = projectItem(settings, number, items);
-  const projectCache = new Map([[settings.repository, items]]);
+  preflightGraphql(["issueProjectSnapshot", "dependencyBatch"]);
+  const snapshot = issueProjectSnapshot(settings, number);
+  const { issue, item, context, escalationLabelId } = snapshot;
   if (parsed.command === "inspect") {
     let dependencies;
     try {
-      const states = dependencyStates(settings, issue.number, issue.body, projectCache);
+      const states = dependencyStates(settings, issue.number, issue.body);
       dependencies = {
         valid: true,
         resolved: states.every((state) => state.resolved),
@@ -365,10 +631,10 @@ async function main() {
     if (!["Inbox", "Backlog", "Blocked", "Ready"].includes(item.status)) {
       throw new Error(`Issue cannot move to Ready from ${item.status ?? "unknown"}`);
     }
-    validateReadyRequirements(settings, issue, projectCache);
+    validateReadyRequirements(settings, issue);
     assertClaimAvailable(issue.comments);
-    guardMutation(1);
-    setStatus(settings, issue.url, "Ready");
+    guardMutation(0, ["lifecycleMutation"]);
+    applyLifecycleMutation(context, issue.id, { status: "Ready" });
     console.log(`Ready ${issue.url}`);
     return;
   }
@@ -380,9 +646,8 @@ async function main() {
     const branch = required(parsed.flags, "branch");
     validateRouting(labelsOf(issue), model, effort);
     if (item.status !== "Ready") throw new Error(`Issue must be Ready before claim; current status is ${item.status ?? "unknown"}`);
-    validateReadyRequirements(settings, issue, projectCache);
+    validateReadyRequirements(settings, issue);
     assertClaimAvailable(issue.comments);
-    guardMutation(2);
     const claim = {
       state: "active",
       model,
@@ -391,52 +656,70 @@ async function main() {
       branch,
       startedAt: new Date().toISOString(),
     };
-    addComment(repository, number, `${claimMarker(claim)}\nClaimed by task \`${task}\` on branch \`${branch}\` using \`${model}\` at \`${effort}\` effort.`);
-    setStatus(settings, issue.url, "In progress");
+    guardMutation(0, ["lifecycleMutation"]);
+    applyLifecycleMutation(context, issue.id, {
+      status: "In progress",
+      comment: `${claimMarker(claim)}\nClaimed by task \`${task}\` on branch \`${branch}\` using \`${model}\` at \`${effort}\` effort.`,
+    });
     console.log(`Claimed ${issue.url}`);
     return;
   }
 
   const evidence = required(parsed.flags, "evidence");
   if (parsed.command === "block") {
-    guardMutation(2);
-    addComment(repository, number, `Blocked.\n\nConfirmed evidence: ${evidence}`);
-    setStatus(settings, issue.url, "Blocked");
+    guardMutation(0, ["lifecycleMutation"]);
+    applyLifecycleMutation(context, issue.id, { status: "Blocked", comment: `Blocked.\n\nConfirmed evidence: ${evidence}` });
   } else if (parsed.command === "escalate") {
     const recommendedModel = required(parsed.flags, "recommend-model");
     const recommendedEffort = required(parsed.flags, "recommend-effort");
     if (!MODEL_CLASSES.includes(recommendedModel) || !EFFORTS.includes(recommendedEffort)) throw new Error("Unsupported recommended profile");
-    guardMutation(3);
-    runGh(["issue", "edit", String(number), "--repo", repository, "--add-label", "needs:model-escalation"]);
+    if (!escalationLabelId) throw new Error("Repository has no needs:model-escalation label");
     const prior = latestClaim(issue.comments);
     const released = {
       ...(prior ?? {}),
       state: "released",
       releasedAt: new Date().toISOString(),
     };
-    addComment(
-      repository,
-      number,
-      `${claimMarker(released)}\nModel escalation requested.\n\nConfirmed evidence: ${evidence}\n\nRecommended profile: \`${recommendedModel}/${recommendedEffort}\`. The steward must approve routing labels before a new claim.`,
-    );
-    setStatus(settings, issue.url, "Blocked");
+    guardMutation(0, ["lifecycleMutation"]);
+    applyLifecycleMutation(context, issue.id, {
+      status: "Blocked",
+      escalationLabelId,
+      comment: `${claimMarker(released)}\nModel escalation requested.\n\nConfirmed evidence: ${evidence}\n\nRecommended profile: \`${recommendedModel}/${recommendedEffort}\`. The steward must approve routing labels before a new claim.`,
+    });
   } else if (parsed.command === "review") {
-    guardMutation(2);
-    addComment(repository, number, `Implementation is ready for acceptance review.\n\nEvidence: ${evidence}`);
-    setStatus(settings, issue.url, "In review");
+    guardMutation(0, ["lifecycleMutation"]);
+    applyLifecycleMutation(context, issue.id, {
+      status: "In review",
+      comment: `Implementation is ready for acceptance review.\n\nEvidence: ${evidence}`,
+    });
   } else if (parsed.command === "complete") {
     const acceptedBy = required(parsed.flags, "accepted-by");
-    guardMutation(3);
-    addComment(repository, number, `Accepted by ${acceptedBy}.\n\nAcceptance evidence: ${evidence}`);
-    setStatus(settings, issue.url, "Done");
-    runGh(["issue", "close", String(number), "--repo", repository, "--reason", "completed"]);
+    guardMutation(0, ["lifecycleMutation"]);
+    applyLifecycleMutation(context, issue.id, {
+      status: "Done",
+      comment: `Accepted by ${acceptedBy}.\n\nAcceptance evidence: ${evidence}`,
+      close: true,
+    });
   } else {
     throw new Error(`Unknown command: ${parsed.command}`);
   }
 }
 
+async function runMainWithLock() {
+  const parsed = parseArguments(process.argv.slice(2));
+  if (!parsed.command || parsed.flags.has("help")) return main();
+  const release = acquireRoadmapLock();
+  process.once("exit", release);
+  try {
+    return await main();
+  } finally {
+    process.removeListener("exit", release);
+    release();
+  }
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main().catch((error) => {
+  runMainWithLock().catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
   });

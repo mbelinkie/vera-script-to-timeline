@@ -1,35 +1,92 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { assertMutationBudget, classifyGitHubFailure, formatRateLimitReport, parseRateLimitResponse } from "./roadmap-rate-limit.mjs";
+import {
+  REQUEST_ACCOUNTING,
+  assertGraphqlBudget,
+  classifyGitHubFailure,
+  formatGraphqlRateLimitReport,
+  parseGraphqlRateLimitResponse,
+  plannedGraphqlPoints,
+} from "./roadmap-rate-limit.mjs";
 
-const response = `HTTP/2 200 OK\nX-RateLimit-Limit: 5000\nX-RateLimit-Remaining: 4998\nX-RateLimit-Used: 2\nX-RateLimit-Reset: 1700000060\n\n{"resources":{"core":{"limit":5000,"used":2,"remaining":4998,"reset":1700000060},"graphql":{"limit":5000,"used":4,"remaining":4996,"reset":1700000060},"search":{"limit":30,"used":1,"remaining":29,"reset":1700000060}}}`;
+const directResponse = `HTTP/2 200 OK
+X-RateLimit-Limit: 5000
+X-RateLimit-Remaining: 41
+X-RateLimit-Used: 4959
+X-RateLimit-Reset: 1788215569
+X-RateLimit-Resource: graphql
 
-test("parses only safe rate-limit fields and omits response headers such as scopes or request IDs", () => {
-  const parsed = parseRateLimitResponse(response.replace("\n\n{", "\nX-OAuth-Scopes: repo\nX-GitHub-Request-Id: secret-looking-id\n\n{"));
-  assert.deepEqual(parsed.resources.core, { limit: 5000, used: 2, remaining: 4998, reset: 1700000060 });
+{"data":{"rateLimit":{"limit":5000,"remaining":41,"used":4959,"resetAt":"2026-08-31T22:32:49Z","cost":1}}}`;
+
+test("parses authoritative direct GraphQL rateLimit fields and omits response metadata", () => {
+  const parsed = parseGraphqlRateLimitResponse(
+    directResponse.replace("\n\n{", "\nX-OAuth-Scopes: repo\nX-GitHub-Request-Id: secret-looking-id\n\n{"),
+  );
+  assert.deepEqual(parsed, {
+    limit: 5000,
+    remaining: 41,
+    used: 4959,
+    resetAt: "2026-08-31T22:32:49.000Z",
+    cost: 1,
+  });
   assert.equal(JSON.stringify(parsed).includes("secret-looking"), false);
-  assert.match(formatRateLimitReport(parsed, 1700000000000), /REST core: 4998\/5000 remaining; reset in 60s/);
+  assert.match(formatGraphqlRateLimitReport(parsed, Date.parse("2026-08-31T22:31:49Z")), /41\/5000 remaining; 4959 used; query cost 1/);
+  assert.match(formatGraphqlRateLimitReport(parsed, Date.parse("2026-08-31T22:31:49Z")), /reset at 2026-08-31T22:32:49.000Z \(in 60s\)/);
 });
 
-test("fails closed before mutation when the planned REST budget is unavailable", () => {
-  const parsed = parseRateLimitResponse(response);
-  assert.throws(() => assertMutationBudget(parsed, 4999), /No mutation was attempted/);
-  assert.doesNotThrow(() => assertMutationBudget(parsed, 2));
-  assert.throws(() => assertMutationBudget(parsed, 2, 4997), /No mutation was attempted/);
+test("fails closed on GitHub's graphql_rate_limit exhaustion response with reset guidance", () => {
+  const exhausted = `HTTP/2 200 OK
+X-RateLimit-Limit: 5000
+X-RateLimit-Remaining: 0
+X-RateLimit-Used: 5000
+X-RateLimit-Reset: 1788215569
+X-RateLimit-Resource: graphql
+
+{"data":null,"errors":[{"type":"RATE_LIMITED","message":"Something went wrong while executing your query. This may be the result of a timeout, or it could be a GitHub bug. Please include \`graphql_rate_limit\` in your report."}]}`;
+  assert.throws(
+    () => parseGraphqlRateLimitResponse(exhausted, Date.parse("2026-08-31T22:31:49Z")),
+    /GitHub GraphQL budget is exhausted.*Do not retry before that reset.*2026-08-31T22:32:49\.000Z/s,
+  );
 });
 
-test("honors Retry-After evidence and refuses mutation during a secondary throttle", () => {
-  const throttled = `${response.replace("\n\n{", "\nRetry-After: 60\n\n{")}\n`;
-  const parsed = parseRateLimitResponse(throttled, 1700000000000);
-  assert.equal(parsed.retryAfter, 60);
-  assert.match(formatRateLimitReport(parsed, 1700000000000), /Secondary throttle: defer mutations for at least 60s/);
-  assert.throws(() => assertMutationBudget(parsed, 1, 0, 1700000000000), /No mutation was attempted/);
+test("never accepts a false REST-green payload as GraphQL authority", () => {
+  const restGreen = JSON.stringify({
+    resources: { graphql: { limit: 5000, remaining: 5000, used: 0, reset: 1788215569 } },
+  });
+  assert.throws(() => parseGraphqlRateLimitResponse(restGreen), /direct GraphQL rateLimit/);
+});
+
+test("preflight reserves points for the planned GraphQL work", () => {
+  const parsed = parseGraphqlRateLimitResponse(directResponse);
+  assert.doesNotThrow(() => assertGraphqlBudget(parsed, 41));
+  assert.throws(
+    () => assertGraphqlBudget(parsed, 42, Date.parse("2026-08-31T22:31:49Z")),
+    /needs 42 point\(s\).*41 remain.*Safe retry: at or after 2026-08-31T22:32:49\.000Z/s,
+  );
+});
+
+test("honors direct Retry-After evidence during a secondary throttle", () => {
+  const throttled = directResponse.replace("\n\n{", "\nRetry-After: 60\n\n{");
+  assert.throws(
+    () => parseGraphqlRateLimitResponse(throttled, Date.parse("2026-08-31T22:31:49Z")),
+    /secondary rate limit is active.*Do not retry for at least 60s.*no roadmap operation was attempted/s,
+  );
+});
+
+test("accounts for issue, comment, dependency, and Project V2 operations by actual transport", () => {
+  assert.deepEqual(REQUEST_ACCOUNTING.issueProjectSnapshot, { graphqlQueries: 1, graphqlMutations: 0, restMutations: 0 });
+  assert.deepEqual(REQUEST_ACCOUNTING.issueComment, { graphqlQueries: 0, graphqlMutations: 1, restMutations: 0 });
+  assert.deepEqual(REQUEST_ACCOUNTING.dependencyBatch, { graphqlQueries: 1, graphqlMutations: 0, restMutations: 0 });
+  assert.deepEqual(REQUEST_ACCOUNTING.projectStatus, { graphqlQueries: 0, graphqlMutations: 1, restMutations: 0 });
+  assert.equal(plannedGraphqlPoints(["issueProjectSnapshot", "dependencyBatch"]), 2);
+  assert.equal(plannedGraphqlPoints(["issueComment", "projectStatus"]), 2);
+  assert.equal(plannedGraphqlPoints(["lifecycleMutation"]), 1);
 });
 
 test("distinguishes REST, GraphQL, secondary, and client/tooling failures", () => {
   assert.equal(classifyGitHubFailure("API rate limit exceeded"), "rest-rate-limit");
-  assert.equal(classifyGitHubFailure("GraphQL query cost exceeded"), "graphql-rate-limit");
+  assert.equal(classifyGitHubFailure("graphql_rate_limit"), "graphql-rate-limit");
   assert.equal(classifyGitHubFailure("You have exceeded a secondary rate limit; Retry-After: 60"), "secondary-rate-limit");
   assert.equal(classifyGitHubFailure("gh: command not found"), "client-or-tooling-failure");
 });
