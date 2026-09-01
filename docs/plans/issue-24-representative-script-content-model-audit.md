@@ -23,7 +23,8 @@ and state the exact bounded impact on issue #13's Claude instructions.
 4. Resolve or assign explicit follow-ups for variants and section-linked
    parked material; hierarchical right-column roles; unplaced/three-point
    timing; Sequences, Option sets, and Comparison stacks; comments/mentions;
-   `Propose cut`; image acquisition; capture timing/retention; motion presets;
+   `Propose cut`; image acquisition; capture timing/retention; motion presets
+   with custom/manual or Spotlight-bound zoom focus;
    one-action YouTube watch-page composites; OCR-derived capture Spotlight
    mattes and Resolve handoff; multi-cue semantic highlighting inside Fusion
    infographic templates; typed visible prompter annotations; graphics

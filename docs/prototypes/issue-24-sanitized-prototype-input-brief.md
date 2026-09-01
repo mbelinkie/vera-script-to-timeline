@@ -54,15 +54,15 @@ authority.
 |  | Comparison stack: three fictional treatments on organized alternate Resolve tracks | Distinct comparison intent; explicit `Choose in Resolve` policy and choice marker |
 | `[VO] The instrument calls this the Lunara effect.` | Pronunciation: `Lunara` → `loo-NAH-rah` | Exact text annotation; not a visual and not spoken as an instruction |
 | `[VO] The public dashboard shows the same change from another angle.` | Webpage Capture: `https://page.example.invalid/dashboard`; fictional trend panel; policy `On build`; motion `Slow drift — top left v1` | Capture card with region/provenance, pre-build revision state, immutable-artifact history, and selected versioned motion preset |
-| `[VO] The warning appears directly beneath the second reading.` | Spotlight the fictional sentence “Review required before adjustment” from the dashboard Capture for this phrase | Timed inverse-dimming treatment: approved text region remains bright while everything else dims; optional assisted region proposal with manual confirmation |
+| `[VO] The warning appears directly beneath the second reading.` | Spotlight the fictional sentence “Review required before adjustment”; `Zoom to spotlight` over this phrase | Timed inverse-dimming treatment plus slow-zoom segment bound to the confirmed Spotlight region |
 | `[VO] The archive preserves one view each morning.` | Periodic Webpage Capture: `https://page.example.invalid/archive`; motion `Slow drift — top center v1` | Periodic policy with bounded configurable retention; pinned/checkpoint/build-referenced revisions protected |
-| `[OC] Here is the sensor before the trial began.` | Uploaded Image `asset-demo-still-01`; contain; motion `None v1` | Durable managed image artifact with verified fictional identity separate from original locator |
-| `[VO] A second still shows the repaired housing.` | Linked Image `https://images.example.invalid/housing.png`; motion `Slow zoom — center v1` | Automatically acquire locally, then expose verifying/ready/failed status, hash, dimensions, and provenance |
+| `[OC] Here is the sensor before the trial began.` | Uploaded Image `asset-demo-still-01`; slow zoom; manual focus `subject face` at fictional normalized point `(0.68, 0.32)` | Durable managed image plus custom source-relative zoom focus and start/end-frame preview |
+| `[VO] A second still shows the repaired housing.` | Linked Image `https://images.example.invalid/housing.png`; motion `Slow zoom v1`; focus `Center` | Automatically acquire locally, then expose verifying/ready/failed status, hash, dimensions, and provenance |
 | `[VO] This frozen screenshot came from an earlier review.` | User-uploaded screenshot `asset-demo-screenshot-01` | Image subtype, not recapturable Capture, because no authoritative live relationship is retained |
 | `[VO] In one trial, the first bar reaches eighteen, then the second reaches twenty-seven.` | Bar chart: `reading-1 = 18`, `reading-2 = 27`; cue `bar:reading-1 → emphasis` over “first bar,” then `bar:reading-2 → emphasis` over “second”; cite snapshot `demo-v1` | One pinned Fusion Graphic with semantic inputs and two ordered exact-range highlight cues; completed target returns to base |
 | `[VO] In the summary table, the west station needs attention.` | Table: fictional east/west/north rows; cue `row:west → emphasis` over “west station” | Fusion template publishes a stable row target and maps semantic emphasis to its own versioned color/control values |
 | `[VO] The operator described the change as “slow, then sudden.”` | Logged source clip, selected range `00:24–00:32`; transcript excerpt shown; source audio on | Source Clip card with immutable evidence and occurrence range |
-| `[VO] Viewers saw the demonstration in its original online context.` | YouTube page composite from fictional Clip `harbor-demo`, range `00:24–00:32`; description and two fictional comments visible; motion `Slow zoom — center v1` | One-action compound Picture: moving clip inside a high-resolution fictional watch-page capture, pinned layout, source-audio policy, page revision, and whole-composite motion |
+| `[VO] Viewers saw the demonstration in its original online context.` | YouTube page composite from fictional Clip `harbor-demo`, range `00:24–00:32`; description and two fictional comments visible; motion `Slow zoom v1`; focus `Center` | One-action compound Picture: moving clip inside a high-resolution fictional watch-page capture, pinned layout, source-audio policy, page revision, and whole-composite motion |
 | `[VO] A short chime marks the second reading.` | Music/SFX cue `demo-chime-v1`; start at the anchored phrase; license note fictional | Music/SFX card with pinned fictional revision and explicit cue intent |
 | `[OC] That distinction matters because the next step depends on timing.` | Full-screen text: `MEASURE FIRST / ADJUST SECOND` | Long-text Graphic card; overlay/full-frame choice visible |
 | `Variant A: [OC] We adjust only after the second reading.` |  | Variant group `closing-line`; selected choice |
@@ -181,8 +181,26 @@ behavior.
   checkpoint-referenced, and build-referenced captures are protected; only
   unreferenced periodic revisions may age out.
 - Every Image/Capture occurrence selects a versioned motion preset. Show
-  `None`, `Slow drift — top left`, `Slow drift — top center`, and
-  `Slow zoom — center`, with room for future registered presets.
+  `None`, `Slow drift — top left`, `Slow drift — top center`, and `Slow zoom`,
+  with room for future registered presets. `Slow zoom` then exposes a separate
+  focus selector: `Center`, `Choose point`, or `Use spotlight` when eligible.
+- `Choose point` lets the author click the immutable source preview—for example
+  a fictional face—and stores normalized source coordinates plus an editable
+  label. It requires no face-detection feature.
+- `Use spotlight` binds focus to a confirmed Spotlight identity/revision and
+  derives its centroid and padded region. `Zoom to spotlight` aligns a motion
+  segment to the Spotlight interval by default, so the text brightens and the
+  camera move begins together without duplicate coordinates.
+- Start/end-frame preview shows the actual crop, scale, and target crosshair.
+  The framing solver clamps or explains a requested move that would expose
+  empty canvas; it never hides the adjustment.
+- A Picture may contain ordered motion segments when focus changes. Overlapping
+  contradictory transforms are a Release-blocking conflict.
+- Replacing image bytes or selecting a new Capture revision marks a manual
+  focus `Needs review`. An accepted Spotlight remap updates bound focus;
+  `Spotlight stale` keeps its motion segment stale. Builds freeze focus evidence,
+  resolved point/region, keyframes, timing, preset, source revision, and effect
+  order.
 - Capture and YouTube page composite occurrences may add a Spotlight.
   The simplest authoring flow is `Add spotlight`, then drag a rectangle over
   the critical text while the preview dims everything outside it.
@@ -246,11 +264,12 @@ behavior.
 Exercise these states: ready, acquiring, unresolved, unplaced, incomplete
 timing, timing conflict, needs classification, option selection required,
 choose in Resolve, proposed cut, stale comment anchor, stale reference,
-capture due, spotlight proposed, spotlight stale, graphic target missing,
-graphic cue conflict, template update available, page refresh available,
-composite generating, retention-protected, failed, and excluded. Each needs
-text/icon/non-color distinction, keyboard access, an accessible name, and one
-relevant remediation action.
+capture due, spotlight proposed, spotlight stale, motion focus needs review,
+motion focus clamped, motion-segment conflict, graphic target missing, graphic
+cue conflict, template update available, page refresh available, composite
+generating, retention-protected, failed, and excluded. Each needs text/icon/
+non-color distinction, keyboard access, an accessible name, and one relevant
+remediation action.
 
 ## 7. Required scenario views
 
@@ -275,8 +294,8 @@ relevant remediation action.
 9. **Resolve local reference** — unresolved, imported, relinked, and failed
    states using fictional locator labels only.
 10. **Acquire image and configure capture** — uploaded Image, automatically
-   acquired linked Image, uploaded screenshot, Capture timing policy, revision
-   history/retention, and motion preset.
+    acquired linked Image, uploaded screenshot, Capture timing policy, revision
+    history/retention, motion preset, manual face focus, and end-frame preview.
 11. **Review section-linked Extras** — one parked identity visible under the
     section and in global Extras, with restore behavior.
 12. **Comment and prompter review** — optional directed mention, stale-comment
@@ -286,8 +305,9 @@ relevant remediation action.
     description/comments visibility, and preview slow zoom on the composite.
 14. **Spotlight critical webpage text** — select fictional OCR words/lines,
     inspect and adjust the generated inverse matte, compare the manual rectangle,
-    set its active phrase, inspect the nested-sequence handoff, recapture the
-    page, and resolve a stale target without silently moving it.
+    set its active phrase, bind `Zoom to spotlight`, inspect focus/crop and the
+    nested-sequence handoff, recapture the page, and resolve stale Spotlight and
+    motion focus without silently moving either.
 
 Every view must be testable at `1280 × 800` and `1024 × 768` as a real reflow,
 with pointer and keyboard operation. Exact visual tokens come only from the
@@ -310,6 +330,9 @@ The later prototype is incomplete unless it visibly exercises all of these:
       screenshot treated as Image;
 - [ ] Webpage Capture with `Now`, `On build`, and `Periodic` policies,
       immutable revisions, bounded/protected retention, and motion presets;
+- [ ] slow-zoom focus using center, a custom normalized point on a fictional
+      face, and a Spotlight-bound region; start/end-frame crop, clamping,
+      ordered segments/conflict, source-update review, and frozen transforms;
 - [ ] one-action YouTube page composite with moving Clip, high-resolution page
       capture, visible fictional description/comments, refreshable play count,
       separate immutable revisions, pinned layout, and whole-composite motion;
