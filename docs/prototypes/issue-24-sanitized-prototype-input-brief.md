@@ -54,6 +54,7 @@ authority.
 |  | Comparison stack: three fictional treatments on organized alternate Resolve tracks | Distinct comparison intent; explicit `Choose in Resolve` policy and choice marker |
 | `[VO] The instrument calls this the Lunara effect.` | Pronunciation: `Lunara` → `loo-NAH-rah` | Exact text annotation; not a visual and not spoken as an instruction |
 | `[VO] The public dashboard shows the same change from another angle.` | Webpage Capture: `https://page.example.invalid/dashboard`; fictional trend panel; policy `On build`; motion `Slow drift — top left v1` | Capture card with region/provenance, pre-build revision state, immutable-artifact history, and selected versioned motion preset |
+| `[VO] The warning appears directly beneath the second reading.` | Spotlight the fictional sentence “Review required before adjustment” from the dashboard Capture for this phrase | Timed inverse-dimming treatment: approved text region remains bright while everything else dims; optional assisted region proposal with manual confirmation |
 | `[VO] The archive preserves one view each morning.` | Periodic Webpage Capture: `https://page.example.invalid/archive`; motion `Slow drift — top center v1` | Periodic policy with bounded configurable retention; pinned/checkpoint/build-referenced revisions protected |
 | `[OC] Here is the sensor before the trial began.` | Uploaded Image `asset-demo-still-01`; contain; motion `None v1` | Durable managed image artifact with verified fictional identity separate from original locator |
 | `[VO] A second still shows the repaired housing.` | Linked Image `https://images.example.invalid/housing.png`; motion `Slow zoom — center v1` | Automatically acquire locally, then expose verifying/ready/failed status, hash, dimensions, and provenance |
@@ -163,6 +164,22 @@ behavior.
 - Every Image/Capture occurrence selects a versioned motion preset. Show
   `None`, `Slow drift — top left`, `Slow drift — top center`, and
   `Slow zoom — center`, with room for future registered presets.
+- Capture and YouTube page composite occurrences may add a Spotlight.
+  The simplest authoring flow is `Add spotlight`, then drag a rectangle over
+  the critical text while the preview dims everything outside it.
+- An assisted flow lets the author click a detected text block or search OCR/
+  DOM text, previews the proposed region, and requires confirmation. Assistance
+  never makes an invisible final selection.
+- Store the approved region in capture-local normalized coordinates together
+  with optional DOM selector and OCR target/context evidence, dim opacity,
+  feather, exact active interval, and treatment version.
+- After recapture, VERA may propose a repaired target using DOM/OCR evidence.
+  If the page moved or the match is ambiguous, show `Spotlight stale` with
+  `Keep previous capture`, `Accept remap`, and `Redraw`; never move the mask
+  silently.
+- Composition order is captured source (or completed YouTube page composite),
+  then inverse dim mask, then whole-picture drift/zoom. The prototype must show
+  that the bright target travels correctly with the moving composite.
 
 ### 6.7 Comments and prompter annotations
 
@@ -203,9 +220,10 @@ behavior.
 Exercise these states: ready, acquiring, unresolved, unplaced, incomplete
 timing, timing conflict, needs classification, option selection required,
 choose in Resolve, proposed cut, stale comment anchor, stale reference,
-capture due, page refresh available, composite generating, retention-protected,
-failed, and excluded. Each needs text/icon/non-color distinction, keyboard
-access, an accessible name, and one relevant remediation action.
+capture due, spotlight proposed, spotlight stale, page refresh available,
+composite generating, retention-protected, failed, and excluded. Each needs
+text/icon/non-color distinction, keyboard access, an accessible name, and one
+relevant remediation action.
 
 ## 7. Required scenario views
 
@@ -235,6 +253,9 @@ access, an accessible name, and one relevant remediation action.
 12. **Present Clip on YouTube page** — apply the one-action treatment, inspect
     separate Clip/page revisions, refresh the fictional play count, toggle
     description/comments visibility, and preview slow zoom on the composite.
+13. **Spotlight critical webpage text** — draw a manual region, accept/reject an
+    assisted fictional-text proposal, set its active phrase, recapture the page,
+    and resolve a stale target without silently moving it.
 
 Every view must be testable at `1280 × 800` and `1024 × 768` as a real reflow,
 with pointer and keyboard operation. Exact visual tokens come only from the
@@ -260,6 +281,8 @@ The later prototype is incomplete unless it visibly exercises all of these:
 - [ ] one-action YouTube page composite with moving Clip, high-resolution page
       capture, visible fictional description/comments, refreshable play count,
       separate immutable revisions, pinned layout, and whole-composite motion;
+- [ ] manual and assisted Capture Spotlight, inverse dimming, exact treatment
+      timing, deterministic effect order, and stale/remap review after recapture;
 - [ ] Music/SFX cue with pinned identity and explicit intent;
 - [ ] Citation that is not a visual;
 - [ ] full-screen text graphic;

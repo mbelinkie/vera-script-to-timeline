@@ -24,8 +24,9 @@ and state the exact bounded impact on issue #13's Claude instructions.
    parked material; hierarchical right-column roles; unplaced/three-point
    timing; Sequences, Option sets, and Comparison stacks; comments/mentions;
    `Propose cut`; image acquisition; capture timing/retention; motion presets;
-   one-action YouTube watch-page composites; typed visible prompter
-   annotations; graphics provenance; and non-durable asset references.
+   one-action YouTube watch-page composites; capture spotlight treatments;
+   typed visible prompter annotations; graphics provenance; and non-durable
+   asset references.
 5. Create a fictional, sanitized prototype input brief that exercises every
    accepted content family without reproducing the private script.
 6. State the exact additions issue #13 must make before its Claude brief can be

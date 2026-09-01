@@ -117,6 +117,7 @@ from a table row or the nearest nonempty left cell.
 | Capture timing and version policy | §8.4 and §14 currently ship capture-on-add/manual recapture and defer scheduled monitoring | No accepted entity expresses `now`, `on build`, or `periodic` capture policy plus retention | Offer Capture now, Capture immediately before build/render, or Periodic capture. Freeze the exact resulting artifact into every build; keep bounded history without pruning pinned/checkpoint/build-referenced revisions. | Missing |
 | Still/capture animation | §8.4 supports explicit motion presets | Visual occurrence setting referencing a versioned motion-preset identity | Every Image or Capture exposes a motion setting. Built-ins are `None`, `Slow drift — top left`, `Slow drift — top center`, and `Slow zoom — center`; future presets extend the registry without changing old builds. | Design decision required |
 | YouTube watch-page presentation | §§6.4, 8.1–8.4 cover the source Clip, page Capture, artifact resolution, and motion separately | No accepted compound source/treatment binds a clip occurrence, watch-page capture, composite layout, and motion into one reproducible unit | From any compatible YouTube Clip, `Present on YouTube page` creates a nested composite: the chosen moving clip replaces the captured player area while the high-resolution page capture keeps the description and requested visible comments. A second optional `Refresh page now` action captures current public page state, including play count, as a new immutable page revision. | Missing |
+| Critical-text spotlight on a page capture | §§6.4 and 8.4 expose capture region/crop and visual composition, but do not define an inverse-dimming mask or its recapture behavior | No accepted capture-treatment entity retains target geometry, target-repair evidence, dimming parameters, timing, and derivation | In authoring, draw/select the critical text region; VERA dims everything outside it in preview. Optional DOM/OCR assistance may propose a text-aligned region, but the author confirms it. A recapture attempts evidence-based remapping and becomes `Spotlight stale` rather than moving silently when confidence is insufficient. | Missing |
 | Citation, article, report, or evidence link not intended on screen | §§3, 6.3 | Planned `citation` row/card; no frozen-v1 citation block yet | Use a visibly typed Citation card, preserved in script/build report, with no timeline duration by default. | Covered |
 | Production-only instruction or Resolve task | §§6.13, 7, 13 | Planned `ScriptVideoMarker` | Point-anchor to a word, event edge, or between blocks; no duration; unplaced if anchor is lost. | Covered |
 | Music, sound file, or audio cue reference | §§6.3, 7 | Planned `MusicCueUse`/template revision; simpler production note before Phase 9 | Type as Music/SFX when it is timeline intent; type as Reference when it is only supporting material. Never treat an arbitrary file mention as approved media. | Covered |
@@ -162,8 +163,9 @@ from a table row or the nearest nonempty left cell.
 | D24-14 | Pronunciation and performance instructions are typed exact-range annotations with `Include in prompter` on by default. Included annotations render as unmistakably non-spoken bracketed cues in the prompter as well as its sidecar. | The person performing needs to see the direction; free-form notes are not deterministic enough. | Bounded prompter/annotation contract follow-up. |
 | D24-15 | Public artifacts use only aggregate counts, generalized roles, and fictional examples; the source document and URL remain private evidence. | Issue #24 and the delegation explicitly require confidentiality. | Every reviewer and follow-up issue author. |
 | D24-16 | `YouTube page composite` is a first-class compound Picture treatment available from any compatible YouTube Clip in one primary action. It binds the clip occurrence, immutable high-resolution watch-page capture with description/requested visible comments, player-area placement, pinned composite-template revision, audio policy, and versioned motion preset. Initial creation captures the page; `Refresh page now` optionally records current public page state such as play count as a new selected revision. Existing builds never change. | The Producer currently assembles this as two captures plus a nested edit; preserving the parts and derivation makes the convenient action reproducible instead of baking an unauditable screen recording. | Bounded compound-media authoring/contract and Resolve-materialization follow-up. |
+| D24-17 | Capture and YouTube page composite occurrences may add one or more timed `Spotlight` treatments. A Spotlight stores a Producer-confirmed target region in capture-local normalized coordinates, optional DOM selector/OCR text-and-context evidence, dim opacity/feather, its active interval (defaulting to the whole occurrence), and a versioned treatment identity. The author can draw the region directly or accept an assisted text-region proposal. Recapture may propose a remap, but ambiguity creates `Spotlight stale` and requires keep-old-capture, accept-remap, or redraw; it never silently shifts. The deterministic composition order is source/composite → inverse dim mask → whole-picture motion. | The inverse mask itself is straightforward to preview and render; target repair after a dynamic-page recapture is the uncertain part and therefore remains supervised. | Bounded capture-treatment/assisted-region and Resolve-materialization follow-up. |
 
-Producer acceptance of D24-01 through D24-16 makes them the investigation's
+Producer acceptance of D24-01 through D24-17 makes them the investigation's
 decision output. It does not amend `ScriptDocument v1` or authorize
 implementation.
 
@@ -179,6 +181,7 @@ No follow-up issue is created by this investigation before Producer acceptance.
 | Derived-graphic provenance relationship | Producer accepts D24-07 | Roadmap steward files an Inbox graphics-contract issue | Must preserve existing `GraphicUse` and template-version guarantees. |
 | Image acquisition taxonomy, capture policies/retention, and motion presets | Producer accepts D24-11 through D24-13 | Roadmap steward files bounded Phase 5 design/contract issues after #24 acceptance | Scheduled capture is explicitly revived from §14; exact retention count/age is still a design input. Existing build snapshots must keep immutable artifact identity. |
 | One-action YouTube watch-page composite | Producer accepts D24-16 | Roadmap steward files a bounded Inbox compound-media design/contract issue after #24 acceptance | Must reuse authoritative research/YouTube clip identity and Capture artifacts rather than duplicate acquisition; freeze clip revision, page-capture revision, layout/template, audio policy, motion preset, and rendered/nested artifact in the build snapshot. Public anonymous capture ships first; authenticated/personalized page capture remains separately authorized. |
+| Capture Spotlight authoring and supervised remapping | Producer accepts D24-17 | Roadmap steward files a bounded Inbox capture-treatment design/contract issue after #24 acceptance | Define normalized region geometry, DOM/OCR evidence, accessibility, effect ordering, exact timing, stale/remap decisions, and build-snapshot fields. Prefer deterministic VERA/Resolve generation; offer manual Resolve completion only as an explicit fallback, never the normal path. |
 | `Propose cut` review semantics | Producer accepts D24-06 | Roadmap steward files a bounded Inbox review-model issue after #24 acceptance | This is narrower than general track changes; it must state collaboration, history, Draft/Extras, prompter, and build effects. |
 | Comments with optional directed mentions | Producer accepts D24-10 | Existing Phase 3 scope; no new issue required unless prototype review finds a gap | Must remain separate from Draft notes and Editor/Resolve markers. |
 | Supervised legacy conversion review | Producer accepts D24-06 and the Unplaced behavior | Roadmap steward decides whether this belongs in the later authoring/import slice | Heuristic self-service import remains deferred; no parser is authorized here. |
@@ -216,7 +219,12 @@ The accepted design must pass these sample-grounded invariants:
    page-capture revision. Refreshing play count, description, or visible
    comments creates a new page revision and cannot rewrite an earlier build or
    silently change the selected video in/out.
-11. Paragraph boundaries remain writing structure; frame timing remains
+11. A Spotlight is an inverse dim mask over a confirmed capture-local region,
+   not imported text formatting. A capture revision change must retain an
+   accepted remap or make the treatment stale; a build never guesses new mask
+   geometry. Spotlight timing and whole-picture motion remain independently
+   editable and are frozen in composition order.
+12. Paragraph boundaries remain writing structure; frame timing remains
    compiled output or an explicit timing override.
 
 ## 8. Exact bounded impact on issue #13
@@ -239,7 +247,8 @@ do not change. Its Claude brief needs only the following bounded additions.
 >   hierarchical right-lane roles, exact/unplaced/three-point timing, variants,
 >   section-linked parked material, Sequences, Option sets, Comparison stacks,
 >   uploaded/linked images, versioned capture policies and motion presets,
->   one-action YouTube watch-page composites,
+>   one-action YouTube watch-page composites, capture Spotlights with supervised
+>   target repair,
 >   typed visible prompter cues, comments/mentions, `Propose cut`, derived-
 >   graphic provenance, and unresolved local references without treating rows
 >   as edit boundaries.
@@ -269,6 +278,10 @@ do not change. Its Claude brief needs only the following bounded additions.
 >   composite in one primary action; description/comments remain visible,
 >   `Refresh page now` produces a newly selected immutable page revision, slow
 >   zoom applies to the whole composite, and prior builds remain unchanged.
+> - Prove a Capture Spotlight can be drawn manually or proposed from fictional
+>   text, dims everything outside the approved region, has an exact interval,
+>   composes before whole-picture motion, and becomes visibly stale instead of
+>   silently moving when a recapture changes layout.
 > - Prove typed pronunciation/performance annotations default to visible non-
 >   spoken prompter cues, and Comments with optional mentions remain discussion
 >   only.
@@ -302,11 +315,12 @@ or alter any contract.
    **Expected:** every observed structural and semantic family has a product-
    spec mapping, canonical-model mapping, planned authoring behavior, and one
    of the four allowed statuses.
-3. Review D24-01 through D24-16 in §5.
+3. Review D24-01 through D24-17 in §5.
    **Expected:** rows are rejected as edit boundaries; roles, timing, variants,
    parked material, candidate modes, comments, image/capture acquisition,
-   motion, YouTube page composites, prompter cues, review semantics, graphics
-   provenance, and asset durability each have an explicit decision.
+   motion, YouTube page composites, capture Spotlights, prompter cues, review
+   semantics, graphics provenance, and asset durability each have an explicit
+   decision.
 4. Review §6.
    **Expected:** genuine Missing work has a bounded owner/trigger, but no
    follow-up issue or contract change has been created prematurely.
