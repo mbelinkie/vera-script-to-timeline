@@ -4,7 +4,84 @@ Issue #18 is an operations slice. This note records the bounded diagnosis and
 the recovery procedure without retaining credentials, account identifiers, or
 raw GitHub responses.
 
-## Reconstructed request pattern
+> **Issue #23 correction (2026-08-31):** the Issue #18 implementation below is
+> historical evidence, not the current authority. GitHub's REST
+> `/rate_limit` response proved capable of reporting a false-green GraphQL
+> budget in this environment. The roadmap CLI now obtains GraphQL budget data
+> only from a direct GraphQL `rateLimit` query.
+
+## Current GraphQL authority and preflight
+
+`npm run roadmap -- rate-limit` runs a direct GraphQL query for `limit`,
+`remaining`, `used`, `resetAt`, and `cost`. It does not read or fall back to
+`resources.graphql` from REST `/rate_limit`. A direct probe during #23 returned
+`limit: 5000`, `remaining: 3718`, `used: 1282`, `resetAt:
+2026-08-31T22:32:49Z`, and `cost: 1`; after the next window reset, the command
+reported the new direct window rather than carrying the earlier values.
+
+Every networked roadmap command first acquires the shared host lock described
+below. `inspect`, `ready`, `claim`, and the other issue commands then:
+
+1. query direct GraphQL `rateLimit` and reserve enough points for the targeted
+   issue/Project snapshot plus one possible dependency batch;
+2. read the issue, routing labels, newest claim-comment page, matching Project
+   item, Status, and Project field metadata in one GraphQL request;
+3. batch all declared dependency issue/status reads into one GraphQL request;
+4. page backward through claim comments only when the newest 100 comments have
+   no claim marker, with a fresh direct preflight before each older page; and
+5. immediately before a lifecycle mutation, query direct `rateLimit` again and
+   reserve the mutation point.
+
+The direct parser fails closed on GitHub's `RATE_LIMITED` /
+`graphql_rate_limit` response. If the direct response headers expose the reset,
+the error names its UTC timestamp and instructs the operator not to retry
+before it. A REST-green payload is rejected because it has no direct GraphQL
+`data.rateLimit` object. A direct `Retry-After` header also fails closed even
+when primary GraphQL points remain, preserving the secondary-throttle guard.
+
+## Current request accounting
+
+The accounting table records primary GraphQL requests. GitHub currently
+charges a minimum of one primary point per query or mutation; the returned
+`rateLimit.cost` remains the observed authority.
+
+| Operation | Actual transport | Planned GraphQL requests |
+| --- | --- | ---: |
+| Direct preflight/report | direct GraphQL query | 1 |
+| Issue + matching Project V2 item/status/metadata | one targeted GraphQL query | 1 |
+| Declared dependencies | one aliased GraphQL query for the whole dependency set | 1 when non-empty |
+| Older claim-comment page | direct GraphQL query | 1 per guarded page |
+| Comment + Project status + optional escalation label/close | one batched GraphQL lifecycle mutation | 1 |
+| Issue creation | direct REST issue creation | 0 |
+| Add a newly created issue to Project V2 | direct GraphQL mutation | 1 |
+| Parent/sub-issue link | one REST parent-ID read plus one direct GraphQL mutation | 1 |
+
+The prior `gh issue view` call was itself GraphQL. The prior whole-board
+`gh project item-list` path made an owner/field query and then one or more item
+page queries. The prior `gh issue comment` path also hid an issue GraphQL read
+before its comment mutation. The current explicit queries remove those hidden
+requests, verify the Project ID before accepting an item, and batch lifecycle
+writes without changing Ready, dependency, routing, claim, escalation, review,
+or producer-acceptance rules.
+
+## Shared serialization ownership and failure behavior
+
+The roadmap CLI owns a host-wide lock at
+`$TMPDIR/vera-roadmap-github-graphql.lock`. The fixed path is shared by both
+VERA roadmap repositories and is intentionally conservative across every
+authenticated `gh` account on that host. The lock covers preflight, reads,
+validation, and writes, so two local roadmap commands cannot spend the shared
+user quota concurrently.
+
+The owner file stores only process ID, start time, and the Codex task ID when
+available. It contains no token or account identifier. A second command fails
+before any GitHub request and tells the operator to wait. Normal and handled
+error exits release the lock. A dead owner is reclaimed after 15 minutes; a
+live owner is never reclaimed based on age alone. A crash can therefore impose
+at most that local cooldown, while an ambiguous fresh or live lock fails closed.
+`VERA_ROADMAP_LOCK_PATH` exists only to isolate automated tests.
+
+## Historical Issue #18 request pattern
 
 The roadmap CLI uses `gh` through one synchronous wrapper in
 `scripts/roadmap.mjs`. Every command first reads the issue and the entire
@@ -40,7 +117,7 @@ discarded. The probe is intentionally exposed as a read-only command:
 npm run roadmap -- rate-limit
 ```
 
-## Diagnosis and failure modes
+## Historical Issue #18 diagnosis and failure modes
 
 The predictable local risk is request multiplication: full Project listings
 and dependency reads are repeated for each command, and a mutation consists of
@@ -65,7 +142,7 @@ closed even when the primary counters look healthy. A secondary-limit response
 must be deferred until the indicated delay and then revalidated; a
 client/tooling failure must be fixed or escalated before resuming.
 
-## Recovery procedure
+## Historical Issue #18 recovery procedure
 
 1. Stop mutating roadmap commands. Run `npm run roadmap -- rate-limit` and save
    only its redacted three-line report and timestamp.
