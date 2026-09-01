@@ -25,7 +25,8 @@ and state the exact bounded impact on issue #13's Claude instructions.
    timing; Sequences, Option sets, and Comparison stacks; comments/mentions;
    `Propose cut`; image acquisition; capture timing/retention; motion presets;
    one-action YouTube watch-page composites; OCR-derived capture Spotlight
-   mattes and Resolve handoff; typed visible prompter annotations; graphics
+   mattes and Resolve handoff; multi-cue semantic highlighting inside Fusion
+   infographic templates; typed visible prompter annotations; graphics
    provenance; and non-durable asset references.
 5. Create a fictional, sanitized prototype input brief that exercises every
    accepted content family without reproducing the private script.

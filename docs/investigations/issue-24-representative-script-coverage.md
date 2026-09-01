@@ -130,6 +130,7 @@ from a table row or the nearest nonempty left cell.
 | Full-screen text or long-text graphic instruction | §§3, 6.3, 7 | Placeholder `VisualEvent` now; later `GraphicUse` with pinned template revision | Show editable semantic text and intended presentation, not a pasted screenshot as the only source of truth. | Covered |
 | Map, chart, comparison, or other derived graphic | §§3, 6.3, 7 | `GraphicUse.semanticInputs` and immutable template revision | Author semantic inputs and preview the graphic while keeping it anchored like any visual. | Covered |
 | Data/source provenance for a derived graphic | §§7, 8.4 and §4 principles 8–10 establish provenance, but no explicit graphic-evidence relationship is defined | No accepted canonical relationship from `GraphicUse` to source citations/data snapshot | Require source citations, data snapshot/version, derivation note, and template revision to survive together. | Missing |
+| Infographic elements that change emphasis on narration cues | §§7 and Phase 9 define pinned Fusion templates, semantic inputs, timing policy, and occurrence settings, but no stable target manifest or intra-graphic cue schedule | No accepted entity identifies semantic rows/bars/cells/series or changes their template-defined visual state at exact compiled times | A template declares stable human-readable highlight targets and allowed semantic states. One Graphic occurrence may carry several narration-anchored cues—for example emphasize one table row, then two different bars—while the template revision maps states to actual Fusion controls/colors. | Missing |
 | Multiple candidate visual treatments for the same words | §§6.2, 8.4 support one authored event/source at build time | No sequence/option/comparison-set entity in the canonical model | Preserve explicit intent: a Sequence plays all items consecutively; an Option set has zero or one selected candidate; a Comparison stack sends organized candidates to alternate Resolve tracks with a choose marker. Never infer intent or select the first item. | Missing |
 
 ### 4.4 Editorial alternatives, formatting, and asset durability
@@ -164,8 +165,9 @@ from a table row or the nearest nonempty left cell.
 | D24-15 | Public artifacts use only aggregate counts, generalized roles, and fictional examples; the source document and URL remain private evidence. | Issue #24 and the delegation explicitly require confidentiality. | Every reviewer and follow-up issue author. |
 | D24-16 | `YouTube page composite` is a first-class compound Picture treatment available from any compatible YouTube Clip in one primary action. It binds the clip occurrence, immutable high-resolution watch-page capture with description/requested visible comments, player-area placement, pinned composite-template revision, audio policy, and versioned motion preset. Initial creation captures the page; `Refresh page now` optionally records current public page state such as play count as a new selected revision. Existing builds never change. | The Producer currently assembles this as two captures plus a nested edit; preserving the parts and derivation makes the convenient action reproducible instead of baking an unauditable screen recording. | Bounded compound-media authoring/contract and Resolve-materialization follow-up. |
 | D24-17 | Capture and YouTube page composite occurrences may add one or more timed `Spotlight` treatments. VERA runs versioned OCR against the immutable high-resolution capture and exposes selectable word/line boxes. A Spotlight stores selected OCR word IDs/text/context, their capture-pixel and normalized geometry, optional DOM evidence, union/padding/rounding parameters, dim opacity/feather, its active interval (defaulting to the whole occurrence), and a versioned treatment identity. Confirmation generates a full-resolution immutable inverse-matte artifact. Recapture may propose a remap, but ambiguity creates `Spotlight stale` and requires keep-old-capture, accept-remap, or redraw; it never silently shifts. The deterministic composition order is source/composite → inverse matte → whole-picture motion. | OCR already supplies word-level pixel boxes, so text selection and matte generation are tractable. The harder parts are supervised target repair and a stable Resolve representation. The reliable baseline transfers a verified RGBA/alpha matte artifact into a generated nested sequence; emitting an editable native Resolve/Fusion mask from the same geometry is an adapter enhancement only after version-specific proof. | Bounded capture-treatment/OCR-matte and Resolve-materialization follow-up. |
+| D24-18 | Infographic Fusion templates must publish stable semantic highlight targets—such as a table row, bar, cell, series, label, or map region—with human labels, target kind, supported states, and the Fusion control binding supplied by the pinned template revision. A Graphic occurrence may contain multiple ordered `Graphic highlight cue`s. Each cue selects one or more target IDs, a template-defined state such as `emphasis` or `muted`, an exact narration anchor/interval, and an optional template-supported transition. A start-only cue may explicitly last until the next cue or Graphic end; otherwise the ordinary two-of-three timing rule applies. Disjoint targets may overlap; contradictory active states on the same target block Release. Cue completion returns the target to its base state unless the next cue continues it. | Infographic emphasis is authored meaning, while the actual color and Fusion node/control implementation belong to the immutable template revision. Stable semantic targets prevent authoring from depending on brittle internal node names and allow several cues to compile deterministically. | Bounded graphic-highlight target/cue contract, Fusion template capability, compiler, and fallback follow-up. |
 
-Producer acceptance of D24-01 through D24-17 makes them the investigation's
+Producer acceptance of D24-01 through D24-18 makes them the investigation's
 decision output. It does not amend `ScriptDocument v1` or authorize
 implementation.
 
@@ -182,6 +184,7 @@ No follow-up issue is created by this investigation before Producer acceptance.
 | Image acquisition taxonomy, capture policies/retention, and motion presets | Producer accepts D24-11 through D24-13 | Roadmap steward files bounded Phase 5 design/contract issues after #24 acceptance | Scheduled capture is explicitly revived from §14; exact retention count/age is still a design input. Existing build snapshots must keep immutable artifact identity. |
 | One-action YouTube watch-page composite | Producer accepts D24-16 | Roadmap steward files a bounded Inbox compound-media design/contract issue after #24 acceptance | Must reuse authoritative research/YouTube clip identity and Capture artifacts rather than duplicate acquisition; freeze clip revision, page-capture revision, layout/template, audio policy, motion preset, and rendered/nested artifact in the build snapshot. Public anonymous capture ships first; authenticated/personalized page capture remains separately authorized. |
 | Capture Spotlight OCR matte and supervised remapping | Producer accepts D24-17 | Roadmap steward files a bounded Inbox capture-treatment design/contract issue after #24 acceptance | Define OCR word IDs/boxes/model version, capture hash, union/padding/rounding, normalized geometry, DOM/text evidence, matte artifact format/hash, accessibility, effect ordering, exact timing, stale/remap decisions, and build-snapshot fields. Baseline: verified RGBA/alpha matte in a generated nested sequence. Native editable Resolve/Fusion geometry follows only after adapter proof; manual completion is an explicit fallback, never the normal path. |
+| Fusion infographic highlight targets and cue schedule | Producer accepts D24-18 | Roadmap steward files a bounded Inbox graphics-template/contract issue after #24 acceptance | Extend the package capability design with stable semantic targets, allowed states/control bindings, cue identity/timing/transition/reset behavior, overlap validation, Studio keyframe verification, and an honest Free fallback. A build pins the template revision, semantic inputs/data provenance, cue schedule, resolved state/control values, and rendered result. Actual visual values remain owned by the template and issue #21; #24 chooses none. |
 | `Propose cut` review semantics | Producer accepts D24-06 | Roadmap steward files a bounded Inbox review-model issue after #24 acceptance | This is narrower than general track changes; it must state collaboration, history, Draft/Extras, prompter, and build effects. |
 | Comments with optional directed mentions | Producer accepts D24-10 | Existing Phase 3 scope; no new issue required unless prototype review finds a gap | Must remain separate from Draft notes and Editor/Resolve markers. |
 | Supervised legacy conversion review | Producer accepts D24-06 and the Unplaced behavior | Roadmap steward decides whether this belongs in the later authoring/import slice | Heuristic self-service import remains deferred; no parser is authorized here. |
@@ -226,7 +229,12 @@ The accepted design must pass these sample-grounded invariants:
    make the treatment stale; a build never guesses new geometry. Spotlight
    timing and whole-picture motion remain independently editable and are frozen
    in composition order.
-12. Paragraph boundaries remain writing structure; frame timing remains
+12. Graphic highlight cues refer only to stable semantic target IDs declared by
+   the pinned template, never Fusion node names. Several ordered cues may change
+   one Graphic over time. The compiler resolves every cue anchor, blocks same-
+   target state conflicts, returns completed cues to base state by policy, and
+   freezes the resolved Fusion control schedule and template revision.
+13. Paragraph boundaries remain writing structure; frame timing remains
    compiled output or an explicit timing override.
 
 ## 8. Exact bounded impact on issue #13
@@ -250,7 +258,7 @@ do not change. Its Claude brief needs only the following bounded additions.
 >   section-linked parked material, Sequences, Option sets, Comparison stacks,
 >   uploaded/linked images, versioned capture policies and motion presets,
 >   one-action YouTube watch-page composites, capture Spotlights with supervised
->   target repair,
+>   target repair, multi-cue Fusion infographic emphasis,
 >   typed visible prompter cues, comments/mentions, `Propose cut`, derived-
 >   graphic provenance, and unresolved local references without treating rows
 >   as edit boundaries.
@@ -286,6 +294,12 @@ do not change. Its Claude brief needs only the following bounded additions.
 >   interval. Show the generated matte/nested-sequence handoff, composition
 >   before whole-picture motion, and a visibly stale target instead of silent
 >   movement when a recapture changes layout.
+> - Prove one pinned Fusion infographic exposes semantic targets rather than
+>   internal node names and previews several narration-anchored highlight cues:
+>   at minimum one table-row target and two sequential bar targets. Show base,
+>   active, transition, reset, timing-conflict, template-update-available, Studio
+>   keyframe, and declared Free-fallback states without selecting issue #21's
+>   actual colors.
 > - Prove typed pronunciation/performance annotations default to visible non-
 >   spoken prompter cues, and Comments with optional mentions remain discussion
 >   only.
@@ -319,12 +333,12 @@ or alter any contract.
    **Expected:** every observed structural and semantic family has a product-
    spec mapping, canonical-model mapping, planned authoring behavior, and one
    of the four allowed statuses.
-3. Review D24-01 through D24-17 in §5.
+3. Review D24-01 through D24-18 in §5.
    **Expected:** rows are rejected as edit boundaries; roles, timing, variants,
    parked material, candidate modes, comments, image/capture acquisition,
-   motion, YouTube page composites, capture Spotlights, prompter cues, review
-   semantics, graphics provenance, and asset durability each have an explicit
-   decision.
+   motion, YouTube page composites, capture Spotlights, multi-cue infographic
+   emphasis, prompter cues, review semantics, graphics provenance, and asset
+   durability each have an explicit decision.
 4. Review §6.
    **Expected:** genuine Missing work has a bounded owner/trigger, but no
    follow-up issue or contract change has been created prematurely.
