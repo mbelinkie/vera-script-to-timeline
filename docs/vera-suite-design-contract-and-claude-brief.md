@@ -4,6 +4,7 @@
 - Status: proposed for producer acceptance
 - Decision authority: Producer
 - Prepared: 2026-08-31
+- Updated: 2026-09-01 with the Producer-accepted issue #24 bounded handoff
 - Scope: Claude Design structure and shared design language only
 
 ## Decision in one sentence
@@ -25,17 +26,26 @@ The following hierarchy resolves conflicts:
 
 1. Each product's approved product specification or behavior contract governs
    behavior, data meaning, authorization, and runtime capability.
-2. The accepted VERA Suite Design Contract governs shared visual and
+2. The Producer-accepted issue #24 decisions D24-01 through D24-19 govern the
+   sample-grounded content-language presentation required of the later Script
+   artifact. They do not amend `ScriptDocument v1` or authorize implementation.
+3. The accepted VERA Suite Design Contract governs shared visual and
    interaction grammar only.
-3. The producer-approved output of issue #21 governs shared token names and
+4. The producer-approved output of issue #21 governs shared token names and
    values. This document does not choose, rename, collapse, or wire tokens.
-4. An approved product Claude artifact governs that product's visual
-   composition and state presentation only when it agrees with items 1–3.
+5. An approved product Claude artifact governs that product's visual
+   composition and state presentation only when it agrees with items 1–4.
 
 The Research Video Clips Claude prototype is an input and visual precedent, not
 permission to copy Research screens into Script to Timeline. The Script to
 Timeline product specification remains authoritative for its purpose-built
 authoring surface.
+
+The complete D24-01 through D24-19 record remains authoritative in
+`docs/investigations/issue-24-representative-script-coverage.md`. This document
+incorporates only its exact §8 handoff. It does not reinterpret, omit, merge, or
+silently broaden those decisions, and Claude receives the fictional sanitized
+brief rather than the representative production script or URL.
 
 ## 2. Investigation of the current Research artifact
 
@@ -453,7 +463,18 @@ When authorized, structure the product artifact as:
 - **Accessibility and behavior handoff** — product semantics that screenshots
   cannot prove;
 - **Regression index** — scenario, role, runtime, viewport, action, expected
-  visible state, and expected accessibility/DOM evidence.
+  visible state, and expected accessibility/DOM evidence;
+- **Content-language coverage** — a focused scenario proving continuous
+  narration across multiple visual cuts, left-only/right-only asymmetry,
+  hierarchical right-lane roles, exact/unplaced/three-point timing, variants,
+  section-linked parked material, Sequences, Option sets, Comparison stacks,
+  uploaded/linked images, versioned capture policies and motion presets,
+  manual and Spotlight-bound slow-zoom focus with end-frame preview,
+  one-action YouTube watch-page composites, capture Spotlights with supervised
+  target repair, multi-cue Fusion infographic emphasis,
+  typed visible prompter cues, comments/mentions, `Propose cut`, derived-
+  graphic provenance, and unresolved local references without treating rows
+  as edit boundaries.
 
 Claude must not start with Research pages and replace nouns. The first Script
 application surface must derive from the Script specification's readable
@@ -473,7 +494,49 @@ For every included scenario:
   Topic labels, and non-color distinctions;
 - compare shared primitive use against the exact accepted suite contract and
   token version;
-- record every deliberate product-specific exception.
+- record every deliberate product-specific exception;
+- prove that timed Picture and its `Unresolved visual`, Clip, Image, Capture,
+  `YouTube page composite`, and Graphic subtypes remain distinguishable from
+  Audio cue, Citation, Editor note/timeline marker, Draft note, Reference, and
+  Comment by text/icon and accessible name, not color alone;
+- prove hover, focus, and keyboard traversal between exact narration ranges
+  and attached cards; prove Unplaced items have no invented interval and the
+  two-of-three timing rule exposes incomplete or contradictory timing;
+- prove Variants, Sequences, Option sets, and Comparison stacks have visibly
+  distinct build behavior; unresolved Option sets block Release unless their
+  Producer-set policy is `Choose in Resolve`;
+- prove a section-linked parked fragment appears both collapsed under its
+  section and in global Extras without duplication or active-build inclusion;
+- prove formatting remains nonsemantic and only an attributed `Propose cut`
+  action creates strikethrough; accept parks content and reject restores it;
+- prove derived graphics show source/version provenance and unresolved local
+  references show import/relink/remediation without exposing absolute paths;
+- prove upload and linked-image acquisition, Capture `Now`/`On build`/
+  `Periodic` policy, immutable revisions/retention state, and versioned motion
+  presets without performing real network or media actions;
+- prove that `Present on YouTube page` turns a compatible Clip into a nested
+  composite in one primary action; description/comments remain visible,
+  `Refresh page now` produces a newly selected immutable page revision, slow
+  zoom applies to the whole composite, and prior builds remain unchanged;
+- prove a Capture Spotlight exposes selectable OCR words/lines over a fictional
+  high-resolution capture, turns the confirmed source-pixel boxes into a
+  previewed inverse matte, dims everything outside it, and records an exact
+  interval. Show the generated matte/nested-sequence handoff, composition
+  before whole-picture motion, and a visibly stale target instead of silent
+  movement when a recapture changes layout;
+- prove `Slow zoom` can focus on center, a manually clicked fictional face,
+  or a confirmed Spotlight region. Show `Zoom to spotlight` timing, end-frame
+  crop/clamping, ordered focus segments, source-update review, stale/accepted
+  Spotlight remapping, resolved transforms, and honest Studio/Free output;
+- prove one pinned Fusion infographic exposes semantic targets rather than
+  internal node names and previews several narration-anchored highlight cues:
+  at minimum one table-row target and two sequential bar targets. Show base,
+  active, transition, reset, timing-conflict, template-update-available, Studio
+  keyframe, and declared Free-fallback states without selecting issue #21's
+  actual colors;
+- prove typed pronunciation/performance annotations default to visible non-
+  spoken prompter cues, and Comments with optional mentions remain discussion
+  only.
 
 ## 8. Prerequisites and inputs for a high-fidelity Script prototype
 
@@ -498,6 +561,10 @@ For every included scenario:
   revision, used as a visual-language reference only.
 - The Research `BEHAVIOR-CONTRACT.md`, `WEB-EDITION-DESIGN-BRIEF.md`,
   `APPROVAL-CHECKLIST.md`, and sanitized fictional fixtures.
+- The Producer-accepted issue #24 representative-script coverage audit and
+  `docs/prototypes/issue-24-sanitized-prototype-input-brief.md`. Use the
+  private source only as retained evidence; Claude receives the sanitized
+  brief, never the source document or URL.
 - `docs/Script-to-Timeline Product Spec - Fable Rev2.md`, especially sections
   4, 6, 7, 8.1–8.2, 9, and 10.
 - Accepted Script contracts and canonical semantic inputs needed to make the
@@ -516,7 +583,9 @@ For every included scenario:
 - reciprocal suite-switcher entry and fallback states;
 - `1280 × 800` and `1024 × 768` acceptance at minimum;
 - accessibility and keyboard matrix;
-- safe, fictional content and sanitization rules;
+- the issue #24 sanitized prototype brief as the required fictional content
+  authority; no private source title, URL, document identifier, names,
+  quotations, facts, or source-specific links may enter Claude or screenshots;
 - explicit statement that Claude edits only design artifacts and never product
   code, deployments, permissions, or data.
 
@@ -528,7 +597,10 @@ For every included scenario:
 - Markdown and whitespace checks pass;
 - no contracts, fixtures, golden files, generated types, accepted tests,
   dependency manifests, or lockfiles change;
-- the final diff contains only this investigation plan and decision artifact;
+- the issue #24 coverage audit, plan, and sanitized prototype brief remain
+  byte-identical to accepted commit `e72aa24`;
+- the only new issue #13 edits are the bounded plan and Claude-brief handoff,
+  with no private-source content or feature implementation;
 - issue #13 remains claimed by the dedicated task and branch and is moved only
   to `In review`.
 
@@ -570,7 +642,12 @@ For every included scenario:
     **Expected:** later high-fidelity work cannot begin without accepted issue
     #13 structure, issue #21 token decisions, a bounded Script design slice,
     authoritative product inputs, both viewports, and accessibility evidence.
-11. Record one precise response on issue #13:
+11. Review the issue #24 additions and sanitized prototype brief.
+    **Expected:** every accepted sample content family has a visible authoring
+    treatment; rows are never edit boundaries; unresolved choices, capture
+    freshness, timing, and review states remain explicit; and issue #21 still
+    exclusively owns visual-token decisions.
+12. Record one precise response on issue #13:
     - acceptance: `Accept issue #13 suite design contract and Claude artifact structure.`
     - failure: `Issue #13 acceptance failed at checklist step <number>: <observed mismatch>.`
 
