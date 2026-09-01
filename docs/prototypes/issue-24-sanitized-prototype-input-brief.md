@@ -167,19 +167,26 @@ behavior.
 - Capture and YouTube page composite occurrences may add a Spotlight.
   The simplest authoring flow is `Add spotlight`, then drag a rectangle over
   the critical text while the preview dims everything outside it.
-- An assisted flow lets the author click a detected text block or search OCR/
-  DOM text, previews the proposed region, and requires confirmation. Assistance
-  never makes an invisible final selection.
-- Store the approved region in capture-local normalized coordinates together
-  with optional DOM selector and OCR target/context evidence, dim opacity,
-  feather, exact active interval, and treatment version.
+- The primary assisted flow overlays selectable OCR words and lines on the
+  immutable high-resolution capture. Selecting fictional text unions its source-
+  pixel boxes; editable padding/rounding produces the previewed bright region.
+  A manual rectangle remains available when OCR misses or joins text badly.
+- Store capture hash, OCR word IDs/text/context and pixel boxes, OCR/profile
+  version, capture-local normalized geometry, optional DOM evidence, union/
+  padding/rounding parameters, dim opacity, feather, exact active interval, and
+  treatment version.
+- Confirmation generates a full-resolution immutable RGBA/alpha matte artifact
+  whose transparent opening is the selected text region and whose outside area
+  supplies the requested dimming. Preview uses that same derivation.
 - After recapture, VERA may propose a repaired target using DOM/OCR evidence.
   If the page moved or the match is ambiguous, show `Spotlight stale` with
   `Keep previous capture`, `Accept remap`, and `Redraw`; never move the mask
   silently.
 - Composition order is captured source (or completed YouTube page composite),
-  then inverse dim mask, then whole-picture drift/zoom. The prototype must show
-  that the bright target travels correctly with the moving composite.
+  then inverse matte, then whole-picture drift/zoom. The reliable Resolve
+  baseline places the verified matte with the capture inside a generated nested
+  sequence, then applies motion to the nest. A native editable Resolve/Fusion
+  mask may be shown as a later adapter capability, not a baseline dependency.
 
 ### 6.7 Comments and prompter annotations
 
@@ -253,9 +260,10 @@ relevant remediation action.
 12. **Present Clip on YouTube page** — apply the one-action treatment, inspect
     separate Clip/page revisions, refresh the fictional play count, toggle
     description/comments visibility, and preview slow zoom on the composite.
-13. **Spotlight critical webpage text** — draw a manual region, accept/reject an
-    assisted fictional-text proposal, set its active phrase, recapture the page,
-    and resolve a stale target without silently moving it.
+13. **Spotlight critical webpage text** — select fictional OCR words/lines,
+    inspect and adjust the generated inverse matte, compare the manual rectangle,
+    set its active phrase, inspect the nested-sequence handoff, recapture the
+    page, and resolve a stale target without silently moving it.
 
 Every view must be testable at `1280 × 800` and `1024 × 768` as a real reflow,
 with pointer and keyboard operation. Exact visual tokens come only from the
@@ -281,8 +289,9 @@ The later prototype is incomplete unless it visibly exercises all of these:
 - [ ] one-action YouTube page composite with moving Clip, high-resolution page
       capture, visible fictional description/comments, refreshable play count,
       separate immutable revisions, pinned layout, and whole-composite motion;
-- [ ] manual and assisted Capture Spotlight, inverse dimming, exact treatment
-      timing, deterministic effect order, and stale/remap review after recapture;
+- [ ] selectable high-resolution OCR text, manual fallback, immutable inverse
+      matte artifact, exact Spotlight timing, generated nested-sequence handoff,
+      deterministic effect order, and stale/remap review after recapture;
 - [ ] Music/SFX cue with pinned identity and explicit intent;
 - [ ] Citation that is not a visual;
 - [ ] full-screen text graphic;
