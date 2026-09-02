@@ -50,6 +50,23 @@ Contracts are frozen between accepted slices. Any proposed contract change
 must state what changes, why, what it breaks, which generated types need
 regeneration, and how acceptance changes.
 
+## Producer learning channel
+
+- Keep implementation, roadmap, review, and acceptance tasks focused. Do not
+  include teaching asides or "engineering lens" notes in their commentary or
+  final responses.
+- When a completed milestone, important tradeoff, surprising failure, contract
+  boundary, or useful test reveals a genuinely helpful big-picture lesson,
+  send the lesson context to the dedicated Codex task **VERA Engineering
+  Lessons** (`threadId: 01a0627e-a2ea-7ab1-8975-9a85c5e8b4e9`, `hostId: local`)
+  with `send_message_to_thread`.
+- Ask that task to turn the context into one brief, self-contained lesson in
+  simple, non-technical language. Avoid jargon; define any unavoidable term
+  plainly. Do not go deeper unless Matthew asks a follow-up there.
+- Include the source issue or task title when available so the lesson remains
+  connected to the real project. Send at most one lesson per meaningful
+  milestone, and skip lessons that would be repetitive or forced.
+
 ## Shell commands
 
 Always prefix shell commands with `rtk`, following
