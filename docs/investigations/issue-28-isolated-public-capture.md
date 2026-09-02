@@ -23,7 +23,8 @@ revision. New results remain unselected, and nothing deletes prior history.
 Verified on macOS 15.1 / x64 with Node 24.19.0, npm 11.17.0, Playwright 1.62.1,
 Chromium 151.0.7922.34 and pngjs 7.0.0:
 
-- Final focused verification: **20 tests passed, zero skipped**. The repository
+- Final focused verification after the Finder-metadata regression fix:
+  **20 tests passed, zero skipped**. The repository
   gate `rtk proxy npm exec --yes --package=node@24.19.0 -- npm run validate`
   also passed: generated contracts current; TypeScript lint/typecheck;
   91 contract tests, 1 tooling test, 6 progress tests and 23 roadmap tests;
@@ -33,6 +34,9 @@ Chromium 151.0.7922.34 and pngjs 7.0.0:
 - `rtk proxy npm exec --yes --package=node@24.19.0 -- npm --prefix spikes/public-capture test`
   runs the focused policy, transport, store, actual-browser and crash suites.
   The browser suite is mandatory, not skipped on a missing runtime/sandbox.
+  `history()` ignores only `.DS_Store` in the commits index, so inspecting the
+  output with Finder does not create a false invalid revision; the regression
+  is covered by the store tests.
 - URL/address tests cover unsafe schemes, alternate IP spellings, reserved
   IPv4/IPv6 classes, metadata/local hosts, mixed DNS, peer mismatch, unsafe
   redirect chains, redirect loops and finite request/byte limits.

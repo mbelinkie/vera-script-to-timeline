@@ -122,6 +122,8 @@ the lock, and every committed observation has distinct job/attempt/revision
 and provenance identities.
 
 `history()` reads only committed bundles and checks their hashes and PNGs.
+It ignores only Finder's `.DS_Store` directory metadata when indexing commits;
+any other unexpected commit entry fails closed.
 Staging and partial records are never revisions. A repeated command after an
 uncertain commit returns the existing result. An interrupted command with no
 commit becomes `abandoned_after_process_loss`; it does not launch another

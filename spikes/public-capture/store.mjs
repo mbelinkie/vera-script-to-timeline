@@ -97,7 +97,9 @@ export class LocalStore {
   }
   async history() {
     const records = [];
-    for (const directory of (await readdir(path.join(this.root, 'commits'))).sort()) {
+    // Finder may leave this harmless per-directory metadata file behind. It
+    // is never a revision and is the only non-commit entry tolerated here.
+    for (const directory of (await readdir(path.join(this.root, 'commits'))).filter((name) => name !== '.DS_Store').sort()) {
       requireSafe(/^\d{6}-[a-f0-9-]{36}$/.test(directory), 'invalid_commit_directory');
       const dirInfo = await lstat(path.join(this.root, 'commits', directory));
       requireSafe(dirInfo.isDirectory() && !dirInfo.isSymbolicLink(), 'commit_directory_denied');

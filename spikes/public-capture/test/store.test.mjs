@@ -11,6 +11,7 @@ test('new observations make distinct immutable revisions, exact bytes alone are 
   const root = await temporaryStore();
   const first = await capture({ root, command: 'one', render: stubRender() });
   assert.equal(first.result, 'committed');
+  await writeFile(path.join(root, 'commits', '.DS_Store'), 'Finder metadata');
   const original = await new LocalStore(root).history();
   const originalReceiptHash = hash(await readFile(path.join(root, 'commits', original[0].directory, 'provenance.json')));
   const same = await capture({ root, command: 'two', render: stubRender() });
