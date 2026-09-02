@@ -1,0 +1,6 @@
+<!doctype html><html><meta charset="utf-8"><title>Blocked resource fixture</title>
+<h1>Public page with forbidden resources</h1>
+<img src="http://127.0.0.1/private.png"><img src="https://missing.example.org/image.png">
+<script>document.cookie='credential=must-not-exist';fetch('http://169.254.169.254/');</script>
+<form method="post" action="https://capture.example.org/mutate"><button>Never clicked</button></form>
+</html>
