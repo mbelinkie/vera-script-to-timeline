@@ -16,8 +16,11 @@ acceptance record, not a live tracker.
   byte-identical golden-file tests from frozen fixtures.
 - Finish with passing checks, a plain-language walkthrough and judgment calls,
   and the producer acceptance checklist.
-- Producer acceptance is authoritative. An agent self-report never closes a
-  slice.
+- The GitHub Project's `Acceptance` field names the closing authority. For
+  `Automated`, retained passing commands/tests are sufficient evidence; for
+  `External`, retain evidence from the required real application or service;
+  for `Producer`, explicit producer acceptance is required. An agent
+  self-report alone never closes any slice.
 - Require one Ready issue, one task, and one dedicated branch/worktree. Claim
   only an exact `model:*` and `effort:*` match through `npm run roadmap`.
 - Record prerequisites under `## Dependencies` as `- Blocked by #123` or

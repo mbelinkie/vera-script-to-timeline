@@ -14,12 +14,31 @@ Use the GitHub Project configured in `.github/vera-roadmap.json` as the sole liv
 3. Begin only when Status is `Ready`, dependencies are resolved, acceptance criteria are complete, and exactly one supported `model:*` plus one `effort:*` label exists. The claim command revalidates dependency state to catch manual board moves and races.
 4. Claim with the exact running profile, task identity, and dedicated branch: `npm run roadmap -- claim <issue> --model <exact-model> --effort <effort> --task <task> --branch <branch>`.
 5. Keep work inside issue scope. File discoveries in Inbox and do not start them.
-6. Move implementation to `In review` with actual evidence. Manual listening, visual inspection, Resolve testing, and producer judgment remain there until accepted.
-7. Close only with named acceptance authority and retained evidence.
+6. Move implementation to `In review` with actual evidence. The Project's
+   `Acceptance` field determines the closing authority: `Automated` closes on
+   retained passing automated evidence, `External` closes on retained evidence
+   from the required real application/service, and `Producer` remains in review
+   until the producer explicitly accepts. Manual listening, visual inspection,
+   and Resolve testing are External or Producer evidence according to that
+   field; they are not automatically producer approvals.
+7. Close only with the named acceptance authority and retained evidence.
 
 ## Producer acceptance handoff
 
-When asking the producer for acceptance, do not make a bare request for approval. Supply a concise, step-by-step checklist that the producer can execute without reconstructing the agent's work. It must name the exact artifact, command, or application view to open; the ordered actions; the expected result for each action; any manual judgment that remains; and the precise response that records acceptance or reports a failure. Include only the checks relevant to the issue's acceptance criteria, distinguish automated evidence already obtained from the producer's manual checks, and leave the issue `In review` until the producer explicitly accepts it.
+Apply this section only when the Project `Acceptance` field is `Producer`.
+Do not make a bare request for approval: supply a concise, step-by-step
+checklist that the producer can execute without reconstructing the agent's
+work. It must name the exact artifact, command, or application view to open;
+the ordered actions; the expected result for each action; any manual judgment
+that remains; and the precise response that records acceptance or reports a
+failure. Include only checks relevant to the issue's acceptance criteria and
+leave the issue `In review` until explicit producer acceptance.
+
+For `Automated`, record exact commands, versions, results, and artifact hashes
+as acceptance evidence; do not ask the producer to repeat deterministic checks.
+For `External`, provide a concise operator checklist for the real application
+or service and retain that result; ask the producer only if a product or
+creative decision remains.
 
 For design-first work, create and accept the bounded design issue before implementation. Keep implementation in `Backlog` or `Blocked` with `Blocked by` the design issue; only its accepted `Done` state unlocks `Ready`.
 
