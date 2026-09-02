@@ -150,6 +150,9 @@ Project configured in `.github/vera-roadmap.json`:
 npm run progress
 ```
 
+For reusable project-management and safety patterns proven in this repository,
+see [the project operating playbook](docs/PROJECT_OPERATING_PLAYBOOK.md).
+
 The command prints a terminal summary and writes
 `out/project-progress/index.html`. On macOS, generate it and open it in the
 default browser with:
