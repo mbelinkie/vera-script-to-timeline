@@ -33,6 +33,7 @@ export interface VeraContractsV1 {
   timelineManifest: TimelineManifestV1;
   buildReport: BuildReportV1;
   compilerDependencies: CompilerDependenciesV1;
+  prompterExport: PrompterExportV1;
 }
 /**
  * Editor-independent canonical ScriptDocument serialization for Phase 1.
@@ -88,6 +89,14 @@ export interface NarrationBlock {
   tokens: [NarrationToken, ...NarrationToken[]];
   hostVisibilitySpans: HostVisibilitySpan[];
   visualEvents: VisualEvent[];
+  /**
+   * Optional typed narration annotations. Omission is equivalent to an empty array.
+   */
+  annotations?: NarrationAnnotation[];
+  /**
+   * Optional explicit performance beats. Omission or an empty array derives deterministic sentence beats at export time.
+   */
+  performanceBeats?: PerformanceBeat[];
   timingPolicy: "narration_spine";
   state: "active" | "excluded";
   notes: string[];
@@ -159,6 +168,25 @@ export interface PlaceholderVisualSource {
 export interface HardCut {
   kind: "hard_cut";
   durationFrames: 0;
+}
+/**
+ * Typed, exact-range pronunciation or performance metadata. It is never spoken narration or provider syntax.
+ */
+export interface NarrationAnnotation {
+  id: string;
+  kind: "pronunciation_alias" | "pronunciation_phoneme" | "performance_note";
+  range: TextAnchorRange;
+  value: string;
+  includeInPrompter: boolean;
+  version: number;
+}
+/**
+ * Stable recording-take identity over an exact narration token range.
+ */
+export interface PerformanceBeat {
+  id: string;
+  range: TextAnchorRange;
+  version: number;
 }
 export interface DirectionBlock {
   type: "direction";
@@ -585,4 +613,30 @@ export interface TimingMark {
 export interface ResolvedSourceAudio {
   source: AudioSource;
   sourceStartFrame: number;
+}
+/**
+ * Canonical deterministic sidecar for a narration-only prompter text artifact.
+ */
+export interface PrompterExportV1 {
+  schemaVersion: "prompter-export/v1";
+  sourceDocument: DocumentReference;
+  settings: {
+    includeSectionNavigation: boolean;
+    includeBeatNumbers: boolean;
+  };
+  textSha256: string;
+  beats: PrompterBeat[];
+}
+export interface PrompterBeat {
+  id: string;
+  expectedText: string;
+  hostVisibility: "on_camera" | "voiceover";
+  navigationCues: string[];
+  annotations: PrompterBeatAnnotation[];
+}
+export interface PrompterBeatAnnotation {
+  id: string;
+  kind: "pronunciation_alias" | "pronunciation_phoneme" | "performance_note";
+  value: string;
+  visibleInPrompter: boolean;
 }

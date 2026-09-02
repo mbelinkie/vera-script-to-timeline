@@ -1,0 +1,77 @@
+{
+  "baseline": "cf53ceba957af21f026b8c2bca1a8eee0be842f3",
+  "task": "01a06279-3921-7893-87e0-9dd333f38ba1",
+  "branch": "codex/issue-37-prompter-export",
+  "route": "gpt-5.6-sol/xhigh",
+  "date": "2026-09-02",
+  "acceptanceAuthority": "Automated",
+  "versions": "{\"node\":\"24.19.0\",\"acorn\":\"8.17.0\",\"ada\":\"3.4.4\",\"amaro\":\"1.1.10\",\"ares\":\"1.34.6\",\"brotli\":\"1.2.0\",\"cldr\":\"48.0\",\"icu\":\"78.3\",\"llhttp\":\"9.4.3\",\"merve\":\"1.2.2\",\"modules\":\"137\",\"napi\":\"10\",\"nbytes\":\"0.1.4\",\"ncrypto\":\"0.0.1\",\"nghttp2\":\"1.69.0\",\"nghttp3\":\"\",\"ngtcp2\":\"\",\"openssl\":\"3.5.7\",\"simdjson\":\"4.6.4\",\"simdutf\":\"6.4.0\",\"sqlite\":\"3.53.3\",\"tz\":\"2026b\",\"undici\":\"7.29.0\",\"unicode\":\"17.0\",\"uv\":\"1.52.1\",\"uvwasi\":\"0.0.23\",\"v8\":\"13.6.233.17-node.51\",\"zlib\":\"1.3.2.1-motley-3246f1b\",\"zstd\":\"1.5.7\"}\n11.17.0\nuv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)\nPython 3.12.14\nruff 0.16.4\nmypy 2.3.1 (compiled: no)\ndatamodel-codegen 0.75.1\nDarwin x86_64\n\n\n",
+  "cli": [
+    {
+      "cmd": "rtk env PATH=/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:/Users/matthewbelinkie/.local/bin:/usr/local/bin:/usr/bin:/bin npm run export:prompter -- tests/data/issue_37/acceptance.script-document.json --text out/issue-37-verification/acceptance-1.txt --sidecar out/issue-37-verification/acceptance-1.json --include-section-navigation --include-beat-numbers",
+      "output": "\n> vera-script-to-timeline@0.0.0 export:prompter\n> node packages/contracts/src/prompter-export-cli.ts tests/data/issue_37/acceptance.script-document.json --text out/issue-37-verification/acceptance-1.txt --sidecar out/issue-37-verification/acceptance-1.json --include-section-navigation --include-beat-numbers\n\nPASS Prompter export written\ntext=out/issue-37-verification/acceptance-1.txt sha256:9167c4d2f02556aff1c315b37fa8a8aabb9ba3261d11f3fd04d72fea7a0a806c\nsidecar=out/issue-37-verification/acceptance-1.json sha256:76d2e275acf81542f2c3749c4f69fbd3388eafd7b08f72e002c5f5aba632a57f\n",
+      "exit_code": 0
+    },
+    {
+      "cmd": "rtk env PATH=/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:/Users/matthewbelinkie/.local/bin:/usr/local/bin:/usr/bin:/bin npm run export:prompter -- tests/data/issue_37/acceptance.script-document.json --text out/issue-37-verification/acceptance-2.txt --sidecar out/issue-37-verification/acceptance-2.json --include-section-navigation --include-beat-numbers",
+      "output": "\n> vera-script-to-timeline@0.0.0 export:prompter\n> node packages/contracts/src/prompter-export-cli.ts tests/data/issue_37/acceptance.script-document.json --text out/issue-37-verification/acceptance-2.txt --sidecar out/issue-37-verification/acceptance-2.json --include-section-navigation --include-beat-numbers\n\nPASS Prompter export written\ntext=out/issue-37-verification/acceptance-2.txt sha256:9167c4d2f02556aff1c315b37fa8a8aabb9ba3261d11f3fd04d72fea7a0a806c\nsidecar=out/issue-37-verification/acceptance-2.json sha256:76d2e275acf81542f2c3749c4f69fbd3388eafd7b08f72e002c5f5aba632a57f\n",
+      "exit_code": 0
+    },
+    {
+      "cmd": "rtk env PATH=/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:/Users/matthewbelinkie/.local/bin:/usr/local/bin:/usr/bin:/bin npm run export:prompter -- tests/data/issue_37/legacy.script-document.json --text out/issue-37-verification/legacy-1.txt --sidecar out/issue-37-verification/legacy-1.json",
+      "output": "\n> vera-script-to-timeline@0.0.0 export:prompter\n> node packages/contracts/src/prompter-export-cli.ts tests/data/issue_37/legacy.script-document.json --text out/issue-37-verification/legacy-1.txt --sidecar out/issue-37-verification/legacy-1.json\n\nPASS Prompter export written\ntext=out/issue-37-verification/legacy-1.txt sha256:512411c39f8cbfc6cced6b64d931a3e4248b497028dbd3acd85d2849ca2917bf\nsidecar=out/issue-37-verification/legacy-1.json sha256:f9aa47ff7ad2713f39af39af5b83f9b98d68a5fb0b57eca029d36ac31f31d574\n",
+      "exit_code": 0
+    },
+    {
+      "cmd": "rtk env PATH=/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:/Users/matthewbelinkie/.local/bin:/usr/local/bin:/usr/bin:/bin npm run export:prompter -- tests/data/issue_37/legacy.script-document.json --text out/issue-37-verification/legacy-2.txt --sidecar out/issue-37-verification/legacy-2.json",
+      "output": "\n> vera-script-to-timeline@0.0.0 export:prompter\n> node packages/contracts/src/prompter-export-cli.ts tests/data/issue_37/legacy.script-document.json --text out/issue-37-verification/legacy-2.txt --sidecar out/issue-37-verification/legacy-2.json\n\nPASS Prompter export written\ntext=out/issue-37-verification/legacy-2.txt sha256:512411c39f8cbfc6cced6b64d931a3e4248b497028dbd3acd85d2849ca2917bf\nsidecar=out/issue-37-verification/legacy-2.json sha256:f9aa47ff7ad2713f39af39af5b83f9b98d68a5fb0b57eca029d36ac31f31d574\n",
+      "exit_code": 0
+    }
+  ],
+  "comparisons": [
+    {
+      "cmd": "rtk cmp out/issue-37-verification/acceptance-1.txt out/issue-37-verification/acceptance-2.txt && rtk cmp out/issue-37-verification/acceptance-1.txt tests/data/issue_37/acceptance.prompter.golden.txt",
+      "output": "",
+      "exit_code": 0
+    },
+    {
+      "cmd": "rtk cmp out/issue-37-verification/acceptance-1.json out/issue-37-verification/acceptance-2.json && rtk cmp out/issue-37-verification/acceptance-1.json tests/data/issue_37/acceptance.sidecar.golden.json",
+      "output": "",
+      "exit_code": 0
+    },
+    {
+      "cmd": "rtk cmp out/issue-37-verification/legacy-1.txt out/issue-37-verification/legacy-2.txt && rtk cmp out/issue-37-verification/legacy-1.txt tests/data/issue_37/legacy.prompter.golden.txt",
+      "output": "",
+      "exit_code": 0
+    },
+    {
+      "cmd": "rtk cmp out/issue-37-verification/legacy-1.json out/issue-37-verification/legacy-2.json && rtk cmp out/issue-37-verification/legacy-1.json tests/data/issue_37/legacy.sidecar.golden.json",
+      "output": "",
+      "exit_code": 0
+    }
+  ],
+  "missingState": {
+    "cmd": "rtk env PATH=/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:/Users/matthewbelinkie/.local/bin:/usr/local/bin:/usr/bin:/bin npm run export:prompter -- out/issue-37-verification/missing-state.script-document.json --text out/issue-37-verification/blocked.txt --sidecar out/issue-37-verification/blocked.json",
+    "chunk_id": "d97cef",
+    "wall_time_seconds": 0.60548677,
+    "exit_code": 1,
+    "original_token_count": 168,
+    "output": "\n> vera-script-to-timeline@0.0.0 export:prompter\n> node packages/contracts/src/prompter-export-cli.ts out/issue-37-verification/missing-state.script-document.json --text out/issue-37-verification/blocked.txt --sidecar out/issue-37-verification/blocked.json\n\nFAIL Prompter export blocked: out/issue-37-verification/missing-state.script-document.json\n2 diagnostic(s):\n- ANNOTATION_HOST_VISIBILITY_INVALID | /activeDraft/blocks/1/annotations/2/range | Annotation ranges must be covered by exactly one host-visibility state.\n- HOST_VISIBILITY_GAP | /activeDraft/blocks/1/hostVisibilitySpans | Every active spoken token must have exactly one authored host-visibility state.\n"
+  },
+  "hashes": {
+    "cmd": "rtk proxy node --input-type=module -e 'import {readFileSync,existsSync,readdirSync} from \"node:fs\"; import {createHash} from \"node:crypto\"; import assert from \"node:assert/strict\"; const files = [\"tests/data/slice_1_1/minimal.script-document.json\", \"tests/data/slice_1_1/torture.script-document.json\", ...readdirSync(\"tests/data/issue_37\").filter(n=>n!==\"README.md\").map(n=>\"tests/data/issue_37/\"+n)]; const hashes=Object.fromEntries(files.map(p=>[p,\"sha256:\"+createHash(\"sha256\").update(readFileSync(p)).digest(\"hex\")])); assert.equal(existsSync(\"out/issue-37-verification/blocked.txt\"),false); assert.equal(existsSync(\"out/issue-37-verification/blocked.json\"),false); for(const name of [\"acceptance\",\"legacy\"]){const sidecar=JSON.parse(readFileSync(\"out/issue-37-verification/\"+name+\"-1.json\",\"utf8\")); assert.equal(sidecar.textSha256,hashes[\"tests/data/issue_37/\"+name+\".prompter.golden.txt\"]);} console.log(JSON.stringify({hashes,negativeArtifactsAbsent:true,textSha256Verified:true},null,2));'",
+    "chunk_id": "275336",
+    "wall_time_seconds": 0.010257991,
+    "exit_code": 0,
+    "original_token_count": 285,
+    "output": "{\n  \"hashes\": {\n    \"tests/data/slice_1_1/minimal.script-document.json\": \"sha256:660035aae5a6c8f75462b63ec5348e73bb95b93835d27e1654bdac67b08cc3ac\",\n    \"tests/data/slice_1_1/torture.script-document.json\": \"sha256:18f6ea65aae8533a0b810bcef6a62f4ac6c8074ae594ad4a760b3ba68a45f36e\",\n    \"tests/data/issue_37/acceptance.prompter.golden.txt\": \"sha256:9167c4d2f02556aff1c315b37fa8a8aabb9ba3261d11f3fd04d72fea7a0a806c\",\n    \"tests/data/issue_37/acceptance.script-document.json\": \"sha256:57ea5509b98968678c55d4ea6b950229e17af61d5433540563cbb5e9385fbe2f\",\n    \"tests/data/issue_37/acceptance.sidecar.golden.json\": \"sha256:76d2e275acf81542f2c3749c4f69fbd3388eafd7b08f72e002c5f5aba632a57f\",\n    \"tests/data/issue_37/legacy.prompter.golden.txt\": \"sha256:512411c39f8cbfc6cced6b64d931a3e4248b497028dbd3acd85d2849ca2917bf\",\n    \"tests/data/issue_37/legacy.script-document.json\": \"sha256:f136757be87377839f84cd0a0f8156cc35cb8a35ed7ac7405f42ddbcb70fef03\",\n    \"tests/data/issue_37/legacy.sidecar.golden.json\": \"sha256:f9aa47ff7ad2713f39af39af5b83f9b98d68a5fb0b57eca029d36ac31f31d574\"\n  },\n  \"negativeArtifactsAbsent\": true,\n  \"textSha256Verified\": true\n}\n"
+  },
+  "frozenBoundary": {
+    "cmd": "rtk proxy node --input-type=module -e 'import {spawnSync} from \"node:child_process\"; import assert from \"node:assert/strict\"; const baseline=\"cf53ceba957af21f026b8c2bca1a8eee0be842f3\"; const run=(args)=>{const r=spawnSync(\"git\",args,{encoding:\"utf8\"}); assert.equal(r.status,0,r.stderr); return r.stdout;}; const paths=run([\"ls-tree\",\"-r\",\"--name-only\",baseline,\"contracts\",\"fixtures\",\"tests\",\"packages/contracts/test\",\"python/vera_timeline_agent/generated/contracts\"]).trim().split(\"\\n\"); const allowed=new Set([\"contracts/script-document-v1.schema.json\",\"python/vera_timeline_agent/generated/contracts/script_document_v1_schema.py\",\"python/vera_timeline_agent/generated/contracts/__init__.py\"]); const frozen=paths.filter(p=>!allowed.has(p)); run([\"diff\",\"--exit-code\",baseline,\"--\",...frozen,\"package-lock.json\",\"uv.lock\"]); console.log(JSON.stringify({baseline,frozenPathsChecked:frozen.length+2,changedFrozenPaths:[],paths:[...frozen,\"package-lock.json\",\"uv.lock\"]},null,2));'",
+    "chunk_id": "0c4920",
+    "wall_time_seconds": 0.080658974,
+    "exit_code": 0,
+    "original_token_count": 650,
+    "output": "{\n  \"baseline\": \"cf53ceba957af21f026b8c2bca1a8eee0be842f3\",\n  \"frozenPathsChecked\": 53,\n  \"changedFrozenPaths\": [],\n  \"paths\": [\n    \"contracts/build-report-v1.schema.json\",\n    \"contracts/compiler-dependencies-v1.schema.json\",\n    \"contracts/timeline-manifest-v1.schema.json\",\n    \"fixtures/README.md\",\n    \"fixtures/__init__.py\",\n    \"fixtures/fixture-kit.json\",\n    \"fixtures/generate_fixtures.py\",\n    \"fixtures/media/audio-ambient-bed.wav\",\n    \"fixtures/media/clip-cutaway-orange.mp4\",\n    \"fixtures/media/clip-detail-green.mp4\",\n    \"fixtures/media/clip-establishing-blue.mp4\",\n    \"fixtures/media/still-reference-bars.png\",\n    \"fixtures/media/still-reference-grid.png\",\n    \"fixtures/validate_fixtures.py\",\n    \"packages/contracts/test/compiler-core.test.ts\",\n    \"packages/contracts/test/samples.ts\",\n    \"packages/contracts/test/schema-validation.test.ts\",\n    \"packages/contracts/test/script-validator-cli.test.ts\",\n    \"packages/contracts/test/script-validator.test.ts\",\n    \"python/vera_timeline_agent/generated/contracts/build_report_v1_schema.py\",\n    \"python/vera_timeline_agent/generated/contracts/compiler_dependencies_v1_schema.py\",\n    \"python/vera_timeline_agent/generated/contracts/timeline_manifest_v1_schema.py\",\n    \"tests/conftest.py\",\n    \"tests/data/slice_0_2/README.md\",\n    \"tests/data/slice_0_2/timeline-manifest.json\",\n    \"tests/data/slice_1_1/minimal.script-document.json\",\n    \"tests/data/slice_1_1/torture.script-document.json\",\n    \"tests/data/slice_1_3/minimal.compiler-dependencies.json\",\n    \"tests/data/slice_1_3/minimal.manifest.golden.json\",\n    \"tests/data/slice_1_3/minimal.report.golden.json\",\n    \"tests/data/slice_1_3/python-adapter.ready-narration-dependency.json\",\n    \"tests/data/slice_1_3/torture.compiler-dependencies.json\",\n    \"tests/data/slice_1_3/torture.manifest.golden.json\",\n    \"tests/data/slice_1_3/torture.report.golden.json\",\n    \"tests/test_after_effects_inspection.py\",\n    \"tests/test_fixtures.py\",\n    \"tests/test_free_trial.py\",\n    \"tests/test_generated_contracts.py\",\n    \"tests/test_narration_cache.py\",\n    \"tests/test_narration_cli.py\",\n    \"tests/test_narration_compiler_dependencies.py\",\n    \"tests/test_narration_normalize.py\",\n    \"tests/test_narration_provider.py\",\n    \"tests/test_narration_service.py\",\n    \"tests/test_otio_package.py\",\n    \"tests/test_placeholder_slate.py\",\n    \"tests/test_resolve_import_package.py\",\n    \"tests/test_studio_spike.py\",\n    \"tests/test_text_plus_template.py\",\n    \"tests/test_text_plus_validation.py\",\n    \"tests/test_tooling_smoke.py\",\n    \"package-lock.json\",\n    \"uv.lock\"\n  ]\n}\n"
+  }
+}

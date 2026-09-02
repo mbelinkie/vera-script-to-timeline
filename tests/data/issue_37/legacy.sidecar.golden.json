@@ -1,0 +1,37 @@
+{
+  "beats": [
+    {
+      "annotations": [],
+      "expectedText": "Watch the beacon as the fog rolls in.",
+      "hostVisibility": "on_camera",
+      "id": "a1c284d8-41e2-5577-a5b5-3388ae2ce243",
+      "navigationCues": []
+    },
+    {
+      "annotations": [],
+      "expectedText": "Keep your eyes here.",
+      "hostVisibility": "on_camera",
+      "id": "2664f363-8af9-59cd-8556-84d02054c630",
+      "navigationCues": []
+    },
+    {
+      "annotations": [],
+      "expectedText": "The lights fade.",
+      "hostVisibility": "voiceover",
+      "id": "77dc17d5-4dff-5fb9-93ac-7c1cdbe71ac6",
+      "navigationCues": []
+    }
+  ],
+  "schemaVersion": "prompter-export/v1",
+  "settings": {
+    "includeBeatNumbers": false,
+    "includeSectionNavigation": false
+  },
+  "sourceDocument": {
+    "contentHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "documentId": "37000000-0000-4000-8000-000000000001",
+    "liveHeadSequence": 36,
+    "projectId": "37000000-0000-4000-8000-000000000002"
+  },
+  "textSha256": "sha256:512411c39f8cbfc6cced6b64d931a3e4248b497028dbd3acd85d2849ca2917bf"
+}

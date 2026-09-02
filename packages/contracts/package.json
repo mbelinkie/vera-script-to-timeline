@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/generated/contracts.ts",
     "./script-validator": "./src/script-validator.ts",
-    "./compiler-core": "./src/compiler-core.ts"
+    "./compiler-core": "./src/compiler-core.ts",
+    "./prompter-export": "./src/prompter-export.ts"
   },
   "scripts": {
     "lint": "eslint src test --max-warnings=0",

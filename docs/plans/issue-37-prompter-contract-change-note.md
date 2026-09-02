@@ -8,6 +8,12 @@ freeze prompter-policy annotations and performance beats. It does not add UI
 markup, provider syntax, a provider call, shoot ingest, or a new document
 schema version.
 
+On 2026-09-02 the Producer clarified the mixed-state beat rule: a sentence is
+one recording beat even when an OC/VO transition occurs inside it. Such a beat
+is `on_camera` when any covered token is on camera; it is `voiceover` only when
+every covered token is voiceover. The visible prompter still emits the exact
+mid-sentence state transition so editorial B-roll coverage remains explicit.
+
 ## Proposed `ScriptDocument v1` additions
 
 Add these optional arrays to an active `NarrationBlock`. Omission means an
