@@ -143,8 +143,8 @@ The full Python test discovery used by `npm run validate` includes the Slice
 
 ## Project progress dashboard
 
-Generate a self-contained, read-only roadmap dashboard from the authoritative
-product spec and the live GitHub Project:
+Generate a self-contained, read-only roadmap dashboard from the live GitHub
+Project configured in `.github/vera-roadmap.json`:
 
 ```sh
 npm run progress
@@ -162,11 +162,12 @@ You can also double-click `Open VERA Progress.command` in Finder from the
 repository's top-level folder. The launcher finds the repository relative to
 itself, regenerates the dashboard, and opens it in the default browser.
 
-The dashboard keeps strict producer-accepted completion separate from a
-lighthearted weighted estimate (`Accepted` 100%, `Agent complete` 90%,
-`In progress`/`Paused` 50%, `Blocked` 25%, and `Queued` 0%). It never changes
-project status: maintain issue state and routing on the GitHub roadmap, then
-regenerate the view.
+The dashboard counts every non-goal Project issue as one actionable work item.
+Only `Done` counts as complete; every other lifecycle status counts as
+remaining scope. Goal issues appear as separate rollups and are excluded from
+the denominator to avoid double-counting. Work is grouped by its live
+workstream and shows exact status, routing, priority, size, acceptance
+authority, and visible metadata gaps. The command never changes Project state.
 
 ## Slice 0.2 producer package
 
