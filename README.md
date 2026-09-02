@@ -167,7 +167,15 @@ Only `Done` counts as complete; every other lifecycle status counts as
 remaining scope. Goal issues appear as separate rollups and are excluded from
 the denominator to avoid double-counting. Work is grouped by its live
 workstream and shows exact status, routing, priority, size, acceptance
-authority, and visible metadata gaps. The command never changes Project state.
+authority, and visible metadata gaps. Each bounded Project page uses the same
+host-wide lock, direct GraphQL rate-limit preflight, and explicit request
+accounting as `npm run roadmap`. The command never changes Project state.
+
+Audit every committed live roadmap reader with:
+
+```sh
+npm run check:roadmap-readers
+```
 
 ## Slice 0.2 producer package
 

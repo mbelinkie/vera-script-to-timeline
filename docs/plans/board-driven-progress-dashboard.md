@@ -31,8 +31,10 @@ completed work and the remaining board scope.
 
 ## Contracts and fixtures
 
-- The dashboard consumes the existing `gh project item-list --format json`
-  response and establishes no product contract.
+- Issue #30 supersedes the original transport recorded by this accepted plan:
+  the dashboard now maps bounded direct Project V2 GraphQL pages into the same
+  parser shape through the shared roadmap budget gate. It establishes no
+  product contract.
 - Contracts, fixtures, golden files, generated types, and lockfiles remain
   unchanged.
 - No dependency is added; the implementation uses Node.js standard-library

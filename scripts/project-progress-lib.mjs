@@ -1,9 +1,6 @@
-import { execFile } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { promisify } from "node:util";
-
-const execFileAsync = promisify(execFile);
+import { withRoadmapGraphqlGate } from "./roadmap-graphql-gate.mjs";
 
 export const BOARD_STATUSES = Object.freeze([
   "Inbox",
@@ -16,6 +13,129 @@ export const BOARD_STATUSES = Object.freeze([
 ]);
 
 const STATUS_ORDER = new Map(BOARD_STATUSES.map((status, index) => [status, index]));
+const PROJECT_PAGE_SIZE = 100;
+const PROJECT_ITEM_LIMIT = 500;
+const PROJECT_ITEM_METADATA_LIMIT = 100;
+
+const PROJECT_ITEMS_QUERY = `query RoadmapProjectItems($owner: String!, $projectNumber: Int!, $after: String) {
+  user(login: $owner) {
+    projectV2(number: $projectNumber) {
+      id
+      title
+      items(first: ${PROJECT_PAGE_SIZE}, after: $after) {
+        totalCount
+        nodes {
+          id
+          content {
+            __typename
+            ... on Issue {
+              number
+              title
+              url
+              repository { nameWithOwner }
+              labels(first: ${PROJECT_ITEM_METADATA_LIMIT}) { totalCount nodes { name } }
+            }
+          }
+          fieldValues(first: ${PROJECT_ITEM_METADATA_LIMIT}) {
+            totalCount
+            nodes {
+              __typename
+              ... on ProjectV2ItemFieldSingleSelectValue {
+                name
+                field { ... on ProjectV2SingleSelectField { name } }
+              }
+            }
+          }
+        }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }
+  rateLimit { limit remaining used resetAt cost }
+}`;
+
+function projectDocumentItem(item) {
+  const content = item?.content;
+  const labels = content?.labels;
+  const fieldValues = item?.fieldValues;
+  if (content?.__typename === "Issue" && (
+    !Array.isArray(labels?.nodes)
+    || !Number.isInteger(labels.totalCount)
+    || labels.totalCount !== labels.nodes.length
+  )) {
+    throw new Error(`Project issue #${content.number ?? "unknown"} labels exceed or violate the bounded metadata response`);
+  }
+  if (
+    !Array.isArray(fieldValues?.nodes)
+    || !Number.isInteger(fieldValues.totalCount)
+    || fieldValues.totalCount !== fieldValues.nodes.length
+  ) {
+    throw new Error(`Project item ${item?.id ?? "unknown"} fields exceed or violate the bounded metadata response`);
+  }
+  const fields = new Map(
+    fieldValues.nodes
+      .filter((value) => typeof value?.name === "string" && typeof value?.field?.name === "string")
+      .map((value) => [value.field.name, value.name]),
+  );
+  return {
+    title: content?.title ?? null,
+    status: fields.get("Status") ?? null,
+    labels: (labels?.nodes ?? []).map((label) => label.name),
+    priority: fields.get("Priority") ?? null,
+    size: fields.get("Size") ?? null,
+    workstream: fields.get("Workstream") ?? null,
+    acceptance: fields.get("Acceptance") ?? null,
+    content: {
+      type: content?.__typename ?? null,
+      number: content?.number ?? null,
+      title: content?.title ?? null,
+      url: content?.url ?? null,
+      repository: content?.repository?.nameWithOwner ?? null,
+    },
+  };
+}
+
+export function fetchProjectDocument(projectConfig, gate) {
+  const items = [];
+  const seenCursors = new Set();
+  let after = null;
+  let expectedTotal = null;
+  let expectedProjectId = null;
+  while (true) {
+    gate.reserve(["projectItemsPage"]);
+    const data = gate.query("projectItemsPage", PROJECT_ITEMS_QUERY, {
+      owner: projectConfig.owner,
+      projectNumber: projectConfig.projectNumber,
+      after,
+    });
+    const project = data.user?.projectV2;
+    const page = project?.items;
+    if (!project?.id || !page || !Array.isArray(page.nodes) || !Number.isInteger(page.totalCount)
+      || page.totalCount < 0 || page.nodes.length > PROJECT_PAGE_SIZE || typeof page.pageInfo?.hasNextPage !== "boolean") {
+      throw new Error("Configured roadmap Project response was incomplete");
+    }
+    if (expectedTotal === null) expectedTotal = page.totalCount;
+    if (expectedProjectId === null) expectedProjectId = project.id;
+    if (project.id !== expectedProjectId) throw new Error("Configured roadmap Project identity changed while it was being read");
+    if (page.totalCount !== expectedTotal) throw new Error("Configured roadmap Project changed while it was being read; retry from a fresh snapshot");
+    if (expectedTotal > PROJECT_ITEM_LIMIT) {
+      throw new Error(`Configured roadmap Project has ${expectedTotal} items; the bounded reader limit is ${PROJECT_ITEM_LIMIT}`);
+    }
+    items.push(...page.nodes.map(projectDocumentItem));
+    if (!page.pageInfo.hasNextPage) break;
+    const cursor = page.pageInfo.endCursor;
+    if (typeof cursor !== "string" || cursor === "" || seenCursors.has(cursor) || page.nodes.length === 0) {
+      throw new Error("Configured roadmap Project pagination did not make bounded forward progress");
+    }
+    if (items.length >= PROJECT_ITEM_LIMIT) {
+      throw new Error(`Configured roadmap Project exceeds the bounded reader limit of ${PROJECT_ITEM_LIMIT} items`);
+    }
+    seenCursors.add(cursor);
+    after = cursor;
+  }
+  if (items.length !== expectedTotal) throw new Error(`Project response is incomplete: received ${items.length} of ${expectedTotal} items`);
+  return { totalCount: expectedTotal, items };
+}
 
 function onePrefixedLabel(labels, prefix, issueNumber) {
   const matches = labels.filter((label) => label.startsWith(prefix));
@@ -300,11 +420,7 @@ export async function loadProgressModel(repositoryRoot, options = {}) {
   let projectDocument = options.projectData;
   if (!projectDocument) {
     try {
-      const { stdout } = await execFileAsync("gh", [
-        "project", "item-list", String(projectConfig.projectNumber),
-        "--owner", projectConfig.owner, "--limit", "500", "--format", "json",
-      ], { cwd: repositoryRoot, maxBuffer: 10 * 1024 * 1024 });
-      projectDocument = JSON.parse(stdout);
+      projectDocument = await withRoadmapGraphqlGate((gate) => fetchProjectDocument(projectConfig, gate));
     } catch (error) {
       throw new Error(
         `GitHub Project is unavailable: ${error instanceof Error ? error.message : String(error)}`,

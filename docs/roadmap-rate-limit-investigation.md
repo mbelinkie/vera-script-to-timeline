@@ -9,6 +9,11 @@ raw GitHub responses.
 > `/rate_limit` response proved capable of reporting a false-green GraphQL
 > budget in this environment. The roadmap CLI now obtains GraphQL budget data
 > only from a direct GraphQL `rateLimit` query.
+>
+> **Issue #30 extension (2026-09-01):** the progress dashboard and every other
+> committed live roadmap reader now use the same lock, direct authority,
+> reservation accounting, and bounded GraphQL transport. See
+> `docs/roadmap-live-read-inventory.md`.
 
 ## Current GraphQL authority and preflight
 
@@ -19,14 +24,16 @@ raw GitHub responses.
 2026-08-31T22:32:49Z`, and `cost: 1`; after the next window reset, the command
 reported the new direct window rather than carrying the earlier values.
 
-Every networked roadmap command first acquires the shared host lock described
-below. `inspect`, `ready`, `claim`, and the other issue commands then:
+Every networked roadmap command and progress-dashboard read first acquires the
+shared host lock described below. `inspect`, `ready`, `claim`, and the other
+issue commands then:
 
 1. query direct GraphQL `rateLimit` and reserve enough points for the targeted
    issue/Project snapshot plus one possible dependency batch;
 2. read the issue, routing labels, newest claim-comment page, matching Project
    item, Status, and Project field metadata in one GraphQL request;
-3. batch all declared dependency issue/status reads into one GraphQL request;
+3. batch declared dependency issue/status reads into targeted GraphQL requests
+   of at most 100 aliases, guarding each additional batch;
 4. page backward through claim comments only when the newest 100 comments have
    no claim marker, with a fresh direct preflight before each older page; and
 5. immediately before a lifecycle mutation, query direct `rateLimit` again and
@@ -41,20 +48,23 @@ when primary GraphQL points remain, preserving the secondary-throttle guard.
 
 ## Current request accounting
 
-The accounting table records primary GraphQL requests. GitHub currently
-charges a minimum of one primary point per query or mutation; the returned
-`rateLimit.cost` remains the observed authority.
+The accounting table records primary GraphQL requests. Request count is not
+necessarily point cost: the bounded dashboard page reserves two points for
+its nested connections. Every read's returned `rateLimit` updates the budget
+before another reserved request. Other bounded operations reserve one point.
 
 | Operation | Actual transport | Planned GraphQL requests |
 | --- | --- | ---: |
 | Direct preflight/report | direct GraphQL query | 1 |
 | Issue + matching Project V2 item/status/metadata | one targeted GraphQL query | 1 |
-| Declared dependencies | one aliased GraphQL query for the whole dependency set | 1 when non-empty |
+| Declared dependencies | one aliased GraphQL query per at most 100 dependencies | 1 per guarded batch |
 | Older claim-comment page | direct GraphQL query | 1 per guarded page |
+| Optional parent issue ID | one targeted GraphQL query | 1 |
+| Dashboard Project V2 items | bounded direct GraphQL query, 100 items per page and 500 total | 1 per guarded page (2 points) |
 | Comment + Project status + optional escalation label/close | one batched GraphQL lifecycle mutation | 1 |
 | Issue creation | direct REST issue creation | 0 |
 | Add a newly created issue to Project V2 | direct GraphQL mutation | 1 |
-| Parent/sub-issue link | one REST parent-ID read plus one direct GraphQL mutation | 1 |
+| Parent/sub-issue link (after parent lookup above) | direct GraphQL mutation | 1 |
 
 The prior `gh issue view` call was itself GraphQL. The prior whole-board
 `gh project item-list` path made an owner/field query and then one or more item
@@ -66,12 +76,12 @@ or producer-acceptance rules.
 
 ## Shared serialization ownership and failure behavior
 
-The roadmap CLI owns a host-wide lock at
+The shared gate in `scripts/roadmap-graphql-gate.mjs` owns a host-wide lock at
 `$TMPDIR/vera-roadmap-github-graphql.lock`. The fixed path is shared by both
 VERA roadmap repositories and is intentionally conservative across every
 authenticated `gh` account on that host. The lock covers preflight, reads,
-validation, and writes, so two local roadmap commands cannot spend the shared
-user quota concurrently.
+validation, and writes, so roadmap commands and dashboard reads cannot spend
+the shared user quota concurrently.
 
 The owner file stores only process ID, start time, and the Codex task ID when
 available. It contains no token or account identifier. A second command fails

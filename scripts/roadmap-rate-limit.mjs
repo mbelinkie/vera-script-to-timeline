@@ -4,25 +4,30 @@ export const REQUEST_ACCOUNTING = Object.freeze({
   issueCommentPage: Object.freeze({ graphqlQueries: 1, graphqlMutations: 0, restMutations: 0 }),
   issueComment: Object.freeze({ graphqlQueries: 0, graphqlMutations: 1, restMutations: 0 }),
   dependencyBatch: Object.freeze({ graphqlQueries: 1, graphqlMutations: 0, restMutations: 0 }),
+  parentIssueSnapshot: Object.freeze({ graphqlQueries: 1, graphqlMutations: 0, restMutations: 0 }),
   projectMetadata: Object.freeze({ graphqlQueries: 1, graphqlMutations: 0, restMutations: 0 }),
+  // 1 item connection + up to 100 labels and 100 field-value connections: 201 / 100, rounded.
+  projectItemsPage: Object.freeze({ graphqlQueries: 1, graphqlMutations: 0, restMutations: 0, graphqlPoints: 2 }),
   projectStatus: Object.freeze({ graphqlQueries: 0, graphqlMutations: 1, restMutations: 0 }),
   lifecycleMutation: Object.freeze({ graphqlQueries: 0, graphqlMutations: 1, restMutations: 0 }),
   projectAdd: Object.freeze({ graphqlQueries: 0, graphqlMutations: 1, restMutations: 0 }),
-  subIssueLink: Object.freeze({ graphqlQueries: 0, graphqlMutations: 1, restMutations: 2 }),
+  subIssueLink: Object.freeze({ graphqlQueries: 0, graphqlMutations: 1, restMutations: 0 }),
   issueCreate: Object.freeze({ graphqlQueries: 0, graphqlMutations: 0, restMutations: 1 }),
   issueEdit: Object.freeze({ graphqlQueries: 0, graphqlMutations: 1, restMutations: 0 }),
   issueClose: Object.freeze({ graphqlQueries: 0, graphqlMutations: 1, restMutations: 0 }),
 });
 
 function finiteInteger(value) {
+  if (value === null || value === undefined || value === "" || typeof value === "boolean") return null;
   const number = Number(value);
   return Number.isSafeInteger(number) && number >= 0 ? number : null;
 }
 
-function parseJsonPayload(output) {
+export function parseGraphqlPayload(output) {
   const lines = String(output).split(/\r?\n/);
-  for (let start = lines.length - 1; start >= 0; start -= 1) {
-    if (!lines[start].trimStart().startsWith("{")) continue;
+  // Start at the outer JSON document, never a nested node in pretty-printed output.
+  const start = lines.findIndex((line) => line.trimStart().startsWith("{"));
+  if (start >= 0) {
     for (let end = lines.length; end > start; end -= 1) {
       try {
         return JSON.parse(lines.slice(start, end).join("\n").trim());
@@ -54,8 +59,7 @@ function directGraphqlHeaders(output, now) {
   const remaining = finiteInteger(values.get("remaining"));
   const used = finiteInteger(values.get("used"));
   const reset = finiteInteger(values.get("reset"));
-  if ([limit, remaining, used, reset].some((value) => value === null)) return null;
-  return { limit, remaining, used, resetAt: new Date(reset * 1000).toISOString(), retryAfter };
+  return { limit, remaining, used, resetAt: reset === null ? null : new Date(reset * 1000).toISOString(), retryAfter };
 }
 
 function resetGuidance(resetAt, now = Date.now()) {
@@ -77,22 +81,41 @@ function exhaustedError(snapshot, now) {
   return new GraphqlRateLimitError(`GitHub GraphQL budget is exhausted. ${remaining}${resetGuidance(snapshot?.resetAt, now)}`, snapshot);
 }
 
-export function parseGraphqlRateLimitResponse(output, now = Date.now()) {
-  const payload = parseJsonPayload(output);
+export function parseGraphqlResponse(output, now = Date.now(), { allowExhausted = false } = {}) {
   const headers = directGraphqlHeaders(output, now);
+  const secondaryError = () => {
+    const guidance = headers.retryAfter > 0
+      ? `Do not retry for at least ${headers.retryAfter}s`
+      : "Wait at least 60s and revalidate the direct budget before retrying";
+    return new GraphqlRateLimitError(
+      `GitHub secondary rate limit is active. ${guidance}; ${allowExhausted ? "no further roadmap request was attempted" : "no roadmap operation was attempted"}.`,
+      headers,
+    );
+  };
+  if (headers.retryAfter > 0) throw secondaryError();
+  let payload;
+  try {
+    payload = parseGraphqlPayload(output);
+  } catch (error) {
+    if (/secondary rate limit|abuse detection/i.test(output)) throw secondaryError();
+    throw error;
+  }
   const errors = Array.isArray(payload.errors) ? payload.errors : [];
+  // Issue/comment bodies may discuss throttling; only API errors are throttle evidence.
+  if (errors.some((error) => /secondary rate limit|abuse detection/i.test(error?.message ?? ""))) {
+    throw secondaryError();
+  }
   const exhausted = errors.some((error) => {
     const evidence = `${error?.type ?? ""} ${error?.message ?? ""}`.toLowerCase();
     return evidence.includes("rate_limited") || evidence.includes("graphql_rate_limit") || evidence.includes("rate limit");
   });
-  if (headers?.retryAfter > 0) {
-    throw new GraphqlRateLimitError(
-      `GitHub secondary rate limit is active. Do not retry for at least ${headers.retryAfter}s; no roadmap operation was attempted.`,
-      headers,
-    );
-  }
-  if (exhausted || headers?.remaining === 0) throw exhaustedError(headers, now);
+  if (exhausted || (!allowExhausted && headers.remaining === 0)) throw exhaustedError(headers, now);
+  if (errors.length > 0) throw new Error(errors.map((error) => error.message ?? String(error)).join("; "));
+  return payload;
+}
 
+export function parseGraphqlRateLimitResponse(output, now = Date.now(), options = {}) {
+  const payload = parseGraphqlResponse(output, now, options);
   const rateLimit = payload.data?.rateLimit;
   if (!rateLimit || typeof rateLimit !== "object") {
     throw new Error("GitHub response did not contain a direct GraphQL rateLimit object; REST rate data is not accepted as GraphQL authority");
@@ -106,7 +129,7 @@ export function parseGraphqlRateLimitResponse(output, now = Date.now()) {
     throw new Error("GitHub direct GraphQL rateLimit object was incomplete");
   }
   const snapshot = { limit, remaining, used, resetAt: new Date(resetTimestamp).toISOString(), cost };
-  if (snapshot.remaining === 0) throw exhaustedError(snapshot, now);
+  if (!options.allowExhausted && snapshot.remaining === 0) throw exhaustedError(snapshot, now);
   return snapshot;
 }
 
@@ -132,7 +155,7 @@ export function plannedGraphqlPoints(operationNames) {
   return operationNames.reduce((total, name) => {
     const operation = REQUEST_ACCOUNTING[name];
     if (!operation) throw new Error(`Unknown GitHub operation accounting key: ${name}`);
-    return total + operation.graphqlQueries + operation.graphqlMutations;
+    return total + (operation.graphqlPoints ?? operation.graphqlQueries + operation.graphqlMutations);
   }, 0);
 }
 
