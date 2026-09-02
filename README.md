@@ -88,9 +88,10 @@ the byte-reproduction caveat.
 ### Contract schemas and generated types
 
 The JSON Schema Draft 2020-12 files in [`contracts/`](./contracts) are the
-single source of truth for the first-draft `ScriptDocument v1`,
-`TimelineManifest v1`, and `BuildReport v1` contracts. Their checked-in,
-schema-derived language types live at:
+single source of truth for the shared V1 contracts, including
+`ScriptDocument`, compiler dependencies, timeline/build output, and the
+deterministic prompter sidecar. Their checked-in, schema-derived language types
+live at:
 
 - `packages/contracts/src/generated/contracts.ts`
 - `python/vera_timeline_agent/generated/contracts/`
@@ -109,7 +110,7 @@ npm run check:contracts-generated
 ```
 
 The currentness check runs first in `npm run validate`. The contract test
-workspace also compiles all three schemas together, resolves their explicit
+workspace also compiles all schemas together, resolves their explicit
 cross-schema references offline, accepts representative Phase 1 instances,
 and rejects focused invalid instances. Cross-record semantics such as complete
 OC/VO token coverage and VO visual coverage intentionally remain the Slice 1.1
@@ -122,6 +123,23 @@ infer either from names such as `V1` or `A1`. The section 9.2 track labels are
 representative sample/default values only while D-P004 remains pending.
 D-0004's 24000/1001 rate, 1920x1080 dimensions, and 48 kHz sample rate are
 schema defaults, not constants; explicit positive alternatives are valid.
+
+Create the narration-only prompter text and canonical beat sidecar with:
+
+```sh
+npm run export:prompter -- script.json \
+  --text prompter.txt \
+  --sidecar prompter.json \
+  --include-section-navigation \
+  --include-beat-numbers
+```
+
+The two inclusion flags are optional and default off. Validation failures write
+neither artifact; success reports the SHA-256 of the exact text and sidecar
+bytes. Output paths must be new, distinct files in existing directories; the
+CLI refuses to overwrite an existing output. See the
+[bounded prompter plan](docs/plans/issue-37-prompter-export.md) for compatibility,
+default beat segmentation, mixed-state recording semantics, and verification.
 
 Individual groups are available for diagnosis:
 

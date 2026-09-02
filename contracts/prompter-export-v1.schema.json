@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.vera.video/contracts/prompter-export-v1.schema.json",
+  "title": "PrompterExportV1",
+  "description": "Canonical deterministic sidecar for a narration-only prompter text artifact.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "sourceDocument",
+    "settings",
+    "textSha256",
+    "beats"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "prompter-export/v1"
+    },
+    "sourceDocument": {
+      "$ref": "script-document-v1.schema.json#/$defs/DocumentReference"
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "includeSectionNavigation",
+        "includeBeatNumbers"
+      ],
+      "properties": {
+        "includeSectionNavigation": {
+          "type": "boolean"
+        },
+        "includeBeatNumbers": {
+          "type": "boolean"
+        }
+      }
+    },
+    "textSha256": {
+      "$ref": "script-document-v1.schema.json#/$defs/ContentHash"
+    },
+    "beats": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PrompterBeat"
+      }
+    }
+  },
+  "$defs": {
+    "PrompterBeat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "expectedText",
+        "hostVisibility",
+        "navigationCues",
+        "annotations"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "expectedText": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hostVisibility": {
+          "type": "string",
+          "enum": [
+            "on_camera",
+            "voiceover"
+          ]
+        },
+        "navigationCues": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "annotations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PrompterBeatAnnotation"
+          }
+        }
+      }
+    },
+    "PrompterBeatAnnotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "value",
+        "visibleInPrompter"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "script-document-v1.schema.json#/$defs/EntityId"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "pronunciation_alias",
+            "pronunciation_phoneme",
+            "performance_note"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "visibleInPrompter": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

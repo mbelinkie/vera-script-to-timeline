@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
 
 type EntityId = str
 
@@ -99,6 +99,21 @@ type Phase1VisualSource = LocalMediaVisualSource | PlaceholderVisualSource
 type NullableHardCut = HardCut | None
 
 
+class NarrationAnnotation(TypedDict):
+    id: EntityId
+    kind: Literal["pronunciation_alias", "pronunciation_phoneme", "performance_note"]
+    range: TextAnchorRange
+    value: str
+    includeInPrompter: bool
+    version: EntityVersion
+
+
+class PerformanceBeat(TypedDict):
+    id: EntityId
+    range: TextAnchorRange
+    version: EntityVersion
+
+
 class VisualEvent(TypedDict):
     id: EntityId
     range: TextAnchorRange
@@ -123,6 +138,8 @@ class NarrationBlock(TypedDict):
     tokens: list[NarrationToken]
     hostVisibilitySpans: list[HostVisibilitySpan]
     visualEvents: list[VisualEvent]
+    annotations: NotRequired[list[NarrationAnnotation]]
+    performanceBeats: NotRequired[list[PerformanceBeat]]
     timingPolicy: Literal["narration_spine"]
     state: Literal["active", "excluded"]
     notes: list[str]

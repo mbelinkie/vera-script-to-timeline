@@ -436,6 +436,66 @@
         }
       }
     },
+    "NarrationAnnotation": {
+      "description": "Typed, exact-range pronunciation or performance metadata. It is never spoken narration or provider syntax.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "range",
+        "value",
+        "includeInPrompter",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "pronunciation_alias",
+            "pronunciation_phoneme",
+            "performance_note"
+          ]
+        },
+        "range": {
+          "$ref": "#/$defs/TextAnchorRange"
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "includeInPrompter": {
+          "type": "boolean"
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
+    "PerformanceBeat": {
+      "description": "Stable recording-take identity over an exact narration token range.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "range",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "range": {
+          "$ref": "#/$defs/TextAnchorRange"
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
     "NarrationBlock": {
       "type": "object",
       "additionalProperties": false,
@@ -484,6 +544,20 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/VisualEvent"
+          }
+        },
+        "annotations": {
+          "description": "Optional typed narration annotations. Omission is equivalent to an empty array.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NarrationAnnotation"
+          }
+        },
+        "performanceBeats": {
+          "description": "Optional explicit performance beats. Omission or an empty array derives deterministic sentence beats at export time.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PerformanceBeat"
           }
         },
         "timingPolicy": {

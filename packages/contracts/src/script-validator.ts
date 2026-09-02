@@ -1,6 +1,8 @@
 import type {
   HostVisibilitySpan,
+  NarrationAnnotation,
   NarrationBlock,
+  PerformanceBeat,
   ScriptDocumentV1,
   VisualEvent,
 } from "./generated/contracts.js";
@@ -21,6 +23,8 @@ export type ValidationEntityKind =
   | "token"
   | "visibility_span"
   | "visual_event"
+  | "annotation"
+  | "performance_beat"
   | "anchor";
 
 export interface ValidationDiagnostic {
@@ -62,9 +66,17 @@ interface ResolvedRange {
   target: NarrationReference;
 }
 
-interface EntityOccurrence<T extends HostVisibilitySpan | VisualEvent> {
+type AnchoredEntity =
+  | HostVisibilitySpan
+  | VisualEvent
+  | NarrationAnnotation
+  | PerformanceBeat;
+
+type AnchoredEntityKind = Exclude<ValidationEntityKind, "block" | "token" | "anchor">;
+
+interface EntityOccurrence<T extends AnchoredEntity> {
   entity: T;
-  kind: "visibility_span" | "visual_event";
+  kind: AnchoredEntityKind;
   jsonPath: string;
   owner: BlockReference;
   nestedNarrationId?: string;
@@ -185,6 +197,8 @@ function semanticValidation(document: ScriptDocumentV1): ValidationResult {
   const narrationById = new Map<string, NarrationReference>();
   const visibilityOccurrences: EntityOccurrence<HostVisibilitySpan>[] = [];
   const visualOccurrences: EntityOccurrence<VisualEvent>[] = [];
+  const annotationOccurrences: EntityOccurrence<NarrationAnnotation>[] = [];
+  const beatOccurrences: EntityOccurrence<PerformanceBeat>[] = [];
 
   for (const [blockIndex, block] of document.activeDraft.blocks.entries()) {
     const path = `/activeDraft/blocks/${blockIndex}`;
@@ -229,6 +243,46 @@ function semanticValidation(document: ScriptDocumentV1): ValidationResult {
           nestedNarrationId: block.id,
         });
       }
+      for (const [annotationIndex, entity] of (block.annotations ?? []).entries()) {
+        const occurrence = {
+          entity,
+          kind: "annotation",
+          jsonPath: `${path}/annotations/${annotationIndex}`,
+          owner: { block, index: blockIndex },
+          nestedNarrationId: block.id,
+        } satisfies EntityOccurrence<NarrationAnnotation>;
+        annotationOccurrences.push(occurrence);
+        if (block.state !== "active") {
+          diagnostics.push(
+            occurrenceDiagnostic(
+              occurrence,
+              "ANNOTATION_INACTIVE_NARRATION",
+              "Narration annotations must belong to an active narration row.",
+              occurrence.jsonPath,
+            ),
+          );
+        }
+      }
+      for (const [beatIndex, entity] of (block.performanceBeats ?? []).entries()) {
+        const occurrence = {
+          entity,
+          kind: "performance_beat",
+          jsonPath: `${path}/performanceBeats/${beatIndex}`,
+          owner: { block, index: blockIndex },
+          nestedNarrationId: block.id,
+        } satisfies EntityOccurrence<PerformanceBeat>;
+        beatOccurrences.push(occurrence);
+        if (block.state !== "active") {
+          diagnostics.push(
+            occurrenceDiagnostic(
+              occurrence,
+              "PERFORMANCE_BEAT_INACTIVE_NARRATION",
+              "Performance beats must belong to an active narration row.",
+              occurrence.jsonPath,
+            ),
+          );
+        }
+      }
     } else if (block.type === "visual") {
       visualOccurrences.push({
         entity: block.event,
@@ -247,6 +301,16 @@ function semanticValidation(document: ScriptDocumentV1): ValidationResult {
   validateOccurrenceIds(
     visualOccurrences,
     "VISUAL_EVENT_ID_DUPLICATE",
+    diagnostics,
+  );
+  validateOccurrenceIds(
+    annotationOccurrences,
+    "ANNOTATION_ID_DUPLICATE",
+    diagnostics,
+  );
+  validateOccurrenceIds(
+    beatOccurrences,
+    "PERFORMANCE_BEAT_ID_DUPLICATE",
     diagnostics,
   );
 
@@ -282,12 +346,38 @@ function semanticValidation(document: ScriptDocumentV1): ValidationResult {
     }
   }
 
+  const resolvedAnnotations = resolveOccurrences(
+    annotationOccurrences,
+    blockById,
+    narrationById,
+    diagnostics,
+  );
+  const resolvedBeats = resolveOccurrences(
+    beatOccurrences,
+    blockById,
+    narrationById,
+    diagnostics,
+  );
+
   for (const narration of narrationById.values()) {
     if (narration.block.state === "active") {
       validateCoverage(
         narration,
         resolvedVisibility,
         resolvedVisuals,
+        diagnostics,
+      );
+      validateAnnotationVisibility(
+        narration,
+        annotationOccurrences,
+        resolvedAnnotations,
+        resolvedVisibility,
+        diagnostics,
+      );
+      validatePerformanceBeatCoverage(
+        narration,
+        beatOccurrences,
+        resolvedBeats,
         diagnostics,
       );
     }
@@ -392,16 +482,23 @@ function validateTokens(
   }
 }
 
-function validateOccurrenceIds<T extends HostVisibilitySpan | VisualEvent>(
+function validateOccurrenceIds<T extends AnchoredEntity>(
   occurrences: EntityOccurrence<T>[],
-  code: "VISIBILITY_SPAN_ID_DUPLICATE" | "VISUAL_EVENT_ID_DUPLICATE",
+  code:
+    | "VISIBILITY_SPAN_ID_DUPLICATE"
+    | "VISUAL_EVENT_ID_DUPLICATE"
+    | "ANNOTATION_ID_DUPLICATE"
+    | "PERFORMANCE_BEAT_ID_DUPLICATE",
   diagnostics: ValidationDiagnostic[],
 ): void {
   const firstById = new Map<string, EntityOccurrence<T>>();
   for (const occurrence of occurrences) {
-    const previous = firstById.get(occurrence.entity.id);
+    const identity = occurrence.kind === "annotation" || occurrence.kind === "performance_beat"
+      ? occurrence.entity.id.toLowerCase()
+      : occurrence.entity.id;
+    const previous = firstById.get(identity);
     if (previous === undefined) {
-      firstById.set(occurrence.entity.id, occurrence);
+      firstById.set(identity, occurrence);
       continue;
     }
     diagnostics.push(
@@ -419,7 +516,26 @@ function validateOccurrenceIds<T extends HostVisibilitySpan | VisualEvent>(
   }
 }
 
-function resolveAnchor<T extends HostVisibilitySpan | VisualEvent>(
+function resolveOccurrences<T extends AnchoredEntity>(
+  occurrences: EntityOccurrence<T>[],
+  blockById: ReadonlyMap<string, BlockReference>,
+  narrationById: ReadonlyMap<string, NarrationReference>,
+  diagnostics: ValidationDiagnostic[],
+): Map<EntityOccurrence<T>, ResolvedRange> {
+  const resolved = new Map<EntityOccurrence<T>, ResolvedRange>();
+  for (const occurrence of occurrences) {
+    const range = resolveAnchor(
+      occurrence,
+      blockById,
+      narrationById,
+      diagnostics,
+    );
+    if (range !== undefined) resolved.set(occurrence, range);
+  }
+  return resolved;
+}
+
+function resolveAnchor<T extends AnchoredEntity>(
   occurrence: EntityOccurrence<T>,
   blockById: ReadonlyMap<string, BlockReference>,
   narrationById: ReadonlyMap<string, NarrationReference>,
@@ -566,6 +682,128 @@ function resolveAnchor<T extends HostVisibilitySpan | VisualEvent>(
   }
 
   return { start, end, target };
+}
+
+function validateAnnotationVisibility(
+  narration: NarrationReference,
+  occurrences: readonly EntityOccurrence<NarrationAnnotation>[],
+  resolvedAnnotations: ReadonlyMap<
+    EntityOccurrence<NarrationAnnotation>,
+    ResolvedRange
+  >,
+  resolvedVisibility: ReadonlyMap<
+    EntityOccurrence<HostVisibilitySpan>,
+    ResolvedRange
+  >,
+  diagnostics: ValidationDiagnostic[],
+): void {
+  const visibilityCount = Array.from(
+    { length: narration.block.tokens.length },
+    () => 0,
+  );
+  for (const range of resolvedVisibility.values()) {
+    if (range.target.block.id !== narration.block.id) continue;
+    for (let index = range.start; index < range.end; index += 1) {
+      visibilityCount[index]! += 1;
+    }
+  }
+
+  for (const occurrence of occurrences) {
+    const range = resolvedAnnotations.get(occurrence);
+    if (
+      range === undefined ||
+      range.target.block.id !== narration.block.id ||
+      !visibilityCount.slice(range.start, range.end).some((count) => count !== 1)
+    ) {
+      continue;
+    }
+    diagnostics.push(
+      occurrenceDiagnostic(
+        occurrence,
+        "ANNOTATION_HOST_VISIBILITY_INVALID",
+        "Annotation ranges must be covered by exactly one host-visibility state.",
+        `${occurrence.jsonPath}/range`,
+      ),
+    );
+  }
+}
+
+function validatePerformanceBeatCoverage(
+  narration: NarrationReference,
+  occurrences: readonly EntityOccurrence<PerformanceBeat>[],
+  resolvedBeats: ReadonlyMap<EntityOccurrence<PerformanceBeat>, ResolvedRange>,
+  diagnostics: ValidationDiagnostic[],
+): void {
+  const owned = occurrences.filter(
+    ({ owner }) => owner.index === narration.index,
+  );
+  if (owned.length === 0) return;
+
+  const assignments: Array<EntityOccurrence<PerformanceBeat>[]> = Array.from(
+    { length: narration.block.tokens.length },
+    () => [],
+  );
+  let previousStart = -1;
+  for (const occurrence of owned) {
+    const range = resolvedBeats.get(occurrence);
+    if (range === undefined || range.target.block.id !== narration.block.id) {
+      continue;
+    }
+    if (range.start < previousStart) {
+      diagnostics.push(
+        occurrenceDiagnostic(
+          occurrence,
+          "PERFORMANCE_BEAT_ORDER_INVALID",
+          "Performance beats must be ordered by their resolved token ranges.",
+          occurrence.jsonPath,
+        ),
+      );
+    }
+    previousStart = range.start;
+    for (let index = range.start; index < range.end; index += 1) {
+      assignments[index]!.push(occurrence);
+    }
+  }
+
+  for (const occurrence of owned) {
+    const range = resolvedBeats.get(occurrence);
+    if (
+      range === undefined ||
+      !assignments
+        .slice(range.start, range.end)
+        .some((items) => items.length > 1)
+    ) {
+      continue;
+    }
+    diagnostics.push(
+      occurrenceDiagnostic(
+        occurrence,
+        "PERFORMANCE_BEAT_OVERLAP",
+        "Performance beats must not overlap.",
+        occurrence.jsonPath,
+      ),
+    );
+  }
+
+  for (const [start, end] of contiguousRanges(
+    assignments.map((items) => items.length === 0),
+  )) {
+    const firstToken = narration.block.tokens[start]!;
+    const lastToken = narration.block.tokens[end - 1]!;
+    diagnostics.push(
+      withOwner(
+        {
+          code: "PERFORMANCE_BEAT_COVERAGE_GAP",
+          message: "Explicit performance beats must cover every spoken token exactly once.",
+          jsonPath: `/activeDraft/blocks/${narration.index}/performanceBeats`,
+          entityKind: "token",
+          tokenId: firstToken.id,
+          endTokenId: lastToken.id,
+        },
+        narration,
+      ),
+    );
+  }
 }
 
 function validateCoverage(
@@ -717,7 +955,7 @@ function coverageDiagnostic(
   );
 }
 
-function occurrenceDiagnostic<T extends HostVisibilitySpan | VisualEvent>(
+function occurrenceDiagnostic<T extends AnchoredEntity>(
   occurrence: EntityOccurrence<T>,
   code: string,
   message: string,
@@ -823,8 +1061,14 @@ function withOwner(
   };
 }
 
-function entityLabel(kind: "visibility_span" | "visual_event"): string {
-  return kind === "visibility_span" ? "Visibility span" : "Visual event";
+function entityLabel(kind: AnchoredEntityKind): string {
+  const labels: Record<AnchoredEntityKind, string> = {
+    visibility_span: "Visibility span",
+    visual_event: "Visual event",
+    annotation: "Annotation",
+    performance_beat: "Performance beat",
+  };
+  return labels[kind];
 }
 
 function invalidResult(

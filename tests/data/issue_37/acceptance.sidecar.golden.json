@@ -1,0 +1,61 @@
+{
+  "beats": [
+    {
+      "annotations": [
+        {
+          "id": "37000000-0000-4000-8000-000000000040",
+          "kind": "pronunciation_alias",
+          "value": "BEE-kən",
+          "visibleInPrompter": true
+        },
+        {
+          "id": "37000000-0000-4000-8000-000000000041",
+          "kind": "pronunciation_phoneme",
+          "value": "IPA fɑɡ",
+          "visibleInPrompter": false
+        }
+      ],
+      "expectedText": "Watch the beacon as the fog rolls in.",
+      "hostVisibility": "on_camera",
+      "id": "37000000-0000-4000-8000-000000000030",
+      "navigationCues": [
+        "Harbor test"
+      ]
+    },
+    {
+      "annotations": [
+        {
+          "id": "37000000-0000-4000-8000-000000000042",
+          "kind": "performance_note",
+          "value": "Pause, then soften the last word.",
+          "visibleInPrompter": true
+        }
+      ],
+      "expectedText": "Keep your eyes here.",
+      "hostVisibility": "on_camera",
+      "id": "37000000-0000-4000-8000-000000000031",
+      "navigationCues": []
+    },
+    {
+      "annotations": [],
+      "expectedText": "The lights fade.",
+      "hostVisibility": "voiceover",
+      "id": "42bc3699-03db-544a-ad05-81dc4a800c1f",
+      "navigationCues": [
+        "Closing"
+      ]
+    }
+  ],
+  "schemaVersion": "prompter-export/v1",
+  "settings": {
+    "includeBeatNumbers": true,
+    "includeSectionNavigation": true
+  },
+  "sourceDocument": {
+    "contentHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "documentId": "37000000-0000-4000-8000-000000000001",
+    "liveHeadSequence": 37,
+    "projectId": "37000000-0000-4000-8000-000000000002"
+  },
+  "textSha256": "sha256:9167c4d2f02556aff1c315b37fa8a8aabb9ba3261d11f3fd04d72fea7a0a806c"
+}

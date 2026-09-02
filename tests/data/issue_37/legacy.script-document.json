@@ -1,0 +1,281 @@
+{
+  "schemaVersion": "script-document/v1",
+  "id": "37000000-0000-4000-8000-000000000001",
+  "projectId": "37000000-0000-4000-8000-000000000002",
+  "title": "Fog signal rehearsal",
+  "activeDraft": {
+    "blocks": [
+      {
+        "type": "section",
+        "id": "37000000-0000-4000-8000-000000000003",
+        "orderKey": "a0",
+        "title": "Harbor test",
+        "version": 1
+      },
+      {
+        "type": "narration",
+        "id": "37000000-0000-4000-8000-000000000010",
+        "orderKey": "a1",
+        "text": "Watch the beacon as the fog rolls in. Keep your eyes here.",
+        "tokens": [
+          {
+            "id": "37000000-0000-4000-8000-000000000011",
+            "value": "Watch",
+            "startOffset": 0,
+            "endOffset": 5
+          },
+          {
+            "id": "37000000-0000-4000-8000-000000000012",
+            "value": "the",
+            "startOffset": 6,
+            "endOffset": 9
+          },
+          {
+            "id": "37000000-0000-4000-8000-000000000013",
+            "value": "beacon",
+            "startOffset": 10,
+            "endOffset": 16
+          },
+          {
+            "id": "37000000-0000-4000-8000-000000000014",
+            "value": "as",
+            "startOffset": 17,
+            "endOffset": 19
+          },
+          {
+            "id": "37000000-0000-4000-8000-000000000015",
+            "value": "the",
+            "startOffset": 20,
+            "endOffset": 23
+          },
+          {
+            "id": "37000000-0000-4000-8000-000000000016",
+            "value": "fog",
+            "startOffset": 24,
+            "endOffset": 27
+          },
+          {
+            "id": "37000000-0000-4000-8000-000000000017",
+            "value": "rolls",
+            "startOffset": 28,
+            "endOffset": 33
+          },
+          {
+            "id": "37000000-0000-4000-8000-000000000018",
+            "value": "in",
+            "startOffset": 34,
+            "endOffset": 36
+          },
+          {
+            "id": "37000000-0000-4000-8000-000000000019",
+            "value": "Keep",
+            "startOffset": 38,
+            "endOffset": 42
+          },
+          {
+            "id": "37000000-0000-4000-8000-000000000020",
+            "value": "your",
+            "startOffset": 43,
+            "endOffset": 47
+          },
+          {
+            "id": "37000000-0000-4000-8000-000000000021",
+            "value": "eyes",
+            "startOffset": 48,
+            "endOffset": 52
+          },
+          {
+            "id": "37000000-0000-4000-8000-000000000022",
+            "value": "here",
+            "startOffset": 53,
+            "endOffset": 57
+          }
+        ],
+        "hostVisibilitySpans": [
+          {
+            "id": "37000000-0000-4000-8000-000000000023",
+            "range": {
+              "blockId": "37000000-0000-4000-8000-000000000010",
+              "startTokenId": "37000000-0000-4000-8000-000000000011",
+              "endTokenId": "37000000-0000-4000-8000-000000000013",
+              "startAffinity": "before",
+              "endAffinity": "after",
+              "quotedText": "Watch the beacon",
+              "anchorVersion": 1
+            },
+            "state": "on_camera",
+            "source": "authored",
+            "version": 1
+          },
+          {
+            "id": "37000000-0000-4000-8000-000000000024",
+            "range": {
+              "blockId": "37000000-0000-4000-8000-000000000010",
+              "startTokenId": "37000000-0000-4000-8000-000000000014",
+              "endTokenId": "37000000-0000-4000-8000-000000000018",
+              "startAffinity": "before",
+              "endAffinity": "after",
+              "quotedText": "as the fog rolls in",
+              "anchorVersion": 1
+            },
+            "state": "voiceover",
+            "source": "authored",
+            "version": 1
+          },
+          {
+            "id": "37000000-0000-4000-8000-000000000025",
+            "range": {
+              "blockId": "37000000-0000-4000-8000-000000000010",
+              "startTokenId": "37000000-0000-4000-8000-000000000019",
+              "endTokenId": "37000000-0000-4000-8000-000000000022",
+              "startAffinity": "before",
+              "endAffinity": "after",
+              "quotedText": "Keep your eyes here",
+              "anchorVersion": 1
+            },
+            "state": "on_camera",
+            "source": "authored",
+            "version": 1
+          }
+        ],
+        "visualEvents": [
+          {
+            "id": "37000000-0000-4000-8000-000000000026",
+            "range": {
+              "blockId": "37000000-0000-4000-8000-000000000010",
+              "startTokenId": "37000000-0000-4000-8000-000000000014",
+              "endTokenId": "37000000-0000-4000-8000-000000000018",
+              "startAffinity": "before",
+              "endAffinity": "after",
+              "quotedText": "as the fog rolls in",
+              "anchorVersion": 1
+            },
+            "source": {
+              "kind": "placeholder",
+              "description": "Fog moving across the harbor",
+              "unresolvedVisual": true
+            },
+            "presentationMode": "full_frame",
+            "framingPolicy": "native",
+            "motionPreset": "none",
+            "audioPolicy": "mute",
+            "layer": 1,
+            "transitionIn": null,
+            "transitionOut": null,
+            "timingOverrides": null,
+            "status": "unresolved",
+            "version": 1
+          }
+        ],
+        "timingPolicy": "narration_spine",
+        "state": "active",
+        "notes": [],
+        "version": 1
+      },
+      {
+        "type": "direction",
+        "id": "37000000-0000-4000-8000-000000000004",
+        "orderKey": "a2",
+        "text": "Do not place this direction in the prompter.",
+        "buildBehavior": "none",
+        "version": 1
+      },
+      {
+        "type": "section",
+        "id": "37000000-0000-4000-8000-000000000005",
+        "orderKey": "a3",
+        "title": "Closing",
+        "version": 1
+      },
+      {
+        "type": "narration",
+        "id": "37000000-0000-4000-8000-000000000050",
+        "orderKey": "a4",
+        "text": "The lights fade.",
+        "tokens": [
+          {
+            "id": "37000000-0000-4000-8000-000000000051",
+            "value": "The",
+            "startOffset": 0,
+            "endOffset": 3
+          },
+          {
+            "id": "37000000-0000-4000-8000-000000000052",
+            "value": "lights",
+            "startOffset": 4,
+            "endOffset": 10
+          },
+          {
+            "id": "37000000-0000-4000-8000-000000000053",
+            "value": "fade",
+            "startOffset": 11,
+            "endOffset": 15
+          }
+        ],
+        "hostVisibilitySpans": [
+          {
+            "id": "37000000-0000-4000-8000-000000000054",
+            "range": {
+              "blockId": "37000000-0000-4000-8000-000000000050",
+              "startTokenId": "37000000-0000-4000-8000-000000000051",
+              "endTokenId": "37000000-0000-4000-8000-000000000053",
+              "startAffinity": "before",
+              "endAffinity": "after",
+              "quotedText": "The lights fade",
+              "anchorVersion": 1
+            },
+            "state": "voiceover",
+            "source": "authored",
+            "version": 1
+          }
+        ],
+        "visualEvents": [
+          {
+            "id": "37000000-0000-4000-8000-000000000055",
+            "range": {
+              "blockId": "37000000-0000-4000-8000-000000000050",
+              "startTokenId": "37000000-0000-4000-8000-000000000051",
+              "endTokenId": "37000000-0000-4000-8000-000000000053",
+              "startAffinity": "before",
+              "endAffinity": "after",
+              "quotedText": "The lights fade",
+              "anchorVersion": 1
+            },
+            "source": {
+              "kind": "placeholder",
+              "description": "Harbor lights fading",
+              "unresolvedVisual": true
+            },
+            "presentationMode": "full_frame",
+            "framingPolicy": "native",
+            "motionPreset": "none",
+            "audioPolicy": "mute",
+            "layer": 1,
+            "transitionIn": null,
+            "transitionOut": null,
+            "timingOverrides": null,
+            "status": "unresolved",
+            "version": 1
+          }
+        ],
+        "timingPolicy": "narration_spine",
+        "state": "active",
+        "notes": [],
+        "version": 1
+      },
+      {
+        "type": "note_draft",
+        "id": "37000000-0000-4000-8000-000000000006",
+        "orderKey": "a5",
+        "text": "This excluded note also stays out.",
+        "state": "excluded",
+        "version": 1
+      }
+    ]
+  },
+  "ideaOutline": [],
+  "extras": [],
+  "liveHeadSequence": 36,
+  "liveStateVector": "AQID",
+  "liveContentHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+}

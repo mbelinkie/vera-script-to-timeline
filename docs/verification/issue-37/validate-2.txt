@@ -1,0 +1,171 @@
+Command: rtk env PATH=/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:/Users/matthewbelinkie/.local/bin:/usr/local/bin:/usr/bin:/bin npm run validate
+Exit code: 0
+
+
+> vera-script-to-timeline@0.0.0 validate
+> npm run check:contracts-generated && npm run check:typescript && npm run check:python
+
+
+> vera-script-to-timeline@0.0.0 check:contracts-generated
+> node packages/contracts/scripts/generate-contracts.mjs --check
+
+Generated contract types are current.
+
+> vera-script-to-timeline@0.0.0 check:typescript
+> npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript
+
+
+> vera-script-to-timeline@0.0.0 lint:typescript
+> eslint scripts/*.mjs --max-warnings=0 && npm run lint --workspaces --if-present
+
+
+> @vera/contracts@0.0.0 lint
+> eslint src test --max-warnings=0
+
+
+> @vera/tooling-smoke@0.0.0 lint
+> eslint . --max-warnings=0
+
+
+> vera-script-to-timeline@0.0.0 typecheck:typescript
+> npm run typecheck --workspaces --if-present
+
+
+> @vera/contracts@0.0.0 typecheck
+> tsc --project tsconfig.json
+
+
+> @vera/tooling-smoke@0.0.0 typecheck
+> tsc --project tsconfig.json
+
+
+> vera-script-to-timeline@0.0.0 test:typescript
+> npm run test --workspaces --if-present && npm run test:progress && npm run test:roadmap
+
+
+> @vera/contracts@0.0.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/matthewbelinkie/.codex/worktrees/8769/VERA Script to Timeline/packages/contracts
+
+
+ Test Files  7 passed (7)
+      Tests  141 passed (141)
+   Start at  10:57:44
+   Duration  3.47s (transform 1.07s, setup 0ms, import 3.09s, tests 4.74s, environment 1ms)
+
+
+> @vera/tooling-smoke@0.0.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/matthewbelinkie/.codex/worktrees/8769/VERA Script to Timeline/packages/tooling-smoke
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  10:57:48
+   Duration  330ms (transform 29ms, setup 0ms, import 47ms, tests 4ms, environment 0ms)
+
+
+> vera-script-to-timeline@0.0.0 test:progress
+> node --test scripts/project-progress.test.mjs
+
+✔ parses the authoritative board without counting goals as work (2.004748ms)
+✔ calculates exact done and remaining scope from actionable board issues (12.533889ms)
+✔ fails closed on incomplete or ambiguous board data (0.978231ms)
+✔ renders every issue once with escaped links and board metadata (1.218594ms)
+✔ writes the dashboard and reports an exact terminal summary (9.654564ms)
+✔ fails clearly when the live GitHub Project is unavailable (4.065195ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 152.258379
+
+> vera-script-to-timeline@0.0.0 test:roadmap
+> node --test scripts/roadmap.test.mjs scripts/roadmap-rate-limit.test.mjs scripts/roadmap-lock.test.mjs
+
+✔ serializes roadmap commands before any GitHub request (10.155236ms)
+✔ reclaims a sufficiently old lock whose owner process is gone (6.19147ms)
+✔ parses authoritative direct GraphQL rateLimit fields and omits response metadata (7.166444ms)
+✔ fails closed on GitHub's graphql_rate_limit exhaustion response with reset guidance (1.473504ms)
+✔ never accepts a false REST-green payload as GraphQL authority (2.338101ms)
+✔ preflight reserves points for the planned GraphQL work (0.723288ms)
+✔ honors direct Retry-After evidence during a secondary throttle (0.453784ms)
+✔ accounts for issue, comment, dependency, and Project V2 operations by actual transport (0.458689ms)
+✔ distinguishes REST, GraphQL, secondary, and client/tooling failures (0.2831ms)
+✔ parses commands and flags (3.250726ms)
+✔ accepts one exact routing profile (0.916058ms)
+✔ rejects missing routing labels (1.142745ms)
+✔ rejects duplicate routing labels (0.283948ms)
+✔ rejects Luna claiming Terra work (0.303788ms)
+✔ rejects Sol claiming Luna work (0.241078ms)
+✔ rejects unsupported effort labels (0.244205ms)
+✔ uses the latest claim marker (0.681784ms)
+✔ preserves exclusive ownership across Luna-to-Terra and Terra-to-Sol escalation markers (0.445749ms)
+✔ parses no dependencies and same-repository blockers (1.271635ms)
+✔ parses cross-roadmap dependency references (0.654317ms)
+✔ rejects prose and duplicate dependency declarations (0.512323ms)
+✔ requires every dependency to be closed and Done (0.477977ms)
+✔ inspect, ready, and claim preflight before GraphQL reads and again before mutation (1718.741107ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1879.84078
+
+> vera-script-to-timeline@0.0.0 check:python
+> npm run lint:python && npm run typecheck:python && npm run test:python
+
+
+> vera-script-to-timeline@0.0.0 lint:python
+> uv run --frozen ruff check . && uv run --frozen ruff format --check .
+
+All checks passed!
+108 files already formatted
+
+> vera-script-to-timeline@0.0.0 typecheck:python
+> uv run --frozen mypy python tests
+
+Success: no issues found in 53 source files
+
+> vera-script-to-timeline@0.0.0 test:python
+> uv run --frozen pytest
+
+============================= test session starts ==============================
+platform darwin -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/matthewbelinkie/.codex/worktrees/8769/VERA Script to Timeline
+configfile: pyproject.toml
+testpaths: tests
+plugins: typeguard-4.6.0
+collected 175 items
+
+tests/test_after_effects_inspection.py ..                                [  1%]
+tests/test_fixtures.py ........                                          [  5%]
+tests/test_free_trial.py ..........                                      [ 11%]
+tests/test_generated_contracts.py ..                                     [ 12%]
+tests/test_narration_cache.py ....                                       [ 14%]
+tests/test_narration_cli.py ......                                       [ 18%]
+tests/test_narration_compiler_dependencies.py .....                      [ 21%]
+tests/test_narration_normalize.py ........                               [ 25%]
+tests/test_narration_provider.py .................                       [ 35%]
+tests/test_narration_service.py .......                                  [ 39%]
+tests/test_otio_package.py ....................                          [ 50%]
+tests/test_placeholder_slate.py ..............                           [ 58%]
+tests/test_prompter_contracts.py ..                                      [ 60%]
+tests/test_resolve_import_package.py ......                              [ 63%]
+tests/test_studio_spike.py ............................................. [ 89%]
+.....                                                                    [ 92%]
+tests/test_text_plus_template.py .......                                 [ 96%]
+tests/test_text_plus_validation.py ......                                [ 99%]
+tests/test_tooling_smoke.py .                                            [100%]
+
+============================= 175 passed in 26.24s =============================

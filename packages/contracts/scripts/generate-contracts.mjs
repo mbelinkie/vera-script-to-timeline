@@ -29,6 +29,7 @@ const schemaFiles = [
   "timeline-manifest-v1.schema.json",
   "build-report-v1.schema.json",
   "compiler-dependencies-v1.schema.json",
+  "prompter-export-v1.schema.json",
 ];
 
 function readJson(path) {
@@ -54,12 +55,14 @@ async function generateTypeScript(outputDirectory) {
       "timelineManifest",
       "buildReport",
       "compilerDependencies",
+      "prompterExport",
     ],
     properties: {
       scriptDocument: { $ref: schemaFiles[0] },
       timelineManifest: { $ref: schemaFiles[1] },
       buildReport: { $ref: schemaFiles[2] },
       compilerDependencies: { $ref: schemaFiles[3] },
+      prompterExport: { $ref: schemaFiles[4] },
     },
   };
 
@@ -131,12 +134,14 @@ function generatePython(outputDirectory) {
       "",
       "from .build_report_v1_schema import BuildReportV1",
       "from .compiler_dependencies_v1_schema import CompilerDependenciesV1",
+      "from .prompter_export_v1_schema import PrompterExportV1",
       "from .script_document_v1_schema import ScriptDocumentV1",
       "from .timeline_manifest_v1_schema import TimelineManifestV1",
       "",
       "__all__ = [",
       '    "BuildReportV1",',
       '    "CompilerDependenciesV1",',
+      '    "PrompterExportV1",',
       '    "ScriptDocumentV1",',
       '    "TimelineManifestV1",',
       "]",
