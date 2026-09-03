@@ -1,6 +1,117 @@
-# Issue 32 checkpoint — Batch 5 evidence paused at Claude usage limit
+# Issue 32 checkpoint — Batch 5 verified; focus wiring next
 
-## 2026-09-03 continuation
+## 2026-09-03 Batch 5 recovery completed
+
+Continued in a new Claude conversation carrying the summary from **Issue #32
+Batch 3 continuation**. The shadow source edits are intact. The apparent hash
+conflict was caused by a byte-identical preview-host style/bridge insertion at
+lines 4–6 (`data-omelette-injected`), exactly 20,369 bytes and three lines.
+Excluding that exact block in memory reproduces both ledger-era identities;
+neither source HTML was edited during this evidence recovery.
+
+| File | Preview-served identity | Stored ledger identity |
+| --- | --- | --- |
+| Pre-Batch-5 baseline | 540,080 B / 5,052 lines; `21dcd4f0f89e1e4a9bd3fdeb4cf7c2f835b9bbc4f67be15dd18eb96d109b9eef` | 519,711 B / 5,049 lines; `779ba6087b317f6b45d6ead57eb8ddf61916a59a6b7df760ab8fe7ab555ab25b` |
+| Working source after Batch 5 | 540,075 B / 5,052 lines; `f93d5f0d04e51e91042b5d7e20b42bdb0a118a8229c0bb98ed07a75a7525b993` | 519,706 B / 5,049 lines; `302702d212f5ec88a991772d606f68cb9884e64ef1c141e842b6b450407b102c` |
+
+Claude corrected its initial ambiguous counts: **27 declarations wired**,
+including 22 equal-value substitutions and five output-changing sites covering
+B9–B12. **Eight preserved accepted exceptions**: companion shadow L4747; three
+List C non-elevation preserves L2807/L2809/L4153; four documentation specimens
+L1975/L3469/L3470/L3474. No unfinished shadow implementation is reported. The
+five output-changing sites all consume `--shadow-popover`:
+
+| Decision/site | Before | After |
+| --- | --- | --- |
+| B9a L4105 who-logged popover; B9b L4107 row menu | `rgba(0,0,0,.55) 0 14px 34px` | `rgba(0,0,0,.55) 0 18px 44px` |
+| B10 L249 project switcher | `rgba(0,0,0,.62) 0 22px 54px` | same approved popover shadow |
+| B11 L4134 logged-comment card | `rgba(0,0,0,.6) 0 16px 40px` | same approved popover shadow |
+| B12 L4699 account menu | `rgba(0,0,0,.6) 0 18px 44px` | same approved popover shadow |
+
+Five targeted site proofs at both widths found only the approved shadow
+changes and equal geometry. A retained 29-state/two-width sweep made 58
+comparisons across 24,994 elements and 47 properties: non-shadow deltas zero,
+equal element counts/geometry/overflow inventories (320 each), no unresolved
+variables, and no console errors/warnings. Do not repeat this sweep for the
+next small batch without a concrete uncovered risk.
+
+Claude later confirmed the preview host injects this block while serving the
+file; it is not present in the stored project source. The old iframe captures
+were invalid: 924×540 frames, nine of ten pairs marked
+mispaired. Claude removed the invalid PNGs/JSON and recorded
+`evidence/b5/INVALIDATED.md`. The working route opens each source directly and
+captures its app-frame element at scale 1. **All ten new pairs** matched PNG
+dimensions, frame size, scene text hash, element count, scroll positions and
+target rectangle. PNG dimensions are 1280×802 and 1024×770, including borders.
+
+| Site | Width | Differing pixels | Max channel delta |
+| --- | --- | --- | --- |
+| B9a | 1280 | 19,070 | 11 |
+| B9a | 1024 | 0 | 0 |
+| B9b | 1280 | 21,374 | 6 |
+| B9b | 1024 | 19,463 | 7 |
+| B10 | 1280 | 66,787 | 11 |
+| B10 | 1024 | 65,779 | 15 |
+| B11 | 1280 | 21,345 | 9 |
+| B11 | 1024 | 18,228 | 10 |
+| B12 | 1280 | 21,268 | 4 |
+| B12 | 1024 | 20,927 | 4 |
+
+Nonzero difference bounds enclose the target shadows; alpha deltas are zero.
+B9a at 1024 is visually inert because an existing 0×20 ancestor with hidden
+overflow clips its shadow in both versions. This is a separate clipping
+question, not a #32 fix or new accepted exception. It is filed for independent
+triage as Inbox issue
+[54](https://github.com/mbelinkie/vera-script-to-timeline/issues/54); it has not
+been started. Project evidence paths:
+`_b5-wire-ledger.json`, `_b5-verify-harness.html`, and
+`evidence/b5/{B9a,B9b,B10,B11,B12}-{1280,1024}-{pre,post}.png`.
+These are Claude-reported retained results inspected in the live UI, not
+locally downloaded artifacts or independently recomputed hashes.
+
+### Batch 6 focus-token checkpoint
+
+Batch 6 preserved `VERA Redesign (pre-Batch-6 focus baseline).dc.html` from the
+stored Batch 5 source (`302702d212f5ec88a991772d606f68cb9884e64ef1c141e842b6b450407b102c`,
+519,706 B / 5,049 lines). The edited stored source is
+`36a2e02f04f2db60345cbfe4ca0dbcd9b6bca56617706b3003a31dc0cc76d185`,
+519,948 B / 5,049 lines.
+
+Three accepted leaves were declared at `:root` L170:
+`--focus-ring-w: 2px`, `--focus-ring-offset: 2px`, and
+`--focus-ring-offset-field: 1px`. Five declarations were wired: L179 outline
+width/offset, L180 field outline width/offset, and L4168 transcript-segment
+outline offset. The `:focus-visible` selectors are otherwise byte-identical.
+
+Five accepted class-C preserves remain byte-unchanged: 30 `outline:none` field
+sites, L3202 prototype RING constant, L3473 design specimen, the
+L1975/L2034/L2046 component-state specimens, and L3495 explanatory prose.
+There is no unfinished focus substitution in the ledger. The known field
+outline defect remains unchanged: stronger inline `outline:none` wins, while
+the 1px offset still resolves. The hover-revealed-row-actions defect is also
+untouched.
+
+At both widths the button, row-action button, transcript segments and text
+input retained equal focused/unfocused computed values, geometry and element
+counts. Focus variables resolve, with zero unresolved references. Four direct
+native PNG pairs (`btn` and `seg` at each width) are pixel-identical with zero
+channel delta; project paths are
+`evidence/b6/{btn,seg}-{1280,1024}-{pre,post}.png`. The per-declaration record is
+`_b6-wire-ledger.json`.
+
+**Decision 3's real-keyboard proof remains outstanding.** Claude used
+`element.focus()`, which is valid computed/pixel evidence but not Tab or
+Shift+Tab modality evidence. On resume, use genuine keyboard input on both the
+pre-Batch-6 and edited files at both widths. Cover Sources Add/Bulk add/row
+actions and Workspace transcript segments; confirm ring appearance, width,
+colour and offset match, and tab order is unchanged. Do not ask Claude to
+recreate the completed focus batch.
+
+This is the requested clean pause. Responsive pairs, A40 producer resolution,
+shared package/adoption, and cumulative final checks still remain. #32 is not
+ready for producer acceptance; #14 has not started.
+
+## Earlier 2026-09-03 usage-limit checkpoint
 
 The original pilot limit below has been cleared. The pilot and Batches 1–4
 completed in Claude Design; Batch 5 shadow wiring was written and its final
