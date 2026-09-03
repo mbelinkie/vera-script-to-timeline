@@ -1,4 +1,99 @@
-# Issue 32 checkpoint — blocked by Claude session limit
+# Issue 32 checkpoint — Batch 5 evidence paused at Claude usage limit
+
+## 2026-09-03 continuation
+
+The original pilot limit below has been cleared. The pilot and Batches 1–4
+completed in Claude Design; Batch 5 shadow wiring was written and its final
+native PNG evidence/report is being recovered after a browser-tab interruption.
+Claude then reported **“Paused — you've hit your limit”** during the narrowed
+Batch 5 recovery request. Its displayed reset time is **1:10 PM on September 3,
+2026** (America/New_York). Stop here until usage is available. This remains a
+partial checkpoint, not an acceptance handoff. The active claim
+is still this task on `codex/issue-32-design-system-transfer`.
+
+The producer's latest direction is to continue bounded #32 work until Claude
+reports exhausted usage. Do not begin #14 or reinterpret accepted decisions.
+The live source is [VERA Redesign.dc.html](https://claude.ai/design/p/011eee38-8b6b-48aa-a154-d6c0060d4f23?file=VERA+Redesign.dc.html).
+Use the conversation **Issue #32 Batch 3 continuation**. The original tab is
+currently `543775433`; rediscover it by title and URL if that ID expires.
+
+### Completed batches and retained identities
+
+The following are Claude's retained ledger/report results, inspected through
+the live UI. Evidence paths in this section are inside the Claude project,
+not files downloaded to this repository.
+
+| Batch | Result | After identity | Evidence |
+| --- | --- | --- | --- |
+| Pilot | Shared CSS link works within this Claude project; no local declarations and 15 var references. Research source unchanged. | CSS 726 B, `5d025485…c7fe802d`; probe 8,775 B, `958c3f29…dcf05e2a` | `issue32-pilot-tokens.css`, `Issue 32 import probe.dc.html` |
+| 1 | 65 accepted T-B consolidations wired plus two typography token leaves. Nineteen scenes at both widths; no computed, geometry, console, or decoded-RGBA changes. | 505,326 B, 5,049 lines, `8cfcd7ef…2f5de724` | `_b1-wire-ledger.json`, `_b1-diff.html`, `evidence/b1/` |
+| 2 | 58 exact height-axis declarations wired. Nineteen scenes at both widths; no computed/geometry drift, unresolved vars, new overflow, console errors, or RGBA changes. | 506,255 B, 5,049 lines, `f5f772d988b86f7affdc6ec705e4ae10509616bffe5786f15190843118fdd0b8` | `_b2-wire-ledger.json`, `_b2-diff.html`, `evidence/b2/` |
+| 3 | 307 declarations / 331 components wired from full collision attribution; 58 previously wired skipped, none held. Two states at both widths had equal computed and geometry digests. | 512,069 B, `b1b149371bd21938904d751367f478beba5b3a8a6fdf01cc31d658226a217003` | `_b3-wire-ledger.json`, `_b3-verify-harness.html`, `evidence/b3/verify-evidence.json`, `evidence/b3/rgba-compare.json` |
+| 4 | 51 new leaves declared; 544 product component substitutions. 29 destinations/overlays × two widths = 58 pre/post comparisons, 24,520 element comparisons over 41 computed properties plus rectangles; equal geometry, node counts and overflow sets, zero unresolved vars, silent consoles, unchanged responsive deltas. Twelve native PNG frames had zero RGBA changes. | 519,711 B, 5,049 lines, `779ba6087b317f6b45d6ead57eb8ddf61916a59a6b7df760ab8fe7ab555ab25b` | `_b4-wire-ledger.json`, `_b4-verify-harness.html`, `evidence/b4/verify-evidence.json`, `evidence/b4/rgba-compare.json` |
+
+The original preserved Research baseline is 500,502 B / 5,049 lines, hash
+`e72fe386…d447e73`. Obtain the full hash from its retained ledger for the final
+handoff. Never treat abbreviated hashes as a byte comparison performed locally.
+
+Batch 1 established a true lossless PNG route at scale 1: 1280×802 and
+1024×770 frames include the one-pixel borders around the authored viewports.
+Batch 3's four 924×540 direct-preview PNG comparisons were equal, but do not
+replace native-scale evidence. A cumulative native comparison is still needed
+where Batch 3 changed consumers were not covered by an applicable native run.
+
+### Preserved exceptions and pending decisions
+
+- Row 13a remains held because its fixed-height precondition does not match
+  the source's min-height. `--type-row` leaves remain unused; typography
+  deferrals and documentation/specimen exclusions remain untouched.
+- All 17 responsive pairs declared in Batch 4 remain unwired at their JS
+  numeric ternaries. This batch explicitly preserved branch expressions;
+  these are implementation holds, not new producer-approved exceptions.
+- A40 `--header-gap-*` is entirely held. Accepted List A says wide 13 / narrow
+  9; the accepted responsive inventory and source L4090 say `(cmp ? 9 : 15)`.
+  Neither token was declared or wired. Producer resolution is required before
+  final package acceptance; do not silently pick a wide value.
+- `--bp-compact: 1024px` is declared; its only comparison site
+  `const cmp = s.vw === 1024` (L3674, doc-data) remains literal.
+- The known keyboard field-outline defect remains a separate follow-up.
+  Genuine keyboard input earlier showed a gold solid 2px button outline with
+  2px offset, and a field matching focus-visible with outline style none.
+
+### Resume here: Batch 5 recovery boundary
+
+The first Batch 5 run preserved
+`VERA Redesign (pre-Batch-5 shadow baseline).dc.html`, wrote the shadow changes,
+created `_b5-wire-ledger.json` and `_b5-verify-harness.html`, and reported all
+five relevant sites reached after repairing harness state selection. It was
+capturing native pre/post PNGs when the temporary tab closed. No final Batch 5
+hash/result is claimed yet.
+
+The current recovery prompt explicitly forbids rewriting source or any baseline. It
+must verify the pre-Batch-5 file still matches Batch 4's full after hash above,
+match current source to the shadow ledger, reuse successful comparisons, finish
+only missing PNG evidence, and report exact hashes/site counts/results. Stop
+after that report. Its last completed visible tool group is **“Screenshot,
+Comparing B9-B12 pixel pairs”**, followed by an artifact link to
+`VERA Redesign (pre-Batch-5 shadow baseline).dc.html` and the usage-limit notice.
+The UI also lists source/ledger matching, preserved-baseline hash verification,
+and reads of existing per-site proofs, but it has not surfaced the final report
+or full post-shadow hash. Do not infer completed acceptance from those labels.
+
+Resume this exact recovery request with Claude's **Resume** control. Do not
+resume the older full Batch 5 editing prompt: doing so restarted audit reads
+after the tab interruption. The older restart was stopped and replaced with
+this evidence-only request before a final result. The recovery must disclose
+any intervening mutation or baseline conflict.
+
+The complete visible conversation at the limit is retained locally in
+`out/issue-32/claude-batch5-usage-limit-2026-09-03.txt` (ignored evidence). The
+live tab was marked for handoff. Focus, final export/import, and #14 remain
+unstarted. After reviewing the Batch 5 report, the next bounded implementation
+is focus-token wiring with real keyboard proof and no defect repair. Responsive
+branch wiring, A40 producer resolution, the versioned package and separate
+adoption artifact, and final cumulative verification remain before acceptance.
+
+## Historical pilot checkpoint (2026-09-02)
 
 Recorded 2026-09-02, America/New_York. This is a partial implementation
 checkpoint, not an acceptance handoff. #32 is not ready for review and #14
