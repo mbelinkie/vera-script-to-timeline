@@ -68,8 +68,10 @@ Browser access recovered after this decision. The live Claude chat had
 advanced through all working popup states and nearly all baseline states;
 the latest visible operation was **Baseline logged card measurement at
 1024**, with the Stop button still present. Await the completed addendum
-before issuing another request. Package transfer and final acceptance remain
-pending, and #14/#54 were not started.
+before issuing another request. Subsequent DOM, accessibility and screenshot
+reads timed out again, so recovery was transient: the addendum remains
+unconfirmed and A40 wiring has not yet been requested or applied. Package
+transfer and final acceptance remain pending, and #14/#54 were not started.
 
 ## 2026-09-03 second continuation
 
