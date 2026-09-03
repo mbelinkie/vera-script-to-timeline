@@ -1,4 +1,63 @@
-# Issue 32 checkpoint — Batch 7 verification paused at Claude usage limit
+# Issue 32 checkpoint — Batch 7 main proof passed; popup addendum unconfirmed
+
+## Latest continuation: browser access stalled during popup addendum
+
+Resumed Batch 7 in a fresh Claude chat carrying a summary from **Batch 5
+Completion Work**, using the same project and preserved files. The main
+verification report completed. These are Claude's reported retained results,
+inspected in the live UI:
+
+- The pre-Batch-7 baseline still matches the stored identity
+  `36a2e02f04f2db60345cbfe4ca0dbcd9b6bca56617706b3003a31dc0cc76d185`,
+  519,948 B / 5,049 lines.
+- Working source: 520,805 B / 5,049 lines, abbreviated hash
+  `ec1d87c7…afc9`. Obtain the full hash from `_b7-wire-ledger.json`; no full
+  post-Batch-7 hash has yet been surfaced to Codex.
+- Twenty-two changed lines cover the 17 approved pairs, continuation lines,
+  and three transcript-pad consumers at L3904/L4096/L4097. All 34 variables
+  resolve. Per-line ternary-condition comparison reports zero mismatches.
+- A40 at L4090 is preserved as the original literal `(cmp ? 9 : 15)` with
+  the px suffix, in both files.
+- Sources, Workspace, Language decision and Companion player were compared
+  at both widths. Measured values, element counts and overflow counts match.
+  Element counts are 537/312/609/438 wide and 531/312/603/438 compact. Zero
+  unresolved variables and zero console errors were reported. A single
+  horizontal Workspace overflow at 1024 is present in both versions.
+- Six direct app-frame PNG pairs in `evidence/b7/` report zero differing
+  pixels. Different-view controls report 540,000–670,000 differing pixels.
+  Exact filenames and PNG dimensions were requested in the addendum below;
+  do not invent them or treat a capture label as dimension proof.
+- `_b7-verify-harness.html` and `_b7-wire-ledger.json` were retained in the
+  Claude project. Neither source HTML was changed in this continuation.
+
+The first report resolved six popup variables without opening their actual
+consumers. Codex requested one bounded completion packet for the keyword
+popover, who-logged popover, row menu, queue menu, logged-comment card and
+language menu: actual computed width/rectangle/counts/overflow/vars in both
+files at both widths, plus unchanged responsive deltas. It also requests full
+stored hashes, exact six PNG pair paths/dimensions, and the condition digest.
+No repeat of passing page checks or PNG pairs was requested.
+
+Claude reached the six working-file popups at 1280 and 1024, then was
+rechecking frame-scoped 1280 measurements. The last visible operation was
+**Who popover at 1280 in frame**. The browser then stopped responding to DOM
+and accessibility reads. Reconnecting to the original tab and attempting a
+fresh project tab also timed out, as did browser discovery. The addendum's
+completion and any later file changes are therefore **unconfirmed**. Claude
+may still be running; do not claim it was stopped or that usage was exhausted.
+
+On resume, recover the existing project and inspect the current chat/ledger
+before sending another request. Reuse any completed popup evidence, obtain
+the requested exact identities/paths, and finish only genuinely missing
+checks. Do not replay the Batch 7 implementation or main verification suite.
+The original tab ID was `543775433`; a recovery-tab creation was attempted
+but its success/ID could not be confirmed.
+
+The producer was asked to resolve A40: accepted List A says 13px wide / 9px
+compact; the accepted inventory and source say 15px wide / 9px compact.
+Recommendation is to preserve current 15px / 9px behavior. **No answer or
+approval has been received.** Package transfer and final acceptance remain
+pending, and #14/#54 were not started.
 
 ## 2026-09-03 second continuation
 
