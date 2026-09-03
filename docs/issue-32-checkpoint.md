@@ -53,10 +53,22 @@ checks. Do not replay the Batch 7 implementation or main verification suite.
 The original tab ID was `543775433`; a recovery-tab creation was attempted
 but its success/ID could not be confirmed.
 
-The producer was asked to resolve A40: accepted List A says 13px wide / 9px
-compact; the accepted inventory and source say 15px wide / 9px compact.
-Recommendation is to preserve current 15px / 9px behavior. **No answer or
-approval has been received.** Package transfer and final acceptance remain
+### A40 producer decision — approved 2026-09-03
+
+Matthew replied **yes** to the explicit recommendation to keep **15px wide /
+9px compact**. This resolves the conflict with accepted List A's 13px wide
+value in favor of the accepted inventory and current source behavior. Use
+15px / 9px for A40's shared header-gap tokens and consumer wiring; preserve
+the existing branch condition and visual output. The decision authorizes
+that bounded token correction and wiring, not issue #32 acceptance. No
+product contracts, fixtures or generated types change; verify unchanged
+computed header gaps and native output at both widths when wiring A40.
+
+Browser access recovered after this decision. The live Claude chat had
+advanced through all working popup states and nearly all baseline states;
+the latest visible operation was **Baseline logged card measurement at
+1024**, with the Stop button still present. Await the completed addendum
+before issuing another request. Package transfer and final acceptance remain
 pending, and #14/#54 were not started.
 
 ## 2026-09-03 second continuation
