@@ -56,13 +56,15 @@ regeneration, and how acceptance changes.
   include teaching asides or "engineering lens" notes in their commentary or
   final responses.
 - When a completed milestone, important tradeoff, surprising failure, contract
-  boundary, or useful test reveals a genuinely helpful big-picture lesson,
+  boundary, or useful test reveals a genuinely helpful technical lesson,
   send the lesson context to the dedicated Codex task **VERA Engineering
   Lessons** (`threadId: 01a0627e-a2ea-7ab1-8975-9a85c5e8b4e9`, `hostId: local`)
   with `send_message_to_thread`.
-- Ask that task to turn the context into one brief, self-contained lesson in
-  simple, non-technical language. Avoid jargon; define any unavoidable term
-  plainly. Do not go deeper unless Matthew asks a follow-up there.
+- Ask that task to turn the context into one brief, self-contained technical
+  explainer for a non-engineer. It should name the actual mechanism, explain
+  why it exists, identify the failure or risk it prevents, and connect it to
+  the VERA work that exposed it. Use plain language and define unavoidable
+  jargon; do not replace the technical substance with generic project advice.
 - Include the source issue or task title when available so the lesson remains
   connected to the real project. Send at most one lesson per meaningful
   milestone, and skip lessons that would be repetitive or forced.
