@@ -1,4 +1,37 @@
-# Issue 32 checkpoint — Batch 5 verified; focus wiring next
+# Issue 32 checkpoint — Batch 7 verification paused at Claude usage limit
+
+## 2026-09-03 second continuation
+
+Decision 3's genuine keyboard proof was completed as recorded in the Batch 6
+section below. Both stored files at both authored widths retained identical
+forward and reverse tab order and the expected gold focus ring.
+
+Claude then began the bounded Batch 7 responsive wiring request. It confirmed
+the exact stored starting identity
+`36a2e02f04f2db60345cbfe4ca0dbcd9b6bca56617706b3003a31dc0cc76d185`
+(519,948 B / 5,049 lines), confirmed all 34 previously declared tokens for the
+17 accepted wide/narrow pairs, and preserved a named pre-Batch-7 baseline.
+It mapped all 17 ternary sites plus the three `transcript-pad` consumers and
+reported applying the substitutions with a uniqueness assertion per site.
+
+Claude paused at its usage limit during **“Confirming the edit and remaining
+ternaries.”** The UI reports a reset at **6:10 PM on September 3, 2026**
+(America/New_York). Batch 7 is therefore **unverified**: no stored after hash,
+finished `_b7-wire-ledger.json`, full site count, responsive-delta result,
+geometry/overflow/console result, or native PNG result has been surfaced.
+Do not infer success from the edit operation or repeat the edits.
+
+Resume the current bounded request with Claude's **Resume** control. First
+verify the named baseline still has the exact starting identity above, then
+inspect the current working source against the planned 17-site substitutions
+and finish the confirmation/ledger/evidence pass. Preserve all original branch
+conditions. Keep A40 `header-gap` wholly undeclared/unwired and source
+`(cmp ? 9 : 15)` unchanged. If any site is partial or duplicated, report and
+repair only that exact Batch 7 discrepancy. Stop after the Batch 7 report.
+
+Do not start shared package export/import, final cumulative verification, #14,
+or issue #54 from this checkpoint. The Claude tab is marked for handoff. The
+active #32 claim remains this task and branch.
 
 ## 2026-09-03 Batch 5 recovery completed
 
@@ -99,17 +132,20 @@ channel delta; project paths are
 `evidence/b6/{btn,seg}-{1280,1024}-{pre,post}.png`. The per-declaration record is
 `_b6-wire-ledger.json`.
 
-**Decision 3's real-keyboard proof remains outstanding.** Claude used
-`element.focus()`, which is valid computed/pixel evidence but not Tab or
-Shift+Tab modality evidence. On resume, use genuine keyboard input on both the
-pre-Batch-6 and edited files at both widths. Cover Sources Add/Bulk add/row
-actions and Workspace transcript segments; confirm ring appearance, width,
-colour and offset match, and tab order is unchanged. Do not ask Claude to
-recreate the completed focus batch.
+**Decision 3's real-keyboard proof is complete.** Codex sent genuine browser
+`Tab` and `Shift+Tab` key events through both the pre-Batch-6 and edited files
+at 1280×800 and 1024×768. In each of the four file/width combinations, forward
+and reverse traversal reached Sources Add, Bulk add and the first row's action
+controls in the same order, then reached the first Workspace transcript segment
+from its preceding search navigation control. Every recorded destination
+matched `:focus-visible` and computed to `rgb(196, 155, 80) solid 2px` with a
+2px offset. Shift+Tab returned Bulk add to Add and the transcript segment to
+the preceding down control; the following Tab returned to the original target.
+This satisfies the keyboard-modality check without changing either artifact.
 
-This is the requested clean pause. Responsive pairs, A40 producer resolution,
-shared package/adoption, and cumulative final checks still remain. #32 is not
-ready for producer acceptance; #14 has not started.
+Batch 7 responsive-pair wiring follows this checkpoint. A40 producer
+resolution, shared package/adoption, and cumulative final checks still remain.
+#32 is not ready for producer acceptance; #14 has not started.
 
 ## Earlier 2026-09-03 usage-limit checkpoint
 
