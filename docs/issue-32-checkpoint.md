@@ -1,5 +1,31 @@
-# Issue 32 checkpoint — eleven final states passed; group 2B underway
+# Issue 32 checkpoint — seventeen final states passed; group 2C underway
 
+
+## Group 2B passed; group 2C dispatched
+
+Group2B reports twelve of twelve V0→Vfinal pairs pixel-identical for O01-lang,
+O02-blocker, O03-notready, O04-dupactive, O05-duphidden and O06-hiddenrows
+at both widths. Twenty-four new images in `evidence/g2b/`; evidence file
+`_32-final-state-group2b.json`:
+`b7579aed5c97098bac50da96d9375176681e50d9bdc7c6925de3efc0ec7f422b`;
+index `dee7351b799bddfaed162c631a44497e5982d850cf48d1e7a883f87652f2f8b7`.
+All pixel differences/max delta zero; computed45+rect checks report matching
+counts, overflow and witnesses, zero shadow/non-shadow mismatches, unresolved
+vars or console output. Different-state control908,134px. Claude-workspace
+evidence; source identities remain the frozen recorded hashes.
+
+Decision29 was applied to D11-states and D12-tokens after checking751ledger
+site references: only eight doc/prototype-range references, all held with
+`bytesUnchanged:true`, no wired product consumer. The two sheets are exempt,
+not visually passed. Corrected totals:34passedpairs (12+10+12), two exempt
+states, ten applicable group2states/20pairs plus group3's14knownpairs =34
+known pairs remaining, with four unresolved mappings.
+
+Sent group2C for the next six applicable product states in original order,
+including explicit B10 comparison requirements if O15-projswitch is selected.
+Same frozen versions, actual state witnesses, native/app-frame and computed
+checks; no broad masks, source repair, later states, checker or acceptance.
+Claude running.
 
 ## Group 2A passed for five application states; group 2B dispatched
 
