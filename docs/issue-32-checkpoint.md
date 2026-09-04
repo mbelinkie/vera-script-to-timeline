@@ -1,4 +1,60 @@
-# Issue 32 checkpoint — 65 native pairs plus completed popup style comparisons
+# Issue 32 checkpoint — producer review with one explicit evidence exception
+
+## Closure applicability review and acceptance handoff
+
+The bounded review is complete. The next action is producer review of
+[the acceptance packet](prototypes/issue-32-acceptance.md), not another capture
+matrix, focus audit or trigger search. #32 is submitted to In review, with
+acceptance and the B11 evidence exception still unapproved. #14 stays blocked.
+
+The prior six-pair pending classification below is superseded as follows:
+
+- **Focus:** retained B6 evidence already covers the actual token requirement:
+  four zero-diff native button/segment pairs and Codex's real Tab/Shift+Tab
+  traversal of both versions at both widths. B7/A40 changed no focus rules,
+  controls or keyboard order. F3/F4 were later labels for duplicate coverage
+  or preserved defects, not new token work. No additional focus capture gate.
+- **B11:** two final-version open-card images remain absent. Valid B5 native
+  images cover the approved shadow change. B7 later changed width wiring and
+  retains matched open-card measurements, but its native images show the
+  default scene without the card. B5 DOM329/card height82 and B7 DOM216/card
+  height56.59 are different witnessed scenes; matching widths do not make
+  their evidence interchangeable. The producer is explicitly asked whether
+  to accept the retained images, later measurements and verified source chain
+  instead of new final-version card images. This is not a passing capture or
+  an agent-approved waiver.
+- **Adoption:** exact v1.0.0 import, both-width computed checks, native
+  content-height images and real keyboard checks remain applicable. No new
+  viewport-image requirement is introduced for the specimen.
+
+Counts remain **65 direct original-to-final native passes** and **11 completed
+popup computed comparisons**, 184,552 cells across 46 CSS properties with only
+five approved shadow differences. Historical evidence is separate, not added
+to claim 71 direct passes. #54 and the previously recorded preserved focus
+defects remain separate follow-ups. Existing raw-matrix retention limitations
+are disclosed, not a reason to repeat successful checks.
+
+Claude retained `_32-closure-applicability-review.json` (20,491 bytes), SHA-256
+`f95dd4ead2a585914b869cf98c55bcd5205fb68df368171d3d05c9c0bc3026fc`.
+It checked actual image dimensions/hashes and the contiguous B5 → B6 → B7 →
+A40 source chain. Remote hashes are Claude-retained, not locally measured.
+
+The new **Issue 32 acceptance review** sheet collects existing B5/B6/adoption
+images, frozen deliverable identities, evidence limits and ordered producer
+steps. Chrome browser1/tab543776383 displays it in the 43-file project. Its
+automatically started design checker was canceled; it is not a new gate.
+This closure work changes documentation only. Frozen Research source, shared
+CSS, manifest and adoption specimen identities remain unchanged.
+
+Review sheet identity after correcting four images versus two comparison pairs:
+17,292 bytes, SHA-256
+`90cced74c86879b6b836df0280411d2a54b3633736857fe7e3bbd4940d3889db`.
+Codex verified all ten embedded images loaded with the retained native
+dimensions. Local documentation passed `git diff --check`.
+
+Producer acceptance must explicitly cover the B11 exception and #32; the exact
+response and live sheet link are in the acceptance packet. Do not infer either
+from an instruction to continue, close #32, or dispatch #14 before acceptance.
 
 ## Final report correction and bounded stopping point
 
