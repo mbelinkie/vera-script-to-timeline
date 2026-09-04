@@ -1,5 +1,45 @@
-# Issue 32 checkpoint — Workspace passed; final verification being consolidated
+# Issue 32 checkpoint — final core states passed; supporting-state checks underway
 
+
+## Final cumulative group 1 passed; group 2A running
+
+All six core states (Sources, actual Workspace, Clips, Project settings,
+Account settings, Clips selected) pass V0→Vfinal at both widths: 12 pairs,
+zero differing pixels, max channel delta zero. Twenty-two new captures in
+`evidence/g1/` (10 V0, 12 final) plus the exact two witnessed V0 Workspace
+images from `evidence/b3b4/ws-V0-*`; native 1280×802 / 1024×770, scale 1.
+Control final Sources vs final Workspace wide differs by 785,980 pixels.
+
+`_g1-final-diff.html` compares 45 computed properties plus rectangles by
+lockstep subtree walk: counts and state-text witness hashes match, zero
+non-shadow mismatches, zero box-shadow differences, identical overflow sets,
+zero unresolved vars, no console errors/warnings. No approved changed shadow
+consumer is open in these six states, so all-zero is expected. No mask/tolerance.
+No source/package/specimen/baseline/image modifications.
+
+Final state index `_32-final-state-index-group1.json`:
+`07abd15c62f007cd657ea479600e287405f35a7fbba3bb0bff1321e39376fd95`.
+Remaining: 23 supporting states (46 pairs) plus opened shadow/focus/B7 states
+(14 known pairs and unresolved mappings). Six core states now have final
+acceptance evidence; historical missing comparisons remain unperformed and
+are superseded only for those states' net output, without per-batch attribution.
+
+Sent group 2A: first six pending supporting states in index order, excluding
+all passed states, at both widths. Reuse final harness/method; preserve exact
+V0/Vfinal and all sources; retain actual state witnesses and native pairs,
+allow only site-specific approved shadow changes, stop on unexplained output.
+No other states, background checker, manifest edits or acceptance handoff.
+Claude is running; next six IDs/results have not yet been surfaced.
+
+Codex resolved two mapping questions from the already-retained accepted audit
+text while Claude runs. B11 = logged-comment card in the transcript,
+L4134:box-shadow#1, decision 16: 0 16px 40px at 60% → shadow-popover
+0 18px 44px at 55%. B12 = Account menu, L4699:box-shadow#1, decision 17:
+0 18px 44px at 60% → same geometry at 55%. Both explicitly approved. These
+are named opened consumers, distinct from closed Account settings. Supply
+these excerpts in the later overlay group instead of reopening the decision.
+Source: `out/issue-32/accepted-remaining-audit-rendered.txt` B11/B12 entries
+and recorded decisions 16/17; no new web search or design decision needed.
 
 ## Manifest revision complete; final cumulative group 1 running
 
