@@ -1,5 +1,43 @@
-# Issue 32 checkpoint — seventeen final states passed; group 2C underway
+# Issue 32 checkpoint — 46 final pairs passed; group 2D resumed
 
+
+## Group 2C passed; group 2D resumed with explicit usage guidance
+
+Group 2C (O07-kwfilter, O08-manual, O09-editclip, O10-player,
+O11-newactivity, O13-exportdlg) reports all twelve native pairs identical at
+1280×802 / 1024×770, scale 1; zero pixel differences and max delta zero.
+Computed 45-property/rectangle checks report matching counts, witnesses and
+overflow sets, zero unresolved variables, shadow/non-shadow mismatches and
+console output. Different-state control: 866,396 pixels.
+
+Evidence in Claude workspace: `_32-final-state-group2c.json`, hash
+`14741b836d88dc6b25194cf2ff17bf05cc312afaee8c1b5949e696e031cdb416`;
+index `88eb6e08c48b91a41326164d7353a9782b096116ee20b04673dcf9cff9a9df8c`.
+Twenty-four captures plus two recaptures in `evidence/g2c/`. The original
+compact companion-player pair differed by183 pixels within a14×14 checkbox:
+its uncontrolled checked state persisted from different preset navigation.
+Both sides were retaken from fresh loads after verifying all eight checkboxes
+unchecked, producing zero diff. Original observation retained; no mask/source
+repair. A prior interrupted harness pass investigated incidental export-dialog
+focus; the resumed pass reports clean computed results. These neutral-state
+checks do not replace retained real keyboard-focus evidence.
+
+Totals:46 passed pairs, two documentation exemptions, four group2 states /
+eight pairs remaining (O14-progress, O15-projswitch, O16-archiveconf,
+O17-archivedlink), plus14 known group3 pairs and four mapping questions.
+The old overall85percent estimate was acknowledged as too optimistic; use
+actual evidence counts and retain unresolved mappings rather than a fixed ETA.
+
+Group2D dispatched with exact B10 shadow allowance, fresh identical navigation,
+explicit checkbox-state witnesses, frozen sources and no source repair.
+The browser interruption left Claude paused; native Resume was clicked in
+new Chrome tab543776316 (browser2), and its comparison harness is running.
+Matthew explicitly renewed authorization to continue up to100percent usage.
+Delivered nudge: do not voluntarily stop at90/95percent warnings; retain
+incremental evidence, finish current bounded report or stop at actual service
+rejection/concrete unexplained difference. Codex reviews before each next
+bounded group. UI last reported92percent used, reset4:10AM. No group2D result
+or usage exhaustion claimed. Live tab marked for handoff.
 
 ## Group 2B passed; group 2C dispatched
 
