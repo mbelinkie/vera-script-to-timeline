@@ -1,10 +1,23 @@
 # Issue 32 — design-system transfer acceptance
 
-**Status: producer review; not accepted.** The shared design system is wired,
-exported as v1.0.0 and imported into the separate adoption specimen. One narrow
-evidence exception requires the producer's decision before closing #32.
+**Status: accepted by Matthew Belinkie on 2026-09-04, including the B11 evidence
+exception.** The shared design system is wired, exported as v1.0.0 and imported
+into the separate adoption specimen.
 
-## Review
+## Producer acceptance record
+
+Matthew explicitly accepted in task `01a06506-8498-71b0-9fdc-52cd759ab9d4`:
+
+> I accept the B11 evidence exception: use the retained Batch 5 native screenshots and Batch 7 matched measurements instead of new final-version card screenshots. Accepted issue #32 design-system wiring and transfer.
+
+The exception accepts the named retained evidence; it does not claim the absent
+final-version images exist or increase the 65 direct comparison passes. #32's
+dependency on #14 is cleared when #32 is closed and Done. The exact v1.0.0
+deliverables below are approved for #14 to consume. Starting #14 is separate.
+The original review sheet remains unchanged as the artifact reviewed; its
+pending-decision wording is superseded by this acceptance record.
+
+## Retained review checklist
 
 Open [**Issue 32 acceptance review**](https://claude.ai/design/p/011eee38-8b6b-48aa-a154-d6c0060d4f23?file=Issue+32+acceptance+review.dc.html).
 The sheet collects the retained card, focus and adoption images.
@@ -35,12 +48,7 @@ Claude-retained SHA-256
    approved token meanings and recorded exceptions. Its required Claude
    working guide is already linked from issue #14.
 
-If satisfied, reply with both sentences:
-
-> I accept the B11 evidence exception: use the retained Batch 5 native screenshots and Batch 7 matched measurements instead of new final-version card screenshots. Accepted issue #32 design-system wiring and transfer.
-
-Otherwise report the first mismatch, or decline the B11 evidence exception.
-#14 remains blocked until #32 is explicitly accepted and closed.
+The producer's response to this checklist is recorded above.
 
 ## Evidence and judgment
 
