@@ -5,6 +5,45 @@ is pending.** #53 evaluates logic assuming accurate transcript text; #51 stays
 unresolved and owns recognition/timing model adequacy. No provider, keeper,
 speech-safe boundary, or production contract is approved by this handoff.
 
+## Clipped-edge correction — 2026-09-04
+
+Producer playback found the first reference video clipped words at most opening
+and closing cuts. That video is a retained failed-boundary example, not accepted
+speech-safe evidence. The Producer requested another ten frames generally and
+cuts placed in quiet based on the original waveform.
+
+A new slice-local waveform planner measures every source audio channel in 10ms
+windows. Sustained quiet requires RMS ≤ -40 dBFS, peak ≤ -28 dBFS and 120ms
+duration. Target ten extra frames per edge, then seek an outward frame boundary
+20ms inside quiet, without crossing adjacent recognized words. An explicit
+short-gap policy can reduce padding and records that exception; no quiet gap
+never silently becomes a tight transcript-edge cut. Energy remains evidence
+for listening, not a proof of absent speech or a keeper approval.
+
+The updated private video is at
+`out/issue-53-reviewed-result/blue-reference-silence-v2/blue-reference-half-res.mp4`.
+It preserves all seven blue selections/order and original audio at 1920×1080.
+Every one of the 14 cuts is inside a measured quiet interval. Most edges add
+ten frames; one end adds eleven. The third selection has an explicit seven-frame
+handle on each side to fit its quiet gaps without adjacent speech. Duration is
+approximately 56 seconds. Exact planned frame count is 1,682; complete decoding
+passes, audio/video start at zero, and source hash is unchanged. The prior
+reference video and initial exception plan remain available privately.
+
+Nine new fictional waveform/boundary tests cover all-channel silence, rejecting
+brief zero crossings, outward padding, short-gap exceptions, source limits,
+adjacent speech, and refusal to revert to word-edge cuts. Focused strict typing
+and Ruff pass. The full pinned validation result is retained in
+`out/issue-53-checks/validate-silence-boundaries.txt`.
+It passed with 225 Python tests, 141 contract tests, 1 tooling, 6 progress,
+23 roadmap tests, generated-currentness, lint/formatting and type checks.
+
+Producer check: watch the new padded video and listen to the initial consonants,
+final syllables, breathing room and adjacent speech at all seven selections.
+Inspect the third selection's shorter handles. If any edge still clips speech
+or includes unwanted words, name that cut; no boundary acceptance is inferred
+from quiet measurements or successful rendering. #53 stays In review.
+
 ## Producer-directed revision — 2026-09-04
 
 The follow-up adds 17 fictional regressions and revises the parser to preserve

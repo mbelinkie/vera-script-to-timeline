@@ -37,6 +37,15 @@ Use immutable original source/audio, no treatment, no cloud, and exclusive new
 outputs. Reference labels may choose this requested verification render, but
 remain unavailable to candidate discovery. Do not silently add unsafe handles.
 
+Producer playback rejected the tight reference edit: beginning/end words were
+clipped at most cuts. Retain that failure, add about ten source frames per side,
+and use original-audio waveform evidence to place cuts in nearby quiet intervals.
+Transcript edges are search anchors, not final cuts. Add a slice-local tested
+quiet-window/cut planner and retain per-edge measurements/reasons privately.
+Preserve the first render and source; create another half-resolution reference
+preview. A low-energy interval is evidence for review, not proof of absent
+speech. Source limits/adjacent words/no quiet gap remain explicit exceptions.
+
 ## Scope and authority
 
 Implement only #53 and the Producer's subsequent row guidance: use the seven

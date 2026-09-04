@@ -70,6 +70,44 @@ candidate options, negation/ambiguity, review state), and timing-link provenance
 It must not confuse these with authenticated Producer decisions or modify
 `TakeAssignment` in response to recorded speech.
 
+## Boundary correction after Producer playback
+
+The Producer reported clipped opening/closing words at most cuts in the first
+reference video. That playback failure overrides any implication that unique
+text-to-timestamp linkage is enough to cut speech. **Transcript timestamps are
+search anchors, never final edit boundaries. Open and close cuts in quiet audio.**
+
+The isolated `boundaries.py` prototype now measures decoded original audio in
+10ms windows, retaining all channels. A quiet interval needs every channel's
+RMS at or below -40 dBFS, peaks below -28 dBFS, and at least 120ms duration.
+This rejects isolated zero crossings and protects against a transient or speech
+in the other channel. These are declared experimental measurement thresholds;
+quiet speech/breaths and noisy recordings still require Producer judgment.
+The measurement does not denoise, level, or change the source audio.
+
+For each selected word span, target ten frames before/after the transcript's
+outer estimates, then search up to 0.8 seconds farther outward for a frame
+boundary at least 20ms inside a measured quiet interval. Check the entire
+extension against adjacent recognized speech, not just the chosen point. Never
+cross another read to reach a more distant silence. All results retain the
+selected quiet interval, actual padding, review reasons, and `safe: false`.
+
+When requested padding cannot fit, the default policy reports an exception.
+The explicitly enabled `allow_reduced_padding` preview policy may use the
+largest smaller padding that still lands in quiet without crossing neighboring
+speech, leaving at least two frames outside the transcript estimate. It must
+report `reduced_padding_to_fit_quiet_gap` and actual frame counts. Source limits
+or no usable quiet interval stay unresolved; never silently fall back to a tight
+word-edge cut. Padded review-only geometry is distinct from waveform-supported
+geometry, and neither is certified by energy alone. The earlier `_handles`
+transcript geometry is only a starting proposal, not an executable final cut.
+
+Producer acceptance must listen around each new edge and verify complete words,
+natural breathing room, and absence of the adjacent take. Future #45 boundary
+contracts need quiet-evidence provenance, measured interval, requested/actual
+padding, explicit reduced-padding policy, and playback review status. No shared
+contract is changed here.
+
 ## Experimental seam
 
 `experiments/issue53/takes.py` exposes a pure `discover(packet)` function.
