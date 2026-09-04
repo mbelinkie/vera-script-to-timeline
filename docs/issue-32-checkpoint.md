@@ -1,4 +1,59 @@
-# Issue 32 checkpoint — actual Claude limit during group 3B; 59 passed
+# Issue 32 checkpoint — 65 native pairs passed; focus batch underway
+
+## Group 3B complete; six native pairs pass; explicit evidence gaps
+
+Native Resume succeeded after the usage reset. Slow browser responses initially
+obscured progress; accessibility confirmed the same run continued. Claude
+completed final queue/language captures, then replaced four specifically
+invalidated V0 queue/language captures: an open Already logged here disclosure
+had survived preset selection. Original queue-wide count282/witnessa3e6af00/
+overflow12 differed from final244/3a5f26b0/8; language-wide257/46604842/10
+versus219/ca783ff4/6. Fresh matched V0 state removed the difference. Originals
+retained; no source fix or mask. Codex bounded correction to those four images.
+
+All six kwPop/queueMenu/langMenu pairs at1280×802 and1024×770 report0 differing
+pixels/maxdelta0. Matching witnesses: b13945f4,686f54dc,3a5f26b0,c8b3fd08,
+ca783ff4,b2b501fc. Counts per state442,244,219 on both sides;checked0,
+activeElementBODY; matched existing overflow counts3,41,8,13,6,9. Target
+shadow .55 0 18px44px equal. Different-state control788,786px.
+Twelve valid PNGs in `evidence/g3b/`, identities retained in Claude report.
+
+B11 concrete blocker: recorded ready-source route reaches207-element Workspace
+(witness9888dbd8), but L4134 shadow .60 0 16px40px is absent. Only non-frame
+shadow is the logged-by-others underline rgb108,136,166 0 4px0 -2px at
+101,462,644,46. Transcript scrollTop540 cannot be reached (651 versus640,
+maximum11.5px). Opening the thread yields245 elements/witness29508548 but
+not the card. B5 itself records a hover-probe failure. Smallest missing action
+is to identify the logged segment rendering the card on hover/focus; retained
+B5 anchor p/0/0/0/1/2/0/0/2/0/4/2. No more automatic trigger investigation
+or source repair. B11 remains two unpassed native pairs.
+
+Read-only group3A verdict confirms matching site rectangles, shadows, counts,
+rects, witnesses, checked/active/overflow/scroll states and pixel localization.
+**Evidence gap:** its full45-property computed matrix was never persisted;
+harness exists but no results JSON. The earlier five native passes remain
+native passes, not a claim that the missing matrix exists. Group3B summary
+also supplies target-state checks; full-matrix persistence is being clarified
+without rerunning those groups.
+
+Counts:65 native pairs passed;1 blocked-visible #54 pair;2 documentation
+states exempt;6 native pairs pending (B11×2,F3×2,F4×2);0 mapping gaps.
+Additional computed-table gap above is separate from native pair counts.
+
+Claude-retained identities (not locally measured):
+- Group3B report: `ed12bbfd144b29a0a24ae00e5e7783dfe0f5b3399857370df0d27d09dada181a` (17,330B).
+- `_g3b-pixel-results.json`: `b3db3c91bda355bc83db20f73a24a3b1e6f04653054cded83564cb911b38b555`.
+- Final index: `7d6fc1bbee0caa62740998a4ff8ae965928acb79352c610ca8db8c4fa19ff85d` (26,504B).
+- V0/final/package/manifest identities unchanged.
+
+Group3C sent: only F3/F4 at both widths, genuine Tab navigation or explicit
+keyboard-tool limitation; preserve known field-outline and hidden-row-action
+defects. Save full computed matrices and native results. F3 L179/180 button/
+input ring; F4 L3894/3895 copy/more gated bys.hover atL3908, focus without
+pointer hover. Clarify whether separate F3 button/input frames require index
+correction rather than silently double-counting. No B11 investigation,
+3A/3B rerun, source edits, checker, acceptance or#14. Current UI weekly warning
+77percent resetsMonSep7 is not a stopping point; continue bounded work.
 
 ## September 4: actual usage rejection; resume group 3B saved work
 
