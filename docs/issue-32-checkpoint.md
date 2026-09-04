@@ -1,5 +1,38 @@
-# Issue 32 checkpoint — final core states passed; supporting-state checks underway
+# Issue 32 checkpoint — eleven final states passed; group 2B underway
 
+
+## Group 2A passed for five application states; group 2B dispatched
+
+Claude reports ten of ten V0→Vfinal native pairs pixel-identical for D06-admin,
+D07-archived, D08-install, D09-setup and D10-member at 1280×802 / 1024×770.
+Twenty new images in `evidence/g2a/`, with full paths, dimensions and hashes
+in `_32-final-state-group2a.json`:
+`707dd861912b778d6916feef56ec3eead35a39bfd4de784062aa95673e38c05b`.
+Reported index hash:
+`5fcd553848fca580f77199efd21abea0ac9ea2ac4b250b71a69a5149a155659a`.
+Forty-five properties plus rectangles: zero non-shadow or shadow differences,
+matching counts (admin158, archived61, install124, setup102, member439/433),
+identical overflow sets and text witnesses, zero unresolved vars, no console
+errors/warnings. Pixel max delta zero; admin versus install control602,391px.
+These are Claude-workspace retained results, not local source measurements.
+Combined with group1: eleven application states /22 final pairs passed.
+No source, package, specimen, baseline or old image changed.
+
+D11-states was deferred, not passed: its documentation sheet replaces the app
+frame in both versions, so the requested app-frame bounds do not apply.
+D12-tokens may have the same property. Sent existing decision29 guidance:
+documentation-only full-height captures are waived and documentation/
+instrumentation excluded; verify these are solely the excluded sheets and
+mark exempt under that decision, never visually passed. Retain any actual
+affected product consumer gap explicitly. No new waiver or producer choice.
+
+The report's count17 including deferred D11 is inconsistent with23 minus5
+passed =18. Requested correction using actual scenario rows and separate
+passed/exempt/deferred/pending counts. Do not rely on its48 remaining-pair
+subtotal until corrected. Group2B then executes the next six pending applicable
+product states in original order, excluding passed/exempt states, using the
+same immutable versions and native/computed/state-witness checks. No other
+groups, source repairs, manifest edits, checker or acceptance. Claude running.
 
 ## Final cumulative group 1 passed; group 2A running
 
@@ -29,7 +62,14 @@ all passed states, at both widths. Reuse final harness/method; preserve exact
 V0/Vfinal and all sources; retain actual state witnesses and native pairs,
 allow only site-specific approved shadow changes, stop on unexplained output.
 No other states, background checker, manifest edits or acceptance handoff.
-Claude is running; next six IDs/results have not yet been surfaced.
+Group 2A selects D06-admin (Platform administration), D07-archived
+(Archived projects), D08-install (Installation setup), D09-setup (Owner
+project setup), D10-member (Member project entry), D11-states (Component
+states handoff sheet). Its harness was adjusted to guard states without an
+app frame. Ten baseline application captures are complete; matching final
+captures are in progress. No group 2A pass is credited yet. D11's disposition
+must respect the already-approved documentation-only capture exemption;
+an absent app frame is not by itself a passing application comparison.
 
 Codex resolved two mapping questions from the already-retained accepted audit
 text while Claude runs. B11 = logged-comment card in the transcript,
