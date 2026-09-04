@@ -1,5 +1,35 @@
-# Issue 32 checkpoint — 46 final pairs passed; Claude usage exhausted
+# Issue 32 checkpoint — group 2D computed checks clean; native captures underway
 
+
+## Resumed after reset: group 2D computed checks clean; native completion sent
+
+Usage reset was confirmed in Claude UI. Native New chat failed to carry its
+summary, so a compact exact-source/evidence checkpoint was supplied instead.
+Existing files retained. Current Chrome tab543776316/browser2 is marked for
+handoff. Claude first corrected an iframe-reload harness stall, then examined
+O16 archive-confirmation Cancel focus. Codex bounded and stopped the expanding
+timing probes to obtain a concrete retained report.
+
+`_32-final-state-group2d-partial.json` retains eight computed pairs, all clean
+in matched state, with only approved B10 shadow on node19 at both widths.
+Full partial-document hash has not yet been surfaced. Sources unchanged.
+O16 node147 Cancel originally had V0 activeElement BODY, focus-visible false,
+outline3px/none/offset0/rgb217,220,226 (nonpainting UA default); Vfinal had
+Cancel active/focus-visible,2px/solid/offset2/rgb196,155,80. Both sourceL179
+rules have identical values (Vfinal uses approved focus tokens), same dlgRef
+autofocus logic. Sequential matched Cancel focus yields zero45-property
+mismatches,149/149nodes, matching rects/overflow/witnesses, zero unresolved
+variables or console. Why concurrent loading lost autofocus in V0 remains
+unproven; retained as harness timing limitation, not silently called fixed.
+
+Next bounded prompt sent: only16missing native app-frame captures for O14,
+O15,O16,O17 at both widths/versions; sequential fresh matching navigation,
+viewport then preset, text/count/checked/activeElement checked before capture.
+O16 Cancel focus must match. No more timing probes or computed-matrix reruns.
+Compare eight pairs: six exact, two only approvedB10; no broad mask/tolerance.
+Return full evidence/source identities and remaining index. Still46passed
+nativepairs,22knownremaining and fourmappingquestions until report completes.
+No source repair, manifest edit, checker, acceptance or #14 start.
 
 ## Actual usage limit reached during group 2D
 
