@@ -1,5 +1,22 @@
-# Issue 32 checkpoint — 46 final pairs passed; group 2D resumed
+# Issue 32 checkpoint — 46 final pairs passed; Claude usage exhausted
 
+
+## Actual usage limit reached during group 2D
+
+After the explicit continue-to100percent nudge was delivered, Claude continued
+through `_g2d-final-diff.html` and Reading group2D results (twice), then showed:
+**Paused — you're out of usage credits.** The UI offers Add credits, Upgrade
+plan and Check again; session reset displayed4:10AM. No credits were purchased,
+no plan change made, and no limit bypass attempted. This is actual service
+rejection, not a voluntary stop at the earlier92percent warning.
+
+Group2D has no final report yet and earns no passing credit. Last confirmed
+count remains46 passed pairs, two documentation exemptions,22 known remaining
+pairs and four mapping questions. On resume use the existing Claude run's
+Check again/Resume control, recover any saved `_g2d-final-diff.html` results,
+and complete only its missing evidence/report before group3. Do not replay
+passed groups1/2A/2B/2C. Chrome tab543776316, browser2, marked for handoff.
+No producer acceptance, #14 start or source changes claimed.
 
 ## Group 2C passed; group 2D resumed with explicit usage guidance
 
