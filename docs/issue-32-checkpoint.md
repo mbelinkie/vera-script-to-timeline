@@ -1,4 +1,111 @@
-# Issue 32 checkpoint — 65 native pairs passed; focus batch underway
+# Issue 32 checkpoint — 65 native pairs plus completed popup style comparisons
+
+## Final report correction and bounded stopping point
+
+The saved PROPS array has46 CSS properties, not45. Geometry is separate. Thus
+184,552 compared cells and all zero/nonzero verdicts were correctly calculated;
+only the prose undercounted. Claude reports the same46-entry list in earlier
+harnesses, so historical45-property labels should be read with this correction.
+Exact order: marginTop, marginRight, marginBottom, marginLeft, paddingTop,
+paddingRight, paddingBottom, paddingLeft, rowGap, columnGap, top, right, bottom,
+left, width, height, minWidth, maxWidth, minHeight, maxHeight, flexGrow,
+flexShrink, flexBasis, gridTemplateColumns, gridTemplateRows, borderTopWidth,
+borderRightWidth, borderBottomWidth, borderLeftWidth, fontSize, lineHeight,
+letterSpacing, fontWeight, fontFamily, borderRadius, boxShadow, outlineWidth,
+outlineOffset, opacity, transform, color, backgroundColor, borderTopColor,
+display, overflowX, overflowY.
+
+Corrected matrix addendum SHA256:
+`c0469c3a678da1090afc9b1b9bdce6b5dcd88d40deb51cbaa257c1c6b39dbccf`
+(28,802B); corrected coverage index:
+`b64122227d173ba4ef52442a9e24443ec6f12834258f03e30a54a75e4a8cf36a`
+(28,496B). No rerun or source/capture changes. Previous hashes below are
+historical revisions, not current identities. Eleven popup computed comparisons
+are complete; raw full-value dumps are not an added acceptance gate.
+
+Paused at concrete state/tool blockers, not an actual new usage limit. Claude
+is idle after the count clarification. Chrome tab543776383/browser1 displays
+`_g3ab-matrix.html` and is retained for handoff. Next work must resolve the
+B11 hover-card route and a working real-keyboard native capture method; do
+not rerun65 passed native pairs or the completed popup matrices. The F3
+button/input framing count remains explicit until exact coverage is reconciled.
+#32 stays Blocked with active claim; no acceptance request or#14 dispatch.
+
+## Popup computed comparisons completed; remaining native states blocked
+
+The single matrix pass advanced through all11 states. All non-shadow
+comparisons matched. Exactly five differing cells are the approved B9a/B9b/B12
+box shadows, with matching source roles and site rectangles. Counts by state:
+434,437,431,453,447,442,442,244,244,219,219 on each side. Reported total184,552
+cells includes46 cells per element; a read-only clarification of45-versus46
+property labeling is requested, not another test run.
+
+Witnesses match per pair: d253a110,9b5295ad,ca12407c,4dc90a08,1d28c389,
+b13945f4,686f54dc,3a5f26b0,c8b3fd08,ca783ff4,b2b501fc. Frame sizes native
+1280×802/1024×770; overflow sets and scrolls identical; unresolved variables0,
+console clean,checked0,activeElementBODY both sides. The six exact-output
+keyword/queue/language matrices have identical per-version hashes.
+
+Five approved differences: B9a element117 at555,308,214,48; B9b elements132/
+126 at1018,311,232,95 and788,311,208,95 all .55 0 14px34px → .55 0 18px44px
+(decision14, L4105/4107). B12 element34 at998,76,268,238 and745,76,268,238
+.60 0 18px44px → .55 0 18px44px (decision17, L4699). No other differences.
+
+The initial reporting request for a full dump of every identical CSS value
+caused unnecessary compression work. Codex bounded this to retained comparison
+counts, all mismatch values/selectors/classifications, checked-property list,
+state witnesses and exact source/harness identities. This changes the evidence
+format, not the executed checks or product acceptance criteria. No matrix
+rerun is required merely to store identical values again. No raw chunk was
+written; full907,850B and compact159,328B rows were in harness memory only,
+with hashes below. Do not claim those raw rows are durable local files.
+
+Claude-retained hashes:
+- `_32-final-state-matrix-3a3b.json`: `da20f57e5fe55aec4f813b2d926245e32042ab949c59e7a2c032a778eb3b1035` (26,413B).
+- `evidence/matrix/INDEX.json`: `8e47dcc9fae43de7fd840d5b04089fa6525908dd5cdaf536c3f3c12cc4135cfb`.
+- `_g3ab-matrix.html`: `6a82e32f5fa29865dc9d8648898e05133278a657558d2725faa73ba6b51018d2`.
+- Coverage index: `212450f94b0517f863805657a44eb698246998aa9d8a18eaa46a2374a8d2aa2b` (28,223B).
+- Full in-memory raw: `90f186beed8b6184860ab49fbe919d6f37e79f29e0d011b8452e277614882f95`.
+- Compact in-memory raw: `b8216cb5fc6488b85b780f7dd8c2f63f669592661dc6b643c7e502e248d3ee99`.
+- Frozen V0/final/package/manifest identities unchanged.
+
+Remaining concrete work: B11 card not rendered by the recorded ordinary
+interaction; native focus capture method blocked (Claude lacks real Tab,
+CUA clipped capture blank). Existing index has6 pending pairs, with the F3
+button/input split explicitly flagged below rather than silently changing
+count. #54 compact who-logged remains1 blocked-visible pair; two documentation
+states exempt.65 native pairs passed. No Producer acceptance or#14 start.
+
+## Focus evidence bounded by tooling; popup matrix completion sent
+
+Group3C credited0 pairs. Claude cannot send real Tab; it saved targets/sequences
+without dispatching synthetic keys or programmatic focus. F3's button and input
+need separate focused frames (only one active element), so its original2-pair
+index is incomplete if both states need independent native comparisons. This
+is flagged; not silently counted as done or doubled. Existing inline outline:none
+fields and opacity-gated row actions remain preserved defects.
+
+`_32-final-state-group3c.json`:
+`bc0e0574736c97cfdb95fe78fa84d176ac8b73bb602bf136b3da262d66d13c99` (10,437B).
+Index `df1acce08b84a84061ab3582aa840e17b554e5a12d6899712805ba990539e632`
+(27,306B). B6 ledger `2458d6d1a700fabe22a45137438fd15a93ce6cb61e629c3b0c43ec00b8be73fa`.
+Both3A and3B lack persisted45-property matrices; target-state checks and native
+pixel evidence exist. This missing evidence remains separate from65 native passes.
+
+Codex CUA bounded test: actual Add-source click then real Tab reached baseline
+Add BUTTON, focus-visible true, outline rgb196,155,80 solid2px offset2px.
+The live DOM exposes a1280×802 application frame. One native clipped screenshot
+attempt returned white/blank; one full-browser diagnostic screenshot rendered
+the prototype but does not establish the required native pair. No extra focus
+pass; stopped that failed method. Original real-keyboard B6/adoption evidence
+remains retained and is not replaced by this pilot.
+
+Sent one computed-only completion for eleven already-native-passed3A/3B pairs:
+B9a wide; B9b/B12 both widths; keyword/queue/language both widths. Reuse existing
+harness and witnessed clean triggers; persist raw45-property rows + rect/count/
+overflow/vars/console and comparisons. No new screenshots, source edits, trigger
+investigation, B11, focus or#54 compact. Stop after bounded result or actual
+usage rejection. No source/package/manifest/specimen changes or acceptance.
 
 ## Group 3B complete; six native pairs pass; explicit evidence gaps
 
