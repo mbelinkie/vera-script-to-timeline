@@ -1,5 +1,38 @@
-# Issue 32 checkpoint — Batch 7 complete; approved A40 wiring underway
+# Issue 32 checkpoint — A40 passed; shared package transfer underway
 
+
+## A40 result and package transfer in progress
+
+A40 completed with no discrepancies. L170 adds `--header-gap-wide: 15px` and
+`--header-gap-narrow: 9px`; L4090 replaces only the gap branches, retains `cmp`
+and branch order, and drops the extra px suffix. Pre-A40 baseline:
+`VERA Redesign (pre-A40 baseline).dc.html`, full hash `ec1d…afc9` above,
+520,805 B / 5,049 lines, byte-identical to pre-edit working. After hash:
+`22d5e1ce03b7fc7a03dbc12b4e4b266185270affb109ad8a458e82e5f738012d`,
+520,901 B / 5,049 lines (+96 B).
+
+Affected header checks: wide 432/432 elements, gap 15px, rectangle 1278×50,
+zero overflow nodes; compact 426/426, gap 9px, rectangle 1022×50, identical
+36-node pre-existing overflow list. Both have zero computed mismatches,
+identical child positions, zero unresolved vars and no console warnings/errors.
+Responsive gap difference remains 6px. These overflow counts are specific to
+this harness/state; do not conflate them with other batch counts.
+`evidence/a40/base-1280.png` / `work-1280.png` are 1280×802;
+`evidence/a40/base-1024.png` / `work-1024.png` are 1024×770; both native
+app-frame pairs have zero differing pixels. `_a40-wire-ledger.json` records
+producer approval and the superseded 13px value without editing prior ledgers.
+`_a40-diff.html` uses the corrected current shadow-token frame selector.
+
+Sent the next bounded package/export prompt: freeze Research at the full
+post-A40 identity, extract complete approved shared CSS and manifest using the
+accepted decision/ledger mappings, create a separate synthetic-content
+`Script-to-Timeline Shared System Adoption.dc.html` importing that exact
+version by link, and verify both widths with native captures. No local shared
+token recreation, Research data, Research edits, new token decisions or #14
+screens. Preserve all exceptions and report exact missing dispositions.
+Real target Tab/Shift-Tab proof and final cumulative Research coverage remain
+explicitly pending. Claude is running this package step; no export/import result
+is claimed yet.
 
 ## Latest recovery: Batch 7 addendum complete; A40 requested
 
