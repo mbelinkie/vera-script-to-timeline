@@ -1,5 +1,46 @@
-# Issue 32 checkpoint — package imported; usage limit during native diff diagnosis
+# Issue 32 checkpoint — correcting mislabeled Workspace evidence
 
+
+## Resumed native report: mislabeled Workspace images
+
+Claude resumed after the usage reset and completed
+`_32-b3b4-native-addendum.json` (abbreviated `ef7aaa95…4326272`), updating the
+coverage index to abbreviated `0e51d419…92ecdce2`. All 22 requested captures
+were taken at 1280×802 / 1024×770, scale 1. It reports no source/package/
+manifest/specimen changes.
+
+Correctly matched B3 clips-selected ×2 and B4 sources/clips/project settings/
+account/clips-selected ×2 report zero differing pixels, max channel delta zero.
+The report says '20 of 22 pairs', but that confuses new captures with pairs:
+the named passing cases enumerate **12 pairs**, plus two invalid Workspace
+comparisons. Exact arithmetic correction has been requested in the addendum.
+
+B4 Workspace comparisons against old `evidence/b3/post-workspace-*` differed
+by 785,980 pixels wide and 628,360 compact. The wide difference equals the
+Sources-versus-Workspace control. The retained B3 post-workspace wide image
+is pixel-identical to fresh B4 pre/post Sources and old B1 post-workspace.
+Those files show Application → Sources, not the Workspace tab. This is a
+state-label/pairing defect, not evidence of a source regression. Keep the old
+files but withdraw their Workspace coverage claims, including the earlier
+cross-batch chain reuse. The new B4 post Workspace images remain usable.
+
+Reported native coverage now: B1 Sources ×2, B2 Sources + Account ×2,
+B3 Sources + Clips selected ×2. Actual Workspace before/after comparisons for
+B1/B2/B3 and pre for B4 remain missing; other changed-state coverage was not
+yet enumerated in the report.
+
+Sent a bounded correction: use ledger identities to deduplicate actual
+Workspace sources (normally four unique missing versions ×2 = eight new
+captures), explicitly click the Workspace tab and retain visible transcript/
+player/header state witnesses, pair adjacent versions including the valid B4
+post, and stop without source repair if unapproved differences remain. Correct
+pair-count arithmetic. Enumerate the exact remaining changed batch/state/width/
+source pairs from existing mappings; mark unknown mappings explicitly. Do not
+capture other states or rerun passing tests in this prompt. Claude is running.
+
+The Claude communication guide was published at commit `3598cd6`; issue #14
+now explicitly links its permanent GitHub URL under required reading. This does
+not start #14 or alter its dependencies or acceptance authority.
 
 ## Latest stop: actual Claude usage limit during workspace comparison
 
