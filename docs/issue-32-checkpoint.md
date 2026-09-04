@@ -1,5 +1,41 @@
-# Issue 32 checkpoint — group 2D computed checks clean; native captures underway
+# Issue 32 checkpoint — 54 final pairs passed; opened-shadow group underway
 
+
+## Group 2D complete: 54 pairs passed; group 3A dispatched
+
+All eight group2D pairs pass: O14-progress/O16-archiveconf/O17-archivedlink
+at both widths are pixel-identical; O15-projswitch approved B10 changes
+66,787px/maxdelta11 wide and65,779px/maxdelta15 compact, exactly matching
+accepted B5 counts/percentages/deltas. Panel rects232,76,302,408 wide and
+80,76,302,408 compact; only30/33 changed pixels inside panel (border AA,
+maxdelta1/3), remainder in shadow. Different-state control922,849px.
+Sixteen native PNGs in `evidence/g2d/`,1280×802/1024×770 scale1.
+First V0-O14 wide capture reverted to default Sources between verification
+and snapshot (690,055px diff); it is invalidated/retained and one witnessed
+recapture matches0px. O16 Cancel focus matched; timing limitation retained.
+
+Claude-workspace evidence: `_32-final-state-group2d.json`28,184B (full hash
+not surfaced; requested in3A); `_g2d-pixel-results.json`
+`b403826b5886498862eb6752b6c13a4545a902fc1d39330122ba8a2cae77e162`;
+`_g2d-o15-localization.json`
+`5ecddc8cd0e6dd831fe00621fe20d7edd695956757e11e07869189ccba98578c`;
+`_g2d-final-diff.html`
+`c4a836c872d794de7dff2c8d6b0beae9f0c3df7a55db9db7cd88903ae0fa6521`;
+partial `bc9aa5bf73c670c6390c160ef915441866b42d30e49371c293c74c883922c359`;
+index `036d66f33c564ba218803d52a774fa32baf623adfa0ea06077311ec9d5ee4b24`.
+V0/final/package/manifest/specimen identities unchanged. Group2 pending0.
+
+Sent3A: only remaining opened B9a/B9b/B11/B12 shadow consumers at bothwidths,
+with accepted source-role/decision mappings and B5expectedresults supplied.
+B10 must deduplicate against2D. Compact who-logged remains hidden under#54;
+measure hidden consumer but no visible capture claim/forcedvisibility/sourcefix.
+Resolve keyword/queue mappings from existing B7ledgers and retain finite
+remaining focus/B7 list, but do not capture those in3A. Only site-specific
+approved shadows may differ. Actual witnessed state/checked/focus, sequential
+native and computed checks, no broad masks/tolerance. No timing-probe loops,
+source/manifest edits, checker or acceptance. Claude running. The previously
+reported14known group3pairs includes B10 overlap; exact corrected totals await
+3A mapping, not a new fixed forecast.
 
 ## Resumed after reset: group 2D computed checks clean; native completion sent
 
