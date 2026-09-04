@@ -14,6 +14,8 @@ from fractions import Fraction
 from itertools import pairwise
 from typing import Any, TypeGuard
 
+from experiments.issue53.review_rules import editorial_signals, sentence_spans
+
 Record = dict[str, Any]
 
 
@@ -115,7 +117,8 @@ def _proposal(row: Record, actual: list[str], start: int, end: int) -> Record:
         deleted == 0
         and replaced <= math.floor(len(row["tokens"]) * 0.15)
         and added <= math.floor(len(row["tokens"]) * 0.1)
-        and diff[0]["op"] == diff[-1]["op"] == "equal"
+        and diff[0]["op"] in {"equal", "substitute"}
+        and diff[-1]["op"] in {"equal", "substitute"}
     )
     return {
         "row": row["id"],
@@ -137,6 +140,7 @@ def _validate(packet: Record) -> tuple[list[Record], list[Record]]:
         "provenance",
         "audio_activity",
         "decisions",
+        "options",
     }
     if set(packet) - allowed:
         raise ValueError(
@@ -144,6 +148,12 @@ def _validate(packet: Record) -> tuple[list[Record], list[Record]]:
         )
     if packet["version"] != "take-experiment/1":
         raise ValueError("Unsupported experimental version")
+    options = packet.get("options", {})
+    if (
+        set(options) - {"include_partial_alternates"}
+        or type(options.get("include_partial_alternates", True)) is not bool
+    ):
+        raise ValueError("include_partial_alternates must be a boolean")
     source = packet["source"]
     if not _number(source["duration"]) or source["duration"] <= 0:
         raise ValueError("Invalid source duration")
@@ -284,12 +294,18 @@ def discover(packet: Record) -> Record:
         expected = row["tokens"]
         for lo, hi in _blocks(list(range(len(words))), words):
             for end in range(hi, lo, -1):
-                if actual[end - 1] != expected[-1]:
+                if actual[end - 1] != expected[-1] and not (
+                    len(expected) >= 7
+                    and actual[max(lo, end - 3) : end - 1] == expected[-3:-1]
+                ):
                     continue
                 for start in range(
                     end - 1, max(lo - 1, end - math.ceil(len(expected) * 1.3) - 1), -1
                 ):
-                    if actual[start] != expected[0]:
+                    if actual[start] != expected[0] and not (
+                        len(expected) >= 7
+                        and actual[start + 1 : start + 3] == expected[1:3]
+                    ):
                         continue
                     # A fresh first-three-word prefix inside this span is a restart.
                     prefix = expected[: min(3, len(expected))]
@@ -327,6 +343,59 @@ def discover(packet: Record) -> Record:
         occupied.update(range(start, end))
     # Recover partials and pickups from remaining speech without consuming a
     # complete candidate's words. The reference is unavailable to this pass.
+    # Seed script sentences before local alignment can merge a restarted sentence.
+    sentence_proposals = []
+    for row in rows:
+        spans = sentence_spans(row["text"], tokens)
+        if len(spans) < 2:
+            continue
+        for offset, limit in spans:
+            expected = row["tokens"][offset:limit]
+            if len(expected) < 3:
+                continue
+            for lo, hi in _blocks(
+                [i for i in range(len(words)) if i not in occupied], words
+            ):
+                for end in range(hi, lo, -1):
+                    if actual[end - 1] != expected[-1]:
+                        continue
+                    for start in range(max(lo, end - len(expected) - 2), end):
+                        if actual[start] != expected[0]:
+                            continue
+                        diff = _diff(expected, actual[start:end])
+                        equals = sum(op["op"] == "equal" for op in diff)
+                        if equals / max(len(expected), end - start) < 0.7:
+                            continue
+                        prefix = expected[: min(3, len(expected))]
+                        if sum(
+                            actual[k : k + len(prefix)] == prefix
+                            for k in range(start, end - len(prefix) + 1)
+                        ) > sum(
+                            expected[k : k + len(prefix)] == prefix
+                            for k in range(len(expected) - len(prefix) + 1)
+                        ):
+                            continue
+                        p = _proposal(row, actual, start, end)
+                        p["complete"] = False
+                        p["sentence_span"] = [offset, limit]
+                        sentence_proposals.append(p)
+    sentence_proposals.sort(
+        key=lambda p: (p["equals"], -p["edits"], p["word_range"][0]), reverse=True
+    )
+    for p in sentence_proposals:
+        start, end = p["word_range"]
+        if occupied.intersection(range(start, end)):
+            for chosen in selected:
+                if (
+                    chosen["word_range"] == p["word_range"]
+                    and chosen["equals"] == p["equals"]
+                    and chosen["edits"] == p["edits"]
+                    and p["row"] not in chosen["row_options"]
+                ):
+                    chosen["row_options"].append(p["row"])
+            continue
+        selected.append(p)
+        occupied.update(range(start, end))
     while True:
         partials: list[Record] = []
         for lo, hi in _blocks(
@@ -362,6 +431,13 @@ def discover(packet: Record) -> Record:
         occupied.update(range(*p["word_range"]))
     # Do not turn an exact row substring inside an ad-lib into an exact take.
     for lo, hi in _blocks([i for i in range(len(words)) if i not in occupied], words):
+        if any(
+            actual[i] in {"first", "earlier", "previous", "last"}
+            and actual[i + 1] == "take"
+            for i in range(lo, hi - 1)
+        ):
+            # Off-script edit-note speech remains separate even without a pause.
+            continue
         neighbors = []
         for c in selected:
             a, b = c["word_range"]
@@ -468,17 +544,43 @@ def discover(packet: Record) -> Record:
         covered: set[int] = set()
         pieces = []
         complete = [c for c in members if c["complete"] and len(c["row_options"]) == 1]
+        partials = []
+        for c in members:
+            if c["complete"] or len(c["row_options"]) != 1:
+                continue
+            covered_indices = {
+                op["expected"]
+                for op in c["diff"]
+                if op["op"] in {"equal", "substitute"}
+            }
+            partials.append(
+                {
+                    "candidate": c["id"],
+                    "covered_token_indices": sorted(covered_indices),
+                    "missing_token_indices": sorted(
+                        set(range(len(row["tokens"]))) - covered_indices
+                    ),
+                    "status": "partial_review_needed",
+                }
+            )
         if not complete:
             # Greedy backward coverage; never materialize edits or label this a take.
             for c in reversed(members):
                 if len(c["row_options"]) != 1:
                     continue
-                indices = {op["expected"] for op in c["diff"] if op["op"] == "equal"}
+                indices = {
+                    op["expected"]
+                    for op in c["diff"]
+                    if op["op"] in {"equal", "substitute"}
+                }
                 new = indices - covered
                 if new:
                     runs: list[list[Record]] = []
                     for op in c["diff"]:
-                        if op["op"] != "equal" or op["expected"] not in new:
+                        if (
+                            op["op"] not in {"equal", "substitute"}
+                            or op["expected"] not in new
+                        ):
                             continue
                         if (
                             not runs
@@ -504,6 +606,9 @@ def discover(packet: Record) -> Record:
                                     lo, hi, words, packet["source"]["duration"]
                                 ),
                                 "timing_issues": issues,
+                                "transcript_diff": [
+                                    op for op in run if op["op"] != "equal"
+                                ],
                                 "handles": _handles(
                                     lo,
                                     hi,
@@ -528,6 +633,12 @@ def discover(packet: Record) -> Record:
                 "suggested_last_complete": suggested,
                 "default_requires_review": True,
                 "alternatives": [c["id"] for c in reversed(usable[1:])],
+                "partial_alternatives": partials
+                if packet.get("options", {}).get("include_partial_alternates", True)
+                else [],
+                "hidden_partial_count": 0
+                if packet.get("options", {}).get("include_partial_alternates", True)
+                else len(partials),
                 "state": "complete_available"
                 if usable
                 else "complete_needs_timing"
@@ -550,6 +661,20 @@ def discover(packet: Record) -> Record:
                 },
             }
         )
+    signals = editorial_signals(words, candidates)
+    for group in groups:
+        group["editorial_signal_ids"] = [
+            s["id"] for s in signals if group["row"] in s["row_options"]
+        ]
+        if group["editorial_signal_ids"]:
+            group["default"] = None
+            group["selection_status"] = "producer_choice_required"
+            if group["assembly"]:
+                group["assembly"]["editorial_signal_ids"] = group[
+                    "editorial_signal_ids"
+                ]
+        else:
+            group["selection_status"] = "suggestion_only"
     accounted = [i for c in candidates for i in range(*c["word_range"])]
     spans = sorted(
         [c["speech_range"] for c in candidates if c["speech_range"] is not None]
@@ -575,6 +700,13 @@ def discover(packet: Record) -> Record:
         )
     return {
         "version": "take-report/1",
+        "algorithm_version": "row-review-2",
+        "options": {
+            "include_partial_alternates": packet.get("options", {}).get(
+                "include_partial_alternates", True
+            )
+        },
+        "editorial_signals": signals,
         "source": deepcopy(packet["source"]),
         "provenance": deepcopy(packet["provenance"]),
         "rows": rows,

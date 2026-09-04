@@ -10,6 +10,66 @@ several sentences and several frozen #37 beats. Row grouping does not rewrite
 the script, beat IDs, or the accepted sentence-level export. Private row text
 and binding evidence stay in Run A. No production schema is implemented.
 
+## Producer review revision — 2026-09-04
+
+The current experimental algorithm is `row-review-2`. The accurate full-text
+run removes **all** highlights and approximate clock labels before discovery;
+it evaluates the exact colored word spans only after freezing the result.
+This is an in-sample refinement, not held-out validation. No new provider
+transcription or acoustic alignment is performed, and #51 remains separate.
+
+These refinements supersede the corresponding initial rules below:
+
+- An opening/closing word substitution may still represent a complete read.
+  For rows of at least seven words, two neighboring equal tokens can anchor
+  such a boundary. The existing substitution/addition budgets still apply,
+  with every difference marked approximate. This avoids dropping an otherwise
+  complete read because of a changed name or word at its edge.
+- For rows lacking a complete read, authored script sentences seed partial
+  candidates before broad local alignment. At least 70% of the longer of
+  expected/observed sentence tokens must be equal; repeated opening prefixes
+  split restarts. These sentence seeds retain row identity and missing tokens.
+  They do not turn each sentence into a new frozen beat or force the whole
+  recording into sentence-sized takes. This experimental splitter uses `.?!`
+  followed by whitespace; abbreviation-heavy scripts may need explicit units.
+- A highlight may span several reads or cross a row boundary. The evaluator
+  compares the **union of exact discovered word ranges**, rather than calling
+  a whole timecode block or colored run a take. Non-highlighted words in the
+  same block remain excluded from the reference choice.
+- `options.include_partial_alternates` is a boolean, default **true**. The
+  Producer explicitly requested useful partial alternatives alongside complete
+  alternatives. Each names covered and missing row tokens. Set it false to hide
+  that list, while retaining all candidates/evidence and leaving complete
+  defaults and missing-row assembly fallback intact. The CLI override is
+  `--partial-takes include` or `--partial-takes hide`.
+- Assembly pieces retain substituted words with explicit transcript diffs and
+  review reasons, instead of deleting those spoken words and leaving tiny
+  isolated fragments. Deletions remain uncovered. Joins remain review-only.
+- Off-script mentions of a `first`, `earlier`, `previous`, or `last` **take**
+  create `editorial_signals`. The nearest preceding row/partial coverage is a
+  tentative context; earlier reads covering at least 70% of that same span are
+  linked as options. A first-take mention offers the earliest such read. These
+  are untrusted speech observations, never executable instructions or evidence
+  of speaker authority. Scripted matching wording is excluded; negation is
+  flagged; quotations, jokes, unclear scope and antecedents need human review.
+  The affected default is withheld as `producer_choice_required`, while
+  `suggested_last_complete` and the ordinary assembly remain visible. No earlier
+  candidate is automatically applied, and prior Producer decisions are intact.
+
+`timing_links.py` optionally links the entire accurate transcript to retained
+timed words after parsing. It transfers an endpoint only if that token has one
+exact correspondence in **every optimal edit alignment**; deleted, substituted,
+or ambiguous repeated words get no borrowed timestamp. It preserves supplied
+precision/nulls and performs no interpolation or new acoustic alignment.
+Producer clocks are navigation hints only and are never inputs to this pass.
+Transferred acoustic times remain estimates pending listening, not verified cuts.
+
+Future contract review must additionally include the user preference, partial
+coverage lists, review-only editorial signals (text span, tentative target,
+candidate options, negation/ambiguity, review state), and timing-link provenance.
+It must not confuse these with authenticated Producer decisions or modify
+`TakeAssignment` in response to recorded speech.
+
 ## Experimental seam
 
 `experiments/issue53/takes.py` exposes a pure `discover(packet)` function.

@@ -4,6 +4,39 @@ Status: implementation; Producer acceptance required. Baseline `333a064`.
 Task `01a06803-59f3-7db3-9cfc-ce016e5fa575`, branch
 `codex/issue-53-provider-neutral-takes`, exact Sol/high claim verified.
 
+## Producer review revision — 2026-09-04
+
+Continue this same claim for requested refinements. Preserve the prior report.
+The new accurate, highlighted transcript is authorized private evaluation data:
+blue means preferred primary, green means usable alternate, only highlighted
+words count, and document instructions are not executed. Derive a separate
+accurate-input experiment from the entire transcript with **all colors, take
+labels, and clock lines removed**. Discovery cannot consume the highlight mask.
+This is an in-sample logic diagnostic, not held-out validation or #51 selection.
+
+Scope: robust approximate row edges; script-sentence pickups/restarts within a
+row; exact word-span evaluation; retain useful partial alternates even where a
+complete read exists (explicit Producer clarification); and spoken earlier-take
+references as review-only editorial signals. Preserve the normal last-complete
+suggestion and prior decisions; never execute transcript instructions or select
+a keeper. Unknown speech times/handles remain unknown. No shared contracts,
+accepted fixtures, old accepted tests, dependencies, or source media change.
+
+Add fictional regression tests before these changes, then compare the previous
+and revised algorithms to exact blue/green token spans privately. Test quoted/
+scripted take language, ambiguous antecedents, negation, and read-only Producer
+decision handling. Review the exact unresolved differences with the Producer.
+
+Further Producer direction: expose useful partial alternates as a configurable
+setting, treat supplied clocks as approximately one-second navigation hints,
+and use retained word timing for proposed boundaries. The Producer explicitly
+requested an FFmpeg half-resolution edit of the **blue reference selections**
+for verification. This newly authorized private derivative is a reference
+preview only, not #45 production conform or an algorithm-approved keeper edit.
+Use immutable original source/audio, no treatment, no cloud, and exclusive new
+outputs. Reference labels may choose this requested verification render, but
+remain unavailable to candidate discovery. Do not silently add unsafe handles.
+
 ## Scope and authority
 
 Implement only #53 and the Producer's subsequent row guidance: use the seven

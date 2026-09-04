@@ -28,9 +28,19 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--partial-takes",
+        choices=["include", "hide"],
+        help="Show or hide partial alternates; evidence is always retained",
+    )
     args = parser.parse_args()
     try:
-        report = discover(json.loads(args.input.read_text()))
+        packet = json.loads(args.input.read_text())
+        if args.partial_takes:
+            packet.setdefault("options", {})["include_partial_alternates"] = (
+                args.partial_takes == "include"
+            )
+        report = discover(packet)
         write_private(args.output, report)
     except (ValueError, OSError, KeyError, TypeError):
         print("Experiment validation/output creation failed; no success claimed.")
