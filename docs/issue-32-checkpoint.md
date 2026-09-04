@@ -1,6 +1,32 @@
 # Issue 32 checkpoint — Workspace passed; final verification being consolidated
 
 
+## Manifest revision complete; final cumulative group 1 running
+
+Candidate manifest revision r1 corrects the seven historical pairs versus five
+currently unwired pairs, without token/value/rule/exception changes. Full new
+manifest hash `0f33457dd0141440b566fcb8641b59689948049c96fae0bfbd2f5797c6c4787a`,
+97,676 B. Previous manifest retained under
+`issue32-shared-system-v1.0.0.manifest -pre-correction 2026-09-03-.json`.
+Coverage index now `8be858d141a110577ca040cb1434ba1ea0421e9f064f27282958da315703f05a`;
+Workspace addendum `fad8d4ab9b335a1051a1b305a9384e714c6b0382d60c9dceb8bf9d6d4708f828`;
+export/adoption report `651ca96b484a6ccc5a8cb54710a30c429f33e2f641302b38f14146041d4e1c9e`.
+Research/package/specimen re-verified unchanged; specimen 22,832 B. V0 filename
+is corrected in final evidence docs. No captures or checks rerun for this edit.
+
+Sent final cumulative group 1: verified V0 e72fe386…d447e73 in
+`VERA Redesign pre-remaining-token baseline.dc.html` versus frozen final
+`VERA Redesign.dc.html` at 22d5e1ce…8012d. First establish the finite final-state
+index from the 29-state B4/B5 list plus actual approved shadow/focus/B7 popup
+states, deduplicating only identical states and naming unresolved mappings.
+Execute only Sources, actual Workspace, Clips, Project settings, Account
+settings and Clips selected at both widths; reuse exact valid V0 captures
+with state witnesses, capture missing native sides, and compare pixels and
+computed/geometry/overflow/vars/console. Only exact approved B9–B12 shadow
+changes are permitted; no blanket masking or tolerance. Stop on unexplained
+difference without source repair. No acceptance claim or other state captures.
+Claude is running; final group 1 is not yet credited as passed.
+
 ## Workspace corrected; retrospective coverage limits identified
 
 `_32-workspace-native-addendum.json` (abbreviated `ecb3b037…63f772d1`),
