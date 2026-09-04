@@ -1,5 +1,54 @@
-# Issue 32 checkpoint — correcting mislabeled Workspace evidence
+# Issue 32 checkpoint — Workspace passed; final verification being consolidated
 
+
+## Workspace corrected; retrospective coverage limits identified
+
+`_32-workspace-native-addendum.json` (abbreviated `ecb3b037…63f772d1`),
+coverage index `7f2cee39…601c4499`: eight new native Workspace captures,
+eight adjacent-version pairs, all zero differing pixels and max channel delta
+zero. V0/V1, V1/V2, V2/V3, V3/V4 at both widths pass, reusing valid V4 posts.
+Each capture records Application → actual Workspace tab → viewport, with
+source Cooling cities with reflective roofs, transcript/player region and
+0:14 / 1:02 / 2:41 timecodes as state witnesses. Control vs Sources is
+785,980 differing pixels. Earlier wrongly named images stay credited to
+Sources only.
+
+**Baseline filename correction:** verified V0 is
+`VERA Redesign pre-remaining-token baseline.dc.html`, full e72fe386…d447e73
+identity recorded above, 500,502 B / 5,049 lines. The different file called
+`VERA Redesign (pre-wiring baseline).dc.html` and v1 approval-pass file both
+have an older `7775c7cf…2fa802` identity (423,031 B / 4,887 lines), outside
+this chain. Earlier reports associated V0's hash with the wrong filename.
+Do not reuse that filename/hash association.
+
+Arithmetic now confirmed: prior 22 PNG files formed 14 comparisons: B3 clips
+selected ×2 valid, B4 six states ×2 with ten valid and two wrongly paired.
+Workspace correction closes those two plus six B1/B2/B3 Workspace comparisons.
+Cumulative new evidence is 30 captures / 20 valid pairs.
+
+The retrospective ledger review lists 117 missing per-batch native pairs:
+B1 34 (17 other scenes), B2 32 (16), B4 46 (23), B6 4 (row action and
+field rule), B7 one compact hidden who-logged case. It also reports unknown
+source-site/state mappings in B1/B2/B3, incomplete B3 universe, ambiguity
+between B5's five changed shadow sites and its full 29-state sweep, unknown
+B7 mappings, and no identified retained V5 file for hash 302702d2… . These
+are not 117 distinct application states and are not proof of new visual bugs.
+They must not be silently marked covered. Existing keyboard and #54 records
+retain their original limits.
+
+Next verification approach: consolidate outstanding visual acceptance into
+final cumulative V0-versus-frozen-final comparisons of affected states,
+retaining approved B9–B12 shadow changes explicitly, rather than rebuilding
+every retrospective intermediate matrix. This preserves the requirement for
+native before/after evidence of every affected state; unknown coverage must
+still be named. The final state list and coverage attribution remain to be
+established before that pass is claimed complete.
+
+Before the final pass, sent a documentation-only correction for the candidate
+manifest's unwired-pair wording and evidence documentation's V0 filename,
+with a preserved prior manifest, revision record and full hashes. Source,
+package, specimen and images must remain unchanged. Claude is running that
+correction; no corrected manifest result is claimed yet.
 
 ## Resumed native report: mislabeled Workspace images
 
