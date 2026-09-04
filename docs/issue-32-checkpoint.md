@@ -1,4 +1,47 @@
-# Issue 32 checkpoint — Batch 7 main proof passed; popup addendum unconfirmed
+# Issue 32 checkpoint — Batch 7 complete; approved A40 wiring underway
+
+
+## Latest recovery: Batch 7 addendum complete; A40 requested
+
+Chrome reconnected as browser `2`, project tab `543776169`. The completed
+**Batch 7 Verification Resume** chat confirms all six popup consumers were
+compared in baseline and working at both widths. Computed widths, frame-relative
+rectangles, heights, counts, overflow, unresolved variables and visibility match.
+Width deltas: keyword 288→250 (-38), who-logged 214→190 (-24), row menu
+232→208 (-24), queue menu 400→336 (-64), logged card 320→268 (-52), language
+menu 318→280 (-38), all px. Zero unresolved vars and no popup rectangle outside
+the app frame. Compact who-logged is measurable only in its hidden Date-added
+subtree, not visually reachable; this is the existing #54 defect, unchanged.
+Existing horizontal overflow with who-logged wide and queue/logged/language
+compact is identical to baseline. No source bytes changed in this addendum.
+
+Full stored working SHA-256:
+`ec1d87c71cd2208e2fa9ee359bdf1e525cf7d66ed00604985921763ce3c9afc9`
+(520,805 B / 5,049 lines). Baseline identity remains the recorded `36a2…d185`.
+Condition digest over `line:conditionTokens` for the 22 changed lines:
+`e4f37e6b78efedd19f3bbf8773a925c2001e347efa9892778233dcd0039225c8`.
+The earlier report also recorded zero per-line condition mismatches. The
+addendum explicitly confirms preserved A40 `cmp?` at L4090.
+
+All six previously passing PNG pairs have exact filenames under `evidence/b7/`:
+`base-1280-sources-spacing.png` / `work-1280-sources-spacing.png`,
+`base-1024-sources-spacing.png` / `work-1024-sources-spacing.png`,
+`base-1280-workspace-width.png` / `work-1280-workspace-width.png`,
+`base-1024-workspace-width.png` / `work-1024-workspace-width.png`,
+`base-1280-language-height.png` / `work-1280-language-height.png`,
+`base-1024-language-height.png` / `work-1024-language-height.png`.
+Each 1280 pair is 1280×802; each 1024 pair is 1024×770 (app frame including
+borders). Every pair reports zero differing pixels. Retained in
+`_b7-wire-ledger.json` → `addendum`; no redundant rerun requested.
+
+Used the native New chat summary from **Batch 7 Verification Resume** to save
+151k context. Sent one bounded A40 batch using the producer-approved 15px wide /
+9px compact values: preserve an exact pre-A40 baseline, declare accepted token
+names, wire only L4090 while preserving its condition, retain affected computed
+and native PNG checks at both widths and full identities in an A40 ledger.
+Claude is running; no A40 result is claimed yet. No export/import or #14 was
+requested in this batch. Earlier checkpoint sections below are historical;
+this section and the explicit A40 approval supersede their prior holds.
 
 ## Latest continuation: browser access stalled during popup addendum
 
