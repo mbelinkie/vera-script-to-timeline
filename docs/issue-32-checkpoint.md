@@ -1,5 +1,14 @@
 # Issue 32 checkpoint — 54 final pairs passed; opened-shadow group underway
 
+## September 4 browser recovery; group 3A resumed
+
+The previous run was interrupted before its group 3A report. Chrome tab
+543776383 (browser 1) recovered the same chat. Native Resume initially returned
+“Your other tab is working on a request”; one later native Retry succeeded.
+Claude is reading saved files and identifying the opened who-logged trigger.
+No group 3A pair is credited yet; the confirmed total remains 54. The full
+2D addendum hash and corrected group 3 mapping are still requested in that
+bounded prompt. No source edits or repetition of passed groups authorized.
 
 ## Group 2D complete: 54 pairs passed; group 3A dispatched
 
