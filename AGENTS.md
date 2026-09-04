@@ -23,6 +23,11 @@ acceptance record, not a live tracker.
   self-report alone never closes any slice.
 - Require one Ready issue, one task, and one dedicated branch/worktree. Claim
   only an exact `model:*` and `effort:*` match through `npm run roadmap`.
+- After an issue is closed and its implementation task has finished, the
+  roadmap steward records the claimed task's final local session token total on
+  the issue. The entry must identify it as a cumulative total including cached
+  input; never use account-wide usage, an estimate, or a separate closure task.
+  If the claimed session record is missing or ambiguous, omit the metric.
 - Record prerequisites under `## Dependencies` as `- Blocked by #123` or
   `- Blocked by owner/repo#123`, or `None`; hierarchy alone does not imply
   ordering. Promote only with `npm run roadmap -- ready <issue>`. Both Ready

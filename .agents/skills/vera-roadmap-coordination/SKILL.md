@@ -22,6 +22,15 @@ Use the GitHub Project configured in `.github/vera-roadmap.json` as the sole liv
    and Resolve testing are External or Producer evidence according to that
    field; they are not automatically producer approvals.
 7. Close only with the named acceptance authority and retained evidence.
+8. After the implementation task has finished, record its final local Codex
+   token total on the closed issue. Resolve the task ID from that issue's
+   `roadmap -- claim` record, read the last `event_msg` with
+   `payload.type: "token_count"` in the matching `.codex/sessions` JSONL
+   record, and post its cumulative `total_token_usage.total_tokens`. State
+   that cached input is included. This is a post-closure stewardship action:
+   do not use account-wide usage, an estimate, or a separate steward/closure
+   task; do not post a metric when the claimed task, final token event, or
+   unambiguous session record is unavailable. Avoid duplicate token comments.
 
 ## Producer acceptance handoff
 
