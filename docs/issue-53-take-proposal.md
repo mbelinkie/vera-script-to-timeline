@@ -2,8 +2,9 @@
 
 This is a local prototype for judging take logic **assuming accurate transcript
 text**. #51 remains responsible for choosing adequate recognition and acoustic
-timing. No provider is selected here. Producer acceptance of this document and
-the prototype is pending; #45's implementation gate remains closed.
+timing. No provider is selected here. The bounded prototype and handoff are
+Producer accepted on 2026-09-04; see `docs/issue-53-acceptance.md`. #45 still
+requires its remaining dependencies and separate shared-contract approval.
 
 The Producer's seven supplied rows are the recording units. A row can contain
 several sentences and several frozen #37 beats. Row grouping does not rewrite

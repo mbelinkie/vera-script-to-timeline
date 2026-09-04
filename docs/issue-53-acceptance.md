@@ -1,9 +1,36 @@
 # Issue 53 — implementation and Producer review
 
-The provider-neutral row parser is implemented locally. **Producer acceptance
-is pending.** #53 evaluates logic assuming accurate transcript text; #51 stays
-unresolved and owns recognition/timing model adequacy. No provider, keeper,
-speech-safe boundary, or production contract is approved by this handoff.
+The provider-neutral row parser is **Producer accepted on 2026-09-04**.
+#53 evaluates logic assuming accurate transcript text; #51 stays unresolved
+and owns recognition/timing model adequacy. Production integration and shared
+contract approval remain separate.
+
+## Final Producer acceptance — 2026-09-04
+
+After the iterative rule review and playback correction, the Producer approved
+the explicit short-gap policy (use the available quiet gap without including
+unselected words, and record reduced handles) and stated: “Sample v2 is
+approved, you nailed it.” This clears the final demonstrated-boundary playback
+check for this bounded prototype. The accepted artifact is
+`out/issue-53-reviewed-result/blue-reference-silence-v2/blue-reference-half-res.mp4`.
+
+The accepted scope includes row-based complete/partial grouping, last-complete
+suggestions, retained alternates with a partial-takes setting, earlier-take
+remarks flagged for Producer choice, and waveform-supported cut proposals with
+explicit exceptions. The algorithm and input/output handoff are retained in
+`docs/issue-53-take-proposal.md`; implementation and passing validation are at
+`62781ad374859054acdadd32bcefebc7464f38f7`.
+
+The video is assembled from the Producer's blue reference selections. It
+verifies their demonstrated boundaries, not autonomous keeper selection.
+Discovery is frozen before label evaluation; the 15/15 word-span agreement is
+an in-sample refinement, and the earlier-take choice still requires Producer
+confirmation. Undemonstrated boundaries remain review-needed. #51 model
+selection, #45 production integration and its separate contract-change
+approval, and #49 finished-engine validation remain outside this acceptance.
+
+The review stages below are historical; their pending acceptance statements
+are superseded by this final acceptance record.
 
 ## Clipped-edge correction — 2026-09-04
 

@@ -1,6 +1,6 @@
 # Issue 53 — provider-independent row take prototype
 
-Status: implementation; Producer acceptance required. Baseline `333a064`.
+Status: Producer accepted 2026-09-04. Baseline `333a064`.
 Task `01a06803-59f3-7db3-9cfc-ce016e5fa575`, branch
 `codex/issue-53-provider-neutral-takes`, exact Sol/high claim verified.
 
