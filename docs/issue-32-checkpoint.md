@@ -1,5 +1,48 @@
-# Issue 32 checkpoint — package imported; native evidence gaps being completed
+# Issue 32 checkpoint — package imported; usage limit during native diff diagnosis
 
+
+## Latest stop: actual Claude usage limit during workspace comparison
+
+The bounded native completion run captured **all 22 requested images** before
+Claude displayed the actual service pause **Paused — you've hit your limit**,
+with a Resume button and reset time **11:10 PM**. This was distinct from the
+earlier voluntary pause at a 90% warning, which Codex resumed under Matthew's
+standing authorization to continue until usage exhaustion.
+
+All three baselines were verified at their recorded full hashes. Captures:
+B3 pre clips-selected ×2; B4 pre sources, clips, project settings and account
+×2; B4 post sources, workspace, clips, settings, account and clips-selected
+×2. The first four exact paths are
+`evidence/b3b4/b3-pre-clipsselected-1280.png`,
+`evidence/b3b4/b3-pre-clipsselected-1024.png`,
+`evidence/b3b4/b4-pre-sources-1280.png`,
+`evidence/b3b4/b4-pre-sources-1024.png`; remaining exact paths and hashes
+have not yet been surfaced to Codex. The run reported native app-frame
+1280×802 / 1024×770 bounds, using the proven literal-shadow frame selector
+on these historical baselines. Source/package/manifest/specimen bytes were
+preserved; no implementation fix was requested.
+
+After **All 22 captured. Now the pixel diffs**, the last operations were
+**Comparing the new native pairs** and **Diagnosing the workspace pair
+mismatch**. Diff numbers, affected width, root cause and any partial passing
+results are not yet known. **Do not claim these B3/B4 gaps closed or assume the
+mismatch is a product defect.** The addendum and coverage-index update remain
+unconfirmed; the sidebar todo list is stale and still lists already-taken
+captures as remaining.
+
+Next bounded action after reset: inspect the existing comparison output and
+any retained addendum first. Diagnose the exact workspace mismatch (source
+identity, rendered state, capture bounds, then pixels) without editing source,
+recapturing passing work or starting a repair loop. Reuse all 22 captured
+images. Finish only valid comparisons and retain any unresolved discrepancy.
+Then correct the documented manifest wording, finish the exact remaining
+changed-state coverage list (including B1/B2), and prepare producer acceptance
+only when required evidence is complete. #14 remains blocked.
+
+Live Chrome browser `2`, tab `543776169`, same Claude project, showing
+`VERA Redesign (pre-Batch-5 shadow baseline).dc.html`. The fresh chat was
+started from the native summary of **Batch 7 Verification Resume** and
+contains A40, export/import, final coverage and native-gap continuation.
 
 ## Final coverage findings — native gaps and manifest correction
 
