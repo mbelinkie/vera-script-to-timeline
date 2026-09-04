@@ -8,8 +8,8 @@ task `01a06506-8498-71b0-9fdc-52cd759ab9d4`:
 > I accept the B11 evidence exception: use the retained Batch 5 native screenshots and Batch 7 matched measurements instead of new final-version card screenshots. Accepted issue #32 design-system wiring and transfer.
 
 The [acceptance record](prototypes/issue-32-acceptance.md) identifies the exact
-reviewed artifacts, known exceptions and approved v1.0.0 handoff. Close #32 and
-mark Done with this producer evidence. No further captures or audits are owed
+reviewed artifacts, known exceptions and approved v1.0.0 handoff. #32 is closed
+and Done with this producer evidence, verified on GitHub. No further captures or audits are owed
 for the accepted exception; no absent image is counted as passing. #14 can
 consume the approved system once its remaining dependencies are resolved.
 No #14 task is started by this acceptance.

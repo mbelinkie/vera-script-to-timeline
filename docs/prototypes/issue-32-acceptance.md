@@ -11,8 +11,8 @@ Matthew explicitly accepted in task `01a06506-8498-71b0-9fdc-52cd759ab9d4`:
 > I accept the B11 evidence exception: use the retained Batch 5 native screenshots and Batch 7 matched measurements instead of new final-version card screenshots. Accepted issue #32 design-system wiring and transfer.
 
 The exception accepts the named retained evidence; it does not claim the absent
-final-version images exist or increase the 65 direct comparison passes. #32's
-dependency on #14 is cleared when #32 is closed and Done. The exact v1.0.0
+final-version images exist or increase the 65 direct comparison passes. #32 is
+closed and Done, clearing #14's dependency on it. The exact v1.0.0
 deliverables below are approved for #14 to consume. Starting #14 is separate.
 The original review sheet remains unchanged as the artifact reviewed; its
 pending-decision wording is superseded by this acceptance record.
