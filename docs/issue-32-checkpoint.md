@@ -1,5 +1,47 @@
-# Issue 32 checkpoint — package imported; final coverage reconciliation underway
+# Issue 32 checkpoint — package imported; native evidence gaps being completed
 
+
+## Final coverage findings — native gaps and manifest correction
+
+Coverage index `_32-final-coverage-index.json` SHA-256
+`623aa7d1596d9554dec3fce46d62593ded9ef19a5ba3269cd7611f680380400f`.
+Full original pre-wiring baseline hash:
+`e72fe3861e9af028045e18d74d8969804974fd3c0dc593319e6f4dc30d447e73`
+(500,502 B). Full candidate manifest hash:
+`85b976381c323c6533c62bdf89d47d1ee9ba921b1570ebee1129a884c0ee4f28`.
+Full adoption specimen hash:
+`38a411195bfeddb172e230646aef104f4a2a89a07b73ec0ca230f85d4b335921`.
+
+**Correction to earlier evidence claims:** inspection of PNG dimensions found
+Batch 4's twelve frames are 924×540, not native. The earlier ledger/report
+wording and corresponding historical checkpoint claim must not be relied on.
+Batch 3 clips-selected lacks native pre evidence. Chain reuse recovered four
+valid zero-diff pairs: B2 workspace ×2 widths and B3 workspace ×2, using exact
+consecutive source identities and existing native posts.
+
+Sent a bounded 22-capture completion request: B3 clips-selected pre ×2 from
+pre-B3 `f5f772d9…fdd0b8`; B4 workspace/clips-selected post ×4 from pre-B5
+`779ba608…ab25b`, paired with existing B3 posts; and four other ledger-named
+B4 states on both sides at both widths (16 captures). Claude must enumerate
+exact states/hashes first, use proven 1280×802 / 1024×770 native frames, retain
+pairs and stop for unapproved nonzero diffs. No source edits or full computed
+reruns. It must also report any other required changed-state coverage missing,
+including B1/B2; these 22 captures are not assumed to establish full acceptance.
+
+**Manifest correction pending:** the historical '14 emitted-not-wired pairs'
+actually means 14 declarations / seven pairs. Gutter and table-gap pairs were
+wired by B3 (19/71 and 90/114 uses respectively). Five pairs / ten declarations
+remain unwired: `--rail-w-*`, `--setup-rail-w-*`, `--stage-h-*`,
+`--col-comments-*`, `--thread-indent-*`; their class-C structural / class-D
+preserved consumers were not proposed for wiring. Distinct from the completed
+17 B7 pairs plus A40. The current manifest has not yet been corrected.
+
+Adoption image heights are content-driven element bounds, not viewport
+screenshots; computed checks used 1280×800 / 1024×768 harness viewports.
+215 direct-preview vs 214 harness elements is an extra host-injected
+`SCRIPT#__om_srcmap`; rendered inventory matches (48 DIV, 133 SPAN,
+11 BUTTON, one each LABEL/INPUT/A). No source delta. Codex keyboard proof is
+retained in the coverage index, separate from Claude synthetic focus results.
 
 ## Package/import result and Codex keyboard verification
 
