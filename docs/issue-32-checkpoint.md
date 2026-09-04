@@ -1,4 +1,40 @@
-# Issue 32 checkpoint — 59 final pairs passed; 12 pending
+# Issue 32 checkpoint — actual Claude limit during group 3B; 59 passed
+
+## September 4: actual usage rejection; resume group 3B saved work
+
+Claude displayed **Paused — you've hit your limit.** The normal UI shows
+Resume and “Limits will reset at12:20PM · View usage.” This is actual service
+rejection, not a voluntary stop at a usage warning. No purchase/upgrade or
+bypass was attempted. Live Chrome tab543776383, browser1, same project/chat,
+now showing `VERA Redesign.dc.html`, marked for handoff.
+
+Group3B has not returned a report or passing comparisons. Confirmed total
+remains59 passed pairs,1 blocked-visible pair (#54),2 exempt documentation
+states,12 pending pairs (B11×2, kwPop/queueMenu/langMenu×6, F3/F4×4).
+
+Retained visible progress: V0 keyword popover, queue menu and language menu
+captures at1280 and1024 were completed. Vfinal keyword popover captures at
+both widths completed. The run stopped while verifying Vfinal queue menu
+at1280, before its native capture was shown. Compact queue and both language
+final captures, pair diffs, group3B report/index remain unconfirmed. The todo
+widget was stale; use actual saved files and witnesses when resuming.
+
+B11 reached the actual ready-source Workspace and transcript scroll540, then
+an opened logged-comment thread was examined. No B11 native capture or clear
+disposition was returned; do not claim this state passed. Repeated queue reads
+and disclosure scans prompted a bounded instruction to stop further trigger
+investigation, retain exact blockers, and complete independent established
+states. The queue state was then established and both V0 captures saved.
+No further B11/queue trigger searches or source repair are authorized by that
+instruction. Resume with saved files, not another navigation investigation.
+
+Next action after usage reset: native Resume for the existing group3B run.
+Reuse exact V0/Vfinal source/state/bounds-matching evidence; finish only truly
+missing captures and comparisons under the original3B scope, then return the
+partial/final addendum. Obtain exact B11 blocker/smallest missing action,
+read-only saved3A computed verdict, and precise F3/F4 identities as already
+requested. Do not repeat passed groups or the eight new images reported above.
+No group3B pass, final handoff, Producer acceptance or#14 start claimed.
 
 ## Group 3A consolidated; group 3B dispatched
 
