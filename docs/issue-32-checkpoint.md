@@ -1,4 +1,56 @@
-# Issue 32 checkpoint — 54 final pairs passed; opened-shadow group underway
+# Issue 32 checkpoint — 59 final pairs passed; 12 pending
+
+## Group 3A consolidated; group 3B dispatched
+
+The reconnected chat eventually surfaced the earlier interrupted 3A captures,
+comparisons and hashes. Codex sent a bounded reuse instruction; Claude
+consolidated existing evidence instead of continuing duplicate capture work.
+Five native pairs pass, all matching accepted B5 pixel counts/max deltas:
+
+| Consumer | Width | Differing pixels | Maximum channel delta |
+| --- | --- | --- | --- |
+| B9a who-logged | 1280 | 19,070 | 11 |
+| B9b row menu | 1280 | 21,374 | 6 |
+| B9b row menu | 1024 | 19,463 | 7 |
+| B12 account menu | 1280 | 21,268 | 4 |
+| B12 account menu | 1024 | 20,927 | 4 |
+
+Whole-frame comparisons have no mask/tolerance. Native frames are1280×802 or
+1024×770. All changed pixels localize inside the corresponding B5 site rectangle
+plus80px shadow reach; outside max delta0. Site rectangles in table order:
+214×48@555,308;232×95@1018,311;208×95@788,311;268×238@998,76;
+268×238@745,76. Ten PNG identities are retained in the Claude report.
+The summary omitted the saved computed verdict; group3B asks for a read-only
+report of it, not a rerun.
+
+B9a compact is explicitly blocked-visible under existing#54; no invisible
+consumer screenshot earns coverage. Hidden subtree reports190px width,
+190×48@1,101, original shadow. No visibility override/source repair.
+B11 remains pending after interruption while establishing Workspace. Retained
+B5 authority: actual ready-source navigation, default transcript scrollTop540,
+card L4134, rect320×82@92,515 wide /268×82@71,552 compact; approved shadow
+.60 0 16px40px → .55 0 18px44px; expected21345/max9 and18228/max10.
+
+All four mapping gaps resolved: B11 Workspace card, B12 account menu,
+kwPop via +N more, queueMenu via Source queue (queue title clamp same consumer).
+B10 deduplicated into2D O15; B7 whoPop/rowMenu/loggedCard intoB9a/B9b/B11.
+Disjoint counts:59 passed pairs;1 blocked-visible pair;2 exempt documentation
+states;12 pending pairs = B11×2 + kwPop/queueMenu/langMenu×6 + F3/F4×4.
+
+Claude-retained hashes (not locally measured):
+- `_32-final-state-group3a.json`: `ba8cfcf5a727433d95a1361b2c254cfff6b6918b6171f8f1bef6b43fa83655f6`.
+- `_g3a-pixel-results.json`: `6f55239028b6b24325b55aec336ed430d444b3e3703287ed650adfa4c63dc665`.
+- `_g3a-final-diff.html`: `3e1ae8ee3c3589fec2b0ef6a1d462a2ab688a68b8d2a9188278bbcccfd6ece9e`.
+- Final index: `d282f20f344b67b3f4929409bf21f04a92efe2a68f622db21970838d84570de3` (25,631B).
+- Previously omitted `_32-final-state-group2d.json`: `4e0e828ffd237bba71daa89c7ea729e6bd1c062a1467550d11123197c7ba79a6`.
+- V0 and Vfinal retain their exact frozen identities.
+
+Group3B sent: only B11 and kwPop/queueMenu/langMenu, both widths, eight pairs.
+Use retained triggers, fresh matching state, native and computed checks; only
+approved B11 shadow may differ. Preserve known overflow if identical. No search
+loops, source edits or repeated passed evidence. Report exact F3/F4 mappings
+for the next prompt, without focus captures now. Continue until bounded report,
+actual usage rejection or concrete discrepancy. Acceptance/#14 not started.
 
 ## September 4 browser recovery; group 3A resumed
 
