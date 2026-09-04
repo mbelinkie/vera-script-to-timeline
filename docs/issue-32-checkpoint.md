@@ -1,5 +1,50 @@
-# Issue 32 checkpoint — A40 passed; shared package transfer underway
+# Issue 32 checkpoint — package imported; final coverage reconciliation underway
 
+
+## Package/import result and Codex keyboard verification
+
+The candidate package `issue32-shared-system-v1.0.0.css` is 12,886 B / 193
+lines, SHA-256
+`7c086633b9a5be03c9bcd16f6f8fa909bea216f10019ddcb706c71e5e7370248`.
+Claude reports 302 tokens / 19 groups, zero duplicate names, extracted from
+Research L11–L171 plus eight base/focus rules from L173–L180. Research remains
+at the exact post-A40 identity. The first package had a duplicated root selector;
+that was corrected before the reported final hash and passing import checks.
+
+`issue32-shared-system-v1.0.0.manifest.json` (94,096 B, abbreviated
+`85b97638…4c0ee4f28`) records mappings and limitations. Target
+`Script-to-Timeline Shared System Adoption.dc.html` (abbreviated
+`38a41119…4b335921`) imports the CSS by link, with zero local custom-property
+declarations. Synthetic specimen only; no #14 screen design or Research data.
+Both widths: 302 root declarations, ten parsed CSS rules, zero unresolved of
+759 var reads, 214 harness elements, zero overflow and console errors. Report
+`_a40-export-adoption-report.json`, harness `_a40-adoption-verify.html`.
+Native target captures: `evidence/a40/adoption-wide-1280.png` (1280×875,
+`fd6376f9…`) and `adoption-compact-1024.png` (1024×874, `e5fb471f…`). Exact
+capture bounds versus the authored viewport require clarification in the final
+coverage report; do not silently relabel these dimensions.
+
+The Claude background design checker ended without a verdict twice. Its direct
+sanity check reported 215 elements and zero unresolved vars/console output,
+with no source changes. Record this as checker unavailability, not a passed
+checker. The 214/215 scope difference has been explicitly queried.
+
+Codex performed real `Tab` / `shift+Tab` via CUA in the live adoption preview
+in both authored layout modes. Sequence: click Focusable one, Tab to Focusable
+two, Tab to Focusable link, Shift-Tab to two, Shift-Tab to one, Shift-Tab to
+Specimen label. AX confirmed each focused element. CUA screenshots visibly
+show gold rings on the wide button/link/field and compact button/field; focus
+order is identical. No synthetic focus used. Direct preview navigation in a
+separate tab was blocked by the browser; keyboard checks used the existing
+working embedded preview instead. This does not assert a new exact-pixel test.
+
+Sent one final evidence-reconciliation prompt: retain Codex keyboard evidence;
+map every approved changed state to valid batch evidence; identify only missing
+native pairs (especially Batch 3's 924×540 preview limitation); explain the 14
+emitted-not-wired manifest pairs versus completed B7, target capture bounds and
+214/215 count; return full remaining identities and exact smallest gap list.
+No further source/package/specimen edits or checker retries were requested.
+This reconciliation is running; #32 is not yet ready for acceptance.
 
 ## A40 result and package transfer in progress
 
