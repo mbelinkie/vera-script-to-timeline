@@ -1,0 +1,13 @@
+{
+  "name": "vera-issue-28-public-capture-spike",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.19.0 <25" },
+  "scripts": {
+    "test": "node --test --test-concurrency=1 test/*.test.mjs",
+    "demo": "node cli.mjs demo",
+    "inspect": "node cli.mjs inspect"
+  },
+  "dependencies": { "playwright": "1.62.1", "pngjs": "7.0.0" }
+}
