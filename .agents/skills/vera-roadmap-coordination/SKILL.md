@@ -31,6 +31,12 @@ Use the GitHub Project configured in `.github/vera-roadmap.json` as the sole liv
    do not use account-wide usage, an estimate, or a separate steward/closure
    task; do not post a metric when the claimed task, final token event, or
    unambiguous session record is unavailable. Avoid duplicate token comments.
+9. After a materially difficult issue closes, inspect retained evidence for a
+   bounded unresolved engineering risk that could merit later Astra
+   reconsideration. Maintain `docs/POSSIBLE_ISSUES_FOR_ASTRA.md` with only the
+   evidence, a precise question, and a retirement condition. It is not a
+   priority list, automatic escalation, or dispatch authorization; omit solved
+   risks and unsupported speculation.
 
 ## Producer acceptance handoff
 

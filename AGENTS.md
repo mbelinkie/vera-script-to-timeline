@@ -28,6 +28,11 @@ acceptance record, not a live tracker.
   the issue. The entry must identify it as a cumulative total including cached
   input; never use account-wide usage, an estimate, or a separate closure task.
   If the claimed session record is missing or ambiguous, omit the metric.
+- After each materially difficult completed issue, the roadmap steward checks
+  whether retained evidence reveals a bounded unresolved engineering risk for
+  later Astra reconsideration. Add only evidence-backed entries to
+  `docs/POSSIBLE_ISSUES_FOR_ASTRA.md`, with the precise question and retirement
+  condition; do not turn the register into a dispatch queue or model override.
 - Record prerequisites under `## Dependencies` as `- Blocked by #123` or
   `- Blocked by owner/repo#123`, or `None`; hierarchy alone does not imply
   ordering. Promote only with `npm run roadmap -- ready <issue>`. Both Ready
