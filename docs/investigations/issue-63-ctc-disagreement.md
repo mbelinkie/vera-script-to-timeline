@@ -1,7 +1,11 @@
 # Issue 63 — recognizer-side CTC disagreement
 
-Status: **In review — Producer acceptance required.** The bounded result is
-**no adequate selection**.
+Status: **Accepted by the Producer.** The bounded result is **no adequate
+selection**.
+
+For the exact protocol, corrected rule-grid results, limitations, and a prompt
+for external evaluation, see
+[the Issue 63 LLM evaluation handoff](issue-63-llm-evaluation-handoff.md).
 
 ## Scope and evidence boundary
 
@@ -51,8 +55,8 @@ is `0 ms`, and interpolation never authorizes editing.
 
 On the full source, Parakeet contained 439 recognized words and unprompted CTC
 contained 467. The explicit comparison retained 370 equal operations, 69
-substitutions, and 28 CTC-only spans. Of the CTC-only spans, 1 is labeled only
-as a partial-word candidate and 27 as unmatched audio; none is silently folded
+substitutions, and 28 CTC-only spans. Of the CTC-only spans, 2 are labeled only
+as partial-word candidates and 26 as unmatched audio; none is silently folded
 into Parakeet text.
 
 The frozen 80-word scoring set contained 54 words where the Producer reference,
@@ -88,8 +92,9 @@ speech, but this bounded combination is not safe boundary authority.
   3.12.13; Torch/TorchAudio 2.2.2; one CPU thread; 16 kHz mono input; argmax
   CTC collapse with blank removal and pipe delimiter; retained Parakeet
   anchors; first-to-last nonblank character-frame boundary; no interpolation
-  and no reference input. Initialization was 1.034 s, emission inference
-  46.117 s, total processing 50.037 s, and peak resident memory 941,752,320
+  and no reference input. In the final corrected rerun, initialization was
+  1.391 s, emission inference 49.323 s, total processing 54.178 s, and peak
+  resident memory 941,883,392
   bytes on the tested x86_64 host.
 
 Exact model-file, input, adapter, parameter, output, and rule fingerprints are
@@ -98,7 +103,7 @@ claim.
 
 ## Automated checks
 
-- Eleven private pure-function tests pass for CTC collapse, repeated-token
+- Thirteen private pure-function tests pass for CTC collapse, repeated-token
   preservation, deterministic alignment, explicit non-truth hints, empty-set
   semantics, independent rule selection, both boundary sources, optional
   lexical disagreement, and timed repeat adjudication.
@@ -109,6 +114,14 @@ claim.
 - The private packet retains immutable failed attempts, final outputs, full
   fingerprints, and integrity evidence; repository validation and frozen-
   boundary audits are recorded in the review handoff.
+
+Post-acceptance verification corrected two evaluator bookkeeping defects: CTC-
+only insertion hints now use local edit-alignment neighbors, and the exact-
+agreement rule now rejects substitutions. The first changes only the non-truth
+hint split from 1/27 to 2/26; the second restores the intended rule-grid branch.
+Fresh immutable offline runs and evaluation retained the same no-adequate-
+selection result, word/disagreement counts, boundary metrics, event outcomes,
+and fail-closed decision.
 
 ## Proposed follow-up (not started)
 
