@@ -14,6 +14,11 @@ Use the GitHub Project configured in `.github/vera-roadmap.json` as the sole liv
 3. Begin only when Status is `Ready`, dependencies are resolved, acceptance criteria are complete, and exactly one supported `model:*` plus one `effort:*` label exists. The claim command revalidates dependency state to catch manual board moves and races.
 4. Claim with the exact running profile, task identity, and dedicated branch: `npm run roadmap -- claim <issue> --model <exact-model> --effort <effort> --task <task> --branch <branch>`.
 5. Keep work inside issue scope. File discoveries in Inbox and do not start them.
+   When a product-spec slice or an adopted future requirement has a durable
+   outcome but lacks near-term detail, create a bounded Inbox placeholder so
+   the Project and progress dashboard retain the known scope. Give it
+   tentative routing, acceptance, canonical dependencies, and unresolved
+   decisions. A placeholder is never Ready or dispatch authority.
 6. Move implementation to `In review` with actual evidence. The Project's
    `Acceptance` field determines the closing authority: `Automated` closes on
    retained passing automated evidence, `External` closes on retained evidence

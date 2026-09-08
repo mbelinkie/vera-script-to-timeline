@@ -45,6 +45,12 @@ acceptance record, not a live tracker.
   assigned profile is insufficient, stop, mark the issue Blocked with
   `needs:model-escalation`, retain evidence, release the claim, and wait for
   steward-approved relabeling.
+- When a durable product-spec slice or clearly adopted future requirement is
+  identified, create a bounded Inbox placeholder promptly—even when its
+  implementation details remain unknown—so the live roadmap and progress
+  dashboard represent the known remaining scope. Give it tentative routing,
+  acceptance authority, canonical dependencies, and explicit unresolved
+  decisions; never use a placeholder as dispatch authorization.
 - Do not modify `/contracts`, `/fixtures`, golden files, or previously accepted
   acceptance tests without an explicit contract-change or fixture-change note
   approved by the producer.
