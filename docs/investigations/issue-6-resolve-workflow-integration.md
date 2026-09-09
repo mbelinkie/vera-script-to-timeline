@@ -32,13 +32,14 @@ runtime compatibility.
 | Resolve launched the registered script. | `vera-workflow-integration-started.txt`, 2026-09-09. | Proven. |
 | The prior wrapper can locate its own file with `__file__`. | Resolve log, 2026-09-09: `NameError: name '__file__' is not defined`. | Disproved; corrected in the probe. |
 | The existing Python 3.12 dependency set can load inside Resolve. | Resolve log, 2026-09-09: embedded Python 3.14.7; checkout has Python 3.12 native extensions. | Disproved; full adapter is not run in this stage. |
-| Resolve supplies an injected object when external connection access is restricted. | Probe pending. | Pending External acceptance. |
+| Resolve supplies an injected object when external connection access is restricted. | Producer-run probe, 2026-09-09: `DaVinci Resolve Studio`, version `[21, 1, 0, 14, ""]`, `status: "injected_probe_passed"`. | Proven for the narrow injection boundary. |
 
-**Current recommendation: revise, not retain.** The real launcher reached
-Resolve but failed before its object check because direct scripts have no
-`__file__`. More importantly, its embedded Python 3.14 cannot import the
-checkout's Python 3.12 native packages. The current probe can answer the narrow
-injection question safely; a later bounded slice must design a compatible
+**Current recommendation: revise, not retain.** The 2026-09-09 probe proved
+that Resolve provides its injected object with external scripting set to
+`None`; it therefore removes the external *connection setup* boundary for a
+compatible in-process integration. But its embedded Python 3.14 cannot import
+the checkout's Python 3.12 native packages, so the staged full adapter cannot
+create the accepted timeline. A later bounded slice must design a compatible
 runtime boundary before any in-process delivery is reconsidered.
 
 ## Producer external-acceptance procedure
@@ -54,7 +55,7 @@ runtime boundary before any in-process delivery is reconsidered.
    preference in the issue. If it reports `workflow_launcher_failed`, retain
    that JSON and the Resolve log; do not retry by enabling external scripting.
 
-The producer's result is the required External evidence. Until then, keep the
-issue `In review`; do not add a capability claim to `CAPABILITIES.md`. Even a
-passing probe establishes only the injected-object boundary, not an executable
-VERA delivery adapter.
+The producer-run probe is retained External evidence for the injection
+boundary. Keep the issue `In review` and do not add a capability claim to
+`CAPABILITIES.md`: a passing probe establishes only the injected-object
+boundary, not an executable VERA delivery adapter.
