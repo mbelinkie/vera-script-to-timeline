@@ -1,0 +1,322 @@
+{
+  "candidate": "apple-vision",
+  "lines": [
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 0,
+      "readingOrder": 0,
+      "rect": {
+        "height": 46,
+        "width": 415,
+        "x": 75,
+        "y": 68
+      },
+      "text": "Language Coverage"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 1,
+      "readingOrder": 1,
+      "rect": {
+        "height": 36,
+        "width": 322,
+        "x": 89,
+        "y": 182
+      },
+      "text": "English review is ready"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 2,
+      "readingOrder": 2,
+      "rect": {
+        "height": 36,
+        "width": 332,
+        "x": 93,
+        "y": 293
+      },
+      "text": "Révision française prête"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 3,
+      "readingOrder": 3,
+      "rect": {
+        "height": 33,
+        "width": 339,
+        "x": 89,
+        "y": 402
+      },
+      "text": "Página española segura"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 4,
+      "readingOrder": 4,
+      "rect": {
+        "height": 45,
+        "width": 436,
+        "x": 89,
+        "y": 508
+      },
+      "text": "Änderung geprüft und bestätigt"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 5,
+      "readingOrder": 5,
+      "rect": {
+        "height": 22,
+        "width": 305,
+        "x": 89,
+        "y": 654
+      },
+      "text": "Accents must remain visible"
+    }
+  ],
+  "profile": "vision-r3-accurate-en-US-no-language-correction-v1",
+  "rasterHeight": 900,
+  "rasterWidth": 1600,
+  "words": [
+    {
+      "lineRawOrdinal": 0,
+      "rawOrdinal": 0,
+      "readingOrder": 0,
+      "rect": {
+        "height": 46,
+        "width": 210,
+        "x": 75,
+        "y": 68
+      },
+      "text": "Language"
+    },
+    {
+      "lineRawOrdinal": 0,
+      "rawOrdinal": 1,
+      "readingOrder": 1,
+      "rect": {
+        "height": 46,
+        "width": 201,
+        "x": 289,
+        "y": 68
+      },
+      "text": "Coverage"
+    },
+    {
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 2,
+      "readingOrder": 2,
+      "rect": {
+        "height": 36,
+        "width": 108,
+        "x": 89,
+        "y": 182
+      },
+      "text": "English"
+    },
+    {
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 5,
+      "readingOrder": 3,
+      "rect": {
+        "height": 36,
+        "width": 83,
+        "x": 328,
+        "y": 182
+      },
+      "text": "ready"
+    },
+    {
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 3,
+      "readingOrder": 4,
+      "rect": {
+        "height": 34,
+        "width": 94,
+        "x": 200,
+        "y": 183
+      },
+      "text": "review"
+    },
+    {
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 4,
+      "readingOrder": 5,
+      "rect": {
+        "height": 34,
+        "width": 26,
+        "x": 298,
+        "y": 183
+      },
+      "text": "is"
+    },
+    {
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 6,
+      "readingOrder": 6,
+      "rect": {
+        "height": 35,
+        "width": 119,
+        "x": 93,
+        "y": 293
+      },
+      "text": "Révision"
+    },
+    {
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 7,
+      "readingOrder": 7,
+      "rect": {
+        "height": 35,
+        "width": 132,
+        "x": 215,
+        "y": 293
+      },
+      "text": "française"
+    },
+    {
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 8,
+      "readingOrder": 8,
+      "rect": {
+        "height": 35,
+        "width": 74,
+        "x": 351,
+        "y": 293
+      },
+      "text": "prête"
+    },
+    {
+      "lineRawOrdinal": 3,
+      "rawOrdinal": 9,
+      "readingOrder": 9,
+      "rect": {
+        "height": 32,
+        "width": 102,
+        "x": 89,
+        "y": 403
+      },
+      "text": "Página"
+    },
+    {
+      "lineRawOrdinal": 3,
+      "rawOrdinal": 10,
+      "readingOrder": 10,
+      "rect": {
+        "height": 31,
+        "width": 133,
+        "x": 194,
+        "y": 403
+      },
+      "text": "española"
+    },
+    {
+      "lineRawOrdinal": 3,
+      "rawOrdinal": 11,
+      "readingOrder": 11,
+      "rect": {
+        "height": 32,
+        "width": 98,
+        "x": 330,
+        "y": 403
+      },
+      "text": "segura"
+    },
+    {
+      "lineRawOrdinal": 4,
+      "rawOrdinal": 12,
+      "readingOrder": 12,
+      "rect": {
+        "height": 41,
+        "width": 140,
+        "x": 89,
+        "y": 508
+      },
+      "text": "Änderung"
+    },
+    {
+      "lineRawOrdinal": 4,
+      "rawOrdinal": 13,
+      "readingOrder": 13,
+      "rect": {
+        "height": 39,
+        "width": 103,
+        "x": 232,
+        "y": 510
+      },
+      "text": "geprüft"
+    },
+    {
+      "lineRawOrdinal": 4,
+      "rawOrdinal": 14,
+      "readingOrder": 14,
+      "rect": {
+        "height": 39,
+        "width": 53,
+        "x": 338,
+        "y": 511
+      },
+      "text": "und"
+    },
+    {
+      "lineRawOrdinal": 4,
+      "rawOrdinal": 15,
+      "readingOrder": 15,
+      "rect": {
+        "height": 41,
+        "width": 131,
+        "x": 394,
+        "y": 512
+      },
+      "text": "bestätigt"
+    },
+    {
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 16,
+      "readingOrder": 16,
+      "rect": {
+        "height": 21,
+        "width": 91,
+        "x": 89,
+        "y": 655
+      },
+      "text": "Accents"
+    },
+    {
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 17,
+      "readingOrder": 17,
+      "rect": {
+        "height": 21,
+        "width": 59,
+        "x": 181,
+        "y": 655
+      },
+      "text": "must"
+    },
+    {
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 18,
+      "readingOrder": 18,
+      "rect": {
+        "height": 21,
+        "width": 77,
+        "x": 242,
+        "y": 655
+      },
+      "text": "remain"
+    },
+    {
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 19,
+      "readingOrder": 19,
+      "rect": {
+        "height": 21,
+        "width": 73,
+        "x": 321,
+        "y": 655
+      },
+      "text": "visible"
+    }
+  ]
+}

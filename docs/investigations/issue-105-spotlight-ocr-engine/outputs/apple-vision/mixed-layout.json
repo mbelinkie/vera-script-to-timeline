@@ -1,0 +1,634 @@
+{
+  "candidate": "apple-vision",
+  "lines": [
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 0,
+      "readingOrder": 0,
+      "rect": {
+        "height": 46,
+        "width": 470,
+        "x": 62,
+        "y": 37
+      },
+      "text": "Operations Dashboard"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 1,
+      "readingOrder": 1,
+      "rect": {
+        "height": 22,
+        "width": 197,
+        "x": 1179,
+        "y": 54
+      },
+      "text": "Synthetic status only"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 6,
+      "readingOrder": 2,
+      "rect": {
+        "height": 36,
+        "width": 239,
+        "x": 858,
+        "y": 189
+      },
+      "text": "Approval queue"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 2,
+      "readingOrder": 3,
+      "rect": {
+        "height": 30,
+        "width": 257,
+        "x": 89,
+        "y": 192
+      },
+      "text": "Sensor summary"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 3,
+      "readingOrder": 4,
+      "rect": {
+        "height": 25,
+        "width": 205,
+        "x": 89,
+        "y": 262
+      },
+      "text": "North array stable"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 7,
+      "readingOrder": 5,
+      "rect": {
+        "height": 22,
+        "width": 260,
+        "x": 858,
+        "y": 262
+      },
+      "text": "Two items need review"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 4,
+      "readingOrder": 6,
+      "rect": {
+        "height": 26,
+        "width": 284,
+        "x": 89,
+        "y": 316
+      },
+      "text": "South array under review"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 8,
+      "readingOrder": 7,
+      "rect": {
+        "height": 26,
+        "width": 201,
+        "x": 862,
+        "y": 316
+      },
+      "text": "First item pending"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 9,
+      "readingOrder": 8,
+      "rect": {
+        "height": 26,
+        "width": 211,
+        "x": 862,
+        "y": 371
+      },
+      "text": "Second item ready"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 5,
+      "readingOrder": 9,
+      "rect": {
+        "height": 26,
+        "width": 287,
+        "x": 89,
+        "y": 372
+      },
+      "text": "Next check fourteen thirty"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 10,
+      "readingOrder": 10,
+      "rect": {
+        "height": 25,
+        "width": 80,
+        "x": 89,
+        "y": 617
+      },
+      "text": "Region"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 11,
+      "readingOrder": 11,
+      "rect": {
+        "height": 21,
+        "width": 56,
+        "x": 720,
+        "y": 617
+      },
+      "text": "State"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 12,
+      "readingOrder": 12,
+      "rect": {
+        "height": 22,
+        "width": 77,
+        "x": 1168,
+        "y": 617
+      },
+      "text": "Owner"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 13,
+      "readingOrder": 13,
+      "rect": {
+        "height": 21,
+        "width": 77,
+        "x": 89,
+        "y": 693
+      },
+      "text": "Harbor"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 14,
+      "readingOrder": 14,
+      "rect": {
+        "height": 25,
+        "width": 70,
+        "x": 720,
+        "y": 693
+      },
+      "text": "Ready"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 15,
+      "readingOrder": 15,
+      "rect": {
+        "height": 21,
+        "width": 60,
+        "x": 1168,
+        "y": 693
+      },
+      "text": "Aster"
+    }
+  ],
+  "profile": "vision-r3-accurate-en-US-no-language-correction-v1",
+  "rasterHeight": 900,
+  "rasterWidth": 1600,
+  "words": [
+    {
+      "lineRawOrdinal": 0,
+      "rawOrdinal": 0,
+      "readingOrder": 0,
+      "rect": {
+        "height": 47,
+        "width": 237,
+        "x": 62,
+        "y": 37
+      },
+      "text": "Operations"
+    },
+    {
+      "lineRawOrdinal": 0,
+      "rawOrdinal": 1,
+      "readingOrder": 1,
+      "rect": {
+        "height": 47,
+        "width": 229,
+        "x": 303,
+        "y": 37
+      },
+      "text": "Dashboard"
+    },
+    {
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 2,
+      "readingOrder": 2,
+      "rect": {
+        "height": 21,
+        "width": 90,
+        "x": 1179,
+        "y": 55
+      },
+      "text": "Synthetic"
+    },
+    {
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 3,
+      "readingOrder": 3,
+      "rect": {
+        "height": 21,
+        "width": 62,
+        "x": 1270,
+        "y": 55
+      },
+      "text": "status"
+    },
+    {
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 4,
+      "readingOrder": 4,
+      "rect": {
+        "height": 21,
+        "width": 43,
+        "x": 1333,
+        "y": 55
+      },
+      "text": "only"
+    },
+    {
+      "lineRawOrdinal": 6,
+      "rawOrdinal": 18,
+      "readingOrder": 5,
+      "rect": {
+        "height": 36,
+        "width": 142,
+        "x": 858,
+        "y": 189
+      },
+      "text": "Approval"
+    },
+    {
+      "lineRawOrdinal": 6,
+      "rawOrdinal": 19,
+      "readingOrder": 6,
+      "rect": {
+        "height": 36,
+        "width": 94,
+        "x": 1003,
+        "y": 189
+      },
+      "text": "queue"
+    },
+    {
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 5,
+      "readingOrder": 7,
+      "rect": {
+        "height": 27,
+        "width": 112,
+        "x": 89,
+        "y": 192
+      },
+      "text": "Sensor"
+    },
+    {
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 6,
+      "readingOrder": 8,
+      "rect": {
+        "height": 28,
+        "width": 143,
+        "x": 203,
+        "y": 194
+      },
+      "text": "summary"
+    },
+    {
+      "lineRawOrdinal": 3,
+      "rawOrdinal": 7,
+      "readingOrder": 9,
+      "rect": {
+        "height": 25,
+        "width": 68,
+        "x": 89,
+        "y": 262
+      },
+      "text": "North"
+    },
+    {
+      "lineRawOrdinal": 3,
+      "rawOrdinal": 8,
+      "readingOrder": 10,
+      "rect": {
+        "height": 24,
+        "width": 60,
+        "x": 159,
+        "y": 262
+      },
+      "text": "array"
+    },
+    {
+      "lineRawOrdinal": 3,
+      "rawOrdinal": 9,
+      "readingOrder": 11,
+      "rect": {
+        "height": 25,
+        "width": 72,
+        "x": 222,
+        "y": 262
+      },
+      "text": "stable"
+    },
+    {
+      "lineRawOrdinal": 7,
+      "rawOrdinal": 20,
+      "readingOrder": 12,
+      "rect": {
+        "height": 22,
+        "width": 51,
+        "x": 858,
+        "y": 262
+      },
+      "text": "Two"
+    },
+    {
+      "lineRawOrdinal": 7,
+      "rawOrdinal": 21,
+      "readingOrder": 13,
+      "rect": {
+        "height": 22,
+        "width": 67,
+        "x": 911,
+        "y": 262
+      },
+      "text": "items"
+    },
+    {
+      "lineRawOrdinal": 7,
+      "rawOrdinal": 22,
+      "readingOrder": 14,
+      "rect": {
+        "height": 22,
+        "width": 62,
+        "x": 979,
+        "y": 262
+      },
+      "text": "need"
+    },
+    {
+      "lineRawOrdinal": 7,
+      "rawOrdinal": 23,
+      "readingOrder": 15,
+      "rect": {
+        "height": 22,
+        "width": 76,
+        "x": 1042,
+        "y": 262
+      },
+      "text": "review"
+    },
+    {
+      "lineRawOrdinal": 4,
+      "rawOrdinal": 10,
+      "readingOrder": 16,
+      "rect": {
+        "height": 26,
+        "width": 71,
+        "x": 89,
+        "y": 316
+      },
+      "text": "South"
+    },
+    {
+      "lineRawOrdinal": 4,
+      "rawOrdinal": 13,
+      "readingOrder": 17,
+      "rect": {
+        "height": 26,
+        "width": 77,
+        "x": 296,
+        "y": 316
+      },
+      "text": "review"
+    },
+    {
+      "lineRawOrdinal": 8,
+      "rawOrdinal": 24,
+      "readingOrder": 18,
+      "rect": {
+        "height": 26,
+        "width": 48,
+        "x": 862,
+        "y": 316
+      },
+      "text": "First"
+    },
+    {
+      "lineRawOrdinal": 8,
+      "rawOrdinal": 26,
+      "readingOrder": 19,
+      "rect": {
+        "height": 26,
+        "width": 93,
+        "x": 970,
+        "y": 316
+      },
+      "text": "pending"
+    },
+    {
+      "lineRawOrdinal": 4,
+      "rawOrdinal": 11,
+      "readingOrder": 20,
+      "rect": {
+        "height": 24,
+        "width": 61,
+        "x": 162,
+        "y": 317
+      },
+      "text": "array"
+    },
+    {
+      "lineRawOrdinal": 4,
+      "rawOrdinal": 12,
+      "readingOrder": 21,
+      "rect": {
+        "height": 24,
+        "width": 69,
+        "x": 225,
+        "y": 317
+      },
+      "text": "under"
+    },
+    {
+      "lineRawOrdinal": 8,
+      "rawOrdinal": 25,
+      "readingOrder": 22,
+      "rect": {
+        "height": 24,
+        "width": 54,
+        "x": 913,
+        "y": 317
+      },
+      "text": "item"
+    },
+    {
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 14,
+      "readingOrder": 23,
+      "rect": {
+        "height": 25,
+        "width": 58,
+        "x": 89,
+        "y": 372
+      },
+      "text": "Next"
+    },
+    {
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 15,
+      "readingOrder": 24,
+      "rect": {
+        "height": 25,
+        "width": 66,
+        "x": 149,
+        "y": 372
+      },
+      "text": "check"
+    },
+    {
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 16,
+      "readingOrder": 25,
+      "rect": {
+        "height": 25,
+        "width": 97,
+        "x": 218,
+        "y": 372
+      },
+      "text": "fourteen"
+    },
+    {
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 17,
+      "readingOrder": 26,
+      "rect": {
+        "height": 25,
+        "width": 58,
+        "x": 318,
+        "y": 372
+      },
+      "text": "thirty"
+    },
+    {
+      "lineRawOrdinal": 9,
+      "rawOrdinal": 27,
+      "readingOrder": 27,
+      "rect": {
+        "height": 25,
+        "width": 85,
+        "x": 862,
+        "y": 372
+      },
+      "text": "Second"
+    },
+    {
+      "lineRawOrdinal": 9,
+      "rawOrdinal": 28,
+      "readingOrder": 28,
+      "rect": {
+        "height": 25,
+        "width": 54,
+        "x": 949,
+        "y": 372
+      },
+      "text": "item"
+    },
+    {
+      "lineRawOrdinal": 9,
+      "rawOrdinal": 29,
+      "readingOrder": 29,
+      "rect": {
+        "height": 25,
+        "width": 68,
+        "x": 1005,
+        "y": 372
+      },
+      "text": "ready"
+    },
+    {
+      "lineRawOrdinal": 10,
+      "rawOrdinal": 30,
+      "readingOrder": 30,
+      "rect": {
+        "height": 25,
+        "width": 80,
+        "x": 89,
+        "y": 617
+      },
+      "text": "Region"
+    },
+    {
+      "lineRawOrdinal": 11,
+      "rawOrdinal": 31,
+      "readingOrder": 31,
+      "rect": {
+        "height": 21,
+        "width": 56,
+        "x": 720,
+        "y": 617
+      },
+      "text": "State"
+    },
+    {
+      "lineRawOrdinal": 12,
+      "rawOrdinal": 32,
+      "readingOrder": 32,
+      "rect": {
+        "height": 22,
+        "width": 77,
+        "x": 1168,
+        "y": 617
+      },
+      "text": "Owner"
+    },
+    {
+      "lineRawOrdinal": 13,
+      "rawOrdinal": 33,
+      "readingOrder": 33,
+      "rect": {
+        "height": 21,
+        "width": 77,
+        "x": 89,
+        "y": 693
+      },
+      "text": "Harbor"
+    },
+    {
+      "lineRawOrdinal": 14,
+      "rawOrdinal": 34,
+      "readingOrder": 34,
+      "rect": {
+        "height": 25,
+        "width": 70,
+        "x": 720,
+        "y": 693
+      },
+      "text": "Ready"
+    },
+    {
+      "lineRawOrdinal": 15,
+      "rawOrdinal": 35,
+      "readingOrder": 35,
+      "rect": {
+        "height": 21,
+        "width": 60,
+        "x": 1168,
+        "y": 693
+      },
+      "text": "Aster"
+    }
+  ]
+}

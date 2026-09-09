@@ -1,0 +1,406 @@
+{
+  "candidate": "apple-vision",
+  "lines": [
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 0,
+      "readingOrder": 0,
+      "rect": {
+        "height": 43,
+        "width": 428,
+        "x": 86,
+        "y": 75
+      },
+      "text": "Northwind Bulletin"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 2,
+      "readingOrder": 1,
+      "rect": {
+        "height": 18,
+        "width": 242,
+        "x": 1058,
+        "y": 86
+      },
+      "text": "Overview Alerts Archive"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 1,
+      "readingOrder": 2,
+      "rect": {
+        "height": 29,
+        "width": 339,
+        "x": 89,
+        "y": 148
+      },
+      "text": "Synthetic operations update"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 3,
+      "readingOrder": 3,
+      "rect": {
+        "height": 32,
+        "width": 257,
+        "x": 106,
+        "y": 265
+      },
+      "text": "Weather review"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 4,
+      "readingOrder": 4,
+      "rect": {
+        "height": 29,
+        "width": 377,
+        "x": 110,
+        "y": 334
+      },
+      "text": "Rain arrives Tuesday morning"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 5,
+      "readingOrder": 5,
+      "rect": {
+        "height": 29,
+        "width": 442,
+        "x": 110,
+        "y": 385
+      },
+      "text": "Review required before adjustment"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 6,
+      "readingOrder": 6,
+      "rect": {
+        "height": 22,
+        "width": 132,
+        "x": 131,
+        "y": 465
+      },
+      "text": "Open report"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 7,
+      "readingOrder": 7,
+      "rect": {
+        "height": 22,
+        "width": 304,
+        "x": 86,
+        "y": 772
+      },
+      "text": "Updated locally with fictional data"
+    }
+  ],
+  "profile": "vision-r3-accurate-en-US-no-language-correction-v1",
+  "rasterHeight": 900,
+  "rasterWidth": 1600,
+  "words": [
+    {
+      "lineRawOrdinal": 0,
+      "rawOrdinal": 0,
+      "readingOrder": 0,
+      "rect": {
+        "height": 43,
+        "width": 241,
+        "x": 86,
+        "y": 75
+      },
+      "text": "Northwind"
+    },
+    {
+      "lineRawOrdinal": 0,
+      "rawOrdinal": 1,
+      "readingOrder": 1,
+      "rect": {
+        "height": 43,
+        "width": 183,
+        "x": 331,
+        "y": 75
+      },
+      "text": "Bulletin"
+    },
+    {
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 5,
+      "readingOrder": 2,
+      "rect": {
+        "height": 19,
+        "width": 99,
+        "x": 1058,
+        "y": 85
+      },
+      "text": "Overview"
+    },
+    {
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 7,
+      "readingOrder": 3,
+      "rect": {
+        "height": 19,
+        "width": 78,
+        "x": 1222,
+        "y": 85
+      },
+      "text": "Archive"
+    },
+    {
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 6,
+      "readingOrder": 4,
+      "rect": {
+        "height": 18,
+        "width": 63,
+        "x": 1158,
+        "y": 86
+      },
+      "text": "Alerts"
+    },
+    {
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 2,
+      "readingOrder": 5,
+      "rect": {
+        "height": 30,
+        "width": 113,
+        "x": 89,
+        "y": 147
+      },
+      "text": "Synthetic"
+    },
+    {
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 3,
+      "readingOrder": 6,
+      "rect": {
+        "height": 30,
+        "width": 134,
+        "x": 205,
+        "y": 147
+      },
+      "text": "operations"
+    },
+    {
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 4,
+      "readingOrder": 7,
+      "rect": {
+        "height": 30,
+        "width": 87,
+        "x": 341,
+        "y": 147
+      },
+      "text": "update"
+    },
+    {
+      "lineRawOrdinal": 3,
+      "rawOrdinal": 8,
+      "readingOrder": 8,
+      "rect": {
+        "height": 32,
+        "width": 141,
+        "x": 106,
+        "y": 265
+      },
+      "text": "Weather"
+    },
+    {
+      "lineRawOrdinal": 3,
+      "rawOrdinal": 9,
+      "readingOrder": 9,
+      "rect": {
+        "height": 32,
+        "width": 113,
+        "x": 250,
+        "y": 265
+      },
+      "text": "review"
+    },
+    {
+      "lineRawOrdinal": 4,
+      "rawOrdinal": 10,
+      "readingOrder": 10,
+      "rect": {
+        "height": 30,
+        "width": 60,
+        "x": 110,
+        "y": 333
+      },
+      "text": "Rain"
+    },
+    {
+      "lineRawOrdinal": 4,
+      "rawOrdinal": 13,
+      "readingOrder": 11,
+      "rect": {
+        "height": 30,
+        "width": 105,
+        "x": 382,
+        "y": 333
+      },
+      "text": "morning"
+    },
+    {
+      "lineRawOrdinal": 4,
+      "rawOrdinal": 11,
+      "readingOrder": 12,
+      "rect": {
+        "height": 29,
+        "width": 92,
+        "x": 172,
+        "y": 334
+      },
+      "text": "arrives"
+    },
+    {
+      "lineRawOrdinal": 4,
+      "rawOrdinal": 12,
+      "readingOrder": 13,
+      "rect": {
+        "height": 29,
+        "width": 113,
+        "x": 267,
+        "y": 334
+      },
+      "text": "Tuesday"
+    },
+    {
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 14,
+      "readingOrder": 14,
+      "rect": {
+        "height": 28,
+        "width": 95,
+        "x": 110,
+        "y": 386
+      },
+      "text": "Review"
+    },
+    {
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 15,
+      "readingOrder": 15,
+      "rect": {
+        "height": 28,
+        "width": 110,
+        "x": 207,
+        "y": 386
+      },
+      "text": "required"
+    },
+    {
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 16,
+      "readingOrder": 16,
+      "rect": {
+        "height": 28,
+        "width": 85,
+        "x": 319,
+        "y": 386
+      },
+      "text": "before"
+    },
+    {
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 17,
+      "readingOrder": 17,
+      "rect": {
+        "height": 28,
+        "width": 145,
+        "x": 407,
+        "y": 386
+      },
+      "text": "adjustment"
+    },
+    {
+      "lineRawOrdinal": 6,
+      "rawOrdinal": 18,
+      "readingOrder": 18,
+      "rect": {
+        "height": 22,
+        "width": 60,
+        "x": 131,
+        "y": 465
+      },
+      "text": "Open"
+    },
+    {
+      "lineRawOrdinal": 6,
+      "rawOrdinal": 19,
+      "readingOrder": 19,
+      "rect": {
+        "height": 22,
+        "width": 70,
+        "x": 193,
+        "y": 465
+      },
+      "text": "report"
+    },
+    {
+      "lineRawOrdinal": 7,
+      "rawOrdinal": 20,
+      "readingOrder": 20,
+      "rect": {
+        "height": 22,
+        "width": 79,
+        "x": 86,
+        "y": 772
+      },
+      "text": "Updated"
+    },
+    {
+      "lineRawOrdinal": 7,
+      "rawOrdinal": 21,
+      "readingOrder": 21,
+      "rect": {
+        "height": 21,
+        "width": 61,
+        "x": 167,
+        "y": 772
+      },
+      "text": "locally"
+    },
+    {
+      "lineRawOrdinal": 7,
+      "rawOrdinal": 22,
+      "readingOrder": 22,
+      "rect": {
+        "height": 21,
+        "width": 40,
+        "x": 230,
+        "y": 772
+      },
+      "text": "with"
+    },
+    {
+      "lineRawOrdinal": 7,
+      "rawOrdinal": 23,
+      "readingOrder": 23,
+      "rect": {
+        "height": 21,
+        "width": 74,
+        "x": 272,
+        "y": 772
+      },
+      "text": "fictional"
+    },
+    {
+      "lineRawOrdinal": 7,
+      "rawOrdinal": 24,
+      "readingOrder": 24,
+      "rect": {
+        "height": 22,
+        "width": 42,
+        "x": 348,
+        "y": 772
+      },
+      "text": "data"
+    }
+  ]
+}
