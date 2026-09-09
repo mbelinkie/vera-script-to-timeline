@@ -121,6 +121,41 @@ export const validScriptDocument: ScriptDocumentV1 = {
   liveContentHash: documentHash,
 };
 
+export const validShootRegistration = {
+  schemaVersion: "shoot-registration/v1",
+  projectId: ids.project,
+  mediaLibrary: { kind: "project_local", libraryId: ids.issue },
+  sessions: [{
+    id: ids.build,
+    name: "Synthetic shoot",
+    frozenPrompter: {
+      sourceDocument: { documentId: ids.document, projectId: ids.project, liveHeadSequence: 1, contentHash: documentHash },
+      prompterExportSha256: manifestHash,
+      beatMapSha256: videoHash,
+    },
+    processingProfileVersion: "shoot/v1",
+    sources: [{
+      id: ids.report,
+      mediaHash: audioHash,
+      byteSize: 12,
+      safeDisplayName: "synthetic.mov",
+      locator: { libraryId: ids.issue, relativePath: "masters/synthetic.mov" },
+      inspection: {
+        formatName: "mov",
+        durationMs: 1000,
+        videoStreams: [{
+          codec: "prores", width: 1920, height: 1080, frameRate: "24/1", timecode: null,
+          colorMetadata: { space: "bt709", transfer: "bt709", primaries: "bt709", range: "tv" },
+        }],
+        audioStreams: [{ codec: "pcm_s24le", channels: 2, layout: "stereo", sampleRate: 48000 }],
+      },
+      authorization: "authorized_local",
+      status: "ready",
+      relinkHistory: [],
+    }],
+  }],
+};
+
 export const validTimelineManifest: TimelineManifestV1 = {
   schemaVersion: "timeline-manifest/v1",
   id: ids.manifest,

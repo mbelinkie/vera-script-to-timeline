@@ -30,6 +30,7 @@ const schemaFiles = [
   "build-report-v1.schema.json",
   "compiler-dependencies-v1.schema.json",
   "prompter-export-v1.schema.json",
+  "shoot-registration-v1.schema.json",
 ];
 
 function readJson(path) {
@@ -56,6 +57,8 @@ async function generateTypeScript(outputDirectory) {
       "buildReport",
       "compilerDependencies",
       "prompterExport",
+      "shootRegistration",
+      "localSourceHandoffInventory",
     ],
     properties: {
       scriptDocument: { $ref: schemaFiles[0] },
@@ -63,6 +66,10 @@ async function generateTypeScript(outputDirectory) {
       buildReport: { $ref: schemaFiles[2] },
       compilerDependencies: { $ref: schemaFiles[3] },
       prompterExport: { $ref: schemaFiles[4] },
+      shootRegistration: { $ref: schemaFiles[5] },
+      localSourceHandoffInventory: {
+        $ref: `${schemaFiles[5]}#/$defs/LocalSourceHandoffInventoryV1`,
+      },
     },
   };
 
@@ -136,6 +143,7 @@ function generatePython(outputDirectory) {
       "from .compiler_dependencies_v1_schema import CompilerDependenciesV1",
       "from .prompter_export_v1_schema import PrompterExportV1",
       "from .script_document_v1_schema import ScriptDocumentV1",
+      "from .shoot_registration_v1_schema import ShootRegistrationProjectV1",
       "from .timeline_manifest_v1_schema import TimelineManifestV1",
       "",
       "__all__ = [",
@@ -143,6 +151,7 @@ function generatePython(outputDirectory) {
       '    "CompilerDependenciesV1",',
       '    "PrompterExportV1",',
       '    "ScriptDocumentV1",',
+      '    "ShootRegistrationProjectV1",',
       '    "TimelineManifestV1",',
       "]",
       "",

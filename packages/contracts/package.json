@@ -8,7 +8,8 @@
     ".": "./src/generated/contracts.ts",
     "./script-validator": "./src/script-validator.ts",
     "./compiler-core": "./src/compiler-core.ts",
-    "./prompter-export": "./src/prompter-export.ts"
+    "./prompter-export": "./src/prompter-export.ts",
+    "./shoot-registration": "./src/shoot-registration.ts"
   },
   "scripts": {
     "lint": "eslint src test --max-warnings=0",

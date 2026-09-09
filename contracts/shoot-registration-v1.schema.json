@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.vera.video/contracts/shoot-registration-v1.schema.json",
+  "title": "ShootRegistrationProjectV1",
+  "description": "Shared, path-safe record of immutable local presenter masters.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "projectId", "mediaLibrary", "sessions"],
+  "properties": {
+    "schemaVersion": { "const": "shoot-registration/v1" },
+    "projectId": { "$ref": "script-document-v1.schema.json#/$defs/EntityId" },
+    "mediaLibrary": { "$ref": "#/$defs/MediaLibraryStrategy" },
+    "sessions": { "type": "array", "items": { "$ref": "#/$defs/ShootSession" } }
+  },
+  "$defs": {
+    "ContentHash": { "$ref": "script-document-v1.schema.json#/$defs/ContentHash" },
+    "EntityId": { "$ref": "script-document-v1.schema.json#/$defs/EntityId" },
+    "SafeDisplayName": { "type": "string", "minLength": 1, "maxLength": 255, "pattern": "^[^/\\\\\\u0000-\\u001F]+$" },
+    "RelativePath": { "type": "string", "minLength": 1, "maxLength": 4096, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)[^\\\\\\u0000-\\u001F]+$" },
+    "MediaLibraryStrategy": {
+      "oneOf": [
+        { "type": "object", "additionalProperties": false, "required": ["kind", "libraryId"], "properties": { "kind": { "const": "project_local" }, "libraryId": { "$ref": "#/$defs/EntityId" } } },
+        { "type": "object", "additionalProperties": false, "required": ["kind"], "properties": { "kind": { "const": "unconfigured" } } }
+      ]
+    },
+    "PrompterExportReference": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sourceDocument", "prompterExportSha256", "beatMapSha256"],
+      "properties": {
+        "sourceDocument": { "$ref": "script-document-v1.schema.json#/$defs/DocumentReference" },
+        "prompterExportSha256": { "$ref": "#/$defs/ContentHash" },
+        "beatMapSha256": { "$ref": "#/$defs/ContentHash" }
+      }
+    },
+    "SourceLocator": {
+      "type": "object", "additionalProperties": false, "required": ["libraryId", "relativePath"],
+      "properties": { "libraryId": { "$ref": "#/$defs/EntityId" }, "relativePath": { "$ref": "#/$defs/RelativePath" } }
+    },
+    "VideoStreamInspection": {
+      "type": "object", "additionalProperties": false,
+      "required": ["codec", "width", "height", "frameRate", "timecode", "colorMetadata"],
+      "properties": {
+        "codec": { "type": "string", "minLength": 1 }, "width": { "type": "integer", "minimum": 1 }, "height": { "type": "integer", "minimum": 1 },
+        "frameRate": { "type": "string", "pattern": "^[1-9][0-9]*/[1-9][0-9]*$" }, "timecode": { "type": ["string", "null"] },
+        "colorMetadata": { "type": "object", "additionalProperties": false, "required": ["space", "transfer", "primaries", "range"], "properties": { "space": { "type": ["string", "null"] }, "transfer": { "type": ["string", "null"] }, "primaries": { "type": ["string", "null"] }, "range": { "type": ["string", "null"] } } }
+      }
+    },
+    "AudioStreamInspection": {
+      "type": "object", "additionalProperties": false, "required": ["codec", "channels", "layout", "sampleRate"],
+      "properties": { "codec": { "type": "string", "minLength": 1 }, "channels": { "type": "integer", "minimum": 1 }, "layout": { "type": ["string", "null"] }, "sampleRate": { "type": "integer", "minimum": 1 } }
+    },
+    "SourceInspection": {
+      "type": "object", "additionalProperties": false, "required": ["formatName", "durationMs", "videoStreams", "audioStreams"],
+      "properties": { "formatName": { "type": "string", "minLength": 1 }, "durationMs": { "type": "integer", "minimum": 1 }, "videoStreams": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/VideoStreamInspection" } }, "audioStreams": { "type": "array", "items": { "$ref": "#/$defs/AudioStreamInspection" } } }
+    },
+    "RelinkEvidence": {
+      "type": "object", "additionalProperties": false, "required": ["locator", "mediaHash", "observedAt"],
+      "properties": { "locator": { "$ref": "#/$defs/SourceLocator" }, "mediaHash": { "$ref": "#/$defs/ContentHash" }, "observedAt": { "type": "string", "format": "date-time" } }
+    },
+    "ShootSource": {
+      "type": "object", "additionalProperties": false, "required": ["id", "mediaHash", "byteSize", "safeDisplayName", "inspection", "authorization", "status", "relinkHistory"],
+      "properties": {
+        "id": { "$ref": "#/$defs/EntityId" }, "mediaHash": { "$ref": "#/$defs/ContentHash" }, "byteSize": { "type": "integer", "minimum": 1 }, "safeDisplayName": { "$ref": "#/$defs/SafeDisplayName" }, "locator": { "$ref": "#/$defs/SourceLocator" },
+        "inspection": { "$ref": "#/$defs/SourceInspection" }, "authorization": { "const": "authorized_local" }, "status": { "const": "ready" }, "relinkHistory": { "type": "array", "items": { "$ref": "#/$defs/RelinkEvidence" } }
+      }
+    },
+    "ShootSession": {
+      "type": "object", "additionalProperties": false, "required": ["id", "name", "frozenPrompter", "processingProfileVersion", "sources"],
+      "properties": { "id": { "$ref": "#/$defs/EntityId" }, "name": { "type": "string", "minLength": 1, "maxLength": 255 }, "frozenPrompter": { "$ref": "#/$defs/PrompterExportReference" }, "processingProfileVersion": { "type": "string", "minLength": 1 }, "sources": { "type": "array", "items": { "$ref": "#/$defs/ShootSource" } } }
+    },
+    "LocalSourceHandoffInventoryV1": {
+      "type": "object", "additionalProperties": false, "required": ["schemaVersion", "projectId", "sessionId", "sources"],
+      "properties": { "schemaVersion": { "const": "local-source-handoff-inventory/v1" }, "projectId": { "$ref": "#/$defs/EntityId" }, "sessionId": { "$ref": "#/$defs/EntityId" }, "sources": { "type": "array", "items": { "$ref": "#/$defs/ShootSource" } } }
+    }
+  }
+}
