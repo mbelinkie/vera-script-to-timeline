@@ -1,0 +1,62 @@
+{
+  "packageDir": "/Users/matthewbelinkie/.codex/worktrees/4d84/VERA Script to Timeline/out/issue-107-acceptance-package",
+  "packageFiles": [
+    {
+      "path": "IMPORT_INSTRUCTIONS.md",
+      "sha256": "993d977e1b25d5171c14b4d408a36433a4d63a8d0a88eb9a1d5f15377da21f09",
+      "sizeBytes": 1806
+    },
+    {
+      "path": "build-report.json",
+      "sha256": "f6402f69ca55e281083822271d4395095c4edb1a7a358fce5470d3ca619b8c18",
+      "sizeBytes": 3406
+    },
+    {
+      "path": "media/audio-ambient-bed.wav",
+      "sha256": "36358d42a4e0290b5c358841fd15e8aa368f47d7c498b179028e9e4d4209e131",
+      "sizeBytes": 576044
+    },
+    {
+      "path": "media/clip-cutaway-orange.mp4",
+      "sha256": "ad4f20f6b0ea828b59fc94fa1c254e3630e0a3a21daec754f082a910d549f964",
+      "sizeBytes": 5607
+    },
+    {
+      "path": "media/clip-detail-green.mp4",
+      "sha256": "1d8f86f69770ca5d6f596033400f531456d181a37a69b8afb8e8629db06c2cbd",
+      "sizeBytes": 5852
+    },
+    {
+      "path": "media/clip-establishing-blue.mp4",
+      "sha256": "f04abe75cbddf55fac6e6949b246b12781e6a496c5434283f1bfd1b83e2559f3",
+      "sizeBytes": 5830
+    },
+    {
+      "path": "media/still-reference-grid.png",
+      "sha256": "fa2ab99265a93b59115d507be563adc4afa2b4f85992c8ac8eba2fbc28c294b3",
+      "sizeBytes": 18233
+    },
+    {
+      "path": "timeline-manifest.json",
+      "sha256": "173e4b4cba80b89ab1f7192d35bd16358ee18b9167bb1e936861a29843c4fff0",
+      "sizeBytes": 8672
+    },
+    {
+      "path": "timeline.otio",
+      "sha256": "13a7c6cfd481c7863d9d0f6d63b9ba959d82acc7acb4e5ea50a5458f2df63a40",
+      "sizeBytes": 37968
+    }
+  ],
+  "projectName": "VERA Issue 107 Acceptance 20260909-163929",
+  "schemaVersion": "vera-workflow-package-attestation-v1",
+  "verification": {
+    "eventCount": 5,
+    "markerCount": 1,
+    "mediaCount": 5
+  },
+  "verifiedAt": "2026-09-09T20:39:48.067797+00:00",
+  "verifier": {
+    "implementation": "CPython",
+    "pythonVersion": "3.12.14"
+  }
+}

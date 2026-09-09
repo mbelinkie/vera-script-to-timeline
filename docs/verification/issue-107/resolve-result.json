@@ -1,0 +1,42 @@
+{
+  "connected": {
+    "build": "14",
+    "edition": "studio",
+    "product_name": "DaVinci Resolve Studio",
+    "scripting_available": true,
+    "suffix": "",
+    "version": "21.1.0"
+  },
+  "discrepancies": [],
+  "local": {
+    "app_installed": true,
+    "app_path": "/Applications/DaVinci Resolve/DaVinci Resolve.app",
+    "architecture": "x86_64",
+    "bundle_build": "21.1.00014",
+    "bundle_identifier": "com.blackmagic-design.DaVinciResolve",
+    "bundle_name": "DaVinci Resolve",
+    "bundle_version": "21.1.0",
+    "install_source": "unknown_non_mas",
+    "mas_receipt": false,
+    "os_name": "macOS",
+    "os_version": "15.1",
+    "package_receipt_id": "com.blackmagic-design.ManifestLite",
+    "package_receipt_version": "21.0.4",
+    "scripting_docs_installed": false,
+    "scripting_docs_path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/README.txt",
+    "scripting_module_installed": true,
+    "scripting_module_path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/Modules/DaVinciResolveScript.py"
+  },
+  "manual_completion": [
+    "Package verification ran separately under CPython 3.12.14 at 2026-09-09T20:39:48.067797+00:00; Resolve rechecked every attested package file hash before this API preflight.",
+    "This result proves only that the Workflow Integration received an injected Resolve object; external-bridge independence still requires the producer's restricted-access run.",
+    "The public API cannot enumerate the local stock Fusion-title catalog. This build instead uses the producer-authored, hash-pinned Text+ template.",
+    "Nonmutating preflight cannot prove project creation, setting mutation, media import, timeline assembly, or Fusion-title insertion; those calls are checked only after the producer authorizes the build."
+  ],
+  "message": "Python 3.14 Workflow Integration startup created, saved, reopened, and verified the attestation-bound acceptance project. Timeline assembly and Text+ placement were intentionally not claimed.",
+  "project_name": "VERA Issue 107 Acceptance 20260909-163929",
+  "status": "startup_verified",
+  "timeline_name": "VERA build 00000000-0000-4000-8000-000000000103",
+  "title_placement": null,
+  "verified": true
+}

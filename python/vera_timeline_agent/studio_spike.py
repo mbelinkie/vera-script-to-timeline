@@ -14,12 +14,16 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Protocol, cast
 
-from vera_timeline_agent.otio_package import verify_otio_package
 from vera_timeline_agent.text_plus_template import (
     DEFAULT_TEXT_PLUS_TEMPLATE_METADATA,
     TemplateValidationError,
     TextPlusTemplate,
     validate_text_plus_template,
+)
+from vera_timeline_agent.workflow_attestation import (
+    WorkflowAttestationError,
+    load_verified_workflow_package,
+    write_workflow_attestation,
 )
 
 DEFAULT_APP_PATH = Path("/Applications/DaVinci Resolve/DaVinci Resolve.app")
@@ -123,6 +127,8 @@ class ResolveAdapter(Protocol):
 
     def connected_facts(self) -> ConnectedFacts: ...
 
+    def probe_startup(self) -> tuple[str, ...]: ...
+
     def probe(self, settings: Mapping[str, str]) -> tuple[str, ...]: ...
 
     def check_project_name_available(self, name: str) -> None: ...
@@ -149,10 +155,44 @@ class ResolveAdapter(Protocol):
 
     def save_close_reopen(self, project_name: str) -> None: ...
 
+    def verify_startup(
+        self,
+        project_name: str,
+        timeline_name: str,
+        settings: Mapping[str, str],
+    ) -> tuple[str, ...]: ...
+
     def verify(self, manifest: Mapping[str, Any]) -> tuple[str, ...]: ...
 
 
 AdapterFactory = Callable[[LocalFacts], ResolveAdapter]
+
+
+def _verify_otio_package(package_dir: Path) -> Any:
+    """Keep the Python 3.12 native verifier outside Resolve's import graph."""
+    from vera_timeline_agent.otio_package import verify_otio_package
+
+    return verify_otio_package(package_dir)
+
+
+def create_workflow_attestation(
+    package_dir: Path,
+    output_path: Path,
+    *,
+    project_name: str,
+) -> Path:
+    """Verify externally, then bind the accepted package to a Resolve request."""
+    verification = _verify_otio_package(package_dir)
+    return write_workflow_attestation(
+        package_dir,
+        output_path,
+        project_name=project_name,
+        verification={
+            "eventCount": verification.event_count,
+            "markerCount": verification.marker_count,
+            "mediaCount": verification.media_count,
+        },
+    )
 
 
 def detect_local_capabilities(
@@ -233,7 +273,7 @@ def run_delivery(
         raise StudioSpikeError("mode must be 'free' or 'studio'")
     if action not in {"preflight", "build"}:
         raise StudioSpikeError("action must be 'preflight' or 'build'")
-    verify_otio_package(package_dir)
+    _verify_otio_package(package_dir)
     local = local_facts or detect_local_capabilities()
     if mode == "free":
         return CapabilityResult(
@@ -397,12 +437,11 @@ def run_delivery(
 
 
 def run_injected_delivery(
-    package_dir: Path,
+    attestation_path: Path,
     resolve: Any,
     *,
     action: str = "preflight",
     local_facts: LocalFacts | None = None,
-    project_name: str | None = None,
     fusion_title: str = "Text+",
     fusion_title_track_id: str = "video-graphics",
     fusion_title_duration_frames: int | None = None,
@@ -414,13 +453,17 @@ def run_injected_delivery(
     deliberately does not load the external bridge; it retains package
     verification and the existing mutation boundary.
     """
-    if action not in {"preflight", "build"}:
-        raise StudioSpikeError("action must be 'preflight' or 'build'")
+    if action not in {"preflight", "startup", "build"}:
+        raise StudioSpikeError("action must be 'preflight', 'startup', or 'build'")
     if resolve is None:
         raise StudioSpikeError("Resolve did not inject an API object")
-    verify_otio_package(package_dir)
+    try:
+        verified_package = load_verified_workflow_package(attestation_path)
+    except WorkflowAttestationError as error:
+        raise StudioSpikeError(str(error)) from error
+    package_dir = verified_package.package_dir
     local = local_facts or detect_local_capabilities()
-    manifest = _load_manifest(package_dir)
+    manifest = verified_package.manifest
     timeline = cast(Mapping[str, Any], manifest["timeline"])
     if timeline["startFrame"] != 0:
         return CapabilityResult(
@@ -431,25 +474,29 @@ def run_injected_delivery(
             ),
             local=local,
         )
-    try:
-        template = validate_text_plus_template(
-            template_metadata, require_validated_duration_rule=True
-        )
-        title_placement = _resolve_text_plus_placement(
-            manifest,
-            title_name=fusion_title,
-            track_id=fusion_title_track_id,
-            duration_frames=fusion_title_duration_frames,
-        )
-    except (StudioSpikeError, TemplateValidationError) as error:
-        return CapabilityResult(
-            status="stopped_safely",
-            message=f"Pinned Text+ preflight failed before project mutation: {error}",
-            local=local,
-        )
+    template: TextPlusTemplate | None = None
+    title_placement: TextPlusPlacement | None = None
+    if action != "startup":
+        try:
+            template = validate_text_plus_template(
+                template_metadata, require_validated_duration_rule=True
+            )
+            title_placement = _resolve_text_plus_placement(
+                manifest,
+                title_name=fusion_title,
+                track_id=fusion_title_track_id,
+                duration_frames=fusion_title_duration_frames,
+            )
+        except (StudioSpikeError, TemplateValidationError) as error:
+            message_prefix = "Pinned Text+ preflight failed before project mutation: "
+            return CapabilityResult(
+                status="stopped_safely",
+                message=message_prefix + str(error),
+                local=local,
+            )
 
     adapter = PublicResolveAdapter(resolve)
-    resolved_project_name = project_name or f"VERA Workflow Spike {manifest['buildId']}"
+    resolved_project_name = verified_package.project_name
     timeline_name = f"VERA build {manifest['buildId']}"
     settings = _project_settings(timeline)
     try:
@@ -471,16 +518,19 @@ def run_injected_delivery(
             local=local,
             connected=connected,
         )
-    template_stop = _template_connected_stop(template, connected)
-    if template_stop is not None:
-        return CapabilityResult(
-            status="stopped_safely",
-            message=template_stop,
-            local=local,
-            connected=connected,
-        )
+    if template is not None:
+        template_stop = _template_connected_stop(template, connected)
+        if template_stop is not None:
+            return CapabilityResult(
+                status="stopped_safely",
+                message=template_stop,
+                local=local,
+                connected=connected,
+            )
     try:
-        probe_gaps = adapter.probe(settings)
+        probe_gaps = (
+            adapter.probe_startup() if action == "startup" else adapter.probe(settings)
+        )
         adapter.check_project_name_available(resolved_project_name)
     except Exception as error:
         return CapabilityResult(
@@ -492,12 +542,23 @@ def run_injected_delivery(
             local=local,
             connected=connected,
         )
+    adapter_scope = (
+        "This startup-only acceptance creates one empty manifest-configured timeline; "
+        "it does not import media, assemble events, place Text+, render, or claim "
+        "delivery capability."
+        if action == "startup"
+        else "The public API cannot enumerate the local stock Fusion-title catalog. "
+        "This build instead uses the producer-authored, hash-pinned Text+ template."
+    )
     manual = (
-        "This result proves only that the Workflow Integration received an injected "
-        "Resolve object; external-bridge independence still requires the producer's "
-        "restricted-access run.",
-        "The public API cannot enumerate the local stock Fusion-title catalog. "
-        "This build instead uses the producer-authored, hash-pinned Text+ template.",
+        "Package verification ran separately under "
+        f"{verified_package.verifier['implementation']} "
+        f"{verified_package.verifier['pythonVersion']} at "
+        f"{verified_package.verified_at}; Resolve rechecked every attested package "
+        "file hash before this API preflight.",
+        "This path uses Resolve's injected object and never loads the external bridge; "
+        "the external-scripting preference is retained as separate operator evidence.",
+        adapter_scope,
         *probe_gaps,
     )
     if action == "preflight":
@@ -506,6 +567,47 @@ def run_injected_delivery(
             message="Workflow Integration preflight passed without project mutation.",
             local=local,
             connected=connected,
+            manual_completion=manual,
+        )
+
+    if action == "startup":
+        try:
+            adapter.create_project(resolved_project_name)
+            adapter.configure_project(settings)
+            adapter.create_timeline(timeline_name)
+            adapter.save_close_reopen(resolved_project_name)
+            discrepancies = adapter.verify_startup(
+                resolved_project_name, timeline_name, settings
+            )
+        except Exception as error:
+            return CapabilityResult(
+                status="mutation_failed",
+                message=(
+                    "Workflow Integration startup failed after project mutation was "
+                    "authorized. A partial uniquely named project may remain and "
+                    f"must be inspected manually. Detail: {error}"
+                ),
+                local=local,
+                connected=connected,
+                project_name=resolved_project_name,
+                timeline_name=timeline_name,
+                manual_completion=manual,
+            )
+        return CapabilityResult(
+            status="startup_verified" if not discrepancies else "verification_failed",
+            message=(
+                "Python 3.14 Workflow Integration startup created, saved, reopened, "
+                "and verified the attestation-bound acceptance project. Timeline "
+                "assembly and Text+ placement were intentionally not claimed."
+                if not discrepancies
+                else "Workflow Integration startup reopened with discrepancies."
+            ),
+            local=local,
+            connected=connected,
+            project_name=resolved_project_name,
+            timeline_name=timeline_name,
+            verified=not discrepancies,
+            discrepancies=discrepancies,
             manual_completion=manual,
         )
 
@@ -519,6 +621,8 @@ def run_injected_delivery(
         adapter.import_media(sources)
         adapter.create_timeline(timeline_name)
         adapter.configure_tracks(cast(list[Mapping[str, Any]], manifest["tracks"]))
+        if title_placement is None or template is None:
+            raise StudioSpikeError("Text+ build inputs were not prepared")
         title_evidence = adapter.insert_text_plus(title_placement, template)
         adapter.place_events(cast(list[Mapping[str, Any]], manifest["events"]))
         for marker in cast(list[Mapping[str, Any]], manifest["markers"]):
@@ -631,37 +735,8 @@ class PublicResolveAdapter:
         return ConnectedFacts(product, edition, version, str(build), True, suffix)
 
     def probe(self, settings: Mapping[str, str]) -> tuple[str, ...]:
-        if not callable(getattr(self.resolve, "GetCurrentPage", None)):
-            raise StudioSpikeError("Resolve has no callable GetCurrentPage")
-        current_page = self.resolve.GetCurrentPage()
-        if current_page not in TIMELINE_PAGES:
-            allowed = ", ".join(sorted(TIMELINE_PAGES))
-            raise StudioSpikeError(
-                "Resolve must already be on a timeline page before preflight "
-                f"({allowed}); current page is {current_page!r}"
-            )
-        manager = self.resolve.GetProjectManager()
-        if manager is None:
-            raise StudioSpikeError("GetProjectManager returned no object")
-        for method in (
-            "GetProjectListInCurrentFolder",
-            "GetCurrentProject",
-            "CreateProject",
-            "SaveProject",
-            "CloseProject",
-            "LoadProject",
-        ):
-            if not callable(getattr(manager, method, None)):
-                raise StudioSpikeError(f"project manager has no callable {method}")
-        if not isinstance(manager.GetProjectListInCurrentFolder(), (list, tuple)):
-            raise StudioSpikeError("project-list probe returned an unsupported value")
-        self.manager = manager
-        gaps = [
-            "Nonmutating preflight cannot prove project creation, setting mutation, "
-            "media import, timeline assembly, or Fusion-title insertion; those calls "
-            "are checked only after the producer authorizes the build."
-        ]
-        current = manager.GetCurrentProject()
+        gaps = list(self.probe_startup())
+        current = self.manager.GetCurrentProject()
         if current is None:
             raise StudioSpikeError(
                 "an open current project is required to inspect Studio API surfaces"
@@ -701,6 +776,38 @@ class PublicResolveAdapter:
             if not callable(getattr(current_timeline, method, None)):
                 raise StudioSpikeError(f"current timeline has no callable {method}")
         return tuple(gaps)
+
+    def probe_startup(self) -> tuple[str, ...]:
+        if not callable(getattr(self.resolve, "GetCurrentPage", None)):
+            raise StudioSpikeError("Resolve has no callable GetCurrentPage")
+        current_page = self.resolve.GetCurrentPage()
+        if current_page not in TIMELINE_PAGES:
+            allowed = ", ".join(sorted(TIMELINE_PAGES))
+            raise StudioSpikeError(
+                "Resolve must already be on a timeline page before preflight "
+                f"({allowed}); current page is {current_page!r}"
+            )
+        manager = self.resolve.GetProjectManager()
+        if manager is None:
+            raise StudioSpikeError("GetProjectManager returned no object")
+        for method in (
+            "GetProjectListInCurrentFolder",
+            "GetCurrentProject",
+            "CreateProject",
+            "SaveProject",
+            "CloseProject",
+            "LoadProject",
+        ):
+            if not callable(getattr(manager, method, None)):
+                raise StudioSpikeError(f"project manager has no callable {method}")
+        if not isinstance(manager.GetProjectListInCurrentFolder(), (list, tuple)):
+            raise StudioSpikeError("project-list probe returned an unsupported value")
+        self.manager = manager
+        return (
+            "Nonmutating preflight cannot prove project creation, setting mutation, "
+            "media import, timeline assembly, or Fusion-title insertion; those calls "
+            "are checked only after the producer authorizes the build.",
+        )
 
     def check_project_name_available(self, name: str) -> None:
         if name in self.manager.GetProjectListInCurrentFolder():
@@ -928,19 +1035,36 @@ class PublicResolveAdapter:
         if self.timeline is None:
             raise StudioSpikeError("reopened project has no current timeline")
 
-    def verify(self, manifest: Mapping[str, Any]) -> tuple[str, ...]:
+    def verify_startup(
+        self,
+        project_name: str,
+        timeline_name: str,
+        settings: Mapping[str, str],
+    ) -> tuple[str, ...]:
         discrepancies: list[str] = []
-        if self.project.GetName() != self.expected_project_name:
+        if self.project.GetName() != project_name:
             discrepancies.append("reopened project name differs from requested name")
-        if self.timeline.GetName() != self.expected_timeline_name:
+        if self.timeline.GetName() != timeline_name:
             discrepancies.append("reopened timeline name differs from requested name")
-        for key, expected_value in self.expected_settings.items():
+        for key, expected_value in settings.items():
             actual = str(self.project.GetSetting(key))
             if actual != expected_value:
                 discrepancies.append(
                     f"project setting {key}: expected {expected_value!r}, "
                     f"got {actual!r}"
                 )
+        return tuple(discrepancies)
+
+    def verify(self, manifest: Mapping[str, Any]) -> tuple[str, ...]:
+        if self.expected_project_name is None or self.expected_timeline_name is None:
+            raise StudioSpikeError("adapter verification identity was not initialized")
+        discrepancies = list(
+            self.verify_startup(
+                self.expected_project_name,
+                self.expected_timeline_name,
+                self.expected_settings,
+            )
+        )
         timeline = cast(Mapping[str, Any], manifest["timeline"])
         expected_start = cast(int, timeline["startFrame"])
         expected_end = expected_start + cast(int, timeline["durationFrames"])

@@ -10,14 +10,11 @@ from .studio_spike import CapabilityResult, run_injected_delivery
 
 def run_workflow_integration(
     resolve: Any,
-    package_dir: Path,
-    *,
-    project_name: str,
+    attestation_path: Path,
 ) -> CapabilityResult:
     """Build one uniquely named test project from Resolve's injected object."""
     return run_injected_delivery(
-        package_dir,
+        attestation_path,
         resolve,
-        action="build",
-        project_name=project_name,
+        action="startup",
     )

@@ -298,24 +298,43 @@ not Resolve evidence. A failure after the build is authorized can leave a
 partial project; the CLI reports `mutation_failed` and the project must be
 inspected manually rather than treated as a nonmutating safety stop.
 
-## Issue 6 Workflow Integration adapter spike
+## Resolve Workflow Integration adapter boundary
 
 This is a staging-only investigation, not a shipped companion or installer.
 The staged Python wrapper at
 [`staging/resolve-workflow-integration`](./staging/resolve-workflow-integration)
 expects Resolve to inject `resolve` when launched from **Workspace > Workflow
-Integrations**. It is currently a standard-library-only, non-mutating probe:
-it records the injected object's product name and version and never loads the
-external bridge or creates a project.
+Integrations**. Resolve's direct runner uses Python 3.14, while package
+verification uses VERA's locked Python 3.12 dependencies. Keep those runtimes
+separate: first build and verify the accepted package, then create a
+hash-bound Workflow Integration attestation outside Resolve:
 
-Resolve's direct script runtime does not define `__file__` and uses Python
-3.14, whereas VERA's locked native dependencies are built for Python 3.12.
-Therefore, this probe does not yet run the existing Python adapter. With
-external scripting set to **None**, launch it and inspect the retained result
-for `status: "injected_probe_passed"`. Record the observed Resolve version and
-result in
-[`docs/investigations/issue-6-resolve-workflow-integration.md`](./docs/investigations/issue-6-resolve-workflow-integration.md)
-before considering a separate, compatible in-process adapter.
+```sh
+uv run --frozen python -m vera_timeline_agent.otio_package \
+  tests/data/slice_0_2/timeline-manifest.json \
+  --media-root fixtures \
+  --output out/issue-107-acceptance-package
+
+uv run --frozen python -m vera_timeline_agent.studio_spike_cli attest \
+  out/issue-107-acceptance-package \
+  out/issue-107-workflow-attestation.json \
+  --project-name "VERA Issue 107 Acceptance YYYYMMDD-HHMMSS"
+```
+
+Copy the checked-in example to `vera-workflow-integration.json` in Resolve's
+`Workflow Integration Plugins` directory. Set `pythonPath` to this checkout's
+`python/` directory and `attestationPath` to the generated attestation; do not
+add the Python 3.12 virtual environment or `site-packages`. The injected path
+uses only the repository source and Python 3.14 standard library. Before any
+Resolve API mutation, it re-hashes the package and requires an exact match with
+the external verifier's inventory. The existing external Studio adapter keeps
+its original package-verification path.
+
+With external scripting set to **None**, open a disposable project with a
+timeline on the Edit page and launch the integration. It must create only the
+fresh name bound into the attestation. Record the observed Resolve version,
+attestation, and retained result in
+[`docs/investigations/issue-107-resolve-python-314-adapter.md`](./docs/investigations/issue-107-resolve-python-314-adapter.md).
 
 The wrapper also writes that JSON to
 `vera-workflow-integration-result.json` in the Workflow Integration Plugins

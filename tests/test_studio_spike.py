@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -18,6 +19,7 @@ from vera_timeline_agent.studio_spike import (
     StudioSpikeError,
     TextPlusPlacement,
     TitlePlacementEvidence,
+    create_workflow_attestation,
     detect_local_capabilities,
     load_resolve_adapter,
     run_delivery,
@@ -33,12 +35,20 @@ from vera_timeline_agent.text_plus_validation import FusionFingerprint
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = REPOSITORY_ROOT / "tests/data/slice_0_2/timeline-manifest.json"
 MEDIA_ROOT = REPOSITORY_ROOT / "fixtures"
+WORKFLOW_PROJECT = "VERA Workflow 107 Acceptance"
 
 
 @pytest.fixture
 def package(tmp_path: Path) -> Path:
     output = tmp_path / "accepted-package"
     build_otio_package(MANIFEST, MEDIA_ROOT, output)
+    return output
+
+
+@pytest.fixture
+def workflow_attestation(package: Path, tmp_path: Path) -> Path:
+    output = tmp_path / "workflow-attestation.json"
+    create_workflow_attestation(package, output, project_name=WORKFLOW_PROJECT)
     return output
 
 
@@ -90,6 +100,12 @@ class RecordingAdapter:
             raise self.probe_error
         return ()
 
+    def probe_startup(self) -> tuple[str, ...]:
+        self.calls.append(("probe_startup", None))
+        if self.probe_error:
+            raise self.probe_error
+        return ()
+
     def check_project_name_available(self, name: str) -> None:
         self.calls.append(("check_project_name_available", name))
 
@@ -133,6 +149,17 @@ class RecordingAdapter:
 
     def save_close_reopen(self, project_name: str) -> None:
         self.calls.append(("save_close_reopen", project_name))
+
+    def verify_startup(
+        self,
+        project_name: str,
+        timeline_name: str,
+        settings: Mapping[str, str],
+    ) -> tuple[str, ...]:
+        self.calls.append(
+            ("verify_startup", (project_name, timeline_name, dict(settings)))
+        )
+        return self.discrepancies
 
     def verify(self, manifest: Mapping[str, Any]) -> tuple[str, ...]:
         self.calls.append(("verify", manifest["id"]))
@@ -601,7 +628,9 @@ def test_success_has_exact_order_frames_settings_tracks_marker_and_reopen(
 
 
 def test_injected_workflow_reuses_adapter_without_external_bridge(
-    package: Path, standard_local: LocalFacts, monkeypatch: pytest.MonkeyPatch
+    workflow_attestation: Path,
+    standard_local: LocalFacts,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     adapter = RecordingAdapter()
     monkeypatch.setattr(studio_spike, "PublicResolveAdapter", lambda _: adapter)
@@ -612,14 +641,14 @@ def test_injected_workflow_reuses_adapter_without_external_bridge(
     )
 
     result = run_injected_delivery(
-        package,
+        workflow_attestation,
         object(),
         action="build",
         local_facts=standard_local,
-        project_name="Workflow Integration unique acceptance",
     )
 
     assert result.status == "verified"
+    assert result.project_name == WORKFLOW_PROJECT
     assert [name for name, _ in adapter.calls] == [
         "connected_facts",
         "probe",
@@ -646,14 +675,48 @@ def test_injected_workflow_reuses_adapter_without_external_bridge(
     ]
 
 
+def test_injected_startup_verifies_only_fresh_attested_project(
+    workflow_attestation: Path,
+    standard_local: LocalFacts,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = RecordingAdapter(
+        ConnectedFacts("DaVinci Resolve Studio", "studio", "21.1.0", "14", True)
+    )
+    monkeypatch.setattr(studio_spike, "PublicResolveAdapter", lambda _: adapter)
+
+    result = run_injected_delivery(
+        workflow_attestation,
+        object(),
+        action="startup",
+        local_facts=standard_local,
+    )
+
+    assert result.status == "startup_verified" and result.verified
+    assert result.project_name == WORKFLOW_PROJECT
+    assert [name for name, _ in adapter.calls] == [
+        "connected_facts",
+        "probe_startup",
+        "check_project_name_available",
+        "create_project",
+        "configure_project",
+        "create_timeline",
+        "save_close_reopen",
+        "verify_startup",
+    ]
+    assert "Text+ placement were intentionally not claimed" in result.message
+
+
 def test_injected_workflow_stops_before_mutation_when_current_context_fails(
-    package: Path, standard_local: LocalFacts, monkeypatch: pytest.MonkeyPatch
+    workflow_attestation: Path,
+    standard_local: LocalFacts,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     adapter = RecordingAdapter(probe_error=RuntimeError("current timeline missing"))
     monkeypatch.setattr(studio_spike, "PublicResolveAdapter", lambda _: adapter)
 
     result = run_injected_delivery(
-        package,
+        workflow_attestation,
         object(),
         action="build",
         local_facts=standard_local,
@@ -664,7 +727,9 @@ def test_injected_workflow_stops_before_mutation_when_current_context_fails(
 
 
 def test_injected_workflow_reports_partial_unique_target(
-    package: Path, standard_local: LocalFacts, monkeypatch: pytest.MonkeyPatch
+    workflow_attestation: Path,
+    standard_local: LocalFacts,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class FailingAdapter(RecordingAdapter):
         def create_timeline(self, name: str) -> None:
@@ -675,19 +740,79 @@ def test_injected_workflow_reports_partial_unique_target(
     monkeypatch.setattr(studio_spike, "PublicResolveAdapter", lambda _: adapter)
 
     result = run_injected_delivery(
-        package,
+        workflow_attestation,
         object(),
         action="build",
         local_facts=standard_local,
-        project_name="Workflow Integration unique partial",
     )
 
     assert result.status == "mutation_failed"
-    assert result.project_name == "Workflow Integration unique partial"
+    assert result.project_name == WORKFLOW_PROJECT
     assert "partial uniquely named project may remain" in result.message
 
 
-def test_staged_workflow_wrapper_never_loads_external_bridge() -> None:
+def test_workflow_attestation_binds_verified_package_bytes(
+    package: Path, workflow_attestation: Path, standard_local: LocalFacts
+) -> None:
+    manifest = package / "timeline-manifest.json"
+    manifest.write_bytes(manifest.read_bytes() + b" ")
+
+    with pytest.raises(StudioSpikeError, match="changed since external verification"):
+        run_injected_delivery(
+            workflow_attestation,
+            object(),
+            action="build",
+            local_facts=standard_local,
+        )
+
+
+def test_workflow_attestation_records_distinct_verifier_evidence(
+    workflow_attestation: Path,
+) -> None:
+    value = json.loads(workflow_attestation.read_text(encoding="utf-8"))
+
+    assert value["schemaVersion"] == "vera-workflow-package-attestation-v1"
+    assert value["projectName"] == WORKFLOW_PROJECT
+    assert value["verification"] == {
+        "eventCount": 5,
+        "markerCount": 1,
+        "mediaCount": 5,
+    }
+    assert value["verifier"]["pythonVersion"].startswith("3.12.")
+    assert {item["path"] for item in value["packageFiles"]} == {
+        "IMPORT_INSTRUCTIONS.md",
+        "build-report.json",
+        "media/audio-ambient-bed.wav",
+        "media/clip-cutaway-orange.mp4",
+        "media/clip-detail-green.mp4",
+        "media/clip-establishing-blue.mp4",
+        "media/still-reference-grid.png",
+        "timeline-manifest.json",
+        "timeline.otio",
+    }
+
+
+def test_workflow_startup_imports_without_site_packages() -> None:
+    python_root = REPOSITORY_ROOT / "python"
+    command = (
+        "import sys; "
+        f"sys.path.insert(0, {str(python_root)!r}); "
+        "import vera_timeline_agent.workflow_integration; "
+        "assert not ({'opentimelineio', 'jsonschema', 'referencing'} "
+        "& set(sys.modules))"
+    )
+
+    completed = subprocess.run(
+        [sys.executable, "-S", "-c", command],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+
+
+def test_staged_workflow_wrapper_never_loads_external_bridge_or_venv() -> None:
     staged = (
         REPOSITORY_ROOT
         / "staging/resolve-workflow-integration/VERA Workflow Integration.py"
@@ -698,6 +823,8 @@ def test_staged_workflow_wrapper_never_loads_external_bridge() -> None:
 
     assert "DaVinciResolveScript" not in staged + entrypoint
     assert "scriptapp" not in staged + entrypoint
+    assert "site-packages" not in staged
+    assert ".venv" not in staged
 
 
 @pytest.mark.parametrize(
@@ -1241,3 +1368,26 @@ def test_cli_detect_does_not_need_resolve(
     output = json.loads(capsys.readouterr().out)
     assert output["app_installed"] is False
     assert output["install_source"] == "missing"
+
+
+def test_cli_attest_retains_external_verification_evidence(
+    package: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output = tmp_path / "acceptance-attestation.json"
+
+    assert (
+        main(
+            [
+                "attest",
+                str(package),
+                str(output),
+                "--project-name",
+                WORKFLOW_PROJECT,
+            ]
+        )
+        == 0
+    )
+
+    value = json.loads(capsys.readouterr().out)
+    assert value == json.loads(output.read_text(encoding="utf-8"))
+    assert value["projectName"] == WORKFLOW_PROJECT

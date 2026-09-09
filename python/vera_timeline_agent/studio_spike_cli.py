@@ -9,7 +9,13 @@ from pathlib import Path
 
 from vera_timeline_agent.otio_package import PackageBuildError
 
-from .studio_spike import StudioSpikeError, detect_local_capabilities, run_delivery
+from .studio_spike import (
+    StudioSpikeError,
+    create_workflow_attestation,
+    detect_local_capabilities,
+    run_delivery,
+)
+from .workflow_attestation import WorkflowAttestationError
 
 
 def parser() -> argparse.ArgumentParser:
@@ -18,6 +24,12 @@ def parser() -> argparse.ArgumentParser:
     commands = value.add_subparsers(dest="command", required=True)
     detect = commands.add_parser("detect", help="detect local facts without connecting")
     detect.add_argument("--app-path", type=Path)
+    attest = commands.add_parser(
+        "attest", help="verify a package for the Python 3.14 Workflow Integration"
+    )
+    attest.add_argument("package", type=Path)
+    attest.add_argument("output", type=Path)
+    attest.add_argument("--project-name", required=True)
     delivery = commands.add_parser("run", help="verify package and preflight/build")
     delivery.add_argument("package", type=Path)
     delivery.add_argument("--mode", choices=("free", "studio"), required=True)
@@ -46,6 +58,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
             sys.stdout.write(json.dumps(asdict(facts), indent=2, sort_keys=True) + "\n")
             return 0
+        if arguments.command == "attest":
+            output = create_workflow_attestation(
+                arguments.package,
+                arguments.output,
+                project_name=arguments.project_name,
+            )
+            sys.stdout.write(output.read_text(encoding="utf-8"))
+            return 0
         result = run_delivery(
             arguments.package,
             arguments.mode,
@@ -62,7 +82,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             not in {"stopped_safely", "mutation_failed", "verification_failed"}
             else 2
         )
-    except (PackageBuildError, StudioSpikeError, OSError, ValueError) as error:
+    except (
+        PackageBuildError,
+        StudioSpikeError,
+        WorkflowAttestationError,
+        OSError,
+        ValueError,
+    ) as error:
         print(f"Slice 0.4 failed safely: {error}", file=sys.stderr)
         return 2
 
