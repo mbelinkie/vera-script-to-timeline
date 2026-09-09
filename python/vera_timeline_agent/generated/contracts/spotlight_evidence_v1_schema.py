@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 type Digest = str
 
@@ -23,7 +23,6 @@ class Rect(TypedDict):
 
 class Base(TypedDict):
     schemaVersion: Literal["spotlight-evidence/v1"]
-    recordType: str
     recordId: Uuid
     projectId: Uuid
     createdAt: Timestamp
@@ -31,7 +30,7 @@ class Base(TypedDict):
 
 
 class OcrAttempt(Base):
-    recordType: Literal["ocr_attempt_evidence"]
+    recordType: NotRequired[Literal["ocr_attempt_evidence"]]
     captureRevisionId: Uuid
     rasterDigest: Digest
     profileDigest: Digest
@@ -39,7 +38,7 @@ class OcrAttempt(Base):
 
 
 class OcrBatch(Base):
-    recordType: Literal["ocr_evidence_batch"]
+    recordType: NotRequired[Literal["ocr_evidence_batch"]]
     attemptId: Uuid
     captureRevisionId: Uuid
     rasterDigest: Digest
@@ -47,20 +46,20 @@ class OcrBatch(Base):
 
 
 class AutomatedProposal(Base):
-    recordType: Literal["automated_target_proposal"]
+    recordType: NotRequired[Literal["automated_target_proposal"]]
     batchId: Uuid
     elementIds: list[Digest]
 
 
 class ManualProposal(Base):
-    recordType: Literal["manual_geometry_proposal"]
+    recordType: NotRequired[Literal["manual_geometry_proposal"]]
     captureRevisionId: Uuid
     rasterDigest: Digest
     region: Rect
 
 
 class Confirmation(Base):
-    recordType: Literal["author_confirmation"]
+    recordType: NotRequired[Literal["author_confirmation"]]
     proposalId: Uuid
     captureRevisionId: Uuid
     rasterDigest: Digest
@@ -68,7 +67,7 @@ class Confirmation(Base):
 
 
 class RemapProposal(Base):
-    recordType: Literal["remap_proposal"]
+    recordType: NotRequired[Literal["remap_proposal"]]
     oldConfirmationId: Uuid
     newCaptureRevisionId: Uuid
     outcome: Literal[
@@ -83,20 +82,20 @@ class RemapProposal(Base):
 
 
 class RemapDecision(Base):
-    recordType: Literal["remap_decision"]
+    recordType: NotRequired[Literal["remap_decision"]]
     remapProposalId: Uuid
     decision: Literal["keep_old", "accept_remap", "redraw"]
 
 
 class Derivation(Base):
-    recordType: Literal["spotlight_derivation_record"]
+    recordType: NotRequired[Literal["spotlight_derivation_record"]]
     confirmationId: Uuid
     matteDigest: Digest
     matteReceiptDigest: Digest
 
 
 class BuildBinding(Base):
-    recordType: Literal["spotlight_build_binding"]
+    recordType: NotRequired[Literal["spotlight_build_binding"]]
     derivationId: Uuid
     buildReference: str
 

@@ -2065,7 +2065,6 @@ export interface TerminalRecord {
 }
 export interface Base {
   schemaVersion: "spotlight-evidence/v1";
-  recordType: string;
   recordId: string;
   projectId: string;
   createdAt: string;

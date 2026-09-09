@@ -32,10 +32,9 @@
     },
     "base": {
       "type": "object",
-      "required": ["schemaVersion", "recordType", "recordId", "projectId", "createdAt", "payloadDigest"],
+      "required": ["schemaVersion", "recordId", "projectId", "createdAt", "payloadDigest"],
       "properties": {
         "schemaVersion": { "const": "spotlight-evidence/v1" },
-        "recordType": { "type": "string" },
         "recordId": { "$ref": "#/$defs/uuid" },
         "projectId": { "$ref": "#/$defs/uuid" },
         "createdAt": { "$ref": "#/$defs/timestamp" },
