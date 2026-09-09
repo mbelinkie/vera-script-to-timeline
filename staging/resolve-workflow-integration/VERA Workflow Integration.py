@@ -1,58 +1,43 @@
-"""Manual staging wrapper for Resolve's Python Workflow Integration menu."""
+"""Non-mutating, standard-library probe for Resolve's injected workflow API.
+
+Resolve executes direct Workflow Integration scripts without ``__file__``.
+It currently embeds Python 3.14, while this checkout's native VERA packages
+are built for Python 3.12. Keep this probe dependency-free until the runtime
+boundary has a compatible adapter design.
+"""
 
 import json
-import sys
 from pathlib import Path
 
-# Resolve can hide script errors. Leave a local trace before loading VERA so
-# this spike can distinguish a launcher failure from a dependency failure.
-STARTED_PATH = Path(
-    "/Library/Application Support/Blackmagic Design/DaVinci Resolve/"
-    "Workflow Integration Plugins/vera-workflow-integration-started.txt"
-)
-with STARTED_PATH.open("w") as stream:
-    stream.write("started\n")
 
-CONFIG_PATH = Path(__file__).with_name("vera-workflow-integration.json")
-RESULT_PATH = Path(__file__).with_name("vera-workflow-integration-result.json")
+PLUGIN_ROOT = Path(
+    "/Library/Application Support/Blackmagic Design/DaVinci Resolve/"
+    "Workflow Integration Plugins"
+)
+STARTED_PATH = PLUGIN_ROOT / "vera-workflow-integration-started.txt"
+RESULT_PATH = PLUGIN_ROOT / "vera-workflow-integration-result.json"
 
 
 def main(injected_resolve: object) -> None:
-    """Load local staging configuration and use Resolve's injected API object."""
-    config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-    python_paths = config["pythonPaths"]
-    package_dir = Path(config["packageDir"])
-    project_name = config["projectName"]
-    if not isinstance(python_paths, list) or not all(
-        isinstance(value, str) and value for value in python_paths
-    ):
-        raise RuntimeError("pythonPaths must be a nonempty list of absolute paths")
-    if not isinstance(project_name, str) or not project_name:
-        raise RuntimeError("projectName must be a nonempty unique name")
-    for value in reversed(python_paths):
-        sys.path.insert(0, value)
-    from vera_timeline_agent.workflow_integration import run_workflow_integration
-
-    result = run_workflow_integration(
-        injected_resolve,
-        package_dir,
-        project_name=project_name,
+    result = {
+        "status": "injected_probe_passed",
+        "productName": injected_resolve.GetProductName(),
+        "version": injected_resolve.GetVersion(),
+    }
+    RESULT_PATH.write_text(
+        json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
-    RESULT_PATH.write_text(result.to_json(), encoding="utf-8")
-    print(result.to_json(), end="")
 
 
+STARTED_PATH.write_text("started\n", encoding="utf-8")
 injected_resolve = globals().get("resolve")
 try:
     if injected_resolve is None:
-        raise RuntimeError("Resolve did not inject the required resolve object")
+        raise RuntimeError("Resolve did not inject the 'resolve' workflow object")
     main(injected_resolve)
 except Exception as error:
     failure = json.dumps(
-        {"status": "workflow_launcher_failed", "detail": str(error)},
-        indent=2,
-        sort_keys=True,
+        {"status": "workflow_launcher_failed", "detail": str(error)}, indent=2
     ) + "\n"
     RESULT_PATH.write_text(failure, encoding="utf-8")
     print(failure, end="")
-    raise

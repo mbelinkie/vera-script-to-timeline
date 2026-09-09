@@ -304,29 +304,22 @@ This is a staging-only investigation, not a shipped companion or installer.
 The staged Python wrapper at
 [`staging/resolve-workflow-integration`](./staging/resolve-workflow-integration)
 expects Resolve to inject `resolve` when launched from **Workspace > Workflow
-Integrations**. It passes that object to the same public adapter used by the
-Studio spike and never loads the external bridge.
+Integrations**. It is currently a standard-library-only, non-mutating probe:
+it records the injected object's product name and version and never loads the
+external bridge or creates a project.
 
-For producer acceptance, create a fresh `vera-workflow-integration.json` beside
-the staged wrapper from the checked-in example, using absolute paths to this
-checkout's `python/` directory, its locked Python `site-packages` directory,
-and a newly generated accepted package. Choose a unique project name; do not
-reuse an existing project. Resolve's installed developer documentation calls
-the registration directory `Workflow Integration Plugins`.
-
-With external scripting access restricted in Resolve preferences, open a
-disposable acceptance project on the Edit page and launch the staged integration
-from Resolve. It must print JSON with `status: "verified"`, retain the unique
-test project, and report the exact placement/reopen verification. A
-`stopped_safely` result must leave no new project; `mutation_failed` means its
-named partial project is retained for inspection. Record the observed Resolve
-version/build and result in
+Resolve's direct script runtime does not define `__file__` and uses Python
+3.14, whereas VERA's locked native dependencies are built for Python 3.12.
+Therefore, this probe does not yet run the existing Python adapter. With
+external scripting set to **None**, launch it and inspect the retained result
+for `status: "injected_probe_passed"`. Record the observed Resolve version and
+result in
 [`docs/investigations/issue-6-resolve-workflow-integration.md`](./docs/investigations/issue-6-resolve-workflow-integration.md)
-before deciding whether this removes the external-scripting boundary or is only
-a nicer launcher.
+before considering a separate, compatible in-process adapter.
 
 The wrapper also writes that JSON to
-`vera-workflow-integration-result.json` beside its configuration, so a
+`vera-workflow-integration-result.json` in the Workflow Integration Plugins
+directory, so a
 producer can retain the result even when Resolve's script console is hidden.
 
 ### Pinned Text+ destination-track validation
