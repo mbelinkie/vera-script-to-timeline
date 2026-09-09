@@ -396,6 +396,175 @@ def run_delivery(
     )
 
 
+def run_injected_delivery(
+    package_dir: Path,
+    resolve: Any,
+    *,
+    action: str = "preflight",
+    local_facts: LocalFacts | None = None,
+    project_name: str | None = None,
+    fusion_title: str = "Text+",
+    fusion_title_track_id: str = "video-graphics",
+    fusion_title_duration_frames: int | None = None,
+    template_metadata: Path = DEFAULT_TEXT_PLUS_TEMPLATE_METADATA,
+) -> CapabilityResult:
+    """Run the Studio spike with Resolve's Workflow Integration object.
+
+    Resolve supplies this object to a Python Workflow Integration. This path
+    deliberately does not load the external bridge; it retains package
+    verification and the existing mutation boundary.
+    """
+    if action not in {"preflight", "build"}:
+        raise StudioSpikeError("action must be 'preflight' or 'build'")
+    if resolve is None:
+        raise StudioSpikeError("Resolve did not inject an API object")
+    verify_otio_package(package_dir)
+    local = local_facts or detect_local_capabilities()
+    manifest = _load_manifest(package_dir)
+    timeline = cast(Mapping[str, Any], manifest["timeline"])
+    if timeline["startFrame"] != 0:
+        return CapabilityResult(
+            status="stopped_safely",
+            message=(
+                "The bounded Workflow Integration spike supports only a frame-zero "
+                "timeline start; no project mutation occurred."
+            ),
+            local=local,
+        )
+    try:
+        template = validate_text_plus_template(
+            template_metadata, require_validated_duration_rule=True
+        )
+        title_placement = _resolve_text_plus_placement(
+            manifest,
+            title_name=fusion_title,
+            track_id=fusion_title_track_id,
+            duration_frames=fusion_title_duration_frames,
+        )
+    except (StudioSpikeError, TemplateValidationError) as error:
+        return CapabilityResult(
+            status="stopped_safely",
+            message=f"Pinned Text+ preflight failed before project mutation: {error}",
+            local=local,
+        )
+
+    adapter = PublicResolveAdapter(resolve)
+    resolved_project_name = project_name or f"VERA Workflow Spike {manifest['buildId']}"
+    timeline_name = f"VERA build {manifest['buildId']}"
+    settings = _project_settings(timeline)
+    try:
+        connected = adapter.connected_facts()
+    except Exception as error:
+        return CapabilityResult(
+            status="stopped_safely",
+            message=(
+                "Resolve's injected Workflow Integration object was unusable; no "
+                f"project mutation occurred. Detail: {error}"
+            ),
+            local=local,
+        )
+    connected_stop = _injected_connected_stop(connected)
+    if connected_stop is not None:
+        return CapabilityResult(
+            status="stopped_safely",
+            message=connected_stop,
+            local=local,
+            connected=connected,
+        )
+    template_stop = _template_connected_stop(template, connected)
+    if template_stop is not None:
+        return CapabilityResult(
+            status="stopped_safely",
+            message=template_stop,
+            local=local,
+            connected=connected,
+        )
+    try:
+        probe_gaps = adapter.probe(settings)
+        adapter.check_project_name_available(resolved_project_name)
+    except Exception as error:
+        return CapabilityResult(
+            status="stopped_safely",
+            message=(
+                "Workflow Integration preflight failed; no project mutation "
+                f"occurred: {error}"
+            ),
+            local=local,
+            connected=connected,
+        )
+    manual = (
+        "This result proves only that the Workflow Integration received an injected "
+        "Resolve object; external-bridge independence still requires the producer's "
+        "restricted-access run.",
+        "The public API cannot enumerate the local stock Fusion-title catalog. "
+        "This build instead uses the producer-authored, hash-pinned Text+ template.",
+        *probe_gaps,
+    )
+    if action == "preflight":
+        return CapabilityResult(
+            status="preflight_passed",
+            message="Workflow Integration preflight passed without project mutation.",
+            local=local,
+            connected=connected,
+            manual_completion=manual,
+        )
+
+    sources = _resolved_sources(package_dir, manifest)
+    title_evidence: TitlePlacementEvidence | None = None
+    try:
+        adapter.create_project(resolved_project_name)
+        adapter.configure_project(settings)
+        adapter.create_bin("VERA Slice 0.4")
+        adapter.create_bin("Accepted Media")
+        adapter.import_media(sources)
+        adapter.create_timeline(timeline_name)
+        adapter.configure_tracks(cast(list[Mapping[str, Any]], manifest["tracks"]))
+        title_evidence = adapter.insert_text_plus(title_placement, template)
+        adapter.place_events(cast(list[Mapping[str, Any]], manifest["events"]))
+        for marker in cast(list[Mapping[str, Any]], manifest["markers"]):
+            custom_data = json.dumps(
+                {"markerId": marker["id"], "provenance": marker["provenance"]},
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            adapter.add_marker(marker, custom_data)
+        adapter.save_close_reopen(resolved_project_name)
+        discrepancies = adapter.verify(manifest)
+    except Exception as error:
+        return CapabilityResult(
+            status="mutation_failed",
+            message=(
+                "Workflow Integration build failed after project mutation was "
+                "authorized. A partial uniquely named project may remain and must be "
+                f"inspected manually. Detail: {error}"
+            ),
+            local=local,
+            connected=connected,
+            project_name=resolved_project_name,
+            timeline_name=timeline_name,
+            manual_completion=manual,
+            title_placement=title_evidence,
+        )
+    return CapabilityResult(
+        status="verified" if not discrepancies else "verification_failed",
+        message=(
+            "Workflow Integration project saved, reopened, and verified for all "
+            "public-API-observable spike requirements."
+            if not discrepancies
+            else "Workflow Integration project reopened but verification found "
+            "discrepancies."
+        ),
+        local=local,
+        connected=connected,
+        project_name=resolved_project_name,
+        timeline_name=timeline_name,
+        verified=not discrepancies,
+        discrepancies=discrepancies,
+        manual_completion=manual,
+        title_placement=title_evidence,
+    )
+
+
 def load_resolve_adapter(local: LocalFacts) -> ResolveAdapter:
     """Import the vendor bridge and connect only after local safety checks pass."""
     module_path = Path(local.scripting_module_path)
@@ -1217,6 +1386,22 @@ def _connected_studio_stop(local: LocalFacts, connected: ConnectedFacts) -> str 
             f"({connected.version!r}, build {connected.build!r}, suffix "
             f"{connected.suffix!r} versus {local.bundle_version!r}, bundle build "
             f"{local.bundle_build!r}); no project mutation occurred."
+        )
+    return None
+
+
+def _injected_connected_stop(connected: ConnectedFacts) -> str | None:
+    """Validate only the identity facts available from an injected object."""
+    if connected.edition != "studio":
+        return (
+            f"Injected product {connected.product_name!r} is not Studio; the verified "
+            "package remains ready for manual Free import and no project mutation "
+            "occurred."
+        )
+    if _connected_identity(connected) is None:
+        return (
+            "The injected Resolve object returned a malformed version/build identity; "
+            "no project mutation occurred."
         )
     return None
 

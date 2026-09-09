@@ -8,6 +8,7 @@ from types import ModuleType
 from typing import Any
 
 import pytest
+import vera_timeline_agent.studio_spike as studio_spike
 from vera_timeline_agent.otio_package import build_otio_package
 from vera_timeline_agent.studio_spike import (
     BLACKMAGIC_BUNDLE_ID,
@@ -20,6 +21,7 @@ from vera_timeline_agent.studio_spike import (
     detect_local_capabilities,
     load_resolve_adapter,
     run_delivery,
+    run_injected_delivery,
 )
 from vera_timeline_agent.studio_spike_cli import main
 from vera_timeline_agent.text_plus_template import (
@@ -596,6 +598,106 @@ def test_success_has_exact_order_frames_settings_tracks_marker_and_reopen(
     assert result.title_placement.track_id == "video-graphics"
     assert result.title_placement.track_index == 4
     assert result.title_placement.duration_frames == 72
+
+
+def test_injected_workflow_reuses_adapter_without_external_bridge(
+    package: Path, standard_local: LocalFacts, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    adapter = RecordingAdapter()
+    monkeypatch.setattr(studio_spike, "PublicResolveAdapter", lambda _: adapter)
+    monkeypatch.setattr(
+        studio_spike,
+        "load_resolve_adapter",
+        lambda _: (_ for _ in ()).throw(AssertionError("external bridge was loaded")),
+    )
+
+    result = run_injected_delivery(
+        package,
+        object(),
+        action="build",
+        local_facts=standard_local,
+        project_name="Workflow Integration unique acceptance",
+    )
+
+    assert result.status == "verified"
+    assert [name for name, _ in adapter.calls] == [
+        "connected_facts",
+        "probe",
+        "check_project_name_available",
+        "create_project",
+        "configure_project",
+        "create_bin",
+        "create_bin",
+        "import_media",
+        "create_timeline",
+        "configure_tracks",
+        "insert_text_plus",
+        "place_events",
+        "add_marker",
+        "save_close_reopen",
+        "verify",
+    ]
+    assert [event["recordRange"]["startFrame"] for event in adapter.calls[11][1]] == [
+        0,
+        18,
+        36,
+        54,
+        0,
+    ]
+
+
+def test_injected_workflow_stops_before_mutation_when_current_context_fails(
+    package: Path, standard_local: LocalFacts, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    adapter = RecordingAdapter(probe_error=RuntimeError("current timeline missing"))
+    monkeypatch.setattr(studio_spike, "PublicResolveAdapter", lambda _: adapter)
+
+    result = run_injected_delivery(
+        package,
+        object(),
+        action="build",
+        local_facts=standard_local,
+    )
+
+    assert result.status == "stopped_safely"
+    assert [name for name, _ in adapter.calls] == ["connected_facts", "probe"]
+
+
+def test_injected_workflow_reports_partial_unique_target(
+    package: Path, standard_local: LocalFacts, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class FailingAdapter(RecordingAdapter):
+        def create_timeline(self, name: str) -> None:
+            super().create_timeline(name)
+            raise RuntimeError("timeline creation failed")
+
+    adapter = FailingAdapter()
+    monkeypatch.setattr(studio_spike, "PublicResolveAdapter", lambda _: adapter)
+
+    result = run_injected_delivery(
+        package,
+        object(),
+        action="build",
+        local_facts=standard_local,
+        project_name="Workflow Integration unique partial",
+    )
+
+    assert result.status == "mutation_failed"
+    assert result.project_name == "Workflow Integration unique partial"
+    assert "partial uniquely named project may remain" in result.message
+
+
+def test_staged_workflow_wrapper_never_loads_external_bridge() -> None:
+    staged = (
+        REPOSITORY_ROOT
+        / "staging/resolve-workflow-integration/VERA Workflow Integration.py"
+    ).read_text(encoding="utf-8")
+    entrypoint = (
+        REPOSITORY_ROOT / "python/vera_timeline_agent/workflow_integration.py"
+    ).read_text(encoding="utf-8")
+
+    assert "DaVinciResolveScript" not in staged + entrypoint
+    assert "scriptapp" not in staged + entrypoint
 
 
 @pytest.mark.parametrize(

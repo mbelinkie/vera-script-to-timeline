@@ -298,6 +298,33 @@ not Resolve evidence. A failure after the build is authorized can leave a
 partial project; the CLI reports `mutation_failed` and the project must be
 inspected manually rather than treated as a nonmutating safety stop.
 
+## Issue 6 Workflow Integration adapter spike
+
+This is a staging-only investigation, not a shipped companion or installer.
+The staged Python wrapper at
+[`staging/resolve-workflow-integration`](./staging/resolve-workflow-integration)
+expects Resolve to inject `resolve` when launched from **Workspace > Workflow
+Integrations**. It passes that object to the same public adapter used by the
+Studio spike and never loads the external bridge.
+
+For producer acceptance, create a fresh `vera-workflow-integration.json` beside
+the staged wrapper from the checked-in example, using absolute paths to this
+checkout's `python/` directory and a newly generated accepted package. Choose
+a unique project name; do not reuse an existing project. Manually stage the two
+files in Resolve's Workflow Integration Scripts location using Resolve's own
+documented installation flow—an agent must not install them.
+
+With external scripting access restricted in Resolve preferences, open a
+disposable acceptance project on the Edit page and launch the staged integration
+from Resolve. It must print JSON with `status: "verified"`, retain the unique
+test project, and report the exact placement/reopen verification. A
+`stopped_safely` result must leave no new project; `mutation_failed` means its
+named partial project is retained for inspection. Record the observed Resolve
+version/build and result in
+[`docs/investigations/issue-6-resolve-workflow-integration.md`](./docs/investigations/issue-6-resolve-workflow-integration.md)
+before deciding whether this removes the external-scripting boundary or is only
+a nicer launcher.
+
 ### Pinned Text+ destination-track validation
 
 VERA versions the producer-authored `Text+` media-pool generator template and
