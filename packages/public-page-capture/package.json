@@ -1,0 +1,32 @@
+{
+  "name": "@vera/public-page-capture",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./api": "./src/api.ts",
+    "./database": "./src/database.ts",
+    "./policy": "./src/policy.ts",
+    "./worker": "./src/worker.ts"
+  },
+  "scripts": {
+    "acceptance": "vitest run test/acceptance.test.ts --testTimeout=120000 --reporter=verbose",
+    "lint": "eslint src test --max-warnings=0",
+    "typecheck": "tsc --project tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vera/contracts": "0.0.0",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "pg": "8.23.0",
+    "playwright": "1.63.0",
+    "pngjs": "7.0.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@types/pg": "8.23.1",
+    "@types/pngjs": "6.0.5"
+  }
+}

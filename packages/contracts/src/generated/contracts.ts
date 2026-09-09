@@ -24,6 +24,219 @@ export type ResolvedVisualDependency = {
   sourceStartFrame?: number;
   sourceAudio?: ResolvedSourceAudio;
 };
+/**
+ * Closed public-page capture API requests and sanitized views approved by issue 38.
+ */
+export type PublicPageCaptureApiV1 =
+  | CreateCaptureRequest
+  | CreateConfigurationVersionRequest
+  | RequestCaptureJobRequest
+  | CaptureViewMessage
+  | CaptureJobViewMessage
+  | CaptureRevisionViewMessage
+  | RecordRevisionUseDecisionRequest
+  | SelectRevisionRequest
+  | AddExplicitPinRequest
+  | ReleaseExplicitPinRequest
+  | AuditEventsViewMessage
+  | ApiError;
+export type CaptureJobView = {
+  [k: string]: unknown;
+} & {
+  jobId: string;
+  projectId: string;
+  captureId: string;
+  configurationVersion: number;
+  trigger: NowTrigger | OnBuildTrigger;
+  idempotencyFingerprint: string;
+  initiatingAuthorization: AuthorizationDecisionRef;
+  settingsDigest: string;
+  captureProfileId: string;
+  captureProfileVersion: number;
+  profileDigest: string;
+  retryBudget: number;
+  state:
+    | "requested"
+    | "queued"
+    | "leased"
+    | "running"
+    | "committed_ready"
+    | "committed_review_required"
+    | "rejected"
+    | "failed"
+    | "cancelled";
+  outputRevisionId: string | null;
+  conditionalSelectionResult:
+    "not_requested" | "applied" | "conflict" | "blocked_review";
+  requestedAt: string;
+  enqueuedAt: string | null;
+  availableAt: string | null;
+  terminalAt: string | null;
+  rowVersion: number;
+  duplicateDelivery: boolean;
+};
+export type ArtifactDescriptor = {
+  [k: string]: unknown;
+} & {
+  artifactId: string;
+  projectId: string;
+  kind: "capture_raster" | "capture_provenance";
+  digest: string;
+  byteLength: number;
+  mimeType: "image/png" | "application/json";
+  width?: number;
+  height?: number;
+  encoding?: "png" | "json";
+  color?: "srgb" | "not_applicable";
+  alpha?: "opaque" | "present" | "not_applicable";
+  verifierProfile: string;
+  verifierVersion: number;
+  verifiedAt: string;
+  accessClass: "project_visual" | "restricted_provenance";
+};
+/**
+ * Closed job-scoped local-worker protocol approved by issue 38.
+ */
+export type PublicPageCaptureWorkerV1 =
+  | ClaimLeaseRequest
+  | ClaimLeaseResponse
+  | StartAttemptRequest
+  | StartAttemptResponse
+  | RecordNavigationStartRequest
+  | RecordNavigationStartResponse
+  | RenewLeaseRequest
+  | RenewLeaseResponse
+  | RequestStagingGrantsRequest
+  | RequestStagingGrantsResponse
+  | CommitAttemptRequest
+  | CommitAttemptResponse
+  | FailAttemptRequest
+  | FailAttemptResponse
+  | AbandonAttemptRequest
+  | AbandonAttemptResponse
+  | WorkerError;
+export type StagedObjectDescriptor = {
+  [k: string]: unknown;
+} & {
+  stagingObjectId: string;
+  grantId: string;
+  purpose: "raster" | "provenance";
+  digest: string;
+  byteLength: number;
+  mimeType: "image/png" | "application/json";
+  width?: number;
+  height?: number;
+  encoding?: "png" | "json";
+  color?: "srgb" | "not_applicable";
+  alpha?: "opaque" | "present" | "not_applicable";
+};
+/**
+ * Immutable observation or terminal-attempt evidence produced by the public-page capture worker.
+ */
+export type PublicPageCaptureProvenanceV1 = ProvenanceRecord;
+export type ProvenanceRecord = {
+  [k: string]: unknown;
+} & {
+  schemaVersion: "public-page-capture-provenance/v1";
+  recordType: "revision_observation" | "terminal_attempt_evidence";
+  identity: IdentityRecord;
+  authorization: AuthorizationRecord;
+  request: RequestRecord;
+  network: NetworkRecord;
+  runtime: RuntimeRecord;
+  timing: TimingRecord;
+  output: OutputRecord | null;
+  change: ChangeSignal1 | null;
+  honesty: HonestyRecord;
+  terminal: TerminalRecord | null;
+};
+export type NetworkRecord = {
+  [k: string]: unknown;
+} & {
+  evidenceClass: "live" | "synthetic";
+  /**
+   * @maxItems 128
+   */
+  dnsAdmissions: DnsAdmission[];
+  /**
+   * @maxItems 512
+   */
+  peerConnections: PeerConnection[];
+  tls: TlsObservation;
+  /**
+   * @minItems 1
+   * @maxItems 11
+   */
+  redirectChain:
+    | [RedirectHop]
+    | [RedirectHop, RedirectHop]
+    | [RedirectHop, RedirectHop, RedirectHop]
+    | [RedirectHop, RedirectHop, RedirectHop, RedirectHop]
+    | [RedirectHop, RedirectHop, RedirectHop, RedirectHop, RedirectHop]
+    | [RedirectHop, RedirectHop, RedirectHop, RedirectHop, RedirectHop, RedirectHop]
+    | [
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+      ]
+    | [
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+      ]
+    | [
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+      ]
+    | [
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+      ]
+    | [
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+        RedirectHop,
+      ];
+  finalUrl: string | null;
+  redactedFinalUrl: string | null;
+  response: ResponseObservation | null;
+  frameManifestDigest: string | null;
+  subresourceManifestDigest: string | null;
+  actualConnectionCount: number;
+  denial: NetworkDenial | null;
+};
 
 /**
  * Generated aggregate type surface for the VERA shared contracts.
@@ -34,6 +247,9 @@ export interface VeraContractsV1 {
   buildReport: BuildReportV1;
   compilerDependencies: CompilerDependenciesV1;
   prompterExport: PrompterExportV1;
+  publicPageCaptureApi?: PublicPageCaptureApiV1;
+  publicPageCaptureWorker?: PublicPageCaptureWorkerV1;
+  publicPageCaptureProvenance?: PublicPageCaptureProvenanceV1;
 }
 /**
  * Editor-independent canonical ScriptDocument serialization for Phase 1.
@@ -639,4 +855,1133 @@ export interface PrompterBeatAnnotation {
   kind: "pronunciation_alias" | "pronunciation_phoneme" | "performance_note";
   value: string;
   visibleInPrompter: boolean;
+}
+export interface CreateCaptureRequest {
+  schemaVersion: "public-page-capture-api/v1";
+  messageType: "create_capture";
+  projectId: string;
+  clientRequestId: string;
+  idempotencyKey: string;
+  requestedUrl: string;
+  regionIntent: FullViewportRegion | RectangleRegion;
+  acquisitionPolicy: ExecutableAcquisitionPolicy | ReservedPeriodicPolicy;
+  captureProfileId: string;
+  captureProfileVersion: number;
+}
+export interface FullViewportRegion {
+  kind: "full_viewport";
+}
+export interface RectangleRegion {
+  kind: "rectangle";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+export interface ExecutableAcquisitionPolicy {
+  kind: "now" | "on_build";
+}
+export interface ReservedPeriodicPolicy {
+  kind: "periodic_reserved";
+  execution: "disabled";
+}
+export interface CreateConfigurationVersionRequest {
+  schemaVersion: "public-page-capture-api/v1";
+  messageType: "create_configuration_version";
+  projectId: string;
+  captureId: string;
+  clientRequestId: string;
+  idempotencyKey: string;
+  expectedCaptureRowVersion: number;
+  requestedUrl: string;
+  regionIntent: FullViewportRegion | RectangleRegion;
+  acquisitionPolicy: ExecutableAcquisitionPolicy | ReservedPeriodicPolicy;
+  captureProfileId: string;
+  captureProfileVersion: number;
+}
+export interface RequestCaptureJobRequest {
+  schemaVersion: "public-page-capture-api/v1";
+  messageType: "request_capture_job";
+  projectId: string;
+  captureId: string;
+  clientRequestId: string;
+  idempotencyKey: string;
+  expectedCaptureRowVersion: number;
+  trigger: NowTrigger | OnBuildTrigger;
+}
+export interface NowTrigger {
+  kind: "now";
+  commandId: string;
+  selectionIntent: NoSelectionIntent | ConditionalSelectionIntent;
+}
+export interface NoSelectionIntent {
+  kind: "none";
+}
+export interface ConditionalSelectionIntent {
+  kind: "conditional";
+  target: DraftOccurrenceReference | VersionedExternalReference;
+  expectedPreviousSelectionId: string | null;
+}
+export interface DraftOccurrenceReference {
+  projectId: string;
+  kind: "draft_occurrence";
+  resourceId: string;
+  resourceVersionDigest: string;
+  occurrenceId: string;
+}
+export interface VersionedExternalReference {
+  projectId: string;
+  kind:
+    | "document_revision"
+    | "document_checkpoint"
+    | "preview_build"
+    | "release_build"
+    | "selection_evidence"
+    | "review_hold"
+    | "integrity_hold";
+  resourceId: string;
+  resourceVersionDigest: string;
+}
+export interface OnBuildTrigger {
+  kind: "on_build";
+  buildSnapshot: BuildSnapshotReference;
+}
+export interface BuildSnapshotReference {
+  projectId: string;
+  kind: "preview_build" | "release_build";
+  resourceId: string;
+  resourceVersionDigest: string;
+}
+export interface CaptureViewMessage {
+  schemaVersion: "public-page-capture-api/v1";
+  messageType: "capture_view";
+  requestId: string;
+  capture: CaptureView;
+}
+export interface CaptureView {
+  captureId: string;
+  projectId: string;
+  lifecycle: "draft" | "active" | "paused" | "retired";
+  currentConfigurationVersion: number;
+  rowVersion: number;
+  createdBy: PrincipalRef;
+  createdAt: string;
+  updatedAt: string;
+  configuration: CaptureConfigurationView;
+}
+export interface PrincipalRef {
+  principalKind: "user" | "service";
+  principalId: string;
+}
+export interface CaptureConfigurationView {
+  captureId: string;
+  configurationVersion: number;
+  requestedUrl: RedactedUrl;
+  regionIntent: FullViewportRegion | RectangleRegion;
+  acquisitionPolicy: ExecutableAcquisitionPolicy | ReservedPeriodicPolicy;
+  captureProfileId: string;
+  captureProfileVersion: number;
+  settingsDigest: string;
+  previousConfigurationDigest?: string;
+  createdBy: PrincipalRef;
+  createdAt: string;
+}
+export interface RedactedUrl {
+  display: string;
+  canonicalDigest: string;
+  /**
+   * @maxItems 32
+   */
+  queryKeys: string[];
+}
+export interface CaptureJobViewMessage {
+  schemaVersion: "public-page-capture-api/v1";
+  messageType: "capture_job_view";
+  requestId: string;
+  job: CaptureJobView;
+}
+export interface AuthorizationDecisionRef {
+  decisionId: string;
+  action: string;
+  principal: PrincipalRef;
+  projectId: string;
+  role: "producer" | "editor" | "viewer" | "service";
+  membershipVersion?: number;
+  decidedAt: string;
+  recheckMode: "every_request" | "commit_time" | "immutable_reference";
+}
+export interface CaptureRevisionViewMessage {
+  schemaVersion: "public-page-capture-api/v1";
+  messageType: "capture_revision_view";
+  requestId: string;
+  revision: CaptureRevisionView;
+}
+export interface CaptureRevisionView {
+  revisionId: string;
+  projectId: string;
+  captureId: string;
+  configurationVersion: number;
+  jobId: string;
+  winningAttemptId: string;
+  revisionNumber: number;
+  artifact: ArtifactDescriptor;
+  provenance: ArtifactDescriptor;
+  changeSignal: ChangeSignal;
+  status: "ready" | "review_required";
+  /**
+   * @maxItems 64
+   */
+  warningCodes: string[];
+  settingsDigest: string;
+  profileDigest: string;
+  committedAt: string;
+  observationStatement: "Stored bytes and provenance are reproducible; the live page may later differ.";
+}
+export interface ChangeSignal {
+  changeSignalId: string;
+  captureId: string;
+  currentRevisionId: string;
+  baselineRevisionId: string | null;
+  currentArtifactId: string;
+  baselineArtifactId: string | null;
+  signal:
+    | "initial_observation"
+    | "same_exact_bytes"
+    | "different_exact_bytes"
+    | "not_comparable";
+  differences: {
+    finalUrl: boolean | null;
+    redirectChain: boolean | null;
+    profile: boolean | null;
+    region: boolean | null;
+    warnings: boolean | null;
+    loadEvidence: boolean | null;
+  };
+  algorithm: "exact_bytes_and_provenance";
+  algorithmVersion: number;
+  computedAt: string;
+  materiality: "non_semantic_no_automatic_replacement_selection_or_notification";
+}
+export interface RecordRevisionUseDecisionRequest {
+  schemaVersion: "public-page-capture-api/v1";
+  messageType: "record_revision_use_decision";
+  projectId: string;
+  revisionId: string;
+  clientRequestId: string;
+  idempotencyKey: string;
+  context: DraftOccurrenceReference | VersionedExternalReference;
+  decision: "preview_acknowledged" | "release_accepted";
+}
+export interface SelectRevisionRequest {
+  schemaVersion: "public-page-capture-api/v1";
+  messageType: "select_revision";
+  projectId: string;
+  revisionId: string;
+  clientRequestId: string;
+  idempotencyKey: string;
+  target: DraftOccurrenceReference | VersionedExternalReference;
+  expectedPreviousSelectionId: string | null;
+  reason: "manual" | "capture_and_use" | "checkpoint_restore";
+  requiredUseDecisionId: string | null;
+}
+export interface AddExplicitPinRequest {
+  schemaVersion: "public-page-capture-api/v1";
+  messageType: "add_explicit_pin";
+  projectId: string;
+  revisionId: string;
+  clientRequestId: string;
+  idempotencyKey: string;
+  source: DraftOccurrenceReference | VersionedExternalReference;
+}
+export interface ReleaseExplicitPinRequest {
+  schemaVersion: "public-page-capture-api/v1";
+  messageType: "release_explicit_pin";
+  projectId: string;
+  pinId: string;
+  clientRequestId: string;
+  idempotencyKey: string;
+  reason: string;
+}
+export interface AuditEventsViewMessage {
+  schemaVersion: "public-page-capture-api/v1";
+  messageType: "audit_events_view";
+  requestId: string;
+  /**
+   * @maxItems 1000
+   */
+  events: CaptureAuditEventView[];
+}
+export interface CaptureAuditEventView {
+  eventId: string;
+  projectId: string;
+  primaryObjectKind: string;
+  primaryObjectId: string;
+  objectSequence: number;
+  eventType: string;
+  principal: PrincipalRef;
+  requestId: string;
+  correlationId: string;
+  policyVersion: number;
+  profileVersion: number;
+  beforeState: string | null;
+  afterState: string | null;
+  resultCode: string;
+  safeDetails: {
+    [k: string]: string | number | boolean | null;
+  };
+  correctedEventId: string | null;
+  serverTime: string;
+}
+export interface ApiError {
+  schemaVersion: "public-page-capture-api/v1";
+  messageType: "error";
+  requestId: string;
+  code:
+    | "request_invalid"
+    | "authentication_required"
+    | "action_not_allowed"
+    | "resource_not_found"
+    | "version_conflict"
+    | "idempotency_key_reused"
+    | "selection_conflict"
+    | "revision_requires_review"
+    | "job_not_committable"
+    | "capture_resource_limit"
+    | "capture_request_denied"
+    | "authorization_unavailable"
+    | "capture_worker_unavailable"
+    | "object_verification_unavailable";
+  safeMessage: string;
+  retryable: boolean;
+  /**
+   * @maxItems 32
+   */
+  fieldPaths: string[];
+  denialFingerprint?: string;
+}
+export interface ClaimLeaseRequest {
+  schemaVersion: "public-page-capture-worker/v1";
+  messageType: "claim_lease";
+  clientRequestId: string;
+  workerInstallationId: string;
+  /**
+   * @minItems 1
+   * @maxItems 32
+   */
+  supportedProfileDigests: [string, ...string[]];
+}
+export interface ClaimLeaseResponse {
+  schemaVersion: "public-page-capture-worker/v1";
+  messageType: "lease_claimed";
+  requestId: string;
+  assignment: LeaseAssignment;
+}
+export interface LeaseAssignment {
+  projectId: string;
+  captureId: string;
+  configurationVersion: number;
+  jobId: string;
+  leaseId: string;
+  leaseEpoch: number;
+  attemptId: null;
+  leaseCapability: string;
+  capabilityJtiDigest: string;
+  capabilityScopeDigest: string;
+  commitNonce: string;
+  issuedAt: string;
+  expiresAt: string;
+  exactRequestedUrl: string;
+  settingsDigest: string;
+  profile: CaptureProfileV1;
+}
+export interface CaptureProfileV1 {
+  profileId: string;
+  profileVersion: number;
+  adapterVersion: string;
+  securityPolicyVersion: string;
+  profileDigest: string;
+  network: {
+    schemes: unknown[];
+    ports: unknown[];
+    methods: unknown[];
+    idna: "uts46_nontransitional";
+    rejectMixedDns: true;
+    pinResolvedAddresses: true;
+    verifyActualPeer: true;
+    revalidateRedirects: true;
+    revalidateFrames: true;
+    revalidateSubresources: true;
+    directBrowserNetworkFallback: false;
+    webSocket: "blocked";
+    webRtc: "blocked";
+    referrer: "none";
+  };
+  isolation: {
+    disposableContext: true;
+    importedState: false;
+    cookies: "empty_and_discarded";
+    storage: "empty_and_discarded";
+    cache: "ephemeral";
+    extensions: "blocked";
+    downloads: "blocked";
+    permissions: "none";
+    filesystem: "page_inaccessible";
+    localNetwork: "blocked";
+    inboundListeners: "blocked";
+    attachedBrowser: false;
+    credentialEnvironment: "allowlist_only";
+  };
+  render: {
+    javaScript: "disabled" | "sandboxed_bounded";
+    viewportWidth: number;
+    viewportHeight: number;
+    deviceScaleFactor: number;
+    region: FullViewportRegion | RectangleRegion;
+    encoding: "png";
+    color: "srgb";
+    background: "opaque_white";
+    locale: string;
+    timezone: string;
+    userAgent: string;
+    animations: "disabled";
+    reducedMotion: "reduce";
+    fonts: "system_only_no_webfonts";
+    media: "blocked";
+    popups: "blocked";
+    forms: "blocked";
+    interaction: "none";
+  };
+  stability: {
+    waitUntil: "domcontentloaded";
+    settleMilliseconds: number;
+    hardDeadlineMilliseconds: number;
+  };
+  warningPolicy: {
+    anyWarningRequiresReview: true;
+    /**
+     * @minItems 1
+     * @maxItems 64
+     */
+    hardFailureCodes: [string, ...string[]];
+  };
+  limits: {
+    urlBytes: number;
+    redirects: number;
+    dnsAnswers: number;
+    connectionAttemptsPerRequest: number;
+    topLevelRequests: number;
+    frameRequests: number;
+    subresourceRequests: number;
+    totalRequests: number;
+    responseBytes: number;
+    totalBytes: number;
+    frameDepth: number;
+    popups: 0;
+    navigationMilliseconds: number;
+    stabilityMilliseconds: number;
+    scriptCpuMilliseconds: number;
+    attemptMilliseconds: number;
+    memoryMiB: number;
+    processes: number;
+    workerConcurrency: number;
+    outputPixels: number;
+    rasterBytes: number;
+    diagnostics: number;
+    diagnosticFieldBytes: number;
+    retries: number;
+    leaseMilliseconds: number;
+    heartbeatMilliseconds: number;
+  };
+}
+export interface StartAttemptRequest {
+  schemaVersion: "public-page-capture-worker/v1";
+  messageType: "start_attempt";
+  clientRequestId: string;
+  lease: LeaseProof;
+  cleanProfileId: string;
+  browserBuild: string;
+  adapterVersion: string;
+  securityPolicyVersion: string;
+}
+export interface LeaseProof {
+  workerInstallationId: string;
+  jobId: string;
+  leaseId: string;
+  leaseEpoch: number;
+  attemptId: string | null;
+  leaseCapability: string;
+}
+export interface StartAttemptResponse {
+  schemaVersion: "public-page-capture-worker/v1";
+  messageType: "attempt_started";
+  requestId: string;
+  attemptId: string;
+  jobId: string;
+  leaseId: string;
+  leaseEpoch: number;
+  startedAt: string;
+  browserLaunchAuthorized: true;
+}
+export interface RecordNavigationStartRequest {
+  schemaVersion: "public-page-capture-worker/v1";
+  messageType: "record_navigation_start";
+  clientRequestId: string;
+  lease: LeaseProof;
+  navigationStartedAt: string;
+  initialUrlDigest: string;
+}
+export interface RecordNavigationStartResponse {
+  schemaVersion: "public-page-capture-worker/v1";
+  messageType: "navigation_start_recorded";
+  requestId: string;
+  attemptId: string;
+  recordedAt: string;
+}
+export interface RenewLeaseRequest {
+  schemaVersion: "public-page-capture-worker/v1";
+  messageType: "renew_lease";
+  clientRequestId: string;
+  lease: LeaseProof;
+}
+export interface RenewLeaseResponse {
+  schemaVersion: "public-page-capture-worker/v1";
+  messageType: "lease_renewed";
+  requestId: string;
+  leaseId: string;
+  leaseEpoch: number;
+  expiresAt: string;
+  renewedAt: string;
+}
+export interface RequestStagingGrantsRequest {
+  schemaVersion: "public-page-capture-worker/v1";
+  messageType: "request_staging_grants";
+  clientRequestId: string;
+  lease: LeaseProof;
+  purposes: unknown[];
+}
+export interface RequestStagingGrantsResponse {
+  schemaVersion: "public-page-capture-worker/v1";
+  messageType: "staging_grants_issued";
+  requestId: string;
+  /**
+   * @minItems 2
+   * @maxItems 2
+   */
+  grants: [StagingGrant, StagingGrant];
+}
+export interface StagingGrant {
+  grantId: string;
+  purpose: "raster" | "provenance";
+  rawGrant: string;
+  grantDigest: string;
+  attemptId: string;
+  leaseEpoch: number;
+  maxBytes: number;
+  mimeType: "image/png" | "application/json";
+  issuedAt: string;
+  expiresAt: string;
+}
+export interface CommitAttemptRequest {
+  schemaVersion: "public-page-capture-worker/v1";
+  messageType: "commit_attempt";
+  clientRequestId: string;
+  lease: LeaseProof;
+  commitNonce: string;
+  raster: StagedObjectDescriptor;
+  provenanceObject: StagedObjectDescriptor;
+  /**
+   * @maxItems 64
+   */
+  warningCodes: string[];
+  reviewClassification: "ready" | "review_required";
+}
+export interface CommitAttemptResponse {
+  schemaVersion: "public-page-capture-worker/v1";
+  messageType: "attempt_committed";
+  requestId: string;
+  job: CaptureJobView;
+  revision: CaptureRevisionView;
+  recoveredExistingOutcome: boolean;
+}
+export interface FailAttemptRequest {
+  schemaVersion: "public-page-capture-worker/v1";
+  messageType: "fail_attempt";
+  clientRequestId: string;
+  lease: LeaseProof;
+  terminalCode: string;
+  navigationStarted: boolean;
+  retryable: boolean;
+  terminalEvidenceObject: StagedObjectDescriptor;
+}
+export interface FailAttemptResponse {
+  schemaVersion: "public-page-capture-worker/v1";
+  messageType: "attempt_failed";
+  requestId: string;
+  jobId: string;
+  attemptId: string;
+  jobState: "queued" | "failed";
+  recordedAt: string;
+}
+export interface AbandonAttemptRequest {
+  schemaVersion: "public-page-capture-worker/v1";
+  messageType: "abandon_attempt";
+  clientRequestId: string;
+  lease: LeaseProof;
+  terminalCode: string;
+  terminalEvidenceObject: StagedObjectDescriptor;
+}
+export interface AbandonAttemptResponse {
+  schemaVersion: "public-page-capture-worker/v1";
+  messageType: "attempt_abandoned";
+  requestId: string;
+  jobId: string;
+  attemptId: string;
+  recordedAt: string;
+}
+export interface WorkerError {
+  schemaVersion: "public-page-capture-worker/v1";
+  messageType: "worker_error";
+  requestId: string;
+  code:
+    | "request_invalid"
+    | "authentication_required"
+    | "action_not_allowed"
+    | "invalid_or_expired_job_capability"
+    | "job_not_committable"
+    | "capture_resource_limit"
+    | "capture_request_denied"
+    | "authorization_unavailable"
+    | "capture_worker_unavailable"
+    | "object_verification_unavailable";
+  safeMessage: string;
+  retryable: boolean;
+  /**
+   * @maxItems 32
+   */
+  fieldPaths: string[];
+}
+export interface IdentityRecord {
+  projectId: string;
+  captureId: string;
+  configurationVersionId: string;
+  jobId: string;
+  leaseEpoch: number;
+  attemptId: string;
+  revisionId: string | null;
+}
+export interface AuthorizationRecord {
+  principal: PrincipalRef1;
+  role: "producer" | "editor" | "viewer" | "service";
+  action:
+    | "capture.create"
+    | "capture.configure"
+    | "capture.request.now"
+    | "capture.request.on_build"
+    | "capture.commit";
+  decisionId: string;
+  decision: "allowed";
+  decidedAt: string;
+  commitRecheck: true;
+  originReference: OriginReference | null;
+}
+export interface PrincipalRef1 {
+  principalId: string;
+  principalKind: "user" | "service";
+}
+export interface OriginReference {
+  kind: "timeline" | "shot" | "media_occurrence" | "preview_build" | "release_build";
+  referenceId: string;
+  revision: number;
+}
+export interface RequestRecord {
+  triggerKind: "now" | "on_build";
+  requestedUrl: string;
+  redactedRequestedUrl: string;
+  requestedUrlDigest: string;
+  requestedUrlFingerprint: string;
+  /**
+   * @maxItems 64
+   */
+  queryKeyNames: string[];
+  settingsDigest: string;
+  captureProfileId: "vera-public-page-capture-v1";
+  captureProfileDigest: string;
+  regionIntent:
+    | {
+        kind: "full_viewport";
+      }
+    | {
+        kind: "element";
+        selector: string;
+      };
+  idempotencyScopeDigest: string;
+  idempotencyKeyDigest: string;
+  requestedAt: string;
+  enqueuedAt: string;
+}
+export interface DnsAdmission {
+  host: string;
+  resolver: string;
+  resolvedAt: string;
+  /**
+   * @maxItems 64
+   */
+  answers: {
+    address: {
+      [k: string]: unknown;
+    } & string;
+    family: 4 | 6;
+    addressClass:
+      | "public"
+      | "loopback"
+      | "private"
+      | "link_local"
+      | "multicast"
+      | "unspecified"
+      | "reserved";
+  }[];
+  admitted: boolean;
+}
+export interface PeerConnection {
+  host: string;
+  address: {
+    [k: string]: unknown;
+  } & string;
+  port: 80 | 443;
+  addressClass: "public";
+  matchedAdmission: true;
+  connectedAt: string;
+}
+export interface TlsObservation {
+  availability: "available" | "unavailable" | "not_applicable";
+  protocol: string | null;
+  cipher: string | null;
+  peerCertificateSha256: string | null;
+  unavailableReason: string | null;
+}
+export interface RedirectHop {
+  sequence: number;
+  url: string;
+  redactedUrl: string;
+  urlDigest: string;
+  status: number | null;
+  locationDigest: string | null;
+  admitted: boolean;
+}
+export interface ResponseObservation {
+  status: number;
+  contentType: string | null;
+  contentLength: number | null;
+  title: string | null;
+  headerDigest: string;
+}
+export interface NetworkDenial {
+  phase:
+    "url_parse" | "dns" | "connect" | "redirect" | "frame" | "subresource" | "response";
+  code: string;
+  sanitizedMessage: string;
+  navigationStarted: boolean;
+}
+export interface RuntimeRecord {
+  workerBuildId: string;
+  workerBuildDigest: string;
+  installationId: string;
+  os: string;
+  sandbox: "process" | "container" | "synthetic_fixture";
+  browser: "chromium" | "synthetic_fixture";
+  browserVersion: string;
+  adapterVersion: string;
+  policyDigest: string;
+  cleanProfileId: string;
+  importedState: false;
+  initialCookieCount: 0;
+  finalCookieCount: 0;
+  persistedStateDiscarded: true;
+  javascriptMode: "disabled" | "sandboxed_bounded";
+  locale: "en-US";
+  timezone: "UTC";
+  userAgentProfile: "vera-public-page-capture-v1";
+  viewport: {
+    width: 1920;
+    height: 1080;
+  };
+  deviceScaleFactor: 2;
+  colorProfile: "srgb";
+  outputFormat: "png";
+  /**
+   * @minItems 8
+   */
+  blockedCapabilities: [
+    (
+      | "downloads"
+      | "file_access"
+      | "local_network"
+      | "popups"
+      | "printing"
+      | "web_rtc"
+      | "web_sockets"
+      | "write_clipboard"
+      | "forms"
+      | "permissions"
+    ),
+    (
+      | "downloads"
+      | "file_access"
+      | "local_network"
+      | "popups"
+      | "printing"
+      | "web_rtc"
+      | "web_sockets"
+      | "write_clipboard"
+      | "forms"
+      | "permissions"
+    ),
+    (
+      | "downloads"
+      | "file_access"
+      | "local_network"
+      | "popups"
+      | "printing"
+      | "web_rtc"
+      | "web_sockets"
+      | "write_clipboard"
+      | "forms"
+      | "permissions"
+    ),
+    (
+      | "downloads"
+      | "file_access"
+      | "local_network"
+      | "popups"
+      | "printing"
+      | "web_rtc"
+      | "web_sockets"
+      | "write_clipboard"
+      | "forms"
+      | "permissions"
+    ),
+    (
+      | "downloads"
+      | "file_access"
+      | "local_network"
+      | "popups"
+      | "printing"
+      | "web_rtc"
+      | "web_sockets"
+      | "write_clipboard"
+      | "forms"
+      | "permissions"
+    ),
+    (
+      | "downloads"
+      | "file_access"
+      | "local_network"
+      | "popups"
+      | "printing"
+      | "web_rtc"
+      | "web_sockets"
+      | "write_clipboard"
+      | "forms"
+      | "permissions"
+    ),
+    (
+      | "downloads"
+      | "file_access"
+      | "local_network"
+      | "popups"
+      | "printing"
+      | "web_rtc"
+      | "web_sockets"
+      | "write_clipboard"
+      | "forms"
+      | "permissions"
+    ),
+    (
+      | "downloads"
+      | "file_access"
+      | "local_network"
+      | "popups"
+      | "printing"
+      | "web_rtc"
+      | "web_sockets"
+      | "write_clipboard"
+      | "forms"
+      | "permissions"
+    ),
+    ...(
+      | "downloads"
+      | "file_access"
+      | "local_network"
+      | "popups"
+      | "printing"
+      | "web_rtc"
+      | "web_sockets"
+      | "write_clipboard"
+      | "forms"
+      | "permissions"
+    )[],
+  ];
+}
+export interface TimingRecord {
+  serverStartedAt: string;
+  workerStartedAt: string;
+  workerFinishedAt: string;
+  durationMilliseconds: number;
+  settleOutcome: "quiet_window" | "timeout" | "not_reached";
+  settleMilliseconds: number;
+  navigationDeadlineMilliseconds: number;
+  jobDeadlineMilliseconds: number;
+  retryNumber: number;
+  retryBudget: 2;
+  /**
+   * @minItems 1
+   * @maxItems 32
+   */
+  leaseHistory: [LeaseHistoryEntry, ...LeaseHistoryEntry[]];
+  /**
+   * @minItems 1
+   * @maxItems 16
+   */
+  milestones:
+    | [Milestone]
+    | [Milestone, Milestone]
+    | [Milestone, Milestone, Milestone]
+    | [Milestone, Milestone, Milestone, Milestone]
+    | [Milestone, Milestone, Milestone, Milestone, Milestone]
+    | [Milestone, Milestone, Milestone, Milestone, Milestone, Milestone]
+    | [Milestone, Milestone, Milestone, Milestone, Milestone, Milestone, Milestone]
+    | [
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+      ]
+    | [
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+      ]
+    | [
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+      ]
+    | [
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+      ]
+    | [
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+      ]
+    | [
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+      ]
+    | [
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+      ]
+    | [
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+      ]
+    | [
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+        Milestone,
+      ];
+  captureInstant: string | null;
+}
+export interface LeaseHistoryEntry {
+  event:
+    | "claimed"
+    | "started"
+    | "renewed"
+    | "expired"
+    | "committed"
+    | "failed"
+    | "abandoned";
+  leaseEpoch: number;
+  at: string;
+  deadline: string;
+  workerInstallationId: string;
+}
+export interface Milestone {
+  name:
+    | "lease_claimed"
+    | "attempt_started"
+    | "navigation_started"
+    | "dom_content_loaded"
+    | "load"
+    | "fonts_ready"
+    | "settled"
+    | "rasterized"
+    | "staged"
+    | "committed"
+    | "terminal";
+  wallAt: string;
+  monotonicMilliseconds: number;
+}
+export interface OutputRecord {
+  raster: ArtifactDescriptor1;
+  encoding: "png";
+  width: 3840;
+  height: 2160;
+  capturedRegion: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  decoder: string;
+  byteIdentity: "new_raster" | "exact_byte_reuse";
+  baselineRevisionId: string | null;
+  reusedRasterArtifactId: string | null;
+  stagedAt: string;
+  committedAt: string;
+}
+export interface ArtifactDescriptor1 {
+  artifactId: string;
+  digest: string;
+  byteLength: number;
+  mediaType: "image/png" | "application/json";
+}
+export interface ChangeSignal1 {
+  classification: "first_observation" | "no_change" | "changed" | "uncertain";
+  baselineRevisionId: string | null;
+  pixelChanged: boolean | null;
+  byteChanged: boolean | null;
+  reviewRequired: boolean;
+  /**
+   * @maxItems 32
+   */
+  signals: {
+    code: string;
+    severity: "info" | "warning";
+    message: string;
+  }[];
+}
+export interface HonestyRecord {
+  statement: "Observed facts and unavailable facts are explicitly distinguished.";
+  classification: "complete" | "partial" | "terminal_denial" | "terminal_failure";
+  partialReason: string | null;
+  /**
+   * @maxItems 32
+   */
+  warnings: {
+    code: string;
+    message: string;
+  }[];
+  /**
+   * @maxItems 64
+   */
+  unavailableObservations: UnavailableObservation[];
+  redactionPolicyVersion: "vera-url-redaction-v1";
+}
+export interface UnavailableObservation {
+  field: string;
+  reason: string;
+}
+export interface TerminalRecord {
+  outcome: "denied" | "failed" | "abandoned";
+  code: string;
+  sanitizedMessage: string;
+  phase:
+    | "policy"
+    | "dns"
+    | "connect"
+    | "navigation"
+    | "render"
+    | "stage"
+    | "commit"
+    | "lease";
+  retryable: boolean;
+  navigationStarted: boolean;
+  leaseDisposition: "released" | "expired" | "consumed";
 }

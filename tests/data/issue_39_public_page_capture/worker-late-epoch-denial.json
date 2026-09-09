@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "public-page-capture-worker/v1",
+  "messageType": "worker_error",
+  "requestId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaab2",
+  "code": "invalid_or_expired_job_capability",
+  "safeMessage": "The lease is no longer current for this job.",
+  "retryable": false,
+  "fieldPaths": [
+    "/leaseEpoch"
+  ]
+}
