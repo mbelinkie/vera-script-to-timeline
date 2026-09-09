@@ -64,5 +64,10 @@ Sources: [product specification](Script-to-Timeline%20Product%20Spec%20-%20Fable
 4. Add a read-only progress dashboard generated from the Project. Include a
    simple launcher for non-engineers, alongside the refresh command, and do
    not create a competing hand-maintained status document.
-5. Set up a lessons channel and review this playbook at milestones. Promote only
+5. In Codex desktop's Local Environments settings, add `npm ci` as the setup
+   script so every newly created worktree receives the lockfile-pinned
+   JavaScript dependencies. Commit the generated `.codex` configuration if the
+   project team should share it. Existing worktrees still need one manual
+   `npm ci`.
+6. Set up a lessons channel and review this playbook at milestones. Promote only
    practices that have evidence, and label any remaining design as proposed.
