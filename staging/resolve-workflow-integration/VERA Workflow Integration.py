@@ -43,9 +43,9 @@ def main(injected_resolve: object) -> None:
 
 
 injected_resolve = globals().get("resolve")
-if injected_resolve is None:
-    raise RuntimeError("Resolve did not inject the required resolve object")
 try:
+    if injected_resolve is None:
+        raise RuntimeError("Resolve did not inject the required resolve object")
     main(injected_resolve)
 except Exception as error:
     failure = json.dumps(
