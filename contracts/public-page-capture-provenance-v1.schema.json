@@ -1,0 +1,1521 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.vera.video/contracts/public-page-capture-provenance-v1.schema.json",
+  "title": "PublicPageCaptureProvenanceV1",
+  "description": "Immutable observation or terminal-attempt evidence produced by the public-page capture worker.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/ProvenanceRecord"
+    }
+  ],
+  "$defs": {
+    "SchemaVersion": {
+      "const": "public-page-capture-provenance/v1"
+    },
+    "EntityId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "Timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "Digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "HmacFingerprint": {
+      "type": "string",
+      "pattern": "^hmac-sha256:[0-9a-f]{64}$"
+    },
+    "SafeCode": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+    },
+    "BoundedText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "RawPublicUrl": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 4096,
+      "pattern": "^(?!.*(?:[?&](?:access_token|apipass|password|secret|session|signature|sig|token|x-api-key)=))https?://[^/@\\s]+(?:/[^\\s]*)?$"
+    },
+    "RedactedUrl": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 4096,
+      "pattern": "^https?://[^/@\\s]+(?:/[^\\s]*)?$"
+    },
+    "PrincipalRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principalId",
+        "principalKind"
+      ],
+      "properties": {
+        "principalId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "principalKind": {
+          "enum": [
+            "user",
+            "service"
+          ]
+        }
+      }
+    },
+    "AuthorizationRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principal",
+        "role",
+        "action",
+        "decisionId",
+        "decision",
+        "decidedAt",
+        "commitRecheck",
+        "originReference"
+      ],
+      "properties": {
+        "principal": {
+          "$ref": "#/$defs/PrincipalRef"
+        },
+        "role": {
+          "enum": [
+            "producer",
+            "editor",
+            "viewer",
+            "service"
+          ]
+        },
+        "action": {
+          "enum": [
+            "capture.create",
+            "capture.configure",
+            "capture.request.now",
+            "capture.request.on_build",
+            "capture.commit"
+          ]
+        },
+        "decisionId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "decision": {
+          "const": "allowed"
+        },
+        "decidedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "commitRecheck": {
+          "const": true
+        },
+        "originReference": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OriginReference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "OriginReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "referenceId",
+        "revision"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "timeline",
+            "shot",
+            "media_occurrence",
+            "preview_build",
+            "release_build"
+          ]
+        },
+        "referenceId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "IdentityRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "captureId",
+        "configurationVersionId",
+        "jobId",
+        "leaseEpoch",
+        "attemptId",
+        "revisionId"
+      ],
+      "properties": {
+        "projectId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "captureId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "configurationVersionId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "jobId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "leaseEpoch": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "attemptId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "revisionId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "RequestRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "triggerKind",
+        "requestedUrl",
+        "redactedRequestedUrl",
+        "requestedUrlDigest",
+        "requestedUrlFingerprint",
+        "queryKeyNames",
+        "settingsDigest",
+        "captureProfileId",
+        "captureProfileDigest",
+        "regionIntent",
+        "idempotencyScopeDigest",
+        "idempotencyKeyDigest",
+        "requestedAt",
+        "enqueuedAt"
+      ],
+      "properties": {
+        "triggerKind": {
+          "enum": [
+            "now",
+            "on_build"
+          ]
+        },
+        "requestedUrl": {
+          "$ref": "#/$defs/RawPublicUrl"
+        },
+        "redactedRequestedUrl": {
+          "$ref": "#/$defs/RedactedUrl"
+        },
+        "requestedUrlDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "requestedUrlFingerprint": {
+          "$ref": "#/$defs/HmacFingerprint"
+        },
+        "queryKeyNames": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.~-]{1,128}$"
+          }
+        },
+        "settingsDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "captureProfileId": {
+          "const": "vera-public-page-capture-v1"
+        },
+        "captureProfileDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "regionIntent": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "full_viewport"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "selector"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "element"
+                },
+                "selector": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                }
+              }
+            }
+          ]
+        },
+        "idempotencyScopeDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "idempotencyKeyDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "requestedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "enqueuedAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      }
+    },
+    "DnsAdmission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host",
+        "resolver",
+        "resolvedAt",
+        "answers",
+        "admitted"
+      ],
+      "properties": {
+        "host": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 253
+        },
+        "resolver": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "resolvedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "answers": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "address",
+              "family",
+              "addressClass"
+            ],
+            "properties": {
+              "address": {
+                "type": "string",
+                "anyOf": [
+                  {
+                    "format": "ipv4"
+                  },
+                  {
+                    "format": "ipv6"
+                  }
+                ]
+              },
+              "family": {
+                "enum": [
+                  4,
+                  6
+                ]
+              },
+              "addressClass": {
+                "enum": [
+                  "public",
+                  "loopback",
+                  "private",
+                  "link_local",
+                  "multicast",
+                  "unspecified",
+                  "reserved"
+                ]
+              }
+            }
+          }
+        },
+        "admitted": {
+          "type": "boolean"
+        }
+      }
+    },
+    "PeerConnection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host",
+        "address",
+        "port",
+        "addressClass",
+        "matchedAdmission",
+        "connectedAt"
+      ],
+      "properties": {
+        "host": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 253
+        },
+        "address": {
+          "type": "string",
+          "anyOf": [
+            {
+              "format": "ipv4"
+            },
+            {
+              "format": "ipv6"
+            }
+          ]
+        },
+        "port": {
+          "enum": [
+            80,
+            443
+          ]
+        },
+        "addressClass": {
+          "const": "public"
+        },
+        "matchedAdmission": {
+          "const": true
+        },
+        "connectedAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      }
+    },
+    "TlsObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "availability",
+        "protocol",
+        "cipher",
+        "peerCertificateSha256",
+        "unavailableReason"
+      ],
+      "properties": {
+        "availability": {
+          "enum": [
+            "available",
+            "unavailable",
+            "not_applicable"
+          ]
+        },
+        "protocol": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        },
+        "cipher": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "peerCertificateSha256": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unavailableReason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        }
+      }
+    },
+    "RedirectHop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sequence",
+        "url",
+        "redactedUrl",
+        "urlDigest",
+        "status",
+        "locationDigest",
+        "admitted"
+      ],
+      "properties": {
+        "sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "url": {
+          "$ref": "#/$defs/RawPublicUrl"
+        },
+        "redactedUrl": {
+          "$ref": "#/$defs/RedactedUrl"
+        },
+        "urlDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "status": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 100,
+          "maximum": 599
+        },
+        "locationDigest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "admitted": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ResponseObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "contentType",
+        "contentLength",
+        "title",
+        "headerDigest"
+      ],
+      "properties": {
+        "status": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 599
+        },
+        "contentType": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "contentLength": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 1024
+        },
+        "headerDigest": {
+          "$ref": "#/$defs/Digest"
+        }
+      }
+    },
+    "NetworkDenial": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "phase",
+        "code",
+        "sanitizedMessage",
+        "navigationStarted"
+      ],
+      "properties": {
+        "phase": {
+          "enum": [
+            "url_parse",
+            "dns",
+            "connect",
+            "redirect",
+            "frame",
+            "subresource",
+            "response"
+          ]
+        },
+        "code": {
+          "$ref": "#/$defs/SafeCode"
+        },
+        "sanitizedMessage": {
+          "$ref": "#/$defs/BoundedText"
+        },
+        "navigationStarted": {
+          "type": "boolean"
+        }
+      }
+    },
+    "NetworkRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidenceClass",
+        "dnsAdmissions",
+        "peerConnections",
+        "tls",
+        "redirectChain",
+        "finalUrl",
+        "redactedFinalUrl",
+        "response",
+        "frameManifestDigest",
+        "subresourceManifestDigest",
+        "actualConnectionCount",
+        "denial"
+      ],
+      "properties": {
+        "evidenceClass": {
+          "enum": [
+            "live",
+            "synthetic"
+          ]
+        },
+        "dnsAdmissions": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "$ref": "#/$defs/DnsAdmission"
+          }
+        },
+        "peerConnections": {
+          "type": "array",
+          "maxItems": 512,
+          "items": {
+            "$ref": "#/$defs/PeerConnection"
+          }
+        },
+        "tls": {
+          "$ref": "#/$defs/TlsObservation"
+        },
+        "redirectChain": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 11,
+          "items": {
+            "$ref": "#/$defs/RedirectHop"
+          }
+        },
+        "finalUrl": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/RawPublicUrl"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "redactedFinalUrl": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/RedactedUrl"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "response": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ResponseObservation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "frameManifestDigest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "subresourceManifestDigest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "actualConnectionCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 512
+        },
+        "denial": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/NetworkDenial"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "evidenceClass": {
+                "const": "synthetic"
+              }
+            },
+            "required": [
+              "evidenceClass"
+            ]
+          },
+          "then": {
+            "properties": {
+              "actualConnectionCount": {
+                "const": 0
+              },
+              "peerConnections": {
+                "type": "array",
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "RuntimeRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workerBuildId",
+        "workerBuildDigest",
+        "installationId",
+        "os",
+        "sandbox",
+        "browser",
+        "browserVersion",
+        "adapterVersion",
+        "policyDigest",
+        "cleanProfileId",
+        "importedState",
+        "initialCookieCount",
+        "finalCookieCount",
+        "persistedStateDiscarded",
+        "javascriptMode",
+        "locale",
+        "timezone",
+        "userAgentProfile",
+        "viewport",
+        "deviceScaleFactor",
+        "colorProfile",
+        "outputFormat",
+        "blockedCapabilities"
+      ],
+      "properties": {
+        "workerBuildId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "workerBuildDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "installationId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "os": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "sandbox": {
+          "enum": [
+            "process",
+            "container",
+            "synthetic_fixture"
+          ]
+        },
+        "browser": {
+          "enum": [
+            "chromium",
+            "synthetic_fixture"
+          ]
+        },
+        "browserVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "adapterVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "policyDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "cleanProfileId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "importedState": {
+          "const": false
+        },
+        "initialCookieCount": {
+          "const": 0
+        },
+        "finalCookieCount": {
+          "const": 0
+        },
+        "persistedStateDiscarded": {
+          "const": true
+        },
+        "javascriptMode": {
+          "enum": [
+            "disabled",
+            "sandboxed_bounded"
+          ]
+        },
+        "locale": {
+          "const": "en-US"
+        },
+        "timezone": {
+          "const": "UTC"
+        },
+        "userAgentProfile": {
+          "const": "vera-public-page-capture-v1"
+        },
+        "viewport": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "width",
+            "height"
+          ],
+          "properties": {
+            "width": {
+              "const": 1920
+            },
+            "height": {
+              "const": 1080
+            }
+          }
+        },
+        "deviceScaleFactor": {
+          "const": 2
+        },
+        "colorProfile": {
+          "const": "srgb"
+        },
+        "outputFormat": {
+          "const": "png"
+        },
+        "blockedCapabilities": {
+          "type": "array",
+          "minItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "downloads",
+              "file_access",
+              "local_network",
+              "popups",
+              "printing",
+              "web_rtc",
+              "web_sockets",
+              "write_clipboard",
+              "forms",
+              "permissions"
+            ]
+          }
+        }
+      }
+    },
+    "LeaseHistoryEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event",
+        "leaseEpoch",
+        "at",
+        "deadline",
+        "workerInstallationId"
+      ],
+      "properties": {
+        "event": {
+          "enum": [
+            "claimed",
+            "started",
+            "renewed",
+            "expired",
+            "committed",
+            "failed",
+            "abandoned"
+          ]
+        },
+        "leaseEpoch": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "deadline": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "workerInstallationId": {
+          "$ref": "#/$defs/EntityId"
+        }
+      }
+    },
+    "Milestone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "wallAt",
+        "monotonicMilliseconds"
+      ],
+      "properties": {
+        "name": {
+          "enum": [
+            "lease_claimed",
+            "attempt_started",
+            "navigation_started",
+            "dom_content_loaded",
+            "load",
+            "fonts_ready",
+            "settled",
+            "rasterized",
+            "staged",
+            "committed",
+            "terminal"
+          ]
+        },
+        "wallAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "monotonicMilliseconds": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "TimingRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "serverStartedAt",
+        "workerStartedAt",
+        "workerFinishedAt",
+        "durationMilliseconds",
+        "settleOutcome",
+        "settleMilliseconds",
+        "navigationDeadlineMilliseconds",
+        "jobDeadlineMilliseconds",
+        "retryNumber",
+        "retryBudget",
+        "leaseHistory",
+        "milestones",
+        "captureInstant"
+      ],
+      "properties": {
+        "serverStartedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "workerStartedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "workerFinishedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "durationMilliseconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 120000
+        },
+        "settleOutcome": {
+          "enum": [
+            "quiet_window",
+            "timeout",
+            "not_reached"
+          ]
+        },
+        "settleMilliseconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15000
+        },
+        "navigationDeadlineMilliseconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30000
+        },
+        "jobDeadlineMilliseconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 120000
+        },
+        "retryNumber": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "retryBudget": {
+          "const": 2
+        },
+        "leaseHistory": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/LeaseHistoryEntry"
+          }
+        },
+        "milestones": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/Milestone"
+          }
+        },
+        "captureInstant": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "ArtifactDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "digest",
+        "byteLength",
+        "mediaType"
+      ],
+      "properties": {
+        "artifactId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "digest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "byteLength": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 52428800
+        },
+        "mediaType": {
+          "enum": [
+            "image/png",
+            "application/json"
+          ]
+        }
+      }
+    },
+    "OutputRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raster",
+        "encoding",
+        "width",
+        "height",
+        "capturedRegion",
+        "decoder",
+        "byteIdentity",
+        "baselineRevisionId",
+        "reusedRasterArtifactId",
+        "stagedAt",
+        "committedAt"
+      ],
+      "properties": {
+        "raster": {
+          "$ref": "#/$defs/ArtifactDescriptor"
+        },
+        "encoding": {
+          "const": "png"
+        },
+        "width": {
+          "const": 3840
+        },
+        "height": {
+          "const": 2160
+        },
+        "capturedRegion": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "x",
+            "y",
+            "width",
+            "height"
+          ],
+          "properties": {
+            "x": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "y": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8192
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8192
+            }
+          }
+        },
+        "decoder": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "byteIdentity": {
+          "enum": [
+            "new_raster",
+            "exact_byte_reuse"
+          ]
+        },
+        "baselineRevisionId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reusedRasterArtifactId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stagedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "committedAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      }
+    },
+    "ChangeSignal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classification",
+        "baselineRevisionId",
+        "pixelChanged",
+        "byteChanged",
+        "reviewRequired",
+        "signals"
+      ],
+      "properties": {
+        "classification": {
+          "enum": [
+            "first_observation",
+            "no_change",
+            "changed",
+            "uncertain"
+          ]
+        },
+        "baselineRevisionId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pixelChanged": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "byteChanged": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "reviewRequired": {
+          "type": "boolean"
+        },
+        "signals": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "severity",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "$ref": "#/$defs/SafeCode"
+              },
+              "severity": {
+                "enum": [
+                  "info",
+                  "warning"
+                ]
+              },
+              "message": {
+                "$ref": "#/$defs/BoundedText"
+              }
+            }
+          }
+        }
+      }
+    },
+    "UnavailableObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field",
+        "reason"
+      ],
+      "properties": {
+        "field": {
+          "type": "string",
+          "pattern": "^[a-z][A-Za-z0-9.]{0,127}$"
+        },
+        "reason": {
+          "$ref": "#/$defs/BoundedText"
+        }
+      }
+    },
+    "HonestyRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statement",
+        "classification",
+        "partialReason",
+        "warnings",
+        "unavailableObservations",
+        "redactionPolicyVersion"
+      ],
+      "properties": {
+        "statement": {
+          "const": "Observed facts and unavailable facts are explicitly distinguished."
+        },
+        "classification": {
+          "enum": [
+            "complete",
+            "partial",
+            "terminal_denial",
+            "terminal_failure"
+          ]
+        },
+        "partialReason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "warnings": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "$ref": "#/$defs/SafeCode"
+              },
+              "message": {
+                "$ref": "#/$defs/BoundedText"
+              }
+            }
+          }
+        },
+        "unavailableObservations": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/UnavailableObservation"
+          }
+        },
+        "redactionPolicyVersion": {
+          "const": "vera-url-redaction-v1"
+        }
+      }
+    },
+    "TerminalRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome",
+        "code",
+        "sanitizedMessage",
+        "phase",
+        "retryable",
+        "navigationStarted",
+        "leaseDisposition"
+      ],
+      "properties": {
+        "outcome": {
+          "enum": [
+            "denied",
+            "failed",
+            "abandoned"
+          ]
+        },
+        "code": {
+          "$ref": "#/$defs/SafeCode"
+        },
+        "sanitizedMessage": {
+          "$ref": "#/$defs/BoundedText"
+        },
+        "phase": {
+          "enum": [
+            "policy",
+            "dns",
+            "connect",
+            "navigation",
+            "render",
+            "stage",
+            "commit",
+            "lease"
+          ]
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "navigationStarted": {
+          "type": "boolean"
+        },
+        "leaseDisposition": {
+          "enum": [
+            "released",
+            "expired",
+            "consumed"
+          ]
+        }
+      }
+    },
+    "ProvenanceRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "recordType",
+        "identity",
+        "authorization",
+        "request",
+        "network",
+        "runtime",
+        "timing",
+        "output",
+        "change",
+        "honesty",
+        "terminal"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "$ref": "#/$defs/SchemaVersion"
+        },
+        "recordType": {
+          "enum": [
+            "revision_observation",
+            "terminal_attempt_evidence"
+          ]
+        },
+        "identity": {
+          "$ref": "#/$defs/IdentityRecord"
+        },
+        "authorization": {
+          "$ref": "#/$defs/AuthorizationRecord"
+        },
+        "request": {
+          "$ref": "#/$defs/RequestRecord"
+        },
+        "network": {
+          "$ref": "#/$defs/NetworkRecord"
+        },
+        "runtime": {
+          "$ref": "#/$defs/RuntimeRecord"
+        },
+        "timing": {
+          "$ref": "#/$defs/TimingRecord"
+        },
+        "output": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OutputRecord"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "change": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ChangeSignal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "honesty": {
+          "$ref": "#/$defs/HonestyRecord"
+        },
+        "terminal": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/TerminalRecord"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "recordType": {
+                "const": "revision_observation"
+              }
+            },
+            "required": [
+              "recordType"
+            ]
+          },
+          "then": {
+            "properties": {
+              "identity": {
+                "type": "object",
+                "properties": {
+                  "revisionId": {
+                    "$ref": "#/$defs/EntityId"
+                  }
+                },
+                "required": [
+                  "revisionId"
+                ]
+              },
+              "output": {
+                "$ref": "#/$defs/OutputRecord"
+              },
+              "change": {
+                "$ref": "#/$defs/ChangeSignal"
+              },
+              "terminal": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "identity": {
+                "type": "object",
+                "properties": {
+                  "revisionId": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "revisionId"
+                ]
+              },
+              "output": {
+                "type": "null"
+              },
+              "change": {
+                "type": "null"
+              },
+              "terminal": {
+                "$ref": "#/$defs/TerminalRecord"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

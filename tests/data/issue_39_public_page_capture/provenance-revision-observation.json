@@ -1,0 +1,233 @@
+{
+  "schemaVersion": "public-page-capture-provenance/v1",
+  "recordType": "revision_observation",
+  "identity": {
+    "projectId": "11111111-1111-4111-8111-111111111111",
+    "captureId": "22222222-2222-4222-8222-222222222222",
+    "configurationVersionId": "23232323-2323-4323-8323-232323232323",
+    "jobId": "44444444-4444-4444-8444-444444444441",
+    "leaseEpoch": 1,
+    "attemptId": "55555555-5555-4555-8555-555555555551",
+    "revisionId": "66666666-6666-4666-8666-666666666661"
+  },
+  "authorization": {
+    "principal": {
+      "principalId": "dddddddd-dddd-4ddd-8ddd-ddddddddddd2",
+      "principalKind": "user"
+    },
+    "role": "producer",
+    "action": "capture.commit",
+    "decisionId": "dddddddd-dddd-4ddd-8ddd-ddddddddddd1",
+    "decision": "allowed",
+    "decidedAt": "2026-09-08T16:00:05Z",
+    "commitRecheck": true,
+    "originReference": null
+  },
+  "request": {
+    "triggerKind": "now",
+    "requestedUrl": "https://capture.example.org/story?edition=public",
+    "redactedRequestedUrl": "https://capture.example.org/story?edition=%5BREDACTED%5D",
+    "requestedUrlDigest": "sha256:1010101010101010101010101010101010101010101010101010101010101010",
+    "requestedUrlFingerprint": "hmac-sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "queryKeyNames": [
+      "edition"
+    ],
+    "settingsDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "captureProfileId": "vera-public-page-capture-v1",
+    "captureProfileDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "regionIntent": {
+      "kind": "full_viewport"
+    },
+    "idempotencyScopeDigest": "sha256:1212121212121212121212121212121212121212121212121212121212121212",
+    "idempotencyKeyDigest": "sha256:1313131313131313131313131313131313131313131313131313131313131313",
+    "requestedAt": "2026-09-08T16:00:00Z",
+    "enqueuedAt": "2026-09-08T16:00:00Z"
+  },
+  "network": {
+    "evidenceClass": "synthetic",
+    "dnsAdmissions": [
+      {
+        "host": "capture.example.org",
+        "resolver": "synthetic-fixture-v1",
+        "resolvedAt": "2026-09-08T16:00:01Z",
+        "answers": [
+          {
+            "address": "93.184.216.34",
+            "family": 4,
+            "addressClass": "public"
+          }
+        ],
+        "admitted": true
+      }
+    ],
+    "peerConnections": [],
+    "tls": {
+      "availability": "not_applicable",
+      "protocol": null,
+      "cipher": null,
+      "peerCertificateSha256": null,
+      "unavailableReason": "Synthetic acceptance does not make a network connection."
+    },
+    "redirectChain": [
+      {
+        "sequence": 0,
+        "url": "https://capture.example.org/story?edition=public",
+        "redactedUrl": "https://capture.example.org/story?edition=%5BREDACTED%5D",
+        "urlDigest": "sha256:1010101010101010101010101010101010101010101010101010101010101010",
+        "status": 200,
+        "locationDigest": null,
+        "admitted": true
+      }
+    ],
+    "finalUrl": "https://capture.example.org/story?edition=public",
+    "redactedFinalUrl": "https://capture.example.org/story?edition=%5BREDACTED%5D",
+    "response": {
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "contentLength": 4096,
+      "title": "Synthetic public story",
+      "headerDigest": "sha256:1414141414141414141414141414141414141414141414141414141414141414"
+    },
+    "frameManifestDigest": "sha256:1515151515151515151515151515151515151515151515151515151515151515",
+    "subresourceManifestDigest": "sha256:1616161616161616161616161616161616161616161616161616161616161616",
+    "actualConnectionCount": 0,
+    "denial": null
+  },
+  "runtime": {
+    "workerBuildId": "capture-worker-test",
+    "workerBuildDigest": "sha256:1717171717171717171717171717171717171717171717171717171717171717",
+    "installationId": "18181818-1818-4818-8818-181818181818",
+    "os": "synthetic",
+    "sandbox": "synthetic_fixture",
+    "browser": "synthetic_fixture",
+    "browserVersion": "1",
+    "adapterVersion": "synthetic-v1",
+    "policyDigest": "sha256:1919191919191919191919191919191919191919191919191919191919191919",
+    "cleanProfileId": "20202020-2020-4020-8020-202020202020",
+    "importedState": false,
+    "initialCookieCount": 0,
+    "finalCookieCount": 0,
+    "persistedStateDiscarded": true,
+    "javascriptMode": "sandboxed_bounded",
+    "locale": "en-US",
+    "timezone": "UTC",
+    "userAgentProfile": "vera-public-page-capture-v1",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "deviceScaleFactor": 2,
+    "colorProfile": "srgb",
+    "outputFormat": "png",
+    "blockedCapabilities": [
+      "downloads",
+      "file_access",
+      "forms",
+      "local_network",
+      "permissions",
+      "popups",
+      "printing",
+      "web_rtc",
+      "web_sockets",
+      "write_clipboard"
+    ]
+  },
+  "timing": {
+    "serverStartedAt": "2026-09-08T16:00:00Z",
+    "workerStartedAt": "2026-09-08T16:00:01Z",
+    "workerFinishedAt": "2026-09-08T16:00:06Z",
+    "durationMilliseconds": 5000,
+    "settleOutcome": "quiet_window",
+    "settleMilliseconds": 3000,
+    "navigationDeadlineMilliseconds": 15000,
+    "jobDeadlineMilliseconds": 30000,
+    "retryNumber": 0,
+    "retryBudget": 2,
+    "leaseHistory": [
+      {
+        "event": "claimed",
+        "leaseEpoch": 1,
+        "at": "2026-09-08T16:00:00Z",
+        "deadline": "2026-09-08T16:00:30Z",
+        "workerInstallationId": "18181818-1818-4818-8818-181818181818"
+      },
+      {
+        "event": "started",
+        "leaseEpoch": 1,
+        "at": "2026-09-08T16:00:01Z",
+        "deadline": "2026-09-08T16:00:30Z",
+        "workerInstallationId": "18181818-1818-4818-8818-181818181818"
+      },
+      {
+        "event": "committed",
+        "leaseEpoch": 1,
+        "at": "2026-09-08T16:00:06Z",
+        "deadline": "2026-09-08T16:00:30Z",
+        "workerInstallationId": "18181818-1818-4818-8818-181818181818"
+      }
+    ],
+    "milestones": [
+      {
+        "name": "lease_claimed",
+        "wallAt": "2026-09-08T16:00:00Z",
+        "monotonicMilliseconds": 0
+      },
+      {
+        "name": "rasterized",
+        "wallAt": "2026-09-08T16:00:05Z",
+        "monotonicMilliseconds": 4000
+      },
+      {
+        "name": "committed",
+        "wallAt": "2026-09-08T16:00:06Z",
+        "monotonicMilliseconds": 5000
+      }
+    ],
+    "captureInstant": "2026-09-08T16:00:05Z"
+  },
+  "output": {
+    "raster": {
+      "artifactId": "77777777-7777-4777-8777-777777777771",
+      "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "byteLength": 8192,
+      "mediaType": "image/png"
+    },
+    "encoding": "png",
+    "width": 3840,
+    "height": 2160,
+    "capturedRegion": {
+      "x": 0,
+      "y": 0,
+      "width": 3840,
+      "height": 2160
+    },
+    "decoder": "pngjs-7",
+    "byteIdentity": "new_raster",
+    "baselineRevisionId": null,
+    "reusedRasterArtifactId": null,
+    "stagedAt": "2026-09-08T16:00:05Z",
+    "committedAt": "2026-09-08T16:00:06Z"
+  },
+  "change": {
+    "classification": "first_observation",
+    "baselineRevisionId": null,
+    "pixelChanged": null,
+    "byteChanged": null,
+    "reviewRequired": false,
+    "signals": []
+  },
+  "honesty": {
+    "statement": "Observed facts and unavailable facts are explicitly distinguished.",
+    "classification": "complete",
+    "partialReason": null,
+    "warnings": [],
+    "unavailableObservations": [
+      {
+        "field": "network.tls",
+        "reason": "Synthetic acceptance does not make a network connection."
+      }
+    ],
+    "redactionPolicyVersion": "vera-url-redaction-v1"
+  },
+  "terminal": null
+}

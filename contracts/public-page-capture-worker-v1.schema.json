@@ -1,0 +1,826 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.vera.video/contracts/public-page-capture-worker-v1.schema.json",
+  "title": "PublicPageCaptureWorkerV1",
+  "description": "Closed job-scoped local-worker protocol approved by issue 38.",
+  "oneOf": [
+    { "$ref": "#/$defs/ClaimLeaseRequest" },
+    { "$ref": "#/$defs/ClaimLeaseResponse" },
+    { "$ref": "#/$defs/StartAttemptRequest" },
+    { "$ref": "#/$defs/StartAttemptResponse" },
+    { "$ref": "#/$defs/RecordNavigationStartRequest" },
+    { "$ref": "#/$defs/RecordNavigationStartResponse" },
+    { "$ref": "#/$defs/RenewLeaseRequest" },
+    { "$ref": "#/$defs/RenewLeaseResponse" },
+    { "$ref": "#/$defs/RequestStagingGrantsRequest" },
+    { "$ref": "#/$defs/RequestStagingGrantsResponse" },
+    { "$ref": "#/$defs/CommitAttemptRequest" },
+    { "$ref": "#/$defs/CommitAttemptResponse" },
+    { "$ref": "#/$defs/FailAttemptRequest" },
+    { "$ref": "#/$defs/FailAttemptResponse" },
+    { "$ref": "#/$defs/AbandonAttemptRequest" },
+    { "$ref": "#/$defs/AbandonAttemptResponse" },
+    { "$ref": "#/$defs/WorkerError" }
+  ],
+  "$defs": {
+    "SchemaVersion": {
+      "type": "string",
+      "const": "public-page-capture-worker/v1"
+    },
+    "EntityId": {
+      "$ref": "public-page-capture-api-v1.schema.json#/$defs/EntityId"
+    },
+    "ContentDigest": {
+      "$ref": "public-page-capture-api-v1.schema.json#/$defs/ContentDigest"
+    },
+    "UtcTimestamp": {
+      "$ref": "public-page-capture-api-v1.schema.json#/$defs/UtcTimestamp"
+    },
+    "SafeCode": {
+      "$ref": "public-page-capture-api-v1.schema.json#/$defs/SafeCode"
+    },
+    "RawCapability": {
+      "type": "string",
+      "minLength": 80,
+      "maxLength": 4096,
+      "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$",
+      "writeOnly": true
+    },
+    "ExactRestrictedUrl": {
+      "type": "string",
+      "format": "uri",
+      "minLength": 9,
+      "maxLength": 2048,
+      "pattern": "^(?!.*[?&](?:access_token|api_key|apikey|auth|authorization|credential|jwt|password|secret|signature|sig|token)=)https?://(?![^/\\s]*@)[^\\s\\\\]+$",
+      "writeOnly": true
+    },
+    "LeaseProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workerInstallationId",
+        "jobId",
+        "leaseId",
+        "leaseEpoch",
+        "attemptId",
+        "leaseCapability"
+      ],
+      "properties": {
+        "workerInstallationId": { "$ref": "#/$defs/EntityId" },
+        "jobId": { "$ref": "#/$defs/EntityId" },
+        "leaseId": { "$ref": "#/$defs/EntityId" },
+        "leaseEpoch": { "type": "integer", "minimum": 1 },
+        "attemptId": {
+          "oneOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
+        },
+        "leaseCapability": { "$ref": "#/$defs/RawCapability" }
+      }
+    },
+    "CaptureProfileV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profileId",
+        "profileVersion",
+        "adapterVersion",
+        "securityPolicyVersion",
+        "profileDigest",
+        "network",
+        "isolation",
+        "render",
+        "stability",
+        "warningPolicy",
+        "limits"
+      ],
+      "properties": {
+        "profileId": { "$ref": "#/$defs/EntityId" },
+        "profileVersion": { "type": "integer", "minimum": 1 },
+        "adapterVersion": { "$ref": "#/$defs/SafeCode" },
+        "securityPolicyVersion": { "$ref": "#/$defs/SafeCode" },
+        "profileDigest": { "$ref": "#/$defs/ContentDigest" },
+        "network": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schemes",
+            "ports",
+            "methods",
+            "idna",
+            "rejectMixedDns",
+            "pinResolvedAddresses",
+            "verifyActualPeer",
+            "revalidateRedirects",
+            "revalidateFrames",
+            "revalidateSubresources",
+            "directBrowserNetworkFallback",
+            "webSocket",
+            "webRtc",
+            "referrer"
+          ],
+          "properties": {
+            "schemes": {
+              "type": "array",
+              "const": ["http", "https"]
+            },
+            "ports": { "type": "array", "const": [80, 443] },
+            "methods": { "type": "array", "const": ["GET", "HEAD"] },
+            "idna": { "type": "string", "const": "uts46_nontransitional" },
+            "rejectMixedDns": { "type": "boolean", "const": true },
+            "pinResolvedAddresses": { "type": "boolean", "const": true },
+            "verifyActualPeer": { "type": "boolean", "const": true },
+            "revalidateRedirects": { "type": "boolean", "const": true },
+            "revalidateFrames": { "type": "boolean", "const": true },
+            "revalidateSubresources": { "type": "boolean", "const": true },
+            "directBrowserNetworkFallback": { "type": "boolean", "const": false },
+            "webSocket": { "type": "string", "const": "blocked" },
+            "webRtc": { "type": "string", "const": "blocked" },
+            "referrer": { "type": "string", "const": "none" }
+          }
+        },
+        "isolation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "disposableContext",
+            "importedState",
+            "cookies",
+            "storage",
+            "cache",
+            "extensions",
+            "downloads",
+            "permissions",
+            "filesystem",
+            "localNetwork",
+            "inboundListeners",
+            "attachedBrowser",
+            "credentialEnvironment"
+          ],
+          "properties": {
+            "disposableContext": { "type": "boolean", "const": true },
+            "importedState": { "type": "boolean", "const": false },
+            "cookies": { "type": "string", "const": "empty_and_discarded" },
+            "storage": { "type": "string", "const": "empty_and_discarded" },
+            "cache": { "type": "string", "const": "ephemeral" },
+            "extensions": { "type": "string", "const": "blocked" },
+            "downloads": { "type": "string", "const": "blocked" },
+            "permissions": { "type": "string", "const": "none" },
+            "filesystem": { "type": "string", "const": "page_inaccessible" },
+            "localNetwork": { "type": "string", "const": "blocked" },
+            "inboundListeners": { "type": "string", "const": "blocked" },
+            "attachedBrowser": { "type": "boolean", "const": false },
+            "credentialEnvironment": { "type": "string", "const": "allowlist_only" }
+          }
+        },
+        "render": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "javaScript",
+            "viewportWidth",
+            "viewportHeight",
+            "deviceScaleFactor",
+            "region",
+            "encoding",
+            "color",
+            "background",
+            "locale",
+            "timezone",
+            "userAgent",
+            "animations",
+            "reducedMotion",
+            "fonts",
+            "media",
+            "popups",
+            "forms",
+            "interaction"
+          ],
+          "properties": {
+            "javaScript": {
+              "type": "string",
+              "enum": ["disabled", "sandboxed_bounded"]
+            },
+            "viewportWidth": { "type": "integer", "minimum": 320, "maximum": 32768 },
+            "viewportHeight": { "type": "integer", "minimum": 200, "maximum": 32768 },
+            "deviceScaleFactor": { "type": "number", "minimum": 0.5, "maximum": 4 },
+            "region": {
+              "$ref": "public-page-capture-api-v1.schema.json#/$defs/RegionIntent"
+            },
+            "encoding": { "type": "string", "const": "png" },
+            "color": { "type": "string", "const": "srgb" },
+            "background": { "type": "string", "const": "opaque_white" },
+            "locale": { "type": "string", "minLength": 2, "maxLength": 32 },
+            "timezone": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "userAgent": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "animations": { "type": "string", "const": "disabled" },
+            "reducedMotion": { "type": "string", "const": "reduce" },
+            "fonts": { "type": "string", "const": "system_only_no_webfonts" },
+            "media": { "type": "string", "const": "blocked" },
+            "popups": { "type": "string", "const": "blocked" },
+            "forms": { "type": "string", "const": "blocked" },
+            "interaction": { "type": "string", "const": "none" }
+          }
+        },
+        "stability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["waitUntil", "settleMilliseconds", "hardDeadlineMilliseconds"],
+          "properties": {
+            "waitUntil": { "type": "string", "const": "domcontentloaded" },
+            "settleMilliseconds": { "type": "integer", "minimum": 0, "maximum": 30000 },
+            "hardDeadlineMilliseconds": { "type": "integer", "minimum": 1000, "maximum": 120000 }
+          }
+        },
+        "warningPolicy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["anyWarningRequiresReview", "hardFailureCodes"],
+          "properties": {
+            "anyWarningRequiresReview": { "type": "boolean", "const": true },
+            "hardFailureCodes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 64,
+              "uniqueItems": true,
+              "items": { "$ref": "#/$defs/SafeCode" }
+            }
+          }
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "urlBytes",
+            "redirects",
+            "dnsAnswers",
+            "connectionAttemptsPerRequest",
+            "topLevelRequests",
+            "frameRequests",
+            "subresourceRequests",
+            "totalRequests",
+            "responseBytes",
+            "totalBytes",
+            "frameDepth",
+            "popups",
+            "navigationMilliseconds",
+            "stabilityMilliseconds",
+            "scriptCpuMilliseconds",
+            "attemptMilliseconds",
+            "memoryMiB",
+            "processes",
+            "workerConcurrency",
+            "outputPixels",
+            "rasterBytes",
+            "diagnostics",
+            "diagnosticFieldBytes",
+            "retries",
+            "leaseMilliseconds",
+            "heartbeatMilliseconds"
+          ],
+          "properties": {
+            "urlBytes": { "type": "integer", "minimum": 256, "maximum": 8192 },
+            "redirects": { "type": "integer", "minimum": 0, "maximum": 16 },
+            "dnsAnswers": { "type": "integer", "minimum": 1, "maximum": 64 },
+            "connectionAttemptsPerRequest": { "type": "integer", "minimum": 1, "maximum": 16 },
+            "topLevelRequests": { "type": "integer", "minimum": 1, "maximum": 4 },
+            "frameRequests": { "type": "integer", "minimum": 0, "maximum": 64 },
+            "subresourceRequests": { "type": "integer", "minimum": 0, "maximum": 1024 },
+            "totalRequests": { "type": "integer", "minimum": 1, "maximum": 2048 },
+            "responseBytes": { "type": "integer", "minimum": 1024, "maximum": 33554432 },
+            "totalBytes": { "type": "integer", "minimum": 1024, "maximum": 134217728 },
+            "frameDepth": { "type": "integer", "minimum": 0, "maximum": 16 },
+            "popups": { "type": "integer", "const": 0 },
+            "navigationMilliseconds": { "type": "integer", "minimum": 1000, "maximum": 60000 },
+            "stabilityMilliseconds": { "type": "integer", "minimum": 0, "maximum": 30000 },
+            "scriptCpuMilliseconds": { "type": "integer", "minimum": 0, "maximum": 30000 },
+            "attemptMilliseconds": { "type": "integer", "minimum": 1000, "maximum": 120000 },
+            "memoryMiB": { "type": "integer", "minimum": 128, "maximum": 4096 },
+            "processes": { "type": "integer", "minimum": 1, "maximum": 64 },
+            "workerConcurrency": { "type": "integer", "minimum": 1, "maximum": 16 },
+            "outputPixels": { "type": "integer", "minimum": 64000, "maximum": 134217728 },
+            "rasterBytes": { "type": "integer", "minimum": 1024, "maximum": 67108864 },
+            "diagnostics": { "type": "integer", "minimum": 1, "maximum": 256 },
+            "diagnosticFieldBytes": { "type": "integer", "minimum": 32, "maximum": 4096 },
+            "retries": { "type": "integer", "minimum": 0, "maximum": 8 },
+            "leaseMilliseconds": { "type": "integer", "minimum": 5000, "maximum": 300000 },
+            "heartbeatMilliseconds": { "type": "integer", "minimum": 1000, "maximum": 60000 }
+          }
+        }
+      }
+    },
+    "LeaseAssignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "captureId",
+        "configurationVersion",
+        "jobId",
+        "leaseId",
+        "leaseEpoch",
+        "attemptId",
+        "leaseCapability",
+        "capabilityJtiDigest",
+        "capabilityScopeDigest",
+        "commitNonce",
+        "issuedAt",
+        "expiresAt",
+        "exactRequestedUrl",
+        "settingsDigest",
+        "profile"
+      ],
+      "properties": {
+        "projectId": { "$ref": "#/$defs/EntityId" },
+        "captureId": { "$ref": "#/$defs/EntityId" },
+        "configurationVersion": { "type": "integer", "minimum": 1 },
+        "jobId": { "$ref": "#/$defs/EntityId" },
+        "leaseId": { "$ref": "#/$defs/EntityId" },
+        "leaseEpoch": { "type": "integer", "minimum": 1 },
+        "attemptId": { "type": "null" },
+        "leaseCapability": { "$ref": "#/$defs/RawCapability" },
+        "capabilityJtiDigest": { "$ref": "#/$defs/ContentDigest" },
+        "capabilityScopeDigest": { "$ref": "#/$defs/ContentDigest" },
+        "commitNonce": { "$ref": "#/$defs/EntityId", "writeOnly": true },
+        "issuedAt": { "$ref": "#/$defs/UtcTimestamp" },
+        "expiresAt": { "$ref": "#/$defs/UtcTimestamp" },
+        "exactRequestedUrl": { "$ref": "#/$defs/ExactRestrictedUrl" },
+        "settingsDigest": { "$ref": "#/$defs/ContentDigest" },
+        "profile": { "$ref": "#/$defs/CaptureProfileV1" }
+      }
+    },
+    "StagingGrant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "grantId",
+        "purpose",
+        "rawGrant",
+        "grantDigest",
+        "attemptId",
+        "leaseEpoch",
+        "maxBytes",
+        "mimeType",
+        "issuedAt",
+        "expiresAt"
+      ],
+      "properties": {
+        "grantId": { "$ref": "#/$defs/EntityId" },
+        "purpose": { "type": "string", "enum": ["raster", "provenance"] },
+        "rawGrant": { "$ref": "#/$defs/RawCapability" },
+        "grantDigest": { "$ref": "#/$defs/ContentDigest" },
+        "attemptId": { "$ref": "#/$defs/EntityId" },
+        "leaseEpoch": { "type": "integer", "minimum": 1 },
+        "maxBytes": { "type": "integer", "minimum": 1, "maximum": 67108864 },
+        "mimeType": {
+          "type": "string",
+          "enum": ["image/png", "application/json"]
+        },
+        "issuedAt": { "$ref": "#/$defs/UtcTimestamp" },
+        "expiresAt": { "$ref": "#/$defs/UtcTimestamp" }
+      }
+    },
+    "StagedObjectDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stagingObjectId",
+        "grantId",
+        "purpose",
+        "digest",
+        "byteLength",
+        "mimeType"
+      ],
+      "properties": {
+        "stagingObjectId": { "$ref": "#/$defs/EntityId" },
+        "grantId": { "$ref": "#/$defs/EntityId" },
+        "purpose": { "type": "string", "enum": ["raster", "provenance"] },
+        "digest": { "$ref": "#/$defs/ContentDigest" },
+        "byteLength": { "type": "integer", "minimum": 1, "maximum": 67108864 },
+        "mimeType": {
+          "type": "string",
+          "enum": ["image/png", "application/json"]
+        },
+        "width": { "type": "integer", "minimum": 1, "maximum": 32768 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 32768 },
+        "encoding": { "type": "string", "enum": ["png", "json"] },
+        "color": { "type": "string", "enum": ["srgb", "not_applicable"] },
+        "alpha": {
+          "type": "string",
+          "enum": ["opaque", "present", "not_applicable"]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "purpose": { "const": "raster" } } },
+          "then": {
+            "required": ["width", "height", "encoding", "color", "alpha"],
+            "properties": {
+              "mimeType": { "const": "image/png" },
+              "width": { "type": "integer", "minimum": 1, "maximum": 32768 },
+              "height": { "type": "integer", "minimum": 1, "maximum": 32768 },
+              "encoding": { "const": "png" },
+              "color": { "const": "srgb" },
+              "alpha": { "enum": ["opaque", "present"] }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "purpose": { "const": "provenance" } } },
+          "then": {
+            "properties": {
+              "mimeType": { "const": "application/json" },
+              "encoding": { "const": "json" }
+            }
+          }
+        }
+      ]
+    },
+    "ClaimLeaseRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "clientRequestId",
+        "workerInstallationId",
+        "supportedProfileDigests"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "claim_lease" },
+        "clientRequestId": { "$ref": "#/$defs/EntityId" },
+        "workerInstallationId": { "$ref": "#/$defs/EntityId" },
+        "supportedProfileDigests": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/ContentDigest" }
+        }
+      }
+    },
+    "ClaimLeaseResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "messageType", "requestId", "assignment"],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "lease_claimed" },
+        "requestId": { "$ref": "#/$defs/EntityId" },
+        "assignment": { "$ref": "#/$defs/LeaseAssignment" }
+      }
+    },
+    "StartAttemptRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "clientRequestId",
+        "lease",
+        "cleanProfileId",
+        "browserBuild",
+        "adapterVersion",
+        "securityPolicyVersion"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "start_attempt" },
+        "clientRequestId": { "$ref": "#/$defs/EntityId" },
+        "lease": { "$ref": "#/$defs/LeaseProof" },
+        "cleanProfileId": { "$ref": "#/$defs/EntityId" },
+        "browserBuild": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "adapterVersion": { "$ref": "#/$defs/SafeCode" },
+        "securityPolicyVersion": { "$ref": "#/$defs/SafeCode" }
+      }
+    },
+    "StartAttemptResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "requestId",
+        "attemptId",
+        "jobId",
+        "leaseId",
+        "leaseEpoch",
+        "startedAt",
+        "browserLaunchAuthorized"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "attempt_started" },
+        "requestId": { "$ref": "#/$defs/EntityId" },
+        "attemptId": { "$ref": "#/$defs/EntityId" },
+        "jobId": { "$ref": "#/$defs/EntityId" },
+        "leaseId": { "$ref": "#/$defs/EntityId" },
+        "leaseEpoch": { "type": "integer", "minimum": 1 },
+        "startedAt": { "$ref": "#/$defs/UtcTimestamp" },
+        "browserLaunchAuthorized": { "type": "boolean", "const": true }
+      }
+    },
+    "RecordNavigationStartRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "clientRequestId",
+        "lease",
+        "navigationStartedAt",
+        "initialUrlDigest"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "record_navigation_start" },
+        "clientRequestId": { "$ref": "#/$defs/EntityId" },
+        "lease": { "$ref": "#/$defs/LeaseProof" },
+        "navigationStartedAt": { "$ref": "#/$defs/UtcTimestamp" },
+        "initialUrlDigest": { "$ref": "#/$defs/ContentDigest" }
+      }
+    },
+    "RecordNavigationStartResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "requestId",
+        "attemptId",
+        "recordedAt"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "navigation_start_recorded" },
+        "requestId": { "$ref": "#/$defs/EntityId" },
+        "attemptId": { "$ref": "#/$defs/EntityId" },
+        "recordedAt": { "$ref": "#/$defs/UtcTimestamp" }
+      }
+    },
+    "RenewLeaseRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "messageType", "clientRequestId", "lease"],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "renew_lease" },
+        "clientRequestId": { "$ref": "#/$defs/EntityId" },
+        "lease": { "$ref": "#/$defs/LeaseProof" }
+      }
+    },
+    "RenewLeaseResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "requestId",
+        "leaseId",
+        "leaseEpoch",
+        "expiresAt",
+        "renewedAt"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "lease_renewed" },
+        "requestId": { "$ref": "#/$defs/EntityId" },
+        "leaseId": { "$ref": "#/$defs/EntityId" },
+        "leaseEpoch": { "type": "integer", "minimum": 1 },
+        "expiresAt": { "$ref": "#/$defs/UtcTimestamp" },
+        "renewedAt": { "$ref": "#/$defs/UtcTimestamp" }
+      }
+    },
+    "RequestStagingGrantsRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "clientRequestId",
+        "lease",
+        "purposes"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "request_staging_grants" },
+        "clientRequestId": { "$ref": "#/$defs/EntityId" },
+        "lease": { "$ref": "#/$defs/LeaseProof" },
+        "purposes": {
+          "type": "array",
+          "const": ["raster", "provenance"]
+        }
+      }
+    },
+    "RequestStagingGrantsResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "messageType", "requestId", "grants"],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "staging_grants_issued" },
+        "requestId": { "$ref": "#/$defs/EntityId" },
+        "grants": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "$ref": "#/$defs/StagingGrant" }
+        }
+      }
+    },
+    "CommitAttemptRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "clientRequestId",
+        "lease",
+        "commitNonce",
+        "raster",
+        "provenanceObject",
+        "warningCodes",
+        "reviewClassification"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "commit_attempt" },
+        "clientRequestId": { "$ref": "#/$defs/EntityId" },
+        "lease": { "$ref": "#/$defs/LeaseProof" },
+        "commitNonce": { "$ref": "#/$defs/EntityId", "writeOnly": true },
+        "raster": { "$ref": "#/$defs/StagedObjectDescriptor" },
+        "provenanceObject": { "$ref": "#/$defs/StagedObjectDescriptor" },
+        "warningCodes": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/SafeCode" }
+        },
+        "reviewClassification": {
+          "type": "string",
+          "enum": ["ready", "review_required"]
+        }
+      }
+    },
+    "CommitAttemptResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "requestId",
+        "job",
+        "revision",
+        "recoveredExistingOutcome"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "attempt_committed" },
+        "requestId": { "$ref": "#/$defs/EntityId" },
+        "job": {
+          "$ref": "public-page-capture-api-v1.schema.json#/$defs/CaptureJobView"
+        },
+        "revision": {
+          "$ref": "public-page-capture-api-v1.schema.json#/$defs/CaptureRevisionView"
+        },
+        "recoveredExistingOutcome": { "type": "boolean" }
+      }
+    },
+    "FailAttemptRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "clientRequestId",
+        "lease",
+        "terminalCode",
+        "navigationStarted",
+        "retryable",
+        "terminalEvidenceObject"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "fail_attempt" },
+        "clientRequestId": { "$ref": "#/$defs/EntityId" },
+        "lease": { "$ref": "#/$defs/LeaseProof" },
+        "terminalCode": { "$ref": "#/$defs/SafeCode" },
+        "navigationStarted": { "type": "boolean" },
+        "retryable": { "type": "boolean" },
+        "terminalEvidenceObject": {
+          "$ref": "#/$defs/StagedObjectDescriptor"
+        }
+      }
+    },
+    "FailAttemptResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "requestId",
+        "jobId",
+        "attemptId",
+        "jobState",
+        "recordedAt"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "attempt_failed" },
+        "requestId": { "$ref": "#/$defs/EntityId" },
+        "jobId": { "$ref": "#/$defs/EntityId" },
+        "attemptId": { "$ref": "#/$defs/EntityId" },
+        "jobState": { "type": "string", "enum": ["queued", "failed"] },
+        "recordedAt": { "$ref": "#/$defs/UtcTimestamp" }
+      }
+    },
+    "AbandonAttemptRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "clientRequestId",
+        "lease",
+        "terminalCode",
+        "terminalEvidenceObject"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "abandon_attempt" },
+        "clientRequestId": { "$ref": "#/$defs/EntityId" },
+        "lease": { "$ref": "#/$defs/LeaseProof" },
+        "terminalCode": { "$ref": "#/$defs/SafeCode" },
+        "terminalEvidenceObject": {
+          "$ref": "#/$defs/StagedObjectDescriptor"
+        }
+      }
+    },
+    "AbandonAttemptResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "requestId",
+        "jobId",
+        "attemptId",
+        "recordedAt"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "attempt_abandoned" },
+        "requestId": { "$ref": "#/$defs/EntityId" },
+        "jobId": { "$ref": "#/$defs/EntityId" },
+        "attemptId": { "$ref": "#/$defs/EntityId" },
+        "recordedAt": { "$ref": "#/$defs/UtcTimestamp" }
+      }
+    },
+    "WorkerError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "requestId",
+        "code",
+        "safeMessage",
+        "retryable",
+        "fieldPaths"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "worker_error" },
+        "requestId": { "$ref": "#/$defs/EntityId" },
+        "code": {
+          "type": "string",
+          "enum": [
+            "request_invalid",
+            "authentication_required",
+            "action_not_allowed",
+            "invalid_or_expired_job_capability",
+            "job_not_committable",
+            "capture_resource_limit",
+            "capture_request_denied",
+            "authorization_unavailable",
+            "capture_worker_unavailable",
+            "object_verification_unavailable"
+          ]
+        },
+        "safeMessage": {
+          "$ref": "public-page-capture-api-v1.schema.json#/$defs/BoundedText"
+        },
+        "retryable": { "type": "boolean" },
+        "fieldPaths": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "maxLength": 256,
+            "pattern": "^(?:|/(?:[A-Za-z0-9_~-]|~[01])*)$"
+          }
+        }
+      }
+    }
+  }
+}

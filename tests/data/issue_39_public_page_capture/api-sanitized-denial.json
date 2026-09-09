@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "public-page-capture-api/v1",
+  "messageType": "error",
+  "requestId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa8",
+  "code": "capture_request_denied",
+  "safeMessage": "The requested destination is not eligible for public-page capture.",
+  "retryable": false,
+  "fieldPaths": [
+    "/requestedUrl"
+  ],
+  "denialFingerprint": "hmac-sha256-v1:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+}
