@@ -6,14 +6,17 @@
 - Artifact: `Script to Timeline - Prompter Runtime and Suite Navigation S04-S06.dc.html`
 - Review URL: <https://claude.ai/design/p/011eee38-8b6b-48aa-a154-d6c0060d4f23?file=Script+to+Timeline+-+Prompter+Runtime+and+Suite+Navigation+S04-S06.dc.html>
 - Exact submitted prompt: `docs/prototypes/issue-58/claude-s04-s06-prompt.md`
+- Exact S04 correction prompt:
+  `docs/prototypes/issue-58/claude-s04-producer-correction-1.md`
 - Visual baseline: the Producer-accepted `Script to Timeline - Two-Column
   Authoring S01-S03 v2.dc.html`; the prompt required a new artifact and did not
   authorize changes to that accepted artifact.
 
 The artifact labels itself as a design simulation. It does not implement or
 claim production export, synchronization, authentication, local-agent, media,
-background-job, Resolve, or cross-product behavior. The S04 action is named
-`Preview prompter`, and its result says `Simulated — no file written`.
+background-job, Resolve, or cross-product behavior. After Producer correction
+1, the S04 action is named `Create prompter export`, and its result says
+`Simulated — no file written`.
 
 No contracts, fixtures, golden files, generated types, or shared tokens changed.
 
@@ -23,7 +26,7 @@ Review was performed against the rendered artifact on 2026-09-09. The checks
 below record only results actually observed; they are not production-behavior
 evidence and do not constitute Producer acceptance.
 
-### S04 — prompter-readable output
+### Initial S04 observations before Producer correction 1
 
 - Base output preserved F03, the intact F04 paragraph, and F10 in document
   order. It began `(OC)`, changed to `(VO)` and back to `(OC)` only at the
@@ -42,6 +45,40 @@ evidence and do not constitute Producer acceptance.
   affected phrase`, and did not invent OC or VO.
 - `Marker target removed` showed F28 as `UNPLACED · 0S`, retained the marker,
   kept it out of prompter output, and offered `Reattach` and `Dismiss`.
+
+### S04 — Producer correction 1
+
+- Claude edited the existing `Script to Timeline - Prompter Runtime and Suite
+  Navigation S04-S06.dc.html` artifact in place from the exact retained
+  correction prompt. The rendered S04 no longer contains the visible `Input
+  boundary — Revision A` panel or an excluded-source inventory.
+- The default base view is a compact single-column flow at both internal
+  `1280 × 800` and `1024 × 768`: title and explanation, three checkbox options,
+  document-sized prompter text, and the simulated creation action/result.
+  Visual inspection found no horizontal overflow or independently scrolling
+  content column.
+- All observed non-spoken items use literal square brackets while retaining
+  accessible pill semantics: `[OC]`, `[VO]`, `[PAUSE]`,
+  `[SAY: Lunara = loo-NAH-rah]`, and optional `[SECTION: …]` labels.
+- `Simplify brief mid-sentence camera changes` is checked by default. With it
+  on, all five words in `as the tide turns and` remain and F04 reads
+  continuously under OC. Turning it off restores a `[VO]` marker before that
+  phrase and `[OC]` before `the reading begins to drift.`
+- Repeating the unsimplified Revision A creation without changing settings
+  left the identities unchanged: text `sim-text-38b59b`, sidecar
+  `sim-cues-bed7e4`. Restoring simplification changed both identities to text
+  `sim-text-39b59d` and sidecar `sim-cues-0293ba`.
+- Creation displayed `Simulated — no file written`, frozen Revision A,
+  simulated Download/Copy controls, and a secondary `Technical details`
+  disclosure. The visible explanation says the text is for a teleprompter and
+  the companion data supports matching recorded takes later.
+- `Missing camera state` still blocked creation, named `“as the tide turns
+  and”`, offered a return to the phrase, and did not invent OC/VO. `Marker
+  target removed` retained the zero-duration marker outside prompter text and
+  offered `Reattach` and `Dismiss`.
+- Switching to S05 and S06 after the correction showed their prior headings,
+  scenario matrices, and base content unchanged. The accepted S01–S03 artifact
+  was not targeted by the correction.
 
 ### S05 — capability and revision boundaries
 

@@ -58,9 +58,10 @@ walk S04, S05, and S06 using the retained checklist. The issue moves to
 
 ## Design boundary decisions
 
-1. The prototype uses `Preview prompter` and labels every result `Simulated —
-   no file written`. It demonstrates the already-specified output boundary but
-   does not introduce a production export surface.
+1. After Producer correction 1, S04 uses `Create prompter export` and labels
+   every result `Simulated — no file written`. It demonstrates export
+   preparation and intended use without introducing a production export
+   surface.
 2. Typed PAUSE and pronunciation cues are visibly non-spoken and separately
    toggleable. Direction, citation, production marker, excluded draft note,
    and source transcript examples never enter spoken output.
@@ -78,22 +79,45 @@ walk S04, S05, and S06 using the retained checklist. The issue moves to
    and bounded intent. The destination treats the hint as untrusted, rechecks
    its own session and membership, and never exposes protected names/content or
    creates a link. All navigation remains simulated inside the artifact.
+7. Producer correction 1 removes S04's input-boundary inventory and theatrical
+   prompter sizing. S04 becomes a compact single-column export-preparation flow
+   with options first, ordinary document-sized text, and an explicit simulated
+   creation result that explains how the prompter text is used.
+8. The new `Simplify brief mid-sentence camera changes` option affects only
+   prompter OC/VO markers. It suppresses both markers around an OC/VO island of
+   five spoken words or fewer when the island starts and ends inside one
+   sentence and is surrounded by the same state. It never changes narration or
+   source camera assignments, and its value participates in deterministic
+   export identity.
+9. Producer correction 1 also replaces parenthesized non-spoken notation with
+   square brackets in prompter text. The application may render those bracketed
+   values as pills, but copied/downloaded plain text preserves literal forms
+   such as `[OC]`, `[VO]`, `[PAUSE]`, and `[SAY: …]`. The current product spec
+   still names `(OC)`/`(VO)`; accepting this correction therefore requires a
+   later explicit specification-format update before implementation. No schema
+   or generated type changes are implicated.
 
 ## Producer acceptance checklist
 
-1. Open the exact prompt at
-   `docs/prototypes/issue-58/claude-s04-s06-prompt.md`, then open the resulting
-   Claude Design artifact named in the retained evidence.
-2. At `1280 × 800`, reset S04 and preview F03/F04/F10 with F34 included.
-   Confirm the output begins with OC, changes only at OC/VO boundaries, keeps
-   prose order intact, and shows PAUSE/pronunciation as non-spoken cues.
-3. Toggle annotations and section labels. Confirm only those controlled
-   non-spoken differences change; F05 direction, F06 citation, F28 marker,
-   F32 excluded note, and source transcript never enter the spoken text.
-4. Repeat the same S04 revision/settings and confirm the simulated text and
-   sidecar identity are unchanged. Trigger missing camera and confirm preview
-   is blocked without an invented state. Trigger F28's lost target and confirm
-   a zero-duration unplaced warning with Reattach/Dismiss and no silent delete.
+1. Open the initial prompt at
+   `docs/prototypes/issue-58/claude-s04-s06-prompt.md` and Producer correction
+   at `docs/prototypes/issue-58/claude-s04-producer-correction-1.md`, then open
+   the resulting Claude Design artifact named in the retained evidence.
+2. At `1280 × 800`, reset S04. Confirm there is no input-boundary/source
+   inventory; all three options precede compact document-sized prompter text;
+   and the page explains that the created text is used in a teleprompter while
+   companion data supports later recorded-take matching.
+3. With brief-change simplification on, confirm every F04 word remains but the
+   five-word `as the tide turns and` island no longer creates VO/OC markers.
+   Turn the option off and confirm the exact OC → VO → OC transitions return.
+   Toggle annotations and section labels and confirm only those controlled
+   non-spoken differences change. Excluded content never enters the output.
+4. Create the simulated export twice with the same revision/settings and
+   confirm identities are unchanged; change brief-change simplification and
+   confirm identity changes. Verify simulated Download/Copy controls and the
+   secondary technical details disclosure. Trigger missing camera and confirm
+   creation is blocked without an invented state. Trigger F28's lost target and
+   confirm a zero-duration unplaced warning with Reattach/Dismiss and no delete.
 5. Reset S05. Walk local changes → syncing → synced, then freeze simulated
    Preview B and advance the live head. Confirm Preview stays on B and shows a
    newer-live notice. Inspect no-agent, disconnected, Free, supported Studio,
