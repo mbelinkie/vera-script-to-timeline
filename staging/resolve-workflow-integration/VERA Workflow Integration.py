@@ -4,6 +4,14 @@ import json
 import sys
 from pathlib import Path
 
+# Resolve can hide script errors. Leave a local trace before loading VERA so
+# this spike can distinguish a launcher failure from a dependency failure.
+with open(
+    "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-workflow-integration-started.txt",
+    "w",
+) as stream:
+    stream.write("started\n")
+
 CONFIG_PATH = Path(__file__).with_name("vera-workflow-integration.json")
 RESULT_PATH = Path(__file__).with_name("vera-workflow-integration-result.json")
 
