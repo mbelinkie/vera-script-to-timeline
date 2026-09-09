@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 CONFIG_PATH = Path(__file__).with_name("vera-workflow-integration.json")
+RESULT_PATH = Path(__file__).with_name("vera-workflow-integration-result.json")
 
 
 def main(injected_resolve: object) -> None:
@@ -30,10 +31,21 @@ def main(injected_resolve: object) -> None:
         package_dir,
         project_name=project_name,
     )
+    RESULT_PATH.write_text(result.to_json(), encoding="utf-8")
     print(result.to_json(), end="")
 
 
 injected_resolve = globals().get("resolve")
 if injected_resolve is None:
     raise RuntimeError("Resolve did not inject the required resolve object")
-main(injected_resolve)
+try:
+    main(injected_resolve)
+except Exception as error:
+    failure = json.dumps(
+        {"status": "workflow_launcher_failed", "detail": str(error)},
+        indent=2,
+        sort_keys=True,
+    ) + "\n"
+    RESULT_PATH.write_text(failure, encoding="utf-8")
+    print(failure, end="")
+    raise

@@ -325,6 +325,10 @@ version/build and result in
 before deciding whether this removes the external-scripting boundary or is only
 a nicer launcher.
 
+The wrapper also writes that JSON to
+`vera-workflow-integration-result.json` beside its configuration, so a
+producer can retain the result even when Resolve's script console is hidden.
+
 ### Pinned Text+ destination-track validation
 
 VERA versions the producer-authored `Text+` media-pool generator template and

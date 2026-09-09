@@ -64,7 +64,8 @@ a nicer launcher and should be abandoned rather than productized.
 3. Open the disposable project on the Edit page and launch the integration from
    **Workspace > Workflow Integrations**. Expected: JSON identifies that exact
    Resolve version/build and returns `verified`; a new uniquely named project
-   is created, saved, closed, reopened, and verified.
+   is created, saved, closed, reopened, and verified. The wrapper retains the
+   same JSON as `vera-workflow-integration-result.json` beside its configuration.
 4. Inspect the retained project: the accepted media, tracks, Text+ placement,
    markers, and timeline match the existing accepted test timeline. Expected:
    no reported discrepancy. A visual editorial judgment remains: confirm the
