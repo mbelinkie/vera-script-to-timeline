@@ -1,0 +1,348 @@
+{
+  "candidate": "tesseract",
+  "lines": [
+    {
+      "confidenceMillionths": null,
+      "lineRawOrdinal": null,
+      "rawOrdinal": 0,
+      "readingOrder": 0,
+      "rect": {
+        "height": 40,
+        "width": 407,
+        "x": 78,
+        "y": 68
+      },
+      "text": "Language Coverage"
+    },
+    {
+      "confidenceMillionths": null,
+      "lineRawOrdinal": null,
+      "rawOrdinal": 1,
+      "readingOrder": 1,
+      "rect": {
+        "height": 29,
+        "width": 317,
+        "x": 92,
+        "y": 186
+      },
+      "text": "English review is ready"
+    },
+    {
+      "confidenceMillionths": null,
+      "lineRawOrdinal": null,
+      "rawOrdinal": 2,
+      "readingOrder": 2,
+      "rect": {
+        "height": 29,
+        "width": 330,
+        "x": 92,
+        "y": 296
+      },
+      "text": "Révision francaise préte"
+    },
+    {
+      "confidenceMillionths": null,
+      "lineRawOrdinal": null,
+      "rawOrdinal": 3,
+      "readingOrder": 3,
+      "rect": {
+        "height": 29,
+        "width": 333,
+        "x": 92,
+        "y": 406
+      },
+      "text": "Pagina espafola segura"
+    },
+    {
+      "confidenceMillionths": null,
+      "lineRawOrdinal": null,
+      "rawOrdinal": 4,
+      "readingOrder": 4,
+      "rect": {
+        "height": 33,
+        "width": 428,
+        "x": 90,
+        "y": 512
+      },
+      "text": "Anderung gepriift und bestatigt"
+    },
+    {
+      "confidenceMillionths": null,
+      "lineRawOrdinal": null,
+      "rawOrdinal": 5,
+      "readingOrder": 5,
+      "rect": {
+        "height": 17,
+        "width": 299,
+        "x": 90,
+        "y": 655
+      },
+      "text": "Accents must remain visible"
+    }
+  ],
+  "profile": "tesseract-5.5.3-oem1-psm3-eng-tsv-v1",
+  "rasterHeight": 900,
+  "rasterWidth": 1600,
+  "words": [
+    {
+      "confidenceMillionths": 960278,
+      "lineRawOrdinal": 0,
+      "rawOrdinal": 0,
+      "readingOrder": 0,
+      "rect": {
+        "height": 40,
+        "width": 198,
+        "x": 78,
+        "y": 68
+      },
+      "text": "Language"
+    },
+    {
+      "confidenceMillionths": 966274,
+      "lineRawOrdinal": 0,
+      "rawOrdinal": 1,
+      "readingOrder": 1,
+      "rect": {
+        "height": 40,
+        "width": 192,
+        "x": 293,
+        "y": 68
+      },
+      "text": "Coverage"
+    },
+    {
+      "confidenceMillionths": 955868,
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 2,
+      "readingOrder": 2,
+      "rect": {
+        "height": 29,
+        "width": 97,
+        "x": 92,
+        "y": 186
+      },
+      "text": "English"
+    },
+    {
+      "confidenceMillionths": 964686,
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 3,
+      "readingOrder": 3,
+      "rect": {
+        "height": 23,
+        "width": 87,
+        "x": 203,
+        "y": 186
+      },
+      "text": "review"
+    },
+    {
+      "confidenceMillionths": 965760,
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 4,
+      "readingOrder": 4,
+      "rect": {
+        "height": 23,
+        "width": 19,
+        "x": 302,
+        "y": 186
+      },
+      "text": "is"
+    },
+    {
+      "confidenceMillionths": 962345,
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 5,
+      "readingOrder": 5,
+      "rect": {
+        "height": 29,
+        "width": 75,
+        "x": 334,
+        "y": 186
+      },
+      "text": "ready"
+    },
+    {
+      "confidenceMillionths": 911593,
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 6,
+      "readingOrder": 6,
+      "rect": {
+        "height": 23,
+        "width": 115,
+        "x": 92,
+        "y": 296
+      },
+      "text": "Révision"
+    },
+    {
+      "confidenceMillionths": 233528,
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 7,
+      "readingOrder": 7,
+      "rect": {
+        "height": 29,
+        "width": 125,
+        "x": 218,
+        "y": 296
+      },
+      "text": "francaise"
+    },
+    {
+      "confidenceMillionths": 924488,
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 8,
+      "readingOrder": 8,
+      "rect": {
+        "height": 28,
+        "width": 67,
+        "x": 355,
+        "y": 297
+      },
+      "text": "préte"
+    },
+    {
+      "confidenceMillionths": 932826,
+      "lineRawOrdinal": 3,
+      "rawOrdinal": 9,
+      "readingOrder": 9,
+      "rect": {
+        "height": 29,
+        "width": 93,
+        "x": 92,
+        "y": 406
+      },
+      "text": "Pagina"
+    },
+    {
+      "confidenceMillionths": 765589,
+      "lineRawOrdinal": 3,
+      "rawOrdinal": 10,
+      "readingOrder": 10,
+      "rect": {
+        "height": 29,
+        "width": 124,
+        "x": 197,
+        "y": 406
+      },
+      "text": "espafola"
+    },
+    {
+      "confidenceMillionths": 965753,
+      "lineRawOrdinal": 3,
+      "rawOrdinal": 11,
+      "readingOrder": 11,
+      "rect": {
+        "height": 22,
+        "width": 93,
+        "x": 332,
+        "y": 413
+      },
+      "text": "segura"
+    },
+    {
+      "confidenceMillionths": 920954,
+      "lineRawOrdinal": 4,
+      "rawOrdinal": 12,
+      "readingOrder": 12,
+      "rect": {
+        "height": 33,
+        "width": 132,
+        "x": 90,
+        "y": 512
+      },
+      "text": "Anderung"
+    },
+    {
+      "confidenceMillionths": 903251,
+      "lineRawOrdinal": 4,
+      "rawOrdinal": 13,
+      "readingOrder": 13,
+      "rect": {
+        "height": 29,
+        "width": 95,
+        "x": 235,
+        "y": 516
+      },
+      "text": "gepriift"
+    },
+    {
+      "confidenceMillionths": 932784,
+      "lineRawOrdinal": 4,
+      "rawOrdinal": 14,
+      "readingOrder": 14,
+      "rect": {
+        "height": 23,
+        "width": 47,
+        "x": 342,
+        "y": 516
+      },
+      "text": "und"
+    },
+    {
+      "confidenceMillionths": 911599,
+      "lineRawOrdinal": 4,
+      "rawOrdinal": 15,
+      "readingOrder": 15,
+      "rect": {
+        "height": 29,
+        "width": 115,
+        "x": 403,
+        "y": 516
+      },
+      "text": "bestatigt"
+    },
+    {
+      "confidenceMillionths": 967372,
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 16,
+      "readingOrder": 16,
+      "rect": {
+        "height": 17,
+        "width": 84,
+        "x": 90,
+        "y": 655
+      },
+      "text": "Accents"
+    },
+    {
+      "confidenceMillionths": 966284,
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 17,
+      "readingOrder": 17,
+      "rect": {
+        "height": 17,
+        "width": 49,
+        "x": 185,
+        "y": 655
+      },
+      "text": "must"
+    },
+    {
+      "confidenceMillionths": 964375,
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 18,
+      "readingOrder": 18,
+      "rect": {
+        "height": 17,
+        "width": 70,
+        "x": 245,
+        "y": 655
+      },
+      "text": "remain"
+    },
+    {
+      "confidenceMillionths": 966956,
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 19,
+      "readingOrder": 19,
+      "rect": {
+        "height": 17,
+        "width": 64,
+        "x": 325,
+        "y": 655
+      },
+      "text": "visible"
+    }
+  ]
+}

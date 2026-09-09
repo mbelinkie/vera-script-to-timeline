@@ -1,0 +1,382 @@
+{
+  "candidate": "apple-vision",
+  "lines": [
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 0,
+      "readingOrder": 0,
+      "rect": {
+        "height": 36,
+        "width": 542,
+        "x": 72,
+        "y": 75
+      },
+      "text": "Scaled and rotated notices"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 1,
+      "readingOrder": 1,
+      "rect": {
+        "height": 36,
+        "width": 535,
+        "x": 79,
+        "y": 168
+      },
+      "text": "Large type remains easy to inspect"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 2,
+      "readingOrder": 2,
+      "rect": {
+        "height": 18,
+        "width": 197,
+        "x": 79,
+        "y": 265
+      },
+      "text": "Small labels remain selectable"
+    },
+    {
+      "confidenceMillionths": 500000,
+      "rawOrdinal": 3,
+      "readingOrder": 3,
+      "rect": {
+        "height": 54,
+        "width": 934,
+        "x": 73,
+        "y": 346
+      },
+      "text": "ZOOM ONE HUNDRED TWENTY FIVE"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 4,
+      "readingOrder": 4,
+      "rect": {
+        "height": 58,
+        "width": 121,
+        "x": 180,
+        "y": 572
+      },
+      "text": "Rotate"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 5,
+      "readingOrder": 5,
+      "rect": {
+        "height": 59,
+        "width": 121,
+        "x": 312,
+        "y": 580
+      },
+      "text": "review"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 6,
+      "readingOrder": 6,
+      "rect": {
+        "height": 59,
+        "width": 120,
+        "x": 446,
+        "y": 587
+      },
+      "text": "before"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 7,
+      "readingOrder": 7,
+      "rect": {
+        "height": 75,
+        "width": 159,
+        "x": 580,
+        "y": 595
+      },
+      "text": "approval"
+    }
+  ],
+  "profile": "vision-r3-accurate-en-US-no-language-correction-v1",
+  "rasterHeight": 900,
+  "rasterWidth": 1600,
+  "words": [
+    {
+      "lineRawOrdinal": 0,
+      "rawOrdinal": 0,
+      "readingOrder": 0,
+      "rect": {
+        "height": 36,
+        "width": 145,
+        "x": 72,
+        "y": 75
+      },
+      "text": "Scaled"
+    },
+    {
+      "lineRawOrdinal": 0,
+      "rawOrdinal": 1,
+      "readingOrder": 1,
+      "rect": {
+        "height": 36,
+        "width": 82,
+        "x": 220,
+        "y": 75
+      },
+      "text": "and"
+    },
+    {
+      "lineRawOrdinal": 0,
+      "rawOrdinal": 2,
+      "readingOrder": 2,
+      "rect": {
+        "height": 36,
+        "width": 154,
+        "x": 305,
+        "y": 75
+      },
+      "text": "rotated"
+    },
+    {
+      "lineRawOrdinal": 0,
+      "rawOrdinal": 3,
+      "readingOrder": 3,
+      "rect": {
+        "height": 36,
+        "width": 152,
+        "x": 462,
+        "y": 75
+      },
+      "text": "notices"
+    },
+    {
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 4,
+      "readingOrder": 4,
+      "rect": {
+        "height": 36,
+        "width": 90,
+        "x": 79,
+        "y": 168
+      },
+      "text": "Large"
+    },
+    {
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 9,
+      "readingOrder": 5,
+      "rect": {
+        "height": 36,
+        "width": 115,
+        "x": 499,
+        "y": 168
+      },
+      "text": "inspect"
+    },
+    {
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 5,
+      "readingOrder": 6,
+      "rect": {
+        "height": 34,
+        "width": 73,
+        "x": 172,
+        "y": 169
+      },
+      "text": "type"
+    },
+    {
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 6,
+      "readingOrder": 7,
+      "rect": {
+        "height": 34,
+        "width": 128,
+        "x": 249,
+        "y": 169
+      },
+      "text": "remains"
+    },
+    {
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 7,
+      "readingOrder": 8,
+      "rect": {
+        "height": 34,
+        "width": 78,
+        "x": 380,
+        "y": 169
+      },
+      "text": "easy"
+    },
+    {
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 8,
+      "readingOrder": 9,
+      "rect": {
+        "height": 34,
+        "width": 35,
+        "x": 461,
+        "y": 169
+      },
+      "text": "to"
+    },
+    {
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 10,
+      "readingOrder": 10,
+      "rect": {
+        "height": 18,
+        "width": 37,
+        "x": 79,
+        "y": 265
+      },
+      "text": "Small"
+    },
+    {
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 13,
+      "readingOrder": 11,
+      "rect": {
+        "height": 18,
+        "width": 70,
+        "x": 206,
+        "y": 265
+      },
+      "text": "selectable"
+    },
+    {
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 11,
+      "readingOrder": 12,
+      "rect": {
+        "height": 18,
+        "width": 41,
+        "x": 117,
+        "y": 266
+      },
+      "text": "labels"
+    },
+    {
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 12,
+      "readingOrder": 13,
+      "rect": {
+        "height": 18,
+        "width": 46,
+        "x": 159,
+        "y": 266
+      },
+      "text": "remain"
+    },
+    {
+      "lineRawOrdinal": 3,
+      "rawOrdinal": 14,
+      "readingOrder": 14,
+      "rect": {
+        "height": 54,
+        "width": 173,
+        "x": 73,
+        "y": 346
+      },
+      "text": "ZOOM"
+    },
+    {
+      "lineRawOrdinal": 3,
+      "rawOrdinal": 18,
+      "readingOrder": 15,
+      "rect": {
+        "height": 54,
+        "width": 120,
+        "x": 887,
+        "y": 346
+      },
+      "text": "FIVE"
+    },
+    {
+      "lineRawOrdinal": 3,
+      "rawOrdinal": 15,
+      "readingOrder": 16,
+      "rect": {
+        "height": 53,
+        "width": 121,
+        "x": 251,
+        "y": 347
+      },
+      "text": "ONE"
+    },
+    {
+      "lineRawOrdinal": 3,
+      "rawOrdinal": 16,
+      "readingOrder": 17,
+      "rect": {
+        "height": 53,
+        "width": 266,
+        "x": 377,
+        "y": 347
+      },
+      "text": "HUNDRED"
+    },
+    {
+      "lineRawOrdinal": 3,
+      "rawOrdinal": 17,
+      "readingOrder": 18,
+      "rect": {
+        "height": 53,
+        "width": 233,
+        "x": 649,
+        "y": 347
+      },
+      "text": "TWENTY"
+    },
+    {
+      "lineRawOrdinal": 4,
+      "rawOrdinal": 19,
+      "readingOrder": 19,
+      "rect": {
+        "height": 58,
+        "width": 121,
+        "x": 180,
+        "y": 572
+      },
+      "text": "Rotate"
+    },
+    {
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 20,
+      "readingOrder": 20,
+      "rect": {
+        "height": 59,
+        "width": 121,
+        "x": 312,
+        "y": 580
+      },
+      "text": "review"
+    },
+    {
+      "lineRawOrdinal": 6,
+      "rawOrdinal": 21,
+      "readingOrder": 21,
+      "rect": {
+        "height": 59,
+        "width": 120,
+        "x": 446,
+        "y": 587
+      },
+      "text": "before"
+    },
+    {
+      "lineRawOrdinal": 7,
+      "rawOrdinal": 22,
+      "readingOrder": 22,
+      "rect": {
+        "height": 75,
+        "width": 159,
+        "x": 580,
+        "y": 595
+      },
+      "text": "approval"
+    }
+  ]
+}

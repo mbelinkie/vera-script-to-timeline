@@ -1,0 +1,1722 @@
+{
+  "corpusId": "vera-spotlight-synthetic-webpage-v1",
+  "fixtures": [
+    {
+      "description": "Clean synthetic article and navigation layout",
+      "file": "clean-page.png",
+      "id": "clean-page",
+      "lines": [
+        {
+          "lineId": "c1",
+          "rect": {
+            "height": 35,
+            "width": 428,
+            "x": 85,
+            "y": 77
+          },
+          "text": "Northwind Bulletin"
+        },
+        {
+          "lineId": "c2",
+          "rect": {
+            "height": 25,
+            "width": 338,
+            "x": 88,
+            "y": 150
+          },
+          "text": "Synthetic operations update"
+        },
+        {
+          "lineId": "c3",
+          "rect": {
+            "height": 16,
+            "width": 236,
+            "x": 1060,
+            "y": 86
+          },
+          "text": "Overview Alerts Archive"
+        },
+        {
+          "lineId": "c4",
+          "rect": {
+            "height": 25,
+            "width": 250,
+            "x": 110,
+            "y": 266
+          },
+          "text": "Weather review"
+        },
+        {
+          "lineId": "c5",
+          "rect": {
+            "height": 26,
+            "width": 375,
+            "x": 110,
+            "y": 334
+          },
+          "text": "Rain arrives Tuesday morning"
+        },
+        {
+          "lineId": "c6",
+          "rect": {
+            "height": 27,
+            "width": 436,
+            "x": 110,
+            "y": 387
+          },
+          "text": "Review required before adjustment"
+        },
+        {
+          "lineId": "c7",
+          "rect": {
+            "height": 19,
+            "width": 121,
+            "x": 135,
+            "y": 466
+          },
+          "text": "Open report"
+        },
+        {
+          "lineId": "c8",
+          "rect": {
+            "height": 19,
+            "width": 299,
+            "x": 88,
+            "y": 774
+          },
+          "text": "Updated locally with fictional data"
+        }
+      ],
+      "rasterHeight": 900,
+      "rasterWidth": 1600,
+      "sha256": "sha256:b9fbe89641fd1253fd690d4ff23d9a60f7604f63d37bb38d59afd3744118fe43",
+      "words": [
+        {
+          "lineId": "c1",
+          "rect": {
+            "height": 35,
+            "width": 237,
+            "x": 85,
+            "y": 77
+          },
+          "text": "Northwind"
+        },
+        {
+          "lineId": "c1",
+          "rect": {
+            "height": 35,
+            "width": 176,
+            "x": 337,
+            "y": 77
+          },
+          "text": "Bulletin"
+        },
+        {
+          "lineId": "c2",
+          "rect": {
+            "height": 25,
+            "width": 112,
+            "x": 88,
+            "y": 150
+          },
+          "text": "Synthetic"
+        },
+        {
+          "lineId": "c2",
+          "rect": {
+            "height": 25,
+            "width": 126,
+            "x": 208,
+            "y": 150
+          },
+          "text": "operations"
+        },
+        {
+          "lineId": "c2",
+          "rect": {
+            "height": 25,
+            "width": 83,
+            "x": 343,
+            "y": 150
+          },
+          "text": "update"
+        },
+        {
+          "lineId": "c3",
+          "rect": {
+            "height": 16,
+            "width": 92,
+            "x": 1060,
+            "y": 86
+          },
+          "text": "Overview"
+        },
+        {
+          "lineId": "c3",
+          "rect": {
+            "height": 16,
+            "width": 57,
+            "x": 1158,
+            "y": 86
+          },
+          "text": "Alerts"
+        },
+        {
+          "lineId": "c3",
+          "rect": {
+            "height": 16,
+            "width": 74,
+            "x": 1222,
+            "y": 86
+          },
+          "text": "Archive"
+        },
+        {
+          "lineId": "c4",
+          "rect": {
+            "height": 25,
+            "width": 134,
+            "x": 110,
+            "y": 266
+          },
+          "text": "Weather"
+        },
+        {
+          "lineId": "c4",
+          "rect": {
+            "height": 25,
+            "width": 106,
+            "x": 254,
+            "y": 266
+          },
+          "text": "review"
+        },
+        {
+          "lineId": "c5",
+          "rect": {
+            "height": 20,
+            "width": 58,
+            "x": 110,
+            "y": 334
+          },
+          "text": "Rain"
+        },
+        {
+          "lineId": "c5",
+          "rect": {
+            "height": 20,
+            "width": 84,
+            "x": 176,
+            "y": 334
+          },
+          "text": "arrives"
+        },
+        {
+          "lineId": "c5",
+          "rect": {
+            "height": 26,
+            "width": 106,
+            "x": 269,
+            "y": 334
+          },
+          "text": "Tuesday"
+        },
+        {
+          "lineId": "c5",
+          "rect": {
+            "height": 26,
+            "width": 101,
+            "x": 384,
+            "y": 334
+          },
+          "text": "morning"
+        },
+        {
+          "lineId": "c6",
+          "rect": {
+            "height": 20,
+            "width": 92,
+            "x": 110,
+            "y": 388
+          },
+          "text": "Review"
+        },
+        {
+          "lineId": "c6",
+          "rect": {
+            "height": 26,
+            "width": 103,
+            "x": 210,
+            "y": 388
+          },
+          "text": "required"
+        },
+        {
+          "lineId": "c6",
+          "rect": {
+            "height": 20,
+            "width": 79,
+            "x": 321,
+            "y": 388
+          },
+          "text": "before"
+        },
+        {
+          "lineId": "c6",
+          "rect": {
+            "height": 27,
+            "width": 137,
+            "x": 409,
+            "y": 387
+          },
+          "text": "adjustment"
+        },
+        {
+          "lineId": "c7",
+          "rect": {
+            "height": 19,
+            "width": 54,
+            "x": 135,
+            "y": 466
+          },
+          "text": "Open"
+        },
+        {
+          "lineId": "c7",
+          "rect": {
+            "height": 18,
+            "width": 61,
+            "x": 195,
+            "y": 467
+          },
+          "text": "report"
+        },
+        {
+          "lineId": "c8",
+          "rect": {
+            "height": 19,
+            "width": 76,
+            "x": 88,
+            "y": 774
+          },
+          "text": "Updated"
+        },
+        {
+          "lineId": "c8",
+          "rect": {
+            "height": 19,
+            "width": 56,
+            "x": 170,
+            "y": 774
+          },
+          "text": "locally"
+        },
+        {
+          "lineId": "c8",
+          "rect": {
+            "height": 15,
+            "width": 36,
+            "x": 232,
+            "y": 774
+          },
+          "text": "with"
+        },
+        {
+          "lineId": "c8",
+          "rect": {
+            "height": 15,
+            "width": 68,
+            "x": 274,
+            "y": 774
+          },
+          "text": "fictional"
+        },
+        {
+          "lineId": "c8",
+          "rect": {
+            "height": 15,
+            "width": 39,
+            "x": 348,
+            "y": 774
+          },
+          "text": "data"
+        }
+      ]
+    },
+    {
+      "description": "Synthetic header cards columns and table",
+      "file": "mixed-layout.png",
+      "id": "mixed-layout",
+      "lines": [
+        {
+          "lineId": "m1",
+          "rect": {
+            "height": 40,
+            "width": 465,
+            "x": 65,
+            "y": 40
+          },
+          "text": "Operations Dashboard"
+        },
+        {
+          "lineId": "m2",
+          "rect": {
+            "height": 19,
+            "width": 194,
+            "x": 1180,
+            "y": 56
+          },
+          "text": "Synthetic status only"
+        },
+        {
+          "lineId": "m3",
+          "rect": {
+            "height": 28,
+            "width": 253,
+            "x": 90,
+            "y": 192
+          },
+          "text": "Sensor summary"
+        },
+        {
+          "lineId": "m4",
+          "rect": {
+            "height": 23,
+            "width": 200,
+            "x": 90,
+            "y": 263
+          },
+          "text": "North array stable"
+        },
+        {
+          "lineId": "m5",
+          "rect": {
+            "height": 23,
+            "width": 280,
+            "x": 90,
+            "y": 318
+          },
+          "text": "South array under review"
+        },
+        {
+          "lineId": "m6",
+          "rect": {
+            "height": 23,
+            "width": 286,
+            "x": 90,
+            "y": 373
+          },
+          "text": "Next check fourteen thirty"
+        },
+        {
+          "lineId": "m7",
+          "rect": {
+            "height": 28,
+            "width": 235,
+            "x": 860,
+            "y": 192
+          },
+          "text": "Approval queue"
+        },
+        {
+          "lineId": "m8",
+          "rect": {
+            "height": 18,
+            "width": 255,
+            "x": 860,
+            "y": 263
+          },
+          "text": "Two items need review"
+        },
+        {
+          "lineId": "m9",
+          "rect": {
+            "height": 23,
+            "width": 200,
+            "x": 860,
+            "y": 318
+          },
+          "text": "First item pending"
+        },
+        {
+          "lineId": "m10",
+          "rect": {
+            "height": 23,
+            "width": 210,
+            "x": 860,
+            "y": 373
+          },
+          "text": "Second item ready"
+        },
+        {
+          "lineId": "m11",
+          "rect": {
+            "height": 20,
+            "width": 75,
+            "x": 90,
+            "y": 619
+          },
+          "text": "Region"
+        },
+        {
+          "lineId": "m12",
+          "rect": {
+            "height": 16,
+            "width": 54,
+            "x": 720,
+            "y": 619
+          },
+          "text": "State"
+        },
+        {
+          "lineId": "m13",
+          "rect": {
+            "height": 16,
+            "width": 69,
+            "x": 1170,
+            "y": 619
+          },
+          "text": "Owner"
+        },
+        {
+          "lineId": "m14",
+          "rect": {
+            "height": 17,
+            "width": 71,
+            "x": 90,
+            "y": 694
+          },
+          "text": "Harbor"
+        },
+        {
+          "lineId": "m15",
+          "rect": {
+            "height": 22,
+            "width": 67,
+            "x": 720,
+            "y": 694
+          },
+          "text": "Ready"
+        },
+        {
+          "lineId": "m16",
+          "rect": {
+            "height": 18,
+            "width": 55,
+            "x": 1169,
+            "y": 693
+          },
+          "text": "Aster"
+        }
+      ],
+      "rasterHeight": 900,
+      "rasterWidth": 1600,
+      "sha256": "sha256:6e12a002a4b8d2065100a8acaa6680922af0005314cc6e63c982cff92b48f244",
+      "words": [
+        {
+          "lineId": "m1",
+          "rect": {
+            "height": 40,
+            "width": 227,
+            "x": 65,
+            "y": 40
+          },
+          "text": "Operations"
+        },
+        {
+          "lineId": "m1",
+          "rect": {
+            "height": 31,
+            "width": 225,
+            "x": 305,
+            "y": 40
+          },
+          "text": "Dashboard"
+        },
+        {
+          "lineId": "m2",
+          "rect": {
+            "height": 19,
+            "width": 87,
+            "x": 1180,
+            "y": 56
+          },
+          "text": "Synthetic"
+        },
+        {
+          "lineId": "m2",
+          "rect": {
+            "height": 15,
+            "width": 56,
+            "x": 1273,
+            "y": 56
+          },
+          "text": "status"
+        },
+        {
+          "lineId": "m2",
+          "rect": {
+            "height": 19,
+            "width": 39,
+            "x": 1335,
+            "y": 56
+          },
+          "text": "only"
+        },
+        {
+          "lineId": "m3",
+          "rect": {
+            "height": 22,
+            "width": 106,
+            "x": 90,
+            "y": 192
+          },
+          "text": "Sensor"
+        },
+        {
+          "lineId": "m3",
+          "rect": {
+            "height": 22,
+            "width": 138,
+            "x": 205,
+            "y": 198
+          },
+          "text": "summary"
+        },
+        {
+          "lineId": "m4",
+          "rect": {
+            "height": 18,
+            "width": 61,
+            "x": 90,
+            "y": 263
+          },
+          "text": "North"
+        },
+        {
+          "lineId": "m4",
+          "rect": {
+            "height": 18,
+            "width": 57,
+            "x": 159,
+            "y": 268
+          },
+          "text": "array"
+        },
+        {
+          "lineId": "m4",
+          "rect": {
+            "height": 18,
+            "width": 67,
+            "x": 223,
+            "y": 263
+          },
+          "text": "stable"
+        },
+        {
+          "lineId": "m5",
+          "rect": {
+            "height": 18,
+            "width": 65,
+            "x": 90,
+            "y": 318
+          },
+          "text": "South"
+        },
+        {
+          "lineId": "m5",
+          "rect": {
+            "height": 18,
+            "width": 57,
+            "x": 163,
+            "y": 323
+          },
+          "text": "array"
+        },
+        {
+          "lineId": "m5",
+          "rect": {
+            "height": 18,
+            "width": 65,
+            "x": 227,
+            "y": 318
+          },
+          "text": "under"
+        },
+        {
+          "lineId": "m5",
+          "rect": {
+            "height": 18,
+            "width": 72,
+            "x": 298,
+            "y": 318
+          },
+          "text": "review"
+        },
+        {
+          "lineId": "m6",
+          "rect": {
+            "height": 18,
+            "width": 51,
+            "x": 90,
+            "y": 373
+          },
+          "text": "Next"
+        },
+        {
+          "lineId": "m6",
+          "rect": {
+            "height": 18,
+            "width": 66,
+            "x": 149,
+            "y": 373
+          },
+          "text": "check"
+        },
+        {
+          "lineId": "m6",
+          "rect": {
+            "height": 18,
+            "width": 92,
+            "x": 222,
+            "y": 373
+          },
+          "text": "fourteen"
+        },
+        {
+          "lineId": "m6",
+          "rect": {
+            "height": 23,
+            "width": 55,
+            "x": 321,
+            "y": 373
+          },
+          "text": "thirty"
+        },
+        {
+          "lineId": "m7",
+          "rect": {
+            "height": 28,
+            "width": 134,
+            "x": 860,
+            "y": 192
+          },
+          "text": "Approval"
+        },
+        {
+          "lineId": "m7",
+          "rect": {
+            "height": 22,
+            "width": 91,
+            "x": 1004,
+            "y": 198
+          },
+          "text": "queue"
+        },
+        {
+          "lineId": "m8",
+          "rect": {
+            "height": 18,
+            "width": 46,
+            "x": 860,
+            "y": 263
+          },
+          "text": "Two"
+        },
+        {
+          "lineId": "m8",
+          "rect": {
+            "height": 18,
+            "width": 60,
+            "x": 913,
+            "y": 263
+          },
+          "text": "items"
+        },
+        {
+          "lineId": "m8",
+          "rect": {
+            "height": 18,
+            "width": 56,
+            "x": 980,
+            "y": 263
+          },
+          "text": "need"
+        },
+        {
+          "lineId": "m8",
+          "rect": {
+            "height": 18,
+            "width": 72,
+            "x": 1043,
+            "y": 263
+          },
+          "text": "review"
+        },
+        {
+          "lineId": "m9",
+          "rect": {
+            "height": 18,
+            "width": 49,
+            "x": 860,
+            "y": 318
+          },
+          "text": "First"
+        },
+        {
+          "lineId": "m9",
+          "rect": {
+            "height": 18,
+            "width": 47,
+            "x": 916,
+            "y": 318
+          },
+          "text": "item"
+        },
+        {
+          "lineId": "m9",
+          "rect": {
+            "height": 23,
+            "width": 89,
+            "x": 971,
+            "y": 318
+          },
+          "text": "pending"
+        },
+        {
+          "lineId": "m10",
+          "rect": {
+            "height": 18,
+            "width": 85,
+            "x": 860,
+            "y": 373
+          },
+          "text": "Second"
+        },
+        {
+          "lineId": "m10",
+          "rect": {
+            "height": 18,
+            "width": 47,
+            "x": 952,
+            "y": 373
+          },
+          "text": "item"
+        },
+        {
+          "lineId": "m10",
+          "rect": {
+            "height": 23,
+            "width": 63,
+            "x": 1007,
+            "y": 373
+          },
+          "text": "ready"
+        },
+        {
+          "lineId": "m11",
+          "rect": {
+            "height": 20,
+            "width": 75,
+            "x": 90,
+            "y": 619
+          },
+          "text": "Region"
+        },
+        {
+          "lineId": "m12",
+          "rect": {
+            "height": 16,
+            "width": 54,
+            "x": 720,
+            "y": 619
+          },
+          "text": "State"
+        },
+        {
+          "lineId": "m13",
+          "rect": {
+            "height": 16,
+            "width": 69,
+            "x": 1170,
+            "y": 619
+          },
+          "text": "Owner"
+        },
+        {
+          "lineId": "m14",
+          "rect": {
+            "height": 17,
+            "width": 71,
+            "x": 90,
+            "y": 694
+          },
+          "text": "Harbor"
+        },
+        {
+          "lineId": "m15",
+          "rect": {
+            "height": 22,
+            "width": 67,
+            "x": 720,
+            "y": 694
+          },
+          "text": "Ready"
+        },
+        {
+          "lineId": "m16",
+          "rect": {
+            "height": 18,
+            "width": 55,
+            "x": 1169,
+            "y": 693
+          },
+          "text": "Aster"
+        }
+      ]
+    },
+    {
+      "description": "Small large and twelve-degree rotated synthetic text",
+      "file": "scaled-rotated.png",
+      "id": "scaled-rotated",
+      "lines": [
+        {
+          "lineId": "t1",
+          "rect": {
+            "height": 30,
+            "width": 537,
+            "x": 75,
+            "y": 74
+          },
+          "text": "Scaled and rotated notices"
+        },
+        {
+          "lineId": "t2",
+          "rect": {
+            "height": 32,
+            "width": 532,
+            "x": 78,
+            "y": 171
+          },
+          "text": "Large type remains easy to inspect"
+        },
+        {
+          "lineId": "t3",
+          "rect": {
+            "height": 11,
+            "width": 190,
+            "x": 80,
+            "y": 267
+          },
+          "text": "Small labels remain selectable"
+        },
+        {
+          "lineId": "t4",
+          "rect": {
+            "height": 39,
+            "width": 925,
+            "x": 80,
+            "y": 350
+          },
+          "text": "ZOOM ONE HUNDRED TWENTY FIVE"
+        },
+        {
+          "lineId": "t5",
+          "rect": {
+            "height": 78,
+            "width": 542,
+            "x": 186,
+            "y": 579
+          },
+          "text": "Rotate review before approval"
+        }
+      ],
+      "rasterHeight": 900,
+      "rasterWidth": 1600,
+      "sha256": "sha256:f512a08b57f6b02ab961615eae46c9f0330281be3a6a30160eb4bbbd49107983",
+      "words": [
+        {
+          "lineId": "t1",
+          "rect": {
+            "height": 30,
+            "width": 135,
+            "x": 75,
+            "y": 74
+          },
+          "text": "Scaled"
+        },
+        {
+          "lineId": "t1",
+          "rect": {
+            "height": 30,
+            "width": 75,
+            "x": 223,
+            "y": 74
+          },
+          "text": "and"
+        },
+        {
+          "lineId": "t1",
+          "rect": {
+            "height": 30,
+            "width": 142,
+            "x": 310,
+            "y": 74
+          },
+          "text": "rotated"
+        },
+        {
+          "lineId": "t1",
+          "rect": {
+            "height": 30,
+            "width": 147,
+            "x": 465,
+            "y": 74
+          },
+          "text": "notices"
+        },
+        {
+          "lineId": "t2",
+          "rect": {
+            "height": 32,
+            "width": 87,
+            "x": 78,
+            "y": 171
+          },
+          "text": "Large"
+        },
+        {
+          "lineId": "t2",
+          "rect": {
+            "height": 32,
+            "width": 64,
+            "x": 175,
+            "y": 171
+          },
+          "text": "type"
+        },
+        {
+          "lineId": "t2",
+          "rect": {
+            "height": 25,
+            "width": 121,
+            "x": 250,
+            "y": 171
+          },
+          "text": "remains"
+        },
+        {
+          "lineId": "t2",
+          "rect": {
+            "height": 25,
+            "width": 72,
+            "x": 381,
+            "y": 178
+          },
+          "text": "easy"
+        },
+        {
+          "lineId": "t2",
+          "rect": {
+            "height": 25,
+            "width": 28,
+            "x": 463,
+            "y": 171
+          },
+          "text": "to"
+        },
+        {
+          "lineId": "t2",
+          "rect": {
+            "height": 32,
+            "width": 108,
+            "x": 502,
+            "y": 171
+          },
+          "text": "inspect"
+        },
+        {
+          "lineId": "t3",
+          "rect": {
+            "height": 10,
+            "width": 35,
+            "x": 80,
+            "y": 268
+          },
+          "text": "Small"
+        },
+        {
+          "lineId": "t3",
+          "rect": {
+            "height": 10,
+            "width": 37,
+            "x": 119,
+            "y": 268
+          },
+          "text": "labels"
+        },
+        {
+          "lineId": "t3",
+          "rect": {
+            "height": 10,
+            "width": 43,
+            "x": 160,
+            "y": 268
+          },
+          "text": "remain"
+        },
+        {
+          "lineId": "t3",
+          "rect": {
+            "height": 11,
+            "width": 63,
+            "x": 207,
+            "y": 267
+          },
+          "text": "selectable"
+        },
+        {
+          "lineId": "t4",
+          "rect": {
+            "height": 39,
+            "width": 156,
+            "x": 80,
+            "y": 350
+          },
+          "text": "ZOOM"
+        },
+        {
+          "lineId": "t4",
+          "rect": {
+            "height": 39,
+            "width": 113,
+            "x": 251,
+            "y": 350
+          },
+          "text": "ONE"
+        },
+        {
+          "lineId": "t4",
+          "rect": {
+            "height": 38,
+            "width": 260,
+            "x": 379,
+            "y": 351
+          },
+          "text": "HUNDRED"
+        },
+        {
+          "lineId": "t4",
+          "rect": {
+            "height": 37,
+            "width": 220,
+            "x": 654,
+            "y": 351
+          },
+          "text": "TWENTY"
+        },
+        {
+          "lineId": "t4",
+          "rect": {
+            "height": 37,
+            "width": 116,
+            "x": 889,
+            "y": 351
+          },
+          "text": "FIVE"
+        },
+        {
+          "lineId": "t5",
+          "rect": {
+            "height": 43,
+            "width": 106,
+            "x": 186,
+            "y": 579
+          },
+          "text": "Rotate"
+        },
+        {
+          "lineId": "t5",
+          "rect": {
+            "height": 41,
+            "width": 103,
+            "x": 322,
+            "y": 589
+          },
+          "text": "review"
+        },
+        {
+          "lineId": "t5",
+          "rect": {
+            "height": 41,
+            "width": 103,
+            "x": 455,
+            "y": 597
+          },
+          "text": "before"
+        },
+        {
+          "lineId": "t5",
+          "rect": {
+            "height": 57,
+            "width": 139,
+            "x": 589,
+            "y": 600
+          },
+          "text": "approval"
+        }
+      ]
+    },
+    {
+      "description": "Synthetic English French Spanish and German text",
+      "file": "multilingual.png",
+      "id": "multilingual",
+      "lines": [
+        {
+          "lineId": "l1",
+          "rect": {
+            "height": 40,
+            "width": 412,
+            "x": 75,
+            "y": 68
+          },
+          "text": "Language Coverage"
+        },
+        {
+          "lineId": "l2",
+          "rect": {
+            "height": 29,
+            "width": 320,
+            "x": 90,
+            "y": 186
+          },
+          "text": "English review is ready"
+        },
+        {
+          "lineId": "l3",
+          "rect": {
+            "height": 29,
+            "width": 334,
+            "x": 90,
+            "y": 296
+          },
+          "text": "Révision française prête"
+        },
+        {
+          "lineId": "l4",
+          "rect": {
+            "height": 29,
+            "width": 336,
+            "x": 90,
+            "y": 406
+          },
+          "text": "Página española segura"
+        },
+        {
+          "lineId": "l5",
+          "rect": {
+            "height": 33,
+            "width": 430,
+            "x": 89,
+            "y": 512
+          },
+          "text": "Änderung geprüft und bestätigt"
+        },
+        {
+          "lineId": "l6",
+          "rect": {
+            "height": 18,
+            "width": 302,
+            "x": 89,
+            "y": 654
+          },
+          "text": "Accents must remain visible"
+        }
+      ],
+      "rasterHeight": 900,
+      "rasterWidth": 1600,
+      "sha256": "sha256:32cee0b2b8ce8bb774c40de206c84c123cc980ec15338fab51786c8c4d38d6d1",
+      "words": [
+        {
+          "lineId": "l1",
+          "rect": {
+            "height": 40,
+            "width": 203,
+            "x": 75,
+            "y": 68
+          },
+          "text": "Language"
+        },
+        {
+          "lineId": "l1",
+          "rect": {
+            "height": 40,
+            "width": 196,
+            "x": 291,
+            "y": 68
+          },
+          "text": "Coverage"
+        },
+        {
+          "lineId": "l2",
+          "rect": {
+            "height": 29,
+            "width": 102,
+            "x": 90,
+            "y": 186
+          },
+          "text": "English"
+        },
+        {
+          "lineId": "l2",
+          "rect": {
+            "height": 23,
+            "width": 90,
+            "x": 201,
+            "y": 186
+          },
+          "text": "review"
+        },
+        {
+          "lineId": "l2",
+          "rect": {
+            "height": 23,
+            "width": 22,
+            "x": 300,
+            "y": 186
+          },
+          "text": "is"
+        },
+        {
+          "lineId": "l2",
+          "rect": {
+            "height": 29,
+            "width": 78,
+            "x": 332,
+            "y": 186
+          },
+          "text": "ready"
+        },
+        {
+          "lineId": "l3",
+          "rect": {
+            "height": 23,
+            "width": 119,
+            "x": 90,
+            "y": 296
+          },
+          "text": "Révision"
+        },
+        {
+          "lineId": "l3",
+          "rect": {
+            "height": 29,
+            "width": 126,
+            "x": 218,
+            "y": 296
+          },
+          "text": "française"
+        },
+        {
+          "lineId": "l3",
+          "rect": {
+            "height": 28,
+            "width": 71,
+            "x": 353,
+            "y": 297
+          },
+          "text": "prête"
+        },
+        {
+          "lineId": "l4",
+          "rect": {
+            "height": 29,
+            "width": 97,
+            "x": 90,
+            "y": 406
+          },
+          "text": "Página"
+        },
+        {
+          "lineId": "l4",
+          "rect": {
+            "height": 29,
+            "width": 126,
+            "x": 196,
+            "y": 406
+          },
+          "text": "española"
+        },
+        {
+          "lineId": "l4",
+          "rect": {
+            "height": 22,
+            "width": 95,
+            "x": 331,
+            "y": 413
+          },
+          "text": "segura"
+        },
+        {
+          "lineId": "l5",
+          "rect": {
+            "height": 33,
+            "width": 135,
+            "x": 89,
+            "y": 512
+          },
+          "text": "Änderung"
+        },
+        {
+          "lineId": "l5",
+          "rect": {
+            "height": 29,
+            "width": 97,
+            "x": 234,
+            "y": 516
+          },
+          "text": "geprüft"
+        },
+        {
+          "lineId": "l5",
+          "rect": {
+            "height": 23,
+            "width": 52,
+            "x": 340,
+            "y": 516
+          },
+          "text": "und"
+        },
+        {
+          "lineId": "l5",
+          "rect": {
+            "height": 29,
+            "width": 118,
+            "x": 401,
+            "y": 516
+          },
+          "text": "bestätigt"
+        },
+        {
+          "lineId": "l6",
+          "rect": {
+            "height": 18,
+            "width": 86,
+            "x": 89,
+            "y": 654
+          },
+          "text": "Accents"
+        },
+        {
+          "lineId": "l6",
+          "rect": {
+            "height": 18,
+            "width": 52,
+            "x": 183,
+            "y": 654
+          },
+          "text": "must"
+        },
+        {
+          "lineId": "l6",
+          "rect": {
+            "height": 17,
+            "width": 73,
+            "x": 243,
+            "y": 655
+          },
+          "text": "remain"
+        },
+        {
+          "lineId": "l6",
+          "rect": {
+            "height": 17,
+            "width": 67,
+            "x": 324,
+            "y": 655
+          },
+          "text": "visible"
+        }
+      ]
+    },
+    {
+      "description": "Tiny low-contrast and blurred text with readable controls",
+      "file": "unreadable.png",
+      "id": "unreadable",
+      "lines": [
+        {
+          "lineId": "u1",
+          "rect": {
+            "height": 40,
+            "width": 283,
+            "x": 75,
+            "y": 68
+          },
+          "text": "Failure Safety"
+        },
+        {
+          "lineId": "u2",
+          "rect": {
+            "height": 22,
+            "width": 301,
+            "x": 80,
+            "y": 191
+          },
+          "text": "Readable control label"
+        },
+        {
+          "lineId": "u3",
+          "rect": {
+            "height": 8,
+            "width": 115,
+            "x": 82,
+            "y": 322
+          },
+          "text": "Hidden signal should fail safely"
+        },
+        {
+          "lineId": "u4",
+          "rect": {
+            "height": 18,
+            "width": 277,
+            "x": 85,
+            "y": 479
+          },
+          "text": "Blurred warning needs redraw"
+        },
+        {
+          "lineId": "u5",
+          "rect": {
+            "height": 23,
+            "width": 354,
+            "x": 80,
+            "y": 694
+          },
+          "text": "No OCR output confirms a target"
+        }
+      ],
+      "rasterHeight": 900,
+      "rasterWidth": 1600,
+      "sha256": "sha256:6b30c655db5e7f5bcfb761ea2c2bdc17523ee0de83c065794e63c2cad4726e68",
+      "words": [
+        {
+          "lineId": "u1",
+          "rect": {
+            "height": 31,
+            "width": 141,
+            "x": 75,
+            "y": 68
+          },
+          "text": "Failure"
+        },
+        {
+          "lineId": "u1",
+          "rect": {
+            "height": 40,
+            "width": 129,
+            "x": 229,
+            "y": 68
+          },
+          "text": "Safety"
+        },
+        {
+          "lineId": "u2",
+          "rect": {
+            "height": 22,
+            "width": 128,
+            "x": 80,
+            "y": 191
+          },
+          "text": "Readable"
+        },
+        {
+          "lineId": "u2",
+          "rect": {
+            "height": 22,
+            "width": 90,
+            "x": 218,
+            "y": 191
+          },
+          "text": "control"
+        },
+        {
+          "lineId": "u2",
+          "rect": {
+            "height": 22,
+            "width": 63,
+            "x": 318,
+            "y": 191
+          },
+          "text": "label"
+        },
+        {
+          "lineId": "u3",
+          "rect": {
+            "height": 6,
+            "width": 25,
+            "x": 82,
+            "y": 322
+          },
+          "text": "Hidden"
+        },
+        {
+          "lineId": "u3",
+          "rect": {
+            "height": 8,
+            "width": 21,
+            "x": 111,
+            "y": 322
+          },
+          "text": "signal"
+        },
+        {
+          "lineId": "u3",
+          "rect": {
+            "height": 6,
+            "width": 24,
+            "x": 135,
+            "y": 322
+          },
+          "text": "should"
+        },
+        {
+          "lineId": "u3",
+          "rect": {
+            "height": 6,
+            "width": 10,
+            "x": 162,
+            "y": 322
+          },
+          "text": "fail"
+        },
+        {
+          "lineId": "u3",
+          "rect": {
+            "height": 8,
+            "width": 21,
+            "x": 176,
+            "y": 322
+          },
+          "text": "safely"
+        },
+        {
+          "lineId": "u4",
+          "rect": {
+            "height": 14,
+            "width": 68,
+            "x": 85,
+            "y": 479
+          },
+          "text": "Blurred"
+        },
+        {
+          "lineId": "u4",
+          "rect": {
+            "height": 18,
+            "width": 73,
+            "x": 159,
+            "y": 479
+          },
+          "text": "warning"
+        },
+        {
+          "lineId": "u4",
+          "rect": {
+            "height": 14,
+            "width": 55,
+            "x": 238,
+            "y": 479
+          },
+          "text": "needs"
+        },
+        {
+          "lineId": "u4",
+          "rect": {
+            "height": 14,
+            "width": 63,
+            "x": 299,
+            "y": 479
+          },
+          "text": "redraw"
+        },
+        {
+          "lineId": "u5",
+          "rect": {
+            "height": 17,
+            "width": 31,
+            "x": 80,
+            "y": 695
+          },
+          "text": "No"
+        },
+        {
+          "lineId": "u5",
+          "rect": {
+            "height": 17,
+            "width": 54,
+            "x": 118,
+            "y": 695
+          },
+          "text": "OCR"
+        },
+        {
+          "lineId": "u5",
+          "rect": {
+            "height": 23,
+            "width": 67,
+            "x": 179,
+            "y": 694
+          },
+          "text": "output"
+        },
+        {
+          "lineId": "u5",
+          "rect": {
+            "height": 17,
+            "width": 91,
+            "x": 253,
+            "y": 695
+          },
+          "text": "confirms"
+        },
+        {
+          "lineId": "u5",
+          "rect": {
+            "height": 13,
+            "width": 13,
+            "x": 351,
+            "y": 699
+          },
+          "text": "a"
+        },
+        {
+          "lineId": "u5",
+          "rect": {
+            "height": 23,
+            "width": 62,
+            "x": 372,
+            "y": 694
+          },
+          "text": "target"
+        }
+      ]
+    }
+  ],
+  "fonts": [
+    {
+      "path": "/System/Library/Fonts/Supplemental/Arial.ttf",
+      "sha256": "sha256:525979822591a3447cfc49d943d6f7683508e25543407871c0ed8fed05fd2bd9"
+    },
+    {
+      "path": "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+      "sha256": "sha256:d72db21f9242aedd6b917d8549ad5921766b24d5f8d0becfda2ff4c620b3c2e0"
+    },
+    {
+      "path": "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+      "sha256": "sha256:876af2cd4854644e7f3e7feb2f688997fdb3343c6df6693611209c9dfb47ccec"
+    }
+  ],
+  "generator": "issue-105 evaluate.py",
+  "pillowVersion": "12.3.0",
+  "sensitivity": "synthetic fictional text only"
+}
