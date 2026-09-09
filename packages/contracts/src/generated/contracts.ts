@@ -237,6 +237,83 @@ export type NetworkRecord = {
   actualConnectionCount: number;
   denial: NetworkDenial | null;
 };
+/**
+ * Immutable, project-scoped Spotlight OCR evidence records.
+ */
+export type SpotlightEvidenceV1 =
+  | (Base & {
+      recordType?: "ocr_attempt_evidence";
+      captureRevisionId: string;
+      rasterDigest: string;
+      profileDigest: string;
+      outcome: "succeeded" | "failed";
+      [k: string]: unknown;
+    })
+  | (Base & {
+      recordType?: "ocr_evidence_batch";
+      attemptId: string;
+      captureRevisionId: string;
+      rasterDigest: string;
+      evidenceDigest: string;
+      [k: string]: unknown;
+    })
+  | (Base & {
+      recordType?: "automated_target_proposal";
+      batchId: string;
+      /**
+       * @minItems 1
+       */
+      elementIds: [string, ...string[]];
+      [k: string]: unknown;
+    })
+  | (Base & {
+      recordType?: "manual_geometry_proposal";
+      captureRevisionId: string;
+      rasterDigest: string;
+      region: Rect;
+      [k: string]: unknown;
+    })
+  | (Base & {
+      recordType?: "author_confirmation";
+      proposalId: string;
+      captureRevisionId: string;
+      rasterDigest: string;
+      geometryDigest: string;
+      [k: string]: unknown;
+    })
+  | (Base & {
+      recordType?: "remap_proposal";
+      oldConfirmationId: string;
+      newCaptureRevisionId: string;
+      outcome:
+        | "unique_candidate"
+        | "stale_missing"
+        | "stale_ambiguous"
+        | "stale_contradictory"
+        | "stale_incompatible_profile"
+        | "stale_manual_redraw_required"
+        | "stale_invalid_evidence";
+      [k: string]: unknown;
+    })
+  | (Base & {
+      recordType?: "remap_decision";
+      remapProposalId: string;
+      decision: "keep_old" | "accept_remap" | "redraw";
+      [k: string]: unknown;
+    })
+  | (Base & {
+      recordType?: "spotlight_derivation_record";
+      confirmationId: string;
+      matteDigest: string;
+      matteReceiptDigest: string;
+      [k: string]: unknown;
+    })
+  | (Base & {
+      recordType?: "spotlight_build_binding";
+      derivationId: string;
+      buildReference: string;
+      [k: string]: unknown;
+    });
 
 /**
  * Generated aggregate type surface for the VERA shared contracts.
@@ -250,6 +327,7 @@ export interface VeraContractsV1 {
   publicPageCaptureApi?: PublicPageCaptureApiV1;
   publicPageCaptureWorker?: PublicPageCaptureWorkerV1;
   publicPageCaptureProvenance?: PublicPageCaptureProvenanceV1;
+  spotlightEvidence?: SpotlightEvidenceV1;
 }
 /**
  * Editor-independent canonical ScriptDocument serialization for Phase 1.
@@ -1984,4 +2062,19 @@ export interface TerminalRecord {
   retryable: boolean;
   navigationStarted: boolean;
   leaseDisposition: "released" | "expired" | "consumed";
+}
+export interface Base {
+  schemaVersion: "spotlight-evidence/v1";
+  recordType: string;
+  recordId: string;
+  projectId: string;
+  createdAt: string;
+  payloadDigest: string;
+  [k: string]: unknown;
+}
+export interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }

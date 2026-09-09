@@ -33,6 +33,7 @@ const schemaFiles = [
   "public-page-capture-api-v1.schema.json",
   "public-page-capture-worker-v1.schema.json",
   "public-page-capture-provenance-v1.schema.json",
+  "spotlight-evidence-v1.schema.json",
 ];
 
 function readJson(path) {
@@ -69,6 +70,7 @@ async function generateTypeScript(outputDirectory) {
       publicPageCaptureApi: { $ref: schemaFiles[5] },
       publicPageCaptureWorker: { $ref: schemaFiles[6] },
       publicPageCaptureProvenance: { $ref: schemaFiles[7] },
+      spotlightEvidence: { $ref: schemaFiles[8] },
     },
   };
 
@@ -145,6 +147,7 @@ function generatePython(outputDirectory) {
       "from .public_page_capture_provenance_v1_schema import PublicPageCaptureProvenanceV1",
       "from .public_page_capture_worker_v1_schema import PublicPageCaptureWorkerV1",
       "from .script_document_v1_schema import ScriptDocumentV1",
+      "from .spotlight_evidence_v1_schema import SpotlightEvidenceV1",
       "from .timeline_manifest_v1_schema import TimelineManifestV1",
       "",
       "__all__ = [",
@@ -155,6 +158,7 @@ function generatePython(outputDirectory) {
       '    "PublicPageCaptureProvenanceV1",',
       '    "PublicPageCaptureWorkerV1",',
       '    "ScriptDocumentV1",',
+      '    "SpotlightEvidenceV1",',
       '    "TimelineManifestV1",',
       "]",
       "",

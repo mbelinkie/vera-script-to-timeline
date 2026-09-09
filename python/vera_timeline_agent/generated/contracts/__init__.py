@@ -7,6 +7,7 @@ from .public_page_capture_api_v1_schema import PublicPageCaptureApiV1
 from .public_page_capture_provenance_v1_schema import PublicPageCaptureProvenanceV1
 from .public_page_capture_worker_v1_schema import PublicPageCaptureWorkerV1
 from .script_document_v1_schema import ScriptDocumentV1
+from .spotlight_evidence_v1_schema import SpotlightEvidenceV1
 from .timeline_manifest_v1_schema import TimelineManifestV1
 
 __all__ = [
@@ -17,5 +18,6 @@ __all__ = [
     "PublicPageCaptureProvenanceV1",
     "PublicPageCaptureWorkerV1",
     "ScriptDocumentV1",
+    "SpotlightEvidenceV1",
     "TimelineManifestV1",
 ]

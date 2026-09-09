@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.vera.video/contracts/spotlight-evidence-v1.schema.json",
+  "title": "SpotlightEvidenceV1",
+  "description": "Immutable, project-scoped Spotlight OCR evidence records.",
+  "type": "object",
+  "oneOf": [
+    { "$ref": "#/$defs/ocrAttempt" },
+    { "$ref": "#/$defs/ocrBatch" },
+    { "$ref": "#/$defs/automatedProposal" },
+    { "$ref": "#/$defs/manualProposal" },
+    { "$ref": "#/$defs/confirmation" },
+    { "$ref": "#/$defs/remapProposal" },
+    { "$ref": "#/$defs/remapDecision" },
+    { "$ref": "#/$defs/derivation" },
+    { "$ref": "#/$defs/buildBinding" }
+  ],
+  "unevaluatedProperties": false,
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "uuid": { "type": "string", "format": "uuid" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "rect": {
+      "type": "object", "additionalProperties": false,
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "base": {
+      "type": "object",
+      "required": ["schemaVersion", "recordType", "recordId", "projectId", "createdAt", "payloadDigest"],
+      "properties": {
+        "schemaVersion": { "const": "spotlight-evidence/v1" },
+        "recordType": { "type": "string" },
+        "recordId": { "$ref": "#/$defs/uuid" },
+        "projectId": { "$ref": "#/$defs/uuid" },
+        "createdAt": { "$ref": "#/$defs/timestamp" },
+        "payloadDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "ocrAttempt": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        { "type": "object", "properties": { "recordType": { "const": "ocr_attempt_evidence" }, "captureRevisionId": { "$ref": "#/$defs/uuid" }, "rasterDigest": { "$ref": "#/$defs/digest" }, "profileDigest": { "$ref": "#/$defs/digest" }, "outcome": { "enum": ["succeeded", "failed"] } }, "required": ["captureRevisionId", "rasterDigest", "profileDigest", "outcome"] }
+      ]
+    },
+    "ocrBatch": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        { "type": "object", "properties": { "recordType": { "const": "ocr_evidence_batch" }, "attemptId": { "$ref": "#/$defs/uuid" }, "captureRevisionId": { "$ref": "#/$defs/uuid" }, "rasterDigest": { "$ref": "#/$defs/digest" }, "evidenceDigest": { "$ref": "#/$defs/digest" } }, "required": ["attemptId", "captureRevisionId", "rasterDigest", "evidenceDigest"] }
+      ]
+    },
+    "automatedProposal": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        { "type": "object", "properties": { "recordType": { "const": "automated_target_proposal" }, "batchId": { "$ref": "#/$defs/uuid" }, "elementIds": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/digest" } } }, "required": ["batchId", "elementIds"] }
+      ]
+    },
+    "manualProposal": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        { "type": "object", "properties": { "recordType": { "const": "manual_geometry_proposal" }, "captureRevisionId": { "$ref": "#/$defs/uuid" }, "rasterDigest": { "$ref": "#/$defs/digest" }, "region": { "$ref": "#/$defs/rect" } }, "required": ["captureRevisionId", "rasterDigest", "region"] }
+      ]
+    },
+    "confirmation": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        { "type": "object", "properties": { "recordType": { "const": "author_confirmation" }, "proposalId": { "$ref": "#/$defs/uuid" }, "captureRevisionId": { "$ref": "#/$defs/uuid" }, "rasterDigest": { "$ref": "#/$defs/digest" }, "geometryDigest": { "$ref": "#/$defs/digest" } }, "required": ["proposalId", "captureRevisionId", "rasterDigest", "geometryDigest"] }
+      ]
+    },
+    "remapProposal": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        { "type": "object", "properties": { "recordType": { "const": "remap_proposal" }, "oldConfirmationId": { "$ref": "#/$defs/uuid" }, "newCaptureRevisionId": { "$ref": "#/$defs/uuid" }, "outcome": { "enum": ["unique_candidate", "stale_missing", "stale_ambiguous", "stale_contradictory", "stale_incompatible_profile", "stale_manual_redraw_required", "stale_invalid_evidence"] } }, "required": ["oldConfirmationId", "newCaptureRevisionId", "outcome"] }
+      ]
+    },
+    "remapDecision": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        { "type": "object", "properties": { "recordType": { "const": "remap_decision" }, "remapProposalId": { "$ref": "#/$defs/uuid" }, "decision": { "enum": ["keep_old", "accept_remap", "redraw"] } }, "required": ["remapProposalId", "decision"] }
+      ]
+    },
+    "derivation": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        { "type": "object", "properties": { "recordType": { "const": "spotlight_derivation_record" }, "confirmationId": { "$ref": "#/$defs/uuid" }, "matteDigest": { "$ref": "#/$defs/digest" }, "matteReceiptDigest": { "$ref": "#/$defs/digest" } }, "required": ["confirmationId", "matteDigest", "matteReceiptDigest"] }
+      ]
+    },
+    "buildBinding": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        { "type": "object", "properties": { "recordType": { "const": "spotlight_build_binding" }, "derivationId": { "$ref": "#/$defs/uuid" }, "buildReference": { "type": "string", "minLength": 1 } }, "required": ["derivationId", "buildReference"] }
+      ]
+    }
+  }
+}
