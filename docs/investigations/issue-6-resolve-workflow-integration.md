@@ -57,9 +57,10 @@ a nicer launcher and should be abandoned rather than productized.
    relevant Resolve preference, then restart Resolve if it requires a restart.
 2. Regenerate the accepted package using the documented Slice 0.2 command.
    Copy `VERA Workflow Integration.py` and a new
-   `vera-workflow-integration.json` beside it through Resolve's own Workflow
-   Integration Scripts process. Set absolute `repositoryPythonPath` and
-   `packageDir`; choose a never-before-used `projectName`.
+   `vera-workflow-integration.json` beside it through Resolve's Workflow
+   Integration Plugins registration process. Set absolute `pythonPaths` for
+   this checkout's source and locked `site-packages`, plus `packageDir`; choose
+   a never-before-used `projectName`.
 3. Open the disposable project on the Edit page and launch the integration from
    **Workspace > Workflow Integrations**. Expected: JSON identifies that exact
    Resolve version/build and returns `verified`; a new uniquely named project

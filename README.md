@@ -309,10 +309,10 @@ Studio spike and never loads the external bridge.
 
 For producer acceptance, create a fresh `vera-workflow-integration.json` beside
 the staged wrapper from the checked-in example, using absolute paths to this
-checkout's `python/` directory and a newly generated accepted package. Choose
-a unique project name; do not reuse an existing project. Manually stage the two
-files in Resolve's Workflow Integration Scripts location using Resolve's own
-documented installation flow—an agent must not install them.
+checkout's `python/` directory, its locked Python `site-packages` directory,
+and a newly generated accepted package. Choose a unique project name; do not
+reuse an existing project. Resolve's installed developer documentation calls
+the registration directory `Workflow Integration Plugins`.
 
 With external scripting access restricted in Resolve preferences, open a
 disposable acceptance project on the Edit page and launch the staged integration

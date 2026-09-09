@@ -12,12 +12,17 @@ CONFIG_PATH = Path(__file__).with_name("vera-workflow-integration.json")
 def main(injected_resolve: object) -> None:
     """Load local staging configuration and use Resolve's injected API object."""
     config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-    repository_python = Path(config["repositoryPythonPath"])
+    python_paths = config["pythonPaths"]
     package_dir = Path(config["packageDir"])
     project_name = config["projectName"]
+    if not isinstance(python_paths, list) or not all(
+        isinstance(value, str) and value for value in python_paths
+    ):
+        raise RuntimeError("pythonPaths must be a nonempty list of absolute paths")
     if not isinstance(project_name, str) or not project_name:
         raise RuntimeError("projectName must be a nonempty unique name")
-    sys.path.insert(0, str(repository_python))
+    for value in reversed(python_paths):
+        sys.path.insert(0, value)
     from vera_timeline_agent.workflow_integration import run_workflow_integration
 
     result = run_workflow_integration(

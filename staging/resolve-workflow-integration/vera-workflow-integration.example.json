@@ -1,5 +1,8 @@
 {
-  "repositoryPythonPath": "/absolute/path/to/VERA Script to Timeline/python",
+  "pythonPaths": [
+    "/absolute/path/to/VERA Script to Timeline/python",
+    "/absolute/path/to/VERA Script to Timeline/.venv/lib/python3.12/site-packages"
+  ],
   "packageDir": "/absolute/path/to/VERA-accepted-package",
   "projectName": "VERA Workflow Integration Acceptance YYYYMMDD-HHMMSS"
 }
