@@ -341,6 +341,34 @@ The wrapper also writes that JSON to
 directory, so a
 producer can retain the result even when Resolve's script console is hidden.
 
+### Issue 110 Fairlight capability probe
+
+The separately named staged launcher
+`VERA Issue 110 Fairlight Probe.py` extends the accepted injected Python 3.14
+boundary without modifying either issue 6 launcher or the issue 107 startup
+launcher. Copy it and a config based on
+`vera-issue-110-fairlight-probe.example.json` into Resolve's `Workflow
+Integration Plugins` directory. Use this checkout's absolute `python/` path, a
+new output directory, and a unique project name beginning `VERA Issue 110
+Fairlight Probe `. Keep `externalScriptingSetting` exactly `None`; the probe
+refuses any other value.
+
+With Resolve's **External scripting using** preference visibly set to **None**,
+open a timeline page and launch **Workspace > Workflow Integrations > VERA
+Issue 110 Fairlight Probe**. It creates only the named disposable project and a
+one-second synthetic stereo WAV. It does not read package media or any presenter
+source. The retained `capability-report.json` records actual mutation/readback
+for channel mapping, Voice Isolation, Dialogue Leveler, normalization, PCM-WAV
+render/reattachment, clip state, and save/reopen. The adjacent
+`operator-handoff.md` gives the numbered real-Resolve verification steps and
+the exact automation/operator boundary for issue 108.
+
+An optional exact `fairlightPresetName` may be recorded only if it appears in
+Resolve's public preset list. The automated probe still does not apply it:
+Resolve exposes no public preset/EQ/dynamics state getter or safe preset reset,
+so that path remains `operator-only` on a duplicate timeline. No successful API
+return by itself is promoted to `verified-preset`.
+
 ### Pinned Text+ destination-track validation
 
 VERA versions the producer-authored `Text+` media-pool generator template and

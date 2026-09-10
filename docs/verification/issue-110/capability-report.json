@@ -1,0 +1,232 @@
+{
+  "attachmentPath": {
+    "exactStartFrame": 0,
+    "explanation": "No verified PCM WAV existed to attach; original remained enabled.",
+    "originalRestoredAfterReopen": false,
+    "replacementRemoved": false,
+    "replacementSurvivedReopen": false
+  },
+  "capabilities": {
+    "dialogueLeveler": {
+      "before": {
+        "AudioDialogueLevelerBackgroundReduction": false,
+        "AudioDialogueLevelerEnabled": false,
+        "AudioDialogueLevelerLiftSoftDialogue": false,
+        "AudioDialogueLevelerMode": 0,
+        "AudioDialogueLevelerOutputGain": 0.0,
+        "AudioDialogueLevelerReduceLoudDialogue": false
+      },
+      "explanation": "Dialogue Leveler enable, mode, loud/soft treatment, background reduction, and output gain changed, read back, and restored through documented item properties.",
+      "operation": "TimelineItem.SetProperties + GetProperties",
+      "readback": {
+        "AudioDialogueLevelerBackgroundReduction": true,
+        "AudioDialogueLevelerEnabled": true,
+        "AudioDialogueLevelerLiftSoftDialogue": true,
+        "AudioDialogueLevelerMode": 1,
+        "AudioDialogueLevelerOutputGain": 1.5,
+        "AudioDialogueLevelerReduceLoudDialogue": true
+      },
+      "request": {
+        "AudioDialogueLevelerBackgroundReduction": true,
+        "AudioDialogueLevelerEnabled": true,
+        "AudioDialogueLevelerLiftSoftDialogue": true,
+        "AudioDialogueLevelerMode": 1.0,
+        "AudioDialogueLevelerOutputGain": 1.5,
+        "AudioDialogueLevelerReduceLoudDialogue": true
+      },
+      "restored": {
+        "AudioDialogueLevelerBackgroundReduction": false,
+        "AudioDialogueLevelerEnabled": false,
+        "AudioDialogueLevelerLiftSoftDialogue": false,
+        "AudioDialogueLevelerMode": 0,
+        "AudioDialogueLevelerOutputGain": 0.0,
+        "AudioDialogueLevelerReduceLoudDialogue": false
+      },
+      "status": "supported-api"
+    },
+    "eqDynamicsPreset": {
+      "before": {
+        "availablePresetNames": []
+      },
+      "explanation": "No exact preset name was authorized. EQ/dynamics remain an operator step; the public API exposes no current-preset or EQ/dynamics state getter.",
+      "operation": "ApplyFairlightPresetToCurrentTimeline",
+      "readback": null,
+      "request": {
+        "presetName": null
+      },
+      "restored": null,
+      "status": "operator-only"
+    },
+    "normalization": {
+      "before": null,
+      "explanation": "Normalization was not claimed: NormalizeAudioLevel returned false",
+      "operation": "Timeline.NormalizeAudioLevel + TimelineItem.GetProperties",
+      "readback": null,
+      "request": null,
+      "restored": null,
+      "status": "unavailable"
+    },
+    "pcmWavRender": {
+      "before": null,
+      "explanation": "48 kHz Linear PCM WAV render was not claimed: WAV/Linear PCM render selection failed",
+      "operation": "Project audio render format/codec discovery + render job",
+      "readback": null,
+      "request": {
+        "AudioBitDepth": 24,
+        "AudioCodec": "lpcm",
+        "AudioFormat": "wav",
+        "AudioSampleRate": 48000,
+        "CustomName": "vera-issue-110-rendered-probe",
+        "ExportAudio": true,
+        "ExportVideo": false,
+        "SelectAllFrames": true,
+        "TargetDir": "/Users/matthewbelinkie/.codex/worktrees/26c1/VERA Script to Timeline/out/issue-110-fairlight-20260910-000458/render"
+      },
+      "restored": null,
+      "status": "unavailable"
+    },
+    "voiceIsolation": {
+      "before": {
+        "amount": 0,
+        "isEnabled": false
+      },
+      "explanation": "Voice Isolation accepted a changed enabled/amount state, read it back, and restored the prior state.",
+      "operation": "TimelineItem.SetVoiceIsolationState + GetVoiceIsolationState",
+      "readback": {
+        "amount": 37,
+        "isEnabled": true
+      },
+      "request": {
+        "amount": 37,
+        "isEnabled": true
+      },
+      "restored": {
+        "amount": 0,
+        "isEnabled": false
+      },
+      "status": "supported-api"
+    }
+  },
+  "channelMapping": {
+    "before": {
+      "embedded_audio_channels": 2,
+      "linked_audio": {},
+      "track_mapping": {
+        "1": {
+          "channel_idx": [
+            1,
+            2
+          ],
+          "mute": false,
+          "type": "stereo"
+        }
+      }
+    },
+    "explanation": "SetAudioMapping readback retained one mono track using only physical channel 1; channel 2 is excluded.",
+    "operation": "MediaPoolItem.SetAudioMapping + GetAudioMapping",
+    "readback": {
+      "embedded_audio_channels": 2,
+      "linked_audio": {},
+      "track_mapping": {
+        "1": {
+          "channel_idx": [
+            1
+          ],
+          "mute": false,
+          "type": "mono"
+        }
+      }
+    },
+    "request": {
+      "track_mapping": {
+        "1": {
+          "channel_idx": [
+            1
+          ],
+          "mute": false,
+          "type": "mono"
+        }
+      }
+    },
+    "restored": null,
+    "status": "supported-api"
+  },
+  "createdAt": "2026-09-10T04:06:06.819514+00:00",
+  "discrepancies": [],
+  "documentation": [
+    {
+      "exists": true,
+      "modifiedAt": "2026-09-07T09:52:14+00:00",
+      "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/README.md",
+      "retrievedAt": "2026-09-10",
+      "sha256": "5f58c94da8ec3c1f390d77ad9c60675263591dc101159b302e50b5774513830b",
+      "title": "Installed DaVinci Resolve Scripting API README"
+    },
+    {
+      "exists": true,
+      "modifiedAt": "2026-09-07T09:52:14+00:00",
+      "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/DaVinciResolveScript.pyi",
+      "retrievedAt": "2026-09-10",
+      "sha256": "00078fa1256851b9807621a4eea5e670f4266b0e7003763cba4a62655543f0ec",
+      "title": "Installed DaVinci Resolve Scripting API type stubs"
+    },
+    {
+      "relevance": "Resolve release and developer-documentation distribution",
+      "retrievedAt": "2026-09-10",
+      "title": "Blackmagic Design support",
+      "url": "https://www.blackmagicdesign.com/support/"
+    },
+    {
+      "relevance": "operator audio, EQ, dynamics, bounce, and restoration workflows",
+      "retrievedAt": "2026-09-10",
+      "title": "DaVinci Resolve Fairlight",
+      "url": "https://www.blackmagicdesign.com/products/davinciresolve/fairlight/"
+    },
+    {
+      "relevance": "channel mapping, normalization, dialogue processing, and delivery",
+      "retrievedAt": "2026-09-10",
+      "title": "The Fairlight Audio Guide to DaVinci Resolve 20",
+      "url": "https://documents.blackmagicdesign.com/UserManuals/DaVinciResolveFairlightAudioPost.pdf"
+    }
+  ],
+  "externalScriptingSetting": "None",
+  "fairlightPresets": [],
+  "message": "Fairlight capability boundary was exercised and the clean synthetic audio path was restored.",
+  "originalAudio": {
+    "explanation": "Synthetic source bytes match, the original timeline item is enabled, and no replacement remains after save/close/reopen.",
+    "originalClipEnabled": true,
+    "originalMediaId": "169f67c2-7889-4d6d-86ba-b90ccf624648",
+    "originalTimelineItemPresent": true,
+    "preserved": true,
+    "replacementTimelineItemPresent": false,
+    "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/26c1/VERA Script to Timeline/out/issue-110-fairlight-20260910-000458/synthetic-stereo-probe.wav",
+    "sourceSha256After": "afd63294ad25c13faec39066d4d858338397a1f70b1286b155a468f45c267239",
+    "sourceSha256Before": "afd63294ad25c13faec39066d4d858338397a1f70b1286b155a468f45c267239"
+  },
+  "probeMedia": {
+    "bitDepth": 16,
+    "channel1": "440 Hz sine",
+    "channel2": "880 Hz sine",
+    "channels": 2,
+    "durationSamples": 48000,
+    "kind": "synthetic-non-presenter",
+    "path": "/Users/matthewbelinkie/.codex/worktrees/26c1/VERA Script to Timeline/out/issue-110-fairlight-20260910-000458/synthetic-stereo-probe.wav",
+    "sampleRate": 48000,
+    "sha256": "afd63294ad25c13faec39066d4d858338397a1f70b1286b155a468f45c267239"
+  },
+  "projectName": "VERA Issue 110 Fairlight Probe 20260910-000458",
+  "renderedWav": null,
+  "resolve": {
+    "build": "14",
+    "currentPage": "edit",
+    "productName": "DaVinci Resolve Studio",
+    "suffix": "",
+    "version": "21.1.0"
+  },
+  "runtime": {
+    "implementation": "CPython",
+    "pythonVersion": "3.14.7"
+  },
+  "schemaVersion": "vera-fairlight-capability-report-v1",
+  "status": "verified"
+}

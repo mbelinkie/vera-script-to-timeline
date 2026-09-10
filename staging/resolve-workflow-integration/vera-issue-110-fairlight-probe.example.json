@@ -1,0 +1,8 @@
+{
+  "pythonPath": "/absolute/path/to/VERA Script to Timeline/python",
+  "projectName": "VERA Issue 110 Fairlight Probe YYYYMMDD-HHMMSS",
+  "outputDir": "/absolute/new/path/to/issue-110-output",
+  "externalScriptingSetting": "None",
+  "documentationRetrievedAt": "2026-09-09",
+  "fairlightPresetName": null
+}

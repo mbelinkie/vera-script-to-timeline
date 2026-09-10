@@ -1,0 +1,144 @@
+{
+  "attachmentPath": {
+    "exactStartFrame": 0,
+    "originalRestoredAfterReopen": true,
+    "replacementRemoved": true,
+    "replacementSurvivedReopen": false
+  },
+  "capabilities": {
+    "dialogueLeveler": {
+      "before": null,
+      "explanation": "Probe stopped after failure: ImportMedia failed for /Users/matthewbelinkie/.codex/worktrees/26c1/VERA Script to Timeline/out/issue-110-fairlight-20260909-235218/synthetic-stereo-probe.wav",
+      "operation": "not completed",
+      "readback": null,
+      "request": null,
+      "restored": null,
+      "status": "unavailable"
+    },
+    "eqDynamicsPreset": {
+      "before": null,
+      "explanation": "Probe stopped after failure: ImportMedia failed for /Users/matthewbelinkie/.codex/worktrees/26c1/VERA Script to Timeline/out/issue-110-fairlight-20260909-235218/synthetic-stereo-probe.wav",
+      "operation": "not completed",
+      "readback": null,
+      "request": null,
+      "restored": null,
+      "status": "unavailable"
+    },
+    "normalization": {
+      "before": null,
+      "explanation": "Probe stopped after failure: ImportMedia failed for /Users/matthewbelinkie/.codex/worktrees/26c1/VERA Script to Timeline/out/issue-110-fairlight-20260909-235218/synthetic-stereo-probe.wav",
+      "operation": "not completed",
+      "readback": null,
+      "request": null,
+      "restored": null,
+      "status": "unavailable"
+    },
+    "pcmWavRender": {
+      "before": null,
+      "explanation": "Probe stopped after failure: ImportMedia failed for /Users/matthewbelinkie/.codex/worktrees/26c1/VERA Script to Timeline/out/issue-110-fairlight-20260909-235218/synthetic-stereo-probe.wav",
+      "operation": "not completed",
+      "readback": null,
+      "request": null,
+      "restored": null,
+      "status": "unavailable"
+    },
+    "voiceIsolation": {
+      "before": null,
+      "explanation": "Probe stopped after failure: ImportMedia failed for /Users/matthewbelinkie/.codex/worktrees/26c1/VERA Script to Timeline/out/issue-110-fairlight-20260909-235218/synthetic-stereo-probe.wav",
+      "operation": "not completed",
+      "readback": null,
+      "request": null,
+      "restored": null,
+      "status": "unavailable"
+    }
+  },
+  "channelMapping": {
+    "before": null,
+    "explanation": "Probe stopped after failure: ImportMedia failed for /Users/matthewbelinkie/.codex/worktrees/26c1/VERA Script to Timeline/out/issue-110-fairlight-20260909-235218/synthetic-stereo-probe.wav",
+    "operation": "not completed",
+    "readback": null,
+    "request": null,
+    "restored": null,
+    "status": "unavailable"
+  },
+  "createdAt": "2026-09-10T04:02:47.203207+00:00",
+  "discrepancies": [
+    "ImportMedia failed for /Users/matthewbelinkie/.codex/worktrees/26c1/VERA Script to Timeline/out/issue-110-fairlight-20260909-235218/synthetic-stereo-probe.wav"
+  ],
+  "documentation": [
+    {
+      "exists": true,
+      "modifiedAt": "2026-09-07T09:52:14+00:00",
+      "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/README.md",
+      "retrievedAt": "2026-09-09",
+      "sha256": "5f58c94da8ec3c1f390d77ad9c60675263591dc101159b302e50b5774513830b",
+      "title": "Installed DaVinci Resolve Scripting API README"
+    },
+    {
+      "exists": true,
+      "modifiedAt": "2026-09-07T09:52:14+00:00",
+      "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/DaVinciResolveScript.pyi",
+      "retrievedAt": "2026-09-09",
+      "sha256": "00078fa1256851b9807621a4eea5e670f4266b0e7003763cba4a62655543f0ec",
+      "title": "Installed DaVinci Resolve Scripting API type stubs"
+    },
+    {
+      "relevance": "Resolve release and developer-documentation distribution",
+      "retrievedAt": "2026-09-09",
+      "title": "Blackmagic Design support",
+      "url": "https://www.blackmagicdesign.com/support/"
+    },
+    {
+      "relevance": "operator audio, EQ, dynamics, bounce, and restoration workflows",
+      "retrievedAt": "2026-09-09",
+      "title": "DaVinci Resolve Fairlight",
+      "url": "https://www.blackmagicdesign.com/products/davinciresolve/fairlight/"
+    },
+    {
+      "relevance": "channel mapping, normalization, dialogue processing, and delivery",
+      "retrievedAt": "2026-09-09",
+      "title": "The Fairlight Audio Guide to DaVinci Resolve 20",
+      "url": "https://documents.blackmagicdesign.com/UserManuals/DaVinciResolveFairlightAudioPost.pdf"
+    }
+  ],
+  "externalScriptingSetting": "None",
+  "fairlightPresets": [],
+  "message": "Fairlight probe failed after mutation began; restoration was attempted and retained. Detail: ImportMedia failed for /Users/matthewbelinkie/.codex/worktrees/26c1/VERA Script to Timeline/out/issue-110-fairlight-20260909-235218/synthetic-stereo-probe.wav",
+  "originalAudio": {
+    "explanation": "Synthetic source bytes remain unchanged and no replacement remains.",
+    "originalClipEnabled": null,
+    "originalMediaId": null,
+    "originalTimelineItemPresent": false,
+    "preserved": true,
+    "replacementTimelineItemPresent": false,
+    "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/26c1/VERA Script to Timeline/out/issue-110-fairlight-20260909-235218/synthetic-stereo-probe.wav",
+    "sourceSha256After": "afd63294ad25c13faec39066d4d858338397a1f70b1286b155a468f45c267239",
+    "sourceSha256Before": "afd63294ad25c13faec39066d4d858338397a1f70b1286b155a468f45c267239"
+  },
+  "probeMedia": {
+    "bitDepth": 16,
+    "channel1": "440 Hz sine",
+    "channel2": "880 Hz sine",
+    "channels": 2,
+    "durationSamples": 48000,
+    "kind": "synthetic-non-presenter",
+    "path": "/Users/matthewbelinkie/.codex/worktrees/26c1/VERA Script to Timeline/out/issue-110-fairlight-20260909-235218/synthetic-stereo-probe.wav",
+    "sampleRate": 48000,
+    "sha256": "afd63294ad25c13faec39066d4d858338397a1f70b1286b155a468f45c267239"
+  },
+  "projectName": "VERA Issue 110 Fairlight Probe 20260909-235218",
+  "renderedWav": null,
+  "resolve": {
+    "build": "14",
+    "currentPage": "edit",
+    "productName": "DaVinci Resolve Studio",
+    "suffix": "",
+    "version": "21.1.0"
+  },
+  "runtime": {
+    "implementation": "CPython",
+    "pythonVersion": "3.14.7"
+  },
+  "schemaVersion": "vera-fairlight-capability-report-v1",
+  "status": "mutation_failed"
+}
