@@ -78,5 +78,14 @@ picture-only accessible naming, and no framing group on any non-presenter
 visual. The live artifact also retains the 22-row document, the 13 placeholder
 cards, range controls, readiness, Undo/history, reorder controls, thumbnail
 sizing, configured-still and no-still harness states, and the 1280×800 and
-1024×768 harness states. Producer execution of the checked-in presence
-checklist remains the closing authority.
+1024×768 harness states.
+
+## Producer acceptance
+
+On 2026-09-11, the Producer explicitly accepted the successor and the section
+14 deferrals in the claimed implementation task with the exact response:
+
+> Accept #117 S01–S03 Wide/Tight successor and section 14 deferrals.
+
+The temporary Wide fallback-art observation above remains a non-blocking
+production follow-up and does not qualify or narrow this acceptance.
