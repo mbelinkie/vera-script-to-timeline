@@ -2,8 +2,8 @@
 
 This checklist controls Producer review of
 `Script to Timeline - Two-Column Authoring S01-S03 v3.dc.html`. The accepted v2
-artifact remains the regression baseline. Nothing is sent to Claude until the
-Producer approves the exact prompt in
+artifact remains the regression baseline. The Producer-authorized exact prompt
+submitted to Claude is retained in
 `claude-s01-s03-wide-tight-amendment-prompt.md`.
 
 ## Integrity and scope

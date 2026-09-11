@@ -36,11 +36,11 @@ state; preview treatment; carry-forward seeding with explicit stored state;
 Undo/Redo; responsive layout; and the required continuity examples at 1280×800
 and 1024×768.
 
-Producer acceptance: before any Claude submission, the Producer reviews the
-exact prompt and replies `send` or `send it`. After implementation, the
-Producer walks the exact v3 artifact and either explicitly accepts #117 or
-names the first failed state. The issue remains In progress or In review until
-that response is retained.
+Producer acceptance: the Producer reviewed and explicitly authorized the exact
+Claude prompt in #117 comment 5628742071. After implementation, the Producer
+walks the exact v3 artifact and either explicitly accepts #117 or names the
+first failed state. The issue remains In progress or In review until that
+response is retained.
 
 ## Design semantics
 
@@ -96,4 +96,3 @@ contracts, including source continuity and independent processed audio. Issue
 #119 proves Studio and Free delivery in disposable Resolve projects. Issue
 #120 retains future multiple-camera sources and authored per-appearance angle
 selection; automatic switching remains separately deferred.
-

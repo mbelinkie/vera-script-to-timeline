@@ -1,10 +1,13 @@
 # Issue #117 — exact Claude Design amendment prompt
 
-Status: **awaiting Producer approval; do not submit**.
+Status: **Producer-authorized and submitted once on 2026-09-10 at 22:57 EDT**.
 
-The Producer must review this exact request and reply `send` or `send it`
-before it may be submitted as plain text to the existing Claude Design
-conversation `VERA design feedback`.
+Producer authorization is retained in
+[#117 comment 5628742071](https://github.com/mbelinkie/vera-script-to-timeline/issues/117#issuecomment-5628742071).
+The exact request below was submitted as plain text to the Claude Design
+project `VERA design feedback`; its UTF-8 body (from the first line after the
+divider through EOF, including the final newline) is 7,532 characters and has
+SHA-256 `f15a0565ddac991fb844ba634bb6e80ed7f041ef2681d8fa3320e02ad8581f66`.
 
 ---
 
