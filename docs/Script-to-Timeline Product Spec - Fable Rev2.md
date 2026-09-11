@@ -2321,7 +2321,8 @@ is part of every phase gate.
 | Fully autonomous research, fact-checking, rights clearance, editorial judgment | — (unchanged: out of scope) | — |
 | UI automation or undocumented project-file editing to extend Resolve Free | — (permanently out of scope) | Never |
 | Dual-system audio recording and sync (Part 3) | Single camera with camera/attached mic | A shoot actually uses a separate audio recorder |
-| Multi-camera sessions and automatic switching (Part 3) | One camera per session; the source model does not preclude more | A second camera becomes routine on shoots |
+| Multiple camera sources and authored per-appearance angle selection (Part 3) | One camera per session with two authored framing treatments, Wide and Tight, derived from that same continuous source | A second camera becomes routine on shoots and the producer needs to choose its angle for individual On Camera appearances |
+| Automatic camera switching (Part 3) | The author chooses each On Camera appearance manually; no automatic switching | Repeated multicamera work supplies enough accepted editorial decisions to evaluate an explainable, always-reviewable suggestion system |
 | Intra-beat take splicing (Part 3) | One active take per beat plus recorded alternates; `spliceRanges[]` reserved on `TakeAssignment` | The producer regularly needs phrases combined from different reads inside one beat |
 | Automated video quality analysis — focus, exposure, eye line (Part 3) | Human judgment in the takes drawer; audio-side warnings only | Reviewing long shoots without them is measured, recurring pain |
 | Autonomous keeper selection or performance-direction judgment (Part 3) | Ranked, explainable, component-based suggestions; approval always human | Never fully; an experimental ranking learned from the producer's own approvals may be trialed once enough approval history exists |
@@ -2551,4 +2552,3 @@ existing research clip workflow.
 - Adobe Podcast Enhance Speech — documented upload/process/download browser
   workflow with plan/file limits; treated as optional and replaceable, never
   architectural infrastructure
-
