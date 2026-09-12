@@ -172,3 +172,60 @@ describe("immutable shoot registration", () => {
     await expect(resolveMasterForJob(project(), { projectId: "40000000-0000-4000-8000-000000000099", sourceId: ids.sourceA, purpose: "transcription" }, [])).rejects.toThrow("does not authorize");
   });
 });
+
+describe("project-library reconfiguration authorization", () => {
+  it("invalidates stale source access until a hash-verified relink through the configured library", async () => {
+    const rootA = await temporaryRoot();
+    const masterA = join(rootA, "master.mov");
+    await writeFile(masterA, "authorized synthetic master");
+    const registered = await registerMaster(project(), ids.session, {
+      id: ids.sourceA,
+      path: masterA,
+      library: { libraryId: ids.libraryA, rootPath: rootA },
+      probe: () => Promise.resolve(probe),
+    });
+    const job = { projectId: ids.project, sourceId: ids.sourceA, purpose: "proxy" } as const;
+
+    await expect(resolveMasterForJob(registered.project, job, [
+      { libraryId: ids.libraryA, rootPath: rootA },
+    ])).resolves.toEqual(expect.objectContaining({ path: masterA }));
+
+    const configuredForB = configureProjectLocalLibrary(registered.project, ids.libraryB);
+    await expect(resolveMasterForJob(configuredForB, job, [
+      { libraryId: ids.libraryA, rootPath: rootA },
+    ])).rejects.toThrow("no verified locator");
+
+    const unconfigured = { ...structuredClone(registered.project), mediaLibrary: { kind: "unconfigured" } as const };
+    await expect(resolveMasterForJob(unconfigured, job, [
+      { libraryId: ids.libraryA, rootPath: rootA },
+    ])).rejects.toThrow("configured local library");
+    await expect(resolveMasterForJob(registered.project, { ...job, projectId: ids.libraryB }, [
+      { libraryId: ids.libraryA, rootPath: rootA },
+    ])).rejects.toThrow("does not authorize this project");
+    await expect(resolveMasterForJob(registered.project, { ...job, sourceId: ids.sourceB }, [
+      { libraryId: ids.libraryA, rootPath: rootA },
+    ])).rejects.toThrow("does not authorize this source");
+
+    const rootB = await temporaryRoot();
+    const masterB = join(rootB, "relinked.mov");
+    await writeFile(masterB, "authorized synthetic master");
+    const relinked = await relinkFromLibrary(configuredForB, {
+      libraryId: ids.libraryB,
+      rootPath: rootB,
+    }, "2026-09-12T00:00:00.000Z");
+    const libraries = [
+      { libraryId: ids.libraryA, rootPath: rootA },
+      { libraryId: ids.libraryB, rootPath: rootB },
+    ];
+
+    await expect(resolveMasterForJob(relinked.project, job, libraries)).resolves.toEqual(
+      expect.objectContaining({ sourceId: ids.sourceA, path: masterB }),
+    );
+
+    await writeFile(masterB, "changed bytes");
+    await expect(resolveMasterForJob(relinked.project, job, libraries)).rejects.toThrow("no verified locator");
+    expect(JSON.stringify(relinked.project)).not.toContain(rootA);
+    expect(JSON.stringify(relinked.project)).not.toContain(rootB);
+    expect(JSON.stringify(createHandoffInventory(relinked.project, ids.session))).not.toContain("purpose");
+  });
+});

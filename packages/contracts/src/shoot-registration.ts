@@ -187,7 +187,10 @@ export async function resolveMasterForJob(
   if (job.projectId !== project.projectId) throw new Error("Job does not authorize this project.");
   const source = project.sessions.flatMap(({ sources }) => sources).find(({ id }) => id === job.sourceId);
   if (source === undefined) throw new Error("Job does not authorize this source.");
-  const locators = [...source.relinkHistory.map(({ locator }) => locator).reverse(), ...(source.locator === undefined ? [] : [source.locator])];
+  if (project.mediaLibrary.kind !== "project_local") throw new Error("Project has no configured local library and source has no verified locator for job access.");
+  const configuredLibraryId = project.mediaLibrary.libraryId;
+  const locators = [...source.relinkHistory.map(({ locator }) => locator).reverse(), ...(source.locator === undefined ? [] : [source.locator])]
+    .filter(({ libraryId }) => libraryId === configuredLibraryId);
   if (locators.length === 0) throw new Error("Source has no verified locator for job access.");
   for (const locator of locators) {
     const library = libraries.find(({ libraryId }) => libraryId === locator.libraryId);
