@@ -24,8 +24,9 @@ rows, while entering from the accepted S03 authoring experience.
 
 ## Acceptance criteria
 
-- [ ] S03 shows a clear, non-color-only managed-timeline-change alert and a
-  dedicated reconciliation action; the no-change state offers no false action.
+- [ ] S03 shows a clear, non-color-only managed-timeline-change alert, the
+  number of timeline-originated changes to review, and a dedicated counted
+  action; the no-change and unavailable states show no false or stale count.
 - [ ] The review visibly reuses S05's white script rows, script order,
   two-column structure, red/green plus non-color semantics, filters, controls,
   counts, scrolling, focus, and responsive behavior.

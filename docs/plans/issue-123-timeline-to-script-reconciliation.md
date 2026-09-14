@@ -98,11 +98,12 @@ while retaining its descriptive name in reconciliation history.
    concept, and asks Matthew focused questions about material choices and missed
    edge cases. It waits for answers before editing.
 4. Claude implements and exercises the agreed design, fixing issues it finds.
-5. Retain evidence at `1280 × 800` and `1024 × 768` for the S03 entry/no-change
-   states, understood changes, compatible and incompatible same-row changes,
-   both Resolve-only placements and naming, collapsed script presentation,
-   later S05 preservation/script-wins/defer/removal states, partial success,
-   unavailable/error states, keyboard focus, non-color meaning, and overflow.
+5. Retain evidence at `1280 × 800` and `1024 × 768` for the counted S03
+   entry/no-change states, understood changes, compatible and incompatible
+   same-row changes, both Resolve-only placements and naming, collapsed script
+   presentation, later S05 preservation/script-wins/defer/removal states,
+   partial success, unavailable/error states, keyboard focus, non-color meaning,
+   and overflow.
 6. Move #123 to **In review** only when the Claude artifact and evidence exist.
    Close only after explicit Producer acceptance.
 
@@ -110,8 +111,9 @@ while retaining its descriptive name in reconciliation history.
 
 1. Open the exact Claude Design artifact named above and confirm it is separate
    from the accepted S01–S05 artifacts.
-2. Confirm the S03 entry makes a managed-timeline change obvious without a false
-   action in the no-change state.
+2. Confirm the S03 entry makes a managed-timeline change obvious, states the
+   number of changes to review, and offers a matching counted action without a
+   false or stale count in no-change and unavailable states.
 3. Confirm the review feels like S05 in reverse, uses white script rows, and
    omits script-only changes.
 4. Confirm safe changes are preselected; same-row changes require the documented

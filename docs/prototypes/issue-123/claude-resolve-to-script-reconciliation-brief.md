@@ -66,8 +66,25 @@ button beside the established S03 Prompter/Resolve access. The message should
 say in ordinary language that the managed Resolve timeline changed after VERA's
 last update and those changes can be reviewed for the script.
 
+Make the alert concrete by showing the number of timeline-originated changes
+waiting for review. Design at least these examples:
+
+- **Resolve timeline changed since VERA's last update · 6 changes to review**
+  with a **Review 6 changes** action.
+- A useful expanded or secondary breakdown such as **3 ready to apply · 1 needs
+  a decision · 2 Resolve-only items will be recorded**.
+
+The total counts each atomic timeline-originated change once and excludes
+script-only edits. A move shown at two positions still counts once. Resolve-only
+items are included in the total because the user should see and may name them,
+even though VERA records their existence automatically. Keep the shorter alert
+scannable; use your design judgment about whether the breakdown is always
+visible or progressively disclosed.
+
 Also design the no-change state. When the managed timeline matches the last
-observed state, do not show a false reconciliation action.
+observed state, do not show a false count or reconciliation action. While VERA
+cannot inspect Resolve, show an honest checking/unavailable state rather than a
+stale count.
 
 The new artifact may reproduce only enough of S03 to demonstrate this entry and
 its no-change counterpart. Preserve the accepted two-column white-document
@@ -190,6 +207,8 @@ Choose concise fictional content and use your own design judgment to make the
 states coherent. The artifact must make it possible to inspect:
 
 - S03 changed-timeline entry and no-change states;
+- S03 count examples showing the total changes to review and a useful breakdown
+  of ready, decision-required, and Resolve-only items;
 - an understood, non-conflicting Resolve change selected by default;
 - a compatible same-row change requiring explicit Combine both changes;
 - an incompatible same-row change with all three choices and no default;
