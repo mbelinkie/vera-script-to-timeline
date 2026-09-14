@@ -201,6 +201,46 @@ Resolve, show a preselected proposed removal of the corresponding script row.
 Applying reconciliation removes the row while retaining its descriptive name
 in reconciliation history.
 
+## Post-presenter timing review
+
+Recorded presenter footage changes the narration timing source. Ordinary
+VERA-understood, word-anchored B-roll is recompiled against the words the
+presenter actually spoke. Resolve-only content is different: VERA may know its
+intended in-word and may understand the surrounding voiceover, but it cannot
+safely trim, stretch, move, or otherwise edit the opaque footage.
+
+When a recorded conform changes the compiled time of an anchor governing
+Resolve-only content and VERA cannot verify that the existing edit still fits:
+
+- preserve the Resolve-only media exactly as it is;
+- do not silently retime, trim, stretch, freeze, loop, or move it;
+- add or update one stable VERA-owned **manual timing review** marker at the new
+  calculated word anchor in the new timeline;
+- name the affected Resolve-only row, using its custom name when present; and
+- explain that the editor must check the media's start and ending against the
+  recorded presenter timing.
+
+Use a concrete example such as **Timing review · Pre-made highlight reel** at
+the newly calculated in-word. The marker note can identify the intended word or
+phrase, the preserved current placement, and the timing difference when VERA
+knows it. It is an editorial instruction only and never appears in rendered
+video.
+
+This is a distinct marker purpose, not an Onscreen Placeholder, not a duplicate
+Resolve-only script row, and not an editor-created marker. Repeated builds must
+update the same marker by stable identity rather than accumulating duplicates.
+If the recorded timing causes no material timing impact and preservation is
+verifiably safe, do not create a needless warning marker. If the intended anchor
+itself is missing or ambiguous, block the affected operation for review instead
+of placing the marker at a guessed location.
+
+Use your design judgment and ask Matthew questions about the marker's visual
+treatment, wording, completion/dismissal path, and how much timing detail is
+useful. Demonstrate the marker in both the relevant script/update explanation
+and a simple representation of the post-presenter Resolve timeline so the
+relationship is understandable without turning the artifact into a timeline
+editor redesign.
+
 ## Required scenarios
 
 Choose concise fictional content and use your own design judgment to make the
@@ -218,6 +258,11 @@ states coherent. The artifact must make it possible to inspect:
 - the collapsed Resolve-only row in ordinary script editing;
 - a future S05 update preserving Resolve-only material while updating
   understood VO around it;
+- a post-presenter conform where understood B-roll retimes to recorded words,
+  Resolve-only media stays untouched, and one manual timing review marker lands
+  on the newly calculated word anchor;
+- repeated post-presenter updates replacing that marker rather than duplicating
+  it, plus an ambiguous/missing-anchor case that blocks instead of guessing;
 - the distinct future effects of script-wins and defer;
 - a verified Resolve deletion proposed as a selected row removal;
 - an ambiguous preservation collision that blocks rather than guesses;

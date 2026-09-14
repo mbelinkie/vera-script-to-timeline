@@ -29,7 +29,8 @@ fixture, golden, generated-type, or accepted-artifact change.
 
 New dependencies: none. A separate technical story created after design
 acceptance will block implementation and define the observation, identity,
-anchoring, preservation, deletion, and reverse-mapping contracts.
+anchoring, preservation, deletion, reverse-mapping, and manual timing-marker
+contracts.
 
 ## Product decisions
 
@@ -86,6 +87,14 @@ VERA continues observing the reference. A verified Resolve deletion appears as
 a preselected proposed row removal; completing reconciliation removes the row
 while retaining its descriptive name in reconciliation history.
 
+After presenter footage replaces temporary narration timing, understood
+word-anchored edits recompile to the recorded words. Resolve-only media remains
+untouched. When its governing word anchor moves and the preserved edit may need
+manual timing, VERA adds or updates one stable, non-rendered manual timing review
+marker at the recalculated anchor. The marker names the Resolve-only row and
+asks the editor to inspect its start and ending. Missing or ambiguous anchors
+block instead of producing a guessed marker.
+
 ## Claude workflow and acceptance
 
 1. Present the exact brief in
@@ -102,8 +111,8 @@ while retaining its descriptive name in reconciliation history.
    entry/no-change states, understood changes, compatible and incompatible
    same-row changes, both Resolve-only placements and naming, collapsed script
    presentation, later S05 preservation/script-wins/defer/removal states,
-   partial success, unavailable/error states, keyboard focus, non-color meaning,
-   and overflow.
+   post-presenter retiming with a manual timing review marker, partial success,
+   unavailable/error states, keyboard focus, non-color meaning, and overflow.
 6. Move #123 to **In review** only when the Claude artifact and evidence exist.
    Close only after explicit Producer acceptance.
 
@@ -119,7 +128,8 @@ while retaining its descriptive name in reconciliation history.
 4. Confirm safe changes are preselected; same-row changes require the documented
    explicit decisions; script-wins and defer produce distinct future behavior.
 5. Confirm attached and standalone Resolve-only rows, optional naming, collapsed
-   script presentation, preservation, collision blocking, and verified removal.
+   script presentation, preservation, collision blocking, verified removal, and
+   post-presenter manual timing markers that never alter opaque media.
 6. Confirm completion can apply safe work while accurately reporting deferred
    conflicts and partial out-of-sync status, without claiming Resolve changed.
 7. At both required viewports, verify pointer and keyboard routes, focus order,

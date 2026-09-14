@@ -42,6 +42,10 @@ rows, while entering from the accepted S03 authoring experience.
 - [ ] Future outbound updates preserve Resolve-only material; ambiguous movement,
   overlap, order, or timing collisions block; missing content is never replaced
   with a slate; verified deletion is proposed as a selected row removal.
+- [ ] After presenter recording changes word timing, understood B-roll retimes
+  normally while affected Resolve-only media stays untouched and receives one
+  stable, non-rendered manual timing review marker at the recalculated word
+  anchor; ambiguous or missing anchors block instead of being guessed.
 - [ ] **Reconcile script** can complete safe work while accurately reporting
   deferred conflicts and partial out-of-sync status. It never claims to create
   or update a Resolve timeline.
@@ -67,7 +71,8 @@ rows, while entering from the accepted S03 authoring experience.
 After design acceptance, create a separate Inbox technical story that blocks
 implementation and proves the supported reverse mappings, stable identity and
 anchoring, preservation, conflict/defer persistence, verified deletion,
-missing-content behavior, and required contract/generated-type changes.
+missing-content behavior, post-presenter timing-marker identity/lifecycle, and
+required contract/generated-type changes.
 
 ## Parent rationale
 
