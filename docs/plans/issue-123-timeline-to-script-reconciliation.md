@@ -1,149 +1,126 @@
-# Issue 123 plan — timeline-to-script reconciliation and S03 entry
+# Issue 123 plan — Claude design for timeline-to-script reconciliation
 
 ## Scope and authority
 
-Issue #123 is the active Sol/high, Producer-accepted design slice for the
-reverse reconciliation path: a managed Resolve timeline differs from its last
-applied immutable build and the canonical script may need an explicitly chosen,
-bounded update. The design adds a clear S03 entry beside the established
-export/release access and a focused three-way review derived from the accepted
-#58 S05 change-review language.
+Issue #123 is the active Sol/high, Producer-acceptance design slice for reconciling
+changes made in a managed Resolve timeline back into the canonical script. The
+deliverable is a new Producer-approved Claude Design artifact in the existing
+`VERA design feedback` project. The accepted S01–S03 and S04–S05 artifacts remain
+unchanged.
 
 The active claim is task `01a09d7d-49f0-7b12-b003-1163fb7d7959` on
-`codex/issue-123-reconciliation-design`, using `sol` at `high` effort.
-Acceptance authority is Producer. Dependencies #14 and #58 are closed and Done:
-#14 supplies the accepted S03 authoring composition and #58 supplies the
-accepted row-review, selection, consequence, accessibility, and responsive
-language that this slice deliberately reverses.
+`codex/issue-123-reconciliation-design`. Dependencies #14 and #58 are closed and
+Done. #14 supplies the accepted S03 authoring surface; #58 supplies the accepted
+S05 change-review language that this design deliberately reuses in reverse.
+
+The checked-in HTML prototype and its screenshots were created before the
+Producer reframed the workflow. They are exploratory reference only and are not
+acceptance evidence.
 
 ## Slice ritual
 
-Scope: one self-contained design prototype and retained evidence for the S03
-entry, three-way review, explicit decision boundaries, safe bulk selection,
-dependency effects, protected editorial changes, completion result, and all
-required capability/accessibility/error states.
+Scope: revise the live issue, prepare and obtain Producer approval of the exact
+Claude brief, create one successor Claude artifact, retain both required viewport
+presentations, and provide a Producer walkthrough.
 
-Exclusions: no Resolve observation or sync; no diff engine; no persistence or
-script mutation; no timeline build; no authorization; no export/release change
-beyond the prototype entry; no arbitrary reverse import; and no production UI,
-API, local-agent, background-job, or Resolve behavior.
+Exclusions: no Resolve observation or sync, diff engine, persistence, script
+mutation, timeline build, authorization, production UI, API, schema, contract,
+fixture, golden, generated-type, or accepted-artifact change.
 
-Touched contracts, fixtures, goldens, generated types, and shared tokens: none.
+New dependencies: none. A separate technical story created after design
+acceptance will block implementation and define the observation, identity,
+anchoring, preservation, deletion, and reverse-mapping contracts.
 
-New dependencies: none. The prototype is one native HTML/CSS/JavaScript file,
-so the review artifact adds no package or runtime dependency.
+## Product decisions
 
-Automated checks:
+The comparison may use the last applied immutable build, current managed Resolve
+timeline, and current script internally, but the user-facing review lists only
+changes originating in Resolve. Script-only edits remain canonical and do not
+require inbound approval.
 
-- validate the document structure and required labels with a small Node check;
-- render every retained state at `1280 × 800` and `1024 × 768` with the local
-  browser and confirm image dimensions;
-- scan every rendered state for horizontal document overflow;
-- confirm the repository diff contains no contract, fixture, golden,
-  generated-type, or production-code change;
-- run whitespace and repository validation checks appropriate to a docs-only
-  slice.
+The review reuses S05 wherever possible: white script rows, script order,
+two-column narration/production structure, red/green before-and-after treatment,
+non-color labels, row controls, filters, selected/skipped counts, one-page
+scrolling, focus treatment, and responsive reflow.
 
-## Design authority and interaction boundary
+- Understood, non-conflicting Resolve changes are preselected.
+- Compatible same-row changes require explicit **Combine both changes**.
+- Incompatible same-row changes have no default. The choices are:
+  - **Keep current script — update Resolve next time**: suppress this inbound
+    conflict and select the row by default in the next S05 outbound review.
+  - **Adopt Resolve into script**: available only when VERA has a safe reverse
+    representation.
+  - **Defer**: change neither side, resurface the conflict in later inbound
+    reviews, and leave the row unchecked by default in later S05 reviews.
+- Other selected work may complete while a conflict is deferred. The result
+  must say that the script and timeline remain partially out of sync.
+- The primary action is **Reconcile script**. It updates the script or records
+  explicit decisions; it never creates or updates a Resolve timeline.
 
-The review names all three sources at all times: **last applied build**,
-**current script**, and **managed Resolve timeline**. A Resolve-side observation
-is evidence to review, never canonical script truth.
+## Resolve-only content
 
-The five row classifications and defaults follow the product specification:
+Reuse the existing placeholder card grammar with reversed ownership:
 
-| State | Non-color label | Default | Safe bulk behavior |
-| --- | --- | --- | --- |
-| Script changed only | `SCRIPT CHANGED` | Selected | Included |
-| Resolve changed only | `RESOLVE CHANGED` | Not selected | Excluded |
-| Both changed, compatible | `BOTH CHANGED · COMPATIBLE` | Selected | Included |
-| Both changed, conflicting | `CONFLICT · DECISION REQUIRED` | Proposed selected, blocked | Excluded until decided |
-| Unchanged | `UNCHANGED` | Hidden | Excluded |
+- **Onscreen Placeholder** is script-owned future intent that VERA renders as a
+  stand-in.
+- **Resolve-only content** is existing Resolve-owned material that VERA records
+  and preserves without interpreting, rebuilding, or replacing it.
 
-`Select all safe updates` selects only script-only and compatible rows. It never
-selects Resolve-only, unresolved conflicts, protected editorial work, or
-transition changes.
+Recognized-but-unrepresentable and ambiguous/unrecognized timeline content is
+automatically recorded as a locked Resolve-only row. It may be attached beside
+understood narration when a trustworthy anchor exists, or standalone between
+the nearest trustworthy rows when no safe anchor exists.
 
-Every conflict exposes only four deliberate outcomes:
+Every row retains the permanent system label **Resolve-only content** and offers
+an optional editable descriptive name, such as `Pre-made highlight reel`. The
+name is metadata only and is never rendered into video. Rows remain collapsed
+but visible in ordinary script editing.
 
-1. **Use script version** — rebuild script-owned content in the new timeline
-   while preserving recognized compatible Resolve work.
-2. **Keep Resolve version for now** — leave the script unchanged, preserve the
-   Resolve row, and record the row as out of sync.
-3. **Adopt supported Resolve change into script** — available only for clean
-   in/out refinements and subtitle-copy edits, and only after the user selects
-   that exact bounded adoption.
-4. **Review manually in Resolve** — preserve the current timeline and defer the
-   row without inferred adoption.
+Attached content moves only with a verified anchor. Standalone content stays
+fixed. Ambiguous movement, overlap, order, or timing collisions block the
+affected operation for review. Future outbound updates preserve these regions
+unchanged while continuing to update understood content around them. Missing or
+unverifiable content is never replaced with a slate.
 
-Transition-default and transition-occurrence changes are protected editorial
-state. They are separate Resolve-side reconciliation items, are never treated
-as trim or subtitle edits, and route to preserve/review manually in Resolve.
-The same protected path applies to arbitrary tracks, effects, ripple edits,
-grades, mix changes, and protected additions.
+VERA continues observing the reference. A verified Resolve deletion appears as
+a preselected proposed row removal; completing reconciliation removes the row
+while retaining its descriptive name in reconciliation history.
 
-Before the simulated action, the design reports duration/dependency effects,
-anchored additions that move, unanchored items requiring review, deliberately
-out-of-sync rows, and deferred conflicts. The result names a new versioned
-timeline and explicitly says that the current timeline remains untouched. It
-does not claim that any production operation ran.
+## Claude workflow and acceptance
 
-## Retained state matrix
-
-The prototype exposes deterministic `?state=` routes for:
-
-- `entry`: S03 non-color alert and adjacent reconciliation action;
-- `review`: all five row classes, filters, defaults, and safe bulk selection;
-- `conflict`: property-level four-way decision, bounded adoption, and protected
-  transition item;
-- `result`: dependency effects, preservation, out-of-sync decisions, deferred
-  work, and new-versioned-timeline language;
-- `no-change`: current timeline matches the last applied build and no false
-  reconciliation action appears;
-- `unavailable`: browser/local-agent/Resolve boundary and recovery actions;
-- `focus`: keyboard route and visible focus order;
-- `non-color`: labels/icons/patterns remain understandable without color;
-- `overflow`: long script/media/transition labels reflow without clipping; and
-- `error`: a readable observation failure with retry and manual-preservation
-  path.
-
-Each route is retained at both required viewport sizes. The prototype supports
-pointer activation and native keyboard controls, uses one document scroll
-region, and keeps the review/action relationship intact when rows stack at the
-narrow viewport.
+1. Present the exact brief in
+   `docs/prototypes/issue-123/claude-resolve-to-script-reconciliation-brief.md`
+   to the Producer and do not send it until explicitly approved.
+2. In Claude Design, create a new successor artifact named
+   **Script to Timeline — Resolve-to-Script Reconciliation S03**. Preserve the
+   accepted S01–S05 artifacts unchanged.
+3. Claude first inspects the accepted S03 and S05 artifacts, proposes its design
+   concept, and asks Matthew focused questions about material choices and missed
+   edge cases. It waits for answers before editing.
+4. Claude implements and exercises the agreed design, fixing issues it finds.
+5. Retain evidence at `1280 × 800` and `1024 × 768` for the S03 entry/no-change
+   states, understood changes, compatible and incompatible same-row changes,
+   both Resolve-only placements and naming, collapsed script presentation,
+   later S05 preservation/script-wins/defer/removal states, partial success,
+   unavailable/error states, keyboard focus, non-color meaning, and overflow.
+6. Move #123 to **In review** only when the Claude artifact and evidence exist.
+   Close only after explicit Producer acceptance.
 
 ## Producer acceptance checklist
 
-1. Open `docs/prototypes/issue-123/timeline-to-script-reconciliation.html` at
-   `?state=entry` and `1280 × 800`. Confirm the S03 alert states that the
-   managed timeline changed, does not rely on color, and places **Reconcile
-   timeline changes** beside the established Prompter/Resolve actions.
-2. Activate the reconciliation button, then review `?state=review`. Confirm the
-   three named sources, five row labels, filters, documented defaults, counts,
-   row-level choices, and **Select all safe updates** behavior faithfully reuse
-   #58's review language in reverse.
-3. Open `?state=conflict`. Confirm all four decisions state direction and
-   consequence; bounded adoption is available only for the clean in/out and
-   subtitle-copy examples; the transition occurrence remains a distinct
-   protected item with only preserve/manual review behavior.
-4. Open `?state=result`. Confirm the dependency effects, anchored/unanchored
-   outcomes, deliberately out-of-sync row, preserved Resolve work, deferred
-   conflict, new timeline version, and untouched-current-timeline statement are
-   all explicit design language rather than execution claims.
-5. Open `?state=no-change`, `?state=unavailable`, and `?state=error`. Confirm the
-   no-change state offers no false action; browser/local-agent/Resolve limits
-   and recovery are readable; and failures preserve the timeline and offer an
-   actionable retry/manual path.
-6. At `?state=focus`, traverse controls with Tab/Shift+Tab and activate filters,
-   checkboxes, row decisions, and the primary action with the keyboard. Confirm
-   the visible focus ring and logical order.
-7. At `?state=non-color`, confirm state meaning remains clear from text labels,
-   icons, borders/patterns, and strikethrough without color.
-8. At `?state=overflow`, confirm long narration, media identity, path, and
-   transition text wrap/reflow without horizontal clipping.
-9. Repeat steps 1–8 at `1024 × 768`, using the retained screenshots as reference.
-   Confirm the narration/production columns reflow within each row, controls
-   remain readable, and the page has no horizontal overflow.
-10. Reply `Accepted — update and close #123` if every state is acceptable, or
-    identify the first unacceptable file/view/action and expected correction.
-    The issue remains **In review** until this explicit Producer response.
+1. Open the exact Claude Design artifact named above and confirm it is separate
+   from the accepted S01–S05 artifacts.
+2. Confirm the S03 entry makes a managed-timeline change obvious without a false
+   action in the no-change state.
+3. Confirm the review feels like S05 in reverse, uses white script rows, and
+   omits script-only changes.
+4. Confirm safe changes are preselected; same-row changes require the documented
+   explicit decisions; script-wins and defer produce distinct future behavior.
+5. Confirm attached and standalone Resolve-only rows, optional naming, collapsed
+   script presentation, preservation, collision blocking, and verified removal.
+6. Confirm completion can apply safe work while accurately reporting deferred
+   conflicts and partial out-of-sync status, without claiming Resolve changed.
+7. At both required viewports, verify pointer and keyboard routes, focus order,
+   readable non-color states, and no horizontal clipping.
+8. Reply `Accepted — update and close #123` if acceptable, or identify the first
+   unacceptable artifact state and expected correction.
