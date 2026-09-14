@@ -1,0 +1,673 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>VERA — Timeline reconciliation design</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #11100f;
+        --panel: #1b1917;
+        --panel-2: #24211e;
+        --paper: #f7f3ea;
+        --ink: #24201b;
+        --muted: #aaa39a;
+        --line: #403b35;
+        --gold: #e3b765;
+        --green: #72c997;
+        --purple: #b59ae8;
+        --red: #ef8f86;
+        --blue: #8abce8;
+        --focus: #fff4b8;
+        --shadow: 0 18px 50px rgb(0 0 0 / 35%);
+      }
+
+      * { box-sizing: border-box; }
+      html { background: var(--bg); }
+      body {
+        margin: 0;
+        min-width: 320px;
+        background:
+          radial-gradient(circle at 80% -10%, rgb(227 183 101 / 8%), transparent 34rem),
+          var(--bg);
+        color: #f8f4ed;
+        font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      button, select, input { font: inherit; }
+      button, select {
+        min-height: 36px;
+        border: 1px solid #504a43;
+        border-radius: 8px;
+        background: #292622;
+        color: #f8f4ed;
+      }
+      button { padding: 0 13px; cursor: pointer; }
+      button:hover { border-color: #8b8175; }
+      button:disabled { cursor: not-allowed; opacity: .46; }
+      button:focus-visible, select:focus-visible, input:focus-visible, [tabindex]:focus-visible {
+        outline: 3px solid var(--focus);
+        outline-offset: 3px;
+      }
+
+      .app-header {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: flex;
+        min-height: 58px;
+        align-items: center;
+        gap: 14px;
+        padding: 10px 22px;
+        border-bottom: 1px solid #302c28;
+        background: rgb(17 16 15 / 94%);
+        backdrop-filter: blur(14px);
+      }
+      .brand {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border: 1px solid #645944;
+        border-radius: 50%;
+        color: var(--gold);
+        font-family: Georgia, serif;
+        font-weight: 800;
+      }
+      .identity { min-width: 0; }
+      .identity strong, .identity span { display: block; }
+      .identity strong { font-family: Georgia, serif; font-size: 16px; }
+      .identity span { margin-top: 2px; color: var(--muted); font-size: 12px; }
+      .header-spacer { flex: 1; }
+      .sync { color: #d0c8bd; font-size: 12px; white-space: nowrap; }
+
+      .scenario-nav {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 22px;
+        border-bottom: 1px solid #302c28;
+        background: #171513;
+      }
+      .scenario-nav label { color: var(--muted); font-size: 12px; }
+      .scenario-nav select { width: 360px; max-width: 100%; padding: 0 34px 0 10px; }
+      .prototype-note { margin-left: auto; color: #898178; font-size: 11px; }
+
+      main { width: min(1180px, calc(100% - 36px)); margin: 0 auto; padding: 24px 0 84px; }
+      .eyebrow {
+        color: var(--gold);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+      }
+      h1, h2, h3 { margin: 0; font-family: Georgia, "Times New Roman", serif; font-weight: 650; }
+      h1 { margin-top: 7px; font-size: clamp(26px, 3vw, 38px); line-height: 1.08; }
+      h2 { font-size: 22px; }
+      h3 { font-size: 17px; }
+      p { line-height: 1.48; }
+      .lede { max-width: 760px; margin: 10px 0 0; color: #c7c0b6; }
+
+      .page-head {
+        display: flex;
+        align-items: flex-end;
+        gap: 22px;
+        margin-bottom: 20px;
+      }
+      .page-head > div:first-child { flex: 1; }
+      .source-strip {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1px;
+        min-width: min(100%, 520px);
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--line);
+      }
+      .source-strip div { padding: 9px 11px; background: var(--panel); }
+      .source-strip span, .source-strip strong { display: block; }
+      .source-strip span { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+      .source-strip strong { margin-top: 3px; font-size: 12px; overflow-wrap: anywhere; }
+
+      .toolbar, .filterbar, .bulkbar, .actions, .inline-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .toolbar { justify-content: flex-end; margin-bottom: 12px; }
+      .button-primary { border-color: #d4ad62; background: var(--gold); color: #17120b; font-weight: 800; }
+      .button-quiet { background: transparent; }
+      .button-danger { border-color: #7c443f; background: #3b2522; }
+      .button-purple { border-color: #74638e; background: #332b40; }
+
+      .paper {
+        overflow: hidden;
+        border-radius: 14px;
+        background: var(--paper);
+        color: var(--ink);
+        box-shadow: var(--shadow);
+      }
+      .paper-head {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 20px;
+        border-bottom: 1px solid #d8d1c5;
+      }
+      .paper-head strong { font-family: Georgia, serif; font-size: 18px; }
+      .paper-head span { color: #746c62; font-size: 12px; }
+      .paper-body { padding: 22px; }
+
+      .timeline-alert {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 13px;
+        margin-bottom: 16px;
+        padding: 14px 15px;
+        border: 2px solid #7c6332;
+        border-radius: 10px;
+        background: #fff5da;
+        color: #322719;
+      }
+      .alert-icon { font-size: 22px; }
+      .timeline-alert strong, .timeline-alert span { display: block; }
+      .timeline-alert span { margin-top: 3px; color: #65563f; font-size: 12px; }
+      .timeline-alert button { border-color: #533f1e; background: #3b2c16; color: white; font-weight: 700; }
+
+      .script-row {
+        display: grid;
+        grid-template-columns: minmax(0, 3fr) minmax(230px, 2fr);
+        border-top: 1px solid #ded8ce;
+      }
+      .script-row > div { min-width: 0; padding: 18px; }
+      .script-row > div + div { border-left: 1px solid #ded8ce; background: #f0ece4; }
+      .script-row p { margin: 0; font-family: Georgia, serif; font-size: 17px; }
+      .script-row small { color: #746d64; }
+      .visual-card { margin-top: 8px; padding: 11px; border: 1px solid #c7bcae; border-radius: 8px; background: white; }
+      .visual-card strong { display: block; font-size: 12px; }
+      .visual-card span { display: block; margin-top: 4px; color: #746d64; font-size: 11px; overflow-wrap: anywhere; }
+
+      .notice, .error-panel, .empty-panel {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--panel);
+        padding: 18px;
+      }
+      .notice strong, .error-panel strong, .empty-panel strong { display: block; }
+      .notice p, .error-panel p, .empty-panel p { margin: 6px 0 0; color: #c4bdb3; }
+      .error-panel { border-color: #7f4742; }
+      .empty-panel { text-align: center; padding: 44px 22px; }
+      .empty-panel .empty-icon { display: block; margin-bottom: 12px; font-size: 30px; }
+
+      .review-shell { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; align-items: start; }
+      .review-main { min-width: 0; }
+      .review-aside {
+        position: sticky;
+        top: 142px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--panel);
+      }
+      .review-aside h3 { margin-bottom: 10px; }
+      .review-aside p { margin: 8px 0; color: #c6bfb5; font-size: 13px; }
+      .review-aside .button-primary { width: 100%; margin-top: 10px; }
+      .count-line { font-weight: 800; }
+      .blocked-note { color: var(--red) !important; }
+
+      .filterbar, .bulkbar {
+        padding: 11px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+      }
+      .filterbar { border-radius: 12px 12px 0 0; border-bottom: 0; }
+      .bulkbar { justify-content: space-between; border-radius: 0 0 12px 12px; margin-bottom: 13px; }
+      .filterbar button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+      .bulkbar span { color: #cfc7bd; font-size: 12px; }
+
+      .rows { display: grid; gap: 10px; }
+      .change-row {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-left-width: 5px;
+        border-radius: 12px;
+        background: var(--panel);
+      }
+      .change-row[data-kind="script"] { border-left-color: var(--green); }
+      .change-row[data-kind="resolve"] { border-left-color: var(--purple); }
+      .change-row[data-kind="compatible"] { border-left-color: var(--blue); }
+      .change-row[data-kind="conflict"] { border-left-color: var(--red); }
+      .change-row[data-kind="unchanged"] { border-left-color: #716b64; }
+      .change-row[data-kind="protected"] { border-left-color: var(--gold); border-left-style: double; }
+      .row-top {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: start;
+        gap: 11px;
+        padding: 13px 14px 10px;
+      }
+      .row-top input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: #d5ae63; }
+      .row-title strong, .row-title span { display: block; }
+      .row-title strong { font-size: 14px; }
+      .row-title span { margin-top: 3px; color: var(--muted); font-size: 11px; }
+      .status-tag {
+        max-width: 230px;
+        padding: 5px 7px;
+        border: 1px solid currentColor;
+        border-radius: 5px;
+        color: #ddd5ca;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: .06em;
+        text-align: right;
+      }
+      [data-kind="script"] .status-tag { color: var(--green); }
+      [data-kind="resolve"] .status-tag { color: var(--purple); }
+      [data-kind="compatible"] .status-tag { color: var(--blue); }
+      [data-kind="conflict"] .status-tag { color: var(--red); }
+      [data-kind="protected"] .status-tag { color: var(--gold); }
+      .row-compare {
+        display: grid;
+        grid-template-columns: minmax(0, 3fr) minmax(210px, 2fr);
+        border-top: 1px solid var(--line);
+      }
+      .row-compare > div { min-width: 0; padding: 13px 14px; }
+      .row-compare > div + div { border-left: 1px solid var(--line); background: #211e1b; }
+      .column-label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+      .row-compare p { margin: 0; font-family: Georgia, serif; line-height: 1.4; overflow-wrap: anywhere; }
+      .row-compare small { display: block; margin-top: 5px; color: #aaa298; overflow-wrap: anywhere; }
+      del { color: var(--red); text-decoration-thickness: 2px; }
+      ins { color: var(--green); text-decoration: none; border-bottom: 2px solid currentColor; }
+      .decision-line {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 9px 14px;
+        border-top: 1px dashed #4d4740;
+        color: #cbc3b9;
+        font-size: 12px;
+      }
+      .decision-line button { min-height: 30px; font-size: 12px; }
+
+      .decision-panel {
+        margin-bottom: 14px;
+        padding: 18px;
+        border: 1px solid #7b4944;
+        border-radius: 13px;
+        background: #211918;
+      }
+      .decision-panel > p { color: #cec5bb; }
+      .property-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 14px 0; }
+      .property-grid div { padding: 10px; border: 1px solid #4a433d; border-radius: 8px; background: #181614; }
+      .property-grid span, .property-grid strong { display: block; }
+      .property-grid span { color: var(--muted); font-size: 10px; text-transform: uppercase; }
+      .property-grid strong { margin-top: 5px; font-size: 12px; }
+      .choice-list { display: grid; gap: 8px; }
+      .choice {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 10px;
+        padding: 11px;
+        border: 1px solid #504740;
+        border-radius: 9px;
+        background: #181614;
+      }
+      .choice input { margin-top: 3px; }
+      .choice strong, .choice span { display: block; }
+      .choice span { margin-top: 3px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+      .choice.unavailable { opacity: .58; }
+      .choice .why { color: var(--red); }
+
+      .protected-card {
+        margin-top: 14px;
+        padding: 14px;
+        border: 3px double #8c6f38;
+        border-radius: 10px;
+        background: repeating-linear-gradient(-45deg, #282116, #282116 8px, #211c15 8px, #211c15 16px);
+      }
+      .protected-card p { margin: 6px 0; color: #d7cabb; }
+      .protected-card code { overflow-wrap: anywhere; color: #ffe0a2; }
+
+      .result-grid, .capability-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      .result-card, .capability-card { padding: 15px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel); }
+      .result-card strong, .capability-card strong { display: block; }
+      .result-card p, .capability-card p { margin: 6px 0 0; color: #c4bdb3; font-size: 13px; }
+      .result-card ul { margin: 9px 0 0; padding-left: 19px; color: #c4bdb3; }
+      .result-card li { margin: 5px 0; line-height: 1.4; }
+
+      .focus-map { display: grid; gap: 10px; max-width: 720px; }
+      .focus-step { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+      .focus-step b { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; background: #302c28; color: var(--gold); }
+      .focus-step span { color: #c5beb4; font-size: 13px; }
+
+      .non-color .change-row { filter: grayscale(1); }
+      .non-color .status-tag { color: white; }
+      .non-color .change-row[data-kind="script"] { border-left-style: solid; }
+      .non-color .change-row[data-kind="resolve"] { border-left-style: dotted; }
+      .non-color .change-row[data-kind="compatible"] { border-left-style: dashed; }
+      .non-color .change-row[data-kind="conflict"] { border-left-style: double; }
+
+      .long-token { overflow-wrap: anywhere; word-break: break-word; }
+      .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+      @media (max-width: 1080px) {
+        .app-header { padding-inline: 16px; }
+        .scenario-nav { padding-inline: 16px; }
+        main { width: min(960px, calc(100% - 28px)); padding-top: 18px; }
+        .page-head { display: block; }
+        .source-strip { margin-top: 14px; min-width: 0; }
+        .review-shell { grid-template-columns: 1fr; }
+        .review-aside { position: static; order: -1; }
+        .review-aside .button-primary { width: auto; }
+      }
+
+      @media (max-width: 760px) {
+        .sync, .prototype-note { display: none; }
+        .app-header { align-items: flex-start; flex-wrap: wrap; }
+        .header-spacer { display: none; }
+        .scenario-nav { align-items: flex-start; flex-direction: column; }
+        .scenario-nav select { width: 100%; max-width: none; }
+        .source-strip, .result-grid, .capability-grid, .property-grid { grid-template-columns: 1fr; }
+        .script-row, .row-compare { grid-template-columns: 1fr; }
+        .script-row > div + div, .row-compare > div + div { border-left: 0; border-top: 1px solid #ded8ce; }
+        .row-compare > div + div { border-top-color: var(--line); }
+        .timeline-alert { grid-template-columns: auto 1fr; }
+        .timeline-alert button { grid-column: 1 / -1; }
+        .row-top { grid-template-columns: auto minmax(0, 1fr); }
+        .status-tag { grid-column: 2; justify-self: start; text-align: left; }
+        .decision-line { align-items: flex-start; flex-direction: column; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand" aria-hidden="true">V</div>
+      <div class="identity"><strong>Harbor Lights / Main script</strong><span>VERA Script to Timeline</span></div>
+      <div class="header-spacer"></div>
+      <span class="sync">● Saved · Revision C</span>
+      <button class="button-quiet">Prompter script</button>
+      <button class="button-quiet">Resolve timeline</button>
+    </header>
+    <nav class="scenario-nav" aria-label="Prototype state">
+      <label for="scenario">Evidence view</label>
+      <select id="scenario">
+        <option value="entry">S03 entry · timeline changed</option>
+        <option value="review">Three-way review</option>
+        <option value="conflict">Conflict and transition protection</option>
+        <option value="result">Post-decision result</option>
+        <option value="no-change">S03 entry · no change</option>
+        <option value="unavailable">Local agent / Resolve unavailable</option>
+        <option value="focus">Keyboard and focus order</option>
+        <option value="non-color">Non-color state semantics</option>
+        <option value="overflow">Long-content reflow</option>
+        <option value="error">Readable observation error</option>
+      </select>
+      <span class="prototype-note">Design simulation · no script or Resolve operation runs</span>
+    </nav>
+    <main id="app"></main>
+
+    <script>
+      const qs = new URLSearchParams(location.search);
+      const state = qs.get("state") || "entry";
+      const app = document.querySelector("#app");
+      const scenario = document.querySelector("#scenario");
+      scenario.value = state;
+      scenario.addEventListener("change", () => {
+        qs.set("state", scenario.value);
+        location.search = qs;
+      });
+
+      const sources = `
+        <div class="source-strip" aria-label="Three-way comparison sources">
+          <div><span>Last applied build</span><strong>Build 18 · Revision A</strong></div>
+          <div><span>Current script</span><strong>Revision C · saved</strong></div>
+          <div><span>Managed Resolve timeline</span><strong>Harbor Lights v18 · observed</strong></div>
+        </div>`;
+
+      const head = (title, lede, showSources = true) => `
+        <div class="page-head">
+          <div><div class="eyebrow">Timeline reconciliation</div><h1>${title}</h1><p class="lede">${lede}</p></div>
+          ${showSources ? sources : ""}
+        </div>`;
+
+      const row = ({ id, kind, title, location, tag, narration, production, checked = false, disabled = false, decision, hidden = false }) => `
+        <article class="change-row" data-kind="${kind}" data-filter="${kind}" ${hidden ? "hidden" : ""}>
+          <div class="row-top">
+            <input id="${id}" class="row-check" type="checkbox" ${checked ? "checked" : ""} ${disabled ? "disabled" : ""} aria-label="${checked ? "Include" : "Skip"} ${title}" />
+            <label class="row-title" for="${id}"><strong>${title}</strong><span>${location}</span></label>
+            <span class="status-tag">${tag}</span>
+          </div>
+          <div class="row-compare">
+            <div><span class="column-label">Narration / script</span><p>${narration}</p></div>
+            <div><span class="column-label">Production / timeline</span><p>${production}</p></div>
+          </div>
+          <div class="decision-line"><span>${decision}</span><button data-open="${id}">Review decision</button></div>
+        </article>`;
+
+      const baseRows = () => [
+        row({
+          id: "r-script", kind: "script", checked: true, title: "Row 4 · Operator description", location: "Calibration · after the first reading", tag: "✓ SCRIPT CHANGED",
+          narration: `The operator described the change as <del>“slow.”</del> <ins>“slow, then sudden.”</ins>`,
+          production: `Logged Clip · source range 00:24–00:32`,
+          decision: `Selected: use the current script wording in the new timeline version.`
+        }),
+        row({
+          id: "r-resolve", kind: "resolve", title: "Row 6 · Channel-light trim", location: "Calibration · second visual", tag: "◇ RESOLVE CHANGED",
+          narration: `The channel light holds steady through the second reading.`,
+          production: `Clean out refined <del>00:14.4</del> <ins>00:15.1</ins> in Resolve`,
+          decision: `Not selected: keep Resolve for now unless this exact trim is explicitly adopted.`
+        }),
+        row({
+          id: "r-compatible", kind: "compatible", checked: true, title: "Row 9 · Housing subtitle", location: "Verification · subtitle occurrence 2", tag: "↔ BOTH CHANGED · COMPATIBLE",
+          narration: `Script timing note updated; spoken words unchanged.`,
+          production: `Resolve subtitle copy: <del>Housing secure.</del> <ins>The housing is secure.</ins>`,
+          decision: `Selected: use the script timing note and preserve the compatible subtitle-copy refinement.`
+        }),
+        row({
+          id: "r-conflict", kind: "conflict", checked: true, title: "Row 12 · Final adjustment", location: "Closing · final narration row", tag: "! CONFLICT · DECISION REQUIRED",
+          narration: `<del>We adjust only after the second reading.</del> <ins>The second reading tells us when to adjust.</ins>`,
+          production: `Resolve clean in refined by +12 frames on the same managed occurrence`,
+          decision: `Proposed selected, but blocked until one explicit outcome is chosen.`
+        }),
+        row({
+          id: "r-transition", kind: "protected", title: "Boundary · Row 9 → Row 10", location: "Verification · occurrence override", tag: "⌁ PROTECTED TRANSITION CHANGE",
+          narration: `No narration change at this boundary.`,
+          production: `Resolve changed Cross Dissolve 12f → Dip to Color 18f`,
+          decision: `Never safe-selected or adopted. Preserve and review manually in Resolve.`
+        }),
+        row({
+          id: "r-unchanged", kind: "unchanged", title: "Row 10 · Repaired housing", location: "Verification · unchanged context", tag: "— UNCHANGED",
+          narration: `The repaired housing holds through the final test.`,
+          production: `Still Image · asset-housing-after`,
+          decision: `Hidden by default. No action proposed.`, hidden: true
+        })
+      ].join("");
+
+      const review = (extraClass = "") => `
+        ${head("Review timeline and script changes", "Choose what should happen row by row. Resolve observations remain review evidence; none becomes canonical script content without an explicit supported adoption.")}
+        <div class="review-shell ${extraClass}">
+          <section class="review-main" aria-label="Reconciliation rows">
+            <div class="filterbar" role="group" aria-label="Filter changes">
+              <button class="filter" data-filter="changed" aria-pressed="true">Changed only</button>
+              <button class="filter" data-filter="conflict" aria-pressed="false">Conflicts</button>
+              <button class="filter" data-filter="script" aria-pressed="false">Script changes</button>
+              <button class="filter" data-filter="resolve" aria-pressed="false">Resolve changes</button>
+              <button class="filter" data-filter="all" aria-pressed="false">Show unchanged</button>
+            </div>
+            <div class="bulkbar"><span id="countTop">3 rows selected · 2 require decisions · 1 protected item</span><div class="inline-actions"><button id="safe">Select all safe updates</button><button id="clear">Clear selected</button></div></div>
+            <div class="rows">${baseRows()}</div>
+          </section>
+          <aside class="review-aside" aria-label="Reconciliation plan">
+            <h3>Reconciliation plan</h3>
+            <p class="count-line" id="countSide">3 rows selected</p>
+            <p>Script-owned updates create <strong>Harbor Lights v19</strong>. The current v18 timeline stays untouched.</p>
+            <p>Compatible Resolve work is carried forward. Skipped rows remain explicitly out of sync.</p>
+            <p class="blocked-note" id="blocked">1 conflict needs a decision. 1 transition change requires manual Resolve review.</p>
+            <button class="button-primary" disabled>Apply decisions to new timeline</button>
+          </aside>
+        </div>`;
+
+      const templates = {
+        entry: () => `
+          ${head("Write and connect visuals", "The canonical script remains the source of truth. Timeline edits are reviewed before any supported change can be adopted.", false)}
+          <div class="toolbar"><button>Check readiness</button><button>Prompter script</button><button>Resolve timeline</button></div>
+          <section class="paper" aria-label="S03 script editor">
+            <div class="paper-head"><strong>Harbor Lights</strong><span>Saved · Revision C</span></div>
+            <div class="paper-body">
+              <div class="timeline-alert" role="status">
+                <span class="alert-icon" aria-hidden="true">◇</span>
+                <div><strong>Managed Resolve timeline changed</strong><span>7 timeline-side changes were observed since Build 18. Review them before the next timeline update; nothing has changed in the script.</span></div>
+                <button id="reconcile">Reconcile timeline changes</button>
+              </div>
+              <div class="script-row"><div><small>VOICEOVER</small><p>The channel light holds steady through the second reading.</p></div><div><small>VISUAL 2</small><div class="visual-card"><strong>Logged Clip · Channel light</strong><span>Selected source range 00:24–00:32</span></div></div></div>
+              <div class="script-row"><div><small>ON CAMERA</small><p><strong>The second reading tells us when to adjust.</strong></p></div><div><small>VISUAL 3</small><div class="visual-card"><strong>On Camera · Tight</strong><span>Derived coverage · exact spoken interval</span></div></div></div>
+            </div>
+          </section>`,
+
+        review: () => review(),
+
+        conflict: () => `
+          ${head("Resolve a conflicting row", "The script and managed timeline changed the same property. Choose one bounded consequence; VERA does not merge by guesswork.")}
+          <section class="decision-panel" aria-labelledby="conflict-title">
+            <div class="eyebrow">! Conflict · decision required</div>
+            <h2 id="conflict-title">Row 12 · Final adjustment</h2>
+            <div class="property-grid">
+              <div><span>Last applied build</span><strong>“We adjust only after…” · clean in 01:14:02:08</strong></div>
+              <div><span>Current script</span><strong>“The second reading tells…” · wording changed</strong></div>
+              <div><span>Managed Resolve timeline</span><strong>Clean in refined +12 frames</strong></div>
+            </div>
+            <div class="choice-list" role="radiogroup" aria-label="Conflict outcome">
+              <label class="choice"><input type="radio" name="decision" /><span><strong>Use script version</strong><span>Create the new timeline from the current script wording. Preserve recognized compatible Resolve work; this conflicting trim is not adopted.</span></span></label>
+              <label class="choice"><input type="radio" name="decision" /><span><strong>Keep Resolve version for now</strong><span>Leave the canonical script unchanged, preserve this Resolve row, and record it as deliberately out of sync.</span></span></label>
+              <label class="choice"><input type="radio" name="decision" /><span><strong>Adopt supported Resolve change into script</strong><span>Adopt only this clean-in refinement after explicit confirmation. This option is available because clean in/out refinements are in the bounded reversible mapping.</span></span></label>
+              <label class="choice"><input type="radio" name="decision" /><span><strong>Review manually in Resolve</strong><span>Preserve v18, defer this row, and open the exact managed occurrence for editorial review.</span></span></label>
+            </div>
+            <div class="inline-actions" style="margin-top:14px"><button>Back to review</button><button class="button-primary">Record this decision</button></div>
+          </section>
+          <section class="protected-card" aria-labelledby="transition-title">
+            <div class="eyebrow">⌁ Protected editorial state</div>
+            <h3 id="transition-title">Transition occurrence · Row 9 → Row 10</h3>
+            <p>Resolve changed <code>Cross Dissolve · 12 frames</code> to <code>Dip to Color · 18 frames</code>. This is a distinct timeline-side item, not a clean in/out refinement or subtitle-copy edit.</p>
+            <p><strong>No automatic adoption is offered.</strong> Keep the Resolve transition and review manually. The script remains unchanged and the new timeline plan records this item as deferred.</p>
+            <div class="inline-actions"><button class="button-purple">Keep Resolve transition for now</button><button>Review occurrence in Resolve</button></div>
+          </section>`,
+
+        result: () => `
+          ${head("Reconciliation plan recorded", "This is a design result preview. No script content or Resolve timeline has been changed.")}
+          <div class="notice" style="margin-bottom:14px"><strong>New timeline result: Harbor Lights v19</strong><p>When production behavior exists, the plan creates a new version beside v18. The current timeline remains untouched.</p></div>
+          <div class="result-grid">
+            <section class="result-card"><strong>2 script rows regenerated</strong><ul><li>Current narration wording used for Row 4.</li><li>Script timing note used for Row 9.</li></ul></section>
+            <section class="result-card"><strong>3 Resolve refinements preserved</strong><ul><li>Compatible subtitle copy carried forward.</li><li>Two finishing additions stay anchored.</li></ul></section>
+            <section class="result-card"><strong>1 row deliberately out of sync</strong><ul><li>Row 6 keeps the Resolve clean-out for now.</li><li>The canonical script did not change.</li></ul></section>
+            <section class="result-card"><strong>2 items deferred</strong><ul><li>Row 12 requires manual Resolve review.</li><li>The transition occurrence stays protected.</li></ul></section>
+            <section class="result-card"><strong>Dependency effects</strong><ul><li>Row 4 adds 1.2 seconds; later script-owned items move.</li><li>2 anchored Resolve additions move with their rows.</li><li>1 unanchored effect stays on v18 for review.</li></ul></section>
+            <section class="result-card"><strong>Canonical authority</strong><ul><li>No Resolve edit became script truth by default.</li><li>Only an explicitly confirmed subtitle-copy adoption could update the script.</li><li>All unsupported work remains preserved or deferred.</li></ul></section>
+          </div>`,
+
+        "no-change": () => `
+          ${head("Write and connect visuals", "The canonical script and linked timeline have no reconciliation work.", false)}
+          <div class="toolbar"><button>Check readiness</button><button>Prompter script</button><button>Resolve timeline</button></div>
+          <section class="paper">
+            <div class="paper-head"><strong>Harbor Lights</strong><span>Saved · Revision C</span></div>
+            <div class="paper-body">
+              <div class="notice" style="border-color:#b7aa95;background:#f3eee4;color:#28231d"><strong>✓ Managed timeline matches Build 18</strong><p style="color:#675f55">Checked moments ago. There are no timeline changes to reconcile, so no reconciliation action is shown.</p></div>
+              <div class="script-row"><div><small>VOICEOVER</small><p>The channel light holds steady through the second reading.</p></div><div><small>VISUAL 2</small><div class="visual-card"><strong>Logged Clip · Channel light</strong><span>Selected source range 00:24–00:32</span></div></div></div>
+            </div>
+          </section>`,
+
+        unavailable: () => `
+          ${head("Timeline changes cannot be checked", "The browser can display saved script and build identity, but the local workstation boundary must be available before VERA can observe a managed Resolve timeline.")}
+          <div class="capability-grid">
+            <section class="capability-card"><strong>✓ Browser</strong><p>Script Revision C and Build 18 are available. The browser does not inspect Resolve directly.</p></section>
+            <section class="capability-card" style="border-color:#7d4944"><strong>! Local agent unavailable</strong><p>Reconnect the authorized workstation. No timeline data is cached or inferred.</p><div class="inline-actions" style="margin-top:12px"><button>Try local agent again</button></div></section>
+            <section class="capability-card" style="border-color:#7d4944"><strong>! Resolve unavailable</strong><p>Open a supported Resolve Studio version and the linked project on that workstation.</p><div class="inline-actions" style="margin-top:12px"><button>Check Resolve again</button></div></section>
+            <section class="capability-card"><strong>Current timeline preserved</strong><p>No script adoption or timeline update is offered until identity and observation succeed. You can continue writing.</p></section>
+          </div>`,
+
+        focus: () => `
+          ${head("Keyboard route and focus order", "Every state and decision uses native controls, visible focus, and a predictable top-to-bottom route.", false)}
+          <section class="focus-map" aria-label="Keyboard focus route">
+            <div class="focus-step"><b>1</b><span>Choose an evidence view</span><select aria-label="Demo selector"><option>Three-way review</option></select></div>
+            <div class="focus-step"><b>2</b><span>Filter visible rows</span><button id="focusTarget">Changed only</button></div>
+            <div class="focus-step"><b>3</b><span>Select all safe updates</span><button>Select all safe updates</button></div>
+            <div class="focus-step"><b>4</b><span>Include or skip each row</span><input aria-label="Include Row 4" type="checkbox" checked /></div>
+            <div class="focus-step"><b>5</b><span>Review the exact decision</span><button>Review decision</button></div>
+            <div class="focus-step"><b>6</b><span>Apply an unblocked plan</span><button class="button-primary">Apply decisions to new timeline</button></div>
+          </section>`,
+
+        "non-color": () => review("non-color"),
+
+        overflow: () => `
+          ${head("Long content stays readable", "Long narration, media identifiers, transition names, and local paths wrap within their own row instead of causing horizontal page overflow.")}
+          <article class="change-row" data-kind="protected">
+            <div class="row-top"><input type="checkbox" aria-label="Protected item cannot be selected" disabled /><div class="row-title"><strong>Boundary · exceptionally long localized section and occurrence identity</strong><span class="long-token">Verification / Northern Harbor Environmental Monitoring / Occurrence 0000-very-long-stable-identity-that-must-never-be-truncated-without-an-accessible-name</span></div><span class="status-tag">⌁ PROTECTED TRANSITION CHANGE</span></div>
+            <div class="row-compare"><div><span class="column-label">Narration / script</span><p>After the unusually long overnight calibration interval, the operator verifies every sensor, compares the archived readings, and records the final result before the harbor channel reopens.</p></div><div><span class="column-label">Production / timeline</span><p class="long-token">Resolve occurrence override: SmoothCut_OperatorCalibrationToArchiveVerification_ApprovedEditorialVariant_September → CustomFusionTransition_WithProtectedManualKeyframes_AndExternalDependencies</p><small class="long-token">/Volumes/VERA Projects/Harbor Lights/Resolve Project Backups/Approved Editorial Timelines/Harbor_Lights_Main_v18_Producer_Review.drp</small></div></div>
+            <div class="decision-line"><span>Unsupported transition and external dependency: preserve v18 and review manually in Resolve.</span><button>Review occurrence</button></div>
+          </article>`,
+
+        error: () => `
+          ${head("Timeline observation failed", "VERA stopped before proposing decisions because the managed timeline identity could not be verified.")}
+          <section class="error-panel" role="alert">
+            <div class="eyebrow">! Reconciliation unavailable</div>
+            <h2 style="margin-top:6px">Harbor Lights v18 could not be verified</h2>
+            <p>The linked project opened, but the stored Build 18 baseline marker was missing. VERA did not compare nearby timelines, infer a replacement, adopt any Resolve edit, or modify the script.</p>
+            <div class="property-grid">
+              <div><span>Last verified build</span><strong>Build 18 · Revision A</strong></div>
+              <div><span>Expected timeline</span><strong>Harbor Lights v18</strong></div>
+              <div><span>Protection</span><strong>Existing timeline preserved</strong></div>
+            </div>
+            <p>Open the expected timeline and restore its verified link, or preserve this timeline and create a fresh timeline later with a diagnostic report.</p>
+            <div class="inline-actions"><button>Find and link timeline</button><button>Try observation again</button><button class="button-danger">Preserve and review manually</button></div>
+          </section>`
+      };
+
+      app.innerHTML = (templates[state] || templates.entry)();
+
+      document.querySelector("#reconcile")?.addEventListener("click", () => {
+        location.search = "?state=review";
+      });
+
+      function updateCounts() {
+        const selected = [...document.querySelectorAll(".row-check:checked")].length;
+        const countTop = document.querySelector("#countTop");
+        const countSide = document.querySelector("#countSide");
+        if (countTop) countTop.textContent = `${selected} rows selected · 2 require decisions · 1 protected item`;
+        if (countSide) countSide.textContent = `${selected} rows selected`;
+      }
+
+      document.querySelectorAll(".row-check").forEach(input => input.addEventListener("change", updateCounts));
+      document.querySelector("#safe")?.addEventListener("click", () => {
+        document.querySelectorAll('.row-check').forEach(input => {
+          input.checked = ["r-script", "r-compatible"].includes(input.id);
+        });
+        updateCounts();
+      });
+      document.querySelector("#clear")?.addEventListener("click", () => {
+        document.querySelectorAll(".row-check").forEach(input => { input.checked = false; });
+        updateCounts();
+      });
+      document.querySelectorAll(".filter").forEach(button => button.addEventListener("click", () => {
+        document.querySelectorAll(".filter").forEach(item => item.setAttribute("aria-pressed", String(item === button)));
+        const filter = button.dataset.filter;
+        document.querySelectorAll(".change-row").forEach(item => {
+          const kind = item.dataset.filter;
+          item.hidden = filter === "changed" ? kind === "unchanged" : filter !== "all" && kind !== filter;
+        });
+      }));
+      document.querySelectorAll("[data-open]").forEach(button => button.addEventListener("click", () => {
+        if (button.dataset.open === "r-conflict" || button.dataset.open === "r-transition") location.search = "?state=conflict";
+      }));
+
+      if (state === "focus") requestAnimationFrame(() => document.querySelector("#focusTarget")?.focus());
+      document.documentElement.dataset.horizontalOverflow = String(
+        document.documentElement.scrollWidth > document.documentElement.clientWidth
+      );
+    </script>
+  </body>
+</html>
