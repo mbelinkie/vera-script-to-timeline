@@ -1,4 +1,10 @@
-# Claude Design brief — Resolve-to-script reconciliation from S03
+# Initial Claude Design brief — Resolve-to-script reconciliation from S03
+
+> Historical input: this brief was sent before the Producer and Claude refined
+> the row, layering, provenance, and post-recording decisions. The current
+> instructions are in
+> `claude-resolve-to-script-reconciliation-continuation.md`. Do not resend this
+> initial brief as the current design direction.
 
 Create one new, separate design artifact in the existing Claude Design project
 `VERA design feedback`, named:

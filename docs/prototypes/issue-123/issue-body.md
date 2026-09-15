@@ -1,58 +1,75 @@
 ## Outcome
 
 Design and obtain Producer acceptance for reconciling changes made in a managed
-Resolve timeline back into the canonical script. The design must reuse the
-accepted S05 change-review language wherever possible, including white script
-rows, while entering from the accepted S03 authoring experience.
+Resolve timeline back into the canonical script. Reuse the accepted S05 review
+language wherever possible, including its white rows, while entering from S03.
 
 ## Scope
 
-- Create a new successor artifact in the existing `VERA design feedback` Claude
-  project without changing the accepted S01–S05 artifacts.
-- Show only changes originating in Resolve. Script-only edits remain canonical
-  and absent from inbound review.
-- Design preselected safe changes, explicit compatible same-row confirmation,
-  and incompatible same-row choices for script-wins, supported Resolve adoption,
-  or defer.
-- Introduce locked **Resolve-only content** rows for recognized-but-unrepresentable
-  and ambiguous/unrecognized timeline material, with attached and standalone
-  placements, optional descriptive names, collapsed script presentation, future
-  preservation, collision blocking, and verified-removal review.
+- Continue the successor artifact in the existing `VERA design feedback`
+  Claude project without changing accepted S01–S05 artifacts.
+- Show only Resolve-originated changes, except where a script edit intersects
+  the same words, audio item, or visual item and creates a conflict.
+- Design preselected safe changes, explicit compatible combinations, and
+  unselected incompatible Accept/Reject/Defer decisions.
+- Treat rows as author-defined closed visual containers: visuals may be
+  sequential or overlap as stacked layers inside one row, but cannot cross a
+  row boundary. A bridging visual proposes a row merge; structural boundaries
+  block instead.
+- Treat **Added in Resolve** as provenance. Understood additions become native
+  editable cards; unsupported accepted additions become locked
+  **Preserved as-is** cards with optional names.
+- Represent only effective visible/audible output in the active script while
+  silently preserving fully hidden lower-track alternatives for possible later
+  restoration.
 - Retain design evidence at `1280 × 800` and `1024 × 768` across entry, review,
-  conflict, preservation, result, no-change, unavailable, error, focus,
-  non-color, and overflow states.
+  conflict, merge, preservation, result, no-change, unavailable, error, focus,
+  non-color, scrolling, wrapping, and overflow states.
 
 ## Acceptance criteria
 
-- [ ] S03 shows a clear, non-color-only managed-timeline-change alert, the
-  number of timeline-originated changes to review, and a dedicated counted
-  action; the no-change and unavailable states show no false or stale count.
-- [ ] The review visibly reuses S05's white script rows, script order,
-  two-column structure, red/green plus non-color semantics, filters, controls,
-  counts, scrolling, focus, and responsive behavior.
-- [ ] Script-only edits are absent. Understood non-conflicting Resolve changes
-  are preselected, while compatible same-row changes require explicit combine
-  confirmation.
-- [ ] Incompatible same-row changes have no default and offer only clear
-  script-wins, supported Resolve-adoption, or defer decisions with their future
-  inbound and outbound consequences.
-- [ ] Resolve-only content is automatically recorded in attached or standalone
-  locked rows, retains a permanent system label and optional editable name, and
-  remains collapsed but visible in ordinary script editing.
-- [ ] Future outbound updates preserve Resolve-only material; ambiguous movement,
-  overlap, order, or timing collisions block; missing content is never replaced
-  with a slate; verified deletion is proposed as a selected row removal.
-- [ ] After presenter recording changes word timing, understood B-roll retimes
-  normally while affected Resolve-only media stays untouched and receives one
-  stable, non-rendered manual timing review marker at the recalculated word
-  anchor; ambiguous or missing anchors block instead of being guessed.
-- [ ] **Reconcile script** can complete safe work while accurately reporting
-  deferred conflicts and partial out-of-sync status. It never claims to create
-  or update a Resolve timeline.
-- [ ] Both required viewports demonstrate pointer and keyboard routes, logical
-  focus, readable non-color states, and no horizontal overflow.
-- [ ] The Producer reviews and explicitly accepts the exact Claude artifact or
-  identifies the first unacceptable state.
+- [ ] S03 shows a clear non-color-only managed-timeline alert, truthful count,
+      and counted action, with no false or stale count when in sync, checking,
+      or unavailable.
+- [ ] The review visibly reuses S05 white rows, script order, two columns,
+      red/green plus non-color comparisons, filters, controls, counts, scrolling,
+      focus, and responsive behavior.
+- [ ] Understood non-conflicting Resolve changes are preselected. Compatible
+      intersecting changes require **Combine both changes**; incompatible ones
+      have no default and offer Accept, Reject, or Defer with accurate inbound
+      and future S05 consequences.
+- [ ] **Words cut** is demonstrated only from verified program-audio/transcript
+      removal, never inferred from a picture trim.
+- [ ] A visual bridging adjacent narration rows is one compound merge proposal
+      that preserves words, paragraph structure, OC/VO state, anchors, comments,
+      and identity. Valid merged rows do not auto-split; structural-boundary
+      spans block.
+- [ ] Full-frame visuals retain #56's ordered non-overlapping sequence while
+      simultaneous overlays use bounded, possibly overlapping ranges and clear
+      compositing order. Unanchored footage uses a right-only row with explicit
+      timeline bounds.
+- [ ] Understood accepted additions become native cards with a compact permanent
+      **Added in Resolve** badge. Unsupported additions require Accept/Reject/
+      Defer; accepting creates a locked **Preserved as-is** card with optional
+      non-rendered naming.
+- [ ] Fully covered lower clips disappear from the active script but remain
+      dormant and silently preserved in Resolve/history. Verified later reveal
+      produces one preselected compound restoration proposal; partially visible
+      layers remain represented.
+- [ ] Attached preserved-as-is media follows a verified start-word anchor while
+      retaining source in/out and duration. When ending fit needs review, one
+      stable non-rendered marker appears at the resulting outpoint; safe fit has
+      no marker and missing/ambiguous anchors block.
+- [ ] Actual S05-style future states show rejection selected by default, defer
+      unchecked, preservation/restoration, verified deletion, and missing-media
+      blocking without a slate.
+- [ ] **Reconcile script** can finish safe work while accurately reporting
+      deferred conflicts and partial out-of-sync status and never claims to
+      change Resolve.
+- [ ] Both viewports demonstrate pointer and keyboard routes, readable non-color
+      states, wrapping, scrolling, and no horizontal overflow.
+- [ ] The Producer explicitly accepts the exact artifact or identifies the
+      first unacceptable state.
 
 ## Dependencies
 
@@ -61,21 +78,20 @@ rows, while entering from the accepted S03 authoring experience.
 
 ## Exclusions
 
-- No Resolve sync, observation implementation, diff engine, persistence, script
-  mutation, timeline build, authorization, production UI, API, schema, contract,
-  fixture, golden, generated-type, or accepted-artifact change.
-- No technical proof of exact reverse mappings in this design slice.
+- No Resolve observation or sync, diff engine, persistence, script mutation,
+  timeline build, production UI, API, schema, contract, fixture, golden,
+  generated-type, or accepted-artifact change.
+- No technical proof of exact reverse mappings or row/identity migration.
 
 ## Follow-up requirement
 
 After design acceptance, create a separate Inbox technical story that blocks
-implementation and proves the supported reverse mappings, stable identity and
-anchoring, preservation, conflict/defer persistence, verified deletion,
-missing-content behavior, post-presenter timing-marker identity/lifecycle, and
-required contract/generated-type changes.
+implementation and proves row merging/cross-block representation, stable native,
+preserved and dormant identities, effective-output comparison, audio-cut
+detection, conflict/defer persistence, dormant restoration, deletion, missing
+media, marker lifecycle, and required contract/generated-type changes.
 
 ## Parent rationale
 
 Sub-issue of #62 because the integrated prototype and final design handoff must
-include this explicit timeline-to-script reconciliation path before design
-finalization.
+include this inbound reconciliation path before design finalization.
