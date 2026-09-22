@@ -1,6 +1,6 @@
 # Issue 134 — isolated Resolve Free environment evidence
 
-Status: **Preflight in progress; no target selected and no changes made**  
+Status: **Candidate identified; not yet cleared, confirmed disposable, or selected for erase**  
 Evidence date: **2026-09-22**  
 Acceptance authority: **External**
 
@@ -17,7 +17,8 @@ names, source media, private screenshots, and the contents of attached disks.
 | Existing Resolve | DaVinci Resolve Studio 21.1.0 application present on the internal system | Recorded; no Studio data was opened or changed |
 | T2 | Apple T2 Security Chip present | External-boot policy must be viewed in Recovery; it is not readable with the normal-boot utility on this Intel Mac |
 | External physical devices | One 1.0 TB GUID/APFS device and one 8.0 TB GUID/HFS+ device were attached | Inventory only; neither is selected or known disposable |
-| 1.0 TB APFS external | About 854.3 GB in use and 145.7 GB unallocated | Fails the 180 GiB usable gate in its present state; no contents were inspected |
+| Candidate named by Producer | `Belinkie Edit`: 1.0 TB external USB APFS volume in a USB device reported as `Enclosure` | Candidate only; physical disk numbers are transient and must be rechecked immediately before erase |
+| `Belinkie Edit` current capacity | About 854.1 GB used and 145.7 GB free | Fails the 180 GiB usable gate in its present state; no contents were inspected |
 
 ### Current-day version compatibility
 
@@ -53,7 +54,9 @@ Official sources checked on 2026-09-22:
 
 ## 2. Mandatory Producer confirmation — external target
 
-**Not yet supplied. Do not erase or format anything.**
+The Producer has named `Belinkie Edit` as the candidate and reports that it is
+almost ready to erase. The Producer has **not yet** stated that every remaining
+byte is disposable or authorized the erase. Do not erase or format anything.
 
 With Disk Utility set to **View → Show All Devices**, the Producer must identify
 one external *physical device* by public-safe make/model, connection type, and
@@ -70,10 +73,10 @@ stop.
 
 | Required target evidence | Recorded value |
 | --- | --- |
-| Public-safe make/model | Pending |
-| Connection type | Pending |
-| Nominal capacity | Pending |
-| External physical-device identity shown in Disk Utility | Pending |
+| Public-safe make/model | USB device reported as `Enclosure`; stronger model identity unavailable from the read-only system report |
+| Connection type | USB |
+| Nominal capacity | 1.0 TB |
+| External physical-device identity shown in Disk Utility | Candidate volume `Belinkie Edit`; pending top-level physical-device confirmation in Disk Utility |
 | Producer confirms all contents disposable | Pending |
 | Producer's immediate erase authorization | Pending |
 | GUID/APFS after format | Pending |
