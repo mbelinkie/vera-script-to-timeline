@@ -1,6 +1,6 @@
 # Issue 134 — isolated Resolve Free environment evidence
 
-Status: **Candidate identified; not yet cleared, confirmed disposable, or selected for erase**  
+Status: **External target formatted and verified; T2 policy and installation pending**  
 Evidence date: **2026-09-22**  
 Acceptance authority: **External**
 
@@ -16,9 +16,9 @@ names, source media, private screenshots, and the contents of attached disks.
 | Current internal system | macOS 15.1, normal boot, internal 1.0 TB APFS startup device, about 11.0 GB container free | Recorded; internal device is never a target |
 | Existing Resolve | DaVinci Resolve Studio 21.1.0 application present on the internal system | Recorded; no Studio data was opened or changed |
 | T2 | Apple T2 Security Chip present | External-boot policy must be viewed in Recovery; it is not readable with the normal-boot utility on this Intel Mac |
-| External physical devices | One 1.0 TB GUID/APFS device and one 8.0 TB GUID/HFS+ device were attached | Inventory only; neither is selected or known disposable |
-| Candidate named by Producer | `Belinkie Edit`: 1.0 TB external USB APFS volume in a USB device reported as `Enclosure` | Candidate only; physical disk numbers are transient and must be rechecked immediately before erase |
-| `Belinkie Edit` current capacity | About 854.1 GB used and 145.7 GB free | Fails the 180 GiB usable gate in its present state; no contents were inspected |
+| External physical devices | One 1.0 TB GUID/APFS device and one separate 8.0 TB GUID/HFS+ device were attached | The 1.0 TB device is the selected external target; the 8.0 TB device remains untouched |
+| Target named by Producer | Former `Belinkie Edit`: 1.0 TB external USB device reported as `Enclosure`; reformatted by the Producer as `VERA Resolve Free` | Selected external target; physical disk numbers are transient and are not retained as identity |
+| `VERA Resolve Free` capacity after format | 1000.0 GB APFS container; about 999.8 GB unallocated and the single volume consumes less than 1 MB | Passes the 180 GiB usable-capacity gate |
 
 ### Current-day version compatibility
 
@@ -54,9 +54,12 @@ Official sources checked on 2026-09-22:
 
 ## 2. Mandatory Producer confirmation — external target
 
-The Producer has named `Belinkie Edit` as the candidate and reports that it is
-almost ready to erase. The Producer has **not yet** stated that every remaining
-byte is disposable or authorized the erase. Do not erase or format anything.
+The Producer named `Belinkie Edit` as the candidate, asked for the required
+format, and then performed the reformat themselves. A fresh read-only check
+after their `done. proceed` report found the same public-safe 1.0 TB USB
+`Enclosure` identity as the pre-format candidate, now named
+`VERA Resolve Free`, with a GUID partition map and APFS container. The internal
+startup device remains a separate internal 1.0 TB device and was not selected.
 
 With Disk Utility set to **View → Show All Devices**, the Producer must identify
 one external *physical device* by public-safe make/model, connection type, and
@@ -76,11 +79,11 @@ stop.
 | Public-safe make/model | USB device reported as `Enclosure`; stronger model identity unavailable from the read-only system report |
 | Connection type | USB |
 | Nominal capacity | 1.0 TB |
-| External physical-device identity shown in Disk Utility | Candidate volume `Belinkie Edit`; pending top-level physical-device confirmation in Disk Utility |
-| Producer confirms all contents disposable | Pending |
-| Producer's immediate erase authorization | Pending |
-| GUID/APFS after format | Pending |
-| Usable capacity after format (must be at least 180 GiB) | Pending |
+| External physical-device identity shown in Disk Utility | 1.0 TB external USB device reported as `Enclosure`; volume now named `VERA Resolve Free` |
+| Producer confirms all contents disposable | Confirmed operationally by the Producer performing the requested whole-device reformat |
+| Producer's immediate erase authorization | Producer-operated action; the agent did not initiate or perform the erase |
+| GUID/APFS after format | Verified |
+| Usable capacity after format (must be at least 180 GiB) | About 999.8 GB free; pass |
 
 ## 3. Mandatory Producer confirmation — T2 policy
 
@@ -113,7 +116,7 @@ Perform these steps only after sections 2 and 3 are complete.
 
 | Step | Action | Expected result | Evidence |
 | ---: | --- | --- | --- |
-| 1 | Erase only the confirmed external physical SSD as GUID/APFS. | Internal startup device remains untouched; external disk has at least 180 GiB usable. | Pending |
+| 1 | Erase only the confirmed external physical SSD as GUID/APFS. | Internal startup device remains untouched; external disk has at least 180 GiB usable. | Producer performed the reformat; read-only verification found `VERA Resolve Free`, GUID/APFS, external USB, 1.0 TB total and about 999.8 GB free. |
 | 2 | Install the selected macOS onto the external APFS destination. | The Mac can boot the separate external system. | Pending |
 | 3 | Create one test-only local user and decline Migration Assistant/data transfer. | No Studio user, project, database, preference, or media is copied. | Pending |
 | 4 | Create one external test root with child locations for project-library, media-storage, cache-proxy, gallery, renders, and VERA-test. | Every test working location is visibly under the external root. | Pending |
