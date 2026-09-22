@@ -328,6 +328,39 @@ and duration solution for the tested Resolve Studio 21.0.4 build 5 baseline.
 This does not claim stock-title catalog enumeration or arbitrary Fusion-title
 support.
 
+### EV24 Fusion semantic-input capability spike
+
+Issue #3 operates only on the immutable EV24 package registered by #12. It
+refuses a changed setting or test badge, unknown graph/control identity,
+unapproved badge identity, a non-21.1.0/build-14 Studio connection, or any
+duration other than the retained 64/120-frame cases. It creates one uniquely
+named audit project only after a nonmutating preflight; it does not touch a
+production project or overwrite prior evidence.
+
+With Resolve Studio 21.1.0 build 14 open on a timeline page and external
+scripting enabled, run:
+
+```sh
+uv run --frozen python -m vera_timeline_agent.ev24_fusion_spike_cli \
+  --action preflight \
+  --project-name "VERA EV24 Capability YYYYMMDD-HHMMSS"
+```
+
+After the preflight succeeds, use the same unused project name for the retained
+audit project and report:
+
+```sh
+uv run --frozen python -m vera_timeline_agent.ev24_fusion_spike_cli \
+  --action build \
+  --project-name "VERA EV24 Capability YYYYMMDD-HHMMSS" \
+  --report out/ev24-capability-YYYYMMDD-HHMMSS.json
+```
+
+The report records the four declared configurations, their semantic snapshots,
+the pinned graph hash, V4 placement, duration, and control readback before and
+after save/reopen. Open the four retained timelines in Resolve to review the
+64- and 120-frame animation; producer acceptance remains required.
+
 ## Slice workflow
 
 Agent guardrails live in [`AGENTS.md`](./AGENTS.md). Decisions and unresolved
