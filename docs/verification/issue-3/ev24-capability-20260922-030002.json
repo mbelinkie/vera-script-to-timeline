@@ -7,8 +7,14 @@
     "version": "21.1.0"
   },
   "graphIdentity": "sha256:7abb4e07a3c6472fd93e6b752a8623855f2fa03a8591fff10e6e33746e7ff2df",
+  "mediaOut": {
+    "connectionSourceTool": "MasterTransform",
+    "count": 1,
+    "verifiedAfterSaveReopen": true
+  },
   "observedAt": "2026-09-22",
   "projectName": "VERA EV24 Capability 20260922-030002",
+  "producerAcceptedAt": "2026-09-22",
   "reopenVerificationDiscrepancies": [],
   "reports": [
     {

@@ -10,6 +10,7 @@ from vera_timeline_agent.ev24_fusion_spike import (
     Ev24Request,
     Ev24SpikeError,
     PreparedEv24Request,
+    connect_ev24_to_media_out,
     discover_ev24_controls,
     prepare_ev24_request,
     run_ev24_spike,
@@ -90,10 +91,69 @@ class _Tool:
 class _Composition:
     def __init__(self, tools: dict[Any, Any]) -> None:
         self.tools = tools
+        self.added: list[_MediaOut] = []
+        self.locked = False
 
     def GetToolList(self, selected: bool) -> dict[Any, Any]:
         assert not selected
         return self.tools
+
+    def AddTool(self, registration_id: str, _: int, __: int) -> _MediaOut:
+        assert registration_id == "MediaOut"
+        output = _MediaOut()
+        self.added.append(output)
+        self.tools[len(self.tools) + 1] = output
+        return output
+
+    def Lock(self) -> bool:
+        self.locked = True
+        return True
+
+    def Unlock(self) -> bool:
+        self.locked = False
+        return True
+
+
+class _MediaOut:
+    def __init__(self) -> None:
+        self.source: object | None = None
+
+    def GetAttrs(self, key: str) -> str:
+        return {"TOOLS_Name": "MediaOut1", "TOOLS_RegID": "MediaOut"}[key]
+
+    def ConnectInput(self, name: str, source: object) -> bool:
+        assert name == "Input"
+        self.source = source
+        return True
+
+    def FindMainInput(self, index: int) -> _MediaOutInput:
+        assert index == 1
+        return _MediaOutInput(_MacroOutput(self.source))
+
+
+class _MacroOutput:
+    def __init__(self, source: object | None) -> None:
+        self.source = source
+
+    def GetAttrs(self, key: str) -> str:
+        assert self.source is not None
+        return {"TOOLS_Name": "MasterTransform"}[key]
+
+
+class _MediaOutInput:
+    def __init__(self, source: object | None) -> None:
+        self.source = source
+
+    def GetConnectedOutput(self) -> _ConnectedOutput:
+        return _ConnectedOutput(self.source)
+
+
+class _ConnectedOutput:
+    def __init__(self, source: object | None) -> None:
+        self.source = source
+
+    def GetTool(self) -> object | None:
+        return self.source
 
 
 class _Item:
@@ -118,6 +178,17 @@ def test_discovery_sets_and_reads_only_registered_macro_controls() -> None:
         "TopLine": "",
         "BottomLine": "",
     }
+
+
+def test_imported_macro_is_connected_to_one_media_out() -> None:
+    tool = _Tool()
+    item = _Item({1: tool})
+
+    media_out = connect_ev24_to_media_out(item)
+
+    assert item.comp.added == [media_out]
+    assert media_out.source is tool
+    assert not item.comp.locked
 
 
 @pytest.mark.parametrize(

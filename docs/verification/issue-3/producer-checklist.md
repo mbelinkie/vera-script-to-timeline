@@ -26,3 +26,5 @@ The dedicated Resolve Studio project is **VERA EV24 Capability
 
 Reply on issue #3 with `Accepted EV24 Fusion capability spike.` if all four
 steps pass. Otherwise report the first mismatched timeline, frame, and value.
+
+Producer acceptance was recorded on 2026-09-22.
