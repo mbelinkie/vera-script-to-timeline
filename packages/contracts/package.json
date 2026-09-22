@@ -9,7 +9,8 @@
     "./script-validator": "./src/script-validator.ts",
     "./compiler-core": "./src/compiler-core.ts",
     "./prompter-export": "./src/prompter-export.ts",
-    "./template-library": "./src/template-library.ts"
+    "./template-library": "./src/template-library.ts",
+    "./ev24-lower-third": "./src/ev24-lower-third.ts"
   },
   "scripts": {
     "lint": "eslint src test --max-warnings=0",
