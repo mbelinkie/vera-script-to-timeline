@@ -2,11 +2,11 @@
 
 ## Status and approval gate
 
-**Proposed; producer approval pending.** This note is the complete proposed
-boundary for issue #7. Do not change shared schemas, generated types, frozen
-fixtures, goldens, accepted tests, or compiler behavior until the producer
-explicitly approves it. A changed decision requires a revised note and a new
-approval before implementation.
+**Approved by the producer on 2026-09-22** in the claimed Codex task
+`01a0c960-9289-7373-9840-a2a5c0ab2deb`, using the exact approval response
+under "Producer decision requested." This note is the approved boundary for
+issue #7. A changed decision requires a revised note and a new approval before
+implementation.
 
 The bounded slice adds a typed EV24 Lower Third occurrence and deterministic
 compiler output. It does not place a Fusion graphic in Resolve, write Fusion

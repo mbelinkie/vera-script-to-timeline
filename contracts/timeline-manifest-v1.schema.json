@@ -259,8 +259,24 @@
         },
         {
           "$ref": "#/$defs/PlaceholderSource"
+        },
+        {
+          "$ref": "#/$defs/FusionTemplateSource"
         }
       ]
+    },
+    "FusionTemplateSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "templateKey", "projectRevisionId", "packageDigest", "entryAssetHash"],
+      "properties": {
+        "id": { "$ref": "script-document-v1.schema.json#/$defs/EntityId" },
+        "kind": { "const": "fusion_template" },
+        "templateKey": { "const": "ev24-lower-third" },
+        "projectRevisionId": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" },
+        "packageDigest": { "$ref": "script-document-v1.schema.json#/$defs/ContentHash" },
+        "entryAssetHash": { "$ref": "script-document-v1.schema.json#/$defs/ContentHash" }
+      }
     },
     "VideoSource": {
       "type": "object",
@@ -481,8 +497,52 @@
         },
         {
           "$ref": "#/$defs/PlaceholderEvent"
+        },
+        {
+          "$ref": "#/$defs/FusionGraphicEvent"
         }
       ]
+    },
+    "FusionGraphicEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "sourceId", "trackId", "trackKind", "recordRange", "anchor", "timingPrecision", "alignmentVersion", "semanticSnapshot", "semanticSnapshotHash", "provenance"],
+      "properties": {
+        "id": { "$ref": "script-document-v1.schema.json#/$defs/EntityId" },
+        "kind": { "const": "fusion_graphic" },
+        "sourceId": { "$ref": "script-document-v1.schema.json#/$defs/EntityId" },
+        "trackId": { "$ref": "#/$defs/TrackId" },
+        "trackKind": { "const": "video" },
+        "recordRange": { "$ref": "#/$defs/FrameRange" },
+        "anchor": { "$ref": "script-document-v1.schema.json#/$defs/TextAnchorRange" },
+        "timingPrecision": { "$ref": "#/$defs/TimingPrecision" },
+        "alignmentVersion": { "type": "string", "minLength": 1 },
+        "semanticSnapshot": { "$ref": "#/$defs/ResolvedEv24SemanticSnapshot" },
+        "semanticSnapshotHash": { "$ref": "script-document-v1.schema.json#/$defs/ContentHash" },
+        "provenance": { "$ref": "#/$defs/EventProvenance" }
+      }
+    },
+    "ResolvedEv24SemanticSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["values", "badgeAsset"],
+      "properties": {
+        "values": { "$ref": "script-document-v1.schema.json#/$defs/Ev24SemanticInputs" },
+        "badgeAsset": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["assetId", "contentHash"],
+              "properties": {
+                "assetId": { "type": "string", "pattern": "^asset_[A-Za-z0-9_-]+$" },
+                "contentHash": { "$ref": "script-document-v1.schema.json#/$defs/ContentHash" }
+              }
+            }
+          ]
+        }
+      }
     },
     "VideoEvent": {
       "type": "object",

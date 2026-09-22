@@ -41,6 +41,10 @@
       "items": {
         "$ref": "#/$defs/ResolvedVisualDependency"
       }
+    },
+    "resolvedGraphics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ResolvedGraphicDependency" }
     }
   },
   "$defs": {
@@ -71,9 +75,38 @@
             "release"
           ]
         },
+        "graphicDeliveryTarget": {
+          "type": "string",
+          "enum": ["studio", "free"]
+        },
         "timeline": {
           "$ref": "#/$defs/CompilerTimelineSettings"
         }
+      }
+    },
+    "ResolvedGraphicDependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projectId", "projectRevisionId", "templateKey", "packageDigest", "entryAssetHash", "badgeAssets"],
+      "properties": {
+        "projectId": { "$ref": "script-document-v1.schema.json#/$defs/EntityId" },
+        "projectRevisionId": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" },
+        "templateKey": { "const": "ev24-lower-third" },
+        "packageDigest": { "$ref": "script-document-v1.schema.json#/$defs/ContentHash" },
+        "entryAssetHash": { "$ref": "script-document-v1.schema.json#/$defs/ContentHash" },
+        "badgeAssets": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/GraphicBadgeAsset" }
+        }
+      }
+    },
+    "GraphicBadgeAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assetId", "contentHash"],
+      "properties": {
+        "assetId": { "type": "string", "pattern": "^asset_[A-Za-z0-9_-]+$" },
+        "contentHash": { "$ref": "script-document-v1.schema.json#/$defs/ContentHash" }
       }
     },
     "CompilerTimelineSettings": {

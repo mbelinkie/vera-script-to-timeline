@@ -182,8 +182,28 @@
         "message": {
           "type": "string",
           "minLength": 1
+        },
+        "graphicMaterialization": {
+          "type": "string",
+          "enum": ["live", "placeholder", "baked"]
+        },
+        "manualCompletionRequired": {
+          "type": "boolean"
         }
-      }
+      },
+      "dependentRequired": { "graphicMaterialization": ["manualCompletionRequired"] },
+      "allOf": [
+        {
+          "if": { "properties": { "graphicMaterialization": { "const": "placeholder" } }, "required": ["graphicMaterialization"] },
+          "then": {
+            "properties": { "disposition": { "const": "placeholder" }, "manualCompletionRequired": { "const": true } }
+          },
+          "else": {
+            "if": { "properties": { "graphicMaterialization": {} }, "required": ["graphicMaterialization"] },
+            "then": { "properties": { "disposition": { "const": "placed" }, "manualCompletionRequired": { "const": false } } }
+          }
+        }
+      ]
     },
     "BuildIssue": {
       "type": "object",

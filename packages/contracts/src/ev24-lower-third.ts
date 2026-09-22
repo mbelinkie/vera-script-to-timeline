@@ -13,7 +13,8 @@ import {
 const SETTING = "EV24 Lower Third.setting";
 const ATLAS = "ev24_badges_atlas.png";
 const TEST_BADGE = "badge_override_test_only.png";
-const SETTING_HASH = "sha256:7abb4e07a3c6472fd93e6b752a8623855f2fa03a8591fff10e6e33746e7ff2df";
+export const EV24_SETTING_HASH = "sha256:7abb4e07a3c6472fd93e6b752a8623855f2fa03a8591fff10e6e33746e7ff2df";
+const SETTING_HASH = EV24_SETTING_HASH;
 const ATLAS_HASH = "sha256:008cea751e3d18a15436fe5701755c0fd7a3a023f1b7f5c585f9796007c766fd";
 const TEST_BADGE_HASH = "sha256:a631b15479a795f0f614b7681d9210dac74bd2583b311f8c8861682543a58003";
 

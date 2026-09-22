@@ -150,6 +150,12 @@ def _validate_semantics(manifest: JsonObject, media_root: Path) -> None:
     tracks = cast(list[JsonObject], manifest["tracks"])
     sources = cast(list[JsonObject], manifest["sources"])
     events = cast(list[JsonObject], manifest["events"])
+    if any(event["kind"] == "fusion_graphic" for event in events) or any(
+        source["kind"] == "fusion_template" for source in sources
+    ):
+        raise PackageBuildError(
+            "fusion_graphic requires a future verified graphic package adapter"
+        )
     transitions = cast(list[JsonObject], manifest["transitions"])
     markers = cast(list[JsonObject], manifest["markers"])
 

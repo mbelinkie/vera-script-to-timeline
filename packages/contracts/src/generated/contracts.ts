@@ -3,6 +3,22 @@
  * Do not edit by hand.
  */
 
+export type EventBuildResult = {
+  [k: string]: unknown;
+} & {
+  eventId: string;
+  disposition: "placed" | "placeholder" | "manual_completion" | "blocked";
+  sourceId: string;
+  /**
+   * Stable opaque track identity. Media kind and ordering are separate structural fields; consumers must not infer either from this string.
+   */
+  trackId: string;
+  trackKind: "video" | "audio" | "subtitle";
+  recordRange: FrameRange;
+  message: string;
+  graphicMaterialization?: "live" | "placeholder" | "baked";
+  manualCompletionRequired?: boolean;
+};
 export type NarrationDependency = {
   [k: string]: unknown;
 } & {
@@ -136,7 +152,7 @@ export interface TextAnchorRange {
 export interface VisualEvent {
   id: string;
   range: TextAnchorRange;
-  source: LocalMediaVisualSource | PlaceholderVisualSource;
+  source: LocalMediaVisualSource | PlaceholderVisualSource | CuratedFusionGraphicSource;
   presentationMode: "full_frame" | "overlay";
   framingPolicy: "contain" | "cover" | "native";
   /**
@@ -164,6 +180,74 @@ export interface PlaceholderVisualSource {
   kind: "placeholder";
   description: string;
   unresolvedVisual: true;
+}
+export interface CuratedFusionGraphicSource {
+  kind: "curated_fusion_graphic";
+  templateKey: "ev24-lower-third";
+  projectRevisionId: string;
+  packageDigest: string;
+  semanticInputs: Ev24SemanticInputs;
+}
+export interface Ev24SemanticInputs {
+  country:
+    | "albania"
+    | "andorra"
+    | "armenia"
+    | "australia"
+    | "austria"
+    | "azerbaijan"
+    | "belarus"
+    | "belgium"
+    | "bosnia-and-herzegovina"
+    | "bulgaria"
+    | "canada"
+    | "croatia"
+    | "cyprus"
+    | "czechia"
+    | "denmark"
+    | "estonia"
+    | "finland"
+    | "france"
+    | "georgia"
+    | "germany"
+    | "greece"
+    | "hungary"
+    | "iceland"
+    | "ireland"
+    | "israel"
+    | "italy"
+    | "latvia"
+    | "lithuania"
+    | "luxembourg"
+    | "malta"
+    | "moldova"
+    | "monaco"
+    | "montenegro"
+    | "morocco"
+    | "netherlands"
+    | "north-macedonia"
+    | "norway"
+    | "poland"
+    | "portugal"
+    | "romania"
+    | "russia"
+    | "san-marino"
+    | "serbia"
+    | "serbia-and-montenegro"
+    | "slovakia"
+    | "slovenia"
+    | "spain"
+    | "sweden"
+    | "switzerland"
+    | "turkiye"
+    | "ukraine"
+    | "united-kingdom"
+    | "yugoslavia"
+    | "otis";
+  year?: number;
+  topLineOverride: string | null;
+  bottomLineOverride: string | null;
+  badgeOverrideAssetId: string | null;
 }
 export interface HardCut {
   kind: "hard_cut";
@@ -230,8 +314,12 @@ export interface TimelineManifestV1 {
     VideoTrack | AudioTrack | SubtitleTrack,
     ...(VideoTrack | AudioTrack | SubtitleTrack)[],
   ];
-  sources: (VideoSource | StillSource | AudioSource | PlaceholderSource)[];
-  events: (VideoEvent | StillEvent | AudioEvent | PlaceholderEvent)[];
+  sources: (
+    VideoSource | StillSource | AudioSource | PlaceholderSource | FusionTemplateSource
+  )[];
+  events: (
+    VideoEvent | StillEvent | AudioEvent | PlaceholderEvent | FusionGraphicEvent
+  )[];
   transitions: HardCutTransition[];
   markers: (PlacedMarker | UnplacedMarker)[];
 }
@@ -325,6 +413,14 @@ export interface PlaceholderSource {
   kind: "placeholder";
   label: string;
   reason: string;
+}
+export interface FusionTemplateSource {
+  id: string;
+  kind: "fusion_template";
+  templateKey: "ev24-lower-third";
+  projectRevisionId: string;
+  packageDigest: string;
+  entryAssetHash: string;
 }
 export interface VideoEvent {
   id: string;
@@ -434,6 +530,40 @@ export interface PlaceholderEvent {
   alignmentVersion: string;
   provenance: EventProvenance;
 }
+export interface FusionGraphicEvent {
+  id: string;
+  kind: "fusion_graphic";
+  sourceId: string;
+  /**
+   * Stable opaque track identity. Media kind and ordering are separate structural fields; consumers must not infer either from this string.
+   */
+  trackId: string;
+  trackKind: "video";
+  recordRange: FrameRange;
+  anchor: TextAnchorRange;
+  /**
+   * Honest precision of the alignment used to resolve a semantic anchor into integer frames.
+   */
+  timingPrecision:
+    | "word"
+    | "sentence"
+    | "cue"
+    | "frame"
+    | "word_start_with_derived_end"
+    | "sentence_start_with_derived_end"
+    | "unavailable";
+  alignmentVersion: string;
+  semanticSnapshot: ResolvedEv24SemanticSnapshot;
+  semanticSnapshotHash: string;
+  provenance: EventProvenance;
+}
+export interface ResolvedEv24SemanticSnapshot {
+  values: Ev24SemanticInputs;
+  badgeAsset: null | {
+    assetId: string;
+    contentHash: string;
+  };
+}
 export interface HardCutTransition {
   id: string;
   kind: "hard_cut";
@@ -501,18 +631,6 @@ export interface BuildSummary {
   warningCount: number;
   errorCount: number;
 }
-export interface EventBuildResult {
-  eventId: string;
-  disposition: "placed" | "placeholder" | "manual_completion" | "blocked";
-  sourceId: string;
-  /**
-   * Stable opaque track identity. Media kind and ordering are separate structural fields; consumers must not infer either from this string.
-   */
-  trackId: string;
-  trackKind: "video" | "audio" | "subtitle";
-  recordRange: FrameRange;
-  message: string;
-}
 export interface BuildIssue {
   id: string;
   severity: "info" | "warning" | "error" | "blocking";
@@ -554,12 +672,14 @@ export interface CompilerDependenciesV1 {
   roles: TrackRoles;
   narration: NarrationDependency[];
   resolvedVisuals: ResolvedVisualDependency[];
+  resolvedGraphics?: ResolvedGraphicDependency[];
 }
 export interface BuildContext {
   buildId: string;
   manifestId: string;
   reportId: string;
   buildClass: "preview" | "release";
+  graphicDeliveryTarget?: "studio" | "free";
   timeline: CompilerTimelineSettings;
 }
 export interface CompilerTimelineSettings {
@@ -613,6 +733,18 @@ export interface TimingMark {
 export interface ResolvedSourceAudio {
   source: AudioSource;
   sourceStartFrame: number;
+}
+export interface ResolvedGraphicDependency {
+  projectId: string;
+  projectRevisionId: string;
+  templateKey: "ev24-lower-third";
+  packageDigest: string;
+  entryAssetHash: string;
+  badgeAssets: GraphicBadgeAsset[];
+}
+export interface GraphicBadgeAsset {
+  assetId: string;
+  contentHash: string;
 }
 /**
  * Canonical deterministic sidecar for a narration-only prompter text artifact.

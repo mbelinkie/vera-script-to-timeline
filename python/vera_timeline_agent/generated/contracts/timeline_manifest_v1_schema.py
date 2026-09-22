@@ -56,6 +56,15 @@ class SubtitleTrack(TypedDict):
 type ProjectRelativePath = str
 
 
+class FusionTemplateSource(TypedDict):
+    id: script_document_v1_schema.EntityId
+    kind: Literal["fusion_template"]
+    templateKey: Literal["ev24-lower-third"]
+    projectRevisionId: str
+    packageDigest: script_document_v1_schema.ContentHash
+    entryAssetHash: script_document_v1_schema.ContentHash
+
+
 class VideoSource(TypedDict):
     id: script_document_v1_schema.EntityId
     kind: Literal["video"]
@@ -115,6 +124,16 @@ type TimingPrecision = Literal[
     "sentence_start_with_derived_end",
     "unavailable",
 ]
+
+
+class BadgeAsset(TypedDict):
+    assetId: str
+    contentHash: script_document_v1_schema.ContentHash
+
+
+class ResolvedEv24SemanticSnapshot(TypedDict):
+    values: script_document_v1_schema.Ev24SemanticInputs
+    badgeAsset: BadgeAsset | None
 
 
 class VideoEvent(TypedDict):
@@ -206,13 +225,32 @@ class UnplacedMarker(TypedDict):
 type Track = VideoTrack | AudioTrack | SubtitleTrack
 
 
-type MediaSource = VideoSource | StillSource | AudioSource | PlaceholderSource
+type MediaSource = (
+    VideoSource | StillSource | AudioSource | PlaceholderSource | FusionTemplateSource
+)
 
 
-type TimelineEvent = VideoEvent | StillEvent | AudioEvent | PlaceholderEvent
+class FusionGraphicEvent(TypedDict):
+    id: script_document_v1_schema.EntityId
+    kind: Literal["fusion_graphic"]
+    sourceId: script_document_v1_schema.EntityId
+    trackId: TrackId
+    trackKind: Literal["video"]
+    recordRange: FrameRange
+    anchor: script_document_v1_schema.TextAnchorRange
+    timingPrecision: TimingPrecision
+    alignmentVersion: str
+    semanticSnapshot: ResolvedEv24SemanticSnapshot
+    semanticSnapshotHash: script_document_v1_schema.ContentHash
+    provenance: EventProvenance
 
 
 type TimelineMarker = PlacedMarker | UnplacedMarker
+
+
+type TimelineEvent = (
+    VideoEvent | StillEvent | AudioEvent | PlaceholderEvent | FusionGraphicEvent
+)
 
 
 class TimelineManifestV1(TypedDict):

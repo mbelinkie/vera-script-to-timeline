@@ -39,6 +39,69 @@ class NarrationToken(TypedDict):
 type AnchorAffinity = Literal["before", "after"]
 
 
+class Ev24SemanticInputs(TypedDict):
+    country: Literal[
+        "albania",
+        "andorra",
+        "armenia",
+        "australia",
+        "austria",
+        "azerbaijan",
+        "belarus",
+        "belgium",
+        "bosnia-and-herzegovina",
+        "bulgaria",
+        "canada",
+        "croatia",
+        "cyprus",
+        "czechia",
+        "denmark",
+        "estonia",
+        "finland",
+        "france",
+        "georgia",
+        "germany",
+        "greece",
+        "hungary",
+        "iceland",
+        "ireland",
+        "israel",
+        "italy",
+        "latvia",
+        "lithuania",
+        "luxembourg",
+        "malta",
+        "moldova",
+        "monaco",
+        "montenegro",
+        "morocco",
+        "netherlands",
+        "north-macedonia",
+        "norway",
+        "poland",
+        "portugal",
+        "romania",
+        "russia",
+        "san-marino",
+        "serbia",
+        "serbia-and-montenegro",
+        "slovakia",
+        "slovenia",
+        "spain",
+        "sweden",
+        "switzerland",
+        "turkiye",
+        "ukraine",
+        "united-kingdom",
+        "yugoslavia",
+        "otis",
+    ]
+    year: NotRequired[int]
+    topLineOverride: str | None
+    bottomLineOverride: str | None
+    badgeOverrideAssetId: str | None
+
+
 class LocalMediaVisualSource(TypedDict):
     kind: Literal["local_media"]
     mediaReferenceId: EntityId
@@ -93,7 +156,12 @@ class HostVisibilitySpan(TypedDict):
     version: EntityVersion
 
 
-type Phase1VisualSource = LocalMediaVisualSource | PlaceholderVisualSource
+class CuratedFusionGraphicSource(TypedDict):
+    kind: Literal["curated_fusion_graphic"]
+    templateKey: Literal["ev24-lower-third"]
+    projectRevisionId: str
+    packageDigest: ContentHash
+    semanticInputs: Ev24SemanticInputs
 
 
 type NullableHardCut = HardCut | None
@@ -112,6 +180,11 @@ class PerformanceBeat(TypedDict):
     id: EntityId
     range: TextAnchorRange
     version: EntityVersion
+
+
+type Phase1VisualSource = (
+    LocalMediaVisualSource | PlaceholderVisualSource | CuratedFusionGraphicSource
+)
 
 
 class VisualEvent(TypedDict):
