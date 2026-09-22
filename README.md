@@ -375,6 +375,52 @@ and duration solution for the tested Resolve Studio 21.0.4 build 5 baseline.
 This does not claim stock-title catalog enumeration or arbitrary Fusion-title
 support.
 
+## Durable build-job core demonstration (Slice 1.7)
+
+The local job CLI demonstrates the Free/Studio stage state machine and recovery
+with fake output under `out/issue-35-demo/`. It does not call a voice provider,
+compiler, Resolve, or delivery service. A stage adapter must check its stable
+stage key before performing an effect and publish an immutable receipt; the
+core fences late workers with lease epochs and verifies completed receipts.
+
+Submit a Free test job and copy the printed `jobId`:
+
+```sh
+rtk uv run --frozen python -m vera_timeline_agent.build_jobs_cli \
+  --root out/issue-35-demo submit --project demo --snapshot frozen-1 \
+  --key demo-1 --mode free
+```
+
+Run its worker, replacing `JOB_ID` with the printed ID:
+
+```sh
+rtk uv run --frozen python -m vera_timeline_agent.build_jobs_cli \
+  --root out/issue-35-demo run --project demo --job JOB_ID \
+  --lease-seconds 15 --delay-speech-block 10
+```
+
+After `speech block 1 verified` appears, force-quit that worker process. Restart
+it with the same job ID; `--wait-for-lease` waits for the first worker's lease
+to expire:
+
+```sh
+rtk uv run --frozen python -m vera_timeline_agent.build_jobs_cli \
+  --root out/issue-35-demo run --project demo --job JOB_ID --wait-for-lease
+```
+
+Inspect the stage states, artifact hashes, progress events, and expired/new
+attempts with `status`:
+
+```sh
+rtk uv run --frozen python -m vera_timeline_agent.build_jobs_cli \
+  --root out/issue-35-demo status --project demo --job JOB_ID
+```
+
+Submitting `demo-1` again returns the same job ID. The first speech block's
+hash and file stay unchanged; the Free job ends at `ready_to_import` until an
+explicit `confirm-import` command records user confirmation. The automated
+force-kill version of this exercise is in `tests/test_build_jobs.py`.
+
 ## Slice workflow
 
 Agent guardrails live in [`AGENTS.md`](./AGENTS.md). Decisions and unresolved
