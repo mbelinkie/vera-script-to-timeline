@@ -1,7 +1,9 @@
 # Issue 134 — isolated Resolve Free environment evidence
 
-Status: **External macOS verified and Resolve Free installer staged; external installation and baseline proof pending**  
-Evidence date: **2026-09-23**  
+Status: **External Resolve Free baseline verified; return-to-Studio check pending**
+
+Evidence date: **2026-09-23**
+
 Acceptance authority: **External**
 
 This record deliberately excludes serials, UUIDs, personal paths, project
@@ -121,11 +123,11 @@ Perform these steps only after sections 2 and 3 are complete.
 | 1 | Erase only the confirmed external physical SSD as GUID/APFS. | Internal startup device remains untouched; external disk has at least 180 GiB usable. | Producer performed the reformat; read-only verification found `VERA Resolve Free`, GUID/APFS, external USB, 1.0 TB total and about 999.8 GB free. |
 | 2 | Install the selected macOS onto the external APFS destination. | The Mac can boot the separate external system. | Verified from the returned internal boot: the external sealed system volume reports macOS 15.8 build 24H23 and remains on the external 1.0 TB APFS device. |
 | 3 | Create one test-only local user and decline Migration Assistant/data transfer. | No Studio user, project, database, preference, or media is copied. | Producer reports the guided external setup is complete; the external data volume contains the completed Setup Assistant marker. No account name or other personal detail is retained. |
-| 4 | Create one external test root with child locations for project-library, media-storage, cache-proxy, gallery, renders, and VERA-test. | Every test working location is visibly under the external root. | Pending |
-| 5 | From the external system, acquire the selected Resolve Free installer from Blackmagic and record the exact version before running it. | Only the selected Free build is installed on the external system. | Official Free 20.2.3 macOS disk image acquired and staged, but not run, in the external system's Shared folder. The image checksum is valid; its installer is Apple-notarized and signed by Blackmagic Design Inc. Retained SHA-256: `d4b7b1b11008aed44d22d1de30d948b51404c61144de847095304f154d20b75b`. |
-| 6 | Launch Free and record the edition/version and macOS version from the external boot. | The application identifies as Free and matches the selected versions. | Pending |
-| 7 | Point project/library, media storage, cache/proxy, gallery, render, and VERA test locations to their external-root children. | No internal or Studio-owned location is selected. | Pending |
-| 8 | Create a disposable external project/library, close Free, reopen Free, and reopen the disposable project. | The project/library reopens successfully. | Pending |
+| 4 | Create one external test root with child locations for project-library, media-storage, cache-proxy, gallery, renders, and VERA-test. | Every test working location is visibly under the external root. | A single root and all six children were created on the external startup Data volume. Read-only mount and device checks matched the external system and Data volume; about 895 GiB remained available after installation, above the 180 GiB gate. The clean repository checkout is also under this root. |
+| 5 | From the external system, acquire the selected Resolve Free installer from Blackmagic and record the exact version before running it. | Only the selected Free build is installed on the external system. | The Producer ran the selected Free 20.2.3 installer in the external macOS and handled its administrator UI. The installed main application is `DaVinci Resolve` version 20.2.3 (bundle build 20.2.30006), with no Studio designation. The staged installer SHA-256 was reverified before installation: `d4b7b1b11008aed44d22d1de30d948b51404c61144de847095304f154d20b75b`. |
+| 6 | Launch Free and record the edition/version and macOS version from the external boot. | The application identifies as Free and matches the selected versions. | The external sealed system volume identified as `VERA Resolve Free`; `sw_vers` reported macOS 15.8 build 24H23. The Producer launched the non-Studio application and observed the `DaVinci Resolve 20` splash screen, version 20.2.3 build 6, then confirmed the same Free version after relaunch. No private screenshot is retained. |
+| 7 | Point project/library, media storage, cache/proxy, gallery, render, and VERA test locations to their external-root children. | No internal or Studio-owned location is selected. | The Producer confirmed a local project library under `project-library`; Media Storage under `media-storage`; proxy generation set to use project settings; project media under `media-storage`; proxy and cache files under `cache-proxy`; gallery stills under `gallery`; and Deliver output under `renders`. The backup location was set under `project-library` where selectable. Automatic display of attached storage was disabled. `VERA-test` remains reserved for later isolated tests. The Producer reported no internal path selected. |
+| 8 | Create a disposable external project/library, close Free, reopen Free, and reopen the disposable project. | The project/library reopens successfully. | The Producer created a disposable local library and project under the external root, saved the project, quit Resolve, relaunched Free 20.2.3, selected the external library, and reopened the project successfully. No #10 or #36 package or Studio data was imported. |
 | 9 | Shut down, boot the internal startup system, and open existing Studio. | Studio 21.1.0 opens and the Producer sees the prior projects in their existing locations. | Pending |
 
 This proves only the isolated environment baseline. Do not import a #10 or #36
@@ -153,7 +155,8 @@ The issue-to-task procedure for later work in this environment is maintained in
 
 ## 6. Acceptance state
 
-All setup and return-to-Studio evidence is pending. #134 must not move to In
-review until the external environment is actually provisioned and every
-pending field relevant to the acceptance criteria is filled with public-safe
-evidence.
+The external Free baseline is provisioned and its disposable project reopened.
+The return-to-Studio check in step 9 is pending. Keep #134 in progress; do not
+move it to In review or Done until Studio 21.1.0 and the pre-existing projects
+are confirmed from the internal startup system and that result is retained as
+public-safe evidence. No #10 or #36 acceptance was attempted.
