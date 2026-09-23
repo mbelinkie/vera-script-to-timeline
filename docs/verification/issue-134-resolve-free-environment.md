@@ -103,7 +103,7 @@ stop.
 | Original Secure Boot value | Pending |
 | Original Allowed Boot Media value | Pending |
 | Change required? | Pending |
-| Producer's immediate policy-change authorization, if needed | Pending |
+| Producer's immediate policy-change authorization, if needed | Authorized on 2026-09-22: permit external/removable boot only if currently disallowed; leave Secure Boot unchanged |
 | Restoration value | Pending |
 
 Changing the Secure Boot level is not part of the default plan. If the signed
