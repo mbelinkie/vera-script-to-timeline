@@ -7,6 +7,10 @@ assigned Ready issue on the GitHub Project configured in
 `docs/IMPLEMENTATION_PROGRESS.md` is retained as a historical orchestration and
 acceptance record, not a live tracker.
 
+External Resolve Free execution: before dispatching or claiming an issue that
+must run in the isolated external environment, read
+`docs/external-resolve-free-codex-handoff.md` and satisfy its eligibility gate.
+
 ## Slice ritual
 
 - Keep work within one bounded slice and state scope, exclusions, touched

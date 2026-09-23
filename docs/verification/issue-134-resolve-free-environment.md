@@ -133,6 +133,10 @@ package and do not record acceptance for either issue here.
 
 ## 5. Removal and restoration handoff
 
+The issue-to-task procedure for later work in this environment is maintained in
+`docs/external-resolve-free-codex-handoff.md`. It becomes operative only after
+#134 is accepted and Done; it does not claim acceptance for #10 or #36.
+
 1. Shut down the external test system and boot the internal Studio system.
 2. Confirm Studio opens and the prior projects remain available before any
    removal decision.

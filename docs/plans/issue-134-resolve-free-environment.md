@@ -74,4 +74,6 @@ The ordered action/check/expected-result script is maintained in
 `docs/verification/issue-134-resolve-free-environment.md`. The issue remains in
 progress until setup is complete, then remains In review until the required
 real-environment evidence is retained. It is never closed by an agent report
-alone.
+alone. After #134 is accepted and Done, issues that must execute in this
+environment follow `docs/external-resolve-free-codex-handoff.md`; that procedure
+does not authorize #10, #36, or any other issue to start early.
