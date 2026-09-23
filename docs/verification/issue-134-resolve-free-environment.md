@@ -1,6 +1,6 @@
 # Issue 134 — isolated Resolve Free environment evidence
 
-Status: **External macOS installed and verified; Resolve Free setup pending**  
+Status: **External macOS verified and Resolve Free installer staged; external installation and baseline proof pending**  
 Evidence date: **2026-09-23**  
 Acceptance authority: **External**
 
@@ -100,13 +100,13 @@ stop.
 
 | T2 evidence | Recorded value |
 | --- | --- |
-| Original Secure Boot value | Pending |
-| Original Allowed Boot Media value | Pending |
+| Original Secure Boot value | Full Security; unchanged during the instructed setup and confirmed in the post-setup photo |
+| Original Allowed Boot Media value | Disallow booting from external or removable media; Producer report on 2026-09-23 |
 | Verified post-setup Secure Boot value | Full Security; Producer-supplied Recovery photo inspected, private photo not retained |
 | Verified post-setup Allowed Boot Media value | Allow booting from external or removable media; Producer-supplied Recovery photo inspected, private photo not retained |
-| Change required? | Pending Producer report: the post-setup photo does not establish whether external boot was already allowed or was changed during this setup |
+| Change required? | Yes; Producer reports changing Allowed Boot Media from disallow to allow |
 | Producer's immediate policy-change authorization, if needed | Authorized on 2026-09-22: permit external/removable boot only if currently disallowed; leave Secure Boot unchanged |
-| Restoration value | Pending |
+| Restoration value | Disallow booting from external or removable media |
 
 Changing the Secure Boot level is not part of the default plan. If the signed
 Apple macOS installer fails under the recorded Secure Boot setting, stop and
@@ -122,7 +122,7 @@ Perform these steps only after sections 2 and 3 are complete.
 | 2 | Install the selected macOS onto the external APFS destination. | The Mac can boot the separate external system. | Verified from the returned internal boot: the external sealed system volume reports macOS 15.8 build 24H23 and remains on the external 1.0 TB APFS device. |
 | 3 | Create one test-only local user and decline Migration Assistant/data transfer. | No Studio user, project, database, preference, or media is copied. | Producer reports the guided external setup is complete; the external data volume contains the completed Setup Assistant marker. No account name or other personal detail is retained. |
 | 4 | Create one external test root with child locations for project-library, media-storage, cache-proxy, gallery, renders, and VERA-test. | Every test working location is visibly under the external root. | Pending |
-| 5 | From the external system, acquire the selected Resolve Free installer from Blackmagic and record the exact version before running it. | Only the selected Free build is installed on the external system. | Pending |
+| 5 | From the external system, acquire the selected Resolve Free installer from Blackmagic and record the exact version before running it. | Only the selected Free build is installed on the external system. | Official Free 20.2.3 macOS disk image acquired and staged, but not run, in the external system's Shared folder. The image checksum is valid; its installer is Apple-notarized and signed by Blackmagic Design Inc. Retained SHA-256: `d4b7b1b11008aed44d22d1de30d948b51404c61144de847095304f154d20b75b`. |
 | 6 | Launch Free and record the edition/version and macOS version from the external boot. | The application identifies as Free and matches the selected versions. | Pending |
 | 7 | Point project/library, media storage, cache/proxy, gallery, render, and VERA test locations to their external-root children. | No internal or Studio-owned location is selected. | Pending |
 | 8 | Create a disposable external project/library, close Free, reopen Free, and reopen the disposable project. | The project/library reopens successfully. | Pending |
