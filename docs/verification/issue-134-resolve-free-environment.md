@@ -1,6 +1,6 @@
 # Issue 134 — isolated Resolve Free environment evidence
 
-Status: **External Resolve Free baseline verified; return-to-Studio check pending**
+Status: **External Resolve Free baseline and internal Studio return check verified**
 
 Evidence date: **2026-09-23**
 
@@ -128,7 +128,7 @@ Perform these steps only after sections 2 and 3 are complete.
 | 6 | Launch Free and record the edition/version and macOS version from the external boot. | The application identifies as Free and matches the selected versions. | The external sealed system volume identified as `VERA Resolve Free`; `sw_vers` reported macOS 15.8 build 24H23. The Producer launched the non-Studio application and observed the `DaVinci Resolve 20` splash screen, version 20.2.3 build 6, then confirmed the same Free version after relaunch. No private screenshot is retained. |
 | 7 | Point project/library, media storage, cache/proxy, gallery, render, and VERA test locations to their external-root children. | No internal or Studio-owned location is selected. | The Producer confirmed a local project library under `project-library`; Media Storage under `media-storage`; proxy generation set to use project settings; project media under `media-storage`; proxy and cache files under `cache-proxy`; gallery stills under `gallery`; and Deliver output under `renders`. The backup location was set under `project-library` where selectable. Automatic display of attached storage was disabled. `VERA-test` remains reserved for later isolated tests. The Producer reported no internal path selected. |
 | 8 | Create a disposable external project/library, close Free, reopen Free, and reopen the disposable project. | The project/library reopens successfully. | The Producer created a disposable local library and project under the external root, saved the project, quit Resolve, relaunched Free 20.2.3, selected the external library, and reopened the project successfully. No #10 or #36 package or Studio data was imported. |
-| 9 | Shut down, boot the internal startup system, and open existing Studio. | Studio 21.1.0 opens and the Producer sees the prior projects in their existing locations. | Pending |
+| 9 | Shut down, boot the internal startup system, and open existing Studio. | Studio 21.1.0 opens and the Producer sees the prior projects in their existing locations. | After completing the external test, the Producer booted the internal startup system and confirmed that Resolve Studio opened and the prior projects remained available. A read-only application-bundle check on the returned internal system recorded version 21.1.0 (bundle build 21.1.00014). No discrepancy was reported, and no cleanup or change to Studio data was performed. |
 
 This proves only the isolated environment baseline. Do not import a #10 or #36
 package and do not record acceptance for either issue here.
@@ -156,7 +156,7 @@ The issue-to-task procedure for later work in this environment is maintained in
 ## 6. Acceptance state
 
 The external Free baseline is provisioned and its disposable project reopened.
-The return-to-Studio check in step 9 is pending. Keep #134 in progress; do not
-move it to In review or Done until Studio 21.1.0 and the pre-existing projects
-are confirmed from the internal startup system and that result is retained as
-public-safe evidence. No #10 or #36 acceptance was attempted.
+The Producer then returned to the internal startup system, opened Resolve
+Studio, and confirmed that the prior projects remained available. This
+public-safe record satisfies #134's External acceptance criteria. No #10 or
+#36 acceptance was attempted.
