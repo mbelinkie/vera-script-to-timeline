@@ -528,7 +528,7 @@ def _probe(path: Path, executable: str) -> JsonObject:
         "error",
         "-count_frames",
         "-show_entries",
-        "stream=codec_type,width,height,channels,sample_rate,r_frame_rate,avg_frame_rate,nb_frames,nb_read_frames,duration,duration_ts,time_base",
+        "stream=codec_type,width,height,channels,sample_rate,pix_fmt,r_frame_rate,avg_frame_rate,nb_frames,nb_read_frames,duration,duration_ts,time_base",
         "-of",
         "json",
         str(path),
