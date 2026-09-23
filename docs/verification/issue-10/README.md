@@ -22,7 +22,14 @@ manifest/report, OTIO, and instructions. OTIO retains this data under
 or created, so no baked fallback is accepted or claimed. The original Studio
 release and Free placeholder behavior remain unchanged.
 
-## Resolve Free 21 checklist
+## Selected Resolve Free acceptance baseline
+
+Issue #134 selected **Resolve Free 20.2.3 on macOS Sequoia 15.8** as the
+compatible external-boot baseline for this 2019 Intel Mac. This is the target
+environment for the pending acceptance run; it is not evidence that this
+package has already imported or played correctly there.
+
+## Resolve Free 20.2.3 checklist
 
 1. Render the approved EV24 revision and exact semantic snapshot in Resolve
    Studio to alpha-capable media; record edition, build, renderer version, and
@@ -30,8 +37,8 @@ release and Free placeholder behavior remain unchanged.
 2. Create a candidate plan with the exact event/template/snapshot/manual-item
    identities and render origin.
 3. Run `uv run python -m vera_timeline_agent.resolve_import_package.baked_graphics <manifest> <report> <materialization-plan> <baked-plan> --output <project>`.
-4. Import `<project>/Builds/<build-id>/timeline.otio` into the tested Resolve
-   Free 21 baseline without media replacement; compare animation, alpha,
+4. Import `<project>/Builds/<build-id>/timeline.otio` into the selected Resolve
+   Free 20.2.3 / macOS Sequoia 15.8 baseline without media replacement; compare animation, alpha,
    text/badge values, dimensions, rate, and duration to Studio.
 5. Record `ACCEPT #10` with receipt path and baseline, or `FAIL #10` with the
    observed discrepancy. A failure must not alter the Studio path.

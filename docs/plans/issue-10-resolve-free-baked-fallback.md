@@ -52,8 +52,10 @@ receipt hashes after publication.
    `uv run python -m vera_timeline_agent.resolve_import_package.baked_graphics
    <manifest> <report> <materialization-plan> <baked-graphic-plan> --output
    <authoring-project>`.
-3. In the tested Resolve Free 21 baseline, import the retained `timeline.otio`
-   without relinking or replacing media.
+3. In the selected compatible Resolve Free 20.2.3 / macOS Sequoia 15.8
+   external-boot baseline from issue #134, import the retained `timeline.otio`
+   without relinking or replacing media. That selection is not import/playback
+   evidence; this step retains the pending external acceptance result.
 4. Play the complete graphic range. Confirm entrance, hold, exit, text/badge
    values, rate, duration, and transparent regions against the Studio result.
 5. Record `ACCEPT #10` only if all checks match, otherwise record `FAIL #10`
