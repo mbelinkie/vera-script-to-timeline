@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en" data-horizontal-overflow="pending">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>VERA — Issue 127 controlled S03 pilot</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --desk: #0a0b0d;
+        --app: #0f1116;
+        --raised: #171a20;
+        --border: #262b33;
+        --gold: #c49b50;
+        --paper: #fbfaf7;
+        --ink: #202329;
+        --muted: #656c78;
+        --line: #dfe2e6;
+        --focus: #8b651c;
+        --on-camera: #fbf4e4;
+        --on-camera-line: #b8933f;
+        --footage: #eef5fb;
+        --footage-line: #587da0;
+        --capture: #edf8f6;
+        --capture-line: #4d817a;
+        --graphic: #f4effb;
+        --graphic-line: #7b61a8;
+        --music: #eee8fa;
+        --music-line: #785aa5;
+        --unresolved: #faf4e6;
+        --unresolved-line: #9b7738;
+        --author-size: 1;
+        font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+      html { background: #d9dadd; }
+      body { margin: 0; min-width: 320px; color: #17191d; }
+      button, input { font: inherit; }
+      button { cursor: pointer; }
+      :focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+      [hidden] { display: none !important; }
+
+      .review-harness {
+        min-height: 100vh;
+        padding: 18px;
+        background: #e5e6e8;
+      }
+      .review-copy {
+        width: min(1180px, 100%);
+        margin: 0 auto 14px;
+        color: #30343a;
+      }
+      .review-copy .eyebrow {
+        color: #735619;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+      }
+      .review-copy h1 { margin: 5px 0 4px; font-size: clamp(22px, 3vw, 32px); }
+      .review-copy p { max-width: 900px; margin: 4px 0; line-height: 1.45; }
+      .review-copy strong { font-weight: 750; }
+
+      .decision-bar {
+        display: flex;
+        align-items: center;
+        gap: 12px 18px;
+        width: min(1180px, 100%);
+        margin: 0 auto 14px;
+        padding: 12px 14px;
+        border: 1px solid #bfc2c7;
+        border-radius: 8px;
+        background: #f7f7f8;
+        flex-wrap: wrap;
+      }
+      .decision-bar fieldset { display: flex; gap: 10px; margin: 0; padding: 0; border: 0; }
+      .decision-bar legend { float: left; margin-right: 10px; font-size: 12px; font-weight: 750; }
+      .decision-bar label { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
+      .decision-bar .spacer { flex: 1; }
+      .decision-bar button {
+        min-height: 30px;
+        padding: 0 10px;
+        border: 1px solid #999ea6;
+        border-radius: 6px;
+        background: white;
+        color: #25282d;
+      }
+
+      .app {
+        width: min(1180px, 100%);
+        margin: 0 auto;
+        overflow: hidden;
+        border: 1px solid #242933;
+        border-radius: 10px;
+        background: var(--app);
+        box-shadow: 0 24px 62px rgb(0 0 0 / 24%);
+      }
+      .titlebar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 31px;
+        padding: 0 13px;
+        border-bottom: 1px solid var(--border);
+        background: #171a20;
+        color: #8b929e;
+        font-size: 11px;
+      }
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: #3a4048; }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 50px;
+        padding: 8px 14px;
+        background: #0f1116;
+        color: #e7e4dd;
+      }
+      .brand { color: #f4e1b9; font-weight: 750; }
+      .crumb { color: #8b929e; font-size: 11px; }
+      .toolbar .spacer { flex: 1; }
+      .save-state { font-size: 11px; color: #c3c8d0; }
+      .toolbar button {
+        min-height: 30px;
+        padding: 0 10px;
+        border: 1px solid #3f4753;
+        border-radius: 6px;
+        background: #1c2028;
+        color: #e7e4dd;
+      }
+
+      .stage { padding: 16px; background: var(--desk); }
+      .paper {
+        position: relative;
+        overflow: visible;
+        border-radius: 8px;
+        background: var(--paper);
+        color: var(--ink);
+      }
+      .paper-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 48px;
+        padding: 10px 17px;
+        border-bottom: 1px solid var(--line);
+      }
+      .paper-head strong { font-size: calc(15px * var(--author-size)); }
+      .paper-head span { color: var(--muted); font-size: 11px; }
+      .paper-head .spacer { flex: 1; }
+      .legend { display: flex; gap: 7px; flex-wrap: wrap; }
+      .legend span { padding: 3px 7px; border: 1px solid var(--line); border-radius: 999px; background: white; }
+
+      .passage { position: relative; padding-right: 22px; }
+      .section-title {
+        padding: 13px 18px 8px;
+        border-bottom: 1px solid var(--line);
+        font-size: calc(16px * var(--author-size));
+        font-weight: 750;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: minmax(0, 3fr) minmax(250px, 2fr);
+        border-bottom: 1px solid var(--line);
+      }
+      .spoken, .visuals { min-width: 0; padding: 14px 16px; }
+      .spoken {
+        font-size: calc(14.5px * var(--author-size));
+        line-height: 1.82;
+        text-wrap: pretty;
+      }
+      .spoken p { margin: 0; }
+      .visuals {
+        display: grid;
+        align-content: start;
+        gap: 7px;
+        border-left: 1px solid var(--line);
+        background: #f4f3ef;
+      }
+      .visuals[aria-label="Visual-only row"] { min-height: 92px; }
+      .visual-stack { display: grid; gap: 7px; }
+
+      .range-text {
+        border-radius: 3px;
+        transition: background .12s ease, box-shadow .12s ease;
+      }
+      .range-text:focus-visible { outline-offset: 1px; }
+      .endpoint { white-space: nowrap; }
+      .bracket { color: #58616d; font-family: ui-monospace, Menlo, monospace; font-weight: 800; }
+      .ordinal {
+        display: inline-grid;
+        min-width: 16px;
+        height: 16px;
+        place-items: center;
+        margin: 0 2px;
+        border: 1px solid currentColor;
+        border-radius: 50%;
+        color: #3f566d;
+        font: 700 9px/1 ui-monospace, Menlo, monospace;
+        vertical-align: 1px;
+      }
+      [data-show-number="false"] .ordinal { display: none; }
+      [data-number-emphasis="quiet"] .ordinal { opacity: .62; transform: scale(.86); }
+      .range-text.is-active { background: #e7eff7; box-shadow: 0 0 0 2px #7692ad inset; }
+      .music-segment.is-active { background: linear-gradient(transparent 76%, #d9cbed 76%); }
+      .cue {
+        display: inline-grid;
+        width: 17px;
+        height: 17px;
+        place-items: center;
+        margin-right: 2px;
+        border: 1px dashed var(--graphic-line);
+        border-radius: 50%;
+        background: var(--graphic);
+        color: #654990;
+        font-size: 10px;
+        vertical-align: 1px;
+      }
+      .on-camera-text { font-weight: 600; }
+
+      .card {
+        position: relative;
+        display: grid;
+        gap: 6px;
+        min-width: 0;
+        padding: 8px 9px;
+        border: 1px solid var(--card-line, #ccd1d7);
+        border-left-width: 3px;
+        border-radius: 7px;
+        background: var(--card-fill, white);
+        transition: box-shadow .12s ease, border-color .12s ease;
+      }
+      .card[data-range]:hover, .card[data-range]:focus-within, .card.is-active {
+        border-color: #456987;
+        box-shadow: 0 0 0 2px #7692ad;
+      }
+      .card.on-camera { --card-fill: var(--on-camera); --card-line: var(--on-camera-line); }
+      .card.footage { --card-fill: var(--footage); --card-line: var(--footage-line); }
+      .card.capture { --card-fill: var(--capture); --card-line: var(--capture-line); }
+      .card.graphic {
+        --card-fill: var(--graphic);
+        --card-line: var(--graphic-line);
+        border-style: dashed;
+      }
+      .card.unresolved { --card-fill: var(--unresolved); --card-line: var(--unresolved-line); }
+      .card:focus-visible { outline-offset: 2px; }
+      .card-head { display: flex; align-items: center; gap: 7px; min-width: 0; }
+      .type-pill {
+        flex: 0 0 auto;
+        padding: 2px 6px;
+        border: 1px solid var(--card-line, #aab1ba);
+        border-radius: 999px;
+        background: rgb(255 255 255 / 72%);
+        font-size: 9px;
+        font-weight: 800;
+        letter-spacing: .03em;
+        text-transform: uppercase;
+      }
+      .card-title { min-width: 0; overflow-wrap: anywhere; font-size: calc(12.5px * var(--author-size)); font-weight: 750; }
+      .card-range { margin-left: auto; color: #4f5864; font: 700 10px/1 ui-monospace, Menlo, monospace; white-space: nowrap; }
+      .card[data-show-number="false"] .card-range { display: none; }
+      .card[data-number-emphasis="quiet"] .card-range { color: #737b85; font-size: 9px; font-weight: 600; }
+      .card-body { display: flex; gap: 8px; min-width: 0; }
+      .thumb {
+        flex: 0 0 66px;
+        height: 38px;
+        overflow: hidden;
+        border: 1px solid rgb(0 0 0 / 14%);
+        border-radius: 4px;
+        background:
+          linear-gradient(155deg, transparent 44%, rgb(240 221 171 / 70%) 45% 51%, transparent 52%),
+          linear-gradient(12deg, #4f7382 0 42%, #91b1b4 43% 64%, #d3c08a 65%);
+      }
+      .thumb.web { background: linear-gradient(#d9e8e4 0 10px, #fff 10px 18px, #8fb9af 18px 23px, #eff6f4 23px); }
+      .thumb.quote { background: linear-gradient(135deg, #3d5663, #79949d); }
+      body[data-thumbs="off"] .thumb { display: none; }
+      .facts { display: flex; min-width: 0; align-items: center; gap: 5px 9px; flex-wrap: wrap; color: #48515d; font-size: 10.5px; }
+      .fact { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+      .fact strong { color: #24282e; }
+      .transcript { margin: 0; color: #363d46; font-size: 11px; line-height: 1.35; }
+      details { font-size: 10.5px; color: #47505b; }
+      details summary { width: max-content; cursor: pointer; font-weight: 700; }
+      details p { margin: 5px 0 0; line-height: 1.4; }
+      .overlay-note { color: #654990; font-size: 10px; font-weight: 700; }
+      .intent-anchor { color: #6e5422; font-size: 10px; font-weight: 700; }
+
+      .music-wrap {
+        position: absolute;
+        z-index: 5;
+        top: 58px;
+        right: 3px;
+        bottom: 102px;
+        width: 18px;
+      }
+      .music-rail {
+        width: 18px;
+        height: 100%;
+        padding: 0;
+        border: 1px solid var(--music-line);
+        border-radius: 999px;
+        background: var(--music);
+        color: #604587;
+        font: 800 9px/1 ui-monospace, Menlo, monospace;
+      }
+      .music-rail::before, .music-rail::after {
+        position: absolute;
+        left: 50%;
+        width: 7px;
+        height: 7px;
+        border: 2px solid var(--music-line);
+        border-radius: 50%;
+        background: white;
+        content: "";
+        transform: translateX(-50%);
+      }
+      .music-rail::before { top: 6px; }
+      .music-rail::after { bottom: 6px; }
+      .music-popover {
+        position: absolute;
+        right: 25px;
+        top: 36%;
+        width: min(270px, calc(100vw - 70px));
+        padding: 11px;
+        border: 1px solid #64507e;
+        border-radius: 8px;
+        background: #211b2a;
+        color: #f3edf9;
+        box-shadow: 0 16px 38px rgb(0 0 0 / 36%);
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-50%);
+      }
+      .music-wrap:hover .music-popover, .music-wrap:focus-within .music-popover {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .music-popover strong { display: block; font-size: 12px; }
+      .music-popover p { margin: 5px 0 9px; color: #d2c6df; font-size: 10.5px; line-height: 1.4; }
+      .music-popover label { display: grid; grid-template-columns: 72px 1fr 38px; align-items: center; gap: 6px; margin-top: 7px; font-size: 10px; }
+      .music-popover output { font-family: ui-monospace, Menlo, monospace; }
+
+      .when-replaced { display: none; }
+      body[data-found="true"] .need-card .when-unresolved { display: none; }
+      body[data-found="true"] .need-card .when-replaced { display: initial; }
+      body[data-found="true"] .need-card { --card-fill: var(--footage); --card-line: var(--footage-line); }
+      body[data-graphic="true"] .quote-card .when-unresolved { display: none; }
+      body[data-graphic="true"] .quote-card .when-replaced { display: initial; }
+      body[data-graphic="true"] .quote-card { --card-fill: var(--graphic); --card-line: var(--graphic-line); }
+      body[data-text="small"] { --author-size: .9; }
+
+      .visual-only-label { color: #68717c; font-size: 11px; font-style: italic; }
+      .full-sound { border-color: #557b6e; background: #eef7f2; }
+      .full-sound .type-pill { border-color: #557b6e; }
+
+      @media (max-width: 760px) {
+        .review-harness { padding: 10px; }
+        .row { grid-template-columns: minmax(0, 1fr); }
+        .visuals { border-top: 1px solid var(--line); border-left: 0; }
+        .legend { display: none; }
+        .passage { padding-right: 22px; }
+      }
+    </style>
+  </head>
+  <body data-labels="minimal" data-thumbs="on" data-text="default" data-found="false" data-graphic="false">
+    <div class="review-harness">
+      <header class="review-copy">
+        <div class="eyebrow">Issue 127 · controlled decision pilot · not a successor</div>
+        <h1>Persistent range identity without authoring clutter</h1>
+        <p><strong>Decision:</strong> Should every timed visual keep a stable visible number, with a quieter ordinal when its card is alone, or should Minimal remove that singleton number?</p>
+        <p>The story, anchors, cards, interactions, and layout remain constant. Only persistent ordinal visibility changes. Reconciliation colors and decisions are absent.</p>
+      </header>
+
+      <section class="decision-bar" aria-label="Controlled pilot options">
+        <fieldset>
+          <legend>Range labels</legend>
+          <label><input type="radio" name="labels" value="minimal" /> Minimal</label>
+          <label><input type="radio" name="labels" value="numbered" checked /> Numbered · recommended</label>
+        </fieldset>
+        <label><input id="found-toggle" type="checkbox" /> Replace Need to Find</label>
+        <label><input id="graphic-toggle" type="checkbox" /> Replace Graphic intent</label>
+        <span class="spacer"></span>
+        <button id="text-toggle" type="button" aria-pressed="false">Small text</button>
+        <button id="thumb-toggle" type="button" aria-pressed="false">Thumbnails 0%</button>
+      </section>
+
+      <main class="app" aria-label="Controlled authoring range pilot">
+        <div class="titlebar"><span class="dot"></span> vera.suite / script-to-timeline / harbor-lights-explainer</div>
+        <div class="toolbar">
+          <span class="brand">Harbor Lights Explainer</span>
+          <span class="crumb">Draft · Section 3</span>
+          <span class="spacer"></span>
+          <span class="save-state">Saved · pilot only</span>
+          <button type="button">Undo</button>
+          <button type="button">Readiness</button>
+        </div>
+
+        <div class="stage">
+          <article class="paper">
+            <header class="paper-head">
+              <strong>Why the reading jumped</strong>
+              <span>Connected authoring passage</span>
+              <span class="spacer"></span>
+              <div class="legend" aria-label="Visual type legend">
+                <span>On Camera</span><span>Footage</span><span>Still / web</span><span>Graphic</span><span>Music</span>
+              </div>
+            </header>
+
+            <section class="passage" aria-label="One controlled authoring sample">
+              <h2 class="section-title">At the harbor mouth</h2>
+
+              <div class="row" data-non-oc-cards="2">
+                <div class="spoken">
+                  <p><span class="on-camera-text">Today we're at the harbor mouth, </span><span class="music-segment" data-range="R6"><span class="endpoint"><span class="bracket">[</span><span class="ordinal">6</span>under</span><span class="on-camera-text"> a quiet morning sky, where </span><span class="range-text" data-range="R1" data-number-policy="row" tabindex="0" aria-label="Range 1, quiet footage, from one to signal"><span class="endpoint"><span class="bracket">[</span><span class="ordinal">1</span>one</span> small sensor has been producing a strange-looking <span class="endpoint">signal<span class="ordinal">1</span><span class="bracket">]</span></span></span><span class="on-camera-text">. I'm </span><span class="range-text on-camera-text" data-range="R2" data-number-policy="row" tabindex="0" aria-label="Range 2, transparent lower-third Graphic, Wren Alvarez"><span class="endpoint"><span class="bracket">[</span><span class="ordinal">2</span>Wren</span> <span class="endpoint">Alvarez<span class="ordinal">2</span><span class="bracket">]</span></span></span><span class="on-camera-text">, and the picture can stay with me while that name appears.</span></span></p>
+                </div>
+                <div class="visuals">
+                  <article class="card on-camera" tabindex="0" aria-label="On Camera base, presenter remains visible">
+                    <div class="card-head"><span class="type-pill">On Camera</span><span class="card-title">Presenter visible</span></div>
+                  </article>
+                  <article class="card footage" data-range="R1" data-number-policy="row" tabindex="0" aria-label="Range 1 Footage, quiet sound, 4.8 seconds, slow push">
+                    <div class="card-head"><span class="type-pill">Footage</span><span class="card-title">Sensor at the waterline</span><span class="card-range">R1</span></div>
+                    <div class="card-body"><span class="thumb" role="img" aria-label="Sensor housing at the waterline"></span><div class="facts"><span class="fact"><strong>~4.8s</strong> needed</span><span class="fact">Quiet sound</span><span class="fact">Slow push</span></div></div>
+                    <details><summary>Details</summary><p>Source `housing_waterline_0911.mov` · 00:03.200–00:08.000 of 00:41.600 · Research clip `clip-418`.</p></details>
+                  </article>
+                  <article class="card graphic" data-range="R2" data-number-policy="row" tabindex="0" aria-label="Range 2 transparent Graphic, lower third for Wren Alvarez">
+                    <div class="card-head"><span class="type-pill">Graphic</span><span class="card-title">Lower third · Wren Alvarez</span><span class="card-range">R2</span></div>
+                    <span class="overlay-note">Transparent overlay · presenter stays visible</span>
+                  </article>
+                </div>
+              </div>
+
+              <div class="row" data-non-oc-cards="1">
+                <div class="spoken">
+                  <p><span class="music-segment" data-range="R6">The harbor authority publishes <span class="range-text" data-range="R3" data-number-policy="row" tabindex="0" aria-label="Range 3, web capture, from a public to upload"><span class="endpoint"><span class="bracket">[</span><span class="ordinal">3</span>a</span> public status page for every station. That page listed the maintenance visit and the time of the last successful <span class="endpoint">upload<span class="ordinal">3</span><span class="bracket">]</span></span></span><span class="on-camera-text">. Back on camera, those details rule out a communications failure.</span></span></p>
+                </div>
+                <div class="visuals">
+                  <article class="card capture" data-range="R3" data-number-policy="row" tabindex="0" aria-label="Range 3 Still or web capture, station status page">
+                    <div class="card-head"><span class="type-pill">Web capture</span><span class="card-title">Station status · verified page</span><span class="card-range">R3</span></div>
+                    <div class="card-body"><span class="thumb web" role="img" aria-label="Captured station status page"></span><div class="facts"><span class="fact"><strong>~9.1s</strong> needed</span><span class="fact">Opaque cutaway</span></div></div>
+                    <details><summary>Details</summary><p>Stable range ID R3 · captured URL revision capture-0925-01 · fit width · source page retained as provenance.</p></details>
+                  </article>
+                  <article class="card on-camera" tabindex="0" aria-label="On Camera resumes after opaque cutaway">
+                    <div class="card-head"><span class="type-pill">On Camera</span><span class="card-title">↩ On Camera resumes</span></div>
+                  </article>
+                </div>
+              </div>
+
+              <div class="row" data-non-oc-cards="3">
+                <div class="spoken">
+                  <p><span class="music-segment" data-range="R6">The keeper's footage shows <span class="range-text" data-range="R4" data-number-policy="row" tabindex="0" aria-label="Range 4, moving footage, from the tide to clear"><span class="endpoint"><span class="bracket">[</span><span class="ordinal">4</span>the</span> tide sliding past the housing in its <span class="cue" tabindex="0" aria-label="Quote Graphic cue on ordinary">◇</span><span class="range-text" data-range="R5" data-number-policy="row" tabindex="0" aria-label="Range 5, transparent quote Graphic, ordinary tide"><span class="endpoint"><span class="bracket">[</span><span class="ordinal">5</span>ordinary</span> <span class="endpoint">tide<span class="ordinal">5</span><span class="bracket">]</span></span></span>, leaving the opening <span class="endpoint">clear<span class="ordinal">4</span><span class="bracket">]</span></span></span><span class="endpoint"><span class="ordinal">6</span><span class="bracket">]</span></span></span>. We still need <span class="range-text" data-range="R7" data-number-policy="row" tabindex="0" aria-label="Range 7, unresolved visual intent, from one final to clear"><span class="endpoint"><span class="bracket">[</span><span class="ordinal">7</span>one</span> final close view that proves the housing stays <span class="endpoint">clear<span class="ordinal">7</span><span class="bracket">]</span></span></span>.</p>
+                </div>
+                <div class="visuals">
+                  <article class="card footage" data-range="R4" data-number-policy="row" tabindex="0" aria-label="Range 4 Footage, no sound, 6.2 seconds">
+                    <div class="card-head"><span class="type-pill">Footage</span><span class="card-title">Tide moving past housing</span><span class="card-range">R4</span></div>
+                    <div class="card-body"><span class="thumb quote" role="img" aria-label="Moving water around sensor housing"></span><div class="facts"><span class="fact"><strong>6.2s</strong></span><span class="fact">No sound</span></div></div>
+                    <details><summary>Details</summary><p>Source `tide_pass_0911.mov` · 00:11.400–00:17.600 of 00:36.200 · no source audio in program.</p></details>
+                  </article>
+                  <article class="card graphic unresolved quote-card" data-range="R5" data-number-policy="row" tabindex="0" aria-label="Range 5 transparent quote Graphic intent or replacement, anchors ordinary tide">
+                    <div class="card-head"><span class="type-pill"><span class="when-unresolved">Graphic intent</span><span class="when-replaced">Graphic</span></span><span class="card-title"><span class="when-unresolved">Quote treatment · “ordinary tide”</span><span class="when-replaced">Harbor quote · “ordinary tide”</span></span><span class="card-range">R5</span></div>
+                    <span class="overlay-note">Transparent overlay · moving footage continues</span>
+                    <span class="intent-anchor">Anchors remain `ordinary` → `tide` · stable ID R5</span>
+                  </article>
+                  <article class="card unresolved need-card" data-range="R7" data-number-policy="row" tabindex="0" aria-label="Range 7 Need to Find or found footage, anchors one final through clear">
+                    <div class="card-head"><span class="type-pill"><span class="when-unresolved">Need to Find</span><span class="when-replaced">Footage</span></span><span class="card-title"><span class="when-unresolved">Close view · clear housing</span><span class="when-replaced">Clear housing inspection</span></span><span class="card-range">R7</span></div>
+                    <div class="card-body"><span class="thumb when-replaced" role="img" aria-label="Found close view of clear sensor housing"></span><div class="facts"><span class="when-unresolved">Unresolved visual intent</span><span class="when-replaced"><strong>~3.4s</strong> · No sound</span></div></div>
+                    <span class="intent-anchor">Anchors remain `one` → `clear` · stable ID R7</span>
+                    <details><summary>Details</summary><p><span class="when-unresolved">Search request: close, unobstructed sensor housing after the tide falls.</span><span class="when-replaced">Source `housing_clear_0924.mov` · 00:04.100–00:07.500 of 00:22.000.</span></p></details>
+                  </article>
+                </div>
+              </div>
+
+              <div class="row" data-non-oc-cards="1">
+                <div class="spoken"><p class="visual-only-label">Visual-only beat · no narration anchor</p></div>
+                <div class="visuals" aria-label="Visual-only row">
+                  <article class="card footage full-sound" tabindex="0" aria-label="Standalone Footage, full sound, 8.6 seconds, program transcript">
+                    <div class="card-head"><span class="type-pill">Footage</span><span class="card-title">Keeper confirms the reading</span></div>
+                    <div class="card-body"><span class="thumb" role="img" aria-label="Keeper speaking beside the sensor"></span><div class="facts"><span class="fact"><strong>8.6s</strong></span><span class="fact">Full sound</span></div></div>
+                    <p class="transcript">“Once the opening cleared, the readings settled immediately.”</p>
+                    <details><summary>Details</summary><p>Source `keeper_confirm_0924.mov` · 00:18.000–00:26.600 of 01:12.000 · program audio is primary.</p></details>
+                  </article>
+                </div>
+              </div>
+
+              <div class="music-wrap" data-range="R6">
+                <button class="music-rail" type="button" aria-label="Range 6 Music bed, starts at under and ends at clear, open trim and fade details">6</button>
+                <div class="music-popover" role="dialog" aria-label="Music range 6 details">
+                  <strong>Music 6 · Harbor Close Bed</strong>
+                  <p>Placed from start word <b>under</b> to out-word <b>clear.</b> across three authoring rows. The rows remain independent.</p>
+                  <label>Source trim <input id="music-trim" type="range" min="0" max="20" step="0.5" value="2.5" aria-label="Music source trim in seconds" /><output for="music-trim">2.5s</output></label>
+                  <label>Fade out <input id="music-fade" type="range" min="0" max="8" step="0.5" value="2" aria-label="Music fade out in seconds" /><output for="music-fade">2.0s</output></label>
+                </div>
+              </div>
+            </section>
+          </article>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      const numberingPolicy = Object.freeze({
+        presentation({ mode, nonOnCameraCardCount }) {
+          return {
+            visible: mode === "numbered" || nonOnCameraCardCount >= 2,
+            emphasis: nonOnCameraCardCount >= 2 ? "standard" : "quiet",
+          };
+        },
+      });
+
+      const body = document.body;
+      const params = new URLSearchParams(location.search);
+      const state = {
+        labels: params.get("mode") === "minimal" ? "minimal" : "numbered",
+        thumbs: params.get("thumbs") === "0" ? "off" : "on",
+        text: params.get("text") === "small" ? "small" : "default",
+        found: params.get("found") === "true",
+        graphic: params.get("graphic") === "true",
+      };
+
+      function applyState() {
+        Object.assign(body.dataset, state);
+        document.querySelectorAll("[data-number-policy='row']").forEach(node => {
+          const nonOnCameraCardCount = Number(node.closest(".row").dataset.nonOcCards);
+          const presentation = numberingPolicy.presentation({ mode: state.labels, nonOnCameraCardCount });
+          node.dataset.showNumber = String(presentation.visible);
+          node.dataset.numberEmphasis = presentation.emphasis;
+        });
+        document.querySelectorAll('input[name="labels"]').forEach(input => { input.checked = input.value === state.labels; });
+        document.querySelector("#found-toggle").checked = state.found;
+        document.querySelector("#graphic-toggle").checked = state.graphic;
+        const textButton = document.querySelector("#text-toggle");
+        textButton.setAttribute("aria-pressed", String(state.text === "small"));
+        textButton.textContent = state.text === "small" ? "Default text" : "Small text";
+        const thumbButton = document.querySelector("#thumb-toggle");
+        thumbButton.setAttribute("aria-pressed", String(state.thumbs === "off"));
+        thumbButton.textContent = state.thumbs === "off" ? "Thumbnails default" : "Thumbnails 0%";
+        reportOverflow();
+        requestAnimationFrame(reportOverflow);
+      }
+
+      function reportOverflow() {
+        document.documentElement.dataset.horizontalOverflow = String(document.documentElement.scrollWidth > window.innerWidth);
+        document.documentElement.dataset.cardFit = String([...document.querySelectorAll(".card, .visuals")].every(node => node.scrollWidth <= node.clientWidth + 1));
+      }
+
+      function activateRange(range) {
+        document.querySelectorAll(".is-active").forEach(node => node.classList.remove("is-active"));
+        if (!range) return;
+        document.querySelectorAll(`[data-range="${range}"]`).forEach(node => node.classList.add("is-active"));
+      }
+
+      document.querySelectorAll('input[name="labels"]').forEach(input => input.addEventListener("change", () => { state.labels = input.value; applyState(); }));
+      document.querySelector("#found-toggle").addEventListener("change", event => { state.found = event.currentTarget.checked; applyState(); });
+      document.querySelector("#graphic-toggle").addEventListener("change", event => { state.graphic = event.currentTarget.checked; applyState(); });
+      document.querySelector("#text-toggle").addEventListener("click", () => { state.text = state.text === "small" ? "default" : "small"; applyState(); });
+      document.querySelector("#thumb-toggle").addEventListener("click", () => { state.thumbs = state.thumbs === "off" ? "on" : "off"; applyState(); });
+
+      document.addEventListener("pointerover", event => activateRange(event.target.closest("[data-range]")?.dataset.range));
+      document.addEventListener("pointerout", event => { if (!event.relatedTarget?.closest?.("[data-range]")) activateRange(null); });
+      document.addEventListener("focusin", event => activateRange(event.target.closest("[data-range]")?.dataset.range));
+      document.addEventListener("focusout", event => { if (!event.relatedTarget?.closest?.("[data-range]")) activateRange(null); });
+
+      document.querySelectorAll(".music-popover input").forEach(input => input.addEventListener("input", () => {
+        input.nextElementSibling.value = `${Number(input.value).toFixed(1)}s`;
+      }));
+      addEventListener("resize", reportOverflow);
+      applyState();
+    </script>
+  </body>
+</html>
