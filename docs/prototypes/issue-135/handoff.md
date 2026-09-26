@@ -1,6 +1,8 @@
 # Issue 135 — S03 v3 authoring artifact handoff
 
-Status: **candidate ready for Producer review; not accepted**.
+Status: **Producer accepted on 26 September 2026**.
+
+Acceptance evidence: the Producer responded exactly **`Issue #135 S03 v3 artifact accepted`** after completing the checklist below.
 
 ## Exact artifact
 
@@ -161,4 +163,4 @@ Use only the retained export with SHA-256 `c6bdb9db77f4ce6484649a028c68d9dd49fcb
 6. Turn both Examples off. Expected: M3 disappears, only M1 and M2 remain, and no `Locally modified` indicator appears.
 7. Judge whether the combined rows, Audio workflow, readiness behavior, and density are suitable as the main S03 authoring space.
 
-Record acceptance with the exact response **`Issue #135 S03 v3 artifact accepted`**, or return it with the row/control and observed failure. Until that response, issue #135 remains in review.
+Acceptance was recorded with the exact response **`Issue #135 S03 v3 artifact accepted`** on 26 September 2026.
