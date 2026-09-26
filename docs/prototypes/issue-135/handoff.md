@@ -87,6 +87,7 @@ The clean seed contains **M1 and M2 only**. The next new audio bed is **M3**.
 - Edited narration, then used Undo and Redo; the text moved backward and forward as expected.
 - Inserted a row, observed the document grow from 22 to 23 rows, then undid the insertion and returned to 22.
 - Moved a timed range endpoint with the keyboard; the narration anchor changed and the focused endpoint showed a visible 2px solid outline.
+- Used a visual card's pointer control to focus its narration range, then right-clicked the start endpoint and confirmed the exact-range menu exposed Change start/end word and derive media/word endpoint actions.
 - Used row 5's visual move menu to put its second Footage item before the first.
 - Opened Footage details and exercised the source-video, transcript, cut-on-word/media-outpoint, preview, trim, quiet-sound, and provenance controls.
 - Moved the document-wide column divider from 60% to 62%, then used Home to restore 60%.
@@ -94,7 +95,7 @@ The clean seed contains **M1 and M2 only**. The next new audio bed is **M3**.
 - Opened Settings and confirmed the presenter-thumbnail toggle, configured presenter name, authoring-size control, explanatory copy, and Reset; the review view was restored to 100% text afterward.
 - Reloaded the non-saving `?seed=clean` control copy and confirmed that it returned to the clean 22-row seed.
 
-Pointer dragging and right-click endpoint commands remain represented and keyboard-equivalent behavior was exercised, but this handoff does not claim an exhaustive pass over every drag or context-menu path.
+Pointer and keyboard range inspection plus the right-click endpoint menu were exercised. This handoff does not claim an exhaustive pass over every possible drag path or every command in that menu.
 
 ## Content preservation and deterministic verification
 
