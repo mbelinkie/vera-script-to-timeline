@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VERA S05 outbound review — issue 128 pilot</title>
+  <link rel="stylesheet" href="../issue-127/source-v2/issue32-shared-system-v1.0.0.css">
+  <style>
+    /* Private read-only adaptation of the accepted #135 S03 v3 row source.
+       Frozen authority: c6bdb9db77f4ce6484649a028c68d9dd49fcb72a8250b70c11cfd5d534ecfbea.
+       Reused: type themes, row proportions, narration range grammar, compact
+       card faces, transparent Graphic perimeter/ticks, M-identity and rails.
+       Adapted: authoring mutations removed; annotations and inspection only. */
+    :root {
+      --paper: #f7f6f2;
+      --ink: #16181c;
+      --muted: #5b626c;
+      --line: #dfe2e6;
+      --panel: #fff;
+      --selected: #315e49;
+      --selected-bg: #edf7f1;
+      --skipped: #6d5316;
+      --skipped-bg: #fdf7e6;
+      --blocked: #8c2f26;
+      --blocked-bg: #fbf1ef;
+      --change: #247343;
+      --remove: #9a3b34;
+      --music: #6e4b8f;
+      --radius: 8px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #eceae4; color: var(--ink); font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif); }
+    button, input, select { font: inherit; }
+    button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid #6e4b8f; outline-offset: 2px; }
+    .harness { background: #161920; color: #e7e4dd; padding: 10px 16px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px 18px; font-size: 12px; }
+    .harness strong { color: #f0e0bb; letter-spacing: .04em; text-transform: uppercase; }
+    .harness label { display: inline-flex; align-items: center; gap: 6px; }
+    .harness select, .harness button { min-height: 30px; border: 1px solid #5a626e; border-radius: 6px; background: #232830; color: #f2efe8; padding: 0 9px; }
+    .app { width: min(100%, 1400px); min-height: 100vh; margin: 0 auto; background: var(--paper); box-shadow: 0 0 30px rgb(30 34 40 / 12%); }
+    .topbar { position: sticky; top: 0; z-index: 20; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 14px 18px; border-bottom: 1px solid #cfd3d8; background: rgb(247 246 242 / 96%); backdrop-filter: blur(10px); }
+    .eyebrow { margin: 0 0 3px; color: #6d5316; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: 21px; line-height: 1.15; }
+    .sub { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+    .top-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+    .count { display: inline-flex; align-items: center; min-height: 28px; padding: 0 9px; border: 1px solid #cfd3d8; border-radius: 999px; background: #fff; font-size: 12px; font-weight: 700; }
+    .btn { min-height: 32px; padding: 0 11px; border: 1px solid #b9bec6; border-radius: 6px; background: #fff; color: var(--ink); cursor: pointer; }
+    .btn:hover { background: #f0f1f2; }
+    .btn.primary { border-color: #315e49; background: #315e49; color: #fff; font-weight: 700; }
+    .btn.primary:disabled { border-color: #a6acb4; background: #d7dadd; color: #646a72; cursor: not-allowed; }
+    .notice { margin: 14px 18px 0; padding: 10px 12px; border: 1px solid #c9ab68; border-radius: 8px; background: #fff8e7; color: #5e4818; font-size: 13px; }
+    .notice.error { border-color: #c98a82; background: var(--blocked-bg); color: #6e2721; }
+    .notice.success { border-color: #8bb69e; background: var(--selected-bg); color: #234b37; }
+    main { display: grid; gap: 12px; padding: 14px 18px 88px; }
+    .change { display: grid; grid-template-columns: minmax(218px, 252px) minmax(0, 1fr); border: 1px solid #cfd3d8; border-radius: 10px; background: #fff; overflow: clip; }
+    .rail { padding: 13px; border-right: 2px solid #c3c8cf; background: #f1f2f3; }
+    .rail.selected { border-right-color: var(--selected); background: var(--selected-bg); }
+    .rail.skipped { border-right-color: #b8933f; background: var(--skipped-bg); }
+    .rail.blocked { border-right-color: var(--blocked); background: var(--blocked-bg); }
+    .rail-head { display: flex; align-items: flex-start; gap: 9px; }
+    .rail-head input { width: 18px; height: 18px; margin: 1px 0 0; accent-color: #315e49; }
+    .rail h2 { margin: 0; font-size: 14px; line-height: 1.25; }
+    .state { display: inline-flex; margin-top: 8px; min-height: 22px; align-items: center; padding: 0 7px; border: 1px solid currentColor; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+    .selected .state { color: var(--selected); }
+    .skipped .state { color: var(--skipped); }
+    .blocked .state { color: var(--blocked); }
+    .entities { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; color: #4a515b; font-size: 11px; }
+    .entities li::before { content: "◆"; margin-right: 6px; color: #6e4b8f; font-size: 8px; }
+    .consequence { min-height: 34px; margin: 10px 0 0; color: #343941; font-size: 12px; line-height: 1.4; }
+    .rail-controls { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+    .rail-controls .btn { min-height: 28px; padding: 0 8px; font-size: 11px; }
+    .stage { min-width: 0; padding: 13px; }
+    .surface-label { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0 0 8px; color: #3b414a; font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+    .surface-label span:last-child { color: var(--muted); font-weight: 600; letter-spacing: 0; text-transform: none; }
+    .compare { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .pane { min-width: 0; border: 1px solid #dfe2e6; border-radius: 8px; background: #fafafa; padding: 9px; }
+    .pane.current { background: #f7f7f7; }
+    .pane.after { border-color: #b6cabb; background: #fbfdfb; }
+    .rows { display: grid; gap: 7px; }
+    .section { margin: 6px 0 0; padding: 7px 8px 5px; border-bottom: 1px solid #c9ab68; color: #6d5316; font-size: 12px; font-weight: 800; }
+    .s03-row { display: grid; grid-template-columns: minmax(0, 3fr) minmax(145px, 2fr); min-width: 0; border: 1px solid #e0e3e6; border-radius: 7px; background: #fff; overflow: hidden; }
+    .compare .s03-row { grid-template-columns: minmax(0, 1fr); }
+    .prose { min-width: 0; padding: 10px 11px; color: #2b2f36; font-size: 13px; line-height: 1.72; }
+    .visuals { min-width: 0; display: grid; align-content: start; gap: 6px; padding: 7px; border-left: 1px solid #e2e5e8; background: #fbfbfa; }
+    .compare .visuals { border-left: 0; border-top: 1px solid #e2e5e8; }
+    .range-wrap { display: inline; }
+    .cap { display: inline-block; margin: 0 .08em; padding: 0 1px; border: 0; background: transparent; color: #20455c; cursor: pointer; font: 700 13px/1 var(--font-ui, sans-serif); }
+    .cap.graphic { color: #5f3f73; }
+    .range-inspected { text-decoration: underline dotted #315e49 2px; text-underline-offset: 4px; }
+    .word-change { border-radius: 3px; background: #e7f4eb; box-shadow: inset 0 -2px #3f8a5b; }
+    .word-remove { border-radius: 3px; background: #f8e9e7; color: #7d2f29; text-decoration: line-through; }
+    .endpoint-change { box-shadow: 0 0 0 2px #3f8a5b; border-radius: 2px; }
+    .card { min-width: 0; display: grid; gap: 5px; padding: 7px; border: 1px solid var(--card-border, #c9cdd3); border-radius: 7px; background: var(--card-wash, #f5f6f7); }
+    .card.transparent { border-style: dashed; }
+    .card-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .ordinal { flex: 0 0 auto; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1px solid var(--card-border); border-radius: 999px; background: #fff; color: var(--card-ink); cursor: pointer; font: 800 11px/1 ui-monospace, monospace; }
+    .type { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--card-ink); font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    .card-title { color: #20242a; font-size: 12px; font-weight: 650; line-height: 1.3; overflow-wrap: anywhere; }
+    .meta { color: var(--muted); font: 10.5px/1.35 ui-monospace, monospace; }
+    .thumb { width: 100%; aspect-ratio: 16 / 6; border: 1px solid #d8dbdf; border-radius: 5px; background: #1f242b center / cover no-repeat; }
+    .details { border-top: 1px solid #dfe2e6; padding-top: 5px; }
+    .details summary { cursor: pointer; color: #4a515b; font-size: 11px; font-weight: 700; }
+    .details p { margin: 5px 0 0; color: #4a515b; font-size: 11px; line-height: 1.4; }
+    .oc-chip { display: inline-flex; align-items: center; width: max-content; max-width: 100%; padding: 4px 8px; border: 1px dashed #c9ab68; border-radius: 999px; background: #fff8e7; color: #725619; font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+    .evidence-group { display: grid; gap: 7px; padding: 8px; border: 1px solid #d6a7a2; border-radius: 8px; background: #fff9f8; }
+    .evidence-label { color: #7b312b; font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+    .evidence-group .s03-row { opacity: .92; }
+    .seam, .move-stub { padding: 9px 10px; border: 1px dashed #9ba2ab; border-radius: 7px; background: #f4f5f6; color: #4a515b; font-size: 12px; line-height: 1.4; }
+    .seam strong, .move-stub strong { color: #2b2f36; }
+    .move-stub a { color: #315e49; font-weight: 800; }
+    .music-row { position: relative; padding-right: 14px; }
+    .music-rail { position: absolute; z-index: 3; right: 4px; top: 0; bottom: 0; width: 3px; border-radius: 3px; background: var(--music); }
+    .music-rail.start::before, .music-rail.end::after { content: ""; position: absolute; right: 0; width: 12px; height: 3px; background: var(--music); }
+    .music-rail.start::before { top: 0; }
+    .music-rail.end::after { bottom: 0; }
+    .music-rail.duration { background: linear-gradient(to bottom, var(--music) 0%, var(--music) 45%, rgb(110 75 143 / 0%) 100%); }
+    .music-face { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; color: #5f3f73; font-size: 11px; font-weight: 700; }
+    .music-face b { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 20px; border-radius: 5px; background: #f2ecf7; }
+    .annotation { padding: 5px 7px; border-left: 3px solid #3f8a5b; background: #edf7f1; color: #244f35; font-size: 11px; line-height: 1.35; }
+    .annotation.skipped { border-left-color: #b8933f; background: #fdf7e6; color: #6d5316; }
+    .offline { padding: 7px; border: 1px solid #c98a82; border-radius: 6px; background: #fbf1ef; color: #7b312b; font-size: 11px; line-height: 1.4; }
+    .offline .btn { margin-top: 6px; min-height: 27px; font-size: 11px; }
+    .result-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; margin-top: 8px; }
+    .result-cell { padding: 7px; border: 1px solid #dfe2e6; border-radius: 6px; background: #fff; font-size: 11px; }
+    .result-cell b { display: block; margin-bottom: 3px; }
+    .bottom { position: fixed; left: 50%; bottom: 12px; z-index: 30; transform: translateX(-50%); width: min(calc(100% - 36px), 1100px); display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 11px; border: 1px solid #aeb4bd; border-radius: 9px; background: rgb(255 255 255 / 96%); box-shadow: 0 10px 28px rgb(20 24 30 / 20%); backdrop-filter: blur(10px); }
+    .bottom-copy { min-width: 0; color: #343941; font-size: 12px; }
+    .bottom-copy strong { display: block; color: #16181c; }
+    [hidden] { display: none !important; }
+    @media (max-width: 1080px) {
+      .change { grid-template-columns: minmax(205px, 225px) minmax(0, 1fr); }
+      .compare { gap: 7px; }
+      .stage { padding: 10px; }
+      .rail { padding: 10px; }
+      .s03-row { grid-template-columns: minmax(0, 1fr) minmax(128px, 42%); }
+      .topbar { grid-template-columns: 1fr; }
+      .top-actions { justify-content: flex-start; }
+    }
+    @media (max-width: 760px) {
+      .change { grid-template-columns: 1fr; }
+      .rail { border-right: 0; border-bottom: 2px solid #c3c8cf; }
+      .compare { grid-template-columns: 1fr; }
+      .s03-row { grid-template-columns: 1fr; }
+      .visuals { border-left: 0; border-top: 1px solid #e2e5e8; }
+      .bottom { position: sticky; left: auto; bottom: 0; transform: none; width: 100%; border-radius: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="harness" aria-label="Review harness, not product UI">
+      <strong>Review harness · issue #128 pilot</strong>
+      <label>State
+        <select id="harness-state">
+          <option value="normal">Ready</option>
+          <option value="missing">Missing local visual + audio</option>
+          <option value="partial">Partial update failure</option>
+        </select>
+      </label>
+      <label>Move treatment
+        <select id="move-variant">
+          <option value="stub">A · primary passage + linked stub</option>
+          <option value="full">B · both locations in full</option>
+        </select>
+      </label>
+      <button type="button" id="reset">Reset selection</button>
+      <span>Harness controls never change selection unless explicitly labeled.</span>
+    </div>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Script to Timeline · Resolve timeline</p>
+        <h1>Review updates for Harbor Lights</h1>
+        <p class="sub">Current Resolve timeline v3 · proposed changes from the current script · simulation only</p>
+      </div>
+      <div class="top-actions">
+        <span class="count" id="counts">5 selected · 0 skipped</span>
+        <button class="btn" type="button" id="select-all">Select all</button>
+        <button class="btn" type="button" id="clear-all">Clear all</button>
+      </div>
+    </header>
+    <div id="notice"></div>
+    <main id="changes"></main>
+    <footer class="bottom">
+      <div class="bottom-copy" id="plan-summary"><strong>5 updates selected</strong>Creates new timeline v4; current v3 remains unchanged.</div>
+      <button class="btn primary" type="button" id="update">Update timeline</button>
+    </footer>
+  </div>
+  <script>
+    "use strict";
+
+    // Copied verbatim from accepted #135 text/x-dc source. This is the ordinary
+    // card-type source, not a color inference table for comparison state.
+    const TYPE_THEME = {
+      oc: { border: "#c9ab68", ink: "#725619", wash: "#fff8e7" },
+      clip: { border: "#6b98b5", ink: "#244f69", wash: "#eef7fc" },
+      still: { border: "#4f9aa3", ink: "#1d5960", wash: "#ebf7f8" },
+      capture: { border: "#4f9aa3", ink: "#1d5960", wash: "#ebf7f8" },
+      graphic: { border: "#9879ad", ink: "#5f3f73", wash: "#f7f0fa" },
+      needfind: { border: "#8b929e", ink: "#4b525d", wash: "#f5f6f7" },
+      placeholder: { border: "#8b929e", ink: "#4b525d", wash: "#f5f6f7" },
+      undefined: { border: "#c9cdd3", ink: "#5b626c", wash: "#f5f6f7" }
+    };
+    const KIND_NAME = { oc: "On Camera", clip: "Footage", still: "Still Image", capture: "Web Capture", graphic: "Graphic", needfind: "Need to Find", placeholder: "Placeholder", undefined: "Undefined" };
+    const IMG = {
+      harbor: "../issue-127/source-v2/assets/harbor-mouth-wide.png",
+      sensor: "../issue-127/source-v2/assets/sensor-housing-waterline.png",
+      light: "../issue-127/source-v2/assets/channel-light-second-blink.png",
+      horizon: "../issue-127/source-v2/assets/horizon-returns.png"
+    };
+
+    const row = (id, words, visuals = [], extra = {}) => ({ id, words, visuals, ...extra });
+    const clip = (id, title, start, end, img, extra = {}) => ({ id, kind: "clip", title, start, end, img, sound: "Quiet sound", ...extra });
+    const graphic = (id, title, start, end, extra = {}) => ({ id, kind: "graphic", title, start, end, transparent: true, ...extra });
+    const oc = (id, frame = "Wide") => ({ id, kind: "oc", title: frame, start: null, end: null });
+    const words = text => text.trim().split(/\s+/);
+
+    const neighborBefore = row("neighbor-before", words("Inside the housing, the float tracks every change in the tide."), [oc("oc-before", "Tight")]);
+    const neighborAfter = row("neighbor-after", words("That flat stretch is the first clue that the signal was never about the water."), [oc("oc-after", "Wide")]);
+    const removedRows = [
+      row("removed-1", words("I asked the keeper to show me what happens when that float sticks."), [oc("oc-r1", "Tight")], { evidence: true }),
+      row("removed-2", words("At low water, salt dries on the tube and the float catches for several minutes."), [clip("clip-r2", "float-tube-cu_0812.mov", 0, 14, "sensor")], { evidence: true }),
+      row("removed-3", words("While it is caught, the sensor repeats its last reading as the tide keeps falling."), [graphic("gfx-r3", "Float caught at low water", 0, 14)], { evidence: true })
+    ];
+
+    const movePassage = [
+      row("move-1", words("The harbor authority publishes a public status page for every monitoring station."), [graphic("gfx-m1", "Sensor status page", 0, 11)]),
+      row("move-2", words("It also lists the latest maintenance visit and the last successful upload."), [oc("oc-m2", "Wide")]),
+      row("move-3", words("Those details rule out several simpler failures."), [clip("clip-m3", "sensor-housing-cu_0812.mov", 0, 7, "sensor")])
+    ];
+
+    const SCENARIOS = [
+      {
+        id: "words-endpoint", title: "Narration edit + B-roll endpoint", kind: "row",
+        entities: ["Narration words · row 14", "B-roll start point · row 14"],
+        current: [row("cut-current", words("At the old sill the tide comes in low and fast, over stone laid by hand, and it still finds every gap in the wall."), [oc("oc-cut"), clip("clip-cut", "sill_tide_cu.mov", 10, 23, "harbor")], { removeRange: [10, 14] })],
+        proposed: [row("cut-after", words("At the old sill the tide comes in low and fast, and it still finds every gap in the wall."), [oc("oc-cut-after"), clip("clip-cut-after", "sill_tide_cu.mov", 11, 18, "harbor", { changedStart: true })])]
+      },
+      {
+        id: "delete-three", title: "3 rows removed", kind: "deletion",
+        entities: ["Three consecutive rows · 00:01:12–00:01:40", "One atomic structural update"],
+        current: [neighborBefore, ...removedRows, neighborAfter],
+        proposed: [neighborBefore, { id: "delete-seam", seam: "3 rows removed here · 28s" }, neighborAfter]
+      },
+      {
+        id: "move-passage", title: "3-row passage moved", kind: "move",
+        entities: ["Passage location · same section", "Rows move together with visuals and audio"],
+        current: {
+          origin: [row("origin-before", words("The camera holds on the narrow opening where water enters the housing."), [clip("clip-origin", "fogged-lens_0805.mov", 0, 11, "horizon")]), ...movePassage, row("origin-after", words("This entry was written the morning the signal changed."), [oc("oc-origin-after", "Tight")])],
+          destination: [row("dest-before", words("Two weeks later the same instrument was reading normally again."), [oc("oc-dest-before", "Wide")]), { id: "dest-stub", moveStub: "Not moved here yet · same passage · 3 rows", target: "origin-current" }, row("dest-after", words("The archive keeps every reading from that week."), [clip("clip-dest-after", "horizon-steady_0805.mov", 0, 8, "horizon")])]
+        },
+        proposed: {
+          origin: [row("origin-before-after", words("The camera holds on the narrow opening where water enters the housing."), [clip("clip-origin-after", "fogged-lens_0805.mov", 0, 11, "horizon")]), { id: "origin-stub", moveStub: "Moved ↓ after “Two weeks later…” · same passage · 3 rows", target: "destination-after" }, row("origin-after-after", words("This entry was written the morning the signal changed."), [oc("oc-origin-after-after", "Tight")])],
+          destination: [row("dest-before-after", words("Two weeks later the same instrument was reading normally again."), [oc("oc-dest-before-after", "Wide")]), ...movePassage.map(r => ({ ...r, id: r.id + "-after", visuals: r.visuals.map(v => ({ ...v, id: v.id + "-after" })) })), row("dest-after-after", words("The archive keeps every reading from that week."), [clip("clip-dest-after-after", "horizon-steady_0805.mov", 0, 8, "horizon")])]
+        }
+      },
+      {
+        id: "graphic-merge", title: "Transparent Graphic merges 2 rows", kind: "merge",
+        entities: ["Row break removed", "Graphic 2 spans both ordinary rows"],
+        current: [
+          row("merge-current-1", words("By Friday the harbor office conceded that the west gauge had been logging numbers."), [clip("merge-base-1", "logbook_wide_0915.mov", 0, 12, "harbor"), graphic("merge-gfx-1", "Quote box · west gauge", 7, 12, { continues: true, cue: "see" })]),
+          row("merge-current-2", words("Nobody on the quay could see them in the water, and the crew checked the float by hand."), [clip("merge-base-2", "channel-light-blink_0809.mov", 0, 17, "light"), graphic("merge-gfx-2", "Quote box · west gauge", 0, 8, { continuation: true, cue: "see" })])
+        ],
+        proposed: [row("merge-after", words("By Friday the harbor office conceded that the west gauge had been logging numbers. Nobody on the quay could see them in the water, and the crew checked the float by hand."), [clip("merge-base-after-1", "logbook_wide_0915.mov", 0, 12, "harbor"), clip("merge-base-after-2", "channel-light-blink_0809.mov", 13, 30, "light"), graphic("merge-gfx-after", "Quote box · west gauge", 7, 21, { cue: "see", changedBoundary: true })])]
+      },
+      {
+        id: "music-duration", title: "M2 cross-row duration change", kind: "audio", audio: true,
+        entities: ["M2 · Harbour Close Bed", "Duration-driven end · no out-word"],
+        current: [
+          row("music-current-1", words("The last light went off the water just after eight, and the channel went still."), [oc("oc-music-1")], { music: { id: "M2", name: "Harbour Close Bed", part: "start", label: "Starts on “just”" } }),
+          row("music-current-2", words("Down on the quay, the evening crew coiled the lines and locked the gauge house."), [graphic("music-gfx", "Gauge house · evening", 0, 14)], { music: { id: "M2", name: "Harbour Close Bed", part: "middle" } }),
+          row("music-current-3", words("By morning the west station was reading the tide like every other gauge on the coast."), [oc("oc-music-3", "Tight")], { music: { id: "M2", name: "Harbour Close Bed", part: "end", label: "Ends on “coast”" } })
+        ],
+        proposed: [
+          row("music-after-1", words("The last light went off the water just after eight, and the channel went still."), [oc("oc-music-a1")], { music: { id: "M2", name: "Harbour Close Bed", part: "start", label: "Starts on “just” · plays 13.0s" } }),
+          row("music-after-2", words("Down on the quay, the evening crew coiled the lines and locked the gauge house."), [graphic("music-gfx-after", "Gauge house · evening", 0, 14)], { music: { id: "M2", name: "Harbour Close Bed", part: "end", duration: true, label: "Ends by duration · +3.9s into this row" } })
+        ]
+      }
+    ];
+
+    const state = {
+      selected: new Set(SCENARIOS.map(s => s.id)),
+      compare: new Set(),
+      harness: "normal",
+      moveVariant: "stub",
+      focus: null,
+      run: null
+    };
+
+    const escapeHtml = value => String(value).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+    const cloneRows = value => JSON.parse(JSON.stringify(value));
+    const blockedIds = () => state.harness === "missing" ? new Set(["graphic-merge", "music-duration"]) : new Set();
+
+    function neutralCurrent(value) {
+      const copy = cloneRows(value);
+      const rows = Array.isArray(copy) ? copy : Object.values(copy).flat();
+      rows.forEach(r => {
+        delete r.removeRange;
+        (r.visuals || []).forEach(v => { delete v.changedStart; delete v.changedBoundary; });
+      });
+      return copy;
+    }
+
+    // Pure read-only adaptation of #135's row-local ordinal construction:
+    // start anchor, base before overlay, then source order.
+    function ordinals(rows) {
+      const map = {};
+      rows.filter(r => !r.seam && !r.moveStub).forEach(r => {
+        r.visuals
+          .map((v, index) => ({ v, index }))
+          .filter(x => x.v.kind !== "oc" && x.v.kind !== "undefined")
+          .sort((a, b) => (a.v.start ?? Number.MAX_SAFE_INTEGER) - (b.v.start ?? Number.MAX_SAFE_INTEGER) || Number(!!a.v.transparent) - Number(!!b.v.transparent) || a.index - b.index)
+          .forEach((x, index) => { map[x.v.id] = index + 1; });
+      });
+      return map;
+    }
+
+    // Read-only equivalent of #135's range construction. No mutation callbacks,
+    // persistence, color detection, wording selectors or geometry inference.
+    function rangeTokens(r, ordMap) {
+      return r.words.map((word, index) => {
+        const opens = r.visuals.filter(v => v.kind !== "oc" && v.start === index);
+        const closes = r.visuals.filter(v => v.kind !== "oc" && v.end === index);
+        const classes = [];
+        if (r.removeRange && index >= r.removeRange[0] && index <= r.removeRange[1]) classes.push("word-remove");
+        return { word, index, opens, closes, classes };
+      });
+    }
+
+    function cardHtml(v, ordMap, changeId) {
+      if (v.kind === "oc") return `<span class="oc-chip">On Camera · ${escapeHtml(v.title)}</span>`;
+      const theme = TYPE_THEME[v.kind] || TYPE_THEME.undefined;
+      const ordinal = ordMap[v.id] || "";
+      const thumb = v.img ? `<span class="thumb" role="img" aria-label="${escapeHtml(v.title)} thumbnail" style="background-image:url('${escapeHtml(IMG[v.img])}')"></span>` : "";
+      const detail = v.kind === "graphic" ? "Transparent layer; base remains visible." : `${escapeHtml(v.sound || "No sound")} · source and trim available on demand.`;
+      const changeClass = v.changedStart || v.changedBoundary ? " endpoint-change" : "";
+      const missing = state.harness === "missing" && ((changeId === "graphic-merge" && v.kind === "graphic") || (changeId === "music-duration"));
+      return `<div class="card${v.transparent ? " transparent" : ""}${changeClass}" data-card-id="${escapeHtml(v.id)}" style="--card-border:${theme.border};--card-ink:${theme.ink};--card-wash:${theme.wash}">
+        <div class="card-head">
+          <button class="ordinal" type="button" data-inspect="${escapeHtml(v.id)}" aria-label="Go to row visual ${ordinal} range">${ordinal}</button>
+          <span class="type">${escapeHtml(KIND_NAME[v.kind] || "Visual")}</span>
+        </div>
+        ${thumb}
+        <span class="card-title">${escapeHtml(v.title)}</span>
+        <span class="meta">${v.kind === "graphic" ? "Transparent Graphic" : escapeHtml(v.sound || "No sound")}${v.cue ? ` · Highlight cue “${escapeHtml(v.cue)}”` : ""}</span>
+        <details class="details"><summary>Details</summary><p>${detail}</p></details>
+        ${missing && changeId === "graphic-merge" ? `<div class="offline"><strong>Media offline locally — not evidence of removal.</strong><br>The Graphic identity, range and proposal remain known. <button class="btn" type="button">Locate file…</button></div>` : ""}
+      </div>`;
+    }
+
+    function narrationHtml(r, ordMap, changeId) {
+      const tokens = rangeTokens(r, ordMap);
+      return tokens.map(t => {
+        const before = t.opens.map(v => {
+          const ord = ordMap[v.id];
+          const graphicClass = v.kind === "graphic" ? " graphic" : "";
+          const glyph = v.kind === "graphic" ? `│${ord}` : `⟦${ord}`;
+          return `<button class="cap${graphicClass}${v.changedStart || v.changedBoundary ? " endpoint-change" : ""}" type="button" data-inspect="${escapeHtml(v.id)}" aria-label="Row visual ${ord} starts on ${escapeHtml(t.word)}">${glyph}</button>`;
+        }).join("");
+        const after = t.closes.map(v => {
+          const ord = ordMap[v.id];
+          const graphicClass = v.kind === "graphic" ? " graphic" : "";
+          const glyph = v.kind === "graphic" ? `${ord}│` : `${ord}⟧`;
+          return `<button class="cap${graphicClass}${v.changedBoundary ? " endpoint-change" : ""}" type="button" data-inspect="${escapeHtml(v.id)}" aria-label="Row visual ${ord} ends on ${escapeHtml(t.word)}">${glyph}</button>`;
+        }).join("");
+        const ids = [...t.opens, ...t.closes].map(v => v.id);
+        return `<span class="range-wrap"${ids.length ? ` data-range-ids="${ids.map(escapeHtml).join(" ")}"` : ""}>${before}<span class="${t.classes.join(" ")}">${escapeHtml(t.word)} </span>${after}</span>`;
+      }).join("");
+    }
+
+    function rowHtml(r, ordMap, changeId) {
+      if (r.seam) return `<div class="seam"><strong>${escapeHtml(r.seam)}</strong><br>Neighboring rows now meet here. No removed material appears in the new timeline.</div>`;
+      if (r.moveStub) return `<div class="move-stub" id="${escapeHtml(r.id)}"><strong>${escapeHtml(r.moveStub)}</strong><br><a href="#${escapeHtml(r.target)}">Jump to the linked location</a></div>`;
+      const music = r.music;
+      const rail = music ? `<span class="music-rail ${music.part === "start" ? "start" : ""} ${music.part === "end" ? "end" : ""} ${music.duration ? "duration" : ""}" aria-hidden="true"></span>` : "";
+      const face = music && music.part === "start" ? `<div class="music-face"><b>♪</b><span>${escapeHtml(music.id)} · ${escapeHtml(music.name)}</span></div>` : "";
+      return `${r.section ? `<div class="section">${escapeHtml(r.section)}</div>` : ""}<div class="s03-row${music ? " music-row" : ""}" id="${escapeHtml(r.id)}" data-row-id="${escapeHtml(r.id)}">
+        ${rail}
+        <div class="prose">${face}${narrationHtml(r, ordMap, changeId)}${music && music.label ? `<div class="annotation">${escapeHtml(music.label)}</div>` : ""}</div>
+        <div class="visuals">${r.visuals.map(v => cardHtml(v, ordMap, changeId)).join("") || `<span class="oc-chip">No separate visual card</span>`}</div>
+      </div>`;
+    }
+
+    function rowsHtml(rows, changeId, options = {}) {
+      const ordMap = ordinals(rows);
+      const body = rows.map(r => rowHtml(r, ordMap, changeId)).join("");
+      if (!options.deletionEvidence) return `<div class="rows">${body}</div>`;
+      const before = rowHtml(rows[0], ordMap, changeId);
+      const removed = rows.slice(1, -1).map(r => rowHtml(r, ordMap, changeId)).join("");
+      const after = rowHtml(rows[rows.length - 1], ordMap, changeId);
+      return `<div class="rows">${before}<div class="evidence-group"><span class="evidence-label">In current Resolve · 00:01:12–00:01:40 · removed from script · was rows 12–14</span>${removed}</div>${after}</div>`;
+    }
+
+    function moveHtml(change, value, after, selected) {
+      const variant = state.moveVariant;
+      const origin = cloneRows(value.origin);
+      const destination = cloneRows(value.destination);
+      if (variant === "full") {
+        const passage = selected && after ? destination.slice(1, -1) : origin.slice(1, -1);
+        const inert = passage.map(r => ({ ...r, evidence: true, id: r.id + "-evidence", visuals: r.visuals.map(v => ({ ...v, id: v.id + "-evidence" })) }));
+        if (after && selected) origin.splice(1, origin.length - 2, ...inert);
+        else destination.splice(1, destination.length - 2, ...inert);
+      }
+      return `<div class="rows"><div class="surface-label"><span>Original location</span><span>Same move · one count</span></div>${rowsHtml(origin, change.id)}<div class="surface-label"><span>Destination</span><span>Same section · linked</span></div>${rowsHtml(destination, change.id)}</div>`;
+    }
+
+    function valueFor(change, selected, after) {
+      if (!after) return change.current;
+      return selected ? change.proposed : change.current;
+    }
+
+    function surfaceHtml(change, selected, after, blocked = false) {
+      const value = after && !selected ? neutralCurrent(change.current) : valueFor(change, selected, after);
+      const note = after ? (blocked ? "Unchanged — blocked" : selected ? "Selected result" : "Unchanged — skipped") : "Evidence read from timeline v3";
+      let body;
+      if (change.kind === "move") body = moveHtml(change, value, after, selected);
+      else body = rowsHtml(cloneRows(value), change.id, { deletionEvidence: change.kind === "deletion" && !after });
+      const skippedNote = after && !selected ? `<div class="annotation skipped">${blocked ? "Resolve stays unchanged — blocked. Attachment cannot be verified; difference stays outstanding." : change.kind === "merge" ? "Kept as 2 rows — skipped." : change.kind === "audio" ? "M2 unchanged — skipped." : change.kind === "deletion" ? "Kept — skipped." : "Resolve keeps current. Difference stays outstanding."}</div>` : "";
+      const selectedNote = after && selected ? `<div class="annotation">${change.kind === "audio" ? "M2 changes in new timeline v4. Duration end stays independent of words." : change.kind === "merge" ? "Row break removed in new timeline v4; no false row pairing." : "Changes in new timeline v4."}</div>` : "";
+      return `<div class="surface-label"><span>${after ? "After update · new timeline" : "Current Resolve (v3)"}</span><span>${note}</span></div>${body}${skippedNote}${selectedNote}`;
+    }
+
+    const PARTIAL_RESULTS = {
+      "words-endpoint": "Verified in v4",
+      "delete-three": "Attempted — not verified",
+      "move-passage": "Not attempted",
+      "graphic-merge": "Not attempted",
+      "music-duration": "Verified in v4"
+    };
+
+    function resultStatus(change) {
+      if (state.harness !== "partial") return null;
+      if (!state.selected.has(change.id)) return "Skipped";
+      return PARTIAL_RESULTS[change.id];
+    }
+
+    function changeHtml(change) {
+      const selected = state.selected.has(change.id);
+      const blocked = blockedIds().has(change.id);
+      const status = blocked ? "Blocked" : selected ? "Selected" : "Skipped";
+      const consequence = blocked
+        ? "Blocked — attachment can't be verified. Difference stays outstanding."
+        : resultStatus(change) || (selected ? "Changes in new timeline v4." : "Resolve keeps current. Difference stays outstanding.");
+      const compare = state.compare.has(change.id);
+      const body = compare
+        ? `<div class="compare"><div class="pane current">${surfaceHtml(change, selected, false)}</div><div class="pane after">${surfaceHtml(change, selected && !blocked, true, blocked)}</div></div>`
+        : surfaceHtml(change, selected && !blocked, true, blocked);
+      const missingAudio = state.harness === "missing" && change.id === "music-duration" ? `<div class="offline"><strong>Audio offline locally — not evidence of removal.</strong><br>M2's identity, anchors and settings remain known. Locate it or skip this update. <button class="btn" type="button">Locate file…</button></div>` : "";
+      return `<article class="change" id="change-${escapeHtml(change.id)}" data-change-id="${escapeHtml(change.id)}">
+        <aside class="rail ${status.toLowerCase()}">
+          <div class="rail-head"><input type="checkbox" data-select="${escapeHtml(change.id)}" ${selected && !blocked ? "checked" : ""} ${blocked ? "disabled" : ""} aria-label="${escapeHtml(change.title)}: ${status}"><h2>${escapeHtml(change.title)}</h2></div>
+          <span class="state">${status}${blocked ? " · local file" : ""}</span>
+          <ul class="entities">${change.entities.map(e => `<li>${escapeHtml(e)}</li>`).join("")}</ul>
+          <p class="consequence">${escapeHtml(consequence)}</p>
+          ${missingAudio}
+          <div class="rail-controls"><button class="btn" type="button" data-compare="${escapeHtml(change.id)}">${compare ? "Close comparison" : "Compare with current Resolve"}</button></div>
+        </aside>
+        <section class="stage">${body}</section>
+      </article>`;
+    }
+
+    function counts() {
+      const blockedSet = blockedIds();
+      const selected = SCENARIOS.filter(change => state.selected.has(change.id) && !blockedSet.has(change.id)).length;
+      const skipped = SCENARIOS.filter(change => !state.selected.has(change.id) && !blockedSet.has(change.id)).length;
+      return { selected, skipped, blocked: blockedSet.size };
+    }
+
+    function partialCounts() {
+      const result = { verified: 0, failed: 0, notAttempted: 0 };
+      for (const id of state.selected) {
+        const status = PARTIAL_RESULTS[id];
+        if (status === "Verified in v4") result.verified++;
+        else if (status === "Attempted — not verified") result.failed++;
+        else if (status === "Not attempted") result.notAttempted++;
+      }
+      return result;
+    }
+
+    function renderNotice() {
+      if (state.harness === "missing") return `<div class="notice error"><strong>${counts().blocked} updates blocked by local files.</strong> Graphic and M2 remain known changes; offline media is not evidence of removal. Safe independent updates remain selectable.</div>`;
+      if (state.harness === "partial") {
+        const c = counts();
+        const p = partialCounts();
+        return `<div class="notice error"><strong>Update incomplete. Timeline v3 remains current. Baseline not updated.</strong><div class="result-grid"><div class="result-cell"><b>${p.verified} verified</b>Present in draft v4</div><div class="result-cell"><b>${p.failed} failed</b>Attempted, not verified</div><div class="result-cell"><b>${p.notAttempted} not attempted</b>Still outstanding</div><div class="result-cell"><b>${c.skipped} skipped</b>Never in the plan</div></div></div>`;
+      }
+      return `<div class="notice"><strong>Compact default.</strong> Each rail names the proposal and its actual selection. Comparison opens inline and derives After update from that same selection.</div>`;
+    }
+
+    function render() {
+      const visible = state.focus ? SCENARIOS.filter(change => change.id === state.focus) : SCENARIOS;
+      document.getElementById("changes").innerHTML = visible.map(changeHtml).join("");
+      document.getElementById("notice").innerHTML = renderNotice();
+      const c = counts();
+      document.getElementById("counts").textContent = `${c.selected} selected · ${c.skipped} skipped${c.blocked ? ` · ${c.blocked} blocked` : ""}`;
+      const audioOnly = c.selected === 1 && state.selected.has("music-duration") && state.harness !== "missing";
+      const summary = document.getElementById("plan-summary");
+      summary.innerHTML = `<strong>${audioOnly ? "Audio-only update · no picture changes" : `${c.selected} update${c.selected === 1 ? "" : "s"} selected`}</strong>${state.harness === "partial" ? "Retry keeps this selection; timeline v3 remains authoritative." : "Creates new timeline v4; current v3 remains unchanged."}`;
+      const action = document.getElementById("update");
+      action.disabled = c.selected === 0;
+      action.textContent = state.harness === "partial" ? "Retry failed update" : "Update timeline";
+      bindInspection();
+      requestAnimationFrame(() => { document.body.dataset.horizontalOverflow = String(document.documentElement.scrollWidth > document.documentElement.clientWidth); });
+    }
+
+    function bindInspection() {
+      document.querySelectorAll("[data-inspect]").forEach(control => {
+        const id = control.dataset.inspect;
+        const article = control.closest(".change");
+        const set = on => article.querySelectorAll(`[data-inspect="${CSS.escape(id)}"], [data-range-ids~="${CSS.escape(id)}"]`).forEach(node => node.classList.toggle("range-inspected", on));
+        control.addEventListener("mouseenter", () => set(true));
+        control.addEventListener("mouseleave", () => set(false));
+        control.addEventListener("focus", () => set(true));
+        control.addEventListener("blur", () => set(false));
+        control.addEventListener("click", event => { event.stopPropagation(); set(true); const cap = article.querySelector(`[data-range-ids~="${CSS.escape(id)}"] .cap`); if (cap && cap !== control) cap.focus(); });
+      });
+    }
+
+    document.addEventListener("change", event => {
+      const id = event.target.dataset.select;
+      if (id) { event.target.checked ? state.selected.add(id) : state.selected.delete(id); render(); }
+    });
+    document.addEventListener("click", event => {
+      const compare = event.target.dataset.compare;
+      if (compare) { state.compare.has(compare) ? state.compare.delete(compare) : state.compare.add(compare); render(); }
+    });
+    document.getElementById("select-all").addEventListener("click", () => { state.selected = new Set(SCENARIOS.map(s => s.id)); render(); });
+    document.getElementById("clear-all").addEventListener("click", () => { state.selected.clear(); render(); });
+    document.getElementById("reset").addEventListener("click", () => { state.selected = new Set(SCENARIOS.map(s => s.id)); state.compare.clear(); render(); });
+    document.getElementById("harness-state").addEventListener("change", event => { state.harness = event.target.value; render(); });
+    document.getElementById("move-variant").addEventListener("change", event => { state.moveVariant = event.target.value; render(); });
+    document.getElementById("update").addEventListener("click", () => { state.harness = "partial"; document.getElementById("harness-state").value = "partial"; render(); window.scrollTo({ top: 0, behavior: "smooth" }); });
+
+    function selfCheck() {
+      const original = new Set(state.selected);
+      const originalCompare = new Set(state.compare);
+      const originalHarness = state.harness;
+      console.assert(SCENARIOS.filter(s => s.kind === "move").length === 1, "atomic move counts once");
+      console.assert(SCENARIOS.filter(s => s.kind === "deletion").length === 1, "atomic deletion counts once");
+      state.selected = new Set(["music-duration"]);
+      console.assert(counts().selected === 1, "audio-only selection enables one update");
+      state.harness = "partial";
+      console.assert(JSON.stringify(partialCounts()) === JSON.stringify({ verified: 1, failed: 0, notAttempted: 0 }), "partial result counts follow the selected plan");
+      state.harness = "normal";
+      const deletion = SCENARIOS.find(s => s.id === "delete-three");
+      console.assert(JSON.stringify(valueFor(deletion, false, true)) === JSON.stringify(deletion.current), "skipped work is excluded from selected result");
+      state.compare.add("music-duration");
+      console.assert(state.selected.has("music-duration"), "view changes preserve selection");
+      state.selected = original;
+      state.compare = originalCompare;
+      state.harness = originalHarness;
+      return true;
+    }
+    window.__issue128Pilot = { state, scenarios: SCENARIOS, selfCheck, render };
+    const params = new URLSearchParams(location.search);
+    if (["normal", "missing", "partial"].includes(params.get("state"))) state.harness = params.get("state");
+    if (["stub", "full"].includes(params.get("move"))) state.moveVariant = params.get("move");
+    if (params.get("selection") === "audio-only") state.selected = new Set(["music-duration"]);
+    if (params.get("selection") === "none") state.selected.clear();
+    if (SCENARIOS.some(s => s.id === params.get("focus"))) state.focus = params.get("focus");
+    if (params.get("compare") === "all") state.compare = new Set(SCENARIOS.map(s => s.id));
+    else if (SCENARIOS.some(s => s.id === params.get("compare"))) state.compare.add(params.get("compare"));
+    document.getElementById("harness-state").value = state.harness;
+    document.getElementById("move-variant").value = state.moveVariant;
+    selfCheck();
+    render();
+  </script>
+</body>
+</html>
