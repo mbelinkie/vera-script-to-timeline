@@ -29,6 +29,17 @@ unresolved risk; a later accepted result should resolve, revise, or remove it.
 | Browser authoring state/permission model | The original #14 proved too broad for one design slice and is now a six-slice program. The risk is not visual polish: it is accurately representing Phase 2 writing, Phase 3 roles/history/comments, local runtime states, and cross-product authorization without accidentally promising a capability. | Can the scenario, role, runtime, and authorization matrices be reduced to a coherent state model that preserves product-phase boundaries and yields implementable acceptance tests? | The #57 child program has an accepted traceability matrix with no unresolved role/runtime contradiction, and any remaining semantic gaps are separate bounded issues. | [#57](https://github.com/mbelinkie/vera-script-to-timeline/issues/57), [#14](https://github.com/mbelinkie/vera-script-to-timeline/issues/14), [#62](https://github.com/mbelinkie/vera-script-to-timeline/issues/62) |
 | Production periodic webpage capture and recovery | The immutable local-revision spike and trust contract are useful, but production periodic recapture remains deliberately deferred. Scheduling, leases, retention, access revocation, side-effect containment, and recovery must work together without replacing a prior accepted revision. | What is the minimum production architecture that makes periodic capture safe, idempotent, observable, and recoverable while preserving immutable revisions and independent authorization? | A separately accepted production design and implementation prove periodic capture, lease/retry behavior, retention, authorization loss, and non-destructive recovery. | [#27](https://github.com/mbelinkie/vera-script-to-timeline/issues/27), [#28](https://github.com/mbelinkie/vera-script-to-timeline/issues/28), [#38](https://github.com/mbelinkie/vera-script-to-timeline/issues/38) |
 
+## #123 reverse-mapping reconsideration
+
+- Evidence: the [accepted handoff](prototypes/issue-123/ACCEPTED-HANDOFF.md)
+  records fixture-driven identities, compound move/trim decisions and cross-row
+  Graphic merges. UI acceptance does not prove those reverse mappings.
+- Question: can stable visual-slot and row/word identities classify those
+  operations without silent editorial changes?
+- Retirement: existing #131 supplies accepted evidence proving the mapping or
+  explicitly excluding unsupported cases. This is not authorization for a
+  separate task or model override.
+
 ## Explicit non-candidates today
 
 - GitHub roadmap rate limiting is not listed: #18, #23, and #30 produced a
