@@ -24,6 +24,11 @@ with their hashes.
 
 ## Current next action — recover exact project before native duplicate
 
+The latest 20:11:04 UTC duplicate-only launch refused at the named-project
+guard before any capture or duplication. Operator confirmation of the manual
+reopen is pending; do not rerun until that state is clarified. The steps below
+remain the required recovery path, not a completed reopen or duplication result.
+
 The 18:22:47 quiet repeat matched the raw baseline passes exactly; only outer
 `capturedAt` and `stage` values differ between launcher runs. The 19:42:33 native
 repeat then saved and closed the project successfully but stopped when Resolve

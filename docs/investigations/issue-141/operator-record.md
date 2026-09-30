@@ -1,5 +1,15 @@
 # Issue 141 — operator record
 
+## Duplicate-only named-project refusal, September 30
+
+The operator reported, “I ran VERA Issue 141 Observation, it didnt seem to do
+anything.” The 20:11:04 UTC launcher result reports the named-project guard
+refusal, before capture or native mutation. See
+`evidence/native-duplicate-project-refusal/` for the result and hashes. Whether
+the exact synthetic project was manually reopened with its baseline visible is
+awaiting operator clarification. None/synthetic-only attestation for this launch
+is pending. No reopened-state or duplication observation is inferred.
+
 ## Attempt 1, September 30
 
 The operator confirmed launching the installed integration and reported:

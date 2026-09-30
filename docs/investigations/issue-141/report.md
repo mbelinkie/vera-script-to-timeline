@@ -63,6 +63,16 @@ that the unexpected project is empty/default. The next launch waits for the stag
 `native-duplicate` action and requires the operator to manually reopen only the
 exact synthetic project with its baseline unchanged.
 
+At 20:11:04 UTC (16:11 EDT), the operator launched the duplicate-only action and
+reported no visible result. The retained launcher result in
+`evidence/native-duplicate-project-refusal/` reports
+`Select only the named issue-141 project; no automatic switch`. The current
+project was absent or its name did not match; no current-project identity was
+retained. This guard runs before capture and native mutation, so there is no
+reopened-state capture or duplication result. Operator confirmation of the
+manual reopen is pending. Do not infer an API capability failure or silently
+switch projects.
+
 ## First operator run and correction
 
 At 16:56:37 UTC (12:56:37 EDT), the operator launched the integration and
