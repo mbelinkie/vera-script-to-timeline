@@ -127,3 +127,24 @@ unexpected project is not assumed empty/default. The earlier 18:12:39 refusal
 remains separately unexplained. The next attempt requires manually reopening
 only the exact synthetic project, with the baseline unchanged, before launching
 once when the parent stages `native-duplicate`. That result is not yet live.
+
+
+## Manual reopen capture and cache-setting refusal, September 30
+
+At 20:17:34 UTC, the operator said: “I reopened Synthetic Probe project and ran
+it but no effect. Check it?” The pre-duplicate capture has two equal adjacent
+reads, no getter errors or capture failure, and the approved synthetic project
+ID. Against the original baseline, only `perfCacheClipsLocation` differs in both
+passes: the project-level and timeline-level settings return the string
+`CacheClip` instead of the baseline-owned cache path. Its resolved target is unknown.
+IDs, ranges, markers/custom data, other item properties and source hashes match
+in the full raw comparison. The identity guard refused before duplication, and no native journal
+or mutation resulted. See `evidence/native-reopen-cache-refusal/` for the
+redacted capture/result and raw/published hashes.
+
+This retains one manual reopen readback, not proof that the scripting API's
+`LoadProject` works. The operator confirmed for this run: “Yes, None stayed set;
+synthetic project only.” Exact-cache-only restoration is now reviewed and
+staged; require two fresh raw passes equal to the pinned baseline before the
+next duplicate attempt. The earlier 18:12 and 19:42 refusals remain separately
+recorded and unexplained where applicable.

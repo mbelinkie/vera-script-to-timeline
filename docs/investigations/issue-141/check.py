@@ -231,6 +231,7 @@ with tempfile.TemporaryDirectory() as directory:
                 {
                     "GetName": {"value": timeline.name},
                     "GetUniqueId": {"value": timeline.uid},
+                    "GetSettings": {"value": timeline.GetSettings()},
                     "tracks": [
                         {
                             "type": "video" if index < 3 else "audio",
@@ -244,12 +245,20 @@ with tempfile.TemporaryDirectory() as directory:
         return {
             "projectId": project_id,
             "projectName": project_name,
+            "GetSettings": {"value": project.GetSettings()},
             "timelines": timelines,
         }
 
     class NativeTimeline:
         def __init__(self, project, name, uid):
             self.project, self.name, self.uid = project, name, uid
+            self.cache = project.timeline_cache
+
+        def GetSettings(self):
+            return {
+                "perfCacheClipsLocation": self.cache,
+                "otherSetting": self.project.other_setting,
+            }
 
         def GetName(self):
             return self.name
@@ -258,12 +267,31 @@ with tempfile.TemporaryDirectory() as directory:
             return self.uid
 
         def DuplicateTimeline(self, name):
+            self.project.mutations.append("DuplicateTimeline")
             duplicate = NativeTimeline(self.project, name, "duplicate-test")
             self.project.timelines.append(duplicate)
             return duplicate
 
     class NativeProject:
-        def __init__(self, extra=False):
+        def __init__(
+            self,
+            extra=False,
+            project_cache=None,
+            timeline_cache=None,
+            other_setting="same",
+            set_settings_ok=True,
+            set_settings_applies=True,
+        ):
+            self.project_cache = (
+                str(pinned_cache_path) if project_cache is None else project_cache
+            )
+            self.timeline_cache = (
+                str(pinned_cache_path) if timeline_cache is None else timeline_cache
+            )
+            self.other_setting = other_setting
+            self.set_settings_ok = set_settings_ok
+            self.set_settings_applies = set_settings_applies
+            self.mutations = []
             self.timelines = [NativeTimeline(self, "VERA 141 Baseline", baseline_id)]
             if extra:
                 self.timelines.append(
@@ -277,6 +305,25 @@ with tempfile.TemporaryDirectory() as directory:
         def GetUniqueId(self):
             return project_id
 
+        def GetSettings(self):
+            return {
+                "perfCacheClipsLocation": self.project_cache,
+                "otherSetting": self.other_setting,
+            }
+
+        def SetSettings(self, requested):
+            self.mutations.append("SetSettings")
+            if not self.set_settings_ok or set(requested) != {"perfCacheClipsLocation"}:
+                return False
+            if not self.set_settings_applies:
+                return True
+            value = requested["perfCacheClipsLocation"]
+            self.project_cache = value
+            self.timeline_cache = value
+            for timeline in self.timelines:
+                timeline.cache = value
+            return True
+
         def GetTimelineCount(self):
             return len(self.timelines)
 
@@ -287,6 +334,7 @@ with tempfile.TemporaryDirectory() as directory:
             return self.current
 
         def SetCurrentTimeline(self, timeline):
+            self.mutations.append("SetCurrentTimeline")
             self.current = timeline
             return True
 
@@ -302,6 +350,7 @@ with tempfile.TemporaryDirectory() as directory:
 
         def SaveProject(self):
             self.mutations.append("SaveProject")
+            self.current.mutations.append("SaveProject")
             return True
 
         def CloseProject(self, project):
@@ -336,6 +385,8 @@ with tempfile.TemporaryDirectory() as directory:
     environment = {"version": [21, 1, 0, 14, ""]}
     output = Path(directory) / "out/issue-141-observation-test"
     output.mkdir(parents=True)
+    pinned_cache_path = output / "storage" / "cache"
+    pinned_cache_path.mkdir(parents=True)
     probe.write_json(
         output / "prepared.json",
         {"identity": expected_identity, "manifestSha256": "manifest-hash"},
@@ -425,6 +476,173 @@ with tempfile.TemporaryDirectory() as directory:
         row["method"] for row in duplicate_records if row["phase"] == "request"
     ] == ["DuplicateTimeline", "SetCurrentTimeline", "SaveProject"]
     assert (output / "capture-duplicate-only-reopened-before-duplicate.json").is_file()
+
+    # Exactly the two CacheClip fields may be restored before duplication.
+    cache_project = NativeProject(project_cache="CacheClip", timeline_cache="CacheClip")
+    cache_resolve = NativeResolve(cache_project)
+    cache_result = probe.native_repeat(
+        cache_resolve,
+        duplicate_config,
+        {"projectId": project_id, "projectName": project_name},
+        {},
+        output,
+        "cache-restore",
+        environment,
+    )
+    assert [
+        row["method"]
+        for row in map(
+            json.loads,
+            (output / "native-duplicate-cache-restore.jsonl").read_text().splitlines(),
+        )
+        if row["phase"] == "request"
+    ] == [
+        "SetSettings",
+        "DuplicateTimeline",
+        "SetCurrentTimeline",
+        "SaveProject",
+    ]
+    assert cache_project.mutations == [
+        "SetSettings",
+        "DuplicateTimeline",
+        "SetCurrentTimeline",
+        "SaveProject",
+    ]
+    assert any(
+        capture["capturePath"].endswith("cache-restore-cache-restoration.json")
+        for capture in cache_result["captures"]
+    )
+    original_cache_capture = json.loads(
+        Path(cache_result["captures"][0]["capturePath"]).read_text()
+    )["passes"][0]
+    assert (
+        original_cache_capture["GetSettings"]["value"]["perfCacheClipsLocation"]
+        == "CacheClip"
+    )
+    assert (
+        original_cache_capture["timelines"][0]["GetSettings"]["value"][
+            "perfCacheClipsLocation"
+        ]
+        == "CacheClip"
+    )
+
+    # Any extra difference, one changed cache field, or another cache value refuses.
+    for suffix, project in (
+        ("extra", NativeProject(other_setting="changed")),
+        ("single-cache", NativeProject(project_cache="CacheClip")),
+        (
+            "other-cache",
+            NativeProject(project_cache="OtherCache", timeline_cache="OtherCache"),
+        ),
+    ):
+        refused_resolve = NativeResolve(project)
+        refuses(
+            lambda refused_resolve=refused_resolve, suffix=suffix: probe.native_repeat(
+                refused_resolve,
+                duplicate_config,
+                {"projectId": project_id, "projectName": project_name},
+                {},
+                output,
+                f"cache-refuse-{suffix}",
+                environment,
+            )
+        )
+        assert project.mutations == []
+        assert refused_resolve.manager.mutations == []
+
+    original_baseline_text = baseline_path.read_text()
+    outside_cache = output.parent / "outside-cache"
+    outside_cache.mkdir()
+    symlink_cache = output / "storage" / "cache-link"
+    symlink_cache.symlink_to(pinned_cache_path, target_is_directory=True)
+    for suffix, path_value in (
+        ("relative", "cache"),
+        ("outside", str(outside_cache)),
+        ("symlink", str(symlink_cache)),
+    ):
+        unsafe_baseline = json.loads(original_baseline_text)
+        unsafe_pass = unsafe_baseline["passes"][0]
+        unsafe_pass["GetSettings"]["value"]["perfCacheClipsLocation"] = path_value
+        unsafe_pass["timelines"][0]["GetSettings"]["value"][
+            "perfCacheClipsLocation"
+        ] = path_value
+        baseline_path.write_text(json.dumps(unsafe_baseline))
+        unsafe_project = NativeProject(
+            project_cache="CacheClip", timeline_cache="CacheClip"
+        )
+        refuses(
+            lambda suffix=suffix, unsafe_project=unsafe_project: probe.native_repeat(
+                NativeResolve(unsafe_project),
+                duplicate_config,
+                {"projectId": project_id, "projectName": project_name},
+                {},
+                output,
+                f"cache-path-{suffix}",
+                environment,
+            )
+        )
+        assert unsafe_project.mutations == []
+        assert not (output / f"native-duplicate-cache-path-{suffix}.jsonl").exists()
+    baseline_path.write_text(original_baseline_text)
+
+    # A refused setter still records failure and an immediate raw capture.
+    failed_cache_project = NativeProject(
+        project_cache="CacheClip",
+        timeline_cache="CacheClip",
+        set_settings_ok=False,
+    )
+    failed_cache_resolve = NativeResolve(failed_cache_project)
+    refuses(
+        lambda: probe.native_repeat(
+            failed_cache_resolve,
+            duplicate_config,
+            {"projectId": project_id, "projectName": project_name},
+            {},
+            output,
+            "cache-setter-refused",
+            environment,
+        )
+    )
+    assert failed_cache_project.mutations == ["SetSettings"]
+    assert (output / "capture-cache-setter-refused-cache-restoration.json").is_file()
+    failure_rows = [
+        json.loads(line)
+        for line in (output / "native-duplicate-cache-setter-refused.jsonl")
+        .read_text()
+        .splitlines()
+    ]
+    assert any(
+        row["method"] == "SetSettings" and row["phase"] == "failure"
+        for row in failure_rows
+    )
+
+    stale_cache_project = NativeProject(
+        project_cache="CacheClip",
+        timeline_cache="CacheClip",
+        set_settings_applies=False,
+    )
+    refuses(
+        lambda: probe.native_repeat(
+            NativeResolve(stale_cache_project),
+            duplicate_config,
+            {"projectId": project_id, "projectName": project_name},
+            {},
+            output,
+            "cache-readback-refused",
+            environment,
+        )
+    )
+    assert stale_cache_project.mutations == ["SetSettings"]
+    assert (output / "capture-cache-readback-refused-cache-restoration.json").is_file()
+    stale_rows = [
+        json.loads(line)
+        for line in (output / "native-duplicate-cache-readback-refused.jsonl")
+        .read_text()
+        .splitlines()
+    ]
+    assert [row["method"] for row in stale_rows if row["phase"] == "request"] == [
+        "SetSettings"
+    ]
 
     # A baseline-mismatched preflight is retained and refuses before mutation.
     capture_changed = True

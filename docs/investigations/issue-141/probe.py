@@ -3,6 +3,7 @@
 import hashlib
 import json
 import platform
+from copy import deepcopy
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -398,11 +399,76 @@ def native_repeat(resolve, config, identity, expected, output, stamp, environmen
     )
     if before_result["status"] != "equal-adjacent-reads":
         raise RuntimeError("Initial native capture is incomplete; refusing")
-    before_pass = json.loads(Path(before_result["capturePath"]).read_text())["passes"][
-        0
-    ]
-    if errors(before_pass) or before_pass != baseline_pass:
-        raise RuntimeError("Current project is not the prepared baseline-only state")
+    before_capture = json.loads(
+        Path(before_result["capturePath"]).read_text(encoding="utf-8")
+    )
+    before_passes = before_capture.get("passes", [])
+    if len(before_passes) != 2 or any(errors(value) for value in before_passes):
+        raise RuntimeError("Initial native capture is incomplete; refusing")
+    before_pass = before_passes[0]
+    restore_cache = False
+    pinned_cache_path = None
+    cache_paths = (
+        ("GetSettings", "value", "perfCacheClipsLocation"),
+        ("timelines", 0, "GetSettings", "value", "perfCacheClipsLocation"),
+    )
+    if before_pass != baseline_pass:
+        if action != "native-duplicate":
+            raise RuntimeError(
+                "Current project is not the prepared baseline-only state"
+            )
+
+        def setting_at(value, path):
+            for part in path:
+                value = value[part]
+            return value
+
+        try:
+            current_cache = [setting_at(before_pass, path) for path in cache_paths]
+            baseline_cache = [setting_at(baseline_pass, path) for path in cache_paths]
+        except (IndexError, KeyError, TypeError):
+            raise RuntimeError(
+                "Cache location readback is incomplete; refusing"
+            ) from None
+        if (
+            current_cache != ["CacheClip", "CacheClip"]
+            or not all(isinstance(value, str) for value in baseline_cache)
+            or baseline_cache[0] != baseline_cache[1]
+        ):
+            raise RuntimeError("Cache location change is outside the bounded case")
+        try:
+            cache_path = Path(baseline_cache[0])
+            output_root = output.resolve(strict=True)
+            if not cache_path.is_absolute():
+                raise ValueError
+            relative = cache_path.relative_to(output)
+            if not relative.parts or ".." in relative.parts:
+                raise ValueError
+            cursor = output
+            for part in relative.parts:
+                cursor /= part
+                if cursor.is_symlink():
+                    raise ValueError
+            resolved_cache_path = cache_path.resolve(strict=True)
+            if (
+                not resolved_cache_path.is_dir()
+                or not resolved_cache_path.is_relative_to(output_root)
+            ):
+                raise ValueError
+            pinned_cache_path = cache_path
+        except (OSError, ValueError):
+            raise RuntimeError(
+                "Pinned cache directory is unsafe or outside the probe output"
+            ) from None
+        restored_pass = deepcopy(before_pass)
+        for path in cache_paths:
+            target = restored_pass
+            for part in path[:-1]:
+                target = target[part]
+            target[path[-1]] = baseline_cache[0]
+        if restored_pass != baseline_pass:
+            raise RuntimeError("Project differs beyond the two cache locations")
+        restore_cache = True
 
     journal = output / f"{action}-{stamp}.jsonl"
     journal.open("x", encoding="utf-8").close()
@@ -446,6 +512,7 @@ def native_repeat(resolve, config, identity, expected, output, stamp, environmen
             raise
 
     reopened_capture = None
+    cache_restoration_capture = None
     if action == "native-repeat":
         mutate(manager, "SaveProject")
         mutate(manager, "CloseProject", project, audit_args=[identity["projectId"]])
@@ -490,6 +557,62 @@ def native_repeat(resolve, config, identity, expected, output, stamp, environmen
         # The operator reopened the exact approved project. The guarded preflight
         # capture above is the retained comparison for this state.
         reopened = project
+
+    if restore_cache:
+        try:
+            mutate(
+                reopened,
+                "SetSettings",
+                {"perfCacheClipsLocation": str(pinned_cache_path)},
+                audit_args=[{"perfCacheClipsLocation": str(pinned_cache_path)}],
+            )
+        except Exception:
+            try:
+                cache_restoration_capture = capture(
+                    resolve,
+                    config,
+                    identity,
+                    expected,
+                    output,
+                    stamp + "-cache-restoration",
+                    environment,
+                )
+                retain(
+                    "SetSettings(cache restoration capture)",
+                    "readback",
+                    cache_restoration_capture,
+                )
+            except Exception as capture_error:
+                retain(
+                    "SetSettings(cache restoration capture)",
+                    "failure",
+                    f"{type(capture_error).__name__}: {capture_error}",
+                )
+            raise
+        cache_restoration_capture = capture(
+            resolve,
+            config,
+            identity,
+            expected,
+            output,
+            stamp + "-cache-restoration",
+            environment,
+        )
+        retain(
+            "SetSettings(cache restoration capture)",
+            "readback",
+            cache_restoration_capture,
+        )
+        restored = json.loads(
+            Path(cache_restoration_capture["capturePath"]).read_text(encoding="utf-8")
+        ).get("passes", [])
+        if (
+            cache_restoration_capture["status"] != "equal-adjacent-reads"
+            or len(restored) != 2
+            or any(errors(value) for value in restored)
+            or restored != [baseline_pass, baseline_pass]
+        ):
+            raise RuntimeError("Cache setting restoration did not match baseline")
 
     original = None
     for index in range(1, reopened.GetTimelineCount() + 1):
@@ -570,6 +693,7 @@ def native_repeat(resolve, config, identity, expected, output, stamp, environmen
         "captures": [
             before_result,
             *([] if reopened_capture is None else [reopened_capture]),
+            *([] if cache_restoration_capture is None else [cache_restoration_capture]),
             duplicate_capture,
             final_capture,
         ],

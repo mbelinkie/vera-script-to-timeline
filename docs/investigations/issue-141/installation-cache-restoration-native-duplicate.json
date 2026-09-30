@@ -1,0 +1,17 @@
+{
+  "kind": "staged-native-duplicate-with-exact-cache-restoration-not-executed",
+  "stagedAt": "2026-09-30T20:41:36.869870+00:00",
+  "action": "native-duplicate",
+  "stage": "R1-operator-reopen-cache-restoration-native-duplicate",
+  "probeSha256": "9697ff0ae638cd03dabed344bbe1da32e8e8c2766f6973f0d41dafc8e494c4c0",
+  "launcherSha256": "a58e80a3cdf3e9d334ae362a5370a724970c18c3464f0bff584961bd1261c584",
+  "privateConfigSha256": "5e129a3f06965bfc76e7c09734353d22e5ddb8c04e05cff54590357f96af73d3",
+  "priorPrivateConfigSha256": "e4ccc570f412706f07e7481281023065e757b7d906392e535dcff6dbeff581f7",
+  "baselineRawSha256": "92c04d10bafe86499b7d11a27d457e655893ee6340d73a290a80e29e35887161",
+  "reopenedPreflightRawSha256": "ef5b0566d9d3614c0f6100c296d2af181f99b64e6e57bb799dafaaca09da3708",
+  "expectedProjectId": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+  "baselineTimelineId": "88f7923d-55a7-471f-b09b-cf10f9fae8ad",
+  "privatePathsPublished": false,
+  "permittedCorrection": "Both captured cache values must be exactly CacheClip and every other raw field equal to baseline; restore only pinned existing slice-owned cache directory and require two fresh complete raw passes equal to baseline.",
+  "reopenSequence": "operator-reported earlier reopen; sequence not independently verified by capture"
+}

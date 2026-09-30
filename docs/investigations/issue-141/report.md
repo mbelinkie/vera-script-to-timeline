@@ -73,6 +73,32 @@ reopened-state capture or duplication result. Operator confirmation of the
 manual reopen is pending. Do not infer an API capability failure or silently
 switch projects.
 
+## Manual reopen capture and cache-setting refusal
+
+At 20:17:34 UTC, the operator reported: “I reopened Synthetic Probe project and
+ran it but no effect. Check it?” The retained pre-duplicate capture is at
+`evidence/native-reopen-cache-refusal/`. Its two adjacent reads are consistent,
+with no getter failures or capture failure, and project ID matches the approved
+synthetic project. Compared with the original baseline, both passes differ only
+in `perfCacheClipsLocation`, at project and timeline settings: the baseline-owned
+cache path is now the readback string `CacheClip`; its resolved target is unknown.
+IDs, ranges, markers, custom data, item properties and media hashes otherwise
+match in the full raw comparison. The matching identity guard refused; no native journal was produced
+and no duplication or other mutation occurred.
+
+This is bounded evidence from one manual reopen. It does not establish API
+`LoadProject` support or infer anything about the unexpected project seen after
+the earlier close. The operator confirmed for this run: “Yes, None stayed set;
+synthetic project only.” Earlier preflight refusals remain separately
+unresolved. Exact-cache-only restoration is now reviewed and staged; require
+two fresh complete raw passes equal to the pinned baseline before duplication.
+`installation-cache-restoration-native-duplicate.json` binds this variant.
+The independent review caught and corrected a setter-signature bug before
+staging: the installed API requires one settings dictionary, matching the
+existing preparation call. Focused CPython 3.14 `-S` harness/media checks,
+Ruff lint/format and diff checks passed. These are probe checks, not live
+restoration or duplication evidence.
+
 ## First operator run and correction
 
 At 16:56:37 UTC (12:56:37 EDT), the operator launched the integration and
@@ -182,11 +208,11 @@ verified.
 
 | Required evidence | Current status | Constraint until an actual result |
 |---|---|---|
-| R1 reopen/trim/move/razor/copy/timeline duplicate; identical signatures | **Pre-close baseline stable; save/close returned true; reopen and duplicate pending** | No occurrence lineage or binding by filename, order, signature or copied custom-data. |
+| R1 reopen/trim/move/razor/copy/timeline duplicate; identical signatures | **One manual reopen capture retained; cache guard refused; duplicate and editorial edits pending** | No occurrence lineage or binding by filename, order, signature or copied custom-data. |
 | R2 complete program audio, repeated word/sample/derived ends, residual/mute/retime | **Untested; operator run pending** | Word deletion stays unavailable. Source support alone never proves omission from every route. |
 | R3 compositing/effects/offline/Graphic/structural boundary/crossing bed | **Untested; operator run pending** | Track order is not visibility. Preserve opaque effects and crossing media; no automatic structural adoption. |
 | R4 verified relink/offline/present versus removed/wrong bytes at same locator | **Untested; operator run pending** | Availability, bytes, locator, occurrence and logical identity stay distinct. Missing/offline cannot mean deletion. |
-| R5 quiet/reopen/new-edit/marker repeats and inconsistent capture | **Separate quiet repeat and native preflight equal adjacent reads retained; reopen/new-edit/marker tests pending** | Fingerprint is evidence only; no atomic source revision or durable review/apply concurrency claim. |
+| R5 quiet/reopen/new-edit/marker repeats and inconsistent capture | **Quiet comparison complete; one manual reopen capture shows same IDs/markers except cache setting; edit/race tests pending** | Fingerprint is evidence only; no atomic source revision or durable review/apply concurrency claim. |
 
 For #131/#139, safe design discussion can continue to describe these explicit
 refusals, source preservation and manual review. **No observation-dependent
@@ -251,15 +277,15 @@ inputs, never R1–R5 application behavior.
 
 ## Next required evidence
 
-Follow the recovery step in `operator-checklist.md`. The 19:42:33 launch saved
-and closed the project but refused before reopen or duplication because Resolve
-reported a different current project ID. No follow-on editor result is available.
+Follow the staged cache-restoration/duplicate action in `operator-checklist.md`.
+The operator launches it once; its fresh raw-baseline equality gate must pass
+before duplication.
 
 Preserve the actual baseline bounds in the retained capture and use them in
 editorial probes; do not silently correct them. Duration convention and overlay
 placement require separate bounded calibration before making sample- or
 visibility-timing claims. Proceed with identity/reopen testing and the remaining
-operation matrix one operation at a time, replacing untested
+operation matrix in the independent-case batches in the operator checklist, replacing untested
 entries with actual bounded supported/unsupported/ambiguous interpretations.
 Only complete truthful evidence permits In review. External confirmation is
 required for acceptance; this checkpoint does not close the issue.

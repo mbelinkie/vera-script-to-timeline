@@ -43,8 +43,9 @@ Preflight verified Ready, External acceptance, exactly `model:sol` and
 3. Retain preparation, item custom-data, project/timeline/media identities and
    two read-only baseline passes. Capture getters' raw values/errors, not
    inferred visibility, audio routing, deletion or edit lineage.
-4. Execute the numbered operator matrix one edit at a time, retaining a capture
-   before/after each and an operator record. Public APIs lacking trim/razor/
+4. Execute the numbered operator matrix in independent-case batches, retaining
+   a capture before/after each batch and an operator record. State-dependent
+   transitions require separate captures. Public APIs lacking trim/razor/
    copy-paste commands do not license replacement clips masquerading as edits.
 5. Repeat after save/reopen and a new edit. Adjacent equal reads provide a
    content fingerprint, not an atomic application revision token; changed or
@@ -96,10 +97,46 @@ no contract, fixture or dependency changes. Check refusal before duplication,
 the exact mutation sequence, source/runtime compatibility and diff hygiene.
 External acceptance still requires the actual reopened/duplicate readbacks.
 
+The 20:17:34 UTC operator-reopened capture passed project identity and has two
+equal adjacent reads with no getter failures. Compared with the pinned raw
+baseline, only project and timeline `perfCacheClipsLocation` changed from the
+owned absolute directory to `CacheClip`; all other captured values match.
+Do not guess where that relative cache locator points. Extend only the existing
+duplicate-only action to recognize this exact two-field difference, retain its
+original preflight, journal restoration of the pinned owned project cache
+directory through the previously successful writable setter, and capture again.
+Require the restored full observation to equal the baseline before duplication.
+Reject every other difference before setting or duplicating anything. Keep the
+known cache directory inside the slice-owned output and preserve the original
+readback; this is one bounded preparation-setting restoration, not generic retry
+or normalization of unknown observations. Check the exact setter/duplicate call
+order, changed-field refusals and failed-restoration evidence; retain actual
+External results separately.
+
 At the user's request, bounded evidence documentation, probe implementation and
 independent verification use Luna sub-agents. The existing claimed Sol task
 retains interpretation, safety review and roadmap authority; no issue is
 reclaimed or dispatched elsewhere.
+
+## Operator batching, requested September 30
+
+The producer requested one large timeline that answers multiple questions.
+Retain the unchanged baseline and the native duplicate identity checkpoint.
+After that checkpoint, prepare one additional named synthetic matrix timeline
+with labeled, separated case sections using the existing generated media and
+supported audited preparation calls. Retain a complete before-capture, an exact
+case layout/operator action record, and a complete after-capture for each batch.
+Independent edits act on separate case occurrences, so their combined diff
+still has a specific tested cause. This replaces the one-edit-per-launch method
+for independent cases; it does not change the required R1–R5 evidence.
+
+Use the eight batches in `operator-checklist.md`. State-dependent changes need
+their own snapshots: mute/solo affects the mix, media-pool relink affects every
+occurrence of that source, and reopen/concurrent-edit claims require an actual
+transition. Never infer a before-state from the final matrix alone. The case
+layout is not yet prepared; its audited assembly and captured placement must
+pass calibration before operator editing. No production contracts, source
+media, dependency, or downstream issue changes are introduced by batching.
 
 ## Checks
 
