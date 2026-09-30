@@ -61,6 +61,13 @@ and ID checks. Verify 25 fps playback plus slice-owned media/cache/gallery
 locations before importing; inherited locations were observed in the first
 readback. This is bounded preparation recovery, not outbound retry execution.
 
+Second-run correction: the playback property is documented read-only; never
+write it. The operator sets Playback frame rate to 25 in the named project.
+Capture and verify it before further mutation. Bind continuation to the exact
+second setter-refusal evidence and empty project; set writable keys individually
+and retain readbacks on success or refusal because batch failure can partially
+apply settings. No storage setter support is inferred from documentation.
+
 ## Checks
 
 - Stdlib self-check for pre-mutation refusals, allowlisted-only hashing, raw

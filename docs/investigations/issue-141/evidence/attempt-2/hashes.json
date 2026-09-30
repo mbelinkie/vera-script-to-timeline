@@ -1,0 +1,20 @@
+[
+  {
+    "filename": "preparation-20260930T172018.538043Z.jsonl",
+    "rawSha256": "1085b1281c7ac102ab6404580217f7bf8806271e80d30db4738bf92ebb109b1b",
+    "publishedSha256": "5e5635fb1a643ad9cbbb5294affdf1e4cea62c755e614e89ea48cc4d2a3bf263",
+    "redaction": "private absolute user paths only; full raw retained locally"
+  },
+  {
+    "filename": "preparation-failure-20260930T172018.538043Z.json",
+    "rawSha256": "07dd629af05828baa0294b80e613f73be98577b2e66a271b4aa464fe29bb998e",
+    "publishedSha256": "07dd629af05828baa0294b80e613f73be98577b2e66a271b4aa464fe29bb998e",
+    "redaction": "private absolute user paths only; full raw retained locally"
+  },
+  {
+    "filename": "vera-issue-141-observation-result-20260930T172018.518036Z.json",
+    "rawSha256": "76713758118bc84edca7fd12f6ee8b1bf58f65e3f82712dea552238b8b191851",
+    "publishedSha256": "76713758118bc84edca7fd12f6ee8b1bf58f65e3f82712dea552238b8b191851",
+    "redaction": "private absolute user paths only; full raw retained locally"
+  }
+]

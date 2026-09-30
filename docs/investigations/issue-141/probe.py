@@ -12,7 +12,6 @@ TIMELINE = "VERA 141 Baseline"
 ROOT = Path(__file__).resolve().parents[3]
 SETTINGS = {
     "timelineFrameRate": "25",
-    "timelinePlaybackFrameRate": "25",
     "timelineResolutionWidth": "1920",
     "timelineResolutionHeight": "1080",
     "timelineSampleRate": "48000",
@@ -53,7 +52,7 @@ def settings_match(observed, requested):
         return False
     for key, expected in requested.items():
         actual = observed.get(key)
-        if key in SETTINGS:
+        if key in SETTINGS or key == "timelinePlaybackFrameRate":
             if isinstance(actual, bool) or not isinstance(actual, (str, int, float)):
                 return False
             try:
@@ -67,7 +66,7 @@ def settings_match(observed, requested):
 
 
 def resume_project(resolve, config, output):
-    # Bounded recovery of the one recorded pre-import failure, never generic retry.
+    # Bounded recovery of the recorded pre-import setter refusal, never generic retry.
     retained = {}
     for key, prefix in (
         ("resumeFailure", "preparation-failure-"),
@@ -81,16 +80,12 @@ def resume_project(resolve, config, output):
             raise ValueError("Preparation evidence changed; refusing recovery")
         retained[key] = path.read_text(encoding="utf-8")
     failure = json.loads(retained["resumeFailure"])
-    if failure.get("error") != (
-        "RuntimeError: Project time base/settings readback differs; stop preparation"
-    ):
-        raise ValueError("Only the recorded settings-check failure may continue")
+    if failure.get("error") != "RuntimeError: SetSettings refused operation":
+        raise ValueError("Only the recorded settings-setter refusal may continue")
     records = [json.loads(line) for line in retained["resumeJournal"].splitlines()]
     if [(row["method"], row["phase"]) for row in records] != [
-        ("CreateProject", "request"),
-        ("CreateProject", "return"),
         ("SetSettings", "request"),
-        ("SetSettings", "return"),
+        ("SetSettings", "failure"),
     ]:
         raise ValueError(
             "Prior preparation reached other operations; refusing recovery"
@@ -462,6 +457,15 @@ def run(resolve, config):
                         "Created project identity could not be established"
                     )
                 write_json(identity_path, identity)
+            before = read(project, "GetSettings")
+            write_json(output / f"project-settings-before-{stamp}.json", before)
+            if not settings_match(
+                before.get("value"), {"timelinePlaybackFrameRate": "25"}
+            ):
+                raise RuntimeError(
+                    "Operator required: set Playback frame rate to 25 "
+                    "in Project Settings"
+                )
             requested = dict(SETTINGS)
             for key, directory in (
                 ("projectMediaLocation", "media"),
@@ -471,7 +475,16 @@ def run(resolve, config):
                 path = output / f"storage-{stamp}" / directory
                 path.mkdir(parents=True, exist_ok=False)
                 requested[key] = str(path)
-            mutate(project, "SetSettings", requested)
+            for key, value in requested.items():
+                try:
+                    mutate(project, "SetSettings", {key: value})
+                finally:
+                    settings_after = read(project, "GetSettings")
+                    write_json(
+                        output / f"project-settings-{stamp}-{key}.json", settings_after
+                    )
+                if not settings_match(settings_after.get("value"), {key: value}):
+                    raise RuntimeError(f"Setting readback differs for {key}; stop")
             settings_readback = read(project, "GetSettings")
             settings_path = (
                 output / "project-settings.json"
@@ -480,7 +493,9 @@ def run(resolve, config):
             )
             write_json(settings_path, settings_readback)
             settings_value = settings_readback.get("value")
-            if not settings_match(settings_value, requested):
+            if not settings_match(
+                settings_value, {**requested, "timelinePlaybackFrameRate": "25"}
+            ):
                 raise RuntimeError(
                     "Project time base/settings readback differs; stop preparation"
                 )

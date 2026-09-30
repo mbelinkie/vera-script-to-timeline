@@ -13,6 +13,18 @@ External Scripting None and existing-project/source-state attestations are
 **pending**; this operator message did not explicitly confirm them. No viewer,
 listening, routing or editorial observation is inferred.
 
+## Attempt 2, September 30
+
+The operator again reported no visible result. The timestamped injected run
+at 17:20:18 UTC retained the same project ID and application build. Its journal
+contains one settings request and a refusal, with no imports or timeline
+creation. The agent had included the API's read-only playback-rate property.
+Other requested settings may have partially applied; no post-failure settings
+readback exists for this attempt. Preserve that uncertainty until the next
+read-only settings capture. Originals and public redacted evidence are retained
+under `evidence/attempt-2/`. None and untouched-existing-state attestations
+remain pending.
+
 ## Later entries
 
 Do not fill entries from expected values, synthetic checks or accepted #110's

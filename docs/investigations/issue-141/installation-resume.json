@@ -1,12 +1,14 @@
 {
   "action": "resume-preparation",
   "expectedProjectId": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
-  "firstFailureRawSha256": "ff1ba0425793088fa4c2c55a7a8757c022d4bade073c2069ecbd534996db800c",
-  "firstJournalRawSha256": "90b66606fce20da3d62e0aa24f7e8574592581920be36aaa08a73dfdd16086de",
-  "kind": "staged-guarded-continuation-not-executed",
+  "failedAttempt": 2,
+  "failureRawSha256": "07dd629af05828baa0294b80e613f73be98577b2e66a271b4aa464fe29bb998e",
+  "journalRawSha256": "1085b1281c7ac102ab6404580217f7bf8806271e80d30db4738bf92ebb109b1b",
+  "kind": "staged-read-only-playback-correction-not-executed",
   "launcherSha256": "0aacdd7f5550e36da30f2d0a7eab1e849a3091de6d2c81b88edd33e9ebaae712",
   "operatorNoneConfirmation": "pending",
-  "privateConfigSha256": "72183885b890b652a434236bcdb02f0a81a4aadb3932cb489ee1ef8742179a46",
+  "operatorPlayback25Confirmation": "pending",
+  "privateConfigSha256": "ae7380a29b94997467010413cfb2a7544f2606adfd96c3805984c15e31a6a790",
   "privatePathsPublished": false,
-  "probeSha256": "05c2b619d71428afc5b280239bddffc934a7724dd693d64245e9a69c38e2eafb"
+  "probeSha256": "0bcec378fce8b4e7703e341fbf7319d6ae24729ff54772b1d87cd8b27a4e1e09"
 }

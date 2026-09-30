@@ -1,6 +1,6 @@
 # Issue 141 — observation investigation, preparation checkpoint
 
-September 30, 2026. **In progress; first preparation failed before import.**
+September 30, 2026. **In progress; two preparation attempts failed before import.**
 The injected application readback is retained; R1–R5 and External acceptance
 are still pending. A corrected, guarded continuation is staged for the operator.
 
@@ -26,22 +26,44 @@ symptom are confirmed; None and synthetic-only/untouched-existing-state
 attestations remain pending and are not inferred from config or the audit.
 
 The readback also showed inherited 24 fps playback and storage locations
-outside the disposable directory. Before importing, the continuation requests
-25 fps playback and media/cache/gallery paths inside slice-owned storage,
-then verifies all those readbacks. Their setter support remains untested.
+outside the disposable directory. The first correction requested 25 fps
+playback and slice-owned media/cache/gallery paths. That continuation ran at
+17:20:18 UTC (13:20:18 EDT) and failed with `SetSettings refused operation`,
+again before import. `evidence/attempt-2/` retains the request, failure and
+launcher result with raw/published hashes. The operator again reported no
+visible result; scripting/synthetic-only attestations remain pending.
 
-The continuation is bound to the exact failed journal/failure hashes and
+## Read-only playback setting and current correction
+
+The installed `DaVinciResolveScript.pyi:424–425` explicitly marks
+`timelinePlaybackFrameRate` read-only. Writing it was the agent's second
+probe bug. `README.md:237–244` documents batch settings as partially applied
+in unspecified order on failure. Thus the second attempt does not prove that
+other settings remained unchanged; their current values need a fresh readback.
+The setter form itself is documented and is not the problem.
+
+The corrected continuation never writes the playback property. Before any
+further setting mutation it retains current settings and requires the operator
+to have set Playback frame rate to 25 in the named project's settings. It then
+applies each writable setting separately and retains its readback even on
+refusal. Final verification includes 25 fps playback, 25 fps timeline, 48 kHz
+audio and the slice-owned storage paths before any media import. Writable
+storage setter support remains untested; a refusal must remain explicit.
+
+The continuation is bound to the second failed journal/failure hashes and
 project ID. It requires the current project to have zero timelines, no root
 media and no subfolders. It does not create another project, delete/replay
 items, overwrite prior evidence or supply a generic retry system. Any mismatch
 stops before further Resolve mutation. The launcher becomes read-only observe
 only after successful preparation.
 
-`installation-resume.json` records the staged launcher/source/config hashes;
-the continuation has not run yet. The actual-readback regression, incorrect/
-missing/nonfinite-rate refusals and empty-project recovery guards pass under
-CPython 3.14.7 `-S`. Full pinned `npm run validate` passed again after the fix,
-including all 175 Python tests and the unchanged TypeScript/golden checks.
+`installation-resume.json` records the latest staged launcher/source/config
+hashes; this correction has not run in Resolve. The settings-boundary regression
+failed on the read-only write before the fix and passes after it; inherited
+24 fps playback stops with an operator instruction before any setter/import.
+These are harness results, not newly established Resolve capabilities. The
+actual-readback regression, incorrect/missing/nonfinite-rate refusals and
+empty-project recovery guards pass under CPython 3.14.7 `-S`.
 
 ## Evidence retained
 
@@ -102,6 +124,9 @@ dependencies on #141/#142. Neither dependency is removed here.
   generated types current, TypeScript lint/typecheck, 141 contract tests,
   1 smoke, 6 progress and 23 roadmap tests; Python lint/format/strict mypy and
   175 tests. Python application test runtime 3.12.14 / pytest 9.1.1.
+  The latest correction passed the full command again. An intermediate run
+  stopped on one overlong error-message line; splitting the same literal
+  corrected lint, and the full rerun passed.
 - Locked install only: `npm ci --ignore-scripts`, no dependency/lock changes.
   It reproduced the three advisories already owned by #142; no fix attempted.
 - Initial checkpoint frozen-boundary audit: passed; all 21 changed
@@ -119,7 +144,7 @@ inputs, never R1–R5 application behavior.
 
 ## Next required evidence
 
-Follow only **Guarded continuation after the first failure** in
+Follow only **Guarded continuation after the second failure** in
 `operator-checklist.md`.
 After that run, inspect the retained journal, settings and baseline capture;
 correct any supported-boundary failure before staging editorial operations.

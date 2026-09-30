@@ -213,6 +213,92 @@ with tempfile.TemporaryDirectory() as directory:
     assert not Path(trial["outputDir"]).exists()
 probe.ROOT = original_root
 
+# Replay the settings boundary with the installed API's read-only playback rule.
+with tempfile.TemporaryDirectory() as directory:
+    probe.ROOT = Path(directory)
+    media_root = probe.ROOT / "out/issue-141-media-test"
+    media_root.mkdir(parents=True)
+    source = media_root / "source.wav"
+    source.write_bytes(b"synthetic")
+    probe.write_json(
+        media_root / "manifest.json",
+        {
+            "kind": "generated-synthetic-inputs-not-Resolve-evidence",
+            "installedDocs": {},
+            "files": [{"path": "source.wav", "sha256": probe.sha256(source)}],
+        },
+    )
+
+    class SettingsProject(Project):
+        def GetTimelineCount(self):
+            return 0
+
+        def __init__(self, playback):
+            self.settings = {
+                **probe.SETTINGS,
+                "timelineFrameRate": 25.0,
+                "timelinePlaybackFrameRate": playback,
+            }
+            self.requests = []
+
+        def GetSettings(self):
+            return dict(self.settings)
+
+        def SetSettings(self, requested):
+            self.requests.append(dict(requested))
+            if "timelinePlaybackFrameRate" in requested:
+                return False
+            self.settings.update(requested)
+            return True
+
+        def GetMediaPool(self):
+            return self
+
+        def ImportMedia(self, *args):
+            raise RuntimeError("Synthetic import boundary reached")
+
+    class SettingsResolve(PreflightResolve):
+        def GetProjectManager(self):
+            return self
+
+        def GetProjectListInCurrentFolder(self):
+            return []
+
+        def CreateProject(self, name):
+            assert name == settings_project.GetName()
+            return settings_project
+
+        def GetCurrentProject(self):
+            return settings_project
+
+    for playback, expected_error in (
+        ("25", "Synthetic import boundary reached"),
+        ("24", "Operator required: set Playback frame rate to 25 in Project Settings"),
+    ):
+        settings_project = SettingsProject(playback)
+        output = probe.ROOT / f"out/issue-141-observation-settings-{playback}"
+        trial = {
+            **config,
+            "action": "prepare",
+            "mediaDir": str(media_root),
+            "outputDir": str(output),
+            "manifestSha256": probe.sha256(media_root / "manifest.json"),
+        }
+        try:
+            probe.run(SettingsResolve(), trial)
+        except RuntimeError as error:
+            assert str(error) == expected_error, str(error)
+        else:
+            raise AssertionError("Preparation did not stop at the tested boundary")
+        assert all(
+            len(request) == 1 and "timelinePlaybackFrameRate" not in request
+            for request in settings_project.requests
+        )
+        if playback == "24":
+            assert settings_project.requests == []
+        assert not (output / "prepared.json").exists()
+probe.ROOT = original_root
+
 # Replay the actual failed readback through the preparation guard's shared seam.
 actual_settings = json.loads(
     (Path(__file__).parent / "evidence/attempt-1/project-settings.json").read_text()
@@ -228,9 +314,9 @@ original_request = json.loads(
 assert probe.settings_match(actual_settings, original_request), (
     "25.0 must equal the requested 25 fps"
 )
-assert not probe.settings_match(actual_settings, probe.SETTINGS), (
-    "Inherited 24 fps playback must be corrected"
-)
+assert not probe.settings_match(
+    actual_settings, {**probe.SETTINGS, "timelinePlaybackFrameRate": "25"}
+), "Inherited 24 fps playback requires the operator, not a read-only property write"
 for invalid in (24, "24.999", None, True, "NaN", "Infinity", "bad"):
     assert not probe.settings_match(
         {**actual_settings, "timelineFrameRate": invalid}, original_request
@@ -286,10 +372,7 @@ with tempfile.TemporaryDirectory() as directory:
         failure_path,
         {
             "identity": identity,
-            "error": (
-                "RuntimeError: Project time base/settings readback differs; "
-                "stop preparation"
-            ),
+            "error": "RuntimeError: SetSettings refused operation",
         },
     )
     journal = output / "preparation-test.jsonl"
@@ -297,10 +380,8 @@ with tempfile.TemporaryDirectory() as directory:
         "".join(
             json.dumps({"method": method, "phase": phase}) + "\n"
             for method, phase in (
-                ("CreateProject", "request"),
-                ("CreateProject", "return"),
                 ("SetSettings", "request"),
-                ("SetSettings", "return"),
+                ("SetSettings", "failure"),
             )
         )
     )

@@ -33,23 +33,30 @@ for the API readback. The installed configuration switches to read-only
 editing Resolve. Missing getters may yield `incomplete-refused`; that result
 must be retained, not described as a passing capability test.
 
-## Guarded continuation after the first failure
+## Guarded continuation after the second failure
 
 1. Keep **VERA Issue 141 Synthetic Probe 20260930-01a0f318** open, with no
    imported media or timelines. Confirm External Scripting remains **None**.
-   Do not edit this empty project or create another one.
-2. Launch **Workspace > Workflow Integrations > VERA Issue 141 Observation**
+   Do not create another project or import anything manually.
+2. Open **Project Settings** using the gear at the bottom right. Under
+   **Master Settings > Timeline Format**, set **Playback frame rate** to
+   **25**, then **Save**. The scripting API exposes this property as read-only,
+   so the agent cannot set it. If it is unavailable or disabled, stop and
+   report that exact result; do not substitute another setting.
+3. Launch **Workspace > Workflow Integrations > VERA Issue 141 Observation**
    once more. The staged action continues only the exact recorded empty
-   project, corrects playback/storage settings, checks readbacks, then imports
-   the synthetic media and creates **VERA 141 Baseline**. Expected: eight
-   seconds at 25 fps / 48 kHz with the tracks/marker described above.
-3. Reply **`141 continuation ran; None confirmed; synthetic project only`**, or
+   project. It retains current settings and verifies 25 fps playback before
+   applying writable timeline/storage settings individually with readbacks,
+   then imports the synthetic media and creates **VERA 141 Baseline**.
+   Expected: eight seconds at 25 fps / 48 kHz with the tracks/marker above.
+4. Reply **`141 continuation ran; playback 25; None confirmed; synthetic project only`**, or
    give the visible result/error. If it still looks unchanged, the agent will
    read its new timestamped result directly. Do not repeatedly launch on a
    failure, delete the project, open an existing project or change scripting.
 
-The initial `25.0` versus `"25"` failure and all its hashes remain retained.
-This action does not accept R1–R5; it only prepares their baseline.
+Both the initial `25.0` versus `"25"` failure and the read-only setting refusal
+remain retained with their hashes. This action does not accept R1–R5; it only
+prepares their baseline.
 
 ## Recording each later operation
 
