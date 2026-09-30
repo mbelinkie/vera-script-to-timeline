@@ -1,0 +1,88 @@
+# Issue 141 — observation investigation, preparation checkpoint
+
+September 30, 2026. **In progress; awaiting the first operator-launched run.**
+This checkpoint has no new real-Resolve readback or External acceptance.
+
+## Evidence retained
+
+- #131 baseline `817d0e5ab76219fdc3df95b196f84fbad0382f0a` and accepted #110
+  immutable reference `22d86fa783c141b59f8631ba3020338c3368aa3e` were inspected.
+  No unrelated implementation was merged to obtain #110's evidence.
+- #110's operator observed Studio 21.1.0 build 14 / injected CPython 3.14.7,
+  External Scripting None, synthetic-only scope, channel-1 mono mapping, Voice
+  Isolation and Dialogue Leveler changed/read back/restored. Normalization and
+  PCM-WAV render selection failed; preset/EQ/dynamics remained operator-only.
+  These are historical compatibility bounds, not new #141 probe results.
+- Current Resolve status query reported **not running**, installation version
+  21.1. Product/build and preference values must come from the new live run and
+  operator confirmation. No current API capability was inferred from names.
+- Generated inputs and exact manifest are retained under `inputs/`. Eleven
+  files, 25 fps / video time base 1/12800, 48 kHz PCM, four byte-identical
+  synthetic “echo” kernels, a crossing tone bed, a 50%-alpha overlay, and
+  same-byte/wrong-byte relink candidates. Original manifest SHA-256:
+  `10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3`.
+  These are generated test inputs, never captured program output.
+- Separate stdlib-only Workflow Integration launcher matches #110's injected
+  object pattern. It refuses changed input hashes, project collisions,
+  non-None attestation, unknown project ID and unexpected locators. Preparation
+  journals calls/returns and item before/after getters; observation has no
+  Resolve mutations. Failures retain the partial project rather than cleaning up.
+- Fingerprints cover two adjacent read-only passes. Changed/failed/incomplete
+  capture is refused. There is no application revision token, no atomicity
+  guarantee, and no proof against changes occurring and being undone between
+  reads. Do not use this content hash as apply authorization.
+
+## R1–R5 status and downstream limits
+
+| Required evidence | Current status | Constraint until an actual result |
+|---|---|---|
+| R1 reopen/trim/move/razor/copy/timeline duplicate; identical signatures | **Untested; operator run pending** | No occurrence lineage or binding by filename, order, signature or copied custom-data. |
+| R2 complete program audio, repeated word/sample/derived ends, residual/mute/retime | **Untested; operator run pending** | Word deletion stays unavailable. Source support alone never proves omission from every route. |
+| R3 compositing/effects/offline/Graphic/structural boundary/crossing bed | **Untested; operator run pending** | Track order is not visibility. Preserve opaque effects and crossing media; no automatic structural adoption. |
+| R4 verified relink/offline/present versus removed/wrong bytes at same locator | **Untested; operator run pending** | Availability, bytes, locator, occurrence and logical identity stay distinct. Missing/offline cannot mean deletion. |
+| R5 quiet/reopen/new-edit/marker repeats and inconsistent capture | **Live application untested**; harness refusal checks pass | Fingerprint is evidence only; no atomic source revision or durable review/apply concurrency claim. |
+
+For #131/#139, safe design discussion can continue to describe these explicit
+refusals, source preservation and manual review. **No observation-dependent
+design claim is newly cleared by this checkpoint.** It does not reopen #131's
+accepted artifacts or establish production feasibility.
+
+Future #101 must retain raw observations, exact source hashes and unknown states;
+#102 cannot manufacture identity, speech deletion or visibility from incomplete
+facts; #103 must surface ambiguity and stale/inconsistent review; #104 must
+preserve sources and block unsafe apply. Contract and review decisions remain
+separate gates. #137/#128/#138/#139 retain their current scopes/statuses and
+dependencies on #141/#142. Neither dependency is removed here.
+
+## Automated check record
+
+- `python3 -S docs/investigations/issue-141/check.py <generated-media-dir>`:
+  passed; refusal/error-retention and exact media hash/time-base/sample checks.
+- `npm exec --yes --package=node@24.19.0 -- npm run validate`: passed;
+  generated types current, TypeScript lint/typecheck, 141 contract tests,
+  1 smoke, 6 progress and 23 roadmap tests; Python lint/format/strict mypy and
+  175 tests. Python application test runtime 3.12.14 / pytest 9.1.1.
+- Locked install only: `npm ci --ignore-scripts`, no dependency/lock changes.
+  It reproduced the three advisories already owned by #142; no fix attempted.
+- Frozen-boundary audit against the starting commit: passed; all 21 changed
+  paths belong to this investigation and its plan. No frozen contracts,
+  fixtures, goldens, accepted tests/design artifacts or locks changed.
+  `git diff --check` and `git diff --cached --check`: passed.
+- Harness/media checks ran in CPython 3.14.7 with `-S`, matching #110's
+  accepted injected runtime. The installed launcher and probe source have
+  retained hash bindings in `installation.json`; None confirmation is pending.
+
+Use repository shell wrappers for those commands. The injected code imports
+only Python stdlib; synthetic preparation reuses the existing slate writer and
+installed macOS say/FFmpeg/FFprobe. Automated checks validate the harness and
+inputs, never R1–R5 application behavior.
+
+## Next required evidence
+
+Follow only **First action requested now** in `operator-checklist.md`.
+After that run, inspect the retained journal, settings and baseline capture;
+correct any supported-boundary failure before staging editorial operations.
+Complete the remaining matrix one operation at a time and replace untested
+entries with actual bounded supported/unsupported/ambiguous interpretations.
+Only complete truthful evidence permits In review. External confirmation is
+required for acceptance; this checkpoint does not close the issue.
