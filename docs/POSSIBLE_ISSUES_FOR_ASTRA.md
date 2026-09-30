@@ -29,6 +29,26 @@ unresolved risk; a later accepted result should resolve, revise, or remove it.
 | Browser authoring state/permission model | The original #14 proved too broad for one design slice and is now a six-slice program. The risk is not visual polish: it is accurately representing Phase 2 writing, Phase 3 roles/history/comments, local runtime states, and cross-product authorization without accidentally promising a capability. | Can the scenario, role, runtime, and authorization matrices be reduced to a coherent state model that preserves product-phase boundaries and yields implementable acceptance tests? | The #57 child program has an accepted traceability matrix with no unresolved role/runtime contradiction, and any remaining semantic gaps are separate bounded issues. | [#57](https://github.com/mbelinkie/vera-script-to-timeline/issues/57), [#14](https://github.com/mbelinkie/vera-script-to-timeline/issues/14), [#62](https://github.com/mbelinkie/vera-script-to-timeline/issues/62) |
 | Production periodic webpage capture and recovery | The immutable local-revision spike and trust contract are useful, but production periodic recapture remains deliberately deferred. Scheduling, leases, retention, access revocation, side-effect containment, and recovery must work together without replacing a prior accepted revision. | What is the minimum production architecture that makes periodic capture safe, idempotent, observable, and recoverable while preserving immutable revisions and independent authorization? | A separately accepted production design and implementation prove periodic capture, lease/retry behavior, retention, authorization loss, and non-destructive recovery. | [#27](https://github.com/mbelinkie/vera-script-to-timeline/issues/27), [#28](https://github.com/mbelinkie/vera-script-to-timeline/issues/28), [#38](https://github.com/mbelinkie/vera-script-to-timeline/issues/38) |
 
+## Reconciliation occurrence binding after editorial edits
+
+- **Evidence:** accepted [#131](https://github.com/mbelinkie/vera-script-to-timeline/issues/131)
+  [report](https://github.com/mbelinkie/vera-script-to-timeline/blob/817d0e5ab76219fdc3df95b196f84fbad0382f0a/docs/prototypes/issue-131/feasibility-report.md).
+  P03 constructs distinct occurrences with identical source/track/range
+  signatures. The current Studio bridge verifies pristine assembly by sorted
+  ranges/media identity, not retained authoring-to-occurrence bindings. Item
+  UID/custom-data survival through razor, copy/paste and timeline duplication
+  is unobserved; a synthetic sidecar cannot retire that integration risk.
+- **Precise question:** what minimum observable binding evidence can preserve
+  one logical authored item's many appearances after those edits, and which
+  operations must remain opaque or blocked rather than matched by geometry?
+- **Retirement condition:** [#141](https://github.com/mbelinkie/vera-script-to-timeline/issues/141)
+  retains a version-stamped occurrence-survival/ambiguity matrix, and an
+  accepted binding model demonstrates unique mappings or explicit refusals for
+  every tested operation, including identical duplicate signatures. Unknown
+  cases remain visibly unsupported; no heuristic is promoted to identity.
+- **Boundary:** reconsideration candidate only. #141 keeps its existing
+  Sol/xhigh routing; this entry is neither a model override nor dispatch.
+
 ## Explicit non-candidates today
 
 - GitHub roadmap rate limiting is not listed: #18, #23, and #30 produced a
