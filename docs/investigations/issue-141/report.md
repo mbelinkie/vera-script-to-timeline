@@ -99,6 +99,36 @@ existing preparation call. Focused CPython 3.14 `-S` harness/media checks,
 Ruff lint/format and diff checks passed. These are probe checks, not live
 restoration or duplication evidence.
 
+## Native duplicate result and unresolved observation context
+
+At 20:44:38 UTC, the guarded cache restoration and native duplicate succeeded.
+See `evidence/native-duplicate-success/`. Two cache-restoration passes equal the
+pinned raw baseline exactly. DuplicateTimeline created `VERA 141 R1 identity`,
+selection was verified, and SaveProject returned true. All four captures have
+equal adjacent reads with no recorded getter errors. The operator confirmed
+None/synthetic-only scope and asked us to stop repeating the mode question.
+
+All six copied occurrence IDs are new; all five distinct source-media IDs are
+shared. Copied track/range/media/item-enable/marker signatures match, including
+custom data. This supports one native-duplication observation and proves that
+copied custom data alone is not a unique occurrence binding. Trim, move, razor,
+copy/paste and repeat behavior remain untested.
+
+The baseline's post-duplicate readback has all six track-enabled getters false,
+increased media Usage values and eight absent audio-property keys on each of
+three audio items. These are actual captured differences, not demonstrated
+track/effect edits. The journal contains no explicit setter for those values;
+whether the readings depend on active timeline context is untested. Missing
+values remain unknown. A bounded selection-only comparison must precede the
+matrix preparation's unchanged-timeline check.
+
+For #101/#102, this limits interpreting inactive-timeline getters as manual
+changes, mute state or audio-effect removal. Resolve-owned work must remain
+protected/manual while these readings are ambiguous. It does not demonstrate
+a failure to generate a timeline; preparation and duplication have succeeded.
+It does not yet establish complete program audio, sample precision or rendered
+picture visibility.
+
 ## First operator run and correction
 
 At 16:56:37 UTC (12:56:37 EDT), the operator launched the integration and
@@ -208,7 +238,7 @@ verified.
 
 | Required evidence | Current status | Constraint until an actual result |
 |---|---|---|
-| R1 reopen/trim/move/razor/copy/timeline duplicate; identical signatures | **One manual reopen capture retained; cache guard refused; duplicate and editorial edits pending** | No occurrence lineage or binding by filename, order, signature or copied custom-data. |
+| R1 reopen/trim/move/razor/copy/timeline duplicate; identical signatures | **One manual reopen and native duplicate observed; editorial edits/repeat pending** | Six new copied occurrence UIDs, shared source-media UIDs and matching copied marker/range signatures. No occurrence lineage or binding by filename, order, signature or copied custom-data. Inactive track/audio-property readings remain ambiguous. |
 | R2 complete program audio, repeated word/sample/derived ends, residual/mute/retime | **Untested; operator run pending** | Word deletion stays unavailable. Source support alone never proves omission from every route. |
 | R3 compositing/effects/offline/Graphic/structural boundary/crossing bed | **Untested; operator run pending** | Track order is not visibility. Preserve opaque effects and crossing media; no automatic structural adoption. |
 | R4 verified relink/offline/present versus removed/wrong bytes at same locator | **Untested; operator run pending** | Availability, bytes, locator, occurrence and logical identity stay distinct. Missing/offline cannot mean deletion. |
@@ -277,9 +307,9 @@ inputs, never R1–R5 application behavior.
 
 ## Next required evidence
 
-Follow the staged cache-restoration/duplicate action in `operator-checklist.md`.
-The operator launches it once; its fresh raw-baseline equality gate must pass
-before duplication.
+Follow `operator-checklist.md`: first compare selected/inactive timeline context,
+then prepare the labeled matrix. No context action or matrix launch is staged
+yet; do not rerun the successful duplicate action.
 
 Preserve the actual baseline bounds in the retained capture and use them in
 editorial probes; do not silently correct them. Duration convention and overlay

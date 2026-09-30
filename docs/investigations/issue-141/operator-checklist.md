@@ -22,7 +22,21 @@ timeline/storage settings, imported only generated synthetic inputs and created
 the baseline. It ran successfully. The failed earlier attempts remain retained
 with their hashes.
 
-## Current next action — restore exact cache setting, then duplicate
+## Current next action — compare selected and inactive timeline readback
+
+The native duplicate succeeded at 20:44:38 UTC. `VERA 141 R1 identity` is
+selected and saved; no duplicate rerun is needed. Its six occurrence UIDs are
+new and source-media UIDs are shared. The operator's standing confirmation is
+External Scripting None and synthetic-only scope; do not repeat the mode question.
+
+The inactive baseline's track-enabled readings changed and eight audio-property
+keys are absent. A selection-only capture comparison is being prepared to test
+whether those readings depend on the active timeline. Keep the existing timeline
+contents unchanged. Wait for the staged action; no operator action is currently
+required. Matrix preparation must preserve those uncertain readings as unknown
+until this comparison resolves or explicitly bounds them.
+
+## Historical successful cache restoration and duplication
 
 At 20:17:34 UTC the operator reopened the named Synthetic Probe project. The
 retained two-pass capture matches the original baseline except for
@@ -48,7 +62,7 @@ project is saved. Stop on refusal or no visible result; do not rerun or clean up
 Record the visible result and None/synthetic-only confirmation.
 
 The cache restoration and duplicate-only action passed focused checks and
-independent safety review; no live restoration or duplication result exists.
+independent safety review, then ran successfully. Do not rerun it.
 Earlier 18:12 and 19:42 refusals
 remain retained; the former has no capture, and the latter stopped after Resolve
 reported a different current project ID. Neither establishes behavior of an
@@ -62,14 +76,14 @@ need separate calibration before sample or visibility timing claims.
 ### Batched operator sessions
 
 These eight batches group the existing evidence checks; they are not eight
-completed or already staged launches. Only the current identity/duplication
-checkpoint is staged. The labeled matrix timeline must be assembled
+completed or already staged launches. The identity/duplication checkpoint has
+one observed success. The labeled matrix timeline must be assembled
 and its actual placement captured before the later grouped edits begin.
 
 | Batch | Checks answered together | Manual intervention |
 |---|---|---|
-| 1. Reopen and native identity | R1 reopen/duplicate; R5 reopened markers/ranges/settings | Reopen the exact synthetic project, then launch the reviewed native batch. Current reopen evidence is retained; duplication is pending. |
-| 2. Calibrate and prepare the matrix | Actual duration/overlay placement; before-state for separate labeled cases | Launch audited matrix preparation once; inspect named bounds/frames. Agent verifies every case before editing. |
+| 1. Reopen and native identity | R1 reopen/duplicate; R5 reopened markers/ranges/settings | Reopen and one native duplicate are observed; no rerun. |
+| 2. Calibrate and prepare the matrix | Active-timeline getter context; actual duration/overlay placement; before-state for separate labeled cases | Launch the reviewed context comparison and audited matrix preparation when staged; inspect named bounds/frames. Agent verifies every case before editing. |
 | 3. Local identity edits | R1 trim, move, razor and copy on separate case occurrences | Perform the four labeled edits together, then one observation capture. |
 | 4. Speech edit cases | R2 linked/unlinked/picture-only/partial cuts, residual track, offset, retime and boundary precision | Edit separate labeled speech cases, then capture them together; record routing/listening evidence as required. |
 | 5. Picture and structure | R3 opaque/transparent/effect/disabled cases, Graphic merge, exact boundary and crossing bed | Edit/view the labeled cases together, then one capture. Viewer samples and unknown effects remain explicit. |
@@ -91,7 +105,7 @@ filenames in `operator-record.md`. Do not perform the next edit until the
 previous batch capture is retained. Keep `VERA 141 Baseline` unchanged; the
 labeled matrix and any state-transition duplicate begin `VERA 141 `.
 
-The native `DuplicateTimeline` call in the pending batch tests timeline
+The successful native `DuplicateTimeline` call tested timeline
 duplication itself; appending equivalent clips would not establish that behavior.
 Copy/paste remains a separate R1 editorial probe. Every operation is audited by
 its named action, before/after captures and operator record; no general UI
@@ -106,8 +120,8 @@ batch capture; these are not sequential changes to the same linked clip.
 
 | Stage | Ordered action | Required evidence / expected discriminant |
 |---|---|---|
-| R1-reopen | One manual reopen capture is retained; the identity guard refused only because the project/timeline cache setting returns `CacheClip`. | IDs, ranges, markers/custom-data and other properties match the raw baseline; API `LoadProject` remains untested. Require exact cache restoration and a full matching capture before duplication. |
-| R1-duplicate | Pending after reviewed cache restoration and a fresh complete capture matching baseline: use `DuplicateTimeline` to create `VERA 141 R1 identity`; capture both. | Compare source/track/range signatures, UIDs and copied custom-data. Copied authoring data alone never proves a unique occurrence binding. |
+| R1-reopen | One manual reopen capture is retained; cache restoration subsequently matched the original raw baseline. | IDs, ranges, markers/custom-data and other properties match the raw baseline; API `LoadProject` remains untested. |
+| R1-duplicate | One successful `DuplicateTimeline` created `VERA 141 R1 identity`; both timelines and saved state are captured. | Six new occurrence UIDs, five shared media UIDs and matching copied markers/ranges. Copied authoring data alone never proves a unique occurrence binding. Inactive baseline track/audio-property readings require context comparison. |
 | R1-trim | Trim the linked trim-case occurrence's right edge by 25 frames without ripple, using its actual captured end. | End/duration changes with observed UID/custom-data survival or loss. |
 | R1-move | Move the separate linked move-case occurrence 25 frames later without ripple. | Record position changes separately from source identity; no sort-order binding. |
 | R1-razor | Blade the separate linked razor-case occurrence at local frame 100; do not remove either piece. | Both children, UIDs, source ranges, link groups and inherited marker data; never assume either child retains the logical parent's identity. |

@@ -140,6 +140,57 @@ media, dependency, or downstream issue changes are introduced by batching.
 
 ## Checks
 
+### Bounded matrix preparation after native duplication
+
+The September 30 20:44:38 UTC native duplicate succeeded. Its final raw capture
+`capture-20260930T204438.948629Z-current-duplicate-saved.json` has SHA-256
+`fab588ea4f4e10394b0ca878358cb55743cb8c1dbaa72cd4822320e7e9cae85f`.
+Use that exact two-timeline state as the preparation guard. Create only
+`VERA 141 Batched Matrix`; preserve baseline and R1 identity contents/settings.
+
+Before assembly, a separate selection-only action tests the observed getter
+context. Require the exact two-pass saved duplicate capture and current R1
+timeline ID. Journal only two SetCurrentTimeline requests: baseline then R1.
+Capture complete adjacent passes in each selected context. Compare the selected
+baseline with its pinned original, allowing only the exact Usage increases
+already recorded after duplication (1→2 for four sources, 2→4 for repeated.wav).
+Require the reselected R1 project capture to equal the saved duplicate state.
+No settings, track-enabled, property, source, content or save mutation belongs
+in this action. Missing or differing fields remain retained and unknown;
+do not normalize them. A comparison mismatch stops matrix preparation.
+Selection failure retains a best-effort capture and stops without further work.
+The operator launches this reviewed bounded sequence once; generic native
+computer control is disabled in this session. User authorization to automate
+does not change tool availability or license an external-scripting fallback.
+
+Use 19 labeled sections, separated by 500 frames at 25 fps: calibration;
+R1 trim/move/razor/copy; R2 linked/unlinked/picture-only/partial/residual/offset/
+retime; R3 opaque/transparent/effect/disabled-cutaway/disabled-overlay/Graphic/
+boundary. Reuse the five imported synthetic media-pool items and the same six
+placement requests as the baseline in each section. Capture every actual
+placement before continuing. Preserve the observed 199-frame base/audio,
+49-frame cutaway and 125-frame still readbacks; do not silently normalize
+endpoint or still-duration behavior. The section spacing permits a 50% retime
+or a copy in that case without entering the next case.
+
+Preparation uses documented CreateEmptyTimeline, SetCurrentTimeline,
+SetStartTimecode, AddTrack, AppendToTimeline, SetClipEnabled, AddMarker,
+SetClipsLinked and SaveProject through the existing injected boundary.
+Retain a full two-pass preflight before mutation, journal each request/result,
+write each item readback, and retain a full postflight even on refusal. Require
+exact source identity/owned-byte hashes, placement, enabled state, markers,
+case-local links, distinct new UIDs, exactly three named timelines and unchanged
+prior timelines. Failure leaves the partial matrix in place with evidence and
+refuses rerun; never clean up or fabricate an editorial transition.
+
+No contract, fixture, accepted-test, dependency or production design changes.
+Use the existing stdlib harness for wrong-project/state/source, placement and
+partial-failure refusal plus a successful recipe run; focused Ruff and diff
+checks. Real operator launch and retained layout readback are separate from
+automated checks. Only after reviewing the actual layout provide grouped
+editorial instructions and exact coordinates. Viewer/listening calibration,
+sample precision and program routing remain later External evidence.
+
 - Stdlib self-check for pre-mutation refusals, allowlisted-only hashing, raw
   getter failures, read-only observation, and changed/incomplete captures.
 - Synthetic sample/stream/hash verification and injected Python `-S` import.

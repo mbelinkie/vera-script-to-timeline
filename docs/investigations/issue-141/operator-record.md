@@ -1,5 +1,34 @@
 # Issue 141 — operator record
 
+## Standing operator confirmation
+
+After the successful native duplication, the operator confirmed the requested
+None/synthetic-only scope and directed us to stop repeated scripting-mode
+questions: “yes, you can stop asking. I'm never gonna switch it from none.”
+Retain this standing confirmation for the authorized investigation. Do not ask
+the mode question after each launch. Config attestation is not API readback.
+
+## Native cache restoration and duplication, September 30
+
+At 20:44:38 UTC the injected action succeeded. The operator reported that the
+project remained open. The cache-restoration capture matches both pinned raw
+baseline passes exactly. DuplicateTimeline created `VERA 141 R1 identity`, ID
+`aa2b8e36-83bd-4292-9e33-217c00ca192f`; selection readback matches that ID and
+SaveProject returned true. Four complete captures have equal adjacent reads.
+See `evidence/native-duplicate-success/` for immutable raw hashes, redacted
+captures, journal, launcher result and comparison.
+
+All six copied occurrence UIDs are new; the five distinct media UIDs are shared.
+Track/range/media/item-enable/marker signatures and marker custom data match.
+This is one observed duplicate, not editorial lineage or universal ID survival.
+
+The baseline's subsequent readback differs: all six track-enabled getter values
+are false rather than true, Usage values increased, and eight audio-property
+keys are absent on each of three audio items. No explicit track-enable or
+audio-property setter appears in the journal. Cause remains unknown; absence
+does not establish disabled effects or changed audio. Compare selected versus
+inactive timeline context before accepting those getters as edit evidence.
+
 ## Duplicate-only named-project refusal, September 30
 
 The operator reported, “I ran VERA Issue 141 Observation, it didnt seem to do
@@ -144,7 +173,6 @@ redacted capture/result and raw/published hashes.
 
 This retains one manual reopen readback, not proof that the scripting API's
 `LoadProject` works. The operator confirmed for this run: “Yes, None stayed set;
-synthetic project only.” Exact-cache-only restoration is now reviewed and
-staged; require two fresh raw passes equal to the pinned baseline before the
-next duplicate attempt. The earlier 18:12 and 19:42 refusals remain separately
+synthetic project only.” Exact-cache-only restoration subsequently ran
+successfully in the native duplicate batch above. The earlier 18:12 and 19:42 refusals remain separately
 recorded and unexplained where applicable.
