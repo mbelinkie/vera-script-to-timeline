@@ -4,6 +4,7 @@ import hashlib
 import json
 import platform
 from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 PREFIX = "VERA Issue 141 Synthetic Probe "
@@ -11,6 +12,7 @@ TIMELINE = "VERA 141 Baseline"
 ROOT = Path(__file__).resolve().parents[3]
 SETTINGS = {
     "timelineFrameRate": "25",
+    "timelinePlaybackFrameRate": "25",
     "timelineResolutionWidth": "1920",
     "timelineResolutionHeight": "1080",
     "timelineSampleRate": "48000",
@@ -39,11 +41,70 @@ def validate_config(config):
         or any(value in name for value in "\r\n")
     ):
         raise ValueError("A uniquely named issue-141 synthetic project is required")
-    if config.get("action") not in {"prepare", "observe"}:
+    if config.get("action") not in {"prepare", "resume-preparation", "observe"}:
         raise ValueError("Unknown bounded probe action")
     for key in ("mediaDir", "outputDir"):
         if not isinstance(config.get(key), str) or not Path(config[key]).is_absolute():
             raise ValueError(f"{key} must be absolute")
+
+
+def settings_match(observed, requested):
+    if not isinstance(observed, dict):
+        return False
+    for key, expected in requested.items():
+        actual = observed.get(key)
+        if key in SETTINGS:
+            if isinstance(actual, bool) or not isinstance(actual, (str, int, float)):
+                return False
+            try:
+                if Decimal(str(actual)) != Decimal(expected):
+                    return False
+            except InvalidOperation:
+                return False
+        elif actual != expected:
+            return False
+    return True
+
+
+def resume_project(resolve, config, output):
+    # Bounded recovery of the one recorded pre-import failure, never generic retry.
+    retained = {}
+    for key, prefix in (
+        ("resumeFailure", "preparation-failure-"),
+        ("resumeJournal", "preparation-"),
+    ):
+        name = config.get(key, "")
+        if Path(name).name != name or not name.startswith(prefix):
+            raise ValueError("Unknown preparation evidence; refusing recovery")
+        path = output / name
+        if sha256(path) != config.get(key + "Sha256"):
+            raise ValueError("Preparation evidence changed; refusing recovery")
+        retained[key] = path.read_text(encoding="utf-8")
+    failure = json.loads(retained["resumeFailure"])
+    if failure.get("error") != (
+        "RuntimeError: Project time base/settings readback differs; stop preparation"
+    ):
+        raise ValueError("Only the recorded settings-check failure may continue")
+    records = [json.loads(line) for line in retained["resumeJournal"].splitlines()]
+    if [(row["method"], row["phase"]) for row in records] != [
+        ("CreateProject", "request"),
+        ("CreateProject", "return"),
+        ("SetSettings", "request"),
+        ("SetSettings", "return"),
+    ]:
+        raise ValueError(
+            "Prior preparation reached other operations; refusing recovery"
+        )
+    identity = json.loads((output / "identity.json").read_text(encoding="utf-8"))
+    if identity != failure.get("identity") or (output / "prepared.json").exists():
+        raise ValueError("Recovery identity/state differs from the recorded failure")
+    project = require_current(resolve, config, identity)
+    if project.GetTimelineCount() != 0:
+        raise RuntimeError("Recovery project is not empty; stop without mutation")
+    folder = project.GetMediaPool().GetRootFolder()
+    if folder.GetClipList() != [] or folder.GetSubFolderList() != []:
+        raise RuntimeError("Recovery media pool is not empty; stop without mutation")
+    return project, identity
 
 
 def read(obj, method, *args):
@@ -325,21 +386,25 @@ def run(resolve, config):
         "installedDocs": manifest["installedDocs"],
     }
     identity_path = output / "identity.json"
-    if config["action"] == "prepare":
+    if config["action"] in {"prepare", "resume-preparation"}:
         for locator in expected:
             if source_evidence(locator, expected).get("hashMatches") is not True:
                 raise ValueError(
                     "Synthetic media changed; no project mutation occurred"
                 )
         manager = resolve.GetProjectManager()
-        names = manager.GetProjectListInCurrentFolder()
-        if not isinstance(names, (list, tuple)) or config["projectName"] in names:
-            raise RuntimeError(
-                "Unreadable project list or existing project; refusing reuse"
-            )
-        output.mkdir(parents=True, exist_ok=False)
+        if config["action"] == "prepare":
+            names = manager.GetProjectListInCurrentFolder()
+            if not isinstance(names, (list, tuple)) or config["projectName"] in names:
+                raise RuntimeError(
+                    "Unreadable project list or existing project; refusing reuse"
+                )
+            output.mkdir(parents=True, exist_ok=False)
+            identity = {}
+            project = None
+        else:
+            project, identity = resume_project(resolve, config, output)
         journal = output / f"preparation-{stamp}.jsonl"
-        identity = {}
 
         def mutate(obj, method, *args, audit_args=None):
             if identity:
@@ -382,25 +447,40 @@ def run(resolve, config):
                 raise
 
         try:
-            project = mutate(manager, "CreateProject", config["projectName"])
-            identity = {
-                "projectId": project.GetUniqueId(),
-                "projectName": project.GetName(),
-            }
-            if (
-                not isinstance(identity["projectId"], str)
-                or not identity["projectId"]
-                or identity["projectName"] != config["projectName"]
+            if config["action"] == "prepare":
+                project = mutate(manager, "CreateProject", config["projectName"])
+                identity = {
+                    "projectId": project.GetUniqueId(),
+                    "projectName": project.GetName(),
+                }
+                if (
+                    not isinstance(identity["projectId"], str)
+                    or not identity["projectId"]
+                    or identity["projectName"] != config["projectName"]
+                ):
+                    raise RuntimeError(
+                        "Created project identity could not be established"
+                    )
+                write_json(identity_path, identity)
+            requested = dict(SETTINGS)
+            for key, directory in (
+                ("projectMediaLocation", "media"),
+                ("perfCacheClipsLocation", "cache"),
+                ("colorGalleryStillsLocation", "gallery"),
             ):
-                raise RuntimeError("Created project identity could not be established")
-            write_json(identity_path, identity)
-            mutate(project, "SetSettings", SETTINGS)
+                path = output / f"storage-{stamp}" / directory
+                path.mkdir(parents=True, exist_ok=False)
+                requested[key] = str(path)
+            mutate(project, "SetSettings", requested)
             settings_readback = read(project, "GetSettings")
-            write_json(output / "project-settings.json", settings_readback)
+            settings_path = (
+                output / "project-settings.json"
+                if config["action"] == "prepare"
+                else output / f"project-settings-{stamp}.json"
+            )
+            write_json(settings_path, settings_readback)
             settings_value = settings_readback.get("value")
-            if not isinstance(settings_value, dict) or any(
-                str(settings_value.get(key)) != value for key, value in SETTINGS.items()
-            ):
+            if not settings_match(settings_value, requested):
                 raise RuntimeError(
                     "Project time base/settings readback differs; stop preparation"
                 )
@@ -514,7 +594,7 @@ def run(resolve, config):
                     "identity": identity,
                     "environment": environment,
                     "manifestSha256": sha256(media_root / "manifest.json"),
-                    "settings": SETTINGS,
+                    "settings": requested,
                 },
             )
         except Exception as error:

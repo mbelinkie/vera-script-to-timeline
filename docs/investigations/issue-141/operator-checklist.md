@@ -2,8 +2,9 @@
 
 ## First action requested now
 
-Only do this section now. R1–R5 below wait for inspection of the preparation
-result. No real Resolve observation or External acceptance exists yet.
+Historical initial launch, completed with a retained settings-check failure
+before media import. **Use the guarded continuation below now.** R1–R5 still
+wait for successful baseline preparation. No External acceptance exists yet.
 
 1. Start the currently installed Resolve Studio at its Project Manager, keeping
    existing projects closed. Confirm Preferences > System > General >
@@ -31,6 +32,24 @@ for the API readback. The installed configuration switches to read-only
 `observe` after successful preparation; repeated launches then capture without
 editing Resolve. Missing getters may yield `incomplete-refused`; that result
 must be retained, not described as a passing capability test.
+
+## Guarded continuation after the first failure
+
+1. Keep **VERA Issue 141 Synthetic Probe 20260930-01a0f318** open, with no
+   imported media or timelines. Confirm External Scripting remains **None**.
+   Do not edit this empty project or create another one.
+2. Launch **Workspace > Workflow Integrations > VERA Issue 141 Observation**
+   once more. The staged action continues only the exact recorded empty
+   project, corrects playback/storage settings, checks readbacks, then imports
+   the synthetic media and creates **VERA 141 Baseline**. Expected: eight
+   seconds at 25 fps / 48 kHz with the tracks/marker described above.
+3. Reply **`141 continuation ran; None confirmed; synthetic project only`**, or
+   give the visible result/error. If it still looks unchanged, the agent will
+   read its new timestamped result directly. Do not repeatedly launch on a
+   failure, delete the project, open an existing project or change scripting.
+
+The initial `25.0` versus `"25"` failure and all its hashes remain retained.
+This action does not accept R1–R5; it only prepares their baseline.
 
 ## Recording each later operation
 

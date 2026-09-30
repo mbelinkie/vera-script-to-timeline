@@ -54,6 +54,13 @@ Preflight verified Ready, External acceptance, exactly `model:sol` and
    pending operator work stays untested. Map constraints to #131/#139 and
    #101–#104, distinguishing safe design discussion from implementation readiness.
 
+First-run correction: preserve the actual pre-import failure and compare
+numeric settings by value (`25.0` equals `25`), not their display strings.
+Continue only the exact recorded empty project with hash-bound failure/journal
+and ID checks. Verify 25 fps playback plus slice-owned media/cache/gallery
+locations before importing; inherited locations were observed in the first
+readback. This is bounded preparation recovery, not outbound retry execution.
+
 ## Checks
 
 - Stdlib self-check for pre-mutation refusals, allowlisted-only hashing, raw

@@ -213,6 +213,127 @@ with tempfile.TemporaryDirectory() as directory:
     assert not Path(trial["outputDir"]).exists()
 probe.ROOT = original_root
 
+# Replay the actual failed readback through the preparation guard's shared seam.
+actual_settings = json.loads(
+    (Path(__file__).parent / "evidence/attempt-1/project-settings.json").read_text()
+)["value"]
+original_request = json.loads(
+    (
+        Path(__file__).parent
+        / "evidence/attempt-1/preparation-20260930T165637.925707Z.jsonl"
+    )
+    .read_text()
+    .splitlines()[2]
+)["value"][0]
+assert probe.settings_match(actual_settings, original_request), (
+    "25.0 must equal the requested 25 fps"
+)
+assert not probe.settings_match(actual_settings, probe.SETTINGS), (
+    "Inherited 24 fps playback must be corrected"
+)
+for invalid in (24, "24.999", None, True, "NaN", "Infinity", "bad"):
+    assert not probe.settings_match(
+        {**actual_settings, "timelineFrameRate": invalid}, original_request
+    )
+assert not probe.settings_match(
+    {
+        key: value
+        for key, value in actual_settings.items()
+        if key != "timelineSampleRate"
+    },
+    original_request,
+)
+
+
+class EmptyProject(Project):
+    timeline_count = 0
+    clips = ()
+
+    def GetTimelineCount(self):
+        return self.timeline_count
+
+    def GetMediaPool(self):
+        owner = self
+
+        class Pool:
+            def GetRootFolder(self):
+                return self
+
+            def GetClipList(self):
+                return list(owner.clips)
+
+            def GetSubFolderList(self):
+                return []
+
+        return Pool()
+
+
+class EmptyResolve(Resolve):
+    def GetProjectManager(self):
+        class Current:
+            def GetCurrentProject(self):
+                return empty_project
+
+        return Current()
+
+
+empty_project = EmptyProject()
+with tempfile.TemporaryDirectory() as directory:
+    output = Path(directory)
+    probe.write_json(output / "identity.json", identity)
+    failure_path = output / "preparation-failure-test.json"
+    probe.write_json(
+        failure_path,
+        {
+            "identity": identity,
+            "error": (
+                "RuntimeError: Project time base/settings readback differs; "
+                "stop preparation"
+            ),
+        },
+    )
+    journal = output / "preparation-test.jsonl"
+    journal.write_text(
+        "".join(
+            json.dumps({"method": method, "phase": phase}) + "\n"
+            for method, phase in (
+                ("CreateProject", "request"),
+                ("CreateProject", "return"),
+                ("SetSettings", "request"),
+                ("SetSettings", "return"),
+            )
+        )
+    )
+    recovery = {
+        **config,
+        "resumeFailure": failure_path.name,
+        "resumeFailureSha256": probe.sha256(failure_path),
+        "resumeJournal": journal.name,
+        "resumeJournalSha256": probe.sha256(journal),
+    }
+    assert probe.resume_project(EmptyResolve(), recovery, output) == (
+        empty_project,
+        identity,
+    )
+    empty_project.timeline_count = 1
+    refuses(lambda: probe.resume_project(EmptyResolve(), recovery, output))
+    empty_project.timeline_count = 0
+    empty_project.clips = ["unexpected media"]
+    refuses(lambda: probe.resume_project(EmptyResolve(), recovery, output))
+    empty_project.clips = []
+    refuses(
+        lambda: probe.resume_project(
+            EmptyResolve(), {**recovery, "resumeFailureSha256": "wrong"}, output
+        )
+    )
+    refuses(
+        lambda: probe.resume_project(
+            EmptyResolve(),
+            {**recovery, "resumeFailure": "../preparation-failure-test.json"},
+            output,
+        )
+    )
+
 if len(sys.argv) > 1:
     media_root = Path(sys.argv[1])
     manifest = json.loads((media_root / "manifest.json").read_text())

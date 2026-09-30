@@ -1,7 +1,47 @@
 # Issue 141 — observation investigation, preparation checkpoint
 
-September 30, 2026. **In progress; awaiting the first operator-launched run.**
-This checkpoint has no new real-Resolve readback or External acceptance.
+September 30, 2026. **In progress; first preparation failed before import.**
+The injected application readback is retained; R1–R5 and External acceptance
+are still pending. A corrected, guarded continuation is staged for the operator.
+
+## First operator run and correction
+
+At 16:56:37 UTC (12:56:37 EDT), the operator launched the integration and
+reported no visible result. Actual injected evidence confirms **DaVinci Resolve
+Studio 21.1.0 build 14**, **CPython 3.14.7**, and creation of project
+`97037b5a-aab6-48a9-b7e4-4c5697ae10a0`, named
+`VERA Issue 141 Synthetic Probe 20260930-01a0f318`.
+
+The journal records only CreateProject and SetSettings, with true setter
+return. The readback has `timelineFrameRate: 25.0` (number), while the request
+used `"25"` (string). The agent's guard wrongly compared their string forms
+and stopped before any import or timeline creation. This is a probe bug,
+not evidence that Resolve rejected 25 fps. Replaying the actual readback
+reproduced the failure. The numeric guard now compares exact decimal values
+and still rejects missing/incorrect/nonfinite settings.
+
+Full originals remain immutable locally; `evidence/attempt-1/` publishes
+private-path-redacted versions plus raw/published hashes. Operator launch and
+symptom are confirmed; None and synthetic-only/untouched-existing-state
+attestations remain pending and are not inferred from config or the audit.
+
+The readback also showed inherited 24 fps playback and storage locations
+outside the disposable directory. Before importing, the continuation requests
+25 fps playback and media/cache/gallery paths inside slice-owned storage,
+then verifies all those readbacks. Their setter support remains untested.
+
+The continuation is bound to the exact failed journal/failure hashes and
+project ID. It requires the current project to have zero timelines, no root
+media and no subfolders. It does not create another project, delete/replay
+items, overwrite prior evidence or supply a generic retry system. Any mismatch
+stops before further Resolve mutation. The launcher becomes read-only observe
+only after successful preparation.
+
+`installation-resume.json` records the staged launcher/source/config hashes;
+the continuation has not run yet. The actual-readback regression, incorrect/
+missing/nonfinite-rate refusals and empty-project recovery guards pass under
+CPython 3.14.7 `-S`. Full pinned `npm run validate` passed again after the fix,
+including all 175 Python tests and the unchanged TypeScript/golden checks.
 
 ## Evidence retained
 
@@ -13,9 +53,9 @@ This checkpoint has no new real-Resolve readback or External acceptance.
   Isolation and Dialogue Leveler changed/read back/restored. Normalization and
   PCM-WAV render selection failed; preset/EQ/dynamics remained operator-only.
   These are historical compatibility bounds, not new #141 probe results.
-- Current Resolve status query reported **not running**, installation version
-  21.1. Product/build and preference values must come from the new live run and
-  operator confirmation. No current API capability was inferred from names.
+- The initial status query reported **not running**, installation version 21.1.
+  Actual injected identity from the later operator run supersedes that query
+  for the named run. Preferences still require operator confirmation.
 - Generated inputs and exact manifest are retained under `inputs/`. Eleven
   files, 25 fps / video time base 1/12800, 48 kHz PCM, four byte-identical
   synthetic “echo” kernels, a crossing tone bed, a 50%-alpha overlay, and
@@ -64,7 +104,7 @@ dependencies on #141/#142. Neither dependency is removed here.
   175 tests. Python application test runtime 3.12.14 / pytest 9.1.1.
 - Locked install only: `npm ci --ignore-scripts`, no dependency/lock changes.
   It reproduced the three advisories already owned by #142; no fix attempted.
-- Frozen-boundary audit against the starting commit: passed; all 21 changed
+- Initial checkpoint frozen-boundary audit: passed; all 21 changed
   paths belong to this investigation and its plan. No frozen contracts,
   fixtures, goldens, accepted tests/design artifacts or locks changed.
   `git diff --check` and `git diff --cached --check`: passed.
@@ -79,7 +119,8 @@ inputs, never R1–R5 application behavior.
 
 ## Next required evidence
 
-Follow only **First action requested now** in `operator-checklist.md`.
+Follow only **Guarded continuation after the first failure** in
+`operator-checklist.md`.
 After that run, inspect the retained journal, settings and baseline capture;
 correct any supported-boundary failure before staging editorial operations.
 Complete the remaining matrix one operation at a time and replace untested
