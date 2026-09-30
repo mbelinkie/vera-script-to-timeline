@@ -1,0 +1,57 @@
+{
+  "warning": "Invented disposable evidence. Not ScriptDocument v1, not captured Resolve state, not a production schema.",
+  "frameRate": 25,
+  "baseline": {
+    "rows": [
+      { "id": "r1", "headingId": "h1", "tokens": [{ "id": "t1", "word": "same" }, { "id": "t2", "word": "cut" }, { "id": "t3", "word": "same" }] },
+      { "id": "r2", "headingId": "h1", "tokens": [{ "id": "t4", "word": "Keep" }, { "id": "t5", "word": "words" }] },
+      { "id": "r3", "headingId": "h2", "tokens": [{ "id": "t6", "word": "Keep" }, { "id": "t7", "word": "words" }] }
+    ],
+    "anchor": { "logicalId": "v1", "startTokenId": "t1", "endTokenId": "t3", "startAffinity": "before", "endAffinity": "after" },
+    "occurrences": [
+      { "occurrenceId": "observed-item-1", "logicalId": "v1", "assetId": "asset-A", "track": "V2", "sourceRange": [0, 48], "recordRange": [0, 48] },
+      { "occurrenceId": "observed-item-2", "logicalId": "v1", "assetId": "asset-A", "track": "V2", "sourceRange": [48, 96], "recordRange": [72, 120] }
+    ],
+    "audioEdit": { "assetId": "narration-A", "sampleRate": 48000, "program": [[0, 48000], [96000, 144000]] },
+    "wordAudio": [48000, 96000],
+    "dormant": { "logicalId": "v2", "assetId": "asset-B", "state": "dormant", "formerRange": { "startTokenId": "t1", "endTokenId": "t3" }, "activeRanges": [] },
+    "preserved": { "logicalId": "opaque-1", "assetId": "asset-C", "sourceStart": 800, "durationFrames": 160, "recordStart": 0, "opaque": { "effects": ["manual-grade"], "track": "V3", "linkedAudio": "manual-audio-1" } }
+  },
+  "currentScript": { "version": 2, "textChange": "ordinary rewrite", "endpoint": "t3" },
+  "currentTimeline": { "version": 2, "textChange": null, "endpoint": "t2" },
+  "threeWay": {
+    "text": ["original", "ordinary rewrite", "original"],
+    "endpoint": ["t3", "t3", "t2"],
+    "competingEndpoint": ["t3", "t1", "t2"],
+    "convergent": ["t3", "t2", "t2"]
+  },
+  "media": [
+    { "assetId": "asset-A", "locator": "Media/same.mp4" },
+    { "assetId": "asset-B", "locator": "Media/same.mp4" }
+  ],
+  "audioObservations": [
+    { "id": "verified-cut-with-offline-picture", "available": true, "pictureAvailable": false, "complete": true, "precision": "verified_samples", "program": [[0, 48000], [96000, 144000]], "expected": "supported" },
+    { "id": "picture-trim-only", "available": true, "pictureAvailable": true, "complete": true, "precision": "verified_samples", "program": [[0, 144000]], "expected": "unsupported" },
+    { "id": "partial-word-remains", "available": true, "pictureAvailable": true, "complete": true, "precision": "verified_samples", "program": [[0, 60000], [96000, 144000]], "expected": "unsupported" },
+    { "id": "other-program-track-still-speaks-word", "available": true, "pictureAvailable": true, "complete": true, "precision": "verified_samples", "program": [[0, 48000], [48000, 96000], [96000, 144000]], "expected": "unsupported" },
+    { "id": "derived-word-ends", "available": true, "pictureAvailable": true, "complete": true, "precision": "word_start_with_derived_end", "program": [[0, 48000], [96000, 144000]], "expected": "ambiguous" },
+    { "id": "incomplete-program-observation", "available": true, "pictureAvailable": true, "complete": false, "precision": "verified_samples", "program": [], "expected": "ambiguous" },
+    { "id": "offline-audio-is-not-deletion", "available": false, "pictureAvailable": true, "complete": true, "precision": "verified_samples", "program": [], "expected": "ambiguous" }
+  ],
+  "placements": [
+    { "id": "unchanged-fit", "verifiedAnchor": true, "start": 0, "bounds": [0, 192], "occupied": [[160, 192]], "expected": "supported" },
+    { "id": "retimed-fit-needs-review", "verifiedAnchor": true, "start": 32, "bounds": [0, 192], "occupied": [], "expected": "review" },
+    { "id": "unknown-anchor", "verifiedAnchor": false, "start": 0, "bounds": [0, 192], "occupied": [], "expected": "ambiguous" },
+    { "id": "same-track-collision", "verifiedAnchor": true, "start": 0, "bounds": [0, 192], "occupied": [[159, 192]], "expected": "unsupported" },
+    { "id": "too-short-row", "verifiedAnchor": true, "start": 0, "bounds": [0, 159], "occupied": [], "expected": "unsupported" },
+    { "id": "before-row-start", "verifiedAnchor": true, "start": -1, "bounds": [0, 192], "occupied": [], "expected": "unsupported" }
+  ],
+  "razors": [
+    { "id": "verified-section-cut", "sectionBoundary": true, "completeProgramAudio": true, "completeProgramVideo": true, "tokenBoundary": true, "crossingItems": [], "expected": "supported" },
+    { "id": "arbitrary-track-razor", "sectionBoundary": false, "completeProgramAudio": true, "completeProgramVideo": true, "tokenBoundary": true, "crossingItems": [], "expected": "unsupported" },
+    { "id": "word-boundary-unknown", "sectionBoundary": true, "completeProgramAudio": true, "completeProgramVideo": true, "tokenBoundary": false, "crossingItems": [], "expected": "ambiguous" },
+    { "id": "video-coverage-unknown", "sectionBoundary": true, "completeProgramAudio": true, "completeProgramVideo": false, "tokenBoundary": true, "crossingItems": [], "expected": "ambiguous" },
+    { "id": "audio-coverage-unknown", "sectionBoundary": true, "completeProgramAudio": false, "completeProgramVideo": true, "tokenBoundary": true, "crossingItems": [], "expected": "ambiguous" },
+    { "id": "bed-crosses-heading", "sectionBoundary": true, "completeProgramAudio": true, "completeProgramVideo": true, "tokenBoundary": true, "crossingItems": ["document-bed"], "expected": "unsupported" }
+  ]
+}
