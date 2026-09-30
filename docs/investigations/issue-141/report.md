@@ -26,6 +26,23 @@ The readback differs from requested bounds: base, speech and bed each report
 and the baseline is not corrected. This establishes preparation and adjacent-read
 consistency only. No R1–R5 editorial outcome has been observed.
 
+## Native repeat preflight refusal
+
+At 18:12:39 UTC on September 30, the native-repeat launcher stopped with
+`RuntimeError: Current project is not the prepared baseline-only state`. Its
+full preflight comparison differed from the prepared baseline. The cause is
+unknown (metadata change or edit); this does not establish unsupported Resolve
+behavior. The harness stopped before mutation and produced no native journal.
+The preflight current-observe readback was not retained, leaving an evidence-
+retention gap: the exact before-state comparison cannot now be reconstructed.
+The sanitized launcher result and matching raw/published SHA-256 are retained in
+`evidence/native-preflight-refusal/`.
+
+The staged next action is read-only observation at stage
+`baseline-state-discrepancy-read-only`; it makes no Resolve mutation. The next
+operator launch should retain that preflight readback to establish the current
+state before deciding what action is supported.
+
 ## First operator run and correction
 
 At 16:56:37 UTC (12:56:37 EDT), the operator launched the integration and

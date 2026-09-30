@@ -295,19 +295,23 @@ with tempfile.TemporaryDirectory() as directory:
             self.current = project
             self.other_after_close = other_after_close
             self.loads = []
+            self.mutations = []
 
         def GetCurrentProject(self):
             return self.current
 
         def SaveProject(self):
+            self.mutations.append("SaveProject")
             return True
 
         def CloseProject(self, project):
+            self.mutations.append("CloseProject")
             assert project is self.current
             self.current = NativeProject() if self.other_after_close else None
             return True
 
         def LoadProject(self, name):
+            self.mutations.append("LoadProject")
             self.loads.append(name)
             self.current = prepared_project
             return prepared_project
@@ -353,8 +357,12 @@ with tempfile.TemporaryDirectory() as directory:
     )
     probe.observe = lambda resolve, *args: snapshot(resolve.GetProjectManager().current)
 
+    capture_changed = False
+
     def native_capture(resolve, config, identity, expected, output, stamp, environment):
         value = snapshot(resolve.GetProjectManager().current)
+        if capture_changed:
+            value["timelines"][0]["GetName"]["value"] = "VERA 141 changed"
         path = output / f"capture-{stamp}.json"
         probe.write_json(path, {"passes": [value, value]})
         return {"status": "equal-adjacent-reads", "capturePath": str(path)}
@@ -404,6 +412,29 @@ with tempfile.TemporaryDirectory() as directory:
         )
     )
     assert wrong_resolve.manager.loads == []
+    assert wrong_resolve.manager.mutations == []
+
+    # A changed preflight snapshot is retained before refusing all mutations.
+    capture_changed = True
+    changed = NativeProject()
+    changed_resolve = NativeResolve(changed)
+    refuses(
+        lambda: probe.native_repeat(
+            changed_resolve,
+            native_config,
+            {"projectId": project_id, "projectName": project_name},
+            {},
+            output,
+            "changed-state",
+            environment,
+        )
+    )
+    saved = json.loads((output / "capture-changed-state-before.json").read_text())
+    assert saved["passes"][0]["timelines"][0]["GetName"]["value"] == (
+        "VERA 141 changed"
+    )
+    assert changed_resolve.manager.mutations == []
+    capture_changed = False
 
     # A project appearing after close blocks LoadProject from replacing it.
     blocked_project = NativeProject()
@@ -420,6 +451,7 @@ with tempfile.TemporaryDirectory() as directory:
         )
     )
     assert blocked_resolve.manager.loads == []
+    assert blocked_resolve.manager.mutations == ["SaveProject", "CloseProject"]
     probe.observe, probe.capture, probe.sha256, probe.ROOT = (
         original_observe,
         original_capture,

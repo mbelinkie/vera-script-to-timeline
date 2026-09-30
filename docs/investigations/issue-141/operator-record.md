@@ -66,3 +66,19 @@ only.” For this successful run, External Scripting remained None and only the
 named synthetic project/generated media were touched. No R1–R5 editorial result
 is recorded. Equal adjacent reads provide only bounded initial consistency
 evidence.
+
+## Native repeat preflight refusal, September 30
+
+The installed launcher result at 18:12:39 UTC reports
+`launcher-failed`: `RuntimeError: Current project is not the prepared
+baseline-only state`. The full comparison differed; whether this reflects a
+metadata change or edit is unknown. This is a harness preflight refusal, not
+evidence of unsupported Resolve behavior. It stopped before mutation, so no
+native journal exists. The preflight current-observe readback was not retained
+by the code, an evidence-retention gap that prevents reconstruction of the exact
+before state. A sanitized result copy and raw/published hash are retained in
+`evidence/native-preflight-refusal/`.
+
+The staged next action is read-only at stage
+`baseline-state-discrepancy-read-only`; no Resolve mutation is planned for that
+launch.

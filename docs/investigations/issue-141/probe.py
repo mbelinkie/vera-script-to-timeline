@@ -380,14 +380,16 @@ def native_repeat(resolve, config, identity, expected, output, stamp, environmen
 
     manager = resolve.GetProjectManager()
     project = require_current(resolve, config, identity)
-    before = observe(resolve, config, identity, expected)
-    if errors(before) or before != baseline_pass:
-        raise RuntimeError("Current project is not the prepared baseline-only state")
     before_result = capture(
         resolve, config, identity, expected, output, stamp + "-before", environment
     )
     if before_result["status"] != "equal-adjacent-reads":
         raise RuntimeError("Initial native-repeat capture is incomplete; refusing")
+    before_pass = json.loads(Path(before_result["capturePath"]).read_text())["passes"][
+        0
+    ]
+    if errors(before_pass) or before_pass != baseline_pass:
+        raise RuntimeError("Current project is not the prepared baseline-only state")
 
     journal = output / f"native-repeat-{stamp}.jsonl"
     journal.open("x", encoding="utf-8").close()
