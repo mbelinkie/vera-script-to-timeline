@@ -213,6 +213,220 @@ with tempfile.TemporaryDirectory() as directory:
     assert not Path(trial["outputDir"]).exists()
 probe.ROOT = original_root
 
+# Exercise the bounded native repeat without Resolve, including its load guard.
+with tempfile.TemporaryDirectory() as directory:
+    original_root = probe.ROOT
+    original_observe = probe.observe
+    original_capture = probe.capture
+    probe.ROOT = Path(directory)
+    project_name = "VERA Issue 141 Synthetic Probe test"
+    baseline_id = "88f7923d-55a7-471f-b09b-cf10f9fae8ad"
+    project_id = "project-test"
+    duplicate_name = "VERA 141 R1 identity"
+
+    def snapshot(project):
+        timelines = []
+        for timeline in project.timelines:
+            timelines.append(
+                {
+                    "GetName": {"value": timeline.name},
+                    "GetUniqueId": {"value": timeline.uid},
+                    "tracks": [
+                        {
+                            "type": "video" if index < 3 else "audio",
+                            "index": index % 3 + 1,
+                            "items": [{"GetUniqueId": {"value": f"item-{index}"}}],
+                        }
+                        for index in range(6)
+                    ],
+                }
+            )
+        return {
+            "projectId": project_id,
+            "projectName": project_name,
+            "timelines": timelines,
+        }
+
+    class NativeTimeline:
+        def __init__(self, project, name, uid):
+            self.project, self.name, self.uid = project, name, uid
+
+        def GetName(self):
+            return self.name
+
+        def GetUniqueId(self):
+            return self.uid
+
+        def DuplicateTimeline(self, name):
+            duplicate = NativeTimeline(self.project, name, "duplicate-test")
+            self.project.timelines.append(duplicate)
+            return duplicate
+
+    class NativeProject:
+        def __init__(self, extra=False):
+            self.timelines = [NativeTimeline(self, "VERA 141 Baseline", baseline_id)]
+            if extra:
+                self.timelines.append(
+                    NativeTimeline(self, "VERA 141 unexpected", "extra")
+                )
+            self.current = self.timelines[0]
+
+        def GetName(self):
+            return project_name
+
+        def GetUniqueId(self):
+            return project_id
+
+        def GetTimelineCount(self):
+            return len(self.timelines)
+
+        def GetTimelineByIndex(self, index):
+            return self.timelines[index - 1]
+
+        def GetCurrentTimeline(self):
+            return self.current
+
+        def SetCurrentTimeline(self, timeline):
+            self.current = timeline
+            return True
+
+    class NativeManager:
+        def __init__(self, project, other_after_close=False):
+            self.current = project
+            self.other_after_close = other_after_close
+            self.loads = []
+
+        def GetCurrentProject(self):
+            return self.current
+
+        def SaveProject(self):
+            return True
+
+        def CloseProject(self, project):
+            assert project is self.current
+            self.current = NativeProject() if self.other_after_close else None
+            return True
+
+        def LoadProject(self, name):
+            self.loads.append(name)
+            self.current = prepared_project
+            return prepared_project
+
+    class NativeResolve:
+        def __init__(self, project, other_after_close=False):
+            self.manager = NativeManager(project, other_after_close)
+
+        def GetProjectManager(self):
+            return self.manager
+
+    expected_identity = {
+        "projectId": project_id,
+        "projectName": project_name,
+        "baselineTimelineId": baseline_id,
+    }
+    native_config = {
+        "projectName": project_name,
+        "manifestSha256": "manifest-hash",
+        "action": "native-repeat",
+    }
+    environment = {"version": [21, 1, 0, 14, ""]}
+    output = Path(directory) / "out/issue-141-observation-test"
+    output.mkdir(parents=True)
+    probe.write_json(
+        output / "prepared.json",
+        {"identity": expected_identity, "manifestSha256": "manifest-hash"},
+    )
+    baseline_pass = snapshot(NativeProject())
+    baseline_path = output / "capture-20260930T173943.043191Z.json"
+    probe.write_json(
+        baseline_path,
+        {
+            "consistency": "equal-adjacent-reads",
+            "passes": [baseline_pass, baseline_pass],
+        },
+    )
+    original_sha256 = probe.sha256
+    probe.sha256 = lambda path: (
+        "92c04d10bafe86499b7d11a27d457e655893ee6340d73a290a80e29e35887161"
+        if Path(path) == baseline_path
+        else original_sha256(path)
+    )
+    probe.observe = lambda resolve, *args: snapshot(resolve.GetProjectManager().current)
+
+    def native_capture(resolve, config, identity, expected, output, stamp, environment):
+        value = snapshot(resolve.GetProjectManager().current)
+        path = output / f"capture-{stamp}.json"
+        probe.write_json(path, {"passes": [value, value]})
+        return {"status": "equal-adjacent-reads", "capturePath": str(path)}
+
+    probe.capture = native_capture
+    prepared_project = NativeProject()
+    resolve = NativeResolve(prepared_project)
+    result = probe.native_repeat(
+        resolve,
+        native_config,
+        {"projectId": project_id, "projectName": project_name},
+        {},
+        output,
+        "native-test",
+        environment,
+    )
+    assert result["status"] == "equal-adjacent-reads"
+    assert resolve.manager.loads == [project_name]
+    assert prepared_project.GetCurrentTimeline().GetName() == duplicate_name
+    records = [
+        json.loads(line)
+        for line in (output / "native-repeat-native-test.jsonl")
+        .read_text()
+        .splitlines()
+    ]
+    assert [row["method"] for row in records if row["phase"] == "request"] == [
+        "SaveProject",
+        "CloseProject",
+        "LoadProject",
+        "DuplicateTimeline",
+        "SetCurrentTimeline",
+        "SaveProject",
+    ]
+
+    # Unexpected preexisting timeline state refuses before SaveProject.
+    wrong = NativeProject(extra=True)
+    wrong_resolve = NativeResolve(wrong)
+    refuses(
+        lambda: probe.native_repeat(
+            wrong_resolve,
+            native_config,
+            {"projectId": project_id, "projectName": project_name},
+            {},
+            output,
+            "wrong-state",
+            environment,
+        )
+    )
+    assert wrong_resolve.manager.loads == []
+
+    # A project appearing after close blocks LoadProject from replacing it.
+    blocked_project = NativeProject()
+    blocked_resolve = NativeResolve(blocked_project, other_after_close=True)
+    refuses(
+        lambda: probe.native_repeat(
+            blocked_resolve,
+            native_config,
+            {"projectId": project_id, "projectName": project_name},
+            {},
+            output,
+            "load-guard",
+            environment,
+        )
+    )
+    assert blocked_resolve.manager.loads == []
+    probe.observe, probe.capture, probe.sha256, probe.ROOT = (
+        original_observe,
+        original_capture,
+        original_sha256,
+        original_root,
+    )
+
 # Replay the settings boundary with the installed API's read-only playback rule.
 with tempfile.TemporaryDirectory() as directory:
     probe.ROOT = Path(directory)

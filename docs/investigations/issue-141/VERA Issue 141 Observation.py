@@ -27,7 +27,10 @@ try:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     result = module.run(globals().get("resolve"), config)
-    if config["action"] in {"prepare", "resume-preparation"}:
+    if config["action"] in {"prepare", "resume-preparation"} or (
+        config["action"] == "native-repeat"
+        and result["status"] == "equal-adjacent-reads"
+    ):
         config["action"] = "observe"
         config["stage"] = "baseline-repeat"
         CONFIG.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")

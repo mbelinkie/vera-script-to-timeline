@@ -68,6 +68,24 @@ second setter-refusal evidence and empty project; set writable keys individually
 and retain readbacks on success or refusal because batch failure can partially
 apply settings. No storage setter support is inferred from documentation.
 
+Successful baseline: retain the third run's journal/settings/item readbacks and
+two matching observation passes without changing its actual reported bounds.
+The operator confirmed None and synthetic-only scope. Calibrate bounds before
+timing claims; occurrence identity/reopen evidence can proceed independently.
+
+Next batch uses documented SaveProject, CloseProject, LoadProject and
+DuplicateTimeline on the exact prepared project, with a raw-baseline hash guard,
+project checks, audit journal and captures around operations. It selects the
+new `VERA 141 R1 identity` timeline for later operator edits; baseline contents
+remain unchanged. The batch is not yet live evidence. The operator launches it
+once; successful completion returns the launcher to read-only observation.
+No trim/razor/copy semantics are substituted by appending equivalent clips.
+
+At the user's request, bounded evidence documentation, probe implementation and
+independent verification use Luna sub-agents. The existing claimed Sol task
+retains interpretation, safety review and roadmap authority; no issue is
+reclaimed or dispatched elsewhere.
+
 ## Checks
 
 - Stdlib self-check for pre-mutation refusals, allowlisted-only hashing, raw

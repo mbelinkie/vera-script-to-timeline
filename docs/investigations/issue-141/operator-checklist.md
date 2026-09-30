@@ -1,62 +1,50 @@
 # Issue 141 — External operator checklist
 
-## First action requested now
+## Historical preparation actions
 
-Historical initial launch, completed with a retained settings-check failure
-before media import. **Use the guarded continuation below now.** R1–R5 still
-wait for successful baseline preparation. No External acceptance exists yet.
+The initial launch and guarded continuation below are historical. The first two
+runs failed before import; baseline preparation then succeeded on the third run.
+The retained project is `VERA Issue 141 Synthetic Probe 20260930-01a0f318`, with
+baseline timeline `VERA 141 Baseline`. The operator confirmed for that run that
+External Scripting stayed None and only the named synthetic project/generated
+media were touched. No need to repeat preparation.
 
-1. Start the currently installed Resolve Studio at its Project Manager, keeping
-   existing projects closed. Confirm Preferences > System > General >
-   **External scripting using: None**. Leave it None. If the integration menu
-   cannot be used from this state, stop and report that limitation; do not open
-   another project, change scripting mode, reboot or use UI automation.
-2. Select **Workspace > Workflow Integrations > VERA Issue 141 Observation**
-   once. Expected: a newly created project named
-   **VERA Issue 141 Synthetic Probe 20260930-01a0f318**, timeline
-   **VERA 141 Baseline**, 25 fps, 48 kHz, eight seconds. Only generated synthetic
-   inputs are imported. V1/A1 contain linked base picture/repeated speech;
-   A2's residual-speech occurrence, V2's cutaway and V3's transparent overlay
-   are disabled. A3's synthetic bed crosses the marker at 00:00:04:00.
-3. Record the actual result, whether External Scripting stayed None, and
-   whether only the named new project and generated media were touched. Reply
-   **`141 preparation ran; None confirmed; synthetic project only`**, or give
-   the first error/variation. This is preparation evidence, not acceptance.
-   If the launcher reports a failure, stop; retain its journal and partial
-   project. Do not rerun preparation or delete anything.
+### Initial launch (historical)
 
-The launcher writes timestamped results beside its installed configuration and
-full raw captures under the configured slice-owned output directory. The agent
-will inspect those files directly; no reconstruction or screenshot is needed
-for the API readback. The installed configuration switches to read-only
-`observe` after successful preparation; repeated launches then capture without
-editing Resolve. Missing getters may yield `incomplete-refused`; that result
-must be retained, not described as a passing capability test.
+The original Project Manager launch created the named project and initially
+stopped at its settings check. Its journal and failure remain in
+`evidence/attempt-1/`.
 
-## Guarded continuation after the second failure
+### Guarded continuation after the second failure (historical)
 
-1. Keep **VERA Issue 141 Synthetic Probe 20260930-01a0f318** open, with no
-   imported media or timelines. Confirm External Scripting remains **None**.
-   Do not create another project or import anything manually.
-2. Open **Project Settings** using the gear at the bottom right. Under
-   **Master Settings > Timeline Format**, set **Playback frame rate** to
-   **25**, then **Save**. The scripting API exposes this property as read-only,
-   so the agent cannot set it. If it is unavailable or disabled, stop and
-   report that exact result; do not substitute another setting.
-3. Launch **Workspace > Workflow Integrations > VERA Issue 141 Observation**
-   once more. The staged action continues only the exact recorded empty
-   project. It retains current settings and verifies 25 fps playback before
-   applying writable timeline/storage settings individually with readbacks,
-   then imports the synthetic media and creates **VERA 141 Baseline**.
-   Expected: eight seconds at 25 fps / 48 kHz with the tracks/marker above.
-4. Reply **`141 continuation ran; playback 25; None confirmed; synthetic project only`**, or
-   give the visible result/error. If it still looks unchanged, the agent will
-   read its new timestamped result directly. Do not repeatedly launch on a
-   failure, delete the project, open an existing project or change scripting.
+The staged continuation required Playback frame rate 25, set writable
+timeline/storage settings, imported only generated synthetic inputs and created
+the baseline. It ran successfully. The failed earlier attempts remain retained
+with their hashes.
 
-Both the initial `25.0` versus `"25"` failure and the read-only setting refusal
-remain retained with their hashes. This action does not accept R1–R5; it only
-prepares their baseline.
+## Current next action — native repeat batch
+
+Use only the named synthetic project with `VERA 141 Baseline` open. Keep External
+Scripting set to None and leave the baseline unchanged.
+
+Launch **Workspace > Workflow Integrations > VERA Issue 141 Observation** once.
+The pending batch should capture the baseline, save and close/reopen this exact
+project, capture the reopened baseline, duplicate the baseline through the
+documented native `DuplicateTimeline` API as **VERA 141 R1 identity**, capture
+both timelines, select the duplicate and save. Do not make manual clip edits
+yet. This tests actual API duplication; appending equivalent items would not
+establish duplication behavior.
+
+Expected result: the same project reopens and a new `VERA 141 R1 identity`
+timeline appears with captured IDs, ranges and custom-data. If the integration
+refuses or any stage differs, stop and retain the journal/captures; do not repeat
+the batch or clean up the project. Record the visible result and discrepancies.
+This batch is pending and has not been executed. It does not establish the later
+R1–R5 operations or External acceptance.
+
+The probe retains the observed bounds. Duration convention and overlay placement
+need separate calibration before sample or visibility timing claims; no operator
+adjustment is needed for this repeat batch.
 
 ## Recording each later operation
 
@@ -68,17 +56,18 @@ filenames in `operator-record.md`. Do not perform the next edit until the
 previous capture is retained. Keep `VERA 141 Baseline` unchanged; make each
 probe on an explicitly named duplicate beginning `VERA 141 `.
 
-UI duplication and copy/paste are actual editorial probes. Appending equivalent
-clips through the API would not establish their behavior. An operator edit is
-audited by the named operation, before/after captures and operator record; no
-agent general UI automation is used.
+The native `DuplicateTimeline` call in the pending batch tests timeline
+duplication itself; appending equivalent clips would not establish that behavior.
+Copy/paste remains a separate R1 editorial probe. Every operation is audited by
+its named action, before/after captures and operator record; no general UI
+automation is used.
 
 ## R1 — identity and editorial survival
 
 | Stage | Ordered action | Required evidence / expected discriminant |
 |---|---|---|
-| R1-reopen | Capture baseline; save; close only this new project in Project Manager; reopen it; capture again. | Compare project/timeline/item/media UIDs, custom-data and ranges. Report actual changes; stable is not assumed. |
-| R1-duplicate | Duplicate baseline as `VERA 141 R1 identity`; capture both. | Identical source/track/range signatures now exist in two timelines. Preserve all UIDs and copied custom-data. Copied authoring data alone never proves a unique occurrence binding. |
+| R1-reopen | Included in the pending native repeat batch: capture baseline; save; close/reopen only this project; capture again. | Compare project/timeline/item/media UIDs, custom-data and ranges. Report actual changes; stable is not assumed. |
+| R1-duplicate | Included in the pending native repeat batch: use documented `DuplicateTimeline` to create `VERA 141 R1 identity`; capture both. | Compare source/track/range signatures, UIDs and copied custom-data. Copied authoring data alone never proves a unique occurrence binding. |
 | R1-trim | On R1 timeline, trim the right edge of linked V1/A1 from 00:00:08:00 to 00:00:07:00 without ripple. | End/duration changes with observed UID/custom-data survival or loss. |
 | R1-move | Move those linked items from frame 0 to frame 25 (00:00:01:00) without ripple. | Record position changes separately from source identity; no sort-order binding. |
 | R1-razor | Blade V1/A1 at record 00:00:04:00; do not remove either piece. | Both children, UIDs, source ranges, link groups and inherited marker data; never assume either child retains the logical parent's identity. |

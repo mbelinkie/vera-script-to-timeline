@@ -40,7 +40,12 @@ def validate_config(config):
         or any(value in name for value in "\r\n")
     ):
         raise ValueError("A uniquely named issue-141 synthetic project is required")
-    if config.get("action") not in {"prepare", "resume-preparation", "observe"}:
+    if config.get("action") not in {
+        "prepare",
+        "resume-preparation",
+        "observe",
+        "native-repeat",
+    }:
         raise ValueError("Unknown bounded probe action")
     for key in ("mediaDir", "outputDir"):
         if not isinstance(config.get(key), str) or not Path(config[key]).is_absolute():
@@ -332,6 +337,221 @@ def capture(resolve, config, identity, expected, output, stamp, environment):
     path = output / f"capture-{stamp}.json"
     write_json(path, payload)
     return {"status": status, "capturePath": str(path), "sha256": sha256(path)}
+
+
+def native_repeat(resolve, config, identity, expected, output, stamp, environment):
+    prepared_path = output / "prepared.json"
+    prepared = json.loads(prepared_path.read_text(encoding="utf-8"))
+    prepared_identity = prepared.get("identity")
+    if (
+        not isinstance(prepared_identity, dict)
+        or prepared_identity.get("projectId") != identity.get("projectId")
+        or prepared_identity.get("projectName") != identity.get("projectName")
+        or prepared.get("manifestSha256") != config.get("manifestSha256")
+    ):
+        raise RuntimeError("Prepared identity or manifest differs; refusing")
+    identity = prepared_identity
+    if environment.get("version") != [21, 1, 0, 14, ""]:
+        raise RuntimeError("Expected installed Resolve 21.1.0 build 14; refusing")
+    if identity.get("baselineTimelineId") != "88f7923d-55a7-471f-b09b-cf10f9fae8ad":
+        raise RuntimeError("Unexpected prepared baseline timeline ID; refusing")
+
+    baseline_path = output / "capture-20260930T173943.043191Z.json"
+    if (
+        sha256(baseline_path)
+        != "92c04d10bafe86499b7d11a27d457e655893ee6340d73a290a80e29e35887161"
+    ):
+        raise RuntimeError("Private raw baseline changed or is missing; refusing")
+    baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+    if (
+        baseline.get("consistency") != "equal-adjacent-reads"
+        or len(baseline.get("passes", [])) != 2
+    ):
+        raise RuntimeError("Private raw baseline capture is incomplete; refusing")
+    baseline_pass = baseline["passes"][0]
+    if (
+        baseline_pass.get("projectId") != identity["projectId"]
+        or baseline_pass.get("projectName") != config["projectName"]
+        or baseline_pass["timelines"][0].get("GetUniqueId", {}).get("value")
+        != identity["baselineTimelineId"]
+        or len(baseline_pass["timelines"]) != 1
+    ):
+        raise RuntimeError("Private raw baseline is not the expected single timeline")
+
+    manager = resolve.GetProjectManager()
+    project = require_current(resolve, config, identity)
+    before = observe(resolve, config, identity, expected)
+    if errors(before) or before != baseline_pass:
+        raise RuntimeError("Current project is not the prepared baseline-only state")
+    before_result = capture(
+        resolve, config, identity, expected, output, stamp + "-before", environment
+    )
+    if before_result["status"] != "equal-adjacent-reads":
+        raise RuntimeError("Initial native-repeat capture is incomplete; refusing")
+
+    journal = output / f"native-repeat-{stamp}.jsonl"
+    journal.open("x", encoding="utf-8").close()
+
+    def retain(method, phase, value):
+        with journal.open("a", encoding="utf-8") as stream:
+            json.dump(
+                {
+                    "at": datetime.now(UTC).isoformat(),
+                    "method": method,
+                    "phase": phase,
+                    "value": value,
+                },
+                stream,
+                sort_keys=True,
+            )
+            stream.write("\n")
+
+    def mutate(obj, method, *args, audit_args=None):
+        if method == "LoadProject":
+            if manager.GetCurrentProject() is not None:
+                raise RuntimeError("A project is loaded; refusing LoadProject")
+        else:
+            require_current(resolve, config, identity)
+        retain(method, "request", args if audit_args is None else audit_args)
+        try:
+            result = getattr(obj, method)(*args)
+            if result is None or result is False:
+                raise RuntimeError(f"{method} refused operation")
+            if method in {"DuplicateTimeline", "LoadProject"}:
+                value = {
+                    "GetName": read(result, "GetName"),
+                    "GetUniqueId": read(result, "GetUniqueId"),
+                }
+            else:
+                value = result
+            retain(method, "return", value)
+            return result
+        except Exception as error:
+            retain(method, "failure", f"{type(error).__name__}: {error}")
+            raise
+
+    mutate(manager, "SaveProject")
+    mutate(manager, "CloseProject", project, audit_args=[identity["projectId"]])
+    current_after_close = manager.GetCurrentProject()
+    retain(
+        "GetCurrentProject(after CloseProject)",
+        "readback",
+        None
+        if current_after_close is None
+        else read(current_after_close, "GetUniqueId"),
+    )
+    if current_after_close is not None:
+        raise RuntimeError("Resolve still has a project loaded after close; stop")
+    reopened = mutate(manager, "LoadProject", config["projectName"])
+    if (
+        reopened.GetName() != config["projectName"]
+        or reopened.GetUniqueId() != identity["projectId"]
+        or manager.GetCurrentProject().GetUniqueId() != identity["projectId"]
+    ):
+        raise RuntimeError("Reopened project identity differs; stop")
+    retain(
+        "LoadProject(identity readback)",
+        "readback",
+        {
+            "GetName": reopened.GetName(),
+            "GetUniqueId": reopened.GetUniqueId(),
+            "GetCurrentProject.UniqueId": manager.GetCurrentProject().GetUniqueId(),
+        },
+    )
+    reopened_capture = capture(
+        resolve,
+        config,
+        identity,
+        expected,
+        output,
+        stamp + "-reopened",
+        environment,
+    )
+    if reopened_capture["status"] != "equal-adjacent-reads":
+        raise RuntimeError("Reopened capture is incomplete; stop")
+
+    original = None
+    for index in range(1, reopened.GetTimelineCount() + 1):
+        candidate = reopened.GetTimelineByIndex(index)
+        if candidate.GetUniqueId() == identity["baselineTimelineId"]:
+            original = candidate
+    if original is None or reopened.GetTimelineCount() != 1:
+        raise RuntimeError("Reopened project is not baseline-only; stop")
+    duplicate_name = "VERA 141 R1 identity"
+    if any(
+        reopened.GetTimelineByIndex(index).GetName() == duplicate_name
+        for index in range(1, reopened.GetTimelineCount() + 1)
+    ):
+        raise RuntimeError("R1 duplicate already exists; refusing")
+    duplicate = mutate(original, "DuplicateTimeline", duplicate_name)
+    duplicate_id = duplicate.GetUniqueId()
+    if (
+        duplicate.GetName() != duplicate_name
+        or not isinstance(duplicate_id, str)
+        or not duplicate_id
+        or duplicate_id == identity["baselineTimelineId"]
+    ):
+        raise RuntimeError("Duplicate timeline identity differs; stop")
+    duplicate_capture = capture(
+        resolve,
+        config,
+        identity,
+        expected,
+        output,
+        stamp + "-duplicated",
+        environment,
+    )
+    if duplicate_capture["status"] != "equal-adjacent-reads":
+        raise RuntimeError("Duplicate capture is incomplete; stop")
+    duplicate_pass = json.loads(Path(duplicate_capture["capturePath"]).read_text())[
+        "passes"
+    ][0]
+    timelines = duplicate_pass["timelines"]
+    ids = {row.get("GetUniqueId", {}).get("value") for row in timelines}
+    names = {row.get("GetName", {}).get("value") for row in timelines}
+    if (
+        len(timelines) != 2
+        or ids != {identity["baselineTimelineId"], duplicate_id}
+        or names != {TIMELINE, duplicate_name}
+    ):
+        raise RuntimeError("Duplicate readback does not bound both timelines; stop")
+
+    mutate(reopened, "SetCurrentTimeline", duplicate, audit_args=[duplicate_id])
+    current_timeline_id = reopened.GetCurrentTimeline().GetUniqueId()
+    if current_timeline_id != duplicate_id:
+        raise RuntimeError("Current timeline readback differs; stop")
+    retain(
+        "SetCurrentTimeline(readback)",
+        "readback",
+        {"GetCurrentTimeline.UniqueId": current_timeline_id},
+    )
+    mutate(manager, "SaveProject")
+    final_capture = capture(
+        resolve,
+        config,
+        identity,
+        expected,
+        output,
+        stamp + "-current-duplicate-saved",
+        environment,
+    )
+    return {
+        "status": final_capture["status"],
+        "action": "native-repeat",
+        "journal": str(journal),
+        "captures": [
+            before_result,
+            reopened_capture,
+            duplicate_capture,
+            final_capture,
+        ],
+        "duplicate": {"name": duplicate_name, "id": duplicate_id},
+        "limits": [
+            "Timeline duplication was exercised through the documented API.",
+            "Equal adjacent reads do not prove atomicity or exclude ABA changes.",
+            "Copied metadata and equal fingerprints do not prove source identity.",
+        ],
+    }
 
 
 def run(resolve, config):
@@ -627,6 +847,16 @@ def run(resolve, config):
                 },
             )
             raise
+    elif config["action"] == "native-repeat":
+        if not (output / "prepared.json").is_file():
+            raise RuntimeError(
+                "Preparation is incomplete; stop and inspect its journal"
+            )
+        identity = json.loads(identity_path.read_text(encoding="utf-8"))
+        require_current(resolve, config, identity)
+        return native_repeat(
+            resolve, config, identity, expected, output, stamp, environment
+        )
     else:
         if not (output / "prepared.json").is_file():
             raise RuntimeError(

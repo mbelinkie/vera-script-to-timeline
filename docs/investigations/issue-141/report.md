@@ -1,8 +1,30 @@
 # Issue 141 — observation investigation, preparation checkpoint
 
-September 30, 2026. **In progress; two preparation attempts failed before import.**
-The injected application readback is retained; R1–R5 and External acceptance
-are still pending. A corrected, guarded continuation is staged for the operator.
+September 30, 2026. **In progress; baseline preparation succeeded on the third run.**
+The injected application readback is retained. R1–R5 editorial results and
+External acceptance remain pending; the initial adjacent-read consistency is
+bounded evidence only.
+
+## Successful baseline preparation
+
+At 17:39:43 UTC (13:39:43 EDT), the operator reported “It worked!” The retained
+injected run identifies DaVinci Resolve Studio 21.1.0 build 14 / CPython 3.14.7,
+project `VERA Issue 141 Synthetic Probe 20260930-01a0f318`
+(`97037b5a-aab6-48a9-b7e4-4c5697ae10a0`) and baseline timeline
+`88f7923d-55a7-471f-b09b-cf10f9fae8ad`. Preparation setters/imports/linking/markers
+and save returned success. The capture has two identical adjacent passes, no
+getter failures, six distinct timeline occurrence IDs, matching hashes for all
+reachable sources, 25 fps timeline/playback, 48 kHz sample rate, and storage
+locations under the probe output. The operator subsequently confirmed: “Yes, None
+stayed set; synthetic project only.” This confirms External Scripting remained None
+and only the named synthetic project/generated media were touched for this run.
+
+The readback differs from requested bounds: base, speech and bed each report
+`GetDuration=199`, start 0, end 199 (requested duration 200); cutaway reports
+49, start 50, end 99 (requested 50); overlay reports 125, start 75, end 200
+(requested 50). These are raw reported values; no endpoint convention is assumed
+and the baseline is not corrected. This establishes preparation and adjacent-read
+consistency only. No R1–R5 editorial outcome has been observed.
 
 ## First operator run and correction
 
@@ -57,8 +79,10 @@ items, overwrite prior evidence or supply a generic retry system. Any mismatch
 stops before further Resolve mutation. The launcher becomes read-only observe
 only after successful preparation.
 
-`installation-resume.json` records the latest staged launcher/source/config
-hashes; this correction has not run in Resolve. The settings-boundary regression
+`installation-resume.json` recorded the latest staged launcher/source/config
+hashes at that checkpoint; the staged correction subsequently ran successfully
+in Resolve, as documented under Successful baseline preparation. The
+settings-boundary regression
 failed on the read-only write before the fix and passes after it; inherited
 24 fps playback stops with an operator instruction before any setter/import.
 These are harness results, not newly established Resolve capabilities. The
@@ -102,7 +126,7 @@ empty-project recovery guards pass under CPython 3.14.7 `-S`.
 | R2 complete program audio, repeated word/sample/derived ends, residual/mute/retime | **Untested; operator run pending** | Word deletion stays unavailable. Source support alone never proves omission from every route. |
 | R3 compositing/effects/offline/Graphic/structural boundary/crossing bed | **Untested; operator run pending** | Track order is not visibility. Preserve opaque effects and crossing media; no automatic structural adoption. |
 | R4 verified relink/offline/present versus removed/wrong bytes at same locator | **Untested; operator run pending** | Availability, bytes, locator, occurrence and logical identity stay distinct. Missing/offline cannot mean deletion. |
-| R5 quiet/reopen/new-edit/marker repeats and inconsistent capture | **Live application untested**; harness refusal checks pass | Fingerprint is evidence only; no atomic source revision or durable review/apply concurrency claim. |
+| R5 quiet/reopen/new-edit/marker repeats and inconsistent capture | **Editorial repeat tests pending**; initial baseline capture has equal adjacent reads with no getter errors | Fingerprint is evidence only; no atomic source revision or durable review/apply concurrency claim. |
 
 For #131/#139, safe design discussion can continue to describe these explicit
 refusals, source preservation and manual review. **No observation-dependent
@@ -118,6 +142,19 @@ dependencies on #141/#142. Neither dependency is removed here.
 
 ## Automated check record
 
+- The pending `native-repeat` batch passed its fake lifecycle/refusal checks and
+  independent safety review. It binds the original raw baseline hash, requires
+  the unchanged single-timeline baseline, journals save/close/load/duplicate
+  operations and checks project identity before mutations. No live batch result
+  is claimed. Its launcher returns to observation after a consistent result.
+- Independent verification checked all 26 published baseline artifact hashes
+  and found no private-path leak. Its first full validation exited in the
+  contracts Vitest lifecycle without an available assertion. An isolated
+  pinned contracts rerun passed all 141 tests with no code/test repair; the
+  original failure remains unexplained rather than being called fixed.
+  The subsequent full pinned validation passed, including all 175 Python tests.
+  `installation-native-repeat.json` binds the installed source/config for the
+  pending operator batch; staging made no Resolve call.
 - `python3 -S docs/investigations/issue-141/check.py <generated-media-dir>`:
   passed; refusal/error-retention and exact media hash/time-base/sample checks.
 - `npm exec --yes --package=node@24.19.0 -- npm run validate`: passed;
@@ -135,7 +172,8 @@ dependencies on #141/#142. Neither dependency is removed here.
   `git diff --check` and `git diff --cached --check`: passed.
 - Harness/media checks ran in CPython 3.14.7 with `-S`, matching #110's
   accepted injected runtime. The installed launcher and probe source have
-  retained hash bindings in `installation.json`; None confirmation is pending.
+  retained hash bindings in `installation.json`; the successful-run None
+confirmation is recorded in the operator report and interpretation summary.
 
 Use repository shell wrappers for those commands. The injected code imports
 only Python stdlib; synthetic preparation reuses the existing slate writer and
@@ -144,11 +182,14 @@ inputs, never R1–R5 application behavior.
 
 ## Next required evidence
 
-Follow only **Guarded continuation after the second failure** in
-`operator-checklist.md`.
-After that run, inspect the retained journal, settings and baseline capture;
-correct any supported-boundary failure before staging editorial operations.
-Complete the remaining matrix one operation at a time and replace untested
+Follow **Current next action — native repeat batch** in `operator-checklist.md`.
+The batch has not run; record its actual outcome before further editorial edits.
+
+Preserve the actual baseline bounds in the retained capture and use them in
+editorial probes; do not silently correct them. Duration convention and overlay
+placement require separate bounded calibration before making sample- or
+visibility-timing claims. Proceed with identity/reopen testing and the remaining
+operation matrix one operation at a time, replacing untested
 entries with actual bounded supported/unsupported/ambiguous interpretations.
 Only complete truthful evidence permits In review. External confirmation is
 required for acceptance; this checkpoint does not close the issue.

@@ -41,3 +41,28 @@ For each stage retain:
 
 Full local readbacks remain immutable. Publication uses path-redacted copies
 with original raw hashes; private local paths never enter GitHub evidence.
+
+## Successful baseline preparation, September 30
+
+The operator reported “It worked!” The injected run at 17:39:43 UTC recorded
+DaVinci Resolve Studio 21.1.0 build 14 / CPython 3.14.7; project
+`VERA Issue 141 Synthetic Probe 20260930-01a0f318`
+(`97037b5a-aab6-48a9-b7e4-4c5697ae10a0`); baseline timeline
+`88f7923d-55a7-471f-b09b-cf10f9fae8ad`. Preparation setter/import/link/marker/save
+calls returned success. The retained capture has identical adjacent passes, no
+getter errors, six distinct occurrence IDs, matching source hashes, timeline
+and playback 25 fps, 48 kHz, and storage under probe output. See
+`evidence/baseline-preparation/` for journal, capture, settings, identity and
+hashes.
+
+Raw duration readbacks differ from requested durations: base, repeated speech
+(twice) and bed each report duration 199, start 0, end 199 (requested 200);
+cutaway reports duration 49, start 50, end 99 (requested 50); overlay reports
+duration 125, start 75, end 200 (requested 50). Preserve these raw bounds; no
+endpoint convention is assumed and no baseline correction is implied.
+
+The operator subsequently confirmed: “Yes, None stayed set; synthetic project
+only.” For this successful run, External Scripting remained None and only the
+named synthetic project/generated media were touched. No R1–R5 editorial result
+is recorded. Equal adjacent reads provide only bounded initial consistency
+evidence.
