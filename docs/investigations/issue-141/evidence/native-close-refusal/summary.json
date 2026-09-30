@@ -1,0 +1,73 @@
+{
+  "kind": "interpretation-of-retained-real-readback",
+  "preflightCaptureRawSha256": "43ad23a851e851d7473a5c63804b5c551047982afcdabc6d73b92b688e19fab7",
+  "baselineCaptureRawSha256": "92c04d10bafe86499b7d11a27d457e655893ee6340d73a290a80e29e35887161",
+  "preflightConsistency": "equal-adjacent-reads",
+  "preflightContentFingerprints": [
+    "143d56e6f118008b8415bfead2d5c0f84b57d21d79111a9a2d8ae0d1ebc3b239",
+    "143d56e6f118008b8415bfead2d5c0f84b57d21d79111a9a2d8ae0d1ebc3b239"
+  ],
+  "preflightGetterFailures": [],
+  "preflightCaptureFailure": null,
+  "preflightPassComparisons": [
+    {
+      "preflightPass": 1,
+      "baselinePass": 1,
+      "rawValueDiffCount": 0
+    },
+    {
+      "preflightPass": 2,
+      "baselinePass": 2,
+      "rawValueDiffCount": 0
+    }
+  ],
+  "journalRawSha256": "89577090189fae678919835943624835afa47f697d2c4054519cfadbbfdc3207",
+  "journalEvents": [
+    {
+      "at": "2026-09-30T19:42:35.980219+00:00",
+      "method": "SaveProject",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "at": "2026-09-30T19:42:36.153278+00:00",
+      "method": "SaveProject",
+      "phase": "return",
+      "value": true
+    },
+    {
+      "at": "2026-09-30T19:42:36.243008+00:00",
+      "method": "CloseProject",
+      "phase": "request",
+      "value": [
+        "97037b5a-aab6-48a9-b7e4-4c5697ae10a0"
+      ]
+    },
+    {
+      "at": "2026-09-30T19:42:38.415148+00:00",
+      "method": "CloseProject",
+      "phase": "return",
+      "value": true
+    },
+    {
+      "at": "2026-09-30T19:42:39.095253+00:00",
+      "method": "GetCurrentProject(after CloseProject)",
+      "phase": "readback",
+      "value": {
+        "value": "fedceab7-8706-4b83-9ffe-fb77c65f0dbe"
+      }
+    }
+  ],
+  "launcherResultRawSha256": "43e7d90a3bb8aea83e01aa969484ab5cebe35782d7f85f0c8e180a2b1b26c0db",
+  "operatorReport": "It closed the project but did not seem to reopen anything",
+  "operatorConfirmations": [
+    "External Scripting stayed None for this run.",
+    "Only the named synthetic project/generated media were touched for this run."
+  ],
+  "interpretation": "SaveProject and CloseProject returned true. The post-close current project ID differed from the approved synthetic project ID. The launcher refused before LoadProject or DuplicateTimeline. The unknown current project was not inspected or mutated. This does not establish that the close/reopen operation worked, that the unknown project is empty/default, or that LoadProject was tested.",
+  "limitations": [
+    "No reopen or duplication result.",
+    "No inspection or mutation of the unexpected current project.",
+    "Earlier 18:12:39 baseline-only preflight refusal remains unexplained."
+  ]
+}

@@ -45,6 +45,7 @@ def validate_config(config):
         "resume-preparation",
         "observe",
         "native-repeat",
+        "native-duplicate",
     }:
         raise ValueError("Unknown bounded probe action")
     for key in ("mediaDir", "outputDir"):
@@ -340,6 +341,9 @@ def capture(resolve, config, identity, expected, output, stamp, environment):
 
 
 def native_repeat(resolve, config, identity, expected, output, stamp, environment):
+    action = config["action"]
+    if action not in {"native-repeat", "native-duplicate"}:
+        raise ValueError("Unknown native probe action")
     prepared_path = output / "prepared.json"
     prepared = json.loads(prepared_path.read_text(encoding="utf-8"))
     prepared_identity = prepared.get("identity")
@@ -380,18 +384,27 @@ def native_repeat(resolve, config, identity, expected, output, stamp, environmen
 
     manager = resolve.GetProjectManager()
     project = require_current(resolve, config, identity)
+    before_stage = (
+        "reopened-before-duplicate" if action == "native-duplicate" else "before"
+    )
     before_result = capture(
-        resolve, config, identity, expected, output, stamp + "-before", environment
+        resolve,
+        config,
+        identity,
+        expected,
+        output,
+        stamp + "-" + before_stage,
+        environment,
     )
     if before_result["status"] != "equal-adjacent-reads":
-        raise RuntimeError("Initial native-repeat capture is incomplete; refusing")
+        raise RuntimeError("Initial native capture is incomplete; refusing")
     before_pass = json.loads(Path(before_result["capturePath"]).read_text())["passes"][
         0
     ]
     if errors(before_pass) or before_pass != baseline_pass:
         raise RuntimeError("Current project is not the prepared baseline-only state")
 
-    journal = output / f"native-repeat-{stamp}.jsonl"
+    journal = output / f"{action}-{stamp}.jsonl"
     journal.open("x", encoding="utf-8").close()
 
     def retain(method, phase, value):
@@ -432,45 +445,51 @@ def native_repeat(resolve, config, identity, expected, output, stamp, environmen
             retain(method, "failure", f"{type(error).__name__}: {error}")
             raise
 
-    mutate(manager, "SaveProject")
-    mutate(manager, "CloseProject", project, audit_args=[identity["projectId"]])
-    current_after_close = manager.GetCurrentProject()
-    retain(
-        "GetCurrentProject(after CloseProject)",
-        "readback",
-        None
-        if current_after_close is None
-        else read(current_after_close, "GetUniqueId"),
-    )
-    if current_after_close is not None:
-        raise RuntimeError("Resolve still has a project loaded after close; stop")
-    reopened = mutate(manager, "LoadProject", config["projectName"])
-    if (
-        reopened.GetName() != config["projectName"]
-        or reopened.GetUniqueId() != identity["projectId"]
-        or manager.GetCurrentProject().GetUniqueId() != identity["projectId"]
-    ):
-        raise RuntimeError("Reopened project identity differs; stop")
-    retain(
-        "LoadProject(identity readback)",
-        "readback",
-        {
-            "GetName": reopened.GetName(),
-            "GetUniqueId": reopened.GetUniqueId(),
-            "GetCurrentProject.UniqueId": manager.GetCurrentProject().GetUniqueId(),
-        },
-    )
-    reopened_capture = capture(
-        resolve,
-        config,
-        identity,
-        expected,
-        output,
-        stamp + "-reopened",
-        environment,
-    )
-    if reopened_capture["status"] != "equal-adjacent-reads":
-        raise RuntimeError("Reopened capture is incomplete; stop")
+    reopened_capture = None
+    if action == "native-repeat":
+        mutate(manager, "SaveProject")
+        mutate(manager, "CloseProject", project, audit_args=[identity["projectId"]])
+        current_after_close = manager.GetCurrentProject()
+        retain(
+            "GetCurrentProject(after CloseProject)",
+            "readback",
+            None
+            if current_after_close is None
+            else read(current_after_close, "GetUniqueId"),
+        )
+        if current_after_close is not None:
+            raise RuntimeError("Resolve still has a project loaded after close; stop")
+        reopened = mutate(manager, "LoadProject", config["projectName"])
+        if (
+            reopened.GetName() != config["projectName"]
+            or reopened.GetUniqueId() != identity["projectId"]
+            or manager.GetCurrentProject().GetUniqueId() != identity["projectId"]
+        ):
+            raise RuntimeError("Reopened project identity differs; stop")
+        retain(
+            "LoadProject(identity readback)",
+            "readback",
+            {
+                "GetName": reopened.GetName(),
+                "GetUniqueId": reopened.GetUniqueId(),
+                "GetCurrentProject.UniqueId": manager.GetCurrentProject().GetUniqueId(),
+            },
+        )
+        reopened_capture = capture(
+            resolve,
+            config,
+            identity,
+            expected,
+            output,
+            stamp + "-reopened",
+            environment,
+        )
+        if reopened_capture["status"] != "equal-adjacent-reads":
+            raise RuntimeError("Reopened capture is incomplete; stop")
+    else:
+        # The operator reopened the exact approved project. The guarded preflight
+        # capture above is the retained comparison for this state.
+        reopened = project
 
     original = None
     for index in range(1, reopened.GetTimelineCount() + 1):
@@ -539,11 +558,18 @@ def native_repeat(resolve, config, identity, expected, output, stamp, environmen
     )
     return {
         "status": final_capture["status"],
-        "action": "native-repeat",
+        "action": action,
+        "preflightStage": before_stage,
+        "reopenEvidence": (
+            "operator-managed; preflight state only, "
+            "reopen sequence not independently verified"
+            if action == "native-duplicate"
+            else "native SaveProject/CloseProject/LoadProject sequence captured"
+        ),
         "journal": str(journal),
         "captures": [
             before_result,
-            reopened_capture,
+            *([] if reopened_capture is None else [reopened_capture]),
             duplicate_capture,
             final_capture,
         ],
@@ -849,7 +875,7 @@ def run(resolve, config):
                 },
             )
             raise
-    elif config["action"] == "native-repeat":
+    elif config["action"] in {"native-repeat", "native-duplicate"}:
         if not (output / "prepared.json").is_file():
             raise RuntimeError(
                 "Preparation is incomplete; stop and inspect its journal"

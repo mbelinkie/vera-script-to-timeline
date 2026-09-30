@@ -22,25 +22,30 @@ timeline/storage settings, imported only generated synthetic inputs and created
 the baseline. It ran successfully. The failed earlier attempts remain retained
 with their hashes.
 
-## Current next action — native repeat batch
+## Current next action — recover exact project before native duplicate
 
-Use only the named synthetic project with `VERA 141 Baseline` open. Keep External
-Scripting set to None and leave the baseline unchanged.
+The 18:22:47 quiet repeat matched the raw baseline passes exactly; only outer
+`capturedAt` and `stage` values differ between launcher runs. The 19:42:33 native
+repeat then saved and closed the project successfully but stopped when Resolve
+reported a different current project ID. It did not load a project or duplicate
+a timeline, and the unexpected project was not inspected or mutated. See
+`evidence/native-close-refusal/`. The operator confirmed External Scripting stayed
+None and only the named synthetic project/generated media were touched.
 
-Launch **Workspace > Workflow Integrations > VERA Issue 141 Observation** once.
-The pending batch should capture the baseline, save and close/reopen this exact
-project, capture the reopened baseline, duplicate the baseline through the
-documented native `DuplicateTimeline` API as **VERA 141 R1 identity**, capture
-both timelines, select the duplicate and save. Do not make manual clip edits
-yet. This tests actual API duplication; appending equivalent items would not
-establish duplication behavior.
+The `native-duplicate` action is now staged at `R1-operator-reopen-native-duplicate`;
+`installation-native-duplicate.json` binds its installed files and config.
+Manually reopen only `VERA Issue 141 Synthetic Probe 20260930-01a0f318` and leave
+`VERA 141 Baseline` unchanged. Then launch
+**Workspace > Workflow Integrations > VERA Issue 141 Observation** once. This is
+the next required action; no live result for the staged `native-duplicate` run
+exists yet. Do not inspect or modify another project to satisfy the guard.
 
-Expected result: the same project reopens and a new `VERA 141 R1 identity`
-timeline appears with captured IDs, ranges and custom-data. If the integration
-refuses or any stage differs, stop and retain the journal/captures; do not repeat
-the batch or clean up the project. Record the visible result and discrepancies.
-This batch is pending and has not been executed. It does not establish the later
-R1–R5 operations or External acceptance.
+The staged action is expected to capture the exact baseline, duplicate it through
+`DuplicateTimeline` as **VERA 141 R1 identity**, capture both timelines, select
+the duplicate and save. If the project identity guard refuses or any stage
+differs, stop and retain the journal/captures; do not repeat or clean up. This
+will test duplication only if the actual result confirms it; it will not establish
+later R1–R5 operations or External acceptance.
 
 The probe retains the observed bounds. Duration convention and overlay placement
 need separate calibration before sample or visibility timing claims; no operator
@@ -66,8 +71,8 @@ automation is used.
 
 | Stage | Ordered action | Required evidence / expected discriminant |
 |---|---|---|
-| R1-reopen | Included in the pending native repeat batch: capture baseline; save; close/reopen only this project; capture again. | Compare project/timeline/item/media UIDs, custom-data and ranges. Report actual changes; stable is not assumed. |
-| R1-duplicate | Included in the pending native repeat batch: use documented `DuplicateTimeline` to create `VERA 141 R1 identity`; capture both. | Compare source/track/range signatures, UIDs and copied custom-data. Copied authoring data alone never proves a unique occurrence binding. |
+| R1-reopen | Manual reopen of the exact synthetic project is required before the staged native-duplicate batch; capture its retained preflight before duplication. | Compare project/timeline/item/media UIDs, custom-data and ranges. Report actual changes; stable is not assumed. |
+| R1-duplicate | Pending staged `native-duplicate` run: use documented `DuplicateTimeline` to create `VERA 141 R1 identity`; capture both. | Compare source/track/range signatures, UIDs and copied custom-data. Copied authoring data alone never proves a unique occurrence binding. |
 | R1-trim | On R1 timeline, trim the right edge of linked V1/A1 from 00:00:08:00 to 00:00:07:00 without ripple. | End/duration changes with observed UID/custom-data survival or loss. |
 | R1-move | Move those linked items from frame 0 to frame 25 (00:00:01:00) without ripple. | Record position changes separately from source identity; no sort-order binding. |
 | R1-razor | Blade V1/A1 at record 00:00:04:00; do not remove either piece. | Both children, UIDs, source ranges, link groups and inherited marker data; never assume either child retains the logical parent's identity. |

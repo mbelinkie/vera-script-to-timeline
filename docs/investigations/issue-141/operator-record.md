@@ -82,3 +82,38 @@ before state. A sanitized result copy and raw/published hash are retained in
 The staged next action is read-only at stage
 `baseline-state-discrepancy-read-only`; no Resolve mutation is planned for that
 launch.
+
+
+## Read-only quiet repeat, September 30
+
+At 18:22:47 UTC, the installed observation captured the named project without
+mutation. `evidence/quiet-repeat/` retains the redacted capture, interpretation,
+and raw/published hashes. Both adjacent reads were equal, with no getter errors
+or capture failure; each raw pass matches the corresponding baseline pass
+exactly; only the outer `capturedAt` and `stage` envelope values differ between
+launcher runs. The launcher result path is redacted in the retained publication.
+The 18:12:39 preflight refusal remains unexplained because it had no retained capture. This
+quiet repeat does not prove atomicity, close/reopen behavior, or any R1–R5 edit.
+The installed action is now staged for the native repeat batch; no later result
+is recorded here.
+
+
+## Native close refusal, September 30
+
+At 19:42:33 UTC, the retained journal records `SaveProject` and `CloseProject`
+returning true. After close, `GetCurrentProject` returned
+`fedceab7-8706-4b83-9ffe-fb77c65f0dbe`, different from the approved synthetic
+project ID `97037b5a-aab6-48a9-b7e4-4c5697ae10a0`. The launcher refused before
+`LoadProject` or `DuplicateTimeline`. No inspection or mutation of the unexpected
+project is recorded. The preflight capture has two equal adjacent passes, no
+getter errors or capture failure, and each raw pass exactly matches the
+corresponding baseline pass.
+
+The operator reported: “It closed the project but did not seem to reopen
+anything.” The operator also confirmed: “Yes, None stayed set; synthetic project
+only.” Evidence and sanitized result are retained in `evidence/native-close-refusal/`.
+This establishes neither automatic reopen nor that `LoadProject` works; the
+unexpected project is not assumed empty/default. The earlier 18:12:39 refusal
+remains separately unexplained. The next attempt requires manually reopening
+only the exact synthetic project, with the baseline unchanged, before launching
+once when the parent stages `native-duplicate`. That result is not yet live.

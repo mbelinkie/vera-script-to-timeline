@@ -1,4 +1,4 @@
-# Issue 141 — observation investigation, preparation checkpoint
+# Issue 141 — Resolve observation investigation
 
 September 30, 2026. **In progress; baseline preparation succeeded on the third run.**
 The injected application readback is retained. R1–R5 editorial results and
@@ -38,10 +38,30 @@ retention gap: the exact before-state comparison cannot now be reconstructed.
 The sanitized launcher result and matching raw/published SHA-256 are retained in
 `evidence/native-preflight-refusal/`.
 
-The staged next action is read-only observation at stage
-`baseline-state-discrepancy-read-only`; it makes no Resolve mutation. The next
-operator launch should retain that preflight readback to establish the current
-state before deciding what action is supported.
+A read-only quiet repeat subsequently ran at 18:22:47 UTC. Its retained capture
+(`evidence/quiet-repeat/`) has two equal adjacent reads, no capture failure or
+getter errors, and the same content fingerprint as the baseline. The two raw
+observation passes match the baseline passes exactly. Only the outer
+`capturedAt` and `stage` envelope values differ between launcher runs. Both
+runs report the same content fingerprint and equal adjacent reads. The launcher
+result path is redacted in the retained publication. This is bounded unchanged-
+read evidence only and does not establish atomicity or close/reopen. The 18:12:39
+preflight refusal had no retained capture and remains unknown.
+
+At 19:42:33 UTC, the native repeat attempt saved and closed the named project;
+both calls returned true. The post-close current project ID was
+`fedceab7-8706-4b83-9ffe-fb77c65f0dbe`, different from the approved project
+`97037b5a-aab6-48a9-b7e4-4c5697ae10a0`. The launcher stopped before
+`LoadProject` or `DuplicateTimeline`; it did not inspect or mutate the unexpected
+project. The operator reported, “It closed the project but did not seem to reopen
+anything,” and confirmed External Scripting stayed None and only the synthetic
+project/generated media were touched. See `evidence/native-close-refusal/` for the
+preflight capture, journal, sanitized result, and hashes. The raw preflight passes
+match the original baseline passes exactly with no getter errors or capture
+failure. This does not prove automatic reopen, test `LoadProject`, or establish
+that the unexpected project is empty/default. The next launch waits for the staged
+`native-duplicate` action and requires the operator to manually reopen only the
+exact synthetic project with its baseline unchanged.
 
 ## First operator run and correction
 
@@ -135,15 +155,28 @@ empty-project recovery guards pass under CPython 3.14.7 `-S`.
   guarantee, and no proof against changes occurring and being undone between
   reads. Do not use this content hash as apply authorization.
 
+## Extension boundary
+
+The installed Workflow Integrations `README.txt` says integrations use the same
+scripting API (lines 142–144). The actual capture contains `TimelineItem.GetUniqueId`
+and composite/opacity/crop properties; the installed `DaVinciResolveScript.pyi`
+(lines 2311–2336) documents fractional frame values through `subframePrecision`
+getters; its composite property declarations list opacity and crop controls.
+These establish only bounded observable evidence: edited-audio sample fidelity
+remains untested, and plugin installation does not grant hidden access or prove
+full routing or rendered visibility. Additional provenance, hashing, export,
+render or Fusion evidence is useful only when each result is independently
+verified.
+
 ## R1–R5 status and downstream limits
 
 | Required evidence | Current status | Constraint until an actual result |
 |---|---|---|
-| R1 reopen/trim/move/razor/copy/timeline duplicate; identical signatures | **Untested; operator run pending** | No occurrence lineage or binding by filename, order, signature or copied custom-data. |
+| R1 reopen/trim/move/razor/copy/timeline duplicate; identical signatures | **Pre-close baseline stable; save/close returned true; reopen and duplicate pending** | No occurrence lineage or binding by filename, order, signature or copied custom-data. |
 | R2 complete program audio, repeated word/sample/derived ends, residual/mute/retime | **Untested; operator run pending** | Word deletion stays unavailable. Source support alone never proves omission from every route. |
 | R3 compositing/effects/offline/Graphic/structural boundary/crossing bed | **Untested; operator run pending** | Track order is not visibility. Preserve opaque effects and crossing media; no automatic structural adoption. |
 | R4 verified relink/offline/present versus removed/wrong bytes at same locator | **Untested; operator run pending** | Availability, bytes, locator, occurrence and logical identity stay distinct. Missing/offline cannot mean deletion. |
-| R5 quiet/reopen/new-edit/marker repeats and inconsistent capture | **Editorial repeat tests pending**; initial baseline capture has equal adjacent reads with no getter errors | Fingerprint is evidence only; no atomic source revision or durable review/apply concurrency claim. |
+| R5 quiet/reopen/new-edit/marker repeats and inconsistent capture | **Separate quiet repeat and native preflight equal adjacent reads retained; reopen/new-edit/marker tests pending** | Fingerprint is evidence only; no atomic source revision or durable review/apply concurrency claim. |
 
 For #131/#139, safe design discussion can continue to describe these explicit
 refusals, source preservation and manual review. **No observation-dependent
@@ -159,11 +192,20 @@ dependencies on #141/#142. Neither dependency is removed here.
 
 ## Automated check record
 
-- The pending `native-repeat` batch passed its fake lifecycle/refusal checks and
+- The original `native-repeat` batch passed its fake lifecycle/refusal checks and
   independent safety review. It binds the original raw baseline hash, requires
   the unchanged single-timeline baseline, journals save/close/load/duplicate
-  operations and checks project identity before mutations. No live batch result
-  is claimed. Its launcher returns to observation after a consistent result.
+  operations and checks project identity before mutations. Its partial real run
+  is retained above; it stopped before load/duplicate. Its launcher returns to
+  observation after a consistent result.
+- The `native-duplicate` variant passed CPython 3.14.7 `-S` harness/media checks
+  and focused Ruff lint/format checks, plus independent safety review. It retains
+  the same preflight guards,
+  skips project close/load, and journals only duplication, selection and save.
+  A changed preflight is retained and refuses all mutations. These checks do not
+  establish the operator reopen sequence or a real duplication result.
+  `installation-native-duplicate.json` binds the staged variant; staging made no
+  Resolve call.
 - Independent verification checked all 26 published baseline artifact hashes
   and found no private-path leak. Its first full validation exited in the
   contracts Vitest lifecycle without an available assertion. An isolated
@@ -171,14 +213,14 @@ dependencies on #141/#142. Neither dependency is removed here.
   original failure remains unexplained rather than being called fixed.
   The subsequent full pinned validation passed, including all 175 Python tests.
   `installation-native-repeat.json` binds the installed source/config for the
-  pending operator batch; staging made no Resolve call.
+  original operator batch; staging made no Resolve call.
 - `python3 -S docs/investigations/issue-141/check.py <generated-media-dir>`:
   passed; refusal/error-retention and exact media hash/time-base/sample checks.
 - `npm exec --yes --package=node@24.19.0 -- npm run validate`: passed;
   generated types current, TypeScript lint/typecheck, 141 contract tests,
   1 smoke, 6 progress and 23 roadmap tests; Python lint/format/strict mypy and
   175 tests. Python application test runtime 3.12.14 / pytest 9.1.1.
-  The latest correction passed the full command again. An intermediate run
+  The preparation correction passed the full command again. An intermediate run
   stopped on one overlong error-message line; splitting the same literal
   corrected lint, and the full rerun passed.
 - Locked install only: `npm ci --ignore-scripts`, no dependency/lock changes.
@@ -199,8 +241,9 @@ inputs, never R1–R5 application behavior.
 
 ## Next required evidence
 
-Follow **Current next action — native repeat batch** in `operator-checklist.md`.
-The batch has not run; record its actual outcome before further editorial edits.
+Follow the recovery step in `operator-checklist.md`. The 19:42:33 launch saved
+and closed the project but refused before reopen or duplication because Resolve
+reported a different current project ID. No follow-on editor result is available.
 
 Preserve the actual baseline bounds in the retained capture and use them in
 editorial probes; do not silently correct them. Duration convention and overlay

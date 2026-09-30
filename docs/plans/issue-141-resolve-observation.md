@@ -81,6 +81,21 @@ remain unchanged. The batch is not yet live evidence. The operator launches it
 once; successful completion returns the launcher to read-only observation.
 No trim/razor/copy semantics are substituted by appending equivalent clips.
 
+The September 30 19:42:33 UTC native run retained an unchanged preflight,
+successful SaveProject/CloseProject returns, and a different current-project
+ID after close. The safety guard stopped before LoadProject or duplication.
+That unidentified project is outside scope; do not inspect its contents or
+mutate it. Retain the trace and operator report without calling LoadProject
+unsupported. The operator reopens the exact synthetic project manually. A
+bounded `native-duplicate` action then reuses the same baseline/identity/build
+guards and retained preflight, skips the close/load operations, and exercises
+only native duplication, selection and save. Its before-capture supplies the
+post-reopen comparison; an unexpected observation refuses before mutation.
+Touched files are the existing issue-owned probe, launcher and self-check;
+no contract, fixture or dependency changes. Check refusal before duplication,
+the exact mutation sequence, source/runtime compatibility and diff hygiene.
+External acceptance still requires the actual reopened/duplicate readbacks.
+
 At the user's request, bounded evidence documentation, probe implementation and
 independent verification use Luna sub-agents. The existing claimed Sol task
 retains interpretation, safety review and roadmap authority; no issue is

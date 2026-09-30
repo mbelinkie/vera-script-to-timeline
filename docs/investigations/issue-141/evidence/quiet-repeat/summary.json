@@ -1,0 +1,39 @@
+{
+  "kind": "interpretation-of-retained-real-readback",
+  "captureRawSha256": "fcdff8df7d68ce28a7a491e568f6c1cda028c5a0397354fce666ac90d3032827",
+  "consistency": "equal-adjacent-reads",
+  "contentFingerprints": [
+    "143d56e6f118008b8415bfead2d5c0f84b57d21d79111a9a2d8ae0d1ebc3b239",
+    "143d56e6f118008b8415bfead2d5c0f84b57d21d79111a9a2d8ae0d1ebc3b239"
+  ],
+  "getterFailures": [],
+  "captureFailure": null,
+  "baselineRawSha256": "92c04d10bafe86499b7d11a27d457e655893ee6340d73a290a80e29e35887161",
+  "baselineConsistency": "equal-adjacent-reads",
+  "baselineContentFingerprints": [
+    "143d56e6f118008b8415bfead2d5c0f84b57d21d79111a9a2d8ae0d1ebc3b239",
+    "143d56e6f118008b8415bfead2d5c0f84b57d21d79111a9a2d8ae0d1ebc3b239"
+  ],
+  "comparisons": [
+    {
+      "repeatPass": 1,
+      "baselinePass": 1,
+      "pathRedactedDiffCount": 0,
+      "rawObservationDiffCount": 0
+    },
+    {
+      "repeatPass": 2,
+      "baselinePass": 2,
+      "pathRedactedDiffCount": 0,
+      "rawObservationDiffCount": 0
+    }
+  ],
+  "crossRunDiffSummary": "Raw observation payloads match exactly across the separate launcher invocations after excluding only the expected envelope fields capturedAt and stage. Both runs have equal adjacent passes and the same content fingerprint; no paths differ within the raw observation payload.",
+  "limitations": [
+    "Two adjacent reads per launcher invocation; no atomicity guarantee.",
+    "This separate launcher repeat does not establish close/reopen behavior.",
+    "No R1-R5 editorial result is established."
+  ],
+  "launcherResultRawSha256": "ab67f40c346d737ed6dfaff27ddfd5222df30a97c1c30952bb40c2cab01f4a2e",
+  "launcherResultPublishedSha256": "1ed7f5ae9ceece52951423695af9e8c6d30718d41bfe060da0b42b409974ceb8"
+}

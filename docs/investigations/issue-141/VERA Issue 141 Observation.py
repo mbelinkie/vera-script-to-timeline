@@ -28,7 +28,7 @@ try:
     spec.loader.exec_module(module)
     result = module.run(globals().get("resolve"), config)
     if config["action"] in {"prepare", "resume-preparation"} or (
-        config["action"] == "native-repeat"
+        config["action"] in {"native-repeat", "native-duplicate"}
         and result["status"] == "equal-adjacent-reads"
     ):
         config["action"] = "observe"

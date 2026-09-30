@@ -397,6 +397,62 @@ with tempfile.TemporaryDirectory() as directory:
         "SaveProject",
     ]
 
+    # The duplicate-only action treats its guarded current-project capture as
+    # the operator-reopened comparison and performs no project lifecycle calls.
+    duplicate_config = {**native_config, "action": "native-duplicate"}
+    duplicate_only_project = NativeProject()
+    duplicate_only_resolve = NativeResolve(duplicate_only_project)
+    duplicate_only = probe.native_repeat(
+        duplicate_only_resolve,
+        duplicate_config,
+        {"projectId": project_id, "projectName": project_name},
+        {},
+        output,
+        "duplicate-only",
+        environment,
+    )
+    assert duplicate_only["action"] == "native-duplicate"
+    assert duplicate_only["preflightStage"] == "reopened-before-duplicate"
+    assert "not independently verified" in duplicate_only["reopenEvidence"]
+    assert duplicate_only_resolve.manager.loads == []
+    duplicate_records = [
+        json.loads(line)
+        for line in (output / "native-duplicate-duplicate-only.jsonl")
+        .read_text()
+        .splitlines()
+    ]
+    assert [
+        row["method"] for row in duplicate_records if row["phase"] == "request"
+    ] == ["DuplicateTimeline", "SetCurrentTimeline", "SaveProject"]
+    assert (output / "capture-duplicate-only-reopened-before-duplicate.json").is_file()
+
+    # A baseline-mismatched preflight is retained and refuses before mutation.
+    capture_changed = True
+    mismatch_project = NativeProject()
+    mismatch_resolve = NativeResolve(mismatch_project)
+    refuses(
+        lambda: probe.native_repeat(
+            mismatch_resolve,
+            duplicate_config,
+            {"projectId": project_id, "projectName": project_name},
+            {},
+            output,
+            "duplicate-mismatch",
+            environment,
+        )
+    )
+    retained_mismatch = json.loads(
+        (
+            output / "capture-duplicate-mismatch-reopened-before-duplicate.json"
+        ).read_text()
+    )
+    assert retained_mismatch["passes"][0]["timelines"][0]["GetName"]["value"] == (
+        "VERA 141 changed"
+    )
+    assert mismatch_resolve.manager.mutations == []
+    assert mismatch_resolve.manager.loads == []
+    capture_changed = False
+
     # Unexpected preexisting timeline state refuses before SaveProject.
     wrong = NativeProject(extra=True)
     wrong_resolve = NativeResolve(wrong)
