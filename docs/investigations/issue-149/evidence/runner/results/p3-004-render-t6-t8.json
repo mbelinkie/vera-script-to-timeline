@@ -1,0 +1,202 @@
+{
+ "job_id": "p3-004-render-t6-t8",
+ "started": 1790971483.961329,
+ "seconds": 4.305,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "journal": [
+   [
+    "queue before",
+    [
+     {
+      "JobId": "e2ef14be-e59a-4769-b59c-d636afb4fc79",
+      "RenderJobName": "Job 1",
+      "TimelineName": "SO Baseline",
+      "TargetDir": "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/renders",
+      "IsExportVideo": true,
+      "IsExportAudio": true,
+      "FormatWidth": 640,
+      "FormatHeight": 360,
+      "FrameRate": "25",
+      "PixelAspectRatio": 1.0,
+      "MarkIn": 0,
+      "MarkOut": 398,
+      "AudioBitDepth": 24,
+      "AudioSampleRate": 48000,
+      "ExportAlpha": false,
+      "OutputFilename": "SO_Baseline.mov",
+      "RenderMode": "Single clip",
+      "PresetName": "Custom",
+      "VideoFormat": "QuickTime",
+      "VideoCodec": "H.264",
+      "AudioCodec": "lpcm",
+      "EncodingProfile": "Auto",
+      "MultiPassEncode": false,
+      "NetworkOptimization": false,
+      "ClipStartFrame": 1,
+      "TimelineStartTimecode": "00:00:00:00"
+     },
+     {
+      "JobId": "2d6b6fea-5f14-4f9c-bd08-0aabe5cd86e9",
+      "RenderJobName": "Job 2",
+      "TimelineName": "SO T2 linked cut",
+      "TargetDir": "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/renders",
+      "IsExportVideo": true,
+      "IsExportAudio": true,
+      "FormatWidth": 640,
+      "FormatHeight": 360,
+      "FrameRate": "25",
+      "PixelAspectRatio": 1.0,
+      "MarkIn": 0,
+      "MarkOut": 398,
+      "AudioBitDepth": 24,
+      "AudioSampleRate": 48000,
+      "ExportAlpha": false,
+      "OutputFilename": "SO_T2_linked_cut.mov",
+      "RenderMode": "Single clip",
+      "PresetName": "Custom",
+      "VideoFormat": "QuickTime",
+      "VideoCodec": "H.264",
+      "AudioCodec": "lpcm",
+      "EncodingProfile": "Auto",
+      "MultiPassEncode": false,
+      "NetworkOptimization": false,
+      "ClipStartFrame": 1,
+      "TimelineStartTimecode": "00:00:00:00"
+     },
+     {
+      "JobId": "be45349d-a67f-4f74-a02c-6f660836f7fc",
+      "RenderJobName": "Job 3",
+      "TimelineName": "SO T3 picture-only cut",
+      "TargetDir": "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/renders",
+      "IsExportVideo": true,
+      "IsExportAudio": true,
+      "FormatWidth": 640,
+      "FormatHeight": 360,
+      "FrameRate": "25",
+      "PixelAspectRatio": 1.0,
+      "MarkIn": 0,
+      "MarkOut": 398,
+      "AudioBitDepth": 24,
+      "AudioSampleRate": 48000,
+      "ExportAlpha": false,
+      "OutputFilename": "SO_T3_picture-only_cut.mov",
+      "RenderMode": "Single clip",
+      "PresetName": "Custom",
+      "VideoFormat": "QuickTime",
+      "VideoCodec": "H.264",
+      "AudioCodec": "lpcm",
+      "EncodingProfile": "Auto",
+      "MultiPassEncode": false,
+      "NetworkOptimization": false,
+      "ClipStartFrame": 1,
+      "TimelineStartTimecode": "00:00:00:00"
+     },
+     {
+      "JobId": "a163cb36-b02c-4a1c-ae6f-7ee0e6bfd417",
+      "RenderJobName": "Job 4",
+      "TimelineName": "SO T4 A1 clip disabled",
+      "TargetDir": "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/renders",
+      "IsExportVideo": true,
+      "IsExportAudio": true,
+      "FormatWidth": 640,
+      "FormatHeight": 360,
+      "FrameRate": "25",
+      "PixelAspectRatio": 1.0,
+      "MarkIn": 0,
+      "MarkOut": 398,
+      "AudioBitDepth": 24,
+      "AudioSampleRate": 48000,
+      "ExportAlpha": false,
+      "OutputFilename": "SO_T4_A1_clip_disabled.mov",
+      "RenderMode": "Single clip",
+      "PresetName": "Custom",
+      "VideoFormat": "QuickTime",
+      "VideoCodec": "H.264",
+      "AudioCodec": "lpcm",
+      "EncodingProfile": "Auto",
+      "MultiPassEncode": false,
+      "NetworkOptimization": false,
+      "ClipStartFrame": 1,
+      "TimelineStartTimecode": "00:00:00:00"
+     },
+     {
+      "JobId": "05044276-2dcf-410e-ab49-0f6a97e642a1",
+      "RenderJobName": "Job 5",
+      "TimelineName": "SO T5 A1 track disabled",
+      "TargetDir": "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/renders",
+      "IsExportVideo": true,
+      "IsExportAudio": true,
+      "FormatWidth": 640,
+      "FormatHeight": 360,
+      "FrameRate": "25",
+      "PixelAspectRatio": 1.0,
+      "MarkIn": 0,
+      "MarkOut": 398,
+      "AudioBitDepth": 24,
+      "AudioSampleRate": 48000,
+      "ExportAlpha": false,
+      "OutputFilename": "SO_T5_A1_track_disabled.mov",
+      "RenderMode": "Single clip",
+      "PresetName": "Custom",
+      "VideoFormat": "QuickTime",
+      "VideoCodec": "H.264",
+      "AudioCodec": "lpcm",
+      "EncodingProfile": "Auto",
+      "MultiPassEncode": false,
+      "NetworkOptimization": false,
+      "ClipStartFrame": 1,
+      "TimelineStartTimecode": "00:00:00:00"
+     }
+    ]
+   ],
+   [
+    "delete finished jobs",
+    true
+   ],
+   [
+    "SetCurrentTimeline SO T6 A2 mapping mute",
+    true
+   ],
+   [
+    "SetRenderSettings SO T6 A2 mapping mute",
+    true
+   ],
+   [
+    "SetCurrentTimeline SO T7 A2 Mute button",
+    true
+   ],
+   [
+    "SetRenderSettings SO T7 A2 Mute button",
+    true
+   ],
+   [
+    "SetCurrentTimeline SO T8 A2 Solo button",
+    true
+   ],
+   [
+    "SetRenderSettings SO T8 A2 Solo button",
+    true
+   ],
+   [
+    "StartRendering",
+    true
+   ]
+  ],
+  "jobs": [
+   [
+    "SO T6 A2 mapping mute",
+    "bb66261a-5544-445e-920f-7d994a95e3e3"
+   ],
+   [
+    "SO T7 A2 Mute button",
+    "7d7b6271-0d62-4c00-a172-20b74565af2e"
+   ],
+   [
+    "SO T8 A2 Solo button",
+    "cf76d9dc-bf8c-4343-bb5c-8f5cdd91a322"
+   ]
+  ]
+ }
+}

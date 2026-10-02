@@ -1,0 +1,8 @@
+{
+ "job_id": "p1-001-say-words",
+ "started": 1790970637.6010082,
+ "seconds": 22.601,
+ "error": "Traceback (most recent call last):\n  File \"<string>\", line 10, in <module>\n  File \"job.py\", line 10, in <module>\n  File \"/usr/local/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py\", line 557, in run\n    stdout, stderr = process.communicate(input, timeout=timeout)\n                     ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py\", line 1221, in communicate\n    stdout, stderr = self._communicate(input, endtime, timeout)\n                     ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py\", line 2194, in _communicate\n    stdout = self._translate_newlines(stdout,\n                                      self.stdout.encoding,\n                                      self.stdout.errors)\n  File \"/usr/local/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py\", line 1099, in _translate_newlines\n    data = data.decode(encoding, errors)\nUnicodeDecodeError: 'ascii' codec can't decode byte 0xc3 in position 165: ordinal not in range(128)\n",
+ "stdout": "",
+ "result": {}
+}

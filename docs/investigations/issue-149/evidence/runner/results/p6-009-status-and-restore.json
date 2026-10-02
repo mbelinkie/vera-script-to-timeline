@@ -1,0 +1,69 @@
+{
+ "job_id": "p6-009-status-and-restore",
+ "started": 1790974544.498847,
+ "seconds": 0.799,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "jobs": [
+   {
+    "JobId": "a50a1d64-8564-4cc3-89eb-ffb70182d527",
+    "RenderJobName": "Job 1",
+    "TimelineName": "SO T11 relink swap",
+    "TargetDir": "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/renders6",
+    "IsExportVideo": true,
+    "IsExportAudio": true,
+    "FormatWidth": 640,
+    "FormatHeight": 360,
+    "FrameRate": "25",
+    "PixelAspectRatio": 1.0,
+    "MarkIn": 0,
+    "MarkOut": 24,
+    "AudioBitDepth": 24,
+    "AudioSampleRate": 48000,
+    "ExportAlpha": false,
+    "OutputFilename": "p6g_swapback_no_relink.mov",
+    "RenderMode": "Single clip",
+    "PresetName": "Custom",
+    "VideoFormat": "QuickTime",
+    "VideoCodec": "H.264",
+    "AudioCodec": "lpcm",
+    "EncodingProfile": "Auto",
+    "MultiPassEncode": false,
+    "NetworkOptimization": false,
+    "ClipStartFrame": 1,
+    "TimelineStartTimecode": "00:00:00:00"
+   }
+  ],
+  "status": {
+   "a50a1d64-8564-4cc3-89eb-ffb70182d527": {
+    "JobStatus": "Failed",
+    "CompletionPercentage": 16,
+    "Error": "Error decoding full resolution media for swap.mov at 00:00:00:00. \nPlease check that the file is accessible and has a valid codec."
+   }
+  },
+  "relink_ret": true,
+  "capture": {
+   "tag": "p6h_restored_relinked",
+   "file_sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+   "file_size": 3443686,
+   "props": {
+    "Clip Color": "",
+    "Date Created": "Fri Oct 2 2026 16:38:31",
+    "Date Modified": "Fri Oct  2 16:38:34 2026",
+    "Duration": "00:00:16:00",
+    "File Name": "swap.mov",
+    "File Path": "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/fixtures/relink/swap.mov",
+    "Frames": "400",
+    "Online Status": "Online",
+    "Proxy": "None",
+    "Resolution": "640x360",
+    "Video Codec": "H.264 High L3.0"
+   },
+   "set_tc": true,
+   "still": true,
+   "render_settings": true,
+   "render_start": true
+  }
+ }
+}

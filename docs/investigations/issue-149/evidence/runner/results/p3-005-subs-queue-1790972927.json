@@ -1,0 +1,79 @@
+{
+ "job_id": "p3-005-subs-queue-1790972927",
+ "started": 1790972927.2996638,
+ "seconds": 0.221,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "page_before": "edit",
+  "subs": {
+   "SO T6 A2 mapping mute": [
+    [
+     "Alpha Bravo Charlie Delta Echo",
+     13,
+     223
+    ],
+    [
+     "Foxtrot Golf Hotel",
+     263,
+     376
+    ]
+   ],
+   "SO T7 A2 Mute button": [
+    [
+     "Alpha Bravo Charlie Delta Echo",
+     13,
+     223
+    ],
+    [
+     "Foxtrot Golf Hotel",
+     263,
+     376
+    ]
+   ],
+   "SO T8 A2 Solo button": [
+    [
+     "1",
+     38,
+     45
+    ],
+    [
+     "2",
+     50,
+     94
+    ],
+    [
+     "3",
+     100,
+     147
+    ],
+    [
+     "4",
+     150,
+     196
+    ],
+    [
+     "5",
+     200,
+     247
+    ],
+    [
+     "6",
+     250,
+     297
+    ],
+    [
+     "7",
+     300,
+     348
+    ],
+    [
+     "8",
+     350,
+     393
+    ]
+   ]
+  },
+  "started": null
+ }
+}

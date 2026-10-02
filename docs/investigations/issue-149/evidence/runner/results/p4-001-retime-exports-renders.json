@@ -1,0 +1,637 @@
+{
+ "job_id": "p4-001-retime-exports-renders",
+ "started": 1790973339.7257228,
+ "seconds": 14.824,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "journal": [
+   {
+    "op": "append SO T9 speed 37.5 {'name': 'base.mov', 'src': (0, 400), 'rec': 0, 'track': 1}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1afa07f70>"
+    ]
+   },
+   {
+    "op": "append SO T9 speed 37.5 {'name': 'clicks.wav', 'src': (0, 400), 'rec': 0, 'track': 2, 'media': 'a'}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1afa06050>"
+    ]
+   },
+   [
+    "SO T9 speed 37.5 V1 SetSpeed",
+    true
+   ],
+   [
+    "SO T9 speed 37.5 clicks SetSpeed",
+    true
+   ],
+   {
+    "op": "append SO T10 speed 150 {'name': 'base.mov', 'src': (0, 400), 'rec': 0, 'track': 1}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1afa07bf0>"
+    ]
+   },
+   {
+    "op": "append SO T10 speed 150 {'name': 'clicks.wav', 'src': (0, 400), 'rec': 0, 'track': 2, 'media': 'a'}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1afa07b70>"
+    ]
+   },
+   [
+    "SO T10 speed 150 V1 SetSpeed",
+    true
+   ],
+   [
+    "SO T10 speed 150 clicks SetSpeed",
+    true
+   ],
+   [
+    "DeleteAllRenderJobs",
+    true
+   ],
+   [
+    "SetRenderSettings SO T9 speed 37.5",
+    true
+   ],
+   [
+    "SetRenderSettings SO T10 speed 150",
+    true
+   ],
+   [
+    "StartRendering",
+    true
+   ]
+  ],
+  "snaps": {
+   "SO T9 speed 37.5": {
+    "name": "SO T9 speed 37.5",
+    "uid": "e44e8f60-ae03-4574-b238-5dc9bfa9dc4d",
+    "start_frame": 0,
+    "end_frame": 399,
+    "start_tc": "00:00:00:00",
+    "mark_in_out": {
+     "video": {},
+     "audio": {}
+    },
+    "markers": {},
+    "tracks": {
+     "video": [
+      {
+       "index": 1,
+       "name": "Video 1",
+       "enabled": true,
+       "locked": false,
+       "items": [
+        {
+         "GetName": "base.mov",
+         "GetUniqueId": "8db3e65f-eb48-4951-9de4-29d77c7459f3",
+         "GetStart": 0,
+         "GetEnd": 399,
+         "GetDuration": 399,
+         "GetLeftOffset": 0,
+         "GetRightOffset": 667,
+         "GetSourceStartFrame": 0,
+         "GetSourceEndFrame": 149,
+         "GetSourceStartTime": 0.0,
+         "GetSourceEndTime": 6.010000000000001,
+         "GetClipEnabled": true,
+         "GetSpeed": {
+          "Percentage": 37.5,
+          "PitchCorrection": false
+         },
+         "GetMarkers": {},
+         "GetFlagList": [],
+         "GetClipColor": "",
+         "GetSourceAudioChannelMapping": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{}}",
+         "GetVoiceIsolationState": {
+          "isEnabled": false,
+          "amount": 0
+         },
+         "GetTrackTypeAndIndex": [
+          "video",
+          1
+         ],
+         "GetStart(True)": 0.0,
+         "GetEnd(True)": 399.0,
+         "GetDuration(True)": 399.0,
+         "GetLeftOffset(True)": 0.0,
+         "GetRightOffset(True)": 667.0,
+         "GetProperty()": {
+          "Pan": 0.0,
+          "Tilt": 0.0,
+          "ZoomX": 1.0,
+          "ZoomY": 1.0,
+          "ZoomGang": true,
+          "RotationAngle": 0.0,
+          "AnchorPointX": 0.0,
+          "AnchorPointY": 0.0,
+          "Pitch": 0.0,
+          "Yaw": 0.0,
+          "FlipX": false,
+          "FlipY": false,
+          "CropLeft": 0.0,
+          "CropRight": 0.0,
+          "CropTop": 0.0,
+          "CropBottom": 0.0,
+          "CropSoftness": 0.0,
+          "CropRetain": false,
+          "DynamicZoomEase": 0,
+          "CompositeMode": 0,
+          "Opacity": 100.0,
+          "Distortion": 0.0,
+          "RetimeProcess": 0,
+          "MotionEstimation": 0,
+          "Scaling": 0,
+          "ResizeFilter": 0,
+          "TransformEnabled": true,
+          "CroppingEnabled": true,
+          "DynamicZoomEnabled": false,
+          "CompositeEnabled": true,
+          "LensCorrectionEnabled": true,
+          "RetimeAndScalingEnabled": true
+         },
+         "mpi_uid": "c9653d06-04b6-4a74-a0b9-fbd9a3937991",
+         "linked_uids": [
+          "0af559a8-a27b-45bb-9a09-8b309c326e8a"
+         ]
+        }
+       ]
+      },
+      {
+       "index": 2,
+       "name": "Video 2",
+       "enabled": true,
+       "locked": false,
+       "items": []
+      },
+      {
+       "index": 3,
+       "name": "Video 3",
+       "enabled": true,
+       "locked": false,
+       "items": []
+      }
+     ],
+     "audio": [
+      {
+       "index": 1,
+       "name": "Audio 1",
+       "enabled": true,
+       "locked": false,
+       "subtype": "stereo",
+       "voice_iso": {
+        "isEnabled": false,
+        "amount": 0
+       },
+       "items": [
+        {
+         "GetName": "base.mov",
+         "GetUniqueId": "0af559a8-a27b-45bb-9a09-8b309c326e8a",
+         "GetStart": 0,
+         "GetEnd": 399,
+         "GetDuration": 399,
+         "GetLeftOffset": 0,
+         "GetRightOffset": 667,
+         "GetSourceStartFrame": 0,
+         "GetSourceEndFrame": 149,
+         "GetSourceStartTime": 0.0,
+         "GetSourceEndTime": 6.010000000000001,
+         "GetClipEnabled": true,
+         "GetSpeed": {
+          "Percentage": 37.5,
+          "PitchCorrection": false
+         },
+         "GetMarkers": {},
+         "GetFlagList": [],
+         "GetClipColor": "",
+         "GetSourceAudioChannelMapping": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+         "GetVoiceIsolationState": {
+          "isEnabled": false,
+          "amount": 0
+         },
+         "GetTrackTypeAndIndex": [
+          "audio",
+          1
+         ],
+         "GetStart(True)": 0.0,
+         "GetEnd(True)": 399.0,
+         "GetDuration(True)": 399.0,
+         "GetLeftOffset(True)": 0.0,
+         "GetRightOffset(True)": 667.0,
+         "GetProperty()": {
+          "AudioVolumeEnabled": true,
+          "AudioVolume": 0.0,
+          "AudioPanEnabled": true,
+          "AudioPan": 0.0,
+          "AudioPitchEnabled": true,
+          "AudioPitchSemiTones": 0,
+          "AudioPitchCents": 0,
+          "AudioVoiceIsolationEnabled": false,
+          "AudioVoiceIsolationAmount": 0,
+          "AudioDialogueLevelerEnabled": false,
+          "AudioDialogueLevelerMode": 0,
+          "AudioDialogueLevelerReduceLoudDialogue": false,
+          "AudioDialogueLevelerLiftSoftDialogue": false,
+          "AudioDialogueLevelerBackgroundReduction": false,
+          "AudioDialogueLevelerOutputGain": 0.0
+         },
+         "mpi_uid": "c9653d06-04b6-4a74-a0b9-fbd9a3937991",
+         "linked_uids": [
+          "8db3e65f-eb48-4951-9de4-29d77c7459f3"
+         ]
+        }
+       ]
+      },
+      {
+       "index": 2,
+       "name": "Audio 2",
+       "enabled": true,
+       "locked": false,
+       "subtype": "mono",
+       "voice_iso": {
+        "isEnabled": false,
+        "amount": 0
+       },
+       "items": [
+        {
+         "GetName": "clicks.wav",
+         "GetUniqueId": "ac79b800-3710-427f-8093-98e410254d3a",
+         "GetStart": 0,
+         "GetEnd": 399,
+         "GetDuration": 399,
+         "GetLeftOffset": 0,
+         "GetRightOffset": 667,
+         "GetSourceStartFrame": 0,
+         "GetSourceEndFrame": 149,
+         "GetSourceStartTime": 0.0,
+         "GetSourceEndTime": 6.010000000000001,
+         "GetClipEnabled": true,
+         "GetSpeed": {
+          "Percentage": 37.5,
+          "PitchCorrection": false
+         },
+         "GetMarkers": {},
+         "GetFlagList": [],
+         "GetClipColor": "",
+         "GetSourceAudioChannelMapping": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+         "GetVoiceIsolationState": {
+          "isEnabled": false,
+          "amount": 0
+         },
+         "GetTrackTypeAndIndex": [
+          "audio",
+          2
+         ],
+         "GetStart(True)": 0.0,
+         "GetEnd(True)": 399.0,
+         "GetDuration(True)": 399.0,
+         "GetLeftOffset(True)": 0.0,
+         "GetRightOffset(True)": 667.6666666666665,
+         "GetProperty()": {
+          "AudioVolumeEnabled": true,
+          "AudioVolume": 0.0,
+          "AudioPanEnabled": true,
+          "AudioPan": 0.0,
+          "AudioPitchEnabled": true,
+          "AudioPitchSemiTones": 0,
+          "AudioPitchCents": 0,
+          "AudioVoiceIsolationEnabled": false,
+          "AudioVoiceIsolationAmount": 0,
+          "AudioDialogueLevelerEnabled": false,
+          "AudioDialogueLevelerMode": 0,
+          "AudioDialogueLevelerReduceLoudDialogue": false,
+          "AudioDialogueLevelerLiftSoftDialogue": false,
+          "AudioDialogueLevelerBackgroundReduction": false,
+          "AudioDialogueLevelerOutputGain": 0.0
+         },
+         "mpi_uid": "3aa1f976-fe10-470e-adb0-1105330ecce9",
+         "linked_uids": []
+        }
+       ]
+      },
+      {
+       "index": 3,
+       "name": "Audio 3",
+       "enabled": true,
+       "locked": false,
+       "subtype": "mono",
+       "voice_iso": {
+        "isEnabled": false,
+        "amount": 0
+       },
+       "items": []
+      }
+     ],
+     "subtitle": []
+    },
+    "is_current": true
+   },
+   "SO T10 speed 150": {
+    "name": "SO T10 speed 150",
+    "uid": "11d391d8-83e1-492f-805b-e6522c139525",
+    "start_frame": 0,
+    "end_frame": 266,
+    "start_tc": "00:00:00:00",
+    "mark_in_out": {
+     "video": {},
+     "audio": {}
+    },
+    "markers": {},
+    "tracks": {
+     "video": [
+      {
+       "index": 1,
+       "name": "Video 1",
+       "enabled": true,
+       "locked": false,
+       "items": [
+        {
+         "GetName": "base.mov",
+         "GetUniqueId": "6105b39e-cc56-4fa9-a528-edd8159af2a6",
+         "GetStart": 0,
+         "GetEnd": 266,
+         "GetDuration": 266,
+         "GetLeftOffset": 0,
+         "GetRightOffset": 0,
+         "GetSourceStartFrame": 0,
+         "GetSourceEndFrame": 399,
+         "GetSourceStartTime": 0.0,
+         "GetSourceEndTime": 15.940000000000001,
+         "GetClipEnabled": true,
+         "GetSpeed": {
+          "Percentage": 150.0,
+          "PitchCorrection": false
+         },
+         "GetMarkers": {},
+         "GetFlagList": [],
+         "GetClipColor": "",
+         "GetSourceAudioChannelMapping": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{}}",
+         "GetVoiceIsolationState": {
+          "isEnabled": false,
+          "amount": 0
+         },
+         "GetTrackTypeAndIndex": [
+          "video",
+          1
+         ],
+         "GetStart(True)": 0.0,
+         "GetEnd(True)": 266.0,
+         "GetDuration(True)": 266.0,
+         "GetLeftOffset(True)": 0.0,
+         "GetRightOffset(True)": 0.0,
+         "GetProperty()": {
+          "Pan": 0.0,
+          "Tilt": 0.0,
+          "ZoomX": 1.0,
+          "ZoomY": 1.0,
+          "ZoomGang": true,
+          "RotationAngle": 0.0,
+          "AnchorPointX": 0.0,
+          "AnchorPointY": 0.0,
+          "Pitch": 0.0,
+          "Yaw": 0.0,
+          "FlipX": false,
+          "FlipY": false,
+          "CropLeft": 0.0,
+          "CropRight": 0.0,
+          "CropTop": 0.0,
+          "CropBottom": 0.0,
+          "CropSoftness": 0.0,
+          "CropRetain": false,
+          "DynamicZoomEase": 0,
+          "CompositeMode": 0,
+          "Opacity": 100.0,
+          "Distortion": 0.0,
+          "RetimeProcess": 0,
+          "MotionEstimation": 0,
+          "Scaling": 0,
+          "ResizeFilter": 0,
+          "TransformEnabled": true,
+          "CroppingEnabled": true,
+          "DynamicZoomEnabled": false,
+          "CompositeEnabled": true,
+          "LensCorrectionEnabled": true,
+          "RetimeAndScalingEnabled": true
+         },
+         "mpi_uid": "c9653d06-04b6-4a74-a0b9-fbd9a3937991",
+         "linked_uids": [
+          "cb77fa96-743e-4b1e-b19b-6589577b60d7"
+         ]
+        }
+       ]
+      },
+      {
+       "index": 2,
+       "name": "Video 2",
+       "enabled": true,
+       "locked": false,
+       "items": []
+      },
+      {
+       "index": 3,
+       "name": "Video 3",
+       "enabled": true,
+       "locked": false,
+       "items": []
+      }
+     ],
+     "audio": [
+      {
+       "index": 1,
+       "name": "Audio 1",
+       "enabled": true,
+       "locked": false,
+       "subtype": "stereo",
+       "voice_iso": {
+        "isEnabled": false,
+        "amount": 0
+       },
+       "items": [
+        {
+         "GetName": "base.mov",
+         "GetUniqueId": "cb77fa96-743e-4b1e-b19b-6589577b60d7",
+         "GetStart": 0,
+         "GetEnd": 266,
+         "GetDuration": 266,
+         "GetLeftOffset": 0,
+         "GetRightOffset": 0,
+         "GetSourceStartFrame": 0,
+         "GetSourceEndFrame": 399,
+         "GetSourceStartTime": 0.0,
+         "GetSourceEndTime": 15.940000000000001,
+         "GetClipEnabled": true,
+         "GetSpeed": {
+          "Percentage": 150.0,
+          "PitchCorrection": false
+         },
+         "GetMarkers": {},
+         "GetFlagList": [],
+         "GetClipColor": "",
+         "GetSourceAudioChannelMapping": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+         "GetVoiceIsolationState": {
+          "isEnabled": false,
+          "amount": 0
+         },
+         "GetTrackTypeAndIndex": [
+          "audio",
+          1
+         ],
+         "GetStart(True)": 0.0,
+         "GetEnd(True)": 266.0,
+         "GetDuration(True)": 266.0,
+         "GetLeftOffset(True)": 0.0,
+         "GetRightOffset(True)": 0.0,
+         "GetProperty()": {
+          "AudioVolumeEnabled": true,
+          "AudioVolume": 0.0,
+          "AudioPanEnabled": true,
+          "AudioPan": 0.0,
+          "AudioPitchEnabled": true,
+          "AudioPitchSemiTones": 0,
+          "AudioPitchCents": 0,
+          "AudioVoiceIsolationEnabled": false,
+          "AudioVoiceIsolationAmount": 0,
+          "AudioDialogueLevelerEnabled": false,
+          "AudioDialogueLevelerMode": 0,
+          "AudioDialogueLevelerReduceLoudDialogue": false,
+          "AudioDialogueLevelerLiftSoftDialogue": false,
+          "AudioDialogueLevelerBackgroundReduction": false,
+          "AudioDialogueLevelerOutputGain": 0.0
+         },
+         "mpi_uid": "c9653d06-04b6-4a74-a0b9-fbd9a3937991",
+         "linked_uids": [
+          "6105b39e-cc56-4fa9-a528-edd8159af2a6"
+         ]
+        }
+       ]
+      },
+      {
+       "index": 2,
+       "name": "Audio 2",
+       "enabled": true,
+       "locked": false,
+       "subtype": "mono",
+       "voice_iso": {
+        "isEnabled": false,
+        "amount": 0
+       },
+       "items": [
+        {
+         "GetName": "clicks.wav",
+         "GetUniqueId": "cc1b043d-189c-4b7a-bf45-c98088955db9",
+         "GetStart": 0,
+         "GetEnd": 266,
+         "GetDuration": 266,
+         "GetLeftOffset": 0,
+         "GetRightOffset": 0,
+         "GetSourceStartFrame": 0,
+         "GetSourceEndFrame": 399,
+         "GetSourceStartTime": 0.0,
+         "GetSourceEndTime": 15.940000000000001,
+         "GetClipEnabled": true,
+         "GetSpeed": {
+          "Percentage": 150.0,
+          "PitchCorrection": false
+         },
+         "GetMarkers": {},
+         "GetFlagList": [],
+         "GetClipColor": "",
+         "GetSourceAudioChannelMapping": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+         "GetVoiceIsolationState": {
+          "isEnabled": false,
+          "amount": 0
+         },
+         "GetTrackTypeAndIndex": [
+          "audio",
+          2
+         ],
+         "GetStart(True)": 0.0,
+         "GetEnd(True)": 266.0,
+         "GetDuration(True)": 266.0,
+         "GetLeftOffset(True)": 0.0,
+         "GetRightOffset(True)": 0.6666666666666856,
+         "GetProperty()": {
+          "AudioVolumeEnabled": true,
+          "AudioVolume": 0.0,
+          "AudioPanEnabled": true,
+          "AudioPan": 0.0,
+          "AudioPitchEnabled": true,
+          "AudioPitchSemiTones": 0,
+          "AudioPitchCents": 0,
+          "AudioVoiceIsolationEnabled": false,
+          "AudioVoiceIsolationAmount": 0,
+          "AudioDialogueLevelerEnabled": false,
+          "AudioDialogueLevelerMode": 0,
+          "AudioDialogueLevelerReduceLoudDialogue": false,
+          "AudioDialogueLevelerLiftSoftDialogue": false,
+          "AudioDialogueLevelerBackgroundReduction": false,
+          "AudioDialogueLevelerOutputGain": 0.0
+         },
+         "mpi_uid": "3aa1f976-fe10-470e-adb0-1105330ecce9",
+         "linked_uids": []
+        }
+       ]
+      },
+      {
+       "index": 3,
+       "name": "Audio 3",
+       "enabled": true,
+       "locked": false,
+       "subtype": "mono",
+       "voice_iso": {
+        "isEnabled": false,
+        "amount": 0
+       },
+       "items": []
+      }
+     ],
+     "subtitle": []
+    },
+    "is_current": true
+   }
+  },
+  "exports": {
+   "T2_linked_cut": {
+    "drt": true,
+    "fcpxml": true,
+    "otio": true,
+    "aaf": true,
+    "edl": true,
+    "csv": true
+   },
+   "T4_clip_disabled": {
+    "drt": true,
+    "fcpxml": true,
+    "otio": true,
+    "aaf": true,
+    "edl": true,
+    "csv": true
+   },
+   "T6_mapping_mute": {
+    "drt": true,
+    "fcpxml": true,
+    "otio": true,
+    "aaf": true,
+    "edl": true,
+    "csv": true
+   },
+   "T9_speed_37_5": {
+    "drt": true,
+    "fcpxml": true,
+    "otio": true,
+    "aaf": true,
+    "edl": true,
+    "csv": true
+   },
+   "T10_speed_150": {
+    "drt": true,
+    "fcpxml": true,
+    "otio": true,
+    "aaf": true,
+    "edl": true,
+    "csv": true
+   }
+  }
+ }
+}

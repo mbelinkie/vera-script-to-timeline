@@ -1,0 +1,31 @@
+{
+ "job_id": "p6-008-swapback-render-no-relink",
+ "started": 1790974462.075423,
+ "seconds": 0.735,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "capture": {
+   "tag": "p6g_swapback_no_relink",
+   "file_sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+   "file_size": 3443686,
+   "props": {
+    "Clip Color": "",
+    "Date Created": "Fri Oct 2 2026 16:38:31",
+    "Date Modified": "Fri Oct  2 16:38:34 2026",
+    "Duration": "00:00:16:00",
+    "File Name": "swap.mov",
+    "File Path": "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/fixtures/relink/swap.mov",
+    "Frames": "400",
+    "Online Status": "Online",
+    "Proxy": "None",
+    "Resolution": "640x360",
+    "Video Codec": "H.264 High L3.0"
+   },
+   "set_tc": true,
+   "still": true,
+   "render_settings": true,
+   "render_start": true
+  }
+ }
+}

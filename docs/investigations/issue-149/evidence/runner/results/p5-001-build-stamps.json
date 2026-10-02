@@ -1,0 +1,319 @@
+{
+ "job_id": "p5-001-build-stamps",
+ "started": 1790975184.529407,
+ "seconds": 3.802,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "journal": [
+   [
+    "stamp base V1 el-001",
+    [
+     true,
+     true,
+     true,
+     true
+    ]
+   ],
+   [
+    "stamp base A1 el-001",
+    [
+     true,
+     true,
+     true,
+     true
+    ]
+   ],
+   [
+    "stamp cutaway el-002",
+    [
+     true,
+     true,
+     true,
+     true
+    ]
+   ],
+   [
+    "FORGE cutaway with el-001 stamp",
+    [
+     true,
+     true,
+     true,
+     true
+    ]
+   ]
+  ],
+  "S0": {
+   "timeline": "SO T13 lineage",
+   "tl_uid": "82cf6a40-1d8d-4abc-9ae3-80b58f1da6c4",
+   "items": [
+    {
+     "trk": "v1",
+     "uid": "d26a5af9-5185-4360-bd21-e26e0fe328f0",
+     "name": "base.mov",
+     "rec": [
+      0,
+      399
+     ],
+     "src": [
+      0,
+      399
+     ],
+     "mpi": "c9653d06-04b6-4a74-a0b9-fbd9a3937991",
+     "color": "Orange",
+     "flags": [
+      "Blue"
+     ],
+     "markers": {
+      "10": "vera:el-001",
+      "300": "vera:el-001:tail"
+     },
+     "linked": [
+      "88dac367-273b-479b-bfbd-6d342d5d756f"
+     ]
+    },
+    {
+     "trk": "v1",
+     "uid": "a3230b34-d594-469d-803a-51880aa1267e",
+     "name": "cutaway.mov",
+     "rec": [
+      450,
+      549
+     ],
+     "src": [
+      0,
+      99
+     ],
+     "mpi": "7a2787f5-e13a-48fd-a9c9-3e4bf2d914bb",
+     "color": "Purple",
+     "flags": [
+      "Green",
+      "Blue"
+     ],
+     "markers": {
+      "10": "vera:el-002",
+      "60": "vera:el-002:tail"
+     },
+     "linked": []
+    },
+    {
+     "trk": "v1",
+     "uid": "c7022a81-13a0-427a-86a6-feda4f558961",
+     "name": "cutaway.mov",
+     "rec": [
+      600,
+      699
+     ],
+     "src": [
+      200,
+      299
+     ],
+     "mpi": "7a2787f5-e13a-48fd-a9c9-3e4bf2d914bb",
+     "color": "Orange",
+     "flags": [
+      "Green",
+      "Blue"
+     ],
+     "markers": {
+      "10": "vera:el-001",
+      "60": "vera:el-001:tail"
+     },
+     "linked": []
+    },
+    {
+     "trk": "a1",
+     "uid": "88dac367-273b-479b-bfbd-6d342d5d756f",
+     "name": "base.mov",
+     "rec": [
+      0,
+      399
+     ],
+     "src": [
+      0,
+      399
+     ],
+     "mpi": "c9653d06-04b6-4a74-a0b9-fbd9a3937991",
+     "color": "Orange",
+     "flags": [
+      "Blue"
+     ],
+     "markers": {
+      "10": "vera:el-001",
+      "300": "vera:el-001:tail"
+     },
+     "linked": [
+      "d26a5af9-5185-4360-bd21-e26e0fe328f0"
+     ]
+    }
+   ]
+  },
+  "pool_marks": {
+   "overlay.png": [
+    {
+     "video": {}
+    },
+    "",
+    ""
+   ],
+   "cutaway.mov": [
+    {
+     "video": {}
+    },
+    "",
+    ""
+   ],
+   "base.mov": [
+    {
+     "video": {},
+     "audio": {}
+    },
+    "",
+    ""
+   ],
+   "a3_bed.wav": [
+    {
+     "audio": {}
+    },
+    "",
+    ""
+   ],
+   "a1_alpha.wav": [
+    {
+     "audio": {}
+    },
+    "",
+    ""
+   ],
+   "clicks.wav": [
+    {
+     "audio": {}
+    },
+    "",
+    ""
+   ],
+   "a2_numbers.wav": [
+    {
+     "audio": {}
+    },
+    "",
+    ""
+   ],
+   "SO Baseline": [
+    {
+     "video": {},
+     "audio": {}
+    },
+    "",
+    ""
+   ],
+   "SO T2 linked cut": [
+    {
+     "video": {},
+     "audio": {}
+    },
+    "",
+    ""
+   ],
+   "SO T3 picture-only cut": [
+    {
+     "video": {},
+     "audio": {}
+    },
+    "",
+    ""
+   ],
+   "SO T4 A1 clip disabled": [
+    {
+     "video": {},
+     "audio": {}
+    },
+    "",
+    ""
+   ],
+   "SO T5 A1 track disabled": [
+    {
+     "video": {},
+     "audio": {}
+    },
+    "",
+    ""
+   ],
+   "SO T6 A2 mapping mute": [
+    {
+     "video": {},
+     "audio": {}
+    },
+    "",
+    ""
+   ],
+   "SO T7 A2 Mute button": [
+    {
+     "video": {},
+     "audio": {}
+    },
+    "",
+    ""
+   ],
+   "SO T8 A2 Solo button": [
+    {
+     "video": {},
+     "audio": {}
+    },
+    "",
+    ""
+   ],
+   "SO T9 speed 37.5": [
+    {
+     "video": {},
+     "audio": {}
+    },
+    "",
+    ""
+   ],
+   "SO T10 speed 150": [
+    {
+     "video": {},
+     "audio": {}
+    },
+    "",
+    ""
+   ],
+   "swap.mov": [
+    {
+     "video": {},
+     "audio": {}
+    },
+    "",
+    ""
+   ],
+   "SO T11 relink swap": [
+    {
+     "video": {
+      "out": 24
+     },
+     "audio": {
+      "out": 24
+     }
+    },
+    "",
+    "00:00:00:24"
+   ],
+   "SO T12 visibility": [
+    {
+     "video": {},
+     "audio": {}
+    },
+    "",
+    ""
+   ],
+   "SO T13 lineage": [
+    {
+     "video": {},
+     "audio": {}
+    },
+    "",
+    ""
+   ]
+  }
+ }
+}

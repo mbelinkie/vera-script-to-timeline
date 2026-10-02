@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.10">
+    <resources>
+        <format name="FFVideoFormat1080p25" id="r0" width="1920" height="1080" frameDuration="1/25s"/>
+        <format name="FFVideoFormatRateUndefined" id="r1" width="640" height="360" frameDuration="1/25s"/>
+        <asset hasVideo="1" hasAudio="1" name="base.mov" start="0/1s" audioChannels="1" id="r2" format="r1" audioSources="1" duration="16/1s">
+            <media-rep src="file://~/Desktop/ONGOING/VERA%20Script%20to%20Timeline/out/issue-141-second-opinion/fixtures/base.mov" kind="original-media"/>
+        </asset>
+        <asset hasVideo="1" hasAudio="1" name="base.mov" start="0/1s" audioChannels="1" id="r3" format="r1" audioSources="1" duration="16/1s">
+            <media-rep src="file://~/Desktop/ONGOING/VERA%20Script%20to%20Timeline/out/issue-141-second-opinion/fixtures/base.mov" kind="original-media"/>
+        </asset>
+        <asset hasAudio="1" name="a2_numbers.wav" start="0/1s" audioChannels="1" id="r4" audioSources="1" duration="16/1s">
+            <media-rep src="file://~/Desktop/ONGOING/VERA%20Script%20to%20Timeline/out/issue-141-second-opinion/fixtures/a2_numbers.wav" kind="original-media"/>
+        </asset>
+        <asset hasAudio="1" name="a3_bed.wav" start="0/1s" audioChannels="1" id="r5" audioSources="1" duration="16/1s">
+            <media-rep src="file://~/Desktop/ONGOING/VERA%20Script%20to%20Timeline/out/issue-141-second-opinion/fixtures/a3_bed.wav" kind="original-media"/>
+        </asset>
+    </resources>
+    <library>
+        <event name="SO T2 linked cut (Resolve)">
+            <project name="SO T2 linked cut (Resolve)">
+                <sequence tcStart="0/1s" format="r0" duration="399/25s" tcFormat="NDF">
+                    <spine>
+                        <asset-clip offset="0/1s" name="base.mov" start="0/1s" enabled="1" ref="r2" format="r1" duration="99/25s" tcFormat="NDF">
+                            <adjust-transform position="0 0" anchor="0 0" scale="1 1"/>
+                            <asset-clip offset="0/1s" name="a2_numbers.wav" start="0/1s" enabled="1" lane="4" ref="r4" duration="399/25s"/>
+                            <asset-clip offset="0/1s" name="a3_bed.wav" start="0/1s" enabled="1" lane="5" ref="r5" duration="399/25s"/>
+                        </asset-clip>
+                        <gap offset="99/25s" name="Gap" start="3600/1s" duration="1/25s"/>
+                        <asset-clip offset="4/1s" name="base.mov" start="6/1s" enabled="1" ref="r3" format="r1" duration="249/25s" tcFormat="NDF">
+                            <adjust-transform position="0 0" anchor="0 0" scale="1 1"/>
+                        </asset-clip>
+                        <gap offset="349/25s" name="Gap" start="3600/1s" duration="2/1s"/>
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
