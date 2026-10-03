@@ -1,0 +1,66 @@
+{
+  "taskId": "Issue 141",
+  "scope": "Read-only readiness review of the existing full-Matrix AV queue path; no Resolve invocation, queue mutation, render, source edit, or config edit.",
+  "reviewedEvidence": {
+    "queueReview": {
+      "path": "av-full-matrix-queue-review.json",
+      "sha256": "1db0f448cd389742b95b2105f1d9077f19ba725c278d2e6464434f16cf109a50",
+      "status": "reviewed-unrun; its recorded source/config pins are historical"
+    },
+    "outputModuleCurrentSha256": "fcdb385cca504f8dac25665fef75ddc15c9f0f9cf8c55b1b8a6d591af8cb3fa",
+    "readerCurrentSha256": "9b6977747a1f3decf957ead6134f10fc4f597bf9d0c3dc5c081b7bf2671879a4",
+    "probeCurrentSha256": "f0c87c02070163fa6790e5f7f317303b12f57e319024b749b8ab061d573e4c99",
+    "fakeChecks": "PASS: /usr/local/bin/python3.14 -S docs/investigations/issue-141/av-output-check.py"
+  },
+  "queueOnly": {
+    "action": "av-output-full-matrix-queue-only",
+    "module": "docs/investigations/issue-141/av-output.py",
+    "dispatch": "Current probe allowlist maps this action to av-output.py at the current module hash.",
+    "requestedSettings": {
+      "ExportVideo": true,
+      "ExportAudio": true,
+      "AudioCodec": "lpcm",
+      "AudioSampleRate": 48000,
+      "AudioBitDepth": 24,
+      "FormatWidth": 1920,
+      "FormatHeight": 1080,
+      "FrameRate": 25.0,
+      "SelectAllFrames": true,
+      "MarkIn": "omitted",
+      "MarkOut": "omitted"
+    },
+    "result": "Apply owned render settings, save/export one recovery XML, AddRenderJob once, record the returned job and MarkIn/MarkOut, then stop before StartRendering. The job and recovery files remain for a separately reviewed continuation.",
+    "nativeInvocationShape": {
+      "driver": "out/issue-141-observation-20260930-01a0f318/independent-native-call.py",
+      "updates": {
+        "action": "av-output-full-matrix-queue-only",
+        "case": "R2-av-output",
+        "checkpointPath": "<fresh protected-six Matrix pair>/pair.json",
+        "checkpointSha256": "<sha256 of that pair>",
+        "timelineInventory": "protected-six"
+      },
+      "guard": "Invoke only after residual restoration and fresh source registration; one actor, one invocation, no replay."
+    }
+  },
+  "freshCheckpoint": {
+    "derive": [
+      "After residual deletion/restoration reaches its verified final state, leave VERA 141 Batched Matrix selected with empty selection and the required restored playhead/context.",
+      "Use the existing read-only editorial-readback with label r2-residual-context once; its pair.json is the fresh checkpoint.",
+      "Verify selectedTimelineUid=29ae8331-b86e-4041-a548-960695cc7b24, protected-six inventory, equal adjacent timeline/pool passes, and no semi1b.mp4 content in Matrix.",
+      "Bind the exact pair path and SHA in the staged queue-only config; do not reuse the historical four-timeline pair, av-applied-settings-record.json, or av-output-continuation-record.json."
+    ],
+    "currentStaleContext": "The installed config still points at the old four-timeline checkpoint and action observe; it is not a queue authorization. Residual must finish first."
+  },
+  "endpointAndRender": {
+    "known": "SelectAllFrames means requested MarkIn/MarkOut are diagnostic only. The reviewed fake path accepts 9199, 9200, and 9201 and intentionally does not assign inclusive/exclusive semantics.",
+    "continuationRequirements": [
+      "Read the exact retained job ID from the queue result and verify it is the sole idle owned job, with MOV/H264, video+audio, PCM lpcm 24-bit/48 kHz, 1920x1080/25, owned destination, and empty output target.",
+      "Capture a fresh equal pair while that job is queued; call StartRendering exactly once for that ID, then poll GetRenderJobStatus for at most the existing 30-second bound.",
+      "On timeout, unknown status, failure, or unrelated drift, retain the job, XML, journal, pair, and output directory; never replay or clean up.",
+      "On terminal success, ffprobe the one generated MOV and record actual nb_frames/duration and audio metadata before comparing endpoint convention. Do not require end-start+1 until this evidence establishes the convention.",
+      "Only after successful output verification may the continuation delete the owned job/preset and verify a final restored pair; generated output and all evidence remain retained for PCM comparison."
+    ],
+    "codeGap": "There is no exact full-Matrix queued-job continuation action today. Existing av-output-continue is bound to the historical 640x360 continuation record, while av-output-full-matrix-queue-only deliberately stops before StartRendering. Add or review the smallest branch reusing av-output.py's existing render/poll/restore logic, bound to this exact queued job and fresh pair; do not reuse the stale continuation record."
+  },
+  "verdict": "Queue-only is locally ready after a fresh post-residual protected-six Matrix checkpoint. Rendering remains unobserved; endpoint semantics and program PCM remain unresolved until the exact-job continuation is reviewed and run."
+}

@@ -1,0 +1,33 @@
+{
+  "kind": "reviewed-not-staged-r1-copy-context-restoration",
+  "reviewedAt": "2026-10-01T08:14:50.045450+00:00",
+  "producerDecision": "required under explicit stop-on-unrelated-drift instruction",
+  "probeSha256": "908984bcf310fbd450e53a2d48f87bed0e7750c79b4d4c5e60579aaa74d776c8",
+  "moduleSha256": "007e08ed747439fc3e994e60acbf36272a6a5250904640a60e7fdc19b849bdb3",
+  "proposedConfigUpdates": {
+    "action": "editorial-case-restore",
+    "case": "R1-copy",
+    "preparationResult": "editorial-case-20261001T072033.855985Z/result.json",
+    "preparationResultSha256": "4d4f2f033514251655ee1cb565e13d3b3229f8cbe9b4f20549a3dd3c3dcf2175",
+    "postEditPair": "r1-copy-pasted-20261001T072554.638674Z/pair.json",
+    "postEditPairSha256": "b8a12d66415ed2cef4ab1922ac1c764ec42aa41aad58cfa40d4435c24c75b9a7"
+  },
+  "allowedNativeMutations": [
+    "Restore only V2/V3/A2/A3 lock flags True\u2192False",
+    "Restore only recorded Matrix playhead00:06:07:24"
+  ],
+  "pastedClipsRetained": true,
+  "poolOutClearingRetained": true,
+  "saveUndoRenderRetryOrDeleteAllowed": false,
+  "sourcesExact": true,
+  "staged": false,
+  "sourceArchive": "editorial-reviewed-sources-20261001T081450.045450Z",
+  "localGuardChecks": [
+    "focused editorial cases including retained native split children and nested Usage",
+    "read-only editorial label boundary",
+    "one-shot launcher",
+    "main harness",
+    "Ruff"
+  ],
+  "privateConfigAction": "observe"
+}

@@ -1,0 +1,50 @@
+{
+  "fullOriginalStateRestored": true,
+  "journal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/offline-cycle-continuation-20261001T041700.891099Z/journal.jsonl",
+  "offlineSamples": [
+    {
+      "bytes": 6231977,
+      "frame": 0,
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/offline-cycle-continuation-20261001T041700.891099Z/offline-frame-000.png",
+      "phase": "offline",
+      "sha256": "7c9ad6880acb6fb6397a97cf09e451f8d426da7be10ec9b086b4c67587e89757",
+      "timecode": "00:00:00:00"
+    },
+    {
+      "bytes": 6231977,
+      "frame": 50,
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/offline-cycle-continuation-20261001T041700.891099Z/offline-frame-050.png",
+      "phase": "offline",
+      "sha256": "7c9ad6880acb6fb6397a97cf09e451f8d426da7be10ec9b086b4c67587e89757",
+      "timecode": "00:00:02:00"
+    }
+  ],
+  "onlineSamples": [
+    {
+      "bytes": 6231977,
+      "frame": 0,
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/offline-cycle-20261001T040030.565871Z/online-frame-000.png",
+      "phase": "online",
+      "sha256": "084839cd4e5ecd123e21fe204fbaadd471960290319824081f21de600ec80495",
+      "timecode": "00:00:00:00"
+    },
+    {
+      "bytes": 6231977,
+      "frame": 50,
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/offline-cycle-20261001T040030.565871Z/online-frame-050.png",
+      "phase": "online",
+      "sha256": "a201fea43e7d136f52cf45f84833e2fa8f8473eac2c414f2a730f4a5d8148702",
+      "timecode": "00:00:02:00"
+    }
+  ],
+  "originalPlayhead": "00:00:07:24",
+  "priorCheckpoint": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/offline-cycle-20261001T040030.565871Z",
+  "priorJournalSha256": "ab125df5bb490a09655366e38520df6972feeabaa2bae695b2546d4a78f168ef",
+  "priorOfflineCaptureSha256": "711226667f6aea768222bf85214585ce1e8983b8ab2707f4e9f117fb65b6276b",
+  "priorResultSha256": "c4198a5f28460430a3bb455b73f363278c97ed261985142779f2083e60979616",
+  "relinkError": null,
+  "relinkReturn": true,
+  "restoredPlayhead": "00:00:07:24",
+  "resultPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/offline-cycle-continuation-20261001T041700.891099Z/result.json",
+  "status": "offline-cycle-candidates-retained"
+}

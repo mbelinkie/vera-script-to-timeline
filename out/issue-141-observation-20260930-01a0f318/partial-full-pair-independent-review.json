@@ -1,0 +1,194 @@
+{
+  "kind": "issue-141-r2-partial-full-pair-independent-review",
+  "limitations": [
+    "No waveform, audibility, lineage or speech-deletion inference.",
+    "R3-Graphic was running; this review used only absolute-path retained files and performed no live Resolve/source/config access."
+  ],
+  "operation": {
+    "actualFirstSplitPair": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-partial-first-split-20261001T193814.377538Z/pair.json",
+      "sha256": "b1f0210a780989948876467a88448d42f9cbc2d89278f9c55a7f190653ee8238"
+    },
+    "actualSecondSplitPair": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-partial-second-split-20261001T193855.545026Z/pair.json",
+      "sha256": "2347779fc7e240eef17b6e25a63c7e6d77628067e0ea5c96eb0fc5387c68f9f5"
+    },
+    "deleteReturn": true,
+    "deletion": {
+      "recordEnd": 4070,
+      "recordStart": 4065,
+      "sourceEnd": 70,
+      "sourceStart": 65
+    },
+    "exactSplitDeletion": "A1 cut frames 4065 and 4070; deleted only middle A1 interval record [4065,4070), source [65,70), middle item UID ffccdd65-ac26-4f02-ac8a-3dff69bb586d.",
+    "middleItemUid": "ffccdd65-ac26-4f02-ac8a-3dff69bb586d",
+    "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8"
+  },
+  "rawComparisons": {
+    "adjacentPassesAllRetainedPairsEqual": true,
+    "deletedVersusRestored": {
+      "allOtherRawTimelineAndPoolFieldsEqualAfterMaskingOnlyRecordedTrackLockValues": true,
+      "originalTrackLocks": {
+        "audio:1": false,
+        "audio:2": true,
+        "audio:3": true,
+        "video:1": false,
+        "video:2": true,
+        "video:3": true
+      },
+      "playheadAndSelection": "Pair excludes this context comparison. Separate final autoSelectReset result: playhead 00:00:00:00; both selection reads empty.",
+      "restoredPlayhead": "00:00:00:00",
+      "restoredSelection": [
+        {
+          "items": [],
+          "playhead": "00:00:00:00"
+        },
+        {
+          "items": [],
+          "playhead": "00:00:00:00"
+        }
+      ],
+      "saveDispatched": false
+    },
+    "preparedVersusDeleted": {
+      "allOtherRawTimelineAndPoolFieldsEqual": true,
+      "allPreservedOutsideTargetAndUsage": true,
+      "onlyMask": "Remove target A1 items at record 4000..4199 in both pairs; mask Usage only for exact source UID a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+      "protectedTimelineIds": [
+        "21436b8f-057c-49e6-80ba-5f733abe87b2",
+        "2db0b2d1-6d81-48d4-b49c-360f56e012cd",
+        "64de8a4c-86bd-4f19-9d20-47b8940f610b",
+        "88f7923d-55a7-471f-b09b-cf10f9fae8ad",
+        "aa2b8e36-83bd-4292-9e33-217c00ca192f"
+      ],
+      "sourceUsage": {
+        "deleted": 47,
+        "delta": "+1",
+        "prepared": 46,
+        "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+        "verification": "Pool UID exactly matches; all repeated GetClipProperty Usage leaves for that UID change 46 to 47. No other raw fields differ once target A1 record interval 4000..4199 is removed from both and only this UID Usage is masked."
+      }
+    }
+  },
+  "sequenceIndex": {
+    "index": "91efbe4657aabf72d11738cb31fdf3797fa85ebb71c8e4d7c5f6fe4b6955f3ed",
+    "pairs": {
+      "deleted": {
+        "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T193910.379885Z/after.json",
+        "sha256": "77c1bfaaf33a0a9ac16f0b19ba52beac0555f2a3b00b57e4bef5e6c8b19895d4"
+      },
+      "firstSplit": {
+        "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-partial-first-split-20261001T193814.377538Z/pair.json",
+        "sha256": "b1f0210a780989948876467a88448d42f9cbc2d89278f9c55a7f190653ee8238"
+      },
+      "prepared": {
+        "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T193747.821565Z/after.json",
+        "sha256": "e077be9dbdf4259936e997b7e011bf53f439ea76f6faa817a2fba54d7a5fe09f"
+      },
+      "restored": {
+        "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T193934.252533Z/after.json",
+        "sha256": "6ab9ed7028222f9a3fb0773ed66f86265b77a6035bdbbc4ebb0f7414c6bc9807"
+      },
+      "secondSplit": {
+        "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-partial-second-split-20261001T193855.545026Z/pair.json",
+        "sha256": "2347779fc7e240eef17b6e25a63c7e6d77628067e0ea5c96eb0fc5387c68f9f5"
+      }
+    },
+    "resultRefs": {
+      "autoSelectReset": {
+        "path": "independent-cut-sequence-20261001T193743.340038Z/r2-partial-context.json",
+        "sha256": "f846b3ff594b9dcdda91dbcb80066e85fadb4b0e8cc73fde794fbd2930edb193",
+        "verified": true
+      },
+      "deletedReadback": {
+        "path": "independent-cut-sequence-20261001T193743.340038Z/r2-partial-deleted.json",
+        "sha256": "76143b259704c005f181bcbd29f365ecf35c61b4e62bb3a99297409573757c87",
+        "verified": true
+      },
+      "firstSelection": {
+        "path": "independent-cut-sequence-20261001T193743.340038Z/r2-partial-selected.json",
+        "sha256": "469be63b06ad4aa46b7c914ea1280799b83db0ee2484b172a3095399c27ca14e",
+        "verified": true
+      },
+      "firstSplit": {
+        "path": "independent-cut-sequence-20261001T193743.340038Z/r2-partial-first-split.json",
+        "sha256": "df861aecfeb7fc992902416b6bb36a515613e97fc217ff831980630c85572182",
+        "verified": true
+      },
+      "intervalDeletion": {
+        "path": "independent-cut-sequence-20261001T193743.340038Z/interval-deletion.json",
+        "sha256": "ba1a436809d5d51f046a4ccf20017f6d71bf7f85aff6293f369c80c38537e782",
+        "verified": true
+      },
+      "preparation": {
+        "path": "independent-cut-sequence-20261001T193743.340038Z/preparation.json",
+        "sha256": "cfaf3bfca32fa67cddb18eb41d41d34946ff80e3b5c3e48379a6abf77bdc5fe5",
+        "verified": true
+      },
+      "restoration": {
+        "path": "independent-cut-sequence-20261001T193743.340038Z/restoration.json",
+        "sha256": "8ac1847e6870e9779641c19eab94c73f32e3561194bc695f1a7040591c712562",
+        "verified": true
+      },
+      "secondPosition": {
+        "path": "independent-cut-sequence-20261001T193743.340038Z/second-position.json",
+        "sha256": "215b9401b74ac9cd71ee2dcb7e97c567cc7827f0cf652a4a5ba21ec0532a87d5",
+        "verified": true
+      },
+      "secondSelection": {
+        "path": "independent-cut-sequence-20261001T193743.340038Z/r2-partial-second-selected.json",
+        "sha256": "05c77561807ae46993066ff8b5f843149624b97c68de07631356239670122421",
+        "verified": true
+      },
+      "secondSplit": {
+        "path": "independent-cut-sequence-20261001T193743.340038Z/r2-partial-second-split.json",
+        "sha256": "0dea70d1b2d70965e74cda36dda7a44d64e6ad9972f64a2c456e0f2c9f8d2c7b",
+        "verified": true
+      }
+    }
+  },
+  "status": "supported-with-scope-limits",
+  "targetBindings": {
+    "A1_finalItems": [
+      {
+        "GetEnd": 4199,
+        "GetLeftOffset": 70,
+        "GetRightOffset": 1,
+        "GetSourceEndFrame": 199,
+        "GetSourceStartFrame": 70,
+        "GetStart": 4070,
+        "GetUniqueId": "37090958-a265-4ebe-ae6a-50d0b95bbd8a",
+        "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8"
+      },
+      {
+        "GetEnd": 4065,
+        "GetLeftOffset": 0,
+        "GetRightOffset": 135,
+        "GetSourceEndFrame": 65,
+        "GetSourceStartFrame": 0,
+        "GetStart": 4000,
+        "GetUniqueId": "d5d00807-e77d-4914-9b49-dd025ff5430d",
+        "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8"
+      }
+    ],
+    "A1_restoredGeometry": "A1 items record [4000,4065) source [0,65), UID d5d00807-e77d-4914-9b49-dd025ff5430d; and [4070,4199) source [70,199), UID 37090958-a265-4ebe-ae6a-50d0b95bbd8a. Same source UID a7ad9e19-d49b-428b-9fd5-95c90d60e6f8.",
+    "A1_sourceName": "repeated.wav",
+    "A1_sourceSha256": "832dd31cc46b9f4b4fdb7cbde18b4edc09ec249885634fba43da2a7b87dc768e",
+    "A1_sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+    "V1_finalItems": [
+      {
+        "GetEnd": 4199,
+        "GetLeftOffset": 0,
+        "GetRightOffset": 1,
+        "GetSourceEndFrame": 199,
+        "GetSourceStartFrame": 0,
+        "GetStart": 4000,
+        "GetUniqueId": "ac20bfd7-e56d-4b0f-9ab5-7451fd9093fd",
+        "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79"
+      }
+    ],
+    "V1_preservedGeometry": "V1 remains record [4000,4199), source [0,199), UID ac20bfd7-e56d-4b0f-9ab5-7451fd9093fd, source UID 9202163a-8381-43e6-9157-3a60f35c6f79.",
+    "V1_sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79"
+  },
+  "rootEditorialCorrection": "Corrected mislabeled V1 to A1 in explanatory sentence; raw comparisons and video-preservation proof unchanged. Original retained separately."
+}

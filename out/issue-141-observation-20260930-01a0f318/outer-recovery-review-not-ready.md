@@ -1,0 +1,1 @@
+Independent local review: not registration-ready. Existing focused checker passes but helper never reads/comparisons post-load GetCurrentRenderFormatAndCodec/GetCurrentRenderMode. Full-pair reader lacks those values. Wrong format/mode can falsely report restoration. No native action or registration was performed.

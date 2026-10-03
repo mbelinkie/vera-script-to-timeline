@@ -1,0 +1,51 @@
+{
+  "kind": "issue-141-r1-repeat-readiness",
+  "assessed_at": "2026-10-01",
+  "disposition": "not_ready_without_bounded_harness_adaptation_and_fresh_pair",
+  "evidence": {
+    "native_reopen": {
+      "matrix": "out/issue-141-observation-20260930-01a0f318/matrix-reopen-20260930T234437.703376Z.json",
+      "sha256": "f3b5306050b966fe05262f0234312142e7a7fb5f41f66056888701ba7607e7f5",
+      "capture": "out/issue-141-observation-20260930-01a0f318/capture-20260930T234437.703376Z-reopened.json",
+      "capture_sha256": "e8b55f2300a86471e4b1b32b54716583a48a1c5a399ddbbbf2a364c1e6f1b492",
+      "finding": "Save/Close/Load returned through the identity guard, but reopened capture was inconsistent-refused (adjacent fingerprints differ; no getter failures). This does not prove stable reopen repeat."
+    },
+    "first_duplicate": {
+      "summary": "docs/investigations/issue-141/evidence/native-duplicate-success/summary.json",
+      "journal": "docs/investigations/issue-141/evidence/native-duplicate-success/native-duplicate-20260930T204438.948629Z.jsonl",
+      "journal_sha256": "1fd8dd667984d0744fec750e0514c1a175985ce3b943365757cf2c27235b4958",
+      "finding": "One stable DuplicateTimeline made VERA 141 R1 identity (UID aa2b8e36-83bd-4292-9e33-217c00ca192f). Six occurrence UIDs were new, media UIDs shared, and marker/custom-data/range signatures matched. Identical signatures remain ambiguous; the name is occupied."
+    },
+    "protected_six": {
+      "inventory": "out/issue-141-observation-20260930-01a0f318/protected-inventory-ready.json",
+      "inventory_sha256": "94b10bda3639f7723f7a1e01bf4409c74035bb7597f883078f4c652f07c9a727",
+      "pair": "out/issue-141-observation-20260930-01a0f318/protected-six-r4-pool-20261001T180848.009764Z/pair.json",
+      "pair_sha256": "5131589527428829afe6e1503e245609a4f17bb3207a2fe61a874db4289601b3",
+      "review": "out/issue-141-observation-20260930-01a0f318/protected-six-r4-pool-20261001T180848.009764Z/native-review.json",
+      "review_sha256": "dc4b5ee720b40c997a95c7d76c73c49b91ac9ca379a7e24a4f629204137825f4",
+      "finding": "Retained two-pass full inventory has six timelines, including Baseline UID 88f7923d-55a7-471f-b09b-cf10f9fae8ad, R1 identity UID aa2b8e36-83bd-4292-9e33-217c00ca192f, Matrix UID 29ae8331-b86e-4041-a548-960695cc7b24, R4 availability UID 64de8a4c-86bd-4f19-9d20-47b8940f610b and two transcription timelines. This is historical, not a fresh action guard."
+    },
+    "harness_route": {
+      "source": "docs/investigations/issue-141/probe.py",
+      "sha256": "b39f0b83962ce26ae349fcaa40a9d27cde6ca14f159706aee286988ff21b8e01",
+      "finding": "native_repeat/native_duplicate assumes one baseline timeline, hardcodes the existing VERA 141 R1 identity name, then requires exactly two timelines. These assumptions fail on protected-six and collide with the first duplicate. matrix-reopen is pinned to Matrix UID and retained an unstable reopen capture."
+    }
+  },
+  "next_bounded_sequence": [
+    "Queue actor obtains a fresh immediately-before full two-pass protected-six pair. Require exact six-name/UID inventory, project identity, R1 UID and source marker/custom-data/source/range fields; stop and retain refusal if unstable or drifted.",
+    "Adapt only the guarded duplicate action: address source by exact R1 UID aa2b8e36-83bd-4292-9e33-217c00ca192f, require VERA 141 R1 identity repeat absent, request that exact name, and preserve all existing six timelines. Remove one-timeline/two-name assumptions.",
+    "Retain journal and full before/after pairs. Verify returned duplicate UID/name and current selection by UID; compare unchanged source, duplicate custom-data/source/ranges, new occurrence UIDs, expected shared media, and matching-signature ambiguity. Do not clean up or automatically replay drift.",
+    "No reopen is needed solely for this duplicate check. Prior reopen stability remains unproven; any new reopen requires its own fresh guarded action."
+  ],
+  "supported": [
+    "One original native duplicate passed stable readback checks.",
+    "A two-pass protected-six inventory included the existing R1 duplicate.",
+    "Native save/close/load was attempted, but its reopened readback was inconsistent."
+  ],
+  "untested_or_unproven": [
+    "Second duplicate VERA 141 R1 identity repeat.",
+    "Second-duplicate signature/custom-data/source/range comparison with six timelines.",
+    "Stable full-project post-reopen readback.",
+    "Atomicity, ABA/race freedom, or broader Resolve stability."
+  ]
+}

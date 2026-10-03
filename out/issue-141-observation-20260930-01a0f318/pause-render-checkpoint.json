@@ -1,0 +1,39 @@
+{
+  "recordedAt": "2026-10-02T03:54:37.625604+00:00",
+  "state": "paused-by-producer",
+  "producerRequest": "find a good checkpoint to pause",
+  "completed": 37,
+  "total": 41,
+  "jobId": "a6ed7f33-9ad4-4d82-bfac-ff72903f4567",
+  "startsConfirmed": 1,
+  "configLastVerifiedAction": "observe",
+  "sameJobObservationAlreadyInFlight": false,
+  "mustNotReplayStart": true,
+  "soloState": "A2 Solo on, operator-reported; leave on until later output comparison",
+  "queueSummary": "fairlight-queue-only-summary.json",
+  "startAndRefusalSummary": "fairlight-render-stop-summary.json",
+  "goal": "paused",
+  "periodicUpdates": "PAUSED",
+  "remaining": [
+    "generated-audio comparison from retained terminal result",
+    "operator Solo-off restoration and full readback",
+    "R1 repeat/second duplication",
+    "report consolidation and External review"
+  ],
+  "jobStatus": {
+    "CompletionPercentage": 100,
+    "JobStatus": "Complete",
+    "TimeTakenToRenderInMs": 734801
+  },
+  "nativeResult": {
+    "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261002T035122.313956Z.json",
+    "sha256": "7b19db15cbdf37ba852243387b5165e082725beba49c91ad46dfc8fbc7f3efed"
+  },
+  "finalPairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+  "outputPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T033005.646357Z/render/vera141-av-20261002T033005.646357Z.mov",
+  "outputSha256": "8af6fb6916afa4c1bc674617ad52460928582a3dbc22dd2af8550786bd28020c",
+  "outputBytes": 131423740,
+  "renderContextRestored": true,
+  "noFurtherRenderStarts": 0,
+  "comparisonPerformed": false
+}

@@ -1,0 +1,40 @@
+{
+  "taskId": "producer-transcript-probe",
+  "status": "native-probe-failed-before-observation",
+  "dispatch": {
+    "auditDirectory": "producer-transcript-dispatch-20261001T165518.411440Z",
+    "menuExitCode": 0,
+    "resultFile": "vera-issue-141-observation-result-20261001T165520.824222Z.json",
+    "resultSha256": "70aa937fb7f17ccbe64719a2ca48b064154e3cde4471716809c68afd8e6ddeba",
+    "detail": "AttributeError: 'NoneType' object has no attribute '__name__'",
+    "failurePhase": "injected module before transcript or geometry getters",
+    "configurationRestored": true
+  },
+  "wordSequences": {
+    "transcription test 1": {
+      "observed": null,
+      "expected": "KAJ is three Finns, singing in Swedish, playing up the stereotypes that Swedes have for Finns. Namely that Finns really like saunas."
+    },
+    "transcription test 2": {
+      "observed": null,
+      "expected": "KAJ is three Finns, playing up the stereotypes that Swedes have for Finns. Namely that Finns really like saunas."
+    }
+  },
+  "comparisonSemantics": {
+    "directTimeline": "unavailable; no getter completed",
+    "sourceDerived": "unavailable; no getter completed",
+    "boundaryAmbiguity": "unassessed because the native read stopped before source and occurrence reads"
+  },
+  "moduleSha256AfterLocalRepair": "c7d41c4697a3a4b91ef8daded91777b62948ef9d5a4dd24faed006841e5d01d9",
+  "repair": {
+    "remoteProxySerialization": "opaque proxy repr/type failures are retained without raising",
+    "contextComparison": "project, current timeline identity, and page only; proxy repr/address excluded",
+    "focusedRegression": "fake proxy with __class__ returning None"
+  },
+  "localCheck": {
+    "artifact": "producer-transcript-probe-local-check.json",
+    "sha256": "fd9ffef4828960e636101ea6c456faeea970746cda27b6738818b8ac9aa46e1c",
+    "status": "passed"
+  },
+  "rerun": "not performed; one-shot native dispatch was already consumed"
+}

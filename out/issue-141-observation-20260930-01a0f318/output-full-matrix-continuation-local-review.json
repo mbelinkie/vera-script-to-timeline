@@ -1,0 +1,60 @@
+{
+  "kind": "issue-141-av-full-matrix-continuation-local-review",
+  "taskId": "Issue 141",
+  "status": "local-fake-pass-registration-ready-no-native-action",
+  "scope": "One exact owned full-Matrix queued-job continuation; generated fake Resolve only. No Resolve invocation, protected media access, probe/config/shared-helper edit, or native dispatch.",
+  "sourcePins": {
+    "av-output.py": "134fd7fdbbf4673fe8385be78eaea138adc1ea55ad55b309a0a17813815438c0",
+    "av-output-check.py": "27d1ec23e6fb5b78d6e412f04de3d32c032873f22386d035f117ed7f9888fdae",
+    "reader": "9b6977747a1f3decf957ead6134f10fc4f597bf9d0c3dc5c081b7bf2671879a4"
+  },
+  "action": {
+    "name": "av-output-full-matrix-continue",
+    "module": "docs/investigations/issue-141/av-output.py",
+    "registration": "Probe allowlist/module map and native launcher action table still require a separately reviewed registration; they were intentionally not changed here.",
+    "callableArguments": {
+      "action": "av-output-full-matrix-continue",
+      "case": "R2-av-output",
+      "checkpointPath": "<queue result afterPair path>",
+      "checkpointSha256": "<queue result afterPairSha256>",
+      "timelineInventory": "protected-six",
+      "queueResultPath": "<queue final-local-result.json>",
+      "queueResultSha256": "<sha256>",
+      "queueJobId": "<result.jobId>",
+      "queueJobSha256": "<canonical SHA-256 of result.job>",
+      "queueAfterPairPath": "<result.afterPair>",
+      "queueAfterPairSha256": "<result.afterPairSha256>",
+      "queueJournalPath": "<result.journal>",
+      "queueJournalSha256": "<sha256>",
+      "queueSnapshotXmlPath": "<result.snapshotXml>",
+      "queueSnapshotSha256": "<result.snapshotSha256>",
+      "queueSettingsSha256": "<canonical SHA-256 of journal SetRenderSettings request>",
+      "queuePresetName": "<owned preset stem>",
+      "resumeExistingJob": false
+    }
+  },
+  "guards": [
+    "Queue result must be full-matrix-queued-unstarted-recovery-retained with exactly one AddRenderJob return and no StartRendering entry.",
+    "After-pair is the fresh selected Matrix checkpoint and must match the live protected-six timeline/pool state before StartRendering.",
+    "Recovery XML, journal settings, job ID/job hash, destination and preset are all path/hash bound; settings must be MOV/H264, 1920x1080/25, lpcm PCM24/48k, SelectAllFrames true, with no MarkIn/MarkOut.",
+    "StartRendering is called at most once for the exact retained ID. Timeout, unknown status, failure, drift, or metadata refusal retains the job and evidence without retry or cleanup.",
+    "A later polling invocation sets resumeExistingJob=true, accepts only the same retained job, skips StartRendering, and polls that ID; pair capture is deferred while Resolve reports rendering.",
+    "After successful ffprobe, actual nb_frames and duration are retained without imposing an inclusive endpoint assumption; only then are the owned preset/job restored and deleted."
+  ],
+  "localChecks": {
+    "command": "/usr/local/bin/python3.14 -S docs/investigations/issue-141/av-output-check.py",
+    "result": "PASS: AV output fake checks passed",
+    "coverage": [
+      "exact owned job success and restoration",
+      "mismatched job refusal before StartRendering",
+      "unrelated visible-state drift refusal before StartRendering",
+      "timeout retention followed by same-ID resume with no second StartRendering",
+      "existing AV queue/render fake cases"
+    ],
+    "syntax": "PASS: py_compile for av-output.py and av-output-check.py"
+  },
+  "evidenceLimits": [
+    "No real endpoint convention or output PCM result is established by this local review.",
+    "The parent must refresh the source/config/dispatcher registration hashes after residual restoration and a fresh native queue-only result."
+  ]
+}

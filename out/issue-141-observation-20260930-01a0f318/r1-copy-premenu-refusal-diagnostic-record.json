@@ -1,0 +1,28 @@
+{
+  "kind": "r1-copy-premenu-refusal-and-diagnostic",
+  "capturedAt": "2026-10-01T07:13:59.602931+00:00",
+  "artifacts": [
+    {
+      "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T070753.577561Z.json",
+      "sha256": "ad03c793ceda1fc0e41d6a030c4fedfd64ad237757cd7398901c2f975edab840"
+    },
+    {
+      "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T070846.825689Z.json",
+      "sha256": "fdb7eb437a79435909540edc5b22553605ce1967075c641b20c3940d56d0d74a"
+    },
+    {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/capture-20261001T070846.846978Z.json",
+      "sha256": "cadd3af4264b8739647d7b05c304d9c4f7c25b60545e7c140b2a6d5d20783c02"
+    },
+    {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r4-pool-read-only-20261001T070846.846978Z.json",
+      "sha256": "0afb40a28ab3a607344205f5768fc113c5c75e0aba8c9579b662d0bb75ffbbc0"
+    },
+    {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T063250.006372Z/full-pair-003.json",
+      "sha256": "dc66efb49729dfc0b40efd35a3fa02d94cacd91e1ddfbaa62e97efcf656467ca"
+    }
+  ],
+  "interpretation": "Preflight refused before editorial mutation on Deliver page. Separate complete equal native timeline/pool reads match post-settings pin exactly; MOV/H264, idle empty queue, Matrix and original playhead retained. No copy/paste observed.",
+  "audioChoice": "still pending; editorial approval is independent"
+}
