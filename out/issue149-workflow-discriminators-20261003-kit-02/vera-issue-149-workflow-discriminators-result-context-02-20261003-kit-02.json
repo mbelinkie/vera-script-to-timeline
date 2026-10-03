@@ -1,0 +1,10 @@
+{
+  "actionId": "context-02-20261003-kit-02",
+  "configSha256": "d23d415936fa6d2b03ee80b207ed623678b9781c1ab1e6014cde155b2952f8db",
+  "error": {
+    "message": "unknown or disarmed action",
+    "type": "HarnessError"
+  },
+  "progress": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-progress-context-02-20261003-kit-02.jsonl",
+  "status": "launcher-failed"
+}

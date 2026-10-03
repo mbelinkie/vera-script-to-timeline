@@ -1,0 +1,22 @@
+{
+  "action": "prepare",
+  "actionId": "prepare-01-20261003-kit-02",
+  "configSha256": "3ad83ec1cb2fdbf769019e7ba62bec4601abe92a3518941070460e939392df02",
+  "error": {
+    "message": "known-disposable project has a non-terminal render job",
+    "type": "HarnessError"
+  },
+  "journal": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/evidence/prepare-01-20261003-kit-02/journal.jsonl",
+  "launcher": "workflow-injected",
+  "phase": "prepare-01",
+  "postCapture": "skipped-old-project-guard",
+  "progress": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-progress-prepare-01-20261003-kit-02.jsonl",
+  "runtime": {
+    "machine": "x86_64",
+    "platform": "macOS-15.1-x86_64-i386-64bit-Mach-O",
+    "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 17.0.0 (clang-1700.6.4.2)]"
+  },
+  "schemaVersion": "issue-149-workflow-discriminators-v1",
+  "stateId": "prepare-01-20261003-kit-02",
+  "status": "failure"
+}

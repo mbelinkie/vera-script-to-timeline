@@ -1,0 +1,6 @@
+{"at": "2026-10-03T15:04:55.725231+00:00", "phase": "started", "value": {"actionId": "save-d3-console-restored-checkpoint-20261003-kit-02", "configSha256": "3882e30468d035eab680cf592c028d4cddfcaff79f9ee0bbcc72df16415faa67"}}
+{"at": "2026-10-03T15:04:55.938538+00:00", "phase": "probe-verified", "value": {"probePath": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/sources/ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438/harness.py", "probeSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438"}}
+{"at": "2026-10-03T15:04:55.940632+00:00", "phase": "disarmed", "value": {"action": "save-checkpoint", "actionId": "save-d3-console-restored-checkpoint-20261003-kit-02"}}
+{"at": "2026-10-03T15:04:55.940895+00:00", "phase": "probe-request", "value": {"action": "save-checkpoint", "phase": "save-d3-console-restored-checkpoint"}}
+{"at": "2026-10-03T15:05:00.749414+00:00", "phase": "probe-return", "value": {"status": "ok"}}
+{"at": "2026-10-03T15:05:00.750566+00:00", "phase": "result-written", "value": {"result": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-save-d3-console-restored-checkpoint-20261003-kit-02.json", "status": "ok"}}

@@ -1,0 +1,6 @@
+{"at": "2026-10-03T05:34:14.999184+00:00", "phase": "started", "value": {"actionId": "w6-changed-restore-relink-render-r2-20261003-kit-02", "configSha256": "5d931764bf7996af031a0fdc61abf44ff5e55c59aeccf4ac8f5baaa68118e464"}}
+{"at": "2026-10-03T05:34:15.167932+00:00", "phase": "probe-verified", "value": {"probePath": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/sources/ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438/harness.py", "probeSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438"}}
+{"at": "2026-10-03T05:34:15.171796+00:00", "phase": "disarmed", "value": {"action": "w6-relink-render", "actionId": "w6-changed-restore-relink-render-r2-20261003-kit-02"}}
+{"at": "2026-10-03T05:34:15.172379+00:00", "phase": "probe-request", "value": {"action": "w6-relink-render", "phase": "w6-changed-restore-relink-render-r2"}}
+{"at": "2026-10-03T05:34:29.682896+00:00", "phase": "probe-return", "value": {"status": "ok"}}
+{"at": "2026-10-03T05:34:29.686005+00:00", "phase": "result-written", "value": {"result": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-w6-changed-restore-relink-render-r2-20261003-kit-02.json", "status": "ok"}}

@@ -1,0 +1,56 @@
+{
+  "action": "build",
+  "actionId": "build-discriminator-timelines-20261003-kit-02",
+  "configSha256": "51d63648e7372cb891f10aa782abf6b90c5ffcbb8b8a4f6b2fee7355016b2f43",
+  "error": {
+    "message": "AV placement did not return V1/A1 items",
+    "type": "HarnessError"
+  },
+  "journal": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/evidence/build-discriminator-timelines-20261003-kit-02/journal.jsonl",
+  "launcher": "workflow-injected",
+  "partialState": {
+    "itemUids": [
+      "ee79ae78-c356-4224-b83c-e61ca3c250e2",
+      "d39825a2-da77-48fb-b231-32b24b4b0503",
+      "7370d40b-6bf2-4177-a683-19835573220a",
+      "15896858-8ee7-439f-bea7-dc21b7ced67e"
+    ],
+    "mediaUids": [
+      "49a7ba00-960a-4225-9704-b3a0bdcc2d40",
+      "c6212874-c7f8-4a8f-8f92-99f59e0930ac",
+      "0b89e658-4617-408d-bd5d-03291c1f889a",
+      "dfdd5a46-c202-4493-84ab-f8e9d83c81b1",
+      "eb878f01-ce5a-44a2-86e5-1a6da071fc90",
+      "ead5c8a6-0f86-4a00-b5b3-5ae9b0a7843a",
+      "eda97c9f-08da-4e29-be52-4ebe8dfd7620",
+      "dbc55612-32ec-45c3-a72e-23dc055d05f8"
+    ],
+    "projectUid": "0591bb41-d645-4af7-a2ee-ff75f8f43162",
+    "timelineUids": [
+      "9ce8ac2d-bd57-4740-9c19-044d3df53347"
+    ],
+    "timelines": [
+      {
+        "itemUids": [
+          "ee79ae78-c356-4224-b83c-e61ca3c250e2",
+          "d39825a2-da77-48fb-b231-32b24b4b0503",
+          "7370d40b-6bf2-4177-a683-19835573220a",
+          "15896858-8ee7-439f-bea7-dc21b7ced67e"
+        ],
+        "name": "D6-kept-20261003",
+        "uid": "9ce8ac2d-bd57-4740-9c19-044d3df53347"
+      }
+    ]
+  },
+  "phase": "build-discriminator-timelines",
+  "preSnapshot": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/evidence/build-discriminator-timelines-20261003-kit-02/pre.json",
+  "progress": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-progress-build-discriminator-timelines-20261003-kit-02.jsonl",
+  "runtime": {
+    "machine": "x86_64",
+    "platform": "macOS-15.1-x86_64-i386-64bit-Mach-O",
+    "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 17.0.0 (clang-1700.6.4.2)]"
+  },
+  "schemaVersion": "issue-149-workflow-discriminators-v1",
+  "stateId": "build-discriminator-timelines-20261003-kit-02",
+  "status": "failure"
+}

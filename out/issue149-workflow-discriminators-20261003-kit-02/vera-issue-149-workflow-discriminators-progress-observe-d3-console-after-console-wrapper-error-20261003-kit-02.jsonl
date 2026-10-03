@@ -1,0 +1,6 @@
+{"at": "2026-10-03T14:45:53.387297+00:00", "phase": "started", "value": {"actionId": "observe-d3-console-after-console-wrapper-error-20261003-kit-02", "configSha256": "d2e8b0caa97f9c1852678cfedafea9d6280747fd3d26ca4761462b17c0333886"}}
+{"at": "2026-10-03T14:45:53.430921+00:00", "phase": "probe-verified", "value": {"probePath": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/sources/ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438/harness.py", "probeSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438"}}
+{"at": "2026-10-03T14:45:53.432278+00:00", "phase": "disarmed", "value": {"action": "observe", "actionId": "observe-d3-console-after-console-wrapper-error-20261003-kit-02"}}
+{"at": "2026-10-03T14:45:53.432467+00:00", "phase": "probe-request", "value": {"action": "observe", "phase": "observe-d3-console-after-console-wrapper-error"}}
+{"at": "2026-10-03T14:45:56.044233+00:00", "phase": "probe-return", "value": {"status": "ok"}}
+{"at": "2026-10-03T14:45:56.045133+00:00", "phase": "result-written", "value": {"result": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-observe-d3-console-after-console-wrapper-error-20261003-kit-02.json", "status": "ok"}}

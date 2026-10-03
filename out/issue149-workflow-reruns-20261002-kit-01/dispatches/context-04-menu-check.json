@@ -1,0 +1,25 @@
+{
+  "taskId": "#149",
+  "actionId": "context-04-20261002-kit-01",
+  "check": "loaded-project",
+  "initial": false,
+  "at": "2026-10-03T00:00:57Z",
+  "command": "hs -c dofile(hammerspoon-launch.lua).check(false)",
+  "externalScriptingSetting": "None",
+  "projectUid": "1a05ff3a-8b04-43e3-95ab-c970b93b6415",
+  "launcherSha256": "e4f58381c398bc0ce13130fddb25c956876f7754dc877346fe389dfb826c2450",
+  "macroSha256": "bc8ca493e2193218208cb43bafaaf90514da9faae4ba51be05b620f5b01ccd02",
+  "dispatchSha256": "e7f022f1c603c6dff78cc3b28c5f8bc8f3b7abed1110a30ffa8233389a5fd89d",
+  "harnessSha256": "a9f30ac0d26dcacef8194ba1f08146d997738393e9d51ab1ea8cd90f3da43ea4",
+  "result": {
+    "bundleId": "com.blackmagic-design.DaVinciResolve",
+    "windowTitle": "VERA Issue 149 Workflow Reruns 20261002-kit-01",
+    "menuFound": true,
+    "menuEnabled": true,
+    "triggered": false
+  },
+  "status": "menu-available",
+  "nativeActionTaken": false,
+  "accessibilityState": true,
+  "retryAllowed": false
+}

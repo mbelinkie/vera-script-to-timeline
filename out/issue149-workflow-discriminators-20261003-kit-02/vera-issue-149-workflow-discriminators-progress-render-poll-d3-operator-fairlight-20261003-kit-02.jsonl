@@ -1,0 +1,6 @@
+{"at": "2026-10-03T15:17:39.611171+00:00", "phase": "started", "value": {"actionId": "render-poll-d3-operator-fairlight-20261003-kit-02", "configSha256": "2bc1e59936537b6b5937823b000fe9c3ec62ed1b0b7bfa4a71fa327df991cde4"}}
+{"at": "2026-10-03T15:17:39.646284+00:00", "phase": "probe-verified", "value": {"probePath": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/sources/ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438/harness.py", "probeSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438"}}
+{"at": "2026-10-03T15:17:39.647434+00:00", "phase": "disarmed", "value": {"action": "render-poll", "actionId": "render-poll-d3-operator-fairlight-20261003-kit-02"}}
+{"at": "2026-10-03T15:17:39.647572+00:00", "phase": "probe-request", "value": {"action": "render-poll", "phase": "render-poll-d3-operator-fairlight"}}
+{"at": "2026-10-03T15:17:41.662641+00:00", "phase": "probe-return", "value": {"status": "ok"}}
+{"at": "2026-10-03T15:17:41.663363+00:00", "phase": "result-written", "value": {"result": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-render-poll-d3-operator-fairlight-20261003-kit-02.json", "status": "ok"}}
