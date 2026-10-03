@@ -1,0 +1,361 @@
+{
+ "job_id": "p3-003-solo-snap-exports",
+ "started": 1790971430.267487,
+ "seconds": 6.717,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "T8_current_solo_on": {
+   "name": "SO T8 A2 Solo button",
+   "uid": "345872d1-6267-4c19-84e3-a1a80f804124",
+   "start_frame": 0,
+   "end_frame": 399,
+   "start_tc": "00:00:00:00",
+   "mark_in_out": {
+    "video": {},
+    "audio": {}
+   },
+   "markers": {},
+   "tracks": {
+    "video": [
+     {
+      "index": 1,
+      "name": "Video 1",
+      "enabled": true,
+      "locked": false,
+      "items": [
+       {
+        "GetName": "base.mov",
+        "GetUniqueId": "6a48c66a-52b9-4a7c-b23d-ea7ba75583bf",
+        "GetStart": 0,
+        "GetEnd": 399,
+        "GetDuration": 399,
+        "GetLeftOffset": 0,
+        "GetRightOffset": 1,
+        "GetSourceStartFrame": 0,
+        "GetSourceEndFrame": 399,
+        "GetSourceStartTime": 0.0,
+        "GetSourceEndTime": 15.96,
+        "GetClipEnabled": true,
+        "GetSpeed": {
+         "Percentage": 100.0,
+         "PitchCorrection": true
+        },
+        "GetMarkers": {},
+        "GetFlagList": [],
+        "GetClipColor": "",
+        "GetSourceAudioChannelMapping": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{}}",
+        "GetVoiceIsolationState": {
+         "isEnabled": false,
+         "amount": 0
+        },
+        "GetTrackTypeAndIndex": [
+         "video",
+         1
+        ],
+        "GetStart(True)": 0.0,
+        "GetEnd(True)": 399.0,
+        "GetDuration(True)": 399.0,
+        "GetLeftOffset(True)": 0.0,
+        "GetRightOffset(True)": 1.0,
+        "GetProperty()": {
+         "Pan": 0.0,
+         "Tilt": 0.0,
+         "ZoomX": 1.0,
+         "ZoomY": 1.0,
+         "ZoomGang": true,
+         "RotationAngle": 0.0,
+         "AnchorPointX": 0.0,
+         "AnchorPointY": 0.0,
+         "Pitch": 0.0,
+         "Yaw": 0.0,
+         "FlipX": false,
+         "FlipY": false,
+         "CropLeft": 0.0,
+         "CropRight": 0.0,
+         "CropTop": 0.0,
+         "CropBottom": 0.0,
+         "CropSoftness": 0.0,
+         "CropRetain": false,
+         "DynamicZoomEase": 0,
+         "CompositeMode": 0,
+         "Opacity": 100.0,
+         "Distortion": 0.0,
+         "RetimeProcess": 0,
+         "MotionEstimation": 0,
+         "Scaling": 0,
+         "ResizeFilter": 0,
+         "TransformEnabled": true,
+         "CroppingEnabled": true,
+         "DynamicZoomEnabled": false,
+         "CompositeEnabled": true,
+         "LensCorrectionEnabled": true,
+         "RetimeAndScalingEnabled": true
+        },
+        "mpi_uid": "c9653d06-04b6-4a74-a0b9-fbd9a3937991",
+        "linked_uids": [
+         "22c347ce-8bcc-485f-8c38-62368ded47c7"
+        ]
+       }
+      ]
+     },
+     {
+      "index": 2,
+      "name": "Video 2",
+      "enabled": true,
+      "locked": false,
+      "items": []
+     },
+     {
+      "index": 3,
+      "name": "Video 3",
+      "enabled": true,
+      "locked": false,
+      "items": []
+     }
+    ],
+    "audio": [
+     {
+      "index": 1,
+      "name": "Audio 1",
+      "enabled": true,
+      "locked": false,
+      "subtype": "stereo",
+      "voice_iso": {
+       "isEnabled": false,
+       "amount": 0
+      },
+      "items": [
+       {
+        "GetName": "base.mov",
+        "GetUniqueId": "22c347ce-8bcc-485f-8c38-62368ded47c7",
+        "GetStart": 0,
+        "GetEnd": 399,
+        "GetDuration": 399,
+        "GetLeftOffset": 0,
+        "GetRightOffset": 1,
+        "GetSourceStartFrame": 0,
+        "GetSourceEndFrame": 399,
+        "GetSourceStartTime": 0.0,
+        "GetSourceEndTime": 15.96,
+        "GetClipEnabled": true,
+        "GetSpeed": {
+         "Percentage": 100.0,
+         "PitchCorrection": true
+        },
+        "GetMarkers": {},
+        "GetFlagList": [],
+        "GetClipColor": "",
+        "GetSourceAudioChannelMapping": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+        "GetVoiceIsolationState": {
+         "isEnabled": false,
+         "amount": 0
+        },
+        "GetTrackTypeAndIndex": [
+         "audio",
+         1
+        ],
+        "GetStart(True)": 0.0,
+        "GetEnd(True)": 399.0,
+        "GetDuration(True)": 399.0,
+        "GetLeftOffset(True)": 0.0,
+        "GetRightOffset(True)": 1.0,
+        "GetProperty()": {
+         "AudioVolumeEnabled": true,
+         "AudioVolume": 0.0,
+         "AudioPanEnabled": true,
+         "AudioPan": 0.0,
+         "AudioPitchEnabled": true,
+         "AudioPitchSemiTones": 0,
+         "AudioPitchCents": 0,
+         "AudioVoiceIsolationEnabled": false,
+         "AudioVoiceIsolationAmount": 0,
+         "AudioDialogueLevelerEnabled": false,
+         "AudioDialogueLevelerMode": 0,
+         "AudioDialogueLevelerReduceLoudDialogue": false,
+         "AudioDialogueLevelerLiftSoftDialogue": false,
+         "AudioDialogueLevelerBackgroundReduction": false,
+         "AudioDialogueLevelerOutputGain": 0.0
+        },
+        "mpi_uid": "c9653d06-04b6-4a74-a0b9-fbd9a3937991",
+        "linked_uids": [
+         "6a48c66a-52b9-4a7c-b23d-ea7ba75583bf"
+        ]
+       }
+      ]
+     },
+     {
+      "index": 2,
+      "name": "Audio 2",
+      "enabled": true,
+      "locked": false,
+      "subtype": "mono",
+      "voice_iso": {
+       "isEnabled": false,
+       "amount": 0
+      },
+      "items": [
+       {
+        "GetName": "a2_numbers.wav",
+        "GetUniqueId": "86902345-f203-45cc-93b7-611a55289a85",
+        "GetStart": 0,
+        "GetEnd": 399,
+        "GetDuration": 399,
+        "GetLeftOffset": 0,
+        "GetRightOffset": 1,
+        "GetSourceStartFrame": 0,
+        "GetSourceEndFrame": 399,
+        "GetSourceStartTime": 0.0,
+        "GetSourceEndTime": 15.96,
+        "GetClipEnabled": true,
+        "GetSpeed": {
+         "Percentage": 100.0,
+         "PitchCorrection": true
+        },
+        "GetMarkers": {},
+        "GetFlagList": [],
+        "GetClipColor": "",
+        "GetSourceAudioChannelMapping": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+        "GetVoiceIsolationState": {
+         "isEnabled": false,
+         "amount": 0
+        },
+        "GetTrackTypeAndIndex": [
+         "audio",
+         2
+        ],
+        "GetStart(True)": 0.0,
+        "GetEnd(True)": 399.0,
+        "GetDuration(True)": 399.0,
+        "GetLeftOffset(True)": 0.0,
+        "GetRightOffset(True)": 1.0,
+        "GetProperty()": {
+         "AudioVolumeEnabled": true,
+         "AudioVolume": 0.0,
+         "AudioPanEnabled": true,
+         "AudioPan": 0.0,
+         "AudioPitchEnabled": true,
+         "AudioPitchSemiTones": 0,
+         "AudioPitchCents": 0,
+         "AudioVoiceIsolationEnabled": false,
+         "AudioVoiceIsolationAmount": 0,
+         "AudioDialogueLevelerEnabled": false,
+         "AudioDialogueLevelerMode": 0,
+         "AudioDialogueLevelerReduceLoudDialogue": false,
+         "AudioDialogueLevelerLiftSoftDialogue": false,
+         "AudioDialogueLevelerBackgroundReduction": false,
+         "AudioDialogueLevelerOutputGain": 0.0
+        },
+        "mpi_uid": "d51e6480-53e9-4aea-8631-725a200927ae",
+        "linked_uids": []
+       }
+      ]
+     },
+     {
+      "index": 3,
+      "name": "Audio 3",
+      "enabled": true,
+      "locked": false,
+      "subtype": "mono",
+      "voice_iso": {
+       "isEnabled": false,
+       "amount": 0
+      },
+      "items": [
+       {
+        "GetName": "a3_bed.wav",
+        "GetUniqueId": "fb36a2d1-ef59-47a0-a335-619d388d1832",
+        "GetStart": 0,
+        "GetEnd": 399,
+        "GetDuration": 399,
+        "GetLeftOffset": 0,
+        "GetRightOffset": 1,
+        "GetSourceStartFrame": 0,
+        "GetSourceEndFrame": 399,
+        "GetSourceStartTime": 0.0,
+        "GetSourceEndTime": 15.96,
+        "GetClipEnabled": true,
+        "GetSpeed": {
+         "Percentage": 100.0,
+         "PitchCorrection": true
+        },
+        "GetMarkers": {},
+        "GetFlagList": [],
+        "GetClipColor": "",
+        "GetSourceAudioChannelMapping": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+        "GetVoiceIsolationState": {
+         "isEnabled": false,
+         "amount": 0
+        },
+        "GetTrackTypeAndIndex": [
+         "audio",
+         3
+        ],
+        "GetStart(True)": 0.0,
+        "GetEnd(True)": 399.0,
+        "GetDuration(True)": 399.0,
+        "GetLeftOffset(True)": 0.0,
+        "GetRightOffset(True)": 1.0,
+        "GetProperty()": {
+         "AudioVolumeEnabled": true,
+         "AudioVolume": 0.0,
+         "AudioPanEnabled": true,
+         "AudioPan": 0.0,
+         "AudioPitchEnabled": true,
+         "AudioPitchSemiTones": 0,
+         "AudioPitchCents": 0,
+         "AudioVoiceIsolationEnabled": false,
+         "AudioVoiceIsolationAmount": 0,
+         "AudioDialogueLevelerEnabled": false,
+         "AudioDialogueLevelerMode": 0,
+         "AudioDialogueLevelerReduceLoudDialogue": false,
+         "AudioDialogueLevelerLiftSoftDialogue": false,
+         "AudioDialogueLevelerBackgroundReduction": false,
+         "AudioDialogueLevelerOutputGain": 0.0
+        },
+        "mpi_uid": "54a3e2df-c837-48d7-acf6-549a5b671672",
+        "linked_uids": []
+       }
+      ]
+     }
+    ],
+    "subtitle": []
+   },
+   "is_current": true
+  },
+  "exports": {
+   "T8_solo_on": {
+    "drt": true,
+    "fcpxml": true,
+    "otio": true,
+    "aaf": true,
+    "edl": true,
+    "csv": true
+   },
+   "T1_baseline": {
+    "drt": true,
+    "fcpxml": true,
+    "otio": true,
+    "aaf": true,
+    "edl": true,
+    "csv": true
+   },
+   "T7_mute_on": {
+    "drt": true,
+    "fcpxml": true,
+    "otio": true,
+    "aaf": true,
+    "edl": true,
+    "csv": true
+   },
+   "T5_track_disabled": {
+    "drt": true,
+    "fcpxml": true,
+    "otio": true,
+    "aaf": true,
+    "edl": true,
+    "csv": true
+   }
+  }
+ }
+}

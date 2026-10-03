@@ -1,0 +1,18 @@
+{
+ "job_id": "p3-005-subs-queue-1790971720",
+ "started": 1790971718.1455722,
+ "seconds": 1.899,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "subs": {
+   "SO T6 A2 mapping mute": [],
+   "SO T7 A2 Mute button": [],
+   "SO T8 A2 Solo button": []
+  },
+  "started": [
+   "SO T6 A2 mapping mute",
+   false
+  ]
+ }
+}

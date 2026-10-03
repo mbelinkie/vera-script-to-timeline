@@ -1,0 +1,11 @@
+{
+ "job_id": "ui-001-open-t8",
+ "started": 1790975113.874961,
+ "seconds": 0.819,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "current": "SO T8 A2 Solo button",
+  "page": "edit"
+ }
+}

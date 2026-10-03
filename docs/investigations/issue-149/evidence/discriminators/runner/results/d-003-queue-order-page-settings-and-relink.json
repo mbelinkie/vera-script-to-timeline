@@ -1,0 +1,182 @@
+{
+ "job_id": "d-003-queue-order-page-settings-and-relink",
+ "started": 1790999159.177799,
+ "seconds": 17.047,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "prior_render_status": {
+   "Job 1 Mb_muted_after_baseline.mov": {
+    "JobStatus": "Complete",
+    "CompletionPercentage": 100,
+    "TimeTakenToRenderInMs": 1850
+   },
+   "Job 2 R_A_atomic_keepmtime_2_swapped_no_relink.mov": {
+    "JobStatus": "Complete",
+    "CompletionPercentage": 100,
+    "TimeTakenToRenderInMs": 842
+   },
+   "Job 3 R_B_atomic_newmtime_2_swapped_no_relink.mov": {
+    "JobStatus": "Complete",
+    "CompletionPercentage": 100,
+    "TimeTakenToRenderInMs": 787
+   },
+   "Job 4 R_C_inplace_keepmtime_2_swapped_no_relink.mov": {
+    "JobStatus": "Failed",
+    "CompletionPercentage": 20,
+    "Error": "Error decoding full resolution media for C_inplace_keepmtime.mov at 00:00:00:00. \nPlease check that the file is accessible and has a valid codec."
+   },
+   "Job 5 R_D_inplace_newmtime_2_swapped_no_relink.mov": {
+    "JobStatus": "Failed",
+    "CompletionPercentage": 16,
+    "Error": "Error decoding full resolution media for D_inplace_newmtime.mov at 00:00:00:00. \nPlease check that the file is accessible and has a valid codec."
+   }
+  },
+  "journal": [
+   {
+    "op": "append M_d job added before mute {'name': 'base.mov', 'src': (0, 400), 'rec': 0, 'track': 1}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1b0b61d10>"
+    ]
+   },
+   {
+    "op": "append M_d job added before mute {'name': 'a2_numbers.wav', 'src': (0, 400), 'rec': 0, 'track': 2, 'media': 'a'}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1b0b61410>"
+    ]
+   },
+   {
+    "op": "append M_d job added before mute {'name': 'a3_bed.wav', 'src': (0, 400), 'rec': 0, 'track': 3, 'media': 'a'}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1b0b61bf0>"
+    ]
+   },
+   {
+    "op": "append M_e mute on Deliver page {'name': 'base.mov', 'src': (0, 400), 'rec': 0, 'track': 1}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1b0b61bb0>"
+    ]
+   },
+   {
+    "op": "append M_e mute on Deliver page {'name': 'a2_numbers.wav', 'src': (0, 400), 'rec': 0, 'track': 2, 'media': 'a'}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1b0b62450>"
+    ]
+   },
+   {
+    "op": "append M_e mute on Deliver page {'name': 'a3_bed.wav', 'src': (0, 400), 'rec': 0, 'track': 3, 'media': 'a'}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1b0b62490>"
+    ]
+   },
+   {
+    "op": "append M_f mute with Codex render settings {'name': 'base.mov', 'src': (0, 400), 'rec': 0, 'track': 1}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1b0b61e50>"
+    ]
+   },
+   {
+    "op": "append M_f mute with Codex render settings {'name': 'a2_numbers.wav', 'src': (0, 400), 'rec': 0, 'track': 2, 'media': 'a'}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1b0b61ef0>"
+    ]
+   },
+   {
+    "op": "append M_f mute with Codex render settings {'name': 'a3_bed.wav', 'src': (0, 400), 'rec': 0, 'track': 3, 'media': 'a'}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1b0b62390>"
+    ]
+   },
+   [
+    "M_d mute after AddRenderJob",
+    {
+     "set": true,
+     "readback": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":true,\"type\":\"mono\"}}}"
+    }
+   ],
+   [
+    "page",
+    "deliver"
+   ],
+   [
+    "M_e mute on deliver",
+    {
+     "set": true,
+     "readback": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":true,\"type\":\"mono\"}}}"
+    }
+   ],
+   [
+    "M_f mute",
+    {
+     "set": true,
+     "readback": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":true,\"type\":\"mono\"}}}"
+    }
+   ],
+   [
+    "SetRenderMode 1",
+    "ERR TypeError(\"'NoneType' object is not callable\")"
+   ],
+   [
+    "M_f settings",
+    true
+   ],
+   [
+    "RelinkClips A_atomic_keepmtime",
+    true
+   ],
+   [
+    "RelinkClips B_atomic_newmtime",
+    true
+   ],
+   [
+    "RelinkClips C_inplace_keepmtime",
+    true
+   ],
+   [
+    "RelinkClips D_inplace_newmtime",
+    true
+   ],
+   [
+    "StartRendering",
+    true
+   ]
+  ],
+  "queue": [
+   [
+    "Md_job_added_before_mute",
+    true,
+    "da2d5c8b-bf49-487f-8019-ee60cfdeb2a3"
+   ],
+   [
+    "Me_muted_on_deliver",
+    true,
+    "780049c5-353f-46d7-bc24-273bf605bd72"
+   ],
+   [
+    "Mf_muted_codex_settings",
+    true,
+    "686588ac-1bed-4f39-8379-4dc943d64d87"
+   ],
+   [
+    "R_A_atomic_keepmtime_3_after_relink",
+    true,
+    "01035c13-d3fe-4e8f-87ee-e78c307331e2"
+   ],
+   [
+    "R_B_atomic_newmtime_3_after_relink",
+    true,
+    "0d4d3d10-9183-41a5-b8d7-00cda361b713"
+   ],
+   [
+    "R_C_inplace_keepmtime_3_after_relink",
+    true,
+    "34630877-571d-40cb-9fd2-af0ab617eaef"
+   ],
+   [
+    "R_D_inplace_newmtime_3_after_relink",
+    true,
+    "5dc115cb-8c03-4ae5-b6d6-0c98ff8a9a77"
+   ]
+  ]
+ }
+}

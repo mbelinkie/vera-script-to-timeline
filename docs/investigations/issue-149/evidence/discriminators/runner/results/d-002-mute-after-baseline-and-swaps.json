@@ -1,0 +1,173 @@
+{
+ "job_id": "d-002-mute-after-baseline-and-swaps",
+ "started": 1790999012.406719,
+ "seconds": 3.468,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "prior_render_status": {
+   "4bf14f8d-1049-4632-a540-9839a2962373": {
+    "JobStatus": "Complete",
+    "CompletionPercentage": 100,
+    "TimeTakenToRenderInMs": 2420
+   },
+   "e1639fc1-9cb3-47f2-a0bb-fd1b299be62d": {
+    "JobStatus": "Complete",
+    "CompletionPercentage": 100,
+    "TimeTakenToRenderInMs": 2321
+   },
+   "c8ce226a-74a6-47e6-8ad9-8e320b45f717": {
+    "JobStatus": "Complete",
+    "CompletionPercentage": 100,
+    "TimeTakenToRenderInMs": 2701
+   },
+   "f65399c6-ea1a-42ff-8a54-0072c0a320c8": {
+    "JobStatus": "Complete",
+    "CompletionPercentage": 100,
+    "TimeTakenToRenderInMs": 1290
+   },
+   "01d4875c-1d31-4403-a5e8-f42934dc53cf": {
+    "JobStatus": "Complete",
+    "CompletionPercentage": 100,
+    "TimeTakenToRenderInMs": 891
+   },
+   "6237c2c4-6e5a-46e5-9375-f8a05ed2d23d": {
+    "JobStatus": "Complete",
+    "CompletionPercentage": 100,
+    "TimeTakenToRenderInMs": 1302
+   },
+   "fa6daecc-0d21-43ae-b1f4-a7dc5c281a9b": {
+    "JobStatus": "Complete",
+    "CompletionPercentage": 100,
+    "TimeTakenToRenderInMs": 864
+   }
+  },
+  "journal": [
+   [
+    "M_b mute after baseline",
+    {
+     "set": true,
+     "readback": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":true,\"type\":\"mono\"}}}"
+    }
+   ],
+   [
+    "M_c mute after baseline",
+    {
+     "set": true,
+     "readback": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":true,\"type\":\"mono\"}}}"
+    }
+   ],
+   [
+    "StartRendering",
+    true
+   ]
+  ],
+  "swaps": {
+   "A_atomic_keepmtime": {
+    "before": {
+     "inode": 547994098,
+     "mtime_ns": 1790998820376868440,
+     "size": 3443686,
+     "sha256": "164348e62292c173"
+    },
+    "after": {
+     "inode": 548003033,
+     "mtime_ns": 1790998820376868440,
+     "size": 4594572,
+     "sha256": "525d9da01a45c211"
+    }
+   },
+   "B_atomic_newmtime": {
+    "before": {
+     "inode": 547994103,
+     "mtime_ns": 1790998820826118705,
+     "size": 3443686,
+     "sha256": "164348e62292c173"
+    },
+    "after": {
+     "inode": 548003034,
+     "mtime_ns": 1790999012470499553,
+     "size": 4594572,
+     "sha256": "525d9da01a45c211"
+    }
+   },
+   "C_inplace_keepmtime": {
+    "before": {
+     "inode": 547994109,
+     "mtime_ns": 1790998821228885288,
+     "size": 3443686,
+     "sha256": "164348e62292c173"
+    },
+    "after": {
+     "inode": 547994109,
+     "mtime_ns": 1790998821228885288,
+     "size": 4594572,
+     "sha256": "525d9da01a45c211"
+    }
+   },
+   "D_inplace_newmtime": {
+    "before": {
+     "inode": 547994115,
+     "mtime_ns": 1790998821617719966,
+     "size": 3443686,
+     "sha256": "164348e62292c173"
+    },
+    "after": {
+     "inode": 547994115,
+     "mtime_ns": 1790999012512778290,
+     "size": 4594572,
+     "sha256": "525d9da01a45c211"
+    }
+   }
+  },
+  "queue": [
+   [
+    "Mb_muted_after_baseline",
+    true,
+    "8a8ed55b-51c4-41d9-8793-5adeae56ac15"
+   ],
+   [
+    "R_A_atomic_keepmtime_2_swapped_no_relink",
+    true,
+    "8226f525-1de2-4ab5-89ac-f89b047a0e9b"
+   ],
+   [
+    "R_B_atomic_newmtime_2_swapped_no_relink",
+    true,
+    "047ddb27-a6db-4d43-973e-914a67e54d06"
+   ],
+   [
+    "R_C_inplace_keepmtime_2_swapped_no_relink",
+    true,
+    "3fb7ea78-d788-4c0f-a7db-64931452710c"
+   ],
+   [
+    "R_D_inplace_newmtime_2_swapped_no_relink",
+    true,
+    "e603432e-e7b2-4f3c-aae9-504bbf42ac83"
+   ]
+  ],
+  "pool_props": {
+   "A_atomic_keepmtime": {
+    "Online Status": "Online",
+    "Date Modified": "Fri Oct  2 23:40:20 2026",
+    "File Path": "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/disc/relink2/A_atomic_keepmtime.mov"
+   },
+   "B_atomic_newmtime": {
+    "Online Status": "Online",
+    "Date Modified": "Fri Oct  2 23:40:20 2026",
+    "File Path": "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/disc/relink2/B_atomic_newmtime.mov"
+   },
+   "C_inplace_keepmtime": {
+    "Online Status": "Online",
+    "Date Modified": "Fri Oct  2 23:40:21 2026",
+    "File Path": "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/disc/relink2/C_inplace_keepmtime.mov"
+   },
+   "D_inplace_newmtime": {
+    "Online Status": "Online",
+    "Date Modified": "Fri Oct  2 23:40:21 2026",
+    "File Path": "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/disc/relink2/D_inplace_newmtime.mov"
+   }
+  }
+ }
+}

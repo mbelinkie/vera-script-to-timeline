@@ -1,0 +1,78 @@
+{
+ "p7_002": {
+  "before_edit.db": {
+   "SM_Project.LastModTimeInSecs": 1790974651,
+   "SM_Project.ProjectAgeInMs": 3477589662,
+   "Sm2TiItem[1].Flags": 0,
+   "Sm2Sequence.DbSavedTime[SO Baseline]": 3467880055
+  },
+  "after_edit.db": {
+   "SM_Project.LastModTimeInSecs": 1790974657,
+   "SM_Project.ProjectAgeInMs": 3482773361,
+   "Sm2TiItem[1].Flags": 2,
+   "Sm2Sequence.DbSavedTime[SO Baseline]": 3482774151
+  },
+  "after_revert.db": {
+   "SM_Project.LastModTimeInSecs": 1790974660,
+   "SM_Project.ProjectAgeInMs": 3485773766,
+   "Sm2TiItem[1].Flags": 0,
+   "Sm2Sequence.DbSavedTime[SO Baseline]": 3485774535
+  }
+ },
+ "p7_003": {
+  "01_start.db": {
+   "SM_Project.LastModTimeInSecs": 1790974660,
+   "SM_Project.ProjectAgeInMs": 3485773766,
+   "Sm2TiItem[1].Flags": 0,
+   "Sm2Sequence.DbSavedTime[SO Baseline]": 3485774535
+  },
+  "02_idle.db": {
+   "SM_Project.LastModTimeInSecs": 1790974660,
+   "SM_Project.ProjectAgeInMs": 3485773766,
+   "Sm2TiItem[1].Flags": 0,
+   "Sm2Sequence.DbSavedTime[SO Baseline]": 3485774535
+  },
+  "03_playhead.db": {
+   "SM_Project.LastModTimeInSecs": 1790974660,
+   "SM_Project.ProjectAgeInMs": 3485773766,
+   "Sm2TiItem[1].Flags": 0,
+   "Sm2Sequence.DbSavedTime[SO Baseline]": 3485774535
+  },
+  "04_page_fairlight.db": {
+   "SM_Project.LastModTimeInSecs": 1790974660,
+   "SM_Project.ProjectAgeInMs": 3485773766,
+   "Sm2TiItem[1].Flags": 0,
+   "Sm2Sequence.DbSavedTime[SO Baseline]": 3485774535
+  },
+  "05_page_edit.db": {
+   "SM_Project.LastModTimeInSecs": 1790974660,
+   "SM_Project.ProjectAgeInMs": 3485773766,
+   "Sm2TiItem[1].Flags": 0,
+   "Sm2Sequence.DbSavedTime[SO Baseline]": 3485774535
+  },
+  "06_switch_to_T2.db": {
+   "SM_Project.LastModTimeInSecs": 1790974733,
+   "SM_Project.ProjectAgeInMs": 3558991234,
+   "Sm2TiItem[1].Flags": 0,
+   "Sm2Sequence.DbSavedTime[SO Baseline]": 3558991903
+  },
+  "07_switch_to_base.db": {
+   "SM_Project.LastModTimeInSecs": 1790974736,
+   "SM_Project.ProjectAgeInMs": 3562158271,
+   "Sm2TiItem[1].Flags": 0,
+   "Sm2Sequence.DbSavedTime[SO Baseline]": 3558991903
+  },
+  "08_T2_marker_add_(base_current).db": {
+   "SM_Project.LastModTimeInSecs": 1790974741,
+   "SM_Project.ProjectAgeInMs": 3567216039,
+   "Sm2TiItem[1].Flags": 0,
+   "Sm2Sequence.DbSavedTime[SO Baseline]": 3567216734
+  },
+  "09_T2_marker_delete.db": {
+   "SM_Project.LastModTimeInSecs": 1790974744,
+   "SM_Project.ProjectAgeInMs": 3570220617,
+   "Sm2TiItem[1].Flags": 0,
+   "Sm2Sequence.DbSavedTime[SO Baseline]": 3570221335
+  }
+ }
+}

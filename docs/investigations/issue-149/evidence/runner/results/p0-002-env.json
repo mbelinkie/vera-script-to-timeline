@@ -1,0 +1,24 @@
+{
+ "job_id": "p0-002-env",
+ "started": 1790970592.2878668,
+ "seconds": 2.517,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "project": "VERA 141 Second Opinion 20261002-a",
+  "page": "deliver",
+  "ffmpeg_candidates": {
+   "/usr/local/bin/ffmpeg": true,
+   "/opt/homebrew/bin/ffmpeg": false,
+   "/usr/local/bin/ffprobe": true
+  },
+  "voices_alex_samantha": [],
+  "say_test": {
+   "rc": 0,
+   "out": "",
+   "err": ""
+  },
+  "say_test_exists": true,
+  "disk_db_root_exists": false
+ }
+}

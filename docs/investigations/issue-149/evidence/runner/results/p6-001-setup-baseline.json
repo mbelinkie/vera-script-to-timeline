@@ -1,0 +1,40 @@
+{
+ "job_id": "p6-001-setup-baseline",
+ "started": 1790973619.270526,
+ "seconds": 9.459,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "journal": [
+   [
+    "ImportMedia swap.mov",
+    [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1afa6ea50>"
+    ]
+   ]
+  ],
+  "capture": {
+   "tag": "p6a_original",
+   "file_sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+   "file_size": 3443686,
+   "props": {
+    "Clip Color": "",
+    "Date Created": "Fri Oct 2 2026 16:38:31",
+    "Date Modified": "Fri Oct  2 16:38:34 2026",
+    "Duration": "00:00:16:00",
+    "File Name": "swap.mov",
+    "File Path": "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/fixtures/relink/swap.mov",
+    "Frames": "400",
+    "Online Status": "Online",
+    "Proxy": "None",
+    "Resolution": "640x360",
+    "Video Codec": "H.264 High L3.0"
+   },
+   "set_tc": true,
+   "still": true,
+   "render_settings": true,
+   "render_start": true
+  },
+  "uid": "72da0947-7416-4534-b27c-61941c3f5618"
+ }
+}

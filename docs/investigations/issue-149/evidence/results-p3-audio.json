@@ -1,0 +1,302 @@
+{
+ "SO_T6_A2_mapping_mute.mov": {
+  "samples": 766080,
+  "pilots": {
+   "1000": 0.02869,
+   "1500": 0.00019,
+   "2000": 0.02016
+  },
+  "words": {
+   "alpha": {
+    "score": 0.997,
+    "at_sample": 24000,
+    "at_frame": 12.5
+   },
+   "bravo": {
+    "score": 0.997,
+    "at_sample": 120000,
+    "at_frame": 62.5
+   },
+   "charlie": {
+    "score": 0.997,
+    "at_sample": 216000,
+    "at_frame": 112.5
+   },
+   "delta": {
+    "score": 0.997,
+    "at_sample": 312000,
+    "at_frame": 162.5
+   },
+   "echo": {
+    "score": 0.997,
+    "at_sample": 408000,
+    "at_frame": 212.5
+   },
+   "foxtrot": {
+    "score": 0.995,
+    "at_sample": 504000,
+    "at_frame": 262.5
+   },
+   "golf": {
+    "score": 0.997,
+    "at_sample": 600000,
+    "at_frame": 312.5
+   },
+   "hotel": {
+    "score": 0.997,
+    "at_sample": 696000,
+    "at_frame": 362.5
+   },
+   "one": {
+    "score": 0.332,
+    "at_sample": 317195,
+    "at_frame": 165.206
+   },
+   "two": {
+    "score": 0.316,
+    "at_sample": 696586,
+    "at_frame": 362.805
+   },
+   "three": {
+    "score": 0.399,
+    "at_sample": 693428,
+    "at_frame": 361.16
+   },
+   "four": {
+    "score": 0.351,
+    "at_sample": 695284,
+    "at_frame": 362.127
+   },
+   "five": {
+    "score": 0.413,
+    "at_sample": 596939,
+    "at_frame": 310.906
+   },
+   "six": {
+    "score": 0.276,
+    "at_sample": 703653,
+    "at_frame": 366.486
+   },
+   "seven": {
+    "score": 0.427,
+    "at_sample": 704283,
+    "at_frame": 366.814
+   },
+   "eight": {
+    "score": 0.488,
+    "at_sample": 221541,
+    "at_frame": 115.386
+   }
+  },
+  "present": [
+   "alpha",
+   "bravo",
+   "charlie",
+   "delta",
+   "echo",
+   "foxtrot",
+   "golf",
+   "hotel"
+  ]
+ },
+ "SO_T7_A2_Mute_button.mov": {
+  "samples": 766080,
+  "pilots": {
+   "1000": 0.02869,
+   "1500": 0.00019,
+   "2000": 0.02016
+  },
+  "words": {
+   "alpha": {
+    "score": 0.997,
+    "at_sample": 24000,
+    "at_frame": 12.5
+   },
+   "bravo": {
+    "score": 0.997,
+    "at_sample": 120000,
+    "at_frame": 62.5
+   },
+   "charlie": {
+    "score": 0.997,
+    "at_sample": 216000,
+    "at_frame": 112.5
+   },
+   "delta": {
+    "score": 0.997,
+    "at_sample": 312000,
+    "at_frame": 162.5
+   },
+   "echo": {
+    "score": 0.997,
+    "at_sample": 408000,
+    "at_frame": 212.5
+   },
+   "foxtrot": {
+    "score": 0.995,
+    "at_sample": 504000,
+    "at_frame": 262.5
+   },
+   "golf": {
+    "score": 0.997,
+    "at_sample": 600000,
+    "at_frame": 312.5
+   },
+   "hotel": {
+    "score": 0.997,
+    "at_sample": 696000,
+    "at_frame": 362.5
+   },
+   "one": {
+    "score": 0.332,
+    "at_sample": 317195,
+    "at_frame": 165.206
+   },
+   "two": {
+    "score": 0.316,
+    "at_sample": 696586,
+    "at_frame": 362.805
+   },
+   "three": {
+    "score": 0.399,
+    "at_sample": 693428,
+    "at_frame": 361.16
+   },
+   "four": {
+    "score": 0.351,
+    "at_sample": 695284,
+    "at_frame": 362.127
+   },
+   "five": {
+    "score": 0.413,
+    "at_sample": 596939,
+    "at_frame": 310.906
+   },
+   "six": {
+    "score": 0.276,
+    "at_sample": 703653,
+    "at_frame": 366.486
+   },
+   "seven": {
+    "score": 0.427,
+    "at_sample": 704283,
+    "at_frame": 366.814
+   },
+   "eight": {
+    "score": 0.488,
+    "at_sample": 221541,
+    "at_frame": 115.386
+   }
+  },
+  "present": [
+   "alpha",
+   "bravo",
+   "charlie",
+   "delta",
+   "echo",
+   "foxtrot",
+   "golf",
+   "hotel"
+  ]
+ },
+ "SO_T8_A2_Solo_button.mov": {
+  "samples": 766080,
+  "pilots": {
+   "1000": 0.00043,
+   "1500": 0.02004,
+   "2000": 0.00013
+  },
+  "words": {
+   "alpha": {
+    "score": 0.299,
+    "at_sample": 458023,
+    "at_frame": 238.554
+   },
+   "bravo": {
+    "score": 0.296,
+    "at_sample": 457728,
+    "at_frame": 238.4
+   },
+   "charlie": {
+    "score": 0.424,
+    "at_sample": 738459,
+    "at_frame": 384.614
+   },
+   "delta": {
+    "score": 0.308,
+    "at_sample": 456830,
+    "at_frame": 237.932
+   },
+   "echo": {
+    "score": 0.274,
+    "at_sample": 461066,
+    "at_frame": 240.139
+   },
+   "foxtrot": {
+    "score": 0.266,
+    "at_sample": 727318,
+    "at_frame": 378.811
+   },
+   "golf": {
+    "score": 0.413,
+    "at_sample": 459061,
+    "at_frame": 239.094
+   },
+   "hotel": {
+    "score": 0.318,
+    "at_sample": 639717,
+    "at_frame": 333.186
+   },
+   "one": {
+    "score": 1.0,
+    "at_sample": 72000,
+    "at_frame": 37.5
+   },
+   "two": {
+    "score": 1.0,
+    "at_sample": 168000,
+    "at_frame": 87.5
+   },
+   "three": {
+    "score": 1.0,
+    "at_sample": 264000,
+    "at_frame": 137.5
+   },
+   "four": {
+    "score": 1.0,
+    "at_sample": 360000,
+    "at_frame": 187.5
+   },
+   "five": {
+    "score": 1.0,
+    "at_sample": 456000,
+    "at_frame": 237.5
+   },
+   "six": {
+    "score": 1.0,
+    "at_sample": 552000,
+    "at_frame": 287.5
+   },
+   "seven": {
+    "score": 1.0,
+    "at_sample": 648000,
+    "at_frame": 337.5
+   },
+   "eight": {
+    "score": 1.0,
+    "at_sample": 744000,
+    "at_frame": 387.5
+   }
+  },
+  "present": [
+   "one",
+   "two",
+   "three",
+   "four",
+   "five",
+   "six",
+   "seven",
+   "eight"
+  ]
+ }
+}

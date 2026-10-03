@@ -1,0 +1,124 @@
+{
+ "job_id": "d-004-handle-and-literal-json",
+ "started": 1791047679.258589,
+ "seconds": 12.619,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "codex_project_claude_jobs": {
+   "5e8136ce-30e7-4120-a861-edd25a627761": {
+    "JobStatus": "Complete",
+    "CompletionPercentage": 100,
+    "TimeTakenToRenderInMs": 5548
+   },
+   "6823f50a-e86b-44aa-9661-852fab143db9": {
+    "JobStatus": "Complete",
+    "CompletionPercentage": 100,
+    "TimeTakenToRenderInMs": 6731
+   }
+  },
+  "save_codex": true,
+  "load_mine": "<BlackmagicFusion.PyRemoteObject object at 0x1a775d0b0>",
+  "project": "VERA 149 Discriminators 20261002-b",
+  "journal": [
+   {
+    "op": "append H1 mute via append handle {'name': 'base.mov', 'src': (0, 400), 'rec': 0, 'track': 1}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1a775da30>"
+    ]
+   },
+   {
+    "op": "append H1 mute via append handle {'name': 'a2_numbers.wav', 'src': (0, 400), 'rec': 0, 'track': 2, 'media': 'a'}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1a775de70>"
+    ]
+   },
+   {
+    "op": "append H1 mute via append handle {'name': 'a3_bed.wav', 'src': (0, 400), 'rec': 0, 'track': 3, 'media': 'a'}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1a775d190>"
+    ]
+   },
+   {
+    "H1": {
+     "uid_append": "7646ba3a-ec94-4cba-a289-e7aeb1079688",
+     "uid_fresh": "7646ba3a-ec94-4cba-a289-e7aeb1079688",
+     "set_via_append": true,
+     "readback_append": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":true,\"type\":\"mono\"}}}",
+     "readback_fresh": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":true,\"type\":\"mono\"}}}",
+     "readback_refetch": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":true,\"type\":\"mono\"}}}"
+    }
+   },
+   {
+    "op": "append H2 mute via Codex literal {'name': 'base.mov', 'src': (0, 400), 'rec': 0, 'track': 1}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1a775d4d0>"
+    ]
+   },
+   {
+    "op": "append H2 mute via Codex literal {'name': 'a2_numbers.wav', 'src': (0, 400), 'rec': 0, 'track': 2, 'media': 'a'}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1a775db50>"
+    ]
+   },
+   {
+    "op": "append H2 mute via Codex literal {'name': 'a3_bed.wav', 'src': (0, 400), 'rec': 0, 'track': 3, 'media': 'a'}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1a775d610>"
+    ]
+   },
+   {
+    "H2": {
+     "before": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+     "set": true,
+     "readback": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":true,\"type\":\"mono\"}}}"
+    }
+   },
+   {
+    "op": "append H0 unmuted control {'name': 'base.mov', 'src': (0, 400), 'rec': 0, 'track': 1}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1a775d510>"
+    ]
+   },
+   {
+    "op": "append H0 unmuted control {'name': 'a2_numbers.wav', 'src': (0, 400), 'rec': 0, 'track': 2, 'media': 'a'}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1a775d830>"
+    ]
+   },
+   {
+    "op": "append H0 unmuted control {'name': 'a3_bed.wav', 'src': (0, 400), 'rec': 0, 'track': 3, 'media': 'a'}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1a775e6d0>"
+    ]
+   },
+   {
+    "format": {
+     "format": "mov",
+     "codec": "H264"
+    }
+   },
+   [
+    "StartRendering",
+    true
+   ]
+  ],
+  "queue": [
+   [
+    "H1_append_handle_mute",
+    true,
+    "d93249ec-3560-4527-a43d-d3a8f2b8b085"
+   ],
+   [
+    "H2_codex_literal_mute",
+    true,
+    "6e607772-7421-4990-915d-0a94e635ea40"
+   ],
+   [
+    "H0_unmuted_control",
+    true,
+    "43c38fcc-ebfb-4707-9af0-b8c59abc053a"
+   ]
+  ]
+ }
+}
