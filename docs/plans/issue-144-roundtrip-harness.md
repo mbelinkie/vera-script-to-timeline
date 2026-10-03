@@ -6,6 +6,10 @@ an isolated proof setup step. The compiler-only entry is the first implemented
 segment; all affected semantic/native seams below remain planned. No new native
 action has occurred. #145 must verify actual setup and edits on one selected build.
 
+The prepared-build core segment is now implemented and pending checkpoint 4
+review: actual compiler/package/job stages with 18 new passing tests, strict
+input gate and explicit native wait. Semantic/native seams remain planned.
+
 ## Authority, ownership and starting evidence
 
 Issue [#144](https://github.com/mbelinkie/vera-script-to-timeline/issues/144),
@@ -77,7 +81,10 @@ is added: use the accepted libraries and standard-library file/hash/SQLite APIs.
   reverted changes. It writes no source or output files. Host stages
   publish those bytes through #35's immutable-output API.
   Host operator input parsing rejects BOMs, duplicate keys and non-finite
-  numbers before calling the compiler. The standalone compiler uses the
+  numbers before calling the compiler. Use stdlib `json.loads` hooks:
+  `object_pairs_hook` rejects duplicate keys, `parse_constant` rejects literal
+  NaN/Infinity and `parse_float` checks `math.isfinite` for overflow (e.g. 1e400).
+  No custom tokenizer. The standalone compiler uses the
   accepted `JSON.parse` semantics for duplicate keys; it is not the strict
   operator gate. Normal reformatted JSON remains hash-bound and accepted.
   Every #144-produced revision/dependency uses the actual TypeScript canonical
@@ -90,12 +97,21 @@ is added: use the accepted libraries and standard-library file/hash/SQLite APIs.
   `observation-a.json`, `observation-b.json`, `program-evidence.json` and
   `decisions.json`. Generated files include immutable proposals, decision/revision
   receipts, job/artifact receipts, source/occurrence map and baseline pointer.
+- Implemented core-stage building block:
+  `uv run --frozen python -m vera_timeline_agent.roundtrip_build --proof-root <directory> --node-executable <pinned-node>`.
+  Four literal inputs (request/script/dependencies/materialization plan), five
+  real core stages, immutable input-derived run/job identity and exact compiler/
+  package verification. Request schema `issue-144-prepared-build/v1` contains
+  evidenceLevel and verifiedAt. Narration artifactId equals dependency assetId.
+  Build IDs remain pinned in the literal dependencies at this segment; canonical
+  revision preparation must create fresh input-derived IDs before rebuilding.
+  Native stages explicitly wait, so exit2 is expected. No baseline is published.
 - Planned stdlib-only WI entry: `python/vera_timeline_agent/roundtrip_wi.py`,
   staged/launched through the existing approved WI boundary with `request.json`.
   Actions: capture, link, render and inspect-render. Guard current target UID and
   declared disposable proof before any mutation. Host never assumes this imports
   Python3.12 dependencies. Two captures use the same entry/build.
-- Evidence levels: `compiler_only`, `synthetic_injected`,
+- Evidence levels: `local_prepared` (five core stages), `compiler_only`, `synthetic_injected`,
   `retained_native_observation` and later `real_issue145`. Retained gate evidence
   and injected complete-pipeline evidence remain separate. New native tests,
   private media and real narration approval are #145 work.
@@ -137,6 +153,10 @@ and a fixed 20 ms (960 sample) window. Gains are approximately 1.000/0.708/0.708
 largest retained supported residual is 0.004246 RMS, versus 0.233422 for a
 synthetic half-word overlay. Freeze a bounded calibration profile and tests
 before using a verdict; these measurements alone are not a speech classifier.
+Checkpoint 3 boundary probes show that quiet/tiny synthetic residue can pass the
+proposed RMS limits. Do not freeze those limits as an absence classifier or tune
+them to pass a test. The closed W1 route/support profile and safe uncertainty
+boundary require checkpoint 4 review before a positive gate is implemented.
 New cases need an unchanged reference and plausible bounded gains, never a fit
 to the edited output that can hide residue. W1 target/neighbor supports are
 **fixture-generator declarations** from the hash-bound media manifest; label
@@ -276,3 +296,9 @@ Claude checkpoint 1 exposed unresolved topology and executable rebuild seams.
 Re-estimate after the corrected executable plan and first actual compiler/package
 stage test. Approval waits and later #148/#145 work are excluded. Update material
 scope/evidence/forecast changes here and in handoff.
+
+After the first actual compiler/package/job stage test: planning estimate
+**8–16 remaining active-work hours**, excluding Producer waits and #148/#145.
+Semantic mapping/decisions/revision, qualified audio/splice, WI sidecar, native
+injection/recovery, baseline promotion, integration and runbook remain. Revise
+if the audio/recovery checkpoint changes the executable design.

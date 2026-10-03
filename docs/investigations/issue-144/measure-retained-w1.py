@@ -219,6 +219,39 @@ def main(output: Path) -> None:
         measure(cut_routes, channel, gain)
         for channel, gain in zip(injected, gains, strict=True)
     ]
+    # Boundary probes expose the sensitivity limit. These are deliberately
+    # adulterated arrays, not additional native renders or absence verdicts.
+    boundary_cases: dict[str, object] = {}
+    quarter = (support_end - support_start) // 4
+    for name, start, end, scale in (
+        ("quarterHead", support_start, support_start + quarter, 1.0),
+        ("quarterTail", support_end - quarter, support_end, 1.0),
+        ("headToNextFrame", support_start, (support_start // FRAME + 1) * FRAME, 1.0),
+        ("tailFromLastFrame", support_end // FRAME * FRAME, support_end, 1.0),
+        ("halfAtThreePercent", support_start, half_end, 0.03),
+        ("halfAtTwoPointFivePercent", support_start, half_end, 0.025),
+        ("halfAtTwoPercent", support_start, half_end, 0.02),
+        ("halfAtOnePointFivePercent", support_start, half_end, 0.015),
+        ("tenSamples", support_start, support_start + 10, 1.0),
+    ):
+        channels = [array("d", channel) for channel in movies["W1-linked-cut-01"]]
+        for channel, sign in zip(channels, (1, -1), strict=True):
+            for index, value in enumerate(a1[start:end]):
+                channel[100 * FRAME + index] += sign * scale * value
+        metrics = [
+            measure(cut_routes, channel, gain)
+            for channel, gain in zip(channels, gains, strict=True)
+        ]
+        boundary_cases[name] = {
+            "supportSliceSamples": [start, end],
+            "overlayScale": scale,
+            "measurements": metrics,
+            "passesProposedNumericalLimitsDespiteInjectedResidue": all(
+                row["residualRms"] <= 0.0004
+                and row["maximumSliding20msResidualRms"] <= 0.006
+                for row in metrics
+            ),
+        }
     result = {
         "schemaVersion": "issue-144-retained-w1-measurements/v1",
         "purpose": "Offline numerical reconstruction, not a speech-deletion classifier",
@@ -243,9 +276,25 @@ def main(output: Path) -> None:
         "gainsFromUnchangedPictureOnlyAudio": gains,
         "inputs": {path: records[path]["decodedPublishedSha256"] for path in used},
         "measurements": findings,
+        "syntheticBoundaryProbes": boundary_cases,
+        "proposedNumericalLimits": {"wholeRms": 0.0004, "maximum20msRms": 0.006},
+        "qualification": (
+            "Numerical limits cannot rule out arbitrarily quiet/short residue. "
+            "They must not become a general speech absence classifier; require "
+            "frozen source/support provenance and complete supported route evidence."
+        ),
     }
     output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
-    print(json.dumps({"output": str(output), "measurements": findings, "gains": gains}))
+    print(
+        json.dumps(
+            {
+                "output": str(output),
+                "measurements": findings,
+                "boundaryProbes": boundary_cases,
+                "gains": gains,
+            }
+        )
+    )
 
 
 if __name__ == "__main__":

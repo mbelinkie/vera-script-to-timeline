@@ -1,0 +1,275 @@
+{
+  "analysisCodeSha256": "d7a1611c2fbcc0829817a4c67e1da197a2d0eb35e5902e02b486ff8b1e1da907",
+  "channels": 2,
+  "ffmpeg": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers",
+  "gainsFromUnchangedPictureOnlyAudio": [
+    [
+      0.9999966750098083,
+      0.7079418861934712,
+      0.7078734822365584
+    ],
+    [
+      0.9999966750098083,
+      0.7079418861934712,
+      0.7078734822365584
+    ]
+  ],
+  "inputs": {
+    "out/issue149-workflow-reruns-20261002-kit-01/media/a1_alpha.wav": "4bc4b8cfa118dab9f75ec2072f79af0c856f41566d7e2da60fca5268f7d81253",
+    "out/issue149-workflow-reruns-20261002-kit-01/media/a2_numbers.wav": "d9aeccc2d50cb96d81341167450eeb1b2c43fecf0f02b9291b4cd65afa92f9ba",
+    "out/issue149-workflow-reruns-20261002-kit-01/media/a3_bed.wav": "022e3dd779808e5b38ff870cd541d8e25fb940836443262aaa95ce8768817e2b",
+    "out/issue149-workflow-reruns-20261002-kit-01/media/base.mov": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+    "out/issue149-workflow-reruns-20261002-kit-01/media/manifest.json": "111645645106943e675418fa766fe2dfe2a2a05047d0dc8f9e9fc5e845111b39",
+    "out/issue149-workflow-reruns-20261002-kit-01/renders/W1-disabled-A1-01.mov": "de28ca47ec67218417384792b8befb55185b7c916ef9cc70e4e52fe6a8a6f307",
+    "out/issue149-workflow-reruns-20261002-kit-01/renders/W1-linked-cut-01.mov": "71e48f25ef0592ec14d63d2fe6fada6205854ab45c60581db5d4e64f9e390012",
+    "out/issue149-workflow-reruns-20261002-kit-01/renders/W1-picture-only-cut-01.mov": "56614e21ad79a09a167e312e16156eebbcdaaa3e0c544c23f38d88ff213245ac"
+  },
+  "measurements": {
+    "W1-disabled-A1-01": [
+      {
+        "maximumSliding20msResidualRms": 0.25895944385194536,
+        "programRms": 0.0541252853234194,
+        "residualRms": 0.0757683163238748
+      },
+      {
+        "maximumSliding20msResidualRms": 0.25895944385194536,
+        "programRms": 0.0541252853234194,
+        "residualRms": 0.0757683163238748
+      }
+    ],
+    "W1-linked-cut-01": [
+      {
+        "maximumSliding20msResidualRms": 0.0038154546665391587,
+        "programRms": 0.08972679783059248,
+        "residualRms": 0.00021803203576902885
+      },
+      {
+        "maximumSliding20msResidualRms": 0.0038154546665391587,
+        "programRms": 0.08972679783059248,
+        "residualRms": 0.00021803203576902885
+      }
+    ],
+    "W1-picture-only-cut-01": [
+      {
+        "maximumSliding20msResidualRms": 0.0042459105554152705,
+        "programRms": 0.09313076830209067,
+        "residualRms": 0.00020226891702859715
+      },
+      {
+        "maximumSliding20msResidualRms": 0.0042459105554152705,
+        "programRms": 0.09313076830209067,
+        "residualRms": 0.00020226891702859715
+      }
+    ],
+    "syntheticHalfCharlieOppositeChannelOverlay": [
+      {
+        "maximumSliding20msResidualRms": 0.23342200497830612,
+        "programRms": 0.09175259336888948,
+        "residualRms": 0.019119112422962787
+      },
+      {
+        "maximumSliding20msResidualRms": 0.23342204030350056,
+        "programRms": 0.09172939424905716,
+        "residualRms": 0.019120101397405356
+      }
+    ]
+  },
+  "nativeActions": 0,
+  "oppositeChannelOverlayCancelsWhenAveraged": true,
+  "proposedNumericalLimits": {
+    "maximum20msRms": 0.006,
+    "wholeRms": 0.0004
+  },
+  "purpose": "Offline numerical reconstruction, not a speech-deletion classifier",
+  "python": "3.12.14",
+  "qualification": "Numerical limits cannot rule out arbitrarily quiet/short residue. They must not become a general speech absence classifier; require frozen source/support provenance and complete supported route evidence.",
+  "sampleRate": 48000,
+  "samplesPerChannel": 766080,
+  "schemaVersion": "issue-144-retained-w1-measurements/v1",
+  "syntheticBoundaryProbes": {
+    "halfAtOnePointFivePercent": {
+      "measurements": [
+        {
+          "maximumSliding20msResidualRms": 0.0038154546665391587,
+          "programRms": 0.08972743400849348,
+          "residualRms": 0.00035985344028487755
+        },
+        {
+          "maximumSliding20msResidualRms": 0.0038154546665391587,
+          "programRms": 0.08972707821187138,
+          "residualRms": 0.000360640766639667
+        }
+      ],
+      "overlayScale": 0.015,
+      "passesProposedNumericalLimitsDespiteInjectedResidue": true,
+      "supportSliceSamples": [
+        216000,
+        225466
+      ]
+    },
+    "halfAtThreePercent": {
+      "measurements": [
+        {
+          "maximumSliding20msResidualRms": 0.0070026487415617185,
+          "programRms": 0.08972898672607918,
+          "residualRms": 0.0006131324099672691
+        },
+        {
+          "maximumSliding20msResidualRms": 0.007002684066727335,
+          "programRms": 0.08972827514373803,
+          "residualRms": 0.0006140569031510361
+        }
+      ],
+      "overlayScale": 0.03,
+      "passesProposedNumericalLimitsDespiteInjectedResidue": false,
+      "supportSliceSamples": [
+        216000,
+        225466
+      ]
+    },
+    "halfAtTwoPercent": {
+      "measurements": [
+        {
+          "maximumSliding20msResidualRms": 0.004668431381922627,
+          "programRms": 0.08972784974505109,
+          "residualRms": 0.00043973233317576917
+        },
+        {
+          "maximumSliding20msResidualRms": 0.004668466707052109,
+          "programRms": 0.08972737535143947,
+          "residualRms": 0.00044059150802489613
+        }
+      ],
+      "overlayScale": 0.02,
+      "passesProposedNumericalLimitsDespiteInjectedResidue": false,
+      "supportSliceSamples": [
+        216000,
+        225466
+      ]
+    },
+    "halfAtTwoPointFivePercent": {
+      "measurements": [
+        {
+          "maximumSliding20msResidualRms": 0.005835539775236743,
+          "programRms": 0.08972836731816707,
+          "residualRms": 0.000524890600724896
+        },
+        {
+          "maximumSliding20msResidualRms": 0.005835575100389629,
+          "programRms": 0.08972777432918118,
+          "residualRms": 0.000525790436256357
+        }
+      ],
+      "overlayScale": 0.025,
+      "passesProposedNumericalLimitsDespiteInjectedResidue": false,
+      "supportSliceSamples": [
+        216000,
+        225466
+      ]
+    },
+    "headToNextFrame": {
+      "measurements": [
+        {
+          "maximumSliding20msResidualRms": 0.046393765567187634,
+          "programRms": 0.08974455289341955,
+          "residualRms": 0.0016548750341602479
+        },
+        {
+          "maximumSliding20msResidualRms": 0.046719046764553136,
+          "programRms": 0.08973924350773177,
+          "residualRms": 0.0016663031159673632
+        }
+      ],
+      "overlayScale": 1.0,
+      "passesProposedNumericalLimitsDespiteInjectedResidue": false,
+      "supportSliceSamples": [
+        216000,
+        216960
+      ]
+    },
+    "quarterHead": {
+      "measurements": [
+        {
+          "maximumSliding20msResidualRms": 0.23282263117052376,
+          "programRms": 0.09033007997599198,
+          "residualRms": 0.010331113365278142
+        },
+        {
+          "maximumSliding20msResidualRms": 0.23282207642023395,
+          "programRms": 0.09030880217133626,
+          "residualRms": 0.010332945988324809
+        }
+      ],
+      "overlayScale": 1.0,
+      "passesProposedNumericalLimitsDespiteInjectedResidue": false,
+      "supportSliceSamples": [
+        216000,
+        220733
+      ]
+    },
+    "quarterTail": {
+      "measurements": [
+        {
+          "maximumSliding20msResidualRms": 0.1464241314255584,
+          "programRms": 0.09001568825375081,
+          "residualRms": 0.006899153119898738
+        },
+        {
+          "maximumSliding20msResidualRms": 0.14642443829744348,
+          "programRms": 0.08996702475305306,
+          "residualRms": 0.006898546152220319
+        }
+      ],
+      "overlayScale": 1.0,
+      "passesProposedNumericalLimitsDespiteInjectedResidue": false,
+      "supportSliceSamples": [
+        230199,
+        234932
+      ]
+    },
+    "tailFromLastFrame": {
+      "measurements": [
+        {
+          "maximumSliding20msResidualRms": 0.01488316490742483,
+          "programRms": 0.0897305679938894,
+          "residualRms": 0.000564775325298016
+        },
+        {
+          "maximumSliding20msResidualRms": 0.01610483728207525,
+          "programRms": 0.08972631705269025,
+          "residualRms": 0.0006053191315732439
+        }
+      ],
+      "overlayScale": 1.0,
+      "passesProposedNumericalLimitsDespiteInjectedResidue": false,
+      "supportSliceSamples": [
+        234240,
+        234932
+      ]
+    },
+    "tenSamples": {
+      "measurements": [
+        {
+          "maximumSliding20msResidualRms": 0.0038154546665391587,
+          "programRms": 0.08972685028107492,
+          "residualRms": 0.00021469861575537614
+        },
+        {
+          "maximumSliding20msResidualRms": 0.0038154546665391587,
+          "programRms": 0.08972676881706125,
+          "residualRms": 0.00023062153064137527
+        }
+      ],
+      "overlayScale": 1.0,
+      "passesProposedNumericalLimitsDespiteInjectedResidue": true,
+      "supportSliceSamples": [
+        216000,
+        216010
+      ]
+    }
+  },
+  "targetSupportSamples": [
+    216000,
+    234932
+  ]
+}
