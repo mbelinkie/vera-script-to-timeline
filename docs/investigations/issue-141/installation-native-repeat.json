@@ -1,0 +1,13 @@
+{
+  "action": "native-repeat",
+  "baselineRawSha256": "92c04d10bafe86499b7d11a27d457e655893ee6340d73a290a80e29e35887161",
+  "baselineTimelineId": "88f7923d-55a7-471f-b09b-cf10f9fae8ad",
+  "expectedProjectId": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+  "kind": "staged-native-repeat-not-executed",
+  "launcherSha256": "6774457970a59ea69a90e75d7bc53c37540b450d6f8a65f38c2487f323cd150c",
+  "operatorNoneConfirmation": "confirmed for baseline run",
+  "privateConfigSha256": "788f971546fcedd1ac07acf4ca08d51f3dfe22bbdeabd49bd515b781a12ec751",
+  "privatePathsPublished": false,
+  "probeSha256": "67f3fa3d6a761f44948c87dd6becb62f336bb0bbcac84e9c01914b0212e3707c",
+  "stage": "R1-R5-native-reopen-duplicate"
+}

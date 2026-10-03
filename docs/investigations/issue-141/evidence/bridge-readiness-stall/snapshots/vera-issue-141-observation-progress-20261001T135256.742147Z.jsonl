@@ -1,0 +1,5 @@
+{"phase": "started", "at": "2026-10-01T13:52:56.743492+00:00", "resolveInjected": true}
+{"phase": "module-loaded", "at": "2026-10-01T13:52:56.792639+00:00", "action": "editorial-readback"}
+{"phase": "probe-request", "at": "2026-10-01T13:52:56.793930+00:00"}
+{"phase": "probe-failure", "at": "2026-10-01T14:22:47.689409+00:00", "error": "RuntimeError: Exact Edit/known format/empty queue required"}
+{"phase": "result-written", "at": "2026-10-01T14:22:47.689914+00:00"}

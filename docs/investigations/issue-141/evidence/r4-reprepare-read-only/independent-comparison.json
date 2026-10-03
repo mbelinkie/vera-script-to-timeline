@@ -1,0 +1,55 @@
+{
+  "status": "verified-separate-new-occurrence-repreparation",
+  "oldOccurrenceUid": "af55478a-0ba3-458a-a6e1-e47b2544111d",
+  "newOccurrenceUid": "65a7bcd1-f211-4dee-9726-8c7e0b89cc84",
+  "sourcePoolUid": "81d81dc0-4c37-478b-8079-03debba5e780",
+  "timelineUid": "64de8a4c-86bd-4f19-9d20-47b8940f610b",
+  "recordAndSourceRange": [
+    0,
+    199
+  ],
+  "timelineBounds": [
+    0,
+    199
+  ],
+  "exactOutsideAnticipatedDeltas": true,
+  "timelineDeltas": [
+    "R4 end0\u2192199",
+    "one new V1 occurrence"
+  ],
+  "poolDeltas": [
+    "isolated source Usage0\u21921",
+    "R4 proxy Duration/End/End TC/Frames in pool item and mapping"
+  ],
+  "context": {
+    "currentPage": {
+      "value": "edit"
+    },
+    "formatCodec": {
+      "value": {
+        "codec": "H264",
+        "format": "mov"
+      }
+    },
+    "jobs": {
+      "value": []
+    },
+    "playhead": {
+      "value": "00:00:07:24"
+    },
+    "rendering": {
+      "value": false
+    },
+    "selectedTimelineUid": {
+      "value": "64de8a4c-86bd-4f19-9d20-47b8940f610b"
+    }
+  },
+  "nativeAppendCount": 1,
+  "postAppendPageGuardRefused": true,
+  "diagnosticReadOnly": true,
+  "limitations": [
+    "Delayed read-only postflight; no claim that all transient state was observed.",
+    "New occurrence UID; no old identity restoration or R1 move claim.",
+    "No save/render/asset deletion/output proof."
+  ]
+}

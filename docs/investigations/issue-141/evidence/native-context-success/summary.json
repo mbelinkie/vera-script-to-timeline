@@ -1,0 +1,110 @@
+{
+  "adjacentInjectedResult": {
+    "action": "native-context",
+    "filename": "vera-issue-141-observation-result-20260930T212400.060287Z.json",
+    "sha256": "ad85fc7cfc68cb77395ae17592b77dff599da83f3c01ba0177a19adc769a1da2",
+    "status": "equal-adjacent-reads"
+  },
+  "baselineStateAfterContextSelection": {
+    "audioVoiceIsolationAmountPresent": 3,
+    "audioVoiceIsolationEnabledPresent": 3,
+    "trackEnabled": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "baselineTimelineComparedWithOriginal": {
+    "differingFields": [
+      "/tracks[0]/items[0]/GetMediaPoolItem/GetClipProperty/value/Usage",
+      "/tracks[1]/items[0]/GetMediaPoolItem/GetClipProperty/value/Usage",
+      "/tracks[2]/items[0]/GetMediaPoolItem/GetClipProperty/value/Usage",
+      "/tracks[3]/items[0]/GetMediaPoolItem/GetClipProperty/value/Usage",
+      "/tracks[4]/items[0]/GetMediaPoolItem/GetClipProperty/value/Usage",
+      "/tracks[5]/items[0]/GetMediaPoolItem/GetClipProperty/value/Usage"
+    ],
+    "otherDifferencesAfterUsageFilter": [],
+    "timelineUid": "88f7923d-55a7-471f-b09b-cf10f9fae8ad",
+    "usageChanges": [
+      [
+        "/tracks[0]/items[0]/GetMediaPoolItem/GetClipProperty/value/Usage",
+        "1",
+        "2"
+      ],
+      [
+        "/tracks[1]/items[0]/GetMediaPoolItem/GetClipProperty/value/Usage",
+        "1",
+        "2"
+      ],
+      [
+        "/tracks[2]/items[0]/GetMediaPoolItem/GetClipProperty/value/Usage",
+        "1",
+        "2"
+      ],
+      [
+        "/tracks[3]/items[0]/GetMediaPoolItem/GetClipProperty/value/Usage",
+        "2",
+        "4"
+      ],
+      [
+        "/tracks[4]/items[0]/GetMediaPoolItem/GetClipProperty/value/Usage",
+        "2",
+        "4"
+      ],
+      [
+        "/tracks[5]/items[0]/GetMediaPoolItem/GetClipProperty/value/Usage",
+        "1",
+        "2"
+      ]
+    ]
+  },
+  "kind": "interpretation-of-retained-real-readback",
+  "limits": [
+    "This records selected context/readback in one synthetic project; it does not prove general timeline state, lineage, audio routing/mix, rendered visibility, or editorial correctness.",
+    "No deletion, speech removal, or lineage is inferred.",
+    "External Scripting None is operator-attested configuration, not API readback."
+  ],
+  "macroDispatch": {
+    "exitCode": 0,
+    "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+    "observationMenuSelectedOnce": true,
+    "probeSha256": "cf924f0ebf27d6563cfacb24325f3c3c88de22939e6e87c664c47ad415fb93dd",
+    "tool": "Hammerspoon fixed named macro"
+  },
+  "nativeContext": {
+    "captureFailure": null,
+    "captureStatuses": [
+      "equal-adjacent-reads",
+      "equal-adjacent-reads",
+      "equal-adjacent-reads"
+    ],
+    "getterFailures": [],
+    "status": "equal-adjacent-reads"
+  },
+  "r1DifferencesAfterMetadataFilter": [],
+  "rawSha256": {
+    "capture-20260930T212400.564423Z-preflight.json": "d897405a92d298aead0b849c87516ce020794887196572c8dbc2f53d307c6474",
+    "capture-20260930T212400.564423Z-selected-R1.json": "19a02a139482f9b6e5bb4c75d23fe54aba0d860c76997897d014029ed5944e86",
+    "capture-20260930T212400.564423Z-selected-baseline.json": "2e1440be5477db5969a56370173bd9016bb8ab8332a18bff28c7410b91055a06",
+    "hammerspoon-launch-20260930T212359.285719Z.jsonl": "5c1f30d63babbd0f3a44e7291b1b3fd72282618865564d04174c1a8eb5005df3",
+    "native-context-20260930T212400.564423Z.jsonl": "f3981b31f4354aa127419ccb1384cb1259f169c9e17f469799d66a2d90e6ecbe",
+    "vera-issue-141-observation-result-20260930T212400.060287Z.json": "ad85fc7cfc68cb77395ae17592b77dff599da83f3c01ba0177a19adc769a1da2"
+  },
+  "runAt": "2026-09-30T21:24Z",
+  "savedDuplicateR1State": {
+    "audioVoiceIsolationAmountPresent": 0,
+    "audioVoiceIsolationEnabledPresent": 0,
+    "trackEnabled": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "selectedR1EqualsPinnedSavedDuplicateExceptCaptureMetadata": true
+}

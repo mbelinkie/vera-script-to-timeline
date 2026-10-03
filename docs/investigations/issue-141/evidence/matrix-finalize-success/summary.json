@@ -1,0 +1,70 @@
+{
+  "captureFailure": null,
+  "getterFailures": [],
+  "journalMutationSequence": [
+    {
+      "method": "SaveProject",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "SaveProject",
+      "phase": "return",
+      "value": true
+    }
+  ],
+  "kind": "interpretation-of-retained-real-readback",
+  "launcherJournal": {
+    "afterAppendSha256": "ff54bbc6104922a5bebfb521e8d1abb6068f35b257cb3d54e6103c80ba16f27b",
+    "beforeAppendSha256": "cd53126c91c79a06ddce181e3d11396a38e1f2893bd785e88882ec80a8ec3578"
+  },
+  "limits": [
+    "This confirms construction and save/readback of the synthetic 19-section matrix, not any later editorial case behavior.",
+    "No audio mix/render, full picture visibility, media availability transition, deletion, or lineage is proven.",
+    "External Scripting None remains operator-attested, not API readback."
+  ],
+  "preflightAndSavedCapturesEqualExceptCapturedAt": true,
+  "projectTimelineSet": [
+    {
+      "name": "VERA 141 Batched Matrix",
+      "uid": "29ae8331-b86e-4041-a548-960695cc7b24"
+    },
+    {
+      "name": "VERA 141 Baseline",
+      "uid": "88f7923d-55a7-471f-b09b-cf10f9fae8ad"
+    },
+    {
+      "name": "VERA 141 R1 identity",
+      "uid": "aa2b8e36-83bd-4292-9e33-217c00ca192f"
+    }
+  ],
+  "rawSha256": {
+    "capture-20260930T223313.312609Z-preflight.json": "2a9686e4fddac37698fc6d0401e4c4b64030a360a42dd8b195100c02fb0e7441",
+    "capture-20260930T223313.312609Z-saved.json": "a29402d405ab8cf1bc1abedd4c1ed0c479e983e2ef3ba6fc41d1c2389d6d36d2",
+    "hammerspoon-launch-20260930T223311.948617Z.jsonl": "ff54bbc6104922a5bebfb521e8d1abb6068f35b257cb3d54e6103c80ba16f27b",
+    "matrix-finalize-20260930T223313.312609Z.jsonl": "ad10de46191819f2118912b39a6b5577ecd0af1f984901d6c9faa97aeac95091",
+    "matrix-layout.json": "a785aa4bfb31d3b58314d45e6c3ecc6e3c77f96369dd4a96bdd69f858ab7ed79",
+    "vera-issue-141-observation-result-20260930T223313.296914Z.json": "c6433fdc1fc192b862697201f427758e8d88b45a1321bdb12e7c62182ac02de7"
+  },
+  "resultRawSha256": "c6433fdc1fc192b862697201f427758e8d88b45a1321bdb12e7c62182ac02de7",
+  "runAt": "2026-09-30T22:33Z",
+  "sharedSourceMediaPoolUids": [
+    "9202163a-8381-43e6-9157-3a60f35c6f79",
+    "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+    "ce49c87d-edf6-4860-981c-891cc329c447",
+    "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+    "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f"
+  ],
+  "status": "equal-adjacent-reads",
+  "timeline": {
+    "audioTrackFormats": [
+      "stereo",
+      "mono",
+      "mono"
+    ],
+    "name": "VERA 141 Batched Matrix",
+    "occurrences": 114,
+    "sections": 19,
+    "uid": "29ae8331-b86e-4041-a548-960695cc7b24"
+  }
+}

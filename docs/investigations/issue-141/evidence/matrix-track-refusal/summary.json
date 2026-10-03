@@ -1,0 +1,46 @@
+{
+  "captureFailure": null,
+  "captureStatus": "equal-adjacent-reads",
+  "failure": "RuntimeError: Final matrix audio tracks are not all mono",
+  "getterFailures": [],
+  "interpretation": "Probe-side precondition rejected completed placements because validation assumed all audio tracks were mono. Captured Resolve track subtypes show Audio 1 stereo, Audio 2 mono, Audio 3 mono. The postflight capture records all 114 expected placements. This is a probe assumption mismatch, not a Resolve operation failure.",
+  "kind": "interpretation-of-retained-real-readback",
+  "launcherJournalHashes": {
+    "afterAppendAndArchived": "56806ed0f40041f093c309e95b46f162accf16e3d46715309376b1d648af316f",
+    "beforeInjectedResultAppend": "b55678520ff02c2253988c3b35be3f6ee4c010e49fcd11653f4455d06d76ed01"
+  },
+  "limits": [
+    "The matrix placement was created and read back, but this failed batch is not acceptance evidence for the matrix because the probe did not complete its intended validation.",
+    "No later editorial cases or R4 state transitions are tested."
+  ],
+  "matrixTimeline": {
+    "audioTrackSubtypes": {
+      "Audio 1": "stereo",
+      "Audio 2": "mono",
+      "Audio 3": "mono"
+    },
+    "expectedPlacements": 114,
+    "id": "29ae8331-b86e-4041-a548-960695cc7b24",
+    "name": "VERA 141 Batched Matrix",
+    "placements": 114,
+    "sections": 19
+  },
+  "operatorAttestation": {
+    "External Scripting": "None",
+    "scope": "named synthetic project/generated media only",
+    "source": "standing operator confirmation"
+  },
+  "preservation": "Original baseline and R1 identity timelines are retained; evidence captures include their readbacks. Do not clean up or rerun automatically.",
+  "project": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+  "rawSha256": {
+    "capture-20260930T215628.608006Z-empty-selected-matrix.json": "cc834e8fd34b1bd84348d3dfde00648a2fff5d0fcb17eb6398137a615a4d0445",
+    "capture-20260930T221137.773286Z-failure-postflight.json": "e68f682b2f0b73bbf8ee883fd375ecd5325061c50c1cd2615fb9ee72e386e0d9",
+    "capture-20260930T221137.773286Z-postflight.json": "317da5d173cd2f8034a79f2392d649bede137877692045c9074314d60cde427e",
+    "capture-20260930T221137.773286Z-preflight.json": "1e98831e79d93c6ccc29782a909f126c7c15bb6f54eebc0e21f7db8b32d9af29",
+    "hammerspoon-launch-20260930T221135.979026Z.jsonl": "56806ed0f40041f093c309e95b46f162accf16e3d46715309376b1d648af316f",
+    "native-matrix-20260930T221137.773286Z.jsonl": "a67bbafcadc5cac195fc6b93e95abb6382f1a2adb5bdf6a2186ec25d8330a20b",
+    "vera-issue-141-observation-result-20260930T221137.284208Z.json": "589a33bb3fa2a5c98c14c50b37c579a21b724f96db31a6b5dbf403c2d1d6011d"
+  },
+  "runAt": "2026-09-30T22:11Z",
+  "status": "matrix-partial-refused"
+}

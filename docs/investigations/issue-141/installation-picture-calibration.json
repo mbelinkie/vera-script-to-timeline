@@ -1,0 +1,30 @@
+{
+  "kind": "staged-four-known-frame-candidate-still-exports-not-executed",
+  "stagedAt": "2026-09-30T22:44:18.178604+00:00",
+  "action": "picture-calibration",
+  "stage": "R3-known-frame-export-calibration",
+  "probeSha256": "86052f25246cc2b254909d2bdcb8995db2e5347ad4971ee3e46c65b9a7a2f976",
+  "launcherSha256": "5fb45bc539400dd98e1fdbe09c25354a8a71cdd6ee9cc3580cde21a84199fdf8",
+  "privateConfigSha256": "1bef80c8a0aa56347d46597706fabb2bbca330907cd9714d7fe9c1cc189022aa",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "guardEvidence": [
+    {
+      "filename": "capture-20260930T223313.312609Z-saved.json",
+      "sha256": "a29402d405ab8cf1bc1abedd4c1ed0c479e983e2ef3ba6fc41d1c2389d6d36d2"
+    }
+  ],
+  "timelineId": "29ae8331-b86e-4041-a548-960695cc7b24",
+  "frames": [
+    0,
+    198,
+    199,
+    200
+  ],
+  "allowedApiMutations": [
+    "SetCurrentTimecode",
+    "ExportCurrentFrameAsStill"
+  ],
+  "failureLimit": "Retain outputs; restore prior timecode only in exact unchanged context; no retry or content edit.",
+  "privatePathsPublished": false
+}

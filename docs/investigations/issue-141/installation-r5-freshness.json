@@ -1,0 +1,20 @@
+{
+  "kind": "bounded-controlled-marker-customData-change",
+  "stagedAt": "2026-10-01T03:54:02.602664+00:00",
+  "action": "r5-freshness",
+  "probeSha256": "62a01c3022d9ad3061aba43f93b816bf9c18a9c7e9b6681531ba5210e1939cdc",
+  "moduleSha256": "dd033f44eabfe21a92260aed663dc3534e604d372d87b334177d67d472ca34f8",
+  "launcherSha256": "6bfa20aa89f0a085784fc2c8ced56bce2577a2cc63c21c48fc8ebaebbe704a7b",
+  "privateConfigSha256": "319ef64781dc58e3b5d70562f008dd24afb3e9a573d5636373ff7641149fb5bd",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "allowedNativeMutations": [
+    "Matrix marker0 customData to unique test value",
+    "same field exact prior restoration only with full expected state"
+  ],
+  "saveAllowed": false,
+  "timelineSelectionAllowed": false,
+  "nativeUiEditorialMacroAllowed": false,
+  "atomicSnapshotClaimAllowed": false,
+  "manualRaceClaimAllowed": false,
+  "retryAllowed": false
+}

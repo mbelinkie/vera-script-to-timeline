@@ -1,0 +1,18 @@
+{
+  "kind": "bounded-selection-only-matrix-checkpoint",
+  "stagedAt": "2026-10-01T01:51:38.033051+00:00",
+  "action": "matrix-checkpoint",
+  "stage": "R4-to-Matrix-selection-checkpoint",
+  "probeSha256": "aec19577c99f62ffe1a6cf45fc8c606d23b168dd7537d08000952267a936f9bb",
+  "moduleSha256": "ae61cd242cabf948450ad3936e2c9cb71645bf5c0bfc7ec37a8a84012f5b1259",
+  "launcherSha256": "7fdbc1b77181145040392e9c25d214750524b4006e9dee5503443e5206825716",
+  "privateConfigSha256": "4a3562bd9b7e7141a41b179441a62a37ae0cc334a2bf3f4a1976a9a88f5f6f21",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "priorConfigSha256": "109afddd6dee9498b091e1ceedb7975c5838846534de25759f626d865be7d5ec",
+  "verifiedRelinkResultSha256": "5ebbc0b18a124d9f88aac6b716f9c4eadd3348a95b7dfbf9e444e9a285d03c90",
+  "allowedApiMutations": [
+    "Project.SetCurrentTimeline existing Matrix UID once; restore prior R4 selection only on refusal"
+  ],
+  "privatePathsPublished": false
+}

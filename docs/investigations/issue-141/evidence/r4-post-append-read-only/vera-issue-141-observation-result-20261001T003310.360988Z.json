@@ -1,0 +1,9 @@
+{
+  "capture": {
+    "capturePath": "<probe-output>/capture-20261001T003310.397326Z.json",
+    "sha256": "f3a321fcd5ae47c90e25b3dcf254a0d983ff0bdde8862700b2411c710b3fe0fa",
+    "status": "equal-adjacent-reads"
+  },
+  "inventoryPath": "<probe-output>/r4-pool-read-only-20261001T003310.397326Z.json",
+  "status": "equal-read-only-pool-inventory"
+}

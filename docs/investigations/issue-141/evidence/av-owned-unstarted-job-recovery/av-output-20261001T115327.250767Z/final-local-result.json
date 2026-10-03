@@ -1,0 +1,51 @@
+{
+  "environment": {
+    "platform": "macOS-15.1-x86_64-i386-64bit-Mach-O",
+    "product": "DaVinci Resolve Studio",
+    "pythonExecutable": "/Applications/DaVinci Resolve/DaVinci Resolve.app/Contents/Libraries/Fusion/fuscript",
+    "pythonVersion": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 17.0.0 (clang-1700.6.4.2)]",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "failure": null,
+  "kind": "av-output-final-local-result",
+  "result": {
+    "job": {
+      "AudioBitDepth": 24,
+      "AudioCodec": "lpcm",
+      "AudioSampleRate": 48000,
+      "ClipStartFrame": 1,
+      "EncodingProfile": "Auto",
+      "ExportAlpha": false,
+      "FormatHeight": 1080,
+      "FormatWidth": 1920,
+      "FrameRate": "25",
+      "IsExportAudio": true,
+      "IsExportVideo": true,
+      "JobId": "9c4f9ad9-9acf-4c60-bac2-fb7cc9269ebd",
+      "MarkIn": 0,
+      "MarkOut": 2449,
+      "MultiPassEncode": false,
+      "NetworkOptimization": false,
+      "OutputFilename": "vera141-av-20261001T063250.006372Z.mov",
+      "PixelAspectRatio": 1.0,
+      "PresetName": "Custom",
+      "RenderJobName": "Job 1",
+      "RenderMode": "Single clip",
+      "TargetDir": "<repo>/out/issue-141-observation-20260930-01a0f318/av-output-20261001T063250.006372Z/render",
+      "TimelineName": "VERA 141 Batched Matrix",
+      "TimelineStartTimecode": "00:00:00:00",
+      "VideoCodec": "H.264",
+      "VideoFormat": "QuickTime"
+    },
+    "jobId": "9c4f9ad9-9acf-4c60-bac2-fb7cc9269ebd",
+    "journal": "<repo>/out/issue-141-observation-20260930-01a0f318/av-output-20261001T115327.250767Z/journal.jsonl",
+    "snapshot": "<repo>/out/issue-141-observation-20260930-01a0f318/av-output-20261001T062051.400988Z/VERA141_AV_OUTPUT_20261001T062051.400988Z.drp/VERA141_AV_OUTPUT_20261001T062051.400988Z.xml",
+    "status": "queued-job-metadata-unknown-recovery-retained"
+  }
+}

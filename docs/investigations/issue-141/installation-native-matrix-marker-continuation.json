@@ -1,0 +1,46 @@
+{
+  "kind": "staged-exact-one-clip-matrix-continuation-not-executed",
+  "stagedAt": "2026-09-30T22:11:02.451227+00:00",
+  "action": "native-matrix",
+  "stage": "R1-R3-matrix-marker-continuation",
+  "probeSha256": "eb29d975ae6ac9ae7b640b6ae1a55fdb8a439f9e9399ea4ef96f95524d9491b0",
+  "launcherSha256": "00533c315e6efd41d270b76de9a35b7abb0de22be2ca1d3db1960281c1477c15",
+  "privateConfigSha256": "669ec547a6669a7d2b065e6fc61c5812e2c4432df4d0c81a8cb87942fe8824c3",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "guardEvidence": [
+    {
+      "filename": "capture-20260930T215628.608006Z-failure-postflight.json",
+      "sha256": "3d32b4abab487b31abd581d439a5006923edfa6c3d355bb15bd6839bdb405638"
+    },
+    {
+      "filename": "capture-20260930T215628.608006Z-empty-selected-matrix.json",
+      "sha256": "cc834e8fd34b1bd84348d3dfde00648a2fff5d0fcb17eb6398137a615a4d0445"
+    },
+    {
+      "filename": "native-matrix-20260930T215628.608006Z.jsonl",
+      "sha256": "1e456123a3e516a1d1e731fd53aaebd9d6ab9c9cc0cd36f289cd994c5f30931b"
+    }
+  ],
+  "timelineId": "29ae8331-b86e-4041-a548-960695cc7b24",
+  "preservedFirstOccurrenceId": "3f2de461-d510-46f8-939f-0c794d48e38b",
+  "remainingPlacements": 113,
+  "totalPlacements": 114,
+  "allowedApiMutations": [
+    "AppendToTimeline",
+    "SetClipEnabled",
+    "AddMarker",
+    "SetClipsLinked",
+    "SaveProject"
+  ],
+  "skippedCalls": [
+    "CreateEmptyTimeline",
+    "SetCurrentTimeline",
+    "SetStartTimecode",
+    "AddTrack",
+    "existing first clip/marker setters"
+  ],
+  "guard": "Exact fresh three-timeline observation matches retained partial checkpoint; original-source UID/locator/hash gates; full final layout and old timelines in original empty-matrix selected context pass before save.",
+  "failureLimit": "Retain partial state and stop; no cleanup or unguarded retry.",
+  "privatePathsPublished": false
+}

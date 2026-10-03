@@ -1,0 +1,46 @@
+{
+  "kind": "compact-redacted-source-inventory",
+  "note": "Raw multi-megabyte captures and journals remain in their original locations; machine-specific paths are not copied.",
+  "sourceFiles": {
+    "dispatch": {
+      "bytes": 3051,
+      "name": "hammerspoon-launch-20261001T031303.182420Z.jsonl",
+      "sha256": "e08128824b677f2b98f316101d065dc682e930ddaef49774b0bc5ada11f25516"
+    },
+    "installation": {
+      "bytes": 1269,
+      "name": "installation-r4-removal.json",
+      "sha256": "a673ab826a253b8702730fdbb96a0ceba055b3dbc052aee224042e22810262c9"
+    },
+    "journal": {
+      "bytes": 4268780,
+      "name": "journal.jsonl",
+      "sha256": "0e38af596d84be9fa482343dff33c456387eac7f0aefbc69d1e16a799d1a8c7f"
+    },
+    "nativeResult": {
+      "bytes": 948,
+      "name": "vera-issue-141-observation-result-20261001T031304.137937Z.json",
+      "sha256": "ea3b12ee502d458338756b56a1f4480f1cd4b994aa33c05887b23622aaca6b19"
+    },
+    "poolPin": {
+      "bytes": 280513,
+      "name": "r4-pool-read-only-20261001T030157.768476Z.json",
+      "sha256": "15c190c39212f29e159614c5805f5ed9a9319d943b159a98d4c243d003fb474a"
+    },
+    "postflight": {
+      "bytes": 4567934,
+      "name": "postflight.json",
+      "sha256": "3a2b243dd238da5161546388f925a2b362ed75dd3ee44d5a70c625a7e307db2f"
+    },
+    "preflight": {
+      "bytes": 4601668,
+      "name": "preflight.json",
+      "sha256": "663990e2b372bbe713365b14430d218cb25943c68b8be52c5c81b8c3415ece3b"
+    },
+    "timelinePin": {
+      "bytes": 4323304,
+      "name": "capture-20261001T030157.768476Z.json",
+      "sha256": "75b854b050493a5179e2e2a5a5bf14964866efa31def9e59c22dd58cb49d26da"
+    }
+  }
+}

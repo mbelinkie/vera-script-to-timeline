@@ -1,0 +1,81 @@
+{
+  "captures": [
+    {
+      "capturePath": "<probe-output>/capture-20260930T224456.790256Z-preflight.json",
+      "sha256": "ce624a0bc008420cdc786b8083bc9bcaae0e26c6fd3c2d7bf679b73a94524408",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T224456.790256Z-content-before.json",
+      "sha256": "729dd8860509e60f0ae62a6dadf339aee1234336cabf7418826404112e6812e1",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T224456.790256Z-content-after.json",
+      "sha256": "bb9bb9a851d6f008b7578dbdf22fad454b2802da0b86caefb19c43b4fffe7095",
+      "status": "equal-adjacent-reads"
+    }
+  ],
+  "exports": [
+    {
+      "exists": true,
+      "frame": 0,
+      "path": "<probe-output>/picture-calibration-20260930T224456.790256Z/frame-000.png",
+      "pngHeaderHex": "89504e470d0a1a0a",
+      "pngHeaderMatches": true,
+      "resolvePage": "edit",
+      "sha256": "084839cd4e5ecd123e21fe204fbaadd471960290319824081f21de600ec80495",
+      "size": 6231977,
+      "timecode": "00:00:00:00"
+    },
+    {
+      "exists": true,
+      "frame": 198,
+      "path": "<probe-output>/picture-calibration-20260930T224456.790256Z/frame-198.png",
+      "pngHeaderHex": "89504e470d0a1a0a",
+      "pngHeaderMatches": true,
+      "resolvePage": "edit",
+      "sha256": "e1801029ac90b2abbb15eeca9d108298600384c2afef0475339826abfe5c1bd0",
+      "size": 6231977,
+      "timecode": "00:00:07:23"
+    },
+    {
+      "exists": true,
+      "frame": 199,
+      "path": "<probe-output>/picture-calibration-20260930T224456.790256Z/frame-199.png",
+      "pngHeaderHex": "89504e470d0a1a0a",
+      "pngHeaderMatches": true,
+      "resolvePage": "edit",
+      "sha256": "4ffe68970e56db313fa07e6054e22a0568ad00d86ff75236f152968979ad219c",
+      "size": 6231977,
+      "timecode": "00:00:07:24"
+    },
+    {
+      "exists": true,
+      "frame": 200,
+      "path": "<probe-output>/picture-calibration-20260930T224456.790256Z/frame-200.png",
+      "pngHeaderHex": "89504e470d0a1a0a",
+      "pngHeaderMatches": true,
+      "resolvePage": "edit",
+      "sha256": "4ffe68970e56db313fa07e6054e22a0568ad00d86ff75236f152968979ad219c",
+      "size": 6231977,
+      "timecode": "00:00:08:00"
+    }
+  ],
+  "failure": null,
+  "frames": [
+    0,
+    198,
+    199,
+    200
+  ],
+  "initialPage": "edit",
+  "initialTimecode": "00:06:08:00",
+  "kind": "candidate-still-export-calibration-not-compositing-proof",
+  "limits": [
+    "PNG bytes do not establish which timeline sample Resolve exported.",
+    "Candidate stills do not prove compositing or general still export behavior."
+  ],
+  "outputDirectory": "<probe-output>/picture-calibration-20260930T224456.790256Z",
+  "restored": true
+}

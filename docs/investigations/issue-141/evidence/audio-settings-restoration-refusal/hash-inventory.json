@@ -1,0 +1,41 @@
+{
+  "kind": "read-only-audio-recovery-diagnosis-inventory",
+  "note": "Raw captures, journals, XML, and installed documentation remain in their original locations; absolute paths are omitted.",
+  "sourceFiles": {
+    "currentJournal": {
+      "bytes": 2031166,
+      "name": "journal.jsonl",
+      "sha256": "fda00cbecbea749aab7d61ae0185b00069e4f639908c7997cc5bffe4098f2f7f"
+    },
+    "currentPreflight": {
+      "bytes": 4379200,
+      "name": "preflight.json",
+      "sha256": "3dfc30798ca4769d719d52028b508f8eb8261bf2daf61a9a0255f52091d765b0"
+    },
+    "installedApiReadme": {
+      "bytes": 32718,
+      "name": "README.md",
+      "sha256": "5f58c94da8ec3c1f390d77ad9c60675263591dc101159b302e50b5774513830b"
+    },
+    "installedApiStub": {
+      "bytes": 116472,
+      "name": "DaVinciResolveScript.pyi",
+      "sha256": "00078fa1256851b9807621a4eea5e670f4266b0e7003763cba4a62655543f0ec"
+    },
+    "launcherResult": {
+      "bytes": 201,
+      "name": "vera-issue-141-observation-result-20261001T021255.149341Z.json",
+      "sha256": "0f58231798b54d00f7d4c43aeae99ef21895c1e1408108838176dce84d6762dc"
+    },
+    "originalExportJournal": {
+      "bytes": 2026467,
+      "name": "original-export-journal.jsonl",
+      "sha256": "19bc611d3c32ac686f5f389f3dd414fff04bf3a899f50c962ef3b98a5f235509"
+    },
+    "originalExportXml": {
+      "bytes": 6174,
+      "name": "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z.xml",
+      "sha256": "1b3b21a728c3216f9782d87aa2feae977747c377901eb6b81ed5a83a2da06595"
+    }
+  }
+}

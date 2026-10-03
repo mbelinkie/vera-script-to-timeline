@@ -1,0 +1,29 @@
+{
+  "dispatch": {
+    "action": "r4-occurrence-remove",
+    "menuSelectionCount": 1,
+    "returncode": 0
+  },
+  "dispatchSha256": "e08128824b677f2b98f316101d065dc682e930ddaef49774b0bc5ada11f25516",
+  "journalSha256": "0e38af596d84be9fa482343dff33c456387eac7f0aefbc69d1e16a799d1a8c7f",
+  "limits": [
+    "The removal result verifies timeline occurrence removal and retained source media-pool item; it does not demonstrate restoration or program output."
+  ],
+  "nativeResultSha256": "ea3b12ee502d458338756b56a1f4480f1cd4b994aa33c05887b23622aaca6b19",
+  "poolDifferencePaths": [
+    "/items/8/evidence/GetClipProperty/value/Usage: 1 -> 0"
+  ],
+  "postflightSha256": "3a2b243dd238da5161546388f925a2b362ed75dd3ee44d5a70c625a7e307db2f",
+  "preflightMatchesPinnedTimelineAndPool": true,
+  "preflightSha256": "663990e2b372bbe713365b14430d218cb25943c68b8be52c5c81b8c3415ece3b",
+  "sourceOnlineStatus": "Online",
+  "sourceSha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+  "sourceStatus": "reachable",
+  "sourceUid": "81d81dc0-4c37-478b-8079-03debba5e780",
+  "status": "verified-one-occurrence-non-ripple-removal-source-retained",
+  "targetUid": "af55478a-0ba3-458a-a6e1-e47b2544111d",
+  "timelineAndPoolAdjacentReadsEqual": true,
+  "timelineDifferencePaths": [
+    "/timelines/1/tracks/0/items/len: 1 -> 0"
+  ]
+}

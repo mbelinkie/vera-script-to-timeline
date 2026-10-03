@@ -1,0 +1,18 @@
+{
+  "kind": "real-injected-precreation-refusal",
+  "runAt": "2026-09-30T21:49:15Z",
+  "status": "matrix-partial-refused",
+  "failure": "RuntimeError: Media pool items are unreadable; refusing",
+  "apiMutationRequests": 0,
+  "matrixCreated": false,
+  "beforeAfterPassesExactlyEqual": true,
+  "captureStatuses": [
+    "equal-adjacent-reads",
+    "equal-adjacent-reads"
+  ],
+  "limits": [
+    "The probe required a five-element list/tuple from GetClipList; the actual returned value/type/count was not retained, so the exact listing mismatch remains unknown.",
+    "This is a probe assumption/refusal, not a reproduced unavailable Resolve capability.",
+    "No editorial, routing, speech omission or visibility evidence was added."
+  ]
+}

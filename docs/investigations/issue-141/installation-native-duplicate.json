@@ -1,0 +1,15 @@
+{
+  "kind": "staged-native-duplicate-after-operator-reopen-not-executed",
+  "stagedAt": "2026-09-30T19:58:37.071677+00:00",
+  "action": "native-duplicate",
+  "stage": "R1-operator-reopen-native-duplicate",
+  "probeSha256": "1966070723c2736eefb1755f899c1fb26d3c2fc81936d6e076b4b5252a8314f7",
+  "launcherSha256": "a58e80a3cdf3e9d334ae362a5370a724970c18c3464f0bff584961bd1261c584",
+  "privateConfigSha256": "e4ccc570f412706f07e7481281023065e757b7d906392e535dcff6dbeff581f7",
+  "baselineRawSha256": "92c04d10bafe86499b7d11a27d457e655893ee6340d73a290a80e29e35887161",
+  "priorCloseJournalRawSha256": "89577090189fae678919835943624835afa47f697d2c4054519cfadbbfdc3207",
+  "expectedProjectId": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+  "baselineTimelineId": "88f7923d-55a7-471f-b09b-cf10f9fae8ad",
+  "privatePathsPublished": false,
+  "reopenSequence": "operator action required; not independently verified by capture"
+}

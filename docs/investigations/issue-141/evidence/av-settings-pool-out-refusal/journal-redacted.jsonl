@@ -1,0 +1,48 @@
+{"at": "2026-10-01T06:32:52.907871+00:00", "method": "FullPair", "phase": "captured-001", "value": {"path": "<WORKSPACE>/out/issue-141-observation-20260930-01a0f318/av-output-20261001T063250.006372Z/full-pair-001.json", "sha256": "35f7132f331a8ecf0f1685dd1167c636add1aea3118bfbf2f2e7896ae348c1c3"}}
+{"at": "2026-10-01T06:32:52.934502+00:00", "method": "GetCurrentRenderFormatAndCodec", "phase": "request", "value": []}
+{"at": "2026-10-01T06:32:52.935243+00:00", "method": "GetCurrentRenderFormatAndCodec", "phase": "return", "value": {"codec": "H264", "format": "mov"}}
+{"at": "2026-10-01T06:32:52.935361+00:00", "method": "GetCurrentRenderMode", "phase": "request", "value": []}
+{"at": "2026-10-01T06:32:52.936478+00:00", "method": "GetCurrentRenderMode", "phase": "return", "value": 1}
+{"at": "2026-10-01T06:32:52.936587+00:00", "method": "GetRenderJobList", "phase": "request", "value": []}
+{"at": "2026-10-01T06:32:52.937025+00:00", "method": "GetRenderJobList", "phase": "return", "value": []}
+{"at": "2026-10-01T06:32:52.937138+00:00", "method": "IsRenderingInProgress", "phase": "request", "value": []}
+{"at": "2026-10-01T06:32:52.937438+00:00", "method": "IsRenderingInProgress", "phase": "return", "value": false}
+{"at": "2026-10-01T06:32:52.937549+00:00", "method": "GetRenderPresetList", "phase": "request", "value": []}
+{"at": "2026-10-01T06:32:52.937918+00:00", "method": "GetRenderPresetList", "phase": "return", "value": ["H.264 Master", "HyperDeck", "H.265 Master", "ProRes 422 HQ", "YouTube - 720p", "YouTube - 1080p", "YouTube - 1440p", "YouTube - 2160p", "Vimeo - 720p", "Vimeo - 1080p", "Vimeo - 2160p", "TikTok - 720p", "TikTok - 1080p", "Presentations", "Dropbox - 720p", "Dropbox - 1080p", "Dropbox - 2160p", "Replay - 720p", "Replay - 1080p", "Replay - 2160p", "IMF - Generic", "IMF - 20th Century Fox", "IMF - Netflix", "IMF - Sony Pictures", "IMF - iQIYI", "IMF - HDR Vivid", "FCP - Final Cut Pro 7", "FCP - Final Cut Pro X", "Premiere XML", "Audio Only", "AVID AAF", "Pro Tools", "Tencent - IMF", "Tencent - MOV", "Tencent - MP4", "VR 180/360 - Meta Quest VR", "VR 180/360 - YouTube VR", "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z", "VERA141_AV_OUTPUT_20261001T062051.400988Z"]}
+{"at": "2026-10-01T06:32:52.938040+00:00", "method": "GetCurrentRenderFormatAndCodec", "phase": "request", "value": []}
+{"at": "2026-10-01T06:32:52.938347+00:00", "method": "GetCurrentRenderFormatAndCodec", "phase": "return", "value": {"codec": "H264", "format": "mov"}}
+{"at": "2026-10-01T06:32:52.938460+00:00", "method": "GetCurrentRenderMode", "phase": "request", "value": []}
+{"at": "2026-10-01T06:32:52.939148+00:00", "method": "GetCurrentRenderMode", "phase": "return", "value": 1}
+{"at": "2026-10-01T06:32:52.939256+00:00", "method": "GetRenderJobList", "phase": "request", "value": []}
+{"at": "2026-10-01T06:32:52.939545+00:00", "method": "GetRenderJobList", "phase": "return", "value": []}
+{"at": "2026-10-01T06:32:52.939638+00:00", "method": "IsRenderingInProgress", "phase": "request", "value": []}
+{"at": "2026-10-01T06:32:52.939895+00:00", "method": "IsRenderingInProgress", "phase": "return", "value": false}
+{"at": "2026-10-01T06:32:52.939984+00:00", "method": "GetRenderPresetList", "phase": "request", "value": []}
+{"at": "2026-10-01T06:32:52.940288+00:00", "method": "GetRenderPresetList", "phase": "return", "value": ["H.264 Master", "HyperDeck", "H.265 Master", "ProRes 422 HQ", "YouTube - 720p", "YouTube - 1080p", "YouTube - 1440p", "YouTube - 2160p", "Vimeo - 720p", "Vimeo - 1080p", "Vimeo - 2160p", "TikTok - 720p", "TikTok - 1080p", "Presentations", "Dropbox - 720p", "Dropbox - 1080p", "Dropbox - 2160p", "Replay - 720p", "Replay - 1080p", "Replay - 2160p", "IMF - Generic", "IMF - 20th Century Fox", "IMF - Netflix", "IMF - Sony Pictures", "IMF - iQIYI", "IMF - HDR Vivid", "FCP - Final Cut Pro 7", "FCP - Final Cut Pro X", "Premiere XML", "Audio Only", "AVID AAF", "Pro Tools", "Tencent - IMF", "Tencent - MOV", "Tencent - MP4", "VR 180/360 - Meta Quest VR", "VR 180/360 - YouTube VR", "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z", "VERA141_AV_OUTPUT_20261001T062051.400988Z"]}
+{"at": "2026-10-01T06:32:52.940686+00:00", "method": "RecoveryXml", "phase": "reused-pinned", "value": {"path": "<WORKSPACE>/out/issue-141-observation-20260930-01a0f318/av-output-20261001T062051.400988Z/VERA141_AV_OUTPUT_20261001T062051.400988Z.drp/VERA141_AV_OUTPUT_20261001T062051.400988Z.xml", "sha256": "7a729ff08dcbccc16b090bfdd12146ce094fae7aa534d5780ea4f7e4e2581f59"}}
+{"at": "2026-10-01T06:32:55.457670+00:00", "method": "FullPair", "phase": "captured-002", "value": {"path": "<WORKSPACE>/out/issue-141-observation-20260930-01a0f318/av-output-20261001T063250.006372Z/full-pair-002.json", "sha256": "35f7132f331a8ecf0f1685dd1167c636add1aea3118bfbf2f2e7896ae348c1c3"}}
+{"at": "2026-10-01T06:32:55.490365+00:00", "method": "SetRenderSettings", "phase": "request", "value": [{"AudioBitDepth": 24, "AudioCodec": "lpcm", "AudioSampleRate": 48000, "CustomName": "vera141-av-20261001T063250.006372Z", "ExportAudio": true, "ExportVideo": true, "FormatHeight": 360, "FormatWidth": 640, "FrameRate": 25.0, "MarkIn": 0, "MarkOut": 200, "SelectAllFrames": false, "TargetDir": "<WORKSPACE>/out/issue-141-observation-20260930-01a0f318/av-output-20261001T063250.006372Z/render"}]}
+{"at": "2026-10-01T06:32:55.625386+00:00", "method": "SetRenderSettings", "phase": "return", "value": true}
+{"at": "2026-10-01T06:32:55.625699+00:00", "method": "GetCurrentRenderFormatAndCodec", "phase": "request", "value": []}
+{"at": "2026-10-01T06:32:55.650065+00:00", "method": "GetCurrentRenderFormatAndCodec", "phase": "return", "value": {"codec": "H264", "format": "mov"}}
+{"at": "2026-10-01T06:32:55.650258+00:00", "method": "GetCurrentRenderMode", "phase": "request", "value": []}
+{"at": "2026-10-01T06:32:55.679959+00:00", "method": "GetCurrentRenderMode", "phase": "return", "value": 1}
+{"at": "2026-10-01T06:32:55.680138+00:00", "method": "GetRenderJobList", "phase": "request", "value": []}
+{"at": "2026-10-01T06:32:55.680596+00:00", "method": "GetRenderJobList", "phase": "return", "value": []}
+{"at": "2026-10-01T06:32:55.680732+00:00", "method": "IsRenderingInProgress", "phase": "request", "value": []}
+{"at": "2026-10-01T06:32:55.681129+00:00", "method": "IsRenderingInProgress", "phase": "return", "value": false}
+{"at": "2026-10-01T06:32:55.681255+00:00", "method": "GetRenderPresetList", "phase": "request", "value": []}
+{"at": "2026-10-01T06:32:55.681768+00:00", "method": "GetRenderPresetList", "phase": "return", "value": ["H.264 Master", "HyperDeck", "H.265 Master", "ProRes 422 HQ", "YouTube - 720p", "YouTube - 1080p", "YouTube - 1440p", "YouTube - 2160p", "Vimeo - 720p", "Vimeo - 1080p", "Vimeo - 2160p", "TikTok - 720p", "TikTok - 1080p", "Presentations", "Dropbox - 720p", "Dropbox - 1080p", "Dropbox - 2160p", "Replay - 720p", "Replay - 1080p", "Replay - 2160p", "IMF - Generic", "IMF - 20th Century Fox", "IMF - Netflix", "IMF - Sony Pictures", "IMF - iQIYI", "IMF - HDR Vivid", "FCP - Final Cut Pro 7", "FCP - Final Cut Pro X", "Premiere XML", "Audio Only", "AVID AAF", "Pro Tools", "Tencent - IMF", "Tencent - MOV", "Tencent - MP4", "VR 180/360 - Meta Quest VR", "VR 180/360 - YouTube VR", "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z", "VERA141_AV_OUTPUT_20261001T062051.400988Z"]}
+{"at": "2026-10-01T06:32:55.681916+00:00", "method": "GetCurrentRenderFormatAndCodec", "phase": "request", "value": []}
+{"at": "2026-10-01T06:32:55.682265+00:00", "method": "GetCurrentRenderFormatAndCodec", "phase": "return", "value": {"codec": "H264", "format": "mov"}}
+{"at": "2026-10-01T06:32:55.682386+00:00", "method": "GetCurrentRenderMode", "phase": "request", "value": []}
+{"at": "2026-10-01T06:32:55.683189+00:00", "method": "GetCurrentRenderMode", "phase": "return", "value": 1}
+{"at": "2026-10-01T06:32:55.683309+00:00", "method": "GetRenderJobList", "phase": "request", "value": []}
+{"at": "2026-10-01T06:32:55.683788+00:00", "method": "GetRenderJobList", "phase": "return", "value": []}
+{"at": "2026-10-01T06:32:55.684029+00:00", "method": "IsRenderingInProgress", "phase": "request", "value": []}
+{"at": "2026-10-01T06:32:55.684388+00:00", "method": "IsRenderingInProgress", "phase": "return", "value": false}
+{"at": "2026-10-01T06:32:55.684519+00:00", "method": "GetRenderPresetList", "phase": "request", "value": []}
+{"at": "2026-10-01T06:32:55.684936+00:00", "method": "GetRenderPresetList", "phase": "return", "value": ["H.264 Master", "HyperDeck", "H.265 Master", "ProRes 422 HQ", "YouTube - 720p", "YouTube - 1080p", "YouTube - 1440p", "YouTube - 2160p", "Vimeo - 720p", "Vimeo - 1080p", "Vimeo - 2160p", "TikTok - 720p", "TikTok - 1080p", "Presentations", "Dropbox - 720p", "Dropbox - 1080p", "Dropbox - 2160p", "Replay - 720p", "Replay - 1080p", "Replay - 2160p", "IMF - Generic", "IMF - 20th Century Fox", "IMF - Netflix", "IMF - Sony Pictures", "IMF - iQIYI", "IMF - HDR Vivid", "FCP - Final Cut Pro 7", "FCP - Final Cut Pro X", "Premiere XML", "Audio Only", "AVID AAF", "Pro Tools", "Tencent - IMF", "Tencent - MOV", "Tencent - MP4", "VR 180/360 - Meta Quest VR", "VR 180/360 - YouTube VR", "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z", "VERA141_AV_OUTPUT_20261001T062051.400988Z"]}
+{"at": "2026-10-01T06:32:55.685101+00:00", "method": "GetRenderJobList", "phase": "request", "value": []}
+{"at": "2026-10-01T06:32:55.685444+00:00", "method": "GetRenderJobList", "phase": "return", "value": []}
+{"at": "2026-10-01T06:32:58.259453+00:00", "method": "FullPair", "phase": "captured-003", "value": {"path": "<WORKSPACE>/out/issue-141-observation-20260930-01a0f318/av-output-20261001T063250.006372Z/full-pair-003.json", "sha256": "dc66efb49729dfc0b40efd35a3fa02d94cacd91e1ddfbaa62e97efcf656467ca"}}

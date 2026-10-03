@@ -1,0 +1,18 @@
+{
+  "kind": "save-only-continuation-of-verified-r4-partial-state",
+  "stagedAt": "2026-10-01T00:49:45.738786+00:00",
+  "action": "r4-finalize",
+  "stage": "R4-save-only-finalization",
+  "probeSha256": "ce11d0fe34eea933d06b0efa7459650258b27cd0709475675e7383d9c463e3f5",
+  "moduleSha256": "4e9587bcb5d78258fabf50de57d0c14b6ae9769de3c06281d4fc05f5971ab420",
+  "launcherSha256": "d344f966b451e106c558a30559145eb8ef06162d1f79ad069394d21393726031",
+  "privateConfigSha256": "901899e8bd022952b3a7c2b1fce13574097f472d5c32ede824c80dd2b25c3f5c",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "captureSha256": "f3a321fcd5ae47c90e25b3dcf254a0d983ff0bdde8862700b2411c710b3fe0fa",
+  "poolSha256": "ac6f4661f59f910029dae51dcc758bd1d766e8f810fb4996fcee1b18c681e751",
+  "allowedApiMutations": [
+    "ProjectManager.SaveProject once"
+  ],
+  "privatePathsPublished": false
+}

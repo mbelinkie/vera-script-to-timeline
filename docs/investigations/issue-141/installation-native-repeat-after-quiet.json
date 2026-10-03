@@ -1,0 +1,11 @@
+{
+  "action": "native-repeat",
+  "baselineRawSha256": "92c04d10bafe86499b7d11a27d457e655893ee6340d73a290a80e29e35887161",
+  "kind": "restaged-native-repeat-after-exact-quiet-repeat-not-executed",
+  "launcherSha256": "6774457970a59ea69a90e75d7bc53c37540b450d6f8a65f38c2487f323cd150c",
+  "privateConfigSha256": "f40fdb048c7e8816e53b4c9920073e28e7179e0512b4a70fff689b18d72f63ab",
+  "privatePathsPublished": false,
+  "probeSha256": "bb4378b560552687344418e22e3abf6aad27d48711fb4ce6c872ec2ac14b6c02",
+  "quietRepeatRawSha256": "fcdff8df7d68ce28a7a491e568f6c1cda028c5a0397354fce666ac90d3032827",
+  "stage": "R1-R5-native-reopen-duplicate-with-retained-preflight"
+}

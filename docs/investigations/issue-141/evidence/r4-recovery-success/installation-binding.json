@@ -1,0 +1,19 @@
+{
+  "action": "r4-recovery",
+  "allowedApiMutations": [
+    "MediaPool.RelinkClips one distinct imported UID once"
+  ],
+  "kind": "bounded-relink-only-offline-recovery",
+  "launcherSha256": "80a7ce96171825ceb02a34c0b5e0d3ff4932a9dc63f5aea465e99c2c7bacb3d2",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "moduleSha256": "adb3f429769c440a40d30e40481e3da508c4b49c1b51204df65be68f5b8bf7ff",
+  "offlinePictureLaunchDeferred": true,
+  "privateConfigSha256": "a0aab3abf891c3c7cb2aa5fa72d8899375042e7b688833d017e5767a0c4f4f23",
+  "privatePathsPublished": false,
+  "probeSha256": "279fe5703ad1e7c585c024f55622c0b408daf3a58bf655d9e4f02c908befe22a",
+  "saveAllowed": false,
+  "stage": "R4-relink-only-recovery",
+  "stagedAt": "2026-10-01T01:45:15.582659+00:00",
+  "unlinkRetryAllowed": false
+}

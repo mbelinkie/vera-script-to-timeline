@@ -1,0 +1,9 @@
+{
+  "action": "observe",
+  "kind": "staged-read-only-discrepancy-capture-not-executed",
+  "launcherSha256": "6774457970a59ea69a90e75d7bc53c37540b450d6f8a65f38c2487f323cd150c",
+  "privateConfigSha256": "25c13c7c0771dc0bcda65de2dfb1d03fc234654f22b3f9e5dbeb3aef1816679b",
+  "privatePathsPublished": false,
+  "probeSha256": "bb4378b560552687344418e22e3abf6aad27d48711fb4ce6c872ec2ac14b6c02",
+  "stage": "baseline-state-discrepancy-read-only"
+}

@@ -1,0 +1,44 @@
+[
+  {
+    "filename": "capture-20260930T221137.773286Z-preflight.json",
+    "rawSha256": "1e98831e79d93c6ccc29782a909f126c7c15bb6f54eebc0e21f7db8b32d9af29",
+    "publishedSha256": "fdd7bc601b9cfc82ec8b62ac4a6609550b29163019600cc5a0c1b8ab394bfb10",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T215628.608006Z-empty-selected-matrix.json",
+    "rawSha256": "cc834e8fd34b1bd84348d3dfde00648a2fff5d0fcb17eb6398137a615a4d0445",
+    "publishedSha256": "c5304a106a710fc657081bb80bd8a99eabb6eb9f134f0ce19c7112f15945f03f",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T221137.773286Z-postflight.json",
+    "rawSha256": "317da5d173cd2f8034a79f2392d649bede137877692045c9074314d60cde427e",
+    "publishedSha256": "0ae5f9c17447550f76187ba0f4a80ac49889c1d18fed7335a9cd82b964247a47",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T221137.773286Z-failure-postflight.json",
+    "rawSha256": "e68f682b2f0b73bbf8ee883fd375ecd5325061c50c1cd2615fb9ee72e386e0d9",
+    "publishedSha256": "48966ef5d9e32924c6ae032fda35035a748d2741ee05e2579e8b961addf8733a",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "native-matrix-20260930T221137.773286Z.jsonl",
+    "rawSha256": "a67bbafcadc5cac195fc6b93e95abb6382f1a2adb5bdf6a2186ec25d8330a20b",
+    "publishedSha256": "5c40b88f870019921ee8abe8fe7385c6b959842781e27cce093a7bc19f56f44f",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "vera-issue-141-observation-result-20260930T221137.284208Z.json",
+    "rawSha256": "589a33bb3fa2a5c98c14c50b37c579a21b724f96db31a6b5dbf403c2d1d6011d",
+    "publishedSha256": "1e9da21e66b93ae7ae53239f494452653522b2434a61a6fc1428a428d9960016",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "hammerspoon-launch-20260930T221135.979026Z.jsonl",
+    "rawSha256": "56806ed0f40041f093c309e95b46f162accf16e3d46715309376b1d648af316f",
+    "publishedSha256": "56806ed0f40041f093c309e95b46f162accf16e3d46715309376b1d648af316f",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  }
+]

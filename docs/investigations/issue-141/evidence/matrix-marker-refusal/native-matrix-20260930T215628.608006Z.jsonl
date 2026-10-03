@@ -1,0 +1,29 @@
+{"at": "2026-09-30T21:56:28.947830+00:00", "method": "CreateEmptyTimeline", "phase": "request", "value": ["VERA 141 Batched Matrix"]}
+{"at": "2026-09-30T21:56:29.399049+00:00", "method": "CreateEmptyTimeline", "phase": "return", "value": {"GetName": {"value": "VERA 141 Batched Matrix"}, "GetUniqueId": {"value": "29ae8331-b86e-4041-a548-960695cc7b24"}}}
+{"at": "2026-09-30T21:56:29.419361+00:00", "method": "SetCurrentTimeline", "phase": "request", "value": ["29ae8331-b86e-4041-a548-960695cc7b24"]}
+{"at": "2026-09-30T21:56:29.547929+00:00", "method": "SetCurrentTimeline", "phase": "return", "value": true}
+{"at": "2026-09-30T21:56:29.630404+00:00", "method": "SetCurrentTimeline(readback)", "phase": "readback", "value": {"selectedTimelineId": "29ae8331-b86e-4041-a548-960695cc7b24"}}
+{"at": "2026-09-30T21:56:29.632993+00:00", "method": "SetStartTimecode", "phase": "request", "value": ["00:00:00:00"]}
+{"at": "2026-09-30T21:56:29.928715+00:00", "method": "SetStartTimecode", "phase": "return", "value": true}
+{"at": "2026-09-30T21:56:30.019913+00:00", "method": "AddTrack", "phase": "request", "value": ["video"]}
+{"at": "2026-09-30T21:56:30.030837+00:00", "method": "AddTrack", "phase": "return", "value": true}
+{"at": "2026-09-30T21:56:30.043541+00:00", "method": "GetTrackCount", "phase": "readback", "value": {"count": 2, "type": "video"}}
+{"at": "2026-09-30T21:56:30.060794+00:00", "method": "AddTrack", "phase": "request", "value": ["video"]}
+{"at": "2026-09-30T21:56:30.071133+00:00", "method": "AddTrack", "phase": "return", "value": true}
+{"at": "2026-09-30T21:56:30.076894+00:00", "method": "GetTrackCount", "phase": "readback", "value": {"count": 3, "type": "video"}}
+{"at": "2026-09-30T21:56:30.094330+00:00", "method": "AddTrack", "phase": "request", "value": ["audio", "mono"]}
+{"at": "2026-09-30T21:56:30.106535+00:00", "method": "AddTrack", "phase": "return", "value": true}
+{"at": "2026-09-30T21:56:30.114212+00:00", "method": "GetTrackCount", "phase": "readback", "value": {"count": 2, "type": "audio"}}
+{"at": "2026-09-30T21:56:30.178797+00:00", "method": "AddTrack", "phase": "request", "value": ["audio", "mono"]}
+{"at": "2026-09-30T21:56:30.194822+00:00", "method": "AddTrack", "phase": "return", "value": true}
+{"at": "2026-09-30T21:56:30.206166+00:00", "method": "GetTrackCount", "phase": "readback", "value": {"count": 3, "type": "audio"}}
+{"at": "2026-09-30T21:56:30.535060+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Green", "141 calibration", "Synthetic matrix case boundary", 1, "{\"index\": 0, \"issue\": 141, \"section\": \"calibration\"}"]}
+{"at": "2026-09-30T21:56:30.539150+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T21:56:30.550091+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "9202163a-8381-43e6-9157-3a60f35c6f79", "mediaType": 1, "occurrence": 0, "recordFrame": 0, "section": "calibration", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T21:56:30.585106+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "3f2de461-d510-46f8-939f-0c794d48e38b"}]}
+{"at": "2026-09-30T21:56:30.599769+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T21:56:30.607532+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T21:56:30.621508+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 calibration item 0", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 0, \"section\": \"calibration\"}"]}
+{"at": "2026-09-30T21:56:30.623323+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T21:56:30.638000+00:00", "method": "native-matrix", "phase": "failure", "value": "RuntimeError: Occurrence marker readback differs"}
+{"at": "2026-09-30T21:56:30.977361+00:00", "method": "native-matrix(failure capture)", "phase": "readback", "value": {"capturePath": "<probe-output>/capture-20260930T215628.608006Z-failure-postflight.json", "sha256": "3d32b4abab487b31abd581d439a5006923edfa6c3d355bb15bd6839bdb405638", "status": "equal-adjacent-reads"}}

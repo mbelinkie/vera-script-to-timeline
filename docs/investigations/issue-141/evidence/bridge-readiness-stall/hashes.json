@@ -1,0 +1,120 @@
+[
+  {
+    "name": "snapshots/vera-issue-141-observation-progress-20261001T135256.742147Z.jsonl",
+    "sourceName": "vera-issue-141-observation-progress-20261001T135256.742147Z.jsonl",
+    "bytes": 468,
+    "sha256": "5ac848a7d0b7b83d716632e77c23a009449dfb3c7e4a27876d5fcf781043a2a1",
+    "snapshotVerifiedEqualAt": "2026-10-01"
+  },
+  {
+    "name": "snapshots/vera-issue-141-observation-progress-20261001T135513.298255Z.jsonl",
+    "sourceName": "vera-issue-141-observation-progress-20261001T135513.298255Z.jsonl",
+    "bytes": 688,
+    "sha256": "ee9cecb4869bf7a29483ea3f7584b630a278b8862d548f1de726cf66491f7eda",
+    "snapshotVerifiedEqualAt": "2026-10-01"
+  },
+  {
+    "name": "snapshots/vera-issue-141-observation-progress-20261001T140359.691844Z.jsonl",
+    "sourceName": "vera-issue-141-observation-progress-20261001T140359.691844Z.jsonl",
+    "bytes": 639,
+    "sha256": "8343ede5f4addc7daa6d48fd73d93850eda2aa0a1140689dcd8d190771df806a",
+    "snapshotVerifiedEqualAt": "2026-10-01"
+  },
+  {
+    "name": "latest-capture-retained-by-reference",
+    "sourceName": "capture-20261001T142246.378925Z.json",
+    "bytes": 4615896,
+    "sha256": "211eb7be3ce91f56b16f5fe6eb68135626c82b5d60c36175cec92f08e62bee55"
+  },
+  {
+    "name": "latest-result-retained-by-reference",
+    "sourceName": "vera-issue-141-observation-result-20261001T140359.691844Z.json",
+    "bytes": 289,
+    "sha256": "f547172fe45778bd009c1c21565d84e20a907fe2ab641be2a026cb1dd6b915f3"
+  },
+  {
+    "name": "reviewed/r5-manual-move-report.json",
+    "bytes": 844,
+    "sha256": "69b6218e1b3fd75adeed9ed469e5da19cb985ee7a3c1516f0680741e0631185b"
+  },
+  {
+    "name": "reviewed/launcher-progress-installation.json",
+    "bytes": 341,
+    "sha256": "33b1b98d891a66eb6418cffb65599e229cd9c317d49ae5e4362c0d33c56e6988"
+  },
+  {
+    "name": "reviewed/bridge-readiness-health.json",
+    "bytes": 443,
+    "sha256": "c9ea781bdab637289719ef4b8fd8d8be3b2c5f8228ca25ba28913bc048b9c3bf"
+  },
+  {
+    "name": "reviewed/r5-manual-ran-no-result-config.json",
+    "bytes": 4065,
+    "sha256": "651bbf540b3289cf6041a054e4af85c558f64b8cc888a28049a3f657e9476dc4"
+  },
+  {
+    "name": "reviewed/r5-manual-note-confirmed.json",
+    "bytes": 1286,
+    "sha256": "7fde64464d704776e1dcb7b3acb5382816705569740de3c1d3cb079a8a02318e"
+  },
+  {
+    "name": "reviewed/independent-action-20261001T134214.581624Z/timeout.json",
+    "bytes": 582,
+    "sha256": "4bf1a8a090c6f7584b634bc38babd362f194e04e3ba096192ab175880f510d78"
+  },
+  {
+    "name": "reviewed/independent-action-20261001T134808.715065Z/launch.json",
+    "bytes": 270,
+    "sha256": "af31e3f00140ee487208c3d2d0a741dcc31c0ad0a1b950df60f21f38efe52ca0"
+  },
+  {
+    "name": "reviewed/independent-action-20261001T135256.261637Z/launch.json",
+    "bytes": 241,
+    "sha256": "f1429d64bfe1f6aabb4a27c26807301efed9ca38fbf08fa8ee2f7b6012b653db"
+  },
+  {
+    "name": "reviewed/independent-action-20261001T135513.031593Z/launch.json",
+    "bytes": 241,
+    "sha256": "f1429d64bfe1f6aabb4a27c26807301efed9ca38fbf08fa8ee2f7b6012b653db"
+  },
+  {
+    "name": "reviewed/independent-action-20261001T134214.581624Z/previous-config.json",
+    "bytes": 4054,
+    "sha256": "ecbb91731bceb1ef065de934261990fdaedbce6e6220b722ec9926508eeea38d"
+  },
+  {
+    "name": "reviewed/independent-action-20261001T134214.581624Z/staged-config.json",
+    "bytes": 4065,
+    "sha256": "651bbf540b3289cf6041a054e4af85c558f64b8cc888a28049a3f657e9476dc4"
+  },
+  {
+    "name": "reviewed/independent-action-20261001T134808.715065Z/previous-config.json",
+    "bytes": 4054,
+    "sha256": "bfed62ddd74cf32301252699c68fc9aabe4c9931a91841c08714efcff0d5b48d"
+  },
+  {
+    "name": "reviewed/independent-action-20261001T134808.715065Z/staged-config.json",
+    "bytes": 4065,
+    "sha256": "651bbf540b3289cf6041a054e4af85c558f64b8cc888a28049a3f657e9476dc4"
+  },
+  {
+    "name": "reviewed/independent-action-20261001T135256.261637Z/previous-config.json",
+    "bytes": 4054,
+    "sha256": "bfed62ddd74cf32301252699c68fc9aabe4c9931a91841c08714efcff0d5b48d"
+  },
+  {
+    "name": "reviewed/independent-action-20261001T135256.261637Z/staged-config.json",
+    "bytes": 4065,
+    "sha256": "651bbf540b3289cf6041a054e4af85c558f64b8cc888a28049a3f657e9476dc4"
+  },
+  {
+    "name": "reviewed/independent-action-20261001T135513.031593Z/previous-config.json",
+    "bytes": 4054,
+    "sha256": "bfed62ddd74cf32301252699c68fc9aabe4c9931a91841c08714efcff0d5b48d"
+  },
+  {
+    "name": "reviewed/independent-action-20261001T135513.031593Z/staged-config.json",
+    "bytes": 4065,
+    "sha256": "651bbf540b3289cf6041a054e4af85c558f64b8cc888a28049a3f657e9476dc4"
+  }
+]

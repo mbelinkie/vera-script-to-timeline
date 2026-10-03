@@ -1,0 +1,13 @@
+{
+  "kind": "verified-r1-trim-context-restoration",
+  "preparationResultSha256": "21f2766e8a04eab2a51f77e2f5867d9b5e96c5af057f039e62c8526e9cd218b7",
+  "postEditPairSha256": "9458a22e3e6d68e5685c71aac52da906b7f7eecc84fbdf5a7e4eb2043cb9959b",
+  "probeSha256": "daefc31ff7c46ef0eb6abc29a0ee6aa6293f4a2f41dcc53b3f1b8b3c5fb938c2",
+  "allowedNativeMutations": [
+    "four recorded locks restored",
+    "recorded playhead restored"
+  ],
+  "keepGenuineTrim": true,
+  "editorialCommand": false,
+  "retryAllowed": false
+}

@@ -1,0 +1,18 @@
+{
+  "interpretation": "One SaveProject call persisted the already verified partial R4 state; the retained journal contains no import, append, selection, source, content, render, or cleanup request.",
+  "kind": "r4-save-only-success",
+  "preflightAndPostflightPoolPassesEqual003310RawInventory": true,
+  "preflightAndPostflightTimelinePassesEqual003310RawCapture": true,
+  "rawSha256": {
+    "hammerspoon-launch-20261001T005014.793252Z.jsonl": "8993b6de6f9edc1ce8b902e78170f300635da97c0cb20b88486d89c25db5b7b7",
+    "installation-r4-finalize.json": "42d15be9ddc43ab637ae4fb4de89320c5355708f17eaa3cf146e3cc831aaa052",
+    "r4-finalize-20261001T005016.518644Z-postflight.json": "13ad0d61c8c32d54dfc67a8b9ab6d5eaa5d14cd4c3b52b12cede412d4d8256f0",
+    "r4-finalize-20261001T005016.518644Z-preflight.json": "13ad0d61c8c32d54dfc67a8b9ab6d5eaa5d14cd4c3b52b12cede412d4d8256f0",
+    "r4-finalize-20261001T005016.518644Z.jsonl": "82c3bfbf88497bc110a2198e5a685086e6a6f61cb7ec35af4314e95cb4ebf894",
+    "vera-issue-141-observation-result-20261001T005016.027177Z.json": "e9bfe830d653e706d8be7e6a601e139655e53adff55b30c8eb4346071050b9b3"
+  },
+  "resultStatus": "saved-pinned-r4-state",
+  "saveProjectRequests": 1,
+  "saveProjectReturn": true,
+  "savedAt": "2026-10-01T00:50:16Z"
+}

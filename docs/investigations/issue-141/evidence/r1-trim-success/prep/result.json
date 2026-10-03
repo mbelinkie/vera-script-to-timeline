@@ -1,0 +1,56 @@
+{
+  "case": "R1-trim",
+  "directory": "<WORKTREE>/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T055716.777793Z",
+  "environment": {
+    "productName": "DaVinci Resolve Studio",
+    "python": "3.14.7",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "failure": null,
+  "journal": "<WORKTREE>/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T055716.777793Z/journal.jsonl",
+  "menuCommandDispatched": false,
+  "originalLocks": {
+    "audio:1": false,
+    "audio:2": false,
+    "audio:3": false,
+    "video:1": false,
+    "video:2": false,
+    "video:3": false
+  },
+  "originalPlayhead": "00:06:07:24",
+  "playheadAfter": "00:00:26:24",
+  "preparedPair": {
+    "path": "editorial-case-20261001T055716.777793Z/after.json",
+    "sha256": "5eabacdb141908d6bc5aa805136d5148913c3ab63936e19fc1dc9801fa448fba"
+  },
+  "priorPair": {
+    "path": "editorial-context-20261001T055304.180088Z/pair.json",
+    "sha256": "8be8fc612618e874241f90b693a4c7a732e4eb0fbdd3de4afe17cd2756df82ff"
+  },
+  "saveDispatched": false,
+  "setters": [
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetCurrentTimecode"
+  ],
+  "status": "case-prepared",
+  "target": {
+    "endFrame": 699,
+    "frameRate": 25,
+    "startFrame": 500,
+    "trimPlayheadFrame": 674,
+    "trimPlayheadTimecode": "00:00:26:24",
+    "uids": {
+      "audio": "17267938-81b0-4777-9db5-0a27d359dbfc",
+      "video": "36b5882f-d928-4424-b4a6-ee3f7dcc8e03"
+    }
+  }
+}

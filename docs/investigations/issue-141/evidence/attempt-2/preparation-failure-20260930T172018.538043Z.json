@@ -1,0 +1,26 @@
+{
+  "environment": {
+    "externalScripting": "None",
+    "externalScriptingEvidence": "operator config attestation, not API readback",
+    "installedDocs": {
+      "DaVinciResolveScript.pyi": "00078fa1256851b9807621a4eea5e670f4266b0e7003763cba4a62655543f0ec",
+      "README.md": "5f58c94da8ec3c1f390d77ad9c60675263591dc101159b302e50b5774513830b"
+    },
+    "productName": "DaVinci Resolve Studio",
+    "python": "3.14.7",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "error": "RuntimeError: SetSettings refused operation",
+  "identity": {
+    "projectId": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+    "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318"
+  },
+  "instruction": "Stop; retain the journal. Do not rerun prepare or delete the project.",
+  "partialProjectMayRemain": true
+}

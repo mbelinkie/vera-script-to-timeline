@@ -1,0 +1,7 @@
+{
+  "afterPair": "<repo>/out/issue-141-observation-20260930-01a0f318/av-output-drop-20261001T120724.961619Z/after-pair.json",
+  "beforePair": "<repo>/out/issue-141-observation-20260930-01a0f318/av-output-drop-20261001T120724.961619Z/before-pair.json",
+  "jobId": "9c4f9ad9-9acf-4c60-bac2-fb7cc9269ebd",
+  "journal": "<repo>/out/issue-141-observation-20260930-01a0f318/av-output-drop-20261001T120724.961619Z/journal.jsonl",
+  "status": "owned-unstarted-job-removed"
+}

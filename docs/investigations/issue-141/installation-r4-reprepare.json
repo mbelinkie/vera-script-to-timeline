@@ -1,0 +1,20 @@
+{
+  "kind": "one-separate-r4-isolated-source-append",
+  "stagedAt": "2026-10-01T03:26:30.019544+00:00",
+  "action": "r4-reprepare",
+  "stage": "R4-separate-new-occurrence-preparation",
+  "probeSha256": "82d45043ffc0c12c61a3e0dbc104eddddc627f6fc6fedec997fcee8793f4e50c",
+  "moduleSha256": "d78ae2bb95eb5ffaa669f7e96d342b9c2b5eeee207cdee74274d7f7c2768d37e",
+  "readerSha256": "06eff080c45e5c520a1c8c31787e4d4f1604198a3a98a9e3c8e025917fcf455b",
+  "launcherSha256": "05f6cb6531f257d11fcabfceedd468f550330cfcb239590013ecd1cd6c0a5cf6",
+  "privateConfigSha256": "eca846d8a02971a36a4aa0319a5261b93e7bce39935a82b5f2dfcc336de25d38",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "allowedApiMutations": [
+    "MediaPool.AppendToTimeline exact isolated source 81d81dc0-4c37-478b-8079-03debba5e780 source0..199 V1 absolute recordFrame0"
+  ],
+  "oldIdentityRestorationClaimAllowed": false,
+  "saveAllowed": false,
+  "renderAllowed": false,
+  "retryAllowed": false,
+  "privatePathsPublished": false
+}

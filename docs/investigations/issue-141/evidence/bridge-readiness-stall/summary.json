@@ -1,0 +1,100 @@
+{
+  "taskId": "Issue 141",
+  "status": "bridge-readiness-stalled",
+  "scope": "Independent review of retained local records only; no Resolve, Hammerspoon, launcher, configuration, automation, report, or dashboard action.",
+  "observed": {
+    "manualMove": "operator reported moved; retained launcher timeout has no new native result and makes no move-completion claim",
+    "dispatch": "three fixed Hammerspoon dispatches exited 0 and reported menu selection; dispatch is not a probe result",
+    "injectedBoundary": "PyRemoteObject present in the two later progress records",
+    "productName": "DaVinci Resolve Studio returned in the two later progress records",
+    "latestCapture": {
+      "name": "capture-20261001T142246.378925Z.json",
+      "sha256": "211eb7be3ce91f56b16f5fe6eb68135626c82b5d60c36175cec92f08e62bee55",
+      "kind": "real-injected-readback",
+      "stage": "baseline-repeat",
+      "capturedAt": "2026-10-01T14:22:46.378925Z",
+      "consistency": "inconsistent-refused",
+      "getterFailures": 0,
+      "applicationRevisionToken": null,
+      "contentFingerprints": [
+        "942055cd497112de1aca1fbc880a558b34206e1ce8d2d0d86a1c850008bafeeb",
+        "0cf81c669cf8d503fcaec620952bbe729fdc46c691c4a6246486e9f4f657c96f"
+      ]
+    }
+  },
+  "progress": [
+    {
+      "name": "vera-issue-141-observation-progress-20261001T135256.742147Z.jsonl",
+      "sha256": "5ac848a7d0b7b83d716632e77c23a009449dfb3c7e4a27876d5fcf781043a2a1",
+      "bytes": 468,
+      "terminalEvent": "result-written",
+      "terminalAt": "2026-10-01T14:22:47.689914Z",
+      "outcome": "probe-failure: Exact Edit/known format/empty queue required"
+    },
+    {
+      "name": "vera-issue-141-observation-progress-20261001T135513.298255Z.jsonl",
+      "sha256": "ee9cecb4869bf7a29483ea3f7584b630a278b8862d548f1de726cf66491f7eda",
+      "bytes": 688,
+      "terminalEvent": "result-written",
+      "terminalAt": "2026-10-01T14:22:47.689916Z",
+      "productNameReturnedAt": "2026-10-01T14:03:59.656114Z",
+      "outcome": "probe-failure: Exact Edit/known format/empty queue required"
+    },
+    {
+      "name": "vera-issue-141-observation-progress-20261001T140359.691844Z.jsonl",
+      "sha256": "8343ede5f4addc7daa6d48fd73d93850eda2aa0a1140689dcd8d190771df806a",
+      "bytes": 639,
+      "terminalEvent": "result-written",
+      "terminalAt": "2026-10-01T14:22:50.381572Z",
+      "productNameReturnedAt": "2026-10-01T14:22:46.374771Z",
+      "probeReturnedAt": "2026-10-01T14:22:50.381132Z",
+      "outcome": "inconsistent-refused"
+    }
+  ],
+  "reviewedRetainedArtifacts": [
+    {
+      "name": "r5-manual-move-report.json",
+      "sha256": "69b6218e1b3fd75adeed9ed469e5da19cb985ee7a3c1516f0680741e0631185b",
+      "finding": "operatorReply=moved; launcher-timeout-evidence-retained; newNativeResults=[]"
+    },
+    {
+      "name": "launcher-progress-installation.json",
+      "sha256": "33b1b98d891a66eb6418cffb65599e229cd9c317d49ae5e4362c0d33c56e6988",
+      "finding": "installation source and installed hashes match"
+    },
+    {
+      "name": "bridge-readiness-health.json",
+      "sha256": "c9ea781bdab637289719ef4b8fd8d8be3b2c5f8228ca25ba28913bc048b9c3bf",
+      "finding": "builtinResolveMcpHealth.running=false; OS Resolve and Hammerspoon processes present"
+    },
+    {
+      "name": "independent-action-20261001T134214.581624Z/timeout.json",
+      "sha256": "4bf1a8a090c6f7584b634bc38babd362f194e04e3ba096192ab175880f510d78",
+      "finding": "manual timeout retained; no native result"
+    },
+    {
+      "name": "independent-action-20261001T134808.715065Z/launch.json",
+      "sha256": "af31e3f00140ee487208c3d2d0a741dcc31c0ad0a1b950df60f21f38efe52ca0",
+      "finding": "exitCode=0; menu selection text; no result binding"
+    },
+    {
+      "name": "independent-action-20261001T135256.261637Z/launch.json",
+      "sha256": "f1429d64bfe1f6aabb4a27c26807301efed9ca38fbf08fa8ee2f7b6012b653db",
+      "finding": "exitCode=0; menu selection text; no result binding"
+    },
+    {
+      "name": "independent-action-20261001T135513.031593Z/launch.json",
+      "sha256": "f1429d64bfe1f6aabb4a27c26807301efed9ca38fbf08fa8ee2f7b6012b653db",
+      "finding": "exitCode=0; menu selection text; no result binding"
+    }
+  ],
+  "movedState": {
+    "exists": false,
+    "evidence": "three r5-edit-moved directories were created with empty journal.jsonl files (0 bytes; sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855); no moved-state pair was produced"
+  },
+  "limits": [
+    "No acceptance claim for a completed move or stable editorial result.",
+    "No timeline capability, speech-removal, lineage, alternate scripting, or routing conclusion is inferred.",
+    "The large capture and source originals remain at their existing locations; only small path-redacted records and immutable progress snapshots are published here."
+  ]
+}

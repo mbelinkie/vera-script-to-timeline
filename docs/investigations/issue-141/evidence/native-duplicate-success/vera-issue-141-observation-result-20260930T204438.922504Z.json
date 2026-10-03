@@ -1,0 +1,38 @@
+{
+  "action": "native-duplicate",
+  "captures": [
+    {
+      "capturePath": "<probe-output>/capture-20260930T204438.948629Z-reopened-before-duplicate.json",
+      "sha256": "e75dc5c9c39d2f3f882c392a23e3a4d1766a5d16e177c87762533de53bff5eeb",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T204438.948629Z-cache-restoration.json",
+      "sha256": "774dc4bb12de0057aa5194d8838ef8447fefa3c1d5485c97731522d81e8690b5",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T204438.948629Z-duplicated.json",
+      "sha256": "6f968ff7d948bba48f496f529d802a3d512442b0b1ce401465150cc63196bf76",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T204438.948629Z-current-duplicate-saved.json",
+      "sha256": "fab588ea4f4e10394b0ca878358cb55743cb8c1dbaa72cd4822320e7e9cae85f",
+      "status": "equal-adjacent-reads"
+    }
+  ],
+  "duplicate": {
+    "id": "aa2b8e36-83bd-4292-9e33-217c00ca192f",
+    "name": "VERA 141 R1 identity"
+  },
+  "journal": "<probe-output>/native-duplicate-20260930T204438.948629Z.jsonl",
+  "limits": [
+    "Timeline duplication was exercised through the documented API.",
+    "Equal adjacent reads do not prove atomicity or exclude ABA changes.",
+    "Copied metadata and equal fingerprints do not prove source identity."
+  ],
+  "preflightStage": "reopened-before-duplicate",
+  "reopenEvidence": "operator-managed; preflight state only, reopen sequence not independently verified",
+  "status": "equal-adjacent-reads"
+}

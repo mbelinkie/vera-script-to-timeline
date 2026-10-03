@@ -1,0 +1,28 @@
+{
+  "attemptAt": "2026-10-01T00:31:28Z",
+  "failureDetail": "RuntimeError: R4 contains an extra or unreadable track item",
+  "kind": "r4-path-list-import-and-append-partial-refusal",
+  "limits": [
+    "This is one path-list import and append observation only.",
+    "No offline/unlink/relink/wrong-byte/replacement/removal behavior was tested.",
+    "The refusal is a post-append verification failure, not proof path-list import failed."
+  ],
+  "rawSha256": {
+    "hammerspoon-launch-20261001T003127.608923Z.jsonl": "96ed5ad7482304618f06478d9a664aa36f3e662abab2c2fdb3e2b30a0ab66302",
+    "installation-r4-availability-path-list.json": "a2a2a2cd0f72105fe8ef4d4e072bf9c0d960b41569e3cf1f954466e527e622a8",
+    "r4-availability-20261001T003128.228751Z.jsonl": "5d9978a5c7fceac7e4e02cc3a78189907e85c649f4885861e5069fb2f9a2e4f4",
+    "r4-empty-selected-20261001T003128.228751Z.json": "d5a22ce81d4ccfdcec7beef4aaa8d79d24fff12659bf6c106bda82b0f19e2439",
+    "r4-pool-after-import-20261001T003128.228751Z.json": "a9f2706169dca05431b4baf5720f6e56ec095c02763e4c2986df1a957d138652",
+    "vera-issue-141-observation-result-20261001T003128.195732Z.json": "d39c8a191fe20e6fd523be1e9bd221543f225524d18dc5f8d99856c5941fa755"
+  },
+  "refusalPoint": "The post-append proxy-handle/equality guard reported an extra or unreadable track item.",
+  "resultStatus": "launcher-failed",
+  "saveRequested": false,
+  "successfulRequestsAndReturns": [
+    "ImportMedia accepted the approved path-list request and returned a media-pool handle.",
+    "CreateEmptyTimeline returned timeline UID 64de8a4c-86bd-4f19-9d20-47b8940f610b.",
+    "SetCurrentTimeline returned true for that new owned timeline.",
+    "AppendToTimeline returned occurrence UID af55478a-0ba3-458a-a6e1-e47b2544111d for imported media UID 81d81dc0-4c37-478b-8079-03debba5e780 on V1."
+  ],
+  "timelineAndOccurrenceRetained": "The action had created one R4 availability timeline and appended one occurrence before refusing; it did not save, retry, unlink, relink, replace, remove, or clean up."
+}

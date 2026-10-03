@@ -1,0 +1,20 @@
+{
+  "status": "video-toggle-unresolved-or-refused",
+  "oneMutation": "SetRenderSettings",
+  "setterReturn": true,
+  "fullTimelineAndPoolEqualPin": true,
+  "formatCodec": {
+    "codec": "",
+    "format": "unknown"
+  },
+  "idleEmptyQueue": true,
+  "xmlUnchanged": true,
+  "hiddenOriginalSettingEqualityClaimed": false,
+  "files": {
+    "vera-issue-141-observation-result-20261001T024627.450485Z.json": "6fe2a03b0101aa70a9735b2ba184c167a109501093f5bb0f477ef36d8c96f2c9",
+    "journal.jsonl": "fb698ab793fb3cbfc7a475507a0a2b985cc5a176ad52e557c7d2e5ec10e97a81",
+    "preflight.json": "38231c6c8d5e9a6e05663114539d91560746d7d22f3a91f9593cd4abe7806f19",
+    "postflight.json": "b2c10cf1a53236ec1b05f17554e36e6f9a40e0ce005feb19b0fd096a04ecb7bc",
+    "result.json": "6fe2a03b0101aa70a9735b2ba184c167a109501093f5bb0f477ef36d8c96f2c9"
+  }
+}

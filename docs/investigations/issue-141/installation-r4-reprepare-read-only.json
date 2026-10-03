@@ -1,0 +1,9 @@
+{
+  "kind": "read-only-diagnostic-after-one-append",
+  "stagedAt": "2026-10-01T03:28:01.181083+00:00",
+  "action": "r4-pool-read-only",
+  "probeSha256": "82d45043ffc0c12c61a3e0dbc104eddddc627f6fc6fedec997fcee8793f4e50c",
+  "launcherSha256": "05f6cb6531f257d11fcabfceedd468f550330cfcb239590013ecd1cd6c0a5cf6",
+  "privateConfigSha256": "f63f687d5f8816956931b071e616539487c7785a3d70f3f6312c7107fc019276",
+  "resolveMutationsAllowed": false
+}

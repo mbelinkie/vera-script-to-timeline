@@ -1,0 +1,28 @@
+{
+  "analysisSha256": "cb002407f92a982e0261713d2c68708cf44dd2c7727d2e4977e85a626da1cf0c",
+  "inputs": {
+    "base.mov": {
+      "relativePath": "out/issue-141-media-20260930-01a0f318/base.mov",
+      "sha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942"
+    },
+    "manifest.json": {
+      "relativePath": "out/issue-141-media-20260930-01a0f318/manifest.json",
+      "sha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3"
+    },
+    "repeated.wav": {
+      "relativePath": "out/issue-141-media-20260930-01a0f318/repeated.wav",
+      "sha256": "832dd31cc46b9f4b4fdb7cbde18b4edc09ec249885634fba43da2a7b87dc768e"
+    }
+  },
+  "rawCaptures": {
+    "capture-20260930T234123.302069Z-retime-50.json": {
+      "relativePath": "out/issue-141-observation-20260930-01a0f318/capture-20260930T234123.302069Z-retime-50.json",
+      "sha256": "e62335d6f488a828b2c7ac543807aee9e1aac1a851359ec66e8448a765b8049e"
+    },
+    "capture-20260930T234123.302069Z-retime-before-50.json": {
+      "relativePath": "out/issue-141-observation-20260930-01a0f318/capture-20260930T234123.302069Z-retime-before-50.json",
+      "sha256": "2c8ce295374ba0d8785763265bc6a85d969f1d676431165a6e1663d591cc4388"
+    }
+  },
+  "reportSha256": "6f749f6daf2fbf593297d349f5038908b716de1cb16292b6f8dea373991c796f"
+}

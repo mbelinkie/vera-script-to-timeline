@@ -1,0 +1,40 @@
+{
+  "kind": "r1-copy-paste-unexpected-delta-review",
+  "before": {
+    "path": "editorial-case-20261001T072033.855985Z/after.json",
+    "sha256": "0ab69c1eeaa7dffe2d6a63bc02c73823b9fe12af2134be74b204c4f1e81a6435"
+  },
+  "after": {
+    "path": "r1-copy-pasted-20261001T072554.638674Z/pair.json",
+    "sha256": "b8a12d66415ed2cef4ab1922ac1c764ec42aa41aad58cfa40d4435c24c75b9a7"
+  },
+  "modelDeltaDifferences": [
+    {
+      "path": "/poolPasses/0/items/7/evidence/GetClipProperty/value/Out",
+      "expected": "00:00:08:00",
+      "actual": ""
+    },
+    {
+      "path": "/poolPasses/0/timelineMappings/2/poolItemProperties/value/Out",
+      "expected": "00:00:08:00",
+      "actual": ""
+    },
+    {
+      "path": "/poolPasses/1/items/7/evidence/GetClipProperty/value/Out",
+      "expected": "00:00:08:00",
+      "actual": ""
+    },
+    {
+      "path": "/poolPasses/1/timelineMappings/2/poolItemProperties/value/Out",
+      "expected": "00:00:08:00",
+      "actual": ""
+    }
+  ],
+  "newUids": {
+    "video": "7dc4a98b-33cb-4feb-9727-b2bca434138e",
+    "audio": "a9175c87-6bc0-4c07-a167-3b7c9de70fba"
+  },
+  "automaticRestorationDispatched": false,
+  "nextNativeMutationAllowed": false,
+  "instruction": "Stop and retain; no undo, cleanup or retry. Interpret raw data before requesting any bounded continuation."
+}

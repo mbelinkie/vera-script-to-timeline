@@ -1,0 +1,15 @@
+{
+  "taskId": "Issue 141",
+  "manualTimeout": {"sha256": "4bf1a8a090c6f7584b634bc38babd362f194e04e3ba096192ab175880f510d78", "newNativeResults": [], "processObservation": "Resolve present; no Hammerspoon process found"},
+  "emptyMovedJournals": {"sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "count": 3, "bytesEach": 0},
+  "delayedReadbacks": [
+    {"window": "13:52:56Z-14:22:47Z", "outcome": "probe failure: Exact Edit/known format/empty queue required"},
+    {"window": "13:55:13Z-14:22:47Z", "injectedType": "PyRemoteObject", "productName": "DaVinci Resolve Studio", "outcome": "probe failure: Exact Edit/known format/empty queue required"},
+    {"window": "14:03:59Z-14:22:50Z", "injectedType": "PyRemoteObject", "productName": "DaVinci Resolve Studio", "outcome": "inconsistent-refused"}
+  ],
+  "launcherProvenance": {
+    "hammerspoonSourceSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+    "probeSha256": "d2fa75e9298ef37eba8d816a8afa8418f6ffaca0fab95755f357a7049bf0b4db",
+    "progressLauncherSourceAndInstalledSha256": "6b7358b70f606273cb3f2c65a318b42cb7bba4600773f233740e549ba575a991"
+  }
+}

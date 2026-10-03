@@ -1,0 +1,27 @@
+{
+  "status": "full-original-state-and-playhead-restoration-verified",
+  "version": [
+    21,
+    1,
+    0,
+    14,
+    ""
+  ],
+  "sourceUid": "81d81dc0-4c37-478b-8079-03debba5e780",
+  "occurrenceUid": "65a7bcd1-f211-4dee-9726-8c7e0b89cc84",
+  "offlineFrames": [
+    0,
+    50
+  ],
+  "priorOnlineFrames": [
+    0,
+    50
+  ],
+  "continuationUnlinkCalls": 0,
+  "continuationRelinkCalls": 1,
+  "fullTimelineAndPoolPairsEqualOriginal": true,
+  "visualInspection": "Online0/50 show the VERA141 BASE SYNTHETIC slate; offline0/50 identical raw PNG hashes show Media Offline.",
+  "limits": [
+    "Bounded frames0/50 only; no arbitrary-effect or general visibility claim."
+  ]
+}

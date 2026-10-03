@@ -1,0 +1,43 @@
+{
+  "assessment": "ImportRenderPreset(exact hashed XML) is an installed-stub-documented recovery candidate and is intended to import and select that preset. Its successful return and restoration effect have not been observed in this recovery path; behavior around replacing/duplicating the existing named preset remains unverified. Treat it as a separate audited one-shot candidate, not as established recovery.",
+  "entries": [
+    {
+      "doc": "Import a render preset from a file and select it",
+      "method": "Resolve.ImportRenderPreset",
+      "signature": "ImportRenderPreset(presetPath: str) -> bool"
+    },
+    {
+      "doc": "Export a render preset to a file",
+      "method": "Resolve.ExportRenderPreset",
+      "signature": "ExportRenderPreset(presetName: str, exportPath: str) -> bool"
+    },
+    {
+      "doc": "Loads a render preset by name",
+      "method": "Project.LoadRenderPreset",
+      "signature": "LoadRenderPreset(presetName: str) -> bool"
+    },
+    {
+      "doc": "Enable video export",
+      "type": "RenderSettings.ExportVideo",
+      "typeInfo": "bool"
+    },
+    {
+      "doc": "Enable audio export",
+      "type": "RenderSettings.ExportAudio",
+      "typeInfo": "bool"
+    },
+    {
+      "doc": "Audio format, e.g. mp3 (only if ExportVideo is False)",
+      "type": "RenderSettings.AudioFormat",
+      "typeInfo": "str"
+    },
+    {
+      "doc": "Returns a dict with currently selected format and render codec",
+      "method": "Project.GetCurrentRenderFormatAndCodec",
+      "signature": "GetCurrentRenderFormatAndCodec() -> dict[str, str]"
+    }
+  ],
+  "kind": "installed-api-documentation-extract",
+  "sourceReadmeSha256": "5f58c94da8ec3c1f390d77ad9c60675263591dc101159b302e50b5774513830b",
+  "sourceStubSha256": "00078fa1256851b9807621a4eea5e670f4266b0e7003763cba4a62655543f0ec"
+}

@@ -1,0 +1,5 @@
+{
+  "detail": "RuntimeError: R4 range repair failed or violated postconditions; evidence retained",
+  "instruction": "Retain evidence and stop. Do not rerun preparation or change scripting mode.",
+  "status": "launcher-failed"
+}

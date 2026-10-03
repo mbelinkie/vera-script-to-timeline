@@ -1,0 +1,11 @@
+{
+  "kind": "interpretation-of-retained-real-launcher-result",
+  "operatorReport": "I ran VERA Issue 141 Observation, it didnt seem to do anything.",
+  "result": {
+    "detail": "RuntimeError: Select only the named issue-141 project; no automatic switch",
+    "instruction": "Retain evidence and stop. Do not rerun preparation or change scripting mode.",
+    "status": "launcher-failed"
+  },
+  "interpretation": "Named-project guard refused before capture, native journal or duplication. Whether the operator reopened the exact synthetic project is awaiting clarification. This is no test of duplication or reopened-state survival.",
+  "operatorNoneAndSyntheticOnlyAttestation": "pending for this launch"
+}

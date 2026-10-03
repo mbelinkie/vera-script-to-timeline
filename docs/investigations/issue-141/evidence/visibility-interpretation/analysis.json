@@ -1,0 +1,214 @@
+{
+  "kind": "bounded-visibility-interpretation",
+  "interpretedAt": "2026-10-01T04:46:58.066460+00:00",
+  "externalRun": "2026-09-30T23:17:20.631880Z",
+  "resolveVersion": [
+    21,
+    1,
+    0,
+    14,
+    ""
+  ],
+  "verifiedPublishedBindings": 39,
+  "verifiedRawCaptureBindings": 4,
+  "finalPassesEqualPinnedSavedMatrix": true,
+  "stillOccurrence": {
+    "uid": "dcc94b55-ec47-4aff-bdda-8eb403ae4ba8",
+    "start": 6575,
+    "end": 6700,
+    "duration": 125,
+    "sourceEnd": 0,
+    "sourceSha256": "071eb12b64238770244dead14fda01a0aeca3623f7962aab9edefa93b68d3140"
+  },
+  "samples": [
+    {
+      "filename": "opaque-enabled-local-049.png",
+      "localFrame": 49,
+      "requestedTimelineFrame": 6049,
+      "timecode": "00:04:01:24",
+      "sha256": "59577f153ad8314066328bf572b2c66afa9338a99c1ab2a6e94b9630418200db",
+      "allBlack": false,
+      "meanRgb": [
+        55.378976,
+        24.340323,
+        30.718726
+      ]
+    },
+    {
+      "filename": "opaque-enabled-local-050.png",
+      "localFrame": 50,
+      "requestedTimelineFrame": 6050,
+      "timecode": "00:04:02:00",
+      "sha256": "e2cdc8e3774a245017d60ea61915061e344e99be7f4c888c6612946c06ef25b0",
+      "allBlack": false,
+      "meanRgb": [
+        55.923657,
+        25.094756,
+        31.430978
+      ]
+    },
+    {
+      "filename": "opaque-enabled-local-098.png",
+      "localFrame": 98,
+      "requestedTimelineFrame": 6098,
+      "timecode": "00:04:03:23",
+      "sha256": "d137627c45208d6b35452e368837aaf0bbf24a4d5267228d3c6abb7198e5c545",
+      "allBlack": false,
+      "meanRgb": [
+        55.914899,
+        25.094849,
+        31.427585
+      ]
+    },
+    {
+      "filename": "opaque-enabled-local-099.png",
+      "localFrame": 99,
+      "requestedTimelineFrame": 6099,
+      "timecode": "00:04:03:24",
+      "sha256": "59577f153ad8314066328bf572b2c66afa9338a99c1ab2a6e94b9630418200db",
+      "allBlack": false,
+      "meanRgb": [
+        55.378976,
+        24.340323,
+        30.718726
+      ]
+    },
+    {
+      "filename": "opaque-enabled-local-100.png",
+      "localFrame": 100,
+      "requestedTimelineFrame": 6100,
+      "timecode": "00:04:04:00",
+      "sha256": "df279bd4bb106145f2db92a63775e81aba1cf332ccd34cb73ef27b2f4430acda",
+      "allBlack": false,
+      "meanRgb": [
+        55.378431,
+        24.340428,
+        30.721033
+      ]
+    },
+    {
+      "filename": "opaque-disabled-local-050.png",
+      "localFrame": 50,
+      "requestedTimelineFrame": 6050,
+      "timecode": "00:04:02:00",
+      "sha256": "a201fea43e7d136f52cf45f84833e2fa8f8473eac2c414f2a730f4a5d8148702",
+      "allBlack": false,
+      "meanRgb": [
+        55.375514,
+        24.338629,
+        30.716467
+      ]
+    },
+    {
+      "filename": "transparent-enabled-local-074.png",
+      "localFrame": 74,
+      "requestedTimelineFrame": 6574,
+      "timecode": "00:04:22:24",
+      "sha256": "a201fea43e7d136f52cf45f84833e2fa8f8473eac2c414f2a730f4a5d8148702",
+      "allBlack": false,
+      "meanRgb": [
+        55.375514,
+        24.338629,
+        30.716467
+      ]
+    },
+    {
+      "filename": "transparent-enabled-local-075.png",
+      "localFrame": 75,
+      "requestedTimelineFrame": 6575,
+      "timecode": "00:04:23:00",
+      "sha256": "5633d51dc1947ac488354ee5b8c759754ef215e2133c14ff0c7abba8c09a8a8e",
+      "allBlack": false,
+      "meanRgb": [
+        27.626727,
+        76.197964,
+        15.294205
+      ]
+    },
+    {
+      "filename": "transparent-enabled-local-198.png",
+      "localFrame": 198,
+      "requestedTimelineFrame": 6698,
+      "timecode": "00:04:27:23",
+      "sha256": "50977b2412736d415f136a512e57d380f1c50b5ca4c2006efd7bf36918a55e43",
+      "allBlack": false,
+      "meanRgb": [
+        27.626772,
+        76.196014,
+        15.293173
+      ]
+    },
+    {
+      "filename": "transparent-enabled-local-199.png",
+      "localFrame": 199,
+      "requestedTimelineFrame": 6699,
+      "timecode": "00:04:27:24",
+      "sha256": "4a800765c6cafed4de631d0d300e169373c5ff08b52d730d12ffd44923342255",
+      "allBlack": false,
+      "meanRgb": [
+        0.0,
+        64.0,
+        0.0
+      ]
+    },
+    {
+      "filename": "transparent-enabled-local-200.png",
+      "localFrame": 200,
+      "requestedTimelineFrame": 6700,
+      "timecode": "00:04:28:00",
+      "sha256": "4ffe68970e56db313fa07e6054e22a0568ad00d86ff75236f152968979ad219c",
+      "allBlack": true,
+      "meanRgb": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "filename": "transparent-disabled-local-075.png",
+      "localFrame": 75,
+      "requestedTimelineFrame": 6575,
+      "timecode": "00:04:23:00",
+      "sha256": "59577f153ad8314066328bf572b2c66afa9338a99c1ab2a6e94b9630418200db",
+      "allBlack": false,
+      "meanRgb": [
+        55.378976,
+        24.340323,
+        30.718726
+      ]
+    },
+    {
+      "filename": "effect-opacity-25-local-075.png",
+      "localFrame": 75,
+      "requestedTimelineFrame": 7075,
+      "timecode": "00:04:43:00",
+      "sha256": "d87333808a987a0c2945f690da9ec0240e67bbe0a6a12923cbc9e594926d621a",
+      "allBlack": false,
+      "meanRgb": [
+        48.363932,
+        37.098696,
+        26.57152
+      ]
+    },
+    {
+      "filename": "effect-opacity-25-local-100.png",
+      "localFrame": 100,
+      "requestedTimelineFrame": 7100,
+      "timecode": "00:04:44:00",
+      "sha256": "c8490b4855967e721493e4873362caa3b6c40d9842a860d47472bf60a0c448f3",
+      "allBlack": false,
+      "meanRgb": [
+        48.363529,
+        37.098922,
+        26.573588
+      ]
+    }
+  ],
+  "interpretation": {
+    "supported": "Named synthetic frame samples and Inspector state changes are observable; sampled offline picture remains an existing occurrence.",
+    "ambiguous": "General program visibility, arbitrary OpenFX/Fusion and exact exported-sample synchronization are unproved. Graphic merge and section/crossing-bed edits await actual editorial evidence.",
+    "reproducedUnavailable": "No general visibility capability is declared unavailable by these probes."
+  },
+  "reconciliationLimit": "Retain enabled/source/range/composite facts and sampled-output provenance. Unknown compositing requires manual review or narrower automation; never infer structural adoption or deletion from track order or apparent absence.",
+  "coreWorkflow": "These results do not reproduce a fresh script-to-timeline build failure."
+}

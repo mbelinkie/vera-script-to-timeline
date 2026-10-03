@@ -1,0 +1,6 @@
+{
+  "journal": "<probe-output>/r4-finalize-20261001T005016.518644Z.jsonl",
+  "postflight": "<probe-output>/r4-finalize-20261001T005016.518644Z-postflight.json",
+  "preflight": "<probe-output>/r4-finalize-20261001T005016.518644Z-preflight.json",
+  "status": "saved-pinned-r4-state"
+}
