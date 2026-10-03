@@ -1,5 +1,7 @@
 # Phase 10 handoff: re-run Issue 149 findings through the Workflow Integration path
 
+> Executed by Codex on 2026-10-03: W1, W2, W4, W5 and W7 reproduced; W3 and W6 were adverse. Outcomes and follow-up tests are in [README.md](README.md#phase-10-workflow-integration-outcomes).
+
 Issue 149's Tier 1 evidence ran inside Resolve via Workspace → Console with External Scripting None. VERA ships as a Workflow Integration, and #149's acceptance criteria require each finding VERA will rely on to be re-confirmed through that path. This handoff lists the minimum re-runs, written for the existing #141 harness: the injected-object Workflow Integration launcher, one-phase single-dispatch, a complete pair before and after, and the new-result template.
 
 Use a **new disposable project**. Regenerate fixtures with `evidence/scripts/gen_fixtures.py`, using either the recorded `evidence/fixtures/words/*.aiff` or fresh `say -v Alex -r 180` words, and verify against `evidence/fixtures/manifest.json`. Make the same-layout replacement for W6 with `ffmpeg -i cutaway.mov -i a2_numbers.wav -map 0:v -map 1:a -c:v copy -c:a pcm_s16le -shortest relink_alt.mov`. Record the Resolve version; 149 used 21.1.1.10. Everything below is synthetic-only.
