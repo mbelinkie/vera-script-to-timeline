@@ -1,0 +1,24 @@
+{
+  "failure": "RuntimeError: Interval delete refused or save was dispatched",
+  "nativeDispatched": true,
+  "phases": [
+    {
+      "evidence": {
+        "path": "562-r2-residual-context.json",
+        "sha256": "96439ec7ee9c72277a4dfa26188ad92b1d1b6ce92bfea10e7dde9aaaa06d3093"
+      },
+      "name": "fresh-context-readback",
+      "status": "complete"
+    },
+    {
+      "evidence": {
+        "path": "residual-bound-delete-continuation/interval-delete.json",
+        "sha256": "dcf1be3d35e2806ccae155c558511be6922043965d26a51b9c639db6f7022088"
+      },
+      "name": "interval-delete",
+      "status": "complete"
+    }
+  ],
+  "schema": "issue141-residual-bound-driver-execution-index/v1",
+  "status": "native-failed"
+}

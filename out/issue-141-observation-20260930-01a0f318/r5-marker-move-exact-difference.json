@@ -1,0 +1,82 @@
+[
+  {
+    "path": "/timelinePasses/0/timelines/0/tracks/0/items/3/GetStart/value",
+    "before": 1,
+    "after": 0
+  },
+  {
+    "path": "/timelinePasses/0/timelines/0/tracks/0/items/3/GetEnd(True)/value",
+    "before": 200.0,
+    "after": 199.0
+  },
+  {
+    "path": "/timelinePasses/0/timelines/0/tracks/0/items/3/GetStart(True)/value",
+    "before": 1.0,
+    "after": 0.0
+  },
+  {
+    "path": "/timelinePasses/0/timelines/0/tracks/0/items/3/GetEnd/value",
+    "before": 200,
+    "after": 199
+  },
+  {
+    "path": "/timelinePasses/0/timelines/0/tracks/3/items/3/GetStart/value",
+    "before": 1,
+    "after": 0
+  },
+  {
+    "path": "/timelinePasses/0/timelines/0/tracks/3/items/3/GetEnd(True)/value",
+    "before": 200.0,
+    "after": 199.0
+  },
+  {
+    "path": "/timelinePasses/0/timelines/0/tracks/3/items/3/GetStart(True)/value",
+    "before": 1.0,
+    "after": 0.0
+  },
+  {
+    "path": "/timelinePasses/0/timelines/0/tracks/3/items/3/GetEnd/value",
+    "before": 200,
+    "after": 199
+  },
+  {
+    "path": "/timelinePasses/1/timelines/0/tracks/0/items/3/GetStart/value",
+    "before": 1,
+    "after": 0
+  },
+  {
+    "path": "/timelinePasses/1/timelines/0/tracks/0/items/3/GetEnd(True)/value",
+    "before": 200.0,
+    "after": 199.0
+  },
+  {
+    "path": "/timelinePasses/1/timelines/0/tracks/0/items/3/GetStart(True)/value",
+    "before": 1.0,
+    "after": 0.0
+  },
+  {
+    "path": "/timelinePasses/1/timelines/0/tracks/0/items/3/GetEnd/value",
+    "before": 200,
+    "after": 199
+  },
+  {
+    "path": "/timelinePasses/1/timelines/0/tracks/3/items/3/GetStart/value",
+    "before": 1,
+    "after": 0
+  },
+  {
+    "path": "/timelinePasses/1/timelines/0/tracks/3/items/3/GetEnd(True)/value",
+    "before": 200.0,
+    "after": 199.0
+  },
+  {
+    "path": "/timelinePasses/1/timelines/0/tracks/3/items/3/GetStart(True)/value",
+    "before": 1.0,
+    "after": 0.0
+  },
+  {
+    "path": "/timelinePasses/1/timelines/0/tracks/3/items/3/GetEnd/value",
+    "before": 200,
+    "after": 199
+  }
+]

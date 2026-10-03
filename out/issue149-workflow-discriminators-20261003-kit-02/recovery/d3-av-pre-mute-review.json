@@ -1,0 +1,109 @@
+{
+  "taskId": "/root/discriminator_output_verify",
+  "verification": "D3 fresh AV timeline pre-mute gate",
+  "verdict": "go-for-d3-mute",
+  "classification": "reproduced",
+  "scope": "retained local evidence only; no new Resolve action by verifier",
+  "buildActionId": "build-d3-av-timelines-20261003-kit-02",
+  "buildResult": "out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-build-d3-av-timelines-20261003-kit-02.json",
+  "capturePair": {
+    "pre": "out/issue149-workflow-discriminators-20261003-kit-02/evidence/build-d3-av-timelines-20261003-kit-02/pre.json",
+    "post": "out/issue149-workflow-discriminators-20261003-kit-02/evidence/build-d3-av-timelines-20261003-kit-02/post.json",
+    "preSha256": "3a003a04cd0b12ae30f5c08486173179f0f858ffbdad0ae4a252a0ca872a1243",
+    "postSha256": "055fbd0e7d11bdef51a41e1258326d68cf253a90fe3a836d0482f826a60cdcf1"
+  },
+  "project": {
+    "uid": "0591bb41-d645-4af7-a2ee-ff75f8f43162",
+    "preTimelineCount": 6,
+    "postTimelineCount": 9,
+    "preItemCount": 24,
+    "postItemCount": 36,
+    "preMediaPoolObjectCount": 13,
+    "postMediaPoolObjectCount": 16,
+    "oldSixTimelineUidsPreserved": true,
+    "old24ItemUidsPreserved": true,
+    "saveReturn": true,
+    "renderQueuePrePostEqual": true,
+    "renderQueueCountPre": 6,
+    "renderQueueCountPost": 6,
+    "newD3RenderJobCreated": false,
+    "renderQueueJobIds": [
+      "fa550bdf-3df3-49cc-89c6-f3a7afdc12a3",
+      "9d3ea484-48c8-4b08-9802-d4bc0191000c",
+      "0b197d4f-e0e2-4444-8aad-1531552078ac",
+      "b71e75a7-efe0-46e0-9e85-a5cc57482024",
+      "3b4c4481-b1da-48b5-a2ed-b448f507f6e4",
+      "f0eb2283-5a9e-4c62-80e8-6d565938f226"
+    ]
+  },
+  "timelines": [
+    {
+      "name": "D3-direct-av-20261003",
+      "uid": "ca636ad2-b6f2-47ed-9ff7-7f0029860a95",
+      "itemCount": 4,
+      "videoItemUid": "7eee2712-f027-4baf-863a-f0154efc520b",
+      "videoMediaPoolUid": "dfdd5a46-c202-4493-84ab-f8e9d83c81b1",
+      "audio1ItemUid": "563c3945-7a0a-458d-a639-50a5a12a4c2b",
+      "audio1MediaPoolUid": "dfdd5a46-c202-4493-84ab-f8e9d83c81b1",
+      "audio2ItemUid": "4a7677a5-6237-489d-80a1-32cebfde4a5d",
+      "audio2MediaPoolUid": "eda97c9f-08da-4e29-be52-4ebe8dfd7620",
+      "audio3ItemUid": "03fdd84b-a40a-4702-8138-7a332d05943a",
+      "audio3MediaPoolUid": "eb878f01-ce5a-44a2-86e5-1a6da071fc90",
+      "videoAudio1ReciprocalLinks": true,
+      "audio2Independent": true,
+      "audio3Independent": true,
+      "frameRange": "0..399",
+      "sourceRange": "0..399",
+      "shape": "1920x1080, 25 fps, 48000 Hz"
+    },
+    {
+      "name": "D3-console-av-20261003",
+      "uid": "dc548f02-103c-495a-8e88-c4b767aa10dc",
+      "itemCount": 4,
+      "videoItemUid": "82c25e87-8b15-4388-92e6-d91867d5ce57",
+      "audio1ItemUid": "7d62988b-effd-4646-900b-b5725c02be2f",
+      "audio2ItemUid": "02572600-80b5-43ca-a7bd-6bd74f7b3a89",
+      "audio3ItemUid": "4ade3d8d-a7d6-413a-a5ae-0466ea27edf7",
+      "videoAudio1ReciprocalLinks": true,
+      "audio2Independent": true,
+      "audio3Independent": true,
+      "frameRange": "0..399",
+      "sourceRange": "0..399",
+      "shape": "1920x1080, 25 fps, 48000 Hz"
+    },
+    {
+      "name": "D3-operator-av-20261003",
+      "uid": "f88a069b-af68-40d2-8556-3a7c97c234ec",
+      "itemCount": 4,
+      "videoItemUid": "56cb18fd-a417-45a8-87c1-80fc70a882a3",
+      "audio1ItemUid": "db2502e5-4e44-4b73-9bc6-191e3d259ecd",
+      "audio2ItemUid": "11c37e49-d9f2-4480-b0a1-9ba09b81b4d2",
+      "audio3ItemUid": "80bdb064-0b4a-404d-8b40-b5640630592e",
+      "videoAudio1ReciprocalLinks": true,
+      "audio2Independent": true,
+      "audio3Independent": true,
+      "frameRange": "0..399",
+      "sourceRange": "0..399",
+      "shape": "1920x1080, 25 fps, 48000 Hz"
+    }
+  ],
+  "sourcePins": {
+    "base.mov": {
+      "sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+      "mtimeNs": 1790976491073030271,
+      "inode": 548130164
+    },
+    "swap.mov": {
+      "sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+      "mtimeNs": 1790976491428416718,
+      "inode": 548131480
+    },
+    "relink_alt.mov": {
+      "sha256": "2bad2d2457c3d572d2fe3542ef22da915ec38306c8985026bec10d1289f76579",
+      "mtimeNs": 1790976491792119537,
+      "inode": 548023089
+    },
+    "baseAndSwapOriginalBytesAndTimesRestored": true
+  },
+  "nextStep": "Actor may run the requested D3 mute cases. This gate confirms fixture validity; it is not a mute result."
+}

@@ -1,0 +1,90 @@
+{
+  "exactHelper": {
+    "action": "producer-transcript-probe",
+    "currentSha256": "4f41691ae144294172ce7d3bac9f7622790167713d536787d7e2799a3bcff8e1",
+    "localCheck": {
+      "cases": [
+        "normal",
+        "nested",
+        "missing",
+        "drift-guard"
+      ],
+      "mutationTokensAbsent": true,
+      "path": "out/issue-141-observation-20260930-01a0f318/producer-transcript-probe-local-check.json",
+      "sha256": "fd9ffef4828960e636101ea6c456faeea970746cda27b6738818b8ac9aa46e1c",
+      "status": "passed"
+    },
+    "path": "out/issue-141-observation-20260930-01a0f318/producer-transcript-probe.py",
+    "stagedSha256": "d64a9262b635450d19467f69a489ef1062501297bb7c5f1d0316e67cd955cf97",
+    "stagingDecision": "Do not reuse the consumed stale dispatch; stage and verify the current helper hash before any future one-shot read-only action."
+  },
+  "generatedAt": "2026-10-01",
+  "kind": "resume-inventory-plan",
+  "limitations": [
+    "The supplemental result is launcher-failed, not a product transcript result.",
+    "No source-file hashing/export, retranscription, edit, save, render, or settings action was performed by this probe.",
+    "Even a successful source/timeline word match would not establish edited-range speech deletion without a separate bounded product contract."
+  ],
+  "minimumFreshReadOnlyCapture": {
+    "acceptance": "A complete read-only result with contextUnchanged=true protects the producer timelines; missing source or word getters remain unavailable and cannot support deletion conclusions.",
+    "helper": "out/issue-141-observation-20260930-01a0f318/producer-transcript-probe.py",
+    "steps": [
+      "Verify Resolve Studio 21.1.0.14, project ID/name, External Scripting None, and output containment before invocation.",
+      "Discover the two target timelines case-insensitively and require exactly one match for each.",
+      "Read each timeline pool proxy GetTranscription(False) and GetTranscription(True) twice, retaining missing, empty, error, and unstable states.",
+      "Enumerate only read-only video/audio occurrences on both target timelines; resolve one unique source media-pool UID when possible, otherwise retain source selection unavailable.",
+      "Read the unique source GetTranscription modes twice, targeted FPS/Start TC only, and occurrence geometry; compare context before/after and require equality.",
+      "Retain raw readback, comparisons, result, and journal. Do not select timelines, set timecode, transcribe, save, render, export, hash files, or edit."
+    ]
+  },
+  "nextRoutineTest": {
+    "decisionNeeded": "Main must retain either a complete unchanged native inventory or a terminal refusal before resuming synthetic mutation actions.",
+    "native": "One refreshed producer-transcript-probe read-only dispatch after current-hash staging and identity preflight; no duplicate dispatch if it refuses.",
+    "synthetic": "After the refreshed result is retained, continue the existing stdlib synthetic checks, including producer-transcript-probe-check.py and the already-authorized editorial case checks; synthetic checks do not substitute for the missing native transcript evidence."
+  },
+  "observedEvidence": {
+    "configurationRestored": true,
+    "dispatchAudit": "out/issue-141-observation-20260930-01a0f318/producer-transcript-dispatch-20261001T165518.411440Z",
+    "dispatchReview": "out/issue-141-observation-20260930-01a0f318/producer-transcript-dispatch-review.json",
+    "failure": "AttributeError: NoneType object has no attribute __name__",
+    "failurePhase": "injected module before transcript or geometry getters",
+    "menuExitCode": 0,
+    "nativeResult": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T165520.824222Z.json",
+    "nativeStatus": "launcher-failed",
+    "nativeTranscriptEvidence": false,
+    "progress": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-progress-20261001T165520.824222Z.jsonl"
+  },
+  "protectedTargets": {
+    "contextAvailableFromFailedProbe": false,
+    "expectedTexts": {
+      "transcription test 1": "KAJ is three Finns, singing in Swedish, playing up the stereotypes that Swedes have for Finns. Namely that Finns really like saunas.",
+      "transcription test 2": "KAJ is three Finns, playing up the stereotypes that Swedes have for Finns. Namely that Finns really like saunas."
+    },
+    "reason": "The retained journal contains only the start record; no timeline catalog, target UID, source UID, transcript, or geometry was read.",
+    "timelineNames": [
+      "transcription test 1",
+      "transcription test 2"
+    ]
+  },
+  "safeGuardAdaptation": {
+    "recommendation": "Use the existing producer probe dynamic target-discovery and uniqueness guards as the bounded inventory surface; keep the Matrix/four-timeline reader unchanged.",
+    "requiredBeforeRefresh": [
+      "Reverify current helper hash equals the staged probeSha256.",
+      "Require exact project identity and Resolve build before any getter beyond preflight.",
+      "Stop on duplicate or missing target names, ambiguous source UID, context drift, or any remote probe exception; retain the refusal and do not retry automatically."
+    ],
+    "why": "The local fake guard passes, but the real dispatch failed before observation; a fresh native result is required before synthetic mutation resumes."
+  },
+  "scope": "Read-only inventory protecting the producer real clip and transcription test 1/test 2 timelines before synthetic continuation.",
+  "staleGuardBoundary": {
+    "blockedBy": [
+      "hard-coded Issue 141 Matrix timeline and project checkpoint",
+      "exact four-timeline identity allowlist",
+      "repeated.wav source UID/name and Matrix A1 occurrence requirement"
+    ],
+    "decision": "Do not widen or reuse the old four-timeline allowlist for the producer-authored timelines.",
+    "oldAction": "transcription-readback",
+    "oldHelper": "docs/investigations/issue-141/transcription-readback.py"
+  },
+  "taskId": "Issue 141"
+}

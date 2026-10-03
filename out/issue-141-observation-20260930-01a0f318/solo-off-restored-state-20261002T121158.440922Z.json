@@ -1,0 +1,88 @@
+{
+  "taskId": "Issue 141",
+  "kind": "issue141-solo-off-restored-state-verification",
+  "status": "PASS_WITH_OPERATOR_ATTESTATION",
+  "scope": "One approved edit-page navigation followed by one editorial-context readback after the operator reported the requested Solo and M/S restoration.",
+  "operatorEvidence": {
+    "statement": "solo off",
+    "requestedChange": "Audio2 Solo off and M/S off on A1-A3",
+    "source": "Operator message relayed to the verifier",
+    "apiAttested": false,
+    "limitation": "The Resolve API readback cannot attest Solo state or Fairlight routing; those fields remain operator evidence only."
+  },
+  "actions": {
+    "editPage": {
+      "menu": "edit-page",
+      "dispatchedOnce": true,
+      "auditDirectory": "out/issue-141-observation-20260930-01a0f318/independent-action-20261002T121148.487100Z",
+      "macroSha256": "47b6ec354c00e3ef1296a70c29e8846e1661fef692177d90bc96f27ba5b6bc6d"
+    },
+    "readback": {
+      "label": "editorial-context",
+      "status": "editorial-readback-retained",
+      "readOnly": true,
+      "auditDirectory": "out/issue-141-observation-20260930-01a0f318/independent-action-20261002T121157.119058Z",
+      "nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261002T121158.322697Z.json",
+      "nativeResultSha256": "d83f186d87e2719f22f1c929b48352b5feee8790c0ea30eac8f690a5a41f09ab"
+    }
+  },
+  "reference": {
+    "path": "out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/outer-restore-20261002T011949.373431Z/final-pair.json",
+    "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14"
+  },
+  "pairEvidence": {
+    "pairPath": "out/issue-141-observation-20260930-01a0f318/editorial-context-20261002T121158.440922Z/pair.json",
+    "pairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+    "pairAfterSelectionPath": "out/issue-141-observation-20260930-01a0f318/editorial-context-20261002T121158.440922Z/pair-after-selection.json",
+    "pairAfterSelectionSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+    "pairEqualsReference": true,
+    "adjacentPairReadsEqual": true,
+    "timelineConsistency": "equal-adjacent-reads",
+    "poolConsistency": "equal-adjacent-reads",
+    "timelineInventory": "protected-six",
+    "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+    "projectUid": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+    "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+    "timelineRows": {
+      "88f7923d-55a7-471f-b09b-cf10f9fae8ad": "VERA 141 Baseline",
+      "aa2b8e36-83bd-4292-9e33-217c00ca192f": "VERA 141 R1 identity",
+      "29ae8331-b86e-4041-a548-960695cc7b24": "VERA 141 Batched Matrix",
+      "64de8a4c-86bd-4f19-9d20-47b8940f610b": "VERA 141 R4 availability",
+      "21436b8f-057c-49e6-80ba-5f733abe87b2": "transcription test 1",
+      "2db0b2d1-6d81-48d4-b49c-360f56e012cd": "transcription test 2"
+    },
+    "matrixTrackLocks": [
+      ["video", 1, false],
+      ["video", 2, true],
+      ["video", 3, true],
+      ["audio", 1, false],
+      ["audio", 2, true],
+      ["audio", 3, true]
+    ]
+  },
+  "contextEvidence": {
+    "product": "DaVinci Resolve Studio",
+    "version": [21, 1, 0, 14, ""],
+    "page": "edit",
+    "idle": true,
+    "queue": [],
+    "playhead": "00:00:00:00",
+    "selection": [],
+    "renderFormatPassesStable": true
+  },
+  "protectedMedia": {
+    "semi1bMp4": "Metadata remained inside the byte-identical protected pair; no bytes, hash, export, or retranscription operation was performed."
+  },
+  "priorRefusal": {
+    "resultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261002T120823.768210Z.json",
+    "resultSha256": "167e8db94ccc92ac8cd639e9a20d00b4440a26d5a3e33fbe3396754c992f5f12",
+    "status": "launcher-failed",
+    "detail": "RuntimeError: Exact Edit/empty queue required",
+    "retainedWithoutRetry": true
+  },
+  "verification": {
+    "method": "output/r1-next-execution.py validate_pair and expected_context; exact parsed-pair equality and SHA-256 comparison",
+    "freshCapture": "2026-10-02T12:11:58.440922Z",
+    "nativeMutationScope": "No render, reopen, duplicate, or editorial mutation; only the fixed page navigation and read-only injected readback were performed."
+  }
+}

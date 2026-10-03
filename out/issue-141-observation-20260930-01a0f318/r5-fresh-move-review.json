@@ -1,0 +1,114 @@
+{
+  "taskId": "Issue 141",
+  "status": "manual-move-unverified",
+  "verdict": "Do not mark the manual R5 move complete.",
+  "scope": "Read-only review of retained local records; no Resolve, launcher, configuration, health, or macro calls.",
+  "freshness": {
+    "latestCapture": "capture-20261001T142246.378925Z.json",
+    "capturedAt": "2026-10-01T14:22:46.378925Z",
+    "sha256": "211eb7be3ce91f56b16f5fe6eb68135626c82b5d60c36175cec92f08e62bee55",
+    "kind": "real-injected-readback",
+    "stage": "baseline-repeat",
+    "consistency": "inconsistent-refused",
+    "getterFailures": 0,
+    "applicationRevisionToken": null,
+    "contentFingerprints": [
+      "942055cd497112de1aca1fbc880a558b34206e1ce8d2d0d86a1c850008bafeeb",
+      "0cf81c669cf8d503fcaec620952bbe729fdc46c691c4a6246486e9f4f657c96"
+    ],
+    "captureStructure": "two timeline passes only; no pool passes"
+  },
+  "checkpointHashes": {
+    "beforePair": "6b047339f81bab349ff3e95928bebda192a73e251b7e3989b8fd9d893a882d45",
+    "notedPair": "5577011075fc73b400c9a5b3afe5b9e5795673836eba8c6eb03a826129896242",
+    "emptyMovedJournals": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "target": {
+    "timelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+    "videoUid": "3f2de461-d510-46f8-939f-0c794d48e38b",
+    "audioUid": "22561398-bce0-4c22-b55f-a73d3ad5e4cf",
+    "expectedSourceBounds": {"video": [0, 199], "audio": [0, 199]},
+    "observedMoveInBothPasses": {
+      "video": {"start": [0, 1], "end": [199, 200]},
+      "audio": {"start": [0, 1], "end": [199, 200]},
+      "sourceBoundsLinksEnabledIds": "unchanged relative to noted pair"
+    },
+    "markerNote": "unchanged relative to noted pair: Issue 141 R5 marker-note observation"
+  },
+  "exactUnexpectedDeltas": {
+    "pass0VsNoted": {
+      "cacheLocator": {
+        "root.GetSettings.perfCacheClipsLocation": "owned absolute cache path -> CacheClip",
+        "timelineSettings": "all four timeline GetSettings.perfCacheClipsLocation values changed from the owned absolute cache path to CacheClip"
+      },
+      "baselineUsage": {
+        "base.mov video1": [24, 23],
+        "cutaway.mov video2": [21, 20],
+        "overlay.png video3": [21, 20],
+        "repeated.wav audio1": [46, 44],
+        "repeated.wav audio2": [46, 44],
+        "bed.wav audio3": [21, 20]
+      }
+    },
+    "pass1VsNoted": {
+      "cacheLocator": "same root plus all four timeline GetSettings changes to CacheClip",
+      "baselineUsage": "no delta"
+    },
+    "pass0VsPass1": {
+      "baselineUsage": {
+        "base.mov video1": [23, 24],
+        "cutaway.mov video2": [20, 21],
+        "overlay.png video3": [20, 21],
+        "repeated.wav audio1": [44, 46],
+        "repeated.wav audio2": [44, 46],
+        "bed.wav audio3": [20, 21]
+      }
+    }
+  },
+  "completionEvidence": {
+    "movedDirectories": [
+      {"name": "r5-edit-moved-20261001T142246.395560Z", "journalBytes": 0},
+      {"name": "r5-edit-moved-20261001T142246.395575Z", "journalBytes": 0},
+      {"name": "r5-edit-moved-20261001T142246.395587Z", "journalBytes": 0}
+    ],
+    "resultProduced": false,
+    "completePairProduced": false,
+    "reason": "Latest capture refused inconsistent adjacent reads; no moved pair or pool state was produced."
+  },
+  "provenance": {
+    "projectId": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+    "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+    "resolve": "DaVinci Resolve Studio 21.1.0 build 14",
+    "python": "3.14.7",
+    "externalScripting": "None (operator config attestation)",
+    "probeSha256": "d2fa75e9298ef37eba8d816a8afa8418f6ffaca0fab95755f357a7049bf0b4db",
+    "hammerspoonSourceSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+    "progressLauncherSourceSha256": "6b7358b70f606273cb3f2c65a318b42cb7bba4600773f233740e549ba575a991",
+    "progressLauncherInstalledSha256": "6b7358b70f606273cb3f2c65a318b42cb7bba4600773f233740e549ba575a991"
+  },
+  "outstandingLauncherTraces": {
+    "manualTimeout": {
+      "status": "launcher-timeout-evidence-retained",
+      "sha256": "4bf1a8a090c6f7584b634bc38babd362f194e04e3ba096192ab175880f510d78",
+      "newNativeResults": [],
+      "processObservation": "Resolve present; no Hammerspoon process found"
+    },
+    "delayedReadbacks": [
+      {"progress": "13:52:56Z -> 14:22:47Z", "outcome": "probe failure: Exact Edit/known format/empty queue required"},
+      {"progress": "13:55:13Z -> 14:22:47Z", "injectedType": "PyRemoteObject", "productName": "DaVinci Resolve Studio", "outcome": "probe failure: Exact Edit/known format/empty queue required"},
+      {"progress": "14:03:59Z -> 14:22:50Z", "injectedType": "PyRemoteObject", "productName": "DaVinci Resolve Studio", "outcome": "inconsistent-refused"}
+    ],
+    "latestContext": {"page": "edit", "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24", "format": "unknown", "codec": "", "renderQueue": []}
+  },
+  "verification": {
+    "command": "/usr/local/bin/python3.14 -S docs/investigations/issue-141/r5-edit-evidence-check.py",
+    "checkerSha256": "d2d9d29a77f8c76a293569af0808106689972dd4b3d8936e10895ac0a18c1493",
+    "result": "R5 note/move guard checks pass; no live R5 edit evidence claimed.",
+    "method": "Exact retained pair comparison plus independent diff of both latest capture passes; no Resolve calls."
+  },
+  "limitations": [
+    "The observed one-frame fields match the requested move, but the capture is explicitly inconsistent and lacks pool passes.",
+    "No atomic revision token or ABA exclusion is established.",
+    "Dispatch exit code/menu text is launch evidence only, not a completed injected result."
+  ]
+}

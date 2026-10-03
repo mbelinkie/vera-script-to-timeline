@@ -1,0 +1,44 @@
+{
+  "taskId": "issue141-readback-format-repair",
+  "status": "ready-for-root-review",
+  "scope": [
+    "docs/investigations/issue-141/editorial-readback.py",
+    "docs/investigations/issue-141/editorial-readback-check.py"
+  ],
+  "sourceSha256": "dba56a716aff973afdcc977df51fdc4b08ae1f727ce24f7c41d94c0f9ce32d22",
+  "checkerSha256": "43cc82f4857665d843bab2092e1f923c30c7163f83ead7c9c1bab63b8934c23d",
+  "redBefore": {
+    "originalHelperSha256": "ec97ed4ee37e5ce9561fafe5bae5bbff25bfd651c768f4b872156a1915ddf703",
+    "command": "focused fake against the original hash-bound helper with {format: unknown, codec: ''}",
+    "exitCode": 0,
+    "evidence": "pre-repair source ec97ed4ee37e5ce9561fafe5bae5bbff25bfd651c768f4b872156a1915ddf703: expected refusal: RuntimeError: Exact Edit/known format/empty queue required",
+    "priorAttempt": {
+      "command": "/usr/local/bin/python3.14 -S docs/investigations/issue-141/editorial-readback-check.py",
+      "exitCode": 1,
+      "evidence": "KeyError: renderFormatPasses (checker asserted the new result field before reaching the unknown-format case)"
+    }
+  },
+  "greenAfter": {
+    "command": "/usr/local/bin/python3.14 -S docs/investigations/issue-141/editorial-readback-check.py",
+    "exitCode": 0,
+    "output": "Editorial readback checks passed; fake has no native mutations."
+  },
+  "checks": {
+    "unknownFormatUnchanged": "accepted with diagnostic readings retained",
+    "formatDiagnosticDrift": "refused",
+    "mutableFormatDiagnosticDrift": "refused after copying each dictionary reading",
+    "queue": "refused before selection",
+    "selectionList": "refused",
+    "selectionDrift": "refused",
+    "fullStateDrift": "refused",
+    "wrongPage": "refused before selection",
+    "readOnly": true,
+    "compile": "passed",
+    "ruff": "passed"
+  },
+  "limits": [
+    "Focused fake only; no Resolve or Hammerspoon call was made.",
+    "A fresh complete real capture is still required for external acceptance.",
+    "No source pin, contract, fixture, golden, dependency, or production module changed."
+  ]
+}

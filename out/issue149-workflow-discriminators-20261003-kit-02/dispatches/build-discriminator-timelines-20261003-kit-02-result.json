@@ -1,0 +1,6 @@
+{
+  "path": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-build-discriminator-timelines-20261003-kit-02.json",
+  "sha256": "2e96148530c349b04da1f0666943e263fa128926e64f299953b4e4b228848155",
+  "status": "failure",
+  "actionId": "build-discriminator-timelines-20261003-kit-02"
+}

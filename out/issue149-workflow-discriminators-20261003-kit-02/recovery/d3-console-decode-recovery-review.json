@@ -1,0 +1,44 @@
+{
+  "taskId": "/root/discriminator_output_verify",
+  "verification": "D3 Console preexecution UTF-8 decode recovery",
+  "verdict": "go-for-same-action-corrected-wrapper",
+  "classification": "harness-or-console-wrapper failure before helper execution",
+  "scope": "offline local verification only; no helper execution, Resolve call, source edit, or native retry",
+  "actionId": "d3-console-render-20261003-kit-02",
+  "failure": {
+    "stage": "wrapper open before compile/execute",
+    "exception": "UnicodeDecodeError: 'ascii' codec can't decode byte 0xe2 in position 45: ordinal not in range(128)",
+    "sourceByte": "0xe2",
+    "sourcePosition": 45,
+    "sourcePath": "docs/investigations/issue-149/workflow-discriminators/console-render.py",
+    "sourceSha256": "48f8d3e5499cc4073f5c25fe70dfc3a2d88a04bc459cbe5bbba3783aa6ad90bb"
+  },
+  "offlineRecoveryCheck": {
+    "asciiReadReproduced": true,
+    "utf8ReadAndCompileSucceeded": true,
+    "helperHashUnchanged": true,
+    "helperHash": "48f8d3e5499cc4073f5c25fe70dfc3a2d88a04bc459cbe5bbba3783aa6ad90bb",
+    "configHashUnchanged": true,
+    "configHash": "ee05f7d1033c9b64fefaa1cc970a5cf1a9478c598075f82ebc3e89fd0011326c",
+    "correctedWrapper": "exec(compile(open(helper_path, encoding=\"utf-8\").read(), helper_path, \"exec\"), dict(globals(), __file__=helper_path, CONSOLE_CONFIG_PATH=config_path))"
+  },
+  "noExecutionEvidence": {
+    "consoleDispatchReceiptPresent": false,
+    "consoleProgressPresent": false,
+    "consoleResultPresent": false,
+    "consoleRenderOutputPresent": false,
+    "queueCountAfterFailure": 7,
+    "newConsoleJobPresent": false,
+    "resolveHelperEntered": false
+  },
+  "retryGate": {
+    "status": "GO",
+    "sameActionId": true,
+    "mustUseCorrectedWrapperOnly": true,
+    "mustNotChangeHelper": true,
+    "mustNotRepinHashes": true,
+    "mustDispatchExactlyOnce": true,
+    "mustPreserveManualGuardrails": true
+  },
+  "interpretation": "This is not a Resolve capability failure and no Console render result exists yet. Retry the same bounded action once with UTF-8 decoding in the wrapper, then retain its result/progress or stop on any new error."
+}

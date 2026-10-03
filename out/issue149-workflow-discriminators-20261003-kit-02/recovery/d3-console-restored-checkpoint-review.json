@@ -1,0 +1,47 @@
+{
+  "taskId": "/root/discriminator_output_verify",
+  "verification": "D3 Console final restored checkpoint",
+  "verdict": "accepted-restored-state-go-fairlight",
+  "classification": "adverse-product-observation-with-restored-state",
+  "projectUid": "0591bb41-d645-4af7-a2ee-ff75f8f43162",
+  "timelineUid": "dc548f02-103c-495a-8e88-c4b767aa10dc",
+  "a2ItemUid": "02572600-80b5-43ca-a7bd-6bd74f7b3a89",
+  "consoleJobId": "bca942f4-c4d6-4a8a-9b64-0831b1587312",
+  "restoredJobId": "461e9071-612f-414d-940b-460c234fbb0b",
+  "consoleOutputSha256": "6fb687d847ee6cb5426bae9a5deb35119a0944b441d1d87fb7eb81059ba1376e",
+  "restoredOutputSha256": "150c010826680103892bc3c4e300aa20bcdc17799b7520c346d8e785de3f0c4c",
+  "consoleOutcome": {
+    "status": "Complete",
+    "a2Pilot1500Hz": 0.01986,
+    "silenceThreshold": 0.001,
+    "numberWordsPresent": ["one", "two", "three", "four", "five", "six", "seven", "eight"],
+    "a1Pilot1000Hz": 0.02828,
+    "a3Pilot2000Hz": 0.02003,
+    "decodedFrames": 399,
+    "decodedSourceIds": [1],
+    "frameMismatchCount": 0
+  },
+  "restoredOutcome": {
+    "status": "Complete",
+    "a2Pilot1500Hz": 0.01986,
+    "numberWordsPresent": ["one", "two", "three", "four", "five", "six", "seven", "eight"],
+    "decodedFrames": 399,
+    "decodedSourceIds": [1],
+    "frameMismatchCount": 0
+  },
+  "mappingRestoration": {
+    "semanticEqual": true,
+    "unexpectedSnapshotDifferences": [],
+    "restoredMute": false
+  },
+  "finalCheckpoint": {
+    "captureSha256": "c74ed7e302cc3f1055cc185d43983678e01f3ad5a1767e4c065bf7374f3937b4",
+    "prePostEqual": true,
+    "queueCount": 9,
+    "renderingInProgress": false,
+    "page": "deliver",
+    "currentTimeline": "D3-console-av-20261003",
+    "externalScriptingSetting": "None"
+  },
+  "goNext": "Fairlight/operator case may be staged; no further Console rerun is needed."
+}

@@ -1,0 +1,130 @@
+{
+  "boundedSequence": {
+    "exclusions": [
+      "No new collector",
+      "No broad name-prefix acceptance",
+      "No transcript inference or edited-range conclusion",
+      "No fake test presented as native continuation",
+      "No changes to old accepted evidence"
+    ],
+    "phase1": "Create and retain one fresh complete six-timeline/pool read-only pair using the adapted probe and reader; hash only generated manifest sources and mark the exact protected source as unread.",
+    "phase2": "Use that pair as the sole prior pin for one existing R2-picture editorial-case-prepare flow; preserve all six identities and protected extras through before/after readbacks.",
+    "stopConditions": [
+      "Unknown or duplicate timeline identity",
+      "Any protected source UID mismatch",
+      "Any protected source path hash attempt",
+      "Incomplete or unequal pair",
+      "Context drift",
+      "Any stale helper or pin hash"
+    ]
+  },
+  "freshInventory": {
+    "comparisonSha256": "344c700a16024c88193d52c5f9f26dcef1bcd77087ce18903fb8540e4e9925d4",
+    "contextUnchanged": true,
+    "directory": "out/issue-141-observation-20260930-01a0f318/producer-transcript-probe-20261001T170340.864739Z",
+    "journalSha256": "e55f25d41ace05cd8169c481ea21af52ee26e8599aa5458a95cdf8fc967512b1",
+    "rangeState": {
+      "boundaryAmbiguity": true,
+      "candidateSourceRangeDerivable": true,
+      "geometryComplete": true,
+      "safeToDeriveEditedRanges": false,
+      "wordTimingAvailable": true
+    },
+    "rawReadbackSha256": "08de0f64f2ae928b9fe7c81f47edb4e7f9776b0d89f909dc7590ee0666569355",
+    "realSource": {
+      "name": "semi1b.mp4",
+      "uid": "be5f1584-f0c4-4dd9-988b-73f3167e77d1"
+    },
+    "result": "out/issue-141-observation-20260930-01a0f318/producer-transcript-probe-20261001T170340.864739Z/result.json",
+    "resultSha256": "19984e2f10e25e644cdbd565e17d19c2c4d64050433d4323f5d598986c8c1cae",
+    "status": "complete",
+    "targets": {
+      "transcription test 1": "21436b8f-057c-49e6-80ba-5f733abe87b2",
+      "transcription test 2": "2db0b2d1-6d81-48d4-b49c-360f56e012cd"
+    },
+    "transcriptState": {
+      "sourceGetTranscription": "value with equal adjacent reads, but expected-text comparisons mismatch",
+      "timelineGetTranscription": "missing with equal adjacent reads for both arguments on both timelines"
+    }
+  },
+  "guardChanges": [
+    {
+      "adaptation": "Replace the prefix-only acceptance with the exact six UID/name map: the four mandatory identities plus the two protected extras. Require count six, unique IDs, exact names, and reject any other timeline. Keep all raw fields and tracks in the full observation.",
+      "file": "docs/investigations/issue-141/probe.py",
+      "guard": "observe currently accepts only timeline names beginning VERA 141"
+    },
+    {
+      "adaptation": "Require the same exact six UID/name map and count six while retaining selectedTimelineUid checks. This is the shared _read_pair context guard used by editorial cases.",
+      "file": "docs/investigations/issue-141/r4-range-repair.py",
+      "guard": "_context currently requires an exact four-timeline inventory"
+    },
+    {
+      "adaptation": "Require the same six-entry map, then continue returning only Matrix by its existing UID. _apply already compares full after_state and after_pool, so the protected extras are covered once _read_pair captures them.",
+      "file": "docs/investigations/issue-141/editorial-cases.py",
+      "guard": "_timeline currently compares the state map to exactly four identities"
+    },
+    {
+      "adaptation": "Recognize only the exact protected source UID be5f1584-f0c4-4dd9-988b-73f3167e77d1 as protected-locator-not-accessed. Retain UID/name/properties and this non-error status in item and pool evidence; leave source_evidence hashing and errors unchanged for the generated manifest allowlist and unknown locators.",
+      "file": "docs/investigations/issue-141/probe.py",
+      "guard": "media_evidence and _r4_pool_inventory hash every non-timeline-pool source through the generated expected map"
+    }
+  ],
+  "hashRipple": {
+    "currentHashes": {
+      "editorial-cases.py": "543668667b93f59c5c873f6bfeb83842892b2ebea4d5abc99586c2794825aa20",
+      "probe.py": "33e89ab7dd8c21b40b114ec6bda68c6db19d31dfd912ee7c8d842361e4b50eb0",
+      "r4-range-repair.py": "06eff080c45e5c520a1c8c31787e4d4f1604198a3a98a9e3c8e025917fcf455b"
+    },
+    "frozenEvidenceRule": "Do not rewrite prior source bundles, accepted evidence, or old installation records. A changed reader requires a new reviewed source bundle and new pins for any action resumed.",
+    "otherReaderConsumersToTreatAsStaleUntilIndividuallyRefreshed": [
+      "editorial-readback.py",
+      "r1-razor.py",
+      "editorial-restore.py",
+      "r4-reprepare.py",
+      "r4-removal.py",
+      "offline-cycle.py",
+      "r5-freshness.py",
+      "av-output.py",
+      "transcription-readback.py",
+      "installation-r4-range-repair.json",
+      "installation-r4-reprepare.json",
+      "installation-r4-removal.json"
+    ],
+    "requiredPinsForR2Picture": [
+      "probe.py installed/staged probeSha256 and its owned_modules editorial-case-prepare digest",
+      "editorial-cases.py READER_SHA updated to the new reader digest",
+      "r4-range-repair.py reader digest in the probe r4-range-repair branch is updated even though R2-picture dispatch uses editorial-case-prepare"
+    ]
+  },
+  "inspectionMethod": "Read-only ctx-wire searches and /usr/local/bin/python3.14 -S JSON/hash inspection; no files changed except this ignored plan artifact.",
+  "kind": "resume-synthetic-adaptation-plan",
+  "mandatoryTimelineIdentities": {
+    "VERA 141 Baseline": "88f7923d-55a7-471f-b09b-cf10f9fae8ad",
+    "VERA 141 Batched Matrix": "29ae8331-b86e-4041-a548-960695cc7b24",
+    "VERA 141 R1 identity": "aa2b8e36-83bd-4292-9e33-217c00ca192f",
+    "VERA 141 R4 availability": "64de8a4c-86bd-4f19-9d20-47b8940f610b"
+  },
+  "protectedExtras": {
+    "transcription test 1": "21436b8f-057c-49e6-80ba-5f733abe87b2",
+    "transcription test 2": "2db0b2d1-6d81-48d4-b49c-360f56e012cd"
+  },
+  "r2PictureOnly": {
+    "action": "editorial-case-prepare",
+    "case": "R2-picture",
+    "contract": "Existing case targets the R2-picture-only marker at Matrix frames 3500..3699, unlinks the V1/A1 pair, and prepares a V1-only cut while leaving A1 intact. No contract change is proposed.",
+    "helper": "docs/investigations/issue-141/editorial-cases.py",
+    "missingEvidence": [
+      "No native R2-picture preparation, before/after pair, setter journal, or restoration result exists.",
+      "The existing four-timeline captures and Matrix checkpoint cannot serve as the new full prior pin because they omit the protected extras.",
+      "The producer transcript result is not a full synthetic Matrix/pool pair and cannot serve as priorPair."
+    ],
+    "postflightRequirement": "The existing _apply equality must retain the two protected timeline rows, their real-source occurrences, and pool metadata byte-for-byte while only the intended generated Matrix V1 interval state changes.",
+    "requiredBeforeMutation": [
+      "Fresh adapted _read_pair with two equal complete timeline and pool passes containing all six timelines and protected source evidence.",
+      "Pin that fresh pair path and SHA in the editorial-case-prepare config as priorPair/priorPairSha256.",
+      "Run the existing exact target, source, lock, playhead, and generated-media manifest guards."
+    ]
+  },
+  "scope": "Narrow plan for a fresh full read-only inventory followed by the existing R2-picture-only synthetic case. No source edits or native action were performed.",
+  "taskId": "Issue 141"
+}

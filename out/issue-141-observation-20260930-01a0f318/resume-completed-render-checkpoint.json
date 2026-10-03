@@ -1,0 +1,9 @@
+{
+  "recordedAt": "2026-10-02T11:41:16.510635+00:00",
+  "state": "active-goal-resumed",
+  "source": "current get_goal active state and goal continuation request",
+  "checkpoint": "pause-render-checkpoint.json",
+  "jobId": "a6ed7f33-9ad4-4d82-bfac-ff72903f4567",
+  "scope": "local retained Solo audio comparison, independent closeout audit, offline final-R1 readiness; no new render or native edit",
+  "futureGate": "operator Solo-off restoration and fresh full readback before R1"
+}

@@ -1,0 +1,48 @@
+{
+  "nativeDispatched": true,
+  "phases": [
+    {
+      "evidence": {
+        "path": "564-r2-residual-context.json",
+        "sha256": "7aedef052de1982fd2765f3ff00e4789bdd8ec1dbda5e993b0644b9d2698e086"
+      },
+      "name": "fresh-context-readback",
+      "status": "complete"
+    },
+    {
+      "evidence": {
+        "path": "residual-bound-delete-continuation-r2/interval-delete.json",
+        "sha256": "2bd22180ec2d005ce966edcfd594dc4c6faaa1fd5b33b518ddd1f0c38edcd64a"
+      },
+      "name": "interval-delete",
+      "resultStatus": "interval-deleted-unsaved",
+      "status": "complete"
+    },
+    {
+      "evidence": {
+        "path": "residual-bound-delete-continuation-r2/003-r2-residual-deleted.json",
+        "sha256": "d8c8ca7f09e5af318a45b7065c6211ab6889d755e506b00e88a487a396b10530"
+      },
+      "name": "deleted-state-readback",
+      "status": "complete"
+    },
+    {
+      "evidence": {
+        "path": "residual-bound-delete-continuation-r2/restoration.json",
+        "sha256": "376747c2e37b54a70d1383da383ac548b4c028a91cd15497042d72c1b97aff18"
+      },
+      "name": "editorial-case-restore",
+      "status": "complete"
+    },
+    {
+      "evidence": {
+        "path": "residual-bound-delete-continuation-r2/005-r2-residual-context.json",
+        "sha256": "5ec1b1b517b7431a785ca0563dcab972f8ec21e79842cace14f3afe4b177e377"
+      },
+      "name": "context-restoration-and-final-readback",
+      "status": "complete"
+    }
+  ],
+  "schema": "issue141-residual-bound-driver-execution-index/v1",
+  "status": "complete"
+}

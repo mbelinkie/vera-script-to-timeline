@@ -1,0 +1,123 @@
+{
+  "taskId": "Issue 141",
+  "review": "restart-readiness-fixed-observation",
+  "scope": "One approved fixed-menu observation after restart; no Resolve edits, alternate scripting, save, render, settings, or menu action other than Observation.",
+  "readiness": {
+    "configAfterLaunch": {
+      "action": "observe",
+      "stage": "baseline-repeat",
+      "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+      "externalScriptingSetting": "None",
+      "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+      "probeSha256": "d2fa75e9298ef37eba8d816a8afa8418f6ffaca0fab95755f357a7049bf0b4db",
+      "probePath": "docs/investigations/issue-141/probe.py",
+      "privateConfigSha256": "bfed62ddd74cf32301252699c68fc9aabe4c9931a91841c08714efcff0d5b48d"
+    },
+    "launcher": {
+      "repoSha256": "9dc4b86961a52953ada297dd287c5768ac45c9255a54f9a9aa3868a4aaa97b40",
+      "installedSha256": "9dc4b86961a52953ada297dd287c5768ac45c9255a54f9a9aa3868a4aaa97b40",
+      "repoInstalledMatch": true,
+      "hammerspoonLaunchLuaSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1"
+    },
+    "check": {
+      "command": "bundled hs -c dofile(hammerspoon-launch.lua).check()",
+      "outcome": "passed",
+      "output": "{windowTitle: VERA Issue 141 Synthetic Probe 20260930-01a0f318, menuFound: true, menuEnabled: true, bundleId: com.blackmagic-design.DaVinciResolve, triggered: false}"
+    }
+  },
+  "dispatch": {
+    "command": "bundled hs -c dofile(hammerspoon-launch.lua).run()",
+    "outcome": "completed",
+    "output": "Observation menu selected once; verify the new injected result before any next action",
+    "dispatchCount": 1,
+    "duplicateDispatch": false
+  },
+  "freshResult": {
+    "progress": {
+      "name": "vera-issue-141-observation-progress-20261001T160623.751610Z.jsonl",
+      "sha256": "e46ec8a2f6b85f56ed9bb1cada493caddc02cc5fea2ceda11e305526fe3285ad",
+      "bytes": 639,
+      "snapshot": "progress.jsonl",
+      "snapshotEqualToSource": true,
+      "startedAt": "2026-10-01T16:06:23.753052Z",
+      "terminalAt": "2026-10-01T16:06:44.220869Z",
+      "injectedType": "PyRemoteObject",
+      "productName": "DaVinci Resolve Studio",
+      "productNameLatencySeconds": 0.002989,
+      "dispatchToResultSeconds": 20.467817,
+      "probeStatus": "inconsistent-refused",
+      "terminalEvent": "result-written"
+    },
+    "result": {
+      "name": "vera-issue-141-observation-result-20261001T160623.751610Z.json",
+      "sha256": "b17dd8ce1a2df7aa69b37ebac458d58a705dc085811626781865ee5e4a128648",
+      "status": "inconsistent-refused",
+      "captureReference": "capture-20261001T160623.856797Z.json"
+    },
+    "capture": {
+      "name": "capture-20261001T160623.856797Z.json",
+      "sha256": "3e8812059b50b08400e2f2a26444075848e1b9d36383182bd5087ffdeaa3273e",
+      "bytes": 4616199,
+      "capturedAt": "20261001T160623.856797Z",
+      "kind": "real-injected-readback",
+      "stage": "baseline-repeat",
+      "consistency": "inconsistent-refused",
+      "getterFailures": [],
+      "applicationRevisionToken": null,
+      "context": {
+        "productName": "DaVinci Resolve Studio",
+        "version": [21, 1, 0, 14, ""],
+        "externalScripting": "None",
+        "currentPage": "deliver",
+        "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+        "renderJobs": [],
+        "renderingInProgress": false
+      },
+      "contentFingerprints": [
+        "984318872faa8061f239308ac8a61348ce0aa279e4486d0e98becfea21ef6f9c",
+        "d6c30b5b5329f76603aa8e9ed4d21da90b9e58e143b2684dbd77a2ced54731fa"
+      ]
+    }
+  },
+  "adjacentPassComparison": {
+    "comparisonScope": "latest capture pass 0 versus pass 1; raw differences retained",
+    "cacheLocator": {
+      "pass0": "user-relative ~/Movies/CacheClip",
+      "pass1": "user-relative ~/Movies/CacheClip",
+      "changed": false
+    },
+    "differences": [
+      {"timeline": "VERA 141 Baseline", "track": "V1", "clip": "base.mov", "field": "Usage", "pass0": "23", "pass1": "24"},
+      {"timeline": "VERA 141 Baseline", "track": "V2", "clip": "cutaway.mov", "field": "Usage", "pass0": "20", "pass1": "21"},
+      {"timeline": "VERA 141 Baseline", "track": "V3", "clip": "overlay.png", "field": "Usage", "pass0": "20", "pass1": "21"},
+      {"timeline": "VERA 141 Baseline", "track": "A1", "clip": "repeated.wav", "field": "Usage", "pass0": "44", "pass1": "46"},
+      {"timeline": "VERA 141 Baseline", "track": "A2", "clip": "repeated.wav", "field": "Usage", "pass0": "44", "pass1": "46"},
+      {"timeline": "VERA 141 Baseline", "track": "A3", "clip": "bed.wav", "field": "Usage", "pass0": "20", "pass1": "21"}
+    ],
+    "otherCompactFieldsChanged": false,
+    "normalization": "none"
+  },
+  "polling": {
+    "freshPairObserved": true,
+    "firstWaitSeconds": 10,
+    "progressEnded": true,
+    "resultEnded": true,
+    "outstandingCurrentProgress": false,
+    "allCurrentProgressEnded": true,
+    "previousTerminalProgress": {
+      "name": "vera-issue-141-observation-progress-20261001T140359.691844Z.jsonl",
+      "sha256": "8343ede5f4addc7daa6d48fd73d93850eda2aa0a1140689dcd8d190771df806a"
+    },
+    "previousTerminalResult": {
+      "name": "vera-issue-141-observation-result-20261001T140359.691844Z.json",
+      "sha256": "f547172fe45778bd009c1c21565d84e20a907fe2ab641be2a026cb1dd6b915f3"
+    }
+  },
+  "judgment": {
+    "bridgeResponsiveThisLaunch": true,
+    "basis": "The fixed menu dispatch reached the injected PyRemoteObject, returned product name immediately, returned a terminal probe status, and wrote a result/capture within the bounded wait.",
+    "stableFullReadback": false,
+    "movedStatePairProduced": false,
+    "downstreamLimit": "Readback consistency remains refused; this launch does not establish a stable moved-state result or any product capability conclusion."
+  }
+}

@@ -1,0 +1,5 @@
+## #149 WI mute → Console render discriminator
+
+The [complete Console-render case](https://github.com/mbelinkie/vera-script-to-timeline/issues/149#issuecomment-5970434832) is independently reviewed **adverse**, with original mapping and restored output verified: A2 pilot 0.01986 (silence gate ≤0.001), all eight number words retained, valid picture/NATO/bed controls. Starting the render in Console did not make the WI-applied mute effective. This differs from Claude’s Console-applied setter; no general Console failure or internal deferred-update cause is inferred.
+
+The initial UTF-8/ASCII wrapper error was before helper execution, recorded separately as a harness failure. Exactly one actual Console render job completed. Full original-pre-mute→restored-state differences and separate restored render are retained. #141 handoff/report cite the new result. New cases: **4/5 reviewed**. Fairlight page-only stage passed independent precheck; it remains unrun until operator page observation/render evidence. #149 stays open for producer review.

@@ -1,0 +1,55 @@
+{
+  "taskId": "/root/discriminator_verify_cont",
+  "scope": "Independent review of the native discriminator timeline-build stop",
+  "classification": "harness failure",
+  "caseResults": "none",
+  "action": "build-discriminator-timelines-20261003-kit-02",
+  "configSha256": "51d63648e7372cb891f10aa782abf6b90c5ffcbb8b8a4f6b2fee7355016b2f43",
+  "error": "AV placement did not return V1/A1 items",
+  "evidence": {
+    "result": "out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-build-discriminator-timelines-20261003-kit-02.json",
+    "journal": "out/issue149-workflow-discriminators-20261003-kit-02/evidence/build-discriminator-timelines-20261003-kit-02/journal.jsonl",
+    "journalSha256": "fc10fed943d1bbb0bea52efb33c93c2e7a21c8e20cf5cd010c4cafca6c8eb6c3",
+    "pre": "out/issue149-workflow-discriminators-20261003-kit-02/evidence/build-discriminator-timelines-20261003-kit-02/pre.json",
+    "preSha256": "6e2320903ab5e9fc4cb0a761192a22f9391dfaaa87be7c86bd2c50df5b2b65c6",
+    "postPartial": "out/issue149-workflow-discriminators-20261003-kit-02/evidence/build-discriminator-timelines-20261003-kit-02/post-partial.json",
+    "postPartialSha256": "81ab52954e03af8a09cd9a6536d72c3a6e6f3b3c991a814f10303dceaed610b8"
+  },
+  "partialState": {
+    "projectUid": "0591bb41-d645-4af7-a2ee-ff75f8f43162",
+    "timelineUid": "9ce8ac2d-bd57-4740-9c19-044d3df53347",
+    "timelineName": "D6-kept-20261003",
+    "itemUids": [
+      "ee79ae78-c356-4224-b83c-e61ca3c250e2",
+      "d39825a2-da77-48fb-b231-32b24b4b0503",
+      "7370d40b-6bf2-4177-a683-19835573220a",
+      "15896858-8ee7-439f-bea7-dc21b7ced67e"
+    ],
+    "mediaUids": 8,
+    "renderJobs": [],
+    "nativeOutput": false
+  },
+  "geometryReview": {
+    "timelineUid": "9ce8ac2d-bd57-4740-9c19-044d3df53347",
+    "timelineName": "D6-kept-20261003",
+    "itemCount": 4,
+    "items": [
+      {"track": "V1", "name": "base.mov", "range": "[0,399]", "sourceRange": "[0,399]", "linkedTo": "A1"},
+      {"track": "A1", "name": "base.mov", "range": "[0,399]", "sourceRange": "[0,399]", "linkedTo": "V1"},
+      {"track": "A2", "name": "a2_numbers.wav", "range": "[0,399]", "sourceRange": "[0,399]", "linkedTo": null},
+      {"track": "A3", "name": "a3_bed.wav", "range": "[0,399]", "sourceRange": "[0,399]", "linkedTo": null}
+    ],
+    "rangesAndTrackTypesValid": true,
+    "linkedPairReciprocal": true,
+    "sourceId": "unavailable until rendered decode"
+  },
+  "interpretation": "The harness rejected the native AppendToTimeline return shape before producing a build result. This does not establish a Resolve timeline, render, mapping, W3, or W6 capability result. The partial project/timeline must remain attributed to this action; no recreation or case classification follows from this record.",
+  "freshness": "Reviewed after the actor's completed native action from the retained result, journal and post-partial capture; no native action, cleanup, source edit, or broad test was performed by this verifier.",
+  "references": [
+    "docs/investigations/issue-149/workflow-discriminators/plan.md:29-41",
+    "out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-build-discriminator-timelines-20261003-kit-02.json",
+    "out/issue149-workflow-discriminators-20261003-kit-02/evidence/build-discriminator-timelines-20261003-kit-02/pre.json",
+    "out/issue149-workflow-discriminators-20261003-kit-02/evidence/build-discriminator-timelines-20261003-kit-02/post-partial.json",
+    "out/issue149-workflow-discriminators-20261003-kit-02/evidence/build-discriminator-timelines-20261003-kit-02/journal.jsonl"
+  ]
+}

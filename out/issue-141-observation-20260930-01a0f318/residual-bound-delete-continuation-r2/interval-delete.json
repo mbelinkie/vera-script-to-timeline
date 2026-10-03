@@ -1,0 +1,57 @@
+{
+  "_auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T230107.192612Z",
+  "_nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T230108.370332Z.json",
+  "afterPair": {
+    "path": "editorial-case-20261001T230112.238011Z/after.json",
+    "sha256": "1616fa7f512b1a23d4c2756d2246bef51ee9d085ba8c443170ad060c385949a4"
+  },
+  "case": "R2-residual",
+  "deleteError": null,
+  "deleteReturn": true,
+  "directory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T230112.238011Z",
+  "firstSplitPair": {
+    "path": "editorial-case-20261001T214604.411256Z/after.json",
+    "sha256": "7a7d0db1be976dd4e3463e1231a7e00923318742188c0a107c8fc0962085b40d"
+  },
+  "interval": {
+    "recordEndRaw": 4570,
+    "recordStart": 4560,
+    "sourceEndRaw": 70,
+    "sourceStart": 60
+  },
+  "intervalUids": {
+    "audio": "7ef661f3-9b3e-427c-8d00-9dab85a0cfcb",
+    "video": "bbd48d17-f8ef-430f-9cfd-cd14c3860ae0"
+  },
+  "journal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T230112.238011Z/journal.jsonl",
+  "preparationResult": {
+    "path": "independent-residual-resume-20261001T214559.089529Z/preparation.json",
+    "sha256": "dc9714cba9b16c8f946baf206f2d73f98cc50e162f8888e23aa883cad49c87af"
+  },
+  "saveDispatched": false,
+  "secondPositionResult": {
+    "path": "independent-residual-resume-20261001T214559.089529Z/second-position.json",
+    "sha256": "8e6496ccc241d67545cb2fb4415d99f1b0f2a1cbe10169d8ad89f4feb1722f6f"
+  },
+  "secondSplitPair": {
+    "path": "r2-residual-second-split-20261001T215948.487403Z/pair.json",
+    "sha256": "3f510f532db58ae58b6dd29cdba7a508d3791ba5b6ee7d7ba41b17738f8e53d7"
+  },
+  "selectionDiagnostic": {
+    "diagnosticOnly": true,
+    "selectedUids": [
+      "883e3e81-75b0-4163-8fdb-fff8d382edcc",
+      "2e8c2ba4-7220-44cc-bb75-1c2e251ae5c4"
+    ],
+    "selectionMatchesInterval": false
+  },
+  "selectionResult": {
+    "path": "independent-residual-resume-20261001T215903.877120Z/009-r2-residual-interval-selected.json",
+    "sha256": "d637a4190146f585aca9e6ed5333fd4a9679cb8e8784c8b81d3ae99c12d10ab0"
+  },
+  "sourceUids": {
+    "audio": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+    "video": "9202163a-8381-43e6-9157-3a60f35c6f79"
+  },
+  "status": "interval-deleted-unsaved"
+}

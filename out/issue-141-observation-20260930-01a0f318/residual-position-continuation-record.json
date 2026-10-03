@@ -1,0 +1,21 @@
+{
+  "schema": "issue141-residual-position-continuation/v1",
+  "case": "R2-residual",
+  "resumeRecord": {
+    "path": "residual-resume-record-20261001T214000Z.json",
+    "sha256": "88dc531181344f5200f89f0b7b09850ca58058e244b9a39e11978ac973d6f4f6"
+  },
+  "preparation": {
+    "path": "independent-residual-resume-20261001T214559.089529Z/preparation.json",
+    "sha256": "dc9714cba9b16c8f946baf206f2d73f98cc50e162f8888e23aa883cad49c87af"
+  },
+  "position": {
+    "path": "independent-residual-resume-20261001T214559.089529Z/second-position.json",
+    "sha256": "8e6496ccc241d67545cb2fb4415d99f1b0f2a1cbe10169d8ad89f4feb1722f6f"
+  },
+  "priorTerminal": {
+    "path": "residual-resume-native-executor-result.json",
+    "sha256": "947e80eae2fb3038d24d260ef0e1788b13732d45e7e2f24375f74e804d883f22"
+  },
+  "limits": "Retained actual second-position result only; do not repeat preparation, first cut or position setter."
+}

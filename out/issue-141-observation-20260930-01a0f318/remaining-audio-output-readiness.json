@@ -1,0 +1,75 @@
+{
+  "kind": "issue-141-remaining-audio-output-readiness",
+  "scope": "Read-only readiness assessment; no native action performed. Current checkpoints must be refreshed after root completes residual/offset edits.",
+  "tests": [
+    {
+      "test": "R2-disable-mute / track mute and solo",
+      "status": "partially completed; mute/solo unobserved",
+      "retainedProof": [
+        {
+          "file": "audio-cases-20260930T234123.302069Z.json",
+          "sha256": "c8ac5b501d8187cfb93ab0bf178cd06d0d9f61af818f98283aed2a5efb65348d",
+          "result": "real injected two-pass observations; equal adjacent reads, no getter failures"
+        },
+        {
+          "file": "capture-20260930T234123.302069Z-final.json",
+          "sha256": "8375ae48f9e21bf64aba2571ebbcfbb2ce2f6a400b2811223258417ea701bcd1",
+          "result": "final two-pass capture; enable/disable/restore work captured"
+        }
+      ],
+      "observed": "Residual clip enable and A2 track enable were toggled and restored with actual readbacks. Track enabled is not mute/solo or final audibility. No retained two-pass mute/solo state transition or Fairlight routing/program-output observation was found. Do not infer mute/solo methods from guessed API names; None/False counts only when recorded as actual two-pass native return values.",
+      "next": "After residual/offset edits and fresh stable selected-Matrix state, perform only the separately bounded mute/solo test if its call surface is verified; record actual Fairlight UI state, route/bus/sends and audible program evidence. Keep unsupported fields explicit.",
+      "guard": "Current audio-cases pin is the 01:52 matrix checkpoint; refresh/review its selected-Matrix pin after edits before any future native action. No UI work is authorized by this readiness task.",
+      "operatorOnly": "Fairlight UI and audible program comparison are required by checklist; whether a verified native mute/solo API exists remains unestablished."
+    },
+    {
+      "test": "R2 output verification / program audio",
+      "status": "not completed; audio-only output path refused before settings/queue/render; AV queue-only candidate reviewed but unrun",
+      "retainedProof": [
+        {
+          "file": "audio-output-refused-installed-config-20261001T015945.json",
+          "sha256": "49a9cec4ed83578e8aeb795b84a0266948af8ce01673e176381570b1d5f3c0f0",
+          "result": "installed action config records prior refusal; not output evidence"
+        },
+        {
+          "file": "av-full-matrix-queue-review.json",
+          "sha256": "1db0f448cd389742b95b2105f1d9077f19ba725c278d2e6464434f16cf109a50",
+          "result": "reviewed-unrun queue-only full-Matrix candidate; no Resolve invocation/render result"
+        },
+        {
+          "file": "full-matrix-av-readiness-20261001T1907.json",
+          "sha256": "d94d147f57cc7feaf41a1f54ab5b0317150e8ff8d369e14f40734e7dd9be6a66",
+          "result": "conditional after fresh Matrix pair; dispatch false"
+        }
+      ],
+      "next": "After root finishes residual/offset and refreshes selection, make a fresh protected-source-safe Matrix pair and use only the reviewed full-Matrix queue-only path; verify newly returned owned job fields, no render. A separately reviewed continuation may render/read back that exact job if guards still hold, then inspect output with ffprobe and sample analysis. Queue metadata/readback can reveal accepted MarkOut and output frame count/duration; do not rewrite expected range first.",
+      "guard": "Current review is explicitly unrun and pins stale reader/action context; latest readiness requires fresh stable Matrix pair. Root owns orchestration. Preserve 30-second MAX_SECONDS timeout and retain active job/recovery evidence on timeout; never replay after timeout or use external fallback. Matrix cases use generated media; protect producer semi1b.mp4 and all timelines.",
+      "operatorOnly": "None established for basic job/output metadata; actual Fairlight route and audibility still require operator-visible evidence."
+    },
+    {
+      "test": "R2 duration / endpoint convention",
+      "status": "not established; current harness contains an untested inclusive-end assumption",
+      "retainedProof": [
+        {
+          "file": "av-full-matrix-queue-review.json",
+          "sha256": "1db0f448cd389742b95b2105f1d9077f19ba725c278d2e6464434f16cf109a50",
+          "result": "reviewed queue-only design records start 0/end 9200 and SelectAllFrames; MarkIn/Out omitted from checks by this path"
+        },
+        {
+          "file": "av-output-continuation-record.json",
+          "sha256": "b169854fa9e6f9509dc22e1b8aa41e2d7e63b79baf74909c3246302c29fedc36",
+          "result": "historical 640x360 MarkOut=200 continuation; stale, do not reuse"
+        }
+      ],
+      "observed": "The direct full-matrix render continuation assumes GetEndFrame is inclusive: it checks queued MarkOut == matrix endFrame and output nb_frames == end-start+1. Matrix GetEndFrame is 9200; source clip ranges observed elsewhere use exclusive ends. This is a harness assumption, not a Resolve failure. Queue-only deliberately omits MarkIn/MarkOut validation.",
+      "next": "Queue-only readback is a bounded first observation of the actual job MarkIn/MarkOut; a subsequently authorized bounded render provides actual output frame count/duration. Compare both to fresh Matrix bounds and source-range convention before classifying. Do not change expected data to force a match.",
+      "guard": "No current queue result establishes convention. Require current 1920x1080/25 fps/48 kHz checkpoint and newly owned settings/job, no stale continuation. Keep MAX_SECONDS=30 and timeout evidence preservation/no replay."
+    }
+  ],
+  "limitations": [
+    "UI-disabled/track-enabled does not establish mute, solo, routing, or final audibility.",
+    "No successful render or output readback retained by inspected evidence.",
+    "No current actual two-pass mute/solo None/False observation established; do not treat method-name guesses, fake checks, or untried calls as native results.",
+    "Historical 640x360, MarkIn 0/MarkOut 200 continuation is stale and must not be reused."
+  ]
+}

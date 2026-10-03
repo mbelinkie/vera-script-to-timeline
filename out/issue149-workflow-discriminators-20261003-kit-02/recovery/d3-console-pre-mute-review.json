@@ -1,0 +1,45 @@
+{
+  "taskId": "/root/discriminator_autonomous",
+  "verification": "D3 Console fresh readback before Workflow Integration mute",
+  "status": "ready-for-wi-mute-only",
+  "projectUid": "0591bb41-d645-4af7-a2ee-ff75f8f43162",
+  "externalScriptingSetting": "None",
+  "select": {
+    "result": "vera-issue-149-workflow-discriminators-result-select-d3-console-av-20261003-kit-02.json",
+    "resultSha256": "7602872123d007c68e6dc2665dc1f50545b0a037f4f068ab58a0138061fb0db4",
+    "pre": "evidence/select-d3-console-av-20261003-kit-02/pre.json",
+    "preSha256": "fe9dacd24bf32cb54cdc43eeb6905e3d9428e55886913f4d081a583be779c460",
+    "post": "evidence/select-d3-console-av-20261003-kit-02/post.json",
+    "postSha256": "5d9cea30816d31e009c76806f0949804a91d8c01e7ca7c37de3b943b913b4d2d",
+    "timelineUid": "dc548f02-103c-495a-8e88-c4b767aa10dc",
+    "readbackPage": "edit"
+  },
+  "queue": {
+    "renderingInProgress": false,
+    "queueCount": 7,
+    "newConsoleJobCreated": false,
+    "priorDirectJobTerminal": true
+  },
+  "timeline": {
+    "name": "D3-console-av-20261003",
+    "videoItemUid": "82c25e87-8b15-4388-92e6-d91867d5ce57",
+    "audio1ItemUid": "7d62988b-effd-4646-900b-b5725c02be2f",
+    "audio2ItemUid": "02572600-80b5-43ca-a7bd-6bd74f7b3a89",
+    "audio3ItemUid": "4ade3d8d-a7d6-413a-a5ae-0466ea27edf7",
+    "videoAudio1ReciprocalLinks": true,
+    "audio2Independent": true,
+    "audio3Independent": true,
+    "frameRange": "0..399",
+    "sourceRange": "0..399",
+    "shape": "1920x1080, 25 fps, 48000 Hz",
+    "a2OriginalMapping": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}"
+  },
+  "sourcePins": {
+    "base.mov": {"sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036", "mtimeNs": 1790976491073030271, "inode": 548130164},
+    "swap.mov": {"sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036", "mtimeNs": 1790976491428416718, "inode": 548131480},
+    "relink_alt.mov": {"sha256": "2bad2d2457c3d572d2fe3542ef22da915ec38306c8985026bec10d1289f76579", "mtimeNs": 1790976491792119537, "inode": 548023089},
+    "a2_numbers.wav": {"sha256": "d9aeccc2d50cb96d81341167450eeb1b2c43fecf0f02b9291b4cd65afa92f9ba", "mtimeNs": 1790976491065408930, "inode": 548023064},
+    "a3_bed.wav": {"sha256": "022e3dd779808e5b38ff870cd541d8e25fb940836443262aaa95ce8768817e2b", "mtimeNs": 1790976491068781969, "inode": 548023069},
+    "baseAndSwapOriginalBytesRestored": true
+  }
+}
