@@ -38,6 +38,8 @@ testpaths = ["tests"]
 
 [tool.ruff]
 target-version = "py312"
+# Retained Resolve-console evidence: hashed, exec()-ed with injected globals; keep byte-for-byte.
+extend-exclude = ["docs/investigations/issue-149/evidence"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
