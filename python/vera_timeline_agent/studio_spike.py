@@ -11,6 +11,7 @@ import subprocess
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Protocol, cast
 
@@ -437,6 +438,7 @@ class PublicResolveAdapter:
         self.created_bins: list[str] = []
         self.title_placement_evidence: TitlePlacementEvidence | None = None
         self.text_plus_template: TextPlusTemplate | None = None
+        self.observed_connected: ConnectedFacts | None = None
 
     def connected_facts(self) -> ConnectedFacts:
         product = self.resolve.GetProductName()
@@ -459,7 +461,9 @@ class PublicResolveAdapter:
         suffix = fields[4]
         version = f"{major}.{minor}.{patch}"
         edition = "studio" if "studio" in product.casefold() else "free"
-        return ConnectedFacts(product, edition, version, str(build), True, suffix)
+        facts = ConnectedFacts(product, edition, version, str(build), True, suffix)
+        self.observed_connected = facts
+        return facts
 
     def probe(self, settings: Mapping[str, str]) -> tuple[str, ...]:
         if not callable(getattr(self.resolve, "GetCurrentPage", None)):
@@ -641,13 +645,12 @@ class PublicResolveAdapter:
                 duration = source.get("durationFrames", record["durationFrames"])
                 source_id = cast(str, event["sourceId"])
                 media = self.media_by_source[source_id]
-                if event["kind"] == "still":
-                    # Resolve 21 ignores clipInfo.endFrame for a one-frame still and
-                    # otherwise inserts the user-preference default (120 frames on
-                    # the tested installation). A documented temporary MediaPoolItem
-                    # mark range makes the authored occurrence duration explicit.
-                    # Resolve 21 also treats the documented mark out value as an
-                    # exclusive bound, matching clipInfo.endFrame.
+                image_event = event["kind"] in {"still", "placeholder"}
+                if image_event:
+                    # Resolve ignores clipInfo.endFrame for an unmarked still or
+                    # generated placeholder slate and otherwise inserts the user's
+                    # default duration. A documented temporary MediaPoolItem mark
+                    # range makes the authored occurrence duration explicit.
                     if not media.SetMarkInOut(0, duration, "video"):
                         raise StudioSpikeError(
                             f"still event {event['id']} could not set the "
@@ -665,7 +668,7 @@ class PublicResolveAdapter:
                         # compensating frame to retain the authored duration.
                         "endFrame": start
                         + duration
-                        + (1 if event["kind"] == "still" else 0),
+                        + (self._still_end_frame_compensation() if image_event else 0),
                         "mediaType": 2 if event["kind"] == "audio" else 1,
                         "trackIndex": self._track_index(cast(str, event["trackId"])),
                         "recordFrame": record["startFrame"],
@@ -688,6 +691,19 @@ class PublicResolveAdapter:
         if suffix_map is None:
             raise StudioSpikeError("track ID map was not initialized")
         return cast(int, suffix_map[track_id])
+
+    def _still_end_frame_compensation(self) -> int:
+        """Keep the accepted 21.0 behavior while honoring the 21.1 baseline."""
+        connected = self.observed_connected
+        if (
+            connected is not None
+            and connected.edition == "studio"
+            and connected.version == "21.1.0"
+            and connected.build == "14"
+            and not connected.suffix
+        ):
+            return 0
+        return 1
 
     def insert_text_plus(
         self, placement: TextPlusPlacement, template: TextPlusTemplate
@@ -767,7 +783,7 @@ class PublicResolveAdapter:
             discrepancies.append("reopened timeline name differs from requested name")
         for key, expected_value in self.expected_settings.items():
             actual = str(self.project.GetSetting(key))
-            if actual != expected_value:
+            if not _setting_matches(key, expected_value, actual):
                 discrepancies.append(
                     f"project setting {key}: expected {expected_value!r}, "
                     f"got {actual!r}"
@@ -835,9 +851,9 @@ class PublicResolveAdapter:
         title_matches: list[tuple[tuple[str, int], Any]] = []
         title_evidence = self.title_placement_evidence
         text_plus_template = self.text_plus_template
-        if title_evidence is None or text_plus_template is None:
-            discrepancies.append("pinned Text+ placement evidence is missing")
-        else:
+        if (title_evidence is None) != (text_plus_template is None):
+            discrepancies.append("pinned Text+ placement evidence is incomplete")
+        elif title_evidence is not None and text_plus_template is not None:
             try:
                 from .text_plus_validation import find_imported_template_generator
 
@@ -854,17 +870,19 @@ class PublicResolveAdapter:
                         text_plus_template,
                     ):
                         title_matches.append((slot, item))
-        if len(title_matches) != 1:
-            discrepancies.append(
-                "expected exactly one reopened pinned Text+ matching the inserted "
-                f"public fingerprint, got {len(title_matches)}"
-            )
-        elif title_evidence is not None and title_matches[0][0] != (
-            "video",
-            title_evidence.track_index,
-        ):
-            discrepancies.append("reopened pinned Text+ is on the wrong video track")
-        title_object_id = id(title_matches[0][1]) if len(title_matches) == 1 else None
+        title_object_id = None
+        if title_evidence is not None and text_plus_template is not None:
+            if len(title_matches) != 1:
+                discrepancies.append(
+                    "expected exactly one reopened pinned Text+ matching the inserted "
+                    f"public fingerprint, got {len(title_matches)}"
+                )
+            else:
+                title_object_id = id(title_matches[0][1])
+                if title_matches[0][0] != ("video", title_evidence.track_index):
+                    discrepancies.append(
+                        "reopened pinned Text+ is on the wrong video track"
+                    )
         for slot, actual_slot_items in actual_items_by_slot.items():
             kind, index = slot
             expected_events = by_slot.get(slot, [])
@@ -1045,6 +1063,15 @@ def _matches_text_plus_placement(
 
 def _optional_string(value: object) -> str | None:
     return value if isinstance(value, str) else None
+
+
+def _setting_matches(key: str, expected: str, actual: str) -> bool:
+    if key != "timelineFrameRate":
+        return actual == expected
+    try:
+        return Decimal(actual) == Decimal(expected)
+    except InvalidOperation:
+        return False
 
 
 def _bundle_identity(
