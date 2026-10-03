@@ -1,6 +1,6 @@
 # Issue 144 — bounded file-driven round-trip harness
 
-**Corrected checkpoint 1 plan:** both Claude reviews are retained under
+**Corrected through checkpoint 2:** completed Claude reviews are retained under
 `docs/investigations/issue-144`. Producer selected the tested linked cases with
 an isolated proof setup step. The compiler-only entry is the first implemented
 segment; all affected semantic/native seams below remain planned. No new native
@@ -54,6 +54,7 @@ is added: use the accepted libraries and standard-library file/hash/SQLite APIs.
 | --- | --- | --- |
 | Host CLI | ScriptDocument, CompilerDependencies, materialization plan → proof request | Node24.19.0 compiler; Python3.12 locked package/jobs/accepted external Studio adapter. Validate and hash literal inputs. No accepted imports inside the WI runtime. |
 | Durable build | Request → #35 job/stage receipts → actual compiler manifest/report → actual #34 package/Studio result | Use stable input-derived build IDs and idempotency keys, existing job IDs/leases, immutable files and package verification. Request no #35 render/upload stages; neither has a proof adapter. |
+| Prepared inputs | All #35 core stages run: `generating_speech` and `resolving_media` verify local files before compile | Speech verifies prepared/spliced dependency text/revision/audio hash and actual bytes; media verifies approved local materializations. No NarrationService/provider/Polly/boto3 import, synthesis, acquisition or cloud call. Missing assets refuse. |
 | Proof link setup | Verified fresh target + uniquely mapped video/source-audio pair → pre/post link journal | Separate source files/IDs; `SetClipsLinked`, reciprocal exactly-two links, identical ranges and 100% speed. Only links may change. Post-link capture is the baseline. Reapply for each fresh proof target. |
 | WI capture | Guarded verified target → two complete observations and managed UID map | One WI entry for both reads. Exact project/timeline UID, settings, source hashes, source/record ranges, track, speed, links, availability. Initial binding requires one unique pristine candidate per manifest event. Later matching uses retained UIDs; signatures never prove ancestry. |
 | Program render | Same WI entry + guarded observed target → complete PCM output and job/readback receipt | Bind intent, unique job UID, queued actual settings, full start/end extent and pre/post fingerprints. Refuse unexpected ranges/codec/routing before rendering. Preserve uncertain job/output; no automatic duplicate render. |
@@ -67,9 +68,20 @@ is added: use the accepted libraries and standard-library file/hash/SQLite APIs.
 - Implemented compiler entry:
   `node packages/contracts/src/issue-144-compile-cli.ts script-document.json compiler-dependencies.json`.
   It writes one canonical compiler-only envelope to stdout, containing the
-  unchanged manifest/report strings, raw input byte hashes, code/schema/lock
-  hashes and pinned runtime. It writes no source or output files. Host stages
+  unchanged manifest/report strings and their hashes, raw input byte hashes,
+  source/schema hashes, separate lockfile hash and pinned runtime. Installed
+  dependencies are bound through the locked `npm ci`, not fully attested by
+  this receipt. Persistent input/source/lock drift exits 75, distinct from a
+  compiler refusal (exit 1 plus a valid `ok:false` envelope). The host checks
+  `node --version` before invoking it. Re-reads do not prove atomicity or catch
+  reverted changes. It writes no source or output files. Host stages
   publish those bytes through #35's immutable-output API.
+  Host operator input parsing rejects BOMs, duplicate keys and non-finite
+  numbers before calling the compiler. The standalone compiler uses the
+  accepted `JSON.parse` semantics for duplicate keys; it is not the strict
+  operator gate. Normal reformatted JSON remains hash-bound and accepted.
+  Every #144-produced revision/dependency uses the actual TypeScript canonical
+  serializer; never impose the local revision hash rule on #148 input.
 - Planned host entry:
   `uv run --frozen python -m vera_timeline_agent.roundtrip_proof <action> --proof-root <directory>`.
   Actions: preflight, build, bind-baseline, propose, decide, rebuild, verify,
@@ -119,9 +131,17 @@ Spoken omission: the retained W1 positive is Charlie absent from the linked-cut
 399-frame / 766,080-sample program from hash-bound enabled A1/A2/A3 occurrences
 and observed source/record intervals, preserving each channel. Account for gain
 per route using retained calibration; require bounded windowed residual and
-target-support/partial-residue checks. Freeze declared calibration with test
-evidence rather than tune a new case until it passes. Geometry must fully remove
-the target's independently measured support and preserve neighboring supports;
+target-support/partial-residue checks. The independent repository measurement
+uses complete stereo PCM, route gains fit from unchanged picture-only audio,
+and a fixed 20 ms (960 sample) window. Gains are approximately 1.000/0.708/0.708;
+largest retained supported residual is 0.004246 RMS, versus 0.233422 for a
+synthetic half-word overlay. Freeze a bounded calibration profile and tests
+before using a verdict; these measurements alone are not a speech classifier.
+New cases need an unchanged reference and plausible bounded gains, never a fit
+to the edited output that can hide residue. W1 target/neighbor supports are
+**fixture-generator declarations** from the hash-bound media manifest; label
+them accordingly. Real input requires independently verified supports.
+Geometry must fully remove the target's support and preserve neighboring supports;
 geometry alone is insufficient. Unknown routes, source bytes, effects, automation,
 partial supports or incomplete renders refuse. Attributable A2 or shifted retained
 words need not be silent. Picture-only retains Charlie; disabled A1 is a whole
@@ -146,13 +166,14 @@ schema-valid NarrationDependency directly, deterministic asset ID/audio hash and
 it as a Polly `temp_synthetic` NarrationAudioAsset or keep stale text-bound audio.
 
 Bounded text policy for review: one contiguous **interior** token interval in a
-single narration block; nonempty retained neighbors; whitespace-only gaps to
+single narration block; nonempty retained neighbors; gaps containing only ASCII
+space, tab, LF or CR to
 those neighbors. Replace the character span from the previous retained token's
 end through the following retained token's start with one ASCII space. Remove
 only selected token IDs; shift later offsets by the exact UTF-16 length change.
 For example `Alpha Bravo Charlie Delta` becomes `Alpha Bravo Delta` when Charlie
 alone is accepted. Refuse first/last-token deletion, punctuation outside selected
-tokens in the joining gaps, a sentence-start deletion, and any visual/host-span/
+tokens in the joining gaps (which also refuses a sentence boundary), and any visual/host-span/
 annotation/beat anchor endpoint on a removed token. Ranges enclosing the phrase
 retain endpoints and receive new quoted text/version. Validate the complete
 revision before publication. No grammar correction, capitalization rewrite or
@@ -163,10 +184,16 @@ For #145, select one exact build and record host External Scripting Local (the
 historical WI evidence ran with it None). Re-prove assembly including any still/
 placeholder end compensation, linked setup, move, trim and standalone narration
 omission; then verify a complete render of the rebuilt target. The retained W1
-verdict does not authenticate real input. #148 must supply original local media,
-independently verified phrase/neighbor supports, qualifying exact anchors and
-compiler dependencies. Missing assets or unsuitable boundaries are readiness
-blockers, not permission to synthesize, invent timings or omit a named positive.
+verdict does not authenticate real input. Preflight separates script/media checks
+from narration-dependent checks. #148 can only use already available local
+narration; it cannot create paid/cloud audio to satisfy anchor/support checks.
+If original narration or qualifying timings are absent, retain a named readiness
+blocker with the dependent checks pending. Do not silently treat #148 as accepted
+or bypass its dependency on #145. Producer/steward must resolve preparation
+ownership or amend that future sequence before real-input preflight can pass.
+#144 itself has no cycle: use public W1 and issue-owned synthetic pipeline inputs.
+Missing assets or unsuitable boundaries do not authorize synthesis, invented
+timings or dropping a named positive.
 
 ### Freshness and recovery
 
@@ -179,7 +206,11 @@ promotion; a different stale decision refuses. Pin package `verified_at` in the
 immutable request. Input-derived build IDs/idempotency keys reuse #35's existing
 job identity, rather than modifying its UUID/lease core.
 
-Persist native intent before effects. Lost response/name collision waits;
+Persist native intent through the assembly `adapter_factory` wrapper before
+calling `run_studio_assembly`. Project UID first becomes known at WI capture;
+the accepted name lookup searches only the current folder. A lost creation
+response requires one unique read-only match throughout the project tree or
+explicit operator identification. Lost response/name collision waits;
 read-only rehydration verifies target UID and manifests from package-relative
 media paths, hashes and current track/occurrence facts, not only creation-time
 maps. Never retry uncertain creation/render/link automatically. Preserve partial
@@ -190,9 +221,14 @@ only after all fresh-target verification passes. Old revisions/timelines remain.
 
 Compose accepted edits against original token identity: apply proven omission,
 update surviving anchors, then apply explicit visual candidates and compile once.
-A ripple correction requires recorded sync-lock state and exactly uniform shifts
-for every affected downstream occurrence; spanning/unknown interactions refuse.
-Rebuilt geometry is checked against the new compile, not copied from observations.
+Use the actual compiled candidate as the geometry authority. Compare all retained
+non-narration occurrences and the explicit narration splice segment map to the
+observations; do not equate old split narration UIDs/source IDs to a new single
+narration asset. The W1 cut has a one-frame gap [99,100), so it is not automatically
+equal to a gapless splice. Lift gaps, spanning items and non-uniform downstream
+shifts must either match this explicit compiler-backed mapping or refuse.
+Full program evidence binds the semantic narration equivalence. Rebuilt geometry
+is checked against the new compile, not copied from observations.
 
 ## Test-first checks and automated acceptance
 
@@ -204,6 +240,15 @@ interrupted rebuild. Retained-native observations and synthetic injected pipelin
 tests have separate honest evidence labels. Run accepted compiler byte-identical
 goldens, focused #34/#35/package regressions, generated-currentness/frozen/lock
 audits, `git diff --check`, then full `npm run validate` on a pinned commit.
+
+Named new seam checks: reconstruction partial head/tail, opposite-channel residue,
+unattributed route, out-of-range gain, incomplete extent and wrong fingerprint;
+splice fractional-frame cut, audible join, exact `timeMs` shift, dropped sentence
+marks and UTF-16 surrogate pairs; wording punctuation gap, edge-token deletion
+and removed anchor endpoint; linking extra/non-reciprocal links and unequal ranges;
+speech/media stages missing or changed bytes and no synthesis/provider imports.
+The compiler boundary additionally covers torture golden bytes, BOM rejection,
+observed drift and exact output hashes. No accepted tests are changed.
 
 Runtime/bootstrap: Node24.19.0, npm11.17.0, Python3.12.14, uv0.12.5; locked
 `npm ci` and `uv sync --frozen`. Default Node26 is not the pinned runtime.

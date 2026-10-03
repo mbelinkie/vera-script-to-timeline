@@ -7,21 +7,21 @@ import { registerHooks } from "node:module";
 
 const hash = (bytes: Uint8Array): string => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 const compilerUrl = new URL("./compiler-core.ts", import.meta.url).href;
-const codeFiles = [
+const sourceFiles = [
   "./issue-144-compile-cli.ts",
   "./compiler-core.ts",
   "./script-validator.ts",
-  "./generated/contracts.ts",
   "../../../contracts/script-document-v1.schema.json",
   "../../../contracts/compiler-dependencies-v1.schema.json",
   "../../../contracts/timeline-manifest-v1.schema.json",
   "../../../contracts/build-report-v1.schema.json",
-  "../../../package-lock.json",
 ] as const;
 
-function codeHashes(): Record<string, string> {
-  return Object.fromEntries(codeFiles.map((path) => [path, hash(readFileSync(new URL(path, import.meta.url)))]));
+function sourceHashes(): Record<string, string> {
+  return Object.fromEntries(sourceFiles.map((path) => [path, hash(readFileSync(new URL(path, import.meta.url)))]));
 }
+
+const lockfileHash = (): string => hash(readFileSync(new URL("../../../package-lock.json", import.meta.url)));
 
 async function main(args: string[]): Promise<number> {
   if (args.length !== 2) {
@@ -44,7 +44,8 @@ async function main(args: string[]): Promise<number> {
   let document: unknown;
   let dependencies: unknown;
   try {
-    const decoder = new TextDecoder("utf-8", { fatal: true });
+    // Preserve a BOM so JSON.parse refuses it, consistently with the host.
+    const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
     document = JSON.parse(decoder.decode(scriptBytes)) as unknown;
     dependencies = JSON.parse(decoder.decode(dependenciesBytes)) as unknown;
   } catch (error: unknown) {
@@ -52,7 +53,8 @@ async function main(args: string[]): Promise<number> {
     return 65;
   }
 
-  const beforeCode = codeHashes();
+  const beforeSources = sourceHashes();
+  const beforeLockfile = lockfileHash();
   // Native TS execution needs this one .js specifier resolved to its accepted
   // source. Scope it to the compiler's import; remove the hook after loading.
   const hooks = registerHooks({
@@ -69,20 +71,32 @@ async function main(args: string[]): Promise<number> {
   }
   const result = compiler.compileTimeline(document, dependencies);
   const inputs = { scriptSha256: hash(scriptBytes), dependenciesSha256: hash(dependenciesBytes) };
+  // This detects persistent observed drift, not atomicity or a reverted change.
   if (hash(readFileSync(args[0]!)) !== inputs.scriptSha256
     || hash(readFileSync(args[1]!)) !== inputs.dependenciesSha256
-    || compiler.canonicalJson(codeHashes()) !== compiler.canonicalJson(beforeCode)) {
-    process.stderr.write("INPUT_CHANGED: Inputs or compiler code changed during compilation.\n");
-    return 1;
+    || compiler.canonicalJson(sourceHashes()) !== compiler.canonicalJson(beforeSources)
+    || lockfileHash() !== beforeLockfile) {
+    process.stderr.write("INPUT_CHANGED: Inputs, compiler sources or lockfile changed during compilation.\n");
+    return 75;
   }
   const envelope = {
     schemaVersion: "issue-144-compile/v1",
     evidenceLevel: "compiler_only",
     runtime: process.version,
     inputs,
-    codeHashes: beforeCode,
+    sourceHashes: beforeSources,
+    // Installed packages are bound through the locked npm ci, not attested here.
+    lockfileSha256: beforeLockfile,
     ...(result.ok
-      ? { ok: true, manifestJson: result.manifestJson, reportJson: result.reportJson }
+      ? {
+        ok: true,
+        manifestJson: result.manifestJson,
+        reportJson: result.reportJson,
+        outputs: {
+          manifestSha256: hash(Buffer.from(result.manifestJson, "utf8")),
+          reportSha256: hash(Buffer.from(result.reportJson, "utf8")),
+        },
+      }
       : { ok: false, diagnostics: result.diagnostics }),
   };
   process.stdout.write(compiler.canonicalJson(envelope));

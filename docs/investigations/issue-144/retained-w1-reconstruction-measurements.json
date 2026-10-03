@@ -1,0 +1,88 @@
+{
+  "analysisCodeSha256": "f2fdde9ac366a6ae00cd341c60f2208a79fd9f64a01a091c124c186733fe63c2",
+  "channels": 2,
+  "ffmpeg": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers",
+  "gainsFromUnchangedPictureOnlyAudio": [
+    [
+      0.9999966750098083,
+      0.7079418861934712,
+      0.7078734822365584
+    ],
+    [
+      0.9999966750098083,
+      0.7079418861934712,
+      0.7078734822365584
+    ]
+  ],
+  "inputs": {
+    "out/issue149-workflow-reruns-20261002-kit-01/media/a1_alpha.wav": "4bc4b8cfa118dab9f75ec2072f79af0c856f41566d7e2da60fca5268f7d81253",
+    "out/issue149-workflow-reruns-20261002-kit-01/media/a2_numbers.wav": "d9aeccc2d50cb96d81341167450eeb1b2c43fecf0f02b9291b4cd65afa92f9ba",
+    "out/issue149-workflow-reruns-20261002-kit-01/media/a3_bed.wav": "022e3dd779808e5b38ff870cd541d8e25fb940836443262aaa95ce8768817e2b",
+    "out/issue149-workflow-reruns-20261002-kit-01/media/base.mov": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+    "out/issue149-workflow-reruns-20261002-kit-01/media/manifest.json": "111645645106943e675418fa766fe2dfe2a2a05047d0dc8f9e9fc5e845111b39",
+    "out/issue149-workflow-reruns-20261002-kit-01/renders/W1-disabled-A1-01.mov": "de28ca47ec67218417384792b8befb55185b7c916ef9cc70e4e52fe6a8a6f307",
+    "out/issue149-workflow-reruns-20261002-kit-01/renders/W1-linked-cut-01.mov": "71e48f25ef0592ec14d63d2fe6fada6205854ab45c60581db5d4e64f9e390012",
+    "out/issue149-workflow-reruns-20261002-kit-01/renders/W1-picture-only-cut-01.mov": "56614e21ad79a09a167e312e16156eebbcdaaa3e0c544c23f38d88ff213245ac"
+  },
+  "measurements": {
+    "W1-disabled-A1-01": [
+      {
+        "maximumSliding20msResidualRms": 0.25895944385194536,
+        "programRms": 0.0541252853234194,
+        "residualRms": 0.0757683163238748
+      },
+      {
+        "maximumSliding20msResidualRms": 0.25895944385194536,
+        "programRms": 0.0541252853234194,
+        "residualRms": 0.0757683163238748
+      }
+    ],
+    "W1-linked-cut-01": [
+      {
+        "maximumSliding20msResidualRms": 0.0038154546665391587,
+        "programRms": 0.08972679783059248,
+        "residualRms": 0.00021803203576902885
+      },
+      {
+        "maximumSliding20msResidualRms": 0.0038154546665391587,
+        "programRms": 0.08972679783059248,
+        "residualRms": 0.00021803203576902885
+      }
+    ],
+    "W1-picture-only-cut-01": [
+      {
+        "maximumSliding20msResidualRms": 0.0042459105554152705,
+        "programRms": 0.09313076830209067,
+        "residualRms": 0.00020226891702859715
+      },
+      {
+        "maximumSliding20msResidualRms": 0.0042459105554152705,
+        "programRms": 0.09313076830209067,
+        "residualRms": 0.00020226891702859715
+      }
+    ],
+    "syntheticHalfCharlieOppositeChannelOverlay": [
+      {
+        "maximumSliding20msResidualRms": 0.23342200497830612,
+        "programRms": 0.09175259336888948,
+        "residualRms": 0.019119112422962787
+      },
+      {
+        "maximumSliding20msResidualRms": 0.23342204030350056,
+        "programRms": 0.09172939424905716,
+        "residualRms": 0.019120101397405356
+      }
+    ]
+  },
+  "nativeActions": 0,
+  "oppositeChannelOverlayCancelsWhenAveraged": true,
+  "purpose": "Offline numerical reconstruction, not a speech-deletion classifier",
+  "python": "3.12.14",
+  "sampleRate": 48000,
+  "samplesPerChannel": 766080,
+  "schemaVersion": "issue-144-retained-w1-measurements/v1",
+  "targetSupportSamples": [
+    216000,
+    234932
+  ]
+}

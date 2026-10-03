@@ -18,6 +18,9 @@ interface Envelope {
   evidenceLevel: string;
   ok: boolean;
   inputs?: { scriptSha256: string; dependenciesSha256: string };
+  sourceHashes?: Record<string, string>;
+  lockfileSha256?: string;
+  outputs?: { manifestSha256: string; reportSha256: string };
   manifestJson?: string;
   reportJson?: string;
   diagnostics?: { code: string }[];
@@ -38,6 +41,8 @@ function fileWith(value: unknown): string {
 function body(output: string): Envelope {
   return JSON.parse(output) as Envelope;
 }
+
+const digest = (bytes: string | Buffer): string => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 
 afterEach(() => {
   for (const root of temporary.splice(0)) rmSync(root, { recursive: true });
@@ -60,8 +65,51 @@ describe("Issue 144 compiler-only file boundary", () => {
       scriptSha256: `sha256:${createHash("sha256").update(scriptBefore).digest("hex")}`,
       dependenciesSha256: `sha256:${createHash("sha256").update(dependenciesBefore).digest("hex")}`,
     });
+    expect(envelope.outputs).toEqual({
+      manifestSha256: digest(envelope.manifestJson!),
+      reportSha256: digest(envelope.reportJson!),
+    });
+    expect(envelope.sourceHashes?.["./compiler-core.ts"]).toBe(digest(readFileSync(new URL("../src/compiler-core.ts", import.meta.url))));
+    expect(envelope.sourceHashes?.["../../../package-lock.json"]).toBeUndefined();
+    expect(envelope.lockfileSha256).toBe(digest(readFileSync(new URL("../../../package-lock.json", import.meta.url))));
     expect(readFileSync(scriptPath)).toEqual(scriptBefore);
     expect(readFileSync(dependenciesPath)).toEqual(dependenciesBefore);
+  });
+
+  it("returns byte-identical torture outputs through the file boundary", () => {
+    const result = invoke([fixture("slice_1_1/torture.script-document.json"), fixture("slice_1_3/torture.compiler-dependencies.json")]);
+    expect(result.status).toBe(0);
+    const envelope = body(result.stdout);
+    expect(envelope.manifestJson).toBe(readFileSync(fixture("slice_1_3/torture.manifest.golden.json"), "utf8"));
+    expect(envelope.reportJson).toBe(readFileSync(fixture("slice_1_3/torture.report.golden.json"), "utf8"));
+  });
+
+  it("distinguishes observed input drift from a deterministic compiler refusal", () => {
+    const path = fileWith(JSON.parse(readFileSync(scriptPath, "utf8")) as unknown);
+    const preload = join(temporary.at(-1)!, "change-input.mjs");
+    writeFileSync(preload, `import { registerHooks } from "node:module";
+import { appendFileSync } from "node:fs";
+let changed = false;
+registerHooks({ resolve(specifier, context, nextResolve) {
+  if (!changed && specifier === "./compiler-core.ts") {
+    appendFileSync(${JSON.stringify(path)}, " ");
+    changed = true;
+  }
+  return nextResolve(specifier, context);
+} });\n`);
+    const result = spawnSync(process.execPath, ["--import", preload, cli, path, dependenciesPath], { encoding: "utf8" });
+    expect(result.status).toBe(75);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("INPUT_CHANGED");
+  });
+
+  it("rejects a UTF-8 byte-order mark rather than disagreeing with the host", () => {
+    const path = fileWith({});
+    writeFileSync(path, Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), readFileSync(scriptPath)]));
+    const result = invoke([path, dependenciesPath]);
+    expect(result.status).toBe(65);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("PARSE_ERROR");
   });
 
   it("returns identical complete bytes when replayed in separate processes", () => {

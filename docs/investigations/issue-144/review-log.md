@@ -52,7 +52,7 @@ topology finding was explicitly corrected; our updated dispositions and rewritte
 plan retain that correction. Additional narration route/wording input is pending;
 native/real-input requirements remain with #148/#145.
 
-## Checkpoint 2: first finished compiler segment (review pending)
+## Checkpoint 2: first finished compiler segment (review complete)
 
 Implemented only `packages/contracts/src/issue-144-compile-cli.ts` and its new
 issue-owned subprocess tests. This reads two files, calls the actual unchanged
@@ -72,6 +72,23 @@ It cannot create a Studio target or publish a proof baseline.
 
 Next packet reviews this finished boundary and the corrected plan before wider
 pipeline use. Continue using the existing signed-in Claude browser.
+
+Review completed with 17 read-only commands; full output is retained in
+`claude-checkpoint-02-verbatim.md`. Corrections, qualifications and independent
+audio measurements are in `checkpoint-02-disposition.md`. New assertions were
+red (three failures), then 73 passed (11 issue-owned plus 62 accepted regressions).
+Focused ESLint, contracts typecheck and measurement-script Ruff checks pass.
+No native action or positive omission rebuild occurred.
+
+## Checkpoint 3: direct CLI review
+
+Producer subsequently said **“CLI should be up and running.”** Authentication
+check confirms loggedIn=true through the existing Claude subscription, version
+2.1.235. No account or authentication changes were made. Continue direct
+checkpoint reviews with the CLI; the browser reviews remain part of history.
+The full next prompt is `checkpoint-03-cli-review-prompt.md`: corrected compiler
+implementation, host adapter plan and a proposed frozen retained-W1 audio gate
+profile. Use read-only tools and retain the complete response/disposition on #144.
 
 ## Checks while review runs
 
