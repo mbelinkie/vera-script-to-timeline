@@ -1,6 +1,6 @@
 # Issue 149 — independent Resolve second opinion on Issue 141
 
-Status, updated 2026-10-03: Tier 1 evidence covers plan phases 0–9. Codex ran Phase 10 (W1–W7) through the Workflow Integration path on the same 21.1.1.10 build: **five rows reproduced and two were adverse** (W3 mapping mute, W6 relink); see [Phase 10 outcomes](#phase-10-workflow-integration-outcomes). Follow-up [discriminating tests](#discriminating-tests-2026-10-03) explain W6 and narrow W3 to the API entry point. Rows 4, 7, 9, 10 and 11 below are revised accordingly. Producer review is pending; this issue stays open.
+Status, updated 2026-10-03: Tier 1 evidence covers plan phases 0–9. Codex ran Phase 10 (W1–W7) through the Workflow Integration path on the same 21.1.1.10 build: **five rows reproduced and two were adverse** (W3 mapping mute, W6 relink); see [Phase 10 outcomes](#phase-10-workflow-integration-outcomes). Follow-up [discriminating tests](#discriminating-tests-2026-10-03) explain W6 and isolate W3 to the entry point of the mapping setter: the Console call silences output, and the Workflow Integration call does not. Rows 4, 7, 9, 10 and 11 below are revised accordingly. Producer review is pending; this issue stays open.
 
 ## Setup
 
@@ -26,7 +26,7 @@ Outcome labels follow the handoff's "useful second opinion" section.
 | 1b | Nested-clip transcript | Reproduced | `TranscribeAudio(None, True)` on a timeline's pool item returned None; `GetTranscription` stayed None | Not a usable route |
 | 2 | Mute state unreadable | **Resolved** | The Edit-page Mute button equals `GetIsTrackEnabled("audio", n)` = False (current timeline), OTIO track `enabled: false`, and DRT track Flags bit 2. The render was silenced | Mute is readable |
 | 3 | Solo / routing unreadable (R2 #2) | **Resolved for Solo** by export | No getter changes. OTIO track metadata `Resolve_OTIO.SoloOn: true`; DRT track Flags 32. Turning Solo off on the same timeline flips both back. The render honours Solo | Read Solo from an OTIO export. Bus routing and sends were **not tested** |
-| 4 | Mapping mute had no output effect (R2 #1) | **Conflicting results on the same build** | Console run (T6): A2 pilot 0.020 → 0.0002 in the render, all A2 words gone, subtitles agree. Workflow Integration W3, run twice (once from Deliver, once from Edit with the timeline reselected): flag reads back `mute: true`, but all eight numbers remain and the PCM equals baseline | The flag cannot be read as "silent". Verify by render or subtitles. Order, page and render settings are ruled out; the API entry point is the remaining suspect. See [Discriminating tests](#discriminating-tests-2026-10-03) |
+| 4 | Mapping mute had no output effect (R2 #1) | **Works from the Console, not from the Workflow Integration** | Console run (T6): A2 pilot 0.020 → 0.0002 in the render, all A2 words gone, subtitles agree. Workflow Integration W3, run twice (once from Deliver, once from Edit with the timeline reselected): flag reads back `mute: true`, but all eight numbers remain and the PCM equals baseline | The flag cannot be read as "silent". Verify by render or subtitles. Project, render format, timeline, handle source, JSON formatting, order, page and render settings are ruled out. The Console setter silences the render, including in Codex's own project; the Workflow Integration setter does nothing. VERA, as a Workflow Integration, must not rely on it. See [Discriminating tests](#discriminating-tests-2026-10-03) |
 | 5 | Context-dependent getters (R1.4) | **Explained** | Every track reads disabled on any non-current timeline. The installed docs mark the voice-isolation and dialogue-leveler properties "[Active Timeline Only]" — exactly 141's eight keys | Select a timeline before reading track state, or use its OTIO export |
 | 6 | Timing calibrated only for integer 100% (R2 #5) | **Resolved for constant retime** | OTIO `LinearTimeWarp.time_scalar` (0.375, 1.5) and FCPXML rational `timeMap` are exact. Rendered clicks landed within ±0.33 samples of source/speed: 5/5 at 37.5%, 14/15 at 150% (the miss is a peak-picker artefact next to speech). Getters round, and at 37.5% the source end time reads 6.01 s against a true 5.985 s | Take timing from OTIO, not getters. 29.97 fps and variable speed curves untested |
 | 7 | API retime leaves linked A1 at 100% | **Explained by link topology** (W4) | Embedded audio sharing V1's media follows a V1-only `SetSpeed`. Separately sourced, reciprocally linked audio stays at 100% (#141's setup). The separate V1 also kept `PitchCorrection: true` despite a false request | Retime every linked item explicitly and verify each speed |
@@ -83,10 +83,10 @@ There is no public revision token: `GetProjectLastModifiedTime` returned None. A
 3. **Word-exact timing from Resolve.** Transcript words carry frame timecodes. Subtitle items are phrase segments. Sub-frame word edges must come from VERA's own alignment of the source transcript through the OTIO time map.
 4. **Non-mutating timeline transcription.** `CreateSubtitlesFromAudio` writes a subtitle track and needs the Edit page. Run it on a duplicate timeline.
 5. **Knowing which bytes a clip uses after a file change, from the API alone.** An atomically replaced file keeps rendering the old bytes, and relink reloads only when the modified time changed. Only file hashes plus a render-based source check are trustworthy.
-6. **Reading program silence from the mapping-mute flag.** It works in every Console variant tested but failed twice through the Workflow Integration. Verify by render or subtitles.
+6. **Using mapping mute from VERA.** The Console setter silences output, but the same call through the Workflow Integration had no effect in five runs. Use Mute/Solo or clip disable, or verify by render or subtitles.
 7. **Visibility for transitions, Fusion and OpenFX.** These still need a render.
 8. **Untested, so unknown rather than impossible:** bus mute, sends and routing, volume automation to silence, Fairlight FX, 29.97 fps, variable speed curves, and whether OTIO exports of a *non-current* timeline report Mute and Solo correctly.
-9. **Explaining the mapping-mute conflict.** Relink is now explained; mapping mute still needs the Workflow Integration follow-ups.
+9. **Explaining why the Workflow Integration mapping setter has no effect.** The relink conflict is explained, and the mapping conflict is isolated to the setter's entry point. The internal cause is unknown.
 
 ## Phase 10 (Workflow Integration) outcomes
 
@@ -120,7 +120,7 @@ Both tests ran in a fresh project, `VERA 149 Discriminators 20261002-b`, through
 - **API status:** Online and Date Modified never changed in any case.
 - **For VERA:** detect replacement by hashing. To force Resolve onto new bytes, make sure the file's modified time has changed (touch it), then call `RelinkClips`, then verify with a render.
 
-**W3 is not explained by order, page or render settings.** In the Console, mapping mute silenced A2 (1500 Hz pilot 0.020 → 0.00019, no number words) in every variant tried:
+**W3 first round: order, page and render settings ruled out.** In the Console, mapping mute silenced A2 (1500 Hz pilot 0.020 → 0.00019, no number words) in every variant tried:
 
 - muted before the first render
 - muted after a baseline render (Codex's order)
@@ -128,13 +128,29 @@ Both tests ran in a fresh project, `VERA 149 Discriminators 20261002-b`, through
 - muted while on the Deliver page
 - Codex's render settings: MarkIn 0 / MarkOut 398, LPCM 16-bit, 25 fps. `SetRenderMode` does not exist in this API, so render mode could not be matched.
 
-The remaining difference from W3 is the API entry point: Console versus Workflow Integration plugin. Proposed Workflow Integration follow-ups:
+Codex ran all three proposed Workflow Integration follow-ups ([final comparison](https://github.com/mbelinkie/vera-script-to-timeline/issues/149#issuecomment-5970657049)). All three were adverse: the getter read `mute: true`, but A2 stayed at 0.01986 with all eight numbers. The three cases were:
 
-1. Mute a never-rendered fresh timeline and render.
-2. Mute via the Workflow Integration, then render from the Console without touching the mapping.
-3. Mute via the Workflow Integration, have the operator open the Fairlight page or play the timeline, then render.
+- a never-rendered timeline, muted and rendered through the Workflow Integration
+- a Workflow Integration mute followed by a render from the Console
+- a Workflow Integration mute, then the operator opening Fairlight, then a render
 
-Until then, a mapping-mute flag is not evidence of silence.
+**Where the mute is set decides the result (second round, Console).** Five more Console renders. Measurements are in `evidence/discriminators/disc/d4d5-analysis.json`; jobs `d-004` and `d-005` are under `evidence/discriminators/runner/`.
+
+| Case | Where | A2 1500 Hz | Number words |
+| --- | --- | ---: | ---: |
+| C1: duplicate of Codex's `D3-direct-av-20261003`, Console mute | Codex's project `VERA Issue 149 WI Discriminators 20261003-kit-02`, its own QuickTime H.264 render format | 0.00019 | 0 |
+| C2: fresh timeline from Codex's pool items, Console mute | Codex's project | 0.00019 | 0 |
+| H1: Console mute through the handle `AppendToTimeline` returned | Claude's project | 0.00019 | 0 |
+| H2: Console mute with the exact compact JSON string from Codex's readback | Claude's project | 0.00019 | 0 |
+| H0: unmuted control | Claude's project | 0.01986 | 8 |
+
+- **Measurement agrees.** H0's pilot levels (0.02828 / 0.01986 / 0.02003) match Codex's unmuted and "muted" renders exactly, so the two analysis pipelines agree. Codex's Workflow Integration mute had no measurable effect at all.
+- **Ruled out:** the project, its render format, the timeline (including a duplicate of Codex's own), the media-pool items, the clip-handle source and the JSON string's formatting.
+- **What's left is the setter.** The same `SetSourceAudioChannelMapping` call, producing the same readback, silences the render when it is called from the Console and changes nothing when it is called through the Workflow Integration. Where the render starts doesn't matter (Codex D3-console). The internal cause is unknown.
+
+**For VERA:** VERA runs as a Workflow Integration, so treat mapping mute as unavailable as an output control. A `mute: true` readback is not evidence of silence. Use track Mute/Solo or clip disable, which reproduced through the Workflow Integration in W1/W2, or verify with a render.
+
+Open diagnostic (optional, not needed for VERA's decision): mute through the Workflow Integration, then have the Console re-issue the identical mapping and render. A silent result would mean the Workflow Integration call updates the stored flag but not the mixer.
 
 ## Harness incidents (not Resolve findings)
 
