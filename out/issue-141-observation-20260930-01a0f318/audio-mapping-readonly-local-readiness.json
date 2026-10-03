@@ -1,0 +1,41 @@
+{
+  "action": "audio-mapping-readonly",
+  "case": "R2-mapping",
+  "nativePerformed": false,
+  "readiness": "unnecessary-unrun-not-for-registration",
+  "reason": "Existing probe captures both getters in real adjacent full pairs. Review actual retained mappings instead of creating a getter-silent capture path or new native probe.",
+  "scope": "Local module and minimal fake self-check only; no Resolve, UI, config/probe/shared-helper, scriptapp, docs/spec/fixture, or GitHub changes.",
+  "files": {
+    "module": {
+      "path": "docs/investigations/issue-141/audio-mapping-readonly.py",
+      "sha256": "048342a4117547317f043a262425e8e26b606530078bdfe942ef5648b64b6609"
+    },
+    "selfCheck": {
+      "path": "docs/investigations/issue-141/audio-mapping-readonly-check.py",
+      "sha256": "bedd5d76dc1c91d961e453c284ba3da83dc2cfbf8fc93339b7a5af38283b2a23"
+    },
+    "reader": {
+      "path": "docs/investigations/issue-141/r4-range-repair.py",
+      "sha256": "9b6977747a1f3decf957ead6134f10fc4f597bf9d0c3dc5c081b7bf2671879a4"
+    },
+    "protectedSourceHelper": {
+      "path": "docs/investigations/issue-141/av-output.py",
+      "sha256": "fcdb385cca504f8dac25665fef75ddc15c9f0f9cf8c55b1b8a6d591af8cb3fa1"
+    },
+    "mappingCheckpoint": {
+      "path": "out/issue-141-observation-20260930-01a0f318/matrix-checkpoint-20261001T015209.473668Z-matrix-observation.json",
+      "sha256": "0220a23be312aea5906900dd094c8e21b363294bb11f9b0f1201ab23f40c4cbf"
+    }
+  },
+  "checks": [
+    {
+      "command": "/usr/local/bin/python3.14 -S docs/investigations/issue-141/audio-mapping-readonly-check.py",
+      "result": "passed: valid stable JSON, inconsistent getter return, unexpected/protected source refused before mapping getter, unchanged context"
+    },
+    {
+      "command": "ast.parse(audio-mapping-readonly.py)",
+      "result": "passed"
+    }
+  ],
+  "nativeAcceptance": "Do not register this extra module; existing native evidence is under independent review."
+}

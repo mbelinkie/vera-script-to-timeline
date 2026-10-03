@@ -1,0 +1,27 @@
+{
+  "markerName": "141 R2-residual item 2",
+  "markerNames": [
+    "141 R2-residual item 2"
+  ],
+  "occurrenceUid": "f4e9f649-894a-42f2-9f54-a8321ae7c163",
+  "originalMapping": {
+    "embedded_audio_channels": 1,
+    "linked_audio": {},
+    "track_mapping": {
+      "1": {
+        "channel_idx": [
+          1
+        ],
+        "mute": false,
+        "type": "mono"
+      }
+    }
+  },
+  "originalRawMapping": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+  "sourceName": "repeated.wav",
+  "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+  "track": {
+    "index": 2,
+    "type": "audio"
+  }
+}

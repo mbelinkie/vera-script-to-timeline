@@ -1,0 +1,20 @@
+{"at": "2026-10-02T01:21:43.215496+00:00", "method": "FullPair", "phase": "captured-fresh", "value": {"path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/outer-restore-20261002T011949.373431Z/fresh-pair.json", "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14"}}
+{"at": "2026-10-02T01:21:43.216126+00:00", "method": "LoadRenderPreset", "phase": "request", "value": "VERA141_AV_OUTPUT_20261001T231540.921062Z"}
+{"at": "2026-10-02T01:21:43.734212+00:00", "method": "LoadRenderPreset", "phase": "return", "value": true}
+{"at": "2026-10-02T01:21:43.735154+00:00", "method": "GetCurrentRenderFormatAndCodec", "phase": "request", "value": []}
+{"at": "2026-10-02T01:21:43.977791+00:00", "method": "GetCurrentRenderFormatAndCodec", "phase": "return", "value": {"codec": "H264", "format": "mov"}}
+{"at": "2026-10-02T01:21:43.978363+00:00", "method": "GetCurrentRenderMode", "phase": "request", "value": []}
+{"at": "2026-10-02T01:21:44.032821+00:00", "method": "GetCurrentRenderMode", "phase": "return", "value": 1}
+{"at": "2026-10-02T01:21:44.033626+00:00", "method": "GetCurrentRenderFormatAndCodec", "phase": "request", "value": []}
+{"at": "2026-10-02T01:21:44.159416+00:00", "method": "GetCurrentRenderFormatAndCodec", "phase": "return", "value": {"codec": "H264", "format": "mov"}}
+{"at": "2026-10-02T01:21:44.160266+00:00", "method": "GetCurrentRenderMode", "phase": "request", "value": []}
+{"at": "2026-10-02T01:21:44.163384+00:00", "method": "GetCurrentRenderMode", "phase": "return", "value": 1}
+{"at": "2026-10-02T01:22:05.294633+00:00", "method": "FullPair", "phase": "captured-after-load-1", "value": {"path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/outer-restore-20261002T011949.373431Z/after-load-1-pair.json", "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14"}}
+{"at": "2026-10-02T01:22:05.423259+00:00", "method": "FullPair", "phase": "captured-after-load-2", "value": {"path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/outer-restore-20261002T011949.373431Z/after-load-2-pair.json", "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14"}}
+{"at": "2026-10-02T01:22:05.453494+00:00", "method": "DeleteRenderPreset", "phase": "request", "value": "VERA141_AV_OUTPUT_20261001T231540.921062Z"}
+{"at": "2026-10-02T01:22:05.478993+00:00", "method": "DeleteRenderPreset", "phase": "return", "value": true}
+{"at": "2026-10-02T01:22:05.493345+00:00", "method": "GetCurrentRenderFormatAndCodec", "phase": "request", "value": []}
+{"at": "2026-10-02T01:22:05.494598+00:00", "method": "GetCurrentRenderFormatAndCodec", "phase": "return", "value": {"codec": "H264", "format": "mov"}}
+{"at": "2026-10-02T01:22:05.494957+00:00", "method": "GetCurrentRenderMode", "phase": "request", "value": []}
+{"at": "2026-10-02T01:22:05.497202+00:00", "method": "GetCurrentRenderMode", "phase": "return", "value": 1}
+{"at": "2026-10-02T01:22:13.582886+00:00", "method": "FullPair", "phase": "captured-final", "value": {"path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/outer-restore-20261002T011949.373431Z/final-pair.json", "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14"}}

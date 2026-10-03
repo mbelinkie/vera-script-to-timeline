@@ -1,0 +1,3 @@
+{"at": "2026-10-02T02:39:20.261208+00:00", "method": "Evidence", "phase": "pre-mutation", "value": {"beforeFullPair": "before-full-pair.json", "target": "target.json"}}
+{"at": "2026-10-02T02:39:20.262012+00:00", "method": "SetSourceAudioChannelMapping", "phase": "request", "value": {"mapping": {"embedded_audio_channels": 1, "linked_audio": {}, "track_mapping": {"1": {"channel_idx": [1], "mute": false, "type": "mono"}}}, "operation": "restore-held", "raw": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}"}}
+{"at": "2026-10-02T02:39:20.267067+00:00", "method": "SetSourceAudioChannelMapping", "phase": "return", "value": {"operation": "restore-held", "value": true}}

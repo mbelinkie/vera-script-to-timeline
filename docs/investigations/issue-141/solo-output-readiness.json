@@ -1,0 +1,46 @@
+{
+  "kind": "issue-141-solo-output-readiness-v1",
+  "status": "comparison-plan-ready-render-pending",
+  "scope": "Local-only preparation for one synthetic full-Matrix output while the operator reports A2 Solo on.",
+  "action": "av-output-full-matrix-queue-only",
+  "nativeActionPerformedByThisPreparation": false,
+  "sourcePins": {
+    "readbackSummary": {
+      "path": "out/issue-141-observation-20260930-01a0f318/fairlight-preflight-readback-summary.json",
+      "pairPath": "out/issue-141-observation-20260930-01a0f318/editorial-context-20261002T031927.605476Z/pair.json",
+      "pairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14"
+    },
+    "probeSha256": "fdd2d31024a005489564e99bb4916e190e5830e26705b87ea6e56adbcf9e918b",
+    "avOutputSha256": "134fd7fdbbf4673fe8385be78eaea138adc1ea55ad55b309a0a17813815438c0",
+    "independentNativeCallerSha256": "395805068e96517bfe67aa32497229226b6c7fad431790e1cac94f4ecaf5cd03",
+    "pinCheck": "Verified against latest-reviewed-source-pins.json and fresh readback summary."
+  },
+  "queuedAttempt": {
+    "status": "full-matrix-queued-unstarted-recovery-retained",
+    "jobId": "a6ed7f33-9ad4-4d82-bfac-ff72903f4567",
+    "queueSummaryPath": "out/issue-141-observation-20260930-01a0f318/fairlight-queue-only-summary.json",
+    "checkpointPath": "out/issue-141-observation-20260930-01a0f318/editorial-context-20261002T031927.605476Z/pair.json",
+    "checkpointSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+    "outputDirectory": "out/issue-141-observation-20260930-01a0f318/av-output-20261002T033005.646357Z/render",
+    "requestedFilename": "vera141-av-20261002T033005.646357Z.mov",
+    "terminalProof": "Pending. Do not open, probe, hash, or otherwise inspect the requested output until retained job status is terminal and successful."
+  },
+  "operatorEvidence": {
+    "path": "out/issue-141-observation-20260930-01a0f318/fairlight-operator-solo-on.json",
+    "statement": "A2 Solo on; no visible output/bus labels.",
+    "soloStateSource": "Operator-held UI report; absent from API readback.",
+    "routing": "Unknown. Do not infer bus origin or complete routing from this observation."
+  },
+  "pendingAtRenderHandoff": [
+    "Fresh terminal job status and successful completion proof bound to the owned job ID.",
+    "Verified output path, container/audio format, duration, byte length, and SHA-256 from the completed-job handoff.",
+    "Fresh checkpoint and captured operator Solo/Mute labels for the exact render state if the continuation did not already retain them.",
+    "A3 bed source window and exact PCM comparison method; the existing repeated.wav comparator does not support bed.wav."
+  ],
+  "guardrails": [
+    "No Resolve/UI/config calls are part of this preparation.",
+    "Do not access partial render output.",
+    "Do not claim routing, bus origin, audibility, or equivalence outside named windows.",
+    "Keep any later comparison in a new evidence directory and do not change report, dashboard, source, fixtures, contracts, or accepted tests."
+  ]
+}

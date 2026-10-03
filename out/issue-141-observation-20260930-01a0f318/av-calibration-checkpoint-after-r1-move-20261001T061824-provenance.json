@@ -1,0 +1,8 @@
+{
+  "kind": "av-calibration-checkpoint-provenance",
+  "copiedFrom": "editorial-case-20261001T061824.736740Z/after.json",
+  "checkpointFile": "av-calibration-checkpoint-after-r1-move-20261001T061824.json",
+  "sha256": "35f7132f331a8ecf0f1685dd1167c636add1aea3118bfbf2f2e7896ae348c1c3",
+  "byteIdentical": true,
+  "restorationResult": "editorial-case-20261001T061824.736740Z/result.json"
+}

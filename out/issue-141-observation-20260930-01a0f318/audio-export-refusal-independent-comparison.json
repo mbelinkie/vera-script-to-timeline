@@ -1,0 +1,89 @@
+{
+  "status": "export-directory-representation-refusal-before-settings",
+  "presetName": "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z",
+  "directory": "out/issue-141-observation-20260930-01a0f318/audio-output-20261001T015945.287072Z/VERA141_AUDIO_OUTPUT_20261001T015945.287072Z.drp",
+  "exportedFile": "out/issue-141-observation-20260930-01a0f318/audio-output-20261001T015945.287072Z/VERA141_AUDIO_OUTPUT_20261001T015945.287072Z.drp/VERA141_AUDIO_OUTPUT_20261001T015945.287072Z.xml",
+  "originalRenderState": {
+    "formatCodec": {
+      "codec": "H264",
+      "format": "mov"
+    },
+    "mode": 1,
+    "jobs": [],
+    "rendering": false,
+    "presets": [
+      "H.264 Master",
+      "HyperDeck",
+      "H.265 Master",
+      "ProRes 422 HQ",
+      "YouTube - 720p",
+      "YouTube - 1080p",
+      "YouTube - 1440p",
+      "YouTube - 2160p",
+      "Vimeo - 720p",
+      "Vimeo - 1080p",
+      "Vimeo - 2160p",
+      "TikTok - 720p",
+      "TikTok - 1080p",
+      "Presentations",
+      "Dropbox - 720p",
+      "Dropbox - 1080p",
+      "Dropbox - 2160p",
+      "Replay - 720p",
+      "Replay - 1080p",
+      "Replay - 2160p",
+      "IMF - Generic",
+      "IMF - 20th Century Fox",
+      "IMF - Netflix",
+      "IMF - Sony Pictures",
+      "IMF - iQIYI",
+      "IMF - HDR Vivid",
+      "FCP - Final Cut Pro 7",
+      "FCP - Final Cut Pro X",
+      "Premiere XML",
+      "Audio Only",
+      "AVID AAF",
+      "Pro Tools",
+      "Tencent - IMF",
+      "Tencent - MOV",
+      "Tencent - MP4",
+      "VR 180/360 - Meta Quest VR",
+      "VR 180/360 - YouTube VR"
+    ]
+  },
+  "mutations": [
+    {
+      "method": "SaveAsNewRenderPreset",
+      "phase": "request",
+      "value": [
+        "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z"
+      ]
+    },
+    {
+      "method": "SaveAsNewRenderPreset",
+      "phase": "return",
+      "value": true
+    },
+    {
+      "method": "ExportRenderPreset",
+      "phase": "request",
+      "value": [
+        "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z",
+        "REPOSITORY/out/issue-141-observation-20260930-01a0f318/audio-output-20261001T015945.287072Z/VERA141_AUDIO_OUTPUT_20261001T015945.287072Z.drp"
+      ]
+    },
+    {
+      "method": "ExportRenderPreset",
+      "phase": "return",
+      "value": true
+    }
+  ],
+  "files": {
+    "journal.jsonl": "19bc611d3c32ac686f5f389f3dd414fff04bf3a899f50c962ef3b98a5f235509",
+    "preflight.json": "7026b0ec5aa22f630314001d0e9562ff00121111791bed4b03d97e1e577a79cb",
+    "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z.xml": "1b3b21a728c3216f9782d87aa2feae977747c377901eb6b81ed5a83a2da06595",
+    "vera-issue-141-observation-result-20261001T015945.257683Z.json": "e0e74086ad9b4733623665f5e331dd11229042eb86ff11f1e4efe2e95e403f7d"
+  },
+  "setSettingsQueuedOrRendered": false,
+  "fullPreflightEqualsSelectedMatrixPin": true
+}

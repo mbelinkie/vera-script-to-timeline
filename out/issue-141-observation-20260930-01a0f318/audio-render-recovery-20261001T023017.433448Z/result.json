@@ -1,0 +1,10 @@
+{
+  "failure": "RuntimeError: Exact selected Matrix/Edit context required",
+  "importCalled": false,
+  "importError": null,
+  "importReturn": null,
+  "journal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/audio-render-recovery-20261001T023017.433448Z/journal.jsonl",
+  "status": "preflight-refused-no-import",
+  "timelineAndPoolUnchanged": false,
+  "xmlSha256After": "1b3b21a728c3216f9782d87aa2feae977747c377901eb6b81ed5a83a2da06595"
+}

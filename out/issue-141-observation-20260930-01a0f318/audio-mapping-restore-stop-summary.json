@@ -1,0 +1,9 @@
+{
+  "status": "launcher-failed",
+  "detail": "RuntimeError: Exact Edit/empty queue required",
+  "instruction": "Retain evidence and stop. Do not rerun preparation or change scripting mode.",
+  "nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261002T023539.616116Z.json",
+  "nativeResultSha256": "167e8db94ccc92ac8cd639e9a20d00b4440a26d5a3e33fbe3396754c992f5f12",
+  "auditDirectory": "out/issue-141-observation-20260930-01a0f318/independent-action-20261002T023537.853718Z",
+  "nextStep": "stopped; no mapping restore attempted"
+}
