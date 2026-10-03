@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "pinnedPairSha256": "5131589527428829afe6e1503e245609a4f17bb3207a2fe61a874db4289601b3",
+  "protectedTimelineCount": 6,
+  "protectedPoolItemCount": 13,
+  "protectedSourceEvidenceCount": 14,
+  "generatedReachableEvidenceCount": 280,
+  "oneSelectionSetter": true,
+  "mutationTokensAbsent": true,
+  "r2PictureConfigShape": true
+}

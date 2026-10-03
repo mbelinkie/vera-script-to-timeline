@@ -1,0 +1,28 @@
+{
+  "schema": "issue141-residual-position-native-executor-result/v1",
+  "returnCode": 1,
+  "sourcePins": {
+    "probe.py": "f0c87c02070163fa6790e5f7f317303b12f57e319024b749b8ab061d573e4c99",
+    "editorial-cases.py": "2963ad80449c93fd13831a761f36a35ac9c38749b7240ceb8d3cf115c8008154",
+    "editorial-cases-check.py": "66a11c2ce1ed1b0b2e1d22044f3d30088f219e2030ec8dfda959812b65eac1cf",
+    "independent-native-call.py": "71c8d21654f67e467caab726820a9e4b06d83301c18d62a0486d97653043870e",
+    "independent-residual-sequence.py": "a71fce4d64b2b4066eac28d5152ffd83a5da3c93d03fc319a96f087e3d9f3ff6"
+  },
+  "phaseDirectory": "independent-residual-resume-20261001T215903.877120Z",
+  "nativePhasesActuallyExecuted": [
+    "fresh context readback",
+    "empty-selection readback at 00:03:02:20",
+    "second linked split dispatched and read back; second-split review retained",
+    "deselect dispatched and empty-selection readback",
+    "interval select dispatched; exact linked-ID validation failed"
+  ],
+  "failure": "Resumed interval selection did not bind exact linked IDs",
+  "nativeCommandDispatched": true,
+  "secondCutDispatched": true,
+  "intervalDeleteDispatched": false,
+  "positioningAndRestoration": "No interval deletion, lock restoration, or final playhead restoration was reached.",
+  "finalPair": null,
+  "finalPairVerified": false,
+  "stdout": "residual-position-native-stdout.json (empty)",
+  "stderr": "residual-position-native-stderr.txt"
+}

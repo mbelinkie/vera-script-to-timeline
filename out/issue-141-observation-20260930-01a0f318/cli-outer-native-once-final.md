@@ -1,0 +1,3 @@
+Original render settings were restored successfully in the existing synthetic Matrix project. The owned preset was deleted, and the original pair, journal, and XML hashes still match.
+
+The retained artifact is [cli-outer-native-once-result.json](cli-outer-native-once-result.json). It records the native result hash, journal and final pair hashes, format/mode request and return evidence, preset deletion, and preserved original evidence. Resolve does not expose hidden render-settings equality.

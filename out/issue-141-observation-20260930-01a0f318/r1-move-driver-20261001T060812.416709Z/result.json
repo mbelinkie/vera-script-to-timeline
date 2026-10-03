@@ -1,0 +1,11 @@
+{
+  "status": "25-nudges-verified-restoration-pending",
+  "completedNudges": 25,
+  "failure": null,
+  "lastReadback": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r1-move-edited-20261001T061131.524595Z/pair.json",
+    "sha256": "1124201a733b74e487e44d53b9bbac99a89c2f7131af347f7169d565df84f1cc"
+  },
+  "preparationSha256": "33136cd643c402835ad2c5daa4d26f92fd8f1d056887f002212e963befa5471b",
+  "journal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r1-move-driver-20261001T060812.416709Z/journal.jsonl"
+}

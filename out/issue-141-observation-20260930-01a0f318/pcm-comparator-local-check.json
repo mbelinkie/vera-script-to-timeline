@@ -1,0 +1,159 @@
+{
+  "checks": [
+    {
+      "expectedLagSamples": 240,
+      "name": "delayed-signal",
+      "observedLagSamples": [
+        240
+      ],
+      "status": "passed"
+    },
+    {
+      "detail": "Two actual enabled repeated.wav Matrix items share a record start; generated waveform metrics were retained without audibility inference.",
+      "name": "overlapping-repeated-source-mixture",
+      "status": "passed"
+    },
+    {
+      "detail": "item 09373858-39dd-474b-9eb8-56c5e523cc76 has non-100% audio speed; mapping unsupported",
+      "name": "non100-speed-refusal",
+      "status": "passed"
+    },
+    {
+      "detail": "source WAV is outside the pinned generated repeated.wav path",
+      "name": "wrong-source-path-refusal",
+      "status": "passed"
+    }
+  ],
+  "comparisonLimits": {
+    "coarseStepSamples": 32,
+    "maxLagSamples": 1920,
+    "renderedPcm": "PCM24 48 kHz; channels averaged",
+    "sourcePcm": "PCM16 mono 48 kHz"
+  },
+  "kind": "issue-141-generated-program-pcm-comparator-local-check",
+  "limitations": [
+    "No Resolve-rendered WAV existed for this local check, so no native PCM conclusion is recorded.",
+    "Waveform correlation cannot prove deletion or final program audibility.",
+    "Non-100% audio speed records are reported unsupported and are not remapped."
+  ],
+  "pairBinding": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-offset-context-20261001T205629.518751Z/pair.json",
+    "recordStartFrame": 4500,
+    "repeatedItemCount": 46,
+    "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+    "selfCheckItemUids": [
+      "09373858-39dd-474b-9eb8-56c5e523cc76",
+      "f4e9f649-894a-42f2-9f54-a8321ae7c163"
+    ],
+    "sha256": "7a7d0db1be976dd4e3463e1231a7e00923318742188c0a107c8fc0962085b40d",
+    "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8"
+  },
+  "source": {
+    "path": "REPOSITORY/out/issue-141-media-20260930-01a0f318/repeated.wav",
+    "sha256": "832dd31cc46b9f4b4fdb7cbde18b4edc09ec249885634fba43da2a7b87dc768e"
+  },
+  "status": "self-check-passed; no native output analyzed",
+  "taskId": "pcm-comparator",
+  "waveformMetrics": [
+    {
+      "segments": [
+        {
+          "bestLagSamples": 240,
+          "gain": 1.199999838978929,
+          "limits": {
+            "coarseStepSamples": 32,
+            "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+            "maxLagSamples": 1920,
+            "strongCorrelationThreshold": 0.8
+          },
+          "recordEndSample": null,
+          "recordStartSample": null,
+          "renderedEnergy": 432.72158676544484,
+          "residualEnergy": 2.000623854582506e-11,
+          "sampleCount": 17048,
+          "score": 0.9999999999999768,
+          "sourceEndSample": null,
+          "sourceStartSample": null
+        }
+      ],
+      "uid": "09373858-39dd-474b-9eb8-56c5e523cc76"
+    },
+    {
+      "segments": [
+        {
+          "bestLagSamples": 240,
+          "gain": 1.199999838978929,
+          "limits": {
+            "coarseStepSamples": 32,
+            "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+            "maxLagSamples": 1920,
+            "strongCorrelationThreshold": 0.8
+          },
+          "recordEndSample": null,
+          "recordStartSample": null,
+          "renderedEnergy": 432.72158676544484,
+          "residualEnergy": 2.000623854582506e-11,
+          "sampleCount": 17048,
+          "score": 0.9999999999999768,
+          "sourceEndSample": null,
+          "sourceStartSample": null
+        },
+        {
+          "bestLagSamples": 240,
+          "gain": 1.199999838978929,
+          "limits": {
+            "coarseStepSamples": 32,
+            "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+            "maxLagSamples": 1920,
+            "strongCorrelationThreshold": 0.8
+          },
+          "recordEndSample": null,
+          "recordStartSample": null,
+          "renderedEnergy": 432.72158676544484,
+          "residualEnergy": 2.000623854582506e-11,
+          "sampleCount": 17048,
+          "score": 0.9999999999999768,
+          "sourceEndSample": null,
+          "sourceStartSample": null
+        },
+        {
+          "bestLagSamples": 240,
+          "gain": 1.199999838978929,
+          "limits": {
+            "coarseStepSamples": 32,
+            "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+            "maxLagSamples": 1920,
+            "strongCorrelationThreshold": 0.8
+          },
+          "recordEndSample": null,
+          "recordStartSample": null,
+          "renderedEnergy": 432.72158676544484,
+          "residualEnergy": 2.000623854582506e-11,
+          "sampleCount": 17048,
+          "score": 0.9999999999999768,
+          "sourceEndSample": null,
+          "sourceStartSample": null
+        },
+        {
+          "bestLagSamples": 240,
+          "gain": 1.199999838978929,
+          "limits": {
+            "coarseStepSamples": 32,
+            "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+            "maxLagSamples": 1920,
+            "strongCorrelationThreshold": 0.8
+          },
+          "recordEndSample": null,
+          "recordStartSample": null,
+          "renderedEnergy": 432.72158676544484,
+          "residualEnergy": 2.000623854582506e-11,
+          "sampleCount": 17048,
+          "score": 0.9999999999999768,
+          "sourceEndSample": null,
+          "sourceStartSample": null
+        }
+      ],
+      "uid": "f4e9f649-894a-42f2-9f54-a8321ae7c163"
+    }
+  ]
+}

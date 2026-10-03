@@ -1,0 +1,20 @@
+{
+  "kind": "issue141-r1-final-accepted-evidence",
+  "at": "2026-10-02T13:26:58.736320+00:00",
+  "status": "reviewed-complete",
+  "reopenReview": "output/r1-reopen-final-independent-review.json",
+  "restorationReview": "output/r1-selection-restoration-native-independent-review.json",
+  "duplicateReview": "output/r1-final-seven-independent-review.json",
+  "duplicateNativeSha256": "117fcc6ae0f432b9160436faf3053982df7c3f5417a51fa2efd922fa661d92dd",
+  "duplicateUid": "1835476c-8bc1-48fc-bb78-99906490480a",
+  "duplicateName": "VERA 141 R1 identity repeat",
+  "timelineInventory": "protected-seven",
+  "noFurtherNativeAction": true,
+  "lineageInferred": false,
+  "completed": 39,
+  "total": 41,
+  "remaining": [
+    "Final report consolidation",
+    "External evidence review"
+  ]
+}

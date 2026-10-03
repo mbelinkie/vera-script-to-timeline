@@ -1,0 +1,3 @@
+# Preserve historical execution/analysis source snapshots without reformatting.
+extend = "../pyproject.toml"
+include = []

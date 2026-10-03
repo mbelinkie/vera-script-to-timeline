@@ -1,0 +1,137 @@
+{
+  "deepDiffs": [
+    {
+      "after": "00:00:08:00",
+      "before": "",
+      "path": "/poolPasses/0/items/7/evidence/GetClipProperty/value/Out"
+    },
+    {
+      "after": "00:00:08:00",
+      "before": "",
+      "path": "/poolPasses/0/timelineMappings/2/poolItemProperties/value/Out"
+    },
+    {
+      "after": "00:00:08:00",
+      "before": "",
+      "path": "/poolPasses/1/items/7/evidence/GetClipProperty/value/Out"
+    },
+    {
+      "after": "00:00:08:00",
+      "before": "",
+      "path": "/poolPasses/1/timelineMappings/2/poolItemProperties/value/Out"
+    }
+  ],
+  "environment": {
+    "platform": "macOS-15.1-x86_64-i386-64bit-Mach-O",
+    "product": "DaVinci Resolve Studio",
+    "pythonExecutable": "<Resolve>/fuscript",
+    "pythonVersion": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 17.0.0 (clang-1700.6.4.2)]",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "mutationCalls": [
+    "SetRenderSettings(request)",
+    "SetRenderSettings(return true)"
+  ],
+  "notCalled": [
+    "AddRenderJob",
+    "StartRendering",
+    "LoadRenderPreset",
+    "DeleteRenderJob",
+    "DeleteRenderPreset"
+  ],
+  "pairEquality": {
+    "before001EqualsBefore002": true,
+    "beforePairsEqualCheckpoint": true
+  },
+  "publishedDerivatives": {
+    "applied-settings-record-redacted.json": "7d4a5d2bd4babecc83acf06925941189b60a21d3decd39cc2d52e31ebb2e6d7c",
+    "final-local-result-redacted.json": "384588c06074dcc0d67b7599007befb6e024d3917ee3f088ecaaf9d3ef93e8c5",
+    "findings.md": "6fd85b76b702fdb7fb9dceaee9f53351373743dcae638ab4af74e909b66a6e4a",
+    "full-pair-001-redacted.json": "5a8b066fd5b91d884cc54bf07fcbff144673b73560f8a1e0e839e50675373ae3",
+    "full-pair-003-redacted.json": "18cdb399a57d93185a1688c67ba78c3569c406bc965e7f45667c9d3d030b72fb",
+    "journal-redacted.jsonl": "857780f7a212e18fde001c1b52ab7c05d09154a4e73d15281243ef6cb762d1db"
+  },
+  "sourceHashes": {
+    "afterPair003": "dc66efb49729dfc0b40efd35a3fa02d94cacd91e1ddfbaa62e97efcf656467ca",
+    "appliedSettingsRecord": "8852c355e605a0d4e0be62f554f06f8fcdaca7a29e6a39b877633728928592df",
+    "beforePair001": "35f7132f331a8ecf0f1685dd1167c636add1aea3118bfbf2f2e7896ae348c1c3",
+    "beforePair002": "35f7132f331a8ecf0f1685dd1167c636add1aea3118bfbf2f2e7896ae348c1c3",
+    "pinnedCheckpoint": "35f7132f331a8ecf0f1685dd1167c636add1aea3118bfbf2f2e7896ae348c1c3",
+    "priorFinalResult": "384588c06074dcc0d67b7599007befb6e024d3917ee3f088ecaaf9d3ef93e8c5",
+    "priorJournal": "7d6f02f916d8d7518607b2ad6a05b7938485f0357f0a1d5d3e7529b2a275361e"
+  },
+  "sourceInputs": [
+    {
+      "currentSha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+      "manifestSha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+      "matches": true,
+      "path": "<POOL>/issue-141-media-20260930-01a0f318/base.mov"
+    },
+    {
+      "currentSha256": "e43bf6bf625af702fc44e7d0c278c2cf8551d1e8a80e0efa575866ff92d9920a",
+      "manifestSha256": "e43bf6bf625af702fc44e7d0c278c2cf8551d1e8a80e0efa575866ff92d9920a",
+      "matches": true,
+      "path": "<POOL>/issue-141-media-20260930-01a0f318/base.png"
+    },
+    {
+      "currentSha256": "f6da7ab4ffb4cc549e4b41e19da714097877b035abfb0235ac9bf94ea4860c02",
+      "manifestSha256": "f6da7ab4ffb4cc549e4b41e19da714097877b035abfb0235ac9bf94ea4860c02",
+      "matches": true,
+      "path": "<POOL>/issue-141-media-20260930-01a0f318/bed.wav"
+    },
+    {
+      "currentSha256": "771b4bbbe771b980831e0a7b6d93ef11e1315cd995df22c5c7fbf7c2bf62c88b",
+      "manifestSha256": "771b4bbbe771b980831e0a7b6d93ef11e1315cd995df22c5c7fbf7c2bf62c88b",
+      "matches": true,
+      "path": "<POOL>/issue-141-media-20260930-01a0f318/cutaway.mov"
+    },
+    {
+      "currentSha256": "6793c3f8077b00f5366a082e5817669f320ce44b1e6858759e070b260cd3a1d5",
+      "manifestSha256": "6793c3f8077b00f5366a082e5817669f320ce44b1e6858759e070b260cd3a1d5",
+      "matches": true,
+      "path": "<POOL>/issue-141-media-20260930-01a0f318/cutaway.png"
+    },
+    {
+      "currentSha256": "e01b1d1a9890b72e4399f6483a287220e89f423fb98a8497395d692f6a6dfd67",
+      "manifestSha256": "e01b1d1a9890b72e4399f6483a287220e89f423fb98a8497395d692f6a6dfd67",
+      "matches": true,
+      "path": "<POOL>/issue-141-media-20260930-01a0f318/echo.aiff"
+    },
+    {
+      "currentSha256": "5c83d40cf83559689abaa900c74afb89f1323cdde5d7bf3a3167fc2926d2c599",
+      "manifestSha256": "5c83d40cf83559689abaa900c74afb89f1323cdde5d7bf3a3167fc2926d2c599",
+      "matches": true,
+      "path": "<POOL>/issue-141-media-20260930-01a0f318/echo.wav"
+    },
+    {
+      "currentSha256": "071eb12b64238770244dead14fda01a0aeca3623f7962aab9edefa93b68d3140",
+      "manifestSha256": "071eb12b64238770244dead14fda01a0aeca3623f7962aab9edefa93b68d3140",
+      "matches": true,
+      "path": "<POOL>/issue-141-media-20260930-01a0f318/overlay.png"
+    },
+    {
+      "currentSha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+      "manifestSha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+      "matches": true,
+      "path": "<POOL>/relink/base.mov"
+    },
+    {
+      "currentSha256": "832dd31cc46b9f4b4fdb7cbde18b4edc09ec249885634fba43da2a7b87dc768e",
+      "manifestSha256": "832dd31cc46b9f4b4fdb7cbde18b4edc09ec249885634fba43da2a7b87dc768e",
+      "matches": true,
+      "path": "<POOL>/issue-141-media-20260930-01a0f318/repeated.wav"
+    },
+    {
+      "currentSha256": "771b4bbbe771b980831e0a7b6d93ef11e1315cd995df22c5c7fbf7c2bf62c88b",
+      "manifestSha256": "771b4bbbe771b980831e0a7b6d93ef11e1315cd995df22c5c7fbf7c2bf62c88b",
+      "matches": true,
+      "path": "<POOL>/wrong/base.mov"
+    }
+  ]
+}

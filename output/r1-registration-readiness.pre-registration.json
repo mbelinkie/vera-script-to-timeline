@@ -1,0 +1,46 @@
+{
+  "status": "prepared-not-registered",
+  "scope": "Register only the two reviewed R1 repeat dispatcher actions; no Resolve actor or native action is invoked.",
+  "registrationScript": "output/r1-register-reviewed.py",
+  "registrationScriptSha256": "fbc75982ab57919c9118824c75859bf5dcb2d038fba706a5dbf4a1ab5212a07f",
+  "registrationScriptExecuted": false,
+  "nativeDispatchPerformed": false,
+  "actions": [
+    "r1-repeat-reopen",
+    "r1-repeat-duplicate"
+  ],
+  "callerCaseAllowance": "R1-repeat-six; R1-copy remains rejected",
+  "callerTimelineInventoryDuringStaging": "protected-six",
+  "privateCollectorBehavior": "After an actual duplicate, the R1 module detects exactly one new repeat timeline UID, switches only its private probe and full-pair reader identity maps to protected-seven, and requires complete seven-timeline timeline/pool pairs. It verifies preservation of all six prior timeline identities and the repeat copy identity.",
+  "expectedInitialPins": {
+    "liveProbeSha256": "54bbbeee926a5ef423615b1f981ec8ebe6586e91f938a8aad05db441ecc53310",
+    "callerSha256": "9bf342020431dc8059fb7a8b60976483826c285c1e9ce8ef671293c1b9c03d9e",
+    "helperSha256": "4aece3d8ab7c7e0ab215fc9eb841fc95b56b85fb0809859e7f587ce83b0e2c28",
+    "privateProbeSnapshotSha256": "54bbbeee926a5ef423615b1f981ec8ebe6586e91f938a8aad05db441ecc53310",
+    "fullPairReaderSha256": "9b6977747a1f3decf957ead6134f10fc4f597bf9d0c3dc5c081b7bf2671879a4"
+  },
+  "installedConfigObserved": {
+    "action": "observe",
+    "timelineInventory": "protected-six",
+    "probePath": "REPOSITORY/docs/investigations/issue-141/probe.py",
+    "probeSha256": "54bbbeee926a5ef423615b1f981ec8ebe6586e91f938a8aad05db441ecc53310",
+    "outputDir": "REPOSITORY/out/issue-141-observation-20260930-01a0f318"
+  },
+  "focusedCheck": {
+    "command": "rtk proxy /usr/local/bin/python3.14 -S docs/investigations/issue-141/r1-repeat-six-check.py",
+    "result": "passed",
+    "evidence": "PASS: inventory/hash, refusal, fake reopen/duplicate, failure journal",
+    "notes": "Fake duplicate retained complete protected-seven pairs and left the original six identities intact. No native Resolve calls."
+  },
+  "registrationChecksToRun": [
+    "docs/investigations/issue-141/r1-repeat-six-check.py",
+    "docs/investigations/issue-141/dispatch-registration-check.py",
+    "out/issue-141-observation-20260930-01a0f318/independent-native-call.py --check"
+  ],
+  "auditBehavior": "Before any edit, the registration script retains byte-for-byte copies of probe.py, independent-native-call.py, and the installed config under a uniquely named r1-registration-* directory in the named issue-141 output folder. It restores those prior bytes if registration or focused checks fail.",
+  "expectedRegistrationResult": "The probe and caller gain only the two R1 repeat actions and helper pins; the caller accepts only case R1-repeat-six for those actions; the installed config remains observe/protected-six with its probeSha256 synchronized to the registered probe. No action is staged or launched.",
+  "blockingConditions": [
+    "Do not run the registration script until the native actor is idle and exact mute restoration has been verified, as directed by the task owner.",
+    "The script intentionally refuses if the pinned probe, caller, helper, snapshot, reader, or installed config changed since review."
+  ]
+}

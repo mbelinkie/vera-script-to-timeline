@@ -1,0 +1,9 @@
+{"at": "2026-10-01T04:20:03.803906+00:00", "method": "Capture", "phase": "preflight", "value": {"path": "preflight.json"}}
+{"at": "2026-10-01T04:20:03.871926+00:00", "method": "CaptureLoop", "phase": "request", "value": {"stamp": "20261001T042003.870943Z"}}
+{"at": "2026-10-01T04:20:05.877182+00:00", "method": "UpdateMarkerCustomData", "phase": "request", "value": {"customData": "{\"index\": 0, \"issue\": 141, \"section\": \"calibration\"} | issue141 controlled interpass 20261001T041958.897531Z", "frame": 0, "label": "interpass-edit", "timelineUid": "29ae8331-b86e-4041-a548-960695cc7b24"}}
+{"at": "2026-10-01T04:20:05.879171+00:00", "method": "UpdateMarkerCustomData", "phase": "return", "value": {"error": null, "label": "interpass-edit", "value": true}}
+{"at": "2026-10-01T04:20:08.431309+00:00", "method": "CaptureLoop", "phase": "return", "value": {"error": null, "observations": 2, "result": {"capturePath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r5-freshness-20261001T041958.897531Z/capture-20261001T042003.870943Z.json", "sha256": "ad7f97fd471a86ed5f411b8141990fae3b0bca9ed2404cf2cc3c45f6758e6b89", "status": "inconsistent-refused"}}}
+{"at": "2026-10-01T04:20:13.280952+00:00", "method": "Capture", "phase": "after-capture", "value": {"path": "after-capture.json"}}
+{"at": "2026-10-01T04:20:13.387637+00:00", "method": "UpdateMarkerCustomData", "phase": "request", "value": {"customData": "{\"index\": 0, \"issue\": 141, \"section\": \"calibration\"}", "frame": 0, "label": "exact-restoration", "timelineUid": "29ae8331-b86e-4041-a548-960695cc7b24"}}
+{"at": "2026-10-01T04:20:13.390119+00:00", "method": "UpdateMarkerCustomData", "phase": "return", "value": {"error": null, "label": "exact-restoration", "value": true}}
+{"at": "2026-10-01T04:20:18.409931+00:00", "method": "Capture", "phase": "restored", "value": {"path": "restored.json"}}

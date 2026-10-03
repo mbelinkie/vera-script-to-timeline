@@ -1,0 +1,29 @@
+{
+  "kind": "bounded-audio-continuation-from-export-checkpoint",
+  "stagedAt": "2026-10-01T02:10:05.439354+00:00",
+  "action": "audio-output-continue",
+  "stage": "R2-audio-output-after-export",
+  "probeSha256": "587ab13f7388ea65030b71f481f8fe41437c9cef6fac7ee6bf302647b3ceee02",
+  "moduleSha256": "0740a4b74b967e4037f0e09f45d4d527e1f660f0ac486f81954f5c8d226cb5b1",
+  "launcherSha256": "9643a3e5b33f851e97e2618742ad60f11a3130a77c7cbf903688d23889c6c7a0",
+  "privateConfigSha256": "ffbf26ca5dd2ea57aec20c19091f768d96432ea1b859730d3fdadfcd273e0b60",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "checkpointSha256": "0220a23be312aea5906900dd094c8e21b363294bb11f9b0f1201ab23f40c4cbf",
+  "priorJournalSha256": "19bc611d3c32ac686f5f389f3dd414fff04bf3a899f50c962ef3b98a5f235509",
+  "priorPreflightSha256": "7026b0ec5aa22f630314001d0e9562ff00121111791bed4b03d97e1e577a79cb",
+  "priorXmlSha256": "1b3b21a728c3216f9782d87aa2feae977747c377901eb6b81ed5a83a2da06595",
+  "priorRefusalResultSha256": "e0e74086ad9b4733623665f5e331dd11229042eb86ff11f1e4efe2e95e403f7d",
+  "allowedApiMutations": [
+    "SetRenderSettings audio-only",
+    "AddRenderJob one new returned ID",
+    "StartRendering returned ID only",
+    "LoadRenderPreset existing owned snapshot",
+    "DeleteRenderJob only owned terminal job",
+    "DeleteRenderPreset owned snapshot only"
+  ],
+  "snapshotSaveOrExportReplayAllowed": false,
+  "saveAllowed": false,
+  "retryAllowed": false,
+  "privatePathsPublished": false
+}

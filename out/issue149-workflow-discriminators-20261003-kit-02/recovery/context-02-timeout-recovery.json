@@ -1,0 +1,16 @@
+{
+  "actionId": "context-02-20261003-kit-02",
+  "armedArchive": "out/issue149-workflow-discriminators-20261003-kit-02/recovery/context-02-armed-19fcf7444fbd3a4dc31c6afb613743846e7a163e3680496c051bbe975b9e81e3.json",
+  "armedBytes": 1224,
+  "armedSha256": "19fcf7444fbd3a4dc31c6afb613743846e7a163e3680496c051bbe975b9e81e3",
+  "at": "2026-10-03T04:35:27.314230+00:00",
+  "configPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-149-workflow-reruns.json",
+  "disarmedBytes": 1457,
+  "disarmedSha256": "d23d415936fa6d2b03ee80b207ed623678b9781c1ab1e6014cde155b2952f8db",
+  "dispatchReceipt": "out/issue149-workflow-discriminators-20261003-kit-02/dispatches/context-02-20261003-kit-02.json",
+  "launchReceipt": "out/issue149-workflow-discriminators-20261003-kit-02/dispatches/context-02-20261003-kit-02-launch.json",
+  "nativeProgress": null,
+  "nativeResult": null,
+  "reason": "context-02 Hammerspoon launch timed out; no native result/progress; file-only safety recovery before operator refusal check",
+  "schema": "issue-149-discriminator-recovery-v1"
+}

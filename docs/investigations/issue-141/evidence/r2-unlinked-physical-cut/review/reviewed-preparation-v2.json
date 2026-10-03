@@ -1,0 +1,107 @@
+{
+  "case": "R2-unlinked",
+  "directory": "<WORKTREE>/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T121458.332477Z",
+  "environment": {
+    "productName": "DaVinci Resolve Studio",
+    "python": "3.14.7",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "journal": "<WORKTREE>/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T121458.332477Z/journal.jsonl",
+  "menuCommandDispatched": false,
+  "originalLocks": {
+    "audio:1": false,
+    "audio:2": true,
+    "audio:3": true,
+    "video:1": false,
+    "video:2": true,
+    "video:3": true
+  },
+  "originalPage": "edit",
+  "originalPlayhead": "00:01:37:24",
+  "playheadAfter": "00:02:02:10",
+  "preparedPair": {
+    "path": "editorial-case-20261001T121458.332477Z/after.json",
+    "sha256": "31a36fbf4730802705280056c73265240969e752bc2db8a71df74409f2289636"
+  },
+  "priorPair": {
+    "path": "r2-unlinked-context-20261001T121416.101812Z/pair.json",
+    "sha256": "1be6a4fe8f6f98e31b9cac544e7251c74e24f7e07aaa0668985d2ae753e66e48"
+  },
+  "protectedTracks": [
+    [
+      "video",
+      1
+    ],
+    [
+      "video",
+      2
+    ],
+    [
+      "video",
+      3
+    ],
+    [
+      "audio",
+      2
+    ],
+    [
+      "audio",
+      3
+    ]
+  ],
+  "reviewJournal": "<WORKTREE>/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T124409.303986Z/journal.jsonl",
+  "reviewOnly": true,
+  "reviewReadback": {
+    "pair": {
+      "path": "editorial-case-20261001T124409.303986Z/review-pair.json",
+      "sha256": "31a36fbf4730802705280056c73265240969e752bc2db8a71df74409f2289636"
+    },
+    "playhead": "00:02:02:10",
+    "stateMatchesPreparedPin": true
+  },
+  "reviewedFrom": {
+    "partialResult": {
+      "path": "editorial-case-20261001T121458.332477Z/result.json",
+      "sha256": "b45a28bd216aa91b720db26f910b727c0dffee6cb9b68f50e332b10dbc009be6"
+    },
+    "refusal": {
+      "failure": "Full postflight differs from the bounded case operation",
+      "journalSha256": "482955b5fb78e376fe6402def7c194e98d44eebc6cc87788b169bb8917ddf5ae",
+      "status": "refused-partial-state-retained"
+    }
+  },
+  "saveDispatched": false,
+  "setters": [
+    "SetClipsLinked",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetCurrentTimecode"
+  ],
+  "status": "case-prepared",
+  "target": {
+    "endFrame": 3199,
+    "frameRate": 25,
+    "sourceUids": {
+      "audio": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+      "video": "9202163a-8381-43e6-9157-3a60f35c6f79"
+    },
+    "splitPlayheadFrame": 3060,
+    "splitPlayheadTimecode": "00:02:02:10",
+    "startFrame": 3000,
+    "targetTrack": "audio",
+    "uids": {
+      "audio": "7c970634-6fcb-4117-9a51-221a482c7142",
+      "video": "44bfdfa0-6aa6-40af-8916-679d557f18ee"
+    },
+    "unlinkPrepared": true
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+  "externalScriptingSetting": "None",
+  "action": "prepare",
+  "stage": "preparation-baseline",
+  "mediaDir": "REPOSITORY/out/issue-141-media-20260930-01a0f318",
+  "outputDir": "REPOSITORY/out/issue-141-observation-20260930-01a0f318",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "probePath": "REPOSITORY/docs/investigations/issue-141/probe.py",
+  "probeSha256": "54c7774d365f8e5cbd7ba6bba15740e08d0a9d02880ee3c6ea5678cd73329d93"
+}

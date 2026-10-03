@@ -1,0 +1,89 @@
+{
+  "compositing": "not established",
+  "contentCapturesEqualExceptCapturedAt": true,
+  "exports": [
+    {
+      "file": "frame-000.png",
+      "fileBytes": 6231977,
+      "pixelCheck": {
+        "allBlack": false,
+        "decodedRGBBytes": 6220800,
+        "decodedRGBSha256": "62183efee53c7f0a14ab3d6c8fb3f40e27bc04916dec1baeae3fec2f05c41667",
+        "maxChannelValue": 255,
+        "nonzeroBytes": 6158614
+      },
+      "pngSha256": "084839cd4e5ecd123e21fe204fbaadd471960290319824081f21de600ec80495",
+      "timecode": "00:00:00:00"
+    },
+    {
+      "file": "frame-198.png",
+      "fileBytes": 6231977,
+      "pixelCheck": {
+        "allBlack": false,
+        "decodedRGBBytes": 6220800,
+        "decodedRGBSha256": "67c2b8dbf183d2d63415a597a53751b4857aaea104617b60b95bfaa4cefb9b89",
+        "maxChannelValue": 255,
+        "nonzeroBytes": 6156343
+      },
+      "pngSha256": "e1801029ac90b2abbb15eeca9d108298600384c2afef0475339826abfe5c1bd0",
+      "timecode": "00:00:07:23"
+    },
+    {
+      "file": "frame-199.png",
+      "fileBytes": 6231977,
+      "pixelCheck": {
+        "allBlack": true,
+        "decodedRGBBytes": 6220800,
+        "decodedRGBSha256": "1f56bd4f609fab80a2b9cce7487d5c08de2768476849e1353881ca748d8d3b6a",
+        "maxChannelValue": 0,
+        "nonzeroBytes": 0
+      },
+      "pngSha256": "4ffe68970e56db313fa07e6054e22a0568ad00d86ff75236f152968979ad219c",
+      "timecode": "00:00:07:24"
+    },
+    {
+      "file": "frame-200.png",
+      "fileBytes": 6231977,
+      "pixelCheck": {
+        "allBlack": true,
+        "decodedRGBBytes": 6220800,
+        "decodedRGBSha256": "1f56bd4f609fab80a2b9cce7487d5c08de2768476849e1353881ca748d8d3b6a",
+        "maxChannelValue": 0,
+        "nonzeroBytes": 0
+      },
+      "pngSha256": "4ffe68970e56db313fa07e6054e22a0568ad00d86ff75236f152968979ad219c",
+      "timecode": "00:00:08:00"
+    }
+  ],
+  "initialTimecode": "00:06:08:00",
+  "kind": "bounded-picture-output-calibration",
+  "launcherJournal": {
+    "afterAppendSha256": "e849b8fea913abce976c485ee6dd3356f675841575a9194579179aba262add4f",
+    "beforeAppendSha256": "ae791c8dc2b6dc2981a1269b32d8bae8f39da469c19742fa0e86cdf986df3952",
+    "injectedResultSha256": "3eb994dc3cf111e039091197a4ff4aa3500bf18f17d8ed38f9ecab445d6faea1"
+  },
+  "limits": [
+    "Still pixels alone do not prove which timeline sample Resolve exported or establish general compositing behavior.",
+    "No audio routing, mix or output proof.",
+    "No general visibility, timeline range or editorial invariant is inferred."
+  ],
+  "pixelInterpretation": "Frames 0 and 198 decode to non-black RGB; frames 199 and 200 decode to the same all-zero RGB pixels. This supports the bounded base-video end/black output observation only.",
+  "preflightStatus": "equal-adjacent-reads",
+  "rawSha256": {
+    "capture-20260930T224456.790256Z-content-after.json": "bb9bb9a851d6f008b7578dbdf22fad454b2802da0b86caefb19c43b4fffe7095",
+    "capture-20260930T224456.790256Z-content-before.json": "729dd8860509e60f0ae62a6dadf339aee1234336cabf7418826404112e6812e1",
+    "capture-20260930T224456.790256Z-preflight.json": "ce624a0bc008420cdc786b8083bc9bcaae0e26c6fd3c2d7bf679b73a94524408",
+    "frame-000.png": "084839cd4e5ecd123e21fe204fbaadd471960290319824081f21de600ec80495",
+    "frame-198.png": "e1801029ac90b2abbb15eeca9d108298600384c2afef0475339826abfe5c1bd0",
+    "frame-199.png": "4ffe68970e56db313fa07e6054e22a0568ad00d86ff75236f152968979ad219c",
+    "frame-200.png": "4ffe68970e56db313fa07e6054e22a0568ad00d86ff75236f152968979ad219c",
+    "hammerspoon-launch-20260930T224455.835748Z.jsonl": "e849b8fea913abce976c485ee6dd3356f675841575a9194579179aba262add4f",
+    "picture-calibration-20260930T224456.790256Z.json": "685686d19b33852f4f6172e911ef09577124fe56ee3c8253248d9996b0ce4008",
+    "picture-calibration-20260930T224456.790256Z.jsonl": "491cc2a0e2f61ecb0f515cdf43a2ec9586ed79c691e03cf196ebd4e15ef86b0c",
+    "vera-issue-141-observation-result-20260930T224456.775210Z.json": "3eb994dc3cf111e039091197a4ff4aa3500bf18f17d8ed38f9ecab445d6faea1"
+  },
+  "resolvePage": "edit",
+  "resultStatus": "candidate-exports-retained",
+  "runAt": "2026-09-30T22:44Z",
+  "timecodeRestored": true
+}

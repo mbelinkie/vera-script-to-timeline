@@ -1,0 +1,63 @@
+{"at": "2026-09-30T22:44:59.378395+00:00", "method": "GetCurrentTimecode", "phase": "request", "value": []}
+{"at": "2026-09-30T22:44:59.379786+00:00", "method": "GetCurrentTimecode", "phase": "return", "value": "00:06:08:00"}
+{"at": "2026-09-30T22:44:59.381235+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T22:44:59.381575+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T22:45:01.942936+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": ["00:00:00:00"]}
+{"at": "2026-09-30T22:45:01.967884+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}
+{"at": "2026-09-30T22:45:02.018037+00:00", "method": "GetCurrentTimecode", "phase": "request", "value": []}
+{"at": "2026-09-30T22:45:02.018461+00:00", "method": "GetCurrentTimecode", "phase": "return", "value": "00:00:00:00"}
+{"at": "2026-09-30T22:45:02.019901+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T22:45:02.020265+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T22:45:02.022038+00:00", "method": "ExportCurrentFrameAsStill", "phase": "request", "value": ["REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-calibration-20260930T224456.790256Z/frame-000.png"]}
+{"at": "2026-09-30T22:45:02.102816+00:00", "method": "ExportCurrentFrameAsStill", "phase": "return", "value": true}
+{"at": "2026-09-30T22:45:02.105924+00:00", "method": "GetCurrentTimecode", "phase": "request", "value": []}
+{"at": "2026-09-30T22:45:02.106504+00:00", "method": "GetCurrentTimecode", "phase": "return", "value": "00:00:00:00"}
+{"at": "2026-09-30T22:45:02.108133+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T22:45:02.108424+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T22:45:02.121957+00:00", "method": "ExportCurrentFrameAsStill(output)", "phase": "readback", "value": {"exists": true, "frame": 0, "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-calibration-20260930T224456.790256Z/frame-000.png", "pngHeaderHex": "89504e470d0a1a0a", "pngHeaderMatches": true, "resolvePage": "edit", "sha256": "084839cd4e5ecd123e21fe204fbaadd471960290319824081f21de600ec80495", "size": 6231977, "timecode": "00:00:00:00"}}
+{"at": "2026-09-30T22:45:02.125150+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": ["00:00:07:23"]}
+{"at": "2026-09-30T22:45:02.468686+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}
+{"at": "2026-09-30T22:45:02.472293+00:00", "method": "GetCurrentTimecode", "phase": "request", "value": []}
+{"at": "2026-09-30T22:45:02.472847+00:00", "method": "GetCurrentTimecode", "phase": "return", "value": "00:00:07:23"}
+{"at": "2026-09-30T22:45:02.475086+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T22:45:02.475454+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T22:45:02.477214+00:00", "method": "ExportCurrentFrameAsStill", "phase": "request", "value": ["REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-calibration-20260930T224456.790256Z/frame-198.png"]}
+{"at": "2026-09-30T22:45:02.565339+00:00", "method": "ExportCurrentFrameAsStill", "phase": "return", "value": true}
+{"at": "2026-09-30T22:45:02.568147+00:00", "method": "GetCurrentTimecode", "phase": "request", "value": []}
+{"at": "2026-09-30T22:45:02.568478+00:00", "method": "GetCurrentTimecode", "phase": "return", "value": "00:00:07:23"}
+{"at": "2026-09-30T22:45:02.569892+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T22:45:02.570226+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T22:45:02.584146+00:00", "method": "ExportCurrentFrameAsStill(output)", "phase": "readback", "value": {"exists": true, "frame": 198, "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-calibration-20260930T224456.790256Z/frame-198.png", "pngHeaderHex": "89504e470d0a1a0a", "pngHeaderMatches": true, "resolvePage": "edit", "sha256": "e1801029ac90b2abbb15eeca9d108298600384c2afef0475339826abfe5c1bd0", "size": 6231977, "timecode": "00:00:07:23"}}
+{"at": "2026-09-30T22:45:02.587249+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": ["00:00:07:24"]}
+{"at": "2026-09-30T22:45:02.969155+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}
+{"at": "2026-09-30T22:45:02.972489+00:00", "method": "GetCurrentTimecode", "phase": "request", "value": []}
+{"at": "2026-09-30T22:45:02.973049+00:00", "method": "GetCurrentTimecode", "phase": "return", "value": "00:00:07:24"}
+{"at": "2026-09-30T22:45:02.975011+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T22:45:02.975479+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T22:45:02.977689+00:00", "method": "ExportCurrentFrameAsStill", "phase": "request", "value": ["REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-calibration-20260930T224456.790256Z/frame-199.png"]}
+{"at": "2026-09-30T22:45:03.057116+00:00", "method": "ExportCurrentFrameAsStill", "phase": "return", "value": true}
+{"at": "2026-09-30T22:45:03.061610+00:00", "method": "GetCurrentTimecode", "phase": "request", "value": []}
+{"at": "2026-09-30T22:45:03.062004+00:00", "method": "GetCurrentTimecode", "phase": "return", "value": "00:00:07:24"}
+{"at": "2026-09-30T22:45:03.063424+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T22:45:03.063768+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T22:45:03.078356+00:00", "method": "ExportCurrentFrameAsStill(output)", "phase": "readback", "value": {"exists": true, "frame": 199, "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-calibration-20260930T224456.790256Z/frame-199.png", "pngHeaderHex": "89504e470d0a1a0a", "pngHeaderMatches": true, "resolvePage": "edit", "sha256": "4ffe68970e56db313fa07e6054e22a0568ad00d86ff75236f152968979ad219c", "size": 6231977, "timecode": "00:00:07:24"}}
+{"at": "2026-09-30T22:45:03.081435+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": ["00:00:08:00"]}
+{"at": "2026-09-30T22:45:03.469317+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}
+{"at": "2026-09-30T22:45:03.471783+00:00", "method": "GetCurrentTimecode", "phase": "request", "value": []}
+{"at": "2026-09-30T22:45:03.472298+00:00", "method": "GetCurrentTimecode", "phase": "return", "value": "00:00:08:00"}
+{"at": "2026-09-30T22:45:03.474220+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T22:45:03.474710+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T22:45:03.476544+00:00", "method": "ExportCurrentFrameAsStill", "phase": "request", "value": ["REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-calibration-20260930T224456.790256Z/frame-200.png"]}
+{"at": "2026-09-30T22:45:03.560249+00:00", "method": "ExportCurrentFrameAsStill", "phase": "return", "value": true}
+{"at": "2026-09-30T22:45:03.563137+00:00", "method": "GetCurrentTimecode", "phase": "request", "value": []}
+{"at": "2026-09-30T22:45:03.563487+00:00", "method": "GetCurrentTimecode", "phase": "return", "value": "00:00:08:00"}
+{"at": "2026-09-30T22:45:03.564902+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T22:45:03.565201+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T22:45:03.579599+00:00", "method": "ExportCurrentFrameAsStill(output)", "phase": "readback", "value": {"exists": true, "frame": 200, "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-calibration-20260930T224456.790256Z/frame-200.png", "pngHeaderHex": "89504e470d0a1a0a", "pngHeaderMatches": true, "resolvePage": "edit", "sha256": "4ffe68970e56db313fa07e6054e22a0568ad00d86ff75236f152968979ad219c", "size": 6231977, "timecode": "00:00:08:00"}}
+{"at": "2026-09-30T22:45:03.582619+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": ["00:06:08:00"]}
+{"at": "2026-09-30T22:45:03.969226+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}
+{"at": "2026-09-30T22:45:03.970894+00:00", "method": "GetCurrentTimecode", "phase": "request", "value": []}
+{"at": "2026-09-30T22:45:03.971231+00:00", "method": "GetCurrentTimecode", "phase": "return", "value": "00:06:08:00"}
+{"at": "2026-09-30T22:45:03.972730+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T22:45:03.973092+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T22:45:03.973202+00:00", "method": "timecode restoration", "phase": "readback", "value": {"matchesInitial": true, "page": "edit", "timecode": "00:06:08:00"}}

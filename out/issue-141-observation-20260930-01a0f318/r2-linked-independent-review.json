@@ -1,0 +1,71 @@
+{
+  "evidenceRoot": "docs/investigations/issue-141/evidence/r2-linked-physical-cut",
+  "kind": "issue-141-r2-linked-independent-review",
+  "limits": {
+    "programOutput": "pending",
+    "routing": "not verified",
+    "sampleSynchronization": "not verified",
+    "speechOutputClaim": "none"
+  },
+  "physicalCut": {
+    "actualRemovedUids": {
+      "audio": "1166ceac-9331-49fa-8fa2-26db3dfe7f2a",
+      "video": "9cc9127c-c327-41b6-ae14-eeb7b3b021d1"
+    },
+    "bladeFrames": [
+      2560,
+      2570
+    ],
+    "case": "R2-linked",
+    "deleteCall": {
+      "method": "Timeline.DeleteClips",
+      "return": true,
+      "ripple": false
+    },
+    "middleRecordInterval": {
+      "durationFrames": 10,
+      "endRaw": 2570,
+      "start": 2560
+    },
+    "middleSourceInterval": {
+      "endRaw": 70,
+      "start": 60
+    },
+    "readback": "Before/after full pairs show only the selected 10-frame middle video/audio items removed from Video 1 and Audio 1; neighboring left/right clip IDs and positions remain. Ripple is false. The remaining full-state deltas are expected usage-count reductions in pool/timeline evidence after those two timeline items are deleted.",
+    "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24"
+  },
+  "rawEvidenceRoot": "out/issue-141-observation-20260930-01a0f318",
+  "restoration": {
+    "interpretation": "Restored full readback is byte-hash-identical to the post-edit full readback; saved project state was not changed.",
+    "playheadAfter": "00:01:37:24",
+    "playheadBefore": "00:01:37:24",
+    "postEditPairSha256": "1be6a4fe8f6f98e31b9cac544e7251c74e24f7e07aaa0668985d2ae753e66e48",
+    "restoredPairSha256": "1be6a4fe8f6f98e31b9cac544e7251c74e24f7e07aaa0668985d2ae753e66e48",
+    "saveDispatched": false,
+    "status": "restored-unsaved",
+    "trackLocks": {
+      "audio:1": false,
+      "audio:2": true,
+      "audio:3": true,
+      "video:1": false,
+      "video:2": true,
+      "video:3": true
+    }
+  },
+  "sources": [
+    "r2-linked-physical-cut/hashes.json",
+    "r2-linked-physical-cut/review.json",
+    "r2-linked-physical-cut/editorial-case-20261001T114834.652949Z/journal.jsonl",
+    "r2-linked-physical-cut/editorial-case-20261001T114834.652949Z/before.json.gz",
+    "r2-linked-physical-cut/editorial-case-20261001T114834.652949Z/after.json.gz",
+    "r2-linked-physical-cut/editorial-case-20261001T114857.294317Z/result.json",
+    "r2-linked-physical-cut/editorial-case-20261001T114857.294317Z/after.json.gz"
+  ],
+  "verification": {
+    "bindingCount": 61,
+    "publishedSha256Bindings": "all 61 match hashes.json",
+    "rawSha256Bindings": "all 61 raw out paths match hashes.json",
+    "reviewJsonStatus": "physical-linked-cut-verified-output-pending",
+    "reviewPairSha256": "1be6a4fe8f6f98e31b9cac544e7251c74e24f7e07aaa0668985d2ae753e66e48"
+  }
+}

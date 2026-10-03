@@ -1,0 +1,11 @@
+2026-10-01T20:44:41.036429Z  WARN codex_skills::interface: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-10-01T20:44:41.036867Z  WARN codex_skills::interface: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
+2026-10-01T20:44:41.306025Z  WARN codex_skills::interface: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-10-01T20:44:41.306081Z  WARN codex_skills::interface: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
+2026-10-01T20:46:32.836366Z ERROR codex_core::tools::router: error=apply_patch verification failed: Failed to find expected lines in REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-offset-sequence.py:
+    prepared_pair = json.loads(prepared_path.read_text(encoding="utf-8"))
+    validate_pair(prepared_pair)
+    if prepared_pair != prior:
+        raise RuntimeError("Native preparation changed timeline or pool data")
+2026-10-01T20:47:08.661019Z ERROR codex_core::tools::router: error=apply_patch verification failed: Failed to find expected lines in REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-offset-sequence.py:
+    print("PASS: [REDACTED] A1 raw delta, wrong-target refusal, unrelated-change refusal, and label inventory. Does not test native calls, captured Resolve schema completeness, locking, menus, or restoration.")

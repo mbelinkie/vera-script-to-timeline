@@ -1,0 +1,15 @@
+{
+  "actions": [
+    "r1-repeat-reopen",
+    "r1-repeat-duplicate"
+  ],
+  "callerAfterSha256": "395805068e96517bfe67aa32497229226b6c7fad431790e1cac94f4ecaf5cd03",
+  "callerBeforeSha256": "9bf342020431dc8059fb7a8b60976483826c285c1e9ce8ef671293c1b9c03d9e",
+  "case": "R1-repeat-six",
+  "helperSha256": "4aece3d8ab7c7e0ab215fc9eb841fc95b56b85fb0809859e7f587ce83b0e2c28",
+  "nativeDispatchPerformed": false,
+  "probeAfterSha256": "fdd2d31024a005489564e99bb4916e190e5830e26705b87ea6e56adbcf9e918b",
+  "probeBeforeSha256": "54bbbeee926a5ef423615b1f981ec8ebe6586e91f938a8aad05db441ecc53310",
+  "readerSha256": "9b6977747a1f3decf957ead6134f10fc4f597bf9d0c3dc5c081b7bf2671879a4",
+  "snapshotSha256": "54bbbeee926a5ef423615b1f981ec8ebe6586e91f938a8aad05db441ecc53310"
+}

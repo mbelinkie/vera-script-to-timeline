@@ -1,0 +1,85 @@
+{
+  "taskId": "Issue 141",
+  "kind": "r1-final-seven-independent-review",
+  "status": "PASS_WITH_EXPLICIT_LINEAGE_LIMIT",
+  "decision": "The retained final duplicate satisfies the bounded seven-timeline acceptance surface: the original six remain, one exact R1 repeat is added, the final selection is Matrix, and the duplicate is the terminal native action.",
+  "artifacts": {
+    "wrapperPath": "out/issue-141-observation-20260930-01a0f318/r1-final-executor-duplicate-20261002T131605.126740Z/result.json",
+    "wrapperSha256": "8f2e2328a2416af43aa0dbd60967446c79300fd9de1141d353a6eae024235652",
+    "nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261002T131625.143034Z.json",
+    "nativeResultSha256": "117fcc6ae0f432b9160436faf3053982df7c3f5417a51fa2efd922fa661d92dd",
+    "journalPath": "out/issue-141-observation-20260930-01a0f318/r1-repeat-duplicate-20261002T131625.296402Z/journal.jsonl",
+    "journalSha256": "057e251a570a1543160110099f8fe2d678b158d76c460658a9218ecafaf7d12f",
+    "continuationStatePath": "output/r1-window-readiness-continuation-state.json",
+    "continuationStateSha256": "1dc57bce74516db0ef18f67b353ee5ea53d6db7e5c820ae96f4546199a64bce4"
+  },
+  "identityAndPairs": {
+    "resultKind": "local-r1-second-duplicate-result",
+    "duplicateUid": "1835476c-8bc1-48fc-bb78-99906490480a",
+    "duplicateName": "VERA 141 R1 identity repeat",
+    "sourceUid": "aa2b8e36-83bd-4292-9e33-217c00ca192f",
+    "finalSelectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+    "stablePairs": {
+      "before": true,
+      "selectedSourcePair": true,
+      "immediateAfter": true,
+      "after": true
+    },
+    "checkpointBinding": true,
+    "beforeSelectedMatrix": true,
+    "selectedSourceR1": true,
+    "immediateAfterSelectedDuplicate": true,
+    "afterSelectedMatrix": true,
+    "beforeAndRetainedCheckpointEqual": true,
+    "protectedSevenAfterDuplicate": true,
+    "sixOriginalIdentitiesPreserved": true,
+    "exactNewIdentityAndName": true
+  },
+  "occurrenceVerification": {
+    "sourceOccurrenceCount": 6,
+    "newOccurrenceCount": 6,
+    "newOccurrenceFieldMatchesDuplicateRow": true,
+    "newOccurrenceIdsDisjointFromSource": true,
+    "newOccurrenceIdsDisjointFromAllOriginalSix": true,
+    "signatureMultisetEqual": true,
+    "sharedMediaUidSetEqual": true,
+    "comparisonSourceContext": "The source row was compared from the Matrix-selected before pair, matching the helper's same-context comparison; the R1 selected-source pair was not used to infer cross-context property identity.",
+    "identicalSignatureAmbiguityRetained": true,
+    "lineageInferred": false
+  },
+  "preservationAndDeltas": {
+    "originalSixNonUsageFieldsEqual": true,
+    "originalPoolNonUsageFieldsPreserved": true,
+    "newDuplicatePoolProxyCount": 1,
+    "newDuplicateTimelineMappingCount": 1,
+    "originalPoolUsageChangedMediaCount": 5,
+    "originalPoolUsageChangesOnly": true,
+    "timelineUsageDeltaTimelineCount": 4,
+    "timelineUsagePathCount": 142,
+    "timelineUsagePathsAllEndInUsage": true,
+    "timelineUsageDeltaOriginalTimelines": [
+      "29ae8331-b86e-4041-a548-960695cc7b24",
+      "88f7923d-55a7-471f-b09b-cf10f9fae8ad",
+      "aa2b8e36-83bd-4292-9e33-217c00ca192f"
+    ],
+    "timelineStructuralDeltaOnlyDuplicateProxy": true,
+    "noUnknownUnrelatedDelta": true
+  },
+  "journalAndContext": {
+    "duplicateTimelineRequestCount": 1,
+    "duplicateTimelineReturnCount": 1,
+    "duplicateTimelineResultCount": 1,
+    "setCurrentTimelineSequence": [
+      "aa2b8e36-83bd-4292-9e33-217c00ca192f",
+      "29ae8331-b86e-4041-a548-960695cc7b24"
+    ],
+    "forbiddenSaveRenderCleanupCalls": [],
+    "finalMatrixContextMatchesOriginalTargetContext": true,
+    "noSaveRenderClipLockOrPlayheadMutation": true
+  },
+  "limitations": [
+    "Occurrence signature equality and shared media UIDs do not establish lineage; the retained result explicitly makes no lineage claim.",
+    "No native action, menu, shared-six collector, save, cleanup, broad test rerun, or source-byte read was performed by this review."
+  ],
+  "decisionNeededFromMain": "Accept the final seven-timeline duplicate evidence as the terminal native result, subject to the project's producer acceptance authority."
+}

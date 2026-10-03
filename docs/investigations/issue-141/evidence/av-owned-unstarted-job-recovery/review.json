@@ -1,0 +1,9 @@
+{
+  "status": "owned-unstarted-job-removed",
+  "jobId": "9c4f9ad9-9acf-4c60-bac2-fb7cc9269ebd",
+  "exactFullStateUnchanged": true,
+  "queueAfter": [],
+  "renderStarted": false,
+  "rawFullPairSha256": "1be6a4fe8f6f98e31b9cac544e7251c74e24f7e07aaa0668985d2ae753e66e48",
+  "interpretation": "Queue-only attempt used stale expected settings. No conclusion about PCM render support. One exact unstarted job deleted; no content/source/preset/settings/save mutation."
+}

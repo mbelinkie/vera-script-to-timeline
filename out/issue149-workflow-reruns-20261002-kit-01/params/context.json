@@ -1,0 +1,16 @@
+{
+  "_offlineOnly": true,
+  "_approval": "pending-root-native-approval",
+  "schemaVersion": "issue-149-workflow-reruns-v1",
+  "externalScriptingSetting": "None",
+  "projectName": "VERA Issue 149 Workflow Reruns 20261002-kit-01",
+  "action": "context",
+  "phase": "context-01",
+  "actionId": "context-01-20261002-kit-01",
+  "probePath": "REPOSITORY/docs/investigations/issue-149/workflow-reruns/harness.py",
+  "probeSha256": "c17f8a4aa7b04aa8a3a20dcbb0d9c78ca93480ac15082b5cb8f9d9ed31328152",
+  "launcherPath": "REPOSITORY/docs/investigations/issue-149/workflow-reruns/launcher.py",
+  "launcherSha256": "e4f58381c398bc0ce13130fddb25c956876f7754dc877346fe389dfb826c2450",
+  "outputDir": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01",
+  "mediaDir": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/media"
+}

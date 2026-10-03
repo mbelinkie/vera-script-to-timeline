@@ -1,0 +1,44 @@
+[
+  {
+    "filename": "preflight.json",
+    "publishedSha256": "f9f2a4672433a1a8d72c4d0d4e12acc79e65618c903432dace153aff5dcbea34",
+    "rawSha256": "159c2d7e6ac961b182d98b651d01e43b9b2dbe8acc8adbde73b912f0835b517b",
+    "redaction": "private absolute paths replaced with <probe-output> or <user-home>"
+  },
+  {
+    "filename": "postflight.json",
+    "publishedSha256": "d068e59d60c42044742e1f54a8c4a02ba399605aa4b5138df2286ddd2b615f0a",
+    "rawSha256": "d0da206cbf92a6e8a4487e4e4d4987551888303bd207f0741b411b3978a730ff",
+    "redaction": "private absolute paths replaced with <probe-output> or <user-home>"
+  },
+  {
+    "filename": "journal.jsonl",
+    "publishedSha256": "a87871747e5ff651149482d8d25a647865980df077059eeced46aaca32deed12",
+    "rawSha256": "becb5cd3af1782f6445c383e4a67809e2240ae895a5b4212628680e82816fd40",
+    "redaction": "private absolute paths replaced with <probe-output> or <user-home>"
+  },
+  {
+    "filename": "vera-issue-141-observation-result-20261001T000931.473925Z.json",
+    "publishedSha256": "784767aa51abed9a70a40d6bd8eb535b2fefcdac158341f64b7e3fa929f9b12e",
+    "rawSha256": "128990dbc0c0609c5286ed283f1aa302bc64acc8ea9df08a25fc40cffd218bbd",
+    "redaction": "private absolute paths replaced with <probe-output> or <user-home>"
+  },
+  {
+    "filename": "hammerspoon-launch-20261001T000930.669979Z.jsonl",
+    "publishedSha256": "0b08a0e06f29c122ec6d61571eadc035690847a44aaf6912bfc08e5b79db168c",
+    "rawSha256": "0b08a0e06f29c122ec6d61571eadc035690847a44aaf6912bfc08e5b79db168c",
+    "redaction": "private absolute paths replaced with <probe-output> or <user-home>"
+  },
+  {
+    "filename": "installation-cache-restore.json",
+    "publishedSha256": "1d1cca37d6da2f495f34a4e884c67719c997d7af0c831284c9278ed0c3575d70",
+    "rawSha256": "1d1cca37d6da2f495f34a4e884c67719c997d7af0c831284c9278ed0c3575d70",
+    "redaction": "private absolute paths replaced with <probe-output> or <user-home>"
+  },
+  {
+    "filename": "original-saved-pin.json",
+    "publishedSha256": "798fcd67a01710f009b2cda9d8503540f2992e3ee07aa574e817c1786c0dfe98",
+    "rawSha256": "a29402d405ab8cf1bc1abedd4c1ed0c479e983e2ef3ba6fc41d1c2389d6d36d2",
+    "redaction": "private absolute paths replaced with <probe-output> or <user-home>"
+  }
+]

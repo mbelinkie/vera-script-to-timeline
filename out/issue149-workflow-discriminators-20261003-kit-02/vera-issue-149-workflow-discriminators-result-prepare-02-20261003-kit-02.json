@@ -1,0 +1,29 @@
+{
+  "action": "prepare",
+  "actionId": "prepare-02-20261003-kit-02",
+  "configSha256": "32737eb9e0e73d2c5762f17cb28d0f6804504754deafac3c41b05554fcc030fb",
+  "error": {
+    "message": "prepared timelinePlaybackFrameRate differs: '24', expected 25",
+    "type": "HarnessError"
+  },
+  "journal": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/evidence/prepare-02-20261003-kit-02/journal.jsonl",
+  "launcher": "workflow-injected",
+  "partialState": {
+    "itemUids": [],
+    "mediaUids": [],
+    "projectUid": "0591bb41-d645-4af7-a2ee-ff75f8f43162",
+    "timelineUids": [],
+    "timelines": []
+  },
+  "phase": "prepare-02",
+  "preSnapshot": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/evidence/prepare-02-20261003-kit-02/pre.json",
+  "progress": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-progress-prepare-02-20261003-kit-02.jsonl",
+  "runtime": {
+    "machine": "x86_64",
+    "platform": "macOS-15.1-x86_64-i386-64bit-Mach-O",
+    "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 17.0.0 (clang-1700.6.4.2)]"
+  },
+  "schemaVersion": "issue-149-workflow-discriminators-v1",
+  "stateId": "prepare-02-20261003-kit-02",
+  "status": "failure"
+}

@@ -1,0 +1,139 @@
+{
+  "captures": [
+    {
+      "capturePath": "<probe-output>/capture-20260930T234123.302069Z-preflight.json",
+      "sha256": "0c474a054e3b66569adbeac7abb2cad74ad15946f4809fbd68f612628ddc4076",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T234123.302069Z-residual-before-enable.json",
+      "sha256": "630ae657da272eefdca374c290fdcb8ba6657293ae394752f89ef737747f3dee",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T234123.302069Z-residual-enabled.json",
+      "sha256": "43b70eb6caf8b73265d4e05a7ae320dbffad5ad6b5971a22fdce52af334d25c7",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T234123.302069Z-residual-before-disable.json",
+      "sha256": "4ffb91c6f236c360fe2c9365b72f86a6d9b9a4c9ca3b06168b80a4b852f90723",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T234123.302069Z-residual-disabled.json",
+      "sha256": "e0a0252d423ba7fd2442119f622c3c8859817bd99da98f39799cb43cd701ef69",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T234123.302069Z-A2-before-disable.json",
+      "sha256": "b5611e86a0a43bbc6232e3a706f6002860e1f2898e2c1f762677f46aa971c93c",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T234123.302069Z-A2-disabled.json",
+      "sha256": "b968694eae8f1cfdf53e0606c9e3a1b6a98d63974a4302c18ec58a97d3c61163",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T234123.302069Z-A2-before-enable.json",
+      "sha256": "23d49d8277fede92a01f5ef7fc2ff081bfa11c35d42ca91f28e1a89b8865047f",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T234123.302069Z-A2-enabled.json",
+      "sha256": "4aed62f5e204a454226b8eb156a908cc5d60f557c7fda14941e59bb53afb7bd4",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T234123.302069Z-retime-before-50.json",
+      "sha256": "2c8ce295374ba0d8785763265bc6a85d969f1d676431165a6e1663d591cc4388",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T234123.302069Z-retime-50.json",
+      "sha256": "e62335d6f488a828b2c7ac543807aee9e1aac1a851359ec66e8448a765b8049e",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T234123.302069Z-retime-before-restore.json",
+      "sha256": "8596376abc526b369054c37c2d0c301d0c36285e26abec74b15d53c72748dafc",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T234123.302069Z-retime-restored.json",
+      "sha256": "5c9c3297f528e45aab05693137d5d5b6ca9c576f9b390337c897329bfbcf7a00",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T234123.302069Z-final.json",
+      "sha256": "8375ae48f9e21bf64aba2571ebbcfbb2ce2f6a400b2811223258417ea701bcd1",
+      "status": "equal-adjacent-reads"
+    }
+  ],
+  "checkpoint": "capture-20260930T223313.312609Z-saved.json",
+  "checkpointSha256": "a29402d405ab8cf1bc1abedd4c1ed0c479e983e2ef3ba6fc41d1c2389d6d36d2",
+  "failure": null,
+  "initialTimecode": "00:06:08:00",
+  "kind": "bounded-native-audio-state-and-retime-observation",
+  "limits": [
+    "No external output, mix, routing, or program-audio conclusion follows.",
+    "Retime-linked audio changes are limited to the captured linked occurrence."
+  ],
+  "setterCalls": [
+    {
+      "args": [
+        true
+      ],
+      "method": "SetClipEnabled",
+      "return": true
+    },
+    {
+      "args": [
+        false
+      ],
+      "method": "SetClipEnabled",
+      "return": true
+    },
+    {
+      "args": [
+        "audio",
+        2,
+        false
+      ],
+      "method": "SetTrackEnable",
+      "return": true
+    },
+    {
+      "args": [
+        "audio",
+        2,
+        true
+      ],
+      "method": "SetTrackEnable",
+      "return": true
+    },
+    {
+      "args": [
+        {
+          "Percentage": 50.0,
+          "PitchCorrection": true,
+          "RippleTimeline": false
+        }
+      ],
+      "method": "SetSpeed",
+      "return": true
+    },
+    {
+      "args": [
+        {
+          "Percentage": 100.0,
+          "PitchCorrection": true,
+          "RippleTimeline": false
+        }
+      ],
+      "method": "SetSpeed",
+      "return": true
+    }
+  ]
+}

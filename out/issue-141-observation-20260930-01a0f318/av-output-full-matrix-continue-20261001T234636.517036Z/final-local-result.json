@@ -1,0 +1,68 @@
+{
+  "environment": {
+    "platform": "macOS-15.1-x86_64-i386-64bit-Mach-O",
+    "product": "DaVinci Resolve Studio",
+    "pythonExecutable": "/Applications/DaVinci Resolve/DaVinci Resolve.app/Contents/Libraries/Fusion/fuscript",
+    "pythonVersion": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 17.0.0 (clang-1700.6.4.2)]",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "failure": null,
+  "kind": "av-output-final-local-result",
+  "result": {
+    "job": {
+      "AudioBitDepth": 24,
+      "AudioCodec": "lpcm",
+      "AudioSampleRate": 48000,
+      "ClipStartFrame": 1,
+      "EncodingProfile": "Auto",
+      "ExportAlpha": false,
+      "FormatHeight": 1080,
+      "FormatWidth": 1920,
+      "FrameRate": "25",
+      "IsExportAudio": true,
+      "IsExportVideo": true,
+      "JobId": "0460d82a-3436-4efc-be12-b57c8523ebf5",
+      "MarkIn": 0,
+      "MarkOut": 9199,
+      "MultiPassEncode": false,
+      "NetworkOptimization": false,
+      "OutputFilename": "vera141-av-20261001T232620.358140Z.mov",
+      "PixelAspectRatio": 1.0,
+      "PresetName": "Custom",
+      "RenderJobName": "Job 1",
+      "RenderMode": "Single clip",
+      "TargetDir": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/render",
+      "TimelineName": "VERA 141 Batched Matrix",
+      "TimelineStartTimecode": "00:00:00:00",
+      "VideoCodec": "H.264",
+      "VideoFormat": "QuickTime"
+    },
+    "jobId": "0460d82a-3436-4efc-be12-b57c8523ebf5",
+    "jobStatus": {
+      "CompletionPercentage": 30,
+      "EstimatedTimeRemainingInMs": 46000,
+      "JobStatus": "Rendering"
+    },
+    "journal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-full-matrix-continue-20261001T234636.517036Z/journal.jsonl",
+    "queueAfterPair": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/full-pair-007.json",
+    "queueJournal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/journal.jsonl",
+    "queueResult": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/final-local-result.json",
+    "queuedEndpoints": {
+      "MarkIn": 0,
+      "MarkOut": 9199,
+      "endpointSemantics": "diagnostic-only; inclusive/exclusive unknown",
+      "selectionMode": "SelectAllFrames",
+      "timelineEndFrame": 9200,
+      "timelineStartFrame": 0
+    },
+    "snapshotSha256": "9f0a322fa1180af07c42ae282c41036696f4e20b05d3926af014503ad60e2b8b",
+    "snapshotXml": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/VERA141_AV_OUTPUT_20261001T232620.358140Z.drp/VERA141_AV_OUTPUT_20261001T232620.358140Z.xml",
+    "status": "render-pending-or-ambiguous-recovery-retained"
+  }
+}

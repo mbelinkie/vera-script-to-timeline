@@ -1,0 +1,3 @@
+Readiness evidence is recorded in [r1-repeat-next-readiness.json](r1-repeat-next-readiness.json).
+
+The previous reopen capture was inconsistent, and the duplicate route assumes a one-timeline project and reuses a name that already exists. The next bounded step needs an adapted guard plus a fresh full six-timeline pair. I validated the JSON; SHA-256: `12a30e4d8e43b238c43af6193e751cb2899f4d0abbe025ee5132c73789941fe9`.

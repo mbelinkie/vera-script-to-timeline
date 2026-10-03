@@ -1,0 +1,953 @@
+{
+  "taskId": "Issue 141 / R5 marker-and-move fresh comparison",
+  "kind": "r5-independent-fresh-comparison",
+  "reviewedAt": "2026-10-01T18:16:42Z",
+  "scope": "Retained JSON only; no Resolve/UI/API/config/dashboard/source/media access and no move replay.",
+  "freshEvidence": {
+    "capture": {
+      "path": "out/issue-141-observation-20260930-01a0f318/capture-20261001T180849.818792Z.json",
+      "sha256": "dd4c8c0e911e0bceec7379196d15c7e0c69eaa20b181e061b50cfbb025b0146f",
+      "capturedAt": "20261001T180849.818792Z",
+      "stage": "R4-protected-six-pool-read-only",
+      "consistency": "equal-adjacent-reads",
+      "getterFailures": [],
+      "contentFingerprints": [
+        "dfb0c8a6e837284df86c307a6b608f35e5945b1374845e9cb9af36b61b7b380c",
+        "dfb0c8a6e837284df86c307a6b608f35e5945b1374845e9cb9af36b61b7b380c"
+      ],
+      "projectId": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+      "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+      "timelinePasses": 2
+    },
+    "pool": {
+      "path": "out/issue-141-observation-20260930-01a0f318/r4-pool-read-only-20261001T180849.818792Z.json",
+      "sha256": "82069be60e83da4c578e42231f3c88d9b99575c44d5c42649a04b66c988c8d9d",
+      "status": "equal-read-only-pool-inventory",
+      "passes": 2,
+      "matrixMapStable": true
+    }
+  },
+  "baseline": {
+    "notedPair": {
+      "path": "out/issue-141-observation-20260930-01a0f318/r5-edit-note-20261001T130724.954003Z/pair.json",
+      "sha256": "5577011075fc73b400c9a5b3afe5b9e5795673836eba8c6eb03a826129896242",
+      "timelinePasses": 2,
+      "poolPasses": 2,
+      "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24"
+    }
+  },
+  "comparison": {
+    "freshPassesEqual": true,
+    "boundedMoveContractPasses": true,
+    "targetComparisons": [
+      {
+        "pass": 0,
+        "markerEqual": true,
+        "targets": {
+          "22561398-bce0-4c22-b55f-a73d3ad5e4cf": {
+            "changedKeys": [
+              "GetEnd",
+              "GetEnd(True)",
+              "GetProperties",
+              "GetStart",
+              "GetStart(True)"
+            ],
+            "changed": {
+              "GetEnd": {
+                "before": {
+                  "value": 199
+                },
+                "after": {
+                  "value": 200
+                }
+              },
+              "GetEnd(True)": {
+                "before": {
+                  "value": 199.0
+                },
+                "after": {
+                  "value": 200.0
+                }
+              },
+              "GetProperties": {
+                "before": {
+                  "value": {
+                    "AudioDialogueLevelerBackgroundReduction": false,
+                    "AudioDialogueLevelerEnabled": false,
+                    "AudioDialogueLevelerLiftSoftDialogue": false,
+                    "AudioDialogueLevelerMode": 0,
+                    "AudioDialogueLevelerOutputGain": 0.0,
+                    "AudioDialogueLevelerReduceLoudDialogue": false,
+                    "AudioPan": 0.0,
+                    "AudioPanEnabled": true,
+                    "AudioPitchCents": 0,
+                    "AudioPitchEnabled": true,
+                    "AudioPitchSemiTones": 0,
+                    "AudioVoiceIsolationAmount": 0,
+                    "AudioVoiceIsolationEnabled": false,
+                    "AudioVolume": 0.0,
+                    "AudioVolumeEnabled": true
+                  }
+                },
+                "after": {
+                  "value": {
+                    "AudioPan": 0.0,
+                    "AudioPanEnabled": true,
+                    "AudioPitchCents": 0,
+                    "AudioPitchEnabled": true,
+                    "AudioPitchSemiTones": 0,
+                    "AudioVolume": 0.0,
+                    "AudioVolumeEnabled": true
+                  }
+                }
+              },
+              "GetStart": {
+                "before": {
+                  "value": 0
+                },
+                "after": {
+                  "value": 1
+                }
+              },
+              "GetStart(True)": {
+                "before": {
+                  "value": 0.0
+                },
+                "after": {
+                  "value": 1.0
+                }
+              }
+            },
+            "preserved": {
+              "GetSourceStartFrame": true,
+              "GetSourceEndFrame": true,
+              "GetClipEnabled": true,
+              "GetLinkedItems": true
+            }
+          },
+          "3f2de461-d510-46f8-939f-0c794d48e38b": {
+            "changedKeys": [
+              "GetEnd",
+              "GetEnd(True)",
+              "GetStart",
+              "GetStart(True)"
+            ],
+            "changed": {
+              "GetEnd": {
+                "before": {
+                  "value": 199
+                },
+                "after": {
+                  "value": 200
+                }
+              },
+              "GetEnd(True)": {
+                "before": {
+                  "value": 199.0
+                },
+                "after": {
+                  "value": 200.0
+                }
+              },
+              "GetStart": {
+                "before": {
+                  "value": 0
+                },
+                "after": {
+                  "value": 1
+                }
+              },
+              "GetStart(True)": {
+                "before": {
+                  "value": 0.0
+                },
+                "after": {
+                  "value": 1.0
+                }
+              }
+            },
+            "preserved": {
+              "GetSourceStartFrame": true,
+              "GetSourceEndFrame": true,
+              "GetClipEnabled": true,
+              "GetLinkedItems": true
+            }
+          }
+        }
+      },
+      {
+        "pass": 1,
+        "markerEqual": true,
+        "targets": {
+          "22561398-bce0-4c22-b55f-a73d3ad5e4cf": {
+            "changedKeys": [
+              "GetEnd",
+              "GetEnd(True)",
+              "GetProperties",
+              "GetStart",
+              "GetStart(True)"
+            ],
+            "changed": {
+              "GetEnd": {
+                "before": {
+                  "value": 199
+                },
+                "after": {
+                  "value": 200
+                }
+              },
+              "GetEnd(True)": {
+                "before": {
+                  "value": 199.0
+                },
+                "after": {
+                  "value": 200.0
+                }
+              },
+              "GetProperties": {
+                "before": {
+                  "value": {
+                    "AudioDialogueLevelerBackgroundReduction": false,
+                    "AudioDialogueLevelerEnabled": false,
+                    "AudioDialogueLevelerLiftSoftDialogue": false,
+                    "AudioDialogueLevelerMode": 0,
+                    "AudioDialogueLevelerOutputGain": 0.0,
+                    "AudioDialogueLevelerReduceLoudDialogue": false,
+                    "AudioPan": 0.0,
+                    "AudioPanEnabled": true,
+                    "AudioPitchCents": 0,
+                    "AudioPitchEnabled": true,
+                    "AudioPitchSemiTones": 0,
+                    "AudioVoiceIsolationAmount": 0,
+                    "AudioVoiceIsolationEnabled": false,
+                    "AudioVolume": 0.0,
+                    "AudioVolumeEnabled": true
+                  }
+                },
+                "after": {
+                  "value": {
+                    "AudioPan": 0.0,
+                    "AudioPanEnabled": true,
+                    "AudioPitchCents": 0,
+                    "AudioPitchEnabled": true,
+                    "AudioPitchSemiTones": 0,
+                    "AudioVolume": 0.0,
+                    "AudioVolumeEnabled": true
+                  }
+                }
+              },
+              "GetStart": {
+                "before": {
+                  "value": 0
+                },
+                "after": {
+                  "value": 1
+                }
+              },
+              "GetStart(True)": {
+                "before": {
+                  "value": 0.0
+                },
+                "after": {
+                  "value": 1.0
+                }
+              }
+            },
+            "preserved": {
+              "GetSourceStartFrame": true,
+              "GetSourceEndFrame": true,
+              "GetClipEnabled": true,
+              "GetLinkedItems": true
+            }
+          },
+          "3f2de461-d510-46f8-939f-0c794d48e38b": {
+            "changedKeys": [
+              "GetEnd",
+              "GetEnd(True)",
+              "GetStart",
+              "GetStart(True)"
+            ],
+            "changed": {
+              "GetEnd": {
+                "before": {
+                  "value": 199
+                },
+                "after": {
+                  "value": 200
+                }
+              },
+              "GetEnd(True)": {
+                "before": {
+                  "value": 199.0
+                },
+                "after": {
+                  "value": 200.0
+                }
+              },
+              "GetStart": {
+                "before": {
+                  "value": 0
+                },
+                "after": {
+                  "value": 1
+                }
+              },
+              "GetStart(True)": {
+                "before": {
+                  "value": 0.0
+                },
+                "after": {
+                  "value": 1.0
+                }
+              }
+            },
+            "preserved": {
+              "GetSourceStartFrame": true,
+              "GetSourceEndFrame": true,
+              "GetClipEnabled": true,
+              "GetLinkedItems": true
+            }
+          }
+        }
+      }
+    ],
+    "marker0": {
+      "color": "Green",
+      "customData": "{\"index\": 0, \"issue\": 141, \"section\": \"calibration\"}",
+      "duration": 1,
+      "name": "141 calibration",
+      "note": "Issue 141 R5 marker-note observation"
+    },
+    "matrixMap": {
+      "baseline": {
+        "poolItemName": {
+          "value": "VERA 141 Batched Matrix"
+        },
+        "poolItemProperties": {
+          "value": {
+            "2nd Asst": "",
+            "2nd Continuity": "",
+            "2nd DIT": "",
+            "2nd DOP": "",
+            "2nd DOP Reviewed": "",
+            "2nd Dir": "",
+            "2nd Dir Asst": "",
+            "2nd Dir Reviewed": "",
+            "3D Rig ID #": "",
+            "3D Rig Type": "",
+            "Alpha mode": "",
+            "Angle": "",
+            "Aspect Ratio Notes": "",
+            "Assistant Director": "",
+            "Assistant Producer": "",
+            "Audio Bit Depth": "32",
+            "Audio Ch": "2",
+            "Audio Codec": "",
+            "Audio Duration TC": "",
+            "Audio End TC": "",
+            "Audio FPS": "",
+            "Audio File Type": "",
+            "Audio Media": "",
+            "Audio Notes": "",
+            "Audio Offset": "",
+            "Audio Recorder": "",
+            "Audio Start TC": "",
+            "Audio TC Type": "",
+            "Aux 1": "",
+            "Aux 2": "",
+            "BG (m)": "",
+            "Bit Depth": "",
+            "Bit Rate": "",
+            "CDL SAT": "",
+            "CDL SOP": "",
+            "CV (m)": "",
+            "Calibration Source": "",
+            "Calibration Type": "",
+            "Calibration UUID": "",
+            "Camera #": "",
+            "Camera Aperture": "",
+            "Camera Aperture Type": "",
+            "Camera Assistant": "",
+            "Camera FPS": "",
+            "Camera Firmware": "",
+            "Camera Format": "",
+            "Camera ID": "",
+            "Camera Manufacturer": "",
+            "Camera Notes": "",
+            "Camera Operator": "",
+            "Camera Pan Angle": "",
+            "Camera Position": "",
+            "Camera Roll Angle": "",
+            "Camera Serial #": "",
+            "Camera TC Type": "",
+            "Camera Tilt Angle": "",
+            "Camera Type": "",
+            "Category": "",
+            "Clip Color": "",
+            "Clip Directory": "",
+            "Clip Name": "VERA 141 Batched Matrix",
+            "Clip Number": "",
+            "Cloud Sync": "-1",
+            "Codec Bitrate": "",
+            "Color Chart": "",
+            "Color Space Notes": "",
+            "Colorist": "",
+            "Colorist Assistant": "",
+            "Colorist Notes": "",
+            "Colorist Reviewed": "",
+            "Comments": "",
+            "Compression Ratio": "",
+            "Continuity": "",
+            "Continuity Reviewed": "",
+            "Convergence Adj": "",
+            "Crew Comments": "",
+            "DOP": "",
+            "DOP Reviewed": "",
+            "Dailies Colorist": "",
+            "Data Level": "",
+            "Data Wrangler": "",
+            "Date Added": "Wed Sep 30 2026 17:56:28",
+            "Date Created": "",
+            "Date Modified": "",
+            "Date Recorded": "",
+            "Day / Night": "",
+            "Deck Firmware": "",
+            "Deck Serial #": "",
+            "Description": "",
+            "Dialog Duration": "",
+            "Dialog Notes": "",
+            "Dialog Starts As": "",
+            "Digital Technician": "",
+            "Director": "",
+            "Director Reviewed": "",
+            "Distance": "",
+            "Drop frame": "0",
+            "Duration": "00:06:08:00",
+            "EDL Clip Name": "",
+            "Editing Assistant": "",
+            "Editor": "",
+            "Embedded Audio": "",
+            "Enable Deinterlacing": "0",
+            "End": "9199",
+            "End Dialog TC": "",
+            "End TC": "00:06:08:00",
+            "Environment": "",
+            "Episode #": "",
+            "Episode Name": "",
+            "FG (m)": "",
+            "FPS": 25.0,
+            "FSD": "",
+            "Field Dominance": "Auto",
+            "File Name": "VERA 141 Batched Matrix",
+            "File Path": "",
+            "Filter": "",
+            "Flags": "",
+            "Focal Point (mm)": "",
+            "Focus Puller": "",
+            "Focus Reviewed": "",
+            "Format": "",
+            "Frames": "9200",
+            "Framing Chart": "",
+            "Gamma Notes": "",
+            "Genre": "",
+            "Grey Chart": "",
+            "H-FLIP": "",
+            "IA (mm)": "",
+            "IDT": "",
+            "ILPD": "",
+            "ISO": "",
+            "Immersive ID": "",
+            "In": "",
+            "Input Color Space": "",
+            "Input Gamma": "",
+            "Input LUT": "",
+            "Input Sizing Preset": "",
+            "Key Grip": "",
+            "Keyword": "",
+            "LUT 1": "",
+            "LUT 2": "",
+            "LUT 3": "",
+            "LUT Used": "",
+            "LUT Used On Set": "",
+            "Lab Roll #": "",
+            "Lens Chart": "",
+            "Lens Notes": "",
+            "Lens Number": "",
+            "Lens Type": "",
+            "Line Producer": "",
+            "Location": "",
+            "Media Type": "",
+            "Mon Color Space": "",
+            "Monitor LUT": "",
+            "Move": "",
+            "ND Filter": "",
+            "Noise Reduction": "",
+            "Offline Reference": "",
+            "Online Status": "",
+            "Out": "00:01:37:24",
+            "PAR": "Square",
+            "PAR Notes": "",
+            "People": "",
+            "Post Producer": "",
+            "Producer": "",
+            "Production Asst": "",
+            "Production Company": "",
+            "Production Name": "",
+            "Program Name": "",
+            "Projection": "",
+            "Proxy": "",
+            "Proxy Media Path": "",
+            "RAW": "",
+            "Rating": "",
+            "Reel Name": "",
+            "Reel Number": "",
+            "Resolution": "1920x1080",
+            "Reviewers Notes": "",
+            "Rig Inverted": "",
+            "Roll/Card": "",
+            "S3D Eye": "",
+            "S3D Notes": "",
+            "S3D Shot": "",
+            "S3D Sync": "",
+            "Safe Area": "",
+            "Sample Rate": "48000",
+            "Sample Rate (KHz)": "",
+            "Scene": "",
+            "Script Supervisor": "",
+            "Send to": "",
+            "Send to Studio": "",
+            "Sensor": "",
+            "Sensor Area Captured": "",
+            "Series #": "",
+            "Setup": "",
+            "Sharpness": "",
+            "Shoot Day": "",
+            "Shot": "",
+            "Shot During Ep": "",
+            "Shot Frame Rate": "25.000",
+            "Shot Type": "",
+            "Shutter Angle": "",
+            "Shutter Speed": "",
+            "Shutter Type": "",
+            "Slate TC": "00:00:00:00",
+            "Sound Mixer": "",
+            "Sound Reviewed": "",
+            "Sound Roll #": "",
+            "Start": "0",
+            "Start Dialog TC": "",
+            "Start KeyKode": "",
+            "Start TC": "00:00:00:00",
+            "Subcategory": "",
+            "Super Scale": 0,
+            "SuperScale Noise Reduction": "0",
+            "SuperScale Sharpness": "0",
+            "Synced Audio": "",
+            "Tag": "0",
+            "Take": "",
+            "Time-lapse Interval": "",
+            "Tone": "",
+            "Track 1": "",
+            "Track 10": "",
+            "Track 11": "",
+            "Track 12": "",
+            "Track 13": "",
+            "Track 14": "",
+            "Track 15": "",
+            "Track 16": "",
+            "Track 17": "",
+            "Track 18": "",
+            "Track 19": "",
+            "Track 2": "",
+            "Track 20": "",
+            "Track 21": "",
+            "Track 22": "",
+            "Track 23": "",
+            "Track 24": "",
+            "Track 3": "",
+            "Track 4": "",
+            "Track 5": "",
+            "Track 6": "",
+            "Track 7": "",
+            "Track 8": "",
+            "Track 9": "",
+            "Transcription": "",
+            "Transcription Status": "",
+            "Type": "Timeline",
+            "Unit Manager": "",
+            "Unit Name": "",
+            "Uploaded From": "",
+            "Usage": "0",
+            "V-FLIP": "",
+            "VFX Grey Ball": "",
+            "VFX Markers": "",
+            "VFX Mirror Ball": "",
+            "VFX Notes": "",
+            "VFX Shot #": "",
+            "VFX Svsr Reviewed": "",
+            "Video Codec": "",
+            "Wardrobe Reviewed": "",
+            "White Balance Tint": "",
+            "White Point (Kelvin)": ""
+          }
+        },
+        "poolItemUid": {
+          "value": "de8efefa-310d-451c-863c-d6b847e8b82e"
+        },
+        "timelineName": {
+          "value": "VERA 141 Batched Matrix"
+        },
+        "timelineUid": {
+          "value": "29ae8331-b86e-4041-a548-960695cc7b24"
+        }
+      },
+      "fresh": {
+        "poolItemName": {
+          "value": "VERA 141 Batched Matrix"
+        },
+        "poolItemProperties": {
+          "value": {
+            "2nd Asst": "",
+            "2nd Continuity": "",
+            "2nd DIT": "",
+            "2nd DOP": "",
+            "2nd DOP Reviewed": "",
+            "2nd Dir": "",
+            "2nd Dir Asst": "",
+            "2nd Dir Reviewed": "",
+            "3D Rig ID #": "",
+            "3D Rig Type": "",
+            "Alpha mode": "",
+            "Angle": "",
+            "Aspect Ratio Notes": "",
+            "Assistant Director": "",
+            "Assistant Producer": "",
+            "Audio Bit Depth": "32",
+            "Audio Ch": "2",
+            "Audio Codec": "",
+            "Audio Duration TC": "",
+            "Audio End TC": "",
+            "Audio FPS": "",
+            "Audio File Type": "",
+            "Audio Media": "",
+            "Audio Notes": "",
+            "Audio Offset": "",
+            "Audio Recorder": "",
+            "Audio Start TC": "",
+            "Audio TC Type": "",
+            "Aux 1": "",
+            "Aux 2": "",
+            "BG (m)": "",
+            "Bit Depth": "",
+            "Bit Rate": "",
+            "CDL SAT": "",
+            "CDL SOP": "",
+            "CV (m)": "",
+            "Calibration Source": "",
+            "Calibration Type": "",
+            "Calibration UUID": "",
+            "Camera #": "",
+            "Camera Aperture": "",
+            "Camera Aperture Type": "",
+            "Camera Assistant": "",
+            "Camera FPS": "",
+            "Camera Firmware": "",
+            "Camera Format": "",
+            "Camera ID": "",
+            "Camera Manufacturer": "",
+            "Camera Notes": "",
+            "Camera Operator": "",
+            "Camera Pan Angle": "",
+            "Camera Position": "",
+            "Camera Roll Angle": "",
+            "Camera Serial #": "",
+            "Camera TC Type": "",
+            "Camera Tilt Angle": "",
+            "Camera Type": "",
+            "Category": "",
+            "Clip Color": "",
+            "Clip Directory": "",
+            "Clip Name": "VERA 141 Batched Matrix",
+            "Clip Number": "",
+            "Cloud Sync": "-1",
+            "Codec Bitrate": "",
+            "Color Chart": "",
+            "Color Space Notes": "",
+            "Colorist": "",
+            "Colorist Assistant": "",
+            "Colorist Notes": "",
+            "Colorist Reviewed": "",
+            "Comments": "",
+            "Compression Ratio": "",
+            "Continuity": "",
+            "Continuity Reviewed": "",
+            "Convergence Adj": "",
+            "Crew Comments": "",
+            "DOP": "",
+            "DOP Reviewed": "",
+            "Dailies Colorist": "",
+            "Data Level": "",
+            "Data Wrangler": "",
+            "Date Added": "Wed Sep 30 2026 17:56:28",
+            "Date Created": "",
+            "Date Modified": "",
+            "Date Recorded": "",
+            "Day / Night": "",
+            "Deck Firmware": "",
+            "Deck Serial #": "",
+            "Description": "",
+            "Dialog Duration": "",
+            "Dialog Notes": "",
+            "Dialog Starts As": "",
+            "Digital Technician": "",
+            "Director": "",
+            "Director Reviewed": "",
+            "Distance": "",
+            "Drop frame": "0",
+            "Duration": "00:06:08:00",
+            "EDL Clip Name": "",
+            "Editing Assistant": "",
+            "Editor": "",
+            "Embedded Audio": "",
+            "Enable Deinterlacing": "0",
+            "End": "9199",
+            "End Dialog TC": "",
+            "End TC": "00:06:08:00",
+            "Environment": "",
+            "Episode #": "",
+            "Episode Name": "",
+            "FG (m)": "",
+            "FPS": 25.0,
+            "FSD": "",
+            "Field Dominance": "Auto",
+            "File Name": "VERA 141 Batched Matrix",
+            "File Path": "",
+            "Filter": "",
+            "Flags": "",
+            "Focal Point (mm)": "",
+            "Focus Puller": "",
+            "Focus Reviewed": "",
+            "Format": "",
+            "Frames": "9200",
+            "Framing Chart": "",
+            "Gamma Notes": "",
+            "Genre": "",
+            "Grey Chart": "",
+            "H-FLIP": "",
+            "IA (mm)": "",
+            "IDT": "",
+            "ILPD": "",
+            "ISO": "",
+            "Immersive ID": "",
+            "In": "",
+            "Input Color Space": "",
+            "Input Gamma": "",
+            "Input LUT": "",
+            "Input Sizing Preset": "",
+            "Key Grip": "",
+            "Keyword": "",
+            "LUT 1": "",
+            "LUT 2": "",
+            "LUT 3": "",
+            "LUT Used": "",
+            "LUT Used On Set": "",
+            "Lab Roll #": "",
+            "Lens Chart": "",
+            "Lens Notes": "",
+            "Lens Number": "",
+            "Lens Type": "",
+            "Line Producer": "",
+            "Location": "",
+            "Media Type": "",
+            "Mon Color Space": "",
+            "Monitor LUT": "",
+            "Move": "",
+            "ND Filter": "",
+            "Noise Reduction": "",
+            "Offline Reference": "",
+            "Online Status": "",
+            "Out": "00:01:37:24",
+            "PAR": "Square",
+            "PAR Notes": "",
+            "People": "",
+            "Post Producer": "",
+            "Producer": "",
+            "Production Asst": "",
+            "Production Company": "",
+            "Production Name": "",
+            "Program Name": "",
+            "Projection": "",
+            "Proxy": "",
+            "Proxy Media Path": "",
+            "RAW": "",
+            "Rating": "",
+            "Reel Name": "",
+            "Reel Number": "",
+            "Resolution": "1920x1080",
+            "Reviewers Notes": "",
+            "Rig Inverted": "",
+            "Roll/Card": "",
+            "S3D Eye": "",
+            "S3D Notes": "",
+            "S3D Shot": "",
+            "S3D Sync": "",
+            "Safe Area": "",
+            "Sample Rate": "48000",
+            "Sample Rate (KHz)": "",
+            "Scene": "",
+            "Script Supervisor": "",
+            "Send to": "",
+            "Send to Studio": "",
+            "Sensor": "",
+            "Sensor Area Captured": "",
+            "Series #": "",
+            "Setup": "",
+            "Sharpness": "",
+            "Shoot Day": "",
+            "Shot": "",
+            "Shot During Ep": "",
+            "Shot Frame Rate": "25.000",
+            "Shot Type": "",
+            "Shutter Angle": "",
+            "Shutter Speed": "",
+            "Shutter Type": "",
+            "Slate TC": "00:00:00:00",
+            "Sound Mixer": "",
+            "Sound Reviewed": "",
+            "Sound Roll #": "",
+            "Start": "0",
+            "Start Dialog TC": "",
+            "Start KeyKode": "",
+            "Start TC": "00:00:00:00",
+            "Subcategory": "",
+            "Super Scale": 0,
+            "SuperScale Noise Reduction": "0",
+            "SuperScale Sharpness": "0",
+            "Synced Audio": "",
+            "Tag": "0",
+            "Take": "",
+            "Time-lapse Interval": "",
+            "Tone": "",
+            "Track 1": "",
+            "Track 10": "",
+            "Track 11": "",
+            "Track 12": "",
+            "Track 13": "",
+            "Track 14": "",
+            "Track 15": "",
+            "Track 16": "",
+            "Track 17": "",
+            "Track 18": "",
+            "Track 19": "",
+            "Track 2": "",
+            "Track 20": "",
+            "Track 21": "",
+            "Track 22": "",
+            "Track 23": "",
+            "Track 24": "",
+            "Track 3": "",
+            "Track 4": "",
+            "Track 5": "",
+            "Track 6": "",
+            "Track 7": "",
+            "Track 8": "",
+            "Track 9": "",
+            "Transcription": "",
+            "Transcription Status": "",
+            "Type": "Timeline",
+            "Unit Manager": "",
+            "Unit Name": "",
+            "Uploaded From": "",
+            "Usage": "0",
+            "V-FLIP": "",
+            "VFX Grey Ball": "",
+            "VFX Markers": "",
+            "VFX Mirror Ball": "",
+            "VFX Notes": "",
+            "VFX Shot #": "",
+            "VFX Svsr Reviewed": "",
+            "Video Codec": "",
+            "Wardrobe Reviewed": "",
+            "White Balance Tint": "",
+            "White Point (Kelvin)": ""
+          }
+        },
+        "poolItemUid": {
+          "value": "de8efefa-310d-451c-863c-d6b847e8b82e"
+        },
+        "timelineName": {
+          "value": "VERA 141 Batched Matrix"
+        },
+        "timelineUid": {
+          "value": "29ae8331-b86e-4041-a548-960695cc7b24"
+        }
+      }
+    },
+    "contractInterpretation": "All required move fields and preserved identity fields pass; the audio GetProperties omission is recorded separately as unrelated cross-capture context."
+  },
+  "unrelatedDifferences": {
+    "cache": {
+      "baseline": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/storage-20260930T173943.043191Z/cache",
+      "fresh": "LOCAL_PATH/1b2a2ce08ad91a0c"
+    },
+    "selectedTimeline": {
+      "baseline": "29ae8331-b86e-4041-a548-960695cc7b24",
+      "fresh": "21436b8f-057c-49e6-80ba-5f733abe87b2"
+    },
+    "timelineAdditions": [
+      "transcription test 1",
+      "transcription test 2"
+    ],
+    "poolAdditions": [
+      {
+        "uid": "be5f1584-f0c4-4dd9-988b-73f3167e77d1",
+        "name": "semi1b.mp4",
+        "usage": "6"
+      },
+      {
+        "uid": "b3314ba0-fd74-46a2-aa50-b5fc342ab9df",
+        "name": "transcription test 1",
+        "usage": "0"
+      },
+      {
+        "uid": "adf46ea1-7d6f-4014-ad2b-37111d3e36f9",
+        "name": "transcription test 2",
+        "usage": "0"
+      }
+    ],
+    "existingUsageStable": true,
+    "audioProperties": {
+      "target": "22561398-bce0-4c22-b55f-a73d3ad5e4cf",
+      "removedFromFresh": [
+        "AudioDialogueLevelerBackgroundReduction",
+        "AudioDialogueLevelerEnabled",
+        "AudioDialogueLevelerLiftSoftDialogue",
+        "AudioDialogueLevelerMode",
+        "AudioDialogueLevelerOutputGain",
+        "AudioDialogueLevelerReduceLoudDialogue",
+        "AudioVoiceIsolationAmount",
+        "AudioVoiceIsolationEnabled"
+      ],
+      "addedInFresh": [],
+      "valueChanges": []
+    }
+  },
+  "decision": {
+    "status": "BOUNDED_R5_MOVE_PASS",
+    "statement": "The specific linked one-frame move is boundedly evidenced by the producer-confirmed before/after comparison: both target UIDs move start and end fields +1 in both stable fresh passes, while source bounds, enabled state, links, and marker identity remain unchanged. The audio GetProperties omission is an unrelated retained difference and prevents an all-fields-identical claim.",
+    "doNotClaim": [
+      "atomic revision or ABA exclusion",
+      "independent proof of the UI/menu mechanism",
+      "all unrelated project state unchanged"
+    ],
+    "legitimateLimits": [
+      "applicationRevisionToken is null; equal adjacent reads do not establish atomicity",
+      "fresh capture includes authorized protected-six additions, cache path change, selected-timeline change, Usage additions, and audio GetProperties omission; these are retained as unrelated context differences",
+      "no rendered/audibility or routing conclusion"
+    ]
+  },
+  "provenance": {
+    "priorReview": "out/issue-141-observation-20260930-01a0f318/r5-fresh-move-review.json",
+    "priorReviewStatus": "manual-move-unverified",
+    "producerConfirmationRequired": true
+  }
+}

@@ -1,0 +1,90 @@
+{
+  "case": "R3-boundary",
+  "directory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T203750.373172Z",
+  "environment": {
+    "productName": "DaVinci Resolve Studio",
+    "python": "3.14.7",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "failure": null,
+  "journal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T203750.373172Z/journal.jsonl",
+  "menuCommandDispatched": false,
+  "originalLocks": {
+    "audio:1": false,
+    "audio:2": true,
+    "audio:3": true,
+    "video:1": false,
+    "video:2": true,
+    "video:3": true
+  },
+  "originalPage": "edit",
+  "originalPlayhead": "00:00:00:00",
+  "playheadAfter": "00:06:04:00",
+  "preparedPair": {
+    "path": "editorial-case-20261001T203750.373172Z/after.json",
+    "sha256": "82314813be331a5e49fc569d0c5785371efdbbcf8307330fd789e98eb2ea62ef"
+  },
+  "priorPair": {
+    "path": "r3-graphic-context-20261001T200750.808432Z/pair.json",
+    "sha256": "b45c1e45ace27f59052618536cd0121646b4995297b6eb2628d87b3686d7e78b"
+  },
+  "protectedTracks": [
+    [
+      "video",
+      2
+    ],
+    [
+      "video",
+      3
+    ],
+    [
+      "audio",
+      2
+    ],
+    [
+      "audio",
+      3
+    ]
+  ],
+  "saveDispatched": false,
+  "setters": [
+    "AddMarker",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetCurrentTimecode"
+  ],
+  "status": "case-prepared",
+  "target": {
+    "addedMarker": {
+      "frame": 9100,
+      "value": {
+        "color": "Blue",
+        "customData": "{\"boundaryLocalFrame\": 100, \"issue\": 141, \"section\": \"R3-boundary\"}",
+        "duration": 1,
+        "name": "141 R3 exact section boundary",
+        "note": "Synthetic authored boundary at local frame 100"
+      }
+    },
+    "endFrame": 9199,
+    "frameRate": 25,
+    "sourceUids": {
+      "audio": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+      "video": "9202163a-8381-43e6-9157-3a60f35c6f79"
+    },
+    "splitPlayheadFrame": 9100,
+    "splitPlayheadTimecode": "00:06:04:00",
+    "startFrame": 9000,
+    "uids": {
+      "audio": "b4f84273-a32c-48bd-acfe-7939fbbdc54b",
+      "video": "462ae76e-bf69-41be-b967-b70c163c0c1a"
+    }
+  }
+}

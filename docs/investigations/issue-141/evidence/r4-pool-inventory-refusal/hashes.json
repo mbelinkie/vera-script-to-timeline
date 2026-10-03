@@ -1,0 +1,20 @@
+[
+  {
+    "filename": "vera-issue-141-observation-result-20261001T001824.899360Z.json",
+    "publishedSha256": "0e5d096f34b9aa30639d8ce96412d9af41e5c187fc2664b3e962a78b42d467b1",
+    "rawSha256": "0e5d096f34b9aa30639d8ce96412d9af41e5c187fc2664b3e962a78b42d467b1",
+    "redaction": "private absolute paths replaced with <probe-output> or <user-home>"
+  },
+  {
+    "filename": "hammerspoon-launch-20261001T001824.352476Z.jsonl",
+    "publishedSha256": "ebadf6a51c1475e6e97b4a88119f8637152e77e66595f470bb52f6f888c163d9",
+    "rawSha256": "ebadf6a51c1475e6e97b4a88119f8637152e77e66595f470bb52f6f888c163d9",
+    "redaction": "private absolute paths replaced with <probe-output> or <user-home>"
+  },
+  {
+    "filename": "installation-r4-availability.json",
+    "publishedSha256": "2316f69e7af6087dbb7410f3955a8672d996a7e8872d7a2cbc3eb2b6c4849e11",
+    "rawSha256": "2316f69e7af6087dbb7410f3955a8672d996a7e8872d7a2cbc3eb2b6c4849e11",
+    "redaction": "private absolute paths replaced with <probe-output> or <user-home>"
+  }
+]

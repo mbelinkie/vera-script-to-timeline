@@ -1,0 +1,130 @@
+{
+  "taskId": "#149",
+  "reviewType": "bounded read-only checkpoint document verification",
+  "reviewDate": "2026-10-02",
+  "nativeCalls": false,
+  "mediaReanalysis": false,
+  "scope": [
+    "W1/W3/W4/W6/W7 result documents",
+    "results.md, execution-record.md, and verdict-review.md",
+    "retained raw result, analysis, journal, pair, and public-record bindings",
+    "local Markdown targets, including the old #141 supplemental #149 links"
+  ],
+  "state": {
+    "reviewedRows": ["W1", "W3", "W4", "W6", "W7"],
+    "reviewedCount": 5,
+    "totalRows": 7,
+    "manualPendingRows": ["W2", "W5"],
+    "operatorStatus": "Producer has replied ready for the bounded setup check; W2/W5 remain pending and this is not final acceptance.",
+    "producerAccepted": false,
+    "autonomousRequirementRemaining": false,
+    "remainingWork": "W2/W5 require the already-requested operator Mute/Solo setup; no autonomous W1-W7 follow-up is executable from retained documents."
+  },
+  "documents": {
+    "w1-result.md": "185f61b5039729be93698e1cd1d5684a366ecd2d2cb7d266788acc0b25c51415",
+    "w3-result.md": "abdf0cb1af20846f56ec94d7f40959b057f936c2ca9c1c18a54d3d232815b249",
+    "w4-result.md": "0809486c9ec3ce253637c6f4e3bc83f3ef485ca637216469c31ce0910328900a",
+    "w6-result.md": "cac2ce3fd5f860d361f57b8834c730c189bd12b8f9405bbccc50d0c4e28160e6",
+    "w7-result.md": "348daab053cf437c9276b0c53a6545210c5cb6cf0be3145f0e6bbf1ace352b27",
+    "results.md": "8abba30e0d21076418449cd2632778161389072b5aee96722f98e9a98c90c151",
+    "execution-record.md": "f58a477fc3d89f3d86a16711121e21d0e37677a607cad9dd643e08c3d36ae82f",
+    "verdict-review.md": "62d44ee123ce829a8d05a3d0fc2d09dce63196a62b68a46c57c7a2dbe6de6715",
+    "verdict-review-issue-comment.md": "5ef63db9a5b9fe431e84069abac793f04b68de1ccc02a9d7fb6e3a14acbcb559"
+  },
+  "rowChecks": {
+    "W1": {
+      "classification": "reproduced",
+      "status": "pass",
+      "exception": "The linked-cut subtitle request retained a post-partial checkpoint and an earlier SaveProject harness refusal; its later settled poll, render, and save completed. Picture-only and disabled-A1 request pairs were complete.",
+      "rawBindings": [
+        "w1-subtitle-request-linked-cut-01 result b09a0a5c9f1832b59234b889b691caafb166dbffb27226cf2d746af95aff7576",
+        "w1-subtitle-request-picture-only-cut-01 result 015261dfa5be3e4393c98e3b587e0833b8ce24a8c0253d0788dd2c97a0d6be1f",
+        "w1-subtitle-request-disabled-A1-01 result 9ab9be3da6caf4463d627980e3390161e4409c832976ec73520f43d0b0a47b26",
+        "w1-result.md request/poll journal, pre/post, result SHA tables"
+      ]
+    },
+    "W3": {
+      "classification": "adverse",
+      "status": "pass",
+      "exception": "The mute setter/readback changed only track_mapping.1.mute, but the mute render retained all eight number words and baseline PCM. Baseline-to-restored comparison allows explicit queue additions and records the unexplained playhead change 00:00:15:23 to 00:00:00:00.",
+      "rawBindings": [
+        "w3-mapping-mute-01 result 946fe06211d2d528690b75b67636ec85ed1ebaf3c90df890e47662c36bb433d7",
+        "render-poll-w3-mute-01 result 18ecfa5275e05813a34b1bead67c53a816d6746ba69e900bb6bfdabad58fd777",
+        "w3-analysis.json SHA ed495b969265be687a0bfb370a51d455487ff912a20bc11429d637d1253b4660",
+        "w3-result.md native journal/pair/result SHA tables"
+      ]
+    },
+    "W4": {
+      "classification": "reproduced",
+      "status": "pass",
+      "exception": "The measured constant 37.5% retimes passed the scalar and five-click gates. The embedded and separately sourced retimed timelines remain intentionally held in their measured state; the separate A1 stayed at 100%.",
+      "rawBindings": [
+        "w4-speed-embedded-37p5-01 result d96a3718e7c8fcbb5887b49c4651d2c71c3f307f7bad65646fd58f6c3a31f92c",
+        "w4-speed-separate-37p5-01 result 1fb3a7e0c71c3ab9859e4fd2aea0002404914d1507c2287dea6fe6d2dfee3f5d",
+        "render-poll-w4-embedded-37p5-01 result 1ce2d786be45bcbece234e8935c5e2a177a7c1d4ac6405f9c300e14f1f0d3c83",
+        "w4-result.md raw action and terminal-render bindings"
+      ]
+    },
+    "W6": {
+      "classification": "adverse/no-switch",
+      "status": "pass",
+      "exception": "The expected pre-relink decode failure was not reproduced. All four renders completed with source ID 1; RelinkClips returned True without switching to source ID 2. Original bytes, exact mtimeNs, and baseline PCM were restored.",
+      "rawBindings": [
+        "w6-before-swap-01 result 3955dedfe85b88b3d9839c42c5bb4410364e9e70582879f86ae179fa5b8ef90f",
+        "w6-after-swap-01 result 2e542d1d8f34b2869946340e679d36231575cda3a8306b770e611f1dbe24a3d5",
+        "w6-relink-render-01 result 4b8fcda75b4709986e3d4b7d95418a267d40f1677700fc157269926aff1bc06a",
+        "w6-restore-relink-01 result cec8594c1ef91c8d70704bf8029735bf8e29f97f969d3f2abf42295595f73bd2",
+        "w6-analysis-check.json SHA 46f14464d69f45552992291799024bb38a6a79b5998215714771f2669f95326c",
+        "swap/restore journal SHAs are retained in w6-result.md"
+      ]
+    },
+    "W7": {
+      "classification": "reproduced bounded guard",
+      "status": "pass",
+      "exception": "The structural lock/Delete/API-disable/unlock/save gate passed. Raw snapshots differ only in volatile PyRemoteObject.__repr__ addresses; canonical extraction is equal. This is a proxy-address projection caveat, not content drift.",
+      "rawBindings": [
+        "w7-locked-proof-01-20261002-kit-01.json SHA 4cf171973a89329a32dab2c281709b8af3792fd845e811bd185291b5862a73c0",
+        "w7-menu-deleteSelected-01-20261002-kit-01.json SHA cfa7a8f3b79e805c572693acd1b0c5b84e40937a2074f66ad4a04930242df11c",
+        "w7-result.md selection, locked, delete-observe, unlock, and save pair SHA references",
+        "w7-result.md helper/harness/launcher SHA references"
+      ]
+    }
+  },
+  "artifactAndCitationChecks": {
+    "requiredMissingFields": [],
+    "operationalErrors": [],
+    "historicalHarnessErrors": [
+      "execution-record.md retains context-01/context-02 serializer failures and the first prepare/import setup refusals; context-03/path-list continuation and the named W rows provide the successful evidence. These are explicitly historical harness/setup records, not W verdict failures."
+    ],
+    "pathProjectionAmbiguities": [
+      "Some result tables use out/... or action IDs rather than repeating the absolute raw path; the action IDs, artifact paths, and SHA-256 values bind the underlying records.",
+      "Naive filename-only extraction can flag w3-analysis.json, w3-edit-analysis-check.json, w4-analysis-check.json, w6-analysis-check.json, and W7 proof/menu artifacts as missing standard action results; they are retained analysis/proof artifacts with explicit references."
+    ],
+    "row13Resolution": "Resolved in current verdict-review.md: the old timed-out producer 'moved' reply is separate from later bounded R5 0/199→1/200 evidence and from the independently verified R1 25-nudge 1000→1025 capture. Current row 13 retains only the actual +25 and #149 +1 menu evidence, with the no-op cause left unknown.",
+    "publicCitationConsistency": "Pass: verdict-review.md and verdict-review-issue-comment.md carry the same W1/W3/W4/W6/W7 distinctions and the current public issue-comment links; old #141 report/handoff top sections retain the supplemental #149 links.",
+    "latestPostedReviewComments": {
+      "issue149": "5964283820",
+      "issue141": "5964284062"
+    }
+  },
+  "markdownLinks": {
+    "status": "pass",
+    "checkedLocalMarkdownFiles": "workflow-reruns docs plus old #141 README/report/handoff",
+    "localLinkCount": 317,
+    "externalLinkCount": 39,
+    "missingTargets": [],
+    "lineSuffixNote": "Two old #141 handoff links include :207 and :613 line suffixes; the target producer-transcript-probe.py exists once the suffix is treated as a Markdown line anchor.",
+    "supplemental149Links": {
+      "old141SecondOpinionHandoff": "present",
+      "old141Report": "present",
+      "publicWRecords": [
+        "5963986370",
+        "5964033332",
+        "5964195014",
+        "5964191971",
+        "5964227757"
+      ]
+    }
+  },
+  "conclusion": "The retained documents and raw bindings support five reviewed W rows, with explicit W1 partial-request, W3 playhead/queue, W4 held-retime, W6 expected-failure-not-reproduced/no-switch, and W7 proxy-address projection exceptions. No missing required field or unresolved document-to-result hash mismatch was found. W2 and W5 remain operator-dependent and no autonomous requirement remains."
+}

@@ -1,0 +1,37 @@
+{
+  "kind": "reviewed-not-staged-r1-copy-context-restoration",
+  "reviewedAt": "2026-10-01T09:00:11.001471+00:00",
+  "producerDecision": "required under explicit stop-on-unrelated-drift instruction",
+  "probeSha256": "8ab9e409405dc53202aa8665b28565a19f3884b9673ff13fd44c99a38032d9da",
+  "moduleSha256": "2078389df0f543dc58724cf8afab75f42be311ebcc85c70788090f1806a80be7",
+  "proposedConfigUpdates": {
+    "action": "editorial-case-restore",
+    "case": "R1-copy",
+    "preparationResult": "editorial-case-20261001T072033.855985Z/result.json",
+    "preparationResultSha256": "4d4f2f033514251655ee1cb565e13d3b3229f8cbe9b4f20549a3dd3c3dcf2175",
+    "postEditPair": "r1-copy-pasted-20261001T072554.638674Z/pair.json",
+    "postEditPairSha256": "b8a12d66415ed2cef4ab1922ac1c764ec42aa41aad58cfa40d4435c24c75b9a7"
+  },
+  "allowedNativeMutations": [
+    "Restore only V2/V3/A2/A3 lock flags True\u2192False",
+    "Restore only recorded Matrix playhead00:06:07:24"
+  ],
+  "pastedClipsRetained": true,
+  "poolOutClearingRetained": true,
+  "saveUndoRenderRetryOrDeleteAllowed": false,
+  "sourcesExact": true,
+  "staged": false,
+  "sourceArchive": "editorial-reviewed-sources-20261001T090011.001471Z",
+  "localGuardChecks": [
+    "R1-R3 guarded fake checks, including residual readiness/position/review/delete and ordered boundary/A3 refusal",
+    "Read-only editorial labels and refusal checks",
+    "Main harness",
+    "One-shot launcher",
+    "R5 note/move local guard self-check",
+    "Retained Copy/Paste full-pair review",
+    "Focused Ruff",
+    "git diff --check"
+  ],
+  "privateConfigAction": "observe",
+  "readbackSha256": "ec97ed4ee37e5ce9561fafe5bae5bbff25bfd651c768f4b872156a1915ddf703"
+}

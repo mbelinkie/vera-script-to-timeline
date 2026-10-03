@@ -1,0 +1,54 @@
+{
+  "kind": "endpoint-calibration-independent-verdict",
+  "verdict": "PASS",
+  "calibration": {
+    "duration_convention": "COMPLETE_BOUNDED",
+    "bound": "tested 100% speed integer-valued cases only",
+    "fractional_precision": "UNTESTED",
+    "retime_precision": "UNTESTED",
+    "note": "A retained 50% source getter capture is raw observation only; it does not generalize retime or fractional semantics."
+  },
+  "checks": {
+    "picture_sample_sets": "PASS: base-only frame 199/200 are separate from later overlay local 199/200; base 199/200 share PNG hash 4ffe6897; overlay local 199 is non-black and local 200 is black.",
+    "raw_hash_bindings": "PASS: reviewed record, host RGB, full-pair, rendered PCM, and 50% capture hashes match their retained bindings; generated bed hash assertion passed against manifest.",
+    "getter_item_scope": "PASS: full-pair item records retain timeline and source getters per item; boundary audio items are start 9100, end 9199, duration 99, source 100..199, with float overloads equal to integer values.",
+    "audio_final_pair": "PASS: rendered PCM frame 9198 is nonzero and correlates with generated source frame 198; frame 9199 is exactly zero while generated source frame 199 is nonzero.",
+    "protected_media_access": "PASS: no protected source bytes/hash were accessed; rerun was standalone generated-only analysis with no Resolve call."
+  },
+  "rerun": {
+    "command": "/usr/local/bin/python3.14 -S out/issue-141-observation-20260930-01a0f318/analyze-endpoint-audio.py",
+    "result": "PASS",
+    "render_sha256": "d2581dc047a348a104821cbd53c7b84e4a47b80fd4443ebf52f6fbd3382362a7",
+    "bed_sha256": "f6da7ab4ffb4cc549e4b41e19da714097877b035abfb0235ac9bf94ea4860c02",
+    "render_params": "PCM24 stereo, 48000 Hz, 17664000 samples/channel, 9200 timeline frames at 25 fps",
+    "actual_generated_inputs": [
+      "out/issue-141-media-20260930-01a0f318/bed.wav",
+      "out/issue-141-observation-20260930-01a0f318/pcm-real-render-20261001T235643.512549Z.wav",
+      "out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/full-pair-007.json",
+      "out/issue-141-observation-20260930-01a0f318/picture-case-host-pixels.json"
+    ]
+  },
+  "evidence": {
+    "review": "out/issue-141-observation-20260930-01a0f318/endpoint-calibration-corrected-review.json",
+    "analysis": "out/issue-141-observation-20260930-01a0f318/analyze-endpoint-audio.py",
+    "base_record_sha256": "4587f66895898d44575fbda632c21f27923d177601dc68e3cc775b94e1872f7f",
+    "overlay_record_sha256": "07f293d25cfddd4e8ff1a64226fc08b9a028e8fed46cb7231a8483f672037572",
+    "host_rgb_record_sha256": "311e0a047c42619d44665a645f1e1cf40ad74aa6eed41024193fdb2bd6caea46",
+    "full_pair_sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+    "retime_50_capture_sha256": "e62335d6f488a828b2c7ac543807aee9e1aac1a851359ec66e8448a765b8049e"
+  },
+  "scope_limit": "No conclusion for fractional boundaries, generalized retimes, effects, alternate routing, frame rates, or all Resolve getters.",
+  "protectedMediaBytesAccessed": false,
+  "protectedMediaHashAccessed": false,
+  "protected_source_evidence": {
+    "full_pair_status_counts": {
+      "reachable": 298,
+      "timeline-uid-not-hashed": 12,
+      "protected-locator-not-accessed": 14
+    },
+    "retime_50_status_counts": {
+      "reachable": 252
+    },
+    "interpretation": "Protected locator exception records are retained as metadata only; no protected source bytes or hashes were read."
+  }
+}

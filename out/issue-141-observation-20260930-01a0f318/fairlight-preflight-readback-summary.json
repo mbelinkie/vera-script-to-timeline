@@ -1,0 +1,75 @@
+{
+  "status": "editorial-readback-retained",
+  "readOnly": true,
+  "nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261002T031925.253660Z.json",
+  "nativeResultSha256": "4fcc04f09d1d56cebfd094ce94b91277beefacd356044700b6607ca51fdea980",
+  "pairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-context-20261002T031927.605476Z/pair.json",
+  "pairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+  "matchesOriginalRestoredPair": true,
+  "originalPairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/audio-mapping-mute-20261002T023919.250741Z/restored-full-pair.json",
+  "originalPairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+  "selectionPasses": [
+    {
+      "items": [],
+      "playhead": "00:00:00:00"
+    },
+    {
+      "items": [],
+      "playhead": "00:00:00:00"
+    }
+  ],
+  "selectionShapes": [
+    {
+      "count": 0,
+      "type": "list"
+    },
+    {
+      "count": 0,
+      "type": "list"
+    }
+  ],
+  "renderFormatPasses": [
+    {
+      "codec": "H264",
+      "format": "mov"
+    },
+    {
+      "codec": "H264",
+      "format": "mov"
+    },
+    {
+      "codec": "H264",
+      "format": "mov"
+    },
+    {
+      "codec": "H264",
+      "format": "mov"
+    },
+    {
+      "codec": "H264",
+      "format": "mov"
+    },
+    {
+      "codec": "H264",
+      "format": "mov"
+    },
+    {
+      "codec": "H264",
+      "format": "mov"
+    }
+  ],
+  "sourceHashes": {
+    "independentNativeCall": "395805068e96517bfe67aa32497229226b6c7fad431790e1cac94f4ecaf5cd03",
+    "probe": "fdd2d31024a005489564e99bb4916e190e5830e26705b87ea6e56adbcf9e918b"
+  },
+  "readOnlyCheckPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/hammerspoon-check-readback-20261002T024705Z.json",
+  "editPageMenuAuditDirectory": "out/issue-141-observation-20260930-01a0f318/independent-action-20261002T031900.515676Z",
+  "readbackAuditDirectory": "out/issue-141-observation-20260930-01a0f318/independent-action-20261002T031918.769340Z",
+  "nativeActionCounts": {
+    "editPageMenu": 1,
+    "editorialContextReadback": 1,
+    "StartRendering": 0,
+    "muteOrSoloSetters": 0,
+    "reopenOrDuplicate": 0
+  }
+}

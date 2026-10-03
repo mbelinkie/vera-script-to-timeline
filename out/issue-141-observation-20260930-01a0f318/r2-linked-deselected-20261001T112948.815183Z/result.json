@@ -1,0 +1,44 @@
+{
+  "environment": {
+    "productName": "DaVinci Resolve Studio",
+    "python": "3.14.7",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "failure": null,
+  "label": "r2-linked-deselected",
+  "limits": [
+    "External menu result requires separate full-state interpretation."
+  ],
+  "pair": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-linked-deselected-20261001T112948.815183Z/pair.json",
+    "sha256": "4743b0d4c53566580523ce6db2ca555d8d8544bfecba6627b9d4a192cc26cb0d"
+  },
+  "readOnly": true,
+  "selectionPasses": [
+    {
+      "items": [],
+      "playhead": "00:01:42:10"
+    },
+    {
+      "items": [],
+      "playhead": "00:01:42:10"
+    }
+  ],
+  "selectionShapes": [
+    {
+      "count": 0,
+      "type": "list"
+    },
+    {
+      "count": 0,
+      "type": "list"
+    }
+  ],
+  "status": "editorial-readback-retained"
+}

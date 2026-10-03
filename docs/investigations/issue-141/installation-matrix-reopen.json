@@ -1,0 +1,27 @@
+{
+  "kind": "staged-guarded-native-matrix-reopen-not-executed",
+  "stagedAt": "2026-09-30T23:44:17.737818+00:00",
+  "action": "matrix-reopen",
+  "stage": "R1-R5-guarded-reopen-native",
+  "probeSha256": "d3f6824415e71ce2d11d08eae02525e8dd3de979ab3f0fa057e567fec9d3183e",
+  "launcherSha256": "c34bc6d445010f1a36a6c297b8f69f3ad16225f3f29c46445e1d5e521843147b",
+  "privateConfigSha256": "1cffa9ec491eaa510bfc55ca2895b881ea55c4e6932a72351c6be897b307f2d8",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "guardEvidence": [
+    {
+      "filename": "capture-20260930T223313.312609Z-saved.json",
+      "sha256": "a29402d405ab8cf1bc1abedd4c1ed0c479e983e2ef3ba6fc41d1c2389d6d36d2"
+    }
+  ],
+  "timelineId": "29ae8331-b86e-4041-a548-960695cc7b24",
+  "allowedApiMutations": [
+    "SaveProject(approved)",
+    "CloseProject(approved)",
+    "LoadProject(approved name)",
+    "SetCurrentTimeline(approved matrix if needed)"
+  ],
+  "handoffPolicy": "Read only name/UID/counts; require absent or provably empty; never save/close/edit handoff.",
+  "failureLimit": "Retain failure; no retry or cleanup; compare actual reopened values without cache restoration.",
+  "privatePathsPublished": false
+}

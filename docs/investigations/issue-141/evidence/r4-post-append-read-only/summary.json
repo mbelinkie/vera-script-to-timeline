@@ -1,0 +1,45 @@
+{
+  "captureStatus": "equal-adjacent-reads",
+  "interpretation": "Read-only verification of the partial state left by the refused append verification. It supports one current enabled V1 occurrence whose clip properties return the generated source path and media properties; the path exists and its bytes match the approved source hash. This is bounded online/present-source evidence for this item only, not unlink/relink or generic availability behavior.",
+  "kind": "r4-post-append-read-only-inventory",
+  "limits": [
+    "Two adjacent equal reads do not establish an atomic revision token or exclude ABA.",
+    "No R4 transition such as unlink/relink/offline/wrong-byte replacement/removal was exercised."
+  ],
+  "newMediaPoolItemUid": "81d81dc0-4c37-478b-8079-03debba5e780",
+  "newOccurrenceUid": "af55478a-0ba3-458a-a6e1-e47b2544111d",
+  "newTimelineUid": "64de8a4c-86bd-4f19-9d20-47b8940f610b",
+  "nextBoundedAction": "A separately staged save-only continuation may verify the current partial state against its pinned evidence and save only; do not rerun ImportMedia or AppendToTimeline.",
+  "observedAt": "2026-10-01T00:33:10Z",
+  "occurrenceReadback": {
+    "clipPropertyCodec": "H.264 High L3.0",
+    "clipPropertyDuration": "00:00:08:00",
+    "clipPropertyFilePath": "<synthetic-media>/relink/base.mov",
+    "clipPropertyFrames": 200,
+    "count": 1,
+    "enabled": true,
+    "mediaPoolItemUid": "81d81dc0-4c37-478b-8079-03debba5e780",
+    "name": "base.mov",
+    "recordEnd": 199,
+    "recordStart": 0,
+    "sourceEndFrame": 199,
+    "sourceStartFrame": 0,
+    "timeline": "VERA 141 R4 availability",
+    "track": "Video 1"
+  },
+  "oldPoolEntries": [
+    "All eight old pool UIDs remain; their retained item records exactly match the post-dictionary read-only inventory."
+  ],
+  "oldTimelines": "Baseline, R1 identity, and Batched Matrix match the pre-append selected-state pin; the new R4 timeline has exactly the one observed appended occurrence.",
+  "poolItemCountAfter": 10,
+  "poolItemCountBeforePathListAppend": 8,
+  "poolPassesEqual": true,
+  "poolStatus": "equal-read-only-pool-inventory",
+  "rawSha256": {
+    "capture-20261001T003310.397326Z.json": "f3a321fcd5ae47c90e25b3dcf254a0d983ff0bdde8862700b2411c710b3fe0fa",
+    "hammerspoon-launch-20261001T003309.727954Z.jsonl": "834c9dbcbe5e2cd035b8ca61d1a41902d2ac9e5df1216921c066160e08156db9",
+    "installation-r4-partial-state-read-only.json": "3b4bcd439bec300df5c34244b4884efef876793735ee593408af9ca904938a79",
+    "r4-pool-read-only-20261001T003310.397326Z.json": "ac6f4661f59f910029dae51dcc758bd1d766e8f810fb4996fcee1b18c681e751",
+    "vera-issue-141-observation-result-20261001T003310.360988Z.json": "6c7c879997fb5345f3a0beda83ef78ac75744f68a38cd6d25fc75de1b0bf8f4f"
+  }
+}

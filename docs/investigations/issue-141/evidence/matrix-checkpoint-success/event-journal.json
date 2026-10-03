@@ -1,0 +1,19 @@
+{
+  "dispatch": {
+    "launchReturnedExitCode": 0,
+    "selectionTriggeredOnce": true
+  },
+  "eventCount": 2,
+  "events": [
+    {
+      "method": "SetCurrentTimeline",
+      "phase": "request",
+      "value": "29ae8331-b86e-4041-a548-960695cc7b24"
+    },
+    {
+      "method": "SetCurrentTimeline",
+      "phase": "return",
+      "value": true
+    }
+  ]
+}

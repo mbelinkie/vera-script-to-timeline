@@ -1,0 +1,82 @@
+{
+  "kind": "issue-141-remaining-audio-control-surface",
+  "scope": "Read-only local evidence investigation; no Resolve/API/UI action or protected-media access.",
+  "resolve": {
+    "version": "DaVinci Resolve Studio 21.1.0 build 14",
+    "clues": [
+      "audio-cases.py pins build [21,1,0,14,]",
+      "report.md identifies injected observation as Studio 21.1.0 build 14"
+    ],
+    "installed_readme": {
+      "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/README.txt",
+      "exists": false,
+      "result": "Requested installed README.txt path is absent; no signatures could be verified from it."
+    }
+  },
+  "documented_call_surface": [
+    {
+      "method": "Timeline.GetIsTrackEnabled(trackType, index)",
+      "object": "Timeline",
+      "signature": "GetIsTrackEnabled(trackType, index)",
+      "documented": false,
+      "evidence": "Local retained probe calls it; installed README unavailable. Captured interface uses trackType=audio, index=2.",
+      "meaning": "Track enabled state only; not mute, solo, bus routing, or final audibility."
+    },
+    {
+      "method": "Timeline.SetTrackEnable(trackType, index, enabled)",
+      "object": "Timeline",
+      "signature": "SetTrackEnable(trackType, index, enabled)",
+      "documented": false,
+      "evidence": "Local retained probe calls it with (audio, 2, False/True); installed README unavailable.",
+      "meaning": "Track enable control only; distinct from mute/solo and output routing."
+    }
+  ],
+  "controls_tested": {
+    "observed": [
+      "Residual clip GetClipEnabled/SetClipEnabled toggled and restored.",
+      "A2 track SetTrackEnable(audio,2,false/true) toggled and restored, with GetIsTrackEnabled readback.",
+      "Retained two-pass captures were equal and getter-error-free per readiness record."
+    ],
+    "untested_or_unestablished": [
+      "No retained mute or solo getter/setter result, including actual None/False returns.",
+      "No retained program bus/output assignment, channel mapping, or sends observation.",
+      "No successful rendered program-audio evidence."
+    ],
+    "classification": "No public documented mute/solo/routing control is retained in inspected evidence. Undocumented method-name guesses are not reproduced failures or proof of API unavailability."
+  },
+  "next_bounded_operation": {
+    "operation": "Use the existing operator checklist to record the actual Resolve Fairlight view state for track enabled/mute/solo, channel mapping, sends, and program-output assignment, then compare audible program output for the bounded synthetic cases if that checklist calls for it.",
+    "operator_checklist": "docs/investigations/issue-141/operator-checklist.md",
+    "boundary": "Checklist only; no operator action requested or performed by this investigation. Keep unsupported fields explicit. Root retains orchestration."
+  },
+  "evidence": [
+    {
+      "path": "docs/investigations/issue-141/audio-cases.py",
+      "sha256": "643f520f051c0c7435d921dc1964e0b940abd75305a5cf7be3693ec41bbf6fa6"
+    },
+    {
+      "path": "docs/investigations/issue-141/audio-output-plan.md",
+      "sha256": "4a021c34b665d12775aae9c670664dd2790ff7e9460f9ebebd99a826486e61b5"
+    },
+    {
+      "path": "docs/investigations/issue-141/report.md",
+      "sha256": "828308e0d9af3d65c9274eb336677a8b3fff3f95e6b05bbf03b6a5cba9522a7e"
+    },
+    {
+      "path": "docs/investigations/issue-141/operator-checklist.md",
+      "sha256": "37c185878a4c86a280f9ffb0f206dbb2fa6b25371a6c934f3dbfc24b744cca28"
+    },
+    {
+      "path": "docs/investigations/issue-141/evidence/audio-cases-success/audio-cases-20260930T234123.302069Z.json",
+      "sha256": "05486e6089750559f5f133a1b56d791968f988b63ecf579ed44b8fffea8eba7e"
+    },
+    {
+      "path": "docs/investigations/issue-141/evidence/audio-cases-success/capture-20260930T234123.302069Z-final.json",
+      "sha256": "40a2565bc32043e93ef64d9baf8f6811aa35865eb6f90ee78f5d9d773dc518cf"
+    },
+    {
+      "path": "out/issue-141-observation-20260930-01a0f318/remaining-audio-output-readiness.json",
+      "sha256": "2e786e834e173b7bdeda6ffc2c3c56f29cd30996a1c6b888aafa5cf446625ee8"
+    }
+  ]
+}

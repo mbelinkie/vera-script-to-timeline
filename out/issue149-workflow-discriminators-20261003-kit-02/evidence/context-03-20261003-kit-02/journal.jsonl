@@ -1,0 +1,10 @@
+{"actionId": "context-03-20261003-kit-02", "at": "2026-10-03T04:39:09.459742+00:00", "method": "harness", "phase": "started", "value": {"schemaVersion": "issue-149-workflow-discriminators-v1"}}
+{"actionId": "context-03-20261003-kit-02", "at": "2026-10-03T04:39:09.712233+00:00", "method": "GetVersion", "phase": "request", "value": {"args": []}}
+{"actionId": "context-03-20261003-kit-02", "at": "2026-10-03T04:39:09.728699+00:00", "method": "GetVersion", "phase": "return", "value": {"status": "ok", "value": [21, 1, 1, 10, ""]}}
+{"actionId": "context-03-20261003-kit-02", "at": "2026-10-03T04:39:09.729568+00:00", "method": "GetProjectManager", "phase": "request", "value": {"args": []}}
+{"actionId": "context-03-20261003-kit-02", "at": "2026-10-03T04:39:09.734589+00:00", "method": "GetProjectManager", "phase": "return", "value": {"status": "ok", "value": {"__native_type__": "PyRemoteObject", "__repr__": "<BlackmagicFusion.PyRemoteObject object at 0x10942cef0>"}}}
+{"actionId": "context-03-20261003-kit-02", "at": "2026-10-03T04:39:09.735439+00:00", "method": "GetCurrentProject", "phase": "request", "value": {"args": []}}
+{"actionId": "context-03-20261003-kit-02", "at": "2026-10-03T04:39:09.738216+00:00", "method": "GetCurrentProject", "phase": "return", "value": {"status": "ok", "value": {"__native_type__": "PyRemoteObject", "__repr__": "<BlackmagicFusion.PyRemoteObject object at 0x10942d490>"}}}
+{"actionId": "context-03-20261003-kit-02", "at": "2026-10-03T04:39:09.738829+00:00", "method": "GetName", "phase": "request", "value": {"args": []}}
+{"actionId": "context-03-20261003-kit-02", "at": "2026-10-03T04:39:09.740762+00:00", "method": "GetName", "phase": "return", "value": {"status": "ok", "value": "VERA 149 Discriminators 20261002-b"}}
+{"actionId": "context-03-20261003-kit-02", "at": "2026-10-03T04:39:09.741410+00:00", "method": "harness", "phase": "finished", "value": {"status": "ok"}}

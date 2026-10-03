@@ -1,0 +1,18 @@
+{
+  "kind": "issue-141-report-evidence-link-audit-resolution-v1",
+  "asOf": "2026-10-02T02:58:37.281490+00:00",
+  "sourceAudit": "report-evidence-link-audit.json",
+  "resolutions": {
+    "heldResultPath": "Corrected to actual held result and SHA; render full pair equals held after pair. Original PCM comparison preserved; see mute-pcm-provenance-correction.json.",
+    "currentStatus": "Current R2 report tables now state completed held-mute output/restoration. Older checklist operation tables explicitly historical.",
+    "derivedEnd": "Dated report/operator paragraphs distinguish later completed bounded PCM and integer endpoint calibration from unproved per-word/fractional/generalized retime endpoints.",
+    "copyIds": "Opening summary explicitly states new linked occurrence IDs on Copy/Paste."
+  },
+  "reportSha256": "4bd06241183618a8634cb9e0409bceecd4cdb00bc531d24f399da293f71f4fcb",
+  "operatorRecordSha256": "8404bcf5446aabbfe7eb28f8d3d0f0214d809b555c310e2123feb49d54409107",
+  "operatorChecklistSha256": "71c4b091a302f1fa37392f245cfb52d8727765cdec4c38828d5f6af919265211",
+  "pcmResultSha256": "e7751798a3525d832f6dedd42c2f11250cd040a61343c92c3fdaa69bc5de1c5a",
+  "remainingTestCount": 4,
+  "nativeActionPerformed": false,
+  "resolveLaunchesHeld": true
+}

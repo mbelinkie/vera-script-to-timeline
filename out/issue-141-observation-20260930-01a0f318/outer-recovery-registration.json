@@ -1,0 +1,23 @@
+{
+  "pins": {
+    "probe.py": "3a4f8097ff74cfdc6f1b6df4f3d5a0b1285d847238bc98897c72b6e7e03f18d8",
+    "render-outer-recovery.py": "ff6d38b8c127437146aa31637121e1f960d171303d6f09f7fba023ab07dfc027",
+    "render-outer-recovery-check.py": "e3634630ee553503389f8f047feb7ef3b212a8411dd94e21e6e142144da1be31",
+    "independent-native-call.py": "956463d19b0fd11f783c4f715e52a313dc5aaf153ffe8baf4f9ec4a829fb7011"
+  },
+  "updates": {
+    "action": "render-outer-recovery",
+    "case": "R2-render-recovery",
+    "checkpointPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/mute-after-render-checkpoint.json",
+    "checkpointName": "mute-after-render-checkpoint.json",
+    "checkpointSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+    "originalAttemptPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z",
+    "originalBeforePairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/full-pair-004.json",
+    "originalAfterPairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/full-pair-005.json",
+    "originalBeforePairSha256": "1616fa7f512b1a23d4c2756d2246bef51ee9d085ba8c443170ad060c385949a4",
+    "originalAfterPairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+    "originalJournalSha256": "fb49271db7c20e78508bae7b1113e466fdc92a8e34fe6f92bb43db8fdba47ae4",
+    "originalXmlSha256": "a09abc4185e06b915620520745c682933674707394c02855fd7c30ff9bb087ce",
+    "journalPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/outer-restore-20261002T011949.373431Z/journal.jsonl"
+  }
+}

@@ -1,0 +1,15 @@
+{"at": "2026-10-01T12:14:58.483261+00:00", "method": "FullReadback", "phase": "before", "value": {"path": "before.json"}}
+{"at": "2026-10-01T12:14:58.513834+00:00", "method": "SetClipsLinked", "phase": "request", "value": {"linked": false, "uids": ["44bfdfa0-6aa6-40af-8916-679d557f18ee", "7c970634-6fcb-4117-9a51-221a482c7142"], "unlinked": true}}
+{"at": "2026-10-01T12:14:58.518630+00:00", "method": "SetClipsLinked", "phase": "return", "value": true}
+{"at": "2026-10-01T12:14:58.534134+00:00", "method": "SetTrackLock", "phase": "request", "value": {"locked": true, "trackIndex": 1, "trackType": "video"}}
+{"at": "2026-10-01T12:14:58.545733+00:00", "method": "SetTrackLock", "phase": "return", "value": true}
+{"at": "2026-10-01T12:14:58.570233+00:00", "method": "SetTrackLock", "phase": "request", "value": {"locked": true, "trackIndex": 2, "trackType": "video"}}
+{"at": "2026-10-01T12:14:58.570625+00:00", "method": "SetTrackLock", "phase": "return", "value": true}
+{"at": "2026-10-01T12:14:58.582034+00:00", "method": "SetTrackLock", "phase": "request", "value": {"locked": true, "trackIndex": 3, "trackType": "video"}}
+{"at": "2026-10-01T12:14:58.582416+00:00", "method": "SetTrackLock", "phase": "return", "value": true}
+{"at": "2026-10-01T12:14:58.594668+00:00", "method": "SetTrackLock", "phase": "request", "value": {"locked": true, "trackIndex": 2, "trackType": "audio"}}
+{"at": "2026-10-01T12:14:58.595040+00:00", "method": "SetTrackLock", "phase": "return", "value": true}
+{"at": "2026-10-01T12:14:58.607797+00:00", "method": "SetTrackLock", "phase": "request", "value": {"locked": true, "trackIndex": 3, "trackType": "audio"}}
+{"at": "2026-10-01T12:14:58.656642+00:00", "method": "SetTrackLock", "phase": "return", "value": true}
+{"at": "2026-10-01T12:14:58.667617+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": {"timecode": "00:02:02:10"}}
+{"at": "2026-10-01T12:14:58.669696+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}

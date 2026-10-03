@@ -1,0 +1,301 @@
+{
+  "kind": "interpretation-of-retained-real-readback",
+  "baselineRawSha256": "92c04d10bafe86499b7d11a27d457e655893ee6340d73a290a80e29e35887161",
+  "captureRawSha256s": {
+    "capture-20260930T204438.948629Z-reopened-before-duplicate.json": "e75dc5c9c39d2f3f882c392a23e3a4d1766a5d16e177c87762533de53bff5eeb",
+    "capture-20260930T204438.948629Z-cache-restoration.json": "774dc4bb12de0057aa5194d8838ef8447fefa3c1d5485c97731522d81e8690b5",
+    "capture-20260930T204438.948629Z-duplicated.json": "6f968ff7d948bba48f496f529d802a3d512442b0b1ce401465150cc63196bf76",
+    "capture-20260930T204438.948629Z-current-duplicate-saved.json": "fab588ea4f4e10394b0ca878358cb55743cb8c1dbaa72cd4822320e7e9cae85f"
+  },
+  "journalRawSha256": "1fd8dd667984d0744fec750e0514c1a175985ce3b943365757cf2c27235b4958",
+  "launcherResultRawSha256": "81ce4ce08b5357767d933d3e6626b18c5b3eec5ba6b4964771f53b630c1905c6",
+  "preflightDifferenceAfterPathRedaction": [
+    {
+      "pass": 1,
+      "differingFields": [
+        "passes[0]/GetSettings/value/perfCacheClipsLocation",
+        "passes[0]/timelines[0]/GetSettings/value/perfCacheClipsLocation"
+      ]
+    },
+    {
+      "pass": 2,
+      "differingFields": [
+        "passes[1]/GetSettings/value/perfCacheClipsLocation",
+        "passes[1]/timelines[0]/GetSettings/value/perfCacheClipsLocation"
+      ]
+    }
+  ],
+  "cacheRestorationPassesExactlyMatchBaseline": [
+    true,
+    true
+  ],
+  "captureStatuses": {
+    "capture-20260930T204438.948629Z-reopened-before-duplicate.json": {
+      "consistency": "equal-adjacent-reads",
+      "getterFailures": [],
+      "captureFailure": null
+    },
+    "capture-20260930T204438.948629Z-cache-restoration.json": {
+      "consistency": "equal-adjacent-reads",
+      "getterFailures": [],
+      "captureFailure": null
+    },
+    "capture-20260930T204438.948629Z-duplicated.json": {
+      "consistency": "equal-adjacent-reads",
+      "getterFailures": [],
+      "captureFailure": null
+    },
+    "capture-20260930T204438.948629Z-current-duplicate-saved.json": {
+      "consistency": "equal-adjacent-reads",
+      "getterFailures": [],
+      "captureFailure": null
+    }
+  },
+  "duplicateTimeline": {
+    "name": "VERA 141 R1 identity",
+    "uid": "aa2b8e36-83bd-4292-9e33-217c00ca192f",
+    "itemCount": 6,
+    "occurrenceUids": [
+      "ed9da462-5cae-4677-bcdb-6c1cc15c167d",
+      "74bc8db7-33f6-48df-bacc-eb0e70fc3c0d",
+      "04224fd9-e933-48b8-baef-974e9f7e4d7b",
+      "b6e7300b-96c6-4f24-a6c9-94d1eec81410",
+      "ae3773b1-09c3-4533-88db-a1bf904c0751",
+      "b6f6abca-7f26-4442-b7a2-403675828e4a"
+    ],
+    "baselineOccurrenceUids": [
+      "1c80a88c-317c-462d-9664-b0c777207e6a",
+      "2033688c-2055-4c52-a7b6-854299ccd013",
+      "cf9584b0-028a-4a94-93fa-a3b86e590646",
+      "5f26e407-361c-40ea-b120-fdcb2cffd1e9",
+      "bec168d3-b26e-418b-968f-7ea5dc67362d",
+      "b99c0b5b-9efb-4441-936a-ba2564f9395c"
+    ],
+    "occurrenceUidIntersection": [],
+    "mediaUids": [
+      "9202163a-8381-43e6-9157-3a60f35c6f79",
+      "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+      "ce49c87d-edf6-4860-981c-891cc329c447",
+      "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+      "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+      "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f"
+    ],
+    "uniqueMediaUidIntersection": [
+      "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+      "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+      "9202163a-8381-43e6-9157-3a60f35c6f79",
+      "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+      "ce49c87d-edf6-4860-981c-891cc329c447"
+    ],
+    "mediaUidIntersectionCount": 5,
+    "matchingTrackNameMediaRangeEnableAndMarkerSignature": true,
+    "timelineMarkersMatch": true,
+    "copiedItemMarkerCustomDataMatches": true
+  },
+  "baselineTimelineAfterDuplicate": {
+    "equalToOriginal": false,
+    "trackEnableChanges": [
+      {
+        "track": "Video 1",
+        "baseline": true,
+        "afterDuplicate": false
+      },
+      {
+        "track": "Video 2",
+        "baseline": true,
+        "afterDuplicate": false
+      },
+      {
+        "track": "Video 3",
+        "baseline": true,
+        "afterDuplicate": false
+      },
+      {
+        "track": "Audio 1",
+        "baseline": true,
+        "afterDuplicate": false
+      },
+      {
+        "track": "Audio 2",
+        "baseline": true,
+        "afterDuplicate": false
+      },
+      {
+        "track": "Audio 3",
+        "baseline": true,
+        "afterDuplicate": false
+      }
+    ],
+    "mediaPoolUsageChanges": [
+      {
+        "track": "Video 1",
+        "baseline": "1",
+        "afterDuplicate": "2"
+      },
+      {
+        "track": "Video 2",
+        "baseline": "1",
+        "afterDuplicate": "2"
+      },
+      {
+        "track": "Video 3",
+        "baseline": "1",
+        "afterDuplicate": "2"
+      },
+      {
+        "track": "Audio 1",
+        "baseline": "2",
+        "afterDuplicate": "4"
+      },
+      {
+        "track": "Audio 2",
+        "baseline": "2",
+        "afterDuplicate": "4"
+      },
+      {
+        "track": "Audio 3",
+        "baseline": "1",
+        "afterDuplicate": "2"
+      }
+    ],
+    "GetPropertiesKeysMissingAfterDuplicate": [
+      {
+        "track": "Audio 1",
+        "item": "repeated.wav",
+        "missingGetPropertiesKeys": [
+          "AudioDialogueLevelerBackgroundReduction",
+          "AudioDialogueLevelerEnabled",
+          "AudioDialogueLevelerLiftSoftDialogue",
+          "AudioDialogueLevelerMode",
+          "AudioDialogueLevelerOutputGain",
+          "AudioDialogueLevelerReduceLoudDialogue",
+          "AudioVoiceIsolationAmount",
+          "AudioVoiceIsolationEnabled"
+        ]
+      },
+      {
+        "track": "Audio 2",
+        "item": "repeated.wav",
+        "missingGetPropertiesKeys": [
+          "AudioDialogueLevelerBackgroundReduction",
+          "AudioDialogueLevelerEnabled",
+          "AudioDialogueLevelerLiftSoftDialogue",
+          "AudioDialogueLevelerMode",
+          "AudioDialogueLevelerOutputGain",
+          "AudioDialogueLevelerReduceLoudDialogue",
+          "AudioVoiceIsolationAmount",
+          "AudioVoiceIsolationEnabled"
+        ]
+      },
+      {
+        "track": "Audio 3",
+        "item": "bed.wav",
+        "missingGetPropertiesKeys": [
+          "AudioDialogueLevelerBackgroundReduction",
+          "AudioDialogueLevelerEnabled",
+          "AudioDialogueLevelerLiftSoftDialogue",
+          "AudioDialogueLevelerMode",
+          "AudioDialogueLevelerOutputGain",
+          "AudioDialogueLevelerReduceLoudDialogue",
+          "AudioVoiceIsolationAmount",
+          "AudioVoiceIsolationEnabled"
+        ]
+      }
+    ],
+    "postDuplicateAndCurrentSavedPassesExactlyMatch": [
+      true,
+      true
+    ]
+  },
+  "journalEvents": [
+    {
+      "at": "2026-09-30T20:44:39.127432+00:00",
+      "method": "SetSettings",
+      "phase": "request",
+      "value": [
+        {
+          "perfCacheClipsLocation": "<probe-output>/storage-20260930T173943.043191Z/cache"
+        }
+      ]
+    },
+    {
+      "at": "2026-09-30T20:44:39.132264+00:00",
+      "method": "SetSettings",
+      "phase": "return",
+      "value": true
+    },
+    {
+      "at": "2026-09-30T20:44:39.275875+00:00",
+      "method": "SetSettings(cache restoration capture)",
+      "phase": "readback",
+      "value": {
+        "capturePath": "<probe-output>/capture-20260930T204438.948629Z-cache-restoration.json",
+        "sha256": "774dc4bb12de0057aa5194d8838ef8447fefa3c1d5485c97731522d81e8690b5",
+        "status": "equal-adjacent-reads"
+      }
+    },
+    {
+      "at": "2026-09-30T20:44:39.281837+00:00",
+      "method": "DuplicateTimeline",
+      "phase": "request",
+      "value": [
+        "VERA 141 R1 identity"
+      ]
+    },
+    {
+      "at": "2026-09-30T20:44:39.837235+00:00",
+      "method": "DuplicateTimeline",
+      "phase": "return",
+      "value": {
+        "GetName": {
+          "value": "VERA 141 R1 identity"
+        },
+        "GetUniqueId": {
+          "value": "aa2b8e36-83bd-4292-9e33-217c00ca192f"
+        }
+      }
+    },
+    {
+      "at": "2026-09-30T20:44:40.154831+00:00",
+      "method": "SetCurrentTimeline",
+      "phase": "request",
+      "value": [
+        "aa2b8e36-83bd-4292-9e33-217c00ca192f"
+      ]
+    },
+    {
+      "at": "2026-09-30T20:44:40.289345+00:00",
+      "method": "SetCurrentTimeline",
+      "phase": "return",
+      "value": true
+    },
+    {
+      "at": "2026-09-30T20:44:40.371101+00:00",
+      "method": "SetCurrentTimeline(readback)",
+      "phase": "readback",
+      "value": {
+        "GetCurrentTimeline.UniqueId": "aa2b8e36-83bd-4292-9e33-217c00ca192f"
+      }
+    },
+    {
+      "at": "2026-09-30T20:44:40.373157+00:00",
+      "method": "SaveProject",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "at": "2026-09-30T20:44:40.436845+00:00",
+      "method": "SaveProject",
+      "phase": "return",
+      "value": true
+    }
+  ],
+  "launcherStatus": "equal-adjacent-reads",
+  "operatorReport": "Project remained open.",
+  "scopeAttestation": "Operator confirmed yes: External Scripting remained None; synthetic project and generated media only. Operator also directed us to stop repeated scripting-mode questions: \u201cI\u2019m never gonna switch it from None.\u201d",
+  "interpretation": "The cache restoration capture exactly matches the pinned baseline passes. DuplicateTimeline returned VERA 141 R1 identity, the duplicate was selected and SaveProject returned true. All six duplicate occurrence UIDs are new while all five distinct media UIDs intersect the baseline. Track/range/media/enable/marker signatures and copied marker custom data match, but copied metadata is not occurrence-lineage proof. After duplication the baseline timeline readback differs as itemized above; changed enabled flags and Usage values are retained as observations, and missing getters remain unknown rather than evidence of reset/removal. Duplicate and current-saved captures match exactly.",
+  "limitations": [
+    "No R1 trim/move/razor/copy/repeat or R2-R5 editorial result.",
+    "Equal adjacent reads do not prove atomicity."
+  ]
+}

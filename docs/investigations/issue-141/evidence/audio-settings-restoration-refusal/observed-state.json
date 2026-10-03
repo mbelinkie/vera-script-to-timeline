@@ -1,0 +1,255 @@
+{
+  "bounds": [
+    "ExportVideo original boolean is not exposed by GetCurrentRenderFormatAndCodec and is not present as an explicit XML field.",
+    "The H264/MOV getter alone does not establish the original ExportVideo value."
+  ],
+  "evidence": {
+    "currentJournalSha256": "fda00cbecbea749aab7d61ae0185b00069e4f639908c7997cc5bffe4098f2f7f",
+    "currentPreflightSha256": "3dfc30798ca4769d719d52028b508f8eb8261bf2daf61a9a0255f52091d765b0",
+    "priorExportSnapshotCapturedBeforeFirstSetRenderSettings": true,
+    "priorExportXmlSha256": "1b3b21a728c3216f9782d87aa2feae977747c377901eb6b81ed5a83a2da06595"
+  },
+  "exactEvents": [
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "return",
+      "value": {
+        "codec": "H264",
+        "format": "mov"
+      }
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "return",
+      "value": 1
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "return",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "return",
+      "value": false
+    },
+    {
+      "method": "SetRenderSettings",
+      "phase": "request",
+      "settings": {
+        "AudioBitDepth": 16,
+        "AudioCodec": "lpcm",
+        "AudioFormat": "wav",
+        "AudioSampleRate": 48000,
+        "ExportAudio": true,
+        "ExportVideo": false,
+        "SelectAllFrames": true
+      },
+      "target": "<owned-render-directory>"
+    },
+    {
+      "method": "SetRenderSettings",
+      "phase": "return",
+      "value": true
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "return",
+      "value": {
+        "codec": "",
+        "format": "unknown"
+      }
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "return",
+      "value": 1
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "return",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "return",
+      "value": false
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "return",
+      "value": false
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "return",
+      "value": []
+    },
+    {
+      "method": "LoadRenderPreset",
+      "phase": "request",
+      "presetName": "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z",
+      "value": null
+    },
+    {
+      "method": "LoadRenderPreset",
+      "phase": "return",
+      "presetName": null,
+      "value": true
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "return",
+      "value": {
+        "codec": "",
+        "format": "unknown"
+      }
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "return",
+      "value": 1
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "return",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "return",
+      "value": false
+    },
+    {
+      "detail": "RuntimeError: Render settings, queue, or context changed unexpectedly",
+      "method": "AudioOutput",
+      "phase": "prequeue-restoration-failure"
+    },
+    {
+      "detail": "RuntimeError: Prequeue refusal; recovery preset retained",
+      "method": "AudioOutput",
+      "phase": "restoration-failure"
+    }
+  ],
+  "kind": "audio-settings-restoration-refusal",
+  "launcherResult": {
+    "detail": "RuntimeError: Post-settings refusal; recovery retained",
+    "sha256": "0f58231798b54d00f7d4c43aeae99ef21895c1e1408108838176dce84d6762dc",
+    "status": "launcher-failed"
+  },
+  "timeline": {
+    "afterSetter": {
+      "formatCodec": {
+        "codec": "",
+        "format": "unknown"
+      },
+      "mode": 1,
+      "queueEmpty": true,
+      "rendering": false
+    },
+    "initialRenderState": {
+      "formatCodec": {
+        "codec": "H264",
+        "format": "mov"
+      },
+      "mode": 1,
+      "queueEmpty": true,
+      "rendering": false
+    },
+    "outcome": "restoration verification failed; recovery copy retained",
+    "preflight": "equal-adjacent-reads",
+    "queueMutationsOrStartCalls": false,
+    "restoreAttempt": {
+      "method": "Project.LoadRenderPreset",
+      "presetName": "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z",
+      "returned": true,
+      "subsequentFormatCodec": {
+        "codec": "",
+        "format": "unknown"
+      }
+    },
+    "setter": {
+      "method": "Project.SetRenderSettings",
+      "requested": {
+        "AudioBitDepth": 16,
+        "AudioCodec": "lpcm",
+        "AudioFormat": "wav",
+        "AudioSampleRate": 48000,
+        "ExportAudio": true,
+        "ExportVideo": false,
+        "SelectAllFrames": true
+      },
+      "returned": true
+    }
+  }
+}

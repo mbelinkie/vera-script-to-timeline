@@ -1,0 +1,57 @@
+{
+  "action": "r1-repeat-duplicate",
+  "case": "R1-repeat-six",
+  "repeatCheckpoint": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r1-final-executor-20261002T131605.126740Z-duplicate-checkpoint.json",
+  "repeatCheckpointSha256": "aa821c2a0dd5ff4df548407304457700e34c51262ade4f3cd438cd5cd44cf957",
+  "repeatExpectedContext": {
+    "expectedSelectionUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+    "idle": true,
+    "page": "edit",
+    "playhead": "00:00:00:00",
+    "product": "DaVinci Resolve Studio",
+    "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+    "projectUid": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+    "queue": [],
+    "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+    "selection": [],
+    "trackLocks": [
+      [
+        "video",
+        1,
+        false
+      ],
+      [
+        "video",
+        2,
+        true
+      ],
+      [
+        "video",
+        3,
+        true
+      ],
+      [
+        "audio",
+        1,
+        false
+      ],
+      [
+        "audio",
+        2,
+        true
+      ],
+      [
+        "audio",
+        3,
+        true
+      ]
+    ],
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  }
+}

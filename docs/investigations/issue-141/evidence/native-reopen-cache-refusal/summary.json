@@ -1,0 +1,43 @@
+{
+  "kind": "interpretation-of-retained-real-readback",
+  "captureRawSha256": "ef5b0566d9d3614c0f6100c296d2af181f99b64e6e57bb799dafaaca09da3708",
+  "baselineCaptureRawSha256": "92c04d10bafe86499b7d11a27d457e655893ee6340d73a290a80e29e35887161",
+  "consistency": "equal-adjacent-reads",
+  "getterFailures": [],
+  "captureFailure": null,
+  "contentFingerprints": [
+    "ec368ce06e9aff27d58e9d2f65c74df913f85462f3f10b293e15b026b9f9932a",
+    "ec368ce06e9aff27d58e9d2f65c74df913f85462f3f10b293e15b026b9f9932a"
+  ],
+  "projectId": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+  "comparisons": [
+    {
+      "reopenedPass": 1,
+      "baselinePass": 1,
+      "differingPaths": [
+        "passes[0]/GetSettings/value/perfCacheClipsLocation",
+        "passes[0]/timelines[0]/GetSettings/value/perfCacheClipsLocation"
+      ]
+    },
+    {
+      "reopenedPass": 2,
+      "baselinePass": 2,
+      "differingPaths": [
+        "passes[1]/GetSettings/value/perfCacheClipsLocation",
+        "passes[1]/timelines[0]/GetSettings/value/perfCacheClipsLocation"
+      ]
+    }
+  ],
+  "differenceSummary": "Across both raw passes, only perfCacheClipsLocation differs, once in project GetSettings and once in timeline GetSettings. Both values change from the baseline-owned absolute cache path to the readback string CacheClip; its resolved target is unknown. Project/timeline/item/media IDs, ranges, markers/custom data, properties and media hashes otherwise match in the full raw comparison.",
+  "launcherResultRawSha256": "0cbdc448774f7358b8f098acb65f9f628ef837e8baf2323f5b6ad9b23483e998",
+  "launcherStatus": "launcher-failed",
+  "launcherDetail": "RuntimeError: Current project is not the prepared baseline-only state",
+  "interpretation": "The identity guard refused this reopened-before-duplicate capture because the cache setting differs from the pinned prepared baseline. No native journal was produced and no duplicate/mutation occurred. The operator said \u201cI reopened Synthetic Probe project and ran it but no effect. Check it?\u201d This capture provides bounded one-reopen readback only; it does not prove LoadProject support or infer anything about a default/other project. The operator confirmed: \u201cYes, None stayed set; synthetic project only.\u201d",
+  "nextAction": "Root is preparing exact-cache-only restoration through the previously successful writable setter. Require a fresh complete capture equal to the pinned baseline before duplication. Use only after review/staging; do not alter the baseline or inspect another project.",
+  "limitations": [
+    "One reopened capture with two equal adjacent reads; not a repeat reopen result.",
+    "No LoadProject or DuplicateTimeline result.",
+    "Earlier 18:12:39 preflight refusal remains unexplained."
+  ],
+  "operatorAttestation": "Yes, None stayed set; synthetic project only"
+}

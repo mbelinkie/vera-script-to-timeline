@@ -1,0 +1,6 @@
+{"at": "2026-10-03T01:33:15.470479+00:00", "phase": "started", "value": {"actionId": "w7-lock-setter-01-20261002-kit-01", "configSha256": "3cdd808f8f868f54a3a5053f758a21b0603c0b2b92d251935edbe1623767b78f"}}
+{"at": "2026-10-03T01:33:15.499617+00:00", "phase": "probe-verified", "value": {"probePath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/sources/a19a79d684f8dbaed6d36bda0d493eed964d37888bddf7749e3bbdf601f59ab5/harness.py", "probeSha256": "a19a79d684f8dbaed6d36bda0d493eed964d37888bddf7749e3bbdf601f59ab5"}}
+{"at": "2026-10-03T01:33:15.501486+00:00", "phase": "disarmed", "value": {"action": "w7-lock-setter", "actionId": "w7-lock-setter-01-20261002-kit-01"}}
+{"at": "2026-10-03T01:33:15.501637+00:00", "phase": "probe-request", "value": {"action": "w7-lock-setter", "phase": "w7-lock-setter-01"}}
+{"at": "2026-10-03T01:33:18.478219+00:00", "phase": "probe-return", "value": {"status": "ok"}}
+{"at": "2026-10-03T01:33:18.478960+00:00", "phase": "result-written", "value": {"result": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-w7-lock-setter-01-20261002-kit-01.json", "status": "ok"}}

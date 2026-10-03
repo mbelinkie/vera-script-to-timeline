@@ -1,0 +1,29 @@
+{
+  "action": "native-matrix",
+  "captures": [
+    {
+      "capturePath": "<probe-output>/capture-20260930T221137.773286Z-preflight.json",
+      "sha256": "1e98831e79d93c6ccc29782a909f126c7c15bb6f54eebc0e21f7db8b32d9af29",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T215628.608006Z-empty-selected-matrix.json",
+      "sha256": "cc834e8fd34b1bd84348d3dfde00648a2fff5d0fcb17eb6398137a615a4d0445",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T221137.773286Z-postflight.json",
+      "sha256": "317da5d173cd2f8034a79f2392d649bede137877692045c9074314d60cde427e",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T221137.773286Z-failure-postflight.json",
+      "sha256": "e68f682b2f0b73bbf8ee883fd375ecd5325061c50c1cd2615fb9ee72e386e0d9",
+      "status": "equal-adjacent-reads"
+    }
+  ],
+  "failure": "RuntimeError: Final matrix audio tracks are not all mono",
+  "instruction": "Retain the partial matrix and evidence; do not rerun or clean up.",
+  "journal": "<probe-output>/native-matrix-20260930T221137.773286Z.jsonl",
+  "status": "matrix-partial-refused"
+}

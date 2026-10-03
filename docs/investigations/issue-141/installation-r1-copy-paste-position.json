@@ -1,0 +1,14 @@
+{
+  "kind": "approved-r1-copy-paste-position",
+  "stagedAt": "2026-10-01T07:25:05.852255+00:00",
+  "probeSha256": "67985056bdc4d2e136bf03ffe33048670dc5500259c87bc5517dea5cb881bbcc",
+  "moduleSha256": "694c0ac4785733b52119aaac209f51d793adeb8aa767437ace58fe7d2f393471",
+  "preparationSha256": "4d4f2f033514251655ee1cb565e13d3b3229f8cbe9b4f20549a3dd3c3dcf2175",
+  "selectionResultSha256": "94d7eac08bead07529a87bce0a678f82a4389c280b04865fd690bb58ce0c5333",
+  "postCopyPairSha256": "0ab69c1eeaa7dffe2d6a63bc02c73823b9fe12af2134be74b204c4f1e81a6435",
+  "sourceArchive": "editorial-reviewed-sources-20261001T0725",
+  "allowedNativeMutations": [
+    "SetCurrentTimecode(00:01:30:00)"
+  ],
+  "pasteDispatched": false
+}

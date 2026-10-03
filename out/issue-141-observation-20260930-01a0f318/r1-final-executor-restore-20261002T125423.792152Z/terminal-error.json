@@ -1,0 +1,5 @@
+{
+  "action": "r1-repeat-restore-selection",
+  "error": "RuntimeError: Menu refused; evidence at REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261002T125424.498570Z/launch.json",
+  "nativeDispatchPerformed": true
+}

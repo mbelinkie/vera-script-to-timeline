@@ -1,0 +1,7 @@
+{"phase": "started", "at": "2026-10-01T13:55:13.298750+00:00", "resolveInjected": true, "injectedType": "PyRemoteObject"}
+{"phase": "module-loaded", "at": "2026-10-01T13:55:13.314311+00:00", "action": "editorial-readback"}
+{"phase": "probe-request", "at": "2026-10-01T13:55:13.314718+00:00"}
+{"phase": "product-name-request", "at": "2026-10-01T13:55:13.314822+00:00"}
+{"phase": "product-name-return", "at": "2026-10-01T14:03:59.656114+00:00", "value": "DaVinci Resolve Studio"}
+{"phase": "probe-failure", "at": "2026-10-01T14:22:47.689409+00:00", "error": "RuntimeError: Exact Edit/known format/empty queue required"}
+{"phase": "result-written", "at": "2026-10-01T14:22:47.689916+00:00"}

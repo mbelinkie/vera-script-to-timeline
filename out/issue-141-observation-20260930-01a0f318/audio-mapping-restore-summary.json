@@ -1,0 +1,45 @@
+{
+  "status": "mapping-muted-and-exactly-restored",
+  "mappingPhase": "restore",
+  "nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261002T023851.407464Z.json",
+  "nativeResultSha256": "4f373da796ea36e07abace6c3cc5429df5cfff4580a699f25e09139421806ea6",
+  "restoreAuditDirectory": "out/issue-141-observation-20260930-01a0f318/independent-action-20261002T023849.439086Z",
+  "sourceHashes": {
+    "independentNativeCall": "9bf342020431dc8059fb7a8b60976483826c285c1e9ce8ef671293c1b9c03d9e",
+    "audioMappingMute": "324eaccac4de7b124cd62d187ee4046b0307d7dbd5bc7cc26c0e267b11204dd8",
+    "probe": "54bbbeee926a5ef423615b1f981ec8ebe6586e91f938a8aad05db441ecc53310",
+    "editorialReadback": "d9df76229ead502b2d9ff31a1847eb9b858aa8931d25d279b560244e93690354"
+  },
+  "restoredFullPairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/audio-mapping-mute-20261002T023919.250741Z/restored-full-pair.json",
+  "restoredFullPairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+  "matchesOriginalPair": true,
+  "originalFullPairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/audio-mapping-mute-20261002T020031.880586Z/before-full-pair.json",
+  "originalFullPairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+  "targetOccurrenceUid": "f4e9f649-894a-42f2-9f54-a8321ae7c163",
+  "targetMute": false,
+  "playheadBeforeRestore": "00:00:00:00",
+  "freshReadbackResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261002T023712.721378Z.json",
+  "freshReadbackResultSha256": "94122ae9cc523fd2edc4fcba1078295b53e698b6dc98d2657e6f0380a67dd6f9",
+  "freshReadbackPairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-residual-context-20261002T023713.543057Z/pair.json",
+  "freshReadbackPairSha256": "a171acbb58b84753b624b316230455e4b59b78a32e55fdcf04c72c3095292cd3",
+  "freshReadbackSelectionContext": [
+    {
+      "items": [],
+      "playhead": "00:00:00:00"
+    },
+    {
+      "items": [],
+      "playhead": "00:00:00:00"
+    }
+  ],
+  "freshTopLevelCheckpointPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/mute-after-render-fresh-checkpoint-20261002T023713.543057Z.json",
+  "freshTopLevelCheckpointSha256": "a171acbb58b84753b624b316230455e4b59b78a32e55fdcf04c72c3095292cd3",
+  "heldResultPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/audio-mapping-mute-20261002T020031.880586Z/result.json",
+  "heldResultSha256": "c70a29b0dc7efc4245e57f2929750fc64d342f7611a9609dcc7916ccbc864425",
+  "restoreJournalPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/audio-mapping-mute-20261002T023919.250741Z/journal.jsonl",
+  "restoreJournalSha256": "cb2d54a3b5d005874b151ab799645a506636d4fbfbd96def92b1e77c8e7ef7bb",
+  "mappingRestoreSetterReturnsTrue": true,
+  "initialRefusalResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261002T023539.616116Z.json",
+  "initialRefusalAuditDirectory": "out/issue-141-observation-20260930-01a0f318/independent-action-20261002T023537.853718Z",
+  "editPageMenuAuditDirectory": "out/issue-141-observation-20260930-01a0f318/independent-action-20261002T023659.415177Z"
+}

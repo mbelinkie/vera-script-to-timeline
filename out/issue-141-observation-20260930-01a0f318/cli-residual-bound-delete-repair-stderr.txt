@@ -1,0 +1,8 @@
+2026-10-01T22:11:08.378305Z  WARN codex_skills::interface: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-10-01T22:11:08.379582Z  WARN codex_skills::interface: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
+2026-10-01T22:11:08.730511Z  WARN codex_skills::interface: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-10-01T22:11:08.730669Z  WARN codex_skills::interface: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
+2026-10-01T22:11:09.224486Z  WARN codex_skills::interface: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-10-01T22:11:09.224525Z  WARN codex_skills::interface: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
+2026-10-01T22:12:34.223711Z ERROR codex_core::tools::router: error=apply_patch verification failed: Failed to find expected lines in REPOSITORY/docs/investigations/issue-141/editorial-cases-check.py:
+    assert pass_result["delete"]["status"] == "interval-deleted-unsaved" and pass_result["restore"]["status"] == "restored-unsaved"

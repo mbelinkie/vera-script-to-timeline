@@ -1,0 +1,130 @@
+{
+  "blockers": [
+    {
+      "evidence": "probe.py validate_config and action dispatch allow av-output/continuations but omit av-output-full-matrix and av-output-full-matrix-queue-only.",
+      "id": "dispatcher-action-missing",
+      "required": "Add and hash-pin the bounded full-Matrix action only after producer review; no fallback to av-output or stale queue-only settings."
+    },
+    {
+      "evidence": "probe.py currently pins av-output.py as a1f841f8199ef8d41e10da08ff08c8accb67b176fb69fd41018e8491466005bb; current av-output.py is 3d77b3d30ca49455158bd15362baf41a645d160911f0eb6213a412d8368ec4b3.",
+      "id": "av-module-pin-stale",
+      "required": "Refresh the dispatcher module pin after any producer helper changes."
+    },
+    {
+      "evidence": "av-output.py READER_SHA256 is legacy 06eff080c45e5c520a1c8c31787e4d4f1604198a3a98a9e3c8e025917fcf455b; protected reader is 9b6977747a1f3decf957ead6134f10fc4f597bf9d0c3dc5c081b7bf2671879a4.",
+      "id": "reader-pin-stale",
+      "required": "Refresh av-output.py reader pin and retain protected-six metadata through every pair."
+    },
+    {
+      "evidence": "av-output.py pool guard accepts exactly generated manifest paths and rejects any other source; the protected real source UID be5f1584-f0c4-4dd9-988b-73f3167e77d1 would currently fail this guard.",
+      "id": "protected-pool-source-rejected",
+      "required": "Permit only the exact protected UID/name with protected-locator-not-accessed metadata, exclude it from generated-source set equality, and refuse if that UID appears in Matrix timeline content."
+    },
+    {
+      "evidence": "Fresh protected-six pair selects transcription test 1. Existing editorial-case-20261001T114857.294317Z/after.json SHA 1be6a4fe8f6f98e31b9cac544e7251c74e24f7e07aaa0668985d2ae753e66e48 is historical four-timeline evidence.",
+      "id": "matrix-selection-pin-missing",
+      "required": "Use the producer selection helper to create a fresh selected-Matrix protected-six pair; do not reinterpret the test1 pair or historical four-timeline checkpoint."
+    },
+    {
+      "evidence": "av-applied-settings-record.json SHA 8852c355e605a0d4e0be62f554f06f8fcdaca7a29e6a39b877633728928592df is the 640x360, MarkIn=0, MarkOut=200 route. The retained 1920x1080 unstarted job reported MarkOut=2449 and was removed by av-output-drop.",
+      "id": "stale-settings-evidence",
+      "required": "Do not reuse either queue-only/settings pin for full Matrix; derive 1920x1080 and bounds from the fresh Matrix pair."
+    },
+    {
+      "evidence": "Current matrix-checkpoint.py SHA ae61cd242cabf948450ad3936e2c9cb71645bf5c0bfc7ec37a8a84012f5b1259 still requires the historical four-timeline inventory and historical R4 pins.",
+      "id": "selection-helper-legacy",
+      "required": "Producer must supply the reviewed protected-six Matrix selector and its native selection/readback journal before AV staging."
+    }
+  ],
+  "checks": [
+    {
+      "command": "ctx-wire run rtk /usr/local/bin/python3.14 -S docs/investigations/issue-141/av-output-check.py",
+      "result": "PASS; AV output fake checks passed"
+    },
+    {
+      "method": "source inspection",
+      "result": "PASS; current route, pins, dispatcher allowlist, protected pool guard, and historical queue records inspected"
+    }
+  ],
+  "currentSourceHashes": {
+    "av-output-check.py": "db0df51fec7fafb19422d5cbe2fa390e09ae6730dc0a8da7b472e78ff9633d64",
+    "av-output.py": "3d77b3d30ca49455158bd15362baf41a645d160911f0eb6213a412d8368ec4b3",
+    "editorial-cases.py": "1e1c2685de795bdc60ffa806c0fde10d75e300340fc2c1178b8ccf4d1a93f372",
+    "manifest.json": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+    "matrix-checkpoint.py": "ae61cd242cabf948450ad3936e2c9cb71645bf5c0bfc7ec37a8a84012f5b1259",
+    "probe.py": "cad63c88f400897fa37bc558d76fca410b7040bf1cc6b2a4ff270e0754b62fa8",
+    "r4-range-repair.py": "9b6977747a1f3decf957ead6134f10fc4f597bf9d0c3dc5c081b7bf2671879a4"
+  },
+  "decision": "blocked-until-protected-six-matrix-route-is-pinned-and-dispatchable",
+  "freshProtectedSixEvidence": {
+    "capturePath": "capture-20261001T180849.818792Z.json",
+    "captureSha256": "dd4c8c0e911e0bceec7379196d15c7e0c69eaa20b181e061b50cfbb025b0146f",
+    "pairPath": "protected-six-r4-pool-20261001T180848.009764Z/pair.json",
+    "pairSha256": "5131589527428829afe6e1503e245609a4f17bb3207a2fe61a874db4289601b3",
+    "poolPath": "r4-pool-read-only-20261001T180849.818792Z.json",
+    "poolSha256": "82069be60e83da4c578e42231f3c88d9b99575c44d5c42649a04b66c988c8d9d",
+    "readback": "six timeline rows, two equal timeline passes, two equal pool passes; complete and source-protected, but not a selected-Matrix checkpoint",
+    "selectedTimelineName": "transcription test 1",
+    "selectedTimelineUid": "21436b8f-057c-49e6-80ba-5f733abe87b2",
+    "timelineInventory": "protected-six"
+  },
+  "historicalEvidenceNotReusable": {
+    "appliedSettingsRecord": {
+      "path": "av-applied-settings-record.json",
+      "reason": "640x360 / 0..200 settings; not full Matrix",
+      "sha256": "8852c355e605a0d4e0be62f554f06f8fcdaca7a29a6a39b877633728928592df"
+    },
+    "continuationRecord": {
+      "path": "av-output-continuation-record.json",
+      "reason": "historical output continuation; no protected-six selected-Matrix binding",
+      "sha256": "b169854fa9e6f9509dc22e1b8aa41e2d7e63b79baf74909c3246302c29fedc36"
+    },
+    "freshCheckpointReview": {
+      "path": "av-fresh-checkpoint-review.json",
+      "reason": "checkpoint is four-timeline and AV source pin is stale",
+      "sha256": "933454ce21a13ae80799af2a66d2f8b818180344371682ecf9e07b6a6479a02f"
+    },
+    "fullMatrixReview": {
+      "path": "av-full-matrix-queue-review.json",
+      "reason": "reviewed against stale AV/reader/probe pins; never staged or run",
+      "sha256": "1db0f448cd389742b95b2105f1d9077f19ba725c278d2e6464434f16cf109a50"
+    }
+  },
+  "kind": "av-resume-readiness",
+  "native": "not-run",
+  "queueChanged": false,
+  "render": "not-run",
+  "requiredPinRefresh": {
+    "avOutputSourceSha256": "3d77b3d30ca49455158bd15362baf41a645d160911f0eb6213a412d8368ec4b3",
+    "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+    "matrixCheckpoint": "A fresh selected-Matrix pair with selectedTimelineUid=29ae8331-b86e-4041-a548-960695cc7b24, timelineInventory=protected-six, equal adjacent passes, and a new SHA is required.",
+    "matrixSelectionHelper": "Producer-approved helper hash and journal are still pending; it must select Matrix exactly, capture protected-six state/pool pairs, and bind current source hashes.",
+    "probeSha256": "cad63c88f400897fa37bc558d76fca410b7040bf1cc6b2a4ff270e0754b62fa8",
+    "protectedReaderSha256": "9b6977747a1f3decf957ead6134f10fc4f597bf9d0c3dc5c081b7bf2671879a4",
+    "testPin": "Retain current av-output-check.py hash db0df51fec7fafb19422d5cbe2fa390e09ae6730dc0a8da7b472e78ff9633d64 with any refreshed focused suite."
+  },
+  "reviewedAt": "2026-10-01T18:22:07.010521+00:00",
+  "scope": "Readiness only for one generated-Matrix full AV output; no source edits, settings, queue, render, or native action performed.",
+  "settingsChanged": false,
+  "shortestExistingRoute": {
+    "action": "av-output-full-matrix-queue-only",
+    "module": "docs/investigations/issue-141/av-output.py",
+    "purpose": "Select/verify Matrix, apply full AV settings, validate one owned job, and stop before StartRendering for a separately reviewed render continuation.",
+    "realSourcePolicy": "The protected source semi1b.mp4 must never occur in Matrix timeline content or be rendered. Its pool metadata may be retained as protected evidence only.",
+    "requestedSettings": {
+      "AudioBitDepth": 24,
+      "AudioCodec": "lpcm",
+      "AudioFormat": "omitted",
+      "AudioSampleRate": 48000,
+      "ExportAudio": true,
+      "ExportVideo": true,
+      "FormatHeight": 1080,
+      "FormatWidth": 1920,
+      "FrameRate": 25.0,
+      "MarkIn": "omitted",
+      "MarkOut": "omitted",
+      "SelectAllFrames": true
+    }
+  },
+  "taskId": "Issue 141"
+}

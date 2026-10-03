@@ -1,0 +1,133 @@
+{
+  "status": "original-render-settings-restored",
+  "nativeResult": {
+    "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261002T012125.146032Z.json",
+    "sha256": "f68025ae4650f84a9e7907e3d5a2b48832585cc3c49901034564f33d30e07213"
+  },
+  "journal": {
+    "path": "out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/outer-restore-20261002T011949.373431Z/journal.jsonl",
+    "sha256": "d0b398cb6d6e3a1ae56c22ae45579125debb3fdc807724505a5880261daca12d"
+  },
+  "finalPair": {
+    "path": "out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/outer-restore-20261002T011949.373431Z/final-pair.json",
+    "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14"
+  },
+  "actualFormatModeEvidence": [
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "return",
+      "value": {
+        "codec": "H264",
+        "format": "mov"
+      }
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "return",
+      "value": 1
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "return",
+      "value": {
+        "codec": "H264",
+        "format": "mov"
+      }
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "return",
+      "value": 1
+    },
+    {
+      "method": "DeleteRenderPreset",
+      "phase": "request",
+      "value": "VERA141_AV_OUTPUT_20261001T231540.921062Z"
+    },
+    {
+      "method": "DeleteRenderPreset",
+      "phase": "return",
+      "value": true
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "return",
+      "value": {
+        "codec": "H264",
+        "format": "mov"
+      }
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "return",
+      "value": 1
+    }
+  ],
+  "ownedPresetDeletion": {
+    "name": "VERA141_AV_OUTPUT_20261001T231540.921062Z",
+    "requestAndReturn": [
+      {
+        "at": "2026-10-02T01:22:05.453494+00:00",
+        "method": "DeleteRenderPreset",
+        "phase": "request",
+        "value": "VERA141_AV_OUTPUT_20261001T231540.921062Z"
+      },
+      {
+        "at": "2026-10-02T01:22:05.478993+00:00",
+        "method": "DeleteRenderPreset",
+        "phase": "return",
+        "value": true
+      }
+    ]
+  },
+  "originalEvidencePreserved": {
+    "full-pair-004.json": {
+      "sha256": "1616fa7f512b1a23d4c2756d2246bef51ee9d085ba8c443170ad060c385949a4",
+      "matchesExpected": true
+    },
+    "full-pair-005.json": {
+      "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+      "matchesExpected": true
+    },
+    "originalXml": {
+      "sha256": "a09abc4185e06b915620520745c682933674707394c02855fd7c30ff9bb087ce",
+      "matchesExpected": true
+    },
+    "originalJournal": {
+      "sha256": "fb49271db7c20e78508bae7b1113e466fdc92a8e34fe6f92bb43db8fdba47ae4",
+      "matchesExpected": true
+    }
+  },
+  "evidencePreserved": true,
+  "hiddenRenderSettingsEquality": "not exposed by Resolve"
+}

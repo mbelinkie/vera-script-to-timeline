@@ -1,0 +1,5 @@
+{
+  "detail": "RuntimeError: Exact enabled R3-boundary A3 crossing bed changed",
+  "instruction": "Retain evidence and stop. Do not rerun preparation or change scripting mode.",
+  "status": "launcher-failed"
+}

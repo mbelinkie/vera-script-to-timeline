@@ -1,0 +1,42 @@
+{
+  "beforeRange": {
+    "GetStartFrame": {
+      "value": 90000
+    },
+    "GetEndFrame": {
+      "value": 90000
+    },
+    "GetStartTimecode": {
+      "value": "01:00:00:00"
+    }
+  },
+  "afterRange": {
+    "GetStartFrame": {
+      "value": 0
+    },
+    "GetEndFrame": {
+      "value": 0
+    },
+    "GetStartTimecode": {
+      "value": "00:00:00:00"
+    }
+  },
+  "occurrenceUid": {
+    "value": "af55478a-0ba3-458a-a6e1-e47b2544111d"
+  },
+  "sourceUid": {
+    "value": "81d81dc0-4c37-478b-8079-03debba5e780"
+  },
+  "recordStart": {
+    "value": -90000
+  },
+  "recordEnd": {
+    "value": -89801
+  },
+  "sourceStart": {
+    "value": 0
+  },
+  "sourceEnd": {
+    "value": 199
+  }
+}

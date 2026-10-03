@@ -1,0 +1,46 @@
+{
+  "kind": "compact-evidence-inventory",
+  "note": "Large preflight and journals are hash-bound in place and not copied.",
+  "sourceFiles": {
+    "apiOwnerCheck": {
+      "bytes": 587,
+      "name": "audio-output-api-owner-check.json",
+      "sha256": "9cbd5c0e0adfbcbfc19438a64843eec0783ec6600530826e61ee10067dd2b538"
+    },
+    "audioJournal": {
+      "bytes": 2026467,
+      "name": "journal.jsonl",
+      "sha256": "19bc611d3c32ac686f5f389f3dd414fff04bf3a899f50c962ef3b98a5f235509"
+    },
+    "comparison": {
+      "bytes": 2857,
+      "name": "audio-export-refusal-independent-comparison.json",
+      "sha256": "c8155853d4d5c0be5dd9659423a1cf0aa9960842d5d01dc17eee99ace03f7d6e"
+    },
+    "dispatch": {
+      "bytes": 2637,
+      "name": "hammerspoon-launch-20261001T015944.739340Z.jsonl",
+      "sha256": "79da70423f1782830edeb1f768f4278ac8ebb88ead2b45b9e9e830b63dd5c679"
+    },
+    "exportedXml": {
+      "bytes": 6174,
+      "name": "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z.xml",
+      "sha256": "1b3b21a728c3216f9782d87aa2feae977747c377901eb6b81ed5a83a2da06595"
+    },
+    "installedConfig": {
+      "bytes": 1275,
+      "name": "audio-output-refused-installed-config-20261001T015945.json",
+      "sha256": "49a9cec4ed83578e8aeb795b84a0266948af8ce01673e176381570b1d5f3c0f0"
+    },
+    "nativeResult": {
+      "bytes": 211,
+      "name": "vera-issue-141-observation-result-20261001T015945.257683Z.json",
+      "sha256": "e0e74086ad9b4733623665f5e331dd11229042eb86ff11f1e4efe2e95e403f7d"
+    },
+    "preflight": {
+      "bytes": 4379200,
+      "name": "preflight.json",
+      "sha256": "7026b0ec5aa22f630314001d0e9562ff00121111791bed4b03d97e1e577a79cb"
+    }
+  }
+}

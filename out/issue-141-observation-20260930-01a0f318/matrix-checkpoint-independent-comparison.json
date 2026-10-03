@@ -1,0 +1,17 @@
+{
+  "status": "verified-selected-matrix-checkpoint",
+  "newResult": "vera-issue-141-observation-result-20261001T015209.426591Z.json",
+  "oneSelectionReturnedTrue": true,
+  "preflightEqualsOriginalOnlineR4Pin": true,
+  "fullPoolUnchanged": true,
+  "historicalMatrixBaselineR1Equal": true,
+  "equalCompleteMatrixContextPair": true,
+  "audioPinAcceptsExactNativePair": true,
+  "noContentOrSourceOrSaveOrRenderMutation": true,
+  "files": {
+    "vera-issue-141-observation-result-20261001T015209.426591Z.json": "a12f6cb5cb10c2ecc29dd2b2fbc61c13ed70a5e1bc7a0707b03812666a6e7946",
+    "matrix-checkpoint-20261001T015209.473668Z-matrix-observation.json": "0220a23be312aea5906900dd094c8e21b363294bb11f9b0f1201ab23f40c4cbf",
+    "matrix-checkpoint-20261001T015209.473668Z-r4-preflight.json": "0e25da20728111bba2342e1bd58d85b57da4e04f4fa4d3d45bb8821f5c23a7a6",
+    "matrix-checkpoint-20261001T015209.473668Z.jsonl": "973b7beb44a97efb43b3fa222c44ec5c1ef81657c6f3908d2efa1c86b50179a9"
+  }
+}

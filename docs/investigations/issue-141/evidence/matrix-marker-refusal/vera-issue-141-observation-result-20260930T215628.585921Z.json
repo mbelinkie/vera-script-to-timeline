@@ -1,0 +1,24 @@
+{
+  "action": "native-matrix",
+  "captures": [
+    {
+      "capturePath": "<probe-output>/capture-20260930T215628.608006Z-preflight.json",
+      "sha256": "71a261ba20814a9769824a1c09f5e15539f13128221683dfa8ab05bb04a7d114",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T215628.608006Z-empty-selected-matrix.json",
+      "sha256": "cc834e8fd34b1bd84348d3dfde00648a2fff5d0fcb17eb6398137a615a4d0445",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T215628.608006Z-failure-postflight.json",
+      "sha256": "3d32b4abab487b31abd581d439a5006923edfa6c3d355bb15bd6839bdb405638",
+      "status": "equal-adjacent-reads"
+    }
+  ],
+  "failure": "RuntimeError: Occurrence marker readback differs",
+  "instruction": "Retain the partial matrix and evidence; do not rerun or clean up.",
+  "journal": "<probe-output>/native-matrix-20260930T215628.608006Z.jsonl",
+  "status": "matrix-partial-refused"
+}

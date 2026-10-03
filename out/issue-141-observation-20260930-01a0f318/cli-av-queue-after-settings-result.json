@@ -1,0 +1,887 @@
+{
+  "attemptDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z",
+  "continuationConfigPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-full-matrix-owned-continuation-config.json",
+  "continuationConfigSha256": "6cad52ee5fec945e8f225b697c65ef311e8b99fb0666f5c20128ed47a1c80a04",
+  "finalLocalResultPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/final-local-result.json",
+  "finalLocalResultSha256": "4a355bf8d8f3bc0c5694e2574eec47ca533c177d596f33169620123fcf0d21fe",
+  "freshContextReview": {
+    "emptySelectionCaptured": false,
+    "pairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/full-pair-004.json",
+    "pairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+    "playheadZeroCaptured": false,
+    "projectId": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+    "protectedPoolRowClassified": "protected-locator-not-accessed",
+    "protectedSourceInSelectedMatrix": false,
+    "selectedTimelineName": "VERA 141 Batched Matrix",
+    "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+    "status": "Queue route verified project, six-timeline inventory, selected Matrix and protected-source exclusion; it did not record selection or playhead. Separate fresh r2-residual-context preflight requirement is not fully evidenced.",
+    "timelineInventory": "protected-six"
+  },
+  "jobMetadata": {
+    "MarkIn": 0,
+    "MarkOut": 9199,
+    "id": "0460d82a-3436-4efc-be12-b57c8523ebf5",
+    "job": {
+      "AudioBitDepth": 24,
+      "AudioCodec": "lpcm",
+      "AudioSampleRate": 48000,
+      "ClipStartFrame": 1,
+      "EncodingProfile": "Auto",
+      "ExportAlpha": false,
+      "FormatHeight": 1080,
+      "FormatWidth": 1920,
+      "FrameRate": "25",
+      "IsExportAudio": true,
+      "IsExportVideo": true,
+      "JobId": "0460d82a-3436-4efc-be12-b57c8523ebf5",
+      "MarkIn": 0,
+      "MarkOut": 9199,
+      "MultiPassEncode": false,
+      "NetworkOptimization": false,
+      "OutputFilename": "vera141-av-20261001T232620.358140Z.mov",
+      "PixelAspectRatio": 1.0,
+      "PresetName": "Custom",
+      "RenderJobName": "Job 1",
+      "RenderMode": "Single clip",
+      "TargetDir": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/render",
+      "TimelineName": "VERA 141 Batched Matrix",
+      "TimelineStartTimecode": "00:00:00:00",
+      "VideoCodec": "H.264",
+      "VideoFormat": "QuickTime"
+    },
+    "queuedEndpoints": {
+      "MarkIn": 0,
+      "MarkOut": 9199,
+      "endpointSemantics": "diagnostic-only; inclusive/exclusive unknown",
+      "selectionMode": "SelectAllFrames",
+      "timelineEndFrame": 9200,
+      "timelineStartFrame": 0
+    },
+    "valueSha256": "0834a85890e93cde45d5cfb541669087c9ea145df801331af447c4f43ff736e9"
+  },
+  "journalPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/journal.jsonl",
+  "journalSha256": "2315aa455af6f6ee0609b964edbe7ed4da33c5dafab85f5313e87bab010ac7b6",
+  "kind": "cli-av-queue-after-settings-result",
+  "limitations": [
+    "No StartRendering, GetRenderJobStatus, DeleteRenderJob or DeleteRenderPreset was dispatched.",
+    "Endpoint inclusivity remains unknown; MarkOut 9199 is retained as diagnostic metadata only.",
+    "A separate fresh r2-residual-context capture with empty-selection and playhead-zero fields was not retained; do not claim those two conditions from this AV queue pair."
+  ],
+  "nativeResult": {
+    "action": "av-output-full-matrix-queue-only",
+    "afterPair": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/full-pair-007.json",
+    "afterPairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+    "beforePair": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/full-pair-004.json",
+    "beforePairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+    "job": {
+      "AudioBitDepth": 24,
+      "AudioCodec": "lpcm",
+      "AudioSampleRate": 48000,
+      "ClipStartFrame": 1,
+      "EncodingProfile": "Auto",
+      "ExportAlpha": false,
+      "FormatHeight": 1080,
+      "FormatWidth": 1920,
+      "FrameRate": "25",
+      "IsExportAudio": true,
+      "IsExportVideo": true,
+      "JobId": "0460d82a-3436-4efc-be12-b57c8523ebf5",
+      "MarkIn": 0,
+      "MarkOut": 9199,
+      "MultiPassEncode": false,
+      "NetworkOptimization": false,
+      "OutputFilename": "vera141-av-20261001T232620.358140Z.mov",
+      "PixelAspectRatio": 1.0,
+      "PresetName": "Custom",
+      "RenderJobName": "Job 1",
+      "RenderMode": "Single clip",
+      "TargetDir": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/render",
+      "TimelineName": "VERA 141 Batched Matrix",
+      "TimelineStartTimecode": "00:00:00:00",
+      "VideoCodec": "H.264",
+      "VideoFormat": "QuickTime"
+    },
+    "jobId": "0460d82a-3436-4efc-be12-b57c8523ebf5",
+    "journal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/journal.jsonl",
+    "neverDispatched": [
+      "StartRendering",
+      "GetRenderJobStatus",
+      "DeleteRenderJob",
+      "DeleteRenderPreset"
+    ],
+    "queuedEndpoints": {
+      "MarkIn": 0,
+      "MarkOut": 9199,
+      "endpointSemantics": "diagnostic-only; inclusive/exclusive unknown",
+      "selectionMode": "SelectAllFrames",
+      "timelineEndFrame": 9200,
+      "timelineStartFrame": 0
+    },
+    "snapshotSha256": "9f0a322fa1180af07c42ae282c41036696f4e20b05d3926af014503ad60e2b8b",
+    "snapshotXml": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/VERA141_AV_OUTPUT_20261001T232620.358140Z.drp/VERA141_AV_OUTPUT_20261001T232620.358140Z.xml",
+    "status": "full-matrix-queued-unstarted-recovery-retained"
+  },
+  "nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T232619.974750Z.json",
+  "nativeResultSha256": "dd0bbbef43320399085d03145a948b0562f9f6c32ccf8a35929c1a0616dc5eae",
+  "phases": [
+    {
+      "method": "FullPair",
+      "phase": "captured-001",
+      "value": {
+        "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/full-pair-001.json",
+        "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14"
+      }
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "return",
+      "value": {
+        "codec": "H264",
+        "format": "mov"
+      }
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "return",
+      "value": 1
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "return",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "return",
+      "value": false
+    },
+    {
+      "method": "GetRenderPresetList",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetRenderPresetList",
+      "phase": "return",
+      "value": [
+        "H.264 Master",
+        "HyperDeck",
+        "H.265 Master",
+        "ProRes 422 HQ",
+        "YouTube - 720p",
+        "YouTube - 1080p",
+        "YouTube - 1440p",
+        "YouTube - 2160p",
+        "Vimeo - 720p",
+        "Vimeo - 1080p",
+        "Vimeo - 2160p",
+        "TikTok - 720p",
+        "TikTok - 1080p",
+        "Presentations",
+        "Dropbox - 720p",
+        "Dropbox - 1080p",
+        "Dropbox - 2160p",
+        "Replay - 720p",
+        "Replay - 1080p",
+        "Replay - 2160p",
+        "IMF - Generic",
+        "IMF - 20th Century Fox",
+        "IMF - Netflix",
+        "IMF - Sony Pictures",
+        "IMF - iQIYI",
+        "IMF - HDR Vivid",
+        "FCP - Final Cut Pro 7",
+        "FCP - Final Cut Pro X",
+        "Premiere XML",
+        "Audio Only",
+        "AVID AAF",
+        "Pro Tools",
+        "Tencent - IMF",
+        "Tencent - MOV",
+        "Tencent - MP4",
+        "VR 180/360 - Meta Quest VR",
+        "VR 180/360 - YouTube VR",
+        "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z",
+        "VERA141_AV_OUTPUT_20261001T062051.400988Z",
+        "VERA141_AV_OUTPUT_20261001T231540.921062Z"
+      ]
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "return",
+      "value": {
+        "codec": "H264",
+        "format": "mov"
+      }
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "return",
+      "value": 1
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "return",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "return",
+      "value": false
+    },
+    {
+      "method": "GetRenderPresetList",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetRenderPresetList",
+      "phase": "return",
+      "value": [
+        "H.264 Master",
+        "HyperDeck",
+        "H.265 Master",
+        "ProRes 422 HQ",
+        "YouTube - 720p",
+        "YouTube - 1080p",
+        "YouTube - 1440p",
+        "YouTube - 2160p",
+        "Vimeo - 720p",
+        "Vimeo - 1080p",
+        "Vimeo - 2160p",
+        "TikTok - 720p",
+        "TikTok - 1080p",
+        "Presentations",
+        "Dropbox - 720p",
+        "Dropbox - 1080p",
+        "Dropbox - 2160p",
+        "Replay - 720p",
+        "Replay - 1080p",
+        "Replay - 2160p",
+        "IMF - Generic",
+        "IMF - 20th Century Fox",
+        "IMF - Netflix",
+        "IMF - Sony Pictures",
+        "IMF - iQIYI",
+        "IMF - HDR Vivid",
+        "FCP - Final Cut Pro 7",
+        "FCP - Final Cut Pro X",
+        "Premiere XML",
+        "Audio Only",
+        "AVID AAF",
+        "Pro Tools",
+        "Tencent - IMF",
+        "Tencent - MOV",
+        "Tencent - MP4",
+        "VR 180/360 - Meta Quest VR",
+        "VR 180/360 - YouTube VR",
+        "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z",
+        "VERA141_AV_OUTPUT_20261001T062051.400988Z",
+        "VERA141_AV_OUTPUT_20261001T231540.921062Z"
+      ]
+    },
+    {
+      "method": "GetRenderResolutions",
+      "phase": "request",
+      "value": [
+        "mov",
+        "H264"
+      ]
+    },
+    {
+      "method": "GetRenderResolutions",
+      "phase": "return",
+      "value": [
+        {
+          "Height": 1080,
+          "Width": 1920
+        },
+        {
+          "Height": 480,
+          "Width": 720
+        },
+        {
+          "Height": 486,
+          "Width": 720
+        },
+        {
+          "Height": 576,
+          "Width": 720
+        },
+        {
+          "Height": 720,
+          "Width": 720
+        },
+        {
+          "Height": 720,
+          "Width": 1280
+        },
+        {
+          "Height": 1080,
+          "Width": 1080
+        },
+        {
+          "Height": 1080,
+          "Width": 1280
+        },
+        {
+          "Height": 1080,
+          "Width": 1920
+        },
+        {
+          "Height": 2160,
+          "Width": 2160
+        },
+        {
+          "Height": 2160,
+          "Width": 3840
+        },
+        {
+          "Height": 4320,
+          "Width": 7680
+        },
+        {
+          "Height": 1332,
+          "Width": 1828
+        },
+        {
+          "Height": 1556,
+          "Width": 1828
+        },
+        {
+          "Height": 1080,
+          "Width": 1998
+        },
+        {
+          "Height": 858,
+          "Width": 2048
+        },
+        {
+          "Height": 1080,
+          "Width": 2048
+        },
+        {
+          "Height": 1152,
+          "Width": 2048
+        },
+        {
+          "Height": 1556,
+          "Width": 2048
+        },
+        {
+          "Height": 2048,
+          "Width": 3072
+        },
+        {
+          "Height": 2664,
+          "Width": 3654
+        },
+        {
+          "Height": 3112,
+          "Width": 3656
+        },
+        {
+          "Height": 2160,
+          "Width": 3996
+        },
+        {
+          "Height": 1716,
+          "Width": 4096
+        },
+        {
+          "Height": 2160,
+          "Width": 4096
+        },
+        {
+          "Height": 3112,
+          "Width": 4096
+        }
+      ]
+    },
+    {
+      "method": "FullPair",
+      "phase": "captured-002",
+      "value": {
+        "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/full-pair-002.json",
+        "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14"
+      }
+    },
+    {
+      "method": "SaveAsNewRenderPreset",
+      "phase": "request",
+      "value": [
+        "VERA141_AV_OUTPUT_20261001T232620.358140Z"
+      ]
+    },
+    {
+      "method": "SaveAsNewRenderPreset",
+      "phase": "return",
+      "value": true
+    },
+    {
+      "method": "GetRenderPresetList",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetRenderPresetList",
+      "phase": "return",
+      "value": [
+        "H.264 Master",
+        "HyperDeck",
+        "H.265 Master",
+        "ProRes 422 HQ",
+        "YouTube - 720p",
+        "YouTube - 1080p",
+        "YouTube - 1440p",
+        "YouTube - 2160p",
+        "Vimeo - 720p",
+        "Vimeo - 1080p",
+        "Vimeo - 2160p",
+        "TikTok - 720p",
+        "TikTok - 1080p",
+        "Presentations",
+        "Dropbox - 720p",
+        "Dropbox - 1080p",
+        "Dropbox - 2160p",
+        "Replay - 720p",
+        "Replay - 1080p",
+        "Replay - 2160p",
+        "IMF - Generic",
+        "IMF - 20th Century Fox",
+        "IMF - Netflix",
+        "IMF - Sony Pictures",
+        "IMF - iQIYI",
+        "IMF - HDR Vivid",
+        "FCP - Final Cut Pro 7",
+        "FCP - Final Cut Pro X",
+        "Premiere XML",
+        "Audio Only",
+        "AVID AAF",
+        "Pro Tools",
+        "Tencent - IMF",
+        "Tencent - MOV",
+        "Tencent - MP4",
+        "VR 180/360 - Meta Quest VR",
+        "VR 180/360 - YouTube VR",
+        "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z",
+        "VERA141_AV_OUTPUT_20261001T062051.400988Z",
+        "VERA141_AV_OUTPUT_20261001T231540.921062Z",
+        "VERA141_AV_OUTPUT_20261001T232620.358140Z"
+      ]
+    },
+    {
+      "method": "FullPair",
+      "phase": "captured-003",
+      "value": {
+        "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/full-pair-003.json",
+        "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14"
+      }
+    },
+    {
+      "method": "ExportRenderPreset",
+      "phase": "request",
+      "value": [
+        "VERA141_AV_OUTPUT_20261001T232620.358140Z",
+        "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/VERA141_AV_OUTPUT_20261001T232620.358140Z.drp"
+      ]
+    },
+    {
+      "method": "ExportRenderPreset",
+      "phase": "return",
+      "value": true
+    },
+    {
+      "method": "RecoveryXml",
+      "phase": "verified",
+      "value": {
+        "bytes": 6166,
+        "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/VERA141_AV_OUTPUT_20261001T232620.358140Z.drp/VERA141_AV_OUTPUT_20261001T232620.358140Z.xml",
+        "recoveryOriginalBitDepth": 24,
+        "sha256": "9f0a322fa1180af07c42ae282c41036696f4e20b05d3926af014503ad60e2b8b"
+      }
+    },
+    {
+      "method": "FullPair",
+      "phase": "captured-004",
+      "value": {
+        "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/full-pair-004.json",
+        "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14"
+      }
+    },
+    {
+      "method": "SetRenderSettings",
+      "phase": "request",
+      "value": [
+        {
+          "AudioBitDepth": 24,
+          "AudioCodec": "lpcm",
+          "AudioSampleRate": 48000,
+          "CustomName": "vera141-av-20261001T232620.358140Z",
+          "ExportAudio": true,
+          "ExportVideo": true,
+          "FormatHeight": 1080,
+          "FormatWidth": 1920,
+          "FrameRate": 25.0,
+          "SelectAllFrames": true,
+          "TargetDir": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/render"
+        }
+      ]
+    },
+    {
+      "method": "SetRenderSettings",
+      "phase": "return",
+      "value": true
+    },
+    {
+      "method": "FullPair",
+      "phase": "captured-005",
+      "value": {
+        "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/full-pair-005.json",
+        "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14"
+      }
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "return",
+      "value": {
+        "codec": "H264",
+        "format": "mov"
+      }
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "return",
+      "value": 1
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "return",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "return",
+      "value": false
+    },
+    {
+      "method": "GetRenderPresetList",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetRenderPresetList",
+      "phase": "return",
+      "value": [
+        "H.264 Master",
+        "HyperDeck",
+        "H.265 Master",
+        "ProRes 422 HQ",
+        "YouTube - 720p",
+        "YouTube - 1080p",
+        "YouTube - 1440p",
+        "YouTube - 2160p",
+        "Vimeo - 720p",
+        "Vimeo - 1080p",
+        "Vimeo - 2160p",
+        "TikTok - 720p",
+        "TikTok - 1080p",
+        "Presentations",
+        "Dropbox - 720p",
+        "Dropbox - 1080p",
+        "Dropbox - 2160p",
+        "Replay - 720p",
+        "Replay - 1080p",
+        "Replay - 2160p",
+        "IMF - Generic",
+        "IMF - 20th Century Fox",
+        "IMF - Netflix",
+        "IMF - Sony Pictures",
+        "IMF - iQIYI",
+        "IMF - HDR Vivid",
+        "FCP - Final Cut Pro 7",
+        "FCP - Final Cut Pro X",
+        "Premiere XML",
+        "Audio Only",
+        "AVID AAF",
+        "Pro Tools",
+        "Tencent - IMF",
+        "Tencent - MOV",
+        "Tencent - MP4",
+        "VR 180/360 - Meta Quest VR",
+        "VR 180/360 - YouTube VR",
+        "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z",
+        "VERA141_AV_OUTPUT_20261001T062051.400988Z",
+        "VERA141_AV_OUTPUT_20261001T231540.921062Z",
+        "VERA141_AV_OUTPUT_20261001T232620.358140Z"
+      ]
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "return",
+      "value": {
+        "codec": "H264",
+        "format": "mov"
+      }
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "return",
+      "value": 1
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "return",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "return",
+      "value": false
+    },
+    {
+      "method": "GetRenderPresetList",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetRenderPresetList",
+      "phase": "return",
+      "value": [
+        "H.264 Master",
+        "HyperDeck",
+        "H.265 Master",
+        "ProRes 422 HQ",
+        "YouTube - 720p",
+        "YouTube - 1080p",
+        "YouTube - 1440p",
+        "YouTube - 2160p",
+        "Vimeo - 720p",
+        "Vimeo - 1080p",
+        "Vimeo - 2160p",
+        "TikTok - 720p",
+        "TikTok - 1080p",
+        "Presentations",
+        "Dropbox - 720p",
+        "Dropbox - 1080p",
+        "Dropbox - 2160p",
+        "Replay - 720p",
+        "Replay - 1080p",
+        "Replay - 2160p",
+        "IMF - Generic",
+        "IMF - 20th Century Fox",
+        "IMF - Netflix",
+        "IMF - Sony Pictures",
+        "IMF - iQIYI",
+        "IMF - HDR Vivid",
+        "FCP - Final Cut Pro 7",
+        "FCP - Final Cut Pro X",
+        "Premiere XML",
+        "Audio Only",
+        "AVID AAF",
+        "Pro Tools",
+        "Tencent - IMF",
+        "Tencent - MOV",
+        "Tencent - MP4",
+        "VR 180/360 - Meta Quest VR",
+        "VR 180/360 - YouTube VR",
+        "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z",
+        "VERA141_AV_OUTPUT_20261001T062051.400988Z",
+        "VERA141_AV_OUTPUT_20261001T231540.921062Z",
+        "VERA141_AV_OUTPUT_20261001T232620.358140Z"
+      ]
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "return",
+      "value": []
+    },
+    {
+      "method": "FullPair",
+      "phase": "captured-006",
+      "value": {
+        "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/full-pair-006.json",
+        "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14"
+      }
+    },
+    {
+      "method": "AddRenderJob",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "AddRenderJob",
+      "phase": "return",
+      "value": "0460d82a-3436-4efc-be12-b57c8523ebf5"
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "return",
+      "value": [
+        {
+          "AudioBitDepth": 24,
+          "AudioCodec": "lpcm",
+          "AudioSampleRate": 48000,
+          "ClipStartFrame": 1,
+          "EncodingProfile": "Auto",
+          "ExportAlpha": false,
+          "FormatHeight": 1080,
+          "FormatWidth": 1920,
+          "FrameRate": "25",
+          "IsExportAudio": true,
+          "IsExportVideo": true,
+          "JobId": "0460d82a-3436-4efc-be12-b57c8523ebf5",
+          "MarkIn": 0,
+          "MarkOut": 9199,
+          "MultiPassEncode": false,
+          "NetworkOptimization": false,
+          "OutputFilename": "vera141-av-20261001T232620.358140Z.mov",
+          "PixelAspectRatio": 1.0,
+          "PresetName": "Custom",
+          "RenderJobName": "Job 1",
+          "RenderMode": "Single clip",
+          "TargetDir": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/render",
+          "TimelineName": "VERA 141 Batched Matrix",
+          "TimelineStartTimecode": "00:00:00:00",
+          "VideoCodec": "H.264",
+          "VideoFormat": "QuickTime"
+        }
+      ]
+    },
+    {
+      "method": "FullPair",
+      "phase": "captured-007",
+      "value": {
+        "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/full-pair-007.json",
+        "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14"
+      }
+    },
+    {
+      "method": "QueuedEndpoints",
+      "phase": "observed",
+      "value": {
+        "MarkIn": 0,
+        "MarkOut": 9199,
+        "endpointSemantics": "diagnostic-only; inclusive/exclusive unknown",
+        "selectionMode": "SelectAllFrames",
+        "timelineEndFrame": 9200,
+        "timelineStartFrame": 0
+      }
+    }
+  ],
+  "references": {
+    "afterPair": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/full-pair-007.json",
+      "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14"
+    },
+    "beforePair": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/full-pair-004.json",
+      "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14"
+    },
+    "firstAttemptRecovery": {
+      "journalPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/journal.jsonl",
+      "journalSha256": "fb49271db7c20e78508bae7b1113e466fdc92a8e34fe6f92bb43db8fdba47ae4",
+      "presetName": "VERA141_AV_OUTPUT_20261001T231540.921062Z",
+      "restoreRequiredAfterLaterRender": true,
+      "xmlPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/VERA141_AV_OUTPUT_20261001T231540.921062Z.drp/VERA141_AV_OUTPUT_20261001T231540.921062Z.xml",
+      "xmlSha256": "a09abc4185e06b915620520745c682933674707394c02855fd7c30ff9bb087ce"
+    },
+    "recoveryXml": {
+      "bytes": 6166,
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/VERA141_AV_OUTPUT_20261001T232620.358140Z.drp/VERA141_AV_OUTPUT_20261001T232620.358140Z.xml",
+      "sha256": "9f0a322fa1180af07c42ae282c41036696f4e20b05d3926af014503ad60e2b8b"
+    }
+  },
+  "renderDispatched": false,
+  "status": "full-matrix-queued-unstarted-recovery-retained"
+}

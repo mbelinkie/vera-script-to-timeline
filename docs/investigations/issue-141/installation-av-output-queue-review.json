@@ -1,0 +1,35 @@
+{
+  "kind": "reviewable-queue-from-applied-settings",
+  "status": "stale-checkpoint-not-stageable",
+  "invalidatedBy": {
+    "event": "Actual R1 Copy/Paste added occurrences and cleared Matrix proxy Out",
+    "postEditPair": "r1-copy-pasted-20261001T072554.638674Z/pair.json",
+    "postEditPairSha256": "b8a12d66415ed2cef4ab1922ac1c764ec42aa41aad58cfa40d4435c24c75b9a7",
+    "nextRequirement": "Review a fresh complete checkpoint and applied-settings binding before staging any approved continuation; never replay the setter"
+  },
+  "action": "av-output-queue-from-settings",
+  "moduleSha256": "9cc6d6cc1d53f47e5633311c85947a2a00803e875c4a055d10bf9057e622e272",
+  "probeSha256": "565478df3ab4abcdbe6d7333f8662ed855b4c358db591c13fbb9fd62cc645867",
+  "appliedSettingsRecordSha256": "8852c355e605a0d4e0be62f554f06f8fcdaca7a29e6a39b877633728928592df",
+  "nativeMutationStaged": false,
+  "noReplay": [
+    "SaveAsNewRenderPreset",
+    "ExportRenderPreset",
+    "SetRenderSettings"
+  ],
+  "checks": [
+    "fake successful queue/render and no-replay",
+    "fake pin/drift refusals",
+    "exact real four-leaf retained pool delta",
+    "Ruff",
+    "diff hygiene"
+  ],
+  "allowedAfterApproval": [
+    "queue one job",
+    "verify job metadata before starting",
+    "start only owned verified job",
+    "verify rendered file",
+    "load retained recovery snapshot only after success",
+    "clean only owned verified terminal job/preset"
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "status": "all-native-phases-retained; process-terminal; exit-code-unavailable",
+  "executorWrapper": "30-second timeout retained separately; root verified originalPID38693 live then terminal without replay",
+  "nativePhases": {
+    "preparation.json": {
+      "path": "independent-structural-sequence-20261001T203741.675640Z/preparation.json",
+      "sha256": "40615bdba75a67d35f2a46548bbd1d6f655ff31665ac9c9261ef6a0e3729b702"
+    },
+    "split-review.json": {
+      "path": "independent-structural-sequence-20261001T203741.675640Z/split-review.json",
+      "sha256": "ad691ead1c4d6b18f1a5feb2cf70a5ce239f45d802ac7a4ab2fd74c649b5036c"
+    },
+    "restoration.json": {
+      "path": "independent-structural-sequence-20261001T203741.675640Z/restoration.json",
+      "sha256": "2bcfef93a1f4bdda29fbfcd2630538ff2d1fcbd66ed7434529debabf8f084927"
+    },
+    "r3-boundary-context.json": {
+      "path": "independent-structural-sequence-20261001T203741.675640Z/r3-boundary-context.json",
+      "sha256": "fa36cb2965eb872292f2880bdd8aacbdf80f614d5fda2fcae41aad184c5090cb"
+    }
+  },
+  "finalPair": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r3-boundary-context-20261001T203933.206631Z/pair.json",
+    "sha256": "b0f128efef59738307b6977872aa528f03761e11cd0dd14b7081d03f15743a65"
+  },
+  "selectionCounts": [
+    0,
+    0
+  ],
+  "originalPlayhead": "00:00:00:00",
+  "baseSplitResult": {
+    "path": "independent-structural-sequence-20261001T203741.675640Z/split-review.json",
+    "sha256": "ad691ead1c4d6b18f1a5feb2cf70a5ce239f45d802ac7a4ab2fd74c649b5036c"
+  },
+  "baseRestoreResult": {
+    "path": "independent-structural-sequence-20261001T203741.675640Z/restoration.json",
+    "sha256": "2bcfef93a1f4bdda29fbfcd2630538ff2d1fcbd66ed7434529debabf8f084927"
+  },
+  "saveDispatched": false
+}

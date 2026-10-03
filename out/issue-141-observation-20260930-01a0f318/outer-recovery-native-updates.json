@@ -1,0 +1,15 @@
+{
+  "action": "render-outer-recovery",
+  "case": "R2-render-recovery",
+  "checkpointPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/mute-after-render-checkpoint.json",
+  "checkpointName": "mute-after-render-checkpoint.json",
+  "checkpointSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+  "originalAttemptPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z",
+  "originalBeforePairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/full-pair-004.json",
+  "originalAfterPairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/full-pair-005.json",
+  "originalBeforePairSha256": "1616fa7f512b1a23d4c2756d2246bef51ee9d085ba8c443170ad060c385949a4",
+  "originalAfterPairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+  "originalJournalSha256": "fb49271db7c20e78508bae7b1113e466fdc92a8e34fe6f92bb43db8fdba47ae4",
+  "originalXmlSha256": "a09abc4185e06b915620520745c682933674707394c02855fd7c30ff9bb087ce",
+  "journalPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/outer-restore-20261002T011949.373431Z/journal.jsonl"
+}

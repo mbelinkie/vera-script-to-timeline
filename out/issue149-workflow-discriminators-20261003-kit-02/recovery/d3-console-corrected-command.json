@@ -1,0 +1,13 @@
+{
+  "classification": "harness failure before helper execution",
+  "operatorOldRunnerLine": "earlier Console history per user",
+  "recovery": "explicit utf-8 in wrapper only",
+  "command": "exec(compile(open(\"REPOSITORY/docs/investigations/issue-149/workflow-discriminators/console-render.py\", encoding=\"utf-8\").read(), \"REPOSITORY/docs/investigations/issue-149/workflow-discriminators/console-render.py\", \"exec\"), dict(globals(), __file__=\"REPOSITORY/docs/investigations/issue-149/workflow-discriminators/console-render.py\", CONSOLE_CONFIG_PATH=\"REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/params/d3-console-render.json\"))",
+  "originalCommandSha256": "90868c02a1566cb5f672d785beff82f677b2fd42576145688d8a3e7a204992a6",
+  "configSha256": "ee05f7d1033c9b64fefaa1cc970a5cf1a9478c598075f82ebc3e89fd0011326c",
+  "helperSourceSha256": "48f8d3e5499cc4073f5c25fe70dfc3a2d88a04bc459cbe5bbba3783aa6ad90bb",
+  "nativeStateUnchangedSha256": "ff4ffeca6b63239d6f7faa98f8cf15d84506a8991cdd19a484d6ffbea2badce8",
+  "consoleReceiptAbsent": true,
+  "sameActionId": "d3-console-render-20261003-kit-02",
+  "capabilityResult": "still unrun"
+}

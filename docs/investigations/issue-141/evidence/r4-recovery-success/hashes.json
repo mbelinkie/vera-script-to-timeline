@@ -1,0 +1,63 @@
+{
+  "publishedArtifacts": {
+    "dispatch-events.jsonl": "b317c57e9bc090d7abd4df78e3451440177ce0c47cc7190ad3d3f9d43e9d23e0",
+    "installation-binding.json": "86d7ba1093975d70fc866dc58a465f19587994151c741f28a615a3d301bc970e",
+    "native-events.jsonl": "024a14e77ddb922c0db3ba24ced80c8887cbc6217e7d2c3fd5373afc84c86721",
+    "result-redacted.json": "c8f3e3f29950072edf9b34707c355eb6844417f29a4aba278b474e63d1356a5f",
+    "state-extract.json": "f23366cda27e38e7e631d143414b0e6c65681f3926b6c025aa3d76e3474db5fb",
+    "summary.json": "ad648aab5d0d83f8cf10ee4b282aa8193b55133d091eba68760b9a674ce60811"
+  },
+  "redaction": "Published extracts contain no private absolute media, output, or plugin paths. Complete raw inputs are retained in their original private locations and are SHA-256 bound here.",
+  "sourceEvidence": {
+    "dispatch": {
+      "bytes": 2503,
+      "filename": "hammerspoon-launch-20261001T014544.441585Z.jsonl",
+      "rawSha256": "d58285e625e5c528d54a54160a9ec0d3a3c950de3862db57b55ae30fa8c4ccdd"
+    },
+    "independentComparison": {
+      "bytes": 944,
+      "filename": "r4-recovery-independent-comparison.json",
+      "rawSha256": "08b38911580d9a7ddefdc491510aa1212161a495c2136f3880f4e654f1702a4b"
+    },
+    "installationBinding": {
+      "bytes": 1004,
+      "filename": "installation-r4-recovery.json",
+      "rawSha256": "6eab9f509968f0a0006d8876d1f580d9cca94403c28f544781739e3ce6416d81"
+    },
+    "launcherResult": {
+      "bytes": 2774,
+      "filename": "vera-issue-141-observation-result-20261001T014545.827951Z.json",
+      "rawSha256": "5ebbc0b18a124d9f88aac6b716f9c4eadd3348a95b7dfbf9e444e9a285d03c90"
+    },
+    "offlineCapture": {
+      "bytes": 4323614,
+      "filename": "capture-20261001T012446.349239Z.json",
+      "rawSha256": "c3cb459f1dd6736014e15f687141b58cb1af74722836cb724112d093011a9008"
+    },
+    "offlineComparison": {
+      "bytes": 3369,
+      "filename": "r4-offline-prefix-comparison.json",
+      "rawSha256": "acdb6f00bbe1e465b633de8d79413a3d2f91721c9d0b341a85aa14930dd93ea4"
+    },
+    "offlinePool": {
+      "bytes": 280018,
+      "filename": "r4-pool-read-only-20261001T012446.349239Z.json",
+      "rawSha256": "6af8465205951d5bb7157c46916de09f6d6577d6695a58224d0ab29bc960e596"
+    },
+    "recoveryJournal": {
+      "bytes": 4283808,
+      "filename": "r4-recovery-20261001T014545.846698Z.jsonl",
+      "rawSha256": "246398aaaaa3a03edf23d44d3140553b7358cde04a33b7cab92d88effac4e8c5"
+    },
+    "recoveryPostflight": {
+      "bytes": 4601554,
+      "filename": "r4-recovery-20261001T014545.846698Z-postflight.json",
+      "rawSha256": "406010344771fdd47c123bddeba6e043177f3f18f021781ee66cba779dbfb3ad"
+    },
+    "recoveryPreflight": {
+      "bytes": 4602201,
+      "filename": "r4-recovery-20261001T014545.846698Z-preflight.json",
+      "rawSha256": "c964b25730dddeec2642b6b3712bf4c6779e5c326f153144cd38d6f61a5ca7ee"
+    }
+  }
+}

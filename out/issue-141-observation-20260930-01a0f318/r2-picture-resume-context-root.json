@@ -1,0 +1,7 @@
+{
+  "detail": "RuntimeError: Exact approved editorial readback required",
+  "instruction": "Retain evidence and stop. Do not rerun preparation or change scripting mode.",
+  "status": "launcher-failed",
+  "_nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T191957.951889Z.json",
+  "_auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T191955.542743Z"
+}

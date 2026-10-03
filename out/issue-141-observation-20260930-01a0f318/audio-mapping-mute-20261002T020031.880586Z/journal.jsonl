@@ -1,0 +1,4 @@
+{"at": "2026-10-02T02:00:32.587618+00:00", "method": "Evidence", "phase": "pre-mutation", "value": {"beforeFullPair": "before-full-pair.json", "target": "target.json"}}
+{"at": "2026-10-02T02:00:32.588233+00:00", "method": "SetSourceAudioChannelMapping", "phase": "request", "value": {"mapping": {"embedded_audio_channels": 1, "linked_audio": {}, "track_mapping": {"1": {"channel_idx": [1], "mute": true, "type": "mono"}}}, "operation": "mute", "raw": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":true,\"type\":\"mono\"}}}"}}
+{"at": "2026-10-02T02:00:32.591053+00:00", "method": "SetSourceAudioChannelMapping", "phase": "return", "value": {"operation": "mute", "value": true}}
+{"at": "2026-10-02T02:00:50.794911+00:00", "method": "ReadPair", "phase": "return", "value": {"operation": "mute", "path": "after-muted-full-pair.json"}}

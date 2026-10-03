@@ -1,0 +1,10 @@
+{"actionId": "context-03-20261002-kit-01", "at": "2026-10-02T23:18:22.589741+00:00", "method": "harness", "phase": "started", "value": {"schemaVersion": "issue-149-workflow-reruns-v1"}}
+{"actionId": "context-03-20261002-kit-01", "at": "2026-10-02T23:18:22.590777+00:00", "method": "GetVersion", "phase": "request", "value": {"args": []}}
+{"actionId": "context-03-20261002-kit-01", "at": "2026-10-02T23:18:22.594021+00:00", "method": "GetVersion", "phase": "return", "value": {"status": "ok", "value": [21, 1, 1, 10, ""]}}
+{"actionId": "context-03-20261002-kit-01", "at": "2026-10-02T23:18:22.606056+00:00", "method": "GetProjectManager", "phase": "request", "value": {"args": []}}
+{"actionId": "context-03-20261002-kit-01", "at": "2026-10-02T23:18:22.608402+00:00", "method": "GetProjectManager", "phase": "return", "value": {"status": "ok", "value": {"__native_type__": "PyRemoteObject", "__repr__": "<BlackmagicFusion.PyRemoteObject object at 0x10f12bd70>"}}}
+{"actionId": "context-03-20261002-kit-01", "at": "2026-10-02T23:18:22.609066+00:00", "method": "GetCurrentProject", "phase": "request", "value": {"args": []}}
+{"actionId": "context-03-20261002-kit-01", "at": "2026-10-02T23:18:22.611646+00:00", "method": "GetCurrentProject", "phase": "return", "value": {"status": "ok", "value": {"__native_type__": "PyRemoteObject", "__repr__": "<BlackmagicFusion.PyRemoteObject object at 0x10f12ad70>"}}}
+{"actionId": "context-03-20261002-kit-01", "at": "2026-10-02T23:18:22.612225+00:00", "method": "GetName", "phase": "request", "value": {"args": []}}
+{"actionId": "context-03-20261002-kit-01", "at": "2026-10-02T23:18:22.627047+00:00", "method": "GetName", "phase": "return", "value": {"status": "ok", "value": "Untitled Project"}}
+{"actionId": "context-03-20261002-kit-01", "at": "2026-10-02T23:18:22.627682+00:00", "method": "harness", "phase": "finished", "value": {"status": "ok"}}

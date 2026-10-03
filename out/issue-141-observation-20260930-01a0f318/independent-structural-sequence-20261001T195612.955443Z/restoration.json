@@ -1,0 +1,5 @@
+{
+  "detail": "RuntimeError: Hash-pinned R2 second-position result is invalid",
+  "instruction": "Retain evidence and stop. Do not rerun preparation or change scripting mode.",
+  "status": "launcher-failed"
+}

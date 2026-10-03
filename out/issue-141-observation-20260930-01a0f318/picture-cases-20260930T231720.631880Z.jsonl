@@ -1,0 +1,135 @@
+{"at": "2026-09-30T23:17:23.801169+00:00", "method": "GetCurrentTimecode", "phase": "request", "value": []}
+{"at": "2026-09-30T23:17:23.801866+00:00", "method": "GetCurrentTimecode", "phase": "return", "value": "00:06:08:00"}
+{"at": "2026-09-30T23:17:23.803171+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T23:17:23.803494+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T23:17:26.430578+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T23:17:26.451015+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:29.273116+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T23:17:29.273512+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T23:17:29.274876+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": ["00:04:01:24"]}
+{"at": "2026-09-30T23:17:29.303461+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:29.375929+00:00", "method": "playhead/page readback", "phase": "return", "value": {"page": "edit", "timecode": "00:04:01:24"}}
+{"at": "2026-09-30T23:17:29.393013+00:00", "method": "ExportCurrentFrameAsStill", "phase": "request", "value": ["REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/opaque-enabled-local-049.png"]}
+{"at": "2026-09-30T23:17:29.476629+00:00", "method": "ExportCurrentFrameAsStill", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:29.512604+00:00", "method": "ExportCurrentFrameAsStill(output)", "phase": "readback", "value": {"case": "opaque", "localFrame": 49, "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/opaque-enabled-local-049.png", "pngHeaderHex": "89504e470d0a1a0a", "pngHeaderMatches": true, "resolvePage": "edit", "sha256": "59577f153ad8314066328bf572b2c66afa9338a99c1ab2a6e94b9630418200db", "size": 6231977, "timecode": "00:04:01:24", "timelineFrame": 6049}}
+{"at": "2026-09-30T23:17:29.526070+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T23:17:29.526469+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T23:17:29.527810+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": ["00:04:02:00"]}
+{"at": "2026-09-30T23:17:29.804410+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:29.820045+00:00", "method": "playhead/page readback", "phase": "return", "value": {"page": "edit", "timecode": "00:04:02:00"}}
+{"at": "2026-09-30T23:17:29.831975+00:00", "method": "ExportCurrentFrameAsStill", "phase": "request", "value": ["REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/opaque-enabled-local-050.png"]}
+{"at": "2026-09-30T23:17:29.899541+00:00", "method": "ExportCurrentFrameAsStill", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:29.924117+00:00", "method": "ExportCurrentFrameAsStill(output)", "phase": "readback", "value": {"case": "opaque", "localFrame": 50, "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/opaque-enabled-local-050.png", "pngHeaderHex": "89504e470d0a1a0a", "pngHeaderMatches": true, "resolvePage": "edit", "sha256": "e2cdc8e3774a245017d60ea61915061e344e99be7f4c888c6612946c06ef25b0", "size": 6231977, "timecode": "00:04:02:00", "timelineFrame": 6050}}
+{"at": "2026-09-30T23:17:29.935951+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T23:17:29.936272+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T23:17:29.937313+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": ["00:04:03:23"]}
+{"at": "2026-09-30T23:17:30.305682+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:30.321561+00:00", "method": "playhead/page readback", "phase": "return", "value": {"page": "edit", "timecode": "00:04:03:23"}}
+{"at": "2026-09-30T23:17:30.334195+00:00", "method": "ExportCurrentFrameAsStill", "phase": "request", "value": ["REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/opaque-enabled-local-098.png"]}
+{"at": "2026-09-30T23:17:30.416565+00:00", "method": "ExportCurrentFrameAsStill", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:30.443404+00:00", "method": "ExportCurrentFrameAsStill(output)", "phase": "readback", "value": {"case": "opaque", "localFrame": 98, "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/opaque-enabled-local-098.png", "pngHeaderHex": "89504e470d0a1a0a", "pngHeaderMatches": true, "resolvePage": "edit", "sha256": "d137627c45208d6b35452e368837aaf0bbf24a4d5267228d3c6abb7198e5c545", "size": 6231977, "timecode": "00:04:03:23", "timelineFrame": 6098}}
+{"at": "2026-09-30T23:17:30.456842+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T23:17:30.457310+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T23:17:30.458703+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": ["00:04:03:24"]}
+{"at": "2026-09-30T23:17:30.806125+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:30.823576+00:00", "method": "playhead/page readback", "phase": "return", "value": {"page": "edit", "timecode": "00:04:03:24"}}
+{"at": "2026-09-30T23:17:30.835331+00:00", "method": "ExportCurrentFrameAsStill", "phase": "request", "value": ["REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/opaque-enabled-local-099.png"]}
+{"at": "2026-09-30T23:17:30.901202+00:00", "method": "ExportCurrentFrameAsStill", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:30.925563+00:00", "method": "ExportCurrentFrameAsStill(output)", "phase": "readback", "value": {"case": "opaque", "localFrame": 99, "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/opaque-enabled-local-099.png", "pngHeaderHex": "89504e470d0a1a0a", "pngHeaderMatches": true, "resolvePage": "edit", "sha256": "59577f153ad8314066328bf572b2c66afa9338a99c1ab2a6e94b9630418200db", "size": 6231977, "timecode": "00:04:03:24", "timelineFrame": 6099}}
+{"at": "2026-09-30T23:17:30.937142+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T23:17:30.937412+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T23:17:30.938517+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": ["00:04:04:00"]}
+{"at": "2026-09-30T23:17:31.306165+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:31.322777+00:00", "method": "playhead/page readback", "phase": "return", "value": {"page": "edit", "timecode": "00:04:04:00"}}
+{"at": "2026-09-30T23:17:31.334614+00:00", "method": "ExportCurrentFrameAsStill", "phase": "request", "value": ["REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/opaque-enabled-local-100.png"]}
+{"at": "2026-09-30T23:17:31.402962+00:00", "method": "ExportCurrentFrameAsStill", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:31.428534+00:00", "method": "ExportCurrentFrameAsStill(output)", "phase": "readback", "value": {"case": "opaque", "localFrame": 100, "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/opaque-enabled-local-100.png", "pngHeaderHex": "89504e470d0a1a0a", "pngHeaderMatches": true, "resolvePage": "edit", "sha256": "df279bd4bb106145f2db92a63775e81aba1cf332ccd34cb73ef27b2f4430acda", "size": 6231977, "timecode": "00:04:04:00", "timelineFrame": 6100}}
+{"at": "2026-09-30T23:17:34.082949+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T23:17:34.087559+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:37.020585+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T23:17:37.020976+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T23:17:37.022205+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": ["00:04:02:00"]}
+{"at": "2026-09-30T23:17:37.025022+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:37.042224+00:00", "method": "playhead/page readback", "phase": "return", "value": {"page": "edit", "timecode": "00:04:02:00"}}
+{"at": "2026-09-30T23:17:37.057118+00:00", "method": "ExportCurrentFrameAsStill", "phase": "request", "value": ["REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/opaque-disabled-local-050.png"]}
+{"at": "2026-09-30T23:17:37.166866+00:00", "method": "ExportCurrentFrameAsStill", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:37.207423+00:00", "method": "ExportCurrentFrameAsStill(output)", "phase": "readback", "value": {"case": "opaque", "localFrame": 50, "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/opaque-disabled-local-050.png", "pngHeaderHex": "89504e470d0a1a0a", "pngHeaderMatches": true, "resolvePage": "edit", "sha256": "a201fea43e7d136f52cf45f84833e2fa8f8473eac2c414f2a730f4a5d8148702", "size": 6231977, "timecode": "00:04:02:00", "timelineFrame": 6050}}
+{"at": "2026-09-30T23:17:39.754378+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T23:17:39.759297+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:42.710784+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T23:17:42.711160+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T23:17:42.712514+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": ["00:04:22:24"]}
+{"at": "2026-09-30T23:17:42.722702+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:42.747583+00:00", "method": "playhead/page readback", "phase": "return", "value": {"page": "edit", "timecode": "00:04:22:24"}}
+{"at": "2026-09-30T23:17:42.761038+00:00", "method": "ExportCurrentFrameAsStill", "phase": "request", "value": ["REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/transparent-enabled-local-074.png"]}
+{"at": "2026-09-30T23:17:42.848989+00:00", "method": "ExportCurrentFrameAsStill", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:42.882667+00:00", "method": "ExportCurrentFrameAsStill(output)", "phase": "readback", "value": {"case": "transparent", "localFrame": 74, "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/transparent-enabled-local-074.png", "pngHeaderHex": "89504e470d0a1a0a", "pngHeaderMatches": true, "resolvePage": "edit", "sha256": "a201fea43e7d136f52cf45f84833e2fa8f8473eac2c414f2a730f4a5d8148702", "size": 6231977, "timecode": "00:04:22:24", "timelineFrame": 6574}}
+{"at": "2026-09-30T23:17:42.892627+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T23:17:42.892969+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T23:17:42.894680+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": ["00:04:23:00"]}
+{"at": "2026-09-30T23:17:43.224873+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:43.238430+00:00", "method": "playhead/page readback", "phase": "return", "value": {"page": "edit", "timecode": "00:04:23:00"}}
+{"at": "2026-09-30T23:17:43.249811+00:00", "method": "ExportCurrentFrameAsStill", "phase": "request", "value": ["REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/transparent-enabled-local-075.png"]}
+{"at": "2026-09-30T23:17:43.328651+00:00", "method": "ExportCurrentFrameAsStill", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:43.354409+00:00", "method": "ExportCurrentFrameAsStill(output)", "phase": "readback", "value": {"case": "transparent", "localFrame": 75, "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/transparent-enabled-local-075.png", "pngHeaderHex": "89504e470d0a1a0a", "pngHeaderMatches": true, "resolvePage": "edit", "sha256": "5633d51dc1947ac488354ee5b8c759754ef215e2133c14ff0c7abba8c09a8a8e", "size": 6231977, "timecode": "00:04:23:00", "timelineFrame": 6575}}
+{"at": "2026-09-30T23:17:43.366475+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T23:17:43.366862+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T23:17:43.368271+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": ["00:04:27:23"]}
+{"at": "2026-09-30T23:17:43.724389+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:43.734992+00:00", "method": "playhead/page readback", "phase": "return", "value": {"page": "edit", "timecode": "00:04:27:23"}}
+{"at": "2026-09-30T23:17:43.745770+00:00", "method": "ExportCurrentFrameAsStill", "phase": "request", "value": ["REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/transparent-enabled-local-198.png"]}
+{"at": "2026-09-30T23:17:43.827552+00:00", "method": "ExportCurrentFrameAsStill", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:43.853499+00:00", "method": "ExportCurrentFrameAsStill(output)", "phase": "readback", "value": {"case": "transparent", "localFrame": 198, "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/transparent-enabled-local-198.png", "pngHeaderHex": "89504e470d0a1a0a", "pngHeaderMatches": true, "resolvePage": "edit", "sha256": "50977b2412736d415f136a512e57d380f1c50b5ca4c2006efd7bf36918a55e43", "size": 6231977, "timecode": "00:04:27:23", "timelineFrame": 6698}}
+{"at": "2026-09-30T23:17:43.868266+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T23:17:43.868645+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T23:17:43.869883+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": ["00:04:27:24"]}
+{"at": "2026-09-30T23:17:44.224579+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:44.237537+00:00", "method": "playhead/page readback", "phase": "return", "value": {"page": "edit", "timecode": "00:04:27:24"}}
+{"at": "2026-09-30T23:17:44.247554+00:00", "method": "ExportCurrentFrameAsStill", "phase": "request", "value": ["REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/transparent-enabled-local-199.png"]}
+{"at": "2026-09-30T23:17:44.321799+00:00", "method": "ExportCurrentFrameAsStill", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:44.346427+00:00", "method": "ExportCurrentFrameAsStill(output)", "phase": "readback", "value": {"case": "transparent", "localFrame": 199, "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/transparent-enabled-local-199.png", "pngHeaderHex": "89504e470d0a1a0a", "pngHeaderMatches": true, "resolvePage": "edit", "sha256": "4a800765c6cafed4de631d0d300e169373c5ff08b52d730d12ffd44923342255", "size": 6231977, "timecode": "00:04:27:24", "timelineFrame": 6699}}
+{"at": "2026-09-30T23:17:44.363973+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T23:17:44.364512+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T23:17:44.365983+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": ["00:04:28:00"]}
+{"at": "2026-09-30T23:17:44.724994+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:44.739006+00:00", "method": "playhead/page readback", "phase": "return", "value": {"page": "edit", "timecode": "00:04:28:00"}}
+{"at": "2026-09-30T23:17:44.749277+00:00", "method": "ExportCurrentFrameAsStill", "phase": "request", "value": ["REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/transparent-enabled-local-200.png"]}
+{"at": "2026-09-30T23:17:44.824207+00:00", "method": "ExportCurrentFrameAsStill", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:44.851130+00:00", "method": "ExportCurrentFrameAsStill(output)", "phase": "readback", "value": {"case": "transparent", "localFrame": 200, "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/transparent-enabled-local-200.png", "pngHeaderHex": "89504e470d0a1a0a", "pngHeaderMatches": true, "resolvePage": "edit", "sha256": "4ffe68970e56db313fa07e6054e22a0568ad00d86ff75236f152968979ad219c", "size": 6231977, "timecode": "00:04:28:00", "timelineFrame": 6700}}
+{"at": "2026-09-30T23:17:47.393936+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T23:17:47.397270+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:50.422690+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T23:17:50.423115+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T23:17:50.424466+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": ["00:04:23:00"]}
+{"at": "2026-09-30T23:17:50.437454+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:50.481955+00:00", "method": "playhead/page readback", "phase": "return", "value": {"page": "edit", "timecode": "00:04:23:00"}}
+{"at": "2026-09-30T23:17:50.492058+00:00", "method": "ExportCurrentFrameAsStill", "phase": "request", "value": ["REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/transparent-disabled-local-075.png"]}
+{"at": "2026-09-30T23:17:50.563564+00:00", "method": "ExportCurrentFrameAsStill", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:50.588697+00:00", "method": "ExportCurrentFrameAsStill(output)", "phase": "readback", "value": {"case": "transparent", "localFrame": 75, "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/transparent-disabled-local-075.png", "pngHeaderHex": "89504e470d0a1a0a", "pngHeaderMatches": true, "resolvePage": "edit", "sha256": "59577f153ad8314066328bf572b2c66afa9338a99c1ab2a6e94b9630418200db", "size": 6231977, "timecode": "00:04:23:00", "timelineFrame": 6575}}
+{"at": "2026-09-30T23:17:53.173055+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T23:17:53.180059+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T23:17:58.696167+00:00", "method": "SetProperties", "phase": "request", "value": [{"Opacity": 25.0}]}
+{"at": "2026-09-30T23:17:58.704913+00:00", "method": "SetProperties", "phase": "return", "value": true}
+{"at": "2026-09-30T23:18:01.419699+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T23:18:01.420127+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T23:18:01.421439+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": ["00:04:43:00"]}
+{"at": "2026-09-30T23:18:01.434861+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}
+{"at": "2026-09-30T23:18:01.469306+00:00", "method": "playhead/page readback", "phase": "return", "value": {"page": "edit", "timecode": "00:04:43:00"}}
+{"at": "2026-09-30T23:18:01.480614+00:00", "method": "ExportCurrentFrameAsStill", "phase": "request", "value": ["REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/effect-opacity-25-local-075.png"]}
+{"at": "2026-09-30T23:18:01.560001+00:00", "method": "ExportCurrentFrameAsStill", "phase": "return", "value": true}
+{"at": "2026-09-30T23:18:01.584945+00:00", "method": "ExportCurrentFrameAsStill(output)", "phase": "readback", "value": {"case": "effect", "localFrame": 75, "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/effect-opacity-25-local-075.png", "pngHeaderHex": "89504e470d0a1a0a", "pngHeaderMatches": true, "resolvePage": "edit", "sha256": "d87333808a987a0c2945f690da9ec0240e67bbe0a6a12923cbc9e594926d621a", "size": 6231977, "timecode": "00:04:43:00", "timelineFrame": 7075}}
+{"at": "2026-09-30T23:18:01.596891+00:00", "method": "GetCurrentPage", "phase": "request", "value": []}
+{"at": "2026-09-30T23:18:01.597302+00:00", "method": "GetCurrentPage", "phase": "return", "value": "edit"}
+{"at": "2026-09-30T23:18:01.598632+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": ["00:04:44:00"]}
+{"at": "2026-09-30T23:18:01.936064+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}
+{"at": "2026-09-30T23:18:01.947009+00:00", "method": "playhead/page readback", "phase": "return", "value": {"page": "edit", "timecode": "00:04:44:00"}}
+{"at": "2026-09-30T23:18:01.957688+00:00", "method": "ExportCurrentFrameAsStill", "phase": "request", "value": ["REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/effect-opacity-25-local-100.png"]}
+{"at": "2026-09-30T23:18:02.032120+00:00", "method": "ExportCurrentFrameAsStill", "phase": "return", "value": true}
+{"at": "2026-09-30T23:18:02.057065+00:00", "method": "ExportCurrentFrameAsStill(output)", "phase": "readback", "value": {"case": "effect", "localFrame": 100, "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/picture-cases-20260930T231720.631880Z/effect-opacity-25-local-100.png", "pngHeaderHex": "89504e470d0a1a0a", "pngHeaderMatches": true, "resolvePage": "edit", "sha256": "c8490b4855967e721493e4873362caa3b6c40d9842a860d47472bf60a0c448f3", "size": 6231977, "timecode": "00:04:44:00", "timelineFrame": 7100}}
+{"at": "2026-09-30T23:18:04.773721+00:00", "method": "SetProperties", "phase": "request", "value": [{"Opacity": 100.0}]}
+{"at": "2026-09-30T23:18:04.777343+00:00", "method": "SetProperties", "phase": "return", "value": true}
+{"at": "2026-09-30T23:18:10.181651+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T23:18:10.194479+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T23:18:20.883041+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": ["00:06:08:00"]}
+{"at": "2026-09-30T23:18:20.887495+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}
+{"at": "2026-09-30T23:18:20.896659+00:00", "method": "timecode restoration", "phase": "readback", "value": {"matchesInitial": true, "page": "edit", "timecode": "00:06:08:00"}}

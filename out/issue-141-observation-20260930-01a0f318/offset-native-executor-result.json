@@ -1,0 +1,185 @@
+{
+  "actualFinalPair": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-offset-context-20261001T205629.518751Z/pair.json",
+    "sha256": "7a7d0db1be976dd4e3463e1231a7e00923318742188c0a107c8fc0962085b40d"
+  },
+  "driverSha256": "32cf22767836b70bef76146becd27237bf4b837118105ea32a7f8e4149c3cc91",
+  "finalReadback": {
+    "environment": {
+      "productName": "DaVinci Resolve Studio",
+      "python": "3.14.7",
+      "version": [
+        21,
+        1,
+        0,
+        14,
+        ""
+      ]
+    },
+    "failure": null,
+    "label": "r2-offset-context",
+    "limits": [
+      "External menu result requires separate full-state interpretation."
+    ],
+    "pair": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-offset-context-20261001T205629.518751Z/pair.json",
+      "sha256": "7a7d0db1be976dd4e3463e1231a7e00923318742188c0a107c8fc0962085b40d"
+    },
+    "readOnly": true,
+    "renderFormatPasses": [
+      {
+        "codec": "H264",
+        "format": "mov"
+      },
+      {
+        "codec": "H264",
+        "format": "mov"
+      },
+      {
+        "codec": "H264",
+        "format": "mov"
+      },
+      {
+        "codec": "H264",
+        "format": "mov"
+      },
+      {
+        "codec": "H264",
+        "format": "mov"
+      },
+      {
+        "codec": "H264",
+        "format": "mov"
+      },
+      {
+        "codec": "H264",
+        "format": "mov"
+      }
+    ],
+    "selectionPasses": [
+      {
+        "items": [],
+        "playhead": "00:03:02:10"
+      },
+      {
+        "items": [],
+        "playhead": "00:03:02:10"
+      }
+    ],
+    "selectionShapes": [
+      {
+        "count": 0,
+        "type": "list"
+      },
+      {
+        "count": 0,
+        "type": "list"
+      }
+    ],
+    "status": "editorial-readback-retained"
+  },
+  "finalReadbackReference": {
+    "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T205629.482947Z.json",
+    "sha256": "2cdb8599cbaeba7b5bff909597b94038165c900e83fe3ace049ed8da7bbd6326"
+  },
+  "finalSelectionPasses": [
+    {
+      "items": [],
+      "playhead": "00:03:02:10"
+    },
+    {
+      "items": [],
+      "playhead": "00:03:02:10"
+    }
+  ],
+  "finalSelectionShapes": [
+    {
+      "count": 0,
+      "type": "list"
+    },
+    {
+      "count": 0,
+      "type": "list"
+    }
+  ],
+  "nativeResultReferences": {
+    "deselected": {
+      "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T205549.548236Z.json",
+      "sha256": "801a796c804e71efcb66f4212d23c4303adda69640e646eb9dfe219912b0ba94"
+    },
+    "edited": {
+      "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T205608.072425Z.json",
+      "sha256": "68e89aea3851be8015a26f2a3d7f8794edc1294865496cdaa51223587f4e26e2"
+    },
+    "finalReadback": {
+      "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T205629.482947Z.json",
+      "sha256": "2cdb8599cbaeba7b5bff909597b94038165c900e83fe3ace049ed8da7bbd6326"
+    },
+    "restoration": {
+      "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T205616.272314Z.json",
+      "sha256": "854365597ee3ae7055f6f2b487449e4db482ac2a27a35d8a36911b3b69ce4169"
+    },
+    "selected": {
+      "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T205558.804145Z.json",
+      "sha256": "3eb5fd0ea5b451dea30d3f15ba6ad4439c0f70e2efa9c5e1e80728f29b9b6156"
+    }
+  },
+  "originalPlayhead": "00:03:02:10 (both final readback passes)",
+  "parsedStdout": {
+    "case": "R2-offset",
+    "deselectedLabel": "r2-offset-deselected",
+    "editedLabel": "r2-offset-edited",
+    "editedPair": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-offset-edited-20261001T205608.106877Z/pair.json",
+      "sha256": "1776c9c16a6c15281b7bcf73b798a7e3afc2ac2f56578b4281177df9b5ebe5d6"
+    },
+    "finalPair": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-offset-context-20261001T205629.518751Z/pair.json",
+      "sha256": "7a7d0db1be976dd4e3463e1231a7e00923318742188c0a107c8fc0962085b40d"
+    },
+    "nativeResults": {
+      "deselected": {
+        "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T205549.548236Z.json",
+        "sha256": "801a796c804e71efcb66f4212d23c4303adda69640e646eb9dfe219912b0ba94"
+      },
+      "edited": {
+        "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T205608.072425Z.json",
+        "sha256": "68e89aea3851be8015a26f2a3d7f8794edc1294865496cdaa51223587f4e26e2"
+      },
+      "finalReadback": {
+        "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T205629.482947Z.json",
+        "sha256": "2cdb8599cbaeba7b5bff909597b94038165c900e83fe3ace049ed8da7bbd6326"
+      },
+      "restoration": {
+        "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T205616.272314Z.json",
+        "sha256": "854365597ee3ae7055f6f2b487449e4db482ac2a27a35d8a36911b3b69ce4169"
+      },
+      "selected": {
+        "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T205558.804145Z.json",
+        "sha256": "3eb5fd0ea5b451dea30d3f15ba6ad4439c0f70e2efa9c5e1e80728f29b9b6156"
+      }
+    },
+    "preparation": {
+      "path": "independent-offset-sequence-20261001T205536.461161Z/preparation.json",
+      "sha256": "377723566e175fc8f7425cc7fe4bbd11455f0f830e9bfd1ddbb30d24e7da228a"
+    },
+    "priorPair": {
+      "path": "r2-residual-first-split-20261001T204958.666231Z/pair.json",
+      "sha256": "25e099754cecdc0c165b01a12a9d4e1a35f32b4b1c5f4d37a4791d19de30faff"
+    },
+    "restoredLabel": "r2-offset-context",
+    "restoredPair": {
+      "path": "editorial-case-20261001T205619.752079Z/after.json",
+      "sha256": "7a7d0db1be976dd4e3463e1231a7e00923318742188c0a107c8fc0962085b40d"
+    },
+    "saveDispatched": false,
+    "selectedLabel": "r2-offset-selected",
+    "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+    "status": "offset-sequence-complete",
+    "targetUid": "f0b986dd-b580-42f9-a7f8-ba464cca7076"
+  },
+  "saveDispatched": false,
+  "stderrPath": "offset-native-stderr.txt",
+  "stdoutPath": "offset-native-stdout.json",
+  "terminalReturnCode": 0
+}

@@ -1,0 +1,69 @@
+{
+  "currentPage": {
+    "state": "value",
+    "value": "edit"
+  },
+  "currentTimeline": {
+    "getter": {
+      "state": "value",
+      "value": {
+        "repr": "<BlackmagicFusion.PyRemoteObject object at 0x1111826d0>",
+        "serializationError": "AttributeError: 'NoneType' object has no attribute '__name__'",
+        "unserializableType": "PyRemoteObject"
+      }
+    },
+    "identity": {
+      "GetName": {
+        "state": "value",
+        "value": "VERA 141 Batched Matrix"
+      },
+      "GetUniqueId": {
+        "state": "value",
+        "value": "29ae8331-b86e-4041-a548-960695cc7b24"
+      }
+    }
+  },
+  "formatCodec": {
+    "state": "value",
+    "value": {
+      "codec": "H264",
+      "format": "mov"
+    }
+  },
+  "jobs": {
+    "state": "value",
+    "value": []
+  },
+  "playhead": {
+    "state": "value",
+    "value": "00:00:00:00"
+  },
+  "productName": {
+    "state": "value",
+    "value": "DaVinci Resolve Studio"
+  },
+  "project": {
+    "GetName": {
+      "state": "value",
+      "value": "VERA Issue 141 Synthetic Probe 20260930-01a0f318"
+    },
+    "GetUniqueId": {
+      "state": "value",
+      "value": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0"
+    }
+  },
+  "rendering": {
+    "state": "value",
+    "value": false
+  },
+  "version": {
+    "state": "value",
+    "value": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  }
+}

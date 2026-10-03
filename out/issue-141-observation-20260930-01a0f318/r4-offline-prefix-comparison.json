@@ -1,0 +1,94 @@
+{
+  "timelineDifferences": [
+    {
+      "path": "/timelines/1/tracks/0/items/0/GetMediaPoolItem/GetClipProperty/value/File Path",
+      "before": "REPOSITORY/out/issue-141-media-20260930-01a0f318/relink/base.mov",
+      "after": "OFFLINE - REPOSITORY/out/issue-141-media-20260930-01a0f318/relink/base.mov"
+    },
+    {
+      "path": "/timelines/1/tracks/0/items/0/GetMediaPoolItem/GetClipProperty/value/Online Status",
+      "before": "Online",
+      "after": "Offline"
+    },
+    {
+      "path": "/timelines/1/tracks/0/items/0/GetMediaPoolItem/sourceBytes/approvedLocator",
+      "before": {
+        "MISSING": true
+      },
+      "after": "REPOSITORY/out/issue-141-media-20260930-01a0f318/relink/base.mov"
+    },
+    {
+      "path": "/timelines/1/tracks/0/items/0/GetMediaPoolItem/sourceBytes/expectedSha256",
+      "before": {
+        "MISSING": true
+      },
+      "after": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942"
+    },
+    {
+      "path": "/timelines/1/tracks/0/items/0/GetMediaPoolItem/sourceBytes/hashMatches",
+      "before": true,
+      "after": {
+        "MISSING": true
+      }
+    },
+    {
+      "path": "/timelines/1/tracks/0/items/0/GetMediaPoolItem/sourceBytes/sha256",
+      "before": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+      "after": {
+        "MISSING": true
+      }
+    },
+    {
+      "path": "/timelines/1/tracks/0/items/0/GetMediaPoolItem/sourceBytes/status",
+      "before": "reachable",
+      "after": "offline-locator-not-accessed"
+    }
+  ],
+  "poolDifferences": [
+    {
+      "path": "/items/8/evidence/GetClipProperty/value/File Path",
+      "before": "REPOSITORY/out/issue-141-media-20260930-01a0f318/relink/base.mov",
+      "after": "OFFLINE - REPOSITORY/out/issue-141-media-20260930-01a0f318/relink/base.mov"
+    },
+    {
+      "path": "/items/8/evidence/GetClipProperty/value/Online Status",
+      "before": "Online",
+      "after": "Offline"
+    },
+    {
+      "path": "/items/8/evidence/sourceBytes/approvedLocator",
+      "before": {
+        "MISSING": true
+      },
+      "after": "REPOSITORY/out/issue-141-media-20260930-01a0f318/relink/base.mov"
+    },
+    {
+      "path": "/items/8/evidence/sourceBytes/expectedSha256",
+      "before": {
+        "MISSING": true
+      },
+      "after": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942"
+    },
+    {
+      "path": "/items/8/evidence/sourceBytes/hashMatches",
+      "before": true,
+      "after": {
+        "MISSING": true
+      }
+    },
+    {
+      "path": "/items/8/evidence/sourceBytes/sha256",
+      "before": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+      "after": {
+        "MISSING": true
+      }
+    },
+    {
+      "path": "/items/8/evidence/sourceBytes/status",
+      "before": "reachable",
+      "after": "offline-locator-not-accessed"
+    }
+  ],
+  "captureSha256": "c3cb459f1dd6736014e15f687141b58cb1af74722836cb724112d093011a9008",
+  "poolSha256": "6af8465205951d5bb7157c46916de09f6d6577d6695a58224d0ab29bc960e596"
+}

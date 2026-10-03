@@ -1,0 +1,28 @@
+{
+  "kind": "staged-bounded-picture-case-exports-not-executed",
+  "stagedAt": "2026-09-30T23:17:02.090810+00:00",
+  "action": "picture-cases",
+  "stage": "R3-opaque-transparent-opacity",
+  "probeSha256": "09c8c90a647953e010aadb37b5a24090a5bf373e2a91d337595dd1346264566f",
+  "launcherSha256": "0190824d3f2fabe10dcbfbc20ba50bb3b4a405904f7d2c74037ee29ffb539ba1",
+  "privateConfigSha256": "80a2db3dda4cd3dcf6b88565cdb49f67eabbd144df9ef7a058f684c854172bfd",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "guardEvidence": [
+    {
+      "filename": "capture-20260930T223313.312609Z-saved.json",
+      "sha256": "a29402d405ab8cf1bc1abedd4c1ed0c479e983e2ef3ba6fc41d1c2389d6d36d2"
+    }
+  ],
+  "timelineId": "29ae8331-b86e-4041-a548-960695cc7b24",
+  "exportCount": 14,
+  "contentSetterCount": 8,
+  "allowedApiMutations": [
+    "SetClipEnabled",
+    "SetProperties(Opacity)",
+    "SetCurrentTimecode",
+    "ExportCurrentFrameAsStill"
+  ],
+  "failureLimit": "Stop experiment, retain captures and restore only exact target identities; no retry or save.",
+  "privatePathsPublished": false
+}

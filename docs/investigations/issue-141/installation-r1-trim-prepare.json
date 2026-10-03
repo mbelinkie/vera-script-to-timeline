@@ -1,0 +1,15 @@
+{
+  "kind": "approved-r1-trim-preparation",
+  "stagedAt": "2026-10-01T05:48:28.199268+00:00",
+  "probeSha256": "ea4ef2e6681e0efa0efd74b688400e22ab954f857d9332d0c5c05ed71d52c2dd",
+  "moduleSha256": "10a07f7fd8b56b1e438ecd37126e7d0f4f09cf36b661bc57687227677377b777",
+  "privateConfigSha256": "d7260c0d7928e0914bd061852f715509d849264841417844c27ce06628ea618a",
+  "priorPairSha256": "8be8fc612618e874241f90b693a4c7a732e4eb0fbdd3de4afe17cd2756df82ff",
+  "allowedNativeMutations": [
+    "lock V2/V3/A2/A3",
+    "set Matrix playhead current captured end minus25"
+  ],
+  "menuCommandDispatched": false,
+  "retryAllowed": false,
+  "stopOnUnrelatedDrift": true
+}

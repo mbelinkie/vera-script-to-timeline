@@ -1,0 +1,19 @@
+{
+  "action": "native-matrix",
+  "captures": [
+    {
+      "capturePath": "<probe-output>/capture-20260930T214915.543545Z-preflight.json",
+      "sha256": "a4d467287070c7957d419ea0a913b4a9c5bd84c187ad7505266c1b5cc730de11",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T214915.543545Z-failure-postflight.json",
+      "sha256": "25dd91bdc97dabbe22956bad25b2e1c2698620de344237aae2a20347acb91335",
+      "status": "equal-adjacent-reads"
+    }
+  ],
+  "failure": "RuntimeError: Media pool items are unreadable; refusing",
+  "instruction": "Retain the partial matrix and evidence; do not rerun or clean up.",
+  "journal": "<probe-output>/native-matrix-20260930T214915.543545Z.jsonl",
+  "status": "matrix-partial-refused"
+}

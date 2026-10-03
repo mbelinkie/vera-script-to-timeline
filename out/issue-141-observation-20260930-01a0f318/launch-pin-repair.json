@@ -1,0 +1,9 @@
+{
+  "nativeHelperSha256": "d0b1d7fa36a8e3ba452feba4b2488f5695bc3546370523cbd44592ad11f0e88d",
+  "driverSha256": "4132ab08e677269a9eaf33e0d5deab1422599d46f929f7dd2d19e24c582c74a7",
+  "macroPins": {
+    "hammerspoon-launch.lua": "f92cc1b6e5bd7e0611bf94aa9a7262f3c14936de03fc5072e1c0100593cd461d",
+    "hammerspoon-editorial.lua": "47b6ec354c00e3ef1296a70c29e8846e1661fef692177d90bc96f27ba5b6bc6d"
+  },
+  "localCheck": "independent-native-call --check passed, including both real macro source hashes and input refusals"
+}

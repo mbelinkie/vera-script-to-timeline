@@ -1,0 +1,40 @@
+{
+  "beforeCapture": {
+    "consistency": "equal-adjacent-reads",
+    "filename": "before.json",
+    "passesEqual": true,
+    "passesEqualStable234711Capture": true,
+    "sha256": "3a51b4dc54c323e9d310a01a114f02128b3e2aeeea681391081a7494d4b42f16"
+  },
+  "capabilityGettersReached": false,
+  "failureDetail": "RuntimeError: Live preflight differs from saved Matrix pin",
+  "journalPhases": [
+    {
+      "method": "OutputDiscovery",
+      "phase": "start"
+    },
+    {
+      "method": "Preflight",
+      "phase": "readback"
+    }
+  ],
+  "kind": "program-output-discovery-preflight-refusal",
+  "limits": [
+    "This refusal provides no evidence of output-capability availability or failure.",
+    "No Resolve capability getter was reached during this attempt."
+  ],
+  "rawSha256": {
+    "before.json": "3a51b4dc54c323e9d310a01a114f02128b3e2aeeea681391081a7494d4b42f16",
+    "hammerspoon-launch-20261001T000227.533171Z.jsonl": "84381614b9c93b9353ef0b4a63b68d7beb57eb98499e3f87f11c1a2f5cf75202",
+    "journal.jsonl": "3453936afde7e0ce656bfb14f81524ff063e2ab8e547a942afc614b10efdb938",
+    "refusal.json": "a32116ec7194cacfe5fd4ba8d5f062bc2f61849ab726008d3e8a3dfb509b2071",
+    "vera-issue-141-observation-result-20261001T000229.499197Z.json": "20792f326d260a822a5e55681c90cc3212aca8920a026b47fa24b1310f93449c"
+  },
+  "resultStatus": "launcher-failed",
+  "scope": "Representation mismatch in live-versus-persisted preflight; no capability result was obtained.",
+  "stableReadOnlyCapture": {
+    "consistency": "equal-adjacent-reads",
+    "filename": "capture-20260930T234711.275916Z.json",
+    "sha256": "3d08f757c8e188bbc5c1584158f5ea29c23f5bb7745bf01bd5de42c6d6436a46"
+  }
+}

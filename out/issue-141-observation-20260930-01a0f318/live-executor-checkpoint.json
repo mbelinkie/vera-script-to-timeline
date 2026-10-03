@@ -1,0 +1,19 @@
+{
+  "status": "local-work-confirmed-live",
+  "nativeRunning": false,
+  "nativeCompleted": [
+    "R2-picture",
+    "R2-partial"
+  ],
+  "nativeStopped": "R3-Graphic preparation; complete state unchanged",
+  "localRepairSession": 54960,
+  "localResidualSession": 50402,
+  "partialReviewSession": 26959,
+  "repairEvents": "cli-locked-layer-repair-events.jsonl",
+  "residualEvents": "cli-residual-readiness-events.jsonl",
+  "repairResult": "cli-locked-layer-repair-final.md",
+  "reviewResult": "partial-full-pair-independent-review.json",
+  "next": "Review repaired layer ordering and hashes; register reviewed pins only after local checks. Obtain fresh unchanged Matrix pair before new native Graphic action. No replay of earlier splits.",
+  "localResidualStatus": "terminal; fake-only readiness file produced, native orchestration still incomplete",
+  "partialReviewStatus": "terminal; complete raw comparison passed within scope"
+}

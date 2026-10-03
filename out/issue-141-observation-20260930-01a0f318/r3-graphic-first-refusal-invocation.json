@@ -1,0 +1,21 @@
+{
+  "driverSha256": "edd53bd17240cac8afe7dc3b9a111f3341b4c15f1df260d4bae9667f4af1d732",
+  "argv": [
+    "ctx-wire",
+    "run",
+    "rtk",
+    "proxy",
+    "/usr/local/bin/python3.14",
+    "-S",
+    "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-structural-sequence.py",
+    "--case",
+    "R3-Graphic",
+    "--prior-pair",
+    "r2-partial-context-20261001T193945.838631Z/pair.json",
+    "--prior-sha256",
+    "6ab9ed7028222f9a3fb0773ed66f86265b77a6035bdbbc4ebb0f7414c6bc9807",
+    "--run"
+  ],
+  "rootReview": true,
+  "scope": "one existing guarded R3-Graphic real linked split under enabled graphic; context restoration only; no retry/render/cleanup"
+}

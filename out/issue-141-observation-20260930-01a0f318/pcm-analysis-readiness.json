@@ -1,0 +1,40 @@
+{
+  "kind": "issue-141-generated-program-pcm-analysis-readiness",
+  "status": "ready-after-native-render; no output conclusion",
+  "scope": "Offline analysis of one future full-Matrix MOV only; generated synthetic inputs and generated output. No Resolve/source/config interaction.",
+  "evidence": {
+    "matrixReadiness": {
+      "path": "out/issue-141-observation-20260930-01a0f318/full-matrix-av-readiness-20261001T1907.json",
+      "sha256": "d94d147f57cc7feaf41a1f54ab5b0317150e8ff8d369e14f40734e7dd9be6a66",
+      "facts": "1920x1080, 25 fps, 48 kHz, bounds 0..9200; conditional on fresh pair; no native dispatch/render. Historical preset PCM16 is ineligible; fresh render must verify PCM24."
+    },
+    "timing": {
+      "path": "docs/investigations/issue-141/evidence/source-timing-analysis/analysis.json",
+      "sha256": "cb002407f92a982e0261713d2c68708cf44dd2c7727d2e4977e85a626da1cf0c",
+      "generatedSource": "out/issue-141-media-20260930-01a0f318/repeated.wav; SHA-256 832dd31cc46b9f4b4fdb7cbde18b4edc09ec249885634fba43da2a7b87dc768e; manifest SHA-256 10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3"
+    },
+    "scriptsReviewed": ["docs/investigations/issue-141/audio-output.py", "docs/investigations/issue-141/av-output.py", "docs/investigations/issue-141/report.md#source-pcm-ranges-and-clip-getter-boundary-arithmetic"]
+  },
+  "reusablePath": {
+    "found": false,
+    "detail": "audio-output.py validates audio-only render setup/output metadata and av-output.py validates MOV/H264/lpcm PCM24 metadata. Existing source-timing analysis verifies generated WAV nonzero support. No retained comparator aligns rendered program PCM to expected generated-source windows or classifies omissions/residuals/offsets. The source-support report is reusable as expected-support evidence only."
+  },
+  "allowedBinding": {
+    "onlyGeneratedSource": "Manifest-bound repeated.wav above; single-channel mono PCM16 generated source, 384000 samples at 48 kHz.",
+    "supportHalfOpenSamples": [[19210,36258],[115210,132258],[211210,228258],[307210,324258]],
+    "supportSeconds": [[0.4002083333,0.755375],[2.4002083333,2.755375],[4.4002083333,4.755375],[6.4002083333,6.755375]],
+    "frameMapping": "1920 samples/frame. Support starts are frame +10 samples; exclusive ends frame +1698 samples (222 samples before next frame). Occurrences spaced 96000 samples / 50 frames.",
+    "expectedRecordAndSourceIntervals": "Derive expected record positions only from a fresh, retained selected-Matrix before/after pair and editorial action evidence. Bind each audio item by exact source identity and source in/out to these four support intersections; map source sample offsets to record samples using verified speed and record start. A picture-only item contributes no expected audio. Preserve half-open intervals. Current available R2 timing notes describe linked Audio 1 0..199 frames at 100% while Video 1 retimes 0..99 source frames at 50%; they do not enumerate final per-word edited record intervals, so do not fabricate them."
+  },
+  "classificationPlan": {
+    "comparison": "After native render exists and output is independently verified as 25fps/48kHz/24-bit PCM, decode only that generated MOV audio plus manifest-bound repeated.wav. For each evidence-derived expected record window, correlate normalized source waveform against output with bounded lag; report match score, best lag in samples, gain estimate, residual energy, and nonzero support intervals. Also inspect expected-empty/picture-only windows for residual program energy. Report linked, unlinked, picture-only, partial-support, residual, and offset labels as waveform observations tied to item bindings, not editorial truth.",
+    "nextAction": "After the authorized full-Matrix render completes, capture its output path/hash and exact final item bindings/record ranges from retained evidence; then implement/run a narrowly scoped offline comparator against repeated.wav and the single generated MOV. Until then no comparator run or output conclusion is possible."
+  },
+  "limitations": [
+    "No final word deletion may be inferred from timeline geometry or source support alone.",
+    "Routing, track mute/solo, bus behavior and output gain may make expected clips absent, mixed or scaled; retain level/gain evidence and do not equate silence with deletion.",
+    "PCM24 encoding and render alignment may produce rounding/filter/codec-edge differences; the existing support boundaries are source sample exact, not proof of sample-exact Resolve edits. State boundary tolerance empirically and in samples.",
+    "Residual energy may come from adjacent clips, fades, effects, noise floor or routing; inspect correlation and local residual, and label ambiguous results unresolved.",
+    "Do not access or hash protected semi1b.mp4."
+  ]
+}

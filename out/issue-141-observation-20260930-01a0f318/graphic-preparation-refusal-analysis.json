@@ -1,0 +1,24 @@
+{
+  "status": "terminal-unchanged-preparation-refusal",
+  "nativeResult": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T194324.349918Z.json",
+  "nativeResultSha256": "7fce5fd7f4b0b2c48579d3535a4b7250dac81edba9b10fc733d11d9f99464009",
+  "beforeAfterPairExactlyEqual": true,
+  "beforePair": {
+    "path": "r2-partial-context-20261001T193945.838631Z/pair.json",
+    "sha256": "6ab9ed7028222f9a3fb0773ed66f86265b77a6035bdbbc4ebb0f7414c6bc9807"
+  },
+  "afterPair": {
+    "path": "editorial-case-20261001T194346.424250Z/after.json",
+    "sha256": "6ab9ed7028222f9a3fb0773ed66f86265b77a6035bdbbc4ebb0f7414c6bc9807"
+  },
+  "failure": "RuntimeError: SetClipEnabled did not return true",
+  "V3locked": {
+    "value": true
+  },
+  "targetClipEnabled": {
+    "value": false
+  },
+  "hypothesis": "Enable call preceded unlock of locked target V3; lock-sensitive setter ordering must be tested. No unsupported API conclusion.",
+  "splitDispatched": false,
+  "saveDispatched": false
+}

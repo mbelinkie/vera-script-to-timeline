@@ -1,0 +1,3 @@
+I couldn’t complete the requested focused fake-flow coverage. The recovery helper’s success path calls the real R4 reader, whose protected-six context and pool inventory checks require a project and timelines; the existing checker only tests source ordering and incomplete-state rejection. I stopped before adding a fake that would bypass those guards, and did not edit the three owned files.
+
+No compile or focused-checker run was completed. The existing readiness record still reflects the earlier limited checker and must not be treated as evidence of success/failure branch coverage.

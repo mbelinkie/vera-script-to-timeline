@@ -1,0 +1,8 @@
+{
+  "scope": "One fresh complete readback followed by one registered save/close/load repeat. No second duplicate until Fairlight manual step is done or explicitly bounded.",
+  "registeredProbeSha256": "fdd2d31024a005489564e99bb4916e190e5830e26705b87ea6e56adbcf9e918b",
+  "registeredCallerSha256": "395805068e96517bfe67aa32497229226b6c7fad431790e1cac94f4ecaf5cd03",
+  "mappingRestorationEvidence": "audio-mapping-restore-summary.json",
+  "expectedOriginalPairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+  "noReplayOnRefusal": true
+}

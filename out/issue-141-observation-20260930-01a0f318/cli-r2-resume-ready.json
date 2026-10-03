@@ -1,0 +1,87 @@
+{
+  "actionableInvocation": null,
+  "avActionAliases": {
+    "av-output-full-matrix": "av-output",
+    "av-output-full-matrix-queue-only": "av-output"
+  },
+  "checks": [
+    {
+      "command": "python3.14 -S REPOSITORY/docs/investigations/issue-141/editorial-readback-check.py",
+      "result": "passed"
+    },
+    {
+      "command": "python3.14 -S REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-native-call.py --check",
+      "result": "passed"
+    },
+    {
+      "command": "python3.14 -S REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-cut-sequence.py --case R2-picture --prior-pair producer-matrix-selection-20261001T183030.414033Z/after-pair.json --prior-sha256 59d4b9bde36af0c0a2c06a126f426fefd1e6dd1a76ddbf562574e70b535ff2b0 --check",
+      "result": "passed"
+    },
+    {
+      "command": "python3.14 -S REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-cut-sequence.py --case R2-partial --prior-pair producer-matrix-selection-20261001T183030.414033Z/after-pair.json --prior-sha256 59d4b9bde36af0c0a2c06a126f426fefd1e6dd1a76ddbf562574e70b535ff2b0 --check",
+      "result": "passed"
+    },
+    {
+      "command": "python3.14 -S REPOSITORY/docs/investigations/issue-141/check.py",
+      "result": "passed"
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    }
+  ],
+  "inputPair": {
+    "path": "producer-matrix-selection-20261001T183030.414033Z/after-pair.json",
+    "poolConsistency": "equal-adjacent-reads",
+    "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+    "sha256": "59d4b9bde36af0c0a2c06a126f426fefd1e6dd1a76ddbf562574e70b535ff2b0",
+    "timelineConsistency": "equal-adjacent-reads",
+    "timelineInventory": "protected-six"
+  },
+  "nativeInvocation": {
+    "menuInvokesRequireProtectedSixConfig": true,
+    "resultDeadlineSeconds": 180,
+    "retry": false,
+    "timelineInventoryOnEveryUpdatedInvoke": "protected-six"
+  },
+  "pins": {
+    "av-output.py": "a7d52eb21e805ccc0bfd084d994afb3f49d31066448b7307d044fcbcd0c4c91a",
+    "editorial-cases-check.py": "0da0fb622bdadd33bb50510fdcc36680ad2dc4b88795d697348febd7bbb9dde2",
+    "editorial-cases.py": "1e1c2685de795bdc60ffa806c0fde10d75e300340fc2c1178b8ccf4d1a93f372",
+    "editorial-readback.py": "d9df76229ead502b2d9ff31a1847eb9b858aa8931d25d279b560244e93690354",
+    "hammerspoon-editorial-check.lua": "ccd000d9dc489a7b50ed622b1a01d82ce71d8b466524d089d72140ba8fd4be63",
+    "hammerspoon-editorial.lua": "47b6ec354c00e3ef1296a70c29e8846e1661fef692177d90bc96f27ba5b6bc6d",
+    "hammerspoon-launch.lua": "f92cc1b6e5bd7e0611bf94aa9a7262f3c14936de03fc5072e1c0100593cd461d",
+    "independent-cut-sequence.py": "4132ab08e677269a9eaf33e0d5deab1422599d46f929f7dd2d19e24c582c74a7",
+    "independent-native-call.py": "d0b1d7fa36a8e3ba452feba4b2488f5695bc3546370523cbd44592ad11f0e88d",
+    "probe.py": "64a9c91da7093382f52d3ba1178d87d36fc10709276f93f383f6bec701b1eef2",
+    "r4-range-repair.py": "9b6977747a1f3decf957ead6134f10fc4f597bf9d0c3dc5c081b7bf2671879a4"
+  },
+  "previousStopArchive": "r2-picture-native-first-pre-dispatch-failure.json",
+  "privateConfigAudit": {
+    "externalScriptingSetting": "None",
+    "priorBytesPath": "r2-picture-native-audit/workflow-config.before.json",
+    "priorSha256": "5ae3fd8562230ba27e0d030a5c507eaa323aef487eb7b4fa7418a90c98b58332",
+    "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+    "registeredConfigSha256": "e3389750633eaaf771593a6067f33f5f06efd55446e18808568bbfeedf0ff4d6",
+    "timelineInventory": "protected-six"
+  },
+  "protectedInventory": "protected-six",
+  "scope": "One guarded R2-picture sequence only; R2-partial remains unstarted.",
+  "selectionEvidence": {
+    "path": "producer-matrix-selection-20261001T183030.414033Z/after-pair.json",
+    "selectionSuccessClaimed": false,
+    "sha256": "59d4b9bde36af0c0a2c06a126f426fefd1e6dd1a76ddbf562574e70b535ff2b0",
+    "status": "stopped-property-context-change"
+  },
+  "status": "terminal-stopped-native-helper-refusal",
+  "stop": {
+    "actualSha256": "d9df76229ead502b2d9ff31a1847eb9b858aa8931d25d279b560244e93690354",
+    "attemptedAction": "editorial-readback r2-picture-deselected",
+    "executorResultSha256": "bfc31c095fa21dedf8233b6a3b20db9cfd9c475be0df658821f6bf126e5dec59",
+    "expectedSha256": "dba56a716aff973afdcc977df51fdc4b08ae1f727ce24f7c41d94c0f9ce32d22",
+    "failure": "Pinned bounded probe module changed; refusing",
+    "probeOwnedModule": "editorial-readback.py",
+    "retryOrCleanup": false
+  }
+}

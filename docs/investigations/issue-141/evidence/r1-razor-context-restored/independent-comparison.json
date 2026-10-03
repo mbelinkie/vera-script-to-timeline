@@ -1,0 +1,10 @@
+{
+  "status": "independently-verified",
+  "splitPreserved": true,
+  "onlyContentDelta": "V2/V3/A2/A3 lock True to False",
+  "playheadAfter": "00:06:07:24",
+  "noSave": true,
+  "noEditorialCommand": true,
+  "afterPairSha256": "8be8fc612618e874241f90b693a4c7a732e4eb0fbdd3de4afe17cd2756df82ff",
+  "verifiedAt": "2026-10-01T05:37:45.930829+00:00"
+}

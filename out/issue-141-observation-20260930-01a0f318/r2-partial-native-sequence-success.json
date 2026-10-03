@@ -1,0 +1,46 @@
+{
+  "autoSelectReset": {
+    "path": "independent-cut-sequence-20261001T193743.340038Z/r2-partial-context.json",
+    "sha256": "f846b3ff594b9dcdda91dbcb80066e85fadb4b0e8cc73fde794fbd2930edb193"
+  },
+  "case": "R2-partial",
+  "deletedReadback": {
+    "path": "independent-cut-sequence-20261001T193743.340038Z/r2-partial-deleted.json",
+    "sha256": "76143b259704c005f181bcbd29f365ecf35c61b4e62bb3a99297409573757c87"
+  },
+  "directory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-cut-sequence-20261001T193743.340038Z",
+  "firstSelection": {
+    "path": "independent-cut-sequence-20261001T193743.340038Z/r2-partial-selected.json",
+    "sha256": "469be63b06ad4aa46b7c914ea1280799b83db0ee2484b172a3095399c27ca14e"
+  },
+  "firstSplit": {
+    "path": "independent-cut-sequence-20261001T193743.340038Z/r2-partial-first-split.json",
+    "sha256": "df861aecfeb7fc992902416b6bb36a515613e97fc217ff831980630c85572182"
+  },
+  "intervalDeletion": {
+    "path": "independent-cut-sequence-20261001T193743.340038Z/interval-deletion.json",
+    "sha256": "ba1a436809d5d51f046a4ccf20017f6d71bf7f85aff6293f369c80c38537e782"
+  },
+  "preparation": {
+    "path": "independent-cut-sequence-20261001T193743.340038Z/preparation.json",
+    "sha256": "cfaf3bfca32fa67cddb18eb41d41d34946ff80e3b5c3e48379a6abf77bdc5fe5"
+  },
+  "restoration": {
+    "path": "independent-cut-sequence-20261001T193743.340038Z/restoration.json",
+    "sha256": "8ac1847e6870e9779641c19eab94c73f32e3561194bc695f1a7040591c712562"
+  },
+  "saveDispatched": false,
+  "secondPosition": {
+    "path": "independent-cut-sequence-20261001T193743.340038Z/second-position.json",
+    "sha256": "215b9401b74ac9cd71ee2dcb7e97c567cc7827f0cf652a4a5ba21ec0532a87d5"
+  },
+  "secondSelection": {
+    "path": "independent-cut-sequence-20261001T193743.340038Z/r2-partial-second-selected.json",
+    "sha256": "05c77561807ae46993066ff8b5f843149624b97c68de07631356239670122421"
+  },
+  "secondSplit": {
+    "path": "independent-cut-sequence-20261001T193743.340038Z/r2-partial-second-split.json",
+    "sha256": "0dea70d1b2d70965e74cda36dda7a44d64e6ad9972f64a2c456e0f2c9f8d2c7b"
+  },
+  "status": "single-track-sequence-complete"
+}

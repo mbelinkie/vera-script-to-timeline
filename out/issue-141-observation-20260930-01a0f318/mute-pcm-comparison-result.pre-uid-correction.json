@@ -1,0 +1,207 @@
+{
+  "baseline": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/pcm-real-render-20261001T235643.512549Z.wav",
+    "sha256": "d2581dc047a348a104821cbd53c7b84e4a47b80fd4443ebf52f6fbd3382362a7"
+  },
+  "format": {
+    "channels": 2,
+    "frames": 17664000,
+    "sampleRateHz": 48000,
+    "sampleWidthBytes": 3,
+    "samplesPerFrame": 1920
+  },
+  "heldMute": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/mute-pcm-render-20261002T024000Z.wav",
+    "sha256": "d2581dc047a348a104821cbd53c7b84e4a47b80fd4443ebf52f6fbd3382362a7"
+  },
+  "kind": "issue-141-held-mute-pcm-comparison-v1",
+  "limitations": [
+    "PCM sample differences establish output waveform change only; no track or bus origin, universal deletion, routing, or final audibility claim."
+  ],
+  "neighborControls": {
+    "after": {
+      "perChannel": [
+        {
+          "baselineRms": 0.0,
+          "channel": 1,
+          "correlation": null,
+          "differentSamples": 0,
+          "exactEqualSamples": 19200,
+          "heldMuteRms": 0.0,
+          "residualRms": 0.0,
+          "samples": 19200
+        },
+        {
+          "baselineRms": 0.0,
+          "channel": 2,
+          "correlation": null,
+          "differentSamples": 0,
+          "exactEqualSamples": 19200,
+          "heldMuteRms": 0.0,
+          "residualRms": 0.0,
+          "samples": 19200
+        }
+      ],
+      "recordFrames": [
+        4699,
+        4709
+      ],
+      "sampleRange": [
+        9022080,
+        9041280
+      ]
+    },
+    "before": {
+      "perChannel": [
+        {
+          "baselineRms": 0.0,
+          "channel": 1,
+          "correlation": null,
+          "differentSamples": 0,
+          "exactEqualSamples": 19200,
+          "heldMuteRms": 0.0,
+          "residualRms": 0.0,
+          "samples": 19200
+        },
+        {
+          "baselineRms": 0.0,
+          "channel": 2,
+          "correlation": null,
+          "differentSamples": 0,
+          "exactEqualSamples": 19200,
+          "heldMuteRms": 0.0,
+          "residualRms": 0.0,
+          "samples": 19200
+        }
+      ],
+      "recordFrames": [
+        4490,
+        4500
+      ],
+      "sampleRange": [
+        8620800,
+        8640000
+      ]
+    },
+    "gapExclusiveEndFrame4570": {
+      "perChannel": [
+        {
+          "baselineRms": 0.007703284481945781,
+          "channel": 1,
+          "correlation": 1.0,
+          "differentSamples": 0,
+          "exactEqualSamples": 1920,
+          "heldMuteRms": 0.007703284481945781,
+          "residualRms": 0.0,
+          "samples": 1920
+        },
+        {
+          "baselineRms": 0.007703284481945781,
+          "channel": 2,
+          "correlation": 1.0,
+          "differentSamples": 0,
+          "exactEqualSamples": 1920,
+          "heldMuteRms": 0.007703284481945781,
+          "residualRms": 0.0,
+          "samples": 1920
+        }
+      ],
+      "recordFrames": [
+        4570,
+        4571
+      ],
+      "sampleRange": [
+        8774400,
+        8776320
+      ]
+    }
+  },
+  "outsideTarget": {
+    "bothChannelsExactlyEqual": true,
+    "samplesPerChannelCompared": 17281920
+  },
+  "speechGap": {
+    "exclusiveEndFrameControl": {
+      "frame": 4570,
+      "perChannel": [
+        {
+          "baselineRms": 0.007703284481945781,
+          "channel": 1,
+          "correlation": 1.0,
+          "differentSamples": 0,
+          "exactEqualSamples": 1920,
+          "heldMuteRms": 0.007703284481945781,
+          "residualRms": 0.0,
+          "samples": 1920
+        },
+        {
+          "baselineRms": 0.007703284481945781,
+          "channel": 2,
+          "correlation": 1.0,
+          "differentSamples": 0,
+          "exactEqualSamples": 1920,
+          "heldMuteRms": 0.007703284481945781,
+          "residualRms": 0.0,
+          "samples": 1920
+        }
+      ],
+      "sampleRange": [
+        8774400,
+        8776320
+      ]
+    },
+    "perChannel": [
+      {
+        "baselineRms": 0.0891571253533794,
+        "channel": 1,
+        "correlation": 1.0,
+        "differentSamples": 0,
+        "exactEqualSamples": 19200,
+        "heldMuteRms": 0.0891571253533794,
+        "residualRms": 0.0,
+        "samples": 19200
+      },
+      {
+        "baselineRms": 0.0891571253533794,
+        "channel": 2,
+        "correlation": 1.0,
+        "differentSamples": 0,
+        "exactEqualSamples": 19200,
+        "heldMuteRms": 0.0891571253533794,
+        "residualRms": 0.0,
+        "samples": 19200
+      }
+    ],
+    "recordFramesExclusive": [
+      4560,
+      4570
+    ],
+    "sampleRange": [
+      8755200,
+      8774400
+    ],
+    "sourceSupportReferenceFromPriorAnalysis": {
+      "endSampleExclusive": 132258,
+      "energy": 300.50118256546557,
+      "nonzeroAt1e-4": 15538,
+      "nonzeroAt1e-5": 16724,
+      "peakAbs": 0.73870849609375,
+      "rms": 0.1327658481919228,
+      "sampleCount": 17048,
+      "startSample": 115210
+    }
+  },
+  "status": "comparison-complete-waveform-only",
+  "target": {
+    "audioTrackItemUid": "f4e9f649-894a-42f9-9f54-a8321ae7c163",
+    "mapping": "baseline false; held-mute true",
+    "recordFramesExclusive": [
+      4500,
+      4699
+    ],
+    "sampleRange": [
+      8640000,
+      9022080
+    ]
+  }
+}

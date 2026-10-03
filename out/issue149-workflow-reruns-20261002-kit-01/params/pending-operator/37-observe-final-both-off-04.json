@@ -1,0 +1,45 @@
+{
+  "_approval": "root-approved-w2-final-neutral-x-observe-04-20261002-kit-01-a19a79d6",
+  "action": "observe",
+  "phase": "observe-final-both-off-04",
+  "actionId": "observe-final-both-off-04-20261002-kit-01",
+  "dispatchBlocked": false,
+  "operatorAttestationStatus": "both-off-final-verify",
+  "operatorReply": {
+    "raw": "both off",
+    "source": "producer",
+    "controls": "A2 Mute off and A2 Solo off; all other M/S controls off; leave Y current"
+  },
+  "schemaVersion": "issue-149-workflow-reruns-v1",
+  "stateId": "observe-final-both-off-04-20261002-kit-01",
+  "externalScriptingSetting": "None",
+  "projectName": "VERA Issue 149 Workflow Reruns 20261002-kit-01",
+  "probePath": "REPOSITORY/docs/investigations/issue-149/workflow-reruns/harness.py",
+  "probeSha256": "a19a79d684f8dbaed6d36bda0d493eed964d37888bddf7749e3bbdf601f59ab5",
+  "launcherPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/VERA Issue 149 Workflow Reruns.py",
+  "launcherSha256": "e4f58381c398bc0ce13130fddb25c956876f7754dc877346fe389dfb826c2450",
+  "outputDir": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01",
+  "mediaDir": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/media",
+  "expectedCurrentTimelineUid": "bec69cf7-c76e-4820-9e1f-9b425449614f",
+  "expectedCurrentTimelineName": "W2-Y-solo",
+  "expectedPage": "edit",
+  "expectedTimecode": "00:00:15:24",
+  "owned": {
+    "projectUid": "1a05ff3a-8b04-43e3-95ab-c970b93b6415",
+    "timelineUids": [
+      "8c67340f-2428-407c-86f7-ce553152a86c",
+      "bf87f303-1a54-4cb4-ae9c-af9cd0949d12",
+      "ff88a947-3c4f-4fff-b8c2-fd1f8910be7e",
+      "2dd077a7-22b8-458f-84d0-9541399b3125",
+      "abdd2270-7155-4fba-850c-82201a38f4c2",
+      "bec69cf7-c76e-4820-9e1f-9b425449614f",
+      "624aeb81-b32b-4f90-aee4-8360ee9abb11",
+      "a72f31e0-0ff5-41ff-91d3-bc2372c25d7b",
+      "ef85640d-1bab-451b-a9c7-eb73b14251e8",
+      "14a27cb4-0ecd-4daa-9e90-38c1ff12bdb5",
+      "a481d34a-69e6-4256-9797-634f93c42b8b",
+      "e99194cf-8afe-4bb8-be1a-0fa6130807e3",
+      "4affc46e-42ef-45c6-b59d-db9cd4678551"
+    ]
+  }
+}

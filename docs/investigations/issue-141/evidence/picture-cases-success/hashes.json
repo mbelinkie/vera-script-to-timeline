@@ -1,0 +1,236 @@
+[
+  {
+    "filename": "picture-cases-20260930T231720.631880Z.json",
+    "publishedSha256": "07f293d25cfddd4e8ff1a64226fc08b9a028e8fed46cb7231a8483f672037572",
+    "rawSha256": "64d329369bdfe4257859cebd1ccc8acdbeba55155b0a4bb0751239d6a9f1141d",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "picture-cases-20260930T231720.631880Z.jsonl",
+    "publishedSha256": "da2b879487723512caa6f17d16405ff32509b1ef0855822265705aad35fc9d85",
+    "rawSha256": "9703c0cc45b4c33b68e8dfa20f1827be897209ae87d9160c2dac4c03a7c1d1ec",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "hammerspoon-launch-20260930T231719.523858Z.jsonl",
+    "publishedSha256": "d5574e2070cebffdfd12fc74a42fd2a4d6d66b2162d56d29083020197d308524",
+    "rawSha256": "d5574e2070cebffdfd12fc74a42fd2a4d6d66b2162d56d29083020197d308524",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "vera-issue-141-observation-result-20260930T231720.613214Z.json",
+    "publishedSha256": "a9371b28a160a2509ee38afdb98c41858c1e53f2453ef5398fbdc94e609a24c2",
+    "rawSha256": "91fcb22ff695c8e24ec6fb1f095106cb5b620e403b72085f9bd4bf1bb6897e4a",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T231720.631880Z-preflight.json",
+    "publishedSha256": "30ec0dfae9f0c4dcc4477db651aff63c2f9371b47bab3be191f72543853a047d",
+    "rawSha256": "b8d1163ac4ac9b7c9025176938568e6fc2c73575c1e2bfcf9f6725843c383924",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T231720.631880Z-opaque-enable-before.json",
+    "publishedSha256": "479963830d65f7dab545f55ee778deb1cbcc8c92a620664384bd13a8df627045",
+    "rawSha256": "0e8c16dddec67300d1d460c86ca736cfc4768b03d769811df3b46f9d4a106298",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T231720.631880Z-opaque-enable-after-enabled.json",
+    "publishedSha256": "2c95fc62af1714b68b938670b44163774ba819db223373e3093d4522390af857",
+    "rawSha256": "6bbc09906b7c39e9793e74e13a151699778a3716b2c7655810690b93dcde7143",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T231720.631880Z-opaque-disable-before.json",
+    "publishedSha256": "aa1a679c3c1be2cdc6c5b5107a76c9ee3dbd9c80e656179f20e950a99a06c2df",
+    "rawSha256": "4ebaf4d58884565aef0d269bf5b362389e5805baab60628c6d294a60882839ce",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T231720.631880Z-opaque-disable-after-enabled.json",
+    "publishedSha256": "a351736b2b336814e56ee7c78493d3de17457131cc96df150b0ef92d7580e494",
+    "rawSha256": "eb4a48620dd824885c0ad4866ca98ae7aadbb5553207e3281abf2eee56d141a8",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T231720.631880Z-transparent-enable-before.json",
+    "publishedSha256": "b649b308d01fc3b1b61b7ad3b09c726ca795b6b61a6997d79b559d387688082c",
+    "rawSha256": "fb871c556c5114c96723152a3d261a52e17eb477b793747ba9d8d3ee9a10690b",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T231720.631880Z-transparent-enable-after-enabled.json",
+    "publishedSha256": "33f69cf88c2b3d163da53571562e5edbca6fb4419448a3e06cffc141a4619272",
+    "rawSha256": "13b43259a739a14a4b9f32412c9d6c6c239d25d319a5ccdbc47c2ef7a1a6caa7",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T231720.631880Z-transparent-disable-before.json",
+    "publishedSha256": "438e13b0de532e99805f76fabc1153bdfc5ee25fac07afc14d5469cf414b0bd8",
+    "rawSha256": "917e8cf734c2048fcb075e0e3e28d9e810786793b1d7121bef4c61f4289a3b95",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T231720.631880Z-transparent-disable-after-enabled.json",
+    "publishedSha256": "f6e9c8fb664980ff1ce0deeb6c9fe13d17a1bbd7fcb7ef328924ac6cebb48e3c",
+    "rawSha256": "9370159ac18f8e0fab73a0f618e5d1e87120f5ff81a09e73bfc1054b66728529",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T231720.631880Z-effect-enable-before.json",
+    "publishedSha256": "f0d460fdba9229101f898c09b5ae4325bf615c3cba40b165bf47df525a24d21e",
+    "rawSha256": "20de783d3fcd5af978ee69d617d91724140f81c24a013abcd576af80a6a30950",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T231720.631880Z-effect-enable-after-enabled.json",
+    "publishedSha256": "8b4e693d7fcc676ea07249e7eb46f419b333757e133f6334312d3daafd043215",
+    "rawSha256": "c44b6d1b4d262949582f32b4e7419d8b55301398ef189b3a6741aaa00970223e",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T231720.631880Z-effect-opacity-25-before.json",
+    "publishedSha256": "acc0efb46420fb66f52ba6cb9c817a4322e6b2ff9e0a0c93ef020bb26a0f7de6",
+    "rawSha256": "2c8c7b94d6766c20b7a3a4e6a24d6b03beb37852fb02b9479eeb92f23f9beed0",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T231720.631880Z-effect-opacity-25-after-opacity.json",
+    "publishedSha256": "9b60d2825d10a1c9b6ec93d54189ace86bddc2b07c5aacaa50fb51831449bcfa",
+    "rawSha256": "26ca304fb8d1029390ba4f07af885b444bb21ce4d74b783c2c62b4b6ff4378cb",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T231720.631880Z-effect-opacity-restore-before.json",
+    "publishedSha256": "43d0c9d84318d6f8bbc9ad10eeadb787ec6e89f0ca6472f035403f6272436c33",
+    "rawSha256": "55502e4cf640101be5e026cbe58a20ee6c9a63815e37a81a6313ebbf5825a9fe",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T231720.631880Z-effect-opacity-restore-after-opacity.json",
+    "publishedSha256": "267fe2e84ac748ca556026a3c7820d9a9b38b503a0059c218ff3efe2e063ba69",
+    "rawSha256": "3815f2f8705f09cba536302af2bb5897e479f6316fce1e10d1dc2c54d6f94728",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T231720.631880Z-effect-disable-before.json",
+    "publishedSha256": "0c490469e2a57935285cc73a682b345af1ac4d6f7e4656d5f84d8529e25ce8cd",
+    "rawSha256": "05a6645afa8fb1770f8b88974494ca58d87d1fa859c251d5211803b452925084",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T231720.631880Z-effect-disable-after-enabled.json",
+    "publishedSha256": "e0a97c38cbcbccc7f4f178f0f4725d5e2c1c726df224da8c188b4d3bc7f33d30",
+    "rawSha256": "3733588e0b4eb21c195a62c8787012b6117bf68a5c4287eaa9f1710b5c72ac8b",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T231720.631880Z-restore-effect.json",
+    "publishedSha256": "2911e956a0a97aa5d4dea45d2547c1edd3d43859cab1e2feac81f3fc5c930fdb",
+    "rawSha256": "3578ddea20a42e7210194a20bbfe8432d18977ceface96c15671ebd9026cf8b5",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T231720.631880Z-restore-transparent.json",
+    "publishedSha256": "df79fc3247ba70e13de80016b7e44796184aab1d25ba0695fc4ae25bc4e95d56",
+    "rawSha256": "c11aa183951ba78ecf431c920467fa640e2a73eacb4b415682f2f97855dff193",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T231720.631880Z-restore-opaque.json",
+    "publishedSha256": "07a7df176008befa22fdf46527a19b121b12f0a368810d8bf06b4002175c8052",
+    "rawSha256": "07ceb97932178b0f9d7baa51c990b5a18702435765fb3241b65a9d7e2857583e",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T231720.631880Z-final.json",
+    "publishedSha256": "844008a9a03478fbc7ffab379098533701905d70b8f571532fcb666050ca5538",
+    "rawSha256": "8d3863ce38b5a5a088156b31013ae80180d75c834b89c4fd159df11b307bba54",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "opaque-enabled-local-049.png",
+    "publishedSha256": "59577f153ad8314066328bf572b2c66afa9338a99c1ab2a6e94b9630418200db",
+    "rawSha256": "59577f153ad8314066328bf572b2c66afa9338a99c1ab2a6e94b9630418200db",
+    "redaction": "synthetic still copied byte-for-byte; no path metadata"
+  },
+  {
+    "filename": "opaque-enabled-local-050.png",
+    "publishedSha256": "e2cdc8e3774a245017d60ea61915061e344e99be7f4c888c6612946c06ef25b0",
+    "rawSha256": "e2cdc8e3774a245017d60ea61915061e344e99be7f4c888c6612946c06ef25b0",
+    "redaction": "synthetic still copied byte-for-byte; no path metadata"
+  },
+  {
+    "filename": "opaque-enabled-local-098.png",
+    "publishedSha256": "d137627c45208d6b35452e368837aaf0bbf24a4d5267228d3c6abb7198e5c545",
+    "rawSha256": "d137627c45208d6b35452e368837aaf0bbf24a4d5267228d3c6abb7198e5c545",
+    "redaction": "synthetic still copied byte-for-byte; no path metadata"
+  },
+  {
+    "filename": "opaque-enabled-local-099.png",
+    "publishedSha256": "59577f153ad8314066328bf572b2c66afa9338a99c1ab2a6e94b9630418200db",
+    "rawSha256": "59577f153ad8314066328bf572b2c66afa9338a99c1ab2a6e94b9630418200db",
+    "redaction": "synthetic still copied byte-for-byte; no path metadata"
+  },
+  {
+    "filename": "opaque-enabled-local-100.png",
+    "publishedSha256": "df279bd4bb106145f2db92a63775e81aba1cf332ccd34cb73ef27b2f4430acda",
+    "rawSha256": "df279bd4bb106145f2db92a63775e81aba1cf332ccd34cb73ef27b2f4430acda",
+    "redaction": "synthetic still copied byte-for-byte; no path metadata"
+  },
+  {
+    "filename": "opaque-disabled-local-050.png",
+    "publishedSha256": "a201fea43e7d136f52cf45f84833e2fa8f8473eac2c414f2a730f4a5d8148702",
+    "rawSha256": "a201fea43e7d136f52cf45f84833e2fa8f8473eac2c414f2a730f4a5d8148702",
+    "redaction": "synthetic still copied byte-for-byte; no path metadata"
+  },
+  {
+    "filename": "transparent-enabled-local-074.png",
+    "publishedSha256": "a201fea43e7d136f52cf45f84833e2fa8f8473eac2c414f2a730f4a5d8148702",
+    "rawSha256": "a201fea43e7d136f52cf45f84833e2fa8f8473eac2c414f2a730f4a5d8148702",
+    "redaction": "synthetic still copied byte-for-byte; no path metadata"
+  },
+  {
+    "filename": "transparent-enabled-local-075.png",
+    "publishedSha256": "5633d51dc1947ac488354ee5b8c759754ef215e2133c14ff0c7abba8c09a8a8e",
+    "rawSha256": "5633d51dc1947ac488354ee5b8c759754ef215e2133c14ff0c7abba8c09a8a8e",
+    "redaction": "synthetic still copied byte-for-byte; no path metadata"
+  },
+  {
+    "filename": "transparent-enabled-local-198.png",
+    "publishedSha256": "50977b2412736d415f136a512e57d380f1c50b5ca4c2006efd7bf36918a55e43",
+    "rawSha256": "50977b2412736d415f136a512e57d380f1c50b5ca4c2006efd7bf36918a55e43",
+    "redaction": "synthetic still copied byte-for-byte; no path metadata"
+  },
+  {
+    "filename": "transparent-enabled-local-199.png",
+    "publishedSha256": "4a800765c6cafed4de631d0d300e169373c5ff08b52d730d12ffd44923342255",
+    "rawSha256": "4a800765c6cafed4de631d0d300e169373c5ff08b52d730d12ffd44923342255",
+    "redaction": "synthetic still copied byte-for-byte; no path metadata"
+  },
+  {
+    "filename": "transparent-enabled-local-200.png",
+    "publishedSha256": "4ffe68970e56db313fa07e6054e22a0568ad00d86ff75236f152968979ad219c",
+    "rawSha256": "4ffe68970e56db313fa07e6054e22a0568ad00d86ff75236f152968979ad219c",
+    "redaction": "synthetic still copied byte-for-byte; no path metadata"
+  },
+  {
+    "filename": "transparent-disabled-local-075.png",
+    "publishedSha256": "59577f153ad8314066328bf572b2c66afa9338a99c1ab2a6e94b9630418200db",
+    "rawSha256": "59577f153ad8314066328bf572b2c66afa9338a99c1ab2a6e94b9630418200db",
+    "redaction": "synthetic still copied byte-for-byte; no path metadata"
+  },
+  {
+    "filename": "effect-opacity-25-local-075.png",
+    "publishedSha256": "d87333808a987a0c2945f690da9ec0240e67bbe0a6a12923cbc9e594926d621a",
+    "rawSha256": "d87333808a987a0c2945f690da9ec0240e67bbe0a6a12923cbc9e594926d621a",
+    "redaction": "synthetic still copied byte-for-byte; no path metadata"
+  },
+  {
+    "filename": "effect-opacity-25-local-100.png",
+    "publishedSha256": "c8490b4855967e721493e4873362caa3b6c40d9842a860d47472bf60a0c448f3",
+    "rawSha256": "c8490b4855967e721493e4873362caa3b6c40d9842a860d47472bf60a0c448f3",
+    "redaction": "synthetic still copied byte-for-byte; no path metadata"
+  }
+]

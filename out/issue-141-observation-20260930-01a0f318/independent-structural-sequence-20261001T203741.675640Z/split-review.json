@@ -1,0 +1,46 @@
+{
+  "case": "R3-boundary",
+  "childUids": {
+    "audio": [
+      "b4f84273-a32c-48bd-acfe-7939fbbdc54b",
+      "9ba774a9-05db-419c-bd8c-39073567d9f3"
+    ],
+    "video": [
+      "462ae76e-bf69-41be-b967-b70c163c0c1a",
+      "eabb3ade-3fbf-4b27-8d52-caaec25e10bc"
+    ]
+  },
+  "firstSplitPair": {
+    "path": "r3-boundary-split-20261001T203852.778627Z/pair.json",
+    "sha256": "b0f128efef59738307b6977872aa528f03761e11cd0dd14b7081d03f15743a65"
+  },
+  "menuCommandDispatched": false,
+  "preparationResult": {
+    "path": "independent-structural-sequence-20261001T203741.675640Z/preparation.json",
+    "sha256": "40615bdba75a67d35f2a46548bbd1d6f655ff31665ac9c9261ef6a0e3729b702"
+  },
+  "ranges": [
+    [
+      9000,
+      9100,
+      0,
+      100
+    ],
+    [
+      9100,
+      9199,
+      100,
+      199
+    ]
+  ],
+  "saveDispatched": false,
+  "selectionResult": {
+    "path": "independent-structural-sequence-20261001T203741.675640Z/r3-boundary-selected.json",
+    "sha256": "77afb8eeb93bcb6ba14043aa7026a65e4f9680ec2203a967c8e7cbaa6d3f2bbf"
+  },
+  "splitPair": {
+    "path": "r3-boundary-split-20261001T203852.778627Z/pair.json",
+    "sha256": "b0f128efef59738307b6977872aa528f03761e11cd0dd14b7081d03f15743a65"
+  },
+  "status": "split-readback-retained"
+}

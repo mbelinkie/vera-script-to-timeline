@@ -1,0 +1,6 @@
+{"at": "2026-10-03T01:08:34.002053+00:00", "phase": "started", "value": {"actionId": "w3-mapping-restore-edit-02-20261002-kit-01", "configSha256": "c3f6456da8df31a5cc67a39ff77e69dce78087d63863486f34b53b77b0c2e136"}}
+{"at": "2026-10-03T01:08:34.029233+00:00", "phase": "probe-verified", "value": {"probePath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/sources/be467c29fad0f7c8da474eadc9f51ec4a6e7b13f64ee479bebd7eaeceda0cc93/harness.py", "probeSha256": "be467c29fad0f7c8da474eadc9f51ec4a6e7b13f64ee479bebd7eaeceda0cc93"}}
+{"at": "2026-10-03T01:08:34.030386+00:00", "phase": "disarmed", "value": {"action": "w3-mapping-restore", "actionId": "w3-mapping-restore-edit-02-20261002-kit-01"}}
+{"at": "2026-10-03T01:08:34.030508+00:00", "phase": "probe-request", "value": {"action": "w3-mapping-restore", "phase": "w3-mapping-restore-edit-02"}}
+{"at": "2026-10-03T01:08:36.881899+00:00", "phase": "probe-return", "value": {"status": "ok"}}
+{"at": "2026-10-03T01:08:36.882546+00:00", "phase": "result-written", "value": {"result": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-w3-mapping-restore-edit-02-20261002-kit-01.json", "status": "ok"}}

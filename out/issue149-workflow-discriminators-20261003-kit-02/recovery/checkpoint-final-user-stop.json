@@ -1,0 +1,49 @@
+{
+  "taskId": "/root/discriminator_autonomous",
+  "checkpoint": "user-stop-after-d3-direct",
+  "nativeTesting": "stopped",
+  "projectUid": "0591bb41-d645-4af7-a2ee-ff75f8f43162",
+  "externalScriptingSetting": "None",
+  "directCase": {
+    "timeline": "D3-direct-av-20261003",
+    "timelineUid": "ca636ad2-b6f2-47ed-9ff7-7f0029860a95",
+    "a2ItemUid": "4a7677a5-6237-489d-80a1-32cebfde4a5d",
+    "muteResult": "vera-issue-149-workflow-discriminators-result-w3-mapping-mute-d3-direct-av-20261003-kit-02.json",
+    "muteResultSha256": "4c496073e2ab3fc0c3fdbfc978bab9df007b588f1f61eee322a25ba1b91b12a9",
+    "renderJobId": "a6d08df1-8e8d-4e2e-b654-5bfe86d60540",
+    "pollResult": "vera-issue-149-workflow-discriminators-result-render-poll-w3-direct-av-20261003-kit-02.json",
+    "pollResultSha256": "277ffd5e310b831fa9c522f42c1d45cebcee0ea491c3f03fbd7c4da6a8903ccc",
+    "renderStatus": "Complete",
+    "renderPath": "renders/d3-direct-av-20261003/D3-direct-av-20261003.mov",
+    "renderSha256": "c26efae392a6db5a73a2988b88472fff395e26b08eae75e50efa5ce9fee1caf1",
+    "classification": "adverse-for-mapping-mute-output",
+    "pilot1500Hz": 0.01986,
+    "numberWordsPresent": ["one", "two", "three", "four", "five", "six", "seven", "eight"],
+    "videoSourceIds": [1],
+    "frameCount": 399,
+    "frameMismatchCount": 0,
+    "analysis": "analysis/d3-direct-mute.json",
+    "analysisMethod": "workflow-discriminators/analyze.py invoking evidence/scripts/analyze_audio.py; decode_code.py frame decode",
+    "noBaselineRenderBeforeMute": true
+  },
+  "restore": {
+    "result": "vera-issue-149-workflow-discriminators-result-w3-mapping-restore-d3-direct-av-20261003-kit-02.json",
+    "resultSha256": "66c051a81a93cb0ab0836097874238d5e64b4504b23a5616ce55c915904fec2a",
+    "pre": "evidence/w3-mapping-restore-d3-direct-av-20261003-kit-02/pre.json",
+    "post": "evidence/w3-mapping-restore-d3-direct-av-20261003-kit-02/post.json",
+    "snapshotDifferences": ["project.timelines[6].tracks.audio[1].GetItemListInTrack.value[0].GetSourceAudioChannelMapping.value"],
+    "unexpectedDifferences": [],
+    "restoredMappingReadback": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}"
+  },
+  "save": {
+    "result": "vera-issue-149-workflow-discriminators-result-save-d3-direct-restored-checkpoint-20261003-kit-02.json",
+    "resultSha256": "e24853c08d90685a9d8040d78fdbc857cfec2c6c2fd89378a787c42420a732d1",
+    "saveReturn": true,
+    "renderingInProgress": false,
+    "queueCount": 7,
+    "queueIncludesDirectJob": true
+  },
+  "unrun": ["D3-console-av-20261003", "D3-operator-av-20261003"],
+  "noResolveMutationAfterStop": true,
+  "noConsoleConfigCreated": true
+}

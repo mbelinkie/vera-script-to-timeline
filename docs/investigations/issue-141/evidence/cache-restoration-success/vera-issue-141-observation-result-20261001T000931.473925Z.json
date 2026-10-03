@@ -1,0 +1,6 @@
+{
+  "journal": "<probe-output>/cache-restore-20261001T000931.683910Z.jsonl",
+  "postflight": "<probe-output>/cache-restore-20261001T000931.683910Z-postflight.json",
+  "preflight": "<probe-output>/cache-restore-20261001T000931.683910Z-preflight.json",
+  "status": "restored-to-saved-pin"
+}

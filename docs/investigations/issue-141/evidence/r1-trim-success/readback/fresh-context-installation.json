@@ -1,0 +1,9 @@
+{
+  "kind": "r1-trim-fresh-verified-checkpoint-preparation",
+  "earlierMenuDispatched": false,
+  "earlierRefusalRetained": true,
+  "completeContextMatchesRestoration": true,
+  "priorPairSha256": "8be8fc612618e874241f90b693a4c7a732e4eb0fbdd3de4afe17cd2756df82ff",
+  "probeSha256": "daefc31ff7c46ef0eb6abc29a0ee6aa6293f4a2f41dcc53b3f1b8b3c5fb938c2",
+  "privateConfigSha256": "b66ec89dd48c0f9ca452e74254604b1a5ca6c8b4658a98612bfc7789d8f240cd"
+}

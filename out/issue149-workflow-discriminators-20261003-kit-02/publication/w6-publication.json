@@ -1,0 +1,13 @@
+{
+  "publishedAt": "2026-10-03T05:40:25.891364+00:00",
+  "issue149": "https://github.com/mbelinkie/vera-script-to-timeline/issues/149#issuecomment-5966033331",
+  "bodySha256": "ca88aec7873adb458c7fb814b7f9e050a26ec37183d7daea48cb84532f1acc3e",
+  "cases": {
+    "D6-kept": "reproduced",
+    "D6-changed": "reproduced"
+  },
+  "producerAcceptance": "pending",
+  "issue141": "https://github.com/mbelinkie/vera-script-to-timeline/issues/141#issuecomment-5966036845",
+  "handoffSha256": "637c312d527a115b459db2cb7a08e7a02949d171b99193f99e62855c52e2c1b6",
+  "updatedToIncludeExactChangedIDs": true
+}

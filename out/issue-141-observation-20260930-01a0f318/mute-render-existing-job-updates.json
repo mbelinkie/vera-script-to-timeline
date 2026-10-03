@@ -1,0 +1,20 @@
+{
+  "action": "av-output-full-matrix-continue",
+  "case": "R2-disable-mute",
+  "checkpointPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T020927.190878Z/full-pair-007.json",
+  "checkpointSha256": "a171acbb58b84753b624b316230455e4b59b78a32e55fdcf04c72c3095292cd3",
+  "queueResultPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T020927.190878Z/final-local-result.json",
+  "queueResultSha256": "d08caae2283654badd214a3fa10b73d25c59003b26531a2e6329d830a9bd935b",
+  "queueJobId": "c5b1925b-f5aa-49d5-850a-be7a64c5cd29",
+  "queueJobSha256": "e60daa0fd9eab1b1455da3ff0831cf622427f32fef25b57b0e2dcf590545254f",
+  "queueAfterPairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T020927.190878Z/full-pair-007.json",
+  "queueAfterPairSha256": "a171acbb58b84753b624b316230455e4b59b78a32e55fdcf04c72c3095292cd3",
+  "queueJournalPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T020927.190878Z/journal.jsonl",
+  "queueJournalSha256": "c23c7bbd1619529e59557649cd9caf0b4cd7fccaf6f71d08f5863cb02a68ed5a",
+  "queueSnapshotXmlPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T020927.190878Z/VERA141_AV_OUTPUT_20261002T020927.190878Z.drp/VERA141_AV_OUTPUT_20261002T020927.190878Z.xml",
+  "queueSnapshotSha256": "910931c85b39b3f86a72cf2f4df8aa0b175b34a90ecad1576358dd431deb9754",
+  "queueSettingsSha256": "69402d05bf26ff12a2620fb1ef4b9f41558f26cd9c7becd74e1ff270ec16a6b2",
+  "renderTimeoutSeconds": 30,
+  "queuePresetName": "VERA141_AV_OUTPUT_20261002T020927.190878Z",
+  "resumeExistingJob": true
+}

@@ -1,0 +1,259 @@
+{
+  "schema": "issue149-workflow-reruns-w3-edit-analysis-v1",
+  "taskId": "#149",
+  "case": "w3-mapping-mute-edit-02",
+  "native": {
+    "resultPath": "out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-w3-mapping-mute-edit-02-20261002-kit-01.json",
+    "resultSha256": "6304b8c02bfaea3c9404756219f6fba34d49f8c8e26bfe512466d823bc8c97c2",
+    "journalPath": "out/issue149-workflow-reruns-20261002-kit-01/evidence/w3-mapping-mute-edit-02-20261002-kit-01/journal.jsonl",
+    "journalSha256": "5dcc16b6a95a89217f3660b1a8cef94241d8689d2b43c61aa6066e9932e28405",
+    "page": "edit",
+    "projectUid": "1a05ff3a-8b04-43e3-95ab-c970b93b6415",
+    "timelineUid": "8c67340f-2428-407c-86f7-ce553152a86c",
+    "mapping": {
+      "original": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+      "muted": "{\"embedded_audio_channels\": 1, \"linked_audio\": {}, \"track_mapping\": {\"1\": {\"channel_idx\": [1], \"mute\": true, \"type\": \"mono\"}}}",
+      "mutedReadback": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":true,\"type\":\"mono\"}}}",
+      "setReturn": true,
+      "targetOnlyDelta": {
+        "changedPaths": [
+          "track_mapping.1.mute"
+        ],
+        "onlyTarget": true,
+        "path": "track_mapping.1.mute"
+      }
+    }
+  },
+  "renderPoll": {
+    "path": "out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-render-poll-w3-mapping-mute-edit-02-20261002-kit-01.json",
+    "resultSha256": "48c5136e92051ac9e5b5029026e474c9213d5a3e5f1cbdeed1e645afea7f7fb1",
+    "jobId": "583d9dbc-4e04-49fb-b3a0-9e05f105b496",
+    "jobStatus": {
+      "CompletionPercentage": 100,
+      "JobStatus": "Complete",
+      "TimeTakenToRenderInMs": 1694
+    }
+  },
+  "render": {
+    "path": "out/issue149-workflow-reruns-20261002-kit-01/renders/W3-edit-muted-02.mov",
+    "sha256": "5b3a444b71b6fb1931ac4e41ba9239e1df63112e8e6f47a70da5eaec6770d8c0",
+    "ffprobe": {
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 640,
+          "height": 360,
+          "r_frame_rate": "25/1",
+          "avg_frame_rate": "25/1",
+          "sample_rate": null,
+          "channels": null,
+          "channel_layout": null,
+          "bits_per_sample": null,
+          "duration": "15.960000",
+          "nb_frames": "399"
+        },
+        {
+          "index": 1,
+          "codec_name": "pcm_s16le",
+          "codec_type": "audio",
+          "width": null,
+          "height": null,
+          "r_frame_rate": "0/0",
+          "avg_frame_rate": "0/0",
+          "sample_rate": "48000",
+          "channels": 2,
+          "channel_layout": "stereo",
+          "bits_per_sample": 16,
+          "duration": "15.960000",
+          "nb_frames": "766080"
+        },
+        {
+          "index": 2,
+          "codec_name": null,
+          "codec_type": "data",
+          "width": null,
+          "height": null,
+          "r_frame_rate": "0/0",
+          "avg_frame_rate": "12800/512",
+          "sample_rate": null,
+          "channels": null,
+          "channel_layout": null,
+          "bits_per_sample": null,
+          "duration": "15.960000",
+          "nb_frames": "1"
+        }
+      ],
+      "format_duration": "15.960000"
+    }
+  },
+  "audio": {
+    "expectedAbsent": [
+      "one",
+      "two",
+      "three",
+      "four",
+      "five",
+      "six",
+      "seven",
+      "eight"
+    ],
+    "expectedPresent": [
+      "alpha",
+      "bravo",
+      "charlie",
+      "delta",
+      "echo",
+      "foxtrot",
+      "golf",
+      "hotel"
+    ],
+    "actualPresent": [
+      "alpha",
+      "bravo",
+      "charlie",
+      "delta",
+      "echo",
+      "foxtrot",
+      "golf",
+      "hotel",
+      "one",
+      "two",
+      "three",
+      "four",
+      "five",
+      "six",
+      "seven",
+      "eight"
+    ],
+    "pilots": {
+      "1000": 0.02828,
+      "1500": 0.01986,
+      "2000": 0.02003
+    },
+    "numberScores": {
+      "one": {
+        "score": 0.991,
+        "at_sample": 72000,
+        "at_frame": 37.5
+      },
+      "two": {
+        "score": 0.992,
+        "at_sample": 168000,
+        "at_frame": 87.5
+      },
+      "three": {
+        "score": 0.991,
+        "at_sample": 264000,
+        "at_frame": 137.5
+      },
+      "four": {
+        "score": 0.985,
+        "at_sample": 360000,
+        "at_frame": 187.5
+      },
+      "five": {
+        "score": 0.986,
+        "at_sample": 456000,
+        "at_frame": 237.5
+      },
+      "six": {
+        "score": 0.974,
+        "at_sample": 552000,
+        "at_frame": 287.5
+      },
+      "seven": {
+        "score": 0.988,
+        "at_sample": 648000,
+        "at_frame": 337.5
+      },
+      "eight": {
+        "score": 0.987,
+        "at_sample": 744000,
+        "at_frame": 387.5
+      }
+    },
+    "controlScores": {
+      "alpha": {
+        "score": 0.995,
+        "at_sample": 24000,
+        "at_frame": 12.5
+      },
+      "bravo": {
+        "score": 0.996,
+        "at_sample": 120000,
+        "at_frame": 62.5
+      },
+      "charlie": {
+        "score": 0.995,
+        "at_sample": 216000,
+        "at_frame": 112.5
+      },
+      "delta": {
+        "score": 0.996,
+        "at_sample": 312000,
+        "at_frame": 162.5
+      },
+      "echo": {
+        "score": 0.995,
+        "at_sample": 408000,
+        "at_frame": 212.5
+      },
+      "foxtrot": {
+        "score": 0.992,
+        "at_sample": 504000,
+        "at_frame": 262.5
+      },
+      "golf": {
+        "score": 0.995,
+        "at_sample": 600000,
+        "at_frame": 312.5
+      },
+      "hotel": {
+        "score": 0.995,
+        "at_sample": 696000,
+        "at_frame": 362.5
+      }
+    },
+    "muteEffectPassed": false
+  },
+  "decode": {
+    "path": "renders/W3-edit-muted-02.mov",
+    "frame_count": 399,
+    "src_ids": [
+      1
+    ],
+    "first": [
+      [
+        1,
+        0
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        1,
+        2
+      ]
+    ],
+    "frame_123": [
+      1,
+      123
+    ],
+    "last": [
+      1,
+      398
+    ],
+    "frame_mismatch_count": 0,
+    "frame_mismatch_examples": [],
+    "expected_src_id": 1,
+    "matches_expected_src_id": true
+  },
+  "comparison": {
+    "baselinePcmSha256": "f0e1d5c4dc4c52e2d68d4a7ea92ba683f2c736b5dad059867e86e82dcf203b96",
+    "editPcmSha256": "f0e1d5c4dc4c52e2d68d4a7ea92ba683f2c736b5dad059867e86e82dcf203b96",
+    "pcmByteEqual": true
+  }
+}

@@ -1,0 +1,6 @@
+{"at": "2026-10-03T04:54:30.976815+00:00", "phase": "started", "value": {"actionId": "observe-prepare-02-settings-20261003-kit-02", "configSha256": "b37b62ad1c2cd4234d5cc7a40a2bdd68344138e322de5b2ce0e0441ae36fdefa"}}
+{"at": "2026-10-03T04:54:31.154150+00:00", "phase": "probe-verified", "value": {"probePath": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/sources/ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438/harness.py", "probeSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438"}}
+{"at": "2026-10-03T04:54:31.158077+00:00", "phase": "disarmed", "value": {"action": "observe", "actionId": "observe-prepare-02-settings-20261003-kit-02"}}
+{"at": "2026-10-03T04:54:31.158599+00:00", "phase": "probe-request", "value": {"action": "observe", "phase": "observe-prepare-02-settings"}}
+{"at": "2026-10-03T04:54:31.475805+00:00", "phase": "probe-return", "value": {"status": "ok"}}
+{"at": "2026-10-03T04:54:31.478093+00:00", "phase": "result-written", "value": {"result": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-observe-prepare-02-settings-20261003-kit-02.json", "status": "ok"}}

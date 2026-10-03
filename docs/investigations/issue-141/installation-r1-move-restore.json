@@ -1,0 +1,13 @@
+{
+  "kind": "verified-r1-move-context-restoration",
+  "preparationResultSha256": "33136cd643c402835ad2c5daa4d26f92fd8f1d056887f002212e963befa5471b",
+  "postEditPairSha256": "1124201a733b74e487e44d53b9bbac99a89c2f7131af347f7169d565df84f1cc",
+  "probeSha256": "0dd03bf212aa17e67fb27856d6b6c479308661bcc76240f4fbd1c0df31f6667c",
+  "allowedNativeMutations": [
+    "four recorded locks restored",
+    "recorded playhead restored"
+  ],
+  "keepGenuineMove": true,
+  "editorialCommand": false,
+  "retryAllowed": false
+}

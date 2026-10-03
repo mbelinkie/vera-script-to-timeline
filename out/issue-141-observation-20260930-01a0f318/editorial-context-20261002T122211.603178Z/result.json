@@ -1,0 +1,74 @@
+{
+  "environment": {
+    "productName": "DaVinci Resolve Studio",
+    "python": "3.14.7",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "failure": null,
+  "label": "editorial-context",
+  "limits": [
+    "External menu result requires separate full-state interpretation."
+  ],
+  "pair": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-context-20261002T122211.603178Z/pair.json",
+    "sha256": "aa821c2a0dd5ff4df548407304457700e34c51262ade4f3cd438cd5cd44cf957"
+  },
+  "readOnly": true,
+  "renderFormatPasses": [
+    {
+      "codec": "H264",
+      "format": "mov"
+    },
+    {
+      "codec": "H264",
+      "format": "mov"
+    },
+    {
+      "codec": "H264",
+      "format": "mov"
+    },
+    {
+      "codec": "H264",
+      "format": "mov"
+    },
+    {
+      "codec": "H264",
+      "format": "mov"
+    },
+    {
+      "codec": "H264",
+      "format": "mov"
+    },
+    {
+      "codec": "H264",
+      "format": "mov"
+    }
+  ],
+  "selectionPasses": [
+    {
+      "items": [],
+      "playhead": "00:00:00:00"
+    },
+    {
+      "items": [],
+      "playhead": "00:00:00:00"
+    }
+  ],
+  "selectionShapes": [
+    {
+      "count": 0,
+      "type": "list"
+    },
+    {
+      "count": 0,
+      "type": "list"
+    }
+  ],
+  "status": "editorial-readback-retained"
+}

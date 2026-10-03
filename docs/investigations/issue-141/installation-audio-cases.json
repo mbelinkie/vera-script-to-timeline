@@ -1,0 +1,26 @@
+{
+  "kind": "staged-native-audio-properties-and-retime-not-executed",
+  "stagedAt": "2026-09-30T23:41:02.547349+00:00",
+  "action": "audio-cases",
+  "stage": "R2-enable-track-retime-native",
+  "probeSha256": "d3f6824415e71ce2d11d08eae02525e8dd3de979ab3f0fa057e567fec9d3183e",
+  "audioModuleSha256": "643f520f051c0c7435d921dc1964e0b940abd75305a5cf7be3693ec41bbf6fa6",
+  "launcherSha256": "c34bc6d445010f1a36a6c297b8f69f3ad16225f3f29c46445e1d5e521843147b",
+  "privateConfigSha256": "b33f8903c5e4d9ead148b315714805817176deea5ec48993d7f6be37c93e3172",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "guardEvidence": [
+    {
+      "filename": "capture-20260930T223313.312609Z-saved.json",
+      "sha256": "a29402d405ab8cf1bc1abedd4c1ed0c479e983e2ef3ba6fc41d1c2389d6d36d2"
+    }
+  ],
+  "timelineId": "29ae8331-b86e-4041-a548-960695cc7b24",
+  "allowedApiMutations": [
+    "SetClipEnabled",
+    "SetTrackEnable(audio,2)",
+    "SetSpeed(Percentage,RippleTimeline=false)"
+  ],
+  "failureLimit": "Retain every actual state; restore exact touched targets only; no save or retry. No program-audio conclusion.",
+  "privatePathsPublished": false
+}

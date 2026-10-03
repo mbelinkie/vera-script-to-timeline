@@ -1,0 +1,5 @@
+2026-10-01T20:37:18.318165Z  WARN codex_skills::interface: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-10-01T20:37:18.318291Z  WARN codex_skills::interface: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
+2026-10-01T20:37:18.575694Z  WARN codex_skills::interface: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-10-01T20:37:18.575747Z  WARN codex_skills::interface: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
+2026-10-01T20:38:28.066171Z ERROR codex_core::session: failed to record rollout items: thread 01a0f92c-7da8-7cc0-b3b4-67859edc87d4 not found

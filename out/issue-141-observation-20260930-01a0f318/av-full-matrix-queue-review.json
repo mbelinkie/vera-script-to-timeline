@@ -1,0 +1,87 @@
+{
+  "kind": "reviewed-av-full-matrix-queue-only",
+  "status": "reviewed-unrun",
+  "action": "av-output-full-matrix-queue-only",
+  "nativeMutationStaged": false,
+  "nativeCapabilityClaim": "none; no Resolve invocation or render result",
+  "sourceSha256": "3d77b3d30ca49455158bd15362baf41a645d160911f0eb6213a412d8368ec4b3",
+  "checkerSha256": "db0df51fec7fafb19422d5cbe2fa390e09ae6730dc0a8da7b472e78ff9633d64",
+  "readerSha256": "06eff080c45e5c520a1c8c31787e4d4f1604198a3a98a9e3c8e025917fcf455b",
+  "stagedConfigSha256": "079ca9a9f591bd8751cb8254646cff9aa3d9e61288de1df815d9b5bb1ea1d1fd",
+  "stagedProbeSha256": "8e2b1da1a06ebe3051a9bea1c6df206fd352e17c14a4128b1549014116400e11",
+  "actionConfig": {
+    "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+    "externalScriptingSetting": "None",
+    "mediaDir": "REPOSITORY/out/issue-141-media-20260930-01a0f318",
+    "outputDir": "REPOSITORY/out/issue-141-observation-20260930-01a0f318",
+    "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+    "checkpointPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T114857.294317Z/after.json",
+    "checkpointSha256": "1be6a4fe8f6f98e31b9cac544e7251c74e24f7e07aaa0668985d2ae753e66e48",
+    "sampleRateHz": 48000,
+    "renderTimeoutSeconds": 30
+  },
+  "matrix": {
+    "timelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+    "timelineName": "VERA 141 Batched Matrix",
+    "startFrame": 0,
+    "endFrame": 9200,
+    "width": 1920,
+    "height": 1080,
+    "frameRate": 25.0,
+    "checkpointConsistency": "equal-adjacent-reads"
+  },
+  "requestedSettings": {
+    "ExportVideo": true,
+    "ExportAudio": true,
+    "AudioCodec": "lpcm",
+    "AudioSampleRate": 48000,
+    "AudioBitDepth": 24,
+    "FormatWidth": 1920,
+    "FormatHeight": 1080,
+    "FrameRate": 25.0,
+    "SelectAllFrames": true,
+    "MarkIn": "omitted",
+    "MarkOut": "omitted",
+    "AudioFormat": "omitted",
+    "TargetDir": "<outputDir>/av-output-<UTC stamp>/render",
+    "CustomName": "vera141-av-<UTC stamp>"
+  },
+  "queuedJobChecks": [
+    "one returned owned JobId",
+    "IsExportVideo=true and IsExportAudio=true",
+    "QuickTime/mov and H.264/H264",
+    "lpcm, PCM 24-bit and 48000 Hz",
+    "current Matrix width, height and frame rate",
+    "owned destination and expected output filename"
+  ],
+  "endpointObservation": {
+    "acceptedFakeMarkOuts": [9200, 9201],
+    "additionalAcceptedDiagnosticFakeMarkOut": 9199,
+    "refusedFakeMarkOut": "9201",
+    "refusedFakeMarkOutType": "string",
+    "interpretation": "MarkIn/MarkOut are retained diagnostics only; SelectAllFrames ignores requested marks and inclusive/exclusive endpoint semantics are undocumented"
+  },
+  "recovery": {
+    "retainedPriorRecoveryXml": {
+      "path": "av-output-20261001T062051.400988Z/VERA141_AV_OUTPUT_20261001T062051.400988Z.drp/VERA141_AV_OUTPUT_20261001T062051.400988Z.xml",
+      "sha256": "7a729ff08dcbccc16b090bfdd12146ce094fae7aa534d5780ea4f7e4e2581f59"
+    },
+    "continuationRecordSha256": "b169854fa9e6f9509dc22e1b8aa41e2d7e63b79baf74909c3246302c29fedc36",
+    "appliedSettingsRecordSha256": "8852c355e605a0d4e0be62f554f06f8fcdaca7a29e6a39b877633728928592df",
+    "onDriftOrFailure": "retain preset/XML, journal, complete or partial pairs, and any actual queued job; do not clean up or retry",
+    "queueOnly": "leave one verified owned job queued for separately reviewed continuation or drop"
+  },
+  "neverDispatchedByThisAction": [
+    "StartRendering",
+    "GetRenderJobStatus",
+    "DeleteRenderJob",
+    "DeleteRenderPreset"
+  ],
+  "checks": [
+    "python3 -S docs/investigations/issue-141/av-output-check.py passed",
+    "uvx --offline ruff check docs/investigations/issue-141/av-output.py docs/investigations/issue-141/av-output-check.py passed",
+    "fake exact-end and end-plus-one queue observations passed",
+    "fake non-integer endpoint refusal retained the unstarted job",
+    "fake full-state/Out drift refusal retained partial evidence"
+  ]
+}

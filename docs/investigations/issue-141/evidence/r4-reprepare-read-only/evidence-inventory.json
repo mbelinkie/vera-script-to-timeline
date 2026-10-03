@@ -1,0 +1,40 @@
+{
+  "kind": "compact-redacted-source-inventory",
+  "sourceFiles": {
+    "appendPreflight": {
+      "name": "preflight.json",
+      "sha256": "3a2b243dd238da5161546388f925a2b362ed75dd3ee44d5a70c625a7e307db2f",
+      "bytes": 4567934
+    },
+    "appendJournal": {
+      "name": "journal.jsonl",
+      "sha256": "9889f8a37162faf2829ec8d4b89ed46bc90ce126546ff01410788149bb0e4484",
+      "bytes": 2126524
+    },
+    "diagnosticCapture": {
+      "name": "capture-20261001T032801.656424Z.json",
+      "sha256": "6d70868e701b3c011372d3f06ff26236d6c8fffed5d2fea552280d22cbace98b",
+      "bytes": 4323292
+    },
+    "diagnosticPool": {
+      "name": "r4-pool-read-only-20261001T032801.656424Z.json",
+      "sha256": "635495c35afa3ba128bf7fae8e57a7d0beeaed754ad431b3822b5dbe1e95f5b7",
+      "bytes": 280519
+    },
+    "nativeRefusal": {
+      "name": "vera-issue-141-observation-result-20261001T032648.191508Z.json",
+      "sha256": "903a646223f3f0959a2f2fed84c68f5aeddb2813e687e2710e2a1f4235ab06c4",
+      "bytes": 214
+    },
+    "nativeDiagnostic": {
+      "name": "vera-issue-141-observation-result-20261001T032801.585553Z.json",
+      "sha256": "1e7c3e9bb973a484ad6b0f6aa80b3cef6401f12553ae1d8e025a7c18e08c0239",
+      "bytes": 542
+    },
+    "stagedModule": {
+      "name": "r4-reprepare-staged-d78ae2bb.py",
+      "sha256": "d78ae2bb95eb5ffaa669f7e96d342b9c2b5eeee207cdee74274d7f7c2768d37e",
+      "bytes": 12725
+    }
+  }
+}

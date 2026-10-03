@@ -1,0 +1,41 @@
+{
+  "taskId": "Issue 141",
+  "kind": "r1-current-window-readiness",
+  "at": "2026-10-02T13:05:10.391293+00:00",
+  "status": "PASS",
+  "nativeDispatchPerformed": false,
+  "launcher": {
+    "path": "docs/investigations/issue-141/hammerspoon-launch.lua",
+    "sha256": "f92cc1b6e5bd7e0611bf94aa9a7262f3c14936de03fc5072e1c0100593cd461d",
+    "function": "check",
+    "command": "hs -c 'return dofile(\"docs/investigations/issue-141/hammerspoon-launch.lua\").check()'",
+    "runInvoked": false,
+    "activationPerformed": false,
+    "menuSelectionPerformed": false
+  },
+  "cli": {
+    "path": "/Applications/Hammerspoon.app/Contents/Frameworks/hs/hs",
+    "exitCode": 0,
+    "stdout": "{\"windowTitle\":\"VERA Issue 141 Synthetic Probe 20260930-01a0f318\",\"menuFound\":true,\"menuEnabled\":true,\"bundleId\":\"com.blackmagic-design.DaVinciResolve\",\"triggered\":false}\n",
+    "stderr": "",
+    "decoded": {
+      "bundleId": "com.blackmagic-design.DaVinciResolve",
+      "windowTitle": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+      "menuFound": true,
+      "menuEnabled": true,
+      "triggered": false
+    }
+  },
+  "installedConfig": {
+    "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation.json",
+    "sha256": "b1a35edad372e4be672ebcf2d96b79674802aee3be5bfc17c4777806e57e764c",
+    "action": "observe",
+    "timelineInventory": "protected-six",
+    "externalScriptingSetting": "None",
+    "probePath": "REPOSITORY/docs/investigations/issue-141/probe.py",
+    "probeSha256": "2a5113df4c64eed13b812ea99c923633827ee77bdf3398c70e9df9b8361de47d",
+    "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+    "outputDir": "REPOSITORY/out/issue-141-observation-20260930-01a0f318"
+  },
+  "verdict": "Read-only check passed: the exact synthetic project window and observation menu are present and enabled; no menu action was triggered."
+}

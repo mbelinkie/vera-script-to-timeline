@@ -1,0 +1,35 @@
+{
+  "task_id": "issue-149-acceptance-document-check",
+  "decision": "GO",
+  "scope": "Read-only verification of the #149 adoption addendum and top summaries; no Resolve/native tests, production edits, contract edits, or Git state changes.",
+  "freshness": "2026-10-03; checked after roadmap state was reported as #149 Done/closed and #141 open/In review.",
+  "coverage": {
+    "three_decisions": "PASS: accepted-149-design-inputs.md:7-11 and matching current summaries specify W6 hash->changed modified time->RelinkClips->render verification; WI mapping mute is unavailable as an output control; edited-mix speech comes from duplicate timeline transcription or verified render.",
+    "owner_mapping": "PASS: accepted-149-design-inputs.md:17-28 has 10 remaining-limit rows; every row names at least one of #131, #139, #144, #145, #146 and gives explicit verify/review/refuse/preserve behavior.",
+    "transcript_distinction": "PASS: accepted-149-design-inputs.md:11,22; final-findings.md:29-33; second-opinion-handoff.md:35,479,607 distinguish source MediaPoolItem transcription from generated edited-mix subtitle/transcript output and structural readback.",
+    "acceptance_boundary": "PASS: accepted-149-design-inputs.md:3,30-32; report.md:3-16; final-findings.md:3-17; second-opinion-handoff.md:3-5 state #149 accepted/Done while #141 remains open for separate producer/external acceptance.",
+    "implementation_boundary": "PASS: accepted-149-design-inputs.md:3,15,32; final-findings.md:11,17,58; handoff top addendum explicitly say these are requirements/evidence boundaries and make no product implementation claim.",
+    "historical_checkpoint": "PASS: accepted-149-design-inputs.md:32; report.md:13-16; final-findings.md:13; second-opinion-handoff.md:5,45,94 mark the old 9-timeline/12-job checkpoint historical and record Claude's later added timelines/jobs.",
+    "primary_snapshot_and_external_links": "PASS: output/issue149-accepted-readme-e020bd1.md exists; its PR/commit and all 17 distinct referenced GitHub issue-comment URLs returned HTTP 200, as did the #150 PR URL.",
+    "local_links_and_format": "PASS: local Markdown targets and GitHub-style anchors resolve in the checked docs (311 handoff links, 27 final-findings links, 7 report links, 5 snapshot anchors); no whitespace-only lines or trailing whitespace occur in current addenda. Four trailing spaces in handoff.md:559-564 are intentional Markdown hard breaks in an older transcript section outside this bounded scope."
+  },
+  "methods": [
+    "ctx-wire run rtk proxy Python link/anchor existence and owner-row checks",
+    "ctx-wire run rtk proxy awk checks for current-addendum whitespace",
+    "ctx-wire run rtk proxy Python concurrent HTTP GET checks for retained GitHub comments/PR",
+    "Read-only inspection of the named Markdown files and primary snapshot"
+  ],
+  "artifacts": [
+    "docs/investigations/issue-141/accepted-149-design-inputs.md:1-32",
+    "docs/investigations/issue-141/report.md:1-16",
+    "docs/investigations/issue-141/final-findings.md:1-17",
+    "docs/investigations/issue-141/second-opinion-handoff.md:1-45",
+    "output/issue149-accepted-readme-e020bd1.md:1-169"
+  ],
+  "limitations": [
+    "HTTP 200 verifies external URL reachability/retention, not a new semantic audit of GitHub comment bodies.",
+    "Historical report/handoff text retains prior '#149 remains open' wording, but the current prefaces explicitly label those entries historical; no acceptance contradiction remains in the current decision surface."
+  ],
+  "residual_risk": "The documents intentionally retain historical checkpoints and unimplemented downstream requirements; this report does not close #141 or claim those requirements are implemented.",
+  "decision_needed_from_main": "None."
+}

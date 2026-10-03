@@ -1,0 +1,10 @@
+{
+  "pins": {
+    "probe.py": "b1dfd02424f39250639aacd6ad13e0a0c877c3bd6302e5ba000b7e23859371dc",
+    "audio-mapping-mute.py": "79d64f8da4347353d6537215ebd7b9a75666578339fe9ffdbbc3858db6337d8c",
+    "audio-mapping-mute-check.py": "0d062a4ce32234b9fc11dd5eb8af8217c399ad4f5897dcc7a837ea31e5f91b9c",
+    "independent-native-call.py": "924cd160b2d9c0d114317ae8f97743c82c1b7d0923f1cbce225e12b71cb89148"
+  },
+  "action": "audio-mapping-mute",
+  "scope": "one existing synthetic residual A2 mapping mute and exact restore, no render/unlock/retry"
+}

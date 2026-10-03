@@ -1,0 +1,3 @@
+The fake self-check passes, but the module is **not ready for native use**. The existing full-pair reader calls both audio-mapping getters before the module can bind sources to the pinned Matrix evidence. That breaks the required pre-getter refusal and two-pass constraints.
+
+I added the module, self-check, and local readiness record. The record marks `nativePerformed: false` and documents the blocker. A getter-silent full-pair capture path is needed before dispatcher registration or Resolve use. No Resolve calls were made.

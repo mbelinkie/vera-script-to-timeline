@@ -1,0 +1,6 @@
+{"at": "2026-10-03T15:06:05.401935+00:00", "phase": "started", "value": {"actionId": "w3-mapping-mute-d3-operator-fairlight-20261003-kit-02", "configSha256": "ae7669dfa6b2ab3e3756bf023b3d7b111fdf66d88c981d0e36afeab5ae843a0f"}}
+{"at": "2026-10-03T15:06:05.442999+00:00", "phase": "probe-verified", "value": {"probePath": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/sources/ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438/harness.py", "probeSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438"}}
+{"at": "2026-10-03T15:06:05.444227+00:00", "phase": "disarmed", "value": {"action": "w3-mapping-mute", "actionId": "w3-mapping-mute-d3-operator-fairlight-20261003-kit-02"}}
+{"at": "2026-10-03T15:06:05.444388+00:00", "phase": "probe-request", "value": {"action": "w3-mapping-mute", "phase": "w3-mapping-mute-d3-operator-fairlight"}}
+{"at": "2026-10-03T15:06:07.706897+00:00", "phase": "probe-return", "value": {"status": "ok"}}
+{"at": "2026-10-03T15:06:07.707749+00:00", "phase": "result-written", "value": {"result": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-w3-mapping-mute-d3-operator-fairlight-20261003-kit-02.json", "status": "ok"}}

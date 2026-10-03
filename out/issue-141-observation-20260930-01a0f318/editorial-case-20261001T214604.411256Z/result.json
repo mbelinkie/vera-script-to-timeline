@@ -1,0 +1,106 @@
+{
+  "case": "R2-residual",
+  "directory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T214604.411256Z",
+  "environment": {
+    "productName": "DaVinci Resolve Studio",
+    "python": "3.14.7",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "failure": null,
+  "journal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T214604.411256Z/journal.jsonl",
+  "originalLocks": {
+    "audio:1": false,
+    "audio:2": true,
+    "audio:3": true,
+    "video:1": false,
+    "video:2": true,
+    "video:3": true
+  },
+  "originalPage": "edit",
+  "originalPlayhead": "00:00:00:00",
+  "playheadAfter": "00:03:02:10",
+  "preparedPair": {
+    "path": "editorial-case-20261001T214604.411256Z/after.json",
+    "sha256": "7a7d0db1be976dd4e3463e1231a7e00923318742188c0a107c8fc0962085b40d"
+  },
+  "priorPair": {
+    "path": "r2-offset-context-20261001T205629.518751Z/pair.json",
+    "sha256": "7a7d0db1be976dd4e3463e1231a7e00923318742188c0a107c8fc0962085b40d"
+  },
+  "protectedTracks": [
+    [
+      "video",
+      2
+    ],
+    [
+      "video",
+      3
+    ],
+    [
+      "audio",
+      2
+    ],
+    [
+      "audio",
+      3
+    ]
+  ],
+  "resumedFirstSplit": {
+    "childUids": {
+      "audio": [
+        "09373858-39dd-474b-9eb8-56c5e523cc76",
+        "7ef661f3-9b3e-427c-8d00-9dab85a0cfcb"
+      ],
+      "video": [
+        "55ef1242-5a71-45e5-a1b4-d90300589de2",
+        "bbd48d17-f8ef-430f-9cfd-cd14c3860ae0"
+      ]
+    },
+    "limits": "Actual current first-split capture after only the recorded offset edit; no original action replay.",
+    "preparation": {
+      "path": "independent-residual-sequence-20261001T204911.843675Z/preparation.json",
+      "sha256": "1d23d150cc480fe6842dbc0fa9857ac02d58756f96d137c98f7bdd9027b018dd"
+    },
+    "record": {
+      "path": "residual-resume-record-20261001T214000Z.json",
+      "sha256": "88dc531181344f5200f89f0b7b09850ca58058e244b9a39e11978ac973d6f4f6"
+    },
+    "selection": {
+      "path": "independent-residual-sequence-20261001T204911.843675Z/004-r2-residual-selected.json",
+      "sha256": "f5b8b88829d692f47e1939f2b67e3f56cd0125afd07266ec79827c75096dfa93"
+    }
+  },
+  "saveDispatched": false,
+  "setters": [],
+  "status": "case-prepared",
+  "target": {
+    "enabledClips": [
+      {
+        "enabled": true,
+        "index": 2,
+        "kind": "audio",
+        "section": "R2-residual",
+        "uid": "f4e9f649-894a-42f2-9f54-a8321ae7c163"
+      }
+    ],
+    "endFrame": 4699,
+    "frameRate": 25,
+    "sourceUids": {
+      "audio": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+      "video": "9202163a-8381-43e6-9157-3a60f35c6f79"
+    },
+    "splitPlayheadFrame": 4560,
+    "splitPlayheadTimecode": "00:03:02:10",
+    "startFrame": 4500,
+    "uids": {
+      "audio": "09373858-39dd-474b-9eb8-56c5e523cc76",
+      "video": "55ef1242-5a71-45e5-a1b4-d90300589de2"
+    }
+  }
+}

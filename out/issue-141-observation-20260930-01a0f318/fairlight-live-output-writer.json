@@ -1,0 +1,9 @@
+{
+  "observedAt": "2026-10-02T03:49:12.418891+00:00",
+  "jobId": "a6ed7f33-9ad4-4d82-bfac-ff72903f4567",
+  "resolvePid": 1717,
+  "ownedOutputDescriptor": "87w",
+  "fileSizeObserved": 114544163,
+  "check": "lsof on exact owned MOV",
+  "interpretation": "Resolve holds the exact output open for writing; this is live wait evidence, not terminal proof or a render-completion percentage."
+}

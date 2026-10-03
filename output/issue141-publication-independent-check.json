@@ -1,0 +1,116 @@
+{
+  "taskId": "issue-141",
+  "kind": "issue141-publication-independent-check",
+  "status": "PASS",
+  "verifiedOn": "2026-10-03",
+  "scope": "Publication package integrity, evidence inventory, Markdown local links, and privacy boundary; no native Resolve action.",
+  "commands": [
+    {
+      "command": "python3 docs/investigations/issue-141/verify-publication.py --refresh-document-hashes",
+      "result": {
+        "recordsVerified": 5670,
+        "sanitizedTextRecords": 5530,
+        "correctedDocumentHashes": 0,
+        "nativeActions": 0
+      }
+    },
+    {
+      "command": "python3 docs/investigations/issue-141/verify-publication.py",
+      "result": {
+        "recordsVerified": 5670,
+        "sanitizedTextRecords": 5530,
+        "correctedDocumentHashes": 0,
+        "nativeActions": 0
+      }
+    }
+  ],
+  "manifest": {
+    "path": "docs/investigations/issue-141/publication-manifest.json",
+    "records": 5670,
+    "editorialCorrectionRecords": 8,
+    "withheldProtectedTranscriptRecords": 5,
+    "withheldReason": "Protected producer full-source transcript; approved derived comparison/review retained"
+  },
+  "evidenceInventory": {
+    "editorialMacroPlan": {
+      "path": "docs/investigations/issue-141/editorial-macro-plan.md",
+      "present": true
+    },
+    "matrixFinalizeSuccess": {
+      "path": "docs/investigations/issue-141/evidence/matrix-finalize-success",
+      "manifestRecords": 8,
+      "present": true
+    },
+    "finalSevenReview": {
+      "path": "output/r1-final-seven-independent-review.json",
+      "present": true
+    },
+    "issue149Kits": [
+      {
+        "path": "out/issue149-workflow-reruns-20261002-kit-01",
+        "manifestRecords": 839,
+        "bytes": 58738785,
+        "evidenceGroups": 79,
+        "journalRecords": 79,
+        "analysisRecords": 24,
+        "sourceRecords": 11,
+        "renderRecords": 267,
+        "beforeRecords": 9,
+        "afterRecords": 27,
+        "resultRecords": 160,
+        "sourcesDir": true,
+        "rendersDir": true,
+        "evidenceDir": true
+      },
+      {
+        "path": "out/issue149-workflow-discriminators-20261003-kit-02",
+        "manifestRecords": 618,
+        "bytes": 46634876,
+        "evidenceGroups": 59,
+        "journalRecords": 59,
+        "analysisRecords": 16,
+        "sourceRecords": 5,
+        "renderRecords": 191,
+        "beforeRecords": 9,
+        "afterRecords": 63,
+        "resultRecords": 120,
+        "sourcesDir": true,
+        "rendersDir": true,
+        "analysisDir": true,
+        "evidenceDir": true
+      }
+    ]
+  },
+  "markdownLinks": {
+    "documentsChecked": 5,
+    "documents": [
+      "docs/investigations/issue-141/report.md",
+      "docs/investigations/issue-141/final-findings.md",
+      "docs/investigations/issue-141/second-opinion-handoff.md",
+      "docs/investigations/issue-141/accepted-149-design-inputs.md",
+      "docs/investigations/issue-141/PUBLICATION.md"
+    ],
+    "localLinks": 371,
+    "missingTargets": [],
+    "withheldTargetsExcluded": 0
+  },
+  "privacy": {
+    "manifestPayloadsScanned": 5670,
+    "privatePathMarkers": {
+      "/Users/": 0,
+      "/private/var/": 0
+    },
+    "protectedTranscriptRawDirectoryRecords": 0,
+    "producerOrProtectedMediaCandidates": [],
+    "protectedSourceBytesPublished": false,
+    "exclusionsConfirmed": [
+      "protected producer media bytes; no protected source byte reads",
+      "raw protected producer full-source transcription probe directories"
+    ]
+  },
+  "freshnessAndLimitations": [
+    "Verification completed after the root-agent publication correction and Markdown hash refresh.",
+    "Checks inspect committed publication payloads only; they do not rerun Resolve, native collectors, or production suites.",
+    "The verifier's nativeActions value is 0."
+  ]
+}

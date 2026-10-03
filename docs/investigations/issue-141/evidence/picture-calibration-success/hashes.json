@@ -1,0 +1,68 @@
+[
+  {
+    "filename": "picture-calibration-20260930T224456.790256Z.json",
+    "rawSha256": "685686d19b33852f4f6172e911ef09577124fe56ee3c8253248d9996b0ce4008",
+    "publishedSha256": "4587f66895898d44575fbda632c21f27923d177601dc68e3cc775b94e1872f7f",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "picture-calibration-20260930T224456.790256Z.jsonl",
+    "rawSha256": "491cc2a0e2f61ecb0f515cdf43a2ec9586ed79c691e03cf196ebd4e15ef86b0c",
+    "publishedSha256": "c9d6aa96afaff072c27365a27a4d0ef79d8c77b83158c6b69b87c4a5477d334e",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T224456.790256Z-preflight.json",
+    "rawSha256": "ce624a0bc008420cdc786b8083bc9bcaae0e26c6fd3c2d7bf679b73a94524408",
+    "publishedSha256": "c267e9254271420f867d3c57a2bb7ce98c06647d2490cb8888f1f7c8fe8bf0b0",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T224456.790256Z-content-before.json",
+    "rawSha256": "729dd8860509e60f0ae62a6dadf339aee1234336cabf7418826404112e6812e1",
+    "publishedSha256": "51b778dae368a1ad038693c410f39373cd6bb8bfa84f3ea7f224bf55472661c1",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T224456.790256Z-content-after.json",
+    "rawSha256": "bb9bb9a851d6f008b7578dbdf22fad454b2802da0b86caefb19c43b4fffe7095",
+    "publishedSha256": "926eda6470fe7e96f01cd1d0b9235a7ebaa3153ea0a9184143dd063a9c4a264a",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "vera-issue-141-observation-result-20260930T224456.775210Z.json",
+    "rawSha256": "3eb994dc3cf111e039091197a4ff4aa3500bf18f17d8ed38f9ecab445d6faea1",
+    "publishedSha256": "29be76a30e46b15f1ff48e57445a32a0a11aacdb91bed91c588b3108729a511d",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "frame-000.png",
+    "rawSha256": "084839cd4e5ecd123e21fe204fbaadd471960290319824081f21de600ec80495",
+    "publishedSha256": "084839cd4e5ecd123e21fe204fbaadd471960290319824081f21de600ec80495",
+    "redaction": "synthetic still copied byte-for-byte; no path metadata"
+  },
+  {
+    "filename": "frame-198.png",
+    "rawSha256": "e1801029ac90b2abbb15eeca9d108298600384c2afef0475339826abfe5c1bd0",
+    "publishedSha256": "e1801029ac90b2abbb15eeca9d108298600384c2afef0475339826abfe5c1bd0",
+    "redaction": "synthetic still copied byte-for-byte; no path metadata"
+  },
+  {
+    "filename": "frame-199.png",
+    "rawSha256": "4ffe68970e56db313fa07e6054e22a0568ad00d86ff75236f152968979ad219c",
+    "publishedSha256": "4ffe68970e56db313fa07e6054e22a0568ad00d86ff75236f152968979ad219c",
+    "redaction": "synthetic still copied byte-for-byte; no path metadata"
+  },
+  {
+    "filename": "frame-200.png",
+    "rawSha256": "4ffe68970e56db313fa07e6054e22a0568ad00d86ff75236f152968979ad219c",
+    "publishedSha256": "4ffe68970e56db313fa07e6054e22a0568ad00d86ff75236f152968979ad219c",
+    "redaction": "synthetic still copied byte-for-byte; no path metadata"
+  },
+  {
+    "filename": "hammerspoon-launch-20260930T224455.835748Z.jsonl",
+    "rawSha256": "e849b8fea913abce976c485ee6dd3356f675841575a9194579179aba262add4f",
+    "publishedSha256": "e849b8fea913abce976c485ee6dd3356f675841575a9194579179aba262add4f",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  }
+]

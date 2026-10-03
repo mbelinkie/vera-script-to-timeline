@@ -1,0 +1,136 @@
+{
+  "build": [
+    21,
+    1,
+    0,
+    14,
+    ""
+  ],
+  "case": "R2-unlinked",
+  "evidenceRoot": "docs/investigations/issue-141/evidence/r2-unlinked-physical-cut",
+  "kind": "issue-141-r2-unlinked-independent-review",
+  "limits": {
+    "programOutput": "pending",
+    "routing": "not verified",
+    "sampleSynchronization": "not verified",
+    "speechOutputClaim": "none"
+  },
+  "physicalCut": {
+    "audioChildrenAfterDeletion": [
+      {
+        "record": [
+          3000,
+          3060
+        ],
+        "source": [
+          0,
+          60
+        ],
+        "uid": "7c970634-6fcb-4117-9a51-221a482c7142"
+      },
+      {
+        "record": [
+          3070,
+          3199
+        ],
+        "source": [
+          70,
+          199
+        ],
+        "uid": "04567868-28d3-47f5-bd7b-dca08fef8b27"
+      }
+    ],
+    "deleteCall": {
+      "method": "Timeline.DeleteClips",
+      "return": true,
+      "ripple": false
+    },
+    "deletedUid": "904a5a08-f169-4a22-a613-fcdd2614f0e8",
+    "firstBladeFrame": 3060,
+    "fullStateComparison": "The two-pass full-state validators matched both split transitions. After deletion, the exact expected result is removal of the selected A1 interval plus its source Usage decrement; V1 and all other timeline state are unchanged.",
+    "newChildUids": {
+      "firstRight": "904a5a08-f169-4a22-a613-fcdd2614f0e8",
+      "secondTail": "04567868-28d3-47f5-bd7b-dca08fef8b27"
+    },
+    "oneFrameStep": {
+      "after": "00:02:02:20",
+      "before": "00:02:02:19",
+      "fullStatePairUnchanged": true,
+      "selectionEmptyOnBothReadbacks": true
+    },
+    "recordIntervalHalfOpen": [
+      3060,
+      3070
+    ],
+    "secondBladeFrame": 3070,
+    "selection": {
+      "firstUid": "7c970634-6fcb-4117-9a51-221a482c7142",
+      "playhead": "00:02:02:10 / 00:02:02:20",
+      "secondUid": "904a5a08-f169-4a22-a613-fcdd2614f0e8"
+    },
+    "sourceIntervalHalfOpen": [
+      60,
+      70
+    ],
+    "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+    "targetTrack": "Audio 1",
+    "usage": {
+      "audioSourcePoolCount": "45 -> 46 -> 47 -> 46",
+      "phases": [
+        "prior",
+        "first split",
+        "second split",
+        "deleted interval"
+      ],
+      "videoSourcePoolCount": "24 -> 24 -> 24 -> 24"
+    },
+    "video1UnchangedThroughSplitAndDelete": true
+  },
+  "preparationReview": {
+    "failure": "Full postflight differs from the bounded case operation",
+    "observedGetterDifference": "After unlinking, the target video GetSpeed.value omitted PitchCorrection; the prior pair had PitchCorrection=true. The corrected review model preserves the observed omission exactly.",
+    "originalAttempt": "refused-partial-state-retained",
+    "preparedPairSha256": "31a36fbf4730802705280056c73265240969e752bc2db8a71df74409f2289636",
+    "reviewOnly": true,
+    "setterReplay": false
+  },
+  "product": "DaVinci Resolve Studio",
+  "projectId": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+  "python": "3.14.7",
+  "rawEvidenceRoot": "out/issue-141-observation-20260930-01a0f318",
+  "restoration": {
+    "finalPairSha256": "6b047339f81bab349ff3e95928bebda192a73e251b7e3989b8fd9d893a882d45",
+    "matchesSequenceCompleteRecord": true,
+    "playheadAfter": "00:01:37:24",
+    "playheadBefore": "00:01:37:24",
+    "saveDispatched": false,
+    "status": "restored-unsaved",
+    "trackLocks": {
+      "audio:1": false,
+      "audio:2": true,
+      "audio:3": true,
+      "video:1": false,
+      "video:2": true,
+      "video:3": true
+    }
+  },
+  "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+  "sources": [
+    "hashes.json",
+    "independent-review.json",
+    "refused-preparation/result.json",
+    "refused-preparation/exact-difference.json",
+    "review/reviewed-preparation-v2.json",
+    "sequence/first-split-readback.json",
+    "continuation/interval-deletion.json",
+    "restoration/result.json"
+  ],
+  "status": "physical-single-track-cut-verified-output-pending",
+  "verification": {
+    "fullStatePassesCompared": 2,
+    "nativeActionAuditRecords": 13,
+    "publishedSha256Bindings": "all listed entries match hashes.json",
+    "rawPairSha256Bindings": 5,
+    "sourceArtifactCount": 75
+  }
+}

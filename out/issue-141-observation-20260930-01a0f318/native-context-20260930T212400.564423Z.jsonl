@@ -1,0 +1,6 @@
+{"at": "2026-09-30T21:24:00.850104+00:00", "method": "SetCurrentTimeline", "phase": "request", "value": ["88f7923d-55a7-471f-b09b-cf10f9fae8ad"]}
+{"at": "2026-09-30T21:24:01.090866+00:00", "method": "SetCurrentTimeline", "phase": "return", "value": true}
+{"at": "2026-09-30T21:24:01.212024+00:00", "method": "SetCurrentTimeline(readback)", "phase": "readback", "value": {"selectedTimelineId": "88f7923d-55a7-471f-b09b-cf10f9fae8ad"}}
+{"at": "2026-09-30T21:24:01.553370+00:00", "method": "SetCurrentTimeline", "phase": "request", "value": ["aa2b8e36-83bd-4292-9e33-217c00ca192f"]}
+{"at": "2026-09-30T21:24:01.709507+00:00", "method": "SetCurrentTimeline", "phase": "return", "value": true}
+{"at": "2026-09-30T21:24:01.816841+00:00", "method": "SetCurrentTimeline(readback)", "phase": "readback", "value": {"selectedTimelineId": "aa2b8e36-83bd-4292-9e33-217c00ca192f"}}

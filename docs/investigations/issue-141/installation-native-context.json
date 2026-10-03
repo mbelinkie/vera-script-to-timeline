@@ -1,0 +1,19 @@
+{
+  "kind": "staged-selection-context-not-executed",
+  "stagedAt": "2026-09-30T21:23:29.467160+00:00",
+  "action": "native-context",
+  "stage": "R1-R5-selected-timeline-context",
+  "probeSha256": "cf924f0ebf27d6563cfacb24325f3c3c88de22939e6e87c664c47ad415fb93dd",
+  "launcherSha256": "f4edc26d703e7729f5362045b4f860a5b4d16da1f3517db0255f77662d61a791",
+  "privateConfigSha256": "38d2d4a080090b674b3b80e2d188c074d8c63179c3d885bbdb27a27a940174e7",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "pinnedSavedCaptureSha256": "fab588ea4f4e10394b0ca878358cb55743cb8c1dbaa72cd4822320e7e9cae85f",
+  "pinnedBaselineSha256": "92c04d10bafe86499b7d11a27d457e655893ee6340d73a290a80e29e35887161",
+  "privatePathsPublished": false,
+  "allowedApiMutations": [
+    "SetCurrentTimeline(baseline)",
+    "SetCurrentTimeline(R1)"
+  ],
+  "guard": "Exact saved duplicate state and current R1 selection; complete raw comparison except five sources/six Usage leaves in selected baseline.",
+  "failureLimit": "After baseline selection a failure may leave baseline selected; retain evidence and stop without save or further action."
+}

@@ -1,0 +1,46 @@
+{
+  "autoSelectReset": {
+    "path": "independent-cut-sequence-20261001T193127.920184Z/r2-picture-context.json",
+    "sha256": "e840032a82e22f65a6046a372947b7465a841544da38e26fd6390bf57e0d9aac"
+  },
+  "case": "R2-picture",
+  "deletedReadback": {
+    "path": "independent-cut-sequence-20261001T193127.920184Z/r2-picture-deleted.json",
+    "sha256": "40e0556d1be04e7df7f1e0d74e7190c715dab0b0995afc84781e959654bca2cf"
+  },
+  "directory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-cut-sequence-20261001T193127.920184Z",
+  "firstSelection": {
+    "path": "independent-cut-sequence-20261001T193127.920184Z/r2-picture-selected.json",
+    "sha256": "56f1b1f19ce3ffbcd8ac2c0d73401fd14630c799936c4eaee69483051694edfa"
+  },
+  "firstSplit": {
+    "path": "independent-cut-sequence-20261001T193127.920184Z/r2-picture-first-split.json",
+    "sha256": "76da1f4f929a9174bb175c95688950ef69a08093199778a89be10440f25cfea4"
+  },
+  "intervalDeletion": {
+    "path": "independent-cut-sequence-20261001T193127.920184Z/interval-deletion.json",
+    "sha256": "5e518e0b0129d127a7b61a0d49da415dc8e7e3c7aea7f8864ee11a4a395e11bb"
+  },
+  "preparation": {
+    "path": "independent-cut-sequence-20261001T193127.920184Z/preparation.json",
+    "sha256": "574f4c2d86f905eebf997da92fa1794cc00b45260c22f20ad7b0c545ae46c34e"
+  },
+  "restoration": {
+    "path": "independent-cut-sequence-20261001T193127.920184Z/restoration.json",
+    "sha256": "72491a8571123187dd7b4cc2ae14e2782fc4aaa152a5ba0a840548343d446cd5"
+  },
+  "saveDispatched": false,
+  "secondPosition": {
+    "path": "independent-cut-sequence-20261001T193127.920184Z/second-position.json",
+    "sha256": "a3a1d1d17ef58d7fe69b243c998bec4399ac06e03882c731143bbf598f7a0695"
+  },
+  "secondSelection": {
+    "path": "independent-cut-sequence-20261001T193127.920184Z/r2-picture-second-selected.json",
+    "sha256": "7c8cfdee3123101f2896948f9b1f083fa7a0c264986fa3cd49ffcda4915b44da"
+  },
+  "secondSplit": {
+    "path": "independent-cut-sequence-20261001T193127.920184Z/r2-picture-second-split.json",
+    "sha256": "d3d82882e21d0f8e8b378eda0201dd52f566c82fff4f6e28c69d93cbcfaf08ed"
+  },
+  "status": "single-track-sequence-complete"
+}

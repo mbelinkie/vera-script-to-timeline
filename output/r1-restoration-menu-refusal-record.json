@@ -1,0 +1,22 @@
+{
+  "kind": "issue141-restoration-menu-refusal-record",
+  "status": "waiting-for-exact-project-window",
+  "launch": {
+    "path": "out/issue-141-observation-20260930-01a0f318/independent-action-20261002T125424.498570Z/launch.json",
+    "sha256": "07c3b9a4c84b4d9b116533380a3a26b3a8ca3434797747fd6602a715de6e91b8"
+  },
+  "executorState": {
+    "path": "output/r1-final-native-executor-20261002-state.json",
+    "sha256": "4682ed35d3fa0999e3e36263d9bb3fe0ddc81a1ec43fcd9de1e1507de1a4a710"
+  },
+  "noInjectedDispatch": true,
+  "noNativeRestoration": true,
+  "noDuplicateAttempted": true,
+  "resolveProcessRunning": true,
+  "hammerspoonProcessRunning": true,
+  "reasonForWindowUnavailability": "unknown",
+  "operatorAction": "Bring exact Synthetic Probe project window forward with no dialog; preserve clips/controls; reply ready.",
+  "goalStatus": "active",
+  "completed": 38,
+  "total": 41
+}

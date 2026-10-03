@@ -1,0 +1,133 @@
+{
+  "checkpoint": {
+    "path": "av-calibration-checkpoint-after-r1-move-20261001T061824.json",
+    "sha256": "35f7132f331a8ecf0f1685dd1167c636add1aea3118bfbf2f2e7896ae348c1c3"
+  },
+  "continuationRules": {
+    "currentVisibleStateMustEqualPriorInitialVisibleStatePlusExactlyOwnedPreset": true,
+    "desiredRenderSettings": {
+      "AudioBitDepth": 24,
+      "AudioCodec": "lpcm",
+      "AudioSampleRate": 48000,
+      "ExportAudio": true,
+      "ExportVideo": true,
+      "FormatHeight": 360,
+      "FormatWidth": 640,
+      "FrameRate": 25.0,
+      "MarkIn": 0,
+      "MarkOut": 200
+    },
+    "hiddenRenderSettingsEquality": "not claimed",
+    "mustMatchCheckpointAndFreshCompletePair": true,
+    "mustMatchPriorEvidenceHashes": true,
+    "neverReplayFailedSetter": true,
+    "neverSaveOrExportSnapshotAgain": true,
+    "noCleanupBeforeVerifiedSuccessfulOutput": true,
+    "restoreSnapshotOnlyAfterVerifiedSuccessfulOutput": true
+  },
+  "environment": {
+    "platform": "macOS-15.1-x86_64-i386-64bit-Mach-O",
+    "product": "DaVinci Resolve Studio",
+    "pythonVersion": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 17.0.0 (clang-1700.6.4.2)]",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "kind": "issue-141-av-output-continuation-binding",
+  "priorAttempt": "av-output-20261001T062051.400988Z",
+  "priorAttemptEvidence": {
+    "actualSnapshotFields": {
+      "RecordAudioBitDepth": "16",
+      "RecordAudioEnabled": "true",
+      "RecordFormatSubType": "avc1",
+      "RecordFormatType": "mov",
+      "extra_info.aud_codec": "lpcm"
+    },
+    "candidatePreconditionExpected": {
+      "RecordAudioBitDepth": "24",
+      "RecordAudioEnabled": "true",
+      "RecordFormatSubType": "avc1",
+      "RecordFormatType": "mov",
+      "extra_info.aud_codec": "lpcm"
+    },
+    "expectedPriorRefusal": "RuntimeError: Snapshot XML does not verify MOV/H264 plus lpcm",
+    "finalLocalResult": {
+      "path": "av-output-20261001T062051.400988Z/final-local-result.json",
+      "sha256": "58094f9d5b3d1167426fccc9d7600ba2c8139b7d880ef437e3ac5d3961839fe3"
+    },
+    "journal": {
+      "path": "av-output-20261001T062051.400988Z/journal.jsonl",
+      "sha256": "0b476ccff101d229d1f616e416db6991200e0e5f1727d8da7e9a9b5c3cbf1983"
+    },
+    "not_called": [
+      "SetRenderSettings",
+      "AddRenderJob",
+      "StartRendering",
+      "LoadRenderPreset",
+      "DeleteRenderJob",
+      "DeleteRenderPreset"
+    ],
+    "presetName": "VERA141_AV_OUTPUT_20261001T062051.400988Z",
+    "snapshotXml": {
+      "path": "av-output-20261001T062051.400988Z/VERA141_AV_OUTPUT_20261001T062051.400988Z.drp/VERA141_AV_OUTPUT_20261001T062051.400988Z.xml",
+      "sha256": "7a729ff08dcbccc16b090bfdd12146ce094fae7aa534d5780ea4f7e4e2581f59"
+    },
+    "successfulMutatingCallsBeforeRefusal": [
+      "SaveAsNewRenderPreset(VERA141_AV_OUTPUT_20261001T062051.400988Z)",
+      "ExportRenderPreset(VERA141_AV_OUTPUT_20261001T062051.400988Z, owned evidence path)"
+    ]
+  },
+  "priorInitialVisibleState": {
+    "formatCodec": {
+      "codec": "H264",
+      "format": "mov"
+    },
+    "jobs": [],
+    "mode": 1,
+    "presets": [
+      "H.264 Master",
+      "HyperDeck",
+      "H.265 Master",
+      "ProRes 422 HQ",
+      "YouTube - 720p",
+      "YouTube - 1080p",
+      "YouTube - 1440p",
+      "YouTube - 2160p",
+      "Vimeo - 720p",
+      "Vimeo - 1080p",
+      "Vimeo - 2160p",
+      "TikTok - 720p",
+      "TikTok - 1080p",
+      "Presentations",
+      "Dropbox - 720p",
+      "Dropbox - 1080p",
+      "Dropbox - 2160p",
+      "Replay - 720p",
+      "Replay - 1080p",
+      "Replay - 2160p",
+      "IMF - Generic",
+      "IMF - 20th Century Fox",
+      "IMF - Netflix",
+      "IMF - Sony Pictures",
+      "IMF - iQIYI",
+      "IMF - HDR Vivid",
+      "FCP - Final Cut Pro 7",
+      "FCP - Final Cut Pro X",
+      "Premiere XML",
+      "Audio Only",
+      "AVID AAF",
+      "Pro Tools",
+      "Tencent - IMF",
+      "Tencent - MOV",
+      "Tencent - MP4",
+      "VR 180/360 - Meta Quest VR",
+      "VR 180/360 - YouTube VR",
+      "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z"
+    ],
+    "rendering": false
+  }
+}

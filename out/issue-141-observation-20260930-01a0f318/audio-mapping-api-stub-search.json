@@ -1,0 +1,8 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"content\": [{\"type\": \"text\", \"mimeType\": \"text/plain\", \"text\": \"DaVinciResolveScript.pyi\\n  class MediaPoolItem # A clip in the media pool. See README.md section 'Looking up Project and Clip properties'.\\n    def GetAudioMapping(self) -> str # Returns a string with MediaPoolItem's audio mapping information (JSON format).\\n    def SetAudioMapping(self, audioMapping: str) -> bool # Sets audio mapping from a JSON string.\\n  class TimelineItem # A clip, title, generator or transition on a timeline track. See README.md section 'Looking up Timeline item properties'.\\n    def GetSourceAudioChannelMapping(self) -> str # Returns a string with TimelineItem's audio mapping information\\n    def SetSourceAudioChannelMapping(self, audioMapping: str) -> bool # Sets source audio channel mapping from a JSON string.\\nCall `get_scripting_api` with `types` to get the full declaration of any of the types above.\"}]}"
+    }
+  ]
+}

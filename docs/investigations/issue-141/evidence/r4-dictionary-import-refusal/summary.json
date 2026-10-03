@@ -1,0 +1,23 @@
+{
+  "attemptAt": "2026-10-01T00:27:44Z",
+  "failureDetail": "RuntimeError: ImportMedia refused operation",
+  "followup": "Two equal media-pool inventory passes each retained the same eight pre-existing entries; the read-only state capture is equal-adjacent. The earlier consolidated read-only run at 00:27:56 likewise has equal inventory and timeline pass pairs. These reads record unchanged state after the refusal; no retry/mutation occurred in either observation.",
+  "followupAt": "2026-10-01T00:29:32Z",
+  "interpretation": "A dictionary-form ImportMedia attempt refused. The operation stopped; this is evidence about that invocation only, not evidence that generic import, path-list import, relink, unlink, offline status, or other R4 capabilities are unavailable.",
+  "kind": "r4-dictionary-import-refusal-and-read-only-followup",
+  "limits": [
+    "No ImportMedia success or availability transition occurred in the dictionary-form attempt.",
+    "No result from this attempt establishes path-list import behavior."
+  ],
+  "rawSha256": {
+    "capture-20261001T002932.494867Z.json": "aa4315c5e10968016fb454c43ab3841ecb9048b25af161337a778b1e80e04c02",
+    "hammerspoon-launch-20261001T002743.814828Z.jsonl": "cde7f0444a1184b680ad2b272e75135c268bfbfd0224a665b51008060f1fbade",
+    "hammerspoon-launch-20261001T002931.672202Z.jsonl": "06e72c33d2edd94038f74d43aeffc4e4652960bdaadd81737d7a7699eee1773f",
+    "r4-availability-20261001T002744.440877Z.jsonl": "3260fe7eba9d550d81747c19ba8a948d614df9eba7418367cbcba631340b3c56",
+    "r4-pool-read-only-20261001T002932.494867Z.json": "a8ccf2b6fe74f3c72300d0f3a5af7255ff8770f82f97fc2ab9265da0e196f68b",
+    "r4-readonly-20261001T002756.680032Z.json": "0f99597363319c2f23f84780365d40ef23620ce619a75a405797c94d37548574",
+    "vera-issue-141-observation-result-20261001T002744.404674Z.json": "65e73a5b2546e065928accb47018616d1781de581a15ca076f042b651af716b3",
+    "vera-issue-141-observation-result-20261001T002932.335518Z.json": "56ab5683b7a1611831304f30cd9bd1332cc0e7bd30d6e26ff5d935794ae667d2"
+  },
+  "resultStatus": "launcher-failed"
+}

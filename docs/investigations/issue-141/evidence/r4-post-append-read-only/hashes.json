@@ -1,0 +1,32 @@
+[
+  {
+    "filename": "vera-issue-141-observation-result-20261001T003310.360988Z.json",
+    "publishedSha256": "f7b7e8a96baccef6ab03769ac9c78db6827255d992ac35df663e395531530f28",
+    "rawSha256": "6c7c879997fb5345f3a0beda83ef78ac75744f68a38cd6d25fc75de1b0bf8f4f",
+    "redaction": "private absolute paths replaced with <probe-output>, <synthetic-media>, or <user-home>"
+  },
+  {
+    "filename": "hammerspoon-launch-20261001T003309.727954Z.jsonl",
+    "publishedSha256": "834c9dbcbe5e2cd035b8ca61d1a41902d2ac9e5df1216921c066160e08156db9",
+    "rawSha256": "834c9dbcbe5e2cd035b8ca61d1a41902d2ac9e5df1216921c066160e08156db9",
+    "redaction": "private absolute paths replaced with <probe-output>, <synthetic-media>, or <user-home>"
+  },
+  {
+    "filename": "capture-20261001T003310.397326Z.json",
+    "publishedSha256": "f399de7613ffb4a50ee4942388e7e0d21f80b2f0d1e7b5e36713672701347b36",
+    "rawSha256": "f3a321fcd5ae47c90e25b3dcf254a0d983ff0bdde8862700b2411c710b3fe0fa",
+    "redaction": "private absolute paths replaced with <probe-output>, <synthetic-media>, or <user-home>"
+  },
+  {
+    "filename": "r4-pool-read-only-20261001T003310.397326Z.json",
+    "publishedSha256": "f50a9a15be8fc7ae1d4935d8504188674dd261d48ca45fc9d335679211bf48ff",
+    "rawSha256": "ac6f4661f59f910029dae51dcc758bd1d766e8f810fb4996fcee1b18c681e751",
+    "redaction": "private absolute paths replaced with <probe-output>, <synthetic-media>, or <user-home>"
+  },
+  {
+    "filename": "installation-r4-partial-state-read-only.json",
+    "publishedSha256": "3b4bcd439bec300df5c34244b4884efef876793735ee593408af9ca904938a79",
+    "rawSha256": "3b4bcd439bec300df5c34244b4884efef876793735ee593408af9ca904938a79",
+    "redaction": "private absolute paths replaced with <probe-output>, <synthetic-media>, or <user-home>"
+  }
+]

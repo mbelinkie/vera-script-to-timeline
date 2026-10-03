@@ -1,0 +1,9 @@
+{
+  "capture": {
+    "capturePath": "[ISSUE_WORKTREE]/out/issue-141-observation-20260930-01a0f318/capture-20261001T030157.768476Z.json",
+    "sha256": "75b854b050493a5179e2e2a5a5bf14964866efa31def9e59c22dd58cb49d26da",
+    "status": "equal-adjacent-reads"
+  },
+  "inventoryPath": "[ISSUE_WORKTREE]/out/issue-141-observation-20260930-01a0f318/r4-pool-read-only-20261001T030157.768476Z.json",
+  "status": "equal-read-only-pool-inventory"
+}

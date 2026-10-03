@@ -1,0 +1,7 @@
+{
+  "readOnlyResult": "vera-issue-141-observation-result-20261001T055304.060494Z.json",
+  "pairSha256": "8be8fc612618e874241f90b693a4c7a732e4eb0fbdd3de4afe17cd2756df82ff",
+  "exactCompleteStateEqualsVerifiedRestoration": true,
+  "noNativeTrimPreparationOrEditorialActionWasDispatched": true,
+  "originalGuardCause": "unresolved"
+}

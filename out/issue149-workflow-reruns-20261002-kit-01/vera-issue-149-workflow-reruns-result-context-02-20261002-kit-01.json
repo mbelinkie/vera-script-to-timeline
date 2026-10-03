@@ -1,0 +1,16 @@
+{
+  "action": "context",
+  "actionId": "context-02-20261002-kit-01",
+  "configSha256": "5466ad779338b2241aaa04fcb0ffc003a79a9d73127011c3f8c7b06a68b7a2dc",
+  "error": {
+    "message": "'NoneType' object has no attribute '__name__'",
+    "type": "AttributeError"
+  },
+  "journal": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/evidence/context-02-20261002-kit-01/journal.jsonl",
+  "launcher": "workflow-injected",
+  "phase": "context-02",
+  "progress": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-progress-context-02-20261002-kit-01.jsonl",
+  "schemaVersion": "issue-149-workflow-reruns-v1",
+  "stateId": null,
+  "status": "failure"
+}

@@ -1,0 +1,8 @@
+{
+  "status": "refused-before-blade-known-unlink-reading-change",
+  "exactExtraDelta": "Target video GetSpeed.value.PitchCorrection true -> null, both reads",
+  "otherDelta": "Expected two link removals and protected locks only",
+  "settersReplayed": false,
+  "nativeCut": false,
+  "interpretation": "Optional reading became unknown; pitch/timing and program audio cannot be inferred from this field."
+}

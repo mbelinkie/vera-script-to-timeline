@@ -1,0 +1,11 @@
+{
+  "updates": {
+    "action": "av-output-drop-unstarted-owned-job",
+    "case": "R2-output",
+    "checkpointPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T114857.294317Z/after.json",
+    "checkpointSha256": "1be6a4fe8f6f98e31b9cac544e7251c74e24f7e07aaa0668985d2ae753e66e48",
+    "queuedAttemptPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T115327.250767Z",
+    "queuedAttemptSha256": "362ebcb4cba521078a2aad840c7ef7facce27d0c1b04f9a4e200bf8b64d6997a",
+    "queuedJournalSha256": "b8f1d0ce3707e567f4ccf3b29ff138e09ec8cafc22624c96d9edf0267719162c"
+  }
+}

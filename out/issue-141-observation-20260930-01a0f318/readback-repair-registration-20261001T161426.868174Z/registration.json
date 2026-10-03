@@ -1,0 +1,9 @@
+{
+  "kind": "reviewed-read-only-helper-registration",
+  "helperSha256": "dba56a716aff973afdcc977df51fdc4b08ae1f727ce24f7c41d94c0f9ce32d22",
+  "checkerSha256": "43cc82f4857665d843bab2092e1f923c30c7163f83ead7c9c1bab63b8934c23d",
+  "probeSha256": "33e89ab7dd8c21b40b114ec6bda68c6db19d31dfd912ee7c8d842361e4b50eb0",
+  "action": "observe",
+  "nativeDispatch": false,
+  "configBackup": "previous-config.json"
+}

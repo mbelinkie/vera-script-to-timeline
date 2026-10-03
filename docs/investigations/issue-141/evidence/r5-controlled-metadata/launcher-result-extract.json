@@ -1,0 +1,15 @@
+{
+  "comparisonStatus": "inconsistent-refused",
+  "interpassError": null,
+  "interpassReturn": true,
+  "limits": [
+    "Controlled metadata change between reads, not a simultaneous UI race.",
+    "No atomic revision token or exclusion of ABA changes is established.",
+    "Marker note/name and clip movement remain separate untested cases."
+  ],
+  "onlyMarkerCustomDataChanged": true,
+  "originalFullStateRestored": true,
+  "restoreError": null,
+  "restoreReturn": true,
+  "status": "controlled-change-refused-and-restored"
+}

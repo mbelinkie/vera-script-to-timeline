@@ -1,0 +1,21 @@
+{
+  "status": "executable-local-run-not-invoked",
+  "driver": "independent-offset-sequence.py",
+  "registeredSourcePins": {
+    "editorial-cases.py": "4f8acafc4ba78483518f4b9b39946888b7c79a3109d47a72a610d975abe851c6",
+    "editorial-cases-check.py": "6d6edf65b4b43971997c8b2fc48afd77959e9fa84c946e349c2308e33875b019",
+    "probe.py": "2a6a3b1c40f80f98617a43c2ed08e925a4a9668b146c481f270de0e9a047e057",
+    "independent-native-call.py": "61ef935b47f5138545df909f41edffc2f10c7dcf55283068948950248e2c0531"
+  },
+  "checkCovers": [
+    "exact one-frame GetStart/GetStart(True)/GetEnd/GetEnd(True) delta for only A1 target",
+    "refusal when the same delta is applied to the wrong target",
+    "refusal when unrelated V1 state changes",
+    "R2-offset readback labels and ordered approved-menu protocol are valid"
+  ],
+  "checkDoesNotCover": [
+    "native Resolve calls or captured-schema completeness",
+    "actual track-lock changes, menu behavior, target selection, nudge, or restoration"
+  ],
+  "runInvoked": false
+}

@@ -1,0 +1,57 @@
+{
+  "afterPair": {
+    "path": "av-output-20261001T063250.006372Z/full-pair-003.json",
+    "sha256": "dc66efb49729dfc0b40efd35a3fa02d94cacd91e1ddfbaa62e97efcf656467ca"
+  },
+  "appliedSettings": {
+    "AudioBitDepth": 24,
+    "AudioCodec": "lpcm",
+    "AudioSampleRate": 48000,
+    "CustomName": "vera141-av-20261001T063250.006372Z",
+    "ExportAudio": true,
+    "ExportVideo": true,
+    "FormatHeight": 360,
+    "FormatWidth": 640,
+    "FrameRate": 25.0,
+    "MarkIn": 0,
+    "MarkOut": 200,
+    "SelectAllFrames": false,
+    "TargetDir": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T063250.006372Z/render"
+  },
+  "beforePair": {
+    "path": "av-output-20261001T063250.006372Z/full-pair-002.json",
+    "sha256": "35f7132f331a8ecf0f1685dd1167c636add1aea3118bfbf2f2e7896ae348c1c3"
+  },
+  "changedPoolProxyUid": "de8efefa-310d-451c-863c-d6b847e8b82e",
+  "changedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+  "kind": "issue-141-av-applied-settings-queue-checkpoint",
+  "neverDispatched": [
+    "AddRenderJob",
+    "StartRendering",
+    "LoadRenderPreset",
+    "DeleteRenderJob",
+    "DeleteRenderPreset"
+  ],
+  "noReplay": [
+    "SaveAsNewRenderPreset",
+    "ExportRenderPreset",
+    "SetRenderSettings"
+  ],
+  "onlyObservedDelta": {
+    "after": "00:00:08:00",
+    "before": "",
+    "field": "GetClipProperty.Out / poolItemProperties.Out",
+    "occurrencesAcrossTwoPoolPasses": 4
+  },
+  "priorAttempt": "av-output-20261001T063250.006372Z",
+  "priorAttemptJournal": {
+    "path": "av-output-20261001T063250.006372Z/journal.jsonl",
+    "sha256": "7d6f02f916d8d7518607b2ad6a05b7938485f0357f0a1d5d3e7529b2a275361e"
+  },
+  "priorFinalResult": {
+    "path": "av-output-20261001T063250.006372Z/final-local-result.json",
+    "sha256": "384588c06074dcc0d67b7599007befb6e024d3917ee3f088ecaaf9d3ef93e8c5"
+  },
+  "setter": "SetRenderSettings",
+  "setterReturned": true
+}

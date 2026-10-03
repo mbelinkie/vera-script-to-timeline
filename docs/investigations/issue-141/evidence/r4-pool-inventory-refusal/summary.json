@@ -1,0 +1,23 @@
+{
+  "dispatchInjectedResult": {
+    "action": "r4-availability",
+    "detail": "RuntimeError: Media-pool item identity/properties are unreadable",
+    "filename": "vera-issue-141-observation-result-20261001T001824.899360Z.json",
+    "sha256": "0e5d096f34b9aa30639d8ce96412d9af41e5c187fc2664b3e962a78b42d467b1",
+    "status": "launcher-failed"
+  },
+  "failureDetail": "RuntimeError: Media-pool item identity/properties are unreadable",
+  "failurePoint": "Initial complete media-pool inventory; no R4 mutation request was journaled and no ImportMedia request occurred.",
+  "interpretation": "The media-pool inventory read failed. This is not evidence that media availability, import, relink, offline status, or any other R4 capability is unavailable.",
+  "kind": "r4-pool-inventory-refusal",
+  "nativeMutationJournal": "not produced; launcher stopped during pre-mutation inventory",
+  "nextStep": "Investigate the metadata-read refusal, then restage only after the inventory guard can be verified. Configuration is disarmed to observe.",
+  "rawSha256": {
+    "hammerspoon-launch-20261001T001824.352476Z.jsonl": "ebadf6a51c1475e6e97b4a88119f8637152e77e66595f470bb52f6f888c163d9",
+    "installation-r4-availability.json": "2316f69e7af6087dbb7410f3955a8672d996a7e8872d7a2cbc3eb2b6c4849e11",
+    "vera-issue-141-observation-result-20261001T001824.899360Z.json": "0e5d096f34b9aa30639d8ce96412d9af41e5c187fc2664b3e962a78b42d467b1"
+  },
+  "resultStatus": "launcher-failed",
+  "runAt": "2026-10-01T00:18:24Z",
+  "stagedAction": "r4-availability"
+}

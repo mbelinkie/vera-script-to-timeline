@@ -1,0 +1,50 @@
+[
+  {
+    "filename": "vera-issue-141-observation-result-20261001T002744.404674Z.json",
+    "publishedSha256": "65e73a5b2546e065928accb47018616d1781de581a15ca076f042b651af716b3",
+    "rawSha256": "65e73a5b2546e065928accb47018616d1781de581a15ca076f042b651af716b3",
+    "redaction": "private absolute paths replaced with <probe-output>, <synthetic-media>, or <user-home>"
+  },
+  {
+    "filename": "hammerspoon-launch-20261001T002743.814828Z.jsonl",
+    "publishedSha256": "cde7f0444a1184b680ad2b272e75135c268bfbfd0224a665b51008060f1fbade",
+    "rawSha256": "cde7f0444a1184b680ad2b272e75135c268bfbfd0224a665b51008060f1fbade",
+    "redaction": "private absolute paths replaced with <probe-output>, <synthetic-media>, or <user-home>"
+  },
+  {
+    "filename": "r4-availability-20261001T002744.440877Z.jsonl",
+    "publishedSha256": "3260fe7eba9d550d81747c19ba8a948d614df9eba7418367cbcba631340b3c56",
+    "rawSha256": "3260fe7eba9d550d81747c19ba8a948d614df9eba7418367cbcba631340b3c56",
+    "redaction": "private absolute paths replaced with <probe-output>, <synthetic-media>, or <user-home>"
+  },
+  {
+    "filename": "r4-readonly-20261001T002756.680032Z.json",
+    "publishedSha256": "4aa41d89f6ffd35d2153ba59a6dd189235de47a01fce000bb09b893e654381af",
+    "rawSha256": "0f99597363319c2f23f84780365d40ef23620ce619a75a405797c94d37548574",
+    "redaction": "private absolute paths replaced with <probe-output>, <synthetic-media>, or <user-home>"
+  },
+  {
+    "filename": "vera-issue-141-observation-result-20261001T002932.335518Z.json",
+    "publishedSha256": "be85aa415fa9f465a46060d6d5190e6f0b74183ebf4075e6d5c3c5ca57a5e0ae",
+    "rawSha256": "56ab5683b7a1611831304f30cd9bd1332cc0e7bd30d6e26ff5d935794ae667d2",
+    "redaction": "private absolute paths replaced with <probe-output>, <synthetic-media>, or <user-home>"
+  },
+  {
+    "filename": "capture-20261001T002932.494867Z.json",
+    "publishedSha256": "9f867f40e807b673bb398527aea5e3e2d584671166be0f821fdac491e1303762",
+    "rawSha256": "aa4315c5e10968016fb454c43ab3841ecb9048b25af161337a778b1e80e04c02",
+    "redaction": "private absolute paths replaced with <probe-output>, <synthetic-media>, or <user-home>"
+  },
+  {
+    "filename": "r4-pool-read-only-20261001T002932.494867Z.json",
+    "publishedSha256": "f34c784d306d46cadeff868c1118f74246ea05d481aa58ad563359ff89a0deb2",
+    "rawSha256": "a8ccf2b6fe74f3c72300d0f3a5af7255ff8770f82f97fc2ab9265da0e196f68b",
+    "redaction": "private absolute paths replaced with <probe-output>, <synthetic-media>, or <user-home>"
+  },
+  {
+    "filename": "hammerspoon-launch-20261001T002931.672202Z.jsonl",
+    "publishedSha256": "06e72c33d2edd94038f74d43aeffc4e4652960bdaadd81737d7a7699eee1773f",
+    "rawSha256": "06e72c33d2edd94038f74d43aeffc4e4652960bdaadd81737d7a7699eee1773f",
+    "redaction": "private absolute paths replaced with <probe-output>, <synthetic-media>, or <user-home>"
+  }
+]

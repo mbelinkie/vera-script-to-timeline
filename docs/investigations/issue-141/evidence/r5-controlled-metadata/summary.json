@@ -1,0 +1,43 @@
+{
+  "changedPath": "timelines/0/GetMarkers/value/0/customData",
+  "comparisonStatus": "inconsistent-refused",
+  "fullPoolInventoryUnchanged": true,
+  "interpassReturn": true,
+  "kind": "r5-controlled-marker-customdata-interpass-observation",
+  "limitations": [
+    "Comparator is evaluated over the two observations; it does not inspect the capture function internal two-read loop.",
+    "Controlled interpass marker metadata edit does not simulate a simultaneous UI race.",
+    "No atomic revision token or ABA-change exclusion is established.",
+    "Marker note/name changes and clip movement are untested."
+  ],
+  "onlyMarkerCustomDataChanged": true,
+  "originalFullTimelineRestored": true,
+  "pairChecks": {
+    "after-edit.json": {
+      "pool": "equal-adjacent-reads",
+      "timeline": "equal-adjacent-reads"
+    },
+    "preflight.json": {
+      "pool": "equal-adjacent-reads",
+      "timeline": "equal-adjacent-reads"
+    },
+    "restored.json": {
+      "pool": "equal-adjacent-reads",
+      "timeline": "equal-adjacent-reads"
+    }
+  },
+  "restoreReturn": true,
+  "setterReturns": [
+    {
+      "error": null,
+      "label": "interpass-edit",
+      "value": true
+    },
+    {
+      "error": null,
+      "label": "exact-restoration",
+      "value": true
+    }
+  ],
+  "status": "controlled-change-refused-and-restored"
+}

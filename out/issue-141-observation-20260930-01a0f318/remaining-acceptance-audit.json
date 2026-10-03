@@ -1,0 +1,86 @@
+{
+  "task_id": "issue141",
+  "kind": "remaining-acceptance-audit",
+  "decision": "INCOMPLETE_WITH_CONCRETE_REMAINDERS",
+  "scope": "Read-only mapping of live R1-R5 acceptance against the current report, operator checklist, and plan; no Resolve/native/UI/source/contract/Git action.",
+  "current_summary": {
+    "report_opening": "37/41 retained reviewed checks",
+    "report_remaining": [
+      "R1 final repeat and second named duplication",
+      "R2 held-mute/Solo/bus/routing output",
+      "final report consolidation",
+      "External review"
+    ],
+    "dashboard_write": "NOT PERFORMED: exact external dashboard path was not identified in the bounded local reads; report/operator record references were updated previously, but they are not a dashboard mutation. Root owns the dashboard update.",
+    "dashboard_claim_limit": "Do not treat the report opening count as proof that the external dashboard field changed."
+  },
+  "acceptance_by_requirement": {
+    "R1": {
+      "status": "INCOMPLETE_UNRESOLVED",
+      "retained": "Reopen, native duplication, razor, linked trim/move, and genuine Copy/Paste with bounded identity/source/range evidence.",
+      "missing": "One bounded repeat after save/close/reopen plus the second named duplicate operation and its readback.",
+      "classification": "Unresolved acceptance requirement; prior preflight/guard refusals are not reproduced Resolve capability failures."
+    },
+    "R2": {
+      "status": "INCOMPLETE_UNRESOLVED",
+      "retained": "Linked/unlinked, picture-only, partial, residual, offset, rendered generated-program waveform findings, and 100% integer endpoint calibration; two-pass state/readback evidence is retained.",
+      "missing": [
+        "Hold A2 mute through an actual program-output observation and restore it with bounded before/after evidence.",
+        "Use Fairlight UI/readback to establish Solo state, track/bus routing and program-output assignment, with an audible or rendered discriminant and exact restoration."
+      ],
+      "classification": "Unresolved behavior, not reproduced unsupported behavior. The prior format-selection refusal and harness guards bound only their observed paths; they do not establish universal PCM/routing unavailability.",
+      "limits": "Fractional and generalized retime precision remain untested; raw 50% observation does not generalize."
+    },
+    "R3": {
+      "status": "BOUNDED_COMPLETE",
+      "retained": "Named visibility samples plus Graphic and authored-boundary/crossing-bed structural reviews.",
+      "limit": "General effects/compositing visibility, lineage, audibility and arbitrary effects remain unproved.",
+      "stale_documentation": "The current R1-R5 table still says Graphic/boundary/bed edits pending, while later dated sections record their bounded structural completion and the 37/41 opening excludes R3. Reconcile this in final report consolidation; do not rerun solely to resolve the stale row."
+    },
+    "R4": {
+      "status": "BOUNDED_COMPLETE",
+      "retained": "Offline-present, exact relink restoration, wrong-byte mismatch/restoration, and occurrence removal/re-preparation with bounded raw evidence.",
+      "limit": "Locator/ID metadata does not prove byte identity, deletion, replacement display, or general cache behavior."
+    },
+    "R5": {
+      "status": "BOUNDED_COMPLETE",
+      "retained": "Quiet/reopen observations, actual interpass-change refusal, marker-note edit, and one-frame move with complete stable comparisons.",
+      "limit": "No atomic revision token, ABA exclusion, or simultaneous UI-race guarantee.",
+      "stale_documentation": "The current R1-R5 table still says one-frame move pending, while the later dated section records R5 marker-and-move complete. Reconcile in final report consolidation; no fresh move is required."
+    }
+  },
+  "repeat_assessment": {
+    "no_fresh_all41_rerun_needed": true,
+    "adequate_existing_repeat": "Retained operations have equal adjacent complete readbacks or executed before/after/restoration cycles; these are adequate bounded repeat evidence for the completed named observations.",
+    "important_limit": "Equal adjacent reads repeat observation content, not the mutation, and do not establish atomicity or ABA exclusion. R1 remains open because its checklist explicitly requires a new repeat and second duplicate.",
+    "R2_R3_R4_R5": "Do not invent semantic reruns beyond the four dashboard remainder entries; preserve each named case limits."
+  },
+  "external_acceptance": {
+    "standing_attestation": "The standing operator confirmation covers External Scripting None, the named synthetic project/generated media, and no existing/original source touched; do not request it again for every case.",
+    "protected_metadata": "Protected-locator metadata records and explicitly authorized protected real-source metadata reads do not authorize or replace protected byte/hash access.",
+    "still_required": "The checklist explicitly requires a producer/operator statement `Issue #141 External evidence confirmed` naming the project, report/capture identities, and any discrepancy. An agent or automated check cannot supply or infer this statement.",
+    "classification": "External acceptance remains pending; this is an authority/evidence gap, not a product unsupported result."
+  },
+  "minimal_next_actions": [
+    "R1: perform the bounded repeat/second named duplication with exact readback and preserve prior evidence.",
+    "R2: operator-assisted Fairlight held-mute plus Solo/bus/routing/program-output observation, exact restoration, and retained evidence.",
+    "Consolidate stale report rows against later dated evidence, then obtain the producer External evidence statement."
+  ],
+  "constraints_mapping": {
+    "#131/#139": "Retain raw facts, exact ambiguity and manual review; do not amend accepted artifacts or infer universal application behavior.",
+    "#101": "Retain raw observations, exact source hashes and unknown states.",
+    "#102": "Do not manufacture identity, speech deletion or visibility from incomplete facts.",
+    "#103": "Surface ambiguity and stale/inconsistent review explicitly.",
+    "#104": "Preserve sources and block unsafe apply."
+  },
+  "reproduced_unsupported": [],
+  "references": {
+    "report": "docs/investigations/issue-141/report.md",
+    "operator_checklist": "docs/investigations/issue-141/operator-checklist.md",
+    "plan": "docs/plans/issue-141-resolve-observation.md",
+    "endpoint_verdict": "out/issue-141-observation-20260930-01a0f318/endpoint-calibration-independent-verdict.json",
+    "r5_move_review": "r5-independent-fresh-comparison-20261001T181642Z.json (SHA256 cf0704b9582f24060dd7ce9837c74d676b0c3388cb763762ac84c73537ea452c)",
+    "r2_completion_review": "pcm-r2-independent-completion-review.json (SHA256 ff7ed203d8f14c627d853eb9b7a571eca11850de6f9545e3723ac588290c3cb2)"
+  },
+  "freshness": "Read-only audit performed after the endpoint independent verdict; no Resolve/native/UI calls made."
+}

@@ -1,0 +1,28 @@
+{
+  "action": "av-output-full-matrix-continue",
+  "case": "R2-av-output",
+  "checkpointPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/full-pair-007.json",
+  "checkpointSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+  "priorRecoveryOutstanding": {
+    "journalPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/journal.jsonl",
+    "journalSha256": "fb49271db7c20e78508bae7b1113e466fdc92a8e34fe6f92bb43db8fdba47ae4",
+    "presetName": "VERA141_AV_OUTPUT_20261001T231540.921062Z",
+    "restoreRequiredAfterLaterRender": true,
+    "xmlPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/VERA141_AV_OUTPUT_20261001T231540.921062Z.drp/VERA141_AV_OUTPUT_20261001T231540.921062Z.xml",
+    "xmlSha256": "a09abc4185e06b915620520745c682933674707394c02855fd7c30ff9bb087ce"
+  },
+  "queueAfterPairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/full-pair-007.json",
+  "queueAfterPairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+  "queueJobId": "0460d82a-3436-4efc-be12-b57c8523ebf5",
+  "queueJobSha256": "0834a85890e93cde45d5cfb541669087c9ea145df801331af447c4f43ff736e9",
+  "queueJournalPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/journal.jsonl",
+  "queueJournalSha256": "2315aa455af6f6ee0609b964edbe7ed4da33c5dafab85f5313e87bab010ac7b6",
+  "queuePresetName": "VERA141_AV_OUTPUT_20261001T232620.358140Z",
+  "queueResultPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/final-local-result.json",
+  "queueResultSha256": "4a355bf8d8f3bc0c5694e2574eec47ca533c177d596f33169620123fcf0d21fe",
+  "queueSettingsSha256": "0881b27352e68590f8ad4d7a93c3e0a40deeef28a60809c52ef383bcb6fbc60c",
+  "queueSnapshotSha256": "9f0a322fa1180af07c42ae282c41036696f4e20b05d3926af014503ad60e2b8b",
+  "queueSnapshotXmlPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/VERA141_AV_OUTPUT_20261001T232620.358140Z.drp/VERA141_AV_OUTPUT_20261001T232620.358140Z.xml",
+  "resumeExistingJob": false,
+  "timelineInventory": "protected-six"
+}

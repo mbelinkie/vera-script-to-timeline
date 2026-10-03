@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-residual-sequence.py", line 667, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-residual-sequence.py", line 658, in main
+    run_resume_sequence(args.prior_pair, args.prior_sha256, args.resume_record, args.resume_sha256,
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                        position_relative=args.position_record, position_digest=args.position_sha256)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-residual-sequence.py", line 539, in run_resume_sequence
+    raise RuntimeError("Resumed interval selection did not bind exact linked IDs")
+RuntimeError: Resumed interval selection did not bind exact linked IDs

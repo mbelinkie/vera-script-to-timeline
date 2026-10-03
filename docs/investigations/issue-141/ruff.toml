@@ -1,0 +1,4 @@
+# Historical collector snapshots retain their recorded bytes and provenance.
+# The publication verifier is the only maintained Python tool in this archive.
+extend = "../../../pyproject.toml"
+include = ["verify-publication.py"]

@@ -1,0 +1,38 @@
+[
+  {
+    "filename": "vera-issue-141-observation-result-20261001T003128.195732Z.json",
+    "publishedSha256": "d39c8a191fe20e6fd523be1e9bd221543f225524d18dc5f8d99856c5941fa755",
+    "rawSha256": "d39c8a191fe20e6fd523be1e9bd221543f225524d18dc5f8d99856c5941fa755",
+    "redaction": "private absolute paths replaced with <probe-output>, <synthetic-media>, or <user-home>"
+  },
+  {
+    "filename": "hammerspoon-launch-20261001T003127.608923Z.jsonl",
+    "publishedSha256": "96ed5ad7482304618f06478d9a664aa36f3e662abab2c2fdb3e2b30a0ab66302",
+    "rawSha256": "96ed5ad7482304618f06478d9a664aa36f3e662abab2c2fdb3e2b30a0ab66302",
+    "redaction": "private absolute paths replaced with <probe-output>, <synthetic-media>, or <user-home>"
+  },
+  {
+    "filename": "r4-availability-20261001T003128.228751Z.jsonl",
+    "publishedSha256": "93561e54cee045e91f51847cebfbf3f4ce9b9ff2f0efd1f29289c5b6b384e688",
+    "rawSha256": "5d9978a5c7fceac7e4e02cc3a78189907e85c649f4885861e5069fb2f9a2e4f4",
+    "redaction": "private absolute paths replaced with <probe-output>, <synthetic-media>, or <user-home>"
+  },
+  {
+    "filename": "r4-pool-after-import-20261001T003128.228751Z.json",
+    "publishedSha256": "9d86014e1e48f0a1b95deff9f4dea0ce978478a978e0362696eee37a46b67376",
+    "rawSha256": "a9f2706169dca05431b4baf5720f6e56ec095c02763e4c2986df1a957d138652",
+    "redaction": "private absolute paths replaced with <probe-output>, <synthetic-media>, or <user-home>"
+  },
+  {
+    "filename": "r4-empty-selected-20261001T003128.228751Z.json",
+    "publishedSha256": "760423ea48dca8bf75c98e57195e86dae0cbbcddc5272a4fdbd8bc7efeb50573",
+    "rawSha256": "d5a22ce81d4ccfdcec7beef4aaa8d79d24fff12659bf6c106bda82b0f19e2439",
+    "redaction": "private absolute paths replaced with <probe-output>, <synthetic-media>, or <user-home>"
+  },
+  {
+    "filename": "installation-r4-availability-path-list.json",
+    "publishedSha256": "a2a2a2cd0f72105fe8ef4d4e072bf9c0d960b41569e3cf1f954466e527e622a8",
+    "rawSha256": "a2a2a2cd0f72105fe8ef4d4e072bf9c0d960b41569e3cf1f954466e527e622a8",
+    "redaction": "private absolute paths replaced with <probe-output>, <synthetic-media>, or <user-home>"
+  }
+]
