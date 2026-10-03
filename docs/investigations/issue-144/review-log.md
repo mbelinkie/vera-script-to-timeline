@@ -46,6 +46,33 @@ context and the recorded Producer choice are being supplied directly in the
 existing chat, along with a concrete local-audio preparation proposal for review.
 This preserves the review without requiring Producer copying/pasting or CLI login.
 
+Claude resumed and completed the correction review after 15 read-only commands.
+Full output is retained in `claude-checkpoint-01-followup-verbatim.md`. Its initial
+topology finding was explicitly corrected; our updated dispositions and rewritten
+plan retain that correction. Additional narration route/wording input is pending;
+native/real-input requirements remain with #148/#145.
+
+## Checkpoint 2: first finished compiler segment (review pending)
+
+Implemented only `packages/contracts/src/issue-144-compile-cli.ts` and its new
+issue-owned subprocess tests. This reads two files, calls the actual unchanged
+compiler and returns canonical stdout with exact manifest/report strings, input
+byte hashes, code/schema/lock hashes, pinned runtime and `compiler_only` level.
+It cannot create a Studio target or publish a proof baseline.
+
+- Red: eight tests failed before the CLI existed.
+- Green: Node24.19.0, Vitest4.1.11: 70 passed (eight new + 62 accepted compiler/
+  validator tests), including frozen byte-identical minimal/torture goldens.
+- Focused ESLint and contracts package typecheck passed; `git diff --check`
+  passed. Full validation and the remaining harness are outstanding.
+- A scoped Node module hook resolves only the compiler's existing
+  `./script-validator.js` import to the accepted `.ts` source for native execution;
+  it deregisters after import. No accepted source or dependency change.
+  API checked against [pinned Node documentation](https://nodejs.org/download/release/v24.19.0/docs/api/module.html#moduleregisterhooksoptions).
+
+Next packet reviews this finished boundary and the corrected plan before wider
+pipeline use. Continue using the existing signed-in Claude browser.
+
 ## Checks while review runs
 
 - Node24.19.0/npm11.17.0:

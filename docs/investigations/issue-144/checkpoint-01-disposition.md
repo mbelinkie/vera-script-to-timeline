@@ -117,3 +117,38 @@ seam, host build/WI observation boundary, positive/refusal/recovery coverage and
 full validation. Re-estimate after the corrected executable plan and first actual
 compiler/package stage test. Approval waits and future #148/#145 runs remain
 separate from active implementation effort.
+
+## Completed correction review and dispositions
+
+Claude's completed follow-up is retained verbatim in
+`claude-checkpoint-01-followup-verbatim.md` (15 read-only commands). It corrects
+the first review's claim about #141 move/trim topology: those pairs were separate
+video/WAV items linked with `SetClipsLinked`. W1's later omission case used
+embedded audio; those are distinct evidence cases. Source records were checked:
+the retained move result has V1 `base.mov` and A1 `repeated.wav`, reciprocal UIDs,
+normal speed and the declared geometry. The approved isolated setup is feasible
+without altering #34. Current-build native behavior remains #145's gate.
+
+The plan body has now been rewritten, including separate host/WI entries, link
+journal, queued-render settings verification, full-program reconstruction, shared
+audio-track clearance, local content hashing, exact text policy, prepared local
+PCM splice proposal, composition and recovery. No stale header alone substitutes
+for these details.
+
+Claude's offline reconstruction metrics are reviewer evidence, not passing
+repository tests or general absence thresholds. Implement and independently
+check bounded retained W1 calibration before claiming that gate passes.
+
+The narration route and wording policy are being presented as a concrete
+Producer choice. Original real assets, selected real-build settings and exact
+segment wording remain #148/#145 readiness/acceptance gates. #148 depends on
+#144: it cannot be made a prerequisite for #144's separately labeled injected
+tests. Such tests use issue-owned public/synthetic inputs and do not establish
+that original private real narration exists. No services are authorized here.
+
+The first independent implementation segment is only the compiler-only CLI.
+Eight new subprocess tests were red before implementation, then 70 tests passed
+with accepted compiler/validator tests and byte-identical frozen goldens.
+Focused lint/typecheck and diff checks pass. It still needs Claude's finished-work
+review before broader pipeline use. No full harness, native run or final acceptance
+is claimed.
