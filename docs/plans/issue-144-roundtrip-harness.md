@@ -2,10 +2,11 @@
 
 **Checkpoint status:** Claude reviewed the original plan at `d055f90` before
 implementation. Read [the retained review and disposition](../investigations/issue-144/checkpoint-01-disposition.md)
-for required corrections and the pending Producer topology choice. That
-disposition governs unresolved assumptions below. Positive move/trim fixtures
-must not claim support until the choice is recorded; no implementation or native
-action has begun at this checkpoint.
+for required corrections and the recorded Producer choice to retain the tested
+linked cases through an isolated proof setup step. That disposition governs
+unresolved assumptions below. Claude is reviewing the corrections; no
+implementation or native action has begun at this checkpoint. #145 must verify
+the actual native setup and cases on its selected build.
 
 ## Authority, ownership and starting evidence
 

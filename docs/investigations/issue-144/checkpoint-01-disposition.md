@@ -79,12 +79,18 @@ this disposition supersedes its unresolved assumptions and initial forecast.
   comments or the #145/#146/#148 issue bodies. Our plan and successor readiness
   must continue to use the live authority, not only the reviewer's inference.
 
-## Producer choice required: positive move/trim topology
+## Producer choice recorded: retain linked move/trim cases
+
+On October 3, the Producer selected: **“Keep the tested linked cases, adding an
+isolated proof setup step (recommended).”** Option 1 below is authorized for
+the #144 plan and local implementation. This does not authorize live Resolve
+actions here, a frozen-boundary change, or a new native support claim. #145
+still owns actual setup and verification on its selected build.
 
 The accepted #34 adapter appends video/audio separately and makes no explicit
 linking call. The declared #141 positive move/trim cases use linked pairs. Whether
 the pristine #34 output auto-links remains unproved here. Positive fixture claims
-must wait for the following concrete scope choice:
+were held pending the following concrete scope choice:
 
 1. **Retain the linked positive cases.** Authorize an issue-owned, proof-specific
    linked-pair setup around the freshly built disposable target, keeping accepted
@@ -99,8 +105,9 @@ must wait for the following concrete scope choice:
    or any narrower gate claim. This is a product coverage decision.
 
 The issue explicitly says: **“Do not choose a lower-coverage substitute silently.”**
-This is why Producer input is required. Refusal, immutable-input and compiler
-boundary work can proceed independently; neither option is silently adopted.
+This was the reason Producer input was required. Option 1 was explicitly
+selected; option 2 is not adopted. Claude is reviewing the proposed corrections
+before the affected implementation.
 
 ## Forecast correction
 
