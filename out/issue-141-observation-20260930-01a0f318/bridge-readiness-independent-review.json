@@ -1,0 +1,65 @@
+{
+  "taskId": "Issue 141",
+  "verificationOutcome": "bridge-readiness-stalled",
+  "reviewMethod": "Read-only review of retained local records; no Resolve or Hammerspoon calls were made.",
+  "latestCompletedArtifact": {
+    "name": "capture-20261001T142246.378925Z.json",
+    "sha256": "211eb7be3ce91f56b16f5fe6eb68135626c82b5d60c36175cec92f08e62bee55",
+    "kind": "real-injected-readback",
+    "stage": "baseline-repeat",
+    "capturedAt": "2026-10-01T14:22:46.378925Z",
+    "consistency": "inconsistent-refused",
+    "getterFailures": 0,
+    "contentFingerprints": [
+      "942055cd497112de1aca1fbc880a558b34206e1ce8d2d0d86a1c850008bafeeb",
+      "0cf81c669cf8d503fcaec620952bbe729fdc46c691c4a6246486e9f4f657c96f"
+    ]
+  },
+  "newestProgress": {
+    "name": "vera-issue-141-observation-progress-20261001T140359.691844Z.jsonl",
+    "sha256": "8343ede5f4addc7daa6d48fd73d93850eda2aa0a1140689dcd8d190771df806a",
+    "productNameReturnedAt": "2026-10-01T14:22:46.374771Z",
+    "probeReturnedAt": "2026-10-01T14:22:50.381132Z",
+    "terminalEvent": "result-written",
+    "terminalAt": "2026-10-01T14:22:50.381572Z",
+    "injectedType": "PyRemoteObject"
+  },
+  "outstandingProgressCalls": {
+    "allThreeCurrentRecordsEnded": true,
+    "details": [
+      "135256 record ended in precondition probe-failure and result-written.",
+      "135513 record returned product name after a long wait, then ended in the same precondition probe-failure and result-written.",
+      "140359 record returned product name after a long wait, then ended inconsistent-refused and result-written."
+    ]
+  },
+  "dispatchAndMove": {
+    "hammerspoonDispatches": "Three retained launcher records exit 0 and report menu selection; none is a native probe result.",
+    "manualMove": "Operator reported moved, but the retained timeout has newNativeResults=[] and explicitly makes no move-completion claim.",
+    "movedStatePair": false,
+    "newR5MoveJournals": 3,
+    "newR5MoveJournalBytes": 0
+  },
+  "reviewedArtifactHashes": {
+    "manualMoveReport": "69b6218e1b3fd75adeed9ed469e5da19cb985ee7a3c1516f0680741e0631185b",
+    "launcherProgressInstallation": "33b1b98d891a66eb6418cffb65599e229cd9c317d49ae5e4362c0d33c56e6988",
+    "bridgeReadinessHealth": "c9ea781bdab637289719ef4b8fd8d8be3b2c5f8228ca25ba28913bc048b9c3bf",
+    "manualTimeout": "4bf1a8a090c6f7584b634bc38babd362f194e04e3ba096192ab175880f510d78",
+    "dispatch134808": "af31e3f00140ee487208c3d2d0a741dcc31c0ad0a1b950df60f21f38efe52ca0",
+    "dispatch135256": "f1429d64bfe1f6aabb4a27c26807301efed9ca38fbf08fa8ee2f7b6012b653db",
+    "dispatch135513": "f1429d64bfe1f6aabb4a27c26807301efed9ca38fbf08fa8ee2f7b6012b653db"
+  },
+  "health": {
+    "builtinResolveMcpHealthRunning": false,
+    "builtinResolveMcpVersion": "21.1",
+    "osProcessObservation": "Resolve and Hammerspoon processes present",
+    "interpretation": "Process existence and builtin MCP health are separate observations."
+  },
+  "publication": {
+    "evidenceSummary": "docs/investigations/issue-141/evidence/bridge-readiness-stall/summary.json",
+    "hashManifest": "docs/investigations/issue-141/evidence/bridge-readiness-stall/hashes.json",
+    "progressSnapshots": "docs/investigations/issue-141/evidence/bridge-readiness-stall/snapshots/",
+    "sourceSnapshotCheck": "All three progress source bytes compared equal to their copied snapshots at publication time.",
+    "freshnessLimit": "Original source logs may append after this publication; the snapshot hashes bind this review to the observed bytes."
+  },
+  "decisionNeeded": "Keep bridge-readiness acceptance open pending a stable returned readback and a retained moved-state pair; no product capability conclusion follows from this stall."
+}

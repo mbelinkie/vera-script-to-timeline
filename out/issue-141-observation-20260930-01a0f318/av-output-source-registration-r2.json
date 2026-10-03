@@ -1,0 +1,51 @@
+{
+  "kind": "issue141-av-output-source-registration",
+  "actions": {
+    "av-output": {
+      "file": "av-output.py",
+      "sha256": "134fd7fdbbf4673fe8385be78eaea138adc1ea55ad55b309a0a17813815438c0"
+    },
+    "av-output-continue": {
+      "file": "av-output.py",
+      "sha256": "134fd7fdbbf4673fe8385be78eaea138adc1ea55ad55b309a0a17813815438c0"
+    },
+    "av-output-queue-from-settings": {
+      "file": "av-output.py",
+      "sha256": "134fd7fdbbf4673fe8385be78eaea138adc1ea55ad55b309a0a17813815438c0"
+    },
+    "av-output-queue-from-fresh-checkpoint": {
+      "file": "av-output.py",
+      "sha256": "134fd7fdbbf4673fe8385be78eaea138adc1ea55ad55b309a0a17813815438c0"
+    },
+    "av-output-drop-unstarted-owned-job": {
+      "file": "av-output.py",
+      "sha256": "134fd7fdbbf4673fe8385be78eaea138adc1ea55ad55b309a0a17813815438c0"
+    },
+    "av-output-full-matrix": {
+      "file": "av-output.py",
+      "sha256": "134fd7fdbbf4673fe8385be78eaea138adc1ea55ad55b309a0a17813815438c0"
+    },
+    "av-output-full-matrix-queue-only": {
+      "file": "av-output.py",
+      "sha256": "134fd7fdbbf4673fe8385be78eaea138adc1ea55ad55b309a0a17813815438c0"
+    },
+    "av-output-full-matrix-continue": {
+      "file": "av-output.py",
+      "sha256": "134fd7fdbbf4673fe8385be78eaea138adc1ea55ad55b309a0a17813815438c0"
+    }
+  },
+  "probePath": "REPOSITORY/docs/investigations/issue-141/probe.py",
+  "probeSha256": "b39f0b83962ce26ae349fcaa40a9d27cde6ca14f159706aee286988ff21b8e01",
+  "independentNativeCallPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-native-call.py",
+  "independentNativeCallSha256": "9f1827d3aa10a0f9b6964a0269009fef4c97cda73eb8bd3502479c3595d6113b",
+  "installedConfigPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation.json",
+  "installedConfigSha256": "7fbc741fe20b0ba7aae4f97d9c19200a7fe2e426e8f0f484859cc1c3ba0c4740",
+  "checkerSha256": "27d1ec23e6fb5b78d6e412f04de3d32c032873f22386d035f117ed7f9888fdae",
+  "checks": {
+    "reviewedHelperHashMatches": true,
+    "focusedChecker": "PASS",
+    "unknownActionReplay": "rejected by allowlist; no replay performed"
+  },
+  "queueNativeResultPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/cli-av-queue-native-result.json",
+  "queueNativeResultSha256": "6728c08dffb2a1174a7e4edd08efed524d0f18527a475a97bfc8b715884e1705"
+}

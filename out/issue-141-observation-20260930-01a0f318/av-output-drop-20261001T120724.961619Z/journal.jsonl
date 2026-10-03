@@ -1,0 +1,4 @@
+{"at": "2026-10-01T12:07:38.436021+00:00", "method": "FullPair", "phase": "before", "value": {"path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-drop-20261001T120724.961619Z/before-pair.json", "sha256": "1be6a4fe8f6f98e31b9cac544e7251c74e24f7e07aaa0668985d2ae753e66e48"}}
+{"at": "2026-10-01T12:07:38.603563+00:00", "method": "DeleteRenderJob", "phase": "request", "value": ["9c4f9ad9-9acf-4c60-bac2-fb7cc9269ebd"]}
+{"at": "2026-10-01T12:07:38.622380+00:00", "method": "DeleteRenderJob", "phase": "return", "value": true}
+{"at": "2026-10-01T12:07:47.646969+00:00", "method": "FullPair", "phase": "after", "value": {"path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-drop-20261001T120724.961619Z/after-pair.json", "sha256": "1be6a4fe8f6f98e31b9cac544e7251c74e24f7e07aaa0668985d2ae753e66e48"}}
