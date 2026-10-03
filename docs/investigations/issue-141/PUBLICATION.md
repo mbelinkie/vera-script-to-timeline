@@ -33,6 +33,8 @@ Large records have `.gz` added to their committed name; extract restores the ori
 
 Archived collectors, launchers and action configs document what was actually run. They are **not turnkey commands against a current Resolve project**: private paths are aliased, source hashes refer to original versions, UIDs are pinned to historical projects, and configs may describe already completed actions. Never replay them against retained projects. For an independent native experiment, create a new authorized disposable synthetic project, establish fresh fixture/source/hash/UID pins and one new action receipt, and follow the handoff's complete-pair/single-dispatch protocol. Keep External Scripting None and record the actual build/entry point. This publication runs no new native test.
 
+Local Ruff configurations exclude the historical Python snapshots in this investigation and `output/` from production lint/format checks, preserving their recorded provenance. The new `verify-publication.py` remains linted and formatted with the repository's existing rules. Production Python checks and the root configuration are unchanged; payload integrity is checked separately against the manifest.
+
 The two timelines with the producer's real clip remain metadata/transcript evidence only. No protected source media file is committed or read for this publication. Read the approved transcript correction and source-versus-program distinction before using those observations.
 
 ## Protected transcript exception
