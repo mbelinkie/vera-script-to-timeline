@@ -1,0 +1,44 @@
+{
+  "environment": {
+    "productName": "DaVinci Resolve Studio",
+    "python": "3.14.7",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "failure": null,
+  "label": "r2-unlinked-context",
+  "limits": [
+    "External menu result requires separate full-state interpretation."
+  ],
+  "pair": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-unlinked-context-20261001T121416.101812Z/pair.json",
+    "sha256": "1be6a4fe8f6f98e31b9cac544e7251c74e24f7e07aaa0668985d2ae753e66e48"
+  },
+  "readOnly": true,
+  "selectionPasses": [
+    {
+      "items": [],
+      "playhead": "00:01:37:24"
+    },
+    {
+      "items": [],
+      "playhead": "00:01:37:24"
+    }
+  ],
+  "selectionShapes": [
+    {
+      "count": 0,
+      "type": "list"
+    },
+    {
+      "count": 0,
+      "type": "list"
+    }
+  ],
+  "status": "editorial-readback-retained"
+}

@@ -1,0 +1,41 @@
+{
+  "argv": [
+    "ctx-wire",
+    "run",
+    "rtk",
+    "proxy",
+    "/usr/local/bin/python3.14",
+    "-S",
+    "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-structural-sequence.py",
+    "--case",
+    "R3-Graphic",
+    "--prior-pair",
+    "r2-partial-context-20261001T193945.838631Z/pair.json",
+    "--prior-sha256",
+    "6ab9ed7028222f9a3fb0773ed66f86265b77a6035bdbbc4ebb0f7414c6bc9807",
+    "--run"
+  ],
+  "case": "R3-Graphic",
+  "driverSha256": "79162206676ed477215a8e43211e0f40d6e0768dd2afea2b722b438edb99c261",
+  "invocationSha256": "2fcd30e35ee7f4ca4cfd8e396787b46e6824c4e5d2927f6e1f9b39dc7b555eb7",
+  "nativeDispatched": true,
+  "priorPair": {
+    "path": "r2-partial-context-20261001T193945.838631Z/pair.json",
+    "sha256": "6ab9ed7028222f9a3fb0773ed66f86265b77a6035bdbbc4ebb0f7414c6bc9807"
+  },
+  "registeredSourceHashes": {
+    "av-output.py": "fcdb385cca504f8dac25665fef75ddc15c9f0f9cf8c55b1b8a6d591af8cb3fa1",
+    "editorial-cases-check.py": "868e706d0041b82f5af05e3639ed7c5e4f1a649e0b729069be6c9061b63ced05",
+    "editorial-cases.py": "474daf2eae3eb39890d28a83bd177ff700b2af785e69d31f91fc236a67544f8e",
+    "editorial-readback.py": "d9df76229ead502b2d9ff31a1847eb9b858aa8931d25d279b560244e93690354",
+    "hammerspoon-editorial.lua": "47b6ec354c00e3ef1296a70c29e8846e1661fef692177d90bc96f27ba5b6bc6d",
+    "hammerspoon-launch.lua": "f92cc1b6e5bd7e0611bf94aa9a7262f3c14936de03fc5072e1c0100593cd461d",
+    "independent-native-call.py": "28abcace8d61f5596905ed237c8008c394597eb3837d3ad9811e339791023c8b",
+    "probe.py": "21e39a7086248fca7e31a15cbb56aedc75afa6e53d9c39281c2a3ddcc7141fe7",
+    "r4-range-repair.py": "9b6977747a1f3decf957ead6134f10fc4f597bf9d0c3dc5c081b7bf2671879a4"
+  },
+  "registrationSha256": "79e3d83d33e1b39735165e6def9daba576144561f3154cc44d487df129b578ad",
+  "returncode": 1,
+  "stderr": "Traceback (most recent call last):\n  File \"REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-structural-sequence.py\", line 381, in <module>\n    sys.exit(main())\n             ~~~~^^\n  File \"REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-structural-sequence.py\", line 375, in main\n    result = run_sequence(args.case, args.prior_pair, args.prior_sha256)\n  File \"REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-structural-sequence.py\", line 285, in run_sequence\n    raise RuntimeError(f\"{case} lock/playhead restoration failed\")\nRuntimeError: R3-Graphic lock/playhead restoration failed\n",
+  "stdout": ""
+}

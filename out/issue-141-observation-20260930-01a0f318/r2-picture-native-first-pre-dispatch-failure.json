@@ -1,0 +1,85 @@
+{
+  "case": "R2-picture",
+  "failure": {
+    "actualSha256": "f92cc1b6e5bd7e0611bf94aa9a7262f3c14936de03fc5072e1c0100593cd461d",
+    "command": "ctx-wire run rtk python3.14 -S REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-cut-sequence.py --case R2-picture --prior-pair producer-matrix-selection-20261001T183030.414033Z/after-pair.json --prior-sha256 59d4b9bde36af0c0a2c06a126f426fefd1e6dd1a76ddbf562574e70b535ff2b0 --run",
+    "exception": "AssertionError",
+    "exitCode": 1,
+    "expectedSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+    "location": "independent-native-call.py:59",
+    "macroSelected": "hammerspoon-launch.lua",
+    "message": "assert not macro.is_symlink() and sha(macro) == HASHES[filename]",
+    "nativeActionDispatched": false,
+    "retryOrReplay": false,
+    "sequenceEvidenceContents": [],
+    "sequenceEvidenceDirectory": "independent-cut-sequence-20261001T185055.758098Z"
+  },
+  "inputPair": {
+    "path": "producer-matrix-selection-20261001T183030.414033Z/after-pair.json",
+    "poolConsistency": "equal-adjacent-reads",
+    "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+    "sha256": "59d4b9bde36af0c0a2c06a126f426fefd1e6dd1a76ddbf562574e70b535ff2b0",
+    "timelineConsistency": "equal-adjacent-reads",
+    "timelineInventory": "protected-six"
+  },
+  "lastAction": {
+    "nativeDispatchReached": false,
+    "requested": "editorial-case-prepare",
+    "stage": "initial helper input validation"
+  },
+  "limits": [
+    "No Resolve menu action or injected Workflow Integration action occurred.",
+    "No before/after/restored case pairs exist.",
+    "No R2-partial or output action.",
+    "No speech-deletion or final-output claim.",
+    "Protected media and producer timelines were not accessed by this run."
+  ],
+  "localChecksPassedBeforeInvocation": [
+    "Hammerspoon fake checker via hs CLI (including missing main window after activation)",
+    "independent-native-call.py --check",
+    "independent-cut-sequence.py --case R2-picture ... --check",
+    "independent-cut-sequence.py --case R2-partial ... --check",
+    "editorial-readback-check.py",
+    "probe check.py",
+    "git diff --check"
+  ],
+  "macroAudit": {
+    "priorByteLength": 2493,
+    "priorBytesPath": "r2-picture-native-audit/hammerspoon-editorial.before.lua",
+    "priorSha256": "e7ef392ac98a2b6a482d93b7bf304e9886ac8fb58081fd55abeb751114bad24a",
+    "sourcePath": "REPOSITORY/docs/investigations/issue-141/hammerspoon-editorial.lua"
+  },
+  "matrixDeltaReview": {
+    "geometryIdentityMarkerLinkSourcePoolChanges": "none",
+    "path": "matrix-selection-delta-review.json",
+    "review": "complete",
+    "selectionSuccessClaimed": false
+  },
+  "privateConfigAudit": {
+    "configAtStop": "observe registration remains in place; helper refused before it staged or changed config",
+    "externalScriptingSetting": "None",
+    "priorBytesPath": "r2-picture-native-audit/workflow-config.before.json",
+    "priorSha256": "5ae3fd8562230ba27e0d030a5c507eaa323aef487eb7b4fa7418a90c98b58332",
+    "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+    "registeredConfigSha256": "e3389750633eaaf771593a6067f33f5f06efd55446e18808568bbfeedf0ff4d6",
+    "timelineInventory": "protected-six"
+  },
+  "resultBindings": [],
+  "sourceBindings": {
+    "editorial-cases-check.py": "0da0fb622bdadd33bb50510fdcc36680ad2dc4b88795d697348febd7bbb9dde2",
+    "editorial-cases.py": "1e1c2685de795bdc60ffa806c0fde10d75e300340fc2c1178b8ccf4d1a93f372",
+    "editorial-readback.py": "d9df76229ead502b2d9ff31a1847eb9b858aa8931d25d279b560244e93690354",
+    "hammerspoon-editorial-check.lua": "ccd000d9dc489a7b50ed622b1a01d82ce71d8b466524d089d72140ba8fd4be63",
+    "hammerspoon-editorial.lua": "47b6ec354c00e3ef1296a70c29e8846e1661fef692177d90bc96f27ba5b6bc6d",
+    "hammerspoon-launch.lua": {
+      "actual": "f92cc1b6e5bd7e0611bf94aa9a7262f3c14936de03fc5072e1c0100593cd461d",
+      "expectedByNativeHelper": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1"
+    },
+    "independent-cut-sequence.py": "88a39fee28e8293c31f189d0a9c280b8c2995d7eeb7eae3addca112e4cb88d00",
+    "independent-native-call.py": "3b20292b7e2cebdf0ec968a993fab20ce8146fd9396beb522d2c1da4e59c5c46",
+    "probe.py": "64a9c91da7093382f52d3ba1178d87d36fc10709276f93f383f6bec701b1eef2",
+    "r4-range-repair.py": "9b6977747a1f3decf957ead6134f10fc4f597bf9d0c3dc5c081b7bf2671879a4"
+  },
+  "status": "stopped-pre-dispatch",
+  "terminalVsPending": "terminal refusal; no native result is pending"
+}

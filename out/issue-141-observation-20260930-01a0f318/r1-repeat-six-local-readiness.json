@@ -1,0 +1,83 @@
+{
+  "kind": "issue-141-r1-repeat-six-local-readiness",
+  "status": "locally-checked-not-native-ready",
+  "scope": {
+    "actions": [
+      "One separately guarded SaveProject/CloseProject/LoadProject repeat for the exact synthetic project.",
+      "One separately guarded DuplicateTimeline from R1 identity to VERA 141 R1 identity repeat."
+    ],
+    "exclusions": [
+      "No Resolve/native calls, screenshots, media-byte reads, file access, export, retranscription, or editorial edit.",
+      "No edits to probe.py, shared readers or launchers, configuration, dashboard, contracts, fixtures, or goldens.",
+      "No automatic retry, cleanup, deletion, baseline/stopped-copy/producer-data mutation, or default-project inspection after close."
+    ],
+    "dependencyJustification": "Python standard library only; existing Resolve handles and a caller-supplied two-pass observer are injected by the eventual operator.",
+    "producerAcceptance": "Operator obtains a new immediately-before two-pass protected-six checkpoint with exact selected Matrix UID, identities, source signatures, controls/context, and idle/no-job evidence; reviews the checkpoint hash and explicit arguments before any native invocation. This local package did not dispatch either action."
+  },
+  "identity": {
+    "projectUid": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+    "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+    "resolveBuild": "21.1.0 build 14",
+    "externalScripting": "None",
+    "sourceTimelineUid": "aa2b8e36-83bd-4292-9e33-217c00ca192f",
+    "sourceTimelineName": "VERA 141 R1 identity",
+    "newDuplicateName": "VERA 141 R1 identity repeat",
+    "protectedSix": {
+      "88f7923d-55a7-471f-b09b-cf10f9fae8ad": "VERA 141 Baseline",
+      "aa2b8e36-83bd-4292-9e33-217c00ca192f": "VERA 141 R1 identity",
+      "29ae8331-b86e-4041-a548-960695cc7b24": "VERA 141 Batched Matrix",
+      "64de8a4c-86bd-4f19-9d20-47b8940f610b": "VERA 141 R4 availability",
+      "21436b8f-057c-49e6-80ba-5f733abe87b2": "transcription test 1",
+      "2db0b2d1-6d81-48d4-b49c-360f56e012cd": "transcription test 2"
+    },
+    "protectedSource": {
+      "uid": "be5f1584-f0c4-4dd9-988b-73f3167e77d1",
+      "name": "semi1b.mp4",
+      "handling": "metadata-only"
+    }
+  },
+  "reopenEvidence": {
+    "firstCapture": "out/issue-141-observation-20260930-01a0f318/capture-20260930T234437.703376Z-reopened.json",
+    "firstCaptureSha256": "e8b55f2300a86471e4b1b32b54716583a48a1c5a399ddbbbf2a364c1e6f1b492",
+    "finding": "Immediate adjacent passes differed in six Usage leaves on the inactive baseline timeline; retained as inconsistent and never retried.",
+    "laterReadOnlyCapture": "docs/investigations/issue-141/evidence/after-reopen-read-only/summary.json",
+    "interpretation": "Later read-only passes were internally equal. Against the earlier saved matrix pass, four perfCacheClipsLocation values read CacheClip. This bounds a later stable observation; it does not establish atomic reopen, eliminate ABA, or make Usage/cache/context differences ignorable. The module retains raw captures and labels recursive Usage-only versus other field differences."
+  },
+  "secondDuplicate": {
+    "expectedBehavior": "Require absent exact new name; select only the exact existing R1 UID; require a returned new UID/name; preserve all original six timeline identities and full pool/timeline pairs; retain actual before/selected-source/after pairs and journal.",
+    "signatureHandling": "Retain complete source and duplicate timeline signatures, source media UIDs, selection UID, occurrence UID readbacks, and Usage/other deltas. Matching content/custom-data/marker/range signatures remain ambiguous and are not presented as occurrence lineage.",
+    "knownCeiling": "The production pool reader currently requires six timelines. This local action captures a directly observed seven-timeline pair itself; do not pass that pair to the old six-timeline reader or alter its contract. Full occurrence-to-source mapping and any seven-inventory reader update remain unproven/out of scope."
+  },
+  "localCheck": {
+    "command": "ctx-wire run rtk proxy /usr/local/bin/python3.14 -S docs/investigations/issue-141/r1-repeat-six-check.py",
+    "outcome": "PASS: retained six inventory/hash, refusal, guarded fake reopen and additive seven-inventory duplicate, failure journal; issue-141 offline harness PASS (no live Resolve evidence)",
+    "nativeDispatched": false,
+    "all41AcceptanceChecks": "not run in this local package; full report still required before issue acceptance"
+  },
+  "artifacts": {
+    "module": {
+      "path": "docs/investigations/issue-141/r1-repeat-six.py",
+      "sha256": "6eb4bdebdcdbc47acadfcf1855c38eb74469131defae6e75c047dad653ca6518"
+    },
+    "checker": {
+      "path": "docs/investigations/issue-141/r1-repeat-six-check.py",
+      "sha256": "4e6189b295a901de31a385b7d3f9643be1141c424e06ce4dcab73acd54646b74"
+    },
+    "retainedActualSixPair": {
+      "path": "out/issue-141-observation-20260930-01a0f318/protected-six-r4-pool-20261001T180848.009764Z/pair.json",
+      "sha256": "5131589527428829afe6e1503e245609a4f17bb3207a2fe61a874db4289601b3"
+    },
+    "priorReadiness": {
+      "path": "out/issue-141-observation-20260930-01a0f318/r1-repeat-next-readiness.json",
+      "sha256": "12a30e4d8e43b238c43af6193e751cb2899f4d0abbe025ee5132c73789941fe9"
+    },
+    "residualBoundDriverLocalResult": {
+      "path": "out/issue-141-observation-20260930-01a0f318/residual-bound-driver-local-result.json",
+      "sha256": "8050abcb906f870b01234398df574ec07a1988da2092ff7b9c04fd1d81d96037"
+    }
+  },
+  "requiredInvocationArguments": {
+    "repeat_reopen": ["resolve", "exact current project object", "fresh selected-Matrix checkpoint path", "its reviewed SHA-256", "two-pass observer", "exclusive journal path", "idle=true only after live no-job guard", "controls_unchanged=true only after observed control comparison", "context_unchanged=true only after exact context comparison", "resolve_build=21.1.0 build 14", "external_scripting=None"],
+    "second_duplicate": ["exact current project object with Matrix selected", "fresh selected-Matrix checkpoint path", "its reviewed SHA-256", "two-pass observer", "exclusive journal path", "idle=true only after live no-job guard", "controls_unchanged=true only after observed control comparison", "context_unchanged=true only after exact context comparison", "resolve_build=21.1.0 build 14", "external_scripting=None"]
+  }
+}

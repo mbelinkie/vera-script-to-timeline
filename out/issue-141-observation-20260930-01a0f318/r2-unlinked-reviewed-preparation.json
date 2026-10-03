@@ -1,0 +1,5 @@
+{
+  "detail": "RuntimeError: Editorial prepared evidence does not verify against its prior pin",
+  "instruction": "Retain evidence and stop. Do not rerun preparation or change scripting mode.",
+  "status": "launcher-failed"
+}

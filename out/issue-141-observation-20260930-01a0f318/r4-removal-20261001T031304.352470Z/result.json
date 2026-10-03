@@ -1,0 +1,16 @@
+{
+  "after": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r4-removal-20261001T031304.352470Z/postflight.json",
+  "anticipatedContentAndUsageOnly": true,
+  "before": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r4-removal-20261001T031304.352470Z/preflight.json",
+  "deleteError": null,
+  "deleteReturn": true,
+  "journal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r4-removal-20261001T031304.352470Z/journal.jsonl",
+  "limits": [
+    "No asset deletion inferred. Restoration and output remain pending."
+  ],
+  "occurrenceAbsent": true,
+  "removedOccurrenceUid": "af55478a-0ba3-458a-a6e1-e47b2544111d",
+  "sourcePoolPresentAndOnline": true,
+  "sourcePoolUid": "81d81dc0-4c37-478b-8079-03debba5e780",
+  "status": "removed-source-retained"
+}
