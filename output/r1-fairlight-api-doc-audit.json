@@ -1,0 +1,68 @@
+{
+  "scope": "Installed Resolve 21.1 scripting README and type stub only; documentation lookup, no native/UI calls.",
+  "documents": [
+    {
+      "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/README.md",
+      "sha256": "5f58c94da8ec3c1f390d77ad9c60675263591dc101159b302e50b5774513830b",
+      "evidence": [
+        {
+          "lines": "278-282",
+          "apis": [
+            "MediaPoolItem.GetAudioMapping",
+            "MediaPoolItem.SetAudioMapping",
+            "TimelineItem.GetSourceAudioChannelMapping",
+            "TimelineItem.SetSourceAudioChannelMapping"
+          ]
+        },
+        {
+          "lines": "294-329",
+          "apis": [
+            "GetAudioMapping",
+            "track_mapping",
+            "mute"
+          ],
+          "finding": "Example getter JSON includes per-source track mapping and a mute boolean."
+        },
+        {
+          "lines": "332-373",
+          "apis": [
+            "SetAudioMapping",
+            "SetSourceAudioChannelMapping"
+          ],
+          "finding": "Describes mapping setters and channel routing; not Fairlight mixer bus/output routing."
+        }
+      ]
+    },
+    {
+      "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/DaVinciResolveScript.pyi",
+      "sha256": "00078fa1256851b9807621a4eea5e670f4266b0e7003763cba4a62655543f0ec",
+      "evidence": [
+        {
+          "lines": "2071-2075",
+          "apis": [
+            "MediaPoolItem.GetAudioMapping",
+            "MediaPoolItem.SetAudioMapping"
+          ]
+        },
+        {
+          "lines": "2527-2531",
+          "apis": [
+            "TimelineItem.GetSourceAudioChannelMapping",
+            "TimelineItem.SetSourceAudioChannelMapping"
+          ]
+        }
+      ]
+    }
+  ],
+  "documentationFindings": {
+    "sourceAudioMappingAndMute": "Documented: GetAudioMapping returns source audio mapping JSON; README example includes per-source track mute.",
+    "publicFairlightTrackSoloGetterOrSetter": "No matching API or Solo field found in these two installed documents.",
+    "publicFairlightBusOrOutputRoutingGetter": "No matching getter/API found in these two installed documents.",
+    "interpretation": "These are documentation findings limited to the installed README and stub, not proof that no API exists elsewhere in Resolve."
+  },
+  "observedStateAndCollectorLimit": {
+    "soloOnReadback": "Root reports actual Solo-on readback produced the original d8cf8bdc full-pair SHA-256: d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14.",
+    "collectorLimit": "The current full-pair collector does not expose a Solo or Fairlight bus/output-routing field, so matching pair hashes do not attest those values.",
+    "globalApiAvailability": "Not determined by this collector result; the limited documentation search found no corresponding public getter."
+  }
+}

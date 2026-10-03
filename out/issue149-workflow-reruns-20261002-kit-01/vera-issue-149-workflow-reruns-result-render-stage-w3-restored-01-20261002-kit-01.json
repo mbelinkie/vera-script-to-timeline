@@ -1,0 +1,111 @@
+{
+  "action": "render-stage",
+  "actionId": "render-stage-w3-restored-01-20261002-kit-01",
+  "configSha256": "924f18612c6fef7392afac2c2ee10cefa2f93b214d627b8630d846060a887e85",
+  "journal": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/evidence/render-stage-w3-restored-01-20261002-kit-01/journal.jsonl",
+  "launcher": "workflow-injected",
+  "phase": "render-stage-w3-restored-01",
+  "progress": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-progress-render-stage-w3-restored-01-20261002-kit-01.jsonl",
+  "render": {
+    "formatCodec": {
+      "readback": {
+        "codec": "H264",
+        "format": "mov"
+      },
+      "setReturn": true
+    },
+    "jobId": "dcb00965-d5b7-496e-8036-c61384359ee1",
+    "queuedJob": {
+      "AudioBitDepth": 16,
+      "AudioCodec": "lpcm",
+      "AudioSampleRate": 48000,
+      "ClipStartFrame": 1,
+      "EncodingProfile": "Auto",
+      "ExportAlpha": false,
+      "FormatHeight": 360,
+      "FormatWidth": 640,
+      "FrameRate": "25",
+      "IsExportAudio": true,
+      "IsExportVideo": true,
+      "JobId": "dcb00965-d5b7-496e-8036-c61384359ee1",
+      "MarkIn": 0,
+      "MarkOut": 398,
+      "MultiPassEncode": false,
+      "NetworkOptimization": false,
+      "OutputFilename": "W3-restored-01.mov",
+      "PixelAspectRatio": 1.0,
+      "PresetName": "Custom",
+      "RenderJobName": "Job 3",
+      "RenderMode": "Single clip",
+      "TargetDir": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/renders",
+      "TimelineName": "W3-mapping-mute",
+      "TimelineStartTimecode": "00:00:00:00",
+      "VideoCodec": "H.264",
+      "VideoFormat": "QuickTime"
+    },
+    "renderMode": {
+      "readback": 1,
+      "setReturn": true
+    },
+    "settings": {
+      "AudioBitDepth": 16,
+      "AudioCodec": "lpcm",
+      "AudioSampleRate": 48000,
+      "CustomName": "W3-restored-01",
+      "ExportAudio": true,
+      "ExportVideo": true,
+      "FormatHeight": 360,
+      "FormatWidth": 640,
+      "FrameRate": 25,
+      "RenderAll": true,
+      "TargetDir": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/renders"
+    },
+    "startReturn": true,
+    "startedExactlyOnce": true
+  },
+  "runtime": {
+    "machine": "x86_64",
+    "platform": "macOS-15.1-x86_64-i386-64bit-Mach-O",
+    "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 17.0.0 (clang-1700.6.4.2)]"
+  },
+  "schemaVersion": "issue-149-workflow-reruns-v1",
+  "state": {
+    "itemUids": [
+      "5bf295a7-16cd-4bb2-8953-e15cd35370f8",
+      "328b90d4-0531-4e74-8b6a-2620c1a833cb",
+      "ceaf0513-cdc9-4188-b690-b91dbaa01d13",
+      "16ddb5a7-4c0d-4720-9c2e-181f24399472"
+    ],
+    "mediaUids": [
+      "f00b8a11-ed65-48ba-a11a-6fd6e22b77fb",
+      "b5b757fe-43a6-47d2-850c-2294da50c136",
+      "ce3be5e7-1ae2-4f05-b143-f3ea3120cb3e",
+      "a25cfcec-f490-4151-a608-6088dae3c5ec",
+      "d307edb5-a0a0-45f1-8547-9472ca1da827",
+      "a4145161-58c5-4f89-81b6-5bfb9299b145",
+      "b65ac164-d6fe-4cf2-bb6b-7017baba4311",
+      "aa4454ba-ce62-4511-976e-e4d1ff92689d",
+      "a23c9a6e-1640-4db8-b380-b16870ced30c",
+      "903130dc-ad69-4dde-aa94-a8b40eb1090d",
+      "cb481327-bfae-42dd-b2f0-2cbb7500ea28"
+    ],
+    "projectUid": "1a05ff3a-8b04-43e3-95ab-c970b93b6415",
+    "timelineUids": [
+      "8c67340f-2428-407c-86f7-ce553152a86c"
+    ],
+    "timelines": [
+      {
+        "itemUids": [
+          "5bf295a7-16cd-4bb2-8953-e15cd35370f8",
+          "328b90d4-0531-4e74-8b6a-2620c1a833cb",
+          "ceaf0513-cdc9-4188-b690-b91dbaa01d13",
+          "16ddb5a7-4c0d-4720-9c2e-181f24399472"
+        ],
+        "name": "W3-mapping-mute",
+        "uid": "8c67340f-2428-407c-86f7-ce553152a86c"
+      }
+    ]
+  },
+  "stateId": "render-stage-w3-restored-01-20261002-kit-01",
+  "status": "ok"
+}

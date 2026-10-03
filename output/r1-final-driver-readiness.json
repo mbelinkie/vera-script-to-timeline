@@ -1,0 +1,156 @@
+{
+  "kind": "issue-141-r1-final-driver-readiness",
+  "status": "awaiting-root-go-for-final-duplicate-after-independent-review",
+  "scope": "Prepare the reviewed R1 reopen repeat and final second duplicate from the retained completed Solo-render checkpoint. Local checks only; no Resolve, UI, or live readback action performed.",
+  "nativeDispatchPerformed": true,
+  "checkpoint": {
+    "path": "out/issue-141-observation-20260930-01a0f318/pause-render-checkpoint.json",
+    "state": "paused-by-producer",
+    "renderJobStatus": "Complete",
+    "renderStartsConfirmed": 1,
+    "mustNotReplayStart": true,
+    "soloState": "Operator has reported Solo off; fresh full restoration readback remains pending",
+    "comparisonPerformed": false,
+    "retainedFinalPairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+    "requiredNextEvidence": "After the reported Solo-off restoration, obtain a fresh stable full readback. The reopen driver requires the fresh pair to equal the retained final pair exactly."
+  },
+  "localChecks": {
+    "reopenDriver": {
+      "path": "output/r1-next-execution.py",
+      "sha256": "38aec8f2bd2966c26767a7d88c606fbc95a79610b7ddadaad4d89721a6cf4553",
+      "command": "ctx-wire run rtk proxy python3 -S output/r1-next-execution.py --check",
+      "result": "PASS; 5 refusal cases; no files written; no native dispatch"
+    },
+    "registeredCallerCheck": {
+      "command": "ctx-wire run rtk proxy python3 -S out/issue-141-observation-20260930-01a0f318/independent-native-call.py --check",
+      "result": "PASS; action and dispatcher pin guards; no native action"
+    },
+    "dispatchRegistrationCheck": {
+      "command": "ctx-wire run rtk proxy python3 -S docs/investigations/issue-141/dispatch-registration-check.py",
+      "result": "PASS; 31 dispatch routes consistent; missing-route regression refused; no native calls"
+    },
+    "repeatAdapterCheck": {
+      "priorRegisteredResult": "PASS, recorded in r1-registration-20261002T024119.532864Z/checks.json",
+      "currentAttempt": "No fresh result retained; the attempted local command returned without output, so this readiness record relies on the retained registration check."
+    }
+  },
+  "reopenAttempt": {
+    "command": "ctx-wire run rtk proxy /usr/local/bin/python3.14 -S output/r1-next-execution.py --reopen",
+    "invokedOnce": true,
+    "driverStatus": "launcher-failed",
+    "resultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261002T121322.820124Z.json",
+    "resultSha256": "5fe273d374cc38eed3854d6ada4f4474c09f921fc91aaec3592cce997aa1c6dc",
+    "resultDetail": "RuntimeError: post-load pair is inconsistent, incomplete, or wrongly selected",
+    "launchAudit": "out/issue-141-observation-20260930-01a0f318/independent-action-20261002T121321.630041Z/launch.json",
+    "launchExitCode": 0,
+    "helperAudit": "out/issue-141-observation-20260930-01a0f318/r1-repeat-reopen-20261002T121322.897176Z",
+    "checkpoint": "out/issue-141-observation-20260930-01a0f318/r1-repeat-checkpoint-20261002T121321.528859Z.json",
+    "checkpointSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+    "saveCloseLoad": {
+      "SaveProject": true,
+      "CloseProject": true,
+      "LoadProjectUid": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0"
+    },
+    "postLoadObservations": 2,
+    "firstObservation": "protected-six pair was refused as incomplete-or-inconsistent-refused due to eight Usage-leaf differences between adjacent timeline passes; pool passes were equal and selection remained Matrix",
+    "secondObservation": "stable equal-adjacent-reads protected-six pair; helper had already failed its first-observation guard and retained both captures",
+    "relaunchOrDuplicate": "reopen must never be repeated; no duplicate has been performed"
+  },
+  "pins": {
+    "driver": {
+      "sha256": "38aec8f2bd2966c26767a7d88c606fbc95a79610b7ddadaad4d89721a6cf4553",
+      "matches": true
+    },
+    "liveProbe": {
+      "sha256": "fdd2d31024a005489564e99bb4916e190e5830e26705b87ea6e56adbcf9e918b",
+      "matches": true
+    },
+    "registeredCaller": {
+      "sha256": "395805068e96517bfe67aa32497229226b6c7fad431790e1cac94f4ecaf5cd03",
+      "matches": true
+    },
+    "repeatHelper": {
+      "sha256": "4aece3d8ab7c7e0ab215fc9eb841fc95b56b85fb0809859e7f587ce83b0e2c28",
+      "matches": true
+    },
+    "privateProbeSnapshot": {
+      "sha256": "54bbbeee926a5ef423615b1f981ec8ebe6586e91f938a8aad05db441ecc53310",
+      "matches": true
+    },
+    "fullPairReader": {
+      "sha256": "9b6977747a1f3decf957ead6134f10fc4f597bf9d0c3dc5c081b7bf2671879a4",
+      "matches": true
+    },
+    "retainedPairReference": {
+      "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+      "matches": true
+    },
+    "installedConfig": {
+      "isSymlink": false,
+      "action": "observe",
+      "timelineInventory": "protected-six",
+      "externalScriptingSetting": "None",
+      "probeSha256": "fdd2d31024a005489564e99bb4916e190e5830e26705b87ea6e56adbcf9e918b",
+      "outputDir": "out/issue-141-observation-20260930-01a0f318",
+      "matchesReviewedState": true
+    },
+    "historicalReadinessMismatch": "r1-repeat-six-local-readiness.json records stale helper/checker hashes 6eb4bdebdcdbc47acadfcf1855c38eb74469131defae6e75c047dad653ca6518 and 4e6189b295a901de31a385b7d3f9643be1141c424e06ce4dcab73acd54646b74. The current helper/checker are 4aece3d8ab7c7e0ab215fc9eb841fc95b56b85fb0809859e7f587ce83b0e2c28 and d7c67287088cab9e3a8df5a37e0022e7bc919dbca0d52c5edc7a00b5848878cf, matching the active dispatcher/runtime pins; no current source-pin incompatibility found."
+  },
+  "candidateInvocations": {
+    "reopen": {
+      "commandAfterRestorationReadbackPassesAndRootAuthorization": "ctx-wire run rtk proxy python3 -S output/r1-next-execution.py --reopen",
+      "driverGeneratedUpdates": [
+        "action=r1-repeat-reopen",
+        "case=R1-repeat-six",
+        "repeatCheckpoint=<fresh selected-Matrix pair copied directly into outputDir>",
+        "repeatCheckpointSha256=<hash of that exact pair>",
+        "repeatExpectedContext=<exact context from stable editorial-context readback and pair>"
+      ],
+      "behavior": "One registered editorial-context readback followed by one guarded SaveProject/CloseProject/LoadProject repeat. Refusal or pending result is terminal; never relaunch."
+    },
+    "secondDuplicate": {
+      "registeredActionUpdates": [
+        "action=r1-repeat-duplicate",
+        "case=R1-repeat-six",
+        "repeatCheckpoint=<fresh selected-Matrix pair directly inside outputDir>",
+        "repeatCheckpointSha256=<reviewed SHA-256>",
+        "repeatExpectedContext=<exact stable live context; Matrix selected, idle, empty queue, build 21.1.0 build 14, external scripting None>"
+      ],
+      "expectedCollection": "The pinned repeat helper privately extends the timeline identity map only after observing exactly one new UID named VERA 141 R1 identity repeat, then captures full protected-seven timeline and pool pairs before/after, selected R1 source pair, occurrence IDs, signatures, media UIDs, and usage deltas.",
+      "commandAvailability": "Use the existing driver's _load_native() and expected_context() functions with the registered caller's native.invoke(updates). The reopen-only CLI must not be run again. No new validation wrapper is needed; helper run(resolve, config, *, probe) requires the pinned repeatExpectedContext and checks exact live context before dispatch.",
+      "comparisonReference": {
+        "path": "out/issue-141-observation-20260930-01a0f318/r1-repeat-reopen-20261002T121322.897176Z/pair-04.json",
+        "wrapperSha256": "b5d2b291be801f65be762d813e76335223f2bde83701c95a56882f919180e519",
+        "comparison": "Compare the fresh readback pair object exactly to pair-04.json['pair'], including the retained Resolution reads. Do not compare to the original D8 reference pair or normalize the pool deltas."
+      },
+      "checkpointDerivation": [
+        "After root GO, import the existing driver and call _load_native() to enforce all pinned source hashes.",
+        "Call native.invoke({'action':'editorial-readback','editorialReadbackLabel':'editorial-context'}) once and require a successful read-only retained result.",
+        "Require the returned pair path to be a regular non-symlink file under OUT and verify its returned SHA-256; parse the pair and compare it exactly to pair-04.json['pair'].",
+        "Call expected_context(readback, fresh_pair), copy the fresh pair bytes directly to a new checkpoint file in OUT, then verify the copied SHA-256.",
+        "Call native.invoke({'action':'r1-repeat-duplicate','case':'R1-repeat-six','repeatCheckpoint':<absolute checkpoint path>,'repeatCheckpointSha256':<copied pair hash>,'repeatExpectedContext':<expected_context result>}) exactly once."
+      ],
+      "stopConditions": [
+        "Any readback refusal, unstable pair, mismatch with pair-04, unsafe path/hash, or expected-context failure ends the sequence without duplicate dispatch.",
+        "After duplicate dispatch, preserve all captures; do not invoke a shared six-timeline collector, save, retry, cleanup, rename, or deletion."
+      ],
+      "terminalAction": true
+    }
+  },
+  "sequenceAndProhibitions": {
+    "order": [
+      "One reopen action completed SaveProject, CloseProject, and LoadProject, then retained an unstable pair-03 and a stable pair-04; no reopen retry is permitted.",
+      "Independent review must establish pair-04 as the comparison basis. After root GO, do one fresh editorial-context readback and exact comparison to pair-04.",
+      "If every readback/path/hash/context guard passes, invoke the registered second duplicate once as the final native action."
+    ],
+    "afterDuplicate": [
+      "Do not call shared six-timeline collectors on the seven-timeline project state.",
+      "Do not invoke another duplicate, retry, cleanup, rename, deletion, save, or unrelated native/UI action under this package.",
+      "Do not claim occurrence lineage from matching signatures; preserve ambiguity and all seven-timeline captures."
+    ]
+  },
+  "touched": [
+    "output/r1-final-driver-readiness.json"
+  ],
+  "sourceConfigReportsAndContractsModified": false
+}

@@ -1,0 +1,513 @@
+{
+  "schema": "issue149-w6-verification-v1",
+  "taskId": "#149",
+  "generatedAt": "2026-10-03T01:27:47.619939+00:00",
+  "scope": "Read-only offline verification of W6 same-layout swap, no-relink, relink, restore+relink, and completed renders.",
+  "timeline": {
+    "name": "W6-swap",
+    "uid": "ef85640d-1bab-451b-a9c7-eb73b14251e8",
+    "itemUids": [
+      "f7d60eff-cb40-483e-badf-3703d0129820",
+      "72b4dec9-d450-4450-bd3b-47801cfb009b",
+      "7dcd99a9-1dd8-4a64-b56e-68d62b249d85",
+      "642d480d-7cf7-4221-b43b-dbf232851769"
+    ],
+    "projectUid": "1a05ff3a-8b04-43e3-95ab-c970b93b6415"
+  },
+  "externalSwap": {
+    "swap": {
+      "path": "external-swap/swap-01.json",
+      "sha256": "336c1bca1565f6f291335cbef060027007c5de586bde9acc830222238c831a27",
+      "bytes": 939
+    },
+    "restore": {
+      "path": "external-swap/restore-01.json",
+      "sha256": "32628a88eda82eb9366567ce5afb6b6719f298c3372065d2b49cb93b91af9e8a",
+      "bytes": 463
+    },
+    "backup": {
+      "path": "external-swap/swap-original-01.mov",
+      "sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+      "bytes": 3443686
+    },
+    "originalSha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+    "replacementSha256": "2bad2d2457c3d572d2fe3542ef22da915ec38306c8985026bec10d1289f76579",
+    "mtimeNsPreserved": true,
+    "restoredSha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036"
+  },
+  "artifacts": {
+    "beforeSwap": {
+      "path": "vera-issue-149-workflow-reruns-result-w6-before-swap-01-20261002-kit-01.json",
+      "sha256": "3955dedfe85b88b3d9839c42c5bb4410364e9e70582879f86ae179fa5b8ef90f",
+      "bytes": 11222
+    },
+    "baselineStage": {
+      "path": "vera-issue-149-workflow-reruns-result-render-stage-w6-baseline-01-20261002-kit-01.json",
+      "sha256": "58fa17fe2e92e2a29168f53adf71b178456f17fd1e5e6a0aa3a1de43eb1a2293",
+      "bytes": 12598
+    },
+    "baselinePoll": {
+      "path": "vera-issue-149-workflow-reruns-result-render-poll-w6-baseline-01-20261002-kit-01.json",
+      "sha256": "cfabfc93cc255d0c5ec09a53d3c4c924f91eb995350894e5e8191c86410b7ae3",
+      "bytes": 11122
+    },
+    "afterSwap": {
+      "path": "vera-issue-149-workflow-reruns-result-w6-after-swap-01-20261002-kit-01.json",
+      "sha256": "2e542d1d8f34b2869946340e679d36231575cda3a8306b770e611f1dbe24a3d5",
+      "bytes": 13000
+    },
+    "noRelinkPoll": {
+      "path": "vera-issue-149-workflow-reruns-result-render-poll-w6-after-swap-01-20261002-kit-01.json",
+      "sha256": "9181e4cb2c347e43e2432bcadbe12fa8968c100517318d4fa85711acd1b0ecd0",
+      "bytes": 11132
+    },
+    "relink": {
+      "path": "vera-issue-149-workflow-reruns-result-w6-relink-render-01-20261002-kit-01.json",
+      "sha256": "4b8fcda75b4709986e3d4b7d95418a267d40f1677700fc157269926aff1bc06a",
+      "bytes": 13040
+    },
+    "relinkPoll": {
+      "path": "vera-issue-149-workflow-reruns-result-render-poll-w6-relinked-01-20261002-kit-01.json",
+      "sha256": "aeefc55413046c651805cad7114a630c783c1dd223834068a6f7ccf961030c01",
+      "bytes": 11122
+    },
+    "restore": {
+      "path": "vera-issue-149-workflow-reruns-result-w6-restore-relink-01-20261002-kit-01.json",
+      "sha256": "cec8594c1ef91c8d70704bf8029735bf8e29f97f969d3f2abf42295595f73bd2",
+      "bytes": 13045
+    },
+    "restorePoll": {
+      "path": "vera-issue-149-workflow-reruns-result-render-poll-w6-restored-01-20261002-kit-01.json",
+      "sha256": "2faf996d3fdfe87493fba97c46b08b656c6dede9c799dd830e34f5edcc3d13f6",
+      "bytes": 11122
+    },
+    "beforeSwapEvidence": {
+      "pre.json": {
+        "path": "evidence/w6-before-swap-01-20261002-kit-01/pre.json",
+        "sha256": "3449aee4e6ad300f3b745836a29216ad58d0f904176fbeb0aa33bb1c4b987503",
+        "bytes": 1410126
+      },
+      "post.json": {
+        "path": "evidence/w6-before-swap-01-20261002-kit-01/post.json",
+        "sha256": "3449aee4e6ad300f3b745836a29216ad58d0f904176fbeb0aa33bb1c4b987503",
+        "bytes": 1410126
+      },
+      "journal.jsonl": {
+        "path": "evidence/w6-before-swap-01-20261002-kit-01/journal.jsonl",
+        "sha256": "b1f53599610c34be16c1d59ad5be8b6b95e8feee61b308bd4c05f3c28460fd84",
+        "bytes": 2954300
+      }
+    },
+    "baselinePollEvidence": {
+      "pre.json": {
+        "path": "evidence/render-poll-w6-baseline-01-20261002-kit-01/pre.json",
+        "sha256": "f9868ad743e113db45c5eb84c81e9b0ab4de588aaa6cce8d24b0075b4bc14c24",
+        "bytes": 1411209
+      },
+      "post.json": {
+        "path": "evidence/render-poll-w6-baseline-01-20261002-kit-01/post.json",
+        "sha256": "f9868ad743e113db45c5eb84c81e9b0ab4de588aaa6cce8d24b0075b4bc14c24",
+        "bytes": 1411209
+      },
+      "journal.jsonl": {
+        "path": "evidence/render-poll-w6-baseline-01-20261002-kit-01/journal.jsonl",
+        "sha256": "832f16337f96c1bbf65b18417dbb5899a6bbb05706da79bdef5fccb89eb93eb9",
+        "bytes": 3065212
+      }
+    },
+    "afterSwapEvidence": {
+      "pre.json": {
+        "path": "evidence/w6-after-swap-01-20261002-kit-01/pre.json",
+        "sha256": "f9868ad743e113db45c5eb84c81e9b0ab4de588aaa6cce8d24b0075b4bc14c24",
+        "bytes": 1411209
+      },
+      "post.json": {
+        "path": "evidence/w6-after-swap-01-20261002-kit-01/post.json",
+        "sha256": "36d118324ca7620d223b710e4a8f3a276acbaff0585e0e2ee407be01c4afc74a",
+        "bytes": 1385216
+      },
+      "journal.jsonl": {
+        "path": "evidence/w6-after-swap-01-20261002-kit-01/journal.jsonl",
+        "sha256": "b6eab5f78685a1dc08bb90935fed9304b761ae0fb49cd8e93f04d8bf45b6e9fa",
+        "bytes": 2946126
+      }
+    },
+    "noRelinkPollEvidence": {
+      "pre.json": {
+        "path": "evidence/render-poll-w6-after-swap-01-20261002-kit-01/pre.json",
+        "sha256": "29abe3bd77c910fa1505a7c65802c6b86e27bab9c4fc3e29fbf9f5219a9654b3",
+        "bytes": 1412290
+      },
+      "post.json": {
+        "path": "evidence/render-poll-w6-after-swap-01-20261002-kit-01/post.json",
+        "sha256": "29abe3bd77c910fa1505a7c65802c6b86e27bab9c4fc3e29fbf9f5219a9654b3",
+        "bytes": 1412290
+      },
+      "journal.jsonl": {
+        "path": "evidence/render-poll-w6-after-swap-01-20261002-kit-01/journal.jsonl",
+        "sha256": "ccb500d41e98c3c22978bd880ce58a54cb5637e0006192d15d88e0422dcda17a",
+        "bytes": 3089917
+      }
+    },
+    "relinkEvidence": {
+      "pre.json": {
+        "path": "evidence/w6-relink-render-01-20261002-kit-01/pre.json",
+        "sha256": "29abe3bd77c910fa1505a7c65802c6b86e27bab9c4fc3e29fbf9f5219a9654b3",
+        "bytes": 1412290
+      },
+      "post.json": {
+        "path": "evidence/w6-relink-render-01-20261002-kit-01/post.json",
+        "sha256": "d144169e1371d3e63719730f229e8ccbe996e1e0113366db51daf29396ff6669",
+        "bytes": 1379915
+      },
+      "journal.jsonl": {
+        "path": "evidence/w6-relink-render-01-20261002-kit-01/journal.jsonl",
+        "sha256": "8ebc249dcfdbdf49f5eecfddbddc6032c92316d66a56db172443a00e311102c6",
+        "bytes": 2992503
+      }
+    },
+    "relinkPollEvidence": {
+      "pre.json": {
+        "path": "evidence/render-poll-w6-relinked-01-20261002-kit-01/pre.json",
+        "sha256": "8e79dbd8d8ccee3d34dcbf59078b507682eea491c6226ec195370c85dd9f2f04",
+        "bytes": 1413370
+      },
+      "post.json": {
+        "path": "evidence/render-poll-w6-relinked-01-20261002-kit-01/post.json",
+        "sha256": "8e79dbd8d8ccee3d34dcbf59078b507682eea491c6226ec195370c85dd9f2f04",
+        "bytes": 1413370
+      },
+      "journal.jsonl": {
+        "path": "evidence/render-poll-w6-relinked-01-20261002-kit-01/journal.jsonl",
+        "sha256": "b083bcfc6a001d371399b55bc7c85777753b752cbcc1a9c0b8520795d7f0d436",
+        "bytes": 3070027
+      }
+    },
+    "restoreEvidence": {
+      "pre.json": {
+        "path": "evidence/w6-restore-relink-01-20261002-kit-01/pre.json",
+        "sha256": "8e79dbd8d8ccee3d34dcbf59078b507682eea491c6226ec195370c85dd9f2f04",
+        "bytes": 1413370
+      },
+      "post.json": {
+        "path": "evidence/w6-restore-relink-01-20261002-kit-01/post.json",
+        "sha256": "ab068a12bd78149f538c3e1266c3327f341845eb6b03cd767f8073f2c88de2f6",
+        "bytes": 1385603
+      },
+      "journal.jsonl": {
+        "path": "evidence/w6-restore-relink-01-20261002-kit-01/journal.jsonl",
+        "sha256": "c3614555ef10314328c20d685c2e27f43b09494f7371d1dcf44ed5a0444e7b3b",
+        "bytes": 3008193
+      }
+    },
+    "restorePollEvidence": {
+      "pre.json": {
+        "path": "evidence/render-poll-w6-restored-01-20261002-kit-01/pre.json",
+        "sha256": "c0d1d7648a333e7122eecfa4f2e2eca59eece4ae805d25d02512f916096b16fb",
+        "bytes": 1414450
+      },
+      "post.json": {
+        "path": "evidence/render-poll-w6-restored-01-20261002-kit-01/post.json",
+        "sha256": "c0d1d7648a333e7122eecfa4f2e2eca59eece4ae805d25d02512f916096b16fb",
+        "bytes": 1414450
+      },
+      "journal.jsonl": {
+        "path": "evidence/render-poll-w6-restored-01-20261002-kit-01/journal.jsonl",
+        "sha256": "aa6a7c6a4cf0db9be400c81f218d14874321f472cd2b02172aeb7321d518342b",
+        "bytes": 3072433
+      }
+    },
+    "swap": {
+      "path": "external-swap/swap-01.json",
+      "sha256": "336c1bca1565f6f291335cbef060027007c5de586bde9acc830222238c831a27",
+      "bytes": 939
+    },
+    "restoreExternal": {
+      "path": "external-swap/restore-01.json",
+      "sha256": "32628a88eda82eb9366567ce5afb6b6719f298c3372065d2b49cb93b91af9e8a",
+      "bytes": 463
+    },
+    "backup": {
+      "path": "external-swap/swap-original-01.mov",
+      "sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+      "bytes": 3443686
+    },
+    "analysis": {
+      "path": "w6-analysis.json",
+      "sha256": "8d1bed2e1388a0dcc77240db6a97db4f097d8880ba40217525a818001a46808c",
+      "bytes": 12988
+    }
+  },
+  "media": {
+    "baseline": {
+      "path": "renders/W6-baseline-01.mov",
+      "sha256": "6ef615c684208e67824b7062215daef1ac675a3f589ccbc3a7146b855ccdf491",
+      "bytes": 3466324,
+      "pcmS16LE_sha256": "f0e1d5c4dc4c52e2d68d4a7ea92ba683f2c736b5dad059867e86e82dcf203b96",
+      "pcmBytes": 3064320,
+      "expectedSourceId": 1
+    },
+    "noRelink": {
+      "path": "renders/W6-no-relink-01.mov",
+      "sha256": "a38286b987086e2948e024ee69fcf5c9e701c187aaa7b71afeb9c74f3c0be4fe",
+      "bytes": 3466348,
+      "pcmS16LE_sha256": "f0e1d5c4dc4c52e2d68d4a7ea92ba683f2c736b5dad059867e86e82dcf203b96",
+      "pcmBytes": 3064320,
+      "expectedSourceId": 1
+    },
+    "relinked": {
+      "path": "renders/W6-relinked-01.mov",
+      "sha256": "e49425c31076f3a4c49e1d3cc8b7fbb7a63a2976a6cf61c991a6534f6cc74025",
+      "bytes": 3466336,
+      "pcmS16LE_sha256": "f0e1d5c4dc4c52e2d68d4a7ea92ba683f2c736b5dad059867e86e82dcf203b96",
+      "pcmBytes": 3064320,
+      "expectedSourceId": 2
+    },
+    "restored": {
+      "path": "renders/W6-restored-01.mov",
+      "sha256": "8e4c2fed0c9afeb9373e2ee8a75d7ddc0a4c9588685b9ec841189dea0afb8d78",
+      "bytes": 3466324,
+      "pcmS16LE_sha256": "f0e1d5c4dc4c52e2d68d4a7ea92ba683f2c736b5dad059867e86e82dcf203b96",
+      "pcmBytes": 3064320,
+      "expectedSourceId": 1
+    }
+  },
+  "semantic": {
+    "baseline": {
+      "words": [
+        "alpha",
+        "bravo",
+        "charlie",
+        "delta",
+        "echo",
+        "foxtrot",
+        "golf",
+        "hotel",
+        "one",
+        "two",
+        "three",
+        "four",
+        "five",
+        "six",
+        "seven",
+        "eight"
+      ],
+      "pilots": {
+        "1000": 0.02828,
+        "1500": 0.01986,
+        "2000": 0.02003
+      },
+      "sampleCount": 766080,
+      "frameCount": 399,
+      "srcIds": [
+        1
+      ],
+      "frameMismatchCount": 0,
+      "expectedSrcId": 1,
+      "matchesExpectedSrcId": true
+    },
+    "noRelink": {
+      "words": [
+        "alpha",
+        "bravo",
+        "charlie",
+        "delta",
+        "echo",
+        "foxtrot",
+        "golf",
+        "hotel",
+        "one",
+        "two",
+        "three",
+        "four",
+        "five",
+        "six",
+        "seven",
+        "eight"
+      ],
+      "pilots": {
+        "1000": 0.02828,
+        "1500": 0.01986,
+        "2000": 0.02003
+      },
+      "sampleCount": 766080,
+      "frameCount": 399,
+      "srcIds": [
+        1
+      ],
+      "frameMismatchCount": 0,
+      "expectedSrcId": 1,
+      "matchesExpectedSrcId": true
+    },
+    "relinked": {
+      "words": [
+        "alpha",
+        "bravo",
+        "charlie",
+        "delta",
+        "echo",
+        "foxtrot",
+        "golf",
+        "hotel",
+        "one",
+        "two",
+        "three",
+        "four",
+        "five",
+        "six",
+        "seven",
+        "eight"
+      ],
+      "pilots": {
+        "1000": 0.02828,
+        "1500": 0.01986,
+        "2000": 0.02003
+      },
+      "sampleCount": 766080,
+      "frameCount": 399,
+      "srcIds": [
+        1
+      ],
+      "frameMismatchCount": 0,
+      "expectedSrcId": 2,
+      "matchesExpectedSrcId": false
+    },
+    "restored": {
+      "words": [
+        "alpha",
+        "bravo",
+        "charlie",
+        "delta",
+        "echo",
+        "foxtrot",
+        "golf",
+        "hotel",
+        "one",
+        "two",
+        "three",
+        "four",
+        "five",
+        "six",
+        "seven",
+        "eight"
+      ],
+      "pilots": {
+        "1000": 0.02828,
+        "1500": 0.01986,
+        "2000": 0.02003
+      },
+      "sampleCount": 766080,
+      "frameCount": 399,
+      "srcIds": [
+        1
+      ],
+      "frameMismatchCount": 0,
+      "expectedSrcId": 1,
+      "matchesExpectedSrcId": true
+    },
+    "baselineRestoredPCMEqual": true,
+    "baselineRestoredFullContainerEqual": false
+  },
+  "apiSnapshotCompare": {
+    "beforeSwap": {
+      "onlineStatusUnchanged": true,
+      "dateModifiedUnchanged": true,
+      "samePath": true,
+      "before": {
+        "onlineStatus": "Online",
+        "dateModified": "Fri Oct  2 17:28:11 2026",
+        "filePath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/media/swap.mov"
+      },
+      "after": {
+        "onlineStatus": "Online",
+        "dateModified": "Fri Oct  2 17:28:11 2026",
+        "filePath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/media/swap.mov"
+      }
+    },
+    "afterSwap": {
+      "onlineStatusUnchanged": true,
+      "dateModifiedUnchanged": true,
+      "samePath": true,
+      "before": {
+        "onlineStatus": "Online",
+        "dateModified": "Fri Oct  2 17:28:11 2026",
+        "filePath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/media/swap.mov"
+      },
+      "after": {
+        "onlineStatus": "Online",
+        "dateModified": "Fri Oct  2 17:28:11 2026",
+        "filePath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/media/swap.mov"
+      }
+    },
+    "relink": {
+      "onlineStatusUnchanged": true,
+      "dateModifiedUnchanged": true,
+      "samePath": true,
+      "before": {
+        "onlineStatus": "Online",
+        "dateModified": "Fri Oct  2 17:28:11 2026",
+        "filePath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/media/swap.mov"
+      },
+      "after": {
+        "onlineStatus": "Online",
+        "dateModified": "Fri Oct  2 17:28:11 2026",
+        "filePath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/media/swap.mov"
+      }
+    },
+    "restore": {
+      "onlineStatusUnchanged": true,
+      "dateModifiedUnchanged": true,
+      "samePath": true,
+      "before": {
+        "onlineStatus": "Online",
+        "dateModified": "Fri Oct  2 17:28:11 2026",
+        "filePath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/media/swap.mov"
+      },
+      "after": {
+        "onlineStatus": "Online",
+        "dateModified": "Fri Oct  2 17:28:11 2026",
+        "filePath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/media/swap.mov"
+      }
+    }
+  },
+  "classification": {
+    "baseline": "old/original source; src_id 1",
+    "noRelink": "old/original source remained; src_id 1 after same-layout replacement",
+    "relinked": "observed no-switch despite native relinkReturn=true; completed render remained src_id 1 (expected 2 did not match)",
+    "restored": "original source after atomic restore and relink; src_id 1; PCM byte-equal to baseline"
+  },
+  "terminalPolls": {
+    "baselinePoll": {
+      "jobId": "228fae45-1e2a-4bce-a074-4292c6076a5a",
+      "jobStatus": {
+        "CompletionPercentage": 100,
+        "JobStatus": "Complete",
+        "TimeTakenToRenderInMs": 1671
+      }
+    },
+    "noRelinkPoll": {
+      "jobId": "2f253e30-8e07-48e3-bbd9-4504a63b8a07",
+      "jobStatus": {
+        "CompletionPercentage": 100,
+        "JobStatus": "Complete",
+        "TimeTakenToRenderInMs": 1671
+      }
+    },
+    "relinkPoll": {
+      "jobId": "f635ec8d-4925-4a3f-af41-91cb72f8819e",
+      "jobStatus": {
+        "CompletionPercentage": 100,
+        "JobStatus": "Complete",
+        "TimeTakenToRenderInMs": 1814
+      }
+    },
+    "restorePoll": {
+      "jobId": "e80367fb-e97f-4dd2-b8ac-d8d9a1689f50",
+      "jobStatus": {
+        "CompletionPercentage": 100,
+        "JobStatus": "Complete",
+        "TimeTakenToRenderInMs": 1668
+      }
+    }
+  }
+}

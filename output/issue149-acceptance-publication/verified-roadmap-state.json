@@ -1,0 +1,19 @@
+{
+  "149": {
+    "issueState": "CLOSED",
+    "projectStatus": "Done",
+    "claim": null
+  },
+  "141": {
+    "issueState": "OPEN",
+    "projectStatus": "In review",
+    "claim": {
+      "state": "active",
+      "model": "sol",
+      "effort": "xhigh",
+      "task": "01a0f318-1f2a-7b70-b8ed-f43463225084",
+      "branch": "codex/issue-141-resolve-observation",
+      "startedAt": "2026-09-30T16:16:18.103Z"
+    }
+  }
+}

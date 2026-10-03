@@ -1,0 +1,185 @@
+{
+  "kind": "issue141-dashboard-audit-source-correction-v1",
+  "recordedAt": "2026-10-02T11:54:43.669570+00:00",
+  "correctsAudit": {
+    "path": "output/issue141-resume-closeout-audit.json",
+    "sha256": "c8707f0060e573fa1d47ce39632123c5e1f48e5ad89ac5fc21acc5ad53d3c275"
+  },
+  "dashboard": {
+    "path": "LOCAL_DASHBOARD/progress.json",
+    "sha256": "5583ed0162b59ef11824afd1c0778f2f52cac841a00189d63b20ed2a5e48b87a",
+    "completedFromStatuses": 37,
+    "totalFromRows": 41,
+    "uniqueTitles": 41,
+    "storedCompleted": 37,
+    "storedTotal": 41
+  },
+  "finding": "The current dashboard is outside this checkout. The historical24/41 file was not its source. Current41 distinct rows have37 done and4 unfinished; stored counts agree.",
+  "limits": "This resolves dashboard location/count provenance only. It does not replace per-operation evidence review or complete unfinished checks.",
+  "rows": [
+    {
+      "title": "Investigation setup",
+      "status": "done"
+    },
+    {
+      "title": "Generated synthetic media and manifest",
+      "status": "done"
+    },
+    {
+      "title": "Harness checks",
+      "status": "done"
+    },
+    {
+      "title": "Named project and baseline timeline",
+      "status": "done"
+    },
+    {
+      "title": "Batched matrix prepared and saved",
+      "status": "done"
+    },
+    {
+      "title": "Duration convention calibration",
+      "status": "done"
+    },
+    {
+      "title": "Overlay placement and visibility calibration",
+      "status": "done"
+    },
+    {
+      "title": "R1-reopen: reopen exact project and compare IDs, custom data, ranges",
+      "status": "done"
+    },
+    {
+      "title": "R1-duplicate: DuplicateTimeline to VERA 141 R1 identity; compare both timelines",
+      "status": "done"
+    },
+    {
+      "title": "R1-trim: trim a separate labeled linked occurrence by 25 frames",
+      "status": "done"
+    },
+    {
+      "title": "R1-move: move a separate labeled linked occurrence 25 frames later",
+      "status": "done"
+    },
+    {
+      "title": "R1-razor: blade a separate labeled linked occurrence at local frame 100",
+      "status": "done"
+    },
+    {
+      "title": "R1-copy: copy/paste one linked piece at a nonoverlapping location",
+      "status": "done"
+    },
+    {
+      "title": "R1-repeat: save/reopen repeat and second named duplicate",
+      "status": "working"
+    },
+    {
+      "title": "R2-linked-cut: remove frames 60\u201370 on linked V1/A1",
+      "status": "done"
+    },
+    {
+      "title": "R2-unlinked-cut: unlink and remove interval on A1 only",
+      "status": "done"
+    },
+    {
+      "title": "R2-picture-only: remove interval on V1 only",
+      "status": "done"
+    },
+    {
+      "title": "R2-partial: remove only frames 65\u201370 on A1",
+      "status": "done"
+    },
+    {
+      "title": "R2-residual-track: enable A2 repeated-speech occurrence",
+      "status": "done"
+    },
+    {
+      "title": "R2-disable-mute: compare enabled/disabled, mute/solo, routing and output",
+      "status": "working"
+    },
+    {
+      "title": "R2-offset: shift unlinked A1 one frame without changing source bounds",
+      "status": "done"
+    },
+    {
+      "title": "R2-retime: set linked clip to 50% and capture source map",
+      "status": "done"
+    },
+    {
+      "title": "R2-derived-end: compare subframe/source-time values to exact sample support",
+      "status": "done"
+    },
+    {
+      "title": "R3-opaque: enable V2 and inspect frames 49, 50, 99, 100",
+      "status": "done"
+    },
+    {
+      "title": "R3-transparent: enable V3 and inspect overlap and return frames",
+      "status": "done"
+    },
+    {
+      "title": "R3-effect: apply identified effect and record settings/viewer result",
+      "status": "done"
+    },
+    {
+      "title": "R3-disabled: disable cutaway and overlay separately",
+      "status": "done"
+    },
+    {
+      "title": "R3-offline: use R4 unlink probe and inspect present offline occurrence",
+      "status": "done"
+    },
+    {
+      "title": "R3-merge-graphic: blade V1/A1 under enabled V3; keep Graphic distinct",
+      "status": "done"
+    },
+    {
+      "title": "R3-boundary: blade base A/V at frame 100, then A3 crossing bed",
+      "status": "done"
+    },
+    {
+      "title": "R3-visibility interpretation: bound claims to inspected frames/effects",
+      "status": "done"
+    },
+    {
+      "title": "R4-unlink: unlink synthetic base.mov pool item; capture occurrence/status",
+      "status": "done"
+    },
+    {
+      "title": "R4-relink: relink exact item to same-byte generated candidate",
+      "status": "done"
+    },
+    {
+      "title": "R4-wrong-bytes: staged same-locator replacement and refresh/reopen",
+      "status": "done"
+    },
+    {
+      "title": "R4-remove: compare removed occurrence with offline-present case; journal restore",
+      "status": "done"
+    },
+    {
+      "title": "R5-quiet: separate-launch quiet comparison",
+      "status": "done"
+    },
+    {
+      "title": "R5-reopen: compare markers, IDs, ranges and settings after reopen",
+      "status": "done"
+    },
+    {
+      "title": "R5-marker-and-move: edit marker note, then move one clip one frame",
+      "status": "done"
+    },
+    {
+      "title": "R5-concurrent-edit: bounded edit during capture; retain refusal if inconsistent",
+      "status": "done"
+    },
+    {
+      "title": "Complete evidence report and bounded interpretations for every R1\u2013R5 result",
+      "status": "pending"
+    },
+    {
+      "title": "External evidence review and remaining operator judgments",
+      "status": "pending"
+    }
+  ]
+}

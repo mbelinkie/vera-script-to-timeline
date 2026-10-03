@@ -1,0 +1,24 @@
+{
+  "action": "prepare",
+  "actionId": "prepare-01-20261002-kit-01",
+  "configSha256": "2cf7d2e493636123c33adf314809b16c5434c9694a762cb9a6c14e06a73fd68e",
+  "error": {
+    "message": "prepared timelinePlaybackFrameRate differs: '24', expected 25",
+    "type": "HarnessError"
+  },
+  "journal": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/evidence/prepare-01-20261002-kit-01/journal.jsonl",
+  "launcher": "workflow-injected",
+  "partialState": {
+    "itemUids": [],
+    "mediaUids": [],
+    "projectUid": "1a05ff3a-8b04-43e3-95ab-c970b93b6415",
+    "timelineUids": [],
+    "timelines": []
+  },
+  "phase": "prepare-01",
+  "preSnapshot": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/evidence/prepare-01-20261002-kit-01/pre.json",
+  "progress": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-progress-prepare-01-20261002-kit-01.jsonl",
+  "schemaVersion": "issue-149-workflow-reruns-v1",
+  "stateId": "prepare-01-20261002-kit-01",
+  "status": "failure"
+}

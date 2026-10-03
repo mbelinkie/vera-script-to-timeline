@@ -1,0 +1,10 @@
+{
+  "actionId": "observe-final-both-off-03-20261002-kit-01",
+  "configSha256": "610f95ff59ad49746f1966dd04d750617de0a6bb770dfca55fad9f1db8f84bbc",
+  "error": {
+    "message": "phase is required",
+    "type": "HarnessError"
+  },
+  "progress": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-progress-observe-final-both-off-03-20261002-kit-01.jsonl",
+  "status": "launcher-failed"
+}

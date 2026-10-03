@@ -1,0 +1,182 @@
+{
+  "contexts": {
+    "repeatExpectedContext": {
+      "expectedSelectionUid": "aa2b8e36-83bd-4292-9e33-217c00ca192f",
+      "idle": true,
+      "page": "edit",
+      "playhead": "00:00:08:00",
+      "product": "DaVinci Resolve Studio",
+      "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+      "projectUid": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+      "queue": [],
+      "selectedTimelineUid": "aa2b8e36-83bd-4292-9e33-217c00ca192f",
+      "selection": [],
+      "trackLocks": [
+        [
+          "video",
+          1,
+          false
+        ],
+        [
+          "video",
+          2,
+          false
+        ],
+        [
+          "video",
+          3,
+          false
+        ],
+        [
+          "audio",
+          1,
+          false
+        ],
+        [
+          "audio",
+          2,
+          false
+        ],
+        [
+          "audio",
+          3,
+          false
+        ]
+      ],
+      "version": [
+        21,
+        1,
+        0,
+        14,
+        ""
+      ]
+    },
+    "restoreTargetContext": {
+      "expectedSelectionUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+      "idle": true,
+      "page": "edit",
+      "playhead": "00:00:00:00",
+      "product": "DaVinci Resolve Studio",
+      "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+      "projectUid": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+      "queue": [],
+      "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+      "selection": [],
+      "trackLocks": [
+        [
+          "video",
+          1,
+          false
+        ],
+        [
+          "video",
+          2,
+          true
+        ],
+        [
+          "video",
+          3,
+          true
+        ],
+        [
+          "audio",
+          1,
+          false
+        ],
+        [
+          "audio",
+          2,
+          true
+        ],
+        [
+          "audio",
+          3,
+          true
+        ]
+      ],
+      "version": [
+        21,
+        1,
+        0,
+        14,
+        ""
+      ]
+    }
+  },
+  "continuationProvenance": {
+    "authorizedAction": "one r1-repeat-restore-selection; no duplicate",
+    "coordinatorDecision": {
+      "path": "REPOSITORY/output/r1-window-readiness-continuation-decision.json",
+      "sha256": "4b1cfae3005415fac67043e4dc23e9a65684b008b328ac1028cdf89a028b0aba"
+    },
+    "currentWindowReadiness": {
+      "path": "REPOSITORY/output/r1-current-window-readiness.json",
+      "sha256": "6352e24126851a8573d5856b2f7d980f3061d6a3bc4a76ab6e06032afc55e852"
+    },
+    "driver": {
+      "path": "REPOSITORY/output/r1-final-native-executor-20261002.py",
+      "sha256": "375263529a07069bdf9c6acfb58645b8567b931e61afdc63ca5feb32cbb8b78e"
+    },
+    "preparedAt": "2026-10-02T13:10:24.218227+00:00",
+    "priorMenuRefusal": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261002T125424.498570Z/launch.json",
+      "sha256": "07c3b9a4c84b4d9b116533380a3a26b3a8ca3434797747fd6602a715de6e91b8"
+    },
+    "priorTerminalReadiness": {
+      "path": "REPOSITORY/output/r1-final-native-executor-20261002-readiness.json",
+      "sha256": "6667add0c318b22e12473b9aee96bce1501410c71b04b893b8dd3d6751c98091"
+    },
+    "priorTerminalState": {
+      "path": "REPOSITORY/output/r1-final-native-executor-20261002-state.json",
+      "sha256": "4682ed35d3fa0999e3e36263d9bb3fe0ddc81a1ec43fcd9de1e1507de1a4a710"
+    }
+  },
+  "driver": {
+    "path": "REPOSITORY/output/r1-final-native-executor-20261002.py",
+    "sha256": "375263529a07069bdf9c6acfb58645b8567b931e61afdc63ca5feb32cbb8b78e"
+  },
+  "extracted": {
+    "repeatCheckpoint": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r1-final-executor-20261002T131024.171089Z-repeat-checkpoint.json",
+      "sha256": "f458c12e6d70c1617b7af717885838db3383d8632b11be681b40b3542be7ec48"
+    },
+    "restoreTargetPair": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r1-final-executor-20261002T131024.171089Z-restore-target.json",
+      "sha256": "774a256039d9e965f03e5d7d5a9f2df3692edd08da936fd2f3bc44c104dc641a"
+    }
+  },
+  "kind": "issue-141-r1-final-native-executor-readiness",
+  "localReadiness": "REPOSITORY/output/r1-selection-restoration-local.json",
+  "nativeDispatchPerformed": false,
+  "prohibitions": [
+    "no reopen",
+    "no retry after refusal/pending",
+    "no post-duplicate native action"
+  ],
+  "registrationPinsRequired": {
+    "caller": "ead091ca81673a8924bac58e247d9c41b705580f951be851ccbe739e90a98562",
+    "helper": "1948ec4339cc92ca949db9be4f554806f237614a4ee9ad886467e6d3b77475c3",
+    "probe": "2a5113df4c64eed13b812ea99c923633827ee77bdf3398c70e9df9b8361de47d",
+    "readback": "d9df76229ead502b2d9ff31a1847eb9b858aa8931d25d279b560244e93690354"
+  },
+  "sequence": [
+    "one r1-repeat-restore-selection with one SetCurrentTimeline(Matrix)",
+    "one editorial-context readback and exact comparison with restoreTargetPair",
+    "one r1-repeat-duplicate; terminal native action"
+  ],
+  "status": "continuation-authorized-before-restore",
+  "wrappers": {
+    "matrix": {
+      "contextSha256": "91f804e6482623bb908b713c4ad04331c8647bd201cbbba9f95851feeea97e2f",
+      "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+      "sourcePath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r1-repeat-duplicate-20261002T122220.047704Z/pair-01.json",
+      "sourceSha256": "b5d2b291be801f65be762d813e76335223f2bde83701c95a56882f919180e519"
+    },
+    "r1": {
+      "contextSha256": "2c846806560ab1c3bf3fe932cf5351df4839e487854ab20d407bd4e14adc99fb",
+      "selectedTimelineUid": "aa2b8e36-83bd-4292-9e33-217c00ca192f",
+      "sourcePath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r1-repeat-duplicate-20261002T122220.047704Z/pair-03.json",
+      "sourceSha256": "21327670e17a48675c466d9c1f3e7f63b751e45b6fc26b4f8e382934c698c486"
+    }
+  }
+}

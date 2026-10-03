@@ -1,0 +1,23 @@
+{
+  "kind": "issue141-final-report-publication-check",
+  "at": "2026-10-02T13:35:27.732379+00:00",
+  "status": "REPORT_READY_EXTERNAL_PENDING",
+  "method": "Coordinator reconciles existing independent test verdicts; document/link/count check only. No raw test rerun, source-byte read or native action.",
+  "finalReport": {
+    "path": "REPOSITORY/docs/investigations/issue-141/final-findings.md",
+    "sha256": "76e19b553282957e6fb0da7bfff85e59289dbdecde33790c3cc8bb9a7b1fe210"
+  },
+  "evidenceIndex": {
+    "path": "REPOSITORY/output/issue141-per-title-evidence-audit.json",
+    "sha256": "84affe12acb73ffa05500d1786d6cc7102681d0ce87920e9c0a2482641719a49"
+  },
+  "titles": 41,
+  "done": 40,
+  "working": 0,
+  "pending": 1,
+  "onlyRemainingGate": "External evidence review and remaining operator judgments",
+  "markdownLocalLinkCount": 25,
+  "missingLinks": [],
+  "latestNativeReview": "output/r1-final-seven-independent-review.json",
+  "goalComplete": false
+}
