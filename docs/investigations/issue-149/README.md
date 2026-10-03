@@ -1,6 +1,6 @@
 # Issue 149 — independent Resolve second opinion on Issue 141
 
-Status, updated 2026-10-03: Tier 1 evidence covers plan phases 0–9. Codex ran Phase 10 (W1–W7) through the Workflow Integration path on the same 21.1.1.10 build: **five rows reproduced and two were adverse** (W3 mapping mute, W6 relink); see [Phase 10 outcomes](#phase-10-workflow-integration-outcomes). Follow-up [discriminating tests](#discriminating-tests-2026-10-03) explain W6 and isolate W3 to the entry point of the mapping setter: the Console call silences output, and the Workflow Integration call does not. Rows 4, 7, 9, 10 and 11 below are revised accordingly. Producer review is pending; this issue stays open.
+Status, updated 2026-10-03: Tier 1 evidence covers plan phases 0–9. Codex ran Phase 10 (W1–W7) through the Workflow Integration path on the same 21.1.1.10 build: **five rows reproduced and two were adverse** (W3 mapping mute, W6 relink); see [Phase 10 outcomes](#phase-10-workflow-integration-outcomes). Follow-up [discriminating tests](#discriminating-tests-2026-10-03) explain W6 and isolate W3 to the entry point of the mapping setter: the Console call silences output, and the Workflow Integration call does not. Rows 4, 7, 9, 10 and 11 below are revised accordingly. Producer accepted 2026-10-03, and Issue 149 is closed. The remaining unknowns are listed under [What is still NOT possible or established](#what-is-still-not-possible-or-established).
 
 ## Setup
 
