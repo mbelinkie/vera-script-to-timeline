@@ -1,5 +1,12 @@
 # Issue 144 — bounded file-driven round-trip harness
 
+**Checkpoint status:** Claude reviewed the original plan at `d055f90` before
+implementation. Read [the retained review and disposition](../investigations/issue-144/checkpoint-01-disposition.md)
+for required corrections and the pending Producer topology choice. That
+disposition governs unresolved assumptions below. Positive move/trim fixtures
+must not claim support until the choice is recorded; no implementation or native
+action has begun at this checkpoint.
+
 ## Authority, ownership and starting evidence
 
 Issue [#144](https://github.com/mbelinkie/vera-script-to-timeline/issues/144),
@@ -123,10 +130,8 @@ will receive precise numbered Producer steps.
 
 ## Forecast
 
-Initial forecast after seam tracing and publication integrity check: **6–12
-remaining active-work hours**, likely multi-session, low confidence. Primary
-uncertainty: connecting observed timing/audio edits to canonical v1 anchors and
-fresh text-bound narration dependencies without a frozen-boundary change.
-Next reassessment: first automated proposal→decision→compiler/package/rebuild
-test. Approval waits and the later #148/#145 work are excluded. Update material
+The initial **6–12 remaining active-work hours** forecast is withdrawn after
+Claude checkpoint 1 exposed unresolved topology and executable rebuild seams.
+Re-estimate after the corrected executable plan and first actual compiler/package
+stage test. Approval waits and later #148/#145 work are excluded. Update material
 scope/evidence/forecast changes here and in handoff.
