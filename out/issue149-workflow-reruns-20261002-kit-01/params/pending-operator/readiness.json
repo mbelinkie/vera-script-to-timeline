@@ -1,0 +1,147 @@
+{
+  "taskId": "#149",
+  "review": "offline pending-operator readiness",
+  "nativeCalls": false,
+  "parameterMutation": false,
+  "project": {
+    "name": "VERA Issue 149 Workflow Reruns 20261002-kit-01",
+    "uid": "1a05ff3a-8b04-43e3-95ab-c970b93b6415",
+    "ownedCounts": {
+      "timelines": 13,
+      "items": 64,
+      "mediaPoolItems": 23
+    },
+    "inventorySha256": "15a6a2dcf1aeccf237660db06ac1a6e8ead859059fb1535fc2448176e0798bd8",
+    "w2XTimelineUid": "abdd2270-7155-4fba-850c-82201a38f4c2",
+    "w2YTimelineUid": "bec69cf7-c76e-4820-9e1f-9b425449614f",
+    "w5CurrentXUid": "abdd2270-7155-4fba-850c-82201a38f4c2",
+    "w5InactiveYUid": "bec69cf7-c76e-4820-9e1f-9b425449614f",
+    "w5RestoreXUid": "abdd2270-7155-4fba-850c-82201a38f4c2"
+  },
+  "hashBindings": {
+    "probeSha256": "a19a79d684f8dbaed6d36bda0d493eed964d37888bddf7749e3bbdf601f59ab5",
+    "authoritativeLauncherPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/VERA Issue 149 Workflow Reruns.py",
+    "authoritativeLauncherExists": true,
+    "authoritativeLauncherSha256": "e4f58381c398bc0ce13130fddb25c956876f7754dc877346fe389dfb826c2450",
+    "wrongLauncherPath": "/Library/Application Support/Blackmagic Design/Resolve/Workflow Integration Plugins/VERA Issue 149 Workflow Reruns.py",
+    "wrongLauncherExists": false
+  },
+  "offlineValidation": {
+    "harnessValidateConfig": {
+      "checkedJsonConfigs": 20,
+      "failures": []
+    },
+    "commonFields": {
+      "schemaVersion": "issue-149-workflow-reruns-v1",
+      "externalScriptingSetting": "None",
+      "projectName": "VERA Issue 149 Workflow Reruns 20261002-kit-01",
+      "allProbeHashesMatch": true,
+      "allOwnedCountsMatch": true,
+      "allProjectUidsMatch": true
+    },
+    "apiAndGateShapes": {
+      "w2XExport": {
+        "action": "w2-export",
+        "timelineUid": "abdd2270-7155-4fba-850c-82201a38f4c2",
+        "exportKey": "export.path",
+        "required": [
+          "requireObservedActiveXAudio2SoloFalse",
+          "requireOtioA2MuteTrue",
+          "requireAllOtherMuteSoloOff"
+        ]
+      },
+      "w2YExport": {
+        "action": "w2-export",
+        "timelineUid": "bec69cf7-c76e-4820-9e1f-9b425449614f",
+        "exportKey": "export.path",
+        "required": [
+          "requireOtioA2SoloTrue",
+          "requireOtioA2MuteFalse",
+          "requireAllOtherMuteSoloOff"
+        ]
+      },
+      "w5Context": {
+        "action": "w5-context-read",
+        "currentTimelineUid": "abdd2270-7155-4fba-850c-82201a38f4c2",
+        "inactiveTimelineUid": "bec69cf7-c76e-4820-9e1f-9b425449614f",
+        "restoreCurrentTimelineUid": "abdd2270-7155-4fba-850c-82201a38f4c2",
+        "trackKind": "audio",
+        "activeXAudioTrack2EnabledExpected": false,
+        "readbackRows": ["xCurrent", "yCurrent", "xWhileYCurrent"]
+      },
+      "renderStage": {
+        "settingsKeys": ["CustomName", "RenderAll"],
+        "harnessFixedApi": {
+          "formatCodec": ["mov", "H264"],
+          "ExportVideo": true,
+          "ExportAudio": true,
+          "FormatWidth": 640,
+          "FormatHeight": 360,
+          "FrameRate": 25,
+          "AudioCodec": "lpcm",
+          "AudioBitDepth": 16,
+          "AudioSampleRate": 48000
+        }
+      },
+      "renderPoll": {
+        "pollTimeoutSec": 45,
+        "pollIntervalSec": 0.25,
+        "jobIdRule": "replace PENDING_FROM_* only with the exact attributed render-stage JobId; never guess or relaunch"
+      }
+    }
+  },
+  "consumedObserve01": {
+    "config": "18-observe-operator-ready-pending.json",
+    "actionId": "observe-operator-ready-01-20261002-kit-01",
+    "status": "terminal-ok",
+    "resultSha256": "0c4b39e32be1eed5246203a6675b872ead4bb8bbd641f53c588b7f4122b144e6",
+    "resultStateCounts": {
+      "timelines": 13,
+      "items": 64,
+      "mediaPoolItems": 23
+    },
+    "resultReadOnlyGetter": "GetSelectedClips",
+    "replacement": "Do not reuse; fresh 19-observe-operator-both-set-02.json is the current observe receipt."
+  },
+  "currentFreshFiles": {
+    "observe": {
+      "config": "19-observe-operator-both-set-02.json",
+      "operatorAttestationStatus": "both-set-observe",
+      "operatorReply": "both set",
+      "launcherPathCorrect": true
+    },
+    "firstPrimaryExport": {
+      "config": "20-w2-y-solo-export-02.json",
+      "operatorAttestationStatus": "both-set-verified-current-y",
+      "timelineUid": "bec69cf7-c76e-4820-9e1f-9b425449614f",
+      "operatorReply": "both set",
+      "operatorGate": {
+        "A2Mute": false,
+        "A2Solo": true,
+        "allOtherMuteSolo": false
+      },
+      "preInferenceGate": {
+        "requireOtioA2SoloTrue": true,
+        "requireOtioA2MuteFalse": true,
+        "requireAllOtherMuteSoloOff": true
+      },
+      "launcherPathCorrect": true
+    }
+  },
+  "authorizedDispatchOrder": [
+    "Y current -> fresh Y OTIO export; require A2 Solo true, A2 Mute false, all other M/S off",
+    "Y render stage once -> poll only with exact returned JobId",
+    "Select X -> W5 X-current/Y-inactive read -> require active-X A2 enabled false -> restore X",
+    "X OTIO export; require A2 Mute true, A2 Solo false, all other M/S off",
+    "X render stage once -> poll only with exact returned JobId",
+    "Fresh manual Y Solo-off attestation -> restored Y export/render/poll",
+    "Fresh manual X Mute-off attestation -> restored X export/render/poll"
+  ],
+  "blockingFindings": [
+    "Do not dispatch stale 01-18 pending files: their launcherPath names a nonexistent .../Blackmagic Design/Resolve/... location, even though launcherSha256 is the correct installed file hash.",
+    "Use fresh 02 configs with the authoritative .../Blackmagic Design/DaVinci Resolve/... launcherPath.",
+    "Every render poll must receive the exact JobId returned by its immediately preceding render stage; placeholders remain invalid.",
+    "Restoration configs remain separate and require a fresh manual attestation after primary outputs; API getters cannot substitute manual M/S state."
+  ],
+  "status": "ready-for-bounded-native-order-after-fresh-config-path-correction; W2/W5 evidence remains pending native execution"
+}

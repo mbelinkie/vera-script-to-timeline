@@ -1,0 +1,12 @@
+{
+  "action": "selectNearest",
+  "actionId": "w7-selectNearest-01-20261002-kit-01",
+  "at": "2026-10-03T01:32:32.622593+00:00",
+  "helperPath": "REPOSITORY/docs/investigations/issue-149/workflow-reruns/hammerspoon-lock-test.lua",
+  "helperSha256": "6fafe12a946dfad139c0bd469f6d254337ee2bcfa2ddad0a576ff5c7e27ef054",
+  "command": "local m=dofile(\"REPOSITORY/docs/investigations/issue-149/workflow-reruns/hammerspoon-lock-test.lua\"); return m.selectNearest()",
+  "exitCode": 0,
+  "stdout": "{\"menu\":[\"Trim\",\"Select Nearest\",\"Clip\\/Gap\"],\"triggered\":true,\"projectName\":\"VERA Issue 149 Workflow Reruns 20261002-kit-01\",\"windowTitle\":\"VERA Issue 149 Workflow Reruns 20261002-kit-01\",\"bundleId\":\"com.blackmagic-design.DaVinciResolve\",\"action\":\"selectNearest\"}\n",
+  "stderr": "",
+  "triggered": true
+}

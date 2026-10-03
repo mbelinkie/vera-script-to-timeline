@@ -1,0 +1,70 @@
+{
+  "schemaVersion": "issue-149-w7-locked-proof-v1",
+  "actionId": "w7-lock-setter-01-20261002-kit-01",
+  "lockedStateId": "w7-lock-setter-01-20261002-kit-01",
+  "timelineUid": "14a27cb4-0ecd-4daa-9e90-38c1ff12bdb5",
+  "timelineName": "W7-lock",
+  "targetItemUid": "df179a83-7455-4184-a909-0bbbac2500bd",
+  "selectedUids": {
+    "pre": [
+      "df179a83-7455-4184-a909-0bbbac2500bd",
+      "abd3e5f5-c209-491d-84b1-d82a87e770a2"
+    ],
+    "post": [
+      "df179a83-7455-4184-a909-0bbbac2500bd",
+      "abd3e5f5-c209-491d-84b1-d82a87e770a2"
+    ]
+  },
+  "expectedUids": [
+    "df179a83-7455-4184-a909-0bbbac2500bd",
+    "abd3e5f5-c209-491d-84b1-d82a87e770a2"
+  ],
+  "selectedUidsStable": true,
+  "trackLocks": {
+    "pre": {
+      "audio1": false,
+      "audio2": false,
+      "audio3": false,
+      "video1": false
+    },
+    "post": {
+      "audio1": true,
+      "audio2": true,
+      "audio3": true,
+      "video1": true
+    }
+  },
+  "allPostTracksLocked": true,
+  "allPreTracksUnlocked": true,
+  "setClipEnabledReturn": false,
+  "setClipEnabledGuardPassed": true,
+  "itemCounts": {
+    "pre": 4,
+    "post": 4
+  },
+  "itemUids": {
+    "pre": [
+      "abd3e5f5-c209-491d-84b1-d82a87e770a2",
+      "1e34ee0b-76cf-42c5-a7b2-680a97d7c65a",
+      "2e7e9984-762a-4ad7-839e-a6b0adf17410",
+      "df179a83-7455-4184-a909-0bbbac2500bd"
+    ],
+    "post": [
+      "abd3e5f5-c209-491d-84b1-d82a87e770a2",
+      "1e34ee0b-76cf-42c5-a7b2-680a97d7c65a",
+      "2e7e9984-762a-4ad7-839e-a6b0adf17410",
+      "df179a83-7455-4184-a909-0bbbac2500bd"
+    ]
+  },
+  "itemUidsUnchanged": true,
+  "snapshotPaths": {
+    "pre": "out/issue149-workflow-reruns-20261002-kit-01/evidence/w7-lock-setter-01-20261002-kit-01/pre.json",
+    "post": "out/issue149-workflow-reruns-20261002-kit-01/evidence/w7-lock-setter-01-20261002-kit-01/post.json"
+  },
+  "snapshotSha256": {
+    "pre": "d29178da12e12fdaa2bde06c8c616f34da65d657a7c546e81c23fa400214d62f",
+    "post": "8b805f921d234dbc024fade045304371c4f381a5751b2fe5d18cd6631d6c149d"
+  },
+  "resultPath": "out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-w7-lock-setter-01-20261002-kit-01.json",
+  "resultSha256": "9b5f097c01538817605a2a3db7d1db359efb5ec6d19e6db8d3a2af1c3036fa65"
+}

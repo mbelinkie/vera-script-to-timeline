@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "issue-149-w7-delete-proof-v1",
+  "deleteReceiptPath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/evidence/w7-menu-deleteSelected-01-20261002-kit-01.json",
+  "deleteReceiptSha256": "cfa7a8f3b79e805c572693acd1b0c5b84e40937a2074f66ad4a04930242df11c",
+  "observeResultPath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-w7-observe-after-delete-01-20261002-kit-01.json",
+  "observeResultSha256": "267c77bc0bd85b9142e89effa32ea43b24e07329990a820bbdc3d99c1d13ced4",
+  "timelineUid": "14a27cb4-0ecd-4daa-9e90-38c1ff12bdb5",
+  "selectedUids": {
+    "pre": [
+      "df179a83-7455-4184-a909-0bbbac2500bd",
+      "abd3e5f5-c209-491d-84b1-d82a87e770a2"
+    ],
+    "post": [
+      "df179a83-7455-4184-a909-0bbbac2500bd",
+      "abd3e5f5-c209-491d-84b1-d82a87e770a2"
+    ]
+  },
+  "selectedUidsUnchanged": true,
+  "itemCount": {
+    "pre": 4,
+    "post": 4
+  },
+  "itemUids": {
+    "pre": [
+      "abd3e5f5-c209-491d-84b1-d82a87e770a2",
+      "1e34ee0b-76cf-42c5-a7b2-680a97d7c65a",
+      "2e7e9984-762a-4ad7-839e-a6b0adf17410",
+      "df179a83-7455-4184-a909-0bbbac2500bd"
+    ],
+    "post": [
+      "abd3e5f5-c209-491d-84b1-d82a87e770a2",
+      "1e34ee0b-76cf-42c5-a7b2-680a97d7c65a",
+      "2e7e9984-762a-4ad7-839e-a6b0adf17410",
+      "df179a83-7455-4184-a909-0bbbac2500bd"
+    ]
+  },
+  "itemUidsUnchanged": true,
+  "clipEnabled": {
+    "pre": {
+      "abd3e5f5-c209-491d-84b1-d82a87e770a2": true,
+      "1e34ee0b-76cf-42c5-a7b2-680a97d7c65a": true,
+      "2e7e9984-762a-4ad7-839e-a6b0adf17410": true,
+      "df179a83-7455-4184-a909-0bbbac2500bd": true
+    },
+    "post": {
+      "abd3e5f5-c209-491d-84b1-d82a87e770a2": true,
+      "1e34ee0b-76cf-42c5-a7b2-680a97d7c65a": true,
+      "2e7e9984-762a-4ad7-839e-a6b0adf17410": true,
+      "df179a83-7455-4184-a909-0bbbac2500bd": true
+    }
+  },
+  "clipEnabledUnchanged": true,
+  "allClipEnabledTrue": true,
+  "snapshotPaths": {
+    "pre": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/evidence/w7-observe-after-delete-01-20261002-kit-01/pre.json",
+    "post": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/evidence/w7-observe-after-delete-01-20261002-kit-01/post.json"
+  },
+  "snapshotSha256": {
+    "pre": "e275be86e48ab18cd3fc9b31e1666100c338d8e5bf25f468750debdd9e7392e0",
+    "post": "1164e813aadaeeefe3f6336715a1239af5e86a37d16878a0db051610940a04d6"
+  }
+}
