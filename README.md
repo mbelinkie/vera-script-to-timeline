@@ -298,6 +298,53 @@ not Resolve evidence. A failure after the build is authorized can leave a
 partial project; the CLI reports `mutation_failed` and the project must be
 inspected manually rather than treated as a nonmutating safety stop.
 
+## Production Studio assembly from a verified package
+
+For the retained synthetic acceptance run, use these exact commands. Replace
+only the first path with your VERA checkout; the package path is then fixed and
+printed as `projectRoot` when it is created:
+
+```sh
+VERA_PROJECT="/absolute/path/to/VERA Script to Timeline"
+ACCEPTANCE_PACKAGE="$VERA_PROJECT/out/issue-34-producer-acceptance-final"
+
+uv run --directory "$VERA_PROJECT" --frozen \
+  python -m vera_timeline_agent.studio_assembly_acceptance_cli \
+  --output "$ACCEPTANCE_PACKAGE"
+```
+
+The outer `ACCEPTANCE_PACKAGE` folder contains both `Media/` and
+`Builds/<build-id>/`; never pass its inner `Builds/<build-id>` directory. The
+Studio command re-verifies the package manifest, report, receipt, OTIO, media,
+and hashes without rewriting them. With supported standard desktop Resolve
+Studio already open, external scripting enabled, and a timeline page selected,
+run the nonmutating preflight:
+
+```sh
+uv run --directory "$VERA_PROJECT" --frozen \
+  python -m vera_timeline_agent.studio_assembly_cli \
+  "$ACCEPTANCE_PACKAGE" --action preflight
+```
+
+If it reports `preflight_passed`, run this once and retain the JSON output
+outside the package as the Studio discrepancy report:
+
+```sh
+uv run --directory "$VERA_PROJECT" --frozen \
+  python -m vera_timeline_agent.studio_assembly_cli \
+  "$ACCEPTANCE_PACKAGE" --action build \
+  > "/absolute/path/to/acceptance-evidence/studio-assembly.json"
+```
+
+The adapter creates a new project and timeline named from the verified build
+ID, imports only the package-local media, saves and reopens the target, then
+compares tracks, ranges, markers, and media identities with the canonical
+manifest. It refuses a name collision before mutation, retains any partial
+target after a post-mutation failure, and never falls back to UI automation.
+`TimelineManifest v1` does not represent a Fusion graphics event, so this flow
+does not manufacture one; the accepted pinned-template capability remains a
+separate, fail-closed boundary until its product contract exists.
+
 ### Pinned Text+ destination-track validation
 
 VERA versions the producer-authored `Text+` media-pool generator template and
