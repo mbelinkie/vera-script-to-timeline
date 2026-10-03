@@ -1,0 +1,302 @@
+{
+ "Md_job_added_before_mute.mov": {
+  "samples": 766080,
+  "pilots": {
+   "1000": 0.02869,
+   "1500": 0.00019,
+   "2000": 0.02016
+  },
+  "words": {
+   "alpha": {
+    "score": 0.997,
+    "at_sample": 24000,
+    "at_frame": 12.5
+   },
+   "bravo": {
+    "score": 0.997,
+    "at_sample": 120000,
+    "at_frame": 62.5
+   },
+   "charlie": {
+    "score": 0.997,
+    "at_sample": 216000,
+    "at_frame": 112.5
+   },
+   "delta": {
+    "score": 0.997,
+    "at_sample": 312000,
+    "at_frame": 162.5
+   },
+   "echo": {
+    "score": 0.997,
+    "at_sample": 408000,
+    "at_frame": 212.5
+   },
+   "foxtrot": {
+    "score": 0.995,
+    "at_sample": 504000,
+    "at_frame": 262.5
+   },
+   "golf": {
+    "score": 0.997,
+    "at_sample": 600000,
+    "at_frame": 312.5
+   },
+   "hotel": {
+    "score": 0.997,
+    "at_sample": 696000,
+    "at_frame": 362.5
+   },
+   "one": {
+    "score": 0.332,
+    "at_sample": 317195,
+    "at_frame": 165.206
+   },
+   "two": {
+    "score": 0.316,
+    "at_sample": 696586,
+    "at_frame": 362.805
+   },
+   "three": {
+    "score": 0.399,
+    "at_sample": 693428,
+    "at_frame": 361.16
+   },
+   "four": {
+    "score": 0.351,
+    "at_sample": 695284,
+    "at_frame": 362.127
+   },
+   "five": {
+    "score": 0.413,
+    "at_sample": 596939,
+    "at_frame": 310.906
+   },
+   "six": {
+    "score": 0.276,
+    "at_sample": 703653,
+    "at_frame": 366.486
+   },
+   "seven": {
+    "score": 0.427,
+    "at_sample": 704283,
+    "at_frame": 366.814
+   },
+   "eight": {
+    "score": 0.488,
+    "at_sample": 221541,
+    "at_frame": 115.386
+   }
+  },
+  "present": [
+   "alpha",
+   "bravo",
+   "charlie",
+   "delta",
+   "echo",
+   "foxtrot",
+   "golf",
+   "hotel"
+  ]
+ },
+ "Me_muted_on_deliver.mov": {
+  "samples": 766080,
+  "pilots": {
+   "1000": 0.02869,
+   "1500": 0.00019,
+   "2000": 0.02016
+  },
+  "words": {
+   "alpha": {
+    "score": 0.997,
+    "at_sample": 24000,
+    "at_frame": 12.5
+   },
+   "bravo": {
+    "score": 0.997,
+    "at_sample": 120000,
+    "at_frame": 62.5
+   },
+   "charlie": {
+    "score": 0.997,
+    "at_sample": 216000,
+    "at_frame": 112.5
+   },
+   "delta": {
+    "score": 0.997,
+    "at_sample": 312000,
+    "at_frame": 162.5
+   },
+   "echo": {
+    "score": 0.997,
+    "at_sample": 408000,
+    "at_frame": 212.5
+   },
+   "foxtrot": {
+    "score": 0.995,
+    "at_sample": 504000,
+    "at_frame": 262.5
+   },
+   "golf": {
+    "score": 0.997,
+    "at_sample": 600000,
+    "at_frame": 312.5
+   },
+   "hotel": {
+    "score": 0.997,
+    "at_sample": 696000,
+    "at_frame": 362.5
+   },
+   "one": {
+    "score": 0.332,
+    "at_sample": 317195,
+    "at_frame": 165.206
+   },
+   "two": {
+    "score": 0.316,
+    "at_sample": 696586,
+    "at_frame": 362.805
+   },
+   "three": {
+    "score": 0.399,
+    "at_sample": 693428,
+    "at_frame": 361.16
+   },
+   "four": {
+    "score": 0.351,
+    "at_sample": 695284,
+    "at_frame": 362.127
+   },
+   "five": {
+    "score": 0.413,
+    "at_sample": 596939,
+    "at_frame": 310.906
+   },
+   "six": {
+    "score": 0.276,
+    "at_sample": 703653,
+    "at_frame": 366.486
+   },
+   "seven": {
+    "score": 0.427,
+    "at_sample": 704283,
+    "at_frame": 366.814
+   },
+   "eight": {
+    "score": 0.488,
+    "at_sample": 221541,
+    "at_frame": 115.386
+   }
+  },
+  "present": [
+   "alpha",
+   "bravo",
+   "charlie",
+   "delta",
+   "echo",
+   "foxtrot",
+   "golf",
+   "hotel"
+  ]
+ },
+ "Mf_muted_codex_settings.mov": {
+  "samples": 766080,
+  "pilots": {
+   "1000": 0.02869,
+   "1500": 0.00019,
+   "2000": 0.02016
+  },
+  "words": {
+   "alpha": {
+    "score": 0.997,
+    "at_sample": 24000,
+    "at_frame": 12.5
+   },
+   "bravo": {
+    "score": 0.997,
+    "at_sample": 120000,
+    "at_frame": 62.5
+   },
+   "charlie": {
+    "score": 0.997,
+    "at_sample": 216000,
+    "at_frame": 112.5
+   },
+   "delta": {
+    "score": 0.997,
+    "at_sample": 312000,
+    "at_frame": 162.5
+   },
+   "echo": {
+    "score": 0.997,
+    "at_sample": 408000,
+    "at_frame": 212.5
+   },
+   "foxtrot": {
+    "score": 0.995,
+    "at_sample": 504000,
+    "at_frame": 262.5
+   },
+   "golf": {
+    "score": 0.997,
+    "at_sample": 600000,
+    "at_frame": 312.5
+   },
+   "hotel": {
+    "score": 0.997,
+    "at_sample": 696000,
+    "at_frame": 362.5
+   },
+   "one": {
+    "score": 0.332,
+    "at_sample": 317195,
+    "at_frame": 165.206
+   },
+   "two": {
+    "score": 0.316,
+    "at_sample": 696586,
+    "at_frame": 362.805
+   },
+   "three": {
+    "score": 0.399,
+    "at_sample": 693428,
+    "at_frame": 361.16
+   },
+   "four": {
+    "score": 0.351,
+    "at_sample": 695284,
+    "at_frame": 362.127
+   },
+   "five": {
+    "score": 0.413,
+    "at_sample": 596939,
+    "at_frame": 310.906
+   },
+   "six": {
+    "score": 0.276,
+    "at_sample": 703653,
+    "at_frame": 366.486
+   },
+   "seven": {
+    "score": 0.427,
+    "at_sample": 704283,
+    "at_frame": 366.814
+   },
+   "eight": {
+    "score": 0.488,
+    "at_sample": 221541,
+    "at_frame": 115.386
+   }
+  },
+  "present": [
+   "alpha",
+   "bravo",
+   "charlie",
+   "delta",
+   "echo",
+   "foxtrot",
+   "golf",
+   "hotel"
+  ]
+ }
+}

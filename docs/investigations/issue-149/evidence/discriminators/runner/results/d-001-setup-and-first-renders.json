@@ -1,0 +1,129 @@
+{
+ "job_id": "d-001-setup-and-first-renders",
+ "started": 1790998856.22227,
+ "seconds": 23.65,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "journal": [
+   [
+    "SetSetting timelineFrameRate",
+    true
+   ],
+   [
+    "SetSetting timelineResolutionWidth",
+    true
+   ],
+   [
+    "SetSetting timelineResolutionHeight",
+    true
+   ],
+   [
+    "SetSetting timelineSampleRate",
+    true
+   ],
+   [
+    "SetSetting projectMediaLocation",
+    true
+   ],
+   [
+    "SetSetting perfCacheClipsLocation",
+    true
+   ],
+   [
+    "SetSetting colorGalleryStillsLocation",
+    true
+   ],
+   [
+    "ImportMedia",
+    [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1b0b60970>",
+     "<BlackmagicFusion.PyRemoteObject object at 0x1b0b609b0>",
+     "<BlackmagicFusion.PyRemoteObject object at 0x1b0b609f0>",
+     "<BlackmagicFusion.PyRemoteObject object at 0x1b0b60a10>",
+     "<BlackmagicFusion.PyRemoteObject object at 0x1b0b60a30>",
+     "<BlackmagicFusion.PyRemoteObject object at 0x1b0b60a50>",
+     "<BlackmagicFusion.PyRemoteObject object at 0x1b0b60a70>"
+    ]
+   ],
+   [
+    "M_a mute (never rendered)",
+    {
+     "set": true,
+     "readback": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":true,\"type\":\"mono\"}}}"
+    }
+   ],
+   [
+    "StartRendering",
+    true
+   ]
+  ],
+  "queue": [
+   [
+    "Ma_muted_first_render",
+    true,
+    "4bf14f8d-1049-4632-a540-9839a2962373"
+   ],
+   [
+    "Mb_baseline",
+    true,
+    "e1639fc1-9cb3-47f2-a0bb-fd1b299be62d"
+   ],
+   [
+    "Mc_baseline",
+    true,
+    "c8ce226a-74a6-47e6-8ad9-8e320b45f717"
+   ],
+   [
+    "R_A_atomic_keepmtime_1_baseline",
+    true,
+    "f65399c6-ea1a-42ff-8a54-0072c0a320c8"
+   ],
+   [
+    "R_B_atomic_newmtime_1_baseline",
+    true,
+    "01d4875c-1d31-4403-a5e8-f42934dc53cf"
+   ],
+   [
+    "R_C_inplace_keepmtime_1_baseline",
+    true,
+    "6237c2c4-6e5a-46e5-9375-f8a05ed2d23d"
+   ],
+   [
+    "R_D_inplace_newmtime_1_baseline",
+    true,
+    "fa6daecc-0d21-43ae-b1f4-a7dc5c281a9b"
+   ]
+  ],
+  "files": {
+   "A_atomic_keepmtime": {
+    "inode": 547994098,
+    "mtime_ns": 1790998820376868440,
+    "size": 3443686,
+    "sha256": "164348e62292c173"
+   },
+   "B_atomic_newmtime": {
+    "inode": 547994103,
+    "mtime_ns": 1790998820826118705,
+    "size": 3443686,
+    "sha256": "164348e62292c173"
+   },
+   "C_inplace_keepmtime": {
+    "inode": 547994109,
+    "mtime_ns": 1790998821228885288,
+    "size": 3443686,
+    "sha256": "164348e62292c173"
+   },
+   "D_inplace_newmtime": {
+    "inode": 547994115,
+    "mtime_ns": 1790998821617719966,
+    "size": 3443686,
+    "sha256": "164348e62292c173"
+   }
+  },
+  "settings": {
+   "timelineFrameRate": 25.0,
+   "perfCacheClipsLocation": "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/disc"
+  }
+ }
+}

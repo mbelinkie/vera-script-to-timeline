@@ -1,0 +1,24 @@
+{
+  "project": "VERA 149 Discriminators 20261002-b",
+  "resolve": "21.1.1.10",
+  "channel": "Workspace -> Console (Python 3, injected resolve), External Scripting None",
+  "date": "2026-10-03",
+  "mapping_mute_W3": {
+    "note": "A2 = a2_numbers.wav (1500 Hz pilot, words one..eight). Silent = pilot <= 0.001 and no number words. Full 399-frame renders.",
+    "M_a mute before first render":            {"render": "Ma_muted_first_render.mov",     "pilot_1500": 0.00019, "numbers": 0, "nato": 8, "silent": true},
+    "M_b baseline":                            {"render": "Mb_baseline.mov",               "pilot_1500": 0.01986, "numbers": 8, "nato": 8, "silent": false},
+    "M_b mute after baseline render":          {"render": "Mb_muted_after_baseline.mov",   "pilot_1500": 0.00019, "numbers": 0, "nato": 8, "silent": true},
+    "M_d render job added before mute":        {"render": "Md_job_added_before_mute.mov",  "pilot_1500": 0.00019, "numbers": 0, "nato": 8, "silent": true},
+    "M_e mute applied on Deliver page":        {"render": "Me_muted_on_deliver.mov",       "pilot_1500": 0.00019, "numbers": 0, "nato": 8, "silent": true},
+    "M_f MarkIn0/MarkOut398, lpcm 16-bit, 25": {"render": "Mf_muted_codex_settings.mov",   "pilot_1500": 0.00019, "numbers": 0, "nato": 8, "silent": true, "note": "SetRenderMode is not present in this API (NoneType), so render mode could not be matched"}
+  },
+  "relink_W6": {
+    "note": "Each case: copy of base.mov (src_id 1) replaced by relink_alt.mov (src_id 2, same H.264 + mono PCM layout) via Resolve-side Python. Renders frames 0-24; src_id decoded per frame.",
+    "A atomic os.replace, mtime kept":   {"inode_changed": true,  "mtime_changed": false, "before_relink": "Complete, src 1 (old bytes)", "after_RelinkClips_True": "src 1 (old bytes)"},
+    "B atomic os.replace, mtime new":    {"inode_changed": true,  "mtime_changed": true,  "before_relink": "Complete, src 1 (old bytes)", "after_RelinkClips_True": "src 2 (new bytes)"},
+    "C in-place overwrite, mtime kept":  {"inode_changed": false, "mtime_changed": false, "before_relink": "Failed: Error decoding full resolution media", "after_RelinkClips_True": "Failed (822-byte file)"},
+    "D in-place overwrite, mtime new":   {"inode_changed": false, "mtime_changed": true,  "before_relink": "Failed: Error decoding full resolution media", "after_RelinkClips_True": "src 2 (new bytes)"},
+    "api_metadata": "Online Status and Date Modified unchanged in all cases"
+  },
+  "sources": ["runner/results/d-001-setup-and-first-renders.json", "runner/results/d-002-mute-after-baseline-and-swaps.json", "runner/results/d-003-queue-order-page-settings-and-relink.json", "disc/audio_def.json", "disc/renders-sha256.json"]
+}
