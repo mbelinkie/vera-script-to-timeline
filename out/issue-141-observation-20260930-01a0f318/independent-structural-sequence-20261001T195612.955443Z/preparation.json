@@ -1,0 +1,90 @@
+{
+  "case": "R3-Graphic",
+  "directory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T195623.247896Z",
+  "environment": {
+    "productName": "DaVinci Resolve Studio",
+    "python": "3.14.7",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "failure": null,
+  "journal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T195623.247896Z/journal.jsonl",
+  "menuCommandDispatched": false,
+  "originalLocks": {
+    "audio:1": false,
+    "audio:2": true,
+    "audio:3": true,
+    "video:1": false,
+    "video:2": true,
+    "video:3": true
+  },
+  "originalPage": "edit",
+  "originalPlayhead": "00:00:00:00",
+  "playheadAfter": "00:05:44:00",
+  "preparedPair": {
+    "path": "editorial-case-20261001T195623.247896Z/after.json",
+    "sha256": "84ef0184afe92463f4da1e8f2ae451da792a0f5e329c12e1594a4cbcae6953b4"
+  },
+  "priorPair": {
+    "path": "r2-partial-context-20261001T193945.838631Z/pair.json",
+    "sha256": "6ab9ed7028222f9a3fb0773ed66f86265b77a6035bdbbc4ebb0f7414c6bc9807"
+  },
+  "protectedTracks": [
+    [
+      "video",
+      2
+    ],
+    [
+      "video",
+      3
+    ],
+    [
+      "audio",
+      2
+    ],
+    [
+      "audio",
+      3
+    ]
+  ],
+  "saveDispatched": false,
+  "setters": [
+    "SetTrackLock",
+    "SetClipEnabled",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetCurrentTimecode"
+  ],
+  "status": "case-prepared",
+  "target": {
+    "enabledClips": [
+      {
+        "enabled": true,
+        "index": 3,
+        "kind": "video",
+        "section": "R3-Graphic",
+        "uid": "ea448c37-4821-419d-8fbf-112790cc0499"
+      }
+    ],
+    "endFrame": 8699,
+    "frameRate": 25,
+    "sourceUids": {
+      "audio": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+      "video": "9202163a-8381-43e6-9157-3a60f35c6f79"
+    },
+    "splitPlayheadFrame": 8600,
+    "splitPlayheadTimecode": "00:05:44:00",
+    "startFrame": 8500,
+    "uids": {
+      "audio": "2e9c3451-1ed8-4e88-985d-ef5e7f3a070b",
+      "video": "70717d8e-6888-421b-825a-8e093beb2c45"
+    }
+  }
+}

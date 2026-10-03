@@ -1,0 +1,26 @@
+{
+  "kind": "issue-141-closeout-audit-addendum-v1",
+  "asOf": "2026-10-02T02:47:09.358780+00:00",
+  "supersedesCurrentStateFieldsOf": "closeout-report-gap-audit.json",
+  "jobId": "c5b1925b-f5aa-49d5-850a-be7a64c5cd29",
+  "jobIdCorrection": "Prior compact audit typed f5a9; authoritative native/completion summary has f5aa. Original audit retained.",
+  "mappingRestore": "mapping-muted-and-exactly-restored",
+  "restoredFullPairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+  "pcmComparisonPath": "mute-pcm-comparison-result.json",
+  "pcmComparisonSha256": "175c7b3d82c0d6e5cff1cf335e034c723201915fc3649bff88a342affe099262",
+  "wholeWavSha256EqualsBaseline": true,
+  "r1RegistrationEvidence": "r1-registration-20261002T024119.532864Z/checks.json",
+  "nativeR1RepeatPerformed": false,
+  "manualOperatorActionPending": true,
+  "resolveLaunchesHeld": true,
+  "progress": {
+    "completed": 37,
+    "total": 41
+  },
+  "remaining": [
+    "Fairlight Solo/routing/output observation and exact restoration",
+    "Native R1 reopen and second duplicate with independent evidence review",
+    "Final report consolidation",
+    "External evidence review"
+  ]
+}

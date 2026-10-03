@@ -1,0 +1,29 @@
+{
+  "deselect": {
+    "auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T200748.290914Z",
+    "dispatched": true,
+    "menu": "deselect"
+  },
+  "helperSha256": "61ef935b47f5138545df909f41edffc2f10c7dcf55283068948950248e2c0531",
+  "nativeResultPath": null,
+  "nativeResultSha256": null,
+  "pairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r3-graphic-context-20261001T200750.808432Z/pair.json",
+  "pairSha256": "b45c1e45ace27f59052618536cd0121646b4995297b6eb2628d87b3686d7e78b",
+  "playheads": [
+    "00:00:00:00",
+    "00:00:00:00"
+  ],
+  "probeSha256": "b2d9adaa7d9925353d5bcb7d70f8b94c75034f90dd72a96127744baacd5a4cb2",
+  "readback": {
+    "failure": null,
+    "label": "r3-graphic-context",
+    "readOnly": true,
+    "status": "editorial-readback-retained"
+  },
+  "readbackAuditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T200749.481453Z",
+  "selectionCounts": [
+    0,
+    0
+  ],
+  "status": "pass"
+}

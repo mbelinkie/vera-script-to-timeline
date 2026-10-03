@@ -1,0 +1,87 @@
+{
+  "case": "R2-offset",
+  "directory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T205541.079996Z",
+  "environment": {
+    "productName": "DaVinci Resolve Studio",
+    "python": "3.14.7",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "failure": null,
+  "journal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T205541.079996Z/journal.jsonl",
+  "menuCommandDispatched": false,
+  "originalLocks": {
+    "audio:1": false,
+    "audio:2": true,
+    "audio:3": true,
+    "video:1": false,
+    "video:2": true,
+    "video:3": true
+  },
+  "originalPage": "edit",
+  "originalPlayhead": "00:03:02:10",
+  "playheadAfter": "00:03:24:00",
+  "preparedPair": {
+    "path": "editorial-case-20261001T205541.079996Z/after.json",
+    "sha256": "995553ed2b9e085590474e26cfd6b10b7026da389217f5dae454dc240b7238f9"
+  },
+  "priorPair": {
+    "path": "r2-residual-first-split-20261001T204958.666231Z/pair.json",
+    "sha256": "25e099754cecdc0c165b01a12a9d4e1a35f32b4b1c5f4d37a4791d19de30faff"
+  },
+  "protectedTracks": [
+    [
+      "video",
+      1
+    ],
+    [
+      "video",
+      2
+    ],
+    [
+      "video",
+      3
+    ],
+    [
+      "audio",
+      2
+    ],
+    [
+      "audio",
+      3
+    ]
+  ],
+  "saveDispatched": false,
+  "setters": [
+    "SetClipsLinked",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetCurrentTimecode"
+  ],
+  "status": "case-prepared",
+  "target": {
+    "endFrame": 5199,
+    "frameRate": 25,
+    "selectionFrame": 5100,
+    "selectionTimecode": "00:03:24:00",
+    "sourceUids": {
+      "audio": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+      "video": "9202163a-8381-43e6-9157-3a60f35c6f79"
+    },
+    "startFrame": 5000,
+    "targetTrack": "audio",
+    "uids": {
+      "audio": "f0b986dd-b580-42f9-a7f8-ba464cca7076",
+      "video": "ccabcb9a-8e7d-462e-a8a1-4f6ce8c4f5f7"
+    },
+    "unlinkPrepared": true
+  }
+}

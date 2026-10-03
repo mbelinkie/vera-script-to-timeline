@@ -1,0 +1,36 @@
+{
+  "kind": "issue-141-held-mute-pcm-comparison-readiness-v1",
+  "status": "prepared-awaiting-confirmed-render",
+  "script": "mute-pcm-comparison.py",
+  "baseline": {
+    "path": "pcm-real-render-20261001T235643.512549Z.wav",
+    "sha256": "d2581dc047a348a104821cbd53c7b84e4a47b80fd4443ebf52f6fbd3382362a7",
+    "format": "PCM24 stereo 48 kHz, 17664000 samples/channel, PTS 0"
+  },
+  "heldMuteRender": {
+    "queuedDirectory": "av-output-20261002T020927.190878Z/render",
+    "path": null,
+    "sha256": null,
+    "confirmationRequiredFromNativeTerminal": true,
+    "partialMovMustNotBeRead": true
+  },
+  "comparison": {
+    "targetAudioTrackItemUid": "f4e9f649-894a-42f9-9f54-a8321ae7c163",
+    "recordFramesExclusive": [4500, 4699],
+    "frame4699": "Outside edited span and included in exact-equality control.",
+    "mappingChange": "baseline false; held-mute true",
+    "speechGapFramesExclusive": [4560, 4570],
+    "gapEndFrameControl": {"frame": 4570, "semantics": "exclusive gap end; inspect separately, do not include in gap deletion claim", "sampleRange": [8774400, 8776320]},
+    "compareBothChannels": true,
+    "requireExactEqualityOutsideTarget": true,
+    "measureGapCorrelationAndResidualRms": true,
+    "neighborControlFramesExclusive": [[4490, 4500], [4699, 4709]],
+    "sourceSupportMetrics": "Reused from pcm-real-render-analysis.json; no new support bounds invented."
+  },
+  "safety": {
+    "generatedMediaOnly": true,
+    "protectedMediaBytesRead": false,
+    "resolveOrNativeUiCalls": false,
+    "claimsExcluded": ["track or bus origin", "universal deletion", "routing", "final audibility"]
+  }
+}

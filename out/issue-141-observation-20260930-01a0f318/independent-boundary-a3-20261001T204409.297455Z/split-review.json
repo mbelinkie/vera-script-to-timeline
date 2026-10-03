@@ -1,0 +1,36 @@
+{
+  "case": "R3-boundary-A3",
+  "childUids": [
+    "9d052518-8d90-4dc3-b09e-64c4778899f6",
+    "e3f72625-f257-4d3f-a1ee-0385044121e5"
+  ],
+  "menuCommandDispatched": false,
+  "preparationResult": {
+    "path": "independent-boundary-a3-20261001T204409.297455Z/preparation.json",
+    "sha256": "1a509f8f5dfce806c1f30581b99dcba91cf4c90663ee4af59db579a44ccbba9e"
+  },
+  "ranges": [
+    [
+      9000,
+      9100,
+      0,
+      100
+    ],
+    [
+      9100,
+      9199,
+      100,
+      199
+    ]
+  ],
+  "saveDispatched": false,
+  "selectionResult": {
+    "path": "independent-boundary-a3-20261001T204409.297455Z/r3-boundary-a3-selected.json",
+    "sha256": "32c45c7578be1af79d75a8c4fc1e86825dad1939903bde1e2432587ed1643297"
+  },
+  "splitPair": {
+    "path": "r3-boundary-a3-split-20261001T204503.938058Z/pair.json",
+    "sha256": "f70bca82d179aac81cf755ff5c5f28bc0fa9d82e10c33f1c55e114c92abb6a78"
+  },
+  "status": "split-readback-retained"
+}

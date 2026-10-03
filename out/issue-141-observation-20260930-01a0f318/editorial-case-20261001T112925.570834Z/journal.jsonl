@@ -1,0 +1,11 @@
+{"at": "2026-10-01T11:29:25.718139+00:00", "method": "FullReadback", "phase": "before", "value": {"path": "before.json"}}
+{"at": "2026-10-01T11:29:25.748399+00:00", "method": "SetTrackLock", "phase": "request", "value": {"locked": true, "trackIndex": 2, "trackType": "video"}}
+{"at": "2026-10-01T11:29:25.750331+00:00", "method": "SetTrackLock", "phase": "return", "value": true}
+{"at": "2026-10-01T11:29:25.760239+00:00", "method": "SetTrackLock", "phase": "request", "value": {"locked": true, "trackIndex": 3, "trackType": "video"}}
+{"at": "2026-10-01T11:29:25.760661+00:00", "method": "SetTrackLock", "phase": "return", "value": true}
+{"at": "2026-10-01T11:29:25.770347+00:00", "method": "SetTrackLock", "phase": "request", "value": {"locked": true, "trackIndex": 2, "trackType": "audio"}}
+{"at": "2026-10-01T11:29:25.770620+00:00", "method": "SetTrackLock", "phase": "return", "value": true}
+{"at": "2026-10-01T11:29:25.780934+00:00", "method": "SetTrackLock", "phase": "request", "value": {"locked": true, "trackIndex": 3, "trackType": "audio"}}
+{"at": "2026-10-01T11:29:25.781228+00:00", "method": "SetTrackLock", "phase": "return", "value": true}
+{"at": "2026-10-01T11:29:25.791023+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": {"timecode": "00:01:42:10"}}
+{"at": "2026-10-01T11:29:25.794469+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}

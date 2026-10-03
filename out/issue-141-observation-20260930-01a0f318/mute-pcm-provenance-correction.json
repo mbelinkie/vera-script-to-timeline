@@ -1,0 +1,17 @@
+{
+  "kind": "issue-141-held-pcm-provenance-correction-v1",
+  "previousResultSha256": "175c7b3d82c0d6e5cff1cf335e034c723201915fc3649bff88a342affe099262",
+  "preservedPreviousResult": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/mute-pcm-comparison-result.pre-held-reference-correction.json",
+  "correctedResultSha256": "e7751798a3525d832f6dedd42c2f11250cd040a61343c92c3fdaa69bc5de1c5a",
+  "correctedResultPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/mute-pcm-comparison-result.json",
+  "heldResultSha256": "c70a29b0dc7efc4245e57f2929750fc64d342f7611a9609dcc7916ccbc864425",
+  "verified": {
+    "heldPhaseAndStatus": true,
+    "targetUidAndBounds": true,
+    "mappingMuteTrue": true,
+    "renderPairEqualsHeldAfterPair": true
+  },
+  "pcmAnalysisRerun": false,
+  "nativeActionPerformed": false,
+  "interpretation": "Waveform measurements unchanged; corrected reference now names the actual held-mute result rather than the preceding roundtrip."
+}

@@ -1,0 +1,13 @@
+{
+  "exception": "RuntimeError: Menu refused; evidence at REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T234738.083660Z/launch.json",
+  "invocation": {
+    "action": "av-output-full-matrix-continue",
+    "jobId": "0460d82a-3436-4efc-be12-b57c8523ebf5",
+    "renderTimeoutSeconds": 30,
+    "resumeExistingJob": true,
+    "sampleRateHz": 48000
+  },
+  "invokedAt": "2026-10-01T23:47:36.480075+00:00",
+  "kind": "cli-av-owned-render-call-record",
+  "returnedAt": "2026-10-01T23:47:39.619920+00:00"
+}

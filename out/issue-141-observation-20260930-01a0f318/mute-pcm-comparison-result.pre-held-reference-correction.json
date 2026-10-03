@@ -1,0 +1,218 @@
+{
+  "baseline": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/pcm-real-render-20261001T235643.512549Z.wav",
+    "sha256": "d2581dc047a348a104821cbd53c7b84e4a47b80fd4443ebf52f6fbd3382362a7"
+  },
+  "format": {
+    "channels": 2,
+    "frames": 17664000,
+    "sampleRateHz": 48000,
+    "sampleWidthBytes": 3,
+    "samplesPerFrame": 1920
+  },
+  "heldMute": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/mute-pcm-render-20261002T024000Z.wav",
+    "sha256": "d2581dc047a348a104821cbd53c7b84e4a47b80fd4443ebf52f6fbd3382362a7"
+  },
+  "interpretation": "The held mapping flag was true, but this build/case did not change the rendered program waveform, so the mapping flag does not establish mute of program speech here. This single result is not evidence of a universal API failure.",
+  "kind": "issue-141-held-mute-pcm-comparison-v1",
+  "limitations": [
+    "PCM sample differences establish output waveform change only; no track or bus origin, universal deletion, routing, or final audibility claim."
+  ],
+  "neighborControls": {
+    "after": {
+      "perChannel": [
+        {
+          "baselineRms": 0.0,
+          "channel": 1,
+          "correlation": null,
+          "differentSamples": 0,
+          "exactEqualSamples": 19200,
+          "heldMuteRms": 0.0,
+          "residualRms": 0.0,
+          "samples": 19200
+        },
+        {
+          "baselineRms": 0.0,
+          "channel": 2,
+          "correlation": null,
+          "differentSamples": 0,
+          "exactEqualSamples": 19200,
+          "heldMuteRms": 0.0,
+          "residualRms": 0.0,
+          "samples": 19200
+        }
+      ],
+      "recordFrames": [
+        4699,
+        4709
+      ],
+      "sampleRange": [
+        9022080,
+        9041280
+      ]
+    },
+    "before": {
+      "perChannel": [
+        {
+          "baselineRms": 0.0,
+          "channel": 1,
+          "correlation": null,
+          "differentSamples": 0,
+          "exactEqualSamples": 19200,
+          "heldMuteRms": 0.0,
+          "residualRms": 0.0,
+          "samples": 19200
+        },
+        {
+          "baselineRms": 0.0,
+          "channel": 2,
+          "correlation": null,
+          "differentSamples": 0,
+          "exactEqualSamples": 19200,
+          "heldMuteRms": 0.0,
+          "residualRms": 0.0,
+          "samples": 19200
+        }
+      ],
+      "recordFrames": [
+        4490,
+        4500
+      ],
+      "sampleRange": [
+        8620800,
+        8640000
+      ]
+    },
+    "gapExclusiveEndFrame4570": {
+      "perChannel": [
+        {
+          "baselineRms": 0.007703284481945781,
+          "channel": 1,
+          "correlation": 1.0,
+          "differentSamples": 0,
+          "exactEqualSamples": 1920,
+          "heldMuteRms": 0.007703284481945781,
+          "residualRms": 0.0,
+          "samples": 1920
+        },
+        {
+          "baselineRms": 0.007703284481945781,
+          "channel": 2,
+          "correlation": 1.0,
+          "differentSamples": 0,
+          "exactEqualSamples": 1920,
+          "heldMuteRms": 0.007703284481945781,
+          "residualRms": 0.0,
+          "samples": 1920
+        }
+      ],
+      "recordFrames": [
+        4570,
+        4571
+      ],
+      "sampleRange": [
+        8774400,
+        8776320
+      ]
+    }
+  },
+  "outsideTarget": {
+    "bothChannelsExactlyEqual": true,
+    "samplesPerChannelCompared": 17281920
+  },
+  "renderBinding": {
+    "extraction": "ffmpeg -nostdin -hide_banner -loglevel error -n -i <owned MOV> -map 0:a:0 -vn -c:a pcm_s24le <owned WAV>",
+    "movBytes": 131423800,
+    "movPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T020927.190878Z/render/vera141-av-20261002T020927.190878Z.mov",
+    "movSha256": "7c69f239a3a8e08f5617c4e72f843c345d91bf3baef813f7c43501efccbcbbf4",
+    "nativeCompletionResultSha256": "96d6f79a84e479ce12b0c2ad2f720c65d157b1c646fa2f99c8b61aa9631b5343",
+    "wholeWavSha256EqualsBaseline": true
+  },
+  "speechGap": {
+    "exclusiveEndFrameControl": {
+      "frame": 4570,
+      "perChannel": [
+        {
+          "baselineRms": 0.007703284481945781,
+          "channel": 1,
+          "correlation": 1.0,
+          "differentSamples": 0,
+          "exactEqualSamples": 1920,
+          "heldMuteRms": 0.007703284481945781,
+          "residualRms": 0.0,
+          "samples": 1920
+        },
+        {
+          "baselineRms": 0.007703284481945781,
+          "channel": 2,
+          "correlation": 1.0,
+          "differentSamples": 0,
+          "exactEqualSamples": 1920,
+          "heldMuteRms": 0.007703284481945781,
+          "residualRms": 0.0,
+          "samples": 1920
+        }
+      ],
+      "sampleRange": [
+        8774400,
+        8776320
+      ]
+    },
+    "perChannel": [
+      {
+        "baselineRms": 0.0891571253533794,
+        "channel": 1,
+        "correlation": 1.0,
+        "differentSamples": 0,
+        "exactEqualSamples": 19200,
+        "heldMuteRms": 0.0891571253533794,
+        "residualRms": 0.0,
+        "samples": 19200
+      },
+      {
+        "baselineRms": 0.0891571253533794,
+        "channel": 2,
+        "correlation": 1.0,
+        "differentSamples": 0,
+        "exactEqualSamples": 19200,
+        "heldMuteRms": 0.0891571253533794,
+        "residualRms": 0.0,
+        "samples": 19200
+      }
+    ],
+    "recordFramesExclusive": [
+      4560,
+      4570
+    ],
+    "sampleRange": [
+      8755200,
+      8774400
+    ],
+    "sourceSupportReferenceFromPriorAnalysis": {
+      "endSampleExclusive": 132258,
+      "energy": 300.50118256546557,
+      "nonzeroAt1e-4": 15538,
+      "nonzeroAt1e-5": 16724,
+      "peakAbs": 0.73870849609375,
+      "rms": 0.1327658481919228,
+      "sampleCount": 17048,
+      "startSample": 115210
+    }
+  },
+  "status": "comparison-complete-waveform-only",
+  "target": {
+    "audioTrackItemUid": "f4e9f649-894a-42f2-9f54-a8321ae7c163",
+    "heldResultPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/cli-mute-native-once-result-reviewed.json",
+    "mapping": "baseline false; held-mute true",
+    "recordFramesExclusive": [
+      4500,
+      4699
+    ],
+    "sampleRange": [
+      8640000,
+      9022080
+    ],
+    "trackIndex": 2
+  }
+}

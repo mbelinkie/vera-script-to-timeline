@@ -1,0 +1,1 @@
+**taskID141** — the driver was invoked once. The wrapper timed out after 30 seconds without captured terminal output or a live handle to poll. I did not replay it. I recorded the timeout and unavailable stdout/stderr in [boundary-base-repaired-executor-result.json](boundary-base-repaired-executor-result.json). No native result references were available to record.

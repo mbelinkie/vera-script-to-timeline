@@ -1,0 +1,12 @@
+{
+  "status": "local-checks-pass",
+  "probeSha256": "1125c66db1f902eef2ab0e09de195c8f75179b38edb7f3c8acc69e84c4fe7ffa",
+  "nativeHelperSha256": "28abcace8d61f5596905ed237c8008c394597eb3837d3ad9811e339791023c8b",
+  "checks": [
+    "independent-native-call.py --check",
+    "independent-cut-sequence.py R2-picture --check"
+  ],
+  "guard": "AST comparison verifies actual dispatcher-owned module pin equals the reviewed helper digest; actual child file verified before every native/menu invocation",
+  "configRegisteredObserveOnly": true,
+  "nativeDispatched": false
+}

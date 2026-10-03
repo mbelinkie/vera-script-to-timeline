@@ -1,0 +1,23 @@
+{
+  "status": "render-complete-restored",
+  "jobId": "c5b1925b-f5aa-49d5-850a-be7a64c5cd29",
+  "jobStatus": {
+    "CompletionPercentage": 100,
+    "JobStatus": "Complete",
+    "TimeTakenToRenderInMs": 478546
+  },
+  "restoration": "render-complete-restored; hidden settings equality not exposed",
+  "nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261002T023225.328149Z.json",
+  "nativeResultSha256": "96d6f79a84e479ce12b0c2ad2f720c65d157b1c646fa2f99c8b61aa9631b5343",
+  "continuationJournalPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-full-matrix-continue-20261002T023226.488997Z/journal.jsonl",
+  "continuationJournalSha256": "092b28d0cc97d8735204c667c35f2557b0faddb2c353f6867b6d5ee9e24103d3",
+  "continuationJournalStartRenderingRequestCount": 0,
+  "continuationJournalSkippedExistingJobCount": 1,
+  "outputPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T020927.190878Z/render/vera141-av-20261002T020927.190878Z.mov",
+  "outputSha256": "7c69f239a3a8e08f5617c4e72f843c345d91bf3baef813f7c43501efccbcbbf4",
+  "outputBytes": 131423800,
+  "finalPairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-full-matrix-continue-20261002T023226.488997Z/full-pair-003-restored.json",
+  "finalPairSha256": "a171acbb58b84753b624b316230455e4b59b78a32e55fdcf04c72c3095292cd3",
+  "auditDirectory": "out/issue-141-observation-20260930-01a0f318/independent-action-20261002T023223.754377Z",
+  "queueJournalPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T020927.190878Z/journal.jsonl"
+}

@@ -1,0 +1,29 @@
+{
+  "journal": "matrix-checkpoint-20261001T015209.473668Z.jsonl",
+  "limits": [
+    "Selection-only observation; no content/source/settings/save/render mutation.",
+    "Equal adjacent reads do not establish atomicity or exclude ABA changes."
+  ],
+  "matrixObservation": "matrix-checkpoint-20261001T015209.473668Z-matrix-observation.json",
+  "preflight": "matrix-checkpoint-20261001T015209.473668Z-r4-preflight.json",
+  "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+  "stamps": {
+    "action": "matrix-checkpoint",
+    "externalScriptingSetting": "None",
+    "matrixCapture": {
+      "filename": "capture-20260930T223313.312609Z-saved.json",
+      "sha256": "a29402d405ab8cf1bc1abedd4c1ed0c479e983e2ef3ba6fc41d1c2389d6d36d2"
+    },
+    "projectId": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+    "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+    "r4Capture": {
+      "filename": "capture-20261001T003310.397326Z.json",
+      "sha256": "f3a321fcd5ae47c90e25b3dcf254a0d983ff0bdde8862700b2411c710b3fe0fa"
+    },
+    "r4Pool": {
+      "filename": "r4-pool-read-only-20261001T003310.397326Z.json",
+      "sha256": "ac6f4661f59f910029dae51dcc758bd1d766e8f810fb4996fcee1b18c681e751"
+    }
+  },
+  "status": "selected-matrix-checkpoint"
+}

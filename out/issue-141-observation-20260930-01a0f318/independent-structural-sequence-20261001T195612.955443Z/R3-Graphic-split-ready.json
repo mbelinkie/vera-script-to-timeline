@@ -1,0 +1,16 @@
+{
+  "case": "R3-Graphic",
+  "menuCommandDispatched": false,
+  "selectedUids": [
+    "70717d8e-6888-421b-825a-8e093beb2c45",
+    "2e9c3451-1ed8-4e88-985d-ef5e7f3a070b"
+  ],
+  "selectionLabel": "r3-graphic-selected",
+  "selectionResult": {
+    "path": "independent-structural-sequence-20261001T195612.955443Z/r3-graphic-selected.json",
+    "sha256": "085e0e41bdc8830ed180cf1fc9f537af54b912304dfa290473c597a4b55bd8c4"
+  },
+  "splitFrame": 8600,
+  "stage": "first",
+  "status": "split-ready"
+}

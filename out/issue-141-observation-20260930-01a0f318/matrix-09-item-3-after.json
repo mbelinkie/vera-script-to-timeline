@@ -1,0 +1,389 @@
+{
+  "GetClipEnabled": {
+    "value": true
+  },
+  "GetDuration": {
+    "value": 199
+  },
+  "GetDuration(True)": {
+    "value": 199.0
+  },
+  "GetEnd": {
+    "value": 4699
+  },
+  "GetEnd(True)": {
+    "value": 4699.0
+  },
+  "GetFusionCompCount": {
+    "value": 0
+  },
+  "GetFusionCompNameList": {
+    "value": {}
+  },
+  "GetLeftOffset": {
+    "value": 0
+  },
+  "GetLeftOffset(True)": {
+    "value": 0.0
+  },
+  "GetLinkedItems": [],
+  "GetMarkers": {
+    "value": {
+      "0": {
+        "color": "Blue",
+        "customData": "{\"issue\": 141, \"occurrence\": 3, \"section\": \"R2-residual\"}",
+        "duration": 1,
+        "name": "141 R2-residual item 3",
+        "note": "Synthetic matrix occurrence"
+      }
+    }
+  },
+  "GetMediaPoolItem": {
+    "GetAudioMapping": {
+      "value": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}"
+    },
+    "GetClipProperty": {
+      "value": {
+        "2nd Asst": "",
+        "2nd Continuity": "",
+        "2nd DIT": "",
+        "2nd DOP": "",
+        "2nd DOP Reviewed": "",
+        "2nd Dir": "",
+        "2nd Dir Asst": "",
+        "2nd Dir Reviewed": "",
+        "3D Rig ID #": "",
+        "3D Rig Type": "",
+        "Angle": "",
+        "Aspect Ratio Notes": "",
+        "Assistant Director": "",
+        "Assistant Producer": "",
+        "Audio Bit Depth": "16",
+        "Audio Ch": "1",
+        "Audio Codec": "Linear PCM",
+        "Audio Duration TC": "",
+        "Audio End TC": "",
+        "Audio FPS": "",
+        "Audio File Type": "",
+        "Audio Media": "",
+        "Audio Notes": "",
+        "Audio Offset": "",
+        "Audio Recorder": "",
+        "Audio Start TC": "",
+        "Audio TC Type": "",
+        "Aux 1": "",
+        "Aux 2": "",
+        "BG (m)": "",
+        "Bit Depth": "",
+        "Bit Rate": "",
+        "CDL SAT": "",
+        "CDL SOP": "",
+        "CV (m)": "",
+        "Calibration Source": "",
+        "Calibration Type": "",
+        "Calibration UUID": "",
+        "Camera #": "",
+        "Camera Aperture": "",
+        "Camera Aperture Type": "",
+        "Camera Assistant": "",
+        "Camera FPS": "",
+        "Camera Firmware": "",
+        "Camera Format": "",
+        "Camera ID": "",
+        "Camera Manufacturer": "",
+        "Camera Notes": "",
+        "Camera Operator": "",
+        "Camera Pan Angle": "",
+        "Camera Position": "",
+        "Camera Roll Angle": "",
+        "Camera Serial #": "",
+        "Camera TC Type": "",
+        "Camera Tilt Angle": "",
+        "Camera Type": "",
+        "Category": "",
+        "Clip Color": "",
+        "Clip Directory": "REPOSITORY/out/issue-141-media-20260930-01a0f318",
+        "Clip Name": "bed.wav",
+        "Clip Number": "",
+        "Cloud Sync": "-1",
+        "Codec Bitrate": "",
+        "Color Chart": "",
+        "Color Space Notes": "",
+        "Colorist": "",
+        "Colorist Assistant": "",
+        "Colorist Notes": "",
+        "Colorist Reviewed": "",
+        "Comments": "",
+        "Compression Ratio": "",
+        "Continuity": "",
+        "Continuity Reviewed": "",
+        "Convergence Adj": "",
+        "Crew Comments": "",
+        "DOP": "",
+        "DOP Reviewed": "",
+        "Dailies Colorist": "",
+        "Data Level": "",
+        "Data Wrangler": "",
+        "Date Added": "Wed Sep 30 2026 13:39:47",
+        "Date Created": "Wed Sep 30 2026 12:28:32",
+        "Date Modified": "Wed Sep 30 12:28:32 2026",
+        "Date Recorded": "",
+        "Day / Night": "",
+        "Deck Firmware": "",
+        "Deck Serial #": "",
+        "Description": "",
+        "Dialog Duration": "",
+        "Dialog Notes": "",
+        "Dialog Starts As": "",
+        "Digital Technician": "",
+        "Director": "",
+        "Director Reviewed": "",
+        "Distance": "",
+        "Duration": "00:00:08:00",
+        "EDL Clip Name": "",
+        "Editing Assistant": "",
+        "Editor": "",
+        "Embedded Audio": "",
+        "End": "",
+        "End Dialog TC": "",
+        "End TC": "00:00:08:00",
+        "Environment": "",
+        "Episode #": "",
+        "Episode Name": "",
+        "FG (m)": "",
+        "FPS": 25.0,
+        "FSD": "",
+        "Field Dominance": "",
+        "File Name": "bed.wav",
+        "File Path": "REPOSITORY/out/issue-141-media-20260930-01a0f318/bed.wav",
+        "Filter": "",
+        "Flags": "",
+        "Focal Point (mm)": "",
+        "Focus Puller": "",
+        "Focus Reviewed": "",
+        "Format": "Wave",
+        "Frames": "",
+        "Framing Chart": "",
+        "Gamma Notes": "",
+        "Genre": "",
+        "Grey Chart": "",
+        "H-FLIP": "",
+        "IA (mm)": "",
+        "IDT": "",
+        "ILPD": "",
+        "ISO": "",
+        "Immersive ID": "",
+        "In": "",
+        "Input Color Space": "",
+        "Input Gamma": "",
+        "Input LUT": "",
+        "Input Sizing Preset": "",
+        "Key Grip": "",
+        "Keyword": "",
+        "LUT 1": "",
+        "LUT 2": "",
+        "LUT 3": "",
+        "LUT Used": "",
+        "LUT Used On Set": "",
+        "Lab Roll #": "",
+        "Lens Chart": "",
+        "Lens Notes": "",
+        "Lens Number": "",
+        "Lens Type": "",
+        "Line Producer": "",
+        "Location": "",
+        "Media Type": "",
+        "Mon Color Space": "",
+        "Monitor LUT": "",
+        "Move": "",
+        "ND Filter": "",
+        "Offline Reference": "",
+        "Online Status": "Online",
+        "Out": "",
+        "PAR": "",
+        "PAR Notes": "",
+        "People": "",
+        "Post Producer": "",
+        "Producer": "",
+        "Production Asst": "",
+        "Production Company": "",
+        "Production Name": "",
+        "Program Name": "",
+        "Projection": "",
+        "Proxy": "",
+        "Proxy Media Path": "",
+        "RAW": "",
+        "Rating": "",
+        "Reel Name": "",
+        "Reel Number": "",
+        "Resolution": "",
+        "Reviewers Notes": "",
+        "Rig Inverted": "",
+        "Roll/Card": "",
+        "S3D Eye": "",
+        "S3D Notes": "",
+        "S3D Shot": "",
+        "S3D Sync": "",
+        "Safe Area": "",
+        "Sample Rate": "48000",
+        "Sample Rate (KHz)": "",
+        "Scene": "",
+        "Script Supervisor": "",
+        "Send to": "",
+        "Send to Studio": "",
+        "Sensor": "",
+        "Sensor Area Captured": "",
+        "Series #": "",
+        "Setup": "",
+        "Shoot Day": "",
+        "Shot": "",
+        "Shot During Ep": "",
+        "Shot Frame Rate": "",
+        "Shot Type": "",
+        "Shutter Angle": "",
+        "Shutter Speed": "",
+        "Shutter Type": "",
+        "Slate TC": "",
+        "Sound Mixer": "",
+        "Sound Reviewed": "",
+        "Sound Roll #": "bed.wav",
+        "Start": "",
+        "Start Dialog TC": "",
+        "Start KeyKode": "",
+        "Start TC": "00:00:00:00",
+        "Subcategory": "",
+        "Synced Audio": "",
+        "Tag": "0",
+        "Take": "",
+        "Time-lapse Interval": "",
+        "Tone": "",
+        "Track 1": "",
+        "Track 10": "",
+        "Track 11": "",
+        "Track 12": "",
+        "Track 13": "",
+        "Track 14": "",
+        "Track 15": "",
+        "Track 16": "",
+        "Track 17": "",
+        "Track 18": "",
+        "Track 19": "",
+        "Track 2": "",
+        "Track 20": "",
+        "Track 21": "",
+        "Track 22": "",
+        "Track 23": "",
+        "Track 24": "",
+        "Track 3": "",
+        "Track 4": "",
+        "Track 5": "",
+        "Track 6": "",
+        "Track 7": "",
+        "Track 8": "",
+        "Track 9": "",
+        "Transcription": "",
+        "Transcription Status": "",
+        "Type": "Audio",
+        "Unit Manager": "",
+        "Unit Name": "",
+        "Uploaded From": "",
+        "Usage": "12",
+        "V-FLIP": "",
+        "VFX Grey Ball": "",
+        "VFX Markers": "",
+        "VFX Mirror Ball": "",
+        "VFX Notes": "",
+        "VFX Shot #": "",
+        "VFX Svsr Reviewed": "",
+        "Video Codec": "",
+        "Wardrobe Reviewed": "",
+        "White Balance Tint": "",
+        "White Point (Kelvin)": ""
+      }
+    },
+    "GetMarkers": {
+      "value": {}
+    },
+    "GetUniqueId": {
+      "value": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f"
+    },
+    "sourceBytes": {
+      "hashMatches": true,
+      "sha256": "f6da7ab4ffb4cc549e4b41e19da714097877b035abfb0235ac9bf94ea4860c02",
+      "status": "reachable"
+    }
+  },
+  "GetName": {
+    "value": "bed.wav"
+  },
+  "GetProperties": {
+    "value": {
+      "AudioDialogueLevelerBackgroundReduction": false,
+      "AudioDialogueLevelerEnabled": false,
+      "AudioDialogueLevelerLiftSoftDialogue": false,
+      "AudioDialogueLevelerMode": 0,
+      "AudioDialogueLevelerOutputGain": 0.0,
+      "AudioDialogueLevelerReduceLoudDialogue": false,
+      "AudioPan": 0.0,
+      "AudioPanEnabled": true,
+      "AudioPitchCents": 0,
+      "AudioPitchEnabled": true,
+      "AudioPitchSemiTones": 0,
+      "AudioVoiceIsolationAmount": 0,
+      "AudioVoiceIsolationEnabled": false,
+      "AudioVolume": 0.0,
+      "AudioVolumeEnabled": true
+    }
+  },
+  "GetRightOffset": {
+    "value": 1
+  },
+  "GetRightOffset(True)": {
+    "value": 1.0
+  },
+  "GetSourceAudioChannelMapping": {
+    "value": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}"
+  },
+  "GetSourceEndFrame": {
+    "value": 199
+  },
+  "GetSourceEndTime": {
+    "value": 7.96
+  },
+  "GetSourceStartFrame": {
+    "value": 0
+  },
+  "GetSourceStartTime": {
+    "value": 0.0
+  },
+  "GetSpeed": {
+    "value": {
+      "Percentage": 100.0,
+      "PitchCorrection": true
+    }
+  },
+  "GetStart": {
+    "value": 4500
+  },
+  "GetStart(True)": {
+    "value": 4500.0
+  },
+  "GetTrackTypeAndIndex": {
+    "value": [
+      "audio",
+      3
+    ]
+  },
+  "GetType": {
+    "value": "audio"
+  },
+  "GetUniqueId": {
+    "value": "1dde7d80-6057-4a48-94a4-134a6d79e41f"
+  },
+  "GetVoiceIsolationState": {
+    "value": {
+      "amount": 0,
+      "isEnabled": false
+    }
+  }
+}

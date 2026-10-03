@@ -1,0 +1,3 @@
+Review saved at [pcm-r2-independent-completion-review.json](pcm-r2-independent-completion-review.json).
+
+All six R2 cases have bounded performed verdicts with structural and PCM evidence. The retained render reports native `Complete` at 100%; queued, post-render, and restored pair hashes match. Duration calibration remains incomplete: whole-timeline duration does not establish every item’s endpoint semantics. Residual mapping mute/restore evidence is still pending from the other actor. The review preserves the limits on deletion, routing, origin, and audibility claims.

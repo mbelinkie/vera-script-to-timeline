@@ -1,0 +1,3 @@
+Wrote the comparison to [boundary-base-independent-review.json](boundary-base-independent-review.json).
+
+It includes hash-verified references, complete pair deltas, the authored marker, usage changes, selection and playhead evidence, and the allowed-delta list. The raw prepared-to-split comparison contains 412 field changes; split-to-final contains zero. The report retains the changes for review and does not conclude that all protected state was unchanged. The wrapper timed out, the process exit code is unavailable, and the R3-boundary checklist remains **not done** pending the separate A3 test.

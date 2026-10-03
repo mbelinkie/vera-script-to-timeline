@@ -1,0 +1,14 @@
+{"type":"thread.started","thread_id":"01a0fa24-6eb4-7060-b189-083209a9442f"}
+{"type":"turn.started"}
+{"type":"error","message":"Reconnecting... 2/5 (unexpected status 502 Bad Gateway: Previous response owner account is unavailable; retry later.)"}
+{"type":"error","message":"Reconnecting... 3/5 (unexpected status 502 Bad Gateway: Previous response owner account is unavailable; retry later.)"}
+{"type":"error","message":"Reconnecting... 4/5 (unexpected status 502 Bad Gateway: Previous response owner account is unavailable; retry later.)"}
+{"type":"error","message":"Reconnecting... 5/5 (unexpected status 502 Bad Gateway: Previous response owner account is unavailable; retry later.)"}
+{"type":"item.completed","item":{"id":"item_0","type":"error","message":"Falling back from WebSockets to HTTPS transport. unexpected status 502 Bad Gateway: Previous response owner account is unavailable; retry later."}}
+{"type":"error","message":"Reconnecting... 1/5 (unexpected status 502 Bad Gateway: Upstream websocket closed before response.completed, url: http://127.0.0.1:2455/backend-api/codex/responses, request id: f586efe7-3791-452d-8a26-c96c99022f5e)"}
+{"type":"error","message":"Reconnecting... 2/5 (unexpected status 502 Bad Gateway: Previous response owner account is unavailable; retry later., url: http://127.0.0.1:2455/backend-api/codex/responses, request id: 9ea5559d-1460-4a2f-8c8f-e86d639a1d2f)"}
+{"type":"error","message":"Reconnecting... 3/5 (unexpected status 502 Bad Gateway: Previous response owner account is unavailable; retry later., url: http://127.0.0.1:2455/backend-api/codex/responses, request id: 6aa3fe90-13d5-4279-af14-619725f8613d)"}
+{"type":"error","message":"Reconnecting... 4/5 (unexpected status 502 Bad Gateway: Previous response owner account is unavailable; retry later., url: http://127.0.0.1:2455/backend-api/codex/responses, request id: 82ff5802-ee57-404b-99a5-facec6bffd24)"}
+{"type":"error","message":"Reconnecting... 5/5 (unexpected status 502 Bad Gateway: Previous response owner account is unavailable; retry later., url: http://127.0.0.1:2455/backend-api/codex/responses, request id: c269d8bd-027d-4102-9cf9-cc33d29c8adb)"}
+{"type":"error","message":"unexpected status 502 Bad Gateway: Previous response owner account is unavailable; retry later., url: http://127.0.0.1:2455/backend-api/codex/responses, request id: 93c2f272-2dcc-4cd5-b873-e16350587199"}
+{"type":"turn.failed","error":{"message":"unexpected status 502 Bad Gateway: Previous response owner account is unavailable; retry later., url: http://127.0.0.1:2455/backend-api/codex/responses, request id: 93c2f272-2dcc-4cd5-b873-e16350587199"}}

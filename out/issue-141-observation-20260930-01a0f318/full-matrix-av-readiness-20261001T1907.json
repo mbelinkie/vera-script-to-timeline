@@ -1,0 +1,17 @@
+{
+  "updatedAt": "2026-10-01T19:06:58.391601+00:00",
+  "status": "conditional-after-fresh-matrix-pair",
+  "latestInspectedPair": "producer-matrix-selection-20261001T183030.414033Z/after-pair.json",
+  "matrixBounds": [
+    0,
+    9200
+  ],
+  "width": 1920,
+  "height": 1080,
+  "fps": 25,
+  "sampleRate": 48000,
+  "protectedSourceInMatrix": false,
+  "nativeDispatch": false,
+  "next": "Obtain fresh stable selected-Matrix pair after editorial work; fresh queue-only action exports a new recoverable preset, requires PCM24, verifies job, stops before rendering.",
+  "historicalPresetLimit": "Earlier verified XML is PCM16; ineligible for the upcoming PCM24 probe. No old range/settings/job reused."
+}

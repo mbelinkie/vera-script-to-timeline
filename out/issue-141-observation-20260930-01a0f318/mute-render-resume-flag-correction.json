@@ -1,0 +1,11 @@
+{
+  "kind": "new-job-resume-flag-correction",
+  "at": "2026-10-02T02:18:01.073604+00:00",
+  "callerSha256": "9bf342020431dc8059fb7a8b60976483826c285c1e9ce8ef671293c1b9c03d9e",
+  "updatesSha256": "261885ddb0f146f7f1984f3832ede64e4ea1dc32c3b14b012376769bcc6f873a",
+  "jobId": "c5b1925b-f5aa-49d5-850a-be7a64c5cd29",
+  "defect": "Inherited resumeExistingJob=true skipped StartRendering for this new Ready job; native journal contains no StartRendering request.",
+  "fix": "Shared stage_updates defaults each new continuation to false unless the current updates explicitly request resumeExistingJob=true.",
+  "check": "--check PASS including stale-flag and explicit-resume regressions",
+  "resolveCalls": 0
+}

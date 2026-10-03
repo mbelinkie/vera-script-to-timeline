@@ -1,0 +1,5 @@
+The reviewed AV helper and focused checker passed. I registered the AV actions, added `av-output-full-matrix-continue` for the reviewed continuation path, and updated the installed probe hash. The native launcher and probe checks passed.
+
+The fresh readback matched the restored protected-six state: Matrix selected, empty selection, playhead zero, equal adjacent timeline and pool reads, and no protected source in Matrix. The single queue-only dispatch then **refused before reaching `AddRenderJob`** because the fresh full content/source state differed from its pin. No job or recovery files were created; rendering was not started. I did not retry.
+
+Evidence is retained in [cli-av-queue-native-result.json](cli-av-queue-native-result.json) and [av-output-source-registration-r2.json](av-output-source-registration-r2.json). Installed config is back to `observe`. No continuation config was derived.

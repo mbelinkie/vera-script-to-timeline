@@ -1,0 +1,5 @@
+The native invocation completed with status `mapping-muted-and-exactly-restored`. It muted the target mapping once, then confirmed the original mapping was restored. No output audibility claim is supported.
+
+The requested compact result is [cli-mute-native-once-result.json](cli-mute-native-once-result.json), SHA-256 `c4b2878a06be0b2f03fe0f328ad6cbff36f1278ae2156935ab10b88d589f010a`. The native result is retained at `/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261002T011055.731911Z.json`, SHA-256 `4eca5296df82b71cb80212ccb102c8c55df8451ab0b1a05427c29c80d8e9c1cd`.
+
+Evidence is under [audio-mapping-mute-20261002T011109.325675Z](REPOSITORY/out/issue-141-observation-20260930-01a0f318/audio-mapping-mute-20261002T011109.325675Z). The result confirms playhead `00:00:00:00`; original locks were not reported. Configuration is back to `observe`, with External Scripting still `None`.

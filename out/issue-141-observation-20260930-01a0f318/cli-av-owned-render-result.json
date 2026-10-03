@@ -1,0 +1,109 @@
+{
+  "calls": {
+    "first": {
+      "actualJobStatus": {
+        "CompletionPercentage": 30,
+        "EstimatedTimeRemainingInMs": 46000,
+        "JobStatus": "Rendering"
+      },
+      "invokedAt": "2026-10-01T23:46:34.430845+00:00",
+      "journalPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-full-matrix-continue-20261001T234636.517036Z/journal.jsonl",
+      "journalSha256": "30f53681fd23983c6a1a26fe1f83799427ef1cc1b6ac1fa8f4db1116cfed75c5",
+      "nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T234635.998586Z.json",
+      "nativeResultSha256": "80ffdd857a23d5fd0782a447fed7caf047665b37ed2ab3c4cf9cd8a2d8c061a5",
+      "record": "cli-av-owned-render-call-record.json",
+      "returnedAt": "2026-10-01T23:47:13.246925+00:00",
+      "status": "render-pending-or-ambiguous-recovery-retained"
+    },
+    "poll": {
+      "exitCode": 65,
+      "invokedAt": "2026-10-01T23:47:36.480075+00:00",
+      "launchEvidence": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T234738.083660Z/launch.json",
+      "launchEvidenceSha256": "13580998f4e17ca99857e68a245ed7dc0a9c4a3d6a59ff2e23a9107940d7ff1c",
+      "record": "cli-av-owned-render-poll-call-record.json",
+      "refusal": "RuntimeError: Menu refused; evidence at REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T234738.083660Z/launch.json",
+      "returnedAt": "2026-10-01T23:47:39.619920+00:00"
+    }
+  },
+  "finalPair": null,
+  "invocation": {
+    "action": "av-output-full-matrix-continue",
+    "firstResumeExistingJob": false,
+    "jobId": "0460d82a-3436-4efc-be12-b57c8523ebf5",
+    "pollResumeExistingJob": true,
+    "renderTimeoutSeconds": 30,
+    "sampleRateHz": 48000
+  },
+  "job": {
+    "id": "0460d82a-3436-4efc-be12-b57c8523ebf5",
+    "lastActualStatus": {
+      "CompletionPercentage": 30,
+      "EstimatedTimeRemainingInMs": 46000,
+      "JobStatus": "Rendering"
+    },
+    "lastStatusAt": "2026-10-01T23:47:12.646203+00:00",
+    "markIn": 0,
+    "markOut": 9199
+  },
+  "journals": {
+    "originalQueueJournal": {
+      "StartRenderingRequestCount": 0,
+      "StartRenderingRequestEntries": [],
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/journal.jsonl",
+      "sha256": "2315aa455af6f6ee0609b964edbe7ed4da33c5dafab85f5313e87bab010ac7b6"
+    },
+    "ownedRenderJournal": {
+      "StartRenderingRequestCount": 1,
+      "StartRenderingRequestEntries": [
+        {
+          "at": "2026-10-01T23:46:42.293835+00:00",
+          "method": "StartRendering",
+          "phase": "request",
+          "value": [
+            [
+              "0460d82a-3436-4efc-be12-b57c8523ebf5"
+            ]
+          ]
+        }
+      ],
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-full-matrix-continue-20261001T234636.517036Z/journal.jsonl",
+      "sha256": "30f53681fd23983c6a1a26fe1f83799427ef1cc1b6ac1fa8f4db1116cfed75c5"
+    }
+  },
+  "kind": "cli-av-owned-render-result",
+  "limitations": [
+    "The later same-job resume attempt failed before helper/native dispatch because the exact observation menu item was unavailable.",
+    "No current post-refusal render status was captured; last actual status was Rendering at 2026-10-01T23:46:42.828821+00:00.",
+    "No terminal output, ffprobe metadata, or final-pair verification is claimed.",
+    "Selection and playhead were not recorded in queue preflight."
+  ],
+  "outcome": "render-started-once; resume-poll-refused; job-and-recovery-retained",
+  "output": {
+    "duration": null,
+    "ffprobeFrames": null,
+    "note": "Not inspected after continuation refusal; no terminal final-local-result was produced.",
+    "path": null,
+    "sha256": null
+  },
+  "recordedAt": "2026-10-01T23:48:28.311040+00:00",
+  "recoveryRemaining": {
+    "cleanupPerformed": false,
+    "priorRecoveryOutstanding": {
+      "journalPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/journal.jsonl",
+      "journalSha256": "fb49271db7c20e78508bae7b1113e466fdc92a8e34fe6f92bb43db8fdba47ae4",
+      "presetName": "VERA141_AV_OUTPUT_20261001T231540.921062Z",
+      "restoreRequiredAfterLaterRender": true,
+      "xmlPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/VERA141_AV_OUTPUT_20261001T231540.921062Z.drp/VERA141_AV_OUTPUT_20261001T231540.921062Z.xml",
+      "xmlSha256": "a09abc4185e06b915620520745c682933674707394c02855fd7c30ff9bb087ce"
+    },
+    "queuedJobRetained": true,
+    "renderPreset": "VERA141_AV_OUTPUT_20261001T232620.358140Z",
+    "renderPresetRestorePerformed": false
+  },
+  "registeredPinsVerified": {
+    "helperSha256": "134fd7fdbbf4673fe8385be78eaea138adc1ea55ad55b309a0a17813815438c0",
+    "independentNativeCallSha256": "9f1827d3aa10a0f9b6964a0269009fef4c97cda73eb8bd3502479c3595d6113b",
+    "probeSha256": "7a08016575a631f52a8528f3b77ce24eab5752b69a3e76338ed7cbaafcab1cd1",
+    "registration": "av-action-dispatch-registration-r3.json"
+  }
+}

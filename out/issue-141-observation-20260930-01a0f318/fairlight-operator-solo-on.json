@@ -1,0 +1,37 @@
+{
+  "kind": "issue-141-fairlight-operator-solo-on-v1",
+  "recordedAt": "2026-10-02T03:18:20.825934+00:00",
+  "operatorStatement": "A2 Solo on. None of the three tracks were muted or soloed when I opened it.",
+  "baselineOperatorIndicators": {
+    "A1": {
+      "mute": false,
+      "solo": false
+    },
+    "A2": {
+      "mute": false,
+      "solo": false
+    },
+    "A3": {
+      "mute": false,
+      "solo": false
+    }
+  },
+  "currentOperatorIndicators": {
+    "A2": {
+      "solo": true
+    }
+  },
+  "source": "Direct user report in this chat following named synthetic Matrix/Fairlight instructions",
+  "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+  "timelineName": "VERA 141 Batched Matrix",
+  "projectAndTimelineBinding": "Subsequently verified by fairlight-preflight-readback-summary.json: exact named project/Matrix, stable complete adjacent reads; operator indicator report remains separate.",
+  "outputBusLabels": null,
+  "routeEvidence": "Operator reports no visible output/bus labels; routing remains unknown, not evidence that no routes exist.",
+  "soloOffRestorationConfirmed": false,
+  "limits": [
+    "Operator report of mixer indicators is distinct from an API getter or program output observation.",
+    "Other routing/sends/effects are unobserved; no complete-routing claim."
+  ],
+  "outputBusLabelOperatorStatement": "I don't any labels",
+  "outputBusLabelsVisibleToOperator": false
+}

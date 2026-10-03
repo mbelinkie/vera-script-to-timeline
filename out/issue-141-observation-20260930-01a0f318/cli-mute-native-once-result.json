@@ -1,0 +1,75 @@
+{
+  "status": "mapping-muted-and-exactly-restored",
+  "error": null,
+  "nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261002T011055.731911Z.json",
+  "nativeResultSha256": "4eca5296df82b71cb80212ccb102c8c55df8451ab0b1a05427c29c80d8e9c1cd",
+  "auditDirectory": "out/issue-141-observation-20260930-01a0f318/independent-action-20261002T011052.570949Z",
+  "evidence": {
+    "afterMutedFullPair": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/audio-mapping-mute-20261002T011109.325675Z/after-muted-full-pair.json",
+    "beforeFullPair": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/audio-mapping-mute-20261002T011109.325675Z/before-full-pair.json",
+    "directory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/audio-mapping-mute-20261002T011109.325675Z",
+    "journal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/audio-mapping-mute-20261002T011109.325675Z/journal.jsonl",
+    "restoredFullPair": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/audio-mapping-mute-20261002T011109.325675Z/restored-full-pair.json",
+    "target": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/audio-mapping-mute-20261002T011109.325675Z/target.json"
+  },
+  "target": {
+    "markerName": "141 R2-residual item 2",
+    "markerNames": [
+      "141 R2-residual item 2"
+    ],
+    "occurrenceUid": "f4e9f649-894a-42f2-9f54-a8321ae7c163",
+    "originalMapping": {
+      "embedded_audio_channels": 1,
+      "linked_audio": {},
+      "track_mapping": {
+        "1": {
+          "channel_idx": [
+            1
+          ],
+          "mute": false,
+          "type": "mono"
+        }
+      }
+    },
+    "originalRawMapping": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+    "sourceName": "repeated.wav",
+    "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+    "track": {
+      "index": 2,
+      "type": "audio"
+    }
+  },
+  "mutedMapping": {
+    "embedded_audio_channels": 1,
+    "linked_audio": {},
+    "track_mapping": {
+      "1": {
+        "channel_idx": [
+          1
+        ],
+        "mute": true,
+        "type": "mono"
+      }
+    }
+  },
+  "restoredMapping": {
+    "embedded_audio_channels": 1,
+    "linked_audio": {},
+    "track_mapping": {
+      "1": {
+        "channel_idx": [
+          1
+        ],
+        "mute": false,
+        "type": "mono"
+      }
+    }
+  },
+  "playheadBefore": "00:00:00:00",
+  "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+  "originalLocks": "not reported by this module result",
+  "configuration": {
+    "action": "observe",
+    "externalScriptingSetting": "None"
+  }
+}\n

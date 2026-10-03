@@ -1,0 +1,1 @@
+I attempted the approved subprocess once, after confirming the driver hash matched. The wrapper produced no output, and the required result file is absent. I stopped there; I did not retry, render, save, clean up, or run another test.

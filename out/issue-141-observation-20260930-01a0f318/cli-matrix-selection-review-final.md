@@ -1,0 +1,3 @@
+Blocked: the named capture files and content comparison aren’t present in the searched workspace paths, so I couldn’t enumerate differences, retain hashes, or verify the six identities and protected source metadata. I recorded the blocker in [matrix-selection-delta-review.json](matrix-selection-delta-review.json).
+
+The report’s earlier selected-timeline observation is not enough to certify this after-pair for R2-picture preparation. The all-state equality failure and unknown effect readback remain unresolved; missing audio keys do not prove effect removal.

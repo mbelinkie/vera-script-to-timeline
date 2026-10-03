@@ -1,0 +1,43 @@
+{
+  "case": "R2-unlinked",
+  "directory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T124433.968960Z",
+  "environment": {
+    "productName": "DaVinci Resolve Studio",
+    "python": "3.14.7",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "failure": null,
+  "firstSplitPair": {
+    "path": "r2-unlinked-first-split-20261001T124424.546525Z/pair.json",
+    "sha256": "49dff52b40cc69ab66d11db1c62d5914bc6016a62c5ba1bd641cce2f2732f4f7"
+  },
+  "journal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T124433.968960Z/journal.jsonl",
+  "menuCommandDispatched": false,
+  "playheadAfter": "00:02:02:20",
+  "preparationResult": {
+    "path": "independent-cut-sequence-20261001T124409.640872Z/preparation.json",
+    "sha256": "8baa3f66a588e6bb2c1357c75300973102eb0b47aaef783e6b4d8708506818c3"
+  },
+  "saveDispatched": false,
+  "secondPositionPair": {
+    "path": "editorial-case-20261001T124433.968960Z/after.json",
+    "sha256": "49dff52b40cc69ab66d11db1c62d5914bc6016a62c5ba1bd641cce2f2732f4f7"
+  },
+  "setters": [
+    "SetCurrentTimecode"
+  ],
+  "status": "second-position-ready",
+  "target": {
+    "firstSplitUid": "7c970634-6fcb-4117-9a51-221a482c7142",
+    "secondSplitUid": "904a5a08-f169-4a22-a613-fcdd2614f0e8",
+    "splitFrame": 3070,
+    "timecode": "00:02:02:20",
+    "track": "audio"
+  }
+}

@@ -1,0 +1,5 @@
+Added the bounded outer recovery script, offline checker, and readiness record. The recovery is fixed to the first full-Matrix attempt: it checks the retained journal, preset XML, before/after pairs, fresh protected-six checkpoint, idle project, empty job list, and exact owned preset inventory before loading. It preserves the preset if the restored visible state fails verification, and deletes only that preset after two matching reads.
+
+The local checker passed with `/usr/local/bin/python3.14 -S`, and readiness source hashes match. No Resolve or native calls were run.
+
+One limitation: the checker verifies fail-closed guard ordering and incomplete-state rejection, but does not yet exercise the requested fake successful load-and-cleanup flow or each listed wrong-input case. Native producer acceptance remains pending.

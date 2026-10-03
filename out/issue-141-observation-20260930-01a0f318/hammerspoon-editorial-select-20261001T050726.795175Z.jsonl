@@ -1,0 +1,2 @@
+{"at": "2026-10-01T05:07:26.798652+00:00", "phase": "request", "value": {"namedCommand": "select", "proof": "vera-issue-141-observation-result-20261001T050624.545911Z.json", "proofSha256": "2ba876e2b0c42536e578308171c625a0f2b50e3ba01d35f9399177536b7d5c2d", "macroSha256": "2a53cb6485ae2593d8e77fb6eccf8954a3417f17b11787267306360e76adb170"}}
+{"at": "2026-10-01T05:07:27.071476+00:00", "phase": "return", "value": {"exitCode": 0, "stdout": "Named editorial command selected once; verify injected postflight before continuing\n", "stderr": ""}}

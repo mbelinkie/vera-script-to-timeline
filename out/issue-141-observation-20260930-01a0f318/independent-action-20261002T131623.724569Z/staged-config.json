@@ -1,0 +1,200 @@
+{
+  "action": "r1-repeat-duplicate",
+  "afterPairSha256": "31a36fbf4730802705280056c73265240969e752bc2db8a71df74409f2289636",
+  "appliedSettingsRecordPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-applied-settings-record.json",
+  "appliedSettingsRecordSha256": "8852c355e605a0d4e0be62f554f06f8fcdaca7a29e6a39b877633728928592df",
+  "case": "R1-repeat-six",
+  "checkpointPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T033005.646357Z/full-pair-007.json",
+  "checkpointSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+  "continuationRecordPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-continuation-record.json",
+  "continuationRecordSha256": "b169854fa9e6f9509dc22e1b8aa41e2d7e63b79baf74909c3246302c29fedc36",
+  "editorialReadbackLabel": "editorial-context",
+  "externalScriptingSetting": "None",
+  "firstSelectionResult": "independent-residual-sequence-20261001T204911.843675Z/004-r2-residual-selected.json",
+  "firstSelectionResultSha256": "f5b8b88829d692f47e1939f2b67e3f56cd0125afd07266ec79827c75096dfa93",
+  "firstSplitPair": "editorial-case-20261001T214604.411256Z/after.json",
+  "firstSplitPairSha256": "7a7d0db1be976dd4e3463e1231a7e00923318742188c0a107c8fc0962085b40d",
+  "journalSha256": "482955b5fb78e376fe6402def7c194e98d44eebc6cc87788b169bb8917ddf5ae",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "mediaDir": "REPOSITORY/out/issue-141-media-20260930-01a0f318",
+  "outputDir": "REPOSITORY/out/issue-141-observation-20260930-01a0f318",
+  "partialResult": null,
+  "partialResultSha256": null,
+  "postCopyPair": "r1-copy-copied-20261001T072315.951268Z/pair.json",
+  "postCopyPairSha256": "0ab69c1eeaa7dffe2d6a63bc02c73823b9fe12af2134be74b204c4f1e81a6435",
+  "postEditPair": "editorial-case-20261001T230112.238011Z/after.json",
+  "postEditPairSha256": "1616fa7f512b1a23d4c2756d2246bef51ee9d085ba8c443170ad060c385949a4",
+  "preparationResult": "independent-residual-resume-20261001T214559.089529Z/preparation.json",
+  "preparationResultSha256": "dc9714cba9b16c8f946baf206f2d73f98cc50e162f8888e23aa883cad49c87af",
+  "priorPair": "r2-offset-context-20261001T205629.518751Z/pair.json",
+  "priorPairSha256": "7a7d0db1be976dd4e3463e1231a7e00923318742188c0a107c8fc0962085b40d",
+  "probePath": "REPOSITORY/docs/investigations/issue-141/probe.py",
+  "probeSha256": "2a5113df4c64eed13b812ea99c923633827ee77bdf3398c70e9df9b8361de47d",
+  "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+  "queuedAttemptPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T115327.250767Z",
+  "queuedAttemptSha256": "362ebcb4cba521078a2aad840c7ef7facce27d0c1b04f9a4e200bf8b64d6997a",
+  "queuedJournalSha256": "b8f1d0ce3707e567f4ccf3b29ff138e09ec8cafc22624c96d9edf0267719162c",
+  "renderTimeoutSeconds": 30,
+  "resumeFailure": "preparation-failure-20260930T172018.538043Z.json",
+  "resumeFailureSha256": "07dd629af05828baa0294b80e613f73be98577b2e66a271b4aa464fe29bb998e",
+  "resumeJournal": "preparation-20260930T172018.538043Z.jsonl",
+  "resumeJournalSha256": "1085b1281c7ac102ab6404580217f7bf8806271e80d30db4738bf92ebb109b1b",
+  "sampleRateHz": 48000,
+  "secondPositionResult": "independent-residual-resume-20261001T214559.089529Z/second-position.json",
+  "secondPositionResultSha256": "8e6496ccc241d67545cb2fb4415d99f1b0f2a1cbe10169d8ad89f4feb1722f6f",
+  "secondSplitPair": "r2-residual-second-split-20261001T215948.487403Z/pair.json",
+  "secondSplitPairSha256": "3f510f532db58ae58b6dd29cdba7a508d3791ba5b6ee7d7ba41b17738f8e53d7",
+  "selectionResult": "independent-residual-resume-20261001T215903.877120Z/009-r2-residual-interval-selected.json",
+  "selectionResultSha256": "d637a4190146f585aca9e6ed5333fd4a9679cb8e8784c8b81d3ae99c12d10ab0",
+  "stage": "baseline-repeat",
+  "timelineInventory": "protected-six",
+  "baseSplitResult": "independent-structural-sequence-20261001T203741.675640Z/split-review.json",
+  "baseSplitResultSha256": "ad691ead1c4d6b18f1a5feb2cf70a5ce239f45d802ac7a4ab2fd74c649b5036c",
+  "baseRestoreResult": "independent-structural-sequence-20261001T203741.675640Z/restoration.json",
+  "baseRestoreResultSha256": "2bcfef93a1f4bdda29fbfcd2630538ff2d1fcbd66ed7434529debabf8f084927",
+  "splitPair": "r3-boundary-a3-split-20261001T204503.938058Z/pair.json",
+  "splitPairSha256": "f70bca82d179aac81cf755ff5c5f28bc0fa9d82e10c33f1c55e114c92abb6a78",
+  "residualResumeRecord": "residual-resume-record-20261001T214000Z.json",
+  "residualResumeRecordSha256": "88dc531181344f5200f89f0b7b09850ca58058e244b9a39e11978ac973d6f4f6",
+  "priorRecoveryOutstanding": {
+    "journalPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/journal.jsonl",
+    "journalSha256": "fb49271db7c20e78508bae7b1113e466fdc92a8e34fe6f92bb43db8fdba47ae4",
+    "presetName": "VERA141_AV_OUTPUT_20261001T231540.921062Z",
+    "restoreRequiredAfterLaterRender": true,
+    "xmlPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/VERA141_AV_OUTPUT_20261001T231540.921062Z.drp/VERA141_AV_OUTPUT_20261001T231540.921062Z.xml",
+    "xmlSha256": "a09abc4185e06b915620520745c682933674707394c02855fd7c30ff9bb087ce"
+  },
+  "queueAfterPairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T033005.646357Z/full-pair-007.json",
+  "queueAfterPairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+  "queueJobId": "a6ed7f33-9ad4-4d82-bfac-ff72903f4567",
+  "queueJobSha256": "407a7caac63fba6e6f0b1fdf2986b9823e610f01d67edd8dd27fbba007ab6259",
+  "queueJournalPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T033005.646357Z/journal.jsonl",
+  "queueJournalSha256": "2687301cbee118b66193b594b8b98da94bd15c92c613e7d8dcddf3bee7a38623",
+  "queuePresetName": "VERA141_AV_OUTPUT_20261002T033005.646357Z",
+  "queueResultPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T033005.646357Z/final-local-result.json",
+  "queueResultSha256": "e7d1f253ff44326d7435a56a384f8dbc555301eebd065ec5346cd3586ad50222",
+  "queueSettingsSha256": "c70b74d6df5723e284207f352fda36c7ba8ec399d5f6aef3f1242a7cfb1a1250",
+  "queueSnapshotSha256": "aa2a668043ec97279abbd65155b4c591ffea09b54b841244ea07ea0d5673a57a",
+  "queueSnapshotXmlPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T033005.646357Z/VERA141_AV_OUTPUT_20261002T033005.646357Z.drp/VERA141_AV_OUTPUT_20261002T033005.646357Z.xml",
+  "resumeExistingJob": true,
+  "mappingCheckpoint": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/mute-after-render-fresh-checkpoint-20261002T023713.543057Z.json",
+  "mappingCheckpointSha256": "a171acbb58b84753b624b316230455e4b59b78a32e55fdcf04c72c3095292cd3",
+  "checkpointName": "mute-after-render-checkpoint.json",
+  "originalAttemptPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z",
+  "originalBeforePairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/full-pair-004.json",
+  "originalAfterPairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/full-pair-005.json",
+  "originalBeforePairSha256": "1616fa7f512b1a23d4c2756d2246bef51ee9d085ba8c443170ad060c385949a4",
+  "originalAfterPairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+  "originalJournalSha256": "fb49271db7c20e78508bae7b1113e466fdc92a8e34fe6f92bb43db8fdba47ae4",
+  "originalXmlSha256": "a09abc4185e06b915620520745c682933674707394c02855fd7c30ff9bb087ce",
+  "journalPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/outer-restore-20261002T011949.373431Z/journal.jsonl",
+  "mappingPhase": "restore",
+  "heldResult": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/audio-mapping-mute-20261002T020031.880586Z/result.json",
+  "heldResultSha256": "c70a29b0dc7efc4245e57f2929750fc64d342f7611a9609dcc7916ccbc864425",
+  "repeatCheckpoint": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r1-final-executor-20261002T131605.126740Z-duplicate-checkpoint.json",
+  "repeatCheckpointSha256": "aa821c2a0dd5ff4df548407304457700e34c51262ade4f3cd438cd5cd44cf957",
+  "repeatExpectedContext": {
+    "product": "DaVinci Resolve Studio",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ],
+    "projectUid": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+    "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+    "page": "edit",
+    "idle": true,
+    "queue": [],
+    "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+    "playhead": "00:00:00:00",
+    "selection": [],
+    "trackLocks": [
+      [
+        "video",
+        1,
+        false
+      ],
+      [
+        "video",
+        2,
+        true
+      ],
+      [
+        "video",
+        3,
+        true
+      ],
+      [
+        "audio",
+        1,
+        false
+      ],
+      [
+        "audio",
+        2,
+        true
+      ],
+      [
+        "audio",
+        3,
+        true
+      ]
+    ],
+    "expectedSelectionUid": "29ae8331-b86e-4041-a548-960695cc7b24"
+  },
+  "restoreTargetPair": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r1-final-executor-20261002T131024.171089Z-restore-target.json",
+  "restoreTargetPairSha256": "774a256039d9e965f03e5d7d5a9f2df3692edd08da936fd2f3bc44c104dc641a",
+  "restoreTargetContext": {
+    "expectedSelectionUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+    "idle": true,
+    "page": "edit",
+    "playhead": "00:00:00:00",
+    "product": "DaVinci Resolve Studio",
+    "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+    "projectUid": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+    "queue": [],
+    "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+    "selection": [],
+    "trackLocks": [
+      [
+        "video",
+        1,
+        false
+      ],
+      [
+        "video",
+        2,
+        true
+      ],
+      [
+        "video",
+        3,
+        true
+      ],
+      [
+        "audio",
+        1,
+        false
+      ],
+      [
+        "audio",
+        2,
+        true
+      ],
+      [
+        "audio",
+        3,
+        true
+      ]
+    ],
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  }
+}

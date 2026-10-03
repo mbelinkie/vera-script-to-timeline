@@ -1,0 +1,3 @@
+The supplied A3 sequence completed with return code **0**. The result records parsed stdout, evidence references, and the empty stderr in [boundary-a3-native-executor-result.json](boundary-a3-native-executor-result.json).
+
+The record identifies the retained base split and restoration, the A3 split and restoration, and the final deselection readback: zero selected items in both passes, with the final observed playhead at `00:06:04:00`. The retained base restoration reports the original playhead at `00:00:00:00`. No save was dispatched.

@@ -1,0 +1,96 @@
+{
+  "kind": "cli-av-owned-render-result",
+  "recordedAt": "2026-10-01T23:39:46.610560+00:00",
+  "outcome": "callable-returned-readback-only-no-render-result",
+  "invocation": {
+    "module": "out/issue-141-observation-20260930-01a0f318/independent-native-call.py",
+    "action": "av-output-full-matrix-continue",
+    "jobId": "0460d82a-3436-4efc-be12-b57c8523ebf5",
+    "resumeExistingJob": false,
+    "renderTimeoutSeconds": 30,
+    "sampleRateHz": 48000
+  },
+  "callableReturn": {
+    "status": "equal-adjacent-reads",
+    "capturePath": "out/issue-141-observation-20260930-01a0f318/capture-20261001T233827.518950Z.json",
+    "captureSha256": "df2c24e99c31f46364b9676f52e4ec61c8477b60ed56fd8c8da0117d09362629",
+    "nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T233826.996040Z.json",
+    "nativeResultSha256": "35eb31b725437b0935f89325e82444e646d81e41328ac6124994beae3b943283",
+    "auditDirectory": "out/issue-141-observation-20260930-01a0f318/independent-action-20261001T233825.393129Z",
+    "resultReference": {
+      "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T233826.996040Z.json",
+      "sha256": "35eb31b725437b0935f89325e82444e646d81e41328ac6124994beae3b943283"
+    }
+  },
+  "actualReadback": {
+    "consistency": "equal-adjacent-reads",
+    "isRenderingInProgress": false,
+    "matchingQueuedJob": {
+      "AudioBitDepth": 24,
+      "AudioCodec": "lpcm",
+      "AudioSampleRate": 48000,
+      "ClipStartFrame": 1,
+      "EncodingProfile": "Auto",
+      "ExportAlpha": false,
+      "FormatHeight": 1080,
+      "FormatWidth": 1920,
+      "FrameRate": "25",
+      "IsExportAudio": true,
+      "IsExportVideo": true,
+      "JobId": "0460d82a-3436-4efc-be12-b57c8523ebf5",
+      "MarkIn": 0,
+      "MarkOut": 9199,
+      "MultiPassEncode": false,
+      "NetworkOptimization": false,
+      "OutputFilename": "vera141-av-20261001T232620.358140Z.mov",
+      "PixelAspectRatio": 1.0,
+      "PresetName": "Custom",
+      "RenderJobName": "Job 1",
+      "RenderMode": "Single clip",
+      "TargetDir": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/render",
+      "TimelineName": "VERA 141 Batched Matrix",
+      "TimelineStartTimecode": "00:00:00:00",
+      "VideoCodec": "H.264",
+      "VideoFormat": "QuickTime"
+    },
+    "renderStatusEndpointCalled": false
+  },
+  "sourceAndBinding": {
+    "queueResultPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/final-local-result.json",
+    "queueResultSha256": "4a355bf8d8f3bc0c5694e2574eec47ca533c177d596f33169620123fcf0d21fe",
+    "continuationConfigPath": "out/issue-141-observation-20260930-01a0f318/av-full-matrix-owned-continuation-config.json",
+    "continuationConfigSha256": "6cad52ee5fec945e8f225b697c65ef311e8b99fb0666f5c20128ed47a1c80a04",
+    "registeredHelperSha256": "134fd7fdbbf4673fe8385be78eaea138adc1ea55ad55b309a0a17813815438c0"
+  },
+  "journal": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/journal.jsonl",
+    "sha256": "2315aa455af6f6ee0609b964edbe7ed4da33c5dafab85f5313e87bab010ac7b6",
+    "StartRenderingRequestCount": 0,
+    "StartRenderingEntries": []
+  },
+  "renderOutput": {
+    "path": null,
+    "sha256": null,
+    "ffprobeFrames": null,
+    "duration": null
+  },
+  "finalPair": null,
+  "recoveryRemaining": {
+    "priorRecoveryOutstanding": {
+      "journalPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/journal.jsonl",
+      "journalSha256": "fb49271db7c20e78508bae7b1113e466fdc92a8e34fe6f92bb43db8fdba47ae4",
+      "presetName": "VERA141_AV_OUTPUT_20261001T231540.921062Z",
+      "restoreRequiredAfterLaterRender": true,
+      "xmlPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/VERA141_AV_OUTPUT_20261001T231540.921062Z.drp/VERA141_AV_OUTPUT_20261001T231540.921062Z.xml",
+      "xmlSha256": "a09abc4185e06b915620520745c682933674707394c02855fd7c30ff9bb087ce"
+    },
+    "queuedJobRetained": true,
+    "cleanupPerformed": false
+  },
+  "limitations": [
+    "The callable returned an equal-adjacent-read capture rather than the continuation final-local-result.",
+    "The capture shows the owned job still present and IsRenderingInProgress=false; it does not establish same-job Running status.",
+    "No MOV/XML output, ffprobe metadata, final-pair verification, or render journal was produced by this invocation.",
+    "Empty selection and playhead-zero were not established by the earlier queue preflight; this observation records playhead zero only."
+  ]
+}

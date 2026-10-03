@@ -1,0 +1,1 @@
+I couldn’t locate `independent-structural-sequence.py` in the workspace, so I made no changes and did not run the R3 check. The requested preflight remains incomplete.

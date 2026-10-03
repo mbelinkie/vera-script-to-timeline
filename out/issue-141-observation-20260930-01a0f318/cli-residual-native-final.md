@@ -1,0 +1,3 @@
+The residual sequence stopped with terminal return code **1** after the driver reported `First split full-state review refused`. It produced no stdout JSON, so there is no finalReadback or actual final pair to report; final selection and original playhead remain unverified.
+
+I recorded the return code, refusal traceback, prior pair hash, and stdout/stderr references in [residual-native-executor-result.json](residual-native-executor-result.json). No replay was performed.

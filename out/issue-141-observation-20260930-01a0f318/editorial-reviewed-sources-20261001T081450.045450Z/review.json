@@ -1,0 +1,23 @@
+{
+  "kind": "reviewed-local-only-editorial-guards",
+  "reviewedAt": "2026-10-01T08:14:50.045450+00:00",
+  "sources": {
+    "editorial-readback-check.py": "2da4b4d0b8d4cd22010ae30bb31af317c8a9cbb808cb0a811cd5bdb37d96fc85",
+    "editorial-readback.py": "c048fc0a740cecbafc3d17bb5279c62f3047cc8fdf65ac4cebda5333e90e9a74",
+    "check.py": "ddf22b7172559b00968e982956d9eedf1baa128e948154fb87a17be189792373",
+    "previous-observe-config.json": "f4052dbc551d1957e2136bb94f76cb8cae13606cc3b2095176abf43b4a2c0ada",
+    "launcher-check.py": "53f2a8152200e30357cbbccb73b3fb5313afca68a113ad7a2fb62821041c5166",
+    "editorial-cases.py": "007e08ed747439fc3e994e60acbf36272a6a5250904640a60e7fdc19b849bdb3",
+    "probe.py": "908984bcf310fbd450e53a2d48f87bed0e7750c79b4d4c5e60579aaa74d776c8",
+    "editorial-cases-check.py": "136c1544ccbe4742b81fe3c5875f3febf187b38ffecc3c9dfb24df3584a36446",
+    "previous-restoration-review.json": "ed0b337c48ee03d3e516f720a2db51c7203fb6c96c0e6445985fbbe6477654de"
+  },
+  "probeSha256": "908984bcf310fbd450e53a2d48f87bed0e7750c79b4d4c5e60579aaa74d776c8",
+  "privateConfigSha256": "d99968dfc9e40e0cc427d3a617935ac6d8315e56d15235ffe007a09f24b349fa",
+  "privateConfigAction": "observe",
+  "nativeLaunchPerformed": false,
+  "nativeMutationStaged": false,
+  "restorationDecision": "pending",
+  "nativeCompleted": 26,
+  "nativeTotal": 41
+}

@@ -1,0 +1,21 @@
+{
+  "afterPair": {
+    "path": "editorial-case-20261001T193313.102327Z/after.json",
+    "sha256": "f7b4f56a7a27e51dd9b91da869e04ff86acecef4f43e8ffb429ff0626ef894b1"
+  },
+  "case": "R2-picture",
+  "deleteError": null,
+  "deleteReturn": true,
+  "directory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T193313.102327Z",
+  "interval": {
+    "recordEnd": 3570,
+    "recordStart": 3560,
+    "sourceEnd": 70,
+    "sourceStart": 60
+  },
+  "intervalUid": "401f8da9-0a5c-4694-93f5-0d388348d0b4",
+  "journal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T193313.102327Z/journal.jsonl",
+  "saveDispatched": false,
+  "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+  "status": "interval-deleted-unsaved"
+}

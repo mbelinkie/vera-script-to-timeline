@@ -1,0 +1,9 @@
+{
+  "observedAtUtc": "2026-10-02T03:18:43.991079+00:00",
+  "windowTitle": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+  "menuFound": true,
+  "menuEnabled": true,
+  "bundleId": "com.blackmagic-design.DaVinciResolve",
+  "triggered": false,
+  "check": "hammerspoon-launch.lua check()"
+}

@@ -1,0 +1,153 @@
+{
+  "taskId": "mute_hold_native.queue_only",
+  "status": "full-matrix-queued-unstarted-recovery-retained",
+  "action": "av-output-full-matrix-queue-only",
+  "auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261002T020924.504579Z",
+  "nativeResult": {
+    "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261002T020926.377976Z.json",
+    "sha256": "8ed8a692f5eb41f980d4500bca5173bbcdc2dd19052864471ed570c6e85e40f2"
+  },
+  "moduleResultArtifact": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T020927.190878Z/final-local-result.json",
+    "sha256": "d08caae2283654badd214a3fa10b73d25c59003b26531a2e6329d830a9bd935b",
+    "kind": "av-output-final-local-result"
+  },
+  "launchReferences": {
+    "launch": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261002T020924.504579Z/launch.json",
+      "sha256": "b04cb44935f1cdbe40a37fef9b9a8ff14633f9f3549d75f5476fbb85bb08e17d",
+      "exitCode": 0,
+      "sourceSha256": "f92cc1b6e5bd7e0611bf94aa9a7262f3c14936de03fc5072e1c0100593cd461d"
+    },
+    "resultReference": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261002T020924.504579Z/result-reference.json",
+      "sha256": "9bbf60dd0fc499e9751975d428e5c67989a07d383e4c1c1f9a621cb073442b4a"
+    }
+  },
+  "pairs": {
+    "heldCheckpoint": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/audio-mapping-mute-20261002T020031.880586Z/after-muted-full-pair.json",
+      "sha256": "a171acbb58b84753b624b316230455e4b59b78a32e55fdcf04c72c3095292cd3"
+    },
+    "beforePair": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T020927.190878Z/full-pair-004.json",
+      "sha256": "a171acbb58b84753b624b316230455e4b59b78a32e55fdcf04c72c3095292cd3"
+    },
+    "afterPair": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T020927.190878Z/full-pair-007.json",
+      "sha256": "a171acbb58b84753b624b316230455e4b59b78a32e55fdcf04c72c3095292cd3"
+    },
+    "afterByteIdenticalToHeldCheckpoint": true
+  },
+  "snapshotXml": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T020927.190878Z/VERA141_AV_OUTPUT_20261002T020927.190878Z.drp/VERA141_AV_OUTPUT_20261002T020927.190878Z.xml",
+    "sha256": "910931c85b39b3f86a72cf2f4df8aa0b175b34a90ecad1576358dd431deb9754"
+  },
+  "journal": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T020927.190878Z/journal.jsonl",
+    "sha256": "c23c7bbd1619529e59557649cd9caf0b4cd7fccaf6f71d08f5863cb02a68ed5a",
+    "lineCount": 65
+  },
+  "job": {
+    "id": "c5b1925b-f5aa-49d5-850a-be7a64c5cd29",
+    "sha256": "e60daa0fd9eab1b1455da3ff0831cf622427f32fef25b57b0e2dcf590545254f",
+    "markIn": 0,
+    "markOut": 9199,
+    "outputFilename": "vera141-av-20261002T020927.190878Z.mov",
+    "targetDir": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T020927.190878Z/render"
+  },
+  "queuedEndpoints": {
+    "MarkIn": 0,
+    "MarkOut": 9199,
+    "timelineStartFrame": 0,
+    "timelineEndFrame": 9200,
+    "selectionMode": "SelectAllFrames",
+    "endpointSemantics": "diagnostic-only; inclusive/exclusive unknown"
+  },
+  "neverDispatched": ["StartRendering", "GetRenderJobStatus", "DeleteRenderJob", "DeleteRenderPreset"],
+  "installedConfig": {
+    "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation.json",
+    "action": "observe",
+    "timelineInventory": "protected-six",
+    "externalScriptingSetting": "None",
+    "probeSha256": "54bbbeee926a5ef423615b1f981ec8ebe6586e91f938a8aad05db441ecc53310",
+    "checkpointPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/audio-mapping-mute-20261002T020031.880586Z/after-muted-full-pair.json",
+    "checkpointSha256": "a171acbb58b84753b624b316230455e4b59b78a32e55fdcf04c72c3095292cd3"
+  },
+  "continuationConfig": {
+    "action": "av-output-full-matrix-continue",
+    "case": "R2-disable-mute",
+    "checkpointPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T020927.190878Z/full-pair-007.json",
+    "checkpointSha256": "a171acbb58b84753b624b316230455e4b59b78a32e55fdcf04c72c3095292cd3",
+    "queueResultPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T020927.190878Z/final-local-result.json",
+    "queueResultSha256": "d08caae2283654badd214a3fa10b73d25c59003b26531a2e6329d830a9bd935b",
+    "queueAfterPairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T020927.190878Z/full-pair-007.json",
+    "queueAfterPairSha256": "a171acbb58b84753b624b316230455e4b59b78a32e55fdcf04c72c3095292cd3",
+    "queueJobId": "c5b1925b-f5aa-49d5-850a-be7a64c5cd29",
+    "queueJobSha256": "e60daa0fd9eab1b1455da3ff0831cf622427f32fef25b57b0e2dcf590545254f",
+    "queueJournalPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T020927.190878Z/journal.jsonl",
+    "queueJournalSha256": "c23c7bbd1619529e59557649cd9caf0b4cd7fccaf6f71d08f5863cb02a68ed5a",
+    "queueSnapshotXmlPath": "REPOSITORY/out/issue-141-observation-20260930T020927.190878Z/VERA141_AV_OUTPUT_20261002T020927.190878Z.drp/VERA141_AV_OUTPUT_20261002T020927.190878Z.xml",
+    "queueSnapshotSha256": "910931c85b39b3f86a72cf2f4df8aa0b175b34a90ecad1576358dd431deb9754",
+    "queueSettingsSha256": "69402d05bf26ff12a2620fb1ef4b9f41558f26cd9c7becd74e1ff270ec16a6b2",
+    "queuePresetName": "VERA141_AV_OUTPUT_20261002T020927.190878Z",
+    "sampleRateHz": 48000,
+    "renderTimeoutSeconds": 30,
+    "resumeExistingJob": true,
+    "timelineInventory": "protected-six"
+  },
+  "continuationAttempt": {
+    "status": "render-state-drift-recovery-retained",
+    "action": null,
+    "auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261002T021523.017948Z",
+    "nativeResult": {
+      "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261002T021524.915721Z.json",
+      "sha256": "131edb04e60fb5a66409853d99e728f74bb1c2608df98e84c98e28a0090154b0"
+    },
+    "moduleResultArtifact": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-full-matrix-continue-20261002T021526.510884Z/final-local-result.json",
+      "sha256": "4513df4a56360e7d0849414b8a9672056e8fafc6cbbd934342b32106e739f58b",
+      "kind": "av-output-final-local-result"
+    },
+    "journal": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-full-matrix-continue-20261002T021526.510884Z/journal.jsonl",
+      "sha256": "cdc5e68b2c4c96fe5d5914f1d1495b9b28a082857ca6b9827fa3f6c69d1b90bd",
+      "lineCount": 30
+    },
+    "job": {
+      "id": "c5b1925b-f5aa-49d5-850a-be7a64c5cd29",
+      "completionPercentage": 0,
+      "jobStatus": "Ready",
+      "renderingInProgress": false
+    },
+    "startRendering": "skipped-existing-owned-job",
+    "neverDispatched": ["DeleteRenderJob", "DeleteRenderPreset"],
+    "launchReferences": {
+      "launch": {
+        "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261002T021523.017948Z/launch.json",
+        "sha256": "b04cb44935f1cdbe40a37fef9b9a8ff14633f9f3549d75f5476fbb85bb08e17d",
+        "exitCode": 0
+      },
+      "resultReference": {
+        "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261002T021523.017948Z/result-reference.json",
+        "sha256": "ad6af05192de98d23872003cb156e8e19caea701fb1a993ba9e0611bee9cb0b2"
+      }
+    },
+    "stagedResumeExistingJob": true,
+    "rootContinuationUpdates": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/mute-render-continuation-updates.json",
+      "sha256": "580e44f82511a68884fde67320222ec2bad9cf5b2b4ec8682d6b67d326885783"
+    },
+    "installedConfigAfterAttempt": {
+      "action": "observe",
+      "timelineInventory": "protected-six",
+      "externalScriptingSetting": "None"
+    }
+  },
+  "pins": {
+    "avOutputSha256": "134fd7fdbbf4673fe8385be78eaea138adc1ea55ad55b309a0a17813815438c0",
+    "probeSha256": "54bbbeee926a5ef423615b1f981ec8ebe6586e91f938a8aad05db441ecc53310",
+    "callerSha256": "956463d19b0fd11f783c4f715e52a313dc5aaf153ffe8baf4f9ec4a829fb7011",
+    "heldCheckpointSha256": "a171acbb58b84753b624b316230455e4b59b78a32e55fdcf04c72c3095292cd3"
+  }
+}

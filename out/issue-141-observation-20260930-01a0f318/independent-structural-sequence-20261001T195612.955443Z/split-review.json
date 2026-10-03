@@ -1,0 +1,46 @@
+{
+  "case": "R3-Graphic",
+  "childUids": {
+    "audio": [
+      "2e9c3451-1ed8-4e88-985d-ef5e7f3a070b",
+      "f7bb7700-1072-47ce-acb5-8e50ac6f9a88"
+    ],
+    "video": [
+      "70717d8e-6888-421b-825a-8e093beb2c45",
+      "36aa9baf-affc-493a-b09e-90e16996caf0"
+    ]
+  },
+  "firstSplitPair": {
+    "path": "r3-graphic-split-20261001T195720.892725Z/pair.json",
+    "sha256": "b45c1e45ace27f59052618536cd0121646b4995297b6eb2628d87b3686d7e78b"
+  },
+  "menuCommandDispatched": false,
+  "preparationResult": {
+    "path": "independent-structural-sequence-20261001T195612.955443Z/preparation.json",
+    "sha256": "01071e407a59b2d8e07d38f9f92f35f2dd337952e9874f76235a4344fd85524b"
+  },
+  "ranges": [
+    [
+      8500,
+      8600,
+      0,
+      100
+    ],
+    [
+      8600,
+      8699,
+      100,
+      199
+    ]
+  ],
+  "saveDispatched": false,
+  "selectionResult": {
+    "path": "independent-structural-sequence-20261001T195612.955443Z/r3-graphic-selected.json",
+    "sha256": "085e0e41bdc8830ed180cf1fc9f537af54b912304dfa290473c597a4b55bd8c4"
+  },
+  "splitPair": {
+    "path": "r3-graphic-split-20261001T195720.892725Z/pair.json",
+    "sha256": "b45c1e45ace27f59052618536cd0121646b4995297b6eb2628d87b3686d7e78b"
+  },
+  "status": "split-readback-retained"
+}

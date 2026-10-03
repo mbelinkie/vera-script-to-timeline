@@ -1,0 +1,24 @@
+{
+  "status": "authorized-native-checkpoint-retained-editorial-approval-pending",
+  "retainedAt": "2026-10-01T04:32:53.106495+00:00",
+  "completed": 21,
+  "total": 41,
+  "currentProjectUid": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+  "selectedTimelineUid": "64de8a4c-86bd-4f19-9d20-47b8940f610b",
+  "page": "edit",
+  "playhead": "00:00:07:24",
+  "nativeLaunchInFlight": false,
+  "configurationAction": "observe",
+  "fullStateReference": {
+    "capture": "capture-20261001T034129.233236Z.json",
+    "captureSha256": "690bac86a68ca1ba7a168071bf7df3fe01d172e7f258303183163c1bf25e90da",
+    "pool": "r4-pool-read-only-20261001T034129.233236Z.json",
+    "poolSha256": "4b9fd9ba0f6bc006ceabf6d6658f1e971369de68d6042ad7042b3b25e0ec8437"
+  },
+  "latestRestoredPair": {
+    "name": "r4-wrong-bytes-20261001T042632.944184Z-restored.json",
+    "sha256": "cb12248c97637f21c355e069cd416f508e052d409d90a9136ece13e4507cbce6"
+  },
+  "editorialMacroApproval": "pending; no execution",
+  "nextAction": "Await already-requested bounded editorial approval; second duplicate follows remaining four-timeline probes. Audio/still endpoints and complete routing remain unresolved."
+}

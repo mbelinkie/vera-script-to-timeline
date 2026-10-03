@@ -1,0 +1,98 @@
+{
+  "kind": "issue-141-closeout-report-gap-audit-v1",
+  "scope": "Local documentation audit against all 41 dashboard titles, issue R1-R5 acceptance, the retained remaining-acceptance audit, and newest compact native result summaries. No native/UI calls or report/dashboard edits.",
+  "sources": {
+    "dashboardPath": "LOCAL_DASHBOARD/progress.json",
+    "dashboardUpdatedAt": "2026-10-02T02:31:06.597333+00:00",
+    "report": "docs/investigations/issue-141/report.md",
+    "operatorChecklist": "docs/investigations/issue-141/operator-checklist.md",
+    "plan": "docs/plans/issue-141-resolve-observation.md",
+    "productSpec": "docs/Script-to-Timeline Product Spec - Fable Rev2.md §§6.13, 6.15-6.16, 7, 8.1-8.2, 13",
+    "acceptanceAudit": "out/issue-141-observation-20260930-01a0f318/remaining-acceptance-audit.json"
+  },
+  "latestRetainedNativeSummary": {
+    "timestamp": "2026-10-02T02:33:44.883424+00:00",
+    "path": "out/issue-141-observation-20260930-01a0f318/mute-render-existing-job-completion-summary.json",
+    "jobId": "c5b1925b-f5a9-49d5-850a-be7a64c5cd29",
+    "status": "render-complete-restored",
+    "completionPercentage": 100,
+    "outputSha256": "7c69f239a3a8e08f5617c4e72f843c345d91bf3baef813f7c43501efccbcbbf4",
+    "restoredPairSha256": "a171acbb58b84753b624b316230455e4b59b78a32e55fdcf04c72c3095292cd3",
+    "continuationStartRenderingRequests": 0,
+    "interpretation": "Terminal completion and render-state cleanup to the held-mute checkpoint are verified; this does not restore the A2 source-channel mapping."
+  },
+  "plannedTitleReconciliation": {
+    "planned": 41,
+    "dashboardDone": 37,
+    "dashboardWorking": 2,
+    "dashboardPending": 2,
+    "groups": [
+      {"name": "Preparation", "planned": 7, "done": 7, "gap": "None in planned titles."},
+      {"name": "R1 identity/editorial", "planned": 7, "done": 6, "working": 1, "remainingTitle": "R1-repeat: save/reopen repeat and second named duplicate"},
+      {"name": "R2 word boundaries and complete audio", "planned": 9, "done": 8, "working": 1, "remainingTitle": "R2-disable-mute: compare enabled/disabled, mute/solo, routing and output"},
+      {"name": "R3 visibility and structural boundaries", "planned": 8, "done": 8},
+      {"name": "R4 asset identity and availability", "planned": 4, "done": 4},
+      {"name": "R5 repeats, markers and freshness", "planned": 4, "done": 4},
+      {"name": "Closeout", "planned": 2, "pending": 2, "remainingTitles": ["Complete evidence report and bounded interpretations for every R1-R5 result", "External evidence review and remaining operator judgments"]}
+    ],
+    "assessment": "The checklist's 37/41 count matches the live dashboard at the audited revision. Do not count the working R1/R2 items or pending closeout titles complete merely because supporting setup, a held state, or an earlier render exists."
+  },
+  "currentEvidenceAndPreciseGaps": {
+    "R1": {
+      "dashboard": "working",
+      "criteria": "One bounded repeat after save/close/reopen, then the second named duplicate operation, with exact selected/project identity and complete before/after readbacks; retain occurrence/source/range/marker evidence and protect the original six timelines.",
+      "retained": "First reopen/duplicate and razor, trim, move, and genuine Copy/Paste have bounded identity/source/range evidence. Local R1 fake check passes. The registration package is prepared but has not performed native work.",
+      "missing": "Native final repeat, actual second DuplicateTimeline result, complete stable protected-seven post-duplicate timeline/pool pair, and independently reviewed evidence. Prior guard refusals do not establish unsupported Resolve behavior."
+    },
+    "R2": {
+      "dashboard": "working",
+      "criteria": "Compare actual program output with A2 source-channel mapping mute held, retain bounded before/muted/restored pairs, then observe Fairlight Solo, track/bus routing, channel mapping/sends, program-output assignment, an audible or rendered discriminant, and exact restoration.",
+      "retained": "Six physical edit/output cases and 100%-speed integer endpoint calibration are independently reviewed. A2 mapping mute was successfully held on the exact residual occurrence, changing only track_mapping.1.mute. The newly started same-owned-job render c5b1925b-f5aa-49d5-850a-be7a64c5cd29 is now retained as Complete/100%, with output MOV hash 7c69f239a3a8e08f5617c4e72f843c345d91bf3baef813f7c43501efccbcbbf4 and a restored final pair equal to its held-mute checkpoint a171acbb58b84753b624b316230455e4b59b78a32e55fdcf04c72c3095292cd3. Its continuation journal records zero new StartRendering requests and one skipped existing job.",
+      "missing": "The retained hold summary still says mapping-muted-held-for-output and contains no restoredFullPair. The matching held-mute MOV is now terminal and available for the retained PCM comparison; compare it with baseline and exact case windows, then perform the original-mapping restoration and retain/verify the restored full pair. Fairlight state/routing and an audible or rendered discriminant tied to the Fairlight observation, plus exact restoration, remain absent. Do not claim A2 mapping restoration from render-state restoration."
+    },
+    "R3": {
+      "dashboard": "done",
+      "criteria": "Named bounded visibility samples and structural Graphic/authored-boundary observations only.",
+      "retained": "Later independent reviews complete the named samples and structural cases; general effects/compositing visibility, lineage, audibility and arbitrary effects remain unproved.",
+      "documentation": "The current report/checklist summary rows are reconciled as complete. The older remaining-acceptance-audit note calling those rows stale is superseded by these current documents and dashboard; no R3 rerun is indicated."
+    },
+    "R4": {
+      "dashboard": "done",
+      "criteria": "Offline/relink/wrong-byte/removal observations with bounded evidence.",
+      "retained": "Current report/checklist summarize the bounded cases and preserve locator/ID limits; no missing planned R4 evidence identified."
+    },
+    "R5": {
+      "dashboard": "done",
+      "criteria": "Quiet/reopen/interpass-change refusal and marker/move freshness observations.",
+      "retained": "Later current report/checklist entries record marker-note and one-frame move completion with full comparisons.",
+      "documentation": "The current report/checklist summary rows are reconciled. The older audit's stale-move note is superseded; preserve lack of atomic revision token, ABA exclusion, and UI-race guarantee. No rerun is indicated."
+    }
+  },
+  "reportConsolidationGaps": [
+    "Current top summary and R1-R5 table correctly reflect 37/41 and bounded R3/R5 completion. Preserve this; do not revive the superseded stale-row findings in remaining-acceptance-audit.json.",
+    "The October 2 render narrative has chronological statements that the first recovery preset remains/restoration is required, followed later by verified original render-settings restoration and cleanup. Final edited report should make the later restoration the current state and label the earlier sentence historical.",
+    "The newest held-mute render summary reports terminal render completion and restored render state, while the held-mute native result still lacks a restored A2 pair. The older mute-PCM readiness file still says it awaits terminal render confirmation. Final consolidation should bind the new terminal output, update the evidence chronology, and keep mapping restoration as a separate pending event.",
+    "Keep the bounded PCM claims tied to the actual generated render and comparison; source mapping or correlation alone does not identify Fairlight bus/track origin or establish general audibility.",
+    "Closeout remains open for final evidence consolidation and producer External acceptance. Required producer statement is exactly `Issue #141 External evidence confirmed`, naming the project, report/capture identities, and any discrepancy. An agent or automated check cannot provide this acceptance."
+  ],
+  "unsupportedClaimsToAvoid": [
+    "Do not claim all R2 mute/Fairlight work complete from held mute plus render completion; mapping restoration, PCM discrimination, Fairlight routing evidence, and producer judgment are distinct.",
+    "Do not claim R1 complete from local fake checks, action registration, or prior first duplication.",
+    "Do not generalize tested 100%-speed integer endpoints to fractional or retimed precision.",
+    "Do not convert dashboard working/pending states to done based on planned scripts or elapsed render estimates."
+  ],
+  "nextCloseoutEvidence": [
+    "Analyze/bind the terminal held-mute MOV against the retained baseline and exact case windows, then restore A2 to its original raw mapping and verify the complete original pair.",
+    "Retain operator Fairlight UI/readback for Solo, track/bus routing, channel mapping/sends, and program-output assignment, with the named discriminant and exact restoration.",
+    "When the native actor is idle and mute restoration is verified, execute the reviewed R1 registration and then the bounded repeat/second-duplicate operation.",
+    "After those actual probes, reconcile the report chronology and bounded interpretations, then obtain the explicit producer External evidence statement."
+  ],
+  "r1RegistrationPackage": {
+    "script": "output/r1-register-reviewed.py",
+    "correctedSha256": "c007e1734bb0619600dee0670cf5358f24baa85d7c631fec497c2d83f28ba3bd",
+    "noWriteCheck": "Passed: ctx-wire run rtk proxy python3 -S output/r1-register-reviewed.py --check",
+    "checkResult": "Against current pinned bytes, both actions are in the transformed probe config/runtime gates and point to r1-repeat-six.py with the reviewed pin in owned_modules. The transformed caller allows each action only for R1-repeat-six and refuses R1-copy. filesWritten=false and nativeDispatchPerformed=false.",
+    "liveRegistration": "Not performed; wait until the render actor is idle and A2 mapping has been restored and verified."
+  },
+  "auditLimit": "Read-only document and compact-result audit. No source/report/dashboard/config changes, native calls, UI inspection, large-capture reads, or evidence count transitions were made."
+}

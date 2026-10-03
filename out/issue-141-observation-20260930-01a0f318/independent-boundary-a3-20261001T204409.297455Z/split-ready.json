@@ -1,0 +1,15 @@
+{
+  "case": "R3-boundary-A3",
+  "menuCommandDispatched": false,
+  "selectedUids": [
+    "9d052518-8d90-4dc3-b09e-64c4778899f6"
+  ],
+  "selectionLabel": "r3-boundary-a3-selected",
+  "selectionResult": {
+    "path": "independent-boundary-a3-20261001T204409.297455Z/r3-boundary-a3-selected.json",
+    "sha256": "32c45c7578be1af79d75a8c4fc1e86825dad1939903bde1e2432587ed1643297"
+  },
+  "splitFrame": 9100,
+  "stage": "first",
+  "status": "split-ready"
+}

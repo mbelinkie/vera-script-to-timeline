@@ -1,0 +1,18 @@
+2026-10-01T22:18:48.704211Z  WARN codex_skills::interface: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-10-01T22:18:48.704352Z  WARN codex_skills::interface: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
+2026-10-01T22:18:48.979984Z  WARN codex_skills::interface: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-10-01T22:18:48.980037Z  WARN codex_skills::interface: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
+2026-10-01T22:20:29.735266Z ERROR codex_core::tools::router: error=apply_patch verification failed: Failed to find expected lines in REPOSITORY/docs/investigations/issue-141/editorial-cases-check.py:
+    second_selection = selection(
+        "named-interval-selection.json",
+        "r2-residual-interval-selected",
+        second_pair,
+        [
+            next(
+                row
+                for row in track(kind)["items"]
+                if row["GetStart"]["value"] == start + 60
+            )
+            for kind in ("video", "audio")
+        ],
+    )

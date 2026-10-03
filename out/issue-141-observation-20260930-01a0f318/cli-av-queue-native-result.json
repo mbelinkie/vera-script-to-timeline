@@ -1,0 +1,91 @@
+{
+  "kind": "issue141-av-queue-native-result",
+  "invocation": {
+    "driver": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-native-call.py",
+    "action": "av-output-full-matrix-queue-only",
+    "case": "R2-av-output",
+    "checkpointPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-residual-context-20261001T231413.016995Z/pair.json",
+    "checkpointSha256": "1616fa7f512b1a23d4c2756d2246bef51ee9d085ba8c443170ad060c385949a4",
+    "timelineInventory": "protected-six",
+    "sampleRateHz": 48000,
+    "renderTimeoutSeconds": 30
+  },
+  "phases": [
+    "registration and local checks passed",
+    "fresh editorial-readback completed",
+    "single native queue-only dispatch",
+    "preflight failed: Fresh full content/source state differs from pin",
+    "AddRenderJob not reached; StartRendering not invoked"
+  ],
+  "status": "launcher-failed-preflight-content-source-pin-mismatch",
+  "nativeResult": {
+    "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T231540.239000Z.json",
+    "sha256": "5e347a3e99dfc5e63c761f906d4e24311db648c74b2c713c03aa02f6dc41b8a4",
+    "data": {
+      "detail": "RuntimeError: RuntimeError: Fresh full content/source state differs from pin",
+      "instruction": "Retain evidence and stop. Do not rerun preparation or change scripting mode.",
+      "status": "launcher-failed"
+    }
+  },
+  "auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T231538.711994Z",
+  "auditFiles": {
+    "staged-config.json": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T231538.711994Z/staged-config.json",
+      "sha256": "da1123d818872c63eec675e8198233a4d8697bc2b0a10c5801c52412435603d8"
+    },
+    "launch.json": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T231538.711994Z/launch.json",
+      "sha256": "b04cb44935f1cdbe40a37fef9b9a8ff14633f9f3549d75f5476fbb85bb08e17d"
+    },
+    "previous-config.json": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T231538.711994Z/previous-config.json",
+      "sha256": "54157ce8eeb066e6a5150f67bb68c59d31ca65aa0f96d73db67bbbfc9ff37aea"
+    },
+    "result-reference.json": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T231538.711994Z/result-reference.json",
+      "sha256": "feb03055ad3a5bb2f036c69a85d7808f23dd0e4703a27462ccd0dee2dedf503d"
+    }
+  },
+  "freshCheckpoint": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-residual-context-20261001T231413.016995Z/pair.json",
+    "sha256": "1616fa7f512b1a23d4c2756d2246bef51ee9d085ba8c443170ad060c385949a4",
+    "readbackNativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T231412.456488Z.json",
+    "readbackNativeResultSha256": "104d69f62c22a12609ab6b4b9919e83901bff9819bf053dd53243443b1c84a63"
+  },
+  "jobId": null,
+  "jobMetadata": null,
+  "acceptedMarkIn": null,
+  "acceptedMarkOut": null,
+  "renderStarted": false,
+  "resumeOrRetry": false,
+  "sourcePins": {
+    "probe.py": {
+      "path": "REPOSITORY/docs/investigations/issue-141/probe.py",
+      "sha256": "b39f0b83962ce26ae349fcaa40a9d27cde6ca14f159706aee286988ff21b8e01"
+    },
+    "av-output.py": {
+      "path": "REPOSITORY/docs/investigations/issue-141/av-output.py",
+      "sha256": "134fd7fdbbf4673fe8385be78eaea138adc1ea55ad55b309a0a17813815438c0"
+    },
+    "av-output-check.py": {
+      "path": "REPOSITORY/docs/investigations/issue-141/av-output-check.py",
+      "sha256": "27d1ec23e6fb5b78d6e412f04de3d32c032873f22386d035f117ed7f9888fdae"
+    },
+    "editorial-readback.py": {
+      "path": "REPOSITORY/docs/investigations/issue-141/editorial-readback.py",
+      "sha256": "d9df76229ead502b2d9ff31a1847eb9b858aa8931d25d279b560244e93690354"
+    },
+    "independent-native-call.py": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-native-call.py",
+      "sha256": "9f1827d3aa10a0f9b6964a0269009fef4c97cda73eb8bd3502479c3595d6113b"
+    }
+  },
+  "recoveryBindings": {
+    "status": "not-created; native preflight refused before AV module ran",
+    "jobId": null,
+    "snapshotXml": null,
+    "preset": null,
+    "journal": null,
+    "settings": null
+  }
+}

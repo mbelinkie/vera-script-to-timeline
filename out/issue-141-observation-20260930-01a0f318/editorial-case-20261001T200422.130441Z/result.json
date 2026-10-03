@@ -1,0 +1,48 @@
+{
+  "case": "R3-Graphic",
+  "directory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T200422.130441Z",
+  "environment": {
+    "productName": "DaVinci Resolve Studio",
+    "python": "3.14.7",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "failure": null,
+  "journal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T200422.130441Z/journal.jsonl",
+  "originalLocks": {
+    "audio:1": false,
+    "audio:2": true,
+    "audio:3": true,
+    "video:1": false,
+    "video:2": true,
+    "video:3": true
+  },
+  "originalPlayhead": "00:00:00:00",
+  "playheadAfter": "00:00:00:00",
+  "postEditPair": {
+    "path": "r3-graphic-split-20261001T195720.892725Z/pair.json",
+    "sha256": "b45c1e45ace27f59052618536cd0121646b4995297b6eb2628d87b3686d7e78b"
+  },
+  "preparationResult": {
+    "path": "independent-structural-sequence-20261001T195612.955443Z/preparation.json",
+    "sha256": "01071e407a59b2d8e07d38f9f92f35f2dd337952e9874f76235a4344fd85524b"
+  },
+  "restoredPair": {
+    "path": "editorial-case-20261001T200422.130441Z/after.json",
+    "sha256": "b45c1e45ace27f59052618536cd0121646b4995297b6eb2628d87b3686d7e78b"
+  },
+  "saveDispatched": false,
+  "setters": [
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetCurrentTimecode"
+  ],
+  "status": "restored-unsaved"
+}
