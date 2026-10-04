@@ -1,0 +1,28 @@
+{
+  "checkpoint": "12e",
+  "priorVerifiedCommit": "29c80a0",
+  "files": {
+    "python/vera_timeline_agent/roundtrip_omission.py": "sha256:b3027b72a65dd4a34aed6aed09c293b3aa15c397797dafb16d8e7d379dd50319",
+    "python/vera_timeline_agent/roundtrip_proof.py": "sha256:a66ea5e9bc67bafe8b02d22400557f3479545a5dd7c4e6c51ce951b9fe8512a8",
+    "tests/test_issue144_omission_decisions.py": "sha256:48a1d2cd12f0bff3e9d448f84f6bf7a188720835e163ff979fac83ae218f37f1"
+  },
+  "focused": {
+    "status": "passed",
+    "cases": 13,
+    "seconds": 895.88
+  },
+  "fullValidation": "prior12d passed; no current12e full-run claim",
+  "logs": {
+    "/tmp/vera144-checkpoint12e-decisions-red.log": "sha256:2f470ab52d1abeb7a2970261c33824e43d6868975e929e940f9cd4b2c9a03911",
+    "/tmp/vera144-checkpoint12e-explicit-red.log": "sha256:2b7001fe1e5479d16b10cc80bab7241538899a84561f555547a08be08d846fdf",
+    "/tmp/vera144-checkpoint12e-decisions-green.log": "sha256:16163c0abb8fa472e61c274d87a8d2881af6afbabbcd2454b18b67458f4a6220"
+  },
+  "commands": [
+    "ctx-wire run rtk proxy npm exec --yes --package=node@24.19.0 -- uv run --frozen pytest -q tests/test_issue144_omission_decisions.py -k explicit",
+    "ctx-wire run rtk proxy npm exec --yes --package=node@24.19.0 -- uv run --frozen pytest -q tests/test_issue144_omission_decisions.py",
+    "ctx-wire run rtk proxy uv run --frozen ruff check python/vera_timeline_agent/roundtrip_omission.py python/vera_timeline_agent/roundtrip_proof.py tests/test_issue144_omission_decisions.py",
+    "ctx-wire run rtk proxy uv run --frozen ruff format --check python/vera_timeline_agent/roundtrip_omission.py python/vera_timeline_agent/roundtrip_proof.py tests/test_issue144_omission_decisions.py",
+    "ctx-wire run rtk proxy uv run --frozen mypy python tests",
+    "ctx-wire run rtk git diff --check"
+  ]
+}

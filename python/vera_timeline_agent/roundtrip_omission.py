@@ -1,4 +1,4 @@
-"""Pristine source/graph binding and synthetic omission proposal; no decisions.
+"""Pristine binding, synthetic omission proposal and explicit prepared revision.
 
 Native capture/render authenticity and real support qualification remain #145.
 All file hashes prove consistency only; the synthetic supplier is explicit.
@@ -6,6 +6,7 @@ All file hashes prove consistency only; the synthetic supplier is explicit.
 
 from __future__ import annotations
 
+import re
 import wave
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -22,6 +23,8 @@ from vera_timeline_agent.roundtrip_build import (
     ProofBuildError,
     _digest,
     _file_hash,
+    _operator_bytes,
+    _parse,
     _receipt_bytes,
     load_operator_json,
 )
@@ -59,7 +62,9 @@ def _source_key(item: JsonObject) -> tuple[Any, ...]:
 
 
 class OmissionProof:
-    def __init__(self, session: ProofSession) -> None:
+    def __init__(
+        self, session: ProofSession, *, baseline_hash: str | None = None
+    ) -> None:
         self.session = session
         self.root = session.root
         self.request_path = self.root / "omission-request.json"
@@ -70,8 +75,22 @@ class OmissionProof:
             "unknown omission request",
         )
         self.request_hash = _file_hash(self.request_path)
-        self.pointer_hash = _file_hash(session.pointer)
-        self.baseline_hash = load_operator_json(session.pointer)["baselineHash"]
+        self.retained = baseline_hash is not None
+        self.baseline_hash = (
+            baseline_hash or load_operator_json(session.pointer)["baselineHash"]
+        )
+        self.pointer_hash = _digest(
+            _receipt_bytes(
+                {
+                    "schemaVersion": "issue-144-baseline-pointer/v1",
+                    "baselineHash": self.baseline_hash,
+                }
+            )
+        )
+        _fact(
+            self.retained or _file_hash(session.pointer) == self.pointer_hash,
+            "omission baseline pointer differs",
+        )
         self.baseline, self.build = session._baseline(self.baseline_hash)
         _fact(
             self.build.request["evidenceLevel"] == "synthetic_injected",
@@ -207,7 +226,7 @@ class OmissionProof:
         self.build._verify_media()
         self.build._verify_speech()
         _fact(
-            _file_hash(self.session.pointer) == self.pointer_hash
+            (self.retained or _file_hash(self.session.pointer) == self.pointer_hash)
             and _file_hash(self.request_path) == self.request_hash,
             "omission baseline/request changed",
         )
@@ -436,7 +455,18 @@ class OmissionProof:
             supplied.is_relative_to(self.root),
             "audio evidence must be inside the proof directory",
         )
-        files = _Files(supplied)
+        files = self.evidence_files(baseline, current, supplied)
+        for name in tuple(files.hashes):
+            raw = files.read(name, json_file=name.endswith(".json"))
+            publish_immutable_output(destination / name, raw)
+        files.current()
+        self.current()
+        return {"path": str(destination), "inputs": dict(files.hashes)}
+
+    def evidence_files(
+        self, baseline: JsonObject, current: JsonObject, directory: Path
+    ) -> _Files:
+        files = _Files(directory)
         for name, expected in (
             ("baseline.json", baseline),
             ("observation-a.json", current),
@@ -499,12 +529,9 @@ class OmissionProof:
         for name in ("calibration.json", "render.json"):
             receipt = files.json(name)
             files.read(receipt["output"]["path"])
-        for name in tuple(files.hashes):
-            raw = files.read(name, json_file=name.endswith(".json"))
-            publish_immutable_output(destination / name, raw)
         files.current()
         self.current()
-        return {"path": str(destination), "inputs": dict(files.hashes)}
+        return files
 
     def prepare(self) -> JsonObject:
         a, b = self.capture("bind-omission-evidence", self.pointer_hash, pristine=True)
@@ -522,7 +549,16 @@ class OmissionProof:
             self.preparation / "inputs.json", _receipt_bytes(inputs)
         )
         evidence = self.evidence(audio, audio, self.preparation / "evidence")
-        receipt = {
+        receipt = self.preparation_receipt(inputs, evidence)
+        self.current()
+        publish_immutable_output(
+            self.preparation / "receipt.json", _receipt_bytes(receipt)
+        )
+        return receipt
+
+    @staticmethod
+    def preparation_receipt(inputs: JsonObject, evidence: JsonObject) -> JsonObject:
+        return {
             "status": "prepared",
             "evidenceLevel": "synthetic_injected",
             "inputHash": _digest(_receipt_bytes(inputs)),
@@ -533,11 +569,6 @@ class OmissionProof:
                 "proposal; no real/native qualification."
             ),
         }
-        self.current()
-        publish_immutable_output(
-            self.preparation / "receipt.json", _receipt_bytes(receipt)
-        )
-        return receipt
 
     def retained_preparation(self) -> tuple[JsonObject, JsonObject]:
         _fact(
@@ -562,19 +593,53 @@ class OmissionProof:
             and receipt["evidence"]["path"] == str(self.preparation / "evidence"),
             "pristine preparation binding differs",
         )
-        for name, digest in receipt["evidence"]["inputs"].items():
-            _fact(
-                _file_hash(self.preparation / "evidence" / name) == digest,
-                "retained pristine audio evidence changed",
-            )
+        files = self.evidence_files(
+            expected["baselineAudio"],
+            expected["baselineAudio"],
+            self.preparation / "evidence",
+        )
+        evidence = {
+            "path": str(self.preparation / "evidence"),
+            "inputs": dict(files.hashes),
+        }
+        _fact(
+            receipt == self.preparation_receipt(expected, evidence),
+            "retained pristine audio receipt differs",
+        )
         self.current()
         return inputs, receipt
 
     def propose(self) -> JsonObject:
-        prepared, retained = self.retained_preparation()
+        prepared, _retained = self.retained_preparation()
         a, b = self.capture("propose-omission", self.pointer_hash, pristine=False)
         audio = self.audio(a, pristine=False)
-        inputs = {
+        inputs = self.proposal_inputs(a, b)
+        directory = self.proposal_directory(inputs)
+        publish_immutable_output(directory / "inputs.json", _receipt_bytes(inputs))
+        evidence = self.evidence(
+            prepared["baselineAudio"], audio, directory / "evidence"
+        )
+        report = self.proposal_report(inputs, evidence)
+        self.current()
+        digest = _digest(_receipt_bytes(report))
+        path = self.root / "reports" / f"{digest[7:]}.json"
+        publish_immutable_output(path, _receipt_bytes(report))
+        receipt = {
+            "status": "proposed"
+            if report["classification"] == "supported"
+            else "refused",
+            "reportHash": digest,
+            "reportPath": str(path),
+            "inputPath": str(directory / "inputs.json"),
+            "baselinePointerHash": self.pointer_hash,
+        }
+        publish_immutable_output(
+            path.with_suffix(".receipt.json"), _receipt_bytes(receipt)
+        )
+        return receipt
+
+    def proposal_inputs(self, a: JsonObject, b: JsonObject) -> JsonObject:
+        return {
             "preparationHash": _file_hash(self.preparation / "receipt.json"),
             "baselineHash": self.baseline_hash,
             "baselinePointerHash": self.pointer_hash,
@@ -584,12 +649,32 @@ class OmissionProof:
             "observationB": b,
             "sources": self.build.source_hashes,
         }
-        directory = (
+
+    def proposal_directory(self, inputs: JsonObject) -> Path:
+        return (
             self.root / "omission-proposal-inputs" / _digest(_receipt_bytes(inputs))[7:]
         )
-        publish_immutable_output(directory / "inputs.json", _receipt_bytes(inputs))
-        evidence = self.evidence(
+
+    def proposal_report(self, inputs: JsonObject, evidence: JsonObject) -> JsonObject:
+        prepared, retained = self.retained_preparation()
+        a, b = inputs["observationA"], inputs["observationB"]
+        _fact(
+            inputs == self.proposal_inputs(a, b) and a == b,
+            "omission proposal inputs differ",
+        )
+        directory = self.proposal_directory(inputs)
+        _fact(
+            _operator_bytes(directory / "inputs.json") == _receipt_bytes(inputs),
+            "omission proposal input artifact differs",
+        )
+        audio = self.audio(a, pristine=False)
+        files = self.evidence_files(
             prepared["baselineAudio"], audio, directory / "evidence"
+        )
+        _fact(
+            evidence
+            == {"path": str(directory / "evidence"), "inputs": dict(files.hashes)},
+            "omission evidence binding differs",
         )
         prior_render = load_operator_json(self.preparation / "evidence" / "render.json")
         replaced_files = {
@@ -649,19 +734,128 @@ class OmissionProof:
                 report["classification"] = "supported"
                 report["afterText"] = revised["result"]["regeneration"]["text"]
         self.current()
-        digest = _digest(_receipt_bytes(report))
-        path = self.root / "reports" / f"{digest[7:]}.json"
-        publish_immutable_output(path, _receipt_bytes(report))
-        receipt = {
-            "status": "proposed"
-            if report["classification"] == "supported"
-            else "refused",
-            "reportHash": digest,
-            "reportPath": str(path),
-            "inputPath": str(directory / "inputs.json"),
-            "baselinePointerHash": self.pointer_hash,
-        }
-        publish_immutable_output(
-            path.with_suffix(".receipt.json"), _receipt_bytes(receipt)
+        return report
+
+    def retained_report(self, digest: str) -> JsonObject:
+        _fact(
+            isinstance(digest, str)
+            and re.fullmatch(r"sha256:[a-f0-9]{64}", digest) is not None,
+            "explicit valid omission report hash required",
         )
+        path = self.root / "reports" / f"{digest[7:]}.json"
+        raw = _operator_bytes(path)
+        _fact(_digest(raw) == digest, "omission proposal report changed")
+        report = _parse(raw)
+        expected = self.proposal_report(report["bindings"], report["evidence"])
+        _fact(
+            raw == _receipt_bytes(expected),
+            "omission proposal report rederivation differs",
+        )
+        return expected
+
+    @staticmethod
+    def choice(raw: bytes) -> JsonObject:
+        value = _parse(raw)
+        _shape(value, {"schemaVersion", "reportHash", "choice"}, "omission decisions")
+        _fact(
+            value["schemaVersion"] == "issue-144-omission-decisions/v1"
+            and value["choice"] in ("accept", "reject")
+            and isinstance(value["reportHash"], str)
+            and re.fullmatch(r"sha256:[a-f0-9]{64}", value["reportHash"]) is not None,
+            "explicit valid omission choice/report required",
+        )
+        return value
+
+    def decision_receipt(
+        self, raw: bytes, choice: JsonObject, report: JsonObject
+    ) -> JsonObject:
+        accepted = choice["choice"] == "accept"
+        _fact(
+            not accepted or report["classification"] == "supported",
+            "unsupported omission cannot be accepted",
+        )
+        key = _digest(raw)[7:]
+        return {
+            "schemaVersion": "issue-144-omission-decision/v1",
+            "status": "prepared_revision" if accepted else "rejected",
+            "evidenceLevel": "synthetic_injected",
+            "decisionKey": key,
+            "decisionHash": _digest(raw),
+            "reportHash": choice["reportHash"],
+            "baselinePointerHash": self.pointer_hash,
+            "baselineHash": self.baseline_hash,
+            "priorIdentity": self.baseline["nativeIdentity"],
+            "revisionRoot": str(self.root / "decisions" / key / "build"),
+            "semanticReceipt": report["revision"] if accepted else None,
+        }
+
+    def revision_artifacts(self, receipt: JsonObject) -> dict[str, bytes]:
+        if receipt["status"] == "rejected":
+            return {}
+        semantic = receipt["semanticReceipt"]
+        _fact(
+            semantic["ok"] and set(semantic["artifacts"]) == {"script-document.json"},
+            "canonical omission revision artifact required",
+        )
+        return {
+            "script-document.json": semantic["artifacts"][
+                "script-document.json"
+            ].encode("utf-8"),
+            "regeneration-request.json": _receipt_bytes(
+                semantic["result"]["regeneration"]
+            ),
+        }
+
+    @classmethod
+    def decide(cls, session: ProofSession) -> JsonObject:
+        decision_path = session.root / "omission-decisions.json"
+        raw = _operator_bytes(decision_path)
+        choice = cls.choice(raw)
+        key = _digest(raw)[7:]
+        directory = session.root / "decisions" / key
+        if (directory / "receipt.json").exists():
+            receipt = load_operator_json(directory / "receipt.json")
+            retained = cls(session, baseline_hash=receipt["baselineHash"])
+            return retained.retained_decision(key)
+        self = cls(session)
+        report = self.retained_report(choice["reportHash"])
+        receipt = self.decision_receipt(raw, choice, report)
+        a, b = self.capture("decide-omission", _digest(raw), pristine=False)
+        _fact(
+            self.proposal_inputs(a, b) == report["bindings"],
+            "edited omission observation changed before decision",
+        )
+        self.current()
+        _fact(_file_hash(decision_path) == _digest(raw), "omission choice changed")
+        for name, content in self.revision_artifacts(receipt).items():
+            publish_immutable_output(Path(receipt["revisionRoot"]) / name, content)
+        publish_immutable_output(directory / "operator-decisions.json", raw)
+        publish_immutable_output(
+            directory / "inputs.json", _receipt_bytes(report["bindings"])
+        )
+        self.current()
+        _fact(_file_hash(decision_path) == _digest(raw), "omission choice changed")
+        publish_immutable_output(directory / "receipt.json", _receipt_bytes(receipt))
         return receipt
+
+    def retained_decision(self, key: str) -> JsonObject:
+        directory = self.root / "decisions" / key
+        raw = _operator_bytes(directory / "operator-decisions.json")
+        _fact(_digest(raw)[7:] == key, "retained omission decision key differs")
+        choice = self.choice(raw)
+        report = self.retained_report(choice["reportHash"])
+        expected = self.decision_receipt(raw, choice, report)
+        receipt = load_operator_json(directory / "receipt.json")
+        _fact(receipt == expected, "retained omission decision receipt differs")
+        _fact(
+            _operator_bytes(directory / "inputs.json")
+            == _receipt_bytes(report["bindings"]),
+            "retained omission decision observations differ",
+        )
+        for name, content in self.revision_artifacts(expected).items():
+            _fact(
+                _operator_bytes(Path(expected["revisionRoot"]) / name) == content,
+                "prepared omission canonical artifact differs",
+            )
+        self.current()
+        return expected

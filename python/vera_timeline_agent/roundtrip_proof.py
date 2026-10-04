@@ -149,6 +149,10 @@ class ProofSession:
                 return self._propose()
             if action == "decide":
                 return self._decide()
+            if action == "decide-omission":
+                from vera_timeline_agent.roundtrip_omission import OmissionProof
+
+                return OmissionProof.decide(self)
             if action in {"bind-omission-evidence", "propose-omission"}:
                 from vera_timeline_agent.roundtrip_omission import OmissionProof
 
@@ -778,6 +782,7 @@ def main() -> int:
             "decide",
             "bind-omission-evidence",
             "propose-omission",
+            "decide-omission",
             "rebuild",
             "promote",
             "status",
