@@ -45,6 +45,8 @@ ENTRY = ROOT / "packages/contracts/src/issue-144-proof-cli.ts"
 SEMANTIC_SOURCES = (
     "./issue-144-proof-cli.ts",
     "./issue-144-semantics.ts",
+    "./issue-144-text-revision.ts",
+    "./issue-144-omission-build.ts",
     "./compiler-core.ts",
     "./script-validator.ts",
     "../../../contracts/script-document-v1.schema.json",
@@ -368,10 +370,18 @@ class ProofSession:
         ):
             raise ProofBuildError("semantic result bytes differ")
         for name, text in envelope["artifacts"].items():
-            if name not in {
-                "script-document.json",
-                "compiler-dependencies.json",
-            } or _digest(text.encode("utf-8")) != envelope["artifactHashes"].get(name):
+            allowed = (
+                {
+                    "compiler-dependencies.json",
+                    "timeline-manifest.json",
+                    "build-report.json",
+                }
+                if action == "finalize-omission"
+                else {"script-document.json", "compiler-dependencies.json"}
+            )
+            if name not in allowed or _digest(text.encode("utf-8")) != envelope[
+                "artifactHashes"
+            ].get(name):
                 raise ProofBuildError("canonical semantic artifact hash differs")
         if (
             any(
