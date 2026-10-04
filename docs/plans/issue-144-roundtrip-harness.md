@@ -1,5 +1,31 @@
 # Issue 144 — bounded file-driven round-trip harness
 
+**Producer clarification, 2026-10-03:** temporary narration is replaced as a
+whole row after a wording change, including an accepted spoken omission. The
+previous proposed lossless-splice route is withdrawn. New word timings govern
+all anchored cuts; regenerated pacing and duration need not reproduce the edited
+timeline's old geometry. Prompter generation starts the narration-edit warning
+and lock workflow; an explicit override requires replacement temporary VO and a
+reshoot indication. See `docs/investigations/issue-144/producer-row-audio-policy.md`.
+This does not claim that the post-prompter UI or recorded-conform workflow exists
+in this headless proof. Its positive wording-edit lane is pre-prompter. The
+authoring guard, reshoot states and changed-row pickup export are tracked in
+Inbox [#153](https://github.com/mbelinkie/vera-script-to-timeline/issues/153).
+
+**Row-box framing:** narration and visuals are local to one row. Validate each
+row's audio/timing/anchors/source handles/coverage, then assemble rows in order.
+A changed row's new duration shifts later rows as intact boxes; it does not
+regenerate their audio or alter their relative cuts. Music can span rows and
+requires a separate assembly-level check. No other cross-row operation is
+qualified by this bounded proof. Spanning music itself is future product work,
+not a supported positive operation or validation claim in #144.
+
+Every #144 rebuilt target is a newly created Studio project/timeline. Untouched
+row content equality does not prove native-object reuse or preservation of all
+human Resolve refinements in that new target. Compatible Resolve-owned work
+preservation belongs to production selective regeneration in
+[#104](https://github.com/mbelinkie/vera-script-to-timeline/issues/104).
+
 **Corrected through checkpoint 2:** completed Claude reviews are retained under
 `docs/investigations/issue-144`. Producer selected the tested linked cases with
 an isolated proof setup step. The compiler-only entry is the first implemented
@@ -82,14 +108,14 @@ is added: use the accepted libraries and standard-library file/hash/SQLite APIs.
 | --- | --- | --- |
 | Host CLI | ScriptDocument, CompilerDependencies, materialization plan → proof request | Node24.19.0 compiler; Python3.12 locked package/jobs/accepted external Studio adapter. Validate and hash literal inputs. No accepted imports inside the WI runtime. |
 | Durable build | Request → #35 job/stage receipts → actual compiler manifest/report → actual #34 package/Studio result | Use stable input-derived build IDs and idempotency keys, existing job IDs/leases, immutable files and package verification. Request no #35 render/upload stages; neither has a proof adapter. |
-| Prepared inputs | All #35 core stages run: `generating_speech` and `resolving_media` verify local files before compile | Speech verifies prepared/spliced dependency text/revision/audio hash and actual bytes; media verifies approved local materializations. No NarrationService/provider/Polly/boto3 import, synthesis, acquisition or cloud call. Missing assets refuse. |
+| Prepared inputs | All #35 core stages run: `generating_speech` and `resolving_media` verify local files before compile | Speech verifies prepared whole-row dependency text/revision/audio hash and actual bytes; media verifies approved local materializations. This existing verification stage does not regenerate audio. A separate bounded regeneration handoff is required before a wording-edit rebuild; no splice or stale recording can satisfy it. No paid/cloud call is authorized by #144. Missing assets refuse. |
 | Proof link setup | Verified fresh target + uniquely mapped video/source-audio pair → pre/post link journal | Separate source files/IDs; `SetClipsLinked`, reciprocal exactly-two links, identical ranges and 100% speed. Only links may change. Post-link capture is the baseline. Reapply for each fresh proof target. |
 | WI capture | Guarded verified target → two complete observations and managed UID map | One WI entry for both reads. Exact project/timeline UID, settings, source hashes, source/record ranges, track, speed, links, availability. Initial binding requires one unique pristine candidate per manifest event. Later matching uses retained UIDs; signatures never prove ancestry. |
 | Program render | Same WI entry + guarded observed target → complete PCM output and job/readback receipt | Bind intent, unique job UID, queued actual settings, full start/end extent and pre/post fingerprints. Refuse unexpected ranges/codec/routing before rendering. Preserve uncertain job/output; no automatic duplicate render. |
 | Proposal | Baseline + current script + current observation + output evidence → deterministic report | Hash all three immutable inputs. Unknown IDs, duplicates, missing/offline media, altered sources, unsupported timing or observed drift refuse visibly. |
 | Local decision | Report hash + baseline/script/observation hashes + explicit accept/reject per proposal | Reject unknown/duplicate/missing IDs and unsupported accepts; no implicit narration rewrite. Identical replay returns identical revision; stale decisions fail. |
 | Canonical revision | Accepted supported operations → new validator-passing ScriptDocument | Retain token IDs/order except explicit omission. Visual edits bump only event/anchor versions. Omission bumps narration and affected anchored entities. Increment local sequence once; empty local state vector. Hash canonical document excluding its own `liveContentHash` using the actual compiler serializer. |
-| Fresh rebuild | New revision + verified local dependency/materialization inputs → new package/job/Studio target | No paid synthesis. Proposed PCM splice route below emits new text/revision-bound audio/timing. Validate/compile/package/build/verify against the new manifest; only then publish a new baseline. |
+| Fresh rebuild | New revision + verified whole-row dependency/materialization inputs → new package/job/Studio target | Changed wording requires a newly generated whole-row recording and fresh timing evidence. Unchanged rows may reuse verified audio. Recompile anchors and downstream positions from the new timing; refuse unsafe coverage/source handles. Validate/compile/package/build/verify against the new manifest; only then publish a new baseline. No paid/cloud synthesis is authorized here. |
 
 ### Entry commands and owned files
 
@@ -202,19 +228,26 @@ Source transcripts, subtitle strings, mute flags and missing transcripts are not
 absence evidence. If transcripts become necessary, stop for accepted #146 and
 its canonical prerequisite. No all-refused or smaller-positive substitute.
 
-### Proposed local narration rebuild and exact wording rule
+### Whole-row narration replacement and exact wording rule
 
-For an explicitly accepted omission, propose a lossless splice of the hash-bound
-original normalized local narration: PCM-24 mono, 48 kHz, 25/1, 100% speed,
-frame-aligned cut inside independently verified silence around the phrase.
-At this rate one frame is exactly 1,920 samples / 40 ms. Refuse audible joins,
-partial target/retained support, fractional timing, effects or missing original
-assets. Create a new file; preserve the original. Remove the corresponding word
-marks, subtract exactly the removed duration from later `timeMs`, update retained
-UTF-16 offsets, and drop sentence marks on this word-precision lane. Emit a new
-schema-valid NarrationDependency directly, deterministic asset ID/audio hash and
-`splice-derived/v1` alignment, plus separate splice provenance. Do not represent
-it as a Polly `temp_synthetic` NarrationAudioAsset or keep stale text-bound audio.
+Producer clarification withdraws the previously proposed lossless-splice route.
+After an explicitly accepted omission changes narration text, invalidate that
+row's current temporary recording and request one newly generated recording for
+the complete revised row. Preserve old bytes only as historical build evidence.
+Do not concatenate retained fragments, reuse their word timings, subtract the
+old cut duration from later marks, or label edited old audio as regenerated VO.
+Bind the replacement to the complete revised text, row revision, generation
+provenance, verified bytes and newly obtained timing marks. Recompile every
+text-anchored cut in the row and downstream positions affected by duration.
+
+The existing prepared-build speech stage only verifies supplied audio; it does
+not implement regeneration. Before implementing the omission rebuild, review a
+bounded handoff to the accepted narration boundary: injected whole-row generation
+for honestly labeled #144 tests, and an explicitly authorized preparation or
+generation route for #145. Missing replacement audio or timing is a named
+readiness blocker, not permission to splice, invent marks, use paid services, or
+claim the positive omission proof complete. Provider, cost and real-input
+authorization remain separate from the settled whole-row product rule.
 
 Bounded text policy for review: one contiguous **interior** token interval in a
 single narration block; nonempty retained neighbors; gaps containing only ASCII
@@ -228,8 +261,9 @@ tokens in the joining gaps (which also refuses a sentence boundary), and any vis
 annotation/beat anchor endpoint on a removed token. Ranges enclosing the phrase
 retain endpoints and receive new quoted text/version. Validate the complete
 revision before publication. No grammar correction, capitalization rewrite or
-spoken reordering is inferred. Producer route/wording choice is pending; new
-real input and exact before/after approval belong to #148/#145.
+spoken reordering is inferred. The whole-row replacement rule is settled; new
+real input and exact before/after wording approval belong to #148/#145. This
+conservative interior omission subset does not define all production edits.
 
 For #145, select one exact build and record host External Scripting Local (the
 historical WI evidence ran with it None). Re-prove assembly including any still/
@@ -274,14 +308,15 @@ only after all fresh-target verification passes. Old revisions/timelines remain.
 
 Compose accepted edits against original token identity: apply proven omission,
 update surviving anchors, then apply explicit visual candidates and compile once.
-Use the actual compiled candidate as the geometry authority. Compare all retained
-non-narration occurrences and the explicit narration splice segment map to the
-observations; do not equate old split narration UIDs/source IDs to a new single
-narration asset. The W1 cut has a one-frame gap [99,100), so it is not automatically
-equal to a gapless splice. Lift gaps, spanning items and non-uniform downstream
-shifts must either match this explicit compiler-backed mapping or refuse.
-Full program evidence binds the semantic narration equivalence. Rebuilt geometry
-is checked against the new compile, not copied from observations.
+Use old observations and their timing to identify the semantic omission and
+visual anchor changes. After whole-row regeneration, the actual new compile is
+the geometry authority. Retain surviving token identity and explicitly accepted
+visual anchors/source choices, then recompute from the new word timings; do not
+require frame equality with the old edited timeline or equate old split narration
+UIDs/source IDs to the replacement row asset. Validate source handles, coverage
+and supported composition, refusing uncertainty. Full program evidence remains
+necessary to prove the original audible omission. New target verification checks
+the new compile and replacement recording, not an old-audio splice segment map.
 
 ## Test-first checks and automated acceptance
 
@@ -296,12 +331,19 @@ audits, `git diff --check`, then full `npm run validate` on a pinned commit.
 
 Named new seam checks: reconstruction partial head/tail, opposite-channel residue,
 unattributed route, out-of-range gain, incomplete extent and wrong fingerprint;
-splice fractional-frame cut, audible join, exact `timeMs` shift, dropped sentence
-marks and UTF-16 surrogate pairs; wording punctuation gap, edge-token deletion
+whole-row replacement, no fragment splicing or stale timing reuse, changed pacing
+and duration with all anchor cuts/downstream positions recomputed, and UTF-16
+surrogate pairs; wording punctuation gap, edge-token deletion
 and removed anchor endpoint; linking extra/non-reciprocal links and unequal ranges;
 speech/media stages missing or changed bytes and no synthesis/provider imports.
 The compiler boundary additionally covers torture golden bytes, BOM rejection,
 observed drift and exact output hashes. No accepted tests are changed.
+
+Whole-row replacement tests must include an unchanged following row: its
+narration dependency text/revision/audio hash, source ranges and block-local
+cut timings remain identical, while absolute record starts translate by the
+preceding row's duration delta. This proves logical content preservation,
+not reuse of native timeline objects or arbitrary human refinements.
 
 Runtime/bootstrap: Node24.19.0, npm11.17.0, Python3.12.14, uv0.12.5; locked
 `npm ci` and `uv sync --frozen`. Default Node26 is not the pinned runtime.
@@ -332,6 +374,6 @@ scope/evidence/forecast changes here and in handoff.
 
 After the first actual compiler/package/job stage test: planning estimate
 **8–16 remaining active-work hours**, excluding Producer waits and #148/#145.
-Semantic mapping/decisions/revision, qualified audio/splice, WI sidecar, native
+Semantic mapping/decisions/revision, qualified audio and whole-row replacement, WI sidecar, native
 injection/recovery, baseline promotion, integration and runbook remain. Revise
 if the audio/recovery checkpoint changes the executable design.
