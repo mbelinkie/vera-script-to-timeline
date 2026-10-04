@@ -100,3 +100,18 @@ profile. Use read-only tools and retain the complete response/disposition on #14
   **17 passed** (8 Studio assembly, 9 durable jobs).
 - Commands ran under `ctx-wire run rtk proxy`; no accepted test was edited.
   These are regression evidence, not a new harness or a live Resolve run.
+
+Checkpoint 3 complete through authenticated CLI2.1.235, configured default
+claude-sonnet-5/high, 42 turns, read-only Read/Grep/Glob, no permission denials.
+Verbatim response and disposition are retained. Host plan had no blocker;
+finite-overflow parsing and boundary audio probes were added.
+
+Checkpoint 4 submitted directly via the same CLI session at pinned `2606bbc`.
+It reviews the finished five local core stages (18 new passing tests),
+source/receipt freshness and replay, audio tolerance limits and the next
+injected native plan. Full review/data/prompt packet:
+https://github.com/mbelinkie/vera-script-to-timeline/issues/144#issuecomment-5974753298 .
+Full finished code/tests/corrected plan:
+https://github.com/mbelinkie/vera-script-to-timeline/issues/144#issuecomment-5974753412 .
+Response pending; full repository validation is running on 2606bbc. No native
+action, paid provider, positive omission rebuild or baseline promotion occurred.

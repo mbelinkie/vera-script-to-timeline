@@ -10,6 +10,13 @@ The prepared-build core segment is now implemented and pending checkpoint 4
 review: actual compiler/package/job stages with 18 new passing tests, strict
 input gate and explicit native wait. Semantic/native seams remain planned.
 
+Checkpoint 4 completed: integer/refusal correction and current-folder recovery
+boundary retained. Prepared checks now total 20. The next implemented segment
+injects the actual accepted Studio assembly with exclusive pre-effect intent,
+immutable result/UID receipts and fresh inspection on replay; checkpoint 5
+reviews it. No real observer, linking, render, semantic revision or baseline
+promotion is implied. The operator CLI still stops before native actions.
+
 ## Authority, ownership and starting evidence
 
 Issue [#144](https://github.com/mbelinkie/vera-script-to-timeline/issues/144),
@@ -84,6 +91,7 @@ is added: use the accepted libraries and standard-library file/hash/SQLite APIs.
   numbers before calling the compiler. Use stdlib `json.loads` hooks:
   `object_pairs_hook` rejects duplicate keys, `parse_constant` rejects literal
   NaN/Infinity and `parse_float` checks `math.isfinite` for overflow (e.g. 1e400).
+  `parse_int` refuses outside JavaScript's exact integer range (±(2^53−1)).
   No custom tokenizer. The standalone compiler uses the
   accepted `JSON.parse` semantics for duplicate keys; it is not the strict
   operator gate. Normal reformatted JSON remains hash-bound and accepted.
@@ -106,6 +114,12 @@ is added: use the accepted libraries and standard-library file/hash/SQLite APIs.
   Build IDs remain pinned in the literal dependencies at this segment; canonical
   revision preparation must create fresh input-derived IDs before rebuilding.
   Native stages explicitly wait, so exit2 is expected. No baseline is published.
+- Implemented injected native building block: `NativeStages` in
+  `roundtrip_native.py`, supplied explicitly to `PreparedBuild.run(adapter=...)`.
+  Tests supply fake factory/local facts and a fresh inspector; native evidence
+  is `synthetic_injected`. Exclusive/fsynced intent precedes actual accepted
+  assembly invocation; missing result waits without retry. Real guarded WI
+  inspector/native authorization and host command remain to be implemented.
 - Planned stdlib-only WI entry: `python/vera_timeline_agent/roundtrip_wi.py`,
   staged/launched through the existing approved WI boundary with `request.json`.
   Actions: capture, link, render and inspect-render. Guard current target UID and
@@ -229,8 +243,10 @@ job identity, rather than modifying its UUID/lease core.
 Persist native intent through the assembly `adapter_factory` wrapper before
 calling `run_studio_assembly`. Project UID first becomes known at WI capture;
 the accepted name lookup searches only the current folder. A lost creation
-response requires one unique read-only match throughout the project tree or
-explicit operator identification. Lost response/name collision waits;
+response requires read-only identification within the current project folder
+using the accepted lookup, or explicit operator identification. Cross-folder
+automatic search has no verified project-manager API and remains unsupported.
+Even a unique name alone does not establish target ancestry. Lost response/name collision waits;
 read-only rehydration verifies target UID and manifests from package-relative
 media paths, hashes and current track/occurrence facts, not only creation-time
 maps. Never retry uncertain creation/render/link automatically. Preserve partial

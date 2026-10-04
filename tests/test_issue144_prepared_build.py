@@ -7,7 +7,6 @@ import subprocess
 import sys
 import wave
 from pathlib import Path
-from typing import Any
 
 import pytest
 from vera_timeline_agent.roundtrip_build import (
@@ -23,7 +22,7 @@ def _write(path: Path, value: object) -> None:
     path.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
 
 
-def _inputs(root: Path) -> dict[str, Any]:
+def _inputs(root: Path) -> None:
     root.mkdir()
     document = json.loads(
         (ROOT / "tests/data/slice_1_1/minimal.script-document.json").read_text()
@@ -80,7 +79,6 @@ def _inputs(root: Path) -> dict[str, Any]:
             }
         },
     )
-    return document
 
 
 @pytest.mark.parametrize(
@@ -93,6 +91,8 @@ def _inputs(root: Path) -> dict[str, Any]:
         b'{"a":-Infinity}',
         b'{"a":1e400}',
         b'{"a":-1e400}',
+        b'{"a":' + b"9" * 400 + b"}",
+        b'{"a":9007199254740993}',
     ],
 )
 def test_strict_operator_gate_refuses_ambiguous_bytes_without_changes(

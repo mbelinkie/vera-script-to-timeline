@@ -23,6 +23,7 @@ from vera_timeline_agent.build_jobs import (
     BuildJobStore,
     BuildRequest,
     NeedsAction,
+    StageAdapter,
     StageContext,
     publish_immutable_output,
 )
@@ -46,6 +47,7 @@ CODE_PATHS = (
     ROOT / "packages/contracts/src/compiler-core.ts",
     ROOT / "packages/contracts/src/script-validator.ts",
     ROOT / "python/vera_timeline_agent/build_jobs.py",
+    ROOT / "python/vera_timeline_agent/roundtrip_native.py",
     ROOT / "python/vera_timeline_agent/resolve_import_package/package.py",
     ROOT / "package-lock.json",
     ROOT / "uv.lock",
@@ -127,6 +129,13 @@ def _number(value: str) -> float:
     return parsed
 
 
+def _integer(value: str) -> int:
+    parsed = int(value)
+    if abs(parsed) > 2**53 - 1:
+        raise ProofBuildError("JSON integer exceeds the exact JavaScript range")
+    return parsed
+
+
 def _parse(raw: bytes) -> JsonObject:
     try:
         value = json.loads(
@@ -134,6 +143,7 @@ def _parse(raw: bytes) -> JsonObject:
             object_pairs_hook=_object,
             parse_constant=_constant,
             parse_float=_number,
+            parse_int=_integer,
         )
     except (UnicodeError, ValueError) as error:
         raise ProofBuildError(f"invalid operator JSON: {error}") from error
@@ -433,6 +443,8 @@ class PreparedBuild:
             self._verify_media()
             result = {"policy": "verify_local_only", "media": self.media_hashes}
         elif context.stage == "compiling":
+            # The nested compiler_only envelope describes compiler outputs;
+            # the outer local_prepared receipt describes this durable stage.
             result = self._compile()
         elif context.stage == "writing_interchange":
             self._verify_media()
@@ -472,7 +484,7 @@ class PreparedBuild:
             ),
         )
 
-    def run(self) -> JsonObject:
+    def run(self, *, adapter: StageAdapter | None = None) -> JsonObject:
         self._assert_current()
         for name, raw in self.raw.items():
             publish_immutable_output(self.run_root / "inputs" / name, raw)
@@ -501,8 +513,31 @@ class PreparedBuild:
             for stage in previous["stages"]
         ):
             self.verified_package()
+        if adapter is not None:
+            for stage in previous["stages"]:
+                if stage["status"] != "complete":
+                    continue
+                context = StageContext(
+                    project_id=self.document["projectId"],
+                    job_id=self.job_id,
+                    snapshot_id=self.snapshot_id,
+                    stage=stage["name"],
+                    stage_key=hashlib.sha256(
+                        f"{self.document['projectId']}\0{self.job_id}\0{stage['name']}".encode()
+                    ).hexdigest(),
+                    output_path=Path(stage["path"]),
+                    attempt_id=0,
+                    lease_epoch=0,
+                    report_progress=lambda _: None,
+                    renew_lease=lambda: None,
+                )
+                if not adapter.reconcile(context):
+                    raise ProofBuildError("completed stage no longer reconciles")
         while self.store.run_one(
-            self.document["projectId"], self.job_id, "issue144-prepared-build", self
+            self.document["projectId"],
+            self.job_id,
+            "issue144-prepared-build",
+            adapter or self,
         ):
             pass
         self._assert_current()
