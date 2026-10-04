@@ -26,6 +26,24 @@ human Resolve refinements in that new target. Compatible Resolve-owned work
 preservation belongs to production selective regeneration in
 [#104](https://github.com/mbelinkie/vera-script-to-timeline/issues/104).
 
+**Checkpoint 8 visual file workflow:** the stdout semantic CLI and ProofSession
+now implement local build, bind-baseline, fresh proposal, explicit decision,
+canonical revision, fresh rebuild, verified promotion and replay/status paths.
+Injected tests exercise the actual compiler/package/job/assembly pipeline.
+Capture responses must retain the verified complete occurrence UID map; every
+proof write guards symlink parents. Replay rederives semantic receipts; rebuild
+rechecks the accepted observation; interruption after pointer publication resumes
+without another advance. Missing capture returns `needs_action`/2, evaluated
+refusal returns `refused`/2 and child-process/I/O failure returns `fault`/70.
+No real WI/provider/omission capability is implied by this visual-only segment.
+
+**#145 observer readiness gate:** independently review and qualify the real
+initial inspector and capture adapter against the selected Resolve build. Their
+native geometry/settings/UIDs/control facts must come from live getters. Local
+manifest/package facts are expected comparisons and cannot fill unknown native
+facts. Nonce/receipt/hash consistency alone cannot distinguish a live capture
+from a package echo; no cryptographic live-readback provenance is claimed.
+
 **Corrected through checkpoint 2:** completed Claude reviews are retained under
 `docs/investigations/issue-144`. Producer selected the tested linked cases with
 an isolated proof setup step. The compiler-only entry is the first implemented
