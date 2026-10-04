@@ -1,8 +1,8 @@
-"""Issue144 local visual proof workflow; native boundaries must be supplied.
+"""Issue144 local visual/omission proof; trusted boundaries must be supplied.
 
 The executable entry defaults to local stages and file-staged capture requests.
-It does not connect to Resolve. Spoken omission and real WI qualification remain
-separate required seams before the complete three-edit proof is accepted.
+It does not connect to Resolve by default. Combined edits, the WI entry and real
+qualification remain separate gates before the complete proof is accepted.
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ from vera_timeline_agent.build_jobs import (
 from vera_timeline_agent.build_jobs import (
     publish_immutable_output as _publish_accepted,
 )
+from vera_timeline_agent.narration.service import NarrationService
 from vera_timeline_agent.roundtrip_build import (
     ROOT,
     PreparedBuild,
@@ -116,12 +117,14 @@ class ProofSession:
         native_provider: NativeProvider | None = None,
         capture: Capture | None = None,
         omission_evidence: Callable[[JsonObject], Path] | None = None,
+        narration_service: NarrationService | None = None,
     ) -> None:
         self.build = PreparedBuild(proof_root, node_executable=node_executable)
         self.root = self.build.root
         self.native_provider = native_provider
         self.capture = capture
         self.omission_evidence = omission_evidence
+        self.narration_service = narration_service
         self.pointer = self.root / "baseline.json"
 
     def run(self, action: str, *, decision_key: str | None = None) -> JsonObject:
@@ -162,11 +165,17 @@ class ProofSession:
                     if action == "bind-omission-evidence"
                     else omission.propose()
                 )
-            if action in {"rebuild", "promote"}:
+            if action in {"generate-omission", "rebuild", "promote"}:
                 if decision_key is None or not re.fullmatch(
                     r"[a-f0-9]{64}", decision_key
                 ):
                     raise ProofBuildError("explicit valid decision key required")
+                if action == "generate-omission":
+                    from vera_timeline_agent.roundtrip_generation import (
+                        OmissionGeneration,
+                    )
+
+                    return OmissionGeneration(self, decision_key).generate()
                 return (
                     self._rebuild(decision_key)
                     if action == "rebuild"
@@ -671,6 +680,17 @@ class ProofSession:
 
     def _decision(self, key: str) -> tuple[JsonObject, PreparedBuild]:
         directory = self.root / "decisions" / key
+        if (
+            load_operator_json(directory / "operator-decisions.json").get(
+                "schemaVersion"
+            )
+            == "issue-144-omission-decisions/v1"
+        ):
+            from vera_timeline_agent.roundtrip_generation import OmissionGeneration
+
+            generation = OmissionGeneration(self, key)
+            _, build = generation.retained()
+            return generation.decision, build
         receipt = self._retained_decision(key)
         if (
             receipt.get("decisionKey") != key
@@ -697,11 +717,30 @@ class ProofSession:
                 )
             raise ProofBuildError("stale rebuild baseline")
         baseline, prior_build = self._baseline(decision["baselineHash"])
-        a, b = self._fresh(prior_build, "rebuild", key)
         inputs = load_operator_json(self.root / "decisions" / key / "inputs.json")
-        if inputs != self._proof_inputs(baseline, prior_build, a, b):
-            raise ProofBuildError("edited observation changed before rebuild")
+        omission = decision.get("schemaVersion") == "issue-144-omission-decision/v1"
+        if omission:
+            from vera_timeline_agent.roundtrip_generation import OmissionGeneration
+            from vera_timeline_agent.roundtrip_omission import OmissionProof
+
+            proof = OmissionProof(self, baseline_hash=decision["baselineHash"])
+            a, b = proof.capture("rebuild", key, pristine=False)
+            if inputs != proof.proposal_inputs(a, b):
+                raise ProofBuildError(
+                    "edited omission observation changed before rebuild"
+                )
+        else:
+            a, b = self._fresh(prior_build, "rebuild", key)
+            if inputs != self._proof_inputs(baseline, prior_build, a, b):
+                raise ProofBuildError("edited observation changed before rebuild")
         adapter = self.native_provider(build) if self.native_provider else None
+        if omission and adapter is not None:
+            # The accepted job performs its five core stages normally. Native
+            # preflight verifies their actual preview before intent/factory/effect;
+            # do not deliberately stop the job in waiting between stages.
+            adapter.preflight = lambda: OmissionGeneration.verify_preview(
+                build, self.root / "decisions" / key
+            )
         result = build.run(adapter=adapter)
         if result["status"] != "complete":
             return {"status": result["status"], "decisionKey": key, "job": result}
@@ -783,6 +822,7 @@ def main() -> int:
             "bind-omission-evidence",
             "propose-omission",
             "decide-omission",
+            "generate-omission",
             "rebuild",
             "promote",
             "status",

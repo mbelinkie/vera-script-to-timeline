@@ -47,6 +47,7 @@ class NativeStages:
         adapter_factory: AdapterFactory,
         local_facts: LocalFacts,
         inspector: Inspector,
+        preflight: Callable[[], None] | None = None,
     ) -> None:
         if build.request["evidenceLevel"] != "synthetic_injected":
             raise ProofBuildError(
@@ -56,6 +57,7 @@ class NativeStages:
         self.adapter_factory = adapter_factory
         self.local_facts = local_facts
         self.inspector = inspector
+        self.preflight = preflight
         self.result_path = build.run_root / "native-result.json"
         self.identity_path = build.run_root / "native-identity.json"
 
@@ -63,6 +65,8 @@ class NativeStages:
         self.build._assert_current()
         self.build._verify_media()
         self.build.verified_package()
+        if self.preflight is not None:
+            self.preflight()
         return load_operator_json(self.build.manifest_path)
 
     def _inspect(self, manifest: JsonObject) -> JsonObject:
