@@ -71,9 +71,11 @@ class OmissionProof:
         self.request = load_operator_json(self.request_path)
         _shape(self.request, {"schemaVersion", "rowId"}, "omission request")
         _fact(
-            self.request["schemaVersion"] == "issue-144-omission-request/v1",
+            self.request["schemaVersion"]
+            in {"issue-144-omission-request/v1", "issue-144-composed-request/v1"},
             "unknown omission request",
         )
+        self.composed = self.request["schemaVersion"] == "issue-144-composed-request/v1"
         self.request_hash = _file_hash(self.request_path)
         self.retained = baseline_hash is not None
         self.baseline_hash = (
@@ -321,10 +323,18 @@ class OmissionProof:
                 _source_key(item) == _source_key(self.old_items[event_id]),
                 "source/media/track binding differs",
             )
-            if pristine or event_id not in self.allowed:
+            if pristine or (event_id not in self.allowed and not self.composed):
                 _fact(
                     item == self.old_items[event_id],
                     "pristine or untouched native facts differ",
+                )
+            elif event_id not in self.allowed:
+                _fact(
+                    all(
+                        item[key] == self.old_items[event_id][key]
+                        for key in ITEM_KEYS - {"recordRange", "sourceRange"}
+                    ),
+                    "composed birth identity/source/control/link facts differ",
                 )
             groups[event_id].append(item)
             by_uid[item["itemUid"]] = item
@@ -655,6 +665,66 @@ class OmissionProof:
             self.root / "omission-proposal-inputs" / _digest(_receipt_bytes(inputs))[7:]
         )
 
+    def composition(
+        self, inputs: JsonObject, baseline_audio: JsonObject
+    ) -> tuple[JsonObject, Path, dict[str, JsonObject] | None]:
+        """Derive auxiliary authority from the actual semantic child, never files
+        supplied by the operator/evidence boundary. Only raw facts cross the CLI.
+        """
+        raw_inputs = {
+            **self.session._proof_inputs(
+                self.baseline,
+                self.build,
+                inputs["observationA"],
+                inputs["observationB"],
+            ),
+            "rowId": self.row["id"],
+        }
+        path = self.proposal_directory(inputs) / "composition-inputs.json"
+        publish_immutable_output(path, _receipt_bytes(raw_inputs))
+        inspected = self.session._semantic("compose", [path])
+        if not inspected["ok"]:
+            return inspected, path, None
+        preview = inspected["result"]["visualManifest"]
+        proposals = inspected["result"]["visualReport"]["rows"]
+        expected = {}
+        for proposal in proposals:
+            events = [
+                event
+                for event in preview["events"]
+                if event["kind"] == "audio"
+                and event["provenance"]["authoringId"] == proposal["authoringId"]
+            ]
+            _fact(len(events) == 1, "one actual compiled auxiliary route required")
+            event = events[0]
+            routes = [
+                route
+                for route in baseline_audio["routes"]
+                if route["id"] == event["id"]
+            ]
+            _fact(
+                len(routes) == 1
+                and len(routes[0]["segments"]) == 1
+                and routes[0]["sourceId"] == event["sourceId"]
+                and event["sourceId"] != self.primary["sourceId"],
+                "actual compiled auxiliary birth/source binding differs",
+            )
+            record, source = event["recordRange"], event["sourceRange"]
+            expected[event["id"]] = {
+                **routes[0],
+                "segments": [
+                    {
+                        **routes[0]["segments"][0],
+                        "recordStart": record["startFrame"],
+                        "recordEnd": record["startFrame"] + record["durationFrames"],
+                        "sourceStart": source["startFrame"],
+                        "sourceEnd": source["startFrame"] + source["durationFrames"],
+                    }
+                ],
+            }
+        _fact(len(expected) == 2, "exact two compiled auxiliary routes required")
+        return inspected, path, expected
+
     def proposal_report(self, inputs: JsonObject, evidence: JsonObject) -> JsonObject:
         prepared, retained = self.retained_preparation()
         a, b = inputs["observationA"], inputs["observationB"]
@@ -689,6 +759,13 @@ class OmissionProof:
                     evidence["inputs"].get(name) == digest,
                     "pristine profile/source/calibration changed",
                 )
+        inspection = None
+        composition_path = None
+        expected_auxiliary = None
+        if self.composed:
+            inspection, composition_path, expected_auxiliary = self.composition(
+                inputs, prepared["baselineAudio"]
+            )
         result = verify_omission_evidence(
             directory / "evidence",
             baseline_hash=_digest(_receipt_bytes(prepared["baselineAudio"])),
@@ -696,9 +773,12 @@ class OmissionProof:
             row_id=self.row["id"],
             primary_source_id=self.primary["sourceId"],
             evidence_level="synthetic_injected",
+            expected_auxiliary_routes=expected_auxiliary,
         )
         report: JsonObject = {
-            "schemaVersion": "issue-144-omission-proposal/v1",
+            "schemaVersion": "issue-144-composed-proposal/v1"
+            if self.composed
+            else "issue-144-omission-proposal/v1",
             "evidenceLevel": "synthetic_injected",
             "classification": "unsupported",
             "bindings": inputs,
@@ -715,7 +795,11 @@ class OmissionProof:
                 "or baseline promotion."
             ),
         }
-        if result["status"] == "supported":
+        if self.composed:
+            report["compositionInspection"] = inspection
+        if result["status"] == "supported" and (
+            not self.composed or (inspection and inspection["ok"])
+        ):
             document_path = self.build.root / "script-document.json"
             inspected = self.session._semantic("inspect-script", [document_path])
             edit = {
@@ -726,8 +810,13 @@ class OmissionProof:
             publish_immutable_output(
                 directory / "trusted-edit.json", _receipt_bytes(edit)
             )
+            revision_input = document_path
+            if self.composed:
+                assert composition_path is not None
+                revision_input = composition_path
             revised = self.session._semantic(
-                "revise-omission", [document_path, directory / "trusted-edit.json"]
+                "compose" if self.composed else "revise-omission",
+                [revision_input, directory / "trusted-edit.json"],
             )
             report["revision"] = revised
             if revised["ok"]:
@@ -758,7 +847,8 @@ class OmissionProof:
         value = _parse(raw)
         _shape(value, {"schemaVersion", "reportHash", "choice"}, "omission decisions")
         _fact(
-            value["schemaVersion"] == "issue-144-omission-decisions/v1"
+            value["schemaVersion"]
+            in {"issue-144-omission-decisions/v1", "issue-144-composed-decisions/v1"}
             and value["choice"] in ("accept", "reject")
             and isinstance(value["reportHash"], str)
             and re.fullmatch(r"sha256:[a-f0-9]{64}", value["reportHash"]) is not None,
@@ -771,12 +861,23 @@ class OmissionProof:
     ) -> JsonObject:
         accepted = choice["choice"] == "accept"
         _fact(
+            choice["schemaVersion"]
+            == (
+                "issue-144-composed-decisions/v1"
+                if self.composed
+                else "issue-144-omission-decisions/v1"
+            ),
+            "decision schema differs from bound request mode",
+        )
+        _fact(
             not accepted or report["classification"] == "supported",
             "unsupported omission cannot be accepted",
         )
         key = _digest(raw)[7:]
         return {
-            "schemaVersion": "issue-144-omission-decision/v1",
+            "schemaVersion": "issue-144-composed-decision/v1"
+            if self.composed
+            else "issue-144-omission-decision/v1",
             "status": "prepared_revision" if accepted else "rejected",
             "evidenceLevel": "synthetic_injected",
             "decisionKey": key,

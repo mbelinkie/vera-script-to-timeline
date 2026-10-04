@@ -445,12 +445,16 @@ def verify_omission_evidence(
     row_id: str,
     primary_source_id: str,
     evidence_level: str,
+    expected_auxiliary_routes: dict[str, JsonObject] | None = None,
 ) -> JsonObject:
     """Verify immutable files against caller's verified baseline/target/row.
 
     The caller must bind these expected identities to the actual proof baseline,
     deriving primary_source_id from its actual compiled narration event. Auxiliary
     sources may share a row; profile JSON never supplies the primary selector.
+    A composed synthetic caller may supply exactly two routes derived directly
+    from its actual compiler preview. They are checked structurally, separately
+    from primary supports, and remain in complete-program reconstruction.
     No operator boolean enables a live lane. Split geometry establishes a unique
     source-support decomposition; it does not establish native clip ancestry.
     """
@@ -467,6 +471,8 @@ def verify_omission_evidence(
         "channels": [],
         "codeHash": _file_hash(Path(__file__)),
     }
+    if expected_auxiliary_routes is not None:
+        report["expectedAuxiliaryRoutes"] = expected_auxiliary_routes
     try:
         if evidence_level not in {"synthetic_injected", "retained_consistency"}:
             raise ProofBuildError(
@@ -552,11 +558,50 @@ def verify_omission_evidence(
             (r["id"], r["sourceId"], r["controls"]) for r in baseline_routes
         ]:
             raise ProofBuildError("route inventory/source binding or controls changed")
+        approved = expected_auxiliary_routes or {}
+        if expected_auxiliary_routes is not None:
+            if (
+                evidence_level != "synthetic_injected"
+                or not isinstance(approved, dict)
+                or len(approved) != 2
+            ):
+                raise ProofBuildError(
+                    "exact two synthetic compiled auxiliary routes required"
+                )
+            old_by_id = {route["id"]: route for route in baseline_routes}
+            new_by_id = {route["id"]: route for route in routes}
+            for identity, expected in approved.items():
+                old = old_by_id.get(identity)
+                new = new_by_id.get(identity)
+                if (
+                    old is None
+                    or old["sourceId"] == primary_source_id
+                    or expected != new
+                    or expected == old
+                    or set(expected) != {"id", "sourceId", "controls", "segments"}
+                    or any(
+                        expected[key] != old[key]
+                        for key in ("id", "sourceId", "controls")
+                    )
+                    or len(old["segments"]) != 1
+                    or len(expected["segments"]) != 1
+                    or any(
+                        expected["segments"][0][key] != old["segments"][0][key]
+                        for key in ("uid", "speed", "enabled", "online")
+                    )
+                ):
+                    raise ProofBuildError(
+                        "compiled auxiliary route geometry/binding differs"
+                    )
         omitted: list[str] = []
         retained_ids: list[str] = []
         decomposition: list[JsonObject] = []
         for old, new in zip(baseline_routes, routes, strict=True):
             source = sources[old["sourceId"]]
+            if old["id"] in approved:
+                # Auxiliary edits have independent visual authority. Their source
+                # content can be trimmed; it never supplies narration token IDs.
+                continue
             if source["id"] != selected["id"] and old != new:
                 raise ProofBuildError("untouched route changed")
             for support in source["supports"]:

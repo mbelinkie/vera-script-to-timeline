@@ -681,12 +681,9 @@ class ProofSession:
 
     def _decision(self, key: str) -> tuple[JsonObject, PreparedBuild]:
         directory = self.root / "decisions" / key
-        if (
-            load_operator_json(directory / "operator-decisions.json").get(
-                "schemaVersion"
-            )
-            == "issue-144-omission-decisions/v1"
-        ):
+        if load_operator_json(directory / "operator-decisions.json").get(
+            "schemaVersion"
+        ) in {"issue-144-omission-decisions/v1", "issue-144-composed-decisions/v1"}:
             from vera_timeline_agent.roundtrip_generation import OmissionGeneration
 
             generation = OmissionGeneration(self, key)
@@ -719,7 +716,10 @@ class ProofSession:
             raise ProofBuildError("stale rebuild baseline")
         baseline, prior_build = self._baseline(decision["baselineHash"])
         inputs = load_operator_json(self.root / "decisions" / key / "inputs.json")
-        omission = decision.get("schemaVersion") == "issue-144-omission-decision/v1"
+        omission = decision.get("schemaVersion") in {
+            "issue-144-omission-decision/v1",
+            "issue-144-composed-decision/v1",
+        }
         if omission:
             from vera_timeline_agent.roundtrip_generation import OmissionGeneration
             from vera_timeline_agent.roundtrip_omission import OmissionProof
