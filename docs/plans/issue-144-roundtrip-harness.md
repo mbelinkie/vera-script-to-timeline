@@ -52,8 +52,12 @@ pacing, UTF-16 offsets, cached replay and subsequent edits. Claude completed
 plan/segment/correction reviews; isolated full validation passes 248 Python
 cases plus all existing TypeScript/contract checks. The handoff returns verified
 replacement dependency/media origins; canonical omission decisions and fresh
-build-ID integration remain outstanding. Checkpoint10's audio-evidence plan is
-reviewed; its verifier is not yet implemented. Renderer job/settings/hash
+build-ID integration remain outstanding. Checkpoint10's bounded audio-evidence verifier is implemented and plan/segment/
+confirmation-reviewed. Forty-four new checks pass in isolated full validation
+(292 Python cases). Synthetic closed-route positives and retained W1 unqualified
+consistency stay separate; full source-support excision and complete channel
+reconstruction are mandatory. Canonical omission/workflow integration remains
+incomplete; checkpoint11's pure text transformation plan is reviewed. Renderer job/settings/hash
 receipts need the same independent #145 live qualification as capture receipts.
 
 **Corrected through checkpoint 2:** completed Claude reviews are retained under

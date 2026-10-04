@@ -1,0 +1,36 @@
+{
+  "checkpoint": 10,
+  "checks": {
+    "contractTests": 178,
+    "generatedCurrent": true,
+    "newAudioEvidenceCases": 44,
+    "progressTests": 6,
+    "pythonFormatFiles": 181,
+    "pythonRuff": true,
+    "pythonStrictMypySources": 72,
+    "pythonTests": 292,
+    "roadmapTests": 23,
+    "toolingTests": 1,
+    "typescriptLint": true,
+    "typescriptTypecheck": true
+  },
+  "cloudActions": 0,
+  "command": "npm exec --yes --package=node@24.19.0 -- npm run validate",
+  "evidenceLevel": "synthetic_injected",
+  "exitCode": 0,
+  "limitations": [
+    "Synthetic closed-route supported gate only; retained W1 returns consistent_unqualified.",
+    "Real route/support/observer/renderer qualification remains #145.",
+    "Canonical omission/composition/generation wiring, guarded WI, integrated cases and runbook remain incomplete."
+  ],
+  "nativeActions": 0,
+  "pythonSeconds": 537.8,
+  "schemaVersion": "issue-144-checkpoint-validation/v1",
+  "sourceHashes": {
+    "python/vera_timeline_agent/roundtrip_audio.py": "sha256:1f82de6e24e3120d55f3c831543c78f8a08e3f6ded67e7be9dcac65880a5acd1",
+    "python/vera_timeline_agent/roundtrip_build.py": "sha256:a40785f24393bf30d9dd41269b6ea1eedc018fe3fbde38e74cb7bdc1e354040e",
+    "tests/test_issue144_audio_evidence.py": "sha256:9b04ffed32590ef5a59a0ea1edb9da864dd9f3e9c53beb053ad5a1ae0a1e9494",
+    "tests/test_issue144_retained_audio.py": "sha256:50d252192c4b7ed046d697df63868e77671bdcdbc827a83ede7918440b0e72d8"
+  },
+  "validationLogHash": "sha256:d3da8fce57785f61fd6b07d62ab5beb1cdb33d07e9928b4f41e5d538de5d1e62"
+}
