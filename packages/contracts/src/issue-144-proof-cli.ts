@@ -16,7 +16,7 @@ const message = (error: unknown): string => error instanceof Error ? error.messa
 
 async function main(args: string[]): Promise<number> {
   const action = args[0]; const paths = args.slice(1);
-  if (!((action === "propose" && paths.length === 1) || (action === "decide" && paths.length === 3) || (action === "revise-omission" && paths.length === 2) || (action === "finalize-omission" && paths.length === 3))) {
+  if (!((action === "propose" && paths.length === 1) || (action === "inspect-script" && paths.length === 1) || (action === "decide" && paths.length === 3) || (action === "revise-omission" && paths.length === 2) || (action === "finalize-omission" && paths.length === 3))) {
     process.stderr.write("USAGE: internal semantic bridge: propose <inputs> | decide <inputs> <report> <decisions> | revise-omission <script> <trusted-edit> | finalize-omission <script> <prior-dependencies> <just-verified-handoff>\n"); return 64;
   }
   if (process.version !== "v24.19.0") { process.stderr.write("RUNTIME_ERROR: pinned Node v24.19.0 required.\n"); return 69; }
@@ -47,7 +47,8 @@ async function main(args: string[]): Promise<number> {
   finally { hooks.deregister(); }
   let result: unknown; let ok: boolean; let artifacts: Record<string, string> = {};
   try {
-    if (action === "propose") { const report = semantic.proposeVisuals(values[0] as VisualProofInputs); result = report; ok = report.status === "ready"; }
+    if (action === "inspect-script") { result={status:"inspected",documentHash:compiler.sha256CanonicalJson(values[0])};ok=true; }
+    else if (action === "propose") { const report = semantic.proposeVisuals(values[0] as VisualProofInputs); result = report; ok = report.status === "ready"; }
     else if(action==="decide") {
       const applied = semantic.applyVisualDecisions(values[0] as VisualProofInputs, values[1] as VisualProposalReport, values[2]); result = applied; ok = true;
       if (applied.status === "revised") artifacts = { "script-document.json": compiler.canonicalJson(applied.document), "compiler-dependencies.json": compiler.canonicalJson(applied.dependencies) };

@@ -115,11 +115,13 @@ class ProofSession:
         node_executable: str | None = None,
         native_provider: NativeProvider | None = None,
         capture: Capture | None = None,
+        omission_evidence: Callable[[JsonObject], Path] | None = None,
     ) -> None:
         self.build = PreparedBuild(proof_root, node_executable=node_executable)
         self.root = self.build.root
         self.native_provider = native_provider
         self.capture = capture
+        self.omission_evidence = omission_evidence
         self.pointer = self.root / "baseline.json"
 
     def run(self, action: str, *, decision_key: str | None = None) -> JsonObject:
@@ -147,6 +149,15 @@ class ProofSession:
                 return self._propose()
             if action == "decide":
                 return self._decide()
+            if action in {"bind-omission-evidence", "propose-omission"}:
+                from vera_timeline_agent.roundtrip_omission import OmissionProof
+
+                omission = OmissionProof(self)
+                return (
+                    omission.prepare()
+                    if action == "bind-omission-evidence"
+                    else omission.propose()
+                )
             if action in {"rebuild", "promote"}:
                 if decision_key is None or not re.fullmatch(
                     r"[a-f0-9]{64}", decision_key
@@ -250,8 +261,29 @@ class ProofSession:
         self, build: PreparedBuild, purpose: str, binding: str
     ) -> tuple[JsonObject, JsonObject]:
         identity = self._ready(build)
+        return self._capture_files(
+            build,
+            purpose,
+            binding,
+            validate=lambda observation: self._occurrence_identity(
+                observation, identity, build.request["evidenceLevel"]
+            ),
+        )
+
+    def _capture_files(
+        self,
+        build: PreparedBuild,
+        purpose: str,
+        binding: str,
+        *,
+        validate: Callable[[JsonObject], None],
+        request_schema: str = "issue-144-capture-request/v1",
+        response_schema: str = "issue-144-capture-response/v1",
+    ) -> tuple[JsonObject, JsonObject]:
+        """Shared reservation only; caller supplies its strict identity gate."""
+        identity = self._ready(build)
         basis = {
-            "schemaVersion": "issue-144-capture-request/v1",
+            "schemaVersion": request_schema,
             "purpose": purpose,
             "binding": binding,
             "snapshotId": build.snapshot_id,
@@ -297,7 +329,7 @@ class ProofSession:
         if (
             set(response)
             != {"schemaVersion", "nonce", "requestHash", "observationA", "observationB"}
-            or response["schemaVersion"] != "issue-144-capture-response/v1"
+            or response["schemaVersion"] != response_schema
             or response["nonce"] != request["nonce"]
             or response["requestHash"] != _file_hash(request_path)
             or response["observationA"] != response["observationB"]
@@ -315,9 +347,7 @@ class ProofSession:
                 "capture nonce/request differs or adjacent reads changed"
             )
         for observation in (response["observationA"], response["observationB"]):
-            self._occurrence_identity(
-                observation, identity, build.request["evidenceLevel"]
-            )
+            validate(observation)
         build._assert_current()
         build._verify_media()
         publish_immutable_output(
@@ -746,6 +776,8 @@ def main() -> int:
             "bind-baseline",
             "propose",
             "decide",
+            "bind-omission-evidence",
+            "propose-omission",
             "rebuild",
             "promote",
             "status",

@@ -39,6 +39,13 @@ function prepared() {
 afterEach(()=>{for(const root of roots.splice(0))rmSync(root,{recursive:true});});
 
 describe("Issue144 internal omission canonical stdout bridge (no decision authority)",()=>{
+  it("inspects actual canonical document identity without Python reserialization or acceptance",()=>{
+    const data=prepared();const paths=files([data.prior.currentDocument]);
+    writeFileSync(paths[0]!,JSON.stringify(data.prior.currentDocument));
+    const before=readFileSync(paths[0]!,"utf8");const result=invoke("inspect-script",paths);
+    expect(result.status).toBe(0);expect(body(result.stdout)).toMatchObject({ok:true,result:{status:"inspected",documentHash:sha256CanonicalJson(data.prior.currentDocument)},inputs:{"0":digest(before)},artifacts:{}});
+    expect(readFileSync(paths[0]!,"utf8")).toBe(before);
+  });
   it("invokes actual transformation with raw/source hashes and one full-row request",()=>{
     const data=prepared();const paths=files([data.prior.currentDocument,data.edit]);const before=paths.map(path=>readFileSync(path,"utf8"));
     const result=invoke("revise-omission",paths);expect(result.status).toBe(0);expect(result.stderr).toBe("");
