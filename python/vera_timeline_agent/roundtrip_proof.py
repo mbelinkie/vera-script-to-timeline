@@ -48,6 +48,7 @@ SEMANTIC_SOURCES = (
     "./issue-144-semantics.ts",
     "./issue-144-text-revision.ts",
     "./issue-144-omission-build.ts",
+    "./issue-144-composition.ts",
     "./compiler-core.ts",
     "./script-validator.ts",
     "../../../contracts/script-document-v1.schema.json",

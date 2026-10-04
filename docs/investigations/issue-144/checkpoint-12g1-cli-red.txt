@@ -1,0 +1,31 @@
+
+ RUN  v4.1.11 /Users/matthewbelinkie/.codex/worktrees/d404/VERA Script to Timeline/packages/contracts
+
+ ❯ test/issue-144-composition.test.ts (12 tests | 2 failed) 707ms
+     × exchanges raw files and actual compiler/script results through the pinned CLI (revision=false) 136ms
+     × exchanges raw files and actual compiler/script results through the pinned CLI (revision=true) 172ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/issue-144-composition.test.ts > Issue144 pure three-edit composition > exchanges raw files and actual compiler/script results through the pinned CLI (revision=false)
+ FAIL  test/issue-144-composition.test.ts > Issue144 pure three-edit composition > exchanges raw files and actual compiler/script results through the pinned CLI (revision=true)
+AssertionError: USAGE: internal semantic bridge: propose <inputs> | decide <inputs> <report> <decisions> | revise-omission <script> <trusted-edit> | finalize-omission <script> <prior-dependencies> <just-verified-handoff>
+: expected 64 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 64
+
+ ❯ test/issue-144-composition.test.ts:131:42
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 10 passed (12)
+   Start at  06:02:31
+   Duration  1.30s (transform 150ms, setup 0ms, import 414ms, tests 707ms, environment 0ms)
+

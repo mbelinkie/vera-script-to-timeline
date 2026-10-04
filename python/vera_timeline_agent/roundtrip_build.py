@@ -70,6 +70,7 @@ CODE_PATHS = (
     ROOT / "packages/contracts/src/issue-144-semantics.ts",
     ROOT / "packages/contracts/src/issue-144-text-revision.ts",
     ROOT / "packages/contracts/src/issue-144-omission-build.ts",
+    ROOT / "packages/contracts/src/issue-144-composition.ts",
     ROOT / "python/vera_timeline_agent/resolve_import_package/package.py",
     ROOT / "package-lock.json",
     ROOT / "uv.lock",

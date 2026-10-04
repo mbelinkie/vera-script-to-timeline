@@ -7,17 +7,18 @@ import type { VisualProofInputs, VisualProposalReport } from "./issue-144-semant
 import type { CompilerDependenciesV1, ScriptDocumentV1 } from "./generated/contracts.js";
 import type { AcceptedOmission } from "./issue-144-text-revision.ts";
 import type { VerifiedRowHandoff } from "./issue-144-omission-build.ts";
+import type { CompositionInputs } from "./issue-144-composition.ts";
 
 const hash = (bytes: Uint8Array): string => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
-const sources = ["./issue-144-proof-cli.ts", "./issue-144-semantics.ts", "./issue-144-text-revision.ts", "./issue-144-omission-build.ts", "./compiler-core.ts", "./script-validator.ts", "../../../contracts/script-document-v1.schema.json", "../../../contracts/compiler-dependencies-v1.schema.json", "../../../contracts/timeline-manifest-v1.schema.json", "../../../contracts/build-report-v1.schema.json"];
+const sources = ["./issue-144-proof-cli.ts", "./issue-144-semantics.ts", "./issue-144-text-revision.ts", "./issue-144-omission-build.ts", "./issue-144-composition.ts", "./compiler-core.ts", "./script-validator.ts", "../../../contracts/script-document-v1.schema.json", "../../../contracts/compiler-dependencies-v1.schema.json", "../../../contracts/timeline-manifest-v1.schema.json", "../../../contracts/build-report-v1.schema.json"];
 const sourceHashes = (): Record<string, string> => Object.fromEntries(sources.map((path) => [path, hash(readFileSync(new URL(path, import.meta.url)))]));
 const lockHash = (): string => hash(readFileSync(new URL("../../../package-lock.json", import.meta.url)));
 const message = (error: unknown): string => error instanceof Error ? error.message : String(error);
 
 async function main(args: string[]): Promise<number> {
   const action = args[0]; const paths = args.slice(1);
-  if (!((action === "propose" && paths.length === 1) || (action === "inspect-script" && paths.length === 1) || (action === "decide" && paths.length === 3) || (action === "revise-omission" && paths.length === 2) || (action === "finalize-omission" && paths.length === 3))) {
-    process.stderr.write("USAGE: internal semantic bridge: propose <inputs> | decide <inputs> <report> <decisions> | revise-omission <script> <trusted-edit> | finalize-omission <script> <prior-dependencies> <just-verified-handoff>\n"); return 64;
+  if (!((action === "propose" && paths.length === 1) || (action === "inspect-script" && paths.length === 1) || (action === "decide" && paths.length === 3) || (action === "revise-omission" && paths.length === 2) || (action === "finalize-omission" && paths.length === 3) || (action === "compose" && [1,2].includes(paths.length)))) {
+    process.stderr.write("USAGE: internal semantic bridge: propose <inputs> | decide <inputs> <report> <decisions> | revise-omission <script> <trusted-edit> | finalize-omission <script> <prior-dependencies> <just-verified-handoff> | compose <raw-inputs> [<trusted-edit>]\n"); return 64;
   }
   if (process.version !== "v24.19.0") { process.stderr.write("RUNTIME_ERROR: pinned Node v24.19.0 required.\n"); return 69; }
   let bytes: Buffer[];
@@ -33,17 +34,20 @@ async function main(args: string[]): Promise<number> {
   const compilerUrl = new URL("./compiler-core.ts", import.meta.url).href;
   const textUrl = new URL("./issue-144-text-revision.ts", import.meta.url).href;
   const omissionUrl = new URL("./issue-144-omission-build.ts", import.meta.url).href;
+  const compositionUrl = new URL("./issue-144-composition.ts", import.meta.url).href;
   const hooks = registerHooks({ resolve(specifier, context, nextResolve) {
-    if ([semanticUrl,textUrl,omissionUrl].includes(context.parentURL??"") && specifier === "./compiler-core.js") return nextResolve("./compiler-core.ts", context);
-    if ([compilerUrl,textUrl].includes(context.parentURL??"") && specifier === "./script-validator.js") return nextResolve("./script-validator.ts", context);
-    if (context.parentURL === omissionUrl && specifier === "./issue-144-semantics.js") return nextResolve("./issue-144-semantics.ts", context);
+    if ([semanticUrl,textUrl,omissionUrl,compositionUrl].includes(context.parentURL??"") && specifier === "./compiler-core.js") return nextResolve("./compiler-core.ts", context);
+    if ([compilerUrl,textUrl,compositionUrl].includes(context.parentURL??"") && specifier === "./script-validator.js") return nextResolve("./script-validator.ts", context);
+    if ([omissionUrl,compositionUrl].includes(context.parentURL??"") && specifier === "./issue-144-semantics.js") return nextResolve("./issue-144-semantics.ts", context);
+    if (context.parentURL === compositionUrl && specifier === "./issue-144-text-revision.js") return nextResolve("./issue-144-text-revision.ts", context);
     return nextResolve(specifier, context);
   } });
   let semantic: typeof import("./issue-144-semantics.ts");
   let compiler: typeof import("./compiler-core.ts");
   let text: typeof import("./issue-144-text-revision.ts");
   let omission: typeof import("./issue-144-omission-build.ts");
-  try { semantic = await import("./issue-144-semantics.ts"); compiler = await import("./compiler-core.ts");text=await import("./issue-144-text-revision.ts");omission=await import("./issue-144-omission-build.ts"); }
+  let composition: typeof import("./issue-144-composition.ts");
+  try { semantic = await import("./issue-144-semantics.ts"); compiler = await import("./compiler-core.ts");text=await import("./issue-144-text-revision.ts");omission=await import("./issue-144-omission-build.ts");composition=await import("./issue-144-composition.ts"); }
   finally { hooks.deregister(); }
   let result: unknown; let ok: boolean; let artifacts: Record<string, string> = {};
   try {
@@ -55,6 +59,12 @@ async function main(args: string[]): Promise<number> {
     } else if(action==="revise-omission") {
       const applied=text.applyAcceptedOmission(values[0] as ScriptDocumentV1,values[1] as AcceptedOmission);ok=true;
       result={status:"prepared",regeneration:applied.regeneration};artifacts={"script-document.json":applied.documentJson};
+    } else if(action==="compose") {
+      if(paths.length===1){result={status:"inspected",...composition.inspectComposition(values[0] as CompositionInputs)};ok=true;}
+      else {
+        const applied=composition.composeEdits(values[0] as CompositionInputs,values[1] as AcceptedOmission);ok=true;
+        result={status:"prepared",regeneration:applied.regeneration};artifacts={"script-document.json":applied.documentJson};
+      }
     } else {
       const handoff=values[2] as VerifiedRowHandoff;
       if(handoff.revisedDocumentHash!==hash(bytes[0]!))throw new Error("handoff raw revised document hash differs");

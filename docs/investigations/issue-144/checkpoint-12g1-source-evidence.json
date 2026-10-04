@@ -1,0 +1,28 @@
+{
+  "checkpoint": "12g1",
+  "priorVerifiedCommit": "29059f8",
+  "files": {
+    "packages/contracts/src/issue-144-composition.ts": "sha256:43b265deeee947fba11c483fb46a8abcdbaca8a7f94a94b72c99f610160cf723",
+    "packages/contracts/src/issue-144-proof-cli.ts": "sha256:5eec3a4abd6c6c59e0c99cec2b9fadb40bd49e70fc1de6e7f741a7cc76e044f2",
+    "packages/contracts/test/issue-144-composition.test.ts": "sha256:393205a66350742abd62dee67b65b54ae6359dd3d85cf03b3d2936d87cfa1d89"
+  },
+  "focusedCommand": "npm exec --yes --package=node@24.19.0 -- npm exec --workspace=@vera/contracts -- vitest run test/issue-144-composition.test.ts test/issue-144-semantics.test.ts test/issue-144-proof-cli.test.ts test/issue-144-text-revision.test.ts test/issue-144-omission-bridge.test.ts",
+  "focusedTests": 92,
+  "newTests": 13,
+  "seconds": 17.92,
+  "typecheck": "passed",
+  "lint": "passed",
+  "diffCheck": "passed",
+  "fullValidation": "last passed at parent29059f8; current integrated12g pending",
+  "pythonBridge": {
+    "command": "npm exec --yes --package=node@24.19.0 -- uv run --frozen pytest -q tests/test_issue144_omission_bridge.py",
+    "tests": 1,
+    "seconds": 12.66
+  },
+  "review": {
+    "turns": 6,
+    "permissionDenials": 0,
+    "blockers": 0
+  },
+  "postReviewChange": "one targeted overlap test; production source unchanged"
+}

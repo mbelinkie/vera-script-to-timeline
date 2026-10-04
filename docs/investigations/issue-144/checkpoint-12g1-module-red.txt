@@ -1,0 +1,25 @@
+
+ RUN  v4.1.11 /Users/matthewbelinkie/.codex/worktrees/d404/VERA Script to Timeline/packages/contracts
+
+ ❯ test/issue-144-composition.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/issue-144-composition.test.ts [ test/issue-144-composition.test.ts ]
+Error: Cannot find module '../src/issue-144-composition.js' imported from /Users/matthewbelinkie/.codex/worktrees/d404/VERA Script to Timeline/packages/contracts/test/issue-144-composition.test.ts
+ ❯ test/issue-144-composition.test.ts:7:1
+      5| import { canonicalJson, sha256CanonicalJson } from "../src/compiler-co…
+      6| import type { NarrationBlock } from "../src/generated/contracts.js";
+      7| import { composeEdits, inspectComposition } from "../src/issue-144-com…
+       | ^
+      8|
+      9| import { hash, id, inputs } from "./issue-144-test-inputs.js";
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  05:55:24
+   Duration  667ms (transform 142ms, setup 0ms, import 0ms, tests 0ms, environment 0ms)
+
