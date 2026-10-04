@@ -104,65 +104,112 @@ class NativeStages:
         seen_events: set[str] = set()
         seen_items: set[str] = set()
         source_uids: dict[str, str] = {}
-        for item in items:
-            if not isinstance(item, dict) or set(item) != {
-                "itemUid",
-                "mediaUid",
-                "event",
-                "sourcePath",
-                "sourceHash",
-                "enabled",
-                "speed",
-            }:
-                raise ProofBuildError("native occurrence lacks required facts")
-            event = item["event"]
-            if not isinstance(event, dict) or event.get("id") not in expected_events:
-                raise ProofBuildError("native occurrence has unknown identity")
-            identity = event["id"]
-            if (
-                identity in seen_events
-                or item["itemUid"] in seen_items
-                or (
-                    event != expected_events[identity]
-                    or item["enabled"] is not True
-                    or isinstance(item["speed"], bool)
-                    or item["speed"] != 100
-                    or not isinstance(item["itemUid"], str)
-                    or not item["itemUid"]
-                    or not isinstance(item["mediaUid"], str)
-                    or not item["mediaUid"]
-                )
-            ):
-                raise ProofBuildError("native occurrence geometry/identity changed")
-            seen_events.add(identity)
-            seen_items.add(item["itemUid"])
+        occurrences: JsonObject = {}
+        native_facts: JsonObject = {}
+        for identity, event in expected_events.items():
             source = expected_sources[event["sourceId"]]
             relative = (
                 source["path"]
                 if source["kind"] != "placeholder"
                 else f"Media/Placeholders/{source['id']}.png"
             )
-            expected_path = self.build.package_root / relative
-            if item["sourcePath"] != str(expected_path) or (
-                item["sourceHash"] != _file_hash(expected_path)
+            native_facts[identity] = {
+                "sourcePath": str(self.build.package_root / relative),
+                "sourceHash": _file_hash(self.build.package_root / relative),
+                "trackKind": event["trackKind"],
+                "trackIndex": next(
+                    row["index"]
+                    for row in manifest["tracks"]
+                    if row["id"] == event["trackId"]
+                ),
+                "recordRange": event["recordRange"],
+                "sourceRange": event.get("sourceRange"),
+            }
+        for item in items:
+            if not isinstance(item, dict) or set(item) != {
+                "itemUid",
+                "mediaUid",
+                "trackKind",
+                "trackIndex",
+                "recordRange",
+                "sourceRange",
+                "sourcePath",
+                "sourceHash",
+                "enabled",
+                "speed",
+            }:
+                raise ProofBuildError("native occurrence lacks required facts")
+            if (
+                item["enabled"] is not True
+                or isinstance(item["speed"], bool)
+                or item["speed"] != 100
+                or not isinstance(item["itemUid"], str)
+                or not item["itemUid"]
+                or not isinstance(item["mediaUid"], str)
+                or not item["mediaUid"]
+                or not isinstance(item["trackIndex"], int)
+                or isinstance(item["trackIndex"], bool)
             ):
-                raise ProofBuildError("native source path/bytes changed")
+                raise ProofBuildError("native occurrence geometry/identity changed")
+            for field in ("recordRange", "sourceRange"):
+                value = item[field]
+                if field == "sourceRange" and value is None:
+                    continue
+                if (
+                    not isinstance(value, dict)
+                    or set(value) != {"startFrame", "durationFrames"}
+                    or any(
+                        not isinstance(number, int)
+                        or isinstance(number, bool)
+                        or number < 0
+                        or number > 2**53 - 1
+                        for number in value.values()
+                    )
+                ):
+                    raise ProofBuildError("native range is not complete integer frames")
+            facts = {
+                key: item[key]
+                for key in (
+                    "sourcePath",
+                    "sourceHash",
+                    "trackKind",
+                    "trackIndex",
+                    "recordRange",
+                    "sourceRange",
+                )
+            }
+            candidates = [
+                identity
+                for identity, expected in native_facts.items()
+                if facts == expected
+            ]
+            if len(candidates) != 1:
+                raise ProofBuildError(
+                    "native occurrence mapping is changed or ambiguous"
+                )
+            identity = candidates[0]
+            if identity in seen_events or item["itemUid"] in seen_items:
+                raise ProofBuildError("native occurrence identity is duplicate")
+            event = expected_events[identity]
+            seen_events.add(identity)
+            seen_items.add(item["itemUid"])
+            source = expected_sources[event["sourceId"]]
             if source_uids.get(source["id"], item["mediaUid"]) != item["mediaUid"] or (
                 item["mediaUid"] in source_uids.values()
                 and source["id"] not in source_uids
             ):
                 raise ProofBuildError("native source UID is ambiguous")
             source_uids[source["id"]] = item["mediaUid"]
+            # Authoring identity is a sidecar binding to one unique pristine
+            # package/path/geometry candidate, never a field read from a clip.
+            occurrences[identity] = {
+                "itemUid": item["itemUid"],
+                "mediaUid": item["mediaUid"],
+            }
         identity_record = {
             "projectUid": observed["projectUid"],
             "timelineUid": observed["timelineUid"],
-            "occurrences": {
-                item["event"]["id"]: {
-                    "itemUid": item["itemUid"],
-                    "mediaUid": item["mediaUid"],
-                }
-                for item in items
-            },
+            "occurrences": occurrences,
         }
         if (
             self.identity_path.exists()

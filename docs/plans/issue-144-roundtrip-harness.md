@@ -6,9 +6,8 @@ an isolated proof setup step. The compiler-only entry is the first implemented
 segment; all affected semantic/native seams below remain planned. No new native
 action has occurred. #145 must verify actual setup and edits on one selected build.
 
-The prepared-build core segment is now implemented and pending checkpoint 4
-review: actual compiler/package/job stages with 18 new passing tests, strict
-input gate and explicit native wait. Semantic/native seams remain planned.
+The prepared-build core segment is implemented and checkpoint4-reviewed:
+actual compiler/package/job stages, strict input gate and explicit native wait.
 
 Checkpoint 4 completed: integer/refusal correction and current-folder recovery
 boundary retained. Prepared checks now total 20. The next implemented segment
@@ -16,6 +15,24 @@ injects the actual accepted Studio assembly with exclusive pre-effect intent,
 immutable result/UID receipts and fresh inspection on replay; checkpoint 5
 reviews it. No real observer, linking, render, semantic revision or baseline
 promotion is implied. The operator CLI still stops before native actions.
+
+Checkpoint5 completed. Custom replay now verifies #35's canonical paths/hashes
+before inspection. The injected inspector emits native source path/hash,
+track kind/index and record/source ranges, never full authoring event objects.
+Unique pristine geometry/path mapping produces the sidecar event identity;
+native UIDs are retained thereafter. #141's hash-verified retained capture
+establishes those ID-returning calls on its named build/boundary; #145 must
+qualify its own. Focused prepared/native checks total27. Real observer/link/
+render, semantics, narration revision and promotion remain incomplete.
+
+The visual-only semantic building block is implemented for checkpoint6 review:
+`issue-144-semantics.ts` plus20 new tests. It verifies an actual compiled baseline,
+strict complete observation facts, equal adjacent reads and unchanged script;
+maps unique compiler-backed linked move/trim candidates; accepts explicit choices
+and emits a new canonical revision/fresh deterministic build IDs. Exhaustive
+candidate enumeration is bounded to64 tokens in one anchor block. The host/file
+entry, fresh WI authorization, composed narration omission and promotion are
+still incomplete; these function tests are synthetic injected evidence only.
 
 ## Authority, ownership and starting evidence
 

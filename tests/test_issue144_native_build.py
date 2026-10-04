@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import sqlite3
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -118,7 +119,16 @@ class InjectedStudio:
                 {
                     "itemUid": f"item-{index}",
                     "mediaUid": f"media-{source['id']}",
-                    "event": copy.deepcopy(event),
+                    # Native facts only; authoring IDs/provenance are not stored
+                    # on Resolve clips by the accepted placement path.
+                    "trackKind": event["trackKind"],
+                    "trackIndex": next(
+                        row["index"]
+                        for row in manifest["tracks"]
+                        if row["id"] == event["trackId"]
+                    ),
+                    "recordRange": copy.deepcopy(event["recordRange"]),
+                    "sourceRange": copy.deepcopy(event.get("sourceRange")),
                     "sourcePath": str(source_path),
                     "sourceHash": "sha256:"
                     + hashlib.sha256(source_path.read_bytes()).hexdigest(),
@@ -127,7 +137,7 @@ class InjectedStudio:
                 }
             )
         if self.bad_readback:
-            items[0]["event"]["recordRange"]["startFrame"] += 1
+            items[0]["recordRange"]["startFrame"] += 1
         return {
             "schemaVersion": "issue-144-native-readback/v1",
             "projectUid": "fake-project",
@@ -203,6 +213,22 @@ def test_exclusive_intent_reservation_has_exactly_one_owner(tmp_path: Path) -> N
     assert sorted(results) == [False, True]
     assert load_operator_json(build.intent_path)["snapshotId"] == build.snapshot_id
     assert not stages.result_path.exists()
+
+
+def test_corrupt_stage_path_is_refused_before_fresh_inspector(tmp_path: Path) -> None:
+    build, studio, stages = _setup(tmp_path)
+    assert build.run(adapter=stages)["status"] == "complete"
+    assert build.store is not None
+    inspections = studio.inspect_count
+    with sqlite3.connect(build.store.database) as connection:
+        connection.execute(
+            "UPDATE stages SET path=? WHERE job_id=? AND name=?",
+            (str(tmp_path / "foreign.json"), build.job_id, "verifying_timeline"),
+        )
+    result = build.run(adapter=stages)
+    assert result["status"] == "failed"
+    assert studio.inspect_count == inspections
+    assert studio.create_count == 1
 
 
 def test_lost_creation_response_never_retries_or_publishes_baseline(

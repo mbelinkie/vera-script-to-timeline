@@ -115,3 +115,28 @@ Full finished code/tests/corrected plan:
 https://github.com/mbelinkie/vera-script-to-timeline/issues/144#issuecomment-5974753412 .
 Response pending; full repository validation is running on 2606bbc. No native
 action, paid provider, positive omission rebuild or baseline promotion occurred.
+
+## Checkpoints 4 and 5: resumed CLI and completed assembly review
+
+Checkpoint4 completed and was recovered after interruption from the same local
+Claude session; its reproduced review, corrections and recovery boundary are
+retained in `checkpoint-04-disposition.md`. CLI2.1.289 remains authenticated.
+
+Checkpoint5 completed: 19 read-only turns, configured default claude-sonnet-5/high,
+no permission denials. Full response and disposition are retained. The replay
+path trust gap was fixed; the inspector now compares native facts and maps a
+unique pristine occurrence to an authoring sidecar. #141 UID evidence addresses
+the review's assumption that #34's preflight was the entire accepted boundary.
+All 27 focused prepared/native cases pass after the corrections. Full validation
+passed on 97e9f9d before those corrections (218 Python cases plus all TypeScript,
+lint, typecheck and generated-boundary checks). No native actions occurred.
+
+## Checkpoint6: completed visual semantics and file-workflow plan
+
+20 new visual semantic checks plus62 accepted compiler/validator checks pass,
+including frozen goldens, shared audio clearance, vacated voiceover coverage,
+rounded-boundary ambiguity and explicit/stale/malformed decisions. Pure functions
+produce validator-passing revisions and fresh build IDs; file workflow/rebuild
+and narration omission remain incomplete. Full checkpoint prompt is
+`checkpoint-06-semantics-review-prompt.md`. Review includes the checkpoint5
+native corrections and hash-verified #141 UID evidence before real WI work.

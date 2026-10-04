@@ -499,6 +499,10 @@ class PreparedBuild:
                 delivery=False,
             )
         )
+        # Retain #35's canonical path/hash checks before any custom replay
+        # callback, including a read-only native inspection.
+        if not self.store._verify_completed(self.document["projectId"], self.job_id):
+            return self.store.status(self.document["projectId"], self.job_id)
         previous = self.store.status(self.document["projectId"], self.job_id)
         if any(stage["status"] == "complete" for stage in previous["stages"]):
             self._verify_media()
@@ -525,7 +529,7 @@ class PreparedBuild:
                     stage_key=hashlib.sha256(
                         f"{self.document['projectId']}\0{self.job_id}\0{stage['name']}".encode()
                     ).hexdigest(),
-                    output_path=Path(stage["path"]),
+                    output_path=self.store._output_path(self.job_id, stage["name"]),
                     attempt_id=0,
                     lease_epoch=0,
                     report_progress=lambda _: None,
