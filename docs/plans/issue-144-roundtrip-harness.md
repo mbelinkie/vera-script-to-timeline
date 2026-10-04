@@ -57,7 +57,11 @@ confirmation-reviewed. Forty-four new checks pass in isolated full validation
 (292 Python cases). Synthetic closed-route positives and retained W1 unqualified
 consistency stay separate; full source-support excision and complete channel
 reconstruction are mandatory. Canonical omission/workflow integration remains
-incomplete; checkpoint11's pure text transformation plan is reviewed. Renderer job/settings/hash
+incomplete; checkpoint11's pure canonical omission transformer is implemented and plan/
+finished-code reviewed, with38 new tests (216 contract tests and292 Python
+cases in isolated full validation). It returns a complete whole-row generation
+request; explicit audio-proof/decision/generation/workflow integration remains
+incomplete. Renderer job/settings/hash
 receipts need the same independent #145 live qualification as capture receipts.
 
 **Corrected through checkpoint 2:** completed Claude reviews are retained under
