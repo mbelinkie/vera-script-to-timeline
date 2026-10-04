@@ -51,3 +51,20 @@ checks and the operator runbook. Real selected-build/input qualification and
 the disposable actual run remain #148/#145 work. No full harness completion,
 native round-trip acceptance, music support or untouched human-work preservation
 is claimed. #144 remains In progress.
+
+## Producer-requested pause
+
+Paused at checkpoint 8 after the full validation and Claude correction review.
+The validated implementation is commit `c5de058`. A following formatting-only
+cleanup removes one blank line at EOF in the new test-input helper; its 26
+affected TypeScript semantic/CLI tests were rerun and passed. No implementation
+source or frozen file changed in that cleanup.
+
+Resume with the whole-row narration handoff and audible-omission integration,
+using the settled row-box policy and accepted NarrationService injection. Read
+this disposition, the current plan and Producer policy first. Keep the
+generation/provider and live WI qualification boundaries explicit; review the
+next plan and finished segment with Claude and post the material on #144.
+No audio, real native or future authoring work was started at this pause.
+The issue remains In progress and the dedicated task/branch claim is retained;
+pause is not completion or a model-escalation blocker.

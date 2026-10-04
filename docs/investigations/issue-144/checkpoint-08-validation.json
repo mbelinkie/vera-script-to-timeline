@@ -44,5 +44,6 @@
     "tests/test_issue144_proof_session.py": "sha256:15e730fcfebe994b169c511f29a2deadf353e0ce0651b6fd78c47d09f1d72915"
   },
   "nativeActions": 0,
-  "limitation": "Automated visual file workflow only; omitted-phrase rebuild, real WI bridge and operator handoff remain incomplete."
+  "limitation": "Automated visual file workflow only; omitted-phrase rebuild, real WI bridge and operator handoff remain incomplete.",
+  "validatedCommit": "c5de058"
 }

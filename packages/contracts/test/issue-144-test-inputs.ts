@@ -80,4 +80,3 @@ export function edit(input: VisualProofInputs, operation: "move" | "trim", pictu
     }
   }
 }
-
