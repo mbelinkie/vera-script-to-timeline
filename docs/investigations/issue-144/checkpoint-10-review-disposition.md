@@ -40,7 +40,7 @@ Current repeated Ruff, format and strict mypy checks all pass after every covera
 ## Final isolated validation
 
 The full command passes with exit 0: generated-currentness; TypeScript lint/types;
-contracts 178, tooling 1, progress 6, roadmap 23; Ruff/format 181 files; strict mypy
+contracts 178, tooling 1, progress 6, roadmap 23; Ruff/format 190 files; strict mypy
 72 sources; all 292 pytest cases in 537.80s. This includes all 44 new audio cases.
 The earlier test-only setup failures are retained above, not counted as passing.
 Protected boundary diff and git diff --check pass. No live/provider actions.
