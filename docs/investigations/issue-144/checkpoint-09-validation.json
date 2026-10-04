@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "issue-144-checkpoint-validation/v1",
+  "checkpoint": 9,
+  "evidenceLevel": "synthetic_injected",
+  "runtime": {
+    "node": "24.19.0",
+    "npm": "11.17.0",
+    "python": "3.12.14",
+    "uv": "0.12.5"
+  },
+  "command": "npm exec --yes --package=node@24.19.0 -- npm run validate",
+  "checks": {
+    "generatedCurrent": true,
+    "typescriptLint": true,
+    "typescriptTypecheck": true,
+    "contractTests": 178,
+    "toolingTests": 1,
+    "progressTests": 6,
+    "roadmapTests": 23,
+    "pythonRuff": true,
+    "pythonFormatFiles": 178,
+    "pythonStrictMypySources": 69,
+    "pythonTests": 248,
+    "newNarrationCases": 15
+  },
+  "pythonSeconds": 781.6,
+  "sourceHashes": {
+    "python/vera_timeline_agent/roundtrip_narration.py": "sha256:63232b89630e76bbe6d511d5b0b7405051347661294a3a592020397423cb0159",
+    "python/vera_timeline_agent/roundtrip_build.py": "sha256:a7dcb68e2b30eb2d74322fb79c40effa665b7dcc57789725953da3225939b9d9",
+    "tests/test_issue144_row_narration.py": "sha256:64e25d1c0ed6e46287d50103b68ded2a89f2f645784884d8d3df28de1f4f26c0",
+    "packages/contracts/src/script-validator-cli.ts": "sha256:3d3f00114dc99e6e71eaa648b59d9380093a3b7b5de52358228c1a9528034359"
+  },
+  "nativeActions": 0,
+  "cloudActions": 0,
+  "validationLogHash": "sha256:227f719bb1c6f3c6cb88fe4e178b300d21bc20a4498cb7312e3d18e6d05541b5",
+  "limitation": "Whole-row generation building block; integrated omission/canonical revision, real WI and runbook remain incomplete."
+}

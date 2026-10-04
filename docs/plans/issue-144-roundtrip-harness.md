@@ -44,6 +44,18 @@ manifest/package facts are expected comparisons and cannot fill unknown native
 facts. Nonce/receipt/hash consistency alone cannot distinguish a live capture
 from a package echo; no cryptographic live-readback provenance is claimed.
 
+**Checkpoint 9 narration handoff:** implemented one-row whole-text generation
+through unchanged NarrationService/cache/normalizer/dependency projection, with
+strict validator/input/provenance checks and no default/cloud/native provider.
+Fifteen new injected checks include unchanged-following-row geometry, changed
+pacing, UTF-16 offsets, cached replay and subsequent edits. Claude completed
+plan/segment/correction reviews; isolated full validation passes 248 Python
+cases plus all existing TypeScript/contract checks. The handoff returns verified
+replacement dependency/media origins; canonical omission decisions and fresh
+build-ID integration remain outstanding. Checkpoint10's audio-evidence plan is
+reviewed; its verifier is not yet implemented. Renderer job/settings/hash
+receipts need the same independent #145 live qualification as capture receipts.
+
 **Corrected through checkpoint 2:** completed Claude reviews are retained under
 `docs/investigations/issue-144`. Producer selected the tested linked cases with
 an isolated proof setup step. The compiler-only entry is the first implemented

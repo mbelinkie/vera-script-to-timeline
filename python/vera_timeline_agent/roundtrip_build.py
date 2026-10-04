@@ -49,6 +49,20 @@ CODE_PATHS = (
     ROOT / "python/vera_timeline_agent/build_jobs.py",
     ROOT / "python/vera_timeline_agent/roundtrip_native.py",
     ROOT / "python/vera_timeline_agent/roundtrip_proof.py",
+    ROOT / "python/vera_timeline_agent/roundtrip_narration.py",
+    ROOT / "packages/contracts/src/script-validator-cli.ts",
+    *(
+        ROOT / "python/vera_timeline_agent/narration" / name
+        for name in (
+            "service.py",
+            "cache.py",
+            "compiler_dependencies.py",
+            "models.py",
+            "normalize.py",
+            "provider.py",
+            "polly.py",
+        )
+    ),
     ROOT / "packages/contracts/src/issue-144-proof-cli.ts",
     ROOT / "packages/contracts/src/issue-144-semantics.ts",
     ROOT / "python/vera_timeline_agent/resolve_import_package/package.py",
