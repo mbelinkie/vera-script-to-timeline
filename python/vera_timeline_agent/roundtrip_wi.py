@@ -168,7 +168,7 @@ def read_native(
     for key, setting in (
         ("width", "timelineResolutionWidth"),
         ("height", "timelineResolutionHeight"),
-        ("audioSampleRate", "audioSampleRate"),
+        ("audioSampleRate", "timelineSampleRate"),
     ):
         raw = get(timeline, "GetSetting", setting)
         fact(type(raw) in {str, int, float}, "native setting unreadable")
@@ -192,7 +192,7 @@ def read_native(
         fact(file_hash(path) == source["contentHash"], "package source bytes differ")
         fact(str(path) not in expected_sources, "ambiguous package source locator")
         expected_sources[str(path)] = source["contentHash"]
-    items, tracks, seen = [], [], set()
+    items, tracks, empty_slots, seen = [], [], [], set()
     for kind in ("video", "audio", "subtitle"):
         count = integer(get(timeline, "GetTrackCount", kind), "track count")
         expected = sorted(
@@ -200,13 +200,27 @@ def read_native(
             key=lambda t: t["index"],
         )
         fact(
-            count == len(expected)
-            and [t["index"] for t in expected] == list(range(1, count + 1)),
+            count == max((t["index"] for t in expected), default=0)
+            and count <= 1024
+            and len({t["index"] for t in expected}) == len(expected),
             "complete native track inventory differs",
         )
+        # Accepted assembly creates intermediate slots up to the maximum index.
+        # Inspect each gap rather than silently ignoring an unmanaged route.
+        for index in range(1, count + 1):
+            if any(t["index"] == index for t in expected):
+                continue
+            name = uid(get(timeline, "GetTrackName", kind, index))
+            native_items = get(timeline, "GetItemListInTrack", kind, index)
+            fact(
+                isinstance(native_items, (list, tuple)) and not native_items,
+                "unmanaged intermediate native slot is not empty",
+            )
+            empty_slots.append({"kind": kind, "index": index, "name": name})
         for track in expected:
             name = get(timeline, "GetTrackName", kind, track["index"])
             fact(name == track["name"], "native track name differs")
+            # IDs/roles are managed metadata after actual counts/slots/names agree.
             tracks.append({**track, "name": name})
             native_items = get(timeline, "GetItemListInTrack", kind, track["index"])
             fact(
@@ -291,6 +305,11 @@ def read_native(
                 )
     markers = get(timeline, "GetMarkers")
     fact(isinstance(markers, dict), "native marker inventory unreadable")
+    # JSON object keys are strings: normalize actual integer frame keys once so
+    # retained before-state comparison does not change type after serialization.
+    markers = {
+        str(integer(frame, "marker frame")): fields for frame, fields in markers.items()
+    }
     context(
         resolve, version=version, project_uid=project_uid, timeline_uid=timeline_uid
     )
@@ -308,6 +327,7 @@ def read_native(
         "timelineName": timeline_name,
         "timeline": observed_timeline,
         "tracks": tracks,
+        "emptySlots": empty_slots,
         "items": sorted(items, key=lambda item: item["itemUid"]),
         "markers": markers,
     }
@@ -601,7 +621,7 @@ def inspect_native(resolve: Any, manifest: Json, **kwargs: Any) -> Json:
                 **marker,
                 "id": custom["markerId"],
                 "provenance": custom["provenance"],
-                "frame": integer(frame, "marker frame"),
+                "frame": integer(int(frame), "marker frame"),
                 **{k: fields[k] for k in ("name", "note", "color")},
             }
         )
@@ -615,7 +635,7 @@ def inspect_native(resolve: Any, manifest: Json, **kwargs: Any) -> Json:
         )
     )
     return {
-        **first,
+        **{k: v for k, v in first.items() if k != "emptySlots"},
         "schemaVersion": "issue-144-native-readback/v1",
         "tracks": [
             next(t for t in first["tracks"] if t["id"] == old["id"])

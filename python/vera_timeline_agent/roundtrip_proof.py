@@ -360,8 +360,19 @@ class ProofSession:
             raise ProofBuildError(
                 "capture nonce/request differs or adjacent reads changed"
             )
-        for observation in (response["observationA"], response["observationB"]):
-            validate(observation)
+        try:
+            for observation in (response["observationA"], response["observationB"]):
+                validate(observation)
+        except ProofBuildError as error:
+            # A complete but semantically invalid response is terminal for this
+            # nonce. Retain it; the next explicit attempt must take fresh reads.
+            publish_immutable_output(
+                attempt / "refused.json",
+                _receipt_bytes(
+                    {"responseHash": _file_hash(response_path), "reason": str(error)}
+                ),
+            )
+            raise
         build._assert_current()
         build._verify_media()
         publish_immutable_output(

@@ -80,7 +80,7 @@ class Timeline:
             "timelineFrameRate": "25",
             "timelineResolutionWidth": "320",
             "timelineResolutionHeight": "180",
-            "audioSampleRate": "48000",
+            "timelineSampleRate": "48000",
         }.get(key)
 
     def GetTrackCount(self, kind: str) -> int:
@@ -180,6 +180,44 @@ def fixture(tmp_path: Path) -> tuple[Resolve, dict[str, Any], Path]:
         "markers": [],
     }
     return Resolve(Timeline(item)), manifest, package
+
+
+def test_intermediate_slots_are_observed_empty_and_hidden_items_refuse(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resolve, manifest, package = fixture(tmp_path)
+    manifest["tracks"][0]["index"] = 3
+    timeline = resolve.project.timeline
+    monkeypatch.setattr(
+        timeline, "GetTrackCount", lambda kind: 3 if kind == "video" else 0
+    )
+    monkeypatch.setattr(
+        timeline,
+        "GetTrackName",
+        lambda kind, index: "Picture" if index == 3 else f"Empty {index}",
+    )
+    monkeypatch.setattr(
+        timeline,
+        "GetItemListInTrack",
+        lambda kind, index: [timeline.item] if index == 3 else [],
+    )
+    kwargs: dict[str, Any] = {
+        "package_root": package,
+        "version": [21, 1, 1, 10, ""],
+        "project_uid": "native-project",
+        "timeline_uid": "native-timeline",
+    }
+    observed = wi.read_native(resolve, manifest, **kwargs)
+    assert observed["emptySlots"] == [
+        {"kind": "video", "index": 1, "name": "Empty 1"},
+        {"kind": "video", "index": 2, "name": "Empty 2"},
+    ]
+    monkeypatch.setattr(
+        timeline, "GetItemListInTrack", lambda kind, index: [timeline.item]
+    )
+    with pytest.raises(RuntimeError, match="intermediate native slot"):
+        wi.read_native(resolve, manifest, **kwargs)
 
 
 def test_direct_native_reader_does_not_echo_expected_geometry(tmp_path: Path) -> None:
@@ -379,8 +417,25 @@ def action_request(
 
 def test_link_reserves_root_intent_and_replays_without_second_effect(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     resolve, path, kwargs = action_request(tmp_path)
+    monkeypatch.setattr(
+        resolve.project.timeline, "GetMarkers", lambda: {0: {"name": "actual marker"}}
+    )
+    request = wi.load(path)
+    manifest = wi.load(Path(request["manifestPath"]))
+    before = wi.read_native(
+        resolve,
+        manifest,
+        package_root=Path(request["packageRoot"]),
+        version=kwargs["version"],
+        project_uid="native-project",
+        timeline_uid="native-timeline",
+    )
+    request["expectedObservationHash"] = wi.digest(wi.encoded(before))
+    path.write_bytes(wi.encoded(request))
+    kwargs["request_hash"] = wi.file_hash(path)
     result = wi.perform(resolve, path, **kwargs)
     assert result["status"] == "linked" and resolve.project.timeline.link_calls == 1
     assert list((tmp_path / "wi-effects").glob("*/intent.json"))

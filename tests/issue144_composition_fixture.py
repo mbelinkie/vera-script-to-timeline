@@ -4,6 +4,7 @@ import copy
 import gzip
 import hashlib
 import uuid
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,9 @@ from vera_timeline_agent.roundtrip_proof import ProofSession
 
 def setup(
     tmp_path: Path,
+    *,
+    boundary_factory: Callable[[str, str, str], CompositionBoundary] | None = None,
+    initialize: bool = True,
 ) -> tuple[ProofSession, CompositionBoundary, FrameProvider, NarrationService]:
     root = tmp_path / "proof"
     service, provider, row_id = inputs(root)
@@ -90,7 +94,7 @@ def setup(
                     "policy": "copy",
                 }
     (root / "materialization-plan.json").write_bytes(_receipt_bytes(plan))
-    boundary = CompositionBoundary(row_id, move["id"], trim["id"])
+    boundary = (boundary_factory or CompositionBoundary)(row_id, move["id"], trim["id"])
     session = ProofSession(
         root,
         native_provider=boundary.native,
@@ -98,9 +102,10 @@ def setup(
         omission_evidence=boundary.evidence,
         narration_service=service,
     )
-    built = session.run("build")
-    assert built["status"] == "complete", built
-    session.run("bind-baseline")
+    if initialize:
+        built = session.run("build")
+        assert built["status"] == "complete", built
+        session.run("bind-baseline")
     (root / "omission-request.json").write_bytes(
         _receipt_bytes(
             {"schemaVersion": "issue-144-composed-request/v1", "rowId": row_id}

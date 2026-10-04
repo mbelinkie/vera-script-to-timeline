@@ -1,0 +1,49 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______ test_link_reserves_root_intent_and_replays_without_second_effect _______
+
+tmp_path = PosixPath('/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/pytest-of-matthewbelinkie/pytest-74/test_link_reserves_root_intent0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106c78770>
+
+    def test_link_reserves_root_intent_and_replays_without_second_effect(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        resolve, path, kwargs = action_request(tmp_path)
+        monkeypatch.setattr(
+            resolve.project.timeline, "GetMarkers", lambda: {0: {"name": "actual marker"}}
+        )
+        request = wi.load(path)
+        manifest = wi.load(Path(request["manifestPath"]))
+        before = wi.read_native(
+            resolve,
+            manifest,
+            package_root=Path(request["packageRoot"]),
+            version=kwargs["version"],
+            project_uid="native-project",
+            timeline_uid="native-timeline",
+        )
+        request["expectedObservationHash"] = wi.digest(wi.encoded(before))
+        path.write_bytes(wi.encoded(request))
+        kwargs["request_hash"] = wi.file_hash(path)
+>       result = wi.perform(resolve, path, **kwargs)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_issue144_wi.py:439:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+python/vera_timeline_agent/roundtrip_wi.py:898: in perform
+    fact(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+condition = False
+message = 'link intent uncertain or native state changed; no retry'
+
+    def fact(condition: bool, message: str) -> None:
+        if not condition:
+>           raise RuntimeError(message)
+E           RuntimeError: link intent uncertain or native state changed; no retry
+
+python/vera_timeline_agent/roundtrip_wi.py:26: RuntimeError
+=========================== short test summary info ============================
+FAILED tests/test_issue144_wi.py::test_link_reserves_root_intent_and_replays_without_second_effect
+1 failed in 0.30s

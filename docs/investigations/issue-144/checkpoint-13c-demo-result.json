@@ -1,0 +1,15 @@
+{
+  "comparisonHash": "sha256:cf3d55408266b621b78ada27f18f4562df82080d41a4af3992d1f63a54db1292",
+  "comparisonPath": "/Users/matthewbelinkie/.codex/worktrees/d404/VERA Script to Timeline/out/issue144-wi-demo-20261004-13c/proof/decisions/2f93463be1b896bd5c1f574819a59e785cf61d503c8149361bc12bee57534fcb/canonical-comparison.md",
+  "decisionKey": "2f93463be1b896bd5c1f574819a59e785cf61d503c8149361bc12bee57534fcb",
+  "evidenceLevel": "synthetic_injected",
+  "limitations": "In-process fake native world, fixture supports/calibration/renderer/provider; no real qualification or human-finishing preservation.",
+  "nativeTargets": 2,
+  "pictureOnlyRefused": true,
+  "proofLinkCalls": 6,
+  "proofRoot": "/Users/matthewbelinkie/.codex/worktrees/d404/VERA Script to Timeline/out/issue144-wi-demo-20261004-13c/proof",
+  "providerRequests": 1,
+  "renderQueueCalls": 2,
+  "schemaVersion": "issue-144-synthetic-wi-demo/v1",
+  "status": "complete"
+}

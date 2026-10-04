@@ -53,6 +53,8 @@ CODE_PATHS = (
     ROOT / "python/vera_timeline_agent/roundtrip_audio.py",
     ROOT / "python/vera_timeline_agent/roundtrip_omission.py",
     ROOT / "python/vera_timeline_agent/roundtrip_generation.py",
+    ROOT / "python/vera_timeline_agent/roundtrip_wi.py",
+    ROOT / "python/vera_timeline_agent/roundtrip_driver.py",
     ROOT / "packages/contracts/src/script-validator-cli.ts",
     *(
         ROOT / "python/vera_timeline_agent/narration" / name

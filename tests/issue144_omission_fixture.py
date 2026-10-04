@@ -382,7 +382,7 @@ class OmissionBoundary(Boundary):
                             channels[ch][segment["recordStart"] * 1920 + i] += (
                                 value * gain
                             )
-            (root / out).write_bytes(_wav(channels, 3))
+            self.write_render(root / out, _wav(channels, 3), observation)
             observation_hash = _digest(_receipt_bytes(observation))
             receipt = {
                 "schemaVersion": "issue-144-audio-render/v1",
@@ -407,3 +407,6 @@ class OmissionBoundary(Boundary):
             }
             (root / name).write_bytes(_receipt_bytes(receipt))
         return root
+
+    def write_render(self, path: Path, raw: bytes, observation: dict[str, Any]) -> None:
+        path.write_bytes(raw)
