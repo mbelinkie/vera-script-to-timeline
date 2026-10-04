@@ -232,6 +232,7 @@ def test_retained_w1_support_and_render_consistency_remain_unqualified(
         baseline_hash=baseline_hash,
         target=target,
         row_id="row-0",
+        primary_source_id="source-0",
         evidence_level="retained_consistency",
     )
     assert result["status"] == "consistent_unqualified", result
@@ -245,6 +246,7 @@ def test_retained_w1_support_and_render_consistency_remain_unqualified(
         baseline_hash=baseline_hash,
         target=target,
         row_id="row-0",
+        primary_source_id="source-0",
         evidence_level="real_issue145",
     )
     assert result["status"] == "refused" and "#145" in result["reason"]

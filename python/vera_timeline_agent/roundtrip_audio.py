@@ -443,11 +443,14 @@ def verify_omission_evidence(
     baseline_hash: str,
     target: JsonObject,
     row_id: str,
+    primary_source_id: str,
     evidence_level: str,
 ) -> JsonObject:
     """Verify immutable files against caller's verified baseline/target/row.
 
-    The caller must bind these expected identities to the actual proof baseline.
+    The caller must bind these expected identities to the actual proof baseline,
+    deriving primary_source_id from its actual compiled narration event. Auxiliary
+    sources may share a row; profile JSON never supplies the primary selector.
     No operator boolean enables a live lane. Split geometry establishes a unique
     source-support decomposition; it does not establish native clip ancestry.
     """
@@ -459,6 +462,7 @@ def verify_omission_evidence(
         "baselineHash": baseline_hash,
         "target": target,
         "rowId": row_id,
+        "primarySourceId": primary_source_id,
         "limitations": LIMITATIONS,
         "channels": [],
         "codeHash": _file_hash(Path(__file__)),
@@ -473,6 +477,7 @@ def verify_omission_evidence(
         for value in target.values():
             _id(value, "target")
         _id(row_id, "row")
+        _id(primary_source_id, "primary source")
         profile = files.json("profile.json")
         _shape(
             profile,
@@ -500,7 +505,6 @@ def verify_omission_evidence(
         extent = _int(profile["extentFrames"], "extent", 1)
         if extent * FRAME > MAX_SAMPLES:
             raise ProofBuildError("bounded complete extent exceeded")
-        rows: set[str] = set()
         hashes: set[str] = set()
         decoded_hashes: set[str] = set()
         samples: dict[str, array[float]] = {}
@@ -510,10 +514,11 @@ def verify_omission_evidence(
             raise ProofBuildError("bounded source inventory required")
         for source in entries:
             _shape(source, {"id", "rowId", "path", "sha256", "supports"}, "source")
-            identity, row = _id(source["id"], "source"), _id(source["rowId"], "row")
+            identity = _id(source["id"], "source")
+            _id(source["rowId"], "row")
             if identity in sources:
                 raise ProofBuildError("duplicate source inventory")
-            if row in rows or source["sha256"] in hashes:
+            if source["sha256"] in hashes:
                 raise ProofBuildError("ambiguous row/source binding or alias")
             raw = files.read(_id(source["path"], "source path"))
             if _digest(raw) != source["sha256"]:
@@ -524,14 +529,14 @@ def verify_omission_evidence(
                 raise ProofBuildError("ambiguous decoded source alias")
             decoded_hashes.add(decoded_hash)
             _supports(source, len(channel))
-            rows.add(row)
             hashes.add(source["sha256"])
             samples[identity] = channel
             sources[identity] = {**source, "samples": len(channel)}
-        matching = [s for s in sources.values() if s["rowId"] == row_id]
-        if len(matching) != 1 or len(matching[0]["supports"]) < 3:
-            raise ProofBuildError("unique row/source support binding required")
-        selected = matching[0]
+        selected = sources.get(primary_source_id)
+        if selected is None:
+            raise ProofBuildError("caller-bound primary source is unknown")
+        if selected["rowId"] != row_id or len(selected["supports"]) < 3:
+            raise ProofBuildError("caller-bound row/source support binding differs")
         baseline = files.json("baseline.json")
         if files.hashes["baseline.json"] != baseline_hash:
             raise ProofBuildError("verified baseline hash differs")

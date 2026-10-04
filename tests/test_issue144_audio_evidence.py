@@ -197,7 +197,12 @@ def _verify(
 ) -> dict[str, Any]:
     root, baseline, _ = case
     return verify_omission_evidence(
-        root, baseline_hash=baseline, target=TARGET, row_id="row-0", evidence_level=lane
+        root,
+        baseline_hash=baseline,
+        target=TARGET,
+        row_id="row-0",
+        primary_source_id="source-0",
+        evidence_level=lane,
     )
 
 
@@ -447,6 +452,7 @@ def test_parent_symlink_and_hardlinked_source_refuse(
         baseline_hash=baseline,
         target=TARGET,
         row_id="row-0",
+        primary_source_id="source-0",
         evidence_level="synthetic_injected",
     )
     assert "symbolic link" in report["reason"]
@@ -463,3 +469,59 @@ def test_program_control_boolean_type_neutrality(
     result = _verify(case)
     assert result["status"] == "refused"
     assert "program controls" in result["reason"]
+
+
+def _shared_row_profile(case: tuple[Path, str, list[list[float]]]) -> None:
+    root = case[0]
+    profile = load_operator_json(root / "profile.json")
+    profile["sources"][1]["rowId"] = "row-0"
+    profile["sources"][1]["supports"] = [
+        {**word, "tokenId": f"aux-{word['tokenId']}"}
+        for word in profile["sources"][0]["supports"]
+    ]
+    _write(root, "profile.json", profile)
+    _receipt(root, "calibration.json", "baseline.json", "reference.wav")
+    _receipt(root, "render.json", "observation-a.json", "edited.wav")
+
+
+def test_same_row_auxiliary_supports_do_not_choose_primary(
+    case: tuple[Path, str, list[list[float]]],
+) -> None:
+    _shared_row_profile(case)
+    root, baseline, _ = case
+    result = verify_omission_evidence(
+        root,
+        baseline_hash=baseline,
+        target=TARGET,
+        row_id="row-0",
+        primary_source_id="source-0",
+        evidence_level="synthetic_injected",
+    )
+    assert result["status"] == "supported", result
+    assert result["sourceId"] == "source-0"
+    assert result["omittedTokenIds"] == ["charlie"]
+
+
+@pytest.mark.parametrize(
+    "primary,row,reason",
+    [
+        ("unknown", "row-0", "primary source"),
+        ("source-0", "row-2", "row/source"),
+        ("source-1", "row-0", "untouched route"),
+    ],
+)
+def test_trusted_primary_and_row_binding_refuse(
+    case: tuple[Path, str, list[list[float]]], primary: str, row: str, reason: str
+) -> None:
+    _shared_row_profile(case)
+    root, baseline, _ = case
+    result = verify_omission_evidence(
+        root,
+        baseline_hash=baseline,
+        target=TARGET,
+        row_id=row,
+        primary_source_id=primary,
+        evidence_level="synthetic_injected",
+    )
+    assert result["status"] == "refused"
+    assert reason in result["reason"]
