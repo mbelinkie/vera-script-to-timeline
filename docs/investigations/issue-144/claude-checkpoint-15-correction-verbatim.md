@@ -148,4 +148,3 @@ The real-lane gates are still hard-closed and no positive case was weakened.
 
 **Coverage:** I read the current `roundtrip_build.run`, `NativeStages.recovery_reason`, the R1 test, the contract and the runbook changes, and checked them against the unchanged `_metrics`, `_rebuild` and the native and recovery tests I traced earlier. I did not re-read unchanged files beyond those, or any test logs.
 ````
-

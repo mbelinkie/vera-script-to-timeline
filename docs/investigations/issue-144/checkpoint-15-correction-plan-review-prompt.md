@@ -9,4 +9,3 @@ Focus on whether it actually resolves yourP2-1/P2-2/P2-3 without weakening inten
 
 Return blockers and concrete correction suggestions, or approve the plan with exact constraints. State your disposition of eachP2. Do not write a generic implementation. The plan is not an already-passing implementation claim.
 ````
-

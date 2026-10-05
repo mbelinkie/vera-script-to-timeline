@@ -63,4 +63,3 @@ OUTPUT
 - Explicitly assess whole-row replacement/unaffected boxes, fresh-target/pointer/replay safety, three-edit composition, and synthetic-vs-real authority isolation.
 - Avoid boilerplate praise or generic security/style checklists. It is valid to find no blockers after a rigorous review, but do not claim exhaustive proof.
 ````
-

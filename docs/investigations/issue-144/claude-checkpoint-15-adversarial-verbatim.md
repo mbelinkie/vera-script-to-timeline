@@ -121,4 +121,3 @@ I read these in full:
 
 I only skimmed the names and parts of the remaining tests. I didn't fully trace `compiler-core`, the validator, or the TypeScript test files.
 ````
-

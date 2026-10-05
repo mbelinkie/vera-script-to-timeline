@@ -30,4 +30,3 @@ Actual source187c420 focus3:9passed/1failed,464.78s. Full WI walkthrough, normal
 
 Confirm or reject R1/R2 and the actual caller dispatch fix explicitly. Report any actionable defect with file:line/concrete trigger/minimum bounded fix and coverage limits. If these settle original3P2s, say so. Do not expand into real qualification104/100/145/153/154; hard real gates and no weaker positives remain. Parent knows a review is evidence to combine with actual tests, not proof by assertion.
 ````
-
