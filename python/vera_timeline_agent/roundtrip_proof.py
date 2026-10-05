@@ -142,11 +142,13 @@ class ProofSession:
             except BlockingIOError as error:
                 raise ProofBuildError("another proof operation is active") from error
             self.build._assert_current()
-            if action == "build":
+            if action == "preflight":
+                return self.build.preflight()
+            if action in {"build", "resume-build"}:
                 adapter = (
                     self.native_provider(self.build) if self.native_provider else None
                 )
-                return self.build.run(adapter=adapter)
+                return self.build.run(adapter=adapter, resume=action == "resume-build")
             if action == "bind-baseline":
                 return self._bind()
             if action == "propose":
@@ -166,7 +168,7 @@ class ProofSession:
                     if action == "bind-omission-evidence"
                     else omission.propose()
                 )
-            if action in {"generate-omission", "rebuild", "promote"}:
+            if action in {"generate-omission", "rebuild", "resume-rebuild", "promote"}:
                 if decision_key is None or not re.fullmatch(
                     r"[a-f0-9]{64}", decision_key
                 ):
@@ -178,8 +180,8 @@ class ProofSession:
 
                     return OmissionGeneration(self, decision_key).generate()
                 return (
-                    self._rebuild(decision_key)
-                    if action == "rebuild"
+                    self._rebuild(decision_key, resume=action == "resume-rebuild")
+                    if action in {"rebuild", "resume-rebuild"}
                     else self._promote(decision_key)
                 )
             if action == "status":
@@ -249,14 +251,16 @@ class ProofSession:
         self, observation: JsonObject, identity: JsonObject, evidence_level: str
     ) -> None:
         if (
-            observation.get("projectUid") != identity["projectUid"]
+            not isinstance(observation, dict)
+            or observation.get("projectUid") != identity["projectUid"]
             or observation.get("timelineUid") != identity["timelineUid"]
             or observation.get("evidenceLevel") != evidence_level
         ):
             raise ProofBuildError("capture target or evidence lane changed")
         items = observation.get("items")
         if not isinstance(items, list) or any(
-            not isinstance(row, dict) for row in items
+            not isinstance(row, dict) or not isinstance(row.get("eventId"), str)
+            for row in items
         ):
             raise ProofBuildError("capture occurrence inventory is missing")
         mapped = {
@@ -339,7 +343,16 @@ class ProofSession:
             publish_immutable_output(response_path, _receipt_bytes(response))
         if not response_path.exists():
             raise NeedsAction(f"fresh guarded WI capture required: {request_path}")
-        response = load_operator_json(response_path)
+        try:
+            response = load_operator_json(response_path)
+        except ProofBuildError as error:
+            publish_immutable_output(
+                attempt / "refused.json",
+                _receipt_bytes(
+                    {"responseHash": _file_hash(response_path), "reason": str(error)}
+                ),
+            )
+            raise
         if (
             set(response)
             != {"schemaVersion", "nonce", "requestHash", "observationA", "observationB"}
@@ -480,7 +493,11 @@ class ProofSession:
         }
         inputs = self._proof_inputs(body, build, a, b)
         temporary = (
-            self.root / "baseline-validation" / build.snapshot_id / "inputs.json"
+            self.root
+            / "baseline-validation"
+            / build.snapshot_id
+            / _digest(_receipt_bytes(inputs))[7:]
+            / "inputs.json"
         )
         publish_immutable_output(temporary, _receipt_bytes(inputs))
         checked = self._semantic("propose", [temporary])
@@ -715,7 +732,7 @@ class ProofSession:
                 raise ProofBuildError("revised canonical input changed")
         return receipt, build
 
-    def _rebuild(self, key: str) -> JsonObject:
+    def _rebuild(self, key: str, *, resume: bool = False) -> JsonObject:
         decision, build = self._decision(key)
         if _file_hash(self.pointer) != decision["baselinePointerHash"]:
             promoted = self.root / "decisions" / key / "promotion.json"
@@ -750,10 +767,17 @@ class ProofSession:
             # The accepted job performs its five core stages normally. Native
             # preflight verifies their actual preview before intent/factory/effect;
             # do not deliberately stop the job in waiting between stages.
-            adapter.preflight = lambda: OmissionGeneration.verify_preview(
-                build, self.root / "decisions" / key
-            )
-        result = build.run(adapter=adapter)
+            previous = adapter.preflight
+
+            def preflight() -> None:
+                if previous is not None:
+                    previous()
+                OmissionGeneration.verify_preview(build, self.root / "decisions" / key)
+                if previous is not None:
+                    previous()
+
+            adapter.preflight = preflight
+        result = build.run(adapter=adapter, resume=resume)
         if result["status"] != "complete":
             return {"status": result["status"], "decisionKey": key, "job": result}
         self._ready(build)
@@ -827,7 +851,9 @@ def main() -> int:
     parser.add_argument(
         "action",
         choices=(
+            "preflight",
             "build",
+            "resume-build",
             "bind-baseline",
             "propose",
             "decide",
@@ -836,6 +862,7 @@ def main() -> int:
             "decide-omission",
             "generate-omission",
             "rebuild",
+            "resume-rebuild",
             "promote",
             "status",
         ),
@@ -850,7 +877,8 @@ def main() -> int:
         print(json.dumps(result, sort_keys=True))
         return (
             0
-            if result["status"] not in {"waiting", "needs_action", "failed", "refused"}
+            if result["status"]
+            not in {"waiting", "needs_action", "failed", "refused", "recovery_blocked"}
             else 2
         )
     except NeedsAction as error:

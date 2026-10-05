@@ -1,4 +1,4 @@
-# Issue144 operator runbook — checkpoint13 review copy
+# Issue144 operator runbook
 
 This describes the implemented harness and synthetic file/WI walkthrough.
 Final review and identified-commit validation are recorded separately before
@@ -47,8 +47,10 @@ explicitly fake native world/cache persist between commands. Actual accepted
 assembly calls populate that world; WI getters read stored state and explicit
 fake editorial actions mutate it. Compiler/package/jobs/assembly/cache/service,
 staged requests/responses, guarded proof links and current full-program stereo
-queue/inspection use their actual implementations. Supports, independent
-calibration, renderer and provider remain synthetic. This is not cross-process
+queue/inspection use their actual implementations. The host audio verdict uses
+trusted synthetic supplier receipts; it does not bind their job IDs to the WI
+render records. Pristine calibration bypasses WI. Supports, calibration,
+renderer and provider remain synthetic. This is not cross-process
 native-app execution or real qualification. Test command:
 
 ```sh
@@ -59,7 +61,8 @@ Expected success: one provider request, two targets, six proof-link calls,
 picture-only refusal without canonical/pointer/provider change, linked move(+25),
 linked end trim(-25) and interior primary Charlie omission accepted together;
 one revision, complete replacement row, fresh marks retiming anchored cuts,
-unchanged following row/local cuts and stable decision/generation/build/promote
+unchanged following row/local cuts, an unlinked rebuilt-target promotion refusal,
+explicit links on that new target, and stable decision/generation/build/promote
 replay. Failed/interrupted directories are retained; no overwrite/cleanup.
 
 Expected artifacts: `demo-result.json`, numbered `commands/*.json`,
@@ -85,7 +88,8 @@ contiguous primary word/phrase omission with retained neighbors; no removed
 visual/host/annotation/beat anchor endpoint. Edge deletion, punctuation in joining
 gaps and partial-word ambiguity refuse. Keep the following unchanged row.
 
-Bounded audio profile:25fps, frame-aligned mono48k PCM16/24 independent sources,
+Bounded audio profile:25fps, frame-aligned mono48k PCM16/24 independent sources
+(actual narration build inputs require PCM24),
 unique/non-aliased, at most8sources and64primary tokens, complete programme at
 most3million samples. At25fps/48k this permits1562 complete frames=62.48seconds.
 #148's snapshot must map to an approved complete programme within this bound;
@@ -107,6 +111,19 @@ remain closed; #145 must supply separately reviewed qualification changes.
 No boolean, synthetic relabeling or all-refused real run satisfies that gate.
 Transcript use would require accepted #146 first; this lane uses no transcript.
 
+Run the local preflight before any boundary is supplied:
+
+```sh
+ctx-wire run rtk proxy npm exec --yes --package=node@24.19.0 -- uv run --frozen python -m vera_timeline_agent.roundtrip_driver preflight --proof-root /absolute/owned/proof
+```
+
+Expected `prepared`, evidenceLevel=`local_prepared`, actual compiler outputs and
+`runs/<snapshot-id>/preflight.json`. No job, boundary loading, synthesis or target
+effect occurs. The receipt explicitly lists the full three-edit/audio/native
+profile as unchecked: it verifies local bytes/compiler inputs, not every positive
+case above. #148 must retain separate suitability checks; #145 must qualify the
+external seams. Supplying boundary flags refuses before loading the boundary.
+
 ## 4. Build a fresh target, link proof pairs and bind baseline
 
 Exact host entry, repeating these flags for every action:
@@ -125,17 +142,19 @@ The immutable root operator-boundary.json binds all pins. Changing a retained
 boundary/pin refuses before its changed module loads; code changes need a
 separately approved fresh run. Hashes do not sandbox explicitly trusted code.
 
-Actions: build, bind-baseline, propose, decide, bind-omission-evidence,
-propose-omission, decide-omission, generate-omission, rebuild, promote, status,
-compare. The last three state-changing actions plus compare require the returned
+Actions: preflight, build, resume-build, bind-baseline, propose, decide,
+bind-omission-evidence, propose-omission, decide-omission, generate-omission,
+rebuild, resume-rebuild, promote, status, compare.
+generate-omission, rebuild, resume-rebuild, promote and compare require the returned
 `--decision-key <64 lowercase hex characters>`. JSON successful statuses exit0;
-waiting/needs_action/failed/refused exit2; process/OS/import faults exit70.
+waiting/needs_action/failed/refused/recovery_blocked exit2;
+process/OS/import faults exit70.
 Retain all outputs. Missing boundaries wait/refuse. For real runs these commands
 are conditional on #145's qualification changes, not authorization under #144.
 
 Build verifies a fresh disposable project/timeline, source bytes, actual settings,
 full tracks/clock/source/record geometry and birth item/media UIDs. Name collision
-or lost creation response waits for read-only current-folder identification;
+or lost creation response returns recovery_blocked with retained evidence;
 never blindly create another target. Explicitly link the move and trim video/
 audio pairs and primary narration/muted full-row companion. Read back equal
 geometry and reciprocal links. No protected target is mutated.
@@ -188,7 +207,8 @@ response. The host's consumed.json binds the fresh response.
 
 Readbacks compare actual product/version/current UIDs, names/settings/extent,
 all native track counts/slots/names, all item/media UIDs, online verified bytes,
-enabled/speed, reciprocal links, integer/fractional geometry and actual markers.
+enabled/speed, reciprocal links and integer/fractional geometry. WI capture does
+not include marker readback; NativeStages verification separately checks markers.
 Intermediate slots created by accepted assembly must be observed empty; their
 actual names are retained in raw emptySlots. Unknown fields, hidden gap items,
 unavailable controls or fractional uncertainty refuse. Managed IDs/roles are
@@ -217,6 +237,9 @@ cap. Pending returns needs_action. Lost queue response requires qualified
 read-only unique owned-job lookup with job=None; otherwise preserve uncertainty
 and never queue twice. Real calibration/controls/supports and full-program
 rendering remain #145 gates; the demo calibration is an independent fixture.
+The exact supplier files, strict fields, limits and required WI-to-host render
+bridge are in [audio-evidence-contract.md](audio-evidence-contract.md).
+Executed WI render records currently do not authorize the host audio verdict.
 
 Run bind-baseline only after proof links/facts pass. Expect immutable
 baselines/<hash>/baseline.json and root baseline.json pointer. Old original
@@ -279,19 +302,51 @@ COMPLETE revised row wording; one new recording, new marks/provenance/cache
 binding, no splicing/old timing reuse. Expect finalized plus immutable generation
 inputs, actual synthesis/normalization/cache, row-handoff, canonical new dependency/
 plan/preview and generation receipt. Untouched rows preserve content/audio/source/
-local cuts; absolute starts translate. Changed/missing cache after interruption
-refuses before uncertain second synthesis.
+local cuts; absolute starts translate. generation-inputs.json records preparation.
+Only `generation-calls/<request-hash>/intent.json`, written immediately before
+the actual service call after validation, reserves a possibly attempted request.
+An earlier validator fault can retry with no provider call. Once that shared
+intent exists, missing synthesis cache refuses across all decision keys; cached
+synthesis may safely finish normalization. Final generation binds the intent
+hash and complete cache bytes. Replay never creates a missing call intent.
 
 Run rebuild --decision-key <key>. Compiler/package/job output must match the
 retained generation preview before native intent. Build a new target; verify
 actual source/record geometry and replacement recording after save/reopen.
 #145 additionally qualifies the complete rebuilt programme render. Failure leaves
-prior authoritative script/pointer/targets intact and retains recoverable jobs.
-Waiting jobs require explicit read-only recovery, not uncertain creation retry.
+prior authoritative script/pointer/targets intact and retains jobs/evidence.
+
+On the NEW rebuilt target, repeat section4's three explicit WI link actions:
+the move pair, trim pair and narration/muted companion. Use the rebuilt identity,
+package/manifest/source hashes and actual new item UIDs from its capture request;
+initial target links do not transfer. Each action needs the current adjacent raw
+observation hash, equal geometry and reciprocal exactly-two link readback. Then
+capture fresh complete pristine observations for promote. The fixture makes
+this setup a numbered explicit step; capture itself never links. Premature
+unlinked promotion refuses and retains content-addressed validation inputs. After
+explicit links a new capture/validation record can succeed without overwriting
+that refusal, another provider request or another rebuilt target.
+
+For a retained waiting/failed job, use `resume-build`, or `resume-rebuild
+--decision-key <key>`, with the same reviewed boundary flags. The proof lock,
+literal inputs/source/media, #35 completed-stage integrity, current accepted
+decision/capture and compiler preview gates apply before immediate continuation.
+Known safe cases are no native creation intent, or an exact verified result with
+fresh independent read-only reconciliation. The latter never calls creation again.
+Ordinary build/rebuild does not silently resume a waiting job.
+
+Missing/partial/foreign intent/result, unverified/stopped_safely result, failed
+mutation, or retained integrity failure returns `recovery_blocked`. Preserve all
+files and targets; do not delete intent or change decision whitespace to retry.
+This terminal boundary requires #145's independently qualified operator recovery.
+A separately authorized fresh baseline run may use fresh compiler build IDs and
+retain the old proof. Rebuild IDs are deterministic from the accepted revision:
+changing a decision key cannot authorize a fresh uncertain target or service call.
 
 ## 8. Promote once, replay and preserve all evidence
 
-Run promote --decision-key <key> only after new-target verification. Expected
+Run promote --decision-key <key> only after new-target verification AND the
+explicit rebuilt-target proof links and fresh capture above. Expected
 promoted, new immutable baseline and compare-and-swap pointer advance. Replay
 identical decide-omission, generate-omission, rebuild, promote; receipts/provider
 request count/target count/pointer stay unchanged. Preserve old script/media/

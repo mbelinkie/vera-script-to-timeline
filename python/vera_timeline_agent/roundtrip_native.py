@@ -264,6 +264,42 @@ class NativeStages:
             "timelineName": f"VERA build {manifest['buildId']}",
         }
 
+    def recovery_reason(self, job_id: str) -> str | None:
+        """Classify retained creation evidence with reads; never call a factory."""
+        if not (self.build.intent_path.exists() or self.build.intent_path.is_symlink()):
+            if self.result_path.exists() or self.result_path.is_symlink():
+                return "native result has no intent"
+            if self.build.store is None:
+                return "durable job required for native recovery classification"
+            job = self.build.store.status(self.build.document["projectId"], job_id)
+            if any(
+                stage["name"] in NATIVE_STAGES and stage["status"] == "complete"
+                for stage in job["stages"]
+            ):
+                return "completed native stage lacks its intent/result; no retry"
+            return None
+        try:
+            manifest = self._manifest()
+            context = StageContext(
+                project_id=self.build.document["projectId"],
+                job_id=job_id,
+                snapshot_id=self.build.snapshot_id,
+                stage="building_resolve_timeline",
+                stage_key=hashlib.sha256(
+                    f"{self.build.document['projectId']}\0{job_id}\0building_resolve_timeline".encode()
+                ).hexdigest(),
+                output_path=self.build.run_root / "recovery-read-only",
+                attempt_id=0,
+                lease_epoch=0,
+                report_progress=lambda _: None,
+                renew_lease=lambda: None,
+            )
+            self._result(context, manifest)
+            self._inspect(manifest)
+        except (ProofBuildError, UncertainResult) as error:
+            return str(error)
+        return None
+
     def reconcile(self, context: StageContext) -> bool:
         if context.stage not in NATIVE_STAGES:
             return self.build.reconcile(context)

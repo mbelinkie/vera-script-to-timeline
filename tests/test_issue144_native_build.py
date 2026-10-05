@@ -226,7 +226,8 @@ def test_corrupt_stage_path_is_refused_before_fresh_inspector(tmp_path: Path) ->
             (str(tmp_path / "foreign.json"), build.job_id, "verifying_timeline"),
         )
     result = build.run(adapter=stages)
-    assert result["status"] == "failed"
+    assert result["status"] == "recovery_blocked"
+    assert result["job"]["status"] == "failed"
     assert studio.inspect_count == inspections
     assert studio.create_count == 1
 
@@ -237,25 +238,30 @@ def test_lost_creation_response_never_retries_or_publishes_baseline(
     build, studio, stages = _setup(tmp_path)
     studio.lost_response = True
     result = build.run(adapter=stages)
-    assert result["status"] == "waiting"
+    assert result["status"] == "recovery_blocked"
+    assert result["job"]["status"] == "waiting"
     assert studio.create_count == 1
     assert build.intent_path.exists()
     assert not (build.root / "baseline.json").exists()
     assert build.store is not None
     build.store.resume(build.document["projectId"], build.job_id)
-    assert build.run(adapter=stages)["status"] == "waiting"
+    assert build.run(adapter=stages)["status"] == "recovery_blocked"
     assert studio.create_count == 1
 
 
-@pytest.mark.parametrize("case", ["lost_result", "changed_target", "wrong_uid"])
+@pytest.mark.parametrize(
+    "case", ["lost_result", "lost_intent_and_result", "changed_target", "wrong_uid"]
+)
 def test_interrupted_or_changed_result_cannot_retry_effect(
     tmp_path: Path,
     case: str,
 ) -> None:
     build, studio, stages = _setup(tmp_path)
     build.run(adapter=stages)
-    if case == "lost_result":
+    if case in {"lost_result", "lost_intent_and_result"}:
         stages.result_path.unlink()
+        if case == "lost_intent_and_result":
+            build.intent_path.unlink()
     elif case == "changed_target":
         studio.bad_readback = True
     else:
@@ -267,9 +273,7 @@ def test_interrupted_or_changed_result_cannot_retry_effect(
             return result
 
         stages.inspector = wrong
-    with pytest.raises(
-        (RuntimeError, OSError), match=r"uncertain|changed|missing|identity"
-    ):
-        build.run(adapter=stages)
+    result = build.run(adapter=stages)
+    assert result["status"] == "recovery_blocked" and result["reason"]
     assert studio.create_count == 1
     assert not (build.root / "baseline.json").exists()

@@ -47,6 +47,8 @@ CODE_PATHS = (
     ROOT / "packages/contracts/src/compiler-core.ts",
     ROOT / "packages/contracts/src/script-validator.ts",
     ROOT / "python/vera_timeline_agent/build_jobs.py",
+    ROOT / "python/vera_timeline_agent/studio_assembly.py",
+    ROOT / "python/vera_timeline_agent/studio_spike.py",
     ROOT / "python/vera_timeline_agent/roundtrip_native.py",
     ROOT / "python/vera_timeline_agent/roundtrip_proof.py",
     ROOT / "python/vera_timeline_agent/roundtrip_narration.py",
@@ -509,25 +511,111 @@ class PreparedBuild:
             ),
         )
 
-    def run(self, *, adapter: StageAdapter | None = None) -> JsonObject:
+    def preflight(self) -> JsonObject:
+        """Validate local inputs/compiler bytes without creating or running a job."""
         self._assert_current()
         for name, raw in self.raw.items():
             publish_immutable_output(self.run_root / "inputs" / name, raw)
-        self.store = BuildJobStore(self.root / "jobs")
-        self.job_id = self.store.submit(
-            BuildRequest(
-                project_id=self.document["projectId"],
-                snapshot_id=self.snapshot_id,
-                idempotency_key=self.snapshot_id,
-                mode="studio",
-                render=False,
-                delivery=False,
-            )
+        self._verify_speech()
+        compiled = self._compile()
+        result = {
+            "schemaVersion": "issue-144-local-preflight/v1",
+            "status": "prepared",
+            "evidenceLevel": "local_prepared",
+            "proofLane": self.request["evidenceLevel"],
+            "snapshotId": self.snapshot_id,
+            "inputs": self.input_hashes,
+            "sources": self.source_hashes,
+            "outputs": compiled["outputs"],
+            "unchecked": [
+                "zero-start 25fps complete programme at most1562frames",
+                "ready audio/video only; no stills/Fusion/placeholders",
+                "1-8 independent mono48k PCM16/24 frame-aligned audio sources",
+                "selected primary row at most64tokens and complete word supports",
+                "two distinct use_source visuals plus one muted full-row companion",
+                "unique supported linked move/trim and interior omission",
+                "qualified native/control/support/calibration/render/"
+                "provider boundaries",
+            ],
+        }
+        self._assert_current()
+        self._verify_media()
+        publish_immutable_output(
+            self.run_root / "preflight.json", _receipt_bytes(result)
         )
+        return result
+
+    def _recovery_blocked(self, job: JsonObject, reason: str) -> JsonObject:
+        return {
+            "schemaVersion": "issue-144-job-recovery/v1",
+            "status": "recovery_blocked",
+            "evidenceLevel": self.request["evidenceLevel"],
+            "snapshotId": self.snapshot_id,
+            "reason": reason,
+            "job": job,
+        }
+
+    def run(
+        self, *, adapter: StageAdapter | None = None, resume: bool = False
+    ) -> JsonObject:
+        self._assert_current()
+        for name, raw in self.raw.items():
+            publish_immutable_output(self.run_root / "inputs" / name, raw)
+        job_path = self.run_root / "build-job.json"
+        if resume and (not job_path.exists() or not (self.root / "jobs").is_dir()):
+            raise ProofBuildError(
+                "no matching retained job; build before explicit resume"
+            )
+        self.store = BuildJobStore(self.root / "jobs")
+        if resume:
+            retained = load_operator_json(job_path)
+            if set(retained) != {
+                "schemaVersion",
+                "snapshotId",
+                "projectId",
+                "jobId",
+            } or (
+                retained["schemaVersion"] != "issue-144-build-job/v1"
+                or retained["snapshotId"] != self.snapshot_id
+                or retained["projectId"] != self.document["projectId"]
+                or not isinstance(retained["jobId"], str)
+            ):
+                raise ProofBuildError("retained job identity differs")
+            self.job_id = retained["jobId"]
+        else:
+            self.job_id = self.store.submit(
+                BuildRequest(
+                    project_id=self.document["projectId"],
+                    snapshot_id=self.snapshot_id,
+                    idempotency_key=self.snapshot_id,
+                    mode="studio",
+                    render=False,
+                    delivery=False,
+                )
+            )
+            publish_immutable_output(
+                job_path,
+                _receipt_bytes(
+                    {
+                        "schemaVersion": "issue-144-build-job/v1",
+                        "snapshotId": self.snapshot_id,
+                        "projectId": self.document["projectId"],
+                        "jobId": self.job_id,
+                    }
+                ),
+            )
+        previous = self.store.status(self.document["projectId"], self.job_id)
+        if previous["snapshotId"] != self.snapshot_id or previous["mode"] != "studio":
+            raise ProofBuildError("durable job does not bind this snapshot")
+        if previous["events"] and previous["events"][-1]["kind"] == "integrity_failed":
+            return self._recovery_blocked(previous, "retained job integrity failed")
         # Retain #35's canonical path/hash checks before any custom replay
         # callback, including a read-only native inspection.
         if not self.store._verify_completed(self.document["projectId"], self.job_id):
-            return self.store.status(self.document["projectId"], self.job_id)
+            return self._recovery_blocked(
+                self.store.status(self.document["projectId"], self.job_id),
+                "retained completed-stage integrity failed",
+            )
         previous = self.store.status(self.document["projectId"], self.job_id)
         if any(stage["status"] == "complete" for stage in previous["stages"]):
             self._verify_media()
@@ -542,6 +630,34 @@ class PreparedBuild:
             for stage in previous["stages"]
         ):
             self.verified_package()
+        if (
+            previous["status"] in {"waiting", "failed"}
+            or resume
+            or (
+                adapter is not None
+                and (
+                    self.intent_path.exists()
+                    or self.intent_path.is_symlink()
+                    or (self.run_root / "native-result.json").exists()
+                    or (self.run_root / "native-result.json").is_symlink()
+                )
+            )
+        ):
+            from vera_timeline_agent.roundtrip_native import NativeStages
+
+            if isinstance(adapter, NativeStages):
+                reason = adapter.recovery_reason(self.job_id)
+            elif (
+                self.intent_path.exists()
+                or self.intent_path.is_symlink()
+                or (self.run_root / "native-result.json").exists()
+                or (self.run_root / "native-result.json").is_symlink()
+            ):
+                reason = "explicit native boundary required to classify retained intent"
+            else:
+                reason = None
+            if reason is not None:
+                return self._recovery_blocked(previous, reason)
         if adapter is not None:
             for stage in previous["stages"]:
                 if stage["status"] != "complete":
@@ -562,6 +678,17 @@ class PreparedBuild:
                 )
                 if not adapter.reconcile(context):
                     raise ProofBuildError("completed stage no longer reconciles")
+        if resume:
+            if previous["status"] in {"waiting", "failed"}:
+                if adapter is None:
+                    raise ProofBuildError(
+                        "explicit native boundary required before resume"
+                    )
+                self.store.resume(self.document["projectId"], self.job_id)
+            elif previous["status"] != "complete":
+                raise ProofBuildError(
+                    "only a waiting, failed or complete job can resume"
+                )
         while self.store.run_one(
             self.document["projectId"],
             self.job_id,
@@ -570,7 +697,15 @@ class PreparedBuild:
         ):
             pass
         self._assert_current()
-        return self.store.status(self.document["projectId"], self.job_id)
+        result = self.store.status(self.document["projectId"], self.job_id)
+        if result["status"] in {"waiting", "failed"}:
+            from vera_timeline_agent.roundtrip_native import NativeStages
+
+            if isinstance(adapter, NativeStages):
+                reason = adapter.recovery_reason(self.job_id)
+                if reason is not None:
+                    return self._recovery_blocked(result, reason)
+        return result
 
 
 def main() -> int:

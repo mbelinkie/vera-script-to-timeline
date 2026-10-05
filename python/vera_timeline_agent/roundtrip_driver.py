@@ -36,7 +36,9 @@ from vera_timeline_agent.roundtrip_proof import (
 
 Json = dict[str, Any]
 ACTIONS = (
+    "preflight",
     "build",
+    "resume-build",
     "bind-baseline",
     "propose",
     "decide",
@@ -45,6 +47,7 @@ ACTIONS = (
     "decide-omission",
     "generate-omission",
     "rebuild",
+    "resume-rebuild",
     "promote",
     "status",
     "compare",
@@ -242,6 +245,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--boundary-sha256")
     args = parser.parse_args(argv)
     try:
+        if args.action == "preflight" and (
+            args.boundary_file is not None or args.boundary_sha256 is not None
+        ):
+            raise ProofBuildError("local preflight does not load an operator boundary")
         session, guard = session_with_boundary(
             args.proof_root,
             node=args.node_executable,
@@ -258,7 +265,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, sort_keys=True))
         return (
             2
-            if result["status"] in ("waiting", "needs_action", "failed", "refused")
+            if result["status"]
+            in ("waiting", "needs_action", "failed", "refused", "recovery_blocked")
             else 0
         )
     except NeedsAction as error:

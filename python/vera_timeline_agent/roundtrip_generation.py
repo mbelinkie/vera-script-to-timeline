@@ -261,8 +261,25 @@ class OmissionGeneration:
 
     def finalize(self, *, publish: bool) -> tuple[JsonObject, PreparedBuild]:
         service, binding = self.service_inputs()
-        existing_input = self.input_path.exists()
         raw_binding = _receipt_bytes(binding)
+        request_hash = identity_hash(binding["service"]["requestIdentity"])
+        intent_path = (
+            self.session.root / "generation-calls" / request_hash[7:] / "intent.json"
+        )
+        raw_intent = _receipt_bytes(
+            {
+                "schemaVersion": "issue-144-generation-call-intent/v1",
+                "evidenceLevel": "synthetic_injected",
+                "service": binding["service"],
+            }
+        )
+        existing_intent = intent_path.exists() or intent_path.is_symlink()
+        if existing_intent or not publish:
+            _fact(
+                _operator_bytes(intent_path) == raw_intent,
+                "retained generation call intent differs",
+            )
+            self.cache_replay(service, binding)
         if publish:
             self.current()
             publish_immutable_output(self.input_path, raw_binding)
@@ -271,8 +288,6 @@ class OmissionGeneration:
                 _operator_bytes(self.input_path) == raw_binding,
                 "retained generation inputs differ",
             )
-        if existing_input or not publish:
-            self.cache_replay(service, binding)
         if not publish:
             stored = load_operator_json(self.receipt_path)
             _fact(
@@ -288,11 +303,26 @@ class OmissionGeneration:
                 == stored["cacheInputs"],
                 "retained complete cache metadata/payload changed",
             )
+
+        def before_process() -> None:
+            # Reserve the shared service request only after local validation,
+            # immediately before the call that can synthesize. Decision-file
+            # byte differences must never authorize another uncertain request.
+            if publish:
+                self.current()
+                publish_immutable_output(intent_path, raw_intent)
+            else:
+                _fact(
+                    _operator_bytes(intent_path) == raw_intent,
+                    "retained generation call intent differs",
+                )
+
         handoff = replace_row_narration(
             self.prior,
             self.revision / "script-document.json",
             service,
             proof_root=self.session.root,
+            before_process=before_process,
         )
         raw_handoff = _receipt_bytes(handoff)
         if publish:
@@ -349,7 +379,8 @@ class OmissionGeneration:
         build._verify_media()
         _fact(
             _operator_bytes(self.input_path) == raw_binding
-            and _operator_bytes(self.handoff_path) == raw_handoff,
+            and _operator_bytes(self.handoff_path) == raw_handoff
+            and _operator_bytes(intent_path) == raw_intent,
             "generation inputs/handoff changed during finalization",
         )
         expected = {
@@ -358,6 +389,7 @@ class OmissionGeneration:
             "evidenceLevel": "synthetic_injected",
             "decisionKey": self.key,
             "generationInputHash": _digest(raw_binding),
+            "callIntentHash": _digest(raw_intent),
             "handoffHash": _digest(raw_handoff),
             "cacheInputs": cache_inputs,
             "artifactHashes": {name: _digest(raw) for name, raw in artifacts.items()},

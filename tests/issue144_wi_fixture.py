@@ -222,8 +222,7 @@ class WireBoundary(CompositionBoundary):
             inspector=inspect,
         )
 
-    def capture(self, request: Json) -> Json:
-        self.requests.append(request)
+    def _wire_context(self, request: Json) -> tuple[Json, GraphStudio, Json]:
         manifest = load_operator_json(Path(request["manifestPath"]))
         studio = next(
             s
@@ -231,13 +230,18 @@ class WireBoundary(CompositionBoundary):
             if s.build.manifest_path == Path(request["manifestPath"])
         )
         assert isinstance(studio, GraphStudio)
-        resolve = ResolveHandle(studio)
         kwargs: Json = {
             "proof_root": self.proof_root,
             "source_root": ROOT,
             "version": VERSION,
             "code_hash": wi.file_hash(Path(wi.__file__)),
         }
+        return manifest, studio, kwargs
+
+    def link_pairs(self, request: Json) -> Json:
+        """Explicit proof setup, separate from every capture/read operation."""
+        manifest, studio, kwargs = self._wire_context(request)
+        resolve = ResolveHandle(studio)
         identity = request["expectedIdentity"]
         if not studio.linked:
             for index, authored in enumerate((self.move_id, self.trim_id, self.row_id)):
@@ -292,6 +296,18 @@ class WireBoundary(CompositionBoundary):
                     == "linked"
                 )
             studio.linked = True
+        return {
+            "status": "linked",
+            "evidenceLevel": "synthetic_injected",
+            "target": identity,
+            "pairs": 3,
+        }
+
+    def capture(self, request: Json) -> Json:
+        self.requests.append(request)
+        manifest, studio, kwargs = self._wire_context(request)
+        resolve = ResolveHandle(studio)
+        identity = request["expectedIdentity"]
         if self.edit and studio.build.root == self.proof_root and not studio.edited:
             self._edits(studio, manifest, identity)
             studio.edited = True

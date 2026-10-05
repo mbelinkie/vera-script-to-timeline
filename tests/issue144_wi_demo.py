@@ -2,7 +2,9 @@
 
 Runs the actual host CLI in this process so the explicitly fake native world and
 provider remain available across commands. Compiler/package/jobs/assembly/cache
-and file WI paths are real. This cannot qualify a real Resolve build or provider.
+and file WI paths are real. WI render queue/inspection executes, but the host's
+audio verdict does not consume those WI job records; calibration bypasses WI.
+This cannot qualify a real Resolve build or provider.
 """
 
 from __future__ import annotations
@@ -87,11 +89,45 @@ def run_demo(directory: Path) -> Json:
         )
         actions.append(record)
         assert result["status"] == expected, record
-        assert code == (2 if expected == "refused" else 0), record
+        assert code == (
+            2
+            if expected
+            in {"refused", "needs_action", "recovery_blocked", "waiting", "failed"}
+            else 0
+        ), record
         return dict(result)
+
+    def link_pending_target(action: str, key: str | None = None) -> None:
+        registered = REGISTRY[str(session.root)]
+        capture = registered["capture"]
+        registered["capture"] = None
+        try:
+            run(action, key, expected="needs_action")
+            pending = [
+                p
+                for p in (session.root / "captures").glob("*/*/request.json")
+                if not (p.parent / "consumed.json").exists()
+                and not (p.parent / "refused.json").exists()
+            ]
+            assert len(pending) == 1
+            result = boundary.link_pairs(load_operator_json(pending[0]))
+            record = {
+                "action": "wi-link-proof-pairs",
+                "captureRequestPath": str(pending[0]),
+                "captureRequestHash": file_hash(pending[0]),
+                "result": result,
+            }
+            exclusive(
+                directory / "commands" / f"{len(actions):02d}-wi-link-proof-pairs.json",
+                encoded(record),
+            )
+            actions.append(record)
+        finally:
+            registered["capture"] = capture
 
     original_inputs = dict(session.build.raw)
     run("build", expected="complete")
+    link_pending_target("bind-baseline")
     run("bind-baseline", expected="bound")
     pointer = session.pointer.read_bytes()
     run("bind-omission-evidence", expected="prepared")
@@ -165,9 +201,31 @@ def run_demo(directory: Path) -> Json:
         revised.dependencies["narration"][0]["audioHash"]
         != session.build.dependencies["narration"][0]["audioHash"]
     )
-    rebuilt = run("rebuild", key, expected="complete")
+    registered = REGISTRY[str(session.root)]
+    native_provider = registered["native_provider"]
+    registered["native_provider"] = None
+    try:
+        run("rebuild", key, expected="waiting")
+    finally:
+        registered["native_provider"] = native_provider
+    assert len(provider.requests) == 1 and len(boundary.studios) == 1
+    rebuilt = run("resume-rebuild", key, expected="complete")
     assert session.pointer.read_bytes() == pointer
+    # A premature unlinked capture must remain historical without poisoning the
+    # new target's later linked validation. No second provider/target is allowed.
+    unlinked = run("promote", key, expected="refused")
+    assert "proof link setup" in unlinked["reason"]
+    assert session.pointer.read_bytes() == pointer and len(provider.requests) == 1
+    before_validation = {
+        str(p): p.read_bytes()
+        for p in (session.root / "baseline-validation").glob("*/*/inputs.json")
+    }
+    link_pending_target("promote", key)
     promoted = run("promote", key, expected="promoted")
+    assert all(Path(p).read_bytes() == raw for p, raw in before_validation.items())
+    assert len(
+        list((session.root / "baseline-validation").glob("*/*/inputs.json"))
+    ) > len(before_validation)
     new_pointer = session.pointer.read_bytes()
     assert new_pointer != pointer
     for action, expected_result in (
@@ -202,6 +260,7 @@ def run_demo(directory: Path) -> Json:
         "comparisonPath": compared["path"],
         "comparisonHash": compared["sha256"],
         "pictureOnlyRefused": refused["status"] == "refused",
+        "unlinkedPromoteRefused": unlinked["status"] == "refused",
         "providerRequests": len(provider.requests),
         "nativeTargets": len(boundary.studios),
         "proofLinkCalls": sum(
@@ -213,7 +272,8 @@ def run_demo(directory: Path) -> Json:
         "decisionKey": key,
         "limitations": (
             "In-process fake native world, fixture supports/calibration/renderer/"
-            "provider; no real qualification or human-finishing preservation."
+            "provider; WI render records are not host verdict authority; calibration "
+            "bypasses WI; no real qualification or human-finishing preservation."
         ),
     }
     exclusive(directory / "demo-result.json", encoded(result))

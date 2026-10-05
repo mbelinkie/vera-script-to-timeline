@@ -99,6 +99,11 @@ class OmissionProof:
             "real audio/source/observer/render qualification remains #145",
         )
         self.manifest = load_operator_json(self.build.manifest_path)
+        _fact(
+            self.manifest["timeline"]["frameRate"]
+            == {"numerator": 25, "denominator": 1},
+            "only the qualified 25 fps audio lane is supported",
+        )
         rows = [
             row
             for row in self.build.document["activeDraft"]["blocks"]

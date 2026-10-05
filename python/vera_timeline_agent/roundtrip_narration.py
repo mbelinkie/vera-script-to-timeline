@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import subprocess
 import wave
+from collections.abc import Callable
 from pathlib import Path
 
 from vera_timeline_agent.narration.cache import CacheError
@@ -33,6 +34,7 @@ def replace_row_narration(
     service: NarrationService,
     *,
     proof_root: Path | None = None,
+    before_process: Callable[[], None] | None = None,
 ) -> JsonObject:
     """Replace at most one row dependency using the accepted synthesis service.
 
@@ -124,6 +126,8 @@ def replace_row_narration(
         )
         old_dep = dependencies["narration"][index]
         try:
+            if before_process is not None:
+                before_process()
             asset = service.process_block(row)
             entry = service.cache.read(
                 "assets", f"{row['id']}/{asset.asset_id}", "asset.json"
