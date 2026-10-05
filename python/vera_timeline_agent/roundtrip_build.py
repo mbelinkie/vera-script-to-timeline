@@ -630,19 +630,7 @@ class PreparedBuild:
             for stage in previous["stages"]
         ):
             self.verified_package()
-        if (
-            previous["status"] in {"waiting", "failed"}
-            or resume
-            or (
-                adapter is not None
-                and (
-                    self.intent_path.exists()
-                    or self.intent_path.is_symlink()
-                    or (self.run_root / "native-result.json").exists()
-                    or (self.run_root / "native-result.json").is_symlink()
-                )
-            )
-        ):
+        if previous["status"] in {"waiting", "failed"} or resume or adapter is not None:
             from vera_timeline_agent.roundtrip_native import NativeStages
 
             if isinstance(adapter, NativeStages):

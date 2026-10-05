@@ -268,10 +268,9 @@ def test_failed_rebuild_retains_authoritative_baseline_and_old_inputs(
     prior = (session.root / "baseline.json").read_bytes()
     decision = _accept(session, boundary)
     boundary.fail_rebuild = True
-    assert (
-        session.run("rebuild", decision_key=decision["decisionKey"])["status"]
-        == "waiting"
-    )
+    result = session.run("rebuild", decision_key=decision["decisionKey"])
+    assert result["status"] == "recovery_blocked"
+    assert result["job"]["job"]["status"] == "waiting"
     with pytest.raises(RuntimeError, match=r"verified|complete|waiting"):
         session.run("promote", decision_key=decision["decisionKey"])
     assert (session.root / "baseline.json").read_bytes() == prior

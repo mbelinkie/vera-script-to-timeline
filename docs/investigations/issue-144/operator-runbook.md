@@ -341,7 +341,11 @@ files and targets; do not delete intent or change decision whitespace to retry.
 This terminal boundary requires #145's independently qualified operator recovery.
 A separately authorized fresh baseline run may use fresh compiler build IDs and
 retain the old proof. Rebuild IDs are deterministic from the accepted revision:
-changing a decision key cannot authorize a fresh uncertain target or service call.
+a different byte-derived decision key has a separate local build root, but the
+same deterministic external project name. Accepted assembly collision checks
+must prevent another target; #145 must qualify those actual native checks. The
+shared service-request intent independently prevents another uncertain synthesis.
+Changing decision whitespace is never an approved recovery procedure.
 
 ## 8. Promote once, replay and preserve all evidence
 

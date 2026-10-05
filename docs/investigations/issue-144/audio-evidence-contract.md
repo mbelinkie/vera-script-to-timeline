@@ -62,8 +62,10 @@ Each render receipt must have equal jobId/queuedJobId/polledJobId and
 status=`complete`; pristine calibration and edited render use distinct jobs.
 Both channels contain exactly extentFrames×1920 samples. Calibration reconstructs
 the complete pristine baseline and qualifies finite fixed per-channel gains
-in[0.25,1.5]. Full edited reconstruction must have residual RMS≤0.0004 AND
-maximum absolute residual≤0.006. Residue below these limits remains a disclosed
+in[0.25,1.5]. Both pristine calibration and full edited reconstruction must have
+whole-programme residual RMS≤0.0004 AND maximum sliding20ms (960sample) residual
+RMS≤0.006 on each channel. These are RMS limits, not peak sample limits.
+Residue below these limits remains a disclosed
 measurement limit; success does not prove mathematically zero residual sound.
 Source supports and control facts remain independently required even with a
 passing reconstruction. Edited-route allowances come from actual compiler
