@@ -140,3 +140,15 @@ produce validator-passing revisions and fresh build IDs; file workflow/rebuild
 and narration omission remain incomplete. Full checkpoint prompt is
 `checkpoint-06-semantics-review-prompt.md`. Review includes the checkpoint5
 native corrections and hash-verified #141 UID evidence before real WI work.
+
+## Checkpoint15: completed-issue adversarial review and corrections
+
+Fresh authenticated read-only Claude sessiond350510c-c1e3-48e8-bb2a-780ebaf0114a
+reviewed source0390b893 (64turns), correction plan (6turns), completed corrections
+187c420 (26turns) and final bounded follow-up1b87f05 (7turns). Full prompts,
+verbatim responses, source evidence and dispositions are retained in checkpoint15
+files and issue144. ThreeP2 source gaps are settled by reviewed corrections;
+final native/recovery/ProofSession focus passed30cases/596.51s on1b87f05;
+full validation and CI remain pending at this historical checkpoint.
+Parent's missing-record caller counterexample was acknowledged and independently
+reviewed. Real qualification remains145 and no weaker positive case was adopted.

@@ -22,8 +22,9 @@ Required names: `profile.json`, `baseline.json`, `observation-a.json`,
 source/output WAV. The fixture uses `source-*.wav`, `reference.wav` and
 `program.wav`; those WAV names are examples, not fixed names. JSON field sets
 are exact: missing and extra fields refuse. SHA256 values use the `sha256:`
-prefix. Observation hashes use the host's canonical receipt encoding, not
-arbitrarily formatted JSON. Baseline/current observations must equal the actual
+prefix. Write observations with the host's canonical receipt encoding. The render
+observationHash hashes literal observation-a.json bytes; canonical encoding
+makes them match the host-derived observation binding. Baseline/current observations must equal the actual
 host-derived baselineAudio/currentAudio; a supplier cannot invent neutral facts.
 The audio profile/render baselineHash is the canonical baselineAudio hash, not
 the authoritative script baseline-pointer hash. profileHash binds literal
