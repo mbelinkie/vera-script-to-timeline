@@ -1,0 +1,8 @@
+{
+  "reviewInputHash": "sha256:8f27a8fd1df000044785d7b3e8d11ecb7e903a178dcadb734ac78fa620c35231",
+  "promptHash": "sha256:6d0a48b7adfb04a75d0d3cde2c61e26d5ff450964a8ad74b3bafdf70d867e5a0",
+  "reviewTurns": 43,
+  "isError": false,
+  "permissionDenials": 0,
+  "status": "Read-only review complete; clarified primary-source caveats retained in disposition; no roadmap changes."
+}

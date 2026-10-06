@@ -1,0 +1,14 @@
+{
+  "files": {
+    "python/vera_timeline_agent/roundtrip_audio.py": "sha256:a114938f87f6d52fe9d395202419b9dbe803a1f6a47085555439afabe92332fe",
+    "tests/test_issue144_audio_evidence.py": "sha256:3500fcd570a5a4eb0aee158894398b2f7c03a72f4adcf3e447adc7a2ca0954af",
+    "tests/test_issue144_retained_audio.py": "sha256:5d8669d611f84e91de077e498cee8045e3bee4a3ffa1790c12190c22c1132dd5"
+  },
+  "logs": {
+    "/tmp/vera144-checkpoint12-primary-red.log": "sha256:9670dec4885d5835256b6a64736b3ca5c9d760d94127f27cded27daf5ad1034d",
+    "/tmp/vera144-checkpoint12-primary-green.log": "sha256:2538ed0cd1c107744c9c9d9a87038e8f109dbd602987ef22c5d5b070906114d9",
+    "/tmp/vera144-checkpoint12-primary-green-2.log": "sha256:8b7211d6f2ba92644e3f1f619bf63f2e6cfadb803ddb5b6b5599c8e9062ec0a1"
+  },
+  "observedFocusedResult": "................................................                         [100%]\n48 passed in 85.76s (0:01:25)",
+  "fullValidation": "passed"
+}

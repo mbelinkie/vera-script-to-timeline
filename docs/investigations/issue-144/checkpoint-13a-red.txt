@@ -1,0 +1,82 @@
+.......FF.FFF                                                            [100%]
+=================================== FAILURES ===================================
+_____ test_wi_json_refuses_unsafe_numbers_and_duplicate_keys[{"x":1e400}] ______
+
+tmp_path = PosixPath('/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/pytest-of-matthewbelinkie/pytest-63/test_wi_json_refuses_unsafe_nu0')
+raw = b'{"x":1e400}'
+
+    @pytest.mark.parametrize("raw", [b'{"x":1e400}', b'{"x":9007199254740992}', b'{"x":1,"x":2}'])
+    def test_wi_json_refuses_unsafe_numbers_and_duplicate_keys(tmp_path: Path, raw: bytes) -> None:
+        path = tmp_path / "unsafe.json"
+        path.write_bytes(raw)
+>       with pytest.raises(RuntimeError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE RuntimeError
+
+tests/test_issue144_wi.py:314: Failed
+_ test_wi_json_refuses_unsafe_numbers_and_duplicate_keys[{"x":9007199254740992}] _
+
+tmp_path = PosixPath('/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/pytest-of-matthewbelinkie/pytest-63/test_wi_json_refuses_unsafe_nu1')
+raw = b'{"x":9007199254740992}'
+
+    @pytest.mark.parametrize("raw", [b'{"x":1e400}', b'{"x":9007199254740992}', b'{"x":1,"x":2}'])
+    def test_wi_json_refuses_unsafe_numbers_and_duplicate_keys(tmp_path: Path, raw: bytes) -> None:
+        path = tmp_path / "unsafe.json"
+        path.write_bytes(raw)
+>       with pytest.raises(RuntimeError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE RuntimeError
+
+tests/test_issue144_wi.py:314: Failed
+_______ test_link_reserves_root_intent_and_replays_without_second_effect _______
+
+tmp_path = PosixPath('/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/pytest-of-matthewbelinkie/pytest-63/test_link_reserves_root_intent0')
+
+    def test_link_reserves_root_intent_and_replays_without_second_effect(tmp_path: Path) -> None:
+        resolve, path, kwargs = action_request(tmp_path)
+>       result = wi.perform(resolve, path, **kwargs)
+                 ^^^^^^^^^^
+E       AttributeError: module 'vera_timeline_agent.roundtrip_wi' has no attribute 'perform'
+
+tests/test_issue144_wi.py:342: AttributeError
+_ test_lost_link_response_reconciles_read_only_and_uncertain_intent_never_retries _
+
+tmp_path = PosixPath('/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/pytest-of-matthewbelinkie/pytest-63/test_lost_link_response_reconc0')
+
+    def test_lost_link_response_reconciles_read_only_and_uncertain_intent_never_retries(tmp_path: Path) -> None:
+        resolve, path, kwargs = action_request(tmp_path)
+        timeline = resolve.project.timeline
+        original = timeline.SetClipsLinked
+
+        def lost(items: list[Item], linked: bool) -> bool:
+            original(items, linked)
+            raise RuntimeError("lost response")
+
+        timeline.SetClipsLinked = lost  # type: ignore[method-assign]
+        with pytest.raises(RuntimeError, match="lost response"):
+>           wi.perform(resolve, path, **kwargs)
+            ^^^^^^^^^^
+E           AttributeError: module 'vera_timeline_agent.roundtrip_wi' has no attribute 'perform'
+
+tests/test_issue144_wi.py:364: AttributeError
+__ test_render_once_inspection_checks_exact_job_settings_and_full_stereo_pcm ___
+
+tmp_path = PosixPath('/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/pytest-of-matthewbelinkie/pytest-63/test_render_once_inspection_ch0')
+
+    def test_render_once_inspection_checks_exact_job_settings_and_full_stereo_pcm(tmp_path: Path) -> None:
+        import wave
+
+        resolve, path, kwargs = action_request(tmp_path, "render")
+        with pytest.raises(RuntimeError, match="render boundary"):
+>           wi.perform(resolve, path, **kwargs)
+            ^^^^^^^^^^
+E           AttributeError: module 'vera_timeline_agent.roundtrip_wi' has no attribute 'perform'
+
+tests/test_issue144_wi.py:378: AttributeError
+=========================== short test summary info ============================
+FAILED tests/test_issue144_wi.py::test_wi_json_refuses_unsafe_numbers_and_duplicate_keys[{"x":1e400}]
+FAILED tests/test_issue144_wi.py::test_wi_json_refuses_unsafe_numbers_and_duplicate_keys[{"x":9007199254740992}]
+FAILED tests/test_issue144_wi.py::test_link_reserves_root_intent_and_replays_without_second_effect
+FAILED tests/test_issue144_wi.py::test_lost_link_response_reconciles_read_only_and_uncertain_intent_never_retries
+FAILED tests/test_issue144_wi.py::test_render_once_inspection_checks_exact_job_settings_and_full_stereo_pcm
+5 failed, 8 passed in 0.47s

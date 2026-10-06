@@ -1,0 +1,18 @@
+{
+  "parentCommit": "7dc501c770a9a4a979dcd2cf351705ed45de7cb9",
+  "sourceHashes": {
+    "python/vera_timeline_agent/roundtrip_driver.py": "sha256:ba731567f2cdfcf3173f65a980ddc5b3978c120e20b5c16a420d6bd044d81823",
+    "python/vera_timeline_agent/roundtrip_wi.py": "sha256:50734e7b003bf76e950aa0714b7db315de8c6ca4dc77d8d412ea9a4d76ceec43",
+    "python/vera_timeline_agent/roundtrip_build.py": "sha256:f4e20d53faf8b5236db96718c379e3fb10bdc59aaad300958d22beacbef2516f",
+    "tests/test_issue144_driver.py": "sha256:e26084f05dd33d49895cbd3c3fb4483cd8444534703472a2fa888659631277b3",
+    "tests/test_issue144_wi.py": "sha256:66d759251376b1818f0613d8de9271011d439290f10afc1ad8cab028de6b34c0",
+    "tests/issue144_composition_fixture.py": "sha256:c7f6cf78d91fc785c8d3a681989d75c13d9cf0e2347f6d97e93193d889bdd5f1",
+    "tests/issue144_omission_fixture.py": "sha256:72488c392dd31df9a92e917b43f4604533af98da5bf54ea62c35fef0cbeb9879",
+    "tests/issue144_wi_fixture.py": "sha256:1c07421d3b7c3ac62324a54ecbc6705e6176ed492e2cfaacd3b63abcb2328c61",
+    "tests/issue144_wi_demo.py": "sha256:c6adf8050baff06a5d17270b6f178d5ce2cea5e9f41b5e529a602d54053de333",
+    "tests/test_issue144_wi_flow.py": "sha256:047a731294aabae30def61858c2df21d571054025a79229728031bc5c2c8073c",
+    "docs/investigations/issue-144/operator-runbook.md": "sha256:d83aceb933dcce9da495871a749b481273d464fb6badc0eda942b050c51c986b",
+    "docs/investigations/issue-144/seam-matrix.md": "sha256:c06041203624b7c9c68512bb55040cacbe037c38146c49192d64688d75218f6d"
+  },
+  "status": "Ruff and strict mypy9files passed; 22 focused WI/driver passed; full CLI/WI flow pending; full validate pending. Review is static and synthetic-only."
+}

@@ -11,7 +11,7 @@ jobs:
   validate:
     name: TypeScript and Python
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 90
 
     steps:
       - name: Check out repository

@@ -1,0 +1,23 @@
+{
+  "parentCommit": "162ee65",
+  "status": "Claude finished-code review passed; 3 focused cases and 67 old-lane regressions passed; six-file mypy passed. WI/runbook and final full validation remain outstanding.",
+  "sourceHashes": {
+    "python/vera_timeline_agent/roundtrip_audio.py": "sha256:744b4c310e7d019a42745cd9d351f52885a3410b2b1fb1f4eb15a9c0c80cd80b",
+    "python/vera_timeline_agent/roundtrip_omission.py": "sha256:90c202a8e5c0f7f6a78fdbf1ec7ecebdef943b3be302e8ee0e92c5e40da5edc0",
+    "python/vera_timeline_agent/roundtrip_proof.py": "sha256:1e89e1a7294fc0159b4fe70479fa30210ed52210c93bb57a76e9faceae021b30",
+    "tests/issue144_composition_fixture.py": "sha256:83d5d2f27dc5f93783183c98117ac1ab97d246505ae4cd32a2d3dfcc92528242",
+    "tests/test_issue144_composition.py": "sha256:3e0d792ae7f14fc92668ff34bd5e2bba7b9f417d79245fb246aea672a70403cf",
+    "tests/test_issue144_composition_audio.py": "sha256:8f90258712b8ccf63f1a1c4f3b22a6e4be9779e2e84ab0e334a82cc5e090abeb"
+  },
+  "authorityHashes": {
+    "packages/contracts/src/issue-144-composition.ts": "sha256:43b265deeee947fba11c483fb46a8abcdbaca8a7f94a94b72c99f610160cf723",
+    "packages/contracts/src/issue-144-proof-cli.ts": "sha256:5eec3a4abd6c6c59e0c99cec2b9fadb40bd49e70fc1de6e7f741a7cc76e044f2",
+    "python/vera_timeline_agent/roundtrip_generation.py": "sha256:3c7058636c3145c7fd347e1e4009b69b776e6565a4e70f6e5b81bf3867eba01b"
+  },
+  "postReviewTypingOnlyChange": {
+    "file": "tests/test_issue144_composition.py",
+    "reviewedHash": "sha256:3e0d792ae7f14fc92668ff34bd5e2bba7b9f417d79245fb246aea672a70403cf",
+    "currentHash": "sha256:067dfde88422ee046d3d3941e25bee7c5d29ba4c6648a773f5f7d30f223cf010",
+    "change": "Only import Any and annotate stale callback dict[str, Any]; no behavioral or production change."
+  }
+}

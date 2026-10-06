@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "issue-144-source-evidence/v1",
+  "checkpoint": "12d",
+  "files": {
+    "python/vera_timeline_agent/roundtrip_omission.py": "sha256:46c62bf28e4a676f0b6b2cc53c086198c7c1d91f98e82c640c7e579a58d5c98f",
+    "python/vera_timeline_agent/roundtrip_proof.py": "sha256:4f7b3e5cdbe9e402b4f76967a805732ff44217e97857a4c1b3722f95cd888f34",
+    "python/vera_timeline_agent/roundtrip_build.py": "sha256:31ed06dca12db1014283ee517b84d8a7767a0b9a2abf254143a0b3a87343cf93",
+    "packages/contracts/src/issue-144-proof-cli.ts": "sha256:8d06e3fc9d3dbe42d6bd86f66f2aa46176ae9126d903781b612611f8478f1bef",
+    "packages/contracts/test/issue-144-omission-bridge.test.ts": "sha256:057a1343da8ece3ba5b8589b14095438e5ecba9c7a90bd11dcbaa0cd57b518d7",
+    "tests/issue144_omission_fixture.py": "sha256:fcd7f7d1cf08c0623520ecfdb5551b8765ab157e06fd4ed6199d2647bc7a3750",
+    "tests/test_issue144_omission_preparation.py": "sha256:d4c1ba9244864710176944f19320c181bf8102f2282f152c6af57a1f6fe0209b"
+  },
+  "finalFocused": {
+    "status": "passed",
+    "preparationAndOriginalVisualCases": 25,
+    "seconds": 960.68,
+    "separateStoredForgeryCases": 1,
+    "separateSeconds": 44.75,
+    "typescriptBridgeAndVisualCliCases": 21
+  },
+  "fullValidation": {
+    "status": "passed",
+    "pythonCases": 308,
+    "pythonSeconds": 1236.12,
+    "contractCases": 231,
+    "toolingCases": 1,
+    "progressCases": 6,
+    "roadmapCases": 23,
+    "formattedFiles": 222,
+    "mypySources": 76,
+    "collectionNote": "Collected before one later stored-forgery case; that case passed separately. Subsequent checkpoint12e tests are not part of this checkpoint."
+  },
+  "logs": {
+    "/tmp/vera144-checkpoint12d-preparation-red.log": "sha256:f3faf7837df32e3d5e3ad1715558b6523446233a6e40cf336563c1c21d003c8d",
+    "/tmp/vera144-checkpoint12d-preparation-green.log": "sha256:ca61bcd3656bb0692bb9fc867d5788dd841474cf606496dc06a69151f368d007",
+    "/tmp/vera144-checkpoint12d-preparation-green-2.log": "sha256:0fbd4cec608de891e9668e9507c6537f534ac244d2dcab9d076ea3c76ff50c6f",
+    "/tmp/vera144-checkpoint12d-stored-forgery.log": "sha256:188fdf9d3a3a2759861a2c2939c759438eadc6b9db01333acd76d363f4d52d73",
+    "/tmp/vera144-checkpoint12d-bridge-2.log": "sha256:d22d6c76c10b47fbfcfc41eb87c422978770e0198786207b4b6ade80f2443fba",
+    "/tmp/vera144-checkpoint12d-mypy-3.log": "sha256:b1d14a638cdcd6b7a7d5368e3cc2ca927b3e1f1b4e26cbe9b1844d7698aabdf2",
+    "/tmp/vera144-checkpoint12d-validate.log": "sha256:7e127871e7bbba8834b6b8c085630ed85b7d55e76c8ed737809237099e63829e"
+  },
+  "commands": [
+    "ctx-wire run rtk proxy npm exec --yes --package=node@24.19.0 -- npm run validate",
+    "ctx-wire run rtk proxy npm exec --yes --package=node@24.19.0 -- uv run --frozen pytest -q tests/test_issue144_omission_preparation.py tests/test_issue144_proof_session.py",
+    "ctx-wire run rtk proxy npm exec --yes --package=node@24.19.0 -- uv run --frozen pytest -q tests/test_issue144_omission_preparation.py -k consistent_stored",
+    "ctx-wire run rtk proxy uv run --frozen mypy python tests",
+    "ctx-wire run rtk git diff --check"
+  ]
+}

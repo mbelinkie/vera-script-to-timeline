@@ -1,0 +1,34 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____ test_three_edits_one_revision_full_row_audio_fresh_target_and_replay _____
+
+tmp_path = PosixPath('/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/pytest-of-matthewbelinkie/pytest-57/test_three_edits_one_revision_0')
+
+    def test_three_edits_one_revision_full_row_audio_fresh_target_and_replay(
+        tmp_path: Path,
+    ) -> None:
+        session, boundary, provider, _ = setup(tmp_path)
+        original_pointer = session.pointer.read_bytes()
+        original_inputs = dict(session.build.raw)
+>       session.run("bind-omission-evidence")
+
+tests/test_issue144_composition.py:15:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+python/vera_timeline_agent/roundtrip_proof.py:163: in run
+    omission = OmissionProof(self)
+               ^^^^^^^^^^^^^^^^^^^
+python/vera_timeline_agent/roundtrip_omission.py:73: in __init__
+    _fact(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+condition = False, message = 'unknown omission request'
+
+    def _fact(condition: bool, message: str) -> None:
+        if not condition:
+>           raise ProofBuildError(message)
+E           vera_timeline_agent.roundtrip_build.ProofBuildError: unknown omission request
+
+python/vera_timeline_agent/roundtrip_omission.py:54: ProofBuildError
+=========================== short test summary info ============================
+FAILED tests/test_issue144_composition.py::test_three_edits_one_revision_full_row_audio_fresh_target_and_replay
+1 failed in 27.10s

@@ -1,0 +1,31 @@
+{
+  "checkpoint": 11,
+  "checks": {
+    "contractTests": 216,
+    "generatedCurrent": true,
+    "newTextRevisionTests": 38,
+    "progressTests": 6,
+    "pythonFormatFiles": 200,
+    "pythonRuff": true,
+    "pythonStrictMypySources": 72,
+    "pythonTests": 292,
+    "roadmapTests": 23,
+    "toolingTests": 1,
+    "typescriptLint": true,
+    "typescriptTypecheck": true
+  },
+  "cloudActions": 0,
+  "command": "npm exec --yes --package=node@24.19.0 -- npm run validate",
+  "evidenceLevel": "synthetic_injected",
+  "exitCode": 0,
+  "limitation": "Pure canonical accepted-omission transformation, not integrated decision/generation/native acceptance.",
+  "nativeActions": 0,
+  "pythonSeconds": 529.65,
+  "schemaVersion": "issue-144-checkpoint-validation/v1",
+  "sourceHashes": {
+    "packages/contracts/src/issue-144-text-revision.ts": "sha256:bc9a107390bf0bf0e6df5efe19c3d1665978e5d043117837ac52848854687c79",
+    "packages/contracts/test/issue-144-text-revision.test.ts": "sha256:d2066ab59fe49b60faffa6367615858da47019d72d3af101e3c5591cf2dedd39",
+    "python/vera_timeline_agent/roundtrip_build.py": "sha256:15023c11dd362c8a4fffc0dd4c24ae76bff019482defc08f7ad6decaf7b46c96"
+  },
+  "validationLogHash": "sha256:59f30510cb41b9903b75ee1964bd6a09651adbe26028c3e525d16373830bcd01"
+}
