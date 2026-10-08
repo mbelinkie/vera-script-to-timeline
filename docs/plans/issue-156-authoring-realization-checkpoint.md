@@ -4,6 +4,12 @@ Saved at the Producer's request to stop at a checkpoint on 2026-10-08,
 11:29 EDT. **Incomplete planning work; no acceptance requested.** This is a
 resume record, not the realization plan or an approved contract-change note.
 
+Resumed at the Producer's request on 2026-10-08 with bounded Luna source
+inventory and independent review. The completed proposed
+[realization plan](issue-156-authoring-realization.md) and its retained
+verification evidence supersede the provisional decisions and remaining-work
+status below; this original checkpoint remains historical.
+
 ## Ownership and permitted scope
 
 - Issue: [#156, Accepted authoring-contract realization plan](https://github.com/mbelinkie/vera-script-to-timeline/issues/156).

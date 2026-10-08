@@ -1,0 +1,274 @@
+{
+  "scope": "read-only source evidence for #156 planning; no runtime qualification",
+  "baseline": "96978919616df0148d9c4b06781aeb80acfa85e4",
+  "sources": [
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "a561735e7b0c735ccd6185aa407e82581a19b2d9",
+      "path": "docs/investigations/issue-55-presenter-visual-contract.md",
+      "bytes": 27919,
+      "sha256": "51736169ccd5532f375a480108b93e2a1539b3f1b2eee0fec8a2b49286c2cc57",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "9e2b8817ffe97fbc9d6fcf31099aca578c5022bb",
+      "path": "docs/investigations/issue-56-ordered-visual-contract.md",
+      "bytes": 43461,
+      "sha256": "fbcd78c4a64f57b394caeb9e1fcab3ff9c8f2feff7c705d92b614700db235183",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "9e2b8817ffe97fbc9d6fcf31099aca578c5022bb",
+      "path": "docs/plans/issue-56-ordered-visual-contract.md",
+      "bytes": 5449,
+      "sha256": "8376f1c39f73418cfa5f537c1856432b799f1ea5b9c798568eaa5797fde9fb07",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "cdaa3106da91fb5a040c8bbde22e2c61c0d3e162",
+      "path": "docs/prototypes/issue-127/successor-handoff.md",
+      "bytes": 4748,
+      "sha256": "a0338b71f75d9c114692c37d28a3b43c3192513ed5d161084fab099c7c000d40",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "cdaa3106da91fb5a040c8bbde22e2c61c0d3e162",
+      "path": "docs/prototypes/issue-127/adopt-adapt-defer.md",
+      "bytes": 5756,
+      "sha256": "889093ffda6047c903b503cfbf97720714530fcbfcfd868048dde7a028f30514",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "e72aa2436fa49d6b256b7cf811d5c1dea39120c3",
+      "path": "docs/investigations/issue-24-representative-script-coverage.md",
+      "bytes": 46378,
+      "sha256": "73c48673a8a2786120a45e5516e53cc5fcb923b367962359d69bcb7b30622045",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "75029de57baa594d3dfc7f509a09cfc21943e088",
+      "path": "docs/investigations/issue-147-completion-roadmap-audit.md",
+      "bytes": 56140,
+      "sha256": "59f2bfb09c380cb1c292ee3aabaa02b64f41458f8939dc40de35723dcc937a09",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "75029de57baa594d3dfc7f509a09cfc21943e088",
+      "path": "docs/issue-147-producer-decisions.md",
+      "bytes": 11814,
+      "sha256": "18258393d80a39a0bdf7a18b8bbba564d2ba168b86b8e5c033c24a082e0fe555",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "docs/Script-to-Timeline Product Spec - Fable Rev2.md",
+      "bytes": 164442,
+      "sha256": "4ee2c4e06f7fd3fbba3370522c6eb9f50838a3b5aece512f335f247ea7c46005",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "docs/IMPLEMENTATION_PROGRESS.md",
+      "bytes": 49337,
+      "sha256": "52f8345a7abf412383dc44ac893c6b0f488b04e69c8e9a1b5ecaa1ae3bba5bfb",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "contracts/script-document-v1.schema.json",
+      "bytes": 15762,
+      "sha256": "acfe4ed4cf7d1238555560c48d208c487ab31000e05b520fb1d7a65d48043902",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "contracts/compiler-dependencies-v1.schema.json",
+      "bytes": 9670,
+      "sha256": "0fcabb1a58c8f4477142dde533fae03bd5125dd0a30f8fe4d1d7320eba60795a",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "contracts/timeline-manifest-v1.schema.json",
+      "bytes": 18271,
+      "sha256": "324d06b4e21adf624b31a4640d9d98564348fe7e3ff84a7aadb364c742835ade",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "contracts/build-report-v1.schema.json",
+      "bytes": 6390,
+      "sha256": "90677d341cbedc50e98f91d99a234e0f1f0ef44d1d432527461b0c19cd9d4bba",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "packages/contracts/src/compiler-core.ts",
+      "bytes": 44085,
+      "sha256": "87fddbe07d3c49d7ff99e192c31a5ee936fb2f63c6436758dd7536b167e159e3",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "packages/contracts/src/script-validator.ts",
+      "bytes": 31457,
+      "sha256": "d738c79953c21c5df850fac24c324d55741e92253d6b6f48c0daa9daa5c00c04",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "packages/contracts/scripts/generate-contracts.mjs",
+      "bytes": 7618,
+      "sha256": "3302eb314241b233d608b67fb6a8ad7c172fbec7e5a918bec1cb85a190e43961",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "packages/contracts/src/generated/contracts.ts",
+      "bytes": 16638,
+      "sha256": "91e4a6abcb3cf5691810a6fc1e32f85ac102d1f3dd37cb2c4ef0eaa520050c3e",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "packages/contracts/package.json",
+      "bytes": 494,
+      "sha256": "191b942c944b5d7fdf607c5b058584fef5529b6aabb23a73736a1ac1cebb7463",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "python/vera_timeline_agent/narration/compiler_dependencies.py",
+      "bytes": 7338,
+      "sha256": "7054ccc8f94e41083ff911ecafdb1a8f2703069aa3f6d9b45fbc615c96bea28b",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "python/vera_timeline_agent/narration/polly.py",
+      "bytes": 14580,
+      "sha256": "a78d3af57335db12ac7303e70d4d231262fb7a689986b7662defbf61443447da",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "python/vera_timeline_agent/narration/cache.py",
+      "bytes": 8154,
+      "sha256": "2a62b7c207d1cd713298b0f7966971e25981479c52b0690af3fc064e1227638b",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "python/vera_timeline_agent/narration/normalize.py",
+      "bytes": 12950,
+      "sha256": "8e5afa1440266b3bb0867c5d2748860bfb8dab449c91308f23daf41b1e73c2d6",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "python/vera_timeline_agent/otio_package/package.py",
+      "bytes": 41926,
+      "sha256": "93b97cc27ceeed7e80f9ba6be658866eed7ea0ea49fd36194efc283d5c8dafb9",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "python/vera_timeline_agent/resolve_import_package/package.py",
+      "bytes": 64200,
+      "sha256": "3bc6334db333b9e9fa03b0d056ff8cdca53e54624dd2969f1b94eb57c29d1edd",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "python/vera_timeline_agent/studio_assembly.py",
+      "bytes": 9880,
+      "sha256": "57ba08ce20390f9f0222e592e9b1e2c77648b12b3049f3da512b5a150570b624",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "python/vera_timeline_agent/studio_spike.py",
+      "bytes": 54200,
+      "sha256": "6de390fe35c09a4ba38e209e4ba5fa0cb3b5e75f3dd50aeca447f020faea5f6b",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "python/vera_timeline_agent/build_jobs.py",
+      "bytes": 30535,
+      "sha256": "fa7814047965266e362d0662ce3358a0db52e58fd761ede70318155fe8b01490",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "packages/contracts/test/compiler-core.test.ts",
+      "bytes": 15713,
+      "sha256": "b86996b038c31e33e4cf62b3800e0b4672c2b8b024c6dde0cb652e98a4e2369b",
+      "access": "local_git_object"
+    },
+    {
+      "repository": "mbelinkie/vera-research-video-clips",
+      "commit": "0499666c59167cef9dcd2665845f7ef6090e64df",
+      "path": "packages/media/src/index.ts",
+      "bytes": 75240,
+      "sha256": "b71468fd86dec12fb7932676e479aa31007d2733340e25e18f486486a0cacba9",
+      "gitBlob": "1b2d19b08833cccc0068ae3b1f666228e8c610c6",
+      "access": "github_contents_api"
+    },
+    {
+      "repository": "mbelinkie/vera-research-video-clips",
+      "commit": "0499666c59167cef9dcd2665845f7ef6090e64df",
+      "path": "packages/export-settings/src/index.ts",
+      "bytes": 21920,
+      "sha256": "569a475f0909a97cf3d0e37321d943382efcc9284a30043ba9609a71c928eabb",
+      "gitBlob": "78e94773cad6fe63db2f971aba4389a31bbbba79",
+      "access": "github_contents_api"
+    },
+    {
+      "repository": "mbelinkie/vera-research-video-clips",
+      "commit": "0499666c59167cef9dcd2665845f7ef6090e64df",
+      "path": "specs/completed/M5-03-ffmpeg-adapter-and-verified-single-range-render.md",
+      "bytes": 6010,
+      "sha256": "299433a7c64175e61b0acda27db32185e0edf3bd05505733f9fe1c5853ea95fe",
+      "gitBlob": "ab11d9156432501f9ec7b12f9e0aaca2c6b802d7",
+      "access": "github_contents_api"
+    },
+    {
+      "repository": "mbelinkie/vera-research-video-clips",
+      "commit": "0499666c59167cef9dcd2665845f7ef6090e64df",
+      "path": "specs/completed/M5-08-local-export-runtime-composition-and-real-tool-smoke.md",
+      "bytes": 4374,
+      "sha256": "a31afbd3c28a019951c4b859a925080df43fe9213745b69bb8fc8f295e055dfd",
+      "gitBlob": "15f37f4fb4d2f2690b073c1172b3690d8293a4c2",
+      "access": "github_contents_api"
+    }
+  ]
+}
