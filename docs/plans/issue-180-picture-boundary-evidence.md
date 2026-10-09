@@ -57,3 +57,12 @@ all 82 new TS cases passed. Retry the unchanged gate. Remaining active work
 is about 15–25 minutes for evidence/closure; full validation waiting may take
 50–70 minutes based on #173's retained 52-minute run. Medium confidence until
 the unchanged timeout-sensitive tests pass. No scope or routing change.
+
+Second gate checkpoint: twelve existing CLI cases exceeded unchanged deadlines;
+all 82 new cases passed again. Focused cache and application-policy probes did
+not reliably resolve the timing failure, and full-gate settings remain unchanged.
+The runtime investigation is retained in the issue's verification directory.
+Python lint/types pass; its 394-case suite continues independently. Full
+Automated acceptance is blocked on a passing unchanged gate with sufficient
+host capacity. Keep the implementation claim and Sol/high route; this is not
+a model escalation. External waiting duration is now uncertain.

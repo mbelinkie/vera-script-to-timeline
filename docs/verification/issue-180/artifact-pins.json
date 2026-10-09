@@ -1,12 +1,20 @@
 {
-  "audit.mjs": "de9b306bac16bad2129539b7e35e1e190a7acb4a4a65df75fb4eb47d6c4d8512",
+  "audit.mjs": "1e838b8a9e2b279b85390161f21951e9661d5ea3e4105b51a34dd48883b6a845",
   "run-full-validation.mjs": "3a69dfece0d0764c73f834d8da1456a5ef4e29f2d272029f30fa66786cab3c44",
-  "automated.md": "50d2fea12d18d4473f3c61bba5c4e272b7715f6279fd09aba4ba31007988d051",
+  "cli-replay-probe.mjs": "7644ddfa5dbe5943074d1dcecba72678df8b5fdb51483e79bb09671dc64ae555",
+  "automated.md": "c8741fee239b1d221c2883cad0fa2077362682415826a8ffa4e7de4249a2ae23",
+  "runtime-gate-investigation.md": "f5f5505f08e810a90cc78707303414f094f12492a5582d91cae2db4ca8d14633",
   "frozen-source-pins.json": "ecfd49065578510c7f05b782129e2a241b0befc757cb71ce20a3ab22fcd34193",
   "source-input-pins.json": "31ca98bb32e03fedbd73d89a6d9d59b9ca4d90b0a911d75a04aa6aed6c65f21a",
   "golden-pins.json": "e31fc098991bbded08536ab6b82754bfa1102b120894921ac69788df05fe18e8",
   "tool-profile.json": "713ea1d755412c083aae2881762e9eaf1039b10e21f8a176180c7bd339b28164",
-  "frozen-boundary-audit.json": "e32d768d14edac650437f97bd40e3bfeb7f2bbad304a68604cbeff0da5c5c45a",
+  "frozen-boundary-audit.json": "d2b09c91832e683714c139472ced65544cf4e6b31dde019c023a40a844a890e1",
   "attempt-1-status.json": "edefc83dd717ce7c1cc4acf53a058fc2672fa4df01de43a8c6f9ca66ed87fe1f",
-  "attempt-1-validate.log": "1513763d6563fcbb5a64622e0f6795e72006d252e108e00de1329c2a8432e9d8"
+  "attempt-1-validate.log.gz": "dab3c8cc6b7f15933bbf1e1722c20263155a3fca79d5ea34c54f4de76be5d98e",
+  "attempt-2-status.json": "a282bbb7241004d47c52f035dffd7088c741535f4422fc090fd07dae4d9047c7",
+  "attempt-2-validate.log.gz": "29beb4269cc1b894fd2c39bb8f4440603e39f3e18d95e79150ddfe7848f84d51",
+  "cli-replay-uncached.json": "ca1b7c4b2e4141ef036bb5a427bda3a163bc9b15b941c8460b8b316eba8ddd78",
+  "cli-replay-cached-1.json": "831e560b67c1b098a80586191d4a40c4ac9ea2d2b35e14e1493dea827b508ddf",
+  "cli-replay-cached-2.json": "bba745bcd8653d580f70082cf255bb55b439f83271e90efcfa7ec5e128e778d9",
+  "cli-replay-application-policy.json": "8e17ca14f85363568e6c0164debcfbafbd1f71805acdcd6b2d63602f2c3452e3"
 }

@@ -1,0 +1,19 @@
+{
+  "sourceCommit": "1a67d5e19db262aa02dfa0e0f7c7e19a74deeceb",
+  "sourceTree": "e241c355212b45fd9eb6b3f045ed659a59f40c53",
+  "branch": "codex/issue-180-picture-boundary-evidence",
+  "startedAt": "2026-10-09T20:13:11.686Z",
+  "logPath": "/Users/matthewbelinkie/.codex/worktrees/6484/VERA Script to Timeline/test-results/issue-180/full-validation/validate.log",
+  "statusPath": "/Users/matthewbelinkie/.codex/worktrees/6484/VERA Script to Timeline/test-results/issue-180/full-validation/status.json",
+  "command": "VITEST_MAX_WORKERS=1 npm run validate",
+  "nodeVersion": "v24.19.0",
+  "state": "failed",
+  "launcherPid": 39015,
+  "validationPid": 39050,
+  "exitCode": 1,
+  "signal": null,
+  "error": null,
+  "finishedAt": "2026-10-09T20:23:53.774Z",
+  "elapsedSeconds": 642.072,
+  "logSHA256": "137f2ea27902430f03afcc5b46519b8cf7d010a7b8ef848b7f4f312cb2ef07d7"
+}

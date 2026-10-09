@@ -1,0 +1,13 @@
+{
+  "mode": "uncached",
+  "nodeVersion": "v24.19.0",
+  "elapsedMs": [
+    5189.594992,
+    2683.6977609999994
+  ],
+  "replayElapsedMs": 7873.292753,
+  "primeElapsedMs": null,
+  "stdoutSHA256": "c5e25097b9126717c75807b7751c748da12faf4ede1ebd5f9a2213f135312aa8",
+  "byteIdentical": true,
+  "withinExisting5000msGate": false
+}

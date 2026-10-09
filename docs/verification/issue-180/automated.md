@@ -26,16 +26,23 @@ The authoritative gate is `VITEST_MAX_WORKERS=1 npm run validate`, launched
 from a clean checkout with `node docs/verification/issue-180/run-full-validation.mjs`.
 The launcher pins revision/tree before starting and records completion, exit
 code, elapsed time and log SHA-256. See `full-validation-status.json` and
-`validate.log` for the completed result. The gate includes generated-currentness,
+`validate.log.gz` for the completed result. Logs are losslessly compressed;
+the status SHA-256 refers to the decompressed original bytes. The gate includes generated-currentness,
 TypeScript lint/types/tests, progress/roadmap tests, Python lint/format/types/tests.
 No gate or accepted test was weakened.
 
-Attempt 1 retained in `attempt-1-status.json` / `attempt-1-validate.log` failed
+Attempt 1 retained in `attempt-1-status.json` / `attempt-1-validate.log.gz` failed
 only on six existing #144 CLI tests exceeding the unchanged 5,000 ms timeout.
 All 82 new boundary tests passed; 396 of 402 contract tests passed. These v1
 CLI consumers do not import the changed v2 implementation. The identical
 gate is retried without changing accepted tests, timeout or worker settings.
 Acceptance remains pending until the complete retry passes.
+
+Attempt 2 also failed only existing CLI deadlines (12 cases; 390/402 contract
+tests passed, including all 82 new cases). `runtime-gate-investigation.md`
+retains the focused replay and environment-only probes; these are not a
+substitute for a completed passing gate. Python checks are running separately
+to finish the remaining regression evidence while host capacity is unresolved.
 
 Additional retained check:
 `node docs/verification/issue-180/audit.mjs` validates frozen bytes and reverses
