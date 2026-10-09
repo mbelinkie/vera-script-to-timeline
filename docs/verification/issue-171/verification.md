@@ -1,11 +1,12 @@
 # Issue #171 verification
 
-Status: focused checks pass after adding the user-selected minimal typed
+Status: focused checks and full `npm run validate` pass after adding the
+user-selected minimal typed
 `PresenterAlignmentResolution` port. The dependency schema preserves slot/take
 and master identity, source start frame, alignment version/precision, and paired
 expected/recognized word records. Word matching remains semantic validation.
-This record is for Automated acceptance and does not claim independent review,
-issue closure, or runtime qualification.
+This record is for Automated acceptance and awaits independent review. It does
+not claim issue closure or runtime qualification.
 
 Branch: `codex/issue-171-v2-generated-contracts`  
 Baseline: `76c9f9635989415e3c7c2c15b2e6cc1ab9ddc7da`  
@@ -61,23 +62,32 @@ reach mypy or Python tests. The lint issues in the new Python test were
 corrected; the focused Ruff check and test pass afterward.
 
 Full-gate attempt 2 started `2026-10-09T05:21:34Z` and was interrupted with
-exit 130 after the interface audit found the missing presenter-alignment port.
-The captured output file is empty; it is retained as
+wrapper exit 130 after the interface audit found the missing presenter-alignment
+port. A later process audit found that its orphaned child process group was
+still running; that group was interrupted and confirmed stopped before attempt
+3 completed. The captured output file is empty; it is retained as
 [full-validation-attempt-2-interrupted.txt](full-validation-attempt-2-interrupted.txt).
-No full-gate pass is claimed. The field-shape question is now resolved; rerun
-the required gate and retain it as [full-validation.txt](full-validation.txt):
+The field-shape question was resolved with the user before attempt 3.
+
+Full-gate attempt 3 ran at implementation commit
+`fa59d88db96a9fc780ec62934eee15caf92dce59`; it started at
+`2026-10-09T05:32:52Z`, returned exit 0, and was observed complete at
+`2026-10-09T06:54:06Z`. The retained output is
+[full-validation.txt](full-validation.txt), with the exact summary and digest
+in [full-validation.json](full-validation.json). It passed generated-contract
+currentness, TypeScript lint/typecheck and 298 JS/TS tests, Python Ruff and
+mypy (98 source files), and all 371 Python tests. The Python suite took
+4744.90 seconds. The byte-identical frozen-v1 comparison also passed.
 
 ```sh
 rtk proxy env PATH="/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH" ctx-wire run rtk npm run validate > docs/verification/issue-171/full-validation.txt 2>&1
 ```
 
-The actual passing run's exit status, completion time, tool identities, and
-test counts will be recorded in [full-validation.json](full-validation.json)
-after the command exits.
+Attempt 3's tool identities, source pins, and exact test counts are recorded
+in [full-validation.json](full-validation.json).
 
 ## Acceptance handoff
 
-Issue #171 has Automated acceptance. After the full gate passes, retain its
-exact status, command, tool versions/hashes, source pins, and byte-identical
-v1 evidence, then move #171 to In review for independent review. This package
-does not qualify runtime/compiler behavior and does not close #171.
+Issue #171 has Automated acceptance and remains open. With the full gate and
+byte-identical v1 evidence retained, move it to In review for independent
+review. This package does not qualify runtime/compiler behavior or close #171.
