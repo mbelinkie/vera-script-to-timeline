@@ -8,6 +8,7 @@
     ".": "./src/generated/contracts.ts",
     "./v2": "./src/generated/contracts-v2.ts",
     "./script-validator": "./src/script-validator.ts",
+    "./authoring-v2": "./src/authoring-v2.ts",
     "./compiler-core": "./src/compiler-core.ts",
     "./prompter-export": "./src/prompter-export.ts"
   },
