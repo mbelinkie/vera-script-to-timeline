@@ -51,6 +51,27 @@ test or timeout was changed. This is retained as an observed package-suite
 failure, not a passing acceptance command. The parent owns repository-wide
 validation and any targeted rerun of those existing tests.
 
+## Full repository acceptance
+
+Final implementation source: `7e419da788e28688fff4c32c4baabad23238e5a5`.
+The clean source tree passed `VITEST_MAX_WORKERS=1 npm run validate` with
+Node 24.19.0, npm 11.17.0, Python 3.12.14 and uv 0.12.5. The environment
+limits Vitest concurrency without changing test timeouts, assertions or scope.
+All lint, typecheck, generated-contract checks and tests passed: 288 contracts
+tests, one tooling test, and 371 Python tests. Exit code: 0; elapsed: 5378.49
+seconds (Python tests: 5185.97 seconds). Complete retained log SHA-256:
+`eb2aa53f0a32a351eb7f19f2be7b450ee9861755b0d53b303a4982ad1354e281`.
+
+The unchanged two-file #144 CLI/omission suite also passed 21/21 tests with
+`--no-file-parallelism` and its existing five-second timeout. Earlier concurrent
+failures above remain recorded; the full passing profile is explicitly serial.
+Independent final review found no remaining concrete defect. A comparison to
+the worktree base confirmed every existing file unchanged except the single
+additive package export; all frozen schemas, generated types, fixtures, goldens,
+accepted tests and #144 caller source pins retain their baseline bytes.
+Acceptance is Automated. Native application, persistence and Producer
+qualification are outside this authoring slice.
+
 ## Exact source hashes
 
 SHA-256 at the focused passing check:
