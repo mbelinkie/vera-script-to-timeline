@@ -44,6 +44,12 @@ retains the focused replay and environment-only probes; these are not a
 substitute for a completed passing gate. Python checks are running separately
 to finish the remaining regression evidence while host capacity is unresolved.
 
+Capacity subsequently improved: uncached replay passed in 2.37 s, and the
+exact omission-finalization case passed in 3.91 s with Node's compilation cache.
+The complete third gate uses the recorded built-in cache setting while retaining
+all tests, default deadlines, checks and the locked Node/npm/Python versions.
+Acceptance still requires its completed exit-0 result.
+
 Additional retained check:
 `node docs/verification/issue-180/audit.mjs` validates frozen bytes and reverses
 only the authorized schema additions before comparing all original semantics.

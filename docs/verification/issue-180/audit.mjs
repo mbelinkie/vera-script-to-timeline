@@ -83,8 +83,9 @@ const profile = {
   packages: Object.fromEntries(["vitest", "typescript", "eslint", "ajv", "json-schema-to-typescript"].map((name) => [name, JSON.parse(readFileSync(`node_modules/${name}/package.json`, "utf8")).version])),
   executableSHA256: { [realpathSync(process.execPath)]: sha(readFileSync(process.execPath)), [uvPath]: sha(readFileSync(uvPath)) },
   VITEST_MAX_WORKERS: "1",
+  NODE_COMPILE_CACHE: process.env.NODE_COMPILE_CACHE ?? null,
 };
 writeFileSync(`${directory}/tool-profile.json`, `${JSON.stringify(profile, null, 2)}\n`);
-const artifacts = ["audit.mjs", "run-full-validation.mjs", "cli-replay-probe.mjs", "automated.md", "runtime-gate-investigation.md", "frozen-source-pins.json", "source-input-pins.json", "golden-pins.json", "tool-profile.json", "frozen-boundary-audit.json", "attempt-1-status.json", "attempt-1-validate.log.gz", "attempt-2-status.json", "attempt-2-validate.log.gz", "cli-replay-uncached.json", "cli-replay-cached-1.json", "cli-replay-cached-2.json", "cli-replay-application-policy.json", "python-validation-status.json", "python-validate.log.gz", "full-validation-status.json", "validate.log.gz"];
+const artifacts = ["audit.mjs", "run-full-validation.mjs", "cli-replay-probe.mjs", "automated.md", "runtime-gate-investigation.md", "frozen-source-pins.json", "source-input-pins.json", "golden-pins.json", "tool-profile.json", "frozen-boundary-audit.json", "attempt-1-status.json", "attempt-1-validate.log.gz", "attempt-2-status.json", "attempt-2-validate.log.gz", "cli-replay-uncached.json", "cli-replay-cached-1.json", "cli-replay-cached-2.json", "cli-replay-application-policy.json", "cli-replay-capacity-recovered.json", "python-validation-status.json", "python-validate.log.gz", "full-validation-status.json", "validate.log.gz"];
 writeFileSync(`${directory}/artifact-pins.json`, `${JSON.stringify(Object.fromEntries(artifacts.filter((name) => existsSync(`${directory}/${name}`)).map((name) => [name, sha(readFileSync(`${directory}/${name}`))])), null, 2)}\n`);
 console.log(JSON.stringify(result));

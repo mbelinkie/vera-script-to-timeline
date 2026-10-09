@@ -46,3 +46,12 @@ JSON measurements and the assert-based probe are retained alongside this note.
 No accepted test, timeout, fixture, golden, dependency, production code or
 full-gate execution setting was changed to make a failure pass. A complete
 unchanged gate must still pass before Automated closure.
+
+Later capacity checkpoint: the uncached pair passed in 2,370.9 ms with the
+same stdout SHA-256 (`cli-replay-capacity-recovered.json`). The exact existing
+omission-finalization test still exceeded 5,000 ms without the cache (5,677 ms),
+then passed with the cache (3,910 ms; one selected test, fourteen unselected).
+This justifies retrying the complete gate with Node's standard compilation
+cache enabled and recorded in status/tool profile. All full-suite selections,
+assertions, default deadlines, schema and byte gates remain intact. This is
+the only adopted environment optimization; no coverage gate is configured.

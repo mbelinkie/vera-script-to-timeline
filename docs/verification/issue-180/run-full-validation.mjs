@@ -28,7 +28,7 @@ const environment = {
   PATH: "/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:/usr/local/bin:/usr/bin:/bin:/Users/matthewbelinkie/.local/bin",
   VITEST_MAX_WORKERS: "1",
 };
-const base = { sourceCommit, sourceTree, branch, startedAt, logPath, statusPath, command: "VITEST_MAX_WORKERS=1 npm run validate", nodeVersion: process.version };
+const base = { sourceCommit, sourceTree, branch, startedAt, logPath, statusPath, command: "VITEST_MAX_WORKERS=1 npm run validate", nodeVersion: process.version, nodeCompileCache: environment.NODE_COMPILE_CACHE ?? null };
 const save = (status) => {
   const temporary = `${statusPath}.tmp`;
   writeFileSync(temporary, `${JSON.stringify(status, null, 2)}\n`);
