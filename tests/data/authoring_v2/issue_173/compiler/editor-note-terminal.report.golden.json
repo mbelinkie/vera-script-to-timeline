@@ -1,0 +1,197 @@
+{
+  "buildClass": "preview",
+  "buildId": "00000000-0000-4000-8000-000000000003",
+  "compiler": {
+    "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "sourceHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "version": "compiler/v2"
+  },
+  "dependenciesHash": "sha256:490803d6d18b67576c0ee7fb31845cb4aec8357ad4e91a235a2f4d66b2b1a821",
+  "diagnostics": [
+    {
+      "code": "UNPLACED_SUPPORTING_ITEM",
+      "entity": {
+        "id": "00000000-0000-4000-8000-00000000004a",
+        "kind": "supporting_item",
+        "path": "supportingItems"
+      },
+      "evidence": {
+        "anchorId": "00000000-0000-4000-8000-00000000004a",
+        "kind": "anchor_issue",
+        "reason": "unplaced"
+      },
+      "id": "1385c5da-84c2-5404-8b3e-94485324b92d",
+      "message": "This point is at or beyond the exclusive programme end, which cannot be represented without extending playback.",
+      "recoveryActionKinds": [
+        "repair_document"
+      ],
+      "severity": "warning"
+    }
+  ],
+  "document": {
+    "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "documentId": "00000000-0000-4000-8000-000000000001",
+    "liveHeadSequence": 0,
+    "projectId": "00000000-0000-4000-8000-000000000002",
+    "revision": 1,
+    "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "textHash": "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+  },
+  "eventResults": [
+    {
+      "disposition": "placed",
+      "eventId": "0c5f6a15-5064-5d1e-8723-ecb08735732b",
+      "kind": "overlay_visual",
+      "message": "Compiled from frozen source bindings.",
+      "recordRange": {
+        "endFrame": 96,
+        "startFrame": 0
+      },
+      "sourceId": "57beb1ac-a640-5b90-8620-76835dade3a7",
+      "trackId": "video-overlay"
+    },
+    {
+      "disposition": "placed",
+      "eventId": "c54080bb-0d64-5bc7-8693-ce2c32f28afe",
+      "kind": "primary_visual",
+      "message": "Compiled from frozen source bindings.",
+      "recordRange": {
+        "endFrame": 96,
+        "startFrame": 0
+      },
+      "sourceId": "1904c7e6-1f7b-5c3f-87d1-33f5c316921b",
+      "trackId": "video-root"
+    },
+    {
+      "disposition": "placed",
+      "eventId": "e3a1d77f-0c0e-5ffe-8d4e-77ce0e21cb88",
+      "kind": "narration",
+      "message": "Compiled from frozen source bindings.",
+      "recordRange": {
+        "endFrame": 96,
+        "startFrame": 0
+      },
+      "sourceId": "00000000-0000-4000-8000-000000000013",
+      "trackId": "narration"
+    }
+  ],
+  "id": "00000000-0000-4000-8000-000000000005",
+  "itemResults": [
+    {
+      "disposition": "unplaced",
+      "itemId": "00000000-0000-4000-8000-00000000004a",
+      "reason": "This point is at or beyond the exclusive programme end, which cannot be represented without extending playback.",
+      "recordRange": null,
+      "role": "editor_note",
+      "version": 1
+    }
+  ],
+  "manifest": {
+    "contentHash": "sha256:f71435813a5eaa94336aaaddbadcf6cab48bc84cb66c925b4ae95797472355af",
+    "id": "00000000-0000-4000-8000-000000000004"
+  },
+  "manualCompletionItems": [],
+  "mediaPreparation": {
+    "requirements": [
+      {
+        "bindingHash": "sha256:9eb4cbdef0c46b9e5eb323ffb66858c938e10ddacd56e31aec453df5a4a9a6ab",
+        "deliveredHash": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+        "diagnosticIds": [],
+        "originalHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "requirementKey": "prep:occurrence-1",
+        "status": "prepared"
+      },
+      {
+        "bindingHash": "sha256:307608cc69ef9a4ac1aa19a68c63dda7e2c549fb887fed47e40582a536c4dc02",
+        "deliveredHash": "sha256:c0f8d39316da91cd11d1e80d46d105a5732a22a74c49c42b645c0c590ac3a654",
+        "diagnosticIds": [],
+        "originalHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "requirementKey": "prep:terminal-overlay",
+        "status": "prepared"
+      }
+    ],
+    "status": "complete"
+  },
+  "migrationIssues": [
+    {
+      "entity": {
+        "id": "00000000-0000-4000-8000-00000000004a",
+        "kind": "supporting_item",
+        "path": "supportingItems"
+      },
+      "kind": "unplaced_item",
+      "message": "This point is at or beyond the exclusive programme end, which cannot be represented without extending playback.",
+      "recoveryActionKind": "reattach_unplaced_item",
+      "severity": "warning"
+    }
+  ],
+  "readiness": {
+    "blockingIssueIds": [],
+    "preview": "ready",
+    "release": "ready"
+  },
+  "recoveryActions": [
+    {
+      "documentId": "00000000-0000-4000-8000-000000000001",
+      "entity": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "kind": "document",
+        "path": "document"
+      },
+      "instruction": "Repair the authored source and compile again.",
+      "kind": "repair_document"
+    }
+  ],
+  "schemaVersion": "build-report/v2",
+  "sourceSufficiency": [
+    {
+      "availableRange": {
+        "endFrame": 240,
+        "startFrame": 0
+      },
+      "diagnosticId": null,
+      "requiredRange": {
+        "endFrame": 120,
+        "startFrame": 0
+      },
+      "requirementKey": "prep:occurrence-1",
+      "status": "sufficient"
+    },
+    {
+      "availableRange": {
+        "endFrame": 240,
+        "startFrame": 0
+      },
+      "diagnosticId": null,
+      "requiredRange": {
+        "endFrame": 120,
+        "startFrame": 0
+      },
+      "requirementKey": "prep:terminal-overlay",
+      "status": "sufficient"
+    }
+  ],
+  "status": "ready",
+  "summary": {
+    "blockedCount": 0,
+    "diagnosticCount": 1,
+    "eventCount": 3,
+    "manualCompletionCount": 0,
+    "placedCount": 3,
+    "placeholderCount": 0,
+    "recoveryActionCount": 1,
+    "sourceCount": 3,
+    "supportingItemCount": 1
+  },
+  "timeline": {
+    "audioSampleRate": 48000,
+    "durationFrames": 96,
+    "frameRate": {
+      "denominator": 1,
+      "numerator": 24
+    },
+    "height": 1080,
+    "startFrame": 0,
+    "width": 1920
+  }
+}

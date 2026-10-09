@@ -1,0 +1,78 @@
+{
+  "alignmentVersion": "provider-timing/v1",
+  "audio": {
+    "audioHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "cacheAssetId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "channels": 1,
+    "durationSamples": 96000,
+    "locator": "build-assets/narration/clip.wav",
+    "narrationAssetId": "ed1e4253-98fc-50ed-8a6f-96b170459df2",
+    "sampleRate": 48000,
+    "timingHash": "sha256:e97f540d67763dd996c66181073a53dda6c1f93b554ff743548fc12a5ca991a7"
+  },
+  "audioHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "blockId": "10000000-0000-4000-8000-000000000001",
+  "blockRevision": 2,
+  "narrationAssetId": "ed1e4253-98fc-50ed-8a6f-96b170459df2",
+  "precision": "next_word_derived",
+  "textHash": "sha256:151a81460b72b3d83ea4d43c63ab786036d56dbc5099d2482f5fe3b008e9a16e",
+  "timingHash": "sha256:e97f540d67763dd996c66181073a53dda6c1f93b554ff743548fc12a5ca991a7",
+  "tokenizationVersion": "script-document/v2-frozen-tokens",
+  "tokens": [
+    {
+      "endBasis": "next_word_derived",
+      "endOffset": 2,
+      "quotedText": "go",
+      "startOffset": 0,
+      "startTime": {
+        "denominator": 1,
+        "numerator": 0
+      },
+      "tokenId": "20000000-0000-4000-8000-000000000001"
+    },
+    {
+      "endBasis": "next_word_derived",
+      "endOffset": 9,
+      "quotedText": "can't",
+      "startOffset": 4,
+      "startTime": {
+        "denominator": 10,
+        "numerator": 3
+      },
+      "tokenId": "20000000-0000-4000-8000-000000000002"
+    },
+    {
+      "endBasis": "next_word_derived",
+      "endOffset": 15,
+      "quotedText": "élan",
+      "startOffset": 10,
+      "startTime": {
+        "denominator": 40,
+        "numerator": 29
+      },
+      "tokenId": "20000000-0000-4000-8000-000000000003"
+    },
+    {
+      "endBasis": "next_word_derived",
+      "endOffset": 18,
+      "quotedText": "🌍",
+      "startOffset": 16,
+      "startTime": {
+        "denominator": 10,
+        "numerator": 11
+      },
+      "tokenId": "20000000-0000-4000-8000-000000000004"
+    },
+    {
+      "endBasis": "unknown",
+      "endOffset": 21,
+      "quotedText": "go",
+      "startOffset": 19,
+      "startTime": {
+        "denominator": 20,
+        "numerator": 29
+      },
+      "tokenId": "20000000-0000-4000-8000-000000000005"
+    }
+  ]
+}

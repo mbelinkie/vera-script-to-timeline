@@ -1,0 +1,549 @@
+{
+  "document": {
+    "schemaVersion": "script-document/v2",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "projectId": "00000000-0000-4000-8000-000000000002",
+    "title": "Compiler v2 synthetic",
+    "activeDraft": {
+      "blocks": [
+        {
+          "type": "narration",
+          "id": "00000000-0000-4000-8000-000000000006",
+          "orderKey": "a0",
+          "text": "hello",
+          "tokens": [
+            {
+              "id": "00000000-0000-4000-8000-000000000007",
+              "value": "hello",
+              "startOffset": 0,
+              "endOffset": 5
+            }
+          ],
+          "primaryVisualSequence": {
+            "id": "00000000-0000-4000-8000-000000000009",
+            "version": 1,
+            "slots": [
+              {
+                "id": "00000000-0000-4000-8000-000000000010",
+                "kind": "content",
+                "relation": {
+                  "kind": "base"
+                },
+                "boundaryBefore": {
+                  "kind": "row_start"
+                },
+                "payload": {
+                  "kind": "visual",
+                  "payloadId": "00000000-0000-4000-8000-000000000011",
+                  "pictureKind": "image",
+                  "source": {
+                    "kind": "media_reference",
+                    "mediaReferenceId": "00000000-0000-4000-8000-000000000008"
+                  },
+                  "sourceUsage": null,
+                  "audioPolicy": "mute",
+                  "framingPolicy": "contain"
+                },
+                "playoutPolicy": "match_structural_interval",
+                "version": 1
+              }
+            ]
+          },
+          "overlayEvents": [
+            {
+              "id": "00000000-0000-4000-8000-000000000053",
+              "version": 1,
+              "payload": {
+                "kind": "visual",
+                "payloadId": "00000000-0000-4000-8000-000000000054",
+                "pictureKind": "image",
+                "source": {
+                  "kind": "media_reference",
+                  "mediaReferenceId": "00000000-0000-4000-8000-000000000008"
+                },
+                "sourceUsage": null,
+                "audioPolicy": "mute",
+                "framingPolicy": "cover"
+              },
+              "timing": {
+                "kind": "timed",
+                "durationMs": 1000,
+                "start": {
+                  "kind": "word",
+                  "anchor": {
+                    "blockId": "00000000-0000-4000-8000-000000000006",
+                    "tokenId": "00000000-0000-4000-8000-000000000007",
+                    "affinity": "before",
+                    "quotedWord": "hello",
+                    "anchorVersion": 1
+                  }
+                }
+              }
+            }
+          ],
+          "timingPolicy": "narration_spine",
+          "state": "active",
+          "notes": [],
+          "version": 1
+        }
+      ],
+      "supportingItems": []
+    },
+    "ideaOutline": [],
+    "extras": [],
+    "liveHeadSequence": 0,
+    "liveStateVector": "",
+    "liveContentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "dependencies": {
+    "schemaVersion": "compiler-dependencies/v2",
+    "build": {
+      "buildId": "00000000-0000-4000-8000-000000000003",
+      "manifestId": "00000000-0000-4000-8000-000000000004",
+      "reportId": "00000000-0000-4000-8000-000000000005",
+      "buildClass": "preview"
+    },
+    "document": {
+      "documentId": "00000000-0000-4000-8000-000000000001",
+      "projectId": "00000000-0000-4000-8000-000000000002",
+      "revision": 1,
+      "liveHeadSequence": 0,
+      "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "textHash": "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+      "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "compiler": {
+      "version": "compiler/v2",
+      "sourceHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    "authoringDefaults": {
+      "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "visualOnlyStillDurationMs": 3000,
+      "presenterStill": null,
+      "sourceAudioLevelPolicy": {
+        "version": "source-audio-level/v1",
+        "quietGainDb": -18,
+        "fullGainDb": 0
+      }
+    },
+    "timeline": {
+      "frameRate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "width": 1920,
+      "height": 1080,
+      "audioSampleRate": 48000,
+      "startFrame": 0,
+      "durationFrames": 240
+    },
+    "tracks": [
+      {
+        "id": "video-root",
+        "kind": "video",
+        "index": 1,
+        "name": "Primary root"
+      },
+      {
+        "id": "narration",
+        "kind": "audio",
+        "index": 1,
+        "name": "Narration"
+      },
+      {
+        "id": "placeholder",
+        "kind": "video",
+        "index": 2,
+        "name": "Placeholder"
+      },
+      {
+        "id": "presenter",
+        "kind": "video",
+        "index": 3,
+        "name": "Presenter"
+      },
+      {
+        "id": "markers",
+        "kind": "video",
+        "index": 4,
+        "name": "Markers"
+      },
+      {
+        "id": "video-overlay",
+        "kind": "video",
+        "index": 5,
+        "name": "Overlay"
+      }
+    ],
+    "roles": {
+      "primaryRootTrackId": "video-root",
+      "childTrackIds": [],
+      "overlayTrackIds": [
+        "video-overlay"
+      ],
+      "presenterTrackId": "presenter",
+      "placeholderTrackId": "placeholder",
+      "narrationTrackId": "narration",
+      "sourceAudioTrackIds": [],
+      "markerTrackId": "markers"
+    },
+    "narrationTimingMaps": [
+      {
+        "blockId": "00000000-0000-4000-8000-000000000006",
+        "blockRevision": 1,
+        "textHash": "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+        "tokenizationVersion": "script-document/v2-frozen-tokens",
+        "narrationAssetId": "00000000-0000-4000-8000-000000000013",
+        "audioHash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "timingHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "alignmentVersion": "aligner/v1",
+        "precision": "audible_word_marks",
+        "tokens": [
+          {
+            "tokenId": "00000000-0000-4000-8000-000000000007",
+            "startOffset": 0,
+            "endOffset": 5,
+            "quotedText": "hello",
+            "startTime": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "audibleEnd": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "endBasis": "evidenced_audible_end"
+          }
+        ],
+        "audio": {
+          "narrationAssetId": "00000000-0000-4000-8000-000000000013",
+          "audioHash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "timingHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "cacheAssetId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "locator": "Builds/narration/hello.wav",
+          "durationSamples": 192000,
+          "sampleRate": 48000,
+          "channels": 1
+        }
+      }
+    ],
+    "occurrenceResolutions": [
+      {
+        "payloadId": "00000000-0000-4000-8000-000000000011",
+        "owner": {
+          "kind": "primary_slot",
+          "sequenceId": "00000000-0000-4000-8000-000000000009",
+          "slotId": "00000000-0000-4000-8000-000000000010"
+        },
+        "mediaReferenceId": "00000000-0000-4000-8000-000000000008",
+        "sourceSnapshot": {
+          "system": "local_import",
+          "snapshotId": "00000000-0000-4000-8000-000000000014",
+          "version": 1,
+          "packageId": "00000000-0000-4000-8000-000000000015",
+          "contentHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "probeHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "logicalSourceBounds": {
+          "startFrame": 0,
+          "endFrame": 240,
+          "frameRate": {
+            "numerator": 30,
+            "denominator": 1
+          }
+        },
+        "sourceFrameMap": {
+          "packageFrameZeroLogicalFrame": 0,
+          "packageVideoPtsOrigin": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "loggedTimeAtPackageFrameZero": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "decodedPackageFrameRate": {
+            "numerator": 30,
+            "denominator": 1
+          },
+          "decodedPackageFrameCount": 240,
+          "packageVideoTimeBase": {
+            "numerator": 1,
+            "denominator": 90000
+          },
+          "sourceAudioStreamMappings": [],
+          "descriptorHash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "probeHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "occurrenceSourceInFrame": 0,
+        "selectedSourceRange": null,
+        "preparedMediaRequirementKey": "prep:occurrence-1"
+      },
+      {
+        "payloadId": "00000000-0000-4000-8000-000000000054",
+        "owner": {
+          "kind": "overlay_event",
+          "blockId": "00000000-0000-4000-8000-000000000006",
+          "overlayEventId": "00000000-0000-4000-8000-000000000053"
+        },
+        "mediaReferenceId": "00000000-0000-4000-8000-000000000008",
+        "sourceSnapshot": {
+          "system": "local_import",
+          "snapshotId": "00000000-0000-4000-8000-000000000014",
+          "version": 1,
+          "packageId": "00000000-0000-4000-8000-000000000015",
+          "contentHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "probeHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "logicalSourceBounds": {
+          "startFrame": 0,
+          "endFrame": 240,
+          "frameRate": {
+            "numerator": 30,
+            "denominator": 1
+          }
+        },
+        "sourceFrameMap": {
+          "packageFrameZeroLogicalFrame": 0,
+          "packageVideoPtsOrigin": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "loggedTimeAtPackageFrameZero": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "decodedPackageFrameRate": {
+            "numerator": 30,
+            "denominator": 1
+          },
+          "decodedPackageFrameCount": 240,
+          "packageVideoTimeBase": {
+            "numerator": 1,
+            "denominator": 90000
+          },
+          "sourceAudioStreamMappings": [],
+          "descriptorHash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "probeHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "occurrenceSourceInFrame": 30,
+        "selectedSourceRange": null,
+        "preparedMediaRequirementKey": "prep:narrated-image-overlay"
+      }
+    ],
+    "preparedMedia": [
+      {
+        "requirementKey": "prep:occurrence-1",
+        "mode": "derived_cfr",
+        "originalSource": {
+          "mediaReferenceId": "00000000-0000-4000-8000-000000000008",
+          "contentHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "probeHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "targetRate": {
+          "numerator": 24,
+          "denominator": 1
+        },
+        "requestedRange": {
+          "sourceInFrame": 0,
+          "duration": {
+            "numerator": 1,
+            "denominator": 30
+          },
+          "preHandle": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "postHandle": {
+            "numerator": 0,
+            "denominator": 1
+          }
+        },
+        "profile": {
+          "policyHash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+          "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "toolHash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "profileVersion": "prepare/v1"
+        },
+        "timeMapping": {
+          "sourceOrigin": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "deliveredOrigin": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "sourceRate": {
+            "numerator": 30,
+            "denominator": 1
+          },
+          "deliveredRate": {
+            "numerator": 24,
+            "denominator": 1
+          },
+          "sourceFrameMap": {
+            "packageFrameZeroLogicalFrame": 0,
+            "packageVideoPtsOrigin": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "loggedTimeAtPackageFrameZero": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "decodedPackageFrameRate": {
+              "numerator": 30,
+              "denominator": 1
+            },
+            "decodedPackageFrameCount": 240,
+            "packageVideoTimeBase": {
+              "numerator": 1,
+              "denominator": 90000
+            },
+            "sourceAudioStreamMappings": [],
+            "descriptorHash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+            "probeHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "mappingHash": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+        },
+        "verification": {
+          "deliveredHash": "sha256:c568fe531abbcb2c7760420db8dfb208670e76dde86d512924942304c889ba8e",
+          "probeHash": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+          "decodedFrameCount": 1,
+          "decodedFrameRate": {
+            "numerator": 24,
+            "denominator": 1
+          },
+          "videoTimeBase": {
+            "numerator": 1,
+            "denominator": 24
+          },
+          "sourceAudio": {
+            "status": "not_applicable",
+            "offset": null,
+            "maxDrift": null,
+            "sampleRate": null
+          }
+        },
+        "authorizationReference": "synthetic-fixture-only",
+        "artifactLocator": "prepared/clip.mov",
+        "derivation": {
+          "method": "cfr_sample/v1",
+          "sourceHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "outputHash": "sha256:c568fe531abbcb2c7760420db8dfb208670e76dde86d512924942304c889ba8e",
+          "toolHash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "commandHash": "sha256:08b97c231e98987e5452cdd3607ad252e50d47bfb5dc75949f6dd4b85133815a"
+        }
+      },
+      {
+        "requirementKey": "prep:narrated-image-overlay",
+        "mode": "derived_cfr",
+        "originalSource": {
+          "mediaReferenceId": "00000000-0000-4000-8000-000000000008",
+          "contentHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "probeHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "targetRate": {
+          "numerator": 24,
+          "denominator": 1
+        },
+        "requestedRange": {
+          "sourceInFrame": 30,
+          "duration": {
+            "numerator": 1,
+            "denominator": 30
+          },
+          "preHandle": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "postHandle": {
+            "numerator": 0,
+            "denominator": 1
+          }
+        },
+        "profile": {
+          "policyHash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+          "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "toolHash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "profileVersion": "prepare/v1"
+        },
+        "timeMapping": {
+          "sourceOrigin": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "deliveredOrigin": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "sourceRate": {
+            "numerator": 30,
+            "denominator": 1
+          },
+          "deliveredRate": {
+            "numerator": 24,
+            "denominator": 1
+          },
+          "sourceFrameMap": {
+            "packageFrameZeroLogicalFrame": 0,
+            "packageVideoPtsOrigin": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "loggedTimeAtPackageFrameZero": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "decodedPackageFrameRate": {
+              "numerator": 30,
+              "denominator": 1
+            },
+            "decodedPackageFrameCount": 240,
+            "packageVideoTimeBase": {
+              "numerator": 1,
+              "denominator": 90000
+            },
+            "sourceAudioStreamMappings": [],
+            "descriptorHash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+            "probeHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "mappingHash": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+        },
+        "verification": {
+          "deliveredHash": "sha256:02f4b60203c5582ee05432fe3e66e077aca139889bf334d0e4df246e1ce2b33c",
+          "probeHash": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+          "decodedFrameCount": 1,
+          "decodedFrameRate": {
+            "numerator": 24,
+            "denominator": 1
+          },
+          "videoTimeBase": {
+            "numerator": 1,
+            "denominator": 24
+          },
+          "sourceAudio": {
+            "status": "not_applicable",
+            "offset": null,
+            "maxDrift": null,
+            "sampleRate": null
+          }
+        },
+        "authorizationReference": "synthetic-fixture-only",
+        "artifactLocator": "prepared/narrated-overlay-still.mov",
+        "derivation": {
+          "method": "cfr_sample/v1",
+          "sourceHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "outputHash": "sha256:02f4b60203c5582ee05432fe3e66e077aca139889bf334d0e4df246e1ce2b33c",
+          "toolHash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "commandHash": "sha256:bc4035cbfc0a4ad2a99306dab6447e78e42ca933138f41527bc4841960f505d7"
+        }
+      }
+    ],
+    "presenterAlignmentResolutions": []
+  }
+}

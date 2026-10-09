@@ -1,0 +1,145 @@
+{
+  "buildClass": "preview",
+  "buildId": "00000000-0000-4000-8000-000000000003",
+  "compiler": {
+    "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "sourceHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "version": "compiler/v2"
+  },
+  "dependenciesHash": "sha256:ab6b5077232058e1b5473dc7ec68c1f768398a4431d6fb0ab5f6bc078d7dd5db",
+  "diagnostics": [],
+  "document": {
+    "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "documentId": "00000000-0000-4000-8000-000000000001",
+    "liveHeadSequence": 0,
+    "projectId": "00000000-0000-4000-8000-000000000002",
+    "revision": 1,
+    "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "textHash": "sha256:64989ccbf3efa9c84e2afe7cee9bc5828bf0fcb91e44f8c1e591638a2c2e90e3"
+  },
+  "eventResults": [
+    {
+      "disposition": "placed",
+      "eventId": "c54080bb-0d64-5bc7-8693-ce2c32f28afe",
+      "kind": "primary_visual",
+      "message": "Compiled from frozen source bindings.",
+      "recordRange": {
+        "endFrame": 240,
+        "startFrame": 0
+      },
+      "sourceId": "967e2091-9e3c-55c4-8209-c22509e423d7",
+      "trackId": "video-root"
+    },
+    {
+      "disposition": "placed",
+      "eventId": "e3a1d77f-0c0e-5ffe-8d4e-77ce0e21cb88",
+      "kind": "narration",
+      "message": "Compiled from frozen source bindings.",
+      "recordRange": {
+        "endFrame": 288,
+        "startFrame": 0
+      },
+      "sourceId": "00000000-0000-4000-8000-000000000013",
+      "trackId": "narration"
+    },
+    {
+      "disposition": "placed",
+      "eventId": "c2f86752-4fe7-5d1c-8162-9ce5660143f6",
+      "kind": "primary_visual",
+      "message": "Compiled from frozen source bindings.",
+      "recordRange": {
+        "endFrame": 288,
+        "startFrame": 240
+      },
+      "sourceId": "f7b89db5-f7d1-5cc1-8e4f-58b2734fdc9e",
+      "trackId": "video-root"
+    }
+  ],
+  "id": "00000000-0000-4000-8000-000000000005",
+  "itemResults": [],
+  "manifest": {
+    "contentHash": "sha256:0d72d805b057250b5bcd009cd6482993f600ebd151b905a090309706464e0876",
+    "id": "00000000-0000-4000-8000-000000000004"
+  },
+  "manualCompletionItems": [],
+  "mediaPreparation": {
+    "requirements": [
+      {
+        "bindingHash": "sha256:7e3619ebdab51214ac57ccbaa1eb019bb1815333f8770daafb423922ea221216",
+        "deliveredHash": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+        "diagnosticIds": [],
+        "originalHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "requirementKey": "prep:occurrence-1",
+        "status": "prepared"
+      },
+      {
+        "bindingHash": "sha256:52cd317a3d93fc3024ab67b8aec7e857626fed8d3890b2e21e0d8d4abdd7de3a",
+        "deliveredHash": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+        "diagnosticIds": [],
+        "originalHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "requirementKey": "prep:after-complete",
+        "status": "prepared"
+      }
+    ],
+    "status": "complete"
+  },
+  "migrationIssues": [],
+  "readiness": {
+    "blockingIssueIds": [],
+    "preview": "ready",
+    "release": "ready"
+  },
+  "recoveryActions": [],
+  "schemaVersion": "build-report/v2",
+  "sourceSufficiency": [
+    {
+      "availableRange": {
+        "endFrame": 250,
+        "startFrame": 0
+      },
+      "diagnosticId": null,
+      "requiredRange": {
+        "endFrame": 250,
+        "startFrame": 0
+      },
+      "requirementKey": "prep:occurrence-1",
+      "status": "sufficient"
+    },
+    {
+      "availableRange": {
+        "endFrame": 250,
+        "startFrame": 0
+      },
+      "diagnosticId": null,
+      "requiredRange": {
+        "endFrame": 51,
+        "startFrame": 0
+      },
+      "requirementKey": "prep:after-complete",
+      "status": "sufficient"
+    }
+  ],
+  "status": "ready",
+  "summary": {
+    "blockedCount": 0,
+    "diagnosticCount": 0,
+    "eventCount": 3,
+    "manualCompletionCount": 0,
+    "placedCount": 3,
+    "placeholderCount": 0,
+    "recoveryActionCount": 0,
+    "sourceCount": 3,
+    "supportingItemCount": 0
+  },
+  "timeline": {
+    "audioSampleRate": 48000,
+    "durationFrames": 288,
+    "frameRate": {
+      "denominator": 1001,
+      "numerator": 24000
+    },
+    "height": 1080,
+    "startFrame": 0,
+    "width": 1920
+  }
+}

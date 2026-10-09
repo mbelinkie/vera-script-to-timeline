@@ -1,0 +1,23 @@
+{
+  "baseline": "792b09bc2c1c91867fca99eb558ee6250bbd4cdd",
+  "frozenFileCount": 125,
+  "frozenByteMismatches": [],
+  "changedExistingFiles": [
+    "contracts/compiler-dependencies-v2.schema.json",
+    "contracts/timeline-manifest-v2.schema.json",
+    "packages/contracts/package.json",
+    "packages/contracts/src/generated/contracts-v2.ts",
+    "python/vera_timeline_agent/generated/contracts/compiler_dependencies_v2_schema.py",
+    "python/vera_timeline_agent/generated/contracts/timeline_manifest_v2_schema.py"
+  ],
+  "allowedExistingChanges": [
+    "contracts/compiler-dependencies-v2.schema.json",
+    "contracts/timeline-manifest-v2.schema.json",
+    "packages/contracts/package.json",
+    "packages/contracts/src/generated/contracts-v2.ts",
+    "python/vera_timeline_agent/generated/contracts/compiler_dependencies_v2_schema.py",
+    "python/vera_timeline_agent/generated/contracts/timeline_manifest_v2_schema.py"
+  ],
+  "unexpectedExistingChanges": [],
+  "passed": true
+}

@@ -172,6 +172,18 @@ export type SupportingItemV2 = {
           }
       );
 };
+export type BuildIdentityV2 = {
+  [k: string]: unknown;
+} & {
+  buildId: string;
+  manifestId: string;
+  reportId: string;
+  buildClass: "preview" | "release";
+  /**
+   * Explicit forced Preview for undefined/request slates; never bypasses structural, timing, source, or preparation failures.
+   */
+  forcePreviewVisuals?: boolean;
+};
 export type TokenTimingV2 = {
   [k: string]: unknown;
 } & {
@@ -252,6 +264,9 @@ export type TimelineEventV2 = {
   sourceTimeMapping: PreparationTimeMappingV1 | null;
   preparationBindingHash: string | null;
   audio: SourceAudioEventV2 | null;
+  pictureTreatment?:
+    StillPictureTreatmentV2 | SlatePictureTreatmentV2 | StillFramePictureTreatmentV2;
+  marker?: ScriptMarkerTreatmentV2;
 };
 export type SourceAudioEventV2 = {
   [k: string]: unknown;
@@ -780,12 +795,6 @@ export interface CompilerDependenciesV2 {
   preparedMedia: PreparedMediaBindingV1[];
   presenterAlignmentResolutions: PresenterAlignmentResolutionV1[];
 }
-export interface BuildIdentityV2 {
-  buildId: string;
-  manifestId: string;
-  reportId: string;
-  buildClass: "preview" | "release";
-}
 export interface DocumentBindingV2 {
   documentId: string;
   projectId: string;
@@ -848,10 +857,24 @@ export interface NarrationTokenTimingMapV2 {
   timingHash: string;
   alignmentVersion: string;
   precision: "audible_word_marks" | "next_word_derived" | "sentence_only" | "estimated";
+  audio?: NarrationAudioBindingV2;
   /**
    * @minItems 1
    */
   tokens: [TokenTimingV2, ...TokenTimingV2[]];
+}
+export interface NarrationAudioBindingV2 {
+  narrationAssetId: string;
+  audioHash: string;
+  cacheAssetId: string;
+  /**
+   * Canonical slash-separated project-relative locator; absolute paths and dot segments are not accepted.
+   */
+  locator: string;
+  durationSamples: number;
+  sampleRate: number;
+  channels: number;
+  timingHash: string;
 }
 /**
  * A reduced signed fraction of seconds. Reduction is checked by the compiler; this schema validates its safe-integer wire shape.
@@ -1031,7 +1054,7 @@ export interface TimelineManifestV2 {
    */
   tracks: [TrackV2, ...TrackV2[]];
   roles: TrackRolesV2;
-  sources: ManifestSourceV2[];
+  sources: (VisualManifestSourceV2 | NarrationManifestSourceV2)[];
   events: TimelineEventV2[];
   visualSequenceResolutions: VisualSequenceResolutionV2[];
   supportingItemResults: SupportingItemResultV2[];
@@ -1040,7 +1063,7 @@ export interface TimelineManifestV2 {
   composition: CompositionEvidenceV2;
   boundaryEvidence: BoundaryEvidenceV2[];
 }
-export interface ManifestSourceV2 {
+export interface VisualManifestSourceV2 {
   id: string;
   mediaReferenceId: string;
   originalHash: string;
@@ -1050,6 +1073,10 @@ export interface ManifestSourceV2 {
   sourceFrameMap: SourceFrameMapV1;
   sourceTimeMapping: PreparationTimeMappingV1;
   preparationRequirementKey: string | null;
+}
+export interface NarrationManifestSourceV2 {
+  id: string;
+  narrationAudio: NarrationAudioBindingV2;
 }
 export interface EventProvenanceV2 {
   documentId: string;
@@ -1063,6 +1090,31 @@ export interface EventProvenanceV2 {
   deliveredSourceHash: string | null;
   timingMapHash: string | null;
   compilerVersion: string;
+}
+export interface StillPictureTreatmentV2 {
+  kind: "still";
+  reference: PresenterStillReference;
+  composition: {
+    framingPolicy: "contain";
+    horizontalAlignment: "center";
+    verticalAlignment: "center";
+    backgroundColor: "#000000";
+    motionPreset: "none";
+  };
+}
+export interface SlatePictureTreatmentV2 {
+  kind: "slate";
+  purpose: "intentional" | "undefined" | "unresolved";
+  text: string;
+}
+export interface StillFramePictureTreatmentV2 {
+  kind: "still_frame";
+  pictureKind: "image" | "capture" | "graphic";
+  framingPolicy: "contain" | "cover" | "native";
+}
+export interface ScriptMarkerTreatmentV2 {
+  supportingItemId: string;
+  text: string;
 }
 export interface VisualSequenceResolutionV2 {
   documentId: string;
@@ -1144,6 +1196,12 @@ export interface BoundaryEvidenceV2 {
     | "unknown"
     | "visual_only_default"
     | "complete_clip_quantized";
+  /**
+   * Relation to exact token supports at a media-led cut; derived ends never prove silence.
+   */
+  wordRelation?:
+    "at_word_start" | "inside_word" | "between_words" | "derived_or_unknown";
+  relatedTokenId?: string | null;
 }
 export interface ManifestReferenceV2 {
   id: string;

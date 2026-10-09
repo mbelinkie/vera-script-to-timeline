@@ -1,0 +1,145 @@
+{
+  "buildClass": "preview",
+  "buildId": "00000000-0000-4000-8000-000000000003",
+  "compiler": {
+    "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "sourceHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "version": "compiler/v2"
+  },
+  "dependenciesHash": "sha256:40e9cf7854752c8034034daa6312f1c2a963e095d3757651d993d9038a0986c8",
+  "diagnostics": [],
+  "document": {
+    "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "documentId": "00000000-0000-4000-8000-000000000001",
+    "liveHeadSequence": 0,
+    "projectId": "00000000-0000-4000-8000-000000000002",
+    "revision": 1,
+    "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "textHash": "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+  },
+  "eventResults": [
+    {
+      "disposition": "placed",
+      "eventId": "10639613-c886-5089-8d34-f7c703e90cca",
+      "kind": "overlay_visual",
+      "message": "Compiled from frozen source bindings.",
+      "recordRange": {
+        "endFrame": 24,
+        "startFrame": 0
+      },
+      "sourceId": "5526077e-e888-50f9-806d-0cdf3209790b",
+      "trackId": "video-overlay"
+    },
+    {
+      "disposition": "placed",
+      "eventId": "c54080bb-0d64-5bc7-8693-ce2c32f28afe",
+      "kind": "primary_visual",
+      "message": "Compiled from frozen source bindings.",
+      "recordRange": {
+        "endFrame": 96,
+        "startFrame": 0
+      },
+      "sourceId": "c575f8ff-d941-5a35-828d-6b225bcb6dc6",
+      "trackId": "video-root"
+    },
+    {
+      "disposition": "placed",
+      "eventId": "e3a1d77f-0c0e-5ffe-8d4e-77ce0e21cb88",
+      "kind": "narration",
+      "message": "Compiled from frozen source bindings.",
+      "recordRange": {
+        "endFrame": 96,
+        "startFrame": 0
+      },
+      "sourceId": "00000000-0000-4000-8000-000000000013",
+      "trackId": "narration"
+    }
+  ],
+  "id": "00000000-0000-4000-8000-000000000005",
+  "itemResults": [],
+  "manifest": {
+    "contentHash": "sha256:eb9c73eac30c72c7ca7c5a11e7abae45bcf497ed70a272647c5d168671725777",
+    "id": "00000000-0000-4000-8000-000000000004"
+  },
+  "manualCompletionItems": [],
+  "mediaPreparation": {
+    "requirements": [
+      {
+        "bindingHash": "sha256:8fa76ba92cdb0b5c0e2364d6c920149a7d185c2831213bb208ac4508f35000df",
+        "deliveredHash": "sha256:c568fe531abbcb2c7760420db8dfb208670e76dde86d512924942304c889ba8e",
+        "diagnosticIds": [],
+        "originalHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "requirementKey": "prep:occurrence-1",
+        "status": "prepared"
+      },
+      {
+        "bindingHash": "sha256:fdb162eebbc95924ac0d973939c2eb7ad40b409e3bc0a36c30677fe65e461457",
+        "deliveredHash": "sha256:02f4b60203c5582ee05432fe3e66e077aca139889bf334d0e4df246e1ce2b33c",
+        "diagnosticIds": [],
+        "originalHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "requirementKey": "prep:narrated-image-overlay",
+        "status": "prepared"
+      }
+    ],
+    "status": "complete"
+  },
+  "migrationIssues": [],
+  "readiness": {
+    "blockingIssueIds": [],
+    "preview": "ready",
+    "release": "ready"
+  },
+  "recoveryActions": [],
+  "schemaVersion": "build-report/v2",
+  "sourceSufficiency": [
+    {
+      "availableRange": {
+        "endFrame": 240,
+        "startFrame": 0
+      },
+      "diagnosticId": null,
+      "requiredRange": {
+        "endFrame": 1,
+        "startFrame": 0
+      },
+      "requirementKey": "prep:occurrence-1",
+      "status": "sufficient"
+    },
+    {
+      "availableRange": {
+        "endFrame": 240,
+        "startFrame": 0
+      },
+      "diagnosticId": null,
+      "requiredRange": {
+        "endFrame": 31,
+        "startFrame": 30
+      },
+      "requirementKey": "prep:narrated-image-overlay",
+      "status": "sufficient"
+    }
+  ],
+  "status": "ready",
+  "summary": {
+    "blockedCount": 0,
+    "diagnosticCount": 0,
+    "eventCount": 3,
+    "manualCompletionCount": 0,
+    "placedCount": 3,
+    "placeholderCount": 0,
+    "recoveryActionCount": 0,
+    "sourceCount": 3,
+    "supportingItemCount": 0
+  },
+  "timeline": {
+    "audioSampleRate": 48000,
+    "durationFrames": 96,
+    "frameRate": {
+      "denominator": 1,
+      "numerator": 24
+    },
+    "height": 1080,
+    "startFrame": 0,
+    "width": 1920
+  }
+}

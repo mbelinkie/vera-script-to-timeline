@@ -117,6 +117,16 @@
       "$ref": "compiler-dependencies-v2.schema.json#/$defs/ContentHash"
     },
     "ManifestSourceV2": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/VisualManifestSourceV2"
+        },
+        {
+          "$ref": "#/$defs/NarrationManifestSourceV2"
+        }
+      ]
+    },
+    "VisualManifestSourceV2": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -164,6 +174,22 @@
               "type": "null"
             }
           ]
+        }
+      }
+    },
+    "NarrationManifestSourceV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "narrationAudio"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+        },
+        "narrationAudio": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/NarrationAudioBindingV2"
         }
       }
     },
@@ -452,6 +478,12 @@
               "type": "null"
             }
           ]
+        },
+        "pictureTreatment": {
+          "$ref": "#/$defs/PictureTreatmentV2"
+        },
+        "marker": {
+          "$ref": "#/$defs/ScriptMarkerTreatmentV2"
         }
       },
       "allOf": [
@@ -521,6 +553,15 @@
           }
         }
       ]
+    },
+    "ScriptMarkerTreatmentV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["supportingItemId", "text"],
+      "properties": {
+        "supportingItemId": { "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId" },
+        "text": { "type": "string", "minLength": 1 }
+      }
     },
     "SupportingItemResultV2": {
       "$ref": "compiler-dependencies-v2.schema.json#/$defs/SupportingItemResultV2"
@@ -685,6 +726,118 @@
             "visual_only_default",
             "complete_clip_quantized"
           ]
+        },
+        "wordRelation": {
+          "enum": [
+            "at_word_start",
+            "inside_word",
+            "between_words",
+            "derived_or_unknown"
+          ],
+          "description": "Relation to exact token supports at a media-led cut; derived ends never prove silence."
+        },
+        "relatedTokenId": {
+          "anyOf": [
+            {
+              "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "PictureTreatmentV2": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/StillPictureTreatmentV2"
+        },
+        {
+          "$ref": "#/$defs/SlatePictureTreatmentV2"
+        },
+        {
+          "$ref": "#/$defs/StillFramePictureTreatmentV2"
+        }
+      ]
+    },
+    "StillPictureTreatmentV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "reference",
+        "composition"
+      ],
+      "properties": {
+        "kind": {
+          "const": "still"
+        },
+        "reference": {
+          "$ref": "script-document-v2.schema.json#/$defs/PresenterStillReference"
+        },
+        "composition": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "framingPolicy",
+            "horizontalAlignment",
+            "verticalAlignment",
+            "backgroundColor",
+            "motionPreset"
+          ],
+          "properties": {
+            "framingPolicy": {
+              "const": "contain"
+            },
+            "horizontalAlignment": {
+              "const": "center"
+            },
+            "verticalAlignment": {
+              "const": "center"
+            },
+            "backgroundColor": {
+              "const": "#000000"
+            },
+            "motionPreset": {
+              "const": "none"
+            }
+          }
+        }
+      }
+    },
+    "StillFramePictureTreatmentV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "pictureKind", "framingPolicy"],
+      "properties": {
+        "kind": { "const": "still_frame" },
+        "pictureKind": { "enum": ["image", "capture", "graphic"] },
+        "framingPolicy": { "enum": ["contain", "cover", "native"] }
+      }
+    },
+    "SlatePictureTreatmentV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "purpose",
+        "text"
+      ],
+      "properties": {
+        "kind": {
+          "const": "slate"
+        },
+        "purpose": {
+          "enum": [
+            "intentional",
+            "undefined",
+            "unresolved"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
         }
       }
     }

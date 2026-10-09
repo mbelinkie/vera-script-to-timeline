@@ -3,9 +3,9 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
-from . import compiler_dependencies_v2_schema
+from . import compiler_dependencies_v2_schema, script_document_v2_schema
 
 type FrameRangeV2 = compiler_dependencies_v2_schema.FrameRangeV2
 
@@ -13,10 +13,30 @@ type FrameRangeV2 = compiler_dependencies_v2_schema.FrameRangeV2
 type RationalTime = compiler_dependencies_v2_schema.RationalTime
 
 
+class Composition(TypedDict):
+    framingPolicy: Literal["contain"]
+    horizontalAlignment: Literal["center"]
+    verticalAlignment: Literal["center"]
+    backgroundColor: Literal["#000000"]
+    motionPreset: Literal["none"]
+
+
+class StillFramePictureTreatmentV2(TypedDict):
+    kind: Literal["still_frame"]
+    pictureKind: Literal["image", "capture", "graphic"]
+    framingPolicy: Literal["contain", "cover", "native"]
+
+
+class SlatePictureTreatmentV2(TypedDict):
+    kind: Literal["slate"]
+    purpose: Literal["intentional", "undefined", "unresolved"]
+    text: str
+
+
 type ContentHash = compiler_dependencies_v2_schema.ContentHash
 
 
-class ManifestSourceV2(TypedDict):
+class VisualManifestSourceV2(TypedDict):
     id: compiler_dependencies_v2_schema.EntityId
     mediaReferenceId: compiler_dependencies_v2_schema.EntityId
     originalHash: ContentHash
@@ -26,6 +46,11 @@ class ManifestSourceV2(TypedDict):
     sourceFrameMap: compiler_dependencies_v2_schema.SourceFrameMapV1
     sourceTimeMapping: compiler_dependencies_v2_schema.PreparationTimeMappingV1
     preparationRequirementKey: compiler_dependencies_v2_schema.NonEmptyString | None
+
+
+class NarrationManifestSourceV2(TypedDict):
+    id: compiler_dependencies_v2_schema.EntityId
+    narrationAudio: compiler_dependencies_v2_schema.NarrationAudioBindingV2
 
 
 class EventProvenanceV2(TypedDict):
@@ -51,34 +76,9 @@ class SourceAudioEventV2(TypedDict):
     sampleRange: FrameRangeV2
 
 
-class TimelineEventV2(TypedDict):
-    eventId: compiler_dependencies_v2_schema.EntityId
-    kind: Literal[
-        "narration",
-        "primary_visual",
-        "overlay_visual",
-        "source_audio",
-        "placeholder",
-        "script_marker",
-    ]
-    trackId: str
-    trackRole: Literal[
-        "primary_root",
-        "child",
-        "overlay",
-        "presenter",
-        "narration",
-        "source_audio",
-        "placeholder",
-        "marker",
-        "subtitle",
-    ]
-    recordRange: FrameRangeV2
-    provenance: EventProvenanceV2
-    sourceRange: FrameRangeV2 | None
-    sourceTimeMapping: compiler_dependencies_v2_schema.PreparationTimeMappingV1 | None
-    preparationBindingHash: ContentHash | None
-    audio: SourceAudioEventV2 | None
+class ScriptMarkerTreatmentV2(TypedDict):
+    supportingItemId: compiler_dependencies_v2_schema.EntityId
+    text: str
 
 
 type SupportingItemResultV2 = compiler_dependencies_v2_schema.SupportingItemResultV2
@@ -129,6 +129,56 @@ class BoundaryEvidenceV2(TypedDict):
         "visual_only_default",
         "complete_clip_quantized",
     ]
+    wordRelation: NotRequired[
+        Literal["at_word_start", "inside_word", "between_words", "derived_or_unknown"]
+    ]
+    relatedTokenId: NotRequired[compiler_dependencies_v2_schema.EntityId | None]
+
+
+class StillPictureTreatmentV2(TypedDict):
+    kind: Literal["still"]
+    reference: script_document_v2_schema.PresenterStillReference
+    composition: Composition
+
+
+type ManifestSourceV2 = VisualManifestSourceV2 | NarrationManifestSourceV2
+
+
+type PictureTreatmentV2 = (
+    StillPictureTreatmentV2 | SlatePictureTreatmentV2 | StillFramePictureTreatmentV2
+)
+
+
+class TimelineEventV2(TypedDict):
+    eventId: compiler_dependencies_v2_schema.EntityId
+    kind: Literal[
+        "narration",
+        "primary_visual",
+        "overlay_visual",
+        "source_audio",
+        "placeholder",
+        "script_marker",
+    ]
+    trackId: str
+    trackRole: Literal[
+        "primary_root",
+        "child",
+        "overlay",
+        "presenter",
+        "narration",
+        "source_audio",
+        "placeholder",
+        "marker",
+        "subtitle",
+    ]
+    recordRange: FrameRangeV2
+    provenance: EventProvenanceV2
+    sourceRange: FrameRangeV2 | None
+    sourceTimeMapping: compiler_dependencies_v2_schema.PreparationTimeMappingV1 | None
+    preparationBindingHash: ContentHash | None
+    audio: SourceAudioEventV2 | None
+    pictureTreatment: NotRequired[PictureTreatmentV2]
+    marker: NotRequired[ScriptMarkerTreatmentV2]
 
 
 class TimelineManifestV2(TypedDict):

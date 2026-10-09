@@ -1,0 +1,117 @@
+{
+  "buildClass": "preview",
+  "buildId": "00000000-0000-4000-8000-000000000003",
+  "compiler": {
+    "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "sourceHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "version": "compiler/v2"
+  },
+  "dependenciesHash": "sha256:19135378fe84dd15562d91c4220a75399aa6deb40d623545e9b51aedb5b7c19a",
+  "diagnostics": [
+    {
+      "code": "COLLAPSED_BOUNDARY",
+      "entity": {
+        "id": "00000000-0000-4000-8000-000000000006",
+        "kind": "block",
+        "path": "primaryVisualSequence"
+      },
+      "evidence": {
+        "anchorId": "00000000-0000-4000-8000-000000000006",
+        "kind": "anchor_issue",
+        "reason": "collapsed"
+      },
+      "id": "deeddab7-72e0-54ff-8cf0-b4a5849d6166",
+      "message": "Two authored boundaries collapse to the same or reversed record frame.",
+      "recoveryActionKinds": [
+        "repair_document",
+        "refresh_timing"
+      ],
+      "severity": "blocking"
+    }
+  ],
+  "document": {
+    "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "documentId": "00000000-0000-4000-8000-000000000001",
+    "liveHeadSequence": 0,
+    "projectId": "00000000-0000-4000-8000-000000000002",
+    "revision": 1,
+    "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "textHash": "sha256:64989ccbf3efa9c84e2afe7cee9bc5828bf0fcb91e44f8c1e591638a2c2e90e3"
+  },
+  "eventResults": [
+    {
+      "disposition": "blocked",
+      "eventId": "e3a1d77f-0c0e-5ffe-8d4e-77ce0e21cb88",
+      "kind": "narration",
+      "message": "Compiled from frozen source bindings.",
+      "recordRange": {
+        "endFrame": 192,
+        "startFrame": 0
+      },
+      "sourceId": "00000000-0000-4000-8000-000000000013",
+      "trackId": "narration"
+    }
+  ],
+  "id": "00000000-0000-4000-8000-000000000005",
+  "itemResults": [],
+  "manifest": {
+    "contentHash": "sha256:6ff2f06294a3da02781a97e0df21f9a47686199522bf42553012770f9ed5379f",
+    "id": "00000000-0000-4000-8000-000000000004"
+  },
+  "manualCompletionItems": [],
+  "mediaPreparation": {
+    "requirements": [],
+    "status": "not_required"
+  },
+  "migrationIssues": [],
+  "readiness": {
+    "blockingIssueIds": [
+      "deeddab7-72e0-54ff-8cf0-b4a5849d6166"
+    ],
+    "preview": "blocked",
+    "release": "blocked"
+  },
+  "recoveryActions": [
+    {
+      "documentId": "00000000-0000-4000-8000-000000000001",
+      "entity": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "kind": "document",
+        "path": "document"
+      },
+      "instruction": "Repair the authored source and compile again.",
+      "kind": "repair_document"
+    },
+    {
+      "blockId": "00000000-0000-4000-8000-000000000006",
+      "expectedRevision": 1,
+      "instruction": "Refresh narration timing for the frozen text.",
+      "kind": "refresh_timing"
+    }
+  ],
+  "schemaVersion": "build-report/v2",
+  "sourceSufficiency": [],
+  "status": "blocked",
+  "summary": {
+    "blockedCount": 1,
+    "diagnosticCount": 1,
+    "eventCount": 1,
+    "manualCompletionCount": 0,
+    "placedCount": 0,
+    "placeholderCount": 0,
+    "recoveryActionCount": 2,
+    "sourceCount": 3,
+    "supportingItemCount": 0
+  },
+  "timeline": {
+    "audioSampleRate": 48000,
+    "durationFrames": 192,
+    "frameRate": {
+      "denominator": 1001,
+      "numerator": 24000
+    },
+    "height": 1080,
+    "startFrame": 0,
+    "width": 1920
+  }
+}

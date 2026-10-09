@@ -188,8 +188,33 @@
             "preview",
             "release"
           ]
+        },
+        "forcePreviewVisuals": {
+          "type": "boolean",
+          "description": "Explicit forced Preview for undefined/request slates; never bypasses structural, timing, source, or preparation failures."
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "buildClass": {
+                "const": "release"
+              }
+            },
+            "required": [
+              "buildClass"
+            ]
+          },
+          "then": {
+            "properties": {
+              "forcePreviewVisuals": {
+                "const": false
+              }
+            }
+          }
+        }
+      ]
     },
     "DocumentBindingV2": {
       "type": "object",
@@ -473,12 +498,58 @@
             "estimated"
           ]
         },
+        "audio": {
+          "$ref": "#/$defs/NarrationAudioBindingV2"
+        },
         "tokens": {
           "type": "array",
           "minItems": 1,
           "items": {
             "$ref": "#/$defs/TokenTimingV2"
           }
+        }
+      }
+    },
+    "NarrationAudioBindingV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "narrationAssetId",
+        "audioHash",
+        "timingHash",
+        "cacheAssetId",
+        "locator",
+        "durationSamples",
+        "sampleRate",
+        "channels"
+      ],
+      "properties": {
+        "narrationAssetId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "audioHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "cacheAssetId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "locator": {
+          "$ref": "script-document-v2.schema.json#/$defs/ProjectRelativePath",
+          "pattern": "^(?!.*//)(?!.*/$)[^\\r\\n]+$",
+          "type": "string"
+        },
+        "durationSamples": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "sampleRate": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "channels": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "timingHash": {
+          "$ref": "#/$defs/ContentHash"
         }
       }
     },

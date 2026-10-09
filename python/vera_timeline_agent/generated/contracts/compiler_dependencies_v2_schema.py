@@ -109,6 +109,7 @@ class BuildIdentityV2(TypedDict):
     manifestId: EntityId
     reportId: EntityId
     buildClass: Literal["preview", "release"]
+    forcePreviewVisuals: NotRequired[bool]
 
 
 class DocumentBindingV2(TypedDict):
@@ -125,6 +126,17 @@ class CompilerIdentityV2(TypedDict):
     version: NonEmptyString
     sourceHash: ContentHash
     profileHash: ContentHash
+
+
+class NarrationAudioBindingV2(TypedDict):
+    narrationAssetId: EntityId
+    audioHash: ContentHash
+    cacheAssetId: str
+    locator: str
+    durationSamples: PositiveSafeInteger
+    sampleRate: PositiveSafeInteger
+    channels: PositiveSafeInteger
+    timingHash: ContentHash
 
 
 class TokenTimingV2(TypedDict):
@@ -352,6 +364,7 @@ class NarrationTokenTimingMapV2(TypedDict):
     precision: Literal[
         "audible_word_marks", "next_word_derived", "sentence_only", "estimated"
     ]
+    audio: NotRequired[NarrationAudioBindingV2]
     tokens: list[TokenTimingV2]
 
 

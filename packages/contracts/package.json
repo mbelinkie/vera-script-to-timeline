@@ -10,6 +10,7 @@
     "./script-validator": "./src/script-validator.ts",
     "./authoring-v2": "./src/authoring-v2.ts",
     "./compiler-core": "./src/compiler-core.ts",
+    "./compiler-core-v2": "./src/compiler-core-v2.ts",
     "./prompter-export": "./src/prompter-export.ts"
   },
   "scripts": {

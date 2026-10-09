@@ -1,0 +1,22 @@
+{
+  "runtime": {
+    "node": "24.19.0",
+    "npm": "11.17.0",
+    "python": "3.12.14",
+    "uv": "0.12.5"
+  },
+  "validationEnvironment": {
+    "VITEST_MAX_WORKERS": "1"
+  },
+  "toolHashes": {
+    "node": "f7413632aa5c8cfc985a96fbc963a7a9e76204ea4e61970927dfb78ae6c9f365"
+  },
+  "inputSHA256": {
+    "package.json": "766f999a3cbf90a9192b952b019b695c9d12cf4b87a1022b2660b02cf6dcb5a3",
+    "package-lock.json": "553e3c49edca2f76c784b6f6199cc86997f0ee9d2c14fdb26d73064232d997a0",
+    "pyproject.toml": "c423edc82a9d57b8c51f6c7ad2062ce36ed1d2d487d069a136eca3fe9a99375c",
+    "uv.lock": "653550710dbfcd471cc9b04d3ef2c3f0c4b2bc8d48cfec9db4cb23f3a8c9d9dd",
+    "packages/contracts/scripts/generate-contracts.mjs": "f00a6d01733941a790a7bcedcb1f28f4d3dcf9f6b7be7849468f063d01b2e5bc"
+  },
+  "mediaEvidence": "Synthetic verified preparation bindings only; no real-media or native-application qualification."
+}

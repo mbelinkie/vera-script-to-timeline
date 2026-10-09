@@ -1,0 +1,13 @@
+{
+  "mediaReferenceId": "87a5fb09-d83b-5ed9-9075-4788e5c9b283",
+  "artifactId": "7f309d72-ef1e-5814-9f3a-2ed25ed6714d",
+  "artifactVersion": 1,
+  "contentHash": "sha256:43617f386b2db4c6d997b2217965a26064cbdc989c97bcc50664d9e554963b11",
+  "projectRelativeLocator": "assets/vera/generic-torso-v1.svg",
+  "width": 1920,
+  "height": 1080,
+  "provenance": {
+    "origin": "local_import",
+    "originalFilename": "generic-torso-v1.svg"
+  }
+}

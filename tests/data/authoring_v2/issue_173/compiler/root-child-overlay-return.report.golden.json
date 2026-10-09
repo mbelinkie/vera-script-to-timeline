@@ -1,0 +1,194 @@
+{
+  "buildClass": "preview",
+  "buildId": "00000000-0000-4000-8000-000000000003",
+  "compiler": {
+    "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "sourceHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "version": "compiler/v2"
+  },
+  "dependenciesHash": "sha256:2eae27697ad0af267bc619d7768438462d224b927644b090894525b1e5816cfe",
+  "diagnostics": [
+    {
+      "code": "TEMPORARY_PRESENTER_STILL",
+      "entity": {
+        "id": "00000000-0000-4000-8000-000000000013",
+        "kind": "slot",
+        "path": "presenterStill"
+      },
+      "evidence": {
+        "kind": "details",
+        "message": "On Camera uses the effective temporary presenter still."
+      },
+      "id": "5ccb2414-5cb8-5e8e-81df-446ac99ea3a4",
+      "message": "On Camera uses the effective temporary presenter still.",
+      "recoveryActionKinds": [
+        "REPLACE_TEMPORARY_PRESENTER"
+      ],
+      "severity": "warning"
+    }
+  ],
+  "document": {
+    "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "documentId": "00000000-0000-4000-8000-000000000001",
+    "liveHeadSequence": 0,
+    "projectId": "00000000-0000-4000-8000-000000000002",
+    "revision": 1,
+    "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "textHash": "sha256:64989ccbf3efa9c84e2afe7cee9bc5828bf0fcb91e44f8c1e591638a2c2e90e3"
+  },
+  "eventResults": [
+    {
+      "disposition": "placed",
+      "eventId": "c54080bb-0d64-5bc7-8693-ce2c32f28afe",
+      "kind": "primary_visual",
+      "message": "Compiled from frozen source bindings.",
+      "recordRange": {
+        "endFrame": 96,
+        "startFrame": 0
+      },
+      "sourceId": "1904c7e6-1f7b-5c3f-87d1-33f5c316921b",
+      "trackId": "video-root"
+    },
+    {
+      "disposition": "placed",
+      "eventId": "e3a1d77f-0c0e-5ffe-8d4e-77ce0e21cb88",
+      "kind": "narration",
+      "message": "Compiled from frozen source bindings.",
+      "recordRange": {
+        "endFrame": 96,
+        "startFrame": 0
+      },
+      "sourceId": "00000000-0000-4000-8000-000000000013",
+      "trackId": "narration"
+    },
+    {
+      "disposition": "manual_completion",
+      "eventId": "80199a21-1eaa-51a6-86dc-c2a4bde9589d",
+      "kind": "placeholder",
+      "message": "Temporary presenter still requires manual replacement when an accepted presenter source is available.",
+      "recordRange": {
+        "endFrame": 48,
+        "startFrame": 24
+      },
+      "sourceId": null,
+      "trackId": "video-child"
+    },
+    {
+      "disposition": "placed",
+      "eventId": "bec170a3-1bb3-5304-8ea9-ba81e5ee503e",
+      "kind": "overlay_visual",
+      "message": "Compiled from frozen source bindings.",
+      "recordRange": {
+        "endFrame": 84,
+        "startFrame": 24
+      },
+      "sourceId": "6c1b244d-4419-56d4-89c2-1a929122dc01",
+      "trackId": "video-overlay"
+    }
+  ],
+  "id": "00000000-0000-4000-8000-000000000005",
+  "itemResults": [],
+  "manifest": {
+    "contentHash": "sha256:b72bf421ae00cb784db244a617aa0cd9e538d4193386b3ce7602eef9f1e971ef",
+    "id": "00000000-0000-4000-8000-000000000004"
+  },
+  "manualCompletionItems": [
+    {
+      "entity": {
+        "id": "00000000-0000-4000-8000-000000000013",
+        "kind": "slot",
+        "path": "presenterStill"
+      },
+      "id": "ff19ab26-9064-5400-84c8-48ab47bac397",
+      "kind": "placeholder",
+      "message": "Replace the temporary presenter still when an accepted presenter source is available."
+    }
+  ],
+  "mediaPreparation": {
+    "requirements": [
+      {
+        "bindingHash": "sha256:9eb4cbdef0c46b9e5eb323ffb66858c938e10ddacd56e31aec453df5a4a9a6ab",
+        "deliveredHash": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+        "diagnosticIds": [],
+        "originalHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "requirementKey": "prep:occurrence-1",
+        "status": "prepared"
+      },
+      {
+        "bindingHash": "sha256:da62facb04e25adea862a9ea7da6ba884620d08fbe2965fc63245c967babeed9",
+        "deliveredHash": "sha256:eadeb3bd1f93d9bb2e44ec53c83c5ee5b7254c84709ed49299549addb297ed15",
+        "diagnosticIds": [],
+        "originalHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "requirementKey": "prep:overlay",
+        "status": "prepared"
+      }
+    ],
+    "status": "complete"
+  },
+  "migrationIssues": [],
+  "readiness": {
+    "blockingIssueIds": [],
+    "preview": "ready",
+    "release": "ready"
+  },
+  "recoveryActions": [
+    {
+      "documentId": "00000000-0000-4000-8000-000000000001",
+      "instruction": "Replace the temporary still with an accepted presenter source when available.",
+      "kind": "REPLACE_TEMPORARY_PRESENTER",
+      "slotId": "00000000-0000-4000-8000-000000000013"
+    }
+  ],
+  "schemaVersion": "build-report/v2",
+  "sourceSufficiency": [
+    {
+      "availableRange": {
+        "endFrame": 240,
+        "startFrame": 0
+      },
+      "diagnosticId": null,
+      "requiredRange": {
+        "endFrame": 120,
+        "startFrame": 0
+      },
+      "requirementKey": "prep:occurrence-1",
+      "status": "sufficient"
+    },
+    {
+      "availableRange": {
+        "endFrame": 240,
+        "startFrame": 0
+      },
+      "diagnosticId": null,
+      "requiredRange": {
+        "endFrame": 135,
+        "startFrame": 60
+      },
+      "requirementKey": "prep:overlay",
+      "status": "sufficient"
+    }
+  ],
+  "status": "ready",
+  "summary": {
+    "blockedCount": 0,
+    "diagnosticCount": 1,
+    "eventCount": 4,
+    "manualCompletionCount": 1,
+    "placedCount": 3,
+    "placeholderCount": 0,
+    "recoveryActionCount": 1,
+    "sourceCount": 3,
+    "supportingItemCount": 0
+  },
+  "timeline": {
+    "audioSampleRate": 48000,
+    "durationFrames": 96,
+    "frameRate": {
+      "denominator": 1,
+      "numerator": 24
+    },
+    "height": 1080,
+    "startFrame": 0,
+    "width": 1920
+  }
+}

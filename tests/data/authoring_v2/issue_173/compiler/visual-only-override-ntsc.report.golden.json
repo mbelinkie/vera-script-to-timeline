@@ -1,0 +1,77 @@
+{
+  "buildClass": "preview",
+  "buildId": "00000000-0000-4000-8000-000000000003",
+  "compiler": {
+    "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "sourceHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "version": "compiler/v2"
+  },
+  "dependenciesHash": "sha256:e64f3d4a862391aa46744ead12b741ea82b77910ad99bb80f3aa41c73194dfab",
+  "diagnostics": [],
+  "document": {
+    "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "documentId": "00000000-0000-4000-8000-000000000001",
+    "liveHeadSequence": 0,
+    "projectId": "00000000-0000-4000-8000-000000000002",
+    "revision": 1,
+    "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "textHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "eventResults": [
+    {
+      "disposition": "placed",
+      "eventId": "77758ef8-c6da-55fc-8e89-b50fe29dcaf1",
+      "kind": "placeholder",
+      "message": "Intentional picture slate: Intentional slate",
+      "recordRange": {
+        "endFrame": 60,
+        "startFrame": 0
+      },
+      "sourceId": null,
+      "trackId": "video-root"
+    }
+  ],
+  "id": "00000000-0000-4000-8000-000000000005",
+  "itemResults": [],
+  "manifest": {
+    "contentHash": "sha256:b837725ac137d315b5537cca2bc92096372640c04a888dd4499bdedc026ee655",
+    "id": "00000000-0000-4000-8000-000000000004"
+  },
+  "manualCompletionItems": [],
+  "mediaPreparation": {
+    "requirements": [],
+    "status": "not_required"
+  },
+  "migrationIssues": [],
+  "readiness": {
+    "blockingIssueIds": [],
+    "preview": "ready",
+    "release": "ready"
+  },
+  "recoveryActions": [],
+  "schemaVersion": "build-report/v2",
+  "sourceSufficiency": [],
+  "status": "ready",
+  "summary": {
+    "blockedCount": 0,
+    "diagnosticCount": 0,
+    "eventCount": 1,
+    "manualCompletionCount": 0,
+    "placedCount": 1,
+    "placeholderCount": 0,
+    "recoveryActionCount": 0,
+    "sourceCount": 0,
+    "supportingItemCount": 0
+  },
+  "timeline": {
+    "audioSampleRate": 48000,
+    "durationFrames": 60,
+    "frameRate": {
+      "denominator": 1001,
+      "numerator": 24000
+    },
+    "height": 1080,
+    "startFrame": 0,
+    "width": 1920
+  }
+}
