@@ -1,0 +1,2166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.vera.video/contracts/script-document-v2.schema.json",
+  "title": "ScriptDocumentV2",
+  "description": "Editor-independent ScriptDocument with structural primary visuals and independent overlay timing.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "projectId",
+    "title",
+    "activeDraft",
+    "ideaOutline",
+    "extras",
+    "liveHeadSequence",
+    "liveStateVector",
+    "liveContentHash"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "script-document/v2"
+    },
+    "id": {
+      "$ref": "#/$defs/EntityId"
+    },
+    "projectId": {
+      "$ref": "#/$defs/EntityId"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scriptSettings": {
+      "$ref": "#/$defs/ScriptSettings"
+    },
+    "activeDraft": {
+      "$ref": "#/$defs/ActiveDraft"
+    },
+    "ideaOutline": {
+      "description": "Reserved document surface; it remains empty until its owning contract is introduced.",
+      "type": "array",
+      "maxItems": 0,
+      "items": false
+    },
+    "extras": {
+      "description": "Reserved document surface; it remains empty until its owning contract is introduced.",
+      "type": "array",
+      "maxItems": 0,
+      "items": false
+    },
+    "liveHeadSequence": {
+      "$ref": "#/$defs/NonNegativeSafeInteger"
+    },
+    "liveStateVector": {
+      "description": "Base64-encoded acknowledged collaborative state-vector evidence; it may be empty before collaboration exists.",
+      "type": "string",
+      "contentEncoding": "base64"
+    },
+    "liveContentHash": {
+      "$ref": "#/$defs/ContentHash"
+    }
+  },
+  "$defs": {
+    "EntityId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "PositiveSafeInteger": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "NonNegativeSafeInteger": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "EntityVersion": {
+      "$ref": "#/$defs/PositiveSafeInteger"
+    },
+    "ContentHash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "ScriptSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "presenterStillOverride": {
+          "$ref": "#/$defs/PresenterStillReference"
+        }
+      }
+    },
+    "PresenterStillReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mediaReferenceId",
+        "artifactId",
+        "artifactVersion",
+        "contentHash",
+        "projectRelativeLocator",
+        "width",
+        "height",
+        "provenance"
+      ],
+      "properties": {
+        "mediaReferenceId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "artifactId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "artifactVersion": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "contentHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "projectRelativeLocator": {
+          "$ref": "#/$defs/ProjectRelativePath"
+        },
+        "width": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "height": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "provenance": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/LocalImportProvenance"
+            },
+            {
+              "$ref": "#/$defs/CapturedFrameProvenance"
+            }
+          ]
+        }
+      }
+    },
+    "ProjectRelativePath": {
+      "description": "Canonical slash-separated project-relative locator; absolute paths and dot segments are not accepted.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*(?:^|/)\\.\\.?(/|$))[^\\\\\\r\\n]+$"
+    },
+    "LocalImportProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "origin",
+        "originalFilename"
+      ],
+      "properties": {
+        "origin": {
+          "const": "local_import"
+        },
+        "originalFilename": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "CapturedFrameProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "origin",
+        "sourceMediaReferenceId",
+        "sourceFrame"
+      ],
+      "properties": {
+        "origin": {
+          "const": "captured_frame"
+        },
+        "sourceMediaReferenceId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "sourceFrame": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        }
+      }
+    },
+    "ActiveDraft": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blocks",
+        "supportingItems"
+      ],
+      "properties": {
+        "blocks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DraftBlock"
+          }
+        },
+        "supportingItems": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SupportingItemV2"
+          }
+        }
+      }
+    },
+    "DraftBlock": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/SectionBlock"
+        },
+        {
+          "$ref": "#/$defs/NarrationBlockV2"
+        },
+        {
+          "$ref": "#/$defs/DirectionBlock"
+        },
+        {
+          "$ref": "#/$defs/VisualOnlyBlockV2"
+        },
+        {
+          "$ref": "#/$defs/NoteDraftBlock"
+        }
+      ]
+    },
+    "SectionBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id",
+        "orderKey",
+        "title",
+        "version"
+      ],
+      "properties": {
+        "type": {
+          "const": "section"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "orderKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
+    "NarrationToken": {
+      "description": "Stable spoken-token identity plus UTF-16 offsets into NarrationBlockV2.text; text and offset agreement remains semantic validation.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "value",
+        "startOffset",
+        "endOffset"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "startOffset": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "endOffset": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        }
+      }
+    },
+    "TextAnchorRange": {
+      "description": "Exact authored text range. Token existence, order and quoted-text agreement remain semantic validation.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blockId",
+        "startTokenId",
+        "endTokenId",
+        "startAffinity",
+        "endAffinity",
+        "quotedText",
+        "anchorVersion"
+      ],
+      "properties": {
+        "blockId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "startTokenId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "endTokenId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "startAffinity": {
+          "$ref": "#/$defs/AnchorAffinity"
+        },
+        "endAffinity": {
+          "$ref": "#/$defs/AnchorAffinity"
+        },
+        "quotedText": {
+          "type": "string",
+          "minLength": 1
+        },
+        "anchorVersion": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
+    "AnchorAffinity": {
+      "type": "string",
+      "enum": [
+        "before",
+        "after"
+      ]
+    },
+    "NarrationAnnotation": {
+      "description": "Typed, exact-range pronunciation or performance metadata. It is never spoken narration or provider syntax.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "range",
+        "value",
+        "includeInPrompter",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "pronunciation_alias",
+            "pronunciation_phoneme",
+            "performance_note"
+          ]
+        },
+        "range": {
+          "$ref": "#/$defs/TextAnchorRange"
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "includeInPrompter": {
+          "type": "boolean"
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
+    "PerformanceBeat": {
+      "description": "Stable recording-take identity over an exact narration token range.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "range",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "range": {
+          "$ref": "#/$defs/TextAnchorRange"
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
+    "WordInpointAnchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blockId",
+        "tokenId",
+        "affinity",
+        "quotedWord",
+        "anchorVersion"
+      ],
+      "properties": {
+        "blockId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "tokenId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "affinity": {
+          "const": "before"
+        },
+        "quotedWord": {
+          "type": "string",
+          "minLength": 1
+        },
+        "anchorVersion": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
+    "PointAnchor": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "anchor"
+          ],
+          "properties": {
+            "kind": {
+              "const": "word"
+            },
+            "anchor": {
+              "$ref": "#/$defs/WordInpointAnchor"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "beforeBlockId",
+            "afterBlockId"
+          ],
+          "properties": {
+            "kind": {
+              "const": "between_blocks"
+            },
+            "beforeBlockId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "afterBlockId": {
+              "$ref": "#/$defs/EntityId"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "eventId",
+            "edge"
+          ],
+          "properties": {
+            "kind": {
+              "const": "event_edge"
+            },
+            "eventId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "edge": {
+              "type": "string",
+              "enum": [
+                "start",
+                "end"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "BoundaryBefore": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "row_start"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "anchor"
+          ],
+          "properties": {
+            "kind": {
+              "const": "spoken_word"
+            },
+            "anchor": {
+              "$ref": "#/$defs/WordInpointAnchor"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "controllingSlotId"
+          ],
+          "properties": {
+            "kind": {
+              "const": "previous_media_end"
+            },
+            "controllingSlotId": {
+              "$ref": "#/$defs/EntityId"
+            }
+          }
+        }
+      ]
+    },
+    "SourceUsage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceInFrame"
+      ],
+      "properties": {
+        "sourceInFrame": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        }
+      }
+    },
+    "SourceReference": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/MediaReferenceSource"
+        },
+        {
+          "$ref": "#/$defs/CaptureRevisionSource"
+        },
+        {
+          "$ref": "#/$defs/GraphicRevisionSource"
+        },
+        {
+          "$ref": "#/$defs/UnresolvedVisualSource"
+        },
+        {
+          "$ref": "#/$defs/IntentionalPlaceholderSource"
+        },
+        {
+          "$ref": "#/$defs/UrlSource"
+        }
+      ]
+    },
+    "MediaReferenceSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "mediaReferenceId"
+      ],
+      "properties": {
+        "kind": {
+          "const": "media_reference"
+        },
+        "mediaReferenceId": {
+          "$ref": "#/$defs/EntityId"
+        }
+      }
+    },
+    "CaptureRevisionSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "captureId",
+        "revisionId"
+      ],
+      "properties": {
+        "kind": {
+          "const": "capture_revision"
+        },
+        "captureId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "revisionId": {
+          "$ref": "#/$defs/EntityId"
+        }
+      }
+    },
+    "GraphicRevisionSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "graphicId",
+        "revisionId"
+      ],
+      "properties": {
+        "kind": {
+          "const": "graphic_revision"
+        },
+        "graphicId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "revisionId": {
+          "$ref": "#/$defs/EntityId"
+        }
+      }
+    },
+    "UnresolvedVisualSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "description"
+      ],
+      "properties": {
+        "kind": {
+          "const": "unresolved_visual"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "IntentionalPlaceholderSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "text"
+      ],
+      "properties": {
+        "kind": {
+          "const": "intentional_placeholder"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "UrlSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "url"
+      ],
+      "properties": {
+        "kind": {
+          "const": "url"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    },
+    "NarratedVisualPayloadV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "payloadId",
+        "pictureKind",
+        "source",
+        "sourceUsage",
+        "audioPolicy",
+        "framingPolicy"
+      ],
+      "properties": {
+        "kind": {
+          "const": "visual"
+        },
+        "payloadId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "pictureKind": {
+          "type": "string",
+          "enum": [
+            "unresolved_visual",
+            "clip",
+            "image",
+            "capture",
+            "graphic",
+            "intentional_placeholder"
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/SourceReference"
+        },
+        "sourceUsage": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/SourceUsage"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "audioPolicy": {
+          "type": "string",
+          "enum": [
+            "mute",
+            "quiet"
+          ]
+        },
+        "framingPolicy": {
+          "type": "string",
+          "enum": [
+            "contain",
+            "cover",
+            "native"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "pictureKind": {
+                "const": "clip"
+              }
+            },
+            "required": [
+              "pictureKind"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "media_reference"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "sourceUsage": {
+                "$ref": "#/$defs/SourceUsage"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "pictureKind": {
+                "const": "image"
+              }
+            },
+            "required": [
+              "pictureKind"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "media_reference"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "sourceUsage": {
+                "type": "null"
+              },
+              "audioPolicy": {
+                "const": "mute"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "pictureKind": {
+                "const": "capture"
+              }
+            },
+            "required": [
+              "pictureKind"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "capture_revision"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "sourceUsage": {
+                "type": "null"
+              },
+              "audioPolicy": {
+                "const": "mute"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "pictureKind": {
+                "const": "graphic"
+              }
+            },
+            "required": [
+              "pictureKind"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "graphic_revision"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "sourceUsage": {
+                "type": "null"
+              },
+              "audioPolicy": {
+                "const": "mute"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "pictureKind": {
+                "const": "unresolved_visual"
+              }
+            },
+            "required": [
+              "pictureKind"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "unresolved_visual"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "sourceUsage": {
+                "type": "null"
+              },
+              "audioPolicy": {
+                "const": "mute"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "pictureKind": {
+                "const": "intentional_placeholder"
+              }
+            },
+            "required": [
+              "pictureKind"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "intentional_placeholder"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "sourceUsage": {
+                "type": "null"
+              },
+              "audioPolicy": {
+                "const": "mute"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PrimaryVisualPayload": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "presenterChoiceId"
+          ],
+          "properties": {
+            "kind": {
+              "const": "on_camera"
+            },
+            "presenterChoiceId": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/EntityId"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "$ref": "#/$defs/NarratedVisualPayloadV2"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "payloadId",
+            "description"
+          ],
+          "properties": {
+            "kind": {
+              "const": "undefined"
+            },
+            "payloadId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "description": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ]
+    },
+    "SlotRelation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "base"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "sequential"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "parentSlotId"
+          ],
+          "properties": {
+            "kind": {
+              "const": "cutaway"
+            },
+            "parentSlotId": {
+              "$ref": "#/$defs/EntityId"
+            }
+          }
+        }
+      ]
+    },
+    "ContentSlot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "relation",
+        "boundaryBefore",
+        "payload",
+        "playoutPolicy",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "kind": {
+          "const": "content"
+        },
+        "relation": {
+          "$ref": "#/$defs/SlotRelation"
+        },
+        "boundaryBefore": {
+          "$ref": "#/$defs/BoundaryBefore"
+        },
+        "payload": {
+          "$ref": "#/$defs/PrimaryVisualPayload"
+        },
+        "playoutPolicy": {
+          "type": "string",
+          "enum": [
+            "match_structural_interval",
+            "complete_logged_clip"
+          ]
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
+    "ReturnSlot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "parentSlotId",
+        "inpoint",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "kind": {
+          "const": "return"
+        },
+        "parentSlotId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "inpoint": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/WordInpointAnchor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
+    "PrimaryVisualSequence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "slots",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "slots": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ContentSlot"
+              },
+              {
+                "$ref": "#/$defs/ReturnSlot"
+              }
+            ]
+          }
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
+    "TimedPlacement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "timed"
+        },
+        "start": {
+          "$ref": "#/$defs/PointAnchor"
+        },
+        "end": {
+          "$ref": "#/$defs/PointAnchor"
+        },
+        "durationMs": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        }
+      },
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "start": {},
+            "end": {}
+          },
+          "required": [
+            "start",
+            "end"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "start": {},
+            "durationMs": {}
+          },
+          "required": [
+            "start",
+            "durationMs"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "end": {},
+            "durationMs": {}
+          },
+          "required": [
+            "end",
+            "durationMs"
+          ]
+        }
+      ]
+    },
+    "UnplacedPlacement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "reason"
+      ],
+      "properties": {
+        "kind": {
+          "const": "unplaced"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "priorAnchor": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/WordInpointAnchor"
+            },
+            {
+              "$ref": "#/$defs/TextAnchorRange"
+            },
+            {
+              "$ref": "#/$defs/PointAnchor"
+            }
+          ]
+        },
+        "sourceOrderKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "neighboringBlockIds": {
+          "type": "array",
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/EntityId"
+          }
+        }
+      }
+    },
+    "RangePlacement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "range"
+      ],
+      "properties": {
+        "kind": {
+          "const": "range"
+        },
+        "range": {
+          "$ref": "#/$defs/TextAnchorRange"
+        }
+      }
+    },
+    "PointPlacement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "anchor"
+      ],
+      "properties": {
+        "kind": {
+          "const": "point"
+        },
+        "anchor": {
+          "$ref": "#/$defs/PointAnchor"
+        }
+      }
+    },
+    "DisplayAttachment": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/TextAnchorRange"
+        },
+        {
+          "$ref": "#/$defs/PointAnchor"
+        }
+      ]
+    },
+    "SupportingItemPlacement": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/UnplacedPlacement"
+        },
+        {
+          "$ref": "#/$defs/RangePlacement"
+        },
+        {
+          "$ref": "#/$defs/PointPlacement"
+        },
+        {
+          "$ref": "#/$defs/TimedPlacement"
+        }
+      ]
+    },
+    "SupportingItemV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "orderKey",
+        "role",
+        "content",
+        "placement"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        },
+        "orderKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "picture",
+            "audio_cue",
+            "citation",
+            "editor_note",
+            "draft_note",
+            "reference"
+          ]
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pictureKind": {
+          "type": "string",
+          "enum": [
+            "unresolved_visual",
+            "clip",
+            "image",
+            "capture",
+            "graphic",
+            "intentional_placeholder"
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/SourceReference"
+        },
+        "placement": {
+          "$ref": "#/$defs/SupportingItemPlacement"
+        },
+        "displayAttachment": {
+          "$ref": "#/$defs/DisplayAttachment"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "const": "picture"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "required": [
+              "pictureKind",
+              "source"
+            ],
+            "properties": {
+              "pictureKind": {},
+              "source": {}
+            }
+          },
+          "else": {
+            "not": {
+              "type": "object",
+              "required": [
+                "pictureKind"
+              ],
+              "properties": {
+                "pictureKind": {}
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "pictureKind": {
+                "const": "clip"
+              }
+            },
+            "required": [
+              "pictureKind"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "media_reference"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "pictureKind": {
+                "const": "image"
+              }
+            },
+            "required": [
+              "pictureKind"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "media_reference"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "pictureKind": {
+                "const": "capture"
+              }
+            },
+            "required": [
+              "pictureKind"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "capture_revision"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "pictureKind": {
+                "const": "graphic"
+              }
+            },
+            "required": [
+              "pictureKind"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "graphic_revision"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "pictureKind": {
+                "const": "unresolved_visual"
+              }
+            },
+            "required": [
+              "pictureKind"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "unresolved_visual"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "pictureKind": {
+                "const": "intentional_placeholder"
+              }
+            },
+            "required": [
+              "pictureKind"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "intentional_placeholder"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "const": "editor_note"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "placement": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/UnplacedPlacement"
+                  },
+                  {
+                    "$ref": "#/$defs/PointPlacement"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "enum": [
+                  "citation",
+                  "draft_note",
+                  "reference"
+                ]
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "placement": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/UnplacedPlacement"
+                  },
+                  {
+                    "$ref": "#/$defs/RangePlacement"
+                  },
+                  {
+                    "$ref": "#/$defs/PointPlacement"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "OverlayEventV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "payload",
+        "timing",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "payload": {
+          "$ref": "#/$defs/NarratedVisualPayloadV2"
+        },
+        "timing": {
+          "$ref": "#/$defs/TimedPlacement"
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
+    "NarrationBlockV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id",
+        "orderKey",
+        "text",
+        "tokens",
+        "overlayEvents",
+        "timingPolicy",
+        "state",
+        "notes",
+        "version"
+      ],
+      "properties": {
+        "type": {
+          "const": "narration"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "orderKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tokens": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/NarrationToken"
+          }
+        },
+        "annotations": {
+          "description": "Optional typed narration annotations. Omission is equivalent to an empty array.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NarrationAnnotation"
+          }
+        },
+        "performanceBeats": {
+          "description": "Optional explicit performance beats. Omission or an empty array derives deterministic sentence beats at export time.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PerformanceBeat"
+          }
+        },
+        "primaryVisualSequence": {
+          "$ref": "#/$defs/PrimaryVisualSequence"
+        },
+        "overlayEvents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OverlayEventV2"
+          }
+        },
+        "timingPolicy": {
+          "const": "narration_spine"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "active",
+            "excluded"
+          ]
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "state": {
+                "const": "active"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "required": [
+              "primaryVisualSequence"
+            ],
+            "properties": {
+              "primaryVisualSequence": {}
+            }
+          }
+        }
+      ]
+    },
+    "DirectionBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id",
+        "orderKey",
+        "text",
+        "buildBehavior",
+        "version"
+      ],
+      "properties": {
+        "type": {
+          "const": "direction"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "orderKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "buildBehavior": {
+          "type": "string",
+          "enum": [
+            "none",
+            "timeline_marker"
+          ]
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
+    "VisualOnlyTimingV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "visual_only"
+        },
+        "durationOverrideMs": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "selectedSourceRange": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "startFrame",
+            "durationFrames"
+          ],
+          "properties": {
+            "startFrame": {
+              "$ref": "#/$defs/NonNegativeSafeInteger"
+            },
+            "durationFrames": {
+              "$ref": "#/$defs/PositiveSafeInteger"
+            }
+          }
+        }
+      }
+    },
+    "StandaloneVisualPayloadV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "payloadId",
+        "pictureKind",
+        "source",
+        "audioPolicy",
+        "framingPolicy"
+      ],
+      "properties": {
+        "kind": {
+          "const": "visual"
+        },
+        "payloadId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "pictureKind": {
+          "type": "string",
+          "enum": [
+            "clip",
+            "image",
+            "capture",
+            "graphic",
+            "intentional_placeholder"
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/SourceReference"
+        },
+        "audioPolicy": {
+          "type": "string",
+          "enum": [
+            "mute",
+            "quiet",
+            "full"
+          ]
+        },
+        "framingPolicy": {
+          "type": "string",
+          "enum": [
+            "contain",
+            "cover",
+            "native"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "pictureKind": {
+                "const": "clip"
+              }
+            },
+            "required": [
+              "pictureKind"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "media_reference"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "pictureKind": {
+                "const": "image"
+              }
+            },
+            "required": [
+              "pictureKind"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "media_reference"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "audioPolicy": {
+                "const": "mute"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "pictureKind": {
+                "const": "capture"
+              }
+            },
+            "required": [
+              "pictureKind"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "capture_revision"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "audioPolicy": {
+                "const": "mute"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "pictureKind": {
+                "const": "graphic"
+              }
+            },
+            "required": [
+              "pictureKind"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "graphic_revision"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "audioPolicy": {
+                "const": "mute"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "pictureKind": {
+                "const": "intentional_placeholder"
+              }
+            },
+            "required": [
+              "pictureKind"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "intentional_placeholder"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "audioPolicy": {
+                "const": "mute"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "VisualOnlyBlockV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id",
+        "orderKey",
+        "payload",
+        "visualOnlyTiming",
+        "version"
+      ],
+      "properties": {
+        "type": {
+          "const": "visual_only"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "orderKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload": {
+          "$ref": "#/$defs/StandaloneVisualPayloadV2"
+        },
+        "visualOnlyTiming": {
+          "$ref": "#/$defs/VisualOnlyTimingV2"
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "payload": {
+                "type": "object",
+                "properties": {
+                  "pictureKind": {
+                    "const": "clip"
+                  }
+                },
+                "required": [
+                  "pictureKind"
+                ]
+              }
+            },
+            "required": [
+              "payload"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "visualOnlyTiming": {
+                "type": "object",
+                "properties": {
+                  "selectedSourceRange": {},
+                  "durationOverrideMs": {}
+                },
+                "required": [
+                  "selectedSourceRange"
+                ],
+                "not": {
+                  "type": "object",
+                  "required": [
+                    "durationOverrideMs"
+                  ],
+                  "properties": {
+                    "durationOverrideMs": {}
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "type": "object",
+            "properties": {
+              "visualOnlyTiming": {
+                "not": {
+                  "type": "object",
+                  "required": [
+                    "selectedSourceRange"
+                  ],
+                  "properties": {
+                    "selectedSourceRange": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "NoteDraftBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id",
+        "orderKey",
+        "text",
+        "state",
+        "version"
+      ],
+      "properties": {
+        "type": {
+          "const": "note_draft"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "orderKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state": {
+          "const": "excluded"
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    }
+  }
+}

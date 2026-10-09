@@ -95,33 +95,47 @@ async function generateTypeScript(outputDirectory) {
 
 function generatePython(outputDirectory) {
   recreateDirectory(outputDirectory);
-  const result = spawnSync(
-    "uv",
-    [
-      "run",
-      "--frozen",
-      "datamodel-codegen",
-      "--input",
-      "contracts",
-      "--input-file-type",
-      "jsonschema",
-      "--output",
-      outputDirectory,
-      "--output-model-type",
-      "typing.TypedDict",
-      "--target-python-version",
-      "3.12",
-      "--use-standard-collections",
-      "--use-union-operator",
-      "--use-title-as-name",
-      "--disable-timestamp",
-      "--no-use-closed-typed-dict",
-      "--no-allow-remote-refs",
-      "--formatters",
-      "ruff-format",
-    ],
-    { cwd: repositoryRoot, encoding: "utf8" },
+  const pythonSchemaDirectory = mkdtempSync(
+    join(tmpdir(), "vera-contracts-v1-inputs-"),
   );
+  let result;
+  try {
+    for (const schemaFile of schemaFiles) {
+      writeFileSync(
+        join(pythonSchemaDirectory, schemaFile),
+        readFileSync(join(contractsDirectory, schemaFile)),
+      );
+    }
+    result = spawnSync(
+      "uv",
+      [
+        "run",
+        "--frozen",
+        "datamodel-codegen",
+        "--input",
+        pythonSchemaDirectory,
+        "--input-file-type",
+        "jsonschema",
+        "--output",
+        outputDirectory,
+        "--output-model-type",
+        "typing.TypedDict",
+        "--target-python-version",
+        "3.12",
+        "--use-standard-collections",
+        "--use-union-operator",
+        "--use-title-as-name",
+        "--disable-timestamp",
+        "--no-use-closed-typed-dict",
+        "--no-allow-remote-refs",
+        "--formatters",
+        "ruff-format",
+      ],
+      { cwd: repositoryRoot, encoding: "utf8" },
+    );
+  } finally {
+    rmSync(pythonSchemaDirectory, { force: true, recursive: true });
+  }
   if (result.status !== 0) {
     process.stderr.write(result.stdout);
     process.stderr.write(result.stderr);

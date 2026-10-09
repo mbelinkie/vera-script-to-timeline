@@ -1,0 +1,150 @@
+{
+  "scope": "Issue #170 P1 authoring-v2 schema implementation; no compiler, UI, migration activation, v2 generated code, or v2 registry integration.",
+  "baselineCommit": "e32727f0c0e65dc5a8561e0f470ed28e59bd1809",
+  "routing": {
+    "issue": 170,
+    "model": "gpt-6-luna",
+    "effort": "max",
+    "taskIdentity": "/root/issue170_schemas",
+    "branch": "codex/issue-170-authoring-v2-schemas"
+  },
+  "acceptedSources": [
+    {
+      "id": "#55",
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "a561735e7b0c735ccd6185aa407e82581a19b2d9",
+      "path": "docs/investigations/issue-55-presenter-visual-contract.md",
+      "bytes": 27919,
+      "sha256": "51736169ccd5532f375a480108b93e2a1539b3f1b2eee0fec8a2b49286c2cc57"
+    },
+    {
+      "id": "#56",
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "9e2b8817ffe97fbc9d6fcf31099aca578c5022bb",
+      "path": "docs/investigations/issue-56-ordered-visual-contract.md",
+      "bytes": 43461,
+      "sha256": "fbcd78c4a64f57b394caeb9e1fcab3ff9c8f2feff7c705d92b614700db235183"
+    },
+    {
+      "id": "#127",
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "cdaa3106da91fb5a040c8bbde22e2c61c0d3e162",
+      "path": "docs/prototypes/issue-127/successor-handoff.md",
+      "bytes": 4748,
+      "sha256": "a0338b71f75d9c114692c37d28a3b43c3192513ed5d161084fab099c7c000d40"
+    },
+    {
+      "id": "D24",
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "e72aa2436fa49d6b256b7cf811d5c1dea39120c3",
+      "path": "docs/investigations/issue-24-representative-script-coverage.md",
+      "bytes": 46378,
+      "sha256": "73c48673a8a2786120a45e5516e53cc5fcb923b367962359d69bcb7b30622045"
+    },
+    {
+      "id": "Product specification",
+      "repository": "mbelinkie/vera-script-to-timeline",
+      "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+      "path": "docs/Script-to-Timeline Product Spec - Fable Rev2.md",
+      "bytes": 164442,
+      "sha256": "4ee2c4e06f7fd3fbba3370522c6eb9f50838a3b5aece512f335f247ea7c46005"
+    }
+  ],
+  "realizationPlan": {
+    "repository": "mbelinkie/vera-script-to-timeline",
+    "commit": "e32727f0c0e65dc5a8561e0f470ed28e59bd1809",
+    "path": "docs/plans/issue-156-authoring-realization.md",
+    "bytes": 65585,
+    "sha256": "46acb5e6f85f227796e862dd6d09fa3716901f7d8c9ffd0ff576d643b4f5d116"
+  },
+  "authorizationComments": [
+    "https://github.com/mbelinkie/vera-script-to-timeline/issues/156#issuecomment-6072192641",
+    "https://github.com/mbelinkie/vera-script-to-timeline/issues/170#issuecomment-6072458419",
+    "https://github.com/mbelinkie/vera-script-to-timeline/issues/171#issuecomment-6072458724"
+  ],
+  "frozenV1Snapshots": {
+    "digestMethod": "sha256 of newline-joined, path-sorted records containing relative path, one space, and SHA-256 of each file byte sequence.",
+    "groups": [
+      {
+        "name": "v1 JSON Schemas",
+        "files": 5,
+        "bytes": 52864,
+        "baselineTreeSha256": "45f4b3b4e126373080e3ee9de5930f4c70f661852da52cdf245cabb0c5acff0e",
+        "currentTreeSha256": "45f4b3b4e126373080e3ee9de5930f4c70f661852da52cdf245cabb0c5acff0e",
+        "identical": true
+      },
+      {
+        "name": "generated TypeScript",
+        "files": 1,
+        "bytes": 16638,
+        "baselineTreeSha256": "c6e890d59103c153337d00a2d2932754b6893d97da85c57427c15c265e8cbb6b",
+        "currentTreeSha256": "c6e890d59103c153337d00a2d2932754b6893d97da85c57427c15c265e8cbb6b",
+        "identical": true
+      },
+      {
+        "name": "generated Python",
+        "files": 6,
+        "bytes": 15565,
+        "baselineTreeSha256": "60d2027e256b7d7b4f70d3c9bf875a8c605b5dc6bdaefd221ea46005c68fcbe4",
+        "currentTreeSha256": "60d2027e256b7d7b4f70d3c9bf875a8c605b5dc6bdaefd221ea46005c68fcbe4",
+        "identical": true
+      },
+      {
+        "name": "previously accepted tests",
+        "files": 76,
+        "bytes": 613774,
+        "baselineTreeSha256": "9d86b12de8f0f3bdb2e0ff224da27ee3dd39c1d6206d7496f2f870d0e20be2d7",
+        "currentTreeSha256": "9d86b12de8f0f3bdb2e0ff224da27ee3dd39c1d6206d7496f2f870d0e20be2d7",
+        "identical": true
+      },
+      {
+        "name": "fixtures",
+        "files": 11,
+        "bytes": 663193,
+        "baselineTreeSha256": "dcb53caed3ec0582f7c51a503eaeba8d85733f70bbcce700dcb2430c5b85f602",
+        "currentTreeSha256": "dcb53caed3ec0582f7c51a503eaeba8d85733f70bbcce700dcb2430c5b85f602",
+        "identical": true
+      },
+      {
+        "name": "lockfiles",
+        "files": 4,
+        "bytes": 170456,
+        "baselineTreeSha256": "32dd6bb27731a7a7f2bc479e021e11ceec5f86caef28b6e478ad8f6aece8f3eb",
+        "currentTreeSha256": "32dd6bb27731a7a7f2bc479e021e11ceec5f86caef28b6e478ad8f6aece8f3eb",
+        "identical": true
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "path": "contracts/script-document-v2.schema.json",
+      "bytes": 49281,
+      "sha256": "1b490aece5f9e99743035935a503b966c00bf1a415b8ae530184f8f87b34d2d1"
+    },
+    {
+      "path": "contracts/authoring-project-settings-v1.schema.json",
+      "bytes": 3660,
+      "sha256": "fd319e3e0bd3c52d26c3e630d029be8d2ec07375c4f032dd483ad0f2a52493c9"
+    },
+    {
+      "path": "packages/contracts/scripts/generate-contracts.mjs",
+      "bytes": 8073,
+      "sha256": "f7d040457b479439f72e1345e467a8ec0ef7f55b8f5e2dc88c06168357fc2dc6"
+    },
+    {
+      "path": "packages/contracts/test/authoring-v2-schema.test.ts",
+      "bytes": 29501,
+      "sha256": "e9902fa3d6f613fec161cabdfdb8c3fdcdc70f6757a2243f56fe515823427c87"
+    },
+    {
+      "path": "docs/plans/issue-170-authoring-v2-schemas.md",
+      "bytes": 5880,
+      "sha256": "ccb2f1335c43c8e45fe1b37112d71f83fce0e17ba20582eb7732aa42e3a9d4c9"
+    },
+    {
+      "path": "docs/verification/issue-170/verification.md",
+      "bytes": 2483,
+      "sha256": "c8fd3026e033aadc1d301cb40a648e95637effa69ed4cf980e48182415387b84"
+    }
+  ]
+}
