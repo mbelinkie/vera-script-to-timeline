@@ -1,0 +1,28 @@
+{
+  "baseline": "03f1d333b85cceacd89be85a27723783c84ed310",
+  "sourceCommit": "e0aef5e45169ed4de63c517276a5763c7f9561f3",
+  "sourceTree": "ab06d15cfd867f03dabb18e03a5070b90fa66311",
+  "schemaSemanticAudit": "CN-179 additions only",
+  "frozenFileCount": 6270,
+  "frozenFilesUnchanged": true,
+  "allowedChangedPaths": [
+    ".agents/skills/vera-roadmap-coordination/SKILL.md",
+    "contracts/build-report-v2.schema.json",
+    "contracts/compiler-dependencies-v2.schema.json",
+    "contracts/script-document-v2.schema.json",
+    "contracts/timeline-manifest-v2.schema.json",
+    "packages/contracts/scripts/generate-contracts.mjs",
+    "packages/contracts/src/authoring-v2-edits.ts",
+    "packages/contracts/src/authoring-v2-placement.ts",
+    "packages/contracts/src/authoring-v2-projection.ts",
+    "packages/contracts/src/authoring-v2-validation.ts",
+    "packages/contracts/src/authoring-v2.ts",
+    "packages/contracts/src/compiler-core-v2.ts",
+    "packages/contracts/src/generated/contracts-v2.ts",
+    "python/vera_timeline_agent/generated/contracts/__init__.py",
+    "python/vera_timeline_agent/generated/contracts/build_report_v2_schema.py",
+    "python/vera_timeline_agent/generated/contracts/compiler_dependencies_v2_schema.py",
+    "python/vera_timeline_agent/generated/contracts/script_document_v2_schema.py",
+    "python/vera_timeline_agent/generated/contracts/timeline_manifest_v2_schema.py"
+  ]
+}

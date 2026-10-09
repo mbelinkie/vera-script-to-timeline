@@ -7,7 +7,11 @@ import type {
   SupportingItemV2,
   TimedPlacement,
   WordInpointAnchor,
+  WordAudibleEndAnchor,
+  NarrationBoundaryEvidenceV1,
 } from "./generated/contracts-v2.js";
+
+export type WordBoundaryAnchorV2 = WordInpointAnchor | WordAudibleEndAnchor;
 
 export interface AuthoringDiagnosticV2 {
   code: string;
@@ -34,6 +38,7 @@ export interface LoggedMediaBoundsV2 {
 export interface PrimarySequenceProjectionOptionsV2 {
   mediaBounds?: readonly LoggedMediaBoundsV2[];
   narrationTimingMaps?: readonly NarrationTokenTimingMapV2[];
+  narrationBoundaryEvidence?: readonly NarrationBoundaryEvidenceV1[];
 }
 
 export type ProjectedHostStateV2 =
@@ -160,12 +165,12 @@ export interface PlacementResolutionResultV2 {
 export type VisualDestinationV2 =
   | {
       kind: "sequential";
-      boundary: WordInpointAnchor;
+      boundary: WordBoundaryAnchorV2;
       slotId: string;
     }
   | {
       kind: "cutaway";
-      boundary: WordInpointAnchor;
+      boundary: WordBoundaryAnchorV2;
       parentSlotId: string;
       slotId: string;
       returnSlotId?: string;
@@ -175,7 +180,7 @@ export type VisualSequenceEditCommandV2 =
   | {
       kind: "insert_sequential";
       blockId: string;
-      boundary: WordInpointAnchor;
+      boundary: WordBoundaryAnchorV2;
       slotId: string;
       payload?: ContentSlot["payload"];
       undefinedPayloadId?: string;
@@ -183,7 +188,7 @@ export type VisualSequenceEditCommandV2 =
   | {
       kind: "insert_cutaway";
       blockId: string;
-      boundary: WordInpointAnchor;
+      boundary: WordBoundaryAnchorV2;
       parentSlotId: string;
       slotId: string;
       returnSlotId: string;
@@ -205,6 +210,7 @@ export type VisualSequenceEditCommandV2 =
       blockId: string;
       boundaryOwnerId: string;
       tokenId: string;
+      affinity?: "before" | "after";
     }
   | {
       kind: "swap_payloads";
@@ -236,7 +242,7 @@ export type VisualSequenceEditCommandV2 =
       blockId: string;
       slotId: string;
       policy: ContentSlot["playoutPolicy"];
-      nextBoundary?: WordInpointAnchor;
+      nextBoundary?: WordBoundaryAnchorV2;
     }
   | {
       kind: "promote_supporting_picture";

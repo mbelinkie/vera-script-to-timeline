@@ -85,6 +85,10 @@ export type TimedPlacement = (
         kind: "event_edge";
         eventId: string;
         edge: "start" | "end";
+      }
+    | {
+        kind: "audible_word_end";
+        anchor: WordAudibleEndAnchor;
       };
   end?:
     | {
@@ -100,6 +104,10 @@ export type TimedPlacement = (
         kind: "event_edge";
         eventId: string;
         edge: "start" | "end";
+      }
+    | {
+        kind: "audible_word_end";
+        anchor: WordAudibleEndAnchor;
       };
   durationMs?: number;
 };
@@ -170,6 +178,10 @@ export type SupportingItemV2 = {
             eventId: string;
             edge: "start" | "end";
           }
+        | {
+            kind: "audible_word_end";
+            anchor: WordAudibleEndAnchor;
+          }
       );
 };
 export type BuildIdentityV2 = {
@@ -235,6 +247,35 @@ export type PreparedMediaBindingV1 = {
   authorizationReference: string;
   artifactLocator: string;
   derivation?: PreparationDerivationV1;
+};
+export type BoundaryTokenEvidenceV1 = (
+  | {
+      onset: RationalTime & {
+        numerator?: number;
+        [k: string]: unknown;
+      };
+      [k: string]: unknown;
+    }
+  | {
+      audibleEnd: RationalTime & {
+        numerator?: number;
+        [k: string]: unknown;
+      };
+      [k: string]: unknown;
+    }
+) & {
+  tokenId: string;
+  startOffset: number;
+  endOffset: number;
+  quotedText: string;
+  onset?: RationalTime & {
+    numerator?: number;
+    [k: string]: unknown;
+  };
+  audibleEnd?: RationalTime & {
+    numerator?: number;
+    [k: string]: unknown;
+  };
 };
 export type TimelineEventV2 = {
   [k: string]: unknown;
@@ -461,6 +502,9 @@ export interface VeraContractsV2 {
   timelineManifest: TimelineManifestV2;
   buildReport: BuildReportV2;
   compilerResult: CompilerResultV2;
+  boundaryTokenEvidence: BoundaryTokenEvidenceV1;
+  boundaryVerification: BoundaryVerificationV1;
+  wordAudibleEndAnchor: WordAudibleEndAnchor;
 }
 /**
  * Editor-independent ScriptDocument with structural primary visuals and independent overlay timing.
@@ -603,6 +647,10 @@ export interface ContentSlot {
     | {
         kind: "previous_media_end";
         controllingSlotId: string;
+      }
+    | {
+        kind: "audible_word_end";
+        anchor: WordAudibleEndAnchor;
       };
   payload:
     | {
@@ -622,6 +670,13 @@ export interface WordInpointAnchor {
   blockId: string;
   tokenId: string;
   affinity: "before";
+  quotedWord: string;
+  anchorVersion: number;
+}
+export interface WordAudibleEndAnchor {
+  blockId: string;
+  tokenId: string;
+  affinity: "after";
   quotedWord: string;
   anchorVersion: number;
 }
@@ -658,7 +713,7 @@ export interface ReturnSlot {
   id: string;
   kind: "return";
   parentSlotId: string;
-  inpoint: WordInpointAnchor | null;
+  inpoint: WordInpointAnchor | WordAudibleEndAnchor | null;
   version: number;
 }
 export interface OverlayEventV2 {
@@ -712,6 +767,10 @@ export interface UnplacedPlacement {
             eventId: string;
             edge: "start" | "end";
           }
+        | {
+            kind: "audible_word_end";
+            anchor: WordAudibleEndAnchor;
+          }
       );
   sourceOrderKey?: string;
   /**
@@ -739,6 +798,10 @@ export interface PointPlacement {
         kind: "event_edge";
         eventId: string;
         edge: "start" | "end";
+      }
+    | {
+        kind: "audible_word_end";
+        anchor: WordAudibleEndAnchor;
       };
 }
 /**
@@ -794,6 +857,7 @@ export interface CompilerDependenciesV2 {
   occurrenceResolutions: OccurrenceMediaResolutionV2[];
   preparedMedia: PreparedMediaBindingV1[];
   presenterAlignmentResolutions: PresenterAlignmentResolutionV1[];
+  narrationBoundaryEvidence?: NarrationBoundaryEvidenceV1[];
 }
 export interface DocumentBindingV2 {
   documentId: string;
@@ -1037,6 +1101,31 @@ export interface PresenterAlignmentResolutionV1 {
     text: string;
   };
 }
+export interface NarrationBoundaryEvidenceV1 {
+  blockId: string;
+  blockRevision: number;
+  textHash: string;
+  tokenizationVersion: "script-document/v2-frozen-tokens";
+  narrationAssetId: string;
+  audioHash: string;
+  timingHash: string;
+  alignmentVersion: string;
+  audio: NarrationAudioBindingV2;
+  tokens: BoundaryTokenEvidenceV1[];
+  schemaVersion: "narration-boundary-evidence/v1";
+  verification: BoundaryVerificationV1;
+}
+export interface BoundaryVerificationV1 {
+  method: "reviewed_audio_boundaries/v1";
+  reviewId: string;
+  reviewRevision: number;
+  reviewerReference: string;
+  /**
+   * Canonical slash-separated project-relative locator; absolute paths and dot segments are not accepted.
+   */
+  reviewArtifactLocator: string;
+  reviewArtifactHash: string;
+}
 /**
  * Deterministic integer-frame v2 timeline with frozen source, timing, preparation, sequence, and boundary evidence.
  */
@@ -1090,6 +1179,7 @@ export interface EventProvenanceV2 {
   deliveredSourceHash: string | null;
   timingMapHash: string | null;
   compilerVersion: string;
+  boundaryEvidenceHash?: string;
 }
 export interface StillPictureTreatmentV2 {
   kind: "still";
@@ -1154,7 +1244,9 @@ export interface VisualSequenceResolutionV2 {
     | "next_word_derived"
     | "between_words"
     | "unknown"
-    | "not_applicable";
+    | "not_applicable"
+    | "verified_onset";
+  boundaryEvidenceHash?: string;
 }
 export interface DurationBasisV2 {
   kind: "narration_spine" | "visual_only_duration" | "standalone_clip";
@@ -1185,7 +1277,9 @@ export interface BoundaryEvidenceV2 {
     | "media_end"
     | "visual_only_duration"
     | "complete_clip_duration"
-    | "independent_timing";
+    | "independent_timing"
+    | "row_start"
+    | "row_end";
   inputTime: RationalTime;
   resolvedRecordFrame: number;
   delta: RationalTime;
@@ -1195,13 +1289,19 @@ export interface BoundaryEvidenceV2 {
     | "between_words"
     | "unknown"
     | "visual_only_default"
-    | "complete_clip_quantized";
+    | "complete_clip_quantized"
+    | "verified_onset";
   /**
    * Relation to exact token supports at a media-led cut; derived ends never prove silence.
    */
   wordRelation?:
-    "at_word_start" | "inside_word" | "between_words" | "derived_or_unknown";
+    | "at_word_start"
+    | "inside_word"
+    | "between_words"
+    | "derived_or_unknown"
+    | "at_word_end";
   relatedTokenId?: string | null;
+  boundaryEvidenceHash?: string;
 }
 export interface ManifestReferenceV2 {
   id: string;
@@ -1260,7 +1360,8 @@ export interface BuildDiagnosticV2 {
     | "TRACK_ROLE_COLLISION"
     | "MIGRATION_REVIEW_REQUIRED"
     | "PRESENTER_ALIGNMENT_UNRESOLVED"
-    | "TEMPORARY_PRESENTER_STILL";
+    | "TEMPORARY_PRESENTER_STILL"
+    | "BOUNDARY_EVIDENCE_REQUIRED";
   message: string;
   entity: EntityReferenceV2;
   evidence:

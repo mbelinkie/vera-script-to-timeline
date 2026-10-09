@@ -71,6 +71,12 @@
       "items": {
         "$ref": "#/$defs/PresenterAlignmentResolutionV1"
       }
+    },
+    "narrationBoundaryEvidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/NarrationBoundaryEvidenceV1"
+      }
     }
   },
   "$defs": {
@@ -1491,8 +1497,12 @@
             "next_word_derived",
             "between_words",
             "unknown",
-            "not_applicable"
+            "not_applicable",
+            "verified_onset"
           ]
+        },
+        "boundaryEvidenceHash": {
+          "$ref": "#/$defs/ContentHash"
         }
       }
     },
@@ -1596,6 +1606,153 @@
           }
         }
       ]
+    },
+    "NarrationBoundaryEvidenceV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blockId",
+        "blockRevision",
+        "textHash",
+        "tokenizationVersion",
+        "narrationAssetId",
+        "audioHash",
+        "timingHash",
+        "alignmentVersion",
+        "audio",
+        "tokens",
+        "schemaVersion",
+        "verification"
+      ],
+      "properties": {
+        "blockId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "blockRevision": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "textHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "tokenizationVersion": {
+          "const": "script-document/v2-frozen-tokens"
+        },
+        "narrationAssetId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "audioHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "timingHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "alignmentVersion": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "audio": {
+          "$ref": "#/$defs/NarrationAudioBindingV2"
+        },
+        "tokens": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BoundaryTokenEvidenceV1"
+          }
+        },
+        "schemaVersion": {
+          "const": "narration-boundary-evidence/v1"
+        },
+        "verification": {
+          "$ref": "#/$defs/BoundaryVerificationV1"
+        }
+      }
+    },
+    "BoundaryTokenEvidenceV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tokenId",
+        "startOffset",
+        "endOffset",
+        "quotedText"
+      ],
+      "properties": {
+        "tokenId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "startOffset": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "endOffset": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "quotedText": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "onset": {
+          "$ref": "#/$defs/NonNegativeRationalTime"
+        },
+        "audibleEnd": {
+          "$ref": "#/$defs/NonNegativeRationalTime"
+        }
+      },
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "onset": {
+              "$ref": "#/$defs/NonNegativeRationalTime"
+            }
+          },
+          "required": [
+            "onset"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "audibleEnd": {
+              "$ref": "#/$defs/NonNegativeRationalTime"
+            }
+          },
+          "required": [
+            "audibleEnd"
+          ]
+        }
+      ]
+    },
+    "BoundaryVerificationV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "reviewId",
+        "reviewRevision",
+        "reviewerReference",
+        "reviewArtifactLocator",
+        "reviewArtifactHash"
+      ],
+      "properties": {
+        "method": {
+          "const": "reviewed_audio_boundaries/v1"
+        },
+        "reviewId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "reviewRevision": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "reviewerReference": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "reviewArtifactLocator": {
+          "$ref": "script-document-v2.schema.json#/$defs/ProjectRelativePath",
+          "pattern": "^(?!.*//)(?!.*/$)[^\\r\\n]+$",
+          "type": "string"
+        },
+        "reviewArtifactHash": {
+          "$ref": "#/$defs/ContentHash"
+        }
+      }
     }
   }
 }

@@ -331,7 +331,9 @@ class VisualSequenceResolutionV2(TypedDict):
         "between_words",
         "unknown",
         "not_applicable",
+        "verified_onset",
     ]
+    boundaryEvidenceHash: NotRequired[ContentHash]
 
 
 class SupportingItemResultV2(TypedDict):
@@ -343,6 +345,36 @@ class SupportingItemResultV2(TypedDict):
     disposition: Literal["placed", "unplaced", "omitted", "blocked"]
     recordRange: FrameRangeV2 | None
     reason: NonEmptyString | None
+
+
+class BoundaryTokenEvidenceV11(TypedDict):
+    tokenId: EntityId
+    startOffset: NonNegativeSafeInteger
+    endOffset: PositiveSafeInteger
+    quotedText: NonEmptyString
+    onset: NonNegativeRationalTime
+    audibleEnd: NotRequired[NonNegativeRationalTime]
+
+
+class BoundaryTokenEvidenceV12(TypedDict):
+    tokenId: EntityId
+    startOffset: NonNegativeSafeInteger
+    endOffset: PositiveSafeInteger
+    quotedText: NonEmptyString
+    onset: NotRequired[NonNegativeRationalTime]
+    audibleEnd: NonNegativeRationalTime
+
+
+type BoundaryTokenEvidenceV1 = BoundaryTokenEvidenceV11 | BoundaryTokenEvidenceV12
+
+
+class BoundaryVerificationV1(TypedDict):
+    method: Literal["reviewed_audio_boundaries/v1"]
+    reviewId: EntityId
+    reviewRevision: PositiveSafeInteger
+    reviewerReference: NonEmptyString
+    reviewArtifactLocator: str
+    reviewArtifactHash: ContentHash
 
 
 class AuthoringDefaultsV2(TypedDict):
@@ -368,6 +400,21 @@ class NarrationTokenTimingMapV2(TypedDict):
     tokens: list[TokenTimingV2]
 
 
+class NarrationBoundaryEvidenceV1(TypedDict):
+    blockId: EntityId
+    blockRevision: PositiveSafeInteger
+    textHash: ContentHash
+    tokenizationVersion: Literal["script-document/v2-frozen-tokens"]
+    narrationAssetId: EntityId
+    audioHash: ContentHash
+    timingHash: ContentHash
+    alignmentVersion: NonEmptyString
+    audio: NarrationAudioBindingV2
+    tokens: list[BoundaryTokenEvidenceV1]
+    schemaVersion: Literal["narration-boundary-evidence/v1"]
+    verification: BoundaryVerificationV1
+
+
 class CompilerDependenciesV2(TypedDict):
     schemaVersion: Literal["compiler-dependencies/v2"]
     build: BuildIdentityV2
@@ -381,3 +428,4 @@ class CompilerDependenciesV2(TypedDict):
     occurrenceResolutions: list[OccurrenceMediaResolutionV2]
     preparedMedia: list[PreparedMediaBindingV1]
     presenterAlignmentResolutions: list[PresenterAlignmentResolutionV1]
+    narrationBoundaryEvidence: NotRequired[list[NarrationBoundaryEvidenceV1]]

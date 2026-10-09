@@ -78,6 +78,7 @@ function same(left: Fraction, right: Fraction): boolean {
 export function placementAnchorKeyV2(anchor: PointAnchor): string {
   switch (anchor.kind) {
     case "word":
+    case "audible_word_end":
       return JSON.stringify([
         "word",
         anchor.anchor.blockId,
@@ -246,7 +247,7 @@ function anchorTime(
   context: PlacementResolutionContextV2,
   row: Extract<ScriptDocumentV2["activeDraft"]["blocks"][number], { type: "narration" }>,
 ): Fraction | null {
-  if (anchor.kind === "word") {
+  if (anchor.kind === "word" || anchor.kind === "audible_word_end") {
     if (!isWordAnchorCurrentV2(anchor.anchor, row)) return null;
   } else if (anchor.kind === "between_blocks") {
     const blocks = context.document.activeDraft.blocks;

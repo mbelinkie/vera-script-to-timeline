@@ -305,6 +305,9 @@
         },
         "compilerVersion": {
           "$ref": "compiler-dependencies-v2.schema.json#/$defs/NonEmptyString"
+        },
+        "boundaryEvidenceHash": {
+          "$ref": "#/$defs/ContentHash"
         }
       }
     },
@@ -557,10 +560,18 @@
     "ScriptMarkerTreatmentV2": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["supportingItemId", "text"],
+      "required": [
+        "supportingItemId",
+        "text"
+      ],
       "properties": {
-        "supportingItemId": { "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId" },
-        "text": { "type": "string", "minLength": 1 }
+        "supportingItemId": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "SupportingItemResultV2": {
@@ -705,7 +716,9 @@
             "media_end",
             "visual_only_duration",
             "complete_clip_duration",
-            "independent_timing"
+            "independent_timing",
+            "row_start",
+            "row_end"
           ]
         },
         "inputTime": {
@@ -724,7 +737,8 @@
             "between_words",
             "unknown",
             "visual_only_default",
-            "complete_clip_quantized"
+            "complete_clip_quantized",
+            "verified_onset"
           ]
         },
         "wordRelation": {
@@ -732,7 +746,8 @@
             "at_word_start",
             "inside_word",
             "between_words",
-            "derived_or_unknown"
+            "derived_or_unknown",
+            "at_word_end"
           ],
           "description": "Relation to exact token supports at a media-led cut; derived ends never prove silence."
         },
@@ -745,6 +760,9 @@
               "type": "null"
             }
           ]
+        },
+        "boundaryEvidenceHash": {
+          "$ref": "#/$defs/ContentHash"
         }
       }
     },
@@ -809,11 +827,29 @@
     "StillFramePictureTreatmentV2": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "pictureKind", "framingPolicy"],
+      "required": [
+        "kind",
+        "pictureKind",
+        "framingPolicy"
+      ],
       "properties": {
-        "kind": { "const": "still_frame" },
-        "pictureKind": { "enum": ["image", "capture", "graphic"] },
-        "framingPolicy": { "enum": ["contain", "cover", "native"] }
+        "kind": {
+          "const": "still_frame"
+        },
+        "pictureKind": {
+          "enum": [
+            "image",
+            "capture",
+            "graphic"
+          ]
+        },
+        "framingPolicy": {
+          "enum": [
+            "contain",
+            "cover",
+            "native"
+          ]
+        }
       }
     },
     "SlatePictureTreatmentV2": {

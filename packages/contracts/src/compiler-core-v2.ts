@@ -18,6 +18,7 @@ import type {
   FrameRangeV2,
   NarrationBlockV2,
   NarrationTokenTimingMapV2,
+  NarrationBoundaryEvidenceV1,
   OccurrenceMediaResolutionV2,
   PreparationTimeMappingV1,
   RequestedPreparationRangeV1,
@@ -36,6 +37,8 @@ import genericTorso from "./assets/generic-torso-v1.json" with { type: "json" };
 import { canonicalJson, sha256CanonicalJson } from "./compiler-core.js";
 import { placementAnchorKeyV2, resolveTimedPlacementV2 } from "./authoring-v2-placement.js";
 import { projectPrimarySequenceV2 } from "./authoring-v2-projection.js";
+import type { WordBoundaryAnchorV2 } from "./authoring-v2.js";
+import { boundaryEvidenceProblemV2 } from "./narration-boundary-evidence-v2.js";
 import { isWordAnchorCurrentV2, validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 
 export interface CompileDiagnosticV2 {
@@ -57,6 +60,7 @@ export type CompileTimelineResultV2 =
 
 export interface MediaRequirementsInputV2 {
   timing: readonly NarrationTokenTimingMapV2[];
+  boundaryEvidence?: readonly NarrationBoundaryEvidenceV1[];
   defaults: AuthoringDefaultsV2;
   sourceDescriptors: readonly OccurrenceMediaResolutionV2[];
   frameRate: RationalRate;
@@ -93,11 +97,11 @@ type CutawaySlot = ContentSlot & { relation: Extract<ContentSlot["relation"], { 
 interface TimedRow {
   kind: "narration";
   block: NarrationBlockV2;
-  map: NarrationTokenTimingMapV2;
+  map: NarrationTokenTimingMapV2 | NarrationBoundaryEvidenceV1;
   startFrame: number;
   durationFrames: number;
   tokenFrames: Map<string, number>;
-  tokenTimes: Map<string, { start: Fraction; end: Fraction | null; evidenced: boolean }>;
+  tokenTimes: Map<string, { start: Fraction | null; end: Fraction | null; evidenced: boolean }>;
 }
 interface VisualOnlyTimedRow {
   kind: "visual_only";
@@ -206,7 +210,7 @@ function malformedFrozenText(document: ScriptDocumentV2): CompileDiagnosticV2 | 
   return null;
 }
 
-function conflictingNarrationAudioBinding(maps: readonly NarrationTokenTimingMapV2[]): CompileDiagnosticV2 | null {
+function conflictingNarrationAudioBinding(maps: readonly (NarrationTokenTimingMapV2 | NarrationBoundaryEvidenceV1)[]): CompileDiagnosticV2 | null {
   const audioByAsset = new Map<string, NonNullable<NarrationTokenTimingMapV2["audio"]>>();
   for (const map of maps) {
     if (!map.audio) continue;
@@ -226,14 +230,14 @@ function buildTimedRows(document: ScriptDocumentV2, dependencies: CompilerDepend
   const diagnostics: BuildDiagnosticV2[] = [];
   const active: Array<NarrationBlockV2 | VisualOnlyBlockV2> = [];
   for (const block of document.activeDraft.blocks) if (block.type === "visual_only" || block.type === "narration" && block.state === "active") active.push(block);
-  const maps = new Map<string, NarrationTokenTimingMapV2>();
-  for (const map of dependencies.narrationTimingMaps) {
-    if (maps.has(map.blockId)) diagnostics.push(diagnostic("STALE_TIMING_MAP", "More than one timing map names this narration row.", entity("block", map.blockId, "narrationTimingMaps"), undefined, ["refresh_timing"]));
+  const maps = new Map<string, NarrationTokenTimingMapV2 | NarrationBoundaryEvidenceV1>();
+  for (const map of [...dependencies.narrationTimingMaps, ...dependencies.narrationBoundaryEvidence ?? []]) {
+    if (maps.has(map.blockId)) diagnostics.push(diagnostic("STALE_TIMING_MAP", "verification" in map || "verification" in maps.get(map.blockId)! ? "Exactly one timing capability must name this narration row; duplicate or combined inputs are forbidden." : "More than one timing map names this narration row.", entity("block", map.blockId, "narrationTimingMaps"), undefined, ["refresh_timing"]));
     maps.set(map.blockId, map);
   }
   let cursor = 0;
   const rows: ProgramRow[] = [];
-  const preserveKnownSpine = (block: NarrationBlockV2, map: NarrationTokenTimingMapV2): void => {
+  const preserveKnownSpine = (block: NarrationBlockV2, map: NarrationTokenTimingMapV2 | NarrationBoundaryEvidenceV1): void => {
     if (!map.audio) return;
     const durationFrames = durationFramesForSamples(map.audio.durationSamples, map.audio.sampleRate, dependencies.timeline.frameRate);
     rows.push({ kind: "narration", block, map, startFrame: cursor, durationFrames, tokenFrames: new Map(), tokenTimes: new Map() });
@@ -284,6 +288,26 @@ function buildTimedRows(document: ScriptDocumentV2, dependencies: CompilerDepend
     if (map.blockRevision !== block.version || map.textHash !== textHashForRow(block)) {
       diagnostics.push(diagnostic(map.blockRevision !== block.version ? "STALE_TIMING_MAP" : "TEXT_HASH_MISMATCH", "The timing map does not match this frozen narration revision and text.", target, { kind: "reference_mismatch", referenceType: map.blockRevision !== block.version ? "document_revision" : "text_hash", expected: map.blockRevision !== block.version ? String(block.version) : textHashForRow(block), actual: map.blockRevision !== block.version ? String(map.blockRevision) : map.textHash }, ["refresh_timing"]));
       preserveKnownSpine(block, map);
+      continue;
+    }
+    if ("verification" in map) {
+      const problem = boundaryEvidenceProblemV2(block, map);
+      if (problem) {
+        diagnostics.push(diagnostic(problem.code, problem.message, target, undefined, ["refresh_timing", "manual_review"]));
+        preserveKnownSpine(block, map);
+        continue;
+      }
+      const tokenTimes: TimedRow["tokenTimes"] = new Map();
+      const tokenFrames = new Map<string, number>();
+      for (const mark of map.tokens) {
+        const start = mark.onset ? fromWire(mark.onset) : null;
+        const end = mark.audibleEnd ? fromWire(mark.audibleEnd) : null;
+        tokenTimes.set(mark.tokenId, { start, end, evidenced: !!end });
+        if (start) tokenFrames.set(mark.tokenId, framesAt(start, rateFraction(dependencies.timeline.frameRate)));
+      }
+      const durationFrames = durationFramesForSamples(audio.durationSamples, audio.sampleRate, dependencies.timeline.frameRate);
+      rows.push({ kind: "narration", block, map, startFrame: cursor, durationFrames, tokenFrames, tokenTimes });
+      cursor = safe(BigInt(cursor) + BigInt(durationFrames), "timeline duration");
       continue;
     }
     if (map.precision === "sentence_only" || map.precision === "estimated") {
@@ -353,7 +377,7 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
   const built = buildTimedRows(document, dependencies);
   const diagnostics = [...built.diagnostics];
   const events: TimelineEventV2[] = [];
-  const projection = projectPrimarySequenceV2(document, { narrationTimingMaps: dependencies.narrationTimingMaps });
+  const projection = projectPrimarySequenceV2(document, { narrationTimingMaps: dependencies.narrationTimingMaps, narrationBoundaryEvidence: dependencies.narrationBoundaryEvidence ?? [] });
   const requirements: MediaRequirementV2[] = [];
   const sequenceResolutions: VisualSequenceResolutionV2[] = [];
   const boundaryEvidence: TimelineManifestV2["boundaryEvidence"] = [];
@@ -460,10 +484,63 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
       const frame = row.tokenFrames.get(tokenId);
       return frame === undefined ? null : safe(BigInt(rowStart) + BigInt(frame), "token frame");
     };
+    const evidenceHash = "verification" in row.map ? sha256CanonicalJson(row.map) : null;
+    const provenanceEvidence = evidenceHash ? { boundaryEvidenceHash: evidenceHash } : {};
+    const resolvedEdges = new Map<string, { time: Fraction; frame: number; kind: "word_start" | "word_end" | "media_end"; precision: VisualSequenceResolutionV2["alignmentPrecision"] }>();
+    const recordEvidence = (entityId: string, kind: BoundaryEvidenceV2["kind"], time: Fraction, frame: number, precision: BoundaryEvidenceV2["precision"], relatedTokenId?: string): void => {
+      if (!evidenceHash && kind !== "word_end") return;
+      const localFrameTime = frac(BigInt(frame - rowStart) * BigInt(dependencies.timeline.frameRate.denominator), BigInt(dependencies.timeline.frameRate.numerator));
+      if (boundaryEvidence.some((item) => item.entityId === entityId && item.kind === kind && item.relatedTokenId === relatedTokenId && item.boundaryEvidenceHash === (evidenceHash ?? undefined) && sameJson(item.inputTime, wireOrThrow(time, "boundary input time")))) return;
+      boundaryEvidence.push({ entityId, kind, inputTime: wireOrThrow(time, "boundary input time"), resolvedRecordFrame: frame, delta: wireOrThrow(sub(localFrameTime, time), "boundary delta"), precision, ...provenanceEvidence, ...(relatedTokenId ? { relatedTokenId } : {}) });
+    };
+    const resolveWord = (anchor: WordBoundaryAnchorV2, ownerId: string, path: string): number | null => {
+      const token = row.tokenTimes.get(anchor.tokenId);
+      const time = anchor.affinity === "before" ? token?.start : token?.evidenced ? token.end : null;
+      if (!time) {
+        if (evidenceHash) diagnostics.push(diagnostic("BOUNDARY_EVIDENCE_REQUIRED", `Occurrence ${ownerId} requires token ${anchor.tokenId} ${anchor.affinity === "before" ? "onset (before)" : "audible end (after)"}; no substitute edge is permitted.`, entity("block", block.id, path), undefined, ["refresh_timing", "manual_review"]));
+        return null;
+      }
+      const frame = safe(BigInt(rowStart) + BigInt(framesAt(time, rateFraction(dependencies.timeline.frameRate))), "word boundary frame");
+      const kind = anchor.affinity === "after" ? "word_end" as const : "word_start" as const;
+      const precision = anchor.affinity === "after" ? "audible_word" as const : "verified_onset" as const;
+      resolvedEdges.set(ownerId, { time, frame, kind, precision });
+      recordEvidence(ownerId, kind, time, frame, precision, anchor.tokenId);
+      return frame;
+    };
+    if (evidenceHash) {
+      recordEvidence(sequence.id, "row_start", frac(0n, 1n), rowStart, "unknown");
+      recordEvidence(sequence.id, "row_end", frac(BigInt(row.map.audio!.durationSamples), BigInt(row.map.audio!.sampleRate)), rowEnd, "unknown");
+    }
+    const explicitAfter = sequence.slots.some((slot) => slot.kind === "return" ? slot.inpoint?.affinity === "after" : slot.boundaryBefore.kind === "audible_word_end");
+    if (evidenceHash || explicitAfter) {
+      for (const slot of sequence.slots) {
+        const anchor = slot.kind === "return" ? slot.inpoint : "anchor" in slot.boundaryBefore ? slot.boundaryBefore.anchor : null;
+        if (anchor) resolveWord(anchor, slot.id, `/activeDraft/blocks/${document.activeDraft.blocks.indexOf(block)}/primaryVisualSequence/slots/${sequence.slots.indexOf(slot)}/${slot.kind === "return" ? "inpoint" : "boundaryBefore/anchor"}`);
+      }
+      for (const overlay of block.overlayEvents) for (const edge of ["start", "end"] as const) {
+        const point = overlay.timing[edge];
+        if (point?.kind === "word" || point?.kind === "audible_word_end") resolveWord(point.anchor, overlay.id, `/activeDraft/blocks/${document.activeDraft.blocks.indexOf(block)}/overlayEvents/${block.overlayEvents.indexOf(overlay)}/timing/${edge}`);
+      }
+      for (const item of document.activeDraft.supportingItems) if (item.role === "editor_note" && item.placement.kind === "point") {
+        const point = item.placement.anchor;
+        if ((point.kind === "word" || point.kind === "audible_word_end") && point.anchor.blockId === block.id) resolveWord(point.anchor, item.id, `/activeDraft/supportingItems/${document.activeDraft.supportingItems.indexOf(item)}/placement/anchor`);
+      }
+      if (diagnostics.some((item) => item.entity.id === block.id && item.severity === "blocking")) continue;
+      const exactOrdered = sequence.slots.flatMap((slot) => resolvedEdges.has(slot.id) ? [resolvedEdges.get(slot.id)!] : []);
+      let previousTime = frac(0n, 1n); let previousFrame = rowStart;
+      const rowDuration = frac(BigInt(row.map.audio!.durationSamples), BigInt(row.map.audio!.sampleRate));
+      for (const edge of exactOrdered) {
+        if (compare(edge.time, previousTime) <= 0 || compare(edge.time, rowDuration) >= 0 || edge.frame <= previousFrame || edge.frame >= rowEnd) diagnostics.push(diagnostic("COLLAPSED_BOUNDARY", "Authored structural edges must strictly increase in exact time and frame and precede row end.", entity("block", block.id, "primaryVisualSequence"), undefined, ["refresh_timing", "repair_document"]));
+        previousTime = edge.time; previousFrame = edge.frame;
+      }
+      if (diagnostics.some((item) => item.entity.id === block.id && item.severity === "blocking")) continue;
+    }
+    const returnFrames = new Map<string, number | null>();
+    for (const slot of sequence.slots) if (slot.kind === "return") returnFrames.set(slot.id, slot.inpoint ? resolveWord(slot.inpoint, slot.id, `/activeDraft/blocks/${document.activeDraft.blocks.indexOf(block)}/primaryVisualSequence/slots/${sequence.slots.indexOf(slot)}/inpoint`) : null);
     const unresolvedReturns = sequence.slots.filter((slot): slot is ReturnSlot => slot.kind === "return")
-      .filter((returned) => returned.inpoint === null || absoluteToken(returned.inpoint.tokenId) === null);
+      .filter((returned) => returned.inpoint === null || returnFrames.get(returned.id) === null);
     if (unresolvedReturns.length > 0) {
-      for (const returned of unresolvedReturns) diagnostics.push(diagnostic(
+      for (const returned of unresolvedReturns) if (!evidenceHash || !returned.inpoint) diagnostics.push(diagnostic(
         "STALE_ANCHOR",
         "A structural return requires a current exact word inpoint; the child cannot silently extend to row end.",
         entity("block", block.id, "primaryVisualSequence/returns"),
@@ -476,7 +553,7 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
     for (const slot of sequence.slots) {
       if (slot.kind === "return") continue;
       let start: number | null = slot.boundaryBefore.kind === "row_start" ? rowStart
-        : slot.boundaryBefore.kind === "spoken_word" ? absoluteToken(slot.boundaryBefore.anchor.tokenId)
+        : slot.boundaryBefore.kind === "spoken_word" || slot.boundaryBefore.kind === "audible_word_end" ? resolveWord(slot.boundaryBefore.anchor, slot.id, `/activeDraft/blocks/${document.activeDraft.blocks.indexOf(block)}/primaryVisualSequence/slots/${sequence.slots.indexOf(slot)}/boundaryBefore`)
           : null;
       if (slot.boundaryBefore.kind === "previous_media_end") {
         const controllingSlotId = slot.boundaryBefore.controllingSlotId;
@@ -499,13 +576,16 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
                 const exactLocalTime = sub(exactAbsoluteTime, exactRowTime);
                 const relation = wordRelationAt(row, exactLocalTime);
                 const resolvedLocalTime = frac(BigInt(start - rowStart) * BigInt(targetRate.d), targetRate.n);
+                const precision = relation.wordRelation === "between_words" ? "between_words" : "verification" in row.map ? relation.wordRelation === "at_word_start" ? "verified_onset" : relation.wordRelation === "at_word_end" || relation.wordRelation === "inside_word" ? "audible_word" : "unknown" : relation.wordRelation === "at_word_start" || relation.wordRelation === "inside_word" ? row.map.precision === "audible_word_marks" ? "audible_word" : "next_word_derived" : "unknown";
+                if (evidenceHash) resolvedEdges.set(slot.id, { time: exactLocalTime, frame: start, kind: "media_end", precision });
                 boundaryEvidence.push({
                   entityId: slot.id,
                   kind: "media_end",
+                  ...provenanceEvidence,
                   inputTime: wireOrThrow(exactLocalTime, "media-end input time"),
                   resolvedRecordFrame: start,
                   delta: wireOrThrow(sub(resolvedLocalTime, exactLocalTime), "media-end boundary delta"),
-                  precision: relation.wordRelation === "between_words" ? "between_words" : relation.wordRelation === "at_word_start" || relation.wordRelation === "inside_word" ? row.map.precision === "audible_word_marks" ? "audible_word" : "next_word_derived" : "unknown",
+                  precision,
                   wordRelation: relation.wordRelation,
                   relatedTokenId: relation.relatedTokenId,
                 });
@@ -535,7 +615,7 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
       const childIndex = siblings.findIndex((candidate) => candidate.id === child.id);
       const returnSlot = sequence.slots.find((candidate): candidate is ReturnSlot => candidate.kind === "return" && candidate.parentSlotId === child.relation.parentSlotId);
       const next = siblings[childIndex + 1] ? slotStarts.get(siblings[childIndex + 1]!.id)
-        : returnSlot?.inpoint ? absoluteToken(returnSlot.inpoint.tokenId) : null;
+        : returnSlot?.inpoint ? returnFrames.get(returnSlot.id) : null;
       const rowEndFallback = returnSlot?.inpoint === null ? null : rowEnd;
       const end = next ?? rowEndFallback;
       if (start !== undefined && end !== null && end !== undefined) rangeBySlot.set(child.id, { startFrame: start, endFrame: end });
@@ -568,7 +648,7 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
         sourceId: descriptor?.mediaReferenceId ?? null,
         originalSourceHash: descriptor?.sourceSnapshot.contentHash ?? still?.contentHash ?? null,
         deliveredSourceHash: null,
-        timingMapHash: row.map.timingHash,
+        timingMapHash: row.map.timingHash, ...provenanceEvidence,
         compilerVersion: dependencies.compiler.version,
       };
       const eventId = stableId(`event:${document.id}:${block.id}:${slot.id}:${payloadId ?? "presenter"}`);
@@ -653,13 +733,13 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
       }
       if (emittedEvent) rowEvents.push(emittedEvent);
       if (emittedEvent || payload.kind === "on_camera" && payload.presenterChoiceId !== null) {
-        const startTime = row.tokenTimes.get(block.tokens.find((token) => row.tokenFrames.get(token.id) === range.startFrame - rowStart)?.id ?? "")?.start ?? frac(BigInt(range.startFrame - rowStart) * BigInt(dependencies.timeline.frameRate.denominator), BigInt(dependencies.timeline.frameRate.numerator));
+        const startTime = (evidenceHash || slot.boundaryBefore.kind === "audible_word_end" ? resolvedEdges.get(slot.id)?.time : null) ?? row.tokenTimes.get(block.tokens.find((token) => row.tokenFrames.get(token.id) === range.startFrame - rowStart)?.id ?? "")?.start ?? frac(BigInt(range.startFrame - rowStart) * BigInt(dependencies.timeline.frameRate.denominator), BigInt(dependencies.timeline.frameRate.numerator));
         const delta = sub(frac(BigInt(range.startFrame - rowStart) * BigInt(dependencies.timeline.frameRate.denominator), BigInt(dependencies.timeline.frameRate.numerator)), startTime);
-        sequenceResolutions.push({ documentId: document.id, blockId: block.id, blockRevision: block.version, sequenceId: sequence.id, sequenceVersion: sequence.version, structuralSlotIndex: sequence.slots.findIndex((item) => item.id === slot.id), relation: isChild ? "child" : "root", slotId: slot.id, payloadId, returnSlotId: null, boundaryKind: slot.boundaryBefore.kind === "row_start" ? "word_start" : slot.boundaryBefore.kind === "previous_media_end" ? "media_end" : "word_start", resolvedRecordFrame: range.startFrame, boundaryDelta: wireOrThrow(delta, "sequence boundary delta"), rootRanges: isChild ? [] : [range], childRanges: isChild ? [range] : [], topmostAppearances: emittedEvent ? [{ eventId, recordRange: range }] : [], hostState: payload.kind === "on_camera" ? "on_camera" : "voiceover", visualOrdinal: rowProjection?.slots.find((item) => item.slotId === slot.id)?.humanOrdinal ?? null, eventIds: emittedEvent ? [eventId] : [], sourceRange: occurrenceRange, sourceTimeMapping: mapping, preparationRequirementKey: requirementKey, presenterChoice, alignmentPrecision: row.map.precision === "audible_word_marks" ? "audible_word" : "next_word_derived" });
+        sequenceResolutions.push({ documentId: document.id, blockId: block.id, blockRevision: block.version, sequenceId: sequence.id, sequenceVersion: sequence.version, structuralSlotIndex: sequence.slots.findIndex((item) => item.id === slot.id), relation: isChild ? "child" : "root", slotId: slot.id, payloadId, returnSlotId: null, boundaryKind: slot.boundaryBefore.kind === "previous_media_end" ? "media_end" : slot.boundaryBefore.kind === "audible_word_end" ? "word_end" : "word_start", resolvedRecordFrame: range.startFrame, boundaryDelta: wireOrThrow(delta, "sequence boundary delta"), rootRanges: isChild ? [] : [range], childRanges: isChild ? [range] : [], topmostAppearances: emittedEvent ? [{ eventId, recordRange: range }] : [], hostState: payload.kind === "on_camera" ? "on_camera" : "voiceover", visualOrdinal: rowProjection?.slots.find((item) => item.slotId === slot.id)?.humanOrdinal ?? null, eventIds: emittedEvent ? [eventId] : [], sourceRange: occurrenceRange, sourceTimeMapping: mapping, preparationRequirementKey: requirementKey, presenterChoice, ...provenanceEvidence, alignmentPrecision: "verification" in row.map ? resolvedEdges.get(slot.id)?.precision ?? "unknown" : slot.boundaryBefore.kind === "audible_word_end" || row.map.precision === "audible_word_marks" ? "audible_word" : "next_word_derived" });
       }
     }
     for (const returned of sequence.slots.filter((slot) => slot.kind === "return")) {
-      const frame = returned.inpoint ? absoluteToken(returned.inpoint.tokenId) : null;
+      const frame = returnFrames.get(returned.id) ?? null;
       const root = roots.find((slot) => slot.id === returned.parentSlotId);
       if (!root) {
         diagnostics.push(diagnostic("SOURCE_MAPPING_MISMATCH", "A return must name an existing root slot in this sequence.", entity("slot", returned.id, "primaryVisualSequence"), undefined, ["repair_document"]));
@@ -669,18 +749,54 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
         diagnostics.push(diagnostic("STALE_ANCHOR", "A return requires a current word inpoint; the row cannot safely fall through to its end.", entity("slot", returned.id, "primaryVisualSequence"), { kind: "anchor_issue", anchorId: returned.id, reason: returned.inpoint ? "stale" : "missing" }, ["repair_document", "refresh_timing"]));
         continue;
       }
-      sequenceResolutions.push({ documentId: document.id, blockId: block.id, blockRevision: block.version, sequenceId: sequence.id, sequenceVersion: sequence.version, structuralSlotIndex: sequence.slots.findIndex((item) => item.id === returned.id), relation: "return", slotId: null, payloadId: null, returnSlotId: returned.id, boundaryKind: "word_start", resolvedRecordFrame: frame, boundaryDelta: { numerator: 0, denominator: 1 }, rootRanges: [], childRanges: [], topmostAppearances: [], hostState: "voiceover", visualOrdinal: null, eventIds: [], sourceRange: null, sourceTimeMapping: null, preparationRequirementKey: null, presenterChoice: "not_applicable", alignmentPrecision: "audible_word" });
+      sequenceResolutions.push({ documentId: document.id, blockId: block.id, blockRevision: block.version, sequenceId: sequence.id, sequenceVersion: sequence.version, structuralSlotIndex: sequence.slots.findIndex((item) => item.id === returned.id), relation: "return", slotId: null, payloadId: null, returnSlotId: returned.id, boundaryKind: returned.inpoint?.affinity === "after" ? "word_end" : "word_start", resolvedRecordFrame: frame, boundaryDelta: evidenceHash || returned.inpoint?.affinity === "after" ? wireOrThrow(sub(frac(BigInt(frame - rowStart) * BigInt(dependencies.timeline.frameRate.denominator), BigInt(dependencies.timeline.frameRate.numerator)), resolvedEdges.get(returned.id)!.time), "return delta") : { numerator: 0, denominator: 1 }, rootRanges: [], childRanges: [], topmostAppearances: [], hostState: "voiceover", visualOrdinal: null, eventIds: [], sourceRange: null, sourceTimeMapping: null, preparationRequirementKey: null, presenterChoice: "not_applicable", ...provenanceEvidence, alignmentPrecision: evidenceHash ? resolvedEdges.get(returned.id)!.precision : "audible_word" });
     }
-    for (const overlay of block.overlayEvents) {
+    const overlayPlacements = new Map<string, ReturnType<typeof resolveTimedPlacementV2>>();
+    const resolveOverlay = (overlay: NarrationBlockV2["overlayEvents"][number], visiting: Set<string>): ReturnType<typeof resolveTimedPlacementV2> => {
+      const prior = overlayPlacements.get(overlay.id);
+      if (prior) return prior;
       const anchorTimes: Record<string, RationalTime> = {};
       for (const [tokenId, value] of row.tokenTimes) {
         const token = block.tokens.find((item) => item.id === tokenId);
         if (!token) continue;
-        const key = placementAnchorKeyV2({ kind: "word", anchor: { blockId: block.id, tokenId, affinity: "before", quotedWord: token.value, anchorVersion: block.version } });
-        const t = wire(value.start);
-        if (t) anchorTimes[key] = t;
+        const anchor = { blockId: block.id, tokenId, affinity: "before" as const, quotedWord: token.value, anchorVersion: block.version };
+        const before = value.start ? wire(value.start) : null;
+        if (value.start && before) anchorTimes[placementAnchorKeyV2({ kind: "word", anchor })] = before;
+        if (value.evidenced && value.end) anchorTimes[placementAnchorKeyV2({ kind: "audible_word_end", anchor: { ...anchor, affinity: "after" } })] = wireOrThrow(value.end, "overlay audible end");
       }
-      const placement = resolveTimedPlacementV2(overlay.timing, { document, blockId: block.id, rowBounds: { start: { numerator: 0, denominator: 1 }, end: audioDurationWire(row.map.audio!) }, anchorTimes });
+      for (const edge of ["start", "end"] as const) {
+        const point = overlay.timing[edge];
+        if ((point?.kind === "word" && evidenceHash || point?.kind === "audible_word_end") && isWordAnchorCurrentV2(point.anchor, block)) {
+          const observation = row.tokenTimes.get(point.anchor.tokenId);
+          const observed = point.anchor.affinity === "before" ? observation?.start : observation?.evidenced ? observation.end : null;
+          if (observed) anchorTimes[placementAnchorKeyV2(point)] = wireOrThrow(observed, "authored overlay edge");
+        }
+      }
+      if (evidenceHash) {
+        for (const edge of ["start", "end"] as const) {
+          const point = overlay.timing[edge];
+          if (!point) continue;
+          if (point.kind === "between_blocks") {
+            const beforeIndex = document.activeDraft.blocks.findIndex((item) => item.id === point.beforeBlockId);
+            const afterIndex = document.activeDraft.blocks.findIndex((item) => item.id === point.afterBlockId);
+            const rowIndex = document.activeDraft.blocks.indexOf(block);
+            if (afterIndex === beforeIndex + 1 && beforeIndex === rowIndex - 1 && afterIndex === rowIndex) anchorTimes[placementAnchorKeyV2(point)] = { numerator: 0, denominator: 1 };
+            if (afterIndex === beforeIndex + 1 && beforeIndex === rowIndex && afterIndex === rowIndex + 1) anchorTimes[placementAnchorKeyV2(point)] = audioDurationWire(row.map.audio!);
+          } else if (point.kind === "event_edge" && !visiting.has(point.eventId)) {
+            const target = block.overlayEvents.find((item) => item.id === point.eventId);
+            if (target) {
+              const resolved = resolveOverlay(target, new Set([...visiting, overlay.id]));
+              if (resolved.interval) anchorTimes[placementAnchorKeyV2(point)] = resolved.interval[point.edge];
+            }
+          }
+        }
+      }
+      const result = resolveTimedPlacementV2(overlay.timing, { document, blockId: block.id, rowBounds: { start: { numerator: 0, denominator: 1 }, end: audioDurationWire(row.map.audio!) }, anchorTimes });
+      overlayPlacements.set(overlay.id, result);
+      return result;
+    };
+    for (const overlay of block.overlayEvents) {
+      const placement = resolveOverlay(overlay, new Set([overlay.id]));
       if (placement.status !== "resolved" || !placement.interval) {
         diagnostics.push(diagnostic("STALE_ANCHOR", placement.diagnostics[0]?.message ?? "Overlay has no exact interval.", entity("overlay_event", overlay.id, "overlayEvents"), { kind: "anchor_issue", anchorId: overlay.id, reason: "stale" }, ["repair_document", "refresh_timing"]));
         continue;
@@ -691,6 +807,8 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
         diagnostics.push(diagnostic("COLLAPSED_BOUNDARY", "Overlay boundaries collapse after frame quantization.", entity("overlay_event", overlay.id, "overlayEvents"), { kind: "anchor_issue", anchorId: overlay.id, reason: "collapsed" }, ["repair_document"]));
         continue;
       }
+      recordEvidence(overlay.id, "independent_timing", fromWire(placement.interval.start)!, start, "unknown");
+      recordEvidence(overlay.id, "independent_timing", fromWire(placement.interval.end)!, end, "unknown");
       const descriptor = descriptorByPayload.get(overlay.payload.payloadId);
       if (!descriptor || descriptor.owner.kind !== "overlay_event" || descriptor.owner.blockId !== block.id || descriptor.owner.overlayEventId !== overlay.id || overlay.payload.source.kind === "media_reference" && descriptor.mediaReferenceId !== overlay.payload.source.mediaReferenceId || overlay.payload.pictureKind === "clip" && overlay.payload.sourceUsage?.sourceInFrame !== descriptor.occurrenceSourceInFrame) {
         diagnostics.push(diagnostic("MISSING_OCCURRENCE_BINDING", "The overlay has no verified source descriptor.", entity("overlay_event", overlay.id, "occurrenceResolutions"), undefined, ["rebind_media"]));
@@ -735,7 +853,7 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
         continue;
       }
       const eventId = stableId(`event:${document.id}:${block.id}:${overlay.id}:${overlay.payload.payloadId}`);
-      const provenance: TimelineEventV2["provenance"] = { documentId: document.id, blockId: block.id, sequenceId: null, slotId: null, payloadId: overlay.payload.payloadId, overlayEventId: overlay.id, sourceId: deliveredSourceId(descriptor, binding), originalSourceHash: descriptor.sourceSnapshot.contentHash, deliveredSourceHash: binding.verification.deliveredHash, timingMapHash: row.map.timingHash, compilerVersion: dependencies.compiler.version };
+      const provenance: TimelineEventV2["provenance"] = { documentId: document.id, blockId: block.id, sequenceId: null, slotId: null, payloadId: overlay.payload.payloadId, overlayEventId: overlay.id, sourceId: deliveredSourceId(descriptor, binding), originalSourceHash: descriptor.sourceSnapshot.contentHash, deliveredSourceHash: binding.verification.deliveredHash, timingMapHash: row.map.timingHash, ...provenanceEvidence, compilerVersion: dependencies.compiler.version };
       let pictureTreatment: TimelineEventV2["pictureTreatment"];
       try {
         pictureTreatment = mediaStillTreatment(overlay.payload.pictureKind, overlay.payload.framingPolicy);
@@ -753,7 +871,7 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
         }
       }
     }
-    for (const evidence of row.map.tokens) {
+    for (const evidence of "verification" in row.map ? [] : row.map.tokens) {
       const frame = absoluteToken(evidence.tokenId);
       const time = fromWire(evidence.startTime);
       if (frame === null || !time) continue;
@@ -765,7 +883,7 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
         inputTime: wireOrThrow(time, "word-start input time"),
         resolvedRecordFrame: frame,
         delta: wireOrThrow(sub(exactRecordTime, exactTokenRecordTime), "word-start boundary delta"),
-        precision: row.map.precision === "audible_word_marks" ? "audible_word" : evidence.endBasis === "next_word_derived" ? "next_word_derived" : "unknown",
+        precision: !("verification" in row.map) && row.map.precision === "audible_word_marks" ? "audible_word" : evidence.endBasis === "next_word_derived" ? "next_word_derived" : "unknown",
       });
     }
     if (diagnostics.slice(rowDiagnosticStart).some((item) => (item.severity === "blocking" || item.severity === "error") && item.code !== "VISUAL_UNDEFINED")) {
@@ -834,14 +952,18 @@ function wordRelationAt(
     const timing = row.tokenTimes.get(token.id);
     return timing ? [{ tokenId: token.id, ...timing }] : [];
   });
-  const atStart = words.find((word) => compare(time, word.start) === 0);
+  const atStart = words.find((word) => word.start && compare(time, word.start) === 0);
   if (atStart) return { wordRelation: "at_word_start", relatedTokenId: atStart.tokenId };
-  const inside = words.find((word) => word.evidenced && word.end && compare(time, word.start) > 0 && compare(time, word.end) < 0);
+  if ("verification" in row.map) {
+    const atEnd = words.find((word) => word.evidenced && word.end && compare(time, word.end) === 0);
+    if (atEnd) return { wordRelation: "at_word_end", relatedTokenId: atEnd.tokenId };
+  }
+  const inside = words.find((word) => word.evidenced && word.end && word.start && compare(time, word.start) > 0 && compare(time, word.end) < 0);
   if (inside) return { wordRelation: "inside_word", relatedTokenId: inside.tokenId };
   for (let index = 0; index + 1 < words.length; index += 1) {
     const previous = words[index]!;
     const next = words[index + 1]!;
-    if (previous.evidenced && previous.end && compare(previous.end, time) <= 0 && compare(time, next.start) < 0 && compare(previous.end, next.start) < 0) {
+    if (next.start && (!("verification" in row.map) || row.block.tokens.findIndex((token) => token.id === next.tokenId) === row.block.tokens.findIndex((token) => token.id === previous.tokenId) + 1) && previous.evidenced && previous.end && compare(previous.end, time) <= 0 && compare(time, next.start) < 0 && compare(previous.end, next.start) < 0) {
       return { wordRelation: "between_words", relatedTokenId: null };
     }
   }
@@ -1028,12 +1150,12 @@ function supportingPointFrame(
   events: TimelineEventV2[],
   targetRate: RationalRate,
 ): { frame: number; blockId: string | null; overlayEventId: string | null } | null {
-  if (anchor.kind === "word") {
+  if (anchor.kind === "word" || anchor.kind === "audible_word_end") {
     const row = rows.find((candidate): candidate is TimedRow => candidate.kind === "narration" && candidate.block.id === anchor.anchor.blockId);
     if (!row || !isWordAnchorCurrentV2(anchor.anchor, row.block)) return null;
     const localFrame = row.tokenFrames.get(anchor.anchor.tokenId);
-    if (localFrame === undefined) return null;
-    if (anchor.anchor.affinity === "before") return { frame: safe(BigInt(row.startFrame) + BigInt(localFrame), "supporting marker frame"), blockId: row.block.id, overlayEventId: null };
+    if (anchor.anchor.affinity === "before" && localFrame === undefined) return null;
+    if (anchor.anchor.affinity === "before") return { frame: safe(BigInt(row.startFrame) + BigInt(localFrame!), "supporting marker frame"), blockId: row.block.id, overlayEventId: null };
     const timing = row.tokenTimes.get(anchor.anchor.tokenId);
     if (!timing?.evidenced || !timing.end) return null;
     const afterFrame = safe(BigInt(row.startFrame) + ceil(timing.end.n * BigInt(targetRate.numerator), timing.end.d * BigInt(targetRate.denominator)), "supporting marker frame");
@@ -1115,6 +1237,7 @@ function compileSupportingItems(
       }
       const recordRange = { startFrame: point.frame, endFrame: safe(BigInt(point.frame) + 1n, "editor marker endpoint") };
       const eventId = stableId(`script-marker:${document.id}:${item.id}:${item.version}`);
+      const pointRow = rows.find((row): row is TimedRow => row.kind === "narration" && row.block.id === point.blockId);
       events.push({
         eventId,
         kind: "script_marker",
@@ -1131,7 +1254,8 @@ function compileSupportingItems(
           sourceId: null,
           originalSourceHash: null,
           deliveredSourceHash: null,
-          timingMapHash: rows.find((row): row is TimedRow => row.kind === "narration" && row.block.id === point.blockId)?.map.timingHash ?? null,
+          timingMapHash: pointRow?.map.timingHash ?? null,
+          ...(pointRow && "verification" in pointRow.map ? { boundaryEvidenceHash: sha256CanonicalJson(pointRow.map) } : {}),
           compilerVersion: dependencies.compiler.version,
         },
         sourceRange: null,
@@ -1225,7 +1349,7 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
   if (!validateDependencies(dependenciesInput)) return fail(...schemaDiagnostics(validateDependencies.errors, "DEPENDENCIES"));
   const document = documentInput as ScriptDocumentV2;
   const dependencies = dependenciesInput;
-  const audioBindingProblem = conflictingNarrationAudioBinding(dependencies.narrationTimingMaps);
+  const audioBindingProblem = conflictingNarrationAudioBinding([...dependencies.narrationTimingMaps, ...dependencies.narrationBoundaryEvidence ?? []]);
   if (audioBindingProblem) return fail(audioBindingProblem);
   const seenTrackIds = new Set<string>();
   for (const track of dependencies.tracks) {
@@ -1246,7 +1370,7 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
   const documentTextHash = shaText(document.activeDraft.blocks.filter((item): item is NarrationBlockV2 => item.type === "narration").map((item) => item.text).join("\n"));
   if (dependencies.document.textHash !== documentTextHash) return fail({ code: "DOCUMENT_BINDING_MISMATCH", message: "Compiler dependencies do not bind the exact frozen narration text hash.", jsonPath: "/document/textHash", entityId: document.id });
   for (const block of document.activeDraft.blocks) if (block.type === "narration" && block.state === "active") {
-    const map = dependencies.narrationTimingMaps.find((candidate) => candidate.blockId === block.id);
+    const map = [...dependencies.narrationTimingMaps, ...dependencies.narrationBoundaryEvidence ?? []].find((candidate) => candidate.blockId === block.id);
     if (!map?.audio || map.audio.narrationAssetId !== map.narrationAssetId || map.audio.audioHash !== map.audioHash) return fail({ code: "NARRATION_DURATION_UNKNOWN", message: `Active narration ${block.id} has no verified exact audio duration.`, jsonPath: `/narrationTimingMaps/${block.id}/audio`, entityId: block.id });
   }
   if (dependencies.document.documentId !== document.id || dependencies.document.projectId !== document.projectId || dependencies.document.liveHeadSequence !== document.liveHeadSequence || dependencies.document.contentHash !== document.liveContentHash) return fail({ code: "DOCUMENT_BINDING_MISMATCH", message: "Compiler dependencies do not bind to the exact frozen document identity and live head.", jsonPath: "/document" });
@@ -1257,7 +1381,7 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
     const invalidTopology = resolved.diagnostics.find((item) => item.code === "TRACK_ROLE_COLLISION");
     if (invalidTopology) return fail({ code: invalidTopology.code, message: invalidTopology.message, ...(invalidTopology.entity.id ? { entityId: invalidTopology.entity.id } : {}) });
     const sourcesById = new Map<string, TimelineManifestV2["sources"][number]>();
-    for (const map of dependencies.narrationTimingMaps) if (map.audio) sourcesById.set(map.audio.narrationAssetId, { id: map.audio.narrationAssetId, narrationAudio: map.audio });
+    for (const map of [...dependencies.narrationTimingMaps, ...dependencies.narrationBoundaryEvidence ?? []]) if (map.audio) sourcesById.set(map.audio.narrationAssetId, { id: map.audio.narrationAssetId, narrationAudio: map.audio });
     for (const descriptor of dependencies.occurrenceResolutions) {
       const binding = descriptor.preparedMediaRequirementKey ? dependencies.preparedMedia.find((item) => item.requirementKey === descriptor.preparedMediaRequirementKey) : undefined;
       if (binding) {
@@ -1267,9 +1391,10 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
     }
     for (const row of resolved.timedRows) {
       if (row.kind !== "narration") continue;
+      const provenanceEvidence = "verification" in row.map ? { boundaryEvidenceHash: sha256CanonicalJson(row.map) } : {};
       const start = row.startFrame; const end = start + row.durationFrames;
       const eventId = stableId(`narration:${document.id}:${row.block.id}:${row.map.audio!.narrationAssetId}`);
-      resolved.events.push({ eventId, kind: "narration", trackId: dependencies.roles.narrationTrackId, trackRole: "narration", recordRange: { startFrame: start, endFrame: end }, provenance: { documentId: document.id, blockId: row.block.id, sequenceId: null, slotId: null, payloadId: null, overlayEventId: null, sourceId: row.map.audio!.narrationAssetId, originalSourceHash: row.map.audio!.audioHash, deliveredSourceHash: row.map.audio!.audioHash, timingMapHash: row.map.timingHash, compilerVersion: dependencies.compiler.version }, sourceRange: null, sourceTimeMapping: null, preparationBindingHash: null, audio: null });
+      resolved.events.push({ eventId, kind: "narration", trackId: dependencies.roles.narrationTrackId, trackRole: "narration", recordRange: { startFrame: start, endFrame: end }, provenance: { documentId: document.id, blockId: row.block.id, sequenceId: null, slotId: null, payloadId: null, overlayEventId: null, sourceId: row.map.audio!.narrationAssetId, originalSourceHash: row.map.audio!.audioHash, deliveredSourceHash: row.map.audio!.audioHash, timingMapHash: row.map.timingHash, ...provenanceEvidence, compilerVersion: dependencies.compiler.version }, sourceRange: null, sourceTimeMapping: null, preparationBindingHash: null, audio: null });
     }
     const supporting = compileSupportingItems(document, dependencies, resolved.timedRows, resolved.events);
     resolved.events.push(...supporting.events);
@@ -1337,7 +1462,7 @@ export function resolveMediaRequirementsV2(documentInput: unknown, input: MediaR
     const document = documentInput as ScriptDocumentV2;
     const malformedText = malformedFrozenText(document);
     if (malformedText) return { ok: false, diagnostics: [malformedText] };
-    const audioBindingProblem = conflictingNarrationAudioBinding(input.timing);
+    const audioBindingProblem = conflictingNarrationAudioBinding([...input.timing, ...input.boundaryEvidence ?? []]);
     if (audioBindingProblem) return { ok: false, diagnostics: [audioBindingProblem] };
     for (const descriptor of input.sourceDescriptors) {
       const mappingProblem = sourceMappingProblem(descriptor);
@@ -1349,14 +1474,14 @@ export function resolveMediaRequirementsV2(documentInput: unknown, input: MediaR
       document: { documentId: document.id, projectId: document.projectId, revision: 1, liveHeadSequence: document.liveHeadSequence, contentHash: document.liveContentHash, textHash: shaText(document.activeDraft.blocks.filter((item): item is NarrationBlockV2 => item.type === "narration").map((item) => item.text).join("\n")), settingsHash: input.defaults.settingsHash },
       compiler: { version: "compiler/v2", sourceHash: `sha256:${"0".repeat(64)}`, profileHash: `sha256:${"0".repeat(64)}` }, authoringDefaults: input.defaults,
       timeline: { frameRate: input.frameRate, width: 1, height: 1, audioSampleRate: 48000, startFrame: 0, durationFrames: 1 }, tracks: [{ id: "video", kind: "video", index: 1, name: "video" }],
-      roles: { primaryRootTrackId: "video", childTrackIds: [], overlayTrackIds: [], presenterTrackId: "video", placeholderTrackId: "video", narrationTrackId: "video", sourceAudioTrackIds: [], markerTrackId: "video" }, narrationTimingMaps: [...input.timing], occurrenceResolutions: [...input.sourceDescriptors], preparedMedia: [], presenterAlignmentResolutions: [],
+      roles: { primaryRootTrackId: "video", childTrackIds: [], overlayTrackIds: [], presenterTrackId: "video", placeholderTrackId: "video", narrationTrackId: "video", sourceAudioTrackIds: [], markerTrackId: "video" }, narrationTimingMaps: [...input.timing], ...(input.boundaryEvidence ? { narrationBoundaryEvidence: [...input.boundaryEvidence] } : {}), occurrenceResolutions: [...input.sourceDescriptors], preparedMedia: [], presenterAlignmentResolutions: [],
     };
     if (!validateDependencies(synthetic)) return { ok: false, diagnostics: schemaDiagnostics(validateDependencies.errors, "DEPENDENCIES") };
       const validRows = buildTimedRows(document, synthetic);
       if (validRows.diagnostics.length) return { ok: false, diagnostics: validRows.diagnostics.map((item) => ({ code: item.code, message: item.message, ...(item.entity.id ? { entityId: item.entity.id } : {}) })) };
     const plan = resolvePlan(document, synthetic, false);
-    const hardRefusal = plan.diagnostics.find((item) => ["STALE_ANCHOR", "COLLAPSED_BOUNDARY", "SOURCE_MAPPING_MISMATCH", "SOURCE_INSUFFICIENT", "TRACK_ROLE_COLLISION", "MISSING_OCCURRENCE_BINDING"].includes(item.code));
-    if (hardRefusal) return { ok: false, diagnostics: [{ code: hardRefusal.code, message: hardRefusal.message, ...(hardRefusal.entity.id ? { entityId: hardRefusal.entity.id } : {}) }] };
+    const hardRefusal = plan.diagnostics.find((item) => ["BOUNDARY_EVIDENCE_REQUIRED", "STALE_ANCHOR", "COLLAPSED_BOUNDARY", "SOURCE_MAPPING_MISMATCH", "SOURCE_INSUFFICIENT", "TRACK_ROLE_COLLISION", "MISSING_OCCURRENCE_BINDING"].includes(item.code));
+    if (hardRefusal) return { ok: false, diagnostics: [{ code: hardRefusal.code, message: hardRefusal.message, ...(hardRefusal.entity.id ? { entityId: hardRefusal.entity.id } : {}), ...(hardRefusal.code === "BOUNDARY_EVIDENCE_REQUIRED" && hardRefusal.entity.path ? { jsonPath: hardRefusal.entity.path } : {}) }] };
     return { ok: true, requirements: plan.requirements, durationFrames: plan.durationFrames };
   } catch (error) {
     return { ok: false, diagnostics: [{ code: "MEDIA_NEEDS_FAILED", message: error instanceof Error ? error.message : String(error) }] };

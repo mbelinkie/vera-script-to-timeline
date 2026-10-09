@@ -474,6 +474,22 @@
               ]
             }
           }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "anchor"
+          ],
+          "properties": {
+            "kind": {
+              "const": "audible_word_end"
+            },
+            "anchor": {
+              "$ref": "#/$defs/WordAudibleEndAnchor"
+            }
+          }
         }
       ]
     },
@@ -520,6 +536,22 @@
             },
             "controllingSlotId": {
               "$ref": "#/$defs/EntityId"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "anchor"
+          ],
+          "properties": {
+            "kind": {
+              "const": "audible_word_end"
+            },
+            "anchor": {
+              "$ref": "#/$defs/WordAudibleEndAnchor"
             }
           }
         }
@@ -1094,6 +1126,9 @@
           "oneOf": [
             {
               "$ref": "#/$defs/WordInpointAnchor"
+            },
+            {
+              "$ref": "#/$defs/WordAudibleEndAnchor"
             },
             {
               "type": "null"
@@ -2158,6 +2193,35 @@
           "const": "excluded"
         },
         "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
+    "WordAudibleEndAnchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blockId",
+        "tokenId",
+        "affinity",
+        "quotedWord",
+        "anchorVersion"
+      ],
+      "properties": {
+        "blockId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "tokenId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "affinity": {
+          "const": "after"
+        },
+        "quotedWord": {
+          "type": "string",
+          "minLength": 1
+        },
+        "anchorVersion": {
           "$ref": "#/$defs/EntityVersion"
         }
       }

@@ -3,6 +3,7 @@ import type {
   ContentSlot,
   NarrationBlockV2,
   NarrationTokenTimingMapV2,
+  NarrationBoundaryEvidenceV1,
   OverlayEventV2,
   RationalTime,
   ReturnSlot,
@@ -27,8 +28,13 @@ import {
   pointWordIndexV2,
   validateScriptDocumentV2,
   wordIndexV2,
+  wordCoverageOffsetV2,
+  wordBoundaryOrderV2,
 } from "./authoring-v2-validation.js";
 
+import { boundaryEvidenceProblemV2 } from "./narration-boundary-evidence-v2.js";
+
+type ProjectionTiming = NarrationTokenTimingMapV2 | NarrationBoundaryEvidenceV1;
 type PointAnchor = NonNullable<TimedPlacement["start"]>;
 type RootSlot = ContentSlot & {
   relation: Extract<ContentSlot["relation"], { kind: "base" | "sequential" }>;
@@ -118,13 +124,13 @@ function projectRow(
       const childEnd = nextChild
         ? slotStart(nextChild, row)
         : group.returnSlot?.inpoint
-          ? wordIndexV2(group.returnSlot.inpoint, row)
+          ? wordCoverageOffsetV2(group.returnSlot.inpoint, row)
           : null;
       childIntervals.set(child.id, { start: childStart, end: childEnd });
     }
     if (group.returnSlot) {
       const returnIndex = group.returnSlot.inpoint
-        ? wordIndexV2(group.returnSlot.inpoint, row)
+        ? wordCoverageOffsetV2(group.returnSlot.inpoint, row)
         : null;
       returnTokenIndices.set(group.returnSlot.id, returnIndex);
     }
@@ -289,22 +295,24 @@ function buildOccurrenceOrders(
 ): OccurrenceOrder[] {
   const sequence = row.primaryVisualSequence;
   if (!sequence) return [];
-  const timingMap = options.narrationTimingMaps?.find(
-    (item) => item.blockId === row.id && validPreviewTiming(row, item),
-  );
+  const timingInputs = options.narrationTimingMaps?.filter((item) => item.blockId === row.id) ?? [];
+  const evidenceInputs = options.narrationBoundaryEvidence?.filter((item) => item.blockId === row.id) ?? [];
+  const timingMap = timingInputs.length === 1 && evidenceInputs.length === 0 && validPreviewTiming(row, timingInputs[0]!) ? timingInputs[0] : undefined;
+  const evidence = evidenceInputs.length === 1 && timingInputs.length === 0 && !boundaryEvidenceProblemV2(row, evidenceInputs[0]) ? evidenceInputs[0] : undefined;
+  const timing = timingMap ?? evidence;
   const candidates: Omit<OccurrenceOrder, "ordinal">[] = [];
   for (const slot of sequence.slots) {
     if (slot.kind === "return" || slot.payload.kind === "on_camera") continue;
     candidates.push({
       id: slot.id,
       kind: "primary",
-      start: slotStart(slot, row),
-      time: timingMap ? slotTime(slot, row, timingMap, options, new Set()) : null,
+      start: slot.boundaryBefore.kind === "row_start" ? 0 : "anchor" in slot.boundaryBefore ? wordBoundaryOrderV2(slot.boundaryBefore.anchor, row) : null,
+      time: timing ? slotTime(slot, row, timing, options, new Set()) : null,
     });
   }
   for (const event of row.overlayEvents) {
-    const time = timingMap
-      ? overlayStartTime(event, row, document, timingMap, new Set())
+    const time = timing
+      ? overlayStartTime(event, row, document, timing, new Set())
       : null;
     if (!event.timing.start && event.timing.end && event.timing.durationMs !== undefined && time === null) {
       diagnostics.push({
@@ -323,7 +331,7 @@ function buildOccurrenceOrders(
       time,
     });
   }
-  const timeSortable = timingMap !== undefined && candidates.every((item) => item.time !== null);
+  const timeSortable = timing !== undefined && candidates.every((item) => item.time !== null);
   const ordered = candidates.filter((item) => timeSortable ? item.time !== null : item.start !== null).sort((left, right) =>
     (timeSortable ? compare(left.time!, right.time!) : left.start! - right.start!) ||
     (left.kind === right.kind ? 0 : left.kind === "primary" ? -1 : 1) ||
@@ -338,19 +346,28 @@ function buildOccurrenceOrders(
   }));
 }
 
+function observedTime(timing: ProjectionTiming, row: NarrationBlockV2, tokenId: string, affinity: "before" | "after"): BigFraction | null {
+  if ("verification" in timing) {
+    const mark = timing.tokens.find((item) => item.tokenId === tokenId);
+    return wireFraction(affinity === "before" ? mark?.onset : mark?.audibleEnd);
+  }
+  const index = row.tokens.findIndex((item) => item.id === tokenId);
+  const mark = timing.tokens[index];
+  return wireFraction(affinity === "before" ? mark?.startTime : mark?.endBasis === "evidenced_audible_end" ? mark.audibleEnd : undefined);
+}
+
 function slotTime(
   slot: ContentSlot,
   row: NarrationBlockV2,
-  timing: NarrationTokenTimingMapV2,
+  timing: ProjectionTiming,
   options: PrimarySequenceProjectionOptionsV2,
   visiting: Set<string>,
 ): BigFraction | null {
   if (visiting.has(slot.id)) return null;
   const boundary = slot.boundaryBefore;
   if (boundary.kind === "row_start") return fraction(0n, 1n);
-  if (boundary.kind === "spoken_word") {
-    const index = wordIndexV2(boundary.anchor, row);
-    return index === null ? null : wireFraction(timing.tokens[index]?.startTime);
+  if (boundary.kind === "spoken_word" || boundary.kind === "audible_word_end") {
+    return wordIndexV2(boundary.anchor, row) === null ? null : observedTime(timing, row, boundary.anchor.tokenId, boundary.anchor.affinity);
   }
   const controllerId = boundary.controllingSlotId;
   visiting.add(slot.id);
@@ -374,7 +391,7 @@ function overlayStartTime(
   event: OverlayEventV2,
   row: NarrationBlockV2,
   document: ScriptDocumentV2,
-  timing: NarrationTokenTimingMapV2,
+  timing: ProjectionTiming,
   visiting: Set<string>,
 ): BigFraction | null {
   if (event.timing.start) return pointTime(event.timing.start, row, document, timing, visiting);
@@ -389,12 +406,11 @@ function pointTime(
   point: PointAnchor,
   row: NarrationBlockV2,
   document: ScriptDocumentV2,
-  timing: NarrationTokenTimingMapV2,
+  timing: ProjectionTiming,
   visiting: Set<string>,
 ): BigFraction | null {
-  if (point.kind === "word") {
-    const index = wordIndexV2(point.anchor, row);
-    return index === null ? null : wireFraction(timing.tokens[index]?.startTime);
+  if (point.kind === "word" || point.kind === "audible_word_end") {
+    return wordIndexV2(point.anchor, row) === null ? null : observedTime(timing, row, point.anchor.tokenId, point.anchor.affinity);
   }
   if (point.kind === "between_blocks") {
     const before = document.activeDraft.blocks.findIndex((block) => block.id === point.beforeBlockId);
@@ -402,6 +418,7 @@ function pointTime(
     const rowIndex = document.activeDraft.blocks.findIndex((block) => block.id === row.id);
     if (before === rowIndex - 1 && after === rowIndex) return fraction(0n, 1n);
     if (before === rowIndex && after === rowIndex + 1) {
+      if ("verification" in timing) return fraction(BigInt(timing.audio.durationSamples), BigInt(timing.audio.sampleRate));
       const lastIndex = timing.tokens.length - 1;
       const last = timing.tokens[lastIndex];
       return last ? wireFraction(timingEnd(timing, lastIndex)) : null;
@@ -413,9 +430,12 @@ function pointTime(
   const target = row.overlayEvents.find((candidate) => candidate.id === point.eventId);
   if (!target) return null;
   if (point.edge === "start") return overlayStartTime(target, row, document, timing, visiting);
-  return target.timing.end
-    ? pointTime(target.timing.end, row, document, timing, visiting)
-    : null;
+  if (target.timing.end) return pointTime(target.timing.end, row, document, timing, visiting);
+  if ("verification" in timing && target.timing.durationMs !== undefined && target.timing.durationMs > 0) {
+    const start = overlayStartTime(target, row, document, timing, visiting);
+    return start ? add(start, fraction(BigInt(target.timing.durationMs), 1000n)) : null;
+  }
+  return null;
 }
 
 function wireFraction(value: RationalTime | undefined): BigFraction | null {
@@ -448,7 +468,7 @@ function pointIndex(
   visiting: Set<string>,
 ): number | null {
   if (!point) return null;
-  if (point.kind === "word") return wordIndexV2(point.anchor, row);
+  if (point.kind === "word" || point.kind === "audible_word_end") return wordBoundaryOrderV2(point.anchor, row);
   if (point.kind === "between_blocks") {
     const before = document.activeDraft.blocks.findIndex((block) => block.id === point.beforeBlockId);
     const after = document.activeDraft.blocks.findIndex((block) => block.id === point.afterBlockId);
@@ -513,8 +533,8 @@ function activeRootAt(groups: RootGroup[], row: NarrationBlockV2, tokenIndex: nu
 
 function slotStart(slot: ContentSlot, row: NarrationBlockV2): number | null {
   if (slot.boundaryBefore.kind === "row_start") return 0;
-  return slot.boundaryBefore.kind === "spoken_word"
-    ? wordIndexV2(slot.boundaryBefore.anchor, row)
+  return (slot.boundaryBefore.kind === "spoken_word" || slot.boundaryBefore.kind === "audible_word_end")
+    ? wordCoverageOffsetV2(slot.boundaryBefore.anchor, row)
     : null;
 }
 
@@ -583,7 +603,7 @@ function estimateMediaCuts(
     const startIndex = slotStart(controller, row);
     if (startIndex === null) continue;
     const timingMap = options.narrationTimingMaps?.find((item) => item.blockId === row.id);
-    const preview = timingMap && validPreviewTiming(row, timingMap) ? timingMap : null;
+    const preview = timingMap && !options.narrationBoundaryEvidence?.some((item) => item.blockId === row.id) && validPreviewTiming(row, timingMap) ? timingMap : null;
     const source = preview ? "verified_preview" : "400ms_per_token_fallback";
     const tokenTimes = preview ? previewTokenTimes(row, preview) : fallbackTokenTimes(row);
     const startTime = startIndex === 0

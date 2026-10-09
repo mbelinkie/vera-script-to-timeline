@@ -3,18 +3,19 @@ import type {
   NarrationBlockV2,
   ReturnSlot,
   ScriptDocumentV2,
-  WordInpointAnchor,
 } from "./generated/contracts-v2.js";
 import {
   isWordAnchorCurrentV2,
   validateScriptDocumentV2,
   wordAnchorForTokenV2,
-  wordIndexV2,
+  wordBoundaryOrderV2,
+  boundaryForWordAnchorV2,
 } from "./authoring-v2-validation.js";
 import type {
   AuthoringDiagnosticV2,
   VisualDestinationV2,
   VisualEditEvidenceV2,
+  WordBoundaryAnchorV2,
   VisualSequenceEditCommandV2,
   VisualSequenceEditResultV2,
 } from "./authoring-v2.js";
@@ -127,7 +128,7 @@ function applyCommand(
     case "flatten_cutaway_group":
       return flattenGroup(document, command.blockId, expectedVersion, command.parentSlotId);
     case "move_word_boundary":
-      return moveBoundary(document, command.blockId, expectedVersion, command.boundaryOwnerId, command.tokenId);
+      return moveBoundary(document, command.blockId, expectedVersion, command.boundaryOwnerId, command.tokenId, command.affinity);
     case "swap_payloads":
       return swapPayloads(document, command.blockId, expectedVersion, command.firstSlotId, command.secondSlotId);
     case "move_payload":
@@ -145,14 +146,14 @@ function insertSequential(
   document: ScriptDocumentV2,
   blockId: string,
   expectedVersion: number,
-  boundary: WordInpointAnchor,
+  boundary: WordBoundaryAnchorV2,
   slotId: string,
   payload: ContentSlot["payload"],
 ): MutationResult {
   const row = findRow(document, blockId);
   const sequence = row?.primaryVisualSequence;
   if (!row || !sequence) return refused("PRIMARY_SEQUENCE_MISSING", "The row has no primary sequence.", blockId);
-  const index = wordIndexV2(boundary, row);
+  const index = wordBoundaryOrderV2(boundary, row);
   if (index === null || index === 0) return refused("INSERT_BOUNDARY_INVALID", "A root insert needs a current exact word after row start.", blockId, slotId);
   if (sequence.slots.some((slot) => boundaryIndex(slot, row) === index)) {
     return refused("BOUNDARY_DUPLICATE", "A structural boundary already uses this word.", blockId, slotId);
@@ -163,7 +164,7 @@ function insertSequential(
     id: slotId,
     kind: "content",
     relation: { kind: "sequential" },
-    boundaryBefore: { kind: "spoken_word", anchor: boundary },
+    boundaryBefore: boundaryForWordAnchorV2(boundary),
     payload,
     playoutPolicy: "match_structural_interval",
     version: 1,
@@ -177,7 +178,7 @@ function insertCutaway(
   document: ScriptDocumentV2,
   blockId: string,
   expectedVersion: number,
-  boundary: WordInpointAnchor,
+  boundary: WordBoundaryAnchorV2,
   parentSlotId: string,
   slotId: string,
   returnSlotId: string,
@@ -188,7 +189,7 @@ function insertCutaway(
   const parent = sequence?.slots.find((slot): slot is RootSlot => slot.kind === "content" && slot.id === parentSlotId && slot.relation.kind !== "cutaway");
   if (!row || !sequence || !parent) return refused("CUTAWAY_PARENT_MISSING", "The cutaway parent must be an existing root.", blockId, parentSlotId);
   if (parent.playoutPolicy === "complete_logged_clip") return refused("COMPLETE_CLIP_CUTAWAY_FORBIDDEN", "Complete-clip roots cannot own cutaways.", blockId, parentSlotId);
-  const selected = wordIndexV2(boundary, row);
+  const selected = wordBoundaryOrderV2(boundary, row);
   const parentStart = boundaryIndex(parent, row);
   if (selected === null || parentStart === null || selected <= parentStart) return refused("CUTAWAY_BOUNDARY_INVALID", "The cutaway must start after its current parent boundary.", blockId, slotId);
   if (sequence.slots.some((slot) => boundaryIndex(slot, row) === selected)) return refused("BOUNDARY_DUPLICATE", "A structural boundary already uses this word.", blockId, slotId);
@@ -205,7 +206,7 @@ function insertCutaway(
   const previousChildStart = previousChild ? boundaryIndex(previousChild, row) : parentStart;
   if (previousChildStart === null || selected <= previousChildStart) return refused("CUTAWAY_BOUNDARY_INVALID", "The cutaway word must be after the preceding child boundary.", blockId, slotId);
   if (group.returnSlot?.inpoint) {
-    const returnIndex = wordIndexV2(group.returnSlot.inpoint, row);
+    const returnIndex = wordBoundaryOrderV2(group.returnSlot.inpoint, row);
     if (returnIndex === null || selected >= returnIndex) return refused("CUTAWAY_BOUNDARY_INVALID", "The new child must start before the existing return.", blockId, slotId);
   }
 
@@ -213,7 +214,7 @@ function insertCutaway(
     id: slotId,
     kind: "content",
     relation: { kind: "cutaway", parentSlotId },
-    boundaryBefore: { kind: "spoken_word", anchor: boundary },
+    boundaryBefore: boundaryForWordAnchorV2(boundary),
     payload,
     playoutPolicy: "match_structural_interval",
     version: 1,
@@ -255,8 +256,8 @@ function convertToCutaway(
   if (!parentGroup) return refused("CUTAWAY_PREVIOUS_ROOT_MISSING", "A cutaway needs a preceding root parent.", blockId, slotId);
   if ((rootGroups[groupIndex]?.children.length ?? 0) > 0) return refused("CUTAWAY_TARGET_HAS_CHILDREN", "A root with children cannot be converted to a cutaway.", blockId, slotId);
   if (parentGroup.root.playoutPolicy === "complete_logged_clip") return refused("COMPLETE_CLIP_CUTAWAY_FORBIDDEN", "Complete-clip roots cannot parent cutaways.", blockId, slotId);
-  if (target.boundaryBefore.kind !== "spoken_word") return refused("CUTAWAY_BOUNDARY_UNRESOLVED", "A converted slot must retain its exact word boundary.", blockId, slotId);
-  const boundaryIndex = wordIndexV2(target.boundaryBefore.anchor, row);
+  if (target.boundaryBefore.kind !== "spoken_word" && target.boundaryBefore.kind !== "audible_word_end") return refused("CUTAWAY_BOUNDARY_UNRESOLVED", "A converted slot must retain its exact word boundary.", blockId, slotId);
+  const boundaryIndex = wordBoundaryOrderV2(target.boundaryBefore.anchor, row);
   if (boundaryIndex === null) return refused("STALE_WORD_ANCHOR", "The converted slot boundary is stale and cannot be inferred.", blockId, slotId);
 
   const existingReturn = parentGroup.returnSlot;
@@ -264,7 +265,7 @@ function convertToCutaway(
     return refused("RETURN_INPOINT_MISSING", "Repair the parent's existing return before merging this root into its cutaway group.", blockId, parentGroup.root.id);
   }
   if (existingReturn?.inpoint) {
-    const priorReturnIndex = wordIndexV2(existingReturn.inpoint, row);
+    const priorReturnIndex = wordBoundaryOrderV2(existingReturn.inpoint, row);
     if (priorReturnIndex === null || priorReturnIndex >= boundaryIndex) return refused("CUTAWAY_BOUNDARY_ORDER_INVALID", "The converted root must follow the existing return boundary.", blockId, slotId);
     sequence.slots.splice(sequence.slots.indexOf(existingReturn), 1);
   }
@@ -312,29 +313,33 @@ function moveBoundary(
   expectedVersion: number,
   boundaryOwnerId: string,
   tokenId: string,
+  affinity?: "before" | "after",
 ): MutationResult {
   const row = findRow(document, blockId);
   const sequence = row?.primaryVisualSequence;
   if (!row || !sequence) return refused("PRIMARY_SEQUENCE_MISSING", "The row has no primary sequence.", blockId);
-  const targetIndex = row.tokens.findIndex((token) => token.id === tokenId);
-  if (targetIndex < 0) return refused("BOUNDARY_TOKEN_MISSING", "Choose an existing stable spoken-token ID.", blockId, boundaryOwnerId);
+  const tokenIndex = row.tokens.findIndex((token) => token.id === tokenId);
+  if (tokenIndex < 0) return refused("BOUNDARY_TOKEN_MISSING", "Choose an existing stable spoken-token ID.", blockId, boundaryOwnerId);
   const ownerIndex = sequence.slots.findIndex((slot) => slot.id === boundaryOwnerId);
   const owner = sequence.slots[ownerIndex];
   if (!owner) return refused("BOUNDARY_OWNER_MISSING", "The structural boundary no longer exists.", blockId, boundaryOwnerId);
+  const ownerAnchor = owner.kind === "return" ? owner.inpoint : "anchor" in owner.boundaryBefore ? owner.boundaryBefore.anchor : null;
+  const selectedAffinity = affinity ?? ownerAnchor?.affinity ?? "before";
+  const targetIndex = tokenIndex + (selectedAffinity === "after" ? 0.5 : 0);
   const priorBoundary = previousBoundary(sequence, row, ownerIndex);
   const nextBoundary = nextBoundaryAfter(sequence, row, ownerIndex);
   if (!priorBoundary || !nextBoundary) return refused("BOUNDARY_NEIGHBOR_UNRESOLVED", "The exact legal word interval is unknown because a neighboring boundary is stale or media-derived.", blockId, boundaryOwnerId);
   if (targetIndex <= priorBoundary.index || targetIndex >= nextBoundary.index) {
     return refused("BOUNDARY_CROSSED_OR_COLLAPSED", `Choose a word strictly after token index ${priorBoundary.index} and before token index ${nextBoundary.index}.`, blockId, boundaryOwnerId);
   }
-  const anchor = wordAnchorForTokenV2(row, tokenId, currentAnchorVersion(owner) + 1);
+  const anchor = wordAnchorForTokenV2(row, tokenId, currentAnchorVersion(owner) + 1, selectedAffinity);
   if (!anchor) return refused("BOUNDARY_TOKEN_MISSING", "Choose an existing stable spoken-token ID.", blockId, boundaryOwnerId);
   if (owner.kind === "return") {
     owner.inpoint = anchor;
     owner.version += 1;
   } else {
-    if (owner.boundaryBefore.kind !== "spoken_word") return refused("BOUNDARY_FIXED", "The base and media-derived boundaries cannot be moved as exact word anchors.", blockId, boundaryOwnerId);
-    owner.boundaryBefore = { kind: "spoken_word", anchor };
+    if (owner.boundaryBefore.kind !== "spoken_word" && owner.boundaryBefore.kind !== "audible_word_end") return refused("BOUNDARY_FIXED", "The base and media-derived boundaries cannot be moved as exact word anchors.", blockId, boundaryOwnerId);
+    owner.boundaryBefore = boundaryForWordAnchorV2(anchor);
     owner.version += 1;
   }
   sequence.version += 1;
@@ -463,12 +468,12 @@ function deleteSlot(
   if (target.relation.kind === "base") {
     if (group.children.length > 0) {
       const returned = group.returnSlot?.inpoint;
-      if (!group.returnSlot || !returned || wordIndexV2(returned, row) === null) {
+      if (!group.returnSlot || !returned || wordBoundaryOrderV2(returned, row) === null) {
         return refused("BASE_DELETE_RETURN_UNRESOLVED", "Base deletion needs the exact former return word to preserve the child group's outpoint.", blockId, slotId);
       }
-      const formerReturnIndex = wordIndexV2(returned, row)!;
+      const formerReturnIndex = wordBoundaryOrderV2(returned, row)!;
       const nextRoot = group.nextRootIndex === undefined ? undefined : sequence.slots[group.nextRootIndex] as RootSlot;
-      const nextRootIndex = nextRoot?.boundaryBefore.kind === "spoken_word" ? wordIndexV2(nextRoot.boundaryBefore.anchor, row) : null;
+      const nextRootIndex = (nextRoot?.boundaryBefore.kind === "spoken_word" || nextRoot?.boundaryBefore.kind === "audible_word_end") ? wordBoundaryOrderV2(nextRoot.boundaryBefore.anchor, row) : null;
       const existingRootAtReturn = nextRootIndex === formerReturnIndex;
       if (!existingRootAtReturn && (!replacementSlotId || !replacementPayloadId)) {
         return refused("BASE_DELETE_REPLACEMENT_IDS_REQUIRED", "Supply stable slot and payload IDs for the new undefined outpoint.", blockId, slotId);
@@ -485,7 +490,7 @@ function deleteSlot(
           id: replacementSlotId!,
           kind: "content",
           relation: { kind: "sequential" },
-          boundaryBefore: { kind: "spoken_word", anchor: returned },
+          boundaryBefore: boundaryForWordAnchorV2(returned),
           payload: { kind: "undefined", payloadId: replacementPayloadId!, description: "The former cutaway outpoint is preserved without guessing a replacement visual." },
           playoutPolicy: "match_structural_interval",
           version: 1,
@@ -538,7 +543,7 @@ function setPlayoutPolicy(
   expectedVersion: number,
   slotId: string,
   policy: ContentSlot["playoutPolicy"],
-  nextBoundary?: WordInpointAnchor,
+  nextBoundary?: WordBoundaryAnchorV2,
 ): MutationResult {
   const row = findRow(document, blockId);
   const sequence = row?.primaryVisualSequence;
@@ -565,7 +570,7 @@ function setPlayoutPolicy(
     if (!nextBoundary) return refused("PLAYOUT_WORD_BOUNDARY_REQUIRED", "Switching back requires a newly chosen exact word boundary.", blockId, next.root.id);
     if (!isWordAnchorCurrentV2(nextBoundary, row)) return refused("STALE_WORD_ANCHOR", "The replacement boundary must name a current token and exact spoken text in this row.", blockId, next.root.id);
     const startIndex = boundaryIndex(slot, row);
-    const selectedIndex = wordIndexV2(nextBoundary, row);
+    const selectedIndex = wordBoundaryOrderV2(nextBoundary, row);
     const followingRoot = roots[position + 2]?.root;
     let followingIndex: number | null = row.tokens.length;
     if (followingRoot?.boundaryBefore.kind === "previous_media_end") {
@@ -586,7 +591,7 @@ function setPlayoutPolicy(
     }
     slot.playoutPolicy = "match_structural_interval";
     slot.version += 1;
-    next.root.boundaryBefore = { kind: "spoken_word", anchor: nextBoundary };
+    next.root.boundaryBefore = boundaryForWordAnchorV2(nextBoundary);
     next.root.version += 1;
   }
   sequence.version += 1;
@@ -649,7 +654,7 @@ function insertionLocation(
   if (!previous) return { ok: false, code: "BASE_START_FIXED", message: "A root insert cannot replace or precede the base slot." };
   if (previous.root.playoutPolicy === "complete_logged_clip") return { ok: false, code: "COMPLETE_CLIP_REPAIR_REQUIRED", message: "Choose an exact word boundary for the media-led cut before inserting a root." };
   if (previous.children.length > 0) {
-    const returnIndex = previous.returnSlot?.inpoint ? wordIndexV2(previous.returnSlot.inpoint, row) : null;
+    const returnIndex = previous.returnSlot?.inpoint ? wordBoundaryOrderV2(previous.returnSlot.inpoint, row) : null;
     if (returnIndex === null) return { ok: false, code: "RETURN_INPOINT_MISSING", message: "Repair the cutaway return before inserting a later root." };
     if (index <= returnIndex) return { ok: false, code: "INSERT_INSIDE_CUTAWAY_GROUP", message: "A new root must follow the complete cutaway group." };
   }
@@ -716,7 +721,7 @@ function previousBoundary(
     const slot = sequence.slots[index]!;
     if (slot.kind === "return") {
       if (!slot.inpoint) return null;
-      const word = wordIndexV2(slot.inpoint, row);
+      const word = wordBoundaryOrderV2(slot.inpoint, row);
       return word === null ? null : { index: word };
     }
     if (slot.boundaryBefore.kind === "previous_media_end") return null;
@@ -735,7 +740,7 @@ function nextBoundaryAfter(
     const slot = sequence.slots[index]!;
     if (slot.kind === "return") {
       if (!slot.inpoint) return null;
-      const word = wordIndexV2(slot.inpoint, row);
+      const word = wordBoundaryOrderV2(slot.inpoint, row);
       return word === null ? null : { index: word };
     }
     if (slot.boundaryBefore.kind === "previous_media_end") return null;
@@ -746,10 +751,10 @@ function nextBoundaryAfter(
 }
 
 function boundaryIndex(slot: ContentSlot | ReturnSlot, row: NarrationBlockV2): number | null {
-  if (slot.kind === "return") return slot.inpoint ? wordIndexV2(slot.inpoint, row) : null;
+  if (slot.kind === "return") return slot.inpoint ? wordBoundaryOrderV2(slot.inpoint, row) : null;
   if (slot.boundaryBefore.kind === "row_start") return 0;
-  return slot.boundaryBefore.kind === "spoken_word"
-    ? wordIndexV2(slot.boundaryBefore.anchor, row)
+  return (slot.boundaryBefore.kind === "spoken_word" || slot.boundaryBefore.kind === "audible_word_end")
+    ? wordBoundaryOrderV2(slot.boundaryBefore.anchor, row)
     : null;
 }
 
@@ -760,7 +765,7 @@ function isRootSlot(slot: ContentSlot | ReturnSlot): slot is RootSlot {
 function currentAnchorVersion(slot: ContentSlot | ReturnSlot): number {
   return slot.kind === "return"
     ? slot.inpoint?.anchorVersion ?? slot.version
-    : slot.boundaryBefore.kind === "spoken_word"
+    : (slot.boundaryBefore.kind === "spoken_word" || slot.boundaryBefore.kind === "audible_word_end")
       ? slot.boundaryBefore.anchor.anchorVersion
       : slot.version;
 }

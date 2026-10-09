@@ -77,9 +77,6 @@ class PointAnchor3(TypedDict):
     edge: Literal["start", "end"]
 
 
-type PointAnchor = PointAnchor1 | PointAnchor2 | PointAnchor3
-
-
 class BoundaryBefore1(TypedDict):
     kind: Literal["row_start"]
 
@@ -92,9 +89,6 @@ class BoundaryBefore2(TypedDict):
 class BoundaryBefore3(TypedDict):
     kind: Literal["previous_media_end"]
     controllingSlotId: EntityId
-
-
-type BoundaryBefore = BoundaryBefore1 | BoundaryBefore2 | BoundaryBefore3
 
 
 class SourceUsage(TypedDict):
@@ -160,43 +154,6 @@ class SlotRelation3(TypedDict):
 type SlotRelation = SlotRelation1 | SlotRelation2 | SlotRelation3
 
 
-class ReturnSlot(TypedDict):
-    id: EntityId
-    kind: Literal["return"]
-    parentSlotId: EntityId
-    inpoint: WordInpointAnchor | None
-    version: EntityVersion
-
-
-class TimedPlacement1(TypedDict):
-    kind: Literal["timed"]
-    start: PointAnchor
-    end: PointAnchor
-    durationMs: NotRequired[PositiveSafeInteger]
-
-
-class TimedPlacement2(TypedDict):
-    kind: Literal["timed"]
-    start: PointAnchor
-    end: NotRequired[PointAnchor]
-    durationMs: PositiveSafeInteger
-
-
-class TimedPlacement3(TypedDict):
-    kind: Literal["timed"]
-    start: NotRequired[PointAnchor]
-    end: PointAnchor
-    durationMs: PositiveSafeInteger
-
-
-type TimedPlacement = TimedPlacement1 | TimedPlacement2 | TimedPlacement3
-
-
-class PointPlacement(TypedDict):
-    kind: Literal["point"]
-    anchor: PointAnchor
-
-
 class DirectionBlock(TypedDict):
     type: Literal["direction"]
     id: EntityId
@@ -224,6 +181,14 @@ class NoteDraftBlock(TypedDict):
     text: str
     state: Literal["excluded"]
     version: EntityVersion
+
+
+class WordAudibleEndAnchor(TypedDict):
+    blockId: EntityId
+    tokenId: EntityId
+    affinity: Literal["after"]
+    quotedWord: str
+    anchorVersion: EntityVersion
 
 
 class PresenterStillReference(TypedDict):
@@ -260,6 +225,24 @@ class PerformanceBeat(TypedDict):
     id: EntityId
     range: TextAnchorRange
     version: EntityVersion
+
+
+class PointAnchor4(TypedDict):
+    kind: Literal["audible_word_end"]
+    anchor: WordAudibleEndAnchor
+
+
+type PointAnchor = PointAnchor1 | PointAnchor2 | PointAnchor3 | PointAnchor4
+
+
+class BoundaryBefore4(TypedDict):
+    kind: Literal["audible_word_end"]
+    anchor: WordAudibleEndAnchor
+
+
+type BoundaryBefore = (
+    BoundaryBefore1 | BoundaryBefore2 | BoundaryBefore3 | BoundaryBefore4
+)
 
 
 type SourceReference = (
@@ -304,10 +287,42 @@ class ContentSlot(TypedDict):
     version: EntityVersion
 
 
+class ReturnSlot(TypedDict):
+    id: EntityId
+    kind: Literal["return"]
+    parentSlotId: EntityId
+    inpoint: WordInpointAnchor | WordAudibleEndAnchor | None
+    version: EntityVersion
+
+
 class PrimaryVisualSequence(TypedDict):
     id: EntityId
     slots: list[ContentSlot | ReturnSlot]
     version: EntityVersion
+
+
+class TimedPlacement1(TypedDict):
+    kind: Literal["timed"]
+    start: PointAnchor
+    end: PointAnchor
+    durationMs: NotRequired[PositiveSafeInteger]
+
+
+class TimedPlacement2(TypedDict):
+    kind: Literal["timed"]
+    start: PointAnchor
+    end: NotRequired[PointAnchor]
+    durationMs: PositiveSafeInteger
+
+
+class TimedPlacement3(TypedDict):
+    kind: Literal["timed"]
+    start: NotRequired[PointAnchor]
+    end: PointAnchor
+    durationMs: PositiveSafeInteger
+
+
+type TimedPlacement = TimedPlacement1 | TimedPlacement2 | TimedPlacement3
 
 
 class UnplacedPlacement(TypedDict):
@@ -321,6 +336,11 @@ class UnplacedPlacement(TypedDict):
 class RangePlacement(TypedDict):
     kind: Literal["range"]
     range: TextAnchorRange
+
+
+class PointPlacement(TypedDict):
+    kind: Literal["point"]
+    anchor: PointAnchor
 
 
 type DisplayAttachment = TextAnchorRange | PointAnchor

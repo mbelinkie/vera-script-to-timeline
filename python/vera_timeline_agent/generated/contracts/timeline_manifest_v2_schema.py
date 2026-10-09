@@ -65,6 +65,7 @@ class EventProvenanceV2(TypedDict):
     deliveredSourceHash: ContentHash | None
     timingMapHash: ContentHash | None
     compilerVersion: compiler_dependencies_v2_schema.NonEmptyString
+    boundaryEvidenceHash: NotRequired[ContentHash]
 
 
 class SourceAudioEventV2(TypedDict):
@@ -117,6 +118,8 @@ class BoundaryEvidenceV2(TypedDict):
         "visual_only_duration",
         "complete_clip_duration",
         "independent_timing",
+        "row_start",
+        "row_end",
     ]
     inputTime: RationalTime
     resolvedRecordFrame: compiler_dependencies_v2_schema.NonNegativeSafeInteger
@@ -128,11 +131,19 @@ class BoundaryEvidenceV2(TypedDict):
         "unknown",
         "visual_only_default",
         "complete_clip_quantized",
+        "verified_onset",
     ]
     wordRelation: NotRequired[
-        Literal["at_word_start", "inside_word", "between_words", "derived_or_unknown"]
+        Literal[
+            "at_word_start",
+            "inside_word",
+            "between_words",
+            "derived_or_unknown",
+            "at_word_end",
+        ]
     ]
     relatedTokenId: NotRequired[compiler_dependencies_v2_schema.EntityId | None]
+    boundaryEvidenceHash: NotRequired[ContentHash]
 
 
 class StillPictureTreatmentV2(TypedDict):

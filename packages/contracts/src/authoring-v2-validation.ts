@@ -17,9 +17,9 @@ import type {
   SupportingItemV2,
   TextAnchorRange,
   TimedPlacement,
-  WordInpointAnchor,
 } from "./generated/contracts-v2.js";
 import type {
+  WordBoundaryAnchorV2,
   AuthoringDiagnosticV2,
   AuthoringValidationResultV2,
 } from "./authoring-v2.js";
@@ -129,6 +129,7 @@ export function validateScriptDocumentV2(
         `${eventPath}/timing`,
         diagnostics,
         event.id,
+        overlayIds,
       );
     });
   }
@@ -146,7 +147,7 @@ export function validateScriptDocumentV2(
 }
 
 export function isWordAnchorCurrentV2(
-  anchor: WordInpointAnchor,
+  anchor: WordBoundaryAnchorV2,
   row: NarrationBlockV2,
 ): boolean {
   if (anchor.blockId !== row.id) return false;
@@ -163,31 +164,47 @@ export function isWordAnchorCurrentV2(
 }
 
 export function wordIndexV2(
-  anchor: WordInpointAnchor,
+  anchor: WordBoundaryAnchorV2,
   row: NarrationBlockV2,
 ): number | null {
   if (!isWordAnchorCurrentV2(anchor, row)) return null;
   return row.tokens.findIndex((token) => token.id === anchor.tokenId);
 }
 
+/** Ordering distinguishes two edges on the same frozen token. */
+export function wordBoundaryOrderV2(anchor: WordBoundaryAnchorV2, row: NarrationBlockV2): number | null {
+  const index = wordIndexV2(anchor, row);
+  return index === null ? null : index + (anchor.affinity === "after" ? 0.5 : 0);
+}
+
+export function wordCoverageOffsetV2(anchor: WordBoundaryAnchorV2, row: NarrationBlockV2): number | null {
+  const index = wordIndexV2(anchor, row);
+  return index === null ? null : index + (anchor.affinity === "after" ? 1 : 0);
+}
+
+export function boundaryForWordAnchorV2(anchor: WordBoundaryAnchorV2): ContentSlot["boundaryBefore"] {
+  return anchor.affinity === "after" ? { kind: "audible_word_end", anchor } : { kind: "spoken_word", anchor };
+}
+
 export function pointWordIndexV2(
   anchor: PointAnchor,
   row: NarrationBlockV2,
 ): number | null {
-  return anchor.kind === "word" ? wordIndexV2(anchor.anchor, row) : null;
+  return (anchor.kind === "word" || anchor.kind === "audible_word_end") ? wordIndexV2(anchor.anchor, row) : null;
 }
 
 export function wordAnchorForTokenV2(
   row: NarrationBlockV2,
   tokenId: string,
   anchorVersion: number,
-): WordInpointAnchor | null {
+  affinity: "before" | "after" = "before",
+): WordBoundaryAnchorV2 | null {
   const token = row.tokens.find((candidate) => candidate.id === tokenId);
   return token
     ? {
         blockId: row.id,
         tokenId,
-        affinity: "before",
+        affinity,
         quotedWord: token.value,
         anchorVersion,
       }
@@ -253,11 +270,11 @@ function validateSequence(
   const roots: ContentSlot[] = [];
   const indexedBoundaries: { index: number; path: string; id: string }[] = [];
   const appendBoundary = (
-    anchor: WordInpointAnchor,
+    anchor: WordBoundaryAnchorV2,
     ownerPath: string,
     ownerId: string,
   ): number | null => {
-    const index = wordIndexV2(anchor, row);
+    const index = wordBoundaryOrderV2(anchor, row);
     if (index === null) {
       diagnostics.push({
         code: "STALE_WORD_ANCHOR",
@@ -306,7 +323,7 @@ function validateSequence(
         childrenByParent.set(slot.relation.parentSlotId, []);
       }
       childrenByParent.get(slot.relation.parentSlotId)!.push(slot);
-      if (slot.boundaryBefore.kind === "spoken_word") {
+      if (slot.boundaryBefore.kind === "spoken_word" || slot.boundaryBefore.kind === "audible_word_end") {
         appendBoundary(slot.boundaryBefore.anchor, `${slotPath}/boundaryBefore/anchor`, slot.id);
       }
       cursor += 1;
@@ -342,7 +359,7 @@ function validateSequence(
           blockId: row.id,
           entityId: slot.id,
         });
-      } else if (slot.boundaryBefore.kind === "spoken_word") {
+      } else if (slot.boundaryBefore.kind === "spoken_word" || slot.boundaryBefore.kind === "audible_word_end") {
         appendBoundary(slot.boundaryBefore.anchor, `${slotPath}/boundaryBefore/anchor`, slot.id);
       }
     }
@@ -379,7 +396,7 @@ function validateSequence(
           entityId: child.id,
         });
       }
-      if (child.boundaryBefore.kind === "spoken_word") {
+      if (child.boundaryBefore.kind === "spoken_word" || child.boundaryBefore.kind === "audible_word_end") {
         appendBoundary(child.boundaryBefore.anchor, `${childPath}/boundaryBefore/anchor`, child.id);
       } else {
         diagnostics.push({
@@ -633,7 +650,7 @@ function validatePointAnchor(
   ownerId?: string,
 ): void {
   let current: boolean;
-  if (anchor.kind === "word") {
+  if (anchor.kind === "word" || anchor.kind === "audible_word_end") {
     const row = document.activeDraft.blocks.find(
       (block): block is NarrationBlockV2 => block.type === "narration" && block.id === anchor.anchor.blockId,
     );
