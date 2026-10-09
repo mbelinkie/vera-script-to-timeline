@@ -19,6 +19,14 @@ edited canonical document through their existing acknowledgement transaction
 before advancing those fields. This seam makes no CRDT, persistence, or remote
 sync claim.
 
+To leave `complete_logged_clip`, the command supplies the exact spoken-word
+boundary for the immediately following root. In a linked complete-clip chain,
+repair the earlier controller first so its successor gets an exact start;
+then a later complete root can be switched out with an explicit exact start
+for its own successor. A still-valid following complete root retains its own
+`previous_media_end` link. P3 does not compare a chosen word with that unknown
+media end; the compiler resolves authoritative media timing later.
+
 The slice uses the accepted v2 schemas and generated types from #170/#171.
 There is no schema, generated type, v1, production fixture, golden, UI,
 persistence, migration, compiler, timing-inference, media, native-application,
@@ -49,7 +57,9 @@ The focused automated matrix covers continuous roots with nested cutaways and
 returns, a reversed advancing root, independent crossing overlays, row-local
 ordinals and primary-before-overlay ties, exact shared-word boundaries,
 stale/null/equal/crossed boundary refusal, atomic swaps and base swaps,
-mode-switch and destination refusal, base deletion promotion, Unplaced
+mode-switch and destination refusal, complete-clip chain mode-out in
+controller order using caller-selected exact words, successful and refused
+atomic cross-row moves with source repair, base deletion promotion, Unplaced
 promotion, consistent and inconsistent two-of-three timing, zero/negative/
 out-of-row timing refusal, and identical pure projection data for pointer and
 keyboard consumers.
@@ -73,12 +83,14 @@ retained passing commands and exact tool/source pins are the closing evidence.
 
 ## Forecast
 
-Issue size is M. The main transaction, validation, projection and resolver
-surface is implemented; the 17-case authoring suite, contracts lint and
-TypeScript typecheck pass. The additional full contracts workspace run
-reported 282/284 passing; two existing #144 CLI tests exceeded their default
+Issue size is M. Final focused verification passes for the 20-case authoring
+suite, contracts lint, and TypeScript typecheck. Review added linked
+complete-clip mode-out, successful cross-row source repair, and equal/crossed
+boundary refusal coverage. An additional package-wide run on the initial
+implementation commit `80bbedd74035ca0fcffad713f25fda2c51e506d3` reported
+282/284 passing; two existing #144 CLI tests exceeded their default
 five-second test timeout under package-wide concurrency. No #144 tests or
-timeouts were changed. Worker remaining work is final diff review and an
-issue-scoped commit, estimated at 10–20 active minutes with medium confidence.
-The parent owns broad repository validation and any targeted rerun of those
-existing timeout cases. External or Producer waits are not part of this slice.
+timeouts were changed. Remaining worker work is the final issue-scoped commit,
+estimated at 5–10 active minutes with high confidence. The parent owns
+repository-wide validation and any targeted rerun of those tests. External or
+Producer waits are not part of this slice.

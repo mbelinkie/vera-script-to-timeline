@@ -398,8 +398,8 @@ function movePayload(
   return {
     diagnostics: [],
     blockIds: [command.sourceBlockId, command.destinationBlockId],
-    slotIds: [sourceSlot.id, ...destinationResult.slotIds],
-    payloadIds: [payloadId(sourceSlot.payload)].filter((id): id is string => id !== null),
+    slotIds: [...new Set([...sourceRepair.slotIds, ...destinationResult.slotIds])],
+    payloadIds: [...new Set([...sourceRepair.payloadIds, ...destinationResult.payloadIds].filter((id): id is string => id !== null))],
   };
 }
 
@@ -430,7 +430,7 @@ function removeSlotForMove(
   if (target.boundaryBefore.kind === "previous_media_end") return refused("COMPLETE_CLIP_REPAIR_REQUIRED", "A root controlled by a media-end boundary must be repaired before moving.", row.id, target.id);
   const removeIds = new Set([target.id, ...group.children.map((child) => child.id), ...(group.returnSlot ? [group.returnSlot.id] : [])]);
   sequence.slots = sequence.slots.filter((slot) => !removeIds.has(slot.id));
-  return changed([row.id], [...removeIds], [payloadId(target.payload)]);
+  return changed([row.id], [...removeIds], [payloadId(target.payload), ...group.children.map((child) => payloadId(child.payload))]);
 }
 
 function deleteSlot(
@@ -567,9 +567,22 @@ function setPlayoutPolicy(
     const startIndex = boundaryIndex(slot, row);
     const selectedIndex = wordIndexV2(nextBoundary, row);
     const followingRoot = roots[position + 2]?.root;
-    const followingIndex = followingRoot ? boundaryIndex(followingRoot, row) : row.tokens.length;
+    let followingIndex: number | null = row.tokens.length;
+    if (followingRoot?.boundaryBefore.kind === "previous_media_end") {
+      const remainsControlledByCompleteClip =
+        next.root.playoutPolicy === "complete_logged_clip" &&
+        followingRoot.boundaryBefore.controllingSlotId === next.root.id;
+      if (!remainsControlledByCompleteClip) {
+        return refused("BOUNDARY_NEIGHBOR_UNRESOLVED", "The following media-end boundary has no exact word position after this mode switch.", blockId, followingRoot.id);
+      }
+      // The next root remains complete and still owns this media-end link. Its
+      // exact timing is resolved by the compiler; the edit only places the
+      // next root at the caller's exact word anchor.
+    } else if (followingRoot) {
+      followingIndex = boundaryIndex(followingRoot, row);
+    }
     if (startIndex === null || selectedIndex === null || followingIndex === null || selectedIndex <= startIndex || selectedIndex >= followingIndex) {
-      return refused("BOUNDARY_CROSSED_OR_COLLAPSED", "The replacement cut word must be strictly between the controller start and the next exact root boundary.", blockId, next.root.id);
+      return refused("BOUNDARY_CROSSED_OR_COLLAPSED", "The replacement word must follow the controller start and precede the next exact word boundary when one is available.", blockId, next.root.id);
     }
     slot.playoutPolicy = "match_structural_interval";
     slot.version += 1;

@@ -31,21 +31,24 @@ npm run lint --workspace @vera/contracts
 npm run typecheck --workspace @vera/contracts
 ```
 
-Results: 17/17 authoring-v2 tests passed; contracts ESLint passed with zero
+Results: 20/20 authoring-v2 tests passed; contracts ESLint passed with zero
 warnings; contracts TypeScript typecheck passed. `git diff --check` passed.
 The synthetic suite covers ordered continuous roots, reversed B-roll parent
 coverage, returns/resume state, independent crossing overlays and primary-first
 ties, exact token anchors, insert/convert/flatten/swap/delete/cross-row repair,
-complete-clip modes and fallback estimates, Unplaced identity/lineage, and
-exact two-of-three placement resolution/refusal.
+complete-clip modes and fallback estimates, linked complete-clip chain
+mode-out using exact caller words, successful cross-row source repair with
+payload/evidence/version preservation, equal/crossed boundary refusal,
+Unplaced identity/lineage, and exact two-of-three placement resolution/refusal.
 
 ## Additional package-suite observation
 
-The extra command `npm run test --workspace @vera/contracts` ran 284 tests:
+An extra `npm run test --workspace @vera/contracts` run on the initial
+implementation commit `80bbedd74035ca0fcffad713f25fda2c51e506d3` ran 284 tests:
 282 passed, while two existing #144 CLI/omission-bridge tests exceeded their
-default five-second per-test timeout during the package-wide run. No #144 test
-or timeout was changed. This is retained as an observed package-suite failure,
-not a passing acceptance command. The parent task owns the repository-wide
+default five-second per-test timeout during package-wide concurrency. No #144
+test or timeout was changed. This is retained as an observed package-suite
+failure, not a passing acceptance command. The parent owns repository-wide
 validation and any targeted rerun of those existing tests.
 
 ## Exact source hashes
@@ -59,8 +62,8 @@ SHA-256 at the focused passing check:
 | `packages/contracts/src/authoring-v2-validation.ts` | `e201fedb07c299966bb363c034bf941466832b263644e25a6fbed318a3880cd5` |
 | `packages/contracts/src/authoring-v2-projection.ts` | `567ed6116aadc98aaa3dfbf548bb5eba10baec8bbe880a80e638d53153be648d` |
 | `packages/contracts/src/authoring-v2-placement.ts` | `d6e666424e49bbd7f30b86806ac54850aabd2cd95889bb9c497adbd02e9b5161` |
-| `packages/contracts/src/authoring-v2-edits.ts` | `ee1a8b5cec9d2a9130b1f79017dcad85c74b519938ce624c0703d12289dd9722` |
-| `packages/contracts/test/authoring-v2.test.ts` | `66b8bf667ec2db2add85bff98c872feabf511de79b37ba8cc4d3f1d0abefca46` |
+| `packages/contracts/src/authoring-v2-edits.ts` | `b982369025b97324dc64301195c36b621a858a3bd1b72c1f2c2d29b54e8b2940` |
+| `packages/contracts/test/authoring-v2.test.ts` | `3c70f7ef220bbf0509a97f8bcd3c4e1b2ed0c3f1a6e9ad06b3230ca34b158154` |
 
 No new dependency, schema, generated type, existing fixture/golden, UI,
 persistence, compiler, media, native-application, or external-service change

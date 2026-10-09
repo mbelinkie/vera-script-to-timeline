@@ -536,6 +536,127 @@ describe("authoring v2 structural edit transactions", () => {
     expect(sequenceAt(finalController.document).slots[0]).toMatchObject({ playoutPolicy: "match_structural_interval" });
   });
 
+  it("creates and exits a complete-clip chain in controller order using exact caller words", () => {
+    const row = narration({ blockId: 600, slots: (r) => [
+      contentSlot(610, visual(611, "clip"), { kind: "row_start" }, "base"),
+      contentSlot(612, visual(613, "clip"), { kind: "spoken_word", anchor: anchor(r, 2) }, "sequential"),
+      contentSlot(614, visual(615, "clip"), { kind: "spoken_word", anchor: anchor(r, 5) }, "sequential"),
+    ] });
+    const original = documentWith([row]);
+    const bComplete = apply(original, {
+      kind: "set_playout_policy", blockId: row.id, slotId: id(612), policy: "complete_logged_clip",
+    });
+    expect(bComplete.ok).toBe(true);
+    expect(sequenceAt(bComplete.document).slots[2]).toMatchObject({
+      boundaryBefore: { kind: "previous_media_end", controllingSlotId: id(612) },
+    });
+
+    const aComplete = apply(bComplete.document, {
+      kind: "set_playout_policy", blockId: row.id, slotId: id(610), policy: "complete_logged_clip",
+    });
+    expect(aComplete.ok).toBe(true);
+    expect(sequenceAt(aComplete.document).slots[1]).toMatchObject({
+      playoutPolicy: "complete_logged_clip",
+      boundaryBefore: { kind: "previous_media_end", controllingSlotId: id(610) },
+    });
+    expect(sequenceAt(aComplete.document).slots[2]).toMatchObject({
+      boundaryBefore: { kind: "previous_media_end", controllingSlotId: id(612) },
+    });
+    expect(validateScriptDocumentV2(aComplete.document).valid).toBe(true);
+
+    const aMatch = apply(aComplete.document, {
+      kind: "set_playout_policy",
+      blockId: row.id,
+      slotId: id(610),
+      policy: "match_structural_interval",
+      nextBoundary: anchor(row, 3),
+    });
+    expect(aMatch.ok).toBe(true);
+    expect(sequenceAt(aMatch.document).slots[0]).toMatchObject({ playoutPolicy: "match_structural_interval" });
+    expect(sequenceAt(aMatch.document).slots[1]).toMatchObject({
+      boundaryBefore: { kind: "spoken_word", anchor: { tokenId: row.tokens[3]?.id } },
+      playoutPolicy: "complete_logged_clip",
+    });
+    expect(sequenceAt(aMatch.document).slots[2]).toMatchObject({
+      boundaryBefore: { kind: "previous_media_end", controllingSlotId: id(612) },
+    });
+    expect(validateScriptDocumentV2(aMatch.document).valid).toBe(true);
+
+    const bMatch = apply(aMatch.document, {
+      kind: "set_playout_policy",
+      blockId: row.id,
+      slotId: id(612),
+      policy: "match_structural_interval",
+      nextBoundary: anchor(row, 6),
+    });
+    expect(bMatch.ok).toBe(true);
+    expect(sequenceAt(bMatch.document).slots[1]).toMatchObject({ playoutPolicy: "match_structural_interval" });
+    expect(sequenceAt(bMatch.document).slots[2]).toMatchObject({
+      boundaryBefore: { kind: "spoken_word", anchor: { tokenId: row.tokens[6]?.id } },
+    });
+    expect(validateScriptDocumentV2(bMatch.document).valid).toBe(true);
+    expect(validateScriptDocumentV2(original).valid).toBe(true);
+  });
+
+  it("refuses equal and crossed shared-word moves without changing the input document", () => {
+    const row = narration({ blockId: 620, slots: (r) => [
+      contentSlot(630, onCamera(), { kind: "row_start" }),
+      contentSlot(631, visual(632), { kind: "spoken_word", anchor: anchor(r, 4) }, "sequential"),
+      contentSlot(633, visual(634), { kind: "spoken_word", anchor: anchor(r, 6) }, "sequential"),
+    ] });
+    const document = documentWith([row]);
+    const before = JSON.stringify(document);
+    const equal = apply(document, {
+      kind: "move_word_boundary", blockId: row.id, boundaryOwnerId: id(631), tokenId: row.tokens[0].id,
+    });
+    expect(equal.ok).toBe(false);
+    expect(equal.diagnostics.map((item) => item.code)).toContain("BOUNDARY_CROSSED_OR_COLLAPSED");
+    expect(equal.document).toBe(document);
+    expect(JSON.stringify(document)).toBe(before);
+
+    const crossed = apply(document, {
+      kind: "move_word_boundary", blockId: row.id, boundaryOwnerId: id(631), tokenId: row.tokens[7]!.id,
+    });
+    expect(crossed.ok).toBe(false);
+    expect(crossed.diagnostics.map((item) => item.code)).toContain("BOUNDARY_CROSSED_OR_COLLAPSED");
+    expect(crossed.document).toBe(document);
+    expect(JSON.stringify(document)).toBe(before);
+  });
+
+  it("moves a root and its explicitly deleted child group across rows atomically", () => {
+    const source = narration({ blockId: 640, slots: (r) => {
+      const base = contentSlot(650, onCamera(), { kind: "row_start" });
+      const moving = contentSlot(651, visual(652), { kind: "spoken_word", anchor: anchor(r, 4) }, "sequential");
+      const child = contentSlot(653, visual(654), { kind: "spoken_word", anchor: anchor(r, 5) }, { cutawayParentId: moving.id });
+      const returned = { id: id(655), kind: "return", parentSlotId: moving.id, inpoint: anchor(r, 6), version: 1 } satisfies ReturnSlot;
+      return [base, moving, child, returned];
+    } });
+    const destination = narration({ blockId: 660 });
+    const document = documentWith([source, destination]);
+    const before = JSON.stringify(document);
+    const moved = apply(document, {
+      kind: "move_payload",
+      sourceBlockId: source.id,
+      sourceSlotId: id(651),
+      sourceRepair: "delete_children",
+      destinationBlockId: destination.id,
+      expectedDestinationSequenceVersion: 1,
+      destination: { kind: "sequential", boundary: anchor(destination, 2), slotId: id(670) },
+    });
+    expect(moved.ok).toBe(true);
+    expect(moved.document).not.toBe(document);
+    expect(JSON.stringify(document)).toBe(before);
+    expect(sequenceAt(moved.document).slots).toHaveLength(1);
+    expect(sequenceAt(moved.document, 1).slots[1]).toMatchObject({
+      id: id(670), payload: { kind: "visual", payloadId: id(652) },
+    });
+    expect(moved.evidence?.beforeSequenceVersions).toEqual({ [source.id]: 1, [destination.id]: 1 });
+    expect(moved.evidence?.afterSequenceVersions).toEqual({ [source.id]: 2, [destination.id]: 2 });
+    expect(moved.evidence?.slotIds).toEqual([id(651), id(653), id(655), id(670)]);
+    expect(moved.evidence?.payloadIds).toEqual([id(652), id(654)]);
+    expect(moved.evidence?.blockIds).toEqual([source.id, destination.id]);
+  });
+
   it("preserves a cutaway outpoint when deleting the base and refuses atomic cross-row repair", () => {
     const source = narration({ blockId: 370, slots: (r) => {
       const base = contentSlot(380, onCamera(), { kind: "row_start" });
