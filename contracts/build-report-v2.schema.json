@@ -1,0 +1,1227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.vera.video/contracts/build-report-v2.schema.json",
+  "title": "BuildReportV2",
+  "description": "Versioned report for one frozen v2 build, including typed diagnostics, source sufficiency, preparation state, migration issues, readiness, and recovery actions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "buildId",
+    "buildClass",
+    "status",
+    "document",
+    "compiler",
+    "dependenciesHash",
+    "manifest",
+    "timeline",
+    "summary",
+    "eventResults",
+    "itemResults",
+    "diagnostics",
+    "recoveryActions",
+    "mediaPreparation",
+    "sourceSufficiency",
+    "migrationIssues",
+    "readiness",
+    "manualCompletionItems"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "build-report/v2"
+    },
+    "id": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+    },
+    "buildId": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+    },
+    "buildClass": {
+      "enum": [
+        "preview",
+        "release"
+      ]
+    },
+    "status": {
+      "enum": [
+        "ready",
+        "blocked"
+      ]
+    },
+    "document": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/DocumentBindingV2"
+    },
+    "compiler": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/CompilerIdentityV2"
+    },
+    "dependenciesHash": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/ContentHash"
+    },
+    "manifest": {
+      "$ref": "#/$defs/ManifestReferenceV2"
+    },
+    "timeline": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/TimelineSettingsV2"
+    },
+    "summary": {
+      "$ref": "#/$defs/BuildSummaryV2"
+    },
+    "eventResults": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EventResultV2"
+      }
+    },
+    "itemResults": {
+      "type": "array",
+      "items": {
+        "$ref": "compiler-dependencies-v2.schema.json#/$defs/SupportingItemResultV2"
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BuildDiagnosticV2"
+      }
+    },
+    "recoveryActions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RecoveryActionV2"
+      }
+    },
+    "mediaPreparation": {
+      "$ref": "#/$defs/MediaPreparationSummaryV2"
+    },
+    "sourceSufficiency": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SourceSufficiencyV2"
+      }
+    },
+    "migrationIssues": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MigrationDiagnosticV2"
+      }
+    },
+    "readiness": {
+      "$ref": "#/$defs/ReadinessV2"
+    },
+    "manualCompletionItems": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ManualCompletionItemV2"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "buildClass": {
+            "const": "preview"
+          },
+          "status": {
+            "const": "ready"
+          }
+        },
+        "required": [
+          "buildClass",
+          "status"
+        ]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "readiness": {
+            "type": "object",
+            "properties": {
+              "preview": {
+                "const": "ready"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "buildClass": {
+            "const": "preview"
+          },
+          "status": {
+            "const": "blocked"
+          }
+        },
+        "required": [
+          "buildClass",
+          "status"
+        ]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "readiness": {
+            "type": "object",
+            "properties": {
+              "preview": {
+                "const": "blocked"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "buildClass": {
+            "const": "release"
+          },
+          "status": {
+            "const": "ready"
+          }
+        },
+        "required": [
+          "buildClass",
+          "status"
+        ]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "readiness": {
+            "type": "object",
+            "properties": {
+              "release": {
+                "const": "ready"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "buildClass": {
+            "const": "release"
+          },
+          "status": {
+            "const": "blocked"
+          }
+        },
+        "required": [
+          "buildClass",
+          "status"
+        ]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "readiness": {
+            "type": "object",
+            "properties": {
+              "release": {
+                "const": "blocked"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "SafeInteger": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/SafeInteger"
+    },
+    "NonNegativeSafeInteger": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/NonNegativeSafeInteger"
+    },
+    "PositiveSafeInteger": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/PositiveSafeInteger"
+    },
+    "NonEmptyString": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/NonEmptyString"
+    },
+    "EntityId": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+    },
+    "ContentHash": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/ContentHash"
+    },
+    "RationalTime": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/RationalTime"
+    },
+    "FrameRangeV2": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/FrameRangeV2"
+    },
+    "ManifestReferenceV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "contentHash"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "contentHash": {
+          "$ref": "#/$defs/ContentHash"
+        }
+      }
+    },
+    "BuildSummaryV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceCount",
+        "eventCount",
+        "placedCount",
+        "placeholderCount",
+        "blockedCount",
+        "supportingItemCount",
+        "diagnosticCount",
+        "recoveryActionCount",
+        "manualCompletionCount"
+      ],
+      "properties": {
+        "sourceCount": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "eventCount": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "placedCount": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "placeholderCount": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "blockedCount": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "supportingItemCount": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "diagnosticCount": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "recoveryActionCount": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "manualCompletionCount": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        }
+      }
+    },
+    "EventResultV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eventId",
+        "kind",
+        "disposition",
+        "sourceId",
+        "trackId",
+        "recordRange",
+        "message"
+      ],
+      "properties": {
+        "eventId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "kind": {
+          "enum": [
+            "narration",
+            "primary_visual",
+            "overlay_visual",
+            "source_audio",
+            "placeholder",
+            "script_marker"
+          ]
+        },
+        "disposition": {
+          "enum": [
+            "placed",
+            "placeholder",
+            "manual_completion",
+            "blocked"
+          ]
+        },
+        "sourceId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trackId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "recordRange": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FrameRangeV2"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "$ref": "#/$defs/NonEmptyString"
+        }
+      }
+    },
+    "DiagnosticCodeV2": {
+      "enum": [
+        "INVALID_DOCUMENT",
+        "STALE_DOCUMENT_REVISION",
+        "DOCUMENT_HASH_MISMATCH",
+        "TEXT_HASH_MISMATCH",
+        "STALE_TIMING_MAP",
+        "TIMING_HASH_MISMATCH",
+        "WORD_TIMING_REQUIRED",
+        "MISSING_OCCURRENCE_BINDING",
+        "EXTRA_OCCURRENCE_BINDING",
+        "STALE_MEDIA_HASH",
+        "PREPARATION_HASH_MISMATCH",
+        "RATIONAL_NOT_REDUCED",
+        "SOURCE_MAPPING_MISMATCH",
+        "SOURCE_INSUFFICIENT",
+        "UNSUPPORTED_FRAME_RATE",
+        "STALE_ANCHOR",
+        "COLLAPSED_BOUNDARY",
+        "UNPLACED_SUPPORTING_ITEM",
+        "VISUAL_UNDEFINED",
+        "SOURCE_AUDIO_OVERLAP",
+        "TRACK_ROLE_COLLISION",
+        "MIGRATION_REVIEW_REQUIRED",
+        "PRESENTER_ALIGNMENT_UNRESOLVED",
+        "TEMPORARY_PRESENTER_STILL"
+      ]
+    },
+    "EntityReferenceV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id",
+        "path"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "document",
+            "block",
+            "token",
+            "sequence",
+            "slot",
+            "overlay_event",
+            "supporting_item",
+            "media_reference",
+            "occurrence",
+            "preparation",
+            "track",
+            "settings",
+            "build"
+          ]
+        },
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "path": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NonEmptyString"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "DiagnosticEvidenceV2": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "referenceType",
+            "expected",
+            "actual"
+          ],
+          "properties": {
+            "kind": {
+              "const": "reference_mismatch"
+            },
+            "referenceType": {
+              "enum": [
+                "document_revision",
+                "document_hash",
+                "text_hash",
+                "timing_hash",
+                "media_hash",
+                "preparation_hash"
+              ]
+            },
+            "expected": {
+              "$ref": "#/$defs/NonEmptyString"
+            },
+            "actual": {
+              "$ref": "#/$defs/NonEmptyString"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "numerator",
+            "denominator",
+            "greatestCommonDivisor"
+          ],
+          "properties": {
+            "kind": {
+              "const": "rational_not_reduced"
+            },
+            "numerator": {
+              "$ref": "#/$defs/SafeInteger"
+            },
+            "denominator": {
+              "$ref": "#/$defs/PositiveSafeInteger"
+            },
+            "greatestCommonDivisor": {
+              "$ref": "#/$defs/PositiveSafeInteger"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "expectedSourceTime",
+            "actualSourceTime",
+            "frameIndex"
+          ],
+          "properties": {
+            "kind": {
+              "const": "source_mapping_mismatch"
+            },
+            "expectedSourceTime": {
+              "$ref": "#/$defs/RationalTime"
+            },
+            "actualSourceTime": {
+              "$ref": "#/$defs/RationalTime"
+            },
+            "frameIndex": {
+              "$ref": "#/$defs/NonNegativeSafeInteger"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "missingKeys",
+            "extraKeys"
+          ],
+          "properties": {
+            "kind": {
+              "const": "occurrence_set_mismatch"
+            },
+            "missingKeys": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/NonEmptyString"
+              }
+            },
+            "extraKeys": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/NonEmptyString"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "requiredRange",
+            "availableRange"
+          ],
+          "properties": {
+            "kind": {
+              "const": "source_sufficiency"
+            },
+            "requiredRange": {
+              "$ref": "#/$defs/FrameRangeV2"
+            },
+            "availableRange": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FrameRangeV2"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "anchorId",
+            "reason"
+          ],
+          "properties": {
+            "kind": {
+              "const": "anchor_issue"
+            },
+            "anchorId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "reason": {
+              "enum": [
+                "missing",
+                "stale",
+                "collapsed",
+                "word_timing_required",
+                "unplaced"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "message"
+          ],
+          "properties": {
+            "kind": {
+              "const": "details"
+            },
+            "message": {
+              "$ref": "#/$defs/NonEmptyString"
+            }
+          }
+        }
+      ]
+    },
+    "RecoveryActionKindV2": {
+      "enum": [
+        "repair_document",
+        "refresh_timing",
+        "rebind_media",
+        "prepare_media",
+        "reattach_unplaced_item",
+        "select_supported_profile",
+        "retry_stage",
+        "manual_review",
+        "REPLACE_TEMPORARY_PRESENTER",
+        "none"
+      ]
+    },
+    "RecoveryActionV2": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "documentId",
+            "entity",
+            "instruction"
+          ],
+          "properties": {
+            "kind": {
+              "const": "repair_document"
+            },
+            "documentId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "entity": {
+              "$ref": "#/$defs/EntityReferenceV2"
+            },
+            "instruction": {
+              "$ref": "#/$defs/NonEmptyString"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "documentId",
+            "slotId",
+            "instruction"
+          ],
+          "properties": {
+            "kind": {
+              "const": "REPLACE_TEMPORARY_PRESENTER"
+            },
+            "documentId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "slotId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "instruction": {
+              "$ref": "#/$defs/NonEmptyString"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "blockId",
+            "expectedRevision",
+            "instruction"
+          ],
+          "properties": {
+            "kind": {
+              "const": "refresh_timing"
+            },
+            "blockId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "expectedRevision": {
+              "$ref": "#/$defs/PositiveSafeInteger"
+            },
+            "instruction": {
+              "$ref": "#/$defs/NonEmptyString"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "occurrenceKey",
+            "mediaReferenceId",
+            "instruction"
+          ],
+          "properties": {
+            "kind": {
+              "const": "rebind_media"
+            },
+            "occurrenceKey": {
+              "$ref": "#/$defs/NonEmptyString"
+            },
+            "mediaReferenceId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "instruction": {
+              "$ref": "#/$defs/NonEmptyString"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "requirementKey",
+            "instruction"
+          ],
+          "properties": {
+            "kind": {
+              "const": "prepare_media"
+            },
+            "requirementKey": {
+              "$ref": "#/$defs/NonEmptyString"
+            },
+            "instruction": {
+              "$ref": "#/$defs/NonEmptyString"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "supportingItemId",
+            "instruction"
+          ],
+          "properties": {
+            "kind": {
+              "const": "reattach_unplaced_item"
+            },
+            "supportingItemId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "instruction": {
+              "$ref": "#/$defs/NonEmptyString"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "profileHash",
+            "instruction"
+          ],
+          "properties": {
+            "kind": {
+              "const": "select_supported_profile"
+            },
+            "profileHash": {
+              "$ref": "#/$defs/ContentHash"
+            },
+            "instruction": {
+              "$ref": "#/$defs/NonEmptyString"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "stage",
+            "instruction"
+          ],
+          "properties": {
+            "kind": {
+              "const": "retry_stage"
+            },
+            "stage": {
+              "enum": [
+                "narration",
+                "preparation",
+                "compilation"
+              ]
+            },
+            "instruction": {
+              "$ref": "#/$defs/NonEmptyString"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "entity",
+            "instruction"
+          ],
+          "properties": {
+            "kind": {
+              "const": "manual_review"
+            },
+            "entity": {
+              "$ref": "#/$defs/EntityReferenceV2"
+            },
+            "instruction": {
+              "$ref": "#/$defs/NonEmptyString"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "instruction"
+          ],
+          "properties": {
+            "kind": {
+              "const": "none"
+            },
+            "instruction": {
+              "$ref": "#/$defs/NonEmptyString"
+            }
+          }
+        }
+      ]
+    },
+    "BuildDiagnosticV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "severity",
+        "code",
+        "message",
+        "entity",
+        "evidence",
+        "recoveryActionKinds"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "severity": {
+          "enum": [
+            "info",
+            "warning",
+            "error",
+            "blocking"
+          ]
+        },
+        "code": {
+          "$ref": "#/$defs/DiagnosticCodeV2"
+        },
+        "message": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "entity": {
+          "$ref": "#/$defs/EntityReferenceV2"
+        },
+        "evidence": {
+          "$ref": "#/$defs/DiagnosticEvidenceV2"
+        },
+        "recoveryActionKinds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RecoveryActionKindV2"
+          }
+        }
+      }
+    },
+    "MediaPreparationSummaryV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "requirements"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "complete",
+            "blocked",
+            "not_required"
+          ]
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "requirementKey",
+              "status",
+              "originalHash",
+              "deliveredHash",
+              "bindingHash",
+              "diagnosticIds"
+            ],
+            "properties": {
+              "requirementKey": {
+                "$ref": "#/$defs/NonEmptyString"
+              },
+              "status": {
+                "enum": [
+                  "reused",
+                  "prepared",
+                  "blocked",
+                  "refused"
+                ]
+              },
+              "originalHash": {
+                "$ref": "#/$defs/ContentHash"
+              },
+              "deliveredHash": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ContentHash"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "bindingHash": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ContentHash"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "diagnosticIds": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/EntityId"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "SourceSufficiencyV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requirementKey",
+        "status",
+        "requiredRange",
+        "availableRange",
+        "diagnosticId"
+      ],
+      "properties": {
+        "requirementKey": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "status": {
+          "enum": [
+            "sufficient",
+            "insufficient",
+            "unknown"
+          ]
+        },
+        "requiredRange": {
+          "$ref": "#/$defs/FrameRangeV2"
+        },
+        "availableRange": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FrameRangeV2"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "diagnosticId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "insufficient"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "availableRange": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FrameRangeV2"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "diagnosticId": {
+                "$ref": "#/$defs/EntityId"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "MigrationDiagnosticV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "severity",
+        "entity",
+        "message",
+        "recoveryActionKind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "unplaced_item",
+            "legacy_state_requires_review",
+            "legacy_audio_policy_requires_repair"
+          ]
+        },
+        "severity": {
+          "enum": [
+            "warning",
+            "blocking"
+          ]
+        },
+        "entity": {
+          "$ref": "#/$defs/EntityReferenceV2"
+        },
+        "message": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "recoveryActionKind": {
+          "enum": [
+            "reattach_unplaced_item",
+            "repair_document",
+            "manual_review"
+          ]
+        }
+      }
+    },
+    "ReadinessV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "preview",
+        "release",
+        "blockingIssueIds"
+      ],
+      "properties": {
+        "preview": {
+          "enum": [
+            "ready",
+            "blocked"
+          ]
+        },
+        "release": {
+          "enum": [
+            "ready",
+            "blocked"
+          ]
+        },
+        "blockingIssueIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EntityId"
+          }
+        }
+      }
+    },
+    "ManualCompletionItemV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "message",
+        "entity"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "kind": {
+          "enum": [
+            "placeholder",
+            "manual_operation",
+            "editor_review"
+          ]
+        },
+        "message": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "entity": {
+          "$ref": "#/$defs/EntityReferenceV2"
+        }
+      }
+    },
+    "CompilerResultV2": {
+      "title": "CompilerResultV2",
+      "description": "A refused result has diagnostics and recovery guidance only; a compiled result always carries both a manifest and report, including when the report is blocked.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "manifest",
+            "report"
+          ],
+          "properties": {
+            "kind": {
+              "const": "compiled"
+            },
+            "manifest": {
+              "$ref": "timeline-manifest-v2.schema.json"
+            },
+            "report": {
+              "$ref": "#"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "diagnostics",
+            "recoveryActions"
+          ],
+          "properties": {
+            "kind": {
+              "const": "refused"
+            },
+            "diagnostics": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/BuildDiagnosticV2"
+              }
+            },
+            "recoveryActions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/RecoveryActionV2"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

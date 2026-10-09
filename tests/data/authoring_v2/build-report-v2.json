@@ -1,0 +1,213 @@
+{
+  "schemaVersion": "build-report/v2",
+  "id": "00000000-0000-4000-8000-000000000005",
+  "buildId": "00000000-0000-4000-8000-000000000003",
+  "buildClass": "preview",
+  "status": "blocked",
+  "document": {
+    "documentId": "00000000-0000-4000-8000-000000000001",
+    "projectId": "00000000-0000-4000-8000-000000000002",
+    "revision": 1,
+    "liveHeadSequence": 0,
+    "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "textHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "compiler": {
+    "version": "compiler/v2",
+    "sourceHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "dependenciesHash": "sha256:abababababababababababababababababababababababababababababababab",
+  "manifest": {
+    "id": "00000000-0000-4000-8000-000000000004",
+    "contentHash": "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+  },
+  "timeline": {
+    "frameRate": { "numerator": 24, "denominator": 1 },
+    "width": 1920,
+    "height": 1080,
+    "audioSampleRate": 48000,
+    "startFrame": 0,
+    "durationFrames": 240
+  },
+  "summary": {
+    "sourceCount": 1,
+    "eventCount": 1,
+    "placedCount": 0,
+    "placeholderCount": 0,
+    "blockedCount": 1,
+    "supportingItemCount": 1,
+    "diagnosticCount": 5,
+    "recoveryActionCount": 2,
+    "manualCompletionCount": 0
+  },
+  "eventResults": [
+    {
+      "eventId": "00000000-0000-4000-8000-000000000016",
+      "kind": "primary_visual",
+      "disposition": "blocked",
+      "sourceId": "00000000-0000-4000-8000-000000000008",
+      "trackId": "video-root",
+      "recordRange": null,
+      "message": "This synthetic build records typed recovery evidence"
+    }
+  ],
+  "itemResults": [
+    {
+      "itemId": "00000000-0000-4000-8000-000000000017",
+      "version": 1,
+      "role": "picture",
+      "disposition": "unplaced",
+      "recordRange": null,
+      "reason": "Awaiting an editor placement decision"
+    }
+  ],
+  "diagnostics": [
+    {
+      "id": "00000000-0000-4000-8000-000000000018",
+      "severity": "blocking",
+      "code": "STALE_DOCUMENT_REVISION",
+      "message": "Dependency revision differs from the current document",
+      "entity": {
+        "kind": "document",
+        "id": "00000000-0000-4000-8000-000000000001",
+        "path": "document.revision"
+      },
+      "evidence": {
+        "kind": "reference_mismatch",
+        "referenceType": "document_revision",
+        "expected": "2",
+        "actual": "1"
+      },
+      "recoveryActionKinds": ["repair_document"]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000019",
+      "severity": "warning",
+      "code": "RATIONAL_NOT_REDUCED",
+      "message": "Retained diagnostic evidence for an unreduced rational",
+      "entity": {
+        "kind": "occurrence",
+        "id": "00000000-0000-4000-8000-000000000016",
+        "path": "events[0].recordRange"
+      },
+      "evidence": {
+        "kind": "rational_not_reduced",
+        "numerator": 2,
+        "denominator": 4,
+        "greatestCommonDivisor": 2
+      },
+      "recoveryActionKinds": ["manual_review"]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000020",
+      "severity": "blocking",
+      "code": "SOURCE_MAPPING_MISMATCH",
+      "message": "Two serialized source-time mappings disagree",
+      "entity": {
+        "kind": "occurrence",
+        "id": "00000000-0000-4000-8000-000000000016",
+        "path": "events[0].sourceTimeMapping"
+      },
+      "evidence": {
+        "kind": "source_mapping_mismatch",
+        "expectedSourceTime": { "numerator": 1, "denominator": 24 },
+        "actualSourceTime": { "numerator": 1, "denominator": 25 },
+        "frameIndex": 0
+      },
+      "recoveryActionKinds": ["rebind_media"]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000021",
+      "severity": "blocking",
+      "code": "MISSING_OCCURRENCE_BINDING",
+      "message": "The compiler input and serialized occurrence sets differ",
+      "entity": {
+        "kind": "occurrence",
+        "id": "00000000-0000-4000-8000-000000000016",
+        "path": "occurrenceResolutions"
+      },
+      "evidence": {
+        "kind": "occurrence_set_mismatch",
+        "missingKeys": ["visual:000000000016"],
+        "extraKeys": ["visual:000000000099"]
+      },
+      "recoveryActionKinds": ["rebind_media"]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000022",
+      "severity": "blocking",
+      "code": "SOURCE_INSUFFICIENT",
+      "message": "Available source frames do not cover the requested range",
+      "entity": {
+        "kind": "media_reference",
+        "id": "00000000-0000-4000-8000-000000000008",
+        "path": "sources[0]"
+      },
+      "evidence": {
+        "kind": "source_sufficiency",
+        "requiredRange": { "startFrame": 0, "endFrame": 120 },
+        "availableRange": { "startFrame": 0, "endFrame": 96 }
+      },
+      "recoveryActionKinds": ["prepare_media"]
+    }
+  ],
+  "recoveryActions": [
+    {
+      "kind": "prepare_media",
+      "requirementKey": "prep:occurrence-1",
+      "instruction": "Review the prepared source evidence"
+    },
+    {
+      "kind": "manual_review",
+      "entity": {
+        "kind": "document",
+        "id": "00000000-0000-4000-8000-000000000001",
+        "path": "document"
+      },
+      "instruction": "Review the synthetic migration state"
+    }
+  ],
+  "mediaPreparation": {
+    "status": "blocked",
+    "requirements": [
+      {
+        "requirementKey": "prep:occurrence-1",
+        "status": "blocked",
+        "originalHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "deliveredHash": null,
+        "bindingHash": null,
+        "diagnosticIds": ["00000000-0000-4000-8000-000000000022"]
+      }
+    ]
+  },
+  "sourceSufficiency": [
+    {
+      "requirementKey": "prep:occurrence-1",
+      "status": "insufficient",
+      "requiredRange": { "startFrame": 0, "endFrame": 120 },
+      "availableRange": { "startFrame": 0, "endFrame": 96 },
+      "diagnosticId": "00000000-0000-4000-8000-000000000022"
+    }
+  ],
+  "migrationIssues": [
+    {
+      "kind": "legacy_state_requires_review",
+      "severity": "warning",
+      "entity": {
+        "kind": "document",
+        "id": "00000000-0000-4000-8000-000000000001",
+        "path": "migration"
+      },
+      "message": "Legacy state needs review before future use",
+      "recoveryActionKind": "manual_review"
+    }
+  ],
+  "readiness": {
+    "preview": "blocked",
+    "release": "blocked",
+    "blockingIssueIds": ["00000000-0000-4000-8000-000000000018"]
+  },
+  "manualCompletionItems": []
+}

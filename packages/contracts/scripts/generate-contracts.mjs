@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import {
+  copyFileSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
@@ -24,12 +25,71 @@ const checkedInPythonDirectory = join(
   repositoryRoot,
   "python/vera_timeline_agent/generated/contracts",
 );
-const schemaFiles = [
+const v1SchemaFiles = [
   "script-document-v1.schema.json",
   "timeline-manifest-v1.schema.json",
   "build-report-v1.schema.json",
   "compiler-dependencies-v1.schema.json",
   "prompter-export-v1.schema.json",
+];
+const v2SchemaFiles = [
+  "script-document-v2.schema.json",
+  "authoring-project-settings-v1.schema.json",
+  "compiler-dependencies-v2.schema.json",
+  "timeline-manifest-v2.schema.json",
+  "build-report-v2.schema.json",
+];
+const typeScriptGroups = [
+  {
+    schemas: v1SchemaFiles,
+    title: "VeraContractsV1",
+    output: "contracts.ts",
+    roots: [
+      ["scriptDocument", v1SchemaFiles[0]],
+      ["timelineManifest", v1SchemaFiles[1]],
+      ["buildReport", v1SchemaFiles[2]],
+      ["compilerDependencies", v1SchemaFiles[3]],
+      ["prompterExport", v1SchemaFiles[4]],
+    ],
+  },
+  {
+    schemas: v2SchemaFiles,
+    title: "VeraContractsV2",
+    output: "contracts-v2.ts",
+    roots: [
+      ["scriptDocument", v2SchemaFiles[0]],
+      ["authoringProjectSettings", v2SchemaFiles[1]],
+      ["compilerDependencies", v2SchemaFiles[2]],
+      ["timelineManifest", v2SchemaFiles[3]],
+      ["buildReport", v2SchemaFiles[4]],
+      ["compilerResult", v2SchemaFiles[4] + "#/$defs/CompilerResultV2"],
+    ],
+  },
+];
+const pythonGroups = [
+  {
+    name: "v1",
+    schemas: v1SchemaFiles,
+    exports: [
+      ["build_report_v1_schema", "BuildReportV1"],
+      ["compiler_dependencies_v1_schema", "CompilerDependenciesV1"],
+      ["prompter_export_v1_schema", "PrompterExportV1"],
+      ["script_document_v1_schema", "ScriptDocumentV1"],
+      ["timeline_manifest_v1_schema", "TimelineManifestV1"],
+    ],
+  },
+  {
+    name: "v2",
+    schemas: v2SchemaFiles,
+    exports: [
+      ["authoring_project_settings_v1_schema", "AuthoringProjectSettingsV1"],
+      ["build_report_v2_schema", "BuildReportV2"],
+      ["build_report_v2_schema", "CompilerResultV2"],
+      ["compiler_dependencies_v2_schema", "CompilerDependenciesV2"],
+      ["script_document_v2_schema", "ScriptDocumentV2"],
+      ["timeline_manifest_v2_schema", "TimelineManifestV2"],
+    ],
+  },
 ];
 
 function readJson(path) {
@@ -41,40 +101,36 @@ function recreateDirectory(path) {
   mkdirSync(path, { recursive: true });
 }
 
-async function generateTypeScript(outputDirectory) {
-  recreateDirectory(outputDirectory);
+async function generateTypeScript(outputDirectory, group) {
+  mkdirSync(outputDirectory, { recursive: true });
   const aggregateSchema = {
     $schema: "https://json-schema.org/draft/2020-12/schema",
-    title: "VeraContractsV1",
+    title: group.title,
     description:
       "Generated aggregate type surface for the VERA shared contracts.",
     type: "object",
     additionalProperties: false,
-    required: [
-      "scriptDocument",
-      "timelineManifest",
-      "buildReport",
-      "compilerDependencies",
-      "prompterExport",
-    ],
-    properties: {
-      scriptDocument: { $ref: schemaFiles[0] },
-      timelineManifest: { $ref: schemaFiles[1] },
-      buildReport: { $ref: schemaFiles[2] },
-      compilerDependencies: { $ref: schemaFiles[3] },
-      prompterExport: { $ref: schemaFiles[4] },
-    },
+    required: group.roots.map(([name]) => name),
+    properties: Object.fromEntries(
+      group.roots.map(([name, schemaFile]) => [name, { $ref: schemaFile }]),
+    ),
   };
 
   // Parse every source eagerly so malformed JSON fails before either language
   // generator can leave a partial checked-in output tree.
-  for (const schemaFile of schemaFiles) {
+  for (const schemaFile of group.schemas) {
     readJson(join(contractsDirectory, schemaFile));
   }
 
-  const generated = await compile(aggregateSchema, "VeraContractsV1", {
-    bannerComment:
+  const generated = await compile(aggregateSchema, group.title, {
+    bannerComment: [
       "/**\n * Generated from /contracts by npm run generate:contracts.\n * Do not edit by hand.\n */",
+      ...(group.output === "contracts-v2.ts"
+        ? [
+            "/* eslint-disable @typescript-eslint/no-duplicate-type-constituents -- JSON Schema conditionals repeat shared token fields. */",
+          ]
+        : []),
+    ].join("\n"),
     cwd: contractsDirectory,
     enableConstEnums: false,
     format: true,
@@ -90,17 +146,17 @@ async function generateTypeScript(outputDirectory) {
     unknownAny: true,
     unreachableDefinitions: false,
   });
-  writeFileSync(join(outputDirectory, "contracts.ts"), generated);
+  writeFileSync(join(outputDirectory, group.output), generated);
 }
 
-function generatePython(outputDirectory) {
+function generatePythonGroup(outputDirectory, group) {
   recreateDirectory(outputDirectory);
   const pythonSchemaDirectory = mkdtempSync(
-    join(tmpdir(), "vera-contracts-v1-inputs-"),
+    join(tmpdir(), "vera-contracts-" + group.name + "-inputs-"),
   );
   let result;
   try {
-    for (const schemaFile of schemaFiles) {
+    for (const schemaFile of group.schemas) {
       writeFileSync(
         join(pythonSchemaDirectory, schemaFile),
         readFileSync(join(contractsDirectory, schemaFile)),
@@ -141,43 +197,6 @@ function generatePython(outputDirectory) {
     process.stderr.write(result.stderr);
     throw new Error(`Python contract generation exited ${String(result.status)}`);
   }
-  writeFileSync(
-    join(outputDirectory, "__init__.py"),
-    [
-      '"""Generated root models for the VERA shared JSON contracts."""',
-      "",
-      "from .build_report_v1_schema import BuildReportV1",
-      "from .compiler_dependencies_v1_schema import CompilerDependenciesV1",
-      "from .prompter_export_v1_schema import PrompterExportV1",
-      "from .script_document_v1_schema import ScriptDocumentV1",
-      "from .timeline_manifest_v1_schema import TimelineManifestV1",
-      "",
-      "__all__ = [",
-      '    "BuildReportV1",',
-      '    "CompilerDependenciesV1",',
-      '    "PrompterExportV1",',
-      '    "ScriptDocumentV1",',
-      '    "TimelineManifestV1",',
-      "]",
-      "",
-    ].join("\n"),
-  );
-  const lintResult = spawnSync(
-    "uv",
-    ["run", "--frozen", "ruff", "check", "--fix", outputDirectory],
-    { cwd: repositoryRoot, encoding: "utf8" },
-  );
-  if (lintResult.status !== 0) {
-    process.stderr.write(lintResult.stdout);
-    process.stderr.write(lintResult.stderr);
-    throw new Error(
-      `Generated Python lint normalization exited ${String(lintResult.status)}`,
-    );
-  }
-  rmSync(join(outputDirectory, ".ruff_cache"), {
-    force: true,
-    recursive: true,
-  });
 }
 
 function listFiles(root) {
@@ -222,8 +241,63 @@ function compareDirectories(expectedDirectory, actualDirectory, label) {
   return differences;
 }
 
+function writePythonRegistry(outputDirectory) {
+  const exports = pythonGroups.flatMap((group) => group.exports);
+  writeFileSync(
+    join(outputDirectory, "__init__.py"),
+    [
+      '"""Generated root models for the VERA shared JSON contracts."""',
+      "",
+      ...exports.map(
+        ([moduleName, typeName]) => "from ." + moduleName + " import " + typeName,
+      ),
+      "",
+      "__all__ = [",
+      ...exports.map(([, typeName]) => '    "' + typeName + '",'),
+      "]",
+      "",
+    ].join("\n"),
+  );
+}
+
+function generatePython(outputDirectory) {
+  recreateDirectory(outputDirectory);
+  const stagedRoot = mkdtempSync(join(tmpdir(), "vera-contracts-python-groups-"));
+  try {
+    for (const group of pythonGroups) {
+      const stagedGroup = join(stagedRoot, group.name);
+      generatePythonGroup(stagedGroup, group);
+      for (const file of listFiles(stagedGroup)) {
+        if (file !== "__init__.py") {
+          copyFileSync(join(stagedGroup, file), join(outputDirectory, file));
+        }
+      }
+    }
+    writePythonRegistry(outputDirectory);
+  } finally {
+    rmSync(stagedRoot, { force: true, recursive: true });
+  }
+
+  const lintResult = spawnSync(
+    "uv",
+    ["run", "--frozen", "ruff", "check", "--fix", outputDirectory],
+    { cwd: repositoryRoot, encoding: "utf8" },
+  );
+  if (lintResult.status !== 0) {
+    process.stderr.write(lintResult.stdout);
+    process.stderr.write(lintResult.stderr);
+    throw new Error(
+      "Generated Python lint normalization exited " + String(lintResult.status),
+    );
+  }
+  rmSync(join(outputDirectory, ".ruff_cache"), { force: true, recursive: true });
+}
+
 async function generate(typeScriptDirectory, pythonDirectory) {
-  await generateTypeScript(typeScriptDirectory);
+  recreateDirectory(typeScriptDirectory);
+  for (const group of typeScriptGroups) {
+    await generateTypeScript(typeScriptDirectory, group);
+  }
   generatePython(pythonDirectory);
 }
 

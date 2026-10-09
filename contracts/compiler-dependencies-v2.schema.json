@@ -1,0 +1,1530 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.vera.video/contracts/compiler-dependencies-v2.schema.json",
+  "title": "CompilerDependenciesV2",
+  "description": "Frozen v2 compiler inputs with occurrence-specific source maps, token timing, and verified preparation attestations.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "build",
+    "document",
+    "compiler",
+    "authoringDefaults",
+    "timeline",
+    "tracks",
+    "roles",
+    "narrationTimingMaps",
+    "occurrenceResolutions",
+    "preparedMedia",
+    "presenterAlignmentResolutions"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "compiler-dependencies/v2"
+    },
+    "build": {
+      "$ref": "#/$defs/BuildIdentityV2"
+    },
+    "document": {
+      "$ref": "#/$defs/DocumentBindingV2"
+    },
+    "compiler": {
+      "$ref": "#/$defs/CompilerIdentityV2"
+    },
+    "authoringDefaults": {
+      "$ref": "#/$defs/AuthoringDefaultsV2"
+    },
+    "timeline": {
+      "$ref": "#/$defs/TimelineSettingsV2"
+    },
+    "tracks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/TrackV2"
+      }
+    },
+    "roles": {
+      "$ref": "#/$defs/TrackRolesV2"
+    },
+    "narrationTimingMaps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/NarrationTokenTimingMapV2"
+      }
+    },
+    "occurrenceResolutions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/OccurrenceMediaResolutionV2"
+      }
+    },
+    "preparedMedia": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PreparedMediaBindingV1"
+      }
+    },
+    "presenterAlignmentResolutions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PresenterAlignmentResolutionV1"
+      }
+    }
+  },
+  "$defs": {
+    "SafeInteger": {
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "NonNegativeSafeInteger": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "PositiveSafeInteger": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "NonEmptyString": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "EntityId": {
+      "$ref": "script-document-v2.schema.json#/$defs/EntityId"
+    },
+    "ContentHash": {
+      "$ref": "script-document-v2.schema.json#/$defs/ContentHash"
+    },
+    "RationalTime": {
+      "description": "A reduced signed fraction of seconds. Reduction is checked by the compiler; this schema validates its safe-integer wire shape.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "numerator",
+        "denominator"
+      ],
+      "properties": {
+        "numerator": {
+          "$ref": "#/$defs/SafeInteger"
+        },
+        "denominator": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        }
+      }
+    },
+    "NonNegativeRationalTime": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/RationalTime"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "numerator": {
+              "$ref": "#/$defs/NonNegativeSafeInteger"
+            }
+          }
+        }
+      ]
+    },
+    "RationalRate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "numerator",
+        "denominator"
+      ],
+      "properties": {
+        "numerator": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "denominator": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        }
+      }
+    },
+    "FrameRangeV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "startFrame",
+        "endFrame"
+      ],
+      "properties": {
+        "startFrame": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "endFrame": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        }
+      }
+    },
+    "BuildIdentityV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "buildId",
+        "manifestId",
+        "reportId",
+        "buildClass"
+      ],
+      "properties": {
+        "buildId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "manifestId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "reportId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "buildClass": {
+          "enum": [
+            "preview",
+            "release"
+          ]
+        }
+      }
+    },
+    "DocumentBindingV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "documentId",
+        "projectId",
+        "revision",
+        "liveHeadSequence",
+        "contentHash",
+        "textHash",
+        "settingsHash"
+      ],
+      "properties": {
+        "documentId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "projectId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "revision": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "liveHeadSequence": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "contentHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "textHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "settingsHash": {
+          "$ref": "#/$defs/ContentHash"
+        }
+      }
+    },
+    "CompilerIdentityV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "sourceHash",
+        "profileHash"
+      ],
+      "properties": {
+        "version": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "sourceHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "profileHash": {
+          "$ref": "#/$defs/ContentHash"
+        }
+      }
+    },
+    "AuthoringDefaultsV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "settingsHash",
+        "visualOnlyStillDurationMs",
+        "presenterStill",
+        "sourceAudioLevelPolicy"
+      ],
+      "properties": {
+        "settingsHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "visualOnlyStillDurationMs": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "presenterStill": {
+          "anyOf": [
+            {
+              "$ref": "script-document-v2.schema.json#/$defs/PresenterStillReference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceAudioLevelPolicy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "quietGainDb",
+            "fullGainDb"
+          ],
+          "properties": {
+            "version": {
+              "$ref": "#/$defs/NonEmptyString"
+            },
+            "quietGainDb": {
+              "const": -18
+            },
+            "fullGainDb": {
+              "const": 0
+            }
+          }
+        }
+      }
+    },
+    "TimelineSettingsV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frameRate",
+        "width",
+        "height",
+        "audioSampleRate",
+        "startFrame",
+        "durationFrames"
+      ],
+      "properties": {
+        "frameRate": {
+          "$ref": "#/$defs/RationalRate"
+        },
+        "width": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "height": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "audioSampleRate": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "startFrame": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "durationFrames": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        }
+      }
+    },
+    "TrackKindV2": {
+      "enum": [
+        "video",
+        "audio",
+        "subtitle"
+      ]
+    },
+    "TrackV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "index",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "$ref": "#/$defs/TrackKindV2"
+        },
+        "index": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "name": {
+          "$ref": "#/$defs/NonEmptyString"
+        }
+      }
+    },
+    "TrackRolesV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primaryRootTrackId",
+        "childTrackIds",
+        "overlayTrackIds",
+        "presenterTrackId",
+        "placeholderTrackId",
+        "narrationTrackId",
+        "sourceAudioTrackIds",
+        "markerTrackId"
+      ],
+      "properties": {
+        "primaryRootTrackId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "childTrackIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "overlayTrackIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "presenterTrackId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "placeholderTrackId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "narrationTrackId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "sourceAudioTrackIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "markerTrackId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "NarrationTokenTimingMapV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blockId",
+        "blockRevision",
+        "textHash",
+        "tokenizationVersion",
+        "narrationAssetId",
+        "audioHash",
+        "timingHash",
+        "alignmentVersion",
+        "precision",
+        "tokens"
+      ],
+      "properties": {
+        "blockId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "blockRevision": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "textHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "tokenizationVersion": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "narrationAssetId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "audioHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "timingHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "alignmentVersion": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "precision": {
+          "enum": [
+            "audible_word_marks",
+            "next_word_derived",
+            "sentence_only",
+            "estimated"
+          ]
+        },
+        "tokens": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/TokenTimingV2"
+          }
+        }
+      }
+    },
+    "TokenTimingV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tokenId",
+        "startOffset",
+        "endOffset",
+        "quotedText",
+        "startTime",
+        "endBasis"
+      ],
+      "properties": {
+        "tokenId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "startOffset": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "endOffset": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "quotedText": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "startTime": {
+          "$ref": "#/$defs/NonNegativeRationalTime"
+        },
+        "audibleEnd": {
+          "$ref": "#/$defs/NonNegativeRationalTime"
+        },
+        "endBasis": {
+          "enum": [
+            "evidenced_audible_end",
+            "next_word_derived",
+            "unknown"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "endBasis": {
+                "const": "evidenced_audible_end"
+              }
+            },
+            "required": [
+              "endBasis"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "audibleEnd": true
+            },
+            "required": [
+              "audibleEnd"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "endBasis": {
+                "enum": [
+                  "next_word_derived",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "endBasis"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "not": {
+              "type": "object",
+              "properties": {
+                "audibleEnd": true
+              },
+              "required": [
+                "audibleEnd"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "OccurrenceOwnerV2": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "sequenceId",
+            "slotId"
+          ],
+          "properties": {
+            "kind": {
+              "const": "primary_slot"
+            },
+            "sequenceId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "slotId": {
+              "$ref": "#/$defs/EntityId"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "blockId",
+            "overlayEventId"
+          ],
+          "properties": {
+            "kind": {
+              "const": "overlay_event"
+            },
+            "blockId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "overlayEventId": {
+              "$ref": "#/$defs/EntityId"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "blockId"
+          ],
+          "properties": {
+            "kind": {
+              "const": "visual_only_block"
+            },
+            "blockId": {
+              "$ref": "#/$defs/EntityId"
+            }
+          }
+        }
+      ]
+    },
+    "SourceAudioStreamMappingV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "streamIndex",
+        "sampleRate",
+        "packagePtsOrigin",
+        "loggedTimeAtPackageOrigin",
+        "audioHash",
+        "probeHash"
+      ],
+      "properties": {
+        "streamIndex": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "sampleRate": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "packagePtsOrigin": {
+          "$ref": "#/$defs/NonNegativeRationalTime"
+        },
+        "loggedTimeAtPackageOrigin": {
+          "$ref": "#/$defs/NonNegativeRationalTime"
+        },
+        "audioHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "probeHash": {
+          "$ref": "#/$defs/ContentHash"
+        }
+      }
+    },
+    "SourceFrameMapV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packageFrameZeroLogicalFrame",
+        "packageVideoPtsOrigin",
+        "loggedTimeAtPackageFrameZero",
+        "decodedPackageFrameRate",
+        "decodedPackageFrameCount",
+        "packageVideoTimeBase",
+        "sourceAudioStreamMappings",
+        "descriptorHash",
+        "probeHash"
+      ],
+      "properties": {
+        "packageFrameZeroLogicalFrame": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "packageVideoPtsOrigin": {
+          "$ref": "#/$defs/NonNegativeRationalTime"
+        },
+        "loggedTimeAtPackageFrameZero": {
+          "$ref": "#/$defs/NonNegativeRationalTime"
+        },
+        "decodedPackageFrameRate": {
+          "$ref": "#/$defs/RationalRate"
+        },
+        "decodedPackageFrameCount": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "packageVideoTimeBase": {
+          "$ref": "#/$defs/RationalRate"
+        },
+        "sourceAudioStreamMappings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SourceAudioStreamMappingV1"
+          }
+        },
+        "descriptorHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "probeHash": {
+          "$ref": "#/$defs/ContentHash"
+        }
+      }
+    },
+    "LogicalSourceBoundsV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "startFrame",
+        "endFrame",
+        "frameRate"
+      ],
+      "properties": {
+        "startFrame": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "endFrame": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "frameRate": {
+          "$ref": "#/$defs/RationalRate"
+        }
+      }
+    },
+    "OccurrenceMediaResolutionV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "payloadId",
+        "owner",
+        "mediaReferenceId",
+        "sourceSnapshot",
+        "logicalSourceBounds",
+        "sourceFrameMap",
+        "occurrenceSourceInFrame",
+        "selectedSourceRange",
+        "preparedMediaRequirementKey"
+      ],
+      "properties": {
+        "payloadId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "owner": {
+          "$ref": "#/$defs/OccurrenceOwnerV2"
+        },
+        "mediaReferenceId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "sourceSnapshot": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "system",
+            "snapshotId",
+            "version",
+            "packageId",
+            "contentHash",
+            "probeHash"
+          ],
+          "properties": {
+            "system": {
+              "enum": [
+                "research",
+                "local_import",
+                "captured_frame",
+                "graphic_asset"
+              ]
+            },
+            "snapshotId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "version": {
+              "$ref": "#/$defs/PositiveSafeInteger"
+            },
+            "packageId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "contentHash": {
+              "$ref": "#/$defs/ContentHash"
+            },
+            "probeHash": {
+              "$ref": "#/$defs/ContentHash"
+            }
+          }
+        },
+        "logicalSourceBounds": {
+          "$ref": "#/$defs/LogicalSourceBoundsV2"
+        },
+        "sourceFrameMap": {
+          "$ref": "#/$defs/SourceFrameMapV1"
+        },
+        "occurrenceSourceInFrame": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "selectedSourceRange": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FrameRangeV2"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "preparedMediaRequirementKey": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NonEmptyString"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "PresenterAlignmentResolutionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "slotId",
+        "takeId",
+        "masterIdentity",
+        "sourceStartFrame",
+        "alignmentVersion",
+        "precision",
+        "expectedWord",
+        "recognizedWord"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": "presenter-alignment/v1"
+        },
+        "slotId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "takeId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "masterIdentity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "masterId",
+            "contentHash",
+            "probeHash",
+            "frameRate"
+          ],
+          "properties": {
+            "masterId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "contentHash": {
+              "$ref": "#/$defs/ContentHash"
+            },
+            "probeHash": {
+              "$ref": "#/$defs/ContentHash"
+            },
+            "frameRate": {
+              "$ref": "#/$defs/RationalRate"
+            }
+          }
+        },
+        "sourceStartFrame": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "alignmentVersion": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "precision": {
+          "enum": [
+            "audible_word",
+            "next_word_derived",
+            "between_words"
+          ]
+        },
+        "expectedWord": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tokenId",
+            "text"
+          ],
+          "properties": {
+            "tokenId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "text": {
+              "$ref": "#/$defs/NonEmptyString"
+            }
+          }
+        },
+        "recognizedWord": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "text"
+          ],
+          "properties": {
+            "text": {
+              "$ref": "#/$defs/NonEmptyString"
+            }
+          }
+        }
+      }
+    },
+    "RequestedPreparationRangeV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceInFrame",
+        "duration",
+        "preHandle",
+        "postHandle"
+      ],
+      "properties": {
+        "sourceInFrame": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "duration": {
+          "$ref": "#/$defs/NonNegativeRationalTime"
+        },
+        "preHandle": {
+          "$ref": "#/$defs/NonNegativeRationalTime"
+        },
+        "postHandle": {
+          "$ref": "#/$defs/NonNegativeRationalTime"
+        }
+      }
+    },
+    "PreparationProfileV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policyHash",
+        "profileHash",
+        "toolHash",
+        "profileVersion"
+      ],
+      "properties": {
+        "policyHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "profileHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "toolHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "profileVersion": {
+          "$ref": "#/$defs/NonEmptyString"
+        }
+      }
+    },
+    "PreparationTimeMappingV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceOrigin",
+        "deliveredOrigin",
+        "sourceRate",
+        "deliveredRate",
+        "sourceFrameMap",
+        "mappingHash"
+      ],
+      "properties": {
+        "sourceOrigin": {
+          "$ref": "#/$defs/NonNegativeRationalTime"
+        },
+        "deliveredOrigin": {
+          "$ref": "#/$defs/NonNegativeRationalTime"
+        },
+        "sourceRate": {
+          "$ref": "#/$defs/RationalRate"
+        },
+        "deliveredRate": {
+          "$ref": "#/$defs/RationalRate"
+        },
+        "sourceFrameMap": {
+          "$ref": "#/$defs/SourceFrameMapV1"
+        },
+        "mappingHash": {
+          "$ref": "#/$defs/ContentHash"
+        }
+      }
+    },
+    "PreparedMediaVerificationV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deliveredHash",
+        "probeHash",
+        "decodedFrameCount",
+        "decodedFrameRate",
+        "videoTimeBase",
+        "sourceAudio"
+      ],
+      "properties": {
+        "deliveredHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "probeHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "decodedFrameCount": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "decodedFrameRate": {
+          "$ref": "#/$defs/RationalRate"
+        },
+        "videoTimeBase": {
+          "$ref": "#/$defs/RationalRate"
+        },
+        "sourceAudio": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "offset",
+            "maxDrift",
+            "sampleRate"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "aligned",
+                "absent",
+                "not_applicable",
+                "failed"
+              ]
+            },
+            "offset": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/RationalTime"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "maxDrift": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/NonNegativeRationalTime"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sampleRate": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/PositiveSafeInteger"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "PreparationDerivationV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "sourceHash",
+        "outputHash",
+        "toolHash",
+        "profileHash",
+        "commandHash"
+      ],
+      "properties": {
+        "method": {
+          "const": "cfr_sample/v1"
+        },
+        "sourceHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "outputHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "toolHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "profileHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "commandHash": {
+          "$ref": "#/$defs/ContentHash"
+        }
+      }
+    },
+    "PreparedMediaBindingV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requirementKey",
+        "mode",
+        "originalSource",
+        "targetRate",
+        "requestedRange",
+        "profile",
+        "timeMapping",
+        "verification",
+        "authorizationReference",
+        "artifactLocator"
+      ],
+      "properties": {
+        "requirementKey": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "mode": {
+          "enum": [
+            "verified_reuse",
+            "derived_cfr"
+          ]
+        },
+        "originalSource": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mediaReferenceId",
+            "contentHash",
+            "probeHash"
+          ],
+          "properties": {
+            "mediaReferenceId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "contentHash": {
+              "$ref": "#/$defs/ContentHash"
+            },
+            "probeHash": {
+              "$ref": "#/$defs/ContentHash"
+            }
+          }
+        },
+        "targetRate": {
+          "$ref": "#/$defs/RationalRate"
+        },
+        "requestedRange": {
+          "$ref": "#/$defs/RequestedPreparationRangeV1"
+        },
+        "profile": {
+          "$ref": "#/$defs/PreparationProfileV1"
+        },
+        "timeMapping": {
+          "$ref": "#/$defs/PreparationTimeMappingV1"
+        },
+        "verification": {
+          "$ref": "#/$defs/PreparedMediaVerificationV1"
+        },
+        "authorizationReference": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "artifactLocator": {
+          "type": "string",
+          "format": "uri-reference",
+          "minLength": 1
+        },
+        "derivation": {
+          "$ref": "#/$defs/PreparationDerivationV1"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "derived_cfr"
+              }
+            },
+            "required": [
+              "mode"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "derivation": true
+            },
+            "required": [
+              "derivation"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "verified_reuse"
+              }
+            },
+            "required": [
+              "mode"
+            ]
+          },
+          "then": {
+            "not": {
+              "type": "object",
+              "properties": {
+                "derivation": true
+              },
+              "required": [
+                "derivation"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "VisualSequenceResolutionV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "documentId",
+        "blockId",
+        "blockRevision",
+        "sequenceId",
+        "sequenceVersion",
+        "structuralSlotIndex",
+        "relation",
+        "slotId",
+        "payloadId",
+        "returnSlotId",
+        "boundaryKind",
+        "resolvedRecordFrame",
+        "boundaryDelta",
+        "rootRanges",
+        "childRanges",
+        "topmostAppearances",
+        "hostState",
+        "visualOrdinal",
+        "eventIds",
+        "sourceRange",
+        "sourceTimeMapping",
+        "preparationRequirementKey",
+        "presenterChoice",
+        "alignmentPrecision"
+      ],
+      "properties": {
+        "documentId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "blockId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "blockRevision": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "sequenceId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "sequenceVersion": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "structuralSlotIndex": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "relation": {
+          "enum": [
+            "root",
+            "child",
+            "return"
+          ]
+        },
+        "slotId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "payloadId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "returnSlotId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "boundaryKind": {
+          "enum": [
+            "word_start",
+            "word_end",
+            "between_blocks",
+            "event_edge",
+            "media_end",
+            "visual_only_start"
+          ]
+        },
+        "resolvedRecordFrame": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "boundaryDelta": {
+          "$ref": "#/$defs/RationalTime"
+        },
+        "rootRanges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FrameRangeV2"
+          }
+        },
+        "childRanges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FrameRangeV2"
+          }
+        },
+        "topmostAppearances": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "eventId",
+              "recordRange"
+            ],
+            "properties": {
+              "eventId": {
+                "$ref": "#/$defs/EntityId"
+              },
+              "recordRange": {
+                "$ref": "#/$defs/FrameRangeV2"
+              }
+            }
+          }
+        },
+        "hostState": {
+          "enum": [
+            "on_camera",
+            "voiceover"
+          ]
+        },
+        "visualOrdinal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PositiveSafeInteger"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "eventIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EntityId"
+          }
+        },
+        "sourceRange": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FrameRangeV2"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceTimeMapping": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PreparationTimeMappingV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "preparationRequirementKey": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NonEmptyString"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "presenterChoice": {
+          "enum": [
+            "temporary_still",
+            "recorded",
+            "not_applicable"
+          ]
+        },
+        "alignmentPrecision": {
+          "enum": [
+            "audible_word",
+            "next_word_derived",
+            "between_words",
+            "unknown",
+            "not_applicable"
+          ]
+        }
+      }
+    },
+    "SupportingItemResultV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "itemId",
+        "version",
+        "role",
+        "disposition",
+        "recordRange",
+        "reason"
+      ],
+      "properties": {
+        "itemId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "version": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "role": {
+          "enum": [
+            "picture",
+            "audio_cue",
+            "citation",
+            "editor_note",
+            "draft_note",
+            "reference"
+          ]
+        },
+        "disposition": {
+          "enum": [
+            "placed",
+            "unplaced",
+            "omitted",
+            "blocked"
+          ]
+        },
+        "recordRange": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FrameRangeV2"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NonEmptyString"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "unplaced"
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "properties": {
+              "recordRange": {
+                "type": "null"
+              },
+              "reason": {
+                "$ref": "#/$defs/NonEmptyString"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "placed"
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "properties": {
+              "recordRange": {
+                "$ref": "#/$defs/FrameRangeV2"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

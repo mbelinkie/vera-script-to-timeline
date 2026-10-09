@@ -1,0 +1,692 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.vera.video/contracts/timeline-manifest-v2.schema.json",
+  "title": "TimelineManifestV2",
+  "description": "Deterministic integer-frame v2 timeline with frozen source, timing, preparation, sequence, and boundary evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "buildId",
+    "buildClass",
+    "document",
+    "compiler",
+    "authoringDefaults",
+    "timeline",
+    "tracks",
+    "roles",
+    "sources",
+    "events",
+    "visualSequenceResolutions",
+    "supportingItemResults",
+    "preparationBindings",
+    "durationBasis",
+    "composition",
+    "boundaryEvidence"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "timeline-manifest/v2"
+    },
+    "id": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+    },
+    "buildId": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+    },
+    "buildClass": {
+      "enum": [
+        "preview",
+        "release"
+      ]
+    },
+    "document": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/DocumentBindingV2"
+    },
+    "compiler": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/CompilerIdentityV2"
+    },
+    "authoringDefaults": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/AuthoringDefaultsV2"
+    },
+    "timeline": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/TimelineSettingsV2"
+    },
+    "tracks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "compiler-dependencies-v2.schema.json#/$defs/TrackV2"
+      }
+    },
+    "roles": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/TrackRolesV2"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ManifestSourceV2"
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TimelineEventV2"
+      }
+    },
+    "visualSequenceResolutions": {
+      "type": "array",
+      "items": {
+        "$ref": "compiler-dependencies-v2.schema.json#/$defs/VisualSequenceResolutionV2"
+      }
+    },
+    "supportingItemResults": {
+      "type": "array",
+      "items": {
+        "$ref": "compiler-dependencies-v2.schema.json#/$defs/SupportingItemResultV2"
+      }
+    },
+    "preparationBindings": {
+      "type": "array",
+      "items": {
+        "$ref": "compiler-dependencies-v2.schema.json#/$defs/PreparedMediaBindingV1"
+      }
+    },
+    "durationBasis": {
+      "$ref": "#/$defs/DurationBasisV2"
+    },
+    "composition": {
+      "$ref": "#/$defs/CompositionEvidenceV2"
+    },
+    "boundaryEvidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BoundaryEvidenceV2"
+      }
+    }
+  },
+  "$defs": {
+    "FrameRangeV2": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/FrameRangeV2"
+    },
+    "RationalTime": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/RationalTime"
+    },
+    "ContentHash": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/ContentHash"
+    },
+    "ManifestSourceV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "mediaReferenceId",
+        "originalHash",
+        "originalProbeHash",
+        "deliveredHash",
+        "deliveredProbeHash",
+        "sourceFrameMap",
+        "sourceTimeMapping",
+        "preparationRequirementKey"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+        },
+        "mediaReferenceId": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+        },
+        "originalHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "originalProbeHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "deliveredHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "deliveredProbeHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "sourceFrameMap": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/SourceFrameMapV1"
+        },
+        "sourceTimeMapping": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/PreparationTimeMappingV1"
+        },
+        "preparationRequirementKey": {
+          "anyOf": [
+            {
+              "$ref": "compiler-dependencies-v2.schema.json#/$defs/NonEmptyString"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "EventProvenanceV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "documentId",
+        "blockId",
+        "sequenceId",
+        "slotId",
+        "payloadId",
+        "overlayEventId",
+        "sourceId",
+        "originalSourceHash",
+        "deliveredSourceHash",
+        "timingMapHash",
+        "compilerVersion"
+      ],
+      "properties": {
+        "documentId": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+        },
+        "blockId": {
+          "anyOf": [
+            {
+              "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sequenceId": {
+          "anyOf": [
+            {
+              "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "slotId": {
+          "anyOf": [
+            {
+              "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "payloadId": {
+          "anyOf": [
+            {
+              "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "overlayEventId": {
+          "anyOf": [
+            {
+              "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceId": {
+          "anyOf": [
+            {
+              "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "originalSourceHash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContentHash"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "deliveredSourceHash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContentHash"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timingMapHash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContentHash"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "compilerVersion": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/NonEmptyString"
+        }
+      }
+    },
+    "SourceAudioEventV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audioPolicy",
+        "levelPolicyVersion",
+        "gainDb",
+        "streamIndex",
+        "audioHash",
+        "sampleRange"
+      ],
+      "properties": {
+        "audioPolicy": {
+          "enum": [
+            "quiet",
+            "full"
+          ]
+        },
+        "levelPolicyVersion": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/NonEmptyString"
+        },
+        "gainDb": {
+          "enum": [
+            -18,
+            0
+          ]
+        },
+        "streamIndex": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/NonNegativeSafeInteger"
+        },
+        "audioHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "sampleRange": {
+          "$ref": "#/$defs/FrameRangeV2"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "audioPolicy": {
+                "const": "quiet"
+              }
+            },
+            "required": [
+              "audioPolicy"
+            ]
+          },
+          "then": {
+            "properties": {
+              "gainDb": {
+                "const": -18
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "audioPolicy": {
+                "const": "full"
+              }
+            },
+            "required": [
+              "audioPolicy"
+            ]
+          },
+          "then": {
+            "properties": {
+              "gainDb": {
+                "const": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "TimelineEventV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eventId",
+        "kind",
+        "trackId",
+        "trackRole",
+        "recordRange",
+        "provenance",
+        "sourceRange",
+        "sourceTimeMapping",
+        "preparationBindingHash",
+        "audio"
+      ],
+      "properties": {
+        "eventId": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+        },
+        "kind": {
+          "enum": [
+            "narration",
+            "primary_visual",
+            "overlay_visual",
+            "source_audio",
+            "placeholder",
+            "script_marker"
+          ]
+        },
+        "trackId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "trackRole": {
+          "enum": [
+            "primary_root",
+            "child",
+            "overlay",
+            "presenter",
+            "narration",
+            "source_audio",
+            "placeholder",
+            "marker",
+            "subtitle"
+          ]
+        },
+        "recordRange": {
+          "$ref": "#/$defs/FrameRangeV2"
+        },
+        "provenance": {
+          "$ref": "#/$defs/EventProvenanceV2"
+        },
+        "sourceRange": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FrameRangeV2"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceTimeMapping": {
+          "anyOf": [
+            {
+              "$ref": "compiler-dependencies-v2.schema.json#/$defs/PreparationTimeMappingV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "preparationBindingHash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContentHash"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "audio": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceAudioEventV2"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "source_audio"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "audio": {
+                "$ref": "#/$defs/SourceAudioEventV2"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "audio": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "primary_visual",
+                  "overlay_visual"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "provenance": {
+                "type": "object",
+                "properties": {
+                  "payloadId": {
+                    "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+                  },
+                  "sourceId": {
+                    "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+                  }
+                }
+              },
+              "sourceRange": {
+                "$ref": "#/$defs/FrameRangeV2"
+              },
+              "sourceTimeMapping": {
+                "$ref": "compiler-dependencies-v2.schema.json#/$defs/PreparationTimeMappingV1"
+              },
+              "preparationBindingHash": {
+                "$ref": "#/$defs/ContentHash"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SupportingItemResultV2": {
+      "$ref": "compiler-dependencies-v2.schema.json#/$defs/SupportingItemResultV2"
+    },
+    "DurationBasisV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "entityId",
+        "recordFrames",
+        "sourceRange",
+        "narrationTimingMapHash"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "narration_spine",
+            "visual_only_duration",
+            "standalone_clip"
+          ]
+        },
+        "entityId": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+        },
+        "recordFrames": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/PositiveSafeInteger"
+        },
+        "sourceRange": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FrameRangeV2"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "narrationTimingMapHash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContentHash"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "ReturnResolutionV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "returnSlotId",
+        "rootEventId",
+        "recordFrame",
+        "emitsNewSourceEvent"
+      ],
+      "properties": {
+        "returnSlotId": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+        },
+        "rootEventId": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+        },
+        "recordFrame": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/NonNegativeSafeInteger"
+        },
+        "emitsNewSourceEvent": {
+          "const": false
+        }
+      }
+    },
+    "CompositionEvidenceV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "topology",
+        "primaryRootTrackId",
+        "childTrackIds",
+        "overlayTrackIds",
+        "rootContinuous",
+        "returns"
+      ],
+      "properties": {
+        "topology": {
+          "const": "primary_root_child_overlay"
+        },
+        "primaryRootTrackId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "childTrackIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "overlayTrackIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "rootContinuous": {
+          "type": "boolean"
+        },
+        "returns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReturnResolutionV2"
+          }
+        }
+      }
+    },
+    "BoundaryEvidenceV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entityId",
+        "kind",
+        "inputTime",
+        "resolvedRecordFrame",
+        "delta",
+        "precision"
+      ],
+      "properties": {
+        "entityId": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+        },
+        "kind": {
+          "enum": [
+            "word_start",
+            "word_end",
+            "media_end",
+            "visual_only_duration",
+            "complete_clip_duration",
+            "independent_timing"
+          ]
+        },
+        "inputTime": {
+          "$ref": "#/$defs/RationalTime"
+        },
+        "resolvedRecordFrame": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/NonNegativeSafeInteger"
+        },
+        "delta": {
+          "$ref": "#/$defs/RationalTime"
+        },
+        "precision": {
+          "enum": [
+            "audible_word",
+            "next_word_derived",
+            "between_words",
+            "unknown",
+            "visual_only_default",
+            "complete_clip_quantized"
+          ]
+        }
+      }
+    }
+  }
+}

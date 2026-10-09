@@ -1,0 +1,294 @@
+{
+  "issue": 171,
+  "title": "Authoring v2 compiler dependency and output schemas with generated types",
+  "repository": "mbelinkie/vera-script-to-timeline",
+  "url": "https://github.com/mbelinkie/vera-script-to-timeline/issues/171",
+  "acceptance": "Automated",
+  "baselineCommit": "76c9f9635989415e3c7c2c15b2e6cc1ab9ddc7da",
+  "acceptedPlan": {
+    "issue": 156,
+    "repository": "mbelinkie/vera-script-to-timeline",
+    "commit": "e32727f0c0e65dc5a8561e0f470ed28e59bd1809",
+    "path": "docs/plans/issue-156-authoring-realization.md",
+    "bytes": 65585,
+    "sha256": "46acb5e6f85f227796e862dd6d09fa3716901f7d8c9ffd0ff576d643b4f5d116"
+  },
+  "productSpecification": {
+    "repository": "mbelinkie/vera-script-to-timeline",
+    "commit": "96978919616df0148d9c4b06781aeb80acfa85e4",
+    "path": "docs/Script-to-Timeline Product Spec - Fable Rev2.md",
+    "bytes": 164442,
+    "sha256": "4ee2c4e06f7fd3fbba3370522c6eb9f50838a3b5aece512f335f247ea7c46005"
+  },
+  "acceptedImplementationSources": [
+    {
+      "id": "#55",
+      "commit": "a561735e7b0c735ccd6185aa407e82581a19b2d9",
+      "path": "docs/investigations/issue-55-presenter-visual-contract.md",
+      "bytes": 27919,
+      "sha256": "51736169ccd5532f375a480108b93e2a1539b3f1b2eee0fec8a2b49286c2cc57"
+    },
+    {
+      "id": "#56",
+      "commit": "9e2b8817ffe97fbc9d6fcf31099aca578c5022bb",
+      "path": "docs/investigations/issue-56-ordered-visual-contract.md",
+      "bytes": 43461,
+      "sha256": "fbcd78c4a64f57b394caeb9e1fcab3ff9c8f2feff7c705d92b614700db235183"
+    },
+    {
+      "id": "#127",
+      "commit": "cdaa3106da91fb5a040c8bbde22e2c61c0d3e162",
+      "path": "docs/prototypes/issue-127/successor-handoff.md",
+      "bytes": 4748,
+      "sha256": "a0338b71f75d9c114692c37d28a3b43c3192513ed5d161084fab099c7c000d40"
+    },
+    {
+      "id": "D24",
+      "commit": "e72aa2436fa49d6b256b7cf811d5c1dea39120c3",
+      "path": "docs/investigations/issue-24-representative-script-coverage.md",
+      "bytes": 46378,
+      "sha256": "73c48673a8a2786120a45e5516e53cc5fcb923b367962359d69bcb7b30622045"
+    }
+  ],
+  "issue170Dependency": {
+    "issue": 170,
+    "stateAtInspection": "CLOSED",
+    "projectStatusAtInspection": "Done",
+    "implementationCommit": "dd3c71bf302062f422e9e8bc5162a9dfd47af102",
+    "plan": {
+      "path": "docs/plans/issue-170-authoring-v2-schemas.md",
+      "bytes": 5942,
+      "sha256": "755f6a8aaaa7396145cb18d6a664062d5f412197a3a233fd341bb7bebb2bd7c2"
+    }
+  },
+  "dependencies": [
+    {
+      "issue": 156,
+      "stateAtInspection": "CLOSED",
+      "projectStatusAtInspection": "Done"
+    },
+    {
+      "issue": 170,
+      "stateAtInspection": "CLOSED",
+      "projectStatusAtInspection": "Done"
+    }
+  ],
+  "authorizationComments": [
+    "https://github.com/mbelinkie/vera-script-to-timeline/issues/156#issuecomment-6072192641",
+    "https://github.com/mbelinkie/vera-script-to-timeline/issues/170#issuecomment-6072458419",
+    "https://github.com/mbelinkie/vera-script-to-timeline/issues/171#issuecomment-6072458724"
+  ],
+  "routingProfile": {
+    "model": "gpt-6-luna",
+    "effort": "max",
+    "taskIdentity": "01a11eff-470c-79a2-b47d-c399bef022d0",
+    "branch": "codex/issue-171-v2-generated-contracts",
+    "canonicalProfileDescriptor": "UTF-8 JSON with sorted keys and no insignificant whitespace over {effort,model}",
+    "profileDescriptorSha256": "15af4a3935eb6b5ee3d75fee1a0ca186ba8d4508bffed6edac11caf073f46937"
+  },
+  "toolchain": {
+    "profileFiles": [
+      {
+        "path": "package.json",
+        "bytes": 2182,
+        "sha256": "766f999a3cbf90a9192b952b019b695c9d12cf4b87a1022b2660b02cf6dcb5a3"
+      },
+      {
+        "path": "package-lock.json",
+        "bytes": 89402,
+        "sha256": "553e3c49edca2f76c784b6f6199cc86997f0ee9d2c14fdb26d73064232d997a0"
+      },
+      {
+        "path": "pyproject.toml",
+        "bytes": 1069,
+        "sha256": "c423edc82a9d57b8c51f6c7ad2062ce36ed1d2d487d069a136eca3fe9a99375c"
+      },
+      {
+        "path": "uv.lock",
+        "bytes": 77803,
+        "sha256": "653550710dbfcd471cc9b04d3ef2c3f0c4b2bc8d48cfec9db4cb23f3a8c9d9dd"
+      },
+      {
+        "path": ".github/vera-roadmap.json",
+        "bytes": 155,
+        "sha256": "02a68437b5305628a21151d9c62b28feff48843e2f6e49f84b81cc54b0cb83cf"
+      }
+    ],
+    "tools": [
+      {
+        "name": "node",
+        "version": "v24.19.0",
+        "path": "/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "sha256": "f7413632aa5c8cfc985a96fbc963a7a9e76204ea4e61970927dfb78ae6c9f365"
+      },
+      {
+        "name": "npm",
+        "version": "11.17.0",
+        "path": "/usr/local/lib/node_modules/npm/bin/npm-cli.js",
+        "sha256": "8e5f6f3429f8cdbe693cdc29904e9d5a7b127a494bd15c804bd54c7403bfcbe7"
+      },
+      {
+        "name": "python",
+        "version": "Python 3.12.14",
+        "path": "/Users/matthewbelinkie/.local/share/uv/python/cpython-3.12.14-macos-x86_64-none/bin/python3.12",
+        "sha256": "a8e10ff8d348800219a8f1f2bb04f5b7d2d62a34f9656cad5520f10560f8df35"
+      },
+      {
+        "name": "uv",
+        "version": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)",
+        "path": "/Users/matthewbelinkie/.local/bin/uv",
+        "sha256": "9f810c3f3ea6b29f5e02b03acb0dcff74f516d4c24b91cd5491f172829e5c9e4"
+      },
+      {
+        "name": "rtk",
+        "version": "rtk 0.44.2",
+        "path": "/Users/matthewbelinkie/.local/bin/rtk",
+        "sha256": "aa8a9432e4970f58f7d2992d55c91edf626c057582f374e65861aef052226d10"
+      },
+      {
+        "name": "ctx-wire",
+        "version": "ctx-wire 0.1.71 (commit 1c9d061, built 2026-09-27T15:38:49Z)",
+        "path": "/Users/matthewbelinkie/.local/bin/ctx-wire",
+        "sha256": "9c93b4824db7a560dd82a40c6fe22aa26077f1746a0493e90420cc7989636a59"
+      }
+    ]
+  },
+  "frozenV1Boundary": {
+    "baselineCommit": "76c9f9635989415e3c7c2c15b2e6cc1ab9ddc7da",
+    "comparison": "rtk git diff --quiet 76c9f9635989415e3c7c2c15b2e6cc1ab9ddc7da -- <five v1 schemas> <v1 TypeScript aggregate> <five v1 Python modules> tests fixtures package-lock.json uv.lock",
+    "comparisonExitCode": 0,
+    "groups": [
+      {
+        "name": "existing v1 JSON schemas",
+        "files": 5,
+        "bytes": 52864,
+        "baselineTreeSha256": "45f4b3b4e126373080e3ee9de5930f4c70f661852da52cdf245cabb0c5acff0e",
+        "currentTreeSha256": "45f4b3b4e126373080e3ee9de5930f4c70f661852da52cdf245cabb0c5acff0e",
+        "identical": true
+      },
+      {
+        "name": "generated v1 TypeScript",
+        "files": 1,
+        "bytes": 16638,
+        "baselineTreeSha256": "c6e890d59103c153337d00a2d2932754b6893d97da85c57427c15c265e8cbb6b",
+        "currentTreeSha256": "c6e890d59103c153337d00a2d2932754b6893d97da85c57427c15c265e8cbb6b",
+        "identical": true
+      },
+      {
+        "name": "generated v1 Python modules",
+        "files": 5,
+        "bytes": 15070,
+        "baselineTreeSha256": "0e647be520362a2a0e6012be595e03df354749dea330bb114f23f497db11fe47",
+        "currentTreeSha256": "0e647be520362a2a0e6012be595e03df354749dea330bb114f23f497db11fe47",
+        "identical": true
+      }
+    ],
+    "pythonRootRegistry": "Additive v2 exports only; all prior v1 import and __all__ entries remain present."
+  },
+  "syntheticFixtureDescriptor": {
+    "path": "tests/data/authoring_v2/source-tool-profile.json",
+    "bytes": 1250,
+    "sha256": "0489354c9a75cd8e22cf6b93a95a90287f2e6753247c6573e7b1861ba74f91e7",
+    "syntheticOnly": true,
+    "syntheticSourceHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "syntheticProfileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "note": "These values exercise serialized hash bindings. They are not actual source, preparation tool, or profile identities."
+  },
+  "artifacts": [
+    {
+      "path": "contracts/build-report-v2.schema.json",
+      "bytes": 28896,
+      "sha256": "9fe700e1ff9b4b3534efcc7024ff016c7c92cdd6d4447c4ed95b8b2d7e86c317"
+    },
+    {
+      "path": "contracts/compiler-dependencies-v2.schema.json",
+      "bytes": 36024,
+      "sha256": "886c8bbc1b2666bbb35dfc764b33160d9daf4c8b4f31fba466cc0ff84069d3d3"
+    },
+    {
+      "path": "contracts/timeline-manifest-v2.schema.json",
+      "bytes": 16798,
+      "sha256": "092b5260eaf5a30402b96b8eeff7fc45a58a7d3b04b60f11a3f66195425a3f04"
+    },
+    {
+      "path": "packages/contracts/package.json",
+      "bytes": 541,
+      "sha256": "63ef23b20c4d0544c31a802be71a596c7c7116113021504744b98159f722722a"
+    },
+    {
+      "path": "packages/contracts/scripts/generate-contracts.mjs",
+      "bytes": 10493,
+      "sha256": "f00a6d01733941a790a7bcedcb1f28f4d3dcf9f6b7be7849468f063d01b2e5bc"
+    },
+    {
+      "path": "packages/contracts/src/generated/contracts-v2.ts",
+      "bytes": 32927,
+      "sha256": "2d2c0cec6734cad5d73d862047afd1723a84ac6fa4bd918b8be8ab5efee6bde8"
+    },
+    {
+      "path": "packages/contracts/test/compiler-v2-schema.test.ts",
+      "bytes": 20075,
+      "sha256": "362bf1ddf886624081c949315ff2363df30f58096a14358e7efa2f90cce2cca4"
+    },
+    {
+      "path": "python/vera_timeline_agent/generated/contracts/__init__.py",
+      "bytes": 983,
+      "sha256": "e5b0b093fac570d366c8f47b7847a1b74d1eb445b0ad78a68f812ed3b4f39fec"
+    },
+    {
+      "path": "python/vera_timeline_agent/generated/contracts/authoring_project_settings_v1_schema.py",
+      "bytes": 1267,
+      "sha256": "734e43c1a1eda82d4d462cced13726a99ef43e2601d3aa977525c4cf6d13599f"
+    },
+    {
+      "path": "python/vera_timeline_agent/generated/contracts/build_report_v2_schema.py",
+      "bytes": 9491,
+      "sha256": "f64488aaa0315dcff6666f9f7801377ff88d6aeab57357b48dd97b8f5bd15ae1"
+    },
+    {
+      "path": "python/vera_timeline_agent/generated/contracts/compiler_dependencies_v2_schema.py",
+      "bytes": 10038,
+      "sha256": "3288d44d608e28e31dcb71e5d0d71cbe932d0f5d78f3bea149ad187565da7dbc"
+    },
+    {
+      "path": "python/vera_timeline_agent/generated/contracts/script_document_v2_schema.py",
+      "bytes": 9629,
+      "sha256": "39a80abaf297744f9453098121610a91c8f58e7fe337115a07e5f7b2f2739c7b"
+    },
+    {
+      "path": "python/vera_timeline_agent/generated/contracts/timeline_manifest_v2_schema.py",
+      "bytes": 5283,
+      "sha256": "e1db323e8bc12589046ea8b60db29a546e248a249007a94172f9ddfa362375c3"
+    },
+    {
+      "path": "tests/test_issue171_generated_contracts.py",
+      "bytes": 3104,
+      "sha256": "1e8babfb061deec01f8af4d3e62779fb760fc82136090763604c78dee1ae9a1b"
+    },
+    {
+      "path": "tests/data/authoring_v2/README.md",
+      "bytes": 1674,
+      "sha256": "68a9d31ae0ab2cd251e082254730317eec3b3dd6d378e98693cad1a21263595b"
+    },
+    {
+      "path": "tests/data/authoring_v2/build-report-v2.json",
+      "bytes": 6794,
+      "sha256": "4656ffa76b0ba5c3aa261ee8543079a94c89faefa8a4cc4e5d8996d261caa4a2"
+    },
+    {
+      "path": "tests/data/authoring_v2/compiler-dependencies-v2.json",
+      "bytes": 7430,
+      "sha256": "1daba2769c4781b14a9e2a43a8737d934601014c205e60d112ef8b06781938ac"
+    },
+    {
+      "path": "tests/data/authoring_v2/source-tool-profile.json",
+      "bytes": 1250,
+      "sha256": "0489354c9a75cd8e22cf6b93a95a90287f2e6753247c6573e7b1861ba74f91e7"
+    },
+    {
+      "path": "tests/data/authoring_v2/timeline-manifest-v2.json",
+      "bytes": 7542,
+      "sha256": "1bd4036ef55b0936f79212f971237a38e86b0fba8a8a47ac3816c14c1f715759"
+    }
+  ]
+}
