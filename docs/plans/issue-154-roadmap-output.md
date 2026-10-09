@@ -49,8 +49,7 @@ inspection are the acceptance evidence. No producer action is required.
 
 On Node v24.19.0 / npm 11.17.0, all required checks passed:
 
-- `rtk env PATH=/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH npm run test:roadmap`: 28/28 passing, including the existing claim pagination,
-  dependencies, GraphQL budget, and lock tests plus five transport tests.
+- `rtk env PATH=/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH npm run test:roadmap`: 29/29 passing, including claim pagination, dependencies, GraphQL budget, and lock tests plus six transport tests.
 - `rtk env PATH=/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH npm run lint:typescript`: passed.
 - `rtk env PATH=/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH npm run typecheck:typescript`: passed.
 - `rtk git diff --check`: passed.
@@ -85,8 +84,11 @@ was:
 }
 ```
 
-The synthetic process-boundary suite confirms that a valid response larger
-than 1 MiB succeeds, a 32 MiB child output crosses the 16 MiB cap and yields a
-short error without parsing partial JSON, malformed JSON returns no inspection,
-nonzero rate-limit responses retain reset guidance, and startup/exit/signal
-failures are reported clearly. No live claim, status, or dependency was changed.
+The synthetic process-boundary suite also exercises the complete claim-page
+path: a greater-than-1-MiB initial issue response sets `hasPreviousPage: true`,
+then an older comments response supplies an active claim, and `inspect` returns
+that exact claim. Other cases confirm a large valid response succeeds, a 32 MiB
+issue response crosses the 16 MiB cap and yields a short error without parsing
+partial JSON, malformed JSON returns no inspection, nonzero rate-limit
+responses retain reset guidance, and startup/exit/signal failures are reported
+clearly. No live claim, status, or dependency was changed.

@@ -34,12 +34,17 @@ if (process.env.FAKE_GH_MODE === "signal") {
   } else {
     process.stdout.write("HTTP/2 200 OK\\nX-RateLimit-Limit: 5000\\nX-RateLimit-Remaining: 50\\nX-RateLimit-Used: 4950\\nX-RateLimit-Reset: 1893456000\\nX-RateLimit-Resource: graphql\\n\\n{\\"data\\":{\\"rateLimit\\":{\\"limit\\":5000,\\"remaining\\":50,\\"used\\":4950,\\"resetAt\\":\\"2030-01-01T00:00:00Z\\",\\"cost\\":1}}}");
   }
+} else if (query.includes("RoadmapIssueComments")) {
+  const claim = JSON.stringify({state:"active",model:"gpt-6.1-sol",effort:"xhigh",task:"paged-claim-task",branch:"codex/paged-claim",startedAt:"2030-01-01T00:00:00.000Z"});
+  const payload = {data:{repository:{issue:{comments:{nodes:[{body:"<!-- vera-claim " + claim + " -->"}],pageInfo:{hasPreviousPage:false,startCursor:null}}}}}};
+  process.stdout.write(JSON.stringify(payload));
 } else if (query.includes("RoadmapIssue")) {
   if (process.env.FAKE_GH_MODE === "invalid") {
     process.stdout.write("{\\"data\\":{\\"repository\\":");
     process.exit(0);
   }
-  const payload = {data:{repository:{escalationLabel:null,issue:{id:"issue-id",number:154,title:"Transport fixture",url:"https://github.com/mbelinkie/vera-script-to-timeline/issues/154",state:"OPEN",body:"## Acceptance criteria\\n\\n- [ ] Works\\n\\n## Dependencies\\n\\nNone",labels:{nodes:[{name:"model:luna"},{name:"effort:max"}]},comments:{nodes:[{body:"x".repeat(Number(process.env.FAKE_HISTORY_BYTES))}],pageInfo:{hasPreviousPage:false,startCursor:null}},projectItems:{nodes:[{id:"item-id",project:{id:"project-id",number:2,title:"Roadmap"},fieldValueByName:{name:"Ready"},fieldValues:{nodes:[{name:"Ready",field:{name:"Status"}},{name:"Automated",field:{name:"Acceptance"}},{name:"S",field:{name:"Size"}}]}}]}}},user:{projectV2:{id:"project-id",number:2,title:"Roadmap",field:{id:"status-field",name:"Status",options:[{id:"ready",name:"Ready"}]}}}}};
+  const paged = process.env.FAKE_GH_MODE === "paged-claim";
+  const payload = {data:{repository:{escalationLabel:null,issue:{id:"issue-id",number:154,title:"Transport fixture",url:"https://github.com/mbelinkie/vera-script-to-timeline/issues/154",state:"OPEN",body:"## Acceptance criteria\\n\\n- [ ] Works\\n\\n## Dependencies\\n\\nNone",labels:{nodes:[{name:"model:luna"},{name:"effort:max"}]},comments:{nodes:[{body:"x".repeat(Number(process.env.FAKE_HISTORY_BYTES))}],pageInfo:{hasPreviousPage:paged,startCursor:paged ? "older-page" : null}},projectItems:{nodes:[{id:"item-id",project:{id:"project-id",number:2,title:"Roadmap"},fieldValueByName:{name:"Ready"},fieldValues:{nodes:[{name:"Ready",field:{name:"Status"}},{name:"Automated",field:{name:"Acceptance"}},{name:"S",field:{name:"Size"}}]}}]}}},user:{projectV2:{id:"project-id",number:2,title:"Roadmap",field:{id:"status-field",name:"Status",options:[{id:"ready",name:"Ready"}]}}}}};
   const response = JSON.stringify(payload);
   fs.writeFileSync(process.env.FAKE_GH_RESPONSE_BYTES, String(Buffer.byteLength(response)));
   process.stdout.write(response);
@@ -80,6 +85,21 @@ test("inspects a valid issue response larger than the old 1 MiB buffer", (t) => 
   assert.equal(inspection.project.acceptance, "Automated");
   assert.deepEqual(inspection.dependencies, { valid: true, resolved: true, items: [] });
   assert.equal(inspection.claim, null);
+});
+
+test("finds the retained claim on an older page after a large initial history page", (t) => {
+  const { temporary, result } = inspectWithFakeGh(t, "paged-claim", 2 * 1024 * 1024);
+  assert.equal(result.status, 0, result.stderr.slice(0, 256));
+  assert.ok(issueResponseBytes(temporary) > 1024 * 1024);
+  const inspection = JSON.parse(result.stdout);
+  assert.deepEqual(inspection.claim, {
+    state: "active",
+    model: "gpt-6.1-sol",
+    effort: "xhigh",
+    task: "paged-claim-task",
+    branch: "codex/paged-claim",
+    startedAt: "2030-01-01T00:00:00.000Z",
+  });
 });
 
 test("reports bounded stdout overflow without parsing or printing partial JSON", (t) => {
