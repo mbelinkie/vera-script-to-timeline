@@ -1,0 +1,26 @@
+{
+  "model": "gpt-6.1-sol",
+  "effort": "high",
+  "task": "01a121fe-5af9-7e11-a9b6-cebf5627e71b",
+  "acceptance": "Automated",
+  "verification": "pure synthetic; no acoustic review or real delivery qualification",
+  "node": "v24.19.0",
+  "npm": "11.17.0",
+  "uv": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)",
+  "python": "Python 3.12.14",
+  "pytest": "pytest 9.1.1",
+  "ruff": "ruff 0.16.4",
+  "mypy": "mypy 2.3.1 (compiled: no)",
+  "packages": {
+    "vitest": "4.1.11",
+    "typescript": "6.0.3",
+    "eslint": "10.9.1",
+    "ajv": "8.20.0",
+    "json-schema-to-typescript": "15.0.4"
+  },
+  "executableSHA256": {
+    "/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node": "f7413632aa5c8cfc985a96fbc963a7a9e76204ea4e61970927dfb78ae6c9f365",
+    "/Users/matthewbelinkie/.local/bin/uv": "9f810c3f3ea6b29f5e02b03acb0dcff74f516d4c24b91cd5491f172829e5c9e4"
+  },
+  "VITEST_MAX_WORKERS": "1"
+}

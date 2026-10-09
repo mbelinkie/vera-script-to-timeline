@@ -1,0 +1,141 @@
+
+> vera-script-to-timeline@0.0.0 validate
+> npm run check:contracts-generated && npm run check:typescript && npm run check:python
+
+
+> vera-script-to-timeline@0.0.0 check:contracts-generated
+> node packages/contracts/scripts/generate-contracts.mjs --check
+
+Generated contract types are current.
+
+> vera-script-to-timeline@0.0.0 check:typescript
+> npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript
+
+
+> vera-script-to-timeline@0.0.0 lint:typescript
+> eslint scripts/*.mjs --max-warnings=0 && npm run lint --workspaces --if-present
+
+
+> @vera/contracts@0.0.0 lint
+> eslint src test --max-warnings=0
+
+
+> @vera/tooling-smoke@0.0.0 lint
+> eslint . --max-warnings=0
+
+
+> vera-script-to-timeline@0.0.0 typecheck:typescript
+> npm run typecheck --workspaces --if-present
+
+
+> @vera/contracts@0.0.0 typecheck
+> tsc --project tsconfig.json
+
+
+> @vera/tooling-smoke@0.0.0 typecheck
+> tsc --project tsconfig.json
+
+
+> vera-script-to-timeline@0.0.0 test:typescript
+> npm run test --workspaces --if-present && npm run test:progress && npm run test:roadmap
+
+
+> @vera/contracts@0.0.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/matthewbelinkie/.codex/worktrees/6484/VERA Script to Timeline/packages/contracts
+
+ ❯ test/issue-144-omission-bridge.test.ts (15 tests | 4 failed) 50777ms
+     × finalizes replacement dependencies/fresh IDs and exact actual compiler preview 5996ms
+     × refuses inconsistent handoff documentHash 6969ms
+     × refuses inconsistent handoff oldAudio 7011ms
+     × refuses inconsistent handoff asset 7805ms
+ ❯ test/issue-144-compile-cli.test.ts (11 tests | 1 failed) 22738ms
+     × binds serialized input bytes even when compiler semantics are unchanged 5314ms
+ ❯ test/issue-144-proof-cli.test.ts (6 tests | 1 failed) 31383ms
+     × uses the actual mapper with byte-bound files and deterministic replay 23584ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/issue-144-compile-cli.test.ts > Issue 144 compiler-only file boundary > binds serialized input bytes even when compiler semantics are unchanged
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ test/issue-144-compile-cli.test.ts:123:3
+    121|   });
+    122|
+    123|   it("binds serialized input bytes even when compiler semantics are un…
+       |   ^
+    124|     const original = invoke([scriptPath, dependenciesPath]);
+    125|     const reformatted = fileWith(JSON.parse(readFileSync(scriptPath, "…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  test/issue-144-omission-bridge.test.ts > Issue144 internal omission canonical stdout bridge (no decision authority) > finalizes replacement dependencies/fresh IDs and exact actual compiler preview
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ test/issue-144-omission-bridge.test.ts:59:3
+     57|     expect(invoke("revise-omission",paths).stdout).toBe(result.stdout)…
+     58|   });
+     59|   it("finalizes replacement dependencies/fresh IDs and exact actual co…
+       |   ^
+     60|     const data=prepared();const paths=files([data.revision.document,da…
+     61|     const result=invoke("finalize-omission",paths);expect(result.statu…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  test/issue-144-omission-bridge.test.ts > Issue144 internal omission canonical stdout bridge (no decision authority) > refuses inconsistent handoff documentHash
+ FAIL  test/issue-144-omission-bridge.test.ts > Issue144 internal omission canonical stdout bridge (no decision authority) > refuses inconsistent handoff oldAudio
+ FAIL  test/issue-144-omission-bridge.test.ts > Issue144 internal omission canonical stdout bridge (no decision authority) > refuses inconsistent handoff asset
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ test/issue-144-omission-bridge.test.ts:74:105
+     72|     expect(second.artifacts["compiler-dependencies.json"]).not.toBe(re…
+     73|   });
+     74|   it.each(["documentHash","oldAudio","asset","row","extraReplacement",…
+       |                                                                                                         ^
+     75|     const data=prepared();
+     76|     if(kind==="documentHash")data.handoff.revisedDocumentHash=hash("f"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  test/issue-144-proof-cli.test.ts > Issue144 proposal/decision stdout file entry > uses the actual mapper with byte-bound files and deterministic replay
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ test/issue-144-proof-cli.test.ts:26:3
+     24|
+     25| describe("Issue144 proposal/decision stdout file entry", () => {
+     26|   it("uses the actual mapper with byte-bound files and deterministic r…
+       |   ^
+     27|     const input = inputs(); edit(input, "move");
+     28|     const path = file("inputs.json", input); const before = readFileSy…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+
+ Test Files  3 failed | 16 passed (19)
+      Tests  6 failed | 396 passed (402)
+   Start at  16:07:30
+   Duration  207.56s (transform 6.36s, setup 0ms, import 37.23s, tests 153.59s, environment 10ms)
+
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path /Users/matthewbelinkie/.codex/worktrees/6484/VERA Script to Timeline/packages/contracts
+npm error workspace @vera/contracts@0.0.0
+npm error location /Users/matthewbelinkie/.codex/worktrees/6484/VERA Script to Timeline/packages/contracts
+npm error command failed
+npm error command sh -c vitest run
+
+
+> @vera/tooling-smoke@0.0.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/matthewbelinkie/.codex/worktrees/6484/VERA Script to Timeline/packages/tooling-smoke
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  16:11:01
+   Duration  1.99s (transform 128ms, setup 0ms, import 199ms, tests 16ms, environment 0ms)
+

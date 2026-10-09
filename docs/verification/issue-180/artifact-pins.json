@@ -1,0 +1,12 @@
+{
+  "audit.mjs": "de9b306bac16bad2129539b7e35e1e190a7acb4a4a65df75fb4eb47d6c4d8512",
+  "run-full-validation.mjs": "3a69dfece0d0764c73f834d8da1456a5ef4e29f2d272029f30fa66786cab3c44",
+  "automated.md": "50d2fea12d18d4473f3c61bba5c4e272b7715f6279fd09aba4ba31007988d051",
+  "frozen-source-pins.json": "ecfd49065578510c7f05b782129e2a241b0befc757cb71ce20a3ab22fcd34193",
+  "source-input-pins.json": "31ca98bb32e03fedbd73d89a6d9d59b9ca4d90b0a911d75a04aa6aed6c65f21a",
+  "golden-pins.json": "e31fc098991bbded08536ab6b82754bfa1102b120894921ac69788df05fe18e8",
+  "tool-profile.json": "713ea1d755412c083aae2881762e9eaf1039b10e21f8a176180c7bd339b28164",
+  "frozen-boundary-audit.json": "e32d768d14edac650437f97bd40e3bfeb7f2bbad304a68604cbeff0da5c5c45a",
+  "attempt-1-status.json": "edefc83dd717ce7c1cc4acf53a058fc2672fa4df01de43a8c6f9ca66ed87fe1f",
+  "attempt-1-validate.log": "1513763d6563fcbb5a64622e0f6795e72006d252e108e00de1329c2a8432e9d8"
+}

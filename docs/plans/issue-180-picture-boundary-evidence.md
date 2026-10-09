@@ -50,3 +50,10 @@ Initial inspection: 3–5 hours remaining active work, medium confidence.
 Main uncertainty: cross-consumer compatibility, provisional until sparse-input
 and authoring-edge tests pass. Reassess at that checkpoint and full validation.
 External/approval waiting is outside active-work estimates.
+
+Validation checkpoint: implementation/review and focused tests are complete.
+The first full gate failed only on six existing #144 CLI 5-second timeouts;
+all 82 new TS cases passed. Retry the unchanged gate. Remaining active work
+is about 15–25 minutes for evidence/closure; full validation waiting may take
+50–70 minutes based on #173's retained 52-minute run. Medium confidence until
+the unchanged timeout-sensitive tests pass. No scope or routing change.

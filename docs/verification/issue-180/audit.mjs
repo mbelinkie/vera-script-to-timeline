@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync, readlinkSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readlinkSync, realpathSync, writeFileSync } from "node:fs";
 
 const baseline = "03f1d333b85cceacd89be85a27723783c84ed310";
 const directory = "docs/verification/issue-180";
@@ -63,4 +63,28 @@ const result = { baseline, sourceCommit: git("rev-parse", "HEAD"), sourceTree: g
 writeFileSync(`${directory}/frozen-source-pins.json`, `${JSON.stringify(frozen, null, 2)}\n`);
 writeFileSync(`${directory}/source-input-pins.json`, `${JSON.stringify(Object.fromEntries(inputs.map((path) => [path, sha(readFileSync(path))])), null, 2)}\n`);
 writeFileSync(`${directory}/frozen-boundary-audit.json`, `${JSON.stringify(result, null, 2)}\n`);
+const goldens = git("ls-files", "tests/data/authoring_v2/issue_180").split("\n").filter(Boolean);
+assert.equal(goldens.length, 18);
+writeFileSync(`${directory}/golden-pins.json`, `${JSON.stringify(Object.fromEntries(goldens.map((path) => [path, sha(readFileSync(path))])), null, 2)}\n`);
+const command = (executable, args) => {
+  const result = spawnSync(executable, args, { encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr);
+  return result.stdout.trim();
+};
+const uvPath = realpathSync(command("which", ["uv"]));
+const profile = {
+  model: "gpt-6.1-sol", effort: "high", task: "01a121fe-5af9-7e11-a9b6-cebf5627e71b",
+  acceptance: "Automated", verification: "pure synthetic; no acoustic review or real delivery qualification",
+  node: process.version, npm: command("npm", ["--version"]), uv: command("uv", ["--version"]),
+  python: command("uv", ["run", "--frozen", "python", "--version"]),
+  pytest: command("uv", ["run", "--frozen", "pytest", "--version"]),
+  ruff: command("uv", ["run", "--frozen", "ruff", "--version"]),
+  mypy: command("uv", ["run", "--frozen", "mypy", "--version"]),
+  packages: Object.fromEntries(["vitest", "typescript", "eslint", "ajv", "json-schema-to-typescript"].map((name) => [name, JSON.parse(readFileSync(`node_modules/${name}/package.json`, "utf8")).version])),
+  executableSHA256: { [realpathSync(process.execPath)]: sha(readFileSync(process.execPath)), [uvPath]: sha(readFileSync(uvPath)) },
+  VITEST_MAX_WORKERS: "1",
+};
+writeFileSync(`${directory}/tool-profile.json`, `${JSON.stringify(profile, null, 2)}\n`);
+const artifacts = ["audit.mjs", "run-full-validation.mjs", "automated.md", "frozen-source-pins.json", "source-input-pins.json", "golden-pins.json", "tool-profile.json", "frozen-boundary-audit.json", "attempt-1-status.json", "attempt-1-validate.log", "full-validation-status.json", "validate.log"];
+writeFileSync(`${directory}/artifact-pins.json`, `${JSON.stringify(Object.fromEntries(artifacts.filter((name) => existsSync(`${directory}/${name}`)).map((name) => [name, sha(readFileSync(`${directory}/${name}`))])), null, 2)}\n`);
 console.log(JSON.stringify(result));
