@@ -1,0 +1,131 @@
+{
+  "issue": 170,
+  "implementationCommit": "dd3c71bf302062f422e9e8bc5162a9dfd47af102",
+  "baselineCommit": "e32727f0c0e65dc5a8561e0f470ed28e59bd1809",
+  "sourcePinsAtValidatedCommitSha256": "8c0f0999f63bbcfbcb2a6779631e65516ed13d556a41cd2e029ad555617c9e38",
+  "attempt5": {
+    "attempt": 5,
+    "implementationCommit": "dd3c71bf302062f422e9e8bc5162a9dfd47af102",
+    "command": "PATH=\"/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH\" ctx-wire run rtk npm run validate > out/issue-170/npm-run-validate-attempt-5-final.log 2>&1",
+    "exitObservationMethod": "macOS kqueue EVFILT_PROC with NOTE_EXIT and NOTE_EXITSTATUS; target processes owned by the observing user",
+    "exitEvents": [
+      {
+        "observedAt": "2026-10-09T03:22:37.611693+00:00",
+        "pid": 64772,
+        "process": "pytest",
+        "rawWaitStatus": 0,
+        "exitCode": 0,
+        "eventFlags": 2214592512
+      },
+      {
+        "observedAt": "2026-10-09T03:22:37.800902+00:00",
+        "pid": 63516,
+        "process": "npm validate",
+        "rawWaitStatus": 0,
+        "exitCode": 0,
+        "eventFlags": 2214592512
+      },
+      {
+        "observedAt": "2026-10-09T03:22:37.802684+00:00",
+        "pid": 63515,
+        "process": "rtk",
+        "rawWaitStatus": 13,
+        "exitCode": -13,
+        "eventFlags": 2214592512
+      }
+    ],
+    "ctxWireExitCode": null,
+    "log": {
+      "path": "out/issue-170/npm-run-validate-attempt-5-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "outcome": "Underlying pytest and npm validation passed. Original exec session unavailable and ctx-wire reader had exited before observation; rtk later exited on SIGPIPE (13). Redirected log is empty. This attempt does not establish cleanly captured full-gate evidence or issue acceptance."
+  },
+  "attempt6": {
+    "startedAt": "2026-10-09T03:24:47.807172+00:00",
+    "head": "dd3c71bf302062f422e9e8bc5162a9dfd47af102",
+    "command": [
+      "ctx-wire",
+      "run",
+      "rtk",
+      "npm",
+      "run",
+      "validate"
+    ],
+    "nodePathPrefix": "/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin",
+    "log": "/Users/matthewbelinkie/.codex/worktrees/issue-170-authoring-schemas/VERA Script to Timeline/out/issue-170/npm-run-validate-attempt-6-captured.log",
+    "pid": 90201,
+    "state": "finished",
+    "exitCode": 0,
+    "finishedAt": "2026-10-09T04:40:37.945537+00:00",
+    "exactShellCommand": "PATH=\"/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH\" ctx-wire run rtk npm run validate > out/issue-170/npm-run-validate-attempt-6-captured.log 2>&1",
+    "captureMethod": "Detached supervisor waits for the exact ctx-wire/rtk/npm command; stdout and stderr go to a file; command exit status and completion time are saved after wait().",
+    "retainedLog": {
+      "path": "docs/verification/issue-170/full-validation-attempt-6.txt",
+      "bytes": 7621,
+      "sha256": "0af4f966a2be5f9a942f3c7c9d30feb2bbfd15fcd8126975768f34b1c2b9be82"
+    },
+    "passingTestCounts": {
+      "contracts": 259,
+      "toolingSmoke": 1,
+      "projectProgress": 6,
+      "roadmap": 23,
+      "python": 369
+    },
+    "checks": [
+      "contract generation currentness",
+      "TypeScript lint",
+      "TypeScript typecheck",
+      "TypeScript and tooling tests",
+      "Python lint and formatting",
+      "Python typecheck",
+      "Python tests"
+    ]
+  },
+  "toolIdentity": {
+    "observedAt": "2026-10-09T03:04:34.506479+00:00",
+    "head": "dd3c71bf302062f422e9e8bc5162a9dfd47af102",
+    "baselineCommit": "e32727f0c0e65dc5a8561e0f470ed28e59bd1809",
+    "pinnedArtifactsVerified": 6,
+    "tools": [
+      {
+        "name": "node",
+        "version": "v24.19.0",
+        "path": "/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "sha256": "f7413632aa5c8cfc985a96fbc963a7a9e76204ea4e61970927dfb78ae6c9f365"
+      },
+      {
+        "name": "npm",
+        "version": "11.17.0",
+        "path": "/usr/local/lib/node_modules/npm/bin/npm-cli.js",
+        "sha256": "8e5f6f3429f8cdbe693cdc29904e9d5a7b127a494bd15c804bd54c7403bfcbe7"
+      },
+      {
+        "name": "python",
+        "version": "Python 3.12.14",
+        "path": "/Users/matthewbelinkie/.local/share/uv/python/cpython-3.12.14-macos-x86_64-none/bin/python3.12",
+        "sha256": "a8e10ff8d348800219a8f1f2bb04f5b7d2d62a34f9656cad5520f10560f8df35"
+      },
+      {
+        "name": "uv",
+        "version": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)",
+        "path": "/Users/matthewbelinkie/.local/bin/uv",
+        "sha256": "9f810c3f3ea6b29f5e02b03acb0dcff74f516d4c24b91cd5491f172829e5c9e4"
+      },
+      {
+        "name": "rtk",
+        "version": "rtk 0.44.2",
+        "path": "/Users/matthewbelinkie/.local/bin/rtk",
+        "sha256": "aa8a9432e4970f58f7d2992d55c91edf626c057582f374e65861aef052226d10"
+      },
+      {
+        "name": "ctx-wire",
+        "version": "ctx-wire 0.1.71 (commit 1c9d061, built 2026-09-27T15:38:49Z)",
+        "path": "/Users/matthewbelinkie/.local/bin/ctx-wire",
+        "sha256": "9c93b4824db7a560dd82a40c6fe22aa26077f1746a0493e90420cc7989636a59"
+      }
+    ]
+  },
+  "handoff": "Full validation passed with retained command output and exit status. No independent implementation review or issue acceptance is claimed. No Producer action is required. Leave #170 open; no PR creation or push."
+}

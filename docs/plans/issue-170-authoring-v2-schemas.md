@@ -1,6 +1,6 @@
 # Issue #170 — authoring v2 document and project-settings schemas
 
-Status: implementation checkpoint committed; final full validation is still running and has not passed. Baseline and accepted design: `e32727f0c0e65dc5a8561e0f470ed28e59bd1809`.
+Status: implementation checkpoint committed; required full validation passed with retained output and exit status. Independent review and integration remain pending. Baseline and accepted design: `e32727f0c0e65dc5a8561e0f470ed28e59bd1809`.
 
 ## Outcome and authority
 

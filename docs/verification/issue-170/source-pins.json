@@ -138,13 +138,29 @@
     },
     {
       "path": "docs/plans/issue-170-authoring-v2-schemas.md",
-      "bytes": 5880,
-      "sha256": "ccb2f1335c43c8e45fe1b37112d71f83fce0e17ba20582eb7732aa42e3a9d4c9"
+      "bytes": 5942,
+      "sha256": "755f6a8aaaa7396145cb18d6a664062d5f412197a3a233fd341bb7bebb2bd7c2"
     },
     {
       "path": "docs/verification/issue-170/verification.md",
-      "bytes": 2483,
-      "sha256": "c8fd3026e033aadc1d301cb40a648e95637effa69ed4cf980e48182415387b84"
+      "bytes": 4383,
+      "sha256": "0b3f87e9b40b3823e76fb9e87d91c4ce63e0b999d32d30c49fcec450718127cb"
+    },
+    {
+      "path": "docs/verification/issue-170/full-validation.json",
+      "bytes": 5537,
+      "sha256": "05857642f5b7cc99981059269209decb73dbbc0c50b506430222117e48d584df"
+    },
+    {
+      "path": "docs/verification/issue-170/full-validation-attempt-6.txt",
+      "bytes": 7621,
+      "sha256": "0af4f966a2be5f9a942f3c7c9d30feb2bbfd15fcd8126975768f34b1c2b9be82"
     }
-  ]
+  ],
+  "fullValidation": {
+    "implementationCommit": "dd3c71bf302062f422e9e8bc5162a9dfd47af102",
+    "exitCode": 0,
+    "record": "docs/verification/issue-170/full-validation.json",
+    "consoleLog": "docs/verification/issue-170/full-validation-attempt-6.txt"
+  }
 }
