@@ -1,0 +1,8 @@
+
+ RUN  v4.1.11 /Users/matthewbelinkie/.codex/worktrees/293f/VERA Script to Timeline
+
+
+ Test Files  6 passed (6)
+      Tests  77 passed (77)
+   Start at  14:34:59
+   Duration  8.10s (transform 449ms, setup 0ms, import 3.23s, tests 3.39s, environment 1ms)

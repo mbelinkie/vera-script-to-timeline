@@ -1,0 +1,5 @@
+
+> vera-script-to-timeline@0.0.0 check:contracts-generated
+> node packages/contracts/scripts/generate-contracts.mjs --check
+
+Generated contract types are current.

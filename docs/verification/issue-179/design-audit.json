@@ -1,0 +1,18 @@
+{
+  "status": "passed",
+  "baseline": "d2e241316cb032cdddc4bac5d7acd953b1af8519",
+  "branch": "codex/issue-179-cut-point-design",
+  "baselineTrackedFileCount": 6275,
+  "frozenCategoryFileCount": 296,
+  "allBaselineFilesPresent": true,
+  "noBaselineFileChanges": true,
+  "newArtifactsRestrictedToIssueScope": true,
+  "localDesignReferencesExist": true,
+  "acceptedRuntimeSourceBlobsMatch": true,
+  "exampleArithmeticAndReproductionConsistent": true,
+  "runtime": {
+    "node": "v24.19.0",
+    "vitest": "4.1.11"
+  },
+  "validation": "Design evidence only; future runtime behavior is not implemented or accepted."
+}
