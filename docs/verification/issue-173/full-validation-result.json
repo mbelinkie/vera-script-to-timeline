@@ -1,0 +1,19 @@
+{
+  "sourceCommit": "96fd70f573c3eaa1fc2b342de87ee9df00c64eaa",
+  "sourceTree": "a199b7ee8feb370f694c23f4d7b975d7264a1f8f",
+  "branch": "codex/issue-173-compiler-v2",
+  "startedAt": "2026-10-09T15:18:16.944Z",
+  "logPath": "/Users/matthewbelinkie/.codex/worktrees/issue-173-compiler-v2/VERA Script to Timeline/test-results/issue-173/full-validation/validate.log",
+  "statusPath": "/Users/matthewbelinkie/.codex/worktrees/issue-173-compiler-v2/VERA Script to Timeline/test-results/issue-173/full-validation/status.json",
+  "command": "VITEST_MAX_WORKERS=1 npm run validate",
+  "nodeVersion": "v24.19.0",
+  "state": "passed",
+  "launcherPid": 74883,
+  "validationPid": 74897,
+  "exitCode": 0,
+  "signal": null,
+  "error": null,
+  "finishedAt": "2026-10-09T16:09:51.931Z",
+  "elapsedSeconds": 3094.986,
+  "logSHA256": "d20d1f40ad0fdf695d58957be18956d499ce3bc92bd1b924a923b81771d15904"
+}

@@ -119,13 +119,13 @@ Current checkpoint: the complete 26-test compiler matrix passes with updates
 disabled, together with 30 additive/existing schema tests and 11 Python
 adapter/generated/v1-regression tests. Typecheck, lint and generation
 currentness pass. There are 33 active frozen compiler input/output scenarios.
-Independent owner review and frozen-byte auditing are complete. Remaining active
-work is final source/evidence commit and launch, then acceptance/closure after
-the separate approximately 90-minute repository OS gate (medium confidence in
-that baseline wait; no completion time is guaranteed).
-The owner and workers stop sampling immediately after that gate starts; its
-launcher saves a complete log and atomic completion status for the parent's
-deferred check. No closure occurs until the gate passes.
+Independent owner review and frozen-byte auditing are complete. The single full
+repository gate passed on source `96fd70f573c3eaa1fc2b342de87ee9df00c64eaa`
+in 3094.986 seconds (51 minutes 35 seconds), faster than the provisional baseline
+wait. The owner and workers stopped sampling while it ran; the parent's deferred
+check confirmed its source/tree, exit and log hash. Final evidence is canonical
+in `docs/verification/issue-173/automated.md`. Automated publication and closure
+follow the retained passing gate; no Producer repeat approval is needed.
 
 Review judgment: original integer source read coverage differs from exact
 delivered playback duration and audio end. The matrix asserts each separately;
