@@ -22,5 +22,6 @@
     "/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node": "f7413632aa5c8cfc985a96fbc963a7a9e76204ea4e61970927dfb78ae6c9f365",
     "/Users/matthewbelinkie/.local/bin/uv": "9f810c3f3ea6b29f5e02b03acb0dcff74f516d4c24b91cd5491f172829e5c9e4"
   },
-  "VITEST_MAX_WORKERS": "1"
+  "VITEST_MAX_WORKERS": "1",
+  "NODE_COMPILE_CACHE": "/Users/matthewbelinkie/.codex/worktrees/6484/VERA Script to Timeline/test-results/issue-180/node-compile-cache"
 }

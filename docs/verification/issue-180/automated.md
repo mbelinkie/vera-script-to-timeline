@@ -1,112 +1,135 @@
-# Issue #180 automated acceptance
+# Issue #180 — implementation and blocked Automated acceptance
+
+**Status: Blocked. No acceptance or closure has been recorded.**
 
 Issue: https://github.com/mbelinkie/vera-script-to-timeline/issues/180.
 Owner: `gpt-6.1-sol/high`, chat `01a121fe-5af9-7e11-a9b6-cebf5627e71b`.
 Branch: `codex/issue-180-picture-boundary-evidence`. Acceptance: Automated.
 
-## Authority and revisions
+## Authority and exact source
 
-Producer accepted the exact #179 design and CN-179 at
+Producer accepted the #179 design and CN-179 at
 `03f1d333b85cceacd89be85a27723783c84ed310`:
 https://github.com/mbelinkie/vera-script-to-timeline/issues/179#issuecomment-6087100716.
-#179 was Closed/Done before the #180 claim. Standing automated-closure policy
+#179 was Closed/Done before the claim. Standing policy
 `24141d6977c5171439c1131187593dd0f0999816` was integrated as `e0aef5e`.
 
-The implementation source revision under the first full gate is
-`59276a33e271615401d98956fc79e9367b76444c`, tree
-`a2655976600cb79e2c8ef4aa2b211d4ac3677886`. The completed passing gate's exact
-revision/tree are retained in `full-validation-status.json`. The delivery commit is pinned in
-the roadmap review/closure evidence. Changes after this tested revision are
-limited to this verification directory and the issue-owned plan; production
-sources, generated types, tests and goldens retain the tested hashes.
+Implementation: `59276a33e271615401d98956fc79e9367b76444c`.
+Latest full-gate source: `7b3cbd63a8e572d9e4f99c3427a74afee3fb8ccc`, tree
+`e23fd0275292d9989c8b5566a4e0cdd854f9112e`.
+Changes after the implementation commit are issue plan/evidence files only.
+All 43 pinned source/lockfile/golden files match the tested snapshot.
+The final evidence delivery revision is pinned in the roadmap blocked comment;
+this local branch has not been pushed.
 
-## Result and retained commands
+## Behavior and review
 
-The authoritative gate is `VITEST_MAX_WORKERS=1 npm run validate`, launched
-from a clean checkout with `node docs/verification/issue-180/run-full-validation.mjs`.
-The launcher pins revision/tree before starting and records completion, exit
-code, elapsed time and log SHA-256. See `full-validation-status.json` and
-`validate.log.gz` for the completed result. Logs are losslessly compressed;
-the status SHA-256 refers to the decompressed original bytes. The gate includes generated-currentness,
-TypeScript lint/types/tests, progress/roadmap tests, Python lint/format/types/tests.
-No gate or accepted test was weakened.
+Picture cuts now accept separate sparse reviewed boundary evidence. Only
+observations requested by actual operations are required; every supplied
+observation is validated. Before gamma preserves the pause following beta;
+after beta uses beta's independently evidenced audible end. End-only evidence
+can serve an after edge. Row endpoints preserve the full narration samples,
+including trailing audio. Missing required observations block picture/needs
+without substituting a neighboring word or row endpoint.
 
-Attempt 1 retained in `attempt-1-status.json` / `attempt-1-validate.log.gz` failed
-only on six existing #144 CLI tests exceeding the unchanged 5,000 ms timeout.
-All 82 new boundary tests passed; 396 of 402 contract tests passed. These v1
-CLI consumers do not import the changed v2 implementation. The identical
-gate is retried without changing accepted tests, timeout or worker settings.
-Acceptance remains pending until the complete retry passes.
+Compiler and media-needs share resolution. Authoring validators, keys, projection
+and atomic commands preserve the explicit edge. Editorial order distinguishes
+before/after on the same token; coverage uses the separate after offset.
+Sparse observations never enter the positional full-map preview estimator.
+Old documents need no migration; older closed-schema consumers must upgrade
+before reading the new capability. No dependency was added.
 
-Attempt 2 also failed only existing CLI deadlines (12 cases; 390/402 contract
-tests passed, including all 82 new cases). `runtime-gate-investigation.md`
-retains the focused replay and environment-only probes; these are not a
-substitute for a completed passing gate. Python checks are running separately
-to finish the remaining regression evidence while host capacity is unresolved.
+Review covered all affected public seams, generator selections and Python
+exports. Exact reduced times, quantization/deltas, immutable audio bindings,
+whole-envelope currentness, frozen-token adjacency, row-picture suppression,
+parent continuity and unsupported-capability refusal follow accepted §§3–6.
+No new unresolved product decision or model escalation was identified.
 
-Capacity subsequently improved: uncached replay passed in 2.37 s, and the
-exact omission-finalization case passed in 3.91 s with Node's compilation cache.
-The complete third gate uses the recorded built-in cache setting while retaining
-all tests, default deadlines, checks and the locked Node/npm/Python versions.
-Acceptance still requires its completed exit-0 result.
+## Checks and complete full-gate failures
 
-Additional retained check:
-`node docs/verification/issue-180/audit.mjs` validates frozen bytes and reverses
-only the authorized schema additions before comparing all original semantics.
-`git diff --check` must pass before delivery.
+The unchanged gate arguments are `VITEST_MAX_WORKERS=1 npm run validate`.
+`run-full-validation.mjs` requires a clean checkout, pins source/tree, runs the
+gate with locked Node PATH, and records completion/exit/log SHA-256.
 
-Commands use the locked Node runtime at
-`/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin`
-and `uv run --frozen` for Python. Exact versions, executable hashes and execution
-profile are in `tool-profile.json`; source/lockfile hashes are in
-`source-input-pins.json`; all 18 new input/manifest/report golden hashes are
-in `golden-pins.json`. `frozen-source-pins.json` retains SHA-256 for 6,270 frozen
-files and `frozen-boundary-audit.json` records the approved-change audit.
+| Attempt | Exact source | Compile cache | Result |
+| --- | --- | --- | --- |
+| 1 | `59276a33e271615401d98956fc79e9367b76444c` | Off | Exit 1; 6 existing CLI 5,000 ms timeouts; 396/402 contract tests passed |
+| 2 | `1a67d5e19db262aa02dfa0e0f7c7e19a74deeceb` | Off | Exit 1; 12 existing CLI 5,000 ms timeouts; 390/402 passed |
+| 3 | `7b3cbd63a8e572d9e4f99c3427a74afee3fb8ccc` | Recorded Node cache | Exit 1; 12 existing CLI 5,000 ms timeouts; 390/402 passed |
 
-## Acceptance coverage and review
+All 82 new boundary tests passed in each attempt. Every reported full-gate
+failure was an unchanged deadline in frozen CLI tests; no assertion failure or
+changed golden was reported. Those v1 CLI paths do not import the changed v2
+implementation. The full command stopped before its Python stage, so **the
+complete required regression gate has not passed**. Progress/roadmap and full
+Python results are not claimed from these aborted command chains.
 
-| Criterion | Retained evidence |
+Generated-currentness, TypeScript lint/types and tooling-smoke tests passed.
+Python lint/format and mypy passed (101 source files). The separate 394-item
+Python run reported no test failures before the owner stopped it with SIGTERM
+(exit 143) to avoid duplication/resource competition with the third full gate.
+Its raw status/log are `python-validation-status.json` / `python-validate.log.gz`;
+that intentional stop is neither a passing full Python suite nor a product failure.
+
+Final focused checks are retained in `focused-typescript-status.json` /
+`focused-typescript.log.gz` and `focused-python-status.json` /
+`focused-python.log.gz`. Boundary/authoring: 102 passed; Python: 19 passed.
+The corrected compiler/binding/schema capture is `focused-compiler-status.json`
+/ `focused-compiler.log.gz`: 41 passed. Their exact argument arrays and results
+are recorded against the latest tested source (143 TS tests total). These
+focused passes do not replace the full gate.
+
+`runtime-gate-investigation.md` retains the actual replay probe, measurements
+and environment-only cache/application-policy tests. A later uncached replay
+passed at 2.37 s with identical bytes, and the exact omission-finalization case
+passed at 3.91 s with the cache. The full retry still failed; no cache or isolated
+pass is treated as acceptance. No accepted test, timeout, fixture, golden,
+dependency or production source was changed to make a failure pass.
+
+## Matrix and retained pins
+
+| Accepted requirement | Implemented evidence |
 | --- | --- |
-| Exact accepted authority | Producer comment and accepted revision above; resolved #179 dependency in roadmap inspection |
-| Sparse required edges, no fallback | New TS tests: holes before/between/after requests, end-only/empty observations, separately missing beta/gamma onset/end; both compile and needs use the same resolver and refuse required missing evidence |
-| Before/after pause and tail semantics | Nine cases at 24, 25 and 24000/1001 fps; exact rational deltas, unchanged narration samples, continuous parent ranges, distinct same-token edge ordering; 18 new frozen byte goldens at 25 and 24000/1001 |
-| Identity and evidence refusals | Closed schema plus whole-envelope validation; stale/missing/inactive row, identity/currentness/source/audio/timing bindings, receipts, duplicate/conflicting capabilities, exact UTF-16 ID/quote matching including Unicode/repetition, unused invalid observations, unsafe/collapsed/crossed/overflow times |
-| Honest media relations | Exact onset precedence, evidenced end, inside support, adjacent frozen-token gaps, nonadjacent/unsupported relation unknown; missing relation does not prevent a legal media cut |
-| All pure consumers and compatibility | New overlay/supporting point and command/projection tests; atomic edge-preserving insert/convert/flatten/delete/swap/move/promote/playout; sparse data cannot satisfy full speech/recorded alignment; full existing provider/v1/#144/#173 regressions and all old goldens run in the full gate |
-| Schemas/types and frozen boundaries | Root generated-currentness; Python generated-type/public export and new golden schema tests; frozen inventory and exact CN-179 semantic audit |
-| Exact pins and limits | Tested source/tree, locked tools/profile, source/lockfiles and output hashes, completed gate status/log; closure comment binds delivery revision |
+| Sparse required edges and no fallback | TS holes before/between/after, empty/end-only evidence, separately missing beta/gamma onset/end; shared needs/compile refusals |
+| Pause/tail and exact arithmetic | Nine cases at 24, 25 and 24000/1001 fps; exact deltas, narration samples, continuous parent and distinct same-token edges; 18 new byte goldens at 25 and 24000/1001 |
+| Identity/receipt/currentness and unsafe input | Closed-schema, whole-envelope, source/audio/timing/row/receipt refusals; duplicate/conflicting capabilities; unused invalid observations; exact UTF-16 ID/quote tests including punctuation, repetition, combining characters and surrogate pairs; unsafe/reduced/crossed/overflow times |
+| Honest media relations | Exact onset precedence, evidenced end, inside support, adjacent frozen-token gap and nonadjacent/unsupported unknown relation |
+| All pure consumers | Overlay/supporting points and event-edge/cycle checks; atomic insert/convert/flatten/delete/swap/move/promote/playout; honest projection fallback; boundary-only cannot satisfy full speech/recorded alignment |
+| Schema/generated types | Root generated-currentness, public Python type/export checks and all 18 new golden schema cases |
+| Frozen compatibility | 6,270 protected baseline files byte-identical; exactly CN-179 additive schema semantics; old compiler/authoring golden regression coverage in focused TS checks; full legacy CLI deadline gate remains pending |
 
-Review followed every affected public seam: authoring types, structural and point
-validation, all existing edit commands, placement keys, sparse projection,
-compiler/needs row selection and resolution, schema generation and Python exports.
-No dependency was added. `wordIndexV2` remains a token index; separate edge-order
-and coverage offsets keep before/after consumers honest. Sparse input never enters
-the positional full-map preview estimator. Existing full-map/v1 bytes stay frozen.
+`source-input-pins.json` and `golden-pins.json` pin all 43 source/lockfile/new
+input/output files. `frozen-source-pins.json` retains SHA-256 for 6,270 protected
+files; `frozen-boundary-audit.json` records exact CN-179 reversal/comparison.
+`tool-profile.json` records model/effort/task, locked versions, executable hashes,
+worker setting and the third gate's Node cache directory. `artifact-pins.json`
+pins profile, source/input/output inventories, evidence scripts, logs and statuses.
+Logs are losslessly compressed; status log SHA-256 values refer to decompressed
+original bytes. `git diff --check` passes on delivery changes.
 
-Judgment calls retain the accepted design: a missing required observation suppresses
-the row's picture while retaining the known audio spine; reviewed end-only data
-does not require an invented onset; media relations depend on actual supplied
-support and frozen adjacency. Frame rounding preserves exact input time and delta,
-and collapsed structural supports refuse. New closed-schema capability requires
-an upgraded consumer; old documents need no migration.
+Synthetic receipt self-checks verify source/audio/receipt bytes, hashes and
+review-status binding locally. The compiler validates frozen attestation
+consistency. This does not qualify acoustic review, real preparation/provider
+output/delivery, native/Resolve execution or the #145 proof version. No private
+media, provider adapter, UI, persistence or retiming changed. No merge, push,
+deployment or successor dispatch occurred.
 
-Synthetic receipt tests check source/audio/receipt bytes, hashes and review-status
-binding in a local assembling self-check. The pure compiler validates the frozen
-attestation's consistency. Neither qualifies acoustic review, real preparation,
-provider output, real delivery, native/Resolve execution or the #145 proof version.
-No private media, provider adapter, UI, persistence or retiming was changed.
+## Resume and closing authority
 
-No unresolved engineering risk emerged beyond the explicitly excluded future
-assembling/application work already assigned elsewhere; no speculative Astra
-register entry or successor dispatch was added. No push, merge or deployment.
+Keep the same active claim and exact Sol/high route. Stable execution capacity
+and one complete passing locked-toolchain gate are required; do not waive the
+frozen deadlines or request Producer reapproval of already accepted CN-179.
 
-## Automated closing checklist
+1. Start from a clean checkout on this branch; verify source/golden pins.
+2. Run `node docs/verification/issue-180/run-full-validation.mjs` with the locked
+   Node PATH and the recorded cache setting if desired. Retain the complete
+   status/log, including every required language/progress/roadmap check.
+3. After exit 0, revalidate frozen/CN-179 and generated-currentness/diff checks;
+   bind tested and delivered revisions, allowing only plan/evidence differences.
+4. Record passing evidence with `roadmap -- review 180`, complete as Automated,
+   then re-inspect for Closed/Done. No closure is authorized by current evidence.
 
-1. Retain completed full-gate status with exit 0 and matching log hash.
-2. Re-run frozen/CN-179 audit; confirm generated-currentness and diff checks.
-3. Confirm delivery differs from tested source only by issue plan/evidence files.
-4. Record exact delivery revision and this evidence with `roadmap -- review 180`.
-5. Complete as Automated and re-inspect for Closed/Done.
-
-The steward records the claimed chat's final cumulative local token total only
-after this implementation chat finishes; no live or estimated total is used here.
+Post-closure final cumulative local token accounting belongs to the steward
+only after this claimed implementation chat finishes; no live estimate is used.
+The Astra register step applies after completion; no speculative risk or dispatch
+entry was added during this blocked implementation.

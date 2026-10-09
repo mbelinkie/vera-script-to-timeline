@@ -66,3 +66,13 @@ Python lint/types pass; its 394-case suite continues independently. Full
 Automated acceptance is blocked on a passing unchanged gate with sufficient
 host capacity. Keep the implementation claim and Sol/high route; this is not
 a model escalation. External waiting duration is now uncertain.
+
+Blocked handoff: a third complete invocation with recorded Node compilation
+cache failed twelve existing CLI deadlines again (390/402 contract tests passed;
+all 82 new cases passed). The separate Python run was intentionally stopped
+with SIGTERM to consolidate into that authoritative gate; it is not a passing
+full suite. Final focused new/authoring/schema/compiler evidence and all failed
+gate logs are retained. No further source change or deadline relaxation is
+authorized by this slice. #180 stays Open/Blocked with its active claim pending
+stable capacity and one complete passing gate; no Automated acceptance or
+closure, producer reapproval, model escalation or successor dispatch.

@@ -55,3 +55,11 @@ This justifies retrying the complete gate with Node's standard compilation
 cache enabled and recorded in status/tool profile. All full-suite selections,
 assertions, default deadlines, schema and byte gates remain intact. This is
 the only adopted environment optimization; no coverage gate is configured.
+
+The complete third gate still failed twelve frozen CLI deadlines. Thus the
+isolated pass/cache optimization does not remove the full-gate blocker. All
+82 new tests passed again; three failed full attempts remain retained. The
+owner stopped the separate Python suite with SIGTERM (143) to avoid competing
+with this authoritative retry. Its partial log reported no test failures, but
+it is not a passing complete suite. Stable capacity and a full exit-0 gate
+are still required; no acceptance has been recorded.
