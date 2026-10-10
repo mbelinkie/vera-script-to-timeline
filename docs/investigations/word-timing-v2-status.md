@@ -72,6 +72,16 @@ in git.
 6. Then: re-run the #53 take logic on the new transcripts. Consult Codex via
    its CLI for a second opinion.
 
+## Open questions (parked)
+
+- **Free-for-all VERA (Producer, 2026-10-10):** the Resolve route needs paid
+  Resolve Studio. What is the best *free* option? First candidate: Parakeet
+  TDT 0.6B v3 (plan T-P, still unscored: retained output for A, fresh run
+  needed on B) → reconcile → MFA. Also consider an open Whisper-family
+  recogniser. Answer this after the main report.
+- **Headless Resolve:** works (`resolve_headless.py`, identical to the GUI run).
+  Untested: a locked screen, SSH, or running as a launchd service.
+
 ## Decisions on record
 
 - Local pipeline required; a clearly better cloud pipeline may be offered too.
