@@ -72,6 +72,19 @@ in git.
 6. Then: re-run the #53 take logic on the new transcripts. Consult Codex via
    its CLI for a second opinion.
 
+## B full key (2026-10-10)
+
+- Frozen as `answer-key/rec-b/rec-b-markers-final.csv` (sha `b58b3e9a…`): the
+  Producer's light pass, with the 40 blind timings restored and 2 `??` deleted.
+  561 words, only 4 stumbles.
+- WER is 0.9–2.3% for every recogniser. AssemblyAI is favoured, because the
+  pre-fill words came from it. Reconciliation brings names to 32/32 for all.
+  Resolve → reconcile → MFA reaches WER 2.0%, coverage 98.0%, and a gross
+  rate of at most 0.7%: close to cloud on B (the A gap was larger).
+- **Product framing (Producer):** three options: Resolve Studio, an option
+  for free Resolve, and cloud. If Studio and a free option are close, prefer
+  the one that works for everyone. Parakeet (free, local) is being scored.
+
 ## Open questions (parked)
 
 - **Free-for-all VERA (Producer, 2026-10-10):** the Resolve route needs paid
