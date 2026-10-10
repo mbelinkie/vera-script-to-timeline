@@ -74,7 +74,9 @@ def main() -> None:
         status["chirp2-kt"] = run([str(VENV), "run_cloud.py", "--audio", str(a48), "--out-dir", str(cloud),
                                    "--providers", "chirp2", "--keyterms", str(args.prompter)], cloud / "run-kt.log", HERE / "cloud")
     if not (cloud / "T-C-resolve.json").exists():
-        while subprocess.run(["pgrep", "-f", "MacOS/Resolve"], capture_output=True).returncode == 0:
+        # -x matches the process name only; -f would also match any shell whose
+        # command line merely mentions Resolve (a self-deadlock seen twice).
+        while subprocess.run(["pgrep", "-x", "Resolve"], capture_output=True).returncode == 0:
             time.sleep(10)
         status["resolve"] = run([str(VENV), "resolve_headless.py", "--audio", str(a48), "--out", str(cloud / "raw-resolve.json")],
                                 cloud / "resolve.log")
