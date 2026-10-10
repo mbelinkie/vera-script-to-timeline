@@ -29,7 +29,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mfa", required=True)
     parser.add_argument("--neural", type=Path, required=True)
-    parser.add_argument("--key", type=Path, required=True)
+    parser.add_argument("--key", type=Path, help="not needed with a blind-set --independent")
     parser.add_argument("--independent", type=Path)
     parser.add_argument("--aliases", type=Path)
     parser.add_argument("--out", type=Path, required=True)
@@ -53,7 +53,8 @@ def main() -> None:
         gaps.append((abs(row["start"] - n_row["start"]) * 1000 if ok else None,
                      abs(row["end"] - n_row["end"]) * 1000 if ok else None))
 
-    key = score.load_key(args.key)
+    blind = bool(args.independent and args.independent.suffix.lower() == ".csv")
+    key = [] if blind else score.load_key(args.key)
     ref = score.load_independent(args.independent, key) if args.independent else key
     pairs = score.match(ref, words)
     curve = []

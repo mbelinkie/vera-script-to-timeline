@@ -58,7 +58,24 @@ def load_key(path: Path) -> list[KeyWord]:
 
 
 def load_independent(path: Path, key: list[KeyWord]) -> list[KeyWord]:
-    """The #51 independently timed words as KeyWords; classes come from the corrected key word."""
+    """An independent timing set as KeyWords.
+
+    - #51 format (JSON): classes come from the matching corrected-key word.
+    - Blind set (Audition CSV, names like "03 three"): classes are the
+      pre-registered strata from `blind-manifest.json` beside the recording's
+      private data (both sides take the stratum).
+    """
+    if path.suffix.lower() == ".csv":
+        manifest = json.loads((path.parents[2] / "rec-b" / "blind-manifest.json").read_text())
+        strata = {m["number"]: m["stratum"] for m in manifest["words"]}
+        out = []
+        for s, e, name, _ in read_markers(path):
+            number, word = name.split(" ", 1)
+            if word == "skip":
+                continue
+            stratum = strata[int(number)]
+            out.append(KeyWord(normalise_token(word)[0], s, e, None, False, stratum, stratum))
+        return sorted(out, key=lambda k: k.start)
     data = json.loads(path.read_text())
     out = []
     for t in data["wordTimings"]:
@@ -206,7 +223,7 @@ def name_spelling(key: list[KeyWord], words: list[tuple[str, float, float]], pai
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--key", type=Path, required=True)
+    parser.add_argument("--key", type=Path, help="corrected answer key (not needed with a blind-set --independent)")
     parser.add_argument("--segments", type=Path, required=True)
     parser.add_argument("--result", nargs="*", default=[],
                         help="RESULT.json, or RESULT.json::SEGMENTS.json when its entries come from other segments")
@@ -224,7 +241,8 @@ def main() -> None:
         from reconcile import script_units
 
         names = {u["text"] for u in script_units(json.loads(args.prompter.read_text())) if u["name"]}
-    key = load_key(args.key)
+    blind = bool(args.independent and args.independent.suffix.lower() == ".csv")
+    key = [] if blind else load_key(args.key)
     if args.independent:
         key = load_independent(args.independent, key)
     segments = json.loads(args.segments.read_text())
