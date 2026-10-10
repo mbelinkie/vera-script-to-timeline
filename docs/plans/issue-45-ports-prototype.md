@@ -38,12 +38,21 @@ branch `claude/word-timing-v2`. Producer decisions 2–4 on #168 are approved
 - `experiments/issue45/smoke.py`: real-engine run + conformance on local audio.
 - `tests/test_issue45_ports.py`: 25 tests, no external runtimes needed.
 
+- `experiments/issue45/script_reconcile.py` + draft
+  `script-reconciliation-v1.schema.json`: prompter parsing (restart points,
+  pronunciation guides, keyterms) and script reconciliation as its own
+  immutable record (`heard` = presenter-fidelity evidence, `text` = spelling
+  to align). The aligner port takes it as an optional input and records
+  `reconcileArtifactId`. Parity with the study: 6,032/6,032 units identical
+  across 6 recognisers x 2 recordings.
+- `adapters/elevenlabs_cloud.py`: ElevenLabs Scribe v2 via OpenRouter,
+  consent-gated, key read from the environment and never stored.
+
 ## Exclusions
 
 No `/contracts`, fixtures, goldens or generated-type changes (they wait for
 schema approval). No production package (`python/vera_timeline_agent`)
-changes. No cloud adapter yet (ElevenLabs via the cloud profile), no script
-reconciliation, no take logic (#53 code is on its own unmerged branch; take
+changes. No take logic (#53 code is on its own unmerged branch; take
 rules v2 live on `claude/word-timing-v2`), no Qwen agreement runtime, no UI,
 persistence, jobs or Research changes. No new dependencies: the repo already
 pins `jsonschema`; engine runtimes are external and configured, not installed.

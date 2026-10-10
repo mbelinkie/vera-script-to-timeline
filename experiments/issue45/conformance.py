@@ -8,7 +8,12 @@ changes what consumers can rely on.
 
 from __future__ import annotations
 
-from experiments.issue45.artifacts import AudioRef, Json, schema_errors
+from experiments.issue45.artifacts import (
+    AudioRef,
+    Json,
+    reconciled_texts,
+    schema_errors,
+)
 from experiments.issue45.normalize import normalise_token
 from experiments.issue45.ports import (
     AlignerPort,
@@ -31,10 +36,21 @@ def _expect_refusal(fn: object, code: str, label: str) -> list[str]:
     return [f"{label}: expected a {code!r} refusal, got an artifact"]
 
 
-def check_alignment(audio: AudioRef, recognition: Json, alignment: Json) -> list[str]:
+def check_alignment(
+    audio: AudioRef,
+    recognition: Json,
+    alignment: Json,
+    reconciliation: Json | None = None,
+) -> list[str]:
     fails = [f"alignment schema: {e}" for e in schema_errors(alignment)]
     if alignment["identity"]["recognitionArtifactId"] != recognition["artifactId"]:
         fails.append("alignment does not reference its recognition artifact")
+    expected_reconcile = (
+        None if reconciliation is None else reconciliation["artifactId"]
+    )
+    if alignment["identity"]["reconcileArtifactId"] != expected_reconcile:
+        fails.append("alignment does not reference its script reconciliation")
+    texts = reconciled_texts(reconciliation)
     tokens = recognition["tokens"]
     by_token: dict[int, list[Json]] = {}
     for w in alignment["words"]:
@@ -43,7 +59,8 @@ def check_alignment(audio: AudioRef, recognition: Json, alignment: Json) -> list
             continue
         by_token.setdefault(w["tokenIndex"], []).append(w)
     for i, t in enumerate(tokens):
-        expected = [] if t["kind"] == "event" else normalise_token(t["display"])
+        spoken = [] if t["kind"] == "event" else normalise_token(t["display"])
+        expected = [texts.get((i, n), s) for n, s in enumerate(spoken)]
         got = [w["text"] for w in sorted(by_token.get(i, []), key=lambda w: w["sub"])]
         if got != expected:
             fails.append(

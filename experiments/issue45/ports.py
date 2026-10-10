@@ -73,7 +73,12 @@ class AlignerPort(Protocol):
     def capabilities(self) -> Capabilities: ...
 
     def align(
-        self, audio: AudioRef, recognition: Json, *, policy: ProjectPolicy
+        self,
+        audio: AudioRef,
+        recognition: Json,
+        *,
+        policy: ProjectPolicy,
+        reconciliation: Json | None = None,
     ) -> Json: ...
 
 

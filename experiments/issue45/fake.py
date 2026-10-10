@@ -15,9 +15,10 @@ from experiments.issue45.artifacts import (
     Token,
     alignment_artifact,
     recognition_artifact,
+    reconciled_texts,
     tool,
 )
-from experiments.issue45.normalize import units
+from experiments.issue45.normalize import Unit, units
 from experiments.issue45.ports import (
     Capabilities,
     PortRefusal,
@@ -73,15 +74,22 @@ class FakeAligner:
         return Capabilities(frozenset({"en"}), "local", "acoustic")
 
     def align(
-        self, audio: AudioRef, recognition: Json, *, policy: ProjectPolicy
+        self,
+        audio: AudioRef,
+        recognition: Json,
+        *,
+        policy: ProjectPolicy,
+        reconciliation: Json | None = None,
     ) -> Json:
         require_language(
             self.capabilities(), recognition["identity"]["language"], "aligner"
         )
         tokens = recognition["tokens"]
+        texts = reconciled_texts(reconciliation)
         times = []
         for u in units([t["display"] if t["kind"] != "event" else "" for t in tokens]):
             t = tokens[u.token_index]
+            u = Unit(u.token_index, u.sub, texts.get((u.token_index, u.sub), u.text))
             if (
                 u.token_index in self.unaligned
                 or t["anchorStartMs"] is None
@@ -99,4 +107,7 @@ class FakeAligner:
             tool("vera-fake-aligner", "1", {}),
             tool("vera-fake-segmentation", "1", {}),
             times,
+            reconcile_id=None
+            if reconciliation is None
+            else reconciliation["artifactId"],
         )

@@ -35,6 +35,7 @@ from experiments.issue45.artifacts import (
     alignment_artifact,
     content_hash,
     recognition_artifact,
+    reconciled_texts,
     tool,
 )
 from experiments.issue45.normalize import Unit, normalise_token
@@ -302,7 +303,12 @@ class MfaAligner:
         return Capabilities(frozenset({"en"}), "local", "acoustic")
 
     def align(
-        self, audio: AudioRef, recognition: Json, *, policy: ProjectPolicy
+        self,
+        audio: AudioRef,
+        recognition: Json,
+        *,
+        policy: ProjectPolicy,
+        reconciliation: Json | None = None,
     ) -> Json:
         require_language(
             self.capabilities(), recognition["identity"]["language"], "aligner"
@@ -316,12 +322,14 @@ class MfaAligner:
             )
         _check_wav(audio, "aligner")
         tokens = recognition["tokens"]
+        texts = reconciled_texts(reconciliation)
         units: list[Unit] = []
         anchors: list[tuple[float, float] | None] = []
         for t in tokens:
             spoken = [] if t["kind"] == "event" else normalise_token(t["display"])
             for sub, text in enumerate(spoken):
-                units.append(Unit(t["index"], sub, text))
+                key = (t["index"], sub)
+                units.append(Unit(t["index"], sub, texts.get(key, text)))
                 s, e = t["anchorStartMs"], t["anchorEndMs"]
                 anchors.append(None if s is None or e is None else (s / 1000, e / 1000))
         segments = assign_units(units, anchors, speech_segments(cfg, audio, "aligner"))
@@ -418,4 +426,13 @@ class MfaAligner:
             else content_hash(self.extra_dictionary.read_text()),
         )
         segmentation = tool("silero-vad", "6.2.1", VAD_SETTINGS)
-        return alignment_artifact(recognition, audio, aligner, segmentation, times)
+        return alignment_artifact(
+            recognition,
+            audio,
+            aligner,
+            segmentation,
+            times,
+            reconcile_id=None
+            if reconciliation is None
+            else reconciliation["artifactId"],
+        )

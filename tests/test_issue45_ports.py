@@ -356,3 +356,74 @@ def test_cloud_scribe_refuses_without_key(
             audio, language="en", policy=ProjectPolicy(cloud_consent_policy_id="p")
         )
     assert refused.value.code == "runtime-missing"
+
+
+SCRIPT = (
+    "(on) KAJ [kai] is three Finns, playing up what Swedes think. (off) Ask Tommy Cash."
+)
+DICTIONARY = "\n".join(
+    f"{w} X"
+    for w in [
+        "is",
+        "three",
+        "finns",
+        "playing",
+        "up",
+        "what",
+        "swedes",
+        "swede",
+        "fins",
+        "think",
+        "ask",
+        "tommy",
+        "cash",
+    ]
+)
+
+
+def test_parse_prompter_restart_points_guides_keyterms() -> None:
+    from experiments.issue45.script_reconcile import (
+        load_dictionary_words,
+        parse_prompter,
+    )
+
+    p = parse_prompter(SCRIPT, load_dictionary_words(DICTIONARY))
+    assert p.restart_points == [0, 9]
+    assert [w["display"] for w in p.words if "guide" in w] == ["KAJ"]
+    assert "KAJ" in p.keyterms and "Tommy Cash" in p.keyterms
+    assert [u.name for u in p.units()][:2] == [True, False]
+
+
+def test_reconcile_respells_names_only(audio: AudioRef) -> None:
+    from experiments.issue45.script_reconcile import reconcile
+
+    heard = [
+        "kai",
+        "kai",
+        "is",
+        "three",
+        "fins",
+        "playing",
+        "up",
+        "what",
+        "swede",
+        "think",
+    ]
+    rec = FakeRecognizer(heard).recognise(audio, language="en", policy=POLICY)
+    doc = reconcile(rec, SCRIPT, DICTIONARY)
+    assert schema_errors(doc) == []
+    by = [(u["heard"], u["text"], u["scriptSpelling"]) for u in doc["units"]]
+    assert by[0] == ("kai", "kaj", "KAJ") and by[1] == (
+        "kai",
+        "kaj",
+        "KAJ",
+    )  # false start too
+    assert ("swede", "swede", None) in by  # real dictionary word: a misreading stays
+    assert ("fins", "fins", None) in by  # not a name: never respelled
+    assert doc["units"][3]["scriptIndex"] == 2  # "three"
+    ali = FakeAligner().align(audio, rec, policy=POLICY, reconciliation=doc)
+    assert check_alignment(audio, rec, ali, doc) == []
+    assert ali["words"][0]["text"] == "kaj"
+    assert ali["identity"]["reconcileArtifactId"] == doc["artifactId"]
+    plain = FakeAligner().align(audio, rec, policy=POLICY)
+    assert check_alignment(audio, rec, plain, doc)  # wrong pairing is reported

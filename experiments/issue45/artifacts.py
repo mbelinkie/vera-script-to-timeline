@@ -164,6 +164,13 @@ class AlignedTime:
         )
 
 
+def reconciled_texts(reconciliation: Json | None) -> dict[tuple[int, int], str]:
+    """(tokenIndex, sub) -> spelling to align, from a ScriptReconciliationV1."""
+    if reconciliation is None:
+        return {}
+    return {(u["tokenIndex"], u["sub"]): u["text"] for u in reconciliation["units"]}
+
+
 def tool(name: str, version: str, parameters: Json, **extra: str | None) -> Json:
     out: Json = {
         "name": name,
