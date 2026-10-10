@@ -186,3 +186,10 @@ in git.
   study's runs (rest ≤ 70 ms). Full pytest 97 failures are pre-existing on
   origin/main on this Mac (Node 26.5 vs declared 24.x, see #106).
 - Draft #168 JSON Schemas: `docs/plans/issue-168/schemas/` (decision 1 open).
+- #45 branch (local, unpushed) now also has: ElevenLabs cloud adapter
+  (consent-gated; key never stored), script reconciliation as its own draft
+  artifact (parity 6,032/6,032 units with the study), STT/Research profiles
+  with pronunciation guides. End-to-end STT-local profile on A reproduces the
+  study pipeline's scores (coverage 77.6%, onset 18/124, offset 34/145 ms on
+  the independent 80). Finding: cloud recognisers are not run-to-run
+  deterministic (ElevenLabs repeat call differed in 4 spans).
