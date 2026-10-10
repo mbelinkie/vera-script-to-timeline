@@ -43,7 +43,10 @@ in git.
    spelling and gross errors on B.
 4. Write `docs/investigations/word-timing-v2-results.md`, the listening-check
    label file, and recommend a local and a cloud pipeline (D-P007 softened).
-5. Then: re-run the #53 take logic on the new transcripts. Consult Codex via
+5. Research profile: run recogniser → MFA **without** script reconciliation on A
+   and B. Report the no-script accuracy, speed and cost per hour, and whether
+   recogniser timestamps alone suffice for Research's volume use.
+6. Then: re-run the #53 take logic on the new transcripts. Consult Codex via
    its CLI for a second opinion.
 
 ## Decisions on record
@@ -51,3 +54,5 @@ in git.
 - Local pipeline required; a clearly better cloud pipeline may be offered too.
 - Transcription is take-agnostic; take logic belongs to #53/#45.
 - B's answer key may use the script for name spelling only.
+- One engine should serve both VERA apps. Research has no script, high volume
+  and a looser accuracy need, so the stages are switchable per product.
