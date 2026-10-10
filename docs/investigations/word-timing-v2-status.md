@@ -147,3 +147,10 @@ in git.
 - Cost policy (Producer, 2026-10-10): presenter recordings are rare → paid
   cloud is fine for Script to Timeline if clearly superior; Research must be
   free (potentially high volume).
+- Displaced words (A): score.py's 0.5 s midpoint window hides gross MFA
+  errors as lost coverage. Counting unmatched key words with a same-text MFA
+  word within 3 s: A has 8 (ElevenLabs) to 28 (YouTube captions) displaced
+  words per pipeline, all early (0.5–2.5 s), around stumbles/false starts the
+  transcript lacks and phrase-initial words after breaths. B has 0.
+  The agreement filter at tau 70 ms flags 75/75 of them with Charsiu and
+  73/75 with Qwen (licence-safe), so "needs review" is the safety net.
