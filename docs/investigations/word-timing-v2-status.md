@@ -168,3 +168,11 @@ in git.
   the Producer's green alternates (1 extra). B row 3 now 2 pieces, the second
   0:54.6–1:07.3 as the Producer expected; 10/10 cuts in quiet.
   Fully rule-based: no LLM anywhere in the pipeline.
+- Polly narration test (`polly_test.py`; B script as 9 blocks, neural Joanna
+  and Matthew, ~7.8k billed characters ≈ $0.12). MFA aligns all 333 words;
+  MFA onsets vs Polly starts |median| 7 ms (Matthew), 32 ms (Joanna,
+  systematic −30 ms offset). Derived ends: connected words fine (7–32 ms);
+  words before a pause overshoot by the whole pause (median 229–522 ms, max
+  870 ms); block-final derived end = file end ≈ 125 ms after the audible end
+  (never clips speech). MFA end ≈ audible end + 30 ms. A plain silence
+  detector finds pre-pause ends within ~35 ms of MFA (TTS audio is clean).
