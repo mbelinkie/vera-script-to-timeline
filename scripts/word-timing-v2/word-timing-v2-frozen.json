@@ -1,0 +1,349 @@
+{
+ "frozenAt": "2026-10-10T06:38:35+00:00",
+ "frozenBefore": "any scoring of recording B (blind set or full key)",
+ "tunedOn": {
+  "recording": "A (semi1b)",
+  "answerKeySha256": "e022d11ed5a32dc09c06941b6e26087654615e4319c9344fb93994c15e14a69f",
+  "unanchoredReference": "#51 frozen-reference-v2.json (80 words)"
+ },
+ "sharedStages": {
+  "textNormalisation": "scripts/word-timing-v2/textnorm.py (git)",
+  "vad": {
+   "model": "silero-vad",
+   "version": "6.2.1",
+   "onnx": true,
+   "threshold": 0.5,
+   "min_speech_duration_ms": 100,
+   "min_silence_duration_ms": 150,
+   "speech_pad_ms": 0,
+   "padSec": 0.3,
+   "maxSegmentSec": 30.0,
+   "split": "widest internal pause first"
+  },
+  "segmentAssignment": "recogniser's own word times (tc_tokens.py + segment.py assign)",
+  "mfa": {
+   "version": {
+    "montreal-forced-aligner": "3.4.3"
+   },
+   "models": [
+    {
+     "id": "acoustic/english_us_arpa",
+     "revision": "v3.0.0",
+     "sha256": "d35ce271ded357d833d2f4b8d1041dc3748b9538567ba13f2c697f4e4126711b"
+    },
+    {
+     "id": "dictionary/english_us_arpa",
+     "revision": "v3.0.0",
+     "sha256": "e8c6c7b036ae2b7c78d2768b8dc6b1f9359175b842956d00b48c53c9c332e6b0"
+    },
+    {
+     "id": "g2p/english_us_arpa",
+     "revision": "v2.0.0",
+     "sha256": "0ef6a3b288dc0a91a267f98bf556a45bbfeae198e578398e92ac603a61ad46e5"
+    }
+   ],
+   "settings": {
+    "frameMs": 10,
+    "beam": "default(10)",
+    "retry_beam": "default(40)",
+    "single_speaker": true,
+    "jobs": 4,
+    "g2p_for_oov": true,
+    "mfaExitCode": 0,
+    "peakRssNote": "resource.RUSAGE_CHILDREN ru_maxrss: largest single waited-for descendant, not a summed tree"
+   }
+  },
+  "pronunciationGuides": {
+   "rule": "per-syllable G2P of prompter respellings (guide_dict.py)",
+   "appliedTo": "Script to Timeline pipelines only"
+  },
+  "reconciliation": {
+   "weights": {
+    "exact": 3.0,
+    "soundalike": 1.0,
+    "mismatch": -2.0,
+    "insert": 1.5,
+    "skip": 0.6,
+    "jump": 4.0,
+    "ratio": 0.6
+   },
+   "namesOnly": true,
+   "noDictToDictReplacement": true,
+   "nearbyPositions": 3
+  },
+  "keyterms": "prompter.py automatic keyterms; only where the pipeline lists keyterms=true; list content is private (sha recorded per recording at run time)",
+  "tuning": {
+   "decision": "none",
+   "reason": "cross-validated onset/offset shift and silence snap did not improve held-out error on any pipeline (see tuning reports)",
+   "onsetShiftMs": 0,
+   "offsetShiftMs": 0,
+   "snap": null,
+   "configsTriedPerPipeline": 1445
+  },
+  "agreementFilter": {
+   "tauMs": 70,
+   "primaryPartner": {
+    "aligner": "A-CHAR",
+    "model": "charsiu/en_w2v2_fc_10ms",
+    "licence": "MIT code, model licence unstated: evaluation-only",
+    "provenance": {
+     "models": [
+      {
+       "id": "charsiu/en_w2v2_fc_10ms",
+       "revision": "e9bf8dd314313fc57f6e4d0b5425bde4bbeac80f",
+       "file": "config.json",
+       "sha256": "7406aa4f917267640865688aa62f2337664a3abb9a49a2f204d932b53aeb6cb7"
+      },
+      {
+       "id": "charsiu/en_w2v2_fc_10ms",
+       "revision": "e9bf8dd314313fc57f6e4d0b5425bde4bbeac80f",
+       "file": "pytorch_model.bin",
+       "sha256": "6dc8a18422db7c22e951d5f72dc2afc267b942eb0b8459ac6dcc0cf412536de1"
+      },
+      {
+       "id": "charsiu/tokenizer_en_cmu",
+       "revision": "10507401aedf5e0aba164128535b49225ff95260",
+       "file": "special_tokens_map.json",
+       "sha256": "50eb73d51191696209d30d42d6ede50e57e7a542ca1db12df714b2c0aa3da8e2"
+      },
+      {
+       "id": "charsiu/tokenizer_en_cmu",
+       "revision": "10507401aedf5e0aba164128535b49225ff95260",
+       "file": "tokenizer_config.json",
+       "sha256": "56e02b54de01a0ec4cc0c705ad3c303d7b73c83d61063a94b84cbf3a55da76a1"
+      },
+      {
+       "id": "charsiu/tokenizer_en_cmu",
+       "revision": "10507401aedf5e0aba164128535b49225ff95260",
+       "file": "vocab.json",
+       "sha256": "781514e251e9615ea4a05bbf3760ffcf8ec2ebe67355f411177ea64b0602d897"
+      }
+     ],
+     "packages": {
+      "torch": "2.0.1+cpu",
+      "transformers": "4.30.2",
+      "g2p_en": "2.1.0",
+      "nltk": "3.8.1",
+      "numpy": "1.26.4",
+      "librosa": "0.10.1",
+      "huggingface_hub": "0.23.5",
+      "charsiu(git)": "13a69f2a22ca0c0962b75cc693399b0ae23a12c9"
+     }
+    }
+   },
+   "licenceSafePartner": {
+    "aligner": "A-QWEN",
+    "model": "Qwen/Qwen3-ForcedAligner-0.6B",
+    "licence": "Apache-2.0",
+    "provenance": {
+     "models": [
+      {
+       "id": "Qwen/Qwen3-ForcedAligner-0.6B",
+       "revision": "c7cbfc2048c462b0d63a45797104fc9db3ad62b7",
+       "files": {
+        "model.safetensors": "47831d0e82f96b20e9034dba01a075ee06436654719f6a68289e49f1b65ce0e7"
+       },
+       "sha256": "47831d0e82f96b20e9034dba01a075ee06436654719f6a68289e49f1b65ce0e7"
+      }
+     ],
+     "packages": {
+      "qwen-asr": "0.0.6",
+      "torch": "2.8.0+cpu",
+      "transformers": "4.57.6",
+      "numpy": "2.5.3",
+      "soundfile": "0.14.0",
+      "huggingface-hub": "0.36.2",
+      "accelerate": "1.12.0",
+      "safetensors": "0.8.0"
+     }
+    }
+   },
+   "rule": "a boundary is accepted when MFA and the partner agree within tau; otherwise needs review"
+  }
+ },
+ "pipelines": {
+  "S2T-cloud-eleven": {
+   "product": "Script to Timeline",
+   "recogniser": {
+    "id": "eleven-or",
+    "model": "elevenlabs/scribe-v2",
+    "params": {
+     "model": "elevenlabs/scribe-v2",
+     "response_format": "verbose_json",
+     "timestamp_granularities": [
+      "word"
+     ],
+     "language": "en",
+     "provider.options.elevenlabs": {
+      "tag_audio_events": false
+     }
+    },
+    "apiVersion": "openrouter /api/v1/audio/transcriptions (JSON base64 input_audio)",
+    "endpoint": "https://openrouter.ai/api/v1/audio/transcriptions"
+   },
+   "keyterms": false,
+   "reconcile": true,
+   "aligner": "MFA english_us_arpa 3.0.0 + guides"
+  },
+  "S2T-cloud-chirp2": {
+   "product": "Script to Timeline",
+   "recogniser": {
+    "id": "chirp2",
+    "model": "chirp_2",
+    "params": {
+     "model": "chirp_2",
+     "location": "europe-west4",
+     "languageCodes": [
+      "en-US"
+     ],
+     "enableWordTimeOffsets": true,
+     "enableAutomaticPunctuation": true,
+     "autoDecodingConfig": {},
+     "output": "inlineResponseConfig"
+    },
+    "apiVersion": "speech v2 BatchRecognize",
+    "endpoint": "https://europe-west4-speech.googleapis.com/v2/projects/vera-word-timing/locations/europe-west4/recognizers/_:batchRecognize"
+   },
+   "keyterms": true,
+   "reconcile": true,
+   "aligner": "MFA english_us_arpa 3.0.0 + guides"
+  },
+  "S2T-cloud-assemblyai": {
+   "product": "Script to Timeline",
+   "recogniser": {
+    "id": "assemblyai",
+    "model": "universal-3-5-pro",
+    "params": {
+     "speech_models": [
+      "universal-3-5-pro"
+     ],
+     "disfluencies": true,
+     "language_code": "en"
+    },
+    "apiVersion": "v2",
+    "endpoint": "https://api.assemblyai.com/v2/transcript"
+   },
+   "keyterms": false,
+   "reconcile": true,
+   "aligner": "MFA english_us_arpa 3.0.0 + guides"
+  },
+  "S2T-cloud-speechmatics": {
+   "product": "Script to Timeline",
+   "recogniser": {
+    "id": "speechmatics",
+    "model": "enhanced",
+    "params": {
+     "transcription_config": {
+      "language": "en",
+      "operating_point": "enhanced",
+      "enable_entities": false,
+      "transcript_filtering_config": {
+       "remove_disfluencies": false
+      }
+     }
+    },
+    "apiVersion": "batch v2 (2.9), asr enhanced",
+    "endpoint": "https://asr.api.speechmatics.com/v2/jobs"
+   },
+   "keyterms": false,
+   "reconcile": true,
+   "aligner": "MFA english_us_arpa 3.0.0 + guides"
+  },
+  "S2T-local-resolve": {
+   "product": "Script to Timeline",
+   "recogniser": {
+    "id": "resolve",
+    "model": "DaVinci Resolve Studio 21.1.1 TranscribeAudio",
+    "frameRate": 120
+   },
+   "keyterms": false,
+   "reconcile": true,
+   "aligner": "MFA english_us_arpa 3.0.0 + guides"
+  },
+  "Research-chirp2-native": {
+   "product": "Research Video Clips",
+   "recogniser": {
+    "id": "chirp2"
+   },
+   "aligner": "none (recogniser timestamps)"
+  },
+  "Research-resolve-native": {
+   "product": "Research Video Clips",
+   "recogniser": {
+    "id": "resolve"
+   },
+   "aligner": "none (recogniser timestamps)"
+  },
+  "Research-eleven-or-native": {
+   "product": "Research Video Clips",
+   "recogniser": {
+    "id": "eleven-or"
+   },
+   "aligner": "none (recogniser timestamps)"
+  },
+  "Research-assemblyai-native": {
+   "product": "Research Video Clips",
+   "recogniser": {
+    "id": "assemblyai"
+   },
+   "aligner": "none (recogniser timestamps)"
+  },
+  "Research-speechmatics-native": {
+   "product": "Research Video Clips",
+   "recogniser": {
+    "id": "speechmatics"
+   },
+   "aligner": "none (recogniser timestamps)"
+  },
+  "Research-chirp2-mfa": {
+   "product": "Research Video Clips",
+   "recogniser": {
+    "id": "chirp2"
+   },
+   "keyterms": false,
+   "reconcile": false,
+   "aligner": "MFA english_us_arpa 3.0.0 (no guides)"
+  },
+  "Research-resolve-mfa": {
+   "product": "Research Video Clips",
+   "recogniser": {
+    "id": "resolve"
+   },
+   "keyterms": false,
+   "reconcile": false,
+   "aligner": "MFA english_us_arpa 3.0.0 (no guides)"
+  },
+  "Research-eleven-or-mfa": {
+   "product": "Research Video Clips",
+   "recogniser": {
+    "id": "eleven-or"
+   },
+   "keyterms": false,
+   "reconcile": false,
+   "aligner": "MFA english_us_arpa 3.0.0 (no guides)"
+  },
+  "Research-assemblyai-mfa": {
+   "product": "Research Video Clips",
+   "recogniser": {
+    "id": "assemblyai"
+   },
+   "keyterms": false,
+   "reconcile": false,
+   "aligner": "MFA english_us_arpa 3.0.0 (no guides)"
+  },
+  "Research-speechmatics-mfa": {
+   "product": "Research Video Clips",
+   "recogniser": {
+    "id": "speechmatics"
+   },
+   "keyterms": false,
+   "reconcile": false,
+   "aligner": "MFA english_us_arpa 3.0.0 (no guides)"
+  }
+ },
+ "bMeasurement": {
+  "timing": "40-word blind set only (rec-b-blind-adjusted.csv)",
+  "text": "full B key after the Producer's light pass: WER, stumble recall, name spelling, coverage, gross-error rate",
+  "noRetuning": true
+ }
+}
