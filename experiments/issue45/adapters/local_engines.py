@@ -73,6 +73,9 @@ class EngineConfig:
     mfa_home: Path | None = None
     mfa_env: dict[str, str] = field(default_factory=dict)
     qwen_command: tuple[str, ...] = ()
+    # Container engines (Colima/Docker) only see the home directory, so
+    # hand-off files for them live here rather than in the system temp dir.
+    work_dir: Path = field(default_factory=lambda: Path.home() / ".cache/vera-engines")
     timeout_s: float = 1800.0
 
     @classmethod
@@ -90,6 +93,7 @@ class EngineConfig:
             parakeet_model_glob=os.environ.get("VERA_PARAKEET_MODEL_GLOB"),
             mfa_command=tuple(shlex.split(os.environ.get("VERA_MFA_COMMAND", ""))),
             qwen_command=tuple(shlex.split(os.environ.get("VERA_QWEN_COMMAND", ""))),
+            work_dir=path("VERA_ENGINE_WORK") or Path.home() / ".cache/vera-engines",
             mfa_home=path("VERA_MFA_HOME"),
             mfa_env=extra,
         )

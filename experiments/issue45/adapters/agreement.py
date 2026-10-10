@@ -58,7 +58,10 @@ class QwenAgreement:
                 "aligner", "input-invalid", "Alignment and recognition do not match."
             )
         _, payload = prepare_segments(self.config, audio, recognition, reconciliation)
-        with tempfile.TemporaryDirectory(prefix="vera-qwen-") as tmp:
+        self.config.work_dir.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(
+            prefix="vera-qwen-", dir=self.config.work_dir
+        ) as tmp:
             seg_file, out = Path(tmp) / "segments.json", Path(tmp) / "result.json"
             seg_file.write_text(json.dumps(payload))
             run_engine(

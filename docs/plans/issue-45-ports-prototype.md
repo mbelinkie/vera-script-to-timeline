@@ -103,3 +103,9 @@ pins `jsonschema`; engine runtimes are external and configured, not installed.
   (median/p95), offset 34/145 ms on the independent 80 words — equal to the
   study pipeline (33 ms offset median); full key 88.8%, 10/54, 10/57 ms,
   identical to the study.
+- `adapters/agreement.py` (Qwen3-ForcedAligner in its vendored container, on
+  the identical segments MFA saw): on recording A's end-to-end alignment it
+  marks 58/876 boundaries (6.6%) `needs_review`, and flags 16 of the 17
+  displaced words (0.5–3 s off against the Producer's key). Container engines
+  only see the home directory under Colima, so hand-off files live in
+  `EngineConfig.work_dir` (`~/.cache/vera-engines`), not the system temp dir.
