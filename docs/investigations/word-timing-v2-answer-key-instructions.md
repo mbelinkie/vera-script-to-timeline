@@ -81,6 +81,9 @@ mainly about **words and stumbles**:
 
 - Fix misheard words, add missed stumbles (`FRAG`, `REP`, `FILLER`), delete
   breath `??` markers and words that were never said.
+- Markers whose Description says `BLIND-TIMED (leave as is)` already carry
+  your blind-set timings. Don't touch their edges. Fixing their *word* is fine
+  if needed.
 - Fix timing **only when it's grossly wrong**: a marker on the wrong sound, or
   clearly more than about 150 ms off (start with the `disagree 150ms+` flags).
   Leave smaller nudges alone.
