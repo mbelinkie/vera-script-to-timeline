@@ -125,13 +125,34 @@ Most misses are displaced first words (above): the take starts 1.3–2.5 s early
 Finding for #45: #53's "pauses over 1.4 s split reads" rule splits genuine
 reads when given exact word times (7/7 → 2/7 picks with the key's own times).
 
-### Recording B playback (no take reference)
+### Recording B playback and take rules v2
 
 `b_playback.py` runs the same logic on B (rows = the 9 prompter paragraphs,
-since B has no on/off markers) with the recommended pipeline, and renders the
-default take per row cut in measured silence (12/14 edges quiet; 2 padded
-previews). 8 rows have a complete last read; one long paragraph with repeated
-restarts falls back to review-only assembly pieces. Producer viewing pending.
+since B has no on/off markers) with the recommended pipeline and renders the
+default take per row, cut in measured silence.
+
+Producer playback: "almost perfect except row 3". Row 3's good read
+(0:55–1:07) was split into four clips because (1) the paragraph's first
+sentence was delivered separately, so no single read covered the row, and
+(2) the presenter moved "okay" earlier than written, which broke #53's
+sentence-by-sentence matching.
+
+**Take rules v2** (`take_rules_v2.py`, a post-processing layer; `discover()`
+unchanged), following the Producer's rule *"if the presenter moves on and
+doesn't read the part again, the part is probably a keeper"*:
+
+- partial pieces that run on (gap ≤ 1.4 s, no repeated content) merge into
+  one delivery; a run covering the whole row is a complete read;
+- moved words are reported as differences, never restored to script order;
+- every selected take carries a **"differs from script"** flag listing moved,
+  substituted, added and skipped words (spoken numerals count as matching);
+- earlier full reads are offered as **usable alternates**, newest first;
+  the last delivery stays the default; abandoned restarts are not offered.
+
+Results: B row 3 becomes 2 pieces, the second 0:54.6–1:07.3 as the Producer
+expected; 10/10 cuts land in quiet. On A, Sample v2 still scores 15/15 spans
+and 7/7 picks, and offered alternates match 6 of the Producer's 8 green
+alternates (1 extra). All of it is rule-based; no language model is involved.
 
 ## Research profile (no script)
 
@@ -139,9 +160,12 @@ restarts falls back to review-only assembly pieces. Producer viewing pending.
   Resolve 27/35 ms onset/offset median — usable. ElevenLabs and AssemblyAI
   start words late (51–74 ms median); Parakeet's are unusable (70–81 ms,
   25–31% over 120 ms) — Parakeet requires MFA.
-- **YouTube auto-captions**: per-word *start* times only, median 64 ms (A) to
-  108 ms (B) late, 18–42% over 120 ms. Good enough for "jump to roughly here"
-  (Research #46); captions → MFA is editing-grade (Research #47).
+- **YouTube auto-captions** (A and B uploaded unlisted; 0-sample offset vs
+  the originals): caption WER 8.8% (A) and 2.9% (B); per-word *start* times
+  only, median 64 ms (A) to 108 ms (B) late, 18–42% over 120 ms. Good enough
+  for "jump to roughly here" (Research #46). **Captions → MFA** is
+  editing-grade: 20/27 ms (A, independent 80) and 16/21 ms (B, blind 40)
+  onset/offset median, equal to the best pipelines (Research #47).
 - **Speed on this Intel Mac** (relative only; Apple Silicon is the target):
   Parakeet ~17 s per 4 min; MFA ~105–118 s per 4 min; Resolve ~36 s start-up +
   ~118 s per 4 min; whisper.cpp ~474 s per 4 min. A Research hour would take
@@ -183,6 +207,40 @@ transcript on the cleaned audio, so only the audio changes.
   is not a requirement either.
 - The #168 draft binds AudioPrep per stage, so a product can keep cleaned
   audio for the edit while recognition and alignment read the original.
+
+## Narration (AWS Polly) word ends
+
+VERA narration uses Polly neural voices, whose speech marks give word
+*starts* only; ends are derived from the next word's start
+(`word_start_with_derived_end`). Test (`polly_test.py`, B script as 9
+blocks, Joanna and Matthew, ~12 cents): MFA aligns all 333 words and its
+onsets agree with Polly's marks (|median| 7 ms Matthew; Joanna a constant
+30 ms offset).
+
+| Situation | Derived end vs measured end |
+|---|---|
+| Word running into the next | 7–32 ms (fine) |
+| Word before a pause | late by the whole pause: median 229–522 ms, max 870 ms |
+| Block-final word (= file end) | ~125 ms late (silence only; never clips speech) |
+
+A plain silence detector finds pre-pause ends within ~35 ms of MFA on clean
+synthetic audio. Proposed on #180 as `measured_audio_boundaries/v1` (−40 dBFS
+for ≥ 100 ms, +30 ms tail, bounded by the next onset; narration only), with
+an MFA cross-check in the conformance suite.
+
+## Implementation status (#168 / #45)
+
+- Draft #168 schemas (`docs/plans/issue-168/schemas/`): recognition,
+  alignment, script reconciliation, refusal. Producer decisions 2–4
+  approved; decision 1 (exact schemas) open.
+- #45 prototype (local branch `claude/issue-45-word-timing`): every stage of
+  the recommended pipelines behind the shared ports, plus a conformance
+  suite. Reconciliation parity with this study: 6,032/6,032 units. The
+  free local Script to Timeline profile end-to-end on A reproduces this
+  study's scores (coverage 77.6%, onset 18/124 ms, offset 34/145 ms on the
+  independent 80); the agreement stage flags 16 of 17 displaced words.
+- Cloud recognisers are not run-to-run deterministic (a repeat ElevenLabs
+  call differed in 4 spans): each cloud call is its own immutable artifact.
 
 ## Weaknesses to design around
 
