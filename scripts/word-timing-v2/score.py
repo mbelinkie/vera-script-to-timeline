@@ -26,6 +26,7 @@ WINDOW_SEC = 0.5
 PHRASE_EDGE_SEC = 0.700
 PAUSE_SEC = 0.150
 OVER_MS = 120.0
+GROSS_MS = 150.0
 
 
 @dataclass
@@ -164,9 +165,11 @@ def stats(errors: list[float]) -> dict[str, float]:
         return absolute[min(len(absolute) - 1, math.ceil(q * len(absolute)) - 1)]
 
     over = sum(a > OVER_MS for a in absolute)
+    gross = sum(a > GROSS_MS for a in absolute)
     return {"n": len(errors), "median": statistics.median(absolute), "p90": pct(0.9), "p95": pct(0.95),
             "max": absolute[-1], "bias": statistics.mean(errors), "over120": over,
-            "over120Share": over / len(errors), "over120Upper95": upper95(over, len(errors))}
+            "over120Share": over / len(errors), "over120Upper95": upper95(over, len(errors)),
+            "over150Share": gross / len(errors)}
 
 
 def boundary_errors(key: list[KeyWord], words: list[tuple[str, float, float]], pairs: dict[int, int]) -> dict:
