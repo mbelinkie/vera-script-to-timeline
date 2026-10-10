@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.vera.video/contracts/port-refusal-v1.schema.json",
+  "title": "PortRefusalV1",
+  "description": "DRAFT for #168 (unapproved). Returned instead of an artifact. No port ever falls back silently to another provider or to cloud.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "port", "code", "message", "retryable"],
+  "properties": {
+    "schemaVersion": { "const": "port-refusal/v1" },
+    "port": { "enum": ["recognizer", "aligner", "audio-prep"] },
+    "code": {
+      "enum": ["capability-missing", "runtime-missing", "consent-missing", "input-invalid", "provider-failed", "timeout", "cancelled"]
+    },
+    "message": { "type": "string", "minLength": 1, "description": "Human-readable; never contains credentials or private paths." },
+    "retryable": { "type": "boolean" }
+  }
+}
