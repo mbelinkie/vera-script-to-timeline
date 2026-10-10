@@ -144,3 +144,6 @@ in git.
   DeepFilterNet before MFA: no measurable change on A or B.
   Conclusion so far: Research path "captions → MFA" is editing-grade; native
   caption starts alone (#46) are a coarse interim (~0.1 s late).
+- Cost policy (Producer, 2026-10-10): presenter recordings are rare → paid
+  cloud is fine for Script to Timeline if clearly superior; Research must be
+  free (potentially high volume).
