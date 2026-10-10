@@ -130,3 +130,18 @@ licensed fixture).
   **approved**.
 - Decision 1 — exact schemas: still open. Next step is concrete JSON Schema
   files for review; #45 may prototype against them on a branch meanwhile.
+
+## Draft schemas (decision 1, for review)
+
+`docs/plans/issue-168/schemas/`:
+`recognition-artifact-v1.schema.json`, `alignment-artifact-v1.schema.json`,
+`port-refusal-v1.schema.json` (JSON Schema 2020-12, closed objects, integer
+source milliseconds, sha256 content ids over canonical JSON).
+
+Fit check (`scripts/word-timing-v2/to_artifacts.py`, run with the repo's
+locked jsonschema): ElevenLabs → reconcile → MFA + Qwen agreement (A),
+Parakeet → MFA (B) and YouTube captions → MFA (B) all validate; the
+agreement block marks 54/912 ElevenLabs-A boundaries needs_review at τ 70 ms.
+A cloud recognition artifact with no consent policy is rejected (decision 4).
+Not yet in `/contracts` or the generated TS/Python types: that move happens
+only after Producer approval of these exact files.

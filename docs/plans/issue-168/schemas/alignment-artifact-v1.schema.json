@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.vera.video/contracts/alignment-artifact-v1.schema.json",
+  "title": "AlignmentArtifactV1",
+  "description": "DRAFT for #168 (unapproved). Output of an AlignerPort: acoustic word bounds for a recognition artifact's tokens. Immutable; reruns append new artifacts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "artifactId", "identity", "words"],
+  "properties": {
+    "schemaVersion": { "const": "alignment-artifact/v1" },
+    "artifactId": { "$ref": "recognition-artifact-v1.schema.json#/$defs/ContentHash" },
+    "identity": { "$ref": "#/$defs/AlignmentIdentity" },
+    "words": {
+      "type": "array",
+      "description": "One entry per aligner unit, in transcript order. This is also the many-to-many normalisation map: (tokenIndex, sub) ties each unit to exactly one recognised display token; one token may map to several units ('1998' -> 'nineteen ninety eight').",
+      "items": { "$ref": "#/$defs/AlignedUnit" }
+    },
+    "agreement": { "$ref": "#/$defs/Agreement" }
+  },
+  "$defs": {
+    "NullableSourceMs": { "$ref": "recognition-artifact-v1.schema.json#/$defs/NullableSourceMs" },
+    "ToolIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "parametersHash"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "acousticModel": { "type": "string", "minLength": 1 },
+        "dictionary": { "type": "string", "minLength": 1 },
+        "extraDictionaryHash": {
+          "anyOf": [{ "$ref": "recognition-artifact-v1.schema.json#/$defs/ContentHash" }, { "type": "null" }],
+          "description": "Pronunciation guides from the prompter script (STT only)."
+        },
+        "parametersHash": { "$ref": "recognition-artifact-v1.schema.json#/$defs/ContentHash" }
+      }
+    },
+    "AlignmentIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recognitionArtifactId", "reconcileArtifactId", "audio", "prep", "aligner", "segmentation"],
+      "properties": {
+        "recognitionArtifactId": { "$ref": "recognition-artifact-v1.schema.json#/$defs/ContentHash" },
+        "reconcileArtifactId": {
+          "anyOf": [{ "$ref": "recognition-artifact-v1.schema.json#/$defs/ContentHash" }, { "type": "null" }],
+          "description": "Script reconciliation output when used (STT only; names spelled from the prompter)."
+        },
+        "audio": { "$ref": "recognition-artifact-v1.schema.json#/$defs/AudioIdentity" },
+        "prep": {
+          "type": "array",
+          "description": "AudioPrep applied for THIS stage; may differ from the recogniser's (Producer decision 2).",
+          "items": { "$ref": "recognition-artifact-v1.schema.json#/$defs/PrepStep" }
+        },
+        "aligner": { "$ref": "#/$defs/ToolIdentity" },
+        "segmentation": { "$ref": "#/$defs/ToolIdentity" }
+      }
+    },
+    "AlignedUnit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tokenIndex", "sub", "text", "startMs", "endMs", "status"],
+      "properties": {
+        "tokenIndex": { "type": "integer", "minimum": 0 },
+        "sub": { "type": "integer", "minimum": 0 },
+        "text": { "type": "string", "minLength": 1, "description": "Normalised aligner unit text." },
+        "startMs": { "$ref": "#/$defs/NullableSourceMs" },
+        "endMs": { "$ref": "#/$defs/NullableSourceMs" },
+        "status": {
+          "enum": ["acoustic", "interpolated", "unaligned"],
+          "description": "unaligned keeps null bounds. interpolated never authorises a cut."
+        },
+        "alignerScore": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["aligner", "value"],
+          "properties": { "aligner": { "type": "string" }, "value": { "type": "number" } },
+          "description": "Aligner-native score, labelled with its aligner. Not a universal confidence."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "unaligned" } } },
+          "then": { "properties": { "startMs": { "type": "null" }, "endMs": { "type": "null" } } }
+        },
+        {
+          "if": { "properties": { "status": { "enum": ["acoustic", "interpolated"] } } },
+          "then": { "properties": { "startMs": { "type": "integer" }, "endMs": { "type": "integer" } } }
+        }
+      ]
+    },
+    "Agreement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["partner", "tauMs", "boundaries"],
+      "description": "Second-aligner check. Boundaries off by more than tauMs (or unplaced by the partner) need review.",
+      "properties": {
+        "partner": { "$ref": "#/$defs/ToolIdentity" },
+        "partnerArtifactId": { "$ref": "recognition-artifact-v1.schema.json#/$defs/ContentHash" },
+        "tauMs": { "type": "integer", "minimum": 1 },
+        "boundaries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["tokenIndex", "sub", "side", "verdict", "deltaMs"],
+            "properties": {
+              "tokenIndex": { "type": "integer", "minimum": 0 },
+              "sub": { "type": "integer", "minimum": 0 },
+              "side": { "enum": ["onset", "offset"] },
+              "verdict": { "enum": ["accepted", "needs_review"] },
+              "deltaMs": { "type": ["integer", "null"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}
