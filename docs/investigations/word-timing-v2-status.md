@@ -193,3 +193,6 @@ in git.
   study pipeline's scores (coverage 77.6%, onset 18/124, offset 34/145 ms on
   the independent 80). Finding: cloud recognisers are not run-to-run
   deterministic (ElevenLabs repeat call differed in 4 spans).
+- #45 agreement stage (Qwen, container) end-to-end on A: 6.6% of boundaries
+  needs_review; 16/17 displaced words flagged. #45 now covers every stage of
+  the recommended pipeline except take logic (#53 code is on its own branch).
