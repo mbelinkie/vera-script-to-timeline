@@ -1,4 +1,4 @@
-# Word-timing v2 — status (2026-10-10, end of day)
+# Word-timing v2 — status (2026-10-10, overnight update)
 
 This is the resume point for any session picking up the study. The plan is
 `docs/plans/word-timing-v2-test-plan.md`; the pre-registered scoring rules and
@@ -32,12 +32,35 @@ in git.
   - First agreement curve: MFA-vs-Charsiu at tau 70–100 ms flags 5–10% of
     boundaries and cuts offsets over 120 ms from about 4.6% to under 2%. Onsets are not helped.
 
+## Overnight (autonomous, no Producer input needed)
+
+- **Research profile on A:** native timestamps from Chirp 2 (32/40 ms
+  onset/offset median) and Resolve (27/35) are close to the MFA-refined ones.
+  MFA mainly helps recognisers that start words late (ElevenLabs, AssemblyAI).
+  MFA takes about 105–118 s per 244 s clip on this Intel Mac.
+- **Agreement curves on A:** with Charsiu as the partner at tau 70, review is
+  10–16% and accepted offsets over 120 ms fall to 0–2%. Qwen as partner is
+  weaker (80 ms grid).
+- **Frozen** at `28d94c7` (`scripts/word-timing-v2/word-timing-v2-frozen.json`):
+  15 pipelines, untuned, tau 70, Charsiu primary (evaluation-only licence) and
+  Qwen licence-safe.
+- **Step 5 on B, blind set (n = 40), scored once:**
+  - All 10 MFA pipelines (Script to Timeline and Research): onset median
+    16–18 ms, p95 55–70, 0% over 120; offset median 17–19, p95 55–99, 2.5–5%
+    over 120 (1–2 of 40 words).
+  - Native timestamps: Chirp 3 23/39, Resolve 30/51, Chirp 2 20/46. Offsets
+    run late (+16 to +28 ms). ElevenLabs and AssemblyAI start late
+    (+58 to +86 ms).
+  - Agreement filter at tau 70: 2–7% review. It removes no onset errors (there
+    were none over 120) and leaves one offset error.
+  - **Caveats:** n = 40. The blind words were drawn from Speechmatics' output,
+    so blind coverage (100%) says nothing about missed words. Coverage, WER,
+    stumbles and names on B come from the full key pass.
+
 ## Next
 
-1. Finish the Qwen/Charsiu runs on the reconciled text, compute the remaining
-   agreement curves, then freeze `word-timing-v2-frozen.json` (pipelines, the
-   untuned decision, tau, model hashes) **before** scoring anything on B.
-2. Run the frozen pipelines on B. Score timing against the blind set only.
+1. (done) Freeze; (done) B blind-set timing.
+2. (done) Research no-script MFA on A and B.
 3. When the Producer returns `answer-key/rec-b/rec-b-markers-corrected.csv`
    (the light words-and-stumbles pass), score WER, stumble recall, name
    spelling and gross errors on B.
