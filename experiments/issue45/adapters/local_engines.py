@@ -112,7 +112,7 @@ def _check_wav(audio: AudioRef, port: Port) -> None:
         )
 
 
-def _run(
+def run_engine(
     cmd: list[str], *, port: Port, env: dict[str, str] | None, timeout: float
 ) -> str:
     try:
@@ -160,7 +160,7 @@ def speech_segments(
             "VAD runtime (VERA_TOOLS_PYTHON) is not configured.",
         )
     out = json.loads(
-        _run(
+        run_engine(
             [
                 str(config.tools_python),
                 str(ENGINES / "silero_vad_engine.py"),
@@ -234,7 +234,7 @@ class ParakeetRecognizer:
         with tempfile.TemporaryDirectory(prefix="vera-parakeet-") as tmp:
             vad, out = Path(tmp) / "vad.json", Path(tmp) / "tc.json"
             vad.write_text(json.dumps({"segments": [list(s) for s in segments]}))
-            _run(
+            run_engine(
                 [
                     str(cfg.parakeet_python),
                     str(ENGINES / "parakeet_engine.py"),
@@ -391,7 +391,7 @@ class MfaAligner:
             if self.extra_dictionary is not None:
                 cmd += ["--extra-dict", str(self.extra_dictionary)]
             with _mfa_lock(home):
-                _run(
+                run_engine(
                     cmd,
                     port="aligner",
                     env={**cfg.mfa_env, "VERA_MFA_HOME": str(home)},

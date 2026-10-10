@@ -96,3 +96,10 @@ pins `jsonschema`; engine runtimes are external and configured, not installed.
     two "a"). Conformance therefore requires determinism only for local
     engines; each cloud call is its own immutable artifact (#168 already
     appends rather than rewrites).
+- `profiles.py` (Script to Timeline: recogniser → reconcile → MFA with
+  prompter pronunciation guides via the vendored guide G2P engine; Research:
+  recogniser → MFA). End-to-end on recording A with Parakeet, scored by the
+  study's scorer against the Producer's key: coverage 77.6%, onset 18/124 ms
+  (median/p95), offset 34/145 ms on the independent 80 words — equal to the
+  study pipeline (33 ms offset median); full key 88.8%, 10/54, 10/57 ms,
+  identical to the study.
