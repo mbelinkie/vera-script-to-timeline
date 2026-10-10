@@ -50,6 +50,20 @@ regions, not 10 ms nudges.
 
 You never need to edit the check track.
 
+## Recording B: fix the words too
+
+Recording B has no transcript of yours. Its pre-filled **words** come from a
+speech recogniser (Speechmatics), so some will be wrong, and stumbles may be
+missing or tidied up. On B, also:
+
+- Listen for each line once at normal speed and fix misheard words.
+- Add every stumble the recogniser dropped (`FRAG`, `REP`, `FILLER`). The
+  `SPEECH WITH NO WORD` flags point at likely spots, but the recogniser may
+  also have covered a stumble with a neighbouring word's region.
+- Delete regions for words that were never said.
+- A numeral appears as one region per spoken word, e.g. `nineteen[1998]`.
+  Keep that form, or type plain spoken words.
+
 ## Boundary rules
 
 - **A word starts at its first sound.** For a word that starts with a stop
