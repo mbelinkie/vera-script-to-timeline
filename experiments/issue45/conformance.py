@@ -80,7 +80,12 @@ def check_pair(
     fails: list[str] = []
     rec = recognizer.recognise(audio, language=language, policy=policy)
     fails += [f"recognition schema: {e}" for e in schema_errors(rec)]
-    if (
+    # Local engines must be deterministic. Cloud services are not run-to-run
+    # deterministic (ElevenLabs returned 4 different spans on a repeat call of
+    # recording B), so each cloud call is its own immutable artifact; adapters
+    # must still be deterministic for an identical provider response, which
+    # the transport-injected unit tests cover.
+    if recognizer.capabilities().processing == "local" and (
         recognizer.recognise(audio, language=language, policy=policy)["artifactId"]
         != rec["artifactId"]
     ):

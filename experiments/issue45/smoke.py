@@ -21,6 +21,7 @@ import time
 import wave
 from pathlib import Path
 
+from experiments.issue45.adapters.elevenlabs_cloud import ElevenLabsCloudRecognizer
 from experiments.issue45.adapters.local_engines import (
     EngineConfig,
     MfaAligner,
@@ -39,6 +40,10 @@ def main() -> None:
     parser.add_argument("--captions", type=Path)
     parser.add_argument("--reference", type=Path)
     parser.add_argument(
+        "--cloud-consent",
+        help="use ElevenLabs via OpenRouter under this project consent policy id",
+    )
+    parser.add_argument(
         "--full-conformance",
         action="store_true",
         help="also run check_pair (runs each engine twice)",
@@ -49,13 +54,15 @@ def main() -> None:
             args.audio, file_hash(args.audio), w.getframerate(), w.getnframes()
         )
     config = EngineConfig.from_env()
-    recognizer: RecognizerPort = (
-        YouTubeCaptionRecognizer(args.captions)
-        if args.captions
-        else ParakeetRecognizer(config)
-    )
+    recognizer: RecognizerPort
+    if args.cloud_consent:
+        recognizer = ElevenLabsCloudRecognizer()
+    elif args.captions:
+        recognizer = YouTubeCaptionRecognizer(args.captions)
+    else:
+        recognizer = ParakeetRecognizer(config)
     aligner = MfaAligner(config)
-    policy = ProjectPolicy()
+    policy = ProjectPolicy(cloud_consent_policy_id=args.cloud_consent)
     t0 = time.monotonic()
     rec = recognizer.recognise(audio, language="en", policy=policy)
     t1 = time.monotonic()

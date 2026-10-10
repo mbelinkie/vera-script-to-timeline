@@ -79,3 +79,11 @@ pins `jsonschema`; engine runtimes are external and configured, not installed.
     run of the same engines, the rest within 70 ms.
   - YouTube captions adapter → MFA adapter (raw B): 562/562 acoustic,
     conformance PASS; 540/562 identical to the study, the rest within 70 ms.
+  - ElevenLabs cloud adapter → MFA adapter (B, ~3 cents): 557 tokens in 4 s,
+    562/562 acoustic, conformance PASS. Matched by text against the study's
+    ElevenLabs run: 557/562 units, onset/offset |diff| median and p95 0 ms.
+    **Cloud output is not run-to-run deterministic**: the repeat call differed
+    in 4 small spans ("acadefri con" vs "academic conf", an extra "um" and
+    two "a"). Conformance therefore requires determinism only for local
+    engines; each cloud call is its own immutable artifact (#168 already
+    appends rather than rewrites).

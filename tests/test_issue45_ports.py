@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import wave
 from collections.abc import Callable
 from itertools import pairwise
@@ -296,3 +297,62 @@ def test_agreement_block_flags_disagreement(audio: AudioRef) -> None:
         (1, "offset", "needs_review"),
     ]
     assert w1["status"] == "acoustic"
+
+
+SCRIBE_RAW: Json = {
+    "model": "elevenlabs/scribe-v2",
+    "words": [
+        {"word": "So", "start": 0.6, "end": 0.8, "type": "word", "logprob": -0.1},
+        {"word": " ", "start": 0.8, "end": 0.85, "type": "spacing"},
+        {"word": "(laughs)", "start": 0.85, "end": 1.2, "type": "audio_event"},
+        {"word": "1998", "start": 1.3, "end": 2.0, "type": "word"},
+    ],
+}
+
+
+def test_cloud_scribe_needs_consent_and_parses(
+    audio: AudioRef, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from experiments.issue45.adapters.elevenlabs_cloud import ElevenLabsCloudRecognizer
+
+    sent: list[bytes] = []
+
+    def transport(
+        url: str, headers: dict[str, str], body: bytes, timeout: float
+    ) -> Json:
+        sent.append(body)
+        return SCRIBE_RAW
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-not-real")
+    rec = ElevenLabsCloudRecognizer(transport=transport, keyterms=("Joost",))
+    with pytest.raises(PortRefusal) as refused:
+        rec.recognise(audio, language="en", policy=POLICY)
+    assert refused.value.code == "consent-missing" and not sent
+    consented = ProjectPolicy(cloud_consent_policy_id="project-7/cloud-ok")
+    assert check_pair(rec, FakeAligner(), audio, language="en", policy=consented) == []
+    doc = rec.recognise(audio, language="en", policy=consented)
+    assert [(t["display"], t["kind"]) for t in doc["tokens"]] == [
+        ("So", "word"),
+        ("(laughs)", "event"),
+        ("1998", "word"),
+    ]
+    assert doc["consent"] == {
+        "processing": "cloud",
+        "policyId": "project-7/cloud-ok",
+        "cloudProvider": "elevenlabs",
+    }
+    assert doc["identity"]["recognizer"]["keytermsHash"] is not None
+    assert b"test-key-not-real" not in json.dumps(doc).encode()
+
+
+def test_cloud_scribe_refuses_without_key(
+    audio: AudioRef, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from experiments.issue45.adapters.elevenlabs_cloud import ElevenLabsCloudRecognizer
+
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    with pytest.raises(PortRefusal) as refused:
+        ElevenLabsCloudRecognizer(transport=lambda *a: SCRIBE_RAW).recognise(
+            audio, language="en", policy=ProjectPolicy(cloud_consent_policy_id="p")
+        )
+    assert refused.value.code == "runtime-missing"
