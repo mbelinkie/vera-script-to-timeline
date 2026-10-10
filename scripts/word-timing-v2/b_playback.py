@@ -67,6 +67,12 @@ def main() -> None:
     parser.add_argument("--code-dir", type=Path, required=True)
     parser.add_argument("--video", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument(
+        "--rules",
+        choices=["v1", "v2"],
+        default="v2",
+        help="v1 = accepted #53 output; v2 = take_rules_v2 refinement",
+    )
     args = parser.parse_args()
     sys.path.insert(0, str(args.code_dir))
     from experiments.issue53.boundaries import find_quiet_intervals, propose_quiet_cuts
@@ -101,7 +107,32 @@ def main() -> None:
             "options": {"include_partial_alternates": True},
         }
     )
+    if args.rules == "v2":
+        from take_rules_v2 import refine
+
+        report = refine(report)
     (args.out / "discovery.json").write_text(json.dumps(report, indent=1))
+    notes = {i["row"]: i for i in report.get("take_rules_v2", {}).get("rows", [])}
+
+    def diff_line(d: dict | None) -> str:
+        if not d or not d.get("differs_from_script"):
+            return "word-for-word as scripted"
+        bits = []
+        if d["moved"]:
+            bits.append("moved " + ", ".join(f"'{m['word']}'" for m in d["moved"]))
+        if d["substituted"]:
+            bits.append(
+                "said "
+                + ", ".join(
+                    f"'{x['said']}' for '{x['script']}'" for x in d["substituted"]
+                )
+            )
+        if d["added"]:
+            bits.append("added '" + " ".join(d["added"]) + "'")
+        if d["omitted"]:
+            bits.append("skipped '" + " ".join(d["omitted"]) + "'")
+        return "DIFFERS FROM SCRIPT: " + "; ".join(bits)
+
     by_id = {c["id"]: c for c in report["candidates"]}
     rw = report["words"]
 
@@ -121,16 +152,30 @@ def main() -> None:
     )
     for row, g in zip(report["rows"], report["groups"], strict=True):
         ranges = []
+        info = notes.get(row["id"], {})
         if g["suggested_last_complete"]:
+            c = by_id[g["suggested_last_complete"]]
+            kind = (
+                "continuous delivery (complete)"
+                if c.get("kind") == "delivery_run"
+                else "last complete read"
+            )
             ranges = [
                 (
-                    "last complete read",
-                    tuple(by_id[g["suggested_last_complete"]]["word_range"]),
+                    kind,
+                    tuple(c["word_range"]),
+                    info.get("differences"),
+                    info.get("alternates", []),
                 )
             ]
         elif g["assembly"]:
             ranges = [
-                ("assembly piece (review only)", tuple(p["source_word_range"]))
+                (
+                    "assembly piece (review only)",
+                    tuple(p["source_word_range"]),
+                    p.get("differences"),
+                    p.get("alternates", []),
+                )
                 for p in g["assembly"]["pieces"]
             ]
         alts = len(g["alternatives"]) + len(g["partial_alternatives"])
@@ -141,7 +186,7 @@ def main() -> None:
             f"earlier complete/partial alternatives kept: {alts}; status: {g['selection_status']}.",
             "",
         ]
-        for kind, (a, b) in ranges:
+        for kind, (a, b), dif, alts_v2 in ranges:
             sp = span(a, b)
             if sp is None:
                 lines.append(f"- {kind}: no acoustic timing, not rendered")
@@ -170,6 +215,13 @@ def main() -> None:
                 f"- **Chapter {len(plan)}** ({kind}, {fr[0] / 30:.2f}–{fr[1] / 30:.2f} s"
                 f"{'' if cut['frame_range'] else ', NO quiet edge found: padded preview'}): {text}"
             )
+            lines.append(f"  - {diff_line(dif)}")
+            for n_alt, alt in enumerate(alts_v2, 1):
+                asp = span(*alt["source_word_range"])
+                when = f"{asp[0]:.2f}–{asp[1]:.2f} s" if asp else "untimed"
+                lines.append(
+                    f"  - Usable alternate {n_alt} (earlier, {when}): {diff_line(alt['differences'])}"
+                )
         lines.append("")
     for s in report["editorial_signals"]:
         lines.append(

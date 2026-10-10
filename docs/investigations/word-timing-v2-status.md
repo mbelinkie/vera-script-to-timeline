@@ -159,3 +159,12 @@ in git.
   halting presenter, e.g. Resolve WER 8.1% → 36.8%; neutral for alignment).
 - Operational lesson: never run two MFA jobs at once (shared MFA temp dir).
   Four runs collided and were re-run serially; all now valid.
+- Take rules v2 (`take_rules_v2.py`, post-processing on unchanged #53
+  discover()): continuous-delivery merge, moved words as differences,
+  script-difference flag on every selected take/piece, usable alternates
+  (earlier full reads, newest first; last = default). Producer rule: if the
+  presenter moves on and doesn't re-read a part, it's probably a keeper.
+  A: Sample v2 still 15/15 spans, 7/7 blue; offered alternates match 6/8 of
+  the Producer's green alternates (1 extra). B row 3 now 2 pieces, the second
+  0:54.6–1:07.3 as the Producer expected; 10/10 cuts in quiet.
+  Fully rule-based: no LLM anywhere in the pipeline.
