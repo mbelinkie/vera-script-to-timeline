@@ -102,3 +102,13 @@ in git.
 - B's answer key may use the script for name spelling only.
 - One engine should serve both VERA apps. Research has no script, high volume
   and a looser accuracy need, so the stages are switchable per product.
+
+## Autonomous run authorisations (Producer, 2026-10-10)
+
+- After the study deliverables (cleanup test, results report, listening-check
+  file, #53 re-run, Codex CLI consult), start #45 on a new branch off main.
+  Commit locally only; the Producer reviews before any merge.
+- May push `claude/word-timing-v2` to origin. No PR, no GitHub comments.
+- Cloud spend up to $10 more; stop and ask beyond that.
+- May test DeepFilterNet on one public YouTube talking-head clip (local only,
+  never committed), with a consensus reference, clearly caveated.
