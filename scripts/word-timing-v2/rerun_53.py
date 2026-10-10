@@ -38,7 +38,15 @@ DATA = Path.home() / ".local/share/vera/word-timing-v2"
 H = Path.home() / ".local/share/vera/issue-51-preflight/run-a/issue-53"
 HR = H / "producer-highlight-review-01"
 TOL = 0.25
-SOURCES = ["eleven-or", "assemblyai", "speechmatics", "chirp2-kt", "resolve", "parakeet", "whisper"]
+SOURCES = [
+    "eleven-or",
+    "assemblyai",
+    "speechmatics",
+    "chirp2-kt",
+    "resolve",
+    "parakeet",
+    "whisper",
+]
 
 
 def key_times(acc_words: list[str]) -> list[tuple[float, float] | None]:
@@ -57,7 +65,9 @@ def pipeline_words(src: str) -> list[dict]:
     result = runs / f"T-CR-{src}__A-MFA-G-english_us_arpa.json"
     if not result.exists():
         result = runs / f"T-CR-{src}__A-MFA-english_us_arpa.json"
-    rows = {(r["i"], r.get("sub", 0)): r for r in json.loads(result.read_text())["words"]}
+    rows = {
+        (r["i"], r.get("sub", 0)): r for r in json.loads(result.read_text())["words"]
+    }
     tokens = json.loads((DATA / f"rec-a/pipe/tokens-{src}.json").read_text())
     tokens = tokens["tokens"] if isinstance(tokens, dict) else tokens
     seg = json.loads((DATA / f"rec-a/pipe/segments-{src}.json").read_text())
@@ -69,18 +79,24 @@ def pipeline_words(src: str) -> list[dict]:
     for i, display in enumerate(tokens):
         parts = [rows.get(k) for k in subs.get(i, [])]
         ok = parts and all(p and p["status"] == "aligned" for p in parts)
-        words.append({
-            "text": str(display),
-            "start": min(p["start"] for p in parts) if ok else None,
-            "end": max(p["end"] for p in parts) if ok else None,
-            "precision": "acoustic" if ok else "missing",
-            "provenance": f"T-CR-{src} + {result.stem.split('__')[1]}",
-        })
+        words.append(
+            {
+                "text": str(display),
+                "start": min(p["start"] for p in parts) if ok else None,
+                "end": max(p["end"] for p in parts) if ok else None,
+                "precision": "acoustic" if ok else "missing",
+                "provenance": f"T-CR-{src} + {result.stem.split('__')[1]}",
+            }
+        )
     return words, result.name
 
 
 def span(words: list[dict], rng: range) -> tuple[float, float] | None:
-    times = [(w["start"], w["end"]) for w in (words[i] for i in rng) if w["start"] is not None]
+    times = [
+        (w["start"], w["end"])
+        for w in (words[i] for i in rng)
+        if w["start"] is not None
+    ]
     return (min(t[0] for t in times), max(t[1] for t in times)) if times else None
 
 
@@ -100,9 +116,15 @@ def evaluate(report: dict, labels: list[dict], ref: list[tuple[float, float]]) -
             if s and min(s[1], r[1]) - max(s[0], r[0]) > 0.1:
                 hits.append(s)
         union = (min(h[0] for h in hits), max(h[1] for h in hits)) if hits else None
-        rec.append({"label": lab["id"], "color": lab["color"], "recovered": close(union, r),
-                    "deltaStart": None if union is None else round(union[0] - r[0], 3),
-                    "deltaEnd": None if union is None else round(union[1] - r[1], 3)})
+        rec.append(
+            {
+                "label": lab["id"],
+                "color": lab["color"],
+                "recovered": close(union, r),
+                "deltaStart": None if union is None else round(union[0] - r[0], 3),
+                "deltaEnd": None if union is None else round(union[1] - r[1], 3),
+            }
+        )
     # ordinary suggestion, with the single flagged earlier option confirmed (as Sample v2)
     # Same selection as Sample v2's evaluation: last complete read per row, else
     # the row's assembly pieces; then swap in the single flagged earlier option.
@@ -115,8 +137,12 @@ def evaluate(report: dict, labels: list[dict], ref: list[tuple[float, float]]) -
                 selected.update(range(*p["source_word_range"]))
     for sig in report["editorial_signals"]:
         if len(sig["earlier_candidate_options"]) == 1 and sig["related_candidates"]:
-            selected.difference_update(range(*by_id[sig["related_candidates"][-1]]["word_range"]))
-            selected.update(range(*by_id[sig["earlier_candidate_options"][0]]["word_range"]))
+            selected.difference_update(
+                range(*by_id[sig["related_candidates"][-1]]["word_range"])
+            )
+            selected.update(
+                range(*by_id[sig["earlier_candidate_options"][0]]["word_range"])
+            )
     runs: list[range] = []
     for i in sorted(selected):
         if runs and runs[-1].stop == i:
@@ -128,13 +154,22 @@ def evaluate(report: dict, labels: list[dict], ref: list[tuple[float, float]]) -
 
     def covered(b: tuple[float, float]) -> bool:
         parts = [s for s in chosen_spans if min(s[1], b[1]) - max(s[0], b[0]) > 0.1]
-        return bool(parts) and close((min(p[0] for p in parts), max(p[1] for p in parts)), b)
+        return bool(parts) and close(
+            (min(p[0] for p in parts), max(p[1] for p in parts)), b
+        )
 
     blue_hit = sum(covered(b) for b in blue)
-    return {"recovered": sum(x["recovered"] for x in rec), "spans": len(rec),
-            "blueMatchedBySuggestion": blue_hit, "blueSpans": len(blue),
-            "assemblyGroups": sum(1 for g in report["groups"] if not g["suggested_last_complete"]),
-            "editorialSignals": len(report["editorial_signals"]), "perSpan": rec}
+    return {
+        "recovered": sum(x["recovered"] for x in rec),
+        "spans": len(rec),
+        "blueMatchedBySuggestion": blue_hit,
+        "blueSpans": len(blue),
+        "assemblyGroups": sum(
+            1 for g in report["groups"] if not g["suggested_last_complete"]
+        ),
+        "editorialSignals": len(report["editorial_signals"]),
+        "perSpan": rec,
+    }
 
 
 def main() -> None:
@@ -143,7 +178,7 @@ def main() -> None:
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     sys.path.insert(0, str(args.code_dir))
-    from experiments.issue53.takes import discover  # noqa: PLC0415
+    from experiments.issue53.takes import discover
 
     args.out.mkdir(parents=True, exist_ok=True)
     acc = json.loads((HR / "accurate-normalized.json").read_text())
@@ -160,11 +195,23 @@ def main() -> None:
     # after discovery, for scoring. Validates this evaluator (expect 15/15, 7/7).
     replica = discover({**acc, "options": {"include_partial_alternates": True}})
     for i, t in enumerate(kt):
-        replica["words"][i]["start"], replica["words"][i]["end"] = (t if t else (None, None))
-    summary["producer-text, untimed (Sample v2 replica)"] = evaluate(replica, labels, ref)
-    variants = {"producer-text (Sample v2 input, key times)": [
-        {**w, "start": t[0] if t else None, "end": t[1] if t else None,
-         "precision": "acoustic" if t else "missing"} for w, t in zip(acc["words"], kt, strict=True)]}
+        replica["words"][i]["start"], replica["words"][i]["end"] = (
+            t if t else (None, None)
+        )
+    summary["producer-text, untimed (Sample v2 replica)"] = evaluate(
+        replica, labels, ref
+    )
+    variants = {
+        "producer-text (Sample v2 input, key times)": [
+            {
+                **w,
+                "start": t[0] if t else None,
+                "end": t[1] if t else None,
+                "precision": "acoustic" if t else "missing",
+            }
+            for w, t in zip(acc["words"], kt, strict=True)
+        ]
+    }
     for src in SOURCES:
         words, name = pipeline_words(src)
         variants[f"{src} ({name})"] = words
@@ -172,11 +219,21 @@ def main() -> None:
         for timed in (True, False):
             # untimed: discovery sees text only (as Sample v2 did); the
             # pipeline's acoustic times are attached afterwards for scoring.
-            fed = words if timed else [{**w, "start": None, "end": None, "precision": "missing"} for w in words]
-            packet = {**{k: acc[k] for k in ("version", "source", "rows", "decisions")},
-                      "provenance": {"variant": name, "reference_labels_removed": True},
-                      "words": fed, "audio_activity": activity.get("intervals", activity),
-                      "options": {"include_partial_alternates": True}}
+            fed = (
+                words
+                if timed
+                else [
+                    {**w, "start": None, "end": None, "precision": "missing"}
+                    for w in words
+                ]
+            )
+            packet = {
+                **{k: acc[k] for k in ("version", "source", "rows", "decisions")},
+                "provenance": {"variant": name, "reference_labels_removed": True},
+                "words": fed,
+                "audio_activity": activity.get("intervals", activity),
+                "options": {"include_partial_alternates": True},
+            }
             label = f"{name.split(' (')[0]} [{'timed' if timed else 'untimed'}]"
             try:
                 report = discover(packet)
@@ -185,18 +242,25 @@ def main() -> None:
                 continue
             if not timed:
                 for i, w in enumerate(words):
-                    report["words"][i]["start"], report["words"][i]["end"] = w["start"], w["end"]
+                    report["words"][i]["start"], report["words"][i]["end"] = (
+                        w["start"],
+                        w["end"],
+                    )
             slug = label.replace(" ", "_").replace("[", "").replace("]", "")
-            (args.out / f"discovery-{slug}.json").write_text(json.dumps(report, indent=1))
+            (args.out / f"discovery-{slug}.json").write_text(
+                json.dumps(report, indent=1)
+            )
             summary[label] = evaluate(report, labels, ref)
     (args.out / "summary.json").write_text(json.dumps(summary, indent=1))
     for name, s in summary.items():
         if "error" in s:
             print(f"{name:60s} ERROR {s['error']}")
         else:
-            print(f"{name:60s} spans {s['recovered']:2d}/{s['spans']}  blue-by-suggestion "
-                  f"{s['blueMatchedBySuggestion']}/{s['blueSpans']}  assembly-groups {s['assemblyGroups']}  "
-                  f"edit-notes {s['editorialSignals']}")
+            print(
+                f"{name:60s} spans {s['recovered']:2d}/{s['spans']}  blue-by-suggestion "
+                f"{s['blueMatchedBySuggestion']}/{s['blueSpans']}  assembly-groups {s['assemblyGroups']}  "
+                f"edit-notes {s['editorialSignals']}"
+            )
 
 
 if __name__ == "__main__":
