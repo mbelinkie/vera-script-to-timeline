@@ -41,6 +41,8 @@ def check_alignment(
     recognition: Json,
     alignment: Json,
     reconciliation: Json | None = None,
+    *,
+    min_acoustic_share: float = 0.5,
 ) -> list[str]:
     fails = [f"alignment schema: {e}" for e in schema_errors(alignment)]
     if alignment["identity"]["recognitionArtifactId"] != recognition["artifactId"]:
@@ -67,6 +69,12 @@ def check_alignment(
                 f"normalisation map: token {i} {t['display']!r} -> {got}, "
                 f"expected {expected}"
             )
+    words = alignment["words"]
+    acoustic = sum(w["status"] == "acoustic" for w in words)
+    if words and acoustic / len(words) < min_acoustic_share:
+        # "unaligned" is legal per unit, but on speech fixtures a mostly
+        # unaligned result means a broken engine (seen: MFA refusing its corpus).
+        fails.append(f"only {acoustic}/{len(words)} units have acoustic times")
     duration_ms = audio.duration_samples * 1000 // audio.sample_rate
     last = -1
     for w in alignment["words"]:

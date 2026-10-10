@@ -437,3 +437,9 @@ def test_agreement_refuses_without_partner_runtime(audio: AudioRef) -> None:
     with pytest.raises(PortRefusal) as refused:
         QwenAgreement(EngineConfig()).check(audio, rec, ali)
     assert refused.value.code == "runtime-missing"
+
+
+def test_conformance_rejects_mostly_unaligned(audio: AudioRef) -> None:
+    rec = FakeRecognizer(["a", "b", "c"]).recognise(audio, language="en", policy=POLICY)
+    ali = FakeAligner(unaligned=frozenset({0, 1, 2})).align(audio, rec, policy=POLICY)
+    assert any("acoustic times" in f for f in check_alignment(audio, rec, ali))

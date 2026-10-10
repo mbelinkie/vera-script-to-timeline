@@ -421,6 +421,13 @@ class MfaAligner:
                         r["end"] if ok and r else None,
                     )
                 )
+        if times and not any(t.status == "acoustic" for t in times):
+            raise PortRefusal(
+                "aligner",
+                "provider-failed",
+                "MFA aligned no words (see its log in the MFA work folder).",
+                retryable=False,
+            )
         packages = result.get("provenance", {}).get("packages", {})
         aligner = tool(
             "montreal-forced-aligner",
