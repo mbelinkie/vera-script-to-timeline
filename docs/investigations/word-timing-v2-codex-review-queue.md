@@ -16,3 +16,9 @@ aggregate numbers only.
    heard on raw audio) a fair proxy, given it is built from raw audio?
 5. #53 re-run on recogniser transcripts (when done): is the comparison against
    the accepted Sample v2 takes fair?
+6. **Before #45 merges** (local branch `claude/issue-45-word-timing`): review
+   the approved #168 contracts as moved into `/contracts` plus generated
+   TS/Python types (`docs/plans/issue-168-contract-change.md`), the
+   `experiments/issue45` ports/adapters/conformance suite, and take rules v2
+   (`scripts/word-timing-v2/take_rules_v2.py`). Ask specifically: can any
+   path silently fall back, fabricate timing, or lose `heard` evidence?
