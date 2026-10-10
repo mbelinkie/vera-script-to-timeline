@@ -83,6 +83,13 @@ def system_words_from_tc(tc: dict) -> list[tuple[str, float, float]]:
     return out
 
 
+ALIASES: dict[str, str] = {}
+
+
+def canon(text: str) -> str:
+    return ALIASES.get(text, text)
+
+
 def match(key: list[KeyWord], words: list[tuple[str, float, float]]) -> dict[int, int]:
     pairs: dict[int, int] = {}
     floor = 0
@@ -93,7 +100,7 @@ def match(key: list[KeyWord], words: list[tuple[str, float, float]]) -> dict[int
             text, s, e = words[j]
             if (s + e) / 2 > mid + WINDOW_SEC:
                 break
-            if text == k.text and abs((s + e) / 2 - mid) <= WINDOW_SEC:
+            if canon(text) == canon(k.text) and abs((s + e) / 2 - mid) <= WINDOW_SEC:
                 if best is None or abs((s + e) / 2 - mid) < abs(sum(words[best][1:]) / 2 - mid):
                     best = j
         if best is not None:
@@ -140,7 +147,7 @@ def boundary_errors(key: list[KeyWord], words: list[tuple[str, float, float]], p
 
 
 def wer(key: list[KeyWord], words: list[tuple[str, float, float]]) -> dict[str, float]:
-    ref, hyp = [k.text for k in key], [w[0] for w in words]
+    ref, hyp = [canon(k.text) for k in key], [canon(w[0]) for w in words]
     prev = list(range(len(hyp) + 1))
     for i in range(1, len(ref) + 1):
         cur = [i] + [0] * len(hyp)
@@ -166,6 +173,21 @@ def stumble_recall(key: list[KeyWord], words: list[tuple[str, float, float]], pa
     return {tag: {"recalled": h, "total": t, "recall": h / t} for tag, (h, t) in sorted(out.items())}
 
 
+def name_spelling(key: list[KeyWord], words: list[tuple[str, float, float]], pairs: dict[int, int],
+                  names: set[str]) -> dict[str, float]:
+    """Of key words that are script names, how many does the system spell like the script?"""
+    total = correct = matched = 0
+    for n, k in enumerate(key):
+        if canon(k.text) not in names:
+            continue
+        total += 1
+        if n in pairs:
+            matched += 1
+            correct += words[pairs[n]][0] == canon(k.text)
+    return {"names": total, "matched": matched, "scriptSpelled": correct,
+            "accuracy": correct / total if total else float("nan")}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--key", type=Path, required=True)
@@ -173,7 +195,16 @@ def main() -> None:
     parser.add_argument("--result", type=Path, nargs="*", default=[])
     parser.add_argument("--tc", type=Path, nargs="*", default=[])
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--aliases", type=Path, help="key spelling -> script spelling (applied to both sides)")
+    parser.add_argument("--prompter", type=Path, help="prompter.json, enables name-spelling accuracy")
     args = parser.parse_args()
+    if args.aliases:
+        ALIASES.update({k: v for k, v in json.loads(args.aliases.read_text()).items() if not k.startswith("_")})
+    names: set[str] = set()
+    if args.prompter:
+        from reconcile import script_units
+
+        names = {u["text"] for u in script_units(json.loads(args.prompter.read_text())) if u["name"]}
     key = load_key(args.key)
     segments = json.loads(args.segments.read_text())
     report: dict[str, dict] = {"_key": {
@@ -191,6 +222,8 @@ def main() -> None:
             words = system_words_from_tc(data)
         pairs = match(key, words)
         entry = {"file": path.name, "coverage": len(pairs) / len(key), "boundaries": boundary_errors(key, words, pairs)}
+        if names:
+            entry["nameSpelling"] = name_spelling(key, words, pairs, names)
         if kind == "tc":
             entry["wordAccuracy"] = wer(key, words)
             entry["stumbleRecall"] = stumble_recall(key, words, pairs)
@@ -211,6 +244,8 @@ def main() -> None:
         extra = ""
         if "wordAccuracy" in entry:
             extra = f'  WER {entry["wordAccuracy"]["wer"]:.1%}  stumbles {entry["stumbleRecall"].get("all", {}).get("recall", 0):.0%}'
+        if "nameSpelling" in entry:
+            extra += f'  names {entry["nameSpelling"]["scriptSpelled"]}/{entry["nameSpelling"]["names"]}'
         print(f'{name:42s} {entry["coverage"]:5.1%} | {cell("onset"):>26s} | {cell("offset"):>26s}{extra}')
 
 

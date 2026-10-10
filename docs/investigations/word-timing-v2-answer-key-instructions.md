@@ -77,7 +77,7 @@ You never need to edit the Description column.
 ## Recording B: fix the words too
 
 Recording B has no transcript of yours. Its pre-filled **words** come from a
-speech recogniser (Speechmatics), so some will be wrong, and stumbles may be
+speech recogniser (AssemblyAI), so some will be wrong, and stumbles may be
 missing or tidied up. On B, also:
 
 - Listen for each line once at normal speed and fix misheard words.
