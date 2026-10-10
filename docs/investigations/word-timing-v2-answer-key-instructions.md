@@ -45,18 +45,18 @@ Your files are in `~/.local/share/vera/word-timing-v2/answer-key/<rec>/`:
 
 ## Stumble tags
 
-Tag a word by putting the tag and a space before it. Tagged words are still
-timed exactly like any other word.
+Every word that was actually said is a plain word: just get its timing right.
+That includes words in takes that fall apart, and a first "Kai" before a
+restart. You do **not** need to mark takes or decide which attempts failed.
+
+Tags are only for stumbles the pre-fill is **missing**. Add a marker and put
+the tag and a space before the text:
 
 | Tag | Meaning | Example |
 | --- | --- | --- |
-| `REP` | A whole word that was said and then restarted. For an abandoned phrase of about 10 words or fewer, tag **every** word of the abandoned attempt. Longer ones: use `STOP`. | `REP kai` before "Kai is three Finns"; `REP this` `REP song` `REP is` before "This song is…" |
-| `STOP` | The **last** word of an abandoned take longer than about 10 words. Leave the rest of that take as plain words. | `STOP sent` |
 | `FRAG` | A word cut off partway. | `FRAG simul` |
+| `REP` | An extra repeat of a word that the pre-fill skipped. | `REP the` in "the the" |
 | `FILLER` | Um, uh, er and similar. | `FILLER um` |
-
-A pre-filled word that turns out to be a false start just gets renamed, e.g.
-`kai` becomes `REP kai`.
 
 ## The pass
 
