@@ -112,3 +112,9 @@ configuration tried.
   - The **full key** provides WER, stumble recall, name-spelling accuracy,
     coverage, and a gross-error rate (share of boundaries more than 150 ms off).
     Fine-timing statistics from the full B key are not reported.
+- **2026-10-10: name-spelling accuracy counts only names missing from the
+  pronunciation dictionary** (registered before B's text scoring). The first
+  definition counted every word of a keyterm, so "the" in "The Boss Baby"
+  counted as a name on B. A is rescored with the same definition. B's alias
+  list (`yost` → `joost`) was written after B's key was frozen and before
+  script-informed B scoring.

@@ -231,6 +231,7 @@ def main() -> None:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--aliases", type=Path, help="key spelling -> script spelling (applied to both sides)")
     parser.add_argument("--prompter", type=Path, help="prompter.json, enables name-spelling accuracy")
+    parser.add_argument("--dictionary", type=Path, help="pronunciation dictionary (required with --prompter)")
     parser.add_argument("--independent", type=Path,
                         help="score against an independent timing set (e.g. #51 frozen-reference-v2.json) instead")
     args = parser.parse_args()
@@ -240,7 +241,12 @@ def main() -> None:
     if args.prompter:
         from reconcile import script_units
 
-        names = {u["text"] for u in script_units(json.loads(args.prompter.read_text())) if u["name"]}
+        from prompter import load_dictionary
+
+        dictionary = load_dictionary(args.dictionary)
+        # Only names missing from the pronunciation dictionary: those are the spellings at risk.
+        names = {u["text"] for u in script_units(json.loads(args.prompter.read_text()))
+                 if u["name"] and u["text"] not in dictionary}
     blind = bool(args.independent and args.independent.suffix.lower() == ".csv")
     key = [] if blind else load_key(args.key)
     if args.independent:
