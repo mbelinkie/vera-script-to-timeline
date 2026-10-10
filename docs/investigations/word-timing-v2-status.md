@@ -176,3 +176,13 @@ in git.
   870 ms); block-final derived end = file end ≈ 125 ms after the audible end
   (never clips speech). MFA end ≈ audible end + 30 ms. A plain silence
   detector finds pre-pause ends within ~35 ms of MFA (TTS audio is clean).
+- #45 prototype (local branch `claude/issue-45-word-timing`, commit e40992e,
+  NOT pushed, unclaimed; Producer-authorised): `experiments/issue45/` with
+  ports, refusals, draft #168 artifacts (schemas copied), fakes, conformance
+  suite, YouTube-caption / Parakeet / MFA adapters (engines vendored, run in
+  external runtimes; MFA serialised by a lock), smoke runner. 25 new tests
+  pass; lint and strict mypy pass. Real-engine smoke on B: Parakeet→MFA and
+  captions→MFA both conformant, 520/559 and 540/562 units identical to the
+  study's runs (rest ≤ 70 ms). Full pytest 97 failures are pre-existing on
+  origin/main on this Mac (Node 26.5 vs declared 24.x, see #106).
+- Draft #168 JSON Schemas: `docs/plans/issue-168/schemas/` (decision 1 open).
