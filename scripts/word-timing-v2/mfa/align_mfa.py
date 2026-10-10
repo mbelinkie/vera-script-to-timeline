@@ -35,6 +35,9 @@ def main():
     ap.add_argument("--audio-dir", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--variant", default="english_us_arpa", choices=list(VARIANTS))
+    ap.add_argument("--extra-dict", default=None,
+                    help="extra pronunciations (word<TAB>phones lines, see guide_dict.py); they REPLACE the variant "
+                         "dictionary's entries for those words")
     ap.add_argument("-j", "--jobs", type=int, default=min(4, os.cpu_count() or 1))
     a = ap.parse_args()
     v = VARIANTS[a.variant]
@@ -59,7 +62,24 @@ def main():
             w.writeframes(np.ascontiguousarray(pcm[a0:a1]).tobytes())
         (corpus / f"{s['id']}.lab").write_text(" ".join(x["text"] for x in s["words"]) + "\n")
 
-    cmd = [mfa, "align", str(corpus), v["dictionary"], v["acoustic"], str(outd),
+    dict_arg, extra_info = v["dictionary"], None
+    if a.extra_dict:
+        extra = {}
+        for line in Path(a.extra_dict).read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                w, _, ph = line.partition("\t")
+                extra[w] = ph.strip()
+        base = (PM / "dictionary" / f"{v['dictionary']}.dict").read_text(encoding="utf-8").splitlines(keepends=True)
+        # extra words replace the stock entries (not appended as alternatives), so the guide pronunciation is the only one
+        merged = tmp / "merged.dict"
+        with open(merged, "w", encoding="utf-8") as f:
+            f.writelines(l for l in base if l.split("\t", 1)[0] not in extra)
+            for w, ph in extra.items():
+                f.write(f"{w}\t{ph}\n")
+        dict_arg = str(merged)
+        extra_info = {"sha256": sha256(a.extra_dict), "entries": extra, "mode": "replace-stock-entries"}
+
+    cmd = [mfa, "align", str(corpus), dict_arg, v["acoustic"], str(outd),
            "--g2p_model_path", str(PM / "g2p" / f"{v['g2p']}.zip"),
            "--single_speaker", "--clean", "--final_clean", "-j", str(a.jobs),
            "--temporary_directory", str(tdir), "--output_format", "long_textgrid"]
@@ -102,6 +122,7 @@ def main():
         "models": models,
         "settings": {"frameMs": 10, "beam": "default(10)", "retry_beam": "default(40)", "single_speaker": True,
                      "jobs": a.jobs, "g2p_for_oov": True, "mfaExitCode": r.returncode,
+                     **({"extraDict": extra_info} if extra_info else {}),
                      "peakRssNote": "resource.RUSAGE_CHILDREN ru_maxrss: largest single waited-for descendant, not a summed tree"},
         "platform": "darwin x86_64 native (micromamba env mfa)",
         "wallSeconds": round(time.time() - t0, 2),
