@@ -84,4 +84,13 @@ configuration tried.
 
 ## Changes after registration
 
-None yet.
+- **2026-10-10: unanchored blind set on B (an addition; nothing scored yet).**
+  A's check showed the Producer kept 70% of pre-filled onsets and 75% of
+  offsets unchanged. So the corrected key favours the three systems the
+  pre-fill came from (MFA, Qwen, Charsiu). Before seeing B's pre-fill, the
+  Producer times 40 B words from scratch (`blind_set.py`, seed 70730,
+  stratified 15/10/15 by the Speechmatics gaps). Those 40 are B's primary
+  **unanchored** reference for comparing aligners with cloud systems. The
+  corrected full key is still used for coverage, WER, stumble recall and
+  per-class tables, with its anchoring disclosed. On A, the #51 80-word set
+  plays the same unanchored role.
