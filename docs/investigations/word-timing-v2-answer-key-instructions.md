@@ -43,6 +43,20 @@ Your files are in `~/.local/share/vera/word-timing-v2/answer-key/<rec>/`:
 
   The file won't validate while any `??` is left.
 
+## Stumble tags
+
+Tag a word by putting the tag and a space before it. Tagged words are still
+timed exactly like any other word.
+
+| Tag | Meaning | Example |
+| --- | --- | --- |
+| `REP` | A whole word that was said and then restarted. For an abandoned phrase, tag **every** word of the abandoned attempt. | `REP kai` before "Kai is three Finns"; `REP this` `REP song` `REP is` before "This song is…" |
+| `FRAG` | A word cut off partway. | `FRAG simul` |
+| `FILLER` | Um, uh, er and similar. | `FILLER um` |
+
+A pre-filled word that turns out to be a false start just gets renamed, e.g.
+`kai` becomes `REP kai`.
+
 ## The pass
 
 1. Sort the Markers panel by Description, or just work in time order, and
