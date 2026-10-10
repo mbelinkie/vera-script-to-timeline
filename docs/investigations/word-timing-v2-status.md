@@ -196,3 +196,7 @@ in git.
 - #45 agreement stage (Qwen, container) end-to-end on A: 6.6% of boundaries
   needs_review; 16/17 displaced words flagged. #45 now covers every stage of
   the recommended pipeline except take logic (#53 code is on its own branch).
+- Apple Silicon benchmark kit built (#45 branch `experiments/issue45/bench/`;
+  zip at ~/Downloads/vera-bench-kit.zip, 68 KB, no private data). Works on a
+  machine with nothing installed: verified clean-room on this Intel Mac
+  (setup 4.3 min). Intel reference included; a repeat run differs ≤ 10 ms.
