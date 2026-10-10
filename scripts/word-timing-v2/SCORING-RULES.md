@@ -127,3 +127,11 @@ configuration tried.
   cleaned audio, then reconcile → MFA. Scoring uses the independent 80 and the
   full A key. This does not change the frozen B measurement. It informs
   whether cleanup should be a VERA preprocessing step.
+- **2026-10-10: cleanup test widened to VERA's own filter, and to B.** The
+  conditions are A original, A Adobe Enhance, A DeepFilterNet (#121 settings
+  `-a 30 -D`, v0.5.6); B raw recorder audio, B Adobe (the frozen B
+  measurement), B DeepFilterNet. B's raw file aligns with the Adobe file to
+  within 0.1 ms, so B's keys apply. The question is whether DeepFilterNet
+  before transcription is beneficial, or at least no worse, than raw audio.
+  All conditions reuse each recording's original VAD segmentation and the
+  frozen settings, with no tuning.
