@@ -4,12 +4,14 @@
 Usage: run_cloud.py --audio X.wav --out-dir D [--providers eleven-or,assemblyai,...] [--tag T-C]
 
 Sends the whole file, as lossless FLAC 48 kHz mono, to each provider. Nothing but
-audio and fixed provider params is ever sent (no script, transcript, keyterms or prompts).
+audio and fixed provider params is ever sent (no script, transcript or prompts). With --keyterms FILE, ONLY the
+"keyterms" list of that prompter.json is also sent, via each provider's own vocabulary feature;
+outputs get a -kt suffix (T-C-<id>-kt.json, raw-<id>-kt.json).
 Writes D/raw-<id>.json and D/T-C-<id>.json. Keys come from the worktree .env and are
 never printed or saved. Plain HTTPS via urllib only.
 """
 import argparse, base64, datetime, hashlib, json, os, subprocess, sys, tempfile, time, uuid
-import urllib.error, urllib.request
+import urllib.error, urllib.parse, urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -88,11 +90,14 @@ def run_eleven_or(env, audio, ctx):
     url = "https://openrouter.ai/api/v1/audio/transcriptions"
     # Verbatim by default (no_verbatim not set); tag_audio_events off. Slug for provider.options is "elevenlabs".
     opts = {"tag_audio_events": False}
+    kt = (ctx or {}).get("keyterms")
+    if kt:
+        opts["keyterms"] = kt
     notes = []
     attempts = [
         ("with provider.options", {"provider": {"options": {"elevenlabs": opts}}}),
         ("without provider.options", {}),
-    ]
+    ] if not kt else [("with provider.options", {"provider": {"options": {"elevenlabs": opts}}})]
     raw = None
     for label, extra in attempts:
         body = {"model": "elevenlabs/scribe-v2", "input_audio": {"data": base64.b64encode(audio["bytes"]).decode(), "format": "flac"},
@@ -132,6 +137,8 @@ def run_assemblyai(env, audio, ctx):
     base = "https://api.assemblyai.com/v2"
     up = http("POST", base + "/upload", {**h, "Content-Type": "application/octet-stream"}, audio["bytes"])
     params = {"audio_url": up["upload_url"], "speech_models": ["universal-3-5-pro"], "disfluencies": True, "language_code": "en"}
+    if (ctx or {}).get("keyterms"):
+        params["keyterms_prompt"] = ctx["keyterms"]
     job = http("POST", base + "/transcript", {**h, "Content-Type": "application/json"}, json.dumps(params).encode())
     while True:
         time.sleep(3)
@@ -151,6 +158,9 @@ def run_assemblyai(env, audio, ctx):
 
 def run_deepgram(env, audio, ctx):
     q = "model=nova-3&filler_words=true&punctuate=true&language=en"
+    kt = (ctx or {}).get("keyterms") or []
+    if kt:
+        q += "".join("&keyterm=" + urllib.parse.quote(t) for t in kt)
     url = "https://api.deepgram.com/v1/listen?" + q
     r = http("POST", url, {"Authorization": f"Token {env['DEEPGRAM_API_KEY']}", "Content-Type": "audio/flac"}, audio["bytes"])
     alt = r["results"]["channels"][0]["alternatives"][0]
@@ -158,7 +168,7 @@ def run_deepgram(env, audio, ctx):
               "display": w.get("punctuated_word")} for w in alt["words"]]
     return r, dict(provider="deepgram", model=(r.get("metadata", {}).get("model_info") or {}).get(r.get("metadata", {}).get("models", [""])[0], {}).get("arch", "nova-3") and "nova-3",
                    words=number(words), transcript=alt.get("transcript", ""),
-                   params={"model": "nova-3", "filler_words": True, "punctuate": True, "language": "en"},
+                   params={"model": "nova-3", "filler_words": True, "punctuate": True, "language": "en", **({"keyterm": kt} if kt else {})},
                    api_version="v1 /listen", endpoint="https://api.deepgram.com/v1/listen",
                    notes=f"metadata.model_info={r.get('metadata', {}).get('model_info')}; fillers are not tagged by Deepgram (type=word). 'display' = punctuated_word.")
 
@@ -168,6 +178,8 @@ def run_speechmatics(env, audio, ctx):
     base = "https://asr.api.speechmatics.com/v2"
     tc = {"language": "en", "operating_point": "enhanced", "enable_entities": False,
           "transcript_filtering_config": {"remove_disfluencies": False}}
+    if (ctx or {}).get("keyterms"):
+        tc["additional_vocab"] = [{"content": t} for t in ctx["keyterms"]]
     config = {"type": "transcription", "transcription_config": tc}
     notes = []
     for variant in ("operating_point", "model"):
@@ -219,7 +231,15 @@ def run_speechmatics(env, audio, ctx):
 def run_revai(env, audio, ctx):
     h = {"Authorization": f"Bearer {env['REVAI_ACCESS_TOKEN']}"}
     base = "https://api.rev.ai/speechtotext/v1"
+    rev_notes = []
     opts = {"transcriber": "machine", "verbatim": True, "language": "en", "skip_diarization": True}
+    if (ctx or {}).get("keyterms"):
+        import re
+        ok = [t for t in ctx["keyterms"] if re.fullmatch(r"[ -/:-~]+", t) and re.search(r"[A-Za-z]", t)]  # Rev.ai: no digits / non-ASCII
+        dropped = [t for t in ctx["keyterms"] if t not in ok]
+        opts["custom_vocabularies"] = [{"phrases": ok}]
+        if dropped:
+            rev_notes.append(f"Rev.ai rejects phrases with digits or non-ASCII; dropped client-side: {dropped}")
     body, ct = multipart({"options": json.dumps(opts)}, {"media": ("audio.flac", audio["bytes"], "audio/flac")})
     job = http("POST", base + "/jobs", {**h, "Content-Type": ct}, body)
     jid = job["id"]
@@ -239,7 +259,7 @@ def run_revai(env, audio, ctx):
                 words.append({"text": e["value"], "start": ms(e["ts"]), "end": ms(e["end_ts"]), "type": "word", "confidence": e.get("confidence")})
     return r, dict(provider="rev.ai", model=f"{st.get('transcriber', 'machine')}", words=number(words), transcript=text.strip(),
                    params=opts, api_version="speechtotext v1 (transcript v1.0)", endpoint=base + "/jobs",
-                   notes=f"job metadata: transcriber={st.get('transcriber')} verbatim echoed={st.get('verbatim')}; fillers/false starts not tagged separately (type=word).")
+                   notes=" | ".join(rev_notes) + f" job metadata: transcriber={st.get('transcriber')} verbatim echoed={st.get('verbatim')}; fillers/false starts not tagged separately (type=word).")
 
 
 # ---- Google Speech V2 BatchRecognize ----
@@ -263,14 +283,14 @@ def run_google(model, locs, pid):
         errs = []
         for loc in locs:
             try:
-                return _google(model, loc, audio, errs)
+                return _google(model, loc, audio, errs, (ctx or {}).get("keyterms"))
             except ApiError as e:
                 errs.append(f"{loc}: {scrub(e)[:300]}")
         raise ApiError(" | ".join(errs))
     return f
 
 
-def _google(model, loc, audio, errs):
+def _google(model, loc, audio, errs, kt=None):
     bucket_loc = loc
     if True:
         bucket = ensure_bucket(bucket_loc)
@@ -284,6 +304,8 @@ def _google(model, loc, audio, errs):
         h = {"Authorization": f"Bearer {tok}", "x-goog-user-project": GCP_PROJECT, "Content-Type": "application/json"}
         cfg = {"model": model, "languageCodes": ["en-US"], "features": {"enableWordTimeOffsets": True, "enableAutomaticPunctuation": True},
                "autoDecodingConfig": {}}
+        if kt:
+            cfg["adaptation"] = {"phraseSets": [{"inlinePhraseSet": {"phrases": [{"value": t} for t in kt]}}]}
         req = {"config": cfg, "files": [{"uri": uri}], "recognitionOutputConfig": {"inlineResponseConfig": {}}}
         url = f"https://{host}/v2/projects/{GCP_PROJECT}/locations/{loc}/recognizers/_:batchRecognize"
         op = http("POST", url, h, json.dumps(req).encode())
@@ -307,7 +329,8 @@ def _google(model, loc, audio, errs):
                               "end": ms(w["endOffset"].rstrip("s")), "type": "word", "confidence": w.get("confidence")})
         return op, dict(provider="google speech-to-text v2", model=model, words=number(words), transcript=" ".join(text),
                         params={"model": model, "location": loc, "languageCodes": ["en-US"], "enableWordTimeOffsets": True,
-                                "enableAutomaticPunctuation": True, "autoDecodingConfig": {}, "output": "inlineResponseConfig"},
+                                "enableAutomaticPunctuation": True, "autoDecodingConfig": {}, "output": "inlineResponseConfig",
+                                **({"adaptation": cfg["adaptation"]} if kt else {})},
                         api_version="speech v2 BatchRecognize", endpoint=url,
                         notes=(" | ".join(errs) + " | " if errs else "") + f"audio staged at {uri} (private bucket, uniform access, public-access-prevention enforced; bucket location {bucket_loc}). "
                               f"Missing startOffset treated as 0 (proto3 default). word confidence usually absent for chirp.")
@@ -330,8 +353,16 @@ def main():
     ap.add_argument("--audio", required=True, type=Path)
     ap.add_argument("--out-dir", required=True, type=Path)
     ap.add_argument("--providers", default=",".join(ALL))
+    ap.add_argument("--keyterms", type=Path, default=None, help="prompter.json; only its 'keyterms' list is sent")
     a = ap.parse_args()
     env = load_env()
+    ctx, suffix, ktsha = None, "", None
+    if a.keyterms:
+        kt = json.loads(a.keyterms.expanduser().read_text())["keyterms"]
+        assert kt and all(isinstance(t, str) and t.strip() for t in kt)
+        ctx = {"keyterms": kt}
+        suffix = "-kt"
+        ktsha = hashlib.sha256(json.dumps(kt, ensure_ascii=False).encode()).hexdigest()
     a.out_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as td:
         audio = prepare_audio(a.audio.expanduser(), Path(td))
@@ -345,16 +376,22 @@ def main():
             started = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
             t0 = time.time()
             try:
-                raw, kw = RUNNERS[pid](env, audio, None)
+                raw, kw = RUNNERS[pid](env, audio, ctx)
             except Exception as e:
                 print(f"[{pid}] FAILED: {scrub(e)}", flush=True)
-                (a.out_dir / f"error-{pid}.log").write_text(scrub(e) + "\n")
+                (a.out_dir / f"error-{pid}{suffix}.log").write_text(scrub(e) + "\n")
                 continue
             wall = time.time() - t0
-            (a.out_dir / f"raw-{pid}.json").write_text(scrub(json.dumps(raw, indent=1)))
+            (a.out_dir / f"raw-{pid}{suffix}.json").write_text(scrub(json.dumps(raw, indent=1)))
             res = mk_result(pid, kw["provider"], kw["model"], kw["words"], kw["transcript"], kw["params"], kw["api_version"], started, wall,
                             {"format": audio["format"], "sha256": audio["sha256"]}, kw["endpoint"], scrub(kw["notes"]))
-            (a.out_dir / f"T-C-{pid}.json").write_text(json.dumps(res, indent=1, ensure_ascii=False))
+            res["source"] = f"T-C-{pid}{suffix}"
+            if ctx:
+                res["provenance"]["keytermsSha256"] = ktsha
+                res["provenance"]["keytermsFile"] = a.keyterms.name
+                res["provenance"]["keytermCount"] = len(ctx["keyterms"])
+                res["provenance"]["notes"] += " | KEYTERMS run: only the keyterm list was sent as vocabulary (see params); sha256 is of the JSON-dumped list."
+            (a.out_dir / f"T-C-{pid}{suffix}.json").write_text(json.dumps(res, indent=1, ensure_ascii=False))
             print(f"[{pid}] ok words={len(kw['words'])} wall={wall:.1f}s", flush=True)
 
 
