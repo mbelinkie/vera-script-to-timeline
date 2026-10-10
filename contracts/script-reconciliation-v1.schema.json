@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.vera.video/contracts/script-reconciliation-v1.schema.json",
   "title": "ScriptReconciliationV1",
-  "description": "DRAFT for #168 (unapproved; Script to Timeline only). Maps a recognition artifact's units to prompter-script positions and applies script spelling to sound-alike names. Never changes times or the recognition artifact.",
+  "description": "Script to Timeline only (#168, Producer-approved 2026-10-10). Maps a recognition artifact's units to prompter-script positions and applies script spelling to sound-alike names. Never changes times or the recognition artifact.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "artifactId", "identity", "units"],

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.vera.video/contracts/port-refusal-v1.schema.json",
   "title": "PortRefusalV1",
-  "description": "DRAFT for #168 (unapproved). Returned instead of an artifact. No port ever falls back silently to another provider or to cloud.",
+  "description": "Shared #168 contract (Producer-approved 2026-10-10). Returned instead of an artifact. No port ever falls back silently to another provider or to cloud.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "port", "code", "message", "retryable"],

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.vera.video/contracts/recognition-artifact-v1.schema.json",
   "title": "RecognitionArtifactV1",
-  "description": "DRAFT for #168 (unapproved). Output of a RecognizerPort: recognised text with coarse source-time anchors. Immutable; any identity change is a new artifact.",
+  "description": "Shared #168 contract (Producer-approved 2026-10-10). Output of a RecognizerPort: recognised text with coarse source-time anchors. Immutable; any identity change is a new artifact.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "artifactId", "identity", "consent", "tokens"],

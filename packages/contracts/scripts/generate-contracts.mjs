@@ -30,6 +30,10 @@ const schemaFiles = [
   "build-report-v1.schema.json",
   "compiler-dependencies-v1.schema.json",
   "prompter-export-v1.schema.json",
+  "recognition-artifact-v1.schema.json",
+  "alignment-artifact-v1.schema.json",
+  "script-reconciliation-v1.schema.json",
+  "port-refusal-v1.schema.json",
 ];
 
 function readJson(path) {
@@ -56,6 +60,10 @@ async function generateTypeScript(outputDirectory) {
       "buildReport",
       "compilerDependencies",
       "prompterExport",
+      "recognitionArtifact",
+      "alignmentArtifact",
+      "scriptReconciliation",
+      "portRefusal",
     ],
     properties: {
       scriptDocument: { $ref: schemaFiles[0] },
@@ -63,6 +71,10 @@ async function generateTypeScript(outputDirectory) {
       buildReport: { $ref: schemaFiles[2] },
       compilerDependencies: { $ref: schemaFiles[3] },
       prompterExport: { $ref: schemaFiles[4] },
+      recognitionArtifact: { $ref: schemaFiles[5] },
+      alignmentArtifact: { $ref: schemaFiles[6] },
+      scriptReconciliation: { $ref: schemaFiles[7] },
+      portRefusal: { $ref: schemaFiles[8] },
     },
   };
 

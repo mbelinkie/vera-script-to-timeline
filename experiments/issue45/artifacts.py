@@ -22,7 +22,20 @@ from referencing import Registry, Resource
 from experiments.issue45.normalize import Unit
 
 Json = dict[str, Any]
-SCHEMA_DIR = Path(__file__).resolve().parent / "schemas"
+# Approved #168 contracts live in /contracts; the benchmark kit bundles a copy
+# under schemas/ because it ships without the rest of the repository.
+PORT_CONTRACTS = (
+    "recognition-artifact-v1",
+    "alignment-artifact-v1",
+    "script-reconciliation-v1",
+    "port-refusal-v1",
+)
+_REPO_CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
+SCHEMA_DIR = (
+    _REPO_CONTRACTS
+    if (_REPO_CONTRACTS / "recognition-artifact-v1.schema.json").exists()
+    else Path(__file__).resolve().parent / "schemas"
+)
 RecognizerKind = Literal["asr-local", "asr-cloud", "caption", "reference-text"]
 AnchorPrecision = Literal[
     "word", "word_start_with_derived_end", "segment", "cue", "none"
@@ -259,7 +272,10 @@ def agreement_block(
 @cache
 def _validators() -> dict[str, Any]:
     schemas = {
-        p.name: json.loads(p.read_text()) for p in SCHEMA_DIR.glob("*.schema.json")
+        f"{name}.schema.json": json.loads(
+            (SCHEMA_DIR / f"{name}.schema.json").read_text()
+        )
+        for name in PORT_CONTRACTS
     }
     resources = [(s["$id"], Resource.from_contents(s)) for s in schemas.values()]
     resources += [(name, Resource.from_contents(s)) for name, s in schemas.items()]

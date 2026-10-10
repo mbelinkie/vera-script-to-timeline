@@ -24,6 +24,29 @@ export type ResolvedVisualDependency = {
   sourceStartFrame?: number;
   sourceAudio?: ResolvedSourceAudio;
 };
+export type AlignedUnit = {
+  [k: string]: unknown;
+} & {
+  tokenIndex: number;
+  sub: number;
+  /**
+   * Normalised aligner unit text.
+   */
+  text: string;
+  startMs: number | null;
+  endMs: number | null;
+  /**
+   * unaligned keeps null bounds. interpolated never authorises a cut.
+   */
+  status: "acoustic" | "interpolated" | "unaligned";
+  /**
+   * Aligner-native score, labelled with its aligner. Not a universal confidence.
+   */
+  alignerScore?: {
+    aligner: string;
+    value: number;
+  } | null;
+};
 
 /**
  * Generated aggregate type surface for the VERA shared contracts.
@@ -34,6 +57,10 @@ export interface VeraContractsV1 {
   buildReport: BuildReportV1;
   compilerDependencies: CompilerDependenciesV1;
   prompterExport: PrompterExportV1;
+  recognitionArtifact: RecognitionArtifactV1;
+  alignmentArtifact: AlignmentArtifactV1;
+  scriptReconciliation: ScriptReconciliationV1;
+  portRefusal: PortRefusalV1;
 }
 /**
  * Editor-independent canonical ScriptDocument serialization for Phase 1.
@@ -639,4 +666,189 @@ export interface PrompterBeatAnnotation {
   kind: "pronunciation_alias" | "pronunciation_phoneme" | "performance_note";
   value: string;
   visibleInPrompter: boolean;
+}
+/**
+ * Shared #168 contract (Producer-approved 2026-10-10). Output of a RecognizerPort: recognised text with coarse source-time anchors. Immutable; any identity change is a new artifact.
+ */
+export interface RecognitionArtifactV1 {
+  schemaVersion: "recognition-artifact/v1";
+  /**
+   * sha256 of the canonical JSON of this artifact with artifactId omitted.
+   */
+  artifactId: string;
+  identity: RecognitionIdentity;
+  consent: Consent;
+  tokens: RecognisedToken[];
+  /**
+   * Recogniser segment bounds when the provider supplies them.
+   */
+  segments?: SourceInterval[];
+}
+export interface RecognitionIdentity {
+  audio: AudioIdentity;
+  prep: PrepStep[];
+  recognizer: {
+    /**
+     * reference-text is evaluation-only (D-P009) and must never feed production alignment.
+     */
+    kind: "asr-local" | "asr-cloud" | "caption" | "reference-text";
+    provider: string;
+    model: string;
+    modelRevision: string | null;
+    parametersHash: string;
+    keytermsHash: string | null;
+  };
+  language: string;
+}
+export interface AudioIdentity {
+  /**
+   * Hash of the original source audio, before any prep.
+   */
+  hash: string;
+  sampleRate: number;
+  durationSamples: number;
+}
+/**
+ * One AudioPrep step applied before this stage (e.g. resample, DeepFilterNet). Empty list = original audio.
+ */
+export interface PrepStep {
+  tool: string;
+  version: string;
+  parametersHash: string;
+}
+export interface Consent {
+  processing: "local" | "cloud";
+  cloudProvider?: string;
+  /**
+   * Per-project cloud consent policy (Producer decision 4, 2026-10-10). Required when processing is cloud.
+   */
+  policyId: string | null;
+}
+export interface RecognisedToken {
+  index: number;
+  /**
+   * As recognised; never corrected toward a script here.
+   */
+  display: string;
+  kind: "word" | "event" | "filler";
+  anchorStartMs: number | null;
+  anchorEndMs: number | null;
+  /**
+   * How the provider timed this token. Anchors are coarse hints for segmentation, never cut authority.
+   */
+  anchorPrecision: "word" | "word_start_with_derived_end" | "segment" | "cue" | "none";
+  /**
+   * Opaque provider score; never compared across providers.
+   */
+  providerConfidence?: number | null;
+}
+export interface SourceInterval {
+  startMs: number;
+  endMs: number;
+}
+/**
+ * Shared #168 contract (Producer-approved 2026-10-10). Output of an AlignerPort: acoustic word bounds for a recognition artifact's tokens. Immutable; reruns append new artifacts.
+ */
+export interface AlignmentArtifactV1 {
+  schemaVersion: "alignment-artifact/v1";
+  artifactId: string;
+  identity: AlignmentIdentity;
+  /**
+   * One entry per aligner unit, in transcript order. This is also the many-to-many normalisation map: (tokenIndex, sub) ties each unit to exactly one recognised display token; one token may map to several units ('1998' -> 'nineteen ninety eight').
+   */
+  words: AlignedUnit[];
+  agreement?: Agreement;
+}
+export interface AlignmentIdentity {
+  recognitionArtifactId: string;
+  /**
+   * Script reconciliation output when used (STT only; names spelled from the prompter).
+   */
+  reconcileArtifactId: string | null;
+  audio: AudioIdentity;
+  /**
+   * AudioPrep applied for THIS stage; may differ from the recogniser's (Producer decision 2).
+   */
+  prep: PrepStep[];
+  aligner: ToolIdentity;
+  segmentation: ToolIdentity;
+}
+export interface ToolIdentity {
+  name: string;
+  version: string;
+  acousticModel?: string;
+  dictionary?: string;
+  /**
+   * Pronunciation guides from the prompter script (STT only).
+   */
+  extraDictionaryHash?: string | null;
+  parametersHash: string;
+}
+/**
+ * Second-aligner check. Boundaries off by more than tauMs (or unplaced by the partner) need review.
+ */
+export interface Agreement {
+  partner: ToolIdentity;
+  partnerArtifactId?: string;
+  tauMs: number;
+  boundaries: {
+    tokenIndex: number;
+    sub: number;
+    side: "onset" | "offset";
+    verdict: "accepted" | "needs_review";
+    deltaMs: number | null;
+  }[];
+}
+/**
+ * Script to Timeline only (#168, Producer-approved 2026-10-10). Maps a recognition artifact's units to prompter-script positions and applies script spelling to sound-alike names. Never changes times or the recognition artifact.
+ */
+export interface ScriptReconciliationV1 {
+  schemaVersion: "script-reconciliation/v1";
+  artifactId: string;
+  identity: {
+    recognitionArtifactId: string;
+    scriptHash: string;
+    dictionaryHash: string;
+    parametersHash: string;
+  };
+  units: {
+    tokenIndex: number;
+    sub: number;
+    /**
+     * Presenter-fidelity evidence for the take stage (misreadings show here).
+     */
+    heard: string;
+    /**
+     * Spelling used for matching and timing.
+     */
+    text: string;
+    /**
+     * Script unit this heard unit read, or null (stumble, ad-lib, restart fragment).
+     */
+    scriptIndex: number | null;
+    /**
+     * Script display spelling applied, when a sound-alike name was respelled.
+     */
+    scriptSpelling: string | null;
+  }[];
+}
+/**
+ * Shared #168 contract (Producer-approved 2026-10-10). Returned instead of an artifact. No port ever falls back silently to another provider or to cloud.
+ */
+export interface PortRefusalV1 {
+  schemaVersion: "port-refusal/v1";
+  port: "recognizer" | "aligner" | "audio-prep";
+  code:
+    | "capability-missing"
+    | "runtime-missing"
+    | "consent-missing"
+    | "input-invalid"
+    | "provider-failed"
+    | "timeout"
+    | "cancelled";
+  /**
+   * Human-readable; never contains credentials or private paths.
+   */
+  message: string;
+  retryable: boolean;
 }

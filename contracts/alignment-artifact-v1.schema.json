@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.vera.video/contracts/alignment-artifact-v1.schema.json",
   "title": "AlignmentArtifactV1",
-  "description": "DRAFT for #168 (unapproved). Output of an AlignerPort: acoustic word bounds for a recognition artifact's tokens. Immutable; reruns append new artifacts.",
+  "description": "Shared #168 contract (Producer-approved 2026-10-10). Output of an AlignerPort: acoustic word bounds for a recognition artifact's tokens. Immutable; reruns append new artifacts.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "artifactId", "identity", "words"],
