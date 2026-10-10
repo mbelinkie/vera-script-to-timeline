@@ -74,6 +74,17 @@ the tag and a space before the text:
 
 You never need to edit the Description column.
 
+## Recording B: a lighter pass
+
+B's precise timing comes from the 40-word blind set, so the full B pass is
+mainly about **words and stumbles**:
+
+- Fix misheard words, add missed stumbles (`FRAG`, `REP`, `FILLER`), delete
+  breath `??` markers and words that were never said.
+- Fix timing **only when it's grossly wrong**: a marker on the wrong sound, or
+  clearly more than about 150 ms off (start with the `disagree 150ms+` flags).
+  Leave smaller nudges alone.
+
 ## Recording B: fix the words too
 
 Recording B has no transcript of yours. Its pre-filled **words** come from a

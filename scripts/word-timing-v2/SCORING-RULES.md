@@ -101,3 +101,14 @@ configuration tried.
   system word also matches a key word when both map to the same script
   spelling through `aliases-<rec>.json`, which is written before those runs
   are scored.
+- **2026-10-10: a lighter full pass on B (before any B scoring).** B's full
+  key is a **words-and-stumbles** pass. The Producer fixes words, adds missed
+  stumbles, deletes breath `??` markers, and corrects only **gross** timing
+  (a marker plainly on the wrong sound, or more than about 150 ms off). Finer
+  boundaries are left as pre-filled. So on B:
+  - **Timing metrics** (overall and per class) come from the 40-word blind set
+    only. The 15/10/15 stratification provides the per-class rows. Rows with
+    small n are reported with their n.
+  - The **full key** provides WER, stumble recall, name-spelling accuracy,
+    coverage, and a gross-error rate (share of boundaries more than 150 ms off).
+    Fine-timing statistics from the full B key are not reported.
