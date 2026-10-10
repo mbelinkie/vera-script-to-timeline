@@ -50,7 +50,8 @@ timed exactly like any other word.
 
 | Tag | Meaning | Example |
 | --- | --- | --- |
-| `REP` | A whole word that was said and then restarted. For an abandoned phrase, tag **every** word of the abandoned attempt. | `REP kai` before "Kai is three Finns"; `REP this` `REP song` `REP is` before "This song is…" |
+| `REP` | A whole word that was said and then restarted. For an abandoned phrase of about 10 words or fewer, tag **every** word of the abandoned attempt. Longer ones: use `STOP`. | `REP kai` before "Kai is three Finns"; `REP this` `REP song` `REP is` before "This song is…" |
+| `STOP` | The **last** word of an abandoned take longer than about 10 words. Leave the rest of that take as plain words. | `STOP sent` |
 | `FRAG` | A word cut off partway. | `FRAG simul` |
 | `FILLER` | Um, uh, er and similar. | `FILLER um` |
 

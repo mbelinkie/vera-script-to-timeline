@@ -20,7 +20,7 @@ import stat
 import sys
 from pathlib import Path
 
-TAGS = {"FRAG", "REP", "FILLER"}
+TAGS = {"FRAG", "REP", "FILLER", "STOP"}
 LABEL = re.compile(r"^(?:(?P<tag>[A-Z]+) )?(?P<word>[\w'\-]+(?:\[[^\]]+\])?)(?P<unsure>\?)?$")
 
 
@@ -66,12 +66,17 @@ def main() -> None:
         return (match["word"] if match else text).casefold()
 
     base = [plain(t) for _, _, t in read_labels(args.prefill)]
-    words = [plain(t) for _, _, t in corrected if t != "??" and not (LABEL.match(t) and LABEL.match(t)["tag"])]
+    def is_addition(text: str) -> bool:
+        match = LABEL.match(text)
+        return bool(match and match["tag"] and match["tag"] != "STOP")
+
+    words = [plain(t) for _, _, t in corrected if t != "??" and not is_addition(t)]
     edits = [op for op in difflib.SequenceMatcher(a=base, b=words, autojunk=False).get_opcodes() if op[0] != "equal"]
-    tagged = sum(1 for _, _, t in corrected if LABEL.match(t) and LABEL.match(t)["tag"])
+    tagged = sum(1 for _, _, t in corrected if is_addition(t))
     unsure = sum(1 for _, _, t in corrected if t != "??" and t.endswith("?"))
 
-    print(f"{len(corrected)} regions; {tagged} tagged additions; {unsure} marked unsure; {len(edits)} word edits vs pre-fill")
+    print(f"{len(corrected)} regions; {tagged} tagged additions; {unsure} marked unsure; {len(edits)} word edits vs pre-fill; "
+          f"{sum(1 for _, _, t in corrected if t.startswith('STOP '))} STOP marks")
     for op, a0, a1, b0, b1 in edits:
         print(f"  {op}: pre-fill {base[a0:a1]} -> corrected {words[b0:b1]}")
     if errors:
