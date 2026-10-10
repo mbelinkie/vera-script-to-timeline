@@ -94,3 +94,10 @@ configuration tried.
   corrected full key is still used for coverage, WER, stumble recall and
   per-class tables, with its anchoring disclosed. On A, the #51 80-word set
   plays the same unanchored role.
+- **2026-10-10: script-informed candidates (T-CK, T-CR, A-MFA-G) and
+  script-word accuracy** (plan section 5, "Script-informed pipelines"). They
+  were added after A was scored script-free and before any script-informed run
+  existed. The matching rules are unchanged. For script-informed outputs, a
+  system word also matches a key word when both map to the same script
+  spelling through `aliases-<rec>.json`, which is written before those runs
+  are scored.

@@ -146,6 +146,31 @@ step 5.
 | A-OLIGN | Optional, if the Producer gets beta access. Treat it as a lead, since it is the benchmark author's product. |
 | A-BASE | The best #51 profile (XLSR CTC), as a control. |
 
+### Script-informed pipelines (added 2026-10-10)
+
+VERA always has the prompter script, so the shippable pipeline may use it.
+These are **separate, labelled candidates**. The script-free results above
+remain the baseline, and the no-leakage rule still governs the script-free
+candidates.
+
+| Id | What the script contributes |
+| --- | --- |
+| T-CK | Cloud recognisers run with **keyterms** taken automatically from the script (`prompter.py`: quoted titles, mid-sentence capitalised names, words missing from the dictionary), through each provider's own vocabulary or keyterm feature. |
+| T-CR | **Reconciled transcript:** a recogniser's words aligned to the script. Where a heard word sounds like the script word, the script's spelling is used. Extra heard words (stumbles, ad-libs) are kept. Skipped script words are left out. |
+| A-MFA-G | MFA with a dictionary extended from the script's pronunciation guides, e.g. `KAJ [kai]` and `Bara Bada Bastu [BAH-ra BAH-da BAS-tu]`, run on T-CR text. |
+
+Extra metric: **script-word accuracy**, the share of the script words actually
+spoken that a pipeline outputs with the script's spelling and matches in time.
+
+Answer keys stay script-free: they record what was said. **The Producer may
+use the script only to spell names in B's key, never to decide which words
+were said.** On A, the key's own spellings of names (e.g. `kai` for KAJ) are
+mapped to the script's spellings through a fixed alias list, written before
+script-informed scoring.
+
+The on/off marks in a prompter script are restart points for takes. Take logic
+is a later VERA stage and is not scored here.
+
 ### Shared rules
 
 - **Text normalisation:** expand numerals to words, strip punctuation, and keep
