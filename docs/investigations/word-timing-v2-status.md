@@ -124,3 +124,15 @@ in git.
   for English now, European languages next. Research volume < 10 h/week/user.
   Producer will run a packaged benchmark on Apple Silicon after upgrading.
 - Unlisted uploads: A = p93y6h8gyvc, B = aPfs0VSnibc (auto-captions fetched).
+- #53 re-run on A (`rerun_53.py`; discover() unchanged from the accepted
+  commit). Evaluator validated: exact Sample v2 replica = 15/15 spans, 7/7 blue.
+  Machine transcripts (reconcile → MFA): ElevenLabs 12/15 spans, 6/7 blue;
+  Speechmatics 10/15, 6/7; AssemblyAI and Chirp 2 11/15, 5/7; Resolve 10/15, 3/7;
+  Parakeet 10/15, 3/7; whisper 6/15, 1/7. Timed vs untimed discovery barely
+  differs for machine text.
+  - Main shared miss: MFA moves a short phrase-initial word ("it") onto a
+    breath 1.4 s before the phrase (spans 7/9/10/12, identical across
+    recognisers), so take starts come out early. Detectable pattern; to be
+    quantified and checked against the agreement filter.
+  - #53 rule "pauses over 1.4 s split reads" splits genuine reads when fed
+    exact key times (7/7 → 2/7 blue). Flag for #45.
