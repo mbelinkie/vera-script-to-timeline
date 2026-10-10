@@ -120,3 +120,13 @@ licensed fixture).
 2. Approve AudioPrep binding per stage rather than per pipeline.
 3. Approve caption text as a RecognizerPort source kind for Research.
 4. Confirm that cloud artefacts require a stored per-project consent policy.
+
+## Producer decisions (2026-10-10)
+
+- Decision 2 — AudioPrep bound per stage: **approved**.
+- Decision 3 — caption text as a RecognizerPort source for Research: **approved**
+  (final default pending the unlisted-upload keyed test).
+- Decision 4 — cloud artefacts require a stored per-project consent policy:
+  **approved**.
+- Decision 1 — exact schemas: still open. Next step is concrete JSON Schema
+  files for review; #45 may prototype against them on a branch meanwhile.

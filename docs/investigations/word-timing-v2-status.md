@@ -112,3 +112,10 @@ in git.
 - Cloud spend up to $10 more; stop and ask beyond that.
 - May test DeepFilterNet on one public YouTube talking-head clip (local only,
   never committed), with a consensus reference, clearly caveated.
+- (2026-10-10, later) Producer approved filing tickets: Research #46, #47 filed;
+  cross-refs on RVC #16/#19/#38, STT #168/#45. #168 decisions 2–4 approved.
+  #53 re-run check = match Sample v2 on A + B playback video. Listening-check
+  file dropped (cuts land in measured silence per #53). Codex items held in
+  `word-timing-v2-codex-review-queue.md`.
+- Fixed: raw-B cut read 32-bit float as int16 (silent). Rebuilt rec-b-raw and
+  rec-b-dfn before any scoring; raw B vs Adobe B lag 0.02 ms.
