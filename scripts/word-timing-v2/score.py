@@ -57,6 +57,22 @@ def load_key(path: Path) -> list[KeyWord]:
     return words
 
 
+def load_independent(path: Path, key: list[KeyWord]) -> list[KeyWord]:
+    """The #51 independently timed words as KeyWords; classes come from the corrected key word."""
+    data = json.loads(path.read_text())
+    out = []
+    for t in data["wordTimings"]:
+        spoken = normalise_token(data["referenceWords"][t["referenceIndex"]])
+        if len(spoken) != 1:
+            continue
+        s, e = t["startMs"] / 1000, t["endMs"] / 1000
+        near = [k for k in key if canon(k.text) == canon(spoken[0]) and abs((k.start + k.end) / 2 - (s + e) / 2) <= WINDOW_SEC]
+        k = min(near, key=lambda k: abs((k.start + k.end) / 2 - (s + e) / 2)) if near else None
+        out.append(KeyWord(spoken[0], s, e, None, False,
+                           k.onset_class if k else "unclassified", k.offset_class if k else "unclassified"))
+    return sorted(out, key=lambda k: k.start)
+
+
 def classify(gap: float) -> str:
     return "phrase_edge" if gap >= PHRASE_EDGE_SEC else "pause_adjacent" if gap >= PAUSE_SEC else "connected"
 
@@ -192,11 +208,14 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--key", type=Path, required=True)
     parser.add_argument("--segments", type=Path, required=True)
-    parser.add_argument("--result", type=Path, nargs="*", default=[])
+    parser.add_argument("--result", nargs="*", default=[],
+                        help="RESULT.json, or RESULT.json::SEGMENTS.json when its entries come from other segments")
     parser.add_argument("--tc", type=Path, nargs="*", default=[])
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--aliases", type=Path, help="key spelling -> script spelling (applied to both sides)")
     parser.add_argument("--prompter", type=Path, help="prompter.json, enables name-spelling accuracy")
+    parser.add_argument("--independent", type=Path,
+                        help="score against an independent timing set (e.g. #51 frozen-reference-v2.json) instead")
     args = parser.parse_args()
     if args.aliases:
         ALIASES.update({k: v for k, v in json.loads(args.aliases.read_text()).items() if not k.startswith("_")})
@@ -206,22 +225,31 @@ def main() -> None:
 
         names = {u["text"] for u in script_units(json.loads(args.prompter.read_text())) if u["name"]}
     key = load_key(args.key)
+    if args.independent:
+        key = load_independent(args.independent, key)
     segments = json.loads(args.segments.read_text())
     report: dict[str, dict] = {"_key": {
         "words": len(key), "stumbles": sum(1 for k in key if k.tag),
         "classes": {side: {c: sum(1 for k in key if getattr(k, f"{side}_class") == c)
                            for c in ("phrase_edge", "pause_adjacent", "connected")} for side in ("onset", "offset")}}}
-    systems = [(p, "result") for p in args.result] + [(p, "tc") for p in args.tc]
-    for path, kind in systems:
+    systems = [(Path(p.split("::")[0]), "result", Path(p.split("::")[1]) if "::" in p else None) for p in args.result]
+    systems += [(p, "tc", None) for p in args.tc]
+    for path, kind, own_segments in systems:
         data = json.loads(path.read_text())
         if kind == "result":
             name = f'{data["aligner"]}{":" + data["variant"] if data.get("variant") else ""} [{path.stem.split("__")[0]}]'
-            words = system_words_from_result(data, segments)
+            if data.get("provenance", {}).get("settings", {}).get("extraDict"):
+                name = name.replace("A-MFA:", "A-MFA-G:")
+            seg = json.loads(own_segments.read_text()) if own_segments else segments
+            words = system_words_from_result(data, seg)
         else:
             name = data["source"]
             words = system_words_from_tc(data)
         pairs = match(key, words)
         entry = {"file": path.name, "coverage": len(pairs) / len(key), "boundaries": boundary_errors(key, words, pairs)}
+        if args.independent:
+            report[name] = entry
+            continue
         if names:
             entry["nameSpelling"] = name_spelling(key, words, pairs, names)
         if kind == "tc":
