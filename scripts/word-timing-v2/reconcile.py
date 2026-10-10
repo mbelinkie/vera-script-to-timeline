@@ -22,6 +22,17 @@ both the heard word and the script word are ordinary dictionary words
 word keeps its recognised text, so a real misreading is not "corrected" away.
 Times are never changed.
 
+Output fields per word, and who should read them:
+- `text`: the spelling to use for **matching and timing**. It is the script's
+  spelling when a heard word was a sound-alike of a script name, otherwise the
+  heard word.
+- `heard`: what the recogniser actually heard. This is the **presenter
+  fidelity evidence**. The take stage (#53/#45) must read `heard`, not `text`,
+  to detect misreadings, including mispronounced names, which are a reason to
+  reject a take.
+- `scriptIndex` / `scriptSpelling`: where the word sits in the script, and the
+  script spelling applied (if any).
+
 Usage: reconcile.py --tc T-C-x.json --prompter prompter.json --dictionary english_us_arpa.dict --out T-CR-x.json
 """
 
@@ -151,6 +162,9 @@ def main() -> None:
     out = {"source": tc["source"].replace("T-C-", "T-CR-"), "provider": tc.get("provider"), "model": tc.get("model"),
            "words": [{"k": n, **{k: v for k, v in w.items() if k != "k"}} for n, w in enumerate(words)],
            "transcript": " ".join(w["text"] for w in words),
+           "fields": {"text": "spelling for matching and timing (script spelling for sound-alike names)",
+                      "heard": "recogniser's own word: presenter-fidelity evidence for the take stage; "
+                               "misreadings and mispronounced names show here"},
            "provenance": {"reconciledFrom": args.tc.name, "prompter": args.prompter.name,
                           "weights": {"exact": EXACT, "soundalike": SOUNDALIKE, "mismatch": MISMATCH,
                                       "insert": INSERT, "skip": SKIP, "jump": JUMP, "ratio": SOUNDALIKE_RATIO},
