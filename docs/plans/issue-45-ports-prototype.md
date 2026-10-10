@@ -109,3 +109,16 @@ pins `jsonschema`; engine runtimes are external and configured, not installed.
   displaced words (0.5–3 s off against the Producer's key). Container engines
   only see the home directory under Colima, so hand-off files live in
   `EngineConfig.work_dir` (`~/.cache/vera-engines`), not the system temp dir.
+- `bench/` (Apple Silicon gate kit): `make_kit.sh` builds a 68 KB zip (code +
+  public-domain LibriVox Gettysburg Address text + Intel reference); on any
+  Mac `sh bench.sh` installs micromamba, MFA 3.4.3, the tools and Parakeet
+  environments and pinned models inside the kit folder (all checksummed; no
+  admin, no Homebrew), then times both profiles and compares word times to
+  the reference. Clean-room run here (empty environment, system PATH only):
+  setup 4.3 min; on the 2:41 clip Parakeet 16 s, MFA 94–107 s, all 331 units
+  aligned, conformance PASS. Repeat run vs the reference: same transcript,
+  323/331 and 329/331 units identical, max 10 ms (MFA run-to-run noise).
+  The first clean-room run exposed an MFA failure mode: it rejects a corpus
+  whose path string starts with its root dir, then reports every word
+  "failed". The adapter now refuses when MFA aligns nothing, and conformance
+  fails alignments with under 50% acoustic units.
