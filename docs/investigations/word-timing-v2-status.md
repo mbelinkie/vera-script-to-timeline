@@ -136,3 +136,11 @@ in git.
     quantified and checked against the agreement filter.
   - #53 rule "pauses over 1.4 s split reads" splits genuine reads when fed
     exact key times (7/7 → 2/7 blue). Flag for #45.
+- YouTube auto-captions on the unlisted uploads (offset vs originals: 0 samples).
+  A: caption WER 8.8% (Parakeet 8.1%); native word starts median 64 ms late,
+  18% > 120 ms; captions → MFA 20/27 ms onset/offset median (independent 80),
+  = Parakeet → MFA. B: caption WER 2.9%; native starts 108 ms median, 42%
+  > 120 ms; captions → MFA 16/21 ms (blind 40), coverage 95–97%.
+  DeepFilterNet before MFA: no measurable change on A or B.
+  Conclusion so far: Research path "captions → MFA" is editing-grade; native
+  caption starts alone (#46) are a coarse interim (~0.1 s late).
