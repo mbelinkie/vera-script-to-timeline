@@ -1,54 +1,63 @@
-# Word-timing v2 — correcting the answer key in Audacity
+# Word-timing v2 — correcting the answer key in Adobe Audition
 
 This is step 3 of `docs/plans/word-timing-v2-test-plan.md`. You correct a
-pre-filled file instead of marking from scratch. The pre-fill is the median of
-three different aligners, so it does not favour any one of them.
+pre-filled marker list instead of marking from scratch. The pre-fill is the
+median of three different aligners, so it does not favour any one of them.
 
 Your files are in `~/.local/share/vera/word-timing-v2/answer-key/<rec>/`:
 
 | File | What it is |
 | --- | --- |
 | `<rec>-48k.wav` | The original 48 kHz audio. |
-| `<rec>-words.txt` | One label region per spoken word. **This is the file you correct.** |
-| `<rec>-check.txt` | A second label track that marks only the places worth a close look. |
+| `<rec>-markers.csv` | **The file you correct.** One range marker per spoken word, plus `??` markers where a stumble may be missing. |
+| `<rec>-words.txt`, `<rec>-check.txt` | The same pre-fill as Audacity label files. Use them only if you go back to Audacity 3.7.9. |
 
-## One-time setup
+## Setup
 
-1. Install Audacity (free): https://www.audacityteam.org/download/
-2. Open `<rec>-48k.wav` with **File ▸ Open**.
-3. Choose **File ▸ Import ▸ Labels…** and pick `<rec>-words.txt`.
-4. Do the same for `<rec>-check.txt`. It appears as a second label track.
-5. In the audio track's name menu (the ▾ beside the track name), choose
-   **Multi-view**. You get the waveform and the spectrogram together. Word
-   onsets are much easier to see in the spectrogram.
+1. Open `<rec>-48k.wav` in Audition.
+2. **File ▸ Import ▸ Markers from File…** and pick `<rec>-markers.csv`.
+3. Open the Markers panel (**Window ▸ Markers**). Make it wide enough to see
+   the **Description** column.
+4. Optional: **Shift + D** toggles the spectral display. Word onsets are much
+   easier to see there.
+5. Keep the time display on **Decimal**. The export only works in that
+   format.
+
+## What the markers mean
+
+- **Word markers** are named with the word. Their Description says why one is
+  worth a look:
+  - `start disagree 85ms` or `end disagree 60ms`: the aligners disagreed by
+    that much. **Over about 150 ms: always check. 40–80 ms: mostly skim**,
+    because one aligner works on a coarse 80 ms grid.
+  - `possible take edge`: the word sits next to a long pause. Take edges are
+    exactly where VERA cuts, so these matter most.
+  - `1 aligner(s) failed`: one aligner could not place the word.
+  - An empty Description means all three aligners agreed within 40 ms.
+- **`??` markers** sit on speech that no word covers. For each one, do one of
+  these:
+  - rename it to a tagged word, adjusting its edges: `FRAG th` (cut-off
+    fragment), `REP the` (repeated word) or `FILLER um` (um, uh, er);
+  - rename it to a real word the pre-fill missed;
+  - delete it if it's a breath, a noise or nothing.
+
+  The file won't validate while any `??` is left.
 
 ## The pass
 
-**Work through the check track first.** For each flag:
+1. Sort the Markers panel by Description, or just work in time order, and
+   deal with every flagged word and every `??` marker.
+2. For each one, play and scrub it. Then:
+   - **Wrong edge:** drag the marker's start or end handle in the timeline, or
+     type a new Start or End in the Markers panel.
+   - **Wrong word:** rename the marker (double-click its name).
+   - **A stumble nobody marked:** select the span and press **M** to add a
+     range marker, then name it with a tag (`FRAG`, `REP` or `FILLER`).
+   - **A word that was not said:** delete its marker.
+3. Then skim the unflagged words at normal zoom. You're listening for
+   obviously wrong markers, not 10 ms nudges.
 
-1. Zoom in until about one second fills the screen (**Ctrl/Cmd + 1** zooms
-   in).
-2. Play the region. Click a label to select it; **Space** plays the selection.
-3. Fix it:
-   - **Wrong edge:** drag the small arrows at the left or right end of the word
-     region in the words track.
-   - **Wrong word:** click the text and retype it.
-   - **A stumble the pre-fill missed** (the check track says
-     `SPEECH WITH NO WORD`): select the span in the words track and press
-     **Ctrl/Cmd + B** to add a region. Type its text with a tag:
-     - `FRAG th` — a cut-off fragment ("th-" before "the")
-     - `REP the` — a repeated word
-     - `FILLER um` — um, uh, er and similar
-   - **A word that was not actually said:** delete its region. Click it, then
-     **Edit ▸ Labels ▸ Delete label** or Backspace.
-4. Flags marked `MISSING` mean no aligner could place a word that your
-   transcript says is there. Add its region if you hear it; ignore the flag
-   if you don't.
-
-**Then skim the rest** at normal zoom. You're listening for obviously wrong
-regions, not 10 ms nudges.
-
-You never need to edit the check track.
+You never need to edit the Description column.
 
 ## Recording B: fix the words too
 
@@ -57,11 +66,11 @@ speech recogniser (Speechmatics), so some will be wrong, and stumbles may be
 missing or tidied up. On B, also:
 
 - Listen for each line once at normal speed and fix misheard words.
-- Add every stumble the recogniser dropped (`FRAG`, `REP`, `FILLER`). The
-  `SPEECH WITH NO WORD` flags point at likely spots, but the recogniser may
-  also have covered a stumble with a neighbouring word's region.
-- Delete regions for words that were never said.
-- A numeral appears as one region per spoken word, e.g. `nineteen[1998]`.
+- Add every stumble the recogniser dropped (`FRAG`, `REP`, `FILLER`). The `??`
+  markers point at likely spots, but the recogniser may also have covered a
+  stumble with a neighbouring word's marker.
+- Delete markers for words that were never said.
+- A numeral appears as one marker per spoken word, e.g. `nineteen[1998]`.
   Keep that form, or type plain spoken words.
 
 ## Boundary rules
@@ -71,23 +80,23 @@ missing or tidied up. On B, also:
   in the spectrogram, not the silent closure before it.
 - **A word ends at its last sound,** including a trailing "s"/"sh"/"f" hiss or
   the puff of breath after a final p/t/k.
-- **Breaths are not part of words.** Leave breaths outside every region.
+- **Breaths are not part of words.** Leave breaths outside every marker.
 - **Between two connected words,** put the boundary where the sound changes
-  from one word to the next. A shared boundary is fine: one region's end can
-  equal the next one's start.
-- If you genuinely cannot tell where a boundary is, leave the pre-fill and add
-  `?` at the end of the word's text, e.g. `the?`. Those boundaries are
-  reported separately.
+  from one word to the next. A shared boundary is fine: one marker's end can
+  equal the next one's start. Markers must not overlap.
+- If you genuinely cannot tell where a boundary is, leave it and add `?` to
+  the end of the word's name, e.g. `the?`. Those boundaries are reported
+  separately.
 
 ## Saving
 
-Audacity exports *every* label track into one file. So first close the check
-track: click the **×** at the top left of that track. Then choose
-**File ▸ Export ▸ Export Labels…** and save as `<rec>-words-corrected.txt` in
-the same folder. Tell Claude when it's
-saved. Claude checks that every time is in order, nothing overlaps, every
-word is present and the tags are legal. It then freezes the file and records
-its hash. If you need a break, export at any point and re-import later.
+In the Markers panel, select all markers (**Cmd + A** with the panel focused).
+Then use **Export Selected Markers to CSV**, as in the test, and save it as
+`<rec>-markers-corrected.csv` in the same folder. Tell Claude when it's saved.
+Claude checks that every marker is in order, nothing overlaps, no `??` is left,
+the tags are legal, and that every word edit is listed. It then freezes the
+file and records its hash. You can save partway through and carry on later:
+re-import your saved file instead of the original.
 
 ## Bias check (no extra work)
 

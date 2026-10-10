@@ -1,6 +1,7 @@
-"""Validate and freeze a corrected Audacity answer key (plan section 6).
+"""Validate and freeze a corrected answer key (plan section 6).
 
-Usage: validate_key.py --prefill rec-a-words.txt --corrected rec-a-words-corrected.txt [--freeze]
+Usage: validate_key.py --prefill rec-a-words.txt --corrected CORRECTED [--freeze]
+  CORRECTED is an Audacity label export (.txt) or an Audition marker export (.csv).
 
 Checks: label times in order, no overlaps, positive length, legal tags, and
 that the word sequence matches the pre-fill apart from tagged additions and
@@ -24,6 +25,10 @@ LABEL = re.compile(r"^(?:(?P<tag>[A-Z]+) )?(?P<word>[\w'\-]+(?:\[[^\]]+\])?)(?P<
 
 
 def read_labels(path: Path) -> list[tuple[float, float, str]]:
+    if path.suffix.lower() == ".csv":
+        from audition import read_markers
+
+        return [(s, e, name) for s, e, name, _ in read_markers(path)]
     rows = []
     for n, line in enumerate(path.read_text().splitlines(), 1):
         if not line.strip() or line.startswith("\\"):
@@ -49,6 +54,9 @@ def main() -> None:
             errors.append(f"row {n + 1} '{text}': end {e:.3f} is not after start {s:.3f}")
         if n and s < corrected[n - 1][1] - 1e-6:
             errors.append(f"row {n + 1} '{text}': starts {s:.3f} before previous ends {corrected[n - 1][1]:.3f}")
+        if text == "??":
+            errors.append(f"row {n + 1} at {s:.3f}s: unresolved '??' marker (rename it or delete it)")
+            continue
         match = LABEL.match(text)
         if not match or (match["tag"] and match["tag"] not in TAGS):
             errors.append(f"row {n + 1}: illegal label '{text}' (tags: {', '.join(sorted(TAGS))})")
@@ -58,10 +66,10 @@ def main() -> None:
         return (match["word"] if match else text).casefold()
 
     base = [plain(t) for _, _, t in read_labels(args.prefill)]
-    words = [plain(t) for _, _, t in corrected if not (LABEL.match(t) and LABEL.match(t)["tag"])]
+    words = [plain(t) for _, _, t in corrected if t != "??" and not (LABEL.match(t) and LABEL.match(t)["tag"])]
     edits = [op for op in difflib.SequenceMatcher(a=base, b=words, autojunk=False).get_opcodes() if op[0] != "equal"]
     tagged = sum(1 for _, _, t in corrected if LABEL.match(t) and LABEL.match(t)["tag"])
-    unsure = sum(1 for _, _, t in corrected if t.endswith("?"))
+    unsure = sum(1 for _, _, t in corrected if t != "??" and t.endswith("?"))
 
     print(f"{len(corrected)} regions; {tagged} tagged additions; {unsure} marked unsure; {len(edits)} word edits vs pre-fill")
     for op, a0, a1, b0, b1 in edits:
