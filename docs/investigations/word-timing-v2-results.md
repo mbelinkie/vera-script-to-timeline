@@ -125,6 +125,14 @@ Most misses are displaced first words (above): the take starts 1.3–2.5 s early
 Finding for #45: #53's "pauses over 1.4 s split reads" rule splits genuine
 reads when given exact word times (7/7 → 2/7 picks with the key's own times).
 
+### Recording B playback (no take reference)
+
+`b_playback.py` runs the same logic on B (rows = the 9 prompter paragraphs,
+since B has no on/off markers) with the recommended pipeline, and renders the
+default take per row cut in measured silence (12/14 edges quiet; 2 padded
+previews). 8 rows have a complete last read; one long paragraph with repeated
+restarts falls back to review-only assembly pieces. Producer viewing pending.
+
 ## Research profile (no script)
 
 - **Native recogniser timestamps** (no MFA), A independent: Chirp 2 32/40 ms,
