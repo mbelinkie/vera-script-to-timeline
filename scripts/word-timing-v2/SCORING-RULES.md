@@ -118,3 +118,12 @@ configuration tried.
   counted as a name on B. A is rescored with the same definition. B's alias
   list (`yost` → `joost`) was written after B's key was frozen and before
   script-informed B scoring.
+- **2026-10-10: audio-cleanup test on A (exploratory, added after B was
+  scored).** The Producer supplied A with Adobe Podcast Enhance Speech applied
+  (`semi1b-esv2-50p-bg-10p-music-10p.wav`). It is sample-aligned with the
+  original (0 ms offset), so A's keys apply unchanged. Two tests use the same
+  frozen settings with no tuning: (1) the same reconciled text, re-timed by MFA
+  on the cleaned audio, to isolate the aligner; (2) recognisers re-run on the
+  cleaned audio, then reconcile → MFA. Scoring uses the independent 80 and the
+  full A key. This does not change the frozen B measurement. It informs
+  whether cleanup should be a VERA preprocessing step.
