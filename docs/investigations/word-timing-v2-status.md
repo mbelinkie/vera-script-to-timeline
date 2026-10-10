@@ -200,3 +200,6 @@ in git.
   zip at ~/Downloads/vera-bench-kit.zip, 68 KB, no private data). Works on a
   machine with nothing installed: verified clean-room on this Intel Mac
   (setup 4.3 min). Intel reference included; a repeat run differs ≤ 10 ms.
+- 2026-10-10: Producer approved the #168 schemas (decision 1). All four #168
+  decisions are now approved. Next: move them into `/contracts` with
+  generated types (on the #45 branch), per AGENTS.md contract-change rules.

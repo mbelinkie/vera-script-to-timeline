@@ -128,8 +128,12 @@ licensed fixture).
   (final default pending the unlisted-upload keyed test).
 - Decision 4 — cloud artefacts require a stored per-project consent policy:
   **approved**.
-- Decision 1 — exact schemas: still open. Next step is concrete JSON Schema
-  files for review; #45 may prototype against them on a branch meanwhile.
+- Decision 1 — exact schemas: **approved** (2026-10-10) as the four files in
+  `docs/plans/issue-168/schemas/` (recognition, alignment, script
+  reconciliation, port refusal), on the basis of their stated semantics:
+  integer source ms with null for unknown; immutable versioned artifacts;
+  `heard` vs `text`; `needs_review` at tau 70 ms; explicit refusals with no
+  silent fallback; fit-tested on real study output.
 
 ## Draft schemas (decision 1, for review)
 
