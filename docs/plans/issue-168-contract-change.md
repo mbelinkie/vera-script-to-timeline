@@ -44,3 +44,9 @@ object directly would need them (none does in this repository).
 `uv run --frozen mypy python tests` (strict), ruff, and the #45 conformance
 tests (`tests/test_issue45_ports.py`) validating fakes and real-engine
 artifacts against these exact files.
+
+Verification on this Intel Mac (2026-10-10): contracts-generated current;
+strict mypy and ruff pass; 31 #45 tests pass. `npm run check:typescript`
+fails 32 Node-CLI process tests, an identical set to a pristine `origin/main`
+worktree on the same machine (Node 26.5 vs declared 24.x, see #106), so the
+change introduces no TypeScript failures.
