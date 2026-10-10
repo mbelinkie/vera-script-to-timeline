@@ -49,6 +49,7 @@ from experiments.issue45.ports import (
 from experiments.issue45.segmentation import (
     MAX_SEGMENT_S,
     PAD_S,
+    Segment,
     assign_units,
     group_regions,
 )
@@ -71,6 +72,7 @@ class EngineConfig:
     mfa_command: tuple[str, ...] = ()
     mfa_home: Path | None = None
     mfa_env: dict[str, str] = field(default_factory=dict)
+    qwen_command: tuple[str, ...] = ()
     timeout_s: float = 1800.0
 
     @classmethod
@@ -87,6 +89,7 @@ class EngineConfig:
             parakeet_python=path("VERA_PARAKEET_PYTHON"),
             parakeet_model_glob=os.environ.get("VERA_PARAKEET_MODEL_GLOB"),
             mfa_command=tuple(shlex.split(os.environ.get("VERA_MFA_COMMAND", ""))),
+            qwen_command=tuple(shlex.split(os.environ.get("VERA_QWEN_COMMAND", ""))),
             mfa_home=path("VERA_MFA_HOME"),
             mfa_env=extra,
         )
@@ -291,6 +294,59 @@ def _mfa_lock(home: Path) -> Iterator[None]:
             fcntl.flock(f, fcntl.LOCK_UN)
 
 
+def prepare_segments(
+    config: EngineConfig,
+    audio: AudioRef,
+    recognition: Json,
+    reconciliation: Json | None,
+) -> tuple[list[Segment], Json]:
+    """Aligner units grouped into VAD segments, plus the aligner-contract payload.
+
+    Shared by every aligner (MFA, the agreement partner) so they see identical
+    segments and unit texts (reconciled spellings when a reconciliation is given).
+    """
+    tokens = recognition["tokens"]
+    texts = reconciled_texts(reconciliation)
+    units: list[Unit] = []
+    anchors: list[tuple[float, float] | None] = []
+    for t in tokens:
+        spoken = [] if t["kind"] == "event" else normalise_token(t["display"])
+        for sub, text in enumerate(spoken):
+            units.append(Unit(t["index"], sub, texts.get((t["index"], sub), text)))
+            s, e = t["anchorStartMs"], t["anchorEndMs"]
+            anchors.append(None if s is None or e is None else (s / 1000, e / 1000))
+    segments = assign_units(units, anchors, speech_segments(config, audio, "aligner"))
+    if units and not segments:
+        raise PortRefusal(
+            "aligner",
+            "input-invalid",
+            "No speech was detected to align the transcript to.",
+        )
+    multi = {t["index"] for t in tokens if len(normalise_token(t["display"])) > 1}
+    payload: Json = {
+        "audio": audio.path.name,
+        "offsetSec": 0.0,
+        "segments": [
+            {
+                "id": f"s{n:03d}",
+                "start": seg.start,
+                "end": seg.end,
+                "words": [
+                    {
+                        "i": u.token_index,
+                        "text": u.text,
+                        "display": tokens[u.token_index]["display"],
+                        **({"sub": u.sub} if u.token_index in multi else {}),
+                    }
+                    for u in seg.units
+                ],
+            }
+            for n, seg in enumerate(segments)
+        ],
+    }
+    return segments, payload
+
+
 class MfaAligner:
     """Montreal Forced Aligner, english_us_arpa (+ optional pronunciation guides)."""
 
@@ -321,61 +377,11 @@ class MfaAligner:
                 "MFA runtime (VERA_MFA_COMMAND) is not configured.",
             )
         _check_wav(audio, "aligner")
-        tokens = recognition["tokens"]
-        texts = reconciled_texts(reconciliation)
-        units: list[Unit] = []
-        anchors: list[tuple[float, float] | None] = []
-        for t in tokens:
-            spoken = [] if t["kind"] == "event" else normalise_token(t["display"])
-            for sub, text in enumerate(spoken):
-                key = (t["index"], sub)
-                units.append(Unit(t["index"], sub, texts.get(key, text)))
-                s, e = t["anchorStartMs"], t["anchorEndMs"]
-                anchors.append(None if s is None or e is None else (s / 1000, e / 1000))
-        segments = assign_units(units, anchors, speech_segments(cfg, audio, "aligner"))
-        if units and not segments:
-            raise PortRefusal(
-                "aligner",
-                "input-invalid",
-                "No speech was detected to align the transcript to.",
-            )
+        segments, payload = prepare_segments(cfg, audio, recognition, reconciliation)
         home = cfg.mfa_home or Path(tempfile.gettempdir()) / "vera-mfa"
         with tempfile.TemporaryDirectory(prefix="vera-mfa-in-") as tmp:
             seg_file, out = Path(tmp) / "segments.json", Path(tmp) / "result.json"
-            seg_file.write_text(
-                json.dumps(
-                    {
-                        "audio": audio.path.name,
-                        "offsetSec": 0.0,
-                        "segments": [
-                            {
-                                "id": f"s{n:03d}",
-                                "start": seg.start,
-                                "end": seg.end,
-                                "words": [
-                                    {
-                                        "i": u.token_index,
-                                        "text": u.text,
-                                        "display": tokens[u.token_index]["display"],
-                                        **(
-                                            {"sub": u.sub}
-                                            if len(
-                                                normalise_token(
-                                                    tokens[u.token_index]["display"]
-                                                )
-                                            )
-                                            > 1
-                                            else {}
-                                        ),
-                                    }
-                                    for u in seg.units
-                                ],
-                            }
-                            for n, seg in enumerate(segments)
-                        ],
-                    }
-                )
-            )
+            seg_file.write_text(json.dumps(payload))
             cmd = [
                 *cfg.mfa_command,
                 str(ENGINES / "mfa_engine.py"),

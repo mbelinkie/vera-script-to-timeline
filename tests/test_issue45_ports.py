@@ -427,3 +427,13 @@ def test_reconcile_respells_names_only(audio: AudioRef) -> None:
     assert ali["identity"]["reconcileArtifactId"] == doc["artifactId"]
     plain = FakeAligner().align(audio, rec, policy=POLICY)
     assert check_alignment(audio, rec, plain, doc)  # wrong pairing is reported
+
+
+def test_agreement_refuses_without_partner_runtime(audio: AudioRef) -> None:
+    from experiments.issue45.adapters.agreement import QwenAgreement
+
+    rec = FakeRecognizer(["a"]).recognise(audio, language="en", policy=POLICY)
+    ali = FakeAligner().align(audio, rec, policy=POLICY)
+    with pytest.raises(PortRefusal) as refused:
+        QwenAgreement(EngineConfig()).check(audio, rec, ali)
+    assert refused.value.code == "runtime-missing"
