@@ -142,16 +142,39 @@ reads when given exact word times (7/7 → 2/7 picks with the key's own times).
 
 ## Audio cleanup (DeepFilterNet) before transcription
 
-*Pending: raw-B and DeepFilterNet-B pipelines still running; filled in when
-scored.* So far:
+**Verdict: transcribe and align on the original audio. Use DeepFilterNet only
+for the edit.** Cleanup before recognition is never clearly better and is
+sometimes much worse; before alignment it is roughly neutral.
 
-- **Before MFA (timing):** no measurable change on A or B (YouTube-caption
-  text aligned on raw vs DeepFilterNet audio: identical A scores, ±2 ms on B).
-- **Before recognition, noisy YouTube street clip** (proxy: recall of words two
-  cloud recognisers agree on): Parakeet 80.7% raw → 72.2% DeepFilterNet;
-  cloud recognisers also lost 4–7 points. Clean interview clip: no difference.
-- Working conclusion: **recognise on raw audio; cleanup neither needed nor
-  harmful for alignment.** The #168 draft binds cleanup per stage for this.
+Every recogniser was re-run on three versions of each recording (raw
+recorder audio, Adobe Enhance, DeepFilterNet `-a 30`), then through the same
+frozen pipeline (`score_cleanup.py`). Same-text runs re-align the original
+transcript on the cleaned audio, so only the audio changes.
+
+| Recogniser (A, halting) | WER raw / Adobe / DFN | Displaced words raw / Adobe / DFN |
+|---|---|---|
+| ElevenLabs | 2.8% / 4.6% / 5.5% | 8 / 9 / 18 |
+| AssemblyAI | 3.1% / 3.5% / 4.4% (names 22 → 13 of 23) | 17 / 17 / 18 |
+| Speechmatics | 4.2% / 3.9% / 3.7% | 24 / 17 / 20 |
+| Chirp 2 + keyterms | 3.3% / 3.5% / 3.5% | 10 / 5 / 27 |
+| Resolve | 8.1% / 6.3% / **36.8%** | 26 / 34 / 68 |
+| Parakeet | 7.4% / 6.6% / 7.9% | 17 / 16 / 26 |
+
+- **Recognition:** DeepFilterNet hurt most recognisers on the halting
+  presenter. Resolve dropped a third of the words (292 vs 417, full-length
+  transcript, so not a truncation). On the fluent presenter (B) every
+  recogniser stayed within 0.9–2.5% WER under all three versions. On a noisy
+  YouTube street clip (no key; proxy = words two cloud recognisers agreed on)
+  Parakeet's recall fell 80.7% → 72.2%.
+- **Alignment (same text):** medians move by no more than ±5 ms (A offsets
+  slightly earlier and closer, onsets slightly later). B's offset tails get
+  worse on DeepFilterNet audio (p95 141–191 ms vs 55–99 ms on the Adobe
+  original). YouTube-caption text aligned on raw vs DeepFilterNet audio:
+  identical scores on A, ±2 ms on B.
+- **Adobe Enhance** is mixed (±2 points WER depending on recogniser), so it
+  is not a requirement either.
+- The #168 draft binds AudioPrep per stage, so a product can keep cleaned
+  audio for the edit while recognition and alignment read the original.
 
 ## Weaknesses to design around
 

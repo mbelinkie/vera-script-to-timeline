@@ -154,3 +154,8 @@ in git.
   transcript lacks and phrase-initial words after breaths. B has 0.
   The agreement filter at tau 70 ms flags 75/75 of them with Charsiu and
   73/75 with Qwen (licence-safe), so "needs review" is the safety net.
+- Cleanup test scored (`score_cleanup.py`): transcribe and align on the
+  original audio; DeepFilterNet only for the edit (it hurts recognition on the
+  halting presenter, e.g. Resolve WER 8.1% → 36.8%; neutral for alignment).
+- Operational lesson: never run two MFA jobs at once (shared MFA temp dir).
+  Four runs collided and were re-run serially; all now valid.
