@@ -70,7 +70,7 @@ it is easy to find.
 | Cloud services | Any service may receive the two test recordings. The Producer supplies API keys. Expected cost is a few dollars. |
 | Licences | MFA's CC BY 4.0 model licence is accepted, with attribution. Qwen3-FA is Apache-2.0. Charsiu is MIT code with an unstated model licence, so it is evaluation-only for now. MMS-FA and CrisperWhisper remain excluded, as in #51. |
 | Answer key | **Correct a pre-filled file, never mark from scratch** (section 5). Reuse any timings the Producer already supplied for #51 and #63. |
-| Recordings | **A** = `semi1b` (about 4 minutes, about 444 words), used for tuning. **B** = a second presenter recording the Producer will supply, used only for the final measurement. |
+| Recordings | **A** = `semi1b` (244 s, 444 transcript words, unprocessed 48 kHz), used for tuning. **B** (fixed 2026-10-09) = a different, more halting presenter: `presenter sample 2/IMG_E2549 sample.mp4`, cut losslessly from the synced external WAV (`united by music 1 3-26-esv2-90p-bg-10p.wav`, sample 5021747 = 104.620 s, 226.6 s long). B's audio has Adobe Enhance Speech v2 at 90% applied; the Producer accepts this because audio processing may become a standard VERA step. Report it as a difference between A and B. Used only for the final measurement. |
 
 ---
 
@@ -142,6 +142,7 @@ step 5.
 | A-CHAR | Charsiu `charsiu/en_w2v2_fc_10ms`. |
 | A-CLOUD | Each cloud service's own word timestamps, taken from the same calls. |
 | A-ELFA | ElevenLabs Forced Alignment API: audio plus transcript, the cloud counterpart of A-MFA. Run it on T-O, and on the best T-C source. |
+| A-RESOLVE | DaVinci Resolve 21.1.1 Studio transcription (`MediaPoolItem.TranscribeAudio` / `GetTranscription`), which gives word start/end timecodes. It is both a text source and an aligner. Resolution is one frame of the project rate, so it is run at 120 fps (8.3 ms). Added 2026-10-09 because VERA targets Resolve. Adobe Premiere was considered and dropped (the Producer is leaving Premiere). |
 | A-OLIGN | Optional, if the Producer gets beta access. Treat it as a lead, since it is the benchmark author's product. |
 | A-BASE | The best #51 profile (XLSR CTC), as a control. |
 
