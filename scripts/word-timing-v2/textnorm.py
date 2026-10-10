@@ -24,7 +24,9 @@ def _spoken_numeral(digits: str) -> list[str]:
         spoken = num2words(value, to="year")
     else:
         spoken = num2words(value)
-    return [part for part in re.split(r"[\s\-,]+", spoken.replace(" and ", " ")) if part]
+    return [
+        part for part in re.split(r"[\s\-,]+", spoken.replace(" and ", " ")) if part
+    ]
 
 
 def normalise_token(display: str) -> list[str]:

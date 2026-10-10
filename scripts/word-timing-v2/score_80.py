@@ -27,7 +27,9 @@ def upper95(k: int, n: int) -> float:
     lo, hi = k / n, 1.0
     for _ in range(60):
         mid = (lo + hi) / 2
-        tail = sum(math.comb(n, j) * mid**j * (1 - mid) ** (n - j) for j in range(k + 1))
+        tail = sum(
+            math.comb(n, j) * mid**j * (1 - mid) ** (n - j) for j in range(k + 1)
+        )
         lo, hi = (mid, hi) if tail > 0.05 else (lo, mid)
     return hi
 
@@ -35,9 +37,11 @@ def upper95(k: int, n: int) -> float:
 def summarise(errors: list[float]) -> str:
     absolute = [abs(e) for e in errors]
     over = sum(a > 120 for a in absolute)
-    return (f"n={len(errors):3d} med={statistics.median(absolute):5.0f} p90={pct(absolute, .9):5.0f} "
-            f"p95={pct(absolute, .95):5.0f} max={max(absolute):5.0f} bias={statistics.mean(errors):+5.0f} "
-            f">120ms={over}/{len(errors)} (ub95 {upper95(over, len(errors)):.0%})")
+    return (
+        f"n={len(errors):3d} med={statistics.median(absolute):5.0f} p90={pct(absolute, 0.9):5.0f} "
+        f"p95={pct(absolute, 0.95):5.0f} max={max(absolute):5.0f} bias={statistics.mean(errors):+5.0f} "
+        f">120ms={over}/{len(errors)} (ub95 {upper95(over, len(errors)):.0%})"
+    )
 
 
 def main() -> None:
@@ -62,11 +66,14 @@ def main() -> None:
                 continue
             s, e = spans[t["referenceIndex"]]
             onset, offset = s * 1000 - t["startMs"], e * 1000 - t["endMs"]
-            for name in ["all", *(["take-edge"] if "take-edge" in t["categories"] else [])]:
+            for name in [
+                "all",
+                *(["take-edge"] if "take-edge" in t["categories"] else []),
+            ]:
                 groups.setdefault(name, ([], []))
                 groups[name][0].append(onset)
                 groups[name][1].append(offset)
-        label = f'{result["aligner"]} {result.get("variant") or ""}'.strip()
+        label = f"{result['aligner']} {result.get('variant') or ''}".strip()
         print(f"{label}  (missing {missing}/{len(truth)})  [{path.name}]")
         for name, (on, off) in groups.items():
             print(f"  {name:9s} onset  {summarise(on)}")

@@ -31,7 +31,11 @@ TOKEN = re.compile(r"\((?:on|off)\)|\[[^\]]+\]|[“\"][^”\"]+[”\"]|[^\s]+")
 
 
 def load_dictionary(path: Path) -> set[str]:
-    return {line.split()[0].casefold() for line in path.read_text(errors="ignore").splitlines() if line.strip()}
+    return {
+        line.split()[0].casefold()
+        for line in path.read_text(errors="ignore").splitlines()
+        if line.strip()
+    }
 
 
 def parse(text: str, dictionary: set[str]) -> dict:
@@ -45,30 +49,39 @@ def parse(text: str, dictionary: set[str]) -> dict:
             continue
         if raw.startswith("["):
             parts = raw[1:-1].split()
-            for word, guide in zip(words[-len(parts):], parts):
+            for word, guide in zip(words[-len(parts) :], parts):
                 word["guide"] = guide
             continue
         inner = raw
-        if raw[0] in "“\"":
-            inner = raw.strip("“”\"")
+        if raw[0] in '“"':
+            inner = raw.strip('“”"')
             quotes.append(inner.strip(" .,!?;:"))
         for piece in inner.split():
-            display = piece.strip("“”\"()")
+            display = piece.strip('“”"()')
             spoken = normalise_token(display)
             if not spoken:
                 continue
-            words.append({"display": display.strip(".,!?;:"), "spoken": spoken,
-                          "sentenceStart": sentence_start,
-                          "capitalised": display[:1].isupper(),
-                          "inDictionary": all(s in dictionary for s in spoken)})
-            sentence_start = display.endswith((".", "!", "?", ":")) or display.endswith((".\"", "?\"", ".”"))
+            words.append(
+                {
+                    "display": display.strip(".,!?;:"),
+                    "spoken": spoken,
+                    "sentenceStart": sentence_start,
+                    "capitalised": display[:1].isupper(),
+                    "inDictionary": all(s in dictionary for s in spoken),
+                }
+            )
+            sentence_start = display.endswith((".", "!", "?", ":")) or display.endswith(
+                ('."', '?"', ".”")
+            )
 
     keyterms: list[str] = []
 
     def add(term: str) -> None:
         term = term.strip(" .,!?;:")
         single = " " not in term
-        if single and (term.isdigit() or (len(term) <= 3 and term.casefold() in dictionary)):
+        if single and (
+            term.isdigit() or (len(term) <= 3 and term.casefold() in dictionary)
+        ):
             return  # numerals and short common words are not useful vocabulary
         if term and term.casefold() not in {k.casefold() for k in keyterms}:
             keyterms.append(term)
@@ -78,7 +91,11 @@ def parse(text: str, dictionary: set[str]) -> dict:
             add(quote)
     run: list[str] = []
     for w in words + [{"capitalised": False, "sentenceStart": True, "display": ""}]:
-        is_name = w["capitalised"] and not w["sentenceStart"] and not (w["display"].isupper() and w.get("inDictionary"))
+        is_name = (
+            w["capitalised"]
+            and not w["sentenceStart"]
+            and not (w["display"].isupper() and w.get("inDictionary"))
+        )
         if is_name and w["display"] not in ("I", "I'm"):
             run.append(w["display"])
             continue
@@ -88,9 +105,16 @@ def parse(text: str, dictionary: set[str]) -> dict:
     for w in words:
         if not w["inDictionary"]:
             add(w["display"])
-    return {"words": words, "restartPoints": restarts,
-            "guides": [{"index": n, "display": w["display"], "guide": w["guide"]} for n, w in enumerate(words) if "guide" in w],
-            "keyterms": keyterms}
+    return {
+        "words": words,
+        "restartPoints": restarts,
+        "guides": [
+            {"index": n, "display": w["display"], "guide": w["guide"]}
+            for n, w in enumerate(words)
+            if "guide" in w
+        ],
+        "keyterms": keyterms,
+    }
 
 
 def main() -> None:
@@ -101,8 +125,10 @@ def main() -> None:
     args = parser.parse_args()
     result = parse(args.script.read_text(), load_dictionary(args.dictionary))
     args.out.write_text(json.dumps(result, indent=1, ensure_ascii=False))
-    print(f'{len(result["words"])} words, {len(result["restartPoints"])} restart points, '
-          f'{len(result["guides"])} guided words')
+    print(
+        f"{len(result['words'])} words, {len(result['restartPoints'])} restart points, "
+        f"{len(result['guides'])} guided words"
+    )
     print("keyterms:", result["keyterms"])
 
 

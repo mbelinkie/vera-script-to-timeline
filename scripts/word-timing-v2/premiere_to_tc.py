@@ -31,17 +31,41 @@ def main() -> None:
         if start < 0 or end > args.duration:
             continue
         tags = w.get("tags") or []
-        words.append({"k": len(words), "text": w["text"], "start": round(start, 3), "end": round(end, 3),
-                      "type": "filler" if "disfluency" in tags else "word", "confidence": w.get("confidence"),
-                      "tags": tags})
-    args.out.write_text(json.dumps({
-        "source": "T-C-premiere", "provider": "Adobe Premiere Pro (Speech to Text)", "model": "unknown (export)",
-        "words": words, "transcript": " ".join(w["text"] for w in words),
-        "provenance": {"export": args.premiere.name,
-                       "exportSha256": hashlib.sha256(args.premiere.read_bytes()).hexdigest(),
-                       "shiftSec": args.shift, "windowSec": [0, args.duration],
-                       "notes": "end = start + duration as exported; most ends equal the next start"}}, indent=1))
-    print(f"{len(words)} words in window; {sum(w['type'] == 'filler' for w in words)} tagged disfluency")
+        words.append(
+            {
+                "k": len(words),
+                "text": w["text"],
+                "start": round(start, 3),
+                "end": round(end, 3),
+                "type": "filler" if "disfluency" in tags else "word",
+                "confidence": w.get("confidence"),
+                "tags": tags,
+            }
+        )
+    args.out.write_text(
+        json.dumps(
+            {
+                "source": "T-C-premiere",
+                "provider": "Adobe Premiere Pro (Speech to Text)",
+                "model": "unknown (export)",
+                "words": words,
+                "transcript": " ".join(w["text"] for w in words),
+                "provenance": {
+                    "export": args.premiere.name,
+                    "exportSha256": hashlib.sha256(
+                        args.premiere.read_bytes()
+                    ).hexdigest(),
+                    "shiftSec": args.shift,
+                    "windowSec": [0, args.duration],
+                    "notes": "end = start + duration as exported; most ends equal the next start",
+                },
+            },
+            indent=1,
+        )
+    )
+    print(
+        f"{len(words)} words in window; {sum(w['type'] == 'filler' for w in words)} tagged disfluency"
+    )
 
 
 if __name__ == "__main__":

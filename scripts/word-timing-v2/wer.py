@@ -25,8 +25,11 @@ def edit_ops(ref: list[str], hyp: list[str]) -> tuple[int, int, int]:
         cost[0][j] = j
     for i in range(1, rows):
         for j in range(1, cols):
-            cost[i][j] = min(cost[i - 1][j] + 1, cost[i][j - 1] + 1,
-                             cost[i - 1][j - 1] + (ref[i - 1] != hyp[j - 1]))
+            cost[i][j] = min(
+                cost[i - 1][j] + 1,
+                cost[i][j - 1] + 1,
+                cost[i - 1][j - 1] + (ref[i - 1] != hyp[j - 1]),
+            )
     subs = dels = ins = 0
     i, j = len(ref), len(hyp)
     while i or j:
@@ -45,13 +48,24 @@ def main() -> None:
     parser.add_argument("--reference", type=Path, required=True)
     parser.add_argument("candidates", type=Path, nargs="+")
     args = parser.parse_args()
-    ref = [t for tok in json.loads(args.reference.read_text()) for t in normalise_token(tok)]
+    ref = [
+        t
+        for tok in json.loads(args.reference.read_text())
+        for t in normalise_token(tok)
+    ]
     for path in args.candidates:
         tc = json.loads(path.read_text())
-        hyp = [t for w in tc["words"] if w.get("type") != "event" for t in normalise_token(str(w["text"]))]
+        hyp = [
+            t
+            for w in tc["words"]
+            if w.get("type") != "event"
+            for t in normalise_token(str(w["text"]))
+        ]
         s, d, i = edit_ops(ref, hyp)
-        print(f'{tc["source"]:18s} WER {(s + d + i) / len(ref):6.1%}  sub {s:3d} del {d:3d} ins {i:3d}  '
-              f'(ref {len(ref)}, hyp {len(hyp)})')
+        print(
+            f"{tc['source']:18s} WER {(s + d + i) / len(ref):6.1%}  sub {s:3d} del {d:3d} ins {i:3d}  "
+            f"(ref {len(ref)}, hyp {len(hyp)})"
+        )
 
 
 if __name__ == "__main__":

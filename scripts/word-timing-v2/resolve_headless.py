@@ -23,7 +23,9 @@ import time
 from pathlib import Path
 
 APP = "/Applications/DaVinci Resolve/DaVinci Resolve.app"
-SCRIPT_API = "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting"
+SCRIPT_API = (
+    "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting"
+)
 SCRIPT_LIB = f"{APP}/Contents/Libraries/Fusion/fusionscript.so"
 
 
@@ -31,7 +33,7 @@ def connect(timeout: float) -> object | None:
     os.environ.setdefault("RESOLVE_SCRIPT_API", SCRIPT_API)
     os.environ.setdefault("RESOLVE_SCRIPT_LIB", SCRIPT_LIB)
     sys.path.append(f"{SCRIPT_API}/Modules")
-    import DaVinciResolveScript as dvr  # noqa: PLC0415
+    import DaVinciResolveScript as dvr
 
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -54,12 +56,17 @@ def main() -> None:
     resolve = connect(5)
     launched = None
     if resolve is None:
-        launched = subprocess.Popen([f"{APP}/Contents/MacOS/Resolve", "-nogui"],
-                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        launched = subprocess.Popen(
+            [f"{APP}/Contents/MacOS/Resolve", "-nogui"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         resolve = connect(240)
         if resolve is None:
             launched.terminate()
-            raise SystemExit("could not connect to Resolve (is External scripting set to Local?)")
+            raise SystemExit(
+                "could not connect to Resolve (is External scripting set to Local?)"
+            )
     timings["startAndConnect"] = time.monotonic() - t0
 
     pm = resolve.GetProjectManager()
@@ -90,12 +97,22 @@ def main() -> None:
         raise SystemExit(f"transcription did not complete: {status}")
 
     transcription = clip.GetTranscription()
-    args.out.write_text(json.dumps({
-        "clipProps": {k: clip.GetClipProperty(k) for k in ("FPS", "Start TC", "Duration")},
-        "projectFps": project.GetSetting("timelineFrameRate"),
-        "transcriptionLanguage": project.GetSetting("transcriptionLanguage"),
-        "resolveVersion": resolve.GetVersionString(), "headless": launched is not None,
-        "timingsSec": timings, "transcription": transcription}, indent=1))
+    args.out.write_text(
+        json.dumps(
+            {
+                "clipProps": {
+                    k: clip.GetClipProperty(k) for k in ("FPS", "Start TC", "Duration")
+                },
+                "projectFps": project.GetSetting("timelineFrameRate"),
+                "transcriptionLanguage": project.GetSetting("transcriptionLanguage"),
+                "resolveVersion": resolve.GetVersionString(),
+                "headless": launched is not None,
+                "timingsSec": timings,
+                "transcription": transcription,
+            },
+            indent=1,
+        )
+    )
 
     pm.CloseProject(project)
     deleted = pm.DeleteProject(name)
@@ -106,9 +123,19 @@ def main() -> None:
         except subprocess.TimeoutExpired:
             launched.terminate()
     timings["total"] = time.monotonic() - t0
-    words = sum(len(s.get("words", [])) for s in (transcription or {}).get("segments", []))
-    print(json.dumps({"headless": launched is not None, "projectDeleted": deleted, "items": words,
-                      "timingsSec": {k: round(v, 1) for k, v in timings.items()}}))
+    words = sum(
+        len(s.get("words", [])) for s in (transcription or {}).get("segments", [])
+    )
+    print(
+        json.dumps(
+            {
+                "headless": launched is not None,
+                "projectDeleted": deleted,
+                "items": words,
+                "timingsSec": {k: round(v, 1) for k, v in timings.items()},
+            }
+        )
+    )
 
 
 if __name__ == "__main__":

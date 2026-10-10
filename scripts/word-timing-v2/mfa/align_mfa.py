@@ -5,8 +5,20 @@
     python align_mfa.py --segments S.json --audio-dir DIR --out R.json \
     --variant english_us_arpa|english_mfa
 """
-import argparse, hashlib, json, os, resource, shutil, subprocess, sys, tempfile, time, wave
+
+import argparse
+import hashlib
+import json
+import os
+import resource
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import wave
 from pathlib import Path
+
 import numpy as np
 
 HOME = Path.home() / ".local/share/vera/word-timing-v2"
@@ -14,10 +26,18 @@ ROOT = Path(os.environ.get("MFA_ROOT_DIR", HOME / "cache/mfa")).expanduser()
 PM = ROOT / "pretrained_models"
 # variant -> (acoustic zip, dictionary, g2p zip, dictionary release tag, acoustic tag, g2p tag)
 VARIANTS = {
-    "english_us_arpa": dict(acoustic="english_us_arpa", dictionary="english_us_arpa", g2p="english_us_arpa",
-                            versions={"acoustic": "3.0.0", "dictionary": "3.0.0", "g2p": "2.0.0"}),
-    "english_mfa": dict(acoustic="english_mfa", dictionary="english_us_mfa", g2p="english_us_mfa",
-                        versions={"acoustic": "3.1.0", "dictionary": "3.1.0", "g2p": "3.0.0"}),
+    "english_us_arpa": dict(
+        acoustic="english_us_arpa",
+        dictionary="english_us_arpa",
+        g2p="english_us_arpa",
+        versions={"acoustic": "3.0.0", "dictionary": "3.0.0", "g2p": "2.0.0"},
+    ),
+    "english_mfa": dict(
+        acoustic="english_mfa",
+        dictionary="english_us_mfa",
+        g2p="english_us_mfa",
+        versions={"acoustic": "3.1.0", "dictionary": "3.1.0", "g2p": "3.0.0"},
+    ),
 }
 
 
@@ -35,9 +55,12 @@ def main():
     ap.add_argument("--audio-dir", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--variant", default="english_us_arpa", choices=list(VARIANTS))
-    ap.add_argument("--extra-dict", default=None,
-                    help="extra pronunciations (word<TAB>phones lines, see guide_dict.py); they REPLACE the variant "
-                         "dictionary's entries for those words")
+    ap.add_argument(
+        "--extra-dict",
+        default=None,
+        help="extra pronunciations (word<TAB>phones lines, see guide_dict.py); they REPLACE the variant "
+        "dictionary's entries for those words",
+    )
     ap.add_argument("-j", "--jobs", type=int, default=min(4, os.cpu_count() or 1))
     a = ap.parse_args()
     v = VARIANTS[a.variant]
@@ -58,9 +81,13 @@ def main():
     for s in segs:
         a0, a1 = int(round(s["start"] * sr)), int(round(s["end"] * sr))
         with wave.open(str(corpus / f"{s['id']}.wav"), "wb") as w:
-            w.setnchannels(nch); w.setsampwidth(2); w.setframerate(sr)
+            w.setnchannels(nch)
+            w.setsampwidth(2)
+            w.setframerate(sr)
             w.writeframes(np.ascontiguousarray(pcm[a0:a1]).tobytes())
-        (corpus / f"{s['id']}.lab").write_text(" ".join(x["text"] for x in s["words"]) + "\n")
+        (corpus / f"{s['id']}.lab").write_text(
+            " ".join(x["text"] for x in s["words"]) + "\n"
+        )
 
     dict_arg, extra_info = v["dictionary"], None
     if a.extra_dict:
@@ -69,7 +96,11 @@ def main():
             if line.strip():
                 w, _, ph = line.partition("\t")
                 extra[w] = ph.strip()
-        base = (PM / "dictionary" / f"{v['dictionary']}.dict").read_text(encoding="utf-8").splitlines(keepends=True)
+        base = (
+            (PM / "dictionary" / f"{v['dictionary']}.dict")
+            .read_text(encoding="utf-8")
+            .splitlines(keepends=True)
+        )
         # extra words replace the stock entries (not appended as alternatives), so the guide pronunciation is the only one
         merged = tmp / "merged.dict"
         with open(merged, "w", encoding="utf-8") as f:
@@ -77,18 +108,38 @@ def main():
             for w, ph in extra.items():
                 f.write(f"{w}\t{ph}\n")
         dict_arg = str(merged)
-        extra_info = {"sha256": sha256(a.extra_dict), "entries": extra, "mode": "replace-stock-entries"}
+        extra_info = {
+            "sha256": sha256(a.extra_dict),
+            "entries": extra,
+            "mode": "replace-stock-entries",
+        }
 
-    cmd = [mfa, "align", str(corpus), dict_arg, v["acoustic"], str(outd),
-           "--g2p_model_path", str(PM / "g2p" / f"{v['g2p']}.zip"),
-           "--single_speaker", "--clean", "--final_clean", "-j", str(a.jobs),
-           "--temporary_directory", str(tdir), "--output_format", "long_textgrid"]
+    cmd = [
+        mfa,
+        "align",
+        str(corpus),
+        dict_arg,
+        v["acoustic"],
+        str(outd),
+        "--g2p_model_path",
+        str(PM / "g2p" / f"{v['g2p']}.zip"),
+        "--single_speaker",
+        "--clean",
+        "--final_clean",
+        "-j",
+        str(a.jobs),
+        "--temporary_directory",
+        str(tdir),
+        "--output_format",
+        "long_textgrid",
+    ]
     r = subprocess.run(cmd, env=env, capture_output=True, text=True)
     log = HOME / "cache" / f"mfa-last-{a.variant}.log"
     log.write_text(r.stdout + "\n" + r.stderr)
     rss = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss  # bytes on macOS
 
     from praatio import textgrid as tg
+
     rows = []
     for s in segs:
         words = s["words"]
@@ -108,25 +159,53 @@ def main():
             if iv is None or iv.label.strip().lower() in ("<unk>", "spn"):
                 row.update(start=None, end=None, status="failed")
             else:
-                row.update(start=round(s["start"] + iv.start + offset, 3),
-                           end=round(s["start"] + iv.end + offset, 3), status="aligned")
+                row.update(
+                    start=round(s["start"] + iv.start + offset, 3),
+                    end=round(s["start"] + iv.end + offset, 3),
+                    status="aligned",
+                )
             rows.append(row)
 
     models = []
-    for kind, sub, ext in (("acoustic", "acoustic", ".zip"), ("dictionary", "dictionary", ".dict"), ("g2p", "g2p", ".zip")):
+    for kind, sub, ext in (
+        ("acoustic", "acoustic", ".zip"),
+        ("dictionary", "dictionary", ".dict"),
+        ("g2p", "g2p", ".zip"),
+    ):
         p = PM / sub / f"{v[kind]}{ext}"
-        models.append({"id": f"{kind}/{v[kind]}", "revision": "v" + v["versions"][kind], "sha256": sha256(p)})
-    mfa_ver = subprocess.run([mfa, "version"], env=env, capture_output=True, text=True).stdout.strip()
-    out = {"aligner": "A-MFA", "variant": a.variant, "words": rows, "provenance": {
-        "packages": {"montreal-forced-aligner": mfa_ver},
-        "models": models,
-        "settings": {"frameMs": 10, "beam": "default(10)", "retry_beam": "default(40)", "single_speaker": True,
-                     "jobs": a.jobs, "g2p_for_oov": True, "mfaExitCode": r.returncode,
-                     **({"extraDict": extra_info} if extra_info else {}),
-                     "peakRssNote": "resource.RUSAGE_CHILDREN ru_maxrss: largest single waited-for descendant, not a summed tree"},
-        "platform": "darwin x86_64 native (micromamba env mfa)",
-        "wallSeconds": round(time.time() - t0, 2),
-        "peakRssBytes": int(rss)}}
+        models.append(
+            {
+                "id": f"{kind}/{v[kind]}",
+                "revision": "v" + v["versions"][kind],
+                "sha256": sha256(p),
+            }
+        )
+    mfa_ver = subprocess.run(
+        [mfa, "version"], env=env, capture_output=True, text=True
+    ).stdout.strip()
+    out = {
+        "aligner": "A-MFA",
+        "variant": a.variant,
+        "words": rows,
+        "provenance": {
+            "packages": {"montreal-forced-aligner": mfa_ver},
+            "models": models,
+            "settings": {
+                "frameMs": 10,
+                "beam": "default(10)",
+                "retry_beam": "default(40)",
+                "single_speaker": True,
+                "jobs": a.jobs,
+                "g2p_for_oov": True,
+                "mfaExitCode": r.returncode,
+                **({"extraDict": extra_info} if extra_info else {}),
+                "peakRssNote": "resource.RUSAGE_CHILDREN ru_maxrss: largest single waited-for descendant, not a summed tree",
+            },
+            "platform": "darwin x86_64 native (micromamba env mfa)",
+            "wallSeconds": round(time.time() - t0, 2),
+            "peakRssBytes": int(rss),
+        },
+    }
     json.dump(out, open(a.out, "w"), indent=1)
     shutil.rmtree(tmp, ignore_errors=True)
     if r.returncode:

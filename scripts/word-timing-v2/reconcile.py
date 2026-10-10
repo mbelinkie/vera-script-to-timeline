@@ -56,8 +56,21 @@ NEARBY = 3
 def sound_key(word: str) -> str:
     """Crude spelling-independent key: fold accents and common sound-alikes."""
     w = word.casefold()
-    for a, b in (("ä", "a"), ("ö", "o"), ("å", "a"), ("é", "e"), ("j", "y"), ("ph", "f"), ("ck", "k"),
-                 ("c", "k"), ("q", "k"), ("z", "s"), ("ts", "st"), ("ai", "ay"), ("ei", "ay")):
+    for a, b in (
+        ("ä", "a"),
+        ("ö", "o"),
+        ("å", "a"),
+        ("é", "e"),
+        ("j", "y"),
+        ("ph", "f"),
+        ("ck", "k"),
+        ("c", "k"),
+        ("q", "k"),
+        ("z", "s"),
+        ("ts", "st"),
+        ("ai", "ay"),
+        ("ei", "ay"),
+    ):
         w = w.replace(a, b)
     return re.sub(r"(.)\1+", r"\1", w)
 
@@ -65,14 +78,19 @@ def sound_key(word: str) -> str:
 def similar(a: str, b: str) -> bool:
     if min(len(a), len(b)) < 3:
         return False
-    return difflib.SequenceMatcher(None, sound_key(a), sound_key(b)).ratio() >= SOUNDALIKE_RATIO
+    return (
+        difflib.SequenceMatcher(None, sound_key(a), sound_key(b)).ratio()
+        >= SOUNDALIKE_RATIO
+    )
 
 
 def script_units(prompter: dict) -> list[dict]:
     names = {t.casefold() for term in prompter["keyterms"] for t in term.split()}
     units = []
     for w in prompter["words"]:
-        is_name = (w["display"].casefold() in names or "guide" in w or not w["inDictionary"])
+        is_name = (
+            w["display"].casefold() in names or "guide" in w or not w["inDictionary"]
+        )
         for spoken in w["spoken"]:
             units.append({"text": spoken, "display": w["display"], "name": is_name})
     return units
@@ -85,7 +103,14 @@ def align(hyp: list[str], script: list[dict]) -> list[int | None]:
     f = [0.0] + [neg] * n_s
     back: list[list[tuple[int, int | None]]] = []
     for word in hyp:
-        pair = [EXACT if word == u["text"] else SOUNDALIKE if similar(word, u["text"]) else MISMATCH for u in script]
+        pair = [
+            EXACT
+            if word == u["text"]
+            else SOUNDALIKE
+            if similar(word, u["text"])
+            else MISMATCH
+            for u in script
+        ]
         new = [neg] * (n_s + 1)
         choice: list[tuple[int, int | None]] = [(0, None)] * (n_s + 1)
         for p1 in range(n_s + 1):  # stay: insert this word
@@ -100,8 +125,8 @@ def align(hyp: list[str], script: list[dict]) -> list[int | None]:
                 suffix_best[q], suffix_arg[q] = f[q], q
             else:
                 suffix_best[q], suffix_arg[q] = suffix_best[q + 1], suffix_arg[q + 1]
-        lin_best, lin_arg = neg, 0      # max over q < j of f[q] + SKIP*q
-        pre_best, pre_arg = neg, 0      # max over q < j of f[q]
+        lin_best, lin_arg = neg, 0  # max over q < j of f[q] + SKIP*q
+        pre_best, pre_arg = neg, 0  # max over q < j of f[q]
         for j in range(n_s):
             cands = [(f[j], j), (suffix_best[j + 1] - JUMP, suffix_arg[j + 1])]
             if lin_best > neg:
@@ -148,30 +173,65 @@ def main() -> None:
         if j is None:
             # Unaligned (a repeat, fragment or false start): look for a name near
             # where the reading was, within NEARBY positions of its aligned neighbours.
-            near = [m for m in mapping[max(0, n - 3):n + 4] if m is not None]
-            pool = {k for m in near for k in range(max(0, m - NEARBY), min(len(script), m + NEARBY + 1))}
-            hits = [k for k in sorted(pool) if script[k]["name"] and similar(w["text"], script[k]["text"])]
+            near = [m for m in mapping[max(0, n - 3) : n + 4] if m is not None]
+            pool = {
+                k
+                for m in near
+                for k in range(max(0, m - NEARBY), min(len(script), m + NEARBY + 1))
+            }
+            hits = [
+                k
+                for k in sorted(pool)
+                if script[k]["name"] and similar(w["text"], script[k]["text"])
+            ]
             target = hits[0] if hits else None
-        if target is not None and script[target]["name"] and w["text"] != script[target]["text"] \
-                and similar(w["text"], script[target]["text"]) \
-                and not (w["text"] in dictionary and script[target]["text"] in dictionary):
+        if (
+            target is not None
+            and script[target]["name"]
+            and w["text"] != script[target]["text"]
+            and similar(w["text"], script[target]["text"])
+            and not (w["text"] in dictionary and script[target]["text"] in dictionary)
+        ):
             w["text"] = script[target]["text"]
             w["scriptSpelling"] = script[target]["display"]
             changed += 1
     aligned = sum(j is not None for j in mapping)
-    out = {"source": tc["source"].replace("T-C-", "T-CR-"), "provider": tc.get("provider"), "model": tc.get("model"),
-           "words": [{"k": n, **{k: v for k, v in w.items() if k != "k"}} for n, w in enumerate(words)],
-           "transcript": " ".join(w["text"] for w in words),
-           "fields": {"text": "spelling for matching and timing (script spelling for sound-alike names)",
-                      "heard": "recogniser's own word: presenter-fidelity evidence for the take stage; "
-                               "misreadings and mispronounced names show here"},
-           "provenance": {"reconciledFrom": args.tc.name, "prompter": args.prompter.name,
-                          "weights": {"exact": EXACT, "soundalike": SOUNDALIKE, "mismatch": MISMATCH,
-                                      "insert": INSERT, "skip": SKIP, "jump": JUMP, "ratio": SOUNDALIKE_RATIO},
-                          "alignedToScript": aligned, "inserted": len(words) - aligned, "nameSpellingsChanged": changed}}
+    out = {
+        "source": tc["source"].replace("T-C-", "T-CR-"),
+        "provider": tc.get("provider"),
+        "model": tc.get("model"),
+        "words": [
+            {"k": n, **{k: v for k, v in w.items() if k != "k"}}
+            for n, w in enumerate(words)
+        ],
+        "transcript": " ".join(w["text"] for w in words),
+        "fields": {
+            "text": "spelling for matching and timing (script spelling for sound-alike names)",
+            "heard": "recogniser's own word: presenter-fidelity evidence for the take stage; "
+            "misreadings and mispronounced names show here",
+        },
+        "provenance": {
+            "reconciledFrom": args.tc.name,
+            "prompter": args.prompter.name,
+            "weights": {
+                "exact": EXACT,
+                "soundalike": SOUNDALIKE,
+                "mismatch": MISMATCH,
+                "insert": INSERT,
+                "skip": SKIP,
+                "jump": JUMP,
+                "ratio": SOUNDALIKE_RATIO,
+            },
+            "alignedToScript": aligned,
+            "inserted": len(words) - aligned,
+            "nameSpellingsChanged": changed,
+        },
+    }
     args.out.write_text(json.dumps(out, indent=1, ensure_ascii=False))
-    print(f'{out["source"]}: {aligned}/{len(words)} heard words aligned to script, '
-          f'{len(words) - aligned} inserted, {changed} name spellings taken from script')
+    print(
+        f"{out['source']}: {aligned}/{len(words)} heard words aligned to script, "
+        f"{len(words) - aligned} inserted, {changed} name spellings taken from script"
+    )
 
 
 if __name__ == "__main__":

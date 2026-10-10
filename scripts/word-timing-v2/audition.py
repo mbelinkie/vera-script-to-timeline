@@ -51,9 +51,13 @@ def read_markers(path: Path) -> list[tuple[float, float, str, str]]:
             continue
         cols = (line.split("\t") + [""] * 6)[:6]
         if cols[3].strip() and cols[3].strip() != "decimal":
-            raise SystemExit(f"{path.name}: time format '{cols[3]}' unsupported; set the Markers panel to Decimal")
+            raise SystemExit(
+                f"{path.name}: time format '{cols[3]}' unsupported; set the Markers panel to Decimal"
+            )
         start = parse_time(cols[1])
-        rows.append((start, start + parse_time(cols[2]), cols[0].strip(), cols[5].strip()))
+        rows.append(
+            (start, start + parse_time(cols[2]), cols[0].strip(), cols[5].strip())
+        )
     return sorted(rows, key=lambda r: (r[0], r[1]))
 
 
@@ -63,7 +67,9 @@ def export(words: Path, check: Path, out: Path) -> None:
     for line in check.read_text().splitlines():
         start, end, text = line.split("\t", 2)
         if text.startswith(("SPEECH WITH NO WORD", "MISSING")):
-            extras.append((float(start), max(float(end), float(start) + 0.05), PLACEHOLDER, text))
+            extras.append(
+                (float(start), max(float(end), float(start) + 0.05), PLACEHOLDER, text)
+            )
         else:
             flags[(start, end)] = text.split(": ", 1)[1] if ": " in text else text
     rows = []
@@ -73,10 +79,14 @@ def export(words: Path, check: Path, out: Path) -> None:
     rows += extras
     rows.sort(key=lambda r: (r[0], r[1]))
     body = ["\t".join(HEADER)] + [
-        "\t".join([name, fmt(s), fmt(e - s), "decimal", "Cue", desc]) for s, e, name, desc in rows]
+        "\t".join([name, fmt(s), fmt(e - s), "decimal", "Cue", desc])
+        for s, e, name, desc in rows
+    ]
     out.write_text("\r\n".join(body) + "\r\n", encoding="utf-8-sig")
-    print(f"{len(rows)} markers ({len(extras)} '{PLACEHOLDER}' placeholders, "
-          f"{sum(1 for r in rows if r[3] and r[2] != PLACEHOLDER)} flagged words) -> {out.name}")
+    print(
+        f"{len(rows)} markers ({len(extras)} '{PLACEHOLDER}' placeholders, "
+        f"{sum(1 for r in rows if r[3] and r[2] != PLACEHOLDER)} flagged words) -> {out.name}"
+    )
 
 
 def main() -> None:

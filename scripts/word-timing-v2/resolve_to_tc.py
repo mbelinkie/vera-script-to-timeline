@@ -29,7 +29,7 @@ def main() -> None:
     raw = json.loads(args.raw.read_text())
     fps = float(raw["clipProps"]["FPS"])
     if raw["clipProps"]["Start TC"].strip(":0"):
-        raise SystemExit(f'clip does not start at zero: {raw["clipProps"]["Start TC"]}')
+        raise SystemExit(f"clip does not start at zero: {raw['clipProps']['Start TC']}")
     words = []
     for seg in raw["transcription"]["segments"]:
         for w in seg.get("words", []):
@@ -37,15 +37,38 @@ def main() -> None:
             if text == "(...)" or not text:
                 continue
             kind = "event" if text.startswith("(") and text.endswith(")") else "word"
-            words.append({"k": len(words), "text": text, "start": round(tc_seconds(w["start"], fps), 3),
-                          "end": round(tc_seconds(w["end"], fps), 3), "type": kind, "confidence": None})
-    args.out.write_text(json.dumps({
-        "source": "T-C-resolve", "provider": "DaVinci Resolve Studio", "model": f'Resolve {raw["resolveVersion"]} TranscribeAudio',
-        "words": words, "transcript": " ".join(w["text"] for w in words if w["type"] == "word"),
-        "provenance": {"frameRate": fps, "resolutionMs": round(1000 / fps, 2), "language": raw["transcriptionLanguage"],
-                       "speakerDetection": False, "notes": "word start/end are Resolve timecodes at the clip frame rate"}},
-        indent=1))
-    print(f'{sum(w["type"] == "word" for w in words)} words, {sum(w["type"] == "event" for w in words)} events')
+            words.append(
+                {
+                    "k": len(words),
+                    "text": text,
+                    "start": round(tc_seconds(w["start"], fps), 3),
+                    "end": round(tc_seconds(w["end"], fps), 3),
+                    "type": kind,
+                    "confidence": None,
+                }
+            )
+    args.out.write_text(
+        json.dumps(
+            {
+                "source": "T-C-resolve",
+                "provider": "DaVinci Resolve Studio",
+                "model": f"Resolve {raw['resolveVersion']} TranscribeAudio",
+                "words": words,
+                "transcript": " ".join(w["text"] for w in words if w["type"] == "word"),
+                "provenance": {
+                    "frameRate": fps,
+                    "resolutionMs": round(1000 / fps, 2),
+                    "language": raw["transcriptionLanguage"],
+                    "speakerDetection": False,
+                    "notes": "word start/end are Resolve timecodes at the clip frame rate",
+                },
+            },
+            indent=1,
+        )
+    )
+    print(
+        f"{sum(w['type'] == 'word' for w in words)} words, {sum(w['type'] == 'event' for w in words)} events"
+    )
 
 
 if __name__ == "__main__":

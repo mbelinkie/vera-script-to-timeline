@@ -14,7 +14,13 @@ Rules: `whole`: drop hyphens, G2P the joined respelling ("bahra").
 Only the first (best) G2P pronunciation is used. G2P runs in a private MFA root/temp dir, so it can
 run while other MFA jobs use the shared cache.
 """
-import argparse, json, os, subprocess, sys, tempfile
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -34,9 +40,23 @@ def g2p_first(words, variant, work):
     inp, outp = work / "words.txt", work / "g2p.out"
     inp.write_text("\n".join(sorted(set(words))) + "\n")
     mfa = str(Path(sys.executable).parent / "mfa")
-    r = subprocess.run([mfa, "g2p", str(inp), str(PM / "g2p" / f"{v['g2p']}.zip"), str(outp),
-                        "--clean", "--num_pronunciations", "1", "--temporary_directory", str(work / "tmp")],
-                       env=dict(os.environ, MFA_ROOT_DIR=str(root)), capture_output=True, text=True)
+    r = subprocess.run(
+        [
+            mfa,
+            "g2p",
+            str(inp),
+            str(PM / "g2p" / f"{v['g2p']}.zip"),
+            str(outp),
+            "--clean",
+            "--num_pronunciations",
+            "1",
+            "--temporary_directory",
+            str(work / "tmp"),
+        ],
+        env=dict(os.environ, MFA_ROOT_DIR=str(root)),
+        capture_output=True,
+        text=True,
+    )
     if r.returncode or not outp.exists():
         sys.exit("mfa g2p failed:\n" + r.stdout[-2000:] + r.stderr[-2000:])
     res = {}
@@ -54,7 +74,10 @@ def build(guides, variant, rule, work):
         if word in spell:
             continue
         spell[word] = g["guide"].lower()
-    parts = {w: ([s.replace("-", "")] if rule == "whole" else [p for p in s.split("-") if p]) for w, s in spell.items()}
+    parts = {
+        w: ([s.replace("-", "")] if rule == "whole" else [p for p in s.split("-") if p])
+        for w, s in spell.items()
+    }
     g2p = g2p_first([p for ps in parts.values() for p in ps], variant, work)
     for w, ps in parts.items():
         entries[w] = " ".join(g2p[p] for p in ps)

@@ -35,10 +35,12 @@ def main() -> None:
     parser.add_argument("--out-dir", type=Path, required=True)
     args = parser.parse_args()
 
-    entries = [w for s in json.loads(args.segments.read_text())["segments"] for w in s["words"]]
+    entries = [
+        w for s in json.loads(args.segments.read_text())["segments"] for w in s["words"]
+    ]
     results = [json.loads(p.read_text()) for p in args.results]
     by_system = [{key(r): r for r in res["words"]} for res in results]
-    names = [f'{r["aligner"]}:{r.get("variant") or ""}'.rstrip(":") for r in results]
+    names = [f"{r['aligner']}:{r.get('variant') or ''}".rstrip(":") for r in results]
 
     words = []
     checks: list[tuple[float, float, str]] = []
@@ -46,7 +48,11 @@ def main() -> None:
         k = key(entry)
         rows = [table.get(k) for table in by_system]
         ok = [r for r in rows if r and r.get("status") == "aligned"]
-        label = str(entry["text"]) if "sub" not in entry else f'{entry["text"]}[{entry["display"]}]'
+        label = (
+            str(entry["text"])
+            if "sub" not in entry
+            else f"{entry['text']}[{entry['display']}]"
+        )
         if not ok:
             words.append({"label": label, "missing": True})
             continue
@@ -74,7 +80,13 @@ def main() -> None:
     last_end = 0.0
     for w in words:
         if w.get("missing"):
-            checks.append((last_end, last_end, f'MISSING {w["label"]}: no aligner placed it, add a region'))
+            checks.append(
+                (
+                    last_end,
+                    last_end,
+                    f"MISSING {w['label']}: no aligner placed it, add a region",
+                )
+            )
         else:
             last_end = w["end"]
 
@@ -84,7 +96,9 @@ def main() -> None:
         if before >= TAKE_EDGE_PAUSE_SEC or after >= TAKE_EDGE_PAUSE_SEC:
             w["reasons"].append("possible take edge")
         if w["reasons"]:
-            checks.append((w["start"], w["end"], f'{w["label"]}: {", ".join(w["reasons"])}'))
+            checks.append(
+                (w["start"], w["end"], f"{w['label']}: {', '.join(w['reasons'])}")
+            )
 
     # Speech the VAD heard that no word covers: a stumble may need adding.
     for s, e in json.loads(args.vad.read_text())["speechRegions"]:
@@ -97,16 +111,28 @@ def main() -> None:
             cursor = max(cursor, w["end"])
         if e - cursor >= MIN_MISSED_SPEECH_SEC:
             holes.append((cursor, e))
-        checks.extend((a, b, "SPEECH WITH NO WORD: add FRAG/REP/FILLER if a stumble") for a, b in holes)
+        checks.extend(
+            (a, b, "SPEECH WITH NO WORD: add FRAG/REP/FILLER if a stumble")
+            for a, b in holes
+        )
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     (args.out_dir / f"{args.name}-words.txt").write_text(
-        "".join(f'{w["start"]:.6f}\t{w["end"]:.6f}\t{w["label"]}\n' for w in placed))
+        "".join(f"{w['start']:.6f}\t{w['end']:.6f}\t{w['label']}\n" for w in placed)
+    )
     (args.out_dir / f"{args.name}-check.txt").write_text(
-        "".join(f"{a:.6f}\t{b:.6f}\t{t}\n" for a, b, t in sorted(checks)))
-    summary = {"systems": names, "words": len(entries), "placed": len(placed), "checks": len(checks),
-               "speechWithNoWord": sum(1 for c in checks if c[2].startswith("SPEECH"))}
-    (args.out_dir / f"{args.name}-prefill-summary.json").write_text(json.dumps(summary, indent=1))
+        "".join(f"{a:.6f}\t{b:.6f}\t{t}\n" for a, b, t in sorted(checks))
+    )
+    summary = {
+        "systems": names,
+        "words": len(entries),
+        "placed": len(placed),
+        "checks": len(checks),
+        "speechWithNoWord": sum(1 for c in checks if c[2].startswith("SPEECH")),
+    }
+    (args.out_dir / f"{args.name}-prefill-summary.json").write_text(
+        json.dumps(summary, indent=1)
+    )
     print(json.dumps(summary))
 
 

@@ -50,7 +50,15 @@ def load_key(path: Path) -> list[KeyWord]:
             raise SystemExit(f"unreadable key label {name!r}")
         raw = re.sub(r"\[[^\]]*\]$", "", match["word"])
         spoken = normalise_token(raw)
-        words.append(KeyWord(spoken[0] if spoken else raw.casefold(), start, end, match["tag"], bool(match["unsure"])))
+        words.append(
+            KeyWord(
+                spoken[0] if spoken else raw.casefold(),
+                start,
+                end,
+                match["tag"],
+                bool(match["unsure"]),
+            )
+        )
     for n, w in enumerate(words):
         before = w.start - words[n - 1].end if n else math.inf
         after = words[n + 1].start - w.end if n + 1 < len(words) else math.inf
@@ -67,7 +75,9 @@ def load_independent(path: Path, key: list[KeyWord]) -> list[KeyWord]:
       private data (both sides take the stratum).
     """
     if path.suffix.lower() == ".csv":
-        manifest = json.loads((path.parents[2] / "rec-b" / "blind-manifest.json").read_text())
+        manifest = json.loads(
+            (path.parents[2] / "rec-b" / "blind-manifest.json").read_text()
+        )
         strata = {m["number"]: m["stratum"] for m in manifest["words"]}
         out = []
         for s, e, name, _ in read_markers(path):
@@ -75,7 +85,9 @@ def load_independent(path: Path, key: list[KeyWord]) -> list[KeyWord]:
             if word == "skip":
                 continue
             stratum = strata[int(number)]
-            out.append(KeyWord(normalise_token(word)[0], s, e, None, False, stratum, stratum))
+            out.append(
+                KeyWord(normalise_token(word)[0], s, e, None, False, stratum, stratum)
+            )
         return sorted(out, key=lambda k: k.start)
     data = json.loads(path.read_text())
     out = []
@@ -84,23 +96,59 @@ def load_independent(path: Path, key: list[KeyWord]) -> list[KeyWord]:
         if len(spoken) != 1:
             continue
         s, e = t["startMs"] / 1000, t["endMs"] / 1000
-        near = [k for k in key if canon(k.text) == canon(spoken[0]) and abs((k.start + k.end) / 2 - (s + e) / 2) <= WINDOW_SEC]
-        k = min(near, key=lambda k: abs((k.start + k.end) / 2 - (s + e) / 2)) if near else None
-        out.append(KeyWord(spoken[0], s, e, None, False,
-                           k.onset_class if k else "unclassified", k.offset_class if k else "unclassified"))
+        near = [
+            k
+            for k in key
+            if canon(k.text) == canon(spoken[0])
+            and abs((k.start + k.end) / 2 - (s + e) / 2) <= WINDOW_SEC
+        ]
+        k = (
+            min(near, key=lambda k: abs((k.start + k.end) / 2 - (s + e) / 2))
+            if near
+            else None
+        )
+        out.append(
+            KeyWord(
+                spoken[0],
+                s,
+                e,
+                None,
+                False,
+                k.onset_class if k else "unclassified",
+                k.offset_class if k else "unclassified",
+            )
+        )
     return sorted(out, key=lambda k: k.start)
 
 
 def classify(gap: float) -> str:
-    return "phrase_edge" if gap >= PHRASE_EDGE_SEC else "pause_adjacent" if gap >= PAUSE_SEC else "connected"
+    return (
+        "phrase_edge"
+        if gap >= PHRASE_EDGE_SEC
+        else "pause_adjacent"
+        if gap >= PAUSE_SEC
+        else "connected"
+    )
 
 
-def system_words_from_result(result: dict, segments: dict) -> list[tuple[str, float, float]]:
-    entries = {(int(e["i"]), int(e.get("sub", 0))): e["text"] for s in segments["segments"] for e in s["words"]}
+def system_words_from_result(
+    result: dict, segments: dict
+) -> list[tuple[str, float, float]]:
+    entries = {
+        (int(e["i"]), int(e.get("sub", 0))): e["text"]
+        for s in segments["segments"]
+        for e in s["words"]
+    }
     out = []
     for row in result["words"]:
         if row.get("status") == "aligned" and row["start"] is not None:
-            out.append((entries[(int(row["i"]), int(row.get("sub", 0)))], float(row["start"]), float(row["end"])))
+            out.append(
+                (
+                    entries[(int(row["i"]), int(row.get("sub", 0)))],
+                    float(row["start"]),
+                    float(row["end"]),
+                )
+            )
     return out
 
 
@@ -135,7 +183,9 @@ def match(key: list[KeyWord], words: list[tuple[str, float, float]]) -> dict[int
             if (s + e) / 2 > mid + WINDOW_SEC:
                 break
             if canon(text) == canon(k.text) and abs((s + e) / 2 - mid) <= WINDOW_SEC:
-                if best is None or abs((s + e) / 2 - mid) < abs(sum(words[best][1:]) / 2 - mid):
+                if best is None or abs((s + e) / 2 - mid) < abs(
+                    sum(words[best][1:]) / 2 - mid
+                ):
                     best = j
         if best is not None:
             pairs[n] = best
@@ -151,7 +201,9 @@ def upper95(k: int, n: int) -> float:
     lo, hi = k / n, 1.0
     for _ in range(60):
         mid = (lo + hi) / 2
-        tail = sum(math.comb(n, j) * mid**j * (1 - mid) ** (n - j) for j in range(k + 1))
+        tail = sum(
+            math.comb(n, j) * mid**j * (1 - mid) ** (n - j) for j in range(k + 1)
+        )
         lo, hi = (mid, hi) if tail > 0.05 else (lo, mid)
     return hi
 
@@ -166,18 +218,35 @@ def stats(errors: list[float]) -> dict[str, float]:
 
     over = sum(a > OVER_MS for a in absolute)
     gross = sum(a > GROSS_MS for a in absolute)
-    return {"n": len(errors), "median": statistics.median(absolute), "p90": pct(0.9), "p95": pct(0.95),
-            "max": absolute[-1], "bias": statistics.mean(errors), "over120": over,
-            "over120Share": over / len(errors), "over120Upper95": upper95(over, len(errors)),
-            "over150Share": gross / len(errors)}
+    return {
+        "n": len(errors),
+        "median": statistics.median(absolute),
+        "p90": pct(0.9),
+        "p95": pct(0.95),
+        "max": absolute[-1],
+        "bias": statistics.mean(errors),
+        "over120": over,
+        "over120Share": over / len(errors),
+        "over120Upper95": upper95(over, len(errors)),
+        "over150Share": gross / len(errors),
+    }
 
 
-def boundary_errors(key: list[KeyWord], words: list[tuple[str, float, float]], pairs: dict[int, int]) -> dict:
+def boundary_errors(
+    key: list[KeyWord], words: list[tuple[str, float, float]], pairs: dict[int, int]
+) -> dict:
     groups: dict[str, list[float]] = {}
     for n, j in pairs.items():
         k, (_, s, e) = key[n], words[j]
-        for side, err, cls in (("onset", (s - k.start) * 1000, k.onset_class), ("offset", (e - k.end) * 1000, k.offset_class)):
-            for name in (f"{side}/all", f"{side}/{cls}", *([f"{side}/unsure"] if k.unsure else [])):
+        for side, err, cls in (
+            ("onset", (s - k.start) * 1000, k.onset_class),
+            ("offset", (e - k.end) * 1000, k.offset_class),
+        ):
+            for name in (
+                f"{side}/all",
+                f"{side}/{cls}",
+                *([f"{side}/unsure"] if k.unsure else []),
+            ):
                 groups.setdefault(name, []).append(err)
     return {name: stats(errs) for name, errs in sorted(groups.items())}
 
@@ -188,29 +257,43 @@ def wer(key: list[KeyWord], words: list[tuple[str, float, float]]) -> dict[str, 
     for i in range(1, len(ref) + 1):
         cur = [i] + [0] * len(hyp)
         for j in range(1, len(hyp) + 1):
-            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ref[i - 1] != hyp[j - 1]))
+            cur[j] = min(
+                prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ref[i - 1] != hyp[j - 1])
+            )
         prev = cur
     return {"wer": prev[-1] / len(ref), "refWords": len(ref), "hypWords": len(hyp)}
 
 
-def stumble_recall(key: list[KeyWord], words: list[tuple[str, float, float]], pairs: dict[int, int]) -> dict:
+def stumble_recall(
+    key: list[KeyWord], words: list[tuple[str, float, float]], pairs: dict[int, int]
+) -> dict:
     used_elsewhere = {j for n, j in pairs.items() if not key[n].tag}
     out: dict[str, list[int]] = {}
     for k in key:
         if not k.tag:
             continue
         span = max(k.end - k.start, 1e-3)
-        hit = any(min(e, k.end) - max(s, k.start) >= 0.5 * span
-                  for j, (_, s, e) in enumerate(words) if j not in used_elsewhere)
+        hit = any(
+            min(e, k.end) - max(s, k.start) >= 0.5 * span
+            for j, (_, s, e) in enumerate(words)
+            if j not in used_elsewhere
+        )
         for name in (k.tag, "all"):
             out.setdefault(name, [0, 0])
             out[name][0] += hit
             out[name][1] += 1
-    return {tag: {"recalled": h, "total": t, "recall": h / t} for tag, (h, t) in sorted(out.items())}
+    return {
+        tag: {"recalled": h, "total": t, "recall": h / t}
+        for tag, (h, t) in sorted(out.items())
+    }
 
 
-def name_spelling(key: list[KeyWord], words: list[tuple[str, float, float]], pairs: dict[int, int],
-                  names: set[str]) -> dict[str, float]:
+def name_spelling(
+    key: list[KeyWord],
+    words: list[tuple[str, float, float]],
+    pairs: dict[int, int],
+    names: set[str],
+) -> dict[str, float]:
     """Of key words that are script names, how many does the system spell like the script?"""
     total = correct = matched = 0
     for n, k in enumerate(key):
@@ -220,51 +303,100 @@ def name_spelling(key: list[KeyWord], words: list[tuple[str, float, float]], pai
         if n in pairs:
             matched += 1
             correct += words[pairs[n]][0] == canon(k.text)
-    return {"names": total, "matched": matched, "scriptSpelled": correct,
-            "accuracy": correct / total if total else float("nan")}
+    return {
+        "names": total,
+        "matched": matched,
+        "scriptSpelled": correct,
+        "accuracy": correct / total if total else float("nan"),
+    }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--key", type=Path, help="corrected answer key (not needed with a blind-set --independent)")
+    parser.add_argument(
+        "--key",
+        type=Path,
+        help="corrected answer key (not needed with a blind-set --independent)",
+    )
     parser.add_argument("--segments", type=Path, required=True)
-    parser.add_argument("--result", nargs="*", default=[],
-                        help="RESULT.json, or RESULT.json::SEGMENTS.json when its entries come from other segments")
+    parser.add_argument(
+        "--result",
+        nargs="*",
+        default=[],
+        help="RESULT.json, or RESULT.json::SEGMENTS.json when its entries come from other segments",
+    )
     parser.add_argument("--tc", type=Path, nargs="*", default=[])
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--aliases", type=Path, help="key spelling -> script spelling (applied to both sides)")
-    parser.add_argument("--prompter", type=Path, help="prompter.json, enables name-spelling accuracy")
-    parser.add_argument("--dictionary", type=Path, help="pronunciation dictionary (required with --prompter)")
-    parser.add_argument("--independent", type=Path,
-                        help="score against an independent timing set (e.g. #51 frozen-reference-v2.json) instead")
+    parser.add_argument(
+        "--aliases",
+        type=Path,
+        help="key spelling -> script spelling (applied to both sides)",
+    )
+    parser.add_argument(
+        "--prompter", type=Path, help="prompter.json, enables name-spelling accuracy"
+    )
+    parser.add_argument(
+        "--dictionary",
+        type=Path,
+        help="pronunciation dictionary (required with --prompter)",
+    )
+    parser.add_argument(
+        "--independent",
+        type=Path,
+        help="score against an independent timing set (e.g. #51 frozen-reference-v2.json) instead",
+    )
     args = parser.parse_args()
     if args.aliases:
-        ALIASES.update({k: v for k, v in json.loads(args.aliases.read_text()).items() if not k.startswith("_")})
+        ALIASES.update(
+            {
+                k: v
+                for k, v in json.loads(args.aliases.read_text()).items()
+                if not k.startswith("_")
+            }
+        )
     names: set[str] = set()
     if args.prompter:
-        from reconcile import script_units
-
         from prompter import load_dictionary
+        from reconcile import script_units
 
         dictionary = load_dictionary(args.dictionary)
         # Only names missing from the pronunciation dictionary: those are the spellings at risk.
-        names = {u["text"] for u in script_units(json.loads(args.prompter.read_text()))
-                 if u["name"] and u["text"] not in dictionary}
+        names = {
+            u["text"]
+            for u in script_units(json.loads(args.prompter.read_text()))
+            if u["name"] and u["text"] not in dictionary
+        }
     blind = bool(args.independent and args.independent.suffix.lower() == ".csv")
     key = [] if blind else load_key(args.key)
     if args.independent:
         key = load_independent(args.independent, key)
     segments = json.loads(args.segments.read_text())
-    report: dict[str, dict] = {"_key": {
-        "words": len(key), "stumbles": sum(1 for k in key if k.tag),
-        "classes": {side: {c: sum(1 for k in key if getattr(k, f"{side}_class") == c)
-                           for c in ("phrase_edge", "pause_adjacent", "connected")} for side in ("onset", "offset")}}}
-    systems = [(Path(p.split("::")[0]), "result", Path(p.split("::")[1]) if "::" in p else None) for p in args.result]
+    report: dict[str, dict] = {
+        "_key": {
+            "words": len(key),
+            "stumbles": sum(1 for k in key if k.tag),
+            "classes": {
+                side: {
+                    c: sum(1 for k in key if getattr(k, f"{side}_class") == c)
+                    for c in ("phrase_edge", "pause_adjacent", "connected")
+                }
+                for side in ("onset", "offset")
+            },
+        }
+    }
+    systems = [
+        (
+            Path(p.split("::")[0]),
+            "result",
+            Path(p.split("::")[1]) if "::" in p else None,
+        )
+        for p in args.result
+    ]
     systems += [(p, "tc", None) for p in args.tc]
     for path, kind, own_segments in systems:
         data = json.loads(path.read_text())
         if kind == "result":
-            name = f'{data["aligner"]}{":" + data["variant"] if data.get("variant") else ""} [{path.stem.split("__")[0]}]'
+            name = f"{data['aligner']}{':' + data['variant'] if data.get('variant') else ''} [{path.stem.split('__')[0]}]"
             if data.get("provenance", {}).get("settings", {}).get("extraDict"):
                 name = name.replace("A-MFA:", "A-MFA-G:")
             seg = json.loads(own_segments.read_text()) if own_segments else segments
@@ -273,7 +405,11 @@ def main() -> None:
             name = data["source"]
             words = system_words_from_tc(data)
         pairs = match(key, words)
-        entry = {"file": path.name, "coverage": len(pairs) / len(key), "boundaries": boundary_errors(key, words, pairs)}
+        entry = {
+            "file": path.name,
+            "coverage": len(pairs) / len(key),
+            "boundaries": boundary_errors(key, words, pairs),
+        }
         if args.independent:
             report[name] = entry
             continue
@@ -286,7 +422,9 @@ def main() -> None:
     args.out.write_text(json.dumps(report, indent=1))
 
     print(json.dumps(report["_key"]))
-    print(f'{"system":42s} {"cov":>5s} | {"onset med p95 bias >120":>26s} | {"offset med p95 bias >120":>26s}')
+    print(
+        f"{'system':42s} {'cov':>5s} | {'onset med p95 bias >120':>26s} | {'offset med p95 bias >120':>26s}"
+    )
     for name, entry in report.items():
         if name == "_key":
             continue
@@ -294,14 +432,20 @@ def main() -> None:
 
         def cell(side: str) -> str:
             s = b.get(f"{side}/all", {"n": 0})
-            return f'{s["median"]:5.0f} {s["p95"]:5.0f} {s["bias"]:+5.0f} {s["over120Share"]:5.1%}' if s["n"] else "-"
+            return (
+                f"{s['median']:5.0f} {s['p95']:5.0f} {s['bias']:+5.0f} {s['over120Share']:5.1%}"
+                if s["n"]
+                else "-"
+            )
 
         extra = ""
         if "wordAccuracy" in entry:
-            extra = f'  WER {entry["wordAccuracy"]["wer"]:.1%}  stumbles {entry["stumbleRecall"].get("all", {}).get("recall", 0):.0%}'
+            extra = f"  WER {entry['wordAccuracy']['wer']:.1%}  stumbles {entry['stumbleRecall'].get('all', {}).get('recall', 0):.0%}"
         if "nameSpelling" in entry:
-            extra += f'  names {entry["nameSpelling"]["scriptSpelled"]}/{entry["nameSpelling"]["names"]}'
-        print(f'{name:42s} {entry["coverage"]:5.1%} | {cell("onset"):>26s} | {cell("offset"):>26s}{extra}')
+            extra += f"  names {entry['nameSpelling']['scriptSpelled']}/{entry['nameSpelling']['names']}"
+        print(
+            f"{name:42s} {entry['coverage']:5.1%} | {cell('onset'):>26s} | {cell('offset'):>26s}{extra}"
+        )
 
 
 if __name__ == "__main__":

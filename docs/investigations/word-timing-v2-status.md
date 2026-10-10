@@ -119,3 +119,8 @@ in git.
   `word-timing-v2-codex-review-queue.md`.
 - Fixed: raw-B cut read 32-bit float as int16 (silent). Rebuilt rec-b-raw and
   rec-b-dfn before any scoring; raw B vs Adobe B lag 0.02 ms.
+- Producer targets (2026-10-10): Apple Silicon Mac (main) + Windows; Intel not
+  supported (this Intel Mac's timings are relative only). Word timing needed
+  for English now, European languages next. Research volume < 10 h/week/user.
+  Producer will run a packaged benchmark on Apple Silicon after upgrading.
+- Unlisted uploads: A = p93y6h8gyvc, B = aPfs0VSnibc (auto-captions fetched).

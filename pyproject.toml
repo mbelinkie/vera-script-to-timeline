@@ -41,3 +41,12 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# Word-timing v2 investigation tooling: pipelines were frozen before scoring
+# (pre-registration), so behaviour-changing fixes (strict zip, cast removal,
+# context-managed files) are not applied there. Product code keeps every rule.
+"scripts/word-timing-v2/**" = [
+  "E501", "B905", "RUF046", "SIM115", "RUF001", "B007", "B904", "B023",
+  "E741", "RUF005", "RUF007", "SIM102",
+]

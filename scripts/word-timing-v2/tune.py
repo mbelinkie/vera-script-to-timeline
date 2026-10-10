@@ -26,9 +26,8 @@ import statistics
 from pathlib import Path
 
 import numpy as np
-import soundfile as sf
-
 import score
+import soundfile as sf
 
 SHIFTS = list(range(-40, 41, 5))
 SNAPS: list[float | None] = [None, 6.0, 10.0, 15.0, 20.0]
@@ -44,7 +43,7 @@ def envelope(audio: Path) -> tuple[np.ndarray, float]:
         x = x.mean(axis=1)
     hop = int(sr * FRAME)
     frames = x[: len(x) // hop * hop].reshape(-1, hop)
-    db = 20 * np.log10(np.sqrt((frames ** 2).mean(axis=1)) + 1e-9)
+    db = 20 * np.log10(np.sqrt((frames**2).mean(axis=1)) + 1e-9)
     return db, float(np.percentile(db, 10))
 
 
@@ -58,8 +57,14 @@ def snap(t: float, rising: bool, level: float, db: np.ndarray) -> float:
     return t if best is None else best
 
 
-def apply(words: list[tuple[str, float, float]], onset: int, offset: int, snap_db: float | None,
-          db: np.ndarray, floor: float) -> list[tuple[str, float, float]]:
+def apply(
+    words: list[tuple[str, float, float]],
+    onset: int,
+    offset: int,
+    snap_db: float | None,
+    db: np.ndarray,
+    floor: float,
+) -> list[tuple[str, float, float]]:
     out = []
     for n, (text, s, e) in enumerate(words):
         before = s - words[n - 1][2] if n else 99.0
@@ -74,10 +79,18 @@ def apply(words: list[tuple[str, float, float]], onset: int, offset: int, snap_d
     return out
 
 
-def errors(ref: list[score.KeyWord], words: list[tuple[str, float, float]]) -> list[tuple[int, str, float]]:
+def errors(
+    ref: list[score.KeyWord], words: list[tuple[str, float, float]]
+) -> list[tuple[int, str, float]]:
     pairs = score.match(ref, words)
-    return [(n, side, err) for n, j in pairs.items()
-            for side, err in (("onset", (words[j][1] - ref[n].start) * 1000), ("offset", (words[j][2] - ref[n].end) * 1000))]
+    return [
+        (n, side, err)
+        for n, j in pairs.items()
+        for side, err in (
+            ("onset", (words[j][1] - ref[n].start) * 1000),
+            ("offset", (words[j][2] - ref[n].end) * 1000),
+        )
+    ]
 
 
 def objective(errs: list[float]) -> float:
@@ -92,23 +105,40 @@ def main() -> None:
     parser.add_argument("--aliases", type=Path)
     args = parser.parse_args()
     if args.aliases:
-        score.ALIASES.update({k: v for k, v in json.loads(args.aliases.read_text()).items() if not k.startswith("_")})
+        score.ALIASES.update(
+            {
+                k: v
+                for k, v in json.loads(args.aliases.read_text()).items()
+                if not k.startswith("_")
+            }
+        )
     result_path, seg_path = (Path(p) for p in args.result.split("::"))
-    words = score.system_words_from_result(json.loads(result_path.read_text()), json.loads(seg_path.read_text()))
+    words = score.system_words_from_result(
+        json.loads(result_path.read_text()), json.loads(seg_path.read_text())
+    )
     ref = score.load_independent(args.independent, score.load_key(args.key))
     segments = json.loads(args.vad.read_text())["segments"]
-    fold_of = [next((k for k, (a, b) in enumerate(segments) if a <= (r.start + r.end) / 2 <= b), -1) for r in ref]
+    fold_of = [
+        next(
+            (k for k, (a, b) in enumerate(segments) if a <= (r.start + r.end) / 2 <= b),
+            -1,
+        )
+        for r in ref
+    ]
     db, floor = envelope(args.audio)
 
     configs = list(itertools.product(SHIFTS, SHIFTS, SNAPS))
     cache: dict[tuple, list[tuple[int, str, float]]] = {}
     for snap_db in SNAPS:  # shifts are separable from the snap only through apply(), so evaluate every config
         for onset, offset in itertools.product(SHIFTS, SHIFTS):
-            cache[(onset, offset, snap_db)] = errors(ref, apply(words, onset, offset, snap_db, db, floor))
+            cache[(onset, offset, snap_db)] = errors(
+                ref, apply(words, onset, offset, snap_db, db, floor)
+            )
 
     def fit(exclude: int | None) -> tuple:
         def loss(cfg: tuple) -> float:
             return objective([e for n, _, e in cache[cfg] if fold_of[n] != exclude])
+
         return min(configs, key=loss)
 
     held_out: list[tuple[int, str, float]] = []
@@ -120,21 +150,34 @@ def main() -> None:
     final = fit(None)
 
     def summary(errs: list[tuple[int, str, float]]) -> dict:
-        return {side: score.stats([e for _, s, e in errs if s == side]) for side in ("onset", "offset")}
+        return {
+            side: score.stats([e for _, s, e in errs if s == side])
+            for side in ("onset", "offset")
+        }
 
-    report = {"result": result_path.name, "configsTried": len(configs),
-              "parameters": ["onset_shift_ms", "offset_shift_ms", "snap_db"],
-              "final": {"onset_shift_ms": final[0], "offset_shift_ms": final[1], "snap_db": final[2]},
-              "perFold": {str(k): list(v) for k, v in chosen_per_fold.items()},
-              "untuned": summary(cache[(0, 0, None)]), "crossValidated": summary(held_out),
-              "noiseFloorDb": floor}
+    report = {
+        "result": result_path.name,
+        "configsTried": len(configs),
+        "parameters": ["onset_shift_ms", "offset_shift_ms", "snap_db"],
+        "final": {
+            "onset_shift_ms": final[0],
+            "offset_shift_ms": final[1],
+            "snap_db": final[2],
+        },
+        "perFold": {str(k): list(v) for k, v in chosen_per_fold.items()},
+        "untuned": summary(cache[(0, 0, None)]),
+        "crossValidated": summary(held_out),
+        "noiseFloorDb": floor,
+    }
     args.out.write_text(json.dumps(report, indent=1))
     print(f"{result_path.stem}: final {report['final']} ({len(configs)} configs)")
     for label in ("untuned", "crossValidated"):
         r = report[label]
-        print(f"  {label:15s} onset med {r['onset']['median']:4.0f} p95 {r['onset']['p95']:4.0f} bias {r['onset']['bias']:+4.0f}"
-              f" | offset med {r['offset']['median']:4.0f} p95 {r['offset']['p95']:4.0f} bias {r['offset']['bias']:+4.0f}"
-              f" >120 {r['offset']['over120Share']:.1%}")
+        print(
+            f"  {label:15s} onset med {r['onset']['median']:4.0f} p95 {r['onset']['p95']:4.0f} bias {r['onset']['bias']:+4.0f}"
+            f" | offset med {r['offset']['median']:4.0f} p95 {r['offset']['p95']:4.0f} bias {r['offset']['bias']:+4.0f}"
+            f" >120 {r['offset']['over120Share']:.1%}"
+        )
 
 
 if __name__ == "__main__":

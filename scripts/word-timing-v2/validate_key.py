@@ -22,9 +22,14 @@ from pathlib import Path
 
 TAGS = {"FRAG", "REP", "FILLER"}
 # Non-speech sounds the Producer may mark: kept in the key, excluded from scoring.
-EVENT = re.compile(r"^(?:[A-Z]+ )?(?:\(\s*\w[\w ]*\)|laugh|laughs|sniff|sneeze|cough|breath)$", re.IGNORECASE)
+EVENT = re.compile(
+    r"^(?:[A-Z]+ )?(?:\(\s*\w[\w ]*\)|laugh|laughs|sniff|sneeze|cough|breath)$",
+    re.IGNORECASE,
+)
 ROUNDING_SEC = 0.002  # Audition exports whole milliseconds
-LABEL = re.compile(r"^(?:(?P<tag>[A-Z]+) )?(?P<word>[\w'\-]+(?:\[[^\]]+\])?)(?P<unsure>\?)?$")
+LABEL = re.compile(
+    r"^(?:(?P<tag>[A-Z]+) )?(?P<word>[\w'\-]+(?:\[[^\]]+\])?)(?P<unsure>\?)?$"
+)
 
 
 def read_labels(path: Path) -> list[tuple[float, float, str]]:
@@ -56,46 +61,69 @@ def main() -> None:
     events = 0
     for n, (s, e, text) in enumerate(corrected):
         if e <= s:
-            errors.append(f"row {n + 1} '{text}': end {e:.3f} is not after start {s:.3f}")
+            errors.append(
+                f"row {n + 1} '{text}': end {e:.3f} is not after start {s:.3f}"
+            )
         if n and s < corrected[n - 1][1] - 1e-6:
             gap = corrected[n - 1][1] - s
             target = warnings if gap <= ROUNDING_SEC else errors
-            target.append(f"row {n + 1} '{text}': starts {s:.3f} before previous ends {corrected[n - 1][1]:.3f}")
+            target.append(
+                f"row {n + 1} '{text}': starts {s:.3f} before previous ends {corrected[n - 1][1]:.3f}"
+            )
         if EVENT.match(text):
             events += 1
             continue
         if text == "??":
-            errors.append(f"row {n + 1} at {s:.3f}s: unresolved '??' marker (rename it or delete it)")
+            errors.append(
+                f"row {n + 1} at {s:.3f}s: unresolved '??' marker (rename it or delete it)"
+            )
             continue
         match = LABEL.match(text)
         if not match or (match["tag"] and match["tag"] not in TAGS):
-            errors.append(f"row {n + 1}: illegal label '{text}' (tags: {', '.join(sorted(TAGS))})")
+            errors.append(
+                f"row {n + 1}: illegal label '{text}' (tags: {', '.join(sorted(TAGS))})"
+            )
 
     def plain(text: str) -> str:
         match = LABEL.match(text)
         return (match["word"] if match else text).casefold()
 
     base = [plain(t) for _, _, t in read_labels(args.prefill)]
+
     def is_addition(text: str) -> bool:
         match = LABEL.match(text)
         return bool(match and match["tag"])
 
-    words = [plain(t) for _, _, t in corrected if t != "??" and not EVENT.match(t) and not is_addition(t)]
-    edits = [op for op in difflib.SequenceMatcher(a=base, b=words, autojunk=False).get_opcodes() if op[0] != "equal"]
+    words = [
+        plain(t)
+        for _, _, t in corrected
+        if t != "??" and not EVENT.match(t) and not is_addition(t)
+    ]
+    edits = [
+        op
+        for op in difflib.SequenceMatcher(a=base, b=words, autojunk=False).get_opcodes()
+        if op[0] != "equal"
+    ]
     tagged = sum(1 for _, _, t in corrected if is_addition(t) and not EVENT.match(t))
     unsure = sum(1 for _, _, t in corrected if t != "??" and t.endswith("?"))
 
-    print(f"{len(corrected)} regions; {events} non-speech events; {tagged} tagged additions; {unsure} marked unsure; {len(edits)} word edits vs pre-fill")
+    print(
+        f"{len(corrected)} regions; {events} non-speech events; {tagged} tagged additions; {unsure} marked unsure; {len(edits)} word edits vs pre-fill"
+    )
     for op, a0, a1, b0, b1 in edits:
         print(f"  {op}: pre-fill {base[a0:a1]} -> corrected {words[b0:b1]}")
     if warnings:
-        print("WARNINGS (within export rounding, accepted):\n  " + "\n  ".join(warnings))
+        print(
+            "WARNINGS (within export rounding, accepted):\n  " + "\n  ".join(warnings)
+        )
     if errors:
         print("ERRORS:\n  " + "\n  ".join(errors))
         sys.exit(1)
     if args.freeze:
         digest = hashlib.sha256(args.corrected.read_bytes()).hexdigest()
-        Path(f"{args.corrected}.sha256").write_text(f"{digest}  {args.corrected.name}\n")
+        Path(f"{args.corrected}.sha256").write_text(
+            f"{digest}  {args.corrected.name}\n"
+        )
         os.chmod(args.corrected, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
         print(f"frozen sha256 {digest}")
 

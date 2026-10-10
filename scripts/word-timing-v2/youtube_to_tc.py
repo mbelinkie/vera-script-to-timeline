@@ -45,18 +45,34 @@ def main() -> None:
         nxt = raw[k + 1][0] if k + 1 < len(raw) else event_end
         end = min(start + MAX_WORD_S, nxt if nxt > start else event_end)
         end = max(end, start + 0.01)
-        words.append({"k": k, "text": text, "start": round(start, 3), "end": round(end, 3),
-                      "type": "event" if is_event else "word", "confidence": None})
+        words.append(
+            {
+                "k": k,
+                "text": text,
+                "start": round(start, 3),
+                "end": round(end, 3),
+                "type": "event" if is_event else "word",
+                "confidence": None,
+            }
+        )
 
-    args.out.write_text(json.dumps({
-        "source": "T-C-youtube", "provider": "YouTube automatic captions (yt-dlp json3)",
-        "model": "youtube-asr (unversioned)",
-        "words": words,
-        "transcript": " ".join(w["text"] for w in words if w["type"] == "word"),
-        "provenance": {"file": args.json3.name,
-                       "timestampSemantics": "json3 tStartMs + tOffsetMs, word START only",
-                       "endTimeDerivation": "min(next word start, start + 0.5 s), last word of an event capped at event end"},
-    }, indent=1))
+    args.out.write_text(
+        json.dumps(
+            {
+                "source": "T-C-youtube",
+                "provider": "YouTube automatic captions (yt-dlp json3)",
+                "model": "youtube-asr (unversioned)",
+                "words": words,
+                "transcript": " ".join(w["text"] for w in words if w["type"] == "word"),
+                "provenance": {
+                    "file": args.json3.name,
+                    "timestampSemantics": "json3 tStartMs + tOffsetMs, word START only",
+                    "endTimeDerivation": "min(next word start, start + 0.5 s), last word of an event capped at event end",
+                },
+            },
+            indent=1,
+        )
+    )
     print(f"{args.out.name}: {sum(w['type'] == 'word' for w in words)} words")
 
 

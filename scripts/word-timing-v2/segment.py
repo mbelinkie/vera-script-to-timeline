@@ -32,11 +32,15 @@ def run_vad(audio: Path) -> list[tuple[float, float]]:
 
     model = load_silero_vad(onnx=True)
     wav = read_audio(str(audio), sampling_rate=16000)
-    stamps = get_speech_timestamps(wav, model, sampling_rate=16000, return_seconds=True, **SILERO_SETTINGS)
+    stamps = get_speech_timestamps(
+        wav, model, sampling_rate=16000, return_seconds=True, **SILERO_SETTINGS
+    )
     return [(float(s["start"]), float(s["end"])) for s in stamps]
 
 
-def group_regions(regions: list[tuple[float, float]], duration: float) -> list[tuple[float, float]]:
+def group_regions(
+    regions: list[tuple[float, float]], duration: float
+) -> list[tuple[float, float]]:
     """Merge speech regions into padded segments of at most MAX_SEGMENT_SEC.
 
     Any group whose padded span is too long is split at its widest internal
@@ -48,7 +52,10 @@ def group_regions(regions: list[tuple[float, float]], duration: float) -> list[t
     done: list[list[tuple[float, float]]] = []
     while pending:
         group = pending.pop()
-        if len(group) == 1 or (group[-1][1] - group[0][0]) + 2 * PAD_SEC <= MAX_SEGMENT_SEC:
+        if (
+            len(group) == 1
+            or (group[-1][1] - group[0][0]) + 2 * PAD_SEC <= MAX_SEGMENT_SEC
+        ):
             done.append(group)
             continue
         cut = max(range(1, len(group)), key=lambda k: group[k][0] - group[k - 1][1])
@@ -57,8 +64,12 @@ def group_regions(regions: list[tuple[float, float]], duration: float) -> list[t
     padded = []
     for index, (start, end) in enumerate(groups):
         low = 0.0 if index == 0 else (groups[index - 1][1] + start) / 2
-        high = duration if index == len(groups) - 1 else (end + groups[index + 1][0]) / 2
-        padded.append((round(max(low, start - PAD_SEC), 3), round(min(high, end + PAD_SEC), 3)))
+        high = (
+            duration if index == len(groups) - 1 else (end + groups[index + 1][0]) / 2
+        )
+        padded.append(
+            (round(max(low, start - PAD_SEC), 3), round(min(high, end + PAD_SEC), 3))
+        )
     return padded
 
 
@@ -68,15 +79,24 @@ def assign_words(
     segments: list[tuple[float, float]],
 ) -> list[dict[str, object]]:
     """Give each entry to the segment holding its anchor midpoint, keeping order."""
-    out = [{"id": f"s{n:03d}", "start": s, "end": e, "words": []} for n, (s, e) in enumerate(segments)]
+    out = [
+        {"id": f"s{n:03d}", "start": s, "end": e, "words": []}
+        for n, (s, e) in enumerate(segments)
+    ]
     floor = 0
     for entry, anchor in zip(entries, anchors, strict=True):
         if anchor.get("start") is None:
             target = floor
         else:
             mid = (float(anchor["start"]) + float(anchor["end"])) / 2
-            target = min(range(len(segments)), key=lambda n: 0 if segments[n][0] <= mid <= segments[n][1]
-                         else min(abs(mid - segments[n][0]), abs(mid - segments[n][1])))
+            target = min(
+                range(len(segments)),
+                key=lambda n: (
+                    0
+                    if segments[n][0] <= mid <= segments[n][1]
+                    else min(abs(mid - segments[n][0]), abs(mid - segments[n][1]))
+                ),
+            )
         floor = max(floor, target)
         out[floor]["words"].append(entry)
     return [seg for seg in out if seg["words"]]
@@ -102,7 +122,12 @@ def main() -> None:
         payload = {
             "audio": args.audio.name,
             "durationSec": duration,
-            "vad": {"model": "silero-vad", "version": SILERO_VERSION, "onnx": True, **SILERO_SETTINGS},
+            "vad": {
+                "model": "silero-vad",
+                "version": SILERO_VERSION,
+                "onnx": True,
+                **SILERO_SETTINGS,
+            },
             "speechRegions": [[round(s, 3), round(e, 3)] for s, e in regions],
             "segments": [list(seg) for seg in group_regions(regions, duration)],
         }
@@ -115,8 +140,11 @@ def main() -> None:
     entries = word_entries(json.loads(args.tokens.read_text()))
     anchors = json.loads(args.anchors.read_text())["words"]
     segments = [tuple(seg) for seg in vad_data["segments"]]
-    payload = {"audio": args.audio_name, "offsetSec": 0.0,
-               "segments": assign_words(entries, anchors, segments)}
+    payload = {
+        "audio": args.audio_name,
+        "offsetSec": 0.0,
+        "segments": assign_words(entries, anchors, segments),
+    }
     args.out.write_text(json.dumps(payload, indent=1))
 
 
