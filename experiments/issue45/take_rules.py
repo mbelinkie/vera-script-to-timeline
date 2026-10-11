@@ -31,7 +31,8 @@ from __future__ import annotations
 import copy
 from typing import Any
 
-from experiments.issue45.normalize import normalise_token
+from vera_word_timing.normalize import normalise_token
+
 from experiments.issue53.takes import tokens
 
 PAUSE_SPLIT_S = 1.4

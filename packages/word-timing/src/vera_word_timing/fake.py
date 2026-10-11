@@ -7,7 +7,7 @@ unaligned. Same inputs always give the same artifacts.
 
 from __future__ import annotations
 
-from experiments.issue45.artifacts import (
+from vera_word_timing.artifacts import (
     AlignedTime,
     AudioRef,
     Json,
@@ -18,8 +18,8 @@ from experiments.issue45.artifacts import (
     reconciled_texts,
     tool,
 )
-from experiments.issue45.normalize import Unit, units
-from experiments.issue45.ports import (
+from vera_word_timing.normalize import Unit, units
+from vera_word_timing.ports import (
     Capabilities,
     PortRefusal,
     ProjectPolicy,

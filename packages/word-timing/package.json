@@ -1,0 +1,6 @@
+{
+  "name": "@vera/word-timing",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Python package (see pyproject.toml); listed so npm's packages/* workspace glob stays valid."
+}

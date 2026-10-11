@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-from experiments.issue45.normalize import Unit
+from vera_word_timing.normalize import Unit
 
 PAD_S = 0.300
 MAX_SEGMENT_S = 30.0

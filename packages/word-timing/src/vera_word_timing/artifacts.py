@@ -19,22 +19,17 @@ from typing import Any, Literal
 from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
 from referencing import Registry, Resource
 
-from experiments.issue45.normalize import Unit
+from vera_word_timing.normalize import Unit
 
 Json = dict[str, Any]
-# Approved #168 contracts live in /contracts; the benchmark kit bundles a copy
-# under schemas/ because it ships without the rest of the repository.
+# Copies of the approved #168 contracts ship inside the package (Research
+# installs it without this repository); a test keeps them identical to /contracts.
+SCHEMA_DIR = Path(__file__).resolve().parent / "contracts"
 PORT_CONTRACTS = (
     "recognition-artifact-v1",
     "alignment-artifact-v1",
     "script-reconciliation-v1",
     "port-refusal-v1",
-)
-_REPO_CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
-SCHEMA_DIR = (
-    _REPO_CONTRACTS
-    if (_REPO_CONTRACTS / "recognition-artifact-v1.schema.json").exists()
-    else Path(__file__).resolve().parent / "schemas"
 )
 RecognizerKind = Literal["asr-local", "asr-cloud", "caption", "reference-text"]
 AnchorPrecision = Literal[

@@ -7,7 +7,14 @@ dependencies = [
     "boto3==1.43.79",
     "jsonschema==4.25.1",
     "opentimelineio==0.18.1",
+    "vera-word-timing",
 ]
+
+[tool.uv.workspace]
+members = ["packages/word-timing"]
+
+[tool.uv.sources]
+vera-word-timing = { workspace = true }
 
 [build-system]
 requires = ["hatchling==1.32.0"]
@@ -45,6 +52,6 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 [tool.ruff.lint.per-file-ignores]
 # Engine scripts vendored from the word-timing v2 study; they run inside their
 # own external runtimes (MFA, Parakeet) and keep the study's measured behaviour.
-"experiments/issue45/adapters/engines/**" = [
+"packages/word-timing/src/vera_word_timing/adapters/engines/**" = [
   "E501", "B905", "RUF046", "SIM115", "RUF001", "RUF005", "RUF007", "E741",
 ]

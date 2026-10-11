@@ -26,7 +26,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from experiments.issue45.artifacts import (
+from vera_word_timing.artifacts import (
     AlignedTime,
     AudioRef,
     Json,
@@ -38,15 +38,15 @@ from experiments.issue45.artifacts import (
     reconciled_texts,
     tool,
 )
-from experiments.issue45.normalize import Unit, normalise_token
-from experiments.issue45.ports import (
+from vera_word_timing.normalize import Unit, normalise_token
+from vera_word_timing.ports import (
     Capabilities,
     Port,
     PortRefusal,
     ProjectPolicy,
     require_language,
 )
-from experiments.issue45.segmentation import (
+from vera_word_timing.segmentation import (
     MAX_SEGMENT_S,
     PAD_S,
     Segment,

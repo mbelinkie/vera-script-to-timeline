@@ -8,7 +8,7 @@ from the VERA_* environment variables (see adapters/local_engines.py).
 Prints aggregates only; private audio and transcripts stay where they are.
 
 Usage:
-  python -m experiments.issue45.smoke --audio X-16k.wav --out DIR
+  python -m vera_word_timing.smoke --audio X-16k.wav --out DIR
       [--captions X.en.json3] [--reference RESULT.json]
 """
 
@@ -21,16 +21,16 @@ import time
 import wave
 from pathlib import Path
 
-from experiments.issue45.adapters.elevenlabs_cloud import ElevenLabsCloudRecognizer
-from experiments.issue45.adapters.local_engines import (
+from vera_word_timing.adapters.elevenlabs_cloud import ElevenLabsCloudRecognizer
+from vera_word_timing.adapters.local_engines import (
     EngineConfig,
     MfaAligner,
     ParakeetRecognizer,
 )
-from experiments.issue45.adapters.youtube_captions import YouTubeCaptionRecognizer
-from experiments.issue45.artifacts import AudioRef, file_hash
-from experiments.issue45.conformance import check_alignment, check_pair
-from experiments.issue45.ports import ProjectPolicy, RecognizerPort
+from vera_word_timing.adapters.youtube_captions import YouTubeCaptionRecognizer
+from vera_word_timing.artifacts import AudioRef, file_hash
+from vera_word_timing.conformance import check_alignment, check_pair
+from vera_word_timing.ports import ProjectPolicy, RecognizerPort
 
 
 def main() -> None:

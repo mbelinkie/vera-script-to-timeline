@@ -21,15 +21,15 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from experiments.issue45.adapters.local_engines import (
+from vera_word_timing.adapters.local_engines import (
     ENGINES,
     EngineConfig,
     MfaAligner,
     run_engine,
 )
-from experiments.issue45.artifacts import AudioRef, Json
-from experiments.issue45.ports import PortRefusal, ProjectPolicy, RecognizerPort
-from experiments.issue45.script_reconcile import (
+from vera_word_timing.artifacts import AudioRef, Json
+from vera_word_timing.ports import PortRefusal, ProjectPolicy, RecognizerPort
+from vera_word_timing.script_reconcile import (
     load_dictionary_words,
     parse_prompter,
     reconcile,

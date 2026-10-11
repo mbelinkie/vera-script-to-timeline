@@ -9,17 +9,16 @@ from itertools import pairwise
 from pathlib import Path
 
 import pytest
-
-from experiments.issue45.adapters.local_engines import (
+from vera_word_timing.adapters.local_engines import (
     EngineConfig,
     MfaAligner,
     ParakeetRecognizer,
 )
-from experiments.issue45.adapters.youtube_captions import (
+from vera_word_timing.adapters.youtube_captions import (
     YouTubeCaptionRecognizer,
     caption_tokens,
 )
-from experiments.issue45.artifacts import (
+from vera_word_timing.artifacts import (
     AudioRef,
     Json,
     RecognizerInfo,
@@ -30,16 +29,16 @@ from experiments.issue45.artifacts import (
     recognition_artifact,
     schema_errors,
 )
-from experiments.issue45.conformance import check_alignment, check_pair
-from experiments.issue45.fake import FakeAligner, FakeRecognizer
-from experiments.issue45.normalize import cardinal, normalise_token, units
-from experiments.issue45.ports import (
+from vera_word_timing.conformance import check_alignment, check_pair
+from vera_word_timing.fake import FakeAligner, FakeRecognizer
+from vera_word_timing.normalize import cardinal, normalise_token, units
+from vera_word_timing.ports import (
     Capabilities,
     PortRefusal,
     ProjectPolicy,
     require_cloud_consent,
 )
-from experiments.issue45.segmentation import assign_units, group_regions
+from vera_word_timing.segmentation import assign_units, group_regions
 
 POLICY = ProjectPolicy()
 
@@ -313,7 +312,7 @@ SCRIBE_RAW: Json = {
 def test_cloud_scribe_needs_consent_and_parses(
     audio: AudioRef, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from experiments.issue45.adapters.elevenlabs_cloud import ElevenLabsCloudRecognizer
+    from vera_word_timing.adapters.elevenlabs_cloud import ElevenLabsCloudRecognizer
 
     sent: list[bytes] = []
 
@@ -348,7 +347,7 @@ def test_cloud_scribe_needs_consent_and_parses(
 def test_cloud_scribe_refuses_without_key(
     audio: AudioRef, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from experiments.issue45.adapters.elevenlabs_cloud import ElevenLabsCloudRecognizer
+    from vera_word_timing.adapters.elevenlabs_cloud import ElevenLabsCloudRecognizer
 
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     with pytest.raises(PortRefusal) as refused:
@@ -382,7 +381,7 @@ DICTIONARY = "\n".join(
 
 
 def test_parse_prompter_restart_points_guides_keyterms() -> None:
-    from experiments.issue45.script_reconcile import (
+    from vera_word_timing.script_reconcile import (
         load_dictionary_words,
         parse_prompter,
     )
@@ -395,7 +394,7 @@ def test_parse_prompter_restart_points_guides_keyterms() -> None:
 
 
 def test_reconcile_respells_names_only(audio: AudioRef) -> None:
-    from experiments.issue45.script_reconcile import reconcile
+    from vera_word_timing.script_reconcile import reconcile
 
     heard = [
         "kai",
@@ -430,7 +429,7 @@ def test_reconcile_respells_names_only(audio: AudioRef) -> None:
 
 
 def test_agreement_refuses_without_partner_runtime(audio: AudioRef) -> None:
-    from experiments.issue45.adapters.agreement import QwenAgreement
+    from vera_word_timing.adapters.agreement import QwenAgreement
 
     rec = FakeRecognizer(["a"]).recognise(audio, language="en", policy=POLICY)
     ali = FakeAligner().align(audio, rec, policy=POLICY)
@@ -446,7 +445,7 @@ def test_conformance_rejects_mostly_unaligned(audio: AudioRef) -> None:
 
 
 def test_review_resolution_rules(tmp_path: Path) -> None:
-    from experiments.issue45.resolve_review import Loudness, resolve
+    from vera_word_timing.resolve_review import Loudness, resolve
 
     wav = tmp_path / "loud.wav"
     with wave.open(str(wav), "wb") as w:
@@ -515,3 +514,14 @@ def test_group_regions_splits_one_long_region() -> None:
     assert len(segs) == 3
     assert all(e - s <= 30.0 for s, e in segs)
     assert segs[0][0] == 0.7 and segs[-1][1] == 75.3
+
+
+def test_package_contract_copies_match_repository_contracts() -> None:
+    from pathlib import Path as _Path
+
+    from vera_word_timing.artifacts import PORT_CONTRACTS, SCHEMA_DIR
+
+    repo = _Path(__file__).resolve().parents[1] / "contracts"
+    for name in PORT_CONTRACTS:
+        packaged = (SCHEMA_DIR / f"{name}.schema.json").read_bytes()
+        assert packaged == (repo / f"{name}.schema.json").read_bytes(), name

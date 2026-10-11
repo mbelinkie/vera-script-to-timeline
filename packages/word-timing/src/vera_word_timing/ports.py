@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-from experiments.issue45.artifacts import AudioRef, Json
+from vera_word_timing.artifacts import AudioRef, Json
 
 Port = Literal["recognizer", "aligner", "audio-prep"]
 RefusalCode = Literal[

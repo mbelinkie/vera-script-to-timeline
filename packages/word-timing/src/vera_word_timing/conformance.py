@@ -8,14 +8,14 @@ changes what consumers can rely on.
 
 from __future__ import annotations
 
-from experiments.issue45.artifacts import (
+from vera_word_timing.artifacts import (
     AudioRef,
     Json,
     reconciled_texts,
     schema_errors,
 )
-from experiments.issue45.normalize import normalise_token
-from experiments.issue45.ports import (
+from vera_word_timing.normalize import normalise_token
+from vera_word_timing.ports import (
     AlignerPort,
     PortRefusal,
     ProjectPolicy,

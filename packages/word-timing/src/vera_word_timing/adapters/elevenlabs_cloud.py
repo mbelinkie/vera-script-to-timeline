@@ -23,14 +23,14 @@ import urllib.request
 from collections.abc import Callable
 from pathlib import Path
 
-from experiments.issue45.artifacts import (
+from vera_word_timing.artifacts import (
     AudioRef,
     Json,
     RecognizerInfo,
     Token,
     recognition_artifact,
 )
-from experiments.issue45.ports import (
+from vera_word_timing.ports import (
     Capabilities,
     PortRefusal,
     ProjectPolicy,

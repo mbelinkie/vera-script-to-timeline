@@ -17,12 +17,12 @@ import json
 import tempfile
 from pathlib import Path
 
-from experiments.issue45.adapters.local_engines import (
+from vera_word_timing.adapters.local_engines import (
     EngineConfig,
     prepare_segments,
     run_engine,
 )
-from experiments.issue45.artifacts import (
+from vera_word_timing.artifacts import (
     AudioRef,
     Json,
     agreement_block,
@@ -30,7 +30,7 @@ from experiments.issue45.artifacts import (
     tool,
     with_id,
 )
-from experiments.issue45.ports import PortRefusal
+from vera_word_timing.ports import PortRefusal
 
 QWEN_REVISION = "c7cbfc2048c462b0d63a45797104fc9db3ad62b7"
 

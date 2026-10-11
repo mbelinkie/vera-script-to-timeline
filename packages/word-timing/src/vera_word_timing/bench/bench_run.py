@@ -110,17 +110,17 @@ def main() -> None:
     parser.add_argument("--setup-seconds", type=float, default=0.0)
     args = parser.parse_args()
     kit, work = args.kit, args.work
-    code_root = kit / "code" if (kit / "code").exists() else kit.parents[2]
+    code_root = kit / "code" if (kit / "code").exists() else kit.parents[1]  # src/
     sys.path.insert(0, str(code_root))
-    from experiments.issue45.adapters.local_engines import (
+    from vera_word_timing.adapters.local_engines import (
         EngineConfig,
         MfaAligner,
         ParakeetRecognizer,
     )
-    from experiments.issue45.artifacts import AudioRef, file_hash
-    from experiments.issue45.conformance import check_alignment
-    from experiments.issue45.ports import ProjectPolicy
-    from experiments.issue45.script_reconcile import reconcile
+    from vera_word_timing.artifacts import AudioRef, file_hash
+    from vera_word_timing.conformance import check_alignment
+    from vera_word_timing.ports import ProjectPolicy
+    from vera_word_timing.script_reconcile import reconcile
 
     wav = work / "gettysburg-16k.wav"
     t0 = time.monotonic()

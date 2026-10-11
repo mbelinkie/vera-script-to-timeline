@@ -22,8 +22,8 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from experiments.issue45.artifacts import Json, content_hash, with_id
-from experiments.issue45.normalize import normalise_token
+from vera_word_timing.artifacts import Json, content_hash, with_id
+from vera_word_timing.normalize import normalise_token
 
 EXACT, SOUNDALIKE, MISMATCH = 3.0, 1.0, -2.0
 INSERT, SKIP, JUMP = 1.5, 0.6, 4.0
