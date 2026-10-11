@@ -91,6 +91,11 @@ def window_report(d: Path, start_s: float = 60.0, end_s: float = 300.0) -> None:
             seg["text"] for seg in json.loads(wj.read_text())["transcription"]
         )
         systems.append((f"whisper turbo (-l {lang})", norm(text)))
+    cj = d / "canary-win.json"
+    if cj.exists():
+        systems.append(
+            (f"Canary-1B v2 ({lang})", norm(json.loads(cj.read_text())["text"]))
+        )
     for name, hyp in systems:
         e, s_, dl, ins = wer(ref, hyp)
         out.append(

@@ -214,12 +214,13 @@ Public TEDx talks with same-language human captions as the reference (may be
 lightly edited, so WER is pessimistic for both systems); the same 4-minute
 window (1:00–5:00) per talk; `eu_wer.py`.
 
-| Language | Parakeet v3 (auto language) | whisper large-v3-turbo (language forced) |
-|---|---|---|
-| Italian | 2.9% | 1.5% |
-| Swedish | 13.5% | 10.0% |
-| French | 24.6% | 6.1% |
-| German | 54.6% | 15.5% |
+| Language | Parakeet v3 (auto language) | whisper large-v3-turbo (forced) | Canary-1B v2 (forced) |
+|---|---|---|---|
+| Italian | 2.9% | 1.5% | **1.0%** |
+| Swedish | 13.5% | 10.0% | **8.6%** |
+| French | 24.6% | **6.1%** | 11.4% |
+| German | 54.6% | **15.5%** | 17.2% |
+| Time per 4-min window (Intel) | ~15 s | 272–357 s | 57–76 s |
 
 - **Parakeet v3 cannot be told the language** and sometimes decodes stretches
   as English (German: "sure if it's this is what john the rhymes wanted" for
@@ -230,8 +231,12 @@ window (1:00–5:00) per talk; `eu_wer.py`.
   (A: 33.9% WER), which matters for presenter footage, less for Research.
 - YouTube auto-captions could not serve as a baseline: on videos with human
   captions, the same-language "auto" track is derived from them (0% "WER").
-- Next candidate: NVIDIA Canary-1B v2 (same 25 languages, language can be
-  forced). Word timing in these languages also needs MFA language models
+- **Canary-1B v2** (NVIDIA, CC-BY-4.0; int8 ONNX through the same onnx-asr
+  runtime as Parakeet; `run_canary.py`) takes a forced language. It is best
+  on Italian and Swedish, within 2–5 points of whisper on German and
+  French, and 4–5× faster than whisper. **Recommended Research recogniser
+  for non-English sources** (Parakeet stays the English default; whisper
+  only if German/French accuracy must be maximal and speed does not matter). Word timing in these languages also needs MFA language models
   (available for German, French, Swedish; not Italian or Finnish). No
   Finnish talk with Finnish captions was found yet.
 - Engineering finding: a single unbroken speech region longer than 30 s

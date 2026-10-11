@@ -209,3 +209,7 @@ in git.
   Parakeet's automatic language choice decodes parts of German as English.
   Next candidate: Canary-1B v2 (forceable language). Long unbroken speech
   regions (> 30 s) must be split before recognition.
+- Canary-1B v2 (int8 ONNX, forced language) on the same windows: it 1.0%,
+  sv 8.6%, fr 11.4%, de 17.2% WER; 57–76 s per 4-min window (whisper
+  272–357 s). Recommended Research recogniser for non-English; Parakeet for
+  English. Model: istupakov/canary-1b-v2-onnx@5ebc152 (CC-BY-4.0).
