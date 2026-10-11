@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.10">
+    <resources>
+        <format height="1080" name="FFVideoFormat1080p25" id="r0" frameDuration="1/25s" width="1920"/>
+        <format height="360" name="FFVideoFormatRateUndefined" id="r1" frameDuration="1/25s" width="640"/>
+        <asset name="base.mov" format="r1" audioSources="1" duration="16/1s" audioChannels="1" id="r2" hasVideo="1" start="0/1s" hasAudio="1">
+            <media-rep src="file://~/Desktop/ONGOING/VERA%20Script%20to%20Timeline/out/issue-141-second-opinion/fixtures/base.mov" kind="original-media"/>
+        </asset>
+        <asset name="a2_numbers.wav" audioSources="1" duration="16/1s" audioChannels="1" id="r3" start="0/1s" hasAudio="1">
+            <media-rep src="file://~/Desktop/ONGOING/VERA%20Script%20to%20Timeline/out/issue-141-second-opinion/fixtures/a2_numbers.wav" kind="original-media"/>
+        </asset>
+        <asset name="a3_bed.wav" audioSources="1" duration="16/1s" audioChannels="1" id="r4" start="0/1s" hasAudio="1">
+            <media-rep src="file://~/Desktop/ONGOING/VERA%20Script%20to%20Timeline/out/issue-141-second-opinion/fixtures/a3_bed.wav" kind="original-media"/>
+        </asset>
+    </resources>
+    <library>
+        <event name="SO T8 A2 Solo button (Resolve)">
+            <project name="SO T8 A2 Solo button (Resolve)">
+                <sequence tcStart="0/1s" format="r0" duration="399/25s" tcFormat="NDF">
+                    <spine>
+                        <asset-clip ref="r2" offset="0/1s" name="base.mov" format="r1" duration="399/25s" enabled="1" tcFormat="NDF" start="0/1s">
+                            <adjust-transform anchor="0 0" scale="1 1" position="0 0"/>
+                            <asset-clip ref="r3" offset="0/1s" name="a2_numbers.wav" lane="4" duration="399/25s" enabled="1" start="0/1s"/>
+                            <asset-clip ref="r4" offset="0/1s" name="a3_bed.wav" lane="5" duration="399/25s" enabled="1" start="0/1s"/>
+                        </asset-clip>
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>

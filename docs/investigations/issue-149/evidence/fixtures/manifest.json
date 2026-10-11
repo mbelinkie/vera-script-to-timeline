@@ -1,0 +1,174 @@
+{
+ "sample_rate": 48000,
+ "fps": 25,
+ "seconds": 16,
+ "interval_convention": "half-open [start,end) samples",
+ "files": {
+  "a1_alpha.wav": {
+   "pilot_hz": 1000,
+   "words": [
+    {
+     "word": "alpha",
+     "start_sample": 24000,
+     "end_sample": 43225,
+     "start_frame_float": 12.5,
+     "end_frame_float": 22.513020833333332
+    },
+    {
+     "word": "bravo",
+     "start_sample": 120000,
+     "end_sample": 141309,
+     "start_frame_float": 62.5,
+     "end_frame_float": 73.5984375
+    },
+    {
+     "word": "charlie",
+     "start_sample": 216000,
+     "end_sample": 234932,
+     "start_frame_float": 112.5,
+     "end_frame_float": 122.36041666666667
+    },
+    {
+     "word": "delta",
+     "start_sample": 312000,
+     "end_sample": 331945,
+     "start_frame_float": 162.5,
+     "end_frame_float": 172.88802083333334
+    },
+    {
+     "word": "echo",
+     "start_sample": 408000,
+     "end_sample": 426971,
+     "start_frame_float": 212.5,
+     "end_frame_float": 222.38072916666667
+    },
+    {
+     "word": "foxtrot",
+     "start_sample": 504000,
+     "end_sample": 536675,
+     "start_frame_float": 262.5,
+     "end_frame_float": 279.5182291666667
+    },
+    {
+     "word": "golf",
+     "start_sample": 600000,
+     "end_sample": 618210,
+     "start_frame_float": 312.5,
+     "end_frame_float": 321.984375
+    },
+    {
+     "word": "hotel",
+     "start_sample": 696000,
+     "end_sample": 721951,
+     "start_frame_float": 362.5,
+     "end_frame_float": 376.0161458333333
+    }
+   ],
+   "sha256": "4bc4b8cfa118dab9f75ec2072f79af0c856f41566d7e2da60fca5268f7d81253"
+  },
+  "a2_numbers.wav": {
+   "pilot_hz": 1500,
+   "words": [
+    {
+     "word": "one",
+     "start_sample": 72000,
+     "end_sample": 89297,
+     "start_frame_float": 37.5,
+     "end_frame_float": 46.508854166666666
+    },
+    {
+     "word": "two",
+     "start_sample": 168000,
+     "end_sample": 183012,
+     "start_frame_float": 87.5,
+     "end_frame_float": 95.31875
+    },
+    {
+     "word": "three",
+     "start_sample": 264000,
+     "end_sample": 281585,
+     "start_frame_float": 137.5,
+     "end_frame_float": 146.65885416666666
+    },
+    {
+     "word": "four",
+     "start_sample": 360000,
+     "end_sample": 376859,
+     "start_frame_float": 187.5,
+     "end_frame_float": 196.28072916666667
+    },
+    {
+     "word": "five",
+     "start_sample": 456000,
+     "end_sample": 475079,
+     "start_frame_float": 237.5,
+     "end_frame_float": 247.43697916666667
+    },
+    {
+     "word": "six",
+     "start_sample": 552000,
+     "end_sample": 574344,
+     "start_frame_float": 287.5,
+     "end_frame_float": 299.1375
+    },
+    {
+     "word": "seven",
+     "start_sample": 648000,
+     "end_sample": 668348,
+     "start_frame_float": 337.5,
+     "end_frame_float": 348.09791666666666
+    },
+    {
+     "word": "eight",
+     "start_sample": 744000,
+     "end_sample": 758512,
+     "start_frame_float": 387.5,
+     "end_frame_float": 395.05833333333334
+    }
+   ],
+   "sha256": "d9aeccc2d50cb96d81341167450eeb1b2c43fecf0f02b9291b4cd65afa92f9ba"
+  },
+  "a3_bed.wav": {
+   "pilot_hz": 2000,
+   "bed_hz": 110,
+   "sha256": "022e3dd779808e5b38ff870cd541d8e25fb940836443262aaa95ce8768817e2b"
+  },
+  "clicks.wav": {
+   "impulse_samples": [
+    48001,
+    96777,
+    144959,
+    193919,
+    240001,
+    288777,
+    336959,
+    385919,
+    432001,
+    480777,
+    528959,
+    577919,
+    624001,
+    672777,
+    720959
+   ],
+   "amplitude": 0.9,
+   "sha256": "49fe1898a6905b8e57a84e62c1f7c920e88946d43725774bc4ce84f3b3160db6"
+  },
+  "base.mov": {
+   "src_id": 1,
+   "embedded_audio": "a1_alpha.wav",
+   "frames": 400,
+   "sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036"
+  },
+  "cutaway.mov": {
+   "src_id": 2,
+   "frames": 400,
+   "sha256": "34c364eb8debae77754448b7e272467d6fbf7a9ff46a2cca338032b778acc42e"
+  },
+  "overlay.png": {
+   "rgba_alpha": 128,
+   "sha256": "0eaf729598941b637fe282717b6d16c39f78c0a62be84bad391d95d5b34c864d"
+  }
+ },
+ "frame_code": "top 16 blocks of 40x32 px, MSB first, white=1; value=(src_id<<12)|frame"
+}

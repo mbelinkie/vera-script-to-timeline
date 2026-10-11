@@ -1,0 +1,59 @@
+{
+ "job_id": "p7-002-noise-and-dbcopy",
+ "started": 1790974634.0788429,
+ "seconds": 26.81,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "log": [
+   [
+    "start",
+    1790974592.2381155,
+    [
+     "Batch Renders",
+     "Project.db"
+    ]
+   ],
+   [
+    "idle 5s",
+    1790974592.2381155
+   ],
+   [
+    "playhead move",
+    1790974592.2381155
+   ],
+   [
+    "page color",
+    1790974642.2621496
+   ],
+   [
+    "page edit",
+    1790974642.2621496
+   ],
+   [
+    "switch timeline",
+    1790974648.790205
+   ],
+   [
+    "switch back",
+    1790974651.973819
+   ],
+   [
+    "SetClipEnabled A3 False",
+    true
+   ],
+   [
+    "after edit",
+    1790974657.1577256
+   ],
+   [
+    "SetClipEnabled A3 True",
+    true
+   ],
+   [
+    "after undo-edit",
+    1790974660.1576178
+   ]
+  ]
+ }
+}

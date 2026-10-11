@@ -1,0 +1,32 @@
+{
+ "job_id": "p3-006-solo-off-control",
+ "started": 1790975131.210649,
+ "seconds": 0.832,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "current": "SO T8 A2 Solo button",
+  "exports": {
+   "drt": true,
+   "fcpxml": true,
+   "otio": true,
+   "aaf": true,
+   "edl": true,
+   "csv": true
+  },
+  "tracks": [
+   [
+    1,
+    true
+   ],
+   [
+    2,
+    true
+   ],
+   [
+    3,
+    true
+   ]
+  ]
+ }
+}
