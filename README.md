@@ -362,6 +362,16 @@ target after a post-mutation failure, and never falls back to UI automation.
 does not manufacture one; the accepted pinned-template capability remains a
 separate, fail-closed boundary until its product contract exists.
 
+### Injected Workflow Integration delivery
+
+The repository-owned [v1 installation and operator runbook](docs/resolve-workflow-integration-v1.md)
+provides the injected alternative with External Scripting set to None. A locked
+external verifier prepares an immutable package attestation; the versioned
+launcher rechecks it before each mutating assembly stage, creates a unique new
+nonproduction target, then saves, reopens and compares it with the manifest.
+Reports retain failures, partial-target identity and exact version/hash evidence.
+Real installed-version calibration and Producer acceptance remain the #109 gate.
+
 ### Pinned Text+ destination-track validation
 
 VERA versions the producer-authored `Text+` media-pool generator template and
