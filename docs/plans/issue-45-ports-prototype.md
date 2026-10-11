@@ -122,3 +122,13 @@ pins `jsonschema`; engine runtimes are external and configured, not installed.
   whose path string starts with its root dir, then reports every word
   "failed". The adapter now refuses when MFA aligns nothing, and conformance
   fails alignments with under 50% acoustic units.
+- `resolve_review.py`: automatic resolution of `needs_review` edges (the
+  Producer never reviews words). Rules: quiet gap between the two candidates
+  → inner candidate; disagreement over 300 ms → the candidate nearer the
+  recogniser's own anchor; otherwise the outer edge (never clips). Results
+  always one of the two aligners' times. Held-out check on the study's
+  pipelines (5 recognisers × 2 recordings, rule chosen on Parakeet/A):
+  flagged-edge median error 80–710 ms → 30–60 ms; edges over 300 ms off
+  14–49 → 3–7 per pipeline on A (B: 0–6 → 0–2); 1–3 edges per pipeline
+  made worse by more than 100 ms. Unresolvable residue is what may surface as
+  a listen-check on a cut.

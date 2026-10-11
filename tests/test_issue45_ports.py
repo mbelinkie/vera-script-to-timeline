@@ -443,3 +443,68 @@ def test_conformance_rejects_mostly_unaligned(audio: AudioRef) -> None:
     rec = FakeRecognizer(["a", "b", "c"]).recognise(audio, language="en", policy=POLICY)
     ali = FakeAligner(unaligned=frozenset({0, 1, 2})).align(audio, rec, policy=POLICY)
     assert any("acoustic times" in f for f in check_alignment(audio, rec, ali))
+
+
+def test_review_resolution_rules(tmp_path: Path) -> None:
+    from experiments.issue45.resolve_review import Loudness, resolve
+
+    wav = tmp_path / "loud.wav"
+    with wave.open(str(wav), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(16000)
+        loud = (8000).to_bytes(2, "little", signed=True) * 16000
+        w.writeframes(b"\x00\x00" * 16000 + loud * 3)  # 1 s silence, then sound
+    words = [
+        {"tokenIndex": 0, "sub": 0, "startMs": 200, "endMs": 1500},  # onset in silence
+        {"tokenIndex": 1, "sub": 0, "startMs": 1500, "endMs": 1800},
+        {"tokenIndex": 2, "sub": 0, "startMs": 2000, "endMs": 2300},
+    ]
+    bounds = [
+        {
+            "tokenIndex": 0,
+            "sub": 0,
+            "side": "onset",
+            "verdict": "needs_review",
+            "deltaMs": -800,
+        },
+        {
+            "tokenIndex": 1,
+            "sub": 0,
+            "side": "onset",
+            "verdict": "needs_review",
+            "deltaMs": 600,
+        },
+        {
+            "tokenIndex": 2,
+            "sub": 0,
+            "side": "onset",
+            "verdict": "needs_review",
+            "deltaMs": 100,
+        },
+        {
+            "tokenIndex": 2,
+            "sub": 0,
+            "side": "offset",
+            "verdict": "accepted",
+            "deltaMs": 5,
+        },
+    ]
+    recognition = {"tokens": [{"index": 1, "anchorStartMs": 1450, "anchorEndMs": 1800}]}
+    got = resolve(
+        {"words": words, "agreement": {"boundaries": bounds}},
+        Loudness(wav),
+        recognition,
+    )
+    assert [(r.ms, r.method) for r in got] == [
+        (
+            1000,
+            "quiet_gap_inner",
+        ),  # 200-1000 ms is silent: speech starts at the later candidate
+        (
+            1500,
+            "anchor_tiebreak",
+        ),  # 600 ms apart: keep the one nearer the recogniser anchor
+        (1900, "outer_edge"),  # small, not quiet: earlier start, never clip
+        (2300, "agreed"),
+    ]
