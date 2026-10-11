@@ -508,3 +508,10 @@ def test_review_resolution_rules(tmp_path: Path) -> None:
         (1900, "outer_edge"),  # small, not quiet: earlier start, never clip
         (2300, "agreed"),
     ]
+
+
+def test_group_regions_splits_one_long_region() -> None:
+    segs = group_regions([(1.0, 75.0)], 80.0)
+    assert len(segs) == 3
+    assert all(e - s <= 30.0 for s, e in segs)
+    assert segs[0][0] == 0.7 and segs[-1][1] == 75.3

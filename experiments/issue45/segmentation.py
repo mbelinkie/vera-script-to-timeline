@@ -8,6 +8,7 @@ so coarse anchor error does not move segment edges.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 from experiments.issue45.normalize import Unit
@@ -40,9 +41,16 @@ def group_regions(
     for index, (start, end) in enumerate(spans):
         low = 0.0 if index == 0 else (spans[index - 1][1] + start) / 2
         high = duration if index == len(spans) - 1 else (end + spans[index + 1][0]) / 2
-        padded.append(
-            (round(max(low, start - PAD_S), 3), round(min(high, end + PAD_S), 3))
-        )
+        seg_start, seg_end = max(low, start - PAD_S), min(high, end + PAD_S)
+        # A single unbroken speech region can exceed the limit (seen on a fast
+        # German talker); split it evenly rather than handing engines an
+        # over-long segment (Parakeet refuses segments over 30 s).
+        pieces = max(1, math.ceil((seg_end - seg_start) / MAX_SEGMENT_S))
+        step = (seg_end - seg_start) / pieces
+        padded += [
+            (round(seg_start + k * step, 3), round(seg_start + (k + 1) * step, 3))
+            for k in range(pieces)
+        ]
     return padded
 
 
