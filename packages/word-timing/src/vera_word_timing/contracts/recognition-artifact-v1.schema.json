@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.vera.video/contracts/recognition-artifact-v1.schema.json",
+  "title": "RecognitionArtifactV1",
+  "description": "Shared #168 contract (Producer-approved 2026-10-10). Output of a RecognizerPort: recognised text with coarse source-time anchors. Immutable; any identity change is a new artifact.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "artifactId", "identity", "consent", "tokens"],
+  "properties": {
+    "schemaVersion": { "const": "recognition-artifact/v1" },
+    "artifactId": {
+      "$ref": "#/$defs/ContentHash",
+      "description": "sha256 of the canonical JSON of this artifact with artifactId omitted."
+    },
+    "identity": { "$ref": "#/$defs/RecognitionIdentity" },
+    "consent": { "$ref": "#/$defs/Consent" },
+    "tokens": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/RecognisedToken" }
+    },
+    "segments": {
+      "type": "array",
+      "description": "Recogniser segment bounds when the provider supplies them.",
+      "items": { "$ref": "#/$defs/SourceInterval" }
+    }
+  },
+  "$defs": {
+    "ContentHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "SourceMs": { "type": "integer", "minimum": 0 },
+    "NullableSourceMs": { "anyOf": [{ "$ref": "#/$defs/SourceMs" }, { "type": "null" }] },
+    "AudioIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hash", "sampleRate", "durationSamples"],
+      "properties": {
+        "hash": { "$ref": "#/$defs/ContentHash", "description": "Hash of the original source audio, before any prep." },
+        "sampleRate": { "type": "integer", "minimum": 1 },
+        "durationSamples": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "PrepStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tool", "version", "parametersHash"],
+      "description": "One AudioPrep step applied before this stage (e.g. resample, DeepFilterNet). Empty list = original audio.",
+      "properties": {
+        "tool": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "parametersHash": { "$ref": "#/$defs/ContentHash" }
+      }
+    },
+    "RecognitionIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["audio", "prep", "recognizer", "language"],
+      "properties": {
+        "audio": { "$ref": "#/$defs/AudioIdentity" },
+        "prep": { "type": "array", "items": { "$ref": "#/$defs/PrepStep" } },
+        "recognizer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "provider", "model", "modelRevision", "parametersHash", "keytermsHash"],
+          "properties": {
+            "kind": {
+              "enum": ["asr-local", "asr-cloud", "caption", "reference-text"],
+              "description": "reference-text is evaluation-only (D-P009) and must never feed production alignment."
+            },
+            "provider": { "type": "string", "minLength": 1 },
+            "model": { "type": "string", "minLength": 1 },
+            "modelRevision": { "type": ["string", "null"] },
+            "parametersHash": { "$ref": "#/$defs/ContentHash" },
+            "keytermsHash": { "anyOf": [{ "$ref": "#/$defs/ContentHash" }, { "type": "null" }] }
+          }
+        },
+        "language": { "type": "string", "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$" }
+      }
+    },
+    "Consent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["processing", "policyId"],
+      "properties": {
+        "processing": { "enum": ["local", "cloud"] },
+        "cloudProvider": { "type": "string", "minLength": 1 },
+        "policyId": {
+          "type": ["string", "null"],
+          "description": "Per-project cloud consent policy (Producer decision 4, 2026-10-10). Required when processing is cloud."
+        }
+      },
+      "if": { "properties": { "processing": { "const": "cloud" } } },
+      "then": {
+        "required": ["cloudProvider"],
+        "properties": { "policyId": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "RecognisedToken": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index", "display", "kind", "anchorStartMs", "anchorEndMs", "anchorPrecision"],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0 },
+        "display": { "type": "string", "minLength": 1, "description": "As recognised; never corrected toward a script here." },
+        "kind": { "enum": ["word", "event", "filler"] },
+        "anchorStartMs": { "$ref": "#/$defs/NullableSourceMs" },
+        "anchorEndMs": { "$ref": "#/$defs/NullableSourceMs" },
+        "anchorPrecision": {
+          "enum": ["word", "word_start_with_derived_end", "segment", "cue", "none"],
+          "description": "How the provider timed this token. Anchors are coarse hints for segmentation, never cut authority."
+        },
+        "providerConfidence": {
+          "type": ["number", "null"],
+          "description": "Opaque provider score; never compared across providers."
+        }
+      }
+    },
+    "SourceInterval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["startMs", "endMs"],
+      "properties": {
+        "startMs": { "$ref": "#/$defs/SourceMs" },
+        "endMs": { "$ref": "#/$defs/SourceMs" }
+      }
+    }
+  }
+}

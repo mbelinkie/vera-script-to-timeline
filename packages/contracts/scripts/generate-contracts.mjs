@@ -31,6 +31,10 @@ const v1SchemaFiles = [
   "build-report-v1.schema.json",
   "compiler-dependencies-v1.schema.json",
   "prompter-export-v1.schema.json",
+  "recognition-artifact-v1.schema.json",
+  "alignment-artifact-v1.schema.json",
+  "script-reconciliation-v1.schema.json",
+  "port-refusal-v1.schema.json",
 ];
 const v2SchemaFiles = [
   "script-document-v2.schema.json",
@@ -50,6 +54,10 @@ const typeScriptGroups = [
       ["buildReport", v1SchemaFiles[2]],
       ["compilerDependencies", v1SchemaFiles[3]],
       ["prompterExport", v1SchemaFiles[4]],
+      ["recognitionArtifact", v1SchemaFiles[5]],
+      ["alignmentArtifact", v1SchemaFiles[6]],
+      ["scriptReconciliation", v1SchemaFiles[7]],
+      ["portRefusal", v1SchemaFiles[8]],
     ],
   },
   {
@@ -79,6 +87,10 @@ const pythonGroups = [
       ["prompter_export_v1_schema", "PrompterExportV1"],
       ["script_document_v1_schema", "ScriptDocumentV1"],
       ["timeline_manifest_v1_schema", "TimelineManifestV1"],
+      ["recognition_artifact_v1_schema", "RecognitionArtifactV1"],
+      ["alignment_artifact_v1_schema", "AlignmentArtifactV1"],
+      ["script_reconciliation_v1_schema", "ScriptReconciliationV1"],
+      ["port_refusal_v1_schema", "PortRefusalV1"],
     ],
   },
   {

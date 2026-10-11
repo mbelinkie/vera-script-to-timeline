@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.vera.video/contracts/script-reconciliation-v1.schema.json",
+  "title": "ScriptReconciliationV1",
+  "description": "Script to Timeline only (#168, Producer-approved 2026-10-10). Maps a recognition artifact's units to prompter-script positions and applies script spelling to sound-alike names. Never changes times or the recognition artifact.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "artifactId", "identity", "units"],
+  "properties": {
+    "schemaVersion": { "const": "script-reconciliation/v1" },
+    "artifactId": { "$ref": "recognition-artifact-v1.schema.json#/$defs/ContentHash" },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recognitionArtifactId", "scriptHash", "dictionaryHash", "parametersHash"],
+      "properties": {
+        "recognitionArtifactId": { "$ref": "recognition-artifact-v1.schema.json#/$defs/ContentHash" },
+        "scriptHash": { "$ref": "recognition-artifact-v1.schema.json#/$defs/ContentHash" },
+        "dictionaryHash": { "$ref": "recognition-artifact-v1.schema.json#/$defs/ContentHash" },
+        "parametersHash": { "$ref": "recognition-artifact-v1.schema.json#/$defs/ContentHash" }
+      }
+    },
+    "units": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tokenIndex", "sub", "heard", "text", "scriptIndex", "scriptSpelling"],
+        "properties": {
+          "tokenIndex": { "type": "integer", "minimum": 0 },
+          "sub": { "type": "integer", "minimum": 0 },
+          "heard": { "type": "string", "minLength": 1, "description": "Presenter-fidelity evidence for the take stage (misreadings show here)." },
+          "text": { "type": "string", "minLength": 1, "description": "Spelling used for matching and timing." },
+          "scriptIndex": { "type": ["integer", "null"], "minimum": 0, "description": "Script unit this heard unit read, or null (stumble, ad-lib, restart fragment)." },
+          "scriptSpelling": { "type": ["string", "null"], "description": "Script display spelling applied, when a sound-alike name was respelled." }
+        }
+      }
+    }
+  }
+}

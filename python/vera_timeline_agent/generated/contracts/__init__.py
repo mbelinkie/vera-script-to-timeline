@@ -1,5 +1,6 @@
 """Generated root models for the VERA shared JSON contracts."""
 
+from .alignment_artifact_v1_schema import AlignmentArtifactV1
 from .authoring_project_settings_v1_schema import AuthoringProjectSettingsV1
 from .build_report_v1_schema import BuildReportV1
 from .build_report_v2_schema import BuildReportV2, CompilerResultV2
@@ -10,13 +11,17 @@ from .compiler_dependencies_v2_schema import (
     CompilerDependenciesV2,
     NarrationBoundaryEvidenceV1,
 )
+from .port_refusal_v1_schema import PortRefusalV1
 from .prompter_export_v1_schema import PrompterExportV1
+from .recognition_artifact_v1_schema import RecognitionArtifactV1
 from .script_document_v1_schema import ScriptDocumentV1
 from .script_document_v2_schema import ScriptDocumentV2, WordAudibleEndAnchor
+from .script_reconciliation_v1_schema import ScriptReconciliationV1
 from .timeline_manifest_v1_schema import TimelineManifestV1
 from .timeline_manifest_v2_schema import TimelineManifestV2
 
 __all__ = [
+    "AlignmentArtifactV1",
     "AuthoringProjectSettingsV1",
     "BoundaryTokenEvidenceV1",
     "BoundaryVerificationV1",
@@ -26,9 +31,12 @@ __all__ = [
     "CompilerDependenciesV2",
     "CompilerResultV2",
     "NarrationBoundaryEvidenceV1",
+    "PortRefusalV1",
     "PrompterExportV1",
+    "RecognitionArtifactV1",
     "ScriptDocumentV1",
     "ScriptDocumentV2",
+    "ScriptReconciliationV1",
     "TimelineManifestV1",
     "TimelineManifestV2",
     "WordAudibleEndAnchor",
