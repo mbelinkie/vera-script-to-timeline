@@ -1,0 +1,294 @@
+{
+  "issue": 156,
+  "checkedAtUtc": "2026-10-08T16:52:09.334959+00:00",
+  "qualification": "documentation design and unchanged baseline only; no v2/media/Studio runtime qualification",
+  "baseline": "96978919616df0148d9c4b06781aeb80acfa85e4",
+  "planSha256": "46acb5e6f85f227796e862dd6d09fa3716901f7d8c9ffd0ff576d643b4f5d116",
+  "sourcePinsSha256": "ffaccb08462c10d69b300b75e98e27b6698940a91e0eb6a21798e85aec72ea79",
+  "sourceChecks": {
+    "passed": true,
+    "count": 33,
+    "method": "exact Git blob/Contents API bytes, sha256 and byte count; remote Git blob hash verified"
+  },
+  "interfaceChecks": {
+    "passed": true,
+    "symbols": {
+      "packages/contracts/src/compiler-core.ts": [
+        "compileTimeline",
+        "canonicalJson",
+        "frameDurationForSamples"
+      ],
+      "packages/contracts/src/script-validator.ts": [
+        "validateScriptDocument"
+      ],
+      "packages/contracts/scripts/generate-contracts.mjs": [
+        "schemaFiles",
+        "datamodel-codegen"
+      ],
+      "python/vera_timeline_agent/narration/compiler_dependencies.py": [
+        "narration_dependency_from_asset"
+      ],
+      "python/vera_timeline_agent/narration/polly.py": [
+        "PollySourceMap",
+        "utf8_range_to_utf16",
+        "build_polly_ssml",
+        "_parse_marks"
+      ],
+      "python/vera_timeline_agent/otio_package/package.py": [
+        "build_otio_package",
+        "verify_otio_package"
+      ],
+      "python/vera_timeline_agent/resolve_import_package/package.py": [
+        "build_resolve_import_package",
+        "verify_resolve_import_package"
+      ],
+      "python/vera_timeline_agent/studio_assembly.py": [
+        "run_studio_assembly"
+      ],
+      "python/vera_timeline_agent/studio_spike.py": [
+        "PublicResolveAdapter"
+      ],
+      "python/vera_timeline_agent/build_jobs.py": [
+        "StageContext",
+        "StageAdapter",
+        "publish_immutable_output",
+        "run_one"
+      ],
+      "packages/media/src/index.ts": [
+        "MediaCommandRunner",
+        "SpawnMediaCommandRunner",
+        "FfmpegRangeRenderer",
+        "buildFfmpegRenderArguments",
+        "inspectAndValidateRenderedExportOutput"
+      ],
+      "packages/export-settings/src/index.ts": [
+        "APPLICATION_EDITING_EXPORT_SETTINGS"
+      ]
+    },
+    "limit": "existence check supplements read-only interface inventory; no runtime contract equivalence implied"
+  },
+  "packageDependencies": {
+    "P1": [],
+    "P2": [
+      "P1"
+    ],
+    "P3": [
+      "P1",
+      "P2"
+    ],
+    "P4": [
+      "P2",
+      "P3"
+    ],
+    "P5": [
+      "P2",
+      "P4"
+    ],
+    "P6": [
+      "P1",
+      "P3"
+    ],
+    "P7": [
+      "P2",
+      "P4",
+      "P5"
+    ],
+    "P8": [
+      "P5",
+      "P7"
+    ]
+  },
+  "topologicalOrder": [
+    "P1",
+    "P2",
+    "P3",
+    "P4",
+    "P6",
+    "P5",
+    "P7",
+    "P8"
+  ],
+  "packageOwnerReview": "P1-P8 once; existing #157/#160/#81/#82/#85 preserved; #148 independent; Luna review passed core ownership/DAG boundary",
+  "arithmeticChecks": {
+    "passed": true,
+    "examples": [
+      {
+        "case": "240 target frames seconds",
+        "exact": "1001/100",
+        "expected": "1001/100",
+        "passed": true
+      },
+      {
+        "case": "25 fps required frames",
+        "exact": "251",
+        "expected": "251",
+        "passed": true
+      },
+      {
+        "case": "25 fps complete 10s record frames",
+        "exact": "240",
+        "expected": "240",
+        "passed": true
+      },
+      {
+        "case": "30 fps required frames",
+        "exact": "301",
+        "expected": "301",
+        "passed": true
+      },
+      {
+        "case": "30 fps complete 10s record frames",
+        "exact": "240",
+        "expected": "240",
+        "passed": true
+      },
+      {
+        "case": "10s terminal quantization seconds",
+        "exact": "1/100",
+        "expected": "1/100",
+        "passed": true
+      },
+      {
+        "case": "3/25s record frames",
+        "exact": "3",
+        "expected": "3",
+        "passed": true
+      },
+      {
+        "case": "3/25s terminal quantization seconds",
+        "exact": "41/8000",
+        "expected": "41/8000",
+        "passed": true
+      },
+      {
+        "case": "3000ms visual-only frames",
+        "exact": "72",
+        "expected": "72",
+        "passed": true
+      },
+      {
+        "case": "nonzero-origin package source start",
+        "exact": "2/5",
+        "expected": "2/5",
+        "passed": true
+      },
+      {
+        "case": "nonzero-origin package PTS start",
+        "exact": "12/5",
+        "expected": "12/5",
+        "passed": true
+      },
+      {
+        "case": "nonzero-origin logged start",
+        "exact": "602/5",
+        "expected": "602/5",
+        "passed": true
+      },
+      {
+        "case": "nonzero-origin exclusive logical end",
+        "exact": "3261",
+        "expected": "3261",
+        "passed": true
+      },
+      {
+        "case": "nonzero-origin exclusive package end",
+        "exact": "261",
+        "expected": "261",
+        "passed": true
+      },
+      {
+        "case": "nonzero-origin final selected package frame",
+        "exact": "259",
+        "expected": "259",
+        "passed": true
+      }
+    ],
+    "samplingMatrixCases": 100,
+    "rates": [
+      "24000/1001",
+      "24/1",
+      "25/1",
+      "30000/1001",
+      "30/1"
+    ],
+    "limit": "rational arithmetic only, not FFmpeg/Studio execution"
+  },
+  "artifactReferences": {
+    "passed": true,
+    "localReferences": [
+      "../verification/issue-156/source-pins.json",
+      "../verification/issue-156/design-checks.json",
+      "issue-156-authoring-realization-checkpoint.md"
+    ]
+  },
+  "frozenBoundaryAudit": {
+    "passed": true,
+    "changedFiles": [
+      "docs/plans/issue-156-authoring-realization-checkpoint.md",
+      "docs/plans/issue-156-authoring-realization.md",
+      "docs/verification/issue-156/design-checks.json",
+      "docs/verification/issue-156/source-pins.json",
+      "docs/verification/issue-156/verification.md"
+    ],
+    "allowed": [
+      "docs/plans/issue-156-authoring-realization-checkpoint.md",
+      "docs/plans/issue-156-authoring-realization.md",
+      "docs/verification/issue-156/design-checks.json",
+      "docs/verification/issue-156/source-pins.json",
+      "docs/verification/issue-156/validation.log",
+      "docs/verification/issue-156/verification.md"
+    ],
+    "command": "git diff --exit-code 96978919616df0148d9c4b06781aeb80acfa85e4 -- contracts fixtures packages python tests scripts package.json package-lock.json pyproject.toml uv.lock"
+  },
+  "checker": {
+    "command": "ctx-wire run rtk proxy python3 out/issue156/check_design.py",
+    "sha256": "eaf2ab3a67d58075b44fcb3c2ae46e0fd3ca4d7dd0a9f12f1af546f51399dd6e",
+    "retention": "local ignored read-only verification helper; no product code added"
+  },
+  "repositoryValidation": {
+    "status": "passed",
+    "command": "npm run validate",
+    "exitCode": 0,
+    "completedAtUtc": "2026-10-08T16:52:07.907145+00:00",
+    "launcher": "ctx-wire run rtk proxy env PATH=<local locked npm/bin>:<local locked Node/bin>:$PATH python3; subprocess.run([npm, run, validate])",
+    "runtimePathAdditions": [
+      "out/issue156/tooling/npm/node_modules/.bin",
+      "out/issue156/tooling/node-v24.19.0-darwin-x64/bin"
+    ],
+    "tools": {
+      "node": "24.19.0",
+      "npm": "11.17.0",
+      "python": "3.12.14",
+      "uv": "0.12.5",
+      "pytest": "9.1.1",
+      "ffmpeg": "8.1.2",
+      "ffprobe": "8.1.2"
+    },
+    "nodeArchiveSha256": "d1b5e999db158c62fe8f7267a4476b035d8bd93b1a605bac24a3f0dd166e3316",
+    "checks": {
+      "generatedContracts": "current",
+      "typescriptLint": "passed",
+      "typescriptTypecheck": "passed",
+      "pythonRuff": "passed",
+      "pythonFormatFiles": 305,
+      "pythonMypyFiles": 92
+    },
+    "tests": {
+      "contractsVitest": 244,
+      "toolingSmokeVitest": 1,
+      "projectProgressNode": 6,
+      "roadmapNode": 23,
+      "typescriptNodeTotal": 274,
+      "pythonPytest": 369,
+      "allTotal": 643
+    },
+    "pythonElapsedSeconds": 3681.16,
+    "log": {
+      "path": "out/issue156/validate.log",
+      "sha256": "df05e934eefdd9107a30fcd1fac8adfa0fec531fb72fefc63447965c06b0c9c6",
+      "bytes": 8367,
+      "retention": "local ignored complete log; results and digest retained in review artifact"
+    },
+    "limit": "unchanged baseline checks; not v2/media/Studio runtime qualification"
+  }
+}

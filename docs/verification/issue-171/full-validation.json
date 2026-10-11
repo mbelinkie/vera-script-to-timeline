@@ -1,0 +1,142 @@
+{
+  "issue": 171,
+  "acceptance": "Automated",
+  "branch": "codex/issue-171-v2-generated-contracts",
+  "baselineCommit": "76c9f9635989415e3c7c2c15b2e6cc1ab9ddc7da",
+  "implementationCommit": "fa59d88db96a9fc780ec62934eee15caf92dce59",
+  "attempt": 3,
+  "startedAt": "2026-10-09T05:32:52Z",
+  "completedObservedAt": "2026-10-09T06:54:06Z",
+  "elapsedSeconds": 4874,
+  "command": "rtk proxy env PATH=\"/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH\" ctx-wire run rtk npm run validate > docs/verification/issue-171/full-validation.txt 2>&1",
+  "exitCode": 0,
+  "log": {
+    "path": "docs/verification/issue-171/full-validation.txt",
+    "bytes": 7631,
+    "sha256": "1e93f128e7cbc85ef61bbea8a456ee11c3733785a038965dd1b8a5876e25d5c7"
+  },
+  "results": {
+    "generatedContracts": "passed",
+    "typescriptLint": "passed",
+    "typescriptTypecheck": "passed",
+    "typescriptTests": {
+      "passed": 268,
+      "testFiles": 15
+    },
+    "toolingSmokeTests": {
+      "passed": 1,
+      "testFiles": 1
+    },
+    "projectProgressTests": {
+      "passed": 6,
+      "testFiles": 1
+    },
+    "roadmapTests": {
+      "passed": 23,
+      "testFiles": 3
+    },
+    "pythonRuff": "passed; 316 files already formatted",
+    "pythonMypy": {
+      "passed": true,
+      "sourceFiles": 98
+    },
+    "pythonPytest": {
+      "passed": 371,
+      "durationSeconds": 4744.9
+    },
+    "frozenV1ComparisonExitCode": 0,
+    "gitDiffCheck": "passed"
+  },
+  "sourcePins": {
+    "path": "docs/verification/issue-171/source-pins.json",
+    "bytes": 11435,
+    "sha256": "6bff1f3da94fe1556ded837e1ddfbf65eef91baff60e426ec00d72f1f2321b9c",
+    "artifactCount": 19,
+    "frozenV1Boundary": {
+      "baselineCommit": "76c9f9635989415e3c7c2c15b2e6cc1ab9ddc7da",
+      "comparison": "rtk git diff --quiet 76c9f9635989415e3c7c2c15b2e6cc1ab9ddc7da -- <five v1 schemas> <v1 TypeScript aggregate> <five v1 Python modules> tests fixtures package-lock.json uv.lock",
+      "comparisonExitCode": 0,
+      "groups": [
+        {
+          "name": "existing v1 JSON schemas",
+          "files": 5,
+          "bytes": 52864,
+          "baselineTreeSha256": "45f4b3b4e126373080e3ee9de5930f4c70f661852da52cdf245cabb0c5acff0e",
+          "currentTreeSha256": "45f4b3b4e126373080e3ee9de5930f4c70f661852da52cdf245cabb0c5acff0e",
+          "identical": true
+        },
+        {
+          "name": "generated v1 TypeScript",
+          "files": 1,
+          "bytes": 16638,
+          "baselineTreeSha256": "c6e890d59103c153337d00a2d2932754b6893d97da85c57427c15c265e8cbb6b",
+          "currentTreeSha256": "c6e890d59103c153337d00a2d2932754b6893d97da85c57427c15c265e8cbb6b",
+          "identical": true
+        },
+        {
+          "name": "generated v1 Python modules",
+          "files": 5,
+          "bytes": 15070,
+          "baselineTreeSha256": "0e647be520362a2a0e6012be595e03df354749dea330bb114f23f497db11fe47",
+          "currentTreeSha256": "0e647be520362a2a0e6012be595e03df354749dea330bb114f23f497db11fe47",
+          "identical": true
+        }
+      ],
+      "pythonRootRegistry": "Additive v2 exports only; all prior v1 import and __all__ entries remain present."
+    }
+  },
+  "toolchain": [
+    {
+      "name": "node",
+      "version": "v24.19.0",
+      "path": "/Users/matthewbelinkie/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+      "sha256": "f7413632aa5c8cfc985a96fbc963a7a9e76204ea4e61970927dfb78ae6c9f365"
+    },
+    {
+      "name": "npm",
+      "version": "11.17.0",
+      "path": "/usr/local/lib/node_modules/npm/bin/npm-cli.js",
+      "sha256": "8e5f6f3429f8cdbe693cdc29904e9d5a7b127a494bd15c804bd54c7403bfcbe7"
+    },
+    {
+      "name": "python",
+      "version": "Python 3.12.14",
+      "path": "/Users/matthewbelinkie/.local/share/uv/python/cpython-3.12.14-macos-x86_64-none/bin/python3.12",
+      "sha256": "a8e10ff8d348800219a8f1f2bb04f5b7d2d62a34f9656cad5520f10560f8df35"
+    },
+    {
+      "name": "uv",
+      "version": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)",
+      "path": "/Users/matthewbelinkie/.local/bin/uv",
+      "sha256": "9f810c3f3ea6b29f5e02b03acb0dcff74f516d4c24b91cd5491f172829e5c9e4"
+    },
+    {
+      "name": "rtk",
+      "version": "rtk 0.44.2",
+      "path": "/Users/matthewbelinkie/.local/bin/rtk",
+      "sha256": "aa8a9432e4970f58f7d2992d55c91edf626c057582f374e65861aef052226d10"
+    },
+    {
+      "name": "ctx-wire",
+      "version": "ctx-wire 0.1.71 (commit 1c9d061, built 2026-09-27T15:38:49Z)",
+      "path": "/Users/matthewbelinkie/.local/bin/ctx-wire",
+      "sha256": "9c93b4824db7a560dd82a40c6fe22aa26077f1746a0493e90420cc7989636a59"
+    }
+  ],
+  "priorAttempts": [
+    {
+      "attempt": 1,
+      "startedAt": "2026-10-09T05:19:03Z",
+      "exitCode": 1,
+      "stage": "repository Python Ruff",
+      "log": "full-validation-attempt-1.txt"
+    },
+    {
+      "attempt": 2,
+      "startedAt": "2026-10-09T05:21:34Z",
+      "wrapperExitCode": 130,
+      "logBytes": 0,
+      "orphanedProcessGroup": "later interrupted and confirmed stopped before attempt 3 completed"
+    }
+  ]
+}

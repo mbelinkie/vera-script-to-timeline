@@ -1,0 +1,189 @@
+{
+  "buildClass": "preview",
+  "buildId": "00000000-0000-4000-8000-000000000003",
+  "compiler": {
+    "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "sourceHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "version": "compiler/v2"
+  },
+  "dependenciesHash": "sha256:0921c06372a746b8908182442ccddaa45e649d202b2371a203de0a746685417b",
+  "diagnostics": [
+    {
+      "code": "MIGRATION_REVIEW_REQUIRED",
+      "entity": {
+        "id": "00000000-0000-4000-8000-000000000047",
+        "kind": "supporting_item",
+        "path": "supportingItems"
+      },
+      "evidence": {
+        "kind": "details",
+        "message": "Supporting pictures must be promoted into the primary visual sequence before compilation."
+      },
+      "id": "b79d8032-a0d6-52b3-8972-fb05256854f3",
+      "message": "Supporting pictures must be promoted into the primary visual sequence before compilation.",
+      "recoveryActionKinds": [
+        "repair_document"
+      ],
+      "severity": "blocking"
+    },
+    {
+      "code": "MIGRATION_REVIEW_REQUIRED",
+      "entity": {
+        "id": "00000000-0000-4000-8000-000000000049",
+        "kind": "supporting_item",
+        "path": "supportingItems"
+      },
+      "evidence": {
+        "kind": "details",
+        "message": "Audio-cue execution is unavailable in this compiler slice; the cue is retained without mixing."
+      },
+      "id": "c6ec2f53-6ea7-5c4e-88d2-5dfcc4a1a75c",
+      "message": "Audio-cue execution is unavailable in this compiler slice; the cue is retained without mixing.",
+      "recoveryActionKinds": [
+        "manual_review"
+      ],
+      "severity": "blocking"
+    }
+  ],
+  "document": {
+    "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "documentId": "00000000-0000-4000-8000-000000000001",
+    "liveHeadSequence": 0,
+    "projectId": "00000000-0000-4000-8000-000000000002",
+    "revision": 1,
+    "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "textHash": "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+  },
+  "eventResults": [
+    {
+      "disposition": "placed",
+      "eventId": "c54080bb-0d64-5bc7-8693-ce2c32f28afe",
+      "kind": "primary_visual",
+      "message": "Compiled from frozen source bindings.",
+      "recordRange": {
+        "endFrame": 96,
+        "startFrame": 0
+      },
+      "sourceId": "1904c7e6-1f7b-5c3f-87d1-33f5c316921b",
+      "trackId": "video-root"
+    },
+    {
+      "disposition": "placed",
+      "eventId": "e3a1d77f-0c0e-5ffe-8d4e-77ce0e21cb88",
+      "kind": "narration",
+      "message": "Compiled from frozen source bindings.",
+      "recordRange": {
+        "endFrame": 96,
+        "startFrame": 0
+      },
+      "sourceId": "00000000-0000-4000-8000-000000000013",
+      "trackId": "narration"
+    }
+  ],
+  "id": "00000000-0000-4000-8000-000000000005",
+  "itemResults": [
+    {
+      "disposition": "blocked",
+      "itemId": "00000000-0000-4000-8000-000000000047",
+      "reason": "Supporting pictures must be promoted into the primary visual sequence before compilation.",
+      "recordRange": null,
+      "role": "picture",
+      "version": 1
+    },
+    {
+      "disposition": "blocked",
+      "itemId": "00000000-0000-4000-8000-000000000049",
+      "reason": "Audio-cue execution is unavailable in this compiler slice; the cue is retained without mixing.",
+      "recordRange": null,
+      "role": "audio_cue",
+      "version": 1
+    }
+  ],
+  "manifest": {
+    "contentHash": "sha256:755bcfe7e12e3ba3d201281e808411b320361647f23ee0614f8af0bc58bbba6e",
+    "id": "00000000-0000-4000-8000-000000000004"
+  },
+  "manualCompletionItems": [],
+  "mediaPreparation": {
+    "requirements": [
+      {
+        "bindingHash": "sha256:9eb4cbdef0c46b9e5eb323ffb66858c938e10ddacd56e31aec453df5a4a9a6ab",
+        "deliveredHash": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+        "diagnosticIds": [],
+        "originalHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "requirementKey": "prep:occurrence-1",
+        "status": "prepared"
+      }
+    ],
+    "status": "complete"
+  },
+  "migrationIssues": [],
+  "readiness": {
+    "blockingIssueIds": [
+      "b79d8032-a0d6-52b3-8972-fb05256854f3",
+      "c6ec2f53-6ea7-5c4e-88d2-5dfcc4a1a75c"
+    ],
+    "preview": "blocked",
+    "release": "blocked"
+  },
+  "recoveryActions": [
+    {
+      "documentId": "00000000-0000-4000-8000-000000000001",
+      "entity": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "kind": "document",
+        "path": "document"
+      },
+      "instruction": "Repair the authored source and compile again.",
+      "kind": "repair_document"
+    },
+    {
+      "entity": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "kind": "document",
+        "path": "document"
+      },
+      "instruction": "Review the compiler diagnostic.",
+      "kind": "manual_review"
+    }
+  ],
+  "schemaVersion": "build-report/v2",
+  "sourceSufficiency": [
+    {
+      "availableRange": {
+        "endFrame": 240,
+        "startFrame": 0
+      },
+      "diagnosticId": null,
+      "requiredRange": {
+        "endFrame": 120,
+        "startFrame": 0
+      },
+      "requirementKey": "prep:occurrence-1",
+      "status": "sufficient"
+    }
+  ],
+  "status": "blocked",
+  "summary": {
+    "blockedCount": 2,
+    "diagnosticCount": 2,
+    "eventCount": 2,
+    "manualCompletionCount": 0,
+    "placedCount": 2,
+    "placeholderCount": 0,
+    "recoveryActionCount": 2,
+    "sourceCount": 2,
+    "supportingItemCount": 2
+  },
+  "timeline": {
+    "audioSampleRate": 48000,
+    "durationFrames": 96,
+    "frameRate": {
+      "denominator": 1,
+      "numerator": 24
+    },
+    "height": 1080,
+    "startFrame": 0,
+    "width": 1920
+  }
+}

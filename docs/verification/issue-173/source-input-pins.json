@@ -1,0 +1,20 @@
+{
+  "baseline": "792b09bc2c1c91867fca99eb558ee6250bbd4cdd",
+  "sha256": {
+    "contracts/compiler-dependencies-v2.schema.json": "53b9630425ac085b1acec8fbe4f2dc7d4b1230079dac90a91564093942d3c81f",
+    "contracts/timeline-manifest-v2.schema.json": "0214a51d1760c7e8f2cdd0b4f5a3f5552a0118f6bfb4b885c5b42ca9b299014e",
+    "packages/contracts/package.json": "4f5469dbc1474a47c6857c7e0ce3abecd99034dcb7e234bf4674a09e7ec93eb4",
+    "packages/contracts/src/generated/contracts-v2.ts": "d9f061e46a1ebdb23cd3fdc964d728b97d435d6491d09c3dfe86bacf702a81ed",
+    "python/vera_timeline_agent/generated/contracts/compiler_dependencies_v2_schema.py": "35da7fb348cd584f8de5933c0f8c70f793cd61563b30eef4de4b86d9ce6e54b5",
+    "python/vera_timeline_agent/generated/contracts/timeline_manifest_v2_schema.py": "2fcd402e1a1c1242af8d983ba6ca95f5fc4646fcf68272dff71ad29fb4ea0845",
+    "packages/contracts/src/compiler-core-v2.ts": "f7f49430ca1250ec6137cbe8b7d797ba6c1a4df750dabb44ff351fcae951b78a",
+    "packages/contracts/src/assets/generic-torso-v1.json": "9c953a0021d7f4003b3d760216ffec16b78bed780b1f0ecbab64deebfe995781",
+    "packages/contracts/src/assets/generic-torso-v1.svg": "43617f386b2db4c6d997b2217965a26064cbdc989c97bcc50664d9e554963b11",
+    "packages/contracts/test/compiler-v2-bindings.test.ts": "e8c70cc6724202b7d99d137a731c5508c594c6f1847e33d905beb0144a6f4e24",
+    "packages/contracts/test/compiler-v2.test.ts": "296bc9cd69f1c5c054cf51d65e7c71a6d3cba776177e52d15b5fd78b4409d2a6",
+    "python/vera_timeline_agent/narration/compiler_dependencies_v2.py": "90593ca5ea5348cc4c39a3ab917da042afa7cd3ec28945800363dddc7b13792a",
+    "tests/test_narration_v2_dependencies.py": "925cc7c90368187bce0ffcad9bcf7cc80933cf6ea2d0a20c47b49bc0c03df741",
+    "packages/contracts/scripts/generate-contracts.mjs": "f00a6d01733941a790a7bcedcb1f28f4d3dcf9f6b7be7849468f063d01b2e5bc",
+    "tests/data/authoring_v2/issue_173/sha256.json": "b58a093551459cb5898c111d64a451dd82047d054241defec94c26b45ef42db6"
+  }
+}
