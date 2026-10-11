@@ -133,3 +133,31 @@ Post-closure final cumulative local token accounting belongs to the steward
 only after this claimed implementation chat finishes; no live estimate is used.
 The Astra register step applies after completion; no speculative risk or dispatch
 entry was added during this blocked implementation.
+
+## Attempt 4 — complete passing gate (Claude, 2026-10-11)
+
+Resumed under the Producer's instruction to complete #180 ("let's see if we can
+complete it", 2026-10-10), following "Resume and closing authority" above.
+
+| Attempt | Exact source | Compile cache | Result |
+| --- | --- | --- | --- |
+| 4 | `28900607d146643c1771ab011d45878b4232e7dd` (tree `0da75ef7a611125810a62a47b71c193e5123b9dd`) | Off | **Exit 0**; 402/402 contract tests, 394/394 Python tests (3,200.92 s), all language/progress/roadmap checks; 3,288.6 s total |
+
+- Runner: `node docs/verification/issue-180/run-full-validation.mjs` (unchanged),
+  launched with official Node v24.19.0 (nodejs.org darwin-x64 tarball, SHA-256
+  verified against SHASUMS256.txt; executable SHA-256
+  `1052eb9c7d6c60a79b968e09f75af55a73462b0f6dff0964336d63b5e13eb63c`). The
+  runner's own PATH also resolves Codex's bundled runtime, which reports the
+  same v24.19.0 with a different executable hash; both satisfy the CLIs' exact
+  `process.version` pin. `tool-profile.json` records the binary used.
+- Status `attempt-4-status.json`; log `attempt-4-validate.log.gz`
+  (uncompressed log SHA-256
+  `3ba0ab254abf730dd1bb89ab8fbabcab1eb309e1dec29b5f5fa66b04640104e1`).
+- Why it passed where attempts 1–3 timed out: the machine ran nothing else
+  heavy during the gate (attempts 1–3 overlapped other work; the frozen
+  5,000 ms CLI deadlines were never loosened). Fast-validation follow-up: #184.
+- `audit.mjs` re-run on this source: frozen boundary holds (6,270 files
+  unchanged), CN-179 additions only; `frozen-boundary-audit.json`,
+  `tool-profile.json` and `artifact-pins.json` updated by the audit itself.
+- Tested source equals the delivered source except this evidence (plan/evidence
+  differences only, as required).
