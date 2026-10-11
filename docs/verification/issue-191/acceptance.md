@@ -44,8 +44,11 @@ uses the compiler's canonical bytes rather than the narration cache serializer.
 
 - Known fixed gain, direct mono/stereo routing, zero pan and no effects/sends/
   automation form this bounded audio profile. Unsupported controls refuse.
-- Full programme/source PCM is bounded to 3,000,000 samples per channel and
-  16 sources, preserving the accepted conservative local proof scope.
+- Full programme PCM is bounded to 3,000,000 samples per channel. Complete
+  source PCM has a separate 16,000,000-sample/128-MiB per-file bound and a
+  32,000,000-channel-sample aggregate bound across at most 16 sources. This
+  supports the accepted late source coordinates without changing programme
+  limits or residual thresholds. Partial source frames refuse.
 - Identical prior/new provider timing hashes refuse, including identical empty
   payloads. Fresh acoustic review does not override that conservative criterion.
 - Sparse review supplies only required fresh endpoints; naturally supplied
@@ -57,8 +60,8 @@ uses the compiler's canonical bytes rather than the narration cache serializer.
 
 ## Validation evidence
 
-Pending full validation and Claude review. Focused TypeScript: 25 transform checks passed, with focused
-lint and workspace type checking. Focused Python: 22 audio checks and 19 narration checks
+Pending restarted full validation and Claude review. Focused TypeScript: 25 transform checks passed, with focused
+lint and workspace type checking. Focused Python: 25 audio checks and 19 narration checks
 passed. Independent review found reused-timing and malformed-WAV refusal gaps;
 both were fixed and independently rechecked. The review retained no unresolved
 finding. The frozen audit verifies all 285 pinned files and no modification of
@@ -70,9 +73,20 @@ Retain its response and disposition; substantive fixes require affected checks
 and Claude re-review. A failed/unavailable CLI is an unmet gate.
 
 `VITEST_MAX_WORKERS=1 npm run validate:fast` passed: generated types current,
-TypeScript lint/types/tests, Python lint/types and 339 non-slow Python tests
-with two workers. Elapsed 131.989 seconds; log SHA256
-`88710355bce7e31bf332ed28e1659c7001e567c864c25041193de520d5277689`.
+TypeScript lint/types/tests, Python lint/types and 341 non-slow Python tests
+with two workers. Elapsed 131.809 seconds; log SHA256
+`bef2eb73438f57a52fa9d91110b2c07dfb1d7a14a854e4f66e0ae3729f312d9b`.
+
+The first full gate on `a155642756cf786dd6101fa375c8a986d5d99dc4` was
+deliberately interrupted after discovering that #189's unchanged source frame
+2756 exceeds the inherited decoder's 3,000,000-sample source cap. That attempt
+has no acceptance status. The v2-only decoder now separates source/programme
+capacity, hashes complete sources and rejects partial frames. A sanitized
+24-bit stereo regression uses source frame 3000 and a file over 32 MiB while
+reconstructing both complete short programme renders exactly. It introduces
+no v1, schema, fixture or accepted-test change. Focused proof/narration recheck:
+43 passed before the additional partial-frame regression, followed by all 25
+audio checks passing. Final fast validation also passes; full/review pending.
 
 The inherited workspace lockfile lacks `packages/word-timing`. Clean `npm ci`
 therefore fails before implementation validation; [Inbox #193](https://github.com/mbelinkie/vera-script-to-timeline/issues/193)

@@ -6,6 +6,7 @@ flag. Local/fake tests do not qualify acoustic review or native rendering.
 
 from __future__ import annotations
 
+import io
 import math
 import wave
 from array import array
@@ -16,11 +17,62 @@ from typing import Any
 from vera_timeline_agent.narration.compiler_dependencies_v2 import _validated_tokens
 from vera_timeline_agent.narration.models import sha256_bytes
 from vera_timeline_agent.roundtrip_audio import _Files, _metrics, _pcm
-from vera_timeline_agent.roundtrip_build import JsonObject, ProofBuildError, _parse
+from vera_timeline_agent.roundtrip_build import (
+    JsonObject,
+    ProofBuildError,
+    _parse,
+    _regular,
+)
 
 FRAME = 2002
 RATE = {"numerator": 24000, "denominator": 1001}
 ReceiptVerifier = Callable[[str, bytes, JsonObject], None]
+
+
+def _source_pcm(
+    files: _Files, name: str, channels: int, count: int, expected_hash: str
+) -> list[array[float]]:
+    # Source offsets can exceed programme duration; #189 uses source frame 2756.
+    path = Path(name)
+    fact(
+        not path.is_absolute()
+        and bool(path.parts)
+        and not {"..", "."}.intersection(path.parts),
+        "independent local source path required",
+    )
+    full = _regular(files.root / path)
+    fact(full.stat().st_size <= 128 * 1024 * 1024, "bounded source PCM exceeds 128 MiB")
+    raw = full.read_bytes()
+    digest = sha256_bytes(raw)
+    fact(digest == expected_hash, "stale source bytes")
+    fact(
+        name not in files.hashes or files.hashes[name] == digest,
+        "source changed during reading",
+    )
+    files.hashes[name] = digest
+    with wave.open(io.BytesIO(raw), "rb") as stream:
+        width = stream.getsampwidth()
+        fact(
+            (stream.getframerate(), stream.getnchannels(), stream.getcomptype())
+            == (48000, channels, "NONE")
+            and width in {2, 3},
+            "expected complete source PCM16/24 WAV at 48k",
+        )
+        fact(
+            960 <= count <= 16_000_000 and stream.getnframes() == count,
+            "complete source extent differs",
+        )
+        pcm = stream.readframes(count + 1)
+        fact(len(pcm) == count * channels * width, "truncated source PCM")
+    scale = 2 ** (width * 8 - 1)
+    values = array(
+        "d",
+        (
+            int.from_bytes(pcm[i : i + width], "little", signed=True) / scale
+            for i in range(0, len(pcm), width)
+        ),
+    )
+    return [values[channel::channels] for channel in range(channels)]
 
 
 def fact(condition: bool, message: str) -> None:
@@ -258,6 +310,7 @@ def verify_selected_omission_v2(
         sources: JsonObject = {}
         hashes: set[str] = set()
         decoded: set[str] = set()
+        source_cells = 0
         fact(
             isinstance(profile["sources"], list) and 1 <= len(profile["sources"]) <= 16,
             "complete source inventory required",
@@ -266,11 +319,13 @@ def verify_selected_omission_v2(
             shape(source, "id path sha256 channels durationSamples", "source")
             sid = identity(source["id"])
             fact(sid not in sources and source["sha256"] not in hashes, "source alias")
-            raw = files.read(identity(source["path"]))
-            fact(sha256_bytes(raw) == source["sha256"], "stale source bytes")
             channels = integer(source["channels"], 1)
             fact(channels in {1, 2}, "unsupported source channels")
-            pcm = _pcm(raw, channels, integer(source["durationSamples"], 960))
+            count = integer(source["durationSamples"], 960)
+            source_cells += count * channels
+            fact(source_cells <= 32_000_000, "bounded aggregate source PCM exceeded")
+            name = identity(source["path"])
+            pcm = _source_pcm(files, name, channels, count, source["sha256"])
             pcm_hashes = {sha256_bytes(ch.tobytes()) for ch in pcm}
             fact(not pcm_hashes.intersection(decoded), "decoded source alias")
             hashes.add(source["sha256"])

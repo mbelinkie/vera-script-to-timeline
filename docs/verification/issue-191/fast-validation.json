@@ -1,6 +1,6 @@
 {
   "command": "VITEST_MAX_WORKERS=1 npm run validate:fast",
   "exitCode": 0,
-  "elapsedSeconds": 131.9885048866272,
-  "logSHA256": "88710355bce7e31bf332ed28e1659c7001e567c864c25041193de520d5277689"
+  "elapsedSeconds": 131.80935716629028,
+  "logSHA256": "bef2eb73438f57a52fa9d91110b2c07dfb1d7a14a854e4f66e0ae3729f312d9b"
 }

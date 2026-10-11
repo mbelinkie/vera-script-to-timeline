@@ -96,3 +96,12 @@ Fresh-timing and malformed-WAV review findings are fixed and independently
 rechecked. Remaining active work is about 30–60 minutes, medium confidence,
 plus the serial full-gate wait. Narration tests are marked slow because they
 repeatedly invoke the external Node compiler; they remain in full acceptance.
+
+Capacity correction: accepted #189 uses source frame 2756 (more than 5.5 million
+48-kHz samples), despite its 2,216,214-sample programme. Reusing the v1 decoder's
+3-million source cap cannot support that geometry. The v2 sibling therefore
+keeps the programme cap but reads complete sources up to 16 million samples/
+128 MiB, with a 32-million channel-sample aggregate budget and at most 16
+sources. This is a bounded source decoder, not a timing engine. The added
+late-source regression is slow-marked for large PCM decoding; full acceptance
+still includes it. The interrupted first full gate supplies no acceptance.

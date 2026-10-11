@@ -56,7 +56,7 @@ def segment(uid: str, start: int, end: int, sin: int, sout: int) -> dict[str, An
     }
 
 
-def case(root: Path, *, extent: int = 12) -> dict[str, Any]:
+def case(root: Path, *, extent: int = 12, late_source_frame: int = 0) -> dict[str, Any]:
     words = ["steady", "left", "remove", "these", "right", "tail"]
     tokens = []
     offset = 0
@@ -99,14 +99,29 @@ def case(root: Path, *, extent: int = 12) -> dict[str, Any]:
     ]
     source_entries = []
     for sid, samples in (("speech", [primary]), ("other", [other]), ("quiet", quiet)):
-        pin = write(root, f"{sid}.wav", wav(samples))
+        if sid == "other" and late_source_frame:
+            source_buffer = io.BytesIO()
+            duration = late_source_frame * FRAME + size
+            with wave.open(source_buffer, "wb") as stream:
+                stream.setparams((2, 3, 48000, duration, "NONE", "not compressed"))
+                stream.writeframes(
+                    bytes(late_source_frame * FRAME * 6)
+                    + b"".join(
+                        (value * 256).to_bytes(3, "little", signed=True) * 2
+                        for value in other
+                    )
+                )
+            raw, channels = source_buffer.getvalue(), 2
+        else:
+            raw, channels, duration = wav(samples), len(samples), len(samples[0])
+        pin = write(root, f"{sid}.wav", raw)
         source_entries.append(
             {
                 "id": sid,
                 "path": f"{sid}.wav",
                 "sha256": pin,
-                "channels": len(samples),
-                "durationSamples": len(samples[0]),
+                "channels": channels,
+                "durationSamples": duration,
             }
         )
     profile: dict[str, Any] = {
@@ -185,8 +200,19 @@ def case(root: Path, *, extent: int = 12) -> dict[str, Any]:
             {
                 "id": "route-2",
                 "sourceId": "other",
-                "controls": copy.deepcopy(controls),
-                "segments": [segment("other", 0, extent, 0, extent)],
+                "controls": {
+                    **controls,
+                    "channelMap": "stereo-direct" if late_source_frame else "mono-dual",
+                },
+                "segments": [
+                    segment(
+                        "other",
+                        0,
+                        extent,
+                        late_source_frame,
+                        late_source_frame + extent,
+                    )
+                ],
             },
             {
                 "id": "route-3",
@@ -338,6 +364,46 @@ def test_selected_only_complete_stereo_and_repeat(tmp_path: Path) -> None:
         verify_selected_omission_v2(tmp_path, **args)
     )
     assert first["evidenceLevel"] == "local_consistency_only"
+
+
+@pytest.mark.slow
+def test_complete_source_beyond_programme_bound_is_reconstructed(
+    tmp_path: Path,
+) -> None:
+    args = case(tmp_path, late_source_frame=3000)
+    assert (tmp_path / "other.wav").stat().st_size > 32 * 1024 * 1024
+    result = verify_selected_omission_v2(tmp_path, **args)
+    assert result["status"] == "verified", result.get("reason")
+    assert all(
+        ch["residualRms"] < 1e-12
+        for entry in result["channels"]
+        for ch in entry["channels"]
+    )
+
+
+def test_aggregate_source_budget_refuses_before_decode(tmp_path: Path) -> None:
+    args = case(tmp_path)
+    profile = json.loads((tmp_path / "profile.json").read_bytes())
+    profile["sources"][0].update(channels=2, durationSamples=16_000_001)
+    args["profile_hash"] = write(tmp_path, "profile.json", profile)
+    result = verify_selected_omission_v2(tmp_path, **args)
+    assert result["status"] == "refused"
+    assert result["reason"] == "bounded aggregate source PCM exceeded"
+
+
+def test_partial_source_frame_refuses(tmp_path: Path) -> None:
+    args = case(tmp_path)
+    raw = bytearray((tmp_path / "speech.wav").read_bytes())
+    raw[4:8] = (int.from_bytes(raw[4:8], "little") + 1).to_bytes(4, "little")
+    raw[40:44] = (int.from_bytes(raw[40:44], "little") + 1).to_bytes(4, "little")
+    raw.append(0)
+    pin = write(tmp_path, "speech.wav", bytes(raw))
+    profile = json.loads((tmp_path / "profile.json").read_bytes())
+    profile["sources"][0]["sha256"] = pin
+    args["profile_hash"] = write(tmp_path, "profile.json", profile)
+    result = verify_selected_omission_v2(tmp_path, **args)
+    assert result["status"] == "refused"
+    assert result["reason"] == "truncated source PCM"
 
 
 @pytest.mark.parametrize("raw", [b"not a wave file", b"RIFF"])
