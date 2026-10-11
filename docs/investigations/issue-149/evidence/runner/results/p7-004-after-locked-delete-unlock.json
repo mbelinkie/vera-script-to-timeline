@@ -1,0 +1,455 @@
+{
+ "job_id": "p7-004-after-locked-delete-unlock",
+ "started": 1790975425.540236,
+ "seconds": 0.515,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "current": "SO T13 lineage",
+  "selected": [
+   "14d0bfd5-2879-4ed2-92d1-d9449c15575b",
+   "705b7acd-5c76-4e2b-b52d-d277b00b479c"
+  ],
+  "locked_state_items": {
+   "timeline": "SO T13 lineage",
+   "tl_uid": "82cf6a40-1d8d-4abc-9ae3-80b58f1da6c4",
+   "items": [
+    {
+     "trk": "v1",
+     "uid": "14d0bfd5-2879-4ed2-92d1-d9449c15575b",
+     "name": "base.mov",
+     "rec": [
+      100,
+      399
+     ],
+     "src": [
+      100,
+      399
+     ],
+     "mpi": "c9653d06-04b6-4a74-a0b9-fbd9a3937991",
+     "color": "Orange",
+     "flags": [
+      "Blue"
+     ],
+     "markers": {
+      "10": "vera:el-001",
+      "300": "vera:el-001:tail"
+     },
+     "linked": [
+      "705b7acd-5c76-4e2b-b52d-d277b00b479c"
+     ]
+    },
+    {
+     "trk": "v1",
+     "uid": "a3230b34-d594-469d-803a-51880aa1267e",
+     "name": "cutaway.mov",
+     "rec": [
+      450,
+      549
+     ],
+     "src": [
+      0,
+      99
+     ],
+     "mpi": "7a2787f5-e13a-48fd-a9c9-3e4bf2d914bb",
+     "color": "Purple",
+     "flags": [
+      "Green",
+      "Blue"
+     ],
+     "markers": {
+      "10": "vera:el-002",
+      "60": "vera:el-002:tail"
+     },
+     "linked": []
+    },
+    {
+     "trk": "v1",
+     "uid": "c7022a81-13a0-427a-86a6-feda4f558961",
+     "name": "cutaway.mov",
+     "rec": [
+      600,
+      699
+     ],
+     "src": [
+      200,
+      299
+     ],
+     "mpi": "7a2787f5-e13a-48fd-a9c9-3e4bf2d914bb",
+     "color": "Orange",
+     "flags": [
+      "Green",
+      "Blue"
+     ],
+     "markers": {
+      "10": "vera:el-001",
+      "60": "vera:el-001:tail"
+     },
+     "linked": []
+    },
+    {
+     "trk": "v1",
+     "uid": "75fc168e-4b40-4167-a9de-afed126dd777",
+     "name": "base.mov",
+     "rec": [
+      699,
+      998
+     ],
+     "src": [
+      100,
+      399
+     ],
+     "mpi": "c9653d06-04b6-4a74-a0b9-fbd9a3937991",
+     "color": "Orange",
+     "flags": [
+      "Blue"
+     ],
+     "markers": {
+      "10": "vera:el-001",
+      "300": "vera:el-001:tail"
+     },
+     "linked": [
+      "5d5d95e1-9cbb-4f85-923c-a25a0abe6760"
+     ]
+    },
+    {
+     "trk": "v1",
+     "uid": "a1666a3a-5490-402b-959f-65923a28304b",
+     "name": "base.mov",
+     "rec": [
+      998,
+      1098
+     ],
+     "src": [
+      0,
+      100
+     ],
+     "mpi": "c9653d06-04b6-4a74-a0b9-fbd9a3937991",
+     "color": "Orange",
+     "flags": [
+      "Blue"
+     ],
+     "markers": {
+      "10": "vera:el-001",
+      "300": "vera:el-001:tail"
+     },
+     "linked": [
+      "d1ed1b03-b784-4b97-984c-b1204ad11ce2"
+     ]
+    },
+    {
+     "trk": "a1",
+     "uid": "705b7acd-5c76-4e2b-b52d-d277b00b479c",
+     "name": "base.mov",
+     "rec": [
+      100,
+      399
+     ],
+     "src": [
+      100,
+      399
+     ],
+     "mpi": "c9653d06-04b6-4a74-a0b9-fbd9a3937991",
+     "color": "Pink",
+     "flags": [
+      "Blue"
+     ],
+     "markers": {
+      "10": "vera:el-001",
+      "300": "vera:el-001:tail"
+     },
+     "linked": [
+      "14d0bfd5-2879-4ed2-92d1-d9449c15575b"
+     ]
+    },
+    {
+     "trk": "a1",
+     "uid": "5d5d95e1-9cbb-4f85-923c-a25a0abe6760",
+     "name": "base.mov",
+     "rec": [
+      699,
+      998
+     ],
+     "src": [
+      100,
+      399
+     ],
+     "mpi": "c9653d06-04b6-4a74-a0b9-fbd9a3937991",
+     "color": "Orange",
+     "flags": [
+      "Blue"
+     ],
+     "markers": {
+      "10": "vera:el-001",
+      "300": "vera:el-001:tail"
+     },
+     "linked": [
+      "75fc168e-4b40-4167-a9de-afed126dd777"
+     ]
+    },
+    {
+     "trk": "a1",
+     "uid": "d1ed1b03-b784-4b97-984c-b1204ad11ce2",
+     "name": "base.mov",
+     "rec": [
+      998,
+      1098
+     ],
+     "src": [
+      0,
+      100
+     ],
+     "mpi": "c9653d06-04b6-4a74-a0b9-fbd9a3937991",
+     "color": "Orange",
+     "flags": [
+      "Blue"
+     ],
+     "markers": {
+      "10": "vera:el-001",
+      "300": "vera:el-001:tail"
+     },
+     "linked": [
+      "a1666a3a-5490-402b-959f-65923a28304b"
+     ]
+    }
+   ]
+  },
+  "unlock": [
+   [
+    "video",
+    1,
+    true
+   ],
+   [
+    "video",
+    2,
+    true
+   ],
+   [
+    "video",
+    3,
+    true
+   ],
+   [
+    "audio",
+    1,
+    true
+   ],
+   [
+    "audio",
+    2,
+    true
+   ],
+   [
+    "audio",
+    3,
+    true
+   ]
+  ],
+  "color_fix": true,
+  "after": {
+   "timeline": "SO T13 lineage",
+   "tl_uid": "82cf6a40-1d8d-4abc-9ae3-80b58f1da6c4",
+   "items": [
+    {
+     "trk": "v1",
+     "uid": "14d0bfd5-2879-4ed2-92d1-d9449c15575b",
+     "name": "base.mov",
+     "rec": [
+      100,
+      399
+     ],
+     "src": [
+      100,
+      399
+     ],
+     "mpi": "c9653d06-04b6-4a74-a0b9-fbd9a3937991",
+     "color": "Orange",
+     "flags": [
+      "Blue"
+     ],
+     "markers": {
+      "10": "vera:el-001",
+      "300": "vera:el-001:tail"
+     },
+     "linked": [
+      "705b7acd-5c76-4e2b-b52d-d277b00b479c"
+     ]
+    },
+    {
+     "trk": "v1",
+     "uid": "a3230b34-d594-469d-803a-51880aa1267e",
+     "name": "cutaway.mov",
+     "rec": [
+      450,
+      549
+     ],
+     "src": [
+      0,
+      99
+     ],
+     "mpi": "7a2787f5-e13a-48fd-a9c9-3e4bf2d914bb",
+     "color": "Purple",
+     "flags": [
+      "Green",
+      "Blue"
+     ],
+     "markers": {
+      "10": "vera:el-002",
+      "60": "vera:el-002:tail"
+     },
+     "linked": []
+    },
+    {
+     "trk": "v1",
+     "uid": "c7022a81-13a0-427a-86a6-feda4f558961",
+     "name": "cutaway.mov",
+     "rec": [
+      600,
+      699
+     ],
+     "src": [
+      200,
+      299
+     ],
+     "mpi": "7a2787f5-e13a-48fd-a9c9-3e4bf2d914bb",
+     "color": "Orange",
+     "flags": [
+      "Green",
+      "Blue"
+     ],
+     "markers": {
+      "10": "vera:el-001",
+      "60": "vera:el-001:tail"
+     },
+     "linked": []
+    },
+    {
+     "trk": "v1",
+     "uid": "75fc168e-4b40-4167-a9de-afed126dd777",
+     "name": "base.mov",
+     "rec": [
+      699,
+      998
+     ],
+     "src": [
+      100,
+      399
+     ],
+     "mpi": "c9653d06-04b6-4a74-a0b9-fbd9a3937991",
+     "color": "Orange",
+     "flags": [
+      "Blue"
+     ],
+     "markers": {
+      "10": "vera:el-001",
+      "300": "vera:el-001:tail"
+     },
+     "linked": [
+      "5d5d95e1-9cbb-4f85-923c-a25a0abe6760"
+     ]
+    },
+    {
+     "trk": "v1",
+     "uid": "a1666a3a-5490-402b-959f-65923a28304b",
+     "name": "base.mov",
+     "rec": [
+      998,
+      1098
+     ],
+     "src": [
+      0,
+      100
+     ],
+     "mpi": "c9653d06-04b6-4a74-a0b9-fbd9a3937991",
+     "color": "Orange",
+     "flags": [
+      "Blue"
+     ],
+     "markers": {
+      "10": "vera:el-001",
+      "300": "vera:el-001:tail"
+     },
+     "linked": [
+      "d1ed1b03-b784-4b97-984c-b1204ad11ce2"
+     ]
+    },
+    {
+     "trk": "a1",
+     "uid": "705b7acd-5c76-4e2b-b52d-d277b00b479c",
+     "name": "base.mov",
+     "rec": [
+      100,
+      399
+     ],
+     "src": [
+      100,
+      399
+     ],
+     "mpi": "c9653d06-04b6-4a74-a0b9-fbd9a3937991",
+     "color": "Orange",
+     "flags": [
+      "Blue"
+     ],
+     "markers": {
+      "10": "vera:el-001",
+      "300": "vera:el-001:tail"
+     },
+     "linked": [
+      "14d0bfd5-2879-4ed2-92d1-d9449c15575b"
+     ]
+    },
+    {
+     "trk": "a1",
+     "uid": "5d5d95e1-9cbb-4f85-923c-a25a0abe6760",
+     "name": "base.mov",
+     "rec": [
+      699,
+      998
+     ],
+     "src": [
+      100,
+      399
+     ],
+     "mpi": "c9653d06-04b6-4a74-a0b9-fbd9a3937991",
+     "color": "Orange",
+     "flags": [
+      "Blue"
+     ],
+     "markers": {
+      "10": "vera:el-001",
+      "300": "vera:el-001:tail"
+     },
+     "linked": [
+      "75fc168e-4b40-4167-a9de-afed126dd777"
+     ]
+    },
+    {
+     "trk": "a1",
+     "uid": "d1ed1b03-b784-4b97-984c-b1204ad11ce2",
+     "name": "base.mov",
+     "rec": [
+      998,
+      1098
+     ],
+     "src": [
+      0,
+      100
+     ],
+     "mpi": "c9653d06-04b6-4a74-a0b9-fbd9a3937991",
+     "color": "Orange",
+     "flags": [
+      "Blue"
+     ],
+     "markers": {
+      "10": "vera:el-001",
+      "300": "vera:el-001:tail"
+     },
+     "linked": [
+      "a1666a3a-5490-402b-959f-65923a28304b"
+     ]
+    }
+   ]
+  }
+ }
+}

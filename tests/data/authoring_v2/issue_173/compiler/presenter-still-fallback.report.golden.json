@@ -1,0 +1,126 @@
+{
+  "buildClass": "preview",
+  "buildId": "00000000-0000-4000-8000-000000000003",
+  "compiler": {
+    "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "sourceHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "version": "compiler/v2"
+  },
+  "dependenciesHash": "sha256:5b00b5f41dc08cb98056396b0aa05700f4c52d362ce6c0e43314c3b4f762568a",
+  "diagnostics": [
+    {
+      "code": "TEMPORARY_PRESENTER_STILL",
+      "entity": {
+        "id": "00000000-0000-4000-8000-000000000010",
+        "kind": "slot",
+        "path": "presenterStill"
+      },
+      "evidence": {
+        "kind": "details",
+        "message": "On Camera uses the effective temporary presenter still."
+      },
+      "id": "50a5ca7a-b19d-5c8d-8ca9-0b433a0e2dee",
+      "message": "On Camera uses the effective temporary presenter still.",
+      "recoveryActionKinds": [
+        "REPLACE_TEMPORARY_PRESENTER"
+      ],
+      "severity": "warning"
+    }
+  ],
+  "document": {
+    "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "documentId": "00000000-0000-4000-8000-000000000001",
+    "liveHeadSequence": 0,
+    "projectId": "00000000-0000-4000-8000-000000000002",
+    "revision": 1,
+    "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "textHash": "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+  },
+  "eventResults": [
+    {
+      "disposition": "manual_completion",
+      "eventId": "280cad48-0b93-561f-88ae-ccd6e4a8dc0d",
+      "kind": "placeholder",
+      "message": "Temporary presenter still requires manual replacement when an accepted presenter source is available.",
+      "recordRange": {
+        "endFrame": 96,
+        "startFrame": 0
+      },
+      "sourceId": null,
+      "trackId": "video-root"
+    },
+    {
+      "disposition": "placed",
+      "eventId": "e3a1d77f-0c0e-5ffe-8d4e-77ce0e21cb88",
+      "kind": "narration",
+      "message": "Compiled from frozen source bindings.",
+      "recordRange": {
+        "endFrame": 96,
+        "startFrame": 0
+      },
+      "sourceId": "00000000-0000-4000-8000-000000000013",
+      "trackId": "narration"
+    }
+  ],
+  "id": "00000000-0000-4000-8000-000000000005",
+  "itemResults": [],
+  "manifest": {
+    "contentHash": "sha256:b290da7679a7a44e5cf36cd32b87d44268efd14c7b9099c4391d4703e9dd1910",
+    "id": "00000000-0000-4000-8000-000000000004"
+  },
+  "manualCompletionItems": [
+    {
+      "entity": {
+        "id": "00000000-0000-4000-8000-000000000010",
+        "kind": "slot",
+        "path": "presenterStill"
+      },
+      "id": "30ea480c-684d-5ebd-8393-cca92f7896c5",
+      "kind": "placeholder",
+      "message": "Replace the temporary presenter still when an accepted presenter source is available."
+    }
+  ],
+  "mediaPreparation": {
+    "requirements": [],
+    "status": "not_required"
+  },
+  "migrationIssues": [],
+  "readiness": {
+    "blockingIssueIds": [],
+    "preview": "ready",
+    "release": "ready"
+  },
+  "recoveryActions": [
+    {
+      "documentId": "00000000-0000-4000-8000-000000000001",
+      "instruction": "Replace the temporary still with an accepted presenter source when available.",
+      "kind": "REPLACE_TEMPORARY_PRESENTER",
+      "slotId": "00000000-0000-4000-8000-000000000010"
+    }
+  ],
+  "schemaVersion": "build-report/v2",
+  "sourceSufficiency": [],
+  "status": "ready",
+  "summary": {
+    "blockedCount": 0,
+    "diagnosticCount": 1,
+    "eventCount": 2,
+    "manualCompletionCount": 1,
+    "placedCount": 1,
+    "placeholderCount": 0,
+    "recoveryActionCount": 1,
+    "sourceCount": 1,
+    "supportingItemCount": 0
+  },
+  "timeline": {
+    "audioSampleRate": 48000,
+    "durationFrames": 96,
+    "frameRate": {
+      "denominator": 1,
+      "numerator": 24
+    },
+    "height": 1080,
+    "startFrame": 0,
+    "width": 1920
+  }
+}

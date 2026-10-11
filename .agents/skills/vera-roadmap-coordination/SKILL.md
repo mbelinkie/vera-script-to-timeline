@@ -19,14 +19,13 @@ Use the GitHub Project configured in `.github/vera-roadmap.json` as the sole liv
    the Project and progress dashboard retain the known scope. Give it
    tentative routing, acceptance, canonical dependencies, and unresolved
    decisions. A placeholder is never Ready or dispatch authority.
-6. Move implementation to `In review` with actual evidence. The Project's
-   `Acceptance` field determines the closing authority: `Automated` closes on
-   retained passing automated evidence, `External` closes on retained evidence
-   from the required real application/service, and `Producer` remains in review
-   until the producer explicitly accepts. Manual listening, visual inspection,
-   and Resolve testing are External or Producer evidence according to that
-   field; they are not automatically producer approvals.
-7. Close only with the named acceptance authority and retained evidence.
+6. Follow the Project's `Acceptance` field using the acceptance policy below.
+   Retain evidence for every criterion against the exact delivered revision.
+7. For `Automated`, the owning implementation agent records passing evidence
+   with `roadmap -- review`, then closes the issue itself with
+   `npm run roadmap -- complete <issue> --accepted-by Automated --evidence <retained evidence>`.
+   Re-inspect to confirm Closed and Done. No human approval or separate closure
+   chat is required. Missing or failed checks keep the issue open.
 8. After the implementation task has finished, record its final local Codex
    token total on the closed issue. Resolve the task ID from that issue's
    `roadmap -- claim` record, read the last `event_msg` with
@@ -42,6 +41,31 @@ Use the GitHub Project configured in `.github/vera-roadmap.json` as the sole liv
    evidence, a precise question, and a retirement condition. It is not a
    priority list, automatic escalation, or dispatch authorization; omit solved
    risks and unsupported speculation.
+
+## Acceptance policy
+
+Choose acceptance by the judgment required, not issue size, model, or presence
+of a Markdown deliverable. Before Ready, the steward records `Automated` for
+bounded work whose decisions are already accepted and whose entire outcome can
+be checked objectively: established implementation, generated types, regression
+tests, mechanical documentation and repairs. The Producer's standing permission
+authorizes self-closure of these issues after all required checks pass. A plan
+or contract requiring new product decisions is not mechanical documentation.
+
+Keep `Producer` for design, creative preferences, new contract/product choices
+and explicit producer judgments. Keep `External` for required real application
+or service evidence; automated unit tests cannot substitute for it. Preserve
+any separately required producer approval within a mixed scope. If acceptance
+is missing or conflicts with the criteria, resolve it before Ready; an executor
+must not relabel acceptance to bypass an unmet gate.
+
+Automated evidence must cover every criterion and required gate, identify the
+tested/delivered commit and commands/results, and pass required frozen-boundary
+and generated-currentness checks. Complete required code review if the issue
+calls for it; a successful agent self-report without evidence is insufficient.
+Closure does not authorize merging, deployment, external operations or dispatch
+of the next issue. The automated self-closure permission applies to the assigned
+implementation owner, not scheduled stewardship.
 
 ## Producer acceptance handoff
 

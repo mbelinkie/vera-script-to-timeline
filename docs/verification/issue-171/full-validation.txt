@@ -1,0 +1,126 @@
+> npm run check:contracts-generated && npm run check:typescript && npm run check:python
+> node packages/contracts/scripts/generate-contracts.mjs --check
+Generated contract types are current.
+> npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript
+> eslint scripts/*.mjs --max-warnings=0 && npm run lint --workspaces --if-present
+> eslint src test --max-warnings=0
+> eslint . --max-warnings=0
+> npm run typecheck --workspaces --if-present
+> tsc --project tsconfig.json
+> tsc --project tsconfig.json
+> npm run test --workspaces --if-present && npm run test:progress && npm run test:roadmap
+> vitest run
+ RUN  v4.1.11 /Users/matthewbelinkie/.codex/worktrees/36b0/VERA Script to Timeline/packages/contracts
+ Test Files  15 passed (15)
+      Tests  268 passed (268)
+   Start at  01:33:34
+   Duration  24.28s (transform 5.42s, setup 0ms, import 28.27s, tests 79.86s, environment 7ms)
+> vitest run
+ RUN  v4.1.11 /Users/matthewbelinkie/.codex/worktrees/36b0/VERA Script to Timeline/packages/tooling-smoke
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  01:33:59
+   Duration  446ms (transform 47ms, setup 0ms, import 72ms, tests 6ms, environment 0ms)
+> node --test scripts/project-progress.test.mjs
+✔ parses the authoritative board without counting goals as work (3.753326ms)
+✔ calculates exact done and remaining scope from actionable board issues (22.832269ms)
+✔ fails closed on incomplete or ambiguous board data (2.474931ms)
+✔ renders every issue once with escaped links and board metadata (2.514802ms)
+✔ writes the dashboard and reports an exact terminal summary (15.294556ms)
+✔ fails clearly when the live GitHub Project is unavailable (7.405162ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 259.786289
+> node --test scripts/roadmap.test.mjs scripts/roadmap-rate-limit.test.mjs scripts/roadmap-lock.test.mjs
+✔ serializes roadmap commands before any GitHub request (9.389214ms)
+✔ reclaims a sufficiently old lock whose owner process is gone (6.267903ms)
+✔ parses authoritative direct GraphQL rateLimit fields and omits response metadata (7.37302ms)
+✔ fails closed on GitHub's graphql_rate_limit exhaustion response with reset guidance (1.380799ms)
+✔ never accepts a false REST-green payload as GraphQL authority (2.182865ms)
+✔ preflight reserves points for the planned GraphQL work (0.886644ms)
+✔ honors direct Retry-After evidence during a secondary throttle (0.624099ms)
+✔ accounts for issue, comment, dependency, and Project V2 operations by actual transport (0.45099ms)
+✔ distinguishes REST, GraphQL, secondary, and client/tooling failures (0.338874ms)
+✔ parses commands and flags (4.080757ms)
+✔ accepts one exact routing profile (0.661259ms)
+✔ rejects missing routing labels (0.872164ms)
+✔ rejects duplicate routing labels (0.351301ms)
+✔ rejects Luna claiming Terra work (0.43926ms)
+✔ rejects Sol claiming Luna work (0.822187ms)
+✔ rejects unsupported effort labels (0.567221ms)
+✔ uses the latest claim marker (1.00175ms)
+✔ preserves exclusive ownership across Luna-to-Terra and Terra-to-Sol escalation markers (0.975443ms)
+✔ parses no dependencies and same-repository blockers (2.229493ms)
+✔ parses cross-roadmap dependency references (0.940107ms)
+✔ rejects prose and duplicate dependency declarations (0.596354ms)
+✔ requires every dependency to be closed and Done (2.864678ms)
+✔ inspect, ready, and claim preflight before GraphQL reads and again before mutation (2676.385652ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2905.037336
+> npm run lint:python && npm run typecheck:python && npm run test:python
+> uv run --frozen ruff check . && uv run --frozen ruff format --check .
+All checks passed!
+316 files already formatted
+> uv run --frozen mypy python tests
+Success: no issues found in 98 source files
+> uv run --frozen pytest
+============================= test session starts ==============================
+platform darwin -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/matthewbelinkie/.codex/worktrees/36b0/VERA Script to Timeline
+configfile: pyproject.toml
+testpaths: tests
+plugins: typeguard-4.6.0
+collected 371 items
+tests/test_after_effects_inspection.py ..                                [  0%]
+tests/test_build_jobs.py .........                                       [  2%]
+tests/test_fixtures.py ........                                          [  5%]
+tests/test_free_trial.py ..........                                      [  7%]
+tests/test_generated_contracts.py ..                                     [  8%]
+tests/test_issue144_audio_evidence.py .................................. [ 17%]
+.............                                                            [ 21%]
+tests/test_issue144_capture_retry.py ..                                  [ 21%]
+tests/test_issue144_composition.py ..                                    [ 22%]
+tests/test_issue144_composition_audio.py .                               [ 22%]
+tests/test_issue144_driver.py ...                                        [ 23%]
+tests/test_issue144_generation_recovery.py ...                           [ 23%]
+tests/test_issue144_native_build.py ........                             [ 26%]
+tests/test_issue144_omission_bridge.py .                                 [ 26%]
+tests/test_issue144_omission_decisions.py .............                  [ 29%]
+tests/test_issue144_omission_generation.py .......                       [ 31%]
+tests/test_issue144_omission_preparation.py ............                 [ 35%]
+tests/test_issue144_prepared_build.py ....................               [ 40%]
+tests/test_issue144_proof_session.py ..............                      [ 44%]
+tests/test_issue144_recovery.py ........                                 [ 46%]
+tests/test_issue144_retained_audio.py .                                  [ 46%]
+tests/test_issue144_row_narration.py ...............                     [ 50%]
+tests/test_issue144_wi.py ...................                            [ 55%]
+tests/test_issue144_wi_flow.py .                                         [ 56%]
+tests/test_issue171_generated_contracts.py ..                            [ 56%]
+tests/test_narration_cache.py ....                                       [ 57%]
+tests/test_narration_cli.py ......                                       [ 59%]
+tests/test_narration_compiler_dependencies.py .....                      [ 60%]
+tests/test_narration_normalize.py ........                               [ 62%]
+tests/test_narration_provider.py .................                       [ 67%]
+tests/test_narration_service.py .......                                  [ 69%]
+tests/test_otio_package.py ....................                          [ 74%]
+tests/test_placeholder_slate.py ..............                           [ 78%]
+tests/test_prompter_contracts.py ..                                      [ 78%]
+tests/test_resolve_import_package.py ......                              [ 80%]
+tests/test_studio_assembly.py ........                                   [ 82%]
+tests/test_studio_spike.py ............................................. [ 94%]
+.....                                                                    [ 96%]
+tests/test_text_plus_template.py .......                                 [ 98%]
+tests/test_text_plus_validation.py ......                                [ 99%]
+tests/test_tooling_smoke.py .                                            [100%]
+======================= 371 passed in 4744.90s (1:19:04) =======================

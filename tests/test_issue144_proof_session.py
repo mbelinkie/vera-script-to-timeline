@@ -239,6 +239,7 @@ def _accept(session: ProofSession, boundary: Boundary) -> dict[str, Any]:
     return session.run("decide")
 
 
+@pytest.mark.slow
 def test_file_session_runs_actual_visual_roundtrip_and_promotes_only_after_verify(
     tmp_path: Path,
 ) -> None:
@@ -261,6 +262,7 @@ def test_file_session_runs_actual_visual_roundtrip_and_promotes_only_after_verif
     assert all(studio.create_count == 1 for studio in boundary.studios.values())
 
 
+@pytest.mark.slow
 def test_failed_rebuild_retains_authoritative_baseline_and_old_inputs(
     tmp_path: Path,
 ) -> None:
@@ -277,6 +279,7 @@ def test_failed_rebuild_retains_authoritative_baseline_and_old_inputs(
     assert all(studio.create_count == 1 for studio in boundary.studios.values())
 
 
+@pytest.mark.slow
 def test_stale_nonce_cannot_authorize_proposal(tmp_path: Path) -> None:
     session, boundary = _session(tmp_path)
     prior = (session.root / "baseline.json").read_bytes()
@@ -287,6 +290,7 @@ def test_stale_nonce_cannot_authorize_proposal(tmp_path: Path) -> None:
     assert (session.root / "baseline.json").read_bytes() == prior
 
 
+@pytest.mark.slow
 def test_missing_boundary_creates_no_native_target_or_baseline(tmp_path: Path) -> None:
     root = tmp_path / "proof"
     _visual_inputs(root)
@@ -297,6 +301,7 @@ def test_missing_boundary_creates_no_native_target_or_baseline(tmp_path: Path) -
     assert not (root / "baseline.json").exists()
 
 
+@pytest.mark.slow
 def test_first_baseline_must_retain_verified_native_occurrence_identity(
     tmp_path: Path,
 ) -> None:
@@ -313,6 +318,7 @@ def test_first_baseline_must_retain_verified_native_occurrence_identity(
     assert not (root / "baseline.json").exists()
 
 
+@pytest.mark.slow
 def test_file_staged_capture_resumes_one_request_and_cached_response_is_not_fresh(
     tmp_path: Path,
 ) -> None:
@@ -344,6 +350,7 @@ def test_file_staged_capture_resumes_one_request_and_cached_response_is_not_fres
     assert load_operator_json(pending[0])["nonce"] != request["nonce"]
 
 
+@pytest.mark.slow
 def test_changed_completed_decision_receipt_cannot_authorize_replay(
     tmp_path: Path,
 ) -> None:
@@ -358,6 +365,7 @@ def test_changed_completed_decision_receipt_cannot_authorize_replay(
     assert len(boundary.studios) == 1
 
 
+@pytest.mark.slow
 def test_capture_reservation_refuses_symlink_parent_without_external_write(
     tmp_path: Path,
 ) -> None:
@@ -372,6 +380,7 @@ def test_capture_reservation_refuses_symlink_parent_without_external_write(
     assert list(outside.iterdir()) == []
 
 
+@pytest.mark.slow
 def test_operator_status_has_a_successful_cli_result(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -386,6 +395,7 @@ def test_operator_status_has_a_successful_cli_result(
     assert json.loads(capsys.readouterr().out)["status"] == "unbound"
 
 
+@pytest.mark.slow
 def test_missing_file_capture_reports_action_required_in_cli(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -401,6 +411,7 @@ def test_missing_file_capture_reports_action_required_in_cli(
     assert "request.json" in result["reason"]
 
 
+@pytest.mark.slow
 def test_changed_observation_before_rebuild_creates_no_second_target(
     tmp_path: Path,
 ) -> None:
@@ -414,6 +425,7 @@ def test_changed_observation_before_rebuild_creates_no_second_target(
     assert (session.root / "baseline.json").read_bytes() == prior
 
 
+@pytest.mark.slow
 def test_interruption_after_pointer_publish_finishes_same_promotion(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -442,6 +454,7 @@ def test_interruption_after_pointer_publish_finishes_same_promotion(
     assert all(studio.create_count == 1 for studio in boundary.studios.values())
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("failure", ["timeout", "abnormal_exit"])
 def test_cli_process_fault_cannot_masquerade_as_semantic_refusal(
     tmp_path: Path,

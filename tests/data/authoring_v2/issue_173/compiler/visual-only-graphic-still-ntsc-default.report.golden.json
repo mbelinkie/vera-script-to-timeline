@@ -1,0 +1,100 @@
+{
+  "buildClass": "preview",
+  "buildId": "00000000-0000-4000-8000-000000000003",
+  "compiler": {
+    "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "sourceHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "version": "compiler/v2"
+  },
+  "dependenciesHash": "sha256:3c4bfcdc51341ae48a0bdc2d8bf8c23129fd23ea5da47bf09c7831701d054099",
+  "diagnostics": [],
+  "document": {
+    "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "documentId": "00000000-0000-4000-8000-000000000001",
+    "liveHeadSequence": 0,
+    "projectId": "00000000-0000-4000-8000-000000000002",
+    "revision": 1,
+    "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "textHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "eventResults": [
+    {
+      "disposition": "placed",
+      "eventId": "77758ef8-c6da-55fc-8e89-b50fe29dcaf1",
+      "kind": "primary_visual",
+      "message": "Compiled from frozen source bindings.",
+      "recordRange": {
+        "endFrame": 72,
+        "startFrame": 0
+      },
+      "sourceId": "cbfba93c-3f54-55d2-82bf-7d5796cd6ccb",
+      "trackId": "video-root"
+    }
+  ],
+  "id": "00000000-0000-4000-8000-000000000005",
+  "itemResults": [],
+  "manifest": {
+    "contentHash": "sha256:84c84d25204446b45775f632ba6efac106bcc33829738858b35242c689fc876e",
+    "id": "00000000-0000-4000-8000-000000000004"
+  },
+  "manualCompletionItems": [],
+  "mediaPreparation": {
+    "requirements": [
+      {
+        "bindingHash": "sha256:3de4baaf259418e6e2f79324e49b5c9c721c6a42702c75043e86457191f7ad53",
+        "deliveredHash": "sha256:b761a2cc1e856589f19cbd405aebe37b014f8fc04b38eb2ccd735a7675a84473",
+        "diagnosticIds": [],
+        "originalHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "requirementKey": "prep:occurrence-1",
+        "status": "prepared"
+      }
+    ],
+    "status": "complete"
+  },
+  "migrationIssues": [],
+  "readiness": {
+    "blockingIssueIds": [],
+    "preview": "ready",
+    "release": "ready"
+  },
+  "recoveryActions": [],
+  "schemaVersion": "build-report/v2",
+  "sourceSufficiency": [
+    {
+      "availableRange": {
+        "endFrame": 1,
+        "startFrame": 0
+      },
+      "diagnosticId": null,
+      "requiredRange": {
+        "endFrame": 1,
+        "startFrame": 0
+      },
+      "requirementKey": "prep:occurrence-1",
+      "status": "sufficient"
+    }
+  ],
+  "status": "ready",
+  "summary": {
+    "blockedCount": 0,
+    "diagnosticCount": 0,
+    "eventCount": 1,
+    "manualCompletionCount": 0,
+    "placedCount": 1,
+    "placeholderCount": 0,
+    "recoveryActionCount": 0,
+    "sourceCount": 1,
+    "supportingItemCount": 0
+  },
+  "timeline": {
+    "audioSampleRate": 48000,
+    "durationFrames": 72,
+    "frameRate": {
+      "denominator": 1001,
+      "numerator": 24000
+    },
+    "height": 1080,
+    "startFrame": 0,
+    "width": 1920
+  }
+}

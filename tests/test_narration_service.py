@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, cast
 
+import pytest
 from vera_timeline_agent.narration.cache import NarrationCache
 from vera_timeline_agent.narration.models import (
     ProviderResult,
@@ -101,6 +102,7 @@ def test_matthew_is_default_and_joanna_is_a_named_alternative() -> None:
     assert voice_profile(JOANNA_PROFILE_ID).voice_id == "Joanna"
 
 
+@pytest.mark.slow
 def test_voice_profile_change_misses_synthesis_while_normalization_is_content_addressed(
     tmp_path: Path,
 ) -> None:
@@ -141,6 +143,7 @@ def test_voice_profile_change_misses_synthesis_while_normalization_is_content_ad
     assert matthew_asset.asset_id != joanna_asset.asset_id
 
 
+@pytest.mark.slow
 def test_unchanged_document_reuses_every_layer_and_excluded_is_never_sent(
     tmp_path: Path,
 ) -> None:
@@ -161,6 +164,7 @@ def test_unchanged_document_reuses_every_layer_and_excluded_is_never_sent(
     assert "Unused alternative." not in {item.text for item in provider.requests}
 
 
+@pytest.mark.slow
 def test_one_edited_block_regenerates_exactly_one_and_reuses_other_blocks(
     tmp_path: Path,
 ) -> None:
@@ -189,6 +193,7 @@ def test_one_edited_block_regenerates_exactly_one_and_reuses_other_blocks(
     )
 
 
+@pytest.mark.slow
 def test_normalization_profile_change_reuses_raw_provider_result(
     tmp_path: Path,
 ) -> None:
@@ -215,6 +220,7 @@ def test_normalization_profile_change_reuses_raw_provider_result(
     assert result[0].normalization_disposition == "generated"
 
 
+@pytest.mark.slow
 def test_provider_failure_publishes_audible_failed_placeholder(tmp_path: Path) -> None:
     result = service(tmp_path, FakeProvider(fail=True)).process_document(
         document(MINIMAL)
@@ -231,6 +237,7 @@ def test_provider_failure_publishes_audible_failed_placeholder(tmp_path: Path) -
     assert audio.stat().st_size > 1000
 
 
+@pytest.mark.slow
 def test_concurrent_same_block_calls_provider_once(tmp_path: Path) -> None:
     provider = FakeProvider()
     subject = service(tmp_path, provider)

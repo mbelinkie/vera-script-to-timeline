@@ -18,6 +18,8 @@ from vera_timeline_agent.roundtrip_build import (
 from vera_timeline_agent.roundtrip_narration import replace_row_narration
 from vera_timeline_agent.roundtrip_proof import ProofSession
 
+pytestmark = pytest.mark.slow
+
 
 def setup(
     tmp_path: Path,

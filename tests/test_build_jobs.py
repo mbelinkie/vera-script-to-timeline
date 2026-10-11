@@ -245,6 +245,7 @@ def test_project_scope_and_active_cancellation_boundary(tmp_path: Path) -> None:
     assert any(event["kind"] == "progress" for event in status["events"])
 
 
+@pytest.mark.slow
 def test_process_kill_resumes_finished_speech_blocks(tmp_path: Path) -> None:
     store = BuildJobStore(tmp_path)
     job_id = store.submit(request())

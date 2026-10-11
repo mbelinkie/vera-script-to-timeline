@@ -1,0 +1,138 @@
+{
+  "observedAcceptedRuntime": {
+    "complete": {
+      "ok": true,
+      "reportStatus": "ready",
+      "durationFrames": 96,
+      "events": [
+        {
+          "kind": "primary_visual",
+          "trackRole": "primary_root",
+          "recordRange": {
+            "startFrame": 0,
+            "endFrame": 96
+          }
+        },
+        {
+          "kind": "narration",
+          "trackRole": "narration",
+          "recordRange": {
+            "startFrame": 0,
+            "endFrame": 96
+          }
+        },
+        {
+          "kind": "placeholder",
+          "trackRole": "child",
+          "recordRange": {
+            "startFrame": 24,
+            "endFrame": 48
+          }
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "TEMPORARY_PRESENTER_STILL",
+          "message": "On Camera uses the effective temporary presenter still."
+        }
+      ]
+    },
+    "sparse": {
+      "ok": true,
+      "reportStatus": "blocked",
+      "durationFrames": 96,
+      "events": [
+        {
+          "kind": "narration",
+          "trackRole": "narration",
+          "recordRange": {
+            "startFrame": 0,
+            "endFrame": 96
+          }
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "STALE_ANCHOR",
+          "message": "A structural return requires a current exact word inpoint; the child cannot silently extend to row end."
+        },
+        {
+          "code": "STALE_TIMING_MAP",
+          "message": "Timing entries must match frozen token IDs, UTF-16 offsets, and exact text."
+        }
+      ]
+    },
+    "sparseNeeds": {
+      "ok": false,
+      "diagnostics": [
+        {
+          "code": "STALE_TIMING_MAP",
+          "message": "Timing entries must match frozen token IDs, UTF-16 offsets, and exact text.",
+          "entityId": "00000000-0000-4000-8000-000000000006"
+        }
+      ]
+    }
+  },
+  "proposalOnly": {
+    "requiredOnsets": [
+      "00000000-0000-4000-8000-000000000029",
+      "00000000-0000-4000-8000-00000000002a"
+    ],
+    "unrelatedOmittedToken": "00000000-0000-4000-8000-000000000028",
+    "expectedPicture": {
+      "root": [
+        0,
+        96
+      ],
+      "childBeforeGamma": [
+        24,
+        48
+      ],
+      "childAfterBetaAudibleEnd": [
+        24,
+        36
+      ]
+    },
+    "narrationUnchanged": [
+      0,
+      96
+    ],
+    "missingRequiredGammaOnset": "block; never substitute beta audible end or row end",
+    "frameExamples": [
+      {
+        "rate": {
+          "numerator": 24,
+          "denominator": 1
+        },
+        "betaOnset": 24,
+        "betaAudibleEnd": 36,
+        "gammaOnset": 48,
+        "gammaAudibleEnd": 66,
+        "rowEnd": 96
+      },
+      {
+        "rate": {
+          "numerator": 25,
+          "denominator": 1
+        },
+        "betaOnset": 25,
+        "betaAudibleEnd": 38,
+        "gammaOnset": 50,
+        "gammaAudibleEnd": 69,
+        "rowEnd": 100
+      },
+      {
+        "rate": {
+          "numerator": 24000,
+          "denominator": 1001
+        },
+        "betaOnset": 24,
+        "betaAudibleEnd": 36,
+        "gammaOnset": 48,
+        "gammaAudibleEnd": 66,
+        "rowEnd": 96
+      }
+    ]
+  },
+  "acousticQualification": "Synthetic identities/times only; no audio was synthesized, listened to, or verified."
+}

@@ -1,0 +1,137 @@
+{
+  "authoringDefaults": {
+    "presenterStill": null,
+    "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "sourceAudioLevelPolicy": {
+      "fullGainDb": 0,
+      "quietGainDb": -18,
+      "version": "source-audio-level/v1"
+    },
+    "visualOnlyStillDurationMs": 3000
+  },
+  "boundaryEvidence": [],
+  "buildClass": "preview",
+  "buildId": "00000000-0000-4000-8000-000000000003",
+  "compiler": {
+    "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "sourceHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "version": "compiler/v2"
+  },
+  "composition": {
+    "childTrackIds": [],
+    "overlayTrackIds": [],
+    "primaryRootTrackId": "video-root",
+    "returns": [],
+    "rootContinuous": true,
+    "topology": "primary_root_child_overlay"
+  },
+  "document": {
+    "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "documentId": "00000000-0000-4000-8000-000000000001",
+    "liveHeadSequence": 0,
+    "projectId": "00000000-0000-4000-8000-000000000002",
+    "revision": 1,
+    "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "textHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "durationBasis": {
+    "entityId": "00000000-0000-4000-8000-00000000001e",
+    "kind": "visual_only_duration",
+    "narrationTimingMapHash": null,
+    "recordFrames": 75,
+    "sourceRange": null
+  },
+  "events": [
+    {
+      "audio": null,
+      "eventId": "77758ef8-c6da-55fc-8e89-b50fe29dcaf1",
+      "kind": "placeholder",
+      "pictureTreatment": {
+        "kind": "slate",
+        "purpose": "intentional",
+        "text": "Intentional slate"
+      },
+      "preparationBindingHash": null,
+      "provenance": {
+        "blockId": "00000000-0000-4000-8000-00000000001e",
+        "compilerVersion": "compiler/v2",
+        "deliveredSourceHash": null,
+        "documentId": "00000000-0000-4000-8000-000000000001",
+        "originalSourceHash": null,
+        "overlayEventId": null,
+        "payloadId": "00000000-0000-4000-8000-00000000001f",
+        "sequenceId": null,
+        "slotId": null,
+        "sourceId": null,
+        "timingMapHash": null
+      },
+      "recordRange": {
+        "endFrame": 75,
+        "startFrame": 0
+      },
+      "sourceRange": null,
+      "sourceTimeMapping": null,
+      "trackId": "video-root",
+      "trackRole": "primary_root"
+    }
+  ],
+  "id": "00000000-0000-4000-8000-000000000004",
+  "preparationBindings": [],
+  "roles": {
+    "childTrackIds": [],
+    "markerTrackId": "markers",
+    "narrationTrackId": "narration",
+    "overlayTrackIds": [],
+    "placeholderTrackId": "placeholder",
+    "presenterTrackId": "presenter",
+    "primaryRootTrackId": "video-root",
+    "sourceAudioTrackIds": []
+  },
+  "schemaVersion": "timeline-manifest/v2",
+  "sources": [],
+  "supportingItemResults": [],
+  "timeline": {
+    "audioSampleRate": 48000,
+    "durationFrames": 75,
+    "frameRate": {
+      "denominator": 1,
+      "numerator": 25
+    },
+    "height": 1080,
+    "startFrame": 0,
+    "width": 1920
+  },
+  "tracks": [
+    {
+      "id": "video-root",
+      "index": 1,
+      "kind": "video",
+      "name": "Primary root"
+    },
+    {
+      "id": "narration",
+      "index": 1,
+      "kind": "audio",
+      "name": "Narration"
+    },
+    {
+      "id": "placeholder",
+      "index": 2,
+      "kind": "video",
+      "name": "Placeholder"
+    },
+    {
+      "id": "presenter",
+      "index": 3,
+      "kind": "video",
+      "name": "Presenter"
+    },
+    {
+      "id": "markers",
+      "index": 4,
+      "kind": "video",
+      "name": "Markers"
+    }
+  ],
+  "visualSequenceResolutions": []
+}

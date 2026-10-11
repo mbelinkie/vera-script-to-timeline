@@ -1,0 +1,222 @@
+{
+ "job_id": "p2-004-queue-renders",
+ "started": 1790971154.794367,
+ "seconds": 6.871,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "journal": [
+   [
+    "formats",
+    {
+     "AVI": "avi",
+     "BRAW": "braw",
+     "Cineon": "cin",
+     "DCP": "dcp",
+     "DPX": "dpx",
+     "EXR": "exr",
+     "GIF": "gif",
+     "HLS": "m3u8",
+     "IMF": "imf",
+     "JPEG": "jpg",
+     "JPEG 2000": "j2c",
+     "MJ2": "mj2",
+     "MKV": "mkv",
+     "MP4": "mp4",
+     "MTS": "mts",
+     "MXF OP-Atom": "mxf",
+     "MXF OP1A": "mxf_op1a",
+     "PNG": "png",
+     "Panasonic AVC": "pavc",
+     "QuickTime": "mov",
+     "TIFF": "tif",
+     "Wave": "wav",
+     "WebP": "webp"
+    }
+   ],
+   [
+    "mov codecs",
+    {
+     "Apple ProRes 422": "ProRes422",
+     "Apple ProRes 422 HQ": "ProRes422HQ",
+     "Apple ProRes 422 LT": "ProRes422LT",
+     "Apple ProRes 422 Proxy": "ProRes422P",
+     "Apple ProRes 4444": "ProRes4444",
+     "Apple ProRes 4444 XQ": "ProRes4444XQ",
+     "Avid DNxHD 1080i 100 8-bit": "DNxHD1080i100",
+     "Avid DNxHD 1080i 145/120/115 8-bit": "DNxHD1080i145",
+     "Avid DNxHD 1080i 220/185/175 10-bit": "DNxHD1080i220_10",
+     "Avid DNxHD 1080i 220/185/175 8-bit": "DNxHD1080i220",
+     "Avid DNxHD 1080p 100/85/80 8-bit": "DNxHD1080p100",
+     "Avid DNxHD 1080p 145/120/115 8-bit": "DNxHD1080p145",
+     "Avid DNxHD 1080p 220/185/175 10-bit": "DNxHD1080p220_10",
+     "Avid DNxHD 1080p 220/185/175 8-bit": "DNxHD1080p220",
+     "Avid DNxHD 1080p 36 8-bit": "DNxHD1080p36",
+     "Avid DNxHD 1080p 444 10-bit": "DNxHD1080p440",
+     "Avid DNxHD 720p 100/85/55/45 8-bit": "DNxHD720p100",
+     "Avid DNxHD 720p 145/120/75/60 8-bit": "DNxHD720p145",
+     "Avid DNxHD 720p 220/185/110/90 10-bit": "DNxHD720p220_10",
+     "Avid DNxHD 720p 220/185/110/90 8-bit": "DNxHD720p220",
+     "Avid DNxHD Thin Raster 1080i 145/120/115 8-bit": "DNxHDTR1080i145",
+     "Avid DNxHR 444 10-bit": "DNxHR444_10",
+     "Avid DNxHR 444 12-bit": "DNxHR444_12",
+     "Avid DNxHR HQ 12-bit": "DNxHRHQ",
+     "Avid DNxHR HQX 10-bit": "DNxHRHQX_10",
+     "Avid DNxHR HQX 12-bit": "DNxHRHQX_12",
+     "Avid DNxHR LB 12-bit": "DNxHRLB",
+     "Avid DNxHR SQ 12-bit": "DNxHRSQ",
+     "FFV1 Intra RGBA 16-bit": "FFV1IntraRGBA_16",
+     "FFV1 Intra RGBA 8-bit": "FFV1IntraRGBA_8",
+     "FFV1 Intra YUV 422 10-bit": "FFV1IntraYUV422_10",
+     "FFV1 Intra YUV 422 8-bit": "FFV1IntraYUV422_8",
+     "FFV1 RGBA 16-bit": "FFV1RGBA_16",
+     "FFV1 RGBA 8-bit": "FFV1RGBA_8",
+     "FFV1 YUV 420 10-bit": "FFV1YUV420_10",
+     "FFV1 YUV 420 8-bit": "FFV1YUV420_8",
+     "FFV1 YUV 422 10-bit": "FFV1YUV422_10",
+     "FFV1 YUV 422 12-bit": "FFV1YUV422_12",
+     "FFV1 YUV 422 8-bit": "FFV1YUV422_8",
+     "GoPro CineForm RGB 16-bit": "GoProRGB16",
+     "GoPro CineForm YUV 10-bit": "GoProYUV10",
+     "Grass Valley HQ 1280x1080": "GVHQ1280x1080",
+     "Grass Valley HQ 1280x720": "GVHQ1280x720",
+     "Grass Valley HQ 1280x960": "GVHQ1280x960",
+     "Grass Valley HQ 1440x1080": "GVHQ1440x1080",
+     "Grass Valley HQ 1920x1080": "GVHQ1920x1080",
+     "Grass Valley HQ 720x480": "GVHQ720x480",
+     "Grass Valley HQ 720x486": "GVHQ720x486",
+     "Grass Valley HQ 720x576": "GVHQ720x576",
+     "Grass Valley HQX": "GVHQX",
+     "H.264": "H264",
+     "H.265": "H265",
+     "Kakadu JPEG 2000 RGB 10-bit": "KJP2K_RGB10",
+     "Kakadu JPEG 2000 RGB 12-bit": "KJP2K_RGB12",
+     "Kakadu JPEG 2000 RGB 8-bit": "KJP2K_RGB8",
+     "Kakadu JPEG 2000 YUV 422 10-bit": "KJP2K_YUV422_10",
+     "Kakadu JPEG 2000 YUV 422 12-bit": "KJP2K_YUV422_12",
+     "Kakadu JPEG 2000 YUV 422 8-bit": "KJP2K_YUV422_8",
+     "Kakadu JPEG 2000 YUV 444 10-bit": "KJP2K_YUV444_10",
+     "Kakadu JPEG 2000 YUV 444 12-bit": "KJP2K_YUV444_12",
+     "Kakadu JPEG 2000 YUV 444 8-bit": "KJP2K_YUV444_8",
+     "Photo JPEG YUV 420": "PJPEG",
+     "Photo JPEG YUV 422": "PJPEGYUV422",
+     "Photo JPEG YUV 444": "PJPEGYUV444",
+     "Uncompressed ARGB 8-bit": "ARGB8",
+     "Uncompressed BGRA 8-bit": "BGRA8",
+     "Uncompressed RGB 10-bit": "RGB10",
+     "Uncompressed RGB 8-bit": "RGB8",
+     "Uncompressed YUV 422 10-bit": "YUV422_10",
+     "Uncompressed YUV 422 8-bit": "YUV422_8",
+     "VP9 YUV 420 10-bit": "VP9YUV420_10",
+     "VP9 YUV 420 12-bit": "VP9YUV420_12",
+     "VP9 YUV 420 8-bit": "VP9YUV420_8",
+     "VP9 YUV 422 10-bit": "VP9YUV422_10",
+     "VP9 YUV 422 12-bit": "VP9YUV422_12",
+     "VP9 YUV 422 8-bit": "VP9YUV422_8",
+     "YUV 422 10-bit": "APVYUV422_10"
+    }
+   ],
+   [
+    "SetFormat mov/H264",
+    true
+   ],
+   [
+    "queue before",
+    []
+   ],
+   [
+    "SetCurrentTimeline SO Baseline",
+    true
+   ],
+   [
+    "SetRenderSettings SO Baseline",
+    true
+   ],
+   [
+    "AddRenderJob SO Baseline",
+    "e2ef14be-e59a-4769-b59c-d636afb4fc79"
+   ],
+   [
+    "SetCurrentTimeline SO T2 linked cut",
+    true
+   ],
+   [
+    "SetRenderSettings SO T2 linked cut",
+    true
+   ],
+   [
+    "AddRenderJob SO T2 linked cut",
+    "2d6b6fea-5f14-4f9c-bd08-0aabe5cd86e9"
+   ],
+   [
+    "SetCurrentTimeline SO T3 picture-only cut",
+    true
+   ],
+   [
+    "SetRenderSettings SO T3 picture-only cut",
+    true
+   ],
+   [
+    "AddRenderJob SO T3 picture-only cut",
+    "be45349d-a67f-4f74-a02c-6f660836f7fc"
+   ],
+   [
+    "SetCurrentTimeline SO T4 A1 clip disabled",
+    true
+   ],
+   [
+    "SetRenderSettings SO T4 A1 clip disabled",
+    true
+   ],
+   [
+    "AddRenderJob SO T4 A1 clip disabled",
+    "a163cb36-b02c-4a1c-ae6f-7ee0e6bfd417"
+   ],
+   [
+    "SetCurrentTimeline SO T5 A1 track disabled",
+    true
+   ],
+   [
+    "SetRenderSettings SO T5 A1 track disabled",
+    true
+   ],
+   [
+    "AddRenderJob SO T5 A1 track disabled",
+    "05044276-2dcf-410e-ab49-0f6a97e642a1"
+   ],
+   [
+    "format now",
+    {
+     "format": "mov",
+     "codec": "H264"
+    }
+   ],
+   [
+    "StartRendering",
+    true
+   ]
+  ],
+  "jobs": [
+   [
+    "SO Baseline",
+    "e2ef14be-e59a-4769-b59c-d636afb4fc79"
+   ],
+   [
+    "SO T2 linked cut",
+    "2d6b6fea-5f14-4f9c-bd08-0aabe5cd86e9"
+   ],
+   [
+    "SO T3 picture-only cut",
+    "be45349d-a67f-4f74-a02c-6f660836f7fc"
+   ],
+   [
+    "SO T4 A1 clip disabled",
+    "a163cb36-b02c-4a1c-ae6f-7ee0e6bfd417"
+   ],
+   [
+    "SO T5 A1 track disabled",
+    "05044276-2dcf-410e-ab49-0f6a97e642a1"
+   ]
+  ]
+ }
+}

@@ -1,6 +1,9 @@
 from pathlib import Path
 
+import pytest
 from issue144_wi_demo import run_demo
+
+pytestmark = pytest.mark.slow
 
 
 def test_actual_cli_file_wi_composition_generation_and_replay(tmp_path: Path) -> None:

@@ -253,6 +253,7 @@ def _setup(
     return PreparedBuild(root), subject, provider, path
 
 
+@pytest.mark.slow
 def test_new_full_row_marks_retime_anchors_and_translate_only_following_row(
     tmp_path: Path,
 ) -> None:
@@ -373,6 +374,7 @@ def test_new_full_row_marks_retime_anchors_and_translate_only_following_row(
     assert next_result["dependencies"]["narration"][1] == deps["narration"][1]
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "condition",
     [
@@ -416,6 +418,7 @@ def test_generation_refusals_do_not_change_original_inputs(
     assert {name: (prior.root / name).read_bytes() for name in prior.raw} == before
 
 
+@pytest.mark.slow
 def test_visual_only_changes_preserve_all_audio_without_service_calls(
     tmp_path: Path,
 ) -> None:
@@ -433,6 +436,7 @@ def test_visual_only_changes_preserve_all_audio_without_service_calls(
     assert provider.requests == []
 
 
+@pytest.mark.slow
 def test_astral_text_preserves_surviving_token_ids_with_new_utf16_marks(
     tmp_path: Path,
 ) -> None:
@@ -454,6 +458,7 @@ def test_astral_text_preserves_surviving_token_ids_with_new_utf16_marks(
     assert _compile(staging, prior.node)["events"]
 
 
+@pytest.mark.slow
 def test_cached_audio_tamper_refuses_replay(tmp_path: Path) -> None:
     prior, service, _, path = _setup(tmp_path)
     result = replace_row_narration(prior, path, service)
@@ -463,6 +468,7 @@ def test_cached_audio_tamper_refuses_replay(tmp_path: Path) -> None:
         replace_row_narration(prior, path, service)
 
 
+@pytest.mark.slow
 def test_canned_old_audio_cannot_be_relabelled_as_a_new_row(tmp_path: Path) -> None:
     prior, service, provider, path = _setup(tmp_path)
     provider.canned = provider.results[prior.document["activeDraft"]["blocks"][1]["id"]]
@@ -470,6 +476,7 @@ def test_canned_old_audio_cannot_be_relabelled_as_a_new_row(tmp_path: Path) -> N
         replace_row_narration(prior, path, service)
 
 
+@pytest.mark.slow
 def test_real_provider_object_refuses_despite_synthetic_profile_labels(
     tmp_path: Path,
 ) -> None:
@@ -487,6 +494,7 @@ def test_real_provider_object_refuses_despite_synthetic_profile_labels(
     assert calls == []
 
 
+@pytest.mark.slow
 def test_cache_ancestor_symlink_refuses_before_provider_call(tmp_path: Path) -> None:
     prior, service, provider, path = _setup(tmp_path)
     parent = service.cache.root.parent

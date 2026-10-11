@@ -1,0 +1,90 @@
+{
+ "job_id": "p7-001-aba-signals",
+ "started": 1790974587.7113569,
+ "seconds": 12.649,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "project_dirs": [
+   "~/Library/Application Support/Blackmagic Design/DaVinci Resolve/Resolve Project Library/Resolve Projects/Users/guest/Projects/VERA 141 Second Opinion 20261002-a"
+  ],
+  "states": [
+   {
+    "tag": "A0",
+    "t": 1790974587.964407,
+    "lmt": null,
+    "otio": "faddcf1a1428e63b",
+    "fp": "bc935a5ed659109eaa2237ced322f6073c56185fb8e9de01f56d80f22d1a1c2b",
+    "db": {
+     "/Project.db": [
+      3108864,
+      1790974588.0187328
+     ],
+     "/Batch Renders": [
+      96,
+      1790974545.8744612
+     ]
+    }
+   },
+   {
+    "op": "AddMarker",
+    "ret": true
+   },
+   {
+    "tag": "B",
+    "t": 1790974590.219676,
+    "lmt": null,
+    "otio": "538fc0fda09ea706",
+    "fp": "8cc7d66af51ecb43bc4bcc37902d09c753ecbaa1583e35d6a9e80744a79535b0",
+    "db": {
+     "/Project.db": [
+      3108864,
+      1790974590.21868
+     ],
+     "/Batch Renders": [
+      96,
+      1790974545.8744612
+     ]
+    }
+   },
+   {
+    "op": "DeleteMarkerAtFrame",
+    "ret": true
+   },
+   {
+    "tag": "A1",
+    "t": 1790974592.286037,
+    "lmt": null,
+    "otio": "faddcf1a1428e63b",
+    "fp": "bc935a5ed659109eaa2237ced322f6073c56185fb8e9de01f56d80f22d1a1c2b",
+    "db": {
+     "/Project.db": [
+      3108864,
+      1790974592.2381155
+     ],
+     "/Batch Renders": [
+      96,
+      1790974545.8744612
+     ]
+    }
+   },
+   {
+    "tag": "A1_late",
+    "t": 1790974600.3230212,
+    "lmt": null,
+    "otio": "faddcf1a1428e63b",
+    "fp": "bc935a5ed659109eaa2237ced322f6073c56185fb8e9de01f56d80f22d1a1c2b",
+    "db": {
+     "/Project.db": [
+      3108864,
+      1790974592.2381155
+     ],
+     "/Batch Renders": [
+      96,
+      1790974545.8744612
+     ]
+    }
+   }
+  ]
+ }
+}

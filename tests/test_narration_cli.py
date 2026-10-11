@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 from pathlib import Path
 
+import pytest
 from vera_timeline_agent.narration.cli import CliExit, run_cli
 from vera_timeline_agent.narration.models import (
     ProviderResult,
@@ -143,6 +144,7 @@ def test_cli_selects_joanna_as_named_alternative_without_silent_attestation(
     assert missing_attestation == CliExit.USAGE
 
 
+@pytest.mark.slow
 def test_cli_reports_generated_then_all_reused_in_block_order(tmp_path: Path) -> None:
     provider = CliFakeProvider()
     first_out = io.StringIO()
@@ -167,6 +169,7 @@ def test_cli_reports_generated_then_all_reused_in_block_order(tmp_path: Path) ->
     assert "Unused alternative" not in first_out.getvalue()
 
 
+@pytest.mark.slow
 def test_cli_provider_failure_is_nonzero_and_reports_placeholder(
     tmp_path: Path,
 ) -> None:

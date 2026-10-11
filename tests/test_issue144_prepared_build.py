@@ -107,6 +107,7 @@ def test_strict_operator_gate_refuses_ambiguous_bytes_without_changes(
     assert list(tmp_path.iterdir()) == [path]
 
 
+@pytest.mark.slow
 def test_wrong_node_refuses_before_any_job_or_snapshot(tmp_path: Path) -> None:
     root = tmp_path / "proof"
     _inputs(root)
@@ -116,6 +117,7 @@ def test_wrong_node_refuses_before_any_job_or_snapshot(tmp_path: Path) -> None:
     assert set(root.iterdir()) == before
 
 
+@pytest.mark.slow
 def test_actual_compiler_and_package_run_all_core_stages_without_synthesis(
     tmp_path: Path,
 ) -> None:
@@ -173,6 +175,7 @@ def test_actual_compiler_and_package_run_all_core_stages_without_synthesis(
     assert replay.job_id == build.job_id
 
 
+@pytest.mark.slow
 def test_speech_stage_refuses_missing_prepared_audio_before_compile(
     tmp_path: Path,
 ) -> None:
@@ -187,6 +190,7 @@ def test_speech_stage_refuses_missing_prepared_audio_before_compile(
     assert not build.intent_path.exists()
 
 
+@pytest.mark.slow
 def test_changed_input_cannot_resume_into_an_existing_package(tmp_path: Path) -> None:
     root = tmp_path / "proof"
     _inputs(root)
@@ -217,6 +221,7 @@ def test_proof_import_does_not_load_any_synthesis_provider() -> None:
     assert completed.returncode == 0, completed.stderr
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "case",
     [
@@ -261,6 +266,7 @@ def test_bad_prepared_binding_refuses_before_compilation_or_package(
     assert not build.intent_path.exists()
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("name", ["compiler_output", "frozen_input"])
 def test_altered_intermediate_cannot_replay_into_native_stage(
     tmp_path: Path,

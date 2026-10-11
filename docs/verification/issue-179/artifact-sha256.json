@@ -1,0 +1,14 @@
+{
+  "docs/plans/issue-179-cut-point-timing.md": "04380d71a39a7b37cfb7534a2de27a4ac92cbfaac3778d0aca8a827783295a88",
+  "docs/verification/issue-179/reproduction.test.ts": "ab7339c598a231ac0d8e4f3afdf6c51f3da9e3fbe94dba4933aca58c6383650f",
+  "docs/verification/issue-179/complete.input.json": "926b5673e5fb43bc7f0771335fcc2771b6e93114a9ec56d836fdba25d0562837",
+  "docs/verification/issue-179/sparse.input.json": "208aed94951d183862144fccf3a506c577df7a97f6885a5a8d680f82f75ae5df",
+  "docs/verification/issue-179/reproduction-result.json": "09d76924d6ccb9f1a8296da1063205d00c0967580a0140914e0ff6504f83d485",
+  "docs/verification/issue-179/focused-tests.txt": "435dcd473e33bd184c2c62b2a2a22521cc86b11aacd4aeee19eb23dbf384a659",
+  "docs/verification/issue-179/generated-currentness.txt": "58dacebf5d217df55873e476d5d658e27931499eef3c17740ec3e4cfc09317f5",
+  "docs/verification/issue-179/source-pins.json": "7fb0fe08b2813e49217dc9bd8aaeb6b8a8c30ec2b99dfd49bf0e1d937da71e75",
+  "docs/verification/issue-179/design-audit.json": "861e89a71245443010441e1768453f1c429beb7de865c2bd356fff7932befcd1",
+  "docs/verification/issue-179/audit.mjs": "ef794f43b5d70fb4b209820e38ea2853abdef333d1b605cd6a3a643761e242ab",
+  "docs/verification/issue-179/successor-issue.md": "d3d100ff308540e164e99c9800882bafe6d21de8fa2d563a939ee0b25f88255f",
+  "docs/verification/issue-179/verification.md": "480c2a307d2b197695ec6f81e0d26b92772dd080679939035e6979b91f3a381a"
+}

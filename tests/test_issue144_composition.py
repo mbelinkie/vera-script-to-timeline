@@ -14,6 +14,8 @@ from vera_timeline_agent.roundtrip_build import (
     load_operator_json,
 )
 
+pytestmark = pytest.mark.slow
+
 
 def test_three_edits_one_revision_full_row_audio_fresh_target_and_replay(
     tmp_path: Path,
