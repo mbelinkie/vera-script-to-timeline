@@ -12,7 +12,7 @@ from importlib.metadata import version
 
 REPO = "Qwen/Qwen3-ForcedAligner-0.6B"
 REVISION = "c7cbfc2048c462b0d63a45797104fc9db3ad62b7"
-LANGUAGE = "English"
+LANGUAGE = os.environ.get("VERA_QWEN_LANGUAGE", "English")  # model-card language name
 
 
 def sha256(path):

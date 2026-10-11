@@ -106,15 +106,26 @@ def spoken_numeral(digits: str) -> list[str]:
     )
 
 
-def normalise_token(display: str) -> list[str]:
-    """Spoken words for one display token (empty if nothing is spoken)."""
+def normalise_token(display: str, language: str = "en") -> list[str]:
+    """Spoken words for one display token (empty if nothing is spoken).
+
+    Numerals are spelled out for English only. Other languages keep digits:
+    Canary emits spoken-form numbers, so digits are rare there, and an
+    English reading of a German number would be wrong.
+    """
     token = _EDGE.sub("", display.replace("\u2019", "'").replace("\u2018", "'").strip())
+    english = language.split("-")[0] == "en"
     words: list[str] = []
     for part in _PARTS.findall(token):
         if part.isdigit():
-            words.extend(spoken_numeral(part))
+            words.extend(
+                spoken_numeral(part) if language.split("-")[0] == "en" else [part]
+            )
         else:
-            word = part.strip("'").casefold()
+            # casefold() would turn German "ß" into "ss" and miss the MFA
+            # German dictionary; plain lower() keeps it. English is unchanged.
+            stripped = part.strip("'")
+            word = stripped.casefold() if english else stripped.lower()
             if word:
                 words.append(word)
     return words
@@ -127,10 +138,10 @@ class Unit:
     text: str
 
 
-def units(display_tokens: list[str]) -> list[Unit]:
+def units(display_tokens: list[str], language: str = "en") -> list[Unit]:
     """Aligner units for a token list, in order; multi-word tokens get sub 0, 1, ..."""
     return [
         Unit(i, sub, text)
         for i, display in enumerate(display_tokens)
-        for sub, text in enumerate(normalise_token(display))
+        for sub, text in enumerate(normalise_token(display, language))
     ]

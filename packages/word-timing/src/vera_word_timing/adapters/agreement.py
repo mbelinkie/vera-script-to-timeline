@@ -33,6 +33,10 @@ from vera_word_timing.artifacts import (
 from vera_word_timing.ports import PortRefusal
 
 QWEN_REVISION = "c7cbfc2048c462b0d63a45797104fc9db3ad62b7"
+# Model-card languages the word-timing study exercised (Italian: Qwen-only,
+# unverified). Swedish is not listed and agreed with MFA only 74% of the time
+# in the study, so the check refuses it rather than give a misleading answer.
+QWEN_LANGUAGES = {"en": "English", "de": "German", "fr": "French", "it": "Italian"}
 
 
 class QwenAgreement:
@@ -57,6 +61,13 @@ class QwenAgreement:
             raise PortRefusal(
                 "aligner", "input-invalid", "Alignment and recognition do not match."
             )
+        language = recognition["identity"]["language"].split("-")[0]
+        if language not in QWEN_LANGUAGES:
+            raise PortRefusal(
+                "aligner",
+                "capability-missing",
+                f"The agreement partner does not support language {language!r}.",
+            )
         _, payload = prepare_segments(self.config, audio, recognition, reconciliation)
         self.config.work_dir.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(
@@ -75,7 +86,7 @@ class QwenAgreement:
                     str(out),
                 ],
                 port="aligner",
-                env=None,
+                env={"VERA_QWEN_LANGUAGE": QWEN_LANGUAGES[language]},
                 timeout=self.config.timeout_s,
             )
             result = json.loads(out.read_text())
@@ -89,7 +100,7 @@ class QwenAgreement:
         partner = tool(
             "qwen3-forced-aligner-0.6b",
             QWEN_REVISION,
-            {"language": "English", "gridMs": 80},
+            {"language": QWEN_LANGUAGES[language], "gridMs": 80},
         )
         block = agreement_block(alignment["words"], partner_times, partner, self.tau_ms)
         body = {k: v for k, v in alignment.items() if k != "artifactId"}

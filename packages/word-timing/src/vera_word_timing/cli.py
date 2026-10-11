@@ -2,7 +2,7 @@
 
 Every command reads and writes the Producer-approved #168 contract JSON:
 
-  vera-word-timing recognise --engine parakeet|elevenlabs|youtube --audio X.wav
+  vera-word-timing recognise --engine parakeet|canary|elevenlabs|youtube --audio X.wav
         [--language en] [--captions X.json3] [--consent-policy ID] [--keyterms a,b]
   vera-word-timing reconcile --recognition R.json --script S.txt --dictionary D.dict
   vera-word-timing align --recognition R.json --audio X.wav [--reconciliation C.json]
@@ -53,12 +53,18 @@ def _read(path: Path) -> Json:
 
 def _recognise(a: argparse.Namespace) -> Any:
     from vera_word_timing.adapters.elevenlabs_cloud import ElevenLabsCloudRecognizer
-    from vera_word_timing.adapters.local_engines import EngineConfig, ParakeetRecognizer
+    from vera_word_timing.adapters.local_engines import (
+        CanaryRecognizer,
+        EngineConfig,
+        ParakeetRecognizer,
+    )
     from vera_word_timing.adapters.youtube_captions import YouTubeCaptionRecognizer
 
     recognizer: RecognizerPort
     if a.engine == "parakeet":
         recognizer = ParakeetRecognizer(EngineConfig.from_env())
+    elif a.engine == "canary":
+        recognizer = CanaryRecognizer(EngineConfig.from_env())
     elif a.engine == "elevenlabs":
         keyterms = tuple(t for t in (a.keyterms or "").split(",") if t) or None
         recognizer = ElevenLabsCloudRecognizer(keyterms=keyterms)
@@ -138,7 +144,9 @@ def parser() -> argparse.ArgumentParser:
 
     r = command("recognise", _recognise)
     r.add_argument(
-        "--engine", choices=["parakeet", "elevenlabs", "youtube"], required=True
+        "--engine",
+        choices=["parakeet", "canary", "elevenlabs", "youtube"],
+        required=True,
     )
     r.add_argument("--audio", type=Path, required=True)
     r.add_argument("--language", default="en")

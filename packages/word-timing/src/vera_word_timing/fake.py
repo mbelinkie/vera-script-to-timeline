@@ -87,7 +87,10 @@ class FakeAligner:
         tokens = recognition["tokens"]
         texts = reconciled_texts(reconciliation)
         times = []
-        for u in units([t["display"] if t["kind"] != "event" else "" for t in tokens]):
+        for u in units(
+            [t["display"] if t["kind"] != "event" else "" for t in tokens],
+            recognition["identity"]["language"],
+        ):
             t = tokens[u.token_index]
             u = Unit(u.token_index, u.sub, texts.get((u.token_index, u.sub), u.text))
             if (

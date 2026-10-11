@@ -525,3 +525,39 @@ def test_package_contract_copies_match_repository_contracts() -> None:
     for name in PORT_CONTRACTS:
         packaged = (SCHEMA_DIR / f"{name}.schema.json").read_bytes()
         assert packaged == (repo / f"{name}.schema.json").read_bytes(), name
+
+
+def test_non_english_numerals_stay_digits() -> None:
+    assert normalise_token("99") == ["ninety", "nine"]
+    assert normalise_token("99", "de") == ["99"]
+    assert normalise_token("Größe", "de") == ["größe"]
+
+
+def test_language_capabilities_and_refusals(audio: AudioRef) -> None:
+    from vera_word_timing.adapters.agreement import QwenAgreement
+    from vera_word_timing.adapters.local_engines import CanaryRecognizer
+
+    with pytest.raises(PortRefusal) as refused:
+        CanaryRecognizer(EngineConfig()).recognise(audio, language="de", policy=POLICY)
+    assert refused.value.code == "runtime-missing"
+    assert {"de", "fr", "sv", "en"} <= set(
+        MfaAligner(EngineConfig()).capabilities().languages
+    )
+    assert "it" not in MfaAligner(EngineConfig()).capabilities().languages
+    rec = FakeRecognizer(["a"]).recognise(audio, language="en", policy=POLICY)
+    swedish = {**rec, "identity": {**rec["identity"], "language": "sv"}}
+    ali = FakeAligner().align(audio, rec, policy=POLICY)
+    config = EngineConfig(qwen_command=("unused",))
+    with pytest.raises(PortRefusal) as refused:
+        QwenAgreement(config).check(
+            audio,
+            swedish,
+            {
+                **ali,
+                "identity": {
+                    **ali["identity"],
+                    "recognitionArtifactId": rec["artifactId"],
+                },
+            },
+        )
+    assert refused.value.code == "capability-missing"

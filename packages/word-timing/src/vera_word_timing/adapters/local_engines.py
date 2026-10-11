@@ -76,6 +76,7 @@ class EngineConfig:
     # Container engines (Colima/Docker) only see the home directory, so
     # hand-off files for them live here rather than in the system temp dir.
     work_dir: Path = field(default_factory=lambda: Path.home() / ".cache/vera-engines")
+    canary_model_dir: Path | None = None
     timeout_s: float = 1800.0
 
     @classmethod
@@ -93,6 +94,7 @@ class EngineConfig:
             parakeet_model_glob=os.environ.get("VERA_PARAKEET_MODEL_GLOB"),
             mfa_command=tuple(shlex.split(os.environ.get("VERA_MFA_COMMAND", ""))),
             qwen_command=tuple(shlex.split(os.environ.get("VERA_QWEN_COMMAND", ""))),
+            canary_model_dir=path("VERA_CANARY_MODEL_DIR"),
             work_dir=path("VERA_ENGINE_WORK") or Path.home() / ".cache/vera-engines",
             mfa_home=path("VERA_MFA_HOME"),
             mfa_env=extra,
@@ -182,6 +184,37 @@ def speech_segments(
     return group_regions(regions, float(out["durationSec"]))
 
 
+EUROPEAN = frozenset(
+    {
+        "bg",
+        "hr",
+        "cs",
+        "da",
+        "nl",
+        "en",
+        "et",
+        "fi",
+        "fr",
+        "de",
+        "el",
+        "hu",
+        "it",
+        "lv",
+        "lt",
+        "mt",
+        "pl",
+        "pt",
+        "ro",
+        "sk",
+        "sl",
+        "es",
+        "sv",
+        "ru",
+        "uk",
+    }
+)
+
+
 class ParakeetRecognizer:
     """Free local recogniser (recommended local profile).
 
@@ -192,34 +225,7 @@ class ParakeetRecognizer:
         self.config = config
 
     def capabilities(self) -> Capabilities:
-        european = {
-            "bg",
-            "hr",
-            "cs",
-            "da",
-            "nl",
-            "en",
-            "et",
-            "fi",
-            "fr",
-            "de",
-            "el",
-            "hu",
-            "it",
-            "lv",
-            "lt",
-            "mt",
-            "pl",
-            "pt",
-            "ro",
-            "sk",
-            "sl",
-            "es",
-            "sv",
-            "ru",
-            "uk",
-        }
-        return Capabilities(frozenset(european), "local", "word_start_with_derived_end")
+        return Capabilities(EUROPEAN, "local", "word_start_with_derived_end")
 
     def recognise(
         self, audio: AudioRef, *, language: str, policy: ProjectPolicy
@@ -285,6 +291,84 @@ class ParakeetRecognizer:
         )
 
 
+CANARY_REVISION = "5ebc1520cef7b6b318b3526ad17adbfe00bc1bfc"
+
+
+class CanaryRecognizer:
+    """NVIDIA Canary-1B v2 with a forced language (recommended for non-English).
+
+    Study: best on Italian (1.0% WER) and Swedish (8.6%), within 2-5 points of
+    whisper on German/French, 4-5x faster than whisper. No timestamps, so each
+    word is anchored to its VAD segment (`segment` precision); the aligner
+    supplies word times. CC-BY-4.0: credit NVIDIA in the product.
+    """
+
+    def __init__(self, config: EngineConfig) -> None:
+        self.config = config
+
+    def capabilities(self) -> Capabilities:
+        return Capabilities(EUROPEAN, "local", "segment")
+
+    def recognise(
+        self, audio: AudioRef, *, language: str, policy: ProjectPolicy
+    ) -> Json:
+        require_language(self.capabilities(), language, "recognizer")
+        cfg = self.config
+        if (
+            cfg.parakeet_python is None
+            or not cfg.parakeet_python.exists()
+            or cfg.canary_model_dir is None
+            or not cfg.canary_model_dir.is_dir()
+        ):
+            raise PortRefusal(
+                "recognizer",
+                "runtime-missing",
+                "Canary runtime or model (VERA_CANARY_MODEL_DIR) is not configured.",
+            )
+        _check_wav(audio, "recognizer")
+        segments = speech_segments(cfg, audio, "recognizer")
+        with tempfile.TemporaryDirectory(prefix="vera-canary-") as tmp:
+            seg_file, out = Path(tmp) / "segments.json", Path(tmp) / "canary.json"
+            seg_file.write_text(json.dumps([list(x) for x in segments]))
+            run_engine(
+                [
+                    str(cfg.parakeet_python),
+                    str(ENGINES / "canary_engine.py"),
+                    "--audio",
+                    str(audio.path),
+                    "--segments",
+                    str(seg_file),
+                    "--language",
+                    language.split("-")[0],
+                    "--out",
+                    str(out),
+                ],
+                port="recognizer",
+                env={"VERA_CANARY_MODEL_DIR": str(cfg.canary_model_dir)},
+                timeout=cfg.timeout_s,
+            )
+            result = json.loads(out.read_text())
+        tokens = [
+            Token(word, "word", seg["start"], seg["end"], "segment")
+            for seg in result["segments"]
+            for word in seg["text"].split()
+        ]
+        if not tokens:
+            raise PortRefusal(
+                "recognizer", "provider-failed", "Canary returned no words."
+            )
+        info = RecognizerInfo(
+            "asr-local",
+            "nvidia",
+            "canary-1b-v2",
+            CANARY_REVISION,
+            {"quantization": "int8", "vad": VAD_SETTINGS, "itn": False},
+        )
+        return recognition_artifact(
+            audio, info, tokens, language=language, consent_policy=None
+        )
+
+
 @contextmanager
 def _mfa_lock(home: Path) -> Iterator[None]:
     home.mkdir(parents=True, exist_ok=True)
@@ -310,11 +394,12 @@ def prepare_segments(
     segments and unit texts (reconciled spellings when a reconciliation is given).
     """
     tokens = recognition["tokens"]
+    language = recognition["identity"]["language"]
     texts = reconciled_texts(reconciliation)
     units: list[Unit] = []
     anchors: list[tuple[float, float] | None] = []
     for t in tokens:
-        spoken = [] if t["kind"] == "event" else normalise_token(t["display"])
+        spoken = [] if t["kind"] == "event" else normalise_token(t["display"], language)
         for sub, text in enumerate(spoken):
             units.append(Unit(t["index"], sub, texts.get((t["index"], sub), text)))
             s, e = t["anchorStartMs"], t["anchorEndMs"]
@@ -326,7 +411,9 @@ def prepare_segments(
             "input-invalid",
             "No speech was detected to align the transcript to.",
         )
-    multi = {t["index"] for t in tokens if len(normalise_token(t["display"])) > 1}
+    multi = {
+        t["index"] for t in tokens if len(normalise_token(t["display"], language)) > 1
+    }
     payload: Json = {
         "audio": audio.path.name,
         "offsetSec": 0.0,
@@ -351,8 +438,22 @@ def prepare_segments(
     return segments, payload
 
 
+# MFA 3.x model per language (all downloaded and pinned in the word-timing study).
+MFA_VARIANTS = {
+    "en": "english_us_arpa",
+    "de": "german_mfa",
+    "fr": "french_mfa",
+    "sv": "swedish_mfa",
+}
+
+
 class MfaAligner:
-    """Montreal Forced Aligner, english_us_arpa (+ optional pronunciation guides)."""
+    """Montreal Forced Aligner; the model follows the recognition's language.
+
+    English uses english_us_arpa (+ optional prompter pronunciation guides);
+    German, French and Swedish use the MFA 3.0.0 language models. Italian and
+    Finnish have no MFA model: alignment refuses (capability-missing).
+    """
 
     def __init__(
         self, config: EngineConfig, *, extra_dictionary: Path | None = None
@@ -360,7 +461,7 @@ class MfaAligner:
         self.config, self.extra_dictionary = config, extra_dictionary
 
     def capabilities(self) -> Capabilities:
-        return Capabilities(frozenset({"en"}), "local", "acoustic")
+        return Capabilities(frozenset(MFA_VARIANTS), "local", "acoustic")
 
     def align(
         self,
@@ -373,6 +474,7 @@ class MfaAligner:
         require_language(
             self.capabilities(), recognition["identity"]["language"], "aligner"
         )
+        variant = MFA_VARIANTS[recognition["identity"]["language"].split("-")[0]]
         cfg = self.config
         if not cfg.mfa_command:
             raise PortRefusal(
@@ -396,7 +498,7 @@ class MfaAligner:
                 "--out",
                 str(out),
                 "--variant",
-                "english_us_arpa",
+                variant,
             ]
             if self.extra_dictionary is not None:
                 cmd += ["--extra-dict", str(self.extra_dictionary)]
@@ -433,11 +535,11 @@ class MfaAligner:
             "montreal-forced-aligner",
             str(packages.get("montreal-forced-aligner", "unknown")),
             {
-                "variant": "english_us_arpa",
+                "variant": variant,
                 "models": result.get("provenance", {}).get("models", []),
             },
-            acousticModel="english_us_arpa",
-            dictionary="english_us_arpa",
+            acousticModel=variant,
+            dictionary=variant,
             extraDictionaryHash=None
             if self.extra_dictionary is None
             else content_hash(self.extra_dictionary.read_text()),

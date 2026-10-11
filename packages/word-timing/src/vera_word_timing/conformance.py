@@ -61,7 +61,8 @@ def check_alignment(
             continue
         by_token.setdefault(w["tokenIndex"], []).append(w)
     for i, t in enumerate(tokens):
-        spoken = [] if t["kind"] == "event" else normalise_token(t["display"])
+        language = recognition["identity"]["language"]
+        spoken = [] if t["kind"] == "event" else normalise_token(t["display"], language)
         expected = [texts.get((i, n), s) for n, s in enumerate(spoken)]
         got = [w["text"] for w in sorted(by_token.get(i, []), key=lambda w: w["sub"])]
         if got != expected:
