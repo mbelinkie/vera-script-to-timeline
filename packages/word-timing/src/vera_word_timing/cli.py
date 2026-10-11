@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import wave
 from collections.abc import Callable
@@ -30,10 +31,13 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from vera_word_timing.artifacts import AudioRef, Json, file_hash
-from vera_word_timing.ports import PortRefusal, ProjectPolicy, RecognizerPort
+from vera_word_timing.artifacts import AudioRef, Json, file_hash, schema_errors
+from vera_word_timing.ports import Port, PortRefusal, ProjectPolicy, RecognizerPort
 
 REFUSED = 3
+LANGUAGE_TAG = re.compile(
+    r"[a-z]{2,3}(-[A-Za-z0-9]{2,8})*"
+)  # same pattern as the contract
 
 
 def _audio(path: Path) -> AudioRef:
@@ -47,8 +51,31 @@ def _audio(path: Path) -> AudioRef:
 
 
 def _read(path: Path) -> Json:
-    data: Json = json.loads(path.read_text(encoding="utf-8"))
+    """Read an input artifact; refuse anything that is not a valid contract document."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise PortRefusal(
+            "aligner",
+            "input-invalid",
+            "An input file is missing, unreadable or not JSON.",
+        ) from error
+    if not isinstance(data, dict) or schema_errors(data):
+        raise PortRefusal(
+            "aligner",
+            "input-invalid",
+            "An input file is not a valid contract artifact.",
+        )
     return data
+
+
+def _read_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8", errors="ignore")
+    except OSError as error:
+        raise PortRefusal(
+            "aligner", "input-invalid", "An input file is missing or unreadable."
+        ) from error
 
 
 def _recognise(a: argparse.Namespace) -> Any:
@@ -60,6 +87,12 @@ def _recognise(a: argparse.Namespace) -> Any:
     )
     from vera_word_timing.adapters.youtube_captions import YouTubeCaptionRecognizer
 
+    if not LANGUAGE_TAG.fullmatch(a.language):
+        raise PortRefusal(
+            "recognizer",
+            "input-invalid",
+            "The language must be a tag like en or de-CH.",
+        )
     recognizer: RecognizerPort
     if a.engine == "parakeet":
         recognizer = ParakeetRecognizer(EngineConfig.from_env())
@@ -85,8 +118,8 @@ def _reconcile(a: argparse.Namespace) -> Any:
 
     return reconcile(
         _read(a.recognition),
-        a.script.read_text(encoding="utf-8"),
-        a.dictionary.read_text(encoding="utf-8", errors="ignore"),
+        _read_text(a.script),
+        _read_text(a.dictionary),
     )
 
 
@@ -174,14 +207,41 @@ def parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
+    port: Port = "recognizer" if args.command == "recognise" else "aligner"
     try:
         result = args.handler(args)
+        if (
+            isinstance(result, dict)
+            and "artifactId" in result
+            and schema_errors(result)
+        ):
+            raise PortRefusal(
+                port, "provider-failed", "The result failed contract validation."
+            )
         code = 0
     except PortRefusal as refusal:
         result, code = refusal.record(), REFUSED
+    except (KeyError, ValueError, TypeError) as error:
+        # Expected shape problems (e.g. resolve without an agreement block):
+        # a sanitised refusal, never a traceback with private paths.
+        refusal = PortRefusal(
+            port, "input-invalid", "The inputs do not fit this command."
+        )
+        refusal.__cause__ = error
+        result, code = refusal.record(), REFUSED
     text = json.dumps(result, ensure_ascii=False, indent=1)
     if args.out and code == 0:
-        args.out.write_text(text + "\n", encoding="utf-8")
+        try:
+            args.out.write_text(text + "\n", encoding="utf-8")
+        except OSError:
+            text = json.dumps(
+                PortRefusal(
+                    port, "input-invalid", "Could not write the output file."
+                ).record(),
+                indent=1,
+            )
+            sys.stdout.write(text + "\n")
+            return REFUSED
     else:
         sys.stdout.write(text + "\n")
     return code

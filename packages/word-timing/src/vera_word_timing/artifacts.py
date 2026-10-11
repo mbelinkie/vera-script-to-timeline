@@ -116,6 +116,10 @@ def recognition_artifact(
     consent_policy: str | None,
 ) -> Json:
     cloud = info.kind == "asr-cloud"
+    if cloud and not consent_policy:
+        # Defence in depth: the cloud adapter already refuses, but no code path
+        # may build a cloud artifact without the project's stored consent.
+        raise ValueError("cloud recognition requires a stored consent policy id")
     consent: Json = {
         "processing": "cloud" if cloud else "local",
         "policyId": consent_policy,
@@ -283,6 +287,17 @@ def _validators() -> dict[str, Any]:
     }
 
 
+def semantic_errors(doc: Json) -> list[str]:
+    """Rules JSON Schema cannot express (still part of the approved semantics)."""
+    errors: list[str] = []
+    if doc.get("schemaVersion") == "recognition-artifact/v1":
+        kind = doc.get("identity", {}).get("recognizer", {}).get("kind")
+        processing = doc.get("consent", {}).get("processing")
+        if (kind == "asr-cloud") != (processing == "cloud"):
+            errors.append("consent: asr-cloud must be cloud-processed, and vice versa")
+    return errors
+
+
 def schema_errors(doc: Json) -> list[str]:
     """Schema violations for an artifact or refusal record (empty = valid)."""
     validator = _validators().get(str(doc.get("schemaVersion")))
@@ -291,4 +306,4 @@ def schema_errors(doc: Json) -> list[str]:
     return [
         f"{'/'.join(map(str, e.path)) or '<root>'}: {e.message}"
         for e in validator.iter_errors(doc)
-    ]
+    ] + semantic_errors(doc)

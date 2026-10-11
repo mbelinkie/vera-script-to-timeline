@@ -14,6 +14,7 @@ agreement block creates a new immutable alignment artifact.
 from __future__ import annotations
 
 import json
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -30,7 +31,7 @@ from vera_word_timing.artifacts import (
     tool,
     with_id,
 )
-from vera_word_timing.ports import PortRefusal
+from vera_word_timing.ports import PortRefusal, check_alignment_inputs
 
 QWEN_REVISION = "c7cbfc2048c462b0d63a45797104fc9db3ad62b7"
 # Model-card languages the word-timing study exercised (Italian: Qwen-only,
@@ -51,15 +52,29 @@ class QwenAgreement:
         *,
         reconciliation: Json | None = None,
     ) -> Json:
+        check_alignment_inputs(audio, recognition, reconciliation)
+        if alignment["identity"]["recognitionArtifactId"] != recognition["artifactId"]:
+            raise PortRefusal(
+                "aligner", "input-invalid", "Alignment and recognition do not match."
+            )
+        expected_reconcile = (
+            None if reconciliation is None else reconciliation["artifactId"]
+        )
+        if alignment["identity"]["reconcileArtifactId"] != expected_reconcile:
+            raise PortRefusal(
+                "aligner",
+                "input-invalid",
+                "Pass the same script reconciliation the alignment was made with.",
+            )
+        if alignment["identity"]["audio"]["hash"] != audio.original_hash:
+            raise PortRefusal(
+                "aligner", "input-invalid", "The audio does not match the alignment."
+            )
         if not self.config.qwen_command:
             raise PortRefusal(
                 "aligner",
                 "runtime-missing",
                 "Agreement partner (VERA_QWEN_COMMAND) is not configured.",
-            )
-        if alignment["identity"]["recognitionArtifactId"] != recognition["artifactId"]:
-            raise PortRefusal(
-                "aligner", "input-invalid", "Alignment and recognition do not match."
             )
         language = recognition["identity"]["language"].split("-")[0]
         if language not in QWEN_LANGUAGES:
@@ -69,19 +84,38 @@ class QwenAgreement:
                 f"The agreement partner does not support language {language!r}.",
             )
         _, payload = prepare_segments(self.config, audio, recognition, reconciliation)
+        partner_units = [
+            (w["i"], w.get("sub", 0), w["text"])
+            for seg in payload["segments"]
+            for w in seg["words"]
+        ]
+        aligned_units = [
+            (w["tokenIndex"], w["sub"], w["text"]) for w in alignment["words"]
+        ]
+        if partner_units != aligned_units:
+            # The partner must judge exactly the units (texts and order) MFA timed.
+            raise PortRefusal(
+                "aligner",
+                "input-invalid",
+                "The agreement partner's units differ from the alignment's units.",
+            )
         self.config.work_dir.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(
             prefix="vera-qwen-", dir=self.config.work_dir
         ) as tmp:
             seg_file, out = Path(tmp) / "segments.json", Path(tmp) / "result.json"
             seg_file.write_text(json.dumps(payload))
+            # Colima mounts only the home directory: stage the audio beside the
+            # hand-off files so the container can always read it.
+            staged = Path(tmp) / audio.path.name
+            shutil.copyfile(audio.path, staged)
             run_engine(
                 [
                     *self.config.qwen_command,
                     "--segments",
                     str(seg_file),
                     "--audio-dir",
-                    str(audio.path.parent),
+                    str(staged.parent),
                     "--out",
                     str(out),
                 ],

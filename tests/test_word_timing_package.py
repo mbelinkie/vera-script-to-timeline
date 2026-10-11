@@ -181,15 +181,30 @@ def test_cloud_requires_stored_consent(audio: AudioRef) -> None:
     )
 
 
-def test_schema_rejects_cloud_artifact_without_policy(audio: AudioRef) -> None:
-    doc = recognition_artifact(
+def test_cloud_artifact_requires_policy_and_cloud_processing(audio: AudioRef) -> None:
+    with pytest.raises(ValueError):
+        recognition_artifact(
+            audio,
+            RecognizerInfo("asr-cloud", "p", "m", None),
+            [Token("x", "word", 0.1, 0.2, "word")],
+            language="en",
+            consent_policy=None,
+        )
+    local = recognition_artifact(
         audio,
-        RecognizerInfo("asr-cloud", "p", "m", None),
+        RecognizerInfo("asr-local", "p", "m", None),
         [Token("x", "word", 0.1, 0.2, "word")],
         language="en",
         consent_policy=None,
     )
-    assert any("policyId" in e for e in schema_errors(doc))
+    forged = {
+        **local,
+        "identity": {
+            **local["identity"],
+            "recognizer": {**local["identity"]["recognizer"], "kind": "asr-cloud"},
+        },
+    }
+    assert any("cloud" in e for e in schema_errors(forged))
 
 
 def test_unsupported_language_is_refused(audio: AudioRef) -> None:
@@ -227,7 +242,9 @@ def test_caption_tokens_are_starts_with_derived_ends() -> None:
     ]
     assert (toks[1].start, toks[1].end) == (2.0, 2.16)
     assert (toks[3].start, toks[3].end) == (2.4, 2.9)  # capped at start + 0.5 s
-    assert all(t.precision == "word_start_with_derived_end" for t in toks)
+    assert toks[0].precision == "cue"  # [Music] event
+    assert all(t.precision == "word_start_with_derived_end" for t in toks[1:4])
+    assert toks[4].precision == "cue"  # one-word event without a word offset
 
 
 def test_caption_recognizer_pairs_conformantly(tmp_path: Path, audio: AudioRef) -> None:
@@ -561,3 +578,109 @@ def test_language_capabilities_and_refusals(audio: AudioRef) -> None:
             },
         )
     assert refused.value.code == "capability-missing"
+
+
+def test_manual_captions_are_cue_timed_and_ends_stay_in_event() -> None:
+    manual = {
+        "events": [
+            {"tStartMs": 1000, "dDurationMs": 3000, "segs": [{"utf8": "Hello world"}]}
+        ]
+    }
+    toks = caption_tokens(manual)
+    assert [(t.display, t.start, t.end, t.precision) for t in toks] == [
+        ("Hello", 1.0, 4.0, "cue"),
+        ("world", 1.0, 4.0, "cue"),
+    ]
+    short = {
+        "events": [
+            {
+                "tStartMs": 0,
+                "dDurationMs": 100,
+                "segs": [{"utf8": "hi"}, {"utf8": " yo", "tOffsetMs": 40}],
+            },
+            {"tStartMs": 900, "dDurationMs": 500, "segs": [{"utf8": "later"}]},
+        ]
+    }
+    toks = caption_tokens(short)
+    assert toks[1].end is not None and toks[1].end <= 0.1  # capped at its event's end
+
+
+def test_alignment_refuses_mismatched_or_reference_inputs(
+    audio: AudioRef, tmp_path: Path
+) -> None:
+    rec = FakeRecognizer(["a", "b"]).recognise(audio, language="en", policy=POLICY)
+    ref = {
+        **rec,
+        "identity": {
+            **rec["identity"],
+            "recognizer": {**rec["identity"]["recognizer"], "kind": "reference-text"},
+        },
+    }
+    for bad in (ref,):
+        with pytest.raises(PortRefusal) as refused:
+            MfaAligner(EngineConfig()).align(audio, bad, policy=POLICY)
+        assert refused.value.code == "input-invalid"
+    other = silent_wav(tmp_path / "other.wav", seconds=6.0)
+    with pytest.raises(PortRefusal) as refused:
+        MfaAligner(EngineConfig()).align(other, rec, policy=POLICY)
+    assert refused.value.code == "input-invalid"
+    from vera_word_timing.script_reconcile import reconcile
+
+    rcn = reconcile(rec, "a b", "a X\nb X\n")
+    rec2 = FakeRecognizer(["a", "b"], start=0.7).recognise(
+        audio, language="en", policy=POLICY
+    )
+    with pytest.raises(PortRefusal) as refused:
+        MfaAligner(EngineConfig()).align(audio, rec2, policy=POLICY, reconciliation=rcn)
+    assert refused.value.code == "input-invalid"
+
+
+def test_lowercase_out_of_dictionary_word_is_not_a_name(audio: AudioRef) -> None:
+    from vera_word_timing.script_reconcile import reconcile
+
+    rec = FakeRecognizer(["walking", "home"]).recognise(
+        audio, language="en", policy=POLICY
+    )
+    rcn = reconcile(rec, "working home", "walking X\nhome X\n")
+    assert [u["text"] for u in rcn["units"]] == ["walking", "home"]
+
+
+def test_resolution_never_inverts_a_word(tmp_path: Path) -> None:
+    from vera_word_timing.resolve_review import Loudness, resolve
+
+    wav = tmp_path / "quiet.wav"
+    with wave.open(str(wav), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(16000)
+        w.writeframes(b"\x00\x00" * 32000)  # 2 s of silence: every gap is quiet
+    words = [
+        {
+            "tokenIndex": 0,
+            "sub": 0,
+            "startMs": 1000,
+            "endMs": 1100,
+            "status": "acoustic",
+        }
+    ]
+    bounds = [
+        {
+            "tokenIndex": 0,
+            "sub": 0,
+            "side": "onset",
+            "verdict": "needs_review",
+            "deltaMs": -300,
+        },
+        {
+            "tokenIndex": 0,
+            "sub": 0,
+            "side": "offset",
+            "verdict": "needs_review",
+            "deltaMs": -300,
+        },
+    ]
+    got = resolve({"words": words, "agreement": {"boundaries": bounds}}, Loudness(wav))
+    assert [(r.ms, r.method) for r in got] == [
+        (1000, "unresolved"),
+        (1100, "unresolved"),
+    ]

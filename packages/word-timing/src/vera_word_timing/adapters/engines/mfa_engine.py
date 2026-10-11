@@ -7,11 +7,13 @@
 """
 
 import argparse
+import atexit
 import hashlib
 import json
 import os
 import resource
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -40,7 +42,16 @@ VARIANTS = {
         dictionary="english_us_mfa",
         g2p="english_us_mfa",
         versions={"acoustic": "3.1.0", "dictionary": "3.1.0", "g2p": "3.0.0"},
-    ),
+    ),  # Non-English (Research): MFA 3.0.0 language models, checked by the study.
+    **{
+        f"{lang}_mfa": dict(
+            acoustic=f"{lang}_mfa",
+            dictionary=f"{lang}_mfa",
+            g2p=f"{lang}_mfa",
+            versions={"acoustic": "3.0.0", "dictionary": "3.0.0", "g2p": "3.0.0"},
+        )
+        for lang in ("german", "french", "swedish")
+    },
 }
 
 
@@ -79,6 +90,10 @@ def main():
     mfa = str(Path(sys.executable).parent / "mfa")
     (HOME / "work").mkdir(parents=True, exist_ok=True)
     tmp = Path(tempfile.mkdtemp(prefix="mfa-run-", dir=HOME / "work"))
+    # Remove the temporary corpus on every exit, including a SIGTERM from the
+    # adapter's timeout handling.
+    atexit.register(shutil.rmtree, tmp, ignore_errors=True)
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
     corpus, outd, tdir = tmp / "corpus", tmp / "out", tmp / "tmp"
     corpus.mkdir()
     segs = spec["segments"]
@@ -214,7 +229,9 @@ def main():
     json.dump(out, open(a.out, "w"), indent=1)
     shutil.rmtree(tmp, ignore_errors=True)
     if r.returncode:
+        # Never report a partial failure as success: the port must refuse.
         print("mfa exit", r.returncode, "see", log, file=sys.stderr)
+        sys.exit(r.returncode)
 
 
 if __name__ == "__main__":

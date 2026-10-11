@@ -137,3 +137,40 @@ def test_bad_audio_is_refused(
         capsys,
     )
     assert code == REFUSED and out["code"] == "input-invalid"
+
+
+def test_bad_language_and_missing_files_are_sanitised_refusals(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    audio = wav(tmp_path / "a.wav")
+    caps = tmp_path / "a.json3"
+    caps.write_text(json.dumps(JSON3))
+    code, out = run(
+        [
+            "recognise",
+            "--engine",
+            "youtube",
+            "--audio",
+            str(audio),
+            "--captions",
+            str(caps),
+            "--language",
+            "en-x",
+        ],
+        capsys,
+    )
+    assert code == REFUSED and out["code"] == "input-invalid"
+    missing = tmp_path / "secret-folder" / "nope.json"
+    code, out = run(
+        [
+            "reconcile",
+            "--recognition",
+            str(missing),
+            "--script",
+            str(caps),
+            "--dictionary",
+            str(caps),
+        ],
+        capsys,
+    )
+    assert code == REFUSED and "secret-folder" not in json.dumps(out)

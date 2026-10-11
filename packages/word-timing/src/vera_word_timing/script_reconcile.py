@@ -61,19 +61,27 @@ class Prompter:
     keyterms: list[str]
 
     def units(self) -> list[ScriptUnit]:
-        names = {t.casefold() for term in self.keyterms for t in term.split()}
+        # Positive name evidence only: a capitalised keyterm word, a pronunciation
+        # guide, or a capitalised word missing from the dictionary. Dictionary
+        # absence alone (a lowercase "working") never makes a word a name.
+        names = {
+            t.casefold()
+            for term in self.keyterms
+            for t in term.split()
+            if t[:1].isupper()
+        }
         out = []
         for w in self.words:
             is_name = (
                 w["display"].casefold() in names
                 or "guide" in w
-                or not w["inDictionary"]
+                or (not w["inDictionary"] and w["capitalised"])
             )
             out += [ScriptUnit(s, w["display"], is_name) for s in w["spoken"]]
         return out
 
 
-def parse_prompter(text: str, dictionary: set[str]) -> Prompter:
+def parse_prompter(text: str, dictionary: set[str], language: str = "en") -> Prompter:
     """`(on)`/`(off)` restart points, `[guide]` pronunciations, automatic keyterms."""
     words: list[dict[str, Any]] = []
     restarts: list[int] = []
@@ -94,7 +102,7 @@ def parse_prompter(text: str, dictionary: set[str]) -> Prompter:
             quotes.append(inner.strip(" .,!?;:"))
         for piece in inner.split():
             display = piece.strip('“”"()')
-            spoken = normalise_token(display)
+            spoken = normalise_token(display, language)
             if not spoken:
                 continue
             words.append(
@@ -222,14 +230,16 @@ def align_to_script(hyp: list[str], script: list[ScriptUnit]) -> list[int | None
 
 def reconcile(recognition: Json, script_text: str, dictionary_text: str) -> Json:
     """ScriptReconciliationV1 for a recognition artifact. Times are untouched."""
+    language = recognition["identity"]["language"]
     dictionary = load_dictionary_words(dictionary_text)
-    script = parse_prompter(script_text, dictionary).units()
+    script = parse_prompter(script_text, dictionary, language).units()
     heard: list[tuple[int, int, str]] = []
     for t in recognition["tokens"]:
         if t["kind"] == "event":
             continue
         heard += [
-            (t["index"], sub, s) for sub, s in enumerate(normalise_token(t["display"]))
+            (t["index"], sub, s)
+            for sub, s in enumerate(normalise_token(t["display"], language))
         ]
     mapping = align_to_script([h[2] for h in heard], script)
     units = []

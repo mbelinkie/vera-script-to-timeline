@@ -129,4 +129,43 @@ def resolve(
         else:
             ms, method = (lo if side == "onset" else hi), "outer_edge"
         out.append(Resolution(b["tokenIndex"], b["sub"], side, ms, method))  # type: ignore[arg-type]
+    return _keep_intervals_valid(out, words, alignment["words"])
+
+
+def _keep_intervals_valid(
+    resolutions: list[Resolution], words: dict[tuple[int, int], Json], order: list[Json]
+) -> list[Resolution]:
+    """Never emit an inverted word or one overlapping the previous word.
+
+    Edges are chosen independently, so a word can end up with onset >= offset,
+    or start before the previous word ends. Those words fall back to the
+    primary aligner's own times and are marked unresolved (a listen-check),
+    rather than looking resolved.
+    """
+    by_unit: dict[tuple[int, int], dict[str, Resolution]] = {}
+    for r in resolutions:
+        by_unit.setdefault((r.token_index, r.sub), {})[r.side] = r
+    bad: set[tuple[int, int]] = set()
+    prev_end: int | None = None
+    for w in order:
+        key = (w["tokenIndex"], w["sub"])
+        sides = by_unit.get(key)
+        if not sides or w.get("status", "acoustic") != "acoustic":
+            continue
+        onset = sides["onset"].ms if "onset" in sides else w["startMs"]
+        offset = sides["offset"].ms if "offset" in sides else w["endMs"]
+        if onset >= offset or (prev_end is not None and onset < prev_end):
+            bad.add(key)
+            onset, offset = w["startMs"], w["endMs"]
+        prev_end = offset
+    if not bad:
+        return resolutions
+    out = []
+    for r in resolutions:
+        if (r.token_index, r.sub) in bad and r.method != "agreed":
+            w = words[(r.token_index, r.sub)]
+            primary = w["startMs"] if r.side == "onset" else w["endMs"]
+            out.append(Resolution(r.token_index, r.sub, r.side, primary, "unresolved"))
+        else:
+            out.append(r)
     return out

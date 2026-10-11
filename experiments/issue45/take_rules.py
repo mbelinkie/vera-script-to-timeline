@@ -166,23 +166,24 @@ def differences(
         for i in range(len(pairs))
         if i not in keep
     ]
-    # A numeral read aloud ("99" -> "ninety nine") is not a difference.
+    # A numeral read aloud ("99" -> "ninety nine") is not a difference, but only
+    # when its COMPLETE spoken form appears as one contiguous run containing the
+    # matched word: "ninety" alone for "99" is still a substitution.
     spoken_ok: set[int] = set()
     for s_, e, op in pairs:
         spelled = normalise_token(row_tok[e])
-        if (
-            op == "substitute"
-            and (len(spelled) > 1 or spelled != [row_tok[e]])
-            and words[s_]["token"] in spelled
-        ):
-            spoken_ok.add(s_)
-            for k in range(s_ - len(spelled) + 1, s_ + len(spelled)):
-                if (
-                    k not in matched_src
-                    and 0 <= k < len(words)
-                    and words[k]["token"] in spelled
-                ):
-                    spoken_ok.add(k)
+        if op != "substitute" or not (len(spelled) > 1 or spelled != [row_tok[e]]):
+            continue
+        for start in range(s_ - len(spelled) + 1, s_ + 1):
+            window = range(start, start + len(spelled))
+            if (
+                start >= 0
+                and window.stop <= len(words)
+                and [words[k]["token"] for k in window] == spelled
+                and all(k == s_ or k not in matched_src for k in window)
+            ):
+                spoken_ok.update(window)
+                break
     subs = [
         {"script": row_tok[e], "said": words[s_]["token"]}
         for s_, e, op in pairs

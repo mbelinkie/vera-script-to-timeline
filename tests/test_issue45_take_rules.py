@@ -82,3 +82,15 @@ def test_earlier_full_read_is_a_usable_alternate_and_last_is_default() -> None:
     alternates = info["alternates"]
     assert len(alternates) == 1  # the abandoned restart is not offered
     assert report["words"][alternates[0]["source_word_range"][0]]["start"] == 5.0
+
+
+def test_partial_numeral_is_still_a_difference() -> None:
+    row = "I have 99 apples for sale today."
+    p = packet(said("I have ninety apples for sale today", 10.0))
+    p["rows"] = [{"id": "row-1", "text": row, "beat_ids": []}]
+    info = refine(discover(p))["take_rules_v2"]["rows"][0]
+    assert info["differences"]["differs_from_script"] is True
+    full = packet(said("I have ninety nine apples for sale today", 10.0))
+    full["rows"] = [{"id": "row-1", "text": row, "beat_ids": []}]
+    info = refine(discover(full))["take_rules_v2"]["rows"][0]
+    assert info["differences"]["differs_from_script"] is False

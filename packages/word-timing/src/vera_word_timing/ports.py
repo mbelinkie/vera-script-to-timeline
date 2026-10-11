@@ -102,3 +102,38 @@ def require_language(
             "capability-missing",
             f"Language {language!r} is not supported by this profile.",
         )
+
+
+def check_alignment_inputs(
+    audio: AudioRef,
+    recognition: Json,
+    reconciliation: Json | None,
+    port: Port = "aligner",
+) -> None:
+    """Refuse mismatched or forbidden inputs before any engine runs.
+
+    - Producer reference text is evaluation-only (D-P009) and never aligned for
+      production.
+    - The audio must be the recording the recognition artifact was made from.
+    - A reconciliation must belong to that exact recognition artifact.
+    """
+    if recognition["identity"]["recognizer"]["kind"] == "reference-text":
+        raise PortRefusal(
+            port,
+            "input-invalid",
+            "Reference text is evaluation-only and cannot be aligned for production.",
+        )
+    if recognition["identity"]["audio"]["hash"] != audio.original_hash:
+        raise PortRefusal(
+            port, "input-invalid", "The audio does not match the recognition artifact."
+        )
+    if (
+        reconciliation is not None
+        and reconciliation["identity"]["recognitionArtifactId"]
+        != recognition["artifactId"]
+    ):
+        raise PortRefusal(
+            port,
+            "input-invalid",
+            "The script reconciliation belongs to a different recognition artifact.",
+        )

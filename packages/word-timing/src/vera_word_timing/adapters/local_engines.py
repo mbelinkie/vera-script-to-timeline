@@ -14,10 +14,12 @@ VERA_MFA_HOME, VERA_MFA_ROOT_DIR) or explicit construction.
 
 from __future__ import annotations
 
+import contextlib
 import fcntl
 import json
 import os
 import shlex
+import signal
 import subprocess
 import tempfile
 import wave
@@ -34,6 +36,7 @@ from vera_word_timing.artifacts import (
     Token,
     alignment_artifact,
     content_hash,
+    file_hash,
     recognition_artifact,
     reconciled_texts,
     tool,
@@ -44,6 +47,7 @@ from vera_word_timing.ports import (
     Port,
     PortRefusal,
     ProjectPolicy,
+    check_alignment_inputs,
     require_language,
 )
 from vera_word_timing.segmentation import (
@@ -125,22 +129,35 @@ def run_engine(
     cmd: list[str], *, port: Port, env: dict[str, str] | None, timeout: float
 ) -> str:
     try:
-        done = subprocess.run(
+        proc = subprocess.Popen(
             cmd,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=timeout,
             env={**os.environ, **(env or {})},
-            check=False,
+            start_new_session=True,  # its own process group, so timeouts reach children
         )
     except FileNotFoundError as error:
         raise PortRefusal(
             port, "runtime-missing", f"Engine runtime not found: {Path(cmd[0]).name}"
         ) from error
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired as error:
+        # Stop the whole engine process tree (MFA spawns children) and wait for
+        # it, so callers holding the MFA lock only release it once it is gone.
+        for sig, grace in ((signal.SIGTERM, 15.0), (signal.SIGKILL, None)):
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(proc.pid, sig)
+            try:
+                proc.communicate(timeout=grace)
+                break
+            except subprocess.TimeoutExpired:
+                continue
         raise PortRefusal(
             port, "timeout", "Engine run timed out.", retryable=True
         ) from error
+    done = subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
     if done.returncode != 0:
         # Engine output can contain private paths, so it goes to a local log,
         # never into the refusal message.
@@ -292,6 +309,16 @@ class ParakeetRecognizer:
 
 
 CANARY_REVISION = "5ebc1520cef7b6b318b3526ad17adbfe00bc1bfc"
+# SHA-256 of the int8 weights at that revision (recorded in the study). The
+# adapter refuses other files, so the revision in each artifact is true.
+CANARY_WEIGHTS = {
+    "encoder-model.int8.onnx": (
+        "6d96e9945898e5ace48f4efecd459ca1df81859730be27b8af6b197639403ee1"
+    ),
+    "decoder-model.int8.onnx": (
+        "52d83aa7aad41fbbe4f9dfcd341d784735a6eb4c6eb0d3290fc27a0d8ac39abf"
+    ),
+}
 
 
 class CanaryRecognizer:
@@ -325,6 +352,14 @@ class CanaryRecognizer:
                 "runtime-missing",
                 "Canary runtime or model (VERA_CANARY_MODEL_DIR) is not configured.",
             )
+        for name, expected in CANARY_WEIGHTS.items():
+            weights = cfg.canary_model_dir / name
+            if not weights.is_file() or file_hash(weights) != f"sha256:{expected}":
+                raise PortRefusal(
+                    "recognizer",
+                    "runtime-missing",
+                    "Canary model files do not match the pinned revision.",
+                )
         _check_wav(audio, "recognizer")
         segments = speech_segments(cfg, audio, "recognizer")
         with tempfile.TemporaryDirectory(prefix="vera-canary-") as tmp:
@@ -474,6 +509,7 @@ class MfaAligner:
         require_language(
             self.capabilities(), recognition["identity"]["language"], "aligner"
         )
+        check_alignment_inputs(audio, recognition, reconciliation)
         variant = MFA_VARIANTS[recognition["identity"]["language"].split("-")[0]]
         cfg = self.config
         if not cfg.mfa_command:
