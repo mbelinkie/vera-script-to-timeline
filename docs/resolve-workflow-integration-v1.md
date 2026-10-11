@@ -11,8 +11,9 @@ No browser or companion lifecycle is included; #116/#157/#158 own those seams.
 The release format and menu script are v1; **the SHA-256 of `release.json` is
 the exact installed source version**, not the mutable repository checkout.
 The launcher checks every bundled source file against that hash-bound release
-before importing it. It refuses extra Python source, bytecode caches and another
-already-loaded VERA runtime. It never adds `.venv` or `site-packages` to Resolve.
+before importing it. It refuses any undeclared file/directory, bytecode caches
+and any already-loaded VERA runtime. It disables prefix bytecode caching before
+import. It never adds `.venv` or `site-packages` to Resolve.
 
 Source pins: #34 `2586dded4d3566e944d7938604b20bded6fc36fb`, #107
 `c9614eaf7bf7aa88f4cf33e77180ff5a393377e4`, #147
@@ -43,11 +44,14 @@ Preflight reads the current disposable project/timeline only. Build calls
 operate on a newly created build-derived target; existing targets are never
 selected for assembly or overwritten. Any failure preserves the ready package
 and retains the named partial target for inspection. No deletion/rollback is
-performed. Every mutating adapter stage rechecks the entire attested package;
-changes between verification and any later stage stop the build. Readback checks
+performed. Every mutating adapter stage rechecks the entire attested package
+and, after creation, the current project/timeline unique IDs. Save/close checks
+the current target again; reopen requires the same project/timeline IDs and
+exactly one timeline. Changes between verification and a later stage stop the build. Readback checks
 project/timeline identity/settings, bins, all package media (including unused
 sources), event source IDs and ranges, all track counts/names, timeline extent,
-and exact marker inventory/fields/provenance.
+and exact marker inventory/fields/provenance. Unexpected media anywhere outside
+the package media folder is a discrepancy.
 
 Attestations are local trusted-verifier handoffs, not remote signed credentials.
 Only the locked CPython 3.12 verifier command below creates one. Hashes pin its
@@ -110,6 +114,7 @@ the delivered source; two releases have identical manifest bytes/hashes.
 ## Preflight and exact producer authorization
 
 1. Launch **Workspace > Workflow Integrations > VERA Delivery v1** once.
+   Do not interact with Resolve until the result file appears.
    Expected: a new `native-evidence/result-<run-id>.json` reports
    `preflight_passed`, the exact connected version/build and requested target.
    The current disposable project remains selected. No target was created.
@@ -126,7 +131,8 @@ rtk proxy ctx-wire run uv run --frozen python -m vera_timeline_agent.workflow_de
 3. Quit Resolve. Archive the installed preflight `request.json` outside the
    plugin root; copy `build-request.json` there as `request.json`. Restart
    Resolve and open the same disposable current project/timeline on Edit.
-4. Launch **VERA Delivery v1** once. Expected: the unique target is created,
+4. Launch **VERA Delivery v1** once. Do not interact with Resolve until
+   `result-<run-id>.json` appears. Expected: the unique target is created,
    media/events/tracks/markers assembled, saved, closed, reopened and compared
    to the canonical manifest. `result-<run-id>.json` reports `verified: true`,
    `status: verified`, zero discrepancies and the actual runtime/version.
@@ -153,6 +159,9 @@ A save/reopen/verification failure retains the named partial project and a
 discrepancy report. A started record names the intended target even if Resolve
 or disk fails before a final report can be written. Inspect partial targets
 manually; never promote one to native success or auto-delete/reuse it.
+The completed native result is also printed to the Console before final report
+storage, so a storage failure can still be inspected. A relaunch in an interpreter
+that already loaded VERA is refused; restart Resolve before trying again.
 
 Before another build, verify the package again into a **new attestation**, which
 selects a new unique target, and prepare a new authorized request. Do not weaken

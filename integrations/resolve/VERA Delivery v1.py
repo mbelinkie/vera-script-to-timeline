@@ -18,14 +18,13 @@ def launch(injected_resolve: object) -> None:
     root = SCRIPT_PATH.resolve().parent
     release_root = root / "vera-delivery-v1"
     request_path = release_root / "request.json"
-    request = json.loads(request_path.read_text(encoding="utf-8"))
+    request_bytes = request_path.read_bytes()
+    request = json.loads(request_bytes)
     release_path = release_root / "release.json"
-    if (
-        hashlib.sha256(release_path.read_bytes()).hexdigest()
-        != request["releaseSha256"]
-    ):
+    release_bytes = release_path.read_bytes()
+    if hashlib.sha256(release_bytes).hexdigest() != request["releaseSha256"]:
         raise RuntimeError("installed release hash differs from the operator request")
-    release = json.loads(release_path.read_text(encoding="utf-8"))
+    release = json.loads(release_bytes)
     if release.get("schemaVersion") != "vera-injected-delivery-release/v1":
         raise RuntimeError("unsupported installed release")
     for entry in release["files"]:
@@ -38,26 +37,46 @@ def launch(injected_resolve: object) -> None:
         ):
             raise RuntimeError("installed source differs from the versioned release")
     runtime = release_root / "python"
-    declared_python = {entry["path"] for entry in release["files"]}
-    installed_python = {
-        path.relative_to(root).as_posix() for path in runtime.rglob("*.py")
+    declared_files = {entry["path"] for entry in release["files"]}
+    entries = list(release_root.rglob("*"))
+    if any(
+        path.is_symlink() or not (path.is_file() or path.is_dir()) for path in entries
+    ):
+        raise RuntimeError("unsupported entry in installed release")
+    installed_files = {
+        path.relative_to(root).as_posix()
+        for path in entries
+        if path.is_file() and path not in {release_path, request_path}
     } | {SCRIPT_PATH.name}
-    if installed_python != declared_python:
-        raise RuntimeError("installed Python source inventory differs from release")
-    if list(runtime.rglob("*.pyc")):
-        raise RuntimeError("runtime bytecode cache present; reinstall clean release")
-    for name, module in tuple(sys.modules.items()):
+    declared_directories = {
+        parent.as_posix()
+        for name in declared_files
+        for parent in Path(name).parents
+        if parent != Path(".")
+    }
+    installed_directories = {release_root.relative_to(root).as_posix()} | {
+        path.relative_to(root).as_posix() for path in entries if path.is_dir()
+    }
+    if (
+        installed_files != declared_files
+        or installed_directories != declared_directories
+    ):
+        raise RuntimeError(
+            "installed source inventory differs from release; reinstall clean release"
+        )
+    for name in tuple(sys.modules):
         if name == "vera_timeline_agent" or name.startswith("vera_timeline_agent."):
-            module_path = getattr(module, "__file__", None)
-            if not module_path or not Path(module_path).resolve().is_relative_to(
-                runtime
-            ):
-                raise RuntimeError("another VERA runtime is loaded; restart Resolve")
+            raise RuntimeError("a VERA runtime is already loaded; restart Resolve")
     sys.dont_write_bytecode = True
+    sys.pycache_prefix = None
     sys.path.insert(0, str(runtime))
     from vera_timeline_agent.workflow_launcher import run_installed_request
 
-    report = run_installed_request(injected_resolve, request_path)
+    report = run_installed_request(
+        injected_resolve,
+        request_path,
+        expected_request_sha256=hashlib.sha256(request_bytes).hexdigest(),
+    )
     print(report)
 
 

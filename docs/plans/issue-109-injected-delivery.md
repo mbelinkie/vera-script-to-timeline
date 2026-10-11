@@ -30,7 +30,9 @@ inventory, receipt, manifest, verifier identity, and unique build-derived target
 in an immutable hash-pinned attestation. The injected runtime rechecks this
 input before creation and each subsequent mutating adapter stage. Use the
 accepted public adapter for bins/media/events/tracks/markers/save/reopen and
-extend readback to unused media and unexpected markers. Preserve every partial
+extend readback to unused media, unexpected pool media and unexpected markers.
+Pin created project/timeline unique IDs through current-context checks and reopen.
+Preserve every partial
 target and retain a uniquely named version-stamped report, including refusals.
 
 Deliver a reproducible repository-owned Python script release and an exact
@@ -97,3 +99,13 @@ disposition; fix substantive findings, rerun affected checks and obtain re-revie
 Claude complements tests and does not supply native/Producer acceptance.
 CLI availability was confirmed; allow an additional 10–30 minutes of active
 review/fix work, contingent on findings. No issue chaining or self-acceptance.
+
+Checkpoint after the initial serial full gate: 530 tests passed in 46m59s,
+with lint/types/generated/TypeScript checks passing. Claude CLI reviewed tested
+commit `8afb26e0af4c22b6fe382b003a847e6abde118b3` and required eight bounded
+corrections to target identity, bootstrap integrity, authorization, hash/read
+binding, result retention and complete readback. All are handled within the
+slice-owned modules/tests; frozen boundaries stay unchanged. Findings and
+dispositions are retained under `docs/verification/issue-109/`. Allow 30–60
+minutes hands-on for fixes/checks/re-review, plus a separate serial full gate
+whose first measured runtime was 47 minutes. Native/Producer wait is additional.

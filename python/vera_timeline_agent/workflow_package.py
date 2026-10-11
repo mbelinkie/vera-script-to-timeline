@@ -91,13 +91,16 @@ def write_immutable_json(path: Path, value: object) -> Path:
 
 
 def load_verified_package(path: Path, expected_sha256: str) -> VerifiedPackage:
+    payload = path.read_bytes()
     if (
         path.is_symlink()
         or not re.fullmatch(r"[0-9a-f]{64}", expected_sha256)
-        or sha256(path) != expected_sha256
+        or hashlib.sha256(payload).hexdigest() != expected_sha256
     ):
         raise WorkflowPackageError("attestation hash mismatch or unsafe path")
-    value = read_object(path)
+    value = json.loads(payload)
+    if not isinstance(value, dict):
+        raise WorkflowPackageError("handoff must contain one JSON object")
     if (
         value.get("schemaVersion") != ATTESTATION_SCHEMA
         or value.get("status") != "ready_to_import"

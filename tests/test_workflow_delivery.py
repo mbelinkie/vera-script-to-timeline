@@ -7,18 +7,24 @@ import sys
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
-from vera_timeline_agent import workflow_delivery
+from vera_timeline_agent import workflow_delivery, workflow_launcher
 from vera_timeline_agent.studio_assembly_acceptance import (
     build_studio_assembly_acceptance_package,
 )
 from vera_timeline_agent.studio_spike import ConnectedFacts
+from vera_timeline_agent.studio_spike import (
+    PublicResolveAdapter as AcceptedResolveAdapter,
+)
 from vera_timeline_agent.workflow_delivery_cli import attest_package
 from vera_timeline_agent.workflow_package import (
     WorkflowPackageError,
+    load_verified_package,
     sha256,
+    write_immutable_json,
 )
 
 pytestmark = pytest.mark.slow
@@ -111,6 +117,10 @@ class RecordingAdapter:
 
     def create_project(self, name: str) -> None:
         self._record("create_project", name)
+
+    def assert_current_target(self) -> None:
+        if self.fail_on == "assert_current_target":
+            raise RuntimeError("current project changed")
 
     def configure_project(self, settings: Mapping[str, str]) -> None:
         self._record("configure_project", dict(settings))
@@ -256,6 +266,9 @@ def test_missing_injected_object_stops_before_native_adapter(
     [
         ConnectedFacts("DaVinci Resolve", "free", "21.1.0", "14", True),
         ConnectedFacts("DaVinci Resolve Studio", "studio", "20.0.0", "1", True),
+        ConnectedFacts("DaVinci Resolve Studio", "studio", "21.1.1", "9", True),
+        ConnectedFacts("DaVinci Resolve Studio", "studio", "21.1.1", "11", True),
+        ConnectedFacts("DaVinci Resolve Studio", "studio", "21.1.0", "15", True),
         ConnectedFacts(
             "DaVinci Resolve Studio", "studio", "21.1.0", "14", True, "beta"
         ),
@@ -419,6 +432,270 @@ def test_package_drift_after_create_retains_named_partial_target(
         "check_project_name_available",
         "create_project",
     ]
+
+
+@pytest.mark.parametrize(
+    ("stage", "next_stage"),
+    [
+        ("import_media", "create_timeline"),
+        ("place_events", "add_marker"),
+        ("add_marker", "save_close_reopen"),
+    ],
+)
+def test_late_package_drift_stops_before_next_mutation(
+    tmp_path: Path,
+    verified_fixture: VerifiedFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    stage: str,
+    next_stage: str,
+) -> None:
+    fixture = _copy_fixture(tmp_path, verified_fixture)
+    adapter = RecordingAdapter(
+        mutate_after=stage, mutate=lambda: _tamper_package(fixture.package)
+    )
+    result = _run(fixture, adapter=adapter, monkeypatch=monkeypatch)
+
+    assert result["status"] == "mutation_failed"
+    assert result["partialTargetRetained"] is True
+    assert adapter.calls[-1][0] == stage
+    assert next_stage not in [name for name, _ in adapter.calls]
+
+
+def test_project_context_switch_stops_before_next_stage(
+    verified_fixture: VerifiedFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = RecordingAdapter(mutate_after="import_media")
+    adapter.mutate = lambda: setattr(adapter, "fail_on", "assert_current_target")
+    result = _run(verified_fixture, adapter=adapter, monkeypatch=monkeypatch)
+
+    assert result["status"] == "mutation_failed"
+    assert result["partialTargetRetained"] is True
+    assert adapter.calls[-1][0] == "import_media"
+    assert "current project changed" in result["message"]
+
+
+def test_attestation_parses_the_same_bytes_it_hashes(
+    tmp_path: Path,
+    verified_fixture: VerifiedFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "attestation.json"
+    payload = verified_fixture.attestation.read_bytes()
+    path.write_bytes(payload)
+    original = json.loads(payload)
+    altered = dict(original, projectName=original["projectName"][:-12] + "123456789abc")
+    altered["timelineName"] = altered["projectName"]
+    read_bytes = Path.read_bytes
+    reads = 0
+
+    def replacing_read(target: Path) -> bytes:
+        nonlocal reads
+        value = read_bytes(target)
+        if target == path:
+            reads += 1
+            path.write_text(json.dumps(altered))
+        return value
+
+    monkeypatch.setattr(Path, "read_bytes", replacing_read)
+    package = load_verified_package(path, verified_fixture.attestation_sha256)
+    assert reads == 1
+    assert package.attestation["projectName"] == original["projectName"]
+
+
+def _native_adapter(
+    *,
+    current_id: str = "created-project",
+    reopened_id: str = "created-project",
+    timeline_count: int = 1,
+    switch_after_save: bool = False,
+) -> tuple[workflow_delivery.PublicResolveAdapter, list[str]]:
+    calls: list[str] = []
+    timeline = SimpleNamespace(GetUniqueId=lambda: "created-timeline")
+    project = SimpleNamespace(
+        GetUniqueId=lambda: "created-project",
+        GetCurrentTimeline=lambda: timeline,
+    )
+    reopened = SimpleNamespace(
+        GetUniqueId=lambda: reopened_id,
+        GetCurrentTimeline=lambda: timeline,
+        GetTimelineCount=lambda: timeline_count,
+        GetMediaPool=lambda: object(),
+    )
+    current = SimpleNamespace(
+        GetUniqueId=lambda: current_id, GetCurrentTimeline=lambda: timeline
+    )
+
+    def save() -> bool:
+        nonlocal current
+        calls.append("save")
+        if switch_after_save:
+            current = SimpleNamespace(GetUniqueId=lambda: "unrelated-project")
+        return True
+
+    def close(_project: Any) -> bool:
+        calls.append("close")
+        return True
+
+    def load(_name: str) -> Any:
+        nonlocal current
+        calls.append("load")
+        current = reopened
+        return reopened
+
+    adapter = workflow_delivery.PublicResolveAdapter(object())
+    adapter.project = project
+    adapter.timeline = timeline
+    adapter.expected_project_id = "created-project"
+    adapter.expected_timeline_id = "created-timeline"
+    adapter.manager = SimpleNamespace(
+        GetCurrentProject=lambda: current,
+        SaveProject=save,
+        CloseProject=close,
+        LoadProject=load,
+    )
+    return adapter, calls
+
+
+def test_native_save_refuses_to_save_an_unrelated_current_project() -> None:
+    adapter, calls = _native_adapter(current_id="existing-project")
+    with pytest.raises(ValueError, match="current project changed"):
+        adapter.save_close_reopen("target")
+    assert calls == []
+
+
+def test_native_close_refuses_context_switch_after_save() -> None:
+    adapter, calls = _native_adapter(switch_after_save=True)
+    with pytest.raises(ValueError, match="current project changed"):
+        adapter.save_close_reopen("target")
+    assert calls == ["save"]
+
+
+@pytest.mark.parametrize(
+    ("reopened_id", "timeline_count", "message"),
+    [
+        ("wrong-project", 1, "unique identity differs"),
+        ("created-project", 2, "exactly one timeline"),
+    ],
+)
+def test_native_reopen_requires_created_identity_and_one_timeline(
+    reopened_id: str,
+    timeline_count: int,
+    message: str,
+) -> None:
+    adapter, calls = _native_adapter(
+        reopened_id=reopened_id, timeline_count=timeline_count
+    )
+    with pytest.raises(ValueError, match=message):
+        adapter.save_close_reopen("target")
+    assert calls == ["save", "close", "load"]
+
+
+def test_native_save_reopen_retains_project_and_timeline_identity() -> None:
+    adapter, calls = _native_adapter()
+    adapter.save_close_reopen("target")
+    assert calls == ["save", "close", "load"]
+    adapter.assert_current_target()
+
+
+@pytest.mark.parametrize("extra_outside", [False, True])
+def test_media_readback_normalizes_paths_and_detects_unexpected_bins(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    extra_outside: bool,
+) -> None:
+    monkeypatch.setattr(AcceptedResolveAdapter, "verify", lambda *_: ())
+    source = tmp_path / "clip.mov"
+    media = SimpleNamespace(
+        GetMediaId=lambda: "source-media",
+        GetClipProperty=lambda _key: str(tmp_path / "unused" / ".." / "clip.mov"),
+    )
+    package_folder = SimpleNamespace(
+        GetUniqueId=lambda: "package-folder",
+        GetName=lambda: "Package Media",
+        GetSubFolderList=lambda: [],
+        GetClipList=lambda: [media],
+    )
+    assembly_folder = SimpleNamespace(
+        GetUniqueId=lambda: "assembly-folder",
+        GetName=lambda: "VERA Studio Assembly",
+        GetSubFolderList=lambda: [package_folder],
+        GetClipList=lambda: [],
+    )
+    root_folder = SimpleNamespace(
+        GetUniqueId=lambda: "root-folder",
+        GetSubFolderList=lambda: [assembly_folder],
+        GetClipList=lambda: [media] if extra_outside else [],
+    )
+    adapter = workflow_delivery.PublicResolveAdapter(object())
+    adapter.pool = SimpleNamespace(GetRootFolder=lambda: root_folder)
+    adapter.timeline = SimpleNamespace(
+        GetMediaPoolItem=lambda: None, GetMarkers=lambda: {}
+    )
+    adapter.created_bins = ["VERA Studio Assembly", "Package Media"]
+    adapter.media_id_by_source = {"source": "source-media"}
+    adapter.expected_paths = {"source": source.resolve()}
+    discrepancies = adapter.verify(
+        {"tracks": [], "events": [], "markers": [], "sources": [{"id": "source"}]}
+    )
+
+    assert discrepancies == (
+        ("unexpected media outside the package media folder",) if extra_outside else ()
+    )
+
+
+def _operator_request(tmp_path: Path, fixture: VerifiedFixture) -> Path:
+    attestation = _attestation_value(fixture.attestation)
+    request = {
+        "schemaVersion": "vera-injected-delivery-request/v1",
+        "attestationPath": str(fixture.attestation),
+        "attestationSha256": fixture.attestation_sha256,
+        "packageDir": str(fixture.package),
+        "evidenceDir": str(tmp_path / "evidence"),
+        "releaseSha256": "0" * 64,
+        "projectName": attestation["projectName"],
+        "timelineName": attestation["timelineName"],
+        "action": "build",
+        "authorizeNewNonproduction": True,
+        "externalScripting": "None",
+    }
+    path = tmp_path / "request.json"
+    path.write_text(json.dumps(request))
+    return path
+
+
+def test_result_remains_in_console_if_final_report_storage_fails(
+    tmp_path: Path,
+    verified_fixture: VerifiedFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    request = _operator_request(tmp_path, verified_fixture)
+    result = {
+        "status": "mutation_failed",
+        "partialTargetRetained": True,
+        "projectName": _attestation_value(verified_fixture.attestation)["projectName"],
+        "discrepancies": ["save failed"],
+    }
+    monkeypatch.setattr(
+        workflow_launcher, "run_workflow_delivery", lambda *_a, **_k: dict(result)
+    )
+    write = write_immutable_json
+
+    def fail_final(path: Path, value: object) -> Path:
+        if path.name.startswith("result-"):
+            raise OSError("storage failed")
+        return write(path, value)
+
+    monkeypatch.setattr(workflow_launcher, "write_immutable_json", fail_final)
+    with pytest.raises(OSError, match="storage failed"):
+        workflow_launcher.run_installed_request(
+            object(), request, expected_request_sha256=sha256(request)
+        )
+    printed = json.loads(capsys.readouterr().out)
+    assert printed["partialTargetRetained"] is True
+    assert printed["projectName"] == result["projectName"]
+    assert printed["discrepancies"] == ["save failed"]
 
 
 def test_save_reopen_failure_preserves_package_and_partial_target(

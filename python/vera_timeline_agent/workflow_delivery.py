@@ -22,13 +22,66 @@ SUPPORTED_IDENTITIES = {("21.1.0", "14"), ("21.1.1", "10")}
 class PublicResolveAdapter(AcceptedResolveAdapter):
     """Keep #34 assembly calibration and add complete package inventory readback."""
 
+    def __init__(self, resolve: Any) -> None:
+        super().__init__(resolve)
+        self.expected_project_id: str | None = None
+        self.expected_timeline_id: str | None = None
+
+    def create_project(self, name: str) -> None:
+        super().create_project(name)
+        identity = self.project.GetUniqueId()
+        if not isinstance(identity, str) or not identity:
+            raise ValueError("created project has no unique identity")
+        self.expected_project_id = identity
+        self.assert_current_target()
+
+    def create_timeline(self, name: str) -> None:
+        super().create_timeline(name)
+        identity = self.timeline.GetUniqueId()
+        if not isinstance(identity, str) or not identity:
+            raise ValueError("created timeline has no unique identity")
+        self.expected_timeline_id = identity
+        self.assert_current_target()
+
+    def assert_current_target(self) -> None:
+        current = self.manager.GetCurrentProject()
+        if (
+            self.expected_project_id is None
+            or current is None
+            or current.GetUniqueId() != self.expected_project_id
+            or self.project.GetUniqueId() != self.expected_project_id
+        ):
+            raise ValueError("current project changed; refusing native mutation")
+        if self.expected_timeline_id is not None:
+            timeline = current.GetCurrentTimeline()
+            if timeline is None or timeline.GetUniqueId() != self.expected_timeline_id:
+                raise ValueError("current timeline changed; refusing native mutation")
+
+    def save_close_reopen(self, project_name: str) -> None:
+        self.assert_current_target()
+        if not self.manager.SaveProject():
+            raise ValueError("SaveProject failed")
+        self.assert_current_target()
+        if not self.manager.CloseProject(self.project):
+            raise ValueError("CloseProject failed after save")
+        self.project = self.manager.LoadProject(project_name)
+        if self.project is None:
+            raise ValueError("LoadProject failed after close")
+        if self.project.GetUniqueId() != self.expected_project_id:
+            raise ValueError("reopened project unique identity differs")
+        if self.project.GetTimelineCount() != 1:
+            raise ValueError("reopened project must contain exactly one timeline")
+        self.pool = self.project.GetMediaPool()
+        self.timeline = self.project.GetCurrentTimeline()
+        self.assert_current_target()
+
     def _still_end_frame_compensation(self) -> int:
         # 21.1.1/10 is a calibration candidate; reopened ranges must prove this.
         return 0
 
     def import_media(self, sources: Sequence[tuple[str, Path]]) -> None:
         super().import_media(sources)
-        self.expected_paths = {source_id: str(path) for source_id, path in sources}
+        self.expected_paths = {source_id: path.resolve() for source_id, path in sources}
 
     def verify(self, manifest: Mapping[str, Any]) -> tuple[str, ...]:
         discrepancies = list(super().verify(manifest))
@@ -85,10 +138,25 @@ class PublicResolveAdapter(AcceptedResolveAdapter):
         for source in manifest["sources"]:
             source_id = source["id"]
             media_id = self.media_id_by_source[source_id]
-            if actual.get(media_id) != self.expected_paths[source_id]:
+            file_path = actual.get(media_id)
+            if (
+                not isinstance(file_path, str)
+                or not file_path
+                or Path(file_path).resolve() != self.expected_paths[source_id]
+            ):
                 discrepancies.append(
                     f"source {source_id}: reopened media identity differs"
                 )
+        pending = [self.pool.GetRootFolder()]
+        while pending:
+            current = pending.pop()
+            if current.GetUniqueId() != folder.GetUniqueId() and any(
+                item.GetMediaId() != timeline_media_id for item in current.GetClipList()
+            ):
+                discrepancies.append(
+                    "unexpected media outside the package media folder"
+                )
+            pending.extend(current.GetSubFolderList())
         return tuple(discrepancies)
 
 
@@ -182,6 +250,8 @@ def run_workflow_delivery(
             current = load_verified_package(attestation_path, attestation_sha256)
             if current != package:
                 raise ValueError("handoff changed before native mutation")
+            if mutation_started:
+                adapter.assert_current_target()
             mutation_started = True
             method(*arguments)
 
