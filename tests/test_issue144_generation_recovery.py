@@ -9,6 +9,8 @@ import pytest
 from test_issue144_omission_generation import setup
 from vera_timeline_agent.roundtrip_build import ProofBuildError, load_operator_json
 
+pytestmark = pytest.mark.slow
+
 
 def test_validator_fault_before_service_call_can_resume_without_second_synthesis(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch

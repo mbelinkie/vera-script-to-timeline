@@ -58,7 +58,19 @@ corresponding lockfile change with the dependency change.
 
 ## Validation
 
-The single top-level validation command is:
+For routine implementation iterations, use:
+
+```sh
+npm run validate:fast
+```
+
+This retains generated-currentness, all lint and type checks, all TypeScript
+tests, and non-slow Python tests on two workers. `slow` marks real media
+rendering/probing and repeated external-process integration; run affected slow
+tests serially while changing those integrations. Classification and timing
+evidence are in [the #184 plan](docs/plans/issue-184-fast-validation.md).
+
+For acceptance, CI, and agent handoffs, use the full gate:
 
 ```sh
 npm run validate
@@ -70,6 +82,11 @@ by Python Ruff lint/format checks, strict mypy, and pytest. Pytest validates the
 fixture descriptor, exact media inventory, sizes, hashes, and (when FFprobe is
 available) metadata. CI installs from both lockfiles and invokes this exact
 command.
+
+On the reference Intel Mac, use `VITEST_MAX_WORKERS=1 npm run validate`.
+Never run the full gate alongside other heavy work. Check
+`pgrep -fl "npm run validate|pytest"` and wait for other test runs to finish.
+Fast validation alone does not satisfy acceptance.
 
 An environment without FFprobe does **not** claim metadata verification: the
 FFprobe-specific pytest checks are reported as skipped, and the standalone

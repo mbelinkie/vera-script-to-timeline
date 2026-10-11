@@ -15,6 +15,8 @@ from vera_timeline_agent.roundtrip_build import (
 )
 from vera_timeline_agent.roundtrip_proof import ProofSession
 
+pytestmark = pytest.mark.slow
+
 
 def setup(tmp_path: Path) -> tuple[ProofSession, OmissionBoundary, FrameProvider, str]:
     root = tmp_path / "proof"

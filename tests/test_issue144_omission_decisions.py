@@ -12,6 +12,8 @@ from vera_timeline_agent.roundtrip_build import (
     load_operator_json,
 )
 
+pytestmark = pytest.mark.slow
+
 
 def decisions(root: Path, report_hash: str, choice: str = "accept") -> None:
     (root / "omission-decisions.json").write_bytes(

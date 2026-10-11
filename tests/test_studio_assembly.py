@@ -5,6 +5,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
+import pytest
 from vera_timeline_agent.studio_assembly import run_studio_assembly
 from vera_timeline_agent.studio_assembly_acceptance import (
     build_studio_assembly_acceptance_package,
@@ -28,6 +29,7 @@ def _package(tmp_path: Path) -> Path:
     return build_studio_assembly_acceptance_package(output).project_root
 
 
+@pytest.mark.slow
 def test_acceptance_package_uses_the_resolve_production_baseline(
     tmp_path: Path,
 ) -> None:
@@ -117,6 +119,7 @@ class RecordingAdapter:
         return self.discrepancies
 
 
+@pytest.mark.slow
 def test_unverified_package_stops_before_resolve_connection(tmp_path: Path) -> None:
     project = _package(tmp_path)
     receipt = next((project / "Builds").glob("*/package-verification.json"))
@@ -133,6 +136,7 @@ def test_unverified_package_stops_before_resolve_connection(tmp_path: Path) -> N
     assert "not a verified ready_to_import package" in result.message
 
 
+@pytest.mark.slow
 def test_preflight_is_nonmutating_and_names_target_from_build_identity(
     tmp_path: Path,
 ) -> None:
@@ -154,6 +158,7 @@ def test_preflight_is_nonmutating_and_names_target_from_build_identity(
     assert "never falls back to Resolve UI automation" in result.manual_completion[1]
 
 
+@pytest.mark.slow
 def test_preflight_accepts_the_recorded_21_1_studio_baseline(
     tmp_path: Path,
 ) -> None:
@@ -188,6 +193,7 @@ def test_preflight_accepts_the_recorded_21_1_studio_baseline(
     ]
 
 
+@pytest.mark.slow
 def test_build_places_the_verified_package_and_retains_discrepancies(
     tmp_path: Path,
 ) -> None:
@@ -229,6 +235,7 @@ def test_build_places_the_verified_package_and_retains_discrepancies(
     ) == tuple(manifest["events"])
 
 
+@pytest.mark.slow
 def test_collision_stops_before_mutation_and_mutation_failure_keeps_target(
     tmp_path: Path,
 ) -> None:

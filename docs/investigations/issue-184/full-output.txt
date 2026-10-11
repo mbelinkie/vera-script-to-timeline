@@ -1,0 +1,536 @@
+
+> vera-script-to-timeline@0.0.0 validate
+> npm run check:contracts-generated && npm run check:typescript && npm run check:python
+
+
+> vera-script-to-timeline@0.0.0 check:contracts-generated
+> node packages/contracts/scripts/generate-contracts.mjs --check
+
+Generated contract types are current.
+
+> vera-script-to-timeline@0.0.0 check:typescript
+> npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript
+
+
+> vera-script-to-timeline@0.0.0 lint:typescript
+> eslint scripts/*.mjs --max-warnings=0 && npm run lint --workspaces --if-present
+
+
+> @vera/contracts@0.0.0 lint
+> eslint src test --max-warnings=0
+
+
+> @vera/tooling-smoke@0.0.0 lint
+> eslint . --max-warnings=0
+
+
+> vera-script-to-timeline@0.0.0 typecheck:typescript
+> npm run typecheck --workspaces --if-present
+
+
+> @vera/contracts@0.0.0 typecheck
+> tsc --project tsconfig.json
+
+
+> @vera/tooling-smoke@0.0.0 typecheck
+> tsc --project tsconfig.json
+
+
+> vera-script-to-timeline@0.0.0 test:typescript
+> npm run test --workspaces --if-present && npm run test:progress && npm run test:roadmap
+
+
+> @vera/contracts@0.0.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/matthewbelinkie/Desktop/ONGOING/VERA Script to Timeline/worktrees/codex/issue-184-fast-validation/packages/contracts
+
+
+ Test Files  13 passed (13)
+      Tests  244 passed (244)
+   Start at  00:40:57
+   Duration  26.48s (transform 264ms, setup 0ms, import 2.94s, tests 21.21s, environment 2ms)
+
+
+> @vera/tooling-smoke@0.0.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/matthewbelinkie/Desktop/ONGOING/VERA Script to Timeline/worktrees/codex/issue-184-fast-validation/packages/tooling-smoke
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  00:41:24
+   Duration  225ms (transform 24ms, setup 0ms, import 37ms, tests 3ms, environment 0ms)
+
+
+> vera-script-to-timeline@0.0.0 test:progress
+> node --test scripts/project-progress.test.mjs
+
+✔ parses the authoritative board without counting goals as work (1.977671ms)
+✔ calculates exact done and remaining scope from actionable board issues (12.584191ms)
+✔ fails closed on incomplete or ambiguous board data (0.973503ms)
+✔ renders every issue once with escaped links and board metadata (1.213042ms)
+✔ writes the dashboard and reports an exact terminal summary (9.341283ms)
+✔ fails clearly when the live GitHub Project is unavailable (4.393508ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 145.647165
+
+> vera-script-to-timeline@0.0.0 test:roadmap
+> node --test scripts/roadmap.test.mjs scripts/roadmap-rate-limit.test.mjs scripts/roadmap-lock.test.mjs
+
+✔ serializes roadmap commands before any GitHub request (5.799652ms)
+✔ reclaims a sufficiently old lock whose owner process is gone (3.223065ms)
+✔ parses authoritative direct GraphQL rateLimit fields and omits response metadata (4.231237ms)
+✔ fails closed on GitHub's graphql_rate_limit exhaustion response with reset guidance (0.775377ms)
+✔ never accepts a false REST-green payload as GraphQL authority (1.53957ms)
+✔ preflight reserves points for the planned GraphQL work (0.74309ms)
+✔ honors direct Retry-After evidence during a secondary throttle (0.355962ms)
+✔ accounts for issue, comment, dependency, and Project V2 operations by actual transport (0.260638ms)
+✔ distinguishes REST, GraphQL, secondary, and client/tooling failures (0.180182ms)
+✔ parses commands and flags (1.943509ms)
+✔ accepts one exact routing profile (0.598703ms)
+✔ rejects missing routing labels (0.671512ms)
+✔ rejects duplicate routing labels (0.196443ms)
+✔ rejects Luna claiming Terra work (0.224631ms)
+✔ rejects Sol claiming Luna work (0.236837ms)
+✔ rejects unsupported effort labels (0.211473ms)
+✔ uses the latest claim marker (0.625305ms)
+✔ preserves exclusive ownership across Luna-to-Terra and Terra-to-Sol escalation markers (0.309828ms)
+✔ parses no dependencies and same-repository blockers (0.89573ms)
+✔ parses cross-roadmap dependency references (0.319222ms)
+✔ rejects prose and duplicate dependency declarations (0.386291ms)
+✔ requires every dependency to be closed and Done (1.350048ms)
+✔ inspect, ready, and claim preflight before GraphQL reads and again before mutation (1423.420087ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1554.242815
+
+> vera-script-to-timeline@0.0.0 check:python
+> npm run lint:python && npm run typecheck:python && npm run test:python
+
+
+> vera-script-to-timeline@0.0.0 lint:python
+> uv run --frozen ruff check . && uv run --frozen ruff format --check .
+
+All checks passed!
+317 files already formatted
+
+> vera-script-to-timeline@0.0.0 typecheck:python
+> uv run --frozen mypy python tests
+
+Success: no issues found in 95 source files
+
+> vera-script-to-timeline@0.0.0 test:python
+> uv run --frozen pytest
+
+============================= test session starts ==============================
+platform darwin -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/matthewbelinkie/Desktop/ONGOING/VERA Script to Timeline/worktrees/codex/issue-184-fast-validation
+configfile: pyproject.toml
+testpaths: tests
+plugins: xdist-3.8.0, typeguard-4.6.0
+collected 419 items
+
+tests/test_after_effects_inspection.py ..                                [  0%]
+tests/test_build_jobs.py .........                                       [  2%]
+tests/test_fixtures.py ........                                          [  4%]
+tests/test_free_trial.py ..........                                      [  6%]
+tests/test_generated_contracts.py ..                                     [  7%]
+tests/test_issue144_audio_evidence.py .................................. [ 15%]
+.............                                                            [ 18%]
+tests/test_issue144_capture_retry.py ..                                  [ 19%]
+tests/test_issue144_composition.py ..                                    [ 19%]
+tests/test_issue144_composition_audio.py .                               [ 19%]
+tests/test_issue144_driver.py ...                                        [ 20%]
+tests/test_issue144_generation_recovery.py ...                           [ 21%]
+tests/test_issue144_native_build.py ........                             [ 23%]
+tests/test_issue144_omission_bridge.py .                                 [ 23%]
+tests/test_issue144_omission_decisions.py .............                  [ 26%]
+tests/test_issue144_omission_generation.py .......                       [ 28%]
+tests/test_issue144_omission_preparation.py ............                 [ 31%]
+tests/test_issue144_prepared_build.py ....................               [ 35%]
+tests/test_issue144_proof_session.py ..............                      [ 39%]
+tests/test_issue144_recovery.py ........                                 [ 41%]
+tests/test_issue144_retained_audio.py .                                  [ 41%]
+tests/test_issue144_row_narration.py ...............                     [ 44%]
+tests/test_issue144_wi.py ...................                            [ 49%]
+tests/test_issue144_wi_flow.py .                                         [ 49%]
+tests/test_issue53_boundaries.py .........                               [ 51%]
+tests/test_issue53_producer_review.py .................                  [ 55%]
+tests/test_issue53_takes.py ........................                     [ 61%]
+tests/test_narration_cache.py ....                                       [ 62%]
+tests/test_narration_cli.py ......                                       [ 63%]
+tests/test_narration_compiler_dependencies.py .....                      [ 65%]
+tests/test_narration_normalize.py ........                               [ 67%]
+tests/test_narration_provider.py .................                       [ 71%]
+tests/test_narration_service.py .......                                  [ 72%]
+tests/test_otio_package.py ....................                          [ 77%]
+tests/test_placeholder_slate.py ..............                           [ 80%]
+tests/test_prompter_contracts.py ..                                      [ 81%]
+tests/test_resolve_import_package.py ......                              [ 82%]
+tests/test_studio_assembly.py ........                                   [ 84%]
+tests/test_studio_spike.py ............................................. [ 95%]
+.....                                                                    [ 96%]
+tests/test_text_plus_template.py .......                                 [ 98%]
+tests/test_text_plus_validation.py ......                                [ 99%]
+tests/test_tooling_smoke.py .                                            [100%]
+
+------------- generated xml file: /tmp/vera184-validation/full.xml -------------
+============================== slowest durations ===============================
+294.05s call     tests/test_issue144_wi_flow.py::test_actual_cli_file_wi_composition_generation_and_replay
+197.11s call     tests/test_issue144_composition.py::test_three_edits_one_revision_full_row_audio_fresh_target_and_replay
+152.62s call     tests/test_issue144_omission_generation.py::test_accepted_omission_replaces_whole_row_retimes_and_promotes_fresh_target
+128.24s call     tests/test_issue144_omission_generation.py::test_retained_generation_and_actual_cache_cannot_be_replaced_by_status_claims
+127.26s call     tests/test_issue144_omission_generation.py::test_pending_native_resume_and_pointer_publication_recovery_use_same_target
+121.91s call     tests/test_issue144_composition.py::test_composed_rejection_forged_geometry_and_stale_choice_have_no_effects
+76.42s call     tests/test_issue144_generation_recovery.py::test_uncertain_request_is_shared_across_byte_different_decisions
+75.46s call     tests/test_issue144_omission_generation.py::test_interrupted_handoff_binds_service_before_resume_and_reuses_actual_cache
+72.15s call     tests/test_issue144_generation_recovery.py::test_normalization_failure_resumes_from_synthesis_cache
+66.27s call     tests/test_issue144_generation_recovery.py::test_validator_fault_before_service_call_can_resume_without_second_synthesis
+66.14s call     tests/test_issue144_omission_generation.py::test_missing_service_and_stale_split_refuse_before_new_provider_or_native
+65.10s call     tests/test_issue144_omission_generation.py::test_rejected_omission_cannot_request_generation_or_rebuild
+57.86s call     tests/test_issue144_omission_decisions.py::test_explicit_omission_choice_prepares_only_accepted_canonical_revision[accept]
+55.16s call     tests/test_issue144_omission_generation.py::test_generation_binding_link_alias_refuses_before_provider
+54.86s call     tests/test_issue144_omission_decisions.py::test_explicit_omission_choice_prepares_only_accepted_canonical_revision[reject]
+53.93s call     tests/test_issue144_omission_decisions.py::test_retained_omission_choice_rederives_report_and_prepared_artifacts[request]
+53.76s call     tests/test_issue144_omission_decisions.py::test_retained_omission_choice_rederives_report_and_prepared_artifacts[script]
+53.48s call     tests/test_issue144_omission_decisions.py::test_retained_omission_choice_rederives_report_and_prepared_artifacts[receipt]
+53.09s call     tests/test_issue144_proof_session.py::test_file_session_runs_actual_visual_roundtrip_and_promotes_only_after_verify
+50.66s call     tests/test_issue144_proof_session.py::test_interruption_after_pointer_publish_finishes_same_promotion
+48.80s call     tests/test_issue144_omission_preparation.py::test_prepares_pristine_observed_audio_and_proposes_linked_charlie_omission
+46.61s call     tests/test_issue144_omission_decisions.py::test_retained_omission_choice_rederives_report_and_prepared_artifacts[evidence]
+46.59s call     tests/test_issue144_omission_decisions.py::test_changed_split_geometry_invalidates_choice_before_generation
+46.14s call     tests/test_issue144_omission_decisions.py::test_consistently_rehashed_omission_report_is_not_decision_authority[revision]
+43.54s call     tests/test_issue144_omission_decisions.py::test_consistently_rehashed_omission_report_is_not_decision_authority[text]
+41.70s call     tests/test_issue144_omission_decisions.py::test_consistently_rehashed_omission_report_is_not_decision_authority[classification]
+38.60s call     tests/test_issue144_omission_decisions.py::test_consistently_rehashed_omission_report_is_not_decision_authority[source]
+38.55s call     tests/test_issue144_proof_session.py::test_failed_rebuild_retains_authoritative_baseline_and_old_inputs
+33.99s call     tests/test_issue144_omission_decisions.py::test_malformed_omission_choices_refuse_before_capture_or_generation
+30.44s call     tests/test_issue144_omission_decisions.py::test_unqualified_omission_report_cannot_be_accepted
+26.29s call     tests/test_issue144_proof_session.py::test_changed_observation_before_rebuild_creates_no_second_target
+25.87s call     tests/test_issue144_proof_session.py::test_file_staged_capture_resumes_one_request_and_cached_response_is_not_fresh
+25.83s call     tests/test_issue144_omission_preparation.py::test_omission_capture_uncertainty_refuses_without_acceptance_or_generation[disabled]
+25.80s call     tests/test_issue144_omission_preparation.py::test_omission_capture_uncertainty_refuses_without_acceptance_or_generation[extra]
+24.58s call     tests/test_issue144_omission_preparation.py::test_omission_capture_uncertainty_refuses_without_acceptance_or_generation[unknownControl]
+24.53s call     tests/test_issue144_omission_preparation.py::test_omission_capture_uncertainty_refuses_without_acceptance_or_generation[link]
+24.35s call     tests/test_issue144_omission_preparation.py::test_omission_capture_uncertainty_refuses_without_acceptance_or_generation[wrongTarget]
+24.14s call     tests/test_issue144_omission_preparation.py::test_omission_capture_uncertainty_refuses_without_acceptance_or_generation[source]
+23.91s call     tests/test_issue144_omission_preparation.py::test_omission_capture_uncertainty_refuses_without_acceptance_or_generation[speed]
+22.89s call     tests/test_issue144_proof_session.py::test_changed_completed_decision_receipt_cannot_authorize_replay
+22.60s call     tests/test_issue144_omission_preparation.py::test_consistent_stored_preparation_forgery_cannot_supply_pristine_facts
+19.31s call     tests/test_issue144_omission_preparation.py::test_edited_geometry_cannot_be_backfilled_as_pristine_audio_controls
+19.27s call     tests/test_issue144_proof_session.py::test_stale_nonce_cannot_authorize_proposal
+17.96s call     tests/test_issue144_omission_preparation.py::test_default_omission_boundary_waits_without_provider_or_native_effect
+17.71s call     tests/test_issue144_omission_preparation.py::test_no_omission_preparation_refuses_before_any_evidence_or_provider
+16.26s call     tests/test_issue144_proof_session.py::test_missing_file_capture_reports_action_required_in_cli
+13.46s call     tests/test_issue144_recovery.py::test_explicit_resume_build_after_missing_boundary
+13.19s call     tests/test_issue144_proof_session.py::test_first_baseline_must_retain_verified_native_occurrence_identity
+13.04s call     tests/test_issue144_recovery.py::test_explicit_resume_reconciles_verified_result_and_blocks_uncertain_creation[verified_wait]
+11.45s call     tests/test_issue144_omission_bridge.py::test_actual_service_handoff_finalizes_compiles_and_packages_new_whole_row
+10.25s call     tests/test_issue144_recovery.py::test_preflight_validates_without_job_or_boundary_effect
+9.88s call     tests/test_issue144_row_narration.py::test_new_full_row_marks_retime_anchors_and_translate_only_following_row
+9.04s call     tests/test_issue144_recovery.py::test_recovery_never_recreates_damaged_or_unverified_target[stopped]
+8.94s call     tests/test_issue144_recovery.py::test_recovery_never_recreates_damaged_or_unverified_target[empty_intent]
+8.80s call     tests/test_issue144_recovery.py::test_recovery_never_recreates_damaged_or_unverified_target[foreign_intent]
+8.29s call     tests/test_issue144_recovery.py::test_explicit_resume_reconciles_verified_result_and_blocks_uncertain_creation[lost_response]
+7.97s call     tests/test_issue144_recovery.py::test_recovery_never_recreates_damaged_or_unverified_target[integrity]
+7.94s call     tests/test_issue144_retained_audio.py::test_retained_w1_support_and_render_consistency_remain_unqualified
+6.00s call     tests/test_issue144_proof_session.py::test_missing_boundary_creates_no_native_target_or_baseline
+5.05s call     tests/test_issue144_composition_audio.py::test_compiled_auxiliary_geometry_is_separate_from_primary_supports_and_mix
+4.46s call     tests/test_issue144_native_build.py::test_actual_pipeline_completes_with_injected_native_boundary_and_replays
+3.84s call     tests/test_issue144_row_narration.py::test_astral_text_preserves_surviving_token_ids_with_new_utf16_marks
+3.81s call     tests/test_issue144_native_build.py::test_interrupted_or_changed_result_cannot_retry_effect[lost_result]
+3.78s call     tests/test_issue144_native_build.py::test_interrupted_or_changed_result_cannot_retry_effect[changed_target]
+3.77s call     tests/test_issue144_native_build.py::test_interrupted_or_changed_result_cannot_retry_effect[wrong_uid]
+3.75s call     tests/test_issue144_row_narration.py::test_cached_audio_tamper_refuses_replay
+3.66s call     tests/test_issue144_native_build.py::test_interrupted_or_changed_result_cannot_retry_effect[lost_intent_and_result]
+3.55s call     tests/test_issue144_native_build.py::test_corrupt_stage_path_is_refused_before_fresh_inspector
+3.21s call     tests/test_issue144_row_narration.py::test_generation_refusals_do_not_change_original_inputs[missing_marks]
+3.20s call     tests/test_issue144_row_narration.py::test_generation_refusals_do_not_change_original_inputs[input_drift]
+3.18s call     tests/test_issue144_row_narration.py::test_generation_refusals_do_not_change_original_inputs[empty_provenance]
+3.16s call     tests/test_issue144_row_narration.py::test_generation_refusals_do_not_change_original_inputs[failed]
+3.03s call     tests/test_issue144_row_narration.py::test_generation_refusals_do_not_change_original_inputs[stale_version]
+3.01s call     tests/test_issue144_native_build.py::test_lost_creation_response_never_retries_or_publishes_baseline
+2.98s call     tests/test_issue144_row_narration.py::test_canned_old_audio_cannot_be_relabelled_as_a_new_row
+2.91s call     tests/test_issue144_audio_evidence.py::test_complete_closed_routes_positive_and_deterministic
+2.90s call     tests/test_issue144_row_narration.py::test_visual_only_changes_preserve_all_audio_without_service_calls
+2.82s call     tests/test_issue144_row_narration.py::test_generation_refusals_do_not_change_original_inputs[invalid]
+2.57s call     tests/test_issue144_row_narration.py::test_cache_ancestor_symlink_refuses_before_provider_call
+2.53s call     tests/test_issue144_row_narration.py::test_real_provider_object_refuses_despite_synthetic_profile_labels
+2.48s call     tests/test_issue144_row_narration.py::test_generation_refusals_do_not_change_original_inputs[real_lane]
+2.41s call     tests/test_issue144_prepared_build.py::test_actual_compiler_and_package_run_all_core_stages_without_synthesis
+2.28s call     tests/test_issue144_native_build.py::test_exclusive_intent_reservation_has_exactly_one_owner
+2.14s call     tests/test_issue144_prepared_build.py::test_altered_intermediate_cannot_replay_into_native_stage[compiler_output]
+2.13s call     tests/test_issue144_prepared_build.py::test_altered_intermediate_cannot_replay_into_native_stage[frozen_input]
+2.03s call     tests/test_issue144_driver.py::test_unqualified_real_lane_does_not_become_native_success
+2.02s call     tests/test_issue144_prepared_build.py::test_changed_input_cannot_resume_into_an_existing_package
+1.98s call     tests/test_issue144_audio_evidence.py::test_numeric_tolerance_is_explicitly_not_an_absence_classifier
+1.79s call     tests/test_issue144_audio_evidence.py::test_opposite_channel_residue_cannot_cancel
+1.76s call     tests/test_issue144_audio_evidence.py::test_same_row_auxiliary_supports_do_not_choose_primary
+1.37s call     tests/test_issue144_proof_session.py::test_cli_process_fault_cannot_masquerade_as_semantic_refusal[timeout]
+1.31s setup    tests/test_issue144_audio_evidence.py::test_program_control_boolean_type_neutrality[gainDb-False]
+1.25s setup    tests/test_issue144_audio_evidence.py::test_trusted_primary_and_row_binding_refuse[unknown-row-0-primary source]
+1.24s setup    tests/test_issue144_audio_evidence.py::test_program_control_boolean_type_neutrality[limiter-0]
+1.24s call     tests/test_issue144_proof_session.py::test_cli_process_fault_cannot_masquerade_as_semantic_refusal[abnormal_exit]
+1.22s setup    tests/test_issue144_audio_evidence.py::test_same_row_auxiliary_supports_do_not_choose_primary
+1.21s setup    tests/test_issue144_audio_evidence.py::test_trusted_primary_and_row_binding_refuse[source-0-row-2-row/source]
+1.21s setup    tests/test_issue144_audio_evidence.py::test_trusted_primary_and_row_binding_refuse[source-1-row-0-untouched route]
+1.20s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-complete route removal]
+1.20s call     tests/test_narration_cli.py::test_cli_reports_generated_then_all_reused_in_block_order
+1.19s setup    tests/test_issue144_audio_evidence.py::test_parent_symlink_and_hardlinked_source_refuse
+1.19s setup    tests/test_issue144_audio_evidence.py::test_same_decoded_audio_cannot_hide_behind_different_file_hash
+1.17s call     tests/test_build_jobs.py::test_process_kill_resumes_finished_speech_blocks
+1.16s setup    tests/test_issue144_audio_evidence.py::test_render_job_cannot_be_reused_for_edited_program
+1.16s call     tests/test_issue144_proof_session.py::test_operator_status_has_a_successful_cli_result
+1.14s setup    tests/test_issue144_audio_evidence.py::test_operator_duplicate_keys_and_path_escape
+1.14s setup    tests/test_issue144_audio_evidence.py::test_numeric_tolerance_is_explicitly_not_an_absence_classifier
+1.14s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-source order]
+1.13s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-no interior omission]
+1.13s setup    tests/test_issue144_audio_evidence.py::test_no_operator_file_can_enable_real_qualification
+1.13s setup    tests/test_issue144_audio_evidence.py::test_gain_fitted_only_to_unchanged_reference
+1.12s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-target]
+1.12s setup    tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[render.json-<lambda>-job]
+1.12s setup    tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[render.json-<lambda>-settings]
+1.12s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-offline]
+1.11s setup    tests/test_issue144_composition_audio.py::test_compiled_auxiliary_geometry_is_separate_from_primary_supports_and_mix
+1.11s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-partial support1]
+1.11s setup    tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[observation-b.json-<lambda>-adjacent]
+1.10s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-observation]
+1.10s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-untouched route]
+1.10s setup    tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[profile.json-<lambda>-row/source]
+1.10s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-occurrence]
+1.10s setup    tests/test_issue144_audio_evidence.py::test_source_and_render_tampering
+1.10s setup    tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[profile.json-<lambda>-source inventory]
+1.10s setup    tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[render.json-<lambda>-hash]
+1.10s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-route inventory]
+1.10s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-source binding]
+1.10s setup    tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[profile.json-<lambda>-support provenance]
+1.10s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls1]
+1.10s setup    tests/test_issue144_audio_evidence.py::test_complete_closed_routes_positive_and_deterministic
+1.09s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls4]
+1.09s setup    tests/test_issue144_audio_evidence.py::test_opposite_channel_residue_cannot_cancel
+1.09s setup    tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[render.json-<lambda>-binding]
+1.09s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls2]
+1.09s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-program controls0]
+1.09s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls3]
+1.09s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-speed]
+1.09s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-extent]
+1.09s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-integer]
+1.08s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls0]
+1.08s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls5]
+1.08s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-program controls1]
+1.05s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-partial support0]
+0.93s call     tests/test_narration_service.py::test_one_edited_block_regenerates_exactly_one_and_reuses_other_blocks
+0.90s call     tests/test_issue144_audio_evidence.py::test_gain_fitted_only_to_unchanged_reference
+0.87s call     tests/test_issue144_driver.py::test_pinned_boundary_replay_and_change_refusal
+0.85s call     tests/test_otio_package.py::test_documented_cli_generates_and_verifies_package
+0.85s call     tests/test_narration_cli.py::test_cli_rejects_invalid_json_and_cost_ceiling_before_network
+0.81s call     tests/test_narration_service.py::test_normalization_profile_change_reuses_raw_provider_result
+0.80s call     tests/test_studio_assembly.py::test_collision_stops_before_mutation_and_mutation_failure_keeps_target
+0.79s call     tests/test_narration_normalize.py::test_two_pass_normalization_is_verified_and_same_tool_byte_identical
+0.73s call     tests/test_narration_cli.py::test_cli_provider_failure_is_nonzero_and_reports_placeholder
+0.69s call     tests/test_narration_cli.py::test_cli_selects_joanna_as_named_alternative_without_silent_attestation
+0.68s call     tests/test_issue144_capture_retry.py::test_semantic_refusal_is_terminal_and_next_attempt_reads_fresh_nonce[False]
+0.67s call     tests/test_resolve_import_package.py::test_cli_reports_ready_to_import_json
+0.67s call     tests/test_studio_assembly.py::test_preflight_accepts_the_recorded_21_1_studio_baseline
+0.66s call     tests/test_narration_normalize.py::test_placeholder_is_audible_deterministic_and_clearly_separate
+0.64s call     tests/test_studio_assembly.py::test_preflight_is_nonmutating_and_names_target_from_build_identity
+0.64s call     tests/test_studio_assembly.py::test_build_places_the_verified_package_and_retains_discrepancies
+0.62s call     tests/test_resolve_import_package.py::test_builds_verifies_and_exactly_reuses_one_project
+0.61s call     tests/test_issue144_capture_retry.py::test_semantic_refusal_is_terminal_and_next_attempt_reads_fresh_nonce[True]
+0.60s call     tests/test_narration_service.py::test_voice_profile_change_misses_synthesis_while_normalization_is_content_addressed
+0.60s call     tests/test_free_trial.py::test_fcpxml_verifier_rejects_semantic_and_media_tampering
+0.59s call     tests/test_issue144_prepared_build.py::test_bad_prepared_binding_refuses_before_compilation_or_package[ambiguous_asset]
+0.59s call     tests/test_issue144_prepared_build.py::test_speech_stage_refuses_missing_prepared_audio_before_compile
+0.59s call     tests/test_issue144_prepared_build.py::test_bad_prepared_binding_refuses_before_compilation_or_package[stale_revision]
+0.58s call     tests/test_free_trial.py::test_fcpxml_verifier_rejects_transition_and_duplicate_identities
+0.58s call     tests/test_issue144_prepared_build.py::test_bad_prepared_binding_refuses_before_compilation_or_package[wrong_text_hash]
+0.57s call     tests/test_free_trial.py::test_documented_cli_builds_both_verified_inputs
+0.57s call     tests/test_issue144_row_narration.py::test_importing_handoff_loads_no_cloud_sdk
+0.57s call     tests/test_issue144_prepared_build.py::test_bad_prepared_binding_refuses_before_compilation_or_package[wrong_audio_hash]
+0.53s call     tests/test_issue144_prepared_build.py::test_proof_import_does_not_load_any_synthesis_provider
+0.51s call     tests/test_studio_assembly.py::test_acceptance_package_uses_the_resolve_production_baseline
+0.50s call     tests/test_issue144_driver.py::test_bad_boundary_hash_does_not_execute_module
+0.48s call     tests/test_issue144_prepared_build.py::test_wrong_node_refuses_before_any_job_or_snapshot
+0.48s call     tests/test_studio_assembly.py::test_unverified_package_stops_before_resolve_connection
+0.45s call     tests/test_free_trial.py::test_dual_trial_is_verified_self_contained_and_deterministic
+0.44s call     tests/test_issue144_audio_evidence.py::test_render_job_cannot_be_reused_for_edited_program
+0.44s call     tests/test_narration_service.py::test_unchanged_document_reuses_every_layer_and_excluded_is_never_sent
+0.43s call     tests/test_narration_normalize.py::test_high_crest_dialogue_meets_loudness_and_true_peak_targets
+0.42s call     tests/test_narration_service.py::test_concurrent_same_block_calls_provider_once
+0.42s call     tests/test_narration_service.py::test_provider_failure_publishes_audible_failed_placeholder
+0.41s call     tests/test_fixtures.py::test_standalone_verification_command
+0.40s call     tests/test_narration_normalize.py::test_short_audio_is_padded_only_to_minimum_measurable_duration
+0.40s call     tests/test_resolve_import_package.py::test_refuses_linked_origins_and_detects_package_tampering
+0.40s call     tests/test_fixtures.py::test_ffprobe_metadata_matches_descriptor
+0.35s call     tests/test_studio_spike.py::test_cli_detect_does_not_need_resolve
+0.31s call     tests/test_issue144_audio_evidence.py::test_source_and_render_tampering
+0.30s call     tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[render.json-<lambda>-hash]
+0.30s call     tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[render.json-<lambda>-settings]
+0.30s call     tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[render.json-<lambda>-job]
+0.30s call     tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[render.json-<lambda>-binding]
+0.27s call     tests/test_narration_cli.py::test_cli_fails_before_network_when_confirmation_is_missing
+0.27s call     tests/test_narration_cli.py::test_preflight_is_deterministic_and_never_calls_provider
+0.21s call     tests/test_issue144_audio_evidence.py::test_trusted_primary_and_row_binding_refuse[source-1-row-0-untouched route]
+0.21s call     tests/test_issue144_audio_evidence.py::test_program_control_boolean_type_neutrality[limiter-0]
+0.21s call     tests/test_issue144_audio_evidence.py::test_program_control_boolean_type_neutrality[gainDb-False]
+0.21s call     tests/test_issue144_audio_evidence.py::test_trusted_primary_and_row_binding_refuse[source-0-row-2-row/source]
+0.20s call     tests/test_issue144_audio_evidence.py::test_trusted_primary_and_row_binding_refuse[unknown-row-0-primary source]
+0.20s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-untouched route]
+0.20s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-complete route removal]
+0.20s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-no interior omission]
+0.19s call     tests/test_free_trial.py::test_fcpxml_verifier_rejects_missing_resource_ids[asset]
+0.19s call     tests/test_otio_package.py::test_verifier_rejects_external_symlink_and_hard_link_media
+0.19s call     tests/test_otio_package.py::test_output_is_byte_deterministic_and_track_map_is_configurable
+0.19s call     tests/test_free_trial.py::test_fcpxml_verifier_rejects_missing_resource_ids[format]
+0.19s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls0]
+0.19s call     tests/test_free_trial.py::test_fcpxml_verifier_rejects_symlinked_media_ancestor
+0.19s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-program controls1]
+0.19s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-speed]
+0.19s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-offline]
+0.19s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-partial support1]
+0.19s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls5]
+0.19s call     tests/test_free_trial.py::test_existing_different_output_is_preserved
+0.19s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-integer]
+0.19s call     tests/test_free_trial.py::test_fcpxml_verifier_rejects_duplicate_format_and_asset_id
+0.18s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-observation]
+0.18s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-occurrence]
+0.18s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-target]
+0.18s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-route inventory]
+0.18s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls4]
+0.18s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-source binding]
+0.18s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-program controls0]
+0.18s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-extent]
+0.18s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls1]
+0.18s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-source order]
+0.18s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls2]
+0.18s call     tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[observation-b.json-<lambda>-adjacent]
+0.18s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls3]
+0.18s call     tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[profile.json-<lambda>-row/source]
+0.18s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-partial support0]
+0.18s call     tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[profile.json-<lambda>-source inventory]
+0.18s call     tests/test_free_trial.py::test_fcpxml_preserves_alternate_settings_and_track_map
+0.17s call     tests/test_issue53_producer_review.py::test_cli_partial_setting
+0.16s call     tests/test_fixtures.py::test_standalone_verifier_explicitly_reports_missing_ffprobe
+0.13s call     tests/test_issue144_audio_evidence.py::test_same_decoded_audio_cannot_hide_behind_different_file_hash
+0.12s call     tests/test_otio_package.py::test_idempotently_reuses_the_same_verified_output
+0.11s call     tests/test_issue144_wi.py::test_render_once_inspection_checks_exact_job_settings_and_full_stereo_pcm
+0.10s call     tests/test_otio_package.py::test_builds_and_parse_verifies_self_contained_package
+0.10s call     tests/test_otio_package.py::test_verifier_rejects_a_schema_valid_but_incomplete_report
+0.10s call     tests/test_studio_spike.py::test_adjusted_manifest_settings_and_track_map_flow_without_constants
+0.09s call     tests/test_build_jobs.py::test_studio_optional_stages_are_explicit
+0.09s call     tests/test_studio_spike.py::test_studio_rejects_nonzero_timeline_start_before_connection
+0.09s call     tests/test_otio_package.py::test_verifier_compares_parsed_otio_timing_not_duplicated_metadata
+0.07s setup    tests/test_studio_spike.py::test_preflight_is_nonmutating_and_surfaces_public_api_gap
+0.07s setup    tests/test_studio_spike.py::test_connection_and_probe_failures_are_actionable_and_nonmutating
+0.07s setup    tests/test_studio_spike.py::test_connected_safety_stops_after_observation_but_before_mutation[connected4]
+0.07s setup    tests/test_studio_spike.py::test_invalid_text_plus_request_stops_before_connection[arguments0-supports only Text+]
+0.07s setup    tests/test_studio_spike.py::test_preflight_rejects_resolve_version_without_template_validation
+0.07s setup    tests/test_studio_spike.py::test_success_has_exact_order_frames_settings_tracks_marker_and_reopen
+0.07s call     tests/test_build_jobs.py::test_duplicate_submission_and_free_stage_graph
+0.07s call     tests/test_otio_package.py::test_marker_and_build_report_are_complete_and_faithful
+0.07s call     tests/test_build_jobs.py::test_interruption_and_uncertain_response_reconcile_without_repeat
+0.07s setup    tests/test_studio_spike.py::test_project_name_collision_stops_before_mutation
+0.07s setup    tests/test_studio_spike.py::test_free_never_constructs_or_invokes_resolve_adapter
+0.07s setup    tests/test_studio_spike.py::test_invalid_text_plus_request_stops_before_connection[arguments1-exactly one track]
+0.07s setup    tests/test_studio_spike.py::test_connected_safety_stops_after_observation_but_before_mutation[connected3]
+0.07s setup    tests/test_studio_spike.py::test_local_safety_stops_before_adapter_factory[changes9-no matching affirmative Blackmagic package receipt]
+0.07s call     tests/test_otio_package.py::test_otio_matches_manifest_event_for_event_without_transitions
+0.07s setup    tests/test_studio_spike.py::test_text_plus_track_and_duration_overrides_flow_to_adapter
+0.07s setup    tests/test_studio_spike.py::test_invalid_text_plus_request_stops_before_connection[arguments3-overlaps manifest event]
+0.07s call     tests/test_studio_spike.py::test_connection_and_probe_failures_are_actionable_and_nonmutating
+0.07s setup    tests/test_studio_spike.py::test_invalid_text_plus_request_stops_before_connection[arguments2-video track]
+0.07s call     tests/test_build_jobs.py::test_renewed_lease_and_failed_stage_retry
+0.07s setup    tests/test_studio_spike.py::test_invalid_text_plus_request_stops_before_connection[arguments4-positive integer]
+0.07s setup    tests/test_studio_spike.py::test_connected_safety_stops_after_observation_but_before_mutation[connected1]
+0.07s setup    tests/test_studio_spike.py::test_post_mutation_failure_reports_possible_partial_project
+0.07s setup    tests/test_studio_spike.py::test_connected_safety_stops_after_observation_but_before_mutation[connected0]
+0.07s setup    tests/test_studio_spike.py::test_verification_discrepancies_remain_explicit
+0.07s setup    tests/test_studio_spike.py::test_connected_safety_stops_after_observation_but_before_mutation[connected2]
+0.07s setup    tests/test_studio_spike.py::test_local_safety_stops_before_adapter_factory[changes8-does not affirmatively match]
+0.06s setup    tests/test_studio_spike.py::test_local_safety_stops_before_adapter_factory[changes4-bundle version/build identity]
+0.06s setup    tests/test_studio_spike.py::test_local_safety_stops_before_adapter_factory[changes2-module is missing]
+0.06s setup    tests/test_studio_spike.py::test_local_safety_stops_before_adapter_factory[changes1-Mac App Store]
+0.06s setup    tests/test_studio_spike.py::test_local_safety_stops_before_adapter_factory[changes3-documentation is missing]
+0.06s setup    tests/test_studio_spike.py::test_local_safety_stops_before_adapter_factory[changes0-not installed]
+0.06s setup    tests/test_studio_spike.py::test_local_safety_stops_before_adapter_factory[changes7-configured application path]
+0.06s setup    tests/test_studio_spike.py::test_local_safety_stops_before_adapter_factory[changes6-bundle identifier]
+0.06s setup    tests/test_studio_spike.py::test_local_safety_stops_before_adapter_factory[changes5-bundle version/build identity]
+0.06s call     tests/test_issue144_wi.py::test_link_reserves_root_intent_and_replays_without_second_effect
+0.06s call     tests/test_issue144_wi.py::test_complete_job_with_wrong_pcm_never_publishes_complete_receipt
+0.05s call     tests/test_issue144_wi.py::test_tampered_before_state_and_stale_native_state_refuse_before_effect
+0.05s call     tests/test_build_jobs.py::test_cancellation_waiting_and_corruption_preserve_completed_artifacts
+0.05s call     tests/test_issue144_wi.py::test_lost_render_response_recovers_only_through_owned_job_inspection
+0.05s call     tests/test_issue144_wi.py::test_lost_link_response_reconciles_read_only_and_uncertain_intent_never_retries
+0.04s call     tests/test_issue144_wi.py::test_uncertain_unperformed_link_and_different_nonce_cannot_authorize_retry
+0.04s call     tests/test_issue144_wi.py::test_complete_capture_is_immutable_and_replay_reads_real_handles
+0.04s call     tests/test_studio_spike.py::test_connected_safety_stops_after_observation_but_before_mutation[connected0]
+0.04s call     tests/test_studio_spike.py::test_text_plus_track_and_duration_overrides_flow_to_adapter
+0.03s call     tests/test_studio_spike.py::test_success_has_exact_order_frames_settings_tracks_marker_and_reopen
+0.03s call     tests/test_studio_spike.py::test_connected_safety_stops_after_observation_but_before_mutation[connected4]
+0.03s call     tests/test_studio_spike.py::test_project_name_collision_stops_before_mutation
+0.03s call     tests/test_studio_spike.py::test_preflight_is_nonmutating_and_surfaces_public_api_gap
+0.03s call     tests/test_studio_spike.py::test_preflight_rejects_resolve_version_without_template_validation
+0.03s call     tests/test_studio_spike.py::test_invalid_text_plus_request_stops_before_connection[arguments0-supports only Text+]
+0.03s call     tests/test_studio_spike.py::test_connected_safety_stops_after_observation_but_before_mutation[connected3]
+0.03s call     tests/test_studio_spike.py::test_post_mutation_failure_reports_possible_partial_project
+0.03s call     tests/test_studio_spike.py::test_invalid_text_plus_request_stops_before_connection[arguments2-video track]
+0.03s call     tests/test_studio_spike.py::test_verification_discrepancies_remain_explicit
+0.03s call     tests/test_studio_spike.py::test_invalid_text_plus_request_stops_before_connection[arguments3-overlaps manifest event]
+0.03s call     tests/test_studio_spike.py::test_invalid_text_plus_request_stops_before_connection[arguments1-exactly one track]
+0.03s call     tests/test_studio_spike.py::test_invalid_text_plus_request_stops_before_connection[arguments4-positive integer]
+0.03s call     tests/test_studio_spike.py::test_connected_safety_stops_after_observation_but_before_mutation[connected2]
+0.03s call     tests/test_studio_spike.py::test_connected_safety_stops_after_observation_but_before_mutation[connected1]
+0.03s call     tests/test_studio_spike.py::test_local_safety_stops_before_adapter_factory[changes9-no matching affirmative Blackmagic package receipt]
+0.03s call     tests/test_studio_spike.py::test_local_safety_stops_before_adapter_factory[changes8-does not affirmatively match]
+0.03s call     tests/test_studio_spike.py::test_local_safety_stops_before_adapter_factory[changes3-documentation is missing]
+0.03s call     tests/test_studio_spike.py::test_local_safety_stops_before_adapter_factory[changes0-not installed]
+0.03s call     tests/test_studio_spike.py::test_local_safety_stops_before_adapter_factory[changes1-Mac App Store]
+0.03s call     tests/test_studio_spike.py::test_free_never_constructs_or_invokes_resolve_adapter
+0.03s call     tests/test_studio_spike.py::test_local_safety_stops_before_adapter_factory[changes7-configured application path]
+0.03s call     tests/test_studio_spike.py::test_local_safety_stops_before_adapter_factory[changes6-bundle identifier]
+0.03s call     tests/test_studio_spike.py::test_local_safety_stops_before_adapter_factory[changes2-module is missing]
+0.03s call     tests/test_studio_spike.py::test_local_safety_stops_before_adapter_factory[changes4-bundle version/build identity]
+0.03s call     tests/test_studio_spike.py::test_local_safety_stops_before_adapter_factory[changes5-bundle version/build identity]
+0.03s call     tests/test_build_jobs.py::test_changed_prior_artifact_revokes_running_worker
+0.03s call     tests/test_issue144_wi.py::test_omission_capture_needs_complete_controls_and_never_invents_split_ids
+0.02s call     tests/test_build_jobs.py::test_late_lease_holder_cannot_publish_or_report_progress
+0.02s call     tests/test_build_jobs.py::test_project_scope_and_active_cancellation_boundary
+0.02s call     tests/test_resolve_import_package.py::test_refuses_unready_report_without_publication[blocked]
+0.02s call     tests/test_resolve_import_package.py::test_refuses_noncanonical_or_inconsistent_compiler_artifacts
+0.02s call     tests/test_otio_package.py::test_refuses_to_replace_an_existing_output_directory
+0.02s call     tests/test_resolve_import_package.py::test_refuses_unready_report_without_publication[failed]
+0.02s call     tests/test_otio_package.py::test_handcrafted_manifest_is_schema_valid_and_has_acceptance_shape
+0.02s call     tests/test_otio_package.py::test_rejects_invalid_schema_media_and_ranges_without_publishing_output[reference_missing_media-does not exist]
+0.02s call     tests/test_otio_package.py::test_rejects_invalid_schema_media_and_ranges_without_publishing_output[overlap_record_ranges-overlaps]
+0.02s call     tests/test_otio_package.py::test_rejects_invalid_schema_media_and_ranges_without_publishing_output[make_path_unsafe-schema validation failed]
+0.02s call     tests/test_otio_package.py::test_rejects_invalid_schema_media_and_ranges_without_publishing_output[require_implicit_retime-requires a retime]
+0.02s call     tests/test_otio_package.py::test_rejects_invalid_schema_media_and_ranges_without_publishing_output[corrupt_declared_hash-hash mismatch]
+0.02s call     tests/test_otio_package.py::test_rejects_invalid_schema_media_and_ranges_without_publishing_output[remove_required_id-schema validation failed]
+0.02s call     tests/test_otio_package.py::test_rejects_invalid_schema_media_and_ranges_without_publishing_output[overrun_source_range-exceeds source duration]
+0.02s call     tests/test_otio_package.py::test_rejects_invalid_schema_media_and_ranges_without_publishing_output[target_incompatible_track-does not match target track kind]
+0.01s call     tests/test_otio_package.py::test_rejects_invalid_schema_media_and_ranges_without_publishing_output[omit_hard_cuts-missing hard cut declarations]
+0.01s call     tests/test_placeholder_slate.py::test_render_is_byte_deterministic_and_label_sensitive
+0.01s call     tests/test_placeholder_slate.py::test_renders_valid_png_at_requested_dimensions
+0.01s call     tests/test_fixtures.py::test_inventory_rejects_undeclared_media_in_nested_directories
+0.01s call     tests/test_narration_cache.py::test_cache_rejects_tampering_symlinks_and_hard_links
+0.01s call     tests/test_placeholder_slate.py::test_arbitrary_text_is_normalized_or_uses_fallback_glyphs_safely
+0.01s setup    tests/test_after_effects_inspection.py::test_inspection_reports_semantic_controls_and_explicit_limits
+0.01s call     tests/test_narration_cache.py::test_same_key_concurrent_publish_has_one_winner
+
+(917 durations < 0.005s hidden.  Use -vv to show these durations.)
+======================= 419 passed in 2979.59s (0:49:39) =======================

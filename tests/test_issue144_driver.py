@@ -3,11 +3,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from test_issue144_prepared_build import _inputs
 from vera_timeline_agent.roundtrip_driver import main
 from vera_timeline_agent.roundtrip_wi import file_hash
 
 
+@pytest.mark.slow
 def test_bad_boundary_hash_does_not_execute_module(tmp_path: Path) -> None:
     root = tmp_path / "proof"
     _inputs(root)
@@ -31,6 +33,7 @@ def test_bad_boundary_hash_does_not_execute_module(tmp_path: Path) -> None:
     assert not (root / "operator-boundary.json").exists()
 
 
+@pytest.mark.slow
 def test_pinned_boundary_replay_and_change_refusal(tmp_path: Path) -> None:
     root = tmp_path / "proof"
     _inputs(root)
@@ -61,6 +64,7 @@ def test_pinned_boundary_replay_and_change_refusal(tmp_path: Path) -> None:
     assert (root / "operator-boundary.json").read_bytes() == original
 
 
+@pytest.mark.slow
 def test_unqualified_real_lane_does_not_become_native_success(tmp_path: Path) -> None:
     root = tmp_path / "proof"
     _inputs(root)

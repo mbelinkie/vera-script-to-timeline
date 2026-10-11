@@ -32,6 +32,7 @@ def high_crest_pcm(duration_seconds: float, *, sample_rate: int = 16000) -> byte
     )
 
 
+@pytest.mark.slow
 def test_two_pass_normalization_is_verified_and_same_tool_byte_identical(
     tmp_path: Path,
 ) -> None:
@@ -55,6 +56,7 @@ def test_two_pass_normalization_is_verified_and_same_tool_byte_identical(
     assert normalizer.verify_wav(output).duration_samples == 48000
 
 
+@pytest.mark.slow
 def test_short_audio_is_padded_only_to_minimum_measurable_duration() -> None:
     result = Normalizer().normalize_pcm(sine_pcm(0.1), sample_rate=16000, channels=1)
 
@@ -63,6 +65,7 @@ def test_short_audio_is_padded_only_to_minimum_measurable_duration() -> None:
     assert result.integrated_lufs == pytest.approx(-16.0, abs=0.5)
 
 
+@pytest.mark.slow
 def test_high_crest_dialogue_meets_loudness_and_true_peak_targets() -> None:
     result = Normalizer().normalize_pcm(
         high_crest_pcm(1.0), sample_rate=16000, channels=1
@@ -88,6 +91,7 @@ def test_corrupt_unsupported_or_silent_provider_media_fails(
         Normalizer().normalize_pcm(audio, sample_rate=sample_rate, channels=channels)
 
 
+@pytest.mark.slow
 def test_placeholder_is_audible_deterministic_and_clearly_separate() -> None:
     normalizer = Normalizer()
     first = normalizer.placeholder("block-a")

@@ -19,6 +19,8 @@ from vera_timeline_agent.studio_spike import (
     LocalFacts,
 )
 
+pytestmark = pytest.mark.slow
+
 
 def _local() -> LocalFacts:
     return LocalFacts(
