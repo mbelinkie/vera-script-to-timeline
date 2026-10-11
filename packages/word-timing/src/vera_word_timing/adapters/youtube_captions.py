@@ -50,8 +50,12 @@ def caption_tokens(json3: Json) -> list[Token]:
         # Native word starts only with offset evidence: auto captions give every
         # segment after the first a `tOffsetMs` (the first is implicitly 0).
         # Several segments without offsets are just line pieces, not words.
-        per_word = any("tOffsetMs" in seg for seg in segs) and all(
-            "tOffsetMs" in seg for seg in segs[1:]
+        # An offset outside its own cue is not evidence either: the whole event
+        # then falls back to the cue interval.
+        per_word = (
+            any("tOffsetMs" in seg for seg in segs)
+            and all("tOffsetMs" in seg for seg in segs[1:])
+            and all(t0 + seg.get("tOffsetMs", 0) / 1000 < event_end for seg in segs)
         )
         for seg in segs:
             text = seg["utf8"].strip()

@@ -44,7 +44,7 @@ def _audio(path: Path) -> AudioRef:
     try:
         with wave.open(str(path)) as w:
             return AudioRef(path, file_hash(path), w.getframerate(), w.getnframes())
-    except (OSError, wave.Error) as error:
+    except (OSError, EOFError, wave.Error) as error:
         raise PortRefusal(
             "audio-prep", "input-invalid", "Audio is missing or not a WAV file."
         ) from error

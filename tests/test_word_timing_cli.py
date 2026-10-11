@@ -219,7 +219,11 @@ def test_resolve_bad_audio_and_corrupt_script_are_sanitised_refusals(
         w.setsampwidth(2)
         w.setframerate(16000)
         w.writeframes(b"\x00\x00" * 3200)
-    for bad in (stereo, tmp_path / "secret-folder" / "missing.wav"):
+    truncated = tmp_path / "secret-folder-truncated.wav"
+    truncated.write_bytes(stereo.read_bytes()[:20])
+    empty = tmp_path / "secret-folder-empty.wav"
+    empty.write_bytes(b"")
+    for bad in (stereo, truncated, empty, tmp_path / "secret-folder" / "missing.wav"):
         code, out = run(
             ["resolve", "--alignment", str(rec), "--audio", str(bad)], capsys
         )

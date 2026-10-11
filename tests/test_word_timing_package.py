@@ -804,6 +804,19 @@ def test_caption_offsets_need_evidence_and_ends_respect_events() -> None:
     }
     ev = caption_tokens(music)[1]
     assert (ev.kind, ev.start, ev.end) == ("event", 3.0, 5.0)
+    outside = {
+        "events": [
+            {
+                "tStartMs": 1000,
+                "dDurationMs": 100,
+                "segs": [{"utf8": "a"}, {"utf8": " b", "tOffsetMs": 200}],
+            }
+        ]
+    }
+    assert [(t.start, t.end, t.precision) for t in caption_tokens(outside)] == [
+        (1.0, 1.1, "cue"),
+        (1.0, 1.1, "cue"),
+    ]
 
 
 def test_timeout_waits_for_children_that_ignore_sigterm(tmp_path: Path) -> None:

@@ -13,7 +13,23 @@ prototype (`docs/plans/issue-45-ports-prototype.md`).
 | The CLI round-trips with schema-valid JSON and explicit refusals | `tests/test_word_timing_cli.py`; real-engine smoke below (every output is checked against its contract before it is written) |
 | No product changes; take logic stays in #45 | The diff touches only the package, contracts and generated types, tests, and `experiments/issue45` |
 
-Codex review (14 findings: 3 blockers, 11 should-fix) was addressed in `f6bc9b0`.
+Codex review history:
+
+- **First review:** 14 findings (3 blockers, 11 should-fix), addressed in `f6bc9b0`.
+- **Re-review:** 6 partly fixed and 4 new issues, addressed in `bf258aa`. One design
+  addition: German capitalises nouns, so there a capital needs dictionary absence
+  to count as a name.
+- **Second re-review:** 8 fixed and 2 partly fixed, verdict "merge after fixes".
+  The last two (truncated WAV refusal, caption offsets outside their cue) are
+  fixed in the final commit.
+
+Real-data checks after these fixes:
+
+- English reconciliation on recordings A and B is unchanged (0/997 units differ).
+- Caption tokens are identical on all 8 study caption files.
+- Real Qwen agreement on A is identical.
+- Resolve now leaves 0 invalid words. Before, 4 words overlapped a neighbour; the
+  5 edges involved now fall back to MFA's own times as `unresolved`.
 
 ## Real-engine smoke (2026-10-11, Intel reference Mac)
 
