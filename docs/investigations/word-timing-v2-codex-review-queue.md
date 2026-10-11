@@ -22,3 +22,17 @@ aggregate numbers only.
    `experiments/issue45` ports/adapters/conformance suite, and take rules v2
    (`scripts/word-timing-v2/take_rules_v2.py`). Ask specifically: can any
    path silently fall back, fabricate timing, or lose `heard` evidence?
+
+## Done — item 6 (#183 package + #168 contracts), Codex gpt-6.1-sol, 2026-10-11
+
+Verdict: "do not merge" as reviewed (3 blockers, 11 should-fix). Codex
+confirmed: no silent engine/cloud fallback, no interpolated timing in
+production adapters, packaged contracts identical to /contracts, integer-ms
+and null-bound rules correct. All 14 findings fixed on
+`claude/183-word-timing-package` (commit f6bc9b0) with regression tests
+(72 package/CLI/take/#53 tests pass): identity checks, reference-text refusal,
+positive name evidence, language-aware reconciliation, MFA de/fr/sv variants,
+MFA failure propagation and process-group timeouts, non-inverting resolution,
+full-numeral matching, cue-timed manual captions, pinned Canary weights,
+CLI validation and sanitised refusals, Colima audio staging. Pending: real-
+engine re-check after the #180 gate, then a Codex re-review of the fixes.
