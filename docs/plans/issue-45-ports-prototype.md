@@ -132,3 +132,11 @@ pins `jsonschema`; engine runtimes are external and configured, not installed.
   14–49 → 3–7 per pipeline on A (B: 0–6 → 0–2); 1–3 edges per pipeline
   made worse by more than 100 ms. Unresolvable residue is what may surface as
   a listen-check on a cut.
+- `take_rules.py` (take rules v2, on the merged #53 `discover()`; PR #181):
+  continuous delivery runs, moved words as differences, "differs from
+  script" flags, usable alternates. New fix found by its unit test: #53
+  returns an out-of-order word as a row-less fragment between two pieces of
+  the same read; words anywhere in a delivery's span (gaps included) now
+  count toward the script word they match, so a single read with a moved
+  word is one complete take with "moved: okay". Regression: Sample v2 still
+  15/15 spans, 7/7 picks; B row 3 still 2 pieces (second 54.96–66.96 s).
