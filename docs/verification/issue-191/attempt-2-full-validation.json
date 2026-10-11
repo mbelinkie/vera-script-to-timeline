@@ -1,0 +1,18 @@
+{
+  "sourceCommit": "dd4eb19ea66021b8bbb9efd4ce88245f1867c19c",
+  "sourceTree": "9084a49ccb8d68e53ccb989b978edf3f5c48d9ed",
+  "branch": "codex/issue-191-selected-phrase-proof",
+  "startedAt": "2026-10-11T21:26:01.632Z",
+  "logPath": "/Users/matthewbelinkie/.codex/worktrees/3760/VERA Script to Timeline/test-results/issue-191/full-validation/validate.log",
+  "statusPath": "/Users/matthewbelinkie/.codex/worktrees/3760/VERA Script to Timeline/test-results/issue-191/full-validation/status.json",
+  "command": "VITEST_MAX_WORKERS=1 npm run validate",
+  "nodeVersion": "v24.19.0",
+  "nodeCompileCache": null,
+  "state": "interrupted",
+  "launcherPid": 13530,
+  "validationPid": 13547,
+  "exitCode": 143,
+  "elapsedSeconds": null,
+  "logSHA256": "7b4e659fe717d5a4a763d839557ce296474267d09c4e795c2cea629d1c613925",
+  "reason": "Root started despite preflight detecting another full gate; own tree stopped immediately; no acceptance claim"
+}
