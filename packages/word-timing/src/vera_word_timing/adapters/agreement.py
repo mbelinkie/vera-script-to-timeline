@@ -105,9 +105,12 @@ class QwenAgreement:
         ) as tmp:
             seg_file, out = Path(tmp) / "segments.json", Path(tmp) / "result.json"
             seg_file.write_text(json.dumps(payload))
-            # Colima mounts only the home directory: stage the audio beside the
-            # hand-off files so the container can always read it.
-            staged = Path(tmp) / audio.path.name
+            # Colima mounts only the home directory: stage the audio under the
+            # hand-off folder so the container can always read it. Its own
+            # subfolder keeps a WAV named e.g. `segments.json` from overwriting
+            # the hand-off files.
+            staged = Path(tmp) / "audio" / audio.path.name
+            staged.parent.mkdir()
             shutil.copyfile(audio.path, staged)
             run_engine(
                 [

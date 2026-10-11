@@ -135,29 +135,39 @@ def resolve(
 def _keep_intervals_valid(
     resolutions: list[Resolution], words: dict[tuple[int, int], Json], order: list[Json]
 ) -> list[Resolution]:
-    """Never emit an inverted word or one overlapping the previous word.
+    """Never emit an inverted word or one overlapping its neighbour.
 
     Edges are chosen independently, so a word can end up with onset >= offset,
-    or start before the previous word ends. Those words fall back to the
-    primary aligner's own times and are marked unresolved (a listen-check),
-    rather than looking resolved.
+    or two neighbours can overlap. Each offending word falls back to the primary
+    aligner's own times and is marked unresolved (a listen-check), rather than
+    looking resolved. For an overlap both neighbours fall back, since either
+    moved edge may be the wrong one; falling back can expose a new overlap, so
+    the check repeats until the whole sequence is valid (the primary times
+    themselves never overlap, so this terminates).
     """
     by_unit: dict[tuple[int, int], dict[str, Resolution]] = {}
     for r in resolutions:
         by_unit.setdefault((r.token_index, r.sub), {})[r.side] = r
     bad: set[tuple[int, int]] = set()
-    prev_end: int | None = None
-    for w in order:
-        key = (w["tokenIndex"], w["sub"])
-        sides = by_unit.get(key)
-        if not sides or w.get("status", "acoustic") != "acoustic":
-            continue
-        onset = sides["onset"].ms if "onset" in sides else w["startMs"]
-        offset = sides["offset"].ms if "offset" in sides else w["endMs"]
-        if onset >= offset or (prev_end is not None and onset < prev_end):
-            bad.add(key)
-            onset, offset = w["startMs"], w["endMs"]
-        prev_end = offset
+    while True:
+        found: set[tuple[int, int]] = set()
+        prev: tuple[tuple[int, int], int] | None = None
+        for w in order:
+            key = (w["tokenIndex"], w["sub"])
+            if w.get("status", "acoustic") != "acoustic" or w["startMs"] is None:
+                continue
+            sides = {} if key in bad else by_unit.get(key, {})
+            onset = sides["onset"].ms if "onset" in sides else w["startMs"]
+            offset = sides["offset"].ms if "offset" in sides else w["endMs"]
+            if onset >= offset:
+                found.add(key)
+            if prev is not None and onset < prev[1]:
+                found |= {key, prev[0]}
+            prev = (key, offset)
+        found -= bad
+        if not found:
+            break
+        bad |= found
     if not bad:
         return resolutions
     out = []

@@ -684,3 +684,151 @@ def test_resolution_never_inverts_a_word(tmp_path: Path) -> None:
         (1000, "unresolved"),
         (1100, "unresolved"),
     ]
+
+
+def test_sentence_initial_capital_is_not_name_evidence(audio: AudioRef) -> None:
+    from vera_word_timing.script_reconcile import reconcile
+
+    rec = FakeRecognizer(["walking", "home"]).recognise(
+        audio, language="en", policy=POLICY
+    )
+    rcn = reconcile(rec, "Working home.", "walking X\nhome X\n")
+    assert [u["text"] for u in rcn["units"]] == ["walking", "home"]
+    # The same word capitalised mid-sentence elsewhere is a name everywhere.
+    rec = FakeRecognizer(["kai", "said", "hi", "to", "kai"]).recognise(
+        audio, language="en", policy=POLICY
+    )
+    rcn = reconcile(rec, "Kaj said hi to Kaj.", "said X\nhi X\nto X\n")
+    assert [u["text"] for u in rcn["units"]] == ["kaj", "said", "hi", "to", "kaj"]
+
+
+def test_dictionary_folding_keeps_eszett(audio: AudioRef) -> None:
+    from vera_word_timing.script_reconcile import load_dictionary_words, reconcile
+
+    assert "straße" in load_dictionary_words("Straße X\n", "de")
+    rec = FakeRecognizer(["die", "strafe", "von", "kai"]).recognise(
+        audio, language="en", policy=POLICY
+    )
+    rec = {**rec, "identity": {**rec["identity"], "language": "de"}}
+    dictionary = "die X\nstrafe X\nstraße X\nvon X\n"
+    rcn = reconcile(rec, "die Straße von Kaj", dictionary)
+    # "Straße" is a dictionary noun, not a name; "Kaj" is missing: a name.
+    assert [u["text"] for u in rcn["units"]] == ["die", "strafe", "von", "kaj"]
+
+
+def test_semantic_check_survives_malformed_structure(audio: AudioRef) -> None:
+    rec = FakeRecognizer(["a"]).recognise(audio, language="en", policy=POLICY)
+    for broken in ({**rec, "identity": None}, {**rec, "consent": None}):
+        assert schema_errors(broken)  # reported, never an AttributeError
+
+
+def test_resolution_rolls_back_both_overlapping_neighbours(tmp_path: Path) -> None:
+    from vera_word_timing.resolve_review import Loudness, resolve
+
+    wav = tmp_path / "quiet.wav"
+    with wave.open(str(wav), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(16000)
+        w.writeframes(b"\x00\x40\x00\xc0" * 24000)  # loud: no quiet gaps
+    words = [
+        {
+            "tokenIndex": 0,
+            "sub": 0,
+            "startMs": 1000,
+            "endMs": 1100,
+            "status": "acoustic",
+        },
+        {
+            "tokenIndex": 1,
+            "sub": 0,
+            "startMs": 1200,
+            "endMs": 1500,
+            "status": "acoustic",
+        },
+    ]
+    bounds = [
+        # Word 0's offset moves out to 1300 ms (loud gap: outer edge).
+        {
+            "tokenIndex": 0,
+            "sub": 0,
+            "side": "offset",
+            "verdict": "needs_review",
+            "deltaMs": -200,
+        },
+        {
+            "tokenIndex": 1,
+            "sub": 0,
+            "side": "onset",
+            "verdict": "accepted",
+            "deltaMs": 0,
+        },
+    ]
+    got = resolve({"words": words, "agreement": {"boundaries": bounds}}, Loudness(wav))
+    assert [(r.token_index, r.ms, r.method) for r in got] == [
+        (0, 1100, "unresolved"),
+        (1, 1200, "agreed"),
+    ]
+
+
+def test_caption_offsets_need_evidence_and_ends_respect_events() -> None:
+    no_offsets = {
+        "events": [
+            {
+                "tStartMs": 1000,
+                "dDurationMs": 2000,
+                "segs": [{"utf8": "a"}, {"utf8": " b"}],
+            }
+        ]
+    }
+    assert {t.precision for t in caption_tokens(no_offsets)} == {"cue"}
+    tight = {
+        "events": [
+            {
+                "tStartMs": 1000,
+                "dDurationMs": 100,
+                "segs": [{"utf8": "a"}, {"utf8": " b", "tOffsetMs": 95}],
+            }
+        ]
+    }
+    b = caption_tokens(tight)[1]
+    assert b.start == pytest.approx(1.095) and b.end == pytest.approx(1.1)
+    music = {
+        "events": [
+            {
+                "tStartMs": 1000,
+                "dDurationMs": 4000,
+                "segs": [{"utf8": "a"}, {"utf8": " [Music]", "tOffsetMs": 2000}],
+            }
+        ]
+    }
+    ev = caption_tokens(music)[1]
+    assert (ev.kind, ev.start, ev.end) == ("event", 3.0, 5.0)
+
+
+def test_timeout_waits_for_children_that_ignore_sigterm(tmp_path: Path) -> None:
+    import os
+    import sys
+    import time
+
+    from vera_word_timing.adapters.local_engines import run_engine
+
+    marker = tmp_path / "child.pid"
+    child = (
+        "import os,signal,time;signal.signal(signal.SIGTERM,signal.SIG_IGN);"
+        f"open({str(marker)!r},'w').write(str(os.getpid()));time.sleep(60)"
+    )
+    parent = (
+        "import subprocess,sys,time;"
+        f"subprocess.Popen([sys.executable,'-c',{child!r}],"
+        "stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL);time.sleep(60)"
+    )
+    with pytest.raises(PortRefusal) as refused:
+        run_engine(
+            [sys.executable, "-c", parent], port="aligner", env=None, timeout=1.0
+        )
+    assert refused.value.code == "timeout"
+    pid = int(marker.read_text())
+    time.sleep(0.1)
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)  # the SIGTERM-ignoring child is gone before we return

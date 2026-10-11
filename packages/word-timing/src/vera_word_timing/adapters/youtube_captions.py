@@ -47,15 +47,22 @@ def caption_tokens(json3: Json) -> list[Token]:
         t0 = event["tStartMs"] / 1000
         event_end = max(t0, t0 + event.get("dDurationMs", 0) / 1000)
         segs = [seg for seg in event["segs"] if seg.get("utf8", "").strip()]
-        per_word = len(segs) > 1 or any("tOffsetMs" in seg for seg in segs)
+        # Native word starts only with offset evidence: auto captions give every
+        # segment after the first a `tOffsetMs` (the first is implicitly 0).
+        # Several segments without offsets are just line pieces, not words.
+        per_word = any("tOffsetMs" in seg for seg in segs) and all(
+            "tOffsetMs" in seg for seg in segs[1:]
+        )
         for seg in segs:
             text = seg["utf8"].strip()
+            offset = seg.get("tOffsetMs", 0) / 1000
             if text.startswith("[") and text.endswith("]"):
-                tokens.append(Token(text, "event", t0, event_end, "cue"))
+                at = min(t0 + offset, event_end)
+                tokens.append(Token(text, "event", at, event_end, "cue"))
                 continue
             words = text.split()
             if per_word and len(words) == 1:
-                start = t0 + seg.get("tOffsetMs", 0) / 1000
+                start = t0 + offset
                 starts.append((len(tokens), start, event_end))
                 tokens.append(
                     Token(words[0], "word", start, start, "word_start_with_derived_end")
@@ -65,7 +72,10 @@ def caption_tokens(json3: Json) -> list[Token]:
     for n, (index, start, event_end) in enumerate(starts):
         nxt = starts[n + 1][1] if n + 1 < len(starts) else event_end
         cap = min(start + MAX_WORD_S, event_end, nxt if nxt > start else event_end)
-        end = max(cap, start + 0.01) if event_end > start else start + 0.01
+        # At least 10 ms, but never past the caption event (a word starting at
+        # its event's very end gets a zero-length anchor rather than an invented
+        # tail).
+        end = min(max(cap, start + 0.01), event_end) if event_end > start else start
         t = tokens[index]
         tokens[index] = Token(t.display, t.kind, start, end, t.precision)
     return tokens

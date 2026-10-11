@@ -22,6 +22,7 @@ import shlex
 import signal
 import subprocess
 import tempfile
+import time
 import wave
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -125,6 +126,34 @@ def _check_wav(audio: AudioRef, port: Port) -> None:
         )
 
 
+def _group_alive(pgid: int) -> bool:
+    try:
+        os.killpg(pgid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _stop_group(proc: subprocess.Popen[str]) -> None:
+    """SIGTERM the engine's process group, then SIGKILL whatever survives."""
+    for sig, grace in ((signal.SIGTERM, 15.0), (signal.SIGKILL, 10.0)):
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(proc.pid, sig)
+        deadline = time.monotonic() + grace
+        while time.monotonic() < deadline:
+            proc.poll()  # reap the leader so it does not linger as a zombie
+            if not _group_alive(proc.pid):
+                break
+            time.sleep(0.05)
+        else:
+            continue
+        break
+    with contextlib.suppress(subprocess.TimeoutExpired):
+        proc.communicate(timeout=1.0)
+
+
 def run_engine(
     cmd: list[str], *, port: Port, env: dict[str, str] | None, timeout: float
 ) -> str:
@@ -144,16 +173,11 @@ def run_engine(
     try:
         stdout, stderr = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired as error:
-        # Stop the whole engine process tree (MFA spawns children) and wait for
-        # it, so callers holding the MFA lock only release it once it is gone.
-        for sig, grace in ((signal.SIGTERM, 15.0), (signal.SIGKILL, None)):
-            with contextlib.suppress(ProcessLookupError):
-                os.killpg(proc.pid, sig)
-            try:
-                proc.communicate(timeout=grace)
-                break
-            except subprocess.TimeoutExpired:
-                continue
+        # Stop the whole engine process tree (MFA spawns children) and wait until
+        # no member of the group is left, so callers holding the MFA lock only
+        # release it once every engine process is gone. The wrapper exiting is
+        # not enough: a child can ignore SIGTERM and outlive it.
+        _stop_group(proc)
         raise PortRefusal(
             port, "timeout", "Engine run timed out.", retryable=True
         ) from error

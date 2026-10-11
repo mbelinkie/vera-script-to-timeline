@@ -174,3 +174,54 @@ def test_bad_language_and_missing_files_are_sanitised_refusals(
         capsys,
     )
     assert code == REFUSED and "secret-folder" not in json.dumps(out)
+
+
+def test_resolve_bad_audio_and_corrupt_script_are_sanitised_refusals(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    audio = wav(tmp_path / "a.wav")
+    caps = tmp_path / "a.json3"
+    caps.write_text(json.dumps(JSON3))
+    rec = tmp_path / "rec.json"
+    code = main(
+        [
+            "recognise",
+            "--engine",
+            "youtube",
+            "--audio",
+            str(audio),
+            "--captions",
+            str(caps),
+            "--out",
+            str(rec),
+        ]
+    )
+    assert code == 0
+    script = tmp_path / "secret-folder-script.txt"
+    script.write_bytes(b"Kaj is \xff three")
+    code, out = run(
+        [
+            "reconcile",
+            "--recognition",
+            str(rec),
+            "--script",
+            str(script),
+            "--dictionary",
+            str(script),
+        ],
+        capsys,
+    )
+    assert code == REFUSED and out["code"] == "input-invalid"
+    assert "secret-folder" not in json.dumps(out)
+    stereo = tmp_path / "secret-folder-stereo.wav"
+    with wave.open(str(stereo), "wb") as w:
+        w.setnchannels(2)
+        w.setsampwidth(2)
+        w.setframerate(16000)
+        w.writeframes(b"\x00\x00" * 3200)
+    for bad in (stereo, tmp_path / "secret-folder" / "missing.wav"):
+        code, out = run(
+            ["resolve", "--alignment", str(rec), "--audio", str(bad)], capsys
+        )
+        assert code == REFUSED and out["schemaVersion"] == "port-refusal/v1"
+        assert "secret-folder" not in json.dumps(out)

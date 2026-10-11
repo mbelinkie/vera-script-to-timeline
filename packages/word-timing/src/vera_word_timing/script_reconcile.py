@@ -39,12 +39,16 @@ PARAMS = {
     "ratio": SOUNDALIKE_RATIO,
     "nearby": NEARBY,
 }
+NOUN_CAPITALISING = {"de", "lb"}  # languages that capitalise common nouns
 TOKEN = re.compile(r"\((?:on|off)\)|\[[^\]]+\]|[“\"][^”\"]+[”\"]|[^\s]+")
 
 
-def load_dictionary_words(text: str) -> set[str]:
-    """Headwords of an MFA/ARPA pronunciation dictionary."""
-    return {line.split()[0].casefold() for line in text.splitlines() if line.strip()}
+def load_dictionary_words(text: str, language: str = "en") -> set[str]:
+    """Headwords of an MFA/ARPA pronunciation dictionary, folded like the tokens
+    they are compared with (`normalise_token`: casefold for English, `lower()`
+    elsewhere so "straße" stays distinct from "strasse")."""
+    fold = str.casefold if language.split("-")[0] == "en" else str.lower
+    return {fold(line.split()[0]) for line in text.splitlines() if line.strip()}
 
 
 @dataclass(frozen=True)
@@ -59,24 +63,27 @@ class Prompter:
     words: list[dict[str, Any]]
     restart_points: list[int]
     keyterms: list[str]
+    language: str = "en"
 
     def units(self) -> list[ScriptUnit]:
-        # Positive name evidence only: a capitalised keyterm word, a pronunciation
-        # guide, or a capitalised word missing from the dictionary. Dictionary
-        # absence alone (a lowercase "working") never makes a word a name.
+        # Positive name evidence only: a pronunciation guide, or a word the script
+        # capitalises somewhere other than at a sentence start. Sentence-initial
+        # capitals ("Working home.") and dictionary absence alone never make a
+        # word a name. German capitalises every noun, so there a capital also
+        # needs the word to be missing from the dictionary.
+        nouns_capitalised = self.language.split("-")[0] in NOUN_CAPITALISING
         names = {
-            t.casefold()
-            for term in self.keyterms
-            for t in term.split()
-            if t[:1].isupper()
+            w["display"].casefold()
+            for w in self.words
+            if w["capitalised"]
+            and not w["sentenceStart"]
+            and w["display"] not in ("I", "I'm")
+            and not (w["display"].isupper() and w["inDictionary"])
+            and not (nouns_capitalised and w["inDictionary"])
         }
         out = []
         for w in self.words:
-            is_name = (
-                w["display"].casefold() in names
-                or "guide" in w
-                or (not w["inDictionary"] and w["capitalised"])
-            )
+            is_name = w["display"].casefold() in names or "guide" in w
             out += [ScriptUnit(s, w["display"], is_name) for s in w["spoken"]]
         return out
 
@@ -147,7 +154,7 @@ def parse_prompter(text: str, dictionary: set[str], language: str = "en") -> Pro
     for w in words:
         if not w["inDictionary"]:
             add(w["display"])
-    return Prompter(words, restarts, keyterms)
+    return Prompter(words, restarts, keyterms, language)
 
 
 def sound_key(word: str) -> str:
@@ -231,7 +238,7 @@ def align_to_script(hyp: list[str], script: list[ScriptUnit]) -> list[int | None
 def reconcile(recognition: Json, script_text: str, dictionary_text: str) -> Json:
     """ScriptReconciliationV1 for a recognition artifact. Times are untouched."""
     language = recognition["identity"]["language"]
-    dictionary = load_dictionary_words(dictionary_text)
+    dictionary = load_dictionary_words(dictionary_text, language)
     script = parse_prompter(script_text, dictionary, language).units()
     heard: list[tuple[int, int, str]] = []
     for t in recognition["tokens"]:

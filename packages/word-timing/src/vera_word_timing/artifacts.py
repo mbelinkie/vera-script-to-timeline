@@ -303,7 +303,9 @@ def schema_errors(doc: Json) -> list[str]:
     validator = _validators().get(str(doc.get("schemaVersion")))
     if validator is None:
         return [f"unknown schemaVersion {doc.get('schemaVersion')!r}"]
-    return [
+    errors = [
         f"{'/'.join(map(str, e.path)) or '<root>'}: {e.message}"
         for e in validator.iter_errors(doc)
-    ] + semantic_errors(doc)
+    ]
+    # Semantic rules assume the structure the schema guarantees.
+    return errors or semantic_errors(doc)

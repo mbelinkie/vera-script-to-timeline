@@ -70,11 +70,14 @@ def _read(path: Path) -> Json:
 
 
 def _read_text(path: Path) -> str:
+    """Strict UTF-8: a corrupted script must refuse, not silently lose words."""
     try:
-        return path.read_text(encoding="utf-8", errors="ignore")
-    except OSError as error:
+        return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
         raise PortRefusal(
-            "aligner", "input-invalid", "An input file is missing or unreadable."
+            "aligner",
+            "input-invalid",
+            "An input file is missing, unreadable or not UTF-8 text.",
         ) from error
 
 
@@ -150,11 +153,16 @@ def _agree(a: argparse.Namespace) -> Any:
 def _resolve(a: argparse.Namespace) -> Any:
     from vera_word_timing.resolve_review import Loudness, resolve
 
-    resolutions = resolve(
-        _read(a.alignment),
-        Loudness(a.audio),
-        _read(a.recognition) if a.recognition else None,
-    )
+    alignment = _read(a.alignment)
+    recognition = _read(a.recognition) if a.recognition else None
+    _audio(a.audio)  # refuses a missing or non-WAV file
+    try:
+        loudness = Loudness(a.audio)
+    except (OSError, EOFError, wave.Error, ValueError) as error:
+        raise PortRefusal(
+            "aligner", "input-invalid", "Audio must be 16-bit mono WAV."
+        ) from error
+    resolutions = resolve(alignment, loudness, recognition)
     return {
         "schemaVersion": "boundary-resolutions/v0",
         "resolutions": [asdict(r) for r in resolutions],
@@ -224,11 +232,11 @@ def main(argv: list[str] | None = None) -> int:
     except (KeyError, ValueError, TypeError) as error:
         # Expected shape problems (e.g. resolve without an agreement block):
         # a sanitised refusal, never a traceback with private paths.
-        refusal = PortRefusal(
+        shape = PortRefusal(
             port, "input-invalid", "The inputs do not fit this command."
         )
-        refusal.__cause__ = error
-        result, code = refusal.record(), REFUSED
+        shape.__cause__ = error
+        result, code = shape.record(), REFUSED
     text = json.dumps(result, ensure_ascii=False, indent=1)
     if args.out and code == 0:
         try:
