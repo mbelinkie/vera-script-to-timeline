@@ -213,3 +213,7 @@ in git.
   sv 8.6%, fr 11.4%, de 17.2% WER; 57–76 s per 4-min window (whisper
   272–357 s). Recommended Research recogniser for non-English; Parakeet for
   English. Model: istupakov/canary-1b-v2-onnx@5ebc152 (CC-BY-4.0).
+- European alignment agreement (MFA 3.0.0 de/fr/sv models; Qwen with a
+  configurable language in image vera-wt2-qwen:2): agree within 70 ms fr
+  94.4%, de 89.3%, sv 74.4% (English baseline 93–97%); Italian Qwen-only.
+  fr/de usable like English; sv and it need a key or a second aligner.

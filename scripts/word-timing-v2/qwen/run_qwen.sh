@@ -4,7 +4,7 @@
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 DATA="${VERA_WT_DATA:-$HOME/.local/share/vera/word-timing-v2}"
-IMG=vera-wt2-qwen:1
+IMG=${VERA_QWEN_IMAGE:-vera-wt2-qwen:1}
 mkdir -p "$DATA/cache/hf"
 docker image inspect "$IMG" >/dev/null 2>&1 || docker build --platform linux/amd64 -t "$IMG" "$HERE"
 abs() { (cd "$1" && pwd); }
@@ -18,7 +18,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 SEGD=$(abs "$(dirname "$SEG")"); OUTD=$(abs "$(dirname "$OUT")"); AUDD=$(abs "$AUD")
-exec docker run --rm --platform linux/amd64 \
+exec docker run --rm --platform linux/amd64 ${VERA_QWEN_LANGUAGE:+-e VERA_QWEN_LANGUAGE="$VERA_QWEN_LANGUAGE"} \
   -v "$SEGD":/in/seg:ro -v "$AUDD":/in/audio:ro -v "$OUTD":/out -v "$DATA/cache/hf":/cache/hf \
   "$IMG" --segments "/in/seg/$(basename "$SEG")" --audio-dir /in/audio \
   --out "/out/$(basename "$OUT")" ${VAR:+--variant "$VAR"}

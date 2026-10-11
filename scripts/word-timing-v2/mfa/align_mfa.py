@@ -38,6 +38,16 @@ VARIANTS = {
         g2p="english_us_mfa",
         versions={"acoustic": "3.1.0", "dictionary": "3.1.0", "g2p": "3.0.0"},
     ),
+    # European-language check (Research): MFA 3.0.0 models, downloaded 2026-10-10.
+    **{
+        f"{lang}_mfa": dict(
+            acoustic=f"{lang}_mfa",
+            dictionary=f"{lang}_mfa",
+            g2p=f"{lang}_mfa",
+            versions={"acoustic": "3.0.0", "dictionary": "3.0.0", "g2p": "3.0.0"},
+        )
+        for lang in ("german", "french", "swedish")
+    },
 }
 
 

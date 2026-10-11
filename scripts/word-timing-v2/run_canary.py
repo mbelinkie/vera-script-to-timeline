@@ -74,6 +74,10 @@ def main() -> None:
             "segments": len(segments),
             "wallSeconds": round(wall, 1),
             "text": " ".join(t for t in texts if t),
+            "perSegment": [
+                {"start": round(s, 3), "end": round(e, 3), "text": t}
+                for (s, e), t in zip(segments, texts, strict=True)
+            ],
         },
         open(a.out, "w"),
         ensure_ascii=False,

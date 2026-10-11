@@ -239,6 +239,24 @@ window (1:00–5:00) per talk; `eu_wer.py`.
   only if German/French accuracy must be maximal and speed does not matter). Word timing in these languages also needs MFA language models
   (available for German, French, Swedish; not Italian or Finnish). No
   Finnish talk with Finnish captions was found yet.
+- **Word timing in these languages** (`eu_align.py`; Canary text, same
+  segments for both aligners, no per-word answer key, so this is aligner
+  *agreement*, which tracked accuracy in English):
+
+  | Language | MFA vs Qwen agree within 70 ms | Median gap | Over 300 ms apart |
+  |---|---|---|---|
+  | English A / B (baseline) | 93.3% / 96.9% | 20 / 20 ms | 3.3% / 0.4% |
+  | French | 94.4% | 20 ms | 0.6% |
+  | German | 89.3% | 20 ms | 3.8% |
+  | Swedish | 74.4% | 30 ms | 8.3% |
+  | Italian | no MFA model; Qwen aligned 407/407 | — | — |
+
+  French and German look like English: MFA (3.0.0 language models) plus the
+  Qwen agreement check can be used as is. Swedish disagrees far more; Qwen's
+  model card does not list Swedish, so the partner is probably the weak side
+  and Swedish `needs_review` rates would be high. Italian has only one
+  aligner (no MFA model), so it has no safety net. Both need either a
+  per-word key or a second aligner before Research relies on them.
 - Engineering finding: a single unbroken speech region longer than 30 s
   (German talk) breaks segment grouping; segments must be split.
 
