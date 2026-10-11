@@ -203,3 +203,9 @@ in git.
 - 2026-10-10: Producer approved the #168 schemas (decision 1). All four #168
   decisions are now approved. Next: move them into `/contracts` with
   generated types (on the #45 branch), per AGENTS.md contract-change rules.
+- European-language check (Producer-approved downloads; 4 TEDx talks, human
+  captions as reference, 1:00–5:00 window): WER Parakeet / whisper-turbo
+  (forced language): it 2.9/1.5, sv 13.5/10.0, fr 24.6/6.1, de 54.6/15.5.
+  Parakeet's automatic language choice decodes parts of German as English.
+  Next candidate: Canary-1B v2 (forceable language). Long unbroken speech
+  regions (> 30 s) must be split before recognition.

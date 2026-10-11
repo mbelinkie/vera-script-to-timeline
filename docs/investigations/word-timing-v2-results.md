@@ -208,6 +208,35 @@ transcript on the cleaned audio, so only the audio changes.
 - The #168 draft binds AudioPrep per stage, so a product can keep cleaned
   audio for the edit while recognition and alignment read the original.
 
+## European languages (Research; recognition only)
+
+Public TEDx talks with same-language human captions as the reference (may be
+lightly edited, so WER is pessimistic for both systems); the same 4-minute
+window (1:00–5:00) per talk; `eu_wer.py`.
+
+| Language | Parakeet v3 (auto language) | whisper large-v3-turbo (language forced) |
+|---|---|---|
+| Italian | 2.9% | 1.5% |
+| Swedish | 13.5% | 10.0% |
+| French | 24.6% | 6.1% |
+| German | 54.6% | 15.5% |
+
+- **Parakeet v3 cannot be told the language** and sometimes decodes stretches
+  as English (German: "sure if it's this is what john the rhymes wanted" for
+  *"bin mir nicht sicher ob es das ist was Shonda Rhimes wollte"*). Fine for
+  English and some languages, unreliable for others.
+- **whisper with a forced language is much better here**, but slower (~4.5–6
+  min per 4-min window on this Intel Mac) and it collapses repeated takes
+  (A: 33.9% WER), which matters for presenter footage, less for Research.
+- YouTube auto-captions could not serve as a baseline: on videos with human
+  captions, the same-language "auto" track is derived from them (0% "WER").
+- Next candidate: NVIDIA Canary-1B v2 (same 25 languages, language can be
+  forced). Word timing in these languages also needs MFA language models
+  (available for German, French, Swedish; not Italian or Finnish). No
+  Finnish talk with Finnish captions was found yet.
+- Engineering finding: a single unbroken speech region longer than 30 s
+  (German talk) breaks segment grouping; segments must be split.
+
 ## Narration (AWS Polly) word ends
 
 VERA narration uses Polly neural voices, whose speech marks give word
