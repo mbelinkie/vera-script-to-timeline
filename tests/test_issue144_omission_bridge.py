@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+import pytest
 from test_issue144_row_narration import _setup
 from vera_timeline_agent.roundtrip_build import (
     ROOT,
@@ -14,6 +15,8 @@ from vera_timeline_agent.roundtrip_build import (
 )
 from vera_timeline_agent.roundtrip_narration import replace_row_narration
 from vera_timeline_agent.roundtrip_proof import ProofSession
+
+pytestmark = pytest.mark.slow
 
 
 def _canonical_hash(node: str, path: Path) -> str:

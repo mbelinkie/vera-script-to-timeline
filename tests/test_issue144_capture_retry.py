@@ -9,6 +9,7 @@ from vera_timeline_agent.roundtrip_build import ProofBuildError, _digest, _recei
 from vera_timeline_agent.roundtrip_proof import ProofSession
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("malformed", [False, True])
 def test_semantic_refusal_is_terminal_and_next_attempt_reads_fresh_nonce(
     tmp_path: Path,

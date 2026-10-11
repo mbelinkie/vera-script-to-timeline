@@ -12,8 +12,11 @@ import wave
 from pathlib import Path
 from typing import Any
 
+import pytest
 from vera_timeline_agent.roundtrip_audio import verify_omission_evidence
 from vera_timeline_agent.roundtrip_build import ROOT, _digest, _receipt_bytes
+
+pytestmark = pytest.mark.slow
 
 KIT = "out/issue149-workflow-reruns-20261002-kit-01"
 

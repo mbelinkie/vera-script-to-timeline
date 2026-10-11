@@ -7,3 +7,9 @@ Implement only one Ready issue in one dedicated `claude/<issue>-<slug>` branch/w
 Record prerequisites under `## Dependencies` as one `- Blocked by #123` or `- Blocked by owner/repo#123` line per issue, or `None`. Parent/sub-issue hierarchy does not imply execution order. Promote work only through `npm run roadmap -- ready <issue>`; both that command and `claim` require every dependency to be closed and `Done` on its own VERA roadmap. For design-first work, keep implementation in Backlog or Blocked until the accepted design issue is Done.
 
 Merged or agent-complete code remains `In review` until every required automated, listening, visual, Resolve, and producer-acceptance gate passes. Never infer acceptance from an implementation report.
+
+Follow the validation target rules in `AGENTS.md`'s slice ritual: use
+`npm run validate:fast` during implementation, relevant slow tests serially for
+affected integrations, and `VITEST_MAX_WORKERS=1 npm run validate` for acceptance
+and agent handoffs. Never run the full gate alongside other heavy work; check
+`pgrep -fl "npm run validate|pytest"` and wait for other test runs to finish.

@@ -30,7 +30,9 @@
     "validate:script": "node packages/contracts/src/script-validator-cli.ts",
     "export:prompter": "node packages/contracts/src/prompter-export-cli.ts",
     "check:python": "npm run lint:python && npm run typecheck:python && npm run test:python",
-    "validate": "npm run check:contracts-generated && npm run check:typescript && npm run check:python"
+    "validate": "npm run check:contracts-generated && npm run check:typescript && npm run check:python",
+    "test:python:fast": "uv run --frozen pytest -m \"not slow\" -n 2",
+    "validate:fast": "npm run check:contracts-generated && npm run check:typescript && npm run lint:python && npm run typecheck:python && npm run test:python:fast"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

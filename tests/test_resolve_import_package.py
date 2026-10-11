@@ -94,6 +94,7 @@ def _inputs(tmp_path: Path) -> tuple[Path, Path, Path]:
     return manifest_path, report_path, plan_path
 
 
+@pytest.mark.slow
 def test_builds_verifies_and_exactly_reuses_one_project(tmp_path: Path) -> None:
     manifest_path, report_path, plan_path = _inputs(tmp_path)
     project = tmp_path / "Authoring Project"
@@ -172,6 +173,7 @@ def test_refuses_noncanonical_or_inconsistent_compiler_artifacts(
         )
 
 
+@pytest.mark.slow
 def test_refuses_linked_origins_and_detects_package_tampering(tmp_path: Path) -> None:
     manifest_path, report_path, plan_path = _inputs(tmp_path)
     plan = _load(plan_path)
@@ -197,6 +199,7 @@ def test_refuses_linked_origins_and_detects_package_tampering(tmp_path: Path) ->
         verify_resolve_import_package(result.project_root)
 
 
+@pytest.mark.slow
 def test_cli_reports_ready_to_import_json(tmp_path: Path) -> None:
     manifest_path, report_path, plan_path = _inputs(tmp_path)
     project = tmp_path / "cli-project"

@@ -9,6 +9,8 @@ from test_issue144_proof_session import _visual_inputs
 from vera_timeline_agent.roundtrip_driver import main
 from vera_timeline_agent.roundtrip_wi import file_hash
 
+pytestmark = pytest.mark.slow
+
 WORLDS: dict[str, Any] = {}
 
 

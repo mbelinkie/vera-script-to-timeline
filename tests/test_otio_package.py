@@ -89,6 +89,7 @@ def test_handcrafted_manifest_is_schema_valid_and_has_acceptance_shape() -> None
     ]
 
 
+@pytest.mark.slow
 def test_builds_and_parse_verifies_self_contained_package(tmp_path: Path) -> None:
     manifest = load_handcrafted_manifest()
     output = tmp_path / "resolve-import-package"
@@ -128,6 +129,7 @@ def test_builds_and_parse_verifies_self_contained_package(tmp_path: Path) -> Non
         assert f"sha256:{sha256(copied)}" == source["contentHash"]
 
 
+@pytest.mark.slow
 def test_otio_matches_manifest_event_for_event_without_transitions(
     tmp_path: Path,
 ) -> None:
@@ -215,6 +217,7 @@ def test_otio_matches_manifest_event_for_event_without_transitions(
     )
 
 
+@pytest.mark.slow
 def test_marker_and_build_report_are_complete_and_faithful(tmp_path: Path) -> None:
     manifest = load_handcrafted_manifest()
     output = tmp_path / "package"
@@ -267,6 +270,7 @@ def test_marker_and_build_report_are_complete_and_faithful(tmp_path: Path) -> No
     assert "Slice 0.3" in instructions
 
 
+@pytest.mark.slow
 def test_output_is_byte_deterministic_and_track_map_is_configurable(
     tmp_path: Path,
 ) -> None:
@@ -319,6 +323,7 @@ def test_output_is_byte_deterministic_and_track_map_is_configurable(
     assert "A1" not in adjusted_instructions
 
 
+@pytest.mark.slow
 def test_verifier_rejects_a_schema_valid_but_incomplete_report(tmp_path: Path) -> None:
     output = tmp_path / "package"
     build_otio_package(HANDCRAFTED_MANIFEST, MEDIA_ROOT, output)
@@ -334,6 +339,7 @@ def test_verifier_rejects_a_schema_valid_but_incomplete_report(tmp_path: Path) -
         verify_otio_package(output)
 
 
+@pytest.mark.slow
 def test_verifier_compares_parsed_otio_timing_not_duplicated_metadata(
     tmp_path: Path,
 ) -> None:
@@ -361,6 +367,7 @@ def test_verifier_compares_parsed_otio_timing_not_duplicated_metadata(
         verify_otio_package(output)
 
 
+@pytest.mark.slow
 def test_verifier_rejects_external_symlink_and_hard_link_media(
     tmp_path: Path,
 ) -> None:
@@ -430,6 +437,7 @@ def target_incompatible_track(manifest: dict[str, Any]) -> None:
     manifest["events"][-1]["trackId"] = "video-primary"
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     ("mutation", "message"),
     [
@@ -470,6 +478,7 @@ def test_refuses_to_replace_an_existing_output_directory(tmp_path: Path) -> None
     assert sentinel.read_text(encoding="utf-8") == "do not delete"
 
 
+@pytest.mark.slow
 def test_idempotently_reuses_the_same_verified_output(tmp_path: Path) -> None:
     output = tmp_path / "package"
     first = build_otio_package(HANDCRAFTED_MANIFEST, MEDIA_ROOT, output)
@@ -489,6 +498,7 @@ def test_idempotently_reuses_the_same_verified_output(tmp_path: Path) -> None:
     assert after == before
 
 
+@pytest.mark.slow
 def test_documented_cli_generates_and_verifies_package(tmp_path: Path) -> None:
     output = tmp_path / "cli-package"
     result = subprocess.run(

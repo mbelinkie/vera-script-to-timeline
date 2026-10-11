@@ -1,0 +1,54 @@
+[
+  {
+    "name": "full",
+    "command": "VITEST_MAX_WORKERS=1 npm run validate",
+    "pytest_addopts": "--durations=0 --junitxml=/tmp/vera184-validation/full.xml",
+    "started": "2026-10-11T00:40:40.216932-04:00",
+    "seconds": 3030.9918677809765,
+    "exit_code": 0,
+    "python_tests": 419,
+    "python_seconds": 2975.898,
+    "output": "full-output.txt",
+    "output_sha256": "554f97aea8816108c6c5c28ec6cb665811a481e68f9d972e233a18044208e499",
+    "typescript_tests": 274
+  },
+  {
+    "name": "fast-1",
+    "command": "VITEST_MAX_WORKERS=1 npm run validate:fast",
+    "pytest_addopts": "--durations=0 --junitxml=/tmp/vera184-validation/fast-1.xml",
+    "started": "2026-10-11T01:31:11.357859-04:00",
+    "seconds": 99.7908427080256,
+    "exit_code": 0,
+    "python_tests": 237,
+    "python_seconds": 49.912,
+    "output": "fast-1-output.txt",
+    "output_sha256": "64bafc7e5d78425ec301c0dedc5465ccf8f178f38ee84e1eb1a90753be1701e5",
+    "typescript_tests": 274
+  },
+  {
+    "name": "fast-2",
+    "command": "VITEST_MAX_WORKERS=1 npm run validate:fast",
+    "pytest_addopts": "--durations=0 --junitxml=/tmp/vera184-validation/fast-2.xml",
+    "started": "2026-10-11T01:32:51.213031-04:00",
+    "seconds": 97.87672378896968,
+    "exit_code": 0,
+    "python_tests": 237,
+    "python_seconds": 47.979,
+    "output": "fast-2-output.txt",
+    "output_sha256": "3e1b859b661e41cc9ba176ae6c221a6ca393e149552e02cc383c86096d7094fb",
+    "typescript_tests": 274
+  },
+  {
+    "name": "fast-3",
+    "command": "VITEST_MAX_WORKERS=1 npm run validate:fast",
+    "pytest_addopts": "--durations=0 --junitxml=/tmp/vera184-validation/fast-3.xml",
+    "started": "2026-10-11T01:34:29.152157-04:00",
+    "seconds": 103.49055417696945,
+    "exit_code": 0,
+    "python_tests": 237,
+    "python_seconds": 49.407,
+    "output": "fast-3-output.txt",
+    "output_sha256": "1c51bac2cba1309f0dc2c8fd3f15467899e9b25efd9b78d5082433ecedf81e28",
+    "typescript_tests": 274
+  }
+]

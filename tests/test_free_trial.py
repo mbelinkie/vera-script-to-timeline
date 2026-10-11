@@ -19,6 +19,8 @@ from vera_timeline_agent.free_trial import (
 )
 from vera_timeline_agent.otio_package import PackageBuildError, verify_otio_package
 
+pytestmark = pytest.mark.slow
+
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "tests/data/slice_0_2/timeline-manifest.json"
 MEDIA_ROOT = ROOT / "fixtures"

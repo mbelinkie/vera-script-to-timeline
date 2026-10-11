@@ -14,6 +14,13 @@ acceptance record, not a live tracker.
   producer acceptance steps before implementation.
 - Work test-first where practical. Compiler-touching slices require
   byte-identical golden-file tests from frozen fixtures.
+- Use `npm run validate:fast` during implementation iterations (all lint, types,
+  generated-currentness, TypeScript tests, and non-slow Python tests with two
+  workers). Run relevant slow tests serially when changing their code. Use
+  `VITEST_MAX_WORKERS=1 npm run validate` for acceptance, CI, and agent handoffs;
+  fast validation alone never supplies full acceptance evidence. Never run the
+  full gate alongside other heavy work: check
+  `pgrep -fl "npm run validate|pytest"` and wait for other test runs to finish.
 - Finish with passing checks, a plain-language walkthrough and judgment calls,
   and the producer acceptance checklist.
 - The GitHub Project's `Acceptance` field names the closing authority. For

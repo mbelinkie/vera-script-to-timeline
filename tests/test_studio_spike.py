@@ -214,6 +214,7 @@ def test_custom_bundle_does_not_inherit_system_package_receipt(
     assert facts.install_source == "unknown_non_mas"
 
 
+@pytest.mark.slow
 def test_free_never_constructs_or_invokes_resolve_adapter(
     package: Path, standard_local: LocalFacts
 ) -> None:
@@ -227,6 +228,7 @@ def test_free_never_constructs_or_invokes_resolve_adapter(
     assert "not imported, connected, or invoked" in result.message
 
 
+@pytest.mark.slow
 def test_studio_rejects_nonzero_timeline_start_before_connection(
     tmp_path: Path, standard_local: LocalFacts
 ) -> None:
@@ -256,6 +258,7 @@ def test_studio_rejects_nonzero_timeline_start_before_connection(
     assert "frame-zero" in result.message
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     ("changes", "needle"),
     [
@@ -302,6 +305,7 @@ def test_local_safety_stops_before_adapter_factory(
     assert needle in result.message
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "connected",
     [
@@ -327,6 +331,7 @@ def test_connected_safety_stops_after_observation_but_before_mutation(
     assert [call[0] for call in adapter.calls] == ["connected_facts"]
 
 
+@pytest.mark.slow
 def test_connection_and_probe_failures_are_actionable_and_nonmutating(
     package: Path, standard_local: LocalFacts
 ) -> None:
@@ -420,6 +425,7 @@ def test_vendor_bridge_failed_import_restores_prior_sys_modules_entry(
     assert sys.modules[module_name] is prior
 
 
+@pytest.mark.slow
 def test_preflight_is_nonmutating_and_surfaces_public_api_gap(
     package: Path, standard_local: LocalFacts
 ) -> None:
@@ -439,6 +445,7 @@ def test_preflight_is_nonmutating_and_surfaces_public_api_gap(
     assert "cannot enumerate the local stock" in result.manual_completion[0]
 
 
+@pytest.mark.slow
 def test_preflight_rejects_resolve_version_without_template_validation(
     package: Path, standard_local: LocalFacts
 ) -> None:
@@ -505,6 +512,7 @@ def test_public_adapter_rejects_malformed_documented_version_fields(
         PublicResolveAdapter(Resolve()).connected_facts()
 
 
+@pytest.mark.slow
 def test_project_name_collision_stops_before_mutation(
     package: Path, standard_local: LocalFacts
 ) -> None:
@@ -530,6 +538,7 @@ def test_project_name_collision_stops_before_mutation(
     ]
 
 
+@pytest.mark.slow
 def test_success_has_exact_order_frames_settings_tracks_marker_and_reopen(
     package: Path, standard_local: LocalFacts
 ) -> None:
@@ -598,6 +607,7 @@ def test_success_has_exact_order_frames_settings_tracks_marker_and_reopen(
     assert result.title_placement.duration_frames == 72
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     ("arguments", "message"),
     [
@@ -629,6 +639,7 @@ def test_invalid_text_plus_request_stops_before_connection(
     assert adapter.calls == []
 
 
+@pytest.mark.slow
 def test_text_plus_track_and_duration_overrides_flow_to_adapter(
     package: Path, standard_local: LocalFacts
 ) -> None:
@@ -660,6 +671,7 @@ def test_text_plus_track_and_duration_overrides_flow_to_adapter(
     assert json.loads(custom)["markerId"] == marker["id"]
 
 
+@pytest.mark.slow
 def test_verification_discrepancies_remain_explicit(
     package: Path, standard_local: LocalFacts
 ) -> None:
@@ -676,6 +688,7 @@ def test_verification_discrepancies_remain_explicit(
     assert result.discrepancies == ("video track 3 count mismatch",)
 
 
+@pytest.mark.slow
 def test_adjusted_manifest_settings_and_track_map_flow_without_constants(
     tmp_path: Path, standard_local: LocalFacts
 ) -> None:
@@ -709,6 +722,7 @@ def test_adjusted_manifest_settings_and_track_map_flow_without_constants(
     assert tracks[5]["name"] == "Temporary voice — adjusted"
 
 
+@pytest.mark.slow
 def test_post_mutation_failure_reports_possible_partial_project(
     package: Path, standard_local: LocalFacts
 ) -> None:
