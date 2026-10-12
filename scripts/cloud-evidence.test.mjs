@@ -84,7 +84,12 @@ function scenario() {
   const profile = approve({
     schemaVersion: 2,
     command: VALIDATE_COMMAND,
-    calibration: { runs: [{ runId: 4000, attempt: 1, tree: TREE }] },
+    calibration: {
+      runs: [
+        { runId: 4000, attempt: 1, tree: TREE },
+        { runId: 4000, attempt: 2, tree: TREE },
+      ],
+    },
     controls,
     tools: { runtime: { ...runtime }, media: { ...media }, runnerImage: { ...runnerImage } },
     acceptedRunnerImages: ["20261005.1"],
@@ -229,6 +234,23 @@ test("rejects malformed profiles before they can judge a run", () => {
     input.profile.calibration = { runs: [] };
     approve(input.profile);
   }, "malformed-profile");
+  // Qualification needs two distinct complete runs on the same tree.
+  for (const runs of [
+    [{ runId: 4000, attempt: 1, tree: TREE }],
+    [
+      { runId: 4000, attempt: 1, tree: TREE },
+      { runId: 4000, attempt: 1, tree: TREE },
+    ],
+    [
+      { runId: 4000, attempt: 1, tree: TREE },
+      { runId: 4001, attempt: 1, tree: sha("0") },
+    ],
+  ]) {
+    assertRejected((input) => {
+      input.profile.calibration = { runs };
+      approve(input.profile);
+    }, "profile-unqualified");
+  }
   assert.deepEqual(profileProblems(scenario().profile), []);
 });
 
@@ -366,8 +388,13 @@ test("rejects unqualified pytest skips, failures and reporter-altered collection
     input.manifest.inventory.pytest.collectedIds = [PYTEST_IDS[0]];
   }, "reporter-collection-mismatch");
 
+  assertRejected((input) => {
+    input.manifest.inventory.pytest.counts.skipped = 1;
+  }, "incomplete-collection");
+
   const allowed = scenario();
   allowed.manifest.inventory.pytest.notPassed = [skipped];
+  Object.assign(allowed.manifest.inventory.pytest.counts, { passed: 1, skipped: 1 });
   allowed.profile.skipAllowlist = [{ id: PYTEST_IDS[0], reason: "approved exception" }];
   approve(allowed.profile);
   assert.equal(evaluateCloudEvidence(allowed).status, "pass");
@@ -386,6 +413,10 @@ test("rejects runtime Vitest and node:test skips, todos and count disagreements"
   assertRejected((input) => {
     input.manifest.outcomes.vitest = [{ total: 2, passed: 2 }];
   }, "incomplete-collection");
+  // An outcome word the parser does not recognise still fails closed.
+  assertRejected((input) => {
+    input.manifest.outcomes.vitest = [{ total: 1 }];
+  }, "tests-not-passed");
   assertRejected((input) => {
     Object.assign(input.manifest.outcomes.node[0].counts, { pass: 0, skipped: 1 });
   }, "unqualified-skip");
@@ -729,7 +760,15 @@ test("the workflow defines every required step, the exact command and the artifa
   for (const match of workflow.matchAll(/uses: (\S+)/g)) assert.match(match[1], /@[0-9a-f]{40}$/);
 });
 
-function stubGitHub(input, { branchRuns = [], extraCommits = {} } = {}) {
+function branchPages(endpoint, runs, pageSize) {
+  const pages = [];
+  for (let index = 0; index * pageSize < runs.length; index += 1) {
+    pages.push([`${endpoint}&page=${index + 1}`, { total_count: runs.length, workflow_runs: runs.slice(index * pageSize, (index + 1) * pageSize) }]);
+  }
+  return pages;
+}
+
+function stubGitHub(input, { branchRuns = [], extraCommits = {}, pageSize = 100 } = {}) {
   const requests = [];
   const runs = `repos/${REPOSITORY}/actions/workflows/validate.yml/runs?per_page=100`;
   const responses = new Map([
@@ -739,11 +778,8 @@ function stubGitHub(input, { branchRuns = [], extraCommits = {} } = {}) {
     [`repos/${REPOSITORY}/git/commits/${MERGE}`, input.commit],
     [`repos/${REPOSITORY}/git/commits/${HEAD}`, { sha: HEAD, tree: { sha: HEAD_TREE } }],
     [`repos/${REPOSITORY}/git/trees/${TREE}?recursive=1`, input.tree],
-    [`${runs}&head_sha=${HEAD}`, { total_count: 1, workflow_runs: [input.run] }],
-    [
-      `${runs}&branch=${encodeURIComponent(input.run.head_branch)}`,
-      { total_count: 1 + branchRuns.length, workflow_runs: [input.run, ...branchRuns] },
-    ],
+    [`${runs}&head_sha=${HEAD}&page=1`, { total_count: 1, workflow_runs: [input.run] }],
+    ...branchPages(`${runs}&branch=${encodeURIComponent(input.run.head_branch)}`, [input.run, ...branchRuns], pageSize),
     ...Object.entries(extraCommits).map(([commitSha, treeSha]) => [
       `repos/${REPOSITORY}/git/commits/${commitSha}`,
       { sha: commitSha, tree: { sha: treeSha } },
@@ -764,6 +800,7 @@ test("gathers every earlier attempt on the same tested source, including recommi
   const { getJson, requests } = stubGitHub(input, {
     branchRuns: [recommit, unrelated],
     extraCommits: { [sha("6")]: HEAD_TREE, [sha("7")]: sha("8") },
+    pageSize: 2,
   });
   const facts = await gatherGitHubFacts(getJson, { repository: REPOSITORY, runId: RUN_ID, attempt: 2, manifestCommit: MERGE });
   assert.deepEqual(
@@ -783,12 +820,20 @@ test("refuses to evaluate a run history it could not read completely, or malform
   const input = scenario();
   const { getJson } = stubGitHub(input);
   const truncated = async (endpoint) => {
+    if (endpoint.includes("/workflows/") && !endpoint.endsWith("&page=1")) return { total_count: 150, workflow_runs: [] };
     const response = await getJson(endpoint);
     return endpoint.includes("/workflows/") ? { ...response, total_count: 150 } : response;
   };
   await assert.rejects(
     gatherGitHubFacts(truncated, { repository: REPOSITORY, runId: RUN_ID, attempt: 2, manifestCommit: MERGE }),
     /incomplete history/,
+  );
+  // A busy branch beyond the page cap is refused, never silently truncated.
+  const busy = Array.from({ length: 1001 }, (_, index) => ({ ...input.run, id: 3000 + index, head_sha: sha("6") }));
+  const { getJson: busyBranch } = stubGitHub(input, { branchRuns: busy, extraCommits: { [sha("6")]: sha("8") } });
+  await assert.rejects(
+    gatherGitHubFacts(busyBranch, { repository: REPOSITORY, runId: RUN_ID, attempt: 2, manifestCommit: MERGE }),
+    /page cap/,
   );
   const { getJson: untouched, requests } = stubGitHub(input);
   for (const malformed of [{ manifestCommit: "HEAD" }, { manifestCommit: undefined }, { repository: "x/../y/z" }, { attempt: 0 }]) {
@@ -851,6 +896,8 @@ test("CLI exits nonzero for unresolved history and zero once the failure is disp
   assert.equal(passing.code, 0);
   const report = JSON.parse(passing.logs[0]);
   assert.equal(report.accepted, true);
+  assert.equal(report.manifest.source, "local-file");
+  assert.match(report.manifest.sha256, /^[0-9a-f]{64}$/);
   assert.equal(report.acceptedDispositions.length, 1);
   assert.ok(report.steps.some((step) => step.name === "Run repository validation"));
 });

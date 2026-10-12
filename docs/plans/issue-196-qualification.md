@@ -82,7 +82,8 @@ The manifest records only what the run consumed:
   - at least one accepted runner image;
   - nonempty, unique pytest, Vitest and node:test inventories;
   - reasoned skip-allowlist entries;
-  - recorded calibration runs.
+  - recorded calibration runs. A qualified profile needs at least two
+    distinct calibration runs on the same tree.
 
   It must also be `qualified: true` with an approval that has `by`, an ISO
   `at` and a `reference`, and whose `profileDigest` equals the SHA-256 of the
@@ -112,7 +113,7 @@ The manifest records only what the run consumed:
   source is checked: the same head SHA, or the same branch with an identical
   head tree (a recommit). Each non-success attempt needs a disposition (class,
   explanation and evidence). Accepted dispositions are returned in the report
-  for the reviewer. Incomplete sibling runs and multi-page histories fail.
+  for the reviewer. Incomplete sibling runs fail. History is read page by page; anything beyond 10 × 100 runs fails rather than being truncated.
 - **Outcomes are complete and passing:**
   - pytest: zero failures and errors, every skip allowlisted, counts that
     match its IDs, and reporter parity;
@@ -215,8 +216,10 @@ and it is Mac-platform evidence, not Ubuntu.
 
 ## Remaining gates
 
-1. Required independent review of the delta against `98b9a614`, then fixes
-   and delta checks.
+1. Done: the required independent review of the delta against `98b9a614`
+   approved it with fixes. All four fixes are applied
+   ([independent-review.md](../verification/issue-196/independent-review.md)).
+   The delta checks are recorded there.
 2. Commit, push the branch and open a PR. This is authorized by the
    coordinator's instruction but blocked in this session by the auto-mode
    classifier.

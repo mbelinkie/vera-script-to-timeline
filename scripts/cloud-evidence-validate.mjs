@@ -10,6 +10,7 @@
 //     [--dispositions <file>] [--manifest <file>]
 
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -77,12 +78,18 @@ function readJson(filePath) {
   return JSON.parse(readFileSync(filePath, "utf8"));
 }
 
+// Records where the judged manifest came from and its exact bytes.
+function readManifest(filePath, source) {
+  const bytes = readFileSync(filePath);
+  return { manifest: JSON.parse(bytes.toString("utf8")), provenance: { source, sha256: createHash("sha256").update(bytes).digest("hex") } };
+}
+
 function loadManifest(options) {
-  if (options.manifest) return readJson(options.manifest);
+  if (options.manifest) return readManifest(options.manifest, "local-file");
   // Downloaded artifacts are untrusted data: fresh directory, parsed as JSON only.
   const directory = mkdtempSync(path.join(os.tmpdir(), "vera-cloud-evidence-"));
   gh(["run", "download", String(options.runId), "--repo", options.repo, "--name", `${ARTIFACT_PREFIX}${options.attemptNumber}`, "--dir", directory]);
-  return readJson(path.join(directory, "manifest.json"));
+  return readManifest(path.join(directory, "manifest.json"), `artifact ${ARTIFACT_PREFIX}${options.attemptNumber}`);
 }
 
 function deliveredTree(options) {
@@ -92,10 +99,11 @@ function deliveredTree(options) {
   return result.stdout.trim();
 }
 
-function summary(report, facts, manifest) {
+function summary(report, facts, manifest, manifestProvenance) {
   const job = facts.jobs.find((entry) => entry.name === JOB_NAME);
   return {
     ...report,
+    manifest: manifestProvenance,
     run: { url: facts.run.html_url, id: facts.run.id, attempt: facts.run.run_attempt, event: facts.run.event },
     testedTree: facts.commit.tree?.sha,
     testedCommit: facts.commit.sha,
@@ -112,7 +120,7 @@ function summary(report, facts, manifest) {
 export async function main(values, { getJson, log = console.log } = {}) {
   const options = parseArguments(values);
   const readGitHub = getJson ?? (async (endpoint) => JSON.parse(gh(["api", endpoint])));
-  const manifest = loadManifest(options);
+  const { manifest, provenance } = loadManifest(options);
   const facts = await gatherGitHubFacts(readGitHub, {
     repository: options.repo,
     runId: options.runId,
@@ -136,7 +144,7 @@ export async function main(values, { getJson, log = console.log } = {}) {
     assertExpectedShape(expected);
     const report = evaluateCloudEvidence({ expected, profile: draft, dispositions, manifest, options: { calibration: true }, ...facts });
     if (report.status !== "pass" || report.suspendedScopes.length > 0) {
-      log(JSON.stringify(summary(report, facts, manifest), null, 2));
+      log(JSON.stringify(summary(report, facts, manifest, provenance), null, 2));
       log("Refusing to draft a profile from a run that is not a clean, complete calibration.");
       return 1;
     }
@@ -155,7 +163,7 @@ export async function main(values, { getJson, log = console.log } = {}) {
   };
   const report = evaluateCloudEvidence({ expected, profile: readJson(options.profile), dispositions, manifest, ...facts });
   const accepted = scopeAccepted(report, options.scope);
-  log(JSON.stringify({ ...summary(report, facts, manifest), requestedScope: options.scope, accepted }, null, 2));
+  log(JSON.stringify({ ...summary(report, facts, manifest, provenance), requestedScope: options.scope, accepted }, null, 2));
   return accepted ? 0 : 1;
 }
 

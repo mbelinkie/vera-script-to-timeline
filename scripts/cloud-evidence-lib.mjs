@@ -306,6 +306,11 @@ export function profileProblems(profile, { requireApproval = true } = {}) {
     "calibration.runs must record each qualifying run, attempt and tree",
   );
   if (requireApproval) {
+    const runs = Array.isArray(calibration?.runs) ? calibration.runs : [];
+    need(
+      runs.length >= 2 && new Set(runs.map((run) => `${run.runId}:${run.attempt}`)).size === runs.length && new Set(runs.map((run) => run.tree)).size === 1,
+      "a qualified profile needs at least two distinct calibration runs on the same tree",
+    );
     need(profile.qualified === true, "profile is not marked qualified");
     const approval = profile.approval;
     need(
@@ -556,6 +561,9 @@ export function evaluateCloudEvidence({ expected, profile, run, jobs, commit, tr
     fail("incomplete-collection", "pytest inventory is missing or empty");
   } else {
     if (pytest.counts?.total !== pytest.ids.length) fail("incomplete-collection", "pytest counts disagree with its IDs");
+    if (pytest.counts?.skipped !== (pytest.notPassed ?? []).filter((entry) => entry.outcome === "skipped").length) {
+      fail("incomplete-collection", "pytest skip count disagrees with its skipped outcomes");
+    }
     if (pytest.counts?.failed !== 0 || pytest.counts?.errors !== 0) {
       fail("tests-not-passed", `pytest reported ${pytest.counts?.failed} failures and ${pytest.counts?.errors} errors`);
     }
@@ -582,6 +590,7 @@ export function evaluateCloudEvidence({ expected, profile, run, jobs, commit, tr
     let total = 0;
     for (const counts of vitestRuns) {
       total += counts.total ?? 0;
+      if (counts.passed !== counts.total) fail("tests-not-passed", `Vitest passed ${counts.passed} of ${counts.total}`);
       for (const [outcome, value] of Object.entries(counts)) {
         if (outcome === "total" || outcome === "passed" || value === 0) continue;
         fail(["skipped", "todo"].includes(outcome) ? "unqualified-skip" : "tests-not-passed", `Vitest reported ${value} ${outcome}`);
@@ -646,12 +655,20 @@ export function stepDurations(job) {
   }));
 }
 
-async function readRunsPage(getJson, endpoint) {
-  const page = await getJson(endpoint);
-  if ((page.total_count ?? 0) > (page.workflow_runs ?? []).length) {
-    throw new EvidenceError("Run history exceeds one page; refusing to evaluate an incomplete history");
+const MAX_HISTORY_PAGES = 10;
+
+// Reads every page of a filtered run listing; refuses beyond the cap rather
+// than evaluate an incomplete history.
+async function readRunsPages(getJson, endpoint) {
+  const runs = [];
+  for (let page = 1; page <= MAX_HISTORY_PAGES; page += 1) {
+    const response = await getJson(`${endpoint}&page=${page}`);
+    const batch = response.workflow_runs ?? [];
+    runs.push(...batch);
+    if (runs.length >= (response.total_count ?? 0)) return runs;
+    if (batch.length === 0) break;
   }
-  return page.workflow_runs ?? [];
+  throw new EvidenceError("Run history is incomplete or exceeds the page cap; refusing to evaluate an incomplete history");
 }
 
 // Reads every authoritative fact through a caller-supplied read-only JSON
@@ -675,8 +692,8 @@ export async function gatherGitHubFacts(getJson, { repository, runId, attempt, m
   };
   const runsEndpoint = `${base}/actions/workflows/validate.yml/runs?per_page=100`;
   const candidates = new Map();
-  for (const sibling of await readRunsPage(getJson, `${runsEndpoint}&head_sha=${run.head_sha}`)) candidates.set(sibling.id, sibling);
-  for (const sibling of await readRunsPage(getJson, `${runsEndpoint}&branch=${encodeURIComponent(run.head_branch)}`)) {
+  for (const sibling of await readRunsPages(getJson, `${runsEndpoint}&head_sha=${run.head_sha}`)) candidates.set(sibling.id, sibling);
+  for (const sibling of await readRunsPages(getJson, `${runsEndpoint}&branch=${encodeURIComponent(run.head_branch)}`)) {
     candidates.set(sibling.id, sibling);
   }
   const currentTree = await headTree(run.head_sha);
