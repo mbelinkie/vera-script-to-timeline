@@ -11,11 +11,12 @@ import { fileURLToPath } from "node:url";
 
 import {
   controlDigestsFromEntries,
-  findVitestSkipMarkers,
   MANIFEST_SCHEMA_VERSION,
   parseCollectOnly,
   parseJunit,
   parseLsTree,
+  parsePorcelain,
+  parseValidateLog,
   summarizePytest,
   VALIDATE_COMMAND,
 } from "./cloud-evidence-lib.mjs";
@@ -31,14 +32,13 @@ function sha256(data) {
   return createHash("sha256").update(data).digest("hex");
 }
 
-function makeRunner(root, errors) {
+function spawnCommand(command, args, options) {
+  return spawnSync(command, args, { ...options, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+}
+
+function makeRunner(root, errors, runCommand) {
   return function run(command, args, options = {}) {
-    const result = spawnSync(command, args, {
-      cwd: options.cwd ?? root,
-      encoding: "utf8",
-      env: options.env ?? process.env,
-      maxBuffer: 64 * 1024 * 1024,
-    });
+    const result = runCommand(command, args, { cwd: options.cwd ?? root, env: options.env ?? process.env });
     if (result.error || result.status !== 0) {
       const detail = (result.error?.message ?? result.stderr ?? "").trim().split("\n").slice(-2).join(" ");
       errors.push(`${options.label ?? command}: exit ${result.status ?? "none"} ${detail.slice(0, 300)}`);
@@ -93,20 +93,8 @@ function mediaFingerprint(run, errors) {
   };
 }
 
-function listTestSources(directory) {
-  const found = [];
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    if (entry.name === "node_modules" || entry.name === "dist") continue;
-    const target = path.join(directory, entry.name);
-    if (entry.isDirectory()) found.push(...listTestSources(target));
-    else if (/\.(test|spec)\.[cm]?[jt]sx?$/.test(entry.name)) found.push(target);
-  }
-  return found;
-}
-
-function vitestInventory(root, run, errors) {
+function vitestInventory(root, run, errors, temporaryDirectory) {
   const ids = [];
-  const skipMarkers = [];
   const packagesDirectory = path.join(root, "packages");
   const vitestBinary = path.join(root, "node_modules", ".bin", "vitest");
   for (const name of readdirSync(packagesDirectory).sort()) {
@@ -115,7 +103,7 @@ function vitestInventory(root, run, errors) {
     if (!existsSync(manifestPath)) continue;
     const scripts = JSON.parse(readFileSync(manifestPath, "utf8")).scripts ?? {};
     if (!/\bvitest\b/.test(scripts.test ?? "")) continue;
-    const output = path.join(process.env.RUNNER_TEMP ?? root, `vera-vitest-list-${name}.json`);
+    const output = path.join(temporaryDirectory, `vera-vitest-list-${name}.json`);
     if (run(vitestBinary, ["list", `--json=${output}`], { cwd: packageDirectory, label: `vitest list ${name}` }) === null) {
       continue;
     }
@@ -126,29 +114,23 @@ function vitestInventory(root, run, errors) {
     } catch (error) {
       errors.push(`vitest list ${name}: ${error.message}`);
     }
-    for (const file of listTestSources(packageDirectory)) {
-      for (const marker of findVitestSkipMarkers(readFileSync(file, "utf8"))) {
-        skipMarkers.push({ file: path.relative(root, file), marker });
-      }
-    }
   }
   if (ids.length === 0) errors.push("vitest inventory is empty");
-  return { ids: ids.sort(), skipMarkers };
+  return { ids: ids.sort() };
 }
 
-function pytestInventory(root, evidenceDirectory, run, errors) {
-  const junitPath = path.join(evidenceDirectory, "pytest-junit.xml");
+function pytestInventory(evidenceDirectory, run, errors, environment) {
   let cases = [];
   try {
-    cases = parseJunit(readFileSync(junitPath, "utf8"));
+    cases = parseJunit(readFileSync(path.join(evidenceDirectory, "pytest-junit.xml"), "utf8"));
   } catch (error) {
     errors.push(`pytest JUnit: ${error.message}`);
   }
   // Plain collection, without the reporter, proves the reporter changed nothing.
-  const environment = { ...process.env };
-  delete environment.PYTEST_ADDOPTS;
+  const plain = { ...environment };
+  delete plain.PYTEST_ADDOPTS;
   const listing = run("uv", ["run", "--frozen", "pytest", "--collect-only", "-q"], {
-    env: environment,
+    env: plain,
     label: "pytest --collect-only",
   });
   let collected = [];
@@ -160,13 +142,26 @@ function pytestInventory(root, evidenceDirectory, run, errors) {
   return summarizePytest(cases, collected);
 }
 
-export function collectEvidence({ root, evidenceDirectory, environment = process.env }) {
+function runtimeOutcomes(evidenceDirectory, errors) {
+  try {
+    const outcomes = parseValidateLog(readFileSync(path.join(evidenceDirectory, "validate.log"), "utf8"));
+    if (outcomes.vitest.length === 0) errors.push("validate log has no Vitest run summary");
+    if (outcomes.node.length === 0) errors.push("validate log has no node:test invocation");
+    return outcomes;
+  } catch (error) {
+    errors.push(`validate log: ${error.message}`);
+    return { vitest: [], node: [] };
+  }
+}
+
+export function collectEvidence({ root, evidenceDirectory, environment = process.env, runCommand = spawnCommand }) {
   const errors = [];
-  const run = makeRunner(root, errors);
+  const run = makeRunner(root, errors, runCommand);
   const commit = firstLine(run("git", ["rev-parse", "HEAD"], { label: "git rev-parse HEAD" }));
   const tree = firstLine(run("git", ["rev-parse", "HEAD^{tree}"], { label: "git rev-parse tree" }));
-  const listing = run("git", ["ls-tree", "-r", "-t", "HEAD"], { label: "git ls-tree" });
+  const listing = run("git", ["ls-tree", "-r", "-t", "-z", "HEAD"], { label: "git ls-tree" });
   const entries = listing === null ? [] : parseLsTree(listing);
+  const status = run("git", ["status", "--porcelain=v1", "-z", "--untracked-files=no"], { label: "git status" });
   const inputs = Object.fromEntries(
     INPUT_TREES.map((name) => [name, entries.find((entry) => entry.type === "tree" && entry.path === name)?.sha ?? null]),
   );
@@ -201,6 +196,7 @@ export function collectEvidence({ root, evidenceDirectory, environment = process
     },
     event: { name: environment.GITHUB_EVENT_NAME ?? null, ref: environment.GITHUB_REF ?? null, pullRequest },
     checkout: { commit, tree },
+    trackedState: { modified: status === null ? null : parsePorcelain(status) },
     command: VALIDATE_COMMAND,
     stepOutcomes,
     controls: controlDigestsFromEntries(entries),
@@ -228,9 +224,10 @@ export function collectEvidence({ root, evidenceDirectory, environment = process
       },
     },
     inventory: {
-      pytest: pytestInventory(root, evidenceDirectory, run, errors),
-      vitest: vitestInventory(root, run, errors),
+      pytest: pytestInventory(evidenceDirectory, run, errors, environment),
+      vitest: vitestInventory(root, run, errors, environment.RUNNER_TEMP ?? evidenceDirectory),
     },
+    outcomes: runtimeOutcomes(evidenceDirectory, errors),
   };
   manifest.collection = { complete: errors.length === 0, errors };
   return manifest;

@@ -62,12 +62,17 @@ jobs:
           ffmpeg -hide_banner -version
           ffprobe -hide_banner -version
 
-      # The JUnit report is reporting-only; it does not change test selection.
+      # JUnit, durations and the teed log are reporting-only; they do not change
+      # test selection. pipefail keeps the gate's exit status authoritative.
       - name: Run repository validation
         id: validate
+        shell: bash
         env:
-          PYTEST_ADDOPTS: --junitxml=${{ runner.temp }}/vera-evidence/pytest-junit.xml
-        run: VITEST_MAX_WORKERS=1 npm run validate
+          PYTEST_ADDOPTS: --junitxml=${{ runner.temp }}/vera-evidence/pytest-junit.xml --durations=25
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/vera-evidence"
+          VITEST_MAX_WORKERS=1 npm run validate 2>&1 | tee "$RUNNER_TEMP/vera-evidence/validate.log"
 
       - name: Verify lockfiles remain unchanged
         id: lockfiles
@@ -84,8 +89,8 @@ jobs:
           VERA_RUNNER_LABEL: ubuntu-24.04
         run: node scripts/cloud-evidence-collect.mjs --output "$RUNNER_TEMP/vera-evidence"
 
-      # Only the sanitized manifest is published; raw JUnit, logs, worktree
-      # contents and caches are not. Treat this public artifact as public.
+      # Only the sanitized manifest is published; raw JUnit, the teed log,
+      # worktree contents and caches are not. Treat this artifact as public.
       - name: Upload validation evidence
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
