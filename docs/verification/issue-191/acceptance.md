@@ -60,7 +60,7 @@ uses the compiler's canonical bytes rather than the narration cache serializer.
 
 ## Validation evidence
 
-Pending restarted full validation and Claude review. Focused TypeScript: 25 transform checks passed, with focused
+Pending final integrated validation and Claude review. Focused TypeScript: 25 transform checks passed, with focused
 lint and workspace type checking. Focused Python: 25 audio checks and 19 narration checks
 passed. Independent review found reused-timing and malformed-WAV refusal gaps;
 both were fixed and independently rechecked. The review retained no unresolved
@@ -88,13 +88,23 @@ no v1, schema, fixture or accepted-test change. Focused proof/narration recheck:
 43 passed before the additional partial-frame regression, followed by all 25
 audio checks passing. Final fast validation also passes; full/review pending.
 
-The inherited workspace lockfile lacks `packages/word-timing`. Clean `npm ci`
-therefore fails before implementation validation; [Inbox #193](https://github.com/mbelinkie/vera-script-to-timeline/issues/193)
-records the bounded repair. Validation uses the unchanged root lockfile's
-recorded workspaces installed in a temporary staging directory, then copies
-the resulting dependencies into this checkout. No manifest, dependency version
-or lockfile was changed. `audit.py` verifies installed root dependency versions
-against the unchanged manifest/lock and records runtime/lock/source hashes.
+The original fast evidence used a temporary installation of the unchanged
+lockfile's recorded workspaces because the inherited lock omitted
+`packages/word-timing`. [#193](https://github.com/mbelinkie/vera-script-to-timeline/issues/193)
+subsequently supplied the accepted repair. Accepted main
+`4e31565f88e71e0c1d1cd1be5e52c34df2819347` was integrated at
+`271495c70a39ee42f829361e77a9fbd42502d77c`; it includes #193 and #196.
+All eight issue-owned source/test files and all 285 frozen files remain
+byte-identical to the retained checkpoint. Accepted predecessor changes to
+the lockfile, tooling and validation inputs require fresh integrated checks.
+`audit.py` distinguishes the original frozen baseline from the accepted
+integration baseline; the #191 diff permits only its new owned paths.
+
+Verification follows accepted `docs/VERIFICATION_POLICY.md`: required Claude
+adversarial review precedes final expensive validation, with focused fixes and
+delta re-review when needed. Cloud evidence substitutes only if the accepted
+main validator verifies the exact delivered integration tree and approved
+eligibility. Otherwise the complete serial local gate remains required.
 
 ## Required later external gates (#145, #190, #178)
 

@@ -18,6 +18,10 @@ def git(*args):
 root = Path.cwd()
 directory = root / "docs/verification/issue-191"
 frozen = json.loads((directory / "frozen-source-pins.json").read_text())
+integration_baseline = "4e31565f88e71e0c1d1cd1be5e52c34df2819347"
+subprocess.check_call(
+    ["git", "merge-base", "--is-ancestor", integration_baseline, "HEAD"]
+)
 for name, pin in frozen["files"].items():
     assert sha((root / name).read_bytes()) == pin, name
     original = subprocess.check_output(["git", "show", frozen["baseline"] + ":" + name])
@@ -34,7 +38,7 @@ allowed = {
     "tests/test_issue191_audio.py",
     "tests/test_issue191_narration.py",
 }
-for line in git("diff", "--name-status", frozen["baseline"]).splitlines():
+for line in git("diff", "--name-status", integration_baseline).splitlines():
     kind, name = line.split("\t")
     assert kind == "A" and (
         name in allowed or name.startswith("docs/verification/issue-191/")
@@ -74,6 +78,7 @@ node_version = subprocess.check_output([str(node), "--version"]).decode().strip(
 assert node_version == "v24.19.0"
 result = {
     "baseline": frozen["baseline"],
+    "integrationBaseline": integration_baseline,
     "sourceCommit": git("rev-parse", "HEAD"),
     "frozenFileCount": len(frozen["files"]),
     "frozenAndTrackedBoundary": "passed",
