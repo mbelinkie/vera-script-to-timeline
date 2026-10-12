@@ -79,6 +79,107 @@ Next heavy owner is #193 (the necessary npm CI repair for #109 PR194), then
 #191 a release directly. #193 may prepare isolated clean-install/fast checks
 meanwhile. No #174 scope change or extra full rerun is implied.
 
+Continuation 2026-10-12: all round-two stages exited 0. Final full gate passed
+563 Python tests in 3061.49s plus lint/types/generated/TypeScript; fast passed
+323, affected URI checks 8. Qualification 15 cases verified 63 hashes,
+maximum sync residual 0.062642ms/drift 0.067744ms. Tested source hashes match
+committed candidate `a640e3f99dd6a68c6565a4404e6abc1b9ccda7d6`; frozen diff clean.
+Claude read-only antagonist review is running durably via
+`/private/tmp/issue174_claude_review.py`: supervisor PID45754, prompt/command/
+revision in `out/issue174/claude-r1/start.json`, child in `process.json`, raw
+`result.json`, stderr `stderr.log`, final exit/status/hash `exit.json`.
+Check once on wake. Fix substantive findings and rerun affected evidence and
+review; reuse valid gates only when no invalidating source change occurred.
+After review, finalize criterion/human playback handoff and release coordinator
+for #193 then #191. Visual/audible human judgment remains pending.
+
+Next continuation: Claude r1 completed exit0/is_error=false with verdict FAIL,
+not PASS. Raw result and finding dispositions are retained as
+`claude-r1-result.json` and `claude-r1-disposition.md`. Substantive code/evidence
+fixes invalidate prior final-candidate gates. Round-three durable supervisor
+`/private/tmp/issue174_checks.py` now runs revised issue tests, fresh installed-
+build qualification, independent retained-media verification, fast and full
+gates sequentially, halting on failure. Exact source hashes/process/commands
+are in `out/issue174/r3/checks-start.json`, active stage/log in
+`checks-status.json`, terminal exit in `checks-exit.json`. Keep prior logs and
+artifacts; never restart a live command or infer release. On terminal success,
+inspect evidence once, commit revised sources, obtain exact-revision Claude
+re-review and finalize the subjective handoff/release to coordinator.
+
+Round-three result: 82 revised focused tests passed in 569.58s and all 24
+installed-tool qualification cases passed. Independent verifier failed on
+`target-reuse-aac` because its rawvideo decode allowed FFmpeg's implicit FPS
+conversion. Corrected to `-fps_mode passthrough`; exact retained source now
+independently decodes original ordinals 0–329. Production/test/qualifier source
+and artifacts did not change, so those passing results remain valid. Raw
+failure is in `out/issue174/r3/verify-retained.log` and `checks-exit.json`.
+Round four runs only independent verification against the same round-three
+artifacts, then fast/final full gates. Metadata/log/exit paths are
+`out/issue174/r4/checks-start.json`, `checks-status.json`, `checks-exit.json`.
+The new full gate is required because substantive post-Claude production
+changes invalidated round two; this is not a repeated passing final gate.
+
+Round four stopped on the second independent-decoder default: WAV output was
+implicitly PCM16. Explicit `-c:a pcm_s24le` preserves source precision. The
+corrected verifier completed exit0 (exec session55446), checking 24 cases and
+98 hashes, generated-clock residual ≤0.782597ms and drift ≤0.041667ms.
+Exact output/command are retained in `verifier-final.json`; failures remain in
+round-three/four logs. No production/fixture/test/qualifier/artifact changed.
+Round five runs only remaining fast/full gates; metadata/status/final exit
+are `out/issue174/r5/checks-start.json`, `checks-status.json`, `checks-exit.json`.
+Do not regenerate the passing 24-case qualification or revised 82-test matrix.
+Commit after passing final gates, then obtain mandatory exact-revision Claude
+re-review and concrete human quality handoff before coordinator release.
+
+Recovery checkpoint: round-five fast gate passed 323 tests in 55.46s. Its full
+gate disappeared at approximately 20% with no terminal summary/exit receipt;
+supervisor91998/full93024 and matching subtree are absent, and the prior
+`/private/tmp` supervisor script is missing. No diagnostic explains the cause.
+Failure/log/source hashes are preserved in `interrupted-full-gate.json`;
+do not call it passing. Source hashes remain unchanged, so retain the 82 tests,
+24 cases, 98 hashes and fast pass. Round six recovers only full validation,
+using launchd job `com.vera.issue174.full-r6` independent of the desktop session.
+Supervisor source is retained in `out/issue174/r6/run_full_gate.py` (not tmp).
+Command/worktree/hash revision/label are in `checks-start.json`, supervisor
+PID in `supervisor-process.json`, child/stage in `checks-status.json`, actual
+log in `validate-full.log`, final exit/hash in `checks-exit.json`, diagnostics
+in `checks-supervisor.log` / `checks-supervisor.stderr` in that same directory.
+Explicit command environment: `VITEST_MAX_WORKERS=1`,
+`PYTEST_ADDOPTS=--durations=25`. Verify once per central wake; no polling loop.
+After terminal pass, check hashes/commit and obtain exact-revision Claude
+re-review. Remove only this completed launchd job after its subtree drains.
+#174 retains slot until reviewed handoff/coordinator release for #193 then #191.
+
+Standing policy received/read 2026-10-12: canonical
+`/Users/matthewbelinkie/Desktop/ONGOING/VERA Script to Timeline/docs/VERIFICATION_POLICY.md`,
+producer-approved policy commit `5ab39b221a3c58fae64be017c277655ee2d9ca28`
+(local primary branch; no assertion it is on main). Preferred future order is
+focused/fast → required adversarial Claude review → fixes/delta coverage →
+complete final local full gate. Preserve the currently running gate; a no-change
+review may reuse its passing result after proving input/profile equivalence.
+Record tested versus delivered differences, exact completed command/results,
+source/tests/config/locks/generated/fixtures/goldens/runtime input identities,
+media and language toolchains/OS/workers/relevant environment and log provenance.
+Do not treat Markdown/evidence files as automatically exempt: if checks consume
+them, obtain fresh affected coverage; uncertain impact requires a new full gate.
+Failed/aborted/missing coverage is never green. CI does not substitute for local
+acceptance. Keep #174's adversarial Claude requirement and genuine visual/audio
+human gate. The notification authorizes no new work, cherry-pick, queue release,
+dispatch, merge or acceptance bypass. Apply it at next already-authorized handoff.
+
+Round-six receipt diagnosis: actual log completed all 581 Python tests in
+9646.27s with durations and all preceding checks. The legacy launchctl submit
+job was non-on-demand and relaunched after completion; every later invocation
+failed at the exclusive existing-log open before starting validation. Those
+errors replaced the original exit receipt. All original files remain retained;
+only owned job `com.vera.issue174.full-r6` was retired after its validation
+subtree drained. The original npm exit value is not recoverable from current
+records; no exit0 is fabricated. Keep completed coverage as observed evidence,
+not a qualifying complete local full pass. Next: exact revised-commit Claude
+delta review, then only the remaining final full evidence with a one-shot
+runner and immutable first terminal receipt. Preserve focused82/qualification24/
+verifier98/fast323 results. No blind repeats or unrelated performance work.
+
 Producer authority update: the coordinator owns progression through the named
 Sweden R16 sequence #109/#174/#191, then #177/#190/#192/#178/#145 in dependency
 order. Objective Automated/External criteria may close on actual retained

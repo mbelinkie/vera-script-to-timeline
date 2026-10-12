@@ -7,10 +7,12 @@ import json
 import threading
 from dataclasses import replace
 from fractions import Fraction
+from functools import partial
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
+import vera_timeline_agent.media_preparation as media
 from issue174_media_fixture import generate_synthetic_media
 from test_issue174_real_media import issue174_descriptor
 from vera_timeline_agent.media_preparation import (
@@ -18,14 +20,16 @@ from vera_timeline_agent.media_preparation import (
     MediaTools,
     PreparationAuthorization,
     PreparedMedia,
+    _prepare_media,
+    _qualified_tools,
     file_hash,
     inspect_media,
-    prepare_media,
     wire,
 )
 from vera_timeline_agent.narration.models import identity_hash
 
 pytestmark = pytest.mark.slow
+prepare_media = partial(_prepare_media, qualification_run=True)
 
 
 @pytest.fixture
@@ -173,6 +177,162 @@ def test_receipt_without_verification_marker_is_incomplete(
     with pytest.raises(Interruption):
         prepare_case(source_case, checkpoint=interrupt)
     assert prepare_case(source_case).receipt_path.exists()
+
+
+@pytest.mark.parametrize("marker", [b"", b'{"receiptHash":', b"{}"])
+def test_torn_completion_marker_does_not_block_retry(
+    source_case: tuple[Path, dict[str, Any], PreparationAuthorization],
+    marker: bytes,
+) -> None:
+    class Interruption(RuntimeError):
+        pass
+
+    staged: list[Path] = []
+
+    def interrupt(stage: str, path: Path) -> None:
+        if stage == "staged":
+            (path / "receipt-checksum.json").write_bytes(marker)
+            staged.append(path)
+            raise Interruption
+
+    with pytest.raises(Interruption):
+        prepare_case(source_case, checkpoint=interrupt)
+    assert prepare_case(source_case).receipt_path.exists()
+    assert (staged[0] / "receipt-checksum.json").read_bytes() == marker
+
+
+def test_unqualified_build_refuses() -> None:
+    with pytest.raises(MediaPreparationError, match="unqualified_tools"):
+        _qualified_tools("sha256:" + "0" * 64)
+
+
+def test_public_preparation_requires_qualification(
+    source_case: tuple[Path, dict[str, Any], PreparationAuthorization],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, descriptor, authorization = source_case
+
+    def refuse(_tool_hash: str) -> None:
+        raise MediaPreparationError("unqualified_tools", "unlisted test build")
+
+    monkeypatch.setattr(media, "_qualified_tools", refuse)
+    with pytest.raises(MediaPreparationError, match="unqualified_tools"):
+        media.prepare_media(
+            source,
+            cast(Any, descriptor),
+            cast(
+                Any,
+                {
+                    "sourceInFrame": 3010,
+                    "duration": wire(Fraction(1)),
+                    "preHandle": wire(Fraction(0)),
+                    "postHandle": wire(Fraction(0)),
+                },
+            ),
+            cast(Any, wire(Fraction(24000, 1001))),
+            authorization=authorization,
+            video_stream_index=0,
+            audio_stream_index=None,
+        )
+    assert not authorization.write_root.exists()
+
+
+def test_fingerprint_includes_encoder_library() -> None:
+    fingerprint = MediaTools().fingerprint()
+    assert any("libx264" in name for name in fingerprint["linkedLibraryHashes"])
+
+
+def test_malformed_probe_is_a_coded_refusal(tmp_path: Path) -> None:
+    path = tmp_path / "source.mp4"
+    path.write_bytes(b"synthetic probe stub")
+
+    class MalformedTools(MediaTools):
+        def run(self, command: list[str], *, timeout: float = 600) -> bytes:
+            return (
+                b'{"format":{"duration":"1"}}'
+                if "format=duration" in command
+                else b"{}"
+            )
+
+    with pytest.raises(MediaPreparationError, match="unsupported_vfr_or_timebase"):
+        inspect_media(
+            path, video_stream_index=0, audio_stream_index=None, tools=MalformedTools()
+        )
+
+
+def test_unqualified_full_range_conversion_refuses(
+    source_case: tuple[Path, dict[str, Any], PreparationAuthorization],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, descriptor, authorization = source_case
+    inspection = inspect_media(
+        source, video_stream_index=0, audio_stream_index=None, tools=MediaTools()
+    )
+    changed = replace(inspection, video={**inspection.video, "color_range": "pc"})
+    monkeypatch.setattr(media, "inspect_media", lambda *args, **kwargs: changed)
+    with pytest.raises(MediaPreparationError, match="qualified limited-range"):
+        _prepare_media(
+            source,
+            cast(Any, descriptor),
+            cast(
+                Any,
+                {
+                    "sourceInFrame": 3010,
+                    "duration": wire(Fraction(1)),
+                    "preHandle": wire(Fraction(0)),
+                    "postHandle": wire(Fraction(0)),
+                },
+            ),
+            cast(Any, wire(Fraction(24000, 1001))),
+            authorization=authorization,
+            video_stream_index=0,
+            audio_stream_index=None,
+            qualification_run=True,
+        )
+    assert not (authorization.write_root / "attempts").exists()
+
+
+def test_reuse_only_refuses_new_same_rate_audio(tmp_path: Path) -> None:
+    rate = Fraction(24000, 1001)
+    fixture = generate_synthetic_media(
+        tmp_path / "source", rate=rate, frame_count=60, mux_aac=True
+    )
+    assert fixture.muxed_path is not None
+    tools = MediaTools()
+    inspection = inspect_media(
+        fixture.muxed_path, video_stream_index=0, audio_stream_index=1, tools=tools
+    )
+    descriptor = issue174_descriptor(inspection, rate=rate, audio=True)
+    authorization = PreparationAuthorization(
+        reference="reuse-only-audio",
+        read_roots=(fixture.muxed_path.parent,),
+        write_root=tmp_path / "prepared",
+        tool_hash=identity_hash(tools.fingerprint()),
+        allow_conversion=False,
+        minimum_free_bytes=0,
+    )
+    with pytest.raises(MediaPreparationError, match="conversion_needed"):
+        _prepare_media(
+            fixture.muxed_path,
+            cast(Any, descriptor),
+            cast(
+                Any,
+                {
+                    "sourceInFrame": 3010,
+                    "duration": wire(Fraction(1)),
+                    "preHandle": wire(Fraction(0)),
+                    "postHandle": wire(Fraction(0)),
+                },
+            ),
+            cast(Any, wire(rate)),
+            authorization=authorization,
+            video_stream_index=0,
+            audio_stream_index=1,
+            tools=tools,
+            qualification_run=True,
+        )
+    assert not list((authorization.write_root / "attempts").iterdir())
+    assert not any("pcm_s24le" in cmd and "-af" in cmd for cmd in tools.commands)
 
 
 @pytest.mark.parametrize("filename", ["picture.mp4", "receipt.json"])

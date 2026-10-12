@@ -1,0 +1,26 @@
+{
+  "reviewedCommit": "a640e3f99dd6a68c6565a4404e6abc1b9ccda7d6",
+  "command": [
+    "claude",
+    "-p",
+    "--safe-mode",
+    "--tools",
+    "",
+    "--no-chrome",
+    "--strict-mcp-config",
+    "--mcp-config",
+    "{\"mcpServers\":{}}",
+    "--no-session-persistence",
+    "--output-format",
+    "json",
+    "--effort",
+    "high"
+  ],
+  "worktree": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline",
+  "supervisorPid": 45754,
+  "promptHash": "b722f4e8ed34769571d1f1679e8b53c08f03eea3a474c6809c0ba0a232db2101",
+  "startedAt": 1791780878.346878,
+  "resultPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/claude-r1/result.json",
+  "stderrPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/claude-r1/stderr.log",
+  "exitStatusPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/claude-r1/exit.json"
+}

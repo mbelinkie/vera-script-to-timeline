@@ -223,11 +223,13 @@ def preparation_geometry(
 def verify_video_cadence(
     frames: list[Json], rate: Fraction, time_base: Fraction
 ) -> Fraction:
-    if not frames or rate <= 0 or not 0 < time_base < 1 / rate / 2:
+    exact_ticks = rate > 0 and time_base > 0 and (1 / rate / time_base).denominator == 1
+    if not frames or rate <= 0 or not (0 < time_base < 1 / rate / 2 or exact_ticks):
         raise MediaPreparationError(
             "unsupported_vfr_or_timebase", "missing frames or coarse timebase"
         )
     try:
+        tolerance = Fraction(0) if exact_ticks else time_base
         origin = int(frames[0]["pts"]) * time_base
         previous = origin - 1 / rate
         for index, frame in enumerate(frames):
@@ -237,8 +239,8 @@ def verify_video_cadence(
             )
             if (
                 pts <= previous
-                or abs(pts - origin - index / rate) > time_base
-                or abs(duration - 1 / rate) > time_base
+                or abs(pts - origin - index / rate) > tolerance
+                or abs(duration - 1 / rate) > tolerance
             ):
                 raise ValueError("cadence/duration")
             if frame.get("interlaced_frame") != 0:
@@ -342,11 +344,25 @@ class MediaTools:
                 raise MediaPreparationError(
                     "unsupported_tools", "unqualified platform linker"
                 )
-            for name in names:
+            visited: set[str] = set()
+            while names:
+                name = names.pop()
+                if name in visited or (
+                    platform.system() == "Darwin"
+                    and name.startswith(("/System/Library/", "/usr/lib/"))
+                ):
+                    continue
+                visited.add(name)
                 library = Path(name).resolve()
                 if library.is_file():
                     libraries[str(library)] = file_hash(library)
-                elif not name.startswith(("/System/Library/", "/usr/lib/")):
+                    if platform.system() == "Darwin":
+                        linked = self.run(["otool", "-L", str(library)]).decode()
+                        names.extend(
+                            line.strip().split(" (", 1)[0]
+                            for line in linked.splitlines()[1:]
+                        )
+                else:
                     raise MediaPreparationError(
                         "unsupported_tools", "unresolved linked library"
                     )
@@ -387,7 +403,44 @@ def inspect_media(
     audio_stream_index: int | None,
     tools: MediaTools,
 ) -> MediaInspection:
+    try:
+        return _inspect_media(
+            path,
+            video_stream_index=video_stream_index,
+            audio_stream_index=audio_stream_index,
+            tools=tools,
+        )
+    except (KeyError, TypeError, ValueError, ZeroDivisionError, OverflowError) as error:
+        raise MediaPreparationError(
+            "unsupported_vfr_or_timebase", "incomplete or malformed decoded probe"
+        ) from error
+
+
+def _inspect_media(
+    path: Path,
+    *,
+    video_stream_index: int,
+    audio_stream_index: int | None,
+    tools: MediaTools,
+) -> MediaInspection:
     content_hash = file_hash(path)
+    summary = json.loads(
+        tools.run(
+            [
+                tools.ffprobe,
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "json",
+                str(path),
+            ]
+        )
+    )
+    duration_hint = Fraction(summary["format"]["duration"])
+    if duration_hint <= 0:
+        raise MediaPreparationError("unsupported_vfr_or_timebase", "unknown duration")
     probe = cast(
         Json,
         json.loads(
@@ -399,10 +452,16 @@ def inspect_media(
                     "-show_streams",
                     "-show_frames",
                     "-show_format",
+                    "-show_entries",
+                    "frame=stream_index,pts,duration,pkt_duration,nb_samples,"
+                    "width,height,pix_fmt,sample_aspect_ratio,interlaced_frame,"
+                    "color_space,color_primaries,color_transfer,color_range:"
+                    "frame_side_data:stream:format",
                     "-of",
                     "json",
                     str(path),
-                ]
+                ],
+                timeout=max(600, float(duration_hint) * 20),
             )
         ),
     )
@@ -714,6 +773,29 @@ def _write_record(path: Path, record: Json) -> None:
         os.fsync(stream.fileno())
 
 
+def _qualified_tools(tool_hash: str) -> None:
+    record = (
+        Path(__file__).resolve().parents[2]
+        / "docs/verification/issue-174/qualified-tools.json"
+    )
+    try:
+        qualified = json.loads(record.read_bytes())["qualifiedTools"]
+        proof = record.with_name("qualification.json")
+        proof_hash = file_hash(proof)
+        if not any(
+            entry["toolHash"] == tool_hash
+            and entry["profileHash"] == PROFILE_HASH
+            and entry["policyHash"] == POLICY_HASH
+            and entry["qualificationRecordHash"] == proof_hash
+            for entry in qualified
+        ):
+            raise ValueError("unqualified build")
+    except (OSError, KeyError, TypeError, ValueError) as error:
+        raise MediaPreparationError(
+            "unqualified_tools", "run and retain the installed-build qualification"
+        ) from error
+
+
 def prepare_media(
     source_path: Path,
     descriptor: OccurrenceMediaResolutionV2,
@@ -725,6 +807,32 @@ def prepare_media(
     audio_stream_index: int | None,
     tools: MediaTools | None = None,
     checkpoint: Callable[[str, Path], None] | None = None,
+) -> PreparedMedia:
+    return _prepare_media(
+        source_path,
+        descriptor,
+        requested_range,
+        target_rate,
+        authorization=authorization,
+        video_stream_index=video_stream_index,
+        audio_stream_index=audio_stream_index,
+        tools=tools,
+        checkpoint=checkpoint,
+    )
+
+
+def _prepare_media(
+    source_path: Path,
+    descriptor: OccurrenceMediaResolutionV2,
+    requested_range: RequestedPreparationRangeV1,
+    target_rate: RationalRate,
+    *,
+    authorization: PreparationAuthorization,
+    video_stream_index: int,
+    audio_stream_index: int | None,
+    tools: MediaTools | None = None,
+    checkpoint: Callable[[str, Path], None] | None = None,
+    qualification_run: bool = False,
 ) -> PreparedMedia:
     """Return the frozen P2 binding and a verified immutable pair receipt for P6/P7."""
     tools = tools or MediaTools()
@@ -757,6 +865,8 @@ def prepare_media(
         raise MediaPreparationError(
             "invalidated_tools", "installed tool/platform fingerprint changed"
         )
+    if not qualification_run:
+        _qualified_tools(authorization.tool_hash)
     inspected = inspect_media(
         source,
         video_stream_index=video_stream_index,
@@ -789,6 +899,19 @@ def prepare_media(
         post_handle=rational(requested_range["postHandle"]),
     )
     mode = "verified_reuse" if inspected.rate == target else "derived_cfr"
+    if mode == "derived_cfr" and any(
+        inspected.video[field] != value
+        for field, value in {
+            "pix_fmt": "yuv420p",
+            "color_range": "tv",
+            "color_space": "bt709",
+            "color_primaries": "bt709",
+            "color_transfer": "bt709",
+        }.items()
+    ):
+        raise MediaPreparationError(
+            "unsupported_profile", "conversion requires qualified limited-range BT.709"
+        )
     logged_origin = rational(frame_map["loggedTimeAtPackageFrameZero"])
     source_origin = (
         logged_origin if mode == "verified_reuse" else logged_origin + geometry.start
@@ -832,7 +955,18 @@ def prepare_media(
             (root / "attempts").glob(key.removeprefix("sha256:") + "-*")
         ):
             _assert_under(previous_attempt, (root,))
-            if (previous_attempt / "receipt-checksum.json").exists():
+            marker = previous_attempt / "receipt-checksum.json"
+            try:
+                completed = json.loads(marker.read_bytes())
+                valid_marker = (
+                    isinstance(completed, dict)
+                    and isinstance(completed.get("receiptHash"), str)
+                    and len(completed["receiptHash"]) == 71
+                    and completed["receiptHash"].startswith("sha256:")
+                )
+            except (OSError, ValueError):
+                valid_marker = False
+            if valid_marker:
                 _reuse(previous_attempt, source, key_inputs, authorization, tools)
                 for path in previous_attempt.iterdir():
                     with path.open("rb") as stream:
@@ -843,7 +977,9 @@ def prepare_media(
                 _fsync_directory(root / "published")
                 _fsync_directory(root / "attempts")
                 return _reuse(published, source, key_inputs, authorization, tools)
-        if mode == "derived_cfr" and not authorization.allow_conversion:
+        if not authorization.allow_conversion and (
+            mode == "derived_cfr" or inspected.audio is not None
+        ):
             raise MediaPreparationError(
                 "conversion_needed",
                 "reuse-only authorization has no exact published derivative",
@@ -935,7 +1071,8 @@ def prepare_media(
                     "-fflags",
                     "+bitexact",
                     str(video_path),
-                ]
+                ],
+                timeout=max(600, float(geometry.end - geometry.start) * 20),
             )
             delivered = inspect_media(
                 video_path, video_stream_index=0, audio_stream_index=None, tools=tools
@@ -1062,9 +1199,13 @@ def prepare_media(
         }
         _write_record(attempt / "receipt.json", record)
         _write_record(
-            attempt / "receipt-checksum.json",
+            attempt / "receipt-checksum.pending.json",
             {"receiptHash": file_hash(attempt / "receipt.json")},
         )
+        os.rename(
+            attempt / "receipt-checksum.pending.json", attempt / "receipt-checksum.json"
+        )
+        _fsync_directory(attempt)
         for path in attempt.iterdir():
             with path.open("rb") as stream:
                 os.fsync(stream.fileno())
@@ -1097,17 +1238,8 @@ def _prepare_audio(
     if origin is None:
         raise MediaPreparationError("invalid_mapping", "missing decoded audio origin")
     sample_rate = int(audio["sample_rate"])
-    # Reused picture preserves the package timeline; retain all decoded PCM.
-    start = (
-        Fraction(0)
-        if mode == "verified_reuse"
-        else inspection.pts_origin + geometry.start - origin
-    )
-    end = (
-        Fraction(inspection.audio_samples, sample_rate)
-        if mode == "verified_reuse"
-        else inspection.pts_origin + geometry.end - origin
-    )
+    start = inspection.pts_origin + geometry.start - origin
+    end = inspection.pts_origin + geometry.end - origin
     first, exclusive = math.ceil(start * 48000), math.ceil(end * 48000)
     if start < 0 or end > Fraction(inspection.audio_samples, sample_rate):
         raise MediaPreparationError(
@@ -1143,7 +1275,8 @@ def _prepare_audio(
             "-fflags",
             "+bitexact",
             str(output),
-        ]
+        ],
+        timeout=max(600, float(end) * 20),
     )
     probe = cast(
         Json,
@@ -1191,7 +1324,7 @@ def _prepare_audio(
         "decodedSourceTimestampResidual": wire(inspection.audio_timestamp_residual),
         "decodedSourceTimestampDrift": wire(inspection.audio_timestamp_drift),
         "deliveredTimeAtFirstSample": wire(
-            origin - inspection.pts_origin if mode == "verified_reuse" else offset
+            geometry.start + offset if mode == "verified_reuse" else offset
         ),
         "boundaryOffset": wire(offset),
         "endpointError": wire(endpoint_error),

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import shutil
 import sys
 import tempfile
@@ -28,12 +27,15 @@ from test_issue174_real_media import (  # noqa: E402
     measure_issue174_sync,
 )
 from vera_timeline_agent.media_preparation import (  # noqa: E402
+    POLICY_HASH,
+    PROFILE_HASH,
     TARGET,
     MediaTools,
     PreparationAuthorization,
+    _prepare_media,
     file_hash,
     inspect_media,
-    prepare_media,
+    preparation_geometry,
     wire,
 )
 from vera_timeline_agent.narration.models import identity_hash  # noqa: E402
@@ -52,13 +54,20 @@ def make_case(
     audio_codec: Literal["aac", "pcm_s24le"] = "pcm_s24le",
     audio_channels: int = 1,
     target: Fraction = TARGET,
+    pre_handle: Fraction = Fraction(0),
+    post_handle: Fraction = Fraction(0),
+    extension: str | None = None,
+    interior_marker_indices: tuple[int, ...] | None = None,
 ) -> dict[str, Any]:
     case = root / name
     case.mkdir()
     with tempfile.TemporaryDirectory(prefix="issue174-synthetic-") as scratch:
         generated = generate_synthetic_media(
             Path(scratch),
-            extension=".mov" if audio_rate and audio_codec == "pcm_s24le" else ".mp4",
+            extension=(
+                extension
+                or (".mov" if audio_rate and audio_codec == "pcm_s24le" else ".mp4")
+            ),
             rate=rate,
             frame_count=count,
             start_pts=Fraction(2),
@@ -98,8 +107,8 @@ def make_case(
         {
             "sourceInFrame": 3000 + in_frame,
             "duration": wire(duration),
-            "preHandle": wire(Fraction(0)),
-            "postHandle": wire(Fraction(0)),
+            "preHandle": wire(pre_handle),
+            "postHandle": wire(post_handle),
         },
     )
     tool_hash = identity_hash(tools.fingerprint())
@@ -110,7 +119,7 @@ def make_case(
         tool_hash=tool_hash,
         minimum_free_bytes=64 * 1024 * 1024,
     )
-    prepared = prepare_media(
+    prepared = _prepare_media(
         source,
         descriptor,
         request,
@@ -119,21 +128,38 @@ def make_case(
         video_stream_index=0,
         audio_stream_index=1 if audio_rate else None,
         tools=tools,
+        qualification_run=True,
     )
     observed = decode_frame_ordinals(prepared.video_path)
-    frame_count = math.ceil(duration * target)
+    geometry = preparation_geometry(
+        source_rate=rate,
+        target_rate=target,
+        origin_frame=3000,
+        lower_frame=3000,
+        upper_frame=3000 + count,
+        in_frame=3000 + in_frame,
+        duration=duration,
+        pre_handle=pre_handle,
+        post_handle=post_handle,
+    )
     expected = tuple(
-        in_frame
-        + (j * rate.numerator * target.denominator)
-        // (rate.denominator * target.numerator)
-        for j in range(frame_count)
+        geometry.selected_package_frame(index) for index in range(geometry.frame_count)
     )
     if rate == target:
         assert observed == tuple(range(count))
+        selected_observed = tuple(observed[index] for index in expected)
     else:
         assert observed == expected
-    assert all(Fraction(index - in_frame, 1) / rate < duration for index in expected)
-    repeated = prepare_media(
+        selected_observed = observed
+    assert selected_observed == expected
+    assert all(
+        Fraction(index, 1) / rate
+        <= geometry.start + j / target
+        < Fraction(index + 1, 1) / rate
+        and geometry.start + j / target < geometry.end
+        for j, index in enumerate(expected)
+    )
+    repeated = _prepare_media(
         source,
         descriptor,
         request,
@@ -141,10 +167,11 @@ def make_case(
         authorization=authorization,
         video_stream_index=0,
         audio_stream_index=1 if audio_rate else None,
+        qualification_run=True,
     )
     assert repeated.reused and repeated.binding == prepared.binding
     with tempfile.TemporaryDirectory(prefix="issue174-independent-repeat-") as repeat:
-        independent = prepare_media(
+        independent = _prepare_media(
             source,
             descriptor,
             request,
@@ -158,6 +185,7 @@ def make_case(
             ),
             video_stream_index=0,
             audio_stream_index=1 if audio_rate else None,
+            qualification_run=True,
         )
         assert file_hash(independent.video_path) == file_hash(prepared.video_path)
         repeat_video_hash = file_hash(independent.video_path)
@@ -182,6 +210,11 @@ def make_case(
         "videoHash": file_hash(prepared.video_path),
         "expectedSelectedOrdinals": list(expected),
         "decodedOrdinals": list(observed),
+        "decodedSelectedOrdinals": list(selected_observed),
+        "qualificationTags": [
+            *(["handles"] if pre_handle or post_handle else []),
+            *(["reuseAudio"] if rate == target and audio_rate else []),
+        ],
         "exactReusePassed": True,
         "independentRepeatVideoHash": repeat_video_hash,
         "independentRepeatAudioHash": repeat_audio_hash,
@@ -197,16 +230,28 @@ def make_case(
                 ),
                 source_sample_rate=audio_rate,
                 source_audio_origin=inspection.audio_origin,
-                output_start=inspection.pts_origin + Fraction(in_frame, 1) / rate,
+                output_start=inspection.pts_origin + geometry.start,
                 output_audio_path=prepared.audio_path,
                 click_samples=generated.click_samples,
+                generated_start_pts=generated.start_pts,
+                output_boundary_offset=Fraction(
+                    record["audio"]["boundaryOffset"]["numerator"],
+                    record["audio"]["boundaryOffset"]["denominator"],
+                ),
+                interior_marker_indices=interior_marker_indices,
                 source_path=source,
             )
-            assert measurements["maxResidualMilliseconds"] <= 1
-            assert measurements["driftMilliseconds"] <= 1
+            assert measurements["sourceTruthMaxResidualMilliseconds"] <= 1
+            assert measurements["sourceTruthDriftMilliseconds"] <= 1
+            assert measurements["outputTruthMaxResidualMilliseconds"] <= 1
+            assert measurements["outputTruthDriftMilliseconds"] <= 1
             result["syncMeasurements"] = measurements
             flashes = _decoded_flash_indices(prepared.video_path)
-            assert flashes == tuple(expected.index(marker) for marker in markers)
+            assert flashes == (
+                markers
+                if rate == target
+                else tuple(expected.index(marker) for marker in markers)
+            )
             result["decodedFlashIndices"] = flashes
         result["audioPath"] = str(prepared.audio_path.relative_to(root))
         result["audioHash"] = file_hash(prepared.audio_path)
@@ -224,6 +269,22 @@ def make_case(
             "-n",
             "-i",
             str(prepared.video_path),
+            *(
+                [
+                    "-itsoffset",
+                    str(
+                        float(
+                            geometry.start
+                            + Fraction(
+                                record["audio"]["boundaryOffset"]["numerator"],
+                                record["audio"]["boundaryOffset"]["denominator"],
+                            )
+                        )
+                    ),
+                ]
+                if rate == target
+                else []
+            ),
             "-i",
             str(prepared.audio_path),
             "-map",
@@ -238,6 +299,13 @@ def make_case(
         result["operatorPair"] = str(preview.relative_to(root))
         result["operatorPairHash"] = file_hash(preview)
         result["operatorPairCommand"] = preview_command
+    if prepared.audio_path:
+        audio_record = cast(dict[str, Any], record["audio"])
+        if "compilerBindingProbe" in result:
+            assert result["compilerBindingProbe"]["sourceAudioSampleRange"] == {
+                "startFrame": audio_record["sourceFirstSample"],
+                "endFrame": audio_record["sourceExclusiveSample"],
+            }
     with (case / "case.json").open("x") as stream:
         json.dump(result, stream, indent=2)
         stream.write("\n")
@@ -261,6 +329,24 @@ def main() -> None:
             ("30-convert", Fraction(30)),
         )
     ]
+    cases.extend(
+        make_case(
+            output,
+            f"{name}-handles",
+            rate=rate,
+            count=330,
+            in_frame=10,
+            duration=Fraction(1001, 240),
+            pre_handle=1 / TARGET,
+            post_handle=1 / TARGET,
+        )
+        for name, rate in (
+            ("24-convert", Fraction(24)),
+            ("25-convert", Fraction(25)),
+            ("2997-convert", Fraction(30000, 1001)),
+            ("30-convert", Fraction(30)),
+        )
+    )
     cases.append(
         make_case(
             output,
@@ -280,12 +366,58 @@ def main() -> None:
                     count=330,
                     in_frame=10,
                     duration=Fraction(10),
-                    markers=(10, 135, 259),
+                    markers=(12, 135, 258),
                     audio_rate=sample_rate,
                     audio_codec=cast(Literal["aac", "pcm_s24le"], codec),
                     audio_channels=channels,
                 )
             )
+    for extension in (".mov", ".mkv"):
+        cases.append(
+            make_case(
+                output,
+                f"aac-48000-1-{extension[1:]}",
+                rate=Fraction(25),
+                count=330,
+                in_frame=10,
+                duration=Fraction(1001, 240),
+                markers=(12, 60, 109),
+                audio_rate=48000,
+                audio_codec="aac",
+                audio_channels=1,
+                extension=extension,
+            )
+        )
+    for codec, extension in (("aac", ".mp4"), ("pcm_s24le", ".mov")):
+        cases.append(
+            make_case(
+                output,
+                f"target-reuse-{codec}",
+                rate=TARGET,
+                target=TARGET,
+                count=330,
+                in_frame=10,
+                duration=Fraction(1001, 240),
+                markers=(12, 60, 109),
+                audio_rate=48000,
+                audio_codec=cast(Literal["aac", "pcm_s24le"], codec),
+                audio_channels=1,
+                extension=extension,
+            )
+        )
+    cases.append(
+        make_case(
+            output,
+            "target-reuse-handles",
+            rate=TARGET,
+            target=TARGET,
+            count=330,
+            in_frame=10,
+            duration=Fraction(1001, 240),
+            pre_handle=1 / TARGET,
+            post_handle=1 / TARGET,
+        )
+    )
     cases.append(
         make_case(
             output,
@@ -326,6 +458,46 @@ def main() -> None:
             indent=2,
         )
         stream.write("\n")
+    canonical_qualification = (
+        REPOSITORY / "docs/verification/issue-174/qualification.json"
+    )
+    shutil.copyfile(output / "qualification.json", canonical_qualification)
+    qualification_hash = file_hash(canonical_qualification)
+    registry_path = REPOSITORY / "docs/verification/issue-174/qualified-tools.json"
+    try:
+        registry = cast(dict[str, Any], json.loads(registry_path.read_bytes()))
+    except (FileNotFoundError, json.JSONDecodeError):
+        registry = {
+            "recordVersion": "issue-174-qualified-tools/v1",
+            "qualifiedTools": [],
+        }
+    entries = [
+        entry
+        for entry in registry.get("qualifiedTools", [])
+        if not (
+            entry.get("toolHash") == cases[0]["toolHash"]
+            and entry.get("profileHash") == PROFILE_HASH
+            and entry.get("policyHash") == POLICY_HASH
+        )
+    ]
+    entries.append(
+        {
+            "toolHash": cases[0]["toolHash"],
+            "profileHash": PROFILE_HASH,
+            "policyHash": POLICY_HASH,
+            "qualificationRecordHash": qualification_hash,
+        }
+    )
+    registry_path.write_text(
+        json.dumps(
+            {
+                "recordVersion": "issue-174-qualified-tools/v1",
+                "qualifiedTools": entries,
+            },
+            indent=2,
+        )
+        + "\n"
+    )
     print(
         f"Measured {len(cases)} synthetic cases in {output}; "
         "visual/audible operator review pending."

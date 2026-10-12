@@ -1,0 +1,23 @@
+{
+  "round": 5,
+  "status": "interrupted/unproven",
+  "supervisorPid": 91998,
+  "fullGatePid": 93024,
+  "recordedProcessesAbsent": true,
+  "matchingOwnedSubtreeAbsent": true,
+  "supervisorLog": "out/issue174/r5/checks-supervisor.log",
+  "supervisorLogErrorOrCompletion": false,
+  "exitReceiptPresent": false,
+  "previousSupervisorScriptAbsent": "/private/tmp/issue174_checks.py",
+  "preservedFullLog": "out/issue174/r5/validate-full.log",
+  "lastProgress": "test_issue144_omission_preparation, approximately 20%, no pytest summary",
+  "cause": "No terminal diagnostic retained; do not infer success or invent a cause.",
+  "sourceHashesUnchanged": true,
+  "preservedValidEvidence": {
+    "revisedFocusedTests": "82 passed in 569.58s",
+    "qualificationCases": 24,
+    "independentHashesVerified": 98,
+    "fastGate": "323 passed in 55.46s; exit0 retained in checks-status.json"
+  },
+  "recovery": "Only unfinished required full gate, explicit timing environment, workspace-retained supervisor and macOS launchd job com.vera.issue174.full-r6. No other task processes killed and no valid stage rerun."
+}

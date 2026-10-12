@@ -31,9 +31,9 @@ from vera_timeline_agent.media_preparation import (
     MediaTools,
     PreparationAuthorization,
     PreparedMedia,
+    _prepare_media,
     inspect_media,
     preparation_geometry,
-    prepare_media,
 )
 from vera_timeline_agent.narration.models import identity_hash
 
@@ -53,6 +53,10 @@ PACKAGE_ID = "00000000-0000-4000-8000-000000000175"
 
 def _wire(value: Fraction) -> dict[str, int]:
     return {"numerator": value.numerator, "denominator": value.denominator}
+
+
+def _unwire(value: dict[str, int]) -> Fraction:
+    return Fraction(value["numerator"], value["denominator"])
 
 
 def issue174_descriptor(
@@ -146,6 +150,12 @@ def assert_compiler_binding(
     return cast(dict[str, Any], json.loads(result.stdout))
 
 
+def _audio_boundary_offset(prepared: PreparedMedia) -> Fraction:
+    record = cast(dict[str, Any], json.loads(prepared.receipt_path.read_bytes()))
+    audio = cast(dict[str, Any], record["audio"])
+    return _unwire(cast(dict[str, int], audio["boundaryOffset"]))
+
+
 def _prepared(
     source: Path,
     root: Path,
@@ -170,7 +180,7 @@ def _prepared(
         tool_hash=identity_hash(tools.fingerprint()),
         minimum_free_bytes=0,
     )
-    prepared = prepare_media(
+    prepared = _prepare_media(
         source,
         descriptor,
         cast(RequestedPreparationRangeV1, request or _request()),
@@ -179,6 +189,7 @@ def _prepared(
         video_stream_index=0,
         audio_stream_index=1 if audio else None,
         tools=tools,
+        qualification_run=True,
     )
     return prepared, inspection, tools
 
@@ -340,9 +351,19 @@ def measure_issue174_sync(
     output_start: Fraction,
     output_audio_path: Path,
     click_samples: Sequence[int],
+    generated_start_pts: Fraction,
+    output_boundary_offset: Fraction = Fraction(0),
+    interior_marker_indices: Sequence[int] | None = None,
     source_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Return JSON-safe source/output peak times and residuals in milliseconds."""
+    """Measure decoded and generated-truth source/output audio alignment.
+
+    Decoder-origin-relative measurements remain in the record for diagnosis, but
+    qualification uses the independent generated clock: ``start_pts + click/sr``.
+    The first and last markers are retained for boundary evidence; callers may
+    qualify only the returned interior marker set because edge resampling can
+    ring against the exact trim boundary.
+    """
     output_rate, _, output_samples = _wave_samples(output_audio_path)
     source_radius = max(1, source_sample_rate // 20)
     output_radius = max(1, output_rate // 20)
@@ -371,7 +392,10 @@ def measure_issue174_sync(
         for sample in click_samples
     )
     expected_output = tuple(
-        Fraction(source_peak, source_sample_rate) + source_audio_origin - output_start
+        Fraction(source_peak, source_sample_rate)
+        + source_audio_origin
+        - output_start
+        - output_boundary_offset
         for source_peak in source_peaks
     )
     output_peaks = tuple(
@@ -385,6 +409,38 @@ def measure_issue174_sync(
     residuals = tuple(
         (Fraction(actual, output_rate) - expected) * 1000
         for actual, expected in zip(output_peaks, expected_output, strict=True)
+    )
+    generated_times = tuple(
+        generated_start_pts + Fraction(click, source_sample_rate)
+        for click in click_samples
+    )
+    source_truth_residuals = tuple(
+        (source_audio_origin + Fraction(source_peak, source_sample_rate) - expected)
+        * 1000
+        for source_peak, expected in zip(source_peaks, generated_times, strict=True)
+    )
+    output_truth_residuals = tuple(
+        (
+            output_start
+            + output_boundary_offset
+            + Fraction(actual, output_rate)
+            - expected
+        )
+        * 1000
+        for actual, expected in zip(output_peaks, generated_times, strict=True)
+    )
+    interior_indices = (
+        tuple(range(len(click_samples)))
+        if interior_marker_indices is None
+        else tuple(interior_marker_indices)
+    )
+    if any(index < 0 or index >= len(click_samples) for index in interior_indices):
+        raise ValueError("interior marker index out of range")
+    interior_output_truth = tuple(
+        output_truth_residuals[index] for index in interior_indices
+    )
+    interior_source_truth = tuple(
+        source_truth_residuals[index] for index in interior_indices
     )
     result = {
         "sourcePath": str(source_path) if source_path else None,
@@ -402,6 +458,38 @@ def measure_issue174_sync(
         ),
         "driftMilliseconds": float(max(residuals) - min(residuals)),
         "sourceRetainedSampleInterval": [first_retained, exclusive_retained],
+        "generatedStartPts": {
+            "numerator": generated_start_pts.numerator,
+            "denominator": generated_start_pts.denominator,
+        },
+        "outputBoundaryOffset": {
+            "numerator": output_boundary_offset.numerator,
+            "denominator": output_boundary_offset.denominator,
+        },
+        "generatedExpectedTimesMilliseconds": [
+            float(value * 1000) for value in generated_times
+        ],
+        "sourceTruthResidualMilliseconds": [
+            float(value) for value in source_truth_residuals
+        ],
+        "outputTruthResidualMilliseconds": [
+            float(value) for value in output_truth_residuals
+        ],
+        "interiorMarkerIndices": list(interior_indices),
+        "sourceTruthMaxResidualMilliseconds": float(
+            max((abs(value) for value in interior_source_truth), default=Fraction(0))
+        ),
+        "sourceTruthDriftMilliseconds": float(
+            max(interior_source_truth, default=Fraction(0))
+            - min(interior_source_truth, default=Fraction(0))
+        ),
+        "outputTruthMaxResidualMilliseconds": float(
+            max((abs(value) for value in interior_output_truth), default=Fraction(0))
+        ),
+        "outputTruthDriftMilliseconds": float(
+            max(interior_output_truth, default=Fraction(0))
+            - min(interior_output_truth, default=Fraction(0))
+        ),
     }
     if source_path is not None:
         result["sourceHash"] = (
@@ -441,6 +529,46 @@ def test_real_media_derives_every_verified_source_ordinal(
         geometry.selected_package_frame(index) for index in range(geometry.frame_count)
     )
     assert observed == expected
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("source_rate", CONVERSION_RATES, ids=str)
+def test_real_media_handles_select_exact_package_ordinals(
+    tmp_path: Path, source_rate: Fraction
+) -> None:
+    fixture = _source(tmp_path / "source", rate=source_rate)
+    duration = Fraction(1001, 240)
+    request = _request(
+        in_frame=ORIGIN_FRAME + 10,
+        duration=duration,
+        pre_handle=1 / TARGET,
+        post_handle=1 / TARGET,
+    )
+    prepared, _, _ = _prepared(
+        fixture.path,
+        tmp_path / "prepared",
+        rate=source_rate,
+        target_rate=TARGET,
+        audio=False,
+        request=request,
+    )
+    geometry = preparation_geometry(
+        source_rate=source_rate,
+        target_rate=TARGET,
+        origin_frame=ORIGIN_FRAME,
+        lower_frame=ORIGIN_FRAME,
+        upper_frame=ORIGIN_FRAME + SOURCE_FRAME_COUNT,
+        in_frame=ORIGIN_FRAME + 10,
+        duration=duration,
+        pre_handle=1 / TARGET,
+        post_handle=1 / TARGET,
+    )
+    expected = tuple(
+        geometry.selected_package_frame(index) for index in range(geometry.frame_count)
+    )
+    assert decode_frame_ordinals(prepared.video_path) == expected
+    receipt = cast(dict[str, Any], json.loads(prepared.receipt_path.read_bytes()))
+    assert receipt["geometry"]["selectedPackageFrames"] == list(expected)
 
 
 @pytest.mark.slow
@@ -510,6 +638,132 @@ def test_real_mov_mkv_h264_and_hevc_profiles_are_inspectable(
 
 
 @pytest.mark.slow
+@pytest.mark.parametrize("extension", (".mp4", ".mov", ".mkv"))
+def test_aac_container_origins_track_generated_truth(
+    tmp_path: Path, extension: str
+) -> None:
+    marker_frames = (12, 60, 109)
+    fixture = _source(
+        tmp_path / "source",
+        rate=Fraction(25),
+        flash_frames=marker_frames,
+        audio_sample_rate=48000,
+        audio_channels=1,
+        extension=extension,
+        mux_audio="aac",
+    )
+    assert fixture.muxed_path is not None
+    duration = Fraction(1001, 240)
+    prepared, inspection, _ = _prepared(
+        fixture.muxed_path,
+        tmp_path / "prepared",
+        rate=Fraction(25),
+        target_rate=TARGET,
+        audio=True,
+        request=_request(in_frame=ORIGIN_FRAME + 10, duration=duration),
+    )
+    assert inspection.audio_origin is not None
+    assert inspection.audio is not None and inspection.audio["codec_name"] == "aac"
+    assert prepared.audio_path is not None
+    geometry = preparation_geometry(
+        source_rate=Fraction(25),
+        target_rate=TARGET,
+        origin_frame=ORIGIN_FRAME,
+        lower_frame=ORIGIN_FRAME,
+        upper_frame=ORIGIN_FRAME + SOURCE_FRAME_COUNT,
+        in_frame=ORIGIN_FRAME + 10,
+        duration=duration,
+    )
+    measurements = measure_issue174_sync(
+        source_samples=_decoded_audio_samples(
+            fixture.muxed_path, stream_index=1, sample_rate=48000
+        ),
+        source_sample_rate=48000,
+        source_audio_origin=inspection.audio_origin,
+        output_start=inspection.pts_origin + geometry.start,
+        output_audio_path=prepared.audio_path,
+        click_samples=fixture.click_samples,
+        generated_start_pts=fixture.start_pts,
+        output_boundary_offset=_audio_boundary_offset(prepared),
+        source_path=fixture.muxed_path,
+    )
+    assert measurements["sourceTruthMaxResidualMilliseconds"] <= 1.0
+    assert measurements["outputTruthMaxResidualMilliseconds"] <= 1.0
+    assert measurements["outputTruthDriftMilliseconds"] <= 1.0
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize(
+    ("extension", "audio_codec"),
+    ((".mp4", "aac"), (".mov", "pcm_s24le")),
+)
+def test_same_rate_target_reuse_audio_has_exact_sidecar_range(
+    tmp_path: Path,
+    extension: str,
+    audio_codec: Literal["aac", "pcm_s24le"],
+) -> None:
+    fixture = _source(
+        tmp_path / "source",
+        rate=TARGET,
+        frame_count=330,
+        audio_sample_rate=48000,
+        audio_channels=1,
+        extension=extension,
+        mux_audio=audio_codec,
+    )
+    assert fixture.muxed_path is not None
+    duration = Fraction(1001, 240)
+    request = _request(in_frame=ORIGIN_FRAME + 10, duration=duration)
+    prepared, inspection, _ = _prepared(
+        fixture.muxed_path,
+        tmp_path / "prepared",
+        rate=TARGET,
+        target_rate=TARGET,
+        audio=True,
+        request=request,
+    )
+    assert prepared.binding["mode"] == "verified_reuse"
+    assert prepared.video_path == fixture.muxed_path
+    assert prepared.audio_path is not None
+    receipt = cast(dict[str, Any], json.loads(prepared.receipt_path.read_bytes()))
+    audio = cast(dict[str, Any], receipt["audio"])
+    assert audio["decodedSamples"] == (
+        audio["resampledExclusiveSample"] - audio["resampledFirstSample"]
+    )
+    geometry = preparation_geometry(
+        source_rate=TARGET,
+        target_rate=TARGET,
+        origin_frame=ORIGIN_FRAME,
+        lower_frame=ORIGIN_FRAME,
+        upper_frame=ORIGIN_FRAME + 330,
+        in_frame=ORIGIN_FRAME + 10,
+        duration=duration,
+    )
+    compiler = assert_compiler_binding(
+        issue174_descriptor(inspection, rate=TARGET, audio=True),
+        cast(dict[str, Any], prepared.binding),
+    )
+    assert compiler["sourceAudioSampleRange"] == {
+        "startFrame": audio["sourceFirstSample"],
+        "endFrame": audio["sourceExclusiveSample"],
+    }
+    assert _unwire(cast(dict[str, int], audio["deliveredTimeAtFirstSample"])) == (
+        geometry.start + _unwire(cast(dict[str, int], audio["boundaryOffset"]))
+    )
+    if audio_codec == "pcm_s24le":
+        _, _, source_samples = _wave_samples(fixture.audio_path)
+        _, _, delivered_samples = _wave_samples(prepared.audio_path)
+        assert (
+            delivered_samples
+            == source_samples[
+                audio["sourceFirstSample"] : audio["sourceExclusiveSample"]
+            ]
+        )
+    assert audio["sourceFirstSample"] >= 0
+    assert audio["sourceExclusiveSample"] > audio["sourceFirstSample"]
+
+
+@pytest.mark.slow
 def test_repeated_generation_and_derivation_are_byte_identical(tmp_path: Path) -> None:
     first = _source(tmp_path / "first", rate=Fraction(25))
     second = _source(tmp_path / "second", rate=Fraction(25))
@@ -547,7 +801,7 @@ def test_pcm_clicks_and_derived_waveform_stay_aligned(
     tmp_path: Path, audio_sample_rate: int, audio_channels: int
 ) -> None:
     tmp_path = tmp_path / "package with spaces"
-    marker_frames = (10, 135, 259)
+    marker_frames = (12, 135, 258)
     fixture = _source(
         tmp_path / "source",
         rate=Fraction(25),
@@ -602,10 +856,14 @@ def test_pcm_clicks_and_derived_waveform_stay_aligned(
         output_start=inspection.pts_origin + geometry.start,
         output_audio_path=prepared.audio_path,
         click_samples=fixture.click_samples,
+        generated_start_pts=fixture.start_pts,
+        output_boundary_offset=_audio_boundary_offset(prepared),
         source_path=fixture.audio_path,
     )
     assert json.dumps(measurements)
-    assert measurements["maxResidualMilliseconds"] <= 1.0
+    assert measurements["sourceTruthMaxResidualMilliseconds"] <= 1.0
+    assert measurements["outputTruthMaxResidualMilliseconds"] <= 1.0
+    assert measurements["outputTruthDriftMilliseconds"] <= 1.0
     with wave.open(str(prepared.audio_path), "rb") as output:
         assert output.getframerate() == 48000
         assert output.getnchannels() == audio_channels
@@ -635,7 +893,7 @@ def test_pcm_clicks_and_derived_waveform_stay_aligned(
 def test_aac_derived_waveform_tracks_decoded_source_origin(
     tmp_path: Path, audio_sample_rate: int, audio_channels: int
 ) -> None:
-    marker_frames = (10, 135, 259)
+    marker_frames = (12, 135, 258)
     fixture = _source(
         tmp_path / "source",
         rate=Fraction(25),
@@ -676,11 +934,14 @@ def test_aac_derived_waveform_tracks_decoded_source_origin(
         output_start=inspection.pts_origin + geometry.start,
         output_audio_path=prepared.audio_path,
         click_samples=fixture.click_samples,
+        generated_start_pts=fixture.start_pts,
+        output_boundary_offset=_audio_boundary_offset(prepared),
         source_path=fixture.muxed_path,
     )
     assert json.dumps(measurements)
-    assert measurements["maxResidualMilliseconds"] <= 1.0
-    assert measurements["driftMilliseconds"] <= 1.0
+    assert measurements["sourceTruthMaxResidualMilliseconds"] <= 1.0
+    assert measurements["outputTruthMaxResidualMilliseconds"] <= 1.0
+    assert measurements["outputTruthDriftMilliseconds"] <= 1.0
     assert_compiler_binding(
         issue174_descriptor(inspection, rate=Fraction(25), audio=True),
         cast(dict[str, Any], prepared.binding),
@@ -747,12 +1008,17 @@ def test_shared_grid_flash_and_aac_clicks_stay_aligned(tmp_path: Path) -> None:
         output_start=inspection.pts_origin + geometry.start,
         output_audio_path=prepared.audio_path,
         click_samples=fixture.click_samples,
+        generated_start_pts=fixture.start_pts,
+        output_boundary_offset=_audio_boundary_offset(prepared),
+        interior_marker_indices=(1,),
         source_path=fixture.muxed_path,
     )
     assert json.dumps(measurements)
     residuals = measurements["residualMilliseconds"]
-    assert measurements["maxResidualMilliseconds"] <= 1.0
-    assert max(residuals) - min(residuals) <= 1.0
+    assert measurements["sourceTruthMaxResidualMilliseconds"] <= 1.0
+    assert measurements["outputTruthMaxResidualMilliseconds"] <= 1.0
+    assert measurements["outputTruthDriftMilliseconds"] <= 1.0
+    assert len(residuals) == len(marker_frames)
 
 
 @pytest.mark.slow
@@ -801,7 +1067,7 @@ def test_exact_three_frame_and_ten_second_ranges_preserve_handles_and_endpoints(
             pre_handle=pre_handle,
             post_handle=post_handle,
         )
-        prepared = prepare_media(
+        prepared = _prepare_media(
             fixture.muxed_path,
             descriptor,
             cast(RequestedPreparationRangeV1, request),
@@ -810,6 +1076,7 @@ def test_exact_three_frame_and_ten_second_ranges_preserve_handles_and_endpoints(
             video_stream_index=0,
             audio_stream_index=1,
             tools=tools,
+            qualification_run=True,
         )
         record = cast(dict[str, Any], json.loads(prepared.receipt_path.read_bytes()))
         assert record["geometry"]["terminalQuantization"]["denominator"] > 0

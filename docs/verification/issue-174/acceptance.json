@@ -3,7 +3,7 @@
   "branch": "codex/issue-174-verified-cfr",
   "baseline": "5d59b2ad560aa18f96554b71fe34ee5b7f30dfed",
   "ownerTask": "01a12bd6-3b7d-74a3-9ce0-b1990888cef6",
-  "implementationCommit": null,
+  "implementationCommit": "a640e3f99dd6a68c6565a4404e6abc1b9ccda7d6",
   "initialFocusedMatrix": {
     "command": "ctx-wire run rtk uv run --frozen pytest tests/test_issue174_media_preparation.py tests/test_issue174_real_media.py tests/test_issue174_recovery.py tests/test_issue174_source_refusals.py -q",
     "result": "64 passed in 164.87s",
@@ -17,41 +17,54 @@
     "lockedPackageVersionsVerified": 145,
     "trackedPackageAndLockChanges": false
   },
-  "qualificationRecordHash": "sha256:7041a73d6c9b133aa03cca08c39ef98258eb0689247b06b9fa0423d83118a970",
+  "qualificationRecordHash": "sha256:40803f479b0671478d748de5c64d258be385265e91d5ac55ecd6477637180df9",
   "finalFocusedMatrix": {
-    "result": "64 passed in 422.11s; affected URI/reuse follow-up passed",
-    "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/focused-final.log",
-    "affectedLog": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r2/focused-affected.log"
+    "result": "82 passed in569.58s",
+    "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/focused-revised.log",
+    "logHash": "sha256:0d704c2004669f6c00a11971c144b1c759cffc6656eacc64b5cd1475a067d575"
   },
   "validateFast": {
     "exitCode": 0,
-    "pythonResult": "323 passed in 114.85s",
-    "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r2/validate-fast.log",
-    "logHash": "sha256:aeb22accedfb9dc5f097a115cc3d1a55060c8651aff690456a50d27257170ae5"
+    "pythonResult": "323 passed in55.46s",
+    "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r5/validate-fast.log",
+    "logHash": "sha256:31d64786e268fcda061dd057ef7b6fa835207fbdfad3ec56267345c7a733b920"
   },
   "fullValidate": {
-    "exitCode": 0,
-    "pythonResult": "563 passed in 3061.49s",
-    "includes": "generated currentness, TypeScript lint/types/tests, Python lint/types/all tests",
-    "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r2/validate-full.log",
-    "logHash": "sha256:af36a246a7f62760a7bf8faffb3cb4c6c91916349a390457f81fef4bb2d40852",
-    "environment": {
-      "VITEST_MAX_WORKERS": "1",
-      "PYTEST_ADDOPTS": "--durations=25"
-    }
+    "status": "not qualifying: original exit receipt lost; no exit0 fabricated",
+    "originalCommand": [
+      "/usr/bin/env",
+      "PATH=/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/usr/local/bin:/usr/bin:/bin:/Users/matthewbelinkie/.local/bin",
+      "VITEST_MAX_WORKERS=1",
+      "PYTEST_ADDOPTS=--durations=25",
+      "npm",
+      "run",
+      "validate"
+    ],
+    "completeCoverageObserved": "581 passed in9646.27s plus all preceding generated/TS/lint/types checks",
+    "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r6/validate-full.log",
+    "logHash": "sha256:b65d5982e8cef8c2277afad8a862275e28f16c2d702aef4ebc9cec027a5c0474",
+    "overwrittenWrapperExit": "r6-overwritten-exit.json",
+    "reason": "launchctl submit job relaunched every10seconds after first completion; later attempts failed exclusively at existing log open, never reran validation, and replaced original receipt",
+    "ownedJobRetired": true
   },
   "frozenBoundaryAudit": {
     "result": "tracked baseline unchanged",
     "baseline": "5d59b2ad560aa18f96554b71fe34ee5b7f30dfed",
-    "sourceHashesMatchTestedCandidate": true
+    "sourceHashesMatchCurrentCandidate": true
   },
   "claudeAntagonistReview": {
-    "status": "pending required gates and exact implementation commit",
+    "status": "FAIL; substantive fixes implemented, fresh qualification/gates/re-review pending",
     "cliVersion": "2.1.291",
-    "existingLoginAvailableOutsideSandbox": true
+    "reviewedCommit": "a640e3f99dd6a68c6565a4404e6abc1b9ccda7d6",
+    "resultHash": "f3358682fb7f1a1b50c8f836c9cc65831ae7b03959b15b34e2d76189e97e1012",
+    "exitCode": 0,
+    "is_error": false,
+    "rawResult": "claude-r1-result.json",
+    "disposition": "claude-r1-disposition.md"
   },
   "externalOperatorAcceptance": "pending",
   "issueClosure": "not authorized until all required evidence and External judgment are retained",
-  "qualificationDirectory": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r2/qualification",
-  "evidenceReuse": "Final full gate and qualification pass on exactly current source hashes. Subsequent evidence/runbook updates do not alter code, tests, fixtures, tool profile or artifacts. No duplicate expensive gate needed."
+  "qualificationDirectory": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification",
+  "evidenceReuse": "R3 source/tests/qualifier match current; only verifier decoder defaults were corrected and independently passed24cases/98hashes. Fast gate current and passed. Current qualification/proof ledger unchanged. R6 coverage retained as observed; missing original exit prevents full-gate acceptance.",
+  "candidateStatus": "Post-Claude revised candidate; focused/qualification/independent/fast passing. R6 suite completed all coverage but original npm exit receipt overwritten by wrapper relaunch; final qualifying full evidence still required after delta review."
 }
