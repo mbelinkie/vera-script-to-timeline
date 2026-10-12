@@ -160,6 +160,18 @@ export function parseCollectOnly(output) {
   return ids;
 }
 
+// Display names can collide (Vitest abbreviates `it.each` values such as
+// `[ Array(1) ]`). Number repeats in the runner's deterministic declaration
+// order so each test keeps a distinct identity.
+export function numberDuplicateIds(ids) {
+  const seen = new Map();
+  return ids.map((id) => {
+    const occurrence = (seen.get(id) ?? 0) + 1;
+    seen.set(id, occurrence);
+    return occurrence === 1 ? id : `${id} #${occurrence}`;
+  });
+}
+
 // Runtime outcomes from the unchanged gate's own output: Vitest run summaries
 // and node:test results per `node --test` invocation (spec or TAP reporter).
 export function parseValidateLog(text) {
@@ -193,6 +205,7 @@ export function parseValidateLog(text) {
     const summary = /^(?:ℹ|#) (tests|pass|fail|cancelled|skipped|todo) (\d+)$/.exec(line);
     if (summary) current.counts[summary[1]] = Number(summary[2]);
   }
+  for (const entry of node) entry.ids = numberDuplicateIds(entry.ids);
   return { vitest, node };
 }
 

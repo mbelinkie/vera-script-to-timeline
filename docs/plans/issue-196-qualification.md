@@ -141,6 +141,7 @@ uses it.
 | `outcome-by-step-only` | Lint, type checks and generated-currentness are proven by the GitHub step conclusion. Test runners have per-test or per-summary outcomes. |
 | `checkout-attested` | GitHub's run API does not expose the PR merge SHA. The collector names it; GitHub corroborates its tree and its head parent. |
 | `pr-base-moved` | The merge commit's base differs from the event's base SHA. Tree equality with the delivered tree still decides. |
+| `parameterized-identity` (documented, not emitted) | Vitest abbreviates some `it.each` values, such as `[ Array(1) ]`. The ID `name #n` is then positional: a removed case is detected, but swapping one abbreviated value for another is not. |
 | `history-scope` | Identical content on a *different* branch is not searched. |
 | `prior-failure-dispositioned` | Each accepted disposition is listed for reviewer audit. |
 | `inventory-added` | Tests beyond the qualified inventory passed but were not part of qualification. |
@@ -202,6 +203,17 @@ in the primary checkout).
 | Parser on the retained #193 log and real Node 24 piped output | Vitest 402 + 1, node:test 6 + 23, and 31 parsed exactly |
 | Pinned `npm ci` / `uv sync --frozen` on the integrated tree | exit 0 / 0; lockfiles unchanged (`docs/verification/issue-196/`) |
 | `npm run validate:fast` | Attempt 1 exit 1 (ESLint on the new scripts, fixed); attempt 2 exit 0: Vitest 402+1, node:test 6+23+31, ruff/mypy clean, 317 non-slow pytest passed |
+
+## Calibration rounds
+
+- **Round 1** (`ea5db6c`, tree `7c5ea7bc`): both complete runs passed on
+  GitHub. Push run 38291149935 took 39:55 and PR run 38291234081 took 29:59.
+  The round was refused as a baseline because `vitest list` gives `it.each`
+  cases colliding display names: 403 tests, 396 names. The fix numbers repeats
+  in declaration order (` #2`, …) for Vitest and node:test IDs. It changes the
+  controls, so round 1 cannot qualify. Details:
+  [ROUND1.md](../verification/issue-196/cloud/ROUND1.md).
+- **Round 2:** two fresh runs on the fixed tree. Handles are in the checkpoint.
 
 ## Local reference reuse (#193)
 

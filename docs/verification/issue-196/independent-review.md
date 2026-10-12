@@ -44,3 +44,22 @@ Delta checks after fixes:
 | `eslint scripts/*.mjs` | Clean |
 | Helper tests | 31/31 |
 | `validate:fast` (18:26:09–18:28:11Z) | exit 0: Vitest 402+1, node:test 6+23+31, ruff/mypy clean, 317 non-slow pytest passed (`validate-fast-delta.*`) |
+
+## Delta review: duplicate-ID numbering (after calibration round 1)
+
+A fresh-context read-only reviewer subagent ran inside session
+`da5a3fbd-c7c1-45af-bb5a-d3d5e12bf4b5`. It reviewed `git diff ea5db6c --
+scripts/` against the round-1 manifests and confirmed the duplicate count
+(403 IDs, 396 distinct).
+
+**Verdict: approve, no blocking findings.**
+
+- **Numbering is order-independent.** It depends only on how many times each
+  exact name appears, and Vitest IDs include the file path.
+- **A removed case is detected** (`incomplete-coverage`).
+- **A numbering collision fails closed** (uniqueness checks).
+
+| # | Severity | Finding | Disposition |
+| --- | --- | --- | --- |
+| 1 | informational | For abbreviated `it.each` names the identity is positional. A removed case is detected; swapping one abbreviated value for another is not. | Documented as `parameterized-identity` in the qualification record. |
+| 2 | low | No validator-level test for a removed numbered case or a collision; a fixture count was confusing. | Added both tests and fixed the fixture. The helper suite now passes 32/32. |

@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import {
   controlDigestsFromEntries,
   MANIFEST_SCHEMA_VERSION,
+  numberDuplicateIds,
   parseCollectOnly,
   parseJunit,
   parseLsTree,
@@ -116,7 +117,7 @@ function vitestInventory(root, run, errors, temporaryDirectory) {
     }
   }
   if (ids.length === 0) errors.push("vitest inventory is empty");
-  return { ids: ids.sort() };
+  return { ids: numberDuplicateIds(ids).sort() };
 }
 
 function pytestInventory(evidenceDirectory, run, errors, environment) {

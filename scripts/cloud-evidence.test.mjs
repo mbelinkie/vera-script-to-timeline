@@ -15,6 +15,7 @@ import {
   isControlPath,
   JOB_NAME,
   nodeIdToJunitId,
+  numberDuplicateIds,
   parseCollectOnly,
   parseJunit,
   parseLsTree,
@@ -612,10 +613,11 @@ test("reads runtime outcomes from the gate's own Vitest and node:test output", (
     "ℹ todo 0",
     "> node --test scripts/roadmap.test.mjs",
     "ok 1 - uses the latest claim marker",
+    "ok 2 - uses the latest claim marker",
     "    ok 1 - nested",
     "not ok 2 - rejects prose # TODO later",
-    "# tests 2",
-    "# pass 1",
+    "# tests 3",
+    "# pass 2",
     "# todo 1",
     "tests/test_word_timing_cli.py ......   [ 90%]",
   ].join("\n");
@@ -629,10 +631,24 @@ test("reads runtime outcomes from the gate's own Vitest and node:test output", (
     },
     {
       command: "node --test scripts/roadmap.test.mjs",
-      ids: ["uses the latest claim marker", "rejects prose"],
-      counts: { tests: 2, pass: 1, todo: 1 },
+      ids: ["uses the latest claim marker", "uses the latest claim marker #2", "rejects prose"],
+      counts: { tests: 3, pass: 2, todo: 1 },
     },
   ]);
+});
+
+test("numbered duplicate names still detect a removed case and refuse colliding numbering", () => {
+  assert.deepEqual(numberDuplicateIds(["x", "y", "x", "x"]), ["x", "y", "x #2", "x #3"]);
+  assertRejected((input) => {
+    input.profile.inventory.vitest = numberDuplicateIds([VITEST_IDS[0], VITEST_IDS[0], VITEST_IDS[0]]);
+    approve(input.profile);
+    input.manifest.inventory.vitest.ids = numberDuplicateIds([VITEST_IDS[0], VITEST_IDS[0]]);
+    input.manifest.outcomes.vitest = [{ total: 2, passed: 2 }];
+  }, "incomplete-coverage");
+  assertRejected((input) => {
+    input.manifest.inventory.vitest.ids = numberDuplicateIds(["a", "a", "a #2"]);
+    input.manifest.outcomes.vitest = [{ total: 3, passed: 3 }];
+  }, "incomplete-collection");
 });
 
 test("reads NUL-delimited tree and status listings with unusual paths", () => {
@@ -680,7 +696,7 @@ function collectorFixture(t) {
   );
   writeFileSync(
     path.join(evidence, "validate.log"),
-    "      Tests  1 passed (1)\n> node --test scripts/x.test.mjs\n✔ works (1ms)\nℹ tests 1\nℹ pass 1\nℹ fail 0\nℹ skipped 0\nℹ todo 0\n",
+    "      Tests  3 passed (3)\n> node --test scripts/x.test.mjs\n✔ works (1ms)\nℹ tests 1\nℹ pass 1\nℹ fail 0\nℹ skipped 0\nℹ todo 0\n",
   );
   const calls = [];
   const runCommand = (command, args, options) => {
@@ -692,7 +708,16 @@ function collectorFixture(t) {
     if (command === "ffprobe") return ok("ffprobe version 6.1.1\n");
     if (command.endsWith("vitest")) {
       const output = args.find((arg) => arg.startsWith("--json=")).slice("--json=".length);
-      writeFileSync(output, JSON.stringify([{ name: "suite > works", file: path.join(options.cwd, "test", "a.test.ts") }]));
+      // it.each display names collide in `vitest list` (observed in calibration round 1).
+      const file = path.join(options.cwd, "test", "a.test.ts");
+      writeFileSync(
+        output,
+        JSON.stringify([
+          { name: "suite > works", file },
+          { name: "suite > each [ Array(1) ]", file },
+          { name: "suite > each [ Array(1) ]", file },
+        ]),
+      );
       return ok("");
     }
     if (command === "uv" && args.includes("--collect-only")) {
@@ -726,7 +751,11 @@ test("collector records checkout, unusual control paths, inventories and runtime
   assert.deepEqual(manifest.trackedState, { modified: [] });
   assert.deepEqual(manifest.inventory.pytest.ids, ["tests.test_a.test_a"]);
   assert.deepEqual(manifest.inventory.pytest.collectedIds, ["tests.test_a.test_a"]);
-  assert.deepEqual(manifest.inventory.vitest.ids, ["packages/demo/test/a.test.ts > suite > works"]);
+  assert.deepEqual(manifest.inventory.vitest.ids, [
+    "packages/demo/test/a.test.ts > suite > each [ Array(1) ]",
+    "packages/demo/test/a.test.ts > suite > each [ Array(1) ] #2",
+    "packages/demo/test/a.test.ts > suite > works",
+  ]);
   assert.deepEqual(manifest.outcomes.node[0].ids, ["works"]);
   assert.equal(manifest.tools.media.ffmpegSha256.length, 64);
   // Published fields carry no raw log or environment dump.
