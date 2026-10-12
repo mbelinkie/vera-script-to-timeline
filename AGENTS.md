@@ -21,6 +21,13 @@ acceptance record, not a live tracker.
   fast validation alone never supplies full acceptance evidence. Never run the
   full gate alongside other heavy work: check
   `pgrep -fl "npm run validate|pytest"` and wait for other test runs to finish.
+- Before testing, reviewing or handing off work, follow
+  `docs/VERIFICATION_POLICY.md`: focused/fast checks, required review and fixes,
+  then final full evidence. Reuse verified equivalent passing evidence across
+  unchanged handoffs; scale review depth to risk. Within the policy's qualified
+  cloud scope, a complete CI pass accepted by the validator from accepted `main`
+  replaces the local full rerun. Otherwise local full acceptance, frozen
+  boundaries and actual External/Producer gates remain required.
 - Finish with passing checks, a plain-language walkthrough and judgment calls,
   and the producer acceptance checklist.
 - The GitHub Project's `Acceptance` field names the closing authority. For
