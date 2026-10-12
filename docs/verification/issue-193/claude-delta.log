@@ -1,0 +1,19 @@
+Permission allow rule (../../../../.claude/settings.json): Bash(git -C * push origin claude/*) has a wildcard before the rest of the command, so it also matches any options inserted at that position and approves them without a prompt. For git, options such as -c and --exec-path can run arbitrary commands. Replace that * with the exact value you mean, or only use * after the subcommand (for example Bash(git status *)).
+No blockers. The facts in the evidence are accurate, and the final full gate is correctly marked as pending. I found four small wording and provenance defects. I edited nothing; the only file I wrote was the plan-mode notes file.
+
+**What I checked and found correct:**
+- **Hashes:** the SHA-256 values for `package.json`, `packages/word-timing/package.json` and `package-lock.json` match the current files.
+- **Scope:** HEAD is still `5d59b2a`, so the base revision `automated.md` names is still the current one. The two manifests are unchanged from HEAD. The lockfile diff is only the two workspace records (8 lines added).
+- **Exit files:** all four `.exit` files contain `0`.
+- **npm ci log:** 148 packages added, 152 audited, 4 high severity findings, as stated.
+- **Generated check log:** says "Generated contract types are current."
+- **Fast gate log:** every count matches. Vitest ran 402 contract tests plus 1 tooling-smoke test. The progress and roadmap Node tests ran 6 and 23. Ruff and the format check passed, and mypy passed on 111 files. 317 fast Python tests passed on Python 3.12.14 with 2 workers. The lockfile was last changed before this run started, so the run used the repaired lockfile.
+- **Final gate:** shown as pending, with the issue kept open until it passes.
+
+**Evidence defects (all low severity):**
+1. `automated.md:12` – the link text is the commit `5d59b2a`, but it points to the issue page. It is not a commit link, and it is not a link to the specific issue comment the earlier review suggested.
+2. `automated.md:53` – "the evidence gaps are addressed here" claims too much. The earlier review's finding 3, that nothing shows `npm ci --workspaces=false` succeeds after the repair, is still not addressed.
+3. `automated.md:21–31` – the acceptance criterion asks for a clean `npm ci` from a disposable checkout. The kept evidence comes from the implementation worktree instead. The disposable-checkout run is called "superseded" and has no kept log.
+4. The Node `v24.19.0` / npm `11.17.0` versions and the tested revision appear only in the prose. None of the kept logs record `node -v`, `npm -v` or HEAD. `validate-fast.log` also starts at the inner script, without the `rtk npm run validate:fast` command line that the other logs include.
+
+Checking the hashes needed one extra read-only command. I first ran `shasum`, which failed because of a locale error, then used `openssl dgst` instead.
