@@ -429,4 +429,13 @@ describe("Issue 191 v2 accepted omission", () => {
     const input = documentWith(rowWith(["Alpha", "Bravo", "Charlie", "Delta", "Echo"], [" ", ", ", " ", " "]));
     expect(() => applyAcceptedOmissionV2(input, editFor(input))).toThrow(/joining-gap/);
   });
+
+  it.each([
+    [" ", "", " ", " "],
+    [" ", " ", "", " "],
+  ])("refuses a sub-word omission at either outer join: %j", (...separators) => {
+    const input = documentWith(rowWith(["Alpha", "Bravo", "Charlie", "Delta", "Echo"], separators));
+    expect(validateScriptDocumentV2(input).valid).toBe(true);
+    expect(() => applyAcceptedOmissionV2(input, editFor(input))).toThrow(/joining-gap/);
+  });
 });

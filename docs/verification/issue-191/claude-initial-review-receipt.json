@@ -1,0 +1,39 @@
+{
+  "phase": "claude-adversarial-review",
+  "worktree": "/Users/matthewbelinkie/.codex/worktrees/3760/VERA Script to Timeline",
+  "sourceCommit": "2d9709d93a5300fad881a4c66283e3d05c20ab4c",
+  "integrationBaseline": "4e31565f88e71e0c1d1cd1be5e52c34df2819347",
+  "command": [
+    "/Users/matthewbelinkie/.local/bin/claude",
+    "--safe-mode",
+    "--strict-mcp-config",
+    "--tools",
+    "",
+    "--disable-slash-commands",
+    "--no-session-persistence",
+    "--permission-mode",
+    "dontAsk",
+    "--effort",
+    "high",
+    "--output-format",
+    "json",
+    "-p"
+  ],
+  "stdinPath": "/Users/matthewbelinkie/.codex/worktrees/3760/VERA Script to Timeline/test-results/issue-191/claude-review/prompt.txt",
+  "promptSHA256": "5dcd299f24439203d29ac8b4cd64395c3a6c3bdf519fb1dcb7c863b887330f02",
+  "claudeVersion": "2.1.296 (Claude Code)",
+  "environment": {
+    "PATH": "/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/usr/local/bin:/usr/bin:/bin:/Users/matthewbelinkie/.local/bin"
+  },
+  "launcherPid": 97599,
+  "startedAt": "2026-10-12T22:57:37.713203+00:00",
+  "logPath": "/Users/matthewbelinkie/.codex/worktrees/3760/VERA Script to Timeline/test-results/issue-191/claude-review/command.log",
+  "statusPath": "/Users/matthewbelinkie/.codex/worktrees/3760/VERA Script to Timeline/test-results/issue-191/claude-review/status.json",
+  "state": "passed",
+  "commandPid": 97606,
+  "exitCode": 0,
+  "sourceStillCurrent": true,
+  "elapsedSeconds": 478.6525838000016,
+  "finishedAt": "2026-10-12T23:05:36.366701+00:00",
+  "logSHA256": "19f8925d45fba23eb19eccd29d020f189b1a5cba81a72e9d3636d407cde6e62b"
+}

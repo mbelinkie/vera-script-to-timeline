@@ -2,6 +2,7 @@
 
 The required receipt verifier is a trusted integration port, never an operator
 flag. Local/fake tests do not qualify acoustic review or native rendering.
+Rejected receipts must raise ProofBuildError through the trusted port.
 """
 
 from __future__ import annotations
@@ -110,6 +111,7 @@ def _observation(
         value["schemaVersion"] == "issue-189-v2-audio-observation/v1"
         and value["target"] == target
         and value["frameRate"] == RATE
+        and all(type(v) is int for v in value["frameRate"].values())
         and integer(value["extentFrames"], 1) == extent,
         "observation identity/rate/extent",
     )
@@ -284,6 +286,7 @@ def verify_selected_omission_v2(
         )
         row = rows[0]
         integer(row["version"], 1)
+        fact(isinstance(row["text"], str), "narration text required")
         tokens = _validated_tokens(row["text"].encode("utf-16-le"), row["tokens"])
         profile = files.json("profile.json")
         fact(
@@ -302,7 +305,8 @@ def verify_selected_omission_v2(
             and profile["blockId"] == row_id
             and integer(profile["blockRevision"], 1) == row["version"]
             and profile["primarySourceId"] == primary_source_id
-            and profile["frameRate"] == RATE,
+            and profile["frameRate"] == RATE
+            and all(type(v) is int for v in profile["frameRate"].values()),
             "profile identity/rate differs",
         )
         extent = integer(profile["extentFrames"], 1)
@@ -419,7 +423,7 @@ def verify_selected_omission_v2(
         fact(
             files.hashes["baseline.json"] == baseline_hash
             and files.hashes["current-a.json"] == current_hash
-            and current == second,
+            and files.hashes["current-a.json"] == files.hashes["current-b.json"],
             "stale/inconsistent adjacent observations",
         )
         old_routes = _observation(baseline, sources, extent, target)

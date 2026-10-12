@@ -21,15 +21,15 @@ from vera_timeline_agent.roundtrip_v2_audio import (
 )
 
 
-def wav(channels: list[list[int]]) -> bytes:
+def wav(channels: list[list[int]], *, width: int = 2) -> bytes:
     output = io.BytesIO()
     with wave.open(output, "wb") as stream:
         stream.setparams(
-            (len(channels), 2, 48000, len(channels[0]), "NONE", "not compressed")
+            (len(channels), width, 48000, len(channels[0]), "NONE", "not compressed")
         )
         stream.writeframes(
             b"".join(
-                struct.pack("<h", value)
+                value.to_bytes(width, "little", signed=True)
                 for frame in zip(*channels, strict=True)
                 for value in frame
             )
@@ -56,7 +56,13 @@ def segment(uid: str, start: int, end: int, sin: int, sout: int) -> dict[str, An
     }
 
 
-def case(root: Path, *, extent: int = 12, late_source_frame: int = 0) -> dict[str, Any]:
+def case(
+    root: Path,
+    *,
+    extent: int = 12,
+    late_source_frame: int = 0,
+    gains: tuple[float, float, float] = (0, 0, 0),
+) -> dict[str, Any]:
     words = ["steady", "left", "remove", "these", "right", "tail"]
     tokens = []
     offset = 0
@@ -222,6 +228,9 @@ def case(root: Path, *, extent: int = 12, late_source_frame: int = 0) -> dict[st
             },
         ],
     }
+    for route, gain in zip(baseline["routes"], gains, strict=True):
+        route["controls"]["gainDb"] = gain
+    amplitudes = [math.pow(10, gain / 20) for gain in gains]
     current = copy.deepcopy(baseline)
     current["routes"][0]["segments"] = [
         segment("left", 0, 2, 0, 2),
@@ -233,13 +242,17 @@ def case(root: Path, *, extent: int = 12, late_source_frame: int = 0) -> dict[st
     for name, edited in (("pristine", False), ("edited", True)):
         output = [
             [
-                (
-                    primary[i]
-                    if i < len(primary) and not (edited and 2 * FRAME <= i < 4 * FRAME)
-                    else 0
+                round(
+                    (
+                        primary[i]
+                        if i < len(primary)
+                        and not (edited and 2 * FRAME <= i < 4 * FRAME)
+                        else 0
+                    )
+                    * amplitudes[0]
+                    + other[i] * amplitudes[1]
+                    + quiet[ch][i] * amplitudes[2]
                 )
-                + other[i]
-                + quiet[ch][i]
                 for i in range(size)
             ]
             for ch in range(2)
@@ -325,7 +338,8 @@ def case(root: Path, *, extent: int = 12, late_source_frame: int = 0) -> dict[st
             raise ProofBuildError("unauthenticated receipt")
         value = json.loads(raw)
         if kind == "selected_review":
-            assert value == bindings
+            if value != bindings:
+                raise ProofBuildError("review receipt binding mismatch")
         elif value != {
             "schemaVersion": "issue-191-fake-receipt/v1",
             "kind": kind,
@@ -364,6 +378,75 @@ def test_selected_only_complete_stereo_and_repeat(tmp_path: Path) -> None:
         verify_selected_omission_v2(tmp_path, **args)
     )
     assert first["evidenceLevel"] == "local_consistency_only"
+
+
+@pytest.mark.parametrize("wrong_gain", [False, True])
+def test_observed_nonunity_gains_match_both_complete_channels(
+    tmp_path: Path, wrong_gain: bool
+) -> None:
+    args = case(tmp_path, gains=(-6, -3.5, -2))
+    if wrong_gain:
+        for name, key in (("baseline", "baseline_hash"), ("current-a", "current_hash")):
+            observation = json.loads((tmp_path / f"{name}.json").read_bytes())
+            observation["routes"][0]["controls"]["gainDb"] = 0
+            args[key] = write(tmp_path, f"{name}.json", observation)
+            if name == "current-a":
+                write(tmp_path, "current-b.json", observation)
+        original = args["authenticate"]
+
+        def auth(kind: str, raw: bytes, bindings: dict[str, Any]) -> None:
+            if kind not in {"native_observation", "native_audio_lift", "native_render"}:
+                original(kind, raw, bindings)
+
+        args["authenticate"] = auth
+    result = verify_selected_omission_v2(tmp_path, **args)
+    if wrong_gain:
+        assert result["status"] == "refused"
+        assert result["reason"] == "complete-channel residual gates failed"
+    else:
+        assert result["status"] == "verified", result
+        assert all(
+            len(entry["channels"]) == 2
+            and all(ch["residualRms"] < 0.00002 for ch in entry["channels"])
+            for entry in result["channels"]
+        )
+
+
+@pytest.mark.parametrize("location", ["profile", "baseline"])
+def test_rate_requires_integer_parts(tmp_path: Path, location: str) -> None:
+    args = case(tmp_path)
+    value = json.loads((tmp_path / f"{location}.json").read_bytes())
+    value["frameRate"]["numerator"] = 24000.0
+    args[f"{location}_hash"] = write(tmp_path, f"{location}.json", value)
+    result = verify_selected_omission_v2(tmp_path, **args)
+    assert result["status"] == "refused"
+    assert result["reason"] == (
+        "profile identity/rate differs"
+        if location == "profile"
+        else "observation identity/rate/extent"
+    )
+
+
+def test_adjacent_observation_numeric_type_change_refuses(tmp_path: Path) -> None:
+    args = case(tmp_path)
+    value = json.loads((tmp_path / "current-b.json").read_bytes())
+    value["routes"][0]["controls"]["gainDb"] = 0.0
+    write(tmp_path, "current-b.json", value)
+    result = verify_selected_omission_v2(tmp_path, **args)
+    assert result["status"] == "refused"
+    assert result["reason"] == "stale/inconsistent adjacent observations"
+
+
+@pytest.mark.parametrize("text", [7, None])
+def test_malformed_row_text_returns_refusal(tmp_path: Path, text: Any) -> None:
+    args = case(tmp_path)
+    document = json.loads(args["canonical_document_json"])
+    document["activeDraft"]["blocks"][0]["text"] = text
+    args["canonical_document_json"] = canonical_json_bytes(document)
+    args["expected_document_hash"] = sha256_bytes(args["canonical_document_json"])
+    result = verify_selected_omission_v2(tmp_path, **args)
+    assert result["status"] == "refused"
+    assert result["reason"] == "narration text required"
 
 
 @pytest.mark.slow
@@ -425,29 +508,30 @@ def test_malformed_render_returns_refusal(tmp_path: Path, raw: bytes) -> None:
 
 
 @pytest.mark.parametrize(
-    "fault",
+    "fault, reason",
     [
-        "picture-only",
-        "clipped-neighbor",
-        "extra-cut",
-        "unknown-control",
-        "unknown-route",
-        "partial-source",
-        "alias",
-        "stale-source",
-        "wrong-receipt",
-        "stale-review",
-        "review-method",
-        "quote",
-        "end",
-        "adjacent",
-        "unrelated",
-        "ripple",
-        "partial-render",
-        "stale-document",
+        ("picture-only", "exactly one interior lift"),
+        ("clipped-neighbor", "cut clips neighbors"),
+        ("extra-cut", "exactly one interior lift"),
+        ("unknown-control", "unknown/unsupported route controls"),
+        ("unknown-route", "unknown/duplicate route or source"),
+        ("partial-source", "complete route inventory required"),
+        ("alias", "source alias"),
+        ("decoded-alias", "decoded source alias"),
+        ("stale-source", "stale source bytes"),
+        ("wrong-receipt", "unauthenticated receipt"),
+        ("stale-review", "review receipt identity/method differs"),
+        ("review-method", "review receipt identity/method differs"),
+        ("quote", "review token/UTF16/quote differs"),
+        ("end", "overlapping/out-of-range reviewed supports"),
+        ("adjacent", "stale/inconsistent adjacent observations"),
+        ("unrelated", "unrelated audio changed"),
+        ("ripple", "baseline-minus-one-interval/no-ripple geometry differs"),
+        ("partial-render", "decoded extent differs from complete program"),
+        ("stale-document", "stale document"),
     ],
 )
-def test_refusals(tmp_path: Path, fault: str) -> None:
+def test_refusals(tmp_path: Path, fault: str, reason: str) -> None:
     args = case(tmp_path)
     current = json.loads((tmp_path / "current-a.json").read_bytes())
     profile = json.loads((tmp_path / "profile.json").read_bytes())
@@ -457,7 +541,11 @@ def test_refusals(tmp_path: Path, fault: str) -> None:
     elif fault == "clipped-neighbor":
         current["routes"][0]["segments"][0] = segment("left", 0, 1, 0, 1)
     elif fault == "extra-cut":
-        current["routes"][0]["segments"].append(segment("extra", 8, 9, 7, 8))
+        current["routes"][0]["segments"] = [
+            segment("left", 0, 2, 0, 2),
+            segment("extra", 3, 4, 3, 4),
+            segment("right", 5, 8, 5, 8),
+        ]
     elif fault == "unknown-control":
         current["routes"][2]["controls"]["automation"] = [{"at": 0, "gain": -4}]
     elif fault == "unknown-route":
@@ -466,6 +554,19 @@ def test_refusals(tmp_path: Path, fault: str) -> None:
         profile["sources"].pop()
     elif fault == "alias":
         profile["sources"][1] = {**profile["sources"][0], "id": "other"}
+    elif fault == "decoded-alias":
+        with wave.open(str(tmp_path / "speech.wav"), "rb") as stream:
+            samples = [
+                value[0] * 256
+                for value in struct.iter_unpack(
+                    "<h", stream.readframes(stream.getnframes())
+                )
+            ]
+        pin = write(tmp_path, "other.wav", wav([samples], width=3))
+        assert pin != profile["sources"][0]["sha256"]
+        profile["sources"][1].update(
+            sha256=pin, channels=1, durationSamples=len(samples)
+        )
     elif fault == "stale-source":
         (tmp_path / "speech.wav").write_bytes(wav([[0] * (8 * FRAME)]))
     elif fault == "wrong-receipt":
@@ -514,12 +615,21 @@ def test_refusals(tmp_path: Path, fault: str) -> None:
                 original(kind, raw, bindings)
 
         args["authenticate"] = malformed_capture_auth
-    if fault in {"partial-source", "alias"}:
+    if fault == "partial-render":
+        original = args["authenticate"]
+
+        def short_render_auth(kind: str, raw: bytes, bindings: dict[str, Any]) -> None:
+            if kind != "native_render":
+                original(kind, raw, bindings)
+
+        args["authenticate"] = short_render_auth
+    if fault in {"partial-source", "alias", "decoded-alias"}:
         args["profile_hash"] = write(tmp_path, "profile.json", profile)
     if fault in {"stale-review", "review-method", "quote", "end"}:
         write(tmp_path, "review.json", review)
     result = verify_selected_omission_v2(tmp_path, **args)
     assert result["status"] == "refused", result
+    assert reason in result["reason"], result
 
 
 def test_residual_gates_cover_later_right_channel_and_sliding_window(

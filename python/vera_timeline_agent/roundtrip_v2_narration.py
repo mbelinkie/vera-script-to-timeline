@@ -33,11 +33,14 @@ BRIDGE = ROOT / "packages/contracts/src/issue-191-proof-cli.ts"
 
 def _sources() -> JsonObject:
     paths = [
-        *sorted((ROOT / "packages/contracts/src").glob("*.ts")),
+        *sorted((ROOT / "packages/contracts/src").rglob("*.ts")),
         *sorted((ROOT / "contracts").glob("*.json")),
         ROOT / "package-lock.json",
         Path(__file__),
         ROOT / "python/vera_timeline_agent/roundtrip_v2_audio.py",
+        ROOT / "python/vera_timeline_agent/roundtrip_audio.py",
+        ROOT / "python/vera_timeline_agent/roundtrip_build.py",
+        ROOT / "python/vera_timeline_agent/roundtrip_proof.py",
         *sorted((ROOT / "python/vera_timeline_agent/narration").glob("*.py")),
     ]
     return {str(p.relative_to(ROOT)): _file_hash(p) for p in paths}

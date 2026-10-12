@@ -14,7 +14,7 @@ import type {
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 
 const HASH_PATTERN = /^sha256:[0-9a-f]{64}$/u;
-const JOINING_GAP = /^[ \t\r\n]*$/u;
+const JOINING_GAP = /^[ \t\r\n]+$/u;
 const SENTENCE_PUNCTUATION = /[.!?]/u;
 const SENTENCE_END = /[.!?]$/u;
 

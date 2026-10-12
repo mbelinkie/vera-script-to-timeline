@@ -35,6 +35,7 @@ from vera_timeline_agent.roundtrip_build import ROOT, ProofBuildError, _parse
 from vera_timeline_agent.roundtrip_v2_narration import (
     _binding,
     _bridge,
+    _sources,
     _verified_asset,
     finalize_replacement_row_v2,
     prepare_replacement_row_v2,
@@ -42,6 +43,18 @@ from vera_timeline_agent.roundtrip_v2_narration import (
 
 # Repeated external Node compiler/validator integration runs serially in the full gate.
 pytestmark = pytest.mark.slow
+
+
+def test_generation_pins_cover_executed_frozen_helpers_and_generated_types() -> None:
+    pins = _sources()
+    paths = [
+        "python/vera_timeline_agent/roundtrip_audio.py",
+        "python/vera_timeline_agent/roundtrip_build.py",
+        "python/vera_timeline_agent/roundtrip_proof.py",
+        "packages/contracts/src/generated/contracts.ts",
+        "packages/contracts/src/generated/contracts-v2.ts",
+    ]
+    assert all(pins[path] == sha256_bytes((ROOT / path).read_bytes()) for path in paths)
 
 
 class FakeProvider:
