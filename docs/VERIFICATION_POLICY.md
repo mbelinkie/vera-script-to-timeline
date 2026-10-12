@@ -1,6 +1,7 @@
 # Verification and review policy
 
-Producer-approved 2026-10-12. Applies to VERA Script-to-Timeline owners,
+Producer-approved 2026-10-12; qualified cloud scope activated 2026-10-12
+(#196). Applies to VERA Script-to-Timeline owners,
 reviewers, Testers and handoff/closure agents, including already-started tickets.
 This replaces blanket reruns of the full gate at every agent handoff. It does
 not waive a ticket's substantive criteria or separately required independent
@@ -93,13 +94,61 @@ heavy test run, check for actual competing validation/pytest/media jobs and
 wait for the existing owner's explicit release where a queue is established.
 Read-only review can happen while waiting; it must not start competing tests.
 
-Full acceptance still requires the local locked-toolchain gate. CI continues
-unchanged; a CI pass is not yet an approved substitute for local acceptance.
-CI equivalence/capacity and test-performance optimizations need separate
-qualification. No timeout, assertion, test inventory, golden, required external
+Full acceptance still requires the local locked-toolchain gate, except within
+the qualified cloud scope below. Other CI equivalence/capacity and
+test-performance optimizations need separate qualification. No timeout, assertion, test inventory, golden, required external
 check, privacy boundary or approval gate is relaxed by this policy. Do not
 repeat an unchanged resource/deadline failure indefinitely: retain the failure,
 resolve host capacity or report a bounded blocker; failed runs remain failed.
+
+## Qualified cloud substitution (activated 2026-10-12, #196)
+
+Activated under Producer instruction, relayed by the coordinator: "I approve
+196 if Claude is happy with it". The #196 owner reported GO. The receipt and
+evidence are in
+[docs/verification/issue-196/GO-NO-GO.md](verification/issue-196/GO-NO-GO.md).
+Within this scope, one complete passing `Validate` run on GitHub-hosted
+`ubuntu-24.04` replaces the Intel-Mac rerun of
+`VITEST_MAX_WORKERS=1 npm run validate`. Every condition must hold. If any
+fails, use the local full gate. Never retry until something looks green.
+
+1. **Validate from accepted `main`.** In a clean checkout of accepted `main`,
+   run:
+
+   ```sh
+   node scripts/cloud-evidence-validate.mjs --repo mbelinkie/vera-script-to-timeline \
+     --run <id> --attempt <n> --event pull_request --pr <N> --delivered <candidate-rev> \
+     --profile docs/verification/issue-196/cloud/profile-qualified.json \
+     --scope excluding-media-sensitive
+   ```
+
+   Exit 0 is required. Use `--event push` without `--pr` for a branch that has
+   no PR, and prefer the PR run when one exists. Use the default
+   `--scope full` only while the run's runner image is in the profile.
+2. **Check the report.** It must name profile digest
+   `1d6b3c41d0bfbba1c9e012796a1067ebba7944e6a8615ecf96e77444071257c7`.
+   `manifest.source` must be the run artifact, never `local-file`. The tested
+   tree must equal the delivered tree on the ticket's required integration
+   baseline. Every attempt on that source must be green or carry a retained,
+   reviewer-audited disposition.
+3. **Check eligibility.** The candidate must not change the profile or
+   approval files, `scripts/cloud-evidence*`, the workflow, any package or
+   Python manifest, lockfiles, or tool configs. The validator rejects changed
+   controls itself. Such changes take the local full gate, plus requalification
+   if they should stay cloud-eligible. The diff must touch no media-processing
+   path (FFmpeg/FFprobe callers, rendering, probing); those changes keep their
+   affected slow tests, run serially on the Mac's installed tools.
+4. **Keep the other gates.** Focused/fast local checks, required
+   independent/Claude review, frozen-boundary and generated-currentness
+   audits, and post-merge integration checks all remain required. CI evidence
+   never certifies #174's Mac media-tool qualification, real Resolve runtime,
+   private media, transcripts, provider calls, or human listening, visual and
+   design judgment.
+5. **Requalify, never self-certify.** Hosted image rollovers suspend
+   media-sensitive scope automatically, and pure-logic scope is unaffected.
+   Restoring full scope, or changing any control, needs two new complete
+   same-tree runs, a new profile digest and a new approval. A green run on a
+   changed gate is never its own approval.
 
 This policy authorizes verification reuse, not merging, deployment, uploads,
 issue-scope expansion, new dispatch or continuation past existing user gates.

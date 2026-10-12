@@ -1,10 +1,16 @@
 # #196 cloud validation: go/no-go
 
 **Qualification verdict: GO** for the eligible scope below (owner, 2026-10-12).
-**Activation: NOT IN EFFECT.** The scoped edits to the policy and guidance
-were denied by this session's permission classifier (see "Activation
-blocker"). Until an authorized editor lands them together, local full
-acceptance remains the rule for every ticket.
+**Activation: applied on the #196 branch; in effect once merged.** At the
+user's direct request, the scoped policy, playbook and guidance edits were
+applied together. They are the "Qualified cloud substitution" section in
+`docs/VERIFICATION_POLICY.md`, a playbook row, and pointers in AGENTS.md,
+CLAUDE.md, README.md and the coordination SKILL.
+
+Rule 1 runs the validator and profile from accepted `main`, so substitution
+takes effect only after PR #198 merges to `main`. Until then, local full
+acceptance remains the rule. The earlier classifier denials are kept below as
+history.
 
 ## What would be activated
 
@@ -185,7 +191,7 @@ in-production check, once activation is in effect.
   only under `docs/`. The only check that reads `docs/` reads
   `docs/verification/issue-179/`.
 
-## Activation blocker (exact denied actions)
+## Activation blocker (historical: resolved by the user-requested edits above)
 
 The auto-mode permission classifier denied these, and none was bypassed:
 

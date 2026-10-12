@@ -2,6 +2,14 @@
 
 Read `AGENTS.md` and `.agents/skills/vera-roadmap-coordination/SKILL.md` before coordinating or implementing work. The GitHub Project configured in `.github/vera-roadmap.json` is authoritative for live scope, status, dependencies, ownership, priority, and model routing. Product specifications, decisions, plans, contracts, and historical acceptance records remain authoritative for their durable subjects.
 
+Before testing, reviewing or handing off a ticket, read
+`docs/VERIFICATION_POLICY.md`: focused/fast checks → required review → fixes
+and delta checks → final full passing evidence. Reuse verified equivalent
+evidence at unchanged handoffs and scale review depth to risk; don't restart
+an in-flight gate or waive local/runtime/human acceptance requirements.
+Within the policy's qualified cloud scope, a complete CI pass accepted by the
+validator from accepted `main` replaces the local full rerun.
+
 Implement only one Ready issue in one dedicated `claude/<issue>-<slug>` branch/worktree. Claim only an exact model-class and effort match. File out-of-scope discoveries in Inbox without starting them. If the assigned profile is insufficient, stop before scope expansion, record evidence, request escalation, release the claim, and wait for steward relabeling.
 
 Record prerequisites under `## Dependencies` as one `- Blocked by #123` or `- Blocked by owner/repo#123` line per issue, or `None`. Parent/sub-issue hierarchy does not imply execution order. Promote work only through `npm run roadmap -- ready <issue>`; both that command and `claim` require every dependency to be closed and `Done` on its own VERA roadmap. For design-first work, keep implementation in Backlog or Blocked until the accepted design issue is Done.

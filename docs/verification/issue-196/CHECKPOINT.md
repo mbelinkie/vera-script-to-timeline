@@ -156,3 +156,17 @@ Evaluation commands, retained with their logs in `cloud/`: `round2-draft-push.lo
     blocker remain.
   - Next-issue dispatch; #191 stays held for the coordinator.
   - Any #174 action.
+
+## Activation edits applied (user request)
+
+The user asked directly to "Apply the activation edits from GO-NO-GO.md".
+These were applied:
+
+- the policy's "Qualified cloud substitution" section, plus the amended
+  local-gate sentence;
+- the playbook row;
+- the AGENTS.md, CLAUDE.md, README.md and SKILL pointers.
+
+They take effect when PR #198 merges to `main`, because policy rule 1 runs the
+validator from accepted `main`. No check reads these files, so only
+diff/link/whitespace checks apply under the policy.
