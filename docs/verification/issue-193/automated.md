@@ -82,8 +82,30 @@ The repaired lockfile diff contains only the two expected workspace records.
 
 ## Final required gate
 
-Pending one complete local run of
-`PYTEST_ADDOPTS=--durations=25 VITEST_MAX_WORKERS=1 npm run validate` after
-this reviewed candidate. Save the exact tested revision, command, toolchain,
-process/log provenance, and exit receipt here. Keep the issue open until it
-passes.
+Completed once with exit `0` on candidate commit
+`98847b97e024160e4a2e70d4b8989308e29dbae5` using
+`PYTEST_ADDOPTS=--durations=25 VITEST_MAX_WORKERS=1 rtk proxy npm run validate`.
+Process PID was `86363`. Exact command metadata, full output, and exit receipt
+are retained in [validate-final.metadata](validate-final.metadata),
+[validate-final.log](validate-final.log), and
+[validate-final.exit](validate-final.exit). The locked runtime was Node
+`v24.19.0`, npm `11.17.0`, uv `0.12.5`, and Python `3.12.14` on the Intel Mac
+worktree recorded in the metadata.
+SHA-256: log `d305ab265251a9acffa7ee93549cc5613aa8e7768f03c92204e74a762286050a`,
+metadata `fd29cae35e233dd8269cfd07e148b4d5991dae823b0d3ef3ee62c4800f49f80f`,
+exit receipt `5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9`.
+
+Results: generated contract types current; TypeScript lint and type checks
+passed; Vitest passed 402 contract and 1 tooling-smoke tests; progress and
+roadmap Node tests passed 6 and 23 tests with no skips; Ruff and formatting
+passed (382 files); mypy passed for 111 files; pytest passed all 499 tests with
+`--durations=25` and no skipped tests. The complete inventory and slowest 25
+Python cases are in the retained log.
+
+The tested source commit and relevant package/lockfile hashes remain unchanged
+in the delivered worktree. Post-test changes are limited to these verification
+records under `docs/verification/issue-193/`; the checks read only their
+configured source, test, generated-contract, and fixture paths. Search found no
+reference to the issue-193 evidence directory in the check sources. Thus the
+tested implementation source and consumed inputs are identical to the delivered
+implementation; only non-consumed evidence files were added after the pass.
