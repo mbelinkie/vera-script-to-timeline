@@ -45,14 +45,25 @@ response, prompt, command receipt and log hash are retained in this directory.
 
 Cloud-scope condition: the base Normalizer constructor only stores tool names
 and profile; it probes tools lazily through `tool_fingerprint`. The issue's fake
-normalizer overrides the fingerprint and normalization operation, so its tests
+normalizer pre-seeds the fingerprint cache and overrides normalization, so its tests
 invoke no media tool. Any substitution still requires accepted-main validator
 exit zero on the exact delivered integration tree and the approved profile;
 reviewer eligibility alone is insufficient. No real acoustic/provider/native
 gate is claimed. Corrected source `590c7ed817acdb386d1023010d88f2f3c7a023b8`
 passed 53 serial focused Python checks and the fast gate with 349 non-slow
 Python tests plus all TypeScript/generated/lint/type checks. Its frozen audit
-retains all 285 unchanged pins. Required Claude delta review remains pending.
+retains all 285 unchanged pins. Claude delta review at `858d08e` returned GO,
+conditional on final acceptance, with both blockers closed and no substantive
+finding remaining. Actual model `claude-opus-5-5`, session
+`a4f17ffc-0f42-42da-80ae-6402d014c865`; response and receipt retained here.
+
+Delta suggestions S1/S2 remain optional: exact byte-alias refusal is traced
+before decoding, and the transform independently rejects any unsupported
+written-word join even if local acoustic consistency can be measured. Neither
+allows an unsafe accepted text edit. S3 public receipts/prompts/logs are derived
+with machine-home/worktree redaction; original raw hashes and public hashes
+are recorded in public-evidence-sanitization.json, and originals remain local.
+S4 wording now correctly describes the pre-seeded lazy fingerprint cache.
 
 The subsequent receipt/handoff-only commit changes no source, tests, config,
 lockfile, generated type, fixture, golden or toolchain. New JSON/Markdown/gz

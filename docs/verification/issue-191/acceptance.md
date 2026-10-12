@@ -60,7 +60,9 @@ uses the compiler's canonical bytes rather than the narration cache serializer.
 
 ## Validation evidence
 
-Final full acceptance and Claude delta review remain pending. At corrected
+Final full acceptance remains pending. Claude delta review at `858d08e`
+returned GO with both initial blockers closed and no substantive finding.
+At corrected
 source `590c7ed817acdb386d1023010d88f2f3c7a023b8`, all 53 focused Python
 checks (33 audio, 20 narration) passed serially with durations, followed by
 the fast gate: 349 non-slow Python tests and all TypeScript/generated/lint/type
@@ -104,7 +106,7 @@ Actual model `claude-opus-5-5`, session
 refusal-reason tests now reach extra-cut, short-render and decoded-alias checks.
 Closely related identity/type/source-pin checks and non-unity gain coverage
 were strengthened. See `claude-disposition.md` and the exact response/prompt.
-Delta re-review must clear substantive findings before final acceptance.
+Delta re-review cleared substantive findings; final acceptance is still required.
 
 The original fast evidence used a temporary installation of the unchanged
 lockfile's recorded workspaces because the inherited lock omitted

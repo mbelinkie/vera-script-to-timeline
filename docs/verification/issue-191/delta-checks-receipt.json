@@ -1,20 +1,20 @@
 {
   "phase": "focused-fixes-and-fast",
-  "worktree": "/Users/matthewbelinkie/.codex/worktrees/3760/VERA Script to Timeline",
+  "worktree": "<worktree-3760>",
   "sourceCommit": "590c7ed817acdb386d1023010d88f2f3c7a023b8",
   "command": [
     "python3",
-    "/Users/matthewbelinkie/.codex/worktrees/3760/VERA Script to Timeline/test-results/issue-191/delta-checks.py"
+    "<worktree-3760>/test-results/issue-191/delta-checks.py"
   ],
   "environment": {
-    "PATH": "/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/usr/local/bin:/usr/bin:/bin:/Users/matthewbelinkie/.local/bin",
+    "PATH": "<user-home>/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/usr/local/bin:/usr/bin:/bin:<user-home>/.local/bin",
     "VITEST_MAX_WORKERS": "1",
     "PYTEST_ADDOPTS": "--durations=25"
   },
   "launcherPid": 2468,
   "startedAt": "2026-10-12T23:16:41.641873+00:00",
-  "logPath": "/Users/matthewbelinkie/.codex/worktrees/3760/VERA Script to Timeline/test-results/issue-191/delta-checks/command.log",
-  "statusPath": "/Users/matthewbelinkie/.codex/worktrees/3760/VERA Script to Timeline/test-results/issue-191/delta-checks/status.json",
+  "logPath": "<worktree-3760>/test-results/issue-191/delta-checks/command.log",
+  "statusPath": "<worktree-3760>/test-results/issue-191/delta-checks/status.json",
   "state": "passed",
   "commandPid": 2472,
   "exitCode": 0,
