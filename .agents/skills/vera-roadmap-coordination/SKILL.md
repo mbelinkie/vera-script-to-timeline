@@ -21,6 +21,12 @@ Use the GitHub Project configured in `.github/vera-roadmap.json` as the sole liv
    decisions. A placeholder is never Ready or dispatch authority.
 6. Follow the Project's `Acceptance` field using the acceptance policy below.
    Retain evidence for every criterion against the exact delivered revision.
+   Before testing, independent/Claude review or handoff, follow
+   `docs/VERIFICATION_POLICY.md`: review/fix before final full validation,
+   verified evidence reuse at unchanged handoffs, and risk-proportionate review.
+   Within its qualified cloud scope, a complete CI pass accepted by the validator
+   from accepted `main` replaces the local full rerun. Preserve required
+   local/runtime/human gates and the expensive-check queue.
 7. For `Automated`, the owning implementation agent records passing evidence
    with `roadmap -- review`, then closes the issue itself with
    `npm run roadmap -- complete <issue> --accepted-by Automated --evidence <retained evidence>`.
