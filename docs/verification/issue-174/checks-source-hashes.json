@@ -1,0 +1,88 @@
+{
+  "worktree": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline",
+  "baseline": "5d59b2ad560aa18f96554b71fe34ee5b7f30dfed",
+  "sourceRevision": "uncommitted candidate pinned by sourceHashes",
+  "sourceHashes": {
+    "python/vera_timeline_agent/media_preparation.py": "b87f38d1a7b446e5046603f440cbd0c2a6fecab3338555eba30c49108a58dda3",
+    "tests/test_issue174_media_preparation.py": "0cc36068f82c5435c7a46c0a2dd7b94a908f180e566d579aa7d631778f5edb73",
+    "tests/test_issue174_recovery.py": "8b9e095252a20395626decd7388985abe0839657c3237ec148cdce68a15463bb",
+    "tests/test_issue174_real_media.py": "724aeb50d09204d19dd5919a854f3654593e65f2032edf89cec5990250293dc6",
+    "tests/issue174_media_fixture.py": "4d84c7142ed1e4f202f2fda65286dac7448871c72251c9a0221be1ba1b88438b",
+    "tests/test_issue174_source_refusals.py": "6313a92fcfcdfb02f772df40fb23c79d84aaa52f309b24b1353b3412cd533140",
+    "docs/verification/issue-174/sampling_probe.py": "8ec1910bfac83e8e7e1068c8602199a32cc9465e8da9cb40e2bcf55e99c61e3e",
+    "docs/verification/issue-174/verify_retained.py": "f98f32fb301b1c7fdd883531a485f77d33f86dbdeb79850bc191489c29aad80e",
+    "docs/verification/issue-174/qualify.py": "1b0be3ce0af9e1f89d3a45834198c01d17555dd4f46da899f7261a9b3c9ff010",
+    "docs/verification/issue-174/compiler-binding-probe.mjs": "3060e629d20242dba09d95ebeb3328467bc3204d596da1823cd955438550a355"
+  },
+  "pid": 16975,
+  "commands": [
+    [
+      "focused-affected",
+      [
+        "uv",
+        "run",
+        "--frozen",
+        "pytest",
+        "tests/test_issue174_real_media.py",
+        "tests/test_issue174_recovery.py",
+        "-k",
+        "pcm_clicks or same_rate or reuse_only",
+        "-q",
+        "--durations=25"
+      ]
+    ],
+    [
+      "qualification",
+      [
+        "uv",
+        "run",
+        "--frozen",
+        "python",
+        "docs/verification/issue-174/qualify.py",
+        "--output",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r2/qualification"
+      ]
+    ],
+    [
+      "sampling-route",
+      [
+        "uv",
+        "run",
+        "--frozen",
+        "python",
+        "docs/verification/issue-174/sampling_probe.py",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/docs/verification/issue-174/sampling-route.json"
+      ]
+    ],
+    [
+      "verify-retained",
+      [
+        "uv",
+        "run",
+        "--frozen",
+        "python",
+        "docs/verification/issue-174/verify_retained.py",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r2/qualification"
+      ]
+    ],
+    [
+      "validate-fast",
+      [
+        "npm",
+        "run",
+        "validate:fast"
+      ]
+    ],
+    [
+      "validate-full",
+      [
+        "npm",
+        "run",
+        "validate"
+      ]
+    ]
+  ],
+  "startedAt": 1791775618.313767,
+  "statusPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r2/checks-status.json",
+  "finalExitStatusPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r2/checks-exit.json"
+}

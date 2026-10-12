@@ -1,0 +1,57 @@
+{
+  "issue": 174,
+  "branch": "codex/issue-174-verified-cfr",
+  "baseline": "5d59b2ad560aa18f96554b71fe34ee5b7f30dfed",
+  "ownerTask": "01a12bd6-3b7d-74a3-9ce0-b1990888cef6",
+  "implementationCommit": null,
+  "initialFocusedMatrix": {
+    "command": "ctx-wire run rtk uv run --frozen pytest tests/test_issue174_media_preparation.py tests/test_issue174_real_media.py tests/test_issue174_recovery.py tests/test_issue174_source_refusals.py -q",
+    "result": "64 passed in 164.87s",
+    "note": "Before final source-rate binding and adapter-source fingerprint changes; final exact revision needs fresh required gates."
+  },
+  "dependencySetup": {
+    "node": "24.19.0",
+    "npm": "11.17.0",
+    "knownCleanInstallFailure": "https://github.com/mbelinkie/vera-script-to-timeline/issues/193",
+    "method": "Disposable npm ci --offline --ignore-scripts --no-audit --no-fund staging with unchanged package/lock files and only lock-recorded workspace manifests. Preserve and replace initial unlocked install.",
+    "lockedPackageVersionsVerified": 145,
+    "trackedPackageAndLockChanges": false
+  },
+  "qualificationRecordHash": "sha256:7041a73d6c9b133aa03cca08c39ef98258eb0689247b06b9fa0423d83118a970",
+  "finalFocusedMatrix": {
+    "result": "64 passed in 422.11s; affected URI/reuse follow-up passed",
+    "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/focused-final.log",
+    "affectedLog": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r2/focused-affected.log"
+  },
+  "validateFast": {
+    "exitCode": 0,
+    "pythonResult": "323 passed in 114.85s",
+    "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r2/validate-fast.log",
+    "logHash": "sha256:aeb22accedfb9dc5f097a115cc3d1a55060c8651aff690456a50d27257170ae5"
+  },
+  "fullValidate": {
+    "exitCode": 0,
+    "pythonResult": "563 passed in 3061.49s",
+    "includes": "generated currentness, TypeScript lint/types/tests, Python lint/types/all tests",
+    "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r2/validate-full.log",
+    "logHash": "sha256:af36a246a7f62760a7bf8faffb3cb4c6c91916349a390457f81fef4bb2d40852",
+    "environment": {
+      "VITEST_MAX_WORKERS": "1",
+      "PYTEST_ADDOPTS": "--durations=25"
+    }
+  },
+  "frozenBoundaryAudit": {
+    "result": "tracked baseline unchanged",
+    "baseline": "5d59b2ad560aa18f96554b71fe34ee5b7f30dfed",
+    "sourceHashesMatchTestedCandidate": true
+  },
+  "claudeAntagonistReview": {
+    "status": "pending required gates and exact implementation commit",
+    "cliVersion": "2.1.291",
+    "existingLoginAvailableOutsideSandbox": true
+  },
+  "externalOperatorAcceptance": "pending",
+  "issueClosure": "not authorized until all required evidence and External judgment are retained",
+  "qualificationDirectory": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r2/qualification",
+  "evidenceReuse": "Final full gate and qualification pass on exactly current source hashes. Subsequent evidence/runbook updates do not alter code, tests, fixtures, tool profile or artifacts. No duplicate expensive gate needed."
+}
