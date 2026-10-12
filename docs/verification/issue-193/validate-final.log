@@ -1,0 +1,225 @@
+
+> vera-script-to-timeline@0.0.0 validate
+> npm run check:contracts-generated && npm run check:typescript && npm run check:python
+
+
+> vera-script-to-timeline@0.0.0 check:contracts-generated
+> node packages/contracts/scripts/generate-contracts.mjs --check
+
+Generated contract types are current.
+
+> vera-script-to-timeline@0.0.0 check:typescript
+> npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript
+
+
+> vera-script-to-timeline@0.0.0 lint:typescript
+> eslint scripts/*.mjs --max-warnings=0 && npm run lint --workspaces --if-present
+
+
+> @vera/contracts@0.0.0 lint
+> eslint src test --max-warnings=0
+
+
+> @vera/tooling-smoke@0.0.0 lint
+> eslint . --max-warnings=0
+
+
+> vera-script-to-timeline@0.0.0 typecheck:typescript
+> npm run typecheck --workspaces --if-present
+
+
+> @vera/contracts@0.0.0 typecheck
+> tsc --project tsconfig.json
+
+
+> @vera/tooling-smoke@0.0.0 typecheck
+> tsc --project tsconfig.json
+
+
+> vera-script-to-timeline@0.0.0 test:typescript
+> npm run test --workspaces --if-present && npm run test:progress && npm run test:roadmap
+
+
+> @vera/contracts@0.0.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/matthewbelinkie/.codex/worktrees/6432/VERA Script to Timeline/packages/contracts
+
+
+ Test Files  19 passed (19)
+      Tests  402 passed (402)
+   Start at  12:10:09
+   Duration  36.69s (transform 617ms, setup 0ms, import 6.57s, tests 26.49s, environment 2ms)
+
+
+> @vera/tooling-smoke@0.0.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/matthewbelinkie/.codex/worktrees/6432/VERA Script to Timeline/packages/tooling-smoke
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  12:10:46
+   Duration  245ms (transform 22ms, setup 0ms, import 34ms, tests 3ms, environment 0ms)
+
+
+> vera-script-to-timeline@0.0.0 test:progress
+> node --test scripts/project-progress.test.mjs
+
+✔ parses the authoritative board without counting goals as work (1.890702ms)
+✔ calculates exact done and remaining scope from actionable board issues (11.448375ms)
+✔ fails closed on incomplete or ambiguous board data (0.760455ms)
+✔ renders every issue once with escaped links and board metadata (0.981156ms)
+✔ writes the dashboard and reports an exact terminal summary (7.90607ms)
+✔ fails clearly when the live GitHub Project is unavailable (3.746098ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 133.596341
+
+> vera-script-to-timeline@0.0.0 test:roadmap
+> node --test scripts/roadmap.test.mjs scripts/roadmap-rate-limit.test.mjs scripts/roadmap-lock.test.mjs
+
+✔ serializes roadmap commands before any GitHub request (4.513042ms)
+✔ reclaims a sufficiently old lock whose owner process is gone (3.583563ms)
+✔ parses authoritative direct GraphQL rateLimit fields and omits response metadata (3.058129ms)
+✔ fails closed on GitHub's graphql_rate_limit exhaustion response with reset guidance (0.798867ms)
+✔ never accepts a false REST-green payload as GraphQL authority (1.126801ms)
+✔ preflight reserves points for the planned GraphQL work (0.516587ms)
+✔ honors direct Retry-After evidence during a secondary throttle (0.416116ms)
+✔ accounts for issue, comment, dependency, and Project V2 operations by actual transport (0.204936ms)
+✔ distinguishes REST, GraphQL, secondary, and client/tooling failures (0.153868ms)
+✔ parses commands and flags (1.659101ms)
+✔ accepts one exact routing profile (0.413947ms)
+✔ rejects missing routing labels (0.930624ms)
+✔ rejects duplicate routing labels (0.231027ms)
+✔ rejects Luna claiming Terra work (0.275471ms)
+✔ rejects Sol claiming Luna work (0.199403ms)
+✔ rejects unsupported effort labels (0.200752ms)
+✔ uses the latest claim marker (0.53074ms)
+✔ preserves exclusive ownership across Luna-to-Terra and Terra-to-Sol escalation markers (0.418283ms)
+✔ parses no dependencies and same-repository blockers (0.837327ms)
+✔ parses cross-roadmap dependency references (0.392865ms)
+✔ rejects prose and duplicate dependency declarations (0.371142ms)
+✔ requires every dependency to be closed and Done (1.949639ms)
+✔ inspect, ready, and claim preflight before GraphQL reads and again before mutation (1537.488289ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1659.596273
+
+> vera-script-to-timeline@0.0.0 check:python
+> npm run lint:python && npm run typecheck:python && npm run test:python
+
+
+> vera-script-to-timeline@0.0.0 lint:python
+> uv run --frozen ruff check . && uv run --frozen ruff format --check .
+
+All checks passed!
+382 files already formatted
+
+> vera-script-to-timeline@0.0.0 typecheck:python
+> uv run --frozen mypy python tests
+
+Success: no issues found in 111 source files
+
+> vera-script-to-timeline@0.0.0 test:python
+> uv run --frozen pytest
+
+============================= test session starts ==============================
+platform darwin -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/matthewbelinkie/.codex/worktrees/6432/VERA Script to Timeline
+configfile: pyproject.toml
+testpaths: tests
+plugins: xdist-3.8.0, typeguard-4.6.0
+collected 499 items
+
+tests/test_after_effects_inspection.py ..                                [  0%]
+tests/test_build_jobs.py .........                                       [  2%]
+tests/test_fixtures.py ........                                          [  3%]
+tests/test_free_trial.py ..........                                      [  5%]
+tests/test_generated_contracts.py ..                                     [  6%]
+tests/test_issue144_audio_evidence.py .................................. [ 13%]
+.............                                                            [ 15%]
+tests/test_issue144_capture_retry.py ..                                  [ 16%]
+tests/test_issue144_composition.py ..                                    [ 16%]
+tests/test_issue144_composition_audio.py .                               [ 16%]
+tests/test_issue144_driver.py ...                                        [ 17%]
+tests/test_issue144_generation_recovery.py ...                           [ 17%]
+tests/test_issue144_native_build.py ........                             [ 19%]
+tests/test_issue144_omission_bridge.py .                                 [ 19%]
+tests/test_issue144_omission_decisions.py .............                  [ 22%]
+tests/test_issue144_omission_generation.py .......                       [ 23%]
+tests/test_issue144_omission_preparation.py ............                 [ 26%]
+tests/test_issue144_prepared_build.py ....................               [ 30%]
+tests/test_issue144_proof_session.py ..............                      [ 32%]
+tests/test_issue144_recovery.py ........                                 [ 34%]
+tests/test_issue144_retained_audio.py .                                  [ 34%]
+tests/test_issue144_row_narration.py ...............                     [ 37%]
+tests/test_issue144_wi.py ...................                            [ 41%]
+tests/test_issue144_wi_flow.py .                                         [ 41%]
+tests/test_issue171_generated_contracts.py ..                            [ 42%]
+tests/test_issue180_boundary_contracts.py ...................            [ 45%]
+tests/test_issue45_take_rules.py ...                                     [ 46%]
+tests/test_issue53_boundaries.py .........                               [ 48%]
+tests/test_issue53_producer_review.py .................                  [ 51%]
+tests/test_issue53_takes.py ........................                     [ 56%]
+tests/test_narration_cache.py ....                                       [ 57%]
+tests/test_narration_cli.py ......                                       [ 58%]
+tests/test_narration_compiler_dependencies.py .....                      [ 59%]
+tests/test_narration_normalize.py ........                               [ 61%]
+tests/test_narration_provider.py .................                       [ 64%]
+tests/test_narration_service.py .......                                  [ 65%]
+tests/test_narration_v2_dependencies.py ....                             [ 66%]
+tests/test_otio_package.py ....................                          [ 70%]
+tests/test_placeholder_slate.py ..............                           [ 73%]
+tests/test_prompter_contracts.py ..                                      [ 73%]
+tests/test_resolve_import_package.py ......                              [ 75%]
+tests/test_studio_assembly.py ........                                   [ 76%]
+tests/test_studio_spike.py ............................................. [ 85%]
+.....                                                                    [ 86%]
+tests/test_text_plus_template.py .......                                 [ 88%]
+tests/test_text_plus_validation.py ......                                [ 89%]
+tests/test_tooling_smoke.py .                                            [ 89%]
+tests/test_word_timing_cli.py ......                                     [ 90%]
+tests/test_word_timing_package.py ...................................... [ 98%]
+........                                                                 [100%]
+
+============================= slowest 25 durations =============================
+311.53s call     tests/test_issue144_wi_flow.py::test_actual_cli_file_wi_composition_generation_and_replay
+196.84s call     tests/test_issue144_composition.py::test_three_edits_one_revision_full_row_audio_fresh_target_and_replay
+174.32s call     tests/test_issue144_omission_generation.py::test_accepted_omission_replaces_whole_row_retimes_and_promotes_fresh_target
+139.67s call     tests/test_issue144_omission_generation.py::test_pending_native_resume_and_pointer_publication_recovery_use_same_target
+136.09s call     tests/test_issue144_omission_generation.py::test_retained_generation_and_actual_cache_cannot_be_replaced_by_status_claims
+125.30s call     tests/test_issue144_composition.py::test_composed_rejection_forged_geometry_and_stale_choice_have_no_effects
+87.53s call     tests/test_issue144_omission_generation.py::test_interrupted_handoff_binds_service_before_resume_and_reuses_actual_cache
+75.30s call     tests/test_issue144_generation_recovery.py::test_uncertain_request_is_shared_across_byte_different_decisions
+71.51s call     tests/test_issue144_generation_recovery.py::test_normalization_failure_resumes_from_synthesis_cache
+69.71s call     tests/test_issue144_omission_generation.py::test_rejected_omission_cannot_request_generation_or_rebuild
+68.96s call     tests/test_issue144_omission_generation.py::test_missing_service_and_stale_split_refuse_before_new_provider_or_native
+67.31s call     tests/test_issue144_omission_decisions.py::test_explicit_omission_choice_prepares_only_accepted_canonical_revision[reject]
+66.78s call     tests/test_issue144_generation_recovery.py::test_validator_fault_before_service_call_can_resume_without_second_synthesis
+65.00s call     tests/test_issue144_proof_session.py::test_interruption_after_pointer_publish_finishes_same_promotion
+60.54s call     tests/test_issue144_omission_decisions.py::test_retained_omission_choice_rederives_report_and_prepared_artifacts[request]
+60.17s call     tests/test_issue144_omission_generation.py::test_generation_binding_link_alias_refuses_before_provider
+59.89s call     tests/test_issue144_omission_decisions.py::test_retained_omission_choice_rederives_report_and_prepared_artifacts[script]
+59.69s call     tests/test_issue144_omission_decisions.py::test_retained_omission_choice_rederives_report_and_prepared_artifacts[receipt]
+59.34s call     tests/test_issue144_omission_decisions.py::test_explicit_omission_choice_prepares_only_accepted_canonical_revision[accept]
+56.40s call     tests/test_issue144_omission_preparation.py::test_prepares_pristine_observed_audio_and_proposes_linked_charlie_omission
+52.61s call     tests/test_issue144_omission_decisions.py::test_retained_omission_choice_rederives_report_and_prepared_artifacts[evidence]
+50.83s call     tests/test_issue144_proof_session.py::test_file_session_runs_actual_visual_roundtrip_and_promotes_only_after_verify
+50.51s call     tests/test_issue144_omission_decisions.py::test_changed_split_geometry_invalidates_choice_before_generation
+50.09s call     tests/test_issue144_omission_decisions.py::test_consistently_rehashed_omission_report_is_not_decision_authority[revision]
+49.65s call     tests/test_issue144_omission_decisions.py::test_consistently_rehashed_omission_report_is_not_decision_authority[text]
+======================= 499 passed in 3243.79s (0:54:03) =======================

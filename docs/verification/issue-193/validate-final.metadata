@@ -1,0 +1,13 @@
+Candidate commit: 98847b97e024160e4a2e70d4b8989308e29dbae5
+Worktree: /Users/matthewbelinkie/.codex/worktrees/6432/VERA Script to Timeline
+Command: PYTEST_ADDOPTS=--durations=25 VITEST_MAX_WORKERS=1 rtk proxy npm run validate
+Node: v24.19.0
+npm: 11.17.0
+uv: uv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)
+Python: Python 3.12.14
+OS: Darwin MacBookPro 24.1.0 Darwin Kernel Version 24.1.0: Thu Oct 10 21:02:27 PDT 2024; root:xnu-11215.41.3~2/RELEASE_X86_64 x86_64
+Architecture: i386
+package-lock SHA-256: e615667b1bcbea53bb34c4db11a6ca6a2745fae5edac6538ff87d3fdfe35d7b8
+Root manifest SHA-256: bee227c8878b8c15e5f5ef714813dfcb7a2ac628e764cdced384d7e7bf57d6bc
+word-timing manifest SHA-256: 4547221dd55c4007dcc91c852e7d3e40b06b5f170ddaa349ea3c0e9cdb3721a7
+Started one detached process; acceptance requires exit receipt 0 and complete inventory in the log.
