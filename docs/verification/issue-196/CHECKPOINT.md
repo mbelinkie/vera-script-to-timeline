@@ -108,38 +108,50 @@ Both runs completed with success: the push run at 19:46:40Z and the PR run at 19
 
 Evaluation commands, retained with their logs in `cloud/`: `round2-draft-push.log`, `round2-eval-push.log` and `round2-eval-pr.log`.
 
-## Final local full gate (running; Producer conditional approval received)
+## Final local full gate (completed)
 
-The Producer sent a steering instruction, relayed by the coordinator: "I
-approve 196 if Claude is happy with it". That approval is conditional on this
-owner's honest GO verdict, and it is not yet applied.
-
-The local full gate is required by the current policy, because #196's own
-control changes cannot certify themselves.
-
-- **Commit and tree:** `289a080`, tree `173fb6e6`. This differs from
-  calibration tree `5eb5c6e8` only under `docs/`.
 - **Command:** `PYTEST_ADDOPTS=--durations=25 VITEST_MAX_WORKERS=1 npm run validate`
-- **Process:** detached `nohup` process, PID 56180, started about 20:13Z.
-  Host load averages at launch: 4.83 / 7.61 / 9.02. No competing test
-  processes.
-- **Files:** `validate-final.metadata`, `validate-final.log`,
-  `validate-final.exit` and `validate-final.finished` (the last two are
-  written on completion).
-- **Expected duration:** about 55–65 minutes (#193's reference pytest took
-  54:03).
-- **Running alongside:** the final-revision independent review, a read-only
-  subagent told not to run tests.
+  on `289a080` (tree `173fb6e6`).
+- **Process:** PID 56180, started 20:13:45Z, finished 21:13:06Z, **exit 0**.
+- **Results:**
+  - Vitest 402 + 1, node:test 6 + 23 + 32;
+  - ruff and format clean, mypy clean;
+  - pytest 499 passed in 58:02, with `--durations=25` retained in the log;
+  - no tracked files modified.
+- **Retained:** `validate-final.{metadata,log,exit,finished}`. The run was not
+  repeated.
 
-On resume:
+## Verdict and approval (see GO-NO-GO.md)
 
-1. Read `validate-final.exit`, the inventory and the slowest durations.
-2. Read the final review, then fix any substantive findings and review the
-   delta.
-3. Only on a genuine GO:
-   - write the approval receipt;
-   - copy the draft to `cloud/profile-qualified.json` with `qualified: true`
-     and `approval.profileDigest = 1d6b3c41…`;
-   - apply scoped activation to the policy and guidance (report any
-     classifier denial as a blocker);
-   - give the drained release.
+- **Qualification verdict: GO** by this owner, after the evidence and three
+  independent reviews.
+- **Approval:** the Producer's conditional instruction, "I approve 196 if
+  Claude is happy with it", is satisfied by that GO. It is recorded in the
+  GO-NO-GO receipt and in `cloud/profile-qualified.json`, bound to digest
+  `1d6b3c41…`. `profileProblems` is clean.
+- **Real-profile evaluation:** both round-2 runs pass at full scope against
+  the bound profile (`cloud/round2-eval-qualified-*.log`, exit 0).
+- **Activation: NOT IN EFFECT.**
+  - The classifier denied the `docs/VERIFICATION_POLICY.md` and playbook
+    edit: `[Instruction Poisoning]`.
+  - The owner withdrew its own uncommitted AGENTS, CLAUDE, README and SKILL
+    edits with `git restore`, so no guidance points at a missing section.
+  - A follow-up read was also denied: `[Self-Modification]`.
+  - The exact text an authorized editor must apply together is listed in
+    GO-NO-GO under "Activation blocker".
+  - Until then, local full acceptance remains the rule.
+
+## Release
+
+- **Owned processes:** no owned long-running local process remains. PID 56180
+  has exited; no local test, pytest, vitest or media job from this owner is
+  running.
+- **Serial heavy-validation slot:** **released** by the #196 owner, session
+  `9908bbc3-704d-42c5-896b-3da72b64dd71`, at this handoff.
+- **What the push starts:** it starts CI runs for PR #198's final head on
+  GitHub-hosted runners. They do not use the serial slot.
+- **Not done:**
+  - PR #198 merge and #196 closure. The integration gates and the activation
+    blocker remain.
+  - Next-issue dispatch; #191 stays held for the coordinator.
+  - Any #174 action.

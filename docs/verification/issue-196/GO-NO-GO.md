@@ -1,8 +1,10 @@
 # #196 cloud validation: go/no-go
 
-Verdict: **PENDING**. It becomes final when the two items under "Open items
-before the verdict" have retained results. Until then, local full acceptance
-remains the rule and cloud substitution is disabled.
+**Qualification verdict: GO** for the eligible scope below (owner, 2026-10-12).
+**Activation: NOT IN EFFECT.** The scoped edits to the policy and guidance
+were denied by this session's permission classifier (see "Activation
+blocker"). Until an authorized editor lands them together, local full
+acceptance remains the rule for every ticket.
 
 ## What would be activated
 
@@ -127,31 +129,95 @@ No private media, provider access, paid runners or new secrets are involved.
 The public artifact is only the sanitized manifest, and both real artifacts
 were scanned: no paths, transcripts, media names or environment data.
 
-## Approval receipt (written only on a GO verdict)
+## Approval receipt
 
-The approval is the Producer's conditional instruction, relayed by the
-coordinator on 2026-10-12, quoted verbatim: "I approve 196 if Claude is happy
-with it". The receipt will:
+- **Instruction:** Producer, relayed by the coordinator on 2026-10-12. Quoted
+  verbatim: "I approve 196 if Claude is happy with it". The coordinator holds
+  the original consent privately.
+- **Condition:** the #196 owner's honest GO, after all required evidence and
+  review.
+- **Satisfied:** yes. The owner reports **GO** on the evidence below. This is
+  the conditional instruction only; no further Producer statement was made or
+  needed.
+- **Bound to:**
+  - profile digest
+    `1d6b3c41d0bfbba1c9e012796a1067ebba7944e6a8615ecf96e77444071257c7`
+    ([cloud/profile-qualified.json](cloud/profile-qualified.json));
+  - the calibration runs 38296397261 and 38296403984 on tree `5eb5c6e8`;
+  - the scope and exceptions on this page.
+- **Delivered branch head:** the final reviewed commit on
+  `claude/issue-196-cloud-validation-prep` / PR #198. Its tree differs from
+  `5eb5c6e8` only under `docs/`.
+- **Not covered:** full media scope after an image rollover, any frozen,
+  native or human gate, and any other ticket's acceptance.
 
-- quote it unparaphrased, with its source and its condition;
-- bind it to this page's verdict, the delivered commit and tree, profile
-  digest `1d6b3c41…`, the eligible scope above and the local exceptions
-  below.
+After merge, evaluate the post-merge `main` push run against the profile, at
+no cost: the merge changes no control. That evaluation is the first
+in-production check, once activation is in effect.
 
-It does not cover full media scope, any frozen, native or human gate, or any
-other ticket's acceptance.
+## Evidence behind the GO
 
-After merge, the post-merge `main` push run should be evaluated against the
-profile at no cost, because the merge changes no control. That evaluation is
-the first in-production activation check.
+- **Cloud qualification:** two complete same-tree runs from round 2, both
+  accepted at full scope (above). Two further complete green runs from round 1
+  were refused only for the duplicate-name defect, which is now fixed.
+- **Local full gate on `289a080`** (tree `173fb6e6`, the tested revision; it
+  differs from calibration tree `5eb5c6e8` and the delivered tree only under
+  `docs/`):
+  - command `PYTEST_ADDOPTS=--durations=25 VITEST_MAX_WORKERS=1 npm run validate`;
+  - exit 0, started 20:13:45Z, finished 21:13:06Z;
+  - Node v24.19.0, npm 11.17.0, uv 0.12.5, Python 3.12.14, Intel macOS 24.1.0;
+  - generated-currentness, lint and types clean;
+  - Vitest 402 + 1, node:test 6 + 23 + 32, ruff and format clean (389
+    files), mypy clean (111 files), pytest 499 passed in 58:02;
+  - no tracked files modified;
+  - `package-lock.json` SHA-256 `e615667b…`, identical to #193's reference;
+  - retained as `validate-final.{metadata,log,exit,finished}`.
+- **Retained failed check:** the delta `validate:fast` run at 19:12Z, which
+  hit 8 Vitest 5000 ms timeouts under host load 24.9. It is classified in
+  CHECKPOINT. Its delta is covered by the passing local full gate above.
+- **Reviews:** the main delta (approve with fixes, applied), the duplicate-ID
+  delta (approve) and the final revision (GO with fixes, applied). See
+  [independent-review.md](independent-review.md).
+- **Docs-only differences:** tested, calibration and delivered trees differ
+  only under `docs/`. The only check that reads `docs/` reads
+  `docs/verification/issue-179/`.
 
-## Open items before the verdict
+## Activation blocker (exact denied actions)
 
-1. **Local full gate on the final #196 tree**, as the current policy requires:
-   the changed workflow and helpers cannot certify themselves. Its earlier
-   delta fast run failed under host load and is retained as failed (see
-   CHECKPOINT).
-2. **Final-revision independent review.**
+The auto-mode permission classifier denied these, and none was bypassed:
+
+1. **Policy and playbook edit.** Adding a "Qualified cloud substitution"
+   section to `docs/VERIFICATION_POLICY.md`, and a playbook row to
+   `docs/PROJECT_OPERATING_PLAYBOOK.md`, were denied:
+   `[Instruction Poisoning]`.
+2. **Guidance edits withdrawn.** The matching edits to AGENTS.md, CLAUDE.md,
+   README.md and the coordination SKILL were accepted at first. After denial 1
+   they would have pointed at a policy section that doesn't exist, so the
+   owner withdrew them (`git restore`). A follow-up read of `5ab39b2` was
+   denied: `[Self-Modification]`.
+3. **Earlier in this issue:** the execution-phase issue comment and the board
+   status write (`[External System Writes]`), and the `5ab39b2` pointer
+   cherry-pick (`[Instruction Poisoning]`).
+
+To complete activation, an authorized editor (Producer or coordinator) applies
+these together:
+
+- **`docs/VERIFICATION_POLICY.md`:**
+  - Replace "Full acceptance still requires the local locked-toolchain gate.
+    CI continues unchanged; a CI pass is not yet an approved substitute for
+    local acceptance." with "Full acceptance still requires the local
+    locked-toolchain gate, except within the qualified cloud scope below."
+  - Add a "Qualified cloud substitution" section containing rules 1–5 of
+    "What would be activated" above. Those rules are: validator and profile
+    from accepted `main`; digest `1d6b3c41…` with an artifact-sourced
+    manifest; eligibility excludes controls and media paths; the other gates
+    stay; requalify, never self-certify.
+- **AGENTS.md, CLAUDE.md, README.md and the coordination SKILL:** add the
+  `5ab39b2` policy-pointer paragraphs, plus one sentence: "Within the policy's
+  qualified cloud scope, a complete CI pass accepted by the validator from
+  accepted `main` replaces the local full rerun."
+- **`docs/PROJECT_OPERATING_PLAYBOOK.md`:** add one "Qualified cloud
+  regression substitution" practice row.
 
 ## Not done by this page
 
