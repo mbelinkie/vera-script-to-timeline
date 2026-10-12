@@ -60,9 +60,13 @@ uses the compiler's canonical bytes rather than the narration cache serializer.
 
 ## Validation evidence
 
-Pending final integrated validation and Claude review. Focused TypeScript: 25 transform checks passed, with focused
-lint and workspace type checking. Focused Python: 25 audio checks and 19 narration checks
-passed. Independent review found reused-timing and malformed-WAV refusal gaps;
+Final full acceptance and Claude delta review remain pending. At corrected
+source `590c7ed817acdb386d1023010d88f2f3c7a023b8`, all 53 focused Python
+checks (33 audio, 20 narration) passed serially with durations, followed by
+the fast gate: 349 non-slow Python tests and all TypeScript/generated/lint/type
+checks passed. The transform suite has 27 tests. Retained delta receipts/logs
+identify commands, source, exit zero, currentness and log hashes.
+Independent review found reused-timing and malformed-WAV refusal gaps;
 both were fixed and independently rechecked. The review retained no unresolved
 finding. The frozen audit verifies all 285 pinned files and no modification of
 any pre-existing tracked file. Full acceptance must identify the committed
@@ -72,7 +76,7 @@ checked source revision, timing/acoustic bounds and refusal cases before closure
 Retain its response and disposition; substantive fixes require affected checks
 and Claude re-review. A failed/unavailable CLI is an unmet gate.
 
-`VITEST_MAX_WORKERS=1 npm run validate:fast` passed: generated types current,
+Original pre-integration `VITEST_MAX_WORKERS=1 npm run validate:fast` passed: generated types current,
 TypeScript lint/types/tests, Python lint/types and 341 non-slow Python tests
 with two workers. Elapsed 131.809 seconds; log SHA256
 `bef2eb73438f57a52fa9d91110b2c07dfb1d7a14a854e4f66e0ae3729f312d9b`.
@@ -87,6 +91,20 @@ reconstructing both complete short programme renders exactly. It introduces
 no v1, schema, fixture or accepted-test change. Focused proof/narration recheck:
 43 passed before the additional partial-frame regression, followed by all 25
 audio checks passing. Final fast validation also passes; full/review pending.
+
+The second full attempt on `dd4eb19` was interrupted after detecting another
+owner's competing gate. Its launch was mistakenly started despite that check,
+then the owned command was stopped. It supplies no acceptance. Both interrupted
+attempts are retained solely as non-passing history.
+
+Initial Claude CLI review of `2d9709d` completed normally but returned NO-GO.
+Actual model `claude-opus-5-5`, session
+`2980c80a-dc73-40a2-9d9f-832ebc85b35d`. Its two blockers were fixed at
+`590c7ed`: nonempty joining gaps prevent sub-word removal, and specific
+refusal-reason tests now reach extra-cut, short-render and decoded-alias checks.
+Closely related identity/type/source-pin checks and non-unity gain coverage
+were strengthened. See `claude-disposition.md` and the exact response/prompt.
+Delta re-review must clear substantive findings before final acceptance.
 
 The original fast evidence used a temporary installation of the unchanged
 lockfile's recorded workspaces because the inherited lock omitted

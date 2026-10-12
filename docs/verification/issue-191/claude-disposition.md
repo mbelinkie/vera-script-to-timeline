@@ -49,4 +49,14 @@ normalizer overrides the fingerprint and normalization operation, so its tests
 invoke no media tool. Any substitution still requires accepted-main validator
 exit zero on the exact delivered integration tree and the approved profile;
 reviewer eligibility alone is insufficient. No real acoustic/provider/native
-gate is claimed. Delta checks and Claude re-review remain pending.
+gate is claimed. Corrected source `590c7ed817acdb386d1023010d88f2f3c7a023b8`
+passed 53 serial focused Python checks and the fast gate with 349 non-slow
+Python tests plus all TypeScript/generated/lint/type checks. Its frozen audit
+retains all 285 unchanged pins. Required Claude delta review remains pending.
+
+The subsequent receipt/handoff-only commit changes no source, tests, config,
+lockfile, generated type, fixture, golden or toolchain. New JSON/Markdown/gz
+files in this directory are not read by the generator or tests; the audit reads
+only the unchanged frozen-source-pins.json, and Python lint reads the unchanged
+audit.py. Executable/check inputs match `590c7ed`; retained passing evidence is
+reused, not described as a rerun.
