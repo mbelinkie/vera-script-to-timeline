@@ -187,7 +187,7 @@ in the primary checkout).
 | Vitest, root node:test, pure-logic pytest (contracts, validators, compiler, take rules, build jobs, recovery with fakes) | Eligible substitute | — |
 | Compiler byte-identical goldens (existing assertions on unchanged goldens) | Eligible substitute | Golden/fixture changes still need their approved change note |
 | Synthetic-media and subprocess tests (`slow`-marked FFmpeg/FFprobe integrations) | Regression evidence under the qualified Ubuntu media fingerprint; scope suspended on drift | Changes to media-processing code: affected slow tests serially on the Mac's installed tools |
-| Dependency or lockfile changes | Clean `npm ci` / `uv sync --frozen` on Ubuntu | Local Mac pinned `npm ci` / `uv sync --frozen` (macOS-native optional packages such as `fsevents`) |
+| Dependency, lockfile or `package.json` script changes | Not eligible. These files are qualified controls, so the run fails as `control-drift`. CI still shows the Ubuntu clean install. | Local full gate, plus local Mac pinned `npm ci` / `uv sync --frozen`, plus requalification if the change should stay cloud-eligible |
 | Control-file changes (workflow, tool configs, evidence helpers, manifests) | Not eligible: `control-drift` | Local full gate, plus requalification of the profile |
 | #174 installed Mac media-tool qualification | Not certified | External, local Mac |
 | Real Resolve runtime / native operations (tests use fake SDK modules) | Not certified | External, local |
@@ -228,21 +228,21 @@ and it is Mac-platform evidence, not Ubuntu.
 
 ## Remaining gates
 
-1. Done: the required independent review of the delta against `98b9a614`
-   approved it with fixes. All four fixes are applied
-   ([independent-review.md](../verification/issue-196/independent-review.md)).
-   The delta checks are recorded there.
-2. Commit, push the branch and open a PR. This is authorized by the
-   coordinator's instruction but blocked in this session by the auto-mode
-   classifier.
-3. Calibration run 1 on the PR. Draft the profile with
-   `node scripts/cloud-evidence-validate.mjs --draft-profile <file> --repo mbelinkie/vera-script-to-timeline --run <id> --attempt <n>`.
-   Compare its inventory with the #193 reference (pytest 499 + any added,
-   Vitest 403, node:test 29 + 31).
-4. Calibration run 2 on the same source and profile. Evaluate both runs, and
-   record every attempt and its disposition.
-5. Write the go/no-go page and the durable evidence archive in
-   `docs/verification/issue-196/`.
-6. Producer activation decision. Only after approval: set `qualified`,
-   `approval` and `profileDigest`, then update the policy, AGENTS/CLAUDE, the
-   dispatch guidance and the playbook together.
+Done:
+
+- The independent review of the main delta approved with fixes, and the
+  fixes were applied.
+- The duplicate-ID delta review approved.
+- The push and PR #198.
+- Calibration rounds 1 and 2.
+- Drafting the profile, and the hypothetical-approval evaluation of both
+  round-2 runs.
+
+Open:
+
+1. Local full gate on the final tree.
+2. Final-revision independent review.
+3. The verdict and approval receipt in
+   [GO-NO-GO.md](../verification/issue-196/GO-NO-GO.md).
+4. Only on GO: a scoped activation update to the policy and guidance. Any
+   edit the classifier denies is reported as a blocker, never bypassed.

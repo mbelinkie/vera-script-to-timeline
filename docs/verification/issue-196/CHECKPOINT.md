@@ -8,11 +8,11 @@ Updated 2026-10-12. Record:
 - **Owner:** task `claude:33ed0ca5-fcd6-4650-9bfd-63db45ef7a11`, model
   `claude-opus-5-5`, high effort, under the Producer's same-owner provider
   exception (not an ordinary model-match claim; routing labels unchanged).
-- **Sessions:** the actual continuing session is
-  `da5a3fbd-c7c1-45af-bb5a-d3d5e12bf4b5` (handle `da5a3fbd`). It continues the
-  same conversation that the GitHub claim marker records as
-  `85843512-9132-4b84-9c1e-86173c4de542`, which the coordinator has since
-  retired.
+- **Sessions:** the current CLI session is
+  `9908bbc3-704d-42c5-896b-3da72b64dd71` (job `9908bbc3`). The coordinator
+  resumed it from `da5a3fbd-c7c1-45af-bb5a-d3d5e12bf4b5`, which is done. That
+  conversation began as `85843512-9132-4b84-9c1e-86173c4de542`, the identity
+  the GitHub claim marker records, which is now retired.
 - **Worktree:**
   `/Users/matthewbelinkie/Desktop/ONGOING/VERA Script to Timeline/worktrees/claude/issue-196-cloud-preparation`
 - **Branch:** `claude/issue-196-cloud-validation-prep`, pushed. Draft PR #198
@@ -105,6 +105,27 @@ Updated 2026-10-12. Record:
 3. Real approval comes only from the Producer. Leave `qualified: false` in the
    retained draft.
 
-## Round 2 run handles
+## Round 2 runs (completed SUCCESS; evaluated, see GO-NO-GO.md)
 
-Not yet launched.
+Head `d9c63a84b2c7620b0f83cf9379fcf7e958bd0d85`, tree
+`5eb5c6e808508b4973537fbe475693123870efe7`. Pushed at 19:15Z. This section
+is uncommitted on disk, because a push would cancel the PR run and change the
+tree.
+
+- **Push run:** https://github.com/mbelinkie/vera-script-to-timeline/actions/runs/38296397261
+  (created 19:15:10Z)
+- **PR #198 run:** https://github.com/mbelinkie/vera-script-to-timeline/actions/runs/38296403984
+  (created 19:15:13Z). The expected merge tree is `5eb5c6e8` (main is still
+  `98b9a614`).
+
+Both runs completed with success: the push run at 19:46:40Z and the PR run at 19:54:18Z. The profile was drafted (`cloud/profile-draft.json`, `qualified: false`, digest `1d6b3c41…`). Both runs passed evaluation at full scope against a hypothetical local approval only.
+
+When both runs have completed:
+
+1. Draft the profile:
+   `node scripts/cloud-evidence-validate.mjs --draft-profile docs/verification/issue-196/cloud/profile-draft.json --repo mbelinkie/vera-script-to-timeline --run 38296397261 --attempt 1`
+2. Add the PR run to `calibration.runs`.
+3. Evaluate both runs with a local hypothetical approval only:
+   - push run: `--event push --expected-tree 5eb5c6e8…`
+   - PR run: `--event pull_request --pr 198 --expected-tree 5eb5c6e8…`
+4. Write the go/no-go.
