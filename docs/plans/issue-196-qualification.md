@@ -8,8 +8,9 @@ the rule until the Producer explicitly accepts a qualified scope. Plan:
 The live checkpoint is
 [docs/verification/issue-196/CHECKPOINT.md](../verification/issue-196/CHECKPOINT.md).
 
-- Owner: the existing Claude Code session `85843512-9132-4b84-9c1e-86173c4de542`.
-  It runs task `claude:33ed0ca5-fcd6-4650-9bfd-63db45ef7a11` with
+- Owner: the same Claude Code conversation. It is currently CLI session
+  `9908bbc3-704d-42c5-896b-3da72b64dd71`, resumed from `da5a3fbd-c7c1-45af-bb5a-d3d5e12bf4b5`.
+  It began as `85843512-…`, which is now retired. It runs task `claude:33ed0ca5-fcd6-4650-9bfd-63db45ef7a11` with
   `claude-opus-5-5` at high effort, under the Producer's same-owner provider
   exception. This was not an ordinary `roadmap claim` model match, and the
   routing labels (`model:sol`, `effort:high`) were not changed.
@@ -198,7 +199,7 @@ in the primary checkout).
 
 | Check | Result |
 | --- | --- |
-| `node --test scripts/cloud-evidence.test.mjs` (Node v24.19.0) | 31/31 pass |
+| `node --test scripts/cloud-evidence.test.mjs` (Node v24.19.0) | 32/32 pass (31 before the duplicate-ID regression tests) |
 | Mutation sanity (7 safeguards disabled one at a time in job-temp copies) | Each fails ≥1 test |
 | Parser on the retained #193 log and real Node 24 piped output | Vitest 402 + 1, node:test 6 + 23, and 31 parsed exactly |
 | Pinned `npm ci` / `uv sync --frozen` on the integrated tree | exit 0 / 0; lockfiles unchanged (`docs/verification/issue-196/`) |

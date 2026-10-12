@@ -91,26 +91,12 @@ Updated 2026-10-12. Record:
 
 ## Resume
 
-1. Confirm the duplicate-ID delta's fast check and review. Commit and push
-   (one push).
-   - This starts round 2: a push run, plus a `pull_request` synchronize run on
-     #198.
-   - Record both run IDs below, then yield.
-2. When both runs have completed:
-   1. Draft the profile from the push run with
-      `--draft-profile docs/verification/issue-196/cloud/profile-draft.json`.
-   2. Add the PR run to `calibration.runs`.
-   3. Evaluate both runs against a **local hypothetical** approval only.
-   4. Compare against the #193 reference and write the go/no-go.
-3. Real approval comes only from the Producer. Leave `qualified: false` in the
-   retained draft.
+See "Final local full gate" below.
 
 ## Round 2 runs (completed SUCCESS; evaluated, see GO-NO-GO.md)
 
 Head `d9c63a84b2c7620b0f83cf9379fcf7e958bd0d85`, tree
-`5eb5c6e808508b4973537fbe475693123870efe7`. Pushed at 19:15Z. This section
-is uncommitted on disk, because a push would cancel the PR run and change the
-tree.
+`5eb5c6e808508b4973537fbe475693123870efe7`. Pushed at 19:15Z.
 
 - **Push run:** https://github.com/mbelinkie/vera-script-to-timeline/actions/runs/38296397261
   (created 19:15:10Z)
@@ -120,12 +106,40 @@ tree.
 
 Both runs completed with success: the push run at 19:46:40Z and the PR run at 19:54:18Z. The profile was drafted (`cloud/profile-draft.json`, `qualified: false`, digest `1d6b3c41…`). Both runs passed evaluation at full scope against a hypothetical local approval only.
 
-When both runs have completed:
+Evaluation commands, retained with their logs in `cloud/`: `round2-draft-push.log`, `round2-eval-push.log` and `round2-eval-pr.log`.
 
-1. Draft the profile:
-   `node scripts/cloud-evidence-validate.mjs --draft-profile docs/verification/issue-196/cloud/profile-draft.json --repo mbelinkie/vera-script-to-timeline --run 38296397261 --attempt 1`
-2. Add the PR run to `calibration.runs`.
-3. Evaluate both runs with a local hypothetical approval only:
-   - push run: `--event push --expected-tree 5eb5c6e8…`
-   - PR run: `--event pull_request --pr 198 --expected-tree 5eb5c6e8…`
-4. Write the go/no-go.
+## Final local full gate (running; Producer conditional approval received)
+
+The Producer sent a steering instruction, relayed by the coordinator: "I
+approve 196 if Claude is happy with it". That approval is conditional on this
+owner's honest GO verdict, and it is not yet applied.
+
+The local full gate is required by the current policy, because #196's own
+control changes cannot certify themselves.
+
+- **Commit and tree:** `289a080`, tree `173fb6e6`. This differs from
+  calibration tree `5eb5c6e8` only under `docs/`.
+- **Command:** `PYTEST_ADDOPTS=--durations=25 VITEST_MAX_WORKERS=1 npm run validate`
+- **Process:** detached `nohup` process, PID 56180, started about 20:13Z.
+  Host load averages at launch: 4.83 / 7.61 / 9.02. No competing test
+  processes.
+- **Files:** `validate-final.metadata`, `validate-final.log`,
+  `validate-final.exit` and `validate-final.finished` (the last two are
+  written on completion).
+- **Expected duration:** about 55–65 minutes (#193's reference pytest took
+  54:03).
+- **Running alongside:** the final-revision independent review, a read-only
+  subagent told not to run tests.
+
+On resume:
+
+1. Read `validate-final.exit`, the inventory and the slowest durations.
+2. Read the final review, then fix any substantive findings and review the
+   delta.
+3. Only on a genuine GO:
+   - write the approval receipt;
+   - copy the draft to `cloud/profile-qualified.json` with `qualified: true`
+     and `approval.profileDigest = 1d6b3c41…`;
+   - apply scoped activation to the policy and guidance (report any
+     classifier denial as a blocker);
+   - give the drained release.

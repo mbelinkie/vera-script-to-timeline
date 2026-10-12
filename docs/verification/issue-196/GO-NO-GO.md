@@ -7,20 +7,51 @@ remains the rule and cloud substitution is disabled.
 ## What would be activated
 
 A complete passing `Validate` run on GitHub-hosted `ubuntu-24.04` can replace
-the Intel-Mac `VITEST_MAX_WORKERS=1 npm run validate` rerun. This holds only
-for the eligible rows of the
+the Intel-Mac `VITEST_MAX_WORKERS=1 npm run validate` rerun. This applies only
+to the eligible rows of the
 [check-to-platform matrix](../../plans/issue-196-qualification.md#check-to-platform-matrix-proposed-activation-decides).
-It also holds only when this command accepts the run on the exact delivered
-tree, with exit 0:
+Every one of the following must hold. If any rule is broken, the ticket
+falls back to the local full gate:
 
-```sh
-node scripts/cloud-evidence-validate.mjs --repo mbelinkie/vera-script-to-timeline \
-  --run <id> --attempt <n> --event pull_request --pr <N> --delivered <rev> \
-  --profile docs/verification/issue-196/cloud/profile-qualified.json
-```
+1. **The trust anchor is accepted `main`, never the candidate.** Run the
+   validator and read the approved profile from a clean checkout of accepted
+   `main` that contains this activation:
 
-`--scope full` is the default. Pass `--scope excluding-media-sensitive` only
-for pure-logic work while the media profile is suspended.
+   ```sh
+   node scripts/cloud-evidence-validate.mjs --repo mbelinkie/vera-script-to-timeline \
+     --run <id> --attempt <n> --event pull_request --pr <N> --delivered <candidate-rev> \
+     --profile docs/verification/issue-196/cloud/profile-qualified.json \
+     --scope excluding-media-sensitive
+   ```
+
+   Exit 0 is required.
+2. **The report must name the approved profile:** `profileDigest` =
+   `1d6b3c41d0bfbba1c9e012796a1067ebba7944e6a8615ecf96e77444071257c7`, and
+   `manifest.source` must name the run artifact, never `local-file`.
+3. **The candidate must not touch the trust anchor or the qualified
+   controls.** That means the profile or approval files, the evidence
+   helpers, the workflow, manifests, lockfiles and tool configs. Any such diff
+   is ineligible and takes the local full gate plus requalification. The
+   validator rejects control drift itself; profile and approval edits are
+   excluded by this rule.
+4. **Scope:**
+   - The durable activated scope is `excluding-media-sensitive`. It covers
+     tickets whose diff touches no media-processing path, meaning FFmpeg or
+     FFprobe callers, audio or picture rendering, or probing.
+   - Choosing that scope is the owner's judgment, so the reviewer must confirm
+     the diff qualifies.
+   - Media-processing changes always keep their local slow-test exception.
+5. **Runner images:** GitHub rolls hosted images about weekly, and apt
+   `ffmpeg` is not version-pinned.
+   - When the image differs from `20261004.327.1`, the evaluator suspends the
+     `media-sensitive` scope. Full scope then fails closed, which is
+     expected.
+   - Pure-logic acceptance under `excluding-media-sensitive` is unaffected.
+   - Reinstating full scope means requalifying the profile with two new runs
+     and a new approval of the new digest. The owner may submit that as a
+     deterministic profile update. It must never become a routine weekly
+     Producer request; media scope simply stays suspended until someone
+     chooses to requalify.
 
 ## Qualified profile (draft `cloud/profile-draft.json`, `qualified: false`)
 
@@ -95,6 +126,24 @@ runs, the job took 30–40 minutes with a queue of 3–4 seconds.
 No private media, provider access, paid runners or new secrets are involved.
 The public artifact is only the sanitized manifest, and both real artifacts
 were scanned: no paths, transcripts, media names or environment data.
+
+## Approval receipt (written only on a GO verdict)
+
+The approval is the Producer's conditional instruction, relayed by the
+coordinator on 2026-10-12, quoted verbatim: "I approve 196 if Claude is happy
+with it". The receipt will:
+
+- quote it unparaphrased, with its source and its condition;
+- bind it to this page's verdict, the delivered commit and tree, profile
+  digest `1d6b3c41…`, the eligible scope above and the local exceptions
+  below.
+
+It does not cover full media scope, any frozen, native or human gate, or any
+other ticket's acceptance.
+
+After merge, the post-merge `main` push run should be evaluated against the
+profile at no cost, because the merge changes no control. That evaluation is
+the first in-production activation check.
 
 ## Open items before the verdict
 

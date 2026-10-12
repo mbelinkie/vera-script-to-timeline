@@ -63,3 +63,37 @@ scripts/` against the round-1 manifests and confirmed the duplicate count
 | --- | --- | --- | --- |
 | 1 | informational | For abbreviated `it.each` names the identity is positional. A removed case is detected; swapping one abbreviated value for another is not. | Documented as `parameterized-identity` in the qualification record. |
 | 2 | low | No validator-level test for a removed numbered case or a collision; a fixture count was confusing. | Added both tests and fixed the fixture. The helper suite now passes 32/32. |
+
+## Final-revision review (revision `289a080`, calibration tree `5eb5c6e8`)
+
+A fresh-context read-only reviewer subagent ran inside CLI session
+`9908bbc3-704d-42c5-896b-3da72b64dd71`. It ran no tests while the local full
+gate was running. It independently re-verified, using read-only `gh api` and
+`jq`:
+
+- the run conclusions and attempts;
+- that commit `d9c63a84` and merge `cc0aa6fc` both have tree `5eb5c6e8`;
+- that the branch has exactly 4 Validate runs, all successful;
+- the manifest digests;
+- that the draft matches both manifests (24 controls, tools, inventories
+  499/403/61);
+- the recomputed profile digest `1d6b3c41…`;
+- that the delivered tree differs only under `docs/`;
+- that the `upload-artifact` pin is v7.0.1;
+- that the artifacts contain no private content.
+
+It found no false-acceptance path in the evaluator.
+
+**Verdict: GO with fixes.** No code or workflow change is needed, so the
+qualified controls stay unchanged.
+
+| # | Severity | Finding | Disposition |
+| --- | --- | --- | --- |
+| 1 | should-fix | The profile file and validator are an unprotected trust anchor. A branch could regenerate its own profile and run its own validator. | Activation rules in GO-NO-GO: run the validator and profile from accepted `main`; require the approved digest; require an artifact-sourced manifest; any candidate diff to the anchor, controls or profile is ineligible. |
+| 2 | should-fix | Cited evidence logs were gitignored (`*.log`). | Force-tracked after a secret scan, following #193's precedent. `validate-final.log` will be added after completion. |
+| 3 | should-fix | The runner image will roll over and suspend media scope; per-image approval would mean recurring Producer asks. | The durable scope is `excluding-media-sensitive`. Full scope is available only on the qualified image. Requalification is an optional owner submission, never a routine Producer request. |
+| 4 | blocking for activation | AGENTS and CLAUDE still state the local-full rule; the guidance must change together with the policy. | Attempted only after a GO verdict. A classifier denial is reported as an activation blocker, never bypassed. |
+| 5 | note | Record the approval verbatim. | The GO-NO-GO receipt section quotes it, with its condition and binding. |
+| 6 | note | Scope choice is asserted by the caller. | Scope rule 4: a media-path diff is never eligible, and the reviewer confirms. |
+| 7 | note | Stale text (retired session, 31/31, duplicated checkpoint steps). | Fixed. |
+| 8 | note | Evaluating the post-merge `main` run is a free activation check. | Recorded in GO-NO-GO. |
