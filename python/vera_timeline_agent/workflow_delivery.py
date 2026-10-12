@@ -86,6 +86,8 @@ class PublicResolveAdapter(AcceptedResolveAdapter):
     def verify(self, manifest: Mapping[str, Any]) -> tuple[str, ...]:
         discrepancies = list(super().verify(manifest))
         for track in manifest.get("tracks", []):
+            if track["index"] > self.timeline.GetTrackCount(track["kind"]):
+                continue
             expected = sorted(
                 (
                     event

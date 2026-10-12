@@ -46,7 +46,9 @@ def launch(injected_resolve: object) -> None:
     installed_files = {
         path.relative_to(root).as_posix()
         for path in entries
-        if path.is_file() and path not in {release_path, request_path}
+        if path.is_file()
+        and path not in {release_path, request_path}
+        and path.name != ".DS_Store"
     } | {SCRIPT_PATH.name}
     declared_directories = {
         parent.as_posix()

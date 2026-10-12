@@ -43,6 +43,24 @@ passes. No source changes follow that review without renewed checks/review.
 
 ## Remaining Producer evidence
 
+The second Claude review of `981c00322ce502a6b6dff36646c3383963a9ab8c`
+confirmed F1–F8 resolved and required one narrow operator-flow fix (N1).
+Its full findings are retained in [claude-981c003.md](claude-981c003.md).
+N1 now ignores only regular `.DS_Store` files in the installed release after
+rejecting symlinks/nonregular entries; a regression test covers metadata in
+both the release root and Python package. Ready-package inventory remains
+strict, and the runbook warns against browsing it in Finder before building.
+N2 also has a fix/test: skip missing tracks in the subclass's additional source
+end readback, preserving the accepted base adapter's discrepancies.
+
+N3 stays at the documented one-launch-per-authorized-request operator boundary;
+durable replay/job ownership remains outside #109. N4's retained-partial flag is
+conservative after entering the mutating creation stage; a collision can leave
+no target, and the error detail must be inspected. Neither finding permits
+reuse, overwrite or deletion. A full fake native build was not added: isolated
+adapter/sequence tests and the shipped preflight cover agent-run behavior,
+while actual assembly/save/reopen is the required native Producer gate.
+
 Claude's Q1–Q7 remain native/operator questions. The run must retain the actual
 runtime/version, External Scripting None screenshot, exact installed release
 hash, new target identity, save/reopen/readback result and report hashes. The

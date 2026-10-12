@@ -644,6 +644,33 @@ def test_media_readback_normalizes_paths_and_detects_unexpected_bins(
     )
 
 
+def test_missing_track_retains_base_discrepancies(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    expected = ("video track count: expected 1, got 0", "video track 1 is missing")
+    monkeypatch.setattr(AcceptedResolveAdapter, "verify", lambda *_: expected)
+    folder = SimpleNamespace(
+        GetUniqueId=lambda: "root", GetClipList=lambda: [], GetSubFolderList=lambda: []
+    )
+    adapter = workflow_delivery.PublicResolveAdapter(object())
+    adapter.pool = SimpleNamespace(GetRootFolder=lambda: folder)
+    adapter.timeline = SimpleNamespace(
+        GetTrackCount=lambda _kind: 0,
+        GetMarkers=lambda: {},
+        GetMediaPoolItem=lambda: None,
+        GetItemListInTrack=lambda *_: pytest.fail("missing track must not be read"),
+    )
+    discrepancies = adapter.verify(
+        {
+            "tracks": [{"id": "v1", "kind": "video", "index": 1}],
+            "events": [],
+            "markers": [],
+            "sources": [],
+        }
+    )
+    assert discrepancies == expected
+
+
 def _operator_request(tmp_path: Path, fixture: VerifiedFixture) -> Path:
     attestation = _attestation_value(fixture.attestation)
     request = {

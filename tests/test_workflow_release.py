@@ -223,6 +223,25 @@ def test_request_package_mismatch_cannot_write_evidence_into_ready_input(
     assert list(package.iterdir()) == []
 
 
+def test_finder_metadata_does_not_invalidate_installed_release(tmp_path: Path) -> None:
+    release = tmp_path / "release"
+    build_release(release)
+    evidence = tmp_path / "evidence"
+    package = tmp_path / "package"
+    package.mkdir()
+    _request(release, evidence, package)
+    release_root = release / RELEASE_NAME
+    for folder in (release_root, release_root / "python" / "vera_timeline_agent"):
+        (folder / ".DS_Store").write_bytes(b"Finder metadata")
+
+    _launch(release)
+    assert not list(evidence.glob("bootstrap-refusal-*.json"))
+    reports = list(evidence.glob("result-*.json"))
+    assert len(reports) == 1
+    assert read_object(reports[0])["status"] == "stopped_safely"
+    assert list(package.iterdir()) == []
+
+
 @pytest.mark.parametrize(
     "tamper",
     [
@@ -643,6 +662,9 @@ def test_readback_verifies_source_endpoint_in_source_rate_frames(
     class Timeline:
         def GetItemListInTrack(self, *_: object) -> list[Item]:
             return [item]
+
+        def GetTrackCount(self, *_: object) -> int:
+            return 1
 
         def GetMarkers(self) -> dict[int, object]:
             return {}

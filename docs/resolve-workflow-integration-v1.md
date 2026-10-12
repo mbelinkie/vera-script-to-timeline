@@ -14,6 +14,8 @@ The launcher checks every bundled source file against that hash-bound release
 before importing it. It refuses any undeclared file/directory, bytecode caches
 and any already-loaded VERA runtime. It disables prefix bytecode caching before
 import. It never adds `.venv` or `site-packages` to Resolve.
+Regular Finder `.DS_Store` files are ignored only in the installed release;
+symlinks and other undeclared files remain refused.
 
 Source pins: #34 `2586dded4d3566e944d7938604b20bded6fc36fb`, #107
 `c9614eaf7bf7aa88f4cf33e77180ff5a393377e4`, #147
@@ -61,6 +63,8 @@ package's freshness is its unchanged bytes/build, not elapsed wall time. An old
 unchanged package remains valid; edited/replaced/added/missing files are stale.
 Keep preparation files and reports in a private local directory: they contain
 local locators and media identity. Do not publish raw reports with private paths.
+Do not browse the ready package in Finder before building: Finder can add
+`.DS_Store` files, which correctly invalidate its frozen attested inventory.
 
 ## Prepare the concrete acceptance artifact
 
