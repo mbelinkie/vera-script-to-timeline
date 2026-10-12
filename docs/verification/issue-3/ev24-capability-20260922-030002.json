@@ -1,0 +1,86 @@
+{
+  "connected": {
+    "build": "14",
+    "edition": "studio",
+    "productName": "DaVinci Resolve Studio",
+    "suffix": "",
+    "version": "21.1.0"
+  },
+  "graphIdentity": "sha256:7abb4e07a3c6472fd93e6b752a8623855f2fa03a8591fff10e6e33746e7ff2df",
+  "observedAt": "2026-09-22",
+  "projectName": "VERA EV24 Capability 20260922-030002",
+  "reopenVerificationDiscrepancies": [],
+  "reports": [
+    {
+      "badgeAssetIdentity": null,
+      "controlReadback": {
+        "Country": 16,
+        "TopLine": "",
+        "BottomLine": "",
+        "Year": 2024
+      },
+      "durationFrames": 120,
+      "name": "standard-auto-fill-120",
+      "placement": "V4@0",
+      "semanticSnapshot": {
+        "country": "finland",
+        "year": 2024
+      }
+    },
+    {
+      "badgeAssetIdentity": null,
+      "controlReadback": {
+        "Country": 29,
+        "TopLine": "The Code",
+        "BottomLine": "Nemo",
+        "Year": 2024
+      },
+      "durationFrames": 120,
+      "name": "explicit-overrides-120",
+      "placement": "V4@0",
+      "semanticSnapshot": {
+        "bottomLineOverride": "Nemo",
+        "country": "malta",
+        "topLineOverride": "The Code",
+        "year": 2024
+      }
+    },
+    {
+      "badgeAssetIdentity": null,
+      "controlReadback": {
+        "Country": 53,
+        "TopLine": "",
+        "BottomLine": ""
+      },
+      "durationFrames": 64,
+      "name": "otis-auto-fill-64",
+      "placement": "V4@0",
+      "semanticSnapshot": {
+        "country": "otis"
+      }
+    },
+    {
+      "badgeAssetIdentity": "ev24-package-test-badge",
+      "controlReadback": {
+        "BadgeOverride": "ev24-package-test-badge",
+        "Country": 4,
+        "TopLine": "",
+        "BottomLine": "",
+        "Year": 2024
+      },
+      "durationFrames": 64,
+      "name": "test-badge-64",
+      "placement": "V4@0",
+      "semanticSnapshot": {
+        "badgeOverrideAsset": "ev24-package-test-badge",
+        "country": "austria",
+        "year": 2024
+      }
+    }
+  ],
+  "testBadge": {
+    "identity": "ev24-package-test-badge",
+    "sha256": "a631b15479a795f0f614b7681d9210dac74bd2583b311f8c8861682543a58003"
+  },
+  "verified": true
+}
