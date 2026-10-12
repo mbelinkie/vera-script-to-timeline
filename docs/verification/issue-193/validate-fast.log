@@ -1,0 +1,90 @@
+> npm run check:contracts-generated && npm run check:typescript && npm run lint:python && npm run typecheck:python && npm run test:python:fast
+> node packages/contracts/scripts/generate-contracts.mjs --check
+Generated contract types are current.
+> npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript
+> eslint scripts/*.mjs --max-warnings=0 && npm run lint --workspaces --if-present
+> eslint src test --max-warnings=0
+> eslint . --max-warnings=0
+> npm run typecheck --workspaces --if-present
+> tsc --project tsconfig.json
+> tsc --project tsconfig.json
+> npm run test --workspaces --if-present && npm run test:progress && npm run test:roadmap
+> vitest run
+ RUN  v4.1.11 /Users/matthewbelinkie/.codex/worktrees/6432/VERA Script to Timeline/packages/contracts
+ Test Files  19 passed (19)
+      Tests  402 passed (402)
+   Start at  11:13:27
+   Duration  12.43s (transform 5.55s, setup 0ms, import 24.78s, tests 42.99s, environment 5ms)
+> vitest run
+ RUN  v4.1.11 /Users/matthewbelinkie/.codex/worktrees/6432/VERA Script to Timeline/packages/tooling-smoke
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  11:13:40
+   Duration  246ms (transform 31ms, setup 0ms, import 51ms, tests 11ms, environment 0ms)
+> node --test scripts/project-progress.test.mjs
+✔ parses the authoritative board without counting goals as work (3.927484ms)
+✔ calculates exact done and remaining scope from actionable board issues (16.68806ms)
+✔ fails closed on incomplete or ambiguous board data (1.223238ms)
+✔ renders every issue once with escaped links and board metadata (1.470191ms)
+✔ writes the dashboard and reports an exact terminal summary (12.034476ms)
+✔ fails clearly when the live GitHub Project is unavailable (6.052991ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 215.51913
+> node --test scripts/roadmap.test.mjs scripts/roadmap-rate-limit.test.mjs scripts/roadmap-lock.test.mjs
+✔ serializes roadmap commands before any GitHub request (6.990419ms)
+✔ reclaims a sufficiently old lock whose owner process is gone (5.209448ms)
+✔ parses authoritative direct GraphQL rateLimit fields and omits response metadata (4.727654ms)
+✔ fails closed on GitHub's graphql_rate_limit exhaustion response with reset guidance (0.926622ms)
+✔ never accepts a false REST-green payload as GraphQL authority (1.410156ms)
+✔ preflight reserves points for the planned GraphQL work (0.841083ms)
+✔ honors direct Retry-After evidence during a secondary throttle (0.824142ms)
+✔ accounts for issue, comment, dependency, and Project V2 operations by actual transport (0.422635ms)
+✔ distinguishes REST, GraphQL, secondary, and client/tooling failures (0.261689ms)
+✔ parses commands and flags (2.361714ms)
+✔ accepts one exact routing profile (0.461078ms)
+✔ rejects missing routing labels (0.593423ms)
+✔ rejects duplicate routing labels (0.232813ms)
+✔ rejects Luna claiming Terra work (0.276305ms)
+✔ rejects Sol claiming Luna work (0.315018ms)
+✔ rejects unsupported effort labels (0.277031ms)
+✔ uses the latest claim marker (0.98423ms)
+✔ preserves exclusive ownership across Luna-to-Terra and Terra-to-Sol escalation markers (0.456264ms)
+✔ parses no dependencies and same-repository blockers (1.174373ms)
+✔ parses cross-roadmap dependency references (0.478559ms)
+✔ rejects prose and duplicate dependency declarations (0.437623ms)
+✔ requires every dependency to be closed and Done (0.668543ms)
+✔ inspect, ready, and claim preflight before GraphQL reads and again before mutation (1551.502167ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1704.376867
+> uv run --frozen ruff check . && uv run --frozen ruff format --check .
+All checks passed!
+382 files already formatted
+> uv run --frozen mypy python tests
+Success: no issues found in 111 source files
+> uv run --frozen pytest -m "not slow" -n 2
+============================= test session starts ==============================
+platform darwin -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/matthewbelinkie/.codex/worktrees/6432/VERA Script to Timeline
+configfile: pyproject.toml
+testpaths: tests
+plugins: xdist-3.8.0, typeguard-4.6.0
+created: 2/2 workers
+2 workers [317 items]
+........................................................................ [ 22%]
+........................................................................ [ 45%]
+........................................................................ [ 68%]
+........................................................................ [ 90%]
+.............................                                            [100%]
+============================= 317 passed in 55.81s =============================
