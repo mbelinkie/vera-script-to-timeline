@@ -117,7 +117,8 @@ Evaluation commands, retained with their logs in `cloud/`: `round2-draft-push.lo
   - Vitest 402 + 1, node:test 6 + 23 + 32;
   - ruff and format clean, mypy clean;
   - pytest 499 passed in 58:02, with `--durations=25` retained in the log;
-  - no tracked files modified.
+  - owner-run post-gate `git status --porcelain --untracked-files=no` was
+    empty (not retained as a file).
 - **Retained:** `validate-final.{metadata,log,exit,finished}`. The run was not
   repeated.
 

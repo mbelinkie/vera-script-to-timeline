@@ -55,7 +55,7 @@ falls back to the local full gate:
      Producer request; media scope simply stays suspended until someone
      chooses to requalify.
 
-## Qualified profile (draft `cloud/profile-draft.json`, `qualified: false`)
+## Qualified profile (draft `cloud/profile-draft.json` is `qualified: false`; the approval-bound copy is `cloud/profile-qualified.json`)
 
 - **Profile digest:** `1d6b3c41d0bfbba1c9e012796a1067ebba7944e6a8615ecf96e77444071257c7`.
   An approval must name this digest.
@@ -83,7 +83,7 @@ falls back to the local full gate:
 | [38296403984](https://github.com/mbelinkie/vera-script-to-timeline/actions/runs/38296403984) | PR #198 / merge `cc0aa6fc` (parents `98b9a614`, `d9c63a84`) | 39:00 | 37:54 | GitHub success; evaluator pass at full scope |
 
 The evaluations used a **hypothetical local approval** held only in job temp,
-not a Producer approval (`cloud/round2-eval-*.log`). Both runs showed:
+not a Producer approval (`cloud/round2-eval-push.log` and `cloud/round2-eval-pr.log`. The approval-bound reruns are `cloud/round2-eval-qualified-{push,pr}.log`). Both runs showed:
 
 - no failures or suspended scope;
 - no earlier attempts on this tree;
@@ -132,8 +132,9 @@ were scanned: no paths, transcripts, media names or environment data.
 ## Approval receipt
 
 - **Instruction:** Producer, relayed by the coordinator on 2026-10-12. Quoted
-  verbatim: "I approve 196 if Claude is happy with it". The coordinator holds
-  the original consent privately.
+  verbatim: "I approve 196 if Claude is happy with it". The coordinator
+  reports that it holds the original consent privately; the owner has not
+  seen that record.
 - **Condition:** the #196 owner's honest GO, after all required evidence and
   review.
 - **Satisfied:** yes. The owner reports **GO** on the evidence below. This is
@@ -169,7 +170,9 @@ in-production check, once activation is in effect.
   - generated-currentness, lint and types clean;
   - Vitest 402 + 1, node:test 6 + 23 + 32, ruff and format clean (389
     files), mypy clean (111 files), pytest 499 passed in 58:02;
-  - no tracked files modified;
+  - the owner ran `git status --porcelain --untracked-files=no` after the
+    gate and before any further commit, and it was empty. That output is not
+    retained as a file;
   - `package-lock.json` SHA-256 `e615667b…`, identical to #193's reference;
   - retained as `validate-final.{metadata,log,exit,finished}`.
 - **Retained failed check:** the delta `validate:fast` run at 19:12Z, which
@@ -216,6 +219,33 @@ these together:
   `5ab39b2` policy-pointer paragraphs, plus one sentence: "Within the policy's
   qualified cloud scope, a complete CI pass accepted by the validator from
   accepted `main` replaces the local full rerun."
+
+  `5ab39b2` is a local commit, which per review appears to have no remote ref.
+  Its paragraphs, quoted:
+  - **AGENTS.md** slice ritual, a new bullet after the full-gate bullet:
+    "Before testing, reviewing or handing off work, follow
+    `docs/VERIFICATION_POLICY.md`: focused/fast checks, required review and
+    fixes, then final full evidence. Reuse verified equivalent passing
+    evidence across unchanged handoffs; scale review depth to risk. Local full
+    acceptance, frozen boundaries and actual External/Producer gates remain
+    required."
+  - **CLAUDE.md**, after the first paragraph: "Before testing, reviewing or
+    handing off a ticket, read `docs/VERIFICATION_POLICY.md`: focused/fast
+    checks → required review → fixes and delta checks → final full passing
+    evidence. Reuse verified equivalent evidence at unchanged handoffs and
+    scale review depth to risk; don't restart an in-flight gate or waive
+    local/runtime/human acceptance requirements."
+  - **README.md**, at the start of "Validation": "For development/review order
+    and reuse of retained passing results, follow [the verification
+    policy](docs/VERIFICATION_POLICY.md). Required review precedes the final
+    full gate; unchanged handoffs reuse verified equivalent evidence. This does
+    not substitute fast checks or CI for required local full acceptance."
+    Activation replaces that last sentence with the scoped sentence above.
+  - **SKILL.md** step 6: "Before testing, independent/Claude review or
+    handoff, follow `docs/VERIFICATION_POLICY.md`: review/fix before final
+    full validation, verified evidence reuse at unchanged handoffs, and
+    risk-proportionate review. Preserve required local/runtime/human gates and
+    the expensive-check queue."
 - **`docs/PROJECT_OPERATING_PLAYBOOK.md`:** add one "Qualified cloud
   regression substitution" practice row.
 

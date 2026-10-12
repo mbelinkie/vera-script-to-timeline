@@ -97,3 +97,22 @@ qualified controls stay unchanged.
 | 6 | note | Scope choice is asserted by the caller. | Scope rule 4: a media-path diff is never eligible, and the reviewer confirms. |
 | 7 | note | Stale text (retired session, 31/31, duplicated checkpoint steps). | Fixed. |
 | 8 | note | Evaluating the post-merge `main` run is a free activation check. | Recorded in GO-NO-GO. |
+
+## Receipt-delta review (`67946eb..4280f66`, docs/evidence only)
+
+**Verdict: approve with fixes, no blocking findings.**
+
+- No overclaim about activation.
+- The receipt is verbatim, and the profile matches the draft plus approval
+  only (both digests `1d6b3c41…`, `profileProblems` empty).
+- The gate numbers match the retained files.
+- Privacy is consistent with precedent.
+
+| # | Severity | Finding | Disposition |
+| --- | --- | --- | --- |
+| 1 | medium | Qualified eval logs lacked the command and profile header. | Regenerated with a header (command, `--profile …/profile-qualified.json`, profile SHA-256 `b6cc9a83…`); both still exit 0. |
+| 2 | low | "No tracked files modified" was not backed by a retained file. | Reworded: an owner-run post-gate `git status` was empty, and its output is not retained. |
+| 3 | low | A glob also matched the qualified logs. | The hypothetical logs are now named explicitly. |
+| 4 | low | Stale profile heading. | Points to `profile-qualified.json`. |
+| 5 | low | The `5ab39b2` pointers were not self-contained. | Quoted inline in the activation blocker. |
+| 6 | info | The private-consent statement can't be verified by the owner. | Attributed to the coordinator. |

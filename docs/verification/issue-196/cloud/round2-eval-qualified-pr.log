@@ -1,3 +1,6 @@
+# Evaluation against the approval-bound profile (activation NOT in effect: policy edit denied)
+# profile sha256: b6cc9a837099a57070a4e95a3983ae15bdf71a0aaa0efa650f84759be783b2f5
+# command: node scripts/cloud-evidence-validate.mjs --repo mbelinkie/vera-script-to-timeline --run 38296403984 --attempt 1 --event pull_request --pr 198 --expected-tree 5eb5c6e808508b4973537fbe475693123870efe7 --profile docs/verification/issue-196/cloud/profile-qualified.json --scope full
 {
   "status": "pass",
   "profileDigest": "1d6b3c41d0bfbba1c9e012796a1067ebba7944e6a8615ecf96e77444071257c7",
@@ -293,4 +296,4 @@
   "requestedScope": "full",
   "accepted": true
 }
-pr exit 0
+# exit 0
