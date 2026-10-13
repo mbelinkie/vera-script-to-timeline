@@ -518,6 +518,20 @@ def _validate_inputs(
         raise _error(
             "build report manifest hash does not match canonical manifest JSON"
         )
+    compiler = dependencies["compiler"]
+    if manifest["compiler"] != compiler or report["compiler"] != compiler:
+        raise _error(
+            "compiler source/profile/version identity differs across package inputs"
+        )
+    for event in manifest["events"]:
+        provenance = event["provenance"]
+        if (
+            provenance["documentId"] != document_id
+            or provenance["compilerVersion"] != compiler["version"]
+        ):
+            raise _error(
+                "event document/compiler provenance differs from the frozen inputs"
+            )
 
     timeline = manifest.get("timeline")
     if timeline != dependencies.get("timeline") or timeline != report.get("timeline"):

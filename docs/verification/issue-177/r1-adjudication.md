@@ -69,5 +69,10 @@ Frozen contracts, fixtures, compiler source, accepted tests,174preparer,34render
 and109native helpers remain unchanged. New evidence/records are issue-owned.
 Integrated focused run passed83tests;9source/test/helper files passed mypy.
 Ruff lint passed, and final formatting corrected two files after the focused run.
+Final identity audit also closed compiler source/profile/version equality across
+the three frozen artifacts and each event's document/compiler provenance.
+Four targeted negative cases passed with valid recomputed manifest hashes,
+so these refusals do not depend on an earlier hash mismatch. The document/parser
+suite now passes13tests. Fresh fast validation covers the complete final source.
 Fresh fast validation, required delta review and qualifying full evidence remain
 pending. Iteration evidence is not approval or full acceptance.

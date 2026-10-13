@@ -86,6 +86,43 @@ def test_settings_identity_must_bind_the_authoring_defaults(tmp_path: Path) -> N
     assert not case.project_root.exists()
 
 
+@pytest.mark.parametrize("artifact", ["manifest", "report"])
+def test_compiler_identity_closes_across_package_artifacts(
+    tmp_path: Path, artifact: str
+) -> None:
+    case = make_package_case(tmp_path)
+    manifest = json.loads(case.manifest_path.read_bytes())
+    report = json.loads(case.report_path.read_bytes())
+    value = manifest if artifact == "manifest" else report
+    value["compiler"]["sourceHash"] = "sha256:" + "0" * 64
+    report["manifest"]["contentHash"] = _compiler_hash(manifest)
+    case.manifest_path.write_text(json.dumps(manifest))
+    case.report_path.write_text(json.dumps(report))
+    with pytest.raises(V2PackageError, match="compiler source/profile/version"):
+        case.build()
+    assert not case.project_root.exists()
+
+
+@pytest.mark.parametrize("field", ["documentId", "compilerVersion"])
+def test_event_provenance_cannot_disagree_with_frozen_identity(
+    tmp_path: Path, field: str
+) -> None:
+    case = make_package_case(tmp_path)
+    manifest = json.loads(case.manifest_path.read_bytes())
+    report = json.loads(case.report_path.read_bytes())
+    manifest["events"][0]["provenance"][field] = (
+        "00000000-0000-4000-8000-000000000999"
+        if field == "documentId"
+        else "compiler/v1"
+    )
+    report["manifest"]["contentHash"] = _compiler_hash(manifest)
+    case.manifest_path.write_text(json.dumps(manifest))
+    case.report_path.write_text(json.dumps(report))
+    with pytest.raises(V2PackageError, match="event document/compiler provenance"):
+        case.build()
+    assert not case.project_root.exists()
+
+
 @pytest.mark.parametrize(
     "attack", ["duplicate", "nested-duplicate", "bom", "nan", "overflow"]
 )
