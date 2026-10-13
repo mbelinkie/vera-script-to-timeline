@@ -1,0 +1,26 @@
+{
+  "childPid": 57221,
+  "command": [
+    "/Users/matthewbelinkie/.local/bin/claude",
+    "-p",
+    "--safe-mode",
+    "--tools",
+    "",
+    "--no-chrome",
+    "--strict-mcp-config",
+    "--mcp-config",
+    "{\"mcpServers\":{}}",
+    "--no-session-persistence",
+    "--output-format",
+    "json",
+    "--effort",
+    "high"
+  ],
+  "environment": {
+    "PATH": "/usr/local/bin:/usr/bin:/bin:/Users/matthewbelinkie/.local/bin"
+  },
+  "sourceBefore": "/Users/matthewbelinkie/.codex/worktrees/ed01/VERA Script to Timeline/out/issue177/claude-r1/source-before.json",
+  "startedAt": "2026-10-13T06:51:21.491236+00:00",
+  "worktree": "/Users/matthewbelinkie/.codex/worktrees/ed01/VERA Script to Timeline",
+  "wrapperPid": 57120
+}

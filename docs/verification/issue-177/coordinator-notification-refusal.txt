@@ -1,0 +1,8 @@
+Attempted final coordinator pause/heavy-release notification to chat
+01a11bea-e437-71e2-87df-5409e80ee96b on local host.
+Tool refused with: MCP tool call requires approval, but approval policy is never.
+The final pause notification was NOT delivered. Earlier progress notification
+was delivered successfully. No workaround or additional approval request made.
+Local checkpoint and source hashes retained; no owned commands are live and
+the owner has relinquished the heavy reservation. Coordinator should verify
+this receipt on later inspection before treating the reservation as active.

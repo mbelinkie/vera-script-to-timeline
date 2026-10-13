@@ -1,0 +1,19 @@
+{
+  "childPid": 3505,
+  "command": [
+    "rtk",
+    "proxy",
+    "ctx-wire",
+    "run",
+    "/Users/matthewbelinkie/.codex/worktrees/ed01/VERA Script to Timeline/.venv/bin/python",
+    "/Users/matthewbelinkie/.codex/worktrees/ed01/VERA Script to Timeline/out/issue177/complete_python_fast.py"
+  ],
+  "environment": {
+    "PATH": "/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/usr/local/bin:/usr/bin:/bin:/Users/matthewbelinkie/.local/bin",
+    "VITEST_MAX_WORKERS": "1"
+  },
+  "sourceBefore": "/Users/matthewbelinkie/.codex/worktrees/ed01/VERA Script to Timeline/out/issue177/fast-r4-remainder/source-before.json",
+  "startedAt": "2026-10-13T12:01:56.307180+00:00",
+  "worktree": "/Users/matthewbelinkie/.codex/worktrees/ed01/VERA Script to Timeline",
+  "wrapperPid": 3397
+}
