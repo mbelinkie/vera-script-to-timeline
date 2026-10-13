@@ -1,6 +1,9 @@
 # Issue 177 evidence and adapter boundary
 
-Status: implementation in progress; **not acceptance evidence yet**.
+Adapter readiness evidence: **Claude R3 GO and complete local validation PASS**.
+Acceptance authority: Automated. [PR #201](https://github.com/mbelinkie/vera-script-to-timeline/pull/201)
+records CI and merge; [issue #177](https://github.com/mbelinkie/vera-script-to-timeline/issues/177)
+records the final roadmap acceptance state.
 Accepted starting main: `7867fa4873429e799f748004896f7093d2ce625f`,
 tree `397d31ab7c0ab6b4f03cf4af7bd5abcce45bf3af`.
 
@@ -62,10 +65,18 @@ The runtime rechecks hash-pinned inputs before each mutation, rejects target
 collisions, saves/reopens the created target and retains discrepancy/partial-target
 evidence. No target is deleted or overwritten by recovery.
 
-## Gates still required
+## Retained gates and external boundary
 
-Synthetic tests establish adapter readiness only. Full qualifying validation,
-generated/frozen checks and adversarial Claude GO remain pending. Native
+Synthetic tests establish adapter readiness only. `claude-r3-review.md` retains
+the actual GO and its limits. `full-r1-summary.json`, `full-r1-input-audit.json`
+and `full-r1-pass.txt` retain the complete pinned local validation: 794 Python,
+430 Vitest and 61 Node tests, no skips or deselections, passing lint/types,
+generator currentness and byte-identical accepted frozen boundaries. The tested
+commit is `05256dca620e1e22d21d95281dc1436f630e4927`; subsequent changes retain
+evidence and update this documentation, with fresh formatter/diff checks.
+`r2-adjudication.md` and `r3-adjudication.md` preserve the saved-writer,
+synthetic-fixture and compiler/runtime qualification limits. Required CI and
+exact reviewed/tested-source correspondence still govern merge and closure. Native
 fractional rates must not inherit integer calibration, and actual Studio
 source-audio/framing/save-reopen/render claims remain #178's External gate.
 No private media/text/paths, provider operations, research changes, render,
