@@ -23,7 +23,7 @@
             "-framerate",
             "24000/1001",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-g1lc25zi/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-un38ii36/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/24000,setpts=N*1001+48000,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -63,7 +63,7 @@
             "100",
             "-video_track_timescale",
             "24000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-g1lc25zi/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-un38ii36/issue174-media/source.mp4"
           ],
           [
             "ffprobe",
@@ -74,7 +74,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-g1lc25zi/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-un38ii36/issue174-media/source.mp4"
           ]
         ],
         "generatorHashes": {
@@ -84,7 +84,7 @@
         "flashFrames": [],
         "clickSamples": []
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -150,8 +150,8 @@
           "denominator": 1
         }
       },
-      "receipt": "23976-reuse/prepared/published/2ef60ee80acb4c91276ddc42b46a313cd531ec9e0ee79773ab2f774258b7c5f8/receipt.json",
-      "receiptHash": "sha256:57acc8e236c8f98bfa10d7b06142d9efb34cdb0408fbab86c44bf601af6df248",
+      "receipt": "23976-reuse/prepared/published/fbd08a29540774d8eaad3cd8b1f36d4e89ef07f2d9ce9e55776c920acf3616a0/receipt.json",
+      "receiptHash": "sha256:8bc6d4f9b72c861e7be248f4313113b1a75d061f158d493561fcf78dd27fb156",
       "video": "23976-reuse/source.mp4",
       "videoHash": "sha256:b0cc4d0cb495af276757f1f21727dad0ff08a75e1c316ddf2b48c4918d83d25b",
       "expectedSelectedOrdinals": [
@@ -489,7 +489,7 @@
             "-framerate",
             "24/1",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-o_3qw2pw/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-jcekcoqm/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/24,setpts=N*1+48,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -529,7 +529,7 @@
             "100",
             "-video_track_timescale",
             "24000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-o_3qw2pw/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-jcekcoqm/issue174-media/source.mp4"
           ],
           [
             "ffprobe",
@@ -540,7 +540,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-o_3qw2pw/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-jcekcoqm/issue174-media/source.mp4"
           ]
         ],
         "generatorHashes": {
@@ -550,7 +550,7 @@
         "flashFrames": [],
         "clickSamples": []
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -616,9 +616,9 @@
           "denominator": 1
         }
       },
-      "receipt": "24-convert/prepared/published/5e2935e3a090adc5dc168fcffd494ce360696c83a2a4f149adc39ec9b59f32ee/receipt.json",
-      "receiptHash": "sha256:f6c50249d8b70729a263c8653e25b39689171145f23f31e03522d816f84f8bbf",
-      "video": "24-convert/prepared/published/5e2935e3a090adc5dc168fcffd494ce360696c83a2a4f149adc39ec9b59f32ee/picture.mp4",
+      "receipt": "24-convert/prepared/published/eb3390aff4babada6e20036eb41217742c32a841c05124cfe63deba8dcb3d5de/receipt.json",
+      "receiptHash": "sha256:941a6e4b83f5c5953514c164c6179893651c5d0b6fb89d51bff6d8bca71eb1ff",
+      "video": "24-convert/prepared/published/eb3390aff4babada6e20036eb41217742c32a841c05124cfe63deba8dcb3d5de/picture.mp4",
       "videoHash": "sha256:f841f4f7b6260f8067ca0233e971f11e45a60cf975ee6aafb3634c10e8706dea",
       "expectedSelectedOrdinals": [
         3,
@@ -915,7 +915,7 @@
             "-framerate",
             "25/1",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-_0pxtufn/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ly3t6zyf/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/25,setpts=N*1+50,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -955,7 +955,7 @@
             "100",
             "-video_track_timescale",
             "25000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-_0pxtufn/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ly3t6zyf/issue174-media/source.mp4"
           ],
           [
             "ffprobe",
@@ -966,7 +966,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-_0pxtufn/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ly3t6zyf/issue174-media/source.mp4"
           ]
         ],
         "generatorHashes": {
@@ -976,7 +976,7 @@
         "flashFrames": [],
         "clickSamples": []
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -1042,9 +1042,9 @@
           "denominator": 1
         }
       },
-      "receipt": "25-convert/prepared/published/ac8354afa8d3784e34c65b061c1154ad9a5a144b5d8372890ac1d9e3b90cdcc0/receipt.json",
-      "receiptHash": "sha256:6a55dfee1271e1afdc18ab692d28147ecde07b7432c4abf01e10ad3e05f53bf1",
-      "video": "25-convert/prepared/published/ac8354afa8d3784e34c65b061c1154ad9a5a144b5d8372890ac1d9e3b90cdcc0/picture.mp4",
+      "receipt": "25-convert/prepared/published/a956dd4dc1a2c58eb94340eaae94d5a65c9b2f0be3f7703b7fefcd57005a09ea/receipt.json",
+      "receiptHash": "sha256:dcbe2ac0d705d4c41480a2cac2ca62e3dea4fc1d022f30ecd267f3ed7445098a",
+      "video": "25-convert/prepared/published/a956dd4dc1a2c58eb94340eaae94d5a65c9b2f0be3f7703b7fefcd57005a09ea/picture.mp4",
       "videoHash": "sha256:34eef6c4464f09e6b478776ea0dd9df100a061fef1e7e3fe5e44d19776de8a97",
       "expectedSelectedOrdinals": [
         3,
@@ -1341,7 +1341,7 @@
             "-framerate",
             "30000/1001",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-1hneqzhp/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-6lu8h5l9/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/30000,setpts=N*1001+60000,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -1381,7 +1381,7 @@
             "100",
             "-video_track_timescale",
             "30000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-1hneqzhp/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-6lu8h5l9/issue174-media/source.mp4"
           ],
           [
             "ffprobe",
@@ -1392,7 +1392,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-1hneqzhp/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-6lu8h5l9/issue174-media/source.mp4"
           ]
         ],
         "generatorHashes": {
@@ -1402,7 +1402,7 @@
         "flashFrames": [],
         "clickSamples": []
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -1468,9 +1468,9 @@
           "denominator": 1
         }
       },
-      "receipt": "2997-convert/prepared/published/208132deb858a0efba443b32a2d5f08d1bd7df33b86a07f06c869b94b0912acc/receipt.json",
-      "receiptHash": "sha256:bcf64ef27eb557b838ad2901156353ed48ddd5d66fecc9edad8639209db93228",
-      "video": "2997-convert/prepared/published/208132deb858a0efba443b32a2d5f08d1bd7df33b86a07f06c869b94b0912acc/picture.mp4",
+      "receipt": "2997-convert/prepared/published/91c789a18f8fb8722903cf892dd9116e52738b6ba0f4cb54df17266ac748a861/receipt.json",
+      "receiptHash": "sha256:61984909e08b776d99ac242e14eceba533bb0eabca8167896c9c404d55f2e31d",
+      "video": "2997-convert/prepared/published/91c789a18f8fb8722903cf892dd9116e52738b6ba0f4cb54df17266ac748a861/picture.mp4",
       "videoHash": "sha256:be077c3b4e31e610b07cea702c4ddd8f980bcadc8be999ec35b3dba0998077c6",
       "expectedSelectedOrdinals": [
         3,
@@ -1767,7 +1767,7 @@
             "-framerate",
             "30/1",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-bw58p_wk/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-b413gmj6/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/30,setpts=N*1+60,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -1807,7 +1807,7 @@
             "100",
             "-video_track_timescale",
             "30000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-bw58p_wk/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-b413gmj6/issue174-media/source.mp4"
           ],
           [
             "ffprobe",
@@ -1818,7 +1818,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-bw58p_wk/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-b413gmj6/issue174-media/source.mp4"
           ]
         ],
         "generatorHashes": {
@@ -1828,7 +1828,7 @@
         "flashFrames": [],
         "clickSamples": []
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -1894,9 +1894,9 @@
           "denominator": 1
         }
       },
-      "receipt": "30-convert/prepared/published/6aa302d4bc9dc3f4da49c5249596fea4db5a2ac70f6dad59f55436a1b157de21/receipt.json",
-      "receiptHash": "sha256:b71f116d4ec4452b16ba601c49b1bb095be2e4624969f23d52f42ba889f7886b",
-      "video": "30-convert/prepared/published/6aa302d4bc9dc3f4da49c5249596fea4db5a2ac70f6dad59f55436a1b157de21/picture.mp4",
+      "receipt": "30-convert/prepared/published/809cfef6e7f93cab66fbcc086a90512ecab0b4e1f3e0afe831f8f1fd678ef1ae/receipt.json",
+      "receiptHash": "sha256:c5ba7f059f2787b76429d4d2606fb2297f4e3c88a00041f92ca140380eb07623",
+      "video": "30-convert/prepared/published/809cfef6e7f93cab66fbcc086a90512ecab0b4e1f3e0afe831f8f1fd678ef1ae/picture.mp4",
       "videoHash": "sha256:be077c3b4e31e610b07cea702c4ddd8f980bcadc8be999ec35b3dba0998077c6",
       "expectedSelectedOrdinals": [
         3,
@@ -2193,7 +2193,7 @@
             "-framerate",
             "24/1",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ntmz4xka/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-lifi0gp9/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/24,setpts=N*1+48,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -2233,7 +2233,7 @@
             "330",
             "-video_track_timescale",
             "24000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ntmz4xka/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-lifi0gp9/issue174-media/source.mp4"
           ],
           [
             "ffprobe",
@@ -2244,7 +2244,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ntmz4xka/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-lifi0gp9/issue174-media/source.mp4"
           ]
         ],
         "generatorHashes": {
@@ -2254,7 +2254,7 @@
         "flashFrames": [],
         "clickSamples": []
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -2320,9 +2320,9 @@
           "denominator": 24000
         }
       },
-      "receipt": "24-convert-handles/prepared/published/019cd737c0a623c93f69e396627e204cd7d5def5aebf5e7ef72ba59e5084000a/receipt.json",
-      "receiptHash": "sha256:4dace132c06df9c135a55006da181c2c0bc9e1d02648670a168b612fea3423a7",
-      "video": "24-convert-handles/prepared/published/019cd737c0a623c93f69e396627e204cd7d5def5aebf5e7ef72ba59e5084000a/picture.mp4",
+      "receipt": "24-convert-handles/prepared/published/9d6ed7b4e5e85813fef47657e1ab6fbd1a69651ccc6be3d293dd586f8cb38b3d/receipt.json",
+      "receiptHash": "sha256:ae7bb257da67ff98d1713e03230cf22aee982b826edf1a0c9261db3f3f162379",
+      "video": "24-convert-handles/prepared/published/9d6ed7b4e5e85813fef47657e1ab6fbd1a69651ccc6be3d293dd586f8cb38b3d/picture.mp4",
       "videoHash": "sha256:0f39294f64b91a648e385b035acb2042e451696962806ffea0f7335a03e94f12",
       "expectedSelectedOrdinals": [
         8,
@@ -2789,7 +2789,7 @@
             "-framerate",
             "25/1",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-rbukhivz/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-dcjeuiyw/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/25,setpts=N*1+50,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -2829,7 +2829,7 @@
             "330",
             "-video_track_timescale",
             "25000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-rbukhivz/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-dcjeuiyw/issue174-media/source.mp4"
           ],
           [
             "ffprobe",
@@ -2840,7 +2840,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-rbukhivz/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-dcjeuiyw/issue174-media/source.mp4"
           ]
         ],
         "generatorHashes": {
@@ -2850,7 +2850,7 @@
         "flashFrames": [],
         "clickSamples": []
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -2916,9 +2916,9 @@
           "denominator": 24000
         }
       },
-      "receipt": "25-convert-handles/prepared/published/8f38cd9fe13c71c6be8bfb1f6075a214076ce33fc518746fe22087e2f6551f10/receipt.json",
-      "receiptHash": "sha256:3fd355a9ba72729049db1d974e9b1dae7d84f2847f4110e2093b236b92babccd",
-      "video": "25-convert-handles/prepared/published/8f38cd9fe13c71c6be8bfb1f6075a214076ce33fc518746fe22087e2f6551f10/picture.mp4",
+      "receipt": "25-convert-handles/prepared/published/123370a81b116013d8a3c2ec93b550d4dfe9f56dc7a0d4a17587a2e9bbad12f7/receipt.json",
+      "receiptHash": "sha256:523b044a815829059c4c3c183958b9b54ed2deeeb250dd998699b9f9c78faf32",
+      "video": "25-convert-handles/prepared/published/123370a81b116013d8a3c2ec93b550d4dfe9f56dc7a0d4a17587a2e9bbad12f7/picture.mp4",
       "videoHash": "sha256:35115f7776ca6b22d47f694865ae3cee8c827b1232c24ce8b17eea3f0f69ef26",
       "expectedSelectedOrdinals": [
         8,
@@ -3385,7 +3385,7 @@
             "-framerate",
             "30000/1001",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-kls5d2f4/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-gpcbt8lc/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/30000,setpts=N*1001+60000,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -3425,7 +3425,7 @@
             "330",
             "-video_track_timescale",
             "30000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-kls5d2f4/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-gpcbt8lc/issue174-media/source.mp4"
           ],
           [
             "ffprobe",
@@ -3436,7 +3436,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-kls5d2f4/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-gpcbt8lc/issue174-media/source.mp4"
           ]
         ],
         "generatorHashes": {
@@ -3446,7 +3446,7 @@
         "flashFrames": [],
         "clickSamples": []
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -3512,9 +3512,9 @@
           "denominator": 24000
         }
       },
-      "receipt": "2997-convert-handles/prepared/published/0ab09d1b49c2ef3c55425a0e8555627e7656992597607e2f3dbbfdd88cfd64ba/receipt.json",
-      "receiptHash": "sha256:d18cde05a0c45af0ea1e1c7106d3b7748352489b64bce596418e968e04427722",
-      "video": "2997-convert-handles/prepared/published/0ab09d1b49c2ef3c55425a0e8555627e7656992597607e2f3dbbfdd88cfd64ba/picture.mp4",
+      "receipt": "2997-convert-handles/prepared/published/b62aec00d10f430c74bf78dc39ab343b7232ed15024b1e9e61178cd6a23cfa32/receipt.json",
+      "receiptHash": "sha256:38fe01bef37e7cf094b1cec50801a0dac6daa5a6e3d292514aa2670c8a7a1e2f",
+      "video": "2997-convert-handles/prepared/published/b62aec00d10f430c74bf78dc39ab343b7232ed15024b1e9e61178cd6a23cfa32/picture.mp4",
       "videoHash": "sha256:e8f719560c710113e764bf53933a2e199fed41f440c4d4a03f4b519aeebe6f26",
       "expectedSelectedOrdinals": [
         8,
@@ -3981,7 +3981,7 @@
             "-framerate",
             "30/1",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-zu2_nz88/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-58yi28f0/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/30,setpts=N*1+60,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -4021,7 +4021,7 @@
             "330",
             "-video_track_timescale",
             "30000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-zu2_nz88/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-58yi28f0/issue174-media/source.mp4"
           ],
           [
             "ffprobe",
@@ -4032,7 +4032,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-zu2_nz88/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-58yi28f0/issue174-media/source.mp4"
           ]
         ],
         "generatorHashes": {
@@ -4042,7 +4042,7 @@
         "flashFrames": [],
         "clickSamples": []
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -4108,9 +4108,9 @@
           "denominator": 24000
         }
       },
-      "receipt": "30-convert-handles/prepared/published/c77c680d6790fa389c4c6831c525c6476052aec843790ccfd7d3ab7f2d7a6a23/receipt.json",
-      "receiptHash": "sha256:ce4f5e5d822bb583bf7013e781880cca4bb94e5650a1d978afceaf1cc6fa8429",
-      "video": "30-convert-handles/prepared/published/c77c680d6790fa389c4c6831c525c6476052aec843790ccfd7d3ab7f2d7a6a23/picture.mp4",
+      "receipt": "30-convert-handles/prepared/published/b0ab8845bf4c8dbcadf3e2f9009836e4cb2081d7ac1c22780bd3fd24f9f38d3f/receipt.json",
+      "receiptHash": "sha256:b24ac01c27d515ed3a2c65e6faee96ffc458ca761e69621c9bceb9cafcaf141f",
+      "video": "30-convert-handles/prepared/published/b0ab8845bf4c8dbcadf3e2f9009836e4cb2081d7ac1c22780bd3fd24f9f38d3f/picture.mp4",
       "videoHash": "sha256:e8f719560c710113e764bf53933a2e199fed41f440c4d4a03f4b519aeebe6f26",
       "expectedSelectedOrdinals": [
         8,
@@ -4577,7 +4577,7 @@
             "-framerate",
             "50/1",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-w3wh99nk/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-rtq_h5e9/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/50,setpts=N*1+100,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -4617,7 +4617,7 @@
             "100",
             "-video_track_timescale",
             "50000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-w3wh99nk/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-rtq_h5e9/issue174-media/source.mp4"
           ],
           [
             "ffprobe",
@@ -4628,7 +4628,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-w3wh99nk/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-rtq_h5e9/issue174-media/source.mp4"
           ]
         ],
         "generatorHashes": {
@@ -4638,7 +4638,7 @@
         "flashFrames": [],
         "clickSamples": []
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -4704,8 +4704,8 @@
           "denominator": 1
         }
       },
-      "receipt": "50-reuse/prepared/published/73d02bc720fb280d4b688cd3ff1a7f8d5692073da8668a473cc1868a38fb7dc8/receipt.json",
-      "receiptHash": "sha256:a692144f0dce90b944a3d756ae2d9f8131cfe2a979eefb8d87d18efb5434810e",
+      "receipt": "50-reuse/prepared/published/c03054da83beab99985db0d0ef3a15cb14496836a2ec87fae3e2e8c71c727735/receipt.json",
+      "receiptHash": "sha256:3d5327c999f965424a25ab413cd5505e86b584249cefd5b64e2c23cd6105e844",
       "video": "50-reuse/source.mp4",
       "videoHash": "sha256:0762961c8da702782eb3556eb0f5b3d9a620c08b63b80ddfd71837db46666cad",
       "expectedSelectedOrdinals": [
@@ -5013,7 +5013,7 @@
             "-framerate",
             "25/1",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-0mdmdk_k/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-8lpps9tk/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/25,setpts=N*1+50,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -5053,7 +5053,7 @@
             "330",
             "-video_track_timescale",
             "25000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-0mdmdk_k/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-8lpps9tk/issue174-media/source.mp4"
           ],
           [
             "ffprobe",
@@ -5064,7 +5064,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-0mdmdk_k/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-8lpps9tk/issue174-media/source.mp4"
           ],
           [
             "ffmpeg",
@@ -5075,11 +5075,11 @@
             "-y",
             "-copyts",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-0mdmdk_k/issue174-media/source.mp4",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-8lpps9tk/issue174-media/source.mp4",
             "-itsoffset",
             "2.000000000000",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-0mdmdk_k/issue174-media/source.pcm24.wav",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-8lpps9tk/issue174-media/source.pcm24.wav",
             "-map",
             "0:v:0",
             "-map",
@@ -5092,7 +5092,7 @@
             "disabled",
             "-b:a",
             "192k",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-0mdmdk_k/issue174-media/source-aac.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-8lpps9tk/issue174-media/source-aac.mp4"
           ],
           [
             "ffprobe",
@@ -5103,7 +5103,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-0mdmdk_k/issue174-media/source-aac.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-8lpps9tk/issue174-media/source-aac.mp4"
           ]
         ],
         "generatorHashes": {
@@ -5122,7 +5122,7 @@
           455112
         ]
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -5203,9 +5203,9 @@
           "denominator": 1
         }
       },
-      "receipt": "aac-44100-1-convert/prepared/published/1e661adf378b3289a47377b6cb105ca35277d92cb157545d8213c86b2b85c893/receipt.json",
-      "receiptHash": "sha256:a76079e890495d96065d28a8590834fab5faceac77e680bb7f9f966372569685",
-      "video": "aac-44100-1-convert/prepared/published/1e661adf378b3289a47377b6cb105ca35277d92cb157545d8213c86b2b85c893/picture.mp4",
+      "receipt": "aac-44100-1-convert/prepared/published/696aa8a41104182fc00bb8ee11504159e408ba231bc877f3349ffa22115902dc/receipt.json",
+      "receiptHash": "sha256:4d8ef32599df1ef85978464425e8309df12f89cb84cd54ed3de9908a35e244de",
+      "video": "aac-44100-1-convert/prepared/published/696aa8a41104182fc00bb8ee11504159e408ba231bc877f3349ffa22115902dc/picture.mp4",
       "videoHash": "sha256:cd2ecc254a6378bb0154ec2979a15bb37577250b4c9468271977e311bac80878",
       "expectedSelectedOrdinals": [
         10,
@@ -6281,8 +6281,8 @@
         }
       },
       "syncMeasurements": {
-        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-44100-1-convert/source.mp4",
-        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-44100-1-convert/prepared/published/1e661adf378b3289a47377b6cb105ca35277d92cb157545d8213c86b2b85c893/audio.wav",
+        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-44100-1-convert/source.mp4",
+        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-44100-1-convert/prepared/published/696aa8a41104182fc00bb8ee11504159e408ba231bc877f3349ffa22115902dc/audio.wav",
         "outputHash": "sha256:151de5d3dec5d702c6fae39cc1cb035d0780bb6e9adfbac96f44d9dc85fbcb0d",
         "sourcePeaks": [
           22194,
@@ -6349,7 +6349,7 @@
         120,
         238
       ],
-      "audioPath": "aac-44100-1-convert/prepared/published/1e661adf378b3289a47377b6cb105ca35277d92cb157545d8213c86b2b85c893/audio.wav",
+      "audioPath": "aac-44100-1-convert/prepared/published/696aa8a41104182fc00bb8ee11504159e408ba231bc877f3349ffa22115902dc/audio.wav",
       "audioHash": "sha256:151de5d3dec5d702c6fae39cc1cb035d0780bb6e9adfbac96f44d9dc85fbcb0d",
       "compilerBindingProbe": {
         "compilerSource": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/packages/contracts/src/compiler-core-v2.ts",
@@ -6363,7 +6363,7 @@
         }
       },
       "operatorPair": "aac-44100-1-convert/operator-pair.mkv",
-      "operatorPairHash": "sha256:52be305befaaa4a37433e4e3a28d88cd347b05e3cbb0fa0b461f9668ffcd72df",
+      "operatorPairHash": "sha256:852882c250f183b0e229f1b6a3a4479a91d7a43856aa039ea6c142c08de50053",
       "operatorPairCommand": [
         "ffmpeg",
         "-v",
@@ -6371,16 +6371,16 @@
         "-nostdin",
         "-n",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-44100-1-convert/prepared/published/1e661adf378b3289a47377b6cb105ca35277d92cb157545d8213c86b2b85c893/picture.mp4",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-44100-1-convert/prepared/published/696aa8a41104182fc00bb8ee11504159e408ba231bc877f3349ffa22115902dc/picture.mp4",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-44100-1-convert/prepared/published/1e661adf378b3289a47377b6cb105ca35277d92cb157545d8213c86b2b85c893/audio.wav",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-44100-1-convert/prepared/published/696aa8a41104182fc00bb8ee11504159e408ba231bc877f3349ffa22115902dc/audio.wav",
         "-map",
         "0:v",
         "-map",
         "1:a",
         "-c",
         "copy",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-44100-1-convert/operator-pair.mkv"
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-44100-1-convert/operator-pair.mkv"
       ]
     },
     {
@@ -6405,7 +6405,7 @@
             "-framerate",
             "25/1",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-loum61wr/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ed12k65b/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/25,setpts=N*1+50,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -6445,7 +6445,7 @@
             "330",
             "-video_track_timescale",
             "25000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-loum61wr/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ed12k65b/issue174-media/source.mp4"
           ],
           [
             "ffprobe",
@@ -6456,7 +6456,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-loum61wr/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ed12k65b/issue174-media/source.mp4"
           ],
           [
             "ffmpeg",
@@ -6467,11 +6467,11 @@
             "-y",
             "-copyts",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-loum61wr/issue174-media/source.mp4",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ed12k65b/issue174-media/source.mp4",
             "-itsoffset",
             "2.000000000000",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-loum61wr/issue174-media/source.pcm24.wav",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ed12k65b/issue174-media/source.pcm24.wav",
             "-map",
             "0:v:0",
             "-map",
@@ -6484,7 +6484,7 @@
             "disabled",
             "-b:a",
             "192k",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-loum61wr/issue174-media/source-aac.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ed12k65b/issue174-media/source-aac.mp4"
           ],
           [
             "ffprobe",
@@ -6495,7 +6495,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-loum61wr/issue174-media/source-aac.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ed12k65b/issue174-media/source-aac.mp4"
           ]
         ],
         "generatorHashes": {
@@ -6514,7 +6514,7 @@
           455112
         ]
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -6595,9 +6595,9 @@
           "denominator": 1
         }
       },
-      "receipt": "aac-44100-2-convert/prepared/published/9de46b5a661d16df537dd88c01818e9d92e9e0c3d98f6db135eb20863d6003d8/receipt.json",
-      "receiptHash": "sha256:b8a768ae80bd353f3ab37f2cf82a49be6e169e2463f5056729b9557adcda2699",
-      "video": "aac-44100-2-convert/prepared/published/9de46b5a661d16df537dd88c01818e9d92e9e0c3d98f6db135eb20863d6003d8/picture.mp4",
+      "receipt": "aac-44100-2-convert/prepared/published/6b2974302014aadde83a9dfd8caaf7425907fc6ce5dced97008fe49a13ae2222/receipt.json",
+      "receiptHash": "sha256:acc0bc2f49b6c3280091d38f5dc029beda5ed79ee148196738c9e2410d1f6864",
+      "video": "aac-44100-2-convert/prepared/published/6b2974302014aadde83a9dfd8caaf7425907fc6ce5dced97008fe49a13ae2222/picture.mp4",
       "videoHash": "sha256:cd2ecc254a6378bb0154ec2979a15bb37577250b4c9468271977e311bac80878",
       "expectedSelectedOrdinals": [
         10,
@@ -7673,8 +7673,8 @@
         }
       },
       "syncMeasurements": {
-        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-44100-2-convert/source.mp4",
-        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-44100-2-convert/prepared/published/9de46b5a661d16df537dd88c01818e9d92e9e0c3d98f6db135eb20863d6003d8/audio.wav",
+        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-44100-2-convert/source.mp4",
+        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-44100-2-convert/prepared/published/6b2974302014aadde83a9dfd8caaf7425907fc6ce5dced97008fe49a13ae2222/audio.wav",
         "outputHash": "sha256:66556f874111d37d7b8d7b17ee112f756d65093127ea7212dbf641d76d21600a",
         "sourcePeaks": [
           22192,
@@ -7741,7 +7741,7 @@
         120,
         238
       ],
-      "audioPath": "aac-44100-2-convert/prepared/published/9de46b5a661d16df537dd88c01818e9d92e9e0c3d98f6db135eb20863d6003d8/audio.wav",
+      "audioPath": "aac-44100-2-convert/prepared/published/6b2974302014aadde83a9dfd8caaf7425907fc6ce5dced97008fe49a13ae2222/audio.wav",
       "audioHash": "sha256:66556f874111d37d7b8d7b17ee112f756d65093127ea7212dbf641d76d21600a",
       "compilerBindingProbe": {
         "compilerSource": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/packages/contracts/src/compiler-core-v2.ts",
@@ -7755,7 +7755,7 @@
         }
       },
       "operatorPair": "aac-44100-2-convert/operator-pair.mkv",
-      "operatorPairHash": "sha256:d7671a3418792d9cff3192e672d9f2a5410921b957266d65b7554f3ff47066af",
+      "operatorPairHash": "sha256:3db4041060908a0a69af10449cdc93b2332a32a37ce3f95d7bf9af40badd83a0",
       "operatorPairCommand": [
         "ffmpeg",
         "-v",
@@ -7763,16 +7763,16 @@
         "-nostdin",
         "-n",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-44100-2-convert/prepared/published/9de46b5a661d16df537dd88c01818e9d92e9e0c3d98f6db135eb20863d6003d8/picture.mp4",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-44100-2-convert/prepared/published/6b2974302014aadde83a9dfd8caaf7425907fc6ce5dced97008fe49a13ae2222/picture.mp4",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-44100-2-convert/prepared/published/9de46b5a661d16df537dd88c01818e9d92e9e0c3d98f6db135eb20863d6003d8/audio.wav",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-44100-2-convert/prepared/published/6b2974302014aadde83a9dfd8caaf7425907fc6ce5dced97008fe49a13ae2222/audio.wav",
         "-map",
         "0:v",
         "-map",
         "1:a",
         "-c",
         "copy",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-44100-2-convert/operator-pair.mkv"
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-44100-2-convert/operator-pair.mkv"
       ]
     },
     {
@@ -7797,7 +7797,7 @@
             "-framerate",
             "25/1",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-q5kahtup/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-kwuua7_c/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/25,setpts=N*1+50,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -7837,7 +7837,7 @@
             "330",
             "-video_track_timescale",
             "25000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-q5kahtup/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-kwuua7_c/issue174-media/source.mp4"
           ],
           [
             "ffprobe",
@@ -7848,7 +7848,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-q5kahtup/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-kwuua7_c/issue174-media/source.mp4"
           ],
           [
             "ffmpeg",
@@ -7859,11 +7859,11 @@
             "-y",
             "-copyts",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-q5kahtup/issue174-media/source.mp4",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-kwuua7_c/issue174-media/source.mp4",
             "-itsoffset",
             "2.000000000000",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-q5kahtup/issue174-media/source.pcm24.wav",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-kwuua7_c/issue174-media/source.pcm24.wav",
             "-map",
             "0:v:0",
             "-map",
@@ -7876,7 +7876,7 @@
             "disabled",
             "-b:a",
             "192k",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-q5kahtup/issue174-media/source-aac.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-kwuua7_c/issue174-media/source-aac.mp4"
           ],
           [
             "ffprobe",
@@ -7887,7 +7887,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-q5kahtup/issue174-media/source-aac.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-kwuua7_c/issue174-media/source-aac.mp4"
           ]
         ],
         "generatorHashes": {
@@ -7906,7 +7906,7 @@
           495360
         ]
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -7987,9 +7987,9 @@
           "denominator": 1
         }
       },
-      "receipt": "aac-48000-1-convert/prepared/published/3228dcc67ac2d461072fd193eab59b7166cfb8723cc30a6d25c409608aab483b/receipt.json",
-      "receiptHash": "sha256:0f2cb770a6ebe5e93cc1e37d4836fd14abea02c5ff19493784728df0f6ca917f",
-      "video": "aac-48000-1-convert/prepared/published/3228dcc67ac2d461072fd193eab59b7166cfb8723cc30a6d25c409608aab483b/picture.mp4",
+      "receipt": "aac-48000-1-convert/prepared/published/d69e7a97c3c5fe5def2905548f416dcc0312dca309502d3c85c804a571e94e5a/receipt.json",
+      "receiptHash": "sha256:5fca01f20baab6e041762c847451322d829c6a8b920675964b29680fb1f3671c",
+      "video": "aac-48000-1-convert/prepared/published/d69e7a97c3c5fe5def2905548f416dcc0312dca309502d3c85c804a571e94e5a/picture.mp4",
       "videoHash": "sha256:cd2ecc254a6378bb0154ec2979a15bb37577250b4c9468271977e311bac80878",
       "expectedSelectedOrdinals": [
         10,
@@ -9065,8 +9065,8 @@
         }
       },
       "syncMeasurements": {
-        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-48000-1-convert/source.mp4",
-        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-48000-1-convert/prepared/published/3228dcc67ac2d461072fd193eab59b7166cfb8723cc30a6d25c409608aab483b/audio.wav",
+        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-48000-1-convert/source.mp4",
+        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-48000-1-convert/prepared/published/d69e7a97c3c5fe5def2905548f416dcc0312dca309502d3c85c804a571e94e5a/audio.wav",
         "outputHash": "sha256:e92fa93479d7ce051b64e5dde2795ee30717e6a61b652fc75c14c6aa771700bc",
         "sourcePeaks": [
           24064,
@@ -9133,7 +9133,7 @@
         120,
         238
       ],
-      "audioPath": "aac-48000-1-convert/prepared/published/3228dcc67ac2d461072fd193eab59b7166cfb8723cc30a6d25c409608aab483b/audio.wav",
+      "audioPath": "aac-48000-1-convert/prepared/published/d69e7a97c3c5fe5def2905548f416dcc0312dca309502d3c85c804a571e94e5a/audio.wav",
       "audioHash": "sha256:e92fa93479d7ce051b64e5dde2795ee30717e6a61b652fc75c14c6aa771700bc",
       "compilerBindingProbe": {
         "compilerSource": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/packages/contracts/src/compiler-core-v2.ts",
@@ -9147,7 +9147,7 @@
         }
       },
       "operatorPair": "aac-48000-1-convert/operator-pair.mkv",
-      "operatorPairHash": "sha256:595d51778d157a8a66182eca1bc247f199dbce712af096b8d018c5857dcaa2db",
+      "operatorPairHash": "sha256:35b3cc0f188d91af51d0cf47f5b2879688da8f8d2faa08c06a408174a831ec57",
       "operatorPairCommand": [
         "ffmpeg",
         "-v",
@@ -9155,16 +9155,16 @@
         "-nostdin",
         "-n",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-48000-1-convert/prepared/published/3228dcc67ac2d461072fd193eab59b7166cfb8723cc30a6d25c409608aab483b/picture.mp4",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-48000-1-convert/prepared/published/d69e7a97c3c5fe5def2905548f416dcc0312dca309502d3c85c804a571e94e5a/picture.mp4",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-48000-1-convert/prepared/published/3228dcc67ac2d461072fd193eab59b7166cfb8723cc30a6d25c409608aab483b/audio.wav",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-48000-1-convert/prepared/published/d69e7a97c3c5fe5def2905548f416dcc0312dca309502d3c85c804a571e94e5a/audio.wav",
         "-map",
         "0:v",
         "-map",
         "1:a",
         "-c",
         "copy",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-48000-1-convert/operator-pair.mkv"
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-48000-1-convert/operator-pair.mkv"
       ]
     },
     {
@@ -9189,7 +9189,7 @@
             "-framerate",
             "25/1",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-6bsd3447/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-x60go03p/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/25,setpts=N*1+50,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -9229,7 +9229,7 @@
             "330",
             "-video_track_timescale",
             "25000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-6bsd3447/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-x60go03p/issue174-media/source.mp4"
           ],
           [
             "ffprobe",
@@ -9240,7 +9240,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-6bsd3447/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-x60go03p/issue174-media/source.mp4"
           ],
           [
             "ffmpeg",
@@ -9251,11 +9251,11 @@
             "-y",
             "-copyts",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-6bsd3447/issue174-media/source.mp4",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-x60go03p/issue174-media/source.mp4",
             "-itsoffset",
             "2.000000000000",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-6bsd3447/issue174-media/source.pcm24.wav",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-x60go03p/issue174-media/source.pcm24.wav",
             "-map",
             "0:v:0",
             "-map",
@@ -9268,7 +9268,7 @@
             "disabled",
             "-b:a",
             "192k",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-6bsd3447/issue174-media/source-aac.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-x60go03p/issue174-media/source-aac.mp4"
           ],
           [
             "ffprobe",
@@ -9279,7 +9279,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-6bsd3447/issue174-media/source-aac.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-x60go03p/issue174-media/source-aac.mp4"
           ]
         ],
         "generatorHashes": {
@@ -9298,7 +9298,7 @@
           495360
         ]
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -9379,9 +9379,9 @@
           "denominator": 1
         }
       },
-      "receipt": "aac-48000-2-convert/prepared/published/b5122fae4cf0472e0894aa181371f07acd35f5f9891b9cdea34906fee5e598cc/receipt.json",
-      "receiptHash": "sha256:aa36ba30d60ff78e603d06b1e9f358aa2b7581ff9029d467a4f46d608592cd45",
-      "video": "aac-48000-2-convert/prepared/published/b5122fae4cf0472e0894aa181371f07acd35f5f9891b9cdea34906fee5e598cc/picture.mp4",
+      "receipt": "aac-48000-2-convert/prepared/published/036da974cec2d61dcb8a6cc88c0b92275de79b48a80427c4670770ccd9fc46b8/receipt.json",
+      "receiptHash": "sha256:c6a1e6fe1b461fe799bf7f818957abc98ec31618a72403b6e526268fea1bd569",
+      "video": "aac-48000-2-convert/prepared/published/036da974cec2d61dcb8a6cc88c0b92275de79b48a80427c4670770ccd9fc46b8/picture.mp4",
       "videoHash": "sha256:cd2ecc254a6378bb0154ec2979a15bb37577250b4c9468271977e311bac80878",
       "expectedSelectedOrdinals": [
         10,
@@ -10457,8 +10457,8 @@
         }
       },
       "syncMeasurements": {
-        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-48000-2-convert/source.mp4",
-        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-48000-2-convert/prepared/published/b5122fae4cf0472e0894aa181371f07acd35f5f9891b9cdea34906fee5e598cc/audio.wav",
+        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-48000-2-convert/source.mp4",
+        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-48000-2-convert/prepared/published/036da974cec2d61dcb8a6cc88c0b92275de79b48a80427c4670770ccd9fc46b8/audio.wav",
         "outputHash": "sha256:4598fda656912d9abd4ac9c614b196b3c362510a9e22f6fb0dcc7c01b16d0439",
         "sourcePeaks": [
           24067,
@@ -10525,7 +10525,7 @@
         120,
         238
       ],
-      "audioPath": "aac-48000-2-convert/prepared/published/b5122fae4cf0472e0894aa181371f07acd35f5f9891b9cdea34906fee5e598cc/audio.wav",
+      "audioPath": "aac-48000-2-convert/prepared/published/036da974cec2d61dcb8a6cc88c0b92275de79b48a80427c4670770ccd9fc46b8/audio.wav",
       "audioHash": "sha256:4598fda656912d9abd4ac9c614b196b3c362510a9e22f6fb0dcc7c01b16d0439",
       "compilerBindingProbe": {
         "compilerSource": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/packages/contracts/src/compiler-core-v2.ts",
@@ -10539,7 +10539,7 @@
         }
       },
       "operatorPair": "aac-48000-2-convert/operator-pair.mkv",
-      "operatorPairHash": "sha256:4702cb0cb204b5f7c6ff9ea9fc5c0fd0e03b3bdbf2873f590c3084f4890ecf5d",
+      "operatorPairHash": "sha256:e3e81c42758d44caa4c02009d4c02699631d2ff96abb745bd033ffed1218898e",
       "operatorPairCommand": [
         "ffmpeg",
         "-v",
@@ -10547,16 +10547,16 @@
         "-nostdin",
         "-n",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-48000-2-convert/prepared/published/b5122fae4cf0472e0894aa181371f07acd35f5f9891b9cdea34906fee5e598cc/picture.mp4",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-48000-2-convert/prepared/published/036da974cec2d61dcb8a6cc88c0b92275de79b48a80427c4670770ccd9fc46b8/picture.mp4",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-48000-2-convert/prepared/published/b5122fae4cf0472e0894aa181371f07acd35f5f9891b9cdea34906fee5e598cc/audio.wav",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-48000-2-convert/prepared/published/036da974cec2d61dcb8a6cc88c0b92275de79b48a80427c4670770ccd9fc46b8/audio.wav",
         "-map",
         "0:v",
         "-map",
         "1:a",
         "-c",
         "copy",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-48000-2-convert/operator-pair.mkv"
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-48000-2-convert/operator-pair.mkv"
       ]
     },
     {
@@ -10581,7 +10581,7 @@
             "-framerate",
             "25/1",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-3thsf8dd/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-cvsogawf/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/25,setpts=N*1+50,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -10621,7 +10621,7 @@
             "330",
             "-video_track_timescale",
             "25000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-3thsf8dd/issue174-media/source.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-cvsogawf/issue174-media/source.mov"
           ],
           [
             "ffprobe",
@@ -10632,7 +10632,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-3thsf8dd/issue174-media/source.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-cvsogawf/issue174-media/source.mov"
           ],
           [
             "ffmpeg",
@@ -10643,11 +10643,11 @@
             "-y",
             "-copyts",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-3thsf8dd/issue174-media/source.mov",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-cvsogawf/issue174-media/source.mov",
             "-itsoffset",
             "2.000000000000",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-3thsf8dd/issue174-media/source.pcm24.wav",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-cvsogawf/issue174-media/source.pcm24.wav",
             "-map",
             "0:v:0",
             "-map",
@@ -10658,7 +10658,7 @@
             "pcm_s24le",
             "-avoid_negative_ts",
             "disabled",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-3thsf8dd/issue174-media/source-pcm_s24le.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-cvsogawf/issue174-media/source-pcm_s24le.mov"
           ],
           [
             "ffprobe",
@@ -10669,7 +10669,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-3thsf8dd/issue174-media/source-pcm_s24le.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-cvsogawf/issue174-media/source-pcm_s24le.mov"
           ]
         ],
         "generatorHashes": {
@@ -10688,7 +10688,7 @@
           455112
         ]
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -10769,9 +10769,9 @@
           "denominator": 1
         }
       },
-      "receipt": "pcm_s24le-44100-1-convert/prepared/published/a252709d2d531000a27c03c3b06355f86d6b0f6adf7042d0ea74f5b50b4ce75d/receipt.json",
-      "receiptHash": "sha256:7c1742a9ebb818ecbbcd87a462d6d90c86159d253f4536313929933ec9e3ea84",
-      "video": "pcm_s24le-44100-1-convert/prepared/published/a252709d2d531000a27c03c3b06355f86d6b0f6adf7042d0ea74f5b50b4ce75d/picture.mp4",
+      "receipt": "pcm_s24le-44100-1-convert/prepared/published/6c0ea9b766fbbcc197d9ae17cc6f9c8cdafc02f4fa84af49be750d434e838735/receipt.json",
+      "receiptHash": "sha256:1f0c1ca426cfcd76f04e445f3594407779b9222dc25fadfe1e3a147bcb795199",
+      "video": "pcm_s24le-44100-1-convert/prepared/published/6c0ea9b766fbbcc197d9ae17cc6f9c8cdafc02f4fa84af49be750d434e838735/picture.mp4",
       "videoHash": "sha256:cd2ecc254a6378bb0154ec2979a15bb37577250b4c9468271977e311bac80878",
       "expectedSelectedOrdinals": [
         10,
@@ -11847,8 +11847,8 @@
         }
       },
       "syncMeasurements": {
-        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/pcm_s24le-44100-1-convert/source.mov",
-        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/pcm_s24le-44100-1-convert/prepared/published/a252709d2d531000a27c03c3b06355f86d6b0f6adf7042d0ea74f5b50b4ce75d/audio.wav",
+        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/pcm_s24le-44100-1-convert/source.mov",
+        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/pcm_s24le-44100-1-convert/prepared/published/6c0ea9b766fbbcc197d9ae17cc6f9c8cdafc02f4fa84af49be750d434e838735/audio.wav",
         "outputHash": "sha256:85dd6881751008c79dfc27ef2b1e550975ef2834c2269db0d895b91cd036f131",
         "sourcePeaks": [
           21168,
@@ -11915,7 +11915,7 @@
         120,
         238
       ],
-      "audioPath": "pcm_s24le-44100-1-convert/prepared/published/a252709d2d531000a27c03c3b06355f86d6b0f6adf7042d0ea74f5b50b4ce75d/audio.wav",
+      "audioPath": "pcm_s24le-44100-1-convert/prepared/published/6c0ea9b766fbbcc197d9ae17cc6f9c8cdafc02f4fa84af49be750d434e838735/audio.wav",
       "audioHash": "sha256:85dd6881751008c79dfc27ef2b1e550975ef2834c2269db0d895b91cd036f131",
       "compilerBindingProbe": {
         "compilerSource": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/packages/contracts/src/compiler-core-v2.ts",
@@ -11929,7 +11929,7 @@
         }
       },
       "operatorPair": "pcm_s24le-44100-1-convert/operator-pair.mkv",
-      "operatorPairHash": "sha256:309477fc4c4e376ed1e4531e033c5bd74064137e85a86a3645f300b9a6f1deb7",
+      "operatorPairHash": "sha256:b63afe4e434c331b90e9a9fee2e97c7ec1c41e8bd099737e884491af2329983a",
       "operatorPairCommand": [
         "ffmpeg",
         "-v",
@@ -11937,16 +11937,16 @@
         "-nostdin",
         "-n",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/pcm_s24le-44100-1-convert/prepared/published/a252709d2d531000a27c03c3b06355f86d6b0f6adf7042d0ea74f5b50b4ce75d/picture.mp4",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/pcm_s24le-44100-1-convert/prepared/published/6c0ea9b766fbbcc197d9ae17cc6f9c8cdafc02f4fa84af49be750d434e838735/picture.mp4",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/pcm_s24le-44100-1-convert/prepared/published/a252709d2d531000a27c03c3b06355f86d6b0f6adf7042d0ea74f5b50b4ce75d/audio.wav",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/pcm_s24le-44100-1-convert/prepared/published/6c0ea9b766fbbcc197d9ae17cc6f9c8cdafc02f4fa84af49be750d434e838735/audio.wav",
         "-map",
         "0:v",
         "-map",
         "1:a",
         "-c",
         "copy",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/pcm_s24le-44100-1-convert/operator-pair.mkv"
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/pcm_s24le-44100-1-convert/operator-pair.mkv"
       ]
     },
     {
@@ -11971,7 +11971,7 @@
             "-framerate",
             "25/1",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-8qvrymzi/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-t7dlij4r/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/25,setpts=N*1+50,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -12011,7 +12011,7 @@
             "330",
             "-video_track_timescale",
             "25000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-8qvrymzi/issue174-media/source.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-t7dlij4r/issue174-media/source.mov"
           ],
           [
             "ffprobe",
@@ -12022,7 +12022,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-8qvrymzi/issue174-media/source.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-t7dlij4r/issue174-media/source.mov"
           ],
           [
             "ffmpeg",
@@ -12033,11 +12033,11 @@
             "-y",
             "-copyts",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-8qvrymzi/issue174-media/source.mov",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-t7dlij4r/issue174-media/source.mov",
             "-itsoffset",
             "2.000000000000",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-8qvrymzi/issue174-media/source.pcm24.wav",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-t7dlij4r/issue174-media/source.pcm24.wav",
             "-map",
             "0:v:0",
             "-map",
@@ -12048,7 +12048,7 @@
             "pcm_s24le",
             "-avoid_negative_ts",
             "disabled",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-8qvrymzi/issue174-media/source-pcm_s24le.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-t7dlij4r/issue174-media/source-pcm_s24le.mov"
           ],
           [
             "ffprobe",
@@ -12059,7 +12059,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-8qvrymzi/issue174-media/source-pcm_s24le.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-t7dlij4r/issue174-media/source-pcm_s24le.mov"
           ]
         ],
         "generatorHashes": {
@@ -12078,7 +12078,7 @@
           455112
         ]
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -12159,9 +12159,9 @@
           "denominator": 1
         }
       },
-      "receipt": "pcm_s24le-44100-2-convert/prepared/published/214a48bb7a3103befce125b243157575e07695872f230f2dffb4444234406487/receipt.json",
-      "receiptHash": "sha256:27172c7e11c59b18d77d26bc6f1c796019298dcc2f5ed836e1fada0403b8c475",
-      "video": "pcm_s24le-44100-2-convert/prepared/published/214a48bb7a3103befce125b243157575e07695872f230f2dffb4444234406487/picture.mp4",
+      "receipt": "pcm_s24le-44100-2-convert/prepared/published/0229fdbfbbee7edfaa9d2975f3b4dcc2512730ff2b5328f4dea506d1b6670c68/receipt.json",
+      "receiptHash": "sha256:cd8426331a6053b79f5e56ccdc66b204ab1d19c7925efdfa18b3c9aac9e8b410",
+      "video": "pcm_s24le-44100-2-convert/prepared/published/0229fdbfbbee7edfaa9d2975f3b4dcc2512730ff2b5328f4dea506d1b6670c68/picture.mp4",
       "videoHash": "sha256:cd2ecc254a6378bb0154ec2979a15bb37577250b4c9468271977e311bac80878",
       "expectedSelectedOrdinals": [
         10,
@@ -13237,8 +13237,8 @@
         }
       },
       "syncMeasurements": {
-        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/pcm_s24le-44100-2-convert/source.mov",
-        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/pcm_s24le-44100-2-convert/prepared/published/214a48bb7a3103befce125b243157575e07695872f230f2dffb4444234406487/audio.wav",
+        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/pcm_s24le-44100-2-convert/source.mov",
+        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/pcm_s24le-44100-2-convert/prepared/published/0229fdbfbbee7edfaa9d2975f3b4dcc2512730ff2b5328f4dea506d1b6670c68/audio.wav",
         "outputHash": "sha256:ead70d204db77a1a0905f1747451cccced0616c1891ab359cee5b2007008181a",
         "sourcePeaks": [
           21168,
@@ -13305,7 +13305,7 @@
         120,
         238
       ],
-      "audioPath": "pcm_s24le-44100-2-convert/prepared/published/214a48bb7a3103befce125b243157575e07695872f230f2dffb4444234406487/audio.wav",
+      "audioPath": "pcm_s24le-44100-2-convert/prepared/published/0229fdbfbbee7edfaa9d2975f3b4dcc2512730ff2b5328f4dea506d1b6670c68/audio.wav",
       "audioHash": "sha256:ead70d204db77a1a0905f1747451cccced0616c1891ab359cee5b2007008181a",
       "compilerBindingProbe": {
         "compilerSource": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/packages/contracts/src/compiler-core-v2.ts",
@@ -13319,7 +13319,7 @@
         }
       },
       "operatorPair": "pcm_s24le-44100-2-convert/operator-pair.mkv",
-      "operatorPairHash": "sha256:f1afc6a00e8edd7c142a40a79d67342d510bb348ffa7fec7b0f204428475d26c",
+      "operatorPairHash": "sha256:4b062f61e8023cd9e30a68002a10b88aac7cf7bbbd703a8f4b9c7755ecc40b96",
       "operatorPairCommand": [
         "ffmpeg",
         "-v",
@@ -13327,16 +13327,16 @@
         "-nostdin",
         "-n",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/pcm_s24le-44100-2-convert/prepared/published/214a48bb7a3103befce125b243157575e07695872f230f2dffb4444234406487/picture.mp4",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/pcm_s24le-44100-2-convert/prepared/published/0229fdbfbbee7edfaa9d2975f3b4dcc2512730ff2b5328f4dea506d1b6670c68/picture.mp4",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/pcm_s24le-44100-2-convert/prepared/published/214a48bb7a3103befce125b243157575e07695872f230f2dffb4444234406487/audio.wav",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/pcm_s24le-44100-2-convert/prepared/published/0229fdbfbbee7edfaa9d2975f3b4dcc2512730ff2b5328f4dea506d1b6670c68/audio.wav",
         "-map",
         "0:v",
         "-map",
         "1:a",
         "-c",
         "copy",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/pcm_s24le-44100-2-convert/operator-pair.mkv"
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/pcm_s24le-44100-2-convert/operator-pair.mkv"
       ]
     },
     {
@@ -13361,7 +13361,7 @@
             "-framerate",
             "25/1",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-o7tlb39d/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-tjipvkzw/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/25,setpts=N*1+50,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -13401,7 +13401,7 @@
             "330",
             "-video_track_timescale",
             "25000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-o7tlb39d/issue174-media/source.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-tjipvkzw/issue174-media/source.mov"
           ],
           [
             "ffprobe",
@@ -13412,7 +13412,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-o7tlb39d/issue174-media/source.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-tjipvkzw/issue174-media/source.mov"
           ],
           [
             "ffmpeg",
@@ -13423,11 +13423,11 @@
             "-y",
             "-copyts",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-o7tlb39d/issue174-media/source.mov",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-tjipvkzw/issue174-media/source.mov",
             "-itsoffset",
             "2.000000000000",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-o7tlb39d/issue174-media/source.pcm24.wav",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-tjipvkzw/issue174-media/source.pcm24.wav",
             "-map",
             "0:v:0",
             "-map",
@@ -13438,7 +13438,7 @@
             "pcm_s24le",
             "-avoid_negative_ts",
             "disabled",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-o7tlb39d/issue174-media/source-pcm_s24le.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-tjipvkzw/issue174-media/source-pcm_s24le.mov"
           ],
           [
             "ffprobe",
@@ -13449,7 +13449,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-o7tlb39d/issue174-media/source-pcm_s24le.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-tjipvkzw/issue174-media/source-pcm_s24le.mov"
           ]
         ],
         "generatorHashes": {
@@ -13468,7 +13468,7 @@
           495360
         ]
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -13549,9 +13549,9 @@
           "denominator": 1
         }
       },
-      "receipt": "pcm_s24le-48000-1-convert/prepared/published/e10a522ff82ae18c4f89d8a0d25b88c650179f880e1773447fd99265dc29e974/receipt.json",
-      "receiptHash": "sha256:a66498513bdd13a5994f16c69f514f639eddaf86a33d0c96ef8a541f8fe3d7e9",
-      "video": "pcm_s24le-48000-1-convert/prepared/published/e10a522ff82ae18c4f89d8a0d25b88c650179f880e1773447fd99265dc29e974/picture.mp4",
+      "receipt": "pcm_s24le-48000-1-convert/prepared/published/3864c4e5b4905c6e99f6412dfb76da62ee09793502b6865fe342827b241e2990/receipt.json",
+      "receiptHash": "sha256:2da917b1323b6a052d7c8c28e21fa33b7650573ad83b829daa93162d5bc8cca0",
+      "video": "pcm_s24le-48000-1-convert/prepared/published/3864c4e5b4905c6e99f6412dfb76da62ee09793502b6865fe342827b241e2990/picture.mp4",
       "videoHash": "sha256:cd2ecc254a6378bb0154ec2979a15bb37577250b4c9468271977e311bac80878",
       "expectedSelectedOrdinals": [
         10,
@@ -14627,8 +14627,8 @@
         }
       },
       "syncMeasurements": {
-        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/pcm_s24le-48000-1-convert/source.mov",
-        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/pcm_s24le-48000-1-convert/prepared/published/e10a522ff82ae18c4f89d8a0d25b88c650179f880e1773447fd99265dc29e974/audio.wav",
+        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/pcm_s24le-48000-1-convert/source.mov",
+        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/pcm_s24le-48000-1-convert/prepared/published/3864c4e5b4905c6e99f6412dfb76da62ee09793502b6865fe342827b241e2990/audio.wav",
         "outputHash": "sha256:236aeb888c690b8f7016f926afb7ad8c5a96d0fd57aacb0544888c2e7f013076",
         "sourcePeaks": [
           23040,
@@ -14695,7 +14695,7 @@
         120,
         238
       ],
-      "audioPath": "pcm_s24le-48000-1-convert/prepared/published/e10a522ff82ae18c4f89d8a0d25b88c650179f880e1773447fd99265dc29e974/audio.wav",
+      "audioPath": "pcm_s24le-48000-1-convert/prepared/published/3864c4e5b4905c6e99f6412dfb76da62ee09793502b6865fe342827b241e2990/audio.wav",
       "audioHash": "sha256:236aeb888c690b8f7016f926afb7ad8c5a96d0fd57aacb0544888c2e7f013076",
       "compilerBindingProbe": {
         "compilerSource": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/packages/contracts/src/compiler-core-v2.ts",
@@ -14709,7 +14709,7 @@
         }
       },
       "operatorPair": "pcm_s24le-48000-1-convert/operator-pair.mkv",
-      "operatorPairHash": "sha256:4a723008c999661d7fd35df99e3610257f8fd96b3adcbf1aa79a7cfb3db18466",
+      "operatorPairHash": "sha256:794eb9a2fa429600211ffb831a785192ef4c29a883752e717c3846cfeba98ae5",
       "operatorPairCommand": [
         "ffmpeg",
         "-v",
@@ -14717,16 +14717,16 @@
         "-nostdin",
         "-n",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/pcm_s24le-48000-1-convert/prepared/published/e10a522ff82ae18c4f89d8a0d25b88c650179f880e1773447fd99265dc29e974/picture.mp4",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/pcm_s24le-48000-1-convert/prepared/published/3864c4e5b4905c6e99f6412dfb76da62ee09793502b6865fe342827b241e2990/picture.mp4",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/pcm_s24le-48000-1-convert/prepared/published/e10a522ff82ae18c4f89d8a0d25b88c650179f880e1773447fd99265dc29e974/audio.wav",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/pcm_s24le-48000-1-convert/prepared/published/3864c4e5b4905c6e99f6412dfb76da62ee09793502b6865fe342827b241e2990/audio.wav",
         "-map",
         "0:v",
         "-map",
         "1:a",
         "-c",
         "copy",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/pcm_s24le-48000-1-convert/operator-pair.mkv"
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/pcm_s24le-48000-1-convert/operator-pair.mkv"
       ]
     },
     {
@@ -14751,7 +14751,7 @@
             "-framerate",
             "25/1",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-3fz359_7/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-6vwzdvel/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/25,setpts=N*1+50,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -14791,7 +14791,7 @@
             "330",
             "-video_track_timescale",
             "25000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-3fz359_7/issue174-media/source.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-6vwzdvel/issue174-media/source.mov"
           ],
           [
             "ffprobe",
@@ -14802,7 +14802,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-3fz359_7/issue174-media/source.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-6vwzdvel/issue174-media/source.mov"
           ],
           [
             "ffmpeg",
@@ -14813,11 +14813,11 @@
             "-y",
             "-copyts",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-3fz359_7/issue174-media/source.mov",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-6vwzdvel/issue174-media/source.mov",
             "-itsoffset",
             "2.000000000000",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-3fz359_7/issue174-media/source.pcm24.wav",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-6vwzdvel/issue174-media/source.pcm24.wav",
             "-map",
             "0:v:0",
             "-map",
@@ -14828,7 +14828,7 @@
             "pcm_s24le",
             "-avoid_negative_ts",
             "disabled",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-3fz359_7/issue174-media/source-pcm_s24le.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-6vwzdvel/issue174-media/source-pcm_s24le.mov"
           ],
           [
             "ffprobe",
@@ -14839,7 +14839,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-3fz359_7/issue174-media/source-pcm_s24le.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-6vwzdvel/issue174-media/source-pcm_s24le.mov"
           ]
         ],
         "generatorHashes": {
@@ -14858,7 +14858,7 @@
           495360
         ]
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -14939,9 +14939,9 @@
           "denominator": 1
         }
       },
-      "receipt": "pcm_s24le-48000-2-convert/prepared/published/dca3e7a6b61aa88472ae33210f022a1c81439d7a53b42522d03146cd2e30bb58/receipt.json",
-      "receiptHash": "sha256:823c60369896a3141447c8b94348256193733a33a4074ed3008baff3f18fadfb",
-      "video": "pcm_s24le-48000-2-convert/prepared/published/dca3e7a6b61aa88472ae33210f022a1c81439d7a53b42522d03146cd2e30bb58/picture.mp4",
+      "receipt": "pcm_s24le-48000-2-convert/prepared/published/a57bd975520ba410cfdde01aa3f09e0517804c33199b724ef11ecff210aa5bb5/receipt.json",
+      "receiptHash": "sha256:05208cbe9fbaddce7c15730b8d27d2dea4e576bd0c24d1d8774c753542e9d3f9",
+      "video": "pcm_s24le-48000-2-convert/prepared/published/a57bd975520ba410cfdde01aa3f09e0517804c33199b724ef11ecff210aa5bb5/picture.mp4",
       "videoHash": "sha256:cd2ecc254a6378bb0154ec2979a15bb37577250b4c9468271977e311bac80878",
       "expectedSelectedOrdinals": [
         10,
@@ -16017,8 +16017,8 @@
         }
       },
       "syncMeasurements": {
-        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/pcm_s24le-48000-2-convert/source.mov",
-        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/pcm_s24le-48000-2-convert/prepared/published/dca3e7a6b61aa88472ae33210f022a1c81439d7a53b42522d03146cd2e30bb58/audio.wav",
+        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/pcm_s24le-48000-2-convert/source.mov",
+        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/pcm_s24le-48000-2-convert/prepared/published/a57bd975520ba410cfdde01aa3f09e0517804c33199b724ef11ecff210aa5bb5/audio.wav",
         "outputHash": "sha256:8757b4c26f3d3e92f0507b4770ac3a42a8fd307abaf8edeecd85278168065695",
         "sourcePeaks": [
           23040,
@@ -16085,7 +16085,7 @@
         120,
         238
       ],
-      "audioPath": "pcm_s24le-48000-2-convert/prepared/published/dca3e7a6b61aa88472ae33210f022a1c81439d7a53b42522d03146cd2e30bb58/audio.wav",
+      "audioPath": "pcm_s24le-48000-2-convert/prepared/published/a57bd975520ba410cfdde01aa3f09e0517804c33199b724ef11ecff210aa5bb5/audio.wav",
       "audioHash": "sha256:8757b4c26f3d3e92f0507b4770ac3a42a8fd307abaf8edeecd85278168065695",
       "compilerBindingProbe": {
         "compilerSource": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/packages/contracts/src/compiler-core-v2.ts",
@@ -16099,7 +16099,7 @@
         }
       },
       "operatorPair": "pcm_s24le-48000-2-convert/operator-pair.mkv",
-      "operatorPairHash": "sha256:7fc620ad3ba347f91957f250ebdefc5e4a33ad3e5a73b537eabd9c29a5278c1f",
+      "operatorPairHash": "sha256:674bd1be1651dfbe38f320493a628bb896b9458d149e96684e2719279d48ec29",
       "operatorPairCommand": [
         "ffmpeg",
         "-v",
@@ -16107,16 +16107,16 @@
         "-nostdin",
         "-n",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/pcm_s24le-48000-2-convert/prepared/published/dca3e7a6b61aa88472ae33210f022a1c81439d7a53b42522d03146cd2e30bb58/picture.mp4",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/pcm_s24le-48000-2-convert/prepared/published/a57bd975520ba410cfdde01aa3f09e0517804c33199b724ef11ecff210aa5bb5/picture.mp4",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/pcm_s24le-48000-2-convert/prepared/published/dca3e7a6b61aa88472ae33210f022a1c81439d7a53b42522d03146cd2e30bb58/audio.wav",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/pcm_s24le-48000-2-convert/prepared/published/a57bd975520ba410cfdde01aa3f09e0517804c33199b724ef11ecff210aa5bb5/audio.wav",
         "-map",
         "0:v",
         "-map",
         "1:a",
         "-c",
         "copy",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/pcm_s24le-48000-2-convert/operator-pair.mkv"
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/pcm_s24le-48000-2-convert/operator-pair.mkv"
       ]
     },
     {
@@ -16141,7 +16141,7 @@
             "-framerate",
             "25/1",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-2n61f_cd/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-lei01qnf/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/25,setpts=N*1+50,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -16181,7 +16181,7 @@
             "330",
             "-video_track_timescale",
             "25000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-2n61f_cd/issue174-media/source.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-lei01qnf/issue174-media/source.mov"
           ],
           [
             "ffprobe",
@@ -16192,7 +16192,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-2n61f_cd/issue174-media/source.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-lei01qnf/issue174-media/source.mov"
           ],
           [
             "ffmpeg",
@@ -16203,11 +16203,11 @@
             "-y",
             "-copyts",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-2n61f_cd/issue174-media/source.mov",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-lei01qnf/issue174-media/source.mov",
             "-itsoffset",
             "2.000000000000",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-2n61f_cd/issue174-media/source.pcm24.wav",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-lei01qnf/issue174-media/source.pcm24.wav",
             "-map",
             "0:v:0",
             "-map",
@@ -16220,7 +16220,7 @@
             "disabled",
             "-b:a",
             "192k",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-2n61f_cd/issue174-media/source-aac.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-lei01qnf/issue174-media/source-aac.mov"
           ],
           [
             "ffprobe",
@@ -16231,7 +16231,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-2n61f_cd/issue174-media/source-aac.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-lei01qnf/issue174-media/source-aac.mov"
           ]
         ],
         "generatorHashes": {
@@ -16250,7 +16250,7 @@
           209280
         ]
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -16331,9 +16331,9 @@
           "denominator": 1
         }
       },
-      "receipt": "aac-48000-1-mov/prepared/published/108da1ee2680890d51f72fbe24155d3591733e0822fadb2a28d7c89095ef38d8/receipt.json",
-      "receiptHash": "sha256:e18980c1789731b18a21356b1fddb9c7c1816925ec58c30d1c780acf746df03d",
-      "video": "aac-48000-1-mov/prepared/published/108da1ee2680890d51f72fbe24155d3591733e0822fadb2a28d7c89095ef38d8/picture.mp4",
+      "receipt": "aac-48000-1-mov/prepared/published/5eabdf91e61b8bbbfa13265b6b41afe95b40182768aa6374aee6858504cbf025/receipt.json",
+      "receiptHash": "sha256:0dfe51e553fb376a8b203f0c9822997e89740d2c53661b2deb9c9a8ef82fe594",
+      "video": "aac-48000-1-mov/prepared/published/5eabdf91e61b8bbbfa13265b6b41afe95b40182768aa6374aee6858504cbf025/picture.mp4",
       "videoHash": "sha256:3fa44b0120db8c5bb3bdaffea6ef61a0ccfce53592c9633a7b1d60717ca7a27f",
       "expectedSelectedOrdinals": [
         10,
@@ -16849,8 +16849,8 @@
         }
       },
       "syncMeasurements": {
-        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-48000-1-mov/source.mov",
-        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-48000-1-mov/prepared/published/108da1ee2680890d51f72fbe24155d3591733e0822fadb2a28d7c89095ef38d8/audio.wav",
+        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-48000-1-mov/source.mov",
+        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-48000-1-mov/prepared/published/5eabdf91e61b8bbbfa13265b6b41afe95b40182768aa6374aee6858504cbf025/audio.wav",
         "outputHash": "sha256:72d0c356f2153ac6998bc911a95fe7a0bb46ad869e6ba36a9e27c9e87e6060c1",
         "sourcePeaks": [
           24064,
@@ -16917,10 +16917,10 @@
         48,
         95
       ],
-      "audioPath": "aac-48000-1-mov/prepared/published/108da1ee2680890d51f72fbe24155d3591733e0822fadb2a28d7c89095ef38d8/audio.wav",
+      "audioPath": "aac-48000-1-mov/prepared/published/5eabdf91e61b8bbbfa13265b6b41afe95b40182768aa6374aee6858504cbf025/audio.wav",
       "audioHash": "sha256:72d0c356f2153ac6998bc911a95fe7a0bb46ad869e6ba36a9e27c9e87e6060c1",
       "operatorPair": "aac-48000-1-mov/operator-pair.mkv",
-      "operatorPairHash": "sha256:4cf743bc43d02930b3b4754f8e40044f3ca41032b7dbefa77a60833963aed21f",
+      "operatorPairHash": "sha256:5bbdae84a6480ef8915df87445982e291b31d63b2c363efb8a00492f628852e4",
       "operatorPairCommand": [
         "ffmpeg",
         "-v",
@@ -16928,22 +16928,22 @@
         "-nostdin",
         "-n",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-48000-1-mov/prepared/published/108da1ee2680890d51f72fbe24155d3591733e0822fadb2a28d7c89095ef38d8/picture.mp4",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-48000-1-mov/prepared/published/5eabdf91e61b8bbbfa13265b6b41afe95b40182768aa6374aee6858504cbf025/picture.mp4",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-48000-1-mov/prepared/published/108da1ee2680890d51f72fbe24155d3591733e0822fadb2a28d7c89095ef38d8/audio.wav",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-48000-1-mov/prepared/published/5eabdf91e61b8bbbfa13265b6b41afe95b40182768aa6374aee6858504cbf025/audio.wav",
         "-map",
         "0:v",
         "-map",
         "1:a",
         "-c",
         "copy",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-48000-1-mov/operator-pair.mkv"
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-48000-1-mov/operator-pair.mkv"
       ]
     },
     {
       "case": "aac-48000-1-mkv",
       "source": "aac-48000-1-mkv/source.mkv",
-      "sourceHash": "sha256:06781077af4356e878b71a8d37552a90d41a59d748abe8063985dd1fe844c2b6",
+      "sourceHash": "sha256:1ed3ff11701c3fe8bc58de3850ca6f64e1d6f883943eef03a997de72ada73b7f",
       "generation": {
         "commands": [
           [
@@ -16962,7 +16962,7 @@
             "-framerate",
             "25/1",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-fn0opqwp/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-762jltfx/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/25,setpts=N*1+50,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -17000,7 +17000,7 @@
             "0.000000000000",
             "-frames:v",
             "330",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-fn0opqwp/issue174-media/source.mkv"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-762jltfx/issue174-media/source.mkv"
           ],
           [
             "ffprobe",
@@ -17011,7 +17011,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-fn0opqwp/issue174-media/source.mkv"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-762jltfx/issue174-media/source.mkv"
           ],
           [
             "ffmpeg",
@@ -17022,11 +17022,11 @@
             "-y",
             "-copyts",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-fn0opqwp/issue174-media/source.mkv",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-762jltfx/issue174-media/source.mkv",
             "-itsoffset",
             "2.000000000000",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-fn0opqwp/issue174-media/source.pcm24.wav",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-762jltfx/issue174-media/source.pcm24.wav",
             "-map",
             "0:v:0",
             "-map",
@@ -17039,7 +17039,7 @@
             "disabled",
             "-b:a",
             "192k",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-fn0opqwp/issue174-media/source-aac.mkv"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-762jltfx/issue174-media/source-aac.mkv"
           ],
           [
             "ffprobe",
@@ -17050,13 +17050,13 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-fn0opqwp/issue174-media/source-aac.mkv"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-762jltfx/issue174-media/source-aac.mkv"
           ]
         ],
         "generatorHashes": {
-          "video": "sha256:81d2fdaf04075422e1c509060afcb2e4cb8370fcc6cc23c02e22e6512eebbc73",
+          "video": "sha256:60614d1445be8d393fe936a6eb82b79eb222a033b4dfa058c922d0f6e3e749a2",
           "audio": "sha256:d52c7cb92210aec0eaaf99430c4f5b11151cc5d611bc6aebed6554d63b45b152",
-          "muxed": "sha256:06781077af4356e878b71a8d37552a90d41a59d748abe8063985dd1fe844c2b6"
+          "muxed": "sha256:1ed3ff11701c3fe8bc58de3850ca6f64e1d6f883943eef03a997de72ada73b7f"
         },
         "flashFrames": [
           12,
@@ -17069,7 +17069,7 @@
           209280
         ]
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -17082,7 +17082,7 @@
           "snapshotId": "00000000-0000-4000-8000-000000000174",
           "version": 1,
           "packageId": "00000000-0000-4000-8000-000000000175",
-          "contentHash": "sha256:06781077af4356e878b71a8d37552a90d41a59d748abe8063985dd1fe844c2b6",
+          "contentHash": "sha256:1ed3ff11701c3fe8bc58de3850ca6f64e1d6f883943eef03a997de72ada73b7f",
           "probeHash": "sha256:d6ce4b9865914a9eef62d9c6ffbb9428687c56ad16b0a0ae4e0b1ff797f1a713"
         },
         "logicalSourceBounds": {
@@ -17150,9 +17150,9 @@
           "denominator": 1
         }
       },
-      "receipt": "aac-48000-1-mkv/prepared/published/ecc00a7bb9c17462d27af5b13b6187b2b6f1be0f58aa18f32b10d4ab70bc7ced/receipt.json",
-      "receiptHash": "sha256:96f3d2826906a61c7df2a05e2118e7aa676b08038402a6860556ccd23f43d697",
-      "video": "aac-48000-1-mkv/prepared/published/ecc00a7bb9c17462d27af5b13b6187b2b6f1be0f58aa18f32b10d4ab70bc7ced/picture.mp4",
+      "receipt": "aac-48000-1-mkv/prepared/published/423c29faf36ba333031dee93272aed7928e5c20de236abed5934f4f77972eeb8/receipt.json",
+      "receiptHash": "sha256:1a6ac96ba4e77d96bd80bd02875fee55b5243f53af713a0139908c6703942fb9",
+      "video": "aac-48000-1-mkv/prepared/published/423c29faf36ba333031dee93272aed7928e5c20de236abed5934f4f77972eeb8/picture.mp4",
       "videoHash": "sha256:3fa44b0120db8c5bb3bdaffea6ef61a0ccfce53592c9633a7b1d60717ca7a27f",
       "expectedSelectedOrdinals": [
         10,
@@ -17668,8 +17668,8 @@
         }
       },
       "syncMeasurements": {
-        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-48000-1-mkv/source.mkv",
-        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-48000-1-mkv/prepared/published/ecc00a7bb9c17462d27af5b13b6187b2b6f1be0f58aa18f32b10d4ab70bc7ced/audio.wav",
+        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-48000-1-mkv/source.mkv",
+        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-48000-1-mkv/prepared/published/423c29faf36ba333031dee93272aed7928e5c20de236abed5934f4f77972eeb8/audio.wav",
         "outputHash": "sha256:0a8b77b4c15c6d994122650079500fc83e2926de8ce0bbd2f8900f4edccb6f2a",
         "sourcePeaks": [
           23040,
@@ -17729,17 +17729,17 @@
         "sourceTruthDriftMilliseconds": 0.041666666666666664,
         "outputTruthMaxResidualMilliseconds": 0.041666666666666664,
         "outputTruthDriftMilliseconds": 0.041666666666666664,
-        "sourceHash": "sha256:06781077af4356e878b71a8d37552a90d41a59d748abe8063985dd1fe844c2b6"
+        "sourceHash": "sha256:1ed3ff11701c3fe8bc58de3850ca6f64e1d6f883943eef03a997de72ada73b7f"
       },
       "decodedFlashIndices": [
         2,
         48,
         95
       ],
-      "audioPath": "aac-48000-1-mkv/prepared/published/ecc00a7bb9c17462d27af5b13b6187b2b6f1be0f58aa18f32b10d4ab70bc7ced/audio.wav",
+      "audioPath": "aac-48000-1-mkv/prepared/published/423c29faf36ba333031dee93272aed7928e5c20de236abed5934f4f77972eeb8/audio.wav",
       "audioHash": "sha256:0a8b77b4c15c6d994122650079500fc83e2926de8ce0bbd2f8900f4edccb6f2a",
       "operatorPair": "aac-48000-1-mkv/operator-pair.mkv",
-      "operatorPairHash": "sha256:09d1f9b8bc573a95d363bf3d876f3437d2788b5cfdffc3e0b39fa4ad2b41764c",
+      "operatorPairHash": "sha256:b8fd6069cafde81d815480877c82514fd72e56a394921f33c89c22cc3298e1b7",
       "operatorPairCommand": [
         "ffmpeg",
         "-v",
@@ -17747,16 +17747,16 @@
         "-nostdin",
         "-n",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-48000-1-mkv/prepared/published/ecc00a7bb9c17462d27af5b13b6187b2b6f1be0f58aa18f32b10d4ab70bc7ced/picture.mp4",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-48000-1-mkv/prepared/published/423c29faf36ba333031dee93272aed7928e5c20de236abed5934f4f77972eeb8/picture.mp4",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-48000-1-mkv/prepared/published/ecc00a7bb9c17462d27af5b13b6187b2b6f1be0f58aa18f32b10d4ab70bc7ced/audio.wav",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-48000-1-mkv/prepared/published/423c29faf36ba333031dee93272aed7928e5c20de236abed5934f4f77972eeb8/audio.wav",
         "-map",
         "0:v",
         "-map",
         "1:a",
         "-c",
         "copy",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/aac-48000-1-mkv/operator-pair.mkv"
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/aac-48000-1-mkv/operator-pair.mkv"
       ]
     },
     {
@@ -17781,7 +17781,7 @@
             "-framerate",
             "24000/1001",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-3hgf489y/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-nsvxn6o7/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/24000,setpts=N*1001+48000,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -17821,7 +17821,7 @@
             "330",
             "-video_track_timescale",
             "24000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-3hgf489y/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-nsvxn6o7/issue174-media/source.mp4"
           ],
           [
             "ffprobe",
@@ -17832,7 +17832,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-3hgf489y/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-nsvxn6o7/issue174-media/source.mp4"
           ],
           [
             "ffmpeg",
@@ -17843,11 +17843,11 @@
             "-y",
             "-copyts",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-3hgf489y/issue174-media/source.mp4",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-nsvxn6o7/issue174-media/source.mp4",
             "-itsoffset",
             "2.000000000000",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-3hgf489y/issue174-media/source.pcm24.wav",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-nsvxn6o7/issue174-media/source.pcm24.wav",
             "-map",
             "0:v:0",
             "-map",
@@ -17860,7 +17860,7 @@
             "disabled",
             "-b:a",
             "192k",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-3hgf489y/issue174-media/source-aac.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-nsvxn6o7/issue174-media/source-aac.mp4"
           ],
           [
             "ffprobe",
@@ -17871,7 +17871,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-3hgf489y/issue174-media/source-aac.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-nsvxn6o7/issue174-media/source-aac.mp4"
           ]
         ],
         "generatorHashes": {
@@ -17890,7 +17890,7 @@
           218218
         ]
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -17971,8 +17971,8 @@
           "denominator": 1
         }
       },
-      "receipt": "target-reuse-aac/prepared/published/3d4cc163b75dc222e6e534b7ca4872bac6125200a322995918f346d78d111a65/receipt.json",
-      "receiptHash": "sha256:c6ef4312ad72da90cef39005237a6adec26b7b85116528298c06be8f59d37a0d",
+      "receipt": "target-reuse-aac/prepared/published/19b6cc9dda4cc393add951429536b9a2212cb78c561f85c30203516796c19063/receipt.json",
+      "receiptHash": "sha256:d0d9db669334c811a7239172395a73472c3640dbd61954b3bcb485cd2a454d62",
       "video": "target-reuse-aac/source.mp4",
       "videoHash": "sha256:a12435b7e56de6b394472392b97f08e2deb2074ecf463ab48dfdfddba3be6560",
       "expectedSelectedOrdinals": [
@@ -18721,8 +18721,8 @@
         }
       },
       "syncMeasurements": {
-        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/target-reuse-aac/source.mp4",
-        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/target-reuse-aac/prepared/published/3d4cc163b75dc222e6e534b7ca4872bac6125200a322995918f346d78d111a65/audio.wav",
+        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/target-reuse-aac/source.mp4",
+        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/target-reuse-aac/prepared/published/19b6cc9dda4cc393add951429536b9a2212cb78c561f85c30203516796c19063/audio.wav",
         "outputHash": "sha256:2cf0d8ec38bf9cd53dede4c229bef0a6fdd27c9357f04770d733ac0b92e829b3",
         "sourcePeaks": [
           25050,
@@ -18789,7 +18789,7 @@
         60,
         109
       ],
-      "audioPath": "target-reuse-aac/prepared/published/3d4cc163b75dc222e6e534b7ca4872bac6125200a322995918f346d78d111a65/audio.wav",
+      "audioPath": "target-reuse-aac/prepared/published/19b6cc9dda4cc393add951429536b9a2212cb78c561f85c30203516796c19063/audio.wav",
       "audioHash": "sha256:2cf0d8ec38bf9cd53dede4c229bef0a6fdd27c9357f04770d733ac0b92e829b3",
       "compilerBindingProbe": {
         "compilerSource": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/packages/contracts/src/compiler-core-v2.ts",
@@ -18803,7 +18803,7 @@
         }
       },
       "operatorPair": "target-reuse-aac/operator-pair.mkv",
-      "operatorPairHash": "sha256:cf78a751b68195b3d2049fdebe1fa88df351ac000881380bbb7ac334e731dede",
+      "operatorPairHash": "sha256:2e7f9d31a117c116c61c75fc7f96adb14ff33717821c7c9108647acfeca6c399",
       "operatorPairCommand": [
         "ffmpeg",
         "-v",
@@ -18811,18 +18811,18 @@
         "-nostdin",
         "-n",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/target-reuse-aac/source.mp4",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/target-reuse-aac/source.mp4",
         "-itsoffset",
         "0.4170833333333333",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/target-reuse-aac/prepared/published/3d4cc163b75dc222e6e534b7ca4872bac6125200a322995918f346d78d111a65/audio.wav",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/target-reuse-aac/prepared/published/19b6cc9dda4cc393add951429536b9a2212cb78c561f85c30203516796c19063/audio.wav",
         "-map",
         "0:v",
         "-map",
         "1:a",
         "-c",
         "copy",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/target-reuse-aac/operator-pair.mkv"
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/target-reuse-aac/operator-pair.mkv"
       ]
     },
     {
@@ -18847,7 +18847,7 @@
             "-framerate",
             "24000/1001",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-223c9qbn/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ivl61omi/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/24000,setpts=N*1001+48000,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -18887,7 +18887,7 @@
             "330",
             "-video_track_timescale",
             "24000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-223c9qbn/issue174-media/source.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ivl61omi/issue174-media/source.mov"
           ],
           [
             "ffprobe",
@@ -18898,7 +18898,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-223c9qbn/issue174-media/source.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ivl61omi/issue174-media/source.mov"
           ],
           [
             "ffmpeg",
@@ -18909,11 +18909,11 @@
             "-y",
             "-copyts",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-223c9qbn/issue174-media/source.mov",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ivl61omi/issue174-media/source.mov",
             "-itsoffset",
             "2.000000000000",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-223c9qbn/issue174-media/source.pcm24.wav",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ivl61omi/issue174-media/source.pcm24.wav",
             "-map",
             "0:v:0",
             "-map",
@@ -18924,7 +18924,7 @@
             "pcm_s24le",
             "-avoid_negative_ts",
             "disabled",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-223c9qbn/issue174-media/source-pcm_s24le.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ivl61omi/issue174-media/source-pcm_s24le.mov"
           ],
           [
             "ffprobe",
@@ -18935,7 +18935,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-223c9qbn/issue174-media/source-pcm_s24le.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ivl61omi/issue174-media/source-pcm_s24le.mov"
           ]
         ],
         "generatorHashes": {
@@ -18954,7 +18954,7 @@
           218218
         ]
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -19035,8 +19035,8 @@
           "denominator": 1
         }
       },
-      "receipt": "target-reuse-pcm_s24le/prepared/published/463f6821ca69ae8eb239092029c808e7eb414e9d8b3702a827572528d5c6eb05/receipt.json",
-      "receiptHash": "sha256:16df38883d76010eb6157a80dc656c7f7401e2d18b9d0af890c232b1015d8f86",
+      "receipt": "target-reuse-pcm_s24le/prepared/published/8e9bea63c2ce705977ab5627552143c40d91faf31c5d76877da9c2db6c26888b/receipt.json",
+      "receiptHash": "sha256:f0ddce686d8a291338f74745c025c0278f356aeaf04ebb6e7d353af88549e2d5",
       "video": "target-reuse-pcm_s24le/source.mov",
       "videoHash": "sha256:c0e721f3dd11b047869c49908add97ceb7eb53cabc1f34c892e12aed404006a5",
       "expectedSelectedOrdinals": [
@@ -19785,8 +19785,8 @@
         }
       },
       "syncMeasurements": {
-        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/target-reuse-pcm_s24le/source.mov",
-        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/target-reuse-pcm_s24le/prepared/published/463f6821ca69ae8eb239092029c808e7eb414e9d8b3702a827572528d5c6eb05/audio.wav",
+        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/target-reuse-pcm_s24le/source.mov",
+        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/target-reuse-pcm_s24le/prepared/published/8e9bea63c2ce705977ab5627552143c40d91faf31c5d76877da9c2db6c26888b/audio.wav",
         "outputHash": "sha256:64e98280ec3c61832519af5424364b3957b03fd38ca9d0b1eb4d1950af55bed7",
         "sourcePeaks": [
           24024,
@@ -19853,7 +19853,7 @@
         60,
         109
       ],
-      "audioPath": "target-reuse-pcm_s24le/prepared/published/463f6821ca69ae8eb239092029c808e7eb414e9d8b3702a827572528d5c6eb05/audio.wav",
+      "audioPath": "target-reuse-pcm_s24le/prepared/published/8e9bea63c2ce705977ab5627552143c40d91faf31c5d76877da9c2db6c26888b/audio.wav",
       "audioHash": "sha256:64e98280ec3c61832519af5424364b3957b03fd38ca9d0b1eb4d1950af55bed7",
       "compilerBindingProbe": {
         "compilerSource": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/packages/contracts/src/compiler-core-v2.ts",
@@ -19867,7 +19867,7 @@
         }
       },
       "operatorPair": "target-reuse-pcm_s24le/operator-pair.mkv",
-      "operatorPairHash": "sha256:fef8272fdd10667484b5e665395690a7da3c23bea0ece2cbeb92ef59f7b7b572",
+      "operatorPairHash": "sha256:925c7efe2bf36b0bda7b5e3ac42bd163214799e5137311fc81b4c3b1faadf4c3",
       "operatorPairCommand": [
         "ffmpeg",
         "-v",
@@ -19875,18 +19875,18 @@
         "-nostdin",
         "-n",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/target-reuse-pcm_s24le/source.mov",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/target-reuse-pcm_s24le/source.mov",
         "-itsoffset",
         "0.4170833333333333",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/target-reuse-pcm_s24le/prepared/published/463f6821ca69ae8eb239092029c808e7eb414e9d8b3702a827572528d5c6eb05/audio.wav",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/target-reuse-pcm_s24le/prepared/published/8e9bea63c2ce705977ab5627552143c40d91faf31c5d76877da9c2db6c26888b/audio.wav",
         "-map",
         "0:v",
         "-map",
         "1:a",
         "-c",
         "copy",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/target-reuse-pcm_s24le/operator-pair.mkv"
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/target-reuse-pcm_s24le/operator-pair.mkv"
       ]
     },
     {
@@ -19911,7 +19911,7 @@
             "-framerate",
             "24000/1001",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ggmna68s/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-vdb543f7/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/24000,setpts=N*1001+48000,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -19951,7 +19951,7 @@
             "330",
             "-video_track_timescale",
             "24000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ggmna68s/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-vdb543f7/issue174-media/source.mp4"
           ],
           [
             "ffprobe",
@@ -19962,7 +19962,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-ggmna68s/issue174-media/source.mp4"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-vdb543f7/issue174-media/source.mp4"
           ]
         ],
         "generatorHashes": {
@@ -19972,7 +19972,7 @@
         "flashFrames": [],
         "clickSamples": []
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -20038,8 +20038,8 @@
           "denominator": 24000
         }
       },
-      "receipt": "target-reuse-handles/prepared/published/1790fca8d737eeb234669596d236cf54038f0625f8c456c22c9c30da634ed435/receipt.json",
-      "receiptHash": "sha256:a4e0e6dd7b9f9c9c872a1dd059545c1e614a5c9c875c52dd4a157248034ae1bb",
+      "receipt": "target-reuse-handles/prepared/published/c5232538bf8c68484a4f57c8d55bbabdc8213bf0f402940f51831a43e1cab97a/receipt.json",
+      "receiptHash": "sha256:7236f77a063ff8f97ebb4236709162bad626199a59cd18fe3cb39c731c11ca5a",
       "video": "target-reuse-handles/source.mp4",
       "videoHash": "sha256:74f9c99d99bb2fe5a534c5b6fbdcfae22f2e1dc28f91bd1637b3565e432cc99c",
       "expectedSelectedOrdinals": [
@@ -20735,7 +20735,7 @@
             "-framerate",
             "25/1",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-z4zzaq4_/issue174-media/frames.rgb24",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-_jbi3x1o/issue174-media/frames.rgb24",
             "-vf",
             "settb=1/25,setpts=N*1+50,setsar=1/1,format=yuv420p",
             "-copyts",
@@ -20775,7 +20775,7 @@
             "2003",
             "-video_track_timescale",
             "25000",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-z4zzaq4_/issue174-media/source.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-_jbi3x1o/issue174-media/source.mov"
           ],
           [
             "ffprobe",
@@ -20786,7 +20786,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-z4zzaq4_/issue174-media/source.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-_jbi3x1o/issue174-media/source.mov"
           ],
           [
             "ffmpeg",
@@ -20797,11 +20797,11 @@
             "-y",
             "-copyts",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-z4zzaq4_/issue174-media/source.mov",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-_jbi3x1o/issue174-media/source.mov",
             "-itsoffset",
             "2.000000000000",
             "-i",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-z4zzaq4_/issue174-media/source.pcm24.wav",
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-_jbi3x1o/issue174-media/source.pcm24.wav",
             "-map",
             "0:v:0",
             "-map",
@@ -20812,7 +20812,7 @@
             "pcm_s24le",
             "-avoid_negative_ts",
             "disabled",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-z4zzaq4_/issue174-media/source-pcm_s24le.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-_jbi3x1o/issue174-media/source-pcm_s24le.mov"
           ],
           [
             "ffprobe",
@@ -20823,7 +20823,7 @@
             "-show_format",
             "-of",
             "json",
-            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-z4zzaq4_/issue174-media/source-pcm_s24le.mov"
+            "/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/issue174-synthetic-_jbi3x1o/issue174-media/source-pcm_s24le.mov"
           ]
         ],
         "generatorHashes": {
@@ -20842,7 +20842,7 @@
           3843840
         ]
       },
-      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
       "descriptor": {
         "payloadId": "00000000-0000-4000-8000-000000000174",
         "owner": {
@@ -20923,9 +20923,9 @@
           "denominator": 1
         }
       },
-      "receipt": "sync-grid/prepared/published/669264afcd3a02c4026c330a63c0800e2ccab7e86f83ab93852797ebe37ba5ab/receipt.json",
-      "receiptHash": "sha256:a3a3f9858a011363d2d0dabfd91350b918a4c52f48f72c3d94ae23aa249c06c1",
-      "video": "sync-grid/prepared/published/669264afcd3a02c4026c330a63c0800e2ccab7e86f83ab93852797ebe37ba5ab/picture.mp4",
+      "receipt": "sync-grid/prepared/published/3f3f7a15e60203f22f7adcb93949c690d114f43cde083d430d163575050c07ed/receipt.json",
+      "receiptHash": "sha256:e7c0e6a9cf871fd6c32dad840969aeebe2b16fb59bf82daba0867b98d3b2aa2d",
+      "video": "sync-grid/prepared/published/3f3f7a15e60203f22f7adcb93949c690d114f43cde083d430d163575050c07ed/picture.mp4",
       "videoHash": "sha256:a24993000d7f173b64d20dcb0cf1063f64bf2c8e7f20c0ef066eca2823cfb867",
       "expectedSelectedOrdinals": [
         0,
@@ -28725,8 +28725,8 @@
         }
       },
       "syncMeasurements": {
-        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/sync-grid/source.mov",
-        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/sync-grid/prepared/published/669264afcd3a02c4026c330a63c0800e2ccab7e86f83ab93852797ebe37ba5ab/audio.wav",
+        "sourcePath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/sync-grid/source.mov",
+        "outputPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/sync-grid/prepared/published/3f3f7a15e60203f22f7adcb93949c690d114f43cde083d430d163575050c07ed/audio.wav",
         "outputHash": "sha256:a1c85d42c9cf5d1e54f33ae963d32e405ec2209f4cd2fc1caa8fc8076263f06c",
         "sourcePeaks": [
           0,
@@ -28793,7 +28793,7 @@
         960,
         1920
       ],
-      "audioPath": "sync-grid/prepared/published/669264afcd3a02c4026c330a63c0800e2ccab7e86f83ab93852797ebe37ba5ab/audio.wav",
+      "audioPath": "sync-grid/prepared/published/3f3f7a15e60203f22f7adcb93949c690d114f43cde083d430d163575050c07ed/audio.wav",
       "audioHash": "sha256:a1c85d42c9cf5d1e54f33ae963d32e405ec2209f4cd2fc1caa8fc8076263f06c",
       "compilerBindingProbe": {
         "compilerSource": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/packages/contracts/src/compiler-core-v2.ts",
@@ -28807,7 +28807,7 @@
         }
       },
       "operatorPair": "sync-grid/operator-pair.mkv",
-      "operatorPairHash": "sha256:d5a36fd5db6e1f0699d19134ce51a582c29d41b8c1a89af1197b62d43fd1d915",
+      "operatorPairHash": "sha256:dd763627268bfc0294b061d2551ffacaa2e2ffe95b9dff98a1e5b3c09f922af4",
       "operatorPairCommand": [
         "ffmpeg",
         "-v",
@@ -28815,46 +28815,46 @@
         "-nostdin",
         "-n",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/sync-grid/prepared/published/669264afcd3a02c4026c330a63c0800e2ccab7e86f83ab93852797ebe37ba5ab/picture.mp4",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/sync-grid/prepared/published/3f3f7a15e60203f22f7adcb93949c690d114f43cde083d430d163575050c07ed/picture.mp4",
         "-i",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/sync-grid/prepared/published/669264afcd3a02c4026c330a63c0800e2ccab7e86f83ab93852797ebe37ba5ab/audio.wav",
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/sync-grid/prepared/published/3f3f7a15e60203f22f7adcb93949c690d114f43cde083d430d163575050c07ed/audio.wav",
         "-map",
         "0:v",
         "-map",
         "1:a",
         "-c",
         "copy",
-        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification/sync-grid/operator-pair.mkv"
+        "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification/sync-grid/operator-pair.mkv"
       ]
     }
   ],
   "caseRecordHashes": {
-    "23976-reuse": "sha256:dc576365d3563ca03ece5d0d1d4dd16a3125053ed0fd8b39263cf3bb650cefd9",
-    "24-convert": "sha256:fd5fb5baa5c6291a76c71e98dca092aae654c81778089561a5706d0119a16b07",
-    "25-convert": "sha256:40f33ac263c1403518131321edabc58c5c1135e47d63572cec8c98e4c99971fc",
-    "2997-convert": "sha256:a62c69e2558bf087dfd841f3cbd73b028d885f266bfbc8bde41a277b4cf28d36",
-    "30-convert": "sha256:c172707fa6ca6da3452f45b9d9b7011b14353e5b544aaacca44d366caac3e4d8",
-    "24-convert-handles": "sha256:00b998a05573acae08e3d50e111ded4cdea9a302a9c400916f9e4d7f009cf346",
-    "25-convert-handles": "sha256:26b30c1e32a47e3698b446c814e4fa8a8eb576350d0938d1a4295ff7e6df219e",
-    "2997-convert-handles": "sha256:fa60984a54c962352a724ac5e21bb6fcbd9c6bfe9bff7136cd9d24805321b2a5",
-    "30-convert-handles": "sha256:631437a58018b96aaf5803eb358d14641f60fa90764b15ba0f53b6c2b3186d2e",
-    "50-reuse": "sha256:799dddab2f878f6c0ddb7ac3d9c961e3522e7c2ef9265624413542bf6852ce15",
-    "aac-44100-1-convert": "sha256:b0e2d539192d3d43b300266e7377db40929ede7e854eadd6db608436edb0a1cf",
-    "aac-44100-2-convert": "sha256:790c52d0c7394f258db03869035caa70602abbcb29cb85552b33c22a68663087",
-    "aac-48000-1-convert": "sha256:d4722e04b52e3bb9dadcddb250c6c876b57fbccc2e71360317e7e0a7936b720e",
-    "aac-48000-2-convert": "sha256:3751d115f2fc80e842b116d4724de3b0de3441b0cf9c59baa66cbe990ac04a42",
-    "pcm_s24le-44100-1-convert": "sha256:cd22ed79ab07d47bbbe0f89d70f78bcf05dea10177419fa5d804b603f2470e27",
-    "pcm_s24le-44100-2-convert": "sha256:cd55fdba9ca049deb57bce5fcc1b543417aa3f7d272fa8da18bcfaf3643e0259",
-    "pcm_s24le-48000-1-convert": "sha256:4781dbc06ee6a45883d3da7918d996da301a7b19bf1bb962dcee2ab31773b6fb",
-    "pcm_s24le-48000-2-convert": "sha256:b66d6767f166580623222a9b0931b835acce75b2227a7ae05ab18477e29d2969",
-    "aac-48000-1-mov": "sha256:d7d8931afb82d241ee43e9fe1074e82394cd330568ab503a4c5da835ca91e13c",
-    "aac-48000-1-mkv": "sha256:e6980465fa6e87705858236979905634368a0236172f67aaa430425365c08958",
-    "target-reuse-aac": "sha256:46b96347755bbaaf71b0c9e04e201b882c8cf2c093fac159bc9c862066673378",
-    "target-reuse-pcm_s24le": "sha256:1f204e73d888fb3caf38b2c12a4d4c38ea691532c1a407cc2fc77860952edbf1",
-    "target-reuse-handles": "sha256:f15b9b07dff62a4db404569cb4b347fd9c7774fdda401b262db5fa6bfbbaf185",
-    "sync-grid": "sha256:5f2bf5c2ba4dc12d8aa954d9eef7461757b506a67555aeb30605d8f8a2c99b8d"
+    "23976-reuse": "sha256:6850f95ede65726d58b357c5a121b0d1b510bb1c38f419f6d4501873b28076af",
+    "24-convert": "sha256:7ea2f85769f6c61b9ad88de39aa94964cbd3384590d700f7b6316edf46bf9012",
+    "25-convert": "sha256:2432a423551b575ba87565327fad5ed5bb9879849fc25c2f78494ac7d5a7b03f",
+    "2997-convert": "sha256:0f82e34470467a08d1ab568a264f5f5978f492e540793cc256fb81a9157f9281",
+    "30-convert": "sha256:4bf50fe20a789bda319d58879f59afad7d5ba74a7d902c4a1a432722452109ea",
+    "24-convert-handles": "sha256:1202a68d80a87e8c1f83cedf5eff6872ba8eef83fcd87814b90a2dd75c7b0be8",
+    "25-convert-handles": "sha256:35ed15059375daf6ed7d84422d3f34c3b424a6ec2d5cf4303452428c5a2be3e7",
+    "2997-convert-handles": "sha256:4d4e3211e8cb709067a1c5060dab97568631435bc06c30be0bc9dbafb27a7667",
+    "30-convert-handles": "sha256:6c0801c62adb1ddcb516f9ff8212d861776d199fdd373eb7e45f674a4c5e1dd9",
+    "50-reuse": "sha256:d1f516e71a3af16b5821ec0916b4ac594059ba99f86a46e52603af7e65c65f60",
+    "aac-44100-1-convert": "sha256:9fba07d1055de65aced53a5f1db6a7828ce1353b8f2467ec9a10a958efdcf581",
+    "aac-44100-2-convert": "sha256:b50cf341c7125e2d335f936597d2cc743906e04971f66fe031641ecde8ed18cf",
+    "aac-48000-1-convert": "sha256:86494f5980d5a231e8304d1f05c384f16e7ceeeaea1f2621069f1f628e0b1224",
+    "aac-48000-2-convert": "sha256:b0cf68b172b297a14494503001b57ec61562770684966f30d0ba106bf14d8a95",
+    "pcm_s24le-44100-1-convert": "sha256:8b2e929219db1b411743f4121e311a2b9ba138ab63443aad4a4dd71ca73a3fcf",
+    "pcm_s24le-44100-2-convert": "sha256:8f71f402410632ba96e23fc557a346e5d1bb15df56627eda29703229b8de74cb",
+    "pcm_s24le-48000-1-convert": "sha256:390bc84eda7c9cf66d32d3ba311c90318b550c8b06bfb86857b62b0de2fac17d",
+    "pcm_s24le-48000-2-convert": "sha256:f6c436a8f50c634f9b43bcebc89f654733c53c1780e7649e18320123728e2410",
+    "aac-48000-1-mov": "sha256:c2c6d91edf08e018aa146245859473733fc79677256c3c028e2038812c12f8a7",
+    "aac-48000-1-mkv": "sha256:61b860acb960935157f89e1958ae7b5cebd13904e61021cd362b96d8275de25b",
+    "target-reuse-aac": "sha256:82c18620a564588fd7993da1429be8e60d5228737825ed226faf371599ed6110",
+    "target-reuse-pcm_s24le": "sha256:1b728580439acf00530a16d36cfdb9d2d65b56f85cdd8cd4dcebd0396442cf70",
+    "target-reuse-handles": "sha256:2c7a1943e2ce2379d2fd906ba7450c1593dfba303f878c750c0544967c8d04a3",
+    "sync-grid": "sha256:dc7aec78be68a82800395246e49b964d6710d3c4bd4aeaaeff3751d91b6dc3fb"
   },
-  "implementationSourceHash": "sha256:32c8a1bdb4a387485d54ad74bb65e986c4178e81c4bcbdcf8a4d474fb8482bdf",
+  "implementationSourceHash": "sha256:60c09d800a7137cbb5d896541dd318819616f414468db39c340af477e6904802",
   "fixtureSourceHash": "sha256:4d84c7142ed1e4f202f2fda65286dac7448871c72251c9a0221be1ba1b88438b",
   "qualifierSourceHash": "sha256:e15d1e4456ca1e6cc9ea19e73c1ea4b3cac48789cee7fbd3ae0d8d96c72316aa",
   "matrixSourceHash": "sha256:0a9a522d186f102d9ad2d8726a3c02bb068ac53f994e8181a8d232422de613d5",
