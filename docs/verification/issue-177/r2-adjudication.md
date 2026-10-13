@@ -62,3 +62,8 @@ Final qualification will use the local full gate after GO. The new package
 calls a renderer even though the renderer itself is unchanged, so the narrower
 cloud substitution is not used to resolve that eligibility ambiguity. Real
 Studio/media qualification remains #178's External gate.
+
+Focused-R3 passed all 94 issue-owned tests on unchanged `84a6612` with no
+skips. Actual start/exit receipts and complete scrubbed output are retained
+as `focused-r3-*`. Static Ruff/mypy checks also passed. Fresh fast validation,
+required delta review, and final full validation remain pending.
