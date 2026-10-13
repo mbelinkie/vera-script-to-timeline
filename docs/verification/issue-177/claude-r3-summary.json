@@ -1,0 +1,17 @@
+{
+  "reviewedCommit": "9d43f617d7705aa2f102750d004e12d4d4a5bac2",
+  "deltaBase": "302154617eecffe3f9e1f4cbb888791304a8ad1b",
+  "promptSha256": "e147984176246cbaf3870121300d745a1140519238a4b1433549bc1792bfe6a4",
+  "verdict": "GO",
+  "exit": {
+    "exitCode": 0,
+    "finishedAt": "2026-10-13T12:20:04.721402+00:00",
+    "logSha256": "f3d3e1d0b630cf37b3ae876c9a7544e52c86b2e4a4a3f87b94e9b357ecc97990",
+    "sourceUnchanged": true,
+    "startedAt": "2026-10-13T12:17:04.245347+00:00"
+  },
+  "model": [
+    "claude-opus-5-5"
+  ],
+  "limits": "Source-reading delta review; reviewer executed no tests. Final full validation pending."
+}
