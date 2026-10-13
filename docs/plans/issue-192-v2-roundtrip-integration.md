@@ -26,7 +26,9 @@ and #202 unresolved. No Ready/claim/merge/closure until genuine acceptance.
 
 Only new siblings: this plan; `docs/verification/issue-192/*`;
 `packages/contracts/src/issue-192-v2-proposals.ts`;
+`packages/contracts/src/issue-192-proof-cli.ts`;
 `packages/contracts/test/issue-192-v2-integration.test.ts`;
+`packages/contracts/test/issue-192-case.ts`;
 `python/vera_timeline_agent/roundtrip_v2_proof.py`;
 `tests/test_issue192_proof.py` and optional new `tests/issue192_case.py`.
 Imported #202 files are dependency-owned, not locally editable.
