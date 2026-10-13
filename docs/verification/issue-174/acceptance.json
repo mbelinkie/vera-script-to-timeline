@@ -3,21 +3,21 @@
   "branch": "codex/issue-174-verified-cfr",
   "baseline": "5d59b2ad560aa18f96554b71fe34ee5b7f30dfed",
   "ownerTask": "01a12bd6-3b7d-74a3-9ce0-b1990888cef6",
-  "implementationCommit": "a640e3f99dd6a68c6565a4404e6abc1b9ccda7d6",
+  "implementationCommit": "bd1fb70f926802b491be3e75c20c5bc56d3a53fe",
   "initialFocusedMatrix": {
     "command": "ctx-wire run rtk uv run --frozen pytest tests/test_issue174_media_preparation.py tests/test_issue174_real_media.py tests/test_issue174_recovery.py tests/test_issue174_source_refusals.py -q",
     "result": "64 passed in 164.87s",
     "note": "Before final source-rate binding and adapter-source fingerprint changes; final exact revision needs fresh required gates."
   },
   "dependencySetup": {
-    "node": "24.19.0",
+    "node": "v24.19.0",
     "npm": "11.17.0",
-    "knownCleanInstallFailure": "https://github.com/mbelinkie/vera-script-to-timeline/issues/193",
-    "method": "Disposable npm ci --offline --ignore-scripts --no-audit --no-fund staging with unchanged package/lock files and only lock-recorded workspace manifests. Preserve and replace initial unlocked install.",
-    "lockedPackageVersionsVerified": 145,
-    "trackedPackageAndLockChanges": false
+    "method": "Fresh pinned npm ci --no-audit --no-fund on integrated accepted #193 repair",
+    "exitCode": 0,
+    "receipt": "bounded-retry.json",
+    "issue174DependencyChanges": false
   },
-  "qualificationRecordHash": "sha256:40803f479b0671478d748de5c64d258be385265e91d5ac55ecd6477637180df9",
+  "qualificationRecordHash": "sha256:af96a93467660871182e3c0767673eb4fe24568f979ac6fe399eb6f26dc7976d",
   "finalFocusedMatrix": {
     "result": "82 passed in569.58s",
     "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/focused-revised.log",
@@ -25,9 +25,10 @@
   },
   "validateFast": {
     "exitCode": 0,
-    "pythonResult": "323 passed in55.46s",
-    "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r5/validate-fast.log",
-    "logHash": "sha256:31d64786e268fcda061dd057ef7b6fa835207fbdfad3ec56267345c7a733b920"
+    "pythonResult": "355 passed in 121.21s",
+    "receipt": "bounded-retry.json",
+    "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/validate-fast.log",
+    "logHash": "sha256:dc9efb92aa4088a701d367bf5d5ef14e38a98d73d25a603803fb5c977eed8cd5"
   },
   "fullValidate": {
     "status": "not qualifying: original exit receipt lost; no exit0 fabricated",
@@ -48,23 +49,61 @@
     "ownedJobRetired": true
   },
   "frozenBoundaryAudit": {
-    "result": "tracked baseline unchanged",
-    "baseline": "5d59b2ad560aa18f96554b71fe34ee5b7f30dfed",
-    "sourceHashesMatchCurrentCandidate": true
+    "baseline": "289cfea0312b5528f7bbbadee1812a09f52b17a8",
+    "result": "all candidate changes confined to new issue174 owned paths; accepted contracts/fixtures/goldens/generated/accepted tests and controls unchanged",
+    "changedPaths": [
+      "docs/plans/issue-174-verified-cfr.md",
+      "docs/verification/issue-174/README.md",
+      "docs/verification/issue-174/acceptance.json",
+      "docs/verification/issue-174/checks-final.json",
+      "docs/verification/issue-174/checks-source-hashes.json",
+      "docs/verification/issue-174/claim-receipt.json",
+      "docs/verification/issue-174/claude-r1-disposition.md",
+      "docs/verification/issue-174/claude-r1-exit.json",
+      "docs/verification/issue-174/claude-r1-result.json",
+      "docs/verification/issue-174/claude-r1-start.json",
+      "docs/verification/issue-174/compiler-binding-probe.mjs",
+      "docs/verification/issue-174/criteria.md",
+      "docs/verification/issue-174/interrupted-full-gate.json",
+      "docs/verification/issue-174/qualification.json",
+      "docs/verification/issue-174/qualified-tools.json",
+      "docs/verification/issue-174/qualify.py",
+      "docs/verification/issue-174/r6-overwritten-exit.json",
+      "docs/verification/issue-174/sampling-route.json",
+      "docs/verification/issue-174/sampling_probe.py",
+      "docs/verification/issue-174/verifier-final.json",
+      "docs/verification/issue-174/verify_retained.py",
+      "python/vera_timeline_agent/media_preparation.py",
+      "tests/issue174_media_fixture.py",
+      "tests/test_issue174_media_preparation.py",
+      "tests/test_issue174_real_media.py",
+      "tests/test_issue174_recovery.py",
+      "tests/test_issue174_source_refusals.py"
+    ]
   },
   "claudeAntagonistReview": {
-    "status": "FAIL; substantive fixes implemented, fresh qualification/gates/re-review pending",
-    "cliVersion": "2.1.291",
-    "reviewedCommit": "a640e3f99dd6a68c6565a4404e6abc1b9ccda7d6",
-    "resultHash": "f3358682fb7f1a1b50c8f836c9cc65831ae7b03959b15b34e2d76189e97e1012",
-    "exitCode": 0,
-    "is_error": false,
-    "rawResult": "claude-r1-result.json",
-    "disposition": "claude-r1-disposition.md"
+    "status": "r3 in progress at last inspection; no verdict yet",
+    "cliVersion": "2.1.296 (Claude Code)",
+    "reviewedCommit": "bd1fb70f926802b491be3e75c20c5bc56d3a53fe",
+    "metadata": "claude-r3-start.json",
+    "resultPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/claude-r3/result.json",
+    "exitStatusPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/claude-r3/exit.json",
+    "previousReview": "claude-r2-result.json; FAIL durability ordering, now fixed and bounded-check verified"
   },
   "externalOperatorAcceptance": "pending",
   "issueClosure": "not authorized until all required evidence and External judgment are retained",
-  "qualificationDirectory": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/qualification",
-  "evidenceReuse": "R3 source/tests/qualifier match current; only verifier decoder defaults were corrected and independently passed24cases/98hashes. Fast gate current and passed. Current qualification/proof ledger unchanged. R6 coverage retained as observed; missing original exit prevents full-gate acceptance.",
-  "candidateStatus": "Post-Claude revised candidate; focused/qualification/independent/fast passing. R6 suite completed all coverage but original npm exit receipt overwritten by wrapper relaunch; final qualifying full evidence still required after delta review."
+  "qualificationDirectory": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification",
+  "evidenceReuse": "r7 executable source/tests/helpers/config/lock hashes verified unchanged after qualification-record commit; all six stages have immutable exit-zero receipts. Earlier focused82 matrix retained as historical coverage, not a claim of current full acceptance. No old full pass reused.",
+  "candidateStatus": "Bounded retry passed all six stages; Claude r3 live at last inspection; full evidence and subjective acceptance unresolved",
+  "integrationBaseline": "289cfea0312b5528f7bbbadee1812a09f52b17a8",
+  "recoveryDelta": {
+    "exitCode": 0,
+    "result": "33 passed in 686.35s",
+    "includes": "new picture-only and paired-audio fsync/marker ordering plus corruption refusal regressions",
+    "receipt": "bounded-retry.json"
+  },
+  "cloudSubstitution": {
+    "status": "not established",
+    "reason": "Candidate changes FFmpeg/FFprobe media-processing path; accepted #196 excludes certification of this Mac qualification. No own exact-tree accepted cloud evidence exists. Required full-gate criterion remains unresolved under Producer no-new-blanket-full constraint."
+  }
 }

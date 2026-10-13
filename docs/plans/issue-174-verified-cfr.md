@@ -49,11 +49,11 @@ Forecast after the first probe: 3–6 remaining active hours, medium confidence;
 audio delay handling and atomic recovery are the principal uncertainties.
 Full validation runtime and external operator wait are separate.
 
-Npm clean installation is a known baseline failure already owned by #193:
-the Python-only word-timing workspace lacks its lockfile entry. Install the
-existing dependencies with `npm install --package-lock=false --ignore-scripts
---offline --no-audit --no-fund`; retain the locked-version comparison and keep
-package/lock bytes unchanged. This is a local validation setup, not a repair.
+Initial npm clean installation failed because the Python-only word-timing
+workspace lacked its lockfile entry. Accepted #193 repaired it. The bounded
+retry integrates accepted main `289cfea` (including #193/#196/#191) and passes
+fresh pinned `npm ci --no-audit --no-fund`; the old temporary-install workaround
+is retired. #174 adds no dependency and changes no accepted lock/control bytes.
 
 Reassessment after initial media/recovery/refusal checks: 1–3 active hours,
 medium confidence. Remaining: measured converted-pair sync matrix, retained
@@ -88,3 +88,24 @@ PCM24/48k output sample bounds. The tool identity includes adapter source bytes
 as well as FFmpeg/FFprobe binaries, directly linked libraries and platform.
 AAC sync probes compare only the source samples retained by the exact trim;
 codec ringing removed at the boundary cannot serve as a delivered peak oracle.
+
+## Bounded retry checkpoint
+
+The Producer's latest “resume” continues this same task while preserving the
+instruction against another blanket full suite. The r7 pipeline genuinely
+exited 0 for clean install, 33 affected recovery tests, 24 installed-tool cases,
+independent 98-hash/decoded-media verification, public ledger/reuse and the
+fast gate (355 Python tests plus TypeScript/lint/types/generated checks).
+Source/config/lock hashes match the current Claude candidate `bd1fb70`.
+The remaining technical active-work estimate is 30–90 minutes, medium
+confidence, after Claude returns; findings may change it. Human judgment and
+an unresolved full-gate evidence blocker are separate waits, not that estimate.
+
+Claude r3 is the required delta review of the final durability ordering fix,
+corrupt-artifact refusal and public positive evidence. Do not restart a live
+review or repeat unchanged passing checks. The earlier 581-test full log has
+no recoverable original exit receipt and is not a qualifying pass; changed
+adapter bytes independently invalidate current-source reuse. Accepted #196
+does not certify this Mac media-processing boundary or subjective playback.
+Retain the unmet full criterion rather than inventing an exit or overriding
+the Producer's explicit execution limit. Leave #174 open until all gates pass.
