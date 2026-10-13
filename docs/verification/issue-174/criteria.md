@@ -14,7 +14,7 @@ source is unchanged from tested integrated revision `6365acbe`.
 | Tool/profile/platform/source/output hashes, measured route and public ledger | New adapter/tool identity and canonical proof; actual public prepare_media exact reuse accepted; sampling-route.json retained | Pass |
 | Frozen boundaries and generated-currentness | New issue-owned paths only relative to accepted main289cfea; clean pinned install; fast lint/types/generated/TypeScript and 355 Python tests | Pass for these checks |
 | Required full repository validation | Old 581-test log lacks original exit receipt; source changed afterward. No qualifying current full pass or accepted exact-tree cloud substitute. Producer prohibits a new blanket local full suite. | **Unresolved gate** |
-| Required exact-revision Claude review | r2 FAIL retained; r3 durability/taxonomy/public-positive delta review live at last inspection | Pending result |
+| Required exact-revision Claude review | r2 FAIL retained; r3 technical PASS, no blocking code findings; raw result/exit/hash and exact runtime-input equivalence retained | Technical review pass; acceptance gaps remain |
 | Visible judder/quality and audible artifacts | Exact r7 playback artifacts and operator checklist in README | Pending human judgment |
 
 No original/private media or native Studio project was modified. No acquisition,

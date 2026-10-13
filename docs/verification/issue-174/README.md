@@ -22,9 +22,13 @@ Claude r2 found that media bytes were synced after the completion marker.
 The fix syncs all attempt files and the directory before creating that marker;
 new picture-only and paired-audio tests verify ordering. Corrupt published media
 now produces the required published_conflict refusal while preserving bytes.
-Claude r3 is reviewing that exact delta; metadata/result/exit paths are under
-`out/issue174/claude-r3`. Last inspection found it live, with no verdict yet.
-A CLI exit of 0 alone is not a review PASS.
+Claude r3 returned technical **PASS, with no blocking code findings**, for that
+exact delta. The actual result, exit and hash are retained as
+`claude-r3-result.json` and `claude-r3-exit.json`. Runtime qualification inputs
+match the reviewed tree, and the public-positive source is retained byte for
+byte; see `review-equivalence.json`. The three other issue-owned media test
+modules still need serial checks on the current adapter. This technical PASS
+does not supply missing full evidence or human judgment.
 
 The old full log records 581 passed in 9646.27s, but a restarted wrapper
 replaced its original exit receipt. It is not a qualifying full pass. The
@@ -75,12 +79,13 @@ remaining visible/audible judgment, not a repeat of automated checks.
 
 ## Continuation and scheduling
 
-The latest direct Producer instruction is “resume”. Preserve any live Claude
-r3 rather than restarting it. The coordinator owns expensive-work scheduling;
-this same #174 chat has the slot. A wake checks one receipt/process snapshot,
-then ends if live. No blanket full-suite stage is authorized. Retain a precise
-blocker if the compulsory full criterion cannot be satisfied within that limit.
-Release only after owned processes drain; do not dispatch another issue.
+The latest direct Producer instruction is “resume”. Claude r3 has completed;
+do not repeat it or the unchanged r7 pipeline. The coordinator owns expensive-
+work scheduling. The remaining three media modules are a bounded affected
+check, requiring a clear slot; no blanket full-suite stage is authorized.
+Retain a precise blocker if the compulsory full criterion cannot be satisfied
+within that limit. Release after owned processes drain; do not dispatch another
+issue.
 Root goal remains paused unless the Producer separately resumes it.
 
 Historical execution/queue checkpoints are retained in prior Git revisions.
