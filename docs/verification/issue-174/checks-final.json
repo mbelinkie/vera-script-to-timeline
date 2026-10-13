@@ -1,0 +1,36 @@
+{
+  "exitCode": 0,
+  "results": [
+    {
+      "stage": "focused-affected",
+      "exitCode": 0,
+      "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r2/focused-affected.log"
+    },
+    {
+      "stage": "qualification",
+      "exitCode": 0,
+      "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r2/qualification.log"
+    },
+    {
+      "stage": "sampling-route",
+      "exitCode": 0,
+      "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r2/sampling-route.log"
+    },
+    {
+      "stage": "verify-retained",
+      "exitCode": 0,
+      "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r2/verify-retained.log"
+    },
+    {
+      "stage": "validate-fast",
+      "exitCode": 0,
+      "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r2/validate-fast.log"
+    },
+    {
+      "stage": "validate-full",
+      "exitCode": 0,
+      "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r2/validate-full.log"
+    }
+  ],
+  "finishedAt": 1791779179.905062
+}

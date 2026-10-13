@@ -1,0 +1,19 @@
+{
+  "reviewedCommit": "bd1fb70f926802b491be3e75c20c5bc56d3a53fe",
+  "testedRevision": "6365acbe35f2ac03ac2b9712316ff37a4e646d6b",
+  "postTestChanges": [
+    "docs/verification/issue-174/qualification.json",
+    "docs/verification/issue-174/qualified-tools.json"
+  ],
+  "committedRuntimeQualificationInputs": {
+    "qualification.json": "sha256:af96a93467660871182e3c0767673eb4fe24568f979ac6fe399eb6f26dc7976d",
+    "qualified-tools.json": "sha256:ca5711b3d1dc404a3e100018a5b269f449e52b4d0f2693bf9e8b7531fd4a7c77"
+  },
+  "positiveSourceHash": "sha256:7bc31a5f56bb6867acb230d88e9465d64a81ed315aa44b89b58a14ba13cd186f",
+  "positiveSource": "public-positive-source.txt",
+  "sourceAudit": "Calls actual public prepare_media and _qualified_tools with real MediaTools fingerprint, without monkeypatching or qualification_run bypass; asserts exact reuse and projected authorization. Script itself retained byte-identical to r7 start pin.",
+  "provenance": "Qualification stage creates the two runtime JSON inputs, then verifier/public-positive/fast consume the successful outputs. Canonical proof hash is bound into ledger; actual public positive requires both hashes to agree. Qualification-record commit changes only those two files, without executable inputs.",
+  "fullGate": "not qualified; old exit absent and current source changed",
+  "technicalReviewVerdict": "PASS; no blocking code findings",
+  "reviewHash": "sha256:152a88520464c7d773c6404aadf881bd4f799fc33c23bb9714f0edee97219bde"
+}
