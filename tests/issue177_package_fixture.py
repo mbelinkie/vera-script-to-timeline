@@ -23,6 +23,7 @@ _FIXTURES = {
 _SCENARIOS = {
     "root-child-overlay-return": "root-child-overlay-return",
     "intentional-slate": "visual-only-default-25fps",
+    "verified-reuse": "reuse-nonzero-inpoint",
     "source-audio-quiet": "selected-clip-ntsc",
     "source-audio-full": "selected-clip-ntsc",
     "source-audio-no": "selected-clip-ntsc",
@@ -44,6 +45,67 @@ def _compiler_hash(value: object) -> str:
     from vera_timeline_agent.v2_package import _compiler_hash as compiler_hash
 
     return compiler_hash(value)
+
+
+def _stable_id(label: str) -> str:
+    hex_id = hashlib.sha256(label.encode("utf-8")).hexdigest()[:32]
+    return (
+        f"{hex_id[:8]}-{hex_id[8:12]}-5{hex_id[13:16]}-"
+        f"8{hex_id[17:20]}-{hex_id[20:]}"
+    )
+
+
+def _wire_fraction(value: Fraction) -> Json:
+    return {"numerator": value.numerator, "denominator": value.denominator}
+
+
+def _fraction_from_wire(value: Json) -> Fraction:
+    return Fraction(value["numerator"], value["denominator"])
+
+
+def _ceil_fraction(value: Fraction) -> int:
+    return -(-value.numerator // value.denominator)
+
+
+def _preparation_geometry(binding: Json, occurrence: Json) -> Json:
+    requested = binding["requestedRange"]
+    mapping = binding["timeMapping"]
+    frame_map = occurrence["sourceFrameMap"]
+    origin_frame = frame_map["packageFrameZeroLogicalFrame"]
+    lower_frame = occurrence["logicalSourceBounds"]["startFrame"]
+    upper_frame = occurrence["logicalSourceBounds"]["endFrame"]
+    source_rate = _fraction_from_wire(mapping["sourceRate"])
+    target_rate = _fraction_from_wire(binding["targetRate"])
+    duration = _fraction_from_wire(requested["duration"])
+    pre_handle = _fraction_from_wire(requested["preHandle"])
+    post_handle = _fraction_from_wire(requested["postHandle"])
+    source_offset = Fraction(requested["sourceInFrame"] - origin_frame, 1)
+    start = source_offset / source_rate - pre_handle
+    end = source_offset / source_rate + duration + post_handle
+    first_frame = (start * source_rate).__floor__()
+    exclusive_frame = _ceil_fraction(end * source_rate)
+    count = _ceil_fraction((end - start) * target_rate)
+    if (
+        source_rate <= 0
+        or target_rate <= 0
+        or count < 1
+        or origin_frame + first_frame < lower_frame
+        or origin_frame + exclusive_frame > upper_frame
+    ):
+        raise ValueError("synthetic preparation geometry exceeds its source bounds")
+    return {
+        "packageStart": _wire_fraction(start),
+        "packageEnd": _wire_fraction(end),
+        "requiredExclusiveLogicalFrame": origin_frame + exclusive_frame,
+        "sourceCoverSurplus": _wire_fraction(exclusive_frame / source_rate - end),
+        "terminalQuantization": _wire_fraction(
+            Fraction(count, 1) / target_rate - (end - start)
+        ),
+        "selectedPackageFrames": [
+            ((start + Fraction(index, 1) / target_rate) * source_rate).__floor__()
+            for index in range(count)
+        ],
+    }
 
 
 def _refresh_document_closure(
@@ -98,8 +160,10 @@ def _append_report_event(manifest: Json, report: Json, event: Json) -> None:
     )
 
 
-def _make_child_visual_ready(document: Json, manifest: Json, report: Json) -> None:
-    """Make the frozen cutaway slot a source-backed child visual for packaging."""
+def _make_child_visual_ready(
+    document: Json, dependencies: Json, manifest: Json, report: Json
+) -> None:
+    """Bind a source-backed child visual to its own exact P2 occurrence."""
     child_event = next(
         event
         for event in manifest["events"]
@@ -114,6 +178,16 @@ def _make_child_visual_ready(document: Json, manifest: Json, report: Json) -> No
     root_source = next(
         source for source in manifest["sources"] if source["id"] == root_source_id
     )
+    root_occurrence = next(
+        item
+        for item in dependencies["occurrenceResolutions"]
+        if item["payloadId"] == root_event["provenance"]["payloadId"]
+    )
+    root_binding = next(
+        item
+        for item in manifest["preparationBindings"]
+        if item["requirementKey"] == root_source["preparationRequirementKey"]
+    )
     slot_id = child_event["provenance"]["slotId"]
     block = next(
         block
@@ -123,6 +197,8 @@ def _make_child_visual_ready(document: Json, manifest: Json, report: Json) -> No
     sequence = block["primaryVisualSequence"]
     slot = next(slot for slot in sequence["slots"] if slot["id"] == slot_id)
     payload_id = "00000000-0000-4000-8000-000000000020"
+    requirement_key = "prep:child"
+    pending_source_id = "00000000-0000-4000-8000-000000000099"
     slot["payload"] = {
         "kind": "visual",
         "payloadId": payload_id,
@@ -135,20 +211,62 @@ def _make_child_visual_ready(document: Json, manifest: Json, report: Json) -> No
         "audioPolicy": "mute",
         "framingPolicy": "contain",
     }
-    record = child_event["recordRange"]
+    child_binding = copy.deepcopy(root_binding)
+    child_binding["requirementKey"] = requirement_key
+    child_binding["artifactLocator"] = "prepared/child.mov"
+    child_binding["requestedRange"] = {
+        "sourceInFrame": 0,
+        "duration": {"numerator": 1, "denominator": 1},
+        "preHandle": {"numerator": 0, "denominator": 1},
+        "postHandle": {"numerator": 0, "denominator": 1},
+    }
+    child_binding["verification"]["decodedFrameCount"] = 24
+    child_binding["verification"]["decodedFrameRate"] = copy.deepcopy(
+        child_binding["targetRate"]
+    )
+    child_binding["verification"]["videoTimeBase"] = {
+        "numerator": 1,
+        "denominator": 24,
+    }
+    manifest["preparationBindings"].append(child_binding)
+    dependencies["preparedMedia"].append(copy.deepcopy(child_binding))
+    child_occurrence = copy.deepcopy(root_occurrence)
+    child_occurrence["payloadId"] = payload_id
+    child_occurrence["owner"] = {
+        "kind": "primary_slot",
+        "sequenceId": sequence["id"],
+        "slotId": slot_id,
+    }
+    child_occurrence["occurrenceSourceInFrame"] = 0
+    child_occurrence["selectedSourceRange"] = None
+    child_occurrence["preparedMediaRequirementKey"] = requirement_key
+    dependencies["occurrenceResolutions"].append(child_occurrence)
+    child_source = copy.deepcopy(root_source)
+    child_source.update(
+        {
+            "id": pending_source_id,
+            "preparationRequirementKey": requirement_key,
+            "sourceTimeMapping": copy.deepcopy(child_binding["timeMapping"]),
+        }
+    )
+    manifest["sources"].append(child_source)
+    previous_event_id = child_event["eventId"]
+    child_event["eventId"] = _stable_id(
+        f"event:{document['id']}:{block['id']}:{slot_id}:{payload_id}"
+    )
     child_event["kind"] = "primary_visual"
     child_event.pop("pictureTreatment", None)
     child_event["sourceRange"] = {
         "startFrame": 0,
-        "endFrame": record["endFrame"] - record["startFrame"],
+        "endFrame": 24,
     }
-    child_event["preparationBindingHash"] = root_event["preparationBindingHash"]
-    child_event["sourceTimeMapping"] = copy.deepcopy(root_event["sourceTimeMapping"])
+    child_event["preparationBindingHash"] = _compiler_hash(child_binding)
+    child_event["sourceTimeMapping"] = copy.deepcopy(child_binding["timeMapping"])
     child_event["provenance"].update(
         {
             "payloadId": payload_id,
             "sequenceId": sequence["id"],
-            "sourceId": root_source_id,
+            "sourceId": pending_source_id,
             "originalSourceHash": root_source["originalHash"],
             "deliveredSourceHash": root_source["deliveredHash"],
         }
@@ -156,13 +274,25 @@ def _make_child_visual_ready(document: Json, manifest: Json, report: Json) -> No
     result = next(
         item
         for item in report["eventResults"]
-        if item["eventId"] == child_event["eventId"]
+        if item["eventId"] == previous_event_id
     )
     result.update(
         {
+            "eventId": child_event["eventId"],
             "disposition": "placed",
             "kind": "primary_visual",
-            "sourceId": root_source_id,
+            "message": "Compiled from frozen source bindings.",
+            "sourceId": pending_source_id,
+        }
+    )
+    report["mediaPreparation"]["requirements"].append(
+        {
+            "requirementKey": requirement_key,
+            "status": "prepared",
+            "bindingHash": _compiler_hash(child_binding),
+            "originalHash": child_binding["originalSource"]["contentHash"],
+            "deliveredHash": child_binding["verification"]["deliveredHash"],
+            "diagnosticIds": [],
         }
     )
     report["diagnostics"] = []
@@ -176,6 +306,7 @@ def _make_child_visual_ready(document: Json, manifest: Json, report: Json) -> No
             "placedCount": len(manifest["events"]),
             "placeholderCount": 0,
             "recoveryActionCount": 0,
+            "sourceCount": len(manifest["sources"]),
         }
     )
 
@@ -286,7 +417,7 @@ def make_package_case(
     media_dir.mkdir(parents=True, exist_ok=True)
 
     if scenario == "root-child-overlay-return":
-        _make_child_visual_ready(document, manifest, report)
+        _make_child_visual_ready(document, dependencies, manifest, report)
     if scenario in audio_scenarios:
         _configure_source_audio(document, dependencies, manifest, report, scenario)
 
@@ -376,43 +507,91 @@ def make_package_case(
     for requirement_key, binding in bindings.items():
         source = sources_by_requirement[requirement_key]
         occurrence = occurrences[requirement_key]
-        delivered_bytes = f"synthetic prepared media for {source['id']}\n".encode()
+        verified_reuse = binding["mode"] == "verified_reuse"
+        delivered_bytes = (
+            original_bytes
+            if verified_reuse
+            else f"synthetic prepared media for {source['id']}\n".encode()
+        )
         delivered_hash = _raw_hash(delivered_bytes)
         source_probe = copy.deepcopy(original_probe)
         source_frame_map = copy.deepcopy(binding["timeMapping"]["sourceFrameMap"])
         source_rate = source_frame_map["decodedPackageFrameRate"]
+        source_rate_fraction = _fraction_from_wire(source_rate)
         source_probe["streams"][0]["avg_frame_rate"] = (
             f"{source_rate['numerator']}/{source_rate['denominator']}"
         )
-        source_probe["streams"][0]["time_base"] = (
-            f"{source_rate['denominator']}/{source_rate['numerator']}"
-        )
+        if verified_reuse:
+            source_time_base = Fraction(
+                source_frame_map["packageVideoTimeBase"]["numerator"],
+                source_frame_map["packageVideoTimeBase"]["denominator"],
+            )
+            source_pts_origin = Fraction(
+                source_frame_map["packageVideoPtsOrigin"]["numerator"],
+                source_frame_map["packageVideoPtsOrigin"]["denominator"],
+            )
+            pts_origin = source_pts_origin / source_time_base
+            pts_step = (1 / source_rate_fraction) / source_time_base
+            if pts_origin.denominator != 1 or pts_step.denominator != 1:
+                raise ValueError("verified reuse probe geometry is not integral")
+            source_probe["streams"][0]["time_base"] = (
+                f"{source_time_base.numerator}/{source_time_base.denominator}"
+            )
+        else:
+            source_time_base = Fraction(
+                source_rate["denominator"], source_rate["numerator"]
+            )
+            pts_origin = Fraction(0)
+            pts_step = Fraction(1)
+            source_probe["streams"][0]["time_base"] = (
+                f"{source_time_base.numerator}/{source_time_base.denominator}"
+            )
         source_probe["frames"] = [
-            {"pts": frame, "best_effort_timestamp": frame}
+            {
+                "best_effort_timestamp": int(pts_origin + frame * pts_step),
+                "duration": int(pts_step),
+                "pts": int(pts_origin + frame * pts_step),
+            }
             for frame in range(source_frame_map["decodedPackageFrameCount"])
         ]
         original_probe_hash = identity_hash(source_probe)
         delivered_rate = binding["targetRate"]
         rate_text = f"{delivered_rate['numerator']}/{delivered_rate['denominator']}"
         decoded_count = binding["verification"]["decodedFrameCount"]
-        delivered_probe: Json = {
-            "streams": [
-                {
-                    "codec_type": "video",
-                    "codec_name": "synthetic",
-                    "width": 1920,
-                    "height": 1080,
-                    "avg_frame_rate": rate_text,
-                    "time_base": (
-                        f"{delivered_rate['denominator']}/{delivered_rate['numerator']}"
-                    ),
-                }
-            ],
-            "frames": [
-                {"pts": frame, "best_effort_timestamp": frame}
-                for frame in range(decoded_count)
-            ],
-        }
+        if verified_reuse:
+            delivered_probe = copy.deepcopy(source_probe)
+            delivered_count = source_frame_map["decodedPackageFrameCount"]
+            binding["verification"]["decodedFrameCount"] = delivered_count
+            binding["verification"]["decodedFrameRate"] = copy.deepcopy(source_rate)
+            binding["verification"]["videoTimeBase"] = copy.deepcopy(
+                source_frame_map["packageVideoTimeBase"]
+            )
+        else:
+            delivered_time_base = Fraction(
+                delivered_rate["denominator"], delivered_rate["numerator"]
+            )
+            delivered_probe = {
+                "streams": [
+                    {
+                        "codec_type": "video",
+                        "codec_name": "synthetic",
+                        "width": 1920,
+                        "height": 1080,
+                        "avg_frame_rate": rate_text,
+                        "time_base": (
+                            f"{delivered_time_base.numerator}/{delivered_time_base.denominator}"
+                        ),
+                    }
+                ],
+                "frames": [
+                    {
+                        "best_effort_timestamp": frame,
+                        "duration": 1,
+                        "pts": frame,
+                    }
+                    for frame in range(decoded_count)
+                ],
+            }
         delivered_probe_hash = identity_hash(delivered_probe)
         binding["originalSource"]["contentHash"] = original_hash
         binding["originalSource"]["probeHash"] = original_probe_hash
@@ -457,17 +636,25 @@ def make_package_case(
                 "sampleRate": 44100,
                 "status": "aligned",
             }
-        binding["derivation"].update(
-            {
-                "sourceHash": original_hash,
-                "outputHash": delivered_hash,
-                "profileHash": profile_hash,
-                "toolHash": tool_hash,
-                "commandHash": identity_hash(
-                    [["synthetic-fixture", "prepare", requirement_key]]
-                ),
-            }
-        )
+        if verified_reuse:
+            binding.pop("derivation", None)
+        else:
+            binding["derivation"].update(
+                {
+                    "sourceHash": original_hash,
+                    "outputHash": delivered_hash,
+                    "profileHash": profile_hash,
+                    "toolHash": tool_hash,
+                    "commandHash": identity_hash(
+                        [["synthetic-fixture", "prepare", requirement_key]]
+                    ),
+                }
+            )
+        old_source_id = source["id"]
+        if scenario == "verified-reuse" or requirement_key == "prep:child":
+            source["id"] = _stable_id(
+                f"delivered-source:{source['mediaReferenceId']}:{_compiler_hash(binding)}"
+            )
         source.update(
             {
                 "originalHash": original_hash,
@@ -479,7 +666,8 @@ def make_package_case(
             }
         )
         for event in manifest["events"]:
-            if event["provenance"].get("sourceId") == source["id"]:
+            if event["provenance"].get("sourceId") == old_source_id:
+                event["provenance"]["sourceId"] = source["id"]
                 event["preparationBindingHash"] = _compiler_hash(binding)
                 event["sourceTimeMapping"] = copy.deepcopy(mapping)
                 event["provenance"]["originalSourceHash"] = original_hash
@@ -492,6 +680,9 @@ def make_package_case(
                     }
                     event["audio"]["streamIndex"] = 1
                     event["provenance"]["originalSourceHash"] = audio_hash
+        for result in report["eventResults"]:
+            if result.get("sourceId") == old_source_id:
+                result["sourceId"] = source["id"]
         requirement_result = next(
             item
             for item in report["mediaPreparation"]["requirements"]
@@ -499,6 +690,7 @@ def make_package_case(
         )
         requirement_result.update(
             {
+                "status": "reused" if verified_reuse else "prepared",
                 "bindingHash": _compiler_hash(binding),
                 "originalHash": original_hash,
                 "deliveredHash": delivered_hash,
@@ -507,49 +699,12 @@ def make_package_case(
         dependency_bindings[requirement_key].clear()
         dependency_bindings[requirement_key].update(copy.deepcopy(binding))
 
-        commands = [["synthetic-fixture", "prepare", requirement_key]]
-        source_rate = binding["timeMapping"]["sourceRate"]
-        package_start = binding["timeMapping"]["sourceOrigin"]
-        package_end = {
-            "numerator": (
-                package_start["numerator"]
-                * binding["requestedRange"]["duration"]["denominator"]
-                + binding["requestedRange"]["duration"]["numerator"]
-                * package_start["denominator"]
-            ),
-            "denominator": package_start["denominator"]
-            * binding["requestedRange"]["duration"]["denominator"],
-        }
-        package_start_fraction = Fraction(
-            package_start["numerator"], package_start["denominator"]
+        commands = (
+            []
+            if verified_reuse
+            else [["synthetic-fixture", "prepare", requirement_key]]
         )
-        package_end_fraction = Fraction(
-            package_end["numerator"], package_end["denominator"]
-        )
-        package_end = {
-            "numerator": package_end_fraction.numerator,
-            "denominator": package_end_fraction.denominator,
-        }
-        source_rate_fraction = Fraction(
-            source_rate["numerator"], source_rate["denominator"]
-        )
-        first_source_frame = package_start_fraction * source_rate_fraction
-        last_source_frame = package_end_fraction * source_rate_fraction
-        first_frame = first_source_frame.numerator // first_source_frame.denominator
-        exclusive_frame = -(
-            -last_source_frame.numerator // last_source_frame.denominator
-        )
-        geometry = {
-            "packageStart": {
-                "numerator": package_start_fraction.numerator,
-                "denominator": package_start_fraction.denominator,
-            },
-            "packageEnd": package_end,
-            "requiredExclusiveLogicalFrame": exclusive_frame,
-            "sourceCoverSurplus": {"numerator": 0, "denominator": 1},
-            "terminalQuantization": {"numerator": 0, "denominator": 1},
-            "selectedPackageFrames": list(range(first_frame, exclusive_frame)),
-        }
+        geometry = _preparation_geometry(binding, occurrence)
         audio_record: Json | None = None
         if scenario in audio_scenarios:
             audio_probe = {

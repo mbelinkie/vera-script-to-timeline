@@ -962,8 +962,8 @@ def _native_treatment_supported(
         return True
     kind = picture.get("kind")
     if kind == "slate":
-        # The package preserves authored text, but no verified rendered title card
-        # is bound to the delivered still. Do not silently substitute that still.
+        # The package binds a deterministic slate PNG. Its native placement and
+        # reopened picture treatment still require the external Studio gate.
         return False
     if kind == "still_frame":
         # Resolve currently maps contain only; cover/native need separately

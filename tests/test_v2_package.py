@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
 from typing import Any
@@ -21,10 +22,34 @@ from vera_timeline_agent.v2_package import (
     _delivery_view,
     _InputArtifact,
     _Preparation,
+    _render_slate,
     _source_audio_range,
     _validate_manifest_semantics,
     verify_v2_package,
 )
+from vera_timeline_agent.workflow_package import sha256
+from vera_timeline_agent.workflow_v2 import run_workflow_delivery_v2
+from vera_timeline_agent.workflow_v2_cli import attest_package_v2
+
+
+@dataclass(frozen=True)
+class _ConnectedFacts:
+    edition: str = "studio"
+    scripting_available: bool = True
+    suffix: str = ""
+    version: str = "21.1.1"
+    build: str = "10"
+
+
+class _ReadOnlyPreflightAdapter:
+    def connected_facts(self) -> _ConnectedFacts:
+        return _ConnectedFacts()
+
+    def probe(self, _settings: Any) -> tuple[str, ...]:
+        return ()
+
+    def check_project_name_available(self, _name: str) -> None:
+        return None
 
 
 def test_build_verify_and_exact_retry(tmp_path: Path) -> None:
@@ -34,20 +59,6 @@ def test_build_verify_and_exact_retry(tmp_path: Path) -> None:
 
     assert created.project_root == case.project_root
     assert created.reused is False
-    expected_files = {
-        "Builds/00000000-0000-4000-8000-000000000003/timeline-manifest.json",
-        "Builds/00000000-0000-4000-8000-000000000003/build-report.json",
-        "Builds/00000000-0000-4000-8000-000000000003/script-document.json",
-        "Builds/00000000-0000-4000-8000-000000000003/compiler-dependencies.json",
-        "Builds/00000000-0000-4000-8000-000000000003/delivery-view.json",
-        "Builds/00000000-0000-4000-8000-000000000003/timeline.otio",
-        "Builds/00000000-0000-4000-8000-000000000003/package-verification.json",
-        "Builds/00000000-0000-4000-8000-000000000003/Preparation/receipts/"
-        "a8ba8b26cd56f0f2cbb282a939a4326d1434e4ef74ab84df83599a6ec174cc47/receipt.json",
-        "Builds/00000000-0000-4000-8000-000000000003/Preparation/original/"
-        "876593d6-707a-5bff-8a09-353943515a51.mov",
-        "Media/Resolved/876593d6-707a-5bff-8a09-353943515a51.mov",
-    }
     verification = verify_v2_package(case.project_root)
     assert verification == V2PackageVerification(
         build_id="00000000-0000-4000-8000-000000000003",
@@ -56,11 +67,33 @@ def test_build_verify_and_exact_retry(tmp_path: Path) -> None:
         media_count=1,
     )
     package_root = case.project_root / "Builds" / verification.build_id
+    package_dir = f"Builds/{verification.build_id}"
+    expected_files = {
+        f"{package_dir}/{name}"
+        for name in (
+            "timeline-manifest.json",
+            "build-report.json",
+            "script-document.json",
+            "compiler-dependencies.json",
+            "delivery-view.json",
+            "timeline.otio",
+            "package-verification.json",
+        )
+    }
+    source_id = json.loads(case.manifest_path.read_text())["sources"][0]["id"]
+    expected_files.update(
+        {
+            f"{package_dir}/Preparation/receipts/"
+            "a8ba8b26cd56f0f2cbb282a939a4326d1434e4ef74ab84df83599a6ec174cc47/receipt.json",
+            f"{package_dir}/Preparation/original/{source_id}.mov",
+            f"Media/Resolved/{source_id}.mov",
+        }
+    )
     receipt = json.loads((package_root / "package-verification.json").read_text())
     assert receipt["schemaVersion"] == "v2-package-verification/v1"
     assert receipt["status"] == "ready_to_import"
     assert set(receipt["fileHashes"]) == expected_files - {
-        "Builds/00000000-0000-4000-8000-000000000003/package-verification.json"
+        f"{package_dir}/package-verification.json"
     }
     assert len(receipt["sourceHashes"]) == 1
     assert set(receipt["preparations"]) == {"prep:occurrence-1"}
@@ -69,6 +102,102 @@ def test_build_verify_and_exact_retry(tmp_path: Path) -> None:
 
     assert retried.reused is True
     assert verify_v2_package(case.project_root) == verification
+
+
+@pytest.mark.parametrize(
+    "scenario",
+    [
+        "verified-reuse",
+        "root-child-overlay-return",
+        "source-audio-quiet",
+        "source-audio-full",
+    ],
+)
+def test_public_packages_attest_and_pass_read_only_preflight(
+    tmp_path: Path, scenario: str
+) -> None:
+    case = make_package_case(tmp_path, scenario=scenario)
+    built = case.build()
+    verified = verify_v2_package(case.project_root)
+    attestation = attest_package_v2(
+        case.project_root, tmp_path / "package-attestation.json"
+    )
+
+    result = run_workflow_delivery_v2(
+        object(),
+        attestation,
+        sha256(attestation),
+        adapter_factory=lambda _resolve: _ReadOnlyPreflightAdapter(),
+    )
+
+    assert verified.build_id == built.build_id
+    assert result["status"] == "preflight_passed"
+    if scenario == "verified-reuse":
+        package = case.project_root / "Builds" / built.build_id
+        manifest = json.loads((package / "timeline-manifest.json").read_text())
+        report = json.loads((package / "build-report.json").read_text())
+        assert manifest["preparationBindings"][0]["mode"] == "verified_reuse"
+        assert report["mediaPreparation"]["requirements"][0]["status"] == "reused"
+    if scenario == "root-child-overlay-return":
+        package = case.project_root / "Builds" / built.build_id
+        manifest = json.loads((package / "timeline-manifest.json").read_text())
+        view = json.loads((package / "delivery-view.json").read_text())
+        child = next(
+            event
+            for event in view["events"]
+            if event["v2Event"]["provenance"]["payloadId"]
+            == "00000000-0000-4000-8000-000000000020"
+        )
+        assert manifest["composition"]["returns"]
+        assert child["trackKind"] == "video"
+    if scenario.startswith("source-audio-"):
+        package = case.project_root / "Builds" / built.build_id
+        view = json.loads((package / "delivery-view.json").read_text())
+        assert any(event["kind"] == "source_audio" for event in view["events"])
+
+
+def test_derived_preparation_cannot_claim_reuse_status(tmp_path: Path) -> None:
+    case = make_package_case(tmp_path)
+    report = json.loads(case.report_path.read_text())
+    report["mediaPreparation"]["requirements"][0]["status"] = "reused"
+    case.report_path.write_bytes(canonical_json_bytes(report))
+
+    with pytest.raises(V2PackageError, match="build report preparation result differs"):
+        case.build()
+
+
+def test_child_role_lists_may_be_unsorted_when_track_layers_are_valid(
+    tmp_path: Path,
+) -> None:
+    case = make_package_case(tmp_path, scenario="root-child-overlay-return")
+    document = json.loads(case.document_path.read_text())
+    dependencies = json.loads(case.dependencies_path.read_text())
+    manifest = json.loads(case.manifest_path.read_text())
+    child_ids = dependencies["roles"]["childTrackIds"]
+    existing = next(
+        track for track in dependencies["tracks"] if track["id"] == child_ids[0]
+    )
+    second_id = "video-child-second"
+    second_index = existing["index"] + 1
+    for track in dependencies["tracks"]:
+        if track["kind"] == "video" and track["index"] >= second_index:
+            track["index"] += 1
+    dependencies["tracks"].append(
+        {"id": second_id, "kind": "video", "index": second_index, "name": "Child 2"}
+    )
+    dependencies["roles"]["childTrackIds"] = [second_id, child_ids[0]]
+    manifest["tracks"] = copy.deepcopy(dependencies["tracks"])
+    manifest["roles"] = copy.deepcopy(dependencies["roles"])
+    manifest["composition"]["childTrackIds"] = list(
+        dependencies["roles"]["childTrackIds"]
+    )
+
+    _validate_manifest_semantics(document, dependencies, manifest)
+
+
+def test_unsupported_slate_dimensions_use_package_error() -> None:
+    with pytest.raises(V2PackageError, match="placeholder slate cannot be rendered"):
+        _render_slate("oversized", 16_385, 1_080)
 
 
 def test_build_requires_explicit_media_bytes_to_match_the_manifest(

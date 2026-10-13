@@ -81,6 +81,13 @@ def _error(message: str) -> V2PackageError:
     return V2PackageError(message)
 
 
+def _render_slate(text: str, width: int, height: int) -> bytes:
+    try:
+        return render_placeholder_slate(text, width, height)
+    except (OverflowError, TypeError, ValueError) as error:
+        raise _error(f"placeholder slate cannot be rendered: {error}") from error
+
+
 def _hash_bytes(data: bytes) -> str:
     return _HASH_PREFIX + hashlib.sha256(data).hexdigest()
 
@@ -645,9 +652,7 @@ def _validate_manifest_semantics(
         for track_id in (root_id, *child_ids, *overlay_ids)
     }
     if (
-        child_ids != sorted(child_ids, key=role_indices.__getitem__)
-        or overlay_ids != sorted(overlay_ids, key=role_indices.__getitem__)
-        or (
+        (
             child_ids
             and role_indices[root_id] >= min(role_indices[item] for item in child_ids)
         )
@@ -662,10 +667,7 @@ def _validate_manifest_semantics(
             >= min(role_indices[item] for item in overlay_ids)
         )
     ):
-        raise _error(
-            "primary root, child, and overlay tracks are not in ascending "
-            "composition order"
-        )
+        raise _error("primary root, child, and overlay tracks are not layered by index")
 
     events = _unique_by_id(manifest.get("events"), "event", "eventId")
     sources = _unique_by_id(manifest.get("sources"), "source")
@@ -1023,8 +1025,11 @@ def _validate_report_semantics(
         item = requirements[key]
         original = cast(JsonObject, binding["originalSource"])
         verification = cast(JsonObject, binding["verification"])
+        expected_status = (
+            "reused" if binding.get("mode") == "verified_reuse" else "prepared"
+        )
         if (
-            item.get("status") != "prepared"
+            item.get("status") != expected_status
             or item.get("bindingHash") != _compiler_hash(binding)
             or item.get("originalHash") != original.get("contentHash")
             or item.get("deliveredHash") != verification.get("deliveredHash")
@@ -1456,7 +1461,7 @@ def _media_artifacts(
             treatment = cast(JsonObject, event["pictureTreatment"])
             if treatment["kind"] == "slate":
                 timeline = cast(JsonObject, manifest["timeline"])
-                generated = render_placeholder_slate(
+                generated = _render_slate(
                     cast(str, treatment["text"]),
                     _safe_frame(timeline.get("width"), "timeline width", positive=True),
                     _safe_frame(
@@ -1942,7 +1947,7 @@ def _validate_delivery_view(
             if treatment["kind"] == "slate":
                 timeline = cast(JsonObject, manifest["timeline"])
                 content_hash = _hash_bytes(
-                    render_placeholder_slate(
+                    _render_slate(
                         cast(str, treatment["text"]),
                         _safe_frame(
                             timeline.get("width"), "timeline width", positive=True

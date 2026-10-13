@@ -12,6 +12,14 @@ bytes and identities in a new immutable package; it does not reinterpret them
 as v1. `verify_v2_package` independently verifies the package and OTIO readback.
 The accepted v1 APIs and their imports remain separate and unchanged.
 
+The saved document must use the accepted #189/#144 canonical-revision content
+hash convention (compiler canonical JSON with only root `liveContentHash`
+removed). Pure, unacknowledged authoring edits and the synthetic #173 sentinel
+hash inputs are not eligible saved snapshots. This adapter does not qualify an
+application snapshot writer; #157/#160 retain that integration boundary.
+Temporary presenter stills with diagnostics, recovery or manual completion also
+remain ineligible even when a report's status envelope says ready.
+
 The package includes `Builds/<buildId>/delivery-view.json`, version
 `resolve-native-view/v2`. This view projects ranges into the accepted native
 placement interface while retaining each complete v2 event, source mapping,
