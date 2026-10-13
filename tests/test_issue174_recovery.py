@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import threading
 from dataclasses import replace
 from fractions import Fraction
@@ -110,6 +111,83 @@ def test_interruption_reconciliation(
     assert again.reused
     assert recovered.binding == again.binding
     assert file_hash(recovered.video_path) == file_hash(again.video_path)
+
+
+@pytest.mark.parametrize("with_audio", [False, True])
+def test_completion_marker_follows_media_and_directory_sync(
+    source_case: tuple[Path, dict[str, Any], PreparationAuthorization],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    with_audio: bool,
+) -> None:
+    source, descriptor, authorization = source_case
+    if with_audio:
+        fixture = generate_synthetic_media(
+            tmp_path / "paired", extension=".mov", frame_count=60, mux_audio="pcm_s24le"
+        )
+        assert fixture.muxed_path is not None
+        source = fixture.muxed_path
+        inspection = inspect_media(
+            source, video_stream_index=0, audio_stream_index=1, tools=MediaTools()
+        )
+        descriptor = issue174_descriptor(inspection, rate=Fraction(25), audio=True)
+        authorization = replace(authorization, read_roots=(source.parent,))
+    real_sync, real_rename = os.fsync, os.rename
+    synced: list[tuple[int, int]] = []
+    marker_checked: list[bool] = []
+
+    def identity(path: Path) -> tuple[int, int]:
+        info = path.stat()
+        return info.st_dev, info.st_ino
+
+    def sync(fd: int) -> None:
+        info = os.fstat(fd)
+        synced.append((info.st_dev, info.st_ino))
+        real_sync(fd)
+
+    def rename(src: Any, dst: Any, **kwargs: Any) -> None:
+        target = Path(dst)
+        if target.name == "receipt-checksum.json":
+            folder = target.parent
+            files = [
+                p for p in folder.iterdir() if p.name != "receipt-checksum.pending.json"
+            ]
+            positions = [
+                max(i for i, key in enumerate(synced) if key == identity(p))
+                for p in files
+            ]
+            directory_sync = max(
+                i for i, key in enumerate(synced) if key == identity(folder)
+            )
+            assert directory_sync > max(positions)
+            assert identity(Path(src)) in synced
+            assert "picture.mp4" in {p.name for p in files}
+            assert ("audio.wav" in {p.name for p in files}) == with_audio
+            marker_checked.append(True)
+        real_rename(src, dst, **kwargs)
+
+    monkeypatch.setattr(os, "fsync", sync)
+    monkeypatch.setattr(os, "rename", rename)
+    result = _prepare_media(
+        source,
+        cast(Any, descriptor),
+        cast(
+            Any,
+            {
+                "sourceInFrame": 3010,
+                "duration": wire(Fraction(1)),
+                "preHandle": wire(Fraction(0)),
+                "postHandle": wire(Fraction(0)),
+            },
+        ),
+        cast(Any, wire(Fraction(24000, 1001))),
+        authorization=authorization,
+        video_stream_index=0,
+        audio_stream_index=1 if with_audio else None,
+        qualification_run=True,
+    )
+    assert marker_checked == [True]
+    assert result.receipt_path.exists()
 
 
 def test_cancel_before_promotion_and_retry(
@@ -343,7 +421,7 @@ def test_corruption_preserved_and_refused(
     result = prepare_case(source_case)
     damaged = result.receipt_path.parent / filename
     damaged.write_bytes(b"corrupt artifact")
-    with pytest.raises(MediaPreparationError):
+    with pytest.raises(MediaPreparationError, match="published_conflict"):
         prepare_case(source_case)
     assert damaged.read_bytes() == b"corrupt artifact"
     assert len(list((source_case[2].write_root / "published").iterdir())) == 1

@@ -1198,6 +1198,10 @@ def _prepare_media(
             },
         }
         _write_record(attempt / "receipt.json", record)
+        for path in attempt.iterdir():
+            with path.open("rb") as stream:
+                os.fsync(stream.fileno())
+        _fsync_directory(attempt)
         _write_record(
             attempt / "receipt-checksum.pending.json",
             {"receiptHash": file_hash(attempt / "receipt.json")},
@@ -1205,10 +1209,6 @@ def _prepare_media(
         os.rename(
             attempt / "receipt-checksum.pending.json", attempt / "receipt-checksum.json"
         )
-        _fsync_directory(attempt)
-        for path in attempt.iterdir():
-            with path.open("rb") as stream:
-                os.fsync(stream.fileno())
         _fsync_directory(attempt)
         if checkpoint:
             checkpoint("verified", attempt)
@@ -1425,6 +1425,13 @@ def _reuse(
             },
         )
         return PreparedMedia(projected, receipt_path, video_path, audio_path, reused)
+    except MediaPreparationError as error:
+        if error.code in {"cancelled", "tool_timeout"}:
+            raise
+        raise MediaPreparationError(
+            "published_conflict",
+            "preserve artifact; audited quarantine/repair required",
+        ) from error
     except (OSError, KeyError, ValueError, TypeError) as error:
         raise MediaPreparationError(
             "published_conflict",

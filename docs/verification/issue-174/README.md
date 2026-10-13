@@ -180,6 +180,27 @@ delta review, then only the remaining final full evidence with a one-shot
 runner and immutable first terminal receipt. Preserve focused82/qualification24/
 verifier98/fast323 results. No blind repeats or unrelated performance work.
 
+Current continuation: revised candidate commit
+`01309fc60be899702a830fec43ff068ca74adf51`. Required adversarial Claude delta
+review runs in one-shot job `com.vera.issue174.claude-r2`, KeepAlive=false;
+startup verified OnDemand=true, supervisor67743/child67746. Workspace-retained
+runner/plist/prompt/revision are under `out/issue174/claude-r2`; `start.json`
+pins commit/command/prompt hash, `process.json` pins child, `result.json` and
+`stderr.log` retain output, `command-exit.txt` and `exit.json` retain first
+terminal exit without overwrite. A claim file prevents accidental duplicate
+execution. Check once per coordinator wake; if still running end immediately.
+After result inspection, fix/re-review substantive findings; then obtain the
+remaining required full command exit evidence with the same one-shot pattern.
+No subjective acceptance, merge or coordinator slot release occurred yet.
+
+Producer steering: “I really don't want to launch another 2 hour check.”
+Do not launch another full suite. Preserve the completed 581-test log and all
+passing focused/qualification/fast evidence. Finish the already-running Claude
+delta review, then retain the exact lost terminal-receipt provenance gap in
+the handoff and use only bounded checks to resolve what can actually be proved.
+This supersedes the preceding instruction to recover full evidence by another
+suite run; it does not authorize fabricating an exit code or subjective result.
+
 Producer authority update: the coordinator owns progression through the named
 Sweden R16 sequence #109/#174/#191, then #177/#190/#192/#178/#145 in dependency
 order. Objective Automated/External criteria may close on actual retained
@@ -316,3 +337,14 @@ ctx-wire run rtk uv run --frozen python docs/verification/issue-174/qualify.py -
    For failure, name the case, playback time, observed artifact and player.
    Required Claude review and passing repository gates must also be retained
    before closure or merge. Keep #174 open while any gate is missing.
+
+## Bounded retry after the Producer pause
+
+The Producer's “try again” resumes this existing task. The coordinator granted
+the local validation slot after #109's explicit drained release. No new blanket
+full suite is authorized. The pending durability fix and published-corruption
+refusal remain unverified until fresh affected checks and Claude delta review
+pass. The previous 581-test log has no recoverable original exit receipt and is
+not a qualifying full pass. Integrate accepted main's #193 install repair and
+#196 policy before the retry; retain actual media-tool qualification and the
+unperformed human playback judgment separately.
