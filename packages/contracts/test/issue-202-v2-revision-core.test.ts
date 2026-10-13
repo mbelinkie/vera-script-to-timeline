@@ -148,6 +148,8 @@ describe("#202 pure explicit commands (synthetic, no native/provider authenticat
     expect(baseline.ok && baseline.report.status).toBe("ready");
     const proposal = createRevisionProposalV2(input.document, input.dependencies, { commands: commands(), preparedMedia: patches(input).slice(1), handoff: null });
     expect(proposal.manifest.timeline.durationFrames).toBe(1082);
+    expect(proposal.dependencies.timeline).toEqual(proposal.manifest.timeline);
+    expect(proposal.report.timeline).toEqual(proposal.dependencies.timeline);
     const events = proposal.manifest.events;
     expect(events.find((e) => e.provenance.slotId === id(23))!.recordRange).toEqual({ startFrame: 569, endFrame: 592 });
     for (const kind of ["primary_visual", "source_audio"]) {
@@ -163,6 +165,9 @@ describe("#202 pure explicit commands (synthetic, no native/provider authenticat
     const proposal = createRevisionProposalV2(input.document, input.dependencies, { commands: command, preparedMedia, handoff });
     const delta = d1 - 200;
     expect(proposal.manifest.timeline.durationFrames).toBe(1082 + delta);
+    expect(proposal.dependencies.timeline).toEqual(proposal.manifest.timeline);
+    expect(proposal.report.timeline).toEqual(proposal.dependencies.timeline);
+    expect(proposal.report.dependenciesHash).toBe(sha256CanonicalJson(proposal.dependencies));
     expect(proposal.manifest.events.find((e) => e.kind === "narration" && e.provenance.blockId === id(20))!.recordRange.startFrame).toBe(311 + delta);
     expect(proposal.manifest.events.find((e) => e.provenance.slotId === id(23))!.recordRange).toEqual({ startFrame: 569 + delta, endFrame: 592 + delta });
     expect(proposal.manifest.events.find((e) => e.kind === "primary_visual" && e.provenance.blockId === id(50))!.recordRange).toEqual({ startFrame: 952 + delta, endFrame: 1019 + delta });

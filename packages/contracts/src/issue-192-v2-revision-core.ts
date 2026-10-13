@@ -187,8 +187,13 @@ export function createRevisionProposalV2(input: ScriptDocumentV2, prior: Compile
     fact(request.handoff === null, "unexpected whole-row handoff");
     bindRevision(stage.document, dependencies, request);
   }
+  const preview = ready(stage.document, dependencies);
+  // Package inputs require one frozen timeline across dependencies, manifest and report.
+  dependencies.timeline = structuredClone(preview.manifest.timeline);
   const compiled = ready(stage.document, dependencies);
   const repeated = ready(stage.document, dependencies);
+  fact(equal(compiled.manifest.timeline, dependencies.timeline) && equal(compiled.report.timeline, dependencies.timeline) &&
+    compiled.report.dependenciesHash === sha256CanonicalJson(dependencies), "package timeline/dependency identity differs");
   fact(compiled.manifestJson === repeated.manifestJson && compiled.reportJson === repeated.reportJson, "nondeterministic revision");
   fact(dependencies.build.buildId !== prior.build.buildId && dependencies.build.manifestId !== prior.build.manifestId &&
     dependencies.build.reportId !== prior.build.reportId, "fresh build identities required");
