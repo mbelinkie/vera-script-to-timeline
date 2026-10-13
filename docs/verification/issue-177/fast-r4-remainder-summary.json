@@ -1,0 +1,24 @@
+{
+  "testedCommit": "25c8ad7a7c4353ce931b1af61734f8c03639afca",
+  "result": "PASS",
+  "exit": {
+    "exitCode": 0,
+    "finishedAt": "2026-10-13T12:04:21.311088+00:00",
+    "logSha256": "235f175510128d67a290689abb9ec525fdea7d917e1b4240177eb5f976e83810",
+    "sourceUnchanged": true,
+    "startedAt": "2026-10-13T12:01:56.307180+00:00"
+  },
+  "commands": [
+    "npm run lint:python",
+    "npm run typecheck:python",
+    "npm run test:python:fast"
+  ],
+  "pythonFastTests": 465,
+  "pythonWorkers": 2,
+  "skips": 0,
+  "ruffFormattedFiles": 449,
+  "mypyFiles": 136,
+  "combinedIterationEvidence": "FAST-R4 unchanged TypeScript/generator passing stages plus this fresh repaired-source Python remainder cover the iteration fast gate. Original FAST-R4 remains FAIL; no final full pass claimed.",
+  "postTestDifference": "Only owned helper line wrapping, with equal Python AST; retained exact diff and hashes in fast-r4-disposition.json. No TypeScript/generator source, tests, config, fixtures, locks or inputs changed.",
+  "requiredNext": "Claude delta GO, then complete local full validation on final reviewed source."
+}
