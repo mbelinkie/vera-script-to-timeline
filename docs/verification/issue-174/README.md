@@ -41,6 +41,10 @@ The Producer prohibited another blanket local full suite. No new full suite
 was launched. Accepted #196 cloud qualification does not certify Mac media
 processing or human judgment; no own accepted exact-tree cloud evidence exists.
 The required full-gate criterion remains explicitly unresolved.
+The coordinator's [proposed ticket-specific route](proposed-acceptance-route.md)
+combines exact-tree full cloud regression evidence with the retained Mac media
+checks and actual human judgment. It requires new explicit Producer approval;
+it is not an exception already supplied by #196.
 
 The source/tools are qualified only by the retained measured cases, not every
 possible cross-product of codec/container/rate/channel combinations. Other
