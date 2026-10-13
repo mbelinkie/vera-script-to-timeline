@@ -19,9 +19,13 @@
   },
   "qualificationRecordHash": "sha256:af96a93467660871182e3c0767673eb4fe24568f979ac6fe399eb6f26dc7976d",
   "finalFocusedMatrix": {
-    "result": "82 passed in569.58s",
-    "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r3/focused-revised.log",
-    "logHash": "sha256:0d704c2004669f6c00a11971c144b1c759cffc6656eacc64b5cd1475a067d575"
+    "status": "All84current-source issue-ownedtests passing across r7/r8; not a global full pass",
+    "recovery": "33 passed in 686.35s",
+    "otherModules": "51 passed in 1117.81s",
+    "receipts": [
+      "bounded-retry.json",
+      "affected-media.json"
+    ]
   },
   "validateFast": {
     "exitCode": 0,
@@ -46,7 +50,8 @@
     "logHash": "sha256:b65d5982e8cef8c2277afad8a862275e28f16c2d702aef4ebc9cec027a5c0474",
     "overwrittenWrapperExit": "r6-overwritten-exit.json",
     "reason": "launchctl submit job relaunched every10seconds after first completion; later attempts failed exclusively at existing log open, never reran validation, and replaced original receipt",
-    "ownedJobRetired": true
+    "ownedJobRetired": true,
+    "currentSourceReuse": "Invalid: changed adapter; old original exit missing. No new blanket local full suite authorized or launched."
   },
   "frozenBoundaryAudit": {
     "baseline": "289cfea0312b5528f7bbbadee1812a09f52b17a8",
@@ -90,13 +95,13 @@
     "rawResult": "claude-r3-result.json",
     "resultHash": "sha256:152a88520464c7d773c6404aadf881bd4f799fc33c23bb9714f0edee97219bde",
     "equivalence": "review-equivalence.json",
-    "remainingAffectedChecks": "Three other issue174 modules pending serial current-source check; recovery33 already pass"
+    "remainingAffectedChecks": "Complete:51 additional tests passed; all84issue-ownedtests current-source passing"
   },
   "externalOperatorAcceptance": "pending",
   "issueClosure": "not authorized until all required evidence and External judgment are retained",
   "qualificationDirectory": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification",
   "evidenceReuse": "r7 executable source/tests/helpers/config/lock hashes verified unchanged after qualification-record commit; all six stages have immutable exit-zero receipts. Earlier focused82 matrix retained as historical coverage, not a claim of current full acceptance. No old full pass reused.",
-  "candidateStatus": "Technical review PASS; bounded evidence passing; remaining affected slow modules, full criterion and human judgment unresolved",
+  "candidateStatus": "Technical review PASS; all84issue-ownedtests, qualification, publicpositive, fast and boundary checks pass; full criterion and human quality judgment unresolved",
   "integrationBaseline": "289cfea0312b5528f7bbbadee1812a09f52b17a8",
   "recoveryDelta": {
     "exitCode": 0,

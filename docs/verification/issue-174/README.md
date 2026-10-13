@@ -17,6 +17,10 @@ TypeScript, lint, types and generated-currentness). Measured maximum sync
 residual is 0.782596ms and drift is 0.041667ms. Both are within the 1ms gate.
 The public runtime accepted tool hash
 `sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320`.
+The remaining three issue-owned modules then passed 51 tests serially in
+1117.81s. All 84 issue-owned tests now pass on unchanged reviewed source;
+`affected-media.json` retains the exact revision, input hashes, command, exit
+and log digest. This is complete focused coverage, not a global full pass.
 
 Claude r2 found that media bytes were synced after the completion marker.
 The fix syncs all attempt files and the directory before creating that marker;
@@ -27,7 +31,7 @@ exact delta. The actual result, exit and hash are retained as
 `claude-r3-result.json` and `claude-r3-exit.json`. Runtime qualification inputs
 match the reviewed tree, and the public-positive source is retained byte for
 byte; see `review-equivalence.json`. The three other issue-owned media test
-modules still need serial checks on the current adapter. This technical PASS
+modules have now passed their serial checks. This technical PASS
 does not supply missing full evidence or human judgment.
 
 The old full log records 581 passed in 9646.27s, but a restarted wrapper
@@ -79,10 +83,10 @@ remaining visible/audible judgment, not a repeat of automated checks.
 
 ## Continuation and scheduling
 
-The latest direct Producer instruction is “resume”. Claude r3 has completed;
-do not repeat it or the unchanged r7 pipeline. The coordinator owns expensive-
-work scheduling. The remaining three media modules are a bounded affected
-check, requiring a clear slot; no blanket full-suite stage is authorized.
+The latest direct Producer instruction is “resume”. Claude r3 and r8 have
+completed; do not repeat them or the unchanged r7 pipeline. The coordinator
+owns expensive-work scheduling. All four issue-owned modules have fresh passing
+coverage; no blanket full-suite stage is authorized.
 Retain a precise blocker if the compulsory full criterion cannot be satisfied
 within that limit. Release after owned processes drain; do not dispatch another
 issue.

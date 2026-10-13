@@ -19,8 +19,9 @@ Acceptance is separate and remains open.
 - Stale handoff claims: corrected. Retained fast log includes actual generated,
   ESLint, TypeScript, Vitest (429 contracts plus tooling), Python lint/type and
   355 Python results; all phases completed under the exit-zero fast command.
-- Remaining three issue174 modules require serial affected checks on current
-  source. This is bounded verification, not a blanket full suite.
+- Remaining three issue174 modules subsequently passed 51 serial checks on
+  current source; with the 33 recovery tests this is all84issue-ownedtests.
+  See affected-media.json. No blanket full suite was run.
 - Full evidence: unresolved. The old exit is absent and changed source prevents
   reuse. No review or cloud-green assertion waives the actual criterion.
 - Visible/audible judgment: pending; exact operator steps remain in README.
