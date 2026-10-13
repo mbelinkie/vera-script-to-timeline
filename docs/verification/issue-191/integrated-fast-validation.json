@@ -1,0 +1,26 @@
+{
+  "phase": "integrated-fast",
+  "worktree": "<worktree-3760>",
+  "sourceCommit": "2d9709d93a5300fad881a4c66283e3d05c20ab4c",
+  "command": [
+    "npm",
+    "run",
+    "validate:fast"
+  ],
+  "environment": {
+    "PATH": "<user-home>/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/usr/local/bin:/usr/bin:/bin:<user-home>/.local/bin",
+    "VITEST_MAX_WORKERS": "1",
+    "PYTEST_ADDOPTS": "--durations=25"
+  },
+  "launcherPid": 94072,
+  "startedAt": "2026-10-12T22:48:24.541384+00:00",
+  "logPath": "<worktree-3760>/test-results/issue-191/integrated-fast/command.log",
+  "statusPath": "<worktree-3760>/test-results/issue-191/integrated-fast/status.json",
+  "state": "passed",
+  "commandPid": 94080,
+  "exitCode": 0,
+  "sourceStillCurrent": true,
+  "elapsedSeconds": 142.92481897599646,
+  "finishedAt": "2026-10-12T22:50:47.466739+00:00",
+  "logSHA256": "c22ae05e65928a60327f2367e20527b88d8cda2a2cab8aca5fcbbe256f0fb622"
+}
