@@ -1,0 +1,288 @@
+{
+  "status": "fail",
+  "profileDigest": "f5ad94c027a4521c03aa1e2269ecfca6b28876c9fc8d34950c9f4c9c78a0894a",
+  "failures": [
+    {
+      "code": "malformed-profile",
+      "detail": "inventory.vitest must be a nonempty list of unique IDs"
+    }
+  ],
+  "limitations": [],
+  "acceptedDispositions": [],
+  "suspendedScopes": [
+    "all"
+  ],
+  "manifest": {
+    "source": "artifact vera-validation-evidence-attempt-1",
+    "sha256": "70bdb2ae2ebcb5702cfdd93bba545ebf740c12298930988bd5009f3e6916954e"
+  },
+  "run": {
+    "url": "https://github.com/mbelinkie/vera-script-to-timeline/actions/runs/38291149935",
+    "id": 38291149935,
+    "attempt": 1,
+    "event": "push"
+  },
+  "testedTree": "7c5ea7bcf3508ca93b5fd673cc547d9a527ebb71",
+  "testedCommit": "ea5db6c20f83c5e95b97477cf5ec9cc4b8493827",
+  "testedBase": "712ee154b1dc5addb8fe54bbc9c7f8b92d684a0e",
+  "history": [
+    {
+      "runId": 38291149935,
+      "attempt": 1,
+      "headSha": "ea5db6c20f83c5e95b97477cf5ec9cc4b8493827",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38291234081,
+      "attempt": 1,
+      "headSha": "ea5db6c20f83c5e95b97477cf5ec9cc4b8493827",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "steps": [
+    {
+      "name": "Set up job",
+      "conclusion": "success",
+      "seconds": 2
+    },
+    {
+      "name": "Check out repository",
+      "conclusion": "success",
+      "seconds": 8
+    },
+    {
+      "name": "Set up Node.js",
+      "conclusion": "success",
+      "seconds": 6
+    },
+    {
+      "name": "Pin npm",
+      "conclusion": "success",
+      "seconds": 4
+    },
+    {
+      "name": "Install TypeScript dependencies",
+      "conclusion": "success",
+      "seconds": 3
+    },
+    {
+      "name": "Set up uv and Python",
+      "conclusion": "success",
+      "seconds": 3
+    },
+    {
+      "name": "Install Python dependencies",
+      "conclusion": "success",
+      "seconds": 3
+    },
+    {
+      "name": "Install FFmpeg",
+      "conclusion": "success",
+      "seconds": 25
+    },
+    {
+      "name": "Preflight required media tools",
+      "conclusion": "success",
+      "seconds": 1
+    },
+    {
+      "name": "Run repository validation",
+      "conclusion": "success",
+      "seconds": 2322
+    },
+    {
+      "name": "Verify lockfiles remain unchanged",
+      "conclusion": "success",
+      "seconds": 0
+    },
+    {
+      "name": "Collect validation evidence",
+      "conclusion": "success",
+      "seconds": 7
+    },
+    {
+      "name": "Upload validation evidence",
+      "conclusion": "success",
+      "seconds": 1
+    },
+    {
+      "name": "Post Set up uv and Python",
+      "conclusion": "success",
+      "seconds": 4
+    },
+    {
+      "name": "Post Set up Node.js",
+      "conclusion": "success",
+      "seconds": 2
+    },
+    {
+      "name": "Post Check out repository",
+      "conclusion": "success",
+      "seconds": 0
+    },
+    {
+      "name": "Complete job",
+      "conclusion": "success",
+      "seconds": 0
+    }
+  ],
+  "pytest": {
+    "total": 499,
+    "passed": 499,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "pytestSlowest": [
+    {
+      "id": "tests.test_issue144_wi_flow.test_actual_cli_file_wi_composition_generation_and_replay",
+      "seconds": 224.036
+    },
+    {
+      "id": "tests.test_issue144_composition.test_three_edits_one_revision_full_row_audio_fresh_target_and_replay",
+      "seconds": 151.596
+    },
+    {
+      "id": "tests.test_issue144_omission_generation.test_accepted_omission_replaces_whole_row_retimes_and_promotes_fresh_target",
+      "seconds": 116.623
+    },
+    {
+      "id": "tests.test_issue144_composition.test_composed_rejection_forged_geometry_and_stale_choice_have_no_effects",
+      "seconds": 96.08
+    },
+    {
+      "id": "tests.test_issue144_omission_generation.test_pending_native_resume_and_pointer_publication_recovery_use_same_target",
+      "seconds": 94.062
+    },
+    {
+      "id": "tests.test_issue144_omission_generation.test_retained_generation_and_actual_cache_cannot_be_replaced_by_status_claims",
+      "seconds": 92.658
+    },
+    {
+      "id": "tests.test_issue144_omission_generation.test_interrupted_handoff_binds_service_before_resume_and_reuses_actual_cache",
+      "seconds": 57.059
+    },
+    {
+      "id": "tests.test_issue144_generation_recovery.test_uncertain_request_is_shared_across_byte_different_decisions",
+      "seconds": 56.189
+    },
+    {
+      "id": "tests.test_issue144_generation_recovery.test_validator_fault_before_service_call_can_resume_without_second_synthesis",
+      "seconds": 51.057
+    },
+    {
+      "id": "tests.test_issue144_generation_recovery.test_normalization_failure_resumes_from_synthesis_cache",
+      "seconds": 49.91
+    },
+    {
+      "id": "tests.test_issue144_omission_generation.test_missing_service_and_stale_split_refuse_before_new_provider_or_native",
+      "seconds": 48.149
+    },
+    {
+      "id": "tests.test_issue144_omission_generation.test_rejected_omission_cannot_request_generation_or_rebuild",
+      "seconds": 45.69
+    },
+    {
+      "id": "tests.test_issue144_proof_session.test_interruption_after_pointer_publish_finishes_same_promotion",
+      "seconds": 43.531
+    },
+    {
+      "id": "tests.test_issue144_omission_generation.test_generation_binding_link_alias_refuses_before_provider",
+      "seconds": 40.352
+    },
+    {
+      "id": "tests.test_issue144_proof_session.test_file_session_runs_actual_visual_roundtrip_and_promotes_only_after_verify",
+      "seconds": 40.161
+    },
+    {
+      "id": "tests.test_issue144_omission_decisions.test_retained_omission_choice_rederives_report_and_prepared_artifacts[receipt]",
+      "seconds": 39.935
+    },
+    {
+      "id": "tests.test_issue144_omission_decisions.test_explicit_omission_choice_prepares_only_accepted_canonical_revision[accept]",
+      "seconds": 39.914
+    },
+    {
+      "id": "tests.test_issue144_omission_decisions.test_explicit_omission_choice_prepares_only_accepted_canonical_revision[reject]",
+      "seconds": 39.875
+    },
+    {
+      "id": "tests.test_issue144_omission_decisions.test_retained_omission_choice_rederives_report_and_prepared_artifacts[script]",
+      "seconds": 39.811
+    },
+    {
+      "id": "tests.test_issue144_omission_decisions.test_retained_omission_choice_rederives_report_and_prepared_artifacts[request]",
+      "seconds": 39.731
+    },
+    {
+      "id": "tests.test_issue144_omission_preparation.test_prepares_pristine_observed_audio_and_proposes_linked_charlie_omission",
+      "seconds": 35.75
+    },
+    {
+      "id": "tests.test_issue144_omission_decisions.test_retained_omission_choice_rederives_report_and_prepared_artifacts[evidence]",
+      "seconds": 34.748
+    },
+    {
+      "id": "tests.test_issue144_omission_decisions.test_changed_split_geometry_invalidates_choice_before_generation",
+      "seconds": 33.699
+    },
+    {
+      "id": "tests.test_issue144_omission_decisions.test_consistently_rehashed_omission_report_is_not_decision_authority[revision]",
+      "seconds": 32.841
+    },
+    {
+      "id": "tests.test_issue144_omission_decisions.test_consistently_rehashed_omission_report_is_not_decision_authority[classification]",
+      "seconds": 32.832
+    }
+  ],
+  "vitest": [
+    {
+      "total": 402,
+      "passed": 402
+    },
+    {
+      "total": 1,
+      "passed": 1
+    }
+  ],
+  "node": [
+    {
+      "command": "node --test scripts/project-progress.test.mjs",
+      "counts": {
+        "tests": 6,
+        "pass": 6,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      }
+    },
+    {
+      "command": "node --test scripts/roadmap.test.mjs scripts/roadmap-rate-limit.test.mjs scripts/roadmap-lock.test.mjs",
+      "counts": {
+        "tests": 23,
+        "pass": 23,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      }
+    },
+    {
+      "command": "node --test scripts/cloud-evidence.test.mjs",
+      "counts": {
+        "tests": 31,
+        "pass": 31,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      }
+    }
+  ]
+}
+Refusing to draft a profile from a run that is not a clean, complete calibration.

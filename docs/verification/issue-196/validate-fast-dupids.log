@@ -1,0 +1,195 @@
+
+> vera-script-to-timeline@0.0.0 validate:fast
+> npm run check:contracts-generated && npm run check:typescript && npm run lint:python && npm run typecheck:python && npm run test:python:fast
+
+
+> vera-script-to-timeline@0.0.0 check:contracts-generated
+> node packages/contracts/scripts/generate-contracts.mjs --check
+
+Generated contract types are current.
+
+> vera-script-to-timeline@0.0.0 check:typescript
+> npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript
+
+
+> vera-script-to-timeline@0.0.0 lint:typescript
+> eslint scripts/*.mjs --max-warnings=0 && npm run lint --workspaces --if-present
+
+
+> @vera/contracts@0.0.0 lint
+> eslint src test --max-warnings=0
+
+
+> @vera/tooling-smoke@0.0.0 lint
+> eslint . --max-warnings=0
+
+
+> vera-script-to-timeline@0.0.0 typecheck:typescript
+> npm run typecheck --workspaces --if-present
+
+
+> @vera/contracts@0.0.0 typecheck
+> tsc --project tsconfig.json
+
+
+> @vera/tooling-smoke@0.0.0 typecheck
+> tsc --project tsconfig.json
+
+
+> vera-script-to-timeline@0.0.0 test:typescript
+> npm run test --workspaces --if-present && npm run test:progress && npm run test:roadmap && npm run test:cloud-evidence
+
+
+> @vera/contracts@0.0.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/matthewbelinkie/Desktop/ONGOING/VERA Script to Timeline/worktrees/claude/issue-196-cloud-preparation/packages/contracts
+
+ ❯ test/prompter-export-cli.test.ts (11 tests | 1 failed) 12337ms
+     × runs the real CLI twice with byte-identical outputs matching the goldens 7455ms
+ ❯ test/script-validator-cli.test.ts (7 tests | 1 failed) 19649ms
+     × prints deterministic pass output and every row for torture 5716ms
+ ❯ test/issue-144-proof-cli.test.ts (6 tests | 1 failed) 16741ms
+     × uses the actual mapper with byte-bound files and deterministic replay 9659ms
+ ❯ test/issue-144-compile-cli.test.ts (11 tests | 2 failed) 26261ms
+     × returns byte-identical torture outputs through the file boundary 5054ms
+     × returns identical complete bytes when replayed in separate processes 5349ms
+ ❯ test/issue-144-omission-bridge.test.ts (15 tests | 3 failed) 32136ms
+     × inspects actual canonical document identity without Python reserialization or acceptance 5189ms
+     × invokes actual transformation with raw/source hashes and one full-row request 6561ms
+     × finalizes replacement dependencies/fresh IDs and exact actual compiler preview 5786ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/issue-144-compile-cli.test.ts > Issue 144 compiler-only file boundary > returns byte-identical torture outputs through the file boundary
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ test/issue-144-compile-cli.test.ts:79:3
+     77|   });
+     78|
+     79|   it("returns byte-identical torture outputs through the file boundary…
+       |   ^
+     80|     const result = invoke([fixture("slice_1_1/torture.script-document.…
+     81|     expect(result.status).toBe(0);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  test/issue-144-compile-cli.test.ts > Issue 144 compiler-only file boundary > returns identical complete bytes when replayed in separate processes
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ test/issue-144-compile-cli.test.ts:115:3
+    113|   });
+    114|
+    115|   it("returns identical complete bytes when replayed in separate proce…
+       |   ^
+    116|     const first = invoke([scriptPath, dependenciesPath]);
+    117|     const second = invoke([scriptPath, dependenciesPath]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  test/issue-144-omission-bridge.test.ts > Issue144 internal omission canonical stdout bridge (no decision authority) > inspects actual canonical document identity without Python reserialization or acceptance
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ test/issue-144-omission-bridge.test.ts:42:3
+     40|
+     41| describe("Issue144 internal omission canonical stdout bridge (no decis…
+     42|   it("inspects actual canonical document identity without Python reser…
+       |   ^
+     43|     const data=prepared();const paths=files([data.prior.currentDocumen…
+     44|     writeFileSync(paths[0]!,JSON.stringify(data.prior.currentDocument)…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  test/issue-144-omission-bridge.test.ts > Issue144 internal omission canonical stdout bridge (no decision authority) > invokes actual transformation with raw/source hashes and one full-row request
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ test/issue-144-omission-bridge.test.ts:49:3
+     47|     expect(readFileSync(paths[0]!,"utf8")).toBe(before);
+     48|   });
+     49|   it("invokes actual transformation with raw/source hashes and one ful…
+       |   ^
+     50|     const data=prepared();const paths=files([data.prior.currentDocumen…
+     51|     const result=invoke("revise-omission",paths);expect(result.status)…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  test/issue-144-omission-bridge.test.ts > Issue144 internal omission canonical stdout bridge (no decision authority) > finalizes replacement dependencies/fresh IDs and exact actual compiler preview
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ test/issue-144-omission-bridge.test.ts:59:3
+     57|     expect(invoke("revise-omission",paths).stdout).toBe(result.stdout)…
+     58|   });
+     59|   it("finalizes replacement dependencies/fresh IDs and exact actual co…
+       |   ^
+     60|     const data=prepared();const paths=files([data.revision.document,da…
+     61|     const result=invoke("finalize-omission",paths);expect(result.statu…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  test/issue-144-proof-cli.test.ts > Issue144 proposal/decision stdout file entry > uses the actual mapper with byte-bound files and deterministic replay
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ test/issue-144-proof-cli.test.ts:26:3
+     24|
+     25| describe("Issue144 proposal/decision stdout file entry", () => {
+     26|   it("uses the actual mapper with byte-bound files and deterministic r…
+       |   ^
+     27|     const input = inputs(); edit(input, "move");
+     28|     const path = file("inputs.json", input); const before = readFileSy…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  test/prompter-export-cli.test.ts > runPrompterExportCli > runs the real CLI twice with byte-identical outputs matching the goldens
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ test/prompter-export-cli.test.ts:50:3
+     48|   });
+     49|
+     50|   it("runs the real CLI twice with byte-identical outputs matching the…
+       |   ^
+     51|     const directory = mkdtempSync(join(tmpdir(), "vera-prompter-cli-")…
+     52|     for (const run of [1, 2]) {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  test/script-validator-cli.test.ts > script validator CLI subprocess > prints deterministic pass output and every row for torture
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ test/script-validator-cli.test.ts:52:43
+     50|
+     51| describe("script validator CLI subprocess", () => {
+     52|   it.each(["minimal", "torture"] as const)(
+       |                                           ^
+     53|     "prints deterministic pass output and every row for %s",
+     54|     (name) => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+
+ Test Files  5 failed | 14 passed (19)
+      Tests  8 failed | 394 passed (402)
+   Start at  15:13:14
+   Duration  37.88s (transform 15.55s, setup 0ms, import 84.62s, tests 151.73s, environment 11ms)
+
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path /Users/matthewbelinkie/Desktop/ONGOING/VERA Script to Timeline/worktrees/claude/issue-196-cloud-preparation/packages/contracts
+npm error workspace @vera/contracts@0.0.0
+npm error location /Users/matthewbelinkie/Desktop/ONGOING/VERA Script to Timeline/worktrees/claude/issue-196-cloud-preparation/packages/contracts
+npm error command failed
+npm error command sh -c vitest run
+
+
+> @vera/tooling-smoke@0.0.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/matthewbelinkie/Desktop/ONGOING/VERA Script to Timeline/worktrees/claude/issue-196-cloud-preparation/packages/tooling-smoke
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  15:13:53
+   Duration  467ms (transform 47ms, setup 0ms, import 76ms, tests 7ms, environment 0ms)
+

@@ -1,0 +1,62 @@
+{
+  "189": {
+    "acceptedSource": "094b1ca4d21dbaf063993ac33c7bb818d26941d5",
+    "files": {
+      "docs/plans/issue-189-v2-roundtrip-requalification.md": {
+        "acceptedSHA256": "sha256:7fc7f361062fb35f7bf8bc1afdbc4b5cf6e72b21af27bcb873af0919560228d2",
+        "checkoutSHA256": null
+      }
+    }
+  },
+  "180": {
+    "acceptedSource": "4c92884665629b283ce679f9ffc51859a32239e6",
+    "files": {
+      "packages/contracts/src/compiler-core-v2.ts": {
+        "acceptedSHA256": "sha256:9fdf3929143a2f3787f94ae9878c607dcc08381265b65bda825807d8f8bd06ea",
+        "checkoutSHA256": "sha256:9fdf3929143a2f3787f94ae9878c607dcc08381265b65bda825807d8f8bd06ea"
+      },
+      "packages/contracts/src/narration-boundary-evidence-v2.ts": {
+        "acceptedSHA256": "sha256:adc6acb9bc1a34e64d018154099e6cfa8a22dbc16e627c48abcb42e3b3776b2c",
+        "checkoutSHA256": "sha256:adc6acb9bc1a34e64d018154099e6cfa8a22dbc16e627c48abcb42e3b3776b2c"
+      },
+      "packages/contracts/src/authoring-v2-validation.ts": {
+        "acceptedSHA256": "sha256:136ad93f3279dfe75fed07ea91e419c17c897ade7cdcf253f5e690c96dd97f79",
+        "checkoutSHA256": "sha256:136ad93f3279dfe75fed07ea91e419c17c897ade7cdcf253f5e690c96dd97f79"
+      }
+    }
+  },
+  "173": {
+    "acceptedSource": "96fd70f573c3eaa1fc2b342de87ee9df00c64eaa",
+    "files": {
+      "python/vera_timeline_agent/narration/compiler_dependencies_v2.py": {
+        "acceptedSHA256": "sha256:90593ca5ea5348cc4c39a3ab917da042afa7cd3ec28945800363dddc7b13792a",
+        "checkoutSHA256": "sha256:90593ca5ea5348cc4c39a3ab917da042afa7cd3ec28945800363dddc7b13792a"
+      },
+      "packages/contracts/src/compiler-core-v2.ts": {
+        "acceptedSHA256": "sha256:f7f49430ca1250ec6137cbe8b7d797ba6c1a4df750dabb44ff351fcae951b78a",
+        "checkoutSHA256": "sha256:9fdf3929143a2f3787f94ae9878c607dcc08381265b65bda825807d8f8bd06ea"
+      }
+    }
+  },
+  "144": {
+    "acceptedSource": "d167f3533c237bf01995dd794458b3945599e842",
+    "files": {
+      "python/vera_timeline_agent/roundtrip_audio.py": {
+        "acceptedSHA256": "sha256:744b4c310e7d019a42745cd9d351f52885a3410b2b1fb1f4eb15a9c0c80cd80b",
+        "checkoutSHA256": "sha256:744b4c310e7d019a42745cd9d351f52885a3410b2b1fb1f4eb15a9c0c80cd80b"
+      },
+      "python/vera_timeline_agent/roundtrip_generation.py": {
+        "acceptedSHA256": "sha256:9fddddb8ebac8a9badc752ad480abee0c0af2a30d26623e7fa29979e944fdff8",
+        "checkoutSHA256": "sha256:9fddddb8ebac8a9badc752ad480abee0c0af2a30d26623e7fa29979e944fdff8"
+      },
+      "python/vera_timeline_agent/roundtrip_narration.py": {
+        "acceptedSHA256": "sha256:6135c3ea21d6a27e1a3b862ea1d5e5f2333566e21bbc0e0b60c32d7c1332e7f5",
+        "checkoutSHA256": "sha256:6135c3ea21d6a27e1a3b862ea1d5e5f2333566e21bbc0e0b60c32d7c1332e7f5"
+      },
+      "packages/contracts/src/issue-144-text-revision.ts": {
+        "acceptedSHA256": "sha256:bc9a107390bf0bf0e6df5efe19c3d1665978e5d043117837ac52848854687c79",
+        "checkoutSHA256": "sha256:bc9a107390bf0bf0e6df5efe19c3d1665978e5d043117837ac52848854687c79"
+      }
+    }
+  }
+}

@@ -58,6 +58,13 @@ corresponding lockfile change with the dependency change.
 
 ## Validation
 
+For development/review order and reuse of retained passing results, follow
+[the verification policy](docs/VERIFICATION_POLICY.md). Required review precedes
+the final full gate; unchanged handoffs reuse verified equivalent evidence.
+Fast checks never substitute for full acceptance. Within the policy's qualified
+cloud scope, a complete CI pass accepted by the validator from accepted `main`
+replaces the local full rerun.
+
 For routine implementation iterations, use:
 
 ```sh

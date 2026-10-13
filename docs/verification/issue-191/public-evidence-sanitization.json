@@ -1,0 +1,96 @@
+{
+  "policy": "Derived public evidence redacts machine home/worktree paths. Retained logSHA256/promptSHA256 values refer to original raw local evidence, never silently to the derived copy. Runtime/check source and frozen inputs are unchanged. Original files remain in ignored test-results/issue-191/raw-public-evidence and original phase directories.",
+  "entries": [
+    {
+      "file": "attempt-1-full-validation.json",
+      "rawFileSHA256": "562c25d759009c76dd6bebe66d327cb925ec70bf7400572959d6508b8fbe6a7b",
+      "rawContentSHA256": "562c25d759009c76dd6bebe66d327cb925ec70bf7400572959d6508b8fbe6a7b",
+      "publicFileSHA256": "75c1ca593c1440074f6d70166a8eff42a845b172996136093b5ea2758865ad4f",
+      "publicContentSHA256": "75c1ca593c1440074f6d70166a8eff42a845b172996136093b5ea2758865ad4f"
+    },
+    {
+      "file": "attempt-1-full-validation.log.gz",
+      "rawFileSHA256": "b11bdef03a73e16e858b4175c4326b6fd781c3a446716fd06fbfb82616057ebf",
+      "rawContentSHA256": "973266dc1ebada38eee09b053ac2d8209530bf3d48a4ec5f7a86865c6bb54426",
+      "publicFileSHA256": "a9921eea48a7c6b696b0514c4ef678a79ba6106afa3a8957eeaf35ebbf21e367",
+      "publicContentSHA256": "c9d215615c10dc5fc09a642d1da7432594ed05a1ac610a1ea2e956d1e72d3b08"
+    },
+    {
+      "file": "attempt-2-full-validation.json",
+      "rawFileSHA256": "42f481e5fa3401389f39755f35a35da876961d19bdbab7429697a8e67ecb6a7f",
+      "rawContentSHA256": "42f481e5fa3401389f39755f35a35da876961d19bdbab7429697a8e67ecb6a7f",
+      "publicFileSHA256": "be480c8e5ab4839da94299fa4d159cf84da4b6af63aa45d684e2f204e27472fc",
+      "publicContentSHA256": "be480c8e5ab4839da94299fa4d159cf84da4b6af63aa45d684e2f204e27472fc"
+    },
+    {
+      "file": "attempt-2-full-validation.log.gz",
+      "rawFileSHA256": "6a55bb95995e8f7bc87e788a3bc3782c12e31b537c660b427b66f75bff6d01f6",
+      "rawContentSHA256": "7b4e659fe717d5a4a763d839557ce296474267d09c4e795c2cea629d1c613925",
+      "publicFileSHA256": "d316635b00792240f5f8ce2b36e39f07f2b0db778eb8ad4a4ab9ac7dce0c6c16",
+      "publicContentSHA256": "ca405c4a7540a5587bbbb0d74a1297edf5a61e1e6da8e55fcc79ba2fc090bb63"
+    },
+    {
+      "file": "claude-delta-prompt.txt.gz",
+      "rawFileSHA256": "d38cc33ae586bf2d988870796c52b9f02d8c84dc5a82bce89bb5d65229c69ea6",
+      "rawContentSHA256": "6e379de09e95a55311096023b1de139988530154fb21c631466ec70b4a6614a5",
+      "publicFileSHA256": "e913683c985a454eb75029d7c8f7e672f2828d6f30caf718d329fc3025b25465",
+      "publicContentSHA256": "fe4d718cd406f30bd557ce6d24a393701125fa223d201f101b0759d8e9fcf1fe"
+    },
+    {
+      "file": "claude-delta-review-receipt.json",
+      "rawFileSHA256": "097da8cadefd099d277c5e141fc5fcde2ae68dfcbdd968ff1322a0c0935c363b",
+      "rawContentSHA256": "097da8cadefd099d277c5e141fc5fcde2ae68dfcbdd968ff1322a0c0935c363b",
+      "publicFileSHA256": "7d519803ace2a984b00fd5a956a63cac48f8b6841dc18fa2d2e6b29ee0734b84",
+      "publicContentSHA256": "7d519803ace2a984b00fd5a956a63cac48f8b6841dc18fa2d2e6b29ee0734b84"
+    },
+    {
+      "file": "claude-initial-prompt.txt.gz",
+      "rawFileSHA256": "ed85638faedeb9a27c76df4e1f25641ab5eaca80502359865661d5c7fc9bafd9",
+      "rawContentSHA256": "5dcd299f24439203d29ac8b4cd64395c3a6c3bdf519fb1dcb7c863b887330f02",
+      "publicFileSHA256": "e1a460f334f364e4168efc50362d0f7f12efe71a3ed10cb1bde546815e734147",
+      "publicContentSHA256": "402a142e9e93098f5e0bb0e04d674edf7e15103a2be1e3ae5afbe9f3514c47fa"
+    },
+    {
+      "file": "claude-initial-review-receipt.json",
+      "rawFileSHA256": "6c5f4ea2eaba31bffcb90b84ddb10c213fb6543e9d0ae10834e77d16a0e1cbe0",
+      "rawContentSHA256": "6c5f4ea2eaba31bffcb90b84ddb10c213fb6543e9d0ae10834e77d16a0e1cbe0",
+      "publicFileSHA256": "2b6f7a547502da7797007a66fb4194d12efce1365f557d86b716fa784ff0be7a",
+      "publicContentSHA256": "2b6f7a547502da7797007a66fb4194d12efce1365f557d86b716fa784ff0be7a"
+    },
+    {
+      "file": "delta-check-2.log.gz",
+      "rawFileSHA256": "c9eb525a26ccd21de519c2b6d5daa18709f468a056db07c7b6a2149a52a00146",
+      "rawContentSHA256": "e0b9b92573973dd4747936106d3e5ff9da80220fbab88564d6c36d313efec881",
+      "publicFileSHA256": "8ac3ec5c2bd03b1bca37557b76b34151d57c4b1c47c74ae022b2a4ec06e9c81a",
+      "publicContentSHA256": "3d79aed500f6fa26198f26af67ee6c8a7239d46e2cbfeefa50a8895fc41bce54"
+    },
+    {
+      "file": "delta-checks-receipt.json",
+      "rawFileSHA256": "2c66844baa0748cbf76ccdddf40500bb5067f6a7d607ddd74a7087cc131e7566",
+      "rawContentSHA256": "2c66844baa0748cbf76ccdddf40500bb5067f6a7d607ddd74a7087cc131e7566",
+      "publicFileSHA256": "3b539ab1308cfb17b1f1d96e52c74b5c9c720ccaa7c7620bff2520c4e9508d3f",
+      "publicContentSHA256": "3b539ab1308cfb17b1f1d96e52c74b5c9c720ccaa7c7620bff2520c4e9508d3f"
+    },
+    {
+      "file": "fast-validation.log.gz",
+      "rawFileSHA256": "867d0b9fa268b160d6676060150bb17bb81c3b47960303a43791250e11180e4d",
+      "rawContentSHA256": "bef2eb73438f57a52fa9d91110b2c07dfb1d7a14a854e4f66e0ae3729f312d9b",
+      "publicFileSHA256": "5907e133f65d585e7002cef75231e8f637f3a71272436f62147c3892bfb31dac",
+      "publicContentSHA256": "36bfff8a908a4442ce9dd55770abba380ed24c0a8932ecc7edb2049ed06b40fe"
+    },
+    {
+      "file": "integrated-fast-validation.json",
+      "rawFileSHA256": "11d45477861eb721c1338db652545b8550db8c457689d1e606e96358ee0514f1",
+      "rawContentSHA256": "11d45477861eb721c1338db652545b8550db8c457689d1e606e96358ee0514f1",
+      "publicFileSHA256": "ec9985698d4ba700d1330bed453613e61298bf747a8daa2f080e379c347c1a86",
+      "publicContentSHA256": "ec9985698d4ba700d1330bed453613e61298bf747a8daa2f080e379c347c1a86"
+    },
+    {
+      "file": "integrated-fast-validation.log.gz",
+      "rawFileSHA256": "4a5453dd4aa39553e3dafe05bc117ed03e5b6b32b8b28fff9ae4034cd5809b34",
+      "rawContentSHA256": "c22ae05e65928a60327f2367e20527b88d8cda2a2cab8aca5fcbbe256f0fb622",
+      "publicFileSHA256": "e72e66107a687e7ab1076ded8fc964d72bab250b51920c6ee48620ded6c2e254",
+      "publicContentSHA256": "928a0c567a7f00c9159339c0e0152b09e819769f9e362c1cc23091b7457006e6"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+
+> vera-script-to-timeline@0.0.0 validate:fast
+> npm run check:contracts-generated && npm run check:typescript && npm run lint:python && npm run typecheck:python && npm run test:python:fast
+
+
+> vera-script-to-timeline@0.0.0 check:contracts-generated
+> node packages/contracts/scripts/generate-contracts.mjs --check
+
+Generated contract types are current.
+
+> vera-script-to-timeline@0.0.0 check:typescript
+> npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript
+
+
+> vera-script-to-timeline@0.0.0 lint:typescript
+> eslint scripts/*.mjs --max-warnings=0 && npm run lint --workspaces --if-present
+
+
+/Users/matthewbelinkie/Desktop/ONGOING/VERA Script to Timeline/worktrees/claude/issue-196-cloud-preparation/scripts/cloud-evidence-lib.mjs
+   54:7   error  'SHA256' is assigned a value but never used                  @typescript-eslint/no-unused-vars
+  167:30  error  Unexpected control character(s) in regular expression: \x1b  no-control-regex
+  235:22  error  '_qualified' is assigned a value but never used              @typescript-eslint/no-unused-vars
+  235:44  error  '_approval' is assigned a value but never used               @typescript-eslint/no-unused-vars
+
+/Users/matthewbelinkie/Desktop/ONGOING/VERA Script to Timeline/worktrees/claude/issue-196-cloud-preparation/scripts/cloud-evidence.test.mjs
+  718:37  error  'URL' is not defined              no-undef
+  754:12  error  'structuredClone' is not defined  no-undef
+
+✖ 6 problems (6 errors, 0 warnings)
+
