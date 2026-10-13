@@ -74,5 +74,7 @@ the three frozen artifacts and each event's document/compiler provenance.
 Four targeted negative cases passed with valid recomputed manifest hashes,
 so these refusals do not depend on an earlier hash mismatch. The document/parser
 suite now passes13tests. Fresh fast validation covers the complete final source.
-Fresh fast validation, required delta review and qualifying full evidence remain
-pending. Iteration evidence is not approval or full acceptance.
+FAST-R3 passed on unchanged f5e5ac6: 458 Python fast tests, 429 contract and
+1 tooling Vitest tests, plus 61 Node tests; no skips. Retained actual receipts
+and scrubbed log are fast-r3-*. Required delta review and qualifying full
+evidence remain pending. Iteration evidence is not approval or full acceptance.
