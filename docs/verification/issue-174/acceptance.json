@@ -54,37 +54,9 @@
     "currentSourceReuse": "Invalid: changed adapter; old original exit missing. No new blanket local full suite authorized or launched."
   },
   "frozenBoundaryAudit": {
-    "baseline": "289cfea0312b5528f7bbbadee1812a09f52b17a8",
-    "result": "all candidate changes confined to new issue174 owned paths; accepted contracts/fixtures/goldens/generated/accepted tests and controls unchanged",
-    "changedPaths": [
-      "docs/plans/issue-174-verified-cfr.md",
-      "docs/verification/issue-174/README.md",
-      "docs/verification/issue-174/acceptance.json",
-      "docs/verification/issue-174/checks-final.json",
-      "docs/verification/issue-174/checks-source-hashes.json",
-      "docs/verification/issue-174/claim-receipt.json",
-      "docs/verification/issue-174/claude-r1-disposition.md",
-      "docs/verification/issue-174/claude-r1-exit.json",
-      "docs/verification/issue-174/claude-r1-result.json",
-      "docs/verification/issue-174/claude-r1-start.json",
-      "docs/verification/issue-174/compiler-binding-probe.mjs",
-      "docs/verification/issue-174/criteria.md",
-      "docs/verification/issue-174/interrupted-full-gate.json",
-      "docs/verification/issue-174/qualification.json",
-      "docs/verification/issue-174/qualified-tools.json",
-      "docs/verification/issue-174/qualify.py",
-      "docs/verification/issue-174/r6-overwritten-exit.json",
-      "docs/verification/issue-174/sampling-route.json",
-      "docs/verification/issue-174/sampling_probe.py",
-      "docs/verification/issue-174/verifier-final.json",
-      "docs/verification/issue-174/verify_retained.py",
-      "python/vera_timeline_agent/media_preparation.py",
-      "tests/issue174_media_fixture.py",
-      "tests/test_issue174_media_preparation.py",
-      "tests/test_issue174_real_media.py",
-      "tests/test_issue174_recovery.py",
-      "tests/test_issue174_source_refusals.py"
-    ]
+    "baseline": "05637d7c4110f594fbdc98999ded1c97de718a37",
+    "result": "all issue-owned changes confined to new174paths; frozen/control/lock inputs unchanged",
+    "audit": "approved-integration-audit.json"
   },
   "claudeAntagonistReview": {
     "status": "Technical PASS, no blocking code findings; acceptance gaps remain",
@@ -101,8 +73,8 @@
   "issueClosure": "not authorized until all required evidence and External judgment are retained",
   "qualificationDirectory": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification",
   "evidenceReuse": "r7 executable source/tests/helpers/config/lock hashes verified unchanged after qualification-record commit; all six stages have immutable exit-zero receipts. Earlier focused82 matrix retained as historical coverage, not a claim of current full acceptance. No old full pass reused.",
-  "candidateStatus": "Technical review PASS; all84issue-ownedtests, qualification, publicpositive, fast and boundary checks pass; full criterion and human quality judgment unresolved",
-  "integrationBaseline": "289cfea0312b5528f7bbbadee1812a09f52b17a8",
+  "candidateStatus": "Approved hybrid route; accepted109main integrated; proven unchanged Mac qualification inputs; combined fast/full cloud and playback pending",
+  "integrationBaseline": "05637d7c4110f594fbdc98999ded1c97de718a37",
   "recoveryDelta": {
     "exitCode": 0,
     "result": "33 passed in 686.35s",
@@ -110,7 +82,10 @@
     "receipt": "bounded-retry.json"
   },
   "cloudSubstitution": {
-    "status": "not established",
-    "reason": "Candidate changes FFmpeg/FFprobe media-processing path; accepted #196 excludes certification of this Mac qualification. No own exact-tree accepted cloud evidence exists. Required full-gate criterion remains unresolved under Producer no-new-blanket-full constraint."
+    "status": "Ticket-specific exception approved; own exact combined-tree cloud PASS pending",
+    "approval": "producer-hybrid-exception-approval.json",
+    "approvalQuote": "I approve the exception",
+    "globalPolicy": "unchanged",
+    "humanAcceptance": "pending"
   }
 }
