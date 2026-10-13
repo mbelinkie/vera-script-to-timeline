@@ -50,8 +50,7 @@ def _compiler_hash(value: object) -> str:
 def _stable_id(label: str) -> str:
     hex_id = hashlib.sha256(label.encode("utf-8")).hexdigest()[:32]
     return (
-        f"{hex_id[:8]}-{hex_id[8:12]}-5{hex_id[13:16]}-"
-        f"8{hex_id[17:20]}-{hex_id[20:]}"
+        f"{hex_id[:8]}-{hex_id[8:12]}-5{hex_id[13:16]}-8{hex_id[17:20]}-{hex_id[20:]}"
     )
 
 
@@ -272,9 +271,7 @@ def _make_child_visual_ready(
         }
     )
     result = next(
-        item
-        for item in report["eventResults"]
-        if item["eventId"] == previous_event_id
+        item for item in report["eventResults"] if item["eventId"] == previous_event_id
     )
     result.update(
         {
