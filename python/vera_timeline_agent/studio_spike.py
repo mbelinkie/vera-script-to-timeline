@@ -15,7 +15,6 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Protocol, cast
 
-from vera_timeline_agent.otio_package import verify_otio_package
 from vera_timeline_agent.text_plus_template import (
     DEFAULT_TEXT_PLUS_TEMPLATE_METADATA,
     TemplateValidationError,
@@ -234,6 +233,9 @@ def run_delivery(
         raise StudioSpikeError("mode must be 'free' or 'studio'")
     if action not in {"preflight", "build"}:
         raise StudioSpikeError("action must be 'preflight' or 'build'")
+    # Resolve's injected Python runtime must not import the external verifier.
+    from vera_timeline_agent.otio_package import verify_otio_package
+
     verify_otio_package(package_dir)
     local = local_facts or detect_local_capabilities()
     if mode == "free":
