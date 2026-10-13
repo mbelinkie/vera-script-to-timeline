@@ -10,7 +10,9 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from issue177_package_fixture import make_package_case
 from vera_timeline_agent import workflow_v2
+from vera_timeline_agent.v2_package import verify_v2_package
 from vera_timeline_agent.workflow_package import SOURCE_PINS
 
 
@@ -29,9 +31,14 @@ def _make_package(
     tmp_path: Path,
     *,
     fractional: bool = False,
+    frame_rate: tuple[int, int] | None = None,
+    view_frame_rate: tuple[int, int] | None = None,
+    return_frame: int | None = None,
     source_audio: bool = False,
     source_audio_range_duration: int | None = None,
     picture_treatment: dict[str, Any] | None = None,
+    marker_track_kind: str = "video",
+    marker_track_index: int = 2,
 ) -> tuple[Path, str, dict[str, Any]]:
     root = tmp_path / "package"
     build_id, manifest_id, report_id, document_id = (
@@ -51,11 +58,8 @@ def _make_package(
         audio_path.write_bytes(b"synthetic audio sidecar")
         audio_hash = "sha256:" + hashlib.sha256(audio_path.read_bytes()).hexdigest()
 
-    rate = (
-        {"numerator": 24000, "denominator": 1001}
-        if fractional
-        else {"numerator": 25, "denominator": 1}
-    )
+    numerator, denominator = frame_rate or ((24000, 1001) if fractional else (25, 1))
+    rate = {"numerator": numerator, "denominator": denominator}
     timeline = {
         "frameRate": rate,
         "width": 1920,
@@ -66,7 +70,12 @@ def _make_package(
     }
     tracks = [
         {"id": "video-root", "kind": "video", "index": 1, "name": "Root"},
-        {"id": "markers", "kind": "subtitle", "index": 1, "name": "Markers"},
+        {
+            "id": "markers",
+            "kind": marker_track_kind,
+            "index": marker_track_index,
+            "name": "Markers",
+        },
     ]
     if source_audio:
         tracks.append(
@@ -78,7 +87,18 @@ def _make_package(
         "childTrackIds": [],
         "overlayTrackIds": [],
         "rootContinuous": True,
-        "returns": [],
+        "returns": (
+            []
+            if return_frame is None
+            else [
+                {
+                    "returnSlotId": str(uuid.uuid4()),
+                    "rootEventId": event_id,
+                    "recordFrame": return_frame,
+                    "emitsNewSourceEvent": False,
+                }
+            ]
+        ),
     }
     visual = {
         "eventId": event_id,
@@ -196,9 +216,15 @@ def _make_package(
         "composition": composition,
         "preparationBindings": [],
     }
+    view_timeline = dict(timeline)
+    if view_frame_rate is not None:
+        view_timeline["frameRate"] = {
+            "numerator": view_frame_rate[0],
+            "denominator": view_frame_rate[1],
+        }
     view: dict[str, Any] = {
         "schemaVersion": "resolve-native-view/v2",
-        "timeline": timeline,
+        "timeline": view_timeline,
         "tracks": tracks,
         "sources": view_sources,
         "events": view_events,
@@ -289,7 +315,7 @@ def _make_package(
         },
         "verification": {
             "eventCount": len(view_events),
-            "markerCount": 1,
+            "markerCount": len(view["markers"]),
             "mediaCount": len(view_sources),
         },
         "packageFiles": inventory,
@@ -439,6 +465,12 @@ def _native_audio_fixture(gain_db: int) -> tuple[Any, Any, dict[str, Any]]:
     class Timeline:
         def __init__(self, item: Item) -> None:
             self.item = item
+            self.track_counts = {"audio": 1}
+            self.track_names = {("audio", 1): "Source Audio"}
+            self.items_by_track: dict[tuple[str, int], list[Any]] = {
+                ("audio", 1): [item]
+            }
+            self.markers: dict[int, dict[str, Any]] = {}
 
         def GetName(self) -> str:
             return "VERA Delivery test"
@@ -450,16 +482,38 @@ def _native_audio_fixture(gain_db: int) -> tuple[Any, Any, dict[str, Any]]:
             return 10
 
         def GetTrackCount(self, kind: str) -> int:
-            return 1 if kind == "audio" else 0
+            return self.track_counts.get(kind, 0)
 
         def GetTrackName(self, kind: str, index: int) -> str:
-            return "Source Audio" if kind == "audio" and index == 1 else ""
+            return self.track_names.get((kind, index), "")
 
         def GetItemListInTrack(self, kind: str, index: int) -> list[Item]:
-            return [self.item] if kind == "audio" and index == 1 else []
+            return self.items_by_track.get((kind, index), [])
 
         def GetMarkers(self) -> dict[int, Any]:
-            return {}
+            return self.markers
+
+        def AddMarker(
+            self,
+            frame: int,
+            color: str,
+            name: str,
+            note: str,
+            duration: int,
+            custom_data: str,
+        ) -> bool:
+            self.markers[frame] = {
+                "color": color,
+                "name": name,
+                "note": note,
+                "duration": duration,
+                "customData": custom_data,
+            }
+            return True
+
+        def GetMarkerCustomData(self, frame: int) -> str | None:
+            marker = self.markers.get(frame)
+            return marker.get("customData") if marker is not None else None
 
     class Project:
         def GetName(self) -> str:
@@ -514,6 +568,7 @@ def _native_audio_fixture(gain_db: int) -> tuple[Any, Any, dict[str, Any]]:
     adapter.expected_stamps = {}
     adapter.expected_properties = {}
     adapter.timeline_marker_stamps = {}
+    adapter.expected_markers = {}
     adapter._verify_bins = lambda _discrepancies: None
     adapter._verify_media_inventory = lambda _view, _discrepancies: None
     return adapter, item, view
@@ -528,6 +583,11 @@ def test_loader_checks_closed_v2_handoff_without_parsing_otio(tmp_path: Path) ->
     assert loaded.view["events"][0]["v2Event"] == loaded.manifest["events"][0]
 
 
+def test_strict_json_rejects_overflowing_float_exponent() -> None:
+    with pytest.raises(workflow_v2.WorkflowV2Error, match="non-finite"):
+        workflow_v2._strict_object(b'{"value":1e999}', "test JSON")
+
+
 def test_loader_rejects_attestation_symlink_and_package_drift(tmp_path: Path) -> None:
     attestation, digest, value = _make_package(tmp_path)
     linked = tmp_path / "linked.json"
@@ -539,6 +599,130 @@ def test_loader_rejects_attestation_symlink_and_package_drift(tmp_path: Path) ->
     next((root / "Media" / "Resolved").glob("*.mov")).write_bytes(b"changed")
     with pytest.raises(workflow_v2.WorkflowV2Error):
         workflow_v2.load_verified_package_v2(attestation, digest)
+
+
+def test_composition_return_must_be_strictly_inside_root_event(
+    tmp_path: Path,
+) -> None:
+    attestation, digest, _ = _make_package(tmp_path, return_frame=5)
+    workflow_v2.load_verified_package_v2(attestation, digest)
+
+    for frame in (0, 10):
+        boundary_dir = tmp_path / f"boundary-{frame}"
+        boundary_dir.mkdir()
+        attestation, digest, _ = _make_package(boundary_dir, return_frame=frame)
+        with pytest.raises(workflow_v2.WorkflowV2Error, match="interior"):
+            workflow_v2.load_verified_package_v2(attestation, digest)
+
+
+@pytest.mark.parametrize(
+    ("composition", "track_by_id", "message"),
+    [
+        (
+            {
+                "topology": "primary_root_child_overlay",
+                "primaryRootTrackId": "root",
+                "childTrackIds": ["root"],
+                "overlayTrackIds": ["child"],
+                "rootContinuous": True,
+                "returns": [],
+            },
+            {
+                "root": {"id": "root", "kind": "video", "index": 1},
+                "child": {"id": "child", "kind": "video", "index": 2},
+            },
+            "roles overlap",
+        ),
+        (
+            {
+                "topology": "primary_root_child_overlay",
+                "primaryRootTrackId": "root",
+                "childTrackIds": ["child"],
+                "overlayTrackIds": ["child"],
+                "rootContinuous": True,
+                "returns": [],
+            },
+            {
+                "root": {"id": "root", "kind": "video", "index": 1},
+                "child": {"id": "child", "kind": "video", "index": 2},
+            },
+            "roles overlap",
+        ),
+        (
+            {
+                "topology": "primary_root_child_overlay",
+                "primaryRootTrackId": "root",
+                "childTrackIds": ["child"],
+                "overlayTrackIds": ["overlay"],
+                "rootContinuous": True,
+                "returns": [],
+            },
+            {
+                "root": {"id": "root", "kind": "video", "index": 2},
+                "child": {"id": "child", "kind": "video", "index": 1},
+                "overlay": {"id": "overlay", "kind": "video", "index": 3},
+            },
+            "child tracks must follow",
+        ),
+        (
+            {
+                "topology": "primary_root_child_overlay",
+                "primaryRootTrackId": "root",
+                "childTrackIds": ["child"],
+                "overlayTrackIds": ["overlay"],
+                "rootContinuous": True,
+                "returns": [],
+            },
+            {
+                "root": {"id": "root", "kind": "video", "index": 1},
+                "child": {"id": "child", "kind": "video", "index": 3},
+                "overlay": {"id": "overlay", "kind": "video", "index": 2},
+            },
+            "overlay tracks must follow",
+        ),
+    ],
+)
+def test_composition_roles_are_disjoint_and_index_ordered(
+    composition: dict[str, Any],
+    track_by_id: dict[str, dict[str, Any]],
+    message: str,
+) -> None:
+    manifest = {
+        "composition": composition,
+        "timeline": {"durationFrames": 10},
+    }
+    view = {
+        "events": [
+            {
+                "id": "root-event",
+                "trackId": "root",
+                "recordRange": {"startFrame": 0, "durationFrames": 10},
+            }
+        ]
+    }
+
+    with pytest.raises(workflow_v2.WorkflowV2Error, match=message):
+        workflow_v2._validate_composition(manifest, view, track_by_id)
+
+
+def test_public_builder_handoff_preserves_root_child_overlay_return(
+    tmp_path: Path,
+) -> None:
+    case = make_package_case(
+        tmp_path, scenario="root-child-overlay-return", rate="25fps"
+    )
+
+    built = case.build()
+    verified = verify_v2_package(case.project_root)
+    package_dir = case.project_root / "Builds" / built.build_id
+    manifest = json.loads((package_dir / "timeline-manifest.json").read_text())
+    view = json.loads((package_dir / "delivery-view.json").read_text())
+    tracks = {track["id"]: track for track in view["tracks"]}
+
+    assert verified.build_id == built.build_id
+    assert verified.event_count > 0
+    assert manifest["composition"]["returns"]
+    workflow_v2._validate_composition(manifest, view, tracks)
 
 
 def test_fractional_rate_preflight_is_read_only_and_build_refuses_before_adapter(
@@ -573,6 +757,42 @@ def test_fractional_rate_preflight_is_read_only_and_build_refuses_before_adapter
     assert called is False
 
 
+def test_unsupported_ntsc_fraction_is_rejected_before_adapter(tmp_path: Path) -> None:
+    attestation, digest, _ = _make_package(tmp_path, frame_rate=(30000, 1001))
+    called = False
+
+    def forbidden(_resolve: Any) -> Any:
+        nonlocal called
+        called = True
+        raise AssertionError("unsupported rate reached Resolve")
+
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(), attestation, digest, adapter_factory=forbidden
+    )
+
+    assert result["status"] == "stopped_safely"
+    assert called is False
+
+
+def test_view_frame_rate_must_match_verified_manifest(tmp_path: Path) -> None:
+    attestation, digest, _ = _make_package(
+        tmp_path, frame_rate=(25, 1), view_frame_rate=(24, 1)
+    )
+    called = False
+
+    def forbidden(_resolve: Any) -> Any:
+        nonlocal called
+        called = True
+        raise AssertionError("mismatched view rate reached Resolve")
+
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(), attestation, digest, adapter_factory=forbidden
+    )
+
+    assert result["status"] == "stopped_safely"
+    assert called is False
+
+
 def test_build_authorization_order_and_private_marker_text_redaction(
     tmp_path: Path,
 ) -> None:
@@ -596,7 +816,46 @@ def test_build_authorization_order_and_private_marker_text_redaction(
         "target",
     ]
     assert adapter.calls.count("place_event") == 1
+    assert adapter.calls.count("add_marker") == 1
     assert "PRIVATE marker text" not in json.dumps(result)
+
+
+def test_marker_metadata_is_preflightable_and_redacted(tmp_path: Path) -> None:
+    attestation, digest, _ = _make_package(tmp_path)
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(), attestation, digest, adapter_factory=lambda _resolve: _FakeAdapter()
+    )
+
+    assert result["status"] == "preflight_passed"
+    assert result["nativeSubtitleTracksQualified"] is True
+    assert "PRIVATE marker text" not in json.dumps(result)
+
+
+def test_native_subtitle_tracks_refuse_before_adapter_creation(tmp_path: Path) -> None:
+    attestation, digest, _ = _make_package(
+        tmp_path, marker_track_kind="subtitle", marker_track_index=1
+    )
+    called = False
+
+    def forbidden(_resolve: Any) -> Any:
+        nonlocal called
+        called = True
+        raise AssertionError("unqualified subtitle track reached Resolve")
+
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        adapter_factory=forbidden,
+    )
+
+    assert result["status"] == "stopped_safely"
+    assert result["nativeSubtitleTracksQualified"] is False
+    assert result["partialTargetRetained"] is False
+    assert called is False
 
 
 def test_native_source_audio_is_refused_before_adapter_creation(tmp_path: Path) -> None:
@@ -643,6 +902,48 @@ def test_native_audio_reopened_gain_discrepancy_is_reported() -> None:
     item.properties["AudioVolume"] = 0
 
     assert adapter.verify(view) == ("event-properties",)
+
+
+@pytest.mark.parametrize("stray_slot", [2, 3])
+def test_readback_checks_undeclared_and_declared_empty_track_slots(
+    stray_slot: int,
+) -> None:
+    adapter, item, view = _native_audio_fixture(-18)
+    timeline = adapter.timeline
+    timeline.track_counts["audio"] = 3
+    timeline.track_names[("audio", 3)] = "Declared Empty"
+    timeline.items_by_track[("audio", stray_slot)] = [item]
+    view["tracks"].append(
+        {"id": "declared-empty", "kind": "audio", "index": 3, "name": "Declared Empty"}
+    )
+    adapter._v2_tracks = tuple(view["tracks"])
+
+    assert adapter.verify(view) == ("event-count",)
+
+
+@pytest.mark.parametrize(
+    ("field", "changed"),
+    [
+        ("name", "Changed marker name"),
+        ("note", "Changed marker note"),
+        ("color", "Blue"),
+        ("duration", 2),
+    ],
+)
+def test_readback_checks_marker_properties(field: str, changed: Any) -> None:
+    adapter, _item, view = _native_audio_fixture(-18)
+    marker = {
+        "id": "script-marker",
+        "frame": 5,
+        "color": "YELLOW",
+        "name": "Script note",
+        "note": "Private source text",
+        "provenance": {"eventId": "script-marker"},
+    }
+    adapter.add_v2_marker(marker)
+    adapter.timeline.markers[5][field] = changed
+
+    assert adapter.verify(view) == ("marker-properties",)
 
 
 def test_source_audio_projection_must_match_record_duration(tmp_path: Path) -> None:

@@ -17,13 +17,12 @@ from vera_timeline_agent.v2_package import (
     VERIFICATION_FILENAME,
     V2PackageError,
     V2PackageVerification,
-    _build_otio,
+    _compiler_hash,
     _delivery_view,
     _InputArtifact,
     _Preparation,
     _source_audio_range,
     _validate_manifest_semantics,
-    _verify_otio,
     verify_v2_package,
 )
 
@@ -132,79 +131,138 @@ def test_build_round_trips_accepted_24000_over_1001_timeline(tmp_path: Path) -> 
     assert view["timeline"]["frameRate"] == {"numerator": 24000, "denominator": 1001}
 
 
-def test_accepted_root_child_overlay_return_otio_round_trip_without_source_audio(
+def test_public_root_child_overlay_return_package_round_trip_without_source_audio(
     tmp_path: Path,
 ) -> None:
-    fixture = Path(__file__).parent / "data/authoring_v2/issue_173/compiler"
-    stem = fixture / "root-child-overlay-return"
-    inputs = json.loads(Path(f"{stem}.input.golden.json").read_text())
-    manifest = json.loads(Path(f"{stem}.manifest.golden.json").read_text())
-    _close_test_mapping_hashes(inputs["dependencies"], manifest)
-    event_kinds = {event["kind"] for event in manifest["events"]}
+    case = make_package_case(tmp_path, scenario="root-child-overlay-return")
 
-    _validate_manifest_semantics(inputs["document"], inputs["dependencies"], manifest)
+    built = case.build()
+    verified = verify_v2_package(case.project_root)
+    build_root = case.project_root / BUILD_DIRECTORY / built.build_id
+    view = json.loads((build_root / "delivery-view.json").read_text())
+    timeline = otio.adapters.read_from_file(str(build_root / OTIO_FILENAME))
+    topology_events = {(event["kind"], event["trackId"]) for event in view["events"]}
 
-    assert manifest["composition"]["topology"] == "primary_root_child_overlay"
-    assert manifest["composition"]["returns"]
-    assert {"primary_visual", "placeholder", "overlay_visual"} <= event_kinds
-    assert "source_audio" not in event_kinds
+    assert verified.event_count == 4
+    assert {
+        ("primary_visual", "video-root"),
+        ("primary_visual", "video-child"),
+        ("overlay_visual", "video-overlay"),
+    } <= topology_events
+    assert view["composition"]["returns"][0]["recordFrame"] == 48
+    assert view["composition"]["returns"][0]["emitsNewSourceEvent"] is False
+    track_ids = [track.metadata["vera"]["track_id"] for track in timeline.tracks]
+    assert track_ids == [
+        "video-root",
+        "video-child",
+        "video-overlay",
+        "placeholder",
+        "presenter",
+        "markers",
+        "narration",
+    ]
+    clips = [
+        child
+        for track in timeline.tracks
+        for child in track
+        if isinstance(child, otio.schema.Clip)
+    ]
+    assert any(
+        clip.metadata["vera"]["v2_event"]["trackRole"] == "child" for clip in clips
+    )
 
-    prepared = {
-        binding["requirementKey"]: _Preparation(
-            binding["requirementKey"],
-            {"binding": binding, "audio": None},
-            b"synthetic preparation receipt",
-            "sha256:" + "1" * 64,
-            "",
-        )
-        for binding in manifest["preparationBindings"]
+
+@pytest.mark.parametrize(
+    ("scenario", "policy", "gain_db"),
+    [
+        ("source-audio-quiet", "quiet", -18),
+        ("source-audio-full", "full", 0),
+    ],
+)
+def test_public_package_build_verifies_aligned_source_audio(
+    tmp_path: Path, scenario: str, policy: str, gain_db: int
+) -> None:
+    case = make_package_case(tmp_path, scenario=scenario)
+
+    built = case.build()
+    verified = verify_v2_package(case.project_root)
+    build_root = case.project_root / BUILD_DIRECTORY / built.build_id
+    view = json.loads((build_root / "delivery-view.json").read_text())
+    audio_event = next(
+        event for event in view["events"] if event["kind"] == "source_audio"
+    )
+
+    assert verified.event_count == 2
+    assert verified.media_count == 2
+    assert audio_event["gainDb"] == gain_db
+    assert audio_event["v2Event"]["audio"]["audioPolicy"] == policy
+    assert audio_event["sourceRange"] == {"startFrame": 0, "durationFrames": 240}
+
+
+def test_public_package_build_preserves_no_source_audio_case(tmp_path: Path) -> None:
+    case = make_package_case(tmp_path, scenario="source-audio-no")
+
+    built = case.build()
+    verified = verify_v2_package(case.project_root)
+    build_root = case.project_root / BUILD_DIRECTORY / built.build_id
+    view = json.loads((build_root / "delivery-view.json").read_text())
+
+    assert verified.event_count == 1
+    assert all(event["kind"] != "source_audio" for event in view["events"])
+
+
+def test_public_package_build_refuses_cross_track_source_audio_overlap(
+    tmp_path: Path,
+) -> None:
+    case = make_package_case(tmp_path, scenario="source-audio-overlap")
+
+    with pytest.raises(V2PackageError, match="enabled source-audio events overlap"):
+        case.build()
+
+    assert not case.project_root.exists()
+
+
+def test_package_renders_and_binds_authored_intentional_slate(tmp_path: Path) -> None:
+    case = make_package_case(tmp_path, scenario="intentional-slate")
+
+    built = case.build()
+    verified = verify_v2_package(case.project_root)
+    build_root = case.project_root / BUILD_DIRECTORY / built.build_id
+    view = json.loads((build_root / "delivery-view.json").read_text())
+    slate_event = next(
+        event for event in view["events"] if event["kind"] == "placeholder"
+    )
+
+    assert verified.event_count == 1
+    assert slate_event["pictureTreatment"] == {
+        "kind": "slate",
+        "purpose": "intentional",
+        "text": "Intentional slate",
     }
-    artifacts = {}
-    source_paths = {}
-    for source in manifest["sources"]:
-        source_id = source["id"]
-        if "narrationAudio" in source:
-            key = f"source:{source_id}"
-            relative = f"Media/Narration/{source_id}.wav"
-            source_hash = source["narrationAudio"]["audioHash"]
-            media_kind = "audio"
-        else:
-            key = f"source:{source_id}"
-            relative = f"Media/Resolved/{source_id}.mov"
-            source_hash = source["deliveredHash"]
-            media_kind = "video"
-        artifacts[key] = _InputArtifact(
-            key, Path("."), relative, source_hash, media_kind
-        )
-        source_paths[source_id] = relative
-    placeholder = next(
-        event for event in manifest["events"] if event["kind"] == "placeholder"
+    slate_source = next(
+        source for source in view["sources"] if source["id"] == slate_event["sourceId"]
     )
-    placeholder_id = placeholder["eventId"]
-    placeholder_path = f"Media/Resolved/{placeholder_id}.svg"
-    placeholder_hash = placeholder["pictureTreatment"]["reference"]["contentHash"]
-    artifacts[f"event:{placeholder_id}"] = _InputArtifact(
-        f"event:{placeholder_id}",
-        Path("."),
-        placeholder_path,
-        placeholder_hash,
-        "still",
-    )
-    source_paths[placeholder_id] = placeholder_path
-    view = _delivery_view(
-        manifest,
-        inputs["dependencies"],
-        prepared,
-        artifacts,
-        source_paths=source_paths,
-        validate=False,
-    )
-    timeline = _build_otio(view, manifest["id"], manifest["buildId"])
-    build_root = tmp_path / "root-child-package" / "Builds" / manifest["buildId"]
-    build_root.mkdir(parents=True)
-    otio.adapters.write_to_file(timeline, str(build_root / OTIO_FILENAME))
+    slate_path = case.project_root / slate_source["path"]
+    assert hashlib.sha256(slate_path.read_bytes()).hexdigest() == slate_source[
+        "contentHash"
+    ].removeprefix("sha256:")
 
-    _verify_otio(build_root, manifest, view)
+
+def test_build_rejects_preparation_status_mismatch_for_empty_binding_set(
+    tmp_path: Path,
+) -> None:
+    case = make_package_case(tmp_path, scenario="intentional-slate")
+    report = json.loads(case.report_path.read_text())
+    report["mediaPreparation"]["status"] = "complete"
+    case.report_path.write_bytes(canonical_json_bytes(report))
+
+    with pytest.raises(
+        V2PackageError,
+        match="build report media preparation does not cover the exact binding set",
+    ):
+        case.build()
+
+    assert not case.project_root.exists()
 
 
 def test_root_child_overlay_same_track_overlap_is_refused() -> None:
@@ -266,7 +324,7 @@ def test_delivery_view_maps_44100_source_samples_to_verified_wav(
         "sampleRate"
     ] = 44100
     binding = {"syntheticBinding": True}
-    event["preparationBindingHash"] = identity_hash(binding)
+    event["preparationBindingHash"] = _compiler_hash(binding)
     wav_probe = {
         "streams": [{"codec_name": "pcm_s24le", "sample_rate": "48000", "channels": 1}]
     }
@@ -459,5 +517,5 @@ def _close_test_mapping_hashes(
             continue
         source = sources[event["provenance"]["sourceId"]]
         binding = bindings_by_requirement[source["preparationRequirementKey"]]
-        event["preparationBindingHash"] = identity_hash(binding)
+        event["preparationBindingHash"] = _compiler_hash(binding)
         event["sourceTimeMapping"] = copy.deepcopy(binding["timeMapping"])

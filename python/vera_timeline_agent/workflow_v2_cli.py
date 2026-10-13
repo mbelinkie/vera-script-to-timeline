@@ -61,7 +61,11 @@ def attest_package_v2(package_root: Path, output: Path) -> Path:
         Path("python/vera_timeline_agent/workflow_v2_cli.py"),
         Path("python/vera_timeline_agent/workflow_package.py"),
         Path("python/vera_timeline_agent/narration/models.py"),
+        Path("python/vera_timeline_agent/placeholder_slate.py"),
+        Path("packages/contracts/src/compiler-core.ts"),
         Path("packages/contracts/src/compiler-core-v2.ts"),
+        Path("pyproject.toml"),
+        Path("uv.lock"),
         *[
             Path("contracts") / name
             for name in (

@@ -27,6 +27,7 @@ import opentimelineio as otio  # type: ignore[import-untyped]
 from referencing import Registry, Resource
 
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
+from vera_timeline_agent.placeholder_slate import render_placeholder_slate
 
 BUILD_DIRECTORY = "Builds"
 MEDIA_DIRECTORY = "Media"
@@ -115,17 +116,76 @@ def _canonical_json(value: object) -> bytes:
     return canonical_json_bytes(value)
 
 
+def _compiler_hash(value: object) -> str:
+    """Match compiler-core.ts canonical JSON for the frozen integer-only schemas."""
+    text = (
+        json.dumps(
+            _compiler_json_values(value),
+            sort_keys=True,
+            ensure_ascii=False,
+            allow_nan=False,
+            indent=2,
+        )
+        + "\n"
+    )
+    # JSON.stringify preserves valid Unicode and escapes lone surrogate units.
+    text = "".join(
+        f"\\u{ord(char):04x}" if 0xD800 <= ord(char) <= 0xDFFF else char
+        for char in text
+    )
+    return _hash_bytes(text.encode("utf-8"))
+
+
+def _compiler_json_values(value: object) -> object:
+    if isinstance(value, dict):
+        return {key: _compiler_json_values(nested) for key, nested in value.items()}
+    if isinstance(value, list):
+        return [_compiler_json_values(nested) for nested in value]
+    if isinstance(value, float):
+        if not math.isfinite(value) or not value.is_integer() or abs(value) > _MAX_SAFE:
+            raise _error("compiler hash input is not a schema-supported safe integer")
+        return int(value)
+    if type(value) is int and abs(value) > _MAX_SAFE:
+        raise _error("compiler hash input is not a schema-supported safe integer")
+    return value
+
+
 def _load_json(path: Path, label: str) -> tuple[JsonObject, bytes]:
     _require_path_components_no_symlink(path, label)
     _require_regular(path, label)
     try:
         raw = path.read_bytes()
-        value = json.loads(raw)
-    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        value = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=_unique_json_keys,
+            parse_constant=_invalid_json_number,
+            parse_float=_finite_json_float,
+        )
+    except (OSError, UnicodeError, ValueError) as error:
         raise _error(f"could not read {label} {path}: {error}") from error
     if not isinstance(value, dict):
         raise _error(f"{label} must contain one JSON object: {path}")
     return cast(JsonObject, value), raw
+
+
+def _unique_json_keys(pairs: list[tuple[str, Any]]) -> JsonObject:
+    result: JsonObject = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key {key!r}")
+        result[key] = value
+    return result
+
+
+def _invalid_json_number(value: str) -> Any:
+    raise ValueError(f"non-finite JSON number {value}")
+
+
+def _finite_json_float(value: str) -> float:
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"non-finite JSON number {value}")
+    return number
 
 
 def _require_regular(path: Path, label: str) -> os.stat_result:
@@ -373,6 +433,10 @@ def _validate_inputs(
     live_hash = _require_hash(
         cast(JsonObject, document.get("liveContentHash")), "document liveContentHash"
     )
+    if live_hash != _compiler_hash(
+        {key: value for key, value in document.items() if key != "liveContentHash"}
+    ):
+        raise _error("document liveContentHash does not match its actual saved content")
     dep_identity = cast(JsonObject, dependencies.get("document"))
     manifest_identity = cast(JsonObject, manifest.get("document"))
     report_identity = cast(JsonObject, report.get("document"))
@@ -406,6 +470,24 @@ def _validate_inputs(
             raise _error(
                 f"{label} document revision/hash identity differs from dependencies"
             )
+    narration = [
+        block["text"]
+        for block in document["activeDraft"]["blocks"]
+        if block["type"] == "narration"
+    ]
+    try:
+        text_hash = _hash_bytes("\n".join(narration).encode("utf-8"))
+    except UnicodeError as error:
+        raise _error("narration text is not valid scalar Unicode") from error
+    if dep_identity.get("textHash") != text_hash:
+        raise _error("document textHash does not match the exact saved narration text")
+    if (
+        dep_identity.get("settingsHash")
+        != dependencies["authoringDefaults"]["settingsHash"]
+    ):
+        raise _error(
+            "document settingsHash differs from its accepted authoring defaults"
+        )
 
     build = cast(JsonObject, dependencies.get("build"))
     if (
@@ -424,11 +506,11 @@ def _validate_inputs(
         raise _error(
             "dependencies document identity differs from the supplied document"
         )
-    if report.get("dependenciesHash") != identity_hash(dependencies):
+    if report.get("dependenciesHash") != _compiler_hash(dependencies):
         raise _error(
             "build report dependenciesHash does not match canonical dependencies"
         )
-    manifest_identity_hash = identity_hash(manifest)
+    manifest_identity_hash = _compiler_hash(manifest)
     if (
         cast(JsonObject, report.get("manifest")).get("contentHash")
         != manifest_identity_hash
@@ -506,9 +588,19 @@ def _validate_manifest_semantics(
             "manifest composition topology differs from configured track roles"
         )
     root_id = cast(str, composition["primaryRootTrackId"])
+    child_ids = cast(list[str], roles.get("childTrackIds", []))
+    overlay_ids = cast(list[str], roles.get("overlayTrackIds", []))
     root = tracks.get(root_id)
     if root is None or root.get("kind") != "video":
         raise _error("primary root composition track is missing or not video")
+    if (
+        len(set(child_ids)) != len(child_ids)
+        or len(set(overlay_ids)) != len(overlay_ids)
+        or root_id in child_ids
+        or root_id in overlay_ids
+        or set(child_ids) & set(overlay_ids)
+    ):
+        raise _error("primary root, child, and overlay tracks must be disjoint")
     for role_key, expected_kind in (
         ("narrationTrackId", "audio"),
         ("sourceAudioTrackIds", "audio"),
@@ -526,12 +618,40 @@ def _validate_manifest_semantics(
                 raise _error(
                     f"configured {role_key} refers to a missing or wrong-kind track"
                 )
-    for track_id in cast(list[str], roles.get("childTrackIds", [])):
+    for track_id in child_ids:
         if track_id not in tracks or tracks[track_id].get("kind") != "video":
             raise _error(f"configured child track {track_id} is missing or not video")
-    for track_id in cast(list[str], roles.get("overlayTrackIds", [])):
+    for track_id in overlay_ids:
         if track_id not in tracks or tracks[track_id].get("kind") != "video":
             raise _error(f"configured overlay track {track_id} is missing or not video")
+    role_indices = {
+        track_id: _safe_frame(
+            tracks[track_id].get("index"), f"track {track_id} index", positive=True
+        )
+        for track_id in (root_id, *child_ids, *overlay_ids)
+    }
+    if (
+        child_ids != sorted(child_ids, key=role_indices.__getitem__)
+        or overlay_ids != sorted(overlay_ids, key=role_indices.__getitem__)
+        or (
+            child_ids
+            and role_indices[root_id] >= min(role_indices[item] for item in child_ids)
+        )
+        or (
+            overlay_ids
+            and role_indices[root_id] >= min(role_indices[item] for item in overlay_ids)
+        )
+        or (
+            child_ids
+            and overlay_ids
+            and max(role_indices[item] for item in child_ids)
+            >= min(role_indices[item] for item in overlay_ids)
+        )
+    ):
+        raise _error(
+            "primary root, child, and overlay tracks are not in ascending "
+            "composition order"
+        )
 
     events = _unique_by_id(manifest.get("events"), "event", "eventId")
     sources = _unique_by_id(manifest.get("sources"), "source")
@@ -563,11 +683,14 @@ def _validate_manifest_semantics(
             raise _error(f"event {event_id} falls outside the timeline range")
         role = event.get("trackRole")
         if event_kind == "primary_visual":
-            if track_id != root_id or role != "primary_root":
+            if track_id == root_id and role == "primary_root":
+                root_events.append(event)
+            elif track_id in child_ids and role == "child":
+                pass
+            else:
                 raise _error(
-                    f"primary visual event {event_id} is outside the primary root"
+                    f"primary visual event {event_id} is outside a root or child track"
                 )
-            root_events.append(event)
         elif event_kind == "overlay_visual":
             if track_id not in roles.get("overlayTrackIds", []) or role != "overlay":
                 raise _error(
@@ -575,31 +698,45 @@ def _validate_manifest_semantics(
                 )
         elif event_kind == "placeholder":
             allowed = {
+                root_id,
                 roles.get("placeholderTrackId"),
                 roles.get("presenterTrackId"),
-                *roles.get("childTrackIds", []),
+                *child_ids,
             }
-            if track_id not in allowed or role not in {
-                "placeholder",
-                "presenter",
-                "child",
-            }:
+            valid_placeholder_role = (
+                (track_id == root_id and role == "primary_root")
+                or (
+                    track_id == roles.get("placeholderTrackId")
+                    and role == "placeholder"
+                )
+                or (track_id == roles.get("presenterTrackId") and role == "presenter")
+                or (track_id in child_ids and role == "child")
+            )
+            if track_id not in allowed or not valid_placeholder_role:
                 raise _error(
                     f"placeholder event {event_id} is outside a supported picture track"
                 )
             treatment = event.get("pictureTreatment")
-            if not isinstance(treatment, dict) or treatment.get("kind") != "still":
+            if not isinstance(treatment, dict) or treatment.get("kind") not in {
+                "still",
+                "slate",
+            }:
                 raise _error(
-                    f"placeholder event {event_id} is not a static reference still"
+                    f"placeholder event {event_id} is not a static still or slate"
                 )
-            reference = treatment.get("reference")
-            if (
-                not isinstance(reference, dict)
-                or treatment.get("composition", {}).get("motionPreset") != "none"
-            ):
-                raise _error(
-                    f"placeholder {event_id} needs a bound still with no motion"
-                )
+            if treatment["kind"] == "still":
+                reference = treatment.get("reference")
+                if (
+                    not isinstance(reference, dict)
+                    or treatment.get("composition", {}).get("motionPreset") != "none"
+                ):
+                    raise _error(
+                        f"placeholder {event_id} needs a bound still with no motion"
+                    )
+            elif not isinstance(treatment.get("text"), str):
+                raise _error(f"placeholder slate {event_id} has no authored text")
+            if track_id == root_id:
+                root_events.append(event)
         elif event_kind == "narration":
             if track_id != roles.get("narrationTrackId") or role != "narration":
                 raise _error(
@@ -656,7 +793,7 @@ def _validate_manifest_semantics(
                 if requirement_key is not None
                 else None
             )
-            if binding is None or event.get("preparationBindingHash") != identity_hash(
+            if binding is None or event.get("preparationBindingHash") != _compiler_hash(
                 binding
             ):
                 raise _error(
@@ -703,7 +840,7 @@ def _validate_manifest_semantics(
                 (
                     candidate
                     for candidate in bindings.values()
-                    if identity_hash(candidate) == event["preparationBindingHash"]
+                    if _compiler_hash(candidate) == event["preparationBindingHash"]
                 ),
                 None,
             )
@@ -715,6 +852,23 @@ def _validate_manifest_semantics(
                 )
 
         events_by_track[track_id].append(event)
+
+    source_audio_events = sorted(
+        (
+            event
+            for event in events.values()
+            if event["kind"] == "source_audio" and event.get("audio") is not None
+        ),
+        key=lambda event: event["recordRange"]["startFrame"],
+    )
+    furthest_source_audio_end = -1
+    for event in source_audio_events:
+        begin, finish = _range(
+            event["recordRange"], f"source audio event {event['eventId']} recordRange"
+        )
+        if begin < furthest_source_audio_end:
+            raise _error("enabled source-audio events overlap in record time")
+        furthest_source_audio_end = max(furthest_source_audio_end, finish)
 
     for track_id, track_events in events_by_track.items():
         ordered = sorted(
@@ -765,7 +919,7 @@ def _validate_manifest_semantics(
             root_event["recordRange"], "return root event range"
         )
         if (
-            not root_start <= frame <= root_end
+            not root_start < frame < root_end
             or returned.get("emitsNewSourceEvent") is not False
         ):
             raise _error(
@@ -843,7 +997,11 @@ def _validate_report_semantics(
     requirements = _unique_by_id(
         report_prep.get("requirements"), "report media requirement", "requirementKey"
     )
-    if set(requirements) != set(bindings) or report_prep.get("status") != "complete":
+    expected_prep_status = "complete" if bindings else "not_required"
+    if (
+        set(requirements) != set(bindings)
+        or report_prep.get("status") != expected_prep_status
+    ):
         raise _error(
             "build report media preparation does not cover the exact binding set"
         )
@@ -853,7 +1011,7 @@ def _validate_report_semantics(
         verification = cast(JsonObject, binding["verification"])
         if (
             item.get("status") != "prepared"
-            or item.get("bindingHash") != identity_hash(binding)
+            or item.get("bindingHash") != _compiler_hash(binding)
             or item.get("originalHash") != original.get("contentHash")
             or item.get("deliveredHash") != verification.get("deliveredHash")
             or item.get("diagnosticIds") != []
@@ -1147,6 +1305,10 @@ def _validate_preparations(
                 audio_map.get("packagePtsOrigin"),
                 f"prep {requirement_key} source-audio PTS origin",
             )
+            audio_record_pts_origin = _fraction(
+                audio_record.get("sourcePtsOrigin"),
+                f"prep {requirement_key} prepared-audio PTS origin",
+            )
             audio_logged_origin = _fraction(
                 audio_map.get("loggedTimeAtPackageOrigin"),
                 f"prep {requirement_key} source-audio logged origin",
@@ -1187,23 +1349,14 @@ def _validate_preparations(
             if (
                 audio_map.get("probeHash") != original.get("probeHash")
                 or audio_map.get("sampleRate") != source_rate
-                or audio_record.get("sourcePtsOrigin")
-                != audio_map.get("packagePtsOrigin")
+                or audio_record_pts_origin != audio_pts_origin
                 or audio_logged_origin != expected_audio_logged_origin
                 or source_first != expected_source_first
                 or source_exclusive != expected_source_end
                 or resampled_first != expected_resampled_first
                 or resampled_exclusive != expected_resampled_end
-                or actual_offset
-                != {
-                    "numerator": expected_offset.numerator,
-                    "denominator": expected_offset.denominator,
-                }
-                or actual_delivered_first
-                != {
-                    "numerator": expected_delivered_first.numerator,
-                    "denominator": expected_delivered_first.denominator,
-                }
+                or actual_offset != expected_offset
+                or actual_delivered_first != expected_delivered_first
             ):
                 raise _error(
                     f"prep {requirement_key} audio coordinates do not bind to P2"
@@ -1287,10 +1440,22 @@ def _media_artifacts(
         event_id = cast(str, event["eventId"])
         if kind == "placeholder":
             treatment = cast(JsonObject, event["pictureTreatment"])
-            reference = cast(JsonObject, treatment["reference"])
-            expected = _require_hash(
-                reference.get("contentHash"), f"placeholder {event_id} reference hash"
-            )
+            if treatment["kind"] == "slate":
+                timeline = cast(JsonObject, manifest["timeline"])
+                generated = render_placeholder_slate(
+                    cast(str, treatment["text"]),
+                    _safe_frame(timeline.get("width"), "timeline width", positive=True),
+                    _safe_frame(
+                        timeline.get("height"), "timeline height", positive=True
+                    ),
+                )
+                expected = _hash_bytes(generated)
+            else:
+                reference = cast(JsonObject, treatment["reference"])
+                expected = _require_hash(
+                    reference.get("contentHash"),
+                    f"placeholder {event_id} reference hash",
+                )
             expected_hashes[f"event:{event_id}"] = (expected, "Resolved", "still")
         elif kind == "source_audio":
             binding_hash = event.get("preparationBindingHash")
@@ -1298,7 +1463,7 @@ def _media_artifacts(
                 (
                     item
                     for item in prepared.values()
-                    if identity_hash(item.record.get("binding")) == binding_hash
+                    if _compiler_hash(item.record.get("binding")) == binding_hash
                 ),
                 None,
             )
@@ -1372,6 +1537,14 @@ def _media_artifacts(
             )
         else:
             identity = _id_component(key.removeprefix("event:"), "event id")
+            event = events[identity]
+            if event["kind"] == "placeholder":
+                treatment = cast(JsonObject, event["pictureTreatment"])
+                if (
+                    treatment.get("kind") == "slate"
+                    and source_path.suffix.lower() != ".png"
+                ):
+                    raise _error(f"placeholder slate {identity} must use PNG bytes")
             relative = f"{MEDIA_DIRECTORY}/{area}/{identity}{suffix}"
         _safe_relative(relative, f"package path for {key}")
         artifacts[key] = _InputArtifact(key, source_path, relative, actual, kind)
@@ -1492,7 +1665,7 @@ def _delivery_view(
     events = cast(list[JsonObject], manifest["events"])
     source_records = _unique_by_id(manifest.get("sources"), "source")
     binding_by_hash = {
-        identity_hash(item.record["binding"]): item for item in prepared.values()
+        _compiler_hash(item.record["binding"]): item for item in prepared.values()
     }
     timeline_rate = _fraction(
         cast(JsonObject, manifest["timeline"]).get("frameRate"),
@@ -1746,16 +1919,30 @@ def _validate_delivery_view(
             )
 
     binding_by_hash = {
-        identity_hash(item.record["binding"]): item for item in prepared.values()
+        _compiler_hash(item.record["binding"]): item for item in prepared.values()
     }
     for event in cast(list[JsonObject], manifest["events"]):
         event_id = cast(str, event["eventId"])
         if event["kind"] == "placeholder":
             treatment = cast(JsonObject, event["pictureTreatment"])
-            content_hash = _require_hash(
-                cast(JsonObject, treatment["reference"]).get("contentHash"),
-                f"placeholder {event_id} reference hash",
-            )
+            if treatment["kind"] == "slate":
+                timeline = cast(JsonObject, manifest["timeline"])
+                content_hash = _hash_bytes(
+                    render_placeholder_slate(
+                        cast(str, treatment["text"]),
+                        _safe_frame(
+                            timeline.get("width"), "timeline width", positive=True
+                        ),
+                        _safe_frame(
+                            timeline.get("height"), "timeline height", positive=True
+                        ),
+                    )
+                )
+            else:
+                content_hash = _require_hash(
+                    cast(JsonObject, treatment["reference"]).get("contentHash"),
+                    f"placeholder {event_id} reference hash",
+                )
             package_source = sources[event_id]
             if package_source.get("contentHash") != content_hash:
                 raise _error(
@@ -1819,7 +2006,28 @@ def _otio_track_kind(kind: str) -> str:
         return cast(str, otio.schema.Track.Kind.Video)
     if kind == "audio":
         return cast(str, otio.schema.Track.Kind.Audio)
+    if kind == "subtitle":
+        # OTIO accepts custom track-kind labels and round-trips them in its JSON
+        # adapter; the accepted v2 contract has subtitle tracks but no subtitle
+        # event kind yet.
+        return "Subtitle"
     raise _error(f"unsupported OTIO track kind {kind!r}")
+
+
+def _otio_track_order(tracks: list[JsonObject]) -> list[JsonObject]:
+    kind_order = {"video": 0, "audio": 1, "subtitle": 2}
+    for track in tracks:
+        if track.get("kind") not in kind_order:
+            _otio_track_kind(cast(str, track.get("kind")))
+    return sorted(
+        tracks,
+        key=lambda item: (
+            kind_order[cast(str, item["kind"])],
+            _safe_frame(
+                item.get("index"), f"track {item.get('id')} index", positive=True
+            ),
+        ),
+    )
 
 
 def _plain_otio(value: Any) -> Any:
@@ -1880,7 +2088,7 @@ def _build_otio(view: JsonObject, manifest_id: str, build_id: str) -> Any:
     for event in cast(list[JsonObject], view["events"]):
         events_by_track[cast(str, event["trackId"])].append(event)
 
-    for track_data in cast(list[JsonObject], view["tracks"]):
+    for track_data in _otio_track_order(cast(list[JsonObject], view["tracks"])):
         track_id = cast(str, track_data["id"])
         track = otio.schema.Track(
             name=cast(str, track_data["name"]),
@@ -2034,7 +2242,7 @@ def _verify_otio(package_root: Path, manifest: JsonObject, view: JsonObject) -> 
         raise _error(
             "OTIO timeline identity, start, or composition differs from v2 view"
         )
-    expected_tracks = cast(list[JsonObject], view["tracks"])
+    expected_tracks = _otio_track_order(cast(list[JsonObject], view["tracks"]))
     if len(timeline.tracks) != len(expected_tracks):
         raise _error("OTIO track count differs from delivery view")
     expected_events = _unique_by_id(view["events"], "delivery event")
@@ -2210,7 +2418,7 @@ def _receipt_preparations(prepared: Mapping[str, _Preparation]) -> JsonObject:
         result[key] = {
             "path": item.relative_path,
             "receiptHash": item.content_hash,
-            "bindingHash": identity_hash(binding),
+            "bindingHash": _compiler_hash(binding),
             "mappingHash": cast(JsonObject, binding["timeMapping"])["mappingHash"],
             "profileHash": profile["profileHash"],
             "toolHash": profile["toolHash"],
@@ -2473,7 +2681,7 @@ def _verify_package(project_root: Path) -> tuple[V2PackageVerification, JsonObje
         profile = cast(JsonObject, binding.get("profile"))
         expected_prep = {
             "receiptHash": _hash_bytes(raw),
-            "bindingHash": identity_hash(binding),
+            "bindingHash": _compiler_hash(binding),
             "mappingHash": cast(JsonObject, binding.get("timeMapping"))["mappingHash"],
             "profileHash": profile["profileHash"],
             "toolHash": profile["toolHash"],

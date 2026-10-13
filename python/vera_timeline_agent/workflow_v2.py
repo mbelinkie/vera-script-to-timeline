@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import platform
 import re
@@ -127,11 +128,18 @@ def _strict_object(payload: bytes, label: str) -> dict[str, Any]:
     def invalid_constant(_value: str) -> None:
         raise WorkflowV2Error(f"{label} contains a non-finite JSON number")
 
+    def finite_float(value: str) -> float:
+        parsed = float(value)
+        if not math.isfinite(parsed):
+            raise WorkflowV2Error(f"{label} contains a non-finite JSON number")
+        return parsed
+
     try:
         value = json.loads(
             payload.decode("utf-8"),
             object_pairs_hook=pairs,
             parse_constant=invalid_constant,
+            parse_float=finite_float,
         )
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise WorkflowV2Error(f"{label} is not valid UTF-8 JSON") from error
@@ -990,6 +998,7 @@ def _validate_composition(
     root = track_by_id.get(root_id) if isinstance(root_id, str) else None
     if root is None or root.get("kind") != "video":
         raise WorkflowV2Error("primary root track is unavailable")
+    roles: list[str] = [cast(str, root_id)]
     for key in ("childTrackIds", "overlayTrackIds"):
         track_ids = composition.get(key)
         if not isinstance(track_ids, list):
@@ -998,6 +1007,24 @@ def _validate_composition(
             track = track_by_id.get(track_id) if isinstance(track_id, str) else None
             if track is None or track.get("kind") != "video":
                 raise WorkflowV2Error("composition track is not a video track")
+            roles.append(cast(str, track_id))
+    if len(roles) != len(set(roles)):
+        raise WorkflowV2Error("composition track roles overlap")
+
+    child_indices = [
+        cast(int, track_by_id[track_id]["index"])
+        for track_id in cast(list[str], composition["childTrackIds"])
+    ]
+    overlay_indices = [
+        cast(int, track_by_id[track_id]["index"])
+        for track_id in cast(list[str], composition["overlayTrackIds"])
+    ]
+    root_index = cast(int, root["index"])
+    if child_indices and min(child_indices) <= root_index:
+        raise WorkflowV2Error("child tracks must follow the primary root track")
+    last_primary_index = max([root_index, *child_indices])
+    if overlay_indices and min(overlay_indices) <= last_primary_index:
+        raise WorkflowV2Error("overlay tracks must follow root and child tracks")
     timeline = cast(Mapping[str, Any], manifest["timeline"])
     duration = cast(int, timeline["durationFrames"])
     root_intervals = sorted(
@@ -1034,12 +1061,22 @@ def _validate_composition(
             if isinstance(returned_event_id, str)
             else None
         )
+        record_frame = item.get("recordFrame")
+        if event is not None:
+            root_start, root_duration = _frame_range(
+                event.get("recordRange"), "primary root event range"
+            )
+        else:
+            root_start, root_duration = 0, 0
         if (
             event is None
             or event.get("trackId") != root_id
-            or event.get("recordRange", {}).get("startFrame") != item.get("recordFrame")
+            or not _nonnegative_int(record_frame)
+            or not root_start < record_frame < root_start + root_duration
         ):
-            raise WorkflowV2Error("composition return does not bind to its root event")
+            raise WorkflowV2Error(
+                "composition return is not interior to its continuous root event"
+            )
 
 
 def _validate_semantics(manifest: Mapping[str, Any], view: Mapping[str, Any]) -> None:
@@ -1102,6 +1139,7 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
         self.expected_stamps: dict[str, str] = {}
         self.expected_properties: dict[str, dict[str, Any]] = {}
         self.timeline_marker_stamps: dict[int, str] = {}
+        self.expected_markers: dict[int, dict[str, Any]] = {}
 
     def place_event(self, event: Mapping[str, Any]) -> None:
         self.assert_current_target()
@@ -1220,7 +1258,14 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
             custom,
         ):
             raise WorkflowV2Error("Resolve could not add a script marker")
-        self.timeline_marker_stamps[cast(int, marker["frame"])] = custom
+        frame = cast(int, marker["frame"])
+        self.timeline_marker_stamps[frame] = custom
+        self.expected_markers[frame] = {
+            "color": _MARKER_COLORS[cast(str, marker["color"])],
+            "name": marker["name"],
+            "note": marker["note"],
+            "duration": 1,
+        }
 
     def configure_tracks(self, tracks: Sequence[Mapping[str, Any]]) -> None:
         self._v2_tracks = tuple(dict(track) for track in tracks)
@@ -1250,6 +1295,7 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
             ):
                 discrepancies.append("timeline-end")
             expected_tracks = cast(list[Mapping[str, Any]], view["tracks"])
+            actual_track_counts: dict[str, int] = {}
             for kind in ("video", "audio", "subtitle"):
                 expected_count = max(
                     (
@@ -1259,7 +1305,9 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                     ),
                     default=0,
                 )
-                if self.timeline.GetTrackCount(kind) != expected_count:
+                actual_count = self.timeline.GetTrackCount(kind)
+                actual_track_counts[kind] = actual_count
+                if actual_count != expected_count:
                     discrepancies.append("track-count")
             for track in expected_tracks:
                 if (
@@ -1275,56 +1323,58 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                     if value["id"] == event["trackId"]
                 )
                 by_track.setdefault((track["kind"], track["index"]), []).append(event)
-            for (kind, index), expected in by_track.items():
-                actual_items = list(self.timeline.GetItemListInTrack(kind, index))
-                expected_sorted = sorted(
-                    expected, key=lambda item: item["recordRange"]["startFrame"]
-                )
-                actual_sorted = sorted(
-                    actual_items, key=lambda item: item.GetStart(False)
-                )
-                if len(expected_sorted) != len(actual_sorted):
-                    discrepancies.append("event-count")
-                    continue
-                for event, item in zip(expected_sorted, actual_sorted, strict=True):
-                    event_id = cast(str, event["id"])
-                    record = event["recordRange"]
-                    if (
-                        item.GetStart(False) != record["startFrame"]
-                        or item.GetDuration(False) != record["durationFrames"]
-                    ):
-                        discrepancies.append("event-record-range")
-                    source_range = event.get("sourceRange")
-                    if source_range is not None:
-                        if item.GetSourceStartFrame() != source_range["startFrame"]:
-                            discrepancies.append("event-source-start")
-                        if (
-                            item.GetSourceEndFrame()
-                            != source_range["startFrame"]
-                            + source_range["durationFrames"]
-                            - 1
-                        ):
-                            discrepancies.append("event-source-end")
-                    media_item = item.GetMediaPoolItem()
-                    actual_media_id = (
-                        media_item.GetMediaId() if media_item is not None else None
+            for kind, track_count in actual_track_counts.items():
+                for index in range(1, track_count + 1):
+                    expected = by_track.get((kind, index), [])
+                    actual_items = list(self.timeline.GetItemListInTrack(kind, index))
+                    expected_sorted = sorted(
+                        expected, key=lambda item: item["recordRange"]["startFrame"]
                     )
-                    if actual_media_id != self.media_id_by_source.get(
-                        cast(str, event["sourceId"])
-                    ):
-                        discrepancies.append("event-media-identity")
-                    if item.GetMarkerCustomData(0) != self.expected_stamps.get(
-                        event_id
-                    ):
-                        discrepancies.append("event-custom-data")
-                    expected_properties = self.expected_properties.get(event_id, {})
-                    if expected_properties:
-                        actual_properties = item.GetProperties()
-                        if not isinstance(actual_properties, Mapping) or any(
-                            not _property_equal(actual_properties.get(key), value)
-                            for key, value in expected_properties.items()
+                    actual_sorted = sorted(
+                        actual_items, key=lambda item: item.GetStart(False)
+                    )
+                    if len(expected_sorted) != len(actual_sorted):
+                        discrepancies.append("event-count")
+                        continue
+                    for event, item in zip(expected_sorted, actual_sorted, strict=True):
+                        event_id = cast(str, event["id"])
+                        record = event["recordRange"]
+                        if (
+                            item.GetStart(False) != record["startFrame"]
+                            or item.GetDuration(False) != record["durationFrames"]
                         ):
-                            discrepancies.append("event-properties")
+                            discrepancies.append("event-record-range")
+                        source_range = event.get("sourceRange")
+                        if source_range is not None:
+                            if item.GetSourceStartFrame() != source_range["startFrame"]:
+                                discrepancies.append("event-source-start")
+                            if (
+                                item.GetSourceEndFrame()
+                                != source_range["startFrame"]
+                                + source_range["durationFrames"]
+                                - 1
+                            ):
+                                discrepancies.append("event-source-end")
+                        media_item = item.GetMediaPoolItem()
+                        actual_media_id = (
+                            media_item.GetMediaId() if media_item is not None else None
+                        )
+                        if actual_media_id != self.media_id_by_source.get(
+                            cast(str, event["sourceId"])
+                        ):
+                            discrepancies.append("event-media-identity")
+                        if item.GetMarkerCustomData(0) != self.expected_stamps.get(
+                            event_id
+                        ):
+                            discrepancies.append("event-custom-data")
+                        expected_properties = self.expected_properties.get(event_id, {})
+                        if expected_properties:
+                            actual_properties = item.GetProperties()
+                            if not isinstance(actual_properties, Mapping) or any(
+                                not _property_equal(actual_properties.get(key), value)
+                                for key, value in expected_properties.items()
+                            ):
+                                discrepancies.append("event-properties")
             actual_markers = self.timeline.GetMarkers()
             expected_marker_frames = set(self.timeline_marker_stamps)
             if (
@@ -1334,6 +1384,17 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                 discrepancies.append("marker-inventory")
             else:
                 for frame, custom in self.timeline_marker_stamps.items():
+                    marker_properties = actual_markers[frame]
+                    expected_marker_properties = self.expected_markers.get(frame)
+                    if (
+                        not isinstance(marker_properties, Mapping)
+                        or expected_marker_properties is None
+                        or any(
+                            marker_properties.get(key) != value
+                            for key, value in expected_marker_properties.items()
+                        )
+                    ):
+                        discrepancies.append("marker-properties")
                     if self.timeline.GetMarkerCustomData(frame) != custom:
                         discrepancies.append("marker-custom-data")
             self._verify_bins(discrepancies)
@@ -1472,6 +1533,14 @@ def run_workflow_delivery_v2(
         if has_source_audio and action == "build":
             raise WorkflowV2Error(
                 "native source-audio delivery awaits #178 qualification"
+            )
+        has_subtitle_tracks = any(
+            track.get("kind") == "subtitle" for track in view["tracks"]
+        )
+        result["nativeSubtitleTracksQualified"] = not has_subtitle_tracks
+        if has_subtitle_tracks and action == "build":
+            raise WorkflowV2Error(
+                "native subtitle-track creation awaits separate qualification"
             )
         unsupported_treatments = [
             event
