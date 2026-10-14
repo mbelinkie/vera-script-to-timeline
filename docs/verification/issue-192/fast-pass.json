@@ -1,0 +1,69 @@
+{
+  "status": "complete-fast-pass-not-final",
+  "receipt": "out/issue192/fast-2/complete.json",
+  "receiptSha256": "2f9aded1fc863c4e56a65a3a3604cee3909aa34c2bd40e4c85245493de4f4d31",
+  "source": "85b677ad8c2f34d466ef9d1970b78145a0d9ac7c",
+  "startedAt": "2026-10-14T04:17:29.138Z",
+  "finishedAt": "2026-10-14T04:21:07.976Z",
+  "exitCode": 0,
+  "signal": null,
+  "logSha256": "4c1e2483e10c55b8636ed0eb7eda567500792393f5f79af5fb64325ed5eb2312",
+  "command": [
+    "npm",
+    "run",
+    "validate:fast"
+  ],
+  "node": "v24.19.0",
+  "nodeBinary": "/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin/node",
+  "nodeSha256": "1052eb9c7d6c60a79b968e09f75af55a73462b0f6dff0964336d63b5e13eb63c",
+  "tools": {
+    "/Users/matthewbelinkie/.local/bin/uv": {
+      "binary": "/Users/matthewbelinkie/.local/bin/uv",
+      "sha256": "9f810c3f3ea6b29f5e02b03acb0dcff74f516d4c24b91cd5491f172829e5c9e4",
+      "version": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)"
+    },
+    ".venv/bin/python": {
+      "binary": "/Users/matthewbelinkie/.local/share/uv/python/cpython-3.12.14-macos-x86_64-none/bin/python3.12",
+      "sha256": "a8e10ff8d348800219a8f1f2bb04f5b7d2d62a34f9656cad5520f10560f8df35",
+      "version": "Python 3.12.14"
+    },
+    ".venv/bin/ruff": {
+      "binary": "/Users/matthewbelinkie/.codex/worktrees/f5f4/VERA Script to Timeline/.venv/bin/ruff",
+      "sha256": "40a2ecbb65bcf18e99b424b60eeccaad58a6b35608341b6b64f426e02f54c233",
+      "version": "ruff 0.16.4"
+    },
+    ".venv/bin/mypy": {
+      "binary": "/Users/matthewbelinkie/.codex/worktrees/f5f4/VERA Script to Timeline/.venv/bin/mypy",
+      "sha256": "b9ea015568aac93e2bc0c9630de8be3ebc63d1e0202a524af4c148659cd4e8e6",
+      "version": "mypy 2.3.1 (compiled: no)"
+    }
+  },
+  "PATH": "/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/Users/matthewbelinkie/.local/bin:/usr/local/bin:/usr/bin:/bin",
+  "VITEST_MAX_WORKERS": "1",
+  "PYTEST_ADDOPTS": "--durations=25",
+  "dependencyOverlay": {
+    "origin": "/Users/matthewbelinkie/.codex/worktrees/2628/VERA Script to Timeline",
+    "hashes": {
+      "package.json": "ce265d25f9582ef71f2e6b45e1e878a40e5ca4752d79db5f40caf59b9c0a7ff0",
+      "package-lock.json": "e615667b1bcbea53bb34c4db11a6ca6a2745fae5edac6538ff87d3fdfe35d7b8",
+      "packages/contracts/package.json": "4f5469dbc1474a47c6857c7e0ce3abecd99034dcb7e234bf4674a09e7ec93eb4",
+      "packages/tooling-smoke/package.json": "63e76fb960696f5828a03290b9af64f94116f87d26712183bf3f2bdab7d20760",
+      "packages/word-timing/package.json": "4547221dd55c4007dcc91c852e7d3e40b06b5f170ddaa349ea3c0e9cdb3721a7"
+    },
+    "workspace": {
+      "@vera/contracts": "/Users/matthewbelinkie/.codex/worktrees/f5f4/VERA Script to Timeline/packages/contracts",
+      "@vera/tooling-smoke": "/Users/matthewbelinkie/.codex/worktrees/f5f4/VERA Script to Timeline/packages/tooling-smoke",
+      "@vera/word-timing": "/Users/matthewbelinkie/.codex/worktrees/f5f4/VERA Script to Timeline/packages/word-timing"
+    }
+  },
+  "inputInventoryHash": "ff95760abe2d662f2b7c106ce2aa9e8e5bbb394c19c3e7d564770f2d00ad4823",
+  "counts": {
+    "contractVitest": 464,
+    "toolingVitest": 1,
+    "nodeTests": 61,
+    "pythonFast": 474,
+    "pythonMypy": 150,
+    "pythonFormatted": 491,
+    "skips": 0
+  }
+}
