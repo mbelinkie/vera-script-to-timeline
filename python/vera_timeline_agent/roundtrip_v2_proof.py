@@ -12,6 +12,8 @@ import hashlib
 import os
 import shutil
 import subprocess
+import uuid
+import wave
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -19,7 +21,11 @@ from typing import cast
 
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
 from vera_timeline_agent.roundtrip_v2_audio import verify_selected_omission_v2
-from vera_timeline_agent.roundtrip_v2_build import PreparedProofBuildV2, pin_bytes_v2
+from vera_timeline_agent.roundtrip_v2_build import (
+    R16_INPUTS,
+    PreparedProofBuildV2,
+    pin_bytes_v2,
+)
 from vera_timeline_agent.roundtrip_v2_native import NativeProofBoundaryV2
 from vera_timeline_agent.roundtrip_v2_records import (
     ROOT,
@@ -82,6 +88,8 @@ class ProofSessionV2:
         self.capture_inputs: dict[str, tuple[JsonObject, JsonObject]] = {}
         self.read_sequence = 0
         self.case_sessions: dict[str, ProofSessionV2] = {}
+        self.authenticated_evidence: dict[str, JsonObject] = {}
+        self.capture_namespace = uuid.uuid4().hex
         self.staged_inputs: JsonObject | None = None
         for key, pin in baseline.inputs.items():
             pin_bytes_v2(pin)
@@ -221,6 +229,15 @@ class ProofSessionV2:
                 owner._observations_current(case)
             return
         self._current()
+        key = identity_hash(evidence)
+        pin = self.authenticated_evidence.get(key)
+        fact(pin is not None, "case was not authenticated by this session")
+        assert pin is not None
+        fact(read_pin(pin) == evidence, "authenticated case bytes differ")
+        fact(
+            evidence["bindingJson"].encode() == pin_bytes_v2(self.binding_pin)[1],
+            "authenticated case binding differs",
+        )
 
         current = evidence["current"]
         raw_hash = digest(current["rawJson"].encode())
@@ -228,7 +245,9 @@ class ProofSessionV2:
         target, mapping = self.capture_inputs[raw_hash]
         self.read_sequence += 1
         actual = self.boundary.capture(
-            target, mapping, f"integration_current_{self.read_sequence}"
+            target,
+            mapping,
+            f"integration_current_{self.capture_namespace}_{self.read_sequence}",
         )
         fact(
             actual["rawHash"] == raw_hash
@@ -349,8 +368,16 @@ class ProofSessionV2:
         else:
             fact(profile_pin is None and row_id is None, "unbound omission parameters")
         self._current()
-        self._observations_current(value)
         self._pure("infer", evidence=value)
+        key = identity_hash(value)
+        path = self.root / "authenticated-evidence" / f"{key[7:]}.json"
+        publish_immutable_output(path, canonical_json_bytes(value))
+        self.authenticated_evidence[key] = self._remember(
+            f"authenticated-evidence:{key}",
+            path,
+            key,
+        )
+        self._observations_current(value)
         return value
 
     def stage(
@@ -637,6 +664,7 @@ class ProofSessionV2:
             self.baseline.request["lane"]
             == revised.request["lane"]
             == "synthetic_local"
+            and self.baseline.original != R16_INPUTS
         )
         fact(
             result == actual
@@ -655,6 +683,11 @@ class ProofSessionV2:
         """Public delivery owns save/reopen and partial-target/read-only recovery."""
         self._current()
         self._require_accepted_rebuild(revised)
+        fact(
+            not isinstance(revised, PreparedRevisedProofBuildV2)
+            or fresh.revised_preflight_hash is not None,
+            "revised build requires the revised native consumer",
+        )
         package_pin = self.pins.get("fresh-package")
         fact(package_pin is not None, "accepted fresh package required")
         assert package_pin is not None
@@ -759,6 +792,35 @@ class ProofSessionV2:
                 == source["startFrame"] + source["durationFrames"],
                 "reopened source/record discrepancy",
             )
+            authored = event["v2Event"]
+            linked = {
+                peer["itemUid"]
+                for peer in items
+                if peer is not item
+                and {authored["kind"], peer["authoredEvent"]["kind"]}
+                == {"primary_visual", "source_audio"}
+                and authored["provenance"]["blockId"]
+                == peer["authoredEvent"]["provenance"]["blockId"]
+                and authored["provenance"]["payloadId"]
+                == peer["authoredEvent"]["provenance"]["payloadId"]
+            }
+            fact(set(item["linkedUids"]) == linked, "reopened AV link topology differs")
+            if item["kind"] == "audio":
+                routes = [
+                    r
+                    for r in observed["controls"]["routes"]
+                    if r["itemUid"] == item["itemUid"]
+                ]
+                with wave.open(item["sourcePath"], "rb") as stream:
+                    channels = stream.getnchannels()
+                fact(
+                    len(routes) == 1
+                    and channels in {1, 2}
+                    and routes[0]["controls"]["gainDb"] == (event["gainDb"] or 0)
+                    and routes[0]["controls"]["channelMap"]
+                    == ("mono-dual" if channels == 1 else "stereo-direct"),
+                    "reopened audio gain/channel mapping differs",
+                )
 
     def recover_delivery(self, fresh: NativeProofBoundaryV2) -> JsonObject:
         self._current()

@@ -11,6 +11,7 @@ import pytest
 from issue190_case import pin
 from issue192_case import boundary_case, target
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
+from vera_timeline_agent.roundtrip_v2_build import R16_INPUTS
 from vera_timeline_agent.roundtrip_v2_proof import ProofSessionV2
 from vera_timeline_agent.roundtrip_v2_records import (
     ProofNativeError,
@@ -70,8 +71,25 @@ def test_consumption_rechecks_actual_adjacent_facts_before_pure_or_effect(
     packet = proof.capture(
         target(resolve), resolve.project.timeline.mapping, "issue192_current"
     )
-    evidence = {"current": packet}
+    # Transport-only guard fixture; the genuine public test authenticates cases.
+    evidence = {
+        "current": packet,
+        "bindingJson": proof.binding_pin
+        and Path(proof.binding_pin["path"]).read_text(),
+    }
+    key = identity_hash(evidence)
+    path = proof.root / "transport-currentness.json"
+    publish_immutable_output(path, canonical_json_bytes(evidence))
+    proof.authenticated_evidence[key] = proof._remember("transport-case", path, key)
     proof._observations_current(evidence)
+    other = session(packages, tmp_path / "second-session")
+    other.capture(target(resolve), resolve.project.timeline.mapping, "second_current")
+    other_path = other.root / "transport-currentness.json"
+    publish_immutable_output(other_path, canonical_json_bytes(evidence))
+    other.authenticated_evidence[key] = other._remember(
+        "transport-case", other_path, key
+    )
+    other._observations_current(evidence)
     calls = list(adapter.calls)
     resolve.project.timeline.markers = {"unexpected": {"name": "changed"}}
     try:
@@ -178,7 +196,8 @@ def test_fresh_package_public_delivery_save_reopen_and_readonly_recovery(
 
 
 @pytest.mark.parametrize(
-    "attack", ["record", "source", "target", "disabled", "control"]
+    "attack",
+    ["record", "source", "target", "disabled", "control", "gain", "channels", "links"],
 )
 def test_reopened_discrepancy_refuses_without_more_delivery(
     packages: Any,
@@ -222,8 +241,26 @@ def test_reopened_discrepancy_refuses_without_more_delivery(
         resolve.project.timeline.uid += ":drift"
     elif attack == "disabled":
         item.enabled = False
-    else:
+    elif attack == "control":
         monkeypatch.setattr(boundary, "read_controls", lambda *_: {"unknown": True})
+    elif attack in {"gain", "channels"}:
+
+        def changed_controls(
+            project: Any, timeline: Any, current: Any
+        ) -> dict[str, Any]:
+            controls = fake_controls(project, timeline, current)
+            route = controls["routes"][0]["controls"]
+            if attack == "gain":
+                route["gainDb"] = -18
+            else:
+                route["channelMap"] = "stereo-direct"
+            return controls
+
+        monkeypatch.setattr(boundary, "read_controls", changed_controls)
+    else:
+        peers = [i for group in resolve.project.timeline.items.values() for i in group]
+        peers[0].links = [peers[-1]]
+        peers[-1].links = [peers[0]]
     calls = list(adapter.calls)
     with pytest.raises(ProofNativeError):
         proof.verify_reopened(
@@ -249,3 +286,8 @@ def test_revised_real_lane_and_changed_accepted_input_refuse_before_effect(
         proof.prepare_rebuild(candidate, build)
     assert adapter.calls == calls
     assert boundary.recover_delivery()["nativeEffects"] == 0
+    request["lane"] = "synthetic_local"
+    monkeypatch.setattr(proof.baseline, "original", R16_INPUTS)
+    with pytest.raises(ProofNativeError, match="real revised consumer"):
+        proof.prepare_rebuild(candidate, build)
+    assert adapter.calls == calls

@@ -120,7 +120,7 @@ def verify_revised_preflight_v2(
     revision = shape(
         preflight["revisionBinding"],
         "lane request originalFiles baselineInputs baselineProof baselineNative "
-        "stagedInputs evidence candidate result decision",
+        "stagedInputs evidence candidate result decision authenticatedCases",
         "revised input/decision binding",
     )
     originals = shape(
@@ -181,6 +181,64 @@ def verify_revised_preflight_v2(
     cases = evidence_record["cases"]
     cases = cases if isinstance(cases, list) else [cases]
     fact(0 < len(cases) <= 3, "isolated inference cases required")
+    authenticated = revision["authenticatedCases"]
+    fact(
+        isinstance(authenticated, list) and len(authenticated) == len(cases),
+        "complete authenticated case inventory required",
+    )
+    for case, entry in zip(cases, authenticated, strict=True):
+        shape(entry, "evidence binding omissionInputs", "authenticated case pins")
+        _, evidence_raw = pin_bytes_v2(entry["evidence"])
+        fact(
+            _parse(evidence_raw) == case
+            and _digest(evidence_raw) == identity_hash(case),
+            "authenticated case identity differs",
+        )
+        fact(
+            pin_bytes_v2(entry["binding"])[1] == case["bindingJson"].encode(),
+            "authenticated case binding identity differs",
+        )
+        required.extend((entry["evidence"], entry["binding"]))
+        if case["omission"] is None:
+            fact(entry["omissionInputs"] == {}, "unexpected omission input pins")
+            continue
+        hashes = case["omission"]["inputHashes"]
+        pins = entry["omissionInputs"]
+        mandatory = {
+            "profile.json",
+            "review.json",
+            "baseline.json",
+            "current-a.json",
+            "current-b.json",
+            "baseline-receipt.json",
+            "current-a-receipt.json",
+            "current-b-receipt.json",
+            "lift-receipt.json",
+            "pristine.wav",
+            "edited.wav",
+            "pristine-receipt.json",
+            "edited-receipt.json",
+            "listening-receipt.json",
+        }
+        fact(
+            isinstance(hashes, dict)
+            and isinstance(pins, dict)
+            and mandatory <= set(hashes)
+            and set(pins) == set(hashes),
+            "complete verified #191 omission inputs required",
+        )
+        profile = _parse(pin_bytes_v2(pins["profile.json"])[1])
+        fact(
+            pins["profile.json"]["sha256"] == case["omission"]["profileHash"]
+            and isinstance(profile.get("sources"), list)
+            and bool(profile["sources"])
+            and {s["path"] for s in profile["sources"]} <= set(hashes),
+            "complete verified #191 source inventory required",
+        )
+        for name, pin in pins.items():
+            pin_bytes_v2(pin)
+            fact(pin["sha256"] == hashes[name], "verified omission input pin differs")
+            required.append(pin)
     evidence_hashes = _evidence_hashes(cases)
     shape(candidate, "inference proposal", "revision candidate")
     shape(
@@ -416,7 +474,7 @@ class PreparedRevisedProofBuildV2:
             self.request["sourcePins"] == session.sources == self.sources,
             "revised source/config graph differs",
         )
-        self.result, self.candidate, _ = session.accepted_revision()
+        self.result, self.candidate, self.evidence = session.accepted_revision()
         self.original_files = shape(
             self.request["originalFiles"], "document dependencies", "original pins"
         )
@@ -481,6 +539,22 @@ class PreparedRevisedProofBuildV2:
             "sha256": _file_hash(session.baseline.execution / "proof-package.json"),
         }
         self.baseline_native_pin = session.binding_pin
+        self.authenticated_cases = []
+        cases = self.evidence if isinstance(self.evidence, list) else [self.evidence]
+        for case in cases:
+            owner = session.case_sessions.get(identity_hash(case), session)
+            owner._observations_current(case)
+            entry = {
+                "evidence": owner.authenticated_evidence[identity_hash(case)],
+                "binding": owner.binding_pin,
+                "omissionInputs": {
+                    relative: owner.pins[f"omission:{relative}"]
+                    for relative in case["omission"]["inputHashes"]
+                }
+                if case["omission"] is not None
+                else {},
+            }
+            self.authenticated_cases.append(copy.deepcopy(entry))
         self.hashes[self.baseline_proof_pin["path"]] = self.baseline_proof_pin["sha256"]
         for path, expected in session.boundary.preflight["verifiedFiles"].items():
             self.hashes[path] = expected
@@ -733,6 +807,7 @@ class PreparedRevisedProofBuildV2:
             "baselineProof": self.baseline_proof_pin,
             "baselineNative": self.baseline_native_pin,
             "stagedInputs": self.session.staged_inputs,
+            "authenticatedCases": self.authenticated_cases,
             **{
                 key: self.session.pins[f"revision-{key}"]
                 for key in ("evidence", "candidate", "result", "decision")

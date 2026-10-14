@@ -10,6 +10,7 @@ import copy
 import json
 import subprocess
 from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -306,6 +307,7 @@ def test_fractional_evidence_uses_exact_typescript_hashes(
 
 def test_public_b1_b3_core_fresh_package_and_truthful_native_refusal(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     authority = FakeAuthority()
     baseline_case = MaterializedCase(tmp_path / "baseline", authority)
@@ -387,12 +389,33 @@ def test_public_b1_b3_core_fresh_package_and_truthful_native_refusal(
             value = session.evidence(before, current)
         isolated.append((session, value))
         assert adapter.calls == []  # Captures/render use existing injected fake target.
+        for attack in ("binding", "baseline", "receipt", "omission"):
+            forged = copy.deepcopy(value)
+            if attack == "binding":
+                forged["bindingJson"] += " "
+            elif attack == "baseline":
+                forged["baseline"]["rawJson"] += " "
+            elif attack == "receipt":
+                forged["current"]["receiptJson"] += " "
+            else:
+                forged["omission"] = {"status": "verified", "inputHashes": {}}
+            for forgery_operation in (
+                partial(session.compose, [(session, forged)]),
+                partial(session.stage, forged, {}, prepared_media=[]),
+                partial(session.proposal, forged, prepared_media=[], handoff=None),
+                partial(session.decide, forged, {}, {}, []),
+            ):
+                with pytest.raises(ProofNativeError, match="not authenticated"):
+                    forgery_operation()
+            assert not (session.root / "inference-decision.json").exists()
+            assert not (session.root / "revision-decision.json").exists()
+            assert adapter.calls == []
     owner = isolated[0][0]
     composed = owner.compose(isolated)
     inferred = owner._pure("infer", evidence=composed)
     d1_configured = 187
     prepared = []
-    for n, duration in ((30, d1_configured), (51, 67)):
+    for n, duration in ((30, 200), (51, 67)):
         binding = copy.deepcopy(
             next(
                 b
@@ -428,6 +451,42 @@ def test_public_b1_b3_core_fresh_package_and_truthful_native_refusal(
     receipt = prepare_replacement_row_v2(generation, **args)
     assert provider.calls == 1
     assert prepare_replacement_row_v2(generation, **args) == receipt
+    assert provider.calls == 1
+    boundaries = fresh_boundary(stage, service, receipt)
+    finalized = finalize_replacement_row_v2(
+        generation,
+        **args,
+        boundary_evidence=boundaries,
+        review_artifact=b"fresh synthetic source-boundary review",
+    )
+    authority.handoff = finalized["handoff"]
+    with pytest.raises(ProofNativeError, match="blocked"):
+        owner.proposal(composed, prepared_media=prepared, handoff=finalized["handoff"])
+    # Restage at measured D1 in fresh roots, replaying the same synthesis cache.
+    measured = boundaries["audio"]["durationSamples"] // FRAME
+    assert measured == d1_configured
+    owner = ProofSessionV2(
+        tmp_path / "restaged-session",
+        baseline=baseline_case.build,
+        boundary=isolated[0][0].boundary,
+        authenticate=authority,
+        authority=AUTHORITY,
+    )
+    composed = owner.compose(isolated)
+    seconds = Fraction(measured * 1001, 24000)
+    prepared[0]["requestedRange"]["duration"] = {
+        "numerator": seconds.numerator,
+        "denominator": seconds.denominator,
+    }
+    stage = owner.stage(composed, decision, prepared_media=prepared)
+    authority.stage = stage
+    generation = tmp_path / "restaged-generation"
+    args.update(
+        request=stage["regeneration"],
+        document=stage["document"],
+        prior_dependencies=stage["dependencies"],
+    )
+    receipt = prepare_replacement_row_v2(generation, **args)
     assert provider.calls == 1
     boundaries = fresh_boundary(stage, service, receipt)
     finalized = finalize_replacement_row_v2(
@@ -560,6 +619,8 @@ def test_public_b1_b3_core_fresh_package_and_truthful_native_refusal(
         "stale-decision",
         "compact-decision-result",
         "wrong-fractional-evidence-hash",
+        "missing-authenticated-case",
+        "empty-C-inputs",
         "missing-original-pin",
         "wrong-package-input",
     ):
@@ -585,6 +646,22 @@ def test_public_b1_b3_core_fresh_package_and_truthful_native_refusal(
             wrong_pin = pin(wrong_candidate_path)
             bad["revisionBinding"]["candidate"] = wrong_pin
             bad["verifiedFiles"][str(wrong_candidate_path)] = wrong_pin["sha256"]
+        elif attack == "missing-authenticated-case":
+            bad["revisionBinding"]["authenticatedCases"] = []
+        elif attack == "empty-C-inputs":
+            forged_cases = copy.deepcopy(composed)
+            c_index = next(i for i, c in enumerate(forged_cases) if c["omission"])
+            forged_cases[c_index]["omission"]["inputHashes"] = {}
+            evidence_path = tmp_path / "empty-input-evidence.json"
+            case_path = tmp_path / "empty-input-case.json"
+            write(evidence_path, {"cases": forged_cases})
+            write(case_path, forged_cases[c_index])
+            bad["revisionBinding"]["evidence"] = pin(evidence_path)
+            entry = bad["revisionBinding"]["authenticatedCases"][c_index]
+            entry["evidence"] = pin(case_path)
+            entry["omissionInputs"] = {}
+            for path in (evidence_path, case_path):
+                bad["verifiedFiles"][str(path)] = pin(path)["sha256"]
         elif attack == "missing-original-pin":
             bad["verifiedFiles"].pop(
                 bad["revisionBinding"]["originalFiles"]["document"]["path"]
@@ -612,6 +689,11 @@ def test_public_b1_b3_core_fresh_package_and_truthful_native_refusal(
     fresh_boundary_port, fresh_resolve, fresh_adapter = rebuilt_case.native(
         tmp_path / "fresh-native", revised=revised
     )
+    with monkeypatch.context() as scoped:
+        scoped.setattr(fresh_boundary_port, "revised_preflight_hash", None)
+        with pytest.raises(ProofNativeError, match="revised native consumer"):
+            owner.request_fresh_delivery(revised, fresh_boundary_port)
+    assert fresh_adapter.calls == []
     assert (
         fresh_boundary_port.binding["schemaVersion"]
         == "issue-192-v2-revised-native-binding/v1"
