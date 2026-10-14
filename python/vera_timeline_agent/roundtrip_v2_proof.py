@@ -34,6 +34,7 @@ from vera_timeline_agent.roundtrip_v2_records import (
     shape,
 )
 from vera_timeline_agent.roundtrip_v2_revised_build import PreparedRevisedProofBuildV2
+from vera_timeline_agent.v2_package import _compiler_hash
 
 BRIDGE = ROOT / "packages/contracts/src/issue-192-proof-cli.ts"
 
@@ -546,7 +547,7 @@ class ProofSessionV2:
             and result["document"] == candidate["proposal"]["document"]
             and result["dependencies"] == candidate["proposal"]["dependencies"]
             and decision["proposalHash"] == candidate["proposal"]["proposalHash"]
-            and result["decisionHash"] == identity_hash(decision),
+            and result["decisionHash"] == _compiler_hash(decision),
             "accepted inference/decision/result changed",
         )
         return result, candidate, cast(JsonObject | list[JsonObject], evidence)

@@ -37,6 +37,7 @@ from vera_timeline_agent.roundtrip_v2_revised_build import (
     PreparedRevisedProofBuildV2,
     verify_revised_preflight_v2,
 )
+from vera_timeline_agent.v2_package import _compiler_hash
 
 pytestmark = pytest.mark.slow
 
@@ -393,13 +394,21 @@ def test_public_b1_b3_core_fresh_package_and_truthful_native_refusal(
     )
     assert candidate["proposal"]["request"]["handoff"][
         "priorDependenciesHash"
-    ] == identity_hash(stage["dependencies"])
+    ] == _compiler_hash(stage["dependencies"])
     approved = {
         "schemaVersion": "issue-202-v2-decision/v1",
         "proposalHash": candidate["proposal"]["proposalHash"],
-        "historyHash": identity_hash([]),
+        "historyHash": _compiler_hash([]),
         "outcome": "accept",
     }
+    with pytest.raises(ProofNativeError, match="stale/malformed decision history"):
+        owner._pure(
+            "decide",
+            evidence=composed,
+            candidate=candidate,
+            decision={**approved, "historyHash": identity_hash([])},
+            history=[],
+        )
     actual = owner.decide(composed, candidate, approved, [])
     row_asset = service.cache.read(
         "assets", f"{id_for(10)}/{receipt['assetId']}", "asset.json"
@@ -501,6 +510,7 @@ def test_public_b1_b3_core_fresh_package_and_truthful_native_refusal(
     for attack in (
         "relabel",
         "stale-decision",
+        "compact-decision-result",
         "missing-original-pin",
         "wrong-package-input",
     ):
@@ -509,6 +519,15 @@ def test_public_b1_b3_core_fresh_package_and_truthful_native_refusal(
             bad["lane"] = bad["revisionBinding"]["lane"] = "r16_private_revision"
         elif attack == "stale-decision":
             bad["revisionBinding"]["decision"]["sha256"] = "sha256:" + "0" * 64
+        elif attack == "compact-decision-result":
+            result_record = copy.deepcopy(actual)
+            result_record["decisionHash"] = identity_hash(approved)
+            wrong_result_path = tmp_path / "compact-decision-result.json"
+            write(wrong_result_path, result_record)
+            bad["revisionBinding"]["result"] = pin(wrong_result_path)
+            bad["verifiedFiles"][str(wrong_result_path)] = pin(wrong_result_path)[
+                "sha256"
+            ]
         elif attack == "missing-original-pin":
             bad["verifiedFiles"].pop(
                 bad["revisionBinding"]["originalFiles"]["document"]["path"]

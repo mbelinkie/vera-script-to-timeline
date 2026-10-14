@@ -301,7 +301,7 @@ def verify_revised_preflight_v2(
     fact(
         result["outcome"] == decision["outcome"] == "accept"
         and decision["proposalHash"] == candidate["proposal"]["proposalHash"]
-        and result["decisionHash"] == identity_hash(decision)
+        and result["decisionHash"] == _compiler_hash(decision)
         and saved["document"] == result["document"] == candidate["proposal"]["document"]
         and saved["dependencies"]
         == result["dependencies"]
