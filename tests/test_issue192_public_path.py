@@ -480,15 +480,20 @@ def test_public_b1_b3_core_fresh_package_and_truthful_native_refusal(
     assert prepare_replacement_row_v2(generation, **args) == receipt
     assert provider.calls == 1
     boundaries = fresh_boundary(stage, service, receipt)
-    finalized = finalize_replacement_row_v2(
-        generation,
-        **args,
-        boundary_evidence=boundaries,
-        review_artifact=b"fresh synthetic source-boundary review",
-    )
-    authority.handoff = finalized["handoff"]
-    with pytest.raises(ProofNativeError, match="blocked"):
-        owner.proposal(composed, prepared_media=prepared, handoff=finalized["handoff"])
+    probe_input_hash = pin(generation / "generation-inputs.json")["sha256"]
+    with pytest.raises(
+        ProofBuildError, match="blocked/nondeterministic/mutated replacement preview"
+    ):
+        finalize_replacement_row_v2(
+            generation,
+            **args,
+            boundary_evidence=boundaries,
+            review_artifact=b"fresh synthetic source-boundary review",
+        )
+    assert pin(generation / "generation-inputs.json")["sha256"] == probe_input_hash
+    assert not (generation / "row-handoff.json").exists()
+    assert not (generation / "replacement-preview.json").exists()
+    assert provider.calls == 1
     # Restage at measured D1 in fresh roots, replaying the same synthesis cache.
     measured = boundaries["audio"]["durationSamples"] // FRAME
     assert measured == d1_configured
@@ -523,6 +528,10 @@ def test_public_b1_b3_core_fresh_package_and_truthful_native_refusal(
         review_artifact=b"fresh synthetic source-boundary review",
     )
     authority.handoff = finalized["handoff"]
+    assert (
+        pin(tmp_path / "generation/generation-inputs.json")["sha256"]
+        == probe_input_hash
+    )
     candidate = owner.proposal(
         composed, prepared_media=prepared, handoff=finalized["handoff"]
     )
