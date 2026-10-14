@@ -236,8 +236,15 @@ def verify_revised_preflight_v2(
             "complete verified #191 source inventory required",
         )
         for name, pin in pins.items():
-            pin_bytes_v2(pin)
-            fact(pin["sha256"] == hashes[name], "verified omission input pin differs")
+            shape(pin, "path sha256", "verified omission input pin")
+            fact(
+                isinstance(pin["path"], str) and Path(pin["path"]).is_absolute(),
+                "absolute omission file locator required",
+            )
+            fact(
+                _file_hash(Path(pin["path"])) == pin["sha256"] == hashes[name],
+                "verified omission input pin differs",
+            )
             required.append(pin)
     evidence_hashes = _evidence_hashes(cases)
     shape(candidate, "inference proposal", "revision candidate")

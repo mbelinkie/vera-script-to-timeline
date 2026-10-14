@@ -402,6 +402,7 @@ def test_public_b1_b3_core_fresh_package_and_truthful_native_refusal(
                 pristine,
                 edited,
             )
+            assert (selected / "edited.wav").stat().st_size > 8 * 1024 * 1024
             value = session.evidence(
                 before,
                 current,
@@ -657,6 +658,7 @@ def test_public_b1_b3_core_fresh_package_and_truthful_native_refusal(
         "wrong-fractional-evidence-hash",
         "missing-authenticated-case",
         "empty-C-inputs",
+        "wrong-C-media-pin",
         "missing-original-pin",
         "wrong-package-input",
     ):
@@ -698,6 +700,13 @@ def test_public_b1_b3_core_fresh_package_and_truthful_native_refusal(
             entry["omissionInputs"] = {}
             for path in (evidence_path, case_path):
                 bad["verifiedFiles"][str(path)] = pin(path)["sha256"]
+        elif attack == "wrong-C-media-pin":
+            entry = next(
+                e
+                for e in bad["revisionBinding"]["authenticatedCases"]
+                if e["omissionInputs"]
+            )
+            entry["omissionInputs"]["edited.wav"]["sha256"] = "sha256:" + "0" * 64
         elif attack == "missing-original-pin":
             bad["verifiedFiles"].pop(
                 bad["revisionBinding"]["originalFiles"]["document"]["path"]
