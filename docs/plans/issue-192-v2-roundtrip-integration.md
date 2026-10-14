@@ -29,8 +29,12 @@ Only new siblings: this plan; `docs/verification/issue-192/*`;
 `packages/contracts/src/issue-192-proof-cli.ts`;
 `packages/contracts/test/issue-192-v2-integration.test.ts`;
 `packages/contracts/test/issue-192-case.ts`;
+`packages/contracts/test/issue-192-public-fixture.ts`;
 `python/vera_timeline_agent/roundtrip_v2_proof.py`;
+`python/vera_timeline_agent/roundtrip_v2_revised_build.py`;
 `tests/test_issue192_proof.py` and optional new `tests/issue192_case.py`.
+Combined public-path ownership also includes new
+`tests/issue192_public_case.py` and `tests/test_issue192_public_path.py`.
 Imported #202 files are dependency-owned, not locally editable.
 
 Derive exact A boundary and B reciprocal AV end trim/explicit downstream shift
@@ -46,11 +50,14 @@ CFR, render implementation, uploads/sharing, research/original edits, new librar
 dependencies. No contracts/fixtures/goldens/generated/compiler/accepted test or
 #190 source/handoff/test changes. Reuse existing APIs, no new dependencies.
 
-Initial R16 document AND dependencies keep #190's byte-identical guard. A revised
-real B2 consumer needs an explicit approved sibling note; no synthetic relabeling
-or private-helper bypass. #177 fractional/source-audio native creation refusals
-remain. Any required owning boundary amendment is retained as a minimal proposed
-note and that piece stops for approval.
+Initial R16 document AND dependencies keep #190's byte-identical guard.
+CN-192-R1 was explicitly Producer-approved on 2026-10-13; its receipt and exact
+note hash are in `docs/verification/issue-192/CN-192-R1-APPROVAL.md`. The new
+PreparedRevisedProofBuildV2 has separate closed revision/decision/original/input
+bindings; no real revised data is relabeled synthetic. #177 fractional/source-
+audio native creation and temporary On Camera package refusals remain. The
+minimal additional #190 public native consumer is implemented only after the
+owning boundary handoff, in this checkout. No private effect-helper bypass.
 
 ## Checks and acceptance
 

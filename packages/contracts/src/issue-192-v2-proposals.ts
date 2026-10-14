@@ -233,7 +233,7 @@ export function proposeV2Edits(document: ScriptDocumentV2, dependencies: Compile
     const original = before.items.filter((i) => i.authoredEvent.kind === "narration" && i.authoredEvent.provenance.blockId === row.id);
     fact(original.length === 1 && original[0]!.recordStart === 0 && original[0]!.recordEnd === 200 && original[0]!.linkedUids.length === 0, "C exact primary row required");
     const prior = original[0]!; const segments = after.items.filter((i) => i.eventId === prior.eventId).sort((a, b) => a.recordStart - b.recordStart);
-    fact(segments.length === 2 && equal(segments.map((i) => [i.recordStart, i.recordEnd, i.sourceStart, i.sourceEnd]),
+    fact(segments.length === 2 && segments.every((i) => i.itemUid !== prior.itemUid) && equal(segments.map((i) => [i.recordStart, i.recordEnd, i.sourceStart, i.sourceEnd]),
       [[0, 121, prior.sourceStart, prior.sourceStart + 121], [127, 200, prior.sourceStart + 127, prior.sourceEnd]]), "C exact non-ripple lift required");
     for (const segment of segments) fact(equal({ ...stable(segment), itemUid: prior.itemUid }, stable(prior)), "C split ownership/control delta");
     expected.splice(expected.findIndex((i) => i.itemUid === prior.itemUid), 1, ...structuredClone(segments));

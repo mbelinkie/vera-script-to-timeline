@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "issue-192-draft-source-pins/v1",
+  "status": "static_r2_unexecuted_pending_owner_handoff_and_check_grant",
+  "chatId": "01a13775-72eb-7ef0-befe-189389e23036",
+  "priorCandidate": "6852cfe840e7fa2e6d33cda31b05ced393d8f899",
+  "frozenIssue190": "e17bdc74742bfbb8d1b9ea08db6ff73f35f2caaf",
+  "provisionalCoreFixToImport": "77b82b3ea83bac5f9125571b352cfc0acfc3041b",
+  "coreFixRawSha256": "f6669b700fd676a451a2402c0390cb9fdfc726409c393df91ca9e7d0120069cf",
+  "coreFixTestRawSha256": "fcbafc0e11baa1330c612ddc3733bd4d53830693c10b6816899f0605ee0f07eb",
+  "approvedNoteRawSha256": "92a28cd3fba89f176d4f633d640f35ef11a2f6564b40f9f6aebabd3c6cb218c8",
+  "rawSourceSha256": {
+    "packages/contracts/src/issue-192-v2-proposals.ts": "353560363a61897b6aacd25eb926515c29775e0260e1a78dc6248d6bbeaf7250",
+    "packages/contracts/test/issue-192-case.ts": "fc718c2ee5b87c0ba870062bd451e0bd3a147b160dbc449f9cbff6de44d8ecae",
+    "packages/contracts/test/issue-192-public-fixture.ts": "e6281a26f78ef5e24284cf7f7e342bb0b61330b8608ad34f806613b2182a527e",
+    "python/vera_timeline_agent/roundtrip_v2_proof.py": "eff0f08f63454b910d90fc075d86b93d2f0c006abf2d08925bb296fdee30a6f2",
+    "python/vera_timeline_agent/roundtrip_v2_revised_build.py": "2bef44e0eab82ee56c99784e0aebe0bee0046a22d974192a34bc687c7849e975",
+    "tests/issue192_public_case.py": "e54f5c08ce862909f5f431d38f72c95ad2a6e32be6af3e404928e72c41fb1bac",
+    "tests/test_issue192_public_path.py": "a2577f43ae680488b54a2459d84b874b5a2f3721739abb7c2de378578f7f6754",
+    "tests/test_issue192_proof.py": "4371cac58057c5feb77435015bfc350d7a3b084d34a78a65b396a71a8449f3a2"
+  },
+  "executionEvidence": null,
+  "reviewEvidence": null,
+  "toolchainReceipt": null,
+  "nativeConsumerOwnerHandoff": "pending; no owning source edit",
+  "frozenBoundaryChange": "none",
+  "testDoublesDisposition": "transport units only; genuine combined public path is written and unexecuted"
+}

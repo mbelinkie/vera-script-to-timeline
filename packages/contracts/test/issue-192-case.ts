@@ -168,8 +168,9 @@ export function edits(raw: FakeRaw, cases = "AB") {
   if (cases.includes("C")) {
     const index = result.items.findIndex((i) => i.authoredEvent.kind === "narration" && i.recordStart === 0);
     const original = result.items[index]!; const left = structuredClone(original); const right = structuredClone(original);
+    left.itemUid += ":left";
     left.recordEnd = 121; left.sourceEnd = left.sourceStart + 121; left.rawRecordEnd = 120;
-    right.itemUid += ":split"; right.recordStart = 127; right.sourceStart += 127;
+    right.itemUid += ":right"; right.recordStart = 127; right.sourceStart += 127;
     result.items.splice(index, 1, left, right);
   }
   return result;

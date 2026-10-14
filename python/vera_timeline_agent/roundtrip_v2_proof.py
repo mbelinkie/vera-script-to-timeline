@@ -21,6 +21,7 @@ from vera_timeline_agent.narration.models import canonical_json_bytes, identity_
 from vera_timeline_agent.roundtrip_v2_audio import verify_selected_omission_v2
 from vera_timeline_agent.roundtrip_v2_build import PreparedProofBuildV2, pin_bytes_v2
 from vera_timeline_agent.roundtrip_v2_native import NativeProofBoundaryV2
+from vera_timeline_agent.roundtrip_v2_revised_build import PreparedRevisedProofBuildV2
 from vera_timeline_agent.roundtrip_v2_records import (
     ROOT,
     JsonObject,
@@ -426,6 +427,11 @@ class ProofSessionV2:
         publish_immutable_output(
             self.root / "revision-decision.json", canonical_json_bytes(decision)
         )
+        self._remember("revision-decision", self.root / "revision-decision.json", identity_hash(decision))
+        for name, value in (("revision-candidate", candidate), ("revision-evidence", {"cases": evidence})):
+            path = self.root / f"{name}.json"
+            publish_immutable_output(path, canonical_json_bytes(value))
+            self._remember(name, path, identity_hash(value))
         result = self._pure(
             "decide", evidence=evidence, candidate=candidate,
             decision=decision, history=history,
@@ -438,8 +444,35 @@ class ProofSessionV2:
         )
         return result
 
+    def accepted_revision(self) -> tuple[JsonObject, JsonObject, JsonObject | list[JsonObject]]:
+        """Reverify the actual inferred candidate and single-use accepted ledger."""
+        self._current()
+        for name in ("revision-result", "revision-candidate", "revision-evidence", "revision-decision"):
+            fact(name in self.pins, "complete accepted revision ledger required")
+        candidate = read_pin(self.pins["revision-candidate"])
+        evidence = read_pin(self.pins["revision-evidence"])["cases"]
+        self._observations_current(evidence)
+        request = candidate["proposal"]["request"]
+        actual = self._pure(
+            "proposal", evidence=evidence, prepared_media=request["preparedMedia"],
+            handoff=request["handoff"],
+            omission_decision_hash=request["commands"]["omission"]["decisionHash"]
+            if request["commands"]["omission"] is not None else "",
+        )
+        result = read_pin(self.pins["revision-result"])
+        decision = read_pin(self.pins["revision-decision"])
+        fact(
+            actual == candidate and result["outcome"] == decision["outcome"] == "accept"
+            and result["document"] == candidate["proposal"]["document"]
+            and result["dependencies"] == candidate["proposal"]["dependencies"]
+            and decision["proposalHash"] == candidate["proposal"]["proposalHash"]
+            and result["decisionHash"] == identity_hash(decision),
+            "accepted inference/decision/result changed",
+        )
+        return result, candidate, cast(JsonObject | list[JsonObject], evidence)
+
     def prepare_rebuild(
-        self, candidate: JsonObject, revised: PreparedProofBuildV2,
+        self, candidate: JsonObject, revised: PreparedProofBuildV2 | PreparedRevisedProofBuildV2,
     ) -> JsonObject:
         """Use the owning public preparation gate; never reinterpret real R16 as fake."""
         self._current()
@@ -454,10 +487,6 @@ class ProofSessionV2:
             and result["document"] == proposal["document"]
             and result["dependencies"] == proposal["dependencies"],
             "rebuild differs from explicit accepted revision",
-        )
-        fact(
-            self.baseline.request["lane"] == revised.request["lane"] == "synthetic_local",
-            "revised real R16 consumer requires approved #192 change note",
         )
         fact(
             revised.document == result["document"]
@@ -500,22 +529,26 @@ class ProofSessionV2:
         )
         return package
 
-    def _require_accepted_rebuild(self, revised: PreparedProofBuildV2) -> None:
+    def _require_accepted_rebuild(self, revised: PreparedProofBuildV2 | PreparedRevisedProofBuildV2) -> None:
+        actual, _, _ = self.accepted_revision()
         result_pin = self.pins.get("revision-result")
         fact(result_pin is not None, "accepted result required for effects")
         assert result_pin is not None
         result = read_pin(result_pin)
+        approved_lane = (isinstance(revised, PreparedRevisedProofBuildV2)
+                         and revised.session is self
+                         and revised.original_files == self.baseline.request["originalFiles"])
+        synthetic_lane = (self.baseline.request["lane"] == revised.request["lane"] == "synthetic_local")
         fact(
-            result["outcome"] == "accept"
+            result == actual and result["outcome"] == "accept"
             and result["document"] == revised.document
             and result["dependencies"] == revised.dependencies
-            and self.baseline.request["lane"] == revised.request["lane"]
-            == "synthetic_local",
+            and (approved_lane or synthetic_lane),
             "real revised consumer or changed/unaccepted result refused",
         )
 
     def request_fresh_delivery(
-        self, revised: PreparedProofBuildV2, fresh: NativeProofBoundaryV2,
+        self, revised: PreparedProofBuildV2 | PreparedRevisedProofBuildV2, fresh: NativeProofBoundaryV2,
     ) -> JsonObject:
         """Public delivery owns save/reopen and partial-target/read-only recovery."""
         self._current()
@@ -548,6 +581,12 @@ class ProofSessionV2:
         mapping: JsonObject, name: str,
     ) -> JsonObject:
         self._current()
+        package_pin = self.pins.get("fresh-package")
+        fact(package_pin is not None, "this revision's fresh package required for reopen")
+        assert package_pin is not None
+        package = read_pin(package_pin)
+        fact(fresh.attestation_hash == package["attestationHash"]
+             and str(fresh.attestation_path) == package["attestationPath"], "reopened package is not the accepted fresh package")
         receipt = fresh.capture(target, mapping, name)
         raw_pin = {"path": str(fresh.root / "observations" / f"{name}.json"),
                    "sha256": receipt["rawHash"]}

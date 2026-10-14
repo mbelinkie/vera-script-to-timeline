@@ -110,6 +110,10 @@ def accept_seam_double(proof: ProofSessionV2, fresh: Any) -> dict[str, Any]:
                 "manifestJson": build.manifest_path.read_text(),
                 "reportJson": build.report_path.read_text()}
     assert json.loads(proposal["manifestJson"]) == boundary.package.manifest
+    # Only these isolated transport/readback unit checks substitute the accepted
+    # revision port. They are excluded from the combined AC evidence; the new
+    # public-path test obtains it through actual inference/decision/service APIs.
+    setattr(proof, "accepted_revision", lambda: (result, {"proposal": proposal}, {}))
     return {"proposal": proposal}
 
 
