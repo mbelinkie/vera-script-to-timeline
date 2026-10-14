@@ -108,7 +108,8 @@ review, then actual installed read-only External evidence and final full
 validation on the final delivered state under VERIFICATION_POLICY. Record
 actual exits, source/input/tool/environment/inventory hashes; next necessary
 costly pytest includes `--durations=25`. Native External acceptance cannot be
-replaced by cloud or fake tests. No commands have run for this stage yet.
+replaced by cloud or fake tests. At the initial plan checkpoint, no commands
+had run; the later sections retain actual development-check evidence.
 
 Operator acceptance: follow the new handoff's exact release/authority/request
 hashes and #109 quit/archive/copy/restart flow; save the named disposable target
@@ -202,3 +203,50 @@ Estimated remaining hands-on fixes/review/handoff work: 60–120 minutes, modera
 confidence after focused results; semantic review findings may expand that
 range. Full-gate runtime, queue, installation/operator and acceptance waiting
 are additional and have no promised ETA. #204 stays open/In progress.
+
+## Reviewed candidate and operator prerequisite handoff
+
+Complete fast-r1 at560a44 passed440 Vitest/61 Node/494 Python tests and all
+other fast stages. Independent Claude first review returned NO-GO. B1/B2 and
+applicable own-scope integrity findings were fixed with failing test cases,
+affected checks and complete fast-r2 at
+`724a829f6913eec7f939597c454c54aec5407058`:440 Vitest/61 Node/**520 Python
+passed in93.81s**, no skips, actual exit0/head and inputs unchanged. Log hash
+`5d1092c74c278a6e5b9889f2529410fa088f71969848204246cc2675b583682b`.
+
+Independent actual Opus5.5/high delta review returned **GO**, exit0/is_error:false,
+unchanged head and consumed sources. Raw result hash
+`7777cf850b1678ee59639cbea81d79153a27dd027a87c532cee794ad7b8a999f`.
+Retained exact CLI/model/version/prompt/source/command/exit provenance lives in
+`docs/verification/issue-204/claude-r2/`; full verdict/disposition remains visible.
+That GO resolves code blockers; it does not authorize or supply External evidence.
+
+N1's final meaningful matching-authority overlap cases passed3 in1.56s with
+test lint and owning-five-file mypy passing. Only this test and nonconsumed
+documentation/evidence changed after724a829; every production SOURCE_FILES
+byte, lock, config, frozen input and ordinary capability guard still matches
+the reviewed/fast-passing code. Fresh affected coverage handles the added test;
+prior fast evidence is reused as development evidence, not rerun or final
+acceptance. Conservative N2–N5 production limits are retained for actual runtime
+assessment, with no unsolicited redesign or source-pin change.
+
+Prepared host release manifest hash
+`d4ec949a5a197a54bc58c969bcb2655553064e4600fb11c6ba2f748bf6f33d66`,
+ten declared files rechecked against reviewed source. Its exact path/status are
+in `docs/verification/issue-204/operator-preparation.json`. No authority,
+request, installed copy or native operation exists. No final full gate has run.
+
+The accepted #109 native result was rehashed and has target names but no UIDs.
+Operator handoff now asks only for a saved disposable target's visible names
+and None/read-only confirmation, not invisible IDs. A bounded identity-route
+proposal is retained for the coordinator's separate prerequisite task. Direct
+Producer instruction to the root authorizes opening that separate prerequisite;
+this #204 owner neither dispatches it nor implements the new identity route.
+
+All owned checks/review/preparation jobs finished naturally; no job is live or
+requires draining. Heavy reservation is expressly released to the coordinator
+at this checkpoint. #204 remains claimed/open at the trusted-UID, operator,
+installation/runtime gate. Later order: approved actual read-only evidence,
+necessary runtime fix/affected checks/re-review, then final full validation on
+final delivered source. Root goal remains paused. No resets, credit use, account
+switch or automatic authority is taken here.

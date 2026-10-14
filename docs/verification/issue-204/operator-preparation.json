@@ -1,0 +1,84 @@
+{
+  "actualExitCode": 0,
+  "authorityIssued": false,
+  "codeReviewVerdict": "GO",
+  "command": [
+    "uv",
+    "run",
+    "--frozen",
+    "python",
+    "-m",
+    "vera_timeline_agent.workflow_v2_cli",
+    "release",
+    "--output",
+    "out/issue204/operator-r1/release"
+  ],
+  "declaredFiles": [
+    {
+      "path": "VERA Delivery v2.py",
+      "sha256": "3834f30955fc48a5e3bc8dd67b382eef2db9e3c0bcbf5f3a3dc3128de0520547",
+      "sizeBytes": 12840
+    },
+    {
+      "path": "vera-delivery-v2/python/vera_timeline_agent/__init__.py",
+      "sha256": "210d40b3d82bcf6b7c1c4bc32748b8d2c8ced97876aec09968c1123edef0d2c8",
+      "sizeBytes": 207
+    },
+    {
+      "path": "vera-delivery-v2/python/vera_timeline_agent/native_qualification_v2.py",
+      "sha256": "d78ae785195be4137c0104326dafe3262904d2fdbe1c7f8554c743dacd262aca",
+      "sizeBytes": 37266
+    },
+    {
+      "path": "vera-delivery-v2/python/vera_timeline_agent/studio_spike.py",
+      "sha256": "02730d0ac58e6bf85a246d11d57f38636ab97ebafa060ee786a1bbb7a61a1acc",
+      "sizeBytes": 54284
+    },
+    {
+      "path": "vera-delivery-v2/python/vera_timeline_agent/text_plus_template.py",
+      "sha256": "5cc7e97e32d1899e48537d8bece01ca918a681c9adf3a673e8787493fb6f61c5",
+      "sizeBytes": 9994
+    },
+    {
+      "path": "vera-delivery-v2/python/vera_timeline_agent/workflow_delivery.py",
+      "sha256": "971c1fe04b94c81d4df05a4b4899b748ac7f5a392a244fdb5d718d1371c18a92",
+      "sizeBytes": 13323
+    },
+    {
+      "path": "vera-delivery-v2/python/vera_timeline_agent/workflow_launcher.py",
+      "sha256": "c77e65c1c731855aa4314d4e6e86e99417c3b4f62d9999b45510af8fe78fa337",
+      "sizeBytes": 3559
+    },
+    {
+      "path": "vera-delivery-v2/python/vera_timeline_agent/workflow_package.py",
+      "sha256": "a35c3e2dc2b500cb5537e89bfc3d95bd37acf595a6d75bc3833b457ddc790ba0",
+      "sizeBytes": 6198
+    },
+    {
+      "path": "vera-delivery-v2/python/vera_timeline_agent/workflow_v2.py",
+      "sha256": "852264025d030c09f43630a25a96a28712fc00ac480a0117c0820cb1f0a7c991",
+      "sizeBytes": 70318
+    },
+    {
+      "path": "vera-delivery-v2/python/vera_timeline_agent/workflow_v2_launcher.py",
+      "sha256": "1bfacfd063630b3707ffe35dd8a18e1e49105715e6ca9d6e6b1f0e7c7a347323",
+      "sizeBytes": 5212
+    }
+  ],
+  "installed": false,
+  "known109AcceptedResultSha256": "ec802ea507524cc821b0215f989d7b01dd235796700f9e7ee10fee009be86797",
+  "known109ResultRecordsUids": false,
+  "known109TargetNames": {
+    "projectName": "VERA Delivery 13000000-0000-4000-8000-000000000036 3d52aae2aa40",
+    "timelineName": "VERA Delivery 13000000-0000-4000-8000-000000000036 3d52aae2aa40"
+  },
+  "nativeOperations": 0,
+  "releaseDirectory": "/Users/matthewbelinkie/.codex/worktrees/f582/VERA Script to Timeline/out/issue204/operator-r1/release",
+  "releaseSha256": "d4ec949a5a197a54bc58c969bcb2655553064e4600fb11c6ba2f748bf6f33d66",
+  "remainingGate": "Trusted already-saved NONproduction targetUID handoff and explicit operator authority/runtimegrant; no identity inferred from failed204preflight.",
+  "requestPrepared": false,
+  "reviewResultSha256": "7777cf850b1678ee59639cbea81d79153a27dd027a87c532cee794ad7b8a999f",
+  "reviewedCandidate": "724a829f6913eec7f939597c454c54aec5407058",
+  "sourcePinsUnchanged": true,
+  "status": "prepared-release-runtime-identity-gate-held"
+}

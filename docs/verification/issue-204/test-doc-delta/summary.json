@@ -1,0 +1,58 @@
+{
+  "change": "N1 three matching-authority bootstrap overlap cases plus documentation accuracy/limits",
+  "earlierMypySingleTest": {
+    "actualExitCode": 1,
+    "reason": "test-only command omitted local source graph, installed editable package reported import-untyped; no gate/config changed; corrected command includes owning source as original focused grant"
+  },
+  "finalFullExecuted": false,
+  "fullFastReusedAsDevelopmentOnly": {
+    "actualExitCode": 0,
+    "candidate": "724a829f6913eec7f939597c454c54aec5407058",
+    "counts": {
+      "Node": 61,
+      "Vitest": 440,
+      "python": 520
+    },
+    "logSha256": "5d1092c74c278a6e5b9889f2529410fa088f71969848204246cc2675b583682b",
+    "postTestDifferences": "only new test and nonconsumed Markdown/evidence JSON; addedtest lint/type/pytest coverage fresh; production SOURCE_FILES/locks/config/fixtures/goldens unchanged"
+  },
+  "lint": {
+    "actualExitCode": 0,
+    "file": "tests/test_issue204_native_preflight.py"
+  },
+  "mypy": {
+    "actualExitCode": 0,
+    "command": [
+      "uv",
+      "run",
+      "--frozen",
+      "mypy",
+      "python/vera_timeline_agent/native_qualification_v2.py",
+      "python/vera_timeline_agent/workflow_v2_cli.py",
+      "python/vera_timeline_agent/workflow_v2_launcher.py",
+      "integrations/resolve/VERA Delivery v2.py",
+      "tests/test_issue204_native_preflight.py"
+    ],
+    "sourceFiles": 5
+  },
+  "ownedJobsLive": 0,
+  "pytest": {
+    "actualExitCode": 0,
+    "command": [
+      "uv",
+      "run",
+      "--frozen",
+      "pytest",
+      "tests/test_issue204_native_preflight.py::test_bootstrap_matching_authority_reaches_protected_root_overlap_check",
+      "-q",
+      "--durations=25"
+    ],
+    "logSha256": "e217296a46f25f5123b2a3af6460097255cadf40426dc9cec1ec060ca544f572",
+    "passed": 3,
+    "seconds": 1.56
+  },
+  "qualified": false,
+  "reviewedCandidate": "724a829f6913eec7f939597c454c54aec5407058",
+  "status": "test-doc-delta-passed-production-source-unchanged",
+  "testFileSha256": "0f698986416663b1549ac8f19731dbcdcbee3bdaa78efebaaab49160513cbf7c"
+}

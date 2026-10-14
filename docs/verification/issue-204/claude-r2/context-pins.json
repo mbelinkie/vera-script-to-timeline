@@ -1,0 +1,33 @@
+{
+  "candidate": "724a829f6913eec7f939597c454c54aec5407058",
+  "tree": "58ccc137168ce604ebe3bd78a0114b160ff6db57",
+  "base": "deaa75c90b5486e500cb69266faa7bdf09697efc",
+  "prior": "560a44ed6e72a3c82f86e812fd9bde3ff386ec09",
+  "files": {
+    "python/vera_timeline_agent/native_qualification_v2.py": "d78ae785195be4137c0104326dafe3262904d2fdbe1c7f8554c743dacd262aca",
+    "python/vera_timeline_agent/workflow_v2_cli.py": "ce1398cb32c9f11ac6cce392e9aefab41201c746fdd802106b19bd80649267a5",
+    "python/vera_timeline_agent/workflow_v2_launcher.py": "1bfacfd063630b3707ffe35dd8a18e1e49105715e6ca9d6e6b1f0e7c7a347323",
+    "integrations/resolve/VERA Delivery v2.py": "3834f30955fc48a5e3bc8dd67b382eef2db9e3c0bcbf5f3a3dc3128de0520547",
+    "tests/test_issue204_native_preflight.py": "1d26c37ddb0fb24d832cb5e7a4eae712543ebff397834395c3d8ca080306befc",
+    "docs/plans/issue-204-native-preflight.md": "5421478dbb7780d929e41d0aed36cd5a3d139f6cb09c2104a8740eab88332b12",
+    "docs/verification/issue-204/operator-handoff.md": "1e84c98404b0020f66387a10814fc7b3f716b91f261520f2b1951857a6d3e0c2",
+    "docs/verification/issue-204/review-disposition.md": "7e7378287f1a3b5ecd8dfd49812b39b86c749663d5dca39473c8e8948158b2d0",
+    "AGENTS.md": "ad4d1ac22192934f6b1be01e26125f5811089659099a9741861e69f99740fb33",
+    "CLAUDE.md": "e8ff73342acc845d1bac9dca1b2bf3463227ab193671c75aca8556e665141f48",
+    "docs/VERIFICATION_POLICY.md": "816844b5c03d7d041e9b8ccc678b7359d0e429bfcbaf1ac37c5d24718c9a3171",
+    "python/vera_timeline_agent/workflow_package.py": "a35c3e2dc2b500cb5537e89bfc3d95bd37acf595a6d75bc3833b457ddc790ba0",
+    "docs/issue-190-v2-proof-handoff.md": "27cd7651c0c10d1d85b21116b58e5bfc1a599f70bd776c88ae2740e59115a24e",
+    "docs/plans/issue-178-native-qualification-change-note.md": "c8ec4e9abf427a5e99ba8951abcc463745938aa1f35a3c4613f7b037a80e2740"
+  },
+  "diffSha256": "3727e5624f1a7f95907f5efebd87342d021e9c0f16c51ac1cd4c46b01fdaa962",
+  "promptSha256": "24e11594996b41ef6665c9dd0f66b52900a0e2a4046e5096dd0b87ba60815b78",
+  "promptBytes": 260731,
+  "fastReceipt": {
+    "endedAt": "2026-10-14T12:52:46.237415+00:00",
+    "exitCode": 0,
+    "headUnchanged": true,
+    "logSha256": "5d1092c74c278a6e5b9889f2529410fa088f71969848204246cc2675b583682b",
+    "source": "724a829f6913eec7f939597c454c54aec5407058",
+    "trackedInputsUnchanged": true
+  }
+}

@@ -20,7 +20,7 @@ beside this disposition. Exit0 never supplied review GO.
 - B2: installed subprocess tests now execute the qualification branch, checking
   exact pre-import request/authority/source/target provenance, read-only started
   files and later no-injected-object refusal. Authority byte/binding/approval
-  drift, protected-root overlap, extra fields and unsupported actions must
+  drift, changed protected-root locators, extra fields and unsupported actions must
   retain a bootstrap refusal before imports/controller attempts. Explicit CLI
   authorize/request tests cover separate operator procedure and missing flags.
 
@@ -43,8 +43,10 @@ refusal retention when a tampered request chooses a protected directory.
 Observations retain the last successfully checked source/input/current-target
 guard boundary. Later raw reads are kept with `contextVerified:false` and
 ambiguous status rather than feeding supported classifications. Added source,
-approval and authority drift-during-getter cases. Existing getters that raise
-are ambiguous; missing getters are unsupported. Observation/value budgets
+approval and authority drift-during-getter cases. General observed getters that
+raise are ambiguous; missing getters are unsupported. The item-inventory
+reader conservatively marks raising/non-list inventory unsupported; that cannot
+supply supported clip evidence. Observation/value budgets
 retain partial reports rather than dropping all evidence, and Console printing
 precedes final result publication. Bootstrap-started records become read-only.
 
@@ -80,3 +82,47 @@ Frozen contracts, fixtures, goldens/generated output, accepted tests, ordinary
 render, setter, creation, save, export, provider or UI/external scripting route
 was added. Independent delta review remains required; these fixes alone are
 not a final review verdict or External acceptance.
+
+## Independent delta GO and final test/document corrections
+
+Independent Opus5.5/high delta review of
+`724a829f6913eec7f939597c454c54aec5407058` completed exit0/is_error:false with
+actual model `claude-opus-5-5`, unchanged head/consumed sources and verdict GO.
+Result SHA-256 `7777cf850b1678ee59639cbea81d79153a27dd027a87c532cee794ad7b8a999f`.
+B1/B2 were explicitly resolved. This is code-review GO only, not External
+acceptance. The actual full fast pass at that revision includes 520 Python
+tests in93.81s, 440 Vitest and61 Node tests with all other fast stages passing.
+
+N1 identified that the earlier request-only overlap attacks stopped first at
+binding mismatch, not at overlap itself. Added matching handcrafted authority/
+request cases reaching repository, installed-plugin and prepared-release overlap
+checks. These must retain no output inside protected roots and report safe
+retention unavailable on Console. This is a test-only correction; production
+source pins and the independently reviewed code are unchanged.
+
+Remaining conservative limits N2–N5 are retained, not silently redesigned:
+audio/video candidate parent chains are coupled and empty audio resolutions
+remain ambiguous; malformed codec inventories and observation/value budgets can
+truthfully stop a small disposable-target run; heavily indented results can
+exceed the result re-read hash limit, leaving printed/published partial evidence
+without a hashes file; item-inventory exceptions/non-lists remain unsupported.
+Any actual runtime encounter needs a bounded fix, affected checks and delta
+review before final full validation. Method enumeration never certifies output.
+
+N6: the ordinary bootstrap refusal-retention containment helper changed to
+device/inode ancestry; ordinary delivery orchestration and #177 capability
+guards are unchanged. Do not describe all ordinary bootstrap bytes as untouched.
+N8: the historical initial-plan no-command statement is clarified; track-enable
+gap source lists name direct getters, while parent count/inventory remains in
+the raw observations used to gate support. Alias cases may skip on platforms
+without macOS aliases; actual local fast-r2 had zero skips. Runtime inventories
+are duplicated but fail closed on drift. No production source change is added
+for these conservative limits without actual runtime need.
+
+Checked #109's exact accepted synthetic target result against its acceptance
+hash `ec802ea507524cc821b0215f989d7b01dd235796700f9e7ee10fee009be86797`.
+It proves its saved target names and real Studio21.1.1/10 run, but records no
+project/timeline UIDs. Thus that known handoff cannot supply the four required
+current target identifiers. No UID is inferred from it or from a failed #204
+preflight. Coordinator/Producer must resolve the exact trusted identity handoff
+before operator authority or installation/native execution is authorized.

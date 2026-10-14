@@ -656,3 +656,36 @@ def test_bootstrap_closed_authority_refuses_before_import(
     assert list(evidence.glob("bootstrap-refusal-*.json"))
     assert not list(evidence.glob("bootstrap-started-*.json"))
     assert not list(evidence.glob("started-*.json"))
+
+
+@pytest.mark.parametrize("protected", ["repository", "plugin", "release"])
+def test_bootstrap_matching_authority_reaches_protected_root_overlap_check(
+    tmp_path: Path, protected: str
+) -> None:
+    request, authority, release = inputs(tmp_path)
+    installed = tmp_path / "installed-plugin"
+    shutil.copytree(release, installed)
+    receipt = read_object(authority)
+    root = {
+        "repository": Path(receipt["binding"]["repositoryRoot"]),
+        "plugin": installed,
+        "release": release,
+    }[protected]
+    unsafe = root / "forbidden-private-evidence"
+    receipt["binding"]["evidenceDir"] = str(unsafe)
+    authority.chmod(0o600)
+    authority.write_text(json.dumps(receipt))
+    value = read_object(request)
+    value["binding"] = receipt["binding"]
+    value["authoritySha256"] = sha256(authority)
+    request.chmod(0o600)
+    request.write_text(json.dumps(value))
+    result = launcher(installed, request)
+    refusal = json.loads(result.stdout)
+    assert refusal["status"] == "workflow_v2_launcher_failed"
+    assert refusal["detail"] == "qualification provenance mismatch/overlap"
+    assert refusal["reportRetention"] == "unavailable; retain this Console output"
+    assert not unsafe.exists()
+    assert not list(unsafe.glob("bootstrap-started-*.json"))
+    assert not list(unsafe.glob("result-*.json"))
+    assert not list((tmp_path / "evidence").glob("started-*.json"))

@@ -1,8 +1,54 @@
-# #204 — read-only operator handoff (not yet validated)
+# #204 — read-only operator handoff (runtime gate held)
 
-This draft is executable only after focused/fast checks, required Claude review,
-final qualifying evidence and coordinator grant. No release, installation,
-authority/request, native report or External acceptance has been produced.
+The source at724a829 has passing focused/fast development checks and independent
+Claude delta GO. A concrete release is prepared below. Installation and actual
+preflight still require the exact trusted UID handoff, operator-issued authority
+and coordinator/runtime grant. Final full validation follows actual External
+evidence and any runtime fixes. No installation, authority/request, native report
+or External acceptance has been produced.
+
+## Prepared exact artifact and remaining identity gate
+
+Release prepared from unchanged reviewed production bytes:
+`out/issue204/operator-r1/release/` in this f582 worktree. Manifest raw SHA-256:
+`d4ec949a5a197a54bc58c969bcb2655553064e4600fb11c6ba2f748bf6f33d66`.
+It contains `VERA Delivery v2.py` and declared `vera-delivery-v2/` runtime.
+Source and release inventory/hashes are retained in `operator-preparation.json`.
+Host release preparation exited0; no files were copied into Resolve.
+
+Known audited nonproduction target names from #109 are both:
+`VERA Delivery 13000000-0000-4000-8000-000000000036 3d52aae2aa40`.
+Its exact accepted native result hash is
+`ec802ea507524cc821b0215f989d7b01dd235796700f9e7ee10fee009be86797`;
+the actual file was rehashed and its identity keys inspected. It does NOT
+contain project/timeline UIDs. Thus this artifact alone cannot complete the
+authority. No guessed UIDs, failed-#204 observations or arbitrary scripting
+may supply the missing identities. Coordinator/Producer must select a trusted
+existing audited UID handoff for an already saved disposable target, or make a
+separately bounded identity-handoff decision. This handoff adds no discovery
+operation or authority to perform one.
+
+The bounded proposed resolution is
+[CN-204-ID1](../../plans/issue-204-target-identity-handoff-note.md). It would let
+the operator supply only the two visible names; an explicitly approved installed
+read-only identity step would retain the UIDs for the subsequent preflight.
+This proposal is not implemented or approved. Do not present the commands below
+as ready until that identity gate has actually been resolved.
+
+## What the operator can do now
+
+1. Choose an already saved disposable NONproduction project and timeline in
+   Resolve; provide their exact visible names. The known accepted #109 synthetic
+   target above is a candidate, not a substitute for operator selection.
+2. Confirm External Scripting is None and that the requested work is read-only.
+3. Review the proposed identity-handoff decision. Do not discover invisible
+   UIDs, paste a console script, install the current release or launch #204 yet.
+
+Agent preparation is complete for the current reviewed release and evidence.
+After an approved identity route and runtime grant, the agent provides exact
+ready files/paths and concrete operator steps. The only pending Producer
+decision is the bounded trusted-identity route; the commands below are internal
+reference for that later agent preparation, not a current copy-and-run handoff.
 
 ## Exact scope and selection
 
@@ -41,7 +87,8 @@ unchanged and readable by Resolve throughout the run.
    controller is an explicit inventory entry, not an extra file added later.
    Expected: immutable v2 release; no Resolve connection or installation.
 
-2. Operator reviews the target identifiers, saves that disposable target,
+2. After the agent supplies identifiers from the approved handoff, the operator
+   reviews them, saves that disposable target,
    confirms External Scripting None, and explicitly issues its independent
    read-only authority through the public command. Replace bracketed values
    with the actual retained names/UIDs/absolute paths, never guessed values:
