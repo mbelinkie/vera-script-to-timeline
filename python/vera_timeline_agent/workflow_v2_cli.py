@@ -22,7 +22,12 @@ from .workflow_package import (
 
 RELEASE_NAME = "vera-delivery-v2"
 LAUNCHER_NAME = "VERA Delivery v2.py"
-RUNTIME_FILES = (*V1_RUNTIME_FILES, "workflow_v2.py", "workflow_v2_launcher.py")
+RUNTIME_FILES = (
+    *V1_RUNTIME_FILES,
+    "workflow_v2.py",
+    "workflow_v2_launcher.py",
+    "native_qualification_v2.py",
+)
 BUILD_FILES = (
     "timeline-manifest.json",
     "build-report.json",
@@ -204,12 +209,55 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     request.add_argument("--authorize-new-nonproduction", action="store_true")
     request.add_argument("--external-scripting-none", action="store_true")
+    authorize = commands.add_parser("capability-authorize")
+    authorize.add_argument("--release", type=Path, required=True)
+    authorize.add_argument("--approval", type=Path, required=True)
+    authorize.add_argument("--operator", required=True)
+    authorize.add_argument("--project-uid", required=True)
+    authorize.add_argument("--timeline-uid", required=True)
+    authorize.add_argument("--project-name", required=True)
+    authorize.add_argument("--timeline-name", required=True)
+    authorize.add_argument("--output", type=Path, required=True)
+    authorize.add_argument("--evidence-dir", type=Path, required=True)
+    authorize.add_argument("--confirm-saved-disposable-nonproduction", action="store_true")
+    authorize.add_argument("--confirm-read-only", action="store_true")
+    authorize.add_argument("--external-scripting-none", action="store_true")
+    capability = commands.add_parser("capability-request")
+    capability.add_argument("authority", type=Path)
+    capability.add_argument("--output", type=Path, required=True)
     arguments = parser.parse_args(argv)
     try:
         if arguments.command == "attest":
             output = attest_package_v2(arguments.package, arguments.output)
         elif arguments.command == "release":
             output = build_release_v2(arguments.output)
+        elif arguments.command == "capability-authorize":
+            from .native_qualification_v2 import create_capability_authority
+
+            _verify_release(arguments.release)
+            output = create_capability_authority(
+                arguments.output.absolute(),
+                release_root=arguments.release.absolute(),
+                repository_root=Path(__file__).resolve().parents[2],
+                target={
+                    "projectUid": arguments.project_uid,
+                    "timelineUid": arguments.timeline_uid,
+                    "projectName": arguments.project_name,
+                    "timelineName": arguments.timeline_name,
+                },
+                evidence_dir=arguments.evidence_dir.absolute(),
+                approval_path=arguments.approval.absolute(),
+                operator=arguments.operator,
+                confirm_saved_disposable=arguments.confirm_saved_disposable_nonproduction,
+                confirm_read_only=arguments.confirm_read_only,
+                external_scripting_none=arguments.external_scripting_none,
+            )
+        elif arguments.command == "capability-request":
+            from .native_qualification_v2 import prepare_capability_request
+
+            output = prepare_capability_request(
+                arguments.output.absolute(), authority_path=arguments.authority.absolute()
+            )
         else:
             from .workflow_v2 import load_verified_package_v2
 

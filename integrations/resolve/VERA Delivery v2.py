@@ -28,11 +28,13 @@ def launch(injected_resolve: object) -> None:
         raise RuntimeError("symbolic link in installed request path")
     request_bytes = request_path.read_bytes()
     request = json.loads(request_bytes)
+    qualification = request.get("schemaVersion") == "vera-native-qualification-request/v1"
+    binding = request["binding"] if qualification else request
     release_path = release_root / "release.json"
     if release_path.is_symlink():
         raise RuntimeError("symbolic link in installed release manifest")
     release_bytes = release_path.read_bytes()
-    if hashlib.sha256(release_bytes).hexdigest() != request["releaseSha256"]:
+    if hashlib.sha256(release_bytes).hexdigest() != binding["releaseSha256"]:
         raise RuntimeError("installed release hash differs from the operator request")
     release = json.loads(release_bytes)
     if (
@@ -84,6 +86,53 @@ def launch(injected_resolve: object) -> None:
     for name in tuple(sys.modules):
         if name == "vera_timeline_agent" or name.startswith("vera_timeline_agent."):
             raise RuntimeError("a VERA runtime is already loaded; restart Resolve")
+    if qualification:
+        # Retain exact input provenance before importing the installed controller.
+        if (
+            set(request) != {"schemaVersion", "issueNumber", "action", "binding",
+                             "authorityPath", "authoritySha256"}
+            or type(request["issueNumber"]) is not int
+            or request["issueNumber"] != 204
+            or request["action"] != "capability_preflight"
+        ):
+            raise RuntimeError("unsupported read-only qualification request")
+        authority_path = Path(request["authorityPath"])
+        approval_path = Path(binding["approvalPath"])
+        evidence = Path(binding["evidenceDir"])
+        inputs = (authority_path, approval_path, evidence, Path(binding["repositoryRoot"]))
+        if any(
+            not path.is_absolute()
+            or any(part.is_symlink() for part in (path, *path.parents))
+            for path in inputs
+        ):
+            raise RuntimeError("unsafe qualification provenance paths")
+        authority_bytes = authority_path.read_bytes()
+        if (
+            hashlib.sha256(authority_bytes).hexdigest() != request["authoritySha256"]
+            or json.loads(authority_bytes).get("binding") != binding
+            or hashlib.sha256(approval_path.read_bytes()).hexdigest()
+            != binding["approvalSha256"]
+            or evidence.is_relative_to(root)
+            or evidence.is_relative_to(Path(binding["repositoryRoot"]))
+            or authority_path.is_relative_to(evidence)
+            or approval_path.is_relative_to(evidence)
+        ):
+            raise RuntimeError("qualification provenance mismatch/overlap")
+        evidence.mkdir(mode=0o700, parents=True, exist_ok=True)
+        with (evidence / f"bootstrap-started-{uuid.uuid4().hex}.json").open(
+            "x", encoding="utf-8"
+        ) as stream:
+            json.dump(
+                {
+                    "requestSha256": hashlib.sha256(request_bytes).hexdigest(),
+                    "authoritySha256": request["authoritySha256"],
+                    "releaseSha256": binding["releaseSha256"],
+                    "approvalSha256": binding["approvalSha256"],
+                    "repositorySourcePins": binding["repositorySourcePins"],
+                    "target": binding["target"],
+                    "qualified": False,
+                }, stream, indent=2, sort_keys=True,
+            )
     sys.dont_write_bytecode = True
     sys.pycache_prefix = None
     sys.path.insert(0, str(runtime))
@@ -110,14 +159,27 @@ except Exception as error:
         config = json.loads(
             (SCRIPT_PATH.resolve().parent / "vera-delivery-v2/request.json").read_text()
         )
-        evidence = Path(config["evidenceDir"])
-        package = Path(config["packageDir"]).resolve()
-        protected_roots = [package]
-        attestation_path = Path(config["attestationPath"])
-        if attestation_path.exists():
-            protected_roots.append(
-                Path(json.loads(attestation_path.read_text())["packageDir"]).resolve()
-            )
+        if config.get("schemaVersion") == "vera-native-qualification-request/v1":
+            binding = config["binding"]
+            evidence = Path(binding["evidenceDir"])
+            protected_roots = [
+                SCRIPT_PATH.resolve().parent,
+                Path(binding["repositoryRoot"]).resolve(),
+                Path(binding["releaseRoot"]).resolve(),
+                Path(binding["approvalPath"]).resolve(),
+                Path(config["authorityPath"]).resolve(),
+            ]
+            if any(path.is_relative_to(evidence.resolve()) for path in protected_roots):
+                raise RuntimeError("qualification evidence contains protected input")
+        else:
+            evidence = Path(config["evidenceDir"])
+            package = Path(config["packageDir"]).resolve()
+            protected_roots = [package]
+            attestation_path = Path(config["attestationPath"])
+            if attestation_path.exists():
+                protected_roots.append(
+                    Path(json.loads(attestation_path.read_text())["packageDir"]).resolve()
+                )
         if (
             not evidence.is_absolute()
             or any(
