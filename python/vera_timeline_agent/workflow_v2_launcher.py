@@ -40,6 +40,23 @@ def run_installed_request_v2(
     if request_sha256 != expected_request_sha256:
         raise ValueError("operator request changed after release verification")
     request = json.loads(payload)
+    if isinstance(request, dict) and request.get("schemaVersion") == (
+        "vera-native-target-identity-request/v1"
+    ):
+        from .target_identity_v2 import run_target_identity
+
+        return run_target_identity(
+            resolve, request_path, expected_request_sha256=expected_request_sha256
+        )
+    if isinstance(request, dict) and request.get("schemaVersion") in {
+        "vera-native-qualification-request/v1",
+        "vera-native-qualification-request/v2",
+    }:
+        from .native_qualification_v2 import run_capability_preflight
+
+        return run_capability_preflight(
+            resolve, request_path, expected_request_sha256=expected_request_sha256
+        )
     if not isinstance(request, dict) or set(request) != REQUEST_KEYS:
         raise ValueError("unsupported operator request fields")
     if request["schemaVersion"] != "vera-injected-delivery-request/v2":

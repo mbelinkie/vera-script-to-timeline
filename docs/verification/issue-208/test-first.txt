@@ -1,0 +1,4 @@
+2026-10-14: uv run --frozen pytest tests/test_issue208_target_identity.py -q --durations=25
+CPython 3.12.14 / uv 0.12.5; exit 2 in 0.21s
+Expected red: ImportError cannot import target_identity_v2 before production module existed.
+No Studio, operator authority or qualification evidence.

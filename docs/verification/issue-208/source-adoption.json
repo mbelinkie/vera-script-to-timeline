@@ -1,0 +1,26 @@
+{
+  "acceptedMain": "017e7cfb350bf8f2608d08e27fac5b9b72a5809e",
+  "source204": "de4ed9bb27748958bfa8720b60f0369fbad2e6c1",
+  "reviewed204Production": "724a829f6913eec7f939597c454c54aec5407058",
+  "accepted207": "15adbe2a55173b44b7845f5baae502850fc5fa6d",
+  "grant": "https://github.com/mbelinkie/vera-script-to-timeline/issues/208#issuecomment-6169923155",
+  "task": "01a13aaf-1142-7ef1-b8bb-f0396cb5d0ec",
+  "branch": "codex/issue-208-target-identity",
+  "sourcePins": {
+    "python/vera_timeline_agent/native_qualification_v2.py": "d78ae785195be4137c0104326dafe3262904d2fdbe1c7f8554c743dacd262aca",
+    "python/vera_timeline_agent/workflow_v2_cli.py": "ce1398cb32c9f11ac6cce392e9aefab41201c746fdd802106b19bd80649267a5",
+    "python/vera_timeline_agent/workflow_v2_launcher.py": "1bfacfd063630b3707ffe35dd8a18e1e49105715e6ca9d6e6b1f0e7c7a347323",
+    "integrations/resolve/VERA Delivery v2.py": "3834f30955fc48a5e3bc8dd67b382eef2db9e3c0bcbf5f3a3dc3128de0520547",
+    "docs/plans/issue-178-native-qualification-change-note.md": "c8ec4e9abf427a5e99ba8951abcc463745938aa1f35a3c4613f7b037a80e2740",
+    "tests/test_issue204_native_preflight.py": "0f698986416663b1549ac8f19731dbcdcbee3bdaa78efebaaab49160513cbf7c",
+    "docs/verification/issue-207/README.md": "bd83a4560d9057d87c0bd5beab97fcf3b6ce872167c25fdc49e7d8a9a50ee9e9",
+    "docs/verification/issue-207/acceptance.json": "84e6db480c3406a117764482af202c9458689e435764b368bfa8d0b7d157649d",
+    "docs/verification/issue-207/acceptance.md": "dc782ee01305122f50b186846e949b97e35d6fdab413b14e3cb944f38ee24502",
+    "docs/verification/issue-207/design-review.md": "8ad7929424af0662b78de6628627187ef86ae4a3be6d121ae98ca5dfc0c2ed87",
+    "docs/verification/issue-207/implementation-checklist.md": "e83c4a9de6f5360cd9235b07a837c674c243dbde4ed26818fdedca20a88ae80d",
+    "docs/verification/issue-207/receipt-audit.md": "1c2df7d87c3bc0931f4dfa74d08c3ccde35a9362edd78318287df66742091c46",
+    "docs/plans/issue-207-target-identity-handoff.md": "e02da9eacd54fb90b7ca4ba63f1c3f72f37b997e426828ad8237d0bd1adc6006"
+  },
+  "overlap192": [],
+  "compositionPreviouslyValidated": false
+}
