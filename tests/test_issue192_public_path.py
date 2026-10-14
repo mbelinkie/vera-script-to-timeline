@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import copy
 import json
+import subprocess
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -35,9 +36,10 @@ from vera_timeline_agent.roundtrip_v2_proof import ProofSessionV2
 from vera_timeline_agent.roundtrip_v2_records import JsonObject, ProofNativeError
 from vera_timeline_agent.roundtrip_v2_revised_build import (
     PreparedRevisedProofBuildV2,
+    _evidence_hashes,
     verify_revised_preflight_v2,
 )
-from vera_timeline_agent.v2_package import _compiler_hash
+from vera_timeline_agent.v2_package import V2PackageError, _compiler_hash
 
 pytestmark = pytest.mark.slow
 
@@ -254,6 +256,52 @@ def selected_files(
         },
     )
     return profile
+
+
+def test_fractional_evidence_uses_exact_typescript_hashes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cases: list[JsonObject] = [{"measurement": 0.125}, {"measurement": 3e-8}]
+    expected = (
+        '[\n  {\n    "measurement": 0.125\n  },\n  {\n    "measurement": 3e-8\n  }\n]\n'
+    )
+    hashes = _evidence_hashes(cases)
+    assert hashes["evidenceHash"] == sha256_bytes(expected.encode())
+    assert hashes["caseEvidenceHashes"] == [
+        sha256_bytes(b'{\n  "measurement": 0.125\n}\n'),
+        sha256_bytes(b'{\n  "measurement": 3e-8\n}\n'),
+    ]
+    assert hashes["evidenceHash"] != identity_hash(cases)
+    with pytest.raises(V2PackageError, match="schema-supported safe integer"):
+        _compiler_hash(cases)
+    for attack in ("runtime", "inputHash"):
+
+        def drifted_reply(
+            *args: Any, field: str = attack, **kwargs: Any
+        ) -> subprocess.CompletedProcess[bytes]:
+            reply = {
+                "schemaVersion": "issue-192-v2-pure-result/v1",
+                "runtime": "v24.19.0",
+                "inputHash": sha256_bytes(kwargs["input"]),
+                "result": hashes,
+            }
+            reply[field] = "wrong"
+            return subprocess.CompletedProcess(
+                args=["injected-hash-transport"],
+                returncode=0,
+                stdout=json.dumps(reply).encode(),
+                stderr=b"",
+            )
+
+        with monkeypatch.context() as scoped:
+            scoped.setattr(
+                "vera_timeline_agent.roundtrip_v2_revised_build.subprocess.run",
+                drifted_reply,
+            )
+            with pytest.raises(
+                ProofNativeError, match="evidence hash input/runtime differs"
+            ):
+                _evidence_hashes(cases)
 
 
 def test_public_b1_b3_core_fresh_package_and_truthful_native_refusal(
@@ -511,6 +559,7 @@ def test_public_b1_b3_core_fresh_package_and_truthful_native_refusal(
         "relabel",
         "stale-decision",
         "compact-decision-result",
+        "wrong-fractional-evidence-hash",
         "missing-original-pin",
         "wrong-package-input",
     ):
@@ -528,6 +577,14 @@ def test_public_b1_b3_core_fresh_package_and_truthful_native_refusal(
             bad["verifiedFiles"][str(wrong_result_path)] = pin(wrong_result_path)[
                 "sha256"
             ]
+        elif attack == "wrong-fractional-evidence-hash":
+            wrong_candidate = copy.deepcopy(candidate)
+            wrong_candidate["inference"]["evidenceHash"] = "sha256:" + "0" * 64
+            wrong_candidate_path = tmp_path / "wrong-evidence-candidate.json"
+            write(wrong_candidate_path, wrong_candidate)
+            wrong_pin = pin(wrong_candidate_path)
+            bad["revisionBinding"]["candidate"] = wrong_pin
+            bad["verifiedFiles"][str(wrong_candidate_path)] = wrong_pin["sha256"]
         elif attack == "missing-original-pin":
             bad["verifiedFiles"].pop(
                 bad["revisionBinding"]["originalFiles"]["document"]["path"]

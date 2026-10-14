@@ -18,10 +18,10 @@ try {
   const { canonicalJson, sha256CanonicalJson } = await import("./compiler-core.ts");
   const { compileTimelineV2 } = await import("./compiler-core-v2.ts");
   hooks.deregister();
-  const raw = readFileSync(process.argv[2]!);
+  const raw = readFileSync(process.argv[2] === "-" ? 0 : process.argv[2]!);
   const request = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(raw)) as {
     document: ScriptDocumentV2; dependencies: CompilerDependenciesV2;
-    evidence: CompositionEvidenceV2 | null; mode: "baseline" | "infer" | "stage" | "proposal" | "decide";
+    evidence: CompositionEvidenceV2 | null; mode: "baseline" | "infer" | "stage" | "proposal" | "decide" | "evidence_hashes";
     preparedMedia: RevisionRequestV2["preparedMedia"]; handoff: RevisionRequestV2["handoff"];
     omissionDecisionHash: string; candidate: ReturnType<typeof integration.createInferredRevisionV2> | null;
     decision: RevisionDecisionV2 | null; history: string[];
@@ -38,6 +38,10 @@ try {
       documentJson: canonicalJson(document), manifest: compiled.manifest };
   }
   else if (!evidence) throw new Error("inference evidence required");
+  else if (request.mode === "evidence_hashes") {
+    const cases = Array.isArray(evidence) ? evidence : [evidence];
+    result = { evidenceHash: sha256CanonicalJson(cases), caseEvidenceHashes: cases.map(sha256CanonicalJson) };
+  }
   else if (request.mode === "infer") result = integration.inferCompositionV2(document, dependencies, evidence, authenticatedByHost);
   else if (request.mode === "stage") result = integration.prepareInferredRevisionV2(document, dependencies,
     integration.inferCompositionV2(document, dependencies, evidence, authenticatedByHost), request.preparedMedia, request.omissionDecisionHash);

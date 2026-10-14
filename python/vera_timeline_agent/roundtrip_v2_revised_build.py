@@ -25,6 +25,7 @@ from vera_timeline_agent.roundtrip_v2_build import (
     pin_bytes_v2,
 )
 from vera_timeline_agent.roundtrip_v2_records import (
+    ROOT,
     JsonObject,
     ReceiptVerifier,
     _digest,
@@ -53,6 +54,52 @@ PREFLIGHT_KEYS = (
     "executionInputs sourceHashes verifiedFiles manifestHash reportHash needs "
     "packageVerification unchecked revisionBinding"
 )
+
+
+def _evidence_hashes(cases: list[JsonObject]) -> JsonObject:
+    # Acoustic measurements are fractional; the frozen contract hash is integer-only.
+    raw = canonical_json_bytes(
+        {
+            "document": None,
+            "dependencies": None,
+            "evidence": cases,
+            "mode": "evidence_hashes",
+            "preparedMedia": [],
+            "handoff": None,
+            "omissionDecisionHash": "",
+            "candidate": None,
+            "decision": None,
+            "history": [],
+        }
+    )
+    completed = subprocess.run(
+        [
+            shutil.which("node") or "node",
+            str(ROOT / "packages/contracts/src/issue-192-proof-cli.ts"),
+            "-",
+        ],
+        input=raw,
+        capture_output=True,
+        check=False,
+        timeout=120,
+    )
+    fact(completed.returncode == 0, "exact evidence hash bridge refused")
+    output = shape(
+        _parse(completed.stdout),
+        "schemaVersion runtime inputHash result",
+        "evidence hash result",
+    )
+    fact(
+        output["schemaVersion"] == "issue-192-v2-pure-result/v1"
+        and output["runtime"] == "v24.19.0"
+        and output["inputHash"] == _digest(raw),
+        "evidence hash input/runtime differs",
+    )
+    return shape(
+        output["result"],
+        "evidenceHash caseEvidenceHashes",
+        "compiler evidence identities",
+    )
 
 
 def verify_revised_preflight_v2(
@@ -134,6 +181,7 @@ def verify_revised_preflight_v2(
     cases = evidence_record["cases"]
     cases = cases if isinstance(cases, list) else [cases]
     fact(0 < len(cases) <= 3, "isolated inference cases required")
+    evidence_hashes = _evidence_hashes(cases)
     shape(candidate, "inference proposal", "revision candidate")
     shape(
         decision, "schemaVersion proposalHash historyHash outcome", "accepted decision"
@@ -165,8 +213,8 @@ def verify_revised_preflight_v2(
         and inference["dependenciesHash"]
         == proposal["baselineDependenciesHash"]
         == _compiler_hash(_parse(pin_bytes_v2(baseline["dependencies"])[1]))
-        and inference["evidenceHash"] == _compiler_hash(cases)
-        and inference["caseEvidenceHashes"] == [_compiler_hash(c) for c in cases],
+        and inference["evidenceHash"] == evidence_hashes["evidenceHash"]
+        and inference["caseEvidenceHashes"] == evidence_hashes["caseEvidenceHashes"],
         "proposal/inference/evidence/baseline identity differs",
     )
     fact(
