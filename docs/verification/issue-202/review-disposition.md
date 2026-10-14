@@ -5,7 +5,7 @@ findings. It was independent supplied-source inspection with tools disabled,
 not test execution or complete acceptance. The exact verdict and limitations
 are retained in `claude-initial-review.md`.
 
-Before the final full gate, address its bounded recommendations:
+The candidate addressed these bounded recommendations before the final full gate:
 
 - Add unrelated preparation-key, changed profile/authorization, actual muted
   picture-only trim, unexpected handoff and malformed decision/history tests.
@@ -31,7 +31,17 @@ compiler/validator/edit/omission/replacement source, frozen contract/fixture,
 configuration or lockfile. Global test inventory expands, so the final
 focused/fast/full evidence uses this accepted integration baseline.
 
-Independent delta review and complete final evidence remain required; this
-record is not acceptance. Earlier source/test hashes and pending-state text
+Independent delta review of `5ec0850` returned GO with no blocking findings
+(Opus 5.5, session `56cde4df-2e79-40cb-911f-fb3150105cc2`). The complete ten
+focused cases and fast validation passed on that source. The second review
+recommends proceeding as-is; retain its optional limits without further scope:
+structured comparison objects contain all exact changes, while compact text
+summaries may omit fields; source-summary branches have indirect rather than
+dedicated positive assertions; older broad refusal assertions remain broad.
+The newly added refusal tests pin the intended guards. None of these limits
+weakens an accepted contract, required test or native/provider gate.
+
+Complete qualifying final evidence remains required; this record is not
+acceptance. Earlier source/test hashes and pending-state text
 in `checkpoint.md` identify historical candidates and are superseded by later
 exact source/evidence receipts.
