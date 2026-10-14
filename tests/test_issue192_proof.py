@@ -197,7 +197,7 @@ def test_fresh_package_public_delivery_save_reopen_and_readonly_recovery(
 
 @pytest.mark.parametrize(
     "attack",
-    ["record", "source", "target", "disabled", "control", "gain", "channels", "links"],
+    ["record", "source", "target", "disabled", "control", "links"],
 )
 def test_reopened_discrepancy_refuses_without_more_delivery(
     packages: Any,
@@ -243,20 +243,6 @@ def test_reopened_discrepancy_refuses_without_more_delivery(
         item.enabled = False
     elif attack == "control":
         monkeypatch.setattr(boundary, "read_controls", lambda *_: {"unknown": True})
-    elif attack in {"gain", "channels"}:
-
-        def changed_controls(
-            project: Any, timeline: Any, current: Any
-        ) -> dict[str, Any]:
-            controls = fake_controls(project, timeline, current)
-            route = controls["routes"][0]["controls"]
-            if attack == "gain":
-                route["gainDb"] = -18
-            else:
-                route["channelMap"] = "stereo-direct"
-            return controls
-
-        monkeypatch.setattr(boundary, "read_controls", changed_controls)
     else:
         peers = [i for group in resolve.project.timeline.items.values() for i in group]
         peers[0].links = [peers[-1]]
@@ -267,6 +253,42 @@ def test_reopened_discrepancy_refuses_without_more_delivery(
             boundary, expected_target, resolve.project.timeline.mapping, "mismatch"
         )
     assert adapter.calls == calls
+
+
+@pytest.mark.parametrize("attack", ["gain", "channels"])
+def test_reopened_audio_view_rejects_gain_and_channel_drift(
+    tmp_path: Path, attack: str
+) -> None:
+    from issue192_public_case import FakeAuthority, MaterializedCase
+
+    case = MaterializedCase(tmp_path / "audio-case", FakeAuthority())
+    boundary, resolve, adapter = case.native(tmp_path / "audio-native")
+    receipt = boundary.capture(
+        target(resolve), resolve.project.timeline.mapping, "audio_view"
+    )
+    raw_path = boundary.root / "observations/audio_view.json"
+    assert pin(raw_path)["sha256"] == receipt["rawHash"]
+    observed = json.loads(raw_path.read_bytes())
+    ProofSessionV2._verify_exact_view(observed, boundary)
+    narration = next(
+        item
+        for item in observed["items"]
+        if item["authoredEvent"]["kind"] == "narration"
+    )
+    route = next(
+        r["controls"]
+        for r in observed["controls"]["routes"]
+        if r["itemUid"] == narration["itemUid"]
+    )
+    assert route["gainDb"] == 0
+    assert route["channelMap"] == "mono-dual"
+    if attack == "gain":
+        route["gainDb"] = -18
+    else:
+        route["channelMap"] = "stereo-direct"
+    with pytest.raises(ProofNativeError, match="audio gain/channel mapping differs"):
+        ProofSessionV2._verify_exact_view(observed, boundary)
+    assert adapter.calls == []
 
 
 def test_revised_real_lane_and_changed_accepted_input_refuse_before_effect(
