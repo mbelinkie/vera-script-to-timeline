@@ -64,8 +64,11 @@ The operator explicitly issues a separate target-specific authority through
 read-only/saved/nonproduction/None confirmations. This is an operator step;
 the agent must not invent or issue it. `capability-request` only consumes an
 existing independently issued authority; it cannot issue one by hashing JSON.
-The installed consumer rechecks receipt semantics, exact binding, tool/source
-identity and current target before and after getter groups. A merely matching
+The installed consumer rechecks receipt semantics, exact binding, snapshot
+byte correspondence and current target before and after getter groups. Issuer
+metadata is self-declared local provenance, not independent authentication;
+authority independence rests on the separate explicit operator procedure.
+A merely matching
 hash, no-op verifier or method-name enumeration is not authority or success.
 
 ## Observations and truthful gaps
@@ -101,7 +104,8 @@ guard regressions through unchanged accepted tests.
 
 After explicit grant: locked focused tests/fast checks, mandatory adversarial
 Claude review of identity/path/source/request/authority/native seams, fix/delta
-review, then final qualifying full evidence under VERIFICATION_POLICY. Record
+review, then actual installed read-only External evidence and final full
+validation on the final delivered state under VERIFICATION_POLICY. Record
 actual exits, source/input/tool/environment/inventory hashes; next necessary
 costly pytest includes `--durations=25`. Native External acceptance cannot be
 replaced by cloud or fake tests. No commands have run for this stage yet.

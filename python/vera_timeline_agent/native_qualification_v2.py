@@ -109,6 +109,7 @@ def _read(path: Path) -> bytes:
         raise ValueError("preflight input unavailable") from error
     try:
         before = os.fstat(fd)
+        _require(before.st_nlink == 1, "hardlinked preflight input")
         _require(
             stat.S_ISREG(before.st_mode) and before.st_size <= _MAX_BYTES,
             "input is not a bounded regular file",
@@ -133,6 +134,20 @@ def _read(path: Path) -> bytes:
 
 def _digest(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
+
+
+def _within(path: Path, root: Path) -> bool:
+    """Compare existing ancestry identity for APFS case and firmlink aliases."""
+    if path.is_relative_to(root):
+        return True
+    if not root.exists():
+        return False
+    identity = (root.stat().st_dev, root.stat().st_ino)
+    return any(
+        candidate.exists()
+        and (candidate.stat().st_dev, candidate.stat().st_ino) == identity
+        for candidate in (path, *path.parents)
+    )
 
 
 def _object(payload: bytes) -> dict[str, Any]:
@@ -269,13 +284,20 @@ def _binding(value: Any) -> dict[str, Any]:
         "staged approval required",
     )
     _release(binding)
+    _require(
+        datetime.fromisoformat(
+            _text(approved["recordedAt"], "approval time")
+        ).utcoffset()
+        is not None,
+        "approval time requires timezone",
+    )
     evidence = _path(binding["evidenceDir"])
     _require(
-        not evidence.is_relative_to(repository)
-        and not repository.is_relative_to(evidence)
-        and not evidence.is_relative_to(_path(binding["releaseRoot"]))
-        and not _path(binding["releaseRoot"]).is_relative_to(evidence)
-        and not _path(binding["approvalPath"]).is_relative_to(evidence),
+        not _within(evidence, repository)
+        and not _within(repository, evidence)
+        and not _within(evidence, _path(binding["releaseRoot"]))
+        and not _within(_path(binding["releaseRoot"]), evidence)
+        and not _within(_path(binding["approvalPath"]), evidence),
         "evidence overlaps protected inputs",
     )
     _require(not evidence.exists() or evidence.is_dir(), "evidence is not a directory")
@@ -339,7 +361,7 @@ def _authority(path: Path) -> tuple[dict[str, Any], str]:
     )
     _text(issuer["hostUser"], "issuer host user")
     _require(
-        not path.is_relative_to(_path(binding["evidenceDir"])),
+        not _within(path, _path(binding["evidenceDir"])),
         "authority must remain outside evidence",
     )
     return authority, _digest(payload)
@@ -387,9 +409,9 @@ def create_capability_authority(
     )
     _path(str(output))
     _require(
-        not output.is_relative_to(repository_root)
-        and not output.is_relative_to(release_root)
-        and not output.is_relative_to(evidence_dir),
+        not _within(output, repository_root)
+        and not _within(output, release_root)
+        and not _within(output, evidence_dir),
         "authority overlaps protected root",
     )
     return write_immutable_json(
@@ -418,9 +440,9 @@ def prepare_capability_request(output: Path, *, authority_path: Path) -> Path:
     _path(str(output))
     binding = authority["binding"]
     _require(
-        not output.is_relative_to(_path(binding["repositoryRoot"]))
-        and not output.is_relative_to(_path(binding["releaseRoot"]))
-        and not output.is_relative_to(_path(binding["evidenceDir"]))
+        not _within(output, _path(binding["repositoryRoot"]))
+        and not _within(output, _path(binding["releaseRoot"]))
+        and not _within(output, _path(binding["evidenceDir"]))
         and output not in {_path(binding["approvalPath"]), authority_path},
         "request overlaps protected input/evidence",
     )
@@ -466,7 +488,7 @@ def _request(path: Path, expected: str) -> dict[str, Any]:
         "operator authority mismatch",
     )
     _require(
-        not path.is_relative_to(_path(request["binding"]["evidenceDir"])),
+        not _within(path, _path(request["binding"]["evidenceDir"])),
         "request must remain outside evidence",
     )
     return request
@@ -475,6 +497,7 @@ def _request(path: Path, expected: str) -> dict[str, Any]:
 class _Observations:
     def __init__(self) -> None:
         self.rows: list[dict[str, Any]] = []
+        self.value_bytes = 0
 
     def get(
         self,
@@ -487,6 +510,7 @@ class _Observations:
     ) -> Any:
         # Only hard-coded getter names below can reach the injected object.
         _require(method.startswith("Get"), "native effect forbidden")
+        _require(len(self.rows) < 2000, "bounded observation inventory exhausted")
         row: dict[str, Any] = {
             "source": f"{source}.{method}",
             "arguments": list(args),
@@ -498,6 +522,7 @@ class _Observations:
             getter = getattr(handle, method, None)
             _require(callable(getter), "documented getter unavailable")
             assert callable(getter)
+            row["status"] = "ambiguous"
             value = getter(*args)
             if kind == "handle":
                 _require(value is not None, "native handle unavailable")
@@ -505,8 +530,10 @@ class _Observations:
             else:
                 encoded = json.dumps(value, allow_nan=False)
                 _require(
-                    len(encoded.encode()) <= _MAX_BYTES, "getter record exceeds bound"
+                    len(encoded.encode()) + self.value_bytes <= _MAX_BYTES // 3,
+                    "getter values exceed retained evidence budget",
                 )
+                self.value_bytes += len(encoded.encode())
                 row["value"] = value
             valid = (
                 kind in {"any", "handle"}
@@ -599,6 +626,20 @@ def _gaps(
             }
         )
     audio_items = [item for item in items if item["trackKind"] == "audio"]
+    counts = [r for r in rows if r["source"] == "timeline:audio.GetTrackCount"]
+    inventories = [
+        r
+        for r in rows
+        if r["source"].startswith("track:audio:")
+        and r["source"].endswith("GetItemListInTrack")
+    ]
+    parents = counts + inventories
+    complete_audio = (
+        len(counts) == 1
+        and counts[0]["status"] == "supported"
+        and len(inventories) == counts[0]["value"]
+        and all(r["status"] == "supported" for r in parents)
+    )
     for row in gaps:
         if row["field"] == "clip.effects":
             row.update(
@@ -617,7 +658,9 @@ def _gaps(
             ]
             row.update(
                 status="supported"
-                if sources and all(r["status"] == "supported" for r in sources)
+                if complete_audio
+                and sources
+                and all(r["status"] == "supported" for r in sources)
                 else "ambiguous",
                 sources=[r["source"] for r in sources],
                 reason="track-enable getter visibility; full mixer controls unproven",
@@ -649,7 +692,8 @@ def _gaps(
                 )
             ]
             visible = (
-                bool(audio_items)
+                complete_audio
+                and bool(audio_items)
                 and len(sources) == len(audio_items)
                 and all(
                     r["status"] == "supported"
@@ -670,6 +714,7 @@ def _gaps(
                 sources=[r["source"] for r in sources],
                 reason="getter visibility only; effective route/mix remains unproven",
             )
+            row["sources"] = [r["source"] for r in sources + parents]
     for field in (
         "AudioCodec",
         "AudioBitDepth",
@@ -713,12 +758,26 @@ def _gaps(
         "GetRenderResolutions",
         "GetCurrentRenderFormatAndCodec",
     ):
-        matches = [r for r in rows if r["source"].endswith(f".{method}")]
+        methods = {method}
+        if method in {
+            "GetRenderCodecs",
+            "GetAudioRenderCodecs",
+            "GetRenderResolutions",
+        }:
+            methods.update({"GetRenderFormats", "GetAudioRenderFormats"})
+        if method == "GetRenderResolutions":
+            methods.update({"GetRenderCodecs", "GetAudioRenderCodecs"})
+        matches = [
+            r for r in rows if any(r["source"].endswith(f".{m}") for m in methods)
+        ]
         gaps.append(
             {
                 "field": f"render.candidates.{method}",
                 "status": "supported"
                 if matches
+                and all(
+                    any(r["source"].endswith(f".{m}") for r in matches) for m in methods
+                )
                 and all(
                     r["status"] == "supported" and bool(r["value"]) for r in matches
                 )
@@ -774,13 +833,17 @@ def run_capability_preflight(
         },
     }
     items: list[dict[str, Any]] = []
+    guarded_rows = 0
 
     def guard() -> tuple[Any, Any]:
+        nonlocal guarded_rows
         _require(
             _request(request_path, expected_request_sha256) == request,
             "preflight inputs changed",
         )
-        return _context(resolve, binding["target"], seen)
+        context = _context(resolve, binding["target"], seen)
+        guarded_rows = len(seen.rows)
+        return context
 
     try:
         product = seen.get(
@@ -871,9 +934,24 @@ def run_capability_preflight(
                         if channel is not None:
                             try:
                                 mapping = _object(channel.encode())
+                                tracks = mapping.get("track_mapping")
                                 _require(
-                                    isinstance(mapping.get("track_mapping"), list)
-                                    and bool(mapping["track_mapping"]),
+                                    isinstance(tracks, dict)
+                                    and bool(tracks)
+                                    and all(
+                                        isinstance(k, str)
+                                        and k.isdecimal()
+                                        and isinstance(v, dict)
+                                        and isinstance(v.get("channel_idx"), list)
+                                        and bool(v["channel_idx"])
+                                        and all(
+                                            type(c) is int and c > 0
+                                            for c in v["channel_idx"]
+                                        )
+                                        and type(v.get("mute")) is bool
+                                        and isinstance(v.get("type"), str)
+                                        for k, v in tracks.items()
+                                    ),
                                     "incomplete channel map",
                                 )
                             except ValueError as error:
@@ -889,15 +967,17 @@ def run_capability_preflight(
             formats = seen.get(project, "project", format_method, kind="object")
             if formats is None:
                 continue
-            _require(
-                len(formats) <= 32
-                and all(
-                    isinstance(ext, str) and re.fullmatch(r"[a-z0-9]{1,16}", ext)
-                    for ext in formats.values()
-                ),
-                "ambiguous render format identifiers",
-            )
-            for ext in sorted(set(formats.values())):
+            format_row = seen.rows[-1]
+            valid_formats = [
+                ext
+                for ext in formats.values()
+                if isinstance(ext, str) and 0 < len(ext) <= 64
+            ]
+            if len(valid_formats) != len(formats) or len(formats) > 32:
+                format_row.update(
+                    status="ambiguous", reason="incomplete/bounded format identifiers"
+                )
+            for ext in sorted(set(valid_formats))[:32]:
                 codecs = seen.get(
                     project, f"format:{ext}", codec_method, ext, kind="object"
                 )
@@ -928,11 +1008,19 @@ def run_capability_preflight(
     except Exception as error:
         result["reason"] = str(error)
         result["failureType"] = type(error).__name__
-    result.update(observations=seen.rows, items=items, gaps=_gaps(seen.rows, items))
-    _require(
-        len(json.dumps(result).encode()) <= _MAX_BYTES,
-        "preflight result exceeds bounded evidence size",
+    for index, row in enumerate(seen.rows):
+        row["contextVerified"] = index < guarded_rows
+        if index >= guarded_rows and row["status"] == "supported":
+            row.update(
+                status="ambiguous", reason="read after last verified input/target guard"
+            )
+    result.update(
+        observations=seen.rows,
+        items=items,
+        gaps=_gaps(seen.rows, items),
+        lastGuardedRowCount=guarded_rows,
     )
+    print(json.dumps(result, sort_keys=True))
     report = write_immutable_json(evidence / f"result-{run_id}.json", result)
     write_immutable_json(
         evidence / f"hashes-{run_id}.json",

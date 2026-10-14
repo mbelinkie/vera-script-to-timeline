@@ -2,9 +2,12 @@
 
 import hashlib
 import json
+import os
+import stat
 import sys
 import uuid
 from pathlib import Path
+from typing import Any, cast
 
 PLUGIN_ROOT = Path(
     "/Library/Application Support/Blackmagic Design/DaVinci Resolve/"
@@ -12,6 +15,57 @@ PLUGIN_ROOT = Path(
 )
 # Resolve can exec a script without __file__; retain #107's documented root.
 SCRIPT_PATH = Path(globals().get("__file__", str(PLUGIN_ROOT / "VERA Delivery v2.py")))
+
+
+def within(path: Path, parent: Path) -> bool:
+    if path.is_relative_to(parent):
+        return True
+    if not parent.exists():
+        return False
+    identity = (parent.stat().st_dev, parent.stat().st_ino)
+    return any(
+        p.exists() and (p.stat().st_dev, p.stat().st_ino) == identity
+        for p in (path, *path.parents)
+    )
+
+
+def provenance_bytes(path: Path) -> bytes:
+    if not path.is_absolute() or any(p.is_symlink() for p in (path, *path.parents)):
+        raise RuntimeError("unsafe qualification input")
+    before = path.lstat()
+    with path.open("rb") as source:
+        opened = os.fstat(source.fileno())
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or opened.st_nlink != 1
+            or opened.st_size > 2 * 1024 * 1024
+            or (before.st_dev, before.st_ino) != (opened.st_dev, opened.st_ino)
+        ):
+            raise RuntimeError("hardlinked/changed/unbounded qualification input")
+        payload = source.read(2 * 1024 * 1024 + 1)
+        after = os.fstat(source.fileno())
+    if len(payload) != opened.st_size or (opened.st_size, opened.st_mtime_ns) != (
+        after.st_size,
+        after.st_mtime_ns,
+    ):
+        raise RuntimeError("qualification input changed while reading")
+    return payload
+
+
+def qualification_object(payload: bytes) -> dict[str, Any]:
+    def pairs(entries: list[tuple[str, Any]]) -> dict[str, Any]:
+        value: dict[str, Any] = {}
+        for key, item in entries:
+            if key in value:
+                raise RuntimeError("duplicate qualification key")
+            value[key] = item
+        return value
+
+    parsed = json.loads(payload, object_pairs_hook=pairs)
+    if not isinstance(parsed, dict):
+        raise RuntimeError("qualification record must be an object")
+    json.dumps(parsed, allow_nan=False)
+    return cast(dict[str, Any], parsed)
 
 
 def launch(injected_resolve: object) -> None:
@@ -31,6 +85,8 @@ def launch(injected_resolve: object) -> None:
     qualification = (
         request.get("schemaVersion") == "vera-native-qualification-request/v1"
     )
+    if qualification:
+        request = qualification_object(request_bytes)
     binding = request["binding"] if qualification else request
     release_path = release_root / "release.json"
     if release_path.is_symlink():
@@ -120,22 +176,55 @@ def launch(injected_resolve: object) -> None:
             for path in inputs
         ):
             raise RuntimeError("unsafe qualification provenance paths")
-        authority_bytes = authority_path.read_bytes()
+        if provenance_bytes(request_path) != request_bytes:
+            raise RuntimeError("qualification request changed before import")
+        authority_bytes = provenance_bytes(authority_path)
+        authority = qualification_object(authority_bytes)
+        if (
+            set(authority)
+            != {
+                "schemaVersion",
+                "issueNumber",
+                "action",
+                "operator",
+                "issuedAt",
+                "invocationId",
+                "issuer",
+                "binding",
+                "confirmations",
+            }
+            or authority["schemaVersion"] != "vera-native-qualification-authority/v1"
+            or type(authority["issueNumber"]) is not int
+            or authority["issueNumber"] != 204
+            or authority["action"] != "capability_preflight"
+            or authority["confirmations"]
+            != {
+                "readOnly": True,
+                "savedDisposableNonproduction": True,
+                "externalScripting": "None",
+            }
+            or authority["confirmations"]["readOnly"] is not True
+            or authority["confirmations"]["savedDisposableNonproduction"] is not True
+        ):
+            raise RuntimeError("invalid closed read-only operator authority")
         if (
             hashlib.sha256(authority_bytes).hexdigest() != request["authoritySha256"]
-            or json.loads(authority_bytes).get("binding") != binding
-            or hashlib.sha256(approval_path.read_bytes()).hexdigest()
+            or authority["binding"] != binding
+            or hashlib.sha256(provenance_bytes(approval_path)).hexdigest()
             != binding["approvalSha256"]
-            or evidence.is_relative_to(root)
-            or evidence.is_relative_to(Path(binding["repositoryRoot"]))
-            or authority_path.is_relative_to(evidence)
-            or approval_path.is_relative_to(evidence)
+            or within(evidence, root)
+            or within(evidence, Path(binding["repositoryRoot"]))
+            or within(evidence, Path(binding["releaseRoot"]))
+            or within(root, evidence)
+            or within(Path(binding["repositoryRoot"]), evidence)
+            or within(Path(binding["releaseRoot"]), evidence)
+            or within(authority_path, evidence)
+            or within(approval_path, evidence)
         ):
             raise RuntimeError("qualification provenance mismatch/overlap")
         evidence.mkdir(mode=0o700, parents=True, exist_ok=True)
-        with (evidence / f"bootstrap-started-{uuid.uuid4().hex}.json").open(
-            "x", encoding="utf-8"
-        ) as stream:
+        started = evidence / f"bootstrap-started-{uuid.uuid4().hex}.json"
+        with started.open("x", encoding="utf-8") as stream:
             json.dump(
                 {
                     "requestSha256": hashlib.sha256(request_bytes).hexdigest(),
@@ -150,6 +239,7 @@ def launch(injected_resolve: object) -> None:
                 indent=2,
                 sort_keys=True,
             )
+        started.chmod(0o400)
     sys.dont_write_bytecode = True
     sys.pycache_prefix = None
     sys.path.insert(0, str(runtime))
@@ -178,6 +268,13 @@ except Exception as error:
         )
         if config.get("schemaVersion") == "vera-native-qualification-request/v1":
             binding = config["binding"]
+            # A tampered request's unsafe output cannot replace its bound safe receipt.
+            try:
+                authority = provenance_bytes(Path(config["authorityPath"]))
+                if hashlib.sha256(authority).hexdigest() == config["authoritySha256"]:
+                    binding = json.loads(authority)["binding"]
+            except Exception:
+                pass
             evidence = Path(binding["evidenceDir"])
             protected_roots = [
                 SCRIPT_PATH.resolve().parent,
@@ -186,7 +283,7 @@ except Exception as error:
                 Path(binding["approvalPath"]).resolve(),
                 Path(config["authorityPath"]).resolve(),
             ]
-            if any(path.is_relative_to(evidence.resolve()) for path in protected_roots):
+            if any(within(path, evidence) for path in protected_roots):
                 raise RuntimeError("qualification evidence contains protected input")
         else:
             evidence = Path(config["evidenceDir"])
@@ -204,7 +301,7 @@ except Exception as error:
             or any(
                 path.is_symlink() for path in (evidence, *evidence.absolute().parents)
             )
-            or any(evidence.resolve().is_relative_to(root) for root in protected_roots)
+            or any(within(evidence, root) for root in protected_roots)
         ):
             raise RuntimeError("unsafe evidence directory")
         evidence.mkdir(mode=0o700, parents=True, exist_ok=True)
