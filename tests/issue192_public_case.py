@@ -47,6 +47,7 @@ from vera_timeline_agent.roundtrip_v2_records import (
     proof_source_hashes_v2,
 )
 from vera_timeline_agent.roundtrip_v2_revised_build import PreparedRevisedProofBuildV2
+from vera_timeline_agent.v2_package import _compiler_hash
 from vera_timeline_agent.workflow_v2 import load_verified_package_v2
 
 FRAME = 2002
@@ -151,7 +152,7 @@ class FakeAuthority:
             assert raw == b"explicit fake service authorization"
             assert self.stage is not None
             assert binding["request"] == self.stage["regeneration"]
-            assert binding["priorDependenciesHash"] == identity_hash(
+            assert binding["priorDependenciesHash"] == _compiler_hash(
                 self.stage["dependencies"]
             )
             assert binding["service"]["config"]["max_cost_usd"] == 0.01
