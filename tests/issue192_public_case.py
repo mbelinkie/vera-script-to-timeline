@@ -16,6 +16,8 @@ import subprocess
 import uuid
 import wave
 from array import array
+from fractions import Fraction
+from math import ceil
 from pathlib import Path
 from typing import Any, override
 
@@ -199,6 +201,7 @@ class MaterializedCase:
         self.authority = authority
         self.preparations: dict[str, JsonObject] = {}
         self.media: dict[str, Path] = {}
+        self.source_audio: dict[str, Path] = {}
         self.narration: dict[str, JsonObject] = {}
         if prior is None:
             generated = subprocess.run(
@@ -255,6 +258,7 @@ class MaterializedCase:
                 copy.deepcopy(dependencies),
             )
             self.media = dict(prior.media)
+            self.source_audio.update(prior.source_audio)
             self.narration = copy.deepcopy(prior.narration)
             self.narration[id_for(10)] = fresh_narration
             self._revised_preparations(prior)
@@ -490,8 +494,6 @@ class MaterializedCase:
                 binding, occurrence, record, original, audio_path if not image else None
             )
             self.media[f"video:{key}"] = original
-            if not image:
-                self.media[f"audio:{key}"] = audio_path
             self.probes[str(original)] = source_probe
         for row in self.dependencies["narrationBoundaryEvidence"]:
             n = 1 if row["blockId"] == id_for(10) else 2
@@ -538,6 +540,42 @@ class MaterializedCase:
             "audioStreamIndex": None if audio is None else 1,
         }
         record["geometry"] = _preparation_geometry(binding, occurrence)
+        if audio is not None:
+            self.source_audio[key] = audio
+            geometry = record["geometry"]
+            start, end = (
+                Fraction(geometry[name]["numerator"], geometry[name]["denominator"])
+                for name in ("packageStart", "packageEnd")
+            )
+            first, exclusive = ceil(start * 48000), ceil(end * 48000)
+            with wave.open(str(audio), "rb") as stream:
+                assert stream.getsampwidth() == 3 and stream.getframerate() == 48000
+                assert 0 <= first < exclusive <= stream.getnframes()
+                stream.setpos(first)
+                selected_pcm = stream.readframes(exclusive - first)
+                channels = stream.getnchannels()
+            sidecar = self.root / f"prepared-{key.replace(':', '-')}.wav"
+            sidecar.write_bytes(wav_bytes(selected_pcm, channels))
+            offset = Fraction(first, 48000) - start
+            delivered_first = start + offset
+            record["audio"].update(
+                contentHash=_file_hash(sidecar),
+                sourceFirstSample=first,
+                sourceExclusiveSample=exclusive,
+                resampledFirstSample=first,
+                resampledExclusiveSample=exclusive,
+                decodedSamples=exclusive - first,
+                boundaryOffset={
+                    "numerator": offset.numerator,
+                    "denominator": offset.denominator,
+                },
+                deliveredTimeAtFirstSample={
+                    "numerator": delivered_first.numerator,
+                    "denominator": delivered_first.denominator,
+                },
+            )
+            audio = sidecar
+            self.media[f"audio:{key}"] = sidecar
         path = self.root / f"prep-{key.replace(':', '-')}.json"
         write(path, record)
         self.preparations[key] = {
@@ -564,7 +602,7 @@ class MaterializedCase:
                 occurrence,
                 record,
                 prior.media[f"video:{key}"],
-                prior.media.get(f"audio:{key}"),
+                prior.source_audio.get(key),
             )
 
     def probe(self, path: Path, _: JsonObject) -> JsonObject:
