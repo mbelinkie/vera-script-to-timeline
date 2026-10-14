@@ -1,0 +1,96 @@
+{
+  "status": "runtime-failure-fix-awaiting-rerun",
+  "sourcePins": {
+    "tests/issue192_public_case.py": "7cb746efc14099ee186a827dfd7aaffcda48ac45b06f63a440ef047131d23104",
+    "tests/test_issue192_public_path.py": "d52418ba8f23327ea73ecb0b6885acf93d7a1807c67083c5c0f8b29150d71505"
+  },
+  "records": [
+    {
+      "receipt": "out/issue192/runtime-3/complete.json",
+      "receiptSha256": "d399cb3daf60f0ee62de7e2a6e980952608ee7242e7ace609317ee29496a3782",
+      "source": "259d0f48263b63d9748a2b5e16e72b65f081fdb9",
+      "command": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "-x",
+        "--durations=25",
+        "tests/test_issue192_public_path.py",
+        "tests/test_issue192_proof.py",
+        "tests/test_issue190_native.py::test_public_delivery_once_and_readonly_recovery",
+        "tests/test_issue190_native.py::test_copied_or_drifted_delivery_records_refuse_recovery",
+        "tests/test_issue190_native.py::test_fractional_public_delivery_refusal_precedes_adapter_creation",
+        "tests/test_issue190_native.py::test_capture_drift_refuses_without_evidence_or_render"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "startedAt": "2026-10-14T02:40:12.073Z",
+      "finishedAt": "2026-10-14T02:41:00.338Z",
+      "logSha256": "a7311174871252ccb52076900e4fcceaa98b6769465038b49b68f278be1b2821"
+    },
+    {
+      "receipt": "out/issue192/focused-31-ruff-job/complete.json",
+      "receiptSha256": "4cd5a73c7b3052543b643654a846a571df8de7420107eeb3281430449d36ba91",
+      "source": "259d0f48263b63d9748a2b5e16e72b65f081fdb9",
+      "command": [
+        ".venv/bin/ruff",
+        "check",
+        "tests/issue192_public_case.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T02:51:41.417Z",
+      "finishedAt": "2026-10-14T02:51:41.823Z",
+      "logSha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "receipt": "out/issue192/focused-32-format-job/complete.json",
+      "receiptSha256": "5441d827a25fd37b49238ea0db2b9970b72ec976f32f674c345ee69bf3cb73f8",
+      "source": "259d0f48263b63d9748a2b5e16e72b65f081fdb9",
+      "command": [
+        ".venv/bin/ruff",
+        "format",
+        "--check",
+        "tests/issue192_public_case.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "startedAt": "2026-10-14T02:52:08.760Z",
+      "finishedAt": "2026-10-14T02:52:09.121Z",
+      "logSha256": "b32e5ed7d2a809b3aaf58aedc8d73803c225f36b842c6c65ec62830456e613b1"
+    },
+    {
+      "receipt": "out/issue192/focused-33-mypy-job/complete.json",
+      "receiptSha256": "8195d2be4358ab816d62c4c56a0525d0166d7bd99829ea5c991f4e878120771a",
+      "source": "259d0f48263b63d9748a2b5e16e72b65f081fdb9",
+      "command": [
+        ".venv/bin/mypy",
+        "tests/issue192_public_case.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T02:52:19.055Z",
+      "finishedAt": "2026-10-14T02:52:20.739Z",
+      "logSha256": "f9b031e5c45aa702cd4fef028d465551cb20a2c4698e0913c7b00766b20ac4d8"
+    },
+    {
+      "receipt": "out/issue192/focused-34-format-job/complete.json",
+      "receiptSha256": "026cae65ad6c86cba4181beb23b05c23f2cd6807391116f7d68c294453587f9a",
+      "source": "259d0f48263b63d9748a2b5e16e72b65f081fdb9",
+      "command": [
+        ".venv/bin/ruff",
+        "format",
+        "--check",
+        "tests/test_issue192_public_path.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T02:52:31.297Z",
+      "finishedAt": "2026-10-14T02:52:31.643Z",
+      "logSha256": "fd2299c9f1c6dc869070883e281051bfe93aacf66c1a3b0069f45b4aa410ca50"
+    }
+  ]
+}

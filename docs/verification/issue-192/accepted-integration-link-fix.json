@@ -1,0 +1,118 @@
+{
+  "status": "claimed-accepted-integration-fixture-fix-runtime-pending",
+  "acceptedMain": "deaa75c90b5486e500cb69266faa7bdf09697efc",
+  "integrationMerge": "4c47ed48a4ca9233670aa1f342b25d5557bfd547",
+  "sourcePins": {
+    "tests/issue192_public_case.py": "8de4623530b557354031bfbbabd242c463b41a8cbebd8b2f44fe4c1ed6cbf465",
+    "tests/test_issue192_public_path.py": "9da337461b2a3894a8efe31bd8ad2606e1e1f3c2231b6e0682dc5e5d6a9d3e73"
+  },
+  "acceptedCoreSha256": "368d0f5ed125db82a87e7a3056b190664d07814ec348da8e29068ec400778631",
+  "acceptedCoreTestSha256": "daf15a3a656578a418f7f27d5af813c25dcae3b50cc996ba2439a6da76c1851d",
+  "records": [
+    {
+      "receipt": "out/issue192/runtime-8/complete.json",
+      "receiptSha256": "1cfb7f7cee477400fa1f16b3682ccb9a96d3a44f030d07b53ecc6ddcb06e85a6",
+      "source": "a463c35655d3307d980ddca95699752a99774ab8",
+      "command": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "-x",
+        "--durations=25",
+        "tests/test_issue192_public_path.py",
+        "tests/test_issue192_proof.py",
+        "tests/test_issue190_native.py::test_public_delivery_once_and_readonly_recovery",
+        "tests/test_issue190_native.py::test_copied_or_drifted_delivery_records_refuse_recovery",
+        "tests/test_issue190_native.py::test_fractional_public_delivery_refusal_precedes_adapter_creation",
+        "tests/test_issue190_native.py::test_capture_drift_refuses_without_evidence_or_render"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "startedAt": "2026-10-14T04:56:26.813Z",
+      "finishedAt": "2026-10-14T04:56:54.225Z",
+      "logSha256": "70fa63ea202cc7c1a365c8ea494ab41684993d6a78bb35798bb943c30583614c"
+    },
+    {
+      "receipt": "out/issue192/review-fix-quiet-link-red/complete.json",
+      "receiptSha256": "d70b4f450572172c0428dc7e1eb21249e409bbe4dc220e57d64defba33822398",
+      "source": "4c47ed48a4ca9233670aa1f342b25d5557bfd547",
+      "command": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "-x",
+        "--durations=25",
+        "tests/test_issue192_public_path.py::test_quiet_clip_pair_under_narration_keeps_reciprocal_links"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "startedAt": "2026-10-14T08:07:07.809Z",
+      "finishedAt": "2026-10-14T08:07:30.735Z",
+      "logSha256": "41bdebd9edc71e1adfa3c7a97df82ecf7ab422591bebb51e77c6b294d075c683"
+    },
+    {
+      "receipt": "out/issue192/review-fix-links-format/complete.json",
+      "receiptSha256": "7632f82a65c767b00ff650cb79fa6360e922ed0cbdfddf843563537f8a7d18cf",
+      "source": "4c47ed48a4ca9233670aa1f342b25d5557bfd547",
+      "command": [
+        ".venv/bin/ruff",
+        "format",
+        "tests/issue192_public_case.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T08:07:50.683Z",
+      "finishedAt": "2026-10-14T08:07:51.098Z",
+      "logSha256": "96a977f329ec3c59092d40e041a019b49dcf03ca04055e177aa0ccb8c27234df"
+    },
+    {
+      "receipt": "out/issue192/review-fix-links-ruff/complete.json",
+      "receiptSha256": "9f8a98319b3dc813e52d38270b7d4a9faf7bacc1557fe970da3578bf31d8b961",
+      "source": "4c47ed48a4ca9233670aa1f342b25d5557bfd547",
+      "command": [
+        ".venv/bin/ruff",
+        "check",
+        "tests/issue192_public_case.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T08:08:39.285Z",
+      "finishedAt": "2026-10-14T08:08:39.781Z",
+      "logSha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "receipt": "out/issue192/review-fix-links-mypy/complete.json",
+      "receiptSha256": "330644c258726164b42dfbf52a5d4081f8e9a074f8badffb5f08c590c04954c2",
+      "source": "4c47ed48a4ca9233670aa1f342b25d5557bfd547",
+      "command": [
+        ".venv/bin/mypy",
+        "tests/issue192_public_case.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T08:08:54.943Z",
+      "finishedAt": "2026-10-14T08:08:57.247Z",
+      "logSha256": "f9b031e5c45aa702cd4fef028d465551cb20a2c4698e0913c7b00766b20ac4d8"
+    },
+    {
+      "receipt": "out/issue192/review-fix-links-format-check/complete.json",
+      "receiptSha256": "4b62fd87ee1256e4bcc80b2dfecd051f4218ad1361abdaf557ec3b41ef62f72c",
+      "source": "4c47ed48a4ca9233670aa1f342b25d5557bfd547",
+      "command": [
+        ".venv/bin/ruff",
+        "format",
+        "--check",
+        "tests/issue192_public_case.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T08:09:04.166Z",
+      "finishedAt": "2026-10-14T08:09:04.574Z",
+      "logSha256": "3bc53bf3e981a98a34a852e175bf9b77af841edea74fca595d9aedcbaf9a4938"
+    }
+  ]
+}

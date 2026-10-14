@@ -1,0 +1,52 @@
+{
+  "status": "41-case-affected-pass-not-full-acceptance",
+  "source": "57dd4059b859918f75c152dedd8a77e1a6e67469",
+  "cases": 41,
+  "skips": 0,
+  "command": [
+    ".venv/bin/python",
+    "-m",
+    "pytest",
+    "-x",
+    "--durations=25",
+    "tests/test_issue192_public_path.py",
+    "tests/test_issue192_proof.py",
+    "tests/test_issue190_native.py::test_public_delivery_once_and_readonly_recovery",
+    "tests/test_issue190_native.py::test_copied_or_drifted_delivery_records_refuse_recovery",
+    "tests/test_issue190_native.py::test_fractional_public_delivery_refusal_precedes_adapter_creation",
+    "tests/test_issue190_native.py::test_capture_drift_refuses_without_evidence_or_render"
+  ],
+  "receipt": "out/issue192/runtime-13/complete.json",
+  "receiptSha256": "8af85d1f5390648e97e0b35a2aff9e437b548743c36baa5c192cb0afc2039e0b",
+  "logSha256": "3bb99e286a706195926f0a4c934de19e197ba7371576492934eaabe82ef06cf1",
+  "elapsedSeconds": 435.187,
+  "node": "v24.19.0",
+  "tools": {
+    "/Users/matthewbelinkie/.local/bin/uv": {
+      "binary": "/Users/matthewbelinkie/.local/bin/uv",
+      "sha256": "9f810c3f3ea6b29f5e02b03acb0dcff74f516d4c24b91cd5491f172829e5c9e4",
+      "version": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)"
+    },
+    ".venv/bin/python": {
+      "binary": "/Users/matthewbelinkie/.local/share/uv/python/cpython-3.12.14-macos-x86_64-none/bin/python3.12",
+      "sha256": "a8e10ff8d348800219a8f1f2bb04f5b7d2d62a34f9656cad5520f10560f8df35",
+      "version": "Python 3.12.14"
+    },
+    ".venv/bin/ruff": {
+      "binary": "/Users/matthewbelinkie/.codex/worktrees/f5f4/VERA Script to Timeline/.venv/bin/ruff",
+      "sha256": "40a2ecbb65bcf18e99b424b60eeccaad58a6b35608341b6b64f426e02f54c233",
+      "version": "ruff 0.16.4"
+    },
+    ".venv/bin/mypy": {
+      "binary": "/Users/matthewbelinkie/.codex/worktrees/f5f4/VERA Script to Timeline/.venv/bin/mypy",
+      "sha256": "b9ea015568aac93e2bc0c9630de8be3ebc63d1e0202a524af4c148659cd4e8e6",
+      "version": "mypy 2.3.1 (compiled: no)"
+    }
+  },
+  "PATH": "/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/Users/matthewbelinkie/.local/bin:/usr/local/bin:/usr/bin:/bin",
+  "generatedBytecodeChanges": [
+    "python/vera_timeline_agent/__pycache__/roundtrip_v2_proof.cpython-312.pyc",
+    "tests/__pycache__/test_issue192_proof.cpython-312-pytest-9.1.1.pyc"
+  ],
+  "materialPostRunChanges": []
+}

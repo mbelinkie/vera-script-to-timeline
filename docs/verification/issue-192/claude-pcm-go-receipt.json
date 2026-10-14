@@ -1,0 +1,22 @@
+{
+  "status": "GO-final-full-pending",
+  "source": "8d6d478f85739ebe59f11b600fc570e2a5eeb2fc",
+  "base": "deaa75c90b5486e500cb69266faa7bdf09697efc",
+  "session": "cd33f75d-3051-4b86-a627-980edd8495ff",
+  "exitCode": 0,
+  "is_error": false,
+  "actualModels": [
+    "claude-opus-5-5"
+  ],
+  "sourceStillCurrent": true,
+  "receipt": "out/issue192/claude-3/complete.json",
+  "receiptSha256": "c2ef0a873963d6e41602d7dec17fae47d0a5fbed1eeae063ed1ba3844b8173b2",
+  "resultSha256": "d35a61cfd935ff263fd93f71aa2755511a885fe4d289f997d3dec685ac08118c",
+  "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "prompt": "out/issue192/review-prompt-3.txt",
+  "promptSha256": "f1e8fdc2514be2377a0c72ff6f951b611b9e6734e9bf24301a5a744029eaf9bf",
+  "input": "out/issue192/review-input-3.json",
+  "inputSha256": "295b75a286a6378663eada9adc0dc9334d83266a4858acfc54451765aba5770e",
+  "cliVersion": "2.1.299 (Claude Code)",
+  "finishedAt": "2026-10-14T10:04:45.548Z"
+}
