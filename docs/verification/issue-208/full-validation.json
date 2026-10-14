@@ -1,0 +1,66 @@
+{
+  "command": [
+    "rtk",
+    "proxy",
+    "ctx-wire",
+    "run",
+    "npm",
+    "run",
+    "validate"
+  ],
+  "completeLogBytes": 17727,
+  "completeLogSha256": "2f5907b2c5b24c15f73eee15fc3f700b7805cb8366b55d51dcca2697e3b180ef",
+  "completeLogSummary": "============================= slowest 25 durations =============================\n590.80s call     tests/test_issue144_composition.py::test_three_edits_one_revision_full_row_audio_fresh_target_and_replay\n473.35s call     tests/test_issue144_generation_recovery.py::test_validator_fault_before_service_call_can_resume_without_second_synthesis\n451.93s call     tests/test_issue144_generation_recovery.py::test_normalization_failure_resumes_from_synthesis_cache\n395.94s call     tests/test_issue144_omission_generation.py::test_accepted_omission_replaces_whole_row_retimes_and_promotes_fresh_target\n363.86s call     tests/test_issue144_omission_generation.py::test_pending_native_resume_and_pointer_publication_recovery_use_same_target\n359.50s call     tests/test_issue144_generation_recovery.py::test_uncertain_request_is_shared_across_byte_different_decisions\n357.72s call     tests/test_issue144_composition.py::test_composed_rejection_forged_geometry_and_stale_choice_have_no_effects\n334.05s call     tests/test_issue144_omission_decisions.py::test_explicit_omission_choice_prepares_only_accepted_canonical_revision[accept]\n290.58s call     tests/test_issue144_omission_decisions.py::test_consistently_rehashed_omission_report_is_not_decision_authority[classification]\n283.91s call     tests/test_issue144_omission_decisions.py::test_consistently_rehashed_omission_report_is_not_decision_authority[text]\n273.46s call     tests/test_issue144_omission_generation.py::test_retained_generation_and_actual_cache_cannot_be_replaced_by_status_claims\n271.31s call     tests/test_issue144_omission_decisions.py::test_malformed_omission_choices_refuse_before_capture_or_generation\n263.11s call     tests/test_issue192_public_path.py::test_public_b1_b3_core_fresh_package_and_truthful_native_refusal\n258.98s call     tests/test_issue144_omission_decisions.py::test_explicit_omission_choice_prepares_only_accepted_canonical_revision[reject]\n257.99s call     tests/test_issue144_omission_decisions.py::test_changed_split_geometry_invalidates_choice_before_generation\n254.71s call     tests/test_issue144_wi_flow.py::test_actual_cli_file_wi_composition_generation_and_replay\n203.03s call     tests/test_issue144_omission_decisions.py::test_consistently_rehashed_omission_report_is_not_decision_authority[source]\n197.05s call     tests/test_issue144_omission_decisions.py::test_consistently_rehashed_omission_report_is_not_decision_authority[revision]\n174.34s call     tests/test_issue144_omission_generation.py::test_interrupted_handoff_binds_service_before_resume_and_reuses_actual_cache\n148.69s call     tests/test_issue144_omission_generation.py::test_missing_service_and_stale_split_refuse_before_new_provider_or_native\n138.72s call     tests/test_issue144_omission_decisions.py::test_retained_omission_choice_rederives_report_and_prepared_artifacts[receipt]\n134.54s call     tests/test_issue144_omission_generation.py::test_rejected_omission_cannot_request_generation_or_rebuild\n123.56s call     tests/test_issue144_omission_decisions.py::test_retained_omission_choice_rederives_report_and_prepared_artifacts[script]\n121.68s call     tests/test_issue144_omission_generation.py::test_generation_binding_link_alias_refuses_before_provider\n98.31s call     tests/test_issue144_omission_preparation.py::test_prepares_pristine_observed_audio_and_proposes_linked_charlie_omission\n====================== 1145 passed in 9592.38s (2:39:52) =======================\n",
+  "counts": {
+    "nodePassed": 61,
+    "nodeSkipped": 0,
+    "pythonCollected": 1145,
+    "pythonPassed": 1145,
+    "pythonSeconds": 9592.38,
+    "pythonSkipped": 0,
+    "vitestPassed": 465,
+    "vitestSkipped": 0
+  },
+  "currentTrackedAndExternalHashesMatch": true,
+  "environment": {
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "PATH": "/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/usr/local/bin:/usr/bin:/bin:/Users/matthewbelinkie/.local/bin",
+    "PYTEST_ADDOPTS": "--durations=25",
+    "UV_PYTHON": null,
+    "VITEST_MAX_WORKERS": "1"
+  },
+  "exit": {
+    "exitCode": 0,
+    "externalInputsUnchanged": true,
+    "finishedAt": "2026-10-14T20:22:36.534335+00:00",
+    "inputsUnchanged": true,
+    "logSha256": "3eacd4f4ac38d052ec625db0cccccb033342e72be210d48b1340e7945eb960c1",
+    "manifestSha256": "ee55ad3e88b08c02d7eea09053c327d2a1bf077dbb7a998cfe71377fce412a9b",
+    "startedAt": "2026-10-14T17:38:40.146692+00:00"
+  },
+  "externalAcceptance": "Actual identity and independently acknowledged capability evidence pass; construction/rendering remain unqualified.",
+  "externalInputCount": 17,
+  "frozenBoundaryDiffEmpty": true,
+  "issue": 208,
+  "mediaTools": {
+    "ffmpeg": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers",
+    "ffprobe": "ffprobe version 8.1.2 Copyright (c) 2007-2026 the FFmpeg developers"
+  },
+  "platform": "macOS-15.1-x86_64-i386-64bit",
+  "pythonVersion": "3.12.14",
+  "retainedCompleteCtxLogPath": "/Users/matthewbelinkie/.local/share/ctx-wire/tee/1791999534139289000_npm_run_validate_2f5907b2c5b24c15f73eee15fc3f700b7805cb8366b55d51dcca2697e3b180ef.log",
+  "retainedFilteredLogPath": "/Users/matthewbelinkie/.codex/worktrees/3754/VERA Script to Timeline/out/issue208/full-3261abc/command.log",
+  "retainedManifestPath": "/Users/matthewbelinkie/.codex/worktrees/3754/VERA Script to Timeline/out/issue208/full-3261abc/manifest.json",
+  "reuseRule": "This full pass is retained, not repeated. Later added MD/JSON acceptance evidence is outside generator/type/lint/test source inputs; check their whitespace and links. Actual runtime/source pins remain identical. Any consumed-input delta invalidates applicable reuse.",
+  "sourceReview": "Actual delta GO on1b49081; runtime postreview comments ASTidentical and freshreleasepins; nativeAssessment docs/native-assessment.md; no runtimefix after actual app evidence.",
+  "testedCommit": "3261abc410483757eff7a946a0a562660e4505ad",
+  "testedTree": "fcc70bc22e335e9df852663c35657a856a42dd0a",
+  "tools": {
+    "node": "v24.19.0",
+    "npm": "11.17.0",
+    "uv": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)"
+  },
+  "trackedInputCount": 6984,
+  "venvConfigMatches": true
+}
