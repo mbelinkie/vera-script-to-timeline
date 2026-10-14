@@ -1,0 +1,126 @@
+{
+  "status": "runtime-failure-fix-awaiting-rerun",
+  "fixtureSha256": "5ea27c804e6440e18cc653f9454d0034a66051882953c52a270fb78b85216edd",
+  "records": [
+    {
+      "receipt": "out/issue192/runtime-1/complete.json",
+      "receiptSha256": "522f3dd174d3b9cb402b856f8367624c20da0985e5cc0224ebd527914898cd78",
+      "source": "22f7ba4f8d0b082ce3b7a40934b09fb0a8f2a2a2",
+      "command": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "-x",
+        "--durations=25",
+        "tests/test_issue192_proof.py",
+        "tests/test_issue192_public_path.py",
+        "tests/test_issue190_native.py::test_public_delivery_once_and_readonly_recovery",
+        "tests/test_issue190_native.py::test_copied_or_drifted_delivery_records_refuse_recovery",
+        "tests/test_issue190_native.py::test_fractional_public_delivery_refusal_precedes_adapter_creation",
+        "tests/test_issue190_native.py::test_capture_drift_refuses_without_evidence_or_render"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "startedAt": "2026-10-14T02:12:36.062Z",
+      "finishedAt": "2026-10-14T02:13:36.820Z",
+      "logSha256": "ff7d37d59007a3adac62cec4eb0f1fc650d7898af3dae5cc35cdc5703d89087e",
+      "fixtureSha256": "7e28a578b45546efa855aff2cdfb1ab7d7109b0296e07d805b3e64b4ef2ace2e"
+    },
+    {
+      "receipt": "out/issue192/focused-22-ruff-fixture/complete.json",
+      "receiptSha256": "8a229b638e87ffadc6738ea30183e66b316aef39778a824e88e3ad3beff3bc27",
+      "source": "22f7ba4f8d0b082ce3b7a40934b09fb0a8f2a2a2",
+      "command": [
+        ".venv/bin/ruff",
+        "check",
+        "tests/issue192_public_case.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T02:25:24.945Z",
+      "finishedAt": "2026-10-14T02:25:25.413Z",
+      "logSha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "fixtureSha256": "13d0485aad864969e5b018b557a4ebfc30cf41a860cf59a0d435ac3d554c1cdb"
+    },
+    {
+      "receipt": "out/issue192/focused-23-format-fixture/complete.json",
+      "receiptSha256": "822c76342e47d60af9a10530f9e5d8f93d105521067c83e652ac4c68ef83697f",
+      "source": "22f7ba4f8d0b082ce3b7a40934b09fb0a8f2a2a2",
+      "command": [
+        ".venv/bin/ruff",
+        "format",
+        "--check",
+        "tests/issue192_public_case.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T02:25:42.707Z",
+      "finishedAt": "2026-10-14T02:25:43.184Z",
+      "logSha256": "fd2299c9f1c6dc869070883e281051bfe93aacf66c1a3b0069f45b4aa410ca50",
+      "fixtureSha256": "13d0485aad864969e5b018b557a4ebfc30cf41a860cf59a0d435ac3d554c1cdb"
+    },
+    {
+      "receipt": "out/issue192/focused-24-mypy-fixture/complete.json",
+      "receiptSha256": "c2c91d697ec7f33a246ab846835682a058dd174cec2a532c2b69b9061232bd7c",
+      "source": "22f7ba4f8d0b082ce3b7a40934b09fb0a8f2a2a2",
+      "command": [
+        ".venv/bin/mypy",
+        "tests/issue192_public_case.py"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "startedAt": "2026-10-14T02:25:55.964Z",
+      "finishedAt": "2026-10-14T02:25:58.056Z",
+      "logSha256": "e1df9b605dc8d3f77a052c1f8ee8556d391cef4b54e056a36c51b804d04432ef",
+      "fixtureSha256": "13d0485aad864969e5b018b557a4ebfc30cf41a860cf59a0d435ac3d554c1cdb"
+    },
+    {
+      "receipt": "out/issue192/focused-25-mypy-fixture/complete.json",
+      "receiptSha256": "e8a38e593849b70ad828cfba8274d9cfe4acca29d731e7e7d4401dbd677f0e0d",
+      "source": "22f7ba4f8d0b082ce3b7a40934b09fb0a8f2a2a2",
+      "command": [
+        ".venv/bin/mypy",
+        "tests/issue192_public_case.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T02:26:37.911Z",
+      "finishedAt": "2026-10-14T02:26:39.710Z",
+      "logSha256": "5d4b6d285b77932e3d08212c3b4974d0a803f98ec60408ac6ccf6a063fa6c19e",
+      "fixtureSha256": "5ea27c804e6440e18cc653f9454d0034a66051882953c52a270fb78b85216edd"
+    },
+    {
+      "receipt": "out/issue192/focused-26-ruff-fixture/complete.json",
+      "receiptSha256": "c4de1b7c81a641990f9522d88d42b8b71cc199a668961cc199856de464f925b0",
+      "source": "22f7ba4f8d0b082ce3b7a40934b09fb0a8f2a2a2",
+      "command": [
+        ".venv/bin/ruff",
+        "check",
+        "tests/issue192_public_case.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T02:27:02.792Z",
+      "finishedAt": "2026-10-14T02:27:03.267Z",
+      "logSha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "fixtureSha256": "5ea27c804e6440e18cc653f9454d0034a66051882953c52a270fb78b85216edd"
+    },
+    {
+      "receipt": "out/issue192/focused-27-format-fixture/complete.json",
+      "receiptSha256": "49b195a439ccd6be9dcf8af54ea4988ad36eb357784fc154f16065a4f005124e",
+      "source": "22f7ba4f8d0b082ce3b7a40934b09fb0a8f2a2a2",
+      "command": [
+        ".venv/bin/ruff",
+        "format",
+        "--check",
+        "tests/issue192_public_case.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T02:27:30.320Z",
+      "finishedAt": "2026-10-14T02:27:30.813Z",
+      "logSha256": "fd2299c9f1c6dc869070883e281051bfe93aacf66c1a3b0069f45b4aa410ca50",
+      "fixtureSha256": "5ea27c804e6440e18cc653f9454d0034a66051882953c52a270fb78b85216edd"
+    }
+  ]
+}

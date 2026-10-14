@@ -1,0 +1,113 @@
+{
+  "actualInstalled": false,
+  "authorityIssued": false,
+  "capabilityApprovalPath": "/Users/matthewbelinkie/Library/Application Support/VERA/private-preparation/issue-145/advance-inputs/issue178-producer-cn178q1-approval.json",
+  "capabilityApprovalSha256": "c5151e04c70569a3f3db2f64e151907f44d0cf23e3bfe16cddc07017e1c289d9",
+  "commentDelta": {
+    "integrations/resolve/VERA Delivery v2.py": {
+      "astIdentical": true,
+      "currentRawSha256": "03a6adfae9fb13612cacff18cf4cbe82ce5a25ead215db146a426d51cce0d1a0",
+      "reviewedRawSha256": "f3715bfd23be490cf4c8015b09373f18a61f8a9e78545f440b61bf9e6ab43935"
+    },
+    "python/vera_timeline_agent/target_identity_v2.py": {
+      "astIdentical": true,
+      "currentRawSha256": "c25ed5bdc5b6b6a0d1f6a569dc35eda3c1c0a05edbc1d96b3f7f855e07dae95c",
+      "reviewedRawSha256": "3f6ac57c01aa8e4d55f34f4cb8b6e3fb43a4058db508c114d74af2ca4acbf101"
+    }
+  },
+  "expectedInstalledInventory": [
+    {
+      "path": "VERA Delivery v2.py",
+      "sha256": "03a6adfae9fb13612cacff18cf4cbe82ce5a25ead215db146a426d51cce0d1a0",
+      "sizeBytes": 55116
+    },
+    {
+      "path": "vera-delivery-v2/python/vera_timeline_agent/__init__.py",
+      "sha256": "210d40b3d82bcf6b7c1c4bc32748b8d2c8ced97876aec09968c1123edef0d2c8",
+      "sizeBytes": 207
+    },
+    {
+      "path": "vera-delivery-v2/python/vera_timeline_agent/native_qualification_v2.py",
+      "sha256": "803959876bc28a6e28540684bdc58f54336f92dc13c8171fc4efe37828e2ae5d",
+      "sizeBytes": 40539
+    },
+    {
+      "path": "vera-delivery-v2/python/vera_timeline_agent/studio_spike.py",
+      "sha256": "02730d0ac58e6bf85a246d11d57f38636ab97ebafa060ee786a1bbb7a61a1acc",
+      "sizeBytes": 54284
+    },
+    {
+      "path": "vera-delivery-v2/python/vera_timeline_agent/target_identity_v2.py",
+      "sha256": "c25ed5bdc5b6b6a0d1f6a569dc35eda3c1c0a05edbc1d96b3f7f855e07dae95c",
+      "sizeBytes": 53255
+    },
+    {
+      "path": "vera-delivery-v2/python/vera_timeline_agent/text_plus_template.py",
+      "sha256": "5cc7e97e32d1899e48537d8bece01ca918a681c9adf3a673e8787493fb6f61c5",
+      "sizeBytes": 9994
+    },
+    {
+      "path": "vera-delivery-v2/python/vera_timeline_agent/workflow_delivery.py",
+      "sha256": "971c1fe04b94c81d4df05a4b4899b748ac7f5a392a244fdb5d718d1371c18a92",
+      "sizeBytes": 13323
+    },
+    {
+      "path": "vera-delivery-v2/python/vera_timeline_agent/workflow_launcher.py",
+      "sha256": "c77e65c1c731855aa4314d4e6e86e99417c3b4f62d9999b45510af8fe78fa337",
+      "sizeBytes": 3559
+    },
+    {
+      "path": "vera-delivery-v2/python/vera_timeline_agent/workflow_package.py",
+      "sha256": "a35c3e2dc2b500cb5537e89bfc3d95bd37acf595a6d75bc3833b457ddc790ba0",
+      "sizeBytes": 6198
+    },
+    {
+      "path": "vera-delivery-v2/python/vera_timeline_agent/workflow_v2.py",
+      "sha256": "852264025d030c09f43630a25a96a28712fc00ac480a0117c0820cb1f0a7c991",
+      "sizeBytes": 70318
+    },
+    {
+      "path": "vera-delivery-v2/python/vera_timeline_agent/workflow_v2_launcher.py",
+      "sha256": "6946fc4c762e8b51f123c4eb9812599ceb280114c64bafebd12aa82b03b1712b",
+      "sizeBytes": 5578
+    }
+  ],
+  "expectedInstalledRoot": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins",
+  "fullValidation": "held until actual identity AND #204 preflight",
+  "identityApprovalPath": "/Users/matthewbelinkie/.codex/worktrees/3754/VERA Script to Timeline/docs/verification/issue-207/acceptance.json",
+  "identityApprovalSha256": "84e6db480c3406a117764482af202c9458689e435764b368bfa8d0b7d157649d",
+  "issue": 208,
+  "nativeOperations": 0,
+  "operatorAttemptRoot": "/Users/matthewbelinkie/Library/Application Support/VERA/private-preparation/issue-208/operator-attempt-01",
+  "qualification": false,
+  "releaseRoot": "/Users/matthewbelinkie/.codex/worktrees/3754/VERA Script to Timeline/out/issue208/release-r2",
+  "releaseSha256": "221b5060fe704a04bd28d76f789850c500f32b837b2c7b27b8bfbb445e102695",
+  "repositoryRoot": "/Users/matthewbelinkie/.codex/worktrees/3754/VERA Script to Timeline",
+  "repositorySourcePins": {
+    "docs/plans/issue-178-native-qualification-change-note.md": "c8ec4e9abf427a5e99ba8951abcc463745938aa1f35a3c4613f7b037a80e2740",
+    "docs/plans/issue-207-target-identity-handoff.md": "e02da9eacd54fb90b7ca4ba63f1c3f72f37b997e426828ad8237d0bd1adc6006",
+    "integrations/resolve/VERA Delivery v2.py": "03a6adfae9fb13612cacff18cf4cbe82ce5a25ead215db146a426d51cce0d1a0",
+    "python/vera_timeline_agent/__init__.py": "210d40b3d82bcf6b7c1c4bc32748b8d2c8ced97876aec09968c1123edef0d2c8",
+    "python/vera_timeline_agent/native_qualification_v2.py": "803959876bc28a6e28540684bdc58f54336f92dc13c8171fc4efe37828e2ae5d",
+    "python/vera_timeline_agent/studio_spike.py": "02730d0ac58e6bf85a246d11d57f38636ab97ebafa060ee786a1bbb7a61a1acc",
+    "python/vera_timeline_agent/target_identity_v2.py": "c25ed5bdc5b6b6a0d1f6a569dc35eda3c1c0a05edbc1d96b3f7f855e07dae95c",
+    "python/vera_timeline_agent/text_plus_template.py": "5cc7e97e32d1899e48537d8bece01ca918a681c9adf3a673e8787493fb6f61c5",
+    "python/vera_timeline_agent/workflow_delivery.py": "971c1fe04b94c81d4df05a4b4899b748ac7f5a392a244fdb5d718d1371c18a92",
+    "python/vera_timeline_agent/workflow_delivery_cli.py": "0eaa64c573322664c4c0835769b1a6c48bb5ebb02428881b9cbbc73d791c6e82",
+    "python/vera_timeline_agent/workflow_launcher.py": "c77e65c1c731855aa4314d4e6e86e99417c3b4f62d9999b45510af8fe78fa337",
+    "python/vera_timeline_agent/workflow_package.py": "a35c3e2dc2b500cb5537e89bfc3d95bd37acf595a6d75bc3833b457ddc790ba0",
+    "python/vera_timeline_agent/workflow_v2.py": "852264025d030c09f43630a25a96a28712fc00ac480a0117c0820cb1f0a7c991",
+    "python/vera_timeline_agent/workflow_v2_cli.py": "12df5fa0d6f880bab2dc1658bbd52ef6e9cf64e96f6c166d123e0f9dee013511",
+    "python/vera_timeline_agent/workflow_v2_launcher.py": "6946fc4c762e8b51f123c4eb9812599ceb280114c64bafebd12aa82b03b1712b"
+  },
+  "requestPrepared": false,
+  "reviewResultSha256": "24eecea00521cab681e2daa0506b7c7abd97d473233c2bfbeed7ef188005b67b",
+  "reviewedBehaviorCommit": "1b49081fe40271695a91e9136f3f6106332f8da4",
+  "scriptSyntax": "bash -n passed; scripts never executed",
+  "scripts": {
+    "01-prepare-identity.command": "8ae667fddde41cd61d3a7ac076499caa003fe9ea119c413fc33af02760457b56",
+    "02-confirm-identity.command": "32795fe56921c9fda9c1030adced5aab928431e3b755e1cfa6f5952f996296b6"
+  },
+  "status": "prepared-operator-gate-held",
+  "visibleTargetNamesProvided": false
+}

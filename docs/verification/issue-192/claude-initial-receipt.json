@@ -1,0 +1,43 @@
+{
+  "status": "NO-GO",
+  "source": "d8107e752e8abe19d2ce2eeb809cd65d181285c4",
+  "base": "bd6048b02604954df037bf0b2dd01906e986d19d",
+  "tree": "47eee37d8d2d119b16a43695458e453991c5a30c",
+  "session": "55c6062c-71bc-4afc-aa91-70379f3f49ec",
+  "command": [
+    "/Users/matthewbelinkie/.local/bin/claude",
+    "--safe-mode",
+    "--strict-mcp-config",
+    "--tools",
+    "",
+    "--disable-slash-commands",
+    "--no-session-persistence",
+    "--permission-mode",
+    "dontAsk",
+    "--model",
+    "claude-opus-5-5",
+    "--effort",
+    "high",
+    "--session-id",
+    "55c6062c-71bc-4afc-aa91-70379f3f49ec",
+    "--output-format",
+    "json",
+    "-p"
+  ],
+  "cliVersion": "2.1.299 (Claude Code)",
+  "cliBinary": "/Users/matthewbelinkie/.local/share/claude/versions/2.1.299",
+  "cliSha256": "099dcc53dabbbefabed8926dab25b0318775c175a7c87bb6ba6c54fde9f8ece2",
+  "startedAt": "2026-10-14T04:34:22.926Z",
+  "finishedAt": "2026-10-14T04:41:57.280Z",
+  "exitCode": 0,
+  "is_error": false,
+  "actualModels": [
+    "claude-opus-5-5"
+  ],
+  "sourceStillCurrent": true,
+  "resultSha256": "3de7f5be4d23bce079610d556ab9458418cc1dc0b6d17648fbd1bfa940a7d562",
+  "prompt": "out/issue192/review-prompt-1.txt",
+  "promptSha256": "3acdf5dbccae6bfcca52cf8927e93f2c4999b82751d81b39b0f728cb2fb75340",
+  "input": "out/issue192/review-input-1.json",
+  "inputSha256": "52cd0a812f8fab76401ea0a604166f3e1b228c2a232ca6d8b54cd846777cb275"
+}
