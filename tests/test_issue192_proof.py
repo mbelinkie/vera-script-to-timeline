@@ -255,7 +255,7 @@ def test_reopened_discrepancy_refuses_without_more_delivery(
     assert adapter.calls == calls
 
 
-@pytest.mark.parametrize("attack", ["gain", "channels"])
+@pytest.mark.parametrize("attack", ["gain", "channels", "source-hash", "invalid-wav"])
 def test_reopened_audio_view_rejects_gain_and_channel_drift(
     tmp_path: Path, attack: str
 ) -> None:
@@ -275,6 +275,23 @@ def test_reopened_audio_view_rejects_gain_and_channel_drift(
         for item in observed["items"]
         if item["authoredEvent"]["kind"] == "narration"
     )
+    if attack == "source-hash":
+        narration["sourceHash"] = "sha256:" + "0" * 64
+        with pytest.raises(
+            ProofNativeError, match="reopened audio source bytes changed"
+        ):
+            ProofSessionV2._verify_exact_view(observed, boundary)
+        assert adapter.calls == []
+        return
+    if attack == "invalid-wav":
+        invalid = tmp_path / "invalid.wav"
+        invalid.write_bytes(b"not a WAV")
+        narration["sourcePath"] = str(invalid)
+        narration["sourceHash"] = pin(invalid)["sha256"]
+        with pytest.raises(ProofNativeError, match="reopened audio PCM is unreadable"):
+            ProofSessionV2._verify_exact_view(observed, boundary)
+        assert adapter.calls == []
+        return
     route = next(
         r["controls"]
         for r in observed["controls"]["routes"]

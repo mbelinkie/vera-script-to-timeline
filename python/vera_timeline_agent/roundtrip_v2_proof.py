@@ -9,6 +9,7 @@ from __future__ import annotations
 import copy
 import fcntl
 import hashlib
+import io
 import os
 import shutil
 import subprocess
@@ -30,9 +31,11 @@ from vera_timeline_agent.roundtrip_v2_native import NativeProofBoundaryV2
 from vera_timeline_agent.roundtrip_v2_records import (
     ROOT,
     JsonObject,
+    ProofNativeError,
     ReceiptVerifier,
     _file_hash,
     _open_file,
+    _operator_bytes,
     _parse,
     fact,
     proof_source_hashes_v2,
@@ -811,8 +814,23 @@ class ProofSessionV2:
                     for r in observed["controls"]["routes"]
                     if r["itemUid"] == item["itemUid"]
                 ]
-                with wave.open(item["sourcePath"], "rb") as stream:
-                    channels = stream.getnchannels()
+                source = Path(item["sourcePath"])
+                try:
+                    pcm = _operator_bytes(source, limit=64 * 1024 * 1024)
+                    fact(
+                        digest(pcm) == item["sourceHash"],
+                        "reopened audio source bytes changed",
+                    )
+                    with wave.open(io.BytesIO(pcm), "rb") as stream:
+                        channels = stream.getnchannels()
+                    fact(
+                        _file_hash(source) == item["sourceHash"],
+                        "reopened audio source bytes changed",
+                    )
+                except (OSError, EOFError, wave.Error) as error:
+                    raise ProofNativeError(
+                        "reopened audio PCM is unreadable"
+                    ) from error
                 fact(
                     len(routes) == 1
                     and channels in {1, 2}

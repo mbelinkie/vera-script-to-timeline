@@ -1,0 +1,22 @@
+{
+  "status": "GO-followup-WAV-fix-pending",
+  "source": "53cfffdede310ae1b552d4ac022b2c1150e082f4",
+  "base": "deaa75c90b5486e500cb69266faa7bdf09697efc",
+  "session": "7d7f36b9-5529-4d0b-bdec-57a0eae7a99a",
+  "exitCode": 0,
+  "is_error": false,
+  "actualModels": [
+    "claude-opus-5-5"
+  ],
+  "sourceStillCurrent": true,
+  "receipt": "out/issue192/claude-2/complete.json",
+  "receiptSha256": "82487c64beb52220da85edba27fcec1d6b3baee7148f1174704f9dda417fd03e",
+  "resultSha256": "3f6f60915bde4a348d45d141100372844b27df97c20a6c5e27949d45d0378dbb",
+  "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "prompt": "out/issue192/review-prompt-2.txt",
+  "promptSha256": "facae33161c0d22ac5748a2a2e3514b9544b0b36142e415c6166011a1acccb5c",
+  "input": "out/issue192/review-input-2.json",
+  "inputSha256": "673e8e659b8d95cfd3ba85a72dcdb63691b1da3f8af611a965ef7c5aa4f9c1ac",
+  "cliVersion": "2.1.299 (Claude Code)",
+  "finishedAt": "2026-10-14T09:24:09.157Z"
+}
