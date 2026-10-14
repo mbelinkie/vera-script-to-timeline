@@ -305,6 +305,33 @@ def test_fractional_evidence_uses_exact_typescript_hashes(
                 _evidence_hashes(cases)
 
 
+def test_quiet_clip_pair_under_narration_keeps_reciprocal_links(tmp_path: Path) -> None:
+    authority = FakeAuthority()
+    case = MaterializedCase(tmp_path / "baseline", authority)
+    boundary, resolve, adapter = case.native(tmp_path / "native")
+    boundary.capture(target(resolve), resolve.project.timeline.mapping, "quiet_pair")
+    raw = json.loads((boundary.root / "observations/quiet_pair.json").read_bytes())
+    pair = [
+        i
+        for i in raw["items"]
+        if i["authoredEvent"]["provenance"]["blockId"] == id_for(10)
+        and i["authoredEvent"]["provenance"]["payloadId"] == id_for(30)
+    ]
+    assert len(pair) == 2
+    assert {i["authoredEvent"]["kind"] for i in pair} == {
+        "primary_visual",
+        "source_audio",
+    }
+    assert pair[0]["linkedUids"] == [pair[1]["itemUid"]]
+    assert pair[1]["linkedUids"] == [pair[0]["itemUid"]]
+    ProofSessionV2._verify_exact_view(raw, boundary)
+    for item in pair:
+        item["linkedUids"] = []
+    with pytest.raises(ProofNativeError, match="AV link topology"):
+        ProofSessionV2._verify_exact_view(raw, boundary)
+    assert adapter.calls == []
+
+
 def test_public_b1_b3_core_fresh_package_and_truthful_native_refusal(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

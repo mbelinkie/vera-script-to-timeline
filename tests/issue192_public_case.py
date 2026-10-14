@@ -668,19 +668,27 @@ class MaterializedCase:
                     return media
 
                 vars(item)["GetMediaPoolItem"] = get_media
-                block_id = view[timeline.mapping[item.uid]["eventId"]]["v2Event"][
-                    "provenance"
-                ]["blockId"]
-                if block_id in {id_for(40), id_for(50), id_for(60)}:
+                authored = view[timeline.mapping[item.uid]["eventId"]]["v2Event"]
+                if authored["kind"] in {"primary_visual", "source_audio"}:
                     item.links = [
                         peer
                         for others in timeline.items.values()
                         for peer in others
                         if peer is not item
-                        and view[timeline.mapping[peer.uid]["eventId"]]["v2Event"][
-                            "provenance"
-                        ]["blockId"]
-                        == block_id
+                        and {
+                            authored["kind"],
+                            view[timeline.mapping[peer.uid]["eventId"]]["v2Event"][
+                                "kind"
+                            ],
+                        }
+                        == {"primary_visual", "source_audio"}
+                        and all(
+                            authored["provenance"][key]
+                            == view[timeline.mapping[peer.uid]["eventId"]]["v2Event"][
+                                "provenance"
+                            ][key]
+                            for key in ("blockId", "payloadId")
+                        )
                     ]
 
         def controls(project: Any, current: Any, target: JsonObject) -> JsonObject:
