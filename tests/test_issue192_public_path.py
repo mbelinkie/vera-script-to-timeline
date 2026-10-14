@@ -31,6 +31,7 @@ from vera_timeline_agent.roundtrip_v2_narration import (
 from vera_timeline_agent.roundtrip_v2_proof import ProofSessionV2
 from vera_timeline_agent.roundtrip_v2_records import ProofNativeError
 from vera_timeline_agent.roundtrip_v2_revised_build import PreparedRevisedProofBuildV2, verify_revised_preflight_v2
+from vera_timeline_agent.roundtrip_v2_native import NativeProofBoundaryV2
 from vera_timeline_agent.roundtrip_build import ProofBuildError
 
 pytestmark = pytest.mark.slow
@@ -300,7 +301,42 @@ def test_public_b1_b3_core_fresh_package_and_truthful_native_refusal(tmp_path: P
     with pytest.raises(ProofBuildError, match="uncertain synthesis"):
         prepare_replacement_row_v2(tmp_path / "other-refused-generation", **refused_args)
     assert refused_provider.calls == 1
-    fresh_boundary_port, _, fresh_adapter = rebuilt_case.native(tmp_path / "fresh-native", revised=revised)
+    fresh_boundary_port, fresh_resolve, fresh_adapter = rebuilt_case.native(tmp_path / "fresh-native", revised=revised)
+    assert fresh_boundary_port.binding["schemaVersion"] == "issue-192-v2-revised-native-binding/v1"
+    parameters = dict(resolve=fresh_resolve, attestation_path=revised.attestation_path,
+                      attestation_hash=pin(revised.attestation_path)["sha256"],
+                      proof_package_path=revised.execution / "proof-package.json",
+                      proof_package_hash=pin(revised.execution / "proof-package.json")["sha256"],
+                      evidence_root=tmp_path / "initial-rejects-revised",
+                      authenticate=authority, authority=AUTHORITY,
+                      code_hashes=preflight["sourceHashes"])
+    with pytest.raises(ProofNativeError):
+        NativeProofBoundaryV2(**parameters)
+    assert not (parameters["evidence_root"] / "binding.json").exists()
+    # The new route rejects a wrong raw pin before constructing a binding.
+    with pytest.raises(ProofNativeError):
+        NativeProofBoundaryV2.from_revised_proof(
+            **{**parameters, "evidence_root": tmp_path / "wrong-raw-pin"},
+            revised_preflight_path=revised.preflight_path,
+            revised_preflight_hash="sha256:" + "0" * 64,
+        )
+    assert not (tmp_path / "wrong-raw-pin/binding.json").exists()
+    # Immutable bytes alone cannot prove that an external decision registry is
+    # still current; the trusted port runs before every inherited operation.
+    original_auth = fresh_boundary_port.authenticate
+    def stale_authority(kind: str, raw: bytes, context: dict[str, Any]) -> None:
+        if kind == "revised_native_lineage":
+            raise ProofNativeError("external accepted-decision registry became stale")
+        original_auth(kind, raw, context)
+    fresh_boundary_port.authenticate = stale_authority
+    for operation in (lambda: fresh_boundary_port.deliver(),
+                      lambda: fresh_boundary_port.recover_delivery(),
+                      lambda: fresh_boundary_port.capture(target(fresh_resolve), fresh_resolve.project.timeline.mapping, "stale")):
+        with pytest.raises(ProofNativeError, match="registry became stale"):
+            operation()
+    assert fresh_adapter.calls == []
+    assert not (fresh_boundary_port.root / "delivery-intent.json").exists()
+    fresh_boundary_port.authenticate = original_auth
     delivery = owner.request_fresh_delivery(revised, fresh_boundary_port)
     assert delivery["status"] == "stopped_safely"
     assert delivery["nativeRateQualified"] is False

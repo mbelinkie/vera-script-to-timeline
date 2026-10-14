@@ -58,6 +58,11 @@ bindings; no real revised data is relabeled synthetic. #177 fractional/source-
 audio native creation and temporary On Camera package refusals remain. The
 minimal additional #190 public native consumer is implemented only after the
 owning boundary handoff, in this checkout. No private effect-helper bypass.
+The owner handoff was verified at raw SHA256
+`27028207695429908492f98ed06ad46a1ab4bd437230f3fa90f7c2323ade7411`.
+Delegated additional ownership is only `roundtrip_v2_native.py`'s public
+`from_revised_proof`, shared binding initialization and repeated revised lineage
+guard. The initial constructor/version/guards and effects remain unchanged.
 
 ## Checks and acceptance
 

@@ -36,7 +36,7 @@ from vera_timeline_agent.roundtrip_v2_records import (
     publish_immutable_output,
     shape,
 )
-from vera_timeline_agent.v2_package import build_v2_package, verify_v2_package
+from vera_timeline_agent.v2_package import _compiler_hash, build_v2_package, verify_v2_package
 from vera_timeline_agent.workflow_v2 import load_verified_package_v2
 from vera_timeline_agent.workflow_v2_cli import attest_package_v2
 
@@ -62,7 +62,7 @@ def verify_revised_preflight_v2(
         "current local revised preflight required",
     )
     revision = shape(preflight["revisionBinding"],
-                     "lane originalFiles baselineInputs evidence candidate result decision",
+                     "lane request originalFiles baselineInputs baselineProof baselineNative stagedInputs evidence candidate result decision",
                      "revised input/decision binding")
     originals = shape(revision["originalFiles"], "document dependencies", "original file pins")
     original_hashes = {key: _digest(pin_bytes_v2(pin)[1]) for key, pin in originals.items()}
@@ -84,6 +84,82 @@ def verify_revised_preflight_v2(
     fact(all(preflight["verifiedFiles"].get(pin["path"]) == pin["sha256"] for pin in required),
          "revised verified-file inventory omits a required original/decision/input")
     candidate, result, decision = (records[key] for key in ("candidate", "result", "decision"))
+    evidence_record = shape(records["evidence"], "cases", "isolated evidence wrapper")
+    cases = evidence_record["cases"]
+    cases = cases if isinstance(cases, list) else [cases]
+    fact(0 < len(cases) <= 3, "isolated inference cases required")
+    shape(candidate, "inference proposal", "revision candidate")
+    shape(decision, "schemaVersion proposalHash historyHash outcome", "accepted decision")
+    shape(result, "outcome document dependencies decisionHash history", "accepted result")
+    proposal = shape(candidate["proposal"], "schemaVersion baselineDocumentHash baselineDependenciesHash baselineLiveHeadSequence request document dependencies manifest report manifestJson reportJson comparison comparisonText proposalHash", "revision proposal")
+    inference = shape(candidate["inference"], "schemaVersion documentHash dependenciesHash evidenceHash caseEvidenceHashes commands omission", "composed inference")
+    fact(proposal["schemaVersion"] == "issue-202-v2-proposal/v1"
+         and decision["schemaVersion"] == "issue-202-v2-decision/v1"
+         and proposal["proposalHash"] == _compiler_hash({k: v for k, v in proposal.items() if k != "proposalHash"})
+         and inference["documentHash"] == proposal["baselineDocumentHash"] == _compiler_hash(_parse(pin_bytes_v2(baseline["document"])[1]))
+         and inference["dependenciesHash"] == proposal["baselineDependenciesHash"] == _compiler_hash(_parse(pin_bytes_v2(baseline["dependencies"])[1]))
+         and inference["evidenceHash"] == _compiler_hash(cases)
+         and inference["caseEvidenceHashes"] == [_compiler_hash(c) for c in cases],
+         "proposal/inference/evidence/baseline identity differs")
+    fact(preflight["manifestHash"] == _digest(proposal["manifestJson"].encode())
+         and preflight["reportHash"] == _digest(proposal["reportJson"].encode())
+         and _parse(proposal["manifestJson"].encode()) == proposal["manifest"]
+         and _parse(proposal["reportJson"].encode()) == proposal["report"],
+         "actual revised compiler output identities differ")
+    fact(all(c["documentHash"] == inference["documentHash"] and c["dependenciesHash"] == inference["dependenciesHash"] for c in cases),
+         "isolated evidence baseline differs")
+    retained_hashes = set(preflight["verifiedFiles"].values())
+    for case in cases:
+        shape(case, "schemaVersion documentHash dependenciesHash bindingJson baseline current omission", "isolated evidence")
+        fact(_digest(case["bindingJson"].encode()) in retained_hashes, "isolated binding pin omitted")
+        for packet in (case["baseline"], case["current"]):
+            shape(packet, "rawJson audioJson receiptJson", "isolated observation packet")
+            fact(all(_digest(raw.encode()) in retained_hashes for raw in packet.values()),
+                 "isolated raw/derived/receipt pin omitted")
+        if case["omission"] is not None:
+            fact(case["omission"]["status"] == "verified"
+                 and all(value in retained_hashes for value in case["omission"]["inputHashes"].values()),
+                 "C verified speech evidence input pin omitted")
+    request = _parse(pin_bytes_v2(revision["request"])[1])
+    shape(request, "schemaVersion lane originalFiles executionInputs sourcePins media preparations narrationReceipts authority", "retained revised request")
+    fact(_digest(pin_bytes_v2(revision["request"])[1]) == preflight["requestHash"]
+         and request["schemaVersion"] == "issue-192-v2-revised-build/v1"
+         and request["lane"] == lane and request["originalFiles"] == originals
+         and request["executionInputs"] == execution and request["sourcePins"] == preflight["sourceHashes"],
+         "revised request ancestry differs")
+    baseline_proof = _parse(pin_bytes_v2(revision["baselineProof"])[1])
+    baseline_native = _parse(pin_bytes_v2(revision["baselineNative"])[1])
+    shape(baseline_proof, "schemaVersion evidenceLevel preflightHash requestHash package verification attestationPath attestationHash", "retained baseline proof")
+    shape(baseline_native, "schemaVersion attestationHash proofPackageHash sourceHashes evidenceRoot projectName timelineName authorityHash", "retained baseline native binding")
+    fact(baseline_proof["schemaVersion"] == "issue-189-v2-proof-package/v1"
+         and baseline_native["schemaVersion"] == "issue-189-v2-native-binding/v1"
+         and baseline_native["proofPackageHash"] == revision["baselineProof"]["sha256"]
+         and baseline_native["sourceHashes"] == preflight["sourceHashes"]
+         and baseline_native["attestationHash"] == baseline_proof["attestationHash"], "retained baseline package/target lineage differs")
+    prior_package = load_verified_package_v2(Path(baseline_proof["attestationPath"]), baseline_proof["attestationHash"][7:])
+    fact(prior_package.attestation["buildId"] != saved["dependencies"]["build"]["buildId"]
+         and prior_package.manifest["document"] == _parse(pin_bytes_v2(baseline["dependencies"])[1])["document"],
+         "revised build overwrites or differs from retained baseline")
+    for record_key in ("request", "baselineProof", "baselineNative"):
+        required.append(revision[record_key])
+    for pin in request["media"].values():
+        required.append(pin)
+    for group in [*request["preparations"].values(), *request["narrationReceipts"].values()]:
+        required.extend(pin for pin in group.values() if pin is not None)
+    required.append(request["authority"])
+    if proposal["request"]["handoff"] is not None:
+        staged = shape(revision["stagedInputs"], "document dependencies", "C staged input pins")
+        staged_document, staged_dependencies = (_parse(pin_bytes_v2(staged[k])[1]) for k in ("document", "dependencies"))
+        handoff = proposal["request"]["handoff"]
+        fact(handoff["request"]["revisedDocumentHash"] == _compiler_hash(staged_document)
+             and handoff["priorDependenciesHash"] == _compiler_hash(staged_dependencies)
+             and handoff["boundaryEvidence"] in saved["dependencies"].get("narrationBoundaryEvidence", []),
+             "fresh C handoff is not bound to staged document AND dependencies")
+        required.extend(staged.values())
+    else:
+        fact(revision["stagedInputs"] is None, "unexpected staged speech inputs")
+    fact(all(preflight["verifiedFiles"].get(pin["path"]) == pin["sha256"] for pin in required),
+         "required original/baseline/evidence/media/speech pin omitted")
     fact(
         result["outcome"] == decision["outcome"] == "accept"
         and decision["proposalHash"] == candidate["proposal"]["proposalHash"]
@@ -95,6 +171,10 @@ def verify_revised_preflight_v2(
     for path, expected in preflight["verifiedFiles"].items():
         fact(_file_hash(Path(path)) == expected, "revised input/media/currentness pin differs")
     authenticate("revised_preflight", authority, copy.deepcopy(preflight))
+    authenticate("revised_proof_lineage", authority,
+                 {"preflight": copy.deepcopy(preflight), "request": request,
+                  "baselineProof": baseline_proof, "baselineNative": baseline_native,
+                  "evidence": cases, "candidate": candidate, "result": result, "decision": decision})
 
 
 class PreparedRevisedProofBuildV2:
@@ -140,6 +220,18 @@ class PreparedRevisedProofBuildV2:
         for pin in [*self.original_files.values(), *self.inputs.values(), *session.pins.values()]:
             self.hashes[pin["path"]] = pin["sha256"]
             fact(not Path(pin["path"]).is_relative_to(self.execution), "input/output overlap")
+        for owner in session.case_sessions.values():
+            for pin in owner.pins.values():
+                self.hashes[pin["path"]] = pin["sha256"]
+        self.baseline_proof_pin = {"path": str(session.baseline.execution / "proof-package.json"),
+                                   "sha256": _file_hash(session.baseline.execution / "proof-package.json")}
+        self.baseline_native_pin = session.binding_pin
+        self.hashes[self.baseline_proof_pin["path"]] = self.baseline_proof_pin["sha256"]
+        for path, expected in session.boundary.preflight["verifiedFiles"].items():
+            self.hashes[path] = expected
+        for path in (session.baseline.preflight_path, session.baseline.manifest_path,
+                     session.baseline.report_path, session.baseline.attestation_path):
+            self.hashes[str(path)] = _file_hash(path)
         _, self.authority = pin_bytes_v2(self.request["authority"])
         self.hashes[self.request["authority"]["path"]] = self.request["authority"]["sha256"]
         authenticate("revised_preparation", self.authority, {"request": self.request, "candidate": self.candidate,
@@ -238,7 +330,10 @@ class PreparedRevisedProofBuildV2:
         verified = verify_v2_package(self.package_root)
         self.current()
         revision = {"lane": self.request["lane"], "originalFiles": self.original_files,
+                    "request": {"path": str(self.root / "revised-build-v2.json"), "sha256": _digest(self.raw)},
                     "baselineInputs": self.session.baseline.inputs,
+                    "baselineProof": self.baseline_proof_pin, "baselineNative": self.baseline_native_pin,
+                    "stagedInputs": self.session.staged_inputs,
                     **{key: self.session.pins[f"revision-{key}"]
                        for key in ("evidence", "candidate", "result", "decision")}}
         value = {"schemaVersion": "issue-192-v2-revised-preflight/v1", "status": "prepared", "evidenceLevel": "local_prepared",
@@ -258,8 +353,9 @@ class PreparedRevisedProofBuildV2:
         loaded = load_verified_package_v2(self.attestation_path, _file_hash(self.attestation_path)[7:])
         self.current()
         fact(loaded.manifest == self.candidate["proposal"]["manifest"], "revised public package differs from accepted manifest")
-        value = {"schemaVersion": "issue-189-v2-proof-package/v1", "evidenceLevel": "local_prepared",
+        value = {"schemaVersion": "issue-192-v2-revised-proof-package/v1", "evidenceLevel": "local_prepared",
                  "preflightHash": identity_hash(preflight), "requestHash": _digest(self.raw),
+                 "preflightPath": str(self.preflight_path), "preflightRawHash": _file_hash(self.preflight_path),
                  "package": {"project_root": str(self.package_root), "build_id": self.dependencies["build"]["buildId"]},
                  "verification": asdict(verify_v2_package(self.package_root)), "attestationPath": str(self.attestation_path),
                  "attestationHash": _file_hash(self.attestation_path)}

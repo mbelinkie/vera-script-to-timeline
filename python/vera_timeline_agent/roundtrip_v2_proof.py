@@ -81,6 +81,7 @@ class ProofSessionV2:
         self.capture_inputs: dict[str, tuple[JsonObject, JsonObject]] = {}
         self.read_sequence = 0
         self.case_sessions: dict[str, ProofSessionV2] = {}
+        self.staged_inputs: JsonObject | None = None
         for key, pin in baseline.inputs.items():
             pin_bytes_v2(pin)
             self.pins[f"baseline:{key}"] = copy.deepcopy(pin)
@@ -367,10 +368,17 @@ class ProofSessionV2:
                 "document": read_pin(self.pins["baseline:document"]),
                 "dependencies": read_pin(self.pins["baseline:dependencies"]),
             }
-        return self._pure(
+        stage = self._pure(
             "stage", evidence=evidence, prepared_media=prepared_media,
             omission_decision_hash=digest(decision_raw),
         )
+        if stage["regeneration"] is not None:
+            self.staged_inputs = {}
+            for key in ("document", "dependencies"):
+                path = self.root / f"staged-{key}.json"
+                publish_immutable_output(path, canonical_json_bytes(stage[key]))
+                self.staged_inputs[key] = self._remember(f"staged:{key}", path, identity_hash(stage[key]))
+        return stage
 
     def proposal(
         self, evidence: JsonObject | list[JsonObject], *, prepared_media: list[JsonObject],

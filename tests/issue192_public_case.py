@@ -104,6 +104,15 @@ class FakeAuthority:
                 assert binding["sourceHashes"] == proof_source_hashes_v2()
                 assert binding["schemaVersion"] == "issue-192-v2-revised-preflight/v1"
                 assert binding["lane"] == "synthetic_revision"
+            elif kind == "revised_proof_lineage":
+                assert binding["preflight"]["sourceHashes"] == proof_source_hashes_v2()
+                assert binding["evidence"]
+                assert binding["candidate"]["proposal"]["document"] == binding["result"]["document"]
+                assert binding["decision"]["outcome"] == "accept"
+                assert binding["candidate"]["proposal"]["request"]["handoff"] == self.handoff
+            elif kind == "revised_native_lineage":
+                assert binding["binding"]["schemaVersion"] == "issue-192-v2-revised-native-binding/v1"
+                assert binding["preflight"]["sourceHashes"] == proof_source_hashes_v2()
             elif kind == "native_observation":
                 assert binding["binding"]["sourceHashes"] == proof_source_hashes_v2()
                 assert binding["observation"]["target"]["projectUid"].startswith("fake-")
@@ -406,8 +415,8 @@ class MaterializedCase:
                 route["controls"]["gainDb"] = event["gainDb"] or 0
             return result
 
-        boundary = NativeProofBoundaryV2(
-            resolve, attestation_path=build.attestation_path,
+        arguments = dict(
+            resolve=resolve, attestation_path=build.attestation_path,
             attestation_hash=_file_hash(build.attestation_path),
             proof_package_path=build.execution / "proof-package.json",
             proof_package_hash=_file_hash(build.execution / "proof-package.json"),
@@ -415,6 +424,13 @@ class MaterializedCase:
             code_hashes=proof_source_hashes_v2(), read_controls=controls,
             adapter_factory=lambda _: adapter,
         )
+        if revised is None:
+            boundary = NativeProofBoundaryV2(**arguments)
+        else:
+            boundary = NativeProofBoundaryV2.from_revised_proof(
+                **arguments, revised_preflight_path=build.preflight_path,
+                revised_preflight_hash=_file_hash(build.preflight_path),
+            )
         return boundary, resolve, adapter
 
 
