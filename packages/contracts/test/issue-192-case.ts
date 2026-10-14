@@ -147,7 +147,7 @@ export function packet(rawInput: FakeRaw, bindingJson: string): ObservationPacke
     }) };
   const rawJson = canonicalJson(raw); const audioJson = canonicalJson(audio);
   const receiptJson = canonicalJson({ schemaVersion: "issue-189-v2-observation-receipt/v1", bindingHash: hash(bindingJson), rawHash: hash(rawJson),
-    derivedAudioHash: hash(audioJson), mappingHash: sha256CanonicalJson(Object.fromEntries(raw.items.map((i) => [i.itemUid, { eventId: i.eventId, sourceId: i.sourceId }]))),
+    derivedAudioHash: hash(audioJson), mappingHash: hash(JSON.stringify(Object.fromEntries(raw.items.map((i) => [i.itemUid, { eventId: i.eventId, sourceId: i.sourceId }])))),
     target: raw.target, deliveryLineage: raw.deliveryLineage, adjacentConsistent: true, evidenceLevel: "injected_execution_unqualified" });
   return { rawJson, audioJson, receiptJson };
 }

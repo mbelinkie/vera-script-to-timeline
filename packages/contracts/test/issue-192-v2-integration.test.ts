@@ -124,6 +124,10 @@ describe("#192 independent native-derived inference (sanitized fake only)", () =
       (e: typeof valid) => { e.documentHash = hash("old document"); },
       (e: typeof valid) => { e.dependenciesHash = hash("old dependencies"); },
       (e: typeof valid) => { e.current.rawJson += " "; },
+      (e: typeof valid) => { const raw = JSON.parse(e.current.rawJson) as FakeRaw;
+        const receipt = JSON.parse(e.current.receiptJson) as Record<string, unknown>;
+        receipt.mappingHash = sha256CanonicalJson(Object.fromEntries(raw.items.map((i) => [i.itemUid, { eventId: i.eventId, sourceId: i.sourceId }])));
+        e.current.receiptJson = canonicalJson(receipt); },
       (e: typeof valid) => { const r = JSON.parse(e.current.receiptJson) as Record<string, unknown>; r.adjacentConsistent = false; e.current.receiptJson = canonicalJson(r); },
       (e: typeof valid) => { const r = JSON.parse(e.current.rawJson) as FakeRaw; r.controls.routes[0]!.controls.solo = true;
         e.current.rawJson = canonicalJson(r); const receipt = JSON.parse(e.current.receiptJson) as Record<string, unknown>; receipt.rawHash = hash(e.current.rawJson); e.current.receiptJson = canonicalJson(receipt); },

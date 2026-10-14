@@ -93,6 +93,11 @@ function controls(raw: ObjectRecord, items: Item[]) {
   fact(routes.every((r) => equal(r, unique.get(r.sourceId))), "split source controls differ");
   return [...unique.values()].sort((a, b) => a.sourceId.localeCompare(b.sourceId));
 }
+function nativeMappingHash(items: Item[]): string {
+  // #190 hashes compact Python JSON; compiler JSON has indentation and a newline.
+  const entries = [...items].sort((a, b) => Buffer.compare(Buffer.from(a.itemUid), Buffer.from(b.itemUid)));
+  return digest(`{${entries.map((i) => `${JSON.stringify(i.itemUid)}:{"eventId":${JSON.stringify(i.eventId)},"sourceId":${JSON.stringify(i.sourceId)}}`).join(",")}}`);
+}
 function observation(packet: ObservationPacketV2, bindingHash: string, events: TimelineEventV2[]) {
   shape(packet, "rawJson audioJson receiptJson");
   const raw = parse(packet.rawJson); const audio = parse(packet.audioJson); const receipt = parse(packet.receiptJson);
@@ -108,8 +113,7 @@ function observation(packet: ObservationPacketV2, bindingHash: string, events: T
   integer(timeline.durationFrames);
   const items = list(raw.items).map(item); const byUid = new Map(items.map((i) => [i.itemUid, i]));
   fact(byUid.size === items.length, "duplicate item identity");
-  const mapping = Object.fromEntries(items.map((i) => [i.itemUid, { eventId: i.eventId, sourceId: i.sourceId }]));
-  fact(receipt.mappingHash === sha256CanonicalJson(mapping), "item mapping hash differs");
+  fact(receipt.mappingHash === nativeMappingHash(items), "item mapping hash differs");
   for (const i of items) {
     const event = events.find((e) => e.eventId === i.eventId);
     fact(event && equal(i.authoredEvent, event) && equal(i.sourceRangeRate, timeline.frameRate), "wrong/stale authored event owner");
