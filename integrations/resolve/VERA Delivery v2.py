@@ -145,10 +145,15 @@ class TIClock:
         self, wall: datetime, monotonic: float, upper: float | None = None
     ) -> None:
         ti_require(monotonic >= self.monotonic and wall >= self.wall, "clock rollback")
-        # datetime has microsecond precision; allow only that rounding error.
+        # XNU MAXFREQ=500000 ns/s: allow up to 500 ppm calendar rate skew.
+        # The 2 us floor covers two datetime samples, not a step tolerance.
+        # Larger slews (including adjtime's 5000 ppm mode) are clock uncertainty.
+        # Every observable negative wall/monotonic interval still refuses.
+        elapsed = monotonic - self.monotonic
+        wall_elapsed = (wall - self.wall).total_seconds()
         ti_require(
-            (wall - self.wall).total_seconds() + 0.000002 >= monotonic - self.monotonic,
-            "wall/monotonic clock rollback",
+            wall_elapsed + 0.000002 + elapsed * 0.0005 >= elapsed,
+            f"wall/monotonic clock rollback (wall={wall_elapsed}, mono={elapsed})",
         )
         self.wall, self.monotonic = wall, monotonic if upper is None else upper
 
@@ -427,8 +432,15 @@ def ti_release(root: Path, binding: dict[str, Any], installed: bool) -> dict[str
     directories = {
         p.as_posix() for name in expected for p in Path(name).parents if p != Path(".")
     }
-    for item in root.rglob("*"):
+    # Resolve installs into a shared plugin directory; own only the declared
+    # root launcher plus the v2 subtree. Never inspect another plugin's contents.
+    inventory_root = root / "vera-delivery-v2" if installed else root
+    ti_path(str(inventory_root))
+    for item in inventory_root.rglob("*"):
         ti_path(str(item))
+        if item.name == ".DS_Store" and item.is_file():
+            ti_read(item)  # Finder tolerance applies only to safe regular files.
+            continue
         if item.is_file():
             ti_require(
                 item.relative_to(root).as_posix() in files, "undeclared release file"
@@ -484,7 +496,7 @@ def ti_binding(value: Any, *, check_installed: bool = True) -> dict[str, Any]:
 
 
 def ti_authority(
-    path: Path, *, check_installed: bool = True
+    path: Path, *, check_installed: bool = True, at: datetime | None = None
 ) -> tuple[dict[str, Any], str]:
     payload = ti_read(path)
     value = ti_closed(ti_object(payload), TI_AUTHORITY_KEYS, "identity authority")
@@ -504,7 +516,9 @@ def ti_authority(
     )
     ti_text(value["operator"])
     ti_id(value["invocationId"])
-    ti_window(value["issuedAt"], value["expiresAt"], datetime.now(UTC))
+    ti_window(
+        value["issuedAt"], value["expiresAt"], datetime.now(UTC) if at is None else at
+    )
     binding = ti_binding(value["binding"], check_installed=check_installed)
     issuer = ti_closed(
         value["issuer"],
@@ -529,7 +543,11 @@ def ti_authority(
 
 
 def ti_request(
-    path: Path, expected: str, *, check_installed: bool = True
+    path: Path,
+    expected: str,
+    *,
+    check_installed: bool = True,
+    at: datetime | None = None,
 ) -> dict[str, Any]:
     payload = ti_read(path)
     ti_require(ti_digest(payload) == ti_hash(expected), "identity request drift")
@@ -542,7 +560,9 @@ def ti_request(
         "unsupported identity request",
     )
     authority_path = ti_path(value["authorityPath"])
-    authority, digest = ti_authority(authority_path, check_installed=check_installed)
+    authority, digest = ti_authority(
+        authority_path, check_installed=check_installed, at=at
+    )
     ti_require(
         digest == ti_hash(value["authoritySha256"])
         and value["binding"] == authority["binding"]
@@ -700,7 +720,11 @@ def ti_receipt(path: Path, expected: str) -> tuple[dict[str, Any], dict[str, Any
         {"requestPath", "requestSha256", "invocationId"},
         "prepared lineage",
     )
-    request = ti_request(ti_path(prepared["requestPath"]), result["requestSha256"])
+    begin, finish = ti_time(result["startedAt"]), ti_time(result["finishedAt"])
+    ti_require(begin <= finish <= datetime.now(UTC), "invalid result chronology")
+    request = ti_request(
+        ti_path(prepared["requestPath"]), result["requestSha256"], at=finish
+    )
     ti_require(
         request["invocationId"] == invocation
         and request["binding"] == binding
@@ -753,7 +777,7 @@ def ti_receipt(path: Path, expected: str) -> tuple[dict[str, Any], dict[str, Any
         and datetime.now(UTC) < finish + timedelta(seconds=1800),
         "stale identity result",
     )
-    authority, _ = ti_authority(ti_path(request["authorityPath"]))
+    authority, _ = ti_authority(ti_path(request["authorityPath"]), at=finish)
     ti_require(
         ti_time(authority["issuedAt"]) <= begin
         and finish < ti_time(authority["expiresAt"]),
@@ -1351,14 +1375,7 @@ def launch(injected_resolve: object) -> None:
     print(report)
 
 
-try:
-    launch(globals().get("resolve"))
-except Exception as error:
-    failure = {
-        "status": "workflow_v2_launcher_failed",
-        "verified": False,
-        "detail": str(error),
-    }
+def retain_bootstrap_refusal(failure: dict[str, Any]) -> None:
     # Retain bootstrap failures without importing unverified installed code.
     try:
         config = json.loads(
@@ -1388,7 +1405,7 @@ except Exception as error:
             )
             failure["reportPath"] = str(path)
             print(json.dumps(failure, sort_keys=True))
-            raise SystemExit(0)
+            return
         if config.get("schemaVersion") == TI_CAP_REQUEST:
             authority, digest = ti_cap_authority(ti_path(config["authorityPath"]))
             ti_require(
@@ -1416,7 +1433,7 @@ except Exception as error:
             )
             failure["reportPath"] = str(path)
             print(json.dumps(failure, sort_keys=True))
-            raise SystemExit(0)
+            return
         if config.get("schemaVersion") == "vera-native-qualification-request/v1":
             binding = config["binding"]
             # A tampered request's unsafe output cannot replace its bound safe receipt.
@@ -1464,3 +1481,15 @@ except Exception as error:
     except Exception:
         failure["reportRetention"] = "unavailable; retain this Console output"
     print(json.dumps(failure, indent=2, sort_keys=True))
+
+
+try:
+    launch(globals().get("resolve"))
+except Exception as error:
+    retain_bootstrap_refusal(
+        {
+            "status": "workflow_v2_launcher_failed",
+            "verified": False,
+            "detail": str(error),
+        }
+    )

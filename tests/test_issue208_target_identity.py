@@ -761,8 +761,7 @@ r=Fake("resolve", {"GetProductName":"DaVinci Resolve Studio",
                    "GetVersion":[21,1,1,10,""],"GetProjectManager":m})
 if sys.argv[2]=="loaded":
     sys.modules["vera_timeline_agent.residue"]=types.ModuleType("residue")
-try: runpy.run_path(sys.argv[1], init_globals={"resolve":r})
-except SystemExit: pass
+runpy.run_path(sys.argv[1], init_globals={"resolve":r})
 print("CALLS="+json.dumps(calls))
 """
     completed = subprocess.run(

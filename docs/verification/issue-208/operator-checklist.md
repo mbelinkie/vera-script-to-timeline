@@ -10,6 +10,11 @@ release `d4ec949a...` is stale after these runtime changes.
    release inventory hashes. Use locked CPython 3.12.14 host preparation.
    Confirm the installation/runtime grant is for this exact release and #208.
    Keep existing plugins and the research/production projects untouched.
+   Authority/request/evidence parent directories must be private 0700 and owned
+   by the operator. Keep the installed request copy regular, single-link and
+   mode 0400. Use repository/evidence locations that Resolve can access without
+   TCC prompts. `--installed-root` must exactly spell the script's parent path;
+   when Resolve omits `__file__`, use the bootstrap's declared plugin root.
 2. Personally select an already-saved disposable NONproduction current project
    and timeline in Studio 21.1.1 build 10. Supply their two exact visible names;
    invisible UIDs are not inputs. Confirm read-only operation and External
@@ -36,6 +41,8 @@ release `d4ec949a...` is stale after these runtime changes.
    target from the receipt. It reserves `consumed-<result SHA256>.json` before
    issuing one capability authority/v2. Request preparation cannot make this
    decision. Prepare the separate capability request only afterward.
+   The flags, hash acknowledgement and typed `CONFIRM` are procedural operator
+   provenance, not authentication; piping `CONFIRM` cannot prove human identity.
 7. Within the attended 30-minute window, follow the required #109
    quit/archive/request/restart transition. Preserve the original identity host
    request and all evidence; archive the installed old request outside the
