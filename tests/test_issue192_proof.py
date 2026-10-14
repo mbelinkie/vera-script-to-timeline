@@ -12,7 +12,10 @@ from issue190_case import pin
 from issue192_case import boundary_case, target
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
 from vera_timeline_agent.roundtrip_v2_proof import ProofSessionV2
-from vera_timeline_agent.roundtrip_v2_records import ProofNativeError, publish_immutable_output
+from vera_timeline_agent.roundtrip_v2_records import (
+    ProofNativeError,
+    publish_immutable_output,
+)
 
 pytestmark = pytest.mark.slow
 
@@ -29,34 +32,44 @@ def session(packages: Any, root: Path) -> ProofSessionV2:
     _, old, _ = packages
     build, boundary, _, _ = old
     return ProofSessionV2(
-        root, baseline=build, boundary=boundary,
-        authenticate=lambda *_: None, authority=b"fake test authority only",
+        root,
+        baseline=build,
+        boundary=boundary,
+        authenticate=lambda *_: None,
+        authority=b"fake test authority only",
     )
 
 
 def test_public_capture_and_host_baseline_actual_compiler_binding(
-    packages: Any, tmp_path: Path,
+    packages: Any,
+    tmp_path: Path,
 ) -> None:
     _, old, _ = packages
     _, boundary, resolve, _ = old
     proof = session(packages, tmp_path / "session")
-    packet = proof.capture(target(resolve), resolve.project.timeline.mapping, "issue192_baseline")
+    packet = proof.capture(
+        target(resolve), resolve.project.timeline.mapping, "issue192_baseline"
+    )
     raw = json.loads(packet["rawJson"])
     assert raw["timeline"] == proof.manifest["timeline"]
-    assert json.loads(packet["receiptJson"])["rawHash"] == pin(
-        boundary.root / "observations/issue192_baseline.json"
-    )["sha256"]
+    assert (
+        json.loads(packet["receiptJson"])["rawHash"]
+        == pin(boundary.root / "observations/issue192_baseline.json")["sha256"]
+    )
     assert "100.0" in packet["rawJson"]  # Python spelling must survive the bridge.
     assert raw["deliveryLineage"]["kind"] == "externally_supplied_target"
 
 
 def test_consumption_rechecks_actual_adjacent_facts_before_pure_or_effect(
-    packages: Any, tmp_path: Path,
+    packages: Any,
+    tmp_path: Path,
 ) -> None:
     _, old, _ = packages
     _, _, resolve, adapter = old
     proof = session(packages, tmp_path / "session")
-    packet = proof.capture(target(resolve), resolve.project.timeline.mapping, "issue192_current")
+    packet = proof.capture(
+        target(resolve), resolve.project.timeline.mapping, "issue192_current"
+    )
     evidence = {"current": packet}
     proof._observations_current(evidence)
     calls = list(adapter.calls)
@@ -70,7 +83,9 @@ def test_consumption_rechecks_actual_adjacent_facts_before_pure_or_effect(
 
 
 def test_early_reject_never_requests_stage_provider_or_build(
-    packages: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    packages: Any,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     proof = session(packages, tmp_path / "session")
     inferred = {"synthetic": "pure inference double for rejection seam only"}
@@ -83,8 +98,11 @@ def test_early_reject_never_requests_stage_provider_or_build(
 
     monkeypatch.setattr(proof, "_pure", pure)
     monkeypatch.setattr(proof, "_observations_current", lambda _: None)
-    decision = {"schemaVersion": "issue-192-v2-inference-decision/v1",
-                "inferenceHash": identity_hash(inferred), "outcome": "reject"}
+    decision = {
+        "schemaVersion": "issue-192-v2-inference-decision/v1",
+        "inferenceHash": identity_hash(inferred),
+        "outcome": "reject",
+    }
     before = canonical_json_bytes(proof.baseline.document)
     result = proof.stage({}, decision, prepared_media=[])
     assert calls == ["infer"]
@@ -99,26 +117,34 @@ def accept_seam_double(proof: ProofSessionV2, fresh: Any) -> dict[str, Any]:
     # This is an explicit fake pure-result input for the fresh-package seam,
     # never advertised as A/B/C inference, provider truth or native acceptance.
     build, boundary, _, _ = fresh
-    result = {"outcome": "accept", "document": build.document,
-              "dependencies": build.dependencies, "history": [],
-              "decisionHash": identity_hash({"fake": True})}
+    result = {
+        "outcome": "accept",
+        "document": build.document,
+        "dependencies": build.dependencies,
+        "history": [],
+        "decisionHash": identity_hash({"fake": True}),
+    }
     raw = canonical_json_bytes(result)
     path = proof.root / "revision-result.json"
     publish_immutable_output(path, raw)
     proof._remember("revision-result", path, identity_hash(result))
-    proposal = {"document": build.document, "dependencies": build.dependencies,
-                "manifestJson": build.manifest_path.read_text(),
-                "reportJson": build.report_path.read_text()}
+    proposal = {
+        "document": build.document,
+        "dependencies": build.dependencies,
+        "manifestJson": build.manifest_path.read_text(),
+        "reportJson": build.report_path.read_text(),
+    }
     assert json.loads(proposal["manifestJson"]) == boundary.package.manifest
     # Only these isolated transport/readback unit checks substitute the accepted
     # revision port. They are excluded from the combined AC evidence; the new
     # public-path test obtains it through actual inference/decision/service APIs.
-    setattr(proof, "accepted_revision", lambda: (result, {"proposal": proposal}, {}))
+    vars(proof)["accepted_revision"] = lambda: (result, {"proposal": proposal}, {})
     return {"proposal": proposal}
 
 
 def test_fresh_package_public_delivery_save_reopen_and_readonly_recovery(
-    packages: Any, tmp_path: Path,
+    packages: Any,
+    tmp_path: Path,
 ) -> None:
     _, old, fresh = packages
     proof = session(packages, tmp_path / "session")
@@ -146,12 +172,19 @@ def test_fresh_package_public_delivery_save_reopen_and_readonly_recovery(
     assert adapter.calls == calls
     assert old_adapter.calls == prior_calls
     assert target(old_resolve) == prior_target
-    assert {key: pin(Path(p["path"]))["sha256"] for key, p in old_build.inputs.items()} == prior_inputs
+    assert {
+        key: pin(Path(p["path"]))["sha256"] for key, p in old_build.inputs.items()
+    } == prior_inputs
 
 
-@pytest.mark.parametrize("attack", ["record", "source", "target", "disabled", "control"])
+@pytest.mark.parametrize(
+    "attack", ["record", "source", "target", "disabled", "control"]
+)
 def test_reopened_discrepancy_refuses_without_more_delivery(
-    packages: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, attack: str,
+    packages: Any,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    attack: str,
 ) -> None:
     # Each attack gets independent evidence/Resolve objects over unchanged package.
     _, _, fresh = packages
@@ -163,13 +196,16 @@ def test_reopened_discrepancy_refuses_without_more_delivery(
     resolve = FakeResolve(original.package)
     adapter = _FakeAdapter()
     boundary = NativeProofBoundaryV2(
-        resolve, attestation_path=original.attestation_path,
+        resolve,
+        attestation_path=original.attestation_path,
         attestation_hash=original.attestation_hash,
         proof_package_path=original.proof_path,
         proof_package_hash=original.binding["proofPackageHash"],
         evidence_root=tmp_path / "fresh-native",
-        authenticate=lambda *_: None, authority=b"fake",
-        code_hashes=original.code_hashes, read_controls=fake_controls,
+        authenticate=lambda *_: None,
+        authority=b"fake",
+        code_hashes=original.code_hashes,
+        read_controls=fake_controls,
         adapter_factory=lambda _: adapter,
     )
     proof = session(packages, tmp_path / "session")
@@ -190,12 +226,16 @@ def test_reopened_discrepancy_refuses_without_more_delivery(
         monkeypatch.setattr(boundary, "read_controls", lambda *_: {"unknown": True})
     calls = list(adapter.calls)
     with pytest.raises(ProofNativeError):
-        proof.verify_reopened(boundary, expected_target, resolve.project.timeline.mapping, "mismatch")
+        proof.verify_reopened(
+            boundary, expected_target, resolve.project.timeline.mapping, "mismatch"
+        )
     assert adapter.calls == calls
 
 
 def test_revised_real_lane_and_changed_accepted_input_refuse_before_effect(
-    packages: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    packages: Any,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _, _, fresh = packages
     proof = session(packages, tmp_path / "session")

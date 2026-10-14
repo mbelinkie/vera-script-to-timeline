@@ -21,7 +21,6 @@ from vera_timeline_agent.narration.models import canonical_json_bytes, identity_
 from vera_timeline_agent.roundtrip_v2_audio import verify_selected_omission_v2
 from vera_timeline_agent.roundtrip_v2_build import PreparedProofBuildV2, pin_bytes_v2
 from vera_timeline_agent.roundtrip_v2_native import NativeProofBoundaryV2
-from vera_timeline_agent.roundtrip_v2_revised_build import PreparedRevisedProofBuildV2
 from vera_timeline_agent.roundtrip_v2_records import (
     ROOT,
     JsonObject,
@@ -34,6 +33,7 @@ from vera_timeline_agent.roundtrip_v2_records import (
     publish_immutable_output,
     shape,
 )
+from vera_timeline_agent.roundtrip_v2_revised_build import PreparedRevisedProofBuildV2
 
 BRIDGE = ROOT / "packages/contracts/src/issue-192-proof-cli.ts"
 
@@ -109,7 +109,9 @@ class ProofSessionV2:
     def _current(self) -> None:
         fact(proof_source_hashes_v2() == self.sources, "integration source changed")
         for pin in self.pins.values():
-            fact(_file_hash(Path(pin["path"])) == pin["sha256"], "retained input changed")
+            fact(
+                _file_hash(Path(pin["path"])) == pin["sha256"], "retained input changed"
+            )
 
     def _pure(
         self,
@@ -146,7 +148,10 @@ class ProofSessionV2:
             check=False,
             timeout=120,
         )
-        fact(result.returncode == 0, "pure integration refused: " + result.stderr.decode())
+        fact(
+            result.returncode == 0,
+            "pure integration refused: " + result.stderr.decode(),
+        )
         output = _parse(result.stdout)
         shape(output, "schemaVersion runtime inputHash result", "pure result")
         fact(
@@ -184,9 +189,11 @@ class ProofSessionV2:
             "receiptJson": self.boundary.root / "observations" / f"{name}.receipt.json",
         }
         packet: JsonObject = {}
-        hashes = {"rawJson": receipt["rawHash"],
-                  "audioJson": receipt["derivedAudioHash"],
-                  "receiptJson": identity_hash(receipt)}
+        hashes = {
+            "rawJson": receipt["rawHash"],
+            "audioJson": receipt["derivedAudioHash"],
+            "receiptJson": identity_hash(receipt),
+        }
         for key, path in paths.items():
             pin = self._remember(f"{name}:{key}", path, hashes[key])
             packet[key] = pin_bytes_v2(pin)[1].decode("utf-8")
@@ -198,7 +205,8 @@ class ProofSessionV2:
         )
         self._current()
         self.capture_inputs[receipt["rawHash"]] = (
-            copy.deepcopy(target), copy.deepcopy(mapping)
+            copy.deepcopy(target),
+            copy.deepcopy(mapping),
         )
         return packet
 
@@ -227,14 +235,19 @@ class ProofSessionV2:
             "native facts changed before inference consumption",
         )
         self.authenticate(
-            "roundtrip_inference_currentness", self.authority,
-            {"evidence": copy.deepcopy(evidence), "actualReceipt": actual,
-             "sourcePins": self.sources},
+            "roundtrip_inference_currentness",
+            self.authority,
+            {
+                "evidence": copy.deepcopy(evidence),
+                "actualReceipt": actual,
+                "sourcePins": self.sources,
+            },
         )
         self._current()
 
     def compose(
-        self, cases: list[tuple[ProofSessionV2, JsonObject]],
+        self,
+        cases: list[tuple[ProofSessionV2, JsonObject]],
     ) -> list[JsonObject]:
         """Keep each isolated case's actual currentness owner at composition."""
         fact(0 < len(cases) <= 3, "isolated cases required")
@@ -267,7 +280,10 @@ class ProofSessionV2:
             shape(packet, "rawJson audioJson receiptJson", "observation packet")
             for raw in packet.values():
                 fact(
-                    any(pin["sha256"] == digest(raw.encode()) for pin in self.pins.values()),
+                    any(
+                        pin["sha256"] == digest(raw.encode())
+                        for pin in self.pins.values()
+                    ),
                     "observation not captured by this session",
                 )
         binding_raw = pin_bytes_v2(self.binding_pin)[1]
@@ -294,7 +310,9 @@ class ProofSessionV2:
             },
         )
         if omission_root is not None:
-            fact(profile_pin is not None and row_id is not None, "C profile/row required")
+            fact(
+                profile_pin is not None and row_id is not None, "C profile/row required"
+            )
             assert profile_pin is not None and row_id is not None
             pin_bytes_v2(profile_pin)
             self.pins["omission:profile"] = copy.deepcopy(profile_pin)
@@ -323,7 +341,8 @@ class ProofSessionV2:
             for relative, expected in omitted["inputHashes"].items():
                 path = omission_root / relative
                 self.pins[f"omission:{relative}"] = {
-                    "path": str(path.absolute()), "sha256": expected
+                    "path": str(path.absolute()),
+                    "sha256": expected,
                 }
             value["omission"] = omitted
         else:
@@ -344,9 +363,7 @@ class ProofSessionV2:
         self._current()
         self._observations_current(evidence)
         inferred = self._pure("infer", evidence=evidence)
-        shape(
-            decision, "schemaVersion inferenceHash outcome", "inference decision"
-        )
+        shape(decision, "schemaVersion inferenceHash outcome", "inference decision")
         fact(
             decision["schemaVersion"] == "issue-192-v2-inference-decision/v1"
             and decision["inferenceHash"] == identity_hash(inferred)
@@ -354,22 +371,29 @@ class ProofSessionV2:
             "stale or unsupported inference decision",
         )
         self.authenticate(
-            "roundtrip_inference_decision", self.authority,
+            "roundtrip_inference_decision",
+            self.authority,
             {"decision": copy.deepcopy(decision), "inference": inferred},
         )
         decision_raw = canonical_json_bytes(decision)
         publish_immutable_output(self.root / "inference-decision.json", decision_raw)
         self._remember(
-            "inference-decision", self.root / "inference-decision.json", digest(decision_raw)
+            "inference-decision",
+            self.root / "inference-decision.json",
+            digest(decision_raw),
         )
         if decision["outcome"] == "reject":
             return {
-                "outcome": "reject", "nativeEffects": 0, "providerEffects": 0,
+                "outcome": "reject",
+                "nativeEffects": 0,
+                "providerEffects": 0,
                 "document": read_pin(self.pins["baseline:document"]),
                 "dependencies": read_pin(self.pins["baseline:dependencies"]),
             }
         stage = self._pure(
-            "stage", evidence=evidence, prepared_media=prepared_media,
+            "stage",
+            evidence=evidence,
+            prepared_media=prepared_media,
             omission_decision_hash=digest(decision_raw),
         )
         if stage["regeneration"] is not None:
@@ -377,11 +401,16 @@ class ProofSessionV2:
             for key in ("document", "dependencies"):
                 path = self.root / f"staged-{key}.json"
                 publish_immutable_output(path, canonical_json_bytes(stage[key]))
-                self.staged_inputs[key] = self._remember(f"staged:{key}", path, identity_hash(stage[key]))
+                self.staged_inputs[key] = self._remember(
+                    f"staged:{key}", path, identity_hash(stage[key])
+                )
         return stage
 
     def proposal(
-        self, evidence: JsonObject | list[JsonObject], *, prepared_media: list[JsonObject],
+        self,
+        evidence: JsonObject | list[JsonObject],
+        *,
+        prepared_media: list[JsonObject],
         handoff: JsonObject | None,
     ) -> JsonObject:
         self._current()
@@ -397,52 +426,84 @@ class ProofSessionV2:
             "inference changed or rejected",
         )
         if inferred["omission"] is not None:
-            fact(handoff is not None, "independently verified #191 whole-row handoff required")
+            fact(
+                handoff is not None,
+                "independently verified #191 whole-row handoff required",
+            )
             self.authenticate(
-                "roundtrip_row_handoff", self.authority,
-                {"handoff": copy.deepcopy(handoff), "evidence": copy.deepcopy(evidence)},
+                "roundtrip_row_handoff",
+                self.authority,
+                {
+                    "handoff": copy.deepcopy(handoff),
+                    "evidence": copy.deepcopy(evidence),
+                },
             )
         return self._pure(
-            "proposal", evidence=evidence, prepared_media=prepared_media,
-            handoff=handoff, omission_decision_hash=decision_pin["sha256"],
+            "proposal",
+            evidence=evidence,
+            prepared_media=prepared_media,
+            handoff=handoff,
+            omission_decision_hash=decision_pin["sha256"],
         )
 
     def decide(
-        self, evidence: JsonObject | list[JsonObject], candidate: JsonObject,
-        decision: JsonObject, history: list[str],
+        self,
+        evidence: JsonObject | list[JsonObject],
+        candidate: JsonObject,
+        decision: JsonObject,
+        history: list[str],
     ) -> JsonObject:
         with self._decision_lock():
             fact(
                 not (self.root / "revision-decision.json").exists()
                 and not (self.root / "revision-result.json").exists(),
-                "revision decision already consumed: retained read-only result required",
+                "revision decision already consumed: "
+                "retained read-only result required",
             )
             return self._decide_once(evidence, candidate, decision, history)
 
     def _decide_once(
-        self, evidence: JsonObject | list[JsonObject], candidate: JsonObject,
-        decision: JsonObject, history: list[str],
+        self,
+        evidence: JsonObject | list[JsonObject],
+        candidate: JsonObject,
+        decision: JsonObject,
+        history: list[str],
     ) -> JsonObject:
         self._current()
         self._observations_current(evidence)
         self.authenticate(
-            "roundtrip_revision_decision", self.authority,
-            {"evidence": evidence, "candidate": candidate,
-             "decision": decision, "history": history},
+            "roundtrip_revision_decision",
+            self.authority,
+            {
+                "evidence": evidence,
+                "candidate": candidate,
+                "decision": decision,
+                "history": history,
+            },
         )
         # Reserve the decision before computation; a partial attempt cannot be
         # silently retried with a different outcome or caller-supplied history.
         publish_immutable_output(
             self.root / "revision-decision.json", canonical_json_bytes(decision)
         )
-        self._remember("revision-decision", self.root / "revision-decision.json", identity_hash(decision))
-        for name, value in (("revision-candidate", candidate), ("revision-evidence", {"cases": evidence})):
+        self._remember(
+            "revision-decision",
+            self.root / "revision-decision.json",
+            identity_hash(decision),
+        )
+        for name, value in (
+            ("revision-candidate", candidate),
+            ("revision-evidence", {"cases": evidence}),
+        ):
             path = self.root / f"{name}.json"
             publish_immutable_output(path, canonical_json_bytes(value))
             self._remember(name, path, identity_hash(value))
         result = self._pure(
-            "decide", evidence=evidence, candidate=candidate,
-            decision=decision, history=history,
+            "decide",
+            evidence=evidence,
+            candidate=candidate,
+            decision=decision,
+            history=history,
         )
         publish_immutable_output(
             self.root / "revision-result.json", canonical_json_bytes(result)
@@ -452,25 +513,36 @@ class ProofSessionV2:
         )
         return result
 
-    def accepted_revision(self) -> tuple[JsonObject, JsonObject, JsonObject | list[JsonObject]]:
+    def accepted_revision(
+        self,
+    ) -> tuple[JsonObject, JsonObject, JsonObject | list[JsonObject]]:
         """Reverify the actual inferred candidate and single-use accepted ledger."""
         self._current()
-        for name in ("revision-result", "revision-candidate", "revision-evidence", "revision-decision"):
+        for name in (
+            "revision-result",
+            "revision-candidate",
+            "revision-evidence",
+            "revision-decision",
+        ):
             fact(name in self.pins, "complete accepted revision ledger required")
         candidate = read_pin(self.pins["revision-candidate"])
         evidence = read_pin(self.pins["revision-evidence"])["cases"]
         self._observations_current(evidence)
         request = candidate["proposal"]["request"]
         actual = self._pure(
-            "proposal", evidence=evidence, prepared_media=request["preparedMedia"],
+            "proposal",
+            evidence=evidence,
+            prepared_media=request["preparedMedia"],
             handoff=request["handoff"],
             omission_decision_hash=request["commands"]["omission"]["decisionHash"]
-            if request["commands"]["omission"] is not None else "",
+            if request["commands"]["omission"] is not None
+            else "",
         )
         result = read_pin(self.pins["revision-result"])
         decision = read_pin(self.pins["revision-decision"])
         fact(
-            actual == candidate and result["outcome"] == decision["outcome"] == "accept"
+            actual == candidate
+            and result["outcome"] == decision["outcome"] == "accept"
             and result["document"] == candidate["proposal"]["document"]
             and result["dependencies"] == candidate["proposal"]["dependencies"]
             and decision["proposalHash"] == candidate["proposal"]["proposalHash"]
@@ -480,9 +552,11 @@ class ProofSessionV2:
         return result, candidate, cast(JsonObject | list[JsonObject], evidence)
 
     def prepare_rebuild(
-        self, candidate: JsonObject, revised: PreparedProofBuildV2 | PreparedRevisedProofBuildV2,
+        self,
+        candidate: JsonObject,
+        revised: PreparedProofBuildV2 | PreparedRevisedProofBuildV2,
     ) -> JsonObject:
-        """Use the owning public preparation gate; never reinterpret real R16 as fake."""
+        """Use public preparation; never reinterpret real R16 as fake."""
         self._current()
         self._require_accepted_rebuild(revised)
         result_pin = self.pins.get("revision-result")
@@ -511,23 +585,31 @@ class ProofSessionV2:
                 "fresh build overlaps retained inputs/targets",
             )
         self.authenticate(
-            "roundtrip_fresh_build", self.authority,
-            {"proposal": proposal, "priorInputs": self.baseline.inputs,
-             "revisedInputs": revised.inputs},
+            "roundtrip_fresh_build",
+            self.authority,
+            {
+                "proposal": proposal,
+                "priorInputs": self.baseline.inputs,
+                "revisedInputs": revised.inputs,
+            },
         )
         package = revised.prepare_package()
-        manifest_raw = pin_bytes_v2({
-            "path": str(revised.manifest_path),
-            "sha256": digest(proposal["manifestJson"].encode()),
-        })[1]
+        manifest_raw = pin_bytes_v2(
+            {
+                "path": str(revised.manifest_path),
+                "sha256": digest(proposal["manifestJson"].encode()),
+            }
+        )[1]
         fact(
             manifest_raw.decode() == proposal["manifestJson"],
             "fresh actual compile differs from accepted preview",
         )
-        pin_bytes_v2({
-            "path": str(revised.report_path),
-            "sha256": digest(proposal["reportJson"].encode()),
-        })
+        pin_bytes_v2(
+            {
+                "path": str(revised.report_path),
+                "sha256": digest(proposal["reportJson"].encode()),
+            }
+        )
         self._current()
         publish_immutable_output(
             self.root / "fresh-package.json", canonical_json_bytes(package)
@@ -537,18 +619,27 @@ class ProofSessionV2:
         )
         return package
 
-    def _require_accepted_rebuild(self, revised: PreparedProofBuildV2 | PreparedRevisedProofBuildV2) -> None:
+    def _require_accepted_rebuild(
+        self, revised: PreparedProofBuildV2 | PreparedRevisedProofBuildV2
+    ) -> None:
         actual, _, _ = self.accepted_revision()
         result_pin = self.pins.get("revision-result")
         fact(result_pin is not None, "accepted result required for effects")
         assert result_pin is not None
         result = read_pin(result_pin)
-        approved_lane = (isinstance(revised, PreparedRevisedProofBuildV2)
-                         and revised.session is self
-                         and revised.original_files == self.baseline.request["originalFiles"])
-        synthetic_lane = (self.baseline.request["lane"] == revised.request["lane"] == "synthetic_local")
+        approved_lane = (
+            isinstance(revised, PreparedRevisedProofBuildV2)
+            and revised.session is self
+            and revised.original_files == self.baseline.request["originalFiles"]
+        )
+        synthetic_lane = (
+            self.baseline.request["lane"]
+            == revised.request["lane"]
+            == "synthetic_local"
+        )
         fact(
-            result == actual and result["outcome"] == "accept"
+            result == actual
+            and result["outcome"] == "accept"
             and result["document"] == revised.document
             and result["dependencies"] == revised.dependencies
             and (approved_lane or synthetic_lane),
@@ -556,7 +647,9 @@ class ProofSessionV2:
         )
 
     def request_fresh_delivery(
-        self, revised: PreparedProofBuildV2 | PreparedRevisedProofBuildV2, fresh: NativeProofBoundaryV2,
+        self,
+        revised: PreparedProofBuildV2 | PreparedRevisedProofBuildV2,
+        fresh: NativeProofBoundaryV2,
     ) -> JsonObject:
         """Public delivery owns save/reopen and partial-target/read-only recovery."""
         self._current()
@@ -577,7 +670,8 @@ class ProofSessionV2:
             "fresh target request must retain prior edited target",
         )
         self.authenticate(
-            "roundtrip_fresh_delivery", self.authority,
+            "roundtrip_fresh_delivery",
+            self.authority,
             {"priorBinding": self.boundary.binding, "freshBinding": fresh.binding},
         )
         result = fresh.deliver()
@@ -585,19 +679,29 @@ class ProofSessionV2:
         return result
 
     def verify_reopened(
-        self, fresh: NativeProofBoundaryV2, target: JsonObject,
-        mapping: JsonObject, name: str,
+        self,
+        fresh: NativeProofBoundaryV2,
+        target: JsonObject,
+        mapping: JsonObject,
+        name: str,
     ) -> JsonObject:
         self._current()
         package_pin = self.pins.get("fresh-package")
-        fact(package_pin is not None, "this revision's fresh package required for reopen")
+        fact(
+            package_pin is not None, "this revision's fresh package required for reopen"
+        )
         assert package_pin is not None
         package = read_pin(package_pin)
-        fact(fresh.attestation_hash == package["attestationHash"]
-             and str(fresh.attestation_path) == package["attestationPath"], "reopened package is not the accepted fresh package")
+        fact(
+            fresh.attestation_hash == package["attestationHash"]
+            and str(fresh.attestation_path) == package["attestationPath"],
+            "reopened package is not the accepted fresh package",
+        )
         receipt = fresh.capture(target, mapping, name)
-        raw_pin = {"path": str(fresh.root / "observations" / f"{name}.json"),
-                   "sha256": receipt["rawHash"]}
+        raw_pin = {
+            "path": str(fresh.root / "observations" / f"{name}.json"),
+            "sha256": receipt["rawHash"],
+        }
         observed = read_pin(raw_pin)
         records = fresh.recover_delivery()["records"]
         fact(
@@ -606,18 +710,27 @@ class ProofSessionV2:
         )
         self._verify_exact_view(observed, fresh)
         self.authenticate(
-            "roundtrip_reopened_verification", self.authority,
-            {"receipt": receipt, "observation": observed,
-             "priorBinding": self.boundary.binding, "freshBinding": fresh.binding},
+            "roundtrip_reopened_verification",
+            self.authority,
+            {
+                "receipt": receipt,
+                "observation": observed,
+                "priorBinding": self.boundary.binding,
+                "freshBinding": fresh.binding,
+            },
         )
         self._current()
-        return {"schemaVersion": "issue-192-v2-reopened/v1",
-                "status": "verified", "evidenceLevel": "injected_execution_unqualified",
-                "receipt": receipt}
+        return {
+            "schemaVersion": "issue-192-v2-reopened/v1",
+            "status": "verified",
+            "evidenceLevel": "injected_execution_unqualified",
+            "receipt": receipt,
+        }
 
     @staticmethod
     def _verify_exact_view(
-        observed: JsonObject, fresh: NativeProofBoundaryV2,
+        observed: JsonObject,
+        fresh: NativeProofBoundaryV2,
     ) -> None:
         expected = {event["id"]: event for event in fresh.package.view["events"]}
         items = observed["items"]
@@ -629,8 +742,9 @@ class ProofSessionV2:
         )
         for item in items:
             event = expected[item["eventId"]]
-            track = next(t for t in fresh.package.view["tracks"]
-                         if t["id"] == event["trackId"])
+            track = next(
+                t for t in fresh.package.view["tracks"] if t["id"] == event["trackId"]
+            )
             record, source = event["recordRange"], event["sourceRange"]
             fact(
                 item["sourceId"] == event["sourceId"]
@@ -640,7 +754,8 @@ class ProofSessionV2:
                 and item["recordStart"] == record["startFrame"]
                 and item["recordEnd"] == record["startFrame"] + record["durationFrames"]
                 and item["sourceStart"] == source["startFrame"]
-                and item["sourceEnd"] == source["startFrame"] + source["durationFrames"],
+                and item["sourceEnd"]
+                == source["startFrame"] + source["durationFrames"],
                 "reopened source/record discrepancy",
             )
 

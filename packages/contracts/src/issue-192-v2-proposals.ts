@@ -38,7 +38,7 @@ function parse(raw: string): ObjectRecord {
   const v = object(JSON.parse(raw));
   // Preserve #190's Python numeric spelling (e.g. 100.0); hashes bind raw bytes.
   const stack: { object: boolean; key: boolean; seen: Set<string> }[] = [];
-  for (const match of raw.matchAll(/"(?:[^"\\]|\\.)*"|[{}\[\]:,]|[^\s{}\[\]:,]+/gu)) {
+  for (const match of raw.matchAll(/"(?:[^"\\]|\\.)*"|[{}[\]:,]|[^\s{}[\]:,]+/gu)) {
     const token = match[0]; const frame = stack.at(-1);
     if (token === "{" || token === "[") { fact(stack.length < 128, "bounded nesting required"); stack.push({ object: token === "{", key: token === "{", seen: new Set() }); }
     else if (token === "}" || token === "]") stack.pop();
@@ -119,7 +119,7 @@ function observation(packet: ObservationPacketV2, bindingHash: string, events: T
   fact(new Set(items.map((i) => i.eventId)).size === events.filter((e) => e.kind !== "script_marker").length, "incomplete event inventory");
   const tracks = list(raw.tracks).map((v) => shape(v, "kind index name enabled locked"));
   fact(tracks.every((t) => t.enabled === true && typeof t.locked === "boolean" && (t.kind === "audio" || t.kind === "video") && integer(t.index) > 0), "unknown/disabled tracks");
-  fact(new Set(tracks.map((t) => `${t.kind}:${t.index}`)).size === tracks.length && items.every((i) => tracks.some((t) => t.kind === i.kind && t.index === i.trackIndex)), "track inventory differs");
+  fact(new Set(tracks.map((t) => `${text(t.kind)}:${integer(t.index)}`)).size === tracks.length && items.every((i) => tracks.some((t) => t.kind === i.kind && t.index === i.trackIndex)), "track inventory differs");
   shape(audio, "schemaVersion target extentFrames frameRate programControls routes");
   fact(audio.schemaVersion === "issue-189-v2-audio-observation/v1" && equal(audio.target, raw.target) &&
     equal(audio.frameRate, timeline.frameRate) && audio.extentFrames === timeline.durationFrames &&
@@ -274,8 +274,9 @@ export function prepareInferredRevisionV2(document: ScriptDocumentV2, dependenci
   const commands: RevisionCommandsV2 = structuredClone(inference.commands);
   if (inference.omission) {
     fact(/^sha256:[a-f0-9]{64}$/u.test(decisionHash), "explicit omission decision hash required");
+    // This pass binds C's document identity; media belongs to the complete stage.
     const ab = commands.boundary || commands.trim
-      ? prepareRevisionInputsV2(document, dependencies, commands, preparedMedia)
+      ? prepareRevisionInputsV2(document, dependencies, commands, [])
       : { document, dependencies };
     commands.omission = { schemaVersion: "issue-189-v2-accepted-omission/v1", expectedDocumentHash: sha256CanonicalJson(ab.document),
       ...inference.omission, decisionHash };

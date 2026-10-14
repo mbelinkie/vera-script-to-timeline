@@ -1,0 +1,420 @@
+{
+  "status": "focused-only-not-acceptance",
+  "source": "a97b370a5c5fa7ad91090aac8b2eca94408d3065",
+  "platform": "darwin",
+  "architecture": "x64",
+  "sourcePins": {
+    "packages/contracts/src/issue-192-v2-proposals.ts": "ce7e5548a473d1bd56bcd5511808e6b8597e2a94c40dff2df3b76cf5fc6ce6dd",
+    "python/vera_timeline_agent/roundtrip_v2_native.py": "a12dbb5eccaad8a16380f299e556dfd1af7f4cf47b815af6ece38f21487e7f52",
+    "python/vera_timeline_agent/roundtrip_v2_proof.py": "f5269b7495e76f3a739048edd062e29c5b7ee3e8f611dcc80f923951f490895a",
+    "python/vera_timeline_agent/roundtrip_v2_revised_build.py": "3b6fb8f83de7b807884df225181618768cc065faf3f7eba6903332377d861bb8",
+    "tests/issue192_case.py": "873bc67a76943f53ed28c4c01d2e35cda6dcaf2db42392219ef97302a8eb87bd",
+    "tests/issue192_public_case.py": "7e28a578b45546efa855aff2cdfb1ab7d7109b0296e07d805b3e64b4ef2ace2e",
+    "tests/test_issue192_proof.py": "96da88c3602bcf543f7034f9265ec835fe8a885391e4ca74001b18a97779c40d",
+    "tests/test_issue192_public_path.py": "f9940f31a563c7e43f3fd161efba39a2516aea8adefd9272013a2c83ec323f08",
+    "packages/contracts/src/issue-192-v2-revision-core.ts": "368d0f5ed125db82a87e7a3056b190664d07814ec348da8e29068ec400778631",
+    "packages/contracts/test/issue-202-v2-revision-core.test.ts": "daf15a3a656578a418f7f27d5af813c25dcae3b50cc996ba2439a6da76c1851d",
+    "package.json": "ce265d25f9582ef71f2e6b45e1e878a40e5ca4752d79db5f40caf59b9c0a7ff0",
+    "package-lock.json": "e615667b1bcbea53bb34c4db11a6ca6a2745fae5edac6538ff87d3fdfe35d7b8",
+    "pyproject.toml": "2c1e979ebf89b25336bfdef64d8bb855513c4171048e47cf7eeb593065329069",
+    "uv.lock": "f950bcda5d522d83b28b08f57783b8056e9bfbf7fadf6254215746e3a350cde2",
+    ".python-version": "f50159fad3f4319868eb38717b91d55843c41e9803014c8de05e116a6d0bcfdc"
+  },
+  "receipts": [
+    {
+      "folder": "out/issue192/focused-1",
+      "receiptSha256": "5e9520adac95eb599532b69af9606d484c995c0bf426280fa66b80bfcf4d5c94",
+      "source": "5ca88452637f62aa5b09e92a5e82b9447f9c6b1d",
+      "command": [
+        "node",
+        "node_modules/typescript/bin/tsc",
+        "--project",
+        "packages/contracts/tsconfig.json"
+      ],
+      "startedAt": "2026-10-14T01:55:32.061Z",
+      "finishedAt": "2026-10-14T01:55:39.063Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "folder": "out/issue192/focused-2-eslint",
+      "receiptSha256": "bde69025b8b148b62ef5d0df4b20b18bf5feb0bbae22f73932f2655f306c05d2",
+      "source": "a97b370a5c5fa7ad91090aac8b2eca94408d3065",
+      "command": [
+        "node",
+        "node_modules/eslint/bin/eslint.js",
+        "packages/contracts/src/issue-192-v2-proposals.ts",
+        "packages/contracts/src/issue-192-proof-cli.ts",
+        "packages/contracts/test/issue-192-case.ts",
+        "packages/contracts/test/issue-192-public-fixture.ts",
+        "packages/contracts/test/issue-192-v2-integration.test.ts"
+      ],
+      "startedAt": "2026-10-14T02:00:45.318Z",
+      "finishedAt": "2026-10-14T02:00:55.995Z",
+      "exitCode": 1,
+      "signal": null,
+      "logSha256": "0758f26cfc90b4cf4596843a05c092a2b0ac79174d708cd10d6c909f9524e481"
+    },
+    {
+      "folder": "out/issue192/focused-3-eslint",
+      "receiptSha256": "5bb9897751680d77ec9a4e62dc49334b90cd83aba5adb38287f4a16b12948380",
+      "source": "a97b370a5c5fa7ad91090aac8b2eca94408d3065",
+      "command": [
+        "node",
+        "node_modules/eslint/bin/eslint.js",
+        "packages/contracts/src/issue-192-v2-proposals.ts",
+        "packages/contracts/src/issue-192-proof-cli.ts",
+        "packages/contracts/test/issue-192-case.ts",
+        "packages/contracts/test/issue-192-public-fixture.ts",
+        "packages/contracts/test/issue-192-v2-integration.test.ts"
+      ],
+      "startedAt": "2026-10-14T02:01:14.088Z",
+      "finishedAt": "2026-10-14T02:01:26.041Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "folder": "out/issue192/focused-4-vitest",
+      "receiptSha256": "cd4e93c3603a8fb5d07f8a5022373f4060e2c93cb1337058470bd04fe5256a4d",
+      "source": "a97b370a5c5fa7ad91090aac8b2eca94408d3065",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "packages/contracts/test/issue-192-v2-integration.test.ts",
+        "packages/contracts/test/issue-202-v2-revision-core.test.ts",
+        "--maxWorkers=1"
+      ],
+      "startedAt": "2026-10-14T02:01:32.447Z",
+      "finishedAt": "2026-10-14T02:02:02.561Z",
+      "exitCode": 1,
+      "signal": null,
+      "logSha256": "f36dcb09e818ffd035fd0054d612cdb002083674428b0789bae3542a22088261"
+    },
+    {
+      "folder": "out/issue192/focused-5-vitest192",
+      "receiptSha256": "8d2eee793393d8025b8d305c3f6aeaaa32e18b303dfc0bb596909c8503d761bf",
+      "source": "a97b370a5c5fa7ad91090aac8b2eca94408d3065",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "packages/contracts/test/issue-192-v2-integration.test.ts",
+        "--maxWorkers=1"
+      ],
+      "startedAt": "2026-10-14T02:02:37.451Z",
+      "finishedAt": "2026-10-14T02:02:50.209Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "ce2027a5d066070744f0f886eb9e92a6a2058dada321b36f1e5c617e97b92bc0"
+    },
+    {
+      "folder": "out/issue192/focused-6-eslint-delta",
+      "receiptSha256": "cbf0e7698f6d9c964c78fc111a9b3e781a545d4c473636b0f7b944988dd3533d",
+      "source": "a97b370a5c5fa7ad91090aac8b2eca94408d3065",
+      "command": [
+        "node",
+        "node_modules/eslint/bin/eslint.js",
+        "packages/contracts/src/issue-192-v2-proposals.ts"
+      ],
+      "startedAt": "2026-10-14T02:02:55.625Z",
+      "finishedAt": "2026-10-14T02:03:00.019Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "folder": "out/issue192/focused-7-tsc-delta",
+      "receiptSha256": "5bb963a48218296ddc7546bad3246da9da0edd08ede2e5de034ed103d3df7f68",
+      "source": "a97b370a5c5fa7ad91090aac8b2eca94408d3065",
+      "command": [
+        "node",
+        "node_modules/typescript/bin/tsc",
+        "--project",
+        "packages/contracts/tsconfig.json"
+      ],
+      "startedAt": "2026-10-14T02:03:04.509Z",
+      "finishedAt": "2026-10-14T02:03:08.450Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "folder": "out/issue192/focused-8-uv-sync",
+      "receiptSha256": "ee1367046d3d75f2f8c136d8b8998cf21a0dd5d2ecac894583dc64039c647044",
+      "source": "a97b370a5c5fa7ad91090aac8b2eca94408d3065",
+      "command": [
+        "/Users/matthewbelinkie/.local/bin/uv",
+        "sync",
+        "--frozen",
+        "--python",
+        "3.12.14"
+      ],
+      "startedAt": "2026-10-14T02:03:23.732Z",
+      "finishedAt": "2026-10-14T02:03:25.544Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "c167b1ad7adb92f8a89638f13eabb7c5f09caace05afad261a3134cd838daa13"
+    },
+    {
+      "folder": "out/issue192/focused-9-ruff",
+      "receiptSha256": "1ea373b44ef443ca8ef5a3c0de13c792af1a7e7868da42d4c91e5524d1f72c25",
+      "source": "a97b370a5c5fa7ad91090aac8b2eca94408d3065",
+      "command": [
+        ".venv/bin/ruff",
+        "check",
+        "python/vera_timeline_agent/roundtrip_v2_proof.py",
+        "python/vera_timeline_agent/roundtrip_v2_revised_build.py",
+        "python/vera_timeline_agent/roundtrip_v2_native.py",
+        "tests/issue192_case.py",
+        "tests/test_issue192_proof.py",
+        "tests/issue192_public_case.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "startedAt": "2026-10-14T02:03:46.537Z",
+      "finishedAt": "2026-10-14T02:03:46.914Z",
+      "exitCode": 1,
+      "signal": null,
+      "logSha256": "b17bf735d9449aa85e728e5349eac635b44a0e24320ad95a6597044a6bd2ea9d"
+    },
+    {
+      "folder": "out/issue192/focused-10-ruff-fix",
+      "receiptSha256": "5a0ab24fbeca74c9e24ae87d398cc183c6e3ccc30009a87ef3fbfc9f2b9aef1b",
+      "source": "a97b370a5c5fa7ad91090aac8b2eca94408d3065",
+      "command": [
+        ".venv/bin/ruff",
+        "check",
+        "--fix",
+        "--output-format",
+        "concise",
+        "python/vera_timeline_agent/roundtrip_v2_proof.py",
+        "python/vera_timeline_agent/roundtrip_v2_revised_build.py",
+        "python/vera_timeline_agent/roundtrip_v2_native.py",
+        "tests/issue192_case.py",
+        "tests/test_issue192_proof.py",
+        "tests/issue192_public_case.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "startedAt": "2026-10-14T02:04:08.390Z",
+      "finishedAt": "2026-10-14T02:04:08.747Z",
+      "exitCode": 1,
+      "signal": null,
+      "logSha256": "b09bd57af2f88b63eca95ccb56126a70a7dde49564a96af1f5113fa0af7033cf"
+    },
+    {
+      "folder": "out/issue192/focused-11-ruff-format",
+      "receiptSha256": "cca15fe5094bd10dd26c4802b1d87ef4a521f59862a1533723d2d58eeda78c10",
+      "source": "a97b370a5c5fa7ad91090aac8b2eca94408d3065",
+      "command": [
+        ".venv/bin/ruff",
+        "format",
+        "python/vera_timeline_agent/roundtrip_v2_proof.py",
+        "python/vera_timeline_agent/roundtrip_v2_revised_build.py",
+        "python/vera_timeline_agent/roundtrip_v2_native.py",
+        "tests/issue192_case.py",
+        "tests/test_issue192_proof.py",
+        "tests/issue192_public_case.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "startedAt": "2026-10-14T02:04:16.560Z",
+      "finishedAt": "2026-10-14T02:04:16.910Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "6938b44a5135e94a888946dd3490a5bc46d2a5641acd88b7bd7f702d16f114fb"
+    },
+    {
+      "folder": "out/issue192/focused-12-ruff",
+      "receiptSha256": "3ac94554999bdf3237981c7446a28aaf1a7909096e444dc08d695965bd77674f",
+      "source": "a97b370a5c5fa7ad91090aac8b2eca94408d3065",
+      "command": [
+        ".venv/bin/ruff",
+        "check",
+        "--output-format",
+        "concise",
+        "python/vera_timeline_agent/roundtrip_v2_proof.py",
+        "python/vera_timeline_agent/roundtrip_v2_revised_build.py",
+        "python/vera_timeline_agent/roundtrip_v2_native.py",
+        "tests/issue192_case.py",
+        "tests/test_issue192_proof.py",
+        "tests/issue192_public_case.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "startedAt": "2026-10-14T02:04:24.071Z",
+      "finishedAt": "2026-10-14T02:04:24.566Z",
+      "exitCode": 1,
+      "signal": null,
+      "logSha256": "87fcd4ab0ab6ba3d5088decfda30ffff18a8b5371f4138612e5b2e86d14ff402"
+    },
+    {
+      "folder": "out/issue192/focused-13-ruff",
+      "receiptSha256": "6db9bd432aed6c9c5cdbbbf8787f582b1fb90c0575c3a3c3a8358c372f8c5d9f",
+      "source": "a97b370a5c5fa7ad91090aac8b2eca94408d3065",
+      "command": [
+        ".venv/bin/ruff",
+        "check",
+        "--output-format",
+        "concise",
+        "python/vera_timeline_agent/roundtrip_v2_proof.py",
+        "python/vera_timeline_agent/roundtrip_v2_revised_build.py",
+        "python/vera_timeline_agent/roundtrip_v2_native.py",
+        "tests/issue192_case.py",
+        "tests/test_issue192_proof.py",
+        "tests/issue192_public_case.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "startedAt": "2026-10-14T02:05:03.709Z",
+      "finishedAt": "2026-10-14T02:05:04.139Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "folder": "out/issue192/focused-14-format-check",
+      "receiptSha256": "33ce8fc6cab1481a9837eea1fdb1abbf11c1d805dc8da0e87fd17ca0fcebf511",
+      "source": "a97b370a5c5fa7ad91090aac8b2eca94408d3065",
+      "command": [
+        ".venv/bin/ruff",
+        "format",
+        "--check",
+        "python/vera_timeline_agent/roundtrip_v2_proof.py",
+        "python/vera_timeline_agent/roundtrip_v2_revised_build.py",
+        "python/vera_timeline_agent/roundtrip_v2_native.py",
+        "tests/issue192_case.py",
+        "tests/test_issue192_proof.py",
+        "tests/issue192_public_case.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "startedAt": "2026-10-14T02:05:13.809Z",
+      "finishedAt": "2026-10-14T02:05:14.189Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "0321fffcb91606a42c0a19d8c1121d5c544379d663821fce616c71a7bb62f6b5"
+    },
+    {
+      "folder": "out/issue192/focused-15-mypy",
+      "receiptSha256": "66f42199f0acfe1aa2e937cdef16f979852081472f5de8edc291ae1ccd16066a",
+      "source": "a97b370a5c5fa7ad91090aac8b2eca94408d3065",
+      "command": [
+        ".venv/bin/mypy",
+        "python/vera_timeline_agent/roundtrip_v2_proof.py",
+        "python/vera_timeline_agent/roundtrip_v2_revised_build.py",
+        "python/vera_timeline_agent/roundtrip_v2_native.py",
+        "tests/issue192_case.py",
+        "tests/test_issue192_proof.py",
+        "tests/issue192_public_case.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "startedAt": "2026-10-14T02:05:28.421Z",
+      "finishedAt": "2026-10-14T02:05:47.758Z",
+      "exitCode": 1,
+      "signal": null,
+      "logSha256": "16404495750f8e7e6bd42185b70e5e7f3991aa6200ac6600c289c4537011c09c"
+    },
+    {
+      "folder": "out/issue192/focused-16-mypy-delta",
+      "receiptSha256": "9631378bd27df87b76e63659590bfdba5b9ef6c92dc325b40cffe0b27129e6ae",
+      "source": "a97b370a5c5fa7ad91090aac8b2eca94408d3065",
+      "command": [
+        ".venv/bin/mypy",
+        "tests/issue192_public_case.py",
+        "tests/test_issue192_proof.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "startedAt": "2026-10-14T02:06:50.007Z",
+      "finishedAt": "2026-10-14T02:06:53.294Z",
+      "exitCode": 1,
+      "signal": null,
+      "logSha256": "08132d446fa3d9929285c3313dfcdcf3cbd03afc2e16156da237f0cfc0ad1318"
+    },
+    {
+      "folder": "out/issue192/focused-17-ruff-delta",
+      "receiptSha256": "365f44c2c2b62823dd837c575775e8bcce49f44ff0424f11c39cdb0f76a26a4c",
+      "source": "a97b370a5c5fa7ad91090aac8b2eca94408d3065",
+      "command": [
+        ".venv/bin/ruff",
+        "check",
+        "--output-format",
+        "concise",
+        "tests/issue192_public_case.py",
+        "tests/test_issue192_proof.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "startedAt": "2026-10-14T02:07:06.834Z",
+      "finishedAt": "2026-10-14T02:07:07.319Z",
+      "exitCode": 1,
+      "signal": null,
+      "logSha256": "ce10bdbbc46a7771cd6c0ae1456d2918acf3122bd0b88802f03c32d5a6c97011"
+    },
+    {
+      "folder": "out/issue192/focused-18-mypy-delta",
+      "receiptSha256": "df993043f9aba75b35a2b7d1db52baee1e852e43a5b312d70c84949e5c10358a",
+      "source": "a97b370a5c5fa7ad91090aac8b2eca94408d3065",
+      "command": [
+        ".venv/bin/mypy",
+        "tests/issue192_public_case.py",
+        "tests/test_issue192_proof.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "startedAt": "2026-10-14T02:07:33.949Z",
+      "finishedAt": "2026-10-14T02:07:38.422Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "8228fcc5ce46d42d01caf3cd941f4e9c5f2bcc372bb5b147a2f0572d2dd675a8"
+    },
+    {
+      "folder": "out/issue192/focused-19-ruff-delta",
+      "receiptSha256": "7891f90040f3a8d27cb904085b96e8de41ee6a0ec2a7a51aa1c285075af1125d",
+      "source": "a97b370a5c5fa7ad91090aac8b2eca94408d3065",
+      "command": [
+        ".venv/bin/ruff",
+        "check",
+        "--output-format",
+        "concise",
+        "tests/issue192_public_case.py",
+        "tests/test_issue192_proof.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "startedAt": "2026-10-14T02:07:53.512Z",
+      "finishedAt": "2026-10-14T02:07:54.062Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "folder": "out/issue192/focused-20-format-delta",
+      "receiptSha256": "2399ad537ecbc2a5a7409bfa19658a1373d039af002e90ce08556d79be254d86",
+      "source": "a97b370a5c5fa7ad91090aac8b2eca94408d3065",
+      "command": [
+        ".venv/bin/ruff",
+        "format",
+        "--check",
+        "tests/issue192_public_case.py",
+        "tests/test_issue192_proof.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "startedAt": "2026-10-14T02:08:02.266Z",
+      "finishedAt": "2026-10-14T02:08:02.740Z",
+      "exitCode": 1,
+      "signal": null,
+      "logSha256": "037d85a675d111b5085f5c2fead2b91a15c9533ed0771bfbe7fc8abe46d01fa5"
+    },
+    {
+      "folder": "out/issue192/focused-21-format-delta",
+      "receiptSha256": "5e5e87e2b78367d5c07506180df98d71abf27b9541a76b78deff132a4fd95d9b",
+      "source": "a97b370a5c5fa7ad91090aac8b2eca94408d3065",
+      "command": [
+        ".venv/bin/ruff",
+        "format",
+        "--check",
+        "tests/issue192_public_case.py"
+      ],
+      "startedAt": "2026-10-14T02:08:38.396Z",
+      "finishedAt": "2026-10-14T02:08:38.847Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "fd2299c9f1c6dc869070883e281051bfe93aacf66c1a3b0069f45b4aa410ca50"
+    }
+  ]
+}

@@ -211,66 +211,136 @@ class NativeProofBoundaryV2:
         )
         self.revised_preflight_hash: str | None = None
         self._initialize_binding(
-            evidence_root, authenticate, authority, code_hashes,
-            read_controls, adapter_factory, proof_package_hash,
+            evidence_root,
+            authenticate,
+            authority,
+            code_hashes,
+            read_controls,
+            adapter_factory,
+            proof_package_hash,
         )
 
     @classmethod
     def from_revised_proof(
-        cls, resolve: Any, *, attestation_path: Path, attestation_hash: str,
-        proof_package_path: Path, proof_package_hash: str,
-        revised_preflight_path: Path, revised_preflight_hash: str,
-        evidence_root: Path, authenticate: ReceiptVerifier, authority: bytes,
-        code_hashes: JsonObject, read_controls: ControlReader | None = None,
+        cls,
+        resolve: Any,
+        *,
+        attestation_path: Path,
+        attestation_hash: str,
+        proof_package_path: Path,
+        proof_package_hash: str,
+        revised_preflight_path: Path,
+        revised_preflight_hash: str,
+        evidence_root: Path,
+        authenticate: ReceiptVerifier,
+        authority: bytes,
+        code_hashes: JsonObject,
+        read_controls: ControlReader | None = None,
         adapter_factory: Callable[[Any], Any] | None = None,
     ) -> NativeProofBoundaryV2:
         """Additive CN-192-R1 route; the initial constructor rejects this version."""
-        from vera_timeline_agent.roundtrip_v2_revised_build import verify_revised_preflight_v2
+        from vera_timeline_agent.roundtrip_v2_revised_build import (
+            verify_revised_preflight_v2,
+        )
 
-        fact(revised_preflight_path.is_absolute(), "absolute revised preflight path required")
+        fact(
+            revised_preflight_path.is_absolute(),
+            "absolute revised preflight path required",
+        )
         self = cls.__new__(cls)
         self.resolve = resolve
-        self.attestation_path, self.attestation_hash = attestation_path, attestation_hash
-        fact(_file_hash(attestation_path) == attestation_hash, "attestation raw pin differs")
+        self.attestation_path, self.attestation_hash = (
+            attestation_path,
+            attestation_hash,
+        )
+        fact(
+            _file_hash(attestation_path) == attestation_hash,
+            "attestation raw pin differs",
+        )
         self.package = load_verified_package_v2(attestation_path, attestation_hash[7:])
         self.proof_path = proof_package_path
-        fact(_file_hash(proof_package_path) == proof_package_hash, "revised proof package raw pin differs")
+        fact(
+            _file_hash(proof_package_path) == proof_package_hash,
+            "revised proof package raw pin differs",
+        )
         proof = _parse(_operator_bytes(proof_package_path))
-        shape(proof, "schemaVersion evidenceLevel preflightHash preflightPath preflightRawHash requestHash package verification attestationPath attestationHash",
-              "revised proof package")
+        shape(
+            proof,
+            "schemaVersion evidenceLevel preflightHash preflightPath preflightRawHash "
+            "requestHash package verification attestationPath attestationHash",
+            "revised proof package",
+        )
         self.preflight_path = revised_preflight_path
         self.preflight_raw = _operator_bytes(revised_preflight_path)
         self.preflight = _parse(self.preflight_raw)
-        fact(_digest(self.preflight_raw) == revised_preflight_hash
-             and proof["schemaVersion"] == "issue-192-v2-revised-proof-package/v1"
-             and proof["evidenceLevel"] == "local_prepared"
-             and proof["preflightPath"] == str(revised_preflight_path)
-             and proof["preflightRawHash"] == revised_preflight_hash
-             and proof["preflightHash"] == _digest(canonical_json_bytes(self.preflight))
-             and proof["requestHash"] == self.preflight["requestHash"]
-             and proof["attestationPath"] == str(attestation_path)
-             and proof["attestationHash"] == attestation_hash
-             and proof["package"] == {"project_root": str(self.package.root), "build_id": self.package.attestation["buildId"]}
-             and proof["verification"] == self.preflight["packageVerification"]
-             and self.preflight["sourceHashes"] == code_hashes,
-             "revised preflight/package lineage differs")
-        verify_revised_preflight_v2(self.preflight, authenticate=authenticate, authority=authority)
-        build_inputs = self.package.root / "Builds" / self.package.attestation["buildId"]
-        fact(_parse(_operator_bytes(build_inputs / "script-document.json")) == _parse(_operator_bytes(Path(self.preflight["executionInputs"]["document"]["path"])))
-             and _parse(_operator_bytes(build_inputs / "compiler-dependencies.json")) == _parse(_operator_bytes(Path(self.preflight["executionInputs"]["dependencies"]["path"]))),
-             "revised package execution inputs differ")
-        fact(_file_hash(build_inputs / "timeline-manifest.json") == self.preflight["manifestHash"]
-             and _file_hash(build_inputs / "build-report.json") == self.preflight["reportHash"],
-             "revised package compiler outputs differ")
+        fact(
+            _digest(self.preflight_raw) == revised_preflight_hash
+            and proof["schemaVersion"] == "issue-192-v2-revised-proof-package/v1"
+            and proof["evidenceLevel"] == "local_prepared"
+            and proof["preflightPath"] == str(revised_preflight_path)
+            and proof["preflightRawHash"] == revised_preflight_hash
+            and proof["preflightHash"] == _digest(canonical_json_bytes(self.preflight))
+            and proof["requestHash"] == self.preflight["requestHash"]
+            and proof["attestationPath"] == str(attestation_path)
+            and proof["attestationHash"] == attestation_hash
+            and proof["package"]
+            == {
+                "project_root": str(self.package.root),
+                "build_id": self.package.attestation["buildId"],
+            }
+            and proof["verification"] == self.preflight["packageVerification"]
+            and self.preflight["sourceHashes"] == code_hashes,
+            "revised preflight/package lineage differs",
+        )
+        verify_revised_preflight_v2(
+            self.preflight, authenticate=authenticate, authority=authority
+        )
+        build_inputs = (
+            self.package.root / "Builds" / self.package.attestation["buildId"]
+        )
+        fact(
+            _parse(_operator_bytes(build_inputs / "script-document.json"))
+            == _parse(
+                _operator_bytes(
+                    Path(self.preflight["executionInputs"]["document"]["path"])
+                )
+            )
+            and _parse(_operator_bytes(build_inputs / "compiler-dependencies.json"))
+            == _parse(
+                _operator_bytes(
+                    Path(self.preflight["executionInputs"]["dependencies"]["path"])
+                )
+            ),
+            "revised package execution inputs differ",
+        )
+        fact(
+            _file_hash(build_inputs / "timeline-manifest.json")
+            == self.preflight["manifestHash"]
+            and _file_hash(build_inputs / "build-report.json")
+            == self.preflight["reportHash"],
+            "revised package compiler outputs differ",
+        )
         self.revised_preflight_hash = revised_preflight_hash
-        self._initialize_binding(evidence_root, authenticate, authority, code_hashes,
-                                 read_controls, adapter_factory, proof_package_hash)
+        self._initialize_binding(
+            evidence_root,
+            authenticate,
+            authority,
+            code_hashes,
+            read_controls,
+            adapter_factory,
+            proof_package_hash,
+        )
         return self
 
     def _initialize_binding(
-        self, evidence_root: Path, authenticate: ReceiptVerifier, authority: bytes,
-        code_hashes: JsonObject, read_controls: ControlReader | None,
-        adapter_factory: Callable[[Any], Any] | None, proof_package_hash: str,
+        self,
+        evidence_root: Path,
+        authenticate: ReceiptVerifier,
+        authority: bytes,
+        code_hashes: JsonObject,
+        read_controls: ControlReader | None,
+        adapter_factory: Callable[[Any], Any] | None,
+        proof_package_hash: str,
     ) -> None:
         self.root = evidence_root.absolute()
         fact(
@@ -346,16 +416,28 @@ class NativeProofBoundaryV2:
                 "proof input changed before native operation",
             )
         if self.revised_preflight_hash is not None:
-            from vera_timeline_agent.roundtrip_v2_revised_build import verify_revised_preflight_v2
+            from vera_timeline_agent.roundtrip_v2_revised_build import (
+                verify_revised_preflight_v2,
+            )
 
-            fact(_digest(self.preflight_raw) == self.revised_preflight_hash, "revised preflight raw identity differs")
-            verify_revised_preflight_v2(self.preflight, authenticate=self.authenticate, authority=self.authority)
+            fact(
+                _digest(self.preflight_raw) == self.revised_preflight_hash,
+                "revised preflight raw identity differs",
+            )
+            verify_revised_preflight_v2(
+                self.preflight, authenticate=self.authenticate, authority=self.authority
+            )
             # Trusted freshness is checked at every read/effect/poll boundary,
             # including registries whose state cannot be established by file hashes.
-            self.authenticate("revised_native_lineage", self.authority,
-                              {"binding": copy.deepcopy(self.binding),
-                               "preflight": copy.deepcopy(self.preflight),
-                               "packageAttestation": copy.deepcopy(self.package.attestation)})
+            self.authenticate(
+                "revised_native_lineage",
+                self.authority,
+                {
+                    "binding": copy.deepcopy(self.binding),
+                    "preflight": copy.deepcopy(self.preflight),
+                    "packageAttestation": copy.deepcopy(self.package.attestation),
+                },
+            )
 
     @contextmanager
     def _lock(self) -> Any:

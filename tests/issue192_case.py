@@ -21,7 +21,11 @@ from vera_timeline_agent.workflow_v2 import load_verified_package_v2
 
 
 def boundary_case(
-    root: Path, evidence: Path, *, revision: bool = False, rate: str = "25fps",
+    root: Path,
+    evidence: Path,
+    *,
+    revision: bool = False,
+    rate: str = "25fps",
 ) -> tuple[PreparedProofBuildV2, NativeProofBoundaryV2, FakeResolve, _FakeAdapter]:
     root.mkdir(parents=True)
     request, probe = make_proof_case(root, rate=rate)
@@ -39,14 +43,16 @@ def boundary_case(
         # Only this new temporary synthetic case is changed, never frozen inputs.
         inputs = document_path.parent
         _refresh_document_closure(
-            document, dependencies,
+            document,
+            dependencies,
             json.loads((inputs / "timeline-manifest.json").read_bytes()),
             json.loads((inputs / "build-report.json").read_bytes()),
         )
         write(document_path, document)
         write(dependencies_path, dependencies)
         request["executionInputs"] = {
-            "document": pin(document_path), "dependencies": pin(dependencies_path)
+            "document": pin(document_path),
+            "dependencies": pin(dependencies_path),
         }
         request["originalFiles"] = request["executionInputs"].copy()
         request["originalInputs"] = {
@@ -80,5 +86,7 @@ def boundary_case(
 
 
 def target(resolve: FakeResolve) -> dict[str, Any]:
-    return {"projectUid": resolve.project.uid,
-            "timelineUid": resolve.project.timeline.uid}
+    return {
+        "projectUid": resolve.project.uid,
+        "timelineUid": resolve.project.timeline.uid,
+    }
