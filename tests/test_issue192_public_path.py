@@ -288,6 +288,7 @@ def test_public_b1_b3_core_fresh_package_and_truthful_native_refusal(
                 render_codec="LinearPCM",
             )
             assert result["status"] == "complete"
+            pristine_job_id = result["jobId"]
         edit(resolve, kind)
         current = session.capture(
             target(resolve), resolve.project.timeline.mapping, f"after_{kind}"
@@ -303,6 +304,11 @@ def test_public_b1_b3_core_fresh_package_and_truthful_native_refusal(
                 render_codec="LinearPCM",
             )
             assert result["status"] == "complete"
+            assert result["jobId"] != pristine_job_id
+            assert (
+                resolve.project.GetRenderJobStatus(pristine_job_id)["JobStatus"]
+                == "Complete"
+            )
             second = session.capture(
                 target(resolve), resolve.project.timeline.mapping, "adjacent_C"
             )

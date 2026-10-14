@@ -730,6 +730,7 @@ class StableMedia:
 class MixingProject(FakeProject):
     def __init__(self, package: Any) -> None:
         super().__init__(package)
+        self.job_status: dict[str, str] = {}
         self.gains = {e["id"]: e["gainDb"] or 0 for e in package.view["events"]}
         self.kinds = {e["id"]: e["kind"] for e in package.view["events"]}
 
@@ -738,23 +739,27 @@ class MixingProject(FakeProject):
         super().AddRenderJob()
         key = f"independently-queued-fake-job-{len(self.queue)}"
         self.queue[-1]["JobId"] = key
+        self.job_status[key] = "Ready"
         return key
 
     @override
     def GetRenderJobStatus(self, job_id: str) -> JsonObject:
         assert any(j["JobId"] == job_id for j in self.queue)
+        status = self.job_status[job_id]
         return {
-            "JobStatus": self.status,
-            "CompletionPercentage": 100 if self.status == "Complete" else 0,
+            "JobStatus": status,
+            "CompletionPercentage": 100 if status == "Complete" else 0,
         }
 
     @override
     def StartRendering(self, job_ids: list[str], interactive: bool) -> bool:
         assert not interactive and len(job_ids) == 1
         assert any(j["JobId"] == job_ids[0] for j in self.queue)
+        assert self.job_status[job_ids[0]] == "Ready"
         self.calls.append("start")
-        self.status = "Complete"
+        self.job_status[job_ids[0]] = "Rendering"
         self.write_output()
+        self.job_status[job_ids[0]] = "Complete"
         return True
 
     @override
