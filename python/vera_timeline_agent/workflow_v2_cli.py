@@ -219,7 +219,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     authorize.add_argument("--timeline-name", required=True)
     authorize.add_argument("--output", type=Path, required=True)
     authorize.add_argument("--evidence-dir", type=Path, required=True)
-    authorize.add_argument("--confirm-saved-disposable-nonproduction", action="store_true")
+    authorize.add_argument(
+        "--confirm-saved-disposable-nonproduction", action="store_true"
+    )
     authorize.add_argument("--confirm-read-only", action="store_true")
     authorize.add_argument("--external-scripting-none", action="store_true")
     capability = commands.add_parser("capability-request")
@@ -256,7 +258,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             from .native_qualification_v2 import prepare_capability_request
 
             output = prepare_capability_request(
-                arguments.output.absolute(), authority_path=arguments.authority.absolute()
+                arguments.output.absolute(),
+                authority_path=arguments.authority.absolute(),
             )
         else:
             from .workflow_v2 import load_verified_package_v2

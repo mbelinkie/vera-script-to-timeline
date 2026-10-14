@@ -1,0 +1,18 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--frozen",
+    "ruff",
+    "check",
+    "python/vera_timeline_agent/native_qualification_v2.py",
+    "python/vera_timeline_agent/workflow_v2_cli.py",
+    "python/vera_timeline_agent/workflow_v2_launcher.py",
+    "integrations/resolve/VERA Delivery v2.py",
+    "tests/test_issue204_native_preflight.py"
+  ],
+  "pid": 31343,
+  "runnerPid": 31307,
+  "sourceSnapshot": "candidate-start.json",
+  "startedAt": "2026-10-14T11:56:22.930642+00:00"
+}

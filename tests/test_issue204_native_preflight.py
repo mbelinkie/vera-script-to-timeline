@@ -150,7 +150,9 @@ def run(request: Path, resolve: Any) -> dict[str, Any]:
     return read_object(result)
 
 
-def test_complete_getters_report_real_gaps_without_native_effects(tmp_path: Path) -> None:
+def test_complete_getters_report_real_gaps_without_native_effects(
+    tmp_path: Path,
+) -> None:
     request, _authority, _release = inputs(tmp_path)
     resolve, _timeline, _item, calls = native()
     result = run(request, resolve)
@@ -167,7 +169,8 @@ def test_complete_getters_report_real_gaps_without_native_effects(tmp_path: Path
 
 
 @pytest.mark.parametrize(
-    "attack", ["authority-missing", "authority-binding", "action", "extra", "source", "release"]
+    "attack",
+    ["authority-missing", "authority-binding", "action", "extra", "source", "release"],
 )
 def test_bad_handoff_refuses_before_any_native_getter(
     tmp_path: Path, attack: str
@@ -304,7 +307,8 @@ def test_installed_dispatch_and_evidence_are_immutable(tmp_path: Path) -> None:
     hashes = list(first.parent.glob("hashes-*.json"))
     assert len(hashes) == 2
     assert {read_object(path)["resultSha256"] for path in hashes} == {
-        sha256(first), sha256(second)
+        sha256(first),
+        sha256(second),
     }
 
 
@@ -324,7 +328,7 @@ def test_installed_bootstrap_refuses_untrusted_runtime(
             "-S",
             "-c",
             "import runpy,sys,types; "
-            "sys.modules['vera_timeline_agent']=types.ModuleType('vera_timeline_agent'); "
+            "n='vera_timeline_agent'; sys.modules[n]=types.ModuleType(n); "
             f"runpy.run_path({str(release / LAUNCHER_NAME)!r})",
         ]
     result = subprocess.run(command, capture_output=True, text=True, check=True)

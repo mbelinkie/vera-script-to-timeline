@@ -28,7 +28,9 @@ def launch(injected_resolve: object) -> None:
         raise RuntimeError("symbolic link in installed request path")
     request_bytes = request_path.read_bytes()
     request = json.loads(request_bytes)
-    qualification = request.get("schemaVersion") == "vera-native-qualification-request/v1"
+    qualification = (
+        request.get("schemaVersion") == "vera-native-qualification-request/v1"
+    )
     binding = request["binding"] if qualification else request
     release_path = release_root / "release.json"
     if release_path.is_symlink():
@@ -89,8 +91,15 @@ def launch(injected_resolve: object) -> None:
     if qualification:
         # Retain exact input provenance before importing the installed controller.
         if (
-            set(request) != {"schemaVersion", "issueNumber", "action", "binding",
-                             "authorityPath", "authoritySha256"}
+            set(request)
+            != {
+                "schemaVersion",
+                "issueNumber",
+                "action",
+                "binding",
+                "authorityPath",
+                "authoritySha256",
+            }
             or type(request["issueNumber"]) is not int
             or request["issueNumber"] != 204
             or request["action"] != "capability_preflight"
@@ -99,7 +108,12 @@ def launch(injected_resolve: object) -> None:
         authority_path = Path(request["authorityPath"])
         approval_path = Path(binding["approvalPath"])
         evidence = Path(binding["evidenceDir"])
-        inputs = (authority_path, approval_path, evidence, Path(binding["repositoryRoot"]))
+        inputs = (
+            authority_path,
+            approval_path,
+            evidence,
+            Path(binding["repositoryRoot"]),
+        )
         if any(
             not path.is_absolute()
             or any(part.is_symlink() for part in (path, *path.parents))
@@ -131,7 +145,10 @@ def launch(injected_resolve: object) -> None:
                     "repositorySourcePins": binding["repositorySourcePins"],
                     "target": binding["target"],
                     "qualified": False,
-                }, stream, indent=2, sort_keys=True,
+                },
+                stream,
+                indent=2,
+                sort_keys=True,
             )
     sys.dont_write_bytecode = True
     sys.pycache_prefix = None
@@ -178,7 +195,9 @@ except Exception as error:
             attestation_path = Path(config["attestationPath"])
             if attestation_path.exists():
                 protected_roots.append(
-                    Path(json.loads(attestation_path.read_text())["packageDir"]).resolve()
+                    Path(
+                        json.loads(attestation_path.read_text())["packageDir"]
+                    ).resolve()
                 )
         if (
             not evidence.is_absolute()

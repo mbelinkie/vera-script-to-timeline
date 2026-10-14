@@ -1,0 +1,24 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--frozen",
+    "pytest",
+    "tests/test_issue204_native_preflight.py",
+    "tests/test_issue177_handoff.py",
+    "tests/test_workflow_v2.py",
+    "tests/test_workflow_release.py::test_release_is_reproducible_and_refuses_replacement",
+    "tests/test_workflow_release.py::test_installed_launcher_retains_unique_missing_attestation_reports",
+    "tests/test_workflow_release.py::test_finder_metadata_does_not_invalidate_installed_release",
+    "tests/test_workflow_release.py::test_bootstrap_integrity_refuses_before_import",
+    "tests/test_workflow_release.py::test_bootstrap_resets_external_pycache_prefix_before_import",
+    "tests/test_workflow_release.py::test_bootstrap_refuses_second_launch_with_same_runtime_loaded",
+    "tests/test_workflow_release.py::test_shipped_six_file_runtime_imports_under_python_s",
+    "-q",
+    "--durations=25"
+  ],
+  "pid": 31357,
+  "runnerPid": 31307,
+  "sourceSnapshot": "candidate-start.json",
+  "startedAt": "2026-10-14T11:56:27.250267+00:00"
+}

@@ -151,3 +151,50 @@ real unqualified gap evidence remain pending. The target UID handoff must come
 from an existing audited result; if unavailable, return the exact missing
 readiness boundary before preparing authority. Never guess or run a console
 fallback. #204 and #178 remain open; no successor is dispatched.
+
+## First focused validation — passed, broader gates held
+
+Coordinator expressly granted the sole #204 focused slot after #192's actual
+completed local qualification and explicit drained release. Claim and clean
+static checkpoint were reverified, and the competing process inventory was
+empty. Accepted `main` is `deaa75c90b5486e500cb69266faa7bdf09697efc` (#202),
+whose delta from bd6048b changes only the pure TS revision core, its tests and
+docs. Shared native/CLI/launcher/config/lock inputs are unchanged. Rebased the
+two owned commits onto that accepted revision without importing unmerged #192;
+rebased static draft `6f3c0201eaf365ba9fc9ad2f85208c247d1b5c06` retains the
+original readiness/input identities. Historical static hashes remain historical.
+
+No ignored dependency environment existed here. Fresh `uv sync --frozen` used
+CPython3.12.14 and exited zero. Fresh pinned `npm ci --ignore-scripts` exited
+zero without manifest/lock changes. Default Node26 was never used for compiler
+regressions; task PATH selects Node24.19.0/npm11.17.0 from the VERA toolchain,
+with actual binary hash/version recorded. uv0.12.5 and host platform are recorded
+in the focused candidate receipt. There are no symlinked borrowed dependencies.
+
+First format succeeded; initial lint failed with six style findings and the
+initial strict type check failed on two unchecked callable narrowing sites.
+Both failures are retained, then fixed within owned source/test files.
+No assertion, timeout, accepted test or refusal was weakened. The final bounded
+serial set passed Ruff, format-check and strict mypy on five owned files,
+then **86 tests passed in 16.61s**, with `--durations=25`. The selection covers
+new #204 refusal/preservation tests, unchanged complete #177 handoff/v2 delivery
+tests, and seven specifically selected v1 release/bootstrap tests. Media-fixture
+and slow v1 tests were outside this focused grant, not claimed passed. No media,
+native, installation, Claude or full/fast gate ran.
+
+Retained commands/source/input/tool/environment snapshots, PID/start/log and
+actual immutable exit-zero receipts are in
+`docs/verification/issue-204/focused-r1/`; `summary.json` maps their hashes.
+Every final stage confirms consumed source unchanged during execution.
+Frozen contracts/fixtures/generated output, locks/manifests, accepted selected
+tests, routine `workflow_v2.py` and #190/#192 native/records files compare
+unchanged to accepted integration main. Whitespace diff passes. No owned job
+remains live; the focused runner naturally exited zero.
+
+Next complete fast gate, required adversarial Claude review/fixes/delta and
+final qualifying evidence need the coordinator's next grant. Actual installed
+External report and operator UID/authority/None confirmation remain later.
+Estimated remaining hands-on fixes/review/handoff work: 60–120 minutes, moderate
+confidence after focused results; semantic review findings may expand that
+range. Full-gate runtime, queue, installation/operator and acceptance waiting
+are additional and have no promised ETA. #204 stays open/In progress.

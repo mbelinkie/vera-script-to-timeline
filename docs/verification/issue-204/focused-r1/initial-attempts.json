@@ -1,0 +1,38 @@
+{
+  "integrationBaseline": "deaa75c90b5486e500cb69266faa7bdf09697efc",
+  "rebasedDraft": "6f3c0201eaf365ba9fc9ad2f85208c247d1b5c06",
+  "frozenUvSync": {
+    "session": 19474,
+    "exitCode": 0,
+    "python": "3.12.14"
+  },
+  "frozenNpmCi": {
+    "session": 49424,
+    "exitCode": 0,
+    "node": "24.19.0",
+    "npm": "11.17.0",
+    "ignoreScripts": true
+  },
+  "firstRuffFormat": {
+    "exitCode": 0,
+    "reformattedFiles": 4
+  },
+  "firstRuffCheck": {
+    "exitCode": 1,
+    "findings": [
+      "SIM905 at controller561 and580",
+      "E501 controller561,611,693",
+      "E501 test331"
+    ]
+  },
+  "firstMypy": {
+    "session": 59259,
+    "exitCode": 1,
+    "findings": [
+      "controller500 None not callable",
+      "controller819 None not callable"
+    ],
+    "filesChecked": 5
+  },
+  "disposition": "explicit callable assertions preserve fail-closed validation; string literals shortened/list literals substituted; no assertion or gate weakened"
+}
