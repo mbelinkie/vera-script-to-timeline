@@ -54,11 +54,12 @@ function stamp(document: ScriptDocumentV2, prior: ScriptDocumentV2) {
 }
 function ready(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2) {
   const compiled = compileTimelineV2(document, dependencies);
-  fact(compiled.ok && compiled.report.status === "ready", `pure revision compile refused: ${canonicalJson(compiled)}`);
+  if (!compiled.ok) throw new Error(`pure revision compile refused: ${canonicalJson(compiled.diagnostics.map((d) => d.code))}`);
+  if (compiled.report.status !== "ready") throw new Error(`pure revision compile refused: ${canonicalJson(compiled.report.diagnostics.map((d) => d.code))}`);
   return compiled;
 }
 
-/** Host uses this exact request/dependency hash to obtain the accepted #191 handoff. */
+/** Bind #191 to these inputs after preparing media for the actual fresh row duration. */
 export function prepareRevisionInputsV2(
   input: ScriptDocumentV2, prior: CompilerDependenciesV2,
   commands: RevisionCommandsV2, preparedMedia: PreparedMediaBindingV1[],
@@ -154,26 +155,50 @@ function eventImpact(event: TimelineEventV2 | undefined) {
     sourceTimeMapping: event.sourceTimeMapping, preparationBindingHash: event.preparationBindingHash,
     trackId: event.trackId, sourceId: event.provenance.sourceId };
 }
-function comparison(before: TimelineManifestV2, after: TimelineManifestV2): RevisionComparisonV2[] {
+function blockLabel(document: ScriptDocumentV2, blockId: string | null, slotId?: string | null): string {
+  const index = document.activeDraft.blocks.findIndex((b) => b.id === blockId);
+  const block = document.activeDraft.blocks[index];
+  if (!block) return "Programme";
+  const slot = block.type === "narration" ? block.primaryVisualSequence?.slots.findIndex((s) => s.id === slotId) : undefined;
+  return `Block ${index + 1} (${block.type})${slot !== undefined && slot >= 0 ? `, slot ${slot + 1}` : ""}`;
+}
+function comparison(document: ScriptDocumentV2, before: TimelineManifestV2, after: TimelineManifestV2): RevisionComparisonV2[] {
   const rows: RevisionComparisonV2[] = [{ label: "Programme frames", before: before.timeline.durationFrames, after: after.timeline.durationFrames }];
   const ids = [...new Set([...before.events, ...after.events].map((e) => e.eventId))].sort();
   for (const id of ids) {
     const a = eventImpact(before.events.find((e) => e.eventId === id));
     const b = eventImpact(after.events.find((e) => e.eventId === id));
-    if (!equal(a, b)) rows.push({ label: `Event ${id}`, before: a, after: b });
+    if (!equal(a, b)) {
+      const event = b ?? a!;
+      rows.push({ label: `${blockLabel(document, event.blockId, event.slotId)}: ${event.kind}`, before: a, after: b });
+    }
   }
-  if (!equal(before.sources, after.sources)) rows.push({ label: "Media/audio sources", before: before.sources, after: after.sources });
+  const sources = [...new Set([...before.sources, ...after.sources].map((s) => s.id))].sort();
+  for (const id of sources) {
+    const a = before.sources.find((s) => s.id === id) ?? null;
+    const b = after.sources.find((s) => s.id === id) ?? null;
+    if (!equal(a, b)) rows.push({ label: `Source ${id}`, before: a, after: b });
+  }
   return rows;
 }
+const escapeCell = (text: string) => text.replace(/\\/gu, "\\\\").replace(/\|/gu, "\\|").replace(/[\r\n]+/gu, " ");
 function readable(value: unknown): string {
   if (value === null) return "Absent";
-  if (typeof value === "string") return value.replace(/\|/gu, "\\|").replace(/\r?\n/gu, " ");
+  if (typeof value === "string") return value;
   if (typeof value !== "object") return canonicalJson(value);
   if ("record" in value) {
     const e = value as ReturnType<typeof eventImpact> & object;
-    return `${e.kind}: record [${e.record.startFrame},${e.record.endFrame}), source ${e.source ? `[${e.source.startFrame},${e.source.endFrame})` : "none"}; media ${e.media ?? "none"}; timing ${e.timing ?? "none"}; audio ${e.audio ? `${e.audio.audioPolicy}, ${e.audio.gainDb} dB, samples [${e.audio.sampleRange.startFrame},${e.audio.sampleRange.endFrame})` : "none"}`;
+    return `record [${e.record.startFrame},${e.record.endFrame}), source ${e.source ? `[${e.source.startFrame},${e.source.endFrame})` : "none"}; track ${e.trackId}; media ${e.media ?? "none"}; timing ${e.timing ?? "none"}; audio ${e.audio ? `${e.audio.audioPolicy}, ${e.audio.gainDb} dB, samples [${e.audio.sampleRange.startFrame},${e.audio.sampleRange.endFrame})` : "none"}; picture ${canonicalJson(e.picture)}; mapping ${sha256CanonicalJson(e.sourceTimeMapping)}; preparation ${e.preparationBindingHash ?? "none"}`;
   }
-  return canonicalJson(value).replace(/\|/gu, "\\|").replace(/\n/gu, " ");
+  if ("narrationAudio" in value) {
+    const s = value as Extract<TimelineManifestV2["sources"][number], { narrationAudio: unknown }>;
+    return `Narration asset ${s.narrationAudio.narrationAssetId}; audio ${s.narrationAudio.audioHash}; ${s.narrationAudio.durationSamples} samples at ${s.narrationAudio.sampleRate} Hz`;
+  }
+  if ("deliveredHash" in value) {
+    const s = value as Extract<TimelineManifestV2["sources"][number], { deliveredHash: unknown }>;
+    return `Media ${s.mediaReferenceId}; original ${s.originalHash}; delivered ${s.deliveredHash}; mapping ${sha256CanonicalJson(s.sourceTimeMapping)}`;
+  }
+  return canonicalJson(value);
 }
 export function createRevisionProposalV2(input: ScriptDocumentV2, prior: CompilerDependenciesV2, request: RevisionRequestV2) {
   keys(request, "commands preparedMedia handoff");
@@ -197,11 +222,12 @@ export function createRevisionProposalV2(input: ScriptDocumentV2, prior: Compile
   fact(compiled.manifestJson === repeated.manifestJson && compiled.reportJson === repeated.reportJson, "nondeterministic revision");
   fact(dependencies.build.buildId !== prior.build.buildId && dependencies.build.manifestId !== prior.build.manifestId &&
     dependencies.build.reportId !== prior.build.reportId, "fresh build identities required");
-  const rows = comparison(before.manifest, compiled.manifest);
+  const rows = comparison(input, before.manifest, compiled.manifest);
+  const textRows: RevisionComparisonV2[] = [];
   for (const block of input.activeDraft.blocks) {
     const revised = stage.document.activeDraft.blocks.find((b) => b.id === block.id);
     if (block.type === "narration" && revised?.type === "narration" && block.text !== revised.text) {
-      rows.unshift({ label: `Narration ${block.id}`, before: block.text, after: revised.text });
+      textRows.push({ label: `${blockLabel(input, block.id)}: narration text`, before: block.text, after: revised.text });
     }
   }
   const value = {
@@ -209,8 +235,8 @@ export function createRevisionProposalV2(input: ScriptDocumentV2, prior: Compile
     baselineDocumentHash: sha256CanonicalJson(input), baselineDependenciesHash: sha256CanonicalJson(prior),
     baselineLiveHeadSequence: input.liveHeadSequence, request: structuredClone(request),
     document: stage.document, dependencies, manifest: compiled.manifest, report: compiled.report,
-    manifestJson: compiled.manifestJson, reportJson: compiled.reportJson, comparison: rows,
-    comparisonText: `| Change | Before | After |\n| --- | --- | --- |\n${rows.map((r) => `| ${r.label} | ${readable(r.before)} | ${readable(r.after)} |`).join("\n")}`,
+    manifestJson: compiled.manifestJson, reportJson: compiled.reportJson, comparison: [...textRows, ...rows],
+    comparisonText: `| Change | Before | After |\n| --- | --- | --- |\n${[...textRows, ...rows].map((r) => `| ${escapeCell(r.label)} | ${escapeCell(readable(r.before))} | ${escapeCell(readable(r.after))} |`).join("\n")}`,
   };
   return { ...value, proposalHash: sha256CanonicalJson(value) };
 }
