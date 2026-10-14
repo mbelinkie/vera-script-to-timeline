@@ -157,7 +157,14 @@ describe("#202 pure explicit commands (synthetic, no native/provider authenticat
       expect(events.find((e) => e.provenance.blockId === id(60) && e.kind === kind)!.recordRange).toEqual({ startFrame: 1019, endFrame: 1082 });
     }
     expect(events.find((e) => e.provenance.blockId === id(50) && e.kind === "primary_visual")!.sourceRange).toEqual({ startFrame: 2664, endFrame: 2731 });
+    const audio = events.find((e) => e.provenance.blockId === id(50) && e.kind === "source_audio")!.audio!;
+    expect(audio.sampleRange).toEqual({ startFrame: 2664 * 2002, endFrame: 2731 * 2002 });
     expect(proposal.comparisonText).toContain("Before | After");
+    expect(proposal.comparisonText).toContain("Block 3 (narration), slot 2");
+    expect(proposal.comparisonText).toContain("track ");
+    expect(proposal.comparisonText).toContain("picture ");
+    expect(proposal.comparisonText).toContain("mapping ");
+    expect(proposal.comparisonText).not.toContain("decodedPackageFrameCount");
     expect(canonicalJson(input)).toBe(bytes);
   });
   for (const d1 of [187, 200, 213]) it(`composes actual fresh compiled D1=${d1}, preserves neighbors and parked state`, () => {
@@ -227,5 +234,38 @@ describe("#202 pure explicit commands (synthetic, no native/provider authenticat
     expect(blocked.ok && blocked.report.diagnostics.map((d) => d.code)).toContain("SOURCE_INSUFFICIENT");
     expect(() => createRevisionProposalV2(short.document, short.dependencies, { commands: c.command, preparedMedia: c.preparedMedia, handoff: shortHandoff })).toThrow("blocked/nondeterministic/mutated replacement preview");
     expect(canonicalJson(c.input)).toBe(bytes);
+  });
+  it("refuses unrelated media, changed profile/authorization, real picture-only input and unexpected handoff", () => {
+    const input = specimen(); const bytes = canonicalJson(input);
+    const request = { commands: commands(), preparedMedia: patches(input).slice(1), handoff: null };
+    const unrelated = structuredClone(request);
+    unrelated.preparedMedia.push(structuredClone(input.dependencies.preparedMedia.find((b) => b.requirementKey === "prep:41")!));
+    expect(() => createRevisionProposalV2(input.document, input.dependencies, unrelated)).toThrow(/unrelated\/duplicate/);
+    for (const key of ["profile", "authorization"] as const) {
+      const changed = structuredClone(request);
+      if (key === "profile") changed.preparedMedia[0]!.profile.profileHash = hash("different profile");
+      else changed.preparedMedia[0]!.authorizationReference = "different authority";
+      expect(() => createRevisionProposalV2(input.document, input.dependencies, changed)).toThrow(/source\/profile\/authorization changed/);
+    }
+    const pictureOnly = structuredClone(input);
+    const block = pictureOnly.document.activeDraft.blocks.find((b) => b.id === id(50));
+    if (block?.type !== "visual_only") throw new Error("standalone missing");
+    block.payload.audioPolicy = "mute";
+    const baseline = compileTimelineV2(pictureOnly.document, pictureOnly.dependencies);
+    expect(baseline.ok && baseline.report.status).toBe("ready");
+    expect(() => createRevisionProposalV2(pictureOnly.document, pictureOnly.dependencies, request)).toThrow(/linked standalone AV clip required/);
+    expect(() => createRevisionProposalV2(input.document, input.dependencies, { ...request, handoff: cCase(200).handoff })).toThrow(/unexpected whole-row handoff/);
+    expect(canonicalJson(input)).toBe(bytes);
+  });
+  it("refuses malformed decisions and duplicate/invalid histories without mutation", () => {
+    const input = specimen(); const bytes = canonicalJson(input);
+    const proposal = createRevisionProposalV2(input.document, input.dependencies, { commands: commands(), preparedMedia: patches(input).slice(1), handoff: null });
+    expect(() => decideRevisionV2(input.document, input.dependencies, proposal, Object.assign(decision(proposal), { unknown: true }), [])).toThrow(/unsupported pure input fields/);
+    expect(() => decideRevisionV2(input.document, input.dependencies, proposal, Object.assign(decision(proposal), { outcome: "maybe" }), [])).toThrow(/unsupported decision/);
+    for (const history of [["not a hash"], [hash("old"), hash("old")]]) {
+      expect(() => decideRevisionV2(input.document, input.dependencies, proposal, decision(proposal, history), history)).toThrow(/stale\/malformed decision history/);
+    }
+    expect(() => decideRevisionV2(input.document, input.dependencies, proposal, { ...decision(proposal), proposalHash: hash("different proposal") }, [])).toThrow(/identity changed/);
+    expect(canonicalJson(input)).toBe(bytes);
   });
 });
