@@ -1,4 +1,4 @@
-# #208 independent review disposition — delta review pending
+# #208 independent review disposition — delta GO, real-app gate held
 
 Actual Opus 5.5/high review on `b2bd045` returned **NO-GO**. It ran with safe
 mode, strict MCP, empty tools and no session persistence using CLI 2.1.299.
@@ -78,7 +78,31 @@ All remain synthetic and never qualify the installed Studio runtime.
 
 Accepted CN-207-ID1, adopted #204 tests, frozen/shared/generated/lock boundaries,
 ordinary #177 capability/build guards and accepted #190/#192 native sources stay
-unchanged. New runtime pins invalidate the old release and earlier fast-pass
-equivalence. A fresh affected run, complete fast gate and independent delta
-review are required before a concrete operator handoff; actual identity and
-#204 preflight evidence still precede final full validation.
+unchanged. New runtime pins invalidate the old #204 release.
+
+## Actual delta review and handoff
+
+Actual Opus 5.5/high delta review returned **GO** on
+`1b49081fe40271695a91e9136f3f6106332f8da4`. Its result SHA256 is
+`24eecea00521cab681e2daa0506b7c7abd97d473233c2bfbeed7ef188005b67b`.
+`claude-r2/` retains the result, exact context pins, startup and exit receipts.
+The reviewer resolved B1–B4 and found no defect blocking the operator handoff.
+The reviewer ran no tests; the fast pass is owner evidence. Review GO supplies
+neither installation authority nor External acceptance.
+
+After GO, both validator copies received only the same comment correction:
+negative sampled intervals refuse, while sufficiently small between-sample
+steps can be indistinguishable from supported rate/sampling uncertainty.
+Their ASTs match the reviewed commit. No clock algorithm or deadline changed.
+A forward wall-clock correction can conservatively distort receipt age;
+uncertain clock behavior requires fresh capture. Runtime qualification remains
+unobserved. The checklist now states Resolve-user ownership/readability and
+that printed partial failures are not consumable receipts. The shared-root
+import-shadowing watch item remains an actual-runtime observation requirement.
+
+Additional synthetic coverage checks protected-output noncreation, a request
+bound to another valid authority, and expiry during capability preflight.
+The affected run passed nine cases; fresh lint, format and complete Python
+type checks passed. The [handoff](operator/README.md) pins the fresh release
+and records behavior equivalence and these remaining gates. Actual installed
+identity and #204 capability reports still precede final full validation.

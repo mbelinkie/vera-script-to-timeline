@@ -355,6 +355,8 @@ def test_matching_unsafe_bootstrap_binding_retention_is_unavailable(
     }
     assert calls == [] and "unavailable" in console
     assert before == after
+    if where != "approval":
+        assert not output.exists()
     assert not list((tmp_path / "evidence").glob("bootstrap-started-*"))
 
 

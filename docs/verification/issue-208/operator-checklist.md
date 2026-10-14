@@ -1,9 +1,10 @@
-# #208 operator gate — draft, held pending review and exact release pins
+# #208 operator gate — prepared, real-app gate held
 
 This is a checklist for the operator, not an installation or Resolve grant.
-The coordinator must first supply the reviewed commit, new release manifest
-SHA256, complete inventory, and concrete private paths. No real authority has
-been issued and no real target names have been supplied. #204's old prepared
+The [prepared handoff](operator/README.md) supplies the reviewed commit, new
+release manifest SHA256, complete inventory, and concrete private paths.
+The coordinator must supply the exact installation/runtime grant. No real
+authority has been issued and no real target names have been supplied. #204's old prepared
 release `d4ec949a...` is stale after these runtime changes.
 
 1. Open the coordinator's exact reviewed handoff and compare its source and
@@ -15,6 +16,9 @@ release `d4ec949a...` is stale after these runtime changes.
    mode 0400. Use repository/evidence locations that Resolve can access without
    TCC prompts. `--installed-root` must exactly spell the script's parent path;
    when Resolve omits `__file__`, use the bootstrap's declared plugin root.
+   The installed request must be owned by the user who runs Resolve; root-owned
+   mode-0400 copies are unreadable by that user. Release files must also be
+   readable by that user. Preserve those permissions through the manual copy.
 2. Personally select an already-saved disposable NONproduction current project
    and timeline in Studio 21.1.1 build 10. Supply their two exact visible names;
    invisible UIDs are not inputs. Confirm read-only operation and External
@@ -30,7 +34,10 @@ release `d4ec949a...` is stale after these runtime changes.
    launch **VERA Delivery v2** once. No console/MCP/UI scripting fallback.
 5. Inspect `bootstrap-started-<UUID>.json`, `controller-started-<UUID>.json`,
    `result-<UUID>.json` and `hashes-<UUID>.json` in the original private evidence
-   root. Expected: `identity_observed`, two agreeing complete name/UID reads,
+   root. Console prints, including the early failure print with `finishedAt:null`,
+   are not consumable receipts. A successful result plus its complete retained
+   hash lineage is required. Inspect the saved JSON files themselves.
+   Expected: `identity_observed`, two agreeing complete name/UID reads,
    actual runtime/build, and all qualification/verification/effects flags false.
    A stopped result or missing hash lineage supplies no usable identity.
 6. Personally compare the displayed names and UID pair with the selected target.

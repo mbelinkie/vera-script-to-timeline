@@ -148,7 +148,8 @@ class TIClock:
         # XNU MAXFREQ=500000 ns/s: allow up to 500 ppm calendar rate skew.
         # The 2 us floor covers two datetime samples, not a step tolerance.
         # Larger slews (including adjtime's 5000 ppm mode) are clock uncertainty.
-        # Every observable negative wall/monotonic interval still refuses.
+        # Strict negative elapsed intervals refuse; smaller between-sample steps
+        # can be indistinguishable from supported rate/sampling uncertainty.
         elapsed = monotonic - self.monotonic
         wall_elapsed = (wall - self.wall).total_seconds()
         ti_require(
