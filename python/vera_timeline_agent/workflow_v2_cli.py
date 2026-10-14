@@ -27,6 +27,7 @@ RUNTIME_FILES = (
     "workflow_v2.py",
     "workflow_v2_launcher.py",
     "native_qualification_v2.py",
+    "target_identity_v2.py",
 )
 BUILD_FILES = (
     "timeline-manifest.json",
@@ -227,6 +228,37 @@ def main(argv: Sequence[str] | None = None) -> int:
     capability = commands.add_parser("capability-request")
     capability.add_argument("authority", type=Path)
     capability.add_argument("--output", type=Path, required=True)
+    identity = commands.add_parser("identity-authorize")
+    identity.add_argument("--release", type=Path, required=True)
+    identity.add_argument("--installed-root", type=Path, required=True)
+    identity.add_argument("--approval", type=Path, required=True)
+    identity.add_argument("--operator", required=True)
+    identity.add_argument("--project-name", required=True)
+    identity.add_argument("--timeline-name", required=True)
+    identity.add_argument("--output", type=Path, required=True)
+    identity.add_argument("--evidence-dir", type=Path, required=True)
+    identity.add_argument(
+        "--confirm-saved-disposable-nonproduction", action="store_true"
+    )
+    identity.add_argument("--confirm-read-only", action="store_true")
+    identity.add_argument("--external-scripting-none", action="store_true")
+    identity_request = commands.add_parser("identity-request")
+    identity_request.add_argument("authority", type=Path)
+    identity_request.add_argument("--output", type=Path, required=True)
+    from_identity = commands.add_parser("capability-authorize-from-identity")
+    from_identity.add_argument("result", type=Path)
+    from_identity.add_argument("--result-sha256", required=True)
+    from_identity.add_argument("--acknowledge-result-sha256", required=True)
+    from_identity.add_argument("--confirm-displayed-target", action="store_true")
+    from_identity.add_argument("--approval", type=Path, required=True)
+    from_identity.add_argument("--operator", required=True)
+    from_identity.add_argument("--output", type=Path, required=True)
+    from_identity.add_argument("--evidence-dir", type=Path, required=True)
+    from_identity.add_argument(
+        "--confirm-saved-disposable-nonproduction", action="store_true"
+    )
+    from_identity.add_argument("--confirm-read-only", action="store_true")
+    from_identity.add_argument("--external-scripting-none", action="store_true")
     arguments = parser.parse_args(argv)
     try:
         if arguments.command == "attest":
@@ -260,6 +292,76 @@ def main(argv: Sequence[str] | None = None) -> int:
             output = prepare_capability_request(
                 arguments.output.absolute(),
                 authority_path=arguments.authority.absolute(),
+            )
+        elif arguments.command == "identity-authorize":
+            from .target_identity_v2 import create_identity_authority
+
+            _verify_release(arguments.release)
+            output = create_identity_authority(
+                arguments.output.absolute(),
+                release_root=arguments.release.absolute(),
+                installed_root=arguments.installed_root.absolute(),
+                repository_root=Path(__file__).resolve().parents[2],
+                target={
+                    "projectName": arguments.project_name,
+                    "timelineName": arguments.timeline_name,
+                },
+                evidence_dir=arguments.evidence_dir.absolute(),
+                approval_path=arguments.approval.absolute(),
+                operator=arguments.operator,
+                confirm_saved_disposable=arguments.confirm_saved_disposable_nonproduction,
+                confirm_read_only=arguments.confirm_read_only,
+                external_scripting_none=arguments.external_scripting_none,
+            )
+        elif arguments.command == "identity-request":
+            from .target_identity_v2 import prepare_identity_request
+
+            output = prepare_identity_request(
+                arguments.output.absolute(),
+                authority_path=arguments.authority.absolute(),
+            )
+        elif arguments.command == "capability-authorize-from-identity":
+            import json
+
+            from .target_identity_v2 import (
+                create_capability_authority_from_identity,
+                ti_receipt,
+            )
+
+            observed, _ = ti_receipt(
+                arguments.result.absolute(), arguments.result_sha256
+            )
+            print(
+                json.dumps(
+                    {
+                        "resultSha256": arguments.result_sha256,
+                        "target": observed["target"],
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
+            # Confirmation is an attended operator decision; no target substitution.
+            if (
+                input(
+                    "Confirm all four displayed identifiers and the current target; "
+                    "type CONFIRM: "
+                )
+                != "CONFIRM"
+            ):
+                raise ValueError("displayed target was not confirmed")
+            output = create_capability_authority_from_identity(
+                arguments.output.absolute(),
+                result_path=arguments.result.absolute(),
+                result_sha256=arguments.result_sha256,
+                acknowledge_result_sha256=arguments.acknowledge_result_sha256,
+                confirm_displayed_target=arguments.confirm_displayed_target,
+                approval_path=arguments.approval.absolute(),
+                evidence_dir=arguments.evidence_dir.absolute(),
+                operator=arguments.operator,
+                confirm_saved_disposable=arguments.confirm_saved_disposable_nonproduction,
+                confirm_read_only=arguments.confirm_read_only,
+                external_scripting_none=arguments.external_scripting_none,
             )
         else:
             from .workflow_v2 import load_verified_package_v2

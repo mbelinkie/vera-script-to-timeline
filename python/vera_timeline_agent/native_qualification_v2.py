@@ -35,6 +35,7 @@ RUNTIME_FILES = (
     "workflow_v2.py",
     "workflow_v2_launcher.py",
     "native_qualification_v2.py",
+    "target_identity_v2.py",
 )
 SOURCE_FILES = (
     *(f"python/vera_timeline_agent/{name}" for name in RUNTIME_FILES),
@@ -436,6 +437,14 @@ def create_capability_authority(
 
 
 def prepare_capability_request(output: Path, *, authority_path: Path) -> Path:
+    if _object(_read(authority_path)).get("schemaVersion") == (
+        "vera-native-qualification-authority/v2"
+    ):
+        from .target_identity_v2 import prepare_capability_request_from_identity
+
+        return prepare_capability_request_from_identity(
+            output, authority_path=authority_path
+        )
     authority, digest = _authority(authority_path)
     _path(str(output))
     binding = authority["binding"]
@@ -461,6 +470,10 @@ def prepare_capability_request(output: Path, *, authority_path: Path) -> Path:
 
 def _request(path: Path, expected: str) -> dict[str, Any]:
     payload = _read(path)
+    if _object(payload).get("schemaVersion") == "vera-native-qualification-request/v2":
+        from .target_identity_v2 import ti_cap_request
+
+        return ti_cap_request(path, expected)
     _require(_digest(payload) == _hash(expected), "request drift")
     request = _closed(
         _object(payload),
@@ -806,6 +819,38 @@ def run_capability_preflight(
 ) -> Path:
     request = _request(request_path, expected_request_sha256)
     binding = request["binding"]
+    receipt_backed = request["schemaVersion"] == "vera-native-qualification-request/v2"
+    receipt_clock = None
+    if receipt_backed:
+        from .target_identity_v2 import (
+            TIClock,
+            ti_cap_started,
+            ti_clock_check,
+            ti_path,
+            ti_protected,
+            ti_publish,
+            ti_receipt,
+            ti_time,
+        )
+
+        started = ti_cap_started(request, expected_request_sha256)
+        authority = _object(_read(_path(request["authorityPath"])))
+        identity_result, _ = ti_receipt(
+            ti_path(authority["identityReceipt"]["resultPath"]),
+            authority["identityReceipt"]["resultSha256"],
+        )
+        ti_publish(
+            ti_path(binding["evidenceDir"])
+            / f"controller-started-{started['invocationId']}.json",
+            started,
+            ti_protected(
+                identity_result["binding"],
+                [request_path, _path(request["authorityPath"])],
+            ),
+        )
+        receipt_clock = TIClock(
+            ti_time(started["startedAt"]), started["monotonicStarted"]
+        )
     evidence = _path(binding["evidenceDir"])
     evidence.mkdir(mode=0o700, parents=True, exist_ok=True)
     run_id = uuid.uuid4().hex
@@ -837,11 +882,28 @@ def run_capability_preflight(
 
     def guard() -> tuple[Any, Any]:
         nonlocal guarded_rows
+        if receipt_clock is not None:
+            ti_clock_check(receipt_clock)
+            ti_cap_started(request, expected_request_sha256)
         _require(
             _request(request_path, expected_request_sha256) == request,
             "preflight inputs changed",
         )
         context = _context(resolve, binding["target"], seen)
+        if receipt_backed:
+            product = seen.get(
+                resolve, "resolve", "GetProductName", kind="text", required=True
+            )
+            version = seen.get(
+                resolve, "resolve", "GetVersion", kind="list", required=True
+            )
+            _require(
+                product == "DaVinci Resolve Studio"
+                and len(version) == 5
+                and all(type(n) is int for n in version[:4])
+                and version == [21, 1, 1, 10, ""],
+                "receipt-backed runtime drift",
+            )
         guarded_rows = len(seen.rows)
         return context
 
@@ -1021,6 +1083,32 @@ def run_capability_preflight(
         lastGuardedRowCount=guarded_rows,
     )
     print(json.dumps(result, sort_keys=True))
+    if receipt_backed:
+        assert receipt_clock is not None
+        ti_clock_check(receipt_clock)
+        _request(request_path, expected_request_sha256)
+        ti_cap_started(request, expected_request_sha256)
+        protected = ti_protected(
+            identity_result["binding"],
+            [
+                request_path,
+                _path(request["authorityPath"]),
+                _path(binding["approvalPath"]),
+            ],
+        )
+        report = ti_publish(evidence / f"result-{run_id}.json", result, protected)
+        _request(request_path, expected_request_sha256)
+        ti_clock_check(receipt_clock)
+        ti_publish(
+            evidence / f"hashes-{run_id}.json",
+            {
+                "resultPath": str(report),
+                "resultSha256": _digest(_read(report)),
+                **provenance,
+            },
+            protected,
+        )
+        return report
     report = write_immutable_json(evidence / f"result-{run_id}.json", result)
     write_immutable_json(
         evidence / f"hashes-{run_id}.json",

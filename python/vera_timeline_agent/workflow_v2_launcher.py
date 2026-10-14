@@ -41,8 +41,17 @@ def run_installed_request_v2(
         raise ValueError("operator request changed after release verification")
     request = json.loads(payload)
     if isinstance(request, dict) and request.get("schemaVersion") == (
-        "vera-native-qualification-request/v1"
+        "vera-native-target-identity-request/v1"
     ):
+        from .target_identity_v2 import run_target_identity
+
+        return run_target_identity(
+            resolve, request_path, expected_request_sha256=expected_request_sha256
+        )
+    if isinstance(request, dict) and request.get("schemaVersion") in {
+        "vera-native-qualification-request/v1",
+        "vera-native-qualification-request/v2",
+    }:
         from .native_qualification_v2 import run_capability_preflight
 
         return run_capability_preflight(

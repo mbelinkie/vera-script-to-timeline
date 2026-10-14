@@ -1,0 +1,4 @@
+tests/test_issue208_target_identity.py:823: error: Module "vera_timeline_agent.target_identity_v2" does not explicitly export attribute "os"  [attr-defined]
+tests/test_issue208_target_identity.py:859: error: Module "vera_timeline_agent.target_identity_v2" does not explicitly export attribute "os"  [attr-defined]
+tests/test_issue208_target_identity.py:873: error: Return type "datetime" of "now" incompatible with return type "ExpiredClock" in supertype "datetime.datetime"  [override]
+Found 3 errors in 1 file (checked 4 source files)
