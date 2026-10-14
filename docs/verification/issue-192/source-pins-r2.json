@@ -4,7 +4,9 @@
   "chatId": "01a13775-72eb-7ef0-befe-189389e23036",
   "priorCandidate": "6852cfe840e7fa2e6d33cda31b05ced393d8f899",
   "frozenIssue190": "e17bdc74742bfbb8d1b9ea08db6ff73f35f2caaf",
-  "provisionalCoreFixToImport": "77b82b3ea83bac5f9125571b352cfc0acfc3041b",
+  "newSiblingCandidate": "51712a1983567c8ed7aaa3eaff91f7f1ab355efc",
+  "provisionalCoreFixOriginalCommit": "77b82b3ea83bac5f9125571b352cfc0acfc3041b",
+  "provisionalCoreFixImportedCommit": "677b8e7c42a36c778cfd0270b4f74038aa1b9f8e",
   "coreFixRawSha256": "f6669b700fd676a451a2402c0390cb9fdfc726409c393df91ca9e7d0120069cf",
   "coreFixTestRawSha256": "fcbafc0e11baa1330c612ddc3733bd4d53830693c10b6816899f0605ee0f07eb",
   "approvedNoteRawSha256": "92a28cd3fba89f176d4f633d640f35ef11a2f6564b40f9f6aebabd3c6cb218c8",
@@ -21,6 +23,7 @@
   "executionEvidence": null,
   "reviewEvidence": null,
   "toolchainReceipt": null,
+  "sourceOnlyAudit": "diff vs 77b82 imported files exit0; diff vs e17 native/build/records/compiler/package/frozen boundaries exit0; staged whitespace exit0",
   "nativeConsumerOwnerHandoff": "pending; no owning source edit",
   "frozenBoundaryChange": "none",
   "testDoublesDisposition": "transport units only; genuine combined public path is written and unexecuted"

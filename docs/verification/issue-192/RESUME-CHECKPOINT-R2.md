@@ -47,6 +47,14 @@ acceptance; e66 alone is invalid for final public-package closure. No local edit
 of #202 files or post-decision dependency normalization is permitted. Later owner
 deltas invalidate affected dependent work and require exact rebase/review/checks.
 
+Import completed after own clean candidate
+`51712a1983567c8ed7aaa3eaff91f7f1ab355efc`; exact #202 fix was cherry-picked as
+`677b8e7c42a36c778cfd0270b4f74038aa1b9f8e`. Both imported raw hashes match the
+owning handoff and `git diff --exit-code` against77b82 returned0. Source-only
+comparison of #190 native/build/records, shared compiler/package, contracts,
+fixtures/data/generated againste17 returned0. Staged whitespace returned0.
+These are source/whitespace observations only; no validation or review pass.
+
 ## Remaining gates
 
 1. #190 owner handoff for the exact additional NativeProofBoundaryV2 branch is
