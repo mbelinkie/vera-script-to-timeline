@@ -1,0 +1,13 @@
+{
+  "command": "rtk proxy ctx-wire run uv run --frozen pytest tests/test_issue208_target_identity.py::test_expired_completed_receipt_requires_fresh_capture -q --durations=25",
+  "base": "c758b148bb1370b541ecbca146a3ba74694baf9d",
+  "change": "Exact stale result message with anchored regex; no consumption marker and no capability authority assertions. Subsequent raw-string prefix is semantically identical.",
+  "actualToolResult": {
+    "chunk_id": "d75c0a",
+    "wall_time_seconds": 0.00001497,
+    "exit_code": 0,
+    "original_token_count": 116,
+    "output": ".                                                                        [100%]\n============================= slowest 25 durations =============================\n1.28s call     tests/test_issue208_target_identity.py::test_expired_completed_receipt_requires_fresh_capture\n0.01s setup    tests/test_issue208_target_identity.py::test_expired_completed_receipt_requires_fresh_capture\n\n(1 durations < 0.005s hidden.  Use -vv to show these durations.)\n1 passed in 1.68s\n"
+  },
+  "qualification": false
+}

@@ -873,9 +873,10 @@ def test_expired_completed_receipt_requires_fresh_capture(
             return cls.fromtimestamp(future.timestamp(), tz=UTC)
 
     monkeypatch.setattr(identity, "datetime", ExpiredClock)
-    with pytest.raises(ValueError, match="expired"):
+    with pytest.raises(ValueError, match="^stale identity result$"):
         consume(tmp_path, result, digest)
     assert not list((tmp_path / "evidence").glob("consumed-*"))
+    assert not (tmp_path / "cap-authority.json").exists()
 
 
 def test_monotonic_reset_between_bootstrap_and_controller_refuses(
