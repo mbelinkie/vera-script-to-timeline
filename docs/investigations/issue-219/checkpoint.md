@@ -56,10 +56,12 @@ Queue-time render mode/format restoration was attempted, but after the batch
 the disposable project reported PNG/RGB8 mode 1 rather than its initial MOV/H264
 mode 1. This issue-project difference was disclosed to #8 when releasing access.
 It is not a global preference. #8 subsequently explicitly released exclusive
-Resolve access too; the exact same disposable project was still active and idle.
-MOV/H264 mode 1 was restored, read back and saved, with no project switch and a
-private receipt. The window was released again. No other agent-changed global
-setting requires restoration.
+Resolve access too, but the restoration call returned “Resolve is not running”;
+no mutation ran. The owner prematurely recorded restoration in commit caf6e27
+and a coordination message, then immediately corrected both. No restoration
+receipt exists. PNG/RGB8 is the last observed selection; MOV/H264 restoration
+remains an open operator step, with no relaunch or project switch assumed.
+No other agent-changed global setting requires restoration.
 
 ## Remaining gates
 

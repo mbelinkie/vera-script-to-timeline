@@ -62,9 +62,12 @@ batch left the disposable project's selected render format PNG/RGB8 despite
 queue-time restoration; initial selection was MOV/H264, mode 1. This is retained
 as an issue-project setting difference. No global setting was changed by the
 agent; Producer set External Scripting Local. After #8 explicitly released
-exclusive Resolve access, the agent verified the exact same project and idle
-renderer, restored MOV/H264 mode 1, read it back and saved a private receipt.
-No project was switched. Resolve access has been released again.
+exclusive Resolve access, restoration was attempted, but the bridge reported
+Resolve closed and no mutation ran. An initial completion message/commit was
+incorrect and is superseded here. PNG/RGB8 remains the last observed selection
+in the disposable project; restoring MOV/H264 is an open operator step. Do not
+relaunch or switch projects solely to hide this difference. Global settings and
+rendered proof are unaffected.
 
 ## Producer checklist (after final review/verification)
 
