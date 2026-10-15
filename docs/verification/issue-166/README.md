@@ -47,7 +47,36 @@ unclaimed and undispatched.
 
 ## Verification status
 
-Candidate design and verification-policy update receive a separate Claude CLI
-review. The retained prompt/result/dispositions and final focused documentation
-checks are recorded alongside this file. No runtime or full-suite pass is
-claimed. #166 remains Producer-gated; CN-166-P1 remains separately unapproved.
+Separate read-only Claude CLI review of initial candidate `fd8e5e6` returned
+NO-GO. The owner fixed the two identity/legacy blockers and smaller findings.
+First delta `74013ee` found the v2 report dependency-hash compatibility effect;
+that was corrected and the exact migration exception proposed separately.
+Final reviewed design candidate `d9eef4e3fcb22af4379b1e13a9ff5287f16cc209`
+received **GO**, no remaining blockers. See
+[dispositions](claude-dispositions.md) and [final result](claude-final-result.json).
+Only a Markdown delimiter escape and evidence receipts followed that review.
+
+[Focused checks](focused-checks.json): eight checks pass, including 22 local/
+pinned source references, exact source-interface identities/ancestry, named v2
+graphic fixture inventory and dependency-hash behavior, documentation-only
+frozen-boundary confinement, whitespace and byte-identical qualified-cloud
+policy section. No executable/config/check inputs changed: validate targets,
+contract generator inputs and TypeScript/Python discovery do not consume these
+Markdown or static review records. The documentation-only gate applies; no
+fast/full application suite or runtime acceptance is claimed.
+
+The implementation follow-up #218 is Inbox, unclaimed and undispatched.
+#166 is handed off In review for explicit Producer acceptance of the exact
+design. CN-166-P1 remains a separate unapproved proposal.
+
+## Requested closure follow-up
+
+On 2026-10-15 the Producer requested: “when this issue closes, tell the steward
+to start another thread for 167”. Confirmed thread heartbeat
+`notify-steward-after-issue-166-closes` checks every 15 minutes, remains quiet
+until #166 is Closed/Done with explicit Producer acceptance, then sends one
+message to **VERA Script-to-Timeline Steward**
+(`01a04a91-1c8b-78f0-948c-7eeb68a31ee2`, local) asking it to validate and start
+exactly #167 as a separate visible thread/worktree when its own readiness and
+canonical dependencies permit. The heartbeat then disables itself. No #167
+dispatch, dependency waiver or closure is inferred now.

@@ -1,5 +1,5 @@
 {
-  "candidate": "74013ee9307c922264a54b803311a7d3a426981c",
+  "candidate": "d9eef4e3fcb22af4379b1e13a9ff5287f16cc209",
   "baseline": "22f65c4f2b4ff61e7b08f530cdda3d92fea11d08",
   "result": "PASS",
   "checks": [
@@ -9,7 +9,10 @@
     "accepted source revisions and ancestry",
     "exact #7 revision pattern and main v2 source/diagnostic interface consistency",
     "qualified cloud policy byte-identical section",
-    "synthetic example arithmetic"
+    "synthetic example arithmetic",
+    "v2 dependency hash and three named original graphic fixture inventories",
+    "all retained JSON parses",
+    "Markdown table delimiters"
   ],
   "changedFiles": [
     "docs/VERIFICATION_POLICY.md",
@@ -18,23 +21,25 @@
     "docs/plans/issue-166-proposed-contract-change.md",
     "docs/verification/issue-166/README.md",
     "docs/verification/issue-166/candidate.patch.gz",
+    "docs/verification/issue-166/claude-delta-exit.json",
+    "docs/verification/issue-166/claude-delta-prompt.md",
+    "docs/verification/issue-166/claude-delta-result.json",
+    "docs/verification/issue-166/claude-delta-stderr.txt",
+    "docs/verification/issue-166/claude-delta.patch.gz",
     "docs/verification/issue-166/claude-dispositions.md",
     "docs/verification/issue-166/claude-exit.json",
     "docs/verification/issue-166/claude-prompt.md",
     "docs/verification/issue-166/claude-result.json",
     "docs/verification/issue-166/claude-stderr.txt",
+    "docs/verification/issue-166/focused-checks.json",
     "docs/verification/issue-166/provenance-core-inbox.md",
     "docs/verification/issue-166/review-packet.json"
   ],
   "artifactByteHashes": {
-    "docs/VERIFICATION_POLICY.md": "sha256:fddd80b73b0a7389a0ca797e9c0282a53db81571b830c0cf10552b36ec84a4ca",
-    "docs/design/issue-166-derived-graphic-provenance.md": "sha256:bda09dab81b7c48ae2b69813bbfd102c5a824596e7934db915202e926c6e79d7",
+    "docs/design/issue-166-derived-graphic-provenance.md": "sha256:b91ab157da0be679f6759ad57ed65fddce94af31a0aa96e0c44eec77182eb526",
+    "docs/plans/issue-166-proposed-contract-change.md": "sha256:7b3949440d81e955a1306aeb1de0eed7990539619aed1b60c040295cd4d20716",
     "docs/plans/issue-166-derived-graphic-provenance.md": "sha256:61c22f129342583e5de7ff2a4c9bf584fc05513c78283abfd4007b9565c12396",
-    "docs/plans/issue-166-proposed-contract-change.md": "sha256:0936065816fd4cde84d9e44d5c15c57c88fa84aa9280b17b23a83c5e302fcca8",
-    "docs/verification/issue-166/README.md": "sha256:96cd59693df388047cf3aa6b04de8b2f3f4070511245307144e786e9c229f19a",
-    "docs/verification/issue-166/claude-dispositions.md": "sha256:d339218611cc968744bb3fc7e5831f6b6e579936b900936e8918cb14c821db9f",
-    "docs/verification/issue-166/claude-prompt.md": "sha256:869b6520ee33beead542d7ea36a76c143fc394dc48502b1499d43a52d72beeb1",
-    "docs/verification/issue-166/provenance-core-inbox.md": "sha256:c548288f724c1d401299a5ec559c567b08f4b14d3aa435b8348eff47265a83dd"
+    "docs/VERIFICATION_POLICY.md": "sha256:fddd80b73b0a7389a0ca797e9c0282a53db81571b830c0cf10552b36ec84a4ca"
   },
   "links": [
     {
@@ -148,5 +153,34 @@
       "verified": "local exists"
     }
   ],
-  "suiteDisposition": "Documentation-only gate. No application tests run; executable/config/check inputs unchanged."
+  "suiteDisposition": "Documentation-only gate. package.json validate targets, contract-generator inputs and TypeScript/Python source discovery do not consume these Markdown/review evidence files. No executable/config/check inputs changed; no full or fast application suite run.",
+  "reviewedCandidate": "d9eef4e3fcb22af4379b1e13a9ff5287f16cc209",
+  "postReviewSourceDelta": "CN-166-P1 only: escape two literal Markdown table union delimiters; identical enum and prose. Evidence/status records added.",
+  "linksVerifiedAtFinalHandoff": 32,
+  "finalChangedFiles": [
+    "docs/VERIFICATION_POLICY.md",
+    "docs/design/issue-166-derived-graphic-provenance.md",
+    "docs/plans/issue-166-derived-graphic-provenance.md",
+    "docs/plans/issue-166-proposed-contract-change.md",
+    "docs/verification/issue-166/README.md",
+    "docs/verification/issue-166/candidate.patch.gz",
+    "docs/verification/issue-166/claude-delta-exit.json",
+    "docs/verification/issue-166/claude-delta-prompt.md",
+    "docs/verification/issue-166/claude-delta-result.json",
+    "docs/verification/issue-166/claude-delta-stderr.txt",
+    "docs/verification/issue-166/claude-delta.patch.gz",
+    "docs/verification/issue-166/claude-dispositions.md",
+    "docs/verification/issue-166/claude-exit.json",
+    "docs/verification/issue-166/claude-final-delta.patch.gz",
+    "docs/verification/issue-166/claude-final-exit.json",
+    "docs/verification/issue-166/claude-final-prompt.md",
+    "docs/verification/issue-166/claude-final-result.json",
+    "docs/verification/issue-166/claude-final-stderr.txt",
+    "docs/verification/issue-166/claude-prompt.md",
+    "docs/verification/issue-166/claude-result.json",
+    "docs/verification/issue-166/claude-stderr.txt",
+    "docs/verification/issue-166/focused-checks.json",
+    "docs/verification/issue-166/provenance-core-inbox.md",
+    "docs/verification/issue-166/review-packet.json"
+  ]
 }

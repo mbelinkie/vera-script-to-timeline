@@ -40,3 +40,24 @@ without a derived claim; a new-format non-EV24 graphic blocks until its own
 contract. Declared derived content never downgrades to legacy.
 
 The compatibility wording fix receives a final delta review.
+
+## Final delta review and disposition
+
+Candidate `d9eef4e3fcb22af4379b1e13a9ff5287f16cc209`: separate Claude CLI
+review exit 0, usable **GO**, 56.0 seconds, no remaining blockers.
+[Prompt](claude-final-prompt.md), [delta](claude-final-delta.patch.gz),
+[result](claude-final-result.json), [command/exit](claude-final-exit.json).
+N1 resolved; B1/B2 and M1–M5 remain resolved. Optional wording suggestions
+about holding every other dependency field constant are already bounded by
+CN-166-P1's “only” migration-difference rule; no product/interface change made.
+
+Post-review source difference: escaped two literal union delimiters in the
+CN-166-P1 Markdown table so it renders as two columns. The enum values and
+all technical wording are identical; exact escape-only comparison checked.
+Other delivered differences are review/check evidence and status receipts.
+No additional semantic fix or expensive test was needed.
+
+Earlier whitespace checks caught Git-patch context whitespace and one extra
+trailing prompt blank line in retained evidence. The exact patch is now stored
+losslessly compressed; displayed prompt trailing blank lines are normalized.
+Final baseline-to-delivery whitespace check passes.
