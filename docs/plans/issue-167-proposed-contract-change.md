@@ -49,6 +49,14 @@ The v1 graphic owner is its containing `NarrationBlock` and `VisualEvent.range`
 must bind only that block; any cross-block range/anchor refuses this profile.
 The accepted v1 timing format has word onsets and derived ends only. Its current
 word marks can resolve onset intent after existing exact text/offset/audio checks;
+resolve anchor.tokenId against the frozen `NarrationBlock.tokens[].id`, require
+`token.value === anchor.quotedWord`, and exactly one `kind:"word"` mark with
+`startUtf16 === token.startOffset`, `endUtf16 === token.endOffset` and
+`value === token.value`. `exactTime=timeMs/1000`, reduced, block-local.
+Missing/duplicate token identity, stale anchor/version/text or zero/multiple
+matching marks refuse `GRAPHIC_CUE_TIMING_UNQUALIFIED`; repeated words never
+match by text alone. These existing v1 token/range types are present at accepted
+#7's `script-document-v1.schema.json` (`NarrationToken`, `TextAnchorRange`).
 audible-end cue anchors explicitly refuse until a separately approved timing
 extension supplies actual support. This note adds no timing provider or guessed
 audible boundary. v2's equivalent anchor subset is deferred as stated below.
@@ -82,13 +90,23 @@ Every endpoint addresses one closed `GraphicCueEndpointEvidence` record by
 
 `basis` equals its endpoint; block ID/revision are the frozen owner UUID/version;
 `exactTime` equals the endpoint's block-local reduced rational. Hashes use
-prefixed `Hash`. `timingInputHash=H(full frozen NarrationDependency)` for v1,
+prefixed `Hash`. `timingInputHash=H(frozen NarrationDependency with only audio.locator omitted)` for v1,
 or `H(full frozen NarrationTokenTimingMapV2)` for the deferred v2 seam.
 `timingHash` copies v1 `narration[].timing.contentHash` or v2
 `narrationTimingMaps[].timingHash`; `audioHash`/`textHash` copy the exact same
 record's fields, independently verified against the frozen narration/audio.
-The timing input and retained underlying artifact bytes are included in the
-package; a declared content hash without verified bytes is insufficient.
+For **every** basis, blockId/blockRevision/timingHash/audioHash/textHash/
+timingInputHash are non-null and copied from that single owning frozen timing
+input. In v1 it must be `status:"ready"`; missing/failed/ambiguous dependencies
+refuse `GRAPHIC_CUE_TIMING_UNQUALIFIED`. Only tokenId and the explicitly listed
+causal fields may be null. Omit only v1 audio.locator before timingInputHash,
+retaining the full audio `{durationSamples,sampleRate,channels}` and all other
+dependency fields; location is resolved and audited separately. No other
+normalization/field omission is allowed. The package retains the frozen timing
+record **and exact narration audio bytes**, verifies declared timing artifact
+hash and audioHash, and separately retains the original locator-bearing build
+dependency. Relinking identical bytes does not change this cue evidence hash
+(the existing whole-build dependencies hash may still change).
 These mappings preserve the original hash domains rather than redefining them.
 
 For `word_onset`/`audible_word_end`, `tokenId` equals the anchor token; all five
@@ -102,7 +120,8 @@ strictly-later start group, causeEvidenceHash addresses that cue's start, other
 causal fields null. Equal-start tie selection is for evidence only and does not
 change grouped timing. For `graphic_end`, tokenId/durationMs/nextCueId/
 causeEvidenceHash are null, occurrence equals the cue-set occurrence, and
-occurrenceBoundaryHash=H({occurrence,blockId,blockRevision,blockRecordStartFrame,
+occurrenceBoundaryHash=H({schemaVersion:"graphic-cue-occurrence-boundary/v1",
+occurrence,blockId,blockRevision,blockRecordStartFrame,
 recordRange,frameRate,timingInputHash}); retain this exact boundary record too.
 Its exactTime is `(recordRange.endFrame-blockRecordStartFrame)/fps`, reduced.
 When all three timed values exist, preserve independently resolved start/end
@@ -132,7 +151,7 @@ Ready, preserving these identities and separate planned/actual meanings.
 
 | Frozen surface proposed | Precise delta and consumers |
 | --- | --- |
-| v1 ScriptDocument | Add `ev24-table` to the accepted curated source union with the typed fields above, preserving existing provenance binding. Optional top-level `graphicCueSets:GraphicCueSet[]`; omitted or empty array means no cues; each present set must have nonempty cues. Only a matching curated graphic `VisualEvent` owner is legal |
+| v1 ScriptDocument | Add `ev24-table` to the accepted curated source union with the typed fields above, requiring explicit provenance on that new branch. Optional top-level `graphicCueSets:GraphicCueSet[]`; omitted or empty array means no cues; writers omit rather than emit an empty array, preserving canonical no-cue bytes. Each present set must have nonempty cues. Only `occurrence.kind:"visual_event"` and `contentPin.kind:"v1_curated"` are included in the v1 schema, bound to a matching curated graphic owner |
 | v2 ScriptDocument | Optional top-level `graphicCueSets` as above; keep `GraphicRevisionSource` unchanged. Match overlay or primary payload identity/source revision. Non-graphic, orphan, duplicate, legacy-unclassified and interrupted-primary cue owners block. Source-reference adjacency never binds a cue |
 | v1/v2 CompilerDependencies | Optional `graphicTargetBindings:ResolvedGraphicTargetBinding[]`, omission/empty means none. Referenced manifests and evidence are retained by exact addressed bytes; reject duplicate, extra/unused, unauthorized or missing records. Reuse #7 `resolvedGraphics` plus #218 `resolvedGraphicContents/graphicProvenanceSnapshots`; extend their template/snapshot unions only for typed Table |
 | v1 TimelineManifest | Optional `FusionGraphicEvent.graphicCueScheduleHash:Hash`; Table uses existing `fusion_template`/`fusion_graphic` variants with the new typed template/snapshot branch. Addressed semantic schedule shipped in package; existing event/use/source hash meanings unchanged. No native names added to the editor-neutral manifest |
@@ -148,6 +167,20 @@ semantics but unsupported delivery, retain the valid schedule and explicit
 unqualified/manual result without claiming verified placement. All diagnostic
 codes and outcomes in design §6 are required consumer vocabulary. v1 uses its
 existing open diagnostic-code pattern; v2 enum additions require regeneration.
+
+Report hashes are deterministic by stage/outcome:
+
+| Stage/outcome | cueScheduleHash | executionPlanHash |
+| --- | --- | --- |
+| Compiler `planned_supported` | Non-null valid schedule hash | Non-null; compiler derives the exact package-owned plan algorithm from the trusted binding and semantic segments before emitting this outcome |
+| Compiler `unqualified` or `manual_required`, with valid semantics | Non-null valid schedule hash | Null; no executable plan is authorized for that delivery |
+| Compiler `blocked` from semantic/integration refusal | Null | Null; do not issue a partial schedule/plan pointer |
+| Adapter replacement: `verified`, `failed`, `blocked` or `unqualified` | Preserve compiler hash unchanged | Preserve compiler hash unchanged; receipt records observed refusal/failure, never rewrites a planned identity |
+
+Package writer/verifier independently rederives the compiler's plan; a mismatch
+refuses. Outcome provenance/stage remains in the existing result envelope so an
+adapter-blocked result with hashes is distinct from a compiler-blocked refusal.
+No adapter can turn a compiler refusal into verified delivery.
 
 **Approval scope is v1 only.** Every v2 row and v2 union branch above is a
 deferred interface proposal, without an implementation owner or wire-change
@@ -180,7 +213,7 @@ Affected consumers: authoring serializer/validator/persistence/resolver,
 Studio adapter and report/diagnostic/Free manual readers, later #9 form and #99
 registration. No new software dependency is needed. Regenerate
 `packages/contracts/src/generated/contracts.ts` and affected
-`python/vera_timeline_agent/generated/contracts/` models from changed v1/v2
+`python/vera_timeline_agent/generated/contracts/` models from changed
 script/dependency/manifest/report v1 roots, including the new named anchor/timing
 definitions. All v2 schemas, `contracts-v2.ts`, v2 Python generated modules and
 `compiler-core-v2.ts` stay unchanged under this note. If deferred v2 deltas are

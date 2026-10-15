@@ -117,6 +117,11 @@ are outside content identity. Hashes do not grant access or publisher trust.
    onset uses actual evidenced onset; audible end requires its actual support.
    For v1 reuse matched word marks from `NarrationDependency.timing` only at
    `word_start_with_derived_end` precision, with exact text/offset/audio binding;
+   resolve tokenId in the frozen `NarrationBlock.tokens`, require its
+   `value === quotedWord`, then require exactly one `kind:"word"` mark with
+   `startUtf16 === token.startOffset`, `endUtf16 === token.endOffset` and equal
+   value. Reduced `timeMs/1000` is block-local exactTime; zero/multiple matches
+   refuse `GRAPHIC_CUE_TIMING_UNQUALIFIED`, even for repeated identical words.
    the name does not qualify its derived ends as audible. This v1 format has
    no audible-end evidence, so such cue anchors block pending a separate timing
    extension. It does not fall back to a next-word mark. The proposed v2 seam
