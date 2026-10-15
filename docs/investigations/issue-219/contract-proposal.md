@@ -1,7 +1,7 @@
 # #219 — provisional Table target contract
 
-Unaccepted proposal. Studio readback and save/reopen have passed; rendered
-boundaries remain unverified. This document adds no shared wire schema or
+Unaccepted proposal. Studio readback, save/reopen and rendered boundary/repeat
+checks have passed for the subset below. This document adds no shared wire schema or
 production behavior. The issue-owned machine-readable target manifest is
 [`target-manifest.json`](target-manifest.json), exact file SHA-256
 `dc21391f032d35cadab909e590302bc7ed8a46567703da93b4f82846d7948424`.
@@ -12,7 +12,7 @@ Three supplied concrete revisions were inspected read-only; inventory is closed.
 
 | Candidate | Bytes | SHA-256 | Disposition |
 | --- | ---: | --- | --- |
-| EV24 Table, installed | 194782 | `869bffd705ac949a58bcb25d6bc80de5027219792336f0d599be81162447440a` | Selected provisionally; published multi-position highlight text control. Timed operation unproven. |
+| EV24 Table, installed | 194782 | `869bffd705ac949a58bcb25d6bc80de5027219792336f0d599be81162447440a` | Selected; actual Studio proof for the fixed subset below. Producer contract acceptance pending. |
 | EV24 Quote Box, installed | 36597 | `b089282e6ccab68426eb5f0b39168cb11c051e6798cbe08230b41bf640ff3754` | Not selected; published italic range is not proof of independent semantic highlight targets. No live probe. |
 | EV24 Table, newer uninstalled source build | 224627 | `1fc770b580cb205824a693dee592d7e044764b25e1d58a407fc8d2eb294cb274` | Excluded from live selection. Different bytes; no rebuild, installation or source merging. |
 
@@ -103,19 +103,33 @@ unordered cues, or overlapping `base` and `emphasis` on the same target. Negativ
 checks must assert zero application writes. Repeating equal emphasis over a
 touching boundary is continuation, not contradiction.
 
-## Evidence still required
+## Support and refusal matrix
 
 | Capability | Current evidence/status |
 | --- | --- |
 | Exact selected bytes and static declared control | Inspected; hashes above |
-| Static independent targets and aggregate overlap | Actual Studio readback passed; renders pending |
-| Discrete timed changes and exact frame boundaries | Native modifier readback passed at listed samples; renders pending |
-| Deterministic reset and continuation | Sampled readback passed; visual boundary proof pending |
-| Save/reopen and identical repeat | All four schedules in both fresh runs passed readback after reopen; rendered comparison pending |
+| Static independent targets and aggregate overlap | Actual Studio readback and rendered row-band checks passed |
+| Discrete timed changes and exact frame boundaries | Native modifier readback and rendered samples passed at listed boundaries |
+| Deterministic reset and continuation | Rendered base restoration at 96/120; continuation has no base flash at 72 |
+| Save/reopen and identical repeat | Both fresh runs retain all four schedules after reopen and render; 36/36 matching decoded RGB frame pairs identical |
 | Studio baseline | Actual DaVinci Resolve Studio 21.1.1 build 10 on macOS |
 | Free | Untested/unavailable; explicit manual completion or blocked use. No substitute or baking claim. |
 | Rights/fonts | Producer-supplied authored asset; exact Table use/font assumptions need final Producer confirmation; no distribution approval inferred from #12 |
-| Private receipt/render index and Claude review | Pending |
+| Private receipt/render index | Retained; local operator entry point in README |
+| Interpolation/transitions | Unsupported; only stepped states tested |
+| Other datasets, rows, durations, frame rates, versions | Unqualified; fail closed for this fixed profile |
+| Review, final validation and Producer judgment | Pending; no acceptance inferred |
+
+72/72 Deliver PNG jobs completed. All 28 hold-frame samples per run have expected
+red-band presence/absence for Alpha/Beta/Gamma; eight authored endpoints per
+paired set are black at frame 0 or 239. Matching PNG file bytes differ only in
+the ICC profile creation timestamp; decompressed pixel bytes are identical.
+The start-only state remains `2` at frame 239 in control readback while authored
+exit makes that frame black. State lifetime does not override authored visibility.
+
+This is exact sampled-frame evidence, not a claim to have inspected every frame,
+played a continuous movie, or proved subframe interpolation. All raw images,
+composition exports, native attributes and source pointers remain private.
 
 The eventual contract must retain the exact manifest/control hashes, tested
 state/timing subset and support/refusal evidence. #167 still owns narration

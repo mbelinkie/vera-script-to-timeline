@@ -1,6 +1,6 @@
 # #219 checkpoint — 2026-10-15
 
-This is unfinished investigation evidence, not an acceptance handoff.
+This is unfinished investigation evidence; review and verification remain pending.
 
 Producer authorized exclusive live work and coordination with #8. After initial
 connector failure, Producer opened the issue-owned disposable project and set
@@ -38,26 +38,32 @@ creates only one fixed case per short bridge call and refuses existing cases.
 
 ## Render checkpoint
 
-72 issue-owned exact-frame RGB8 PNG jobs are queued privately (36 samples per
-repeat run), including the before/at/after state boundaries and Graphic-end
-samples. Their job IDs, queue intents, settings and before/reopen readbacks are
-retained in private indexed storage. Render mode/format are restored after each
-queue operation; per-job settings belong only to the disposable project.
+72/72 issue-owned exact-frame RGB8 PNG jobs completed (36 samples per repeat run).
+Post-render readbacks still agree. All 36 matching frame pairs have identical
+decoded RGB pixels; PNG file differences are confined to the ICC creation
+timestamp. All 28 hold samples per run show expected row-band states; 8 endpoints
+per run are authored black frames. See the safe `render-summary.json`, private
+analysis and `PRIVATE-INDEX.md`. The start-only control remains active at frame
+239 while the authored exit is black; no continuous playback claim is made.
 
-#8 explicitly confirmed its heavy run ended, processes were gone, and host
-capacity was released for #219 renders. #8 is holding live Resolve activity and
-its follow-up heavy checks until this window is released. Do not start competing
-validation while rendering. Before starting, retain job inventory/start intent
-and confirm the required 15-minute heartbeat; on each wake check only the existing
-batch once. Never restart a timed-out or ambiguous mutation.
+The render timer was paused. Resolve and heavy host capacity were released to #8
+on the Producer's request. A 15-minute capacity heartbeat observed its ownership
+without starting work. The Producer then explicitly released host capacity;
+that timer is paused and the process check found no competing validation/media
+job before #219 resumed. No new Resolve access is assumed by the host release.
+
+Queue-time render mode/format restoration was attempted, but after the batch
+the disposable project reported PNG/RGB8 mode 1 rather than its initial MOV/H264
+mode 1. This issue-project difference was disclosed to #8 when releasing access.
+It is not a global preference and must not be restored by touching #8's current
+session. No other agent-changed global setting requires restoration.
 
 ## Remaining gates
 
-Rendered samples and exact repeat comparison; visual inspection and support/refusal
-matrix; fast validation; adversarial Claude CLI review of final work/evidence and
+Fast validation; adversarial Claude CLI review of final work/evidence and
 dispositions; applicable final verification under accepted main policy; short
 Producer contract/visual checklist. Free remains untested/unavailable. #167's
 positive target prerequisite and production runtime are not qualified.
 
-The current active-work forecast is 2–4 hours with moderate confidence, excluding
-render/validation capacity and Producer review. Reassess after rendered samples.
+The current active-work forecast is 1–2 hours with moderate confidence, excluding
+full-suite runtime and Producer review. Main uncertainty is review findings.

@@ -1,7 +1,7 @@
 # #219 — one-template semantic target probe
 
-Status: claimed; Studio readback and reopen passed for two independent runs of
-four schedules. Rendered boundaries, review and acceptance remain pending. See
+Status: claimed; Studio readback, reopen and rendered boundary/repeat checks passed
+for two independent runs of four schedules. Review and acceptance remain pending. See
 the [current checkpoint](../investigations/issue-219/checkpoint.md).
 
 ## Ownership and baseline
