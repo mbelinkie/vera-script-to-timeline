@@ -22,7 +22,10 @@ baseline. Do not replace these implementations from current main.
 
 All object shapes below are closed (unknown properties refused). `Hash` is
 `sha256:` plus exactly 64 lowercase hexadecimal characters; `EntityId` follows
-the receiving schema's existing opaque ID rules. `JsonObject` is finite JSON,
+the receiving schema's existing opaque ID rules. `projectId` remains the document's
+UUID `EntityId`; a #20 internal project handle is not substituted for it.
+`projectRevisionId` reuses #7's `CuratedFusionGraphicSource.projectRevisionId`
+pattern (`revision_<hex>` is valid), not `EntityId`. `JsonObject` is finite JSON,
 not executable expressions. Required versus conditional fields are exhaustive
 in design §3; this note adds no hidden optional evidence.
 
@@ -33,7 +36,7 @@ type GraphicProvenanceBinding =
 
 type GraphicTemplatePin = {
   templateKey: "ev24-lower-third";
-  projectRevisionId: EntityId;
+  projectRevisionId: string; // exact #7 pattern ^[A-Za-z0-9_-]+$, not UUID
   packageDigest: Hash;
   entryAssetHash: Hash;
 };
@@ -79,25 +82,33 @@ relationship or grant #99 arbitrary-template authority.
 | Frozen boundary proposed for later change | Precise delta / consumer |
 | --- | --- |
 | `contracts/script-document-v1.schema.json` at accepted #7 | Optional `CuratedFusionGraphicSource.provenance: GraphicProvenanceBinding`. Required for newly authored graphic content; omission accepts legacy documents. Existing required fields and semantic inputs unchanged. |
-| `contracts/compiler-dependencies-v1.schema.json` at accepted #7 | Optional top-level `graphicProvenanceSnapshots: GraphicProvenanceSnapshot[]`, default empty; duplicate computed hashes refused. Resolve derived source pointer by computed hash, project and exact semantic/template tuple. Existing `resolvedGraphics` continues to resolve the template and badge; do not repurpose that template-level array for per-content data evidence. |
+| `contracts/compiler-dependencies-v1.schema.json` at accepted #7 | Optional top-level `graphicProvenanceSnapshots: GraphicProvenanceSnapshot[]`, default empty; duplicate computed hashes and unused snapshots refused (`GRAPHIC_PROVENANCE_UNEXPECTED`). Manual bindings forbid a snapshot pointer. Resolve derived source pointer by computed hash, project and exact semantic/template tuple. Existing `resolvedGraphics` continues to resolve the template and badge; do not repurpose that template-level array for per-content data evidence. |
 | `contracts/timeline-manifest-v1.schema.json` at accepted #7 | Optional `FusionGraphicEvent.graphicProvenance: GraphicProvenanceBinding`. Copy the validated authored binding exactly; no field for legacy absent binding. Derived pointer addresses the verified snapshot included in the build package. No change to `semanticSnapshotHash`, source ID or event ID. |
-| `contracts/build-report-v1.schema.json` at accepted #7 | Optional graphic event-result `graphicProvenance: GraphicProvenanceBinding`. Add stable blocking diagnostics `GRAPHIC_PROVENANCE_INCOMPLETE`, `GRAPHIC_PROVENANCE_MISMATCH`, `GRAPHIC_PROVENANCE_UNAVAILABLE`, `GRAPHIC_PROVENANCE_UNAUTHORIZED`; existing planned live/placeholder/baked result semantics stay unchanged. Currentness observations belong to audit receipts, not readiness inferred from time. |
+| `contracts/build-report-v1.schema.json` at accepted #7 | Optional graphic event-result `graphicProvenance: GraphicProvenanceBinding`. Add stable blocking diagnostics `GRAPHIC_PROVENANCE_INCOMPLETE`, `GRAPHIC_PROVENANCE_MISMATCH`, `GRAPHIC_PROVENANCE_UNAVAILABLE`, `GRAPHIC_PROVENANCE_UNAUTHORIZED`, `GRAPHIC_PROVENANCE_UNEXPECTED`; these are compiler/consumer vocabulary accepted by the existing diagnostic-code pattern, not a new enum/schema restriction. Existing planned live/placeholder/baked result semantics stay unchanged. Currentness observations belong to audit receipts, not readiness inferred from time. |
 | Main v2 `contracts/script-document-v2.schema.json` | **No field change.** Keep `GraphicRevisionSource {kind,graphicId,revisionId}`. Its immutable referenced graphic-content revision stores the tuple/snapshot/binding below. No citation text or IDs are injected into the reference. |
-| `contracts/compiler-dependencies-v2.schema.json` | Optional top-level `graphicProvenanceSnapshots` as above and `resolvedGraphicContents: ResolvedGraphicContent[]`, default empty. Each content is `{graphicId,revisionId,projectId,template,semanticSnapshot,semanticSnapshotHash,provenance}`; unique by `(graphicId,revisionId)`, exact project and source-reference equality required. These are trusted frozen resolver results, not a new renderer. |
-| v2 `OccurrenceMediaResolutionV2` in that dependency schema | Optional `graphicContentBinding:{graphicId,revisionId,provenanceHash}` for derived graphic media; it binds this resolution's existing `sourceSnapshot.contentHash` to the derived content. It must equal the source reference, corresponding resolved content, `P` and project; it is required when that resolved content is derived, forbidden on non-graphic resolutions. The materializer verifies/retains this relationship from generation; the compiler cannot prove rendered labels from a file hash. No repurposing of `probeHash`/`contentHash` as semantic/data hashes. |
+| `contracts/compiler-dependencies-v2.schema.json` | Optional top-level `graphicProvenanceSnapshots` as above and `resolvedGraphicContents: ResolvedGraphicContent[]`, default empty; unused snapshots/content records refused (`GRAPHIC_PROVENANCE_UNEXPECTED`). Each content is `{graphicId,revisionId,projectId,template,semanticSnapshot,semanticSnapshotHash,provenance}`; unique by `(graphicId,revisionId)`, exact project and source-reference equality required. These are trusted frozen resolver results, not a new renderer. |
+| v2 `OccurrenceMediaResolutionV2` in that dependency schema | Add `graphicContentClass: "legacy_unclassified" | "manual" | "derived"`, required for every resolution of a `GraphicRevisionSource`, forbidden otherwise; no omission default. For `manual`/`derived`, require matching `resolvedGraphicContents`; its binding kind must equal this class. For `legacy_unclassified`, require no resolved content and no binding. Missing class/content is `GRAPHIC_PROVENANCE_INCOMPLETE`. Optional `graphicContentBinding:{graphicId,revisionId,provenanceHash}` for derived graphic media; it binds this resolution's existing `sourceSnapshot.contentHash` to the derived content. It must equal the source reference, corresponding resolved content, `P` and project; it is required when `graphicContentClass` is `derived`, forbidden otherwise. The materializer verifies/retains this relationship from generation; the compiler cannot prove rendered labels from a file hash. No repurposing of `probeHash`/`contentHash` as semantic/data hashes. |
 | `contracts/timeline-manifest-v2.schema.json` | Optional `EventProvenanceV2.graphicProvenanceHash: Hash` on events resolved from declared derived graphic content, required in that case, absent otherwise. Preserve every existing source/media hash and use/payload/overlay identity. Package includes the addressed verified snapshot. No claim of live Fusion events in v2. |
-| `contracts/build-report-v2.schema.json` | Stable diagnostics named above; diagnostic owner identifies the source use/payload. Existing manifest hash binds propagated `P`. Do not add an unrelated status claiming upstream data is current. |
+| `contracts/build-report-v2.schema.json` | Extend the existing `DiagnosticCodeV2` enum with the five provenance codes above (v2 differs from v1's open code pattern). Add compiler/consumer handling; diagnostic owner identifies the source use/payload. Existing manifest hash binds propagated `P`. Do not add an unrelated status claiming upstream data is current. |
 
 `ResolvedGraphicContent` has exactly the fields named in its row; `template`
-and `semanticSnapshot` use the types above. An absent declaration on a legacy
-v2 graphic must remain eligible for the accepted media-only path without an
-evidence claim; absence is never upgraded to verified provenance. When new
-content is published, its persistence/resolver must always supply its declared
-classification. A source-backed revision must not enter the legacy path because
-its resolver dropped a derived record: require a resolution for every newly
-published provenance-aware graphic revision. The later migration tags those
-records with the format version in storage; missing resolver data then blocks.
-This storage version is not inferred from a timestamp, title or URL.
+and `semanticSnapshot` use the types above. The trusted resolver, owned by #64
+and the provenance-core follow-up, reads the
+immutable stored revision's format/classification. It may emit
+`legacy_unclassified` only for a positively identified pre-provenance-format
+revision; unknown/missing storage records block resolution. It emits `manual`
+or `derived` for a new-format revision, and must supply its matching content
+record. The compiler independently enforces the wire class/content/pointer
+rules above; dropping a content record cannot turn that dependency into legacy.
+The class is not inferred from a timestamp, URL, name or presence of an array.
+A deliberately false trusted resolver classification is an upstream integrity
+failure, not something hashes or this compiler can discover; test that boundary.
+
+For v1, optional-field omission is necessary for legacy input compatibility.
+The schema alone cannot distinguish legacy from a new writer that omitted the
+binding. #64/#9 must enforce explicit classification for newly published content
+and refuse stripping on round-trip. This residual writer/persistence trust is a
+Producer decision; no compiler claim exceeds the declared input evidence.
 
 ## Compatibility, migration and affected consumers
 
@@ -105,8 +116,14 @@ This storage version is not inferred from a timestamp, title or URL.
   closed. Deploy readers/validators and regenerated types before enabling new
   writers; do not silently strip fields on downgrade. A derived document or
   package must refuse export to a consumer that cannot preserve/verify `P`.
-- Old documents without graphic provenance keep accepted behavior and identical
-  compiler output bytes. Legacy absence is “no derived-evidence claim,” not proof
+- Old v1 documents without graphic provenance keep accepted behavior and identical
+  compiler output bytes. Old v2 documents remain unchanged, but graphic media
+  dependencies require a resolver migration adding the explicit
+  `legacy_unclassified` class after checking retained storage identity. Old
+  unclassified dependency inputs fail until migrated; they do not silently pass.
+  With the class added, their legacy manifest/report bytes stay unchanged.
+  Non-graphic v2 dependencies and output stay unchanged. Legacy absence is
+  “no derived-evidence claim,” not proof
   that the author never consulted data. New manual content emits an explicit
   manual binding. Never manufacture citations/source snapshots on import.
 - Do not mutate an old graphic revision to add provenance. Explicit enrichment,
@@ -139,7 +156,8 @@ Explicit Producer approval must cover the deltas/defaults, accepted-source
 integration baseline and separate new fixtures/goldens/acceptance tests needed
 for them. Freeze existing legacy tests/goldens unchanged. Add owned tests for
 every design §6 case, canonical hash/array/null behavior, scope/authorization,
-missing resolver-record refusal, no stripped pointers, and materialized-media
+missing class/content refusal, legacy classification against retained storage,
+v1 writer omission, no stripped pointers, and materialized-media
 binding. Deterministic compiler output must retain `P` through both proposed
 representations. Update generated-currentness and exhaustive-consumer checks.
 

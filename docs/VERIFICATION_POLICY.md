@@ -81,7 +81,7 @@ result was personally rerun.
   adversarial review of affected seams, negative cases and failure behavior.
 
 Keep reviewers explicitly required by the issue or selected route. Claude
-review remains required where the Producer requested it; depth is proportional
+review is required for every ticket under the 2026-10-15 rule below; depth is proportional
 to risk, not an excuse to omit it. "No blocking findings" is a valid result.
 Avoid manufactured criticism, unrelated cleanup and repeated full execution
 without a concrete evidence gap. Manual design/listening judgments remain human;

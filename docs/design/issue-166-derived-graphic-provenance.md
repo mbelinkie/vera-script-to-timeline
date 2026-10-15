@@ -88,7 +88,7 @@ provenance; it still changes the compiled build as usual.
 | `semanticSnapshot`, `semanticSnapshotHash` | Existing #7 snapshot/hash remains unchanged | Required full resolved snapshot and its existing #7 hash, equal to compiler resolution; preserves values, null/default intent and asset hashes |
 | `sources[]`: nonempty, unique `sourceKey` | Inapplicable | Required; every used external source has one entry |
 | Each source `citation`: readable `title`, `publisher` (or explicit `unknown`), `originalLocator` (string or null), `versionLabel` (string or null) | Optional editorial citation cards stay independent | Required immutable citation value. A missing publisher/version must be honest; never synthesize a publisher version from retrieval time |
-| Each source `snapshot`: `artifactId`, `contentHash`, `mediaType` | Inapplicable | Required verified retained bytes of sufficient evidence to audit the selected inputs; artifact ID is durable, locator is separate. An exact extract is allowed if citation + derivation identify its selection/context; it must not be labeled a complete original |
+| Each source `snapshot`: `artifactId`, `contentHash`, `mediaType` | Inapplicable | Required verified retained bytes; `contentHash` is SHA-256 over the exact retained byte sequence (no reserialization before hashing), with `sha256:` prefix. Retain sufficient evidence to audit the selected inputs; artifact ID is durable, locator is separate. An exact extract is allowed if citation + derivation identify its selection/context; it must not be labeled a complete original |
 | `derivation`: `mode`, `version`, `note`, `method`, `parameters` | Inapplicable | Required; `note` identifies source keys, selected rows/fields, units, transformations and output fields, including rounding/exclusions or “none” |
 | `derivation.mode: "manual"` | Inapplicable | Valid: versioned explanation/selection is sufficient for human audit; `method:null`, `parameters:{}`. Replay uses the frozen result; this makes no executable re-derivation claim |
 | `derivation.mode: "deterministic"` | Inapplicable | `method:{id,version,artifactId,contentHash}` and canonical parameters required; retain exact method bytes. Only a separately implemented trusted method may run; never execute supplied code/expressions |
@@ -173,8 +173,12 @@ owned by the pinned package; blank override behavior is not reimplemented.
 
 **Derived lower-third.** A retained synthetic source JSON contains
 `{"unit":"observations","rows":[{"id":"east","count":18},{"id":"west","count":27}]}`.
-Its exact retained bytes have `B1=H(<source JSON>)` when stored with the canonical
-serializer. Citation is `{title:"Demo station tally",publisher:"Fictional Lab",
+For this synthetic example the retained file is a canonical-serialized extract,
+not an assertion that original publisher bytes were captured. Its byte hash
+`B1=sha256(exact retained file bytes)` equals `H(<source JSON>)` only because
+that file was deliberately written with the canonical serializer. Original
+source files are always hashed byte-for-byte without parsing/reserialization.
+Citation is `{title:"Demo station tally",publisher:"Fictional Lab",
 originalLocator:"https://example.invalid/demo-tally",versionLabel:"demo-v1"}`.
 Source key `tally` refers to `{artifactId:A1,contentHash:B1,mediaType:"application/json"}`.
 Resolved values are `{country:"otis",topLineOverride:"Demo total",
@@ -228,14 +232,16 @@ builds are historical evidence and are never rewritten by a failed operation.
 | Missing/mismatched/incompatible pinned template or package-owned asset | Block, even if data/citation valid | Restore exact approved bytes or explicitly migrate; never select a nearby/current revision |
 | Name/URL/time/version label exists but byte identity cannot be verified | Block: unverifiable identity | Acquire/retain permitted bytes and verify, then create a complete revision |
 | Source/template access denied; cross-project pin | Block unauthorized resolution; hashes grant no access | Restore authorized access or use an explicitly authorized destination-owned copy |
-| Legacy input without new declaration | Preserve accepted legacy manual behavior, labeled no derived provenance | Explicitly classify during later edit; no backfilled citation or retrospective source-backed claim |
+| Legacy input without new declaration | v1 preserves legacy behavior with no derived claim; v2 requires explicit trusted `legacy_unclassified` resolution classification, checked against stored legacy format | Migrate dependencies explicitly; unknown format/missing class or new-format content without its record blocks. No backfilled evidence claim |
 
 ## 7. Compatibility and bounded handoff
 
 CN-166-P1 adds an explicit derived declaration and hash-bound record; free-form
 citation cards or only a package provenance file cannot encode the per-graphic
 source/result relationship. New wire fields are therefore proposed, not applied.
-Old non-derived #7 inputs retain identical legacy output bytes; new fields do
+Old non-derived #7 inputs retain identical legacy output bytes; old v2 graphic
+media dependencies require an explicit checked legacy classification before
+recompiling, with unchanged legacy output after migration; new fields do
 not change the material of `semanticSnapshotHash` or invent a meaning for #20's
 `resolvedSnapshotHash`. v2 `graphicId/revisionId` stays a stable reference into
 graphic content, with provenance frozen by its revision. Rendering a v2 graphic
@@ -244,7 +250,7 @@ to the provenance snapshot; a media hash alone is not semantic provenance.
 
 | Later owner | Exact responsibility and acceptance boundary |
 | --- | --- |
-| Missing provenance core implementation (Inbox handoff; see evidence README) | Adopt accepted #7/#20 source explicitly; implement CN-166-P1 schemas/resolution/hash/diagnostics and pure create/refresh/migrate operations. Do not reopen or replace closed #7/#20 implementations. Automated tests cover the matrix, canonical permutation/identity cases, unchanged legacy goldens and v1/v2 mapping. Separate Producer approval precedes frozen changes. |
+| [#218 provenance core](https://github.com/mbelinkie/vera-script-to-timeline/issues/218) (Inbox, unstarted) | Adopt accepted #7/#20 source explicitly; implement CN-166-P1 schemas/resolution/hash/diagnostics and pure create/refresh/migrate operations. Do not reopen or replace closed #7/#20 implementations. Automated tests cover the matrix, canonical permutation/identity cases, unchanged legacy goldens and v1/v2 mapping. Separate Producer approval precedes frozen changes. |
 | #64 project/document persistence | Durable authorized artifact/provenance storage and immutable graphic revisions, atomic selection/history, retention of use/checkpoint/build references, exact relinking. No permission/publication inferred from a citation. Coordinate core interfaces before storage integration. |
 | #9 authoring form, #67 visual cards, #69 citations | Manual/derived declaration, evidence input/summary, explicit keep/refresh/migrate review and visible blocker repair. Citation cards remain editorial support with zero implied picture duration. UI implementation stays with these owners. |
 | #8 live Studio placement | Preserve accepted EV24 constraints; consume verified values/package and retain the use-to-`P` mapping in build evidence. Real save/reopen verification of exact values/template/range remains required. Adding provenance support must be scoped before Ready; no new renderer is implied. |
@@ -272,6 +278,9 @@ placement. No real application, provider or external service is invoked here.
 1. Review §§1–4 of this exact design. Accept or revise the distinction between
    manual and derived content, required retained source/citation/derivation,
    separate provenance hash, and historical replay versus freshness claims.
+   The v1 schema preserves legacy omission, so new-writer classification remains
+   a #64/#9 trust obligation; v2 instead requires an explicit classification
+   on every graphic resolution and blocks missing content records.
 2. Review §5–6. Expected: repeat uses frozen values; refresh and template
    migration each create an explicitly selected revision; failure never swaps
    data/template or rewrites prior builds. Decide whether those recovery rules

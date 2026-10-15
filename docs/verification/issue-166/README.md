@@ -39,7 +39,11 @@ read exact #5/#8/#9/#167 scopes and #147 N11/N12 at its accepted revision.
 registration, #167 cues, #64 persistence. None owns the standalone new
 provenance schema/resolver/pure-operation implementation. A bounded Inbox
 follow-up is appropriate; no owner is dispatched or existing scope expanded.
-Its exact issue reference will be retained here after creation.
+Created [#218](https://github.com/mbelinkie/vera-script-to-timeline/issues/218)
+via the normal budget/locking CLI. Its retained
+[Inbox body](provenance-core-inbox.md) names tentative Sol/high, Size M, P2,
+Producer acceptance and canonical #166/#7/#20 dependencies. It remains Inbox,
+unclaimed and undispatched.
 
 ## Verification status
 
