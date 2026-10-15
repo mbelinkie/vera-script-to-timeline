@@ -78,14 +78,14 @@ digests above acquire only this prefix at a typed boundary, without rehashing.
 | --- | --- |
 | `GraphicCueSet {schemaVersion:"graphic-cues/v1",id,version,occurrence,contentPin,targetManifestHash,cues}` | One set per occurrence, unique set/cue IDs within document. Nonempty cues; deleting all cues removes the optional set. No reuse of cue ID as use ID |
 | `occurrence` | Discriminated `{kind:"visual_event",eventId}` for v1; `{kind:"overlay_event",overlayEventId,payloadId}` or `{kind:"primary_slot",sequenceId,slotId,payloadId}` for v2. Must resolve exactly once to a graphic in the same project/document. A return-to-parent is part of its original occurrence, not a fresh cue owner |
-| `contentPin {template,semanticSnapshotHash,provenance}` | `template` is exact #166 tuple `templateKey/projectRevisionId/packageDigest/entryAssetHash`. `provenance` is the existing manual/derived binding; derived pointer resolves through #218. v2 additionally pins `graphicId/revisionId` equal to its source reference. No cue set may attach to legacy-unclassified content |
+| `contentPin` | Closed union: v1 `{kind:"v1_curated",template,semanticSnapshotHash,provenance}`; proposed v2 `{kind:"v2_revision",graphicId,revisionId,template,semanticSnapshotHash,provenance}`. `template` is exact #166 tuple `templateKey/projectRevisionId/packageDigest/entryAssetHash`. `provenance` is the existing manual/derived binding; derived pointer resolves through #218. v2 IDs equal its source reference. No cue set may attach to legacy-unclassified content |
 | `targetManifestHash` | Exact retained UTF-8 manifest **file bytes**, including its newline/formatting. Resolves through authorized trusted dependencies to the unmodified #219 manifest and an independently verified package binding. Not canonicalized into a different hash |
 | `GraphicHighlightCue {id,version,targetIds,state,timing,transition?}` | Nonempty unique target ID set, sorted lexically when frozen; one state applies to all selected targets. IDs must exist, and each must support the state. Authored cue array order is retained, never sorted to repair intent |
-| `timing` | `TimedPlacement`-equivalent `{kind:"timed",start?,end?,durationMs?}` with consistent two-of-three, or `{kind:"start_only",start,endPolicy:"until_next_or_end"|"until_graphic_end"}`. `start/end` reuse current `PointAnchor` shapes; first profile admits only current word-onset or evidenced audible-word-end anchors on the owning narration block. Event-edge, between-block, self/cyclic or cross-block references are refused in this first profile |
+| `timing` | `TimedPlacement`-equivalent `{kind:"timed",start?,end?,durationMs?}` with consistent two-of-three, or `{kind:"start_only",start,endPolicy:"until_next_or_end"|"until_graphic_end"}`. `start/end` use the closed `GraphicCuePointAnchor` defined in CN-167-P1, copying only current v2 word-onset/audible-end shapes into a named v1 definition. All anchors belong to the graphic's single owning narration block; cross-block graphic ranges refuse cues. Current accepted v1 timing supplies word onsets only: audible-end intent remains visibly blocked there; no new audible evidence is inferred. Event-edge, between-block, self/cyclic or cross-block references refuse |
 | `transition` | Omitted or explicit `null` means discrete state replacement. A non-null `{id,version}` names a separately qualified template transition; none is allowed by the accepted Table manifest. Unknown/non-null requests block; they are never silently stripped |
-| Trusted `ResolvedGraphicTargetBinding {projectId,template,targetManifestHash,manifestArtifactId,semanticSnapshotHash,datasetSha256,profileId,profileEvidenceHash}` | Resolver/package-owned immutable relationship, unique by template/content/manifest tuple; rejects duplicate/unused records. Retains exact manifest bytes and attests semantic `tableData` bytes equal manifest dataset. Evidence receipt is independently verified, not authority granted by the author supplying an ID |
+| Trusted `ResolvedGraphicTargetBinding {projectId,template,targetManifestHash,manifestArtifactId,semanticSnapshotHash,datasetSha256,profileId,profileEvidenceHash}` | Resolver/package-owned immutable relationship, unique by template/content/manifest tuple; rejects duplicate/unused records. `datasetSha256` and `profileEvidenceHash` are prefixed `Hash`. #99's trusted registration assigns an opaque nonempty `profileId`; the latter hash verifies exact retained UTF-8 qualification-receipt file bytes, whose authority/profile must be independently checked. Retains exact manifest bytes and attests semantic `tableData` bytes equal manifest dataset. An author-supplied ID/hash cannot grant qualification |
 | Manifest target entries | Preserve #219 `id,label,kind,bodyPosition,states,base`; identity is scoped by exact manifest/template/data pins. Position and label are bindings. Do not manufacture stable IDs from text or position |
-| `ResolvedGraphicCueSchedule {schemaVersion:"graphic-cue-schedule/v1",cueSetHash,occurrence,contentPin,targetManifestHash,frameRate,recordRange,cues,segments}` | Compiler result, not authored frames. `recordRange` is `{startFrame,endFrame}`; v1 boundary converts to existing start+duration shape when embedded. Each resolved cue retains ID/version, exact rational endpoints, endpoint evidence/deltas, local and record half-open ranges, targets/state and resolved end policy. `segments` covers the whole occurrence with complete semantic target states |
+| `ResolvedGraphicCueSchedule {schemaVersion:"graphic-cue-schedule/v1",cueSetHash,occurrence,contentPin,targetManifestHash,frameRate,recordRange,cues,segments}` | Compiler result, not authored frames. Addressed schedule `recordRange` always uses `{startFrame,endFrame}`. The owning v1 event retains its separate accepted start+duration range; verifier checks equality. Each resolved cue retains ID/version, exact rational endpoints, endpoint evidence/deltas, local and record half-open ranges, targets/state and resolved end policy. `segments` covers the whole occurrence with complete semantic target states |
 | `cueSetHash`, `cueScheduleHash` | `H(normalized cue set)` and `H(full resolved schedule)` respectively; no self-hash. Use #7 `canonicalJson/sha256CanonicalJson` (recursive key sort, array order preserved, two spaces, LF, UTF-8). Normalize target sets and omitted transition to null **before** authoring snapshot freeze, retaining edit history; never silently normalize an already hashed record |
 | Execution plan / receipt | Package-owned plan addresses schedule hash, exact manifest bytes and verified binding; aggregates local writes. Runtime receipt adds actual timeline/comp origins, translated writes/readback, actual edition/build and save/reopen evidence, outcome and diagnostics. It does not redefine the semantic schedule hash |
 
@@ -115,6 +115,12 @@ are outside content identity. Hashes do not grant access or publisher trust.
 2. Resolve anchors to exact reduced rational seconds using the existing
    narration map, frozen block/token/version/text and audio/timing hashes. Word
    onset uses actual evidenced onset; audible end requires its actual support.
+   For v1 reuse matched word marks from `NarrationDependency.timing` only at
+   `word_start_with_derived_end` precision, with exact text/offset/audio binding;
+   the name does not qualify its derived ends as audible. This v1 format has
+   no audible-end evidence, so such cue anchors block pending a separate timing
+   extension. It does not fall back to a next-word mark. The proposed v2 seam
+   retains the current audible-support checks, without claiming v2 execution.
    Sentence/estimated/unknown, next-word-derived audible ends, stale/missing
    evidence or unverifiable audio bindings block. Durations derive time only;
    they never create a token anchor. Do not retime narration to make a cue fit.
@@ -220,8 +226,10 @@ entrance/exit rather than stretching them to expose an otherwise hidden cue.
 
 Diagnostics identify document/occurrence/cue IDs, code, severity, expected and
 observed safe hashes/profile fields, conflicting local/record interval and
-specific repair. Sort by occurrence ID, cue ID, code, interval; omit nonexistent
-values rather than guess. Source paths/bytes/native dumps remain private.
+specific repair. Sort by occurrence ID, cue ID, code, interval; absent keys sort
+before present keys, strings compare by code unit and intervals by numeric start
+then end. Omit nonexistent values rather than guess. Source paths/bytes/native
+dumps remain private.
 Retain frozen intent, timing evidence/deltas, source/content/manifest pins,
 semantic schedule and hashes, profile evidence, planned delivery and actual
 adapter receipt. Planned support and verified execution are separate statuses.
@@ -279,6 +287,14 @@ registration/qualification owner; no parent link substitutes. #9/#99 retain UI/
 registration, #8 placement, #218 provenance, #10 truthful Free fallback. No
 other issue is dispatched here. New profile qualification is a bounded runtime
 gate, not a new open-ended research program or broader capability claim.
+
+The executable handoff is v1-only. The v2 relationship/seam rows describe a
+deferred proposal, not authorized wire changes or promised media realization.
+No v2 implementation owner is assigned by this design. Before any v2 adoption,
+the steward must duplicate-check and retain a bounded owner and its separate
+contract/materializer approval; until then existing closed v2 schemas reject
+cue-bearing input rather than silently compiling static media. CN-167-P1 approval
+does not enable these deferred v2 deltas.
 
 Runtime acceptance must add owned synthetic timing/negative/golden tests for
 every row in §§5–6, exact byte repeat and no-cue legacy bytes, missing/unused/
