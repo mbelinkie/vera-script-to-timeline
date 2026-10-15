@@ -773,3 +773,53 @@ No new full result, installation, preference mutation, native/visual acceptance
 or #8 closure is asserted. Both failed targets and old installed menu request
 remain unchanged. The review's unrelated startup settings warning is retained
 verbatim, not followed as an instruction or used to alter global settings.
+
+### Repaired-source full PASS; fresh preflight handoff ready
+
+Durable full86692 completed exit0 on exact clean75325e01015ff5b5285acbc980bf78e16a49ae1a,
+tree66bcb7f43c7edae66afa9da03a29a7572a19c6a2. All729Python cases passed4965.39s
+(1:22:45), no skips/deselections,439contracts/23files,1tooling,6progress,
+23roadmap/32cloud; generated,lint,types pass, Ruff427formatted/mypy132files.
+Full log validate-full-graph-persistence.log SHA256
+`721d1191590ba5e538e73403523bc3d7e94c65933aa78a4667bafcc631c41906`;
+actual exit receipt SHA256
+`3edd82d4e49f89c30270dee752ac018539f4dc6848d7a33b1553404e6f8b58af`.
+No source edits during full; post-run entire tracked comparison to75325e0
+and frozen audits against7cb942e/4e31565/8ef9f864 exit0. Pinned Node/npm/Python
+profile rechecked unchanged; state retains input hashes. Full inventory is
+old644+85new regressions, not reduced coverage. No active validation/media
+jobs remain. Shared heavy-host slot explicitly released in this chat; timer
+8-validation-check-in PAUSED. The separate Sweden-steward closure timer remains
+active and must not notify closure before required actual External acceptance.
+
+New-only package preparation65010 completed durable exit0 using existing
+audited release/attestation/preflight APIs. Exact release inventory and all11
+bundled source files match tested source; only approved helper module differs
+from old runtime release. NewreleaseSHA256
+`b00dccc6023e4e39f101bf71a133d871ebcf9c758e398fc11f36897661253aa3`.
+Seven independent full-envelope+Transport attestations and preflight requests
+all pass, packages unchanged, fresh unique target nonces, buildflagsfalse/
+externalScriptingnull, native evidence directories absent. Full installed
+inventory+launcher/request compared equal before/after, no installation/native
+action. CPython3.14isolated -I -B -S actual new-bundle runtime/launcher imports
+pass, focused Rufflint/format11copied files pass. Preparation receipt/log hashes
+and exact fresh target names are in [repaired handoff](repaired-handoff.md).
+
+Only checkpoint/prepared/repaired handoff documentation changes after this
+full pass; no executable/test/config/lock/contract/fixture/asset changes.
+Searches of scripts/python/packages/tests/.github, repeated --no-ignore-vcs,
+find no consumption of issue8verification/checkpoint/handoff docs. Diff/link/
+whitespace checks apply to those human handoff edits; equivalent new release
+copies get fresh focused import/lint/byte/inventory checks, not a new full.
+No new dependency/contract/accepted-test change. Original failed full, unknown
+exit run, old qualifying full, integer-only failed replay and BOTH failed
+native targets remain retained exactly, never relabeled accepted.
+
+STOP for installation permission and closed Resolve. Next permitted proposal
+is archive exact OLD Graphics files/request outside discovery root and install
+only repaired Graphics plus NEW standard64 PREFLIGHT; do not touch other
+plugins/projects/preferences. No new native build is authorized by the code
+fix or by a future installation approval. Producer must explicitly authorize
+the new full target after fresh preflight. Do not launch old menu/request.
+Native64/120matrix, reopen checks, atlas/badge pixels, renders/visual judgment
+and new-build-only changed value remain outstanding; issue stays In review.

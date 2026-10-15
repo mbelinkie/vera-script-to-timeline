@@ -1,5 +1,14 @@
 # Issue #8 — prepared operator artifact inventory
 
+**Superseded operator instructions.** The current repaired candidate and
+next safe steps are in [repaired-handoff.md](repaired-handoff.md). New reviewed
+full validation passed729Python cases with durable exit0; new release and
+fresh preflight targets are prepared but NOT installed/authorized for builds.
+Do NOT launch the old installed Graphics menu: its request still names the
+consumed failed first target. Both old native targets/evidence stay untouched.
+The remainder of this document is the historical pre-repair artifact/installation
+record, not current execution instructions or native acceptance.
+
 Current native status: the first authorized standard-64 build was created,
 saved and reopened but **verification_failed**: `reopened Fusion graph
 fingerprint differs`. The partial target is retained; do not edit, delete,
