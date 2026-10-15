@@ -367,3 +367,43 @@ Repeated searches including --no-ignore-vcs found no references consuming
 these issue8documents in scripts/tests/generator/packager. Source, tests,
 locks, assets, contracts and frozen boundaries remain unchanged; do not
 restart review or alter runtime code to solve an execution-handle problem.
+
+### Final durable validation PASS — 11:21 EDT
+
+The actual on-disk receipt is `{"exitCode":0}`. Full validation on clean
+`f20681fd6e0dda4f2d4f6666169e9208adb49537`, tree
+`0d96f3c23f4fadee91b7e19c12656cba85000aa3`, passed all644Python cases in
+3442.71s (57:22), including slow tests, no skips/deselections;439contracts,
+1tooling,6progress,23roadmap,32cloud cases; generated-currentness, lint,
+425formatted Python files and mypy131files. Exact command/profile and retained
+log/exit hashes are in [prepared handoff](prepared-handoff.md). This supersedes
+the earlier exit-record gap, not the truthful disposition of earlier runs.
+No further unchanged automated rerun is needed.
+
+Original durable parent94561/94562 has exited; process search confirms no #8
+runner/validate/pytest remains. **#8 releases shared heavy host capacity.**
+The existing check-in is PAUSED. #219 explicitly released both native and
+heavy capacity before this run, and no competing checks were started by #8.
+Resolve was untouched. External Scripting was last reported Local by #219;
+None remains unconfirmed. No installation, settings change, build authorization,
+native placement or visual acceptance is claimed.
+
+Source/tests/config/locks/contracts/fixtures/integrations matched reviewed
+cbb20b5 and testedf20681f at completion. Repeated frozen audits passed against
+accepted7cb942e/#7,4e31565originallocks/fixtures,8ef9f864/#109 unchanged tests
+and stable package/bootstrap sources. Post-full artifact recheck exit0:
+`out/issue8/post-full-artifact-audit.log`, SHA256
+`f24124a3a1481bff12d6d8b298cedfad5a876da1e9e3086e7df17313f6dca609`.
+All11release source bytes, full inventory/hash, all7handoffs and all7requests
+remain current. Every request is still preflight-only, unauthorized and
+settings-null. Artifact preparation consumed synthetic issue-owned media only.
+
+Post-test changes are limited to this checkpoint and operator handoff docs,
+not consumed by generation, lint/types/tests, dashboard/roadmap or packaging
+(search repeated with --no-ignore-vcs). Whitespace/local-link checks cover
+those changes. Automated implementation is ready for External review, not
+closure. Next: operator manually installs the exact graphics release, confirms
+None, saves a separate disposable current project/timeline, launches the
+standard-64 preflight once and returns its result/first refusal. Only later
+explicit named-target build authorization permits native placement. The seven
+native/reopen/visual/timing/isolation checks remain mandatory.

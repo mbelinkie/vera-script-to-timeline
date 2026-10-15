@@ -1,16 +1,33 @@
 # Issue #8 — prepared operator artifact inventory
 
 Prepared from reviewed code at `cbb20b5cfd3df997f1c5ae46259462ef212cfa7f`.
-No source/test changes during full validation or artifact preparation.
-All644Python cases passed in4318.87s, alongside439contracts/1tooling/
-6progress/23roadmap/32cloud cases and lint/types/generated-currentness.
-The original execution handle expired before terminal exit retrieval; no
-direct exit-zero record is claimed. Preserve the passing log, but obtain
-the verification policy's required durable exit-zero evidence before launch.
+Complete final gate passed with retained **exit0** on clean commit
+`f20681fd6e0dda4f2d4f6666169e9208adb49537`, tree
+`0d96f3c23f4fadee91b7e19c12656cba85000aa3`; its source/tests/config/locks/
+contracts/fixtures/integrations are byte-identical to reviewedcbb20b5. Only
+non-consumed issue8handoff documentation changed. No source/test changes
+during full validation, artifact preparation or post-run audit.
 
-Full log: `out/issue8/validate-full-receipt-reviewed.log`, SHA256
-`f2d26dffd627cd03b45da6615a5a5c5425ebd4bf1991ef3a53ffdde151ac930b`.
-Original failed full log remains retained (47failed593passed), not relabeled.
+Command: `VITEST_MAX_WORKERS=1 PYTEST_ADDOPTS=--durations=25 npm run validate`,
+Node24.19.0/npm11.17.0/uv0.12.5/lockedCPython3.12.14 on IntelmacOS15.1.
+All644Python cases passed in3442.71s (57:22), including slow cases and no
+skips/deselections, alongside439contracts in23files,1tooling/
+6progress/23roadmap/32cloud cases, lint, mypy131files and generated-currentness.
+Ruff checked425formatted files, including newly prepared release copies.
+
+- Full log: `out/issue8/validate-full-durable.log`, SHA256
+  `83ff16e2b192a552163aa6ec13f174ecc0994face63d0ce7e4bb5162a3b09adc`.
+- Actual exit receipt: `out/issue8/validate-full-durable-exit.json`, value
+  `{"exitCode":0}`, SHA256
+  `3edd82d4e49f89c30270dee752ac018539f4dc6848d7a33b1553404e6f8b58af`.
+- Claude receipt delta review: GO, no blocking findings; retained log
+  `out/issue8/claude-review-receipt-delta.txt` SHA256
+  `936ec18d2b56e049d9fd3a855466689c142dc7754377254cd33447c50721ca17`.
+
+Original failed full (47failed593passed) and intermediate passing-suite log
+with unknown exit status remain retained, not relabeled. The durable run
+supplies that missing exit record; no further unchanged rerun is needed.
+The check-in timer is disabled and #8's heavy host slot is released.
 
 ## Exact artifacts
 
@@ -53,7 +70,7 @@ false`, `externalScripting: null`. There are no build requests or operator
 settings confirmations. No installation, native project/composition/render,
 visual judgment, deployment, merge or issue closure is claimed.
 
-## Operator sequence after automated evidence and #219 release
+## Next operator sequence (automated evidence complete; #219 released)
 
 1. Follow [injected delivery](injected-delivery.md): quit Resolve, manually
    install the two entries from the exact release above, leaving Delivery and
@@ -67,3 +84,11 @@ visual judgment, deployment, merge or issue closure is claimed.
    operator authorization of the exact nonproduction target permits a build
    request. Complete the seven-target [visual checklist](operator-checklist.md)
    after native verification. Never infer consent from preflight preparation.
+
+The last operator-reported setting was External Scripting **Local** from #219.
+No agent changed it or asserted None. Installation, settings confirmation and
+menu launch remain operator-owned. Leave #219's disposable project unchanged;
+save a separate disposable current project/timeline before preflight. The
+preflight must report `preflight_passed` with the exact standard-64 target,
+not `verified` or a newly created project. Return the actual result file or
+first refusal before any authorized native build.

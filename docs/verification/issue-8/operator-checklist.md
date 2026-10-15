@@ -10,10 +10,11 @@ never build it directly to accept graphics.
 Complete the reviewed-source fast/slow/full gates first. The Producer approved
 adapting #8 to #109's injected path for Studio21.1.1/build10. That path is now
 implemented and reviewed; a source-bound release and seven handoffs are
-prepared. Full validation logged all644Python cases passing, but its expired
-handle lost the terminal exit status; the required durable exit-zero record
-and fresh EV24 qualification remain pending. Do not run while #219 owns the
-exclusive Resolve/render window. The old external CLI still refuses this installation.
+prepared. Complete full validation passed with a durable exit0 and644Python
+cases; no unchanged rerun remains. #219's exclusive window and #8's heavy run
+have both ended. Fresh EV24 native qualification remains pending. The last
+operator-reported External Scripting value was Local; actual None confirmation
+is still required. The old external CLI still refuses this installation.
 Do not edit a receipt, fabricate LocalFacts or enable external scripting.
 Follow [injected delivery](injected-delivery.md) for operator-owned installation,
 preflight and launch, then perform this visual checklist. No new adaptation

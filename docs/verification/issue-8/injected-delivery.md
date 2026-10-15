@@ -1,12 +1,13 @@
 # Issue #8 — injected Studio graphics operator handoff
 
-Status: reviewed candidate; all stages of the full validation log passed,
-including644Python tests, but the expired execution handle did not retain its
-exit status. The required durable exit-zero record remains pending. Seven
-attestations, a source-equivalent release and preflight-only requests are
-prepared; actual native/visual acceptance remains pending. See
-[prepared artifact inventory](prepared-handoff.md). #219 currently owns the
-exclusive Resolve window; do not install, launch or interrupt its rendering.
+Status: reviewed candidate with complete full validation **exit0**, including
+644Python tests. Durable exit/log evidence is retained in
+[prepared artifact inventory](prepared-handoff.md). Seven attestations, a
+source-equivalent release and preflight-only requests are prepared; actual
+native/visual acceptance remains pending. #219 released its native/render
+window and #8's heavy validation has now drained. No automated rerun is needed
+for unchanged source. The last operator-reported External Scripting setting
+was **Local**, not the required None confirmation for the injected build.
 Do not install an unreviewed candidate or treat the existing #109 installed
 release as #8. No agent installation or preference mutation is authorized.
 
@@ -25,7 +26,7 @@ For EV24,21.1.1/10 is a qualification candidate, not inherited proof from
 #109. Actual controls, atlas pixels, graph/data persistence and64/120ranges
 must pass; no mismatch is automatically normalized or accepted.
 
-## Preparation (agent-owned, after the shared test slot releases)
+## Preparation (completed; do not overwrite retained artifacts)
 
 Use the dedicated #8 worktree and locked Node24.19.0/npm11.17.0/CPython3.12
 environment. Preserve existing prepared packages. For the seventh package use
@@ -33,7 +34,8 @@ the already retained `out/issue8/revision-inputs/revised-120` manifest/report/
 materialization plan and that directory's sibling `registered-template`.
 Never build an internal Transport package directly as graphics acceptance.
 
-For each of the seven packages, create a new handoff directory, for example:
+The following commands document preparation already completed for all seven
+packages. Do not rerun them over the retained outputs:
 
 ```sh
 rtk ctx-wire run uv run --frozen python -m vera_timeline_agent.studio_graphics_workflow_cli attest out/issue8/packages/standard-64 --output out/issue8/handoffs-cbb20b5/standard-64
@@ -41,7 +43,7 @@ rtk ctx-wire run uv run --frozen python -m vera_timeline_agent.studio_graphics_w
 rtk ctx-wire run uv run --frozen python -m vera_timeline_agent.studio_graphics_workflow_cli request out/issue8/handoffs-cbb20b5/standard-64/graphic.json --release out/issue8/graphics-release-cbb20b5 --output out/issue8/requests-cbb20b5/standard-64-preflight.json --evidence-dir out/issue8/native-evidence/standard-64
 ```
 
-Build the release once for the exact final reviewed source. Outputs are new
+The release was built once from the exact final reviewed source. Outputs are new
 only; do not rerun these commands over retained files. `graphic.json` pins the
 entire Studio envelope and the independently verified `transport.json`; both
 share one unique build-derived target. A changed file/addition invalidates the
