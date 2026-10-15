@@ -1,7 +1,7 @@
 # Pure output-consistency interface for #209 and #215
 
-Candidate implementation; independent implementation review and final local
-acceptance are still required. Accepted authority and exact operative plan are
+Pure implementation has actual independent review02/03 GO. Complete final local
+acceptance remains pending; see ACCEPTANCE.md and retained review limitations. Accepted authority and exact operative plan are
 in `docs/plans/issue-214-output-consistency.md` (unchanged copied bytes,
 SHA256 c701b997ed448cf581377dfc819be4e8f0e547d719172f76bafd62ef67f7fa56).
 No contract, fixture, golden, accepted test or dependency changes.
@@ -120,6 +120,9 @@ the accepted q offset to align with2002sample frames. Original signed24 WAV,
 48kHz, exact channels/extent and canonical decoded int32 hashes remain required.
 Audit actual R16 AV-event endpoints, q offsets, sidecar profiles and track names
 before downstream readiness; this synthetic oracle does not show they pass.
+The real-shaped owned sidecar is all-zero Python-wave synthetic PCM, proving
+profile/extent/hash domains only. It does not qualify negative signed decoding,
+channel interleave or FFmpeg WAVE_FORMAT_EXTENSIBLE. Real sidecars remain a209gate.
 No padding, resampling, rounding or tolerance change is authorized by this note.
 
 The two excluded raw references are NOT content-free authority envelopes.
