@@ -1,0 +1,85 @@
+{
+  "reviewedCandidate": "824923d14271a5dd341b0df7c6cc1f5c47014dfb",
+  "base": "22f65c4f2b4ff61e7b08f530cdda3d92fea11d08",
+  "result": "PASS",
+  "localLinks": 24,
+  "pinnedGitBlobLinks": "PASS",
+  "reviewedDesignBytesUnchanged": "PASS",
+  "manifestAndSyntheticDatasetByteHashes": "PASS",
+  "diffWhitespace": "PASS",
+  "frozenExecutableAndCheckInputs": "UNCHANGED",
+  "executableReferenceScan": "rg issue-167 scripts packages python tests .github package.json: exit 1, no references",
+  "requiredClaude": "Initial NO-GO, delta NO-GO, final narrow delta GO; all exit 0; no waiver",
+  "applicationSuite": "Not run; documentation-only policy applies",
+  "nativeOperations": "None",
+  "files": [
+    {
+      "path": "docs/design/issue-167-semantic-highlight-cues.md",
+      "sha256": "433c2ef3c53fd62346edcc7e2e60b891156b9b2c4df8444e0623ec1cb938880f"
+    },
+    {
+      "path": "docs/plans/issue-167-proposed-contract-change.md",
+      "sha256": "c31d6443e6b272d7593354241368325fbed8ee09ace73bb6dafd524aebb83cea"
+    },
+    {
+      "path": "docs/plans/issue-167-semantic-highlight-cues.md",
+      "sha256": "72b9a45d9d61d79e1e229cd311d7d3eb9672f5ea8913f4e980df2413ee1e5e36"
+    },
+    {
+      "path": "docs/verification/issue-167/candidate-checks.json",
+      "sha256": "66d6b98c5177a9527ac273847cb3e59cbc02e90a837da397eb0afef554793024"
+    },
+    {
+      "path": "docs/verification/issue-167/claude-delta-prompt.md",
+      "sha256": "a815658c25a607fa0e98c0edff54e770b0bde68df00dcd0122281c7c721aa39e"
+    },
+    {
+      "path": "docs/verification/issue-167/claude-delta-review.md",
+      "sha256": "23b51059d1d65d4a67742698561845ed3972e9db320dbdb5c595a922f5094e2f"
+    },
+    {
+      "path": "docs/verification/issue-167/claude-final-delta-prompt.md",
+      "sha256": "d2539a73958bf65c35e34f81d1f9cd60c889841d625fe96b26ab5f0d15c59dc0"
+    },
+    {
+      "path": "docs/verification/issue-167/claude-final-delta-review.md",
+      "sha256": "add0f660ec4840b53640c266f578e1229dc4d4be32a116eaec0f61d3a0e94ebe"
+    },
+    {
+      "path": "docs/verification/issue-167/claude-initial-review.md",
+      "sha256": "692f4fd07aeabe90bc8167084c98f1a5566240eb4b01964530053413ea41621b"
+    },
+    {
+      "path": "docs/verification/issue-167/claude-review-prompt.md",
+      "sha256": "492c13f7bbddeb7ea508234153dc7738879b58bd936b90127686d69bd45aad5d"
+    },
+    {
+      "path": "docs/verification/issue-167/delta-inputs.json",
+      "sha256": "ac5816ee8017278c9c840360b6006be4e280e756f58a9f3e1ee8cc18f4297ec6"
+    },
+    {
+      "path": "docs/verification/issue-167/final-delta-inputs.json",
+      "sha256": "b03f63823400e053305d7681e30debfe23193bc692985e7f68241d4bae32b3f7"
+    },
+    {
+      "path": "docs/verification/issue-167/producer-handoff.md",
+      "sha256": "154d4513eda240f8409ebc63db5f0784f373b73e8e7914a87a0c1f2d3c3a647e"
+    },
+    {
+      "path": "docs/verification/issue-167/review-dispositions.md",
+      "sha256": "924626c973a0551c457546e70fa05027dd9edcfd863c678075b4e382bff555d9"
+    },
+    {
+      "path": "docs/verification/issue-167/review-inputs.json",
+      "sha256": "d399d683a1a5c8f310b3e02db4addf4e55a4a85ceb69e1998e40b7fb5f3f55f2"
+    },
+    {
+      "path": "docs/verification/issue-167/runtime-handoff.md",
+      "sha256": "95260c81b99ff0cb478080ef7a66cd97823fd6df5adc7c10a276320b8fc176d1"
+    },
+    {
+      "path": "docs/verification/issue-167/runtime-inbox-body.md",
+      "sha256": "2ffcb7577048284007e18967bf93d1dc1c44ae7b0af76af0b6274f24ed29933f"
+    }
+  ]
+}

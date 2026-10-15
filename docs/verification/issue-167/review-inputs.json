@@ -1,0 +1,86 @@
+{
+  "candidate": "2e4da712d220cfe03c3cdfc9e777712cdf8619f1",
+  "bundleSha256": "d3a0ef2186eb326463e6eb1cd4f27d5ca89d264bad91a48f7054e23cba186ccb",
+  "inputs": [
+    {
+      "name": "2e4da71:docs/design/issue-167-semantic-highlight-cues.md",
+      "sha256": "02d25038ff8d1f7b44993a29c8a74215791a683dfe002f7a96a9e34307f576d1",
+      "bytes": 31032
+    },
+    {
+      "name": "2e4da71:docs/plans/issue-167-proposed-contract-change.md",
+      "sha256": "6e42cd744e8b24898de2622ff7e85e0666ba09351dfe37c578f9645f16ed33f4",
+      "bytes": 12034
+    },
+    {
+      "name": "2e4da71:docs/plans/issue-167-semantic-highlight-cues.md",
+      "sha256": "72b9a45d9d61d79e1e229cd311d7d3eb9672f5ea8913f4e980df2413ee1e5e36",
+      "bytes": 1912
+    },
+    {
+      "name": "2e4da71:docs/verification/issue-167/runtime-handoff.md",
+      "sha256": "95260c81b99ff0cb478080ef7a66cd97823fd6df5adc7c10a276320b8fc176d1",
+      "bytes": 3456
+    },
+    {
+      "name": "2e4da71:docs/verification/issue-167/runtime-inbox-body.md",
+      "sha256": "2ffcb7577048284007e18967bf93d1dc1c44ae7b0af76af0b6274f24ed29933f",
+      "bytes": 3863
+    },
+    {
+      "name": "live issue #167 intake scope",
+      "sha256": "3990679326472bca75b0eae9da5a8d88ce9f876986cbdd3576dada201c5aaa4e",
+      "bytes": 7992
+    },
+    {
+      "name": "0c50a30a4e78fd771b51ee6732e78641ceb3da7b:docs/design/issue-166-derived-graphic-provenance.md",
+      "sha256": "b91ab157da0be679f6759ad57ed65fddce94af31a0aa96e0c44eec77182eb526",
+      "bytes": 26077
+    },
+    {
+      "name": "0c50a30a4e78fd771b51ee6732e78641ceb3da7b:docs/plans/issue-166-proposed-contract-change.md",
+      "sha256": "7b3949440d81e955a1306aeb1de0eed7990539619aed1b60c040295cd4d20716",
+      "bytes": 14860
+    },
+    {
+      "name": "570288f18d028dfae317d1e0ace5005f5d0cd5bb:docs/investigations/issue-219/contract-proposal.md",
+      "sha256": "b1c6e13fda2c7922232958f58d5594d50971cf202d62148eb43e409a81f0bbfb",
+      "bytes": 10092
+    },
+    {
+      "name": "570288f18d028dfae317d1e0ace5005f5d0cd5bb:docs/investigations/issue-219/target-manifest.json",
+      "sha256": "dc21391f032d35cadab909e590302bc7ed8a46567703da93b4f82846d7948424",
+      "bytes": 1535
+    },
+    {
+      "name": "570288f18d028dfae317d1e0ace5005f5d0cd5bb:docs/investigations/issue-219/producer-acceptance.md",
+      "sha256": "c5b4a658791a6608c626c3f18d5d3c27ce192ebea58bc75876a3cea921f80bbf",
+      "bytes": 2607
+    },
+    {
+      "name": "7cb942e4d9b8d75d87ae6adc8aac97fba5d5d6ab:docs/plans/issue-7-fusion-graphics-contract-change.md",
+      "sha256": "074069a48054c9c6dbaa12918d18c53ede22328c6a665cc35656dde4e90a2679",
+      "bytes": 8715
+    },
+    {
+      "name": "22f65c4:docs/investigations/issue-24-representative-script-coverage.md:150-170",
+      "sha256": "0faa6210b5cc88c45f654e6d23342d5cd887da7d189287661d218bc6a89fabe8",
+      "bytes": 10513
+    },
+    {
+      "name": "22f65c4:docs/plans/issue-156-authoring-realization.md:170-192",
+      "sha256": "876349c682f44ff06a635820c3be6ac7875b7a6595b2b5fccc68be6a616538b6",
+      "bytes": 1527
+    },
+    {
+      "name": "22f65c4:packages/contracts/src/compiler-core-v2.ts:300-345",
+      "sha256": "10ce5c635422b2b4df7c60bd56214e8c89186d5d25e3a99200d34ddd3b12758f",
+      "bytes": 3278
+    },
+    {
+      "name": "22f65c4:contracts/script-document-v2.schema.json:1172-1228",
+      "sha256": "2676fc33c29a376d1da942d783dc2f15ccbad7373b43c476c7b66e3c0c5f5bf4",
+      "bytes": 1128
+    }
+  ]
+}

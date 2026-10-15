@@ -1,0 +1,36 @@
+{
+  "candidate": "f326facbdf57fca60cf54de976d98612cecc17e6",
+  "bundleSha256": "9d88b453d8d4c80c453747ce9a1d963256d64015c076c7771ff5cae73f607bf7",
+  "inputs": [
+    {
+      "name": "f326facbdf57fca60cf54de976d98612cecc17e6:docs/design/issue-167-semantic-highlight-cues.md",
+      "sha256": "dd3961a4ca2a9a477fddcc82770b600b3e8cf822c6b28ad00114533c3b66d7c6",
+      "bytes": 32714
+    },
+    {
+      "name": "f326facbdf57fca60cf54de976d98612cecc17e6:docs/plans/issue-167-proposed-contract-change.md",
+      "sha256": "8d41f807be0da5ba11bf3cd13258101a5e11ce76ac5aaffb99e78a739d3494db",
+      "bytes": 16839
+    },
+    {
+      "name": "initial Claude review",
+      "sha256": "692f4fd07aeabe90bc8167084c98f1a5566240eb4b01964530053413ea41621b",
+      "bytes": 7054
+    },
+    {
+      "name": "delta from 2e4da71",
+      "sha256": "7ec422a2401a92f0743bb696dfb56b0a49c90c661f02a0315be7639204df1079",
+      "bytes": 22544
+    },
+    {
+      "name": "authoritative live #167 body",
+      "sha256": "3990679326472bca75b0eae9da5a8d88ce9f876986cbdd3576dada201c5aaa4e",
+      "bytes": 7992
+    },
+    {
+      "name": "accepted #7 v1 timing schema",
+      "sha256": "4f5b31651c3cdce0d5f24ca07d9f78379f054dbf28c264081ef3c23014c3d3b6",
+      "bytes": 11011
+    }
+  ]
+}
