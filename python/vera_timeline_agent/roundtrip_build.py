@@ -45,6 +45,7 @@ CODE_PATHS = (
     Path(__file__).resolve(),
     COMPILER_ENTRY,
     ROOT / "packages/contracts/src/compiler-core.ts",
+    ROOT / "packages/contracts/src/ev24-identity.ts",
     ROOT / "packages/contracts/src/script-validator.ts",
     ROOT / "python/vera_timeline_agent/build_jobs.py",
     ROOT / "python/vera_timeline_agent/studio_assembly.py",

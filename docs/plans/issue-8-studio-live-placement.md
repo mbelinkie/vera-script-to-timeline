@@ -200,3 +200,18 @@ Then focused/fast checks, adversarial Claude delta review and fixes, serial
 affected slow checks and complete local full gate after explicit slot release.
 No installation, preference mutation, production project mutation, browser
 lifecycle, custom badges, merge or deployment is authorized by this approval.
+
+## Compiler receipt compatibility repair — 2026-10-15
+
+The first complete gate on `0b7ab1e` failed: 47 failed, 593 passed. Every
+failure reaches the same semantic receipt mismatch (46 direct exceptions and
+one CLI refusal). The earlier approved integration added `ev24-identity.ts` to
+the TypeScript compiler/semantic receipts but omitted its Python counterparts.
+This bounded repair adds that same file to `SEMANTIC_SOURCES` and `CODE_PATHS`;
+exact receipt equality and source-currentness enforcement remain unchanged.
+No dependency, contract, generated type, fixture, golden or accepted test
+changes. A new issue-owned regression exercises the actual pinned Node receipt,
+missing/altered identity rejection and prepared-build source invalidation.
+After red/green evidence: affected regression, fast gate, narrow Claude delta
+review, then fresh complete local validation. Native/visual/operator gates
+remain separate and pending.

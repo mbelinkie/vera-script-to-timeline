@@ -218,3 +218,113 @@ revision-inputs; run all affected slow tests serially (109delivery,109release,
 validate. No qualifying full gate exists yet. #214's actualpytest13632was still
 live at23:20elapsed on the latest check; slotnotreleased. Native qualification
 and operator visual/render acceptance remain subsequent independent gates.
+
+## Scheduled validation observation — 2026-10-15
+
+The shared slot was explicitly released by #214; coordinator owner was null
+and no validation/pytest process competed before the run. Serial affected
+injected/graphics checks passed 129 tests in 48.06s. Fast validation passed,
+including 395 non-slow Python tests and 439 contracts cases. Logs and runtime
+identities are retained in `out/issue8/full-run-state.json`.
+
+Full run session75836 is terminal **exit1**, not green: 47 failed, 593 passed,
+640 collected, 1630.98s. Tested clean commit `0b7ab1e3f7c4996a074f00a0f6c496ee5ceb0035`,
+tree `fbfaba98669769471e8389fcd8ba7068348186a5`. Full failure log
+`out/issue8/validate-full-0b7ab1e.log`, raw SHA256
+`b663dbfaa322fa9b3bd02af45b1247191e217aeca3975ff8a2c16b25b9f94eb9`.
+All 47 failures share `semantic entry receipt binding differs`: 46 direct
+exceptions and one CLI result carrying that exact refusal. The scheduled
+check-in was disabled after terminal observation; never resume/restart75836.
+
+The actual TypeScript CLI advertises `./ev24-identity.ts`; Python's semantic
+receipt expectation and prepared-build source inventory omitted it. New
+issue-owned `test_studio_graphics_receipt_closure.py` reproduced three failures
+in 2.12s: valid receipt rejected, missing identity incorrectly accepted, and
+prepared inventory missing the file. Adding only the two inventory entries
+made all four tests pass in 2.13s, including altered-hash rejection and actual
+prepared source-currentness invalidation. Ruff lint/format checks pass.
+Accepted tests/fixtures/contracts are untouched by this repair.
+
+Current execution session28021 runs one originally failing end-to-end
+composition case plus four new receipt cases, then (only on success)
+`VITEST_MAX_WORKERS=1 npm run validate:fast`, with pinned Node24.19.0 and
+locked Python3.12.14. Logs: `out/issue8/receipt-affected.log` and
+`out/issue8/validate-fast-receipt.log`. No result is inferred yet. After success,
+read-only Claude delta review must cover this two-line source repair and new
+tests before a fresh full gate. If the run is still live, leave it alone and
+use the timer; no active polling, competing heavy work or unchanged full rerun.
+Native/operator qualification and all visual acceptance remain pending.
+
+### Receipt-repair check-in — 12:28 UTC
+
+Session28021 completed exit1. Its affected stage passed all five cases in
+176.07s, including the formerly failing actual end-to-end composition case;
+log `receipt-affected.log`, SHA256
+`3569962bcaefb0a56e95fbf42c2cd77b7870511b45dce1b2fdf3f5c6b64d6a03`.
+Fast validation passed generated/currentness, TypeScript and Ruff checks but
+stopped at mypy: the new regression referenced `proof.subprocess`, an import
+not explicitly exported by that module. Failed fast log `validate-fast-receipt.log`,
+SHA256 `177ca348548500abe7979b078c9fd405172f962ff70df769db7efd41c68b032a`.
+This remains failed evidence, not a fast pass.
+
+The test now monkeypatches its own directly imported `subprocess` module
+(the same module object), preserving behavior without the implicit re-export.
+Production source is unchanged from the two-line receipt repair. New execution
+session73746 runs the four receipt tests then fresh fast validation serially;
+logs `receipt-regression-final.log` and `validate-fast-receipt-final.log`.
+The existing timer will check once, without active monitoring. Delta review
+and the fresh full gate remain pending.
+
+Frozen audits pass: four v1 contracts, #7 goldens/dependency acceptance tests
+match accepted7cb942e; original locks and slice1.1/1.3 data match4e31565;
+accepted109delivery/release tests, package/CLI, menu bootstrap and lazy-import
+studio_spike match8ef9f864. No native operations or operator flags supplied.
+
+### Corrected fast gate and review — 12:34 UTC
+
+Session73746 completed **exit0**. Four receipt regression cases passed in
+2.28s; `receipt-regression-final.log` SHA256
+`b6bb80c688cddbf7d67212041acfdc836ab8d6b3e335c81b44f5971ac9058cd0`.
+The fresh fast gate passed generated-currentness, all lint/types (131 Python
+files; 424 formatted), 439 contracts cases in23files, one tooling smoke case,
+6progress/23roadmap/32cloud Node cases, and399non-slow Python cases in89.57s.
+`validate-fast-receipt-final.log` SHA256
+`1de067ba9993f6c517a540e224371a10c3bb2b63a6b953dc1570e882937354c8`.
+Earlier failed evidence remains retained and is not relabeled.
+
+Required narrow read-only Claude receipt delta review is now execution
+session40286, output `out/issue8/claude-review-receipt-delta.txt`, prompt
+`out/issue8/receipt-delta-review-prompt.md`. Only Read/Grep/Glob are available;
+no shell, edits, tests, MCP servers, native operations or agent delegation.
+Review is restricted to the two source inventory entries, new receipt test and
+their real callers/hash validation. Prior injected/native candidate reviews
+are retained, not restarted. Do not infer GO before actual review completion.
+After GO/fixes: record final source, recheck slot/process exclusion, then a
+fresh complete full gate; use a timer for long runs. Native acceptance remains
+pending and no operator flags have been supplied.
+
+### Receipt delta review GO — 12:41 UTC
+
+Review40286 completed exit0, **GO**, with no blocking findings. Log
+`out/issue8/claude-review-receipt-delta.txt`, SHA256
+`936ec18d2b56e049d9fd3a855466689c142dc7754377254cd33447c50721ca17`.
+It confirmed exact Python/TypeScript source inventory closure, unchanged exact
+receipt equality/currentness checks, actual pinned-Node positive and missing/
+altered-hash rejection, and prepared-source invalidation. Nonblocking notes:
+Node is selected through PATH but exact24.19.0 fails closed; roughly2s tests
+appropriately remain in the fast gate. No source/test changes after review.
+The reviewer could not see some truncated intermediate fast output; the main
+owner retained actual exit0 and complete log and confirmed439contracts,
+1tooling,6progress,23roadmap,32cloud,399Python plus lint/types/currentness.
+Full/native/visual evidence is not inferred from that review.
+
+Pre-full check: coordinator currentHeavyOwner=null, #214 Closed/Done and heavy
+slot expressly released; no competing validate/pytest/ffmpeg/ffprobe process.
+Commit this exact source/test repair and retained plan/checkpoint, then run a
+new `VITEST_MAX_WORKERS=1 PYTEST_ADDOPTS=--durations=25 npm run validate` with
+pinned Node24.19.0/npm11.17.0 and locked Python3.12.14. New log:
+`out/issue8/validate-full-receipt-reviewed.log` (never overwrite the failed
+original). Exact commit/tree/session are retained in `full-run-state.json`.
+Use a15minute timer for one observation per wake; leave a live run alone.
+No source changes, competing heavy checks, automatic retries, native effects
+or claims of full acceptance while this run is in progress.
