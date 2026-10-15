@@ -698,3 +698,33 @@ quiet if unchanged; preserve owner/coordinator boundaries and no threadmessages.
 The stale coordinator record still naming old8full84935 is not authorization
 to compete with219 or edit coordinator-owned records. No preference mutation,
 release installation, native build/render, old target repair or acceptance.
+
+### Shared slot released; graph repair affected/fast gates pass
+
+#219 owner explicitly reported full exit0, children drained and shared heavy
+capacity released, with no further suite/render planned. Actual prestart
+pgrep validation/pytest/ffmpeg returned no matches. No coordinator mutation
+or thread reply occurred. Prepared runner43469 ran on clean73ab69a
+tree de20387d83c4c1f1a3643f7db4af7759255004d7 with pinned
+Node24.19.0/npm11.17.0/uv0.12.5/lockedPython3.12.14 and VITESTworkers1.
+
+Durable affected receipt exit0:126passed10.97s (new fingerprint plus existing
+adapter/workflow cases), log graph-persistence-affected.log SHA256
+`ee07b4542d214db8b1c4ee53a724987b6735f0d7ebda3b554364608e4e2459fb`.
+Durable fast receipt exit0:484Python57.41s,439contracts/23files,1tooling,
+6progress/23roadmap/32cloud cases; generated/lint/types all pass, Ruff427
+formatted and mypy132files. Log validate-fast-graph-persistence.log SHA256
+`294156aeeeebeceb0a475fd763892149c80bdd4b65a69459be4e3761228114a2`.
+Both exact exit receipts SHA256
+`3edd82d4e49f89c30270dee752ac018539f4dc6848d7a33b1553404e6f8b58af`.
+These are completed fast evidence only, not the required new full/native gate.
+
+Candidate production/tests remain byte-identical to73ab69a; only this evidence
+checkpoint changed after the pass. Exact code/test diff fromf85ba27 retained
+in out/issue8/graph-persistence-review-diff.patch. Narrow read-only Claude
+review is next with durable runner run-graph-persistence-review.sh and prompt
+graph-persistence-review-prompt.md. Allow only Read/Grep/Glob, no edits/tests/
+native/network/MCP/agents. Preserve its candidate while live, retain actual
+exit/verdict/full log, fix findings/delta-review if needed, then new full gate
+under serial capacity policy. No new full has started; prior644full is not
+equivalent to this code change. No installation or Resolve operation occurred.
