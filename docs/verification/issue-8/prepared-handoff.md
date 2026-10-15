@@ -1,5 +1,14 @@
 # Issue #8 — prepared operator artifact inventory
 
+Current native status: the first authorized standard-64 build was created,
+saved and reopened but **verification_failed**: `reopened Fusion graph
+fingerprint differs`. The partial target is retained; do not edit, delete,
+repair or relaunch its build. Native/visual acceptance has not passed. A
+read-only diagnostic is prepared to capture repeated current graph settings
+and persistent fingerprint data from this exact current target; no production
+guard has been relaxed. See the latest checkpoint below and
+`out/issue8/native-failure-checkpoint.json`.
+
 Prepared from reviewed code at `cbb20b5cfd3df997f1c5ae46259462ef212cfa7f`.
 Complete final gate passed with retained **exit0** on clean commit
 `f20681fd6e0dda4f2d4f6666169e9208adb49537`, tree

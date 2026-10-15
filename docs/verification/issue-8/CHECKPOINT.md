@@ -428,3 +428,45 @@ Remaining first step: Producer opens Resolve, confirms None and retains safe
 scripted actions, saves a separate disposable current project/timeline on Edit,
 launches VERA Graphics v1 once and returns preflight result/first refusal.
 No new-target build authorization or visual acceptance has been supplied.
+
+### First authorized native run — failure retained
+
+Producer confirmed the preflight sequence done. Actual result
+`result-f1ecda3ae4ec4967963fff6684eee3ba.json`: preflight_passed on Studio21.1.1/10,
+Python3.14.7, no discrepancies; hash
+`a820f51d9b13b1670c724b05627cf68b1a864dc430a65f93f86fd41226523d52`.
+Producer then explicitly said `Authorize this disposable build` for the exact
+standard-64 target6066118d9c7d. The build request hash
+`6c00fb4a4f1e9c0377ea4b068fbf55dc6dc41ebc96332c4b5d8d17edffe22cfb`
+binds actionbuild, authorizationtrue and the Producer's None statement.
+After Producer closed Resolve and no process remained, the old preflight
+request was moved intact outside the plugin root into the private request
+archive and the build request copied/verified. Runtime bytes stayed unchanged.
+
+Producer relaunched once and reported done. Native result
+`out/issue8/native-evidence/standard-64/result-f376f182a6c84ef8a973e89e15d28a4c.json`,
+SHA256 `5bf4c3c6f8e9a8e7e02593525872c1851c16d5f91b9e5fb6ac47a1161d5418ad`,
+reports **verification_failed**, `verified:false`, partialTargetRetained:true:
+`EV24 verification failed: reopened Fusion graph fingerprint differs`.
+The target was created/saved/reopened and media verification is recorded;
+graphic observations remain empty. The code's semantic-value and stable-use
+checks precede the failing combined graph-hash/persistent-hash comparison.
+That does not qualify graph persistence, atlas mapping, rendering or acceptance.
+Keep the exact partial target unchanged; do not rerun the installed build.
+
+The result does not retain pre-save/raw reopened settings or separate which
+fingerprint branch failed. No root cause or compatibility normalization is
+asserted. No production/accepted-test/fixture/contract change has been made.
+Following diagnosing-bugs, the next evidence is a guarded read-only native
+capture, not a speculative fix. Private script
+`out/issue8/diagnose-standard-64.py` SHA256
+`86b5d7a25262ca67e8da01487cd93d5500b80a71e2adeef2d8718931f0ac7c7b`
+requires exact current failed project/timeline and21.1.1/10, refuses rendering,
+verifies the installed source release, reads repeated SaveSettings() tables,
+persistent hashes/identity and controls, and writes only a new private report.
+It never saves/switches projects, sets controls/data, places media or renders.
+Local static/syntax/missing-API checks pass; fake-API detection and wrong-target
+refusal pass after completing the synthetic fixture's missing graphic identity.
+These are diagnostic safety checks, not live reproduction or native acceptance.
+Producer must invoke it in Python3 Console with the existing injected resolve;
+no external-scripting connection or preference change is requested.
