@@ -78,6 +78,8 @@ EV24_CONTROL_NAMES = frozenset(
     {"Country", "Year", "TopLine", "BottomLine", "BadgeOverride"}
 )
 EV24_ROOT_TOOL = "EV24LowerThird"
+# The pinned macro's MainOutput1 delegates to this internal Transform's Output.
+EV24_RENDER_OUTPUT_TOOL = "MasterTransform"
 EV24_SETTING_PATH = (
     Path(__file__).resolve().parents[2]
     / "packages/contracts/assets/ev24-lower-third/EV24 Lower Third.setting"
@@ -286,6 +288,93 @@ def discover_ev24_controls(item: Any) -> Ev24Controls:
     ):
         raise Ev24SpikeError("EV24LowerThird controls are not readable and writable")
     return Ev24Controls(tool)
+
+
+def connect_ev24_to_media_out(item: Any) -> Any:
+    """Wire the imported macro to the one timeline output Resolve needs to render it."""
+    composition, tools = _ev24_composition_tools(item)
+    root = _ev24_root_tool(tools)
+    try:
+        locked = composition.Lock()
+    except (AttributeError, TypeError, ValueError) as error:
+        raise Ev24SpikeError("could not lock the EV24 Fusion composition") from error
+    if locked is False:
+        raise Ev24SpikeError("Resolve rejected the EV24 Fusion composition lock")
+    try:
+        outputs = [
+            tool
+            for tool in tools.values()
+            if tool.GetAttrs("TOOLS_RegID") == "MediaOut"
+        ]
+        if len(outputs) > 1:
+            raise Ev24SpikeError("EV24 composition has duplicate MediaOut tools")
+        if not outputs:
+            output = composition.AddTool("MediaOut", 0, 0)
+            if output is None or output.GetAttrs("TOOLS_RegID") != "MediaOut":
+                raise Ev24SpikeError(
+                    "EV24 output creation returned an incompatible tool"
+                )
+        else:
+            output = outputs[0]
+        connected = output.ConnectInput("Input", root)
+        if connected is False:
+            raise Ev24SpikeError(
+                "Resolve rejected the EV24LowerThird-to-MediaOut connection"
+            )
+    except (AttributeError, TypeError, ValueError) as error:
+        raise Ev24SpikeError("could not connect EV24LowerThird to MediaOut") from error
+    finally:
+        try:
+            composition.Unlock()
+        except (AttributeError, TypeError, ValueError) as error:
+            raise Ev24SpikeError(
+                "could not unlock the EV24 Fusion composition"
+            ) from error
+    _verify_ev24_media_out(item)
+    return output
+
+
+def _verify_ev24_media_out(item: Any) -> None:
+    _, tools = _ev24_composition_tools(item)
+    outputs = [
+        tool for tool in tools.values() if tool.GetAttrs("TOOLS_RegID") == "MediaOut"
+    ]
+    if len(outputs) != 1:
+        raise Ev24SpikeError("EV24 composition must contain exactly one MediaOut")
+    try:
+        source = outputs[0].FindMainInput(1).GetConnectedOutput().GetTool()
+        source_name = source.GetAttrs("TOOLS_Name")
+    except (AttributeError, TypeError, ValueError) as error:
+        raise Ev24SpikeError("EV24 MediaOut connection is unreadable") from error
+    if source_name != EV24_RENDER_OUTPUT_TOOL:
+        raise Ev24SpikeError("EV24LowerThird is not connected to MediaOut")
+
+
+def _ev24_composition_tools(item: Any) -> tuple[Any, dict[Any, Any]]:
+    try:
+        count = item.GetFusionCompCount()
+        composition = item.GetFusionCompByIndex(1)
+        tools = composition.GetToolList(False) if composition is not None else None
+    except (AttributeError, TypeError) as error:
+        raise Ev24SpikeError("EV24 composition cannot be discovered") from error
+    if count != 1 or not isinstance(tools, dict) or not tools:
+        raise Ev24SpikeError("expected exactly one EV24 Fusion composition with tools")
+    return composition, tools
+
+
+def _ev24_root_tool(tools: dict[Any, Any]) -> Any:
+    roots = []
+    for tool in tools.values():
+        try:
+            name = tool.GetAttrs("TOOLS_Name")
+            registration_id = tool.GetAttrs("TOOLS_RegID")
+        except (AttributeError, TypeError) as error:
+            raise Ev24SpikeError("EV24 graph tool identity is unreadable") from error
+        if name == EV24_ROOT_TOOL:
+            roots.append((tool, registration_id))
+    if len(roots) != 1 or roots[0][1] != "MacroOperator":
+        raise Ev24SpikeError("expected exactly one EV24LowerThird MacroOperator")
+    return roots[0][0]
 
 
 def retained_ev24_requests() -> tuple[PreparedEv24Request, ...]:
@@ -534,6 +623,7 @@ class PublicEv24Adapter:
                 raise Ev24SpikeError(
                     "ImportFusionComp rejected the pinned EV24 setting"
                 )
+            connect_ev24_to_media_out(item)
             controls = discover_ev24_controls(item)
             physical_controls = dict(request.control_values)
             if physical_controls.get("BadgeOverride") == EV24_TEST_BADGE_ID:
@@ -597,6 +687,7 @@ class PublicEv24Adapter:
                         f"{report.name}: V4 placement or duration differs"
                     )
                     continue
+                _verify_ev24_media_out(item)
                 controls = discover_ev24_controls(item)
                 expected = dict(report.control_readback)
                 if report.badge_asset_identity is not None:
