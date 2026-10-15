@@ -39,3 +39,10 @@ accepted preparation validator. No accepted semantics/test weakening.
 AST delta is confined to that test body; passing stress is not additionally
 rerun for this repair. The final complete LOCAL gate still includes all coverage.
 Phase04 runs the failed oracle, previously unrun focused coverage and fast gate.
+
+Phase04 fresh outputs passed accepted174 preparation validation, then correctly
+refused off-grid25fps ten seconds at24000/1001. Phase05 test retains that refusal
+AND a positive supported80frame selection from the SAME validated receipt, with
+independently specified147147/44100 =160160/48000 endpoints. No package tolerance
+or accepted174 semantics changed. This is explicit synthetic event selection,
+not a claim that the original compiler25fps event acquired a different rate.

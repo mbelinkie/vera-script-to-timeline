@@ -1097,7 +1097,7 @@ def test_private_preparation_payloads_do_not_multiplex_by_matching_hash() -> Non
 @pytest.mark.slow
 def test_actual_accepted_174_receipt_shape_and_package_range(tmp_path: Path) -> None:
     from issue190_case import make_proof_case
-    from vera_timeline_agent.v2_package import _validate_preparations
+    from vera_timeline_agent.v2_package import V2PackageError, _validate_preparations
 
     request, _ = make_proof_case(
         tmp_path, rate="23.976fps", scenario="source-audio-full"
@@ -1148,7 +1148,19 @@ def test_actual_accepted_174_receipt_shape_and_package_range(tmp_path: Path) -> 
         if source["id"] == event["provenance"]["sourceId"]
     )
     prep = accepted[logical["preparationRequirementKey"]]
+    # This helper's source-audio scenario is fixed at 25fps, regardless of its
+    # rate argument. Its complete ten seconds are off-grid at 24000/1001.
+    assert manifest["timeline"]["frameRate"] == {"numerator": 25, "denominator": 1}
+    with pytest.raises(V2PackageError, match="exact timeline frames"):
+        _source_audio_range(event, prep, Fraction(24000, 1001))
+    # Independently specified bounded interval from the SAME validated #174
+    # receipt: 80*2002 /48000 seconds =147147/44100 seconds. This is an owned
+    # synthetic event selection, not a claim the original compiled row changed.
+    event = copy.deepcopy(event)
+    event["recordRange"] = {"startFrame": 0, "endFrame": 80}
+    event["audio"]["sampleRange"] = {"startFrame": 0, "endFrame": 147147}
     native_range = _source_audio_range(event, prep, Fraction(24000, 1001))
+    assert native_range == {"startFrame": 0, "durationFrames": 80}
     audio = prep.record["audio"]
     sid = event["eventId"]
     delivery = {

@@ -1,4 +1,37 @@
-# Issue214 checkpoint — owned oracle-fixture repair
+# Latest phase05 continuation
+
+Direct Producer Resume all restored same214 scope after observed98% reserve stop;
+no source edits/jobs were started in that stopped turn. Current observedc267
+account9%five-hour33%weekly ordinary allowed; no agentaccount/credit actions.
+Original97%reserve remains. Current owned job inventory empty, existing214slot.
+
+Phase04 FAILED1test, exit1 at01:39:29.154300Z; runner65323 drained/RETIRED.
+LogSHA ae573ba4e5865790d8dd390e9c87cc5a7dc8d4b81b36a4961e9595ffab1cd2c7.
+Fresh compile fixed prior stale-binding failure and unchanged accepted174
+preparation validator PASSED, then exact-grid source range refused correctly.
+Source-audio helper is fixed25fps regardless of23.976 argument: ten seconds,
+441000original44.1ksamples/480000prepared48ksamples,240000/1001timelineframes.
+
+New owned test preserves that original offgrid refusal, retains the unchanged
+accepted174 receipt validator positive, and explicitly constructs a supported
+80frame interval FROM THE SAME VALIDATED RECEIPT:147147original44.1ksamples =
+160160prepared48ksamples =80*2002. Accepted package oracle must return exactly
+start0/duration80 and new provenance parser must match. No production/accepted
+schema/test/fixture/media byte or tolerance changes; no false claim the original
+compiled25fps event supports24000/1001. Delta reviewer must assess this precise
+positive coverage and its explicit scope.
+
+Fresh durable phase05 path phase-05-exact-grid-oracle-checks under owner private
+root below. Serial targeted slow oracle, owned non-slow, validate:fast. Passing
+stress component not repeated (only separate failed-test body changed; config/
+production/stress/helper AST unchanged); final LOCAL gate still includes all.
+All failed phase03/04 receipts retained. No required positive replaced with an
+expected-refusal test. No live process restarted. Forecast3–6active hours low
+confidence remains pending actual delta review; serial full adds machine time.
+
+--- prior checkpoint context ---
+
+# Issue214 checkpoint — exact-grid accepted-receipt oracle repair
 
 Same Sol/high owner01a13cdf-1a4f-7f13-93ef-4b1a4c8a31dc, branch
 codex/issue-214-output-consistency, accepted base22f65c4f2b4ff61e7b08f530cdda3d92fea11d08.
