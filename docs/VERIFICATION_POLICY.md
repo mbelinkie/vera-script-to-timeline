@@ -89,6 +89,37 @@ real external capability claims still require actual runtime evidence.
 
 ## Intel-Mac execution and unchanged limits
 
+### Producer review and waiting rules (2026-10-15)
+
+Every ticket requires a separate adversarial Claude CLI review with read-only
+tools and no unauthorized private inputs. Retain the candidate revision/diff,
+prompt, result and finding dispositions. Review before final expensive testing;
+fix findings and review the fix delta as needed. No blocking findings is a valid
+result. An earlier Claude authoring conversation is not this review. If Claude
+is unavailable, rate-limited, unauthenticated or produces no usable review, stop
+at that gate and ask the Producer whether review may be skipped for that exact
+issue/revision. Never substitute another reviewer or self-waive the gate.
+
+After initial inspection and the first substantive check, report a rough
+remaining active-work range, confidence and main uncertainty. If a range lacks
+support, name unresolved work and the next reassessment checkpoint instead.
+Notify the Producer promptly of material changes or likely multi-session
+expansion. Separate active work from Producer/external waits; there is no
+arbitrary 24-hour threshold.
+
+For unattended tests or queue waits expected to take at least ten minutes,
+retain a durable job/log/exit status or queue-owner record and a reassessment
+checkpoint. Confirm one recurring 15-minute thread heartbeat, tell the Producer
+the next check, then end the active turn completely. Do no active polling,
+log-tail, monitoring-helper or other work during that wait. Check once per
+wake-up and end again if still running. Cancel the heartbeat on completion,
+failure or blocker. A heartbeat must never launch another suite or steal a queue
+slot. Missing results or stalled progress past the checkpoint require a report,
+not indefinite waiting or unauthorized termination. If durable execution or
+scheduling is unavailable, stop and ask how to proceed.
+
+### Existing execution limits
+
 Honor the current expensive-check coordinator/queue. Before a new full or
 heavy test run, check for actual competing validation/pytest/media jobs and
 wait for the existing owner's explicit release where a queue is established.
