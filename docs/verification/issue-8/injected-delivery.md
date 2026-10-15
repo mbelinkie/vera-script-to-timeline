@@ -1,7 +1,12 @@
 # Issue #8 — injected Studio graphics operator handoff
 
-Status: candidate implementation. Final reviewed-source automated evidence,
-prepared attestations/release and actual native/visual acceptance are pending.
+Status: reviewed candidate; all stages of the full validation log passed,
+including644Python tests, but the expired execution handle did not retain its
+exit status. The required durable exit-zero record remains pending. Seven
+attestations, a source-equivalent release and preflight-only requests are
+prepared; actual native/visual acceptance remains pending. See
+[prepared artifact inventory](prepared-handoff.md). #219 currently owns the
+exclusive Resolve window; do not install, launch or interrupt its rendering.
 Do not install an unreviewed candidate or treat the existing #109 installed
 release as #8. No agent installation or preference mutation is authorized.
 
@@ -31,9 +36,9 @@ Never build an internal Transport package directly as graphics acceptance.
 For each of the seven packages, create a new handoff directory, for example:
 
 ```sh
-rtk ctx-wire run uv run --frozen python -m vera_timeline_agent.studio_graphics_workflow_cli attest out/issue8/packages/standard-64 --output out/issue8/handoffs/standard-64
-rtk ctx-wire run uv run --frozen python -m vera_timeline_agent.studio_graphics_workflow_cli release --output out/issue8/graphics-release
-rtk ctx-wire run uv run --frozen python -m vera_timeline_agent.studio_graphics_workflow_cli request out/issue8/handoffs/standard-64/graphic.json --release out/issue8/graphics-release --output out/issue8/standard-64-preflight-request.json --evidence-dir out/issue8/native-evidence/standard-64
+rtk ctx-wire run uv run --frozen python -m vera_timeline_agent.studio_graphics_workflow_cli attest out/issue8/packages/standard-64 --output out/issue8/handoffs-cbb20b5/standard-64
+rtk ctx-wire run uv run --frozen python -m vera_timeline_agent.studio_graphics_workflow_cli release --output out/issue8/graphics-release-cbb20b5
+rtk ctx-wire run uv run --frozen python -m vera_timeline_agent.studio_graphics_workflow_cli request out/issue8/handoffs-cbb20b5/standard-64/graphic.json --release out/issue8/graphics-release-cbb20b5 --output out/issue8/requests-cbb20b5/standard-64-preflight.json --evidence-dir out/issue8/native-evidence/standard-64
 ```
 
 Build the release once for the exact final reviewed source. Outputs are new
@@ -73,7 +78,7 @@ native build. It never invokes Resolve or installs a script.
    External Scripting None actually confirmed, prepare the explicit request:
 
    ```sh
-   rtk ctx-wire run uv run --frozen python -m vera_timeline_agent.studio_graphics_workflow_cli request out/issue8/handoffs/standard-64/graphic.json --release out/issue8/graphics-release --output out/issue8/standard-64-build-request.json --evidence-dir out/issue8/native-evidence/standard-64 --action build --authorize-new-nonproduction --external-scripting-none
+   rtk ctx-wire run uv run --frozen python -m vera_timeline_agent.studio_graphics_workflow_cli request out/issue8/handoffs-cbb20b5/standard-64/graphic.json --release out/issue8/graphics-release-cbb20b5 --output out/issue8/requests-cbb20b5/standard-64-build.json --evidence-dir out/issue8/native-evidence/standard-64 --action build --authorize-new-nonproduction --external-scripting-none
    ```
 
    These flags are the operator's audited statement, not agent defaults.

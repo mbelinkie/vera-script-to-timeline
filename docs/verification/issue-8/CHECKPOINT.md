@@ -328,3 +328,42 @@ original). Exact commit/tree/session are retained in `full-run-state.json`.
 Use a15minute timer for one observation per wake; leave a live run alone.
 No source changes, competing heavy checks, automatic retries, native effects
 or claims of full acceptance while this run is in progress.
+
+### Full suite finished; durable exit record gap — 09:58 EDT
+
+All644Python tests passed in4318.87s (1:11:58); all preceding stages passed:
+439contracts in23files,1tooling,6progress,23roadmap,32cloud cases, generated
+currentness, lint,424formatted Python files and mypy131files. Log
+`out/issue8/validate-full-receipt-reviewed.log` SHA256
+`f2d26dffd627cd03b45da6615a5a5c5425ebd4bf1991ef3a53ffdde151ac930b`.
+Original parents38530/38531/38532 and pytest40998/40999 have exited; no active
+run remains. Execution69953 expired before the desktop exposed terminal exit.
+The passing summary is real, but **no direct terminal exit-zero record exists**.
+Do not fabricate one or call this the policy's completed exit-zero gate.
+Source was clean and byte-identical to testedcbb20b5/tree181243e4 at completion.
+
+This is an evidence-retention gap, not a test failure and not an unchanged
+failure retry. Retain the complete passing-suite coverage. A fresh full run
+with an on-disk actual exit receipt is necessary to supply the policy's missing
+required record. `out/issue8/run-full-durable.sh` captures command status even
+if the desktop handle expires; it uses new no-clobber log/exit paths. Never
+run it over existing evidence. Defer while #219 has its explicitly authorized
+exclusive Resolve/render window. The scheduled check may inspect that task
+once for explicit release, then check the shared coordinator and actual heavy
+processes before starting. It must not interrupt, message, install into or
+use Resolve. No new review is needed for unchanged production/test bytes.
+
+Seven full-envelope/Transport attestations and preflight-only requests were
+prepared, session99867exit0. New release `graphics-release-cbb20b5` matches
+all11reviewed runtime files and the exact prior release-manifest hash
+`f955e0f46993028a951d3331f9ce6aaba0bd510134590b73e2e9c481c3956614`;
+full inventory/byte comparison exit0, CPython3.14.7 -B -S import exit0.
+Complete targets/hashes: `out/issue8/operator-preparation-cbb20b5.log` and
+[prepared handoff](prepared-handoff.md). All requests explicitly remain
+preflight, unauthorized, settings-null. No #8 native effect has occurred.
+
+Only handoff/checkpoint documentation changes follow the passing suite.
+Repeated searches including --no-ignore-vcs found no references consuming
+these issue8documents in scripts/tests/generator/packager. Source, tests,
+locks, assets, contracts and frozen boundaries remain unchanged; do not
+restart review or alter runtime code to solve an execution-handle problem.

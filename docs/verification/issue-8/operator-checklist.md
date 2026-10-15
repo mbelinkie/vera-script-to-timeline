@@ -1,4 +1,4 @@
-# Issue #8 — External acceptance checklist (not yet runnable)
+# Issue #8 — External acceptance checklist (operator gates pending)
 
 Status: native acceptance is **not established**. No #8 project, composition
 or render has been created. Do not interpret a package verification pass as
@@ -9,8 +9,11 @@ never build it directly to accept graphics.
 
 Complete the reviewed-source fast/slow/full gates first. The Producer approved
 adapting #8 to #109's injected path for Studio21.1.1/build10. That path is now
-implemented but still needs review, a source-bound release and fresh EV24
-qualification. The old external CLI continues to refuse this installation.
+implemented and reviewed; a source-bound release and seven handoffs are
+prepared. Full validation logged all644Python cases passing, but its expired
+handle lost the terminal exit status; the required durable exit-zero record
+and fresh EV24 qualification remain pending. Do not run while #219 owns the
+exclusive Resolve/render window. The old external CLI still refuses this installation.
 Do not edit a receipt, fabricate LocalFacts or enable external scripting.
 Follow [injected delivery](injected-delivery.md) for operator-owned installation,
 preflight and launch, then perform this visual checklist. No new adaptation
@@ -35,8 +38,9 @@ V4. The stable graphic-use ID is
 
 Full build UUIDs have prefix `88000000-0000-4000-8000-`. The first six
 packages are retained and verified. The seventh is a new actually compiled
-one-field revision; its package preparation and slow verification are pending
-the expensive-check slot. Fresh inputs are retained in
+one-field revision; its package and independent attestation are now prepared.
+All seven preflight-only requests are listed in [prepared handoff](prepared-handoff.md).
+Fresh inputs are retained in
 `out/issue8/revision-inputs`; all original six manifests/reports and registered
 template files compare byte-identical to the earlier input set. Do not run or
 accept an absent package artifact.
