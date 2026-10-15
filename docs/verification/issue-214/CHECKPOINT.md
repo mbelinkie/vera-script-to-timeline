@@ -1,76 +1,90 @@
-# Issue 214 implementation checkpoint
+# Issue214 checkpoint — review01 fixes candidate
 
-## Owner and baseline
+Same Sol/high owner01a13cdf-1a4f-7f13-93ef-4b1a4c8a31dc, branch
+codex/issue-214-output-consistency, accepted base22f65c4f2b4ff61e7b08f530cdda3d92fea11d08.
+Issue is Open/In progress/Automated, claim retained. No successor, merge/main
+adoption, native/MCP/UI/render/provider action, source-media mutation or new
+wakeups/goal. Owned modules/tests/plan/evidence only; no accepted-test/schema/
+fixture/golden/dependency/native/TS changes. Plan/CN source bytes unchanged.
 
-Issue214 remains Open / In progress, Automated, exact gpt-6.1-sol/high claim by
-01a13cdf-1a4f-7f13-93ef-4b1a4c8a31dc on codex/issue-214-output-consistency.
-Accepted base22f65c4f2b4ff61e7b08f530cdda3d92fea11d08. No successor dispatched.
-Original reserve stop ended after direct user resume and actual capacity check.
-Current observed account76e395df-e4f8-4a1a-a63b-3de3fb5abca5 permits work;
-latest primary25%, weekly4%. Agent did not switch accounts or use credits.
+## Retained phases
 
-## Candidate and evidence so far
+Phase01 against1a768f40bcaa86e25f9148deab8e282f172009a7 passed npm ci,75 owned
+non-slow tests (1 slow deselected), and validate:fast (726 non-slow Python plus
+all other gates). Full input inventories7001 equal before/after and current at
+review capture. Log hashes/exit/runtime evidence independently qualified. This
+is FAST evidence, never a complete final gate. Runner43008 drained and RETIRED.
 
-Two new stdlib-only production modules, three new owned test modules, exact
-copied operative plan, this checkpoint and INTERFACE.md. No old native/TS,
-contracts, fixtures, goldens, accepted tests, dependencies or original media
-changes. New source enters proof_source_hashes_v2's existing glob, so old
-source-bound preparation/release/physical qualification is not inherited.
+Actual Claude Opus5.5/high implementation review01 exited0, actual model and
+is_error=false, resultSHA10b584ded18b0c9e22eb532736ccd1f94a1f0c63ca424de3b7b1aa88b6dbedc6,
+inputs unchanged at finish and owner inspection. Verdict NO-GO. Complete review
+is retained in claude-implementation-review-01.md; bounded disposition is in
+review-01-disposition.md. Review runner47600/child47605 drained and RETIRED.
+Never poll/resume those PIDs or any retired204/208/211/Claude03 jobs.
 
-Initial record tests ran red before modules existed, then22 passed. Focused
-non-slow package tests later passed74 (1 slow deselected); added CaseA and
-actual generated narration-shape tests passed2/2. New scalar/authority-binding
-refinements are included in the next retained focused/fast phase. Owned mypy
-and Ruff checks passed before the latest small test/binding refinements; fast
-phase must cover the complete candidate. No full qualifying evidence or
-independent implementation review has yet been obtained.
+## Current candidate
 
-The actual package oracle exposed and corrected native source-audio identity:
-its native sourceId is eventId and native raw media is the prepared WAV. The
-original delivered AV and original selected packed-s24 stream remain separate
-provenance/hash domains. Both48k and44.1k exact rational mapping tests pass
-against _source_audio_range with nonzeroq. Narration source-range/identity is
-tested against _delivery_view; old modules are test-only imports.
+B1: historical comparison/terminal completion after valid reservation expiry.
+B2: pre/post capturePhase, distinct raw snapshots, post completion-lineage auth.
+B3: exact execution-dependency narration row/boundary membership and preparation
+requirementKey/binding match. B4: supplied generic origin records refuse; no
+new authority kind. Nonzero AV/q mappings retain exact package-oracle coverage.
+M1: foreign text no identity limit; strict UTF8/bounds and consumed identity
+checks stay. M2: full inputBinding reaches trusted auth, exact package delivery
+view plus derived video/placeholder/track/native checks; normative closed
+runtime/release/profile content snapshots. M3: candidate creation rejects
+vacuity before effects. M4 plan-owner clarification: immutable project/timeline
+UIDs + case/phase key history; names stay exact authenticated binding fields,
+renames disclose a new binding in the SAME UID chain; no native rename grant.
+Minor repairs cover sealed terminal pairs/full ledgers/all labels, payload-shape
+separation, typed malformed-input refusals, strict encodings and substantive
+legacy/source-audio/late-offset/receipt-shape regression coverage. See INTERFACE.
 
-## Current serial phase
+Focused incremental tests passed92 cases before the last added regressions;
+last4 focused video/malformed/late-mix cases passed, and owned Ruff/mypy pass.
+No qualifying evidence is claimed for the complete new candidate yet.
+Read-only frozen R16 JSON audit: dependencies45,896bytes SHA19c4e7f4..., manifest
+105,853bytes SHAfaa72eae..., bounded parser passed; no media/native run or source
+mutation. Six artifactLocator values name media, not receipt files; no actual
+#174 receipt audit was invented. New owned slow accepted174-shape oracle remains
+to run. Actual R16 PCM/provenance/native/replacement duration remains209 scope.
 
-Prepared durable phase01: pinned Node24.19.0/npm11.17.0/uv0.12.5/Python3.12.14;
-install worktree npm dependencies via npm ci, run focused owned non-slow pytest
-with --durations=25, then PYTEST_ADDOPTS=--durations=25 VITEST_MAX_WORKERS=1
-npm run validate:fast. No full suite runs before required review/fixes.
-The new full-programme1498-frame stress test is marked slow and remains in the
-required final LOCAL full gate; it has not yet run. Nothing is waived.
+## Durable serial phase03
 
-Private durable runner/request/job/log/immutable exit/input/runtime receipts:
-/Users/matthewbelinkie/Library/Application Support/VERA/private-preparation/issue-145/advance-inputs/issue214-01a13cdf-1a4f-7f13-93ef-4b1a4c8a31dc/phase-01-fast/
-Runner is sibling run_phase.py. Inspect launch.json/source.json and exit.json;
-when live preserve and drain, never restart. One214 owner holds the sole serial
-expensive-check slot while this phase is live. Retired204/208/211/Claude03 jobs
-must never be polled/resumed. Coordinator sequence metadata is read-only and
-was not rewritten. No additional wakeups were created.
+Private owner root:
+/Users/matthewbelinkie/Library/Application Support/VERA/private-preparation/issue-145/advance-inputs/issue214-01a13cdf-1a4f-7f13-93ef-4b1a4c8a31dc/
+phase-03-review-fixes-checks uses existing run_phase.py, request.json,
+launch/source/command-start/log/immutable-exit receipts and complete before/
+after source/input inventories. Pinned Node24.19.0/npm11.17/uv0.12.5/Python3.12.14.
+Commands serially run owned slow tests, owned non-slow tests, then validate:fast;
+PYTEST_ADDOPTS=--durations=25, VITEST_MAX_WORKERS=1, no full suite yet.
+Inspect private checkpoint.json first for actual live job/source/exit paths.
+Preserve a live phase and end; never restart or overlap it. One214 owner holds
+sole serial expensive-check slot until natural drain. Coordinator sequence
+metadata remains read-only. No extra wakeups created.
 
-## Next work and acceptance
+## Required continuation
 
-First inspect actual usage; stop new phases at either window>=97% or actual
-barrier. Inspect this checkpoint, live claim, own durable phase and actual
-private reservation/processes. Read exact INTERFACE.md and operative plan.
-If phase01 is live, preserve it and end. If it failed, retain failure and fix
-only affected scope, then rerun affected checks/fast as needed. After passing
-focused/fast, actual adversarial Claude implementation review is required;
-fix findings, affected reruns and delta review before complete final LOCAL
-serial VITEST_MAX_WORKERS=1 npm run validate (--durations=25). No #196 automatic
-cloud substitution or legacy174 exception. Never weaken tests/timeouts.
+First inspect actual usage; stop NEW phases at either window>=97% or actual
+barrier. Last observation82%five-hour/13%weekly, ordinary allowed; no credit/
+account action. Inspect same claim, checkpoint, own job, actual reservation/
+processes; never infer another owner's release from a quiet machine. Qualify
+phase03 complete exit/log/source/input/runtime/inventory and required coverage.
+Retain failure and fix only affected scope if needed; no unchanged full reruns.
 
-Retain exact source/config/lock/input/runtime/environment/inventory/skips/exit
-identity and final reviewed-head/base/CI/integration handoff. Only after every
-criterion passes: roadmap review, complete --accepted-by Automated and verify
-Closed/Done. PR creation authorized; attach every created PR. No merge or main
-source adoption is authorized. No actual native/MCP/UI/render/provider/audio-
-timing/source mutation is authorized. #209/#178/#215/#145 remain separate.
+After passing affected/fast evidence, actual Claude DELTA implementation review
+must assess all review01 dispositions/new code/interface, not repeat an
+unchanged plan or whole implementation review. Then necessary fixes/affected
+checks/delta closure and COMPLETE qualifying LOCAL full on delivered state:
+PYTEST_ADDOPTS=--durations=25 VITEST_MAX_WORKERS=1 npm run validate. No cloud196
+substitution or inherited174 exception. Never weaken assertions/timeouts/gates.
 
-## Forecast
+Retain every acceptance criterion, exact reviewed/delivered source/base/CI/
+integration evidence and minimal209/215 handoff. Only then roadmap review,
+complete --accepted-by Automated and verify Closed/Done. Authorized PR creation
+must attach every PR. No merge or accepted-main adoption is authorized here.
+Final task token metric belongs to coordinator after actual task completion.
 
-Rough remaining active implementation/review/fix range3–6 hours, low confidence;
-serial full validation adds machine time. Authentication/lineage review is the
-main uncertainty. Reassess after actual Claude implementation findings. Current
-candidate is not yet accepted and must not be integrated from this checkpoint.
+Forecast remains3–6 remaining ACTIVE hours, low confidence; delta-review
+closure of package/authentication seam is main uncertainty. Serial final full
+adds machine time; no approval wait is needed for bounded owned fixes/checks.

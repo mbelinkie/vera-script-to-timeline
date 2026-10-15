@@ -54,27 +54,78 @@ source-entry inventory. Track/item/source-entry tuples are enumerated in
 records constants and independently pinned in the owned record tests.
 
 A geometry envelope binds schemaVersion,lane,geometry,inputBindingSha256,
-capturedAt,expiresAt,receiptSha256. Its receipt authenticates all fields except
+capturePhase,capturedAt,expiresAt,receiptSha256. Its receipt authenticates all fields except
 its own receipt reference. geometrySha256 hashes only the closed semantic
 geometry object (including full context); capture times and receipt bytes are
 outside that projection. Both raw snapshot hashes survive in the result.
-Geometry equality at endpoints does not claim continuous stability.
+The authenticator also receives the COMPLETE closed inputBinding, not just
+its digest. pre_render is mandatory for input capture. post_render is mandatory
+for the distinct post raw bytes and also authenticates renderLineage, allowing
+the product adapter to verify capture-after-completion. The marker/receipt stay
+outside semantic geometry. Geometry equality never claims continuous stability.
 
 All context raw hashes must have independently supplied current bytes in
 PredictionInputs.blobs, including BOTH original and execution document AND
 dependency snapshots, package/preflight/manifest/report/preparation, both source
 graphs, installed release, runtime and profile. These are raw64 digests.
-The package binding receipt authenticates their independently verified meaning.
+There is no separate invented package-binding receipt. The geometry receipt's
+expected inputBinding plus full context binds these independently verified
+inputs. The authenticator must verify them against the actual accepted package,
+preflight and current input identities before authenticating capture.
 
-The stable binding hashes full closed input identity except invocationId,
-preflightSha256 and preparationSha256, and removes its own bindingSha256.
-Those two explicit raw authority-envelope references remain in the full
-context/authentication but do not reopen the key on authority renewal. Content,
-policy, original/execution input, package/manifest/report, source, release,
-runtime, profile, target, case, phase and revised lineage identity stay bound.
-createdAt/expiresAt and authority-file references never enter the key. No
-caller-selected exclusions are accepted. Review must assess this projection
-against the actual downstream receipt shapes before integration.
+The stable binding excludes invocationId, preflightSha256, preparationSha256
+and its own bindingSha256, with no caller-selected exclusions. Names remain in
+the binding and in authenticated exact-target checks. History chains use
+immutable projectUid+timelineUid+caseId+phase. Plan-owner clarification supplied
+with the implementation-review continuation: a rename is a disclosed new
+binding within that SAME UID chain. This grants no native rename operation.
+
+### Exact blob domains and coverage of excluded references
+
+All blobs are independent immutable bounded snapshots (<=8MiB each), never
+paths to reopen. packageSha256 hashes the exact accepted package delivery-view.json
+bytes (resolve-native-view/v2), after the trusted adapter independently verifies
+the COMPLETE original package and inventory. The pure checker compares this
+view with the manifest/dependencies, derives visual/placeholder ranges, matches
+track id/kind/index/name, native source hashes, complete event inventory and
+v2Event copies; audio q/r and narration ranges are independently derived too.
+
+runtimeSha256 hashes qualification-output-runtime/v1, exactly schemaVersion,lane,
+implementation,pythonVersion,nodeVersion,npmVersion,uvVersion,system,release,
+machine. Locked versions are checked; the trusted adapter verifies the actual
+current host. installedReleaseSha256 hashes qualification-output-release/v1,
+exactly schemaVersion,lane,files: a bounded safe-relative-path/raw64 map of
+independently qualified installed FILE CONTENT, with no issue times or authority
+nonce. This is a new content projection, not a legacy receipt upgrade.
+profileSha256 hashes qualification-output-profile/v1, exactly schemaVersion,lane,
+container,videoCodec,audioCodec,audioBitDepth,sampleRate,channels,rate,width,height.
+The codec/audio/rate choices are fixed in code, dimensions match the manifest.
+No request-selected policy is admitted. #209 owns generating/authenticating
+these normalized host projections from actual qualified retained source data.
+
+The two excluded raw references are NOT content-free authority envelopes.
+The preflight contains content and a requestHash that changes with authority.
+The preparation request likewise contains authority references. Excluding the
+whole reference coarsens eligibility (cannot reopen an existing attempted key).
+Their raw bytes/full context still authenticate, and admission/currentness is
+mandatory; their prediction-relevant content is covered as follows:
+
+| Referenced content | Stable identity / independent check |
+| --- | --- |
+| original and execution input hashes | four dedicated document/dependency hashes; both byte sets checked |
+| manifest/report and compiler needs | manifestSha256/reportSha256 plus compiler/source graph and execution dependencies; full preflight validity remains adapter-checked |
+| sidecar raw bytes | package delivery-view sources[].contentHash, also source-entry PCM/file hash checked against actual bounded WAV bytes |
+| original AV/stream/probe/profile/mapping | complete preparedMedia binding in execution dependencies; exact receipt binding equality, manifest provenance/sourceTimeMapping and stream hash; full preparation authenticity remains adapter-checked |
+| prepared q | fixed manifest a,b,r plus exact package-local sourceRange determine q; independently derive q/r from authenticated receipt, refuse any discrepancy |
+| narration receipt row/tokens/review/boundary | exact execution-dependency row match; independent narration receipt and pin verification; authenticated manifest/compiler TS boundary hash, never Python-rehashed |
+| runtime/source/release/profile | dedicated closed content snapshots and both source-graph hashes, independently current in adapter |
+| revised lineage | all closed revised-binding hashes plus exact revised execution/manifest guards; future adapter remains default-deny until qualified |
+| status/evidenceLevel/lane, unchecked/verification/admission | independently checked preflight/preparation validity in the full authenticated context, never accepted merely because the stable key matches |
+
+No excluded field can select prediction intent. Renewed authorization, formatting
+or snapshot time cannot erase an attempted key. Genuine changed input identity
+still needs separate authority and disclosure of all prior attempts in the UID
+chain. Original document/dependency, source and current-target guards remain.
 
 ## Hash domains and origins
 
@@ -95,13 +146,15 @@ although its counters are samples. Local endpoints are exactly a*48000/r-q
 and b*48000/r-q, with q=audio.resampledFirstSample. Both must be exact integers
 on the 2002-sample frame grid; no approximate conversion is accepted.
 
-The default prepared origin is (0,0). A generic nonzero prepared origin needs a
-new independently authenticated qualification-output-origin/v1 record binding
-context,sourceId,preparationReceiptSha256,nativeFrameOrigin,pcmSampleOrigin and
-its receiptSha256. Narration never accepts an origin override. pcmMappingSha256
-hashes sourceId,nativeFrameOrigin,pcmSampleOrigin,sourceSampleRate,sampleRate,
-resampledFirstSample,startSample,endSample,provenanceRecordSha256. Origin and
-range evidence is source-specific; no missing-field default is used.
+The only supported origin is the package-derived (0,0). Supplied origin records
+refuse for every source kind, including geometry-kind seals over origin data.
+No new mapping-authentication authority is invented. Nonzero original AV/sample
+positions remain supported through the exact q/r derivation and package oracle.
+A future generic native/PCM origin needs a separately owned approved authority
+and cannot replace the accepted package source-range derivation.
+pcmMappingSha256 hashes sourceId,nativeFrameOrigin,pcmSampleOrigin,
+sourceSampleRate,sampleRate,resampledFirstSample,startSample,endSample,
+provenanceRecordSha256. Both origins are explicitly checked as derived zero.
 
 Canonical decoded samples hash little-endian int32 interleaved signed24-domain
 samples (PCM16 promotes by exactly256). This hash is neither the WAV file hash
@@ -119,7 +172,7 @@ as commitmentReceiptSha256, persist immutable bytes, and verify/recompute those
 bytes before a reservation or native effect. The receipt-payload projection
 excludes exactly its own receipt reference, avoiding cyclic hashes.
 
-The ledger is per target/case/phase and spans bindings. Each entry carries full
+The ledger is per immutable projectUid/timelineUid/caseId/phase and spans bindings. Each entry carries full
 context, sequence, priorHeadSha256, state, commitment raw/payload hashes,
 prediction hash, reservation raw hash, result raw hash and entrySha256. The
 exclusive key is stable binding/target/case/phase. Only expired_unused permits
@@ -146,11 +199,44 @@ hashes, zero-lag unity metrics, signal/non-vacuity metrics and
 priorLedgerHeadSha256. Seal with output_residual_comparison, add
 comparisonReceiptSha256, then append the raw result hash only if the actual
 current head still equals that prior head. Never put the post-terminal ledger
-hash inside the result. The terminal helper reauthenticates/recomputes and
-refuses stale/interleaved appends; real atomic persistence remains #209's job.
+hash inside the result. The private test helper reauthenticates/recomputes and refuses stale/interleaved
+appends; real atomic persistence remains #209's job. #209 consumes the public
+operations and closed records; private transition helpers are pure specification
+models, not an additional installed/native controller API.
 
 Every result keeps internalControls=unverified, geometryStability=not_claimed,
 controlStability=not_claimed, futureAuthority=false. Hidden compensating or
 subthreshold processing can pass. Pair discrimination is not omission evidence,
 listening, token support, edit inference, accepted revision or rebuilt proof;
 those are #215's separate responsibilities.
+
+## Implementation review corrections and completion semantics
+
+The private_preparation source kind uses an explicit NEW-LANE expected payload:
+context,preparationBindingHash,recordSha256,binding. It is not the old #190
+originalInputs/binding/sourcePins payload. Statically wire this lane in the
+trusted adapter; tests require each shape's seal to refuse the other. Receipt
+rows/bindings are first matched exactly to executionDependencies narration lists
+or preparedMedia, including requirementKey and boundary-list membership.
+
+Identity limits apply to consumed identity fields, not arbitrary foreign text.
+Foreign accepted JSON retains duplicate/nonfinite/unsafe-int/depth/size checks.
+Raw records require strict UTF8 without BOM/UTF16/UTF32. Malformed shapes/enums
+become OutputConsistencyError. Current frozen R16 dependency and manifest JSON
+were audited read-only; their old identity-string limits happened to pass too.
+Six artifactLocator values name media, not #174 receipts; no receipt JSON was
+inferred from those media paths. Audit does not qualify PCM/native/currentness.
+
+create_prediction rejects either vacuous expected channel before any commitment
+or reservation. The same gate remains at comparison. Expiry gates verification
+for a NEW reservation/effect; a validly reserved effect may compare and terminal-
+append after pre/commitment expiry. Checked order is pre capture <= creation <=
+reservation <= commitment expiry, with actual now and post-completion capture
+checked independently. Recomputing a completed effect never renews render authority.
+
+compare_prediction_pair now takes two TerminalOutput values: CommittedOutput,
+sealed comparison bytes+receipt, and complete CURRENT ledger including the
+terminal entry. It authenticates the terminal and chain, projects the committed
+prior-terminal-head internally only for independent recomputation, and retains
+both full current chain heads in the pair result. Supplying only a pre-terminal
+prefix refuses. All four unverified/not-claimed/no-authority labels remain.

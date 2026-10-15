@@ -11,11 +11,14 @@ import json
 import math
 import re
 import unicodedata
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from functools import wraps
+from typing import Any, ParamSpec, Protocol, TypeVar
 
 Json = dict[str, Any]
+P = ParamSpec("P")
+T = TypeVar("T")
 LANE = "bounded_output_residual_consistency"
 PREFIX = "qualification-output-"
 MAX_JSON = 8 * 1024 * 1024
@@ -103,6 +106,24 @@ class OutputConsistencyError(ValueError):
     """Refusal; the controller must retain the attempt, including partial effects."""
 
 
+def _refusal[**P, T](function: Callable[P, T]) -> Callable[P, T]:
+    @wraps(function)
+    def guarded(*args: P.args, **kwargs: P.kwargs) -> T:
+        try:
+            return function(*args, **kwargs)
+        except (
+            KeyError,
+            TypeError,
+            IndexError,
+            AttributeError,
+            StopIteration,
+            OverflowError,
+        ) as error:
+            raise OutputConsistencyError("malformed qualification input") from error
+
+    return guarded
+
+
 class OutputTrust(Protocol):
     """Statically wired trusted product port. Never obtained from request data.
 
@@ -165,13 +186,20 @@ def _tree(value: Any, depth: int = 0) -> None:
     _require(depth <= 64, "JSON nesting exceeds bound")
     if type(value) is dict:
         for key, child in value.items():
-            _identity(key)
+            _require(type(key) is str, "JSON string key required")
+            _tree(key, depth + 1)
             _tree(child, depth + 1)
     elif type(value) is list:
         for child in value:
             _tree(child, depth + 1)
     elif type(value) is str:
-        _identity(value)
+        # Foreign compiler/ffprobe/receipt text is not an identity. Enforce
+        # identity bounds only at the specific closed-record identity fields.
+        _require(
+            len(value) <= MAX_JSON
+            and all(unicodedata.category(c) != "Cs" for c in value),
+            "unsupported JSON string",
+        )
     elif type(value) is int:
         _require(-SAFE <= value <= SAFE, "unsafe JSON integer")
     elif type(value) is float:
@@ -211,7 +239,7 @@ def _parse(raw: bytes) -> Json:
         return result
 
     try:
-        value = json.loads(raw, object_pairs_hook=pairs)
+        value = json.loads(raw.decode("utf-8"), object_pairs_hook=pairs)
         _tree(value)
     except (ValueError, UnicodeError, RecursionError) as error:
         raise OutputConsistencyError("invalid JSON record") from error
@@ -264,6 +292,7 @@ def _target(value: Any) -> Json:
     return target
 
 
+@_refusal
 def _context(value: Any) -> Json:
     result = _shape(
         value,
@@ -364,6 +393,7 @@ def _authenticate(
     trust.authenticate(kind, receipt, expected)
 
 
+@_refusal
 def _sources(value: Any) -> list[Json]:
     rows = _list(value, 16)
     raw_hashes: set[str] = set()
@@ -398,12 +428,13 @@ def _ledger_key(context: Json) -> tuple[str, str, str, str]:
     ctx = _context(context)
     return (
         ctx["binding"]["bindingSha256"],
-        _json_hash(ctx["target"]),
+        _json_hash({key: ctx["target"][key] for key in ("projectUid", "timelineUid")}),
         ctx["caseId"],
         ctx["phase"],
     )
 
 
+@_refusal
 def _ledger_head(ledger: list[Json]) -> str:
     _list(ledger, 4096)
     head = EMPTY_HEAD
@@ -446,6 +477,7 @@ def _ledger_head(ledger: list[Json]) -> str:
             _digest(entry[field])
         prior = previous.get(key)
         state = entry["state"]
+        _identity(state)
         if state == "committed":
             _require(
                 prior is None or prior["state"] == "expired_unused",
@@ -503,6 +535,7 @@ def _ledger_head(ledger: list[Json]) -> str:
     return head
 
 
+@_refusal
 def _append_ledger(ledger: list[Json], event: Json, expected_head: str) -> list[Json]:
     _require(
         _ledger_head(ledger) == _digest(expected_head),

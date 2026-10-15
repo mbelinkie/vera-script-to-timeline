@@ -108,9 +108,11 @@ def test_python_canonical_bytes_match_accepted_oracle(value: Any) -> None:
         b'{"x":NaN}',
         b'{"x":Infinity}',
         b'{"x":9007199254740992}',
-        b'{"x":"\\u0000"}',
         b'{"x":"\\ud800"}',
         b"[]",
+        b"\xef\xbb\xbf{}",
+        "{}".encode("utf-16"),
+        "{}".encode("utf-32"),
         b"{}" + b" " * (8 * 1024 * 1024),
     ],
     ids=[
@@ -118,9 +120,11 @@ def test_python_canonical_bytes_match_accepted_oracle(value: Any) -> None:
         "nan",
         "infinity",
         "unsafe-int",
-        "nul",
         "surrogate",
         "array",
+        "bom",
+        "utf16",
+        "utf32",
         "oversize",
     ],
 )
@@ -245,3 +249,43 @@ def test_expired_unused_only_allows_identical_prediction_and_cas() -> None:
     tampered[0]["predictionBytesSha256"] = "8" * 64
     with pytest.raises(r.OutputConsistencyError):
         r._ledger_head(tampered)
+
+
+def test_target_rename_discloses_prior_binding_in_same_uid_chain() -> None:
+    first = context()
+    ledger = r._append_ledger([], ledger_event(first, "committed"), r.EMPTY_HEAD)
+    ledger = r._append_ledger(
+        ledger,
+        ledger_event(first, "reserved_by_render_intent", reservationRawSha256="4" * 64),
+        r._ledger_head(ledger),
+    )
+    ledger = r._append_ledger(
+        ledger,
+        ledger_event(
+            first,
+            "compared_refused",
+            reservationRawSha256="4" * 64,
+            resultRawSha256="5" * 64,
+        ),
+        r._ledger_head(ledger),
+    )
+    renamed = context(
+        target={
+            **first["target"],
+            "projectName": "Renamed project",
+            "timelineName": "Renamed timeline",
+        }
+    )
+    assert renamed["binding"] != first["binding"]
+    assert r._ledger_key(renamed)[1:] == r._ledger_key(first)[1:]
+    result = r._append_ledger(
+        ledger, ledger_event(renamed, "committed"), r._ledger_head(ledger)
+    )
+    assert result[:-1] == ledger
+    assert result[-1]["priorHeadSha256"] == ledger[-1]["entrySha256"]
+
+
+@pytest.mark.parametrize("phase", [[], {}, True])
+def test_malformed_enums_are_refusals_not_crashes(phase: Any) -> None:
+    with pytest.raises(r.OutputConsistencyError):
+        r._context(context(phase=phase))

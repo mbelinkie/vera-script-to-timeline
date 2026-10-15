@@ -6,10 +6,17 @@ import json
 import struct
 from array import array
 from dataclasses import replace
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
-from test_issue214_prediction import Case, case, change_items, committed
+from test_issue214_prediction import (
+    Case,
+    case,
+    change_items,
+    committed,
+    refresh_package_inputs,
+)
 from test_issue214_records import canonical, context, digest
 from vera_timeline_agent import qualification_output_records_v2 as r
 from vera_timeline_agent import qualification_output_v2 as q
@@ -21,7 +28,7 @@ def independently_rendered(c: Case) -> list[int]:
     geometry = json.loads(c.inputs.geometry)["geometry"]
     source = c.binding["sourceEntries"][0]
     manifest = json.loads(c.inputs.blobs["manifestSha256"])
-    gain = manifest["events"][0].get("audio", {}).get("gainDb", 0)
+    gain = (manifest["events"][0].get("audio") or {}).get("gainDb", 0)
     values = [0] * (geometry["extentFrames"] * q.FRAME * 2)
     for item in geometry["items"]:
         if item["kind"] != "audio":
@@ -85,11 +92,6 @@ def rendered(c: Case, values: list[int] | None = None) -> q.CommittedOutput:
         },
         r._ledger_head(ledger),
     )
-    snapshot = json.loads(c.inputs.geometry)
-    snapshot["capturedAt"] = "2026-10-15T01:00:00Z"
-    snapshot.pop("receiptSha256")
-    post_receipt = c.trust.seal("output_geometry_snapshot", snapshot)
-    snapshot["receiptSha256"] = digest(post_receipt)
     lineage = {
         "schemaVersion": "qualification-output-lineage/v1",
         "lane": r.LANE,
@@ -103,6 +105,15 @@ def rendered(c: Case, values: list[int] | None = None) -> q.CommittedOutput:
         "jobId": "native-job-1",
         "sourceOutputRawSha256": digest(b"same delivered MOV"),
     }
+    snapshot = json.loads(c.inputs.geometry)
+    snapshot["capturedAt"] = "2026-10-15T01:00:00Z"
+    snapshot["capturePhase"] = "post_render"
+    snapshot.pop("receiptSha256")
+    post_receipt = c.trust.seal(
+        "output_geometry_snapshot",
+        {**snapshot, "inputBinding": c.binding, "renderLineage": lineage},
+    )
+    snapshot["receiptSha256"] = digest(post_receipt)
     data = independently_rendered(c) if values is None else values
     decoded = b"".join(struct.pack("<i", x) for x in data)
     decode = {
@@ -141,6 +152,96 @@ def rendered(c: Case, values: list[int] | None = None) -> q.CommittedOutput:
         canonical(lineage),
         ledger,
     )
+
+
+def terminal(c: Case, output: q.CommittedOutput) -> q.TerminalOutput:
+    result = q.compare_committed_output(output, trust=c.trust)
+    receipt = c.trust.seal("output_residual_comparison", result)
+    raw = canonical({**result, "comparisonReceiptSha256": digest(receipt)})
+    ledger = q._terminal_append(output, raw, receipt, output.ledger, c.trust)
+    return q.TerminalOutput(replace(output, ledger=ledger), raw, receipt, ledger)
+
+
+def test_reserved_effect_finishes_after_commitment_expiry_and_appends() -> None:
+    c = case()
+    output = rendered(c)
+    c.trust.now = datetime(2026, 10, 15, 3, tzinfo=UTC)
+    post = json.loads(output.post_geometry)
+    post.update(capturedAt="2026-10-15T03:00:00Z", expiresAt="2026-10-15T04:00:00Z")
+    post.pop("receiptSha256")
+    seal = c.trust.seal(
+        "output_geometry_snapshot",
+        {
+            **post,
+            "inputBinding": c.binding,
+            "renderLineage": json.loads(output.lineage),
+        },
+    )
+    post["receiptSha256"] = digest(seal)
+    output = replace(output, post_geometry=canonical(post), post_geometry_receipt=seal)
+    sealed = terminal(c, output)
+    assert json.loads(sealed.comparison)["status"] == "compared_consistent"
+    assert sealed.ledger[-1]["state"] == "compared_consistent"
+    with pytest.raises(r.OutputConsistencyError, match="expiry"):
+        q.verify_prediction_commitment(
+            c.inputs,
+            output.commitment,
+            output.commitment_receipt,
+            output.prediction,
+            trust=c.trust,
+        )
+    bad = json.loads(output.reservation)
+    bad["reservedAt"] = "2026-10-15T02:00:01Z"
+    with pytest.raises(r.OutputConsistencyError, match="chronology"):
+        q.compare_committed_output(
+            replace(output, reservation=canonical(bad)), trust=c.trust
+        )
+
+
+def test_post_capture_requires_distinct_phase_and_completion_binding() -> None:
+    c = case()
+    output = rendered(c)
+    with pytest.raises(r.OutputConsistencyError, match="replayed"):
+        q.compare_committed_output(
+            replace(
+                output,
+                post_geometry=c.inputs.geometry,
+                post_geometry_receipt=c.inputs.geometry_receipt,
+            ),
+            trust=c.trust,
+        )
+    post = json.loads(output.post_geometry)
+    post.pop("receiptSha256")
+    seal = c.trust.seal("output_geometry_snapshot", {**post, "inputBinding": c.binding})
+    post["receiptSha256"] = digest(seal)
+    with pytest.raises(r.OutputConsistencyError, match="authentication"):
+        q.compare_committed_output(
+            replace(output, post_geometry=canonical(post), post_geometry_receipt=seal),
+            trust=c.trust,
+        )
+
+
+@pytest.mark.parametrize("gain", [0, -18])
+def test_complete_prepared_source_audio_full_and_quiet(gain: int) -> None:
+    c = case(kind="source_audio", gain=gain, source_start=2, q_origin=48000)
+    result = q.compare_committed_output(rendered(c), trust=c.trust)
+    assert result["status"] == "compared_consistent"
+
+
+def test_pair_requires_sealed_terminals_in_complete_current_ledgers() -> None:
+    a, b = case(), case(phase="edited")
+    a.trust.seals.update(b.trust.seals)
+    b.trust = a.trust
+    item = json.loads(b.inputs.geometry)["geometry"]["items"][0]
+    change_items(b, [{**item, "recordDuration": 2, "sourceDuration": 2}])
+    left, right = terminal(a, rendered(a)), terminal(b, rendered(b))
+    result = q.compare_prediction_pair(left, right, trust=a.trust)
+    assert result["geometryStability"] == result["controlStability"] == "not_claimed"
+    assert result["pristineLedgerHeadSha256"] == r._ledger_head(left.ledger)
+    with pytest.raises(r.OutputConsistencyError, match="absent"):
+        q.compare_prediction_pair(
+            replace(left, ledger=left.ledger[:-1]), right, trust=a.trust
+        )
 
 
 def test_complete_comparison_and_acyclic_terminal_cas() -> None:
@@ -312,7 +413,9 @@ def test_audio_changing_pair_and_video_only_identical_audio() -> None:
     item = json.loads(edited.inputs.geometry)["geometry"]["items"][0]
     change_items(edited, [{**item, "recordDuration": 2, "sourceDuration": 2}])
     left, right = rendered(pristine), rendered(edited)
-    result = q.compare_prediction_pair(left, right, trust=pristine.trust)
+    result = q.compare_prediction_pair(
+        terminal(pristine, left), terminal(edited, right), trust=pristine.trust
+    )
     assert all(
         any(not row["consistent"] for row in metric)
         for metric in result["crossMetrics"].values()
@@ -326,7 +429,85 @@ def test_audio_changing_pair_and_video_only_identical_audio() -> None:
         == "compared_consistent"
     )
     with pytest.raises(r.OutputConsistencyError, match="indistinguishable"):
-        q.compare_prediction_pair(left, same_audio, trust=pristine.trust)
+        q.compare_prediction_pair(
+            terminal(pristine, left),
+            terminal(unchanged, same_audio),
+            trust=pristine.trust,
+        )
+
+
+def add_picture(c: Case) -> None:
+    manifest = json.loads(c.inputs.blobs["manifestSha256"])
+    visual_hash = digest(b"independent picture source")
+    manifest["sources"].append({"id": "visual-source"})
+    manifest["events"].append(
+        {
+            "eventId": "visual-event",
+            "kind": "primary_visual",
+            "trackId": "video-1",
+            "recordRange": {"startFrame": 0, "endFrame": 2},
+            "sourceRange": {"startFrame": 0, "endFrame": 2},
+            "provenance": {
+                "sourceId": "visual-source",
+                "deliveredSourceHash": "sha256:" + visual_hash,
+            },
+        }
+    )
+    blobs = dict(c.inputs.blobs)
+    blobs["manifestSha256"] = canonical(manifest)
+    ctx = context(
+        phase=c.binding["context"]["phase"],
+        caseId="A",
+        **{key: digest(raw) for key, raw in blobs.items()},
+    )
+    c.binding["context"] = ctx
+    c.binding["delivery"].append(
+        {
+            "eventId": "visual-event",
+            "kind": "primary_visual",
+            "recordRange": {"startFrame": 0, "durationFrames": 2},
+            "sourceRange": {"startFrame": 0, "durationFrames": 2},
+        }
+    )
+    c.binding["nativeSources"].append(
+        {"sourceId": "visual-source", "nativeSourceSha256": visual_hash}
+    )
+    c.binding["tracks"].append(
+        {
+            "trackId": "video-1",
+            "kind": "video",
+            "index": 1,
+            "name": "Picture",
+            "enabled": True,
+            "locked": False,
+        }
+    )
+    snapshot = json.loads(c.inputs.geometry)
+    geometry = snapshot["geometry"]
+    visual = {
+        **geometry["items"][0],
+        "itemUid": "visual-item",
+        "eventId": "visual-event",
+        "sourceId": "visual-source",
+        "mediaUid": "visual-media",
+        "kind": "video",
+        "trackId": "video-1",
+        "recordStart": 4 if ctx["phase"] == "edited" else 0,
+        "recordDuration": 2,
+        "sourceStart": 0,
+        "sourceDuration": 2,
+        "sourceMappingSha256": visual_hash,
+    }
+    geometry.update(context=ctx, tracks=c.binding["tracks"])
+    c.inputs = replace(c.inputs, blobs=blobs, geometry=canonical(snapshot))
+    change_items(
+        c,
+        sorted(
+            [geometry["items"][0], visual],
+            key=lambda row: (row["recordStart"], row["itemUid"]),
+        ),
+    )
+    refresh_package_inputs(c)
 
 
 def test_case_a_picture_move_keeps_identical_per_output_audio_consistent() -> None:
@@ -336,75 +517,7 @@ def test_case_a_picture_move_keeps_identical_per_output_audio_consistent() -> No
     for c in cases:
         trust.seals.update(c.trust.seals)
         c.trust = trust
-        manifest = json.loads(c.inputs.blobs["manifestSha256"])
-        visual_hash = digest(b"independent picture source")
-        manifest["sources"].append({"id": "visual-source"})
-        manifest["events"].append(
-            {
-                "eventId": "visual-event",
-                "kind": "primary_visual",
-                "trackId": "video-1",
-                "recordRange": {"startFrame": 0, "endFrame": 2},
-                "provenance": {
-                    "sourceId": "visual-source",
-                    "deliveredSourceHash": "sha256:" + visual_hash,
-                },
-            }
-        )
-        blobs = dict(c.inputs.blobs)
-        blobs["manifestSha256"] = canonical(manifest)
-        ctx = context(
-            phase=c.binding["context"]["phase"],
-            caseId="A",
-            **{key: digest(raw) for key, raw in blobs.items()},
-        )
-        c.binding["context"] = ctx
-        c.binding["delivery"].append(
-            {
-                "eventId": "visual-event",
-                "kind": "primary_visual",
-                "recordRange": {"startFrame": 0, "durationFrames": 2},
-                "sourceRange": {"startFrame": 0, "durationFrames": 2},
-            }
-        )
-        c.binding["nativeSources"].append(
-            {"sourceId": "visual-source", "nativeSourceSha256": visual_hash}
-        )
-        c.binding["tracks"].append(
-            {
-                "trackId": "video-1",
-                "kind": "video",
-                "index": 1,
-                "name": "Picture",
-                "enabled": True,
-                "locked": False,
-            }
-        )
-        snapshot = json.loads(c.inputs.geometry)
-        geometry = snapshot["geometry"]
-        visual = {
-            **geometry["items"][0],
-            "itemUid": "visual-item",
-            "eventId": "visual-event",
-            "sourceId": "visual-source",
-            "mediaUid": "visual-media",
-            "kind": "video",
-            "trackId": "video-1",
-            "recordStart": 4 if ctx["phase"] == "edited" else 0,
-            "recordDuration": 2,
-            "sourceStart": 0,
-            "sourceDuration": 2,
-            "sourceMappingSha256": visual_hash,
-        }
-        geometry.update(context=ctx, tracks=c.binding["tracks"])
-        c.inputs = replace(c.inputs, blobs=blobs, geometry=canonical(snapshot))
-        change_items(
-            c,
-            sorted(
-                [geometry["items"][0], visual],
-                key=lambda row: (row["recordStart"], row["itemUid"]),
-            ),
-        )
+        add_picture(c)
         outputs.append(rendered(c))
     # A keeps identical audio; it needs no pair-discrimination claim.
     assert outputs[0].prediction == outputs[1].prediction
@@ -439,20 +552,60 @@ def test_legacy_strict_consumers_refuse_sibling_records(tmp_path: Any) -> None:
         verify_revised_preflight_v2(
             value, authenticate=c.trust.authenticate, authority=b"unused"
         )
-    (tmp_path / "prediction.json").write_bytes(commitment)
-    report = verify_selected_omission_v2(
-        tmp_path,
-        canonical_document_json=b"{}",
-        expected_document_hash="sha256:" + "1" * 64,
-        baseline_hash="sha256:" + "2" * 64,
-        current_hash="sha256:" + "3" * 64,
-        profile_hash="sha256:" + "4" * 64,
-        row_id="row",
-        primary_source_id="source",
-        target=c.binding["context"]["target"],
-        authenticate=c.trust.authenticate,
+    from test_issue191_audio import case as strict_case
+
+    args = strict_case(tmp_path)
+    assert verify_selected_omission_v2(tmp_path, **args)["status"] == "verified"
+    old = {
+        name: (tmp_path / name).read_bytes()
+        for name in ("baseline.json", "baseline-receipt.json", "pristine-receipt.json")
+    }
+    for raw in old.values():
+        with pytest.raises(r.OutputConsistencyError):
+            q.create_prediction(
+                replace(c.inputs, geometry=raw), trust=c.trust, ledger=[]
+            )
+        output = rendered(c)
+        with pytest.raises(r.OutputConsistencyError):
+            q.compare_committed_output(
+                replace(output, decode_record=raw), trust=c.trust
+            )
+    # All prior document/profile/source/review gates pass; the old consumer
+    # actually opens the replacement observation and rejects its sibling shape.
+    (tmp_path / "baseline.json").write_bytes(commitment)
+    args["baseline_hash"] = "sha256:" + digest(commitment)
+    report = verify_selected_omission_v2(tmp_path, **args)
+    assert report["status"] == "refused" and "observation shape" in report["reason"]
+    assert report["inputHashes"]["baseline.json"] == args["baseline_hash"]
+
+
+@pytest.mark.parametrize("field", ["recordRange", "sourceRange"])
+def test_resealed_video_delivery_shift_refuses_authoritative_manifest(
+    field: str,
+) -> None:
+    c = case()
+    add_picture(c)
+    assert q.create_prediction(c.inputs, trust=c.trust, ledger=[]).pcm
+    blobs = dict(c.inputs.blobs)
+    view = json.loads(blobs["packageSha256"])
+    row = next(row for row in view["events"] if row["kind"] == "primary_visual")
+    row[field]["startFrame"] = 1
+    next(row for row in c.binding["delivery"] if row["kind"] == "primary_visual")[
+        field
+    ]["startFrame"] = 1
+    blobs["packageSha256"] = canonical(view)
+    ctx = context(
+        phase=c.binding["context"]["phase"],
+        caseId=c.binding["context"]["caseId"],
+        **{key: digest(raw) for key, raw in blobs.items()},
     )
-    assert report["status"] == "refused"
+    c.binding["context"] = ctx
+    snapshot = json.loads(c.inputs.geometry)
+    snapshot["geometry"]["context"] = ctx
+    c.inputs = replace(c.inputs, blobs=blobs, geometry=canonical(snapshot))
+    c.capture()
+    with pytest.raises(r.OutputConsistencyError, match="derivation"):
+        q.create_prediction(c.inputs, trust=c.trust, ledger=[])
 
 
 @pytest.mark.slow

@@ -16,8 +16,9 @@ import sys
 import wave
 from array import array
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from fractions import Fraction
+from pathlib import PurePosixPath
 from typing import Any
 
 from vera_timeline_agent.qualification_output_records_v2 import (
@@ -52,6 +53,7 @@ from vera_timeline_agent.qualification_output_records_v2 import (
     _parse,
     _projection,
     _record,
+    _refusal,
     _require,
     _shape,
     _sources,
@@ -132,6 +134,14 @@ class CommittedOutput:
     decode_receipt: bytes
     decoded_samples: bytes
     lineage: bytes
+    ledger: list[Json]
+
+
+@dataclass(frozen=True)
+class TerminalOutput:
+    output: CommittedOutput
+    comparison: bytes
+    comparison_receipt: bytes
     ledger: list[Json]
 
 
@@ -226,12 +236,21 @@ def _little_endian(values: array[Any]) -> bytes:
     return copy.tobytes()
 
 
-def _geometry(raw: bytes, receipt: bytes, binding: Json, trust: OutputTrust) -> Json:
+def _geometry(
+    raw: bytes,
+    receipt: bytes,
+    binding: Json,
+    trust: OutputTrust,
+    *,
+    capture_phase: str,
+    require_live: bool,
+    render_lineage: Json | None = None,
+) -> Json:
     envelope = _record(
         raw,
         "geometry",
         (
-            "schemaVersion lane geometry inputBindingSha256 capturedAt "
+            "schemaVersion lane geometry inputBindingSha256 capturePhase capturedAt "
             "expiresAt receiptSha256"
         ),
     )
@@ -247,13 +266,30 @@ def _geometry(raw: bytes, receipt: bytes, binding: Json, trust: OutputTrust) -> 
         envelope["inputBindingSha256"] == _json_hash(binding),
         "geometry input binding differs",
     )
-    _require(
-        _timestamp(envelope["capturedAt"])
-        <= _now(trust)
-        <= _timestamp(envelope["expiresAt"]),
-        "geometry clock/expiry refused",
+    captured, expiry, now = (
+        _timestamp(envelope["capturedAt"]),
+        _timestamp(envelope["expiresAt"]),
+        _now(trust),
     )
-    _authenticate(trust, "output_geometry_snapshot", envelope, "receiptSha256", receipt)
+    _require(
+        envelope["capturePhase"] == capture_phase
+        and captured <= now
+        and captured <= expiry
+        and (not require_live or now <= expiry),
+        "geometry phase/clock/expiry refused",
+    )
+    additional: Json = {"inputBinding": binding}
+    if capture_phase == "post_render":
+        _require(render_lineage is not None, "post-render completion lineage required")
+        additional["renderLineage"] = render_lineage
+    _authenticate(
+        trust,
+        "output_geometry_snapshot",
+        envelope,
+        "receiptSha256",
+        receipt,
+        **additional,
+    )
     extent = _integer(semantic["extentFrames"], 1, 1498)
     _require(extent * FRAME <= 3_000_000, "programme sample bound exceeded")
     rate = _shape(semantic["rate"], "numerator denominator", "rate")
@@ -386,7 +422,12 @@ def _provenance(
     proof: SourceProof,
     context: Json,
     trust: OutputTrust,
+    dependencies: Json,
 ) -> tuple[int, int]:
+    _require(
+        proof.origin_record is None and proof.origin_receipt is None,
+        "external origin unsupported; exact package-derived origin required",
+    )
     for raw in (proof.record, proof.receipt):
         _require(
             type(raw) is bytes and 0 < len(raw) <= MAX_JSON,
@@ -410,6 +451,20 @@ def _provenance(
     rate, q = 48000, 0
     origin_frame = origin_sample = 0
     if event["kind"] == "narration":
+        rows = _list(dependencies["narrationTimingMaps"], 2048)
+        boundaries = _list(dependencies.get("narrationBoundaryEvidence", []), 2048)
+        block_id = _identity(provenance["blockId"])
+        matches = [
+            (row, boundary)
+            for records, boundary in ((rows, False), (boundaries, True))
+            for row in records
+            if _identity(row["blockId"]) == block_id
+        ]
+        _require(
+            len(matches) == 1 and _canonical(record) == _canonical(matches[0][0]),
+            "narration row differs from authenticated dependencies",
+        )
+        boundary = matches[0][1]
         _require(
             source["pcmMode"] == "wav-direct" and source["originalBitDepth"] == 24,
             "narration requires original PCM24 WAV",
@@ -455,7 +510,6 @@ def _provenance(
             and _integer(audio["durationSamples"], 960) == source["durationSamples"],
             "narration receipt/manifest row differs",
         )
-        boundary = record.get("schemaVersion") == "narration-boundary-evidence/v1"
         _require(
             ("boundaryEvidenceHash" in provenance) == boundary,
             "boundary evidence presence differs",
@@ -503,6 +557,18 @@ def _provenance(
             "accepted preparation required",
         )
         binding, audio = record["binding"], record["audio"]
+        requirement = _identity(manifest_source["preparationRequirementKey"])
+        prepared = _list(dependencies["preparedMedia"], 64)
+        matches_prepared = [
+            row for row in prepared if _identity(row["requirementKey"]) == requirement
+        ]
+        _require(
+            _identity(record["requirementKey"]) == requirement
+            and len(matches_prepared) == 1
+            and _canonical(binding) == _canonical(matches_prepared[0])
+            and binding["timeMapping"] == event["sourceTimeMapping"],
+            "preparation binding differs from authenticated dependencies",
+        )
         _require(
             source["provenancePinsSha256"] == _json_hash(binding),
             "preparation binding pins differ",
@@ -560,38 +626,6 @@ def _provenance(
             start % FRAME == end % FRAME == 0 and end - start == (re - rs) * FRAME,
             "off-grid/unit-speed source mapping",
         )
-        if proof.origin_record is not None or proof.origin_receipt is not None:
-            _require(
-                proof.origin_record is not None and proof.origin_receipt is not None,
-                "complete authenticated origin required",
-            )
-            assert proof.origin_record is not None and proof.origin_receipt is not None
-            origin = _record(
-                proof.origin_record,
-                "origin",
-                (
-                    "schemaVersion lane context sourceId "
-                    "preparationReceiptSha256 nativeFrameOrigin pcmSampleOrigin"
-                    " receiptSha256"
-                ),
-            )
-            _require(
-                origin["context"] == context
-                and origin["sourceId"] == source["sourceId"]
-                and origin["preparationReceiptSha256"] == _hash(proof.receipt),
-                "origin provenance differs",
-            )
-            _authenticate(
-                trust,
-                "output_geometry_snapshot",
-                origin,
-                "receiptSha256",
-                proof.origin_receipt,
-            )
-            origin_frame, origin_sample = (
-                _integer(origin["nativeFrameOrigin"]),
-                _integer(origin["pcmSampleOrigin"]),
-            )
         native_start = Fraction(start - origin_sample, FRAME) + origin_frame
         _require(
             native_start.denominator == 1 and native_start >= 0,
@@ -629,9 +663,231 @@ def _provenance(
     return start, end
 
 
+def _package_view(
+    binding: Json, manifest: Json, dependencies: Json, raw: bytes, extent: int
+) -> None:
+    view = _shape(
+        _parse(raw),
+        "schemaVersion timeline tracks sources events markers composition",
+        "verified package delivery view",
+    )
+    _require(
+        view["schemaVersion"] == "resolve-native-view/v2"
+        and _canonical(view["timeline"]) == _canonical(manifest["timeline"])
+        and _canonical(view["tracks"]) == _canonical(manifest["tracks"])
+        and _canonical(view["composition"]) == _canonical(manifest["composition"]),
+        "verified package/manifest projection differs",
+    )
+    _require(
+        _integer(view["timeline"]["durationFrames"], 1, 1498) == extent
+        and view["timeline"]["frameRate"] == RATE
+        and all(type(x) is int for x in view["timeline"]["frameRate"].values()),
+        "package extent/rate differs",
+    )
+    manifest_tracks = _list(manifest["tracks"], 64)
+    _require(
+        _canonical(manifest_tracks) == _canonical(dependencies["tracks"]),
+        "manifest/dependency tracks differ",
+    )
+    track_map = {_identity(track["id"]): track for track in manifest_tracks}
+    _require(
+        len(track_map) == len(manifest_tracks)
+        and {track["trackId"] for track in binding["tracks"]} == track_map.keys(),
+        "complete manifest track inventory differs",
+    )
+    for track in binding["tracks"]:
+        expected = track_map[track["trackId"]]
+        _require(
+            track["kind"] == expected["kind"]
+            and track["name"] == expected["name"]
+            and track["index"] == _integer(expected["index"], 1, 32),
+            "track identity/index differs from manifest",
+        )
+    package_sources = _list(view["sources"], 64)
+    source_map: dict[str, Json] = {}
+    for source in package_sources:
+        _shape(source, "id kind path contentHash", "package source")
+        sid = _identity(source["id"])
+        _require(
+            sid not in source_map and source["kind"] in {"audio", "video", "still"},
+            "duplicate/unsupported package source",
+        )
+        path = _identity(source["path"])
+        _require(
+            not PurePosixPath(path).is_absolute()
+            and "\\" not in path
+            and ":" not in path
+            and all(part not in {"", ".", ".."} for part in path.split("/")),
+            "unsafe package source path",
+        )
+        _legacy_digest(source["contentHash"])
+        source_map[sid] = source
+    expected_sources = [
+        {
+            "sourceId": sid,
+            "nativeSourceSha256": _legacy_digest(source_map[sid]["contentHash"]),
+        }
+        for sid in sorted(source_map)
+    ]
+    _require(
+        binding["nativeSources"] == expected_sources,
+        "native hashes differ from authenticated package files",
+    )
+    manifest_events = _list(manifest["events"], 2048)
+    expected_events = {
+        event["eventId"]: event
+        for event in manifest_events
+        if event["kind"] != "script_marker"
+    }
+    rows = _list(view["events"], 2048)
+    seen: set[str] = set()
+    delivery: list[Json] = []
+    for row in rows:
+        _shape(
+            row,
+            "id kind sourceId trackId trackKind recordRange sourceRange "
+            "v2Event gainDb pictureTreatment",
+            "package event",
+        )
+        eid = _identity(row["id"])
+        _require(
+            eid in expected_events and eid not in seen,
+            "unknown/duplicate package event",
+        )
+        seen.add(eid)
+        event = expected_events[eid]
+        _require(
+            _canonical(row["v2Event"]) == _canonical(event)
+            and row["sourceId"] == _delivery_source(event)
+            and row["kind"] == event["kind"]
+            and row["trackId"] == event["trackId"]
+            and row["trackKind"] == track_map[event["trackId"]]["kind"]
+            and row["gainDb"]
+            == (
+                event["audio"]["gainDb"]
+                if isinstance(event.get("audio"), dict)
+                else None
+            )
+            and row["pictureTreatment"] == event.get("pictureTreatment"),
+            "package event/manifest intent differs",
+        )
+        start, end = _range(event["recordRange"])
+        _require(
+            row["recordRange"] == {"startFrame": start, "durationFrames": end - start},
+            "package record derivation differs",
+        )
+        if event["kind"] in {"narration", "placeholder"}:
+            expected_range = {"startFrame": 0, "durationFrames": end - start}
+        elif event["kind"] in {"primary_visual", "overlay_visual"}:
+            a, b = _range(event["sourceRange"])
+            expected_range = {
+                "startFrame": a,
+                "durationFrames": end - start
+                if isinstance(event.get("pictureTreatment"), dict)
+                and event["pictureTreatment"].get("kind") == "still_frame"
+                else b - a,
+            }
+            _require(
+                _legacy_digest(event["provenance"]["deliveredSourceHash"])
+                == _legacy_digest(source_map[row["sourceId"]]["contentHash"]),
+                "visual native source differs from manifest",
+            )
+        else:
+            _require(event["kind"] == "source_audio", "unsupported manifest event")
+            expected_range = row["sourceRange"]
+        _native_range(row["sourceRange"])
+        _require(
+            row["sourceRange"] == expected_range, "package source derivation differs"
+        )
+        delivery.append(
+            {
+                "eventId": eid,
+                "kind": row["kind"],
+                "recordRange": row["recordRange"],
+                "sourceRange": row["sourceRange"],
+            }
+        )
+    _require(
+        seen == expected_events.keys()
+        and binding["delivery"] == sorted(delivery, key=lambda row: row["eventId"]),
+        "complete package delivery inventory differs",
+    )
+
+
+def _host_identity(blobs: Mapping[str, bytes], manifest: Json) -> None:
+    runtime = _record(
+        blobs["runtimeSha256"],
+        "runtime",
+        "schemaVersion lane implementation pythonVersion nodeVersion "
+        "npmVersion uvVersion system release machine",
+    )
+    _require(
+        (
+            runtime["implementation"],
+            runtime["pythonVersion"],
+            runtime["nodeVersion"],
+            runtime["npmVersion"],
+            runtime["uvVersion"],
+        )
+        == ("CPython", "3.12.14", "24.19.0", "11.17.0", "0.12.5"),
+        "qualified locked host runtime required",
+    )
+    for key in ("system", "release", "machine"):
+        _identity(runtime[key])
+    release = _record(
+        blobs["installedReleaseSha256"], "release", "schemaVersion lane files"
+    )
+    files = release["files"]
+    _require(
+        type(files) is dict and 1 <= len(files) <= 2048,
+        "bounded installed inventory required",
+    )
+    for name, digest in files.items():
+        _identity(name)
+        _require(
+            not PurePosixPath(name).is_absolute()
+            and "\\" not in name
+            and ":" not in name
+            and all(part not in {"", ".", ".."} for part in name.split("/")),
+            "unsafe installed inventory path",
+        )
+        _digest(digest)
+    profile = _record(
+        blobs["profileSha256"],
+        "profile",
+        "schemaVersion lane container videoCodec audioCodec audioBitDepth "
+        "sampleRate channels rate width height",
+    )
+    _require(
+        (profile["container"], profile["videoCodec"], profile["audioCodec"])
+        == ("mov", "prores422", "lpcm")
+        and _integer(profile["audioBitDepth"]) == 24
+        and _integer(profile["sampleRate"]) == 48000
+        and _integer(profile["channels"]) == 2
+        and profile["rate"] == RATE
+        and all(type(value) is int for value in profile["rate"].values()),
+        "fixed delivered MOV profile required",
+    )
+    for key in ("width", "height"):
+        _require(
+            _integer(profile[key], 1, 16384)
+            == _integer(manifest["timeline"][key], 1, 16384),
+            "profile picture dimensions differ from manifest",
+        )
+
+
+@_refusal
 def _validated(
-    inputs: PredictionInputs, trust: OutputTrust
+    inputs: PredictionInputs, trust: OutputTrust, *, require_live: bool
 ) -> tuple[Json, Json, list[Json], dict[str, list[array[float]]]]:
+    # Snapshot immutable byte values before the trusted port is called. A
+    # caller's mutable maps must not replace blobs after their hashes pass.
+    inputs = replace(
+        inputs,
+        blobs=dict(inputs.blobs),
+        source_wavs=dict(inputs.source_wavs),
+        source_proofs=dict(inputs.source_proofs),
+    )
     _runtime()
     binding = _record(
         inputs.input_binding,
@@ -649,6 +905,13 @@ def _validated(
         inputs.source_wavs.keys() == inputs.source_proofs.keys() == source_ids,
         "complete source/provenance inventory required",
     )
+    _require(
+        all(
+            proof.origin_record is None and proof.origin_receipt is None
+            for proof in inputs.source_proofs.values()
+        ),
+        "external origin unsupported; exact package-derived origin required",
+    )
     native_sources = _list(binding["nativeSources"], 64)
     for source in native_sources:
         _shape(source, "sourceId nativeSourceSha256", "native source")
@@ -665,13 +928,33 @@ def _validated(
         ),
         "native/PCM source binding differs",
     )
-    snapshot = _geometry(inputs.geometry, inputs.geometry_receipt, binding, trust)
+    snapshot = _geometry(
+        inputs.geometry,
+        inputs.geometry_receipt,
+        binding,
+        trust,
+        capture_phase="pre_render",
+        require_live=require_live,
+    )
     geometry = snapshot["geometry"]
     manifest = _parse(inputs.blobs["manifestSha256"])
     _require(
         manifest.get("schemaVersion") == "timeline-manifest/v2",
         "verified v2 manifest required",
     )
+    dependencies = _parse(inputs.blobs["executionDependenciesSha256"])
+    _require(
+        dependencies.get("schemaVersion") == "compiler-dependencies/v2",
+        "authenticated v2 execution dependencies required",
+    )
+    _package_view(
+        binding,
+        manifest,
+        dependencies,
+        inputs.blobs["packageSha256"],
+        geometry["extentFrames"],
+    )
+    _host_identity(inputs.blobs, manifest)
     # The trusted capture authenticator verifies full accepted manifest/package
     # schemas. This module derives intent from their raw pinned manifest bytes.
     manifest_sources = _list(manifest["sources"], 64)
@@ -693,7 +976,6 @@ def _validated(
         "complete package source inventory differs",
     )
     deliveries = _list(binding["delivery"], 2048)
-    _ordered(deliveries, "eventId")
     for delivery in deliveries:
         _shape(
             delivery,
@@ -703,6 +985,7 @@ def _validated(
         _identity(delivery["eventId"])
         _native_range(delivery["recordRange"])
         _native_range(delivery["sourceRange"])
+    _ordered(deliveries, "eventId")
     delivery_map = {entry["eventId"]: entry for entry in deliveries}
     _require(
         delivery_map.keys() == event_map.keys(),
@@ -772,6 +1055,7 @@ def _validated(
             inputs.source_proofs[sid],
             context,
             trust,
+            dependencies,
         )
         values, pcm[sid] = _pcm(inputs.source_wavs[sid], source)
         for ch in range(source["channels"]):
@@ -832,9 +1116,10 @@ def _validated(
     return binding, snapshot, intent, pcm
 
 
+@_refusal
 def validate_prediction_intent(inputs: PredictionInputs, *, trust: OutputTrust) -> Json:
     """Independently authenticate input bytes and derive the only permitted intent."""
-    binding, snapshot, intent, _ = _validated(inputs, trust)
+    binding, snapshot, intent, _ = _validated(inputs, trust, require_live=True)
     return _parse(
         _canonical(
             {
@@ -871,11 +1156,14 @@ def _mix(intent: list[Json], pcm: dict[str, list[array[float]]], extent: int) ->
 
 
 def _candidate(
-    inputs: PredictionInputs, trust: OutputTrust, created_at: str
+    inputs: PredictionInputs, trust: OutputTrust, created_at: str, *, require_live: bool
 ) -> Prediction:
-    binding, snapshot, intent, pcm = _validated(inputs, trust)
+    binding, snapshot, intent, pcm = _validated(
+        inputs, trust, require_live=require_live
+    )
     geometry = snapshot["geometry"]
     predicted = _mix(intent, pcm, geometry["extentFrames"])
+    _nonvacuity(predicted, geometry["extentFrames"] * FRAME)
     payload = {
         "schemaVersion": f"{PREFIX}commitment/v1",
         "lane": LANE,
@@ -898,6 +1186,7 @@ def _candidate(
     return Prediction(_canonical(payload), predicted)
 
 
+@_refusal
 def create_prediction(
     inputs: PredictionInputs, *, trust: OutputTrust, ledger: list[Json]
 ) -> Prediction:
@@ -916,7 +1205,7 @@ def create_prediction(
         "binding already committed/reserved/terminal",
     )
     candidate = _candidate(
-        inputs, trust, _now(trust).isoformat().replace("+00:00", "Z")
+        inputs, trust, _now(trust).isoformat().replace("+00:00", "Z"), require_live=True
     )
     if prior is not None:
         _require(
@@ -926,6 +1215,7 @@ def create_prediction(
     return candidate
 
 
+@_refusal
 def verify_prediction_commitment(
     inputs: PredictionInputs,
     commitment: bytes,
@@ -935,15 +1225,29 @@ def verify_prediction_commitment(
     trust: OutputTrust,
 ) -> Json:
     """Authenticate and recompute prediction bytes without observing output."""
+    return _verified_commitment(
+        inputs, commitment, receipt, prediction, trust=trust, require_live=True
+    )
+
+
+def _verified_commitment(
+    inputs: PredictionInputs,
+    commitment: bytes,
+    receipt: bytes,
+    prediction: bytes,
+    *,
+    trust: OutputTrust,
+    require_live: bool,
+) -> Json:
     record = _record(commitment, "commitment", COMMITMENT_FIELDS)
     _sources(record["sourceEntries"])
     for key in record:
         if key.endswith("Sha256"):
             _digest(record[key])
     _require(
-        _timestamp(record["createdAt"])
-        <= _now(trust)
-        <= _timestamp(record["expiresAt"]),
+        _timestamp(record["createdAt"]) <= _now(trust)
+        and _timestamp(record["createdAt"]) <= _timestamp(record["expiresAt"])
+        and (not require_live or _now(trust) <= _timestamp(record["expiresAt"])),
         "commitment chronology/expiry refused",
     )
     _authenticate(
@@ -953,7 +1257,9 @@ def verify_prediction_commitment(
         "commitmentReceiptSha256",
         receipt,
     )
-    candidate = _candidate(inputs, trust, record["createdAt"])
+    candidate = _candidate(
+        inputs, trust, record["createdAt"], require_live=require_live
+    )
     snapshot = _parse(inputs.geometry)
     _require(
         _timestamp(snapshot["capturedAt"]) <= _timestamp(record["createdAt"]),
@@ -1017,6 +1323,17 @@ def _metrics(expected: list[array[float]], actual: list[array[float]]) -> list[J
     return results
 
 
+def _nonvacuity(prediction: bytes, count: int) -> list[Json]:
+    predicted = _channels(prediction, count, prediction=True)
+    signal = _metrics(predicted, [array("d", [0.0]) * count for _ in range(2)])
+    _require(
+        all(not channel["consistent"] for channel in signal),
+        "vacuous prediction in expected channel",
+    )
+    return signal
+
+
+@_refusal
 def compare_committed_output(output: CommittedOutput, *, trust: OutputTrust) -> Json:
     """Recompute commitment then compare delivered MOV's authenticated PCM at zero lag.
 
@@ -1024,12 +1341,13 @@ def compare_committed_output(output: CommittedOutput, *, trust: OutputTrust) -> 
     this result then atomically appends its raw hash using prior-terminal-head.
     Invalid/partial inputs raise; their controller attempt must also be retained.
     """
-    commitment = verify_prediction_commitment(
+    commitment = _verified_commitment(
         output.inputs,
         output.commitment,
         output.commitment_receipt,
         output.prediction,
         trust=trust,
+        require_live=False,
     )
     context = commitment["context"]
     reservation = _record(output.reservation, "reservation", RESERVATION_FIELDS)
@@ -1045,7 +1363,8 @@ def compare_committed_output(output: CommittedOutput, *, trust: OutputTrust) -> 
     _require(
         _timestamp(commitment["createdAt"])
         <= _timestamp(reservation["reservedAt"])
-        <= _now(trust),
+        <= _timestamp(commitment["expiresAt"])
+        and _timestamp(reservation["reservedAt"]) <= _now(trust),
         "reservation chronology differs",
     )
     _authenticate(
@@ -1065,16 +1384,6 @@ def compare_committed_output(output: CommittedOutput, *, trust: OutputTrust) -> 
         and prior["predictionBytesSha256"] == commitment["predictionBytesSha256"]
         and prior["reservationRawSha256"] == _hash(output.reservation),
         "complete live reserved attempt required",
-    )
-    binding = _parse(output.inputs.input_binding)
-    post = _geometry(output.post_geometry, output.post_geometry_receipt, binding, trust)
-    _require(
-        _json_hash(post["geometry"]) == commitment["geometrySha256"],
-        "post-render semantic geometry changed",
-    )
-    _require(
-        _timestamp(reservation["reservedAt"]) <= _timestamp(post["capturedAt"]),
-        "post-render snapshot precedes reservation",
     )
     lineage = _record(
         output.lineage,
@@ -1097,6 +1406,28 @@ def compare_committed_output(output: CommittedOutput, *, trust: OutputTrust) -> 
     for key in lineage:
         if key.endswith("Sha256"):
             _digest(lineage[key])
+    binding = _parse(output.inputs.input_binding)
+    _require(
+        _hash(output.post_geometry) != _hash(output.inputs.geometry),
+        "pre-render capture replayed as post-render",
+    )
+    post = _geometry(
+        output.post_geometry,
+        output.post_geometry_receipt,
+        binding,
+        trust,
+        capture_phase="post_render",
+        require_live=False,
+        render_lineage=lineage,
+    )
+    _require(
+        _json_hash(post["geometry"]) == commitment["geometrySha256"],
+        "post-render semantic geometry changed",
+    )
+    _require(
+        _timestamp(reservation["reservedAt"]) <= _timestamp(post["capturedAt"]),
+        "post-render snapshot precedes reservation",
+    )
     decode = _record(output.decode_record, "decode", DECODE_FIELDS)
     count = commitment["extentFrames"] * FRAME
     _require(
@@ -1128,12 +1459,7 @@ def compare_committed_output(output: CommittedOutput, *, trust: OutputTrust) -> 
     )
     predicted = _channels(output.prediction, count, prediction=True)
     actual = _channels(output.decoded_samples, count, prediction=False)
-    zeros = [array("d", [0.0]) * count for _ in range(2)]
-    signal = _metrics(predicted, zeros)
-    _require(
-        all(not channel["consistent"] for channel in signal),
-        "vacuous prediction in expected channel",
-    )
+    signal = _nonvacuity(output.prediction, count)
     metrics = _metrics(predicted, actual)
     return {
         "schemaVersion": f"{PREFIX}comparison/v1",
@@ -1161,6 +1487,7 @@ def compare_committed_output(output: CommittedOutput, *, trust: OutputTrust) -> 
     }
 
 
+@_refusal
 def _terminal_append(
     output: CommittedOutput,
     result_raw: bytes,
@@ -1202,13 +1529,60 @@ def _terminal_append(
     return _append_ledger(current_ledger, event, result["priorLedgerHeadSha256"])
 
 
+def _terminal_comparison(terminal: TerminalOutput, trust: OutputTrust) -> Json:
+    result = _record(
+        terminal.comparison,
+        "comparison",
+        "schemaVersion lane context status commitmentRawSha256 commitmentPayloadSha256 "
+        "reservationRawSha256 renderLineage decodeRecordRawSha256 preGeometryRawSha256 "
+        "postGeometryRawSha256 geometrySha256 algorithmSha256 metrics signalMetrics "
+        "priorLedgerHeadSha256 internalControls geometryStability controlStability "
+        "futureAuthority comparisonReceiptSha256",
+    )
+    _ledger_head(terminal.ledger)
+    _authenticate(
+        trust,
+        "output_residual_comparison",
+        result,
+        "comparisonReceiptSha256",
+        terminal.comparison_receipt,
+    )
+    raw_hash = _hash(terminal.comparison)
+    entries = [
+        entry for entry in terminal.ledger if entry["resultRawSha256"] == raw_hash
+    ]
+    _require(len(entries) == 1, "sealed terminal result absent from complete history")
+    entry = entries[0]
+    _require(
+        entry["context"] == result["context"]
+        and entry["state"] == result["status"]
+        and entry["commitmentRawSha256"] == result["commitmentRawSha256"]
+        and entry["commitmentPayloadSha256"] == result["commitmentPayloadSha256"]
+        and entry["reservationRawSha256"] == result["reservationRawSha256"]
+        and entry["predictionBytesSha256"] == _hash(terminal.output.prediction)
+        and entry["priorHeadSha256"] == result["priorLedgerHeadSha256"],
+        "terminal lineage differs",
+    )
+    # Only the authenticated prior-terminal-head is projected internally;
+    # callers supply the complete current chain, including the terminal entry.
+    past = replace(terminal.output, ledger=terminal.ledger[: entry["sequence"]])
+    expected = compare_committed_output(past, trust=trust)
+    _require(
+        _canonical(_projection(result, "comparisonReceiptSha256"))
+        == _canonical(expected),
+        "sealed terminal result differs from recomputation",
+    )
+    return result
+
+
+@_refusal
 def compare_prediction_pair(
-    pristine: CommittedOutput, edited: CommittedOutput, *, trust: OutputTrust
+    pristine: TerminalOutput, edited: TerminalOutput, *, trust: OutputTrust
 ) -> Json:
     """Pure audio-changing pair test. Video-only A uses per-output consistency."""
     left, right = (
-        compare_committed_output(pristine, trust=trust),
-        compare_committed_output(edited, trust=trust),
+        _terminal_comparison(pristine, trust),
+        _terminal_comparison(edited, trust),
     )
     a, b = left["context"], right["context"]
     _require(
@@ -1231,14 +1605,14 @@ def compare_prediction_pair(
         ),
         "pair authenticated input identity differs",
     )
-    count = len(pristine.prediction) // 16
+    count = len(pristine.output.prediction) // 16
     lp, rp = (
-        _channels(pristine.prediction, count, prediction=True),
-        _channels(edited.prediction, count, prediction=True),
+        _channels(pristine.output.prediction, count, prediction=True),
+        _channels(edited.output.prediction, count, prediction=True),
     )
     lo, ro = (
-        _channels(pristine.decoded_samples, count, prediction=False),
-        _channels(edited.decoded_samples, count, prediction=False),
+        _channels(pristine.output.decoded_samples, count, prediction=False),
+        _channels(edited.output.decoded_samples, count, prediction=False),
     )
     cross = {
         "predictionDifference": _metrics(lp, rp),
@@ -1255,9 +1629,13 @@ def compare_prediction_pair(
     return {
         "schemaVersion": f"{PREFIX}pair/v1",
         "lane": LANE,
-        "pristineComparisonPayloadSha256": _json_hash(left),
-        "editedComparisonPayloadSha256": _json_hash(right),
+        "pristineComparisonRawSha256": _hash(pristine.comparison),
+        "editedComparisonRawSha256": _hash(edited.comparison),
+        "pristineLedgerHeadSha256": _ledger_head(pristine.ledger),
+        "editedLedgerHeadSha256": _ledger_head(edited.ledger),
         "crossMetrics": cross,
         "internalControls": "unverified",
+        "geometryStability": "not_claimed",
+        "controlStability": "not_claimed",
         "futureAuthority": False,
     }

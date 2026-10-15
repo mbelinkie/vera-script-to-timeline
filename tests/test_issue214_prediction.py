@@ -45,10 +45,13 @@ class Case:
 
     def reseal_geometry(self) -> None:
         snapshot = json.loads(self.inputs.geometry)
+        snapshot.setdefault("capturePhase", "pre_render")
         payload = {
             key: value for key, value in snapshot.items() if key != "receiptSha256"
         }
-        receipt = self.trust.seal("output_geometry_snapshot", payload)
+        receipt = self.trust.seal(
+            "output_geometry_snapshot", {**payload, "inputBinding": self.binding}
+        )
         snapshot["receiptSha256"] = digest(receipt)
         self.inputs = replace(
             self.inputs, geometry=canonical(snapshot), geometry_receipt=receipt
@@ -110,7 +113,7 @@ def case(
         "recordRange": {"startFrame": 0, "endFrame": frames},
         "provenance": {
             "sourceId": sid,
-            "blockId": "block-1",
+            "blockId": "block-" + source_id,
             "deliveredSourceHash": "sha256:" + delivered_hash,
         },
     }
@@ -127,7 +130,7 @@ def case(
             "timingHash": "sha256:" + digest(timing),
         }
         row = {
-            "blockId": "block-1",
+            "blockId": "block-" + source_id,
             "narrationAssetId": sid,
             "timingHash": "sha256:" + digest(timing),
             "audioHash": "sha256:" + digest(raw),
@@ -178,13 +181,17 @@ def case(
                 },
             }
         )
-        source = {"id": "logical-AV-source"}
+        source = {"id": "logical-AV-source", "preparationRequirementKey": "prep-key"}
         event["provenance"]["sourceId"] = source["id"]
         preparation_binding = {
-            "verification": {"deliveredHash": "sha256:" + delivered_hash}
+            "requirementKey": "prep-key",
+            "timeMapping": event["sourceTimeMapping"],
+            "verification": {"deliveredHash": "sha256:" + delivered_hash},
         }
+        event["preparationBindingHash"] = _compiler_hash(preparation_binding)
         row = {
             "recordVersion": "authoring-media-preparation/v1",
+            "requirementKey": "prep-key",
             "binding": preparation_binding,
             "audio": {
                 "contentHash": "sha256:" + digest(raw),
@@ -358,7 +365,171 @@ def case(
         {sid: raw},
         {sid: proof},
     )
-    return Case(inputs, trust, integers, binding)
+    result = Case(inputs, trust, integers, binding)
+    refresh_package_inputs(result)
+    return result
+
+
+def refresh_package_inputs(c: Case) -> None:
+    """Accepted package oracle, independent of the new production package parser."""
+    blobs = dict(c.inputs.blobs)
+    manifest = json.loads(blobs["manifestSha256"])
+    manifest.setdefault(
+        "timeline",
+        {
+            "frameRate": q.RATE,
+            "durationFrames": json.loads(c.inputs.geometry)["geometry"]["extentFrames"],
+        },
+    )
+    manifest["timeline"].setdefault("width", 1920)
+    manifest["timeline"].setdefault("height", 1080)
+    manifest.setdefault("composition", {})
+    manifest["tracks"] = [
+        {
+            "id": row["trackId"],
+            "kind": row["kind"],
+            "index": row["index"],
+            "name": row["name"],
+        }
+        for row in c.binding["tracks"]
+    ]
+    dependencies: dict[str, Any] = {
+        "schemaVersion": "compiler-dependencies/v2",
+        "tracks": manifest["tracks"],
+        "narrationTimingMaps": [],
+        "narrationBoundaryEvidence": [],
+        "preparedMedia": [],
+    }
+    prepared = {}
+    artifacts = {}
+    by_source = {row["sourceId"]: row for row in c.binding["nativeSources"]}
+    for event in manifest["events"]:
+        event.setdefault("audio", None)
+        if event["kind"] == "script_marker":
+            continue
+        sid = (
+            event["eventId"]
+            if event["kind"] in {"source_audio", "placeholder"}
+            else event["provenance"]["sourceId"]
+        )
+        if event["kind"] in {"narration", "source_audio"}:
+            proof = c.inputs.source_proofs[sid]
+            record = json.loads(proof.record)
+            if event["kind"] == "narration":
+                key = (
+                    "narrationBoundaryEvidence"
+                    if record.get("schemaVersion") == "narration-boundary-evidence/v1"
+                    else "narrationTimingMaps"
+                )
+                dependencies[key].append(record)
+            else:
+                dependencies["preparedMedia"].append(record["binding"])
+                prepared[record["requirementKey"]] = _Preparation(
+                    record["requirementKey"],
+                    record,
+                    proof.record,
+                    digest(proof.record),
+                    "receipt.json",
+                )
+        kind = (
+            "audio"
+            if event["kind"] in {"narration", "source_audio"}
+            else "still"
+            if event["kind"] == "placeholder"
+            else "video"
+        )
+        key = (
+            f"event:{sid}"
+            if event["kind"] in {"source_audio", "placeholder"}
+            else f"source:{sid}"
+        )
+        artifacts[key] = _InputArtifact(
+            key,
+            Path("synthetic-media"),
+            f"Media/{sid}/asset",
+            "sha256:" + by_source[sid]["nativeSourceSha256"],
+            kind,
+        )
+    view = _delivery_view(manifest, dependencies, prepared, artifacts, validate=False)
+    blobs["manifestSha256"] = canonical(manifest)
+    blobs["executionDependenciesSha256"] = canonical(dependencies)
+    blobs["packageSha256"] = canonical(view)
+    blobs["runtimeSha256"] = canonical(
+        {
+            "schemaVersion": "qualification-output-runtime/v1",
+            "lane": r.LANE,
+            "implementation": "CPython",
+            "pythonVersion": "3.12.14",
+            "nodeVersion": "24.19.0",
+            "npmVersion": "11.17.0",
+            "uvVersion": "0.12.5",
+            "system": "Darwin",
+            "release": "24.1.0",
+            "machine": "x86_64",
+        }
+    )
+    blobs["installedReleaseSha256"] = canonical(
+        {
+            "schemaVersion": "qualification-output-release/v1",
+            "lane": r.LANE,
+            "files": {
+                "injected.py": digest(b"independently qualified installed bytes")
+            },
+        }
+    )
+    blobs["profileSha256"] = canonical(
+        {
+            "schemaVersion": "qualification-output-profile/v1",
+            "lane": r.LANE,
+            "container": "mov",
+            "videoCodec": "prores422",
+            "audioCodec": "lpcm",
+            "audioBitDepth": 24,
+            "sampleRate": 48000,
+            "channels": 2,
+            "rate": q.RATE,
+            "width": manifest["timeline"]["width"],
+            "height": manifest["timeline"]["height"],
+        }
+    )
+    current = c.binding["context"]
+    revised = dict(current["binding"])
+    if revised["kind"] == "revised":
+        revised.update(
+            revisedDocumentSha256=digest(blobs["executionDocumentSha256"]),
+            revisedDependenciesSha256=digest(blobs["executionDependenciesSha256"]),
+            revisedManifestSha256=digest(blobs["manifestSha256"]),
+        )
+    ctx = context(
+        phase=current["phase"],
+        caseId=current["caseId"],
+        target=current["target"],
+        invocationId=current["invocationId"],
+        binding=revised,
+        **{key: digest(raw) for key, raw in blobs.items()},
+    )
+    c.binding["context"] = ctx
+    snapshot = json.loads(c.inputs.geometry)
+    snapshot["geometry"]["context"] = ctx
+    c.inputs = replace(c.inputs, geometry=canonical(snapshot), blobs=blobs)
+    for sid, proof in c.inputs.source_proofs.items():
+        record = json.loads(proof.record)
+        if record.get("recordVersion") == "authoring-media-preparation/v1":
+            event = next(
+                event for event in manifest["events"] if event["eventId"] == sid
+            )
+            c.trust.seals[proof.receipt] = (
+                "private_preparation",
+                canonical(
+                    {
+                        "context": ctx,
+                        "preparationBindingHash": event["preparationBindingHash"],
+                        "recordSha256": digest(proof.record),
+                        "binding": record["binding"],
+                    }
+                ),
+            )
+    c.capture()
 
 
 def committed(c: Case) -> tuple[bytes, bytes, bytes]:
@@ -527,17 +698,25 @@ def test_prepared_mapping_differential_with_accepted_oracle(
     q.verify_prediction_commitment(c.inputs, raw, receipt, pcm, trust=c.trust)
 
 
-def test_nonzero_authenticated_native_and_pcm_origin() -> None:
-    c = case(
-        kind="source_audio", source_start=2, native_origin=100, pcm_origin=2 * q.FRAME
-    )
+def test_supplied_nonzero_origin_refuses_and_zero_origin_matches_package() -> None:
+    c = case(kind="source_audio", source_start=2, q_origin=48000)
     raw, receipt, pcm = committed(c)
     assert struct.unpack_from("<d", pcm)[0] == c.samples[2 * q.FRAME] / 2**23
     q.verify_prediction_commitment(c.inputs, raw, receipt, pcm, trust=c.trust)
-    proofs = dict(c.inputs.source_proofs)
-    sid = next(iter(proofs))
-    proofs[sid] = replace(proofs[sid], origin_record=None, origin_receipt=None)
-    with pytest.raises(r.OutputConsistencyError):
+    sid = next(iter(c.inputs.source_proofs))
+    proof = c.inputs.source_proofs[sid]
+    origin = {
+        "schemaVersion": "qualification-output-origin/v1",
+        "lane": r.LANE,
+        "context": c.binding["context"],
+        "sourceId": sid,
+        "preparationReceiptSha256": digest(proof.receipt),
+        "nativeFrameOrigin": 100,
+        "pcmSampleOrigin": 2 * q.FRAME,
+    }
+    seal = c.trust.seal("output_geometry_snapshot", origin)
+    proofs = {sid: replace(proof, origin_record=canonical(origin), origin_receipt=seal)}
+    with pytest.raises(r.OutputConsistencyError, match="origin unsupported"):
         q.create_prediction(
             replace(c.inputs, source_proofs=proofs), trust=c.trust, ledger=[]
         )
@@ -768,6 +947,7 @@ def test_decoded_channel_alias_refuses_even_if_wav_file_hashes_differ() -> None:
         source_proofs={**a.inputs.source_proofs, **b.inputs.source_proofs},
     )
     a.capture()
+    refresh_package_inputs(a)
     with pytest.raises(r.OutputConsistencyError, match="decoded-channel"):
         q.create_prediction(a.inputs, trust=a.trust, ledger=[])
 
@@ -792,3 +972,366 @@ def test_prediction_clipping_and_geometry_extent_bounds() -> None:
     c.reseal_geometry()
     with pytest.raises(r.OutputConsistencyError, match="integer"):
         q.create_prediction(c.inputs, trust=c.trust, ledger=[])
+
+
+def sync_source_entry_hashes(c: Case) -> None:
+    snapshot = json.loads(c.inputs.geometry)
+    snapshot["geometry"]["sourceMappings"] = [
+        {
+            "sourceId": row["sourceId"],
+            "nativeSourceSha256": row["nativeSourceSha256"],
+            "sourceEntrySha256": digest(canonical(row)),
+        }
+        for row in c.binding["sourceEntries"]
+    ]
+    c.inputs = replace(c.inputs, geometry=canonical(snapshot))
+    c.capture()
+
+
+@pytest.mark.parametrize("kind", ["narration", "source_audio"])
+def test_authenticated_foreign_receipt_substitution_refuses_dependencies(
+    kind: str,
+) -> None:
+    c = case(kind=kind)
+    sid = c.binding["sourceEntries"][0]["sourceId"]
+    proof = c.inputs.source_proofs[sid]
+    record = json.loads(proof.record)
+    if kind == "narration":
+        record["blockRevision"] = 999
+        seal = c.trust.seal(
+            "narration_preparation",
+            {
+                "row": record,
+                "timingHash": "sha256:" + digest(proof.timing or b""),
+                "reviewHash": "sha256:" + digest(proof.review or b""),
+                "audioHash": record["audioHash"],
+            },
+        )
+    else:
+        record["binding"]["verification"]["probeHash"] = "sha256:" + "f" * 64
+        seal = canonical(record)
+        manifest = json.loads(c.inputs.blobs["manifestSha256"])
+        c.trust.seals[seal] = (
+            "private_preparation",
+            canonical(
+                {
+                    "context": c.binding["context"],
+                    "preparationBindingHash": manifest["events"][0][
+                        "preparationBindingHash"
+                    ],
+                    "recordSha256": digest(seal),
+                    "binding": record["binding"],
+                }
+            ),
+        )
+    c.binding["sourceEntries"][0]["provenanceReceiptSha256"] = digest(seal)
+    c.inputs = replace(
+        c.inputs,
+        source_proofs={sid: replace(proof, record=canonical(record), receipt=seal)},
+    )
+    sync_source_entry_hashes(c)
+    with pytest.raises(r.OutputConsistencyError, match="dependencies"):
+        q.create_prediction(c.inputs, trust=c.trust, ledger=[])
+
+
+def test_vacuity_refuses_before_any_commitment_or_reservation() -> None:
+    for c in (case(silent=True), case(channels=2, silent_right=True)):
+        with pytest.raises(r.OutputConsistencyError, match="vacuous"):
+            q.create_prediction(c.inputs, trust=c.trust, ledger=[])
+        assert "output_prediction_commitment" not in c.trust.calls
+        assert "output_render_reservation" not in c.trust.calls
+
+
+def test_foreign_multiline_marker_and_long_text_are_not_identities() -> None:
+    c = case()
+    manifest = json.loads(c.inputs.blobs["manifestSha256"])
+    manifest["events"].append(
+        {
+            "eventId": "marker-1",
+            "kind": "script_marker",
+            "recordRange": {"startFrame": 0, "endFrame": 1},
+            "provenance": {},
+            "marker": {"text": "\n\t" + "note " * 140 + "soft\u00adhyphen\u200d"},
+        }
+    )
+    c.inputs = replace(
+        c.inputs, blobs={**c.inputs.blobs, "manifestSha256": canonical(manifest)}
+    )
+    refresh_package_inputs(c)
+    assert q.create_prediction(c.inputs, trust=c.trust, ledger=[]).pcm
+    assert r._parse(canonical({"freeText": ""})) == {"freeText": ""}
+    bad = context(invocationId="")
+    with pytest.raises(r.OutputConsistencyError):
+        r._context(bad)
+
+
+def test_track_manifest_mismatch_and_malformed_foreign_fields_refuse() -> None:
+    c = case()
+    idle = {**c.binding["tracks"][0], "trackId": "audio-2", "index": 2}
+    c.binding["tracks"].append(idle)
+    snapshot = json.loads(c.inputs.geometry)
+    snapshot["geometry"]["tracks"] = c.binding["tracks"]
+    c.inputs = replace(c.inputs, geometry=canonical(snapshot))
+    refresh_package_inputs(c)
+    c.binding["tracks"][0]["index"], c.binding["tracks"][1]["index"] = 2, 1
+    snapshot = json.loads(c.inputs.geometry)
+    snapshot["geometry"]["tracks"] = c.binding["tracks"]
+    c.inputs = replace(c.inputs, geometry=canonical(snapshot))
+    c.capture()
+    with pytest.raises(r.OutputConsistencyError, match="manifest"):
+        q.create_prediction(c.inputs, trust=c.trust, ledger=[])
+
+
+def test_private_preparation_payloads_do_not_multiplex_by_matching_hash() -> None:
+    c = case(kind="source_audio")
+    proof = next(iter(c.inputs.source_proofs.values()))
+    record = json.loads(proof.record)
+    legacy = {"originalInputs": {}, "binding": record["binding"], "sourcePins": {}}
+    with pytest.raises(r.OutputConsistencyError, match="authentication"):
+        c.trust.authenticate("private_preparation", proof.receipt, legacy)
+    c.trust.seals[proof.receipt] = ("private_preparation", canonical(legacy))
+    with pytest.raises(r.OutputConsistencyError, match="authentication"):
+        q.create_prediction(c.inputs, trust=c.trust, ledger=[])
+
+
+@pytest.mark.slow
+def test_actual_accepted_174_receipt_shape_and_package_range(tmp_path: Path) -> None:
+    from issue190_case import make_proof_case
+    from vera_timeline_agent.v2_package import _validate_preparations
+
+    request, _ = make_proof_case(
+        tmp_path, rate="23.976fps", scenario="source-audio-full"
+    )
+    document = json.loads(
+        Path(request["executionInputs"]["document"]["path"]).read_bytes()
+    )
+    dependencies = json.loads(
+        Path(request["executionInputs"]["dependencies"]["path"]).read_bytes()
+    )
+    manifest = json.loads(
+        (
+            Path(request["executionInputs"]["document"]["path"]).parent
+            / "timeline-manifest.json"
+        ).read_bytes()
+    )
+    report = json.loads(
+        (
+            Path(request["executionInputs"]["document"]["path"]).parent
+            / "build-report.json"
+        ).read_bytes()
+    )
+    paths = {
+        key: Path(pins["receipt"]["path"])
+        for key, pins in request["preparations"].items()
+    }
+    accepted = _validate_preparations(document, dependencies, manifest, report, paths)
+    event = next(
+        event for event in manifest["events"] if event["kind"] == "source_audio"
+    )
+    logical = next(
+        source
+        for source in manifest["sources"]
+        if source["id"] == event["provenance"]["sourceId"]
+    )
+    prep = accepted[logical["preparationRequirementKey"]]
+    native_range = _source_audio_range(event, prep, Fraction(24000, 1001))
+    audio = prep.record["audio"]
+    sid = event["eventId"]
+    delivery = {
+        "eventId": sid,
+        "kind": "source_audio",
+        "recordRange": {
+            "startFrame": event["recordRange"]["startFrame"],
+            "durationFrames": event["recordRange"]["endFrame"]
+            - event["recordRange"]["startFrame"],
+        },
+        "sourceRange": native_range,
+    }
+    start = native_range["startFrame"] * q.FRAME
+    end = start + native_range["durationFrames"] * q.FRAME
+    stream = event["sourceTimeMapping"]["sourceFrameMap"]["sourceAudioStreamMappings"][
+        0
+    ]
+    mapping = {
+        "sourceId": sid,
+        "nativeFrameOrigin": 0,
+        "pcmSampleOrigin": 0,
+        "sourceSampleRate": stream["sampleRate"],
+        "sampleRate": 48000,
+        "resampledFirstSample": audio["resampledFirstSample"],
+        "startSample": start,
+        "endSample": end,
+        "provenanceRecordSha256": digest(prep.raw),
+    }
+    entry = {
+        "sourceId": sid,
+        "pcmMode": "prepared-audio",
+        "originalBitDepth": 24,
+        "nativeSourceSha256": audio["contentHash"].removeprefix("sha256:"),
+        "pcmFileSha256": audio["contentHash"].removeprefix("sha256:"),
+        "provenanceReceiptSha256": digest(prep.raw),
+        "provenancePinsSha256": digest(canonical(prep.record["binding"])),
+        "deliveryDerivationSha256": digest(canonical(delivery)),
+        "durationSamples": audio["decodedSamples"],
+        "channels": audio["channels"],
+        "nativeFrameOrigin": 0,
+        "pcmSampleOrigin": 0,
+        "pcmMappingSha256": digest(canonical(mapping)),
+    }
+    ctx = context()
+    trust = SealedTrust()
+    trust.seals[prep.raw] = (
+        "private_preparation",
+        canonical(
+            {
+                "context": ctx,
+                "preparationBindingHash": event["preparationBindingHash"],
+                "recordSha256": digest(prep.raw),
+                "binding": prep.record["binding"],
+            }
+        ),
+    )
+    assert q._provenance(
+        entry,
+        event,
+        logical,
+        delivery,
+        q.SourceProof(prep.raw, prep.raw),
+        ctx,
+        trust,
+        dependencies,
+    ) == (start, end)
+
+
+def test_authenticated_dependency_boundary_row_membership() -> None:
+    c = case()
+    sid = c.binding["sourceEntries"][0]["sourceId"]
+    proof = c.inputs.source_proofs[sid]
+    row = json.loads(proof.record)
+    row.update(
+        schemaVersion="narration-boundary-evidence/v1",
+        verification={"reviewArtifactHash": "sha256:" + digest(proof.review or b"")},
+    )
+    seal = c.trust.seal(
+        "narration_preparation",
+        {
+            "row": row,
+            "timingHash": row["timingHash"],
+            "reviewHash": "sha256:" + digest(proof.review or b""),
+            "audioHash": row["audioHash"],
+        },
+    )
+    new_proof = replace(proof, record=canonical(row), receipt=seal)
+    source = c.binding["sourceEntries"][0]
+    source["provenanceReceiptSha256"] = digest(seal)
+    source["provenancePinsSha256"] = digest(
+        canonical(
+            {
+                "timing": digest(proof.timing or b""),
+                "review": digest(proof.review or b""),
+                "receipt": digest(seal),
+            }
+        )
+    )
+    mapping = {
+        "sourceId": sid,
+        "nativeFrameOrigin": 0,
+        "pcmSampleOrigin": 0,
+        "sourceSampleRate": 48000,
+        "sampleRate": 48000,
+        "resampledFirstSample": 0,
+        "startSample": 0,
+        "endSample": 6 * q.FRAME,
+        "provenanceRecordSha256": digest(new_proof.record),
+    }
+    source["pcmMappingSha256"] = digest(canonical(mapping))
+    manifest = json.loads(c.inputs.blobs["manifestSha256"])
+    manifest["events"][0]["provenance"]["boundaryEvidenceHash"] = _compiler_hash(row)
+    snapshot = json.loads(c.inputs.geometry)
+    snapshot["geometry"]["items"][0]["sourceMappingSha256"] = source["pcmMappingSha256"]
+    c.inputs = replace(
+        c.inputs,
+        source_proofs={sid: new_proof},
+        geometry=canonical(snapshot),
+        blobs={**c.inputs.blobs, "manifestSha256": canonical(manifest)},
+    )
+    sync_source_entry_hashes(c)
+    refresh_package_inputs(c)
+    assert q.create_prediction(c.inputs, trust=c.trust, ledger=[]).pcm
+    deps = json.loads(c.inputs.blobs["executionDependenciesSha256"])
+    deps["narrationTimingMaps"] = deps["narrationBoundaryEvidence"]
+    deps["narrationBoundaryEvidence"] = []
+    blobs = dict(c.inputs.blobs)
+    blobs["executionDependenciesSha256"] = canonical(deps)
+    ctx = context(**{key: digest(raw) for key, raw in blobs.items()})
+    c.binding["context"] = ctx
+    snapshot = json.loads(c.inputs.geometry)
+    snapshot["geometry"]["context"] = ctx
+    c.inputs = replace(c.inputs, blobs=blobs, geometry=canonical(snapshot))
+    c.capture()
+    with pytest.raises(r.OutputConsistencyError, match="boundary"):
+        q.create_prediction(c.inputs, trust=c.trust, ledger=[])
+
+
+def test_mixer_differential_with_late_offsets_and_multiple_segments() -> None:
+    frames = 6
+    pcm = {
+        sid: [
+            array(
+                "d", (0.01 * (n + 1) + i * 0.0000001 for i in range(frames * q.FRAME))
+            )
+        ]
+        for n, sid in enumerate(["z", "é", "😀"])
+    }
+    intent: list[dict[str, Any]] = [
+        {
+            "sourceId": sid,
+            "gainDb": -18 if sid == "é" else 0,
+            "segments": [
+                {
+                    "itemUid": "left",
+                    "recordStart": 1,
+                    "sampleStart": 2 * q.FRAME,
+                    "sampleCount": q.FRAME,
+                },
+                {
+                    "itemUid": "right",
+                    "recordStart": 4,
+                    "sampleStart": 4 * q.FRAME,
+                    "sampleCount": q.FRAME,
+                },
+            ],
+        }
+        for sid in sorted(pcm)
+    ]
+    routes = [
+        {
+            "sourceId": row["sourceId"],
+            "controls": {"gainDb": row["gainDb"]},
+            "segments": [
+                {
+                    "recordStart": segment["recordStart"],
+                    "recordEnd": segment["recordStart"] + 1,
+                    "sourceStart": segment["sampleStart"] // q.FRAME,
+                    "sourceEnd": segment["sampleStart"] // q.FRAME + 1,
+                }
+                for segment in row["segments"]
+            ],
+        }
+        for row in intent
+    ]
+    expected = old_mix(routes, pcm, frames)
+    assert q._mix(intent, pcm, frames) == b"".join(
+        struct.pack("<dd", left, right) for left, right in zip(*expected, strict=True)
+    )
+
+
+def test_malformed_foreign_row_is_a_typed_refusal() -> None:
+    c = case()
+    sid = next(iter(c.inputs.source_proofs))
+    proof = c.inputs.source_proofs[sid]
+    broken = replace(proof, record=canonical({}))
+    with pytest.raises(r.OutputConsistencyError):
+        q.create_prediction(
+            replace(c.inputs, source_proofs={sid: broken}), trust=c.trust, ledger=[]
+        )
