@@ -559,3 +559,30 @@ started; #219 previously released the native window. Once safety review GO is
 retained, operator can restart Resolve, open the original separate saved
 disposable on Edit (not either build target), keep None and invoke the new
 one-off Python3 script once. Do not use the old installed Graphics build menu.
+
+### Second-target diagnostic ready — 13:13 EDT
+
+Narrow review66277 completed exit0 **GO**, no blockers. Log
+`out/issue8/claude-diagnostic-capture-delta-review.txt` SHA256
+`ffd76372cb01f4da0043673d386047d664459c241965d242475dce62fd06e704`.
+It confirms inventory closure matches the accepted bootstrap and runs before
+any installed runtime import. The red harness line numbers predate a
+format-only rewrite; red/green order and refusal remain retained. Static-only
+coverage limits and one-shot/index-write caveats are explicitly retained, not
+claimed tested. No native acceptance or production fix is inferred.
+
+Final readiness audit: script28ccec69..., request075b7569..., installed release
+f955e0f4... match; all11installed declared files/exact inventory and complete
+graphic handoff pass; diagnostic evidence directory remains absent. No native
+API was invoked. Check-in timer PAUSED. User-authorized exact second target
+is ready for one operator-run diagnostic. No installed request/source changes
+or heavy tests were made, and the earlier failed target remains unchanged.
+
+Operator: quit/restart Resolve for a fresh interpreter; open the ORIGINAL
+separate saved disposable current project/timeline on Edit, not either build
+target; keep External Scripting None. In Python3 Console run
+`exec(open("/Users/matthewbelinkie/.codex/worktrees/46d4/VERA Script to Timeline/out/issue8/diagnostic-overrides-64.py").read()); run(resolve)`
+once, without the prompt prefix. Do not launch the installed Graphics menu,
+whose request still targets the failed first build. Retain result/index paths
+or first error and do not rerun. This diagnostic does no rendering and need
+not wait merely for #219's tests; no competing heavy test/render is authorized.
