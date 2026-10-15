@@ -2,9 +2,11 @@
 
 Starting main: `22f65c4f2b4ff61e7b08f530cdda3d92fea11d08`.
 The adjacent `foundation-inputs.json` records exact parent/pin/file inventory
-and SHA-256 of the three retained integration patches. Every imported file
-equals its accepted source bytes (the #12 module equals #7 after #7's accepted
-export change). Current v2 exports are preserved; the two accepted foundation
+and SHA-256 of the three retained compressed integration patches. Non-generated
+imported files equal their accepted source bytes (the #12 module equals #7
+after #7's accepted export change). Generated outputs also preserve main's
+accepted #168 roots; generator currentness passed. Current v2 exports are
+preserved; the two accepted foundation
 exports are appended. No branch history is merged. No #8-only source or runtime
 file enters; only the enumerated accepted #20/#12/#7 deltas are applied.
 #3 is accepted capability evidence, with no required runtime import.

@@ -1,0 +1,58 @@
+[
+  {
+    "issue": 20,
+    "parent": "f1b432aa4822a2afca55483359605b909a1a1840",
+    "pin": "951c658bf06fc9b06caeab88c9d43809c41cef94",
+    "patchSha256": "515306a5452baaa247ffbc48467bcecc40934937d951c397258bc94a02a9f95c",
+    "files": [
+      "packages/contracts/src/template-library.ts",
+      "packages/contracts/test/template-library.test.ts"
+    ]
+  },
+  {
+    "issue": 12,
+    "parent": "85d2313e2ebefb38af241c6ef16209d160e01b50",
+    "pin": "59838d6a8bf7fa536af3382788a947f5701a7d2c",
+    "patchSha256": "1be9c6e9c706193ebbc22a9e7cd275c5603f4594638b155aec68a8a8b7a21276",
+    "files": [
+      "packages/contracts/assets/ev24-lower-third/EV24 Lower Third.setting",
+      "packages/contracts/assets/ev24-lower-third/badge_override_test_only.png",
+      "packages/contracts/assets/ev24-lower-third/ev24_badges_atlas.png",
+      "packages/contracts/src/ev24-lower-third.ts",
+      "packages/contracts/test/ev24-lower-third.test.ts"
+    ]
+  },
+  {
+    "issue": 7,
+    "parent": "4c5e8786c9acbe99ebab3ef387c82fb5ff39e43f",
+    "pin": "7cb942e4d9b8d75d87ae6adc8aac97fba5d5d6ab",
+    "patchSha256": "0d8f35b79fd6d31f8bf750996bb31af135212606466c437a8ce8d0e7cdf1ed53",
+    "files": [
+      "contracts/build-report-v1.schema.json",
+      "contracts/compiler-dependencies-v1.schema.json",
+      "contracts/script-document-v1.schema.json",
+      "contracts/timeline-manifest-v1.schema.json",
+      "packages/contracts/src/compiler-core.ts",
+      "packages/contracts/src/ev24-lower-third.ts",
+      "packages/contracts/src/generated/contracts.ts",
+      "packages/contracts/src/script-validator.ts",
+      "packages/contracts/test/fusion-graphics.test.ts",
+      "python/vera_timeline_agent/generated/contracts/build_report_v1_schema.py",
+      "python/vera_timeline_agent/generated/contracts/compiler_dependencies_v1_schema.py",
+      "python/vera_timeline_agent/generated/contracts/script_document_v1_schema.py",
+      "python/vera_timeline_agent/generated/contracts/timeline_manifest_v1_schema.py",
+      "python/vera_timeline_agent/otio_package/package.py",
+      "python/vera_timeline_agent/resolve_import_package/package.py",
+      "tests/data/issue_7/normal.compiler-dependencies.json",
+      "tests/data/issue_7/normal.free.manifest.golden.json",
+      "tests/data/issue_7/normal.free.report.golden.json",
+      "tests/data/issue_7/normal.script-document.json",
+      "tests/data/issue_7/normal.studio.manifest.golden.json",
+      "tests/data/issue_7/normal.studio.report.golden.json",
+      "tests/data/issue_7/otis.script-document.json",
+      "tests/data/issue_7/otis.studio.manifest.golden.json",
+      "tests/data/issue_7/otis.studio.report.golden.json",
+      "tests/test_fusion_graphic_contract.py"
+    ]
+  }
+]
