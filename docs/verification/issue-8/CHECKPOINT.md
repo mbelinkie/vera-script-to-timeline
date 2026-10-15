@@ -407,3 +407,24 @@ None, saves a separate disposable current project/timeline, launches the
 standard-64 preflight once and returns its result/first refusal. Only later
 explicit named-target build authorization permits native placement. The seven
 native/reopen/visual/timing/isolation checks remain mandatory.
+
+### Producer-authorized file installation
+
+The Producer asked whether the agent could perform the next file-placement
+steps. This supersedes the prior agent-installation exclusion only for the
+two exact Graphics entries and the existing preflight-only request. Resolve
+was not running, destination was writable and neither Graphics target existed.
+No overwrite, archive, admin elevation, other-plugin change or preference
+mutation was needed. Copied the reviewed release into the exact Workflow
+Integration Plugins directory and standard-64 preflight as its request.json.
+Post-copy all11declared files and release manifest are byte-identical to the
+reviewed source; request hash6473916bf6102d3cf1448c2f2cb41a0425482cb603b3d16fc8f8656b2623addf,
+mode0400, actionpreflight, authorizationfalse, settingsnull. Receipt:
+`out/issue8/installation-receipt.json`. No app launch/native action occurred.
+
+Reviewed production/test/package bytes are unchanged; no automated rerun is
+needed for file copying or these non-consumed handoff documentation changes.
+Remaining first step: Producer opens Resolve, confirms None and retains safe
+scripted actions, saves a separate disposable current project/timeline on Edit,
+launches VERA Graphics v1 once and returns preflight result/first refusal.
+No new-target build authorization or visual acceptance has been supplied.

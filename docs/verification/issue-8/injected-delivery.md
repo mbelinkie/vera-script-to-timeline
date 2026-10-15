@@ -9,7 +9,10 @@ window and #8's heavy validation has now drained. No automated rerun is needed
 for unchanged source. The last operator-reported External Scripting setting
 was **Local**, not the required None confirmation for the injected build.
 Do not install an unreviewed candidate or treat the existing #109 installed
-release as #8. No agent installation or preference mutation is authorized.
+release as #8. The Producer subsequently authorized the agent to place the
+files: that installation and the standard-64 preflight request are now complete,
+verified in [prepared artifact inventory](prepared-handoff.md). No preference
+mutation, launch or build authorization was inferred from file installation.
 
 ## Audited boundary
 
@@ -52,7 +55,12 @@ Record exact release/request/attestation hashes and requested target names.
 The preparation above does not assert External Scripting None or authorize a
 native build. It never invokes Resolve or installs a script.
 
-## Installation and preflight (operator-owned)
+## Installation and preflight (files installed; operator launch pending)
+
+The copy steps1–3 below have already been completed by the agent under the
+Producer's later file-placement authorization. Do not repeat/merge the copy.
+Only the settings confirmation, saved disposable current project and menu
+launch remain. The application has not been launched by this installation.
 
 1. Quit Resolve. Inspect the prepared `graphics-release`: `VERA Graphics v1.py`
    and `vera-graphics-v1/`, including `release.json` and only the declared

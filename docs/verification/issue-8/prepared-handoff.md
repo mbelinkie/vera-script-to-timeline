@@ -67,16 +67,22 @@ Do not simplify names or reuse a failed target.
 
 Every prepared request is `action: preflight`, `authorizeNewNonproduction:
 false`, `externalScripting: null`. There are no build requests or operator
-settings confirmations. No installation, native project/composition/render,
-visual judgment, deployment, merge or issue closure is claimed.
+settings confirmations. The subsequent Producer-authorized file installation
+is recorded below; no native project/composition/render, visual judgment,
+deployment, merge or issue closure is claimed.
 
 ## Next operator sequence (automated evidence complete; #219 released)
 
-1. Follow [injected delivery](injected-delivery.md): quit Resolve, manually
-   install the two entries from the exact release above, leaving Delivery and
-   other plugins untouched. This remains an operator-owned action.
-2. Start with `standard-64-preflight.json`, copied as installed
-   `vera-graphics-v1/request.json`. Confirm the actual None setting, save a
+1. File installation is **complete**, under the Producer's subsequent request
+   for the agent to put these files in place. Resolve was closed; no existing
+   Graphics installation required archiving. Only `VERA Graphics v1.py` and
+   `vera-graphics-v1/` were copied into the documented Workflow Integration
+   Plugins directory; Delivery and other plugins were untouched. All11declared
+   files and release manifest compare byte-identical to the reviewed release.
+2. The exact `standard-64-preflight.json` is already installed as
+   `vera-graphics-v1/request.json` (mode0400; SHA256
+   `6473916bf6102d3cf1448c2f2cb41a0425482cb603b3d16fc8f8656b2623addf`).
+   Open Resolve. Confirm the actual None setting, save a
    disposable current project/timeline on Edit, then launch VERA Graphics v1
    once. Expect `preflight_passed` and the exact standard-64 target above,
    with no new project created. Retain the result or first refusal.
@@ -86,8 +92,10 @@ visual judgment, deployment, merge or issue closure is claimed.
    after native verification. Never infer consent from preflight preparation.
 
 The last operator-reported setting was External Scripting **Local** from #219.
-No agent changed it or asserted None. Installation, settings confirmation and
-menu launch remain operator-owned. Leave #219's disposable project unchanged;
+No agent changed it or asserted None. File installation alone is authorized
+and completed; settings confirmation and menu launch remain operator-owned.
+Private installation receipt: `out/issue8/installation-receipt.json`.
+Leave #219's disposable project unchanged;
 save a separate disposable current project/timeline before preflight. The
 preflight must report `preflight_passed` with the exact standard-64 target,
 not `verified` or a newly created project. Return the actual result file or
