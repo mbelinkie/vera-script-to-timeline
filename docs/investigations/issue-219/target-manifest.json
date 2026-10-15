@@ -1,0 +1,26 @@
+{
+  "id": "issue219-synthetic-targets-v1",
+  "status": "proposal-awaiting-render-and-producer-acceptance",
+  "templateSha256": "869bffd705ac949a58bcb25d6bc80de5027219792336f0d599be81162447440a",
+  "datasetSha256": "1aec6e192c64748a6102507e45c59bb5d193bb8ae5e43e3e5e2469672d220d64",
+  "targets": [
+    { "id": "target-a", "label": "Alpha row", "kind": "row", "bodyPosition": 1, "states": ["base", "emphasis"], "base": "base" },
+    { "id": "target-b", "label": "Beta row", "kind": "row", "bodyPosition": 2, "states": ["base", "emphasis"], "base": "base" }
+  ],
+  "binding": {
+    "macro": "EV24Table",
+    "macroType": "MacroOperator",
+    "owner": "Controls",
+    "ownerType": "Background",
+    "input": "HighlightRows",
+    "dataType": "Text",
+    "controlType": "TextEditControl",
+    "allowedAggregateValues": ["", "1", "2", "1,2"],
+    "nativeAnimation": { "type": "BezierSpline", "name": "ControlsHighlightRows", "outputType": "Text" },
+    "publishedOutput": { "owner": "DiagnosticOver", "ownerType": "Merge", "output": "Output" }
+  },
+  "coordinates": { "width": 1920, "height": 1080, "fpsNumerator": 24, "fpsDenominator": 1, "durationFrames": 240, "origin": "occurrence-local", "interval": "half-open" },
+  "transitions": [],
+  "compatibility": { "edition": "Studio", "version": [21, 1, 1, 10, ""], "free": "untested-unavailable-manual-or-blocked" },
+  "invalidation": "Any template, graph, control/type, dataset, label, target or position change refuses this revision before mutation. No automatic reorder or label repair."
+}
