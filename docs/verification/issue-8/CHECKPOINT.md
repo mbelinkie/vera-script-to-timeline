@@ -586,3 +586,28 @@ once, without the prompt prefix. Do not launch the installed Graphics menu,
 whose request still targets the failed first build. Retain result/index paths
 or first error and do not rerun. This diagnostic does no rendering and need
 not wait merely for #219's tests; no competing heavy test/render is authorized.
+
+### Second-target diagnostic completed; exact mismatch isolated
+
+Producer executed the reviewed one-shot script. Resultd5fd4ddc... reports
+verification_failed after save/reopen, same graph fingerprint discrepancy;
+partial target0002d859f645132f retained. Its source/request/release identities
+match approval and the index confirms the original fingerprint binding was
+restored, no diagnostic exception, diagnosticOnlytrue/acceptancefalse. Native
+result and witness hashes are in [proposed change note](graph-persistence-change-note.md).
+
+Exactly4serialized differences explain the hash:3specific added UserControls
+__flags values and the removed exact nested RibbonUnit BadgeImage0 Input.
+All other settings, expressions, connections, exposed semantic values and
+actual BadgeOverride/Clip Loader binding are unchanged. Original authored
+nested BadgeImage declaration refers to ClipName; this is not the actual
+exposed control used by #8. No broad equivalence or visual correctness claim.
+Offline replay reversing only those4changes restores complete table equality
+and the original production hash; exit0, graph-exact-diff-replay.log retained.
+
+The underlying mismatch is raw native serialization identity across persistence,
+not lost semantic values or unstable immediate reads. A narrowly scoped
+normalization proposal is documented for Producer approval because it changes
+what the graph-identity verifier accepts. No production fix or guard relaxation
+has been applied. Both failed targets remain untouched; no more Console work
+or native rerun is required just to understand this captured difference.
