@@ -34,7 +34,7 @@
   - copying the v2 definition,
   - referencing it across schemas, or
   - inventing a subset limited to word onset and audible end.
-  
+
   The "owning narration block" of a v1 `VisualEvent.range` is also undefined if that range crosses blocks.
 - **Smallest fix:** In the CN v1 row, name the exact v1 definition to add or reuse, and its allowed kinds (word onset, evidenced audible end). Add it to the generated-type consequences. State that a v1 graphic whose range spans more than one block refuses cues in this profile. If v1 already has an identical definition, citing it is enough.
 
@@ -55,7 +55,7 @@
   - template, manifest, dataset and declaration byte hashes,
   - `S`, `P`, cue set, schedule, binding and plan hashes,
   - #20's `resolvedSnapshotHash`.
-  
+
   The semantic hash `S` (#7) and provenance hash `P` (#166) are unchanged. Table enters as a typed branch through CN-167-P1, after #218.
 - **Two-of-three timing:** It compares exact rational times and quantizes once with ceil. `999 ms` is refused and the frame-collapse cases are right. The 2.001 s example works out: 48.024 rounds up to 49, which gives one frame, and two endpoints at 49 collapse.
 - **"Next" start:** Global strictly-later start grouping is consistent across §1, §4.5 and all §5 rows. One example: the A cue ends at 72 rather than 120. Equal starts share a boundary, and the collapse refusal on the same frame holds.

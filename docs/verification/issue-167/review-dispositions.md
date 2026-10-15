@@ -63,3 +63,9 @@ All three Claude runs used `--safe-mode --tools "" --strict-mcp-config
 under `out/issue167-review/`. Existing unrelated local permission-rule warnings
 appeared on stderr; all runs completed exit 0 with usable verdicts. No tool
 access or write permission was granted to the reviewer. No waiver was used.
+
+Final staged whitespace audit caught two blank lines with trailing spaces in
+the copied initial review output. Public review rendering removes only those
+spaces; exact raw stdout remains in `out/issue167-review/claude-result.txt`.
+The earlier pre-stage check missed untracked evidence. Final complete tracked/
+staged diff checks were rerun after repair; no design/note bytes changed.

@@ -47,7 +47,7 @@
     },
     {
       "path": "docs/verification/issue-167/claude-initial-review.md",
-      "sha256": "692f4fd07aeabe90bc8167084c98f1a5566240eb4b01964530053413ea41621b"
+      "sha256": "cfc109b61a87627d29c10079056ad8d351fe63d3bd0784fd7529e8dedd8a5a16"
     },
     {
       "path": "docs/verification/issue-167/claude-review-prompt.md",
@@ -67,7 +67,7 @@
     },
     {
       "path": "docs/verification/issue-167/review-dispositions.md",
-      "sha256": "924626c973a0551c457546e70fa05027dd9edcfd863c678075b4e382bff555d9"
+      "sha256": "0aef3b7d35355a6c61267a53d850490dc4fbb6fef0301d92cf5c82857ba2216f"
     },
     {
       "path": "docs/verification/issue-167/review-inputs.json",
@@ -81,5 +81,6 @@
       "path": "docs/verification/issue-167/runtime-inbox-body.md",
       "sha256": "2ffcb7577048284007e18967bf93d1dc1c44ae7b0af76af0b6274f24ed29933f"
     }
-  ]
+  ],
+  "evidenceWhitespaceRepair": "Initial copied review had two trailing-space blank lines; staged check exit 2 retained here. Removed only those spaces, then reran complete baseline-to-final staged diff. Exact raw stdout retained privately."
 }
