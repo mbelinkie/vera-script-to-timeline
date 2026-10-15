@@ -1,9 +1,10 @@
 # CN-166-P1 — proposed graphic provenance boundary
 
-**Unapproved proposal. No schemas/types/fixtures/tests change in #166.**
-Acceptance of [the design](../design/issue-166-derived-graphic-provenance.md)
-does not itself authorize these frozen-boundary changes. Explicit approval must
-name this note and revision before a later implementation slice begins.
+**Producer approved CN-166-P1 at `0c50a30` on 2026-10-15.**
+[Approval receipt](../verification/issue-166/producer-approval.md) records the
+exact revision, byte hash and scope. This status banner changes no technical
+content. No schemas/types/fixtures/tests change in #166; implementation stays
+with #218 and its normal readiness, review and verification gates.
 
 ## What and why
 

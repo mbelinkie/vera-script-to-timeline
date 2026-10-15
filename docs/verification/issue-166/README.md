@@ -67,7 +67,9 @@ fast/full application suite or runtime acceptance is claimed.
 
 The implementation follow-up #218 is Inbox, unclaimed and undispatched.
 #166 is handed off In review for explicit Producer acceptance of the exact
-design. CN-166-P1 remains a separate unapproved proposal.
+design. At that handoff CN-166-P1 remained a separate unapproved proposal. The Producer
+has since [explicitly approved its exact `0c50a30` revision](producer-approval.md)
+on 2026-10-15; implementation #218 remains Inbox and undispatched.
 
 ## Requested closure follow-up
 
