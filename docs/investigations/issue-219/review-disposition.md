@@ -22,5 +22,10 @@ the owner's deterministic analysis and retained digests supply that evidence.
 
 These fixes change only nonconsumed documentation and private checkpoint metadata.
 Executable probe, target-manifest pin and runtime evidence are unchanged.
-Delta review of the documentation and final full evidence are pending. Producer
+Delta review of `cb3d6fe` completed exit 0 with **GO, no blocking findings**;
+output SHA-256 `92c8ca0cb95b4e5102de6afcfd35d3d242927352b4c99252cf3d00d07216b7b5`.
+It recommended replacing the unsupported fast-input-equivalence sentence with
+an explicit limitation. That exact correction is applied; no equivalence to
+the candidate is claimed for the earlier fast pass. Final full evidence on the
+clean committed candidate is still required. Producer
 rights/font, target contract and restoration judgments remain separate gates.

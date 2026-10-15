@@ -74,10 +74,12 @@ No other agent-changed global setting requires restoration.
 Fast validation completed exit0 with 651 Python, 464 contract, 1 tooling,
 6 progress, 23 roadmap and 32 cloud-evidence tests plus lint/types/generated checks.
 It ran on 8872434 plus working-tree changes, not on the later candidate commit.
-Only nonconsumed documentation changed during it; final full evidence on the
-reviewed tree will supersede this provenance limitation. Adversarial Claude CLI
+Files changed after it started were not inventoried, so equivalence to the
+candidate is not claimed; final full evidence on the reviewed tree will
+supersede this provenance limitation. Adversarial Claude CLI
 review of 15e10e2 returned GO with no blockers; its nonblocking documentation
-findings are being corrected for delta review. Applicable final verification
+findings were corrected; delta review of cb3d6fe also returned GO with no blocking
+findings. Its final suggested wording correction is applied above. Applicable final verification
 under accepted main policy; short
 Producer contract/visual checklist. Free remains untested/unavailable. #167's
 positive target prerequisite and production runtime are not qualified.
