@@ -191,7 +191,7 @@ describe("#218 compiler provenance boundary", () => {
     ["content dropped", "GRAPHIC_PROVENANCE_INCOMPLETE", (x: ReturnType<typeof v2>) => { delete x.dependencies.resolvedGraphicContents; }],
     ["binding dropped", "GRAPHIC_PROVENANCE_INCOMPLETE", (x: ReturnType<typeof v2>) => { delete x.descriptor.graphicContentBinding; }],
     ["snapshot missing", "GRAPHIC_PROVENANCE_UNAVAILABLE", (x: ReturnType<typeof v2>) => { x.dependencies.graphicProvenanceSnapshots = []; }],
-    ["snapshot unused", "GRAPHIC_PROVENANCE_UNEXPECTED", (x: ReturnType<typeof v2>) => { const unused = structuredClone(x.snapshot); unused.sources[0]!.citation.versionLabel = "unused"; x.dependencies.graphicProvenanceSnapshots!.push(unused); }],
+    ["snapshot unused", "GRAPHIC_PROVENANCE_UNEXPECTED", (x: ReturnType<typeof v2>) => { const unused = structuredClone(x.snapshot); unused.sources[0].citation.versionLabel = "unused"; x.dependencies.graphicProvenanceSnapshots!.push(unused); }],
     ["snapshot template", "GRAPHIC_PROVENANCE_MISMATCH", (x: ReturnType<typeof v2>) => { x.content.template = { ...x.content.template, projectRevisionId: "different" }; }],
     ["snapshot semantics", "GRAPHIC_PROVENANCE_MISMATCH", (x: ReturnType<typeof v2>) => { x.content.semanticSnapshot = structuredClone(x.content.semanticSnapshot); x.content.semanticSnapshot.values.topLineOverride = "different"; x.content.semanticSnapshotHash = sha256CanonicalJson(x.content.semanticSnapshot); }],
     ["wrong revision", "GRAPHIC_PROVENANCE_MISMATCH", (x: ReturnType<typeof v2>) => { x.descriptor.graphicContentBinding!.revisionId = id(8); }],
