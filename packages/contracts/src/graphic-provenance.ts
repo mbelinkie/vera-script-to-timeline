@@ -231,6 +231,7 @@ function assertJsonValue(value: unknown, label: string, seen = new Set<object>()
   if (value === null || typeof value === "string" || typeof value === "boolean") return;
   if (typeof value === "number") {
     require(Number.isFinite(value), `${label} must contain only finite JSON numbers.`);
+    require(!Number.isInteger(value) || Number.isSafeInteger(value), `${label} integers must stay within JavaScript's exact safe range.`);
     return;
   }
   if (Array.isArray(value)) {
@@ -548,8 +549,8 @@ function freezeResolution(contentClass: ResolvedGraphicRevision["contentClass"],
     snapshot: snapshot === null ? null : cloneJson(snapshot, "provenance snapshot"), provenanceHash, methodAvailable }) as ResolvedGraphicRevision;
 }
 
-/** Resolve only an exact authorized revision record. Missing records never imply legacy. */
-export function resolveRetainedGraphicRevision(
+/** Verify prior identity and bindings independently of replaceable evidence. */
+function loadRevisionHistory(
   address: GraphicRevisionAddress,
   injected: GraphicProvenanceRetainedRecords,
 ): ProvenanceResult<ResolvedGraphicRevision> {
@@ -576,13 +577,22 @@ export function resolveRetainedGraphicRevision(
     require(sha256CanonicalJson(content) === record.contentHash,
       "Retained graphic content hash does not match the exact resolved revision.", "GRAPHIC_PROVENANCE_MISMATCH");
     const snapshot = findSnapshot(content, records);
-    let methodAvailable: boolean | null = null;
-    if (snapshot !== null) methodAvailable = verifySnapshotEvidence(snapshot, records, false);
-    else {
-      validateTemplatePackage(content.template, content.projectId, records);
-      verifyBadge(content.semanticSnapshot, content.projectId, records);
-    }
-    return freezeResolution(content.provenance.kind === "manual" ? "manual" : "derived", content, snapshot, methodAvailable);
+    return freezeResolution(content.provenance.kind === "manual" ? "manual" : "derived", content, snapshot, null);
+  });
+}
+
+/** Resolve only an exact authorized revision with verified retained evidence. */
+export function resolveRetainedGraphicRevision(
+  address: GraphicRevisionAddress,
+  injected: GraphicProvenanceRetainedRecords,
+): ProvenanceResult<ResolvedGraphicRevision> {
+  return result(() => {
+    const resolved = loadRevisionHistory(address, injected);
+    require(resolved.ok, resolved.ok ? "" : resolved.block.message, resolved.ok ? undefined : resolved.block.code);
+    const previous = resolved.value;
+    if (previous.content === null) return previous;
+    const methodAvailable = checkCandidateEvidence(previous.snapshot, previous.content, injected, false);
+    return freezeResolution(previous.contentClass, previous.content, previous.snapshot, methodAvailable);
   });
 }
 
@@ -697,7 +707,7 @@ export function refreshGraphicContent(
 ): ProvenanceResult<ProposedGraphicRevision> {
   return result(() => {
     const records = validateRecords(injected);
-    const previousResult = resolveRetainedGraphicRevision(input, records);
+    const previousResult = loadRevisionHistory(input, records);
     require(previousResult.ok, previousResult.ok ? "" : previousResult.block.message, previousResult.ok ? undefined : previousResult.block.code);
     const previous = previousResult.value;
     require(previous.content !== null && previous.content.provenance.kind === "derived" && previous.snapshot !== null,
@@ -719,7 +729,7 @@ export function migrateGraphicTemplate(
 ): ProvenanceResult<ProposedGraphicRevision> {
   return result(() => {
     const records = validateRecords(injected);
-    const previousResult = resolveRetainedGraphicRevision(input, records);
+    const previousResult = loadRevisionHistory(input, records);
     require(previousResult.ok, previousResult.ok ? "" : previousResult.block.message, previousResult.ok ? undefined : previousResult.block.code);
     const previous = previousResult.value;
     require(previous.content !== null, "A legacy graphic revision cannot be migrated without an explicit provenance-format source revision.", "GRAPHIC_PROVENANCE_INCOMPLETE");

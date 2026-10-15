@@ -1,0 +1,68 @@
+Permission allow rule (../../../../.claude/settings.json): Bash(git -C * push origin claude/*) has a wildcard before the rest of the command, so it also matches any options inserted at that position and approves them without a prompt. For git, options such as -c and --exec-path can run arbitrary commands. Replace that * with the exact value you mean, or only use * after the subcommand (for example Bash(git status *)).
+I didn't run any commands or edit anything. The plan-mode workflow asks me to write a plan file and finish with ExitPlanMode, but this session has neither a write tool nor that call, so the review is here in my reply.
+
+# #218 adversarial read-only review — candidate `4bf02e0`
+
+**Overall: NO-GO.** There is one blocker against the approved recovery matrix. It is narrow and cheap to fix. Everything else I checked holds. Final full acceptance hasn't run, and this review doesn't waive any gate.
+
+## Blocker
+
+### B1. Migration can't run when the pinned template is the problem (approved design §6)
+- **Where:** `migrateGraphicTemplate` at `packages/contracts/src/graphic-provenance.ts:722`. It resolves the old revision with the full `resolveRetainedGraphicRevision` check (`:580-583`).
+- **Cause:** that check re-verifies the **old** template through `validateTemplatePackage` (`:369-379`), which requires the old package to be present (`:374`) and marked `compatible: true` (`:379`).
+- **Spec:** design §6, row "Missing/mismatched/incompatible pinned template or package-owned asset", gives the recovery as "Restore exact approved bytes **or explicitly migrate**". The worked example only stops migration when the *target* is absent or incompatible.
+- **Counterexample:** take the passing migration test (`issue-218-provenance.test.ts:392`) and either:
+  - set the `revision_1` template record to `compatible: false`, or
+  - drop the `revision_1` record while keeping `revision_2` compatible.
+  
+  `migrateGraphicTemplate` then fails with `GRAPHIC_PROVENANCE_MISMATCH` ("not compatible") or `UNAVAILABLE` ("not retained"). So migrating away from a bad pin always fails, which leaves a graphic whose template was retired or lost with no migration path. No test covers this.
+- **Fix:** when loading the prior revision for migration, verify:
+  - the revision record and its content hash
+  - the snapshot binding
+  - source and badge bytes
+  
+  Skip verifying the old template's bytes and compatibility. Fully verify only the new target pin, as `checkCandidateEvidence` already does. Add tests for both the missing-old-template and incompatible-old-template cases.
+- **Related, not blocking:** `refreshGraphicContent` (`:700`) has the same root cause. If the old source bytes are lost, refresh fails before it looks at the new evidence. The §6 recovery "new explicit source-backed revision" is still possible through `createGraphicContent` with a new revision ID, but that loses the prior-revision link in the receipt. Worth fixing in the same change.
+
+If the Producer reads "explicitly migrate" as assuming the old template still verifies, B1 becomes a documentation item. That call belongs to the Producer, not this review.
+
+## Should-fix (non-blocking, in my judgment)
+
+**S1. Large integers in derivation parameters are silently rounded before P is computed** (`compiler-core.ts:251`).
+- The new exemption turns off the existing `INTEGER_UNSAFE` check for `/graphicProvenanceSnapshots/*/derivation/parameters`.
+- So `{"n": 9007199254740993}` is parsed as `…992`. P is then computed over the rounded value, and two different wire inputs get the same P. That conflicts with design §4 ("no silent … number normalization").
+- The core module has the same gap: `assertJsonValue` accepts large integers.
+- Python readers refuse this content today, so there's no cross-language exposure yet. Removing the exemption, or refusing unsafe integers in both places, is a cheap fix.
+
+## Non-blocking observations
+- **N1.** The revision-collision check (`graphic-provenance.ts:529-533, 589-592`) only finds unknown-format records with top-level address fields. An unknown wrapper that nests `{content:{projectId,…}}` isn't seen as a collision, and resolving it returns `UNAVAILABLE` rather than an unknown-format error. It still blocks, never becomes legacy, and #64 owns ID allocation.
+- **N2.** `v2_package.py:430-450` still accepts dependencies with no class at all (the pre-#218 originals). That's reasonable for repackaging historical builds, but the Python reader doesn't enforce the compiler's new "class required" rule.
+- **N3.** v2 tests don't directly cover a missing snapshot, an unused snapshot, or a snapshot that mismatches its content's template or semantics. They rely on the shared `validateGraphicSnapshotInventory`, which the v1 tests exercise.
+- **N4.** Source-snapshot `mediaType` has no `minLength`, so an empty string passes. Minor.
+
+## Checked and found compliant
+- **Hashes:**
+  - S material is exactly `{values, badgeAsset}`, and the badge shape matches #7's.
+  - P is computed over the full sorted snapshot, and the receipt's actor/time stay outside P.
+  - Raw source and method bytes are hashed without parsing, and method bytes are never executed.
+  - A missing method still allows a frozen repeat; create and refresh with a deterministic method require it.
+- **Classification:** missing or unknown records never become legacy. A false legacy tag is surfaced as a declared upstream residual and tested.
+- **Compiler:**
+  - v1 legacy omission still produces identical output, and manual/derived bindings are copied through exactly.
+  - v2 requires an explicit class on every graphic resolution, refuses legacy combined with new content, and checks binding and P equality.
+  - Duplicate, unused, cross-project and mismatch cases all refuse.
+  - P reaches visual-only, primary-root and overlay events (`compiler-core-v2.ts:1406-1411`).
+  - The five diagnostic codes are added to `DiagnosticCodeV2`.
+- **Generator hint:** the `JsonValue` → `unknown` override only affects the TypeScript type output. The checked-in strict recursive schemas still drive Ajv. Both compilers (`graphicProvenanceJsonProblem`) and the core (`assertJsonValue`) still refuse NaN/Infinity, cycles, accessor properties, BigInt and non-plain objects before Ajv validation and hashing, and tests confirm getters never run. Python generation uses the original schemas.
+- **Frozen boundary:**
+  - Only the approved `compiler-v2.test.ts` graphic branch changed, and it still asserts the original input golden is untouched.
+  - The two CN-218-A1 guards match the approved text exactly.
+  - The migrated copies differ only in `graphicContentClass` and `dependenciesHash`, with the manifest asserted identical to the original.
+- **Integration fixes:**
+  - The `CompileFailure` field change doesn't change behaviour.
+  - The #144 resolve hooks are limited to the listed compiler sources.
+  - The source-hash lists match in the TS command-line tools, `roundtrip_build.py` and `roundtrip_proof.py`.
+  - The core resolver isn't part of the v1 compiler's import graph.
+- **Scope:** no renderer, provider, storage, UI, placement, Resolve or #8 changes.
+
+**To reach GO:** fix B1 and ideally S1, run focused/fast delta checks, then the full `VITEST_MAX_WORKERS=1 npm run validate`.

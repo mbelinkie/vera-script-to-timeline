@@ -19,7 +19,11 @@ accepted EV24 semantic shape only. No production writer or renderer is enabled.
 Every operation returns `{ok:true,value}` or `{ok:false,block:{code,message}}`.
 Proposals include `content`, canonical `contentHash`, `snapshot`/`provenanceHash`
 (null for manual), `methodAvailable`, and `receipt`. Returned JSON is deeply
-frozen and caller inputs/older revisions are not modified.
+frozen and caller inputs/older revisions are not modified. Refresh and template
+migration verify the prior revision's content hash and snapshot binding for
+history, then fully verify the proposed revision's evidence. Migration can
+replace an unavailable, corrupt or incompatible old template; refresh can
+replace lost old source bytes. Repeat still requires all its pinned evidence.
 
 `GraphicProvenanceRetainedRecords` is an injected inventory: `revisions`,
 `snapshots`, `sources`, `badges`, `methods`, and `templates`. It is not a storage
@@ -90,7 +94,9 @@ failure; the compiler cannot infer rendered labels from a file hash.
 S remains #7's canonical hash of `{values,badgeAsset}`. P hashes the whole
 sorted-source provenance snapshot using #7's canonical serializer (sorted
 object keys, preserved array order/nulls/string bytes, two spaces, newline,
-UTF-8). Source/method bytes use raw SHA-256. #20 package/use/copy hash meanings
+UTF-8). Numeric parameters must be finite, with integers inside JavaScript's
+exact safe range; unsafe integers are refused before hashing. Source/method
+bytes use raw SHA-256. #20 package/use/copy hash meanings
 remain unchanged. Audit actor/time/operation and mutable locators stay outside
 P. Deterministic method identity is retained, never executable supplied code;
 missing method bytes permit frozen repeat with `methodAvailable:false`, while

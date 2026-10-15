@@ -247,8 +247,6 @@ export function compileTimeline(documentInput: unknown, dependenciesInput: unkno
 }
 
 function unsafeIntegerDiagnostics(value: unknown, path: string): CompileDiagnostic[] {
-  // Provenance parameters are finite JSON values, not integer-frame quantities.
-  if (/^\/graphicProvenanceSnapshots\/\d+\/derivation\/parameters(?:\/|$)/.test(path)) return [];
   if (typeof value === "number") {
     return Number.isInteger(value) && !Number.isSafeInteger(value)
       ? [{

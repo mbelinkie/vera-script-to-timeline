@@ -1,0 +1,24 @@
+{
+  "candidate": "4bf02e04200d46f4a4a20ffaef8dc7cd37e2956b",
+  "supervisorPid": 43509,
+  "startedAt": "2026-10-15T22:31:51.048148+00:00",
+  "command": [
+    "rtk",
+    "ctx-wire",
+    "run",
+    "claude",
+    "-p",
+    "--permission-mode",
+    "plan",
+    "--tools",
+    "Read,Grep,Glob",
+    "--strict-mcp-config",
+    "--mcp-config",
+    "{\"mcpServers\":{}}",
+    "--no-session-persistence",
+    "--output-format",
+    "text"
+  ],
+  "exitCode": 0,
+  "endedAt": "2026-10-15T22:37:33.660286+00:00"
+}

@@ -427,6 +427,52 @@ describe("issue #218 retained graphic provenance", () => {
     expect(original.content.revisionId).toBe(revisionId);
   });
 
+  it.each(["missing", "incompatible", "corrupt"])("recovers from a %s old template while verifying the target and preserved evidence", (oldState) => {
+    const oldPackage = packageFixture("r1");
+    const newPackage = packageFixture("r2");
+    const item = source("tally", "40000000-0000-4000-8000-000000000001", "source one");
+    const original = successful(createGraphicContent(input({ content: { kind: "derived", sources: [item], derivation: manualDerivation } }), recordsFor({ pkg: oldPackage, sources: [item] })));
+    const records = recordsFor({ pkg: oldPackage, sources: [item], revisions: [retainedRevision(original.content)], snapshots: [original.snapshot!] });
+    if (oldState === "missing") records.templates = [];
+    else if (oldState === "incompatible") records.templates[0]!.compatible = false;
+    else records.templates[0]!.package = newPackage;
+    records.templates = [...records.templates, { projectId, templateKey: "ev24-lower-third", projectRevisionId: "revision_2", compatible: true, package: newPackage }];
+    const migration = { projectId, graphicId, revisionId, newRevisionId: "30000000-0000-4000-8000-000000000003", template: pinFor(newPackage, "revision_2"), semanticSnapshot, actorId: "actor-4", recordedAt: "2026-10-15T12:03:00.000Z" };
+    expect(resolveRetainedGraphicRevision({ projectId, graphicId, revisionId }, records).ok).toBe(false);
+    const migrated = successful(migrateGraphicTemplate(migration, records));
+    expect(migrated.snapshot?.sources).toEqual(original.snapshot?.sources);
+    expect(migrated.receipt).toMatchObject({ priorRevisionId: revisionId, priorContentHash: original.contentHash, priorProvenanceHash: original.provenanceHash });
+    expect(migrateGraphicTemplate(migration, { ...records, templates: [] }).ok).toBe(false);
+    expect(migrateGraphicTemplate(migration, { ...records, sources: [] }).ok).toBe(false);
+    expect(migrateGraphicTemplate(migration, { ...records, revisions: [{ ...retainedRevision(original.content), contentHash: sha256Bytes(bytes("wrong")) }] }).ok).toBe(false);
+  });
+
+  it("refreshes from verified new evidence when old source bytes are missing, retaining prior receipt identities", () => {
+    const pkg = packageFixture("r1");
+    const oldSource = source("tally", "40000000-0000-4000-8000-000000000001", "source one");
+    const newSource = source("tally", "40000000-0000-4000-8000-000000000004", "new source");
+    const original = successful(createGraphicContent(input({ content: { kind: "derived", sources: [oldSource], derivation: manualDerivation } }), recordsFor({ pkg, sources: [oldSource] })));
+    const records = recordsFor({ pkg, sources: [newSource], revisions: [retainedRevision(original.content)], snapshots: [original.snapshot!] });
+    const refresh = { projectId, graphicId, revisionId, newRevisionId: "30000000-0000-4000-8000-000000000003", semanticSnapshot, sources: [newSource], derivation: manualDerivation, actorId: "actor-4", recordedAt: "2026-10-15T12:03:00.000Z" };
+    expect(repeatGraphicContent({ projectId, graphicId, revisionId, actorId: "actor-4", recordedAt: refresh.recordedAt }, records).ok).toBe(false);
+    const refreshed = successful(refreshGraphicContent(refresh, records));
+    expect(refreshed.snapshot?.sources).toEqual([newSource]);
+    expect(refreshed.receipt).toMatchObject({ priorRevisionId: revisionId, priorContentHash: original.contentHash, priorProvenanceHash: original.provenanceHash });
+    expect(refreshGraphicContent(refresh, { ...records, sources: [] }).ok).toBe(false);
+  });
+
+  it("refuses unsafe integer parameters before hashing without rejecting safe integers or fractions", () => {
+    const pkg = packageFixture("r1");
+    const item = source("tally", "40000000-0000-4000-8000-000000000001", "source one");
+    const { derivation, retained } = methodDerivation();
+    for (const value of [Number.MAX_SAFE_INTEGER + 1, Number.MIN_SAFE_INTEGER - 1]) {
+      const candidate = input({ content: { kind: "derived", sources: [item], derivation: { ...derivation, parameters: { value } } } });
+      expect(createGraphicContent(candidate, recordsFor({ pkg, sources: [item], methods: [retained] })).ok).toBe(false);
+    }
+    const candidate = input({ content: { kind: "derived", sources: [item], derivation: { ...derivation, parameters: { safe: Number.MAX_SAFE_INTEGER, fraction: 1.25 } } } });
+    expect(createGraphicContent(candidate, recordsFor({ pkg, sources: [item], methods: [retained] })).ok).toBe(true);
+  });
+
   it("requires deterministic method bytes for create and refresh without executing the method", () => {
     const pkg = packageFixture("r1");
     const item = source("tally", "40000000-0000-4000-8000-000000000001", "source one");

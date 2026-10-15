@@ -20,7 +20,7 @@ const problem = (code: string, message: string, entityId?: string): CompileDiagn
 
 function finiteJson(value: unknown, ancestors = new Set<object>()): boolean {
   if (value === null || typeof value === "string" || typeof value === "boolean") return true;
-  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value === "number") return Number.isFinite(value) && (!Number.isInteger(value) || Number.isSafeInteger(value));
   if (typeof value !== "object" || ancestors.has(value)) return false;
   const prototype: unknown = Object.getPrototypeOf(value);
   if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) return false;
@@ -45,7 +45,7 @@ export function graphicProvenanceJsonProblem(input: unknown): CompileDiagnostic 
   for (const name of ["graphicProvenanceSnapshots", "resolvedGraphicContents"]) {
     const descriptor = Object.getOwnPropertyDescriptor(input, name);
     if (descriptor && (!("value" in descriptor) || !finiteJson(descriptor.value))) {
-      return { code: "GRAPHIC_PROVENANCE_INCOMPLETE", message: "Graphic provenance inventories must contain finite JSON data without cycles or accessors.", jsonPath: `/${name}` };
+      return { code: "GRAPHIC_PROVENANCE_INCOMPLETE", message: "Graphic provenance inventories must contain finite JSON data with safe integers, without cycles or accessors.", jsonPath: `/${name}` };
     }
   }
   return undefined;

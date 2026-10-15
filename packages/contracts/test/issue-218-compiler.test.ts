@@ -64,6 +64,20 @@ describe("#218 compiler provenance boundary", () => {
     expect(compileTimelineV2(input.document, input.dependencies)).toMatchObject({ ok: false, diagnostics: [{ code: "GRAPHIC_PROVENANCE_INCOMPLETE" }] });
   });
 
+  it("both compiler versions refuse unsafe integer provenance before hashing", () => {
+    for (const value of [Number.MAX_SAFE_INTEGER + 1, Number.MIN_SAFE_INTEGER - 1]) {
+      const derivation = { mode: "deterministic" as const, version: "1", note: "Apply retained method", method: { id: id(20), version: "1", artifactId: id(21), contentHash: hash("method") }, parameters: { value } };
+      const first = v1(); first.snapshot.derivation = derivation;
+      first.source.provenance = { kind: "derived", snapshotHash: sha256CanonicalJson(first.snapshot) };
+      expect(compileTimeline(first.document, first.dependencies)).toMatchObject({ ok: false, diagnostics: [{ code: "GRAPHIC_PROVENANCE_INCOMPLETE" }] });
+      const second = v2(); second.snapshot.derivation = derivation;
+      const snapshotHash = sha256CanonicalJson(second.snapshot);
+      second.content.provenance = { kind: "derived", snapshotHash };
+      second.descriptor.graphicContentBinding!.provenanceHash = snapshotHash;
+      expect(compileTimelineV2(second.document, second.dependencies)).toMatchObject({ ok: false, diagnostics: [{ code: "GRAPHIC_PROVENANCE_INCOMPLETE" }] });
+    }
+  });
+
   it("v1 retains derived pointers without changing semantic, template or event identity", () => {
     const input = v1();
     const before = canonicalJson(input);
@@ -176,6 +190,10 @@ describe("#218 compiler provenance boundary", () => {
     ["class omitted", "GRAPHIC_PROVENANCE_INCOMPLETE", (x: ReturnType<typeof v2>) => { delete x.descriptor.graphicContentClass; }],
     ["content dropped", "GRAPHIC_PROVENANCE_INCOMPLETE", (x: ReturnType<typeof v2>) => { delete x.dependencies.resolvedGraphicContents; }],
     ["binding dropped", "GRAPHIC_PROVENANCE_INCOMPLETE", (x: ReturnType<typeof v2>) => { delete x.descriptor.graphicContentBinding; }],
+    ["snapshot missing", "GRAPHIC_PROVENANCE_UNAVAILABLE", (x: ReturnType<typeof v2>) => { x.dependencies.graphicProvenanceSnapshots = []; }],
+    ["snapshot unused", "GRAPHIC_PROVENANCE_UNEXPECTED", (x: ReturnType<typeof v2>) => { const unused = structuredClone(x.snapshot); unused.sources[0]!.citation.versionLabel = "unused"; x.dependencies.graphicProvenanceSnapshots!.push(unused); }],
+    ["snapshot template", "GRAPHIC_PROVENANCE_MISMATCH", (x: ReturnType<typeof v2>) => { x.content.template = { ...x.content.template, projectRevisionId: "different" }; }],
+    ["snapshot semantics", "GRAPHIC_PROVENANCE_MISMATCH", (x: ReturnType<typeof v2>) => { x.content.semanticSnapshot = structuredClone(x.content.semanticSnapshot); x.content.semanticSnapshot.values.topLineOverride = "different"; x.content.semanticSnapshotHash = sha256CanonicalJson(x.content.semanticSnapshot); }],
     ["wrong revision", "GRAPHIC_PROVENANCE_MISMATCH", (x: ReturnType<typeof v2>) => { x.descriptor.graphicContentBinding!.revisionId = id(8); }],
     ["wrong P", "GRAPHIC_PROVENANCE_MISMATCH", (x: ReturnType<typeof v2>) => { x.descriptor.graphicContentBinding!.provenanceHash = hash("wrong"); }],
     ["wrong content project", "GRAPHIC_PROVENANCE_UNAUTHORIZED", (x: ReturnType<typeof v2>) => { x.content.projectId = id(8); }],
