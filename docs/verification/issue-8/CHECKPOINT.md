@@ -195,3 +195,26 @@ checks. Narrow read-only fix review is running in execution session89143,
 output out/issue8/claude-review-injected-delta.txt, prompt
 out/issue8/injected-delta-review-prompt.md. Do not restart. #214's actual child
 13632pytest remains live; shared-slot reservation not released.
+
+Delta review89143completed exit0: GO, no blocking findings. Both review handles
+4177/89143are terminal; do not restart/poll them. Review log rawSHA256s:
+56da754cca88f1766d10ed583244e7f15ba1439744c808a6bd90c60e9f9bbfc1
+(initial injected GO) and
+d1daf0563462f5e334e666414802c7783beb8f8caf2cff91f0c86769769388f9
+(fix delta GO). Repaired source committed5d316be; workflow rawSHA256
+f98f428e323b1ee6ce252127ef9e865e47c728949c639703de8d15459102edbf,
+test rawSHA256b3e5195cebd03e8dfb8a4b39a7d2d4326cb2e6d2d6176713564bb68b866acfd4.
+No later production/test edits. Actual current completion is still unproved.
+
+New reviewed-source release prepared (not installed; automated gates pending):
+out/issue8/graphics-release-5d316be/vera-graphics-v1/release.json,
+rawSHA256f955e0f46993028a951d3331f9ce6aaba0bd510134590b73e2e9c481c3956614.
+Its bundled launcher imports underCPython3.14.7 -B -S, exit0. Old1b61a80release
+remains invalid. No operator flags, installation or native project effect.
+
+Next after explicit214slot release: prepare revised-120 package from retained
+revision-inputs; run all affected slow tests serially (109delivery,109release,
+8package/attestation), validate:fast, then complete VITEST_MAX_WORKERS=1 npm run
+validate. No qualifying full gate exists yet. #214's actualpytest13632was still
+live at23:20elapsed on the latest check; slotnotreleased. Native qualification
+and operator visual/render acceptance remain subsequent independent gates.
