@@ -51,6 +51,7 @@ export function inputs(adjust?: (data: ReturnType<typeof fixture>) => void): Vis
     timeline: structuredClone(manifest.timeline), tracks: structuredClone(manifest.tracks),
     items: manifest.events.map((event, index) => {
       const source = manifest.sources.find((row) => row.id === event.sourceId)!;
+      if (source.kind === "fusion_template") throw new Error("Fusion graphic observations require a verified adapter");
       return { eventId: event.id, itemUid: `item-${index}`, mediaUid: `media-${event.sourceId}`,
         sourcePath: source.kind === "placeholder" ? `Media/Placeholders/${source.id}.png` : source.path,
         sourceHash: source.kind === "placeholder" ? hash("e") : source.contentHash,

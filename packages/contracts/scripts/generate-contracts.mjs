@@ -122,6 +122,7 @@ function recreateDirectory(path) {
 
 async function generateTypeScript(outputDirectory, group) {
   mkdirSync(outputDirectory, { recursive: true });
+  const typeScriptSchemaDirectory = mkdtempSync(join(tmpdir(), "vera-typescript-contracts-"));
   const aggregateSchema = {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     title: group.title,
@@ -141,31 +142,44 @@ async function generateTypeScript(outputDirectory, group) {
     readJson(join(contractsDirectory, schemaFile));
   }
 
-  const generated = await compile(aggregateSchema, group.title, {
-    bannerComment: [
-      "/**\n * Generated from /contracts by npm run generate:contracts.\n * Do not edit by hand.\n */",
-      ...(group.output === "contracts-v2.ts"
-        ? [
-            "/* eslint-disable @typescript-eslint/no-duplicate-type-constituents -- JSON Schema conditionals repeat shared token fields. */",
-          ]
-        : []),
-    ].join("\n"),
-    cwd: contractsDirectory,
-    enableConstEnums: false,
-    format: true,
-    style: {
-      bracketSpacing: true,
-      printWidth: 88,
-      semi: true,
-      singleQuote: false,
-      tabWidth: 2,
-      trailingComma: "all",
-      useTabs: false,
-    },
-    unknownAny: true,
-    unreachableDefinitions: false,
-  });
-  writeFileSync(join(outputDirectory, group.output), generated);
+  // The pinned generator cannot emit recursive unions reached through aggregate
+  // roots. Keep strict recursive wire schemas; unknown forces callers to validate.
+  for (const schemaFile of readdirSync(contractsDirectory).filter((name) => name.endsWith(".schema.json"))) {
+    const schema = readJson(join(contractsDirectory, schemaFile));
+    if (/^compiler-dependencies-v[12]\.schema\.json$/.test(schemaFile)) {
+      schema.$defs.JsonValue.tsType = "unknown";
+    }
+    writeFileSync(join(typeScriptSchemaDirectory, schemaFile), JSON.stringify(schema));
+  }
+  try {
+    const generated = await compile(aggregateSchema, group.title, {
+      bannerComment: [
+        "/**\n * Generated from /contracts by npm run generate:contracts.\n * Do not edit by hand.\n */",
+        ...(group.output === "contracts-v2.ts"
+          ? [
+              "/* eslint-disable @typescript-eslint/no-duplicate-type-constituents -- JSON Schema conditionals repeat shared token fields. */",
+            ]
+          : []),
+      ].join("\n"),
+      cwd: typeScriptSchemaDirectory,
+      enableConstEnums: false,
+      format: true,
+      style: {
+        bracketSpacing: true,
+        printWidth: 88,
+        semi: true,
+        singleQuote: false,
+        tabWidth: 2,
+        trailingComma: "all",
+        useTabs: false,
+      },
+      unknownAny: true,
+      unreachableDefinitions: false,
+    });
+    writeFileSync(join(outputDirectory, group.output), generated);
+  } finally {
+    rmSync(typeScriptSchemaDirectory, { recursive: true, force: true });
+  }
 }
 
 function generatePythonGroup(outputDirectory, group) {

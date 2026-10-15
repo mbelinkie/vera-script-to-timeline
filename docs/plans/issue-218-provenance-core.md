@@ -50,6 +50,17 @@ Unsafe separation or any extra unaccepted foundation is a stop condition.
 Run applicable accepted #7/#20 and prerequisite regression checks before the
 feature. Reassess active-work forecast immediately afterward.
 
+The isolated integrated baseline exposed #144 source-union assumptions.
+Producer approved CN-218-A1 at `1a7cb50`; retain its receipt under
+`docs/verification/issue-218/compatibility-approval.md`. Only its two refusal
+guards modify the accepted #144 helper/observation seam. Original assertions
+and goldens stay unchanged. Mechanical source compatibility additionally
+replaces #7's non-erasable constructor shorthand and teaches the #144 native-TS
+loaders their exact new compiler dependency graph, keeping source-hash receipts
+in sync with Python consumers. No native operation or graphic support is added.
+The retained integration-only compatibility patch excludes new provenance
+feature code; isolated types and 107 regression tests passed.
+
 ## Contracts, fixtures and consumers
 
 Only the seven v1/v2 schema deltas enumerated by CN-166-P1, its common
@@ -59,14 +70,21 @@ use existing Ajv, canonical serializer, crypto and contract generators.
 Audit all exhaustive compiler/package/validator consumers. Existing unsupported
 runtime paths must continue to refuse rather than claim provenance support.
 
-All original frozen fixtures/goldens stay unchanged. The sole existing-test
+The pinned TypeScript generator overflows on a recursive union reached through
+aggregate roots. A bounded generator adjustment supplies an `unknown` type
+hint only in temporary TypeScript input copies; checked-in recursive JSON
+Schemas and Python generation stay strict. Generated unknown JSON values
+require runtime validation. No package or alternate canonicalizer is added.
+
+All original frozen fixtures/goldens stay unchanged. CN-166-P1's existing-test
 exception is the media-backed graphic branch of `compiler-v2.test.ts` and
 slice-owned migrated input/report copies of the three named
 `visual-only-graphic-still-*` fixtures under `issue_173/compiler`.
 Only required legacy classification and resulting dependency/transitive report
 hashes change. Migrated manifests compare byte-for-byte with original goldens;
 non-graphic v2 and legacy v1 output remain byte-identical. Any additional
-frozen-test change stops for revised approval.
+frozen-test change stops for revised approval; CN-218-A1 is the separately
+approved one-line #144 test-helper guard described above.
 
 ## Checks and acceptance
 

@@ -11,6 +11,18 @@ type EntityId = str
 type ContentHash = str
 
 
+class GraphicProvenanceBinding1(TypedDict):
+    kind: Literal["manual"]
+
+
+class GraphicProvenanceBinding2(TypedDict):
+    kind: Literal["derived"]
+    snapshotHash: ContentHash
+
+
+type GraphicProvenanceBinding = GraphicProvenanceBinding1 | GraphicProvenanceBinding2
+
+
 type EntityVersion = int
 
 
@@ -162,6 +174,7 @@ class CuratedFusionGraphicSource(TypedDict):
     projectRevisionId: str
     packageDigest: ContentHash
     semanticInputs: Ev24SemanticInputs
+    provenance: NotRequired[GraphicProvenanceBinding]
 
 
 type NullableHardCut = HardCut | None

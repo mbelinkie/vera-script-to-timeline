@@ -306,6 +306,9 @@
         "compilerVersion": {
           "$ref": "compiler-dependencies-v2.schema.json#/$defs/NonEmptyString"
         },
+        "graphicProvenanceHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
         "boundaryEvidenceHash": {
           "$ref": "#/$defs/ContentHash"
         }

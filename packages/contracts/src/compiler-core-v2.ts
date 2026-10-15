@@ -39,6 +39,7 @@ import { placementAnchorKeyV2, resolveTimedPlacementV2 } from "./authoring-v2-pl
 import { projectPrimarySequenceV2 } from "./authoring-v2-projection.js";
 import type { WordBoundaryAnchorV2 } from "./authoring-v2.js";
 import { boundaryEvidenceProblemV2 } from "./narration-boundary-evidence-v2.js";
+import { graphicProvenanceJsonProblem, graphicProvenanceSchemaCode, validateGraphicContentsV2 } from "./graphic-provenance-compiler.js";
 import { isWordAnchorCurrentV2, validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 
 export interface CompileDiagnosticV2 {
@@ -178,7 +179,7 @@ const preparationRange = (sourceInFrame: number, duration: Fraction): RequestedP
 };
 const entity = (kind: EntityReferenceV2["kind"], id: string | null, path: string | null): EntityReferenceV2 => ({ kind, id, path });
 const schemaDiagnostics = (errors: ErrorObject[] | null | undefined, prefix: string): CompileDiagnosticV2[] => (errors ?? []).map((error) => ({
-  code: `${prefix}_SCHEMA_INVALID`, message: `${error.instancePath || "/"}: ${error.message ?? "schema validation failed"}`, jsonPath: error.instancePath || "/",
+  code: graphicProvenanceSchemaCode(error) ?? `${prefix}_SCHEMA_INVALID`, message: `${error.instancePath || "/"}: ${error.message ?? "schema validation failed"}`, jsonPath: error.instancePath || "/",
 }));
 const fail = (...diagnostics: CompileDiagnosticV2[]): CompileTimelineResultV2 => ({ ok: false, diagnostics: diagnostics.sort((a, b) => compareText(a.code, b.code) || compareText(a.entityId ?? "", b.entityId ?? "")) });
 const compareDiagnostic = (a: BuildDiagnosticV2, b: BuildDiagnosticV2): number => compareText(a.code, b.code) || compareText(a.entity.id ?? "", b.entity.id ?? "") || compareText(a.id, b.id);
@@ -1344,6 +1345,8 @@ function makeReport(diagnostics: BuildDiagnosticV2[], manifest: TimelineManifest
 }
 
 export function compileTimelineV2(documentInput: unknown, dependenciesInput: unknown): CompileTimelineResultV2 {
+  const provenanceJsonProblem = graphicProvenanceJsonProblem(dependenciesInput);
+  if (provenanceJsonProblem) return fail(provenanceJsonProblem);
   const validDocument = validateScriptDocumentV2(documentInput);
   if (!validDocument.valid) return fail(...validDocument.diagnostics.map((item) => ({ code: item.code, message: item.message, jsonPath: item.jsonPath, ...(item.entityId ? { entityId: item.entityId } : {}) })));
   if (!validateDependencies(dependenciesInput)) return fail(...schemaDiagnostics(validateDependencies.errors, "DEPENDENCIES"));
@@ -1376,6 +1379,8 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
   if (dependencies.document.documentId !== document.id || dependencies.document.projectId !== document.projectId || dependencies.document.liveHeadSequence !== document.liveHeadSequence || dependencies.document.contentHash !== document.liveContentHash) return fail({ code: "DOCUMENT_BINDING_MISMATCH", message: "Compiler dependencies do not bind to the exact frozen document identity and live head.", jsonPath: "/document" });
   if (dependencies.document.settingsHash !== dependencies.authoringDefaults.settingsHash) return fail({ code: "SETTINGS_BINDING_MISMATCH", message: "Compiler dependencies do not bind the exact frozen authoring-default settings hash.", jsonPath: "/authoringDefaults/settingsHash" });
   if (!document.activeDraft.blocks.some((block) => block.type === "visual_only" || block.type === "narration" && block.state === "active")) return fail({ code: "EMPTY_PROGRAM", message: "The frozen draft has no active duration-bearing blocks.", jsonPath: "/activeDraft/blocks", entityId: document.id });
+  const graphicProblems = validateGraphicContentsV2(document, dependencies);
+  if (graphicProblems.length) return fail(...graphicProblems);
   try {
     const resolved = resolvePlan(document, dependencies);
     const invalidTopology = resolved.diagnostics.find((item) => item.code === "TRACK_ROLE_COLLISION");
@@ -1398,6 +1403,12 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
     }
     const supporting = compileSupportingItems(document, dependencies, resolved.timedRows, resolved.events);
     resolved.events.push(...supporting.events);
+    for (const event of resolved.events) {
+      const descriptor = dependencies.occurrenceResolutions.find((item) => item.payloadId === event.provenance.payloadId);
+      if (descriptor?.graphicContentClass === "derived" && descriptor.graphicContentBinding) {
+        event.provenance.graphicProvenanceHash = descriptor.graphicContentBinding.provenanceHash;
+      }
+    }
     resolved.diagnostics.push(...supporting.diagnostics);
     const supportingItemResults = supporting.items;
     const firstNarration = resolved.timedRows.find((item): item is TimedRow => item.kind === "narration");

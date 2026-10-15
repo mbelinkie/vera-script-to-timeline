@@ -16,6 +16,14 @@ export type EventBuildResult = {
   trackKind: "video" | "audio" | "subtitle";
   recordRange: FrameRange;
   message: string;
+  graphicProvenance?:
+    | {
+        kind: "manual";
+      }
+    | {
+        kind: "derived";
+        snapshotHash: string;
+      };
   graphicMaterialization?: "live" | "placeholder" | "baked";
   manualCompletionRequired?: boolean;
 };
@@ -39,6 +47,15 @@ export type ResolvedVisualDependency = {
   source: VideoSource | StillSource;
   sourceStartFrame?: number;
   sourceAudio?: ResolvedSourceAudio;
+};
+export type GraphicProvenanceDerivation = {
+  [k: string]: unknown;
+} & {
+  mode: "manual" | "deterministic";
+  version: string;
+  note: string;
+  method: null | GraphicProvenanceMethod;
+  parameters: JsonObject;
 };
 export type AlignedUnit = {
   [k: string]: unknown;
@@ -214,6 +231,14 @@ export interface CuratedFusionGraphicSource {
   projectRevisionId: string;
   packageDigest: string;
   semanticInputs: Ev24SemanticInputs;
+  provenance?:
+    | {
+        kind: "manual";
+      }
+    | {
+        kind: "derived";
+        snapshotHash: string;
+      };
 }
 export interface Ev24SemanticInputs {
   country:
@@ -583,6 +608,14 @@ export interface FusionGraphicEvent {
   semanticSnapshot: ResolvedEv24SemanticSnapshot;
   semanticSnapshotHash: string;
   provenance: EventProvenance;
+  graphicProvenance?:
+    | {
+        kind: "manual";
+      }
+    | {
+        kind: "derived";
+        snapshotHash: string;
+      };
 }
 export interface ResolvedEv24SemanticSnapshot {
   values: Ev24SemanticInputs;
@@ -700,6 +733,7 @@ export interface CompilerDependenciesV1 {
   narration: NarrationDependency[];
   resolvedVisuals: ResolvedVisualDependency[];
   resolvedGraphics?: ResolvedGraphicDependency[];
+  graphicProvenanceSnapshots?: GraphicProvenanceSnapshot[];
 }
 export interface BuildContext {
   buildId: string;
@@ -772,6 +806,56 @@ export interface ResolvedGraphicDependency {
 export interface GraphicBadgeAsset {
   assetId: string;
   contentHash: string;
+}
+export interface GraphicProvenanceSnapshot {
+  schemaVersion: "graphic-provenance/v1";
+  projectId: string;
+  template: GraphicTemplatePin;
+  semanticSnapshot: GraphicProvenanceSemanticSnapshot;
+  semanticSnapshotHash: string;
+  /**
+   * @minItems 1
+   */
+  sources: [GraphicProvenanceSource, ...GraphicProvenanceSource[]];
+  derivation: GraphicProvenanceDerivation;
+}
+export interface GraphicTemplatePin {
+  templateKey: "ev24-lower-third";
+  projectRevisionId: string;
+  packageDigest: string;
+  entryAssetHash: string;
+}
+export interface GraphicProvenanceSemanticSnapshot {
+  values: Ev24SemanticInputs;
+  badgeAsset: null | {
+    assetId: string;
+    contentHash: string;
+  };
+}
+export interface GraphicProvenanceSource {
+  sourceKey: string;
+  citation: GraphicProvenanceCitation;
+  snapshot: GraphicProvenanceSourceSnapshot;
+}
+export interface GraphicProvenanceCitation {
+  title: string;
+  publisher: string;
+  originalLocator: string | null;
+  versionLabel: string | null;
+}
+export interface GraphicProvenanceSourceSnapshot {
+  artifactId: string;
+  contentHash: string;
+  mediaType: string;
+}
+export interface GraphicProvenanceMethod {
+  id: string;
+  version: string;
+  artifactId: string;
+  contentHash: string;
+}
+export interface JsonObject {
+  [k: string]: unknown;
 }
 /**
  * Canonical deterministic sidecar for a narration-only prompter text artifact.

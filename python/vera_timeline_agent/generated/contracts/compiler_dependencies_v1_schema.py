@@ -16,6 +16,16 @@ class TimingMark(TypedDict):
     value: str
 
 
+class GraphicProvenanceCitation(TypedDict):
+    title: str
+    publisher: str
+    originalLocator: str | None
+    versionLabel: str | None
+
+
+type JsonValue = bool | float | str | list[JsonValue] | dict[str, JsonValue] | None
+
+
 class GraphicBadgeAsset(TypedDict):
     assetId: str
     contentHash: script_document_v1_schema.ContentHash
@@ -61,6 +71,39 @@ class ResolvedSourceAudio(TypedDict):
     sourceStartFrame: int
 
 
+class GraphicTemplatePin(TypedDict):
+    templateKey: Literal["ev24-lower-third"]
+    projectRevisionId: str
+    packageDigest: script_document_v1_schema.ContentHash
+    entryAssetHash: script_document_v1_schema.ContentHash
+
+
+class BadgeAsset(TypedDict):
+    assetId: str
+    contentHash: script_document_v1_schema.ContentHash
+
+
+class GraphicProvenanceSemanticSnapshot(TypedDict):
+    values: script_document_v1_schema.Ev24SemanticInputs
+    badgeAsset: BadgeAsset | None
+
+
+class GraphicProvenanceSourceSnapshot(TypedDict):
+    artifactId: script_document_v1_schema.EntityId
+    contentHash: script_document_v1_schema.ContentHash
+    mediaType: str
+
+
+class GraphicProvenanceMethod(TypedDict):
+    id: script_document_v1_schema.EntityId
+    version: str
+    artifactId: script_document_v1_schema.EntityId
+    contentHash: script_document_v1_schema.ContentHash
+
+
+type JsonObject = dict[str, JsonValue]
+
+
 class BuildContext(TypedDict):
     buildId: script_document_v1_schema.EntityId
     manifestId: script_document_v1_schema.EntityId
@@ -98,6 +141,30 @@ class ResolvedVisualDependency(TypedDict):
     sourceAudio: NotRequired[ResolvedSourceAudio]
 
 
+class GraphicProvenanceSource(TypedDict):
+    sourceKey: str
+    citation: GraphicProvenanceCitation
+    snapshot: GraphicProvenanceSourceSnapshot
+
+
+class GraphicProvenanceDerivation(TypedDict):
+    mode: Literal["manual", "deterministic"]
+    version: str
+    note: str
+    method: GraphicProvenanceMethod | None
+    parameters: JsonObject
+
+
+class GraphicProvenanceSnapshot(TypedDict):
+    schemaVersion: Literal["graphic-provenance/v1"]
+    projectId: script_document_v1_schema.EntityId
+    template: GraphicTemplatePin
+    semanticSnapshot: GraphicProvenanceSemanticSnapshot
+    semanticSnapshotHash: script_document_v1_schema.ContentHash
+    sources: list[GraphicProvenanceSource]
+    derivation: GraphicProvenanceDerivation
+
+
 class CompilerDependenciesV1(TypedDict):
     schemaVersion: Literal["compiler-dependencies/v1"]
     build: BuildContext
@@ -106,3 +173,4 @@ class CompilerDependenciesV1(TypedDict):
     narration: list[NarrationDependency]
     resolvedVisuals: list[ResolvedVisualDependency]
     resolvedGraphics: NotRequired[list[ResolvedGraphicDependency]]
+    graphicProvenanceSnapshots: NotRequired[list[GraphicProvenanceSnapshot]]

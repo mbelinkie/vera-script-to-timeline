@@ -7,10 +7,10 @@ import { registerHooks } from "node:module";
 
 const hash = (bytes: Uint8Array): string => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 const compilerUrl = new URL("./compiler-core.ts", import.meta.url).href;
+const compilerSources = ["./compiler-core.ts", "./script-validator.ts", "./ev24-lower-third.ts", "./template-library.ts", "./graphic-provenance-compiler.ts"];
 const sourceFiles = [
   "./issue-144-compile-cli.ts",
-  "./compiler-core.ts",
-  "./script-validator.ts",
+  ...compilerSources,
   "../../../contracts/script-document-v1.schema.json",
   "../../../contracts/compiler-dependencies-v1.schema.json",
   "../../../contracts/timeline-manifest-v1.schema.json",
@@ -55,12 +55,12 @@ async function main(args: string[]): Promise<number> {
 
   const beforeSources = sourceHashes();
   const beforeLockfile = lockfileHash();
-  // Native TS execution needs this one .js specifier resolved to its accepted
-  // source. Scope it to the compiler's import; remove the hook after loading.
+  // Resolve only the attested compiler source graph, then remove the hook.
   const hooks = registerHooks({
     resolve(specifier, context, nextResolve) {
-      return nextResolve(context.parentURL === compilerUrl && specifier === "./script-validator.js"
-        ? "./script-validator.ts" : specifier, context);
+      const parents = compilerSources.map((path) => new URL(path, compilerUrl).href);
+      const source = specifier.endsWith(".js") ? `${specifier.slice(0, -3)}.ts` : specifier;
+      return nextResolve(parents.includes(context.parentURL ?? "") && compilerSources.includes(source) ? source : specifier, context);
     },
   });
   let compiler: typeof import("./compiler-core.ts");

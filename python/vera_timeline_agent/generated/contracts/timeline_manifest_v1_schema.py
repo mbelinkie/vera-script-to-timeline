@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 from . import script_document_v1_schema
 
@@ -243,6 +243,7 @@ class FusionGraphicEvent(TypedDict):
     semanticSnapshot: ResolvedEv24SemanticSnapshot
     semanticSnapshotHash: script_document_v1_schema.ContentHash
     provenance: EventProvenance
+    graphicProvenance: NotRequired[script_document_v1_schema.GraphicProvenanceBinding]
 
 
 type TimelineMarker = PlacedMarker | UnplacedMarker

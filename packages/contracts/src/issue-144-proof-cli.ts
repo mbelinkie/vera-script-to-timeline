@@ -10,7 +10,8 @@ import type { VerifiedRowHandoff } from "./issue-144-omission-build.ts";
 import type { CompositionInputs } from "./issue-144-composition.ts";
 
 const hash = (bytes: Uint8Array): string => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
-const sources = ["./issue-144-proof-cli.ts", "./issue-144-semantics.ts", "./issue-144-text-revision.ts", "./issue-144-omission-build.ts", "./issue-144-composition.ts", "./compiler-core.ts", "./script-validator.ts", "../../../contracts/script-document-v1.schema.json", "../../../contracts/compiler-dependencies-v1.schema.json", "../../../contracts/timeline-manifest-v1.schema.json", "../../../contracts/build-report-v1.schema.json"];
+const compilerSources = ["./compiler-core.ts", "./script-validator.ts", "./ev24-lower-third.ts", "./template-library.ts", "./graphic-provenance-compiler.ts"];
+const sources = ["./issue-144-proof-cli.ts", "./issue-144-semantics.ts", "./issue-144-text-revision.ts", "./issue-144-omission-build.ts", "./issue-144-composition.ts", ...compilerSources, "../../../contracts/script-document-v1.schema.json", "../../../contracts/compiler-dependencies-v1.schema.json", "../../../contracts/timeline-manifest-v1.schema.json", "../../../contracts/build-report-v1.schema.json"];
 const sourceHashes = (): Record<string, string> => Object.fromEntries(sources.map((path) => [path, hash(readFileSync(new URL(path, import.meta.url)))]));
 const lockHash = (): string => hash(readFileSync(new URL("../../../package-lock.json", import.meta.url)));
 const message = (error: unknown): string => error instanceof Error ? error.message : String(error);
@@ -36,6 +37,8 @@ async function main(args: string[]): Promise<number> {
   const omissionUrl = new URL("./issue-144-omission-build.ts", import.meta.url).href;
   const compositionUrl = new URL("./issue-144-composition.ts", import.meta.url).href;
   const hooks = registerHooks({ resolve(specifier, context, nextResolve) {
+    const target = specifier.endsWith(".js") ? `${specifier.slice(0, -3)}.ts` : specifier;
+    if (compilerSources.map((path) => new URL(path, compilerUrl).href).includes(context.parentURL ?? "") && compilerSources.includes(target)) return nextResolve(target, context);
     if ([semanticUrl,textUrl,omissionUrl,compositionUrl].includes(context.parentURL??"") && specifier === "./compiler-core.js") return nextResolve("./compiler-core.ts", context);
     if ([compilerUrl,textUrl,compositionUrl].includes(context.parentURL??"") && specifier === "./script-validator.js") return nextResolve("./script-validator.ts", context);
     if ([omissionUrl,compositionUrl].includes(context.parentURL??"") && specifier === "./issue-144-semantics.js") return nextResolve("./issue-144-semantics.ts", context);
