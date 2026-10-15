@@ -428,7 +428,38 @@ def _graph_fingerprint(root: Any) -> str:
         return value
 
     try:
-        return _hash(_compact(normalize(settings)))
+        canonical = normalize(settings)
+
+        def table(*path: str) -> dict[str, Any]:
+            value = canonical
+            for key in ("Tools", "EV24LowerThird", "Tools", *path):
+                if not isinstance(value, dict):
+                    return {}
+                value = value.get(key)
+            return value if isinstance(value, dict) else {}
+
+        # Only the four exact Studio21.1.1/10 persistence forms approved for EV24.
+        for path, flag in (
+            (("ControlHub", "UserControls", "Country"), 256),
+            (("ControlHub", "UserControls"), 3145984),
+            (("Metrics", "UserControls"), 3145984),
+        ):
+            controls = table(*path)
+            if type(controls.get("__flags")) is int and controls["__flags"] == flag:
+                del controls["__flags"]
+        ribbon = table("RibbonUnit")
+        inputs = ribbon.get("Inputs")
+        badge = inputs.get("BadgeImage") if isinstance(inputs, dict) else None
+        if (
+            isinstance(badge, dict)
+            and inputs
+            == {"BadgeImage": {"Value": 0.0, "__ctor": "Input", "__flags": 256}}
+            and type(badge["Value"]) is float
+            and _compact(badge["Value"]) == b"0.0"
+            and type(badge["__flags"]) is int
+        ):
+            del ribbon["Inputs"]
+        return _hash(_compact(canonical))
     except (TypeError, ValueError) as error:
         raise StudioGraphicError(
             "Fusion graph settings cannot be fingerprinted"

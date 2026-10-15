@@ -243,3 +243,35 @@ original separate saved disposable current project/timeline and uses Python3
 Console for this one-off capture; no external-scripting connection, preference
 mutation, production-project effect or old-target repair. Diagnose the actual
 before/after diff before any proposed production repair and its fresh checks.
+
+## Graph persistence approval and numeric-type correction — 2026-10-15
+
+Producer said “I accept” to the narrow graph-persistence change note. The
+integer-only candidate and new issue-owned synthetic tests were implemented
+test-first: 15 expected equivalence failures before, then 93 focused tests
+passed including existing adapter checks. Lint, format and mypy passed.
+No accepted test, fixture, contract, authored asset or dependency changed.
+
+However, offline replay of the actual immutable native witnesses FAILED:
+the actual BadgeImage Value is float0.0, not integer0 as the approved note
+claimed. Python dictionary equality in the original diagnostic masked the
+type difference. The original reverse replay used a copy of the real float,
+so its exact original-hash restoration remains valid, but the proposed
+integer-only exception does not address the native mismatch. Execution is
+paused pending explicit approval to correct only that exception to the exact
+captured float0.0 instead of integer0. Do not silently broaden it, call the
+candidate fixed, run full validation or prepare/install a repaired release.
+Both failed targets and installed release/request remain untouched. #219's
+heavy validation is live; no competing fast/full/media work was started.
+
+Producer then approved the type correction with “yes correct”. The candidate
+now accepts only float positive0.0 for that exact BadgeImage entry; integer0,
+booleans, negative0.0, nonzero values, alternate flags/ctors and extra fields
+remain visible. The corrected regression went red against the integer-only
+candidate (9failed/76passed), then green (97passed including existing adapter
+checks). Actual immutable native-witness replay now passes too; it verifies
+original hashes before normalized equality and rejects other input changes.
+This is offline evidence, not a successful new native run. Required affected/
+fast checks, adversarial Claude review and fresh full remain queued behind
+#219's still-live heavy run and explicit slot release. The old full pass may
+not qualify changed product bytes. No installation/native target is changed.

@@ -1,4 +1,31 @@
-# Proposed #8 graph-persistence normalization — approval pending
+# Approved #8 graph-persistence normalization
+
+Producer approved this exact bounded proposal on 2026-10-15 with “I accept”
+in the owning implementation chat. This authorizes the repair and its checks,
+not native execution on a new target or final External acceptance of #8.
+
+**Numeric-type amendment approved.** Producer said “yes correct” on 2026-10-15
+to correcting only the badge exception to the exact captured float `0.0`,
+while retaining rejection of integer `0`, booleans and every other change.
+This supersedes the mistaken integer-only form, not the other guardrails.
+New native execution and final External acceptance remain separate gates.
+
+Replaying
+the actual immutable witnesses after the first implementation revealed that
+the captured BadgeImage Value is a Python/JSON floating-point `0.0`, not the
+integer `0` described in this approved proposal. The original diagnostic's
+dictionary equality accepted `0.0 == 0`, masking this distinction; its actual
+reverse replay copied the original float and therefore still restored the
+original hash. The three flag values really are integers. The approved
+integer-only implementation passed its synthetic tests but FAILED the actual
+native-witness replay. That failed candidate is not a verified repair.
+
+The bounded exception, as corrected by the approved amendment, accepts
+only the exact captured floating-point `0.0` form at that same BadgeImage path,
+instead of integer `0`; keep integer `0`, booleans, nonzero values, different
+flags/types, additional keys and every other graph change visible. Signed
+negative zero remains distinct too. No native run or installation change
+is authorized by this amendment; required local verification may proceed.
 
 ## Evidence and diagnosis
 
@@ -26,7 +53,9 @@ An exhaustive recursive diff found exactly four changes under
 | RibbonUnit/Inputs | exact BadgeImage input described below | absent |
 
 The removed input is exactly
-`{"BadgeImage":{"Value":0,"__ctor":"Input","__flags":256}}`.
+`{"BadgeImage":{"Value":0.0,"__ctor":"Input","__flags":256}}`.
+The original proposal incorrectly wrote integer0; the approved amendment
+corrects that type without adding integer0 as another accepted form.
 The pinned authored source has a nested BadgeImage InstanceInput declaration
 pointing to BadgeOverride/ClipName; the immediate imported serialization has
 already represented it as the zero-valued Input above. No other captured
@@ -43,11 +72,11 @@ table equality plus the original production hash. Log
 This proves the exact source of this hash mismatch, not visual/render parity
 or general harmlessness of every future serialized field change.
 
-## Proposed bounded verification change
+## Approved bounded verification change
 
 Normalize only the four exact known representations above for this pinned
 EV24 graph. Treat absent flags and only those exact integer flag values as
-equivalent at those exact paths. Treat the one exact zero-valued BadgeImage
+equivalent at those exact paths. Treat the one exact float0.0 BadgeImage
 input shape and absence as equivalent. Unexpected types/values, any additional
 field/input/connection, or any other graph change remain detectable; do not
 remove arbitrary __flags, UserControls, Inputs, ViewInfo or badge data.
@@ -59,8 +88,8 @@ fixture or golden changes. No new dependency. Do not relax #3's external
 runtime qualification or imply this native result accepted21.1.1/10.
 
 This is explicitly a graph-verification policy adjustment, not permission to
-ignore a failed check. No implementation is authorized until the Producer
-approves this note. Alternative: retain byte-for-byte raw serialization
+ignore a failed check. The approval above authorizes this narrow implementation.
+The considered alternative was to retain byte-for-byte raw serialization
 identity and investigate a native serialization-stabilization route, without
 waiving any field; that would require new bounded runtime evidence.
 
@@ -73,7 +102,8 @@ New native qualification uses fresh unique explicitly authorized targets.
 
 Test-first new issue-owned regressions must replay the captured pattern,
 prove equality only for the exact four forms, and reject changed/noninteger
-flag values, nonzero/boolean/float BadgeImage values, additional input fields,
+flag values, nonzero/boolean/integer/negative-zero BadgeImage values,
+additional input fields,
 source connections, different nodes/paths, expression changes, semantic drift,
 and ambiguous Lua keys. Preserve all accepted assertions and frozen boundaries.
 Then focused/fast checks, adversarial Claude delta review, fixes/review as
@@ -81,5 +111,5 @@ needed and a fresh durable full gate under the existing serial-test policy.
 Actual new native64/120matrix, reopen persistence, assets/badge pixels,
 renders/visual judgment and changed-build isolation remain mandatory.
 
-Approval requested: `Approve the #8 narrow graph-persistence normalization
-in this note; preserve every other graph and native verification check.`
+Approved scope: the #8 narrow graph-persistence normalization in this note;
+preserve every other graph and native verification check.

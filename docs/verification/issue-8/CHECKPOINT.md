@@ -611,3 +611,90 @@ normalization proposal is documented for Producer approval because it changes
 what the graph-identity verifier accepts. No production fix or guard relaxation
 has been applied. Both failed targets remain untouched; no more Console work
 or native rerun is required just to understand this captured difference.
+
+### Producer approval; authentic replay catches numeric-type error
+
+Producer approved the proposed normalization with “I accept” on 2026-10-15.
+The integer-only candidate adds narrowly scoped canonicalization in the shared
+runtime helper, preserving one SaveSettings read, copied settings, Lua-key
+collision checks and all other native guards. New issue-owned synthetic tests
+reproduced the approved pattern before the fix: 15 failed/66 passed (0.30s),
+log `graph-persistence-unit-red.log` SHA256
+`052562286889890e248d0cbd9b76fb2991ce7b07151b10cfc4323e0122b3cec5`.
+After the fix, those tests plus existing adapter tests passed 93/93 in8.81s,
+log `graph-persistence-unit-green.log` SHA256
+`cab5aeda407fed195abce7d581fd58f9d5dc082a877f79d07560f8793cf4b7e4`.
+Two further negative cases were added afterward and are not yet rerun. Ruff,
+format and mypy passed before those additional cases. No frozen surfaces changed.
+
+Crucially, NEW offline replay of the actual native witnesses FAILED exit1:
+`graph-persistence-native-witness-replay.log` SHA256
+`267527ec04535817d941cf4471e4f0275772d61759fa730a52f7a0223725849b`.
+Both witness hashes and original raw fingerprints verify before the failing
+new-normalized equality assertion. Exact inspection proves the native
+BadgeImage Value is float0.0, not integer0. All three added flags are int.
+Type evidence `graph-persistence-numeric-types.log` SHA256
+`d8cb52670076620f4fddd21f6a9e2db9b6f4a7a47c1b729736768580649dde0f`.
+Original diagnosis used Python equality, which treats0==0.0; its reverse
+replay copied the actual captured float and still correctly restored the raw
+hash. The type-specific proposed exception was wrong. Synthetic green does
+not override this failed authentic replay or qualify the candidate.
+
+STOPPED for Producer direction: amend only the exact known BadgeImage shape
+from integer0 to float0.0 (reject integer0, booleans and other forms), or keep
+the approved strict integer rule and investigate another bounded approach.
+No implicit approval of floats, no fast/full/review/release/install/native
+execution after this finding. Check-in remains PAUSED. #219 full validation
+PID61160/pytest62834 was live; only small focused checks and read-only work
+were done, no competing heavy run. Both failed targets, installed code and
+installed first-target request remain unchanged. Do not launch old Graphics
+menu or reuse either failed target. New source is an unqualified work-in-progress.
+
+### Numeric-type correction approved; authentic offline replay now passes
+
+Producer said “yes correct”, approving only the exact captured float0.0
+BadgeImage form instead of integer0. Tests were corrected FIRST: the previous
+integer candidate failed9/passed76 in0.55s, log
+`graph-persistence-float-unit-red.log` SHA256
+`0cc56e357eb0f15a625cc82d5045fe65f498a2cf2d429ffc538eb3b821369fbc`.
+Production now requires exact float type and compact JSON0.0, preserving
+signed negative zero distinction as well as bool/int rejection. It still
+requires the exact entire input shape and integer256 flags. The three flag
+exceptions remain int-only at their precise paths; no other caller/guard changed.
+
+Corrected focused tests plus existing adapter cases passed97 in5.50s, exit0:
+`graph-persistence-float-unit-green.log` SHA256
+`32d2a1198276b76c18f6ffcac545b6b73e8f62bbdea2b71f26dec4cfbd7eee20`.
+NEW authentic offline replay passed exit0:
+`graph-persistence-float-native-witness-green.log` SHA256
+`e89fbab9c1b39b5baea89e57f34916db573acd9343077a4c1a8d54c70b291e7c`.
+It verifies immutable index/witness SHA256 and original unequal raw hashes
+BEFORE calling repaired production helper; normalized fingerprint is
+sha256:75c6e0c942e7cd7078534b129df7b8fbdafc6c8f2857508ab7e384feb489eaa6
+for both. Integers, bools, negative zero and extra-field changes remain visible;
+input tables remain unchanged. Prior failed replays/logs are retained unchanged.
+This is NOT a new successful native build or External acceptance.
+
+Rufflint/format and mypy2files pass. Runtime imports with actual injected
+CPython3.14 -B -S (stdlib-only) pass. Frozen-boundary audits against7cb942e,
+4e31565 and8ef9f864 all exit0; git diff --check passes. Production file SHA256
+`7b403b76e0274e6088167660afd1f1081f3138ea327afea97c52536da06e29ff`;
+new test SHA256
+`4f2eb781889130cf03f5c504023a096eddf8fa7c601a0f5ad38dbec6b6a67a52`.
+Private replay script SHA256
+`7e3d9c235c4f5bc0b8b5ff90f93b3a2e90be18dbc644dbcb2bbd929da8b72e03`.
+
+#219 still has actual full validation61160/pytest62834. One compact
+wait_threads snapshot(cursor74532a24-3e9b-4ce4-ac08-88457fa2c56e:1) is idle
+without explicit heavy-slot release; idle chat is not a drained test process.
+Do not start competing heavy checks. Small focused checks only were run.
+New durable affected/fast runner is prepared but NOT STARTED:
+out/issue8/run-graph-persistence-fast.sh (new non-overwriting logs/exit receipts).
+Read-only Claude prompt graph-persistence-review-prompt.md is prepared but NOT
+LAUNCHED: first affected/fast exit0, then required review, fix/delta as needed,
+then a NEW durable full gate with fresh log/exit paths. Never restart oldfull.
+Existing #8 timer will be resumed for one15minute slot observation at a time,
+quiet if unchanged; preserve owner/coordinator boundaries and no threadmessages.
+The stale coordinator record still naming old8full84935 is not authorization
+to compete with219 or edit coordinator-owned records. No preference mutation,
+release installation, native build/render, old target repair or acceptance.
