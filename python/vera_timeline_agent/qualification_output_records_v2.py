@@ -127,9 +127,12 @@ def _refusal[**P, T](function: Callable[P, T]) -> Callable[P, T]:
 class OutputTrust(Protocol):
     """Statically wired trusted product port. Never obtained from request data.
 
-    authenticate must independently verify receipt authenticity, input/currentness,
-    source graphs, provenance, native lineage and checked chronology as applicable.
-    Hash equality alone is not authentication. No permissive default is supplied.
+    authenticate must time-invariantly verify seal authenticity and provenance
+    of the exact expected payload, including source graphs and native lineage.
+    Live native/input/target currentness is checked at receipt issuance and by
+    #209 before reservation, never when authenticating historical evidence.
+    Only #214 applies expiry via checked_now. Hash equality alone is not
+    authentication. No permissive default is supplied.
     """
 
     def authenticate(self, kind: str, receipt: bytes, expected: Json) -> None: ...

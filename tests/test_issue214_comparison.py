@@ -238,6 +238,9 @@ def test_pair_requires_sealed_terminals_in_complete_current_ledgers() -> None:
     result = q.compare_prediction_pair(left, right, trust=a.trust)
     assert result["geometryStability"] == result["controlStability"] == "not_claimed"
     assert result["pristineLedgerHeadSha256"] == r._ledger_head(left.ledger)
+    # Completed evidence remains authentic after capture/commitment expiry.
+    a.trust.now = datetime(2026, 10, 16, tzinfo=UTC)
+    assert q.compare_prediction_pair(left, right, trust=a.trust) == result
     with pytest.raises(r.OutputConsistencyError, match="absent"):
         q.compare_prediction_pair(
             replace(left, ledger=left.ledger[:-1]), right, trust=a.trust

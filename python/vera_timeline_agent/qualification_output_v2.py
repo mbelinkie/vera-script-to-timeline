@@ -525,12 +525,16 @@ def _provenance(
         trust.authenticate(
             "narration_preparation",
             proof.receipt,
-            {
-                "row": record,
-                "timingHash": "sha256:" + pins["timing"],
-                "reviewHash": "sha256:" + pins["review"],
-                "audioHash": record["audioHash"],
-            },
+            _parse(
+                _canonical(
+                    {
+                        "row": record,
+                        "timingHash": "sha256:" + pins["timing"],
+                        "reviewHash": "sha256:" + pins["review"],
+                        "audioHash": record["audioHash"],
+                    }
+                )
+            ),
         )
         _require(
             delivery["sourceRange"] == {"startFrame": 0, "durationFrames": re - rs},
@@ -590,12 +594,16 @@ def _provenance(
         trust.authenticate(
             "private_preparation",
             proof.receipt,
-            {
-                "context": context,
-                "preparationBindingHash": event["preparationBindingHash"],
-                "recordSha256": _hash(proof.record),
-                "binding": binding,
-            },
+            _parse(
+                _canonical(
+                    {
+                        "context": context,
+                        "preparationBindingHash": event["preparationBindingHash"],
+                        "recordSha256": _hash(proof.record),
+                        "binding": binding,
+                    }
+                )
+            ),
         )
         streams = _list(
             event["sourceTimeMapping"]["sourceFrameMap"]["sourceAudioStreamMappings"],

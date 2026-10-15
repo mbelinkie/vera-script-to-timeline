@@ -1095,8 +1095,37 @@ def test_private_preparation_payloads_do_not_multiplex_by_matching_hash() -> Non
         q.create_prediction(c.inputs, trust=c.trust, ledger=[])
 
 
+@pytest.mark.parametrize("kind", ["narration", "source_audio"])
+def test_source_authenticator_cannot_mutate_prediction_inputs(kind: str) -> None:
+    c = case(kind=kind)
+    baseline = q.create_prediction(c.inputs, trust=c.trust, ledger=[])
+
+    class MutatingTrust(SealedTrust):
+        def authenticate(
+            self, kind: str, receipt: bytes, expected: dict[str, Any]
+        ) -> None:
+            super().authenticate(kind, receipt, expected)
+            if kind == "narration_preparation":
+                expected["row"]["audioHash"] = "sha256:" + "0" * 64
+            elif kind == "private_preparation":
+                expected["context"]["target"]["projectName"] = "Changed by adapter"
+                expected["binding"]["verification"]["deliveredHash"] = (
+                    "sha256:" + "0" * 64
+                )
+
+    trust = MutatingTrust()
+    trust.seals.update(c.trust.seals)
+    assert q.create_prediction(c.inputs, trust=trust, ledger=[]) == baseline
+    assert (
+        "narration_preparation" if kind == "narration" else "private_preparation"
+    ) in trust.calls
+
+
 @pytest.mark.slow
-def test_actual_accepted_174_receipt_shape_and_package_range(tmp_path: Path) -> None:
+@pytest.mark.parametrize("source_start", [0, 147147])
+def test_actual_accepted_174_receipt_shape_and_package_range(
+    tmp_path: Path, source_start: int
+) -> None:
     from issue190_case import make_proof_case
     from vera_timeline_agent.v2_package import V2PackageError, _validate_preparations
 
@@ -1135,6 +1164,11 @@ def test_actual_accepted_174_receipt_shape_and_package_range(tmp_path: Path) -> 
     ]
     assert envelope["result"]["ok"] is True
     manifest, report = envelope["result"]["manifest"], envelope["result"]["report"]
+    assert manifest["tracks"] == dependencies["tracks"]
+    assert manifest["tracks"]
+    for track in manifest["tracks"]:
+        assert isinstance(track["name"], str) and track["name"]
+        assert type(track["index"]) is int and track["index"] >= 1
     paths = {
         key: Path(pins["receipt"]["path"])
         for key, pins in request["preparations"].items()
@@ -1159,10 +1193,32 @@ def test_actual_accepted_174_receipt_shape_and_package_range(tmp_path: Path) -> 
     # synthetic event selection, not a claim the original compiled row changed.
     event = copy.deepcopy(event)
     event["recordRange"] = {"startFrame": 0, "endFrame": 80}
-    event["audio"]["sampleRange"] = {"startFrame": 0, "endFrame": 147147}
+    event["audio"]["sampleRange"] = {
+        "startFrame": source_start,
+        "endFrame": source_start + 147147,
+    }
     native_range = _source_audio_range(event, prep, Fraction(24000, 1001))
-    assert native_range == {"startFrame": 0, "durationFrames": 80}
+    assert native_range == {
+        "startFrame": 0 if source_start == 0 else 80,
+        "durationFrames": 80,
+    }
     audio = prep.record["audio"]
+    sidecar_pin = request["preparations"][logical["preparationRequirementKey"]]["audio"]
+    sidecar = Path(sidecar_pin["path"]).read_bytes()
+    assert "sha256:" + digest(sidecar) == sidecar_pin["sha256"] == audio["contentHash"]
+    with wave.open(io.BytesIO(sidecar), "rb") as stream:
+        assert stream.getparams()[:4] == (
+            audio["channels"],
+            3,
+            48000,
+            audio["decodedSamples"],
+        )
+        packed = stream.readframes(audio["decodedSamples"])
+    integers = [
+        int.from_bytes(packed[i : i + 3], "little", signed=True)
+        for i in range(0, len(packed), 3)
+    ]
+    decoded_hash = digest(b"".join(struct.pack("<i", sample) for sample in integers))
     sid = event["eventId"]
     delivery = {
         "eventId": sid,
@@ -1196,6 +1252,8 @@ def test_actual_accepted_174_receipt_shape_and_package_range(tmp_path: Path) -> 
         "originalBitDepth": 24,
         "nativeSourceSha256": audio["contentHash"].removeprefix("sha256:"),
         "pcmFileSha256": audio["contentHash"].removeprefix("sha256:"),
+        "decodedSamplesSha256": decoded_hash,
+        "sampleRate": 48000,
         "provenanceReceiptSha256": digest(prep.raw),
         "provenancePinsSha256": digest(canonical(prep.record["binding"])),
         "deliveryDerivationSha256": digest(canonical(delivery)),
@@ -1205,6 +1263,13 @@ def test_actual_accepted_174_receipt_shape_and_package_range(tmp_path: Path) -> 
         "pcmSampleOrigin": 0,
         "pcmMappingSha256": digest(canonical(mapping)),
     }
+    assert r._sources([entry]) == [entry]
+    decoded, channels = q._pcm(sidecar, entry)
+    assert list(decoded) == integers
+    assert [list(channel) for channel in channels] == [
+        [sample / 2**23 for sample in integers[ch :: audio["channels"]]]
+        for ch in range(audio["channels"])
+    ]
     ctx = context()
     trust = SealedTrust()
     trust.seals[prep.raw] = (

@@ -30,10 +30,14 @@ There is no permissive default, dynamic resolver, or production fake verifier.
 The owned SealedTrust is strictly a test oracle, not evidence of actual
 provenance/native/clock authenticity.
 
-OutputTrust.authenticate must independently authenticate the expected complete
-payload using the actual preflight/package/decision/source/capture/native
-records and currentness guards, not simply accept matching caller hashes.
-OutputTrust.checked_now supplies the accepted checked UTC clock. Source proof
+OutputTrust.authenticate must time-invariantly verify seal authenticity and
+provenance of the exact expected complete payload using the actual
+preflight/package/decision/source/capture/native records. Matching caller hashes
+alone cannot authenticate it. Live native/input/target currentness is checked
+when issuing the receipt and by #209 before reservation; authentication of
+historical evidence must not require those inputs or targets to remain current.
+Only #214 applies expiry, through OutputTrust.checked_now's accepted UTC clock.
+Source proof
 calls retain narration_preparation and private_preparation authentication;
 new lane receipts use only output_geometry_snapshot,
 output_prediction_commitment, output_render_reservation, output_decode_record,
@@ -70,8 +74,9 @@ dependency snapshots, package/preflight/manifest/report/preparation, both source
 graphs, installed release, runtime and profile. These are raw64 digests.
 There is no separate invented package-binding receipt. The geometry receipt's
 expected inputBinding plus full context binds these independently verified
-inputs. The authenticator must verify them against the actual accepted package,
-preflight and current input identities before authenticating capture.
+inputs. At receipt issuance, #209 must verify them against the actual accepted
+package, preflight and current input identities. Historical authentication
+verifies that exact captured payload's provenance without renewing authority.
 
 The stable binding excludes invocationId, preflightSha256, preparationSha256
 and its own bindingSha256, with no caller-selected exclusions. Names remain in
@@ -102,6 +107,20 @@ container,videoCodec,audioCodec,audioBitDepth,sampleRate,channels,rate,width,hei
 The codec/audio/rate choices are fixed in code, dimensions match the manifest.
 No request-selected policy is admitted. #209 owns generating/authenticating
 these normalized host projections from actual qualified retained source data.
+
+Native track names must equal manifest names, as well as matching id/kind/index.
+The owned fresh-compiler oracle checks manifest/dependency track equality and
+name/index presence. It does not prove #177's native naming behavior. #209 must
+verify that naming/capture assumption before admitting actual captures.
+
+Incoming #209 feasibility checks also retain the inherited source-audio exact
+grid and sidecar-profile restrictions: 44.1kHz endpoints at24000/1001 must map
+exactly (the owned q=0 examples use80frame multiples); 48kHz mappings require
+the accepted q offset to align with2002sample frames. Original signed24 WAV,
+48kHz, exact channels/extent and canonical decoded int32 hashes remain required.
+Audit actual R16 AV-event endpoints, q offsets, sidecar profiles and track names
+before downstream readiness; this synthetic oracle does not show they pass.
+No padding, resampling, rounding or tolerance change is authorized by this note.
 
 The two excluded raw references are NOT content-free authority envelopes.
 The preflight contains content and a requestHash that changes with authority.
