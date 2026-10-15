@@ -241,7 +241,9 @@ citation cards or only a package provenance file cannot encode the per-graphic
 source/result relationship. New wire fields are therefore proposed, not applied.
 Old non-derived #7 inputs retain identical legacy output bytes; old v2 graphic
 media dependencies require an explicit checked legacy classification before
-recompiling, with unchanged legacy output after migration; new fields do
+recompiling. Migrated legacy manifests retain identical bytes; reports change
+`dependenciesHash` and any hashes derived from the report because the dependency
+input changed. Existing hash material is not weakened; new fields do
 not change the material of `semanticSnapshotHash` or invent a meaning for #20's
 `resolvedSnapshotHash`. v2 `graphicId/revisionId` stays a stable reference into
 graphic content, with provenance frozen by its revision. Rendering a v2 graphic
@@ -250,7 +252,7 @@ to the provenance snapshot; a media hash alone is not semantic provenance.
 
 | Later owner | Exact responsibility and acceptance boundary |
 | --- | --- |
-| [#218 provenance core](https://github.com/mbelinkie/vera-script-to-timeline/issues/218) (Inbox, unstarted) | Adopt accepted #7/#20 source explicitly; implement CN-166-P1 schemas/resolution/hash/diagnostics and pure create/refresh/migrate operations. Do not reopen or replace closed #7/#20 implementations. Automated tests cover the matrix, canonical permutation/identity cases, unchanged legacy goldens and v1/v2 mapping. Separate Producer approval precedes frozen changes. |
+| [#218 provenance core](https://github.com/mbelinkie/vera-script-to-timeline/issues/218) (Inbox, unstarted) | Adopt accepted #7/#20 source explicitly; implement CN-166-P1 schemas/resolution/hash/diagnostics and pure create/refresh/migrate operations. Do not reopen or replace closed #7/#20 implementations. Automated tests cover the matrix, canonical permutation/identity cases, v1 unchanged goldens, explicitly approved v2 migrated copies and v1/v2 mapping. Separate Producer approval precedes frozen changes. |
 | #64 project/document persistence | Durable authorized artifact/provenance storage and immutable graphic revisions, atomic selection/history, retention of use/checkpoint/build references, exact relinking. No permission/publication inferred from a citation. Coordinate core interfaces before storage integration. |
 | #9 authoring form, #67 visual cards, #69 citations | Manual/derived declaration, evidence input/summary, explicit keep/refresh/migrate review and visible blocker repair. Citation cards remain editorial support with zero implied picture duration. UI implementation stays with these owners. |
 | #8 live Studio placement | Preserve accepted EV24 constraints; consume verified values/package and retain the use-to-`P` mapping in build evidence. Real save/reopen verification of exact values/template/range remains required. Adding provenance support must be scoped before Ready; no new renderer is implied. |
@@ -262,7 +264,9 @@ Core automated acceptance must include missing/duplicate/wrong-project/hash
 refusals, source unavailable versus bytes lost, manual versus derived defaults,
 refresh with changed data but equal visible output, incompatible migration and
 independent source/template updates. Repeated identical compiler snapshots
-must be byte-identical; legacy goldens remain unchanged. Verify the actual bytes
+must be byte-identical. Retain legacy golden originals; CN-166-P1 explicitly
+proposes migrated copies and narrowly changed v2 graphic-case acceptance, while
+legacy v1 outputs and unaffected v2 cases remain byte-identical. Verify the actual bytes
 at materialization; no test should substitute URL reachability for identity.
 
 Later real-application acceptance: an authorized operator builds one manual

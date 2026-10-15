@@ -74,7 +74,10 @@ requires the non-null method, version, retained bytes and canonical parameters.
 The method is trusted registered behavior, never user code to execute.
 The snapshot is addressed by `H(snapshot)`; it contains no self-hash. Audit
 receipts and mutable artifact locators are separate stored records. This first
-proposal supports the accepted EV24 semantic shape only. A later chart/map
+proposal supports the accepted EV24 semantic shape only. Other templates may
+continue their existing media-only/pre-provenance-format path without a derived
+evidence claim; new-format non-EV24 content blocks until its own contract is
+approved. Never downgrade a declared derived revision to that legacy path. A later chart/map
 template needs its own approved semantic/template contract, not arbitrary JSON
 values slipped through this type. That does not change the general provenance
 relationship or grant #99 arbitrary-template authority.
@@ -121,7 +124,10 @@ Producer decision; no compiler claim exceeds the declared input evidence.
   dependencies require a resolver migration adding the explicit
   `legacy_unclassified` class after checking retained storage identity. Old
   unclassified dependency inputs fail until migrated; they do not silently pass.
-  With the class added, their legacy manifest/report bytes stay unchanged.
+  With the class added, legacy manifest bytes stay unchanged, but report
+  `dependenciesHash` changes because `compiler-core-v2.ts` hashes the entire
+  dependency input. Any downstream hash over that report also changes; do not
+  exclude classification from existing hash material.
   Non-graphic v2 dependencies and output stay unchanged. Legacy absence is
   “no derived-evidence claim,” not proof
   that the author never consulted data. New manual content emits an explicit
@@ -154,7 +160,27 @@ Producer decision; no compiler claim exceeds the declared input evidence.
 
 Explicit Producer approval must cover the deltas/defaults, accepted-source
 integration baseline and separate new fixtures/goldens/acceptance tests needed
-for them. Freeze existing legacy tests/goldens unchanged. Add owned tests for
+for them. Retain original frozen fixtures/goldens unchanged as accepted historical
+evidence. The migration exception requiring approval is limited to the graphic
+cases in `packages/contracts/test/compiler-v2.test.ts` (the media-backed
+visual-only-kind test) and new migrated copies of these existing fixture stems
+under `tests/data/authoring_v2/issue_173/compiler/`:
+
+- `visual-only-graphic-still-ntsc-default`
+- `visual-only-graphic-still-25fps-default`
+- `visual-only-graphic-still-ntsc-override`
+
+For each, preserve original input/manifest/report goldens; add slice-owned
+migrated input/report copies with only the required legacy classification and
+resulting `dependenciesHash`/transitive hash changes. Compare the migrated
+manifest byte-for-byte to the retained original. Adjust that accepted test's
+graphic branch only after explicit approval: old unmigrated dependencies must
+refuse; approved migrated copies must compile. Image/capture and all unrelated
+cases keep their accepted assertions and bytes. Enumerate any further affected
+fixtures/tests on the actual implementation baseline and seek a revised note
+before changing them. v1 legacy output stays byte-identical.
+
+Add owned tests for
 every design §6 case, canonical hash/array/null behavior, scope/authorization,
 missing class/content refusal, legacy classification against retained storage,
 v1 writer omission, no stripped pointers, and materialized-media

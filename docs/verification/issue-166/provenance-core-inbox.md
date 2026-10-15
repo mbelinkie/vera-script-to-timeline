@@ -28,7 +28,10 @@ resolver and immutable content-operation seam, preserving exact accepted
   manual/derived/legacy defaults, resolver-record loss, project isolation,
   replay/source unavailability, changed refresh and incompatible migration.
 - [ ] Existing #7 semantic hashes/template IDs and #20 use/copy semantics remain
-  unchanged; old legacy goldens remain byte-identical under approved migration.
+  unchanged. Retain legacy golden originals; v1 legacy output and v2 legacy
+  manifests stay byte-identical. Approved v2 graphic dependency migration changes
+  report dependenciesHash/transitive hashes, with slice-owned migrated copies
+  and narrowly approved accepted-test adjustments per CN-166-P1.
 - [ ] Generated-currentness, focused/fast checks, separate adversarial Claude
   review/dispositions and applicable verification-policy final evidence pass.
 - [ ] #64 persistence, #8 Studio/#10 Free and #9/#67/#69 UI handoffs are explicit;
