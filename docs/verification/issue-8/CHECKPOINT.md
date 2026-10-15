@@ -161,3 +161,37 @@ package, run all affectedslow and accepted109regressions serially, finalfast,
 fix/deltareview as needed, and complete reviewed-source localfullgate.
 Then finalsource release/handoffs and operator install/preflight/native64/120
 qualification, sevenbuild visual isolation checklist. See injected-delivery.md.
+
+Adaptation source is now local commitb5bfc6c; clean source bytes were confirmed
+while review4177remained live. A subsequent complete nonslow109release run
+(`uv run --frozen pytest tests/test_workflow_release.py -m 'not slow' -q`)
+passed16tests,9slowdeselected in10.86s. This supersedes the earlier3testsubset
+for its lightweight scope; it does not cover9slow tests. All11bundled source
+files were independently rehashed and byte-compared to current repository
+source, including the menu script; candidate release hash unchanged. The exact
+bundled launcher also imports underCPython3.14.7 -B -S, no site-packages.
+No full/local/native/visual acceptance is inferred from these checks.
+
+## Injected review disposition and fix delta
+
+Review4177completed exit0: automated-candidate GO, with two should-fix items
+and one report-shape improvement in out/issue8/claude-review-injected.txt.
+The class chain, default109behavior, faithful adapter move, stdlib closure and
+fail-closed graphics were confirmed. Native/slow/full/operator gates remain.
+
+Addressed all3items: real InjectedGraphicAdapter import now has a fake-native
+wiring test asserting both regular/template expected paths and guard invocation
+with the external verifier module unavailable. The attestation is read once,
+hash-checked and JSON-parsed from those same bytes, explicitly refusing non-dict
+JSON. Early refusal retains result schema, pins, action and discrepancy list.
+Red tests reproduced the old double-read and missing-schema behavior; wiring
+passed on existing code.49focused8tests passed,15slowdeselected in17.52s;
+subsequent typed-import aliases plus nonobject parsing test passed4targeted,
+25deselected in3.06s. Mypy2files and Ruff pass. No other production delta.
+
+Candidate release1b61a80... is now INVALIDATED by the reviewed source fix;
+retain but never install it. Build a new final-source release after final review/
+checks. Narrow read-only fix review is running in execution session89143,
+output out/issue8/claude-review-injected-delta.txt, prompt
+out/issue8/injected-delta-review-prompt.md. Do not restart. #214's actual child
+13632pytest remains live; shared-slot reservation not released.

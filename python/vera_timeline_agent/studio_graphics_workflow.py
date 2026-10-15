@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -47,9 +49,12 @@ class GraphicHandoff:
 
 
 def load_graphic_handoff(path: Path, expected_sha256: str) -> GraphicHandoff:
-    if path.is_symlink() or sha256(path) != expected_sha256:
+    payload = path.read_bytes()
+    if path.is_symlink() or hashlib.sha256(payload).hexdigest() != expected_sha256:
         raise ValueError("graphic attestation hash mismatch or unsafe path")
-    value = read_object(path)
+    value = json.loads(payload)
+    if not isinstance(value, dict):
+        raise ValueError("graphic attestation must contain one JSON object")
     if (
         value.get("schemaVersion") != GRAPHIC_ATTESTATION
         or value.get("status") != "ready_for_studio"
@@ -190,6 +195,10 @@ def run_graphic_delivery(
         handoff = load_graphic_handoff(attestation_path, attestation_sha256)
     except Exception as error:
         return {
+            "schemaVersion": "vera-studio-graphic-result/v1",
+            "sourcePins": GRAPHIC_PINS,
+            "action": action,
+            "discrepancies": [],
             "status": "stopped_safely",
             "verified": False,
             "partialTargetRetained": False,

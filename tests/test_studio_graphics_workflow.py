@@ -10,6 +10,7 @@ from typing import Any
 
 import pytest
 import vera_timeline_agent.studio_graphics_workflow as workflow
+from test_studio_graphics_adapter import Pool, Seed
 from test_workflow_delivery import RecordingAdapter, _native_adapter
 from vera_timeline_agent.studio_graphics_runtime import (
     FILE_HASHES,
@@ -26,6 +27,7 @@ from vera_timeline_agent.studio_graphics_workflow_cli import (
     prepare_graphic_request,
 )
 from vera_timeline_agent.studio_spike import ConnectedFacts
+from vera_timeline_agent.studio_spike import PublicResolveAdapter as MediaAdapter
 from vera_timeline_agent.workflow_package import (
     ATTESTATION_SCHEMA,
     SOURCE_PINS,
@@ -378,3 +380,76 @@ def test_graphics_adapter_uses_guarded_uid_preserving_reopen(
         assert calls == ["save", "close", "load"]
         adapter.assert_current_target()
     assert adapter._still_end_frame_compensation() == 0
+
+
+def test_real_injected_wiring_restores_paths_and_never_imports_external_verifier(
+    handoff: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    package = workflow.load_graphic_handoff(handoff, sha256(handoff))
+    calls: list[str] = []
+    adapter = workflow.InjectedGraphicAdapter(
+        None, package, lambda: calls.append("guard")
+    )
+    adapter.pool = Pool()
+    source_ids = [source["id"] for source in package.manifest["sources"]]
+    sources = [(identity, package.root / f"{identity}.png") for identity in source_ids]
+
+    def import_media(base: Any, entries: Any) -> None:
+        base.media_by_source = {identity: Seed(identity) for identity, _ in entries}
+        base.media_id_by_source = {identity: identity for identity, _ in entries}
+        base.pool.current.seeds.extend(base.media_by_source.values())
+
+    monkeypatch.setattr(MediaAdapter, "import_media", import_media)
+    monkeypatch.setitem(sys.modules, "vera_timeline_agent.studio_graphics", None)
+    adapter.import_media(sources)
+    assert adapter.expected_paths == {
+        identity: path.resolve() for identity, path in sources
+    }
+    assert set(adapter.media_id_by_source) == set(source_ids)
+    assert len(adapter.pool.root.children) == 1
+    assert adapter.pool.root.children[0].GetName() == adapter.template_bin_name
+    adapter.verify_package()
+    assert calls == ["guard"]
+
+
+def test_graphic_attestation_parses_exact_hashed_bytes(
+    handoff: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    expected = sha256(handoff)
+    original_read = read_object
+    original_bytes = Path.read_bytes
+    calls: list[Path] = []
+
+    def read_checked(path: Path) -> dict[str, Any]:
+        assert path != handoff, (
+            "attestation must be parsed from hashed bytes, not reopened"
+        )
+        return original_read(path)
+
+    def read_bytes(path: Path) -> bytes:
+        if path == handoff:
+            calls.append(path)
+        return original_bytes(path)
+
+    monkeypatch.setattr(workflow, "read_object", read_checked)
+    monkeypatch.setattr(Path, "read_bytes", read_bytes)
+    workflow.load_graphic_handoff(handoff, expected)
+    assert calls == [handoff]
+
+
+def test_early_graphic_refusal_keeps_result_schema(tmp_path: Path) -> None:
+    result = workflow.run_graphic_delivery(None, tmp_path / "missing.json", "0" * 64)
+    assert result["schemaVersion"] == "vera-studio-graphic-result/v1"
+    assert result["action"] == "preflight"
+    assert result["sourcePins"] == workflow.GRAPHIC_PINS
+    assert result["discrepancies"] == []
+    assert result["verified"] is False
+
+
+def test_graphic_attestation_refuses_non_object_json(tmp_path: Path) -> None:
+    path = tmp_path / "array.json"
+    path.write_text("[]")
+    with pytest.raises(ValueError, match="one JSON object"):
+        workflow.load_graphic_handoff(path, sha256(path))
