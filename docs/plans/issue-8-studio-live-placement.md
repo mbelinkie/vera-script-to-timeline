@@ -234,8 +234,11 @@ template/asset/lock changes or dependencies. Local fake-boundary checks and
 CPython3.14stdlib-only loading plus narrow adversarial Claude safety review
 precede any operator run. Complete existing automated evidence remains valid
 for unchanged product bytes, not proof that the diagnostic succeeded natively.
-Do not start native diagnostics during #219's competing full validation. Once
-review/host exclusion are satisfied, the operator restarts Resolve, opens the
+Do not start competing heavy tests or media renders during #219's full
+validation. The Producer asked about concurrent light Resolve checks; the
+agent corrected its overbroad hold. This no-render diagnostic may coexist
+with tests after the safety review and previously released native window,
+with no active Resolve render. The operator restarts Resolve, opens the
 original separate saved disposable current project/timeline and uses Python3
 Console for this one-off capture; no external-scripting connection, preference
 mutation, production-project effect or old-target repair. Diagnose the actual

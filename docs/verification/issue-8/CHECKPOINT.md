@@ -524,3 +524,38 @@ competing #8 heavy check or native action was started. The coordinator record
 was stale8ownership; it is not permission to compete. Operator execution is
 not yet ready: retain review outcome/fix/delta evidence and wait for actual
 host release. This is preparation only, not graph qualification or acceptance.
+
+### Diagnostic safety review and inventory fix
+
+Review33462 completed exit0 **GO** for one diagnostic run, not acceptance.
+Log `out/issue8/claude-diagnostic-capture-review.txt` SHA256
+`5a4d0ec6775a647d3fca13b40d40f3a6464d0d6fe91bcc2472698bcb2e2e39d7`.
+It confirmed one native settings read per original call, unmodified hash return,
+all full-envelope/target/stage guards and fail-closed diagnostic writes. Minor
+limits remain: some refusal branches are static-only, index-storage failure
+could mask an error but cannot turn it into success, and any one-shot refusal
+requires fresh authorization before retry.
+
+Parent identified a missing installed-inventory check beyond that review's
+actual-current-folder observation: declared hashes alone cannot reject an
+extra importable __init__.py. A synthetic temporary-release test went red
+(`diagnostic-inventory-red-exact.log`: undeclared importable file accepted).
+Copied the normal accepted menu bootstrap's exact file/directory closure into
+the private diagnostic only. The harness now passes baseline, extra-file,
+extra-directory and declared-source-tamper cases plus all original observer/
+refusal/replay checks. `diagnostic-inventory-green.log` exit0 SHA256
+`4a750b87803c4d12d11375cc4615b5076bfbb70b9b3cd345329f996bcc8873a5`.
+Rufflint/format and CPython3.14 -B -S/no-auto-run pass. Script now SHA256
+`28ccec69d81f6cab037732f21023bd2abfeec08b09129b533070a7fa2678c4b4`.
+No production/installed-source/request/contract/test/fixture change occurred.
+
+Narrow inventory-fix review66277 is running read-only in
+`out/issue8/claude-diagnostic-capture-delta-review.txt`; do not restart or infer
+GO, and do not change its candidate while live. Native diagnostic is not run.
+The earlier blanket host hold was corrected after the Producer asked: manual
+read-only checks and this light no-render API diagnostic do not automatically
+conflict with #219's full tests. No competing heavy test/media render will be
+started; #219 previously released the native window. Once safety review GO is
+retained, operator can restart Resolve, open the original separate saved
+disposable on Edit (not either build target), keep None and invoke the new
+one-off Python3 script once. Do not use the old installed Graphics build menu.
