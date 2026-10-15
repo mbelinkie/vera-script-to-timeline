@@ -470,3 +470,27 @@ refusal pass after completing the synthetic fixture's missing graphic identity.
 These are diagnostic safety checks, not live reproduction or native acceptance.
 Producer must invoke it in Python3 Console with the existing injected resolve;
 no external-scripting connection or preference change is requested.
+
+### Read-only graph capture received
+
+Producer ran the prepared diagnostic in Python3 after correcting the Console
+language/paste. Capture `readonly-graph-91d060f2191043a39101966a9df1f60d.json`,
+SHA256 `2125127f6e032c759d6205268b8bb8f2110b866d578b7822fb7f1e89b0e7d87a`,
+retains actual project/timeline/item UIDs and two complete private settings
+tables. Both production hashes are3671d53c..., persisted pre-save hash281b541c...
+is present and differs. Country16/Year2024 and blank text overrides persist.
+Immediate repeated reads are stable; this is not a missing stored hash or an
+unstable pair of reads. Replay through the actual production fingerprint helper
+reproduces the mismatch in seconds; `out/issue8/graph-replay-red.log` retains
+the expected failed equality assertion.
+
+Ranked hypotheses remain native range/display serialization, capture timing,
+or a meaningful graph change. Bounded offline copies reversing GlobalOut63 to
+authored119 and removing display fields, alone/in combinations, did not recreate
+the pre-save hash. No native target or production code was modified and no
+field was excluded from verification. Because the old raw pre-save settings
+were never retained, this capture cannot reveal the exact before/after diff.
+The next necessary native evidence is one fresh explicitly authorized named
+disposable diagnostic build with before/after settings witnesses, keeping the
+original failed target unchanged and all verification checks intact. Such
+diagnostic execution is not acceptance or permission to weaken graph identity.
