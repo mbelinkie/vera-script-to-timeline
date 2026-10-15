@@ -1108,18 +1108,32 @@ def test_actual_accepted_174_receipt_shape_and_package_range(tmp_path: Path) -> 
     dependencies = json.loads(
         Path(request["executionInputs"]["dependencies"]["path"]).read_bytes()
     )
-    manifest = json.loads(
-        (
-            Path(request["executionInputs"]["document"]["path"]).parent
-            / "timeline-manifest.json"
-        ).read_bytes()
+    import shutil
+    import subprocess
+
+    from vera_timeline_agent.roundtrip_v2_build import BRIDGE
+
+    # make_proof_case updates dependency/preparation inputs but deliberately
+    # leaves its initial fixture outputs on disk; #190 compiles afresh next.
+    compiled = subprocess.run(
+        [
+            shutil.which("node") or "node",
+            str(BRIDGE),
+            request["executionInputs"]["document"]["path"],
+            request["executionInputs"]["dependencies"]["path"],
+        ],
+        capture_output=True,
+        check=True,
+        timeout=120,
     )
-    report = json.loads(
-        (
-            Path(request["executionInputs"]["document"]["path"]).parent
-            / "build-report.json"
-        ).read_bytes()
-    )
+    envelope = json.loads(compiled.stdout)
+    assert envelope["runtime"] == "v24.19.0"
+    assert envelope["inputs"] == [
+        request["executionInputs"][key]["sha256"]
+        for key in ("document", "dependencies")
+    ]
+    assert envelope["result"]["ok"] is True
+    manifest, report = envelope["result"]["manifest"], envelope["result"]["report"]
     paths = {
         key: Path(pins["receipt"]["path"])
         for key, pins in request["preparations"].items()

@@ -1,4 +1,4 @@
-# Issue214 checkpoint — review01 fixes candidate
+# Issue214 checkpoint — owned oracle-fixture repair
 
 Same Sol/high owner01a13cdf-1a4f-7f13-93ef-4b1a4c8a31dc, branch
 codex/issue-214-output-consistency, accepted base22f65c4f2b4ff61e7b08f530cdda3d92fea11d08.
@@ -6,6 +6,33 @@ Issue is Open/In progress/Automated, claim retained. No successor, merge/main
 adoption, native/MCP/UI/render/provider action, source-media mutation or new
 wakeups/goal. Owned modules/tests/plan/evidence only; no accepted-test/schema/
 fixture/golden/dependency/native/TS changes. Plan/CN source bytes unchanged.
+
+## Latest continuation: phase03 failed, phase04 prepared
+
+Phase03 overall exit1/jobsDrained at01:36:00.400429Z; runner63893 is RETIRED.
+Retained log SHA b79d83509cf2554fbbbaaded3c97cb4f0fb31436342963c5ef867edc78143d64.
+Owned accepted174-shape test failed at stale manifest/preparation binding;
+full-programme stress PASSED31.02s. Overall1failed1passed97deselected; later
+focused/fast commands DID NOT RUN. No phase/full acceptance is claimed.
+
+Diagnosis: make_proof_case updates dependency/preparation inputs, but leaves
+initial fixture manifest/report on disk. Normal190 compiles afresh afterward.
+Only the new test body now invokes that exact pinned bridge and checks actual
+runtime/input hashes before using fresh result manifest/report. Accepted helper,
+compiler/package semantics, tests, fixtures and all production bytes unchanged.
+AST audit proves the only executable delta is that separate failed-test body;
+all stress/helper/top-level code and relevant config/locks/runtime remain equal.
+Do not repeat the passing stress component merely for this test repair. It is
+still included in eventual complete final LOCAL qualification.
+
+Phase04 private durable path: phase-04-oracle-fixture-repair under the owner root
+below, using existing run_phase.py. Serial commands: failed174 oracle only,
+owned non-slow tests, validate:fast. Both old slow tests are not automatically
+repeated. Inspect private checkpoint.json for live process/source/log/exit;
+preserve/drain, never restart. Actual usage91%/14% ordinary allowed at entry;
+original97% reserve still applies to NEW phases. No account/credit actions.
+Actual Claude DELTA review remains after passing affected/fast evidence;
+complete final LOCAL gate remains after findings close. Forecast unchanged.
 
 ## Retained phases
 

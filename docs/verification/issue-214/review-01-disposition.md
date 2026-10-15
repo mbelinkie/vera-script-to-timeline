@@ -28,3 +28,14 @@ operation, accepted-test/schema/fixture edit, dependency, successor or main merg
 
 Forecast remains3–6 active hours low confidence; main uncertainty is delta-review
 closure of the package/authentication seam. Serial final full adds machine time.
+
+## Phase03 retained failure / owned test repair
+
+The slow command was FAILED,1failed1passed97deselected. Stress passed31.02s;
+accepted174-shape test used stale initial fixture manifest/report after helper
+updated inputs. New owned test alone now performs the normal190 fresh pinned
+compile, verifies exact input/runtime envelope, then calls the unchanged
+accepted preparation validator. No accepted semantics/test weakening.
+AST delta is confined to that test body; passing stress is not additionally
+rerun for this repair. The final complete LOCAL gate still includes all coverage.
+Phase04 runs the failed oracle, previously unrun focused coverage and fast gate.
