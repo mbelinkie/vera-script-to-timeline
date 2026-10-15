@@ -158,3 +158,8 @@ Review02 GO on24d0074 qualified against immutable resultSHA7379b58deccabb2256ec0
 ## Follow-up gate and final qualification entry
 
 Phase08 passed2targetedslow,99focused/3slowdeselected,fast750Python plus all other gates; before/after/current7005inputs equal and loghashesverified. Actualreview03 GO at2ec8e06, resultSHA c9a813ab7aed601618e2f9afbcda4bb54b8cd3e3ab25a44bba434f4b364605d8, suppliedinputs unchanged; retire96619/96620/96626 permanently. Required description corrections retained: narrationcopy defence in depth; actual-shaped sidecar all-zero Python-wave profile/extent/hash-domain evidence only, not signed/interleave/FFmpeg decoding qualification. No production/tests changed after review03. Final complete serial LOCAL gate still pending.
+
+
+## Final complete local qualification passed
+
+Phase12 finished exit0/jobsdrained at2026-10-15T05:43:00.051389Z onb3e3e4d06225a819497655f0b044ad4d4b5c7909/treee1a9cbd0fa463bef31556c891b099f18cefbc870. All7007before/after/currentinputhashes equal; lograwSHAd8b236e905c75be8af95d63b639227998f410f82bff07355a81290177122eea7 verified.1247Pythonpassed includingallslow/102ownedcases;464contractTS+1smokeTS+61nodetests;generated/lint/types pass; zero skips/deselection. Exact full log/runtime/input/source/command/exit retained. Phase10 remains FAILED8TS5000mstimeouts; narrowphase11original4files57pass23.43s unchanged limits after observed load18->2.33; capacitychange justified one fullrerun. No sourcefix/reviewrestart/timeoutrelaxation. Final evidence-only changes use verified equivalence below. No native/provider/data/main effects.

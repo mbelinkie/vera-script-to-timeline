@@ -1,8 +1,8 @@
 # Issue214 pure package acceptance evidence
 
-Acceptance authority:Automated; final qualification pending. This document maps
-criteria to retained tests and review, and cannot supply a passing full result.
-Actual current completion is recorded only after qualifying final receipts.
+Acceptance authority:Automated. Complete local qualification passed and is
+independently qualified in final-validation.json with the exact retained full log.
+This map links every pure criterion to tests, review and bounded ownership.
 
 Accepted baseline22f65c4f2b4ff61e7b08f530cdda3d92fea11d08. Reviewed production/test
 candidate2ec8e066ce1049e1ca813c1d1d741203728576e9; final pre-gate evidence commit
@@ -13,8 +13,7 @@ old strict/native/TS consumers or existing production files changed.
 ## Requirement map
 
 Every listed test is in the three new test_issue214 files. The final full gate
-must run all coverage, including the full1498-frame prediction/comparison stress.
-The mapping is not an assertion that a missing final pass exists.
+ran all coverage, including the full1498-frame prediction/comparison stress.
 
 | Accepted criterion | Retained objective coverage / ownership |
 | --- | --- |
@@ -37,7 +36,7 @@ all production/test bytes remain reviewed. Review limitations remain explicit.
 Phase08:2targetedslow,99focused/3slowdeselected,fast750Python plus generated,
 allTS,ruff,mypy pass. Full source/runtime/input/command/log/exit receipts retained
 under the owner private-preparation path recorded in CHECKPOINT and final record.
-Earlier failures remain failures: stale fixture outputs, off-grid25fpsselection,
+Earlier failures remain failures: fullrun8TS5000mscapacitytimeouts, stale fixture outputs, off-grid25fpsselection,
 and expected-red trust-alias regression. None substitutes for final acceptance.
 
 ## Final required gate
@@ -48,7 +47,9 @@ Run serially on locked Node24.19.0/npm11.17.0/uv0.12.5/CPython3.12.14,
 Intel macOS15.1 with installed media tools. Retain source/tree, complete before/
 after/current input equality, runtime and actual command exit/log hashes,
 complete test count/skips and all slow coverage. No cloud substitution.
-Final full run, PR, roadmap review/complete and Closed/Done verification:PENDING.
+Final full run:PASSED,1247Python/464contractTS/1smokeTS/61node tests, no skips.
+See final-validation.json and final-validation.log. PR and roadmap closing receipts
+are recorded in the issue/PR; no merge or main adoption follows this acceptance.
 
 ## Walkthrough and judgments
 

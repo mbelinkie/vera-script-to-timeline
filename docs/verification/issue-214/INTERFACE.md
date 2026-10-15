@@ -1,7 +1,7 @@
 # Pure output-consistency interface for #209 and #215
 
 Pure implementation has actual independent review02/03 GO. Complete final local
-acceptance remains pending; see ACCEPTANCE.md and retained review limitations. Accepted authority and exact operative plan are
+validation passed; see ACCEPTANCE.md, final-validation.json and review limits. Accepted authority and exact operative plan are
 in `docs/plans/issue-214-output-consistency.md` (unchanged copied bytes,
 SHA256 c701b997ed448cf581377dfc819be4e8f0e547d719172f76bafd62ef67f7fa56).
 No contract, fixture, golden, accepted test or dependency changes.
