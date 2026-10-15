@@ -2,7 +2,7 @@
 
 Initial candidate `fd8e5e65f97fd252549b591d81f43b3c0feff530`.
 Read-only separate CLI review: exit 0, usable NO-GO, 147.9 seconds.
-[Prompt](claude-prompt.md), [candidate diff](candidate.patch),
+[Prompt](claude-prompt.md), [losslessly compressed candidate diff](candidate.patch.gz),
 [result](claude-result.json), [command/exit](claude-exit.json).
 Only public accepted/main source and synthetic examples were in the isolated
 packet; tools were Read/Grep/Glob, no shell/network/MCP/private inputs.
