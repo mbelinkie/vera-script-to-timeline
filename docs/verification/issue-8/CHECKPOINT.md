@@ -40,7 +40,8 @@ inferred. A second narrow review, out/issue8/claude-review-matrix.txt, returned
 GO for the one-field acceptance revision and operator/runtime documents.
 Both reviews had Read/Grep/Glob only; no tests, commands or Resolve actions.
 
-Current implementation SHA-256s (plain hex):
+Pre-#109-adaptation implementation SHA-256s (plain hex; retained provenance,
+not the current injected candidate):
 
 - studio_graphics.py: `0f77b8f376c5390d5402ab3af4ec46e2b7181b4536da73b131ad2910ce4eabbd`
 - studio_graphics_cli.py: `68b5a74643a5b8673e57aa07437471081d58bf356df3bd28dc1cc585b093e50e`
@@ -102,3 +103,61 @@ No native/visual acceptance, review status promotion, closure or merge claimed.
 Forecast retained in the plan: 1–3 active hours plus final validation runtime;
 capacity and Resolve qualification/Producer visual waits are separate and
 currently unbounded. No successor is authorized.
+
+## Approved injected adaptation continuation
+
+The Producer explicitly approved adapting #8 to accepted #109 for installed
+Studio21.1.1. The live board was re-inspected: same active task/branch,
+In progress, External, dependencies resolved. No new claim, dispatch or scope
+outside the approved plan. Goal resumed; actual acceptance is still missing.
+
+Accepted109source8ef9f864 modules, menu script and regression tests are now
+integrated. Default non-graphics delivery behavior is retained. The two
+accepted regression files are byte-identical: Git blobs23c185b97721fc010ea7f7955a9c9f86ccba7ea4
+and3c667d28ff7aa61ef1980786809af433f132a300 respectively. Only trusted internal
+factory/guard/loader/runner hooks and extraction of the existing inventory
+method adapt accepted delivery/launcher code. studio_spike's lazy OTIO import
+is exactly the accepted109change. Contracts/assets/data/locks unchanged from
+84fbf3b. No operator global installation or preference change occurred.
+
+New standard-library studio_graphics_runtime holds the existing semantics and
+native placement. External studio_graphics keeps verification and reexports
+its existing API. InjectedGraphicAdapter inherits #109 UID/save/reopen guards
+and calibrated still compensation0, with exact regular+template-bin inventory.
+The locked external CLI attests the full Studio envelope plus transport, builds
+a source-hashed Graphics release and emits explicitly authorized requests.
+The old external API path keeps its receipt/version refusals unchanged.
+
+Test-first: initial2newtests failed because the new modules did not exist.
+The split then exposed12testfixture monkeypatch-target errors, repaired by
+moving that target only; assertions unchanged. New runner fake lacked source
+files; corrected the synthetic test fixture, not production checks. Synthetic
+unit attestations are never external/native qualification evidence.
+
+Current focused results:46passed,15slowdeselected in16.44s across three #8
+test files;3unchanged109release/readback tests passed in1.26s. Scoped12file
+mypy passed; Ruff passed after instance-local fake observations. New real
+verifier/attestation slow test is authored but pending. CPython3.14.7 -S imports
+the injected boundary without site-packages, exit0. This is import evidence,
+not execution inside Resolve. Locked external runtime remainsNode24.19.0,
+uv0.12.5,CPython3.12.14. Finalfast/full and affectedslow remain pending.
+
+Candidate source release (not for installation):
+out/issue8/injected-release-review-candidate/vera-graphics-v1/release.json,
+rawSHA2561b61a80c8c3eeafdc1c76cc13f67d92bc58195082fc45e784b9c00520dc553a2.
+Any reviewed source change invalidates it; create a new final release after
+fixes. No graphics handoff or native request prepared with operator flags.
+
+Independent read-only Claude review is live in execution session4177, output
+out/issue8/claude-review-injected.txt, prompt injected-review-prompt.md. Do not
+restart it; inspect actual completion. Read/Grep/Glob only, no tests/edits/native
+or GitHub. Original candidate and accepted109source snapshots are beside the
+prompt for comparison. Code/test bytes stable during that review.
+
+The actual shared-slot owner is #214 phase12, runner11245; child13632pytest
+was independently confirmed live on this continuation. Reservationheld=true,
+released=false. No #8 heavy job started. After explicit release: prepare seventh
+package, run all affectedslow and accepted109regressions serially, finalfast,
+fix/deltareview as needed, and complete reviewed-source localfullgate.
+Then finalsource release/handoffs and operator install/preflight/native64/120
+qualification, sevenbuild visual isolation checklist. See injected-delivery.md.

@@ -7,6 +7,7 @@ from typing import Any, cast
 
 import pytest
 import vera_timeline_agent.studio_graphics as graphics
+import vera_timeline_agent.studio_graphics_runtime as runtime
 from vera_timeline_agent.resolve_import_package.package import _canonical_json
 from vera_timeline_agent.studio_spike import PublicResolveAdapter
 
@@ -193,7 +194,7 @@ def adapter(
     transport, _ = graphics.transport_artifacts(manifest, report)
     package = graphics.StudioGraphicPackage(tmp_path, manifest, report, {}, transport)
     monkeypatch.setattr(
-        graphics, "_package_digest", lambda template: "sha256:" + "a" * 64
+        runtime, "_package_digest", lambda template: "sha256:" + "a" * 64
     )
     result = graphics.PublicStudioGraphicAdapter(None, package)
     result.pool, result.timeline = Pool(), Timeline()

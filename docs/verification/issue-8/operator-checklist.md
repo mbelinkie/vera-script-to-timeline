@@ -7,17 +7,14 @@ never build it directly to accept graphics.
 
 ## Preconditions
 
-Complete the reviewed-source fast/slow/full gates first. Establish a supported,
-affirmatively identified Studio installation and retain actual EV24 runtime
-qualification. The present 21.1.1 build 10 installation fails this candidate's
-accepted installation/version checks. Do not edit a receipt, supply fabricated
-`LocalFacts`, relax a version guard or enable external scripting to force a pass.
-See [runtime assessment](runtime-assessment.md) for the accepted injected path
-and the integration/qualification still needed to use it.
-
-Only after that blocker is resolved, use the final reviewed candidate and its
-retained native execution path. The commands below describe this candidate's
-existing CLI; they do not authorize installation or a different adapter.
+Complete the reviewed-source fast/slow/full gates first. The Producer approved
+adapting #8 to #109's injected path for Studio21.1.1/build10. That path is now
+implemented but still needs review, a source-bound release and fresh EV24
+qualification. The old external CLI continues to refuse this installation.
+Do not edit a receipt, fabricate LocalFacts or enable external scripting.
+Follow [injected delivery](injected-delivery.md) for operator-owned installation,
+preflight and launch, then perform this visual checklist. No new adaptation
+approval is needed; actual installation, preference and visual gates remain.
 
 ## Prepared matrix
 
@@ -48,20 +45,19 @@ accept an absent package artifact.
 
 1. Save a disposable nonproduction current project manually. Record its project
    name and timeline names/counts. No production project is in scope.
-2. For each matrix package, run the graphics **preflight**, preserving a new
-   result file outside the package. For example, from this worktree:
-
-   ```sh
-   rtk ctx-wire run uv run --frozen python -m vera_timeline_agent.studio_graphics_cli preflight out/issue8/packages/standard-64 --result out/issue8/standard-64-native-preflight.json
-   ```
-
-   Require `preflight_passed`, actual connected edition/version/build and the
-   expected fresh target names. Any refusal stops; retain it without edits.
-3. After successful preflight and confirming the target is disposable, use the
-   same command with `build` and a new `--result` filename. Require `status: verified`,
+2. For each matrix package, use its source-bound graphics attestation and
+   **preflight request** with Workspace > Workflow Integrations > VERA Graphics
+   v1, following the injected guide. Require `preflight_passed`, actual connected
+   edition/version/build and the exact fresh target names from `graphic.json`.
+   Any refusal stops; retain it without edits.
+3. After successful preflight, explicitly authorize that disposable target and
+   confirm External Scripting None to prepare its **build request**. Install
+   that request and launch once after restarting as the injected guide directs.
+   Require `status: verified`,
    `verified: true`, zero discrepancies, and one actual graphic observation.
-   This candidate names the new project `VERA Studio build <full build UUID>`
-   and timeline `VERA build <full build UUID>`. It never reuses an existing
+   The injected project and timeline are both named
+   `VERA Delivery <full build UUID> <12-hex unique suffix>`, pinned in the
+   attestation and request. They never reuse an existing
    target. Retain any partial target on failure; do not delete or repair it.
 4. In each saved/reopened target, open Edit and select the V4 graphic. Check
    start 0 and duration exactly 64 or 120 frames. In Fusion confirm the exact

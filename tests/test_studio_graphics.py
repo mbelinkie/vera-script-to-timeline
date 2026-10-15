@@ -295,3 +295,36 @@ def test_independently_valid_transport_must_match_original_compiler_occurrences(
     monkeypatch.setattr(module, "transport_artifacts", changed)
     with pytest.raises(StudioGraphicError, match="internal transport differs"):
         verify_studio_graphic_package(root)
+
+
+@pytest.mark.slow
+def test_locked_verifier_attests_full_graphic_envelope_for_injected_runtime(
+    inputs: Path,
+    tmp_path: Path,
+) -> None:
+    from vera_timeline_agent.studio_graphics_workflow import load_graphic_handoff
+    from vera_timeline_agent.studio_graphics_workflow_cli import attest_graphic_package
+    from vera_timeline_agent.workflow_package import sha256
+
+    folder = inputs / "revised-120"
+    package = build_studio_graphic_package(
+        folder / "timeline-manifest.json",
+        folder / "build-report.json",
+        folder / "materialization-plan.json",
+        inputs / "registered-template",
+        tmp_path / "package",
+    )
+    attestation = attest_graphic_package(package.root, tmp_path / "handoff")
+    native = load_graphic_handoff(attestation, sha256(attestation))
+    assert native.studio.manifest == package.manifest
+    assert native.transport.manifest == package.transport
+    assert (
+        native.attestation["projectName"] == native.transport.attestation["projectName"]
+    )
+    with pytest.raises(FileExistsError):
+        attest_graphic_package(package.root, tmp_path / "handoff")
+    (
+        package.root / "Templates/Edit/Titles/Eurovision/ev24_badges_atlas.png"
+    ).write_bytes(b"changed")
+    with pytest.raises(ValueError, match="stale"):
+        load_graphic_handoff(attestation, sha256(attestation))

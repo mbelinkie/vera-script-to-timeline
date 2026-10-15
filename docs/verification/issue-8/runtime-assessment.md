@@ -11,7 +11,7 @@ capability itself is pinned to 21.1.0/build 14. A fresh connector status check
 also reports Resolve not running; the earlier launch timed out. None of these
 facts is terminal approval fatigue or permission to bypass an accepted check.
 
-## Accepted alternative inspected, not adopted
+## Accepted alternative inspected (before adaptation approval)
 
 Issue [#109](https://github.com/mbelinkie/vera-script-to-timeline/issues/109)
 has actual Producer-accepted injected delivery on 21.1.1/build 10. Its accepted
@@ -47,13 +47,22 @@ not copy #109's old accepted evidence into a new #8 release or silently widen
 the approved #12/#3/#7 prerequisite integration. The curated graphics plan
 explicitly excludes agent-side installation into Resolve.
 
-## Required direction if this installation is retained
+## Approved direction and remaining gates
 
-Approve the bounded #109-based graphics integration on 21.1.1/10, retaining
-fresh EV24 qualification and the existing installation/operator boundaries;
-then complete its reviewed release and operator steps. Alternatively provide
-the already qualified EV24 runtime with a supported installation. Neither
-choice is an agent-side global reinstall, a guard bypass or acceptance of #8.
+The Producer subsequently approved “adapt #8 to the accepted #109 path for
+Studio 21.1.1.” The approved implementation now separates the standard-library
+native graphics module from the external schema/media verifier, pins both
+the complete Studio envelope and transport handoff, and extends #109's media
+inventory check only for the deterministic graphic-template bin. It preserves
+the old external adapter's installation/version refusals. No fabricated local
+facts or old external connection is used by the new injected path.
+
+Fresh EV24 qualification and the existing installation/operator boundaries
+remain. Complete independent review and final automated evidence before
+installing the new source-bound release. Then follow
+[injected delivery](injected-delivery.md) and the [visual checklist](operator-checklist.md).
+This approval is not permission for an agent-side global reinstall, preference
+mutation or acceptance of #8. It does not require another adaptation approval.
 
 Meanwhile the candidate can finish its automated evidence once the existing
 heavy-check owner releases the shared slot. Actual #8 native and visual

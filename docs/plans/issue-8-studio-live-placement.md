@@ -168,3 +168,35 @@ globally. The current runtime evidence, remaining decision and operator
 boundaries are in ../verification/issue-8/runtime-assessment.md; exact ordered
 External checks are in ../verification/issue-8/operator-checklist.md. Neither
 document asserts that a native run happened.
+
+## Approved #109 adaptation — 2026-10-15
+
+Producer explicitly approved: “Approved—adapt #8 to the accepted #109 path
+for Studio 21.1.1.” Reuse accepted source8ef9f864's immutable attestation,
+hash-bound release/menu launcher, injected API, exact version/build gate,
+new-target authorization, per-stage rehash and current-target UID guards.
+Split #8's native graphics mapping/placement/readback into a standard-library
+module; keep schema/OTIO/media verification in locked external preparation.
+The graphics handoff pins both the full Studio envelope and its internal
+transport attestation. Extend the native inventory check only to account for
+the exact deterministic template bin and seed IDs, never arbitrary extra media.
+Retain #109's existing non-graphics behavior and unchanged accepted tests.
+
+Owned surfaces: #109 runtime/CLI/launcher and accepted regression tests newly
+integrated on this baseline, the lazy verifier import in studio_spike, new
+#8 runtime/handoff/CLI and issue-owned tests/docs. No new dependency, schema,
+generated type, frozen fixture/golden, accepted assertion, authored template
+or package asset change. The original external API path retains its old guards.
+The injected path permits exact21.1.1/10 as a qualification candidate, not an
+EV24 acceptance claim. Operator-owned installation/preferences/menu launch,
+fresh real native64/120matrix and changed-build isolation, visual/render
+acceptance and final reviewed-source full gate remain required.
+
+Checks: test-first stale/missing/full-envelope and transport identity,
+authorization/unsupported-version/target-switch refusal, stdlib-only release,
+reproducibility/tamper/relaunch isolation, complete regular+template inventory,
+mapping/graph/use/range/readback persistence; preserve existing #109 tests.
+Then focused/fast checks, adversarial Claude delta review and fixes, serial
+affected slow checks and complete local full gate after explicit slot release.
+No installation, preference mutation, production project mutation, browser
+lifecycle, custom badges, merge or deployment is authorized by this approval.
