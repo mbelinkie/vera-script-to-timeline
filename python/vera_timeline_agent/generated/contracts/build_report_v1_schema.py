@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 from . import script_document_v1_schema, timeline_manifest_v1_schema
 
@@ -34,6 +34,8 @@ class EventBuildResult(TypedDict):
     trackKind: timeline_manifest_v1_schema.TrackKind
     recordRange: timeline_manifest_v1_schema.FrameRange
     message: str
+    graphicMaterialization: NotRequired[Literal["live", "placeholder", "baked"]]
+    manualCompletionRequired: NotRequired[bool]
 
 
 class EntityReference(TypedDict):

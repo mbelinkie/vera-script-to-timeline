@@ -14,6 +14,8 @@ import type {
   BuildReportV1,
   CompilerDependenciesV1,
   EventBuildResult,
+  FusionGraphicEvent,
+  FusionTemplateSource,
   HardCutTransition,
   HostVisibilitySpan,
   ManualCompletionItem,
@@ -25,6 +27,7 @@ import type {
   TimelineManifestV1,
   VisualEvent,
 } from "./generated/contracts.js";
+import { EV24_SETTING_HASH } from "./ev24-lower-third.js";
 import { validateScriptDocument } from "./script-validator.js";
 
 export interface CompileDiagnostic {
@@ -32,6 +35,12 @@ export interface CompileDiagnostic {
   message: string;
   jsonPath?: string;
   entityId?: string;
+}
+
+class CompileFailure extends Error {
+  constructor(readonly code: string, message: string) {
+    super(message);
+  }
 }
 
 export type CompileResult =
@@ -226,7 +235,7 @@ export function compileTimeline(documentInput: unknown, dependenciesInput: unkno
     return compileValidated(document, dependencies);
   } catch (error) {
     return fail({
-      code: "COMPILATION_PRECONDITION_FAILED",
+      code: error instanceof CompileFailure ? error.code : "COMPILATION_PRECONDITION_FAILED",
       message: error instanceof Error ? error.message : String(error),
     });
   }
@@ -309,6 +318,37 @@ function validatePreconditions(document: ScriptDocumentV1, dependencies: Compile
   }
   for (const resolved of dependencies.resolvedVisuals) {
     if (!requiredVisualIds.has(resolved.mediaReferenceId)) diagnostics.push(diag("VISUAL_DEPENDENCY_UNEXPECTED", `Resolved visual ${resolved.mediaReferenceId} is not required by an active ready visual.`, resolved.mediaReferenceId));
+  }
+  const graphicOccurrences = occurrences.filter(({ event }) => event.source.kind === "curated_fusion_graphic");
+  const graphicByRevision = uniqueMap(dependencies.resolvedGraphics ?? [], (item) => item.projectRevisionId, "GRAPHIC_DEPENDENCY_DUPLICATE", diagnostics);
+  if (graphicOccurrences.length > 0 && !dependencies.build.graphicDeliveryTarget) {
+    diagnostics.push(diag("GRAPHIC_DELIVERY_TARGET_MISSING", "Graphic delivery target must be free or studio.", dependencies.build.buildId));
+  }
+  const requiredGraphicRevisions = new Set<string>();
+  for (const { event } of graphicOccurrences) {
+    if (event.source.kind !== "curated_fusion_graphic") continue;
+    const source = event.source;
+    requiredGraphicRevisions.add(source.projectRevisionId);
+    const resolved = graphicByRevision.get(source.projectRevisionId);
+    if (!resolved) {
+      diagnostics.push(diag("GRAPHIC_DEPENDENCY_MISSING", `Pinned graphic revision ${source.projectRevisionId} is unavailable.`, event.id));
+      continue;
+    }
+    if (resolved.projectId !== document.projectId || resolved.packageDigest !== source.packageDigest ||
+        resolved.entryAssetHash !== EV24_SETTING_HASH) {
+      diagnostics.push(diag("GRAPHIC_REVISION_MISMATCH", `Graphic ${event.id} has a cross-project, stale, or hash-mismatched revision.`, event.id));
+    }
+    const badgeIds = new Set<string>();
+    for (const asset of resolved.badgeAssets) {
+      if (badgeIds.has(asset.assetId)) diagnostics.push(diag("GRAPHIC_BADGE_DUPLICATE", `Duplicate badge identity ${asset.assetId}.`, event.id));
+      badgeIds.add(asset.assetId);
+    }
+    if (source.semanticInputs.badgeOverrideAssetId !== null && !badgeIds.has(source.semanticInputs.badgeOverrideAssetId)) {
+      diagnostics.push(diag("GRAPHIC_BADGE_MISSING", `Graphic ${event.id} refers to an unavailable project badge.`, event.id));
+    }
+  }
+  for (const item of dependencies.resolvedGraphics ?? []) {
+    if (!requiredGraphicRevisions.has(item.projectRevisionId)) diagnostics.push(diag("GRAPHIC_DEPENDENCY_UNEXPECTED", `Resolved graphic ${item.projectRevisionId} is not used.`, item.projectRevisionId));
   }
   return diagnostics.sort(compareDiagnostic);
 }
@@ -684,6 +724,41 @@ function compileVisual(
 ): void {
   const { event: authored } = occurrence;
   const resolved = timing.resolver!(authored.range);
+  if (authored.source.kind === "curated_fusion_graphic") {
+    const graphic = authored.source;
+    if (resolved.durationFrames < 64) throw new CompileFailure("GRAPHIC_DURATION_TOO_SHORT", `Graphic ${authored.id} is shorter than the EV24 64-frame minimum.`);
+    const videoTrack = dependencies.tracks.find((track) => track.kind === "video" && track.index === authored.layer);
+    if (!videoTrack) throw new CompileFailure("GRAPHIC_TRACK_MISSING", `Graphic ${authored.id} requires missing video layer ${authored.layer}.`);
+    const dependency = dependencies.resolvedGraphics!.find((item) => item.projectRevisionId === graphic.projectRevisionId)!;
+    const sourceId = stableUuid(`fusion-template:${graphic.projectRevisionId}:${graphic.packageDigest}`);
+    const source: FusionTemplateSource = {
+      id: sourceId, kind: "fusion_template", templateKey: graphic.templateKey,
+      projectRevisionId: graphic.projectRevisionId, packageDigest: graphic.packageDigest,
+      entryAssetHash: dependency.entryAssetHash,
+    };
+    const badgeId = graphic.semanticInputs.badgeOverrideAssetId;
+    const semanticSnapshot = {
+      values: structuredClone(graphic.semanticInputs),
+      badgeAsset: badgeId === null ? null : structuredClone(dependency.badgeAssets.find((asset) => asset.assetId === badgeId)!),
+    };
+    const event: FusionGraphicEvent = {
+      id: authored.id, kind: "fusion_graphic", sourceId, trackId: videoTrack.id,
+      trackKind: "video", recordRange: rangeOf(resolved), anchor: structuredClone(authored.range),
+      timingPrecision: resolved.precision, alignmentVersion: resolved.alignmentVersion,
+      semanticSnapshot,
+      semanticSnapshotHash: sha256CanonicalJson(semanticSnapshot),
+      provenance: { documentId: document.id, blockId: occurrence.ownerBlockId, authoringKind: "visual_event", authoringId: authored.id },
+    };
+    sources.push(source);
+    events.push(event);
+    const free = dependencies.build.graphicDeliveryTarget === "free";
+    results.push({ ...resultFor(event, free ? "placeholder" : "placed", free ? "EV24 graphic requires manual completion in Resolve Free." : "EV24 live graphic planned for Studio; placement is not yet verified."), graphicMaterialization: free ? "placeholder" : "live", manualCompletionRequired: free });
+    if (free) {
+      issues.push(makeIssue("GRAPHIC_MANUAL_COMPLETION", "warning", `EV24 graphic ${authored.id} requires manual completion in Resolve Free.`, "timeline_event", authored.id));
+      manual.push(makeManual("COMPLETE_FUSION_GRAPHIC", "Complete this EV24 graphic manually.", "Place the pinned EV24 revision at the reported track and range, then verify its semantic inputs.", "timeline_event", authored.id));
+    }
+    return;
+  }
   if (authored.status !== "ready") {
     const failed = authored.status === "failed";
     const description = authored.source.kind === "local_media" ? authored.source.label : authored.source.description;
