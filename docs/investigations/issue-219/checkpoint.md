@@ -55,8 +55,11 @@ job before #219 resumed. No new Resolve access is assumed by the host release.
 Queue-time render mode/format restoration was attempted, but after the batch
 the disposable project reported PNG/RGB8 mode 1 rather than its initial MOV/H264
 mode 1. This issue-project difference was disclosed to #8 when releasing access.
-It is not a global preference and must not be restored by touching #8's current
-session. No other agent-changed global setting requires restoration.
+It is not a global preference. #8 subsequently explicitly released exclusive
+Resolve access too; the exact same disposable project was still active and idle.
+MOV/H264 mode 1 was restored, read back and saved, with no project switch and a
+private receipt. The window was released again. No other agent-changed global
+setting requires restoration.
 
 ## Remaining gates
 

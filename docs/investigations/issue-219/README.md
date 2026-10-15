@@ -61,8 +61,10 @@ instance. The supplied font is workstation-only, not bundled. The Probe's render
 batch left the disposable project's selected render format PNG/RGB8 despite
 queue-time restoration; initial selection was MOV/H264, mode 1. This is retained
 as an issue-project setting difference. No global setting was changed by the
-agent; Producer set External Scripting Local. Resolve was released to #8 and
-must not be touched again without an exclusive window.
+agent; Producer set External Scripting Local. After #8 explicitly released
+exclusive Resolve access, the agent verified the exact same project and idle
+renderer, restored MOV/H264 mode 1, read it back and saved a private receipt.
+No project was switched. Resolve access has been released again.
 
 ## Producer checklist (after final review/verification)
 
