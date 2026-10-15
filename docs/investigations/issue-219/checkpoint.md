@@ -1,6 +1,7 @@
 # #219 checkpoint — 2026-10-15
 
-This is unfinished investigation evidence; review and verification remain pending.
+Automated/external evidence and adversarial review are retained. Producer
+acceptance of the proposed contract and restoration choice remains pending.
 
 Producer authorized exclusive live work and coordination with #8. After initial
 connector failure, Producer opened the issue-owned disposable project and set
@@ -80,9 +81,16 @@ supersede this provenance limitation. Adversarial Claude CLI
 review of 15e10e2 returned GO with no blockers; its nonblocking documentation
 findings were corrected; delta review of cb3d6fe also returned GO with no blocking
 findings. Its final suggested wording correction is applied above. Applicable final verification
-under accepted main policy; short
-Producer contract/visual checklist. Free remains untested/unavailable. #167's
+under accepted main policy completed exit0 on clean `5ae5e34`, with 1,145 Python
+tests, 464 contract, 1 tooling, 6 progress, 23 roadmap and 32 cloud-evidence tests,
+plus generated-currentness/lint/type/format checks. All 7,003 tracked input hashes
+matched the pre-run inventory after completion. Full log SHA-256:
+`45ad08ea007e356da756239ff91b96db0b63c63ac034cc3245c99e1546660d5e`.
+The 15-minute timer is paused; no validation/media process remains.
+
+The numbered Producer contract/visual/restoration checklist is in README.md.
+Free remains untested/unavailable. #167's
 positive target prerequisite and production runtime are not qualified.
 
-The current active-work forecast is 1–2 hours with moderate confidence, excluding
-full-suite runtime and Producer review. Main uncertainty is review findings.
+Agent preparation is complete; remaining work waits on the explicit Producer
+judgments. The issue stays In review and is not closed by this agent report.

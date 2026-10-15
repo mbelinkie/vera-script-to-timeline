@@ -10,6 +10,13 @@ bytes, raw readback or render images. The local private entry point is the
 worktree's ignored `out/issue-219/PRIVATE-INDEX.md`; preserve that directory with
 this worktree for Producer review. Do not upload it.
 
+Final automated verification and adversarial review passed. The full gate tested
+clean commit `5ae5e34fd3594071865974d25afc4975bf878972`; exact counts/tool versions,
+log digest and source inventory digest are in [final-validation.json](final-validation.json).
+Initial and delta Claude reviews returned GO with no blockers; limitations and
+dispositions are in [review-disposition.md](review-disposition.md). Remaining
+acceptance is the numbered Producer checklist below, including restoration choice.
+
 ## Reproducible checks
 
 From the repository root, using its locked tools:
@@ -79,7 +86,7 @@ in the disposable project; restoring MOV/H264 is an open operator step. Do not
 relaunch or switch projects solely to hide this difference. Global settings and
 rendered proof are unaffected.
 
-## Producer checklist (after final review/verification)
+## Producer acceptance checklist
 
 1. Open the contract proposal and exact target manifest. Confirm the selected
    Table hash, supplied asset authorship/rights and locally licensed **ITC
@@ -112,6 +119,5 @@ rendered proof are unaffected.
    render-format restoration is <completed / accepted as retained difference>.`
    Or: `FAIL #219 — step <number>: <mismatch or required decision>.`
 
-The issue remains open until real evidence, required review/verification and
-explicit Producer judgment are retained. Do not use this draft checklist as a
-claim those remaining gates are already complete.
+The issue remains In review until explicit Producer judgment is retained.
+Passing this probe does not accept #167's compiler/runtime or broader templates.

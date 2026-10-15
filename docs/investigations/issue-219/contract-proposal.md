@@ -128,7 +128,8 @@ touching boundary is continuation, not contradiction.
 | Private receipt/render index | Retained; local operator entry point in README |
 | Interpolation/transitions | Unsupported; only stepped states tested |
 | Other datasets, rows, durations, frame rates, versions | Unqualified; fail closed for this fixed profile |
-| Review, final validation and Producer judgment | Pending; no acceptance inferred |
+| Review and final validation | Initial/delta Claude GO; final local full gate exit0 on 5ae5e34; see final-validation.json |
+| Producer judgment | Pending target/rights/font/visibility/restoration choices; no acceptance inferred |
 
 72/72 Deliver PNG jobs completed. All 28 hold-frame samples per run have expected
 red-band presence/absence for Alpha/Beta/Gamma; eight authored endpoints per

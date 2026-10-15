@@ -27,5 +27,13 @@ output SHA-256 `92c8ca0cb95b4e5102de6afcfd35d3d242927352b4c99252cf3d00d07216b7b5
 It recommended replacing the unsupported fast-input-equivalence sentence with
 an explicit limitation. That exact correction is applied; no equivalence to
 the candidate is claimed for the earlier fast pass. Final full evidence on the
-clean committed candidate is still required. Producer
+clean committed candidate passed: `5ae5e34`, exit 0, exact receipt in
+`final-validation.json`. All tracked inputs remained hash-identical throughout
+the run. Post-gate changes only add this evidence and update nonconsumed Markdown
+status/checklists; probe, manifest, tests, settings and runtime inputs are unchanged.
+These documents/JSON are not generator inputs (contracts schema paths), JS lint
+inputs (scripts and workspace src/test), Python lint source, mypy inputs
+(`python tests`), pytest inputs (`tests`), or dashboard/roadmap configuration.
+Doc link/privacy/whitespace and frozen-boundary checks cover the evidence update;
+no new full run is needed under the accepted verification policy. Producer
 rights/font, target contract and restoration judgments remain separate gates.
