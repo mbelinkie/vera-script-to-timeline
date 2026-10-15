@@ -494,3 +494,33 @@ The next necessary native evidence is one fresh explicitly authorized named
 disposable diagnostic build with before/after settings witnesses, keeping the
 original failed target unchanged and all verification checks intact. Such
 diagnostic execution is not acceptance or permission to weaken graph identity.
+
+### Second-target diagnostic prepared; review and host exclusion pending
+
+Producer approved `yes prepare build` for exact overrides-64 target
+`VERA Delivery 88000000-0000-4000-8000-000000000002 d859f645132f`.
+Private diagnostic build request hash075b7569fc2b2309c2fc51a1c88b333ad59122942f60c2bf552706287ddabc2f
+is prepared, with existing full-envelope attestation and source-equivalent
+installed release. No installed request/release or production code was changed.
+Private script `out/issue8/diagnostic-overrides-64.py` temporarily observes only
+the two existing production fingerprint calls, one raw SaveSettings read per
+call, hashes those same tables with the original helper and returns unchanged
+hashes. Witnesses record before-save/after-reopen settings; the separate index
+is diagnosticOnly/acceptancefalse. The old failed target cannot be used as the
+current origin; fresh interpreter, exact authorization/runtime/source guards,
+no-active-render and one-shot private evidence guards apply. Native work runs
+only through the unchanged audited injected request runner.
+
+Fake-boundary safety harness exit0 (no live API/native evidence writes), Ruff
+pass and CPython3.14 -B -S stdlib-only load/no-auto-run pass. Original captured
+graph mismatch stays a mismatch through the observer. Safety review33462 is
+running read-only (Read/Grep/Glob only, no commands/edits/native/other agents),
+log `out/issue8/claude-diagnostic-capture-review.txt`. Do not edit its candidate
+or infer a GO. Exact script/request/check hashes and pending safety follow-up
+are in `out/issue8/diagnostic-overrides-64-preparation.json`.
+
+An actual full validation process61160 belongs to #219's fa5b worktree. No
+competing #8 heavy check or native action was started. The coordinator record
+was stale8ownership; it is not permission to compete. Operator execution is
+not yet ready: retain review outcome/fix/delta evidence and wait for actual
+host release. This is preparation only, not graph qualification or acceptance.

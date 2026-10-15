@@ -215,3 +215,28 @@ missing/altered identity rejection and prepared-build source invalidation.
 After red/green evidence: affected regression, fast gate, narrow Claude delta
 review, then fresh complete local validation. Native/visual/operator gates
 remain separate and pending.
+
+## Authorized graph-persistence diagnostic preparation
+
+After the first native build failed exact graph persistence, the Producer
+approved one fresh diagnostic build with `yes prepare build`: the unused
+overrides-64 target ending `000000000002 d859f645132f`. Preserve the failed
+standard-64 target unchanged. No verification normalization or compatibility
+exception is approved. Use the identical installed/runtime package and audited
+request/UID/stage guards; a private one-off observer records the same raw table
+and hash at each existing fingerprint call, taking no extra native read and
+returning the original hash unchanged. Restore the function binding afterward;
+keep native result and diagnostic-only witness index separate.
+
+Owned diagnostic surfaces: new private script, immutable target-specific build
+request, private evidence and safety harness; no source/test/contract/fixture/
+template/asset/lock changes or dependencies. Local fake-boundary checks and
+CPython3.14stdlib-only loading plus narrow adversarial Claude safety review
+precede any operator run. Complete existing automated evidence remains valid
+for unchanged product bytes, not proof that the diagnostic succeeded natively.
+Do not start native diagnostics during #219's competing full validation. Once
+review/host exclusion are satisfied, the operator restarts Resolve, opens the
+original separate saved disposable current project/timeline and uses Python3
+Console for this one-off capture; no external-scripting connection, preference
+mutation, production-project effect or old-target repair. Diagnose the actual
+before/after diff before any proposed production repair and its fresh checks.
