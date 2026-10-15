@@ -728,3 +728,48 @@ native/network/MCP/agents. Preserve its candidate while live, retain actual
 exit/verdict/full log, fix findings/delta-review if needed, then new full gate
 under serial capacity policy. No new full has started; prior644full is not
 equivalent to this code change. No installation or Resolve operation occurred.
+
+### Graph persistence delta review GO; fresh full gate next
+
+Read-only Claude46967 completed with durable exit0 and GO, no blocking defects.
+Full log claude-graph-persistence-review.txt SHA256
+`7227e20720fd04524770fc1f63578e3b864ebf8ad1b1b63efd07561222e6bad0`;
+exit receipt SHA256
+`3edd82d4e49f89c30270dee752ac018539f4dc6848d7a33b1553404e6f8b58af`.
+Review prompt SHA25645646caa172cd71cfe8038f5402a96b69fea87b1c6906097dddc7b7797353d70;
+exact code/test diff SHA25615de27c9b648292609985f8be9dfdb691b00ada1166aefcf3f561baea6ed9def.
+It confirms exact paths/types/sign/keysets, collision refusal, one read/no
+mutation and unchanged placement/reopen/native guards. No production/test fix
+was requested or made. Optional swapped-flag negative test is deferred: the
+per-path exact integer comparisons already reject those values by inspection.
+Review did not execute tests/recompute hashes or qualify native/visual behavior.
+
+Closed the nonblocking replay evidence-binding gap by rerunning the SAME
+reviewed private replay, with an outer command asserting the imported runtime's
+resolved path, exact SHA256, actual source commit and unchanged replay SHA256
+BEFORE execution. Log graph-persistence-bound-witness-replay.log exit0 SHA256
+`ef23247031db9e56ad9713ecbb875760e5a622be6d28a8036024316ba8585409`.
+It names actual runtime7b403b76..., replay7e3d9c23..., commit ecbfbc274cb9cbb033f03fd5d8d2915ac472bc70
+and again passes actual witness/raw-hash verification and corrected equality.
+No replay/product/test source changed; no extra code delta requires review.
+All prior failed/raw/native evidence remains retained.
+
+Fresh frozen audits against7cb942e/4e31565/8ef9f864 exit0. The only tracked
+post-fast change was the evidence CHECKPOINT append; all source/test/config/
+locks/contracts/fixtures match the reviewed/fast-tested state. This checkpoint
+adds review evidence before a NEW full run, so final full will cover the exact
+recorded candidate rather than assuming documentation is unconsumed.
+Lock/input SHA256: package-locke615667b1bcbea53bb34c4db11a6ca6a2745fae5edac6538ff87d3fdfe35d7b8;
+uv.lockf950bcda5d522d83b28b08f57783b8056e9bfbf7fadf6254215746e3a350cde2;
+pyproject2c1e979ebf89b25336bfdef64d8bb855513c4171048e47cf7eeb593065329069.
+
+New run-graph-persistence-full.sh passes shell syntax check; its NEW full log/
+exit receipt paths are absent. Runner SHA256
+`77103de0402fd8bfd4c21127cb6a33d54247983815121cd6a70de90c37df15db`.
+Only launch after final competing-job exclusion on #219's explicitly released
+capacity, record exact clean commit/tree and runtime profile in private state,
+then use the existing timer. Do not poll, edit source or start competing work.
+No new full result, installation, preference mutation, native/visual acceptance
+or #8 closure is asserted. Both failed targets and old installed menu request
+remain unchanged. The review's unrelated startup settings warning is retained
+verbatim, not followed as an instruction or used to alter global settings.
