@@ -13,6 +13,8 @@ this worktree for Producer review. Do not upload it.
 ## Reproducible checks
 
 From the repository root, using its locked tools:
+`rtk` and `ctx-wire` are workstation output wrappers; the commands they wrap
+are the reproducible checks and need no repository dependency change.
 
 ```sh
 rtk proxy ctx-wire run uv run --frozen python -m unittest discover -s docs/investigations/issue-219 -p test_probe.py
@@ -55,6 +57,14 @@ project or rerun an ambiguous mutation. Do not install globally.
    never evidence of rendered capability. The probe rejects graph/control/type,
    source/data/manifest mismatches and conflicting/unknown target schedules.
 
+Live graph/control inspection runs after disposable import/output setup and
+before control/state writes. A mismatch leaves a refused scratch timeline;
+the pure flag tests are not injected live graph-mismatch tests. Run A used the
+earlier batch preparer, Run B the single-case preparer, with identical `CASES`
+and writes. Both are separate imports in one project/session and one render batch.
+Run A's pre-refactor code hash is missing; current readbacks and pixel comparison
+verify its retained output rather than claiming identical preparer binaries.
+
 No source template was rebuilt, installed or edited. Import adds only the
 accepted MediaOut connection and native keyframing modifier to each local
 instance. The supplied font is workstation-only, not bundled. The Probe's render
@@ -87,12 +97,19 @@ rendered proof are unaffected.
    readback remains Beta. Confirm the proposed visibility/state distinction.
    Review the private analysis report: all 36 Run A/Run B decoded RGB pairs
    match, and reopen/post-render readbacks agree. This is sampled-frame proof.
-5. Confirm Free is untested/unavailable with explicit manual/blocked treatment;
+5. Account for the still-open disposable-project render-format restoration:
+   last observed PNG/RGB8 mode 1, initial MOV/H264 mode 1. The attempted restore
+   never ran because Resolve was closed. In a later exclusive window, open only
+   the private index's exact issue-owned project and restore/read back MOV/H264
+   mode 1, or explicitly accept this retained disposable-project difference.
+   Never switch or alter another task's project. Record which choice you make.
+6. Confirm Free is untested/unavailable with explicit manual/blocked treatment;
    no production compiler/runtime, general dataset identity, other template,
    duration/frame rate or edition is qualified. Then reply:
    `ACCEPT #219 — I accept the pinned Table synthetic target contract and its
    sampled Studio evidence, including fixed position bindings, conservative
-   invalidation, stepped states, authored-exit visibility and stated limits.`
+   invalidation, stepped states, authored-exit visibility and stated limits;
+   render-format restoration is <completed / accepted as retained difference>.`
    Or: `FAIL #219 — step <number>: <mismatch or required decision>.`
 
 The issue remains open until real evidence, required review/verification and

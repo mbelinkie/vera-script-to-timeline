@@ -48,10 +48,20 @@ Only these two IDs are addressable. Gamma is a base-state visual control.
 Any dataset edit, reorder, row addition/removal or label change invalidates this
 entire mapping; reject before mutation until a separately reviewed manifest
 revision explicitly binds the new dataset. Never repair identity by label match
-or silently move a target. Target rename/removal, unsupported ID/state,
-graph/control/type mismatch or wrong template/data/manifest digest also refuses
-before application mutation. This deliberately conservative scope proves no
+or silently move a target. Target rename/removal, unsupported ID/state or wrong
+template/data/manifest digest refuses before disposable setup. A live imported
+graph/control/type mismatch refuses before any control/state write; disposable
+timeline/clip/import/MediaOut setup has already occurred and remains as a refused
+scratch timeline. This deliberately conservative scope proves no
 general data-reorder identity system.
+
+The pinned manifest's shorthand “before mutation” means before semantic control
+assignment for live-discovered graph/type mismatches, not before import/setup.
+Its historical status string still says awaiting render; current evidence is
+recorded here without changing the tested manifest pin. The unit tests exercise
+pure refusal flags, not mocked versions of the actual live graph inspector.
+Actual live graph inspection has positive runtime coverage, but no injected
+live mismatch test; do not present the flags as that stronger proof.
 
 ## Trusted binding proposal
 
@@ -111,7 +121,7 @@ touching boundary is continuation, not contradiction.
 | Static independent targets and aggregate overlap | Actual Studio readback and rendered row-band checks passed |
 | Discrete timed changes and exact frame boundaries | Native modifier readback and rendered samples passed at listed boundaries |
 | Deterministic reset and continuation | Rendered base restoration at 96/120; continuation has no base flash at 72 |
-| Save/reopen and identical repeat | Both fresh runs retain all four schedules after reopen and render; 36/36 matching decoded RGB frame pairs identical |
+| Save/reopen and identical repeat | Separate imports in the same project/session retain all four schedules after reopen and one render batch; 36/36 matching decoded RGB frame pairs identical |
 | Studio baseline | Actual DaVinci Resolve Studio 21.1.1 build 10 on macOS |
 | Free | Untested/unavailable; explicit manual completion or blocked use. No substitute or baking claim. |
 | Rights/fonts | Producer-supplied authored asset; exact Table use/font assumptions need final Producer confirmation; no distribution approval inferred from #12 |
@@ -126,6 +136,14 @@ paired set are black at frame 0 or 239. Matching PNG file bytes differ only in
 the ICC profile creation timestamp; decompressed pixel bytes are identical.
 The start-only state remains `2` at frame 239 in control readback while authored
 exit makes that frame black. State lifetime does not override authored visibility.
+
+Run A was prepared by the earlier four-case batch version of `prepare`; Run B
+used the later single-case-call version. Both used the same hardcoded `CASES`
+and state-write sequence. The exact pre-refactor Run A script hash was not
+retained. Current-code readbacks before/after reopen and after render independently
+confirm both resulting instances, and the rendered comparison is over those
+instances. This is a repeat over identical inputs, not independent projects,
+fresh application launches or identical preparer binaries.
 
 This is exact sampled-frame evidence, not a claim to have inspected every frame,
 played a continuous movie, or proved subframe interpolation. All raw images,

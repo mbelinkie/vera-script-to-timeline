@@ -17,7 +17,7 @@ has changed no global preference or installed template.
 - Direct timed SetInput without a modifier collapses to a constant; native
   BezierSpline attachment supplies stepped Text-output animation. This distinction
   is retained rather than assuming all time-argument calls create animation.
-- Two independent runs each contain sequential, explicit start-only,
+- Two repeated sets of fresh imports in the same project/session each contain sequential, explicit start-only,
   disjoint-overlap and same-target-continuation schedules. Every listed sample,
   dataset and exact 240-frame placement survives project save/reopen.
 - Nine focused refusal checks pass under locked Python 3.12.14 and runtime
@@ -35,6 +35,12 @@ The first four-case API batch exceeded its 60-second tool timeout while it
 continued executing. All four private receipts were subsequently found and all
 timelines verified, then saved/reopened. It was not rerun. The public probe now
 creates only one fixed case per short bridge call and refuses existing cases.
+Run A's pre-refactor preparer hash is not retained; Run B used the later
+single-case preparer with the same CASES and writes. Current-code verification
+and rendered equality cover the retained instances, not equal preparer binaries.
+
+Live graph/type mismatch checks run after disposable setup and before semantic
+control writes. Unit refusal flags do not exercise the live inspector itself.
 
 ## Render checkpoint
 
@@ -65,8 +71,14 @@ No other agent-changed global setting requires restoration.
 
 ## Remaining gates
 
-Fast validation; adversarial Claude CLI review of final work/evidence and
-dispositions; applicable final verification under accepted main policy; short
+Fast validation completed exit0 with 651 Python, 464 contract, 1 tooling,
+6 progress, 23 roadmap and 32 cloud-evidence tests plus lint/types/generated checks.
+It ran on 8872434 plus working-tree changes, not on the later candidate commit.
+Only nonconsumed documentation changed during it; final full evidence on the
+reviewed tree will supersede this provenance limitation. Adversarial Claude CLI
+review of 15e10e2 returned GO with no blockers; its nonblocking documentation
+findings are being corrected for delta review. Applicable final verification
+under accepted main policy; short
 Producer contract/visual checklist. Free remains untested/unavailable. #167's
 positive target prerequisite and production runtime are not qualified.
 

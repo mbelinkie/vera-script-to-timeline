@@ -18,8 +18,9 @@ the [current checkpoint](../investigations/issue-219/checkpoint.md).
 
 Propose and test a per-revision semantic target mapping for one unchanged
 Producer-supplied Fusion template. Inspect at most three concrete revisions.
-Use a frozen synthetic dataset and a hardcoded schedule, with refusal checks
-before application mutation. The selection is installed EV24 Table, subject to
+Use a frozen synthetic dataset and a hardcoded schedule, with pure refusal checks
+before setup and live graph/type checks after import but before semantic writes.
+A live mismatch retains a refused disposable timeline. The selection is installed EV24 Table, subject to
 actual timing capability proof; multiple static highlights alone do not qualify it.
 
 Deliverables: proposed contract, support/refusal matrix, reproducible issue-owned
