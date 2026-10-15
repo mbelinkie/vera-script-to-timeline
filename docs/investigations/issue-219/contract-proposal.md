@@ -1,6 +1,7 @@
 # #219 — provisional Table target contract
 
-Unaccepted proposal. Studio readback, save/reopen and rendered boundary/repeat
+Producer-accepted per-revision proposal; see producer-acceptance.md.
+Studio readback, save/reopen and rendered boundary/repeat
 checks have passed for the subset below. This document adds no shared wire schema or
 production behavior. The issue-owned machine-readable target manifest is
 [`target-manifest.json`](target-manifest.json), exact file SHA-256
@@ -129,7 +130,7 @@ touching boundary is continuation, not contradiction.
 | Interpolation/transitions | Unsupported; only stepped states tested |
 | Other datasets, rows, durations, frame rates, versions | Unqualified; fail closed for this fixed profile |
 | Review and final validation | Initial/delta Claude GO; final local full gate exit0 on 5ae5e34; see final-validation.json |
-| Producer judgment | Pending target/rights/font/visibility/restoration choices; no acceptance inferred |
+| Producer judgment | Explicit target/rights/frame-review approval; retained render-format difference accepted; see producer-acceptance.md |
 
 72/72 Deliver PNG jobs completed. All 28 hold-frame samples per run have expected
 red-band presence/absence for Alpha/Beta/Gamma; eight authored endpoints per

@@ -15,7 +15,9 @@ clean commit `5ae5e34fd3594071865974d25afc4975bf878972`; exact counts/tool versi
 log digest and source inventory digest are in [final-validation.json](final-validation.json).
 Initial and delta Claude reviews returned GO with no blockers; limitations and
 dispositions are in [review-disposition.md](review-disposition.md). Remaining
-acceptance is the numbered Producer checklist below, including restoration choice.
+acceptance is recorded in [producer-acceptance.md](producer-acceptance.md).
+The Producer approved the contract/rights and frame-review items and explicitly
+accepted the retained PNG render selection; no restoration is required.
 
 ## Reproducible checks
 
@@ -82,7 +84,8 @@ agent; Producer set External Scripting Local. After #8 explicitly released
 exclusive Resolve access, restoration was attempted, but the bridge reported
 Resolve closed and no mutation ran. An initial completion message/commit was
 incorrect and is superseded here. PNG/RGB8 remains the last observed selection
-in the disposable project; restoring MOV/H264 is an open operator step. Do not
+in the disposable project. The Producer explicitly accepted that difference;
+restoring MOV/H264 is no longer required. Do not
 relaunch or switch projects solely to hide this difference. Global settings and
 rendered proof are unaffected.
 
@@ -119,5 +122,5 @@ rendered proof are unaffected.
    render-format restoration is <completed / accepted as retained difference>.`
    Or: `FAIL #219 — step <number>: <mismatch or required decision>.`
 
-The issue remains In review until explicit Producer judgment is retained.
+The Producer judgments below were accepted; see producer-acceptance.md.
 Passing this probe does not accept #167's compiler/runtime or broader templates.

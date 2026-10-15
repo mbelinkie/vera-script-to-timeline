@@ -1,7 +1,8 @@
 # #219 checkpoint — 2026-10-15
 
 Automated/external evidence and adversarial review are retained. Producer
-acceptance of the proposed contract and restoration choice remains pending.
+acceptance of the proposed contract and retained render-format choice is recorded
+in producer-acceptance.md. No restoration is required after explicit acceptance.
 
 Producer authorized exclusive live work and coordination with #8. After initial
 connector failure, Producer opened the issue-owned disposable project and set
@@ -92,5 +93,5 @@ The numbered Producer contract/visual/restoration checklist is in README.md.
 Free remains untested/unavailable. #167's
 positive target prerequisite and production runtime are not qualified.
 
-Agent preparation is complete; remaining work waits on the explicit Producer
-judgments. The issue stays In review and is not closed by this agent report.
+Agent preparation and explicit Producer judgments are complete. Closure follows
+the retained external evidence and Producer acceptance, not an agent self-report.

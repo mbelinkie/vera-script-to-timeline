@@ -2,7 +2,8 @@
 
 Status: ready for Producer review; Studio readback, reopen and rendered
 boundary/repeat checks passed for two repeated sets of imports in one project.
-Initial/delta Claude GO and final full validation passed. Acceptance remains pending. See
+Initial/delta Claude GO and final full validation passed. Producer acceptance
+is recorded in the issue-owned producer-acceptance.md. See
 the [current checkpoint](../investigations/issue-219/checkpoint.md).
 
 ## Ownership and baseline
