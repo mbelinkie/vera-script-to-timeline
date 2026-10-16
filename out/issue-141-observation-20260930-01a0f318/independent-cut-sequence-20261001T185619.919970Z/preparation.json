@@ -1,0 +1,87 @@
+{
+  "case": "R2-picture",
+  "directory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T185627.214629Z",
+  "environment": {
+    "productName": "DaVinci Resolve Studio",
+    "python": "3.14.7",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "failure": null,
+  "journal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T185627.214629Z/journal.jsonl",
+  "menuCommandDispatched": false,
+  "originalLocks": {
+    "audio:1": false,
+    "audio:2": true,
+    "audio:3": true,
+    "video:1": false,
+    "video:2": true,
+    "video:3": true
+  },
+  "originalPage": "edit",
+  "originalPlayhead": "00:00:00:00",
+  "playheadAfter": "00:02:22:10",
+  "preparedPair": {
+    "path": "editorial-case-20261001T185627.214629Z/after.json",
+    "sha256": "4d21b54fa3fa855ee65a9d8af54a3be206927b6cafa87af7dc979d92ae4f3329"
+  },
+  "priorPair": {
+    "path": "producer-matrix-selection-20261001T183030.414033Z/after-pair.json",
+    "sha256": "59d4b9bde36af0c0a2c06a126f426fefd1e6dd1a76ddbf562574e70b535ff2b0"
+  },
+  "protectedTracks": [
+    [
+      "video",
+      2
+    ],
+    [
+      "video",
+      3
+    ],
+    [
+      "audio",
+      1
+    ],
+    [
+      "audio",
+      2
+    ],
+    [
+      "audio",
+      3
+    ]
+  ],
+  "saveDispatched": false,
+  "setters": [
+    "SetClipsLinked",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetCurrentTimecode"
+  ],
+  "status": "case-prepared",
+  "target": {
+    "endFrame": 3699,
+    "frameRate": 25,
+    "sourceUids": {
+      "audio": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+      "video": "9202163a-8381-43e6-9157-3a60f35c6f79"
+    },
+    "splitPlayheadFrame": 3560,
+    "splitPlayheadTimecode": "00:02:22:10",
+    "startFrame": 3500,
+    "targetTrack": "video",
+    "uids": {
+      "audio": "55229fb5-7478-47c9-984f-613cec35afb1",
+      "video": "381ff8e1-62dd-49c9-9745-7ad3984ee52a"
+    },
+    "unlinkPrepared": true
+  }
+}

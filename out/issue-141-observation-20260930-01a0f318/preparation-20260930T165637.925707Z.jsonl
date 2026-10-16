@@ -1,0 +1,4 @@
+{"at": "2026-09-30T16:56:37.948547+00:00", "method": "CreateProject", "phase": "request", "value": ["VERA Issue 141 Synthetic Probe 20260930-01a0f318"]}
+{"at": "2026-09-30T16:56:39.366646+00:00", "method": "CreateProject", "phase": "return", "value": {"GetName": {"value": "VERA Issue 141 Synthetic Probe 20260930-01a0f318"}, "GetUniqueId": {"value": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0"}}}
+{"at": "2026-09-30T16:56:39.409435+00:00", "method": "SetSettings", "phase": "request", "value": [{"timelineFrameRate": "25", "timelineResolutionHeight": "1080", "timelineResolutionWidth": "1920", "timelineSampleRate": "48000"}]}
+{"at": "2026-09-30T16:56:39.423676+00:00", "method": "SetSettings", "phase": "return", "value": true}

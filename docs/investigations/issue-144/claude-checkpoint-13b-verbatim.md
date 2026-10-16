@@ -1,0 +1,35 @@
+# Claude checkpoint13b — verbatim
+
+Read-only14turns; no errors or permission denials. Static review only.
+
+## Checkpoint 13b review — finished host driver, WI delta, synthetic walkthrough, runbook/matrix
+
+**Read in full:** `roundtrip_driver.py`, `roundtrip_wi.py` (re-read for the WI13a delta), `test_issue144_driver.py`, `issue144_wi_fixture.py`, `issue144_wi_demo.py`, `test_issue144_wi_flow.py`, `operator-runbook.md`, `seam-matrix.md`; targeted checks of `roundtrip_build.py` (`CODE_PATHS`), `issue144_composition_fixture.py`'s `setup()` signature, and `studio_spike.py`'s `_project_settings`/`configure_tracks` to independently verify the WI13a delta claims against real assembly behavior. Not re-read in full this turn (unchanged, per prior full reviews): `roundtrip_proof.py`, `roundtrip_generation.py`, `roundtrip_omission.py`, `roundtrip_native.py`.
+
+### Blockers
+None found.
+
+### Verification of the specific risks you asked me to challenge
+
+**WI13a delta — does it hide unmanaged state, weaken identity, or violate accepted boundaries? No, on all three.**
+- `timelineSampleRate`: independently confirmed against `studio_spike._project_settings()` (`studio_spike.py:1274`), which sets the identical key. The getter now matches the accepted setter.
+- Max-managed-index + empty-slot handling (`roundtrip_wi.py:195-219`): independently confirmed against `studio_spike.configure_tracks` (`:611-635`), which really does call `AddTrack` up to the highest declared index without naming intermediate ones — so the "audio1/audio3 → observed audio2" scenario is real, not hypothetical. The fix is strictly *more* strict than before: every gap index is now actually read (`GetTrackName`/`GetItemListInTrack`) and required empty (`:216-218`), where previously the mismatch would have simply refused outright with less diagnostic value. It cannot hide an unmanaged route — a non-empty gap still refuses (`"unmanaged intermediate native slot is not empty"`).
+- Marker integer-key normalization (`:308-312`): this fixes a real false-positive class (JSON round-tripping silently turns int keys into strings, so an unmodified `markers` dict would wrongly fail `current == before` after any disk round-trip). Normalizing at the read boundary and converting back to int only in `inspect_native`'s output (`:624`) closes exactly that gap without weakening the equality check — `perform`'s `before`/`current`/`after` comparisons still cover the full dict including `emptySlots` and `markers`.
+
+**Driver trust/order regression ("changed-module execution before retained binding") — confirmed genuinely fixed, not just claimed.** Traced `session_with_boundary` (`roundtrip_driver.py:66-92`): hash-verify → retained-binding-check → `exec()`, in that order. Directly confirmed by `test_pinned_boundary_replay_and_change_refusal` (`test_issue144_driver.py:34-61`), which rewrites the boundary file to one that would write a marker on execution, supplies its new (legitimately matching) hash, and asserts the marker never appears and `operator-boundary.json` is untouched. `test_bad_boundary_hash_does_not_execute_module` and `test_unqualified_real_lane_does_not_become_native_success` independently confirm a hash-mismatch never executes, and that labeling a request `real_issue145` with no native boundary produces no baseline/intent artifacts at all.
+
+**Synthetic demonstration fidelity.** Traced `issue144_wi_fixture.py`'s `GraphStudio`: every getter (`GetTrackCount`, `GetItemListInTrack`, `GetMarkers`, item geometry) reads from state populated exclusively by `configure_tracks`/`place_events`/`add_marker` — the same calls `NativeStages` makes during real assembly — never from the manifest parameter. Confirmed via `test_issue144_wi_flow.py`'s assertions: picture-only cut refuses with pointer/provider/decisions untouched (`:114-117`); the accepted bundle produces exactly one provider request, two fresh native targets each created exactly once, six total link calls (3 pairs × 2 targets — confirming each fresh target independently re-establishes its own proof-link setup rather than inheriting trust), stable replay across decide/generate/rebuild/promote, and the four original build-input files remain byte-identical throughout. The canonical comparison was verified to actually contain before/after text, OC/VO span labels, and visual anchor/audio-policy annotations, not just a hash.
+
+**Runbook/matrix accuracy.** Cross-checked the numbered runbook against the actual code/tests; I did not find a discrepancy between what it describes and what the code does.
+
+### Notable item — already correctly handled, worth sharpening for the Producer
+The runbook (`operator-runbook.md:88-93`) and seam matrix (`seam-matrix.md:102-105`) both already explicitly name the duration-cap tension you flagged: at 25fps/48kHz the existing `MAX_SAMPLES = 3,000,000` bound (unchanged, in `roundtrip_audio.py`) permits at most 1562 complete frames = 62.48s, and both docs correctly declare a longer programme a named blocker rather than silently truncating, padding, or expanding the cap. I independently verified the arithmetic (1562×1920 = 2,999,040 ≤ 3,000,000; 1563×1920 would exceed it). One clarification worth adding explicitly: this means only the bottom ~2.5 seconds of the nominal "60–120s" #148 range is actually usable under the current harness — #148 should be told to target something close to 60s, not treat the full 60–120s window as viable, to avoid preparing a snapshot that's automatically blocked.
+
+### Carried-over non-blocking note from checkpoint 13a — now resolved/moot
+I'd previously flagged that the PCM-extent Fraction math (`roundtrip_wi.py:956-962`) could refuse legitimate renders at non-integer-samples-per-frame rates (e.g., NTSC 29.97fps) unless duration is a multiple of 5 frames. Given both the runbook and seam matrix now explicitly declare the bounded profile as 25fps-only, this is moot for the declared scope — flagging only so it isn't silently assumed to generalize if a different frame rate is ever proposed.
+
+### Distinguishing harness defects from honest #145/#148 blockers
+Everything closed in this review is #144 harness correctness (driver trust order, WI getter fidelity, empty-slot/marker fixes, synthetic walkthrough). Everything still open — complete mixer/route/FX/control reader, independent source-word supports, calibration, renderer, provider, and the one-build all-three qualification itself — is explicitly and consistently named as a #145 gate in both the runbook and seam matrix, not silently narrowed or defaulted. I found no case where a boolean, relabeling, or synthetic result could be mistaken for live qualification.
+
+### Verdict
+No blocking harness defects found. #144 can proceed to identified-commit full validation once the focused actual flow (`test_issue144_wi_flow.py` and the broader suite) passes, and once the full-repo validate you noted as still outstanding completes. This is a static/code-and-test-assertion review, not execution on my part — I did not run pytest, Ruff, mypy, or anything else myself.

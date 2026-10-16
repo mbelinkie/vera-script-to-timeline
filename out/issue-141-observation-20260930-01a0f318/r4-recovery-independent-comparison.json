@@ -1,0 +1,17 @@
+{
+  "status": "verified-live-native-relink-restoration",
+  "newResult": "vera-issue-141-observation-result-20261001T014545.827951Z.json",
+  "oneRelinkReturnedTrue": true,
+  "noUnlinkOrSave": true,
+  "completePreflightEqualsOfflinePin": true,
+  "completePostflightEqualsOriginalOnlinePin": true,
+  "allManifestBytesPreserved": true,
+  "launcherActionAfterResult": "observe",
+  "offlinePictureRangeDefectRemains": true,
+  "files": {
+    "vera-issue-141-observation-result-20261001T014545.827951Z.json": "5ebbc0b18a124d9f88aac6b716f9c4eadd3348a95b7dfbf9e444e9a285d03c90",
+    "r4-recovery-20261001T014545.846698Z-preflight.json": "c964b25730dddeec2642b6b3712bf4c6779e5c326f153144cd38d6f61a5ca7ee",
+    "r4-recovery-20261001T014545.846698Z-postflight.json": "406010344771fdd47c123bddeba6e043177f3f18f021781ee66cba779dbfb3ad",
+    "r4-recovery-20261001T014545.846698Z.jsonl": "246398aaaaa3a03edf23d44d3140553b7358cde04a33b7cab92d88effac4e8c5"
+  }
+}

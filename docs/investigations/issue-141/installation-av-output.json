@@ -1,0 +1,21 @@
+{
+  "kind": "bounded-av-output-candidate",
+  "moduleSha256": "5600b2ee36c91917ee0b7483024d8c46e234c44ca3aae72c40834735bdf90ca5",
+  "probeSha256": "c5b787b0f6ca1418b3a848e448cbceb94479c86b08f8716fb27db0347ed1d97e",
+  "checkpointFile": "av-calibration-checkpoint-after-r1-move-20261001T061824.json",
+  "checkpointSha256": "35f7132f331a8ecf0f1685dd1167c636add1aea3118bfbf2f2e7896ae348c1c3",
+  "oneRenderOnly": true,
+  "renderRange": [
+    0,
+    200
+  ],
+  "cleanupOnlyOnVerifiedSuccess": true,
+  "retryAllowed": false,
+  "mutations": [
+    "save/export unique recovery preset",
+    "set approved MOV-H264-PCM render settings",
+    "queue and start only returned owned job",
+    "load recorded preset after verified success",
+    "delete only owned terminal job and preset after full verification"
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "environment": {
+    "productName": "DaVinci Resolve Studio",
+    "python": "3.14.7",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "failure": null,
+  "label": "r2-picture-context",
+  "limits": [
+    "External menu result requires separate full-state interpretation."
+  ],
+  "pair": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-picture-context-20261001T192040.412740Z/pair.json",
+    "sha256": "4d21b54fa3fa855ee65a9d8af54a3be206927b6cafa87af7dc979d92ae4f3329"
+  },
+  "readOnly": true,
+  "renderFormatPasses": [
+    {
+      "codec": "H264",
+      "format": "mov"
+    },
+    {
+      "codec": "H264",
+      "format": "mov"
+    },
+    {
+      "codec": "H264",
+      "format": "mov"
+    },
+    {
+      "codec": "H264",
+      "format": "mov"
+    },
+    {
+      "codec": "H264",
+      "format": "mov"
+    },
+    {
+      "codec": "H264",
+      "format": "mov"
+    },
+    {
+      "codec": "H264",
+      "format": "mov"
+    }
+  ],
+  "selectionPasses": [
+    {
+      "items": [],
+      "playhead": "00:02:22:10"
+    },
+    {
+      "items": [],
+      "playhead": "00:02:22:10"
+    }
+  ],
+  "selectionShapes": [
+    {
+      "count": 0,
+      "type": "list"
+    },
+    {
+      "count": 0,
+      "type": "list"
+    }
+  ],
+  "status": "editorial-readback-retained",
+  "_nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T192040.315667Z.json",
+  "_auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T192039.131144Z"
+}

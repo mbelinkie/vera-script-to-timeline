@@ -1,0 +1,49 @@
+{
+  "jobId": "a6ed7f33-9ad4-4d82-bfac-ff72903f4567",
+  "jobStatus": "Complete",
+  "kind": "issue-141-render-terminal-handoff-v1",
+  "nativeFfprobe": {
+    "format": {
+      "duration": "368.000000",
+      "format_name": "mov,mp4,m4a,3gp,3g2,mj2"
+    },
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "height": 1080,
+        "nb_frames": "9200",
+        "r_frame_rate": "25/1",
+        "width": 1920
+      },
+      {
+        "bits_per_sample": 24,
+        "codec_name": "pcm_s24le",
+        "codec_type": "audio",
+        "nb_frames": "17664000",
+        "r_frame_rate": "0/0",
+        "sample_rate": "48000"
+      },
+      {
+        "codec_type": "data",
+        "nb_frames": "1",
+        "r_frame_rate": "0/0"
+      }
+    ]
+  },
+  "nativeJobStatus": {
+    "CompletionPercentage": 100,
+    "JobStatus": "Complete",
+    "TimeTakenToRenderInMs": 734801
+  },
+  "nativeOutputSha256": "8af6fb6916afa4c1bc674617ad52460928582a3dbc22dd2af8550786bd28020c",
+  "nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261002T035122.313956Z.json",
+  "nativeResultSha256": "7b19db15cbdf37ba852243387b5165e082725beba49c91ad46dfc8fbc7f3efed",
+  "nativeStatus": "render-complete-restored",
+  "outputBytes": 131423740,
+  "outputPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T033005.646357Z/render/vera141-av-20261002T033005.646357Z.mov",
+  "outputSha256": "8af6fb6916afa4c1bc674617ad52460928582a3dbc22dd2af8550786bd28020c",
+  "source": "retained successful native terminal result; no rerender"
+}

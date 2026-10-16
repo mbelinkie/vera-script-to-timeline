@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "issue-192-draft-source-pins/v1",
+  "status": "unexecuted_candidate_pending_coordinator_grant",
+  "chatId": "01a13775-72eb-7ef0-befe-189389e23036",
+  "branch": "codex/issue-192-v2-roundtrip-integration",
+  "baseline": "e17bdc74742bfbb8d1b9ea08db6ff73f35f2caaf",
+  "acceptedParent": "9be24e8173fd8d75fe7470ba936e10a24b525216",
+  "coreOriginalCommit": "e66b7444a4d757f814b3826271aef6bf68c83a5f",
+  "coreImportedCommit": "2193052",
+  "coreRawSha256": "fab92854cf37138f8aa4ef9b00705b4454dfb95e2fce8ecbbec889b41a8a1709",
+  "handoffRawSha256": "b98360914247c58080abc7f570b9256ec2ee991829fbc8b86f9e6f12fdda7d9d",
+  "sourceApiRawSha256": "4df553ab6f649438c38fb84dbfa3a7a638daa05e26c6d068cd3574063b7f7458",
+  "acceptedPlanRawSha256": "7fc7f361062fb35f7bf8bc1afdbc4b5cf6e72b21af27bcb873af0919560228d2",
+  "rawSourceSha256": {
+    "packages/contracts/src/issue-192-proof-cli.ts": "4dc5b96f0c413e1a7a525f8c1a488bffeca5e888f044b6fdd9e5ac6ce33b3139",
+    "packages/contracts/src/issue-192-v2-proposals.ts": "94b06232355795d5787e2b042abc6a0930a7e3f94cf6fb8008b13acb7be5bdbd",
+    "packages/contracts/test/issue-192-case.ts": "0e693be198caf241ac41502c6c63a1ff6ad1f3163fcc508ccdeaa15fcc7e24ca",
+    "packages/contracts/test/issue-192-v2-integration.test.ts": "5878cf8c655fc364ec7131beea0da680c471702ce78fc82fc68f9745f230c84d",
+    "python/vera_timeline_agent/roundtrip_v2_proof.py": "ae01cdae3e938d207cf825c38e98b5e2e5140343d4789668b82cc5b16dfe583e",
+    "tests/issue192_case.py": "f7c65725a8f3983144c6ac123bc36df13003b5e8525298e5e0c7ef4fc7479a05",
+    "tests/test_issue192_proof.py": "7d5b56c271712913d2e9199ff3e38ea458c052ccfc6ac734519dbcfcf4fc7c9a"
+  },
+  "sourceConfinement": {
+    "issue190AndFrozenBoundaryComparison": "git diff --exit-code against e17bdc7: exit0, no differences",
+    "importedCoreComparison": "git diff --exit-code against e66b744: exit0, no differences",
+    "stagedWhitespace": "git diff --cached --check: exit0"
+  },
+  "executionEvidence": null,
+  "reviewEvidence": null,
+  "toolchainReceipt": null,
+  "dependencyAcceptance": "190 and 202 pending; no acceptance inferred from provisional pins"
+}

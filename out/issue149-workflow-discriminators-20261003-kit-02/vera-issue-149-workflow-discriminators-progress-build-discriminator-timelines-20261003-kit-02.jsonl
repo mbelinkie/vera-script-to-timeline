@@ -1,0 +1,6 @@
+{"at": "2026-10-03T05:02:26.216018+00:00", "phase": "started", "value": {"actionId": "build-discriminator-timelines-20261003-kit-02", "configSha256": "51d63648e7372cb891f10aa782abf6b90c5ffcbb8b8a4f6b2fee7355016b2f43"}}
+{"at": "2026-10-03T05:02:26.282253+00:00", "phase": "probe-verified", "value": {"probePath": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/sources/ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438/harness.py", "probeSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438"}}
+{"at": "2026-10-03T05:02:26.284669+00:00", "phase": "disarmed", "value": {"action": "build", "actionId": "build-discriminator-timelines-20261003-kit-02"}}
+{"at": "2026-10-03T05:02:26.284945+00:00", "phase": "probe-request", "value": {"action": "build", "phase": "build-discriminator-timelines"}}
+{"at": "2026-10-03T05:02:28.588533+00:00", "phase": "probe-return", "value": {"status": "failure"}}
+{"at": "2026-10-03T05:02:28.589592+00:00", "phase": "result-written", "value": {"result": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-build-discriminator-timelines-20261003-kit-02.json", "status": "failure"}}

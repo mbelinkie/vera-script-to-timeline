@@ -1,0 +1,41 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_actual_cli_file_wi_composition_generation_and_replay ___________
+
+tmp_path = PosixPath('/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/pytest-of-matthewbelinkie/pytest-76/test_actual_cli_file_wi_compos0')
+
+    def test_actual_cli_file_wi_composition_generation_and_replay(tmp_path: Path) -> None:
+>       result = run_demo(tmp_path / "demo")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_issue144_wi_flow.py:7:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/issue144_wi_demo.py:120: in run_demo
+    proposed = run("propose-omission", expected="proposed")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+action = 'propose-omission', key = None, expected = 'proposed'
+
+    def run(action: str, key: str | None = None, *, expected: str) -> Json:
+        argv = [action, *arguments]
+        if key is not None:
+            argv += ["--decision-key", key]
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            code = host_main(argv)
+        result = json.loads(output.getvalue())
+        record = {"argv": argv, "exitCode": code, "result": result}
+        exclusive(
+            directory / "commands" / f"{len(actions):02d}-{action}.json",
+            encoded(record),
+        )
+        actions.append(record)
+>       assert result["status"] == expected, record
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: {'argv': ['propose-omission', '--proof-root', '/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/pytest-of-matthewbelinkie/pytest-76/test_actual_cli_file_wi_compos0/demo/proof', '--boundary-file', '/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/pytest-of-matthewbelinkie/pytest-76/test_actual_cli_file_wi_compos0/demo/operator-boundary.py', '--boundary-sha256', 'sha256:6cb45301f4ffcbc5882b0d1514d5f38a235257c845ecc998782ad520a271824d'], 'exitCode': 2, 'result': {'status': 'refused', 'reason': 'nonreciprocal or unequal linked split pair'}}
+
+tests/issue144_wi_demo.py:89: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_issue144_wi_flow.py::test_actual_cli_file_wi_composition_generation_and_replay
+1 failed in 64.39s (0:01:04)

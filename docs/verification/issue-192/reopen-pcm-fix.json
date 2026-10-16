@@ -1,0 +1,74 @@
+{
+  "status": "accepted-WAV-rule-fix-runtime-pending",
+  "sourcePins": {
+    "python/vera_timeline_agent/roundtrip_v2_proof.py": "8675666c179580501b09acc5072493dad045d2889e0dd818d09801d92b77b704",
+    "tests/test_issue192_proof.py": "013c8dab0f72628e66b337eee49f2e047c499009cbcff3c31a6521aec76c782b"
+  },
+  "records": [
+    {
+      "receipt": "out/issue192/review-fix-reopen-hash-red/complete.json",
+      "receiptSha256": "97ea32cf928fd0b32361f221c033425dc0cc0f5ab552703334a52951865fe966",
+      "source": "53cfffdede310ae1b552d4ac022b2c1150e082f4",
+      "command": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "-x",
+        "-q",
+        "tests/test_issue192_proof.py::test_reopened_audio_view_rejects_gain_and_channel_drift[source-hash]"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "startedAt": "2026-10-14T09:34:58.757Z",
+      "finishedAt": "2026-10-14T09:35:20.152Z",
+      "logSha256": "32e7221fd51e734d2b6918b2d82195e44cc009e977a635ecf9d68823abcc7d66"
+    },
+    {
+      "receipt": "out/issue192/review-fix-reopen-pcm-format/complete.json",
+      "receiptSha256": "338c8a8e1f2e348960fb7ff583f1b64d5f269839e84723f459e986fff3f2280c",
+      "source": "53cfffdede310ae1b552d4ac022b2c1150e082f4",
+      "command": [
+        ".venv/bin/ruff",
+        "format",
+        "python/vera_timeline_agent/roundtrip_v2_proof.py",
+        "tests/test_issue192_proof.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T09:36:10.751Z",
+      "finishedAt": "2026-10-14T09:36:11.142Z",
+      "logSha256": "96a977f329ec3c59092d40e041a019b49dcf03ca04055e177aa0ccb8c27234df"
+    },
+    {
+      "receipt": "out/issue192/review-fix-reopen-pcm-ruff/complete.json",
+      "receiptSha256": "040d7d3f8bcdac989b7ec9bb2158835ae06b00a50118fcc7857664381bf94e8e",
+      "source": "53cfffdede310ae1b552d4ac022b2c1150e082f4",
+      "command": [
+        ".venv/bin/ruff",
+        "check",
+        "python/vera_timeline_agent/roundtrip_v2_proof.py",
+        "tests/test_issue192_proof.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T09:36:26.211Z",
+      "finishedAt": "2026-10-14T09:36:26.612Z",
+      "logSha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "receipt": "out/issue192/review-fix-reopen-pcm-mypy/complete.json",
+      "receiptSha256": "e9f0552052c62d30ef4f6f1c7917d2181020593ff0826277f379f31fc02468a1",
+      "source": "53cfffdede310ae1b552d4ac022b2c1150e082f4",
+      "command": [
+        ".venv/bin/mypy",
+        "python/vera_timeline_agent/roundtrip_v2_proof.py",
+        "tests/test_issue192_proof.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T09:36:26.211Z",
+      "finishedAt": "2026-10-14T09:36:28.564Z",
+      "logSha256": "f9b031e5c45aa702cd4fef028d465551cb20a2c4698e0913c7b00766b20ac4d8"
+    }
+  ]
+}

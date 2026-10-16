@@ -1,0 +1,83 @@
+{
+  "actionId": "build-pilot-01-20261002-kit-01",
+  "at": "2026-10-03T00:24:05.592863+00:00",
+  "config": {
+    "_approval": "root-approved-build-pilot-01-20261002-kit-01",
+    "_compatibilityNote": "Specs use videoTracks=0 per the harness-owner validation request; native build remains blocked until the frozen harness accepts zero video-track additions.",
+    "schemaVersion": "issue-149-workflow-reruns-v1",
+    "externalScriptingSetting": "None",
+    "projectName": "VERA Issue 149 Workflow Reruns 20261002-kit-01",
+    "action": "build",
+    "phase": "build-pilot-01",
+    "actionId": "build-pilot-01-20261002-kit-01",
+    "stateId": "build-pilot-01-20261002-kit-01",
+    "probePath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/sources/25d3bf713afd2e0036d131c2ef9d9fa3ad0082ebc5183f69ddf3d02f98e003c3/harness.py",
+    "probeSha256": "25d3bf713afd2e0036d131c2ef9d9fa3ad0082ebc5183f69ddf3d02f98e003c3",
+    "launcherPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/VERA Issue 149 Workflow Reruns.py",
+    "launcherSha256": "e4f58381c398bc0ce13130fddb25c956876f7754dc877346fe389dfb826c2450",
+    "outputDir": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01",
+    "mediaDir": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/media",
+    "owned": {
+      "projectUid": "1a05ff3a-8b04-43e3-95ab-c970b93b6415",
+      "timelineUids": [],
+      "itemUids": [],
+      "mediaUids": [
+        "f00b8a11-ed65-48ba-a11a-6fd6e22b77fb",
+        "b5b757fe-43a6-47d2-850c-2294da50c136",
+        "ce3be5e7-1ae2-4f05-b143-f3ea3120cb3e",
+        "a25cfcec-f490-4151-a608-6088dae3c5ec",
+        "d307edb5-a0a0-45f1-8547-9472ca1da827",
+        "a4145161-58c5-4f89-81b6-5bfb9299b145",
+        "b65ac164-d6fe-4cf2-bb6b-7017baba4311",
+        "aa4454ba-ce62-4511-976e-e4d1ff92689d",
+        "a23c9a6e-1640-4db8-b380-b16870ced30c",
+        "903130dc-ad69-4dde-aa94-a8b40eb1090d"
+      ]
+    },
+    "timelineSpecs": [
+      {
+        "name": "W3-mapping-mute",
+        "audioTracks": 2,
+        "videoTracks": 0,
+        "placements": [
+          {
+            "mediaName": "base.mov",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "av",
+            "trackIndex": 1
+          },
+          {
+            "mediaName": "a2_numbers.wav",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "audio",
+            "trackIndex": 2
+          },
+          {
+            "mediaName": "a3_bed.wav",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "audio",
+            "trackIndex": 3
+          }
+        ]
+      }
+    ]
+  },
+  "launcherSha256": "e4f58381c398bc0ce13130fddb25c956876f7754dc877346fe389dfb826c2450",
+  "macroSha256": "bc8ca493e2193218208cb43bafaaf90514da9faae4ba51be05b620f5b01ccd02",
+  "previousResults": [
+    "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-import-media-02-20261002-kit-01.json",
+    "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-context-03-20261002-kit-01.json",
+    "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-context-02-20261002-kit-01.json",
+    "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-save-checkpoint-01-20261002-kit-01.json",
+    "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-context-01-20261002-kit-01.json",
+    "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-import-media-01-20261002-kit-01.json",
+    "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-prepare-01-20261002-kit-01.json"
+  ],
+  "retryAllowed": false
+}

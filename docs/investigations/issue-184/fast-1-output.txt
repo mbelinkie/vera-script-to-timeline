@@ -1,0 +1,284 @@
+
+> vera-script-to-timeline@0.0.0 validate:fast
+> npm run check:contracts-generated && npm run check:typescript && npm run lint:python && npm run typecheck:python && npm run test:python:fast
+
+
+> vera-script-to-timeline@0.0.0 check:contracts-generated
+> node packages/contracts/scripts/generate-contracts.mjs --check
+
+Generated contract types are current.
+
+> vera-script-to-timeline@0.0.0 check:typescript
+> npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript
+
+
+> vera-script-to-timeline@0.0.0 lint:typescript
+> eslint scripts/*.mjs --max-warnings=0 && npm run lint --workspaces --if-present
+
+
+> @vera/contracts@0.0.0 lint
+> eslint src test --max-warnings=0
+
+
+> @vera/tooling-smoke@0.0.0 lint
+> eslint . --max-warnings=0
+
+
+> vera-script-to-timeline@0.0.0 typecheck:typescript
+> npm run typecheck --workspaces --if-present
+
+
+> @vera/contracts@0.0.0 typecheck
+> tsc --project tsconfig.json
+
+
+> @vera/tooling-smoke@0.0.0 typecheck
+> tsc --project tsconfig.json
+
+
+> vera-script-to-timeline@0.0.0 test:typescript
+> npm run test --workspaces --if-present && npm run test:progress && npm run test:roadmap
+
+
+> @vera/contracts@0.0.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/matthewbelinkie/Desktop/ONGOING/VERA Script to Timeline/worktrees/codex/issue-184-fast-validation/packages/contracts
+
+
+ Test Files  13 passed (13)
+      Tests  244 passed (244)
+   Start at  01:31:28
+   Duration  26.74s (transform 276ms, setup 0ms, import 2.97s, tests 21.41s, environment 2ms)
+
+
+> @vera/tooling-smoke@0.0.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/matthewbelinkie/Desktop/ONGOING/VERA Script to Timeline/worktrees/codex/issue-184-fast-validation/packages/tooling-smoke
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  01:31:55
+   Duration  217ms (transform 23ms, setup 0ms, import 36ms, tests 3ms, environment 0ms)
+
+
+> vera-script-to-timeline@0.0.0 test:progress
+> node --test scripts/project-progress.test.mjs
+
+✔ parses the authoritative board without counting goals as work (2.105685ms)
+✔ calculates exact done and remaining scope from actionable board issues (12.747646ms)
+✔ fails closed on incomplete or ambiguous board data (1.036387ms)
+✔ renders every issue once with escaped links and board metadata (1.269257ms)
+✔ writes the dashboard and reports an exact terminal summary (9.627092ms)
+✔ fails clearly when the live GitHub Project is unavailable (4.96705ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 152.915615
+
+> vera-script-to-timeline@0.0.0 test:roadmap
+> node --test scripts/roadmap.test.mjs scripts/roadmap-rate-limit.test.mjs scripts/roadmap-lock.test.mjs
+
+✔ serializes roadmap commands before any GitHub request (6.807067ms)
+✔ reclaims a sufficiently old lock whose owner process is gone (3.219571ms)
+✔ parses authoritative direct GraphQL rateLimit fields and omits response metadata (4.164428ms)
+✔ fails closed on GitHub's graphql_rate_limit exhaustion response with reset guidance (0.791267ms)
+✔ never accepts a false REST-green payload as GraphQL authority (1.168284ms)
+✔ preflight reserves points for the planned GraphQL work (0.51152ms)
+✔ honors direct Retry-After evidence during a secondary throttle (0.330178ms)
+✔ accounts for issue, comment, dependency, and Project V2 operations by actual transport (0.35296ms)
+✔ distinguishes REST, GraphQL, secondary, and client/tooling failures (0.190455ms)
+✔ parses commands and flags (2.225573ms)
+✔ accepts one exact routing profile (0.381758ms)
+✔ rejects missing routing labels (0.471743ms)
+✔ rejects duplicate routing labels (0.187877ms)
+✔ rejects Luna claiming Terra work (0.22352ms)
+✔ rejects Sol claiming Luna work (0.181609ms)
+✔ rejects unsupported effort labels (0.188609ms)
+✔ uses the latest claim marker (0.596729ms)
+✔ preserves exclusive ownership across Luna-to-Terra and Terra-to-Sol escalation markers (0.329877ms)
+✔ parses no dependencies and same-repository blockers (0.892552ms)
+✔ parses cross-roadmap dependency references (0.327626ms)
+✔ rejects prose and duplicate dependency declarations (0.297335ms)
+✔ requires every dependency to be closed and Done (0.322485ms)
+✔ inspect, ready, and claim preflight before GraphQL reads and again before mutation (1451.482654ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1587.399353
+
+> vera-script-to-timeline@0.0.0 lint:python
+> uv run --frozen ruff check . && uv run --frozen ruff format --check .
+
+All checks passed!
+317 files already formatted
+
+> vera-script-to-timeline@0.0.0 typecheck:python
+> uv run --frozen mypy python tests
+
+Success: no issues found in 95 source files
+
+> vera-script-to-timeline@0.0.0 test:python:fast
+> uv run --frozen pytest -m "not slow" -n 2
+
+============================= test session starts ==============================
+platform darwin -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/matthewbelinkie/Desktop/ONGOING/VERA Script to Timeline/worktrees/codex/issue-184-fast-validation
+configfile: pyproject.toml
+testpaths: tests
+plugins: xdist-3.8.0, typeguard-4.6.0
+created: 2/2 workers
+2 workers [237 items]
+
+........................................................................ [ 30%]
+........................................................................ [ 60%]
+........................................................................ [ 91%]
+.....................                                                    [100%]
+------------ generated xml file: /tmp/vera184-validation/fast-1.xml ------------
+============================== slowest durations ===============================
+6.41s call     tests/test_issue144_composition_audio.py::test_compiled_auxiliary_geometry_is_separate_from_primary_supports_and_mix
+3.17s call     tests/test_issue144_audio_evidence.py::test_complete_closed_routes_positive_and_deterministic
+2.22s call     tests/test_issue144_audio_evidence.py::test_numeric_tolerance_is_explicitly_not_an_absence_classifier
+2.19s call     tests/test_issue144_audio_evidence.py::test_opposite_channel_residue_cannot_cancel
+1.84s call     tests/test_issue144_audio_evidence.py::test_same_row_auxiliary_supports_do_not_choose_primary
+1.45s setup    tests/test_issue144_audio_evidence.py::test_render_job_cannot_be_reused_for_edited_program
+1.44s setup    tests/test_issue144_audio_evidence.py::test_program_control_boolean_type_neutrality[gainDb-False]
+1.35s setup    tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[render.json-<lambda>-settings]
+1.33s setup    tests/test_issue144_audio_evidence.py::test_trusted_primary_and_row_binding_refuse[source-0-row-2-row/source]
+1.33s setup    tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[profile.json-<lambda>-support provenance]
+1.33s setup    tests/test_issue144_audio_evidence.py::test_trusted_primary_and_row_binding_refuse[source-1-row-0-untouched route]
+1.33s setup    tests/test_issue144_audio_evidence.py::test_source_and_render_tampering
+1.32s setup    tests/test_issue144_audio_evidence.py::test_opposite_channel_residue_cannot_cancel
+1.32s setup    tests/test_issue144_composition_audio.py::test_compiled_auxiliary_geometry_is_separate_from_primary_supports_and_mix
+1.32s setup    tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[profile.json-<lambda>-row/source]
+1.32s setup    tests/test_issue144_audio_evidence.py::test_gain_fitted_only_to_unchanged_reference
+1.32s setup    tests/test_issue144_audio_evidence.py::test_trusted_primary_and_row_binding_refuse[unknown-row-0-primary source]
+1.31s setup    tests/test_issue144_audio_evidence.py::test_numeric_tolerance_is_explicitly_not_an_absence_classifier
+1.31s setup    tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[profile.json-<lambda>-source inventory]
+1.31s setup    tests/test_issue144_audio_evidence.py::test_program_control_boolean_type_neutrality[limiter-0]
+1.30s setup    tests/test_issue144_audio_evidence.py::test_same_row_auxiliary_supports_do_not_choose_primary
+1.29s setup    tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[render.json-<lambda>-hash]
+1.29s setup    tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[render.json-<lambda>-binding]
+1.29s setup    tests/test_issue144_audio_evidence.py::test_same_decoded_audio_cannot_hide_behind_different_file_hash
+1.28s setup    tests/test_issue144_audio_evidence.py::test_operator_duplicate_keys_and_path_escape
+1.28s setup    tests/test_issue144_audio_evidence.py::test_no_operator_file_can_enable_real_qualification
+1.26s setup    tests/test_issue144_audio_evidence.py::test_parent_symlink_and_hardlinked_source_refuse
+1.25s setup    tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[render.json-<lambda>-job]
+1.25s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls1]
+1.23s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-target]
+1.22s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls2]
+1.21s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls0]
+1.21s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-integer]
+1.21s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-program controls1]
+1.21s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-offline]
+1.21s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-partial support1]
+1.20s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-extent]
+1.20s setup    tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[observation-b.json-<lambda>-adjacent]
+1.20s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-untouched route]
+1.20s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-partial support0]
+1.19s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-no interior omission]
+1.19s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-speed]
+1.19s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-source order]
+1.19s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-route inventory]
+1.18s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-occurrence]
+1.18s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-source binding]
+1.18s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-observation]
+1.18s setup    tests/test_issue144_audio_evidence.py::test_complete_closed_routes_positive_and_deterministic
+1.18s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-complete route removal]
+1.17s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-program controls0]
+1.16s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls5]
+1.15s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls3]
+1.13s setup    tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls4]
+1.05s call     tests/test_issue144_audio_evidence.py::test_gain_fitted_only_to_unchanged_reference
+0.93s call     tests/test_narration_cli.py::test_cli_rejects_invalid_json_and_cost_ceiling_before_network
+0.82s call     tests/test_narration_cli.py::test_cli_selects_joanna_as_named_alternative_without_silent_attestation
+0.49s call     tests/test_issue144_audio_evidence.py::test_render_job_cannot_be_reused_for_edited_program
+0.47s call     tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[render.json-<lambda>-job]
+0.45s call     tests/test_issue144_row_narration.py::test_importing_handoff_loads_no_cloud_sdk
+0.43s call     tests/test_issue144_prepared_build.py::test_proof_import_does_not_load_any_synthesis_provider
+0.38s call     tests/test_issue144_audio_evidence.py::test_source_and_render_tampering
+0.36s call     tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[render.json-<lambda>-hash]
+0.36s call     tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[render.json-<lambda>-settings]
+0.35s call     tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[render.json-<lambda>-binding]
+0.33s call     tests/test_narration_cli.py::test_cli_fails_before_network_when_confirmation_is_missing
+0.32s call     tests/test_narration_cli.py::test_preflight_is_deterministic_and_never_calls_provider
+0.25s call     tests/test_issue144_audio_evidence.py::test_trusted_primary_and_row_binding_refuse[source-1-row-0-untouched route]
+0.24s call     tests/test_issue144_audio_evidence.py::test_trusted_primary_and_row_binding_refuse[source-0-row-2-row/source]
+0.24s call     tests/test_issue144_audio_evidence.py::test_program_control_boolean_type_neutrality[gainDb-False]
+0.24s call     tests/test_issue144_audio_evidence.py::test_trusted_primary_and_row_binding_refuse[unknown-row-0-primary source]
+0.23s call     tests/test_issue144_audio_evidence.py::test_program_control_boolean_type_neutrality[limiter-0]
+0.22s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls1]
+0.22s call     tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[profile.json-<lambda>-row/source]
+0.22s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-offline]
+0.22s call     tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[profile.json-<lambda>-source inventory]
+0.22s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls2]
+0.21s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls0]
+0.21s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-no interior omission]
+0.21s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-source order]
+0.21s call     tests/test_studio_spike.py::test_cli_detect_does_not_need_resolve
+0.21s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-partial support0]
+0.21s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-speed]
+0.21s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls3]
+0.21s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-untouched route]
+0.21s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-target]
+0.21s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-complete route removal]
+0.20s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-partial support1]
+0.20s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-source binding]
+0.20s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-integer]
+0.20s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-extent]
+0.20s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-occurrence]
+0.20s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-observation]
+0.20s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-program controls0]
+0.20s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-program controls1]
+0.20s call     tests/test_issue144_audio_evidence.py::test_receipt_and_profile_refusals[observation-b.json-<lambda>-adjacent]
+0.20s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-route inventory]
+0.19s call     tests/test_issue53_producer_review.py::test_cli_partial_setting
+0.19s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls5]
+0.19s call     tests/test_issue144_audio_evidence.py::test_structural_refusals[<lambda>-controls4]
+0.16s call     tests/test_fixtures.py::test_standalone_verifier_explicitly_reports_missing_ffprobe
+0.14s call     tests/test_issue144_audio_evidence.py::test_same_decoded_audio_cannot_hide_behind_different_file_hash
+0.13s call     tests/test_issue144_wi.py::test_render_once_inspection_checks_exact_job_settings_and_full_stereo_pcm
+0.11s call     tests/test_build_jobs.py::test_studio_optional_stages_are_explicit
+0.07s call     tests/test_build_jobs.py::test_duplicate_submission_and_free_stage_graph
+0.07s call     tests/test_build_jobs.py::test_interruption_and_uncertain_response_reconcile_without_repeat
+0.07s call     tests/test_build_jobs.py::test_renewed_lease_and_failed_stage_retry
+0.06s call     tests/test_issue144_wi.py::test_link_reserves_root_intent_and_replays_without_second_effect
+0.06s call     tests/test_issue144_wi.py::test_complete_job_with_wrong_pcm_never_publishes_complete_receipt
+0.06s call     tests/test_issue144_wi.py::test_tampered_before_state_and_stale_native_state_refuse_before_effect
+0.05s call     tests/test_issue144_wi.py::test_lost_render_response_recovers_only_through_owned_job_inspection
+0.05s call     tests/test_issue144_wi.py::test_uncertain_unperformed_link_and_different_nonce_cannot_authorize_retry
+0.05s call     tests/test_issue144_wi.py::test_lost_link_response_reconciles_read_only_and_uncertain_intent_never_retries
+0.05s call     tests/test_build_jobs.py::test_cancellation_waiting_and_corruption_preserve_completed_artifacts
+0.05s call     tests/test_issue144_wi.py::test_complete_capture_is_immutable_and_replay_reads_real_handles
+0.03s call     tests/test_issue144_wi.py::test_omission_capture_needs_complete_controls_and_never_invents_split_ids
+0.03s call     tests/test_build_jobs.py::test_changed_prior_artifact_revokes_running_worker
+0.02s call     tests/test_resolve_import_package.py::test_refuses_noncanonical_or_inconsistent_compiler_artifacts
+0.02s call     tests/test_resolve_import_package.py::test_refuses_unready_report_without_publication[blocked]
+0.02s call     tests/test_otio_package.py::test_refuses_to_replace_an_existing_output_directory
+0.02s call     tests/test_resolve_import_package.py::test_refuses_unready_report_without_publication[failed]
+0.02s call     tests/test_build_jobs.py::test_late_lease_holder_cannot_publish_or_report_progress
+0.02s call     tests/test_otio_package.py::test_handcrafted_manifest_is_schema_valid_and_has_acceptance_shape
+0.02s call     tests/test_build_jobs.py::test_project_scope_and_active_cancellation_boundary
+0.02s call     tests/test_placeholder_slate.py::test_render_is_byte_deterministic_and_label_sensitive
+0.01s call     tests/test_placeholder_slate.py::test_renders_valid_png_at_requested_dimensions
+0.01s call     tests/test_narration_cache.py::test_cache_rejects_tampering_symlinks_and_hard_links
+0.01s call     tests/test_fixtures.py::test_inventory_rejects_undeclared_media_in_nested_directories
+0.01s call     tests/test_placeholder_slate.py::test_arbitrary_text_is_normalized_or_uses_fallback_glyphs_safely
+0.01s call     tests/test_narration_cache.py::test_same_key_concurrent_publish_has_one_winner
+0.01s call     tests/test_narration_cache.py::test_cache_publication_is_immutable_reusable_and_strict
+0.01s call     tests/test_issue144_wi.py::test_native_inspector_matches_existing_shape_and_missing_marker_does_not_fall_back
+
+(580 durations < 0.005s hidden.  Use -vv to show these durations.)
+============================= 237 passed in 49.94s =============================

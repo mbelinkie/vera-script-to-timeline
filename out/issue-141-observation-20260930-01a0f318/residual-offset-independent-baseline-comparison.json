@@ -1,0 +1,12 @@
+{
+  "expectedEqualsActual": false,
+  "limits": "Only old residual first-split full pair plus exact approved offset unlink and A1 one-frame record-bound changes. No rebase or native launch yet.",
+  "targetUids": {
+    "audio": "f0b986dd-b580-42f9-a7f8-ba464cca7076",
+    "video": "ccabcb9a-8e7d-462e-a8a1-4f6ce8c4f5f7"
+  },
+  "newPair": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-offset-context-20261001T205629.518751Z/pair.json",
+    "sha256": "7a7d0db1be976dd4e3463e1231a7e00923318742188c0a107c8fc0962085b40d"
+  }
+}

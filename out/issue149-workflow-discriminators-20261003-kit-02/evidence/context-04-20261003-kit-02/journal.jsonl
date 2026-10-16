@@ -1,0 +1,12 @@
+{"actionId": "context-04-20261003-kit-02", "at": "2026-10-03T04:42:51.710229+00:00", "method": "harness", "phase": "started", "value": {"schemaVersion": "issue-149-workflow-discriminators-v1"}}
+{"actionId": "context-04-20261003-kit-02", "at": "2026-10-03T04:42:51.973044+00:00", "method": "GetVersion", "phase": "request", "value": {"args": []}}
+{"actionId": "context-04-20261003-kit-02", "at": "2026-10-03T04:42:51.975866+00:00", "method": "GetVersion", "phase": "return", "value": {"status": "ok", "value": [21, 1, 1, 10, ""]}}
+{"actionId": "context-04-20261003-kit-02", "at": "2026-10-03T04:42:51.976654+00:00", "method": "GetProjectManager", "phase": "request", "value": {"args": []}}
+{"actionId": "context-04-20261003-kit-02", "at": "2026-10-03T04:42:51.978568+00:00", "method": "GetProjectManager", "phase": "return", "value": {"status": "ok", "value": {"__native_type__": "PyRemoteObject", "__repr__": "<BlackmagicFusion.PyRemoteObject object at 0x10b048ef0>"}}}
+{"actionId": "context-04-20261003-kit-02", "at": "2026-10-03T04:42:51.979204+00:00", "method": "GetCurrentProject", "phase": "request", "value": {"args": []}}
+{"actionId": "context-04-20261003-kit-02", "at": "2026-10-03T04:42:51.981314+00:00", "method": "GetCurrentProject", "phase": "return", "value": {"status": "ok", "value": {"__native_type__": "PyRemoteObject", "__repr__": "<BlackmagicFusion.PyRemoteObject object at 0x10b049490>"}}}
+{"actionId": "context-04-20261003-kit-02", "at": "2026-10-03T04:42:51.982253+00:00", "method": "GetName", "phase": "request", "value": {"args": []}}
+{"actionId": "context-04-20261003-kit-02", "at": "2026-10-03T04:42:51.984394+00:00", "method": "GetName", "phase": "return", "value": {"status": "ok", "value": "VERA 149 Discriminators 20261002-b"}}
+{"actionId": "context-04-20261003-kit-02", "at": "2026-10-03T04:42:51.985074+00:00", "method": "GetUniqueId", "phase": "request", "value": {"args": []}}
+{"actionId": "context-04-20261003-kit-02", "at": "2026-10-03T04:42:51.994304+00:00", "method": "GetUniqueId", "phase": "return", "value": {"status": "ok", "value": "14375719-513e-456a-9aed-3a2baa54c01a"}}
+{"actionId": "context-04-20261003-kit-02", "at": "2026-10-03T04:42:51.995499+00:00", "method": "harness", "phase": "finished", "value": {"status": "ok"}}

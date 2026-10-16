@@ -1,0 +1,3 @@
+The scoped helper repair is in place in [editorial-cases.py](../../docs/investigations/issue-141/editorial-cases.py): interval selection is now validated as pinned diagnostic readback, and the exact generated interval handles remain the deletion authority. The checker passed, and both Python files compiled.
+
+I did **not** complete the requested narrow checker coverage, fixed continuation driver, or repair-result JSON. I haven’t run any native actions. The worktree contains many other workers’ edits, which I left untouched.

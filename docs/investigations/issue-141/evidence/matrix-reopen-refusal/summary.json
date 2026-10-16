@@ -1,0 +1,47 @@
+{
+  "action": "matrix-reopen",
+  "adjacentPassDifferenceCount": 6,
+  "adjacentPassDifferences": [
+    {
+      "count": 4,
+      "field": "GetMediaPoolItem.GetClipProperty.value.Usage",
+      "from": "20",
+      "to": "21"
+    },
+    {
+      "count": 2,
+      "field": "GetMediaPoolItem.GetClipProperty.value.Usage",
+      "from": "40",
+      "to": "42"
+    }
+  ],
+  "approvedProjectUidReopened": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+  "automaticHandoff": {
+    "projectId": "2886b8d5-106f-4b0f-a225-f6ae9d78065e",
+    "projectName": "Untitled Project",
+    "rootClipCount": 0,
+    "rootSubfolderCount": 0,
+    "timelineCount": 0
+  },
+  "differingInactiveTimelineId": "88f7923d-55a7-471f-b09b-cf10f9fae8ad",
+  "failure": "RuntimeError: Reopened raw capture is incomplete or unstable",
+  "instruction": "Retain evidence; do not retry or alter either project.",
+  "kind": "pinned-matrix-reopen-observation-refused-on-unstable-raw-capture",
+  "limits": [
+    "The six Usage changes are adjacent-read instability on the inactive baseline timeline.",
+    "No atomicity, ABA, or revision guarantee is inferred."
+  ],
+  "rawSha256": {
+    "capture-20260930T234437.703376Z-pre-close.json": "712404d59c7044a0157373390c1fb7be566bc1b7ad5a12fcaf0b94de9663bce6",
+    "capture-20260930T234437.703376Z-preflight.json": "ae4e656d0f415d660f6288e51c711d95c45bdc54c64f2e044d4548b0e8c6a972",
+    "capture-20260930T234437.703376Z-reopened.json": "e8b55f2300a86471e4b1b32b54716583a48a1c5a399ddbbbf2a364c1e6f1b492",
+    "hammerspoon-launch-20260930T234437.260168Z.jsonl": "9167978b2a3745cc4f4a45dd3ff50813157cc98683a130df0d103611af1ce568",
+    "matrix-reopen-20260930T234437.703376Z.json": "f3b5306050b966fe05262f0234312142e7a7fb5f41f66056888701ba7607e7f5",
+    "matrix-reopen-20260930T234437.703376Z.jsonl": "012237f83e9ce6a1d084b207ac2e500db9ea2c14a23bef513e9d42012b842a54",
+    "vera-issue-141-observation-result-20260930T234437.679745Z.json": "a2d9fca391199b52248040e82363a14dbf3f2cc4974195019632590ec51a77f1"
+  },
+  "reopenedCaptureStatus": "inconsistent-refused",
+  "resultStatus": "matrix-reopen-refused",
+  "runAt": "2026-09-30T23:44Z",
+  "saveCloseLoadReturnedTrue": true
+}

@@ -1,0 +1,46 @@
+{
+  "taskId": "/root/discriminator_output_verify",
+  "scope": "final documentation, publication and dashboard consistency check",
+  "outcome": "GO",
+  "publication": {
+    "issue149Comment": "https://github.com/mbelinkie/vera-script-to-timeline/issues/149#issuecomment-5970657049",
+    "issue141Comment": "https://github.com/mbelinkie/vera-script-to-timeline/issues/141#issuecomment-5970661013",
+    "bodyPath": "out/issue149-workflow-discriminators-20261003-kit-02/publication/d3-operator-final-comment.md",
+    "bodySha256": "627b0713e5374d38cfa2cc05c77aac5294d52aa1bb38044176b31bffb000ee68",
+    "bodyBytes": 10891
+  },
+  "documents": {
+    "issue149ReadmeSha256": "fceb3445666fe97ced369acabb9eb75442e51f385b3c297e051ff2cc819563ed",
+    "discriminatorReadmeSha256": "ec7ee3e5ce62789c406e8f1395c6c02c3eca42f730a2e5fe99f7ef34322f6680",
+    "finalSummarySha256": "0c53f6871737d70178813e866b8dca36583becda0a7793603dea5cef116c8f32",
+    "issue141HandoffSha256": "78d8917dc3b229aea01f18255025432fcef2cd98ebd7badfe6b3b3ceffd4f4ee",
+    "issue141ReportSha256": "163162595e4a950c4a36832225943e402cd461fba854db62ea4802e515c85ae6",
+    "issue141FinalFindingsSha256": "76e19b553282957e6fb0da7bfff85e59289dbdecde33790c3cc8bb9a7b1fe210"
+  },
+  "statusClaims": {
+    "newDiscriminators": "5/5 reviewed",
+    "newDiscriminatorCases": {"reproduced": 2, "adverse": 3},
+    "originalIssue141": "40/41; External review pending",
+    "earlierW1toW7": "7/7 retained",
+    "testsRunning": false,
+    "operatorActionPending": false,
+    "producerAcceptance": "pending",
+    "issue149Open": true,
+    "historicalPendingEntriesMarked": true,
+    "nativeSourceChangesDetected": false
+  },
+  "dashboard": {
+    "path": "LOCAL_DASHBOARD/progress.json",
+    "sha256": "44e6ae12e3eb4ca231dca5d719ce4528a03be6f0bae83009578592d828b802c6",
+    "completed": 40,
+    "total": 41,
+    "progressNote": "Original #141: 40/41, External review pending. Earlier W1–W7: 7/7. New discriminators: 5/5 reviewed; all restoration/output checks complete.",
+    "finalIssue149": "https://github.com/mbelinkie/vera-script-to-timeline/issues/149#issuecomment-5970657049",
+    "finalIssue141": "https://github.com/mbelinkie/vera-script-to-timeline/issues/141#issuecomment-5970661013"
+  },
+  "relativeFinalSummaryLinks": "all resolved",
+  "residualWordingLimits": [
+    "The original #141 External review remains pending and is not accepted by this check.",
+    "Issue #149 producer acceptance remains pending; no closure is inferred."
+  ]
+}

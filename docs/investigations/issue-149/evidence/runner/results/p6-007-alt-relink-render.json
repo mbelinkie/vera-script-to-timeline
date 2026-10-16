@@ -1,0 +1,32 @@
+{
+ "job_id": "p6-007-alt-relink-render",
+ "started": 1790974440.849036,
+ "seconds": 0.723,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "relink_ret": true,
+  "capture": {
+   "tag": "p6f_alt_after_relink",
+   "file_sha256": "525d9da01a45c211c8afef8ca6c473b60b06f002b35ec4e325f94fc7eb7d5d98",
+   "file_size": 4594572,
+   "props": {
+    "Clip Color": "",
+    "Date Created": "Fri Oct 2 2026 16:38:31",
+    "Date Modified": "Fri Oct  2 16:38:34 2026",
+    "Duration": "00:00:16:00",
+    "File Name": "swap.mov",
+    "File Path": "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/fixtures/relink/swap.mov",
+    "Frames": "400",
+    "Online Status": "Online",
+    "Proxy": "None",
+    "Resolution": "640x360",
+    "Video Codec": "H.264 High L3.0"
+   },
+   "set_tc": true,
+   "still": true,
+   "render_settings": true,
+   "render_start": true
+  }
+ }
+}

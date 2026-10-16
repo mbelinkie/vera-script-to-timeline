@@ -1,0 +1,13 @@
+{
+  "at": "2026-10-01T14:23:52.783612+00:00",
+  "builtinResolveMcpHealth": {
+    "running": false,
+    "version": "21.1"
+  },
+  "osProcessObservation": "Resolve PID510 and Hammerspoon PID2875 are present",
+  "scope": "Health metadata only; no alternative run_script or launch tool called",
+  "limits": [
+    "MCP reachability and process existence are distinct observations.",
+    "No unavailable timeline getter/capability conclusion."
+  ]
+}

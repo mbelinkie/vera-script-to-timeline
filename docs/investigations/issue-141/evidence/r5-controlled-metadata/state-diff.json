@@ -1,0 +1,9 @@
+{
+  "after": "{\"index\": 0, \"issue\": 141, \"section\": \"calibration\"} | issue141 controlled interpass 20261001T035403.810952Z",
+  "before": "{\"index\": 0, \"issue\": 141, \"section\": \"calibration\"}",
+  "field": "marker[0].customData",
+  "kind": "single-observed-delta",
+  "poolInventoryChanged": false,
+  "restoredExactly": true,
+  "timelineUid": "29ae8331-b86e-4041-a548-960695cc7b24"
+}

@@ -1,0 +1,26 @@
+{
+  "status": "wrong-byte-mismatch-retained-and-full-original-state-restored",
+  "resolveVersion": [
+    21,
+    1,
+    0,
+    14,
+    ""
+  ],
+  "sourceUid": "81d81dc0-4c37-478b-8079-03debba5e780",
+  "occurrenceUid": "65a7bcd1-f211-4dee-9726-8c7e0b89cc84",
+  "expectedSha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+  "wrongSha256": "771b4bbbe771b980831e0a7b6d93ef11e1315cd995df22c5c7fbf7c2bf62c88b",
+  "fullOriginalTimelineAndPoolStateRestored": true,
+  "allManifestBytesRestored": true,
+  "wrongRefreshReturn": true,
+  "restoredRefreshReturn": true,
+  "frame0WrongSampleSha256": "084839cd4e5ecd123e21fe204fbaadd471960290319824081f21de600ec80495",
+  "frame0RestoredSampleSha256": "084839cd4e5ecd123e21fe204fbaadd471960290319824081f21de600ec80495",
+  "visualInspection": "Both inspected frame0 samples show VERA141 BASE SYNTHETIC. Their raw PNG hashes exactly equal the earlier original online frame0.",
+  "limits": [
+    "The byte mismatch is established independently of Resolve metadata.",
+    "The sampled output did not establish displayed replacement after RelinkClips.",
+    "Cache cause/lifetime, reopening and general program output are untested."
+  ]
+}

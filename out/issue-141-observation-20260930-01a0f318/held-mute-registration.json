@@ -1,0 +1,13 @@
+{
+  "registeredAt": "2026-10-02T01:37:58.226079+00:00",
+  "pins": {
+    "probe.py": "54bbbeee926a5ef423615b1f981ec8ebe6586e91f938a8aad05db441ecc53310",
+    "audio-mapping-mute.py": "324eaccac4de7b124cd62d187ee4046b0307d7dbd5bc7cc26c0e267b11204dd8",
+    "audio-mapping-mute-check.py": "8fe60b8164ec6da72057312b136ee048920c524dcea9a41bce5b6234b82e6c99",
+    "independent-native-call.py": "956463d19b0fd11f783c4f715e52a313dc5aaf153ffe8baf4f9ec4a829fb7011"
+  },
+  "priorProbeSha256": "3a4f8097ff74cfdc6f1b6df4f3d5a0b1285d847238bc98897c72b6e7e03f18d8",
+  "action": "observe",
+  "nativeDispatched": false,
+  "review": "/root/held_mute_review local PASS"
+}

@@ -1,0 +1,33 @@
+{
+  "action": "context",
+  "actionId": "context-03-20261003-kit-02",
+  "configSha256": "e82504a3aa81ae115dc0b89e3d726d2850a93dd3fb34bb39bb1b17bbb174e54c",
+  "context": {
+    "currentProjectName": {
+      "status": "ok",
+      "value": "VERA 149 Discriminators 20261002-b"
+    },
+    "version": {
+      "status": "ok",
+      "value": [
+        21,
+        1,
+        1,
+        10,
+        ""
+      ]
+    }
+  },
+  "journal": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/evidence/context-03-20261003-kit-02/journal.jsonl",
+  "launcher": "workflow-injected",
+  "phase": "context-03",
+  "progress": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-progress-context-03-20261003-kit-02.jsonl",
+  "runtime": {
+    "machine": "x86_64",
+    "platform": "macOS-15.1-x86_64-i386-64bit-Mach-O",
+    "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 17.0.0 (clang-1700.6.4.2)]"
+  },
+  "schemaVersion": "issue-149-workflow-discriminators-v1",
+  "stateId": null,
+  "status": "ok"
+}

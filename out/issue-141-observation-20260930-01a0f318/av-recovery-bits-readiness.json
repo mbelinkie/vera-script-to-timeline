@@ -1,0 +1,16 @@
+{
+  "checks": [
+    {
+      "command": "ctx-wire run rtk proxy /usr/local/bin/python3.14 -S docs/investigations/issue-141/av-output-check.py",
+      "result": "PASS; PCM16 original accepted and render job/output PCM24 required; PCM20 original refused"
+    }
+  ],
+  "decision": "original-recovery-lpcm-allows-only-16-or-24; actual-job-and-output-remain-24",
+  "freshExport": "still required; fresh checkpoint and uniquely named recovery export; historical PCM16 preset not reusable",
+  "scope": "local AV backup guard review/fix; no Resolve, Hammerspoon, config, or native dispatch",
+  "sourceHashes": {
+    "docs/investigations/issue-141/av-output-check.py": "449bd0c09920af7a4f2736d1906bc4e407d7d2e977b7ce4f9c809a19b9ccbcc1",
+    "docs/investigations/issue-141/av-output.py": "fcdb385cca504f8dac25665fef75ddc15c9f0f9cf8c55b1b8a6d591af8cb3fa1"
+  },
+  "status": "local-guard-change-verified"
+}

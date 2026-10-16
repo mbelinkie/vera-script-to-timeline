@@ -1,0 +1,35 @@
+{
+  "case": "R3-Graphic",
+  "check": {
+    "exitCode": 0,
+    "output": "Fake R3 sequence checks pass; no Resolve action.",
+    "result": "pass"
+  },
+  "childSourceHashes": {
+    "CASES_SHA256": "1e1c2685de795bdc60ffa806c0fde10d75e300340fc2c1178b8ccf4d1a93f372",
+    "CHECK_SHA256": "0da0fb622bdadd33bb50510fdcc36680ad2dc4b88795d697348febd7bbb9dde2",
+    "NATIVE_CALL_SHA256": "28abcace8d61f5596905ed237c8008c394597eb3837d3ad9811e339791023c8b",
+    "PROBE_SHA256": "1125c66db1f902eef2ab0e09de195c8f75179b38edb7f3c8acc69e84c4fe7ffa"
+  },
+  "driverPins": {
+    "after": {
+      "CASES_SHA256": "1e1c2685de795bdc60ffa806c0fde10d75e300340fc2c1178b8ccf4d1a93f372",
+      "CHECK_SHA256": "0da0fb622bdadd33bb50510fdcc36680ad2dc4b88795d697348febd7bbb9dde2",
+      "NATIVE_CALL_SHA256": "28abcace8d61f5596905ed237c8008c394597eb3837d3ad9811e339791023c8b",
+      "PROBE_SHA256": "1125c66db1f902eef2ab0e09de195c8f75179b38edb7f3c8acc69e84c4fe7ffa"
+    },
+    "before": {
+      "CASES_SHA256": "543668667b93f59c5c873f6bfeb83842892b2ebea4d5abc99586c2794825aa20",
+      "CHECK_SHA256": "0da0fb622bdadd33bb50510fdcc36680ad2dc4b88795d697348febd7bbb9dde2",
+      "NATIVE_CALL_SHA256": "88e68abbcea6120af6da5aaf69f598c3724b78efbdfa9378ab49abfb1a446cd4",
+      "PROBE_SHA256": "d2fa75e9298ef37eba8d816a8afa8418f6ffaca0fab95755f357a7049bf0b4db"
+    }
+  },
+  "driverSha256": "edd53bd17240cac8afe7dc3b9a111f3341b4c15f1df260d4bae9667f4af1d732",
+  "nativeDispatch": false,
+  "priorPair": {
+    "path": "producer-matrix-selection-20261001T183030.414033Z/after-pair.json",
+    "sha256": "59d4b9bde36af0c0a2c06a126f426fefd1e6dd1a76ddbf562574e70b535ff2b0",
+    "use": "offline verification only"
+  }
+}

@@ -1,0 +1,13 @@
+{"at": "2026-10-01T20:37:50.670823+00:00", "method": "FullReadback", "phase": "before", "value": {"path": "before.json"}}
+{"at": "2026-10-01T20:37:50.727785+00:00", "method": "AddMarker", "phase": "request", "value": {"color": "Blue", "custom": "{\"boundaryLocalFrame\": 100, \"issue\": 141, \"section\": \"R3-boundary\"}", "duration": 1, "frame": 9100, "marker": {"color": "Blue", "customData": "{\"boundaryLocalFrame\": 100, \"issue\": 141, \"section\": \"R3-boundary\"}", "duration": 1, "name": "141 R3 exact section boundary", "note": "Synthetic authored boundary at local frame 100"}, "name": "141 R3 exact section boundary", "note": "Synthetic authored boundary at local frame 100"}}
+{"at": "2026-10-01T20:37:50.735178+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-10-01T20:37:50.767368+00:00", "method": "SetTrackLock", "phase": "request", "value": {"locked": true, "trackIndex": 2, "trackType": "video"}}
+{"at": "2026-10-01T20:37:50.768001+00:00", "method": "SetTrackLock", "phase": "return", "value": true}
+{"at": "2026-10-01T20:37:50.790679+00:00", "method": "SetTrackLock", "phase": "request", "value": {"locked": true, "trackIndex": 3, "trackType": "video"}}
+{"at": "2026-10-01T20:37:50.791289+00:00", "method": "SetTrackLock", "phase": "return", "value": true}
+{"at": "2026-10-01T20:37:50.814211+00:00", "method": "SetTrackLock", "phase": "request", "value": {"locked": true, "trackIndex": 2, "trackType": "audio"}}
+{"at": "2026-10-01T20:37:50.814818+00:00", "method": "SetTrackLock", "phase": "return", "value": true}
+{"at": "2026-10-01T20:37:50.837014+00:00", "method": "SetTrackLock", "phase": "request", "value": {"locked": true, "trackIndex": 3, "trackType": "audio"}}
+{"at": "2026-10-01T20:37:50.837626+00:00", "method": "SetTrackLock", "phase": "return", "value": true}
+{"at": "2026-10-01T20:37:50.862097+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": {"timecode": "00:06:04:00"}}
+{"at": "2026-10-01T20:37:50.887183+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}

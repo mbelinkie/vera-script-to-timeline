@@ -1,0 +1,21 @@
+{
+  "sourceCommit": "7b3cbd63a8e572d9e4f99c3427a74afee3fb8ccc",
+  "command": [
+    "npm",
+    "exec",
+    "--workspace",
+    "@vera/contracts",
+    "--",
+    "vitest",
+    "run",
+    "test/compiler-v2.test.ts",
+    "test/compiler-v2-bindings.test.ts",
+    "test/compiler-v2-schema.test.ts"
+  ],
+  "startedAt": "2026-10-09T20:59:29.864Z",
+  "finishedAt": "2026-10-09T20:59:40.860Z",
+  "exitCode": 0,
+  "state": "passed",
+  "nodeCompileCache": "/Users/matthewbelinkie/.codex/worktrees/6484/VERA Script to Timeline/test-results/issue-180/node-compile-cache",
+  "logSHA256": "6ee6a300d5772e7fcddc8052cf67ba74eb51dae186cfb43cba661c032a1d92ae"
+}

@@ -1,0 +1,18 @@
+{
+  "_auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T204950.907163Z",
+  "_nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T204952.094494Z.json",
+  "case": "R2-residual",
+  "menuCommandDispatched": false,
+  "selectedUids": [
+    "55ef1242-5a71-45e5-a1b4-d90300589de2",
+    "09373858-39dd-474b-9eb8-56c5e523cc76"
+  ],
+  "selectionLabel": "r2-residual-selected",
+  "selectionResult": {
+    "path": "independent-residual-sequence-20261001T204911.843675Z/004-r2-residual-selected.json",
+    "sha256": "f5b8b88829d692f47e1939f2b67e3f56cd0125afd07266ec79827c75096dfa93"
+  },
+  "splitFrame": 4560,
+  "stage": "first",
+  "status": "split-ready"
+}

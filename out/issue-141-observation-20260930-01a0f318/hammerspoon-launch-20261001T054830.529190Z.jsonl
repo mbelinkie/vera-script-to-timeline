@@ -1,0 +1,2 @@
+{"at": "2026-10-01T05:48:30.531773+00:00", "phase": "request", "value": {"action": "fixed observation menu once"}}
+{"at": "2026-10-01T05:48:32.908464+00:00", "phase": "return", "value": {"code": 65, "stdout": "", "stderr": "...ine/docs/investigations/issue-141/hammerspoon-launch.lua:34: Project changed; stop\n"}}

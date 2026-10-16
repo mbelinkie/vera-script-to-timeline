@@ -1,0 +1,61 @@
+{
+  "goal": "Active/incomplete: all required issue-141 tests with minimal user intervention",
+  "dashboard": "17/41 (41%), server200",
+  "installedAction": "observe",
+  "stage": "after-operator-clicks-read-only",
+  "selectedTimelineUid": "64de8a4c-86bd-4f19-9d20-47b8940f610b",
+  "page": "Deliver at latest observed context; R4 action does not switch page",
+  "knownRenderFormat": "MOV/H264 restored at02:50; mode1 empty idle queue at that capture",
+  "ownedPresetRetained": "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z",
+  "audioHiddenSettingEquality": "Unobservable; do not assert full restoration",
+  "latestNativeResult": "vera-issue-141-observation-result-20261001T025403.420310Z.json",
+  "latestNativeRawDir": "r4-range-repair-20261001T025403.645518Z",
+  "latestNativeOutcome": "SetStartTimecode00 returnedTrue but clip record0..199 became-90000..-89801, preserving invalid relativeoffset; source/UID/duration unchanged; mappedR4proxy Start/End/SlateTC only also changed; no rollback/save/output/source mutation",
+  "rangeTimeline": "start/end0; timecode00; same occurrence af55478a-0ba3-458a-a6e1-e47b2544111d; source81d81dc0-4c37-478b-8079-03debba5e780",
+  "proof": "r4-range-repair-independent-comparison.json",
+  "proposedNext": "One separately captured R4 removal test on existing occurrence, then separately captured preparation AppendToTimeline same ownedsource at absolute0 on the nowzero-start timeline; preserve actual newUID and review exact derivedproxy/Usage deltas; do not substitute this for anR1move test. Not implemented/staged/run.",
+  "pendingEditorialApproval": "Already requested; no affirmative retained; do not repeatquestion or executeeditorial macros",
+  "standingScope": "ExternalScriptingNone/syntheticonly; do not askagain",
+  "sourceHashes": {
+    "probe.py": "e4b6c3dd44b90c39c45eb61f8006832787d4ad79137e283ec429cf69721ec54b",
+    "VERA Issue 141 Observation.py": "9434f94d4f3b19bbcf2978c51d52a5b069934b2da83280fbed425b4c72323518",
+    "audio-render-recovery.py": "e13e01998c03b0171ed5304e69baad9af6aab688aa18ac1aaf616e2c06528d84",
+    "audio-render-recovery-check.py": "c9c3766a4d196fa62f40429f0fbdef6f56a1058c6485d01ebf20f90cce6088c9",
+    "r4-range-repair.py": "06eff080c45e5c520a1c8c31787e4d4f1604198a3a98a9e3c8e025917fcf455b"
+  },
+  "checksPassed": [
+    "focused audio recovery fake import/toggle/format branches",
+    "focused R4range fake",
+    "main harness fake",
+    "Ruff on touched helpers/dispatcher/launcher",
+    "gitdiffcheck"
+  ],
+  "stillRequired": "ActualR1/R2speech/editorial/R3structural/R4wrongbytes+remove+offlineoutput/R5freshness and finalExternalaudit/report/repo checks. No issueclosed/goalcomplete/claimchanges.",
+  "latestReadOnlyResult": "vera-issue-141-observation-result-20261001T030157.751233Z.json",
+  "latestReadOnlyCapture": "capture-20261001T030157.768476Z.json",
+  "latestReadOnlyInventory": "r4-pool-read-only-20261001T030157.768476Z.json",
+  "latestReadOnlyContext": {
+    "currentPage": {
+      "value": "deliver"
+    },
+    "formatCodec": {
+      "value": {
+        "codec": "H264",
+        "format": "mov"
+      }
+    },
+    "jobs": {
+      "value": []
+    },
+    "playhead": {
+      "value": "00:00:00:00"
+    },
+    "rendering": {
+      "value": false
+    },
+    "selectedTimelineUid": {
+      "value": "64de8a4c-86bd-4f19-9d20-47b8940f610b"
+    }
+  },
+  "operatorClicks": "reported; captured timeline/pool data exactly unchanged"
+}

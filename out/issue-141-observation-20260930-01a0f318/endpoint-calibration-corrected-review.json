@@ -1,0 +1,108 @@
+{
+  "kind": "endpoint-calibration-corrected-review",
+  "result": "tested endpoint observations are now distinguishing and getter-specific; fractional precision and generalized retime semantics remain untested",
+  "scope": "Read-only review of retained synthetic picture evidence, exact full-pair getters, and already-rendered PCM. The only analysis added reads manifest-validated generated bed.wav and localized PCM windows. No Resolve call, rerender, re-extraction, new fixture, protected-media byte/hash access, source/config/dashboard/docs/report change, or contract/fixture change.",
+  "preservation": {
+    "prior_review": "out/issue-141-observation-20260930-01a0f318/endpoint-calibration-retained-review.json",
+    "prior_review_sha256_before": "2e724f516ce5377f4d84c1b4c6413aa2e5a190f02dc8fa6439965e5c7a9d07b8",
+    "prior_review_preserved": true
+  },
+  "correction_to_prior_review": {
+    "wrong_conflict": "The prior review treated base-only samples 199/200 (equal black pixels) as if they were the later overlay-enabled samples. They are separate sample sets.",
+    "base_only_set": {
+      "record": "docs/investigations/issue-141/evidence/picture-calibration-success/picture-calibration-20260930T224456.790256Z.json",
+      "record_sha256": "4587f66895898d44575fbda632c21f27923d177601dc68e3cc775b94e1872f7f",
+      "pixel_finding": "frame 198 contains the known base slate; frames 199 and 200 are identical all-black RGB samples. This proves the tested base-only visible sequence ends before frame 199.",
+      "source_png_sha256": {
+        "frame_198": "e1801029ac90b2abbb15eeca9d108298600384c2afef0475339826abfe5c1bd0",
+        "frame_199": "4ffe68970e56db313fa07e6054e22a0568ad00d86ff75236f152968979ad219c",
+        "frame_200": "4ffe68970e56db313fa07e6054e22a0568ad00d86ff75236f152968979ad219c"
+      }
+    },
+    "later_overlay_set": {
+      "record": "docs/investigations/issue-141/evidence/picture-cases-success/picture-cases-20260930T231720.631880Z.json",
+      "record_sha256": "07f293d25cfddd4e8ff1a64226fc08b9a028e8fed46cb7231a8483f672037572",
+      "case": "transparent overlay starts at local frame 75, duration 125, end getter 200; separate timeline section starts at 6500 and item starts at 6575.",
+      "host_rgb_record": "out/issue-141-observation-20260930-01a0f318/picture-case-host-pixels.json",
+      "host_rgb_record_sha256": "311e0a047c42619d44665a645f1e1cf40ad74aa6eed41024193fdb2bd6caea46",
+      "samples": {
+        "local_198": {"rgb_sha256": "5253842bec9b31515bf6a382e632b8b1eb73204b3d1bca563b27ea4f405d67a7", "all_black": false},
+        "local_199": {"rgb_sha256": "b1e00c1a7890fe3f51a22caf2faa740085cec9342d95bc5dc34a07f4a22dc0d6", "all_black": false},
+        "local_200": {"rgb_sha256": "1f56bd4f609fab80a2b9cce7487d5c08de2768476849e1353881ca748d8d3b6a", "all_black": true}
+      },
+      "finding": "The later overlay sample at local 199 is visibly non-black and differs from the base-only black sample at frame 199; local 200 is black. This resolves the previous visibility conflict without merging the two tests."
+    }
+  },
+  "tested_getter_conventions": [
+    {
+      "getter": "GetStart",
+      "observed_values": ["base video 0", "overlay still 75", "audio tail piece 9100"],
+      "tested_reading": "The tested start value names the first included timeline frame. Samples/signal are present beginning at the tested start.",
+      "scope": "These synthetic 25 fps cases only."
+    },
+    {
+      "getter": "GetEnd",
+      "observed_values": ["base-only video 199", "overlay still 200", "audio tail piece 9199"],
+      "tested_reading": "For these tested 100% speed timeline items, the value is the first timeline frame outside the observed item: base is black at 199; overlay is black at local 200; audio output frame 9199 is zero after mapped source frame 198 at timeline 9198.",
+      "scope": "Observed exclusive upper-bound behavior for these items; not a universal rule for arbitrary retimes/effects."
+    },
+    {
+      "getter": "GetDuration",
+      "observed_values": ["base video 199", "overlay still 125", "audio tail piece 99"],
+      "tested_reading": "Values agree with the observed frame counts for these tested spans: base frames 0..198; overlay local frames 75..199; audio timeline frames 9100..9198. Duration is kept as its own getter result.",
+      "scope": "Do not derive it from endpoint getters outside these measured cases."
+    },
+    {
+      "getter": "GetStart(True), GetEnd(True), GetDuration(True)",
+      "observed_values": "Exactly match the corresponding integer values as floats in retained examples, including 0.0/199.0/199.0, 75.0/200.0/125.0 and 9100.0/9199.0/99.0.",
+      "tested_reading": "Integer-valued inputs/readbacks agree across overloads.",
+      "scope": "No fractional start/end/duration was exercised. Fractional precision is untested, not an API failure."
+    },
+    {
+      "getter": "GetSourceStartFrame / GetSourceEndFrame",
+      "observed_values": "The 100% audio tail piece reports source frames 100/199 while its timeline span is 9100/9199 with duration 99. Rendered timeline frame 9198 correlates to source frame 198; source frame 199 remains nonzero but is not present in the render.",
+      "tested_reading": "For this generated 100% audio item, source end frame 199 is the first source frame excluded by the tested range.",
+      "scope": "Source frame fields are recorded separately from timeline GetEnd and from source-time getters."
+    },
+    {
+      "getter": "GetSourceStartTime / GetSourceEndTime",
+      "observed_values": "At 100%, tail source frames 100/199 pair with source times 4.0/7.96. The one-frame still reports source frames 0/0 and times 0.0/0.04. In a separate 50% retime capture, source end frame 99 pairs with source end time 4.0.",
+      "tested_reading": "Retain the raw frame and second values independently. The 50% pair does not map by a single assumed frame-index-to-time rule (99 at 25 fps would place the frame start at 3.96 s, while the getter reports 4.0 s).",
+      "raw_50_percent_capture": "out/issue-141-observation-20260930-01a0f318/capture-20260930T234123.302069Z-retime-50.json",
+      "raw_50_percent_capture_sha256": "e62335d6f488a828b2c7ac543807aee9e1aac1a851359ec66e8448a765b8049e",
+      "scope": "The existing 50% capture is a raw observation, not proof of unsupported behavior or a universal source-time convention. The 50% clip was restored to 100%."
+    }
+  ],
+  "audio_pcm_observation": {
+    "full_pair": "out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/full-pair-007.json",
+    "full_pair_sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+    "rendered_pcm": "out/issue-141-observation-20260930-01a0f318/pcm-real-render-20261001T235643.512549Z.wav",
+    "rendered_pcm_sha256": "d2581dc047a348a104821cbd53c7b84e4a47b80fd4443ebf52f6fbd3382362a7",
+    "rendered_pcm_format": "PCM24 stereo, 48000 Hz, 17664000 samples/channel, PTS 0; 368 seconds; 9200 timeline frames at 25 fps.",
+    "generated_bed": {
+      "manifest": "docs/investigations/issue-141/inputs/manifest.json",
+      "manifest_sha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+      "path": "out/issue-141-media-20260930-01a0f318/bed.wav",
+      "sha256": "f6da7ab4ffb4cc549e4b41e19da714097877b035abfb0235ac9bf94ea4860c02",
+      "format": "PCM16 mono, 48000 Hz, 384000 samples; exact manifest hash verified before reading windows."
+    },
+    "window_results": [
+      {"timeline_frame": 9197, "source_frame": 197, "left_rms_pcm24": 63392.15, "right_rms_pcm24": 63392.15, "left_right_corr_to_source": [1.0, 1.0], "best_lag_samples_within_plusminus_64": [0, 0]},
+      {"timeline_frame": 9198, "source_frame": 198, "left_rms_pcm24": 63702.15, "right_rms_pcm24": 63702.15, "left_right_corr_to_source": [0.998073, 0.998073], "best_lag_samples_within_plusminus_64": [1, 1]},
+      {"timeline_frame": 9199, "source_frame_expected_next": 199, "left_rms_pcm24": 0.0, "right_rms_pcm24": 0.0, "nonzero_samples_per_channel": 0}
+    ],
+    "source_control": "Manifest-bound source frames 197, 198 and 199 contain nonzero samples (frame 199 range -500..500); frame 199 is continuous generated sine, not source silence. Correlation is channel-preserved and the final visible window matches at near-zero lag.",
+    "geometry_and_other_audio": "In full-pair-007, the VERA 141 Batched Matrix timeline is 0..9200. Audio 1 and Audio 3 tracks are enabled; the tail repeated.wav and bed.wav clips are clip-enabled at 100% speed and each ends at 9199 with duration 99 and source range 100..199. Audio 2's overlapping clip is disabled. No other enabled generated audio item extends beyond 9199.",
+    "conclusion": "The tested generated audio item has exclusive timeline and source end behavior at 9199/199 for this 100% speed case. Frame 9198 is audible and source-correlated; frame 9199 is exactly silent although the next source frame is nonzero."
+  },
+  "adequacy": {
+    "video": "Adequate for the named base-only and overlay-on-picture samples at the tested adjacent endpoint frames.",
+    "still_image": "Adequate for the named generated overlay still extended across 125 timeline frames; visible through local 199 and black at 200.",
+    "audio": "Adequate for the named 100% generated audio tail; localized PCM proves correlated signal at 9198 and exact silence at 9199.",
+    "source_bounds": "Raw source frame/time getters are retained and the 100% audio source endpoint is sample-distinguished. The 50% source-time/frame relation remains unresolved; values must not be normalized together.",
+    "float_precision": "Integer/float overload equality is observed only for integer-valued edits. Fractional edit precision remains untested, not an API failure.",
+    "generalization": "No conclusion for arbitrary retime rates, effects, other routing, different frame rates, or all Resolve getters."
+  },
+  "analysis_code": "out/issue-141-observation-20260930-01a0f318/analyze-endpoint-audio.py",
+  "minimum_remaining_observation": "If fractional precision is required, a separate authorized generated-only edit must exercise at least one non-integral timeline/source boundary and retain the raw int and float getter types/values plus adjacent distinguishing media output. No such edit was performed here."
+}

@@ -1,0 +1,24 @@
+{
+  "case": "R2-residual",
+  "failure": {
+    "path": "independent-residual-sequence-20261001T204911.843675Z/first-split-review.json",
+    "sha256": "bef2efa0afe4bb253a40293af6da6b9db6c0cc6aa4b371737d74ad7b0611b786"
+  },
+  "firstReadback": {
+    "path": "residual-resume-check-wrong-range-first-readback.json",
+    "sha256": "821800ab1f1c18c9fc855c7e52c08090f99950d6c9fce2e695d6106f7f820b8c"
+  },
+  "firstSelection": {
+    "path": "independent-residual-sequence-20261001T204911.843675Z/004-r2-residual-selected.json",
+    "sha256": "f5b8b88829d692f47e1939f2b67e3f56cd0125afd07266ec79827c75096dfa93"
+  },
+  "offsetResult": {
+    "path": "offset-native-stdout.json",
+    "sha256": "09f3284ea76796f2cf1e7ff3c06ee1ea6d632343164ee9971654e2baf836d7c2"
+  },
+  "preparation": {
+    "path": "independent-residual-sequence-20261001T204911.843675Z/preparation.json",
+    "sha256": "1d23d150cc480fe6842dbc0fa9857ac02d58756f96d137c98f7bdd9027b018dd"
+  },
+  "status": "residual-resume-authorized"
+}

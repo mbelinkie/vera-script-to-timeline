@@ -1,0 +1,20 @@
+{
+  "status": "format-selected-content-unchanged",
+  "oneMutation": "SetCurrentRenderFormatAndCodec",
+  "setterReturn": true,
+  "fullTimelineAndPoolEqualPin": true,
+  "formatCodec": {
+    "codec": "H264",
+    "format": "mov"
+  },
+  "idleEmptyQueue": true,
+  "xmlUnchanged": true,
+  "hiddenOriginalSettingEqualityClaimed": false,
+  "files": {
+    "vera-issue-141-observation-result-20261001T025040.116106Z.json": "10f0038d70a1cd65deb3bbc72225c6fef1571a224784a311d936d300f8f20cee",
+    "journal.jsonl": "df0c3d0162698b5817c120bd8769d369054463b504f59b28af35044afd64c09d",
+    "preflight.json": "38231c6c8d5e9a6e05663114539d91560746d7d22f3a91f9593cd4abe7806f19",
+    "postflight.json": "b2c10cf1a53236ec1b05f17554e36e6f9a40e0ce005feb19b0fd096a04ecb7bc",
+    "result.json": "10f0038d70a1cd65deb3bbc72225c6fef1571a224784a311d936d300f8f20cee"
+  }
+}

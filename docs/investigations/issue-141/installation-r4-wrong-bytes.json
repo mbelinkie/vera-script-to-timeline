@@ -1,0 +1,23 @@
+{
+  "kind": "bounded-same-locator-wrong-bytes-and-restoration",
+  "stagedAt": "2026-10-01T04:26:31.379272+00:00",
+  "action": "r4-wrong-bytes",
+  "probeSha256": "0348bafd44a64e258a0ec91a6a4248c5b9dc44732dda68430a38daadb549101e",
+  "moduleSha256": "205dad3bd856a19f4e78f70e530d95ecce2956ac5ce8db6334198021b9b0e00a",
+  "launcherSha256": "6bfa20aa89f0a085784fc2c8ced56bce2577a2cc63c21c48fc8ebaebbe704a7b",
+  "privateConfigSha256": "960546aaea07ef4e757da24404dc30eee0fb5c94ed660754dda823c0f3ea9cca",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "allowedFileMutations": [
+    "generated relink/base.mov temporary wrong-byte replacement and exact original-byte restoration",
+    "owned recovery/still/evidence outputs"
+  ],
+  "allowedNativeMutations": [
+    "isolated-source same-folder RelinkClips after replacement and after restoration",
+    "R4 frame0 sample and original playhead restoration"
+  ],
+  "sharedOriginalMutationAllowed": false,
+  "saveAllowed": false,
+  "renderQueueAllowed": false,
+  "nativeUiEditorialMacroAllowed": false,
+  "retryAllowed": false
+}

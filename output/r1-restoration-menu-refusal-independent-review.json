@@ -1,0 +1,52 @@
+{
+  "taskId": "Issue 141",
+  "kind": "r1-restoration-menu-refusal-independent-review",
+  "status": "PASS_WITH_LAUNCHER_REFUSAL",
+  "decision": "The attempted restoration was refused by the fixed launcher before menu integration; this is launcher-before-integration refusal, not evidence of a Resolve capability failure.",
+  "evidence": {
+    "refusalRecord": "output/r1-restoration-menu-refusal-record.json",
+    "executorState": "output/r1-final-native-executor-20261002-state.json",
+    "launch": "out/issue-141-observation-20260930-01a0f318/independent-action-20261002T125424.498570Z/launch.json",
+    "previousConfig": "out/issue-141-observation-20260930-01a0f318/independent-action-20261002T125424.498570Z/previous-config.json",
+    "stagedConfig": "out/issue-141-observation-20260930-01a0f318/independent-action-20261002T125424.498570Z/staged-config.json",
+    "latestRegistrationChecks": "out/issue-141-observation-20260930-01a0f318/r1-registration-20261002T125156.968930Z/checks.json",
+    "launcher": "docs/investigations/issue-141/hammerspoon-launch.lua:28-39"
+  },
+  "launcherObservation": {
+    "exitCode": 65,
+    "stderr": "Project changed; stop: <no main window>",
+    "sourceSha256MatchesLaunchRecord": true,
+    "guardOrder": "Exact target check, activate, frontmost check, and line-36 main-window/title guard all precede selectMenuItem at line 39.",
+    "menuSelectionReached": false
+  },
+  "stateObservation": {
+    "refusalStatus": "waiting-for-exact-project-window",
+    "noInjectedDispatch": true,
+    "noNativeRestoration": true,
+    "noDuplicateAttempted": true,
+    "restoreAttempted": true,
+    "restoreStatus": "terminal-failure",
+    "finalDuplicateAttempted": false,
+    "restoreError": "RuntimeError: Menu refused",
+    "restoreAuditContainsResult": false
+  },
+  "configObservation": {
+    "previousAction": "observe",
+    "stagedAction": "r1-repeat-restore-selection",
+    "previousTimelineInventory": "protected-six",
+    "stagedTimelineInventory": "protected-six",
+    "probePathIsSame": true,
+    "stagedProbePinMatchesLatestRegistration": true,
+    "currentRegisteredProbePin": "2a5113df4c64eed13b812ea99c923633827ee77bdf3398c70e9df9b8361de47d"
+  },
+  "freshness": {
+    "launchEvidenceTimestamp": "2026-10-02T08:54:28-04:00",
+    "refusalRecordTimestamp": "2026-10-02T08:57:03-04:00",
+    "registrationCheckTimestamp": "2026-10-02T08:53:19-04:00"
+  },
+  "limitations": [
+    "No native calls, menus, tests, or edits outside this output review were performed.",
+    "The executor terminal-error field says nativeDispatchPerformed=true for the launcher invocation; the retained refusal record and launcher stderr show that no restoration or menu selection occurred."
+  ],
+  "decisionNeededFromMain": "Keep the run terminal after this single refusal and wait for the once-requested operator window action; do not retry automatically."
+}

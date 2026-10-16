@@ -1,0 +1,8 @@
+{
+  "status": "launcher-context-refused-before-menu",
+  "noNewInjectedResult": true,
+  "latestResult": "vera-issue-141-observation-result-20261001T053335.961615Z.json",
+  "stagedEditDisarmed": true,
+  "projectWindowLaterMatched": true,
+  "interpretation": "Hammerspoon project-title guard changed after activation; actual different title and cause were not recorded. No timeline edit or capability failure established. Retain; do not rerun trim."
+}

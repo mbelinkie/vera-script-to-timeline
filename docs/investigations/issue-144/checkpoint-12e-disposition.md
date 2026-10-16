@@ -1,0 +1,7 @@
+# Checkpoint 12e review disposition
+
+Claude completed4 read-only turns with zero permission denials and no blockers. It traced full report/evidence rederivation, exact fresh decision capture matching, explicit supported accept/reject, exact canonical prepared artifacts, and harmless historical replay. It found no weakened visual UID gate or separate job/lock/store.
+
+Clarification: this segment does introduce a separate strict issue-owned omission decision input schema, as the packet specifies; it reuses the existing decisions directory and lock. No frozen canonical contract changes. Review statements about tests refer to static inspection; Claude did not execute tests. All13 focused decision cases passed in895.88s. Ruff/format, mypy77 and diff checks passed. The prior full validation belongs to checkpoint12d/29c80a0, not this changed code.
+
+Future generation/rebuild must independently require the accepted current baseline pointer and fresh matching edited observations before service/native effects. The historical constructor is only used for retained read-only rederivation in this segment. Actual guarded service/cache verification immediately before every finalization, fresh whole-row pacing/cut recalculation and compiler/package/native/CAS recovery remain required next. Combined edits and WI/runbook also remain mandatory. No closure/real qualification/producer acceptance claim. User quota stop condition persists; this successful review did not hit a usage limit.

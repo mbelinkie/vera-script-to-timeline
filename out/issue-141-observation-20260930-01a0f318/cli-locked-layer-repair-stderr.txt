@@ -1,0 +1,6 @@
+2026-10-01T19:48:06.191646Z  WARN codex_skills::interface: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-10-01T19:48:06.191783Z  WARN codex_skills::interface: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
+2026-10-01T19:48:06.388269Z  WARN codex_skills::interface: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-10-01T19:48:06.388298Z  WARN codex_skills::interface: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
+2026-10-01T19:48:18.687909Z  WARN codex_core_plugins::manager: failed to refresh cached remote plugin catalog error=remote plugin catalog request to https://chatgpt.com/backend-api/ps/plugins/list?scope=GLOBAL&limit=200&pageToken=[REDACTED] failed with status 503 Service Unavailable: {"detail":"Plugin directory is temporarily unavailable"} scope=Global
+[full output: ctx-wire fetch 756eaa20ca84]

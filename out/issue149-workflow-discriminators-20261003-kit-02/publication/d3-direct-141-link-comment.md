@@ -1,0 +1,5 @@
+## #149 direct mapping-mute discriminator and pause checkpoint
+
+The [complete direct W3 record](https://github.com/mbelinkie/vera-script-to-timeline/issues/149#issuecomment-5966117633) is independently verified **adverse** on Studio 21.1.1.10 through Workflow Integration, External Scripting None: a fresh never-rendered native AV fixture read back A2 `mute:true`, but output retained pilot 0.01986 (silence gate ≤0.001) and all eight number words. Native links and fixture shape were independently checked. This rules out a prior baseline render being necessary for the adverse result; it does not isolate an internal mechanism or establish a universal muting failure.
+
+Original mapping restored; full original-pre-mute→final-checkpoint comparison has only attributed queue/page/playhead changes; final save pair byte-identical. Native testing stopped at the producer’s requested saved checkpoint. New cases: **3/5 reviewed** (two W6 reproduced, direct W3 adverse). Console/Fairlight variants remain unrun and #149 stays open for producer review. No operator action pending now.

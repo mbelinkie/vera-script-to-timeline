@@ -1,0 +1,12 @@
+{
+  "kind": "new-read-only-after-reopen-not-native-retry",
+  "action": "observe",
+  "stage": "R5-after-reopen-read-only",
+  "stagedAt": "2026-09-30T23:47:10.737139+00:00",
+  "probeSha256": "d3f6824415e71ce2d11d08eae02525e8dd3de979ab3f0fa057e567fec9d3183e",
+  "privateConfigSha256": "d25f0b41944f9472fac9daa836b45a4bb226c8ce870cfdf50a4d2a6385a65864",
+  "launcherSha256": "c34bc6d445010f1a36a6c297b8f69f3ad16225f3f29c46445e1d5e521843147b",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "allowedApiMutations": [],
+  "privatePathsPublished": false
+}

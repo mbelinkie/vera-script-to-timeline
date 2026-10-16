@@ -1,0 +1,17 @@
+{
+  "comparisonStatus": "inconsistent-refused",
+  "directory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r5-freshness-20261001T035403.810952Z",
+  "interpassError": null,
+  "interpassReturn": true,
+  "journal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r5-freshness-20261001T035403.810952Z/journal.jsonl",
+  "limits": [
+    "Controlled metadata change between reads, not a simultaneous UI race.",
+    "No atomic revision token or exclusion of ABA changes is established.",
+    "Marker note/name and clip movement remain separate untested cases."
+  ],
+  "onlyMarkerCustomDataChanged": true,
+  "originalFullStateRestored": true,
+  "restoreError": null,
+  "restoreReturn": true,
+  "status": "controlled-change-refused-and-restored"
+}

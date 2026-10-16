@@ -1,0 +1,28 @@
+{
+  "action": "context",
+  "actionId": "context-03-20261002-kit-01",
+  "configSha256": "b9b0ec74d4fbad938c3db35206caaf770451ee19f47b0136a0847a70412dd238",
+  "context": {
+    "currentProjectName": {
+      "status": "ok",
+      "value": "Untitled Project"
+    },
+    "version": {
+      "status": "ok",
+      "value": [
+        21,
+        1,
+        1,
+        10,
+        ""
+      ]
+    }
+  },
+  "journal": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/evidence/context-03-20261002-kit-01/journal.jsonl",
+  "launcher": "workflow-injected",
+  "phase": "context-03",
+  "progress": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-progress-context-03-20261002-kit-01.jsonl",
+  "schemaVersion": "issue-149-workflow-reruns-v1",
+  "stateId": null,
+  "status": "ok"
+}

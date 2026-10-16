@@ -1,0 +1,114 @@
+> npm run check:contracts-generated && npm run check:typescript && npm run check:python
+> node packages/contracts/scripts/generate-contracts.mjs --check
+Generated contract types are current.
+> npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript
+> eslint scripts/*.mjs --max-warnings=0 && npm run lint --workspaces --if-present
+> eslint src test --max-warnings=0
+> eslint . --max-warnings=0
+> npm run typecheck --workspaces --if-present
+> tsc --project tsconfig.json
+> tsc --project tsconfig.json
+> npm run test --workspaces --if-present && npm run test:progress && npm run test:roadmap
+> vitest run
+ RUN  v4.1.11 /Users/matthewbelinkie/.codex/worktrees/36b0/VERA Script to Timeline/packages/contracts
+ Test Files  15 passed (15)
+      Tests  266 passed (266)
+   Start at  01:19:20
+   Duration  10.82s (transform 3.01s, setup 0ms, import 15.97s, tests 34.68s, environment 4ms)
+> vitest run
+ RUN  v4.1.11 /Users/matthewbelinkie/.codex/worktrees/36b0/VERA Script to Timeline/packages/tooling-smoke
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  01:19:32
+   Duration  221ms (transform 24ms, setup 0ms, import 37ms, tests 3ms, environment 0ms)
+> node --test scripts/project-progress.test.mjs
+✔ parses the authoritative board without counting goals as work (2.112681ms)
+✔ calculates exact done and remaining scope from actionable board issues (12.438583ms)
+✔ fails closed on incomplete or ambiguous board data (1.529594ms)
+✔ renders every issue once with escaped links and board metadata (1.316569ms)
+✔ writes the dashboard and reports an exact terminal summary (23.024633ms)
+✔ fails clearly when the live GitHub Project is unavailable (40.721456ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 248.093033
+> node --test scripts/roadmap.test.mjs scripts/roadmap-rate-limit.test.mjs scripts/roadmap-lock.test.mjs
+✔ serializes roadmap commands before any GitHub request (6.139371ms)
+✔ reclaims a sufficiently old lock whose owner process is gone (3.902397ms)
+✔ parses authoritative direct GraphQL rateLimit fields and omits response metadata (3.742697ms)
+✔ fails closed on GitHub's graphql_rate_limit exhaustion response with reset guidance (0.694443ms)
+✔ never accepts a false REST-green payload as GraphQL authority (1.065934ms)
+✔ preflight reserves points for the planned GraphQL work (0.468052ms)
+✔ honors direct Retry-After evidence during a secondary throttle (0.345183ms)
+✔ accounts for issue, comment, dependency, and Project V2 operations by actual transport (0.2516ms)
+✔ distinguishes REST, GraphQL, secondary, and client/tooling failures (0.178952ms)
+✔ parses commands and flags (2.09827ms)
+✔ accepts one exact routing profile (0.327214ms)
+✔ rejects missing routing labels (0.455101ms)
+✔ rejects duplicate routing labels (0.176729ms)
+✔ rejects Luna claiming Terra work (0.214909ms)
+✔ rejects Sol claiming Luna work (0.17606ms)
+✔ rejects unsupported effort labels (0.174033ms)
+✔ uses the latest claim marker (0.480442ms)
+✔ preserves exclusive ownership across Luna-to-Terra and Terra-to-Sol escalation markers (0.304838ms)
+✔ parses no dependencies and same-repository blockers (0.889642ms)
+✔ parses cross-roadmap dependency references (0.319098ms)
+✔ rejects prose and duplicate dependency declarations (0.293292ms)
+✔ requires every dependency to be closed and Done (0.316638ms)
+✔ inspect, ready, and claim preflight before GraphQL reads and again before mutation (1467.3831ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1598.526538
+> npm run lint:python && npm run typecheck:python && npm run test:python
+> uv run --frozen ruff check . && uv run --frozen ruff format --check .
+I001 [*] Import block is un-sorted or un-formatted
+  --> tests/test_issue171_generated_contracts.py:1:1
+   |
+ 1 | / from typing import get_type_hints
+ 2 | |
+ 3 | | from vera_timeline_agent.generated.contracts import (
+ 4 | |     BuildReportV2,
+ 5 | |     CompilerDependenciesV2,
+ 6 | |     CompilerResultV2,
+ 7 | |     ScriptDocumentV2,
+ 8 | |     TimelineManifestV2,
+ 9 | |     __all__ as generated_exports,
+10 | | )
+11 | | from vera_timeline_agent.generated.contracts.compiler_dependencies_v2_schema import (
+12 | |     NarrationTokenTimingMapV2,
+13 | |     OccurrenceMediaResolutionV2,
+14 | |     PreparedMediaBindingV1,
+15 | |     RationalTime,
+16 | |     SourceFrameMapV1,
+17 | |     SupportingItemResultV2,
+18 | |     VisualSequenceResolutionV2,
+19 | | )
+   | |_^
+help: Organize imports
+   |
+8  |     TimelineManifestV2,
+9  + )
+10 + from vera_timeline_agent.generated.contracts import (
+11 |     __all__ as generated_exports,
+   |
+E501 Line too long (89 > 88)
+  --> tests/test_issue171_generated_contracts.py:51:89
+   |
+49 |     assert "CompilerResultV2" in generated_exports
+50 |
+51 |     assert _dependency_duration.__annotations__["dependencies"] is CompilerDependenciesV2
+   |                                                                                         ^
+52 |     assert _manifest_build_class.__annotations__["manifest"] is TimelineManifestV2
+53 |     assert _report_status.__annotations__["report"] is BuildReportV2
+   |
+Found 2 errors.
+[*] 1 fixable with the `--fix` option.

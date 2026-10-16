@@ -1,0 +1,36 @@
+{
+  "check": "issue-141 residual interval selection is diagnostic only",
+  "scope": "local fake verification; no native APIs",
+  "command": "/usr/local/bin/python3.14 -S docs/investigations/issue-141/editorial-cases-check.py",
+  "compileCommand": "/usr/local/bin/python3.14 -S -m py_compile docs/investigations/issue-141/editorial-cases-check.py docs/investigations/issue-141/editorial-cases.py",
+  "sourceSha256": {
+    "docs/investigations/issue-141/editorial-cases.py": "9694ee8f4bf33ea6350f39797ff93f356d3b3c35c845735896ffa502fdc64ebf",
+    "docs/investigations/issue-141/editorial-cases-check.py": "2326a5a888028922a926353ebf02e379e81a959a4771bb1ef1caeaa0c219c19d"
+  },
+  "outcomes": {
+    "compile": "passed",
+    "demoRun": "passed: R1-R3 guarded fake checks passed; no native app launched.",
+    "diagnosticTailSelection": {
+      "twoStablePassesAndPinnedSplitPair": "accepted by helper validation",
+      "diagnosticSelectedUids": [
+        "R2-residual-video-tail",
+        "R2-residual-audio-tail"
+      ],
+      "selectionMatchesInterval": false,
+      "deleteClipsUids": [
+        "R2-residual-video-right",
+        "R2-residual-audio-right"
+      ],
+      "ripple": false,
+      "deleteStatus": "interval-deleted-unsaved",
+      "restoreStatus": "restored-unsaved",
+      "restoredPlayhead": "00:01:30:00",
+      "protectedA2ClipEnabled": true
+    },
+    "refusalsBeforeDeleteClips": {
+      "wrongPinnedActualSource": "refused; zero DeleteClips calls",
+      "wrongPinnedActualRange": "refused; zero DeleteClips calls",
+      "liveStateDrift": "refused; zero DeleteClips calls"
+    }
+  }
+}

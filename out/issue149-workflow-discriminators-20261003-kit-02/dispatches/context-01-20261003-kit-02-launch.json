@@ -1,0 +1,5 @@
+{
+  "exitCode": 65,
+  "stdout": "",
+  "stderr": "...issue-149/workflow-discriminators/hammerspoon-launch.lua:24: Exact new synthetic project (or initial Project Manager) must be open\n"
+}

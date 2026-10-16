@@ -1,0 +1,6 @@
+{"at": "2026-10-03T05:00:51.479520+00:00", "phase": "started", "value": {"actionId": "import-media-after-settings-20261003-kit-02", "configSha256": "d71c01c267e3402bdddf34b0831cb557e2594c3ea54ee48afae525427bf0a2c4"}}
+{"at": "2026-10-03T05:00:51.544749+00:00", "phase": "probe-verified", "value": {"probePath": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/sources/ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438/harness.py", "probeSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438"}}
+{"at": "2026-10-03T05:00:51.546734+00:00", "phase": "disarmed", "value": {"action": "import-media", "actionId": "import-media-after-settings-20261003-kit-02"}}
+{"at": "2026-10-03T05:00:51.546999+00:00", "phase": "probe-request", "value": {"action": "import-media", "phase": "import-media-after-settings"}}
+{"at": "2026-10-03T05:00:56.506519+00:00", "phase": "probe-return", "value": {"status": "ok"}}
+{"at": "2026-10-03T05:00:56.507595+00:00", "phase": "result-written", "value": {"result": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-import-media-after-settings-20261003-kit-02.json", "status": "ok"}}

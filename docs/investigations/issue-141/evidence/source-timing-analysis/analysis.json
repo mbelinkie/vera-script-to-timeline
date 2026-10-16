@@ -1,0 +1,147 @@
+{
+  "frameSampleRelationship": {
+    "frameRate": "25 fps",
+    "interpretation": "Each word start begins 10 samples (0.0052083333 frame) after a frame boundary. Each half-open end lies at frame +1698/1920 = +0.884375, 222 samples before the next frame boundary. Ranges repeat every 96000 samples = 50 frames.",
+    "sampleRateHz": 48000,
+    "samplesPerFrame": 1920
+  },
+  "kind": "source-timing-analysis",
+  "limits": [
+    "Clip getters report clip/source bounds; they do not directly expose individual repeated.wav word-support ends.",
+    "Frame/sample arithmetic and PCM support do not establish Resolve fractional-unit semantics or sample-exact edited-audio behavior.",
+    "Actual program routing, output, and omission of any word remain unestablished until live editorial/output cases are completed.",
+    "This analysis does not complete R2-derived-end or any other pending checklist item."
+  ],
+  "media": {
+    "baseMov": {
+      "bytes": 792989,
+      "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+      "relativePath": "out/issue-141-media-20260930-01a0f318/base.mov",
+      "sha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942"
+    },
+    "repeatedWav": {
+      "bytes": 768044,
+      "channels": 1,
+      "frameCount": 384000,
+      "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+      "nonzeroSampleCount": 66896,
+      "relativePath": "out/issue-141-media-20260930-01a0f318/repeated.wav",
+      "sampleRateHz": 48000,
+      "sampleWidthBytes": 2,
+      "sha256": "832dd31cc46b9f4b4fdb7cbde18b4edc09ec249885634fba43da2a7b87dc768e"
+    }
+  },
+  "pcmSupportVerification": {
+    "allNonzeroSamplesWithinRanges": true,
+    "method": "Full PCM16 decode; all nonzero samples lie within the four half-open ranges, and each range first/last included samples are nonzero.",
+    "nonzeroSamplesOutsideRanges": 0,
+    "ranges": [
+      {
+        "endBoundaryRemainderSamples": 1698,
+        "endExclusiveSample": 36258,
+        "endFrameAt25fps": 18.884375,
+        "endSeconds": 0.755375,
+        "samplesBeforeNextEndBoundary": 222,
+        "startBoundaryRemainderSamples": 10,
+        "startFrameAt25fps": 10.005208333333334,
+        "startSample": 19210,
+        "startSeconds": 0.40020833333333333
+      },
+      {
+        "endBoundaryRemainderSamples": 1698,
+        "endExclusiveSample": 132258,
+        "endFrameAt25fps": 68.884375,
+        "endSeconds": 2.755375,
+        "samplesBeforeNextEndBoundary": 222,
+        "startBoundaryRemainderSamples": 10,
+        "startFrameAt25fps": 60.005208333333336,
+        "startSample": 115210,
+        "startSeconds": 2.4002083333333335
+      },
+      {
+        "endBoundaryRemainderSamples": 1698,
+        "endExclusiveSample": 228258,
+        "endFrameAt25fps": 118.884375,
+        "endSeconds": 4.755375,
+        "samplesBeforeNextEndBoundary": 222,
+        "startBoundaryRemainderSamples": 10,
+        "startFrameAt25fps": 110.00520833333333,
+        "startSample": 211210,
+        "startSeconds": 4.4002083333333335
+      },
+      {
+        "endBoundaryRemainderSamples": 1698,
+        "endExclusiveSample": 324258,
+        "endFrameAt25fps": 168.884375,
+        "endSeconds": 6.755375,
+        "samplesBeforeNextEndBoundary": 222,
+        "startBoundaryRemainderSamples": 10,
+        "startFrameAt25fps": 160.00520833333334,
+        "startSample": 307210,
+        "startSeconds": 6.4002083333333335
+      }
+    ]
+  },
+  "selectedMatrixRetimeGetters": {
+    "case": "VERA 141 Batched Matrix / R2-retime, record start frame 5500",
+    "interpretation": "During the V1 50% retime, V1 source end readback changed from frame 199 / 7.96 seconds to frame 99 / 4.0 seconds while record end/duration remained 5699.0 / 199.0. Linked A1 source bounds, speed, record end, and duration did not change in the captured passes.",
+    "rawCaptures": {
+      "capture-20260930T234123.302069Z-retime-50.json": "e62335d6f488a828b2c7ac543807aee9e1aac1a851359ec66e8448a765b8049e",
+      "capture-20260930T234123.302069Z-retime-before-50.json": "2c8ce295374ba0d8785763265bc6a85d969f1d676431165a6e1663d591cc4388"
+    },
+    "values": {
+      "capture-20260930T234123.302069Z-retime-50.json": {
+        "Audio 1": {
+          "GetDuration(True)": 199.0,
+          "GetEnd(True)": 5699.0,
+          "GetSourceEndFrame": 199,
+          "GetSourceEndTime": 7.96,
+          "GetSourceStartFrame": 0,
+          "GetSourceStartTime": 0.0,
+          "GetSpeed": {
+            "Percentage": 100.0,
+            "PitchCorrection": true
+          }
+        },
+        "Video 1": {
+          "GetDuration(True)": 199.0,
+          "GetEnd(True)": 5699.0,
+          "GetSourceEndFrame": 99,
+          "GetSourceEndTime": 4.0,
+          "GetSourceStartFrame": 0,
+          "GetSourceStartTime": 0.0,
+          "GetSpeed": {
+            "Percentage": 50.0,
+            "PitchCorrection": true
+          }
+        }
+      },
+      "capture-20260930T234123.302069Z-retime-before-50.json": {
+        "Audio 1": {
+          "GetDuration(True)": 199.0,
+          "GetEnd(True)": 5699.0,
+          "GetSourceEndFrame": 199,
+          "GetSourceEndTime": 7.96,
+          "GetSourceStartFrame": 0,
+          "GetSourceStartTime": 0.0,
+          "GetSpeed": {
+            "Percentage": 100.0,
+            "PitchCorrection": true
+          }
+        },
+        "Video 1": {
+          "GetDuration(True)": 199.0,
+          "GetEnd(True)": 5699.0,
+          "GetSourceEndFrame": 199,
+          "GetSourceEndTime": 7.96,
+          "GetSourceStartFrame": 0,
+          "GetSourceStartTime": 0.0,
+          "GetSpeed": {
+            "Percentage": 100.0,
+            "PitchCorrection": true
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,193 @@
+{
+  "kind": "read-only-issue141-closeout-audit",
+  "asOf": "2026-10-02",
+  "scope": "Read-only audit of Issue 141 evidence/closeout gaps; no Resolve, protected-media, dashboard, or issue mutation.",
+  "authority": {
+    "issue": 141,
+    "issueState": "OPEN",
+    "acceptance": "External",
+    "claim": {
+      "state": "active",
+      "model": "sol",
+      "effort": "xhigh",
+      "task": "01a0f318-1f2a-7b70-b8ed-f43463225084"
+    },
+    "dependency131": {
+      "issueState": "CLOSED",
+      "projectStatus": "Done"
+    },
+    "source": "npm run roadmap -- inspect 141 (read-only)"
+  },
+  "progressEvidence": {
+    "currentReport": "docs/investigations/issue-141/report.md says 37/41 reviewed; four dashboard entries remain.",
+    "staleLocalProgress": "evidence/r1-trim-success/progress.json says 24/41 and is historical.",
+    "dashboardJson": "No current dashboard progress.json found in this checkout. The report asserts a focused 41-title check, but this audit could not independently reconcile 41 individual dashboard rows. Do not count stale 24/41 or narrative 37/41 alone for closeout."
+  },
+  "classificationKey": {
+    "reviewed-bounded-support": "Observed in named conditions with retained readback/output and limited interpretation.",
+    "reproduced-limited-capability": "Repeated only within the tested path/build; not a universal API claim.",
+    "explicit-ambiguity": "Evidence cannot distinguish relevant causes or semantics.",
+    "pending-test": "Required action/result has not been evidenced.",
+    "missing-proof": "Claim may be plausible, but required provenance/readback/operator confirmation is absent."
+  },
+  "requirements": [
+    {
+      "area": "R1 identity/editorial survival",
+      "plannedChecks": [
+        "reopen and compare",
+        "native timeline duplicate with identical signatures",
+        "trim",
+        "move",
+        "razor",
+        "copy/paste",
+        "save/reopen repeat",
+        "second named duplicate"
+      ],
+      "status": "partial; final repeat and second duplicate pending",
+      "evidence": [
+        "evidence/native-duplicate-success/summary.json: first DuplicateTimeline; reopen capture; six new occurrence UIDs, five shared media UIDs, matching source/track/range/enable/marker signatures. After duplication the baseline track-enable flags, Usage and some getters changed; preserved as observed, not normalized.",
+        "evidence/r1-trim-success/: bounded linked V1/A1 25-frame trim; target IDs, source/ranges, metadata and restoration compared.",
+        "evidence/r1-move-success/: bounded linked V1/A1 25-frame move with source/range/ID comparisons and restoration.",
+        "evidence/r1-razor-success/ and r1-razor-context-restored/: genuine split and restored context.",
+        "evidence/r1-copy-paste-stopped/: genuine copy/paste, new linked IDs/inherited markers; four Matrix pool Out changes retained.",
+        "output/r1-registration-readiness.json; evidence/r1-repeat-six-readiness.md: actions registered and fake/refusal checks passed; no native final repeat. second-duplicate-check.py is fake-only."
+      ],
+      "classification": "reviewed-bounded-support for initial duplicate and named edits; explicit-ambiguity for lineage/Usage/Out interpretation; pending-test for final repeat/second duplicate.",
+      "gap": "Run/review native reopen/full repeat and second named duplicate with fresh before/after pairs; compare IDs, markers, ranges/settings, baseline diffs and restoration. Do not count registration or fake checks as native evidence."
+    },
+    {
+      "area": "R2 speech/program audio/timing",
+      "plannedChecks": [
+        "linked cut",
+        "unlinked cut",
+        "picture-only cut",
+        "partial word",
+        "residual second track",
+        "disabled/mute/Solo",
+        "one-frame offset",
+        "retime",
+        "source/sample-derived ends and complete routing"
+      ],
+      "status": "six physical/output cases and integer endpoint calibration reviewed; completed Solo job comparison/restoration remains outstanding in retained records",
+      "evidence": [
+        "evidence/r2-linked-physical-cut/, r2-unlinked-physical-cut/ and output/pcm-r2-independent-completion-review.json: linked/unlinked/picture-only/partial/residual/offset bounded generated-waveform findings.",
+        "endpoint-calibration-independent-verdict.json: tested 100% integer endpoint cases only; generalized/fractional retime precision remains open.",
+        "audio-mapping-restore-summary.json: exact original mapping/full pair restored; held mapping-mute output equaled baseline, so the flag did not prove silence in this case.",
+        "fairlight-queue-only-summary.json, fairlight-render-completion-summary.json and pause-render-checkpoint.json: one A2-Solo render completed, cleanup and exact project pair restoration verified; output PCM comparison and manual Solo-off restoration absent."
+      ],
+      "classification": "reviewed-bounded-support for six generated cases and integer calibration; reproduced-limited-capability for mapping-mute flag not proving program silence in this case; explicit-ambiguity for route/Solo effect; pending-test for Solo PCM comparison and operator restoration.",
+      "gap": "Compare completed job output only (never restart), retain exact provenance and bounded waveform result; then capture manual Solo-off and fresh restored-state evidence. Bus/route origin remains unknown absent direct evidence."
+    },
+    {
+      "area": "R3 visibility/structure",
+      "plannedChecks": [
+        "opaque cutaway/return",
+        "transparent overlay",
+        "effect/opacity",
+        "disabled items",
+        "offline picture",
+        "Graphic merge",
+        "authored boundary",
+        "crossing bed"
+      ],
+      "status": "named samples and structural cases reviewed",
+      "evidence": [
+        "evidence/picture-cases-success/summary.json",
+        "evidence/picture-calibration-success/summary.json",
+        "evidence/visibility-interpretation/report.md",
+        "current R3 section of report.md"
+      ],
+      "classification": "reviewed-bounded-support for named synthetic frames/actions; explicit-ambiguity outside sampled effects/visibility/routing conditions.",
+      "gap": "No further result claimed. Keep general effects, all-frame visibility, audibility and export synchronization out of conclusions."
+    },
+    {
+      "area": "R4 asset identity/availability",
+      "plannedChecks": [
+        "offline but present",
+        "same-byte relink",
+        "wrong bytes at same locator",
+        "occurrence removal vs source retention",
+        "restoration"
+      ],
+      "status": "bounded transitions/restorations reviewed",
+      "evidence": [
+        "evidence/offline-cycle-continuation-success/summary.json",
+        "evidence/r4-wrong-bytes-success/summary.json",
+        "evidence/r4-removal-success/independent-comparison.json",
+        "evidence/r4-finalize-success/summary.json",
+        "current R4 section of report.md"
+      ],
+      "classification": "reviewed-bounded-support for named synthetic transitions; explicit-ambiguity beyond verified byte/output evidence.",
+      "gap": "Do not rerun. Preserve distinction between locator/ID/Online status, source bytes, occurrence disappearance and visible replacement."
+    },
+    {
+      "area": "R5 repeat/markers/freshness",
+      "plannedChecks": [
+        "quiet repeat",
+        "save/reopen repeat",
+        "new marker edit",
+        "new clip edit",
+        "inconsistent capture refusal",
+        "restoration"
+      ],
+      "status": "bounded repeats/refusal/restoration reviewed; atomicity remains unproved",
+      "evidence": [
+        "evidence/r5-capture-loop-success/summary.json: controlled marker customData change between reads refused and restored, no getter failures.",
+        "evidence/r5-controlled-metadata/summary.json: controlled change/restoration comparison.",
+        "evidence/r5-manual-marker-move/summary.json and current R5 report section: marker-note/move readbacks.",
+        "evidence/quiet-repeat/summary.json, evidence/after-reopen-read-only/summary.json, native-duplicate-success captures: quiet/reopen observations."
+      ],
+      "classification": "reviewed-bounded-support for equal reads and controlled inconsistency refusal; explicit-ambiguity for atomicity/ABA/UI race.",
+      "gap": "No atomic token/ABA exclusion/race guarantee. The final R1 repeat must add repeat identity/marker/range/settings evidence."
+    }
+  ],
+  "issueAcceptanceCriteria": [
+    {
+      "criterion": "Every R1-R5 operation has version-stamped raw evidence, reproducible steps, bounded interpretation; failures retained.",
+      "status": "substantially met, with native R1 final repeat/second duplicate and Solo comparison/restoration still open."
+    },
+    {
+      "criterion": "Duplicate signatures, unknown effects/routes, residual speech and wrong/offline media never become false identity/deletion claims.",
+      "status": "Current report preserves these distinctions; retain them in final wording."
+    },
+    {
+      "criterion": "Repeat returns same bounded result or exact instability; no undocumented API represented as supported.",
+      "status": "Partial: initial duplicate and R5 controlled refusal exist; final native repeat/second duplicate pending; no atomicity claim."
+    },
+    {
+      "criterion": "External evidence confirms disposable scope and untouched existing state.",
+      "status": "Operator confirmed None remained set and synthetic project only for preparation; final post-matrix External evidence statement still required."
+    },
+    {
+      "criterion": "Report maps #131/#139 and #101-#104 without altering contracts/accepted artifacts/readiness.",
+      "status": "Current report contains mapping; final consolidation should state case-to-evidence decisions and preserve separate gates."
+    }
+  ],
+  "downstreamMapping": {
+    "#131/#139": "Named Studio 21.1 build observations bound assumptions; retain raw facts, explicit unknowns, manual review and fail-closed behavior; do not amend accepted artifacts.",
+    "#101-#104": "#101 preserve raw facts/source hashes/unknowns; #102 do not infer identity/omission/visibility from incomplete data; #103 surface ambiguity/staleness; #104 preserve sources/block unsafe apply. Keep contract, review and apply gates separate.",
+    "#144/#145": "Only bounded synthetic 25-frame linked V1/A1 move/trim and producer-accepted source-range phrase reconstruction; no rendered-output claim for move/trim, and source reconstruction is not audible deletion. #145 still needs its own real-script run.",
+    "#146": "Transcript omission path requires accepted coverage/freshness gating; otherwise spoken omission remains unproved absent complete audible routing/timing. Partial words, residual speech and unclear routes require review/refusal."
+  },
+  "closeoutGaps": [
+    "Finish/review native R1 full repeat and second named duplicate; focused registration/fake checks do not count as native evidence.",
+    "Compare completed Solo job output and record bounded result; capture manual Solo-off and fresh state restoration. Do not restart the completed job.",
+    "Reconcile all 41 current dashboard titles to evidence/status. Current report says 37/41; only local progress.json found says stale 24/41. Pending items must not be counted complete.",
+    "Consolidate final report with #131/#139/#101-#104/#144/#145/#146 distinctions and exact limitations.",
+    "Obtain producer's explicit final External evidence statement naming project/report/captures/discrepancies. Do not close from agent self-report."
+  ],
+  "proposedFinalReportWording": "Issue 141 retains bounded Studio 21.1.0 build 14 evidence for the named synthetic observations. The first native duplication and trim/move/razor/copy results do not establish general lineage; final repeat and second duplication remain required. Reviewed R2 waveform cases and integer endpoint calibration do not establish complete routing or universal speech omission. The channel-mapping mute flag did not establish silence in the tested program output. The already completed A2 Solo job still needs output comparison and operator restoration evidence. R3/R4/R5 findings remain bounded to sampled frames, generated assets and observed repeat/refusal conditions; no atomic snapshot guarantee is established. For #131/#139 and #101–#104, preserve raw facts and unknowns, route ambiguity to review/refusal, and do not infer identity, deletion or visibility from names, signatures, flags or locators. #144/#145 may cite only bounded synthetic move/trim and source-transcript reconstruction limits; #145 needs its own real-script run. Any transcript-based path requires accepted #146 coverage/freshness gating; otherwise spoken omission remains unproved absent complete audible routing/timing. External acceptance requires the producer's explicit final evidence statement after R1 and Solo evidence is reviewed.",
+  "proposedAcceptanceChecklist": [
+    "Review fresh native R1 reopen/full-repeat and second-duplicate pairs, IDs, markers, ranges/settings, deltas/restoration and independent comparison.",
+    "Verify completed Solo job ID/terminal proof from retained files; compare generated PCM; record manual Solo-off and fresh restored-state capture; no render restart.",
+    "Reconcile current 41 dashboard titles to retained evidence; do not count pending tests, fake checks, registration, or stale 24/41 snapshot.",
+    "Consolidate report and downstream mapping, preserving bounded/ambiguous/missing-proof classifications.",
+    "Record producer's explicit External confirmation for named project/media and existing-state boundary, with report/capture IDs and discrepancies.",
+    "Then decide issue disposition under External authority; no status transition from this audit."
+  ],
+  "auditLimits": [
+    "No current dashboard progress.json found in this checkout; report's 37/41 statement and stale 24/41 historical file are not a per-title audit.",
+    "Solo comparison/restoration may be active in a parallel task; confirm its final retained artifacts before finalizing this gap.",
+    "Audit used current report/checklist, retained summary evidence and read-only roadmap inspect. No Resolve/UI call, protected-media read, dashboard write or issue mutation."
+  ]
+}

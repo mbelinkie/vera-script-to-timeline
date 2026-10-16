@@ -1,0 +1,103 @@
+{
+  "afterUnlink": {
+    "poolDiagnostic": {
+      "error": "_R4PoolInventoryError: Media-pool item identity/properties are unreadable",
+      "failedEntryUid": "81d81dc0-4c37-478b-8079-03debba5e780",
+      "filePath": "OFFLINE - <approved relink/base.mov>",
+      "folderUid": "bbfbaeae-4e05-4ec1-928e-90d848edddb7",
+      "name": "base.mov",
+      "onlineStatus": "Offline",
+      "reportedUid": "81d81dc0-4c37-478b-8079-03debba5e780",
+      "sourceBytes": {
+        "status": "unapproved-locator-not-accessed"
+      }
+    },
+    "poolPasses": 1,
+    "status": "incomplete-or-inconsistent-refused",
+    "timelinePasses": [
+      {
+        "clipName": "base.mov",
+        "filePath": "OFFLINE - <approved relink/base.mov>",
+        "mediaPoolUid": "81d81dc0-4c37-478b-8079-03debba5e780",
+        "occurrenceUid": "af55478a-0ba3-458a-a6e1-e47b2544111d",
+        "onlineStatus": "Offline",
+        "recordAndSourceBounds": {
+          "GetDuration": 199,
+          "GetEnd": 199,
+          "GetSourceEndFrame": 199,
+          "GetSourceStartFrame": 0,
+          "GetStart": 0
+        },
+        "sourceBytes": {
+          "status": "unapproved-locator-not-accessed"
+        },
+        "timelineUid": "64de8a4c-86bd-4f19-9d20-47b8940f610b",
+        "track": {
+          "index": 1,
+          "type": "video"
+        }
+      },
+      null
+    ]
+  },
+  "before": {
+    "poolPasses": 2,
+    "status": "equal-adjacent-reads",
+    "timelinePasses": [
+      {
+        "clipName": "base.mov",
+        "filePath": "<approved relink/base.mov>",
+        "mediaPoolUid": "81d81dc0-4c37-478b-8079-03debba5e780",
+        "occurrenceUid": "af55478a-0ba3-458a-a6e1-e47b2544111d",
+        "onlineStatus": "Online",
+        "recordAndSourceBounds": {
+          "GetDuration": 199,
+          "GetEnd": 199,
+          "GetSourceEndFrame": 199,
+          "GetSourceStartFrame": 0,
+          "GetStart": 0
+        },
+        "sourceBytes": {
+          "hashMatches": true,
+          "sha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+          "status": "reachable"
+        },
+        "timelineUid": "64de8a4c-86bd-4f19-9d20-47b8940f610b",
+        "track": {
+          "index": 1,
+          "type": "video"
+        }
+      },
+      {
+        "clipName": "base.mov",
+        "filePath": "<approved relink/base.mov>",
+        "mediaPoolUid": "81d81dc0-4c37-478b-8079-03debba5e780",
+        "occurrenceUid": "af55478a-0ba3-458a-a6e1-e47b2544111d",
+        "onlineStatus": "Online",
+        "recordAndSourceBounds": {
+          "GetDuration": 199,
+          "GetEnd": 199,
+          "GetSourceEndFrame": 199,
+          "GetSourceStartFrame": 0,
+          "GetStart": 0
+        },
+        "sourceBytes": {
+          "hashMatches": true,
+          "sha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+          "status": "reachable"
+        },
+        "timelineUid": "64de8a4c-86bd-4f19-9d20-47b8940f610b",
+        "track": {
+          "index": 1,
+          "type": "video"
+        }
+      }
+    ]
+  },
+  "importedMediaPoolUid": "81d81dc0-4c37-478b-8079-03debba5e780",
+  "occurrenceUid": "af55478a-0ba3-458a-a6e1-e47b2544111d",
+  "projectId": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+  "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+  "scope": "Exact-UID excerpts from full raw observations; private path replaced with approved relink locator.",
+  "timelineUid": "64de8a4c-86bd-4f19-9d20-47b8940f610b"
+}

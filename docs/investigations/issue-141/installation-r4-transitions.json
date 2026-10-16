@@ -1,0 +1,19 @@
+{
+  "kind": "bounded-distinct-synthetic-source-unlink-relink",
+  "stagedAt": "2026-10-01T01:15:49.713817+00:00",
+  "action": "r4-transitions",
+  "stage": "R4-unlink-relink-transition",
+  "probeSha256": "c0731ee1ce39d9f9deb1794db3b87e286da445ed60666e67d4fd089110e8e686",
+  "moduleSha256": "12798b1288d41e70b01226202b5ee723b70219b90a6067405c816ac02e800af6",
+  "launcherSha256": "f0967834a3cfba15cecc77c03e68f60b522328aca16505d1bb0138beec808162",
+  "privateConfigSha256": "3e95846f77ad3bf2dfc0467de3cff42e2af2bfb2129e93e9a755603dfbce97b3",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "allowedApiMutations": [
+    "MediaPool.UnlinkClips one distinct imported UID",
+    "MediaPool.RelinkClips same UID and approved folder",
+    "ProjectManager.SaveProject once after verified restoration"
+  ],
+  "originalSharedSourceTargeted": false,
+  "privatePathsPublished": false
+}

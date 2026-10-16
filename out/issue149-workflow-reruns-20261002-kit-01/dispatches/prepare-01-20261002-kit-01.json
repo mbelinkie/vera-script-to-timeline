@@ -1,0 +1,89 @@
+{
+  "actionId": "prepare-01-20261002-kit-01",
+  "at": "2026-10-02T23:26:16.599830+00:00",
+  "config": {
+    "_offlineOnly": true,
+    "_approval": "root-approved-prepare-01-empty-untitled",
+    "schemaVersion": "issue-149-workflow-reruns-v1",
+    "externalScriptingSetting": "None",
+    "projectName": "VERA Issue 149 Workflow Reruns 20261002-kit-01",
+    "action": "prepare",
+    "phase": "prepare-01",
+    "actionId": "prepare-01-20261002-kit-01",
+    "stateId": "prepare-01-20261002-kit-01",
+    "probePath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/sources/b0ea4ddfa84d7e63e1aff1d909610f703f7934e92164b93075c6596f97bdabd3/harness.py",
+    "probeSha256": "b0ea4ddfa84d7e63e1aff1d909610f703f7934e92164b93075c6596f97bdabd3",
+    "launcherPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/VERA Issue 149 Workflow Reruns.py",
+    "launcherSha256": "e4f58381c398bc0ce13130fddb25c956876f7754dc877346fe389dfb826c2450",
+    "outputDir": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01",
+    "mediaDir": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/media",
+    "owned": {},
+    "allowEmptyUntitled": true,
+    "settings": {
+      "timelineFrameRate": "25",
+      "timelineResolutionWidth": "1920",
+      "timelineResolutionHeight": "1080",
+      "timelineSampleRate": "48000"
+    },
+    "media": [
+      {
+        "name": "a1_alpha.wav",
+        "relative": "a1_alpha.wav",
+        "sha256": "4bc4b8cfa118dab9f75ec2072f79af0c856f41566d7e2da60fca5268f7d81253"
+      },
+      {
+        "name": "a1_alpha_separate.wav",
+        "relative": "a1_alpha_separate.wav",
+        "sha256": "4bc4b8cfa118dab9f75ec2072f79af0c856f41566d7e2da60fca5268f7d81253"
+      },
+      {
+        "name": "a2_numbers.wav",
+        "relative": "a2_numbers.wav",
+        "sha256": "d9aeccc2d50cb96d81341167450eeb1b2c43fecf0f02b9291b4cd65afa92f9ba"
+      },
+      {
+        "name": "a3_bed.wav",
+        "relative": "a3_bed.wav",
+        "sha256": "022e3dd779808e5b38ff870cd541d8e25fb940836443262aaa95ce8768817e2b"
+      },
+      {
+        "name": "base.mov",
+        "relative": "base.mov",
+        "sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036"
+      },
+      {
+        "name": "base_picture.mov",
+        "relative": "base_picture.mov",
+        "sha256": "b0ef51ff62dfd7051d741620d46915836b62211467c4f46331117633ec300ebe"
+      },
+      {
+        "name": "clicks.wav",
+        "relative": "clicks.wav",
+        "sha256": "49fe1898a6905b8e57a84e62c1f7c920e88946d43725774bc4ce84f3b3160db6"
+      },
+      {
+        "name": "cutaway.mov",
+        "relative": "cutaway.mov",
+        "sha256": "34c364eb8debae77754448b7e272467d6fbf7a9ff46a2cca338032b778acc42e"
+      },
+      {
+        "name": "relink_alt.mov",
+        "relative": "relink_alt.mov",
+        "sha256": "2bad2d2457c3d572d2fe3542ef22da915ec38306c8985026bec10d1289f76579"
+      },
+      {
+        "name": "swap.mov",
+        "relative": "swap.mov",
+        "sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036"
+      }
+    ]
+  },
+  "launcherSha256": "e4f58381c398bc0ce13130fddb25c956876f7754dc877346fe389dfb826c2450",
+  "macroSha256": "bc8ca493e2193218208cb43bafaaf90514da9faae4ba51be05b620f5b01ccd02",
+  "previousResults": [
+    "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-context-03-20261002-kit-01.json",
+    "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-context-02-20261002-kit-01.json",
+    "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-context-01-20261002-kit-01.json"
+  ],
+  "retryAllowed": false
+}

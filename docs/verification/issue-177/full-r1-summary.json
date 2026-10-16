@@ -1,0 +1,29 @@
+{
+  "testedCommit": "05256dca620e1e22d21d95281dc1436f630e4927",
+  "reviewedImplementation": "9d43f617d7705aa2f102750d004e12d4d4a5bac2",
+  "result": "PASS",
+  "exit": {
+    "exitCode": 0,
+    "finishedAt": "2026-10-13T14:38:53.524284+00:00",
+    "logSha256": "913287f4c27bbd42d97a384c6bd531936accb1aa23a7eb474178ed1cdd596c29",
+    "sourceUnchanged": true,
+    "startedAt": "2026-10-13T12:34:35.754717+00:00"
+  },
+  "command": "VITEST_MAX_WORKERS=1 PYTEST_ADDOPTS=--durations=25 npm run validate",
+  "counts": {
+    "python": 794,
+    "contractVitest": 429,
+    "toolingVitest": 1,
+    "node": 61
+  },
+  "skips": 0,
+  "deselections": 0,
+  "pythonDurationSeconds": 7219.77,
+  "ruffFormattedFiles": 451,
+  "mypyFiles": 136,
+  "generatedCurrentness": "PASS",
+  "frozenAudit": "All previously tracked accepted-main files unchanged; additions only.",
+  "environmentAndInputs": "See full-r1-start.json and full-r1-input-audit.json.",
+  "equivalence": "Reviewed executable/test source unchanged through full run, source snapshots identical. Subsequent full result records are new evidence only, requiring fresh formatter/diff checks as consumed Markdown; no whole suite rerun merely for evidence retention.",
+  "remaining": "PR exact-head required CI, authorized reviewed merge and Automated closure; actual Studio qualification remains #178."
+}

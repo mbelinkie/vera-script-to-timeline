@@ -1,0 +1,4557 @@
+{
+  "allowedDeltaList": [
+    "target base V1/A1 split at 9100 with source offsets 0..100 and 100..199",
+    "preserved left UIDs/new right UIDs with reciprocal links",
+    "shared pool references source Usage +1",
+    "authored timeline marker at 9100 present before split and retained after"
+  ],
+  "completeRawDeltas": {
+    "preparedToSplit": [
+      {
+        "after": "27",
+        "before": "26",
+        "path": "poolPasses[0].items[0].evidence.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "poolPasses[0].items[2].evidence.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "poolPasses[1].items[0].evidence.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "poolPasses[1].items[2].evidence.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 25,
+        "before": 24,
+        "path": "timelinePasses[0].timelines[1].tracks[0].items.length"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[1].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[2].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[3].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[4].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[5].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[6].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 100,
+        "before": 199,
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[7].GetDuration.value"
+      },
+      {
+        "after": 100.0,
+        "before": 199.0,
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[7].GetDuration(True).value"
+      },
+      {
+        "after": 9100,
+        "before": 9199,
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[7].GetEnd.value"
+      },
+      {
+        "after": 9100.0,
+        "before": 9199.0,
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[7].GetEnd(True).value"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[7].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 100,
+        "before": 1,
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[7].GetRightOffset.value"
+      },
+      {
+        "after": 100.0,
+        "before": 1.0,
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[7].GetRightOffset(True).value"
+      },
+      {
+        "after": 100,
+        "before": 199,
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[7].GetSourceEndFrame.value"
+      },
+      {
+        "after": 4.0,
+        "before": 7.96,
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[7].GetSourceEndTime.value"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[8].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[9].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[10].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[11].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[12].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[13].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[14].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[15].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[16].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[17].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[18].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[19].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[20].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[21].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[22].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[1].tracks[0].items[23].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 26,
+        "before": 25,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items.length"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[1].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[2].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[3].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[4].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[5].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[6].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[7].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[8].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[9].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[10].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[11].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[12].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[13].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[14].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[15].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 99,
+        "before": 199,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetDuration.value"
+      },
+      {
+        "after": 99.0,
+        "before": 199.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetDuration(True).value"
+      },
+      {
+        "after": 9199,
+        "before": 2449,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetEnd.value"
+      },
+      {
+        "after": 9199.0,
+        "before": 2449.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetEnd(True).value"
+      },
+      {
+        "after": 100,
+        "before": 0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetLeftOffset.value"
+      },
+      {
+        "after": 100.0,
+        "before": 0.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetLeftOffset(True).value"
+      },
+      {
+        "after": "eabb3ade-3fbf-4b27-8d52-caaec25e10bc",
+        "before": "7dc4a98b-33cb-4feb-9727-b2bca434138e",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetLinkedItems[0].value"
+      },
+      {
+        "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-boundary\"}",
+        "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R1-copy\"}",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetMarkers.value.0.customData"
+      },
+      {
+        "after": "141 R3-boundary item 1",
+        "before": "141 R1-copy item 1",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetMarkers.value.0.name"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 100,
+        "before": 0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetSourceStartFrame.value"
+      },
+      {
+        "after": 4.0,
+        "before": 0.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetSourceStartTime.value"
+      },
+      {
+        "after": 9100,
+        "before": 2250,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetStart.value"
+      },
+      {
+        "after": 9100.0,
+        "before": 2250.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetStart(True).value"
+      },
+      {
+        "after": "9ba774a9-05db-419c-bd8c-39073567d9f3",
+        "before": "a9175c87-6bc0-4c07-a167-3b7c9de70fba",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetUniqueId.value"
+      },
+      {
+        "after": 2449,
+        "before": 9199,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[17].GetEnd.value"
+      },
+      {
+        "after": 2449.0,
+        "before": 9199.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[17].GetEnd(True).value"
+      },
+      {
+        "after": "7dc4a98b-33cb-4feb-9727-b2bca434138e",
+        "before": "462ae76e-bf69-41be-b967-b70c163c0c1a",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[17].GetLinkedItems[0].value"
+      },
+      {
+        "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R1-copy\"}",
+        "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-boundary\"}",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[17].GetMarkers.value.0.customData"
+      },
+      {
+        "after": "141 R1-copy item 1",
+        "before": "141 R3-boundary item 1",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[17].GetMarkers.value.0.name"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[17].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 2250,
+        "before": 9000,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[17].GetStart.value"
+      },
+      {
+        "after": 2250.0,
+        "before": 9000.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[17].GetStart(True).value"
+      },
+      {
+        "after": "a9175c87-6bc0-4c07-a167-3b7c9de70fba",
+        "before": "b4f84273-a32c-48bd-acfe-7939fbbdc54b",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[17].GetUniqueId.value"
+      },
+      {
+        "after": 100,
+        "before": 60,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetDuration.value"
+      },
+      {
+        "after": 100.0,
+        "before": 60.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetDuration(True).value"
+      },
+      {
+        "after": 9100,
+        "before": 2560,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetEnd.value"
+      },
+      {
+        "after": 9100.0,
+        "before": 2560.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetEnd(True).value"
+      },
+      {
+        "after": "462ae76e-bf69-41be-b967-b70c163c0c1a",
+        "before": "485076d1-5bdc-4136-8628-3b2aaa955c25",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetLinkedItems[0].value"
+      },
+      {
+        "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-boundary\"}",
+        "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-linked\"}",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetMarkers.value.0.customData"
+      },
+      {
+        "after": "141 R3-boundary item 1",
+        "before": "141 R2-linked item 1",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetMarkers.value.0.name"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 100,
+        "before": 140,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetRightOffset.value"
+      },
+      {
+        "after": 100.0,
+        "before": 140.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetRightOffset(True).value"
+      },
+      {
+        "after": 100,
+        "before": 60,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetSourceEndFrame.value"
+      },
+      {
+        "after": 4.0,
+        "before": 2.4,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetSourceEndTime.value"
+      },
+      {
+        "after": 9000,
+        "before": 2500,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetStart.value"
+      },
+      {
+        "after": 9000.0,
+        "before": 2500.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetStart(True).value"
+      },
+      {
+        "after": "b4f84273-a32c-48bd-acfe-7939fbbdc54b",
+        "before": "c6280b39-7618-4136-81e3-17c855866c84",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetUniqueId.value"
+      },
+      {
+        "after": 60,
+        "before": 65,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetDuration.value"
+      },
+      {
+        "after": 60.0,
+        "before": 65.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetDuration(True).value"
+      },
+      {
+        "after": 2560,
+        "before": 4065,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetEnd.value"
+      },
+      {
+        "after": 2560.0,
+        "before": 4065.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetEnd(True).value"
+      },
+      {
+        "after": 1,
+        "before": 0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetLinkedItems.length"
+      },
+      {
+        "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-linked\"}",
+        "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-partial\"}",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetMarkers.value.0.customData"
+      },
+      {
+        "after": "141 R2-linked item 1",
+        "before": "141 R2-partial item 1",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetMarkers.value.0.name"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 140,
+        "before": 135,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetRightOffset.value"
+      },
+      {
+        "after": 140.0,
+        "before": 135.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetRightOffset(True).value"
+      },
+      {
+        "after": 60,
+        "before": 65,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetSourceEndFrame.value"
+      },
+      {
+        "after": 2.4,
+        "before": 2.6,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetSourceEndTime.value"
+      },
+      {
+        "after": 2500,
+        "before": 4000,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetStart.value"
+      },
+      {
+        "after": 2500.0,
+        "before": 4000.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetStart(True).value"
+      },
+      {
+        "after": "c6280b39-7618-4136-81e3-17c855866c84",
+        "before": "d5d00807-e77d-4914-9b49-dd025ff5430d",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetUniqueId.value"
+      },
+      {
+        "after": 65,
+        "before": 199,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetDuration.value"
+      },
+      {
+        "after": 65.0,
+        "before": 199.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetDuration(True).value"
+      },
+      {
+        "after": 4065,
+        "before": 6199,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetEnd.value"
+      },
+      {
+        "after": 4065.0,
+        "before": 6199.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetEnd(True).value"
+      },
+      {
+        "after": 0,
+        "before": 1,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetLinkedItems.length"
+      },
+      {
+        "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-partial\"}",
+        "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-opaque\"}",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetMarkers.value.0.customData"
+      },
+      {
+        "after": "141 R2-partial item 1",
+        "before": "141 R3-opaque item 1",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetMarkers.value.0.name"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 135,
+        "before": 1,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetRightOffset.value"
+      },
+      {
+        "after": 135.0,
+        "before": 1.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetRightOffset(True).value"
+      },
+      {
+        "after": 65,
+        "before": 199,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetSourceEndFrame.value"
+      },
+      {
+        "after": 2.6,
+        "before": 7.96,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetSourceEndTime.value"
+      },
+      {
+        "after": 4000,
+        "before": 6000,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetStart.value"
+      },
+      {
+        "after": 4000.0,
+        "before": 6000.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetStart(True).value"
+      },
+      {
+        "after": "d5d00807-e77d-4914-9b49-dd025ff5430d",
+        "before": "d9d00f42-1b56-4d09-868f-55c3b752d7be",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetUniqueId.value"
+      },
+      {
+        "after": 199,
+        "before": 129,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetDuration.value"
+      },
+      {
+        "after": 199.0,
+        "before": 129.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetDuration(True).value"
+      },
+      {
+        "after": 6199,
+        "before": 2699,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetEnd.value"
+      },
+      {
+        "after": 6199.0,
+        "before": 2699.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetEnd(True).value"
+      },
+      {
+        "after": 0,
+        "before": 70,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetLeftOffset.value"
+      },
+      {
+        "after": 0.0,
+        "before": 70.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetLeftOffset(True).value"
+      },
+      {
+        "after": "7d3b18f2-0dbd-4e7b-85b4-63bfe5c2330a",
+        "before": "47695059-c269-43d8-913e-e946ce13bf0a",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetLinkedItems[0].value"
+      },
+      {
+        "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-opaque\"}",
+        "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-linked\"}",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetMarkers.value.0.customData"
+      },
+      {
+        "after": "141 R3-opaque item 1",
+        "before": "141 R2-linked item 1",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetMarkers.value.0.name"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 0,
+        "before": 70,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetSourceStartFrame.value"
+      },
+      {
+        "after": 0.0,
+        "before": 2.8,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetSourceStartTime.value"
+      },
+      {
+        "after": 6000,
+        "before": 2570,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetStart.value"
+      },
+      {
+        "after": 6000.0,
+        "before": 2570.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetStart(True).value"
+      },
+      {
+        "after": "d9d00f42-1b56-4d09-868f-55c3b752d7be",
+        "before": "dd5571fb-6b2c-486d-87eb-242a69802267",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetUniqueId.value"
+      },
+      {
+        "after": 129,
+        "before": 199,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetDuration.value"
+      },
+      {
+        "after": 129.0,
+        "before": 199.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetDuration(True).value"
+      },
+      {
+        "after": 2699,
+        "before": 5199,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetEnd.value"
+      },
+      {
+        "after": 2699.0,
+        "before": 5199.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetEnd(True).value"
+      },
+      {
+        "after": 70,
+        "before": 0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetLeftOffset.value"
+      },
+      {
+        "after": 70.0,
+        "before": 0.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetLeftOffset(True).value"
+      },
+      {
+        "after": "47695059-c269-43d8-913e-e946ce13bf0a",
+        "before": "ccabcb9a-8e7d-462e-a8a1-4f6ce8c4f5f7",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetLinkedItems[0].value"
+      },
+      {
+        "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-linked\"}",
+        "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-offset\"}",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetMarkers.value.0.customData"
+      },
+      {
+        "after": "141 R2-linked item 1",
+        "before": "141 R2-offset item 1",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetMarkers.value.0.name"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 70,
+        "before": 0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetSourceStartFrame.value"
+      },
+      {
+        "after": 2.8,
+        "before": 0.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetSourceStartTime.value"
+      },
+      {
+        "after": 2570,
+        "before": 5000,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetStart.value"
+      },
+      {
+        "after": 2570.0,
+        "before": 5000.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetStart(True).value"
+      },
+      {
+        "after": "dd5571fb-6b2c-486d-87eb-242a69802267",
+        "before": "f0b986dd-b580-42f9-a7f8-ba464cca7076",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetUniqueId.value"
+      },
+      {
+        "after": 199,
+        "before": 99,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetDuration.value"
+      },
+      {
+        "after": 199.0,
+        "before": 99.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetDuration(True).value"
+      },
+      {
+        "after": 5199,
+        "before": 8699,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetEnd.value"
+      },
+      {
+        "after": 5199.0,
+        "before": 8699.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetEnd(True).value"
+      },
+      {
+        "after": 0,
+        "before": 100,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetLeftOffset.value"
+      },
+      {
+        "after": 0.0,
+        "before": 100.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetLeftOffset(True).value"
+      },
+      {
+        "after": "ccabcb9a-8e7d-462e-a8a1-4f6ce8c4f5f7",
+        "before": "36aa9baf-affc-493a-b09e-90e16996caf0",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetLinkedItems[0].value"
+      },
+      {
+        "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-offset\"}",
+        "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-Graphic\"}",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetMarkers.value.0.customData"
+      },
+      {
+        "after": "141 R2-offset item 1",
+        "before": "141 R3-Graphic item 1",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetMarkers.value.0.name"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 0,
+        "before": 100,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetSourceStartFrame.value"
+      },
+      {
+        "after": 0.0,
+        "before": 4.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetSourceStartTime.value"
+      },
+      {
+        "after": 5000,
+        "before": 8600,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetStart.value"
+      },
+      {
+        "after": 5000.0,
+        "before": 8600.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetStart(True).value"
+      },
+      {
+        "after": "f0b986dd-b580-42f9-a7f8-ba464cca7076",
+        "before": "f7bb7700-1072-47ce-acb5-8e50ac6f9a88",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetUniqueId.value"
+      },
+      {
+        "after": 99,
+        "before": 199,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetDuration.value"
+      },
+      {
+        "after": 99.0,
+        "before": 199.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetDuration(True).value"
+      },
+      {
+        "after": 8699,
+        "before": 7699,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetEnd.value"
+      },
+      {
+        "after": 8699.0,
+        "before": 7699.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetEnd(True).value"
+      },
+      {
+        "after": 100,
+        "before": 0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetLeftOffset.value"
+      },
+      {
+        "after": 100.0,
+        "before": 0.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetLeftOffset(True).value"
+      },
+      {
+        "after": "36aa9baf-affc-493a-b09e-90e16996caf0",
+        "before": "6e1833c2-2695-481b-9d56-2e65ad57bf33",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetLinkedItems[0].value"
+      },
+      {
+        "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-Graphic\"}",
+        "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-disabled-cutaway\"}",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetMarkers.value.0.customData"
+      },
+      {
+        "after": "141 R3-Graphic item 1",
+        "before": "141 R3-disabled-cutaway item 1",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetMarkers.value.0.name"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 100,
+        "before": 0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetSourceStartFrame.value"
+      },
+      {
+        "after": 4.0,
+        "before": 0.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetSourceStartTime.value"
+      },
+      {
+        "after": 8600,
+        "before": 7500,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetStart.value"
+      },
+      {
+        "after": 8600.0,
+        "before": 7500.0,
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetStart(True).value"
+      },
+      {
+        "after": "f7bb7700-1072-47ce-acb5-8e50ac6f9a88",
+        "before": "fe6f2f29-c8c3-498c-b4a3-fa5f06f1b0a6",
+        "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetUniqueId.value"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[4].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[4].items[1].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[4].items[2].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[4].items[3].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[4].items[4].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[4].items[5].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[4].items[6].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[4].items[7].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[4].items[8].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[4].items[9].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[4].items[10].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[4].items[11].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[4].items[12].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[4].items[13].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[4].items[14].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[4].items[15].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[4].items[16].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[4].items[17].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[1].tracks[4].items[18].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[4].tracks[0].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[4].tracks[3].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[4].tracks[4].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[0].timelines[5].tracks[0].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[5].tracks[3].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[0].timelines[5].tracks[4].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 25,
+        "before": 24,
+        "path": "timelinePasses[1].timelines[1].tracks[0].items.length"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[1].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[2].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[3].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[4].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[5].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[6].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 100,
+        "before": 199,
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[7].GetDuration.value"
+      },
+      {
+        "after": 100.0,
+        "before": 199.0,
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[7].GetDuration(True).value"
+      },
+      {
+        "after": 9100,
+        "before": 9199,
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[7].GetEnd.value"
+      },
+      {
+        "after": 9100.0,
+        "before": 9199.0,
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[7].GetEnd(True).value"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[7].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 100,
+        "before": 1,
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[7].GetRightOffset.value"
+      },
+      {
+        "after": 100.0,
+        "before": 1.0,
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[7].GetRightOffset(True).value"
+      },
+      {
+        "after": 100,
+        "before": 199,
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[7].GetSourceEndFrame.value"
+      },
+      {
+        "after": 4.0,
+        "before": 7.96,
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[7].GetSourceEndTime.value"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[8].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[9].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[10].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[11].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[12].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[13].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[14].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[15].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[16].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[17].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[18].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[19].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[20].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[21].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[22].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[1].tracks[0].items[23].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 26,
+        "before": 25,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items.length"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[1].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[2].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[3].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[4].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[5].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[6].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[7].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[8].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[9].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[10].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[11].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[12].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[13].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[14].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[15].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 99,
+        "before": 199,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetDuration.value"
+      },
+      {
+        "after": 99.0,
+        "before": 199.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetDuration(True).value"
+      },
+      {
+        "after": 9199,
+        "before": 2449,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetEnd.value"
+      },
+      {
+        "after": 9199.0,
+        "before": 2449.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetEnd(True).value"
+      },
+      {
+        "after": 100,
+        "before": 0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetLeftOffset.value"
+      },
+      {
+        "after": 100.0,
+        "before": 0.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetLeftOffset(True).value"
+      },
+      {
+        "after": "eabb3ade-3fbf-4b27-8d52-caaec25e10bc",
+        "before": "7dc4a98b-33cb-4feb-9727-b2bca434138e",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetLinkedItems[0].value"
+      },
+      {
+        "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-boundary\"}",
+        "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R1-copy\"}",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetMarkers.value.0.customData"
+      },
+      {
+        "after": "141 R3-boundary item 1",
+        "before": "141 R1-copy item 1",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetMarkers.value.0.name"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 100,
+        "before": 0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetSourceStartFrame.value"
+      },
+      {
+        "after": 4.0,
+        "before": 0.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetSourceStartTime.value"
+      },
+      {
+        "after": 9100,
+        "before": 2250,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetStart.value"
+      },
+      {
+        "after": 9100.0,
+        "before": 2250.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetStart(True).value"
+      },
+      {
+        "after": "9ba774a9-05db-419c-bd8c-39073567d9f3",
+        "before": "a9175c87-6bc0-4c07-a167-3b7c9de70fba",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetUniqueId.value"
+      },
+      {
+        "after": 2449,
+        "before": 9199,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[17].GetEnd.value"
+      },
+      {
+        "after": 2449.0,
+        "before": 9199.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[17].GetEnd(True).value"
+      },
+      {
+        "after": "7dc4a98b-33cb-4feb-9727-b2bca434138e",
+        "before": "462ae76e-bf69-41be-b967-b70c163c0c1a",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[17].GetLinkedItems[0].value"
+      },
+      {
+        "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R1-copy\"}",
+        "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-boundary\"}",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[17].GetMarkers.value.0.customData"
+      },
+      {
+        "after": "141 R1-copy item 1",
+        "before": "141 R3-boundary item 1",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[17].GetMarkers.value.0.name"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[17].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 2250,
+        "before": 9000,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[17].GetStart.value"
+      },
+      {
+        "after": 2250.0,
+        "before": 9000.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[17].GetStart(True).value"
+      },
+      {
+        "after": "a9175c87-6bc0-4c07-a167-3b7c9de70fba",
+        "before": "b4f84273-a32c-48bd-acfe-7939fbbdc54b",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[17].GetUniqueId.value"
+      },
+      {
+        "after": 100,
+        "before": 60,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetDuration.value"
+      },
+      {
+        "after": 100.0,
+        "before": 60.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetDuration(True).value"
+      },
+      {
+        "after": 9100,
+        "before": 2560,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetEnd.value"
+      },
+      {
+        "after": 9100.0,
+        "before": 2560.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetEnd(True).value"
+      },
+      {
+        "after": "462ae76e-bf69-41be-b967-b70c163c0c1a",
+        "before": "485076d1-5bdc-4136-8628-3b2aaa955c25",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetLinkedItems[0].value"
+      },
+      {
+        "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-boundary\"}",
+        "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-linked\"}",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetMarkers.value.0.customData"
+      },
+      {
+        "after": "141 R3-boundary item 1",
+        "before": "141 R2-linked item 1",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetMarkers.value.0.name"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 100,
+        "before": 140,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetRightOffset.value"
+      },
+      {
+        "after": 100.0,
+        "before": 140.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetRightOffset(True).value"
+      },
+      {
+        "after": 100,
+        "before": 60,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetSourceEndFrame.value"
+      },
+      {
+        "after": 4.0,
+        "before": 2.4,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetSourceEndTime.value"
+      },
+      {
+        "after": 9000,
+        "before": 2500,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetStart.value"
+      },
+      {
+        "after": 9000.0,
+        "before": 2500.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetStart(True).value"
+      },
+      {
+        "after": "b4f84273-a32c-48bd-acfe-7939fbbdc54b",
+        "before": "c6280b39-7618-4136-81e3-17c855866c84",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetUniqueId.value"
+      },
+      {
+        "after": 60,
+        "before": 65,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetDuration.value"
+      },
+      {
+        "after": 60.0,
+        "before": 65.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetDuration(True).value"
+      },
+      {
+        "after": 2560,
+        "before": 4065,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetEnd.value"
+      },
+      {
+        "after": 2560.0,
+        "before": 4065.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetEnd(True).value"
+      },
+      {
+        "after": 1,
+        "before": 0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetLinkedItems.length"
+      },
+      {
+        "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-linked\"}",
+        "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-partial\"}",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetMarkers.value.0.customData"
+      },
+      {
+        "after": "141 R2-linked item 1",
+        "before": "141 R2-partial item 1",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetMarkers.value.0.name"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 140,
+        "before": 135,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetRightOffset.value"
+      },
+      {
+        "after": 140.0,
+        "before": 135.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetRightOffset(True).value"
+      },
+      {
+        "after": 60,
+        "before": 65,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetSourceEndFrame.value"
+      },
+      {
+        "after": 2.4,
+        "before": 2.6,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetSourceEndTime.value"
+      },
+      {
+        "after": 2500,
+        "before": 4000,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetStart.value"
+      },
+      {
+        "after": 2500.0,
+        "before": 4000.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetStart(True).value"
+      },
+      {
+        "after": "c6280b39-7618-4136-81e3-17c855866c84",
+        "before": "d5d00807-e77d-4914-9b49-dd025ff5430d",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetUniqueId.value"
+      },
+      {
+        "after": 65,
+        "before": 199,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetDuration.value"
+      },
+      {
+        "after": 65.0,
+        "before": 199.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetDuration(True).value"
+      },
+      {
+        "after": 4065,
+        "before": 6199,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetEnd.value"
+      },
+      {
+        "after": 4065.0,
+        "before": 6199.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetEnd(True).value"
+      },
+      {
+        "after": 0,
+        "before": 1,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetLinkedItems.length"
+      },
+      {
+        "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-partial\"}",
+        "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-opaque\"}",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetMarkers.value.0.customData"
+      },
+      {
+        "after": "141 R2-partial item 1",
+        "before": "141 R3-opaque item 1",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetMarkers.value.0.name"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 135,
+        "before": 1,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetRightOffset.value"
+      },
+      {
+        "after": 135.0,
+        "before": 1.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetRightOffset(True).value"
+      },
+      {
+        "after": 65,
+        "before": 199,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetSourceEndFrame.value"
+      },
+      {
+        "after": 2.6,
+        "before": 7.96,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetSourceEndTime.value"
+      },
+      {
+        "after": 4000,
+        "before": 6000,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetStart.value"
+      },
+      {
+        "after": 4000.0,
+        "before": 6000.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetStart(True).value"
+      },
+      {
+        "after": "d5d00807-e77d-4914-9b49-dd025ff5430d",
+        "before": "d9d00f42-1b56-4d09-868f-55c3b752d7be",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetUniqueId.value"
+      },
+      {
+        "after": 199,
+        "before": 129,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetDuration.value"
+      },
+      {
+        "after": 199.0,
+        "before": 129.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetDuration(True).value"
+      },
+      {
+        "after": 6199,
+        "before": 2699,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetEnd.value"
+      },
+      {
+        "after": 6199.0,
+        "before": 2699.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetEnd(True).value"
+      },
+      {
+        "after": 0,
+        "before": 70,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetLeftOffset.value"
+      },
+      {
+        "after": 0.0,
+        "before": 70.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetLeftOffset(True).value"
+      },
+      {
+        "after": "7d3b18f2-0dbd-4e7b-85b4-63bfe5c2330a",
+        "before": "47695059-c269-43d8-913e-e946ce13bf0a",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetLinkedItems[0].value"
+      },
+      {
+        "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-opaque\"}",
+        "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-linked\"}",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetMarkers.value.0.customData"
+      },
+      {
+        "after": "141 R3-opaque item 1",
+        "before": "141 R2-linked item 1",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetMarkers.value.0.name"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 0,
+        "before": 70,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetSourceStartFrame.value"
+      },
+      {
+        "after": 0.0,
+        "before": 2.8,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetSourceStartTime.value"
+      },
+      {
+        "after": 6000,
+        "before": 2570,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetStart.value"
+      },
+      {
+        "after": 6000.0,
+        "before": 2570.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetStart(True).value"
+      },
+      {
+        "after": "d9d00f42-1b56-4d09-868f-55c3b752d7be",
+        "before": "dd5571fb-6b2c-486d-87eb-242a69802267",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetUniqueId.value"
+      },
+      {
+        "after": 129,
+        "before": 199,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetDuration.value"
+      },
+      {
+        "after": 129.0,
+        "before": 199.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetDuration(True).value"
+      },
+      {
+        "after": 2699,
+        "before": 5199,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetEnd.value"
+      },
+      {
+        "after": 2699.0,
+        "before": 5199.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetEnd(True).value"
+      },
+      {
+        "after": 70,
+        "before": 0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetLeftOffset.value"
+      },
+      {
+        "after": 70.0,
+        "before": 0.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetLeftOffset(True).value"
+      },
+      {
+        "after": "47695059-c269-43d8-913e-e946ce13bf0a",
+        "before": "ccabcb9a-8e7d-462e-a8a1-4f6ce8c4f5f7",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetLinkedItems[0].value"
+      },
+      {
+        "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-linked\"}",
+        "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-offset\"}",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetMarkers.value.0.customData"
+      },
+      {
+        "after": "141 R2-linked item 1",
+        "before": "141 R2-offset item 1",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetMarkers.value.0.name"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 70,
+        "before": 0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetSourceStartFrame.value"
+      },
+      {
+        "after": 2.8,
+        "before": 0.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetSourceStartTime.value"
+      },
+      {
+        "after": 2570,
+        "before": 5000,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetStart.value"
+      },
+      {
+        "after": 2570.0,
+        "before": 5000.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetStart(True).value"
+      },
+      {
+        "after": "dd5571fb-6b2c-486d-87eb-242a69802267",
+        "before": "f0b986dd-b580-42f9-a7f8-ba464cca7076",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetUniqueId.value"
+      },
+      {
+        "after": 199,
+        "before": 99,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetDuration.value"
+      },
+      {
+        "after": 199.0,
+        "before": 99.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetDuration(True).value"
+      },
+      {
+        "after": 5199,
+        "before": 8699,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetEnd.value"
+      },
+      {
+        "after": 5199.0,
+        "before": 8699.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetEnd(True).value"
+      },
+      {
+        "after": 0,
+        "before": 100,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetLeftOffset.value"
+      },
+      {
+        "after": 0.0,
+        "before": 100.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetLeftOffset(True).value"
+      },
+      {
+        "after": "ccabcb9a-8e7d-462e-a8a1-4f6ce8c4f5f7",
+        "before": "36aa9baf-affc-493a-b09e-90e16996caf0",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetLinkedItems[0].value"
+      },
+      {
+        "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-offset\"}",
+        "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-Graphic\"}",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetMarkers.value.0.customData"
+      },
+      {
+        "after": "141 R2-offset item 1",
+        "before": "141 R3-Graphic item 1",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetMarkers.value.0.name"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 0,
+        "before": 100,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetSourceStartFrame.value"
+      },
+      {
+        "after": 0.0,
+        "before": 4.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetSourceStartTime.value"
+      },
+      {
+        "after": 5000,
+        "before": 8600,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetStart.value"
+      },
+      {
+        "after": 5000.0,
+        "before": 8600.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetStart(True).value"
+      },
+      {
+        "after": "f0b986dd-b580-42f9-a7f8-ba464cca7076",
+        "before": "f7bb7700-1072-47ce-acb5-8e50ac6f9a88",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetUniqueId.value"
+      },
+      {
+        "after": 99,
+        "before": 199,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetDuration.value"
+      },
+      {
+        "after": 99.0,
+        "before": 199.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetDuration(True).value"
+      },
+      {
+        "after": 8699,
+        "before": 7699,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetEnd.value"
+      },
+      {
+        "after": 8699.0,
+        "before": 7699.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetEnd(True).value"
+      },
+      {
+        "after": 100,
+        "before": 0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetLeftOffset.value"
+      },
+      {
+        "after": 100.0,
+        "before": 0.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetLeftOffset(True).value"
+      },
+      {
+        "after": "36aa9baf-affc-493a-b09e-90e16996caf0",
+        "before": "6e1833c2-2695-481b-9d56-2e65ad57bf33",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetLinkedItems[0].value"
+      },
+      {
+        "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-Graphic\"}",
+        "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-disabled-cutaway\"}",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetMarkers.value.0.customData"
+      },
+      {
+        "after": "141 R3-Graphic item 1",
+        "before": "141 R3-disabled-cutaway item 1",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetMarkers.value.0.name"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": 100,
+        "before": 0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetSourceStartFrame.value"
+      },
+      {
+        "after": 4.0,
+        "before": 0.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetSourceStartTime.value"
+      },
+      {
+        "after": 8600,
+        "before": 7500,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetStart.value"
+      },
+      {
+        "after": 8600.0,
+        "before": 7500.0,
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetStart(True).value"
+      },
+      {
+        "after": "f7bb7700-1072-47ce-acb5-8e50ac6f9a88",
+        "before": "fe6f2f29-c8c3-498c-b4a3-fa5f06f1b0a6",
+        "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetUniqueId.value"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[4].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[4].items[1].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[4].items[2].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[4].items[3].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[4].items[4].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[4].items[5].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[4].items[6].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[4].items[7].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[4].items[8].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[4].items[9].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[4].items[10].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[4].items[11].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[4].items[12].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[4].items[13].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[4].items[14].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[4].items[15].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[4].items[16].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[4].items[17].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[1].tracks[4].items[18].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[4].tracks[0].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[4].tracks[3].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[4].tracks[4].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "path": "timelinePasses[1].timelines[5].tracks[0].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[5].tracks[3].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "path": "timelinePasses[1].timelines[5].tracks[4].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+      }
+    ],
+    "priorToPrepared": [
+      {
+        "after": {
+          "color": "Blue",
+          "customData": "{\"boundaryLocalFrame\": 100, \"issue\": 141, \"section\": \"R3-boundary\"}",
+          "duration": 1,
+          "name": "141 R3 exact section boundary",
+          "note": "Synthetic authored boundary at local frame 100"
+        },
+        "before": "<missing>",
+        "path": "timelinePasses[0].timelines[1].GetMarkers.value.9100"
+      },
+      {
+        "after": {
+          "color": "Blue",
+          "customData": "{\"boundaryLocalFrame\": 100, \"issue\": 141, \"section\": \"R3-boundary\"}",
+          "duration": 1,
+          "name": "141 R3 exact section boundary",
+          "note": "Synthetic authored boundary at local frame 100"
+        },
+        "before": "<missing>",
+        "path": "timelinePasses[1].timelines[1].GetMarkers.value.9100"
+      }
+    ],
+    "splitToFinal": []
+  },
+  "expectedSplit": {
+    "authoredTimelineMarker9100": [
+      {
+        "marker": {
+          "color": "Blue",
+          "customData": "{\"boundaryLocalFrame\": 100, \"issue\": 141, \"section\": \"R3-boundary\"}",
+          "duration": 1,
+          "name": "141 R3 exact section boundary",
+          "note": "Synthetic authored boundary at local frame 100"
+        },
+        "name": "VERA 141 Batched Matrix",
+        "pass": 0,
+        "stage": "prepared",
+        "timelineIndex": 1
+      },
+      {
+        "marker": {
+          "color": "Blue",
+          "customData": "{\"boundaryLocalFrame\": 100, \"issue\": 141, \"section\": \"R3-boundary\"}",
+          "duration": 1,
+          "name": "141 R3 exact section boundary",
+          "note": "Synthetic authored boundary at local frame 100"
+        },
+        "name": "VERA 141 Batched Matrix",
+        "pass": 1,
+        "stage": "prepared",
+        "timelineIndex": 1
+      },
+      {
+        "marker": {
+          "color": "Blue",
+          "customData": "{\"boundaryLocalFrame\": 100, \"issue\": 141, \"section\": \"R3-boundary\"}",
+          "duration": 1,
+          "name": "141 R3 exact section boundary",
+          "note": "Synthetic authored boundary at local frame 100"
+        },
+        "name": "VERA 141 Batched Matrix",
+        "pass": 0,
+        "stage": "split",
+        "timelineIndex": 1
+      },
+      {
+        "marker": {
+          "color": "Blue",
+          "customData": "{\"boundaryLocalFrame\": 100, \"issue\": 141, \"section\": \"R3-boundary\"}",
+          "duration": 1,
+          "name": "141 R3 exact section boundary",
+          "note": "Synthetic authored boundary at local frame 100"
+        },
+        "name": "VERA 141 Batched Matrix",
+        "pass": 1,
+        "stage": "split",
+        "timelineIndex": 1
+      },
+      {
+        "marker": {
+          "color": "Blue",
+          "customData": "{\"boundaryLocalFrame\": 100, \"issue\": 141, \"section\": \"R3-boundary\"}",
+          "duration": 1,
+          "name": "141 R3 exact section boundary",
+          "note": "Synthetic authored boundary at local frame 100"
+        },
+        "name": "VERA 141 Batched Matrix",
+        "pass": 0,
+        "stage": "final",
+        "timelineIndex": 1
+      },
+      {
+        "marker": {
+          "color": "Blue",
+          "customData": "{\"boundaryLocalFrame\": 100, \"issue\": 141, \"section\": \"R3-boundary\"}",
+          "duration": 1,
+          "name": "141 R3 exact section boundary",
+          "note": "Synthetic authored boundary at local frame 100"
+        },
+        "name": "VERA 141 Batched Matrix",
+        "pass": 1,
+        "stage": "final",
+        "timelineIndex": 1
+      }
+    ],
+    "poolUsageDeltasBothPasses": [
+      {
+        "after": "27",
+        "before": "26",
+        "name": "base.mov",
+        "pass": 0,
+        "uid": "9202163a-8381-43e6-9157-3a60f35c6f79"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "name": "repeated.wav",
+        "pass": 0,
+        "uid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8"
+      },
+      {
+        "after": "27",
+        "before": "26",
+        "name": "base.mov",
+        "pass": 1,
+        "uid": "9202163a-8381-43e6-9157-3a60f35c6f79"
+      },
+      {
+        "after": "49",
+        "before": "48",
+        "name": "repeated.wav",
+        "pass": 1,
+        "uid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8"
+      }
+    ],
+    "preservedOldAndNewRightUIDs": {
+      "newAudio": "9ba774a9-05db-419c-bd8c-39073567d9f3",
+      "newVideo": "eabb3ade-3fbf-4b27-8d52-caaec25e10bc",
+      "oldAudio": "b4f84273-a32c-48bd-acfe-7939fbbdc54b",
+      "oldVideo": "462ae76e-bf69-41be-b967-b70c163c0c1a"
+    },
+    "splitFrame": 9100,
+    "timelineAndSourceRanges": [
+      [
+        9000,
+        9100,
+        0,
+        100
+      ],
+      [
+        9100,
+        9199,
+        100,
+        199
+      ]
+    ]
+  },
+  "failedOrUnexplainedDeltas": [
+    {
+      "after": "27",
+      "before": "26",
+      "path": "poolPasses[0].items[0].evidence.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "poolPasses[0].items[2].evidence.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "poolPasses[1].items[0].evidence.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "poolPasses[1].items[2].evidence.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 25,
+      "before": 24,
+      "path": "timelinePasses[0].timelines[1].tracks[0].items.length"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[1].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[2].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[3].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[4].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[5].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[6].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 100,
+      "before": 199,
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[7].GetDuration.value"
+    },
+    {
+      "after": 100.0,
+      "before": 199.0,
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[7].GetDuration(True).value"
+    },
+    {
+      "after": 9100,
+      "before": 9199,
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[7].GetEnd.value"
+    },
+    {
+      "after": 9100.0,
+      "before": 9199.0,
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[7].GetEnd(True).value"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[7].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 100,
+      "before": 1,
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[7].GetRightOffset.value"
+    },
+    {
+      "after": 100.0,
+      "before": 1.0,
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[7].GetRightOffset(True).value"
+    },
+    {
+      "after": 100,
+      "before": 199,
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[7].GetSourceEndFrame.value"
+    },
+    {
+      "after": 4.0,
+      "before": 7.96,
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[7].GetSourceEndTime.value"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[8].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[9].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[10].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[11].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[12].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[13].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[14].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[15].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[16].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[17].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[18].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[19].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[20].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[21].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[22].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[1].tracks[0].items[23].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 26,
+      "before": 25,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items.length"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[1].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[2].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[3].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[4].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[5].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[6].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[7].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[8].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[9].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[10].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[11].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[12].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[13].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[14].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[15].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 99,
+      "before": 199,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetDuration.value"
+    },
+    {
+      "after": 99.0,
+      "before": 199.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetDuration(True).value"
+    },
+    {
+      "after": 9199,
+      "before": 2449,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetEnd.value"
+    },
+    {
+      "after": 9199.0,
+      "before": 2449.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetEnd(True).value"
+    },
+    {
+      "after": 100,
+      "before": 0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetLeftOffset.value"
+    },
+    {
+      "after": 100.0,
+      "before": 0.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetLeftOffset(True).value"
+    },
+    {
+      "after": "eabb3ade-3fbf-4b27-8d52-caaec25e10bc",
+      "before": "7dc4a98b-33cb-4feb-9727-b2bca434138e",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetLinkedItems[0].value"
+    },
+    {
+      "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-boundary\"}",
+      "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R1-copy\"}",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetMarkers.value.0.customData"
+    },
+    {
+      "after": "141 R3-boundary item 1",
+      "before": "141 R1-copy item 1",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetMarkers.value.0.name"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 100,
+      "before": 0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetSourceStartFrame.value"
+    },
+    {
+      "after": 4.0,
+      "before": 0.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetSourceStartTime.value"
+    },
+    {
+      "after": 9100,
+      "before": 2250,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetStart.value"
+    },
+    {
+      "after": 9100.0,
+      "before": 2250.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetStart(True).value"
+    },
+    {
+      "after": "9ba774a9-05db-419c-bd8c-39073567d9f3",
+      "before": "a9175c87-6bc0-4c07-a167-3b7c9de70fba",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[16].GetUniqueId.value"
+    },
+    {
+      "after": 2449,
+      "before": 9199,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[17].GetEnd.value"
+    },
+    {
+      "after": 2449.0,
+      "before": 9199.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[17].GetEnd(True).value"
+    },
+    {
+      "after": "7dc4a98b-33cb-4feb-9727-b2bca434138e",
+      "before": "462ae76e-bf69-41be-b967-b70c163c0c1a",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[17].GetLinkedItems[0].value"
+    },
+    {
+      "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R1-copy\"}",
+      "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-boundary\"}",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[17].GetMarkers.value.0.customData"
+    },
+    {
+      "after": "141 R1-copy item 1",
+      "before": "141 R3-boundary item 1",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[17].GetMarkers.value.0.name"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[17].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 2250,
+      "before": 9000,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[17].GetStart.value"
+    },
+    {
+      "after": 2250.0,
+      "before": 9000.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[17].GetStart(True).value"
+    },
+    {
+      "after": "a9175c87-6bc0-4c07-a167-3b7c9de70fba",
+      "before": "b4f84273-a32c-48bd-acfe-7939fbbdc54b",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[17].GetUniqueId.value"
+    },
+    {
+      "after": 100,
+      "before": 60,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetDuration.value"
+    },
+    {
+      "after": 100.0,
+      "before": 60.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetDuration(True).value"
+    },
+    {
+      "after": 9100,
+      "before": 2560,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetEnd.value"
+    },
+    {
+      "after": 9100.0,
+      "before": 2560.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetEnd(True).value"
+    },
+    {
+      "after": "462ae76e-bf69-41be-b967-b70c163c0c1a",
+      "before": "485076d1-5bdc-4136-8628-3b2aaa955c25",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetLinkedItems[0].value"
+    },
+    {
+      "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-boundary\"}",
+      "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-linked\"}",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetMarkers.value.0.customData"
+    },
+    {
+      "after": "141 R3-boundary item 1",
+      "before": "141 R2-linked item 1",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetMarkers.value.0.name"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 100,
+      "before": 140,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetRightOffset.value"
+    },
+    {
+      "after": 100.0,
+      "before": 140.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetRightOffset(True).value"
+    },
+    {
+      "after": 100,
+      "before": 60,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetSourceEndFrame.value"
+    },
+    {
+      "after": 4.0,
+      "before": 2.4,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetSourceEndTime.value"
+    },
+    {
+      "after": 9000,
+      "before": 2500,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetStart.value"
+    },
+    {
+      "after": 9000.0,
+      "before": 2500.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetStart(True).value"
+    },
+    {
+      "after": "b4f84273-a32c-48bd-acfe-7939fbbdc54b",
+      "before": "c6280b39-7618-4136-81e3-17c855866c84",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[18].GetUniqueId.value"
+    },
+    {
+      "after": 60,
+      "before": 65,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetDuration.value"
+    },
+    {
+      "after": 60.0,
+      "before": 65.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetDuration(True).value"
+    },
+    {
+      "after": 2560,
+      "before": 4065,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetEnd.value"
+    },
+    {
+      "after": 2560.0,
+      "before": 4065.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetEnd(True).value"
+    },
+    {
+      "after": 1,
+      "before": 0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetLinkedItems.length"
+    },
+    {
+      "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-linked\"}",
+      "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-partial\"}",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetMarkers.value.0.customData"
+    },
+    {
+      "after": "141 R2-linked item 1",
+      "before": "141 R2-partial item 1",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetMarkers.value.0.name"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 140,
+      "before": 135,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetRightOffset.value"
+    },
+    {
+      "after": 140.0,
+      "before": 135.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetRightOffset(True).value"
+    },
+    {
+      "after": 60,
+      "before": 65,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetSourceEndFrame.value"
+    },
+    {
+      "after": 2.4,
+      "before": 2.6,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetSourceEndTime.value"
+    },
+    {
+      "after": 2500,
+      "before": 4000,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetStart.value"
+    },
+    {
+      "after": 2500.0,
+      "before": 4000.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetStart(True).value"
+    },
+    {
+      "after": "c6280b39-7618-4136-81e3-17c855866c84",
+      "before": "d5d00807-e77d-4914-9b49-dd025ff5430d",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[19].GetUniqueId.value"
+    },
+    {
+      "after": 65,
+      "before": 199,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetDuration.value"
+    },
+    {
+      "after": 65.0,
+      "before": 199.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetDuration(True).value"
+    },
+    {
+      "after": 4065,
+      "before": 6199,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetEnd.value"
+    },
+    {
+      "after": 4065.0,
+      "before": 6199.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetEnd(True).value"
+    },
+    {
+      "after": 0,
+      "before": 1,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetLinkedItems.length"
+    },
+    {
+      "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-partial\"}",
+      "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-opaque\"}",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetMarkers.value.0.customData"
+    },
+    {
+      "after": "141 R2-partial item 1",
+      "before": "141 R3-opaque item 1",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetMarkers.value.0.name"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 135,
+      "before": 1,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetRightOffset.value"
+    },
+    {
+      "after": 135.0,
+      "before": 1.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetRightOffset(True).value"
+    },
+    {
+      "after": 65,
+      "before": 199,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetSourceEndFrame.value"
+    },
+    {
+      "after": 2.6,
+      "before": 7.96,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetSourceEndTime.value"
+    },
+    {
+      "after": 4000,
+      "before": 6000,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetStart.value"
+    },
+    {
+      "after": 4000.0,
+      "before": 6000.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetStart(True).value"
+    },
+    {
+      "after": "d5d00807-e77d-4914-9b49-dd025ff5430d",
+      "before": "d9d00f42-1b56-4d09-868f-55c3b752d7be",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[20].GetUniqueId.value"
+    },
+    {
+      "after": 199,
+      "before": 129,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetDuration.value"
+    },
+    {
+      "after": 199.0,
+      "before": 129.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetDuration(True).value"
+    },
+    {
+      "after": 6199,
+      "before": 2699,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetEnd.value"
+    },
+    {
+      "after": 6199.0,
+      "before": 2699.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetEnd(True).value"
+    },
+    {
+      "after": 0,
+      "before": 70,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetLeftOffset.value"
+    },
+    {
+      "after": 0.0,
+      "before": 70.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetLeftOffset(True).value"
+    },
+    {
+      "after": "7d3b18f2-0dbd-4e7b-85b4-63bfe5c2330a",
+      "before": "47695059-c269-43d8-913e-e946ce13bf0a",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetLinkedItems[0].value"
+    },
+    {
+      "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-opaque\"}",
+      "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-linked\"}",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetMarkers.value.0.customData"
+    },
+    {
+      "after": "141 R3-opaque item 1",
+      "before": "141 R2-linked item 1",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetMarkers.value.0.name"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 0,
+      "before": 70,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetSourceStartFrame.value"
+    },
+    {
+      "after": 0.0,
+      "before": 2.8,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetSourceStartTime.value"
+    },
+    {
+      "after": 6000,
+      "before": 2570,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetStart.value"
+    },
+    {
+      "after": 6000.0,
+      "before": 2570.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetStart(True).value"
+    },
+    {
+      "after": "d9d00f42-1b56-4d09-868f-55c3b752d7be",
+      "before": "dd5571fb-6b2c-486d-87eb-242a69802267",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[21].GetUniqueId.value"
+    },
+    {
+      "after": 129,
+      "before": 199,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetDuration.value"
+    },
+    {
+      "after": 129.0,
+      "before": 199.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetDuration(True).value"
+    },
+    {
+      "after": 2699,
+      "before": 5199,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetEnd.value"
+    },
+    {
+      "after": 2699.0,
+      "before": 5199.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetEnd(True).value"
+    },
+    {
+      "after": 70,
+      "before": 0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetLeftOffset.value"
+    },
+    {
+      "after": 70.0,
+      "before": 0.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetLeftOffset(True).value"
+    },
+    {
+      "after": "47695059-c269-43d8-913e-e946ce13bf0a",
+      "before": "ccabcb9a-8e7d-462e-a8a1-4f6ce8c4f5f7",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetLinkedItems[0].value"
+    },
+    {
+      "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-linked\"}",
+      "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-offset\"}",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetMarkers.value.0.customData"
+    },
+    {
+      "after": "141 R2-linked item 1",
+      "before": "141 R2-offset item 1",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetMarkers.value.0.name"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 70,
+      "before": 0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetSourceStartFrame.value"
+    },
+    {
+      "after": 2.8,
+      "before": 0.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetSourceStartTime.value"
+    },
+    {
+      "after": 2570,
+      "before": 5000,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetStart.value"
+    },
+    {
+      "after": 2570.0,
+      "before": 5000.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetStart(True).value"
+    },
+    {
+      "after": "dd5571fb-6b2c-486d-87eb-242a69802267",
+      "before": "f0b986dd-b580-42f9-a7f8-ba464cca7076",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[22].GetUniqueId.value"
+    },
+    {
+      "after": 199,
+      "before": 99,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetDuration.value"
+    },
+    {
+      "after": 199.0,
+      "before": 99.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetDuration(True).value"
+    },
+    {
+      "after": 5199,
+      "before": 8699,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetEnd.value"
+    },
+    {
+      "after": 5199.0,
+      "before": 8699.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetEnd(True).value"
+    },
+    {
+      "after": 0,
+      "before": 100,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetLeftOffset.value"
+    },
+    {
+      "after": 0.0,
+      "before": 100.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetLeftOffset(True).value"
+    },
+    {
+      "after": "ccabcb9a-8e7d-462e-a8a1-4f6ce8c4f5f7",
+      "before": "36aa9baf-affc-493a-b09e-90e16996caf0",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetLinkedItems[0].value"
+    },
+    {
+      "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-offset\"}",
+      "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-Graphic\"}",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetMarkers.value.0.customData"
+    },
+    {
+      "after": "141 R2-offset item 1",
+      "before": "141 R3-Graphic item 1",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetMarkers.value.0.name"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 0,
+      "before": 100,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetSourceStartFrame.value"
+    },
+    {
+      "after": 0.0,
+      "before": 4.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetSourceStartTime.value"
+    },
+    {
+      "after": 5000,
+      "before": 8600,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetStart.value"
+    },
+    {
+      "after": 5000.0,
+      "before": 8600.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetStart(True).value"
+    },
+    {
+      "after": "f0b986dd-b580-42f9-a7f8-ba464cca7076",
+      "before": "f7bb7700-1072-47ce-acb5-8e50ac6f9a88",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[23].GetUniqueId.value"
+    },
+    {
+      "after": 99,
+      "before": 199,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetDuration.value"
+    },
+    {
+      "after": 99.0,
+      "before": 199.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetDuration(True).value"
+    },
+    {
+      "after": 8699,
+      "before": 7699,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetEnd.value"
+    },
+    {
+      "after": 8699.0,
+      "before": 7699.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetEnd(True).value"
+    },
+    {
+      "after": 100,
+      "before": 0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetLeftOffset.value"
+    },
+    {
+      "after": 100.0,
+      "before": 0.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetLeftOffset(True).value"
+    },
+    {
+      "after": "36aa9baf-affc-493a-b09e-90e16996caf0",
+      "before": "6e1833c2-2695-481b-9d56-2e65ad57bf33",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetLinkedItems[0].value"
+    },
+    {
+      "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-Graphic\"}",
+      "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-disabled-cutaway\"}",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetMarkers.value.0.customData"
+    },
+    {
+      "after": "141 R3-Graphic item 1",
+      "before": "141 R3-disabled-cutaway item 1",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetMarkers.value.0.name"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 100,
+      "before": 0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetSourceStartFrame.value"
+    },
+    {
+      "after": 4.0,
+      "before": 0.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetSourceStartTime.value"
+    },
+    {
+      "after": 8600,
+      "before": 7500,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetStart.value"
+    },
+    {
+      "after": 8600.0,
+      "before": 7500.0,
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetStart(True).value"
+    },
+    {
+      "after": "f7bb7700-1072-47ce-acb5-8e50ac6f9a88",
+      "before": "fe6f2f29-c8c3-498c-b4a3-fa5f06f1b0a6",
+      "path": "timelinePasses[0].timelines[1].tracks[3].items[24].GetUniqueId.value"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[4].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[4].items[1].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[4].items[2].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[4].items[3].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[4].items[4].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[4].items[5].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[4].items[6].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[4].items[7].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[4].items[8].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[4].items[9].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[4].items[10].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[4].items[11].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[4].items[12].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[4].items[13].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[4].items[14].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[4].items[15].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[4].items[16].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[4].items[17].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[1].tracks[4].items[18].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[4].tracks[0].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[4].tracks[3].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[4].tracks[4].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[0].timelines[5].tracks[0].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[5].tracks[3].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[0].timelines[5].tracks[4].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 25,
+      "before": 24,
+      "path": "timelinePasses[1].timelines[1].tracks[0].items.length"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[1].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[2].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[3].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[4].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[5].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[6].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 100,
+      "before": 199,
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[7].GetDuration.value"
+    },
+    {
+      "after": 100.0,
+      "before": 199.0,
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[7].GetDuration(True).value"
+    },
+    {
+      "after": 9100,
+      "before": 9199,
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[7].GetEnd.value"
+    },
+    {
+      "after": 9100.0,
+      "before": 9199.0,
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[7].GetEnd(True).value"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[7].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 100,
+      "before": 1,
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[7].GetRightOffset.value"
+    },
+    {
+      "after": 100.0,
+      "before": 1.0,
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[7].GetRightOffset(True).value"
+    },
+    {
+      "after": 100,
+      "before": 199,
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[7].GetSourceEndFrame.value"
+    },
+    {
+      "after": 4.0,
+      "before": 7.96,
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[7].GetSourceEndTime.value"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[8].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[9].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[10].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[11].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[12].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[13].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[14].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[15].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[16].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[17].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[18].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[19].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[20].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[21].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[22].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[1].tracks[0].items[23].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 26,
+      "before": 25,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items.length"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[1].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[2].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[3].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[4].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[5].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[6].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[7].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[8].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[9].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[10].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[11].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[12].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[13].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[14].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[15].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 99,
+      "before": 199,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetDuration.value"
+    },
+    {
+      "after": 99.0,
+      "before": 199.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetDuration(True).value"
+    },
+    {
+      "after": 9199,
+      "before": 2449,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetEnd.value"
+    },
+    {
+      "after": 9199.0,
+      "before": 2449.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetEnd(True).value"
+    },
+    {
+      "after": 100,
+      "before": 0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetLeftOffset.value"
+    },
+    {
+      "after": 100.0,
+      "before": 0.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetLeftOffset(True).value"
+    },
+    {
+      "after": "eabb3ade-3fbf-4b27-8d52-caaec25e10bc",
+      "before": "7dc4a98b-33cb-4feb-9727-b2bca434138e",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetLinkedItems[0].value"
+    },
+    {
+      "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-boundary\"}",
+      "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R1-copy\"}",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetMarkers.value.0.customData"
+    },
+    {
+      "after": "141 R3-boundary item 1",
+      "before": "141 R1-copy item 1",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetMarkers.value.0.name"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 100,
+      "before": 0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetSourceStartFrame.value"
+    },
+    {
+      "after": 4.0,
+      "before": 0.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetSourceStartTime.value"
+    },
+    {
+      "after": 9100,
+      "before": 2250,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetStart.value"
+    },
+    {
+      "after": 9100.0,
+      "before": 2250.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetStart(True).value"
+    },
+    {
+      "after": "9ba774a9-05db-419c-bd8c-39073567d9f3",
+      "before": "a9175c87-6bc0-4c07-a167-3b7c9de70fba",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[16].GetUniqueId.value"
+    },
+    {
+      "after": 2449,
+      "before": 9199,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[17].GetEnd.value"
+    },
+    {
+      "after": 2449.0,
+      "before": 9199.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[17].GetEnd(True).value"
+    },
+    {
+      "after": "7dc4a98b-33cb-4feb-9727-b2bca434138e",
+      "before": "462ae76e-bf69-41be-b967-b70c163c0c1a",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[17].GetLinkedItems[0].value"
+    },
+    {
+      "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R1-copy\"}",
+      "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-boundary\"}",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[17].GetMarkers.value.0.customData"
+    },
+    {
+      "after": "141 R1-copy item 1",
+      "before": "141 R3-boundary item 1",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[17].GetMarkers.value.0.name"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[17].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 2250,
+      "before": 9000,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[17].GetStart.value"
+    },
+    {
+      "after": 2250.0,
+      "before": 9000.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[17].GetStart(True).value"
+    },
+    {
+      "after": "a9175c87-6bc0-4c07-a167-3b7c9de70fba",
+      "before": "b4f84273-a32c-48bd-acfe-7939fbbdc54b",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[17].GetUniqueId.value"
+    },
+    {
+      "after": 100,
+      "before": 60,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetDuration.value"
+    },
+    {
+      "after": 100.0,
+      "before": 60.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetDuration(True).value"
+    },
+    {
+      "after": 9100,
+      "before": 2560,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetEnd.value"
+    },
+    {
+      "after": 9100.0,
+      "before": 2560.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetEnd(True).value"
+    },
+    {
+      "after": "462ae76e-bf69-41be-b967-b70c163c0c1a",
+      "before": "485076d1-5bdc-4136-8628-3b2aaa955c25",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetLinkedItems[0].value"
+    },
+    {
+      "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-boundary\"}",
+      "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-linked\"}",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetMarkers.value.0.customData"
+    },
+    {
+      "after": "141 R3-boundary item 1",
+      "before": "141 R2-linked item 1",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetMarkers.value.0.name"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 100,
+      "before": 140,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetRightOffset.value"
+    },
+    {
+      "after": 100.0,
+      "before": 140.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetRightOffset(True).value"
+    },
+    {
+      "after": 100,
+      "before": 60,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetSourceEndFrame.value"
+    },
+    {
+      "after": 4.0,
+      "before": 2.4,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetSourceEndTime.value"
+    },
+    {
+      "after": 9000,
+      "before": 2500,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetStart.value"
+    },
+    {
+      "after": 9000.0,
+      "before": 2500.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetStart(True).value"
+    },
+    {
+      "after": "b4f84273-a32c-48bd-acfe-7939fbbdc54b",
+      "before": "c6280b39-7618-4136-81e3-17c855866c84",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[18].GetUniqueId.value"
+    },
+    {
+      "after": 60,
+      "before": 65,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetDuration.value"
+    },
+    {
+      "after": 60.0,
+      "before": 65.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetDuration(True).value"
+    },
+    {
+      "after": 2560,
+      "before": 4065,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetEnd.value"
+    },
+    {
+      "after": 2560.0,
+      "before": 4065.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetEnd(True).value"
+    },
+    {
+      "after": 1,
+      "before": 0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetLinkedItems.length"
+    },
+    {
+      "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-linked\"}",
+      "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-partial\"}",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetMarkers.value.0.customData"
+    },
+    {
+      "after": "141 R2-linked item 1",
+      "before": "141 R2-partial item 1",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetMarkers.value.0.name"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 140,
+      "before": 135,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetRightOffset.value"
+    },
+    {
+      "after": 140.0,
+      "before": 135.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetRightOffset(True).value"
+    },
+    {
+      "after": 60,
+      "before": 65,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetSourceEndFrame.value"
+    },
+    {
+      "after": 2.4,
+      "before": 2.6,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetSourceEndTime.value"
+    },
+    {
+      "after": 2500,
+      "before": 4000,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetStart.value"
+    },
+    {
+      "after": 2500.0,
+      "before": 4000.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetStart(True).value"
+    },
+    {
+      "after": "c6280b39-7618-4136-81e3-17c855866c84",
+      "before": "d5d00807-e77d-4914-9b49-dd025ff5430d",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[19].GetUniqueId.value"
+    },
+    {
+      "after": 65,
+      "before": 199,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetDuration.value"
+    },
+    {
+      "after": 65.0,
+      "before": 199.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetDuration(True).value"
+    },
+    {
+      "after": 4065,
+      "before": 6199,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetEnd.value"
+    },
+    {
+      "after": 4065.0,
+      "before": 6199.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetEnd(True).value"
+    },
+    {
+      "after": 0,
+      "before": 1,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetLinkedItems.length"
+    },
+    {
+      "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-partial\"}",
+      "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-opaque\"}",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetMarkers.value.0.customData"
+    },
+    {
+      "after": "141 R2-partial item 1",
+      "before": "141 R3-opaque item 1",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetMarkers.value.0.name"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 135,
+      "before": 1,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetRightOffset.value"
+    },
+    {
+      "after": 135.0,
+      "before": 1.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetRightOffset(True).value"
+    },
+    {
+      "after": 65,
+      "before": 199,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetSourceEndFrame.value"
+    },
+    {
+      "after": 2.6,
+      "before": 7.96,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetSourceEndTime.value"
+    },
+    {
+      "after": 4000,
+      "before": 6000,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetStart.value"
+    },
+    {
+      "after": 4000.0,
+      "before": 6000.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetStart(True).value"
+    },
+    {
+      "after": "d5d00807-e77d-4914-9b49-dd025ff5430d",
+      "before": "d9d00f42-1b56-4d09-868f-55c3b752d7be",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[20].GetUniqueId.value"
+    },
+    {
+      "after": 199,
+      "before": 129,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetDuration.value"
+    },
+    {
+      "after": 199.0,
+      "before": 129.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetDuration(True).value"
+    },
+    {
+      "after": 6199,
+      "before": 2699,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetEnd.value"
+    },
+    {
+      "after": 6199.0,
+      "before": 2699.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetEnd(True).value"
+    },
+    {
+      "after": 0,
+      "before": 70,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetLeftOffset.value"
+    },
+    {
+      "after": 0.0,
+      "before": 70.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetLeftOffset(True).value"
+    },
+    {
+      "after": "7d3b18f2-0dbd-4e7b-85b4-63bfe5c2330a",
+      "before": "47695059-c269-43d8-913e-e946ce13bf0a",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetLinkedItems[0].value"
+    },
+    {
+      "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-opaque\"}",
+      "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-linked\"}",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetMarkers.value.0.customData"
+    },
+    {
+      "after": "141 R3-opaque item 1",
+      "before": "141 R2-linked item 1",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetMarkers.value.0.name"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 0,
+      "before": 70,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetSourceStartFrame.value"
+    },
+    {
+      "after": 0.0,
+      "before": 2.8,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetSourceStartTime.value"
+    },
+    {
+      "after": 6000,
+      "before": 2570,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetStart.value"
+    },
+    {
+      "after": 6000.0,
+      "before": 2570.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetStart(True).value"
+    },
+    {
+      "after": "d9d00f42-1b56-4d09-868f-55c3b752d7be",
+      "before": "dd5571fb-6b2c-486d-87eb-242a69802267",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[21].GetUniqueId.value"
+    },
+    {
+      "after": 129,
+      "before": 199,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetDuration.value"
+    },
+    {
+      "after": 129.0,
+      "before": 199.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetDuration(True).value"
+    },
+    {
+      "after": 2699,
+      "before": 5199,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetEnd.value"
+    },
+    {
+      "after": 2699.0,
+      "before": 5199.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetEnd(True).value"
+    },
+    {
+      "after": 70,
+      "before": 0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetLeftOffset.value"
+    },
+    {
+      "after": 70.0,
+      "before": 0.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetLeftOffset(True).value"
+    },
+    {
+      "after": "47695059-c269-43d8-913e-e946ce13bf0a",
+      "before": "ccabcb9a-8e7d-462e-a8a1-4f6ce8c4f5f7",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetLinkedItems[0].value"
+    },
+    {
+      "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-linked\"}",
+      "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-offset\"}",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetMarkers.value.0.customData"
+    },
+    {
+      "after": "141 R2-linked item 1",
+      "before": "141 R2-offset item 1",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetMarkers.value.0.name"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 70,
+      "before": 0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetSourceStartFrame.value"
+    },
+    {
+      "after": 2.8,
+      "before": 0.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetSourceStartTime.value"
+    },
+    {
+      "after": 2570,
+      "before": 5000,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetStart.value"
+    },
+    {
+      "after": 2570.0,
+      "before": 5000.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetStart(True).value"
+    },
+    {
+      "after": "dd5571fb-6b2c-486d-87eb-242a69802267",
+      "before": "f0b986dd-b580-42f9-a7f8-ba464cca7076",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[22].GetUniqueId.value"
+    },
+    {
+      "after": 199,
+      "before": 99,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetDuration.value"
+    },
+    {
+      "after": 199.0,
+      "before": 99.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetDuration(True).value"
+    },
+    {
+      "after": 5199,
+      "before": 8699,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetEnd.value"
+    },
+    {
+      "after": 5199.0,
+      "before": 8699.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetEnd(True).value"
+    },
+    {
+      "after": 0,
+      "before": 100,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetLeftOffset.value"
+    },
+    {
+      "after": 0.0,
+      "before": 100.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetLeftOffset(True).value"
+    },
+    {
+      "after": "ccabcb9a-8e7d-462e-a8a1-4f6ce8c4f5f7",
+      "before": "36aa9baf-affc-493a-b09e-90e16996caf0",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetLinkedItems[0].value"
+    },
+    {
+      "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-offset\"}",
+      "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-Graphic\"}",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetMarkers.value.0.customData"
+    },
+    {
+      "after": "141 R2-offset item 1",
+      "before": "141 R3-Graphic item 1",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetMarkers.value.0.name"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 0,
+      "before": 100,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetSourceStartFrame.value"
+    },
+    {
+      "after": 0.0,
+      "before": 4.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetSourceStartTime.value"
+    },
+    {
+      "after": 5000,
+      "before": 8600,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetStart.value"
+    },
+    {
+      "after": 5000.0,
+      "before": 8600.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetStart(True).value"
+    },
+    {
+      "after": "f0b986dd-b580-42f9-a7f8-ba464cca7076",
+      "before": "f7bb7700-1072-47ce-acb5-8e50ac6f9a88",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[23].GetUniqueId.value"
+    },
+    {
+      "after": 99,
+      "before": 199,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetDuration.value"
+    },
+    {
+      "after": 99.0,
+      "before": 199.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetDuration(True).value"
+    },
+    {
+      "after": 8699,
+      "before": 7699,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetEnd.value"
+    },
+    {
+      "after": 8699.0,
+      "before": 7699.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetEnd(True).value"
+    },
+    {
+      "after": 100,
+      "before": 0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetLeftOffset.value"
+    },
+    {
+      "after": 100.0,
+      "before": 0.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetLeftOffset(True).value"
+    },
+    {
+      "after": "36aa9baf-affc-493a-b09e-90e16996caf0",
+      "before": "6e1833c2-2695-481b-9d56-2e65ad57bf33",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetLinkedItems[0].value"
+    },
+    {
+      "after": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-Graphic\"}",
+      "before": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-disabled-cutaway\"}",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetMarkers.value.0.customData"
+    },
+    {
+      "after": "141 R3-Graphic item 1",
+      "before": "141 R3-disabled-cutaway item 1",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetMarkers.value.0.name"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": 100,
+      "before": 0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetSourceStartFrame.value"
+    },
+    {
+      "after": 4.0,
+      "before": 0.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetSourceStartTime.value"
+    },
+    {
+      "after": 8600,
+      "before": 7500,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetStart.value"
+    },
+    {
+      "after": 8600.0,
+      "before": 7500.0,
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetStart(True).value"
+    },
+    {
+      "after": "f7bb7700-1072-47ce-acb5-8e50ac6f9a88",
+      "before": "fe6f2f29-c8c3-498c-b4a3-fa5f06f1b0a6",
+      "path": "timelinePasses[1].timelines[1].tracks[3].items[24].GetUniqueId.value"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[4].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[4].items[1].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[4].items[2].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[4].items[3].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[4].items[4].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[4].items[5].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[4].items[6].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[4].items[7].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[4].items[8].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[4].items[9].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[4].items[10].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[4].items[11].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[4].items[12].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[4].items[13].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[4].items[14].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[4].items[15].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[4].items[16].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[4].items[17].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[1].tracks[4].items[18].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[4].tracks[0].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[4].tracks[3].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[4].tracks[4].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "27",
+      "before": "26",
+      "path": "timelinePasses[1].timelines[5].tracks[0].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[5].tracks[3].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+    },
+    {
+      "after": "49",
+      "before": "48",
+      "path": "timelinePasses[1].timelines[5].tracks[4].items[0].GetMediaPoolItem.GetClipProperty.value.Usage"
+    }
+  ],
+  "finalContextPairSha256": "b0f128efef59738307b6977872aa528f03761e11cd0dd14b7081d03f15743a65",
+  "fullPairComparison": {
+    "fieldChangeCounts": {
+      "preparedToSplit": 412,
+      "priorToPrepared": 2,
+      "splitToFinal": 0
+    },
+    "pairPassEquality": {
+      "final": {
+        "poolPasses": true,
+        "timelinePasses": true
+      },
+      "prepared": {
+        "poolPasses": true,
+        "timelinePasses": true
+      },
+      "split": {
+        "poolPasses": true,
+        "timelinePasses": true
+      }
+    }
+  },
+  "hashBindingsVerified": true,
+  "interpretation": "Every prepared-to-split raw field delta is retained in completeRawDeltas; deltas outside allowedDeltaList are unexplained. Final state uses the independently hash-verified current context pair, never historical preparation afterPair.",
+  "limits": {
+    "noClaims": [
+      "audibility",
+      "all crossings gone",
+      "lineage",
+      "visibility"
+    ],
+    "processExitCode": "unavailable",
+    "r3BoundaryChecklist": "NOT DONE; separate A3 test pending",
+    "rootVerifiedNativePhaseComplete": true,
+    "wrapperTimeout": "30-second timeout retained separately; root verified originalPID38693 live then terminal without replay"
+  },
+  "observedTargetClipsInSplitPair": [
+    {
+      "end": 9100,
+      "links": [
+        {
+          "value": "b4f84273-a32c-48bd-acfe-7939fbbdc54b"
+        }
+      ],
+      "pass": 0,
+      "sourceEnd": 100,
+      "sourceStart": 0,
+      "start": 9000,
+      "timeline": "VERA 141 Batched Matrix",
+      "track": 1,
+      "type": "video",
+      "uid": "462ae76e-bf69-41be-b967-b70c163c0c1a"
+    },
+    {
+      "end": 9199,
+      "links": [
+        {
+          "value": "9ba774a9-05db-419c-bd8c-39073567d9f3"
+        }
+      ],
+      "pass": 0,
+      "sourceEnd": 199,
+      "sourceStart": 100,
+      "start": 9100,
+      "timeline": "VERA 141 Batched Matrix",
+      "track": 1,
+      "type": "video",
+      "uid": "eabb3ade-3fbf-4b27-8d52-caaec25e10bc"
+    },
+    {
+      "end": 9199,
+      "links": [
+        {
+          "value": "eabb3ade-3fbf-4b27-8d52-caaec25e10bc"
+        }
+      ],
+      "pass": 0,
+      "sourceEnd": 199,
+      "sourceStart": 100,
+      "start": 9100,
+      "timeline": "VERA 141 Batched Matrix",
+      "track": 1,
+      "type": "audio",
+      "uid": "9ba774a9-05db-419c-bd8c-39073567d9f3"
+    },
+    {
+      "end": 9100,
+      "links": [
+        {
+          "value": "462ae76e-bf69-41be-b967-b70c163c0c1a"
+        }
+      ],
+      "pass": 0,
+      "sourceEnd": 100,
+      "sourceStart": 0,
+      "start": 9000,
+      "timeline": "VERA 141 Batched Matrix",
+      "track": 1,
+      "type": "audio",
+      "uid": "b4f84273-a32c-48bd-acfe-7939fbbdc54b"
+    },
+    {
+      "end": 9100,
+      "links": [
+        {
+          "value": "b4f84273-a32c-48bd-acfe-7939fbbdc54b"
+        }
+      ],
+      "pass": 1,
+      "sourceEnd": 100,
+      "sourceStart": 0,
+      "start": 9000,
+      "timeline": "VERA 141 Batched Matrix",
+      "track": 1,
+      "type": "video",
+      "uid": "462ae76e-bf69-41be-b967-b70c163c0c1a"
+    },
+    {
+      "end": 9199,
+      "links": [
+        {
+          "value": "9ba774a9-05db-419c-bd8c-39073567d9f3"
+        }
+      ],
+      "pass": 1,
+      "sourceEnd": 199,
+      "sourceStart": 100,
+      "start": 9100,
+      "timeline": "VERA 141 Batched Matrix",
+      "track": 1,
+      "type": "video",
+      "uid": "eabb3ade-3fbf-4b27-8d52-caaec25e10bc"
+    },
+    {
+      "end": 9199,
+      "links": [
+        {
+          "value": "eabb3ade-3fbf-4b27-8d52-caaec25e10bc"
+        }
+      ],
+      "pass": 1,
+      "sourceEnd": 199,
+      "sourceStart": 100,
+      "start": 9100,
+      "timeline": "VERA 141 Batched Matrix",
+      "track": 1,
+      "type": "audio",
+      "uid": "9ba774a9-05db-419c-bd8c-39073567d9f3"
+    },
+    {
+      "end": 9100,
+      "links": [
+        {
+          "value": "462ae76e-bf69-41be-b967-b70c163c0c1a"
+        }
+      ],
+      "pass": 1,
+      "sourceEnd": 100,
+      "sourceStart": 0,
+      "start": 9000,
+      "timeline": "VERA 141 Batched Matrix",
+      "track": 1,
+      "type": "audio",
+      "uid": "b4f84273-a32c-48bd-acfe-7939fbbdc54b"
+    }
+  ],
+  "protectedStates": {
+    "originalLocks": {
+      "audio:1": false,
+      "audio:2": true,
+      "audio:3": true,
+      "video:1": false,
+      "video:2": true,
+      "video:3": true
+    },
+    "splitRanges": [
+      [
+        9000,
+        9100,
+        0,
+        100
+      ],
+      [
+        9100,
+        9199,
+        100,
+        199
+      ]
+    ],
+    "tracksFromPreparation": [
+      [
+        "video",
+        2
+      ],
+      [
+        "video",
+        3
+      ],
+      [
+        "audio",
+        2
+      ],
+      [
+        "audio",
+        3
+      ]
+    ]
+  },
+  "readOnly": true,
+  "referenceHashes": {
+    "contextManifest": {
+      "path": "independent-structural-sequence-20261001T203741.675640Z/r3-boundary-context.json",
+      "sha256": "fa36cb2965eb872292f2880bdd8aacbdf80f614d5fda2fcae41aad184c5090cb"
+    },
+    "finalPair": {
+      "path": "r3-boundary-context-20261001T203933.206631Z/pair.json",
+      "sha256": "b0f128efef59738307b6977872aa528f03761e11cd0dd14b7081d03f15743a65"
+    },
+    "nativeManifest": {
+      "path": "boundary-base-native-phase-recovery.json",
+      "sha256": "4daefe964939c5529a182c2a9b5f8b1e95ab126afd1524b43634ff5749843487"
+    },
+    "preparation": {
+      "path": "independent-structural-sequence-20261001T203741.675640Z/preparation.json",
+      "sha256": "40615bdba75a67d35f2a46548bbd1d6f655ff31665ac9c9261ef6a0e3729b702"
+    },
+    "preparedPair": {
+      "path": "editorial-case-20261001T203750.373172Z/after.json",
+      "sha256": "82314813be331a5e49fc569d0c5785371efdbbcf8307330fd789e98eb2ea62ef"
+    },
+    "priorPair": {
+      "path": "r3-graphic-context-20261001T200750.808432Z/pair.json",
+      "sha256": "b45c1e45ace27f59052618536cd0121646b4995297b6eb2628d87b3686d7e78b"
+    },
+    "restoration": {
+      "path": "independent-structural-sequence-20261001T203741.675640Z/restoration.json",
+      "sha256": "2bcfef93a1f4bdda29fbfcd2630538ff2d1fcbd66ed7434529debabf8f084927"
+    },
+    "splitPair": {
+      "path": "r3-boundary-split-20261001T203852.778627Z/pair.json",
+      "sha256": "b0f128efef59738307b6977872aa528f03761e11cd0dd14b7081d03f15743a65"
+    },
+    "splitReview": {
+      "path": "independent-structural-sequence-20261001T203741.675640Z/split-review.json",
+      "sha256": "ad691ead1c4d6b18f1a5feb2cf70a5ce239f45d802ac7a4ab2fd74c649b5036c"
+    }
+  },
+  "schema": "issue141-boundary-base-independent-review/v1",
+  "selectionPlayhead": {
+    "originalPlayhead": "00:00:00:00",
+    "passes": [
+      {
+        "items": [],
+        "playhead": "00:00:00:00"
+      },
+      {
+        "items": [],
+        "playhead": "00:00:00:00"
+      }
+    ],
+    "selectionCounts": [
+      0,
+      0
+    ]
+  }
+}

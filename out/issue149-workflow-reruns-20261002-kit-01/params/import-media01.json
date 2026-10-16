@@ -1,0 +1,76 @@
+{
+  "_offlineOnly": true,
+  "_approval": "pending-root-native-approval",
+  "_sourceNote": "Root must approve the producer-frozen harness hash before staging or dispatch.",
+  "schemaVersion": "issue-149-workflow-reruns-v1",
+  "externalScriptingSetting": "None",
+  "projectName": "VERA Issue 149 Workflow Reruns 20261002-kit-01",
+  "action": "import-media",
+  "phase": "import-media-01",
+  "actionId": "import-media-01-20261002-kit-01",
+  "stateId": "checkpoint01",
+  "probePath": "REPOSITORY/docs/investigations/issue-149/workflow-reruns/harness.py",
+  "probeSha256": "b899685c4ef79884eec45d9ad7096eace4afd4eda12db131bd31bd5544796631",
+  "launcherPath": "REPOSITORY/docs/investigations/issue-149/workflow-reruns/launcher.py",
+  "launcherSha256": "e4f58381c398bc0ce13130fddb25c956876f7754dc877346fe389dfb826c2450",
+  "outputDir": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01",
+  "mediaDir": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/media",
+  "owned": {
+    "projectUid": "1a05ff3a-8b04-43e3-95ab-c970b93b6415",
+    "timelineUids": [],
+    "itemUids": [],
+    "mediaUids": []
+  },
+  "media": [
+    {
+      "name": "a1_alpha.wav",
+      "relative": "a1_alpha.wav",
+      "sha256": "4bc4b8cfa118dab9f75ec2072f79af0c856f41566d7e2da60fca5268f7d81253"
+    },
+    {
+      "name": "a1_alpha_separate.wav",
+      "relative": "a1_alpha_separate.wav",
+      "sha256": "4bc4b8cfa118dab9f75ec2072f79af0c856f41566d7e2da60fca5268f7d81253"
+    },
+    {
+      "name": "a2_numbers.wav",
+      "relative": "a2_numbers.wav",
+      "sha256": "d9aeccc2d50cb96d81341167450eeb1b2c43fecf0f02b9291b4cd65afa92f9ba"
+    },
+    {
+      "name": "a3_bed.wav",
+      "relative": "a3_bed.wav",
+      "sha256": "022e3dd779808e5b38ff870cd541d8e25fb940836443262aaa95ce8768817e2b"
+    },
+    {
+      "name": "base.mov",
+      "relative": "base.mov",
+      "sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036"
+    },
+    {
+      "name": "base_picture.mov",
+      "relative": "base_picture.mov",
+      "sha256": "b0ef51ff62dfd7051d741620d46915836b62211467c4f46331117633ec300ebe"
+    },
+    {
+      "name": "clicks.wav",
+      "relative": "clicks.wav",
+      "sha256": "49fe1898a6905b8e57a84e62c1f7c920e88946d43725774bc4ce84f3b3160db6"
+    },
+    {
+      "name": "cutaway.mov",
+      "relative": "cutaway.mov",
+      "sha256": "34c364eb8debae77754448b7e272467d6fbf7a9ff46a2cca338032b778acc42e"
+    },
+    {
+      "name": "relink_alt.mov",
+      "relative": "relink_alt.mov",
+      "sha256": "2bad2d2457c3d572d2fe3542ef22da915ec38306c8985026bec10d1289f76579"
+    },
+    {
+      "name": "swap.mov",
+      "relative": "swap.mov",
+      "sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036"
+    }
+  ]
+}

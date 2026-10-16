@@ -1,0 +1,32 @@
+[
+  {
+    "name": "r4-wrong-bytes-20261001T042632.944184Z.json",
+    "sha256": "80dbab829c30397b97acc638e44a91ed6b713a1813123f22505b91ee4cc89efd",
+    "bytes": 14479755
+  },
+  {
+    "name": "r4-wrong-bytes-20261001T042632.944184Z.jsonl",
+    "sha256": "8b23bad87350f3a697b72c3ce614011b61bbf2da782b29e23586abdbc5974e05",
+    "bytes": 7637
+  },
+  {
+    "name": "r4-wrong-bytes-20261001T042632.944184Z-mismatch.json",
+    "sha256": "dcc1f386f2f1d2ed88ecb75f388f2507035a6ee60ebd406761b0e8e2819f7807",
+    "bytes": 4602112
+  },
+  {
+    "name": "r4-wrong-bytes-20261001T042632.944184Z-restored.json",
+    "sha256": "cb12248c97637f21c355e069cd416f508e052d409d90a9136ece13e4507cbce6",
+    "bytes": 9427053
+  },
+  {
+    "name": "r4-wrong-bytes-20261001T042632.944184Z-frame-000.png",
+    "sha256": "084839cd4e5ecd123e21fe204fbaadd471960290319824081f21de600ec80495",
+    "bytes": 6231977
+  },
+  {
+    "name": "r4-wrong-bytes-20261001T042632.944184Z-restored-frame-000.png",
+    "sha256": "084839cd4e5ecd123e21fe204fbaadd471960290319824081f21de600ec80495",
+    "bytes": 6231977
+  }
+]

@@ -1,0 +1,62 @@
+{
+  "accounting": {
+    "audio": "A1 target geometry, clip ID and source preserved through picture cuts/deletion; no audio track cut/deletion observed.",
+    "copyPaste": "Sequence reports no stopped CopyPaste changes / no CopyPaste menu dispatch; saveDispatched=false throughout.",
+    "restoration": "Original lock states restored; playhead reset from operation context to 00:00:00:00. Do not expect relink restoration: preparation explicitly unlinked and restoration returns to that context.",
+    "selection": "Post-action autoSelect reset readback has empty selection at 00:00:00:00.",
+    "trackScope": "Evidence reports prepared target V1/A1 unlocked and V2/V3/A2/A3 locked; protected-six inventory retained. No other occurrence or protected timeline change is reported.",
+    "usage": "Expected source Usage change is attributable only to removed V1 middle segment; audio usage remains. Pair evidence supports no unrelated Usage movement."
+  },
+  "baseline": {
+    "meaning": "Original prepared pair; preparation explicitly unlinked selected A1/V1 items before picture-only work.",
+    "pairSha256": "4d21b54fa3fa855ee65a9d8af54a3be206927b6cafa87af7dc979d92ae4f3329",
+    "path": "r2-picture-selected-20261001T193158.867457Z/pair.json"
+  },
+  "kind": "issue-141-independent-r2-picture-native-review",
+  "limits": [
+    "This is an evidence comparison of captured generated project state, not a conclusion about final audibility, source lineage, or speech deletion.",
+    "Pair SHA bindings are validated from result references; detailed semantics are supported by the referenced result metadata and retained pairs. No live Resolve state was read.",
+    "No independent media-pool usage semantic guarantee beyond recorded pair state; interpret only the localized target-source usage delta."
+  ],
+  "next": "Use as R2-picture native evidence only; root documentation/dashboard handling remains separate.",
+  "pairs": [
+    {
+      "delta": "V1-only cut at record frame 3560; target left/right picture segments observed.",
+      "label": "first split",
+      "path": "r2-picture-first-split-20261001T193210.807594Z/pair.json",
+      "sha256": "73e3ccc23d40d78c2ea1af3161a6d748dd98ad077f4b496e04ff0adb159b2cef"
+    },
+    {
+      "delta": "V1-only cut at record frame 3570; middle picture segment record [3560,3570), source [60,70).",
+      "label": "second split",
+      "path": "r2-picture-second-split-20261001T193255.974100Z/pair.json",
+      "sha256": "d8d71c966f3566ddc59218bf64155e1fd0cec850a24a7909a7eeedb5fecdf7f2"
+    },
+    {
+      "delta": "IntervalDeletion returned true; deleted interval UID 401f8da9-0a5c-4694-93f5-0d388348d0b4, source UID 9202163a-8381-43e6-9157-3a60f35c6f79. A1 target geometry/ID/source reported preserved.",
+      "label": "post deletion",
+      "path": "r2-picture-deleted-20261001T193321.291329Z/pair.json",
+      "sha256": "f7b4f56a7a27e51dd9b91da869e04ff86acecef4f43e8ffb429ff0626ef894b1"
+    },
+    {
+      "delta": "Restored unsaved to picture-only prepared state; selection empty and playhead 00:00:00:00.",
+      "label": "restored/context pair",
+      "path": "r2-picture-context-20261001T193350.646564Z/pair.json",
+      "sha256": "90c4ad9a1cebcf1918165e1e62e4343ae225635012331afd56a9385ab8187661"
+    }
+  ],
+  "reviewedSequence": "r2-picture-native-sequence-success.json",
+  "status": "supported-with-scope-limits",
+  "verifiedIndexBindings": {
+    "autoSelectReset": "e840032a82e22f65a6046a372947b7465a841544da38e26fd6390bf57e0d9aac",
+    "deletedReadback": "40e0556d1be04e7df7f1e0d74e7190c715dab0b0995afc84781e959654bca2cf",
+    "firstSelection": "56f1b1f19ce3ffbcd8ac2c0d73401fd14630c799936c4eaee69483051694edfa",
+    "firstSplit": "76da1f4f929a9174bb175c95688950ef69a08093199778a89be10440f25cfea4",
+    "intervalDeletion": "5e518e0b0129d127a7b61a0d49da415dc8e7e3c7aea7f8864ee11a4a395e11bb",
+    "preparation": "574f4c2d86f905eebf997da92fa1794cc00b45260c22f20ad7b0c545ae46c34e",
+    "restoration": "72491a8571123187dd7b4cc2ae14e2782fc4aaa152a5ba0a840548343d446cd5",
+    "secondPosition": "a3a1d1d17ef58d7fe69b243c998bec4399ac06e03882c731143bbf598f7a0695",
+    "secondSelection": "7c8cfdee3123101f2896948f9b1f083fa7a0c264986fa3cd49ffcda4915b44da",
+    "secondSplit": "d3d82882e21d0f8e8b378eda0201dd52f566c82fff4f6e28c69d93cbcfaf08ed"
+  }
+}

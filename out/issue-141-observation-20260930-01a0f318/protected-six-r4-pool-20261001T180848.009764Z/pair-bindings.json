@@ -1,0 +1,16 @@
+{
+  "capture": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/capture-20261001T180849.818792Z.json",
+    "sha256": "dd4c8c0e911e0bceec7379196d15c7e0c69eaa20b181e061b50cfbb025b0146f"
+  },
+  "inventory": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r4-pool-read-only-20261001T180849.818792Z.json",
+    "sha256": "82069be60e83da4c578e42231f3c88d9b99575c44d5c42649a04b66c988c8d9d"
+  },
+  "selectedTimelineUid": "21436b8f-057c-49e6-80ba-5f733abe87b2",
+  "summary": {
+    "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T180849.628526Z.json",
+    "sha256": "521656dfaec1db76bf01a02b95e77ee6b8d3b259607910de037c5b439f3fe2f2"
+  },
+  "timelineInventory": "protected-six"
+}

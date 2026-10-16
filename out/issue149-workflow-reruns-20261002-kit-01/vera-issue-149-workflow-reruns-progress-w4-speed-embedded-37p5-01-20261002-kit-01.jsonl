@@ -1,0 +1,6 @@
+{"at": "2026-10-03T01:13:00.158452+00:00", "phase": "started", "value": {"actionId": "w4-speed-embedded-37p5-01-20261002-kit-01", "configSha256": "9e1b585e352f736b8c78d551f3956656bf7bc5046f59a039123738c60fa7bd9a"}}
+{"at": "2026-10-03T01:13:00.188106+00:00", "phase": "probe-verified", "value": {"probePath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/sources/be467c29fad0f7c8da474eadc9f51ec4a6e7b13f64ee479bebd7eaeceda0cc93/harness.py", "probeSha256": "be467c29fad0f7c8da474eadc9f51ec4a6e7b13f64ee479bebd7eaeceda0cc93"}}
+{"at": "2026-10-03T01:13:00.189186+00:00", "phase": "disarmed", "value": {"action": "w4-speed", "actionId": "w4-speed-embedded-37p5-01-20261002-kit-01"}}
+{"at": "2026-10-03T01:13:00.189308+00:00", "phase": "probe-request", "value": {"action": "w4-speed", "phase": "w4-speed-embedded-37p5-01"}}
+{"at": "2026-10-03T01:13:04.780428+00:00", "phase": "probe-return", "value": {"status": "ok"}}
+{"at": "2026-10-03T01:13:04.781329+00:00", "phase": "result-written", "value": {"result": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-w4-speed-embedded-37p5-01-20261002-kit-01.json", "status": "ok"}}

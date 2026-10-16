@@ -1,0 +1,32 @@
+[
+  {
+    "filename": "identity.json",
+    "publishedSha256": "f1151bd94cf9a3502f0ae4a9c1ac7fdac6f16a113c2225125e58edcf035b2dde",
+    "rawSha256": "f1151bd94cf9a3502f0ae4a9c1ac7fdac6f16a113c2225125e58edcf035b2dde",
+    "redaction": "private absolute user paths only; full raw retained locally"
+  },
+  {
+    "filename": "project-settings.json",
+    "publishedSha256": "365d2f9d7ea4ade16ec992ec0d41e00b6cd140797aca8337b2950367bc063bc1",
+    "rawSha256": "6cee64198ac75f43a0df96bcdc9326ca7ad86f3c97232c4d2799cfe397dbd39e",
+    "redaction": "private absolute user paths only; full raw retained locally"
+  },
+  {
+    "filename": "preparation-20260930T165637.925707Z.jsonl",
+    "publishedSha256": "90b66606fce20da3d62e0aa24f7e8574592581920be36aaa08a73dfdd16086de",
+    "rawSha256": "90b66606fce20da3d62e0aa24f7e8574592581920be36aaa08a73dfdd16086de",
+    "redaction": "private absolute user paths only; full raw retained locally"
+  },
+  {
+    "filename": "preparation-failure-20260930T165637.925707Z.json",
+    "publishedSha256": "ff1ba0425793088fa4c2c55a7a8757c022d4bade073c2069ecbd534996db800c",
+    "rawSha256": "ff1ba0425793088fa4c2c55a7a8757c022d4bade073c2069ecbd534996db800c",
+    "redaction": "private absolute user paths only; full raw retained locally"
+  },
+  {
+    "filename": "vera-issue-141-observation-result-20260930T165637.915095Z.json",
+    "publishedSha256": "e64dc47d53596ed4528ee719b97aa457c33f289d9af5137881de45bab0767134",
+    "rawSha256": "e64dc47d53596ed4528ee719b97aa457c33f289d9af5137881de45bab0767134",
+    "redaction": "private absolute user paths only; full raw retained locally"
+  }
+]

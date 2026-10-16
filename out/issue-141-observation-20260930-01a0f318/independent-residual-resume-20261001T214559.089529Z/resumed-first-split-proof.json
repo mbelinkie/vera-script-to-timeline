@@ -1,0 +1,43 @@
+{
+  "case": "R2-residual",
+  "childUids": {
+    "audio": [
+      "09373858-39dd-474b-9eb8-56c5e523cc76",
+      "7ef661f3-9b3e-427c-8d00-9dab85a0cfcb"
+    ],
+    "video": [
+      "55ef1242-5a71-45e5-a1b4-d90300589de2",
+      "bbd48d17-f8ef-430f-9cfd-cd14c3860ae0"
+    ]
+  },
+  "firstSplitPair": {
+    "path": "editorial-case-20261001T214604.411256Z/after.json",
+    "sha256": "7a7d0db1be976dd4e3463e1231a7e00923318742188c0a107c8fc0962085b40d"
+  },
+  "menuCommandDispatched": false,
+  "offsetDeltaOnly": true,
+  "preparationResult": {
+    "path": "independent-residual-resume-20261001T214559.089529Z/preparation.json",
+    "sha256": "dc9714cba9b16c8f946baf206f2d73f98cc50e162f8888e23aa883cad49c87af"
+  },
+  "ranges": [
+    [
+      4500,
+      4560,
+      0,
+      60
+    ],
+    [
+      4560,
+      4699,
+      60,
+      199
+    ]
+  ],
+  "resumeRecord": {
+    "path": "residual-resume-record-20261001T214000Z.json",
+    "sha256": "88dc531181344f5200f89f0b7b09850ca58058e244b9a39e11978ac973d6f4f6"
+  },
+  "saveDispatched": false,
+  "status": "resumed-first-split-proof"
+}

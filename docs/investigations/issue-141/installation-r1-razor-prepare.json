@@ -1,0 +1,18 @@
+{
+  "kind": "approved-r1-razor-preparation",
+  "stagedAt": "2026-10-01T05:02:40.418248+00:00",
+  "producerApproval": "I approve the bounded editorial macros for the VERA Issue 141 Synthetic Probe project.",
+  "probeSha256": "6d6b1aeb293cfa999b0c03cde81d4308f1a510c8ecfba3e81affb721b1ddb247",
+  "moduleSha256": "4df6c36f820621700d554c6fecdcc1e36623ba2f8986a0da9d443ecd3780bd73",
+  "launcherSha256": "6bfa20aa89f0a085784fc2c8ced56bce2577a2cc63c21c48fc8ebaebbe704a7b",
+  "privateConfigSha256": "e256e0da7e66afa2dc2b89aba025cafc8369d76bf8bb6c100ea5e5311a940480",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "allowedNativeMutations": [
+    "select exact Matrix",
+    "lock V2/V3/A2/A3",
+    "set Matrix playhead1600"
+  ],
+  "editorialDispatch": false,
+  "stopOnUnrelatedDrift": true,
+  "retryAllowed": false
+}

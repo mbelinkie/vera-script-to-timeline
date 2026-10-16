@@ -1,0 +1,6 @@
+{"at": "2026-10-03T05:39:46.780479+00:00", "phase": "started", "value": {"actionId": "build-d3-av-timelines-20261003-kit-02", "configSha256": "26a273b93884a3a562154160f0fd0db6852c338e37a47047a845915f87524e46"}}
+{"at": "2026-10-03T05:39:46.978266+00:00", "phase": "probe-verified", "value": {"probePath": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/sources/ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438/harness.py", "probeSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438"}}
+{"at": "2026-10-03T05:39:46.989642+00:00", "phase": "disarmed", "value": {"action": "build", "actionId": "build-d3-av-timelines-20261003-kit-02"}}
+{"at": "2026-10-03T05:39:46.990697+00:00", "phase": "probe-request", "value": {"action": "build", "phase": "build-d3-av-timelines"}}
+{"at": "2026-10-03T05:40:14.916297+00:00", "phase": "probe-return", "value": {"status": "ok"}}
+{"at": "2026-10-03T05:40:14.928823+00:00", "phase": "result-written", "value": {"result": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-build-d3-av-timelines-20261003-kit-02.json", "status": "ok"}}

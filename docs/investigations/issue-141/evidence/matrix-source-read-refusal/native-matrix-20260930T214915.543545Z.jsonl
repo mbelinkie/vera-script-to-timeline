@@ -1,0 +1,2 @@
+{"at": "2026-09-30T21:49:15.863412+00:00", "method": "native-matrix", "phase": "failure", "value": "RuntimeError: Media pool items are unreadable; refusing"}
+{"at": "2026-09-30T21:49:16.147892+00:00", "method": "native-matrix(failure capture)", "phase": "readback", "value": {"capturePath": "<probe-output>/capture-20260930T214915.543545Z-failure-postflight.json", "sha256": "25dd91bdc97dabbe22956bad25b2e1c2698620de344237aae2a20347acb91335", "status": "equal-adjacent-reads"}}

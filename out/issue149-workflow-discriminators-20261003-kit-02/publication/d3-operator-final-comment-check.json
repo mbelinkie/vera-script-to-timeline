@@ -1,0 +1,39 @@
+{
+  "taskId": "/root/discriminator_output_verify",
+  "scope": "read-only publication body and case-record consistency review",
+  "outcome": "GO",
+  "publicationBody": {
+    "path": "publication/d3-operator-final-comment.md",
+    "sha256": "61351ad1f45cf8d9643bca0bdf727866609c2dc783edf49f3c187561a6baa3df",
+    "bytes": 10895,
+    "contains": [
+      "D3-operator adverse classification",
+      "initial relative-target harness refusal",
+      "A2 pilot and eight-word measurement",
+      "restored mapping and equal final save pair",
+      "five-case comparison",
+      "producer acceptance pending"
+    ]
+  },
+  "caseDocuments": {
+    "d6-kept.md": "59ee437a4d20c17f0a77f10dfb32785878604d14b8fe2af7af8399c739fe9c1a",
+    "d6-changed.md": "1171ff4715d5ba0814c19b03b140703e31c09038068c41c4e4b4d27d9ff0dc0b",
+    "d3-direct.md": "fbf2111a90f93703bd12d96d4c2ff385ed07bf5abdce1ea5c3c5259d75be8464",
+    "d3-console.md": "9b004528ef802b008f0df2cc13550bec1e054694d60c9412644d97f22dec8e21",
+    "d3-operator.md": "ee3570184f842bd08121b25ffb85b1e70d1f4848ac92dd47d671bd74fa32926a"
+  },
+  "summaryDocument": {
+    "path": "docs/investigations/issue-149/workflow-discriminators/results/final-summary.md",
+    "sha256": "88d2cc0512365aec169d297f8de896490b8e2a8607d7dfbb64c366868b717f08",
+    "matchesPublicationSummary": true
+  },
+  "findings": {
+    "classificationConsistent": true,
+    "resolveVersionAndExternalScriptingConsistent": true,
+    "restorationAndCheckpointClaimsSupported": true,
+    "atomicSnapshotCaveatPreserved": true,
+    "universalMuteFailureNotClaimed": true,
+    "producerAcceptanceNotInferred": true,
+    "missingEvidence": []
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "action": "observe",
+  "auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T232618.603947Z",
+  "externalScriptingSetting": "None",
+  "kind": "issue141-installed-config-restoration",
+  "previousConfigPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T232618.603947Z/previous-config.json",
+  "previousConfigSha256": "7fbc741fe20b0ba7aae4f97d9c19200a7fe2e426e8f0f484859cc1c3ba0c4740",
+  "restoredInstalledConfigSha256": "7fbc741fe20b0ba7aae4f97d9c19200a7fe2e426e8f0f484859cc1c3ba0c4740",
+  "restoredThrough": "existing independent-native-call helper CONFIG path"
+}

@@ -1,0 +1,36 @@
+{
+  "apiOwnerCheck": "all-literal-native-call-owners-documented",
+  "completedCalls": [
+    "Project.SaveAsNewRenderPreset: true",
+    "Resolve.ExportRenderPreset: true"
+  ],
+  "exportedFile": {
+    "bytes": 6174,
+    "relativePath": "<owned-audio-evidence>/VERA141_AUDIO_OUTPUT_20261001T015945.287072Z.drp/VERA141_AUDIO_OUTPUT_20261001T015945.287072Z.xml",
+    "sha256": "1b3b21a728c3216f9782d87aa2feae977747c377901eb6b81ed5a83a2da06595"
+  },
+  "interpretation": "Resolve.ExportRenderPreset returned true and created an XML file inside the supplied .drp-named directory; probe expected the supplied path itself to be a file. This is a probe representation defect, not an API failure.",
+  "kind": "audio-preset-export-representation-refusal",
+  "nativeResult": "vera-issue-141-observation-result-20261001T015945.257683Z.json",
+  "nativeResultSha256": "e0e74086ad9b4733623665f5e331dd11229042eb86ff11f1e4efe2e95e403f7d",
+  "notCalled": [
+    "Project.SetRenderSettings",
+    "Project.AddRenderJob",
+    "Project.StartRendering",
+    "Project.LoadRenderPreset",
+    "Project.DeleteRenderJob",
+    "Project.DeleteRenderPreset"
+  ],
+  "preflight": {
+    "format": "mov/H264",
+    "fullCaptureEqualsSelectedMatrixPin": true,
+    "queueEmpty": true,
+    "renderMode": 1,
+    "rendering": false
+  },
+  "preset": {
+    "name": "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z"
+  },
+  "reason": "Could not retain owned render-preset recovery copy",
+  "status": "launcher-failed"
+}

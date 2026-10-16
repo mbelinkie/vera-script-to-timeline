@@ -1,0 +1,20 @@
+{
+  "kind": "pinned-offline-picture-continuation",
+  "stagedAt": "2026-10-01T04:16:56.161023+00:00",
+  "action": "offline-picture-continuation",
+  "probeSha256": "d67c10ecae727a1bbfedabf34ad23e0be2645e1f37cc2f0b965c303703f2d30b",
+  "moduleSha256": "0cb39d2479a15071052523b2525bcde392c07f71d68ad9843245b61195ded092",
+  "launcherSha256": "6bfa20aa89f0a085784fc2c8ced56bce2577a2cc63c21c48fc8ebaebbe704a7b",
+  "privateConfigSha256": "b05cbfc06d38b92a883b3621c5cd38e0e12dcf5052f8366c53b2a899d9da3735",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "allowedNativeMutations": [
+    "R4 playhead0/50 and original restoration",
+    "same-byte isolated-source RelinkClips once"
+  ],
+  "unlinkAllowed": false,
+  "saveAllowed": false,
+  "renderQueueAllowed": false,
+  "nativeUiEditorialMacroAllowed": false,
+  "retryAllowed": false,
+  "partialResultSha256": "c4198a5f28460430a3bb455b73f363278c97ed261985142779f2083e60979616"
+}

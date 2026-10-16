@@ -1,0 +1,2 @@
+{"at": "2026-10-01T04:26:32.000629+00:00", "phase": "request", "method": "fixed-observation-menu", "action": "r4-wrong-bytes", "priorResult": "vera-issue-141-observation-result-20261001T041958.727026Z.json"}
+{"at": "2026-10-01T04:26:32.303623+00:00", "phase": "return", "returncode": 0, "stdout": "Observation menu selected once; verify the new injected result before any next action\n", "stderr": ""}

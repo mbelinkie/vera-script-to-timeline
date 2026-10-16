@@ -1,0 +1,3 @@
+The source hash checks, both driver checks, and the `probe.py` syntax check passed. The single sequence run then stopped with exit code 1: the second selection’s deselected readback used a label rejected by the approved-label guard. **The native command was not invoked.**
+
+I retained the failure record and traceback at [residual-resume-native-executor-result.json](residual-resume-native-executor-result.json), [residual-resume-driver-stderr.txt](residual-resume-driver-stderr.txt), and [residual-resume-driver-stdout.txt](residual-resume-driver-stdout.txt). The run’s phase directory is `independent-residual-resume-20261001T214559.089529Z`; no final pair was produced.

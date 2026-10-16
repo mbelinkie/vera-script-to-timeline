@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "cases": [
+    "normal",
+    "nested",
+    "missing",
+    "drift-guard"
+  ],
+  "sourceComparisonText": "KAJ is three Finns, singing in Swedish, playing up the stereotypes that Swedes have for Finns. Namely that Finns really like saunas.",
+  "mutationTokensAbsent": true
+}

@@ -1,0 +1,80 @@
+[
+  {
+    "filename": "preparation-result.json",
+    "rawSha256": "1e8d9f8d9b6a0eb2f042ccf9ffd6be48afe8cca0e45d90b32e8f297985ff7d82",
+    "publishedSha256": "a610454133ba6bac9829c6109629c7231ad7cb7c8bf336377d00b7bf6b2e8ee4",
+    "redaction": "private owned-output, plugin and home paths replaced"
+  },
+  {
+    "filename": "prepared-pair.json",
+    "rawSha256": "ea8525413c0b32a7fbefc290be8b9463a9c6aa8a977449af3f69da8664f21903",
+    "publishedSha256": "9830631dad8d939fe03a170bd993e2c70af91b40ae14cb97f5134412b93e576f",
+    "redaction": "private owned-output, plugin and home paths replaced"
+  },
+  {
+    "filename": "split-pair.json",
+    "rawSha256": "5eabacdb141908d6bc5aa805136d5148913c3ab63936e19fc1dc9801fa448fba",
+    "publishedSha256": "3136f9486d9e74fefa2f8c409197866da6ab9e7ef6534bb8f1f7eafc88e6134d",
+    "redaction": "private owned-output, plugin and home paths replaced"
+  },
+  {
+    "filename": "split-readback.json",
+    "rawSha256": "235abe54b64cdefd0b2c17ca2fc425b0b905c32eda2327e7aed4f40b9971cf86",
+    "publishedSha256": "23cfcb21533b983eaae522524e110b6bfc45f6d238a56f0a6be1994cd1534e27",
+    "redaction": "private owned-output, plugin and home paths replaced"
+  },
+  {
+    "filename": "exact-selection-readback.json",
+    "rawSha256": "f370b0db9ee2f1fc975cca3e8deb6454e3f477038e0a05f90db49bf11b63c01a",
+    "publishedSha256": "a67d736065f746ee3455f32d21e57934b21fe4e14c8c44dd130441e7cccdcc34",
+    "redaction": "private owned-output, plugin and home paths replaced"
+  },
+  {
+    "filename": "broad-selection-readback.json",
+    "rawSha256": "d20d01eddc426ed53d44a34f987ebd8ee9f5728ad7f517a9d336574c75812011",
+    "publishedSha256": "7c3eeeb395451b09caf337367506349dc73cc587539d8519c654e082898a790d",
+    "redaction": "private owned-output, plugin and home paths replaced"
+  },
+  {
+    "filename": "selection-reader-refusal.json",
+    "rawSha256": "2fa3e4a9e782985364f4d11269f74153a19807f3f9ad676d1138a29155ba1b94",
+    "publishedSha256": "e005f183e99f791b7d96d93408fa3cdb55e5862e7b532cc34e96237692c26364",
+    "redaction": "private owned-output, plugin and home paths replaced"
+  },
+  {
+    "filename": "preparation-journal.jsonl",
+    "rawSha256": "ef1fd2f677ed7a5043442e3a310e1ef2e9a94641c020851bfb8521ce85e4021b",
+    "publishedSha256": "ef1fd2f677ed7a5043442e3a310e1ef2e9a94641c020851bfb8521ce85e4021b",
+    "redaction": "private owned-output, plugin and home paths replaced"
+  },
+  {
+    "filename": "menu-inventory-read-only.json",
+    "rawSha256": "e1ac0010a7e1aeac97075ca057459140e92cf1e797753f2f80113754924d0ce5",
+    "publishedSha256": "e1ac0010a7e1aeac97075ca057459140e92cf1e797753f2f80113754924d0ce5",
+    "redaction": "private owned-output, plugin and home paths replaced"
+  },
+  {
+    "filename": "hammerspoon-editorial-deselect-20261001T051335.223404Z.jsonl",
+    "rawSha256": "1e86f9b31af8011ec0caacb1e57ae9ca67598fa17322d53ac778620acfd29cca",
+    "publishedSha256": "1e86f9b31af8011ec0caacb1e57ae9ca67598fa17322d53ac778620acfd29cca",
+    "redaction": "private owned-output, plugin and home paths replaced"
+  },
+  {
+    "filename": "hammerspoon-editorial-select-20261001T050726.795175Z.jsonl",
+    "rawSha256": "8538916b38bb69f93c00e1bd503b35d5255d793e9ca5b7fd6c04f6ddc9d32efc",
+    "publishedSha256": "8538916b38bb69f93c00e1bd503b35d5255d793e9ca5b7fd6c04f6ddc9d32efc",
+    "redaction": "private owned-output, plugin and home paths replaced"
+  },
+  {
+    "filename": "hammerspoon-editorial-select-20261001T051420.984481Z.jsonl",
+    "rawSha256": "93ac1d874204bf6eb2b9408c36dbb0073679213367a655a37b4de45f1ce74858",
+    "publishedSha256": "93ac1d874204bf6eb2b9408c36dbb0073679213367a655a37b4de45f1ce74858",
+    "redaction": "private owned-output, plugin and home paths replaced"
+  },
+  {
+    "filename": "hammerspoon-editorial-split-20261001T051554.092917Z.jsonl",
+    "rawSha256": "9182537c09a9055dae3b7d0fbde137e2915e6468d074f316d6335fbd985a2f22",
+    "publishedSha256": "9182537c09a9055dae3b7d0fbde137e2915e6468d074f316d6335fbd985a2f22",
+    "redaction": "private owned-output, plugin and home paths replaced"
+  }
+]

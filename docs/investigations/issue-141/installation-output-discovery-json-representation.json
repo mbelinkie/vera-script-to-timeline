@@ -1,0 +1,33 @@
+{
+  "kind": "revised-read-only-output-discovery-not-executed",
+  "stagedAt": "2026-10-01T00:05:38.185318+00:00",
+  "action": "output-discovery",
+  "stage": "R2-read-only-output-discovery-json-representation",
+  "probeSha256": "c53a31296e8b52b7b1e4932e074bc478b6aeb8fc5b0f0e83f9607eaa2b4e5d9f",
+  "discoveryModuleSha256": "777d2dc93be950c7df9f36445e3a6bac6fa344d7f4a1e524a436dec163dbb571",
+  "launcherSha256": "c70b06a716290668b31965abc8eeec915905fe888204815d56f0d20fdfa28197",
+  "privateConfigSha256": "5c0752f638125ba76fbd25c45098d48fba79e4f0d12289cd364042ec462f3539",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "guardEvidence": [
+    {
+      "filename": "capture-20260930T234711.275916Z.json",
+      "sha256": "3d08f757c8e188bbc5c1584158f5ea29c23f5bb7745bf01bd5de42c6d6436a46"
+    }
+  ],
+  "timelineId": "29ae8331-b86e-4041-a548-960695cc7b24",
+  "allowedApiMutations": [],
+  "capabilityReads": [
+    "GetRenderFormats",
+    "GetRenderCodecs(mov if discovered)",
+    "GetAudioRenderFormats",
+    "GetAudioRenderCodecs(wav if discovered)",
+    "GetCurrentRenderFormatAndCodec",
+    "GetCurrentRenderMode",
+    "GetRenderJobList",
+    "IsRenderingInProgress"
+  ],
+  "failureLimit": "Retain returns/errors and exact pre/post state; no render, setting or job mutation.",
+  "privatePathsPublished": false,
+  "revisionReason": "Canonical JSON representation before exact comparisons; prior preflight persisted data matches pin; no capability getters were reached."
+}

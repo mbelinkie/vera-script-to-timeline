@@ -1,0 +1,3 @@
+Wrote [remaining-audio-control-surface.json](remaining-audio-control-surface.json).
+
+The retained probe tested clip enable and track enable toggles, not mute, solo, or program routing. The requested installed Resolve README path is absent, so the report treats mute/solo/routing support as an evidence gap—not as a reproduced API failure. It records the existing Fairlight operator checklist as the next bounded operation. No Resolve or UI action was taken.

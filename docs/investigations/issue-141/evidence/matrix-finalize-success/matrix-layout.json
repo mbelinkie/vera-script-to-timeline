@@ -1,0 +1,36 @@
+{
+  "audioTrackFormats": [
+    "stereo",
+    "mono",
+    "mono"
+  ],
+  "occurrenceCount": 114,
+  "postflight": {
+    "capturePath": "<probe-output>/capture-20260930T223313.312609Z-saved.json",
+    "sha256": "a29402d405ab8cf1bc1abedd4c1ed0c479e983e2ef3ba6fc41d1c2389d6d36d2",
+    "status": "equal-adjacent-reads"
+  },
+  "sectionSpacingFrames": 500,
+  "sections": [
+    "calibration",
+    "R1-trim",
+    "R1-move",
+    "R1-razor",
+    "R1-copy",
+    "R2-linked",
+    "R2-unlinked",
+    "R2-picture-only",
+    "R2-partial",
+    "R2-residual",
+    "R2-offset",
+    "R2-retime",
+    "R3-opaque",
+    "R3-transparent",
+    "R3-effect",
+    "R3-disabled-cutaway",
+    "R3-disabled-overlay",
+    "R3-Graphic",
+    "R3-boundary"
+  ],
+  "timelineId": "29ae8331-b86e-4041-a548-960695cc7b24"
+}

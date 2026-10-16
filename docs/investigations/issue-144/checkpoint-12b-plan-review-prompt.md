@@ -1,0 +1,6 @@
+Read-only checkpoint12b plan refinement review for VERA #144. No writes, shell, services or native/provider/cloud actions. Read checkpoint-12b-evidence-bridge-plan.md and consult the existing ProofSession _fresh/_publish_baseline/_baseline and semantic CLI only if needed. Do not re-review the repository or entire history.
+
+Question1: existing visual pristine baseline has no full audio controls. Is explicit pre-edit bind-omission-evidence with fresh strict complete graph capture/calibration and actual source/compiler/token/pristine bindings the smallest sound preparation seam? No neutral-default or edited-control backfill; no weakened old UID gate or invented split ancestry.
+Question2: reuse the existing stdout semantic entry for internal revise/finalize operations, preserving host decision authority and actual whole-row handoff rederivation, fresh UUID helper/actual compiler source IDs/canonical bytes. Identify any necessary correction to the trust/recovery boundary before code.
+
+Flag concrete blockers or missing essential checks; no speculative architecture expansion. Synthetic closed-route evidence only; real #145 qualifier/default waiting remain. This is advisory plan review, not tests. User quota guard remains: stop #144 if Claude runs out; no bypass/session/model/account/browser substitution.

@@ -1,0 +1,48 @@
+{
+  "publishedArtifacts": {
+    "hammerspoon-launch-20261001T012110.309166Z.jsonl": "fa67c144115c21ae320ae0748e8a5fdda9c75946dccc886b205d6b2d2a471c4a",
+    "installation-r4-transitions.json": "6dc7e21cd28cbcdf1aed155d8c07400a7f7bb047cc8efd17514f190ec62a0467",
+    "journal-events.jsonl": "1ee153c9d6c0c91c288f6205561f61541ab369cbadf0f2ce24d04cb150b0b895",
+    "summary.json": "59ba50866806106971e555cc8306c95574a02332fbf5691ab9a7663cfdc72660",
+    "timeline-and-pool-extract.json": "2b9cc9c1206dfd908d14747f5b96a23b5ae5946d2c73c66abab501c1dab4a03a",
+    "vera-issue-141-observation-result-20261001T012111.805222Z.json": "66a55767b53acf9dfa300d0f5f8a10ccbb67870b62cfb3d7579d6879851e266d"
+  },
+  "redaction": "Private absolute media/output paths are replaced by <approved relink/base.mov> or <probe-output>. Original raw artifacts remain in the private output directory and are SHA-256 bound above.",
+  "sourceEvidence": {
+    "before": {
+      "bytes": 4601560,
+      "filename": "r4-transitions-20261001T012112.314811Z-before.json",
+      "rawSha256": "e4376bad34070f306d47891614a462721760f7c6436f0df87c77f9558379e0f6"
+    },
+    "dispatch": {
+      "bytes": 2377,
+      "filename": "hammerspoon-launch-20261001T012110.309166Z.jsonl",
+      "rawSha256": "fa67c144115c21ae320ae0748e8a5fdda9c75946dccc886b205d6b2d2a471c4a"
+    },
+    "installationBinding": {
+      "bytes": 996,
+      "filename": "installation-r4-transitions.json",
+      "rawSha256": "6dc7e21cd28cbcdf1aed155d8c07400a7f7bb047cc8efd17514f190ec62a0467"
+    },
+    "journal": {
+      "bytes": 4442797,
+      "filename": "r4-transitions-20261001T012112.314811Z.jsonl",
+      "rawSha256": "efbfc5ba818225a9217c805d809e0b1a97470569d2b267a789fb0959add2a837"
+    },
+    "refusal": {
+      "bytes": 2693658,
+      "filename": "r4-transitions-refusal-20261001T012112.314811Z.json",
+      "rawSha256": "f1dc4645b5af2003c7a4aa563d98fc14f1b5429659fcda4a55853905b8d6fbdb"
+    },
+    "result": {
+      "bytes": 210,
+      "filename": "vera-issue-141-observation-result-20261001T012111.805222Z.json",
+      "rawSha256": "66a55767b53acf9dfa300d0f5f8a10ccbb67870b62cfb3d7579d6879851e266d"
+    },
+    "unlinkPostflight": {
+      "bytes": 2452796,
+      "filename": "r4-transitions-20261001T012112.314811Z-unlink-postflight.json",
+      "rawSha256": "5f52acc7108910ddc84fca0b4cec30ff0ce77af8c55251a3f4a0868cd03a4f12"
+    }
+  }
+}

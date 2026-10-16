@@ -1,0 +1,103 @@
+{
+  "taskId": "Issue 141",
+  "kind": "r1-selected-context-independent-review",
+  "status": "PASS_WITH_BOUNDED_CONTEXT_SIGNATURE",
+  "decision": "The local R1 signature repair correctly accepts the retained selected-R1 context difference while preserving structural guards; Matrix selection restoration remains a separate guarded action before final duplicate.",
+  "inputs": {
+    "repairRecord": "output/r1-selected-context-local-repair.json",
+    "repairRecordStatus": "local-check-passed-awaiting-independent-review-and-registration",
+    "helperPath": "docs/investigations/issue-141/r1-repeat-six.py",
+    "helperSha256": "85ce97c13bf68061833e8d9acbb8cb2d16728125fcfa0a7a24d98bee99edb8b3",
+    "checkerPath": "docs/investigations/issue-141/r1-repeat-six-check.py",
+    "checkerSha256": "91c9d718101690e304e456a9c91b39d8afa531f24e9465e6cbf7a9e1827a023e",
+    "registeredHelperSha256": "4aece3d8ab7c7e0ab215fc9eb841fc95b56b85fb0809859e7f587ce83b0e2c28",
+    "nativeDispatchPerformed": false
+  },
+  "focusedCommand": {
+    "command": "ctx-wire run rtk proxy /usr/local/bin/python3.14 -S docs/investigations/issue-141/r1-repeat-six-check.py",
+    "result": "PASS: fake API guards and real selected-context regression; no native dispatch"
+  },
+  "retainedReproduction": {
+    "directory": "out/issue-141-observation-20260930-01a0f318/r1-repeat-duplicate-20261002T122220.047704Z",
+    "pair01": {
+      "path": "pair-01.json",
+      "sha256": "b5d2b291be801f65be762d813e76335223f2bde83701c95a56882f919180e519",
+      "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24"
+    },
+    "pair03": {
+      "path": "pair-03.json",
+      "sha256": "21327670e17a48675c466d9c1f3e7f63b751e45b6fc26b4f8e382934c698c486",
+      "selectedTimelineUid": "aa2b8e36-83bd-4292-9e33-217c00ca192f"
+    },
+    "refusal": {
+      "resultPath": "result.json",
+      "resultSha256": "bde03ea2a228ab20091dcb6a97f710c2ad3532e8c73ce62834d17eb347493994",
+      "status": "refused",
+      "error": "RuntimeError: selected R1 source signature changed; no duplicate attempted"
+    }
+  },
+  "independentDiff": {
+    "r1RawDiffCount": 60,
+    "r1SignatureEqualAfterRepair": true,
+    "r1TrackEnabledDiffs": 12,
+    "r1TrackLockedDiffs": 0,
+    "r1AudioContextPropertyPresenceDiffs": 48,
+    "audioContextProperties": [
+      "AudioDialogueLevelerBackgroundReduction",
+      "AudioDialogueLevelerEnabled",
+      "AudioDialogueLevelerLiftSoftDialogue",
+      "AudioDialogueLevelerMode",
+      "AudioDialogueLevelerOutputGain",
+      "AudioDialogueLevelerReduceLoudDialogue",
+      "AudioVoiceIsolationAmount",
+      "AudioVoiceIsolationEnabled"
+    ],
+    "r1UsageDiffs": 0,
+    "r1GetSettingsDiffs": 0,
+    "otherR1Diffs": 0,
+    "fullPairExpectedContextDiffs": [
+      "selectedTimelineUid",
+      "Matrix GetIsTrackEnabled/GetIsTrackLocked values",
+      "R1 GetIsTrackEnabled values",
+      "the eight named R1 audio dialogue/voice properties"
+    ],
+    "fullPairUnexpectedStructuralDiffs": 0
+  },
+  "structuralGuards": {
+    "protectedTimelineInventory": "six exact timeline identities and names retained",
+    "r1SignatureCovers": [
+      "timeline row identity",
+      "occurrence/source UIDs",
+      "track type/index/name",
+      "GetMarkers",
+      "GetProperties except the eight named audio context properties",
+      "GetClipEnabled",
+      "source start/end frame and time",
+      "timeline start/end/duration",
+      "offsets",
+      "media-pool source UID"
+    ],
+    "mutationRefusalChecksPassed": [
+      "GetUniqueId",
+      "GetSourceStartFrame",
+      "GetSourceEndFrame",
+      "GetStart",
+      "GetEnd",
+      "GetClipEnabled",
+      "GetMarkers",
+      "unlisted audio property"
+    ],
+    "retainedRawFieldsUnmodified": true
+  },
+  "restorationAssessment": {
+    "existingStandaloneR1ToMatrixRestore": false,
+    "safePattern": "Use exact Matrix timeline handle, SetCurrentTimeline once, read back Matrix UID, then require a stable full six-timeline pair equal to the retained Matrix checkpoint.",
+    "existingReference": "docs/investigations/issue-141/matrix-checkpoint.py provides the guarded handle/set/readback pattern, but its R4-specific pins and finalizer preconditions must not be reused as R1 evidence.",
+    "avoid": "Do not call second_duplicate merely to restore selection; its restoration is coupled to the duplicate mutation."
+  },
+  "limitations": [
+    "Cross-context getter differences do not establish the underlying track state or audio effects state.",
+    "No Resolve/native/UI action, registration, source edit, or dashboard write was performed by this review."
+  ],
+  "method": "Offline Python checker plus independent JSON comparison of retained pair-01/pair-03 wrappers and selected R1 rows."
+}

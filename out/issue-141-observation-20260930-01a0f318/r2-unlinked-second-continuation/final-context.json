@@ -1,0 +1,46 @@
+{
+  "_auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T125401.634746Z",
+  "_nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T125402.012579Z.json",
+  "environment": {
+    "productName": "DaVinci Resolve Studio",
+    "python": "3.14.7",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "failure": null,
+  "label": "r2-unlinked-context",
+  "limits": [
+    "External menu result requires separate full-state interpretation."
+  ],
+  "pair": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-unlinked-context-20261001T125402.046615Z/pair.json",
+    "sha256": "6b047339f81bab349ff3e95928bebda192a73e251b7e3989b8fd9d893a882d45"
+  },
+  "readOnly": true,
+  "selectionPasses": [
+    {
+      "items": [],
+      "playhead": "00:01:37:24"
+    },
+    {
+      "items": [],
+      "playhead": "00:01:37:24"
+    }
+  ],
+  "selectionShapes": [
+    {
+      "count": 0,
+      "type": "list"
+    },
+    {
+      "count": 0,
+      "type": "list"
+    }
+  ],
+  "status": "editorial-readback-retained"
+}

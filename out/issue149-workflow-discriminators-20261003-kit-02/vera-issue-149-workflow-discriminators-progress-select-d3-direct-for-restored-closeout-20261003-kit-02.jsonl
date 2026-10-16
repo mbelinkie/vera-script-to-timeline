@@ -1,0 +1,6 @@
+{"at": "2026-10-03T15:20:55.628806+00:00", "phase": "started", "value": {"actionId": "select-d3-direct-for-restored-closeout-20261003-kit-02", "configSha256": "9889524603a914f717431a6706fd329d1101c9d0dc0fb7fe3b4ff5d13f6cbd97"}}
+{"at": "2026-10-03T15:20:55.672009+00:00", "phase": "probe-verified", "value": {"probePath": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/sources/ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438/harness.py", "probeSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438"}}
+{"at": "2026-10-03T15:20:55.673478+00:00", "phase": "disarmed", "value": {"action": "select-timeline", "actionId": "select-d3-direct-for-restored-closeout-20261003-kit-02"}}
+{"at": "2026-10-03T15:20:55.673665+00:00", "phase": "probe-request", "value": {"action": "select-timeline", "phase": "select-d3-direct-for-restored-closeout"}}
+{"at": "2026-10-03T15:20:59.702427+00:00", "phase": "probe-return", "value": {"status": "ok"}}
+{"at": "2026-10-03T15:20:59.703320+00:00", "phase": "result-written", "value": {"result": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-select-d3-direct-for-restored-closeout-20261003-kit-02.json", "status": "ok"}}

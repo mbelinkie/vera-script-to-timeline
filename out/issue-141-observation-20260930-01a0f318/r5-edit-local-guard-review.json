@@ -1,0 +1,24 @@
+{
+  "kind": "local-only-r5-edit-guard-review",
+  "reviewedAt": "2026-10-01T08:36:45.801607+00:00",
+  "source": "r5-edit-evidence-check.py",
+  "sourceSha256": "d2d9d29a77f8c76a293569af0808106689972dd4b3d8936e10895ac0a18c1493",
+  "checks": [
+    "exact note/move deltas on simulated variants of hash-bound retained pair",
+    "source-range drift refusal",
+    "marker-color drift refusal",
+    "one-sided move refusal",
+    "interpass drift refusal",
+    "Ruff"
+  ],
+  "nativeEvidenceCollected": false,
+  "mutationStaged": false,
+  "requiredNativeEvidence": [
+    "real marker-editor note edit",
+    "exact selected timeline-item UIDs",
+    "one approved frame-right menu dispatch",
+    "separate complete native pairs before/after both edits",
+    "version-stamped native results and journals"
+  ],
+  "completionStatus": "pending-native-evidence"
+}

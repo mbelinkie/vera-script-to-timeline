@@ -1,0 +1,42 @@
+{
+  "issue": 34,
+  "recordedAt": "2026-09-22",
+  "package": {
+    "buildId": "13000000-0000-4000-8000-000000000036",
+    "status": "ready_to_import",
+    "manifestContentHash": "sha256:7353156956d390e8f29b59af7e774dbf86dc309d1e094be11c4c36fbf9e7005c",
+    "buildReportContentHash": "sha256:9c741ef07f5eda637912e239a3cee3e722a6021fe81687eb5caab86115c5f528",
+    "timeline": {
+      "frameRate": "24 fps",
+      "durationFrames": 72,
+      "resolution": "1920x1080"
+    },
+    "mediaCount": 2,
+    "eventCount": 2,
+    "markerCount": 1
+  },
+  "studio": {
+    "productName": "DaVinci Resolve Studio",
+    "edition": "studio",
+    "version": "21.1.0",
+    "build": "14",
+    "scriptingAvailable": true,
+    "projectName": "VERA Studio build 13000000-0000-4000-8000-000000000036",
+    "timelineName": "VERA build 13000000-0000-4000-8000-000000000036",
+    "status": "verified",
+    "verified": true,
+    "discrepancies": []
+  },
+  "message": "Studio project saved, reopened, and verified against the package manifest.",
+  "resolveFreeComparison": {
+    "status": "skipped_by_producer",
+    "reason": "Only DaVinci Resolve Studio is installed; the producer reports that Resolve Free cannot be installed alongside it.",
+    "closureAuthorizedByProducer": true,
+    "recordedAt": "2026-09-22"
+  },
+  "manualCompletion": [
+    "No Fusion graphic was inserted because TimelineManifest v1 has no graphics event contract.",
+    "The adapter does not fall back to Resolve UI automation.",
+    "Resolve Free manual import was skipped with explicit producer authorization; Studio verification remains retained evidence."
+  ]
+}

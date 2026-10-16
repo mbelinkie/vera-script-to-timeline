@@ -1,0 +1,40 @@
+{
+  "kind": "staged-exact-precreation-source-lookup-correction-not-executed",
+  "stagedAt": "2026-09-30T21:56:01.846674+00:00",
+  "action": "native-matrix",
+  "stage": "R1-R3-matrix-original-source-handles",
+  "probeSha256": "51efedde4d3166d5a1242de13f184384c1deb1f2e124104358404564c17450f8",
+  "launcherSha256": "00533c315e6efd41d270b76de9a35b7abb0de22be2ca1d3db1960281c1477c15",
+  "privateConfigSha256": "6d5dd2b89cd5ce90d8d1fcc29f804e493bf673d631b4d9a5db90fa75f3f348c7",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "pinnedSavedCaptureSha256": "fab588ea4f4e10394b0ca878358cb55743cb8c1dbaa72cd4822320e7e9cae85f",
+  "privatePathsPublished": false,
+  "timelineName": "VERA 141 Batched Matrix",
+  "sections": 19,
+  "occurrences": 114,
+  "allowedApiMutations": [
+    "CreateEmptyTimeline",
+    "SetCurrentTimeline",
+    "SetStartTimecode",
+    "AddTrack",
+    "AppendToTimeline",
+    "SetClipEnabled",
+    "AddMarker",
+    "SetClipsLinked",
+    "SaveProject"
+  ],
+  "guard": "Exact two-timeline saved R1 state; original source UID/exact locator/allowlisted hash; selected matrix gates; captured layout and unchanged old timelines in the same selected context before save",
+  "failureLimit": "Retain partial matrix and full best-effort readback; no cleanup or rerun.",
+  "guardEvidence": [
+    {
+      "filename": "native-matrix-20260930T214915.543545Z.jsonl",
+      "sha256": "f99c3fd6eef149d56e629af37b88c19343eae59ed86990be220873173137477a"
+    },
+    {
+      "filename": "capture-20260930T214915.543545Z-failure-postflight.json",
+      "sha256": "25dd91bdc97dabbe22956bad25b2e1c2698620de344237aae2a20347acb91335"
+    }
+  ],
+  "sourceLookup": "Existing baseline occurrences yield handles; each source UID/original exact locator/hash must match pinned evidence. No root-folder listing assumption."
+}

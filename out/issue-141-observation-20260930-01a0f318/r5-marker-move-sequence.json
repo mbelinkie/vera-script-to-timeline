@@ -1,0 +1,3786 @@
+{
+  "status": "stopped-evidence-retained",
+  "manualBefore": {
+    "environment": {
+      "productName": "DaVinci Resolve Studio",
+      "python": "3.14.7",
+      "version": [
+        21,
+        1,
+        0,
+        14,
+        ""
+      ]
+    },
+    "failure": null,
+    "label": "r5-edit-context",
+    "limits": [
+      "External menu result requires separate full-state interpretation."
+    ],
+    "pair": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r5-edit-context-20261001T125713.586871Z/pair.json",
+      "sha256": "6b047339f81bab349ff3e95928bebda192a73e251b7e3989b8fd9d893a882d45"
+    },
+    "readOnly": true,
+    "selectionPasses": [
+      {
+        "items": [],
+        "playhead": "00:01:37:24"
+      },
+      {
+        "items": [],
+        "playhead": "00:01:37:24"
+      }
+    ],
+    "selectionShapes": [
+      {
+        "count": 0,
+        "type": "list"
+      },
+      {
+        "count": 0,
+        "type": "list"
+      }
+    ],
+    "status": "editorial-readback-retained",
+    "_nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T125713.532938Z.json",
+    "_auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T125713.105841Z"
+  },
+  "manualNoted": {
+    "environment": {
+      "productName": "DaVinci Resolve Studio",
+      "python": "3.14.7",
+      "version": [
+        21,
+        1,
+        0,
+        14,
+        ""
+      ]
+    },
+    "failure": null,
+    "label": "r5-edit-note",
+    "limits": [
+      "External menu result requires separate full-state interpretation."
+    ],
+    "pair": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r5-edit-note-20261001T130724.954003Z/pair.json",
+      "sha256": "5577011075fc73b400c9a5b3afe5b9e5795673836eba8c6eb03a826129896242"
+    },
+    "readOnly": true,
+    "selectionPasses": [
+      {
+        "items": [],
+        "playhead": "00:01:37:24"
+      },
+      {
+        "items": [],
+        "playhead": "00:01:37:24"
+      }
+    ],
+    "selectionShapes": [
+      {
+        "count": 0,
+        "type": "list"
+      },
+      {
+        "count": 0,
+        "type": "list"
+      }
+    ],
+    "status": "editorial-readback-retained",
+    "_nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T130724.740953Z.json",
+    "_auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T130723.585431Z"
+  },
+  "actions": [
+    {
+      "menu": {
+        "auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T131200.373661Z",
+        "menu": "timeline-start",
+        "dispatched": true
+      }
+    },
+    {
+      "observation": {
+        "environment": {
+          "productName": "DaVinci Resolve Studio",
+          "python": "3.14.7",
+          "version": [
+            21,
+            1,
+            0,
+            14,
+            ""
+          ]
+        },
+        "failure": null,
+        "label": "r5-edit-deselected",
+        "limits": [
+          "External menu result requires separate full-state interpretation."
+        ],
+        "pair": {
+          "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r5-edit-deselected-20261001T131201.603857Z/pair.json",
+          "sha256": "5577011075fc73b400c9a5b3afe5b9e5795673836eba8c6eb03a826129896242"
+        },
+        "readOnly": true,
+        "selectionPasses": [
+          {
+            "items": [],
+            "playhead": "00:00:00:00"
+          },
+          {
+            "items": [],
+            "playhead": "00:00:00:00"
+          }
+        ],
+        "selectionShapes": [
+          {
+            "count": 0,
+            "type": "list"
+          },
+          {
+            "count": 0,
+            "type": "list"
+          }
+        ],
+        "status": "editorial-readback-retained",
+        "_nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T131201.523510Z.json",
+        "_auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T131200.692899Z"
+      }
+    },
+    {
+      "menu": {
+        "auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T131215.457717Z",
+        "menu": "focus-timeline",
+        "dispatched": true
+      }
+    },
+    {
+      "observation": {
+        "environment": {
+          "productName": "DaVinci Resolve Studio",
+          "python": "3.14.7",
+          "version": [
+            21,
+            1,
+            0,
+            14,
+            ""
+          ]
+        },
+        "failure": null,
+        "label": "r5-edit-deselected",
+        "limits": [
+          "External menu result requires separate full-state interpretation."
+        ],
+        "pair": {
+          "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r5-edit-deselected-20261001T131216.297568Z/pair.json",
+          "sha256": "5577011075fc73b400c9a5b3afe5b9e5795673836eba8c6eb03a826129896242"
+        },
+        "readOnly": true,
+        "selectionPasses": [
+          {
+            "items": [],
+            "playhead": "00:00:00:00"
+          },
+          {
+            "items": [],
+            "playhead": "00:00:00:00"
+          }
+        ],
+        "selectionShapes": [
+          {
+            "count": 0,
+            "type": "list"
+          },
+          {
+            "count": 0,
+            "type": "list"
+          }
+        ],
+        "status": "editorial-readback-retained",
+        "_nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T131216.233772Z.json",
+        "_auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T131215.717086Z"
+      }
+    },
+    {
+      "menu": {
+        "auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T131233.342311Z",
+        "menu": "auto-none",
+        "dispatched": true
+      }
+    },
+    {
+      "observation": {
+        "environment": {
+          "productName": "DaVinci Resolve Studio",
+          "python": "3.14.7",
+          "version": [
+            21,
+            1,
+            0,
+            14,
+            ""
+          ]
+        },
+        "failure": null,
+        "label": "r5-edit-deselected",
+        "limits": [
+          "External menu result requires separate full-state interpretation."
+        ],
+        "pair": {
+          "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r5-edit-deselected-20261001T131234.558465Z/pair.json",
+          "sha256": "5577011075fc73b400c9a5b3afe5b9e5795673836eba8c6eb03a826129896242"
+        },
+        "readOnly": true,
+        "selectionPasses": [
+          {
+            "items": [],
+            "playhead": "00:00:00:00"
+          },
+          {
+            "items": [],
+            "playhead": "00:00:00:00"
+          }
+        ],
+        "selectionShapes": [
+          {
+            "count": 0,
+            "type": "list"
+          },
+          {
+            "count": 0,
+            "type": "list"
+          }
+        ],
+        "status": "editorial-readback-retained",
+        "_nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T131234.473172Z.json",
+        "_auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T131233.790872Z"
+      }
+    },
+    {
+      "menu": {
+        "auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T131249.784407Z",
+        "menu": "auto-v1",
+        "dispatched": true
+      }
+    },
+    {
+      "observation": {
+        "environment": {
+          "productName": "DaVinci Resolve Studio",
+          "python": "3.14.7",
+          "version": [
+            21,
+            1,
+            0,
+            14,
+            ""
+          ]
+        },
+        "failure": null,
+        "label": "r5-edit-deselected",
+        "limits": [
+          "External menu result requires separate full-state interpretation."
+        ],
+        "pair": {
+          "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r5-edit-deselected-20261001T131250.770034Z/pair.json",
+          "sha256": "5577011075fc73b400c9a5b3afe5b9e5795673836eba8c6eb03a826129896242"
+        },
+        "readOnly": true,
+        "selectionPasses": [
+          {
+            "items": [],
+            "playhead": "00:00:00:00"
+          },
+          {
+            "items": [],
+            "playhead": "00:00:00:00"
+          }
+        ],
+        "selectionShapes": [
+          {
+            "count": 0,
+            "type": "list"
+          },
+          {
+            "count": 0,
+            "type": "list"
+          }
+        ],
+        "status": "editorial-readback-retained",
+        "_nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T131250.692040Z.json",
+        "_auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T131250.062535Z"
+      }
+    },
+    {
+      "menu": {
+        "auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T131304.935741Z",
+        "menu": "auto-a1",
+        "dispatched": true
+      }
+    },
+    {
+      "observation": {
+        "environment": {
+          "productName": "DaVinci Resolve Studio",
+          "python": "3.14.7",
+          "version": [
+            21,
+            1,
+            0,
+            14,
+            ""
+          ]
+        },
+        "failure": null,
+        "label": "r5-edit-deselected",
+        "limits": [
+          "External menu result requires separate full-state interpretation."
+        ],
+        "pair": {
+          "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r5-edit-deselected-20261001T131305.801966Z/pair.json",
+          "sha256": "5577011075fc73b400c9a5b3afe5b9e5795673836eba8c6eb03a826129896242"
+        },
+        "readOnly": true,
+        "selectionPasses": [
+          {
+            "items": [],
+            "playhead": "00:00:00:00"
+          },
+          {
+            "items": [],
+            "playhead": "00:00:00:00"
+          }
+        ],
+        "selectionShapes": [
+          {
+            "count": 0,
+            "type": "list"
+          },
+          {
+            "count": 0,
+            "type": "list"
+          }
+        ],
+        "status": "editorial-readback-retained",
+        "_nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T131305.736663Z.json",
+        "_auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T131305.208644Z"
+      }
+    },
+    {
+      "menu": {
+        "auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T131318.814368Z",
+        "menu": "deselect",
+        "dispatched": true
+      }
+    },
+    {
+      "observation": {
+        "environment": {
+          "productName": "DaVinci Resolve Studio",
+          "python": "3.14.7",
+          "version": [
+            21,
+            1,
+            0,
+            14,
+            ""
+          ]
+        },
+        "failure": null,
+        "label": "r5-edit-deselected",
+        "limits": [
+          "External menu result requires separate full-state interpretation."
+        ],
+        "pair": {
+          "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r5-edit-deselected-20261001T131319.646407Z/pair.json",
+          "sha256": "5577011075fc73b400c9a5b3afe5b9e5795673836eba8c6eb03a826129896242"
+        },
+        "readOnly": true,
+        "selectionPasses": [
+          {
+            "items": [],
+            "playhead": "00:00:00:00"
+          },
+          {
+            "items": [],
+            "playhead": "00:00:00:00"
+          }
+        ],
+        "selectionShapes": [
+          {
+            "count": 0,
+            "type": "list"
+          },
+          {
+            "count": 0,
+            "type": "list"
+          }
+        ],
+        "status": "editorial-readback-retained",
+        "_nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T131319.585148Z.json",
+        "_auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T131319.072888Z"
+      }
+    },
+    {
+      "menu": {
+        "auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T131332.063651Z",
+        "menu": "select",
+        "dispatched": true
+      }
+    },
+    {
+      "observation": {
+        "environment": {
+          "productName": "DaVinci Resolve Studio",
+          "python": "3.14.7",
+          "version": [
+            21,
+            1,
+            0,
+            14,
+            ""
+          ]
+        },
+        "failure": null,
+        "label": "r5-edit-selected",
+        "limits": [
+          "External menu result requires separate full-state interpretation."
+        ],
+        "pair": {
+          "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r5-edit-selected-20261001T131333.016151Z/pair.json",
+          "sha256": "5577011075fc73b400c9a5b3afe5b9e5795673836eba8c6eb03a826129896242"
+        },
+        "readOnly": true,
+        "selectionPasses": [
+          {
+            "items": [
+              {
+                "GetClipEnabled": {
+                  "value": true
+                },
+                "GetDuration": {
+                  "value": 199
+                },
+                "GetDuration(True)": {
+                  "value": 199.0
+                },
+                "GetEnd": {
+                  "value": 199
+                },
+                "GetEnd(True)": {
+                  "value": 199.0
+                },
+                "GetFusionCompCount": {
+                  "value": 0
+                },
+                "GetFusionCompNameList": {
+                  "value": {}
+                },
+                "GetLeftOffset": {
+                  "value": 0
+                },
+                "GetLeftOffset(True)": {
+                  "value": 0.0
+                },
+                "GetLinkedItems": [
+                  {
+                    "value": "22561398-bce0-4c22-b55f-a73d3ad5e4cf"
+                  }
+                ],
+                "GetMarkers": {
+                  "value": {
+                    "0": {
+                      "color": "Blue",
+                      "customData": "{\"issue\": 141, \"occurrence\": 0, \"section\": \"calibration\"}",
+                      "duration": 1,
+                      "name": "141 calibration item 0",
+                      "note": "Synthetic matrix occurrence"
+                    }
+                  }
+                },
+                "GetMediaPoolItem": {
+                  "GetAudioMapping": {
+                    "value": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}"
+                  },
+                  "GetClipProperty": {
+                    "value": {
+                      "2nd Asst": "",
+                      "2nd Continuity": "",
+                      "2nd DIT": "",
+                      "2nd DOP": "",
+                      "2nd DOP Reviewed": "",
+                      "2nd Dir": "",
+                      "2nd Dir Asst": "",
+                      "2nd Dir Reviewed": "",
+                      "3D Rig ID #": "",
+                      "3D Rig Type": "",
+                      "Alpha mode": "None",
+                      "Angle": "",
+                      "Aspect Ratio Notes": "",
+                      "Assistant Director": "",
+                      "Assistant Producer": "",
+                      "Audio Bit Depth": "16",
+                      "Audio Ch": "1",
+                      "Audio Codec": "Linear PCM",
+                      "Audio Duration TC": "",
+                      "Audio End TC": "",
+                      "Audio FPS": "",
+                      "Audio File Type": "",
+                      "Audio Media": "",
+                      "Audio Notes": "",
+                      "Audio Offset": "",
+                      "Audio Recorder": "",
+                      "Audio Start TC": "",
+                      "Audio TC Type": "",
+                      "Aux 1": "",
+                      "Aux 2": "",
+                      "BG (m)": "",
+                      "Bit Depth": "8",
+                      "Bit Rate": "",
+                      "CDL SAT": "",
+                      "CDL SOP": "",
+                      "CV (m)": "",
+                      "Calibration Source": "",
+                      "Calibration Type": "",
+                      "Calibration UUID": "",
+                      "Camera #": "",
+                      "Camera Aperture": "",
+                      "Camera Aperture Type": "",
+                      "Camera Assistant": "",
+                      "Camera FPS": "",
+                      "Camera Firmware": "",
+                      "Camera Format": "",
+                      "Camera ID": "",
+                      "Camera Manufacturer": "",
+                      "Camera Notes": "",
+                      "Camera Operator": "",
+                      "Camera Pan Angle": "",
+                      "Camera Position": "",
+                      "Camera Roll Angle": "",
+                      "Camera Serial #": "",
+                      "Camera TC Type": "",
+                      "Camera Tilt Angle": "",
+                      "Camera Type": "",
+                      "Category": "",
+                      "Clip Color": "",
+                      "Clip Directory": "REPOSITORY/out/issue-141-media-20260930-01a0f318",
+                      "Clip Name": "base.mov",
+                      "Clip Number": "",
+                      "Cloud Sync": "-1",
+                      "Codec Bitrate": "",
+                      "Color Chart": "",
+                      "Color Space Notes": "",
+                      "Colorist": "",
+                      "Colorist Assistant": "",
+                      "Colorist Notes": "",
+                      "Colorist Reviewed": "",
+                      "Comments": "",
+                      "Compression Ratio": "",
+                      "Continuity": "",
+                      "Continuity Reviewed": "",
+                      "Convergence Adj": "",
+                      "Crew Comments": "",
+                      "DOP": "",
+                      "DOP Reviewed": "",
+                      "Dailies Colorist": "",
+                      "Data Level": "Auto",
+                      "Data Wrangler": "",
+                      "Date Added": "Wed Sep 30 2026 13:39:43",
+                      "Date Created": "Wed Sep 30 2026 12:28:32",
+                      "Date Modified": "Wed Sep 30 12:28:32 2026",
+                      "Date Recorded": "",
+                      "Day / Night": "",
+                      "Deck Firmware": "",
+                      "Deck Serial #": "",
+                      "Description": "",
+                      "Dialog Duration": "",
+                      "Dialog Notes": "",
+                      "Dialog Starts As": "",
+                      "Digital Technician": "",
+                      "Director": "",
+                      "Director Reviewed": "",
+                      "Distance": "",
+                      "Drop frame": "0",
+                      "Duration": "00:00:08:00",
+                      "EDL Clip Name": "",
+                      "Editing Assistant": "",
+                      "Editor": "",
+                      "Embedded Audio": "",
+                      "Enable Deinterlacing": "0",
+                      "End": "199",
+                      "End Dialog TC": "",
+                      "End TC": "00:00:08:00",
+                      "Environment": "",
+                      "Episode #": "",
+                      "Episode Name": "",
+                      "FG (m)": "",
+                      "FPS": 25.0,
+                      "FSD": "",
+                      "Field Dominance": "Auto",
+                      "File Name": "base.mov",
+                      "File Path": "REPOSITORY/out/issue-141-media-20260930-01a0f318/base.mov",
+                      "Filter": "",
+                      "Flags": "",
+                      "Focal Point (mm)": "",
+                      "Focus Puller": "",
+                      "Focus Reviewed": "",
+                      "Format": "QuickTime",
+                      "Frames": "200",
+                      "Framing Chart": "",
+                      "Gamma Notes": "",
+                      "Genre": "",
+                      "Grey Chart": "",
+                      "H-FLIP": "Off",
+                      "IA (mm)": "",
+                      "IDT": "",
+                      "ILPD": "",
+                      "ISO": "",
+                      "Immersive ID": "",
+                      "In": "",
+                      "Input Color Space": "Project",
+                      "Input Gamma": "Gamma 2.4",
+                      "Input LUT": "",
+                      "Input Sizing Preset": "None",
+                      "Key Grip": "",
+                      "Keyword": "",
+                      "LUT 1": "",
+                      "LUT 2": "",
+                      "LUT 3": "",
+                      "LUT Used": "",
+                      "LUT Used On Set": "",
+                      "Lab Roll #": "",
+                      "Lens Chart": "",
+                      "Lens Notes": "",
+                      "Lens Number": "",
+                      "Lens Type": "",
+                      "Line Producer": "",
+                      "Location": "",
+                      "Media Type": "",
+                      "Mon Color Space": "",
+                      "Monitor LUT": "",
+                      "Move": "",
+                      "ND Filter": "",
+                      "Noise Reduction": "",
+                      "Offline Reference": "",
+                      "Online Status": "Online",
+                      "Out": "",
+                      "PAR": "Square",
+                      "PAR Notes": "",
+                      "People": "",
+                      "Post Producer": "",
+                      "Producer": "",
+                      "Production Asst": "",
+                      "Production Company": "",
+                      "Production Name": "",
+                      "Program Name": "",
+                      "Projection": "",
+                      "Proxy": "None",
+                      "Proxy Media Path": "",
+                      "RAW": "",
+                      "Rating": "",
+                      "Reel Name": "",
+                      "Reel Number": "",
+                      "Resolution": "640x360",
+                      "Reviewers Notes": "",
+                      "Rig Inverted": "",
+                      "Roll/Card": "",
+                      "S3D Eye": "",
+                      "S3D Notes": "",
+                      "S3D Shot": "",
+                      "S3D Sync": "",
+                      "Safe Area": "",
+                      "Sample Rate": "48000",
+                      "Sample Rate (KHz)": "",
+                      "Scene": "",
+                      "Script Supervisor": "",
+                      "Send to": "",
+                      "Send to Studio": "",
+                      "Sensor": "",
+                      "Sensor Area Captured": "",
+                      "Series #": "",
+                      "Setup": "",
+                      "Sharpness": "",
+                      "Shoot Day": "",
+                      "Shot": "",
+                      "Shot During Ep": "",
+                      "Shot Frame Rate": "25.000",
+                      "Shot Type": "",
+                      "Shutter Angle": "",
+                      "Shutter Speed": "",
+                      "Shutter Type": "",
+                      "Slate TC": "00:00:00:00",
+                      "Sound Mixer": "",
+                      "Sound Reviewed": "",
+                      "Sound Roll #": "",
+                      "Start": "0",
+                      "Start Dialog TC": "",
+                      "Start KeyKode": "",
+                      "Start TC": "00:00:00:00",
+                      "Subcategory": "",
+                      "Super Scale": 1,
+                      "SuperScale Noise Reduction": "0.5",
+                      "SuperScale Sharpness": "0.5",
+                      "Synced Audio": "",
+                      "Tag": "0",
+                      "Take": "",
+                      "Time-lapse Interval": "",
+                      "Tone": "",
+                      "Track 1": "",
+                      "Track 10": "",
+                      "Track 11": "",
+                      "Track 12": "",
+                      "Track 13": "",
+                      "Track 14": "",
+                      "Track 15": "",
+                      "Track 16": "",
+                      "Track 17": "",
+                      "Track 18": "",
+                      "Track 19": "",
+                      "Track 2": "",
+                      "Track 20": "",
+                      "Track 21": "",
+                      "Track 22": "",
+                      "Track 23": "",
+                      "Track 24": "",
+                      "Track 3": "",
+                      "Track 4": "",
+                      "Track 5": "",
+                      "Track 6": "",
+                      "Track 7": "",
+                      "Track 8": "",
+                      "Track 9": "",
+                      "Transcription": "",
+                      "Transcription Status": "",
+                      "Type": "Video + Audio",
+                      "Unit Manager": "",
+                      "Unit Name": "",
+                      "Uploaded From": "",
+                      "Usage": "24",
+                      "V-FLIP": "Off",
+                      "VFX Grey Ball": "",
+                      "VFX Markers": "",
+                      "VFX Mirror Ball": "",
+                      "VFX Notes": "",
+                      "VFX Shot #": "",
+                      "VFX Svsr Reviewed": "",
+                      "Video Codec": "H.264 High L3.0",
+                      "Wardrobe Reviewed": "",
+                      "White Balance Tint": "",
+                      "White Point (Kelvin)": ""
+                    }
+                  },
+                  "GetMarkers": {
+                    "value": {}
+                  },
+                  "GetUniqueId": {
+                    "value": "9202163a-8381-43e6-9157-3a60f35c6f79"
+                  },
+                  "sourceBytes": {
+                    "hashMatches": true,
+                    "sha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+                    "status": "reachable"
+                  }
+                },
+                "GetName": {
+                  "value": "base.mov"
+                },
+                "GetProperties": {
+                  "value": {
+                    "AnchorPointX": 0.0,
+                    "AnchorPointY": 0.0,
+                    "CompositeEnabled": true,
+                    "CompositeMode": 0,
+                    "CropBottom": 0.0,
+                    "CropLeft": 0.0,
+                    "CropRetain": false,
+                    "CropRight": 0.0,
+                    "CropSoftness": 0.0,
+                    "CropTop": 0.0,
+                    "CroppingEnabled": true,
+                    "Distortion": 0.0,
+                    "DynamicZoomEase": 0,
+                    "DynamicZoomEnabled": false,
+                    "FlipX": false,
+                    "FlipY": false,
+                    "LensCorrectionEnabled": true,
+                    "MotionEstimation": 0,
+                    "Opacity": 100.0,
+                    "Pan": 0.0,
+                    "Pitch": 0.0,
+                    "ResizeFilter": 0,
+                    "RetimeAndScalingEnabled": true,
+                    "RetimeProcess": 0,
+                    "RotationAngle": 0.0,
+                    "Scaling": 0,
+                    "Tilt": 0.0,
+                    "TransformEnabled": true,
+                    "Yaw": 0.0,
+                    "ZoomGang": true,
+                    "ZoomX": 1.0,
+                    "ZoomY": 1.0
+                  }
+                },
+                "GetRightOffset": {
+                  "value": 1
+                },
+                "GetRightOffset(True)": {
+                  "value": 1.0
+                },
+                "GetSourceAudioChannelMapping": {
+                  "value": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{}}"
+                },
+                "GetSourceEndFrame": {
+                  "value": 199
+                },
+                "GetSourceEndTime": {
+                  "value": 7.96
+                },
+                "GetSourceStartFrame": {
+                  "value": 0
+                },
+                "GetSourceStartTime": {
+                  "value": 0.0
+                },
+                "GetSpeed": {
+                  "value": {
+                    "Percentage": 100.0,
+                    "PitchCorrection": true
+                  }
+                },
+                "GetStart": {
+                  "value": 0
+                },
+                "GetStart(True)": {
+                  "value": 0.0
+                },
+                "GetTrackTypeAndIndex": {
+                  "value": [
+                    "video",
+                    1
+                  ]
+                },
+                "GetType": {
+                  "value": "video"
+                },
+                "GetUniqueId": {
+                  "value": "3f2de461-d510-46f8-939f-0c794d48e38b"
+                },
+                "GetVoiceIsolationState": {
+                  "value": {
+                    "amount": 0,
+                    "isEnabled": false
+                  }
+                }
+              },
+              {
+                "GetClipEnabled": {
+                  "value": true
+                },
+                "GetDuration": {
+                  "value": 199
+                },
+                "GetDuration(True)": {
+                  "value": 199.0
+                },
+                "GetEnd": {
+                  "value": 199
+                },
+                "GetEnd(True)": {
+                  "value": 199.0
+                },
+                "GetFusionCompCount": {
+                  "value": 0
+                },
+                "GetFusionCompNameList": {
+                  "value": {}
+                },
+                "GetLeftOffset": {
+                  "value": 0
+                },
+                "GetLeftOffset(True)": {
+                  "value": 0.0
+                },
+                "GetLinkedItems": [
+                  {
+                    "value": "3f2de461-d510-46f8-939f-0c794d48e38b"
+                  }
+                ],
+                "GetMarkers": {
+                  "value": {
+                    "0": {
+                      "color": "Blue",
+                      "customData": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"calibration\"}",
+                      "duration": 1,
+                      "name": "141 calibration item 1",
+                      "note": "Synthetic matrix occurrence"
+                    }
+                  }
+                },
+                "GetMediaPoolItem": {
+                  "GetAudioMapping": {
+                    "value": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}"
+                  },
+                  "GetClipProperty": {
+                    "value": {
+                      "2nd Asst": "",
+                      "2nd Continuity": "",
+                      "2nd DIT": "",
+                      "2nd DOP": "",
+                      "2nd DOP Reviewed": "",
+                      "2nd Dir": "",
+                      "2nd Dir Asst": "",
+                      "2nd Dir Reviewed": "",
+                      "3D Rig ID #": "",
+                      "3D Rig Type": "",
+                      "Angle": "",
+                      "Aspect Ratio Notes": "",
+                      "Assistant Director": "",
+                      "Assistant Producer": "",
+                      "Audio Bit Depth": "16",
+                      "Audio Ch": "1",
+                      "Audio Codec": "Linear PCM",
+                      "Audio Duration TC": "",
+                      "Audio End TC": "",
+                      "Audio FPS": "",
+                      "Audio File Type": "",
+                      "Audio Media": "",
+                      "Audio Notes": "",
+                      "Audio Offset": "",
+                      "Audio Recorder": "",
+                      "Audio Start TC": "",
+                      "Audio TC Type": "",
+                      "Aux 1": "",
+                      "Aux 2": "",
+                      "BG (m)": "",
+                      "Bit Depth": "",
+                      "Bit Rate": "",
+                      "CDL SAT": "",
+                      "CDL SOP": "",
+                      "CV (m)": "",
+                      "Calibration Source": "",
+                      "Calibration Type": "",
+                      "Calibration UUID": "",
+                      "Camera #": "",
+                      "Camera Aperture": "",
+                      "Camera Aperture Type": "",
+                      "Camera Assistant": "",
+                      "Camera FPS": "",
+                      "Camera Firmware": "",
+                      "Camera Format": "",
+                      "Camera ID": "",
+                      "Camera Manufacturer": "",
+                      "Camera Notes": "",
+                      "Camera Operator": "",
+                      "Camera Pan Angle": "",
+                      "Camera Position": "",
+                      "Camera Roll Angle": "",
+                      "Camera Serial #": "",
+                      "Camera TC Type": "",
+                      "Camera Tilt Angle": "",
+                      "Camera Type": "",
+                      "Category": "",
+                      "Clip Color": "",
+                      "Clip Directory": "REPOSITORY/out/issue-141-media-20260930-01a0f318",
+                      "Clip Name": "repeated.wav",
+                      "Clip Number": "",
+                      "Cloud Sync": "-1",
+                      "Codec Bitrate": "",
+                      "Color Chart": "",
+                      "Color Space Notes": "",
+                      "Colorist": "",
+                      "Colorist Assistant": "",
+                      "Colorist Notes": "",
+                      "Colorist Reviewed": "",
+                      "Comments": "",
+                      "Compression Ratio": "",
+                      "Continuity": "",
+                      "Continuity Reviewed": "",
+                      "Convergence Adj": "",
+                      "Crew Comments": "",
+                      "DOP": "",
+                      "DOP Reviewed": "",
+                      "Dailies Colorist": "",
+                      "Data Level": "",
+                      "Data Wrangler": "",
+                      "Date Added": "Wed Sep 30 2026 13:39:47",
+                      "Date Created": "Wed Sep 30 2026 12:28:32",
+                      "Date Modified": "Wed Sep 30 12:28:32 2026",
+                      "Date Recorded": "",
+                      "Day / Night": "",
+                      "Deck Firmware": "",
+                      "Deck Serial #": "",
+                      "Description": "",
+                      "Dialog Duration": "",
+                      "Dialog Notes": "",
+                      "Dialog Starts As": "",
+                      "Digital Technician": "",
+                      "Director": "",
+                      "Director Reviewed": "",
+                      "Distance": "",
+                      "Duration": "00:00:08:00",
+                      "EDL Clip Name": "",
+                      "Editing Assistant": "",
+                      "Editor": "",
+                      "Embedded Audio": "",
+                      "End": "",
+                      "End Dialog TC": "",
+                      "End TC": "00:00:08:00",
+                      "Environment": "",
+                      "Episode #": "",
+                      "Episode Name": "",
+                      "FG (m)": "",
+                      "FPS": 25.0,
+                      "FSD": "",
+                      "Field Dominance": "",
+                      "File Name": "repeated.wav",
+                      "File Path": "REPOSITORY/out/issue-141-media-20260930-01a0f318/repeated.wav",
+                      "Filter": "",
+                      "Flags": "",
+                      "Focal Point (mm)": "",
+                      "Focus Puller": "",
+                      "Focus Reviewed": "",
+                      "Format": "Wave",
+                      "Frames": "",
+                      "Framing Chart": "",
+                      "Gamma Notes": "",
+                      "Genre": "",
+                      "Grey Chart": "",
+                      "H-FLIP": "",
+                      "IA (mm)": "",
+                      "IDT": "",
+                      "ILPD": "",
+                      "ISO": "",
+                      "Immersive ID": "",
+                      "In": "",
+                      "Input Color Space": "",
+                      "Input Gamma": "",
+                      "Input LUT": "",
+                      "Input Sizing Preset": "",
+                      "Key Grip": "",
+                      "Keyword": "",
+                      "LUT 1": "",
+                      "LUT 2": "",
+                      "LUT 3": "",
+                      "LUT Used": "",
+                      "LUT Used On Set": "",
+                      "Lab Roll #": "",
+                      "Lens Chart": "",
+                      "Lens Notes": "",
+                      "Lens Number": "",
+                      "Lens Type": "",
+                      "Line Producer": "",
+                      "Location": "",
+                      "Media Type": "",
+                      "Mon Color Space": "",
+                      "Monitor LUT": "",
+                      "Move": "",
+                      "ND Filter": "",
+                      "Offline Reference": "",
+                      "Online Status": "Online",
+                      "Out": "",
+                      "PAR": "",
+                      "PAR Notes": "",
+                      "People": "",
+                      "Post Producer": "",
+                      "Producer": "",
+                      "Production Asst": "",
+                      "Production Company": "",
+                      "Production Name": "",
+                      "Program Name": "",
+                      "Projection": "",
+                      "Proxy": "",
+                      "Proxy Media Path": "",
+                      "RAW": "",
+                      "Rating": "",
+                      "Reel Name": "",
+                      "Reel Number": "",
+                      "Resolution": "",
+                      "Reviewers Notes": "",
+                      "Rig Inverted": "",
+                      "Roll/Card": "",
+                      "S3D Eye": "",
+                      "S3D Notes": "",
+                      "S3D Shot": "",
+                      "S3D Sync": "",
+                      "Safe Area": "",
+                      "Sample Rate": "48000",
+                      "Sample Rate (KHz)": "",
+                      "Scene": "",
+                      "Script Supervisor": "",
+                      "Send to": "",
+                      "Send to Studio": "",
+                      "Sensor": "",
+                      "Sensor Area Captured": "",
+                      "Series #": "",
+                      "Setup": "",
+                      "Shoot Day": "",
+                      "Shot": "",
+                      "Shot During Ep": "",
+                      "Shot Frame Rate": "",
+                      "Shot Type": "",
+                      "Shutter Angle": "",
+                      "Shutter Speed": "",
+                      "Shutter Type": "",
+                      "Slate TC": "",
+                      "Sound Mixer": "",
+                      "Sound Reviewed": "",
+                      "Sound Roll #": "repeated.wav",
+                      "Start": "",
+                      "Start Dialog TC": "",
+                      "Start KeyKode": "",
+                      "Start TC": "00:00:00:00",
+                      "Subcategory": "",
+                      "Synced Audio": "",
+                      "Tag": "0",
+                      "Take": "",
+                      "Time-lapse Interval": "",
+                      "Tone": "",
+                      "Track 1": "",
+                      "Track 10": "",
+                      "Track 11": "",
+                      "Track 12": "",
+                      "Track 13": "",
+                      "Track 14": "",
+                      "Track 15": "",
+                      "Track 16": "",
+                      "Track 17": "",
+                      "Track 18": "",
+                      "Track 19": "",
+                      "Track 2": "",
+                      "Track 20": "",
+                      "Track 21": "",
+                      "Track 22": "",
+                      "Track 23": "",
+                      "Track 24": "",
+                      "Track 3": "",
+                      "Track 4": "",
+                      "Track 5": "",
+                      "Track 6": "",
+                      "Track 7": "",
+                      "Track 8": "",
+                      "Track 9": "",
+                      "Transcription": "",
+                      "Transcription Status": "",
+                      "Type": "Audio",
+                      "Unit Manager": "",
+                      "Unit Name": "",
+                      "Uploaded From": "",
+                      "Usage": "46",
+                      "V-FLIP": "",
+                      "VFX Grey Ball": "",
+                      "VFX Markers": "",
+                      "VFX Mirror Ball": "",
+                      "VFX Notes": "",
+                      "VFX Shot #": "",
+                      "VFX Svsr Reviewed": "",
+                      "Video Codec": "",
+                      "Wardrobe Reviewed": "",
+                      "White Balance Tint": "",
+                      "White Point (Kelvin)": ""
+                    }
+                  },
+                  "GetMarkers": {
+                    "value": {}
+                  },
+                  "GetUniqueId": {
+                    "value": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8"
+                  },
+                  "sourceBytes": {
+                    "hashMatches": true,
+                    "sha256": "832dd31cc46b9f4b4fdb7cbde18b4edc09ec249885634fba43da2a7b87dc768e",
+                    "status": "reachable"
+                  }
+                },
+                "GetName": {
+                  "value": "repeated.wav"
+                },
+                "GetProperties": {
+                  "value": {
+                    "AudioDialogueLevelerBackgroundReduction": false,
+                    "AudioDialogueLevelerEnabled": false,
+                    "AudioDialogueLevelerLiftSoftDialogue": false,
+                    "AudioDialogueLevelerMode": 0,
+                    "AudioDialogueLevelerOutputGain": 0.0,
+                    "AudioDialogueLevelerReduceLoudDialogue": false,
+                    "AudioPan": 0.0,
+                    "AudioPanEnabled": true,
+                    "AudioPitchCents": 0,
+                    "AudioPitchEnabled": true,
+                    "AudioPitchSemiTones": 0,
+                    "AudioVoiceIsolationAmount": 0,
+                    "AudioVoiceIsolationEnabled": false,
+                    "AudioVolume": 0.0,
+                    "AudioVolumeEnabled": true
+                  }
+                },
+                "GetRightOffset": {
+                  "value": 1
+                },
+                "GetRightOffset(True)": {
+                  "value": 1.0
+                },
+                "GetSourceAudioChannelMapping": {
+                  "value": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}"
+                },
+                "GetSourceEndFrame": {
+                  "value": 199
+                },
+                "GetSourceEndTime": {
+                  "value": 7.96
+                },
+                "GetSourceStartFrame": {
+                  "value": 0
+                },
+                "GetSourceStartTime": {
+                  "value": 0.0
+                },
+                "GetSpeed": {
+                  "value": {
+                    "Percentage": 100.0,
+                    "PitchCorrection": true
+                  }
+                },
+                "GetStart": {
+                  "value": 0
+                },
+                "GetStart(True)": {
+                  "value": 0.0
+                },
+                "GetTrackTypeAndIndex": {
+                  "value": [
+                    "audio",
+                    1
+                  ]
+                },
+                "GetType": {
+                  "value": "audio"
+                },
+                "GetUniqueId": {
+                  "value": "22561398-bce0-4c22-b55f-a73d3ad5e4cf"
+                },
+                "GetVoiceIsolationState": {
+                  "value": {
+                    "amount": 0,
+                    "isEnabled": false
+                  }
+                }
+              }
+            ],
+            "playhead": "00:00:00:00"
+          },
+          {
+            "items": [
+              {
+                "GetClipEnabled": {
+                  "value": true
+                },
+                "GetDuration": {
+                  "value": 199
+                },
+                "GetDuration(True)": {
+                  "value": 199.0
+                },
+                "GetEnd": {
+                  "value": 199
+                },
+                "GetEnd(True)": {
+                  "value": 199.0
+                },
+                "GetFusionCompCount": {
+                  "value": 0
+                },
+                "GetFusionCompNameList": {
+                  "value": {}
+                },
+                "GetLeftOffset": {
+                  "value": 0
+                },
+                "GetLeftOffset(True)": {
+                  "value": 0.0
+                },
+                "GetLinkedItems": [
+                  {
+                    "value": "22561398-bce0-4c22-b55f-a73d3ad5e4cf"
+                  }
+                ],
+                "GetMarkers": {
+                  "value": {
+                    "0": {
+                      "color": "Blue",
+                      "customData": "{\"issue\": 141, \"occurrence\": 0, \"section\": \"calibration\"}",
+                      "duration": 1,
+                      "name": "141 calibration item 0",
+                      "note": "Synthetic matrix occurrence"
+                    }
+                  }
+                },
+                "GetMediaPoolItem": {
+                  "GetAudioMapping": {
+                    "value": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}"
+                  },
+                  "GetClipProperty": {
+                    "value": {
+                      "2nd Asst": "",
+                      "2nd Continuity": "",
+                      "2nd DIT": "",
+                      "2nd DOP": "",
+                      "2nd DOP Reviewed": "",
+                      "2nd Dir": "",
+                      "2nd Dir Asst": "",
+                      "2nd Dir Reviewed": "",
+                      "3D Rig ID #": "",
+                      "3D Rig Type": "",
+                      "Alpha mode": "None",
+                      "Angle": "",
+                      "Aspect Ratio Notes": "",
+                      "Assistant Director": "",
+                      "Assistant Producer": "",
+                      "Audio Bit Depth": "16",
+                      "Audio Ch": "1",
+                      "Audio Codec": "Linear PCM",
+                      "Audio Duration TC": "",
+                      "Audio End TC": "",
+                      "Audio FPS": "",
+                      "Audio File Type": "",
+                      "Audio Media": "",
+                      "Audio Notes": "",
+                      "Audio Offset": "",
+                      "Audio Recorder": "",
+                      "Audio Start TC": "",
+                      "Audio TC Type": "",
+                      "Aux 1": "",
+                      "Aux 2": "",
+                      "BG (m)": "",
+                      "Bit Depth": "8",
+                      "Bit Rate": "",
+                      "CDL SAT": "",
+                      "CDL SOP": "",
+                      "CV (m)": "",
+                      "Calibration Source": "",
+                      "Calibration Type": "",
+                      "Calibration UUID": "",
+                      "Camera #": "",
+                      "Camera Aperture": "",
+                      "Camera Aperture Type": "",
+                      "Camera Assistant": "",
+                      "Camera FPS": "",
+                      "Camera Firmware": "",
+                      "Camera Format": "",
+                      "Camera ID": "",
+                      "Camera Manufacturer": "",
+                      "Camera Notes": "",
+                      "Camera Operator": "",
+                      "Camera Pan Angle": "",
+                      "Camera Position": "",
+                      "Camera Roll Angle": "",
+                      "Camera Serial #": "",
+                      "Camera TC Type": "",
+                      "Camera Tilt Angle": "",
+                      "Camera Type": "",
+                      "Category": "",
+                      "Clip Color": "",
+                      "Clip Directory": "REPOSITORY/out/issue-141-media-20260930-01a0f318",
+                      "Clip Name": "base.mov",
+                      "Clip Number": "",
+                      "Cloud Sync": "-1",
+                      "Codec Bitrate": "",
+                      "Color Chart": "",
+                      "Color Space Notes": "",
+                      "Colorist": "",
+                      "Colorist Assistant": "",
+                      "Colorist Notes": "",
+                      "Colorist Reviewed": "",
+                      "Comments": "",
+                      "Compression Ratio": "",
+                      "Continuity": "",
+                      "Continuity Reviewed": "",
+                      "Convergence Adj": "",
+                      "Crew Comments": "",
+                      "DOP": "",
+                      "DOP Reviewed": "",
+                      "Dailies Colorist": "",
+                      "Data Level": "Auto",
+                      "Data Wrangler": "",
+                      "Date Added": "Wed Sep 30 2026 13:39:43",
+                      "Date Created": "Wed Sep 30 2026 12:28:32",
+                      "Date Modified": "Wed Sep 30 12:28:32 2026",
+                      "Date Recorded": "",
+                      "Day / Night": "",
+                      "Deck Firmware": "",
+                      "Deck Serial #": "",
+                      "Description": "",
+                      "Dialog Duration": "",
+                      "Dialog Notes": "",
+                      "Dialog Starts As": "",
+                      "Digital Technician": "",
+                      "Director": "",
+                      "Director Reviewed": "",
+                      "Distance": "",
+                      "Drop frame": "0",
+                      "Duration": "00:00:08:00",
+                      "EDL Clip Name": "",
+                      "Editing Assistant": "",
+                      "Editor": "",
+                      "Embedded Audio": "",
+                      "Enable Deinterlacing": "0",
+                      "End": "199",
+                      "End Dialog TC": "",
+                      "End TC": "00:00:08:00",
+                      "Environment": "",
+                      "Episode #": "",
+                      "Episode Name": "",
+                      "FG (m)": "",
+                      "FPS": 25.0,
+                      "FSD": "",
+                      "Field Dominance": "Auto",
+                      "File Name": "base.mov",
+                      "File Path": "REPOSITORY/out/issue-141-media-20260930-01a0f318/base.mov",
+                      "Filter": "",
+                      "Flags": "",
+                      "Focal Point (mm)": "",
+                      "Focus Puller": "",
+                      "Focus Reviewed": "",
+                      "Format": "QuickTime",
+                      "Frames": "200",
+                      "Framing Chart": "",
+                      "Gamma Notes": "",
+                      "Genre": "",
+                      "Grey Chart": "",
+                      "H-FLIP": "Off",
+                      "IA (mm)": "",
+                      "IDT": "",
+                      "ILPD": "",
+                      "ISO": "",
+                      "Immersive ID": "",
+                      "In": "",
+                      "Input Color Space": "Project",
+                      "Input Gamma": "Gamma 2.4",
+                      "Input LUT": "",
+                      "Input Sizing Preset": "None",
+                      "Key Grip": "",
+                      "Keyword": "",
+                      "LUT 1": "",
+                      "LUT 2": "",
+                      "LUT 3": "",
+                      "LUT Used": "",
+                      "LUT Used On Set": "",
+                      "Lab Roll #": "",
+                      "Lens Chart": "",
+                      "Lens Notes": "",
+                      "Lens Number": "",
+                      "Lens Type": "",
+                      "Line Producer": "",
+                      "Location": "",
+                      "Media Type": "",
+                      "Mon Color Space": "",
+                      "Monitor LUT": "",
+                      "Move": "",
+                      "ND Filter": "",
+                      "Noise Reduction": "",
+                      "Offline Reference": "",
+                      "Online Status": "Online",
+                      "Out": "",
+                      "PAR": "Square",
+                      "PAR Notes": "",
+                      "People": "",
+                      "Post Producer": "",
+                      "Producer": "",
+                      "Production Asst": "",
+                      "Production Company": "",
+                      "Production Name": "",
+                      "Program Name": "",
+                      "Projection": "",
+                      "Proxy": "None",
+                      "Proxy Media Path": "",
+                      "RAW": "",
+                      "Rating": "",
+                      "Reel Name": "",
+                      "Reel Number": "",
+                      "Resolution": "640x360",
+                      "Reviewers Notes": "",
+                      "Rig Inverted": "",
+                      "Roll/Card": "",
+                      "S3D Eye": "",
+                      "S3D Notes": "",
+                      "S3D Shot": "",
+                      "S3D Sync": "",
+                      "Safe Area": "",
+                      "Sample Rate": "48000",
+                      "Sample Rate (KHz)": "",
+                      "Scene": "",
+                      "Script Supervisor": "",
+                      "Send to": "",
+                      "Send to Studio": "",
+                      "Sensor": "",
+                      "Sensor Area Captured": "",
+                      "Series #": "",
+                      "Setup": "",
+                      "Sharpness": "",
+                      "Shoot Day": "",
+                      "Shot": "",
+                      "Shot During Ep": "",
+                      "Shot Frame Rate": "25.000",
+                      "Shot Type": "",
+                      "Shutter Angle": "",
+                      "Shutter Speed": "",
+                      "Shutter Type": "",
+                      "Slate TC": "00:00:00:00",
+                      "Sound Mixer": "",
+                      "Sound Reviewed": "",
+                      "Sound Roll #": "",
+                      "Start": "0",
+                      "Start Dialog TC": "",
+                      "Start KeyKode": "",
+                      "Start TC": "00:00:00:00",
+                      "Subcategory": "",
+                      "Super Scale": 1,
+                      "SuperScale Noise Reduction": "0.5",
+                      "SuperScale Sharpness": "0.5",
+                      "Synced Audio": "",
+                      "Tag": "0",
+                      "Take": "",
+                      "Time-lapse Interval": "",
+                      "Tone": "",
+                      "Track 1": "",
+                      "Track 10": "",
+                      "Track 11": "",
+                      "Track 12": "",
+                      "Track 13": "",
+                      "Track 14": "",
+                      "Track 15": "",
+                      "Track 16": "",
+                      "Track 17": "",
+                      "Track 18": "",
+                      "Track 19": "",
+                      "Track 2": "",
+                      "Track 20": "",
+                      "Track 21": "",
+                      "Track 22": "",
+                      "Track 23": "",
+                      "Track 24": "",
+                      "Track 3": "",
+                      "Track 4": "",
+                      "Track 5": "",
+                      "Track 6": "",
+                      "Track 7": "",
+                      "Track 8": "",
+                      "Track 9": "",
+                      "Transcription": "",
+                      "Transcription Status": "",
+                      "Type": "Video + Audio",
+                      "Unit Manager": "",
+                      "Unit Name": "",
+                      "Uploaded From": "",
+                      "Usage": "24",
+                      "V-FLIP": "Off",
+                      "VFX Grey Ball": "",
+                      "VFX Markers": "",
+                      "VFX Mirror Ball": "",
+                      "VFX Notes": "",
+                      "VFX Shot #": "",
+                      "VFX Svsr Reviewed": "",
+                      "Video Codec": "H.264 High L3.0",
+                      "Wardrobe Reviewed": "",
+                      "White Balance Tint": "",
+                      "White Point (Kelvin)": ""
+                    }
+                  },
+                  "GetMarkers": {
+                    "value": {}
+                  },
+                  "GetUniqueId": {
+                    "value": "9202163a-8381-43e6-9157-3a60f35c6f79"
+                  },
+                  "sourceBytes": {
+                    "hashMatches": true,
+                    "sha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+                    "status": "reachable"
+                  }
+                },
+                "GetName": {
+                  "value": "base.mov"
+                },
+                "GetProperties": {
+                  "value": {
+                    "AnchorPointX": 0.0,
+                    "AnchorPointY": 0.0,
+                    "CompositeEnabled": true,
+                    "CompositeMode": 0,
+                    "CropBottom": 0.0,
+                    "CropLeft": 0.0,
+                    "CropRetain": false,
+                    "CropRight": 0.0,
+                    "CropSoftness": 0.0,
+                    "CropTop": 0.0,
+                    "CroppingEnabled": true,
+                    "Distortion": 0.0,
+                    "DynamicZoomEase": 0,
+                    "DynamicZoomEnabled": false,
+                    "FlipX": false,
+                    "FlipY": false,
+                    "LensCorrectionEnabled": true,
+                    "MotionEstimation": 0,
+                    "Opacity": 100.0,
+                    "Pan": 0.0,
+                    "Pitch": 0.0,
+                    "ResizeFilter": 0,
+                    "RetimeAndScalingEnabled": true,
+                    "RetimeProcess": 0,
+                    "RotationAngle": 0.0,
+                    "Scaling": 0,
+                    "Tilt": 0.0,
+                    "TransformEnabled": true,
+                    "Yaw": 0.0,
+                    "ZoomGang": true,
+                    "ZoomX": 1.0,
+                    "ZoomY": 1.0
+                  }
+                },
+                "GetRightOffset": {
+                  "value": 1
+                },
+                "GetRightOffset(True)": {
+                  "value": 1.0
+                },
+                "GetSourceAudioChannelMapping": {
+                  "value": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{}}"
+                },
+                "GetSourceEndFrame": {
+                  "value": 199
+                },
+                "GetSourceEndTime": {
+                  "value": 7.96
+                },
+                "GetSourceStartFrame": {
+                  "value": 0
+                },
+                "GetSourceStartTime": {
+                  "value": 0.0
+                },
+                "GetSpeed": {
+                  "value": {
+                    "Percentage": 100.0,
+                    "PitchCorrection": true
+                  }
+                },
+                "GetStart": {
+                  "value": 0
+                },
+                "GetStart(True)": {
+                  "value": 0.0
+                },
+                "GetTrackTypeAndIndex": {
+                  "value": [
+                    "video",
+                    1
+                  ]
+                },
+                "GetType": {
+                  "value": "video"
+                },
+                "GetUniqueId": {
+                  "value": "3f2de461-d510-46f8-939f-0c794d48e38b"
+                },
+                "GetVoiceIsolationState": {
+                  "value": {
+                    "amount": 0,
+                    "isEnabled": false
+                  }
+                }
+              },
+              {
+                "GetClipEnabled": {
+                  "value": true
+                },
+                "GetDuration": {
+                  "value": 199
+                },
+                "GetDuration(True)": {
+                  "value": 199.0
+                },
+                "GetEnd": {
+                  "value": 199
+                },
+                "GetEnd(True)": {
+                  "value": 199.0
+                },
+                "GetFusionCompCount": {
+                  "value": 0
+                },
+                "GetFusionCompNameList": {
+                  "value": {}
+                },
+                "GetLeftOffset": {
+                  "value": 0
+                },
+                "GetLeftOffset(True)": {
+                  "value": 0.0
+                },
+                "GetLinkedItems": [
+                  {
+                    "value": "3f2de461-d510-46f8-939f-0c794d48e38b"
+                  }
+                ],
+                "GetMarkers": {
+                  "value": {
+                    "0": {
+                      "color": "Blue",
+                      "customData": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"calibration\"}",
+                      "duration": 1,
+                      "name": "141 calibration item 1",
+                      "note": "Synthetic matrix occurrence"
+                    }
+                  }
+                },
+                "GetMediaPoolItem": {
+                  "GetAudioMapping": {
+                    "value": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}"
+                  },
+                  "GetClipProperty": {
+                    "value": {
+                      "2nd Asst": "",
+                      "2nd Continuity": "",
+                      "2nd DIT": "",
+                      "2nd DOP": "",
+                      "2nd DOP Reviewed": "",
+                      "2nd Dir": "",
+                      "2nd Dir Asst": "",
+                      "2nd Dir Reviewed": "",
+                      "3D Rig ID #": "",
+                      "3D Rig Type": "",
+                      "Angle": "",
+                      "Aspect Ratio Notes": "",
+                      "Assistant Director": "",
+                      "Assistant Producer": "",
+                      "Audio Bit Depth": "16",
+                      "Audio Ch": "1",
+                      "Audio Codec": "Linear PCM",
+                      "Audio Duration TC": "",
+                      "Audio End TC": "",
+                      "Audio FPS": "",
+                      "Audio File Type": "",
+                      "Audio Media": "",
+                      "Audio Notes": "",
+                      "Audio Offset": "",
+                      "Audio Recorder": "",
+                      "Audio Start TC": "",
+                      "Audio TC Type": "",
+                      "Aux 1": "",
+                      "Aux 2": "",
+                      "BG (m)": "",
+                      "Bit Depth": "",
+                      "Bit Rate": "",
+                      "CDL SAT": "",
+                      "CDL SOP": "",
+                      "CV (m)": "",
+                      "Calibration Source": "",
+                      "Calibration Type": "",
+                      "Calibration UUID": "",
+                      "Camera #": "",
+                      "Camera Aperture": "",
+                      "Camera Aperture Type": "",
+                      "Camera Assistant": "",
+                      "Camera FPS": "",
+                      "Camera Firmware": "",
+                      "Camera Format": "",
+                      "Camera ID": "",
+                      "Camera Manufacturer": "",
+                      "Camera Notes": "",
+                      "Camera Operator": "",
+                      "Camera Pan Angle": "",
+                      "Camera Position": "",
+                      "Camera Roll Angle": "",
+                      "Camera Serial #": "",
+                      "Camera TC Type": "",
+                      "Camera Tilt Angle": "",
+                      "Camera Type": "",
+                      "Category": "",
+                      "Clip Color": "",
+                      "Clip Directory": "REPOSITORY/out/issue-141-media-20260930-01a0f318",
+                      "Clip Name": "repeated.wav",
+                      "Clip Number": "",
+                      "Cloud Sync": "-1",
+                      "Codec Bitrate": "",
+                      "Color Chart": "",
+                      "Color Space Notes": "",
+                      "Colorist": "",
+                      "Colorist Assistant": "",
+                      "Colorist Notes": "",
+                      "Colorist Reviewed": "",
+                      "Comments": "",
+                      "Compression Ratio": "",
+                      "Continuity": "",
+                      "Continuity Reviewed": "",
+                      "Convergence Adj": "",
+                      "Crew Comments": "",
+                      "DOP": "",
+                      "DOP Reviewed": "",
+                      "Dailies Colorist": "",
+                      "Data Level": "",
+                      "Data Wrangler": "",
+                      "Date Added": "Wed Sep 30 2026 13:39:47",
+                      "Date Created": "Wed Sep 30 2026 12:28:32",
+                      "Date Modified": "Wed Sep 30 12:28:32 2026",
+                      "Date Recorded": "",
+                      "Day / Night": "",
+                      "Deck Firmware": "",
+                      "Deck Serial #": "",
+                      "Description": "",
+                      "Dialog Duration": "",
+                      "Dialog Notes": "",
+                      "Dialog Starts As": "",
+                      "Digital Technician": "",
+                      "Director": "",
+                      "Director Reviewed": "",
+                      "Distance": "",
+                      "Duration": "00:00:08:00",
+                      "EDL Clip Name": "",
+                      "Editing Assistant": "",
+                      "Editor": "",
+                      "Embedded Audio": "",
+                      "End": "",
+                      "End Dialog TC": "",
+                      "End TC": "00:00:08:00",
+                      "Environment": "",
+                      "Episode #": "",
+                      "Episode Name": "",
+                      "FG (m)": "",
+                      "FPS": 25.0,
+                      "FSD": "",
+                      "Field Dominance": "",
+                      "File Name": "repeated.wav",
+                      "File Path": "REPOSITORY/out/issue-141-media-20260930-01a0f318/repeated.wav",
+                      "Filter": "",
+                      "Flags": "",
+                      "Focal Point (mm)": "",
+                      "Focus Puller": "",
+                      "Focus Reviewed": "",
+                      "Format": "Wave",
+                      "Frames": "",
+                      "Framing Chart": "",
+                      "Gamma Notes": "",
+                      "Genre": "",
+                      "Grey Chart": "",
+                      "H-FLIP": "",
+                      "IA (mm)": "",
+                      "IDT": "",
+                      "ILPD": "",
+                      "ISO": "",
+                      "Immersive ID": "",
+                      "In": "",
+                      "Input Color Space": "",
+                      "Input Gamma": "",
+                      "Input LUT": "",
+                      "Input Sizing Preset": "",
+                      "Key Grip": "",
+                      "Keyword": "",
+                      "LUT 1": "",
+                      "LUT 2": "",
+                      "LUT 3": "",
+                      "LUT Used": "",
+                      "LUT Used On Set": "",
+                      "Lab Roll #": "",
+                      "Lens Chart": "",
+                      "Lens Notes": "",
+                      "Lens Number": "",
+                      "Lens Type": "",
+                      "Line Producer": "",
+                      "Location": "",
+                      "Media Type": "",
+                      "Mon Color Space": "",
+                      "Monitor LUT": "",
+                      "Move": "",
+                      "ND Filter": "",
+                      "Offline Reference": "",
+                      "Online Status": "Online",
+                      "Out": "",
+                      "PAR": "",
+                      "PAR Notes": "",
+                      "People": "",
+                      "Post Producer": "",
+                      "Producer": "",
+                      "Production Asst": "",
+                      "Production Company": "",
+                      "Production Name": "",
+                      "Program Name": "",
+                      "Projection": "",
+                      "Proxy": "",
+                      "Proxy Media Path": "",
+                      "RAW": "",
+                      "Rating": "",
+                      "Reel Name": "",
+                      "Reel Number": "",
+                      "Resolution": "",
+                      "Reviewers Notes": "",
+                      "Rig Inverted": "",
+                      "Roll/Card": "",
+                      "S3D Eye": "",
+                      "S3D Notes": "",
+                      "S3D Shot": "",
+                      "S3D Sync": "",
+                      "Safe Area": "",
+                      "Sample Rate": "48000",
+                      "Sample Rate (KHz)": "",
+                      "Scene": "",
+                      "Script Supervisor": "",
+                      "Send to": "",
+                      "Send to Studio": "",
+                      "Sensor": "",
+                      "Sensor Area Captured": "",
+                      "Series #": "",
+                      "Setup": "",
+                      "Shoot Day": "",
+                      "Shot": "",
+                      "Shot During Ep": "",
+                      "Shot Frame Rate": "",
+                      "Shot Type": "",
+                      "Shutter Angle": "",
+                      "Shutter Speed": "",
+                      "Shutter Type": "",
+                      "Slate TC": "",
+                      "Sound Mixer": "",
+                      "Sound Reviewed": "",
+                      "Sound Roll #": "repeated.wav",
+                      "Start": "",
+                      "Start Dialog TC": "",
+                      "Start KeyKode": "",
+                      "Start TC": "00:00:00:00",
+                      "Subcategory": "",
+                      "Synced Audio": "",
+                      "Tag": "0",
+                      "Take": "",
+                      "Time-lapse Interval": "",
+                      "Tone": "",
+                      "Track 1": "",
+                      "Track 10": "",
+                      "Track 11": "",
+                      "Track 12": "",
+                      "Track 13": "",
+                      "Track 14": "",
+                      "Track 15": "",
+                      "Track 16": "",
+                      "Track 17": "",
+                      "Track 18": "",
+                      "Track 19": "",
+                      "Track 2": "",
+                      "Track 20": "",
+                      "Track 21": "",
+                      "Track 22": "",
+                      "Track 23": "",
+                      "Track 24": "",
+                      "Track 3": "",
+                      "Track 4": "",
+                      "Track 5": "",
+                      "Track 6": "",
+                      "Track 7": "",
+                      "Track 8": "",
+                      "Track 9": "",
+                      "Transcription": "",
+                      "Transcription Status": "",
+                      "Type": "Audio",
+                      "Unit Manager": "",
+                      "Unit Name": "",
+                      "Uploaded From": "",
+                      "Usage": "46",
+                      "V-FLIP": "",
+                      "VFX Grey Ball": "",
+                      "VFX Markers": "",
+                      "VFX Mirror Ball": "",
+                      "VFX Notes": "",
+                      "VFX Shot #": "",
+                      "VFX Svsr Reviewed": "",
+                      "Video Codec": "",
+                      "Wardrobe Reviewed": "",
+                      "White Balance Tint": "",
+                      "White Point (Kelvin)": ""
+                    }
+                  },
+                  "GetMarkers": {
+                    "value": {}
+                  },
+                  "GetUniqueId": {
+                    "value": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8"
+                  },
+                  "sourceBytes": {
+                    "hashMatches": true,
+                    "sha256": "832dd31cc46b9f4b4fdb7cbde18b4edc09ec249885634fba43da2a7b87dc768e",
+                    "status": "reachable"
+                  }
+                },
+                "GetName": {
+                  "value": "repeated.wav"
+                },
+                "GetProperties": {
+                  "value": {
+                    "AudioDialogueLevelerBackgroundReduction": false,
+                    "AudioDialogueLevelerEnabled": false,
+                    "AudioDialogueLevelerLiftSoftDialogue": false,
+                    "AudioDialogueLevelerMode": 0,
+                    "AudioDialogueLevelerOutputGain": 0.0,
+                    "AudioDialogueLevelerReduceLoudDialogue": false,
+                    "AudioPan": 0.0,
+                    "AudioPanEnabled": true,
+                    "AudioPitchCents": 0,
+                    "AudioPitchEnabled": true,
+                    "AudioPitchSemiTones": 0,
+                    "AudioVoiceIsolationAmount": 0,
+                    "AudioVoiceIsolationEnabled": false,
+                    "AudioVolume": 0.0,
+                    "AudioVolumeEnabled": true
+                  }
+                },
+                "GetRightOffset": {
+                  "value": 1
+                },
+                "GetRightOffset(True)": {
+                  "value": 1.0
+                },
+                "GetSourceAudioChannelMapping": {
+                  "value": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}"
+                },
+                "GetSourceEndFrame": {
+                  "value": 199
+                },
+                "GetSourceEndTime": {
+                  "value": 7.96
+                },
+                "GetSourceStartFrame": {
+                  "value": 0
+                },
+                "GetSourceStartTime": {
+                  "value": 0.0
+                },
+                "GetSpeed": {
+                  "value": {
+                    "Percentage": 100.0,
+                    "PitchCorrection": true
+                  }
+                },
+                "GetStart": {
+                  "value": 0
+                },
+                "GetStart(True)": {
+                  "value": 0.0
+                },
+                "GetTrackTypeAndIndex": {
+                  "value": [
+                    "audio",
+                    1
+                  ]
+                },
+                "GetType": {
+                  "value": "audio"
+                },
+                "GetUniqueId": {
+                  "value": "22561398-bce0-4c22-b55f-a73d3ad5e4cf"
+                },
+                "GetVoiceIsolationState": {
+                  "value": {
+                    "amount": 0,
+                    "isEnabled": false
+                  }
+                }
+              }
+            ],
+            "playhead": "00:00:00:00"
+          }
+        ],
+        "selectionShapes": [
+          {
+            "count": 2,
+            "type": "list"
+          },
+          {
+            "count": 2,
+            "type": "list"
+          }
+        ],
+        "status": "editorial-readback-retained",
+        "_nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T131332.945667Z.json",
+        "_auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T131332.358233Z"
+      }
+    },
+    {
+      "menu": {
+        "auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T131349.620422Z",
+        "menu": "nudge-right",
+        "dispatched": true
+      }
+    },
+    {
+      "observation": {
+        "environment": {
+          "productName": "DaVinci Resolve Studio",
+          "python": "3.14.7",
+          "version": [
+            21,
+            1,
+            0,
+            14,
+            ""
+          ]
+        },
+        "failure": null,
+        "label": "r5-edit-moved",
+        "limits": [
+          "External menu result requires separate full-state interpretation."
+        ],
+        "pair": {
+          "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r5-edit-moved-20261001T131350.663662Z/pair.json",
+          "sha256": "5577011075fc73b400c9a5b3afe5b9e5795673836eba8c6eb03a826129896242"
+        },
+        "readOnly": true,
+        "selectionPasses": [
+          {
+            "items": [
+              {
+                "GetClipEnabled": {
+                  "value": true
+                },
+                "GetDuration": {
+                  "value": 199
+                },
+                "GetDuration(True)": {
+                  "value": 199.0
+                },
+                "GetEnd": {
+                  "value": 199
+                },
+                "GetEnd(True)": {
+                  "value": 199.0
+                },
+                "GetFusionCompCount": {
+                  "value": 0
+                },
+                "GetFusionCompNameList": {
+                  "value": {}
+                },
+                "GetLeftOffset": {
+                  "value": 0
+                },
+                "GetLeftOffset(True)": {
+                  "value": 0.0
+                },
+                "GetLinkedItems": [
+                  {
+                    "value": "22561398-bce0-4c22-b55f-a73d3ad5e4cf"
+                  }
+                ],
+                "GetMarkers": {
+                  "value": {
+                    "0": {
+                      "color": "Blue",
+                      "customData": "{\"issue\": 141, \"occurrence\": 0, \"section\": \"calibration\"}",
+                      "duration": 1,
+                      "name": "141 calibration item 0",
+                      "note": "Synthetic matrix occurrence"
+                    }
+                  }
+                },
+                "GetMediaPoolItem": {
+                  "GetAudioMapping": {
+                    "value": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}"
+                  },
+                  "GetClipProperty": {
+                    "value": {
+                      "2nd Asst": "",
+                      "2nd Continuity": "",
+                      "2nd DIT": "",
+                      "2nd DOP": "",
+                      "2nd DOP Reviewed": "",
+                      "2nd Dir": "",
+                      "2nd Dir Asst": "",
+                      "2nd Dir Reviewed": "",
+                      "3D Rig ID #": "",
+                      "3D Rig Type": "",
+                      "Alpha mode": "None",
+                      "Angle": "",
+                      "Aspect Ratio Notes": "",
+                      "Assistant Director": "",
+                      "Assistant Producer": "",
+                      "Audio Bit Depth": "16",
+                      "Audio Ch": "1",
+                      "Audio Codec": "Linear PCM",
+                      "Audio Duration TC": "",
+                      "Audio End TC": "",
+                      "Audio FPS": "",
+                      "Audio File Type": "",
+                      "Audio Media": "",
+                      "Audio Notes": "",
+                      "Audio Offset": "",
+                      "Audio Recorder": "",
+                      "Audio Start TC": "",
+                      "Audio TC Type": "",
+                      "Aux 1": "",
+                      "Aux 2": "",
+                      "BG (m)": "",
+                      "Bit Depth": "8",
+                      "Bit Rate": "",
+                      "CDL SAT": "",
+                      "CDL SOP": "",
+                      "CV (m)": "",
+                      "Calibration Source": "",
+                      "Calibration Type": "",
+                      "Calibration UUID": "",
+                      "Camera #": "",
+                      "Camera Aperture": "",
+                      "Camera Aperture Type": "",
+                      "Camera Assistant": "",
+                      "Camera FPS": "",
+                      "Camera Firmware": "",
+                      "Camera Format": "",
+                      "Camera ID": "",
+                      "Camera Manufacturer": "",
+                      "Camera Notes": "",
+                      "Camera Operator": "",
+                      "Camera Pan Angle": "",
+                      "Camera Position": "",
+                      "Camera Roll Angle": "",
+                      "Camera Serial #": "",
+                      "Camera TC Type": "",
+                      "Camera Tilt Angle": "",
+                      "Camera Type": "",
+                      "Category": "",
+                      "Clip Color": "",
+                      "Clip Directory": "REPOSITORY/out/issue-141-media-20260930-01a0f318",
+                      "Clip Name": "base.mov",
+                      "Clip Number": "",
+                      "Cloud Sync": "-1",
+                      "Codec Bitrate": "",
+                      "Color Chart": "",
+                      "Color Space Notes": "",
+                      "Colorist": "",
+                      "Colorist Assistant": "",
+                      "Colorist Notes": "",
+                      "Colorist Reviewed": "",
+                      "Comments": "",
+                      "Compression Ratio": "",
+                      "Continuity": "",
+                      "Continuity Reviewed": "",
+                      "Convergence Adj": "",
+                      "Crew Comments": "",
+                      "DOP": "",
+                      "DOP Reviewed": "",
+                      "Dailies Colorist": "",
+                      "Data Level": "Auto",
+                      "Data Wrangler": "",
+                      "Date Added": "Wed Sep 30 2026 13:39:43",
+                      "Date Created": "Wed Sep 30 2026 12:28:32",
+                      "Date Modified": "Wed Sep 30 12:28:32 2026",
+                      "Date Recorded": "",
+                      "Day / Night": "",
+                      "Deck Firmware": "",
+                      "Deck Serial #": "",
+                      "Description": "",
+                      "Dialog Duration": "",
+                      "Dialog Notes": "",
+                      "Dialog Starts As": "",
+                      "Digital Technician": "",
+                      "Director": "",
+                      "Director Reviewed": "",
+                      "Distance": "",
+                      "Drop frame": "0",
+                      "Duration": "00:00:08:00",
+                      "EDL Clip Name": "",
+                      "Editing Assistant": "",
+                      "Editor": "",
+                      "Embedded Audio": "",
+                      "Enable Deinterlacing": "0",
+                      "End": "199",
+                      "End Dialog TC": "",
+                      "End TC": "00:00:08:00",
+                      "Environment": "",
+                      "Episode #": "",
+                      "Episode Name": "",
+                      "FG (m)": "",
+                      "FPS": 25.0,
+                      "FSD": "",
+                      "Field Dominance": "Auto",
+                      "File Name": "base.mov",
+                      "File Path": "REPOSITORY/out/issue-141-media-20260930-01a0f318/base.mov",
+                      "Filter": "",
+                      "Flags": "",
+                      "Focal Point (mm)": "",
+                      "Focus Puller": "",
+                      "Focus Reviewed": "",
+                      "Format": "QuickTime",
+                      "Frames": "200",
+                      "Framing Chart": "",
+                      "Gamma Notes": "",
+                      "Genre": "",
+                      "Grey Chart": "",
+                      "H-FLIP": "Off",
+                      "IA (mm)": "",
+                      "IDT": "",
+                      "ILPD": "",
+                      "ISO": "",
+                      "Immersive ID": "",
+                      "In": "",
+                      "Input Color Space": "Project",
+                      "Input Gamma": "Gamma 2.4",
+                      "Input LUT": "",
+                      "Input Sizing Preset": "None",
+                      "Key Grip": "",
+                      "Keyword": "",
+                      "LUT 1": "",
+                      "LUT 2": "",
+                      "LUT 3": "",
+                      "LUT Used": "",
+                      "LUT Used On Set": "",
+                      "Lab Roll #": "",
+                      "Lens Chart": "",
+                      "Lens Notes": "",
+                      "Lens Number": "",
+                      "Lens Type": "",
+                      "Line Producer": "",
+                      "Location": "",
+                      "Media Type": "",
+                      "Mon Color Space": "",
+                      "Monitor LUT": "",
+                      "Move": "",
+                      "ND Filter": "",
+                      "Noise Reduction": "",
+                      "Offline Reference": "",
+                      "Online Status": "Online",
+                      "Out": "",
+                      "PAR": "Square",
+                      "PAR Notes": "",
+                      "People": "",
+                      "Post Producer": "",
+                      "Producer": "",
+                      "Production Asst": "",
+                      "Production Company": "",
+                      "Production Name": "",
+                      "Program Name": "",
+                      "Projection": "",
+                      "Proxy": "None",
+                      "Proxy Media Path": "",
+                      "RAW": "",
+                      "Rating": "",
+                      "Reel Name": "",
+                      "Reel Number": "",
+                      "Resolution": "640x360",
+                      "Reviewers Notes": "",
+                      "Rig Inverted": "",
+                      "Roll/Card": "",
+                      "S3D Eye": "",
+                      "S3D Notes": "",
+                      "S3D Shot": "",
+                      "S3D Sync": "",
+                      "Safe Area": "",
+                      "Sample Rate": "48000",
+                      "Sample Rate (KHz)": "",
+                      "Scene": "",
+                      "Script Supervisor": "",
+                      "Send to": "",
+                      "Send to Studio": "",
+                      "Sensor": "",
+                      "Sensor Area Captured": "",
+                      "Series #": "",
+                      "Setup": "",
+                      "Sharpness": "",
+                      "Shoot Day": "",
+                      "Shot": "",
+                      "Shot During Ep": "",
+                      "Shot Frame Rate": "25.000",
+                      "Shot Type": "",
+                      "Shutter Angle": "",
+                      "Shutter Speed": "",
+                      "Shutter Type": "",
+                      "Slate TC": "00:00:00:00",
+                      "Sound Mixer": "",
+                      "Sound Reviewed": "",
+                      "Sound Roll #": "",
+                      "Start": "0",
+                      "Start Dialog TC": "",
+                      "Start KeyKode": "",
+                      "Start TC": "00:00:00:00",
+                      "Subcategory": "",
+                      "Super Scale": 1,
+                      "SuperScale Noise Reduction": "0.5",
+                      "SuperScale Sharpness": "0.5",
+                      "Synced Audio": "",
+                      "Tag": "0",
+                      "Take": "",
+                      "Time-lapse Interval": "",
+                      "Tone": "",
+                      "Track 1": "",
+                      "Track 10": "",
+                      "Track 11": "",
+                      "Track 12": "",
+                      "Track 13": "",
+                      "Track 14": "",
+                      "Track 15": "",
+                      "Track 16": "",
+                      "Track 17": "",
+                      "Track 18": "",
+                      "Track 19": "",
+                      "Track 2": "",
+                      "Track 20": "",
+                      "Track 21": "",
+                      "Track 22": "",
+                      "Track 23": "",
+                      "Track 24": "",
+                      "Track 3": "",
+                      "Track 4": "",
+                      "Track 5": "",
+                      "Track 6": "",
+                      "Track 7": "",
+                      "Track 8": "",
+                      "Track 9": "",
+                      "Transcription": "",
+                      "Transcription Status": "",
+                      "Type": "Video + Audio",
+                      "Unit Manager": "",
+                      "Unit Name": "",
+                      "Uploaded From": "",
+                      "Usage": "24",
+                      "V-FLIP": "Off",
+                      "VFX Grey Ball": "",
+                      "VFX Markers": "",
+                      "VFX Mirror Ball": "",
+                      "VFX Notes": "",
+                      "VFX Shot #": "",
+                      "VFX Svsr Reviewed": "",
+                      "Video Codec": "H.264 High L3.0",
+                      "Wardrobe Reviewed": "",
+                      "White Balance Tint": "",
+                      "White Point (Kelvin)": ""
+                    }
+                  },
+                  "GetMarkers": {
+                    "value": {}
+                  },
+                  "GetUniqueId": {
+                    "value": "9202163a-8381-43e6-9157-3a60f35c6f79"
+                  },
+                  "sourceBytes": {
+                    "hashMatches": true,
+                    "sha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+                    "status": "reachable"
+                  }
+                },
+                "GetName": {
+                  "value": "base.mov"
+                },
+                "GetProperties": {
+                  "value": {
+                    "AnchorPointX": 0.0,
+                    "AnchorPointY": 0.0,
+                    "CompositeEnabled": true,
+                    "CompositeMode": 0,
+                    "CropBottom": 0.0,
+                    "CropLeft": 0.0,
+                    "CropRetain": false,
+                    "CropRight": 0.0,
+                    "CropSoftness": 0.0,
+                    "CropTop": 0.0,
+                    "CroppingEnabled": true,
+                    "Distortion": 0.0,
+                    "DynamicZoomEase": 0,
+                    "DynamicZoomEnabled": false,
+                    "FlipX": false,
+                    "FlipY": false,
+                    "LensCorrectionEnabled": true,
+                    "MotionEstimation": 0,
+                    "Opacity": 100.0,
+                    "Pan": 0.0,
+                    "Pitch": 0.0,
+                    "ResizeFilter": 0,
+                    "RetimeAndScalingEnabled": true,
+                    "RetimeProcess": 0,
+                    "RotationAngle": 0.0,
+                    "Scaling": 0,
+                    "Tilt": 0.0,
+                    "TransformEnabled": true,
+                    "Yaw": 0.0,
+                    "ZoomGang": true,
+                    "ZoomX": 1.0,
+                    "ZoomY": 1.0
+                  }
+                },
+                "GetRightOffset": {
+                  "value": 1
+                },
+                "GetRightOffset(True)": {
+                  "value": 1.0
+                },
+                "GetSourceAudioChannelMapping": {
+                  "value": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{}}"
+                },
+                "GetSourceEndFrame": {
+                  "value": 199
+                },
+                "GetSourceEndTime": {
+                  "value": 7.96
+                },
+                "GetSourceStartFrame": {
+                  "value": 0
+                },
+                "GetSourceStartTime": {
+                  "value": 0.0
+                },
+                "GetSpeed": {
+                  "value": {
+                    "Percentage": 100.0,
+                    "PitchCorrection": true
+                  }
+                },
+                "GetStart": {
+                  "value": 0
+                },
+                "GetStart(True)": {
+                  "value": 0.0
+                },
+                "GetTrackTypeAndIndex": {
+                  "value": [
+                    "video",
+                    1
+                  ]
+                },
+                "GetType": {
+                  "value": "video"
+                },
+                "GetUniqueId": {
+                  "value": "3f2de461-d510-46f8-939f-0c794d48e38b"
+                },
+                "GetVoiceIsolationState": {
+                  "value": {
+                    "amount": 0,
+                    "isEnabled": false
+                  }
+                }
+              },
+              {
+                "GetClipEnabled": {
+                  "value": true
+                },
+                "GetDuration": {
+                  "value": 199
+                },
+                "GetDuration(True)": {
+                  "value": 199.0
+                },
+                "GetEnd": {
+                  "value": 199
+                },
+                "GetEnd(True)": {
+                  "value": 199.0
+                },
+                "GetFusionCompCount": {
+                  "value": 0
+                },
+                "GetFusionCompNameList": {
+                  "value": {}
+                },
+                "GetLeftOffset": {
+                  "value": 0
+                },
+                "GetLeftOffset(True)": {
+                  "value": 0.0
+                },
+                "GetLinkedItems": [
+                  {
+                    "value": "3f2de461-d510-46f8-939f-0c794d48e38b"
+                  }
+                ],
+                "GetMarkers": {
+                  "value": {
+                    "0": {
+                      "color": "Blue",
+                      "customData": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"calibration\"}",
+                      "duration": 1,
+                      "name": "141 calibration item 1",
+                      "note": "Synthetic matrix occurrence"
+                    }
+                  }
+                },
+                "GetMediaPoolItem": {
+                  "GetAudioMapping": {
+                    "value": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}"
+                  },
+                  "GetClipProperty": {
+                    "value": {
+                      "2nd Asst": "",
+                      "2nd Continuity": "",
+                      "2nd DIT": "",
+                      "2nd DOP": "",
+                      "2nd DOP Reviewed": "",
+                      "2nd Dir": "",
+                      "2nd Dir Asst": "",
+                      "2nd Dir Reviewed": "",
+                      "3D Rig ID #": "",
+                      "3D Rig Type": "",
+                      "Angle": "",
+                      "Aspect Ratio Notes": "",
+                      "Assistant Director": "",
+                      "Assistant Producer": "",
+                      "Audio Bit Depth": "16",
+                      "Audio Ch": "1",
+                      "Audio Codec": "Linear PCM",
+                      "Audio Duration TC": "",
+                      "Audio End TC": "",
+                      "Audio FPS": "",
+                      "Audio File Type": "",
+                      "Audio Media": "",
+                      "Audio Notes": "",
+                      "Audio Offset": "",
+                      "Audio Recorder": "",
+                      "Audio Start TC": "",
+                      "Audio TC Type": "",
+                      "Aux 1": "",
+                      "Aux 2": "",
+                      "BG (m)": "",
+                      "Bit Depth": "",
+                      "Bit Rate": "",
+                      "CDL SAT": "",
+                      "CDL SOP": "",
+                      "CV (m)": "",
+                      "Calibration Source": "",
+                      "Calibration Type": "",
+                      "Calibration UUID": "",
+                      "Camera #": "",
+                      "Camera Aperture": "",
+                      "Camera Aperture Type": "",
+                      "Camera Assistant": "",
+                      "Camera FPS": "",
+                      "Camera Firmware": "",
+                      "Camera Format": "",
+                      "Camera ID": "",
+                      "Camera Manufacturer": "",
+                      "Camera Notes": "",
+                      "Camera Operator": "",
+                      "Camera Pan Angle": "",
+                      "Camera Position": "",
+                      "Camera Roll Angle": "",
+                      "Camera Serial #": "",
+                      "Camera TC Type": "",
+                      "Camera Tilt Angle": "",
+                      "Camera Type": "",
+                      "Category": "",
+                      "Clip Color": "",
+                      "Clip Directory": "REPOSITORY/out/issue-141-media-20260930-01a0f318",
+                      "Clip Name": "repeated.wav",
+                      "Clip Number": "",
+                      "Cloud Sync": "-1",
+                      "Codec Bitrate": "",
+                      "Color Chart": "",
+                      "Color Space Notes": "",
+                      "Colorist": "",
+                      "Colorist Assistant": "",
+                      "Colorist Notes": "",
+                      "Colorist Reviewed": "",
+                      "Comments": "",
+                      "Compression Ratio": "",
+                      "Continuity": "",
+                      "Continuity Reviewed": "",
+                      "Convergence Adj": "",
+                      "Crew Comments": "",
+                      "DOP": "",
+                      "DOP Reviewed": "",
+                      "Dailies Colorist": "",
+                      "Data Level": "",
+                      "Data Wrangler": "",
+                      "Date Added": "Wed Sep 30 2026 13:39:47",
+                      "Date Created": "Wed Sep 30 2026 12:28:32",
+                      "Date Modified": "Wed Sep 30 12:28:32 2026",
+                      "Date Recorded": "",
+                      "Day / Night": "",
+                      "Deck Firmware": "",
+                      "Deck Serial #": "",
+                      "Description": "",
+                      "Dialog Duration": "",
+                      "Dialog Notes": "",
+                      "Dialog Starts As": "",
+                      "Digital Technician": "",
+                      "Director": "",
+                      "Director Reviewed": "",
+                      "Distance": "",
+                      "Duration": "00:00:08:00",
+                      "EDL Clip Name": "",
+                      "Editing Assistant": "",
+                      "Editor": "",
+                      "Embedded Audio": "",
+                      "End": "",
+                      "End Dialog TC": "",
+                      "End TC": "00:00:08:00",
+                      "Environment": "",
+                      "Episode #": "",
+                      "Episode Name": "",
+                      "FG (m)": "",
+                      "FPS": 25.0,
+                      "FSD": "",
+                      "Field Dominance": "",
+                      "File Name": "repeated.wav",
+                      "File Path": "REPOSITORY/out/issue-141-media-20260930-01a0f318/repeated.wav",
+                      "Filter": "",
+                      "Flags": "",
+                      "Focal Point (mm)": "",
+                      "Focus Puller": "",
+                      "Focus Reviewed": "",
+                      "Format": "Wave",
+                      "Frames": "",
+                      "Framing Chart": "",
+                      "Gamma Notes": "",
+                      "Genre": "",
+                      "Grey Chart": "",
+                      "H-FLIP": "",
+                      "IA (mm)": "",
+                      "IDT": "",
+                      "ILPD": "",
+                      "ISO": "",
+                      "Immersive ID": "",
+                      "In": "",
+                      "Input Color Space": "",
+                      "Input Gamma": "",
+                      "Input LUT": "",
+                      "Input Sizing Preset": "",
+                      "Key Grip": "",
+                      "Keyword": "",
+                      "LUT 1": "",
+                      "LUT 2": "",
+                      "LUT 3": "",
+                      "LUT Used": "",
+                      "LUT Used On Set": "",
+                      "Lab Roll #": "",
+                      "Lens Chart": "",
+                      "Lens Notes": "",
+                      "Lens Number": "",
+                      "Lens Type": "",
+                      "Line Producer": "",
+                      "Location": "",
+                      "Media Type": "",
+                      "Mon Color Space": "",
+                      "Monitor LUT": "",
+                      "Move": "",
+                      "ND Filter": "",
+                      "Offline Reference": "",
+                      "Online Status": "Online",
+                      "Out": "",
+                      "PAR": "",
+                      "PAR Notes": "",
+                      "People": "",
+                      "Post Producer": "",
+                      "Producer": "",
+                      "Production Asst": "",
+                      "Production Company": "",
+                      "Production Name": "",
+                      "Program Name": "",
+                      "Projection": "",
+                      "Proxy": "",
+                      "Proxy Media Path": "",
+                      "RAW": "",
+                      "Rating": "",
+                      "Reel Name": "",
+                      "Reel Number": "",
+                      "Resolution": "",
+                      "Reviewers Notes": "",
+                      "Rig Inverted": "",
+                      "Roll/Card": "",
+                      "S3D Eye": "",
+                      "S3D Notes": "",
+                      "S3D Shot": "",
+                      "S3D Sync": "",
+                      "Safe Area": "",
+                      "Sample Rate": "48000",
+                      "Sample Rate (KHz)": "",
+                      "Scene": "",
+                      "Script Supervisor": "",
+                      "Send to": "",
+                      "Send to Studio": "",
+                      "Sensor": "",
+                      "Sensor Area Captured": "",
+                      "Series #": "",
+                      "Setup": "",
+                      "Shoot Day": "",
+                      "Shot": "",
+                      "Shot During Ep": "",
+                      "Shot Frame Rate": "",
+                      "Shot Type": "",
+                      "Shutter Angle": "",
+                      "Shutter Speed": "",
+                      "Shutter Type": "",
+                      "Slate TC": "",
+                      "Sound Mixer": "",
+                      "Sound Reviewed": "",
+                      "Sound Roll #": "repeated.wav",
+                      "Start": "",
+                      "Start Dialog TC": "",
+                      "Start KeyKode": "",
+                      "Start TC": "00:00:00:00",
+                      "Subcategory": "",
+                      "Synced Audio": "",
+                      "Tag": "0",
+                      "Take": "",
+                      "Time-lapse Interval": "",
+                      "Tone": "",
+                      "Track 1": "",
+                      "Track 10": "",
+                      "Track 11": "",
+                      "Track 12": "",
+                      "Track 13": "",
+                      "Track 14": "",
+                      "Track 15": "",
+                      "Track 16": "",
+                      "Track 17": "",
+                      "Track 18": "",
+                      "Track 19": "",
+                      "Track 2": "",
+                      "Track 20": "",
+                      "Track 21": "",
+                      "Track 22": "",
+                      "Track 23": "",
+                      "Track 24": "",
+                      "Track 3": "",
+                      "Track 4": "",
+                      "Track 5": "",
+                      "Track 6": "",
+                      "Track 7": "",
+                      "Track 8": "",
+                      "Track 9": "",
+                      "Transcription": "",
+                      "Transcription Status": "",
+                      "Type": "Audio",
+                      "Unit Manager": "",
+                      "Unit Name": "",
+                      "Uploaded From": "",
+                      "Usage": "46",
+                      "V-FLIP": "",
+                      "VFX Grey Ball": "",
+                      "VFX Markers": "",
+                      "VFX Mirror Ball": "",
+                      "VFX Notes": "",
+                      "VFX Shot #": "",
+                      "VFX Svsr Reviewed": "",
+                      "Video Codec": "",
+                      "Wardrobe Reviewed": "",
+                      "White Balance Tint": "",
+                      "White Point (Kelvin)": ""
+                    }
+                  },
+                  "GetMarkers": {
+                    "value": {}
+                  },
+                  "GetUniqueId": {
+                    "value": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8"
+                  },
+                  "sourceBytes": {
+                    "hashMatches": true,
+                    "sha256": "832dd31cc46b9f4b4fdb7cbde18b4edc09ec249885634fba43da2a7b87dc768e",
+                    "status": "reachable"
+                  }
+                },
+                "GetName": {
+                  "value": "repeated.wav"
+                },
+                "GetProperties": {
+                  "value": {
+                    "AudioDialogueLevelerBackgroundReduction": false,
+                    "AudioDialogueLevelerEnabled": false,
+                    "AudioDialogueLevelerLiftSoftDialogue": false,
+                    "AudioDialogueLevelerMode": 0,
+                    "AudioDialogueLevelerOutputGain": 0.0,
+                    "AudioDialogueLevelerReduceLoudDialogue": false,
+                    "AudioPan": 0.0,
+                    "AudioPanEnabled": true,
+                    "AudioPitchCents": 0,
+                    "AudioPitchEnabled": true,
+                    "AudioPitchSemiTones": 0,
+                    "AudioVoiceIsolationAmount": 0,
+                    "AudioVoiceIsolationEnabled": false,
+                    "AudioVolume": 0.0,
+                    "AudioVolumeEnabled": true
+                  }
+                },
+                "GetRightOffset": {
+                  "value": 1
+                },
+                "GetRightOffset(True)": {
+                  "value": 1.0
+                },
+                "GetSourceAudioChannelMapping": {
+                  "value": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}"
+                },
+                "GetSourceEndFrame": {
+                  "value": 199
+                },
+                "GetSourceEndTime": {
+                  "value": 7.96
+                },
+                "GetSourceStartFrame": {
+                  "value": 0
+                },
+                "GetSourceStartTime": {
+                  "value": 0.0
+                },
+                "GetSpeed": {
+                  "value": {
+                    "Percentage": 100.0,
+                    "PitchCorrection": true
+                  }
+                },
+                "GetStart": {
+                  "value": 0
+                },
+                "GetStart(True)": {
+                  "value": 0.0
+                },
+                "GetTrackTypeAndIndex": {
+                  "value": [
+                    "audio",
+                    1
+                  ]
+                },
+                "GetType": {
+                  "value": "audio"
+                },
+                "GetUniqueId": {
+                  "value": "22561398-bce0-4c22-b55f-a73d3ad5e4cf"
+                },
+                "GetVoiceIsolationState": {
+                  "value": {
+                    "amount": 0,
+                    "isEnabled": false
+                  }
+                }
+              }
+            ],
+            "playhead": "00:00:00:00"
+          },
+          {
+            "items": [
+              {
+                "GetClipEnabled": {
+                  "value": true
+                },
+                "GetDuration": {
+                  "value": 199
+                },
+                "GetDuration(True)": {
+                  "value": 199.0
+                },
+                "GetEnd": {
+                  "value": 199
+                },
+                "GetEnd(True)": {
+                  "value": 199.0
+                },
+                "GetFusionCompCount": {
+                  "value": 0
+                },
+                "GetFusionCompNameList": {
+                  "value": {}
+                },
+                "GetLeftOffset": {
+                  "value": 0
+                },
+                "GetLeftOffset(True)": {
+                  "value": 0.0
+                },
+                "GetLinkedItems": [
+                  {
+                    "value": "22561398-bce0-4c22-b55f-a73d3ad5e4cf"
+                  }
+                ],
+                "GetMarkers": {
+                  "value": {
+                    "0": {
+                      "color": "Blue",
+                      "customData": "{\"issue\": 141, \"occurrence\": 0, \"section\": \"calibration\"}",
+                      "duration": 1,
+                      "name": "141 calibration item 0",
+                      "note": "Synthetic matrix occurrence"
+                    }
+                  }
+                },
+                "GetMediaPoolItem": {
+                  "GetAudioMapping": {
+                    "value": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}"
+                  },
+                  "GetClipProperty": {
+                    "value": {
+                      "2nd Asst": "",
+                      "2nd Continuity": "",
+                      "2nd DIT": "",
+                      "2nd DOP": "",
+                      "2nd DOP Reviewed": "",
+                      "2nd Dir": "",
+                      "2nd Dir Asst": "",
+                      "2nd Dir Reviewed": "",
+                      "3D Rig ID #": "",
+                      "3D Rig Type": "",
+                      "Alpha mode": "None",
+                      "Angle": "",
+                      "Aspect Ratio Notes": "",
+                      "Assistant Director": "",
+                      "Assistant Producer": "",
+                      "Audio Bit Depth": "16",
+                      "Audio Ch": "1",
+                      "Audio Codec": "Linear PCM",
+                      "Audio Duration TC": "",
+                      "Audio End TC": "",
+                      "Audio FPS": "",
+                      "Audio File Type": "",
+                      "Audio Media": "",
+                      "Audio Notes": "",
+                      "Audio Offset": "",
+                      "Audio Recorder": "",
+                      "Audio Start TC": "",
+                      "Audio TC Type": "",
+                      "Aux 1": "",
+                      "Aux 2": "",
+                      "BG (m)": "",
+                      "Bit Depth": "8",
+                      "Bit Rate": "",
+                      "CDL SAT": "",
+                      "CDL SOP": "",
+                      "CV (m)": "",
+                      "Calibration Source": "",
+                      "Calibration Type": "",
+                      "Calibration UUID": "",
+                      "Camera #": "",
+                      "Camera Aperture": "",
+                      "Camera Aperture Type": "",
+                      "Camera Assistant": "",
+                      "Camera FPS": "",
+                      "Camera Firmware": "",
+                      "Camera Format": "",
+                      "Camera ID": "",
+                      "Camera Manufacturer": "",
+                      "Camera Notes": "",
+                      "Camera Operator": "",
+                      "Camera Pan Angle": "",
+                      "Camera Position": "",
+                      "Camera Roll Angle": "",
+                      "Camera Serial #": "",
+                      "Camera TC Type": "",
+                      "Camera Tilt Angle": "",
+                      "Camera Type": "",
+                      "Category": "",
+                      "Clip Color": "",
+                      "Clip Directory": "REPOSITORY/out/issue-141-media-20260930-01a0f318",
+                      "Clip Name": "base.mov",
+                      "Clip Number": "",
+                      "Cloud Sync": "-1",
+                      "Codec Bitrate": "",
+                      "Color Chart": "",
+                      "Color Space Notes": "",
+                      "Colorist": "",
+                      "Colorist Assistant": "",
+                      "Colorist Notes": "",
+                      "Colorist Reviewed": "",
+                      "Comments": "",
+                      "Compression Ratio": "",
+                      "Continuity": "",
+                      "Continuity Reviewed": "",
+                      "Convergence Adj": "",
+                      "Crew Comments": "",
+                      "DOP": "",
+                      "DOP Reviewed": "",
+                      "Dailies Colorist": "",
+                      "Data Level": "Auto",
+                      "Data Wrangler": "",
+                      "Date Added": "Wed Sep 30 2026 13:39:43",
+                      "Date Created": "Wed Sep 30 2026 12:28:32",
+                      "Date Modified": "Wed Sep 30 12:28:32 2026",
+                      "Date Recorded": "",
+                      "Day / Night": "",
+                      "Deck Firmware": "",
+                      "Deck Serial #": "",
+                      "Description": "",
+                      "Dialog Duration": "",
+                      "Dialog Notes": "",
+                      "Dialog Starts As": "",
+                      "Digital Technician": "",
+                      "Director": "",
+                      "Director Reviewed": "",
+                      "Distance": "",
+                      "Drop frame": "0",
+                      "Duration": "00:00:08:00",
+                      "EDL Clip Name": "",
+                      "Editing Assistant": "",
+                      "Editor": "",
+                      "Embedded Audio": "",
+                      "Enable Deinterlacing": "0",
+                      "End": "199",
+                      "End Dialog TC": "",
+                      "End TC": "00:00:08:00",
+                      "Environment": "",
+                      "Episode #": "",
+                      "Episode Name": "",
+                      "FG (m)": "",
+                      "FPS": 25.0,
+                      "FSD": "",
+                      "Field Dominance": "Auto",
+                      "File Name": "base.mov",
+                      "File Path": "REPOSITORY/out/issue-141-media-20260930-01a0f318/base.mov",
+                      "Filter": "",
+                      "Flags": "",
+                      "Focal Point (mm)": "",
+                      "Focus Puller": "",
+                      "Focus Reviewed": "",
+                      "Format": "QuickTime",
+                      "Frames": "200",
+                      "Framing Chart": "",
+                      "Gamma Notes": "",
+                      "Genre": "",
+                      "Grey Chart": "",
+                      "H-FLIP": "Off",
+                      "IA (mm)": "",
+                      "IDT": "",
+                      "ILPD": "",
+                      "ISO": "",
+                      "Immersive ID": "",
+                      "In": "",
+                      "Input Color Space": "Project",
+                      "Input Gamma": "Gamma 2.4",
+                      "Input LUT": "",
+                      "Input Sizing Preset": "None",
+                      "Key Grip": "",
+                      "Keyword": "",
+                      "LUT 1": "",
+                      "LUT 2": "",
+                      "LUT 3": "",
+                      "LUT Used": "",
+                      "LUT Used On Set": "",
+                      "Lab Roll #": "",
+                      "Lens Chart": "",
+                      "Lens Notes": "",
+                      "Lens Number": "",
+                      "Lens Type": "",
+                      "Line Producer": "",
+                      "Location": "",
+                      "Media Type": "",
+                      "Mon Color Space": "",
+                      "Monitor LUT": "",
+                      "Move": "",
+                      "ND Filter": "",
+                      "Noise Reduction": "",
+                      "Offline Reference": "",
+                      "Online Status": "Online",
+                      "Out": "",
+                      "PAR": "Square",
+                      "PAR Notes": "",
+                      "People": "",
+                      "Post Producer": "",
+                      "Producer": "",
+                      "Production Asst": "",
+                      "Production Company": "",
+                      "Production Name": "",
+                      "Program Name": "",
+                      "Projection": "",
+                      "Proxy": "None",
+                      "Proxy Media Path": "",
+                      "RAW": "",
+                      "Rating": "",
+                      "Reel Name": "",
+                      "Reel Number": "",
+                      "Resolution": "640x360",
+                      "Reviewers Notes": "",
+                      "Rig Inverted": "",
+                      "Roll/Card": "",
+                      "S3D Eye": "",
+                      "S3D Notes": "",
+                      "S3D Shot": "",
+                      "S3D Sync": "",
+                      "Safe Area": "",
+                      "Sample Rate": "48000",
+                      "Sample Rate (KHz)": "",
+                      "Scene": "",
+                      "Script Supervisor": "",
+                      "Send to": "",
+                      "Send to Studio": "",
+                      "Sensor": "",
+                      "Sensor Area Captured": "",
+                      "Series #": "",
+                      "Setup": "",
+                      "Sharpness": "",
+                      "Shoot Day": "",
+                      "Shot": "",
+                      "Shot During Ep": "",
+                      "Shot Frame Rate": "25.000",
+                      "Shot Type": "",
+                      "Shutter Angle": "",
+                      "Shutter Speed": "",
+                      "Shutter Type": "",
+                      "Slate TC": "00:00:00:00",
+                      "Sound Mixer": "",
+                      "Sound Reviewed": "",
+                      "Sound Roll #": "",
+                      "Start": "0",
+                      "Start Dialog TC": "",
+                      "Start KeyKode": "",
+                      "Start TC": "00:00:00:00",
+                      "Subcategory": "",
+                      "Super Scale": 1,
+                      "SuperScale Noise Reduction": "0.5",
+                      "SuperScale Sharpness": "0.5",
+                      "Synced Audio": "",
+                      "Tag": "0",
+                      "Take": "",
+                      "Time-lapse Interval": "",
+                      "Tone": "",
+                      "Track 1": "",
+                      "Track 10": "",
+                      "Track 11": "",
+                      "Track 12": "",
+                      "Track 13": "",
+                      "Track 14": "",
+                      "Track 15": "",
+                      "Track 16": "",
+                      "Track 17": "",
+                      "Track 18": "",
+                      "Track 19": "",
+                      "Track 2": "",
+                      "Track 20": "",
+                      "Track 21": "",
+                      "Track 22": "",
+                      "Track 23": "",
+                      "Track 24": "",
+                      "Track 3": "",
+                      "Track 4": "",
+                      "Track 5": "",
+                      "Track 6": "",
+                      "Track 7": "",
+                      "Track 8": "",
+                      "Track 9": "",
+                      "Transcription": "",
+                      "Transcription Status": "",
+                      "Type": "Video + Audio",
+                      "Unit Manager": "",
+                      "Unit Name": "",
+                      "Uploaded From": "",
+                      "Usage": "24",
+                      "V-FLIP": "Off",
+                      "VFX Grey Ball": "",
+                      "VFX Markers": "",
+                      "VFX Mirror Ball": "",
+                      "VFX Notes": "",
+                      "VFX Shot #": "",
+                      "VFX Svsr Reviewed": "",
+                      "Video Codec": "H.264 High L3.0",
+                      "Wardrobe Reviewed": "",
+                      "White Balance Tint": "",
+                      "White Point (Kelvin)": ""
+                    }
+                  },
+                  "GetMarkers": {
+                    "value": {}
+                  },
+                  "GetUniqueId": {
+                    "value": "9202163a-8381-43e6-9157-3a60f35c6f79"
+                  },
+                  "sourceBytes": {
+                    "hashMatches": true,
+                    "sha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+                    "status": "reachable"
+                  }
+                },
+                "GetName": {
+                  "value": "base.mov"
+                },
+                "GetProperties": {
+                  "value": {
+                    "AnchorPointX": 0.0,
+                    "AnchorPointY": 0.0,
+                    "CompositeEnabled": true,
+                    "CompositeMode": 0,
+                    "CropBottom": 0.0,
+                    "CropLeft": 0.0,
+                    "CropRetain": false,
+                    "CropRight": 0.0,
+                    "CropSoftness": 0.0,
+                    "CropTop": 0.0,
+                    "CroppingEnabled": true,
+                    "Distortion": 0.0,
+                    "DynamicZoomEase": 0,
+                    "DynamicZoomEnabled": false,
+                    "FlipX": false,
+                    "FlipY": false,
+                    "LensCorrectionEnabled": true,
+                    "MotionEstimation": 0,
+                    "Opacity": 100.0,
+                    "Pan": 0.0,
+                    "Pitch": 0.0,
+                    "ResizeFilter": 0,
+                    "RetimeAndScalingEnabled": true,
+                    "RetimeProcess": 0,
+                    "RotationAngle": 0.0,
+                    "Scaling": 0,
+                    "Tilt": 0.0,
+                    "TransformEnabled": true,
+                    "Yaw": 0.0,
+                    "ZoomGang": true,
+                    "ZoomX": 1.0,
+                    "ZoomY": 1.0
+                  }
+                },
+                "GetRightOffset": {
+                  "value": 1
+                },
+                "GetRightOffset(True)": {
+                  "value": 1.0
+                },
+                "GetSourceAudioChannelMapping": {
+                  "value": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{}}"
+                },
+                "GetSourceEndFrame": {
+                  "value": 199
+                },
+                "GetSourceEndTime": {
+                  "value": 7.96
+                },
+                "GetSourceStartFrame": {
+                  "value": 0
+                },
+                "GetSourceStartTime": {
+                  "value": 0.0
+                },
+                "GetSpeed": {
+                  "value": {
+                    "Percentage": 100.0,
+                    "PitchCorrection": true
+                  }
+                },
+                "GetStart": {
+                  "value": 0
+                },
+                "GetStart(True)": {
+                  "value": 0.0
+                },
+                "GetTrackTypeAndIndex": {
+                  "value": [
+                    "video",
+                    1
+                  ]
+                },
+                "GetType": {
+                  "value": "video"
+                },
+                "GetUniqueId": {
+                  "value": "3f2de461-d510-46f8-939f-0c794d48e38b"
+                },
+                "GetVoiceIsolationState": {
+                  "value": {
+                    "amount": 0,
+                    "isEnabled": false
+                  }
+                }
+              },
+              {
+                "GetClipEnabled": {
+                  "value": true
+                },
+                "GetDuration": {
+                  "value": 199
+                },
+                "GetDuration(True)": {
+                  "value": 199.0
+                },
+                "GetEnd": {
+                  "value": 199
+                },
+                "GetEnd(True)": {
+                  "value": 199.0
+                },
+                "GetFusionCompCount": {
+                  "value": 0
+                },
+                "GetFusionCompNameList": {
+                  "value": {}
+                },
+                "GetLeftOffset": {
+                  "value": 0
+                },
+                "GetLeftOffset(True)": {
+                  "value": 0.0
+                },
+                "GetLinkedItems": [
+                  {
+                    "value": "3f2de461-d510-46f8-939f-0c794d48e38b"
+                  }
+                ],
+                "GetMarkers": {
+                  "value": {
+                    "0": {
+                      "color": "Blue",
+                      "customData": "{\"issue\": 141, \"occurrence\": 1, \"section\": \"calibration\"}",
+                      "duration": 1,
+                      "name": "141 calibration item 1",
+                      "note": "Synthetic matrix occurrence"
+                    }
+                  }
+                },
+                "GetMediaPoolItem": {
+                  "GetAudioMapping": {
+                    "value": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}"
+                  },
+                  "GetClipProperty": {
+                    "value": {
+                      "2nd Asst": "",
+                      "2nd Continuity": "",
+                      "2nd DIT": "",
+                      "2nd DOP": "",
+                      "2nd DOP Reviewed": "",
+                      "2nd Dir": "",
+                      "2nd Dir Asst": "",
+                      "2nd Dir Reviewed": "",
+                      "3D Rig ID #": "",
+                      "3D Rig Type": "",
+                      "Angle": "",
+                      "Aspect Ratio Notes": "",
+                      "Assistant Director": "",
+                      "Assistant Producer": "",
+                      "Audio Bit Depth": "16",
+                      "Audio Ch": "1",
+                      "Audio Codec": "Linear PCM",
+                      "Audio Duration TC": "",
+                      "Audio End TC": "",
+                      "Audio FPS": "",
+                      "Audio File Type": "",
+                      "Audio Media": "",
+                      "Audio Notes": "",
+                      "Audio Offset": "",
+                      "Audio Recorder": "",
+                      "Audio Start TC": "",
+                      "Audio TC Type": "",
+                      "Aux 1": "",
+                      "Aux 2": "",
+                      "BG (m)": "",
+                      "Bit Depth": "",
+                      "Bit Rate": "",
+                      "CDL SAT": "",
+                      "CDL SOP": "",
+                      "CV (m)": "",
+                      "Calibration Source": "",
+                      "Calibration Type": "",
+                      "Calibration UUID": "",
+                      "Camera #": "",
+                      "Camera Aperture": "",
+                      "Camera Aperture Type": "",
+                      "Camera Assistant": "",
+                      "Camera FPS": "",
+                      "Camera Firmware": "",
+                      "Camera Format": "",
+                      "Camera ID": "",
+                      "Camera Manufacturer": "",
+                      "Camera Notes": "",
+                      "Camera Operator": "",
+                      "Camera Pan Angle": "",
+                      "Camera Position": "",
+                      "Camera Roll Angle": "",
+                      "Camera Serial #": "",
+                      "Camera TC Type": "",
+                      "Camera Tilt Angle": "",
+                      "Camera Type": "",
+                      "Category": "",
+                      "Clip Color": "",
+                      "Clip Directory": "REPOSITORY/out/issue-141-media-20260930-01a0f318",
+                      "Clip Name": "repeated.wav",
+                      "Clip Number": "",
+                      "Cloud Sync": "-1",
+                      "Codec Bitrate": "",
+                      "Color Chart": "",
+                      "Color Space Notes": "",
+                      "Colorist": "",
+                      "Colorist Assistant": "",
+                      "Colorist Notes": "",
+                      "Colorist Reviewed": "",
+                      "Comments": "",
+                      "Compression Ratio": "",
+                      "Continuity": "",
+                      "Continuity Reviewed": "",
+                      "Convergence Adj": "",
+                      "Crew Comments": "",
+                      "DOP": "",
+                      "DOP Reviewed": "",
+                      "Dailies Colorist": "",
+                      "Data Level": "",
+                      "Data Wrangler": "",
+                      "Date Added": "Wed Sep 30 2026 13:39:47",
+                      "Date Created": "Wed Sep 30 2026 12:28:32",
+                      "Date Modified": "Wed Sep 30 12:28:32 2026",
+                      "Date Recorded": "",
+                      "Day / Night": "",
+                      "Deck Firmware": "",
+                      "Deck Serial #": "",
+                      "Description": "",
+                      "Dialog Duration": "",
+                      "Dialog Notes": "",
+                      "Dialog Starts As": "",
+                      "Digital Technician": "",
+                      "Director": "",
+                      "Director Reviewed": "",
+                      "Distance": "",
+                      "Duration": "00:00:08:00",
+                      "EDL Clip Name": "",
+                      "Editing Assistant": "",
+                      "Editor": "",
+                      "Embedded Audio": "",
+                      "End": "",
+                      "End Dialog TC": "",
+                      "End TC": "00:00:08:00",
+                      "Environment": "",
+                      "Episode #": "",
+                      "Episode Name": "",
+                      "FG (m)": "",
+                      "FPS": 25.0,
+                      "FSD": "",
+                      "Field Dominance": "",
+                      "File Name": "repeated.wav",
+                      "File Path": "REPOSITORY/out/issue-141-media-20260930-01a0f318/repeated.wav",
+                      "Filter": "",
+                      "Flags": "",
+                      "Focal Point (mm)": "",
+                      "Focus Puller": "",
+                      "Focus Reviewed": "",
+                      "Format": "Wave",
+                      "Frames": "",
+                      "Framing Chart": "",
+                      "Gamma Notes": "",
+                      "Genre": "",
+                      "Grey Chart": "",
+                      "H-FLIP": "",
+                      "IA (mm)": "",
+                      "IDT": "",
+                      "ILPD": "",
+                      "ISO": "",
+                      "Immersive ID": "",
+                      "In": "",
+                      "Input Color Space": "",
+                      "Input Gamma": "",
+                      "Input LUT": "",
+                      "Input Sizing Preset": "",
+                      "Key Grip": "",
+                      "Keyword": "",
+                      "LUT 1": "",
+                      "LUT 2": "",
+                      "LUT 3": "",
+                      "LUT Used": "",
+                      "LUT Used On Set": "",
+                      "Lab Roll #": "",
+                      "Lens Chart": "",
+                      "Lens Notes": "",
+                      "Lens Number": "",
+                      "Lens Type": "",
+                      "Line Producer": "",
+                      "Location": "",
+                      "Media Type": "",
+                      "Mon Color Space": "",
+                      "Monitor LUT": "",
+                      "Move": "",
+                      "ND Filter": "",
+                      "Offline Reference": "",
+                      "Online Status": "Online",
+                      "Out": "",
+                      "PAR": "",
+                      "PAR Notes": "",
+                      "People": "",
+                      "Post Producer": "",
+                      "Producer": "",
+                      "Production Asst": "",
+                      "Production Company": "",
+                      "Production Name": "",
+                      "Program Name": "",
+                      "Projection": "",
+                      "Proxy": "",
+                      "Proxy Media Path": "",
+                      "RAW": "",
+                      "Rating": "",
+                      "Reel Name": "",
+                      "Reel Number": "",
+                      "Resolution": "",
+                      "Reviewers Notes": "",
+                      "Rig Inverted": "",
+                      "Roll/Card": "",
+                      "S3D Eye": "",
+                      "S3D Notes": "",
+                      "S3D Shot": "",
+                      "S3D Sync": "",
+                      "Safe Area": "",
+                      "Sample Rate": "48000",
+                      "Sample Rate (KHz)": "",
+                      "Scene": "",
+                      "Script Supervisor": "",
+                      "Send to": "",
+                      "Send to Studio": "",
+                      "Sensor": "",
+                      "Sensor Area Captured": "",
+                      "Series #": "",
+                      "Setup": "",
+                      "Shoot Day": "",
+                      "Shot": "",
+                      "Shot During Ep": "",
+                      "Shot Frame Rate": "",
+                      "Shot Type": "",
+                      "Shutter Angle": "",
+                      "Shutter Speed": "",
+                      "Shutter Type": "",
+                      "Slate TC": "",
+                      "Sound Mixer": "",
+                      "Sound Reviewed": "",
+                      "Sound Roll #": "repeated.wav",
+                      "Start": "",
+                      "Start Dialog TC": "",
+                      "Start KeyKode": "",
+                      "Start TC": "00:00:00:00",
+                      "Subcategory": "",
+                      "Synced Audio": "",
+                      "Tag": "0",
+                      "Take": "",
+                      "Time-lapse Interval": "",
+                      "Tone": "",
+                      "Track 1": "",
+                      "Track 10": "",
+                      "Track 11": "",
+                      "Track 12": "",
+                      "Track 13": "",
+                      "Track 14": "",
+                      "Track 15": "",
+                      "Track 16": "",
+                      "Track 17": "",
+                      "Track 18": "",
+                      "Track 19": "",
+                      "Track 2": "",
+                      "Track 20": "",
+                      "Track 21": "",
+                      "Track 22": "",
+                      "Track 23": "",
+                      "Track 24": "",
+                      "Track 3": "",
+                      "Track 4": "",
+                      "Track 5": "",
+                      "Track 6": "",
+                      "Track 7": "",
+                      "Track 8": "",
+                      "Track 9": "",
+                      "Transcription": "",
+                      "Transcription Status": "",
+                      "Type": "Audio",
+                      "Unit Manager": "",
+                      "Unit Name": "",
+                      "Uploaded From": "",
+                      "Usage": "46",
+                      "V-FLIP": "",
+                      "VFX Grey Ball": "",
+                      "VFX Markers": "",
+                      "VFX Mirror Ball": "",
+                      "VFX Notes": "",
+                      "VFX Shot #": "",
+                      "VFX Svsr Reviewed": "",
+                      "Video Codec": "",
+                      "Wardrobe Reviewed": "",
+                      "White Balance Tint": "",
+                      "White Point (Kelvin)": ""
+                    }
+                  },
+                  "GetMarkers": {
+                    "value": {}
+                  },
+                  "GetUniqueId": {
+                    "value": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8"
+                  },
+                  "sourceBytes": {
+                    "hashMatches": true,
+                    "sha256": "832dd31cc46b9f4b4fdb7cbde18b4edc09ec249885634fba43da2a7b87dc768e",
+                    "status": "reachable"
+                  }
+                },
+                "GetName": {
+                  "value": "repeated.wav"
+                },
+                "GetProperties": {
+                  "value": {
+                    "AudioDialogueLevelerBackgroundReduction": false,
+                    "AudioDialogueLevelerEnabled": false,
+                    "AudioDialogueLevelerLiftSoftDialogue": false,
+                    "AudioDialogueLevelerMode": 0,
+                    "AudioDialogueLevelerOutputGain": 0.0,
+                    "AudioDialogueLevelerReduceLoudDialogue": false,
+                    "AudioPan": 0.0,
+                    "AudioPanEnabled": true,
+                    "AudioPitchCents": 0,
+                    "AudioPitchEnabled": true,
+                    "AudioPitchSemiTones": 0,
+                    "AudioVoiceIsolationAmount": 0,
+                    "AudioVoiceIsolationEnabled": false,
+                    "AudioVolume": 0.0,
+                    "AudioVolumeEnabled": true
+                  }
+                },
+                "GetRightOffset": {
+                  "value": 1
+                },
+                "GetRightOffset(True)": {
+                  "value": 1.0
+                },
+                "GetSourceAudioChannelMapping": {
+                  "value": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}"
+                },
+                "GetSourceEndFrame": {
+                  "value": 199
+                },
+                "GetSourceEndTime": {
+                  "value": 7.96
+                },
+                "GetSourceStartFrame": {
+                  "value": 0
+                },
+                "GetSourceStartTime": {
+                  "value": 0.0
+                },
+                "GetSpeed": {
+                  "value": {
+                    "Percentage": 100.0,
+                    "PitchCorrection": true
+                  }
+                },
+                "GetStart": {
+                  "value": 0
+                },
+                "GetStart(True)": {
+                  "value": 0.0
+                },
+                "GetTrackTypeAndIndex": {
+                  "value": [
+                    "audio",
+                    1
+                  ]
+                },
+                "GetType": {
+                  "value": "audio"
+                },
+                "GetUniqueId": {
+                  "value": "22561398-bce0-4c22-b55f-a73d3ad5e4cf"
+                },
+                "GetVoiceIsolationState": {
+                  "value": {
+                    "amount": 0,
+                    "isEnabled": false
+                  }
+                }
+              }
+            ],
+            "playhead": "00:00:00:00"
+          }
+        ],
+        "selectionShapes": [
+          {
+            "count": 2,
+            "type": "list"
+          },
+          {
+            "count": 2,
+            "type": "list"
+          }
+        ],
+        "status": "editorial-readback-retained",
+        "_nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T131350.583785Z.json",
+        "_auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T131349.957093Z"
+      }
+    }
+  ],
+  "failure": "AssertionError: Delta exceeds the linked one-frame record move"
+}

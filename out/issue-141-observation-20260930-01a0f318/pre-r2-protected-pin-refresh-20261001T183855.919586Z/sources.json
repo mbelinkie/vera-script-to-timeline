@@ -1,0 +1,11 @@
+{
+  "docs/investigations/issue-141/probe.py": "cad63c88f400897fa37bc558d76fca410b7040bf1cc6b2a4ff270e0754b62fa8",
+  "docs/investigations/issue-141/editorial-readback.py": "dba56a716aff973afdcc977df51fdc4b08ae1f727ce24f7c41d94c0f9ce32d22",
+  "docs/investigations/issue-141/editorial-readback-check.py": "43cc82f4857665d843bab2092e1f923c30c7163f83ead7c9c1bab63b8934c23d",
+  "docs/investigations/issue-141/av-output.py": "a7d52eb21e805ccc0bfd084d994afb3f49d31066448b7307d044fcbcd0c4c91a",
+  "docs/investigations/issue-141/av-output-check.py": "3fafcadbea40863540433dcaa2d7fd6505eed9cd2dec14c80bb5f132a8b5ad5f",
+  "docs/investigations/issue-141/hammerspoon-launch.lua": "f92cc1b6e5bd7e0611bf94aa9a7262f3c14936de03fc5072e1c0100593cd461d",
+  "docs/investigations/issue-141/hammerspoon-check.lua": "8a925f080a2ecaec05b60a5a8fa5a6053cf2c01bf31412f2b340363816d4babb",
+  "out/issue-141-observation-20260930-01a0f318/independent-native-call.py": "0fb1be5a7049e8b7a90ccbfdc4c6581246d01622ae30205f55aeebce96280b4b",
+  "out/issue-141-observation-20260930-01a0f318/independent-cut-sequence.py": "6c1f66ba1a0f3d763d464b7a2f211a5f027711d5cb881614a1530cbe36776288"
+}

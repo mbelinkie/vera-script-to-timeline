@@ -1,0 +1,33 @@
+{
+  "baseline": "7867fa4873429e799f748004896f7093d2ce625f",
+  "branch": "codex/issue-177-v2-package-studio",
+  "capturedAt": "2026-10-13T06:08:21.887220+00:00",
+  "liveOwnedCommands": [],
+  "observedUsedPercent": {
+    "fiveHour": 90,
+    "weekly": 14
+  },
+  "owner": "01a13388-d547-77d0-9768-f204f4a5b3e0",
+  "sources": {
+    "docs/plans/issue-177-v2-package-studio.md": "07c107294bef697cc7bfd72060f96095874a127f6f25a14bc4a3223897fbc9a5",
+    "docs/verification/issue-177/PAUSED-CHECKPOINT-2.md": "81bb3113bc1690009e2eb1721d98c31b4065666ec913a76ab9a1eeaf852ea424",
+    "docs/verification/issue-177/PAUSED-CHECKPOINT.md": "5ddf9c2215a31ec78ff05988522493371c8ba0dfb7cf3884d671b961116082ee",
+    "docs/verification/issue-177/README.md": "df9a8a2d88b5bf066135759a7b7bf196b708ed266d8596bbbc90db17792688af",
+    "docs/verification/issue-177/RESUME-2026-10-13.md": "f3dfc5ea56af94fa5b3ab975c4abc06b5e8901a85f05519fb17acf84263acd85",
+    "docs/verification/issue-177/coordinator-notification-refusal.txt": "2be39776129ae537c25927c564bcc4234fc486ab4e653c0ecd0fafed74a68b4c",
+    "docs/verification/issue-177/handoff-focused-iteration.txt": "bf6e6f32078621814759738a8e4775465114386eee97d5100cb2690710ff0761",
+    "docs/verification/issue-177/package-focused-pass.log": "093d73221ac31d90634f773ba55bf5ea0f781af9cd3b4d947d5ba67fa70693b2",
+    "docs/verification/issue-177/paused-source-hashes.json": "1f7033b42f36e6a8997448b5f652e0c3b4120d6a5e74ee48e1cb1d560e3d3f66",
+    "docs/verification/issue-177/resume-iteration-checks.txt": "8ff04c57c45315f8c9382cec2936870ea2bcfe12f8d5cf9e18023c215fb49256",
+    "integrations/resolve/VERA Delivery v2.py": "e05a405ce8a203d6f68fb55c43297d89394b7918bfc6b712205aa94538e7b65b",
+    "python/vera_timeline_agent/v2_package.py": "1ce13021e1b12562e05baa187d4fe3321a711b983eb7ab6ec0349d40bc52a0f1",
+    "python/vera_timeline_agent/workflow_v2.py": "31e6d6c8f2846d41f444529ebbbacbc5d3e2928d7b2080d8205b0d0c4d67ed70",
+    "python/vera_timeline_agent/workflow_v2_cli.py": "5e120861265ffc72ef442180e8c2d2ddb54b79fa0325b894c47897607a9bb314",
+    "python/vera_timeline_agent/workflow_v2_launcher.py": "006d41644dd5da6f3e5be2ed89abe19dfa8715db64d9e4d8425b15516dbecb1d",
+    "tests/issue177_package_fixture.py": "762335521619c1440a9d4efc159f0f003f822920a6d63d6a5714bc1caf890079",
+    "tests/test_issue177_handoff.py": "0eca1793782d2909751b37c6928facf5c68af0b596dcc5b88012a5b9f8d4ff60",
+    "tests/test_v2_package.py": "972999f2cf24d7c974eb38db59fc2be5fe6c1dee492251f8afdd43d8e8fbbc18",
+    "tests/test_workflow_v2.py": "3be1ce70a872313f611d1fbbe8db564e4b0d043509596790923c9eca98db479c"
+  },
+  "status": "paused_by_user_usage_threshold"
+}

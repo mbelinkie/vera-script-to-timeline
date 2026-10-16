@@ -1,0 +1,220 @@
+TypeScript and Python	Run repository validation	﻿2026-10-04T14:58:20.7172301Z ##[group]Run npm run validate
+TypeScript and Python	Run repository validation	2026-10-04T14:58:20.7172638Z ^[[36;1mnpm run validate^[[0m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:20.7242210Z shell: /usr/bin/bash -e {0}
+TypeScript and Python	Run repository validation	2026-10-04T14:58:20.7242507Z env:
+TypeScript and Python	Run repository validation	2026-10-04T14:58:20.7242817Z   UV_PYTHON_INSTALL_DIR: /home/runner/work/_temp/uv-python-dir
+TypeScript and Python	Run repository validation	2026-10-04T14:58:20.7243193Z   UV_PYTHON: 3.12.14
+TypeScript and Python	Run repository validation	2026-10-04T14:58:20.7243483Z   UV_CACHE_DIR: /home/runner/work/_temp/setup-uv-cache
+TypeScript and Python	Run repository validation	2026-10-04T14:58:20.7244003Z ##[endgroup]
+TypeScript and Python	Run repository validation	2026-10-04T14:58:20.8254926Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:20.8255703Z > vera-script-to-timeline@0.0.0 validate
+TypeScript and Python	Run repository validation	2026-10-04T14:58:20.8256810Z > npm run check:contracts-generated && npm run check:typescript && npm run check:python
+TypeScript and Python	Run repository validation	2026-10-04T14:58:20.8257716Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:20.9344462Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:20.9345328Z > vera-script-to-timeline@0.0.0 check:contracts-generated
+TypeScript and Python	Run repository validation	2026-10-04T14:58:20.9346272Z > node packages/contracts/scripts/generate-contracts.mjs --check
+TypeScript and Python	Run repository validation	2026-10-04T14:58:20.9346743Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:22.0475351Z Generated contract types are current.
+TypeScript and Python	Run repository validation	2026-10-04T14:58:22.1707558Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:22.1708372Z > vera-script-to-timeline@0.0.0 check:typescript
+TypeScript and Python	Run repository validation	2026-10-04T14:58:22.1709423Z > npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript
+TypeScript and Python	Run repository validation	2026-10-04T14:58:22.1710015Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:22.2737472Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:22.2738430Z > vera-script-to-timeline@0.0.0 lint:typescript
+TypeScript and Python	Run repository validation	2026-10-04T14:58:22.2739497Z > eslint scripts/*.mjs --max-warnings=0 && npm run lint --workspaces --if-present
+TypeScript and Python	Run repository validation	2026-10-04T14:58:22.2740113Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:23.7498312Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:23.7499089Z > @vera/contracts@0.0.0 lint
+TypeScript and Python	Run repository validation	2026-10-04T14:58:23.7499764Z > eslint src test --max-warnings=0
+TypeScript and Python	Run repository validation	2026-10-04T14:58:23.7500098Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:28.3872783Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:28.3873399Z > @vera/tooling-smoke@0.0.0 lint
+TypeScript and Python	Run repository validation	2026-10-04T14:58:28.3873868Z > eslint . --max-warnings=0
+TypeScript and Python	Run repository validation	2026-10-04T14:58:28.3874061Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:30.1929820Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:30.1930688Z > vera-script-to-timeline@0.0.0 typecheck:typescript
+TypeScript and Python	Run repository validation	2026-10-04T14:58:30.1931399Z > npm run typecheck --workspaces --if-present
+TypeScript and Python	Run repository validation	2026-10-04T14:58:30.1931691Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:30.3155641Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:30.3156268Z > @vera/contracts@0.0.0 typecheck
+TypeScript and Python	Run repository validation	2026-10-04T14:58:30.3156710Z > tsc --project tsconfig.json
+TypeScript and Python	Run repository validation	2026-10-04T14:58:30.3156916Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:32.2493933Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:32.2494693Z > @vera/tooling-smoke@0.0.0 typecheck
+TypeScript and Python	Run repository validation	2026-10-04T14:58:32.2495322Z > tsc --project tsconfig.json
+TypeScript and Python	Run repository validation	2026-10-04T14:58:32.2495661Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:33.1548767Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:33.1549657Z > vera-script-to-timeline@0.0.0 test:typescript
+TypeScript and Python	Run repository validation	2026-10-04T14:58:33.1550733Z > npm run test --workspaces --if-present && npm run test:progress && npm run test:roadmap
+TypeScript and Python	Run repository validation	2026-10-04T14:58:33.1551321Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:33.2758867Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:33.2759575Z > @vera/contracts@0.0.0 test
+TypeScript and Python	Run repository validation	2026-10-04T14:58:33.2760038Z > vitest run
+TypeScript and Python	Run repository validation	2026-10-04T14:58:33.2760192Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:33.5550440Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:33.5555058Z ^[[1m^[[30m^[[46m RUN ^[[49m^[[39m^[[22m ^[[36mv4.1.11 ^[[39m^[[90m/home/runner/work/vera-script-to-timeline/vera-script-to-timeline/packages/contracts^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:33.5556161Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:34.1235836Z  ^[[32m✓^[[39m test/script-validator.test.ts ^[[2m(^[[22m^[[2m36 tests^[[22m^[[2m)^[[22m^[[32m 52^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:34.2230960Z  ^[[32m✓^[[39m test/prompter-export.test.ts ^[[2m(^[[22m^[[2m27 tests^[[22m^[[2m)^[[22m^[[32m 66^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:34.3845370Z  ^[[32m✓^[[39m test/compiler-core.test.ts ^[[2m(^[[22m^[[2m26 tests^[[22m^[[2m)^[[22m^[[32m 87^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:34.8721718Z  ^[[32m✓^[[39m test/issue-144-text-revision.test.ts ^[[2m(^[[22m^[[2m38 tests^[[22m^[[2m)^[[22m^[[32m 160^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:34.9957973Z  ^[[32m✓^[[39m test/schema-validation.test.ts ^[[2m(^[[22m^[[2m22 tests^[[22m^[[2m)^[[22m^[[32m 44^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:37.5209492Z  ^[[32m✓^[[39m test/issue-144-composition.test.ts ^[[2m(^[[22m^[[2m13 tests^[[22m^[[2m)^[[22m^[[33m 2582^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:37.5211373Z      ^[[33m^[[2m✓^[[22m^[[39m exchanges raw files and actual compiler/script results through the pinned CLI (revision=false) ^[[33m 1083^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:37.5239344Z      ^[[33m^[[2m✓^[[22m^[[39m exchanges raw files and actual compiler/script results through the pinned CLI (revision=true) ^[[33m 850^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:38.7251971Z  ^[[32m✓^[[39m test/issue-144-semantics.test.ts ^[[2m(^[[22m^[[2m20 tests^[[22m^[[2m)^[[22m^[[33m 524^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:41.5414525Z  ^[[32m✓^[[39m test/prompter-export-cli.test.ts ^[[2m(^[[22m^[[2m11 tests^[[22m^[[2m)^[[22m^[[33m 2297^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:41.5449041Z      ^[[33m^[[2m✓^[[22m^[[39m runs the real CLI twice with byte-identical outputs matching the goldens ^[[33m 1130^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:41.5478774Z      ^[[33m^[[2m✓^[[22m^[[39m refuses an existing file output before writing either artifact ^[[33m 557^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:41.5480860Z      ^[[33m^[[2m✓^[[22m^[[39m refuses an existing symlink output before writing either artifact ^[[33m 542^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:42.2960271Z  ^[[32m✓^[[39m test/issue-144-compile-cli.test.ts ^[[2m(^[[22m^[[2m11 tests^[[22m^[[2m)^[[22m^[[33m 7085^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:42.2979443Z      ^[[33m^[[2m✓^[[22m^[[39m returns the actual frozen compiler bytes without modifying either input ^[[33m 792^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:42.2989069Z      ^[[33m^[[2m✓^[[22m^[[39m returns byte-identical torture outputs through the file boundary ^[[33m 696^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:42.3000580Z      ^[[33m^[[2m✓^[[22m^[[39m distinguishes observed input drift from a deterministic compiler refusal ^[[33m 756^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:42.3002627Z      ^[[33m^[[2m✓^[[22m^[[39m returns identical complete bytes when replayed in separate processes ^[[33m 1445^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:42.3004480Z      ^[[33m^[[2m✓^[[22m^[[39m binds serialized input bytes even when compiler semantics are unchanged ^[[33m 1478^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:42.3006464Z      ^[[33m^[[2m✓^[[22m^[[39m retains actual validator diagnostics and emits no successful artifacts ^[[33m 662^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:42.3018320Z      ^[[33m^[[2m✓^[[22m^[[39m refuses stale narration bindings through the actual compiler ^[[33m 726^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:45.9740236Z  ^[[32m✓^[[39m test/script-validator-cli.test.ts ^[[2m(^[[22m^[[2m7 tests^[[22m^[[2m)^[[22m^[[33m 4200^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:45.9779087Z      ^[[33m^[[2m✓^[[22m^[[39m prints deterministic pass output and every row for minimal ^[[33m 764^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:45.9809453Z      ^[[33m^[[2m✓^[[22m^[[39m prints deterministic pass output and every row for torture ^[[33m 818^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:45.9854072Z      ^[[33m^[[2m✓^[[22m^[[39m distinguishes usage failures ^[[33m 907^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:45.9882446Z      ^[[33m^[[2m✓^[[22m^[[39m distinguishes read failures ^[[33m 454^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:45.9908837Z      ^[[33m^[[2m✓^[[22m^[[39m distinguishes JSON parse failures ^[[33m 403^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:45.9910185Z      ^[[33m^[[2m✓^[[22m^[[39m prints schema failures with a row and exits for validation ^[[33m 459^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:45.9911752Z      ^[[33m^[[2m✓^[[22m^[[39m prints a precise semantic VO gap with narration row and token range ^[[33m 393^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:46.5571207Z  ^[[32m✓^[[39m test/prompter-schema.test.ts ^[[2m(^[[22m^[[2m12 tests^[[22m^[[2m)^[[22m^[[32m 31^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.0546468Z  ^[[32m✓^[[39m test/issue-144-proof-cli.test.ts ^[[2m(^[[22m^[[2m6 tests^[[22m^[[2m)^[[22m^[[33m 4053^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.0548367Z      ^[[33m^[[2m✓^[[22m^[[39m uses the actual mapper with byte-bound files and deterministic replay ^[[33m 2066^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.0550417Z      ^[[33m^[[2m✓^[[22m^[[39m applies explicit decisions through the actual canonical revision path ^[[33m 1048^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.0552332Z      ^[[33m^[[2m✓^[[22m^[[39m distinguishes a semantic refusal from a process fault ^[[33m 648^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6199466Z  ^[[32m✓^[[39m test/issue-144-omission-bridge.test.ts ^[[2m(^[[22m^[[2m15 tests^[[22m^[[2m)^[[22m^[[33m 12086^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6219535Z      ^[[33m^[[2m✓^[[22m^[[39m inspects actual canonical document identity without Python reserialization or acceptance ^[[33m 807^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6224645Z      ^[[33m^[[2m✓^[[22m^[[39m invokes actual transformation with raw/source hashes and one full-row request ^[[33m 1493^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6238300Z      ^[[33m^[[2m✓^[[22m^[[39m finalizes replacement dependencies/fresh IDs and exact actual compiler preview ^[[33m 2102^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6240145Z      ^[[33m^[[2m✓^[[22m^[[39m refuses inconsistent handoff documentHash ^[[33m 672^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6241294Z      ^[[33m^[[2m✓^[[22m^[[39m refuses inconsistent handoff oldAudio ^[[33m 741^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6242366Z      ^[[33m^[[2m✓^[[22m^[[39m refuses inconsistent handoff asset ^[[33m 761^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6243443Z      ^[[33m^[[2m✓^[[22m^[[39m refuses inconsistent handoff row ^[[33m 734^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6244589Z      ^[[33m^[[2m✓^[[22m^[[39m refuses inconsistent handoff extraReplacement ^[[33m 714^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6245773Z      ^[[33m^[[2m✓^[[22m^[[39m refuses inconsistent handoff metadata ^[[33m 780^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6246863Z      ^[[33m^[[2m✓^[[22m^[[39m refuses inconsistent handoff unchangedRow ^[[33m 704^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6248192Z      ^[[33m^[[2m✓^[[22m^[[39m refuses inconsistent handoff lane ^[[33m 760^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6249295Z      ^[[33m^[[2m✓^[[22m^[[39m refuses stale edit before revision artifacts ^[[33m 742^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6251051Z      ^[[33m^[[2m✓^[[22m^[[39m refuses an in-place change to an untouched dependency with the same inventory length ^[[33m 518^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6252890Z      ^[[33m^[[2m✓^[[22m^[[39m refuses compilation against old wording dependencies ^[[33m 395^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6282315Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6293449Z ^[[2m Test Files ^[[22m ^[[1m^[[32m13 passed^[[39m^[[22m^[[90m (13)^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6294689Z ^[[2m      Tests ^[[22m ^[[1m^[[32m244 passed^[[39m^[[22m^[[90m (244)^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6295564Z ^[[2m   Start at ^[[22m 14:58:33
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6296727Z ^[[2m   Duration ^[[22m 14.06s^[[2m (transform 509ms, setup 0ms, import 4.81s, tests 33.27s, environment 2ms)^[[22m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6298944Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6524964Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6525628Z > @vera/tooling-smoke@0.0.0 test
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6526014Z > vitest run
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.6526162Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.9351040Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.9369291Z ^[[1m^[[30m^[[46m RUN ^[[49m^[[39m^[[22m ^[[36mv4.1.11 ^[[39m^[[90m/home/runner/work/vera-script-to-timeline/vera-script-to-timeline/packages/tooling-smoke^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:47.9397543Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.1032787Z  ^[[32m✓^[[39m test/index.test.ts ^[[2m(^[[22m^[[2m1 test^[[22m^[[2m)^[[22m^[[32m 3^[[2mms^[[22m^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.1062265Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.1066679Z ^[[2m Test Files ^[[22m ^[[1m^[[32m1 passed^[[39m^[[22m^[[90m (1)^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.1067866Z ^[[2m      Tests ^[[22m ^[[1m^[[32m1 passed^[[39m^[[22m^[[90m (1)^[[39m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.1068603Z ^[[2m   Start at ^[[22m 14:58:47
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.1069721Z ^[[2m   Duration ^[[22m 164ms^[[2m (transform 21ms, setup 0ms, import 33ms, tests 3ms, environment 0ms)^[[22m
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.1071398Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.2626017Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.2626844Z > vera-script-to-timeline@0.0.0 test:progress
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.2627766Z > node --test scripts/project-progress.test.mjs
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.2628028Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.3641211Z ✔ parses the authoritative board without counting goals as work (1.631614ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.3642259Z ✔ calculates exact done and remaining scope from actionable board issues (7.804233ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.3643012Z ✔ fails closed on incomplete or ambiguous board data (0.792711ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.3661018Z ✔ renders every issue once with escaped links and board metadata (1.109402ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.3688437Z ✔ writes the dashboard and reports an exact terminal summary (8.622674ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.3772584Z ✔ fails clearly when the live GitHub Project is unavailable (8.346706ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.3862746Z ℹ tests 6
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.3863284Z ℹ suites 0
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.3864250Z ℹ pass 6
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.3864628Z ℹ fail 0
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.3865016Z ℹ cancelled 0
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.3865417Z ℹ skipped 0
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.3865788Z ℹ todo 0
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.3866207Z ℹ duration_ms 88.7489
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.4925149Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.4926152Z > vera-script-to-timeline@0.0.0 test:roadmap
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.4926933Z > node --test scripts/roadmap.test.mjs scripts/roadmap-rate-limit.test.mjs scripts/roadmap-lock.test.mjs
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.4927876Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.6039628Z ✔ serializes roadmap commands before any GitHub request (3.855466ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.6053776Z ✔ reclaims a sufficiently old lock whose owner process is gone (2.857202ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.6157694Z ✔ parses authoritative direct GraphQL rateLimit fields and omits response metadata (2.59194ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.6159612Z ✔ fails closed on GitHub's graphql_rate_limit exhaustion response with reset guidance (0.901486ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.6161223Z ✔ never accepts a false REST-green payload as GraphQL authority (2.091862ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.6162522Z ✔ preflight reserves points for the planned GraphQL work (0.649876ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.6163794Z ✔ honors direct Retry-After evidence during a secondary throttle (0.425676ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.6165271Z ✔ accounts for issue, comment, dependency, and Project V2 operations by actual transport (0.33628ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:48.6166884Z ✔ distinguishes REST, GraphQL, secondary, and client/tooling failures (0.25733ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0648253Z ✔ parses commands and flags (2.611965ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0649364Z ✔ accepts one exact routing profile (0.372415ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0650275Z ✔ rejects missing routing labels (0.508381ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0653174Z ✔ rejects duplicate routing labels (0.219272ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0654937Z ✔ rejects Luna claiming Terra work (0.23036ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0658627Z ✔ rejects Sol claiming Luna work (0.186233ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0661135Z ✔ rejects unsupported effort labels (0.327867ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0663298Z ✔ uses the latest claim marker (0.552237ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0666858Z ✔ preserves exclusive ownership across Luna-to-Terra and Terra-to-Sol escalation markers (0.463182ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0669849Z ✔ parses no dependencies and same-repository blockers (0.948498ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0672665Z ✔ parses cross-roadmap dependency references (0.416642ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0674757Z ✔ rejects prose and duplicate dependency declarations (0.37614ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0676590Z ✔ requires every dependency to be closed and Done (0.643571ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0679323Z ✔ inspect, ready, and claim preflight before GraphQL reads and again before mutation (446.859022ms)
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0755403Z ℹ tests 23
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0755721Z ℹ suites 0
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0756057Z ℹ pass 23
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0756409Z ℹ fail 0
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0756728Z ℹ cancelled 0
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0757446Z ℹ skipped 0
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0757809Z ℹ todo 0
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.0758212Z ℹ duration_ms 545.101326
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.1925146Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.1925902Z > vera-script-to-timeline@0.0.0 check:python
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.1926707Z > npm run lint:python && npm run typecheck:python && npm run test:python
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.1927033Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.2960867Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.2961678Z > vera-script-to-timeline@0.0.0 lint:python
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.2962434Z > uv run --frozen ruff check . && uv run --frozen ruff format --check .
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.2962792Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.3415755Z All checks passed!
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.3869776Z 289 files already formatted
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.4940716Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.4941529Z > vera-script-to-timeline@0.0.0 typecheck:python
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.4942224Z > uv run --frozen mypy python tests
+TypeScript and Python	Run repository validation	2026-10-04T14:58:49.4942487Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:53.2742988Z Success: no issues found in 90 source files
+TypeScript and Python	Run repository validation	2026-10-04T14:58:53.3919394Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:53.3920095Z > vera-script-to-timeline@0.0.0 test:python
+TypeScript and Python	Run repository validation	2026-10-04T14:58:53.3920542Z > uv run --frozen pytest
+TypeScript and Python	Run repository validation	2026-10-04T14:58:53.3921066Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:54.8418350Z ============================= test session starts ==============================
+TypeScript and Python	Run repository validation	2026-10-04T14:58:54.8419349Z platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0
+TypeScript and Python	Run repository validation	2026-10-04T14:58:54.8420278Z rootdir: /home/runner/work/vera-script-to-timeline/vera-script-to-timeline
+TypeScript and Python	Run repository validation	2026-10-04T14:58:54.8420992Z configfile: pyproject.toml
+TypeScript and Python	Run repository validation	2026-10-04T14:58:54.8421805Z testpaths: tests
+TypeScript and Python	Run repository validation	2026-10-04T14:58:54.8422212Z plugins: typeguard-4.6.0
+TypeScript and Python	Run repository validation	2026-10-04T14:58:54.8422637Z collected 356 items
+TypeScript and Python	Run repository validation	2026-10-04T14:58:54.8422872Z
+TypeScript and Python	Run repository validation	2026-10-04T14:58:54.8465944Z tests/test_after_effects_inspection.py ..                                [  0%]
+TypeScript and Python	Run repository validation	2026-10-04T14:58:56.1774084Z tests/test_build_jobs.py .........                                       [  3%]
+TypeScript and Python	Run repository validation	2026-10-04T14:58:57.0534655Z tests/test_fixtures.py ........                                          [  5%]
+TypeScript and Python	Run repository validation	2026-10-04T14:58:58.6335710Z tests/test_free_trial.py ..........                                      [  8%]
+TypeScript and Python	Run repository validation	2026-10-04T14:58:58.6350829Z tests/test_generated_contracts.py ..                                     [  8%]
+TypeScript and Python	Run repository validation	2026-10-04T14:59:31.3155130Z tests/test_issue144_audio_evidence.py .................................. [ 18%]
+TypeScript and Python	Run repository validation	2026-10-04T14:59:44.7457436Z .............                                                            [ 21%]
+TypeScript and Python	Run repository validation	2026-10-04T14:59:45.1606576Z tests/test_issue144_capture_retry.py .                                   [ 22%]
+TypeScript and Python	Run repository validation	2026-10-04T15:03:53.2235244Z tests/test_issue144_composition.py ..                                    [ 22%]
+TypeScript and Python	Run repository validation	2026-10-04T15:03:57.3800908Z tests/test_issue144_composition_audio.py .                               [ 23%]
+TypeScript and Python	Run repository validation	2026-10-04T15:03:59.7668977Z tests/test_issue144_driver.py ...                                        [ 23%]
+TypeScript and Python	Run repository validation	2026-10-04T15:04:18.4937994Z tests/test_issue144_native_build.py .......                              [ 25%]
+TypeScript and Python	Run repository validation	2026-10-04T15:04:27.1699659Z tests/test_issue144_omission_bridge.py .                                 [ 26%]
+TypeScript and Python	Run repository validation	2026-10-04T15:11:46.2578643Z tests/test_issue144_omission_decisions.py .............                  [ 29%]
+TypeScript and Python	Run repository validation	2026-10-04T15:12:44.2894448Z ##[error]The operation was canceled.

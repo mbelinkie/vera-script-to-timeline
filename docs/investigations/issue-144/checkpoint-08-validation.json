@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "issue-144-checkpoint-validation/v1",
+  "evidenceLevel": "synthetic_injected",
+  "checkpoint": 8,
+  "runtime": {
+    "node": "24.19.0",
+    "npm": "11.17.0",
+    "python": "3.12.14",
+    "uv": "0.12.5"
+  },
+  "command": "npm exec --yes --package=node@24.19.0 -- npm run validate",
+  "checks": {
+    "generatedCurrent": true,
+    "typescriptLint": true,
+    "typescriptTypecheck": true,
+    "contractTests": 178,
+    "toolingTests": 1,
+    "progressTests": 6,
+    "roadmapTests": 23,
+    "pythonRuff": true,
+    "pythonStrictMypy": true,
+    "pythonTests": 233
+  },
+  "sourceHashes": {
+    "python/vera_timeline_agent/roundtrip_build.py": "sha256:673849a6a4a2c7e134411d7256fcff3ef2a33273a2f4216486fc6af596e52312",
+    "packages/contracts/src/issue-144-compile-cli.ts": "sha256:7eace457e045e1f943f74357507043dc2152e982ce05f73290df049ecce1e9a5",
+    "packages/contracts/src/compiler-core.ts": "sha256:87fddbe07d3c49d7ff99e192c31a5ee936fb2f63c6436758dd7536b167e159e3",
+    "packages/contracts/src/script-validator.ts": "sha256:d738c79953c21c5df850fac24c324d55741e92253d6b6f48c0daa9daa5c00c04",
+    "python/vera_timeline_agent/build_jobs.py": "sha256:fa7814047965266e362d0662ce3358a0db52e58fd761ede70318155fe8b01490",
+    "python/vera_timeline_agent/roundtrip_native.py": "sha256:4611fd794d51e844c6c47454b160ba1ca4e557bec28547ccad1063a17faec83d",
+    "python/vera_timeline_agent/roundtrip_proof.py": "sha256:f01a08f10d121f411f14f7322ef64ac714f29f502ff196269fef2f0ec98cad64",
+    "packages/contracts/src/issue-144-proof-cli.ts": "sha256:2dbb73078e6279bd211a83b9898f01620d4474f20c3871be539c8438d792aa8d",
+    "packages/contracts/src/issue-144-semantics.ts": "sha256:e29eb29fa099c32fe7db54f827f737aaabfdae19a5e5ba1912e25e260c463601",
+    "python/vera_timeline_agent/resolve_import_package/package.py": "sha256:3bc6334db333b9e9fa03b0d056ff8cdca53e54624dd2969f1b94eb57c29d1edd",
+    "package-lock.json": "sha256:553e3c49edca2f76c784b6f6199cc86997f0ee9d2c14fdb26d73064232d997a0",
+    "uv.lock": "sha256:653550710dbfcd471cc9b04d3ef2c3f0c4b2bc8d48cfec9db4cb23f3a8c9d9dd",
+    "contracts/script-document-v1.schema.json": "sha256:acfe4ed4cf7d1238555560c48d208c487ab31000e05b520fb1d7a65d48043902",
+    "contracts/compiler-dependencies-v1.schema.json": "sha256:0fcabb1a58c8f4477142dde533fae03bd5125dd0a30f8fe4d1d7320eba60795a",
+    "contracts/timeline-manifest-v1.schema.json": "sha256:324d06b4e21adf624b31a4640d9d98564348fe7e3ff84a7aadb364c742835ade",
+    "contracts/build-report-v1.schema.json": "sha256:90677d341cbedc50e98f91d99a234e0f1f0ef44d1d432527461b0c19cd9d4bba",
+    "packages/contracts/test/issue-144-proof-cli.test.ts": "sha256:e769851e40fb0a548974786f986d75ea846a192123462e5c3a315678825177be",
+    "packages/contracts/test/issue-144-test-inputs.ts": "sha256:22dd259e044cda63444fdf1855b7ecc8582753555975c5d8f5a3ddee16c480d4",
+    "packages/contracts/test/issue-144-semantics.test.ts": "sha256:ce0852ad5d8a6282e85bc47d66213afd73b541ae7f261e6f3b250b02cc4b8993",
+    "tests/test_issue144_proof_session.py": "sha256:15e730fcfebe994b169c511f29a2deadf353e0ce0651b6fd78c47d09f1d72915"
+  },
+  "nativeActions": 0,
+  "limitation": "Automated visual file workflow only; omitted-phrase rebuild, real WI bridge and operator handoff remain incomplete.",
+  "validatedCommit": "c5de058"
+}

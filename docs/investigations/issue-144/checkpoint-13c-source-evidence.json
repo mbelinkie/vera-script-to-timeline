@@ -1,0 +1,37 @@
+{
+  "parentCommit": "7dc501c770a9a4a979dcd2cf351705ed45de7cb9",
+  "sourceHashes": {
+    "python/vera_timeline_agent/roundtrip_proof.py": "sha256:20ab8318eb933354869508d960f3f45d2d6fed557f13b0b557f547dd1bf9117f",
+    "tests/test_issue144_capture_retry.py": "sha256:5802386616d6b0a7412098dd5a4e7758cf87f2f8fcc1d1309aa063826301ba6a",
+    "tests/issue144_wi_demo.py": "sha256:19a38f9ebea3228d7255db402512ea5e1058dfc1bc6f7515e5b3fc3443db92d7",
+    "docs/investigations/issue-144/operator-runbook.md": "sha256:ab475f4354a62bf4bcda077e9a7bf5d2282c117c3c5d9db55a4a914ecaa3b986"
+  },
+  "status": "Claude7turn review passed,23focused +1full CLI/WI flow passed; standalone actual command completed (1provider,2targets,6links,2render queues,picture-only refusal,replay stable). Whole-project mypy90/Ruff/format/generated/protected checks passed. Final identified-commit validate pending.",
+  "postReviewPresentationOnly": {
+    "file": "docs/investigations/issue-144/operator-runbook.md",
+    "reviewedHash": "sha256:ab475f4354a62bf4bcda077e9a7bf5d2282c117c3c5d9db55a4a914ecaa3b986",
+    "formattedHash": "sha256:e764e6b2e34e9a144daf8d90bd23138a03fd22756c438214a15e65bcf89ae22a",
+    "change": "Ruff reformatted the same callable examples in Markdown; no API, command, readiness or behavior change. Verbatim review preserved inside an outer text fence so its quoted Python is not rewritten."
+  },
+  "standaloneDemonstration": {
+    "command": "npm exec --yes --package=node@24.19.0 -- uv run --frozen python tests/issue144_wi_demo.py --output-directory <new absolute owned directory>",
+    "exitCode": 0,
+    "result": {
+      "comparisonHash": "sha256:cf3d55408266b621b78ada27f18f4562df82080d41a4af3992d1f63a54db1292",
+      "comparisonPath": "/Users/matthewbelinkie/.codex/worktrees/d404/VERA Script to Timeline/out/issue144-wi-demo-20261004-13c/proof/decisions/2f93463be1b896bd5c1f574819a59e785cf61d503c8149361bc12bee57534fcb/canonical-comparison.md",
+      "decisionKey": "2f93463be1b896bd5c1f574819a59e785cf61d503c8149361bc12bee57534fcb",
+      "evidenceLevel": "synthetic_injected",
+      "limitations": "In-process fake native world, fixture supports/calibration/renderer/provider; no real qualification or human-finishing preservation.",
+      "nativeTargets": 2,
+      "pictureOnlyRefused": true,
+      "proofLinkCalls": 6,
+      "proofRoot": "/Users/matthewbelinkie/.codex/worktrees/d404/VERA Script to Timeline/out/issue144-wi-demo-20261004-13c/proof",
+      "providerRequests": 1,
+      "renderQueueCalls": 2,
+      "schemaVersion": "issue-144-synthetic-wi-demo/v1",
+      "status": "complete"
+    },
+    "resultHash": "sha256:111acb210dd5a3ae54388cebf9952a5f51215767f674d1731a32a1f81c47478e"
+  },
+  "diagnosticLogPresentation": "Only trailing pytest padding whitespace removed from retained failure-log copies; original /tmp logs preserved."
+}

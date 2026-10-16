@@ -1,0 +1,54 @@
+{
+  "kind": "cli-protected-review",
+  "reviewedAt": "2026-10-01",
+  "sources": {
+    "probe.py": "cad63c88f400897fa37bc558d76fca410b7040bf1cc6b2a4ff270e0754b62fa8",
+    "r4-range-repair.py": "9b6977747a1f3decf957ead6134f10fc4f597bf9d0c3dc5c081b7bf2671879a4",
+    "editorial-cases.py": "1e1c2685de795bdc60ffa806c0fde10d75e300340fc2c1178b8ccf4d1a93f372",
+    "protected-inventory-check.py": "caa3b75ac227706aa8a587d18c011eb1c49b4749d22936f36e5c9e9ea0553d5e",
+    "availability-check.py": "f68f133dbb17462d3bc2ca743bdc970f4a449714aa7e523d751cad15a697e190",
+    "pinned-pre-change-probe.py": "8ab9e409405dc53202aa8665b28565a19f3884b9673ff13fd44c99a38032d9da",
+    "injected-observation-workflow.py": "6d28bf3d2dcd652e6c6b13ad913abd999d37aa6f105d670b4bf5f15555d19a79",
+    "hammerspoon-launch.lua": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1"
+  },
+  "commands": [
+    {
+      "command": "ctx-wire run rtk python3 out/issue-141-observation-20260930-01a0f318/protected-inventory-check.py",
+      "result": "PASS; protected inventory checks passed"
+    },
+    {
+      "command": "ctx-wire run rtk python3 docs/investigations/issue-141/r4-range-repair-check.py",
+      "result": "PASS; exit 0"
+    },
+    {
+      "command": "ctx-wire run rtk python3 docs/investigations/issue-141/editorial-cases-check.py",
+      "result": "PASS; R1-R3 guarded fake checks passed; no native app launched"
+    },
+    {
+      "command": "ctx-wire run rtk python3 docs/investigations/issue-141/check.py",
+      "result": "PASS; issue-141 harness checks passed (no live Resolve evidence)"
+    },
+    {
+      "command": "ctx-wire run rtk python3 docs/investigations/issue-141/availability-check.py",
+      "result": "INCOMPLETE; no output within 60 seconds, terminated by SIGTERM (exit 143); not reported as pass or code failure"
+    },
+    {
+      "command": "ctx-wire run rtk shasum -a 256 <three protected-mode sources and checker>",
+      "result": "PASS; hashes retained above (shasum wrapper emitted locale panic, hashes independently recorded with Python hashlib)"
+    }
+  ],
+  "acceptanceFindings": {
+    "protectedSixExactMap": "PASS. Probe observe requires exactly six unique UID/name entries matching four required VERA timelines and both named transcription test timelines; exact count/map mismatch and duplicate/missing identity refuse. Range reader requires exact count and map in protected mode. Editorial timeline guard requires six rows, unique string UIDs/names, and exact map before selecting Matrix by its existing UID.",
+    "legacyCompatibility": "PASS. Omitted timelineInventory retains the prior legacy probe behavior and four-identity range/editorial guards. Protected mode metadata is required consistently through the full read pair.",
+    "protectedRealSource": "PASS. UID be5f1584-f0c4-4dd9-988b-73f3167e77d1 is recognized before locator extraction/hashing; name must remain semi1b.mp4. Evidence records protected-locator-not-accessed in item and pool data. No source media was read or hashed.",
+    "generatedManifestBytes": "PASS. Other locators still go through source_evidence: only exact expected-manifest keys reach file hashing; unapproved/unknown locators return unapproved-locator-not-accessed. Existing byte verification remains in place.",
+    "unknownIdentities": "PASS. Unknown or duplicate timeline identities refuse exact-map validation; changed protected source identity refuses. Focused checker exercises these refusal cases.",
+    "fullTimelinePoolPreservation": "PASS. _read_pair captures two complete timeline observations and two pool inventories, requires adjacent equality, and protected metadata is retained. Editorial _apply compares the full expected after_state and after_pool, preserving both producer timelines and their source/pool evidence byte-for-byte outside the intended Matrix synthetic interval change.",
+    "availabilityCheckCompatibility": "PRE-EXISTING HARNESS INCOMPATIBILITY. The pinned pre-change probe (SHA above) already declares source_evidence(locator, expected, *, offline=False), and media_evidence calls it with keyword offline=. availability-check.py replaces it in wrong-hash mode with lambda locator, approved (lines 368-372), which rejects that keyword. This incompatible fake seam predates protected-six. Its current run timed out before establishing runtime failure; checker was not edited and the failure was not normalized away.",
+    "readOnlyActionSafety": "SAFE BY SOURCE REVIEW. r4-pool-read-only inventories the pool and writes its result; it does not call selection, edit, transcription, render, save, or export operations. validate_config requires externalScriptingSetting=None. The injected observation Workflow Integration is launched only through the existing Hammerspoon fixed menu path Workspace > Workflow Integrations > VERA Issue 141 Observation.",
+    "nativeDispatchReady": false,
+    "nativeDispatchBlocker": "Do not dispatch yet: installation-r4-pool-read-only.json pins an older probe SHA (3285d9ff6fd7d5f26faffe52338e33b6b2091c608e0ef2e4e75e9d45cc84029a), not the reviewed protected-six probe SHA. A fresh injected Workflow Integration staging record must pin current helper hashes and set timelineInventory=protected-six while retaining External Scripting None. No UI/native action was invoked."
+  },
+  "mediaAccess": "No real media file was read or hashed. Hashing was limited to Python/Lua helper source files and checker code.",
+  "nativeAction": "not-run"
+}

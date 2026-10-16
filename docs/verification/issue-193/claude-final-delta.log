@@ -1,0 +1,17 @@
+Permission allow rule (../../../../.claude/settings.json): Bash(git -C * push origin claude/*) has a wildcard before the rest of the command, so it also matches any options inserted at that position and approves them without a prompt. For git, options such as -c and --exec-path can run arbitrary commands. Replace that * with the exact value you mean, or only use * after the subcommand (for example Bash(git status *)).
+No blockers. I only read `automated.md`, `npm-ci-disposable.log`/`.exit` and `validate-fast.log`/`.exit`. I ran no commands, made no edits and used no network.
+
+- **Baseline reference:** `automated.md:11-14` attributes the baseline failure to issue #193. It records the base SHA, Node v24.19.0 / npm 11.17.0, and the `Missing: @vera/word-timing@0.1.0 from lock file` error.
+- **Disposable clean install:** The log header names `/tmp/vera-issue193-disposable`, a temporary folder outside the worktree. It shows HEAD at `5d59b2ad…`, Node v24.19.0 / npm 11.17.0, the lockfile hash `e615667b…` (matching the hash table), the command, and `Exit: 0`. The output says "added 148 packages, and audited 152", and the `.exit` file contains `0`. That is consistent with a separate disposable checkout. I can't independently prove it from the files alone, since the header was written by whoever ran it.
+- **`npm ci --workspaces=false`:** No pass is claimed. Lines 14-17 say it failed at baseline, was not rerun after the repair, and that no post-repair result is claimed.
+- **Fast gate:** The doc records the command, branch, base HEAD, lockfile hash, PID, platform, Node/npm/Python versions and the two pytest workers. Every count matches the log:
+  - 402 contract tests and 1 tooling-smoke test
+  - 6 progress tests and 23 roadmap tests
+  - Ruff and format checks passed
+  - mypy passed for 111 files
+  - 317 fast Python tests passed
+
+  The `.exit` file contains `0`.
+- **Final gate:** Still marked pending (lines 80-86), and the issue stays open until it passes.
+
+One optional wording fix: `automated.md:36-37` still says a current-worktree run "supersedes" earlier disposable-checkout evidence. Lines 21-29 now present the retained disposable run as the acceptance install, so those two lines are leftover wording that reads as a contradiction. Deleting or rewording them would remove the ambiguity.

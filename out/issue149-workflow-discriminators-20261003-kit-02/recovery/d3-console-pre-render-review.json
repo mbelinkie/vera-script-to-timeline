@@ -1,0 +1,61 @@
+{
+  "taskId": "/root/discriminator_output_verify",
+  "verification": "D3 Console render staging gate after Workflow Integration mute",
+  "verdict": "go-for-operator-console-render",
+  "classification": "reproduced-setup",
+  "scope": "retained local evidence only; no Console action or render performed by verifier",
+  "project": {
+    "name": "VERA Issue 149 WI Discriminators 20261003-kit-02",
+    "uid": "0591bb41-d645-4af7-a2ee-ff75f8f43162",
+    "externalScriptingSetting": "None",
+    "timeline": "D3-console-av-20261003",
+    "timelineUid": "dc548f02-103c-495a-8e88-c4b767aa10dc",
+    "a2ItemUid": "02572600-80b5-43ca-a7bd-6bd74f7b3a89",
+    "videoItemUid": "82c25e87-8b15-4388-92e6-d91867d5ce57",
+    "audio1ItemUid": "7d62988b-effd-4646-900b-b5725c02be2f",
+    "audio3ItemUid": "4ade3d8d-a7d6-413a-a5ae-0466ea27edf7",
+    "videoAudio1ReciprocalLinks": true,
+    "audio2Independent": true,
+    "audio3Independent": true,
+    "shape": "1920x1080, 25 fps, 48000 Hz",
+    "range": "0..399"
+  },
+  "workflowIntegrationMute": {
+    "result": "vera-issue-149-workflow-discriminators-result-w3-mapping-mute-d3-console-av-20261003-kit-02.json",
+    "resultSha256": "f1f57fad3a6481e7e5c2c11f4ce1bd2bce32b80b2f5da75fb492c4ec30806a4b",
+    "originalMapping": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+    "mutedReadback": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":true,\"type\":\"mono\"}}}",
+    "targetOnlyChangedPath": "track_mapping.1.mute",
+    "renderField": null,
+    "preSha256": "5d9cea30816d31e009c76806f0949804a91d8c01e7ca7c37de3b943b913b4d2d",
+    "postSha256": "ff4ffeca6b63239d6f7faa98f8cf15d84506a8991cdd19a484d6ffbea2badce8"
+  },
+  "queue": {
+    "beforeConsole": 7,
+    "renderingInProgress": false,
+    "newConsoleJobCreated": false,
+    "priorDirectJobTerminal": true,
+    "fullMutePairOnlyMappingDifference": true
+  },
+  "consoleConfig": {
+    "path": "out/issue149-workflow-discriminators-20261003-kit-02/params/d3-console-render.json",
+    "sha256": "ee05f7d1033c9b64fefaa1cc970a5cf1a9478c598075f82ebc3e89fd0011326c",
+    "actionId": "d3-console-render-20261003-kit-02",
+    "ownedProjectUid": "0591bb41-d645-4af7-a2ee-ff75f8f43162",
+    "ownedTimelineUid": "dc548f02-103c-495a-8e88-c4b767aa10dc",
+    "targetDir": "out/issue149-workflow-discriminators-20261003-kit-02/renders/d3-console-av-20261003",
+    "settings": {"CustomName": "D3-console-av-20261003", "RenderAll": true},
+    "consoleSourceSha256": "48f8d3e5499cc4073f5c25fe70dfc3a2d88a04bc459cbe5bbba3783aa6ad90bb",
+    "harnessSourceSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438",
+    "sourceHashPinsVerified": true,
+    "ownedPathsVerified": true,
+    "singleExclusiveDispatch": true
+  },
+  "sourcePins": {
+    "base.mov": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+    "swap.mov": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+    "a2_numbers.wav": "d9aeccc2d50cb96d81341167450eeb1b2c43fecf0f02b9291b4cd65afa92f9ba",
+    "a3_bed.wav": "022e3dd779808e5b38ff870cd541d8e25fb940836443262aaa95ce8768817e2b"
+  },
+  "manualNextStep": "GO: operator may run the exact Workspace -> Console command once on D3-console-av-20261003 without changing mapping, Fairlight, M/S, clips, or playhead."
+}

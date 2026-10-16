@@ -1,0 +1,2 @@
+{"at": "2026-10-01T04:16:56.866360+00:00", "phase": "request", "method": "fixed-observation-menu", "action": "offline-picture-continuation", "priorResult": "vera-issue-141-observation-result-20261001T040029.331895Z.json"}
+{"at": "2026-10-01T04:16:58.380480+00:00", "phase": "return", "returncode": 0, "stdout": "Observation menu selected once; verify the new injected result before any next action\n", "stderr": ""}

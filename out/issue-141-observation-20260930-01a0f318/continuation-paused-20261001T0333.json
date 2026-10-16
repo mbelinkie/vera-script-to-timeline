@@ -1,0 +1,19 @@
+{
+  "kind": "issue141-user-requested-pause",
+  "at": "2026-10-01T03:32:38.795253+00:00",
+  "projectId": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+  "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+  "completed": 18,
+  "total": 41,
+  "launcherAction": "observe",
+  "privateConfigSha256": "0a4aac25ba332231f6376fe4bd04658b45e8ad34e2ec224cdd47f46e3a20b278",
+  "latestFullCapture": "capture-20261001T032801.656424Z.json",
+  "latestFullCaptureSha256": "6d70868e701b3c011372d3f06ff26236d6c8fffed5d2fea552280d22cbace98b",
+  "latestPoolCapture": "r4-pool-read-only-20261001T032801.656424Z.json",
+  "latestPoolSha256": "635495c35afa3ba128bf7fae8e57a7d0beeaed754ad431b3822b5dbe1e95f5b7",
+  "newR4OccurrenceUid": "65a7bcd1-f211-4dee-9726-8c7e0b89cc84",
+  "next": "Fresh read-only state verification, then separately reviewed offline-picture probe; no append retry.",
+  "editorialMacrosApproved": false,
+  "pending": "Genuine R1/speech/structure/marker edits, full audio routing/output, offline/wrong-byte output, repeat/closeout.",
+  "uncommittedInvestigationWorkPreserved": true
+}

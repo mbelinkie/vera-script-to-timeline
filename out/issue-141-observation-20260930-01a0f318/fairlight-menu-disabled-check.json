@@ -1,0 +1,14 @@
+{
+  "observedAt": "2026-10-02T03:42:00.992683+00:00",
+  "check": "Existing reviewed hammerspoon-launch.lua check(), no focus or click",
+  "windowTitle": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+  "menuFound": true,
+  "menuEnabled": false,
+  "triggered": false,
+  "lastNativeJobStatus": {
+    "JobStatus": "Rendering",
+    "CompletionPercentage": 1,
+    "EstimatedTimeRemainingInMs": 1766000
+  },
+  "interpretation": "Exact menu exists but is disabled. Last native render remains nonterminal. Temporal association with active render is observed; cause not proven."
+}

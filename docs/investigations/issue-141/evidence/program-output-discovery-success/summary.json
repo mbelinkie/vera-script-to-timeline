@@ -1,0 +1,62 @@
+{
+  "afterConsistency": "equal-adjacent-reads",
+  "beforeAfterPassesEqual": true,
+  "beforeAfterPassesEqualStableCapture": true,
+  "beforeConsistency": "equal-adjacent-reads",
+  "interpretation": "All eight bound read-only capability getters returned. This establishes enumeration/readback only; it does not establish successful output generation or render capability.",
+  "kind": "program-output-discovery-success",
+  "limits": [
+    "No render, setting, job, or other Resolve mutation was requested.",
+    "No render/job output was created or tested."
+  ],
+  "projectReads": {
+    "GetAudioRenderCodecs": {
+      "entryCount": 1,
+      "status": "returned"
+    },
+    "GetAudioRenderFormats": {
+      "entryCount": 7,
+      "status": "returned"
+    },
+    "GetCurrentRenderFormatAndCodec": {
+      "entryCount": 2,
+      "status": "returned"
+    },
+    "GetCurrentRenderMode": {
+      "status": "returned",
+      "value": 1
+    },
+    "GetRenderCodecs": {
+      "entryCount": 77,
+      "status": "returned"
+    },
+    "GetRenderFormats": {
+      "entryCount": 23,
+      "status": "returned"
+    },
+    "GetRenderJobList": {
+      "status": "returned",
+      "value": []
+    },
+    "IsRenderingInProgress": {
+      "status": "returned",
+      "value": false
+    }
+  },
+  "rawSha256": {
+    "after.json": "136b10c17dc79603317c41622f4af4106d86a8ec09a3a47e0c03bee087d8fad6",
+    "before.json": "feeb489df77e232b074f797c2f015f222e6e12bf48f42c1904b415b5b8be81eb",
+    "hammerspoon-launch-20261001T000557.755447Z.jsonl": "badd8403c14f84eec30165ede098efb81ae520b4749985b15352814a2dc76fec",
+    "installation-output-discovery-json-representation.json": "a734e5b924bce70f3802961ef88804c120aaac7201bb6e9661029c244d81af04",
+    "journal.jsonl": "2f5826c004a887be1382c69ea9f003808d1397fbf07b896541a82d2e4d405615",
+    "report.json": "35e89539083028dff883c55012d159f0dffccf435c35f6476ef168aaabaac69f",
+    "vera-issue-141-observation-result-20261001T000558.604188Z.json": "35e89539083028dff883c55012d159f0dffccf435c35f6476ef168aaabaac69f"
+  },
+  "resultStatus": "equal-read-only-capture",
+  "runAt": "2026-10-01T00:05:58Z",
+  "stableReadOnlyCapture": {
+    "filename": "capture-20260930T234711.275916Z.json",
+    "sha256": "3d08f757c8e188bbc5c1584158f5ea29c23f5bb7745bf01bd5de42c6d6436a46"
+  },
+  "unchanged": true
+}

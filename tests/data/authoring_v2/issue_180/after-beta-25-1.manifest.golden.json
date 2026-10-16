@@ -1,0 +1,472 @@
+{
+  "authoringDefaults": {
+    "presenterStill": {
+      "artifactId": "7f309d72-ef1e-5814-9f3a-2ed25ed6714d",
+      "artifactVersion": 1,
+      "contentHash": "sha256:43617f386b2db4c6d997b2217965a26064cbdc989c97bcc50664d9e554963b11",
+      "height": 1080,
+      "mediaReferenceId": "87a5fb09-d83b-5ed9-9075-4788e5c9b283",
+      "projectRelativeLocator": "assets/vera/generic-torso-v1.svg",
+      "provenance": {
+        "origin": "local_import",
+        "originalFilename": "generic-torso-v1.svg"
+      },
+      "width": 1920
+    },
+    "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "sourceAudioLevelPolicy": {
+      "fullGainDb": 0,
+      "quietGainDb": -18,
+      "version": "source-audio-level/v1"
+    },
+    "visualOnlyStillDurationMs": 3000
+  },
+  "boundaryEvidence": [
+    {
+      "boundaryEvidenceHash": "sha256:58d86e66b2bd4a18ef16d224ae82986a32f03c23ae7bfffa1764e90d651faa02",
+      "delta": {
+        "denominator": 1,
+        "numerator": 0
+      },
+      "entityId": "00000000-0000-4000-8000-000000000009",
+      "inputTime": {
+        "denominator": 1,
+        "numerator": 0
+      },
+      "kind": "row_start",
+      "precision": "unknown",
+      "resolvedRecordFrame": 0
+    },
+    {
+      "boundaryEvidenceHash": "sha256:58d86e66b2bd4a18ef16d224ae82986a32f03c23ae7bfffa1764e90d651faa02",
+      "delta": {
+        "denominator": 1,
+        "numerator": 0
+      },
+      "entityId": "00000000-0000-4000-8000-000000000013",
+      "inputTime": {
+        "denominator": 1,
+        "numerator": 1
+      },
+      "kind": "word_start",
+      "precision": "verified_onset",
+      "relatedTokenId": "00000000-0000-4000-8000-000000000029",
+      "resolvedRecordFrame": 25
+    },
+    {
+      "boundaryEvidenceHash": "sha256:58d86e66b2bd4a18ef16d224ae82986a32f03c23ae7bfffa1764e90d651faa02",
+      "delta": {
+        "denominator": 50,
+        "numerator": 1
+      },
+      "entityId": "00000000-0000-4000-8000-000000000016",
+      "inputTime": {
+        "denominator": 2,
+        "numerator": 3
+      },
+      "kind": "word_end",
+      "precision": "audible_word",
+      "relatedTokenId": "00000000-0000-4000-8000-000000000029",
+      "resolvedRecordFrame": 38
+    },
+    {
+      "boundaryEvidenceHash": "sha256:58d86e66b2bd4a18ef16d224ae82986a32f03c23ae7bfffa1764e90d651faa02",
+      "delta": {
+        "denominator": 1,
+        "numerator": 0
+      },
+      "entityId": "00000000-0000-4000-8000-000000000009",
+      "inputTime": {
+        "denominator": 1,
+        "numerator": 4
+      },
+      "kind": "row_end",
+      "precision": "unknown",
+      "resolvedRecordFrame": 100
+    }
+  ],
+  "buildClass": "preview",
+  "buildId": "00000000-0000-4000-8000-000000000003",
+  "compiler": {
+    "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "sourceHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "version": "compiler/v2"
+  },
+  "composition": {
+    "childTrackIds": [
+      "video-child"
+    ],
+    "overlayTrackIds": [
+      "video-overlay"
+    ],
+    "primaryRootTrackId": "video-root",
+    "returns": [
+      {
+        "emitsNewSourceEvent": false,
+        "recordFrame": 38,
+        "returnSlotId": "00000000-0000-4000-8000-000000000016",
+        "rootEventId": "280cad48-0b93-561f-88ae-ccd6e4a8dc0d"
+      }
+    ],
+    "rootContinuous": true,
+    "topology": "primary_root_child_overlay"
+  },
+  "document": {
+    "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "documentId": "00000000-0000-4000-8000-000000000001",
+    "liveHeadSequence": 0,
+    "projectId": "00000000-0000-4000-8000-000000000002",
+    "revision": 1,
+    "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "textHash": "sha256:64989ccbf3efa9c84e2afe7cee9bc5828bf0fcb91e44f8c1e591638a2c2e90e3"
+  },
+  "durationBasis": {
+    "entityId": "00000000-0000-4000-8000-000000000006",
+    "kind": "narration_spine",
+    "narrationTimingMapHash": "sha256:9689fb1b628dff31fd901a479428014c3c9d3aca9fa2502741dfdc58c0a5a43a",
+    "recordFrames": 100,
+    "sourceRange": null
+  },
+  "events": [
+    {
+      "audio": null,
+      "eventId": "280cad48-0b93-561f-88ae-ccd6e4a8dc0d",
+      "kind": "placeholder",
+      "pictureTreatment": {
+        "composition": {
+          "backgroundColor": "#000000",
+          "framingPolicy": "contain",
+          "horizontalAlignment": "center",
+          "motionPreset": "none",
+          "verticalAlignment": "center"
+        },
+        "kind": "still",
+        "reference": {
+          "artifactId": "7f309d72-ef1e-5814-9f3a-2ed25ed6714d",
+          "artifactVersion": 1,
+          "contentHash": "sha256:43617f386b2db4c6d997b2217965a26064cbdc989c97bcc50664d9e554963b11",
+          "height": 1080,
+          "mediaReferenceId": "87a5fb09-d83b-5ed9-9075-4788e5c9b283",
+          "projectRelativeLocator": "assets/vera/generic-torso-v1.svg",
+          "provenance": {
+            "origin": "local_import",
+            "originalFilename": "generic-torso-v1.svg"
+          },
+          "width": 1920
+        }
+      },
+      "preparationBindingHash": null,
+      "provenance": {
+        "blockId": "00000000-0000-4000-8000-000000000006",
+        "boundaryEvidenceHash": "sha256:58d86e66b2bd4a18ef16d224ae82986a32f03c23ae7bfffa1764e90d651faa02",
+        "compilerVersion": "compiler/v2",
+        "deliveredSourceHash": null,
+        "documentId": "00000000-0000-4000-8000-000000000001",
+        "originalSourceHash": "sha256:43617f386b2db4c6d997b2217965a26064cbdc989c97bcc50664d9e554963b11",
+        "overlayEventId": null,
+        "payloadId": null,
+        "sequenceId": "00000000-0000-4000-8000-000000000009",
+        "slotId": "00000000-0000-4000-8000-000000000010",
+        "sourceId": null,
+        "timingMapHash": "sha256:9689fb1b628dff31fd901a479428014c3c9d3aca9fa2502741dfdc58c0a5a43a"
+      },
+      "recordRange": {
+        "endFrame": 100,
+        "startFrame": 0
+      },
+      "sourceRange": null,
+      "sourceTimeMapping": null,
+      "trackId": "video-root",
+      "trackRole": "primary_root"
+    },
+    {
+      "audio": null,
+      "eventId": "e3a1d77f-0c0e-5ffe-8d4e-77ce0e21cb88",
+      "kind": "narration",
+      "preparationBindingHash": null,
+      "provenance": {
+        "blockId": "00000000-0000-4000-8000-000000000006",
+        "boundaryEvidenceHash": "sha256:58d86e66b2bd4a18ef16d224ae82986a32f03c23ae7bfffa1764e90d651faa02",
+        "compilerVersion": "compiler/v2",
+        "deliveredSourceHash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "documentId": "00000000-0000-4000-8000-000000000001",
+        "originalSourceHash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "overlayEventId": null,
+        "payloadId": null,
+        "sequenceId": null,
+        "slotId": null,
+        "sourceId": "00000000-0000-4000-8000-000000000013",
+        "timingMapHash": "sha256:9689fb1b628dff31fd901a479428014c3c9d3aca9fa2502741dfdc58c0a5a43a"
+      },
+      "recordRange": {
+        "endFrame": 100,
+        "startFrame": 0
+      },
+      "sourceRange": null,
+      "sourceTimeMapping": null,
+      "trackId": "narration",
+      "trackRole": "narration"
+    },
+    {
+      "audio": null,
+      "eventId": "80199a21-1eaa-51a6-86dc-c2a4bde9589d",
+      "kind": "placeholder",
+      "pictureTreatment": {
+        "composition": {
+          "backgroundColor": "#000000",
+          "framingPolicy": "contain",
+          "horizontalAlignment": "center",
+          "motionPreset": "none",
+          "verticalAlignment": "center"
+        },
+        "kind": "still",
+        "reference": {
+          "artifactId": "7f309d72-ef1e-5814-9f3a-2ed25ed6714d",
+          "artifactVersion": 1,
+          "contentHash": "sha256:43617f386b2db4c6d997b2217965a26064cbdc989c97bcc50664d9e554963b11",
+          "height": 1080,
+          "mediaReferenceId": "87a5fb09-d83b-5ed9-9075-4788e5c9b283",
+          "projectRelativeLocator": "assets/vera/generic-torso-v1.svg",
+          "provenance": {
+            "origin": "local_import",
+            "originalFilename": "generic-torso-v1.svg"
+          },
+          "width": 1920
+        }
+      },
+      "preparationBindingHash": null,
+      "provenance": {
+        "blockId": "00000000-0000-4000-8000-000000000006",
+        "boundaryEvidenceHash": "sha256:58d86e66b2bd4a18ef16d224ae82986a32f03c23ae7bfffa1764e90d651faa02",
+        "compilerVersion": "compiler/v2",
+        "deliveredSourceHash": null,
+        "documentId": "00000000-0000-4000-8000-000000000001",
+        "originalSourceHash": "sha256:43617f386b2db4c6d997b2217965a26064cbdc989c97bcc50664d9e554963b11",
+        "overlayEventId": null,
+        "payloadId": null,
+        "sequenceId": "00000000-0000-4000-8000-000000000009",
+        "slotId": "00000000-0000-4000-8000-000000000013",
+        "sourceId": null,
+        "timingMapHash": "sha256:9689fb1b628dff31fd901a479428014c3c9d3aca9fa2502741dfdc58c0a5a43a"
+      },
+      "recordRange": {
+        "endFrame": 38,
+        "startFrame": 25
+      },
+      "sourceRange": null,
+      "sourceTimeMapping": null,
+      "trackId": "video-child",
+      "trackRole": "child"
+    }
+  ],
+  "id": "00000000-0000-4000-8000-000000000004",
+  "preparationBindings": [],
+  "roles": {
+    "childTrackIds": [
+      "video-child"
+    ],
+    "markerTrackId": "markers",
+    "narrationTrackId": "narration",
+    "overlayTrackIds": [
+      "video-overlay"
+    ],
+    "placeholderTrackId": "placeholder",
+    "presenterTrackId": "presenter",
+    "primaryRootTrackId": "video-root",
+    "sourceAudioTrackIds": []
+  },
+  "schemaVersion": "timeline-manifest/v2",
+  "sources": [
+    {
+      "id": "00000000-0000-4000-8000-000000000013",
+      "narrationAudio": {
+        "audioHash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "cacheAssetId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "channels": 1,
+        "durationSamples": 192000,
+        "locator": "Builds/narration/hello.wav",
+        "narrationAssetId": "00000000-0000-4000-8000-000000000013",
+        "sampleRate": 48000,
+        "timingHash": "sha256:9689fb1b628dff31fd901a479428014c3c9d3aca9fa2502741dfdc58c0a5a43a"
+      }
+    }
+  ],
+  "supportingItemResults": [],
+  "timeline": {
+    "audioSampleRate": 48000,
+    "durationFrames": 100,
+    "frameRate": {
+      "denominator": 1,
+      "numerator": 25
+    },
+    "height": 1080,
+    "startFrame": 0,
+    "width": 1920
+  },
+  "tracks": [
+    {
+      "id": "video-root",
+      "index": 1,
+      "kind": "video",
+      "name": "Primary root"
+    },
+    {
+      "id": "narration",
+      "index": 1,
+      "kind": "audio",
+      "name": "Narration"
+    },
+    {
+      "id": "placeholder",
+      "index": 4,
+      "kind": "video",
+      "name": "Placeholder"
+    },
+    {
+      "id": "presenter",
+      "index": 5,
+      "kind": "video",
+      "name": "Presenter"
+    },
+    {
+      "id": "markers",
+      "index": 6,
+      "kind": "video",
+      "name": "Markers"
+    },
+    {
+      "id": "video-child",
+      "index": 2,
+      "kind": "video",
+      "name": "Child"
+    },
+    {
+      "id": "video-overlay",
+      "index": 3,
+      "kind": "video",
+      "name": "Overlay"
+    }
+  ],
+  "visualSequenceResolutions": [
+    {
+      "alignmentPrecision": "unknown",
+      "blockId": "00000000-0000-4000-8000-000000000006",
+      "blockRevision": 1,
+      "boundaryDelta": {
+        "denominator": 1,
+        "numerator": 0
+      },
+      "boundaryEvidenceHash": "sha256:58d86e66b2bd4a18ef16d224ae82986a32f03c23ae7bfffa1764e90d651faa02",
+      "boundaryKind": "word_start",
+      "childRanges": [],
+      "documentId": "00000000-0000-4000-8000-000000000001",
+      "eventIds": [
+        "280cad48-0b93-561f-88ae-ccd6e4a8dc0d"
+      ],
+      "hostState": "on_camera",
+      "payloadId": null,
+      "preparationRequirementKey": null,
+      "presenterChoice": "temporary_still",
+      "relation": "root",
+      "resolvedRecordFrame": 0,
+      "returnSlotId": null,
+      "rootRanges": [
+        {
+          "endFrame": 100,
+          "startFrame": 0
+        }
+      ],
+      "sequenceId": "00000000-0000-4000-8000-000000000009",
+      "sequenceVersion": 1,
+      "slotId": "00000000-0000-4000-8000-000000000010",
+      "sourceRange": null,
+      "sourceTimeMapping": null,
+      "structuralSlotIndex": 0,
+      "topmostAppearances": [
+        {
+          "eventId": "280cad48-0b93-561f-88ae-ccd6e4a8dc0d",
+          "recordRange": {
+            "endFrame": 100,
+            "startFrame": 0
+          }
+        }
+      ],
+      "visualOrdinal": null
+    },
+    {
+      "alignmentPrecision": "verified_onset",
+      "blockId": "00000000-0000-4000-8000-000000000006",
+      "blockRevision": 1,
+      "boundaryDelta": {
+        "denominator": 1,
+        "numerator": 0
+      },
+      "boundaryEvidenceHash": "sha256:58d86e66b2bd4a18ef16d224ae82986a32f03c23ae7bfffa1764e90d651faa02",
+      "boundaryKind": "word_start",
+      "childRanges": [
+        {
+          "endFrame": 38,
+          "startFrame": 25
+        }
+      ],
+      "documentId": "00000000-0000-4000-8000-000000000001",
+      "eventIds": [
+        "80199a21-1eaa-51a6-86dc-c2a4bde9589d"
+      ],
+      "hostState": "on_camera",
+      "payloadId": null,
+      "preparationRequirementKey": null,
+      "presenterChoice": "temporary_still",
+      "relation": "child",
+      "resolvedRecordFrame": 25,
+      "returnSlotId": null,
+      "rootRanges": [],
+      "sequenceId": "00000000-0000-4000-8000-000000000009",
+      "sequenceVersion": 1,
+      "slotId": "00000000-0000-4000-8000-000000000013",
+      "sourceRange": null,
+      "sourceTimeMapping": null,
+      "structuralSlotIndex": 1,
+      "topmostAppearances": [
+        {
+          "eventId": "80199a21-1eaa-51a6-86dc-c2a4bde9589d",
+          "recordRange": {
+            "endFrame": 38,
+            "startFrame": 25
+          }
+        }
+      ],
+      "visualOrdinal": null
+    },
+    {
+      "alignmentPrecision": "audible_word",
+      "blockId": "00000000-0000-4000-8000-000000000006",
+      "blockRevision": 1,
+      "boundaryDelta": {
+        "denominator": 50,
+        "numerator": 1
+      },
+      "boundaryEvidenceHash": "sha256:58d86e66b2bd4a18ef16d224ae82986a32f03c23ae7bfffa1764e90d651faa02",
+      "boundaryKind": "word_end",
+      "childRanges": [],
+      "documentId": "00000000-0000-4000-8000-000000000001",
+      "eventIds": [],
+      "hostState": "voiceover",
+      "payloadId": null,
+      "preparationRequirementKey": null,
+      "presenterChoice": "not_applicable",
+      "relation": "return",
+      "resolvedRecordFrame": 38,
+      "returnSlotId": "00000000-0000-4000-8000-000000000016",
+      "rootRanges": [],
+      "sequenceId": "00000000-0000-4000-8000-000000000009",
+      "sequenceVersion": 1,
+      "slotId": null,
+      "sourceRange": null,
+      "sourceTimeMapping": null,
+      "structuralSlotIndex": 2,
+      "topmostAppearances": [],
+      "visualOrdinal": null
+    }
+  ]
+}

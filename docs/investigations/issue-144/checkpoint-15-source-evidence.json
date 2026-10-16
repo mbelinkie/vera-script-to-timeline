@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "issue-144-correction-source/v1",
+  "head": "187c4208ac1412343d0383f100595e83b311719b",
+  "baseHead": "0390b893bd78a6a6601d5382ffa85c3dee46793d",
+  "branch": "codex/issue-144-roundtrip-harness",
+  "workspace": "/Users/matthewbelinkie/.codex/worktrees/d404/VERA Script to Timeline",
+  "files": {
+    "docs/investigations/issue-144/audio-evidence-contract.md": "sha256:785024e45e4d42a589ad96449ef331e21408ce967475ae2778cf3ac0cf905d20",
+    "docs/investigations/issue-144/operator-runbook.md": "sha256:828f0476b4dbe93f2176e10752845bf742d5a196e2d96538ff6ba4429564488b",
+    "docs/investigations/issue-144/seam-matrix.md": "sha256:d944a66b72ec65c54fd5e8703a011dcb18b9822ad62c53709724895649078144",
+    "docs/plans/issue-144-adversarial-corrections.md": "sha256:9d79b0b83f6eb3eae94e00b61bd8883b33112771c629bdfda13a7b7fa1333993",
+    "python/vera_timeline_agent/roundtrip_build.py": "sha256:245b5c74117e2e3753d68bc1291a9edf9f26f66a3772b358eabdd530675897d4",
+    "python/vera_timeline_agent/roundtrip_driver.py": "sha256:31f028f8eed502facdd6aa2dfc09236ac0cb67057efef5affec1d9b85844fda3",
+    "python/vera_timeline_agent/roundtrip_generation.py": "sha256:9fddddb8ebac8a9badc752ad480abee0c0af2a30d26623e7fa29979e944fdff8",
+    "python/vera_timeline_agent/roundtrip_narration.py": "sha256:6135c3ea21d6a27e1a3b862ea1d5e5f2333566e21bbc0e0b60c32d7c1332e7f5",
+    "python/vera_timeline_agent/roundtrip_native.py": "sha256:7d3a1114f0ffd0d64890cecfebd1337870be571e362b3153a9f17135aea535f0",
+    "python/vera_timeline_agent/roundtrip_omission.py": "sha256:267023eaccbc9c78dbcef0f730e2308805484904cb30d409844290813ce5a792",
+    "python/vera_timeline_agent/roundtrip_proof.py": "sha256:c1f013fd17ee7499867ae4aa32ca98cc7092e588a90c4de9da92e50f8c92ac56",
+    "tests/issue144_wi_demo.py": "sha256:458a8a9a7656bcb4c3ed0f3905d599c0d5e4002bb0ed8c4192c69f55c11aef80",
+    "tests/issue144_wi_fixture.py": "sha256:abc66794df294b8f468c19df6c623c500121b82db6756ef992c24a66657ee77f",
+    "tests/test_issue144_capture_retry.py": "sha256:3d65d0c87eb6b2d3bcee2256456745351368f2cd7a3c3f890e8ae51126511233",
+    "tests/test_issue144_generation_recovery.py": "sha256:64746dcf0943ffe9c4a80c13117e50575be7fc4d2be7c102a1c9a9fcaf16e5ae",
+    "tests/test_issue144_native_build.py": "sha256:8a59e1432528b832e3175b372a7e22efd055e87e907111d0d6a32a7994276e2b",
+    "tests/test_issue144_recovery.py": "sha256:84499c5c6eaba104e62da248ffe15fa21818684857fe43a3ac10067dc97d0b48"
+  },
+  "finalReviewedExecutableHead": "1b87f05b4f2d0ebb3cc878ba1e52ab0862ee8df6",
+  "finalFollowup": {
+    "head": "1b87f05b4f2d0ebb3cc878ba1e52ab0862ee8df6",
+    "priorReviewedHead": "187c4208ac1412343d0383f100595e83b311719b",
+    "files": {
+      "python/vera_timeline_agent/roundtrip_build.py": "sha256:5948879a91cb379aafab7c74fe40f4a4a03a4503e0a217a17ab4fb2e972ef028",
+      "tests/test_issue144_proof_session.py": "sha256:37992d372cff93d6b6abbd0da7df8a15c908372ee7b884178ae82f86a1b8cc68",
+      "docs/investigations/issue-144/audio-evidence-contract.md": "sha256:0de7a0ef29c1e5a30578b8bce94a9ed0c9430d2701eb9aea82cd62d6fc5aa0d2",
+      "docs/investigations/issue-144/operator-runbook.md": "sha256:70e6e7bd271c4a12cc24ea8cc671fb415083a0123a41af397fe045a16dcc7a2e"
+    }
+  },
+  "checksAtCheckpoint": {
+    "ruff": "pass",
+    "format": "pass;296files",
+    "mypy": "pass;92files",
+    "finalFocused": {
+      "status": "pass",
+      "head": "1b87f05b4f2d0ebb3cc878ba1e52ab0862ee8df6",
+      "command": "ctx-wire run rtk proxy npm exec --yes --package=node@24.19.0 -- uv run --frozen pytest -q tests/test_issue144_native_build.py tests/test_issue144_recovery.py tests/test_issue144_proof_session.py",
+      "passed": 30,
+      "elapsedSeconds": 596.51,
+      "logSha256": "sha256:ed51c33d6eb430a80bb6bc6fbdbbe919b549a0fbc41dbbb34bd921fc64ee3244"
+    },
+    "fullValidation": "pending",
+    "realEffects": false
+  }
+}

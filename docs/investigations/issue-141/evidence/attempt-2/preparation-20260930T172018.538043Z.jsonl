@@ -1,0 +1,2 @@
+{"at": "2026-09-30T17:20:18.563086+00:00", "method": "SetSettings", "phase": "request", "value": [{"colorGalleryStillsLocation": "<private-path-redacted>", "perfCacheClipsLocation": "<private-path-redacted>", "projectMediaLocation": "<private-path-redacted>", "timelineFrameRate": "25", "timelinePlaybackFrameRate": "25", "timelineResolutionHeight": "1080", "timelineResolutionWidth": "1920", "timelineSampleRate": "48000"}]}
+{"at": "2026-09-30T17:20:18.566584+00:00", "method": "SetSettings", "phase": "failure", "value": "RuntimeError: SetSettings refused operation"}

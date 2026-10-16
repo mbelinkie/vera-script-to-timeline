@@ -1,0 +1,20 @@
+{
+  "kind": "real-injected-partial-matrix-probe-refusal",
+  "runAt": "2026-09-30T21:56:28Z",
+  "matrixTimelineId": "29ae8331-b86e-4041-a548-960695cc7b24",
+  "firstOccurrenceUid": "3f2de461-d510-46f8-939f-0c794d48e38b",
+  "occurrences": 1,
+  "savedByProbe": false,
+  "captureStatuses": [
+    "equal-adjacent-reads",
+    "equal-adjacent-reads",
+    "equal-adjacent-reads"
+  ],
+  "preservedTimelines": "Unchanged in selected matrix context except exactly two base.mov Usage leaves 2\u21923",
+  "markerEvidence": "AddMarker returned true; the retained JSON has frame-0 marker and expected custom data. The probe checked string key 0 before serialization; numeric-key fake reproduces that refusal and passes after the lookup fix.",
+  "limits": [
+    "This is a probe lookup bug, not a demonstrated missing marker capability.",
+    "Original evidence remains immutable; no cleanup or unguarded rerun is permitted.",
+    "No speech omission, lineage, routing or rendered visibility is established."
+  ]
+}

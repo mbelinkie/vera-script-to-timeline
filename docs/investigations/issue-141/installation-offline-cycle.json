@@ -1,0 +1,19 @@
+{
+  "kind": "bounded-online-offline-picture-cycle",
+  "stagedAt": "2026-10-01T04:00:14.572795+00:00",
+  "action": "offline-cycle",
+  "probeSha256": "9282b0ec2b3265e01d8499b611d2be37c9a3e48b7cd951361f5c5426e1711481",
+  "moduleSha256": "c3718fc229774fd001d8f61228d6248b6aeb0ee167ccdd26c1a50bf5a9767fc8",
+  "launcherSha256": "6bfa20aa89f0a085784fc2c8ced56bce2577a2cc63c21c48fc8ebaebbe704a7b",
+  "privateConfigSha256": "35ce54e1beb6ceab4ab43b6f7a57c182e5c0d9b2aa8e6c2f6b0f8d167efe3468",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "allowedNativeMutations": [
+    "R4 playhead0/50 and original restoration",
+    "isolated-source UnlinkClips once",
+    "same-byte RelinkClips once"
+  ],
+  "saveAllowed": false,
+  "renderQueueAllowed": false,
+  "nativeUiEditorialMacroAllowed": false,
+  "retryAllowed": false
+}

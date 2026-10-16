@@ -1,0 +1,13 @@
+{
+  "status": "pass",
+  "timelineInventory": "protected-six",
+  "timelineCount": 6,
+  "poolPasses": 2,
+  "timelinePasses": 2,
+  "protectedEvidenceCount": 7,
+  "generatedReachableEvidenceCount": 134,
+  "capturePath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/capture-20261001T180849.818792Z.json",
+  "captureSha256": "dd4c8c0e911e0bceec7379196d15c7e0c69eaa20b181e061b50cfbb025b0146f",
+  "resultPath": "out/issue-141-observation-20260930-01a0f318/r4-pool-read-only-20261001T180849.818792Z.json",
+  "resultSha256": "82069be60e83da4c578e42231f3c88d9b99575c44d5c42649a04b66c988c8d9d"
+}

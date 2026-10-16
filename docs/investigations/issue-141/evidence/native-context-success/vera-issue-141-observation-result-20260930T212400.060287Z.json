@@ -1,0 +1,26 @@
+{
+  "action": "native-context",
+  "captures": [
+    {
+      "capturePath": "<probe-output>/capture-20260930T212400.564423Z-preflight.json",
+      "sha256": "d897405a92d298aead0b849c87516ce020794887196572c8dbc2f53d307c6474",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T212400.564423Z-selected-baseline.json",
+      "sha256": "2e1440be5477db5969a56370173bd9016bb8ab8332a18bff28c7410b91055a06",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T212400.564423Z-selected-R1.json",
+      "sha256": "19a02a139482f9b6e5bb4c75d23fe54aba0d860c76997897d014029ed5944e86",
+      "status": "equal-adjacent-reads"
+    }
+  ],
+  "comparisons": {
+    "R1": "exactly equal to pinned saved duplicate snapshot",
+    "baseline": "equal to pinned baseline except five sources/six verified Usage leaves"
+  },
+  "journal": "<probe-output>/native-context-20260930T212400.564423Z.jsonl",
+  "status": "equal-adjacent-reads"
+}

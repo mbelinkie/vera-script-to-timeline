@@ -1,0 +1,216 @@
+{
+  "taskId": "Issue 141",
+  "check": "R2-derived-end",
+  "createdAt": "2026-10-01T18:28:34Z",
+  "status": "unsupported",
+  "decision": "Native retained readbacks are insufficient to compare any word-support end at sample precision. The exact support ranges are verified as input metadata, but no native getter exposes those per-word sample endpoints; complete sample omission remains ambiguous.",
+  "scope": {
+    "allowedEvidence": "Retained JSON/manifests only; no Resolve/API/UI/native calls and no media reads.",
+    "inputs": {
+      "sampleRateHz": 48000,
+      "timelineRate": "25/1",
+      "samplesPerFrame": 1920,
+      "supportConvention": "half-open integer PCM sample offsets; nonzero waveform support"
+    },
+    "ranges": [
+      {
+        "label": "word-1",
+        "startSample": 19210,
+        "endExclusiveSample": 36258,
+        "endFrameCoordinate": 18.884375,
+        "endSeconds": 0.755375
+      },
+      {
+        "label": "word-2",
+        "startSample": 115210,
+        "endExclusiveSample": 132258,
+        "endFrameCoordinate": 68.884375,
+        "endSeconds": 2.755375
+      },
+      {
+        "label": "word-3",
+        "startSample": 211210,
+        "endExclusiveSample": 228258,
+        "endFrameCoordinate": 118.884375,
+        "endSeconds": 4.755375
+      },
+      {
+        "label": "word-4",
+        "startSample": 307210,
+        "endExclusiveSample": 324258,
+        "endFrameCoordinate": 168.884375,
+        "endSeconds": 6.755375
+      }
+    ]
+  },
+  "method": {
+    "commands": [
+      "jq/python3 over docs/investigations/issue-141/inputs/manifest.json and docs/investigations/issue-141/evidence/source-timing-analysis/analysis.json",
+      "jq/python3 over 21 retained out/.../r2-*/pair.json files, both stable passes, audio tracks only",
+      "sha256sum over retained input and pair JSON artifacts"
+    ],
+    "pairCoverage": {
+      "pairFiles": 21,
+      "stableTimelinePasses": 42,
+      "audioItemObservations": 2776,
+      "repeatedWavObservations": 1894,
+      "bedWavObservations": 882
+    },
+    "getterFieldsCompared": [
+      "GetSourceStartFrame",
+      "GetSourceEndFrame",
+      "GetSourceStartTime",
+      "GetStart",
+      "GetEnd",
+      "GetStart(True)",
+      "GetEnd(True)",
+      "GetDuration(True)"
+    ],
+    "precisionObservation": {
+      "sourceFrameGetters": "Integer-valued in all retained observations; observed repeated.wav source end values: 60, 70, 100, 174, 199.",
+      "sourceTimeGetters": "Frame-grid values (1/25 s = 0.04 s) in retained observations; repeated.wav source end values: 2.4, 2.8, 4.0, 6.96, 7.96 (one 7.959999999999999 serialization).",
+      "recordSubframeGetters": "GetStart(True), GetEnd(True), and GetDuration(True) were serialized as floats but every audio observation was integral; no fractional subframe value was retained.",
+      "sourceSubframeGetter": "No source-space subframe or sample getter was present in the retained item records."
+    }
+  },
+  "rangeComparisons": [
+    {
+      "label": "word-1",
+      "target": {
+        "endExclusiveSample": 36258,
+        "endFrameCoordinate": 18.884375,
+        "endSeconds": 0.755375
+      },
+      "nativeObservation": "No per-word endpoint. Full repeated.wav clip observations include source end 100/4.0 s, 174/6.96 s, or 199/7.96 s; these are clip bounds.",
+      "comparison": "No native source frame/time/subframe readback equals or identifies 18.884375 frames / 0.755375 s.",
+      "classification": "unsupported"
+    },
+    {
+      "label": "word-2",
+      "target": {
+        "endExclusiveSample": 132258,
+        "endFrameCoordinate": 68.884375,
+        "endSeconds": 2.755375
+      },
+      "nativeObservation": "R2 linked and unlinked split pieces bracket the target with source bounds 60/2.4 s and 70/2.8 s; record GetEnd(True) is 2570.0 or 3070.0. No source endpoint at 68.884375/2.755375 is retained.",
+      "comparison": "Observed boundaries are editorial frame cuts, not derived support end. The target lies 222 samples before the next integer frame boundary, but the retained getter cannot represent that sample offset.",
+      "classification": "unsupported"
+    },
+    {
+      "label": "word-3",
+      "target": {
+        "endExclusiveSample": 228258,
+        "endFrameCoordinate": 118.884375,
+        "endSeconds": 4.755375
+      },
+      "nativeObservation": "No per-word endpoint; retained repeated.wav clip bounds are frame-valued and include the full source.",
+      "comparison": "No native source frame/time/subframe readback equals or identifies 118.884375 frames / 4.755375 s.",
+      "classification": "unsupported"
+    },
+    {
+      "label": "word-4",
+      "target": {
+        "endExclusiveSample": 324258,
+        "endFrameCoordinate": 168.884375,
+        "endSeconds": 6.755375
+      },
+      "nativeObservation": "No per-word endpoint; retained repeated.wav clip bounds are frame-valued and include the full source.",
+      "comparison": "No native source frame/time/subframe readback equals or identifies 168.884375 frames / 6.755375 s.",
+      "classification": "unsupported"
+    }
+  ],
+  "focusedReadbacks": [
+    {
+      "case": "R2-linked-second-split",
+      "pair": "out/issue-141-observation-20260930-01a0f318/r2-linked-second-split-20261001T114807.071990Z/pair.json",
+      "items": [
+        {
+          "track": "Audio 1",
+          "uid": "1166ceac-9331-49fa-8fa2-26db3dfe7f2a",
+          "recordStart": 2560,
+          "recordEnd": 2570,
+          "recordEndSubframe": 2570.0,
+          "sourceStartFrame": 60,
+          "sourceEndFrame": 70,
+          "sourceStartTime": 2.4,
+          "sourceEndTime": 2.8
+        },
+        {
+          "track": "Audio 1",
+          "uid": "c6280b39-7618-4136-81e3-17c855866c84",
+          "recordStart": 2500,
+          "recordEnd": 2560,
+          "recordEndSubframe": 2560.0,
+          "sourceStartFrame": 0,
+          "sourceEndFrame": 60,
+          "sourceStartTime": 0.0,
+          "sourceEndTime": 2.4
+        }
+      ]
+    },
+    {
+      "case": "R2-unlinked-second-split",
+      "pair": "out/issue-141-observation-20260930-01a0f318/r2-unlinked-second-split-20261001T125340.736674Z/pair.json",
+      "items": [
+        {
+          "track": "Audio 1",
+          "uid": "904a5a08-f169-4a22-a613-fcdd2614f0e8",
+          "recordStart": 3060,
+          "recordEnd": 3070,
+          "recordEndSubframe": 3070.0,
+          "sourceStartFrame": 60,
+          "sourceEndFrame": 70,
+          "sourceStartTime": 2.4,
+          "sourceEndTime": 2.8
+        },
+        {
+          "track": "Audio 1",
+          "uid": "7c970634-6fcb-4117-9a51-221a482c7142",
+          "recordStart": 3000,
+          "recordEnd": 3060,
+          "recordEndSubframe": 3060.0,
+          "sourceStartFrame": 0,
+          "sourceEndFrame": 60,
+          "sourceStartTime": 0.0,
+          "sourceEndTime": 2.4
+        }
+      ]
+    }
+  ],
+  "evidence": {
+    "manifest": {
+      "path": "docs/investigations/issue-141/inputs/manifest.json",
+      "sha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3"
+    },
+    "sourceTimingAnalysis": {
+      "path": "docs/investigations/issue-141/evidence/source-timing-analysis/analysis.json",
+      "sha256": "cb002407f92a982e0261713d2c68708cf44dd2c7727d2e4977e85a626da1cf0c"
+    },
+    "pairs": [
+      {
+        "path": "out/issue-141-observation-20260930-01a0f318/r2-linked-second-split-20261001T114807.071990Z/pair.json",
+        "sha256": "14654922d98d32febbb82f1f771f222267d6604b1169811ee8495db31d9c5031"
+      },
+      {
+        "path": "out/issue-141-observation-20260930-01a0f318/r2-unlinked-second-split-20261001T125340.736674Z/pair.json",
+        "sha256": "6c9a898e63cb0700e5c7ac53f8cf905c02e14928db266c6c2da33d4673befa72"
+      },
+      {
+        "path": "out/issue-141-observation-20260930-01a0f318/r2-linked-selected-20261001T114212.255973Z/pair.json",
+        "sha256": "4743b0d4c53566580523ce6db2ca555d8d8544bfecba6627b9d4a192cc26cb0d"
+      },
+      {
+        "path": "out/issue-141-observation-20260930-01a0f318/r2-unlinked-selected-20261001T124418.214172Z/pair.json",
+        "sha256": "31a36fbf4730802705280056c73265240969e752bc2db8a71df74409f2289636"
+      }
+    ]
+  },
+  "limits": [
+    "The input manifest and PCM support analysis establish source ranges only; this verification did not read media bytes.",
+    "Clip getters expose clip/source frame bounds and frame-grid source times, not individual nonzero sample-support ends.",
+    "GetEnd(True) is a record/timeline coordinate and cannot be treated as a source-sample endpoint.",
+    "Rounded, inferred, or bracketed endpoints do not prove complete sample omission or program-audio routing.",
+    "No native measurement is retained for exact word-1, word-3, or word-4 endpoints; word-2 has only the 60-to-70 frame bracket."
+  ],
+  "decisionNeeded": "Main should treat R2-derived-end as unverified/unsupported for sample-accurate acceptance and retain the ambiguity. A future acceptance pass requires a native source-space sample/subframe readback or independently inspected rendered PCM aligned to the source ranges."
+}

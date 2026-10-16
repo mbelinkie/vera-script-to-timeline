@@ -1,0 +1,38 @@
+{
+  "taskId": "/root/discriminator_autonomous",
+  "classification": "harness-failure-before-helper-execution",
+  "operatorReportedError": "UnicodeDecodeError: ASCII codec cannot decode byte 0xe2 in position 45",
+  "interpretation": "The wrapper failed while reading console-render.py; no Console helper code ran, no render job was created, and no mapping mutation was performed by Console.",
+  "observation": {
+    "result": "vera-issue-149-workflow-discriminators-result-observe-d3-console-after-console-wrapper-error-20261003-kit-02.json",
+    "resultSha256": "33ff2be7ec232e31be17e275703d21d6dfe74720f5ff098febc06e7d3fd00fb4",
+    "pre": "evidence/observe-d3-console-after-console-wrapper-error-20261003-kit-02/pre.json",
+    "post": "evidence/observe-d3-console-after-console-wrapper-error-20261003-kit-02/post.json",
+    "preSha256": "ff4ffeca6b63239d6f7faa98f8cf15d84506a8991cdd19a484d6ffbea2badce8",
+    "postSha256": "ff4ffeca6b63239d6f7faa98f8cf15d84506a8991cdd19a484d6ffbea2badce8",
+    "matchesLastWIMutePost": true,
+    "timelineName": "D3-console-av-20261003",
+    "timelineUid": "dc548f02-103c-495a-8e88-c4b767aa10dc",
+    "a2ItemUid": "02572600-80b5-43ca-a7bd-6bd74f7b3a89",
+    "a2MappingMute": true,
+    "queueCount": 7,
+    "consoleJobCreated": false,
+    "renderingInProgress": false,
+    "currentPage": "edit"
+  },
+  "consoleConfig": {
+    "path": "params/d3-console-render.json",
+    "actionRemains": "console-render",
+    "actionId": "d3-console-render-20261003-kit-02",
+    "configSha256": "ee05f7d1033c9b64fefaa1cc970a5cf1a9478c598075f82ebc3e89fd0011326c",
+    "resultExists": false,
+    "progressExists": false,
+    "preserveForEncodingFix": true
+  },
+  "protected": {
+    "projectUid": "0591bb41-d645-4af7-a2ee-ff75f8f43162",
+    "sourcePinsUnchanged": true,
+    "noNewProject": true,
+    "noD3OperatorAction": true
+  }
+}

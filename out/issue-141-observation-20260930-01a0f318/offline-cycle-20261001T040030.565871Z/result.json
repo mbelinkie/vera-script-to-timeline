@@ -1,0 +1,29 @@
+{
+  "failure": "RuntimeError: Offline full-state delta exceeded approved leaves",
+  "initialPage": "edit",
+  "initialPlayhead": "00:00:07:24",
+  "journal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/offline-cycle-20261001T040030.565871Z/journal.jsonl",
+  "phases": [],
+  "resultPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/offline-cycle-20261001T040030.565871Z/result.json",
+  "samples": [
+    {
+      "bytes": 6231977,
+      "frame": 0,
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/offline-cycle-20261001T040030.565871Z/online-frame-000.png",
+      "phase": "online",
+      "sha256": "084839cd4e5ecd123e21fe204fbaadd471960290319824081f21de600ec80495",
+      "timecode": "00:00:00:00"
+    },
+    {
+      "bytes": 6231977,
+      "frame": 50,
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/offline-cycle-20261001T040030.565871Z/online-frame-050.png",
+      "phase": "online",
+      "sha256": "a201fea43e7d136f52cf45f84833e2fa8f8473eac2c414f2a730f4a5d8148702",
+      "timecode": "00:00:02:00"
+    }
+  ],
+  "status": "offline-cycle-review-required",
+  "unlinkError": null,
+  "unlinkReturn": true
+}

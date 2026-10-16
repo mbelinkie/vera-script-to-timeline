@@ -1,0 +1,55 @@
+{
+  "taskId": "/root/discriminator_output_verify",
+  "verification": "D3 operator Fairlight page-only staging gate",
+  "verdict": "go-for-page-only-fairlight-action",
+  "classification": "reproduced-setup",
+  "scope": "retained local evidence only; no Fairlight UI action or render by verifier",
+  "projectUid": "0591bb41-d645-4af7-a2ee-ff75f8f43162",
+  "externalScriptingSetting": "None",
+  "previousConsoleRestored": {
+    "captureSha256": "c74ed7e302cc3f1055cc185d43983678e01f3ad5a1767e4c065bf7374f3937b4",
+    "queueCount": 9,
+    "renderingInProgress": false,
+    "mappingRestored": true
+  },
+  "timeline": {
+    "name": "D3-operator-av-20261003",
+    "uid": "f88a069b-af68-40d2-8556-3a7c97c234ec",
+    "videoItemUid": "56cb18fd-a417-45a8-87c1-80fc70a882a3",
+    "audio1ItemUid": "db2502e5-4e44-4b73-9bc6-191e3d259ecd",
+    "audio2ItemUid": "11c37e49-d9f2-4480-b0a1-9ba09b81b4d2",
+    "audio3ItemUid": "80bdb064-0b4a-404d-8b40-b5640630592e",
+    "audio2MediaPoolUid": "eda97c9f-08da-4e29-be52-4ebe8dfd7620",
+    "videoAudio1ReciprocalLinks": true,
+    "audio2Independent": true,
+    "audio3Independent": true,
+    "range": "0..399",
+    "shape": "1920x1080, 25 fps, 48000 Hz"
+  },
+  "workflowIntegrationMute": {
+    "resultSha256": "31c878deeabb1388e5b841ef0753daadf11f620f4a878461054e377f88ea50f8",
+    "renderField": null,
+    "originalMute": false,
+    "mutedReadback": true,
+    "onlyChangedPath": "track_mapping.1.mute",
+    "preSha256": "f564b27a6cc3ce7809db6540b9a3c26c6c8b9650dedc401ae4edba46edf3eeb4",
+    "postSha256": "251441ffe2c9f77a972a4b7190329b417537f9c9bf8240ab2bc9335899f28edf"
+  },
+  "queue": {
+    "before": 9,
+    "after": 9,
+    "newTargetRenderJob": false,
+    "renderingInProgress": false
+  },
+  "pins": {
+    "harnessSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438",
+    "launcherSha256": "a605b875e0755151e1fa03e91a61612fecbf5058f3fb12a67ac6216e6536e2e9",
+    "baseSha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+    "swapSha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+    "a2Sha256": "d9aeccc2d50cb96d81341167450eeb1b2c43fecf0f02b9291b4cd65afa92f9ba",
+    "a3Sha256": "022e3dd779808e5b38ff870cd541d8e25fb940836443262aaa95ce8768817e2b",
+    "sourceHashesVerified": true,
+    "workflowIntegrationDisarmedForManualStep": true
+  },
+  "manualNextStep": "GO: open Fairlight while D3-operator-av-20261003 is current. Do not play, seek, change controls, or render."
+}

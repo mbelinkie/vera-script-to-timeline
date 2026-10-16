@@ -1,0 +1,128 @@
+{
+  "document": {
+    "schemaVersion": "script-document/v2",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "projectId": "00000000-0000-4000-8000-000000000002",
+    "title": "Compiler v2 synthetic",
+    "activeDraft": {
+      "blocks": [
+        {
+          "type": "visual_only",
+          "id": "00000000-0000-4000-8000-00000000001e",
+          "orderKey": "a0",
+          "version": 1,
+          "payload": {
+            "kind": "visual",
+            "payloadId": "00000000-0000-4000-8000-00000000001f",
+            "pictureKind": "intentional_placeholder",
+            "source": {
+              "kind": "intentional_placeholder",
+              "text": "Intentional slate"
+            },
+            "audioPolicy": "mute",
+            "framingPolicy": "contain"
+          },
+          "visualOnlyTiming": {
+            "kind": "visual_only"
+          }
+        }
+      ],
+      "supportingItems": []
+    },
+    "ideaOutline": [],
+    "extras": [],
+    "liveHeadSequence": 0,
+    "liveStateVector": "",
+    "liveContentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "dependencies": {
+    "schemaVersion": "compiler-dependencies/v2",
+    "build": {
+      "buildId": "00000000-0000-4000-8000-000000000003",
+      "manifestId": "00000000-0000-4000-8000-000000000004",
+      "reportId": "00000000-0000-4000-8000-000000000005",
+      "buildClass": "preview"
+    },
+    "document": {
+      "documentId": "00000000-0000-4000-8000-000000000001",
+      "projectId": "00000000-0000-4000-8000-000000000002",
+      "revision": 1,
+      "liveHeadSequence": 0,
+      "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "textHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "compiler": {
+      "version": "compiler/v2",
+      "sourceHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    "authoringDefaults": {
+      "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "visualOnlyStillDurationMs": 3000,
+      "presenterStill": null,
+      "sourceAudioLevelPolicy": {
+        "version": "source-audio-level/v1",
+        "quietGainDb": -18,
+        "fullGainDb": 0
+      }
+    },
+    "timeline": {
+      "frameRate": {
+        "numerator": 25,
+        "denominator": 1
+      },
+      "width": 1920,
+      "height": 1080,
+      "audioSampleRate": 48000,
+      "startFrame": 0,
+      "durationFrames": 240
+    },
+    "tracks": [
+      {
+        "id": "video-root",
+        "kind": "video",
+        "index": 1,
+        "name": "Primary root"
+      },
+      {
+        "id": "narration",
+        "kind": "audio",
+        "index": 1,
+        "name": "Narration"
+      },
+      {
+        "id": "placeholder",
+        "kind": "video",
+        "index": 2,
+        "name": "Placeholder"
+      },
+      {
+        "id": "presenter",
+        "kind": "video",
+        "index": 3,
+        "name": "Presenter"
+      },
+      {
+        "id": "markers",
+        "kind": "video",
+        "index": 4,
+        "name": "Markers"
+      }
+    ],
+    "roles": {
+      "primaryRootTrackId": "video-root",
+      "childTrackIds": [],
+      "overlayTrackIds": [],
+      "presenterTrackId": "presenter",
+      "placeholderTrackId": "placeholder",
+      "narrationTrackId": "narration",
+      "sourceAudioTrackIds": [],
+      "markerTrackId": "markers"
+    },
+    "narrationTimingMaps": [],
+    "occurrenceResolutions": [],
+    "preparedMedia": [],
+    "presenterAlignmentResolutions": []
+  }
+}

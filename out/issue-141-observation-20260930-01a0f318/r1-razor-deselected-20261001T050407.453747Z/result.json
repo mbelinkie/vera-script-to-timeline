@@ -1,0 +1,14 @@
+{
+  "failure": "RuntimeError: Documented selected-clip dictionary unreadable",
+  "label": "r1-razor-deselected",
+  "limits": [
+    "External menu result requires separate full-state interpretation."
+  ],
+  "pair": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r1-razor-deselected-20261001T050407.453747Z/pair.json",
+    "sha256": "ea8525413c0b32a7fbefc290be8b9463a9c6aa8a977449af3f69da8664f21903"
+  },
+  "readOnly": true,
+  "selectionPasses": [],
+  "status": "refused"
+}

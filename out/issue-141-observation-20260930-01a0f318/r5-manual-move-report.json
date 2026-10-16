@@ -1,0 +1,19 @@
+{
+  "status": "launcher-timeout-evidence-retained",
+  "operatorReply": "moved",
+  "case": "R5-marker-and-move",
+  "readOnlyRequest": true,
+  "timeoutSeconds": 10,
+  "auditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T134214.581624Z",
+  "newNativeResults": [],
+  "at": "2026-10-01T13:44:00.180199+00:00",
+  "limits": [
+    "No new raw readback; no move completion claim.",
+    "No Resolve edit, nudge retry, save or reopen dispatched."
+  ],
+  "configurationDisarmed": true,
+  "manualObservationStaged": true,
+  "automationStillPaused": true,
+  "processObservation": "Resolve process present; no Hammerspoon process found",
+  "followup": "Run Workspace > Workflow Integrations > VERA Issue 141 Observation once; no clip edit requested"
+}

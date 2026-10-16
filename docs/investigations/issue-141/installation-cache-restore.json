@@ -1,0 +1,28 @@
+{
+  "kind": "staged-exact-owned-cache-restoration-not-executed",
+  "stagedAt": "2026-10-01T00:09:08.768295+00:00",
+  "action": "restore-pinned-cache",
+  "stage": "R4-restore-owned-cache-preparation",
+  "probeSha256": "c8b280472effa7bb417bfc8cdb0c6f8e1d06289488c1fa824f6da688e2f2e2ba",
+  "cacheModuleSha256": "29e651d0940a97fe93956056e9c39c16b31f507202ac502553dce8a6776befc7",
+  "launcherSha256": "d090ce7cace514263b65ddfbf30945f77dbd49608c6f4137d2db6a0e6080b53e",
+  "privateConfigSha256": "d2d4265d014aa5f6986e8e8d89481e17f1909337654ef1c6c18902d42a59705a",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "guardEvidence": [
+    {
+      "filename": "capture-20260930T234711.275916Z.json",
+      "sha256": "3d08f757c8e188bbc5c1584158f5ea29c23f5bb7745bf01bd5de42c6d6436a46"
+    },
+    {
+      "filename": "capture-20260930T223313.312609Z-saved.json",
+      "sha256": "a29402d405ab8cf1bc1abedd4c1ed0c479e983e2ef3ba6fc41d1c2389d6d36d2"
+    }
+  ],
+  "timelineId": "29ae8331-b86e-4041-a548-960695cc7b24",
+  "allowedApiMutations": [
+    "Project.SetSetting(perfCacheClipsLocation, exact original pinned owned directory)"
+  ],
+  "failureLimit": "Single setting call; retain false/partial returns and postflight; no save, import, retry or cleanup.",
+  "privatePathsPublished": false
+}

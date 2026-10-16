@@ -1,0 +1,30 @@
+{
+  "kind": "bounded-single-job-audio-only-output",
+  "stagedAt": "2026-10-01T01:55:32.670482+00:00",
+  "action": "audio-output",
+  "stage": "R2-audio-output",
+  "probeSha256": "5981d9fbeac25150b2afc90d74adb260fd31275ad7bd234d0d6f2b6a2b856204",
+  "moduleSha256": "be3c27f98e379465d3261c43a1769dea7056a1ad532306c9c7c893ea1f6c69f0",
+  "launcherSha256": "c9d82128a1dd9df2b75b33c9383c2bc99a379274cd1042c6069e82455f99f1fb",
+  "privateConfigSha256": "2f71a2be7b7fddcdc6a593e61f164e00057f412f35f7da4e6299a7b53b0ae4ad",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "checkpointName": "matrix-checkpoint-20261001T015209.473668Z-matrix-observation.json",
+  "checkpointSha256": "0220a23be312aea5906900dd094c8e21b363294bb11f9b0f1201ab23f40c4cbf",
+  "priorConfigSha256": "c7da70b96bf46602bd405c8af9c34c66e3e573e9f3bfcfa599e7d9ee0b019e2a",
+  "verifiedMatrixResultSha256": "a12f6cb5cb10c2ecc29dd2b2fbc61c13ed70a5e1bc7a0707b03812666a6e7946",
+  "allowedApiMutations": [
+    "SaveAsNewRenderPreset unique owned snapshot",
+    "ExportRenderPreset owned recovery file",
+    "SetRenderSettings audio-only",
+    "AddRenderJob one new returned ID",
+    "StartRendering returned ID only",
+    "LoadRenderPreset owned snapshot",
+    "DeleteRenderJob only owned terminal job",
+    "DeleteRenderPreset owned snapshot only"
+  ],
+  "currentFormatModeSetterAllowed": false,
+  "saveAllowed": false,
+  "retryAllowed": false,
+  "privatePathsPublished": false
+}

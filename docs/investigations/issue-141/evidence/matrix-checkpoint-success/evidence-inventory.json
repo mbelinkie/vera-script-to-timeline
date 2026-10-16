@@ -1,0 +1,46 @@
+{
+  "kind": "compact-evidence-inventory",
+  "note": "Source evidence remains in the owned out directory; no large captures copied.",
+  "sourceFiles": {
+    "comparison": {
+      "bytes": 978,
+      "name": "matrix-checkpoint-independent-comparison.json",
+      "sha256": "9d11ae1a03862ccd73cf4637924e55df00d57e3f374e979220444d2d8f1487c6"
+    },
+    "dispatch": {
+      "bytes": 2581,
+      "name": "hammerspoon-launch-20261001T015208.699897Z.jsonl",
+      "sha256": "c87bfde820f4ac60f7b77a7224879216650048fb1535d940cc52ce9618d07015"
+    },
+    "installation": {
+      "bytes": 1072,
+      "name": "installation-matrix-checkpoint.json",
+      "sha256": "824f7f41733bb2be78213c165f01b843d2ea43b2ceb938318e168ab171c98cba"
+    },
+    "journal": {
+      "bytes": 4321826,
+      "name": "matrix-checkpoint-20261001T015209.473668Z.jsonl",
+      "sha256": "973b7beb44a97efb43b3fa222c44ec5c1ef81657c6f3908d2efa1c86b50179a9"
+    },
+    "matrixObservation": {
+      "bytes": 4658530,
+      "name": "matrix-checkpoint-20261001T015209.473668Z-matrix-observation.json",
+      "sha256": "0220a23be312aea5906900dd094c8e21b363294bb11f9b0f1201ab23f40c4cbf"
+    },
+    "nativeResult": {
+      "bytes": 1333,
+      "name": "vera-issue-141-observation-result-20261001T015209.426591Z.json",
+      "sha256": "a12f6cb5cb10c2ecc29dd2b2fbc61c13ed70a5e1bc7a0707b03812666a6e7946"
+    },
+    "privateResult": {
+      "bytes": 1264,
+      "name": "matrix-checkpoint-20261001T015209.473668Z-result.json",
+      "sha256": "7452e565848e15d39b161d43779337f9a47e77173fb48aa2da5202e6a50538a8"
+    },
+    "r4Preflight": {
+      "bytes": 4601652,
+      "name": "matrix-checkpoint-20261001T015209.473668Z-r4-preflight.json",
+      "sha256": "0e25da20728111bba2342e1bd58d85b57da4e04f4fa4d3d45bb8821f5c23a7a6"
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "taskId": "/root/discriminator_verify_cont",
+  "scope": "Independent review of the known-disposable queue guard repair for Issue 149 prepare-01",
+  "verdict": "go-for-unique-prepare-retry",
+  "go": true,
+  "goHash": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438",
+  "planSha256": "7e05cb8141c93a21b8f5e961d5fcaea6521870f95961b44f634cf10fd4c6e02",
+  "diffReview": {
+    "baseline": "out/issue149-workflow-discriminators-20261003-kit-02/sources/874027b24b492361c8041dc00062b4eb9bc74443d8a7c698e3a026dbcfe997f8/harness.py",
+    "current": "docs/investigations/issue-149/workflow-discriminators/harness.py",
+    "result": "Only _creation_guard changed: each GetRenderJobList row must have JobId; terminal state is read with GetRenderJobStatus(project, JobId); original queue rows are preserved and status evidence is appended; IsRenderingInProgress must remain exactly False.",
+    "currentSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438",
+    "baselineSha256": "874027b24b492361c8041dc00062b4eb9bc74443d8a7c698e3a026dbcfe997f8",
+    "scopeMatch": true
+  },
+  "nativeEvidenceFit": {
+    "prepareResult": "out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-prepare-01-20261003-kit-02.json",
+    "retainedJournal": "out/issue149-workflow-discriminators-20261003-kit-02/evidence/prepare-01-20261003-kit-02/journal.jsonl",
+    "observedQueueShape": "Seven GetRenderJobList rows contain JobId and render metadata but no JobStatus; prepare-01 stopped with known-disposable project has a non-terminal render job.",
+    "statusGetterEvidence": "Retained #149 workflow-reruns journals show GetRenderJobStatus(JobId) returning mappings with JobStatus and CompletionPercentage.",
+    "preservesQueueAndRenderingFlag": true
+  },
+  "focusedChecks": [
+    {
+      "command": "python3.14 -S docs/investigations/issue-149/workflow-discriminators/discriminator-check.py",
+      "result": "passed",
+      "nativeApplicationLaunched": false
+    },
+    {
+      "command": "python3.14 -S docs/investigations/issue-149/workflow-discriminators/harness-check.py",
+      "result": "passed",
+      "nativeApplicationLaunched": false
+    }
+  ],
+  "statusGuardCoverage": [
+    "Queue rows without JobStatus are accepted when per-job GetRenderJobStatus is terminal.",
+    "Active and unknown per-job statuses are refused.",
+    "Missing JobId, unreadable status, UID mismatch, and IsRenderingInProgress true are refused.",
+    "Returned guard retains original queue rows, separate renderJobStatuses, and false isRenderingInProgress."
+  ],
+  "boundary": "GO authorizes one new uniquely identified prepare dispatch using this hash-bound source and the observed known-disposable project name/UID. It does not authorize replay of prepare-01, native case execution, project cleanup, or any claim about the five discriminator outcomes.",
+  "limitations": [
+    "Offline checks use fake native objects; no Resolve launch, Workflow Integration call, render, or new prepare dispatch was performed by this reviewer.",
+    "The retained prepare-01 refusal remains a harness failure/observation issue, not a Resolve capability result.",
+    "The worker source and focused checks were reviewed from the shared worktree; Git state was not changed."
+  ],
+  "references": [
+    "docs/investigations/issue-149/workflow-discriminators/harness.py:405-430",
+    "docs/investigations/issue-149/workflow-discriminators/discriminator-check.py:45-182",
+    "out/issue149-workflow-discriminators-20261003-kit-02/recovery/queue-guard-review.json",
+    "out/issue149-workflow-discriminators-20261003-kit-02/dispatches/prepare-01-20261003-kit-02.json",
+    "out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-prepare-01-20261003-kit-02.json"
+  ]
+}

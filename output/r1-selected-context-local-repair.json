@@ -1,0 +1,19 @@
+{
+  "kind": "r1-selected-context-local-repair",
+  "at": "2026-10-02T12:34:58.006834+00:00",
+  "status": "local-check-passed-awaiting-independent-review-and-registration",
+  "nativeDispatchPerformed": false,
+  "helperSha256": "85ce97c13bf68061833e8d9acbb8cb2d16728125fcfa0a7a24d98bee99edb8b3",
+  "checkerSha256": "91c9d718101690e304e456a9c91b39d8afa531f24e9465e6cbf7a9e1827a023e",
+  "registeredHelperSha256": "4aece3d8ab7c7e0ab215fc9eb841fc95b56b85fb0809859e7f587ce83b0e2c28",
+  "registeredPinsUpdated": false,
+  "nativeRefusal": "c8558ade1c6ad39d48181f86b8be77f0d4f4b836ce9bdab8e203c563d99fe61c",
+  "duplicateAttempted": false,
+  "projectInventory": 6,
+  "lastObservedSelectedTimeline": "VERA 141 R1 identity",
+  "reproduction": "Real pair-01 versus pair-03 reproduced selected R1 source signature refusal before correction.",
+  "check": "ctx-wire run rtk proxy /usr/local/bin/python3.14 -S docs/investigations/issue-141/r1-repeat-six-check.py",
+  "result": "PASS: existing fake API guards and real selected-context regression; no native dispatch",
+  "limits": "Structural cross-context comparison excludes only track enabled/locked getters and eight named audio dialogue/voice properties. Complete raw fields retained; same-context captures remain required for control/effect claims.",
+  "next": "Independent repair review; guarded Matrix selection restoration from retained selected-R1 checkpoint; registration of reviewed pins; fresh Matrix checkpoint; one final duplicate; full-seven review. No reopen or render replay."
+}

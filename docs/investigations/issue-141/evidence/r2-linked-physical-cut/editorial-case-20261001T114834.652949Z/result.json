@@ -1,0 +1,47 @@
+{
+  "afterPair": {
+    "path": "editorial-case-20261001T114834.652949Z/after.json",
+    "sha256": "1be6a4fe8f6f98e31b9cac544e7251c74e24f7e07aaa0668985d2ae753e66e48"
+  },
+  "case": "R2-linked",
+  "deleteError": null,
+  "deleteReturn": true,
+  "directory": "<probe-output>/editorial-case-20261001T114834.652949Z",
+  "firstSplitPair": {
+    "path": "r2-linked-first-split-20261001T114241.786789Z/pair.json",
+    "sha256": "c709b81966a0de8ea774c9e801ba5f7a52676af82bd684422e27f7e268a3b026"
+  },
+  "interval": {
+    "recordEndRaw": 2570,
+    "recordStart": 2560,
+    "sourceEndRaw": 70,
+    "sourceStart": 60
+  },
+  "intervalUids": {
+    "audio": "1166ceac-9331-49fa-8fa2-26db3dfe7f2a",
+    "video": "9cc9127c-c327-41b6-ae14-eeb7b3b021d1"
+  },
+  "journal": "<probe-output>/editorial-case-20261001T114834.652949Z/journal.jsonl",
+  "preparationResult": {
+    "path": "editorial-case-20261001T114157.088616Z/result.json",
+    "sha256": "9886e33d03fb0446675ded72ec1729f88db5e7df19aae65bfd0b3204f17e4e9f"
+  },
+  "saveDispatched": false,
+  "secondPositionPair": {
+    "path": "editorial-case-20261001T114623.043025Z/after.json",
+    "sha256": "c709b81966a0de8ea774c9e801ba5f7a52676af82bd684422e27f7e268a3b026"
+  },
+  "secondPositionResult": {
+    "path": "editorial-case-20261001T114623.043025Z/result.json",
+    "sha256": "7546849723c04104b84afb855f1052b8fcc94c0f369004a8d4c0b16a4a88eba9"
+  },
+  "secondSplitPair": {
+    "path": "r2-linked-second-split-20261001T114807.071990Z/pair.json",
+    "sha256": "14654922d98d32febbb82f1f771f222267d6604b1169811ee8495db31d9c5031"
+  },
+  "sourceUids": {
+    "audio": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+    "video": "9202163a-8381-43e6-9157-3a60f35c6f79"
+  },
+  "status": "interval-deleted-unsaved"
+}

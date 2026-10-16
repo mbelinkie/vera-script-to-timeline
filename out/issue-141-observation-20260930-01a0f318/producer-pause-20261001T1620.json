@@ -1,0 +1,36 @@
+{
+  "kind": "producer-pause-evidence-checkpoint",
+  "at": "2026-10-01T16:22:22.733050+00:00",
+  "producerRequest": "find a good place to pause",
+  "completed": 26,
+  "total": 41,
+  "privateAction": "observe",
+  "allRetainedProgressTerminal": true,
+  "latestNativeResult": {
+    "name": "vera-issue-141-observation-result-20261001T160623.751610Z.json",
+    "sha256": "b17dd8ce1a2df7aa69b37ebac458d58a705dc085811626781865ee5e4a128648",
+    "status": "inconsistent-refused"
+  },
+  "latestAttempt": {
+    "path": "independent-action-20261001T161732.073528Z/launch.json",
+    "sha256": "c2487dafb86e916209d3014c354757b721072964999c52c485fb4489a65e1592",
+    "action": "edit-page",
+    "outcome": "exact-project guard refused before menu selection"
+  },
+  "sourcePins": {
+    "probe": "33e89ab7dd8c21b40b114ec6bda68c6db19d31dfd912ee7c8d842361e4b50eb0",
+    "readOnlyCollector": "dba56a716aff973afdcc977df51fdc4b08ae1f727ce24f7c41d94c0f9ce32d22",
+    "launcher": "6d28bf3d2dcd652e6c6b13ad913abd999d37aa6f105d670b4bf5f15555d19a79"
+  },
+  "limits": [
+    "Retained evidence checkpoint, not a new verified Resolve save.",
+    "No timeline edit/save/render/nudge retry dispatched in this continuation.",
+    "R5 manual move remains incomplete; current full timeline/pool evidence is not stable."
+  ],
+  "resume": [
+    "Verify exact open project/window identity through approved read-only guard.",
+    "Run repaired complete read-only collector once only after identity passes.",
+    "Retain cache/Usage differences literally; do not replay the manual move.",
+    "Continue transcript and independent R2/R3/output/repeat tests from fresh verified state."
+  ]
+}

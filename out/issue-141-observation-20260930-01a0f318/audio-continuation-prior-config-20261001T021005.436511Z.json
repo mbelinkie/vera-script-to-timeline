@@ -1,0 +1,17 @@
+{
+  "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+  "externalScriptingSetting": "None",
+  "action": "observe",
+  "stage": "after-audio-preset-export-refusal",
+  "mediaDir": "REPOSITORY/out/issue-141-media-20260930-01a0f318",
+  "outputDir": "REPOSITORY/out/issue-141-observation-20260930-01a0f318",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "probePath": "REPOSITORY/docs/investigations/issue-141/probe.py",
+  "probeSha256": "331b82d5be128ea0ff2ac633b9afee6ceae9215254f1a46bf78859d07c9ac226",
+  "resumeFailure": "preparation-failure-20260930T172018.538043Z.json",
+  "resumeFailureSha256": "07dd629af05828baa0294b80e613f73be98577b2e66a271b4aa464fe29bb998e",
+  "resumeJournal": "preparation-20260930T172018.538043Z.jsonl",
+  "resumeJournalSha256": "1085b1281c7ac102ab6404580217f7bf8806271e80d30db4738bf92ebb109b1b",
+  "checkpointPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/matrix-checkpoint-20261001T015209.473668Z-matrix-observation.json",
+  "renderTimeoutSeconds": 30
+}

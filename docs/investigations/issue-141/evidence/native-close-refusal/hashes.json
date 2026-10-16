@@ -1,0 +1,20 @@
+[
+  {
+    "filename": "native-repeat-20260930T194233.902744Z.jsonl",
+    "rawSha256": "89577090189fae678919835943624835afa47f697d2c4054519cfadbbfdc3207",
+    "publishedSha256": "89577090189fae678919835943624835afa47f697d2c4054519cfadbbfdc3207",
+    "redaction": "none required; no private paths"
+  },
+  {
+    "filename": "capture-20260930T194233.902744Z-before.json",
+    "rawSha256": "43ad23a851e851d7473a5c63804b5c551047982afcdabc6d73b92b688e19fab7",
+    "publishedSha256": "bb73535b8da390db156349385ea0638563a23d833c93ad1ad42a103a5b8c0ef4",
+    "redaction": "private absolute paths replaced with <probe-output> or <user-home>"
+  },
+  {
+    "filename": "vera-issue-141-observation-result-20260930T194233.749464Z.json",
+    "rawSha256": "43e7d90a3bb8aea83e01aa969484ab5cebe35782d7f85f0c8e180a2b1b26c0db",
+    "publishedSha256": "43e7d90a3bb8aea83e01aa969484ab5cebe35782d7f85f0c8e180a2b1b26c0db",
+    "redaction": "none required; no private paths"
+  }
+]

@@ -1,0 +1,6 @@
+{"at": "2026-10-03T05:47:49.911981+00:00", "phase": "started", "value": {"actionId": "render-poll-w3-direct-av-20261003-kit-02", "configSha256": "6b66fdae7065a039248e1a1ab436d4656319135897a9cb19695c7147d85cf0bc"}}
+{"at": "2026-10-03T05:47:50.006517+00:00", "phase": "probe-verified", "value": {"probePath": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/sources/ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438/harness.py", "probeSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438"}}
+{"at": "2026-10-03T05:47:50.009520+00:00", "phase": "disarmed", "value": {"action": "render-poll", "actionId": "render-poll-w3-direct-av-20261003-kit-02"}}
+{"at": "2026-10-03T05:47:50.009926+00:00", "phase": "probe-request", "value": {"action": "render-poll", "phase": "render-poll-w3-direct-av"}}
+{"at": "2026-10-03T05:47:57.126000+00:00", "phase": "probe-return", "value": {"status": "ok"}}
+{"at": "2026-10-03T05:47:57.128057+00:00", "phase": "result-written", "value": {"result": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-render-poll-w3-direct-av-20261003-kit-02.json", "status": "ok"}}

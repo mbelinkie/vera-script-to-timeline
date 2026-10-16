@@ -1,0 +1,43 @@
+{
+  "getterFailures": {
+    "postflight": [],
+    "preflight": []
+  },
+  "journalMutation": {
+    "key": "perfCacheClipsLocation",
+    "method": "SetSetting",
+    "requests": 1,
+    "return": true
+  },
+  "kind": "cache-restoration-success",
+  "limits": [
+    "No save, import, render, or timeline-content mutation was requested.",
+    "This restores the pinned cache-setting readback after the earlier reopen observation; it does not establish a broader Resolve reopen contract."
+  ],
+  "originalSavedPin": {
+    "filename": "original-saved-pin.json",
+    "rawSha256": "a29402d405ab8cf1bc1abedd4c1ed0c479e983e2ef3ba6fc41d1c2389d6d36d2"
+  },
+  "otherMutationsRequested": [],
+  "postflightConsistency": "equal-adjacent-reads",
+  "postflightPassesEqualOriginalSavedPin": true,
+  "preflightConsistency": "equal-adjacent-reads",
+  "preflightDifferencesFromSavedPin": {
+    "distinctObjects": "project plus three timelines",
+    "field": "perfCacheClipsLocation",
+    "initialValue": "CacheClip",
+    "leafDifferencesAcrossTwoPasses": 8,
+    "restorationTarget": "exact original pinned owned cache directory"
+  },
+  "rawSha256": {
+    "hammerspoon-launch-20261001T000930.669979Z.jsonl": "0b08a0e06f29c122ec6d61571eadc035690847a44aaf6912bfc08e5b79db168c",
+    "installation-cache-restore.json": "1d1cca37d6da2f495f34a4e884c67719c997d7af0c831284c9278ed0c3575d70",
+    "journal.jsonl": "becb5cd3af1782f6445c383e4a67809e2240ae895a5b4212628680e82816fd40",
+    "original-saved-pin.json": "a29402d405ab8cf1bc1abedd4c1ed0c479e983e2ef3ba6fc41d1c2389d6d36d2",
+    "postflight.json": "d0da206cbf92a6e8a4487e4e4d4987551888303bd207f0741b411b3978a730ff",
+    "preflight.json": "159c2d7e6ac961b182d98b651d01e43b9b2dbe8acc8adbde73b912f0835b517b",
+    "vera-issue-141-observation-result-20261001T000931.473925Z.json": "128990dbc0c0609c5286ed283f1aa302bc64acc8ea9df08a25fc40cffd218bbd"
+  },
+  "resultStatus": "restored-to-saved-pin",
+  "runAt": "2026-10-01T00:09:51Z"
+}

@@ -1,0 +1,1 @@
+I did not run Resolve. The reviewed driver and `latest-reviewed-source-pins.json` were not present in the repository, and the search under `LOCAL_PATH/f8a901af18ed9782` did not finish, so I could not verify the required driver hash or source pins. I stopped before any Resolve action. No executor result file was written.

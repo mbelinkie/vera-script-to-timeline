@@ -1,0 +1,3 @@
+The approved restore action returned `restored-unsaved`, with the approved original locks and playhead. All three approved Auto Select menus dispatched, and the final readback pair SHA matches the restored pair SHA.
+
+The required empty-selection check failed: both readback passes still report 2 selected clips. I stopped without further actions. The full result is in [graphic-restore-only-result.json](graphic-restore-only-result.json) (SHA-256 `9a843eeb…be5444d`). Root review is needed before any next action.

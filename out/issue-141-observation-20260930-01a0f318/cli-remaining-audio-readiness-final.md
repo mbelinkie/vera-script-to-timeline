@@ -1,0 +1,3 @@
+Created [remaining-audio-output-readiness.json](remaining-audio-output-readiness.json).
+
+It separates retained enable-state evidence from unobserved mute/solo and routing, records that output verification remains incomplete, and flags the full-matrix inclusive-end check as an untested harness assumption. It also identifies the stale 640×360 continuation and the fresh-checkpoint, queue-only next step. No native actions or renders were performed.

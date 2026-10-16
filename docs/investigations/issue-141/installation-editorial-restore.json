@@ -1,0 +1,15 @@
+{
+  "kind": "approved-r1-razor-context-restoration",
+  "stagedAt": "2026-10-01T05:33:32.127452+00:00",
+  "probeSha256": "575f37463562648ef888c9ec8df8bacfa7dbf8a6f0ad3db2d55387b4e3b2d128",
+  "moduleSha256": "7038d01f9df7cfebb483faf4b0097e0090cd0b974b513423c2f57d0be820dc9d",
+  "launcherSha256": "6bfa20aa89f0a085784fc2c8ced56bce2577a2cc63c21c48fc8ebaebbe704a7b",
+  "privateConfigSha256": "26f7df02e39fc0eebadb72f17d76f6df36bf0c9fd582d150451d1d4d9de46e1d",
+  "allowedNativeMutations": [
+    "restore V2/V3/A2/A3 locks False",
+    "restore Matrix playhead 00:06:07:24"
+  ],
+  "editorialDispatch": false,
+  "retryAllowed": false,
+  "stopOnUnrelatedDrift": true
+}

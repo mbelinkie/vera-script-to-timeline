@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import {
+  copyFileSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
@@ -24,16 +25,113 @@ const checkedInPythonDirectory = join(
   repositoryRoot,
   "python/vera_timeline_agent/generated/contracts",
 );
-const schemaFiles = [
+const v1SchemaFiles = [
   "script-document-v1.schema.json",
   "timeline-manifest-v1.schema.json",
   "build-report-v1.schema.json",
   "compiler-dependencies-v1.schema.json",
   "prompter-export-v1.schema.json",
+  "recognition-artifact-v1.schema.json",
+  "alignment-artifact-v1.schema.json",
+  "script-reconciliation-v1.schema.json",
+  "port-refusal-v1.schema.json",
   "public-page-capture-api-v1.schema.json",
   "public-page-capture-worker-v1.schema.json",
   "public-page-capture-provenance-v1.schema.json",
   "spotlight-evidence-v1.schema.json",
+];
+const v2SchemaFiles = [
+  "script-document-v2.schema.json",
+  "authoring-project-settings-v1.schema.json",
+  "compiler-dependencies-v2.schema.json",
+  "timeline-manifest-v2.schema.json",
+  "build-report-v2.schema.json",
+];
+const typeScriptGroups = [
+  {
+    schemas: v1SchemaFiles,
+    title: "VeraContractsV1",
+    output: "contracts.ts",
+    roots: [
+      ["scriptDocument", v1SchemaFiles[0]],
+      ["timelineManifest", v1SchemaFiles[1]],
+      ["buildReport", v1SchemaFiles[2]],
+      ["compilerDependencies", v1SchemaFiles[3]],
+      ["prompterExport", v1SchemaFiles[4]],
+      ["recognitionArtifact", v1SchemaFiles[5]],
+      ["alignmentArtifact", v1SchemaFiles[6]],
+      ["scriptReconciliation", v1SchemaFiles[7]],
+      ["portRefusal", v1SchemaFiles[8]],
+      ["publicPageCaptureApi", v1SchemaFiles[9]],
+      ["publicPageCaptureWorker", v1SchemaFiles[10]],
+      ["publicPageCaptureProvenance", v1SchemaFiles[11]],
+      ["spotlightEvidence", v1SchemaFiles[12]],
+    ],
+    requiredRoots: [
+      "scriptDocument",
+      "timelineManifest",
+      "buildReport",
+      "compilerDependencies",
+      "prompterExport",
+      "recognitionArtifact",
+      "alignmentArtifact",
+      "scriptReconciliation",
+      "portRefusal",
+    ],
+  },
+  {
+    schemas: v2SchemaFiles,
+    title: "VeraContractsV2",
+    output: "contracts-v2.ts",
+    roots: [
+      ["scriptDocument", v2SchemaFiles[0]],
+      ["authoringProjectSettings", v2SchemaFiles[1]],
+      ["compilerDependencies", v2SchemaFiles[2]],
+      ["timelineManifest", v2SchemaFiles[3]],
+      ["buildReport", v2SchemaFiles[4]],
+      ["compilerResult", v2SchemaFiles[4] + "#/$defs/CompilerResultV2"],
+      ["boundaryTokenEvidence", v2SchemaFiles[2] + "#/$defs/BoundaryTokenEvidenceV1"],
+      ["boundaryVerification", v2SchemaFiles[2] + "#/$defs/BoundaryVerificationV1"],
+      ["wordAudibleEndAnchor", v2SchemaFiles[0] + "#/$defs/WordAudibleEndAnchor"],
+    ],
+  },
+];
+const pythonGroups = [
+  {
+    name: "v1",
+    schemas: v1SchemaFiles,
+    exports: [
+      ["build_report_v1_schema", "BuildReportV1"],
+      ["compiler_dependencies_v1_schema", "CompilerDependenciesV1"],
+      ["prompter_export_v1_schema", "PrompterExportV1"],
+      ["script_document_v1_schema", "ScriptDocumentV1"],
+      ["timeline_manifest_v1_schema", "TimelineManifestV1"],
+      ["recognition_artifact_v1_schema", "RecognitionArtifactV1"],
+      ["alignment_artifact_v1_schema", "AlignmentArtifactV1"],
+      ["script_reconciliation_v1_schema", "ScriptReconciliationV1"],
+      ["port_refusal_v1_schema", "PortRefusalV1"],
+      ["public_page_capture_api_v1_schema", "PublicPageCaptureApiV1"],
+      ["public_page_capture_worker_v1_schema", "PublicPageCaptureWorkerV1"],
+      ["public_page_capture_provenance_v1_schema", "PublicPageCaptureProvenanceV1"],
+      ["spotlight_evidence_v1_schema", "SpotlightEvidenceV1"],
+    ],
+  },
+  {
+    name: "v2",
+    schemas: v2SchemaFiles,
+    exports: [
+      ["authoring_project_settings_v1_schema", "AuthoringProjectSettingsV1"],
+      ["build_report_v2_schema", "BuildReportV2"],
+      ["build_report_v2_schema", "CompilerResultV2"],
+      ["compiler_dependencies_v2_schema", "CompilerDependenciesV2"],
+      ["compiler_dependencies_v2_schema", "NarrationBoundaryEvidenceV1"],
+      ["compiler_dependencies_v2_schema", "BoundaryTokenEvidenceV1"],
+      ["compiler_dependencies_v2_schema", "BoundaryVerificationV1"],
+      ["script_document_v2_schema", "WordAudibleEndAnchor"],
+      ["script_document_v2_schema", "ScriptDocumentV2"],
+      ["timeline_manifest_v2_schema", "TimelineManifestV2"],
+    ],
+  },
 ];
 
 function readJson(path) {
@@ -45,44 +143,36 @@ function recreateDirectory(path) {
   mkdirSync(path, { recursive: true });
 }
 
-async function generateTypeScript(outputDirectory) {
-  recreateDirectory(outputDirectory);
+async function generateTypeScript(outputDirectory, group) {
+  mkdirSync(outputDirectory, { recursive: true });
   const aggregateSchema = {
     $schema: "https://json-schema.org/draft/2020-12/schema",
-    title: "VeraContractsV1",
+    title: group.title,
     description:
       "Generated aggregate type surface for the VERA shared contracts.",
     type: "object",
     additionalProperties: false,
-    required: [
-      "scriptDocument",
-      "timelineManifest",
-      "buildReport",
-      "compilerDependencies",
-      "prompterExport",
-    ],
-    properties: {
-      scriptDocument: { $ref: schemaFiles[0] },
-      timelineManifest: { $ref: schemaFiles[1] },
-      buildReport: { $ref: schemaFiles[2] },
-      compilerDependencies: { $ref: schemaFiles[3] },
-      prompterExport: { $ref: schemaFiles[4] },
-      publicPageCaptureApi: { $ref: schemaFiles[5] },
-      publicPageCaptureWorker: { $ref: schemaFiles[6] },
-      publicPageCaptureProvenance: { $ref: schemaFiles[7] },
-      spotlightEvidence: { $ref: schemaFiles[8] },
-    },
+    required: group.requiredRoots ?? group.roots.map(([name]) => name),
+    properties: Object.fromEntries(
+      group.roots.map(([name, schemaFile]) => [name, { $ref: schemaFile }]),
+    ),
   };
 
   // Parse every source eagerly so malformed JSON fails before either language
   // generator can leave a partial checked-in output tree.
-  for (const schemaFile of schemaFiles) {
+  for (const schemaFile of group.schemas) {
     readJson(join(contractsDirectory, schemaFile));
   }
 
-  const generated = await compile(aggregateSchema, "VeraContractsV1", {
-    bannerComment:
+  const generated = await compile(aggregateSchema, group.title, {
+    bannerComment: [
       "/**\n * Generated from /contracts by npm run generate:contracts.\n * Do not edit by hand.\n */",
+      ...(group.output === "contracts-v2.ts"
+        ? [
+            "/* eslint-disable @typescript-eslint/no-duplicate-type-constituents -- JSON Schema conditionals repeat shared token fields. */",
+          ]
+        : []),
+    ].join("\n"),
     cwd: contractsDirectory,
     enableConstEnums: false,
     format: true,
@@ -98,88 +188,57 @@ async function generateTypeScript(outputDirectory) {
     unknownAny: true,
     unreachableDefinitions: false,
   });
-  writeFileSync(join(outputDirectory, "contracts.ts"), generated);
+  writeFileSync(join(outputDirectory, group.output), generated);
 }
 
-function generatePython(outputDirectory) {
+function generatePythonGroup(outputDirectory, group) {
   recreateDirectory(outputDirectory);
-  const result = spawnSync(
-    "uv",
-    [
-      "run",
-      "--frozen",
-      "datamodel-codegen",
-      "--input",
-      "contracts",
-      "--input-file-type",
-      "jsonschema",
-      "--output",
-      outputDirectory,
-      "--output-model-type",
-      "typing.TypedDict",
-      "--target-python-version",
-      "3.12",
-      "--use-standard-collections",
-      "--use-union-operator",
-      "--use-title-as-name",
-      "--disable-timestamp",
-      "--no-use-closed-typed-dict",
-      "--no-allow-remote-refs",
-      "--formatters",
-      "ruff-format",
-    ],
-    { cwd: repositoryRoot, encoding: "utf8" },
+  const pythonSchemaDirectory = mkdtempSync(
+    join(tmpdir(), "vera-contracts-" + group.name + "-inputs-"),
   );
+  let result;
+  try {
+    for (const schemaFile of group.schemas) {
+      writeFileSync(
+        join(pythonSchemaDirectory, schemaFile),
+        readFileSync(join(contractsDirectory, schemaFile)),
+      );
+    }
+    result = spawnSync(
+      "uv",
+      [
+        "run",
+        "--frozen",
+        "datamodel-codegen",
+        "--input",
+        pythonSchemaDirectory,
+        "--input-file-type",
+        "jsonschema",
+        "--output",
+        outputDirectory,
+        "--output-model-type",
+        "typing.TypedDict",
+        "--target-python-version",
+        "3.12",
+        "--use-standard-collections",
+        "--use-union-operator",
+        "--use-title-as-name",
+        "--disable-timestamp",
+        "--no-use-closed-typed-dict",
+        "--no-allow-remote-refs",
+        "--formatters",
+        "ruff-format",
+      ],
+      { cwd: repositoryRoot, encoding: "utf8" },
+    );
+  } finally {
+    rmSync(pythonSchemaDirectory, { force: true, recursive: true });
+  }
   if (result.status !== 0) {
     process.stderr.write(result.stdout);
     process.stderr.write(result.stderr);
     throw new Error(`Python contract generation exited ${String(result.status)}`);
   }
-  writeFileSync(
-    join(outputDirectory, "__init__.py"),
-    [
-      '"""Generated root models for the VERA shared JSON contracts."""',
-      "",
-      "from .build_report_v1_schema import BuildReportV1",
-      "from .compiler_dependencies_v1_schema import CompilerDependenciesV1",
-      "from .prompter_export_v1_schema import PrompterExportV1",
-      "from .public_page_capture_api_v1_schema import PublicPageCaptureApiV1",
-      "from .public_page_capture_provenance_v1_schema import PublicPageCaptureProvenanceV1",
-      "from .public_page_capture_worker_v1_schema import PublicPageCaptureWorkerV1",
-      "from .script_document_v1_schema import ScriptDocumentV1",
-      "from .spotlight_evidence_v1_schema import SpotlightEvidenceV1",
-      "from .timeline_manifest_v1_schema import TimelineManifestV1",
-      "",
-      "__all__ = [",
-      '    "BuildReportV1",',
-      '    "CompilerDependenciesV1",',
-      '    "PrompterExportV1",',
-      '    "PublicPageCaptureApiV1",',
-      '    "PublicPageCaptureProvenanceV1",',
-      '    "PublicPageCaptureWorkerV1",',
-      '    "ScriptDocumentV1",',
-      '    "SpotlightEvidenceV1",',
-      '    "TimelineManifestV1",',
-      "]",
-      "",
-    ].join("\n"),
-  );
-  const lintResult = spawnSync(
-    "uv",
-    ["run", "--frozen", "ruff", "check", "--fix", outputDirectory],
-    { cwd: repositoryRoot, encoding: "utf8" },
-  );
-  if (lintResult.status !== 0) {
-    process.stderr.write(lintResult.stdout);
-    process.stderr.write(lintResult.stderr);
-    throw new Error(
-      `Generated Python lint normalization exited ${String(lintResult.status)}`,
-    );
-  }
-  rmSync(join(outputDirectory, ".ruff_cache"), {
-    force: true,
-    recursive: true,
-  });
 }
 
 function listFiles(root) {
@@ -224,8 +283,63 @@ function compareDirectories(expectedDirectory, actualDirectory, label) {
   return differences;
 }
 
+function writePythonRegistry(outputDirectory) {
+  const exports = pythonGroups.flatMap((group) => group.exports);
+  writeFileSync(
+    join(outputDirectory, "__init__.py"),
+    [
+      '"""Generated root models for the VERA shared JSON contracts."""',
+      "",
+      ...exports.map(
+        ([moduleName, typeName]) => "from ." + moduleName + " import " + typeName,
+      ),
+      "",
+      "__all__ = [",
+      ...exports.map(([, typeName]) => '    "' + typeName + '",'),
+      "]",
+      "",
+    ].join("\n"),
+  );
+}
+
+function generatePython(outputDirectory) {
+  recreateDirectory(outputDirectory);
+  const stagedRoot = mkdtempSync(join(tmpdir(), "vera-contracts-python-groups-"));
+  try {
+    for (const group of pythonGroups) {
+      const stagedGroup = join(stagedRoot, group.name);
+      generatePythonGroup(stagedGroup, group);
+      for (const file of listFiles(stagedGroup)) {
+        if (file !== "__init__.py") {
+          copyFileSync(join(stagedGroup, file), join(outputDirectory, file));
+        }
+      }
+    }
+    writePythonRegistry(outputDirectory);
+  } finally {
+    rmSync(stagedRoot, { force: true, recursive: true });
+  }
+
+  const lintResult = spawnSync(
+    "uv",
+    ["run", "--frozen", "ruff", "check", "--fix", outputDirectory],
+    { cwd: repositoryRoot, encoding: "utf8" },
+  );
+  if (lintResult.status !== 0) {
+    process.stderr.write(lintResult.stdout);
+    process.stderr.write(lintResult.stderr);
+    throw new Error(
+      "Generated Python lint normalization exited " + String(lintResult.status),
+    );
+  }
+  rmSync(join(outputDirectory, ".ruff_cache"), { force: true, recursive: true });
+}
+
 async function generate(typeScriptDirectory, pythonDirectory) {
-  await generateTypeScript(typeScriptDirectory);
+  recreateDirectory(typeScriptDirectory);
+  for (const group of typeScriptGroups) {
+    await generateTypeScript(typeScriptDirectory, group);
+  }
   generatePython(pythonDirectory);
 }
 

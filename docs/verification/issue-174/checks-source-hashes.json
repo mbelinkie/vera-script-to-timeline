@@ -1,0 +1,32 @@
+{
+  "worktree": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline",
+  "baseline": "5d59b2ad560aa18f96554b71fe34ee5b7f30dfed",
+  "sourceRevision": "post-Claude fixes pinned by sourceHashes; previous committed candidate a640e3f99dd6a68c6565a4404e6abc1b9ccda7d6",
+  "sourceHashes": {
+    "python/vera_timeline_agent/media_preparation.py": "32c8a1bdb4a387485d54ad74bb65e986c4178e81c4bcbdcf8a4d474fb8482bdf",
+    "tests/test_issue174_media_preparation.py": "0cc36068f82c5435c7a46c0a2dd7b94a908f180e566d579aa7d631778f5edb73",
+    "tests/test_issue174_recovery.py": "9fd1ba0b38de99269a59da8204b458f761be8ce4b8e2138543d60d157c6e3805",
+    "tests/test_issue174_real_media.py": "0a9a522d186f102d9ad2d8726a3c02bb068ac53f994e8181a8d232422de613d5",
+    "tests/issue174_media_fixture.py": "4d84c7142ed1e4f202f2fda65286dac7448871c72251c9a0221be1ba1b88438b",
+    "tests/test_issue174_source_refusals.py": "6313a92fcfcdfb02f772df40fb23c79d84aaa52f309b24b1353b3412cd533140",
+    "docs/verification/issue-174/sampling_probe.py": "8ec1910bfac83e8e7e1068c8602199a32cc9465e8da9cb40e2bcf55e99c61e3e",
+    "docs/verification/issue-174/verify_retained.py": "4289ba37034b6c961415d374eac613f9e990adebd0aa042c1f00f26d74219cb0",
+    "docs/verification/issue-174/qualify.py": "e15d1e4456ca1e6cc9ea19e73c1ea4b3cac48789cee7fbd3ae0d8d96c72316aa",
+    "docs/verification/issue-174/compiler-binding-probe.mjs": "3060e629d20242dba09d95ebeb3328467bc3204d596da1823cd955438550a355"
+  },
+  "launchdLabel": "com.vera.issue174.full-r6",
+  "command": [
+    "/usr/bin/env",
+    "PATH=/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/usr/local/bin:/usr/bin:/bin:/Users/matthewbelinkie/.local/bin",
+    "VITEST_MAX_WORKERS=1",
+    "PYTEST_ADDOPTS=--durations=25",
+    "npm",
+    "run",
+    "validate"
+  ],
+  "startedAt": 1791805774.238154,
+  "processIdentityPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r6/supervisor-process.json",
+  "logPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r6/validate-full.log",
+  "finalExitStatusPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r6/checks-exit.json",
+  "preservedStages": "R3 focused82/qualification24; corrected verifier98 hashes; R5 fast323 passed55.46s"
+}

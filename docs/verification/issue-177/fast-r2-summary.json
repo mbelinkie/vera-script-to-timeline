@@ -1,0 +1,29 @@
+{
+  "testedCommit": "daa3290",
+  "codeCommit": "7c578db13bd42b85bd599120c2ecee258579f2e8",
+  "command": "VITEST_MAX_WORKERS=1 npm run validate:fast",
+  "result": "PASS",
+  "sourceUnchanged": true,
+  "toolchain": {
+    "node": "24.19.0",
+    "npm": "11.17.0",
+    "uv": "0.12.5",
+    "python": "3.12.14",
+    "os": "darwin-intel"
+  },
+  "coverage": {
+    "contractsVitest": 429,
+    "toolingVitest": 1,
+    "progressNode": 6,
+    "roadmapNode": 23,
+    "cloudEvidenceNode": 32,
+    "pythonFast": 422,
+    "pythonFastWorkers": 2,
+    "ruffFormattedFiles": 443,
+    "mypySourceFiles": 135,
+    "skips": 0
+  },
+  "qualifiedFullEvidence": false,
+  "sourceSnapshotsDirectory": "/Users/matthewbelinkie/.codex/worktrees/ed01/VERA Script to Timeline/out/issue177/fast-r2",
+  "subsequentChanges": "Evidence documentation only; implementation and tests unchanged. Final full qualifying evidence remains due."
+}

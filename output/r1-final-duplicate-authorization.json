@@ -1,0 +1,17 @@
+{
+  "kind": "issue141-final-native-sequence-authorization",
+  "at": "2026-10-02T13:15:59.338275+00:00",
+  "restorationIndependentReview": "output/r1-selection-restoration-native-independent-review.json",
+  "continuationState": "output/r1-window-readiness-continuation-state.json",
+  "driver": "output/r1-window-readiness-continuation.py",
+  "action": "final_duplicate()",
+  "maximumSequences": 1,
+  "sequence": [
+    "Fresh registered editorial-context readback with exact restored target pair/context match",
+    "One registered r1-repeat-duplicate invocation with fresh hash-bound checkpoint"
+  ],
+  "finalNativeSequence": true,
+  "afterSeventhTimeline": "No further native action, shared six collector, save, cleanup, render, deletion, rename or launch; use retained captures for report/review.",
+  "onRefusalOrPending": "Stop and retain evidence; no retry.",
+  "existingProducerApprovalUsed": true
+}

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "issue-144-source-evidence/v1",
+  "checkpoint": "12c",
+  "files": {
+    "packages/contracts/src/issue-144-omission-build.ts": "sha256:ca3ef5f083ae282f13ff777830387df0e0688bd84df4586701210207996c3399",
+    "packages/contracts/src/issue-144-proof-cli.ts": "sha256:25227cc465dc40aeeadfd0f35a186dc8219e93f3803e2f7ada207b4fe4072ab3",
+    "packages/contracts/src/issue-144-semantics.ts": "sha256:9d6cb9bb11c5ab3191d9c46c6e1973072e418cc6754a3cf9e21398f4a415d870",
+    "python/vera_timeline_agent/roundtrip_build.py": "sha256:4fb5775484d637af251302a063d907268ec76f480691bcf899ac2a3f73b97371",
+    "python/vera_timeline_agent/roundtrip_proof.py": "sha256:5a11acfdb9d446f8c313df5c061d3271a43c8ed01851bd6135f339b061389c82",
+    "packages/contracts/test/issue-144-omission-bridge.test.ts": "sha256:6af5e73869f475f494b3ae521e3da44278d1355bc3fc4807ff84a829254e65f0",
+    "tests/test_issue144_omission_bridge.py": "sha256:60d7037faf7d925b68494643e319990e6348bb68902897e52d0abdd23c511992"
+  },
+  "logs": {
+    "/tmp/vera144-checkpoint12c-bridge-red.log": "sha256:e2c86ad1a609e2eb56962473de11065796988909660552ac0fb927da77cf244d",
+    "/tmp/vera144-checkpoint12c-bridge-green.log": "sha256:f145db0053cbd1c68b77aba70df18cc2f71314a90e613c0a6a940e3a89246cae",
+    "/tmp/vera144-checkpoint12c-bridge-green-2.log": "sha256:ef524a92122a5e9623d85a3277cbeafd46a6b9f403d38454d8ca0e3cf6ed3078",
+    "/tmp/vera144-checkpoint12c-bridge-green-3.log": "sha256:8f0c01edddda23cad2e001b73d1542b126346e75a2f02b9dd4cc3761c4a909f4",
+    "/tmp/vera144-checkpoint12c-python-bridge.log": "sha256:3cdddf5648e2b42670e0b00ff2c86fb29f08f6b9cc5aa44afe74e2970286696a",
+    "/tmp/vera144-checkpoint12c-python-bridge-pinned.log": "sha256:d776318f82c4eb0200cfdf10f8917ef911c35766dc5f8cefd3cdaed19ee31f26",
+    "/tmp/vera144-checkpoint12c-python-bridge-pinned-2.log": "sha256:82cb9ecb7a2cafcee3a4dfd8970c2bd21beefeb286995a6d231cfa3ee556091a"
+  },
+  "fullValidation": "passed"
+}

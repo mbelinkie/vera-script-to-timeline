@@ -1,0 +1,23 @@
+{
+  "kind": "endpoint-calibration-retained-review",
+  "result": "ambiguous; getter-specific endpoint convention is not proved",
+  "scope": "Read-only review of retained Issue 141 generated-media metadata, actual retained getters, and already-sampled picture renders. No Resolve calls; protected media excluded.",
+  "supported": [
+    "The retained complete AV render final-local-result reports video nb_frames=9200, duration=368.000000s, audio nb_frames=17664000 at 48000Hz; queued MarkIn=0, MarkOut=9199, timeline start=0/end=9200. Job record labels endpointSemantics diagnostic-only/inclusive-exclusive unknown.",
+    "In retained full-pair-001-preflight, authored 200-frame items include GetStart=0, GetEnd=199, GetDuration=199 and float overloads exactly 0.0/199.0/199.0. Another item has start=75,end=200,duration=125; these values must remain method-specific observations.",
+    "Native retained picture-calibration log requested timeline frame 198 at 00:00:07:23, 199 at 00:00:07:24, 200 at 00:00:08:00. Exports succeeded. PNG hashes: frame198 e1801029ac90b2abbb15eeca9d108298600384c2afef0475339826abfe5c1bd0; frames199 and 200 both 4ffe68970e56db313fa07e6054e22a0568ad00d86ff75236f152968979ad219c. Equal 199/200 evidence is non-distinguishing between a black/base plateau and an overlay ending at 199; it does not support claimed overlay visibility through 199.",
+    "Generated synthetic media manifest binds base.mov (200 frames, 8s; sha256 c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942), repeated.wav (384000 samples; sha256 832dd31cc46b9f4b4fdb7cbde18b4edc09ec249885634fba43da2a7b87dc768e), overlay.png sha256 071eb12b64238770244dead14fda01a0aeca3623f7962aab9edefa93b68d3140. Protected semi1b.mp4 was not accessed."
+  ],
+  "contradictory": [
+    "The reported overlay-present-through-199/black-at-200 conclusion is not established by retained sample hashes: exported samples 199 and 200 are byte-identical.",
+    "Whole output duration/frame count matches one natural interpretation of MarkIn=0/MarkOut=9199 but does not establish inclusive/exclusive render bounds independently of frame-domain and start-offset semantics."
+  ],
+  "ambiguous": [
+    "Integer and float GetStart/GetEnd/GetDuration values agree for inspected examples, so their internal precision/convention relationship remains untested. Retained examples show GetDuration=199 for a 200-frame clip while source-bound behavior has not been tied to a rendered distinguishing sentinel.",
+    "Sample PNG exports prove existence and requested timecode only; no retained pixel comparator result distinguishes overlay from underlying base at 199 versus 200. The complete output's 9200 count cannot substitute for that localized signal."
+  ],
+  "vera_representation": "Keep getter conventions separate by method and domain. Preserve raw GetStart/GetEnd/GetDuration values (including overload and numeric type), authored/source frame count, and an explicit unresolved/observed convention per getter. Do not derive duration as end-start or normalize all getters to inclusive/exclusive until a distinguishing calibration links raw getter values to rendered frames. Keep render MarkOut and timeline end as separate observations.",
+  "minimum_missing_observation": "A retained, manifest-bound output comparison for a known non-black base and visibly distinct overlay sentinel at adjacent local frames 199 and 200, plus raw integer/float getter values and source bounds for that exact item. Existing screenshots with equal 199/200 hashes cannot discriminate.",
+  "proposed_not_run": "On one disposable existing section/timeline, using newly generated owned base media with frame-varying visible signal and an overlay whose final frame is unmistakably different, place a 200-frame item; record integer and float GetStart/GetEnd/GetDuration plus source-bound getters, render/snapshot only local frames 198,199,200, and compare each against base and overlay sentinel. No preserved fixtures, baseline, producer, or stopped-copy edits. Not implemented or invoked.",
+  "next_step": "After the sole native actor confirms original preset restoration, run only the proposed sentinel observation through the authorized local workflow and retain exact manifest hashes, raw getters, and comparator outputs; until then keep endpoint calibration unresolved."
+}

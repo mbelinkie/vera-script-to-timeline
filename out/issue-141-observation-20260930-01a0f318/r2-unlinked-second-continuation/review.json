@@ -1,0 +1,15 @@
+{
+  "case": "R2-unlinked",
+  "continuationDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-unlinked-second-continuation",
+  "finalPair": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-unlinked-context-20261001T125402.046615Z/pair.json",
+    "sha256": "6b047339f81bab349ff3e95928bebda192a73e251b7e3989b8fd9d893a882d45"
+  },
+  "restoration": {
+    "path": "editorial-case-20261001T125357.380769Z/after.json",
+    "sha256": "6b047339f81bab349ff3e95928bebda192a73e251b7e3989b8fd9d893a882d45"
+  },
+  "saveDispatched": false,
+  "sourceAndPicturePreserved": true,
+  "status": "single-track-physical-cut-complete-output-pending"
+}

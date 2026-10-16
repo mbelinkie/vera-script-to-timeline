@@ -1,0 +1,27 @@
+{
+  "captureFailure": null,
+  "captureLoopInvoked": true,
+  "captureObserverRestored": true,
+  "captureResult": {
+    "capturePath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r5-freshness-20261001T041958.897531Z/capture-20261001T042003.870943Z.json",
+    "sha256": "ad7f97fd471a86ed5f411b8141990fae3b0bca9ed2404cf2cc3c45f6758e6b89",
+    "status": "inconsistent-refused"
+  },
+  "comparisonStatus": "inconsistent-refused",
+  "directory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r5-freshness-20261001T041958.897531Z",
+  "interpassError": null,
+  "interpassReturn": true,
+  "journal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r5-freshness-20261001T041958.897531Z/journal.jsonl",
+  "limits": [
+    "Controlled metadata change between capture passes, not a simultaneous UI race.",
+    "No atomic revision token or exclusion of ABA changes is established.",
+    "Marker note/name and clip movement remain separate untested cases."
+  ],
+  "onlyMarkerCustomDataChanged": true,
+  "originalFullStateRestored": true,
+  "postCaptureSnapshotFailure": null,
+  "rawCapturePath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r5-freshness-20261001T041958.897531Z/capture-20261001T042003.870943Z.json",
+  "restoreError": null,
+  "restoreReturn": true,
+  "status": "controlled-change-refused-and-restored"
+}

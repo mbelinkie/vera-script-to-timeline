@@ -1,0 +1,15 @@
+{
+  "_approval": "root-approved-context-02-after-context-01-guard-refusal",
+  "schemaVersion": "issue-149-workflow-discriminators-v1",
+  "externalScriptingSetting": "None",
+  "projectName": "VERA Issue 149 WI Discriminators 20261003-kit-02",
+  "action": "context",
+  "phase": "context-02",
+  "actionId": "context-02-20261003-kit-02",
+  "probePath": "REPOSITORY/docs/investigations/issue-149/workflow-discriminators/harness.py",
+  "probeSha256": "b6728fca237db1403a9360407495949708184ae9330fdb47ed66640913e3f400",
+  "launcherPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/VERA Issue 149 Workflow Reruns.py",
+  "launcherSha256": "a605b875e0755151e1fa03e91a61612fecbf5058f3fb12a67ac6216e6536e2e9",
+  "outputDir": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02",
+  "mediaDir": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/media"
+}

@@ -1,0 +1,23 @@
+{
+  "actualFinalPair": null,
+  "driverPath": "independent-residual-sequence.py",
+  "driverSha256": "70c131e2281fd96612ed65e47c96849700da41a5468b8008ea3aada39b6ed6ba",
+  "failure": "First split full-state review refused",
+  "finalReadback": null,
+  "finalSelection": "unavailable; sequence refused before final readback",
+  "originalPlayhead": "unavailable; sequence refused before final readback",
+  "parsedJSON": null,
+  "priorPair": {
+    "path": "r3-boundary-a3-context-20261001T204545.218134Z/pair.json",
+    "sha256": "a6e02b7cfab4006e2494af652d7c76f52c41c8a1e5104a0ccc2e405245da2e66"
+  },
+  "references": {
+    "stderr": "residual-native-stderr.txt",
+    "stdout": "residual-native-stdout.json"
+  },
+  "saveOrRenderClaim": null,
+  "sourcePins": null,
+  "stderrRaw": "Traceback (most recent call last):\n  File \"REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-residual-sequence.py\", line 387, in <module>\n    sys.exit(main())\n             ~~~~^^\n  File \"REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-residual-sequence.py\", line 382, in main\n    result = run_sequence(args.prior_pair, args.prior_sha256)\n  File \"REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-residual-sequence.py\", line 215, in run_sequence\n    raise RuntimeError(\"First split full-state review refused\")\nRuntimeError: First split full-state review refused\n",
+  "stdoutRaw": "",
+  "terminalReturnCode": 1
+}

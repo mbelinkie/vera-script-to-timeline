@@ -1,0 +1,8 @@
+{
+  "root": "<repo>",
+  "partialResult": "editorial-case-20261001T121458.332477Z/result.json",
+  "partialSha": "b45a28bd216aa91b720db26f910b727c0dffee6cb9b68f50e332b10dbc009be6",
+  "journalSha": "482955b5fb78e376fe6402def7c194e98d44eebc6cc87788b169bb8917ddf5ae",
+  "afterPairSha": "31a36fbf4730802705280056c73265240969e752bc2db8a71df74409f2289636",
+  "exactDifferenceFile": "r2-unlinked-preparation-unmodeled-diff.json"
+}

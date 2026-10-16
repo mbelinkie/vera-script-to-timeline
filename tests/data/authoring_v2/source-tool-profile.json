@@ -1,0 +1,23 @@
+{
+  "fixtureId": "synthetic-v2-source-preparation-profile",
+  "syntheticOnly": true,
+  "compiler": {
+    "version": "compiler/v2",
+    "sourceHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "source": {
+    "contentHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "probeHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "descriptorHash": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+  },
+  "preparation": {
+    "requirementKey": "prep:occurrence-1",
+    "policyHash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+    "toolHash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+    "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "mappingHash": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+    "deliveredHash": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+    "probeHash": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+  }
+}

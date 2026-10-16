@@ -1,0 +1,100 @@
+{
+  "driverSha256": "254e6c591bfc0ae3f6e029ed3e76124d651ec32ec19a12bf9c51dd809a544640",
+  "executorReturnCode": 0,
+  "parsedStdout": {
+    "baseRestoreResult": {
+      "path": "independent-structural-sequence-20261001T203741.675640Z/restoration.json",
+      "sha256": "2bcfef93a1f4bdda29fbfcd2630538ff2d1fcbd66ed7434529debabf8f084927"
+    },
+    "baseSplitResult": {
+      "path": "independent-structural-sequence-20261001T203741.675640Z/split-review.json",
+      "sha256": "ad691ead1c4d6b18f1a5feb2cf70a5ce239f45d802ac7a4ab2fd74c649b5036c"
+    },
+    "deselection": {
+      "path": "independent-boundary-a3-20261001T204409.297455Z/r3-boundary-a3-deselected.json",
+      "sha256": "cd5a552485a8468dabbf64059e0899d75b82ce30f56696be163f338504165e38"
+    },
+    "finalPair": {
+      "path": "r3-boundary-a3-context-20261001T204545.218134Z/pair.json",
+      "sha256": "a6e02b7cfab4006e2494af652d7c76f52c41c8a1e5104a0ccc2e405245da2e66"
+    },
+    "finalReadback": {
+      "path": "independent-boundary-a3-20261001T204409.297455Z/r3-boundary-a3-context.json",
+      "sha256": "cdb317bda4ba20cacb3cad72b4a5376306395e00ff5d6148e91035e294190cef"
+    },
+    "preparation": {
+      "path": "independent-boundary-a3-20261001T204409.297455Z/preparation.json",
+      "sha256": "1a509f8f5dfce806c1f30581b99dcba91cf4c90663ee4af59db579a44ccbba9e"
+    },
+    "restoration": {
+      "path": "independent-boundary-a3-20261001T204409.297455Z/restoration.json",
+      "sha256": "297fa0274d2eade47b24754dea3e313c934cc3b9468688f9830fd4dae21e36c3"
+    },
+    "saveDispatched": false,
+    "selection": {
+      "path": "independent-boundary-a3-20261001T204409.297455Z/r3-boundary-a3-selected.json",
+      "sha256": "32c45c7578be1af79d75a8c4fc1e86825dad1939903bde1e2432587ed1643297"
+    },
+    "sourcePins": {
+      "editorial-cases-check.py": "6d6edf65b4b43971997c8b2fc48afd77959e9fa84c946e349c2308e33875b019",
+      "editorial-cases.py": "4f8acafc4ba78483518f4b9b39946888b7c79a3109d47a72a610d975abe851c6",
+      "independent-native-call.py": "61ef935b47f5138545df909f41edffc2f10c7dcf55283068948950248e2c0531",
+      "probe.py": "2a6a3b1c40f80f98617a43c2ed08e925a4a9668b146c481f270de0e9a047e057"
+    },
+    "splitReadback": {
+      "path": "independent-boundary-a3-20261001T204409.297455Z/r3-boundary-a3-split.json",
+      "sha256": "d944e57d49c4fd58f7a91f20cf1d592caf2c9067a3a44e2986c734558b1af298"
+    },
+    "splitReady": {
+      "path": "independent-boundary-a3-20261001T204409.297455Z/split-ready.json",
+      "sha256": "07ab78c4354fd3c0b6b285ff889a5421d158e8b96110677fa35afecefd5272de"
+    },
+    "splitReview": {
+      "path": "independent-boundary-a3-20261001T204409.297455Z/split-review.json",
+      "sha256": "98a2b5047564f3d7faac0009a0120c960bed7fc09a8f8390e1536fc91a93cbc7"
+    },
+    "status": "a3-sequence-complete"
+  },
+  "sequenceAssessment": {
+    "a3Restoration": {
+      "path": "independent-boundary-a3-20261001T204409.297455Z/restoration.json",
+      "sha256": "297fa0274d2eade47b24754dea3e313c934cc3b9468688f9830fd4dae21e36c3"
+    },
+    "a3SplitReadback": {
+      "path": "independent-boundary-a3-20261001T204409.297455Z/r3-boundary-a3-split.json",
+      "sha256": "d944e57d49c4fd58f7a91f20cf1d592caf2c9067a3a44e2986c734558b1af298"
+    },
+    "a3SplitReview": {
+      "path": "independent-boundary-a3-20261001T204409.297455Z/split-review.json",
+      "sha256": "98a2b5047564f3d7faac0009a0120c960bed7fc09a8f8390e1536fc91a93cbc7"
+    },
+    "baseRestore": {
+      "path": "independent-structural-sequence-20261001T203741.675640Z/restoration.json",
+      "sha256": "2bcfef93a1f4bdda29fbfcd2630538ff2d1fcbd66ed7434529debabf8f084927"
+    },
+    "baseSplit": {
+      "path": "independent-structural-sequence-20261001T203741.675640Z/split-review.json",
+      "sha256": "ad691ead1c4d6b18f1a5feb2cf70a5ce239f45d802ac7a4ab2fd74c649b5036c"
+    },
+    "finalDeselection": {
+      "path": "independent-boundary-a3-20261001T204409.297455Z/r3-boundary-a3-context.json",
+      "sha256": "cdb317bda4ba20cacb3cad72b4a5376306395e00ff5d6148e91035e294190cef"
+    },
+    "finalObservedPlayhead": "00:00:00:00",
+    "finalPair": {
+      "path": "r3-boundary-a3-context-20261001T204545.218134Z/pair.json",
+      "sha256": "a6e02b7cfab4006e2494af652d7c76f52c41c8a1e5104a0ccc2e405245da2e66"
+    },
+    "finalReadback": {
+      "path": "independent-boundary-a3-20261001T204409.297455Z/r3-boundary-a3-context.json",
+      "sha256": "cdb317bda4ba20cacb3cad72b4a5376306395e00ff5d6148e91035e294190cef"
+    },
+    "originalPlayhead": "00:00:00:00 (A3 preparation and restoration)",
+    "saveDispatched": false,
+    "selectionState": "zero selected items in both final deselection passes",
+    "status": "a3-sequence-complete"
+  },
+  "stderrPath": "boundary-a3-native-stderr.txt",
+  "stdoutPath": "boundary-a3-native-stdout.json",
+  "rootCorrection": "Original executor narrative/index confused preparation deselection at9100 with final post-restoration readback; actual final two passes are empty at0. Original artifact retained, no native replay."
+}

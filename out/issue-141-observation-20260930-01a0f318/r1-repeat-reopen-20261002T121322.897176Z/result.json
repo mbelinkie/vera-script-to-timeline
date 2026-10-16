@@ -1,0 +1,5 @@
+{
+  "status": "refused",
+  "error": "RuntimeError: post-load pair is inconsistent, incomplete, or wrongly selected",
+  "rawCapture": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r1-repeat-reopen-20261002T121322.897176Z/raw.json"
+}

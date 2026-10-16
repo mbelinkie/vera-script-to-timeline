@@ -1,0 +1,15 @@
+{
+  "interpretation": "Unlink returned literal True, but the action refused because the post-unlink full-pool read could not establish inventory. The first timeline pass still identifies the exact occurrence and imported pool item as Offline with an OFFLINE-prefixed locator. Pool diagnostics preserve the same imported UID and prefix. This is a probe prefix-handling / incomplete-read gap, not evidence that the occurrence disappeared or that unlink capability failed.",
+  "kind": "r4-unlink-offline-prefix-refusal",
+  "nextEvidence": "The later complete read-only capture at evidence/r4-offline-prefix-read-only/ and its comparison further identify an offline-but-present occurrence. Sampled picture output and relink are still pending.",
+  "observedLimits": [
+    "Only one complete media-pool inventory pass was retained after unlink; that pass refused.",
+    "The first post-unlink timeline observation preserved the original occurrence UID on V1 with record/source bounds 0\u2013199; the second observation did not include the target occurrence, so no disappearance conclusion is drawn.",
+    "No relink or SaveProject request was issued.",
+    "No unlink retry is authorized. A later complete read-only capture has been retained separately; relink-only recovery remains pending.",
+    "This does not complete the full R4 or R3-offline test."
+  ],
+  "reason": "RuntimeError: Unlink did not establish the pinned offline state",
+  "resultStatus": "launcher-failed",
+  "unlinkApiReturn": true
+}

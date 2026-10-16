@@ -1,0 +1,19 @@
+{
+  "kind": "controlled-change-inside-real-capture-loop",
+  "stagedAt": "2026-10-01T04:19:57.925703+00:00",
+  "action": "r5-capture-freshness",
+  "probeSha256": "d67c10ecae727a1bbfedabf34ad23e0be2645e1f37cc2f0b965c303703f2d30b",
+  "moduleSha256": "dc5e0e4f6db0011a6ceffe4ddf1da9990b850680864d395fe7d741411130a101",
+  "launcherSha256": "6bfa20aa89f0a085784fc2c8ced56bce2577a2cc63c21c48fc8ebaebbe704a7b",
+  "privateConfigSha256": "81fd15e9bbb037f1c495a2331bfc21cad8e017e137be87b50fd64927e576da1a",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "allowedNativeMutations": [
+    "existing Matrix marker0 customData test value and exact restoration"
+  ],
+  "unrelatedDriftStopsRestoration": true,
+  "atomicSnapshotClaimAllowed": false,
+  "uiRaceClaimAllowed": false,
+  "saveAllowed": false,
+  "nativeUiEditorialMacroAllowed": false,
+  "retryAllowed": false
+}

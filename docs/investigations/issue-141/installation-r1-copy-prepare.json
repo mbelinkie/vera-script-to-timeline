@@ -1,0 +1,17 @@
+{
+  "kind": "approved-r1-copy-preparation",
+  "stagedAt": "2026-10-01T07:20:29.169439+00:00",
+  "probeSha256": "835e0cc3008a05f720d9a6a5eed65eff6ec100dc75b9a872403b6bf370454ab3",
+  "moduleSha256": "be030f1564bb53d6df7e1f6197432820032bdcd410ec7e218cc1c4d2e26b5db0",
+  "priorPairSha256": "dc66efb49729dfc0b40efd35a3fa02d94cacd91e1ddfbaa62e97efcf656467ca",
+  "privateConfigSha256": "314ac215364891ad190c5b70bf495015095169b2debca9255d9a8db51ab636ef",
+  "allowedNativeMutations": [
+    "OpenPage(edit) with unchanged complete pair",
+    "lock V2/V3/A2/A3",
+    "set Matrix playhead2100"
+  ],
+  "audioRenderDispatched": false,
+  "editorialCommandDispatched": false,
+  "retryAllowed": false,
+  "sourceArchive": "editorial-reviewed-sources-20261001T071930"
+}

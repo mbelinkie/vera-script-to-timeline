@@ -1,0 +1,6 @@
+{"at": "2026-10-03T01:17:10.573798+00:00", "phase": "started", "value": {"actionId": "w6-before-swap-01-20261002-kit-01", "configSha256": "2241b0bef6dd021e90d0e437db530e7eb5345d4f49aa0c6dec079cd020208f23"}}
+{"at": "2026-10-03T01:17:10.601615+00:00", "phase": "probe-verified", "value": {"probePath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/sources/be467c29fad0f7c8da474eadc9f51ec4a6e7b13f64ee479bebd7eaeceda0cc93/harness.py", "probeSha256": "be467c29fad0f7c8da474eadc9f51ec4a6e7b13f64ee479bebd7eaeceda0cc93"}}
+{"at": "2026-10-03T01:17:10.602774+00:00", "phase": "disarmed", "value": {"action": "w6-before-swap", "actionId": "w6-before-swap-01-20261002-kit-01"}}
+{"at": "2026-10-03T01:17:10.602894+00:00", "phase": "probe-request", "value": {"action": "w6-before-swap", "phase": "w6-before-swap-01"}}
+{"at": "2026-10-03T01:17:13.417727+00:00", "phase": "probe-return", "value": {"status": "ok"}}
+{"at": "2026-10-03T01:17:13.418390+00:00", "phase": "result-written", "value": {"result": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-w6-before-swap-01-20261002-kit-01.json", "status": "ok"}}

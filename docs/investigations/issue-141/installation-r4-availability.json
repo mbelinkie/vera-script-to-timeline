@@ -1,0 +1,30 @@
+{
+  "kind": "staged-isolated-availability-preparation-not-executed",
+  "stagedAt": "2026-10-01T00:16:46.721852+00:00",
+  "action": "r4-availability",
+  "stage": "R4-isolated-same-byte-import-preparation",
+  "probeSha256": "c1de7523482715adabbeb2f9204dfa5faade041852d406306b081fe6deac3e9c",
+  "launcherSha256": "d090ce7cace514263b65ddfbf30945f77dbd49608c6f4137d2db6a0e6080b53e",
+  "privateConfigSha256": "8475ea1c321c25bc72de9562857a715f622a21d6230e685db8fc48ab9ce5dc6a",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "guardEvidence": [
+    {
+      "filename": "capture-20260930T223313.312609Z-saved.json",
+      "sha256": "a29402d405ab8cf1bc1abedd4c1ed0c479e983e2ef3ba6fc41d1c2389d6d36d2"
+    }
+  ],
+  "sourceFile": {
+    "relativePath": "relink/base.mov",
+    "sha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942"
+  },
+  "allowedApiMutations": [
+    "MediaPool.ImportMedia(only approved relink/base.mov)",
+    "MediaPool.CreateEmptyTimeline(VERA 141 R4 availability)",
+    "Project.SetCurrentTimeline(only new owned timeline)",
+    "MediaPool.AppendToTimeline(one new owned V1 occurrence)",
+    "ProjectManager.SaveProject(only approved synthetic project)"
+  ],
+  "failureLimit": "Require provably distinct imported UID before creating timeline. Retain partial results; no unlink, relink, replacement, removal, retry or cleanup.",
+  "privatePathsPublished": false
+}

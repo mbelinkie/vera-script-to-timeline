@@ -1,0 +1,7 @@
+{"phase": "started", "at": "2026-10-01T16:06:23.753052+00:00", "resolveInjected": true, "injectedType": "PyRemoteObject"}
+{"phase": "module-loaded", "at": "2026-10-01T16:06:23.840865+00:00", "action": "observe"}
+{"phase": "probe-request", "at": "2026-10-01T16:06:23.841636+00:00"}
+{"phase": "product-name-request", "at": "2026-10-01T16:06:23.842328+00:00"}
+{"phase": "product-name-return", "at": "2026-10-01T16:06:23.845317+00:00", "value": "DaVinci Resolve Studio"}
+{"phase": "probe-return", "at": "2026-10-01T16:06:44.218571+00:00", "status": "inconsistent-refused"}
+{"phase": "result-written", "at": "2026-10-01T16:06:44.220869+00:00"}

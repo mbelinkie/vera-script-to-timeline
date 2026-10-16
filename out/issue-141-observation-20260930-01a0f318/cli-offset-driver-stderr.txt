@@ -1,0 +1,5 @@
+2026-10-01T20:36:07.030499Z  WARN codex_skills::interface: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-10-01T20:36:07.030620Z  WARN codex_skills::interface: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
+2026-10-01T20:36:07.243001Z  WARN codex_skills::interface: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-10-01T20:36:07.243038Z  WARN codex_skills::interface: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
+2026-10-01T20:38:57.264065Z  WARN codex_core::tasks: task 01a0f931-0f7c-7461-a210-d4fd7d8c76b6 didn't complete gracefully after 100ms

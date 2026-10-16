@@ -1,0 +1,29 @@
+{
+  "taskId": "/root/discriminator_autonomous",
+  "status": "pending-operator-console-run",
+  "projectName": "VERA Issue 149 WI Discriminators 20261003-kit-02",
+  "projectUid": "0591bb41-d645-4af7-a2ee-ff75f8f43162",
+  "timelineName": "D3-console-av-20261003",
+  "timelineUid": "dc548f02-103c-495a-8e88-c4b767aa10dc",
+  "a2ItemUid": "02572600-80b5-43ca-a7bd-6bd74f7b3a89",
+  "wiMuteResult": "vera-issue-149-workflow-discriminators-result-w3-mapping-mute-d3-console-av-20261003-kit-02.json",
+  "wiMuteResultSha256": "f1f57fad3a6481e7e5c2c11f4ce1bd2bce32b80b2f5da75fb492c4ec30806a4b",
+  "wiMutePre": "evidence/w3-mapping-mute-d3-console-av-20261003-kit-02/pre.json",
+  "wiMutePost": "evidence/w3-mapping-mute-d3-console-av-20261003-kit-02/post.json",
+  "wiMutePreSha256": "5d9cea30816d31e009c76806f0949804a91d8c01e7ca7c37de3b943b913b4d2d",
+  "wiMutePostSha256": "ff4ffeca6b63239d6f7faa98f8cf15d84506a8991cdd19a484d6ffbea2badce8",
+  "queueBeforeConsole": 7,
+  "renderingInProgressBeforeConsole": false,
+  "consoleConfig": "params/d3-console-render.json",
+  "consoleConfigSha256": "ee05f7d1033c9b64fefaa1cc970a5cf1a9478c598075f82ebc3e89fd0011326c",
+  "consoleSourceSha256": "48f8d3e5499cc4073f5c25fe70dfc3a2d88a04bc459cbe5bbba3783aa6ad90bb",
+  "harnessSourceSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438",
+  "command": "exec(compile(open(\"REPOSITORY/docs/investigations/issue-149/workflow-discriminators/console-render.py\").read(), \"REPOSITORY/docs/investigations/issue-149/workflow-discriminators/console-render.py\", \"exec\"), dict(globals(), __file__=\"REPOSITORY/docs/investigations/issue-149/workflow-discriminators/console-render.py\", CONSOLE_CONFIG_PATH=\"REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/params/d3-console-render.json\"))",
+  "operatorSteps": [
+    "Open Workspace -> Console in the named project while the named D3-console-av-20261003 timeline is current.",
+    "Paste and execute the exact command field once.",
+    "Do not change mapping, Fairlight controls, M/S controls, clips, or playhead before execution.",
+    "Retain the generated console-render-result and console-render-progress files; do not rerun if it reports an error."
+  ],
+  "afterConsole": "Return to the Workflow Integration path for read-only observation and then restore the exact original A2 mapping before any D3-operator work."
+}

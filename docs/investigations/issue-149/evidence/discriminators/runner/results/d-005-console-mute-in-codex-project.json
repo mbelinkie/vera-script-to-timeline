@@ -1,0 +1,119 @@
+{
+ "job_id": "d-005-console-mute-in-codex-project",
+ "started": 1791047605.3275719,
+ "seconds": 7.766,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "project": "VERA Issue 149 WI Discriminators 20261003-kit-02",
+  "journal": [
+   {
+    "pool": [
+     "D3-console-av-20261003",
+     "D3-console-r2-20261003",
+     "D3-direct-av-20261003",
+     "D3-direct-r2-20261003",
+     "D3-operator-av-20261003",
+     "D3-operator-r2-20261003",
+     "D6-changed-r2-20261003",
+     "D6-kept-20261003",
+     "D6-kept-r2-20261003",
+     "a1_alpha.wav",
+     "a2_numbers.wav",
+     "a3_bed.wav",
+     "base.mov",
+     "cutaway.mov",
+     "relink_alt.mov",
+     "swap.mov"
+    ]
+   },
+   {
+    "timelines": [
+     "D3-console-av-20261003",
+     "D3-console-r2-20261003",
+     "D3-direct-av-20261003",
+     "D3-direct-r2-20261003",
+     "D3-operator-av-20261003",
+     "D3-operator-r2-20261003",
+     "D6-changed-r2-20261003",
+     "D6-kept-20261003",
+     "D6-kept-r2-20261003"
+    ]
+   },
+   {
+    "codex_A2_now": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}"
+   },
+   {
+    "render_format": {
+     "format": "mov",
+     "codec": "H264"
+    }
+   },
+   {
+    "dup": "<BlackmagicFusion.PyRemoteObject object at 0x1a775ce50>"
+   },
+   {
+    "op": "append CLAUDE C2 fresh console mute {'name': 'base.mov', 'src': (0, 400), 'rec': 0, 'track': 1}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1a775c670>"
+    ]
+   },
+   {
+    "op": "append CLAUDE C2 fresh console mute {'name': 'a2_numbers.wav', 'src': (0, 400), 'rec': 0, 'track': 2, 'media': 'a'}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1a775cab0>"
+    ]
+   },
+   {
+    "op": "append CLAUDE C2 fresh console mute {'name': 'a3_bed.wav', 'src': (0, 400), 'rec': 0, 'track': 3, 'media': 'a'}",
+    "ret": [
+     "<BlackmagicFusion.PyRemoteObject object at 0x1a775c290>"
+    ]
+   },
+   {
+    "C1 tracks": [
+     3,
+     "stereo",
+     "mono",
+     "mono"
+    ]
+   },
+   {
+    "C1 mute": {
+     "set": true,
+     "readback": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":true,\"type\":\"mono\"}}}"
+    }
+   },
+   {
+    "C2 tracks": [
+     3,
+     "stereo",
+     "mono",
+     "mono"
+    ]
+   },
+   {
+    "C2 mute": {
+     "set": true,
+     "readback": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":true,\"type\":\"mono\"}}}"
+    }
+   },
+   [
+    "StartRendering",
+    true
+   ]
+  ],
+  "queue": [
+   [
+    "C1_codexproj_dup_console_mute",
+    true,
+    "5e8136ce-30e7-4120-a861-edd25a627761"
+   ],
+   [
+    "C2_codexproj_fresh_console_mute",
+    true,
+    "6823f50a-e86b-44aa-9661-852fab143db9"
+   ]
+  ]
+ }
+}

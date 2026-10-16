@@ -1,0 +1,47 @@
+{
+  "failure": "RuntimeError: Exact selected Matrix/Edit context required",
+  "followUpDiagnostic": {
+    "capture": "capture-20261001T023200.897507Z.json",
+    "currentPage": "deliver",
+    "fullTimelinePassesEqualSelectedMatrixPin": true,
+    "sha256": "9aefdcdb5dcb25c7a38d7c2e573ccc9cde049c5806f652c4fac3260d2839bc4a"
+  },
+  "importCalled": false,
+  "importReturn": null,
+  "interpretation": "The first recovery attempt stopped at its page guard, which required Edit; no ImportRenderPreset request or call appears. A later independent read-only capture identified the current page as Deliver and matched both full timeline passes exactly to the selected-Matrix pin. timelineAndPoolUnchanged=false in the refusal result means the required preflight could not run under the Edit-only guard, not evidence of a change. The retained XML stayed at its pinned hash.",
+  "journalEvents": [
+    {
+      "method": "Capture",
+      "phase": "preflight",
+      "value": {
+        "label": "preflight",
+        "poolPasses": [
+          {
+            "error": "RuntimeError: Exact selected Matrix/Edit context required"
+          }
+        ],
+        "timelinePasses": [
+          {
+            "error": "RuntimeError: Exact selected Matrix/Edit context required"
+          }
+        ]
+      }
+    },
+    {
+      "method": "Recovery",
+      "phase": "refusal",
+      "value": "RuntimeError: Exact selected Matrix/Edit context required"
+    },
+    {
+      "method": "Recovery",
+      "phase": "complete",
+      "value": {
+        "importCalled": false,
+        "status": "preflight-refused-no-import"
+      }
+    }
+  ],
+  "kind": "audio-recovery-page-preflight-refusal",
+  "status": "preflight-refused-no-import",
+  "xmlSha256After": "1b3b21a728c3216f9782d87aa2feae977747c377901eb6b81ed5a83a2da06595"
+}

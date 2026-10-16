@@ -1,0 +1,1761 @@
+[
+  {
+    "path": [
+      "File",
+      "Import Metadata To",
+      "Selected Media Pool Clips\u2026"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "File",
+      "Export Metadata From",
+      "Selected Media Pool Clips\u2026"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Edit",
+      "Cut"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Edit",
+      "Ripple Cut"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Edit",
+      "Cut Head"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Edit",
+      "Cut Tail"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Edit",
+      "Copy"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Edit",
+      "Copy Head"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Edit",
+      "Copy Tail"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Edit",
+      "Paste"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Edit",
+      "Paste Insert"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Edit",
+      "Paste Attributes\u2026"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Edit",
+      "Paste Value"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Edit",
+      "Dolby Vision\u00ae",
+      "Copy Trim Metadata"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Edit",
+      "Dolby Vision\u00ae",
+      "Paste Trim Metadata"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Edit",
+      "Duplicate Selection"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Edit",
+      "Delete Selected"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Edit",
+      "Ripple Delete"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Edit",
+      "Delete Gaps"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Edit",
+      "Select All"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Edit",
+      "Deselect All"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Edit",
+      "Select"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Trim"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Trim",
+      "Trim Mode"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Trim",
+      "Range Selection Mode"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Trim",
+      "Dynamic Trim Mode"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Trim",
+      "Trim Editor"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Trim",
+      "Select Nearest"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Trim",
+      "Select All Clips Under Playhead"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Trim",
+      "Select Nearest Edit To"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Trim",
+      "Select Nearest Clip To"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Trim",
+      "Nudge"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Trim",
+      "Trim Start"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Trim",
+      "Trim End"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Trim",
+      "Trim to Selection"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Trim",
+      "Extend Edit Selection To"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Trim",
+      "Move Edit Selection To"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Trim",
+      "Crossfade Selection"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Select Clips"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Select Transitions"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Split Clips"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Detect Scene Cuts"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Audio",
+      "Bounce Selection in Place"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Audio",
+      "Trim Existing Audio Edits to Frame Boundaries"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Audio",
+      "Mute Selected Track"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Audio",
+      "Solo Selected Track"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Video",
+      "Linked Move Across Tracks"
+    ],
+    "enabled": true,
+    "mark": "\u2713",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Video",
+      "Selection Follows Playhead"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Linked Selection"
+    ],
+    "enabled": true,
+    "mark": "\u2713",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Source Track Selector"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Source Track Selector",
+      "Select/Deselect V1"
+    ],
+    "enabled": true,
+    "mark": "\u2713",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Source Track Selector",
+      "Select/Deselect V2"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Source Track Selector",
+      "Select/Deselect V3"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Source Track Selector",
+      "Select/Deselect V4"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Source Track Selector",
+      "Select/Deselect V5"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Source Track Selector",
+      "Select/Deselect V6"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Source Track Selector",
+      "Select/Deselect V7"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Source Track Selector",
+      "Select/Deselect V8"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Source Track Selector",
+      "Select/Deselect All Video Tracks"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Source Track Selector",
+      "Select/Deselect A1"
+    ],
+    "enabled": true,
+    "mark": "\u2713",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Source Track Selector",
+      "Select/Deselect A2"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Source Track Selector",
+      "Select/Deselect A3"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Source Track Selector",
+      "Select/Deselect A4"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Source Track Selector",
+      "Select/Deselect A5"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Source Track Selector",
+      "Select/Deselect A6"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Source Track Selector",
+      "Select/Deselect A7"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Source Track Selector",
+      "Select/Deselect A8"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Source Track Selector",
+      "Select/Deselect All Audio Tracks"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Source Track Selector",
+      "Select/Deselect All Tracks"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Source Track Selector",
+      "Reset Track Selectors"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Auto Select"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Auto Select",
+      "Auto Select/Deselect V1"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Auto Select",
+      "Auto Select/Deselect V2"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Auto Select",
+      "Auto Select/Deselect V3"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Auto Select",
+      "Auto Select/Deselect V4"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Auto Select",
+      "Auto Select/Deselect V5"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Auto Select",
+      "Auto Select/Deselect V6"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Auto Select",
+      "Auto Select/Deselect V7"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Auto Select",
+      "Auto Select/Deselect V8"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Auto Select",
+      "Auto Select/Deselect All Video"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Auto Select",
+      "Auto Select/Deselect A1"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Auto Select",
+      "Auto Select/Deselect A2"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Auto Select",
+      "Auto Select/Deselect A3"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Auto Select",
+      "Auto Select/Deselect A4"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Auto Select",
+      "Auto Select/Deselect A5"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Auto Select",
+      "Auto Select/Deselect A6"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Auto Select",
+      "Auto Select/Deselect A7"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Auto Select",
+      "Auto Select/Deselect A8"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Auto Select",
+      "Auto Select/Deselect All Audio"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Auto Select",
+      "Auto Select All Tracks"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Timeline",
+      "Auto Select",
+      "Auto Deselect All Tracks"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Clip",
+      "Split Layers in Place"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Clip",
+      "Audio Operations",
+      "Trim Audio Levels"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Clip",
+      "Audio Operations",
+      "Ripple Delete Silence\u2026"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Clip",
+      "Take Selector"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Clip",
+      "Multicam Cut"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Clip",
+      "Multicam Cut",
+      "Cut to Angle 1"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Clip",
+      "Multicam Cut",
+      "Cut to Angle 2"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Clip",
+      "Multicam Cut",
+      "Cut to Angle 3"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Clip",
+      "Multicam Cut",
+      "Cut to Angle 4"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Clip",
+      "Multicam Cut",
+      "Cut to Angle 5"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Clip",
+      "Multicam Cut",
+      "Cut to Angle 6"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Clip",
+      "Multicam Cut",
+      "Cut to Angle 7"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Clip",
+      "Multicam Cut",
+      "Cut to Angle 8"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Clip",
+      "Multicam Cut",
+      "Cut to Angle 9"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Mark",
+      "Mark Selection"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Mark",
+      "Delete Keyframe"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Mark",
+      "Delete All Keyframes"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Mark",
+      "Move Selected Keyframes Left"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Mark",
+      "Move Selected Keyframes Right"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Mark",
+      "Move Selected Keyframes Up"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Mark",
+      "Move Selected Keyframes Down"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Mark",
+      "Add Marker",
+      "Current Selected"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Mark",
+      "Delete Marker"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Mark",
+      "Delete All Markers"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Mark",
+      "Add Flag",
+      "Current Selected"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Mark",
+      "Delete All Flags"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Playback",
+      "Delete Render Cache"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Playback",
+      "Delete Render Cache",
+      "Selected Clips\u2026"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Playback",
+      "Play Around/To",
+      "Play Around Current Selection"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Color",
+      "Nodes",
+      "Add Splitter Combiner Node"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Color",
+      "Nodes",
+      "Enable/Disable Selected Nodes"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Color",
+      "Nodes",
+      "Delete Current Node"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Color",
+      "Nodes",
+      "Label Selected Node"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Color",
+      "Reset",
+      "Selected Node Grade"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Color",
+      "Ripple Node Changes to Selected Clips"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Color",
+      "Append Node to Selected Clips"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Color",
+      "MultiMaster Trim Manager\u2026"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Color",
+      "Dolby Vision\u00ae",
+      "Analyze Selected Shot(s)"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Color",
+      "Dolby Vision\u00ae",
+      "Analyze Selected and Blend"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Color",
+      "HDR10+",
+      "Analyze Selected Shot(s)"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Color",
+      "HDR10+",
+      "Analyze Selected and Blend"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Color",
+      "HDR Vivid",
+      "Analyze Selected Shot(s)"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Color",
+      "Automatically Link AMF for",
+      "Selected Shot(s)"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Fairlight",
+      "Automation",
+      "Copy"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Fairlight",
+      "Automation",
+      "Paste"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Workspace",
+      "Switch to Page",
+      "Cut"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Workspace",
+      "Show Page",
+      "Cut"
+    ],
+    "enabled": true,
+    "mark": "\u2713",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Workspace",
+      "Active Panel Selection"
+    ],
+    "enabled": true,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  },
+  {
+    "path": [
+      "Workspace",
+      "Scene Cut Detector\u2026"
+    ],
+    "enabled": false,
+    "mark": "",
+    "key": "",
+    "modifiers": [
+      "cmd"
+    ]
+  }
+]

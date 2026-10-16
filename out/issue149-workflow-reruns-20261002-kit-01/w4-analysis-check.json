@@ -1,0 +1,295 @@
+{
+  "schema": "issue149-workflow-reruns-w4-analysis-check-v1",
+  "taskId": "#149",
+  "classification": "measured retime gates pass; separate A1 remains unretimed by configured target",
+  "run": {
+    "projectUid": "1a05ff3a-8b04-43e3-95ab-c970b93b6415",
+    "harnessSha256": "be467c29fad0f7c8da474eadc9f51ec4a6e7b13f64ee479bebd7eaeceda0cc93",
+    "runtime": "Resolve Studio 21.1.1.10 / CPython 3.14.7 / x86_64 macOS 15.1 / External Scripting None"
+  },
+  "native": {
+    "embedded": {
+      "timelineUid": "624aeb81-b32b-4f90-aee4-8360ee9abb11",
+      "targetItemUids": [
+        "6724ba9f-48f1-4ac6-aa2f-7500be267ea0",
+        "2d713e82-df4d-4e35-98e6-db7cbad00c51"
+      ],
+      "targetItemNames": {
+        "6724ba9f-48f1-4ac6-aa2f-7500be267ea0": "base.mov (V1)",
+        "2d713e82-df4d-4e35-98e6-db7cbad00c51": "clicks.wav (A2)"
+      },
+      "speedOptions": {
+        "Percentage": 37.5,
+        "PitchCorrection": false
+      },
+      "originalSpeeds": [
+        {
+          "itemUid": "6724ba9f-48f1-4ac6-aa2f-7500be267ea0",
+          "speed": {
+            "Percentage": 100.0,
+            "PitchCorrection": true
+          }
+        },
+        {
+          "itemUid": "2d713e82-df4d-4e35-98e6-db7cbad00c51",
+          "speed": {
+            "Percentage": 100.0,
+            "PitchCorrection": true
+          }
+        }
+      ],
+      "speedReadbacks": [
+        {
+          "itemUid": "6724ba9f-48f1-4ac6-aa2f-7500be267ea0",
+          "setReturn": true,
+          "speed": {
+            "Percentage": 37.5,
+            "PitchCorrection": false
+          }
+        },
+        {
+          "itemUid": "2d713e82-df4d-4e35-98e6-db7cbad00c51",
+          "setReturn": true,
+          "speed": {
+            "Percentage": 37.5,
+            "PitchCorrection": false
+          }
+        }
+      ],
+      "setReturns": [
+        true,
+        true
+      ],
+      "resultPath": "out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-w4-speed-embedded-37p5-01-20261002-kit-01.json",
+      "resultSha256": "d96a3718e7c8fcbb5887b49c4651d2c71c3f307f7bad65646fd58f6c3a31f92c"
+    },
+    "separate": {
+      "timelineUid": "a72f31e0-0ff5-41ff-91d3-bc2372c25d7b",
+      "configuredTargetItemUid": "392fdb06-29f8-40e9-ace8-005399998b29",
+      "configuredTargetItemName": "base_picture.mov (V1)",
+      "speedOptions": {
+        "Percentage": 37.5,
+        "PitchCorrection": false
+      },
+      "originalSpeeds": [
+        {
+          "itemUid": "392fdb06-29f8-40e9-ace8-005399998b29",
+          "speed": {
+            "Percentage": 100.0,
+            "PitchCorrection": true
+          }
+        }
+      ],
+      "speedReadbacks": [
+        {
+          "itemUid": "392fdb06-29f8-40e9-ace8-005399998b29",
+          "setReturn": true,
+          "speed": {
+            "Percentage": 37.5,
+            "PitchCorrection": true
+          }
+        }
+      ],
+      "separateA1Uid": "6d2c4353-fe61-4b4c-9cc2-335bc7c28518",
+      "separateA1SnapshotSpeed": {
+        "pre": {
+          "Percentage": 100.0,
+          "PitchCorrection": true
+        },
+        "post": {
+          "Percentage": 100.0,
+          "PitchCorrection": true
+        }
+      },
+      "resultPath": "out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-w4-speed-separate-37p5-01-20261002-kit-01.json",
+      "resultSha256": "1fb3a7e0c71c3ab9859e4fd2aea0002404914d1507c2287dea6fe6d2dfee3f5d"
+    }
+  },
+  "otio": {
+    "embedded": {
+      "path": "exports/W4-embedded-37p5-01.otio",
+      "sha256": "322c9bb92597877ecb4dc93ce0880cd5e80d196808bf1aebb89902ae11d52de7",
+      "scalar": 0.375,
+      "retimedClips": [
+        "base.mov V1",
+        "base.mov Audio 1",
+        "clicks.wav Audio 2"
+      ],
+      "linkedGroup1": [
+        "base.mov V1",
+        "base.mov Audio 1"
+      ]
+    },
+    "separate": {
+      "path": "exports/W4-separate-37p5-01.otio",
+      "sha256": "b9642e815dcf1eb8335aa86a8606c43558fcad35f25b5b2fed6853f1a50ad1b6",
+      "scalar": 0.375,
+      "retimedClips": [
+        "base_picture.mov V1"
+      ],
+      "unretimedLinkedA1": [
+        "a1_alpha_separate.wav Audio 1"
+      ],
+      "linkGroup1": [
+        "base_picture.mov V1",
+        "a1_alpha_separate.wav Audio 1"
+      ]
+    }
+  },
+  "render": {
+    "path": "renders/W4-embedded-37p5-01.mov",
+    "sha256": "291a850e390f40efdc4a97a419c335965b77a8eaa276c5987d61af42decd5595",
+    "pollPath": "out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-render-poll-w4-embedded-37p5-01-20261002-kit-01.json",
+    "pollSha256": "1ce2d786be45bcbece234e8935c5e2a177a7c1d4ac6405f9c300e14f1f0d3c83",
+    "jobId": "0db7e0c0-e2ef-49e2-a58f-9adad5a6841c",
+    "jobStatus": {
+      "CompletionPercentage": 100,
+      "JobStatus": "Complete",
+      "TimeTakenToRenderInMs": 1818
+    },
+    "ffprobe": {
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 640,
+          "height": 360,
+          "r_frame_rate": "25/1",
+          "avg_frame_rate": "25/1",
+          "sample_rate": null,
+          "channels": null,
+          "channel_layout": null,
+          "bits_per_sample": null,
+          "duration": "15.960000",
+          "nb_frames": "399"
+        },
+        {
+          "index": 1,
+          "codec_name": "pcm_s16le",
+          "codec_type": "audio",
+          "width": null,
+          "height": null,
+          "r_frame_rate": "0/0",
+          "avg_frame_rate": "0/0",
+          "sample_rate": "48000",
+          "channels": 2,
+          "channel_layout": "stereo",
+          "bits_per_sample": 16,
+          "duration": "15.960000",
+          "nb_frames": "766080"
+        },
+        {
+          "index": 2,
+          "codec_name": null,
+          "codec_type": "data",
+          "width": null,
+          "height": null,
+          "r_frame_rate": "0/0",
+          "avg_frame_rate": "12800/512",
+          "sample_rate": null,
+          "channels": null,
+          "channel_layout": null,
+          "bits_per_sample": null,
+          "duration": "15.960000",
+          "nb_frames": "1"
+        }
+      ],
+      "format_duration": "15.960000"
+    }
+  },
+  "clickGate": {
+    "manifestSha256": "49fe1898a6905b8e57a84e62c1f7c920e88946d43725774bc4ce84f3b3160db6",
+    "sourceImpulseSamples": [
+      48001,
+      96777,
+      144959,
+      193919,
+      240001
+    ],
+    "rows": [
+      {
+        "predicted_sample": 128002.67,
+        "found_sample": 128003,
+        "diff_samples": 0.33
+      },
+      {
+        "predicted_sample": 258072.0,
+        "found_sample": 258072,
+        "diff_samples": 0.0
+      },
+      {
+        "predicted_sample": 386557.33,
+        "found_sample": 386557,
+        "diff_samples": -0.33
+      },
+      {
+        "predicted_sample": 517117.33,
+        "found_sample": 517117,
+        "diff_samples": -0.33
+      },
+      {
+        "predicted_sample": 640002.67,
+        "found_sample": 640003,
+        "diff_samples": 0.33
+      }
+    ],
+    "predicted": 5,
+    "matched": 5,
+    "within1Sample": true,
+    "analysisCommandCheckPassed": true
+  },
+  "decode": {
+    "path": "renders/W4-embedded-37p5-01.mov",
+    "frame_count": 399,
+    "src_ids": [
+      1
+    ],
+    "first": [
+      [
+        1,
+        0
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        1,
+        0
+      ]
+    ],
+    "frame_123": [
+      1,
+      46
+    ],
+    "last": [
+      1,
+      149
+    ],
+    "frame_mismatch_count": 398,
+    "frame_mismatch_examples": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "expected_src_id": 1,
+    "matches_expected_src_id": true
+  },
+  "analysis": {
+    "fullPath": "w4-analysis.json",
+    "fullSha256": "b67ac993b166a2af78706bd0c3b00e24f2b5a6ba651dd1c6c2a8d375f9adb7f0",
+    "gatePath": "w4-gate-analysis.json",
+    "gateSha256": "9d7478616d113ae95cc504d865c6515e8e2bf6106ce82aec846374165466328a",
+    "gateCommand": "analysis-check.py w4-gate-analysis.json --expect-scalar W4-embedded=0.375 --expect-scalar W4-separate=0.375 --expect-clicks W4-embedded",
+    "gatePassed": true,
+    "decodeWarning": "Generic identity-frame assertion is inapplicable after retime: 399 output frames decode source 0..149 with repeated frames; source_id remains 1. Valid timing evidence is OTIO scalar plus click samples."
+  }
+}

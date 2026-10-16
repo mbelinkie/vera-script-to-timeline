@@ -1,0 +1,86 @@
+{
+  "status": "start-timecode-shifts-occurrence-preserving-invalid-relative-offset",
+  "selectedTimelineUid": "64de8a4c-86bd-4f19-9d20-47b8940f610b",
+  "exactStableBeforeAfterPairs": true,
+  "sameOccurrenceAndSourceIds": true,
+  "sourceRangesUnchanged": true,
+  "timelineDeltas": [
+    {
+      "path": "/timelines/1/GetEndFrame/value",
+      "before": 90000,
+      "after": 0
+    },
+    {
+      "path": "/timelines/1/GetStartFrame/value",
+      "before": 90000,
+      "after": 0
+    },
+    {
+      "path": "/timelines/1/GetStartTimecode/value",
+      "before": "01:00:00:00",
+      "after": "00:00:00:00"
+    },
+    {
+      "path": "/timelines/1/tracks/0/items/0/GetEnd/value",
+      "before": 199,
+      "after": -89801
+    },
+    {
+      "path": "/timelines/1/tracks/0/items/0/GetEnd(True)/value",
+      "before": 199.0,
+      "after": -89801.0
+    },
+    {
+      "path": "/timelines/1/tracks/0/items/0/GetStart/value",
+      "before": 0,
+      "after": -90000
+    },
+    {
+      "path": "/timelines/1/tracks/0/items/0/GetStart(True)/value",
+      "before": 0.0,
+      "after": -90000.0
+    }
+  ],
+  "poolDeltas": [
+    {
+      "path": "/items/9/evidence/GetClipProperty/value/End TC",
+      "before": "01:00:00:00",
+      "after": "00:00:00:00"
+    },
+    {
+      "path": "/items/9/evidence/GetClipProperty/value/Slate TC",
+      "before": "01:00:00:00",
+      "after": "00:00:00:00"
+    },
+    {
+      "path": "/items/9/evidence/GetClipProperty/value/Start TC",
+      "before": "01:00:00:00",
+      "after": "00:00:00:00"
+    },
+    {
+      "path": "/timelineMappings/3/poolItemProperties/value/End TC",
+      "before": "01:00:00:00",
+      "after": "00:00:00:00"
+    },
+    {
+      "path": "/timelineMappings/3/poolItemProperties/value/Slate TC",
+      "before": "01:00:00:00",
+      "after": "00:00:00:00"
+    },
+    {
+      "path": "/timelineMappings/3/poolItemProperties/value/Start TC",
+      "before": "01:00:00:00",
+      "after": "00:00:00:00"
+    }
+  ],
+  "noRenderSaveOrRollback": true,
+  "offlineOutputStillUntested": true,
+  "files": {
+    "vera-issue-141-observation-result-20261001T025403.420310Z.json": "0bd92f2767d5d197e22bd694f74f5e64bb6de59d0b0eb47aa268751666892814",
+    "journal.jsonl": "19c612e5d71179ff1f24199fc1eb3bddbd3b93edda48a465d8a046a0f82cd747",
+    "matrix-preflight.json": "0220a23be312aea5906900dd094c8e21b363294bb11f9b0f1201ab23f40c4cbf",
+    "r4-preflight.json": "0e25da20728111bba2342e1bd58d85b57da4e04f4fa4d3d45bb8821f5c23a7a6",
+    "r4-postflight.json": "663990e2b372bbe713365b14430d218cb25943c68b8be52c5c81b8c3415ece3b",
+    "report.json": "8696aa8a066c64912303a4cd65b227e2878d4563fd38c3bccfa1450d32c86891"
+  }
+}

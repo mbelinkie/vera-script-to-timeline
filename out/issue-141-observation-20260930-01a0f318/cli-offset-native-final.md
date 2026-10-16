@@ -1,0 +1,3 @@
+The R2-offset sequence completed with return code **0**. Its parsed stdout and native result references are recorded in [offset-native-executor-result.json](offset-native-executor-result.json).
+
+The returned `nativeResults.finalReadback` reports zero selected items in both passes and playhead `00:03:02:10` in both. The final pair is `r2-offset-context-20261001T205629.518751Z/pair.json` (SHA-256 `7a7d0db1…2085b40d`). No save was dispatched.

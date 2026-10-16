@@ -1,0 +1,25 @@
+{
+  "hashes": {
+    "probe.py": "2a6a3b1c40f80f98617a43c2ed08e925a4a9668b146c481f270de0e9a047e057",
+    "av-output.py": "fcdb385cca504f8dac25665fef75ddc15c9f0f9cf8c55b1b8a6d591af8cb3fa1",
+    "editorial-cases.py": "4f8acafc4ba78483518f4b9b39946888b7c79a3109d47a72a610d975abe851c6",
+    "editorial-cases-check.py": "6d6edf65b4b43971997c8b2fc48afd77959e9fa84c946e349c2308e33875b019",
+    "independent-native-call.py": "61ef935b47f5138545df909f41edffc2f10c7dcf55283068948950248e2c0531"
+  },
+  "drivers": [
+    {
+      "name": "independent-structural-sequence.py",
+      "sha256": "1f9a8664f060c803569fbf91c0d36c4e957e758db233f02a6ee80a31cf138bc6"
+    },
+    {
+      "name": "independent-residual-sequence.py",
+      "sha256": "70c131e2281fd96612ed65e47c96849700da41a5468b8008ea3aada39b6ed6ba"
+    },
+    {
+      "name": "independent-cut-sequence.py",
+      "sha256": "8e29072c3fed462e560c1a095ed43d1edf6077580d38d51fdefaeff3be7afed9"
+    }
+  ],
+  "nativeDispatched": false,
+  "configAction": "observe"
+}

@@ -1,0 +1,5 @@
+Corrected the local helper to pin the retained item 2 marker, occurrence and source UIDs, audio track 2, and range 4500–4699. The retained pair has two matching passes and baseline mapping mute is `false`.
+
+The fake checker and Python compilation pass. The checker covers wrong UID/source/track, range and channel drift, duplicate markers, protected sources, mute-only changes, and exact restoration. Readiness and correction records include pair and target fact hashes. No Resolve calls, native registration, or media hashing occurred.
+
+Files: [audio-mapping-mute.py](../../docs/investigations/issue-141/audio-mapping-mute.py), [checker](../../docs/investigations/issue-141/audio-mapping-mute-check.py), [readiness record](audio-mapping-mute-readiness.json), [correction record](audio-mapping-mute-correction.json).

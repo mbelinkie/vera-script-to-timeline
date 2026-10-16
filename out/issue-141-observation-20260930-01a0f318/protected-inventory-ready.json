@@ -1,0 +1,12 @@
+{
+  "status": "local-ready",
+  "mode": "protected-six",
+  "sources": {
+    "probe.py": "cad63c88f400897fa37bc558d76fca410b7040bf1cc6b2a4ff270e0754b62fa8",
+    "r4-range-repair.py": "9b6977747a1f3decf957ead6134f10fc4f597bf9d0c3dc5c081b7bf2671879a4",
+    "editorial-cases.py": "1e1c2685de795bdc60ffa806c0fde10d75e300340fc2c1178b8ccf4d1a93f372"
+  },
+  "checker": "protected-inventory-check.py",
+  "checkerSha256": "caa3b75ac227706aa8a587d18c011eb1c49b4749d22936f36e5c9e9ea0553d5e",
+  "native": "not-run"
+}

@@ -1,0 +1,30 @@
+{
+  "action": "observe",
+  "adjacentPassesEqual": true,
+  "canonicalSavedPassDifferences": 4,
+  "captureStatus": "equal-adjacent-reads",
+  "differences": [
+    {
+      "count": 4,
+      "field": "GetSettings.value.perfCacheClipsLocation",
+      "from": "saved matrix cache path",
+      "to": "CacheClip"
+    }
+  ],
+  "kind": "read-only-post-reopen-observation",
+  "limits": [
+    "This is a later read-only capture, not an atomic reopen snapshot.",
+    "No atomicity, ABA, or revision guarantee is inferred."
+  ],
+  "rawSha256": {
+    "capture-20260930T234711.275916Z.json": "3d08f757c8e188bbc5c1584158f5ea29c23f5bb7745bf01bd5de42c6d6436a46",
+    "hammerspoon-launch-20260930T234710.738665Z.jsonl": "eb9d720fa3bb284af51faa444a451430204c418e3652db1dac7ea0a00e1cc860",
+    "vera-issue-141-observation-result-20260930T234711.253214Z.json": "176115cd9e3e1aa1f0da6023ba14a89e7665d1adacb15165c61be1c20a8c7d7b"
+  },
+  "resultStatus": "equal-adjacent-reads",
+  "runAt": "2026-09-30T23:47Z",
+  "savedMatrixPin": {
+    "filename": "capture-20260930T223313.312609Z-saved.json",
+    "sha256": "a29402d405ab8cf1bc1abedd4c1ed0c479e983e2ef3ba6fc41d1c2389d6d36d2"
+  }
+}

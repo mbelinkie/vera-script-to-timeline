@@ -58,7 +58,24 @@ corresponding lockfile change with the dependency change.
 
 ## Validation
 
-The single top-level validation command is:
+Testing, review and merge rules are in
+[the verification policy](docs/VERIFICATION_POLICY.md). In short: run fast
+checks locally, let GitHub Actions run the full suite, and merge when CI is
+green.
+
+During development, run:
+
+```sh
+npm run validate:fast
+```
+
+This keeps generated-currentness, all lint and type checks, all TypeScript
+tests, and non-slow Python tests on two workers. `slow` marks real media
+rendering/probing and repeated external-process integration. Run the affected
+slow test files directly when you change those integrations. Classification
+and timing evidence are in [the #184 plan](docs/plans/issue-184-fast-validation.md).
+
+The full gate is:
 
 ```sh
 npm run validate
@@ -68,8 +85,10 @@ It first proves that checked-in contract types are byte-current, then runs
 TypeScript lint, strict typechecking, and tests in every npm workspace, followed
 by Python Ruff lint/format checks, strict mypy, and pytest. Pytest validates the
 fixture descriptor, exact media inventory, sizes, hashes, and (when FFprobe is
-available) metadata. CI installs from both lockfiles and invokes this exact
-command.
+available) metadata. The GitHub Actions `Validate` workflow installs from both
+lockfiles and runs this exact command on every push and pull request; a green
+`Validate` check is the full regression gate. Don't run it on the reference
+Intel Mac during normal work, because it takes one to three hours there.
 
 An environment without FFprobe does **not** claim metadata verification: the
 FFprobe-specific pytest checks are reported as skipped, and the standalone
@@ -298,6 +317,63 @@ not Resolve evidence. A failure after the build is authorized can leave a
 partial project; the CLI reports `mutation_failed` and the project must be
 inspected manually rather than treated as a nonmutating safety stop.
 
+## Production Studio assembly from a verified package
+
+For the retained synthetic acceptance run, use these exact commands. Replace
+only the first path with your VERA checkout; the package path is then fixed and
+printed as `projectRoot` when it is created:
+
+```sh
+VERA_PROJECT="/absolute/path/to/VERA Script to Timeline"
+ACCEPTANCE_PACKAGE="$VERA_PROJECT/out/issue-34-producer-acceptance-final"
+
+uv run --directory "$VERA_PROJECT" --frozen \
+  python -m vera_timeline_agent.studio_assembly_acceptance_cli \
+  --output "$ACCEPTANCE_PACKAGE"
+```
+
+The outer `ACCEPTANCE_PACKAGE` folder contains both `Media/` and
+`Builds/<build-id>/`; never pass its inner `Builds/<build-id>` directory. The
+Studio command re-verifies the package manifest, report, receipt, OTIO, media,
+and hashes without rewriting them. With supported standard desktop Resolve
+Studio already open, external scripting enabled, and a timeline page selected,
+run the nonmutating preflight:
+
+```sh
+uv run --directory "$VERA_PROJECT" --frozen \
+  python -m vera_timeline_agent.studio_assembly_cli \
+  "$ACCEPTANCE_PACKAGE" --action preflight
+```
+
+If it reports `preflight_passed`, run this once and retain the JSON output
+outside the package as the Studio discrepancy report:
+
+```sh
+uv run --directory "$VERA_PROJECT" --frozen \
+  python -m vera_timeline_agent.studio_assembly_cli \
+  "$ACCEPTANCE_PACKAGE" --action build \
+  > "/absolute/path/to/acceptance-evidence/studio-assembly.json"
+```
+
+The adapter creates a new project and timeline named from the verified build
+ID, imports only the package-local media, saves and reopens the target, then
+compares tracks, ranges, markers, and media identities with the canonical
+manifest. It refuses a name collision before mutation, retains any partial
+target after a post-mutation failure, and never falls back to UI automation.
+`TimelineManifest v1` does not represent a Fusion graphics event, so this flow
+does not manufacture one; the accepted pinned-template capability remains a
+separate, fail-closed boundary until its product contract exists.
+
+### Injected Workflow Integration delivery
+
+The repository-owned [v1 installation and operator runbook](docs/resolve-workflow-integration-v1.md)
+provides the injected alternative with External Scripting set to None. A locked
+external verifier prepares an immutable package attestation; the versioned
+launcher rechecks it before each mutating assembly stage, creates a unique new
+nonproduction target, then saves, reopens and compares it with the manifest.
+Reports retain failures, partial-target identity and exact version/hash evidence.
+Real installed-version calibration and Producer acceptance remain the #109 gate.
+
 ### Pinned Text+ destination-track validation
 
 VERA versions the producer-authored `Text+` media-pool generator template and
@@ -327,6 +403,52 @@ shipped pinned-template path is therefore the supported Text+ destination-track
 and duration solution for the tested Resolve Studio 21.0.4 build 5 baseline.
 This does not claim stock-title catalog enumeration or arbitrary Fusion-title
 support.
+
+## Durable build-job core demonstration (Slice 1.7)
+
+The local job CLI demonstrates the Free/Studio stage state machine and recovery
+with fake output under `out/issue-35-demo/`. It does not call a voice provider,
+compiler, Resolve, or delivery service. A stage adapter must check its stable
+stage key before performing an effect and publish an immutable receipt; the
+core fences late workers with lease epochs and verifies completed receipts.
+
+Submit a Free test job and copy the printed `jobId`:
+
+```sh
+rtk uv run --frozen python -m vera_timeline_agent.build_jobs_cli \
+  --root out/issue-35-demo submit --project demo --snapshot frozen-1 \
+  --key demo-1 --mode free
+```
+
+Run its worker, replacing `JOB_ID` with the printed ID:
+
+```sh
+rtk uv run --frozen python -m vera_timeline_agent.build_jobs_cli \
+  --root out/issue-35-demo run --project demo --job JOB_ID \
+  --lease-seconds 15 --delay-speech-block 10
+```
+
+After `speech block 1 verified` appears, force-quit that worker process. Restart
+it with the same job ID; `--wait-for-lease` waits for the first worker's lease
+to expire:
+
+```sh
+rtk uv run --frozen python -m vera_timeline_agent.build_jobs_cli \
+  --root out/issue-35-demo run --project demo --job JOB_ID --wait-for-lease
+```
+
+Inspect the stage states, artifact hashes, progress events, and expired/new
+attempts with `status`:
+
+```sh
+rtk uv run --frozen python -m vera_timeline_agent.build_jobs_cli \
+  --root out/issue-35-demo status --project demo --job JOB_ID
+```
+
+Submitting `demo-1` again returns the same job ID. The first speech block's
+hash and file stay unchanged; the Free job ends at `ready_to_import` until an
+explicit `confirm-import` command records user confirmation. The automated
+force-kill version of this exercise is in `tests/test_build_jobs.py`.
 
 ## Slice workflow
 

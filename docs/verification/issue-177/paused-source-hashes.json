@@ -1,0 +1,28 @@
+{
+  "baseline": "7867fa4873429e799f748004896f7093d2ce625f",
+  "branch": "codex/issue-177-v2-package-studio",
+  "capturedAt": "2026-10-13T05:36:04.588790+00:00",
+  "liveOwnedCommands": [],
+  "observedUsedPercent": {
+    "fiveHour": 91,
+    "weekly": 14
+  },
+  "owner": "01a13388-d547-77d0-9768-f204f4a5b3e0",
+  "sources": {
+    "docs/plans/issue-177-v2-package-studio.md": "07c107294bef697cc7bfd72060f96095874a127f6f25a14bc4a3223897fbc9a5",
+    "docs/verification/issue-177/PAUSED-CHECKPOINT.md": "5ddf9c2215a31ec78ff05988522493371c8ba0dfb7cf3884d671b961116082ee",
+    "docs/verification/issue-177/README.md": "df9a8a2d88b5bf066135759a7b7bf196b708ed266d8596bbbc90db17792688af",
+    "docs/verification/issue-177/handoff-focused-iteration.txt": "bf6e6f32078621814759738a8e4775465114386eee97d5100cb2690710ff0761",
+    "integrations/resolve/VERA Delivery v2.py": "e05a405ce8a203d6f68fb55c43297d89394b7918bfc6b712205aa94538e7b65b",
+    "python/vera_timeline_agent/v2_package.py": "4082c82661e721e6d63a303789da9337efe3bd41c97398521a09b3d382b88f2d",
+    "python/vera_timeline_agent/workflow_v2.py": "2767a11bf961fe536cfc0a096d30f9981b6b96767f1a8794618343af538f6b0c",
+    "python/vera_timeline_agent/workflow_v2_cli.py": "5e120861265ffc72ef442180e8c2d2ddb54b79fa0325b894c47897607a9bb314",
+    "python/vera_timeline_agent/workflow_v2_launcher.py": "006d41644dd5da6f3e5be2ed89abe19dfa8715db64d9e4d8425b15516dbecb1d",
+    "tests/issue177_package_fixture.py": "f6917d710ed87e15b8c732c4b921ffa063136a185527d20ee10311b5990be888",
+    "tests/test_issue177_handoff.py": "0eca1793782d2909751b37c6928facf5c68af0b596dcc5b88012a5b9f8d4ff60",
+    "tests/test_v2_package.py": "4bb3f384c7c6eb725a88d4948beeabe4e1e7310beaee10e9def1dfccca76162a",
+    "tests/test_workflow_v2.py": "64a51292ed9ef37cf4efe6caf0ef905aaaddf7a8f14cfdbaa79631b5082de4aa"
+  },
+  "status": "paused_by_user_usage_threshold",
+  "thresholdUsedPercent": 90
+}

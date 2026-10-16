@@ -1,0 +1,249 @@
+{
+  "schema": "issue149-workflow-reruns-w1-analysis-check-v1",
+  "taskId": "#149",
+  "case": "w1-disabled-A1-01",
+  "analysis": {
+    "path": "out/issue149-workflow-reruns-20261002-kit-01/w1-disabled-A1-analysis.json",
+    "sha256": "d0aaba68b8850fd854323feeb08741056c8c957a8bb0e956ad65088e40e4ab6c"
+  },
+  "subtitlePoll": {
+    "path": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/evidence/w1-subtitle-poll-disabled-A1-01-20261002-kit-01/journal.jsonl",
+    "status": "complete",
+    "complete": true,
+    "subtitleItemCount": 1,
+    "timelineUid": "4affc46e-42ef-45c6-b59d-db9cd4678551",
+    "rawItems": [
+      {
+        "name": "1, 2, 3, 4, 5, 6, 7, 8",
+        "start": 38,
+        "end": 392,
+        "uid": "3330a02d-86ea-4b9a-927c-01ea3cddc49a"
+      }
+    ]
+  },
+  "rawSubtitleText": "1, 2, 3, 4, 5, 6, 7, 8",
+  "renderPoll": {
+    "path": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/evidence/render-poll-w1-disabled-A1-01-20261002-kit-01/journal.jsonl",
+    "jobId": "68644dd7-adbe-4b20-91d1-13915acd96e0",
+    "jobStatus": {
+      "CompletionPercentage": 100,
+      "JobStatus": "Complete",
+      "TimeTakenToRenderInMs": 1670
+    }
+  },
+  "render": {
+    "path": "out/issue149-workflow-reruns-20261002-kit-01/renders/W1-disabled-A1-01.mov",
+    "sha256": "de28ca47ec67218417384792b8befb55185b7c916ef9cc70e4e52fe6a8a6f307",
+    "ffprobe": {
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 640,
+          "height": 360,
+          "r_frame_rate": "25/1",
+          "avg_frame_rate": "25/1",
+          "sample_rate": null,
+          "channels": null,
+          "channel_layout": null,
+          "bits_per_sample": null,
+          "duration": "15.960000",
+          "nb_frames": "399"
+        },
+        {
+          "index": 1,
+          "codec_name": "pcm_s16le",
+          "codec_type": "audio",
+          "width": null,
+          "height": null,
+          "r_frame_rate": "0/0",
+          "avg_frame_rate": "0/0",
+          "sample_rate": "48000",
+          "channels": 2,
+          "channel_layout": "stereo",
+          "bits_per_sample": 16,
+          "duration": "15.960000",
+          "nb_frames": "766080"
+        },
+        {
+          "index": 2,
+          "codec_name": null,
+          "codec_type": "data",
+          "width": null,
+          "height": null,
+          "r_frame_rate": "0/0",
+          "avg_frame_rate": "12800/512",
+          "sample_rate": null,
+          "channels": null,
+          "channel_layout": null,
+          "bits_per_sample": null,
+          "duration": "15.960000",
+          "nb_frames": "1"
+        }
+      ],
+      "format_duration": "15.960000"
+    }
+  },
+  "audioGate": {
+    "expectedPresent": [
+      "one",
+      "two",
+      "three",
+      "four",
+      "five",
+      "six",
+      "seven",
+      "eight"
+    ],
+    "expectedAbsent": [
+      "alpha",
+      "bravo",
+      "charlie",
+      "delta",
+      "echo",
+      "foxtrot",
+      "golf",
+      "hotel"
+    ],
+    "actualPresent": [
+      "one",
+      "two",
+      "three",
+      "four",
+      "five",
+      "six",
+      "seven",
+      "eight"
+    ],
+    "pilots": {
+      "1000": 0.00043,
+      "1500": 0.02004,
+      "2000": 0.01988
+    },
+    "wordScores": {
+      "one": {
+        "score": 0.996,
+        "at_sample": 72000,
+        "at_frame": 37.5
+      },
+      "two": {
+        "score": 0.996,
+        "at_sample": 168000,
+        "at_frame": 87.5
+      },
+      "three": {
+        "score": 0.996,
+        "at_sample": 264000,
+        "at_frame": 137.5
+      },
+      "four": {
+        "score": 0.993,
+        "at_sample": 360000,
+        "at_frame": 187.5
+      },
+      "five": {
+        "score": 0.994,
+        "at_sample": 456000,
+        "at_frame": 237.5
+      },
+      "six": {
+        "score": 0.988,
+        "at_sample": 552000,
+        "at_frame": 287.5
+      },
+      "seven": {
+        "score": 0.995,
+        "at_sample": 648000,
+        "at_frame": 337.5
+      },
+      "eight": {
+        "score": 0.994,
+        "at_sample": 744000,
+        "at_frame": 387.5
+      }
+    },
+    "passed": true
+  },
+  "decode": {
+    "observed": {
+      "path": "renders/W1-disabled-A1-01.mov",
+      "frame_count": 399,
+      "src_ids": [
+        1
+      ],
+      "first": [
+        [
+          1,
+          0
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "frame_123": [
+        1,
+        123
+      ],
+      "last": [
+        1,
+        398
+      ],
+      "frame_mismatch_count": 0,
+      "frame_mismatch_examples": [],
+      "expected_src_id": 1,
+      "matches_expected_src_id": true
+    },
+    "interpretation": "Disabled-A1 render is a full-source 399-frame sequence: output frames 0-398 decode source 1 frames 0-398, with no generic sequence mismatches."
+  },
+  "analysisCheck": {
+    "command": "/usr/local/bin/python3.13 REPOSITORY/docs/investigations/issue-149/workflow-reruns/analysis-check.py out/issue149-workflow-reruns-20261002-kit-01/w1-disabled-A1-analysis.json --expect-present W1-disabled-A1=one,two,three,four,five,six,seven,eight --expect-absent W1-disabled-A1=alpha,bravo,charlie,delta,echo,foxtrot,golf,hotel --expect-pilot-max W1-disabled-A1=1000:0.001 --expect-pilot W1-disabled-A1=1500:0.015 --expect-pilot W1-disabled-A1=2000:0.015 --expect-src-id W1-disabled-A1=1",
+    "passed": true,
+    "returncode": 0,
+    "stdout": "analysis checks passed\n",
+    "stderr": ""
+  },
+  "saveCheckpoint": {
+    "path": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/evidence/save-checkpoint-w1-disabled-A1-01-20261002-kit-01/journal.jsonl",
+    "status": "ok",
+    "calledExactlyOnce": true,
+    "return": true
+  },
+  "renderStage": {
+    "path": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/evidence/render-stage-w1-disabled-A1-01-20261002-kit-01/journal.jsonl",
+    "jobId": "68644dd7-adbe-4b20-91d1-13915acd96e0",
+    "startedExactlyOnce": true,
+    "startReturn": true,
+    "setReturn": {
+      "settings": {
+        "AudioBitDepth": 16,
+        "AudioCodec": "lpcm",
+        "AudioSampleRate": 48000,
+        "CustomName": "W1-disabled-A1-01",
+        "ExportAudio": true,
+        "ExportVideo": true,
+        "FormatHeight": 360,
+        "FormatWidth": 640,
+        "FrameRate": 25,
+        "RenderAll": true,
+        "TargetDir": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/renders"
+      },
+      "renderMode": {
+        "readback": 1,
+        "setReturn": true
+      },
+      "formatCodec": {
+        "readback": {
+          "codec": "H264",
+          "format": "mov"
+        },
+        "setReturn": true
+      }
+    }
+  }
+}

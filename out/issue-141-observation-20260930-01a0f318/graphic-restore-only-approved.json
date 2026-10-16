@@ -1,0 +1,28 @@
+{
+  "action": {
+    "action": "editorial-case-restore",
+    "case": "R3-Graphic",
+    "preparationResult": "independent-structural-sequence-20261001T195612.955443Z/preparation.json",
+    "preparationResultSha256": "01071e407a59b2d8e07d38f9f92f35f2dd337952e9874f76235a4344fd85524b",
+    "postEditPair": "r3-graphic-split-20261001T195720.892725Z/pair.json",
+    "postEditPairSha256": "b45c1e45ace27f59052618536cd0121646b4995297b6eb2628d87b3686d7e78b",
+    "secondPositionResult": null,
+    "secondPositionResultSha256": null,
+    "secondSplitPair": null,
+    "secondSplitPairSha256": null
+  },
+  "nativeHelperSha256": "61ef935b47f5138545df909f41edffc2f10c7dcf55283068948950248e2c0531",
+  "probeSha256": "b2d9adaa7d9925353d5bcb7d70f8b94c75034f90dd72a96127744baacd5a4cb2",
+  "priorNativeSplitResult": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T195730.190697Z.json",
+  "priorNativeSplitResultSha256": "f86d8391359cdfc092105d8aa8742bdac867e5082175a160249908cf6cca3207",
+  "originalPlayhead": "00:00:00:00",
+  "originalLocks": {
+    "audio:1": false,
+    "audio:2": true,
+    "audio:3": true,
+    "video:1": false,
+    "video:2": true,
+    "video:3": true
+  },
+  "approval": "restore only original context of already-successful R3-Graphic split; no enable/preparation/split/deletion replay"
+}

@@ -1,0 +1,24 @@
+{
+  "publishedArtifacts": {
+    "comparison-extract.json": "57b604af5a841d251b2eb1ec1aa32bc97e705c8df6e31099f527ab4cc5687ab8",
+    "summary.json": "512214314bd6253f04630db8521c10bdf7585194aa400385fc62e158e325267b"
+  },
+  "redaction": "Published extracts contain no private absolute media, output, or plugin paths. Complete raw inputs are retained in their original private locations and are SHA-256 bound here.",
+  "sourceEvidence": {
+    "offlineCapture": {
+      "bytes": 4323614,
+      "filename": "capture-20261001T012446.349239Z.json",
+      "rawSha256": "c3cb459f1dd6736014e15f687141b58cb1af74722836cb724112d093011a9008"
+    },
+    "offlineComparison": {
+      "bytes": 3369,
+      "filename": "r4-offline-prefix-comparison.json",
+      "rawSha256": "acdb6f00bbe1e465b633de8d79413a3d2f91721c9d0b341a85aa14930dd93ea4"
+    },
+    "offlinePool": {
+      "bytes": 280018,
+      "filename": "r4-pool-read-only-20261001T012446.349239Z.json",
+      "rawSha256": "6af8465205951d5bb7157c46916de09f6d6577d6695a58224d0ab29bc960e596"
+    }
+  }
+}

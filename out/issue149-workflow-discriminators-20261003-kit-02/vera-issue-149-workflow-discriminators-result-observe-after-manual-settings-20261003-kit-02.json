@@ -1,0 +1,28 @@
+{
+  "action": "observe",
+  "actionId": "observe-after-manual-settings-20261003-kit-02",
+  "configSha256": "d3e79552c5b16ebf71c4cc261ad432457e3b9acf8d13a35b6613c6b38d0f616d",
+  "journal": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/evidence/observe-after-manual-settings-20261003-kit-02/journal.jsonl",
+  "launcher": "workflow-injected",
+  "observe": {
+    "readOnly": true,
+    "selectedClipsGetter": "GetSelectedClips"
+  },
+  "phase": "observe-after-manual-settings",
+  "progress": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-progress-observe-after-manual-settings-20261003-kit-02.jsonl",
+  "runtime": {
+    "machine": "x86_64",
+    "platform": "macOS-15.1-x86_64-i386-64bit-Mach-O",
+    "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 17.0.0 (clang-1700.6.4.2)]"
+  },
+  "schemaVersion": "issue-149-workflow-discriminators-v1",
+  "state": {
+    "itemUids": [],
+    "mediaUids": [],
+    "projectUid": "0591bb41-d645-4af7-a2ee-ff75f8f43162",
+    "timelineUids": [],
+    "timelines": []
+  },
+  "stateId": "observe-after-manual-settings-20261003-kit-02",
+  "status": "ok"
+}

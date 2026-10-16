@@ -1,0 +1,3 @@
+I completed only the first-proof correction: the driver no longer calls the premature native first-split review. It writes a clearly labeled local proof from `_named_linked_children` instead. I did **not** implement the required resume-record preparation, offset-baseline validation, or resume provenance checks, so the recovery driver is not ready to run.
+
+`py_compile` and the focused fake check passed; the fake check reports that no native app was launched. The repair result JSON records the partial status and script hashes at [issue-141-local-repair-result.json](issue-141-local-repair-result.json). No edits were made to the case scripts or checker.

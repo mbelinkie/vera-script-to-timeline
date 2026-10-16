@@ -1,0 +1,21 @@
+{
+  "status": "real-capture-loop-refused-controlled-change",
+  "resolveVersion": [
+    21,
+    1,
+    0,
+    14,
+    ""
+  ],
+  "captureSha256": "ad7f97fd471a86ed5f411b8141990fae3b0bca9ed2404cf2cc3c45f6758e6b89",
+  "onlyChangedPath": "Matrix.GetMarkers.value.0.customData",
+  "getterFailures": [],
+  "captureFailure": null,
+  "observerRestored": true,
+  "fullTimelineAndPoolStateRestored": true,
+  "limits": [
+    "Controlled metadata change between capture passes, not a simultaneous UI race.",
+    "No atomic revision token or exclusion of ABA changes is established.",
+    "Marker note/name and clip movement remain separate untested cases."
+  ]
+}

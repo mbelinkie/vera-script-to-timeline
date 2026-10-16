@@ -1,0 +1,197 @@
+{
+  "eventCount": 34,
+  "events": [
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "return",
+      "value": {
+        "codec": "H264",
+        "format": "mov"
+      }
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "return",
+      "value": 1
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "return",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "return",
+      "value": false
+    },
+    {
+      "method": "SetRenderSettings",
+      "phase": "request",
+      "settings": {
+        "AudioBitDepth": 16,
+        "AudioCodec": "lpcm",
+        "AudioFormat": "wav",
+        "AudioSampleRate": 48000,
+        "ExportAudio": true,
+        "ExportVideo": false,
+        "SelectAllFrames": true
+      },
+      "target": "<owned-render-directory>"
+    },
+    {
+      "method": "SetRenderSettings",
+      "phase": "return",
+      "value": true
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "return",
+      "value": {
+        "codec": "",
+        "format": "unknown"
+      }
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "return",
+      "value": 1
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "return",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "return",
+      "value": false
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "return",
+      "value": false
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "return",
+      "value": []
+    },
+    {
+      "method": "LoadRenderPreset",
+      "phase": "request",
+      "presetName": "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z",
+      "value": null
+    },
+    {
+      "method": "LoadRenderPreset",
+      "phase": "return",
+      "presetName": null,
+      "value": true
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderFormatAndCodec",
+      "phase": "return",
+      "value": {
+        "codec": "",
+        "format": "unknown"
+      }
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetCurrentRenderMode",
+      "phase": "return",
+      "value": 1
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "GetRenderJobList",
+      "phase": "return",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "request",
+      "value": []
+    },
+    {
+      "method": "IsRenderingInProgress",
+      "phase": "return",
+      "value": false
+    },
+    {
+      "detail": "RuntimeError: Render settings, queue, or context changed unexpectedly",
+      "method": "AudioOutput",
+      "phase": "prequeue-restoration-failure"
+    },
+    {
+      "detail": "RuntimeError: Prequeue refusal; recovery preset retained",
+      "method": "AudioOutput",
+      "phase": "restoration-failure"
+    }
+  ],
+  "redactions": "Paths and full observation payloads omitted.",
+  "sourceJournalSha256": "fda00cbecbea749aab7d61ae0185b00069e4f639908c7997cc5bffe4098f2f7f"
+}

@@ -1,0 +1,22 @@
+[
+  {
+    "after": "<BlackmagicFusion.PyRemoteObject object at 0x1111826d0>",
+    "before": "<BlackmagicFusion.PyRemoteObject object at 0x1110e0cf0>",
+    "path": "/currentTimeline/getter/value/repr"
+  },
+  {
+    "after": "VERA 141 Batched Matrix",
+    "before": "transcription test 1",
+    "path": "/currentTimeline/identity/GetName/value"
+  },
+  {
+    "after": "29ae8331-b86e-4041-a548-960695cc7b24",
+    "before": "21436b8f-057c-49e6-80ba-5f733abe87b2",
+    "path": "/currentTimeline/identity/GetUniqueId/value"
+  },
+  {
+    "after": "00:00:00:00",
+    "before": "01:00:10:05",
+    "path": "/playhead/value"
+  }
+]

@@ -1,0 +1,93 @@
+{
+  "task_id": 149,
+  "scope": "Bounded final-document audit after all required W1-W7 gates and final summary",
+  "date": "2026-10-02",
+  "native_calls": false,
+  "reruns": false,
+  "status": "all required W1-W7 gates verified; producer review pending",
+  "audited_documents": [
+    "docs/investigations/issue-149/workflow-reruns/w2-result.md",
+    "docs/investigations/issue-149/workflow-reruns/w5-result.md",
+    "docs/investigations/issue-149/workflow-reruns/results.md",
+    "docs/investigations/issue-149/workflow-reruns/verdict-review.md",
+    "docs/investigations/issue-149/workflow-reruns/final-summary.md",
+    "docs/investigations/issue-149/workflow-reruns/w1-result.md",
+    "docs/investigations/issue-149/workflow-reruns/w3-result.md",
+    "docs/investigations/issue-149/workflow-reruns/w4-result.md",
+    "docs/investigations/issue-149/workflow-reruns/w6-result.md",
+    "docs/investigations/issue-149/workflow-reruns/w7-result.md",
+    "docs/investigations/issue-149/workflow-reruns/execution-record.md",
+    "REPOSITORY/docs/investigations/issue-141/report.md (supplemental section only)",
+    "REPOSITORY/docs/investigations/issue-141/second-opinion-handoff.md (Issue 149 supplement only)"
+  ],
+  "document_hashes_sha256": {
+    "w1-result.md": "185f61b5039729be93698e1cd1d5684a366ecd2d2cb7d266788acc0b25c51415",
+    "w2-result.md": "cb7431de4b9b150c3193a258cca8f035217696a3cc3a15d8fb318493d9de191f",
+    "w3-result.md": "abdf0cb1af20846f56ec94d7f40959b057f936c2ca9c1c18a54d3d232815b249",
+    "w4-result.md": "0809486c9ec3ce253637c6f4e3bc83f3ef485ca637216469c31ce0910328900a",
+    "w5-result.md": "4c8018701eb43563e8179d16e84bde79dcb38404cdfd9ba417a50fc760d90efb",
+    "w6-result.md": "cac2ce3fd5f860d361f57b8834c730c189bd12b8f9405bbccc50d0c4e28160e6",
+    "w7-result.md": "348daab053cf437c9276b0c53a6545210c5cb6cf0be3145f0e6bbf1ace352b27",
+    "results.md": "af3e9d2d4078d84e5216017df62d558216db8670791716937453324490f8b860",
+    "verdict-review.md": "55b219b0f8e450e68376d2341ddb77d519e0930d60e4cbdee0b0fc719d2e8a84",
+    "final-summary.md": "923cb89b31252d26986f78f2b0a42c302416d4a387bfb5b2da53d91b1c76f3a1",
+    "execution-record.md": "ddec63d8cc1822d9b8d412bf8ece3e008924209e35f52aad63a27d85acec115f",
+    "final-review.md": "2631983f8dbfc1633d5cd7e784aca7bb8a68e7bad42ba857bf5527f60aae8ca0"
+  },
+  "verified": {
+    "project_uid": "1a05ff3a-8b04-43e3-95ab-c970b93b6415",
+    "timeline_uids": {
+      "x": "abdd2270-7155-4fba-850c-82201a38f4c2",
+      "y": "bec69cf7-c76e-4820-9e1f-9b425449614f"
+    },
+    "probe_sha256": "a19a79d684f8dbaed6d36bda0d493eed964d37888bddf7749e3bbdf601f59ab5",
+    "launcher_sha256": "e4f58381c398bc0ce13130fddb25c956876f7754dc877346fe389dfb826c2450",
+    "w5_result_sha256": "b20b95b6a1adf1f0c8e9f17e2ac55c046e5b6d52ef6674b408362392cb44def5",
+    "w5_journal_sha256": "21b88000ae597f8e00842f222ced81b84064c091a8eef9b1e8a8a3aa644e9ce3",
+    "w5_pre_post_sha256": "e9179296fb130b5dc0e036e110c1ec05953ffe3d3a20ad881800280a84ce4345",
+    "w2_x_export_otio_sha256": "1fade39d42686a7363dcc079355aa058fc5fb7d166a9822fc05057da1e941fc2",
+    "w2_y_export_otio_sha256": "0cf898d0d673a21ea4118fb0f9f646b0f071344ca9a3b26b1a017824889bce7e",
+    "w2_neutral_y_poll": {
+      "result_sha256": "bc17f68b51961920084601f8f7f484802012c17a8e85d19d1c9d09c03a212a51",
+      "job_id": "3caad583-c2eb-47f2-848c-63758ad8215d",
+      "status": "ok",
+      "job_status": "Complete",
+      "completion_percentage": 100
+    },
+    "w2_neutral_y_analysis_sha256": "7999408950a094fc134e89f3df0e218db1acecffcfd00884132461b6e1b491bd",
+    "w2_save_checkpoint_result_sha256": "c0673b83c946fbd200fa5c1bd76c325ac9bdc4f141a48faf08766f1fb7301aeb",
+    "w2_optional_neutral_x": "unrun after read-only TC/Out-mark drift; no Resolve mutation"
+  },
+  "checks": {
+    "w2_document": "All required Phase 10 W2 gates are explicitly classified as passed: X mute, Y solo, Y Solo-off export and neutral-Y output analysis, with exact source IDs, raw pairs, polls and SaveProject=True checkpoint. Optional neutral-X extension is explicitly unrun after unrelated read-only drift.",
+    "w5_document": "Complete bounded current/inactive sequence with exact X/Y UIDs, operation order, getter envelopes, result/config hashes, raw journal and byte-equal pre/post hashes. Its public comments are recorded in results.md and verdict-review.md. It explicitly avoids inferring global mute state or general getter capability.",
+    "seven_rows": "results.md and final-summary.md contain W1 through W7. W1, W2, W4, W5 and W7 reproduce named gates; W3 and W6 are adverse outcomes with evidence and limits.",
+    "claim_limits": "W4 keeps embedded linked A1 separate from separately sourced linked A1 and retains retimed timelines. W6 and verdict-review keep source restoration, no-switch, lineage and atomicity limits explicit; no universal capability claim was accepted.",
+    "local_markdown_links": "All local links in workflow-reruns Markdown and issue-149 README resolve. The encoded absolute W3 link in the #141 supplement resolves after URL decoding; external issue/PR links are retained as references.",
+    "execution_audit": "The relevant W2/W5/W3/W4/W6/W7 observe/export/stage/poll actions each have one dispatch config, one launch receipt and one result receipt; retained result receipts are status ok and their sha256 values match the referenced native result files. No duplicate action ID was observed."
+  },
+  "resolved_corrections": [
+    {
+      "file": "docs/investigations/issue-149/workflow-reruns/w2-result.md:32-33",
+      "details": "Corrected W2 primary render-poll bindings now cite X 7b1086e4d628… and Y 4cfa83afe3e8…, matching retained result files."
+    },
+    {
+      "file": "docs/investigations/issue-149/workflow-reruns/results.md; verdict-review.md",
+      "details": "Aggregator and final summary now classify all required W2 gates as reproduced while preserving the optional neutral-X gap and later read-only drift."
+    }
+  ],
+  "open_findings": [
+    {
+      "severity": "scope",
+      "file": "docs/investigations/issue-149/workflow-reruns/w2-result.md:108-110",
+      "type": "optional neutral-X extension",
+      "details": "The required W2 procedure is complete. Neutral-X output was not run after a read-only guard found TC/Out-mark drift; it is explicitly unrun and is not a W2 failure."
+    },
+    {
+      "severity": "historical-status",
+      "file": "#141 report/handoff Issue 149 supplemental sections",
+      "type": "expected stale wording",
+      "details": "Historical pause sections remain in results.md for provenance; the final bounded outcome and final-summary.md supersede them. The scoped #141 handoff references preserve this distinction."
+    }
+  ]
+}

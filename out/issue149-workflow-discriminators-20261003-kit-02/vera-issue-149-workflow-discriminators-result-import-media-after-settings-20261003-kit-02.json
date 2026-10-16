@@ -1,0 +1,80 @@
+{
+  "action": "import-media",
+  "actionId": "import-media-after-settings-20261003-kit-02",
+  "configSha256": "d71c01c267e3402bdddf34b0831cb557e2594c3ea54ee48afae525427bf0a2c4",
+  "importMedia": {
+    "calledExactlyOnce": true,
+    "saveReturn": true
+  },
+  "journal": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/evidence/import-media-after-settings-20261003-kit-02/journal.jsonl",
+  "launcher": "workflow-injected",
+  "media": [
+    {
+      "name": "a1_alpha.wav",
+      "path": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/media/a1_alpha.wav",
+      "sha256": "4bc4b8cfa118dab9f75ec2072f79af0c856f41566d7e2da60fca5268f7d81253",
+      "uid": "ead5c8a6-0f86-4a00-b5b3-5ae9b0a7843a"
+    },
+    {
+      "name": "a2_numbers.wav",
+      "path": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/media/a2_numbers.wav",
+      "sha256": "d9aeccc2d50cb96d81341167450eeb1b2c43fecf0f02b9291b4cd65afa92f9ba",
+      "uid": "eda97c9f-08da-4e29-be52-4ebe8dfd7620"
+    },
+    {
+      "name": "a3_bed.wav",
+      "path": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/media/a3_bed.wav",
+      "sha256": "022e3dd779808e5b38ff870cd541d8e25fb940836443262aaa95ce8768817e2b",
+      "uid": "eb878f01-ce5a-44a2-86e5-1a6da071fc90"
+    },
+    {
+      "name": "base.mov",
+      "path": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/media/base.mov",
+      "sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+      "uid": "dfdd5a46-c202-4493-84ab-f8e9d83c81b1"
+    },
+    {
+      "name": "cutaway.mov",
+      "path": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/media/cutaway.mov",
+      "sha256": "34c364eb8debae77754448b7e272467d6fbf7a9ff46a2cca338032b778acc42e",
+      "uid": "49a7ba00-960a-4225-9704-b3a0bdcc2d40"
+    },
+    {
+      "name": "relink_alt.mov",
+      "path": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/media/relink_alt.mov",
+      "sha256": "2bad2d2457c3d572d2fe3542ef22da915ec38306c8985026bec10d1289f76579",
+      "uid": "c6212874-c7f8-4a8f-8f92-99f59e0930ac"
+    },
+    {
+      "name": "swap.mov",
+      "path": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/media/swap.mov",
+      "sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+      "uid": "0b89e658-4617-408d-bd5d-03291c1f889a"
+    }
+  ],
+  "phase": "import-media-after-settings",
+  "progress": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-progress-import-media-after-settings-20261003-kit-02.jsonl",
+  "runtime": {
+    "machine": "x86_64",
+    "platform": "macOS-15.1-x86_64-i386-64bit-Mach-O",
+    "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 17.0.0 (clang-1700.6.4.2)]"
+  },
+  "schemaVersion": "issue-149-workflow-discriminators-v1",
+  "state": {
+    "itemUids": [],
+    "mediaUids": [
+      "49a7ba00-960a-4225-9704-b3a0bdcc2d40",
+      "c6212874-c7f8-4a8f-8f92-99f59e0930ac",
+      "0b89e658-4617-408d-bd5d-03291c1f889a",
+      "dfdd5a46-c202-4493-84ab-f8e9d83c81b1",
+      "eb878f01-ce5a-44a2-86e5-1a6da071fc90",
+      "ead5c8a6-0f86-4a00-b5b3-5ae9b0a7843a",
+      "eda97c9f-08da-4e29-be52-4ebe8dfd7620"
+    ],
+    "projectUid": "0591bb41-d645-4af7-a2ee-ff75f8f43162",
+    "timelineUids": [],
+    "timelines": []
+  },
+  "stateId": "import-media-after-settings-20261003-kit-02",
+  "status": "ok"
+}

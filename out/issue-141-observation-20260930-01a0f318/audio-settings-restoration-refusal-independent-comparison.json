@@ -1,0 +1,27 @@
+{
+  "status": "native-audio-settings-format-readback-and-preset-restore-gap",
+  "settingsReturnedTrue": true,
+  "presetLoadReturnedTrue": true,
+  "formatReadbacks": [
+    {
+      "codec": "H264",
+      "format": "mov"
+    },
+    {
+      "codec": "",
+      "format": "unknown"
+    },
+    {
+      "codec": "",
+      "format": "unknown"
+    }
+  ],
+  "noQueueOrRender": true,
+  "ownedRecoveryRetained": true,
+  "doNotInferAudioUnavailable": true,
+  "files": {
+    "journal.jsonl": "fda00cbecbea749aab7d61ae0185b00069e4f639908c7997cc5bffe4098f2f7f",
+    "preflight.json": "3dfc30798ca4769d719d52028b508f8eb8261bf2daf61a9a0255f52091d765b0",
+    "vera-issue-141-observation-result-20261001T021255.149341Z.json": "0f58231798b54d00f7d4c43aeae99ef21895c1e1408108838176dce84d6762dc"
+  }
+}

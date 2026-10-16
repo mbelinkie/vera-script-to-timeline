@@ -1,0 +1,12 @@
+{
+  "initialAction": "prepare",
+  "inputManifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "kind": "installation-and-generated-inputs-not-live-Resolve-evidence",
+  "launcherName": "VERA Issue 141 Observation.py",
+  "launcherSha256": "723fc6d8bd47d1bad36921d00a27da43b4f3703de29e4da47ba926c84accee49",
+  "operatorNoneConfirmation": "pending",
+  "privateConfigSha256": "3e0410736931988a175cf49f2a40290b8f116bb727bd7a69c31e084c37ec1725",
+  "privatePathsPublished": false,
+  "probeSha256": "54c7774d365f8e5cbd7ba6bba15740e08d0a9d02880ee3c6ea5678cd73329d93",
+  "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318"
+}

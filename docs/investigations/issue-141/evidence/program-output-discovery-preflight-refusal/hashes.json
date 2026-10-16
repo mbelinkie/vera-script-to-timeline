@@ -1,0 +1,32 @@
+[
+  {
+    "filename": "before.json",
+    "publishedSha256": "b4dbd3123da7a9abdec228e9eb54595399cd0ba42990dabd5726e2d2cd446b47",
+    "rawSha256": "3a51b4dc54c323e9d310a01a114f02128b3e2aeeea681391081a7494d4b42f16",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "refusal.json",
+    "publishedSha256": "5c78369a4c912986aaef6829268ffa47e83ce06e5a804111c3e0a8c683305050",
+    "rawSha256": "a32116ec7194cacfe5fd4ba8d5f062bc2f61849ab726008d3e8a3dfb509b2071",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "journal.jsonl",
+    "publishedSha256": "44e66bfcc91e80f1456e974dc28f4d4acdc40e82d547f0d40b5f58d85080d41d",
+    "rawSha256": "3453936afde7e0ce656bfb14f81524ff063e2ab8e547a942afc614b10efdb938",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "vera-issue-141-observation-result-20261001T000229.499197Z.json",
+    "publishedSha256": "20792f326d260a822a5e55681c90cc3212aca8920a026b47fa24b1310f93449c",
+    "rawSha256": "20792f326d260a822a5e55681c90cc3212aca8920a026b47fa24b1310f93449c",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "hammerspoon-launch-20261001T000227.533171Z.jsonl",
+    "publishedSha256": "84381614b9c93b9353ef0b4a63b68d7beb57eb98499e3f87f11c1a2f5cf75202",
+    "rawSha256": "84381614b9c93b9353ef0b4a63b68d7beb57eb98499e3f87f11c1a2f5cf75202",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  }
+]

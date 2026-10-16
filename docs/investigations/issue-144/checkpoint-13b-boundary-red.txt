@@ -1,0 +1,45 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________________ test_pinned_boundary_replay_and_change_refusal ________________
+
+tmp_path = PosixPath('/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/pytest-of-matthewbelinkie/pytest-69/test_pinned_boundary_replay_an0')
+
+    def test_pinned_boundary_replay_and_change_refusal(tmp_path: Path) -> None:
+        root = tmp_path / "proof"
+        _inputs(root)
+        source = tmp_path / "boundary.py"
+        source.write_text("FILE_PINS = {}\ndef make_boundary(root):\n    return {}\n")
+        args = [
+            "status",
+            "--proof-root",
+            str(root),
+            "--boundary-file",
+            str(source),
+            "--boundary-sha256",
+            file_hash(source),
+        ]
+        assert main(args) == 0
+        original = (root / "operator-boundary.json").read_bytes()
+        assert (
+            main(args) == 0 and (root / "operator-boundary.json").read_bytes() == original
+        )
+        marker = tmp_path / "changed-module-executed"
+        source.write_text(
+            f"from pathlib import Path\nPath({str(marker)!r}).write_text('executed')\n"
+            "FILE_PINS = {}\ndef make_boundary(root):\n    return {'unknown': True}\n"
+        )
+        args[-1] = file_hash(source)
+        assert main(args) == 2
+>       assert not marker.exists()
+E       AssertionError: assert not True
+E        +  where True = exists()
+E        +    where exists = PosixPath('/private/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/pytest-of-matthewbelinkie/pytest-69/test_pinned_boundary_replay_an0/changed-module-executed').exists
+
+tests/test_issue144_driver.py:60: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"baseline": null, "evidenceLevel": "synthetic_injected", "status": "unbound"}
+{"baseline": null, "evidenceLevel": "synthetic_injected", "status": "unbound"}
+{"status": "refused", "reason": "immutable stage receipt has different bytes"}
+=========================== short test summary info ============================
+FAILED tests/test_issue144_driver.py::test_pinned_boundary_replay_and_change_refusal
+1 failed in 1.48s

@@ -1,0 +1,104 @@
+{
+  "published_derivatives": {
+    "av-journal-redacted.jsonl": "504c7bd9696982b41951382fabd35786c707da1a586dc5bf320bc400ce7b9748",
+    "continuation-record.json": "b169854fa9e6f9509dc22e1b8aa41e2d7e63b79baf74909c3246302c29fedc36",
+    "final-local-result-redacted.json": "550849c4e5df7686dd6c29ae962fa3f002ec2631042f49ce2cde056a55b9e975",
+    "findings.md": "aebb1ad36aa6176948e10f8aa8b6ab1ebb82629cc34653946ee768d49e1bf7dc",
+    "full-pair-redacted.json": "5a8b066fd5b91d884cc54bf07fcbff144673b73560f8a1e0e839e50675373ae3",
+    "preset-field-comparison.json": "47c331a4ea8e172155173abbc10ac59a6390fa573eaad21c09ecb106c38e82d9"
+  },
+  "source_material": {
+    "all_pairs_equal_checkpoint": true,
+    "av_pair_sources": [
+      {
+        "name": "full-pair-001.json",
+        "sha256": "35f7132f331a8ecf0f1685dd1167c636add1aea3118bfbf2f2e7896ae348c1c3"
+      },
+      {
+        "name": "full-pair-002.json",
+        "sha256": "35f7132f331a8ecf0f1685dd1167c636add1aea3118bfbf2f2e7896ae348c1c3"
+      },
+      {
+        "name": "full-pair-003.json",
+        "sha256": "35f7132f331a8ecf0f1685dd1167c636add1aea3118bfbf2f2e7896ae348c1c3"
+      }
+    ],
+    "checkpoint": {
+      "name": "av-calibration-checkpoint-after-r1-move-20261001T061824.json",
+      "sha256": "35f7132f331a8ecf0f1685dd1167c636add1aea3118bfbf2f2e7896ae348c1c3"
+    },
+    "pool_consistency": "equal-adjacent-reads",
+    "pool_passes": 2,
+    "timeline_consistency": "equal-adjacent-reads",
+    "timeline_passes": 2,
+    "timeline_uid": "29ae8331-b86e-4041-a548-960695cc7b24"
+  },
+  "synthetic_inputs": [
+    {
+      "current_sha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+      "manifest_sha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+      "matches": true,
+      "path": "<POOL>/issue-141-media-20260930-01a0f318/base.mov"
+    },
+    {
+      "current_sha256": "e43bf6bf625af702fc44e7d0c278c2cf8551d1e8a80e0efa575866ff92d9920a",
+      "manifest_sha256": "e43bf6bf625af702fc44e7d0c278c2cf8551d1e8a80e0efa575866ff92d9920a",
+      "matches": true,
+      "path": "<POOL>/issue-141-media-20260930-01a0f318/base.png"
+    },
+    {
+      "current_sha256": "f6da7ab4ffb4cc549e4b41e19da714097877b035abfb0235ac9bf94ea4860c02",
+      "manifest_sha256": "f6da7ab4ffb4cc549e4b41e19da714097877b035abfb0235ac9bf94ea4860c02",
+      "matches": true,
+      "path": "<POOL>/issue-141-media-20260930-01a0f318/bed.wav"
+    },
+    {
+      "current_sha256": "771b4bbbe771b980831e0a7b6d93ef11e1315cd995df22c5c7fbf7c2bf62c88b",
+      "manifest_sha256": "771b4bbbe771b980831e0a7b6d93ef11e1315cd995df22c5c7fbf7c2bf62c88b",
+      "matches": true,
+      "path": "<POOL>/issue-141-media-20260930-01a0f318/cutaway.mov"
+    },
+    {
+      "current_sha256": "6793c3f8077b00f5366a082e5817669f320ce44b1e6858759e070b260cd3a1d5",
+      "manifest_sha256": "6793c3f8077b00f5366a082e5817669f320ce44b1e6858759e070b260cd3a1d5",
+      "matches": true,
+      "path": "<POOL>/issue-141-media-20260930-01a0f318/cutaway.png"
+    },
+    {
+      "current_sha256": "e01b1d1a9890b72e4399f6483a287220e89f423fb98a8497395d692f6a6dfd67",
+      "manifest_sha256": "e01b1d1a9890b72e4399f6483a287220e89f423fb98a8497395d692f6a6dfd67",
+      "matches": true,
+      "path": "<POOL>/issue-141-media-20260930-01a0f318/echo.aiff"
+    },
+    {
+      "current_sha256": "5c83d40cf83559689abaa900c74afb89f1323cdde5d7bf3a3167fc2926d2c599",
+      "manifest_sha256": "5c83d40cf83559689abaa900c74afb89f1323cdde5d7bf3a3167fc2926d2c599",
+      "matches": true,
+      "path": "<POOL>/issue-141-media-20260930-01a0f318/echo.wav"
+    },
+    {
+      "current_sha256": "071eb12b64238770244dead14fda01a0aeca3623f7962aab9edefa93b68d3140",
+      "manifest_sha256": "071eb12b64238770244dead14fda01a0aeca3623f7962aab9edefa93b68d3140",
+      "matches": true,
+      "path": "<POOL>/issue-141-media-20260930-01a0f318/overlay.png"
+    },
+    {
+      "current_sha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+      "manifest_sha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+      "matches": true,
+      "path": "<POOL>/relink/base.mov"
+    },
+    {
+      "current_sha256": "832dd31cc46b9f4b4fdb7cbde18b4edc09ec249885634fba43da2a7b87dc768e",
+      "manifest_sha256": "832dd31cc46b9f4b4fdb7cbde18b4edc09ec249885634fba43da2a7b87dc768e",
+      "matches": true,
+      "path": "<POOL>/issue-141-media-20260930-01a0f318/repeated.wav"
+    },
+    {
+      "current_sha256": "771b4bbbe771b980831e0a7b6d93ef11e1315cd995df22c5c7fbf7c2bf62c88b",
+      "manifest_sha256": "771b4bbbe771b980831e0a7b6d93ef11e1315cd995df22c5c7fbf7c2bf62c88b",
+      "matches": true,
+      "path": "<POOL>/wrong/base.mov"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "kind": "reviewed-fresh-checkpoint-av-queue",
+  "at": "2026-10-01T11:53:26.292405+00:00",
+  "checkpoint": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T114857.294317Z/after.json",
+    "sha256": "1be6a4fe8f6f98e31b9cac544e7251c74e24f7e07aaa0668985d2ae753e66e48"
+  },
+  "sourceSha256": "7429c70a5327279f537f6aadf6ec1f790ddffd8f2458a9cb96e74a8e7a7bf92a",
+  "appliedSettingsRecordSha256": "8852c355e605a0d4e0be62f554f06f8fcdaca7a29e6a39b877633728928592df",
+  "scope": "First AddRenderJob; start only returned ID after exact job metadata; no settings/save/export replay. Preserve all current editorial state/Out/source bytes. One8.04s MOV/H264+24-bit PCM calibration; exact fresh state required through output and snapshot restoration; retain refusal without retry.",
+  "checks": [
+    "av-output fake checks pass",
+    "main harness checks pass",
+    "Ruff pass",
+    "owned prior render dir remains empty"
+  ]
+}
