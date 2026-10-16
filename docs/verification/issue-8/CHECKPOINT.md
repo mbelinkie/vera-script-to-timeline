@@ -1329,3 +1329,24 @@ No visual/timing/isolation acceptance inferred from “done”; no agent source/
 request/native/settings/project mutation or heavy test. Earlier visual/native
 passes and both failed targets preserved. #8 stays open/In review until those
 reduced-plan actual External gates are retained.
+
+### Producer reports final revised120 visual and old-project isolation success
+
+Producer replied “success” to exact final checklist: target512372ce6db1 with
+V5 hidden/V4 left120frames, The Code — revised/Nemo/Finland badge and longer
+middle hold without visually slowed entrance/exit; old target959ff2d2d1a0
+still The Code/Nemo; earlier and original project timeline lists unchanged
+against before-screenshots. Record scoped operator acceptance of those checks,
+bound to actual final native resulte6c96667..., not agent native API readback
+of old projects. Screenshots themselves not received. Receipt:
+out/issue8/revised120-producer-visual-isolation-acceptance.json.
+
+All four required native builds and scoped visual/isolation checks now pass
+under approved reduction; no further builds/variant tests needed. Remaining
+gate is actual retained timing renders of existing overrides64 and revised120,
+exact64/120frames at24fps, known V5 warning hidden, V4 durations untouched.
+Output directory out/issue8/timing-renders prepared; no video exists or agent
+render/native action claimed. Need actual export paths/hashes and frame/timing
+inspection for48entrance/16exit/56hold before closure. No new full tests or
+runtime/request/package mutation. #8 remains open until this evidence exists;
+conditional Sweden-steward notification has not fired.

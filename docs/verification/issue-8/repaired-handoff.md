@@ -78,6 +78,23 @@ No overrides64 build authorization is inferred from this visual acceptance.
 
 ## Current installed request — authorized final revised120 BUILD
 
+Producer now reports “success” to the final visual/long-hold and unchanged-old/
+original-project checklist: revised120 looks correct; earlier overrides64
+still shows The Code/Nemo; timeline lists compare unchanged against their
+before-screenshots. Record this scoped operator visual/isolation acceptance,
+not an agent native API comparison. Screenshots themselves are not received.
+Receipt: out/issue8/revised120-producer-visual-isolation-acceptance.json.
+No more builds or variant tests are required under the approved reduced plan.
+
+Only remaining acceptance evidence: retain two24fps/1920x1080timing exports,
+existing overrides64 target959ff2d2d1a0 and final revised120 target512372ce6db1.
+Hide known V5 authored warning; do not change V4 duration, retime or include
+extra timeline frames. Export exact64/120frame graphic ranges. Suggested output
+directory out/issue8/timing-renders, filenames overrides-64.mov/revised-120.mov;
+operator may provide other actual paths. No export has been performed by agent
+and no video is claimed present. Verify actual counts/timing/pixels and retain
+hashes before closure. Installed request remains consumed; never launch it again.
+
 Final request is now consumed successfully; DO NOT invoke it again. Actual
 result out/issue8/native-evidence-75325e0/revised-120/result-3e3e20805a4f4ce18bcb2a73abd2d0a5.json,
 SHA256e6c96667d74be58f9b8d6e02124cd8c34b95fdeede6be6de43541389098e4756,
