@@ -1,0 +1,20 @@
+import json
+import sys
+from pathlib import Path
+from typing import Any,cast
+from vera_timeline_agent.media_preparation import MediaTools,PreparationAuthorization,prepare_media,_qualified_tools
+from vera_timeline_agent.narration.models import identity_hash
+
+root=Path(__file__).resolve().parents[3]
+sys.path.insert(0,str(root/'tests'))
+folder=Path(__file__).resolve().parent/'qualification'
+case=json.loads((folder/'25-convert/case.json').read_bytes())
+tools=MediaTools()
+tool_hash=identity_hash(tools.fingerprint())
+assert case['toolHash']==tool_hash
+_qualified_tools(tool_hash)
+record=json.loads((folder/case['receipt']).read_bytes())
+result=prepare_media(folder/case['source'],cast(Any,case['descriptor']),cast(Any,case['requestedRange']),cast(Any,record['binding']['targetRate']),authorization=PreparationAuthorization(reference='issue174-public-positive',read_roots=(folder/'25-convert',),write_root=folder/'25-convert/prepared',tool_hash=tool_hash),video_stream_index=0,audio_stream_index=None,tools=tools)
+assert result.reused
+assert result.binding['authorizationReference']=='issue174-public-positive'
+print(json.dumps({'publicLedgerAccepted':True,'publicExactReuseAccepted':True,'toolHash':tool_hash,'requirementKey':result.binding['requirementKey']},indent=2))

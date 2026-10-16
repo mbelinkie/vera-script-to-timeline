@@ -1,0 +1,79 @@
+{
+  "start": {
+    "worktree": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline",
+    "revision": "4121d655be25526dea680d370def6a3ace50276e",
+    "integrationBaseline": "289cfea0312b5528f7bbbadee1812a09f52b17a8",
+    "candidate": "post-r2 B1 durability ordering fix, pinned by sourceHashes",
+    "sourceHashes": {
+      "python/vera_timeline_agent/media_preparation.py": "60c09d800a7137cbb5d896541dd318819616f414468db39c340af477e6904802",
+      "tests/test_issue174_media_preparation.py": "0cc36068f82c5435c7a46c0a2dd7b94a908f180e566d579aa7d631778f5edb73",
+      "tests/test_issue174_recovery.py": "c46794ca48021c7491606173416dedd02a3bdf249c563b84b1a79e59835ce8cf",
+      "tests/test_issue174_real_media.py": "0a9a522d186f102d9ad2d8726a3c02bb068ac53f994e8181a8d232422de613d5",
+      "tests/issue174_media_fixture.py": "4d84c7142ed1e4f202f2fda65286dac7448871c72251c9a0221be1ba1b88438b",
+      "tests/test_issue174_source_refusals.py": "6313a92fcfcdfb02f772df40fb23c79d84aaa52f309b24b1353b3412cd533140",
+      "docs/verification/issue-174/sampling_probe.py": "8ec1910bfac83e8e7e1068c8602199a32cc9465e8da9cb40e2bcf55e99c61e3e",
+      "docs/verification/issue-174/verify_retained.py": "4289ba37034b6c961415d374eac613f9e990adebd0aa042c1f00f26d74219cb0",
+      "docs/verification/issue-174/qualify.py": "e15d1e4456ca1e6cc9ea19e73c1ea4b3cac48789cee7fbd3ae0d8d96c72316aa",
+      "docs/verification/issue-174/compiler-binding-probe.mjs": "3060e629d20242dba09d95ebeb3328467bc3204d596da1823cd955438550a355",
+      "package.json": "ce265d25f9582ef71f2e6b45e1e878a40e5ca4752d79db5f40caf59b9c0a7ff0",
+      "package-lock.json": "e615667b1bcbea53bb34c4db11a6ca6a2745fae5edac6538ff87d3fdfe35d7b8",
+      "pyproject.toml": "2c1e979ebf89b25336bfdef64d8bb855513c4171048e47cf7eeb593065329069",
+      "uv.lock": "f950bcda5d522d83b28b08f57783b8056e9bfbf7fadf6254215746e3a350cde2",
+      "out/issue174/r8/run_checks.py": "06da3cf1808426c0d7bdeea7b86b62a7d53d401c0fb4e2e46f95b44d1966ba90",
+      "out/issue174/r7/public_positive.py": "7bc31a5f56bb6867acb230d88e9465d64a81ed315aa44b89b58a14ba13cd186f"
+    },
+    "toolchain": {
+      "node": "v24.19.0",
+      "npm": "11.17.0",
+      "uv": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)",
+      "python": "Python 3.12.14"
+    },
+    "launchdLabel": "com.vera.issue174.affected-r8",
+    "keepAlive": false,
+    "commands": [
+      [
+        "remaining-media",
+        [
+          "uv",
+          "run",
+          "--frozen",
+          "pytest",
+          "tests/test_issue174_media_preparation.py",
+          "tests/test_issue174_real_media.py",
+          "tests/test_issue174_source_refusals.py",
+          "-q",
+          "--durations=25"
+        ]
+      ]
+    ],
+    "environment": {
+      "PATH": "/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/usr/local/bin:/usr/bin:/bin:/Users/matthewbelinkie/.local/bin",
+      "VITEST_MAX_WORKERS": "1",
+      "PYTEST_ADDOPTS": "--durations=25"
+    },
+    "startedAt": 1791857577.9365702,
+    "statusPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r8/status.json",
+    "finalExitStatusPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r8/exit.json",
+    "noFullSuite": true
+  },
+  "finalExit": {
+    "exitCode": 0,
+    "results": [
+      {
+        "stage": "remaining-media",
+        "exitCode": 0,
+        "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r8/remaining-media.log"
+      }
+    ],
+    "finishedAt": 1791858697.2909179
+  },
+  "result": "51 passed in 1117.81s",
+  "logHash": "sha256:e09f0253f593fbfe70852758f4d5f1e8feb05641b6b3186385c02143a0429dee",
+  "sourceAndQualificationHashesStillMatch": true,
+  "recoveryFromR7": "33 passed in 686.35s",
+  "allIssueOwnedCurrentSourceTests": 84,
+  "noFullSuite": true,
+  "technicalReviewSourceEquivalent": "bd1fb70f926802b491be3e75c20c5bc56d3a53fe",
+  "log": "affected-media.log.gz",
+  "gateLimit": "This completes all issue174 media modules, not the global full repository gate."
+}

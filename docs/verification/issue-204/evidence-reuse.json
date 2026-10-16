@@ -1,0 +1,96 @@
+{
+  "fullTestedCommit": "3261abc410483757eff7a946a0a562660e4505ad",
+  "fullTestedTree": "fcc70bc22e335e9df852663c35657a856a42dd0a",
+  "fullCommand": [
+    "rtk",
+    "proxy",
+    "ctx-wire",
+    "run",
+    "npm",
+    "run",
+    "validate"
+  ],
+  "fullEnvironment": {
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "PYTEST_ADDOPTS": "--durations=25",
+    "UV_PYTHON": null,
+    "VITEST_MAX_WORKERS": "1"
+  },
+  "fullTools": {
+    "node": "v24.19.0",
+    "npm": "11.17.0",
+    "uv": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)"
+  },
+  "fullPythonVersion": "3.12.14",
+  "fullMediaTools": {
+    "ffmpeg": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers",
+    "ffprobe": "ffprobe version 8.1.2 Copyright (c) 2007-2026 the FFmpeg developers"
+  },
+  "fullPlatform": "macOS-15.1-x86_64-i386-64bit",
+  "fullCounts": {
+    "nodePassed": 61,
+    "nodeSkipped": 0,
+    "pythonCollected": 1145,
+    "pythonPassed": 1145,
+    "pythonSeconds": 9592.38,
+    "pythonSkipped": 0,
+    "vitestPassed": 465,
+    "vitestSkipped": 0
+  },
+  "fullExit": {
+    "exitCode": 0,
+    "externalInputsUnchanged": true,
+    "finishedAt": "2026-10-14T20:22:36.534335+00:00",
+    "inputsUnchanged": true,
+    "logSha256": "3eacd4f4ac38d052ec625db0cccccb033342e72be210d48b1340e7945eb960c1",
+    "manifestSha256": "ee55ad3e88b08c02d7eea09053c327d2a1bf077dbb7a998cfe71377fce412a9b",
+    "startedAt": "2026-10-14T17:38:40.146692+00:00"
+  },
+  "completeLogSha256": "2f5907b2c5b24c15f73eee15fc3f700b7805cb8366b55d51dcca2697e3b180ef",
+  "observationCounts": {
+    "supported": 674,
+    "ambiguous": 3
+  },
+  "gapCounts": {
+    "ambiguous": 23,
+    "unsupported": 43,
+    "supported": 5
+  },
+  "identityReadCounts": {
+    "project.GetName": 32,
+    "project.GetUniqueId": 32,
+    "timeline.GetName": 32,
+    "timeline.GetUniqueId": 32
+  },
+  "releaseInventoryCount": 11,
+  "issue": 204,
+  "integrationCommit": "0df343d30ed7e8c1dbe8f74c7a0e711fbe66b33a",
+  "accepted208Merge": "f0cd85cb8d0e7dbd8950aa3094fef19044bac11f",
+  "accepted208Tree": "0cde2fce2837c0b42b02f636c76144115cb0fa07",
+  "fullEvidenceReused": true,
+  "fullPersonallyRerun": false,
+  "fullReceipt": "../issue-208/full-validation.json",
+  "verifiedTrackedInputCount": 6984,
+  "verifiedExternalInputCount": 17,
+  "privateReadinessSha256": "cee4a10695cbc55426454bd9add67dad488dd9d2f175e4a9f85704cda124a473",
+  "identityResultSha256": "92be8c49f5efbee2b53c11efcd749e8ae43aa9061c33b1bc471b4851baeebc9d",
+  "capabilityResultSha256": "2d1141bda6942baa0f83da2cb49f0f104801ce2ea853bccee5aab37d24dc4943",
+  "capabilitySidecarSha256": "f4a9c6658a336b48b159aa01b5e27b0fb680dfaca5118694768935f10542766a",
+  "releaseSha256": "221b5060fe704a04bd28d76f789850c500f32b837b2c7b27b8bfbb445e102695",
+  "development": {
+    "candidate": "724a829f6913eec7f939597c454c54aec5407058",
+    "affectedPassed": 99,
+    "fastVitestPassed": 440,
+    "fastNodePassed": 61,
+    "fastPythonPassed": 520,
+    "exitCode": 0,
+    "fastLogSha256": "5d1092c74c278a6e5b9889f2529410fa088f71969848204246cc2675b583682b",
+    "claudeOpusDeltaGoSha256": "7777cf850b1678ee59639cbea81d79153a27dd027a87c532cee794ad7b8a999f",
+    "n1ProtectedRootTestsPassed": 3,
+    "historicalEvidenceCommit": "de4ed9bb27748958bfa8720b60f0369fbad2e6c1"
+  },
+  "compositionReviewGoSha256": "24eecea00521cab681e2daa0506b7c7abd97d473233c2bfbeed7ef188005b67b",
+  "cloudSubstitution": false,
+  "remoteLinuxDisposition": "1143 passes / 2 Mac-only alias skips; accepted-main cloud validator accepted=false. Complete local Mac zero-skip full covers both."
+}

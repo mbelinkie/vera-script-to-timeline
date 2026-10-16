@@ -1,0 +1,40 @@
+{
+  "PATH": "/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/usr/local/bin:/usr/bin:/bin:/Users/matthewbelinkie/.local/bin",
+  "candidate": "1b49081fe40271695a91e9136f3f6106332f8da4",
+  "childPid": 28294,
+  "cliBinary": "/Users/matthewbelinkie/.local/share/claude/versions/2.1.299",
+  "cliSha256": "099dcc53dabbbefabed8926dab25b0318775c175a7c87bb6ba6c54fde9f8ece2",
+  "cliVersion": "2.1.299 (Claude Code)",
+  "command": [
+    "/Users/matthewbelinkie/.local/share/claude/versions/2.1.299",
+    "--safe-mode",
+    "--strict-mcp-config",
+    "--tools",
+    "",
+    "--disable-slash-commands",
+    "--no-session-persistence",
+    "--permission-mode",
+    "dontAsk",
+    "--model",
+    "claude-opus-5-5",
+    "--effort",
+    "high",
+    "--session-id",
+    "f8748636-a4db-4cd9-a441-798217952dfa",
+    "--output-format",
+    "json",
+    "-p"
+  ],
+  "contextPinsSha256": "f52c8e699417299f566c465a0e58441c1a4f39a8a66baecf5ca7575901b8350d",
+  "platform": "macOS-15.1-x86_64-i386-64bit",
+  "promptSha256": "b4f79b3d32097d24fd3bde55cbad180c51944cee5fa9e5e79d390e99508feef4",
+  "runnerPid": 28165,
+  "session": "f8748636-a4db-4cd9-a441-798217952dfa",
+  "startedAt": "2026-10-14T16:12:44.755333+00:00",
+  "tools": {
+    "node": "v24.19.0",
+    "npm": "11.17.0",
+    "uv": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)"
+  },
+  "tree": "687fabe180ab72099a9898cf9968990716f47fbb"
+}

@@ -1,0 +1,97 @@
+{
+  "acceptedMain": "017e7cfb350bf8f2608d08e27fac5b9b72a5809e",
+  "addedCheckEvidence": "affected-checks.json",
+  "changedExistingAcceptedPaths": [
+    "python/vera_timeline_agent/workflow_v2_cli.py",
+    "python/vera_timeline_agent/workflow_v2_launcher.py"
+  ],
+  "equivalenceLimits": [
+    "Fast is retained evidence, not a rerun or full acceptance.",
+    "Fresh affected tests, lint/format and full Python type check cover added test changes.",
+    "MD/JSON/.command additions do not enter contract generation, TypeScript source globs, mypy python/tests or pytest testpaths. Ruff consumes Python files; these additions are not Python. Existing accepted note/approval inputs are unchanged.",
+    "Release packaging consumes the finite pinned runtime inventory; a fresh release reflects comment raw hashes. Helpers are syntax-checked only, never run.",
+    "Synthetic tests do not observe installed runtime, clock behavior or external target."
+  ],
+  "fast": {
+    "command": [
+      "rtk",
+      "proxy",
+      "ctx-wire",
+      "run",
+      "npm",
+      "run",
+      "validate:fast"
+    ],
+    "counts": {
+      "node": 61,
+      "python": 646,
+      "vitest": 465
+    },
+    "exit": {
+      "exitCode": 0,
+      "finishedAt": "2026-10-14T16:03:25.972858+00:00",
+      "inputsUnchanged": true,
+      "logSha256": "5f531358a72e324a50d52294a5c171d9c3a72f5470bcc579905e66f17c488cfb",
+      "manifestSha256": "f8378664e8d4350ae7a88af7322ca8c65e68e0f5ed5ddc169bec33c257a67e2a",
+      "startedAt": "2026-10-14T15:58:50.980521+00:00"
+    },
+    "logPath": "/Users/matthewbelinkie/.codex/worktrees/3754/VERA Script to Timeline/out/issue208/fast-1b49081/command.log",
+    "logSha256": "5f531358a72e324a50d52294a5c171d9c3a72f5470bcc579905e66f17c488cfb",
+    "manifestPath": "/Users/matthewbelinkie/.codex/worktrees/3754/VERA Script to Timeline/out/issue208/fast-1b49081/manifest.json",
+    "manifestSha256": "f8378664e8d4350ae7a88af7322ca8c65e68e0f5ed5ddc169bec33c257a67e2a",
+    "platform": "macOS-15.1-x86_64-i386-64bit",
+    "pythonVersion": "3.12.14",
+    "tools": {
+      "node": "v24.19.0",
+      "npm": "11.17.0",
+      "uv": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)"
+    },
+    "trackedInputCount": 6970
+  },
+  "frozenBoundaryBase": "72aac8a",
+  "frozenBoundaryPaths": [
+    "contracts",
+    "fixtures",
+    "package-lock.json",
+    "uv.lock",
+    "pyproject.toml",
+    "package.json",
+    "tests/test_issue204_native_preflight.py",
+    "docs/plans/issue-207-target-identity-handoff.md",
+    "docs/verification/issue-207"
+  ],
+  "frozenDiffEmpty": true,
+  "issue": 208,
+  "nativeOperations": 0,
+  "operatorAuthorityIssued": false,
+  "postFastChangedTrackedInputs": [
+    "docs/verification/issue-208/operator-checklist.md",
+    "docs/verification/issue-208/review-disposition.md",
+    "integrations/resolve/VERA Delivery v2.py",
+    "python/vera_timeline_agent/target_identity_v2.py",
+    "tests/test_issue208_review_fixes.py"
+  ],
+  "postFastDifferenceDisposition": {
+    "documentation": "Review disposition and operator checklist now report actual GO, ownership/readability and receipt limits. Newly retained JSON/MD/.command artifacts are not consumed by the unchanged code generators, lint/type source globs or pytest testpaths. Contract generation reads contracts and generated outputs; roadmap config reads .github/vera-roadmap.json; no body-file command consumes this handoff.",
+    "packaging": "Fresh release validated after the comment changes. All release entries/source pins and both helper SHA256 values match handoff.json. Helpers syntax-checked without executing; expected attempt directory remains absent.",
+    "runtimeComments": "Both runtime ASTs match reviewed and fast-tested source; raw-byte changes are pinned by the fresh release.",
+    "testChange": "One strengthened assertion and a new five-case test file; the nine affected cases, lint/format and repository Python type check passed. See affected-checks.json."
+  },
+  "reviewedBehaviorCommit": "1b49081fe40271695a91e9136f3f6106332f8da4",
+  "runtimeCommentEquivalence": [
+    {
+      "astIdentical": true,
+      "deliveredSha256": "c25ed5bdc5b6b6a0d1f6a569dc35eda3c1c0a05edbc1d96b3f7f855e07dae95c",
+      "path": "python/vera_timeline_agent/target_identity_v2.py",
+      "reviewedSha256": "3f6ac57c01aa8e4d55f34f4cb8b6e3fb43a4058db508c114d74af2ca4acbf101"
+    },
+    {
+      "astIdentical": true,
+      "deliveredSha256": "03a6adfae9fb13612cacff18cf4cbe82ce5a25ead215db146a426d51cce0d1a0",
+      "path": "integrations/resolve/VERA Delivery v2.py",
+      "reviewedSha256": "f3715bfd23be490cf4c8015b09373f18a61f8a9e78545f440b61bf9e6ab43935"
+    }
+  ],
+  "status": "code-reviewed prepared handoff; External and final full held",
+  "venvConfigMatchesFast": true
+}

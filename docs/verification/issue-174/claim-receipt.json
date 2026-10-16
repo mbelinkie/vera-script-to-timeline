@@ -1,0 +1,76 @@
+{
+  "baseline": "5d59b2ad560aa18f96554b71fe34ee5b7f30dfed",
+  "command": "npm run roadmap -- inspect 174",
+  "issue": {
+    "number": 174,
+    "title": "Verified CFR media preparation for authoring v2",
+    "url": "https://github.com/mbelinkie/vera-script-to-timeline/issues/174",
+    "state": "OPEN",
+    "labels": [
+      {
+        "id": "LA_kwDOUDGPb88AAAACys2KFg",
+        "name": "model:sol",
+        "description": "Preferred model class: Sol",
+        "color": "B60205"
+      },
+      {
+        "id": "LA_kwDOUDGPb88AAAACys2K9w",
+        "name": "effort:high",
+        "description": "Required reasoning effort: high",
+        "color": "FEF2C0"
+      },
+      {
+        "id": "LA_kwDOUDGPb88AAAACys2LyQ",
+        "name": "type:implementation",
+        "description": "Bounded implementation work",
+        "color": "0E8A16"
+      }
+    ]
+  },
+  "project": {
+    "status": "In progress",
+    "size": "M",
+    "acceptance": "External"
+  },
+  "dependencies": {
+    "valid": true,
+    "resolved": true,
+    "items": [
+      {
+        "repository": "mbelinkie/vera-script-to-timeline",
+        "number": 156,
+        "title": "Accepted authoring-contract realization plan",
+        "url": "https://github.com/mbelinkie/vera-script-to-timeline/issues/156",
+        "issueState": "CLOSED",
+        "projectStatus": "Done",
+        "resolved": true
+      },
+      {
+        "repository": "mbelinkie/vera-script-to-timeline",
+        "number": 171,
+        "title": "Authoring v2 compiler dependency and output schemas with generated types",
+        "url": "https://github.com/mbelinkie/vera-script-to-timeline/issues/171",
+        "issueState": "CLOSED",
+        "projectStatus": "Done",
+        "resolved": true
+      },
+      {
+        "repository": "mbelinkie/vera-script-to-timeline",
+        "number": 173,
+        "title": "Authoring v2 narration timing map and deterministic programme compiler",
+        "url": "https://github.com/mbelinkie/vera-script-to-timeline/issues/173",
+        "issueState": "CLOSED",
+        "projectStatus": "Done",
+        "resolved": true
+      }
+    ]
+  },
+  "claim": {
+    "state": "active",
+    "model": "gpt-6.1-sol",
+    "effort": "high",
+    "task": "01a12bd6-3b7d-74a3-9ce0-b1990888cef6",
+    "branch": "codex/issue-174-verified-cfr",
+    "startedAt": "2026-10-11T16:40:54.786Z"
+  }
+}

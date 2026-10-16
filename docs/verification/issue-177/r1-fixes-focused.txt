@@ -1,0 +1,29 @@
+R1 NO-GO correction candidate; not final acceptance evidence.
+Same claim/branch; baseline review1457e52ffce46c7c7f9620b240d41fc9b0b8ffe7.
+Pinned Node24.19.0/npm11.17.0/uv0.12.5/CPython3.12.14, synthetic records/fake native.
+No real media/probe/render/Studio/provider action.
+
+Package focused:21passed5.23s after retained first18pass2fail fixture/status defects.
+Studio focused:32passed1.81s after retained first31pass1fail helper defaults closure.
+
+Parent integrated command:
+rtk proxy ctx-wire run env PATH=/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/usr/local/bin:/usr/bin:/bin:/Users/matthewbelinkie/.local/bin uv run --frozen pytest tests/test_v2_package.py tests/test_workflow_v2.py tests/test_issue177_handoff.py tests/test_issue177_document.py -q --durations=25
+Session14570 completed exit0:
+........................................................................ [86%]
+...........                                                              [100%]
+83passed in10.87s; no skips/deselection.
+
+Actual TS compiler canonicalization/parity test passed (Unicode/non-BMP,
+combining character, lone surrogate, integral1.0), and the provided saved
+document hash equals that actual TS result. Public builder/verification/
+attestation/readback cases reach the formerly failing critical seams.
+
+Ruff check passed on9new source/test/helper files. Format --check found2files
+with whitespace-only formatting gaps; final formatter repaired them. Those
+changes are included in the fresh fast run, not hidden as untouched evidence.
+Targeted mypy exit0: Success, no issues in9sourcefiles.
+
+All frozen contracts/compiler/fixtures/generated code/accepted tests,
+174preparer/34renderer/109helpers and gate/dependency controls remain unchanged.
+The actual R1 NO-GO remains retained. New delta review and complete final
+qualifying pass remain required; this receipt is focused iteration only.

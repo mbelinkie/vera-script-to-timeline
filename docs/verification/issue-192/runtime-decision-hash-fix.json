@@ -1,0 +1,134 @@
+{
+  "status": "runtime-failure-fix-awaiting-rerun",
+  "sourcePins": {
+    "python/vera_timeline_agent/roundtrip_v2_proof.py": "437b45d64446048957905f8e9eff74697f5d7dbf5a0350736325b885079bbe31",
+    "python/vera_timeline_agent/roundtrip_v2_revised_build.py": "d8fd8a9632a061ea59abaef8519f4c14d67d00a7f1b3297ccca2e8161d497885",
+    "tests/test_issue192_public_path.py": "fe8354bb89380dc330595431b74a4e85fe08de0a1a79b6d09d640aa3bf1e5de2"
+  },
+  "records": [
+    {
+      "receipt": "out/issue192/runtime-5/complete.json",
+      "receiptSha256": "e94970b9699e06fa48e49e8dd86ec56e274bc5374f7058cecd587d11866491e7",
+      "source": "6395c2a4e76fd8d9cdd5ab38c3fc952e4a6c462d",
+      "command": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "-x",
+        "--durations=25",
+        "tests/test_issue192_public_path.py",
+        "tests/test_issue192_proof.py",
+        "tests/test_issue190_native.py::test_public_delivery_once_and_readonly_recovery",
+        "tests/test_issue190_native.py::test_copied_or_drifted_delivery_records_refuse_recovery",
+        "tests/test_issue190_native.py::test_fractional_public_delivery_refusal_precedes_adapter_creation",
+        "tests/test_issue190_native.py::test_capture_drift_refuses_without_evidence_or_render"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "startedAt": "2026-10-14T03:08:37.726Z",
+      "finishedAt": "2026-10-14T03:10:29.717Z",
+      "logSha256": "1877bdf83b7369444aa33ef0e1f371f9a75e98762bf95674714f62e014157364"
+    },
+    {
+      "receipt": "out/issue192/focused-38-ruff-hashes/complete.json",
+      "receiptSha256": "c435a5c47dc17d224cb954d47a53d35686421a7df41ab55924610eb9fda01792",
+      "source": "6395c2a4e76fd8d9cdd5ab38c3fc952e4a6c462d",
+      "command": [
+        ".venv/bin/ruff",
+        "check",
+        "python/vera_timeline_agent/roundtrip_v2_proof.py",
+        "python/vera_timeline_agent/roundtrip_v2_revised_build.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T03:25:43.170Z",
+      "finishedAt": "2026-10-14T03:25:43.545Z",
+      "logSha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "receipt": "out/issue192/focused-39-format-hashes/complete.json",
+      "receiptSha256": "be5d556dbab962e518f7f0bbe778a695f22cd3c4b74a5f3f1b11abf6b44cb0ac",
+      "source": "6395c2a4e76fd8d9cdd5ab38c3fc952e4a6c462d",
+      "command": [
+        ".venv/bin/ruff",
+        "format",
+        "--check",
+        "python/vera_timeline_agent/roundtrip_v2_proof.py",
+        "python/vera_timeline_agent/roundtrip_v2_revised_build.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "startedAt": "2026-10-14T03:25:55.206Z",
+      "finishedAt": "2026-10-14T03:25:55.586Z",
+      "logSha256": "988b9439ee59643b77402e5dbb0f5ddd9c6081f6cd6a1fd7fd923c2bcf7310d6"
+    },
+    {
+      "receipt": "out/issue192/focused-40-format-hashes/complete.json",
+      "receiptSha256": "ef5351dcae2bd5a91571bb69e8d93e2a0117cdedd7cfd4532be8d67cbc1360ab",
+      "source": "6395c2a4e76fd8d9cdd5ab38c3fc952e4a6c462d",
+      "command": [
+        ".venv/bin/ruff",
+        "format",
+        "tests/test_issue192_public_path.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T03:26:15.921Z",
+      "finishedAt": "2026-10-14T03:26:16.273Z",
+      "logSha256": "413a709001976657cb743636fd34e48fc41d8d302d665460d3f874b3313da127"
+    },
+    {
+      "receipt": "out/issue192/focused-41-ruff-hashes/complete.json",
+      "receiptSha256": "1515cba7d00eb60d4abbe4734a74e3a19da7fd2e5ad93845a8d761f36b0a09e5",
+      "source": "6395c2a4e76fd8d9cdd5ab38c3fc952e4a6c462d",
+      "command": [
+        ".venv/bin/ruff",
+        "check",
+        "python/vera_timeline_agent/roundtrip_v2_proof.py",
+        "python/vera_timeline_agent/roundtrip_v2_revised_build.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T03:26:27.791Z",
+      "finishedAt": "2026-10-14T03:26:28.154Z",
+      "logSha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "receipt": "out/issue192/focused-42-format-hashes/complete.json",
+      "receiptSha256": "b15679bc29164a5aba79cec23708da341bc3c991022f04b65dd09089979b0c33",
+      "source": "6395c2a4e76fd8d9cdd5ab38c3fc952e4a6c462d",
+      "command": [
+        ".venv/bin/ruff",
+        "format",
+        "--check",
+        "python/vera_timeline_agent/roundtrip_v2_proof.py",
+        "python/vera_timeline_agent/roundtrip_v2_revised_build.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T03:26:37.047Z",
+      "finishedAt": "2026-10-14T03:26:37.391Z",
+      "logSha256": "eee76f865de5a9f2456950f710ae5d5f9b5bd0ea02aa54f614c5eed6642a0bfd"
+    },
+    {
+      "receipt": "out/issue192/focused-43-mypy-hashes/complete.json",
+      "receiptSha256": "802d040c8bc6a777841c63c0d42c706e8776ada71c6a66124c031d4e2b304ef2",
+      "source": "6395c2a4e76fd8d9cdd5ab38c3fc952e4a6c462d",
+      "command": [
+        ".venv/bin/mypy",
+        "python/vera_timeline_agent/roundtrip_v2_proof.py",
+        "python/vera_timeline_agent/roundtrip_v2_revised_build.py",
+        "tests/test_issue192_public_path.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T03:26:49.506Z",
+      "finishedAt": "2026-10-14T03:26:51.668Z",
+      "logSha256": "8228fcc5ce46d42d01caf3cd941f4e9c5f2bcc372bb5b147a2f0572d2dd675a8"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+Issue #177 implementation iteration; not final acceptance evidence.
+Working source: uncommitted issue-owned additions on codex/issue-177-v2-package-studio.
+Accepted starting commit: 7867fa4873429e799f748004896f7093d2ce625f.
+Toolchain: locked CPython 3.12.14, uv 0.12.5; synthetic inputs, no media/native operations.
+Command: rtk proxy ctx-wire run uv run --frozen pytest tests/test_issue177_handoff.py -q --durations=25 -k 'not independent_attestation'
+Completed execution session: 12829. Exit: 0.
+
+................                                                         [100%]
+16 passed, 1 deselected in 3.80s
+
+Passing coverage: deterministic versioned release and overwrite refusal;
+ancestor symlink refusal; stdlib bootstrap with immutable unique failure reports;
+tampered release bytes, undeclared source, symlink and v1 version refusals;
+request digest/version/closed fields/authorization/evidence-root/scripting refusal;
+attestation package cannot be hidden by a different declared package;
+strict v1 attestation rejection by v2 loader.
+
+Explicitly deselected: positive independent v2 package attestation integration,
+because the package worker's public build/verify APIs are still being implemented.
+No full/fast validation, required Claude review, native qualification or final
+source equivalence is established by this iteration. Runtime worker edits may
+continue after this pass; rerun against the completed candidate before acceptance.

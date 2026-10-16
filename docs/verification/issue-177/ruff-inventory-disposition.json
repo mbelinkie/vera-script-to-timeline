@@ -1,0 +1,12 @@
+{
+  "command": "uv run --frozen ruff format --check --verbose .",
+  "exitCode": 0,
+  "formattedInventoryCount": 449,
+  "addedSinceFastR3": [
+    "docs/verification/issue-177/claude-r2-review.md",
+    "docs/verification/issue-177/r2-adjudication.md"
+  ],
+  "allAddedTracked": true,
+  "explanation": "Ruff 0.16.4 formatter discovers Markdown as well as Python. The two added tracked review/adjudication documents account for 447->449; no new Python files. Ruff check --show-files lists 183 Python inputs, all tracked, unchanged membership since FAST-R3.",
+  "consumedStatus": "These Markdown evidence files ARE formatter inputs; final full must validate the final retained documents. No extension-based exemption is assumed."
+}

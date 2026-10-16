@@ -1,0 +1,50 @@
+{
+  "status": "complete-fast-pass-not-full-acceptance",
+  "source": "2b396dc9f634322bd904c9bca968122d5977e907",
+  "command": [
+    "npm",
+    "run",
+    "validate:fast"
+  ],
+  "elapsedSeconds": 192.3,
+  "counts": {
+    "vitestContracts": 464,
+    "vitestTooling": 1,
+    "nodeTests": 61,
+    "nonSlowPython": 474,
+    "pythonTypecheckFiles": 150,
+    "ruffFormattedFiles": 499,
+    "requiredScopeSkips": 0
+  },
+  "receipt": "out/issue192/fast-3/complete.json",
+  "receiptSha256": "7dffb53d1f21738c612926b490ef4f41e6b7e3a0c972e3d01a3c04a1e24839e8",
+  "logSha256": "261dd9c0236e0ab60c343bdbb1c28a11b85a3e87462ceefdf15b7c5e2fe103a3",
+  "node": "v24.19.0",
+  "tools": {
+    "/Users/matthewbelinkie/.local/bin/uv": {
+      "binary": "/Users/matthewbelinkie/.local/bin/uv",
+      "sha256": "9f810c3f3ea6b29f5e02b03acb0dcff74f516d4c24b91cd5491f172829e5c9e4",
+      "version": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)"
+    },
+    ".venv/bin/python": {
+      "binary": "/Users/matthewbelinkie/.local/share/uv/python/cpython-3.12.14-macos-x86_64-none/bin/python3.12",
+      "sha256": "a8e10ff8d348800219a8f1f2bb04f5b7d2d62a34f9656cad5520f10560f8df35",
+      "version": "Python 3.12.14"
+    },
+    ".venv/bin/ruff": {
+      "binary": "/Users/matthewbelinkie/.codex/worktrees/f5f4/VERA Script to Timeline/.venv/bin/ruff",
+      "sha256": "40a2ecbb65bcf18e99b424b60eeccaad58a6b35608341b6b64f426e02f54c233",
+      "version": "ruff 0.16.4"
+    },
+    ".venv/bin/mypy": {
+      "binary": "/Users/matthewbelinkie/.codex/worktrees/f5f4/VERA Script to Timeline/.venv/bin/mypy",
+      "sha256": "b9ea015568aac93e2bc0c9630de8be3ebc63d1e0202a524af4c148659cd4e8e6",
+      "version": "mypy 2.3.1 (compiled: no)"
+    }
+  },
+  "PATH": "/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/Users/matthewbelinkie/.local/bin:/usr/local/bin:/usr/bin:/bin",
+  "VITEST_MAX_WORKERS": "1",
+  "PYTEST_ADDOPTS": "--durations=25",
+  "generatedBytecodeChanges": [],
+  "materialPostRunChanges": []
+}

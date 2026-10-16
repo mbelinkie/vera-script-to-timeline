@@ -2178,6 +2178,15 @@ sole edited prior timeline intact.
 
 ## 12. Working method: a producer directing AI agents
 
+> **Superseded in part on 2026-10-16 ([D-0016](../DECISIONS.md)).** The
+> process below was the starting design. The current working method is in
+> [`AGENTS.md`](../AGENTS.md) and the [verification policy](VERIFICATION_POLICY.md).
+> Agents now make technical decisions, including contract and fixture changes,
+> without Producer approval. The Producer judges only product behaviour and
+> taste. Automated issues close on a merged PR with green CI, and bugs are
+> fixed forward. The product guarantees described elsewhere in this spec are
+> unchanged.
+
 This section is part of the spec because the builder is part of the system.
 The product's correctness guarantees are only as good as the process that
 builds it, and that process must not depend on the producer reading code.

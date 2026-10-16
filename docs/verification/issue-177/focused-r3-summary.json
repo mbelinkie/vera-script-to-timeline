@@ -1,0 +1,15 @@
+{
+  "testedCommit": "84a66122b1cc3b7867597232f84cf589f6945dca",
+  "result": "PASS",
+  "tests": 94,
+  "skips": 0,
+  "durationSeconds": 27.68,
+  "exit": {
+    "exitCode": 0,
+    "finishedAt": "2026-10-13T11:45:33.622489+00:00",
+    "logSha256": "984dc989f47f6b7e4fb208116e74b631e7ad427ff599ba663f42d17f4a8ae136",
+    "sourceUnchanged": true,
+    "startedAt": "2026-10-13T11:44:57.963804+00:00"
+  },
+  "coverage": "All four issue-owned suites, including public reuse/return/Quiet/Full attestation and preflight; no actual Studio/media execution."
+}

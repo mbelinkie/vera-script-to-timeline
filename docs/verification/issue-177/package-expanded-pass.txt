@@ -1,0 +1,17 @@
+...............                                                          [100%]
+============================= slowest 25 durations =============================
+0.83s call     tests/test_v2_package.py::test_build_verify_and_exact_retry
+0.81s call     tests/test_v2_package.py::test_build_refuses_different_inputs_at_an_existing_build_root
+0.44s call     tests/test_v2_package.py::test_build_round_trips_accepted_24000_over_1001_timeline
+0.40s call     tests/test_v2_package.py::test_verify_checks_otio_metadata_after_receipt_hash_rebinding
+0.31s call     tests/test_v2_package.py::test_verify_refuses_tampered_package_media
+0.10s call     tests/test_v2_package.py::test_build_rejects_symlinked_supplied_media
+0.10s call     tests/test_v2_package.py::test_build_rejects_stale_preparation_inputs
+0.09s call     tests/test_v2_package.py::test_build_preserves_failed_staging_for_inspection
+0.09s call     tests/test_v2_package.py::test_build_requires_explicit_media_bytes_to_match_the_manifest
+0.08s call     tests/test_v2_package.py::test_build_rejects_symlinked_output_ancestor_before_creating_files
+0.03s call     tests/test_v2_package.py::test_accepted_root_child_overlay_return_otio_round_trip_without_source_audio
+0.01s setup    tests/test_v2_package.py::test_build_verify_and_exact_retry
+
+(13 durations < 0.005s hidden.  Use -vv to show these durations.)
+15 passed in 3.90s

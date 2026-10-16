@@ -1,0 +1,891 @@
+{
+  "capabilityResultSha256": "2d1141bda6942baa0f83da2cb49f0f104801ce2ea853bccee5aab37d24dc4943",
+  "gaps": [
+    {
+      "field": "clip.enabled",
+      "reason": "getter visibility only; effective route/mix remains unproven",
+      "sources": [
+        "timeline:audio.GetTrackCount",
+        "track:audio:1.GetItemListInTrack"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "clip.mute",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "clip.solo",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "clip.gainDb",
+      "reason": "getter visibility only; effective route/mix remains unproven",
+      "sources": [
+        "timeline:audio.GetTrackCount",
+        "track:audio:1.GetItemListInTrack"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "clip.pan",
+      "reason": "getter visibility only; effective route/mix remains unproven",
+      "sources": [
+        "timeline:audio.GetTrackCount",
+        "track:audio:1.GetItemListInTrack"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "clip.effects",
+      "reason": "item properties expose selected effects only; not all effects",
+      "sources": [],
+      "status": "ambiguous"
+    },
+    {
+      "field": "clip.sends",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "clip.automation",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "clip.destination",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "clip.channelMap",
+      "reason": "getter visibility only; effective route/mix remains unproven",
+      "sources": [
+        "timeline:audio.GetTrackCount",
+        "track:audio:1.GetItemListInTrack"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "track.enabled",
+      "reason": "track-enable getter visibility; full mixer controls unproven",
+      "sources": [
+        "track:audio:1.GetIsTrackEnabled"
+      ],
+      "status": "supported"
+    },
+    {
+      "field": "track.mute",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "track.solo",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "track.gainDb",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "track.pan",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "track.effects",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "track.sends",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "track.automation",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "track.destination",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "track.channelMap",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "bus.enabled",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "bus.mute",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "bus.solo",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "bus.gainDb",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "bus.pan",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "bus.effects",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "bus.sends",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "bus.automation",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "bus.destination",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "bus.channelMap",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "master.enabled",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "master.mute",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "master.solo",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "master.gainDb",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "master.pan",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "master.effects",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "master.sends",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "master.automation",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "master.destination",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "master.channelMap",
+      "reason": "no complete documented control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "master.limiter",
+      "reason": "no documented current master limiter getter",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "programme.gainDb",
+      "reason": "no complete documented programme control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "programme.effects",
+      "reason": "no complete documented programme control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "programme.limiter",
+      "reason": "no complete documented programme control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "programme.automation",
+      "reason": "no complete documented programme control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "programme.destination",
+      "reason": "no complete documented programme control reader",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "render.queue.AudioCodec",
+      "reason": "existing job visibility; no candidate configured/exercised",
+      "sources": [
+        "project.GetRenderJobList"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "render.queue.AudioBitDepth",
+      "reason": "existing job visibility; no candidate configured/exercised",
+      "sources": [
+        "project.GetRenderJobList"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "render.queue.AudioSampleRate",
+      "reason": "existing job visibility; no candidate configured/exercised",
+      "sources": [
+        "project.GetRenderJobList"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "render.queue.FrameRate",
+      "reason": "existing job visibility; no candidate configured/exercised",
+      "sources": [
+        "project.GetRenderJobList"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "render.queue.FormatWidth",
+      "reason": "existing job visibility; no candidate configured/exercised",
+      "sources": [
+        "project.GetRenderJobList"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "render.queue.FormatHeight",
+      "reason": "existing job visibility; no candidate configured/exercised",
+      "sources": [
+        "project.GetRenderJobList"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "render.queue.MarkIn",
+      "reason": "existing job visibility; no candidate configured/exercised",
+      "sources": [
+        "project.GetRenderJobList"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "render.queue.MarkOut",
+      "reason": "existing job visibility; no candidate configured/exercised",
+      "sources": [
+        "project.GetRenderJobList"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "render.queue.RenderMode",
+      "reason": "existing job visibility; no candidate configured/exercised",
+      "sources": [
+        "project.GetRenderJobList"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "render.queue.OutputFilename",
+      "reason": "existing job visibility; no candidate configured/exercised",
+      "sources": [
+        "project.GetRenderJobList"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "render.queue.ReplaceExistingFilesInPlace",
+      "reason": "existing job visibility; no candidate configured/exercised",
+      "sources": [
+        "project.GetRenderJobList"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "render.queue.IsExportVideo",
+      "reason": "existing job visibility; no candidate configured/exercised",
+      "sources": [
+        "project.GetRenderJobList"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "render.queue.IsExportAudio",
+      "reason": "existing job visibility; no candidate configured/exercised",
+      "sources": [
+        "project.GetRenderJobList"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "render.queue.JobId",
+      "reason": "existing job visibility; no candidate configured/exercised",
+      "sources": [
+        "project.GetRenderJobList"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "render.queue.TimelineName",
+      "reason": "existing job visibility; no candidate configured/exercised",
+      "sources": [
+        "project.GetRenderJobList"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "render.queue.TargetDir",
+      "reason": "existing job visibility; no candidate configured/exercised",
+      "sources": [
+        "project.GetRenderJobList"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "render.candidates.GetRenderFormats",
+      "reason": "enumeration only; PCM/picture settings/output unqualified",
+      "sources": [
+        "project.GetRenderFormats"
+      ],
+      "status": "supported"
+    },
+    {
+      "field": "render.candidates.GetAudioRenderFormats",
+      "reason": "enumeration only; PCM/picture settings/output unqualified",
+      "sources": [
+        "project.GetAudioRenderFormats"
+      ],
+      "status": "supported"
+    },
+    {
+      "field": "render.candidates.GetRenderCodecs",
+      "reason": "enumeration only; PCM/picture settings/output unqualified",
+      "sources": [
+        "project.GetRenderFormats",
+        "format:avi.GetRenderCodecs",
+        "format:braw.GetRenderCodecs",
+        "format:cin.GetRenderCodecs",
+        "format:dcp.GetRenderCodecs",
+        "format:dpx.GetRenderCodecs",
+        "format:exr.GetRenderCodecs",
+        "format:gif.GetRenderCodecs",
+        "format:imf.GetRenderCodecs",
+        "format:j2c.GetRenderCodecs",
+        "format:jpg.GetRenderCodecs",
+        "format:m3u8.GetRenderCodecs",
+        "format:mj2.GetRenderCodecs",
+        "format:mkv.GetRenderCodecs",
+        "format:mov.GetRenderCodecs",
+        "format:mp4.GetRenderCodecs",
+        "format:mts.GetRenderCodecs",
+        "format:mxf.GetRenderCodecs",
+        "format:mxf_op1a.GetRenderCodecs",
+        "format:pavc.GetRenderCodecs",
+        "format:png.GetRenderCodecs",
+        "format:tif.GetRenderCodecs",
+        "format:wav.GetRenderCodecs",
+        "format:webp.GetRenderCodecs",
+        "project.GetAudioRenderFormats"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "render.candidates.GetAudioRenderCodecs",
+      "reason": "enumeration only; PCM/picture settings/output unqualified",
+      "sources": [
+        "project.GetRenderFormats",
+        "project.GetAudioRenderFormats",
+        "format:flac.GetAudioRenderCodecs",
+        "format:imf.GetAudioRenderCodecs",
+        "format:mov.GetAudioRenderCodecs",
+        "format:mp3.GetAudioRenderCodecs",
+        "format:mp4.GetAudioRenderCodecs",
+        "format:mxf.GetAudioRenderCodecs",
+        "format:wav.GetAudioRenderCodecs"
+      ],
+      "status": "supported"
+    },
+    {
+      "field": "render.candidates.GetRenderResolutions",
+      "reason": "enumeration only; PCM/picture settings/output unqualified",
+      "sources": [
+        "project.GetRenderFormats",
+        "format:avi.GetRenderCodecs",
+        "codec:avi:GVHQ1280x1080.GetRenderResolutions",
+        "codec:avi:GVHQ1280x720.GetRenderResolutions",
+        "codec:avi:GVHQ1280x960.GetRenderResolutions",
+        "codec:avi:GVHQ1440x1080.GetRenderResolutions",
+        "codec:avi:GVHQ1920x1080.GetRenderResolutions",
+        "codec:avi:GVHQ720x480.GetRenderResolutions",
+        "codec:avi:GVHQ720x486.GetRenderResolutions",
+        "codec:avi:GVHQ720x576.GetRenderResolutions",
+        "codec:avi:GVHQX.GetRenderResolutions",
+        "codec:avi:GoProYUV10.GetRenderResolutions",
+        "codec:avi:RGB10.GetRenderResolutions",
+        "codec:avi:YUV422_10.GetRenderResolutions",
+        "codec:avi:YUV422_8.GetRenderResolutions",
+        "format:braw.GetRenderCodecs",
+        "format:cin.GetRenderCodecs",
+        "codec:cin:RGB10.GetRenderResolutions",
+        "format:dcp.GetRenderCodecs",
+        "codec:dcp:KJP2K_2KDCI.GetRenderResolutions",
+        "codec:dcp:KJP2K_2KDCI_Flat.GetRenderResolutions",
+        "codec:dcp:KJP2K_2KDCI_Scope.GetRenderResolutions",
+        "codec:dcp:KJP2K_4KDCI.GetRenderResolutions",
+        "codec:dcp:KJP2K_4KDCI_Flat.GetRenderResolutions",
+        "codec:dcp:KJP2K_4KDCI_Scope.GetRenderResolutions",
+        "codec:dcp:easyDCP2KDCI.GetRenderResolutions",
+        "codec:dcp:easyDCP2KDCI_Flat.GetRenderResolutions",
+        "codec:dcp:easyDCP2KDCI_Scope.GetRenderResolutions",
+        "codec:dcp:easyDCP4KDCI.GetRenderResolutions",
+        "codec:dcp:easyDCP4KDCI_Flat.GetRenderResolutions",
+        "codec:dcp:easyDCP4KDCI_Scope.GetRenderResolutions",
+        "format:dpx.GetRenderCodecs",
+        "codec:dpx:Gray8.GetRenderResolutions",
+        "codec:dpx:RGB10.GetRenderResolutions",
+        "codec:dpx:RGB12.GetRenderResolutions",
+        "codec:dpx:RGB16.GetRenderResolutions",
+        "codec:dpx:RGBA8.GetRenderResolutions",
+        "format:exr.GetRenderCodecs",
+        "codec:exr:RGBFloat.GetRenderResolutions",
+        "codec:exr:RGBFloatDWAA.GetRenderResolutions",
+        "codec:exr:RGBFloatDWAB.GetRenderResolutions",
+        "codec:exr:RGBFloatHTJ2K256L.GetRenderResolutions",
+        "codec:exr:RGBFloatHTJ2K32L.GetRenderResolutions",
+        "codec:exr:RGBFloatPIZ.GetRenderResolutions",
+        "codec:exr:RGBFloatRLE.GetRenderResolutions",
+        "codec:exr:RGBFloatZIP.GetRenderResolutions",
+        "codec:exr:RGBFloatZIP1.GetRenderResolutions",
+        "codec:exr:RGBHalf.GetRenderResolutions",
+        "codec:exr:RGBHalfDWAA.GetRenderResolutions",
+        "codec:exr:RGBHalfDWAB.GetRenderResolutions",
+        "codec:exr:RGBHalfHTJ2K256L.GetRenderResolutions",
+        "codec:exr:RGBHalfHTJ2K32L.GetRenderResolutions",
+        "codec:exr:RGBHalfPIZ.GetRenderResolutions",
+        "codec:exr:RGBHalfRLE.GetRenderResolutions",
+        "codec:exr:RGBHalfZIP.GetRenderResolutions",
+        "codec:exr:RGBHalfZIP1.GetRenderResolutions",
+        "format:gif.GetRenderCodecs",
+        "codec:gif:Animated_GIF.GetRenderResolutions",
+        "format:imf.GetRenderCodecs",
+        "codec:imf:KJP2K_DV_2K.GetRenderResolutions",
+        "codec:imf:KJP2K_DV_4K.GetRenderResolutions",
+        "codec:imf:KJP2K_DV_HD.GetRenderResolutions",
+        "codec:imf:KJP2K_DV_UHD.GetRenderResolutions",
+        "codec:imf:KJP2K_RGB_2K.GetRenderResolutions",
+        "codec:imf:KJP2K_RGB_4K.GetRenderResolutions",
+        "codec:imf:KJP2K_RGB_HD.GetRenderResolutions",
+        "codec:imf:KJP2K_RGB_UHD.GetRenderResolutions",
+        "codec:imf:KJP2K_YUV422_2K.GetRenderResolutions",
+        "codec:imf:KJP2K_YUV422_HD.GetRenderResolutions",
+        "codec:imf:KJP2K_YUV422_UHD.GetRenderResolutions",
+        "codec:imf:ProRes422.GetRenderResolutions",
+        "codec:imf:ProRes422HQ.GetRenderResolutions",
+        "codec:imf:ProRes422LT.GetRenderResolutions",
+        "codec:imf:ProRes4444.GetRenderResolutions",
+        "codec:imf:ProRes4444XQ.GetRenderResolutions",
+        "codec:imf:easyDCP_RGB.GetRenderResolutions",
+        "codec:imf:easyDCP_YUV422.GetRenderResolutions",
+        "format:j2c.GetRenderCodecs",
+        "codec:j2c:KJP2K_DCI.GetRenderResolutions",
+        "codec:j2c:KJP2K_DCI_Flat.GetRenderResolutions",
+        "codec:j2c:KJP2K_DCI_Scope.GetRenderResolutions",
+        "codec:j2c:KJP4K_DCI.GetRenderResolutions",
+        "codec:j2c:KJP4K_DCI_Flat.GetRenderResolutions",
+        "codec:j2c:KJP4K_DCI_Scope.GetRenderResolutions",
+        "codec:j2c:KJPIMF_RGB.GetRenderResolutions",
+        "codec:j2c:KJPIMF_XYZ.GetRenderResolutions",
+        "codec:j2c:KJPIMF_YUV422.GetRenderResolutions",
+        "format:jpg.GetRenderCodecs",
+        "codec:jpg:YUV420_8.GetRenderResolutions",
+        "codec:jpg:YUV422_8.GetRenderResolutions",
+        "codec:jpg:YUV444_8.GetRenderResolutions",
+        "format:m3u8.GetRenderCodecs",
+        "codec:m3u8:H264.GetRenderResolutions",
+        "format:mj2.GetRenderCodecs",
+        "codec:mj2:KJP2K_RGB.GetRenderResolutions",
+        "format:mkv.GetRenderCodecs",
+        "codec:mkv:FFV1IntraRGBA_16.GetRenderResolutions",
+        "codec:mkv:FFV1IntraRGBA_8.GetRenderResolutions",
+        "codec:mkv:FFV1IntraYUV422_10.GetRenderResolutions",
+        "codec:mkv:FFV1IntraYUV422_8.GetRenderResolutions",
+        "codec:mkv:FFV1RGBA_16.GetRenderResolutions",
+        "codec:mkv:FFV1RGBA_8.GetRenderResolutions",
+        "codec:mkv:FFV1YUV420_10.GetRenderResolutions",
+        "codec:mkv:FFV1YUV420_8.GetRenderResolutions",
+        "codec:mkv:FFV1YUV422_10.GetRenderResolutions",
+        "codec:mkv:FFV1YUV422_12.GetRenderResolutions",
+        "codec:mkv:FFV1YUV422_8.GetRenderResolutions",
+        "codec:mkv:H264.GetRenderResolutions",
+        "codec:mkv:H265.GetRenderResolutions",
+        "codec:mkv:ProRes422.GetRenderResolutions",
+        "codec:mkv:ProRes422HQ.GetRenderResolutions",
+        "codec:mkv:ProRes422LT.GetRenderResolutions",
+        "codec:mkv:ProRes422P.GetRenderResolutions",
+        "codec:mkv:ProRes4444.GetRenderResolutions",
+        "codec:mkv:ProRes4444XQ.GetRenderResolutions",
+        "format:mov.GetRenderCodecs",
+        "codec:mov:APVYUV422_10.GetRenderResolutions",
+        "codec:mov:ARGB8.GetRenderResolutions",
+        "codec:mov:BGRA8.GetRenderResolutions",
+        "codec:mov:DNxHD1080i100.GetRenderResolutions",
+        "codec:mov:DNxHD1080i145.GetRenderResolutions",
+        "codec:mov:DNxHD1080i220.GetRenderResolutions",
+        "codec:mov:DNxHD1080i220_10.GetRenderResolutions",
+        "codec:mov:DNxHD1080p100.GetRenderResolutions",
+        "codec:mov:DNxHD1080p145.GetRenderResolutions",
+        "codec:mov:DNxHD1080p220.GetRenderResolutions",
+        "codec:mov:DNxHD1080p220_10.GetRenderResolutions",
+        "codec:mov:DNxHD1080p36.GetRenderResolutions",
+        "codec:mov:DNxHD1080p440.GetRenderResolutions",
+        "codec:mov:DNxHD720p100.GetRenderResolutions",
+        "codec:mov:DNxHD720p145.GetRenderResolutions",
+        "codec:mov:DNxHD720p220.GetRenderResolutions",
+        "codec:mov:DNxHD720p220_10.GetRenderResolutions",
+        "codec:mov:DNxHDTR1080i145.GetRenderResolutions",
+        "codec:mov:DNxHR444_10.GetRenderResolutions",
+        "codec:mov:DNxHR444_12.GetRenderResolutions",
+        "codec:mov:DNxHRHQ.GetRenderResolutions",
+        "codec:mov:DNxHRHQX_10.GetRenderResolutions",
+        "codec:mov:DNxHRHQX_12.GetRenderResolutions",
+        "codec:mov:DNxHRLB.GetRenderResolutions",
+        "codec:mov:DNxHRSQ.GetRenderResolutions",
+        "codec:mov:FFV1IntraRGBA_16.GetRenderResolutions",
+        "codec:mov:FFV1IntraRGBA_8.GetRenderResolutions",
+        "codec:mov:FFV1IntraYUV422_10.GetRenderResolutions",
+        "codec:mov:FFV1IntraYUV422_8.GetRenderResolutions",
+        "codec:mov:FFV1RGBA_16.GetRenderResolutions",
+        "codec:mov:FFV1RGBA_8.GetRenderResolutions",
+        "codec:mov:FFV1YUV420_10.GetRenderResolutions",
+        "codec:mov:FFV1YUV420_8.GetRenderResolutions",
+        "codec:mov:FFV1YUV422_10.GetRenderResolutions",
+        "codec:mov:FFV1YUV422_12.GetRenderResolutions",
+        "codec:mov:FFV1YUV422_8.GetRenderResolutions",
+        "codec:mov:GVHQ1280x1080.GetRenderResolutions",
+        "codec:mov:GVHQ1280x720.GetRenderResolutions",
+        "codec:mov:GVHQ1280x960.GetRenderResolutions",
+        "codec:mov:GVHQ1440x1080.GetRenderResolutions",
+        "codec:mov:GVHQ1920x1080.GetRenderResolutions",
+        "codec:mov:GVHQ720x480.GetRenderResolutions",
+        "codec:mov:GVHQ720x486.GetRenderResolutions",
+        "codec:mov:GVHQ720x576.GetRenderResolutions",
+        "codec:mov:GVHQX.GetRenderResolutions",
+        "codec:mov:GoProRGB16.GetRenderResolutions",
+        "codec:mov:GoProYUV10.GetRenderResolutions",
+        "codec:mov:H264.GetRenderResolutions",
+        "codec:mov:H265.GetRenderResolutions",
+        "codec:mov:KJP2K_RGB10.GetRenderResolutions",
+        "codec:mov:KJP2K_RGB12.GetRenderResolutions",
+        "codec:mov:KJP2K_RGB8.GetRenderResolutions",
+        "codec:mov:KJP2K_YUV422_10.GetRenderResolutions",
+        "codec:mov:KJP2K_YUV422_12.GetRenderResolutions",
+        "codec:mov:KJP2K_YUV422_8.GetRenderResolutions",
+        "codec:mov:KJP2K_YUV444_10.GetRenderResolutions",
+        "codec:mov:KJP2K_YUV444_12.GetRenderResolutions",
+        "codec:mov:KJP2K_YUV444_8.GetRenderResolutions",
+        "codec:mov:PJPEG.GetRenderResolutions",
+        "codec:mov:PJPEGYUV422.GetRenderResolutions",
+        "codec:mov:PJPEGYUV444.GetRenderResolutions",
+        "codec:mov:ProRes422.GetRenderResolutions",
+        "codec:mov:ProRes422HQ.GetRenderResolutions",
+        "codec:mov:ProRes422LT.GetRenderResolutions",
+        "codec:mov:ProRes422P.GetRenderResolutions",
+        "codec:mov:ProRes4444.GetRenderResolutions",
+        "codec:mov:ProRes4444XQ.GetRenderResolutions",
+        "codec:mov:RGB10.GetRenderResolutions",
+        "codec:mov:RGB8.GetRenderResolutions",
+        "codec:mov:VP9YUV420_10.GetRenderResolutions",
+        "codec:mov:VP9YUV420_12.GetRenderResolutions",
+        "codec:mov:VP9YUV420_8.GetRenderResolutions",
+        "codec:mov:VP9YUV422_10.GetRenderResolutions",
+        "codec:mov:VP9YUV422_12.GetRenderResolutions",
+        "codec:mov:VP9YUV422_8.GetRenderResolutions",
+        "codec:mov:YUV422_10.GetRenderResolutions",
+        "codec:mov:YUV422_8.GetRenderResolutions",
+        "format:mp4.GetRenderCodecs",
+        "codec:mp4:APVYUV422_10.GetRenderResolutions",
+        "codec:mp4:H264.GetRenderResolutions",
+        "codec:mp4:H265.GetRenderResolutions",
+        "format:mts.GetRenderCodecs",
+        "format:mxf.GetRenderCodecs",
+        "codec:mxf:DNxHD1080i100.GetRenderResolutions",
+        "codec:mxf:DNxHD1080i145.GetRenderResolutions",
+        "codec:mxf:DNxHD1080i220.GetRenderResolutions",
+        "codec:mxf:DNxHD1080i220_10.GetRenderResolutions",
+        "codec:mxf:DNxHD1080p100.GetRenderResolutions",
+        "codec:mxf:DNxHD1080p145.GetRenderResolutions",
+        "codec:mxf:DNxHD1080p220.GetRenderResolutions",
+        "codec:mxf:DNxHD1080p220_10.GetRenderResolutions",
+        "codec:mxf:DNxHD1080p36.GetRenderResolutions",
+        "codec:mxf:DNxHD1080p440.GetRenderResolutions",
+        "codec:mxf:DNxHD720p100.GetRenderResolutions",
+        "codec:mxf:DNxHD720p145.GetRenderResolutions",
+        "codec:mxf:DNxHD720p220.GetRenderResolutions",
+        "codec:mxf:DNxHD720p220_10.GetRenderResolutions",
+        "codec:mxf:DNxHDTR1080i145.GetRenderResolutions",
+        "codec:mxf:DNxHR444_10.GetRenderResolutions",
+        "codec:mxf:DNxHR444_12.GetRenderResolutions",
+        "codec:mxf:DNxHRHQ.GetRenderResolutions",
+        "codec:mxf:DNxHRHQX_10.GetRenderResolutions",
+        "codec:mxf:DNxHRHQX_12.GetRenderResolutions",
+        "codec:mxf:DNxHRLB.GetRenderResolutions",
+        "codec:mxf:DNxHRSQ.GetRenderResolutions",
+        "codec:mxf:DNxUncomp_RGB_10.GetRenderResolutions",
+        "codec:mxf:DNxUncomp_RGB_12.GetRenderResolutions",
+        "codec:mxf:DNxUncomp_RGB_8.GetRenderResolutions",
+        "codec:mxf:DNxUncomp_RGB_Float.GetRenderResolutions",
+        "codec:mxf:DNxUncomp_RGB_Half.GetRenderResolutions",
+        "codec:mxf:DNxUncomp_YUV422_10.GetRenderResolutions",
+        "codec:mxf:DNxUncomp_YUV422_12.GetRenderResolutions",
+        "codec:mxf:DNxUncomp_YUV422_8.GetRenderResolutions",
+        "codec:mxf:DNxUncomp_YUV422_Float.GetRenderResolutions",
+        "codec:mxf:DNxUncomp_YUV422_Half.GetRenderResolutions",
+        "codec:mxf:KJP2K_RGB10.GetRenderResolutions",
+        "codec:mxf:KJP2K_RGB12.GetRenderResolutions",
+        "codec:mxf:KJP2K_RGB8.GetRenderResolutions",
+        "codec:mxf:KJP2K_YUV422_10.GetRenderResolutions",
+        "codec:mxf:KJP2K_YUV422_12.GetRenderResolutions",
+        "codec:mxf:KJP2K_YUV422_8.GetRenderResolutions",
+        "codec:mxf:KJP2K_YUV444_10.GetRenderResolutions",
+        "codec:mxf:KJP2K_YUV444_12.GetRenderResolutions",
+        "codec:mxf:KJP2K_YUV444_8.GetRenderResolutions",
+        "codec:mxf:NTSCAvid8.GetRenderResolutions",
+        "codec:mxf:PALAvid8.GetRenderResolutions",
+        "codec:mxf:PanasonicAVCIntra_1080_C100.GetRenderResolutions",
+        "codec:mxf:PanasonicAVCIntra_1080_C50.GetRenderResolutions",
+        "codec:mxf:PanasonicP2AVCIntra_1080_C100.GetRenderResolutions",
+        "codec:mxf:PanasonicP2AVCIntra_1080_C50.GetRenderResolutions",
+        "codec:mxf:RGB1080iAvid10A.GetRenderResolutions",
+        "codec:mxf:RGB1080pAvid10A.GetRenderResolutions",
+        "codec:mxf:XDMPEG2.GetRenderResolutions",
+        "codec:mxf:YUV1080iAvid8.GetRenderResolutions",
+        "format:mxf_op1a.GetRenderCodecs",
+        "codec:mxf_op1a:DNxHD1080i100.GetRenderResolutions",
+        "codec:mxf_op1a:DNxHD1080i145.GetRenderResolutions",
+        "codec:mxf_op1a:DNxHD1080i220.GetRenderResolutions",
+        "codec:mxf_op1a:DNxHD1080i220_10.GetRenderResolutions",
+        "codec:mxf_op1a:DNxHD1080p100.GetRenderResolutions",
+        "codec:mxf_op1a:DNxHD1080p145.GetRenderResolutions",
+        "codec:mxf_op1a:DNxHD1080p220.GetRenderResolutions",
+        "codec:mxf_op1a:DNxHD1080p220_10.GetRenderResolutions",
+        "codec:mxf_op1a:DNxHD1080p36.GetRenderResolutions",
+        "codec:mxf_op1a:DNxHD1080p440.GetRenderResolutions",
+        "codec:mxf_op1a:DNxHD720p100.GetRenderResolutions",
+        "codec:mxf_op1a:DNxHD720p145.GetRenderResolutions",
+        "codec:mxf_op1a:DNxHD720p220.GetRenderResolutions",
+        "codec:mxf_op1a:DNxHD720p220_10.GetRenderResolutions",
+        "codec:mxf_op1a:DNxHDTR1080i145.GetRenderResolutions",
+        "codec:mxf_op1a:DNxHR444_10.GetRenderResolutions",
+        "codec:mxf_op1a:DNxHR444_12.GetRenderResolutions",
+        "codec:mxf_op1a:DNxHRHQ.GetRenderResolutions",
+        "codec:mxf_op1a:DNxHRHQX_10.GetRenderResolutions",
+        "codec:mxf_op1a:DNxHRHQX_12.GetRenderResolutions",
+        "codec:mxf_op1a:DNxHRLB.GetRenderResolutions",
+        "codec:mxf_op1a:DNxHRSQ.GetRenderResolutions",
+        "codec:mxf_op1a:DNxUncomp_RGB_10.GetRenderResolutions",
+        "codec:mxf_op1a:DNxUncomp_RGB_12.GetRenderResolutions",
+        "codec:mxf_op1a:DNxUncomp_RGB_8.GetRenderResolutions",
+        "codec:mxf_op1a:DNxUncomp_RGB_Float.GetRenderResolutions",
+        "codec:mxf_op1a:DNxUncomp_RGB_Half.GetRenderResolutions",
+        "codec:mxf_op1a:DNxUncomp_YUV422_10.GetRenderResolutions",
+        "codec:mxf_op1a:DNxUncomp_YUV422_12.GetRenderResolutions",
+        "codec:mxf_op1a:DNxUncomp_YUV422_8.GetRenderResolutions",
+        "codec:mxf_op1a:DNxUncomp_YUV422_Float.GetRenderResolutions",
+        "codec:mxf_op1a:DNxUncomp_YUV422_Half.GetRenderResolutions",
+        "codec:mxf_op1a:H264.GetRenderResolutions",
+        "codec:mxf_op1a:H265.GetRenderResolutions",
+        "codec:mxf_op1a:KJP2K_RGB10.GetRenderResolutions",
+        "codec:mxf_op1a:KJP2K_RGB12.GetRenderResolutions",
+        "codec:mxf_op1a:KJP2K_RGB8.GetRenderResolutions",
+        "codec:mxf_op1a:KJP2K_YUV422_10.GetRenderResolutions",
+        "codec:mxf_op1a:KJP2K_YUV422_12.GetRenderResolutions",
+        "codec:mxf_op1a:KJP2K_YUV422_8.GetRenderResolutions",
+        "codec:mxf_op1a:KJP2K_YUV444_10.GetRenderResolutions",
+        "codec:mxf_op1a:KJP2K_YUV444_12.GetRenderResolutions",
+        "codec:mxf_op1a:KJP2K_YUV444_8.GetRenderResolutions",
+        "codec:mxf_op1a:MPEG2_422.GetRenderResolutions",
+        "codec:mxf_op1a:MPEG2_Main.GetRenderResolutions",
+        "codec:mxf_op1a:NTSCAvid8.GetRenderResolutions",
+        "codec:mxf_op1a:PALAvid8.GetRenderResolutions",
+        "codec:mxf_op1a:PanasonicAVCIntra_1080_C100.GetRenderResolutions",
+        "codec:mxf_op1a:PanasonicAVCIntra_1080_C200.GetRenderResolutions",
+        "codec:mxf_op1a:PanasonicAVCIntra_1080_C50.GetRenderResolutions",
+        "codec:mxf_op1a:PanasonicAVCIntra_2k_C100.GetRenderResolutions",
+        "codec:mxf_op1a:PanasonicAVCIntra_4k_C100.GetRenderResolutions",
+        "codec:mxf_op1a:PanasonicAVCIntra_720p_C100.GetRenderResolutions",
+        "codec:mxf_op1a:PanasonicAVCIntra_720p_C200.GetRenderResolutions",
+        "codec:mxf_op1a:PanasonicAVCIntra_720p_C50.GetRenderResolutions",
+        "codec:mxf_op1a:PanasonicAVCIntra_qfhd_C100.GetRenderResolutions",
+        "codec:mxf_op1a:RGB1080iAvid10A.GetRenderResolutions",
+        "codec:mxf_op1a:RGB1080pAvid10A.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVCIC100_1280x720.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVCIC100_1920x1080.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVCIC100_2048x1080.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVCIC300_3840x2160.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVCIC300_4096x2160.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVCIC480_3840x2160.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVCIC480_4096x2160.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVCIC50_1440x1080.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVCIV100_2048x1080.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVCIV300_3840x2160.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVCIV300_4096x2160.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVCIV480_3840x2160.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVCIV480_4096x2160.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVC_10bit_LONG_100_3840x2160.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVC_10bit_LONG_140_3840x2160.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVC_10bit_LONG_200_3840x2160.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVC_10bit_LONG_25_1920x1080.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVC_10bit_LONG_35_1920x1080.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVC_10bit_LONG_50_1280x720.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVC_10bit_LONG_50_1920x1080.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVC_8bit_LONG_100_3840x2160.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVC_8bit_LONG_150_3840x2160.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVC_8bit_LONG_60_3840x2160.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVC_S_8bit_LONG_100A_3840x2160.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVC_S_8bit_LONG_100_3840x2160.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVC_S_8bit_LONG_150_3840x2160.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVC_S_8bit_LONG_50_1920x1080.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVC_S_8bit_LONG_60A_3840x2160.GetRenderResolutions",
+        "codec:mxf_op1a:SonyXAVC_S_8bit_LONG_60_3840x2160.GetRenderResolutions",
+        "codec:mxf_op1a:XDMPEG2.GetRenderResolutions",
+        "codec:mxf_op1a:XDMPEG2_TAPE.GetRenderResolutions",
+        "codec:mxf_op1a:YUV1080iAvid8.GetRenderResolutions",
+        "format:pavc.GetRenderCodecs",
+        "codec:pavc:PanasonicAVCIntra_8k.GetRenderResolutions",
+        "format:png.GetRenderCodecs",
+        "codec:png:RGB16.GetRenderResolutions",
+        "codec:png:RGB8.GetRenderResolutions",
+        "format:tif.GetRenderCodecs",
+        "codec:tif:RGB16.GetRenderResolutions",
+        "codec:tif:RGB8.GetRenderResolutions",
+        "codec:tif:XYZ16.GetRenderResolutions",
+        "format:wav.GetRenderCodecs",
+        "format:webp.GetRenderCodecs",
+        "codec:webp:Animated_WEBP.GetRenderResolutions",
+        "project.GetAudioRenderFormats",
+        "format:flac.GetAudioRenderCodecs",
+        "codec:flac:flac.GetRenderResolutions",
+        "format:imf.GetAudioRenderCodecs",
+        "codec:imf:lpcm.GetRenderResolutions",
+        "format:mov.GetAudioRenderCodecs",
+        "codec:mov:aac.GetRenderResolutions",
+        "codec:mov:lpcm.GetRenderResolutions",
+        "codec:mov:mp3.GetRenderResolutions",
+        "format:mp3.GetAudioRenderCodecs",
+        "codec:mp3:mp3.GetRenderResolutions",
+        "format:mp4.GetAudioRenderCodecs",
+        "codec:mp4:aac.GetRenderResolutions",
+        "codec:mp4:flac.GetRenderResolutions",
+        "format:mxf.GetAudioRenderCodecs",
+        "codec:mxf:lpcm.GetRenderResolutions",
+        "format:wav.GetAudioRenderCodecs",
+        "codec:wav:lpcm.GetRenderResolutions"
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "field": "render.candidates.GetCurrentRenderFormatAndCodec",
+      "reason": "enumeration only; PCM/picture settings/output unqualified",
+      "sources": [
+        "project.GetCurrentRenderFormatAndCodec"
+      ],
+      "status": "supported"
+    },
+    {
+      "field": "render.actualOutputCadence",
+      "reason": "no job or output produced by read-only preflight",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "render.actualPCMProfile",
+      "reason": "no job or output produced by read-only preflight",
+      "sources": [],
+      "status": "unsupported"
+    },
+    {
+      "field": "render.actualPictureQuality",
+      "reason": "no job or output produced by read-only preflight",
+      "sources": [],
+      "status": "unsupported"
+    }
+  ]
+}

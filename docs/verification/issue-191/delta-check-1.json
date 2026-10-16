@@ -1,0 +1,1 @@
+{"command": ["uv", "run", "--frozen", "pytest", "tests/test_issue191_audio.py", "tests/test_issue191_narration.py", "--durations=25", "-q"], "exitCode": 0}
