@@ -1,0 +1,91 @@
+{
+  "status": "test-port-correction-runtime-pending",
+  "sourcePins": {
+    "tests/test_issue192_public_path.py": "56e8c20d5958170fe1134f37c936d2233ea6c697f557f626781e1d0a3b386ad2"
+  },
+  "records": [
+    {
+      "receipt": "out/issue192/runtime-9/complete.json",
+      "receiptSha256": "18e0840ae0434553de221a2f433de9e1303cf92307b2c14e53f272ba7fc3984a",
+      "source": "9bac65e9b5ea4d2b98cd295daf73ea85f1fb0c3a",
+      "command": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "-x",
+        "--durations=25",
+        "tests/test_issue192_public_path.py",
+        "tests/test_issue192_proof.py",
+        "tests/test_issue190_native.py::test_public_delivery_once_and_readonly_recovery",
+        "tests/test_issue190_native.py::test_copied_or_drifted_delivery_records_refuse_recovery",
+        "tests/test_issue190_native.py::test_fractional_public_delivery_refusal_precedes_adapter_creation",
+        "tests/test_issue190_native.py::test_capture_drift_refuses_without_evidence_or_render"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "startedAt": "2026-10-14T08:10:41.226Z",
+      "finishedAt": "2026-10-14T08:13:28.644Z",
+      "logSha256": "ecd320e3c4dd06a22deb9229411599f3e52434711144b9a1776d63e0b9e16111"
+    },
+    {
+      "receipt": "out/issue192/review-fix-d1-port-format/complete.json",
+      "receiptSha256": "9da114db4117431034a245fb598a76126434e11da5632d80f10524ad0b18ddba",
+      "source": "9bac65e9b5ea4d2b98cd295daf73ea85f1fb0c3a",
+      "command": [
+        ".venv/bin/ruff",
+        "format",
+        "tests/test_issue192_public_path.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T08:19:31.119Z",
+      "finishedAt": "2026-10-14T08:19:31.776Z",
+      "logSha256": "413a709001976657cb743636fd34e48fc41d8d302d665460d3f874b3313da127"
+    },
+    {
+      "receipt": "out/issue192/review-fix-d1-port-ruff/complete.json",
+      "receiptSha256": "fd7c7d1f99f62b07720367f29f0291a0dd5775ea8f10772a495df448cef68818",
+      "source": "9bac65e9b5ea4d2b98cd295daf73ea85f1fb0c3a",
+      "command": [
+        ".venv/bin/ruff",
+        "check",
+        "tests/test_issue192_public_path.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T08:20:30.123Z",
+      "finishedAt": "2026-10-14T08:20:31.232Z",
+      "logSha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "receipt": "out/issue192/review-fix-d1-port-mypy/complete.json",
+      "receiptSha256": "9325d9781e6ddcfe6080c85a5b923295df164415d9fe2e95ecc6894dbf86f8d4",
+      "source": "9bac65e9b5ea4d2b98cd295daf73ea85f1fb0c3a",
+      "command": [
+        ".venv/bin/mypy",
+        "tests/test_issue192_public_path.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T08:21:03.314Z",
+      "finishedAt": "2026-10-14T08:21:06.086Z",
+      "logSha256": "5d4b6d285b77932e3d08212c3b4974d0a803f98ec60408ac6ccf6a063fa6c19e"
+    },
+    {
+      "receipt": "out/issue192/review-fix-d1-port-format-check/complete.json",
+      "receiptSha256": "a39c70a8e1202c16a9ca54bf5a48fe90c287cc387abca239fb5af20dd88f5d7d",
+      "source": "9bac65e9b5ea4d2b98cd295daf73ea85f1fb0c3a",
+      "command": [
+        ".venv/bin/ruff",
+        "format",
+        "--check",
+        "tests/test_issue192_public_path.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T08:21:22.019Z",
+      "finishedAt": "2026-10-14T08:21:22.704Z",
+      "logSha256": "fd2299c9f1c6dc869070883e281051bfe93aacf66c1a3b0069f45b4aa410ca50"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "status": "failed-fast-with-focused-timing-pass",
+  "records": [
+    {
+      "receipt": "out/issue192/fast-1/complete.json",
+      "receiptSha256": "845b48bfa7be50df611fe13004cb8437fc714345f115a10370f21d2703b7370a",
+      "source": "bbcfba8b799f42d20b91fac49cca69ef8b704058",
+      "command": [
+        "npm",
+        "run",
+        "validate:fast"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "startedAt": "2026-10-14T04:05:46.661Z",
+      "finishedAt": "2026-10-14T04:08:59.866Z",
+      "logSha256": "b88216fead89bb108b8c11e556614753b69b20b4d0f382dccea4c1cc70522fe5"
+    },
+    {
+      "receipt": "out/issue192/focused-57-omission-timeout/complete.json",
+      "receiptSha256": "90c0c4a66d9e9756f9041baf44022a8d5dcc772f44bd41b13af7610cc903c69e",
+      "source": "bbcfba8b799f42d20b91fac49cca69ef8b704058",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "packages/contracts/test/issue-144-omission-bridge.test.ts",
+        "--maxWorkers=1",
+        "-t",
+        "finalizes replacement dependencies/fresh IDs and exact actual compiler preview"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T04:16:31.065Z",
+      "finishedAt": "2026-10-14T04:16:35.388Z",
+      "logSha256": "6c717103d8f9df5d2cf7e116bafef2cdf0c8342469180701c42d4e1dd7f063b2"
+    }
+  ]
+}

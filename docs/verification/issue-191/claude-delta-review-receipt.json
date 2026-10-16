@@ -1,0 +1,40 @@
+{
+  "phase": "claude-delta-review",
+  "worktree": "<worktree-3760>",
+  "sourceCommit": "858d08ea21295690b689502f50267c0058ff92ca",
+  "testedSourceCommit": "590c7ed817acdb386d1023010d88f2f3c7a023b8",
+  "initialReviewedCommit": "2d9709d93a5300fad881a4c66283e3d05c20ab4c",
+  "command": [
+    "<user-home>/.local/bin/claude",
+    "--safe-mode",
+    "--strict-mcp-config",
+    "--tools",
+    "",
+    "--disable-slash-commands",
+    "--no-session-persistence",
+    "--permission-mode",
+    "dontAsk",
+    "--effort",
+    "high",
+    "--output-format",
+    "json",
+    "-p"
+  ],
+  "stdinPath": "<worktree-3760>/test-results/issue-191/claude-delta/prompt.txt",
+  "promptSHA256": "6e379de09e95a55311096023b1de139988530154fb21c631466ec70b4a6614a5",
+  "claudeVersion": "2.1.296 (Claude Code)",
+  "environment": {
+    "PATH": "<user-home>/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/usr/local/bin:/usr/bin:/bin:<user-home>/.local/bin"
+  },
+  "launcherPid": 8071,
+  "startedAt": "2026-10-12T23:30:15.057269+00:00",
+  "logPath": "<worktree-3760>/test-results/issue-191/claude-delta/command.log",
+  "statusPath": "<worktree-3760>/test-results/issue-191/claude-delta/status.json",
+  "state": "passed",
+  "commandPid": 8074,
+  "exitCode": 0,
+  "sourceStillCurrent": true,
+  "elapsedSeconds": 170.31964781299757,
+  "finishedAt": "2026-10-12T23:33:05.379552+00:00",
+  "logSHA256": "6fd8cc2db9440d71016b66b1cd9efd235c70f144b3765d71bcf79dff9d98ba61"
+}

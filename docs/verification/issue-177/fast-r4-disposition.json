@@ -1,0 +1,30 @@
+{
+  "testedCommit": "7179408",
+  "result": "FAIL",
+  "exit": {
+    "exitCode": 1,
+    "finishedAt": "2026-10-13T11:58:22.050640+00:00",
+    "logSha256": "d928a4a67819d74e1e980fc8d1aef9b8912492255d0e579b5132a846705616f2",
+    "sourceUnchanged": true,
+    "startedAt": "2026-10-13T11:55:49.233620+00:00"
+  },
+  "completedPassingStages": {
+    "generatedCurrentness": true,
+    "typescriptLintTypes": true,
+    "contractVitest": 429,
+    "toolingVitest": 1,
+    "progressNode": 6,
+    "roadmapNode": 23,
+    "cloudNode": 32,
+    "pythonRuffLint": true
+  },
+  "notRun": [
+    "pythonTypecheck",
+    "pythonFast"
+  ],
+  "failure": "Ruff format rejects two line-wrapping sites in tests/issue177_package_fixture.py.",
+  "repair": "Locked Ruff format applied to owned helper only; before/after Python AST equal without source positions.",
+  "beforeSha256": "55cae632add9d8ca51495fe085107e5d162edfc6d68dce673c350533664b508a",
+  "afterSha256": "ab6c750605a957ffabd99435341c90f3dccd960d8fe2183d7db40ece1379dca0",
+  "reuse": "Retain unchanged passing stages; run full Python lint/types/fast remainder on repaired source before delta review. Failed FAST-R4 remains failed; combined iteration evidence is not final full acceptance."
+}

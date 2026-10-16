@@ -1,0 +1,13 @@
+{
+  "command": "ctx-wire run rtk uv run --frozen python docs/verification/issue-174/verify_retained.py out/issue174/r3/qualification",
+  "exitCode": 0,
+  "execSession": 55446,
+  "sourceChange": "Independent decoder now explicitly preserves frame cadence and PCM24 samples; production, tests, qualifier and qualification artifact bytes unchanged from passing round three.",
+  "output": {
+    "cases": 24,
+    "artifactHashesVerified": 98,
+    "maximumSyncResidualMilliseconds": 0.7825963718820862,
+    "maximumSyncDriftMilliseconds": 0.041666666666666664,
+    "humanVisualAudibleAcceptance": "pending"
+  }
+}

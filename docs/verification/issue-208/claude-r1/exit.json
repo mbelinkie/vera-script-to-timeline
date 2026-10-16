@@ -1,0 +1,28 @@
+{
+  "actualModelUsage": {
+    "claude-opus-5-5": {
+      "cacheCreationInputTokens": 211789,
+      "cacheReadInputTokens": 535,
+      "canonicalModel": "claude-opus-5-5",
+      "contextWindow": 1000000,
+      "costBasis": "list",
+      "costUSD": 2.712267,
+      "inputTokens": 2,
+      "maxOutputTokens": 128000,
+      "outputTokens": 50892,
+      "provider": "firstParty",
+      "thinkingTokens": 45943,
+      "webSearchRequests": 0
+    }
+  },
+  "candidate": "b2bd0452a2b1d65856cd1869f48b143c0845c7af",
+  "consumedSourcesUnchanged": true,
+  "exitCode": 0,
+  "finishedAt": "2026-10-14T15:19:44.336309+00:00",
+  "headUnchanged": true,
+  "is_error": false,
+  "resultSha256": "0ea6592198829eb7cc42c7ef192e3f569e7fa871cf57c0d44c5a4ee6b82b582f",
+  "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stop_reason": "end_turn",
+  "subtype": "success"
+}

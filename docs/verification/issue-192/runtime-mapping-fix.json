@@ -1,0 +1,82 @@
+{
+  "status": "runtime-failure-fix-awaiting-rerun",
+  "sourcePins": {
+    "packages/contracts/src/issue-192-v2-proposals.ts": "03be5c56487912742d5f061cbbd9feded2c3a4278c06e07e4edc193c93fc7e26",
+    "packages/contracts/test/issue-192-case.ts": "b1588e28b6825dccbe5f11a70ef1c7697b0cb67d5e0a94c9e9eae7e5ee57c246",
+    "packages/contracts/test/issue-192-v2-integration.test.ts": "5b9969c6e04321261bda746b6ccb671d4aa333c1801187e139f3e7e71545ed31"
+  },
+  "records": [
+    {
+      "receipt": "out/issue192/runtime-2/complete.json",
+      "receiptSha256": "e5fac11473a3487defa5e2c948c518eaeadf75721965b2db9fe2f77f52adbe0d",
+      "source": "cbf5c1daa1d2608b77dd6c24e510c2577b6dbdae",
+      "command": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "-x",
+        "--durations=25",
+        "tests/test_issue192_public_path.py",
+        "tests/test_issue190_native.py::test_public_delivery_once_and_readonly_recovery",
+        "tests/test_issue190_native.py::test_copied_or_drifted_delivery_records_refuse_recovery",
+        "tests/test_issue190_native.py::test_fractional_public_delivery_refusal_precedes_adapter_creation",
+        "tests/test_issue190_native.py::test_capture_drift_refuses_without_evidence_or_render"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "startedAt": "2026-10-14T02:28:31.564Z",
+      "finishedAt": "2026-10-14T02:29:04.755Z",
+      "logSha256": "1c759cdfed011b9ac9635fe375a078f9552ed2a38440044baa0ce77fe4a7a2ef"
+    },
+    {
+      "receipt": "out/issue192/focused-28-eslint-mapping/complete.json",
+      "receiptSha256": "93e89ec23975c4c9842eb77b9d10b470ff77af5fc24f5acd084a2ae2c86e5ff0",
+      "source": "cbf5c1daa1d2608b77dd6c24e510c2577b6dbdae",
+      "command": [
+        "node",
+        "node_modules/eslint/bin/eslint.js",
+        "packages/contracts/src/issue-192-v2-proposals.ts",
+        "packages/contracts/test/issue-192-case.ts",
+        "packages/contracts/test/issue-192-v2-integration.test.ts"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T02:37:25.186Z",
+      "finishedAt": "2026-10-14T02:37:32.159Z",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "receipt": "out/issue192/focused-29-tsc-mapping/complete.json",
+      "receiptSha256": "aa8bac64cab8994c16db4b97d03f569cb8384120737ed3f74dd35d7e610ea0c0",
+      "source": "cbf5c1daa1d2608b77dd6c24e510c2577b6dbdae",
+      "command": [
+        "node",
+        "node_modules/typescript/bin/tsc",
+        "--project",
+        "packages/contracts/tsconfig.json"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T02:38:01.601Z",
+      "finishedAt": "2026-10-14T02:38:05.750Z",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "receipt": "out/issue192/focused-30-vitest-mapping/complete.json",
+      "receiptSha256": "86af4cda9a4e8741845a462c5e201699618f0f016f7e5c34d50313732ff2eba9",
+      "source": "cbf5c1daa1d2608b77dd6c24e510c2577b6dbdae",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "packages/contracts/test/issue-192-v2-integration.test.ts",
+        "--maxWorkers=1"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T02:38:20.676Z",
+      "finishedAt": "2026-10-14T02:38:29.793Z",
+      "logSha256": "d83d128dd5a7094206f6f74a0ec799a5011f12c0f444442ad6df40a64ec9f87c"
+    }
+  ]
+}

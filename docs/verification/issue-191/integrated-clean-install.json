@@ -1,0 +1,13 @@
+{
+  "command": "npm ci --ignore-scripts --cache /private/tmp/vera-191-npm-cache",
+  "node": "v24.19.0",
+  "npm": "11.17.0",
+  "exitCode": 0,
+  "packagesAdded": 148,
+  "packagesAudited": 152,
+  "elapsedReportedSeconds": 4,
+  "packageLockSHA256": "e615667b1bcbea53bb34c4db11a6ca6a2745fae5edac6538ff87d3fdfe35d7b8",
+  "sourceCommit": "2d9709d93a5300fad881a4c66283e3d05c20ab4c",
+  "firstAttempt": "sandbox DNS ENOTFOUND; approved network retry passed",
+  "lockChanges": ""
+}

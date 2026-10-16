@@ -1,0 +1,259 @@
+
+> vera-script-to-timeline@0.0.0 validate:fast
+> npm run check:contracts-generated && npm run check:typescript && npm run lint:python && npm run typecheck:python && npm run test:python:fast
+
+
+> vera-script-to-timeline@0.0.0 check:contracts-generated
+> node packages/contracts/scripts/generate-contracts.mjs --check
+
+Generated contract types are current.
+
+> vera-script-to-timeline@0.0.0 check:typescript
+> npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript
+
+
+> vera-script-to-timeline@0.0.0 lint:typescript
+> eslint scripts/*.mjs --max-warnings=0 && npm run lint --workspaces --if-present
+
+
+> @vera/contracts@0.0.0 lint
+> eslint src test --max-warnings=0
+
+
+> @vera/tooling-smoke@0.0.0 lint
+> eslint . --max-warnings=0
+
+
+> vera-script-to-timeline@0.0.0 typecheck:typescript
+> npm run typecheck --workspaces --if-present
+
+
+> @vera/contracts@0.0.0 typecheck
+> tsc --project tsconfig.json
+
+
+> @vera/tooling-smoke@0.0.0 typecheck
+> tsc --project tsconfig.json
+
+
+> vera-script-to-timeline@0.0.0 test:typescript
+> npm run test --workspaces --if-present && npm run test:progress && npm run test:roadmap && npm run test:cloud-evidence
+
+
+> @vera/contracts@0.0.0 test
+> vitest run
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.11 [39m[90m/Users/matthewbelinkie/.codex/worktrees/ed01/VERA Script to Timeline/packages/contracts[39m
+
+ [32m✓[39m test/issue-144-omission-bridge.test.ts [2m([22m[2m15 tests[22m[2m)[22m[33m 15853[2mms[22m[39m
+     [33m[2m✓[22m[39m inspects actual canonical document identity without Python reserialization or acceptance [33m 944[2mms[22m[39m
+     [33m[2m✓[22m[39m invokes actual transformation with raw/source hashes and one full-row request [33m 1741[2mms[22m[39m
+     [33m[2m✓[22m[39m finalizes replacement dependencies/fresh IDs and exact actual compiler preview [33m 2780[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses inconsistent handoff documentHash [33m 889[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses inconsistent handoff oldAudio [33m 880[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses inconsistent handoff asset [33m 910[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses inconsistent handoff row [33m 901[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses inconsistent handoff extraReplacement [33m 898[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses inconsistent handoff metadata [33m 900[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses inconsistent handoff unchangedRow [33m 909[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses inconsistent handoff lane [33m 881[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses stale edit before revision artifacts [33m 909[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses an in-place change to an untouched dependency with the same inventory length [33m 907[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses compilation against old wording dependencies [33m 884[2mms[22m[39m
+     [33m[2m✓[22m[39m distinguishes malformed parse/usage from a semantic refusal [33m 515[2mms[22m[39m
+ [32m✓[39m test/issue-144-compile-cli.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 9063[2mms[22m[39m
+     [33m[2m✓[22m[39m returns the actual frozen compiler bytes without modifying either input [33m 922[2mms[22m[39m
+     [33m[2m✓[22m[39m returns byte-identical torture outputs through the file boundary [33m 930[2mms[22m[39m
+     [33m[2m✓[22m[39m distinguishes observed input drift from a deterministic compiler refusal [33m 872[2mms[22m[39m
+     [33m[2m✓[22m[39m returns identical complete bytes when replayed in separate processes [33m 1779[2mms[22m[39m
+     [33m[2m✓[22m[39m binds serialized input bytes even when compiler semantics are unchanged [33m 1789[2mms[22m[39m
+     [33m[2m✓[22m[39m retains actual validator diagnostics and emits no successful artifacts [33m 881[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses stale narration bindings through the actual compiler [33m 863[2mms[22m[39m
+ [32m✓[39m test/script-validator-cli.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 5500[2mms[22m[39m
+     [33m[2m✓[22m[39m prints deterministic pass output and every row for minimal [33m 1105[2mms[22m[39m
+     [33m[2m✓[22m[39m prints deterministic pass output and every row for torture [33m 1117[2mms[22m[39m
+     [33m[2m✓[22m[39m distinguishes usage failures [33m 1042[2mms[22m[39m
+     [33m[2m✓[22m[39m distinguishes read failures [33m 637[2mms[22m[39m
+     [33m[2m✓[22m[39m distinguishes JSON parse failures [33m 518[2mms[22m[39m
+     [33m[2m✓[22m[39m prints schema failures with a row and exits for validation [33m 547[2mms[22m[39m
+     [33m[2m✓[22m[39m prints a precise semantic VO gap with narration row and token range [33m 530[2mms[22m[39m
+ [32m✓[39m test/issue-144-proof-cli.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 6151[2mms[22m[39m
+     [33m[2m✓[22m[39m uses the actual mapper with byte-bound files and deterministic replay [33m 2394[2mms[22m[39m
+     [33m[2m✓[22m[39m applies explicit decisions through the actual canonical revision path [33m 1427[2mms[22m[39m
+     [33m[2m✓[22m[39m distinguishes a semantic refusal from a process fault [33m 1302[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses usage faults without outputs [33m 305[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses read faults without outputs [33m 352[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses parse faults without outputs [33m 368[2mms[22m[39m
+ [32m✓[39m test/authoring-v2-schema.test.ts [2m([22m[2m15 tests[22m[2m)[22m[33m 3492[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps both new schema roots outside frozen v1 generated outputs [33m 3439[2mms[22m[39m
+ [32m✓[39m test/issue-144-composition.test.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 4598[2mms[22m[39m
+     [33m[2m✓[22m[39m omits original token identity then transfers surviving visual anchors into one canonical revision [33m 316[2mms[22m[39m
+     [33m[2m✓[22m[39m exchanges raw files and actual compiler/script results through the pinned CLI (revision=false) [33m 1782[2mms[22m[39m
+     [33m[2m✓[22m[39m exchanges raw files and actual compiler/script results through the pinned CLI (revision=true) [33m 1914[2mms[22m[39m
+ [32m✓[39m test/prompter-export-cli.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 4087[2mms[22m[39m
+     [33m[2m✓[22m[39m runs the real CLI twice with byte-identical outputs matching the goldens [33m 2275[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses an existing file output before writing either artifact [33m 847[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses an existing symlink output before writing either artifact [33m 896[2mms[22m[39m
+ [32m✓[39m test/issue-144-semantics.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 798[2mms[22m[39m
+ [32m✓[39m test/compiler-v2.test.ts [2m([22m[2m26 tests[22m[2m)[22m[33m 895[2mms[22m[39m
+ [32m✓[39m test/boundary-evidence-v2.test.ts [2m([22m[2m82 tests[22m[2m)[22m[33m 766[2mms[22m[39m
+ [32m✓[39m test/issue-144-text-revision.test.ts [2m([22m[2m38 tests[22m[2m)[22m[32m 204[2mms[22m[39m
+ [32m✓[39m test/compiler-core.test.ts [2m([22m[2m26 tests[22m[2m)[22m[32m 154[2mms[22m[39m
+ [32m✓[39m test/issue-191-omission.test.ts [2m([22m[2m27 tests[22m[2m)[22m[32m 118[2mms[22m[39m
+ [32m✓[39m test/authoring-v2.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 99[2mms[22m[39m
+ [32m✓[39m test/compiler-v2-schema.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 115[2mms[22m[39m
+ [32m✓[39m test/prompter-export.test.ts [2m([22m[2m27 tests[22m[2m)[22m[32m 107[2mms[22m[39m
+ [32m✓[39m test/schema-validation.test.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 67[2mms[22m[39m
+ [32m✓[39m test/script-validator.test.ts [2m([22m[2m36 tests[22m[2m)[22m[32m 58[2mms[22m[39m
+ [32m✓[39m test/prompter-schema.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 50[2mms[22m[39m
+ [32m✓[39m test/compiler-v2-bindings.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m20 passed[39m[22m[90m (20)[39m
+[2m      Tests [22m [1m[32m429 passed[39m[22m[90m (429)[39m
+[2m   Start at [22m 07:05:58
+[2m   Duration [22m 75.78s[2m (transform 1.51s, setup 0ms, import 15.61s, tests 52.19s, environment 3ms)[22m
+
+
+> @vera/tooling-smoke@0.0.0 test
+> vitest run
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.11 [39m[90m/Users/matthewbelinkie/.codex/worktrees/ed01/VERA Script to Timeline/packages/tooling-smoke[39m
+
+ [32m✓[39m test/index.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 5[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m   Start at [22m 07:07:15
+[2m   Duration [22m 412ms[2m (transform 70ms, setup 0ms, import 89ms, tests 5ms, environment 0ms)[22m
+
+
+> vera-script-to-timeline@0.0.0 test:progress
+> node --test scripts/project-progress.test.mjs
+
+✔ parses the authoritative board without counting goals as work (20.01179ms)
+✔ calculates exact done and remaining scope from actionable board issues (15.924918ms)
+✔ fails closed on incomplete or ambiguous board data (1.906884ms)
+✔ renders every issue once with escaped links and board metadata (2.244094ms)
+✔ writes the dashboard and reports an exact terminal summary (30.242945ms)
+✔ fails clearly when the live GitHub Project is unavailable (5.571189ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 301.710703
+
+> vera-script-to-timeline@0.0.0 test:roadmap
+> node --test scripts/roadmap.test.mjs scripts/roadmap-rate-limit.test.mjs scripts/roadmap-lock.test.mjs
+
+✔ serializes roadmap commands before any GitHub request (25.337938ms)
+✔ reclaims a sufficiently old lock whose owner process is gone (6.570189ms)
+✔ parses authoritative direct GraphQL rateLimit fields and omits response metadata (6.576998ms)
+✔ fails closed on GitHub's graphql_rate_limit exhaustion response with reset guidance (1.131677ms)
+✔ never accepts a false REST-green payload as GraphQL authority (1.688893ms)
+✔ preflight reserves points for the planned GraphQL work (0.864837ms)
+✔ honors direct Retry-After evidence during a secondary throttle (0.608743ms)
+✔ accounts for issue, comment, dependency, and Project V2 operations by actual transport (0.437468ms)
+✔ distinguishes REST, GraphQL, secondary, and client/tooling failures (0.196443ms)
+✔ parses commands and flags (3.514455ms)
+✔ accepts one exact routing profile (0.888431ms)
+✔ rejects missing routing labels (1.155683ms)
+✔ rejects duplicate routing labels (0.377453ms)
+✔ rejects Luna claiming Terra work (0.406859ms)
+✔ rejects Sol claiming Luna work (0.411457ms)
+✔ rejects unsupported effort labels (0.277935ms)
+✔ uses the latest claim marker (0.800907ms)
+✔ preserves exclusive ownership across Luna-to-Terra and Terra-to-Sol escalation markers (0.662607ms)
+✔ parses no dependencies and same-repository blockers (1.423944ms)
+✔ parses cross-roadmap dependency references (0.518794ms)
+✔ rejects prose and duplicate dependency declarations (0.451924ms)
+✔ requires every dependency to be closed and Done (0.501863ms)
+✔ inspect, ready, and claim preflight before GraphQL reads and again before mutation (2546.185503ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2827.942382
+
+> vera-script-to-timeline@0.0.0 test:cloud-evidence
+> node --test scripts/cloud-evidence.test.mjs
+
+✔ accepts complete evidence whose facts all come from GitHub and the qualified profile (40.601057ms)
+✔ an unqualified, unbound or edited profile never yields substitution (3.345401ms)
+✔ rejects malformed profiles before they can judge a run (6.150467ms)
+✔ rejects a tested tree that differs from the delivered tree (0.751836ms)
+✔ rejects a stale tree listing and a manifest that misreports its checkout (1.386012ms)
+✔ rejects a gate that changed tracked files or did not record that state (1.682356ms)
+✔ requires the PR merge commit of the run's head, and the head itself for push runs (1.940164ms)
+✔ rejects the wrong job or duplicated jobs (1.265776ms)
+✔ rejects evidence for a different attempt (2.155364ms)
+✔ rejects nonzero, aborted and incomplete runs from GitHub's own conclusions (2.691841ms)
+✔ rejects incomplete collection and missing or empty inventory (2.004848ms)
+✔ rejects unqualified pytest skips, failures and reporter-altered collection (2.060708ms)
+✔ rejects runtime Vitest and node:test skips, todos and count disagreements (2.41288ms)
+✔ treats every gate configuration that tools discover per directory as a control (0.174166ms)
+✔ a changed or added control cannot self-certify, even when the manifest repeats the qualified digests (1.722558ms)
+✔ runtime drift fails everything; media drift suspends only media-sensitive scope (2.000543ms)
+✔ a later green attempt does not hide an unexplained earlier failure, and accepted dispositions stay visible (2.181782ms)
+✔ fails closed on malformed or incomplete facts (1.592845ms)
+✔ parses pytest JUnit identities, outcomes and skip reasons without failure text (1.83058ms)
+✔ maps pytest node IDs to JUnit identities and reads collect-only output (0.590719ms)
+✔ reads runtime outcomes from the gate's own Vitest and node:test output (1.43149ms)
+✔ numbered duplicate names still detect a removed case and refuse colliding numbering (1.28017ms)
+✔ reads NUL-delimited tree and status listings with unusual paths (0.600157ms)
+✔ collector records checkout, unusual control paths, inventories and runtime outcomes (838.102522ms)
+✔ collector reports tracked-file changes and marks failed collection incomplete (644.796264ms)
+✔ the workflow defines every required step, the exact command and the artifact name (1.51665ms)
+✔ gathers every earlier attempt on the same tested source, including recommits of an identical tree (1.219409ms)
+✔ refuses to evaluate a run history it could not read completely, or malformed identifiers (7.259382ms)
+✔ CLI rejects malformed arguments before any subprocess or GitHub request (0.86622ms)
+✔ CLI exits nonzero for unresolved history and zero once the failure is dispositioned (6.820416ms)
+✔ CLI success is scoped: suspended media scope fails a full-scope request (6.198724ms)
+✔ CLI drafts only unqualified profiles, and only from a clean complete calibration run (35.591354ms)
+ℹ tests 32
+ℹ suites 0
+ℹ pass 32
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1913.203869
+
+> vera-script-to-timeline@0.0.0 lint:python
+> uv run --frozen ruff check . && uv run --frozen ruff format --check .
+
+All checks passed!
+447 files already formatted
+
+> vera-script-to-timeline@0.0.0 typecheck:python
+> uv run --frozen mypy python tests
+
+Success: no issues found in 136 source files
+
+> vera-script-to-timeline@0.0.0 test:python:fast
+> uv run --frozen pytest -m "not slow" -n 2
+
+============================= test session starts ==============================
+platform darwin -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/matthewbelinkie/.codex/worktrees/ed01/VERA Script to Timeline
+configfile: pyproject.toml
+testpaths: tests
+plugins: xdist-3.8.0, typeguard-4.6.0
+created: 2/2 workers
+2 workers [458 items]
+
+........................................................................ [ 15%]
+........................................................................ [ 31%]
+........................................................................ [ 47%]
+........................................................................ [ 62%]
+........................................................................ [ 78%]
+........................................................................ [ 94%]
+..........................                                               [100%]
+======================= 458 passed in 124.18s (0:02:04) ========================

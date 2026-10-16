@@ -1,0 +1,55 @@
+{
+  "status": "complete-local-full-pass",
+  "source": "97df1d4ad60b526ba08da959c7965eac03e6a51d",
+  "command": [
+    "npm",
+    "run",
+    "validate"
+  ],
+  "counts": {
+    "python": 968,
+    "contractsVitest": 464,
+    "toolingVitest": 1,
+    "nodeTests": 61,
+    "skips": 0,
+    "deselections": 0,
+    "pythonTypecheck": 150,
+    "formattedFiles": 506
+  },
+  "elapsedSeconds": 5189.339,
+  "pythonSeconds": 5085.91,
+  "receipt": "out/issue192/full-1/complete.json",
+  "receiptSha256": "eb4e2f196f4ebf3d4fb04f2de18552a407253eebe9f489db8c2534ab5cc2ad1f",
+  "logSha256": "57e8c2d4b5dd4ab4ec5befd22e348c2e6f9bd872d567f34245832224850289ca",
+  "toolchainReceipt": "out/issue192/full-toolchain-1.json",
+  "toolchainReceiptSha256": "538d8b52036f59f088b3d4ee765fca85dde44fd584ff82a1beafbdb43eb0a590",
+  "node": "v24.19.0",
+  "tools": {
+    "/Users/matthewbelinkie/.local/bin/uv": {
+      "binary": "/Users/matthewbelinkie/.local/bin/uv",
+      "sha256": "9f810c3f3ea6b29f5e02b03acb0dcff74f516d4c24b91cd5491f172829e5c9e4",
+      "version": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)"
+    },
+    ".venv/bin/python": {
+      "binary": "/Users/matthewbelinkie/.local/share/uv/python/cpython-3.12.14-macos-x86_64-none/bin/python3.12",
+      "sha256": "a8e10ff8d348800219a8f1f2bb04f5b7d2d62a34f9656cad5520f10560f8df35",
+      "version": "Python 3.12.14"
+    },
+    ".venv/bin/ruff": {
+      "binary": "/Users/matthewbelinkie/.codex/worktrees/f5f4/VERA Script to Timeline/.venv/bin/ruff",
+      "sha256": "40a2ecbb65bcf18e99b424b60eeccaad58a6b35608341b6b64f426e02f54c233",
+      "version": "ruff 0.16.4"
+    },
+    ".venv/bin/mypy": {
+      "binary": "/Users/matthewbelinkie/.codex/worktrees/f5f4/VERA Script to Timeline/.venv/bin/mypy",
+      "sha256": "b9ea015568aac93e2bc0c9630de8be3ebc63d1e0202a524af4c148659cd4e8e6",
+      "version": "mypy 2.3.1 (compiled: no)"
+    }
+  },
+  "PATH": "/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/Users/matthewbelinkie/.local/bin:/usr/local/bin:/usr/bin:/bin",
+  "VITEST_MAX_WORKERS": "1",
+  "PYTEST_ADDOPTS": "--durations=25",
+  "capturedInputs": 7066,
+  "generatedBytecodeChanges": [],
+  "materialPostRunChanges": []
+}

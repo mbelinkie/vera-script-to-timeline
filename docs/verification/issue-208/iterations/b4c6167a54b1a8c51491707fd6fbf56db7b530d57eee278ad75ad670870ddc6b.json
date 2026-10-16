@@ -1,0 +1,4 @@
+{
+  "rawScrubbedSha256": "b4c6167a54b1a8c51491707fd6fbf56db7b530d57eee278ad75ad670870ddc6b",
+  "rawScrubbedOutput": "E501 Line too long (102 > 88)\n   --> tests/test_issue208_target_identity.py:441:89\n    |\n439 |             tmp_path\n440 |             / \"evidence\"\n441 |             / f\"{attack if attack == 'hashes' else 'controller-started'}-{value['invocationId']}.json\"\n    |                                                                                         ^^^^^^^^^^^^^^\n442 |         )\n443 |         marker.rename(tmp_path / f\"removed-{attack}.json\")\n    |\n\nFound 1 error.\n"
+}

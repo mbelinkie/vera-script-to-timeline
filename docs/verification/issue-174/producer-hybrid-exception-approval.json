@@ -1,0 +1,10 @@
+{
+  "producerInstruction": "I approve the exception",
+  "at": "2026-10-13T03:01:53.674003+00:00",
+  "appliesTo": "#174 ticket-specific hybrid exception proposed in docs/verification/issue-174/proposed-acceptance-route.md atPR200head8d5560c0666ff1dc3c241c881b7b69e0339a9119",
+  "route": "own exact integration tree full Ubuntu Validate + clean accepted-main qualified profile excluding-media-sensitive PASS for global regression, plus all84 serial Mac affected tests/24toolqualification/retainedverifier/publicpositive/fast/frozen/actualClaude review and proven consumedinput equivalence",
+  "noTestWeakening": true,
+  "noBlanketLocalFull": true,
+  "humanPlayback": "still pending; approval is route only",
+  "globalPolicy": "unchanged; ticket-specific exception"
+}

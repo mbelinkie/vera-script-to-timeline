@@ -1,0 +1,76 @@
+{
+  "status": "runtime-failure-fix-awaiting-rerun",
+  "sourcePins": {
+    "tests/issue192_public_case.py": "aa9fb94818bf3f1c4cd3fddb8c84d73c3454718bf00c99a6d878a6bdb74faa7f"
+  },
+  "records": [
+    {
+      "receipt": "out/issue192/runtime-4/complete.json",
+      "receiptSha256": "c99637b531c73d5c2c3f95a3f9a3814cb0981738f76a121909f58b4feb5fb4b2",
+      "source": "9c40208a8e054e106e0d899ac0f7038cc82814b8",
+      "command": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "-x",
+        "--durations=25",
+        "tests/test_issue192_public_path.py",
+        "tests/test_issue192_proof.py",
+        "tests/test_issue190_native.py::test_public_delivery_once_and_readonly_recovery",
+        "tests/test_issue190_native.py::test_copied_or_drifted_delivery_records_refuse_recovery",
+        "tests/test_issue190_native.py::test_fractional_public_delivery_refusal_precedes_adapter_creation",
+        "tests/test_issue190_native.py::test_capture_drift_refuses_without_evidence_or_render"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "startedAt": "2026-10-14T02:53:46.941Z",
+      "finishedAt": "2026-10-14T02:55:09.995Z",
+      "logSha256": "f1c6d643e28ace6248140ff0d8a0d72c373d2f15b7a14cf2e8c5c91b8148e8f6"
+    },
+    {
+      "receipt": "out/issue192/focused-35-ruff-authority/complete.json",
+      "receiptSha256": "76f271a7e6e5b6be3845de4cbd81df8d620350db90f18a33eee47978515114af",
+      "source": "9c40208a8e054e106e0d899ac0f7038cc82814b8",
+      "command": [
+        ".venv/bin/ruff",
+        "check",
+        "tests/issue192_public_case.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T03:07:31.536Z",
+      "finishedAt": "2026-10-14T03:07:31.968Z",
+      "logSha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "receipt": "out/issue192/focused-36-format-authority/complete.json",
+      "receiptSha256": "2e9b168df2a7bfad0500cc76544643ca5e9fdc7c9681a07360f6b6457e4fdafe",
+      "source": "9c40208a8e054e106e0d899ac0f7038cc82814b8",
+      "command": [
+        ".venv/bin/ruff",
+        "format",
+        "--check",
+        "tests/issue192_public_case.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T03:07:38.456Z",
+      "finishedAt": "2026-10-14T03:07:38.861Z",
+      "logSha256": "fd2299c9f1c6dc869070883e281051bfe93aacf66c1a3b0069f45b4aa410ca50"
+    },
+    {
+      "receipt": "out/issue192/focused-37-mypy-authority/complete.json",
+      "receiptSha256": "14caae59f385fb1f34e8ac5c503da8bf80b22e2739bf5c83e90ccc3cb82a9a4f",
+      "source": "9c40208a8e054e106e0d899ac0f7038cc82814b8",
+      "command": [
+        ".venv/bin/mypy",
+        "tests/issue192_public_case.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T03:07:46.668Z",
+      "finishedAt": "2026-10-14T03:07:48.104Z",
+      "logSha256": "5d4b6d285b77932e3d08212c3b4974d0a803f98ec60408ac6ccf6a063fa6c19e"
+    }
+  ]
+}

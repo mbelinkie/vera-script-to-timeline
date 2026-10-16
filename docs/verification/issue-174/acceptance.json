@@ -1,0 +1,91 @@
+{
+  "issue": 174,
+  "branch": "codex/issue-174-verified-cfr",
+  "baseline": "5d59b2ad560aa18f96554b71fe34ee5b7f30dfed",
+  "ownerTask": "01a12bd6-3b7d-74a3-9ce0-b1990888cef6",
+  "implementationCommit": "bd1fb70f926802b491be3e75c20c5bc56d3a53fe",
+  "initialFocusedMatrix": {
+    "command": "ctx-wire run rtk uv run --frozen pytest tests/test_issue174_media_preparation.py tests/test_issue174_real_media.py tests/test_issue174_recovery.py tests/test_issue174_source_refusals.py -q",
+    "result": "64 passed in 164.87s",
+    "note": "Before final source-rate binding and adapter-source fingerprint changes; final exact revision needs fresh required gates."
+  },
+  "dependencySetup": {
+    "node": "v24.19.0",
+    "npm": "11.17.0",
+    "method": "Fresh pinned npm ci --no-audit --no-fund on integrated accepted #193 repair",
+    "exitCode": 0,
+    "receipt": "bounded-retry.json",
+    "issue174DependencyChanges": false
+  },
+  "qualificationRecordHash": "sha256:af96a93467660871182e3c0767673eb4fe24568f979ac6fe399eb6f26dc7976d",
+  "finalFocusedMatrix": {
+    "status": "All84current-source issue-ownedtests passing across r7/r8; not a global full pass",
+    "recovery": "33 passed in 686.35s",
+    "otherModules": "51 passed in 1117.81s",
+    "receipts": [
+      "bounded-retry.json",
+      "affected-media.json"
+    ]
+  },
+  "validateFast": {
+    "exitCode": 0,
+    "pythonResult": "355 passed in 121.21s",
+    "receipt": "bounded-retry.json",
+    "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/validate-fast.log",
+    "logHash": "sha256:dc9efb92aa4088a701d367bf5d5ef14e38a98d73d25a603803fb5c977eed8cd5"
+  },
+  "fullValidate": {
+    "status": "not qualifying: original exit receipt lost; no exit0 fabricated",
+    "originalCommand": [
+      "/usr/bin/env",
+      "PATH=/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/usr/local/bin:/usr/bin:/bin:/Users/matthewbelinkie/.local/bin",
+      "VITEST_MAX_WORKERS=1",
+      "PYTEST_ADDOPTS=--durations=25",
+      "npm",
+      "run",
+      "validate"
+    ],
+    "completeCoverageObserved": "581 passed in9646.27s plus all preceding generated/TS/lint/types checks",
+    "log": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r6/validate-full.log",
+    "logHash": "sha256:b65d5982e8cef8c2277afad8a862275e28f16c2d702aef4ebc9cec027a5c0474",
+    "overwrittenWrapperExit": "r6-overwritten-exit.json",
+    "reason": "launchctl submit job relaunched every10seconds after first completion; later attempts failed exclusively at existing log open, never reran validation, and replaced original receipt",
+    "ownedJobRetired": true,
+    "currentSourceReuse": "Invalid: changed adapter; old original exit missing. No new blanket local full suite authorized or launched."
+  },
+  "frozenBoundaryAudit": {
+    "baseline": "05637d7c4110f594fbdc98999ded1c97de718a37",
+    "result": "all issue-owned changes confined to new174paths; frozen/control/lock inputs unchanged",
+    "audit": "approved-integration-audit.json"
+  },
+  "claudeAntagonistReview": {
+    "status": "Technical PASS, no blocking code findings; acceptance gaps remain",
+    "reviewedCommit": "bd1fb70f926802b491be3e75c20c5bc56d3a53fe",
+    "cliVersion": "2.1.296",
+    "exitCode": 0,
+    "is_error": false,
+    "rawResult": "claude-r3-result.json",
+    "resultHash": "sha256:152a88520464c7d773c6404aadf881bd4f799fc33c23bb9714f0edee97219bde",
+    "equivalence": "review-equivalence.json",
+    "remainingAffectedChecks": "Complete:51 additional tests passed; all84issue-ownedtests current-source passing"
+  },
+  "externalOperatorAcceptance": "pending",
+  "issueClosure": "not authorized until all required evidence and External judgment are retained",
+  "qualificationDirectory": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/r7/qualification",
+  "evidenceReuse": "r7 executable source/tests/helpers/config/lock hashes verified unchanged after qualification-record commit; all six stages have immutable exit-zero receipts. Earlier focused82 matrix retained as historical coverage, not a claim of current full acceptance. No old full pass reused.",
+  "candidateStatus": "Approved hybrid route; accepted109main integrated; proven unchanged Mac qualification inputs; combined fast/full cloud and playback pending",
+  "integrationBaseline": "05637d7c4110f594fbdc98999ded1c97de718a37",
+  "recoveryDelta": {
+    "exitCode": 0,
+    "result": "33 passed in 686.35s",
+    "includes": "new picture-only and paired-audio fsync/marker ordering plus corruption refusal regressions",
+    "receipt": "bounded-retry.json"
+  },
+  "cloudSubstitution": {
+    "status": "Ticket-specific exception approved; own exact combined-tree cloud PASS pending",
+    "approval": "producer-hybrid-exception-approval.json",
+    "approvalQuote": "I approve the exception",
+    "globalPolicy": "unchanged",
+    "humanAcceptance": "pending"
+  }
+}

@@ -1,0 +1,29 @@
+Issue #177 resumed implementation iteration; not acceptance evidence.
+All checks use saved uncommitted additions, locked Python/uv, synthetic inputs.
+
+Parent: Ruff check and format --check on workflow_v2_cli.py,
+workflow_v2_launcher.py, integrations/resolve/VERA Delivery v2.py and
+test_issue177_handoff.py passed (exit0,4filesformatted).
+
+Parent: uv run --frozen mypy workflow_v2_cli.py workflow_v2_launcher.py
+test_issue177_handoff.py passed after helper return-type correction:
+Success: no issues found in3sourcefiles. Completed session78251 exit0.
+
+Package: first focused pytest tests/test_v2_package.py -q --durations=25
+reported5failed in6.07s. Fixtures mixed dependency timeline240frames with
+manifest/report75frames; corrective fixture edit pending rerun. This is failed
+evidence; package behavior was not reached.
+
+Studio: first focused pytest tests/test_workflow_v2.py -q --durations=25
+reported8passed3failed. Worker corrected missing WAV fixture parent and fake
+post-create target guard. No passing rerun yet; cannot claim Studio suite green.
+
+Parent package type check: uv run --frozen mypy v2_package.py
+issue177_package_fixture.py test_v2_package.py completed session66814 exit1:
+6errors (optional dict assignments, redundant casts, and2str-vs-pathuses).
+The str-vs-path errors affect runtime publication and were sent to package
+worker for correction. Passing type check against corrected code remains due.
+
+The public package APIs and OTIO readback/publication/retry now exist, replacing
+the previous checkpoint's missing-method state. They remain unaccepted.
+No fast/full gate, Claude review, native or real-media operation occurred.
