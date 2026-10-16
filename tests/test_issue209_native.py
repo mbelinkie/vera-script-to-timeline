@@ -1201,6 +1201,7 @@ def _geometry_case(
         "provenance": {"source": "accepted-v2-marker"},
     }
     item = _Item(_Media(source_path), native._event_stamp(event))
+    item.source_end_frame = 21 if source_audio else 22
     timeline = _Timeline(
         item, track_kind=track_kind, track_name=track_name, frame_rate=frame_rate
     )
@@ -1268,10 +1269,13 @@ def _geometry_case(
     return resolve, request, admitted, item, timeline
 
 
+@pytest.mark.parametrize("source_audio", [False, True])
 def test_geometry_uses_verified_source_root_and_checks_exact_native_ranges(
-    tmp_path: Path,
+    tmp_path: Path, source_audio: bool
 ) -> None:
-    resolve, request, admitted, _item, _timeline = _geometry_case(tmp_path)
+    resolve, request, admitted, _item, _timeline = _geometry_case(
+        tmp_path, source_audio=source_audio
+    )
     geometry = native._capture_geometry(resolve, request, admitted, None)
     assert geometry["items"][0]["sourceStart"] == 12
     assert geometry["items"][0]["sourceDuration"] == 10
@@ -1279,11 +1283,16 @@ def test_geometry_uses_verified_source_root_and_checks_exact_native_ranges(
     assert geometry["extentFrames"] == 10
 
 
-@pytest.mark.parametrize("source_end_frame", [21, 23])
+@pytest.mark.parametrize(
+    ("source_audio", "source_end_frame"),
+    [(False, 21), (False, 23), (True, 20), (True, 22)],
+)
 def test_geometry_rejects_source_end_one_frame_short_or_long(
-    tmp_path: Path, source_end_frame: int
+    tmp_path: Path, source_audio: bool, source_end_frame: int
 ) -> None:
-    resolve, request, admitted, item, _timeline = _geometry_case(tmp_path)
+    resolve, request, admitted, item, _timeline = _geometry_case(
+        tmp_path, source_audio=source_audio
+    )
     item.source_end_frame = source_end_frame
 
     with pytest.raises(

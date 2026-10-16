@@ -2846,7 +2846,10 @@ def _capture_geometry(
                     )
                     and duration > 0
                     and record_end - record_start in {duration, duration - 1}
-                    and source_end > source_start,
+                    and (
+                        source_end > source_start
+                        or (kind == "audio" and source_end == source_start)
+                    ),
                     "unsupported native range getter",
                 )
                 _require(
@@ -2915,8 +2918,8 @@ def _capture_geometry(
                     )
                     expected_source_start = source_range["startFrame"]
                     expected_source_duration = source_range["durationFrames"]
-                # Resolve 21.1.1/10 reports an exclusive GetSourceEndFrame.
-                source_duration = source_end - source_start
+                # Resolve 21.1.1/10 reports exclusive video and inclusive audio ends.
+                source_duration = source_end - source_start + (kind == "audio")
                 _require(
                     source_start == expected_source_start
                     and source_duration == expected_source_duration,
