@@ -211,7 +211,6 @@ class _EmptyTimeline:
             "timelineFrameRate": "23.976",
             "timelineResolutionWidth": "1920",
             "timelineResolutionHeight": "1080",
-            "timelineSampleRate": "48000",
         }[name]
 
     def SetStartTimecode(self, _value: str) -> bool:
@@ -232,6 +231,12 @@ class _EmptyProject:
         timeline_item = _EmptyPoolItem()
         self.timeline = _EmptyTimeline(timeline_item)
         self.pool = _EmptyMediaPool(timeline_item)
+        self.settings = {
+            "timelineFrameRate": "23.976",
+            "timelineResolutionWidth": "1920",
+            "timelineResolutionHeight": "1080",
+            "timelineSampleRate": "48000",
+        }
 
     def GetUniqueId(self) -> str:
         return "project-one"
@@ -246,9 +251,10 @@ class _EmptyProject:
         return self.pool
 
     def GetSetting(self, name: str) -> str:
-        return self.timeline.GetSetting(name)
+        return self.settings[name]
 
-    def SetSetting(self, _name: str, _value: str) -> bool:
+    def SetSetting(self, name: str, value: str) -> bool:
+        self.settings[name] = value
         return True
 
 

@@ -730,10 +730,12 @@ class _Timeline:
         track_kind: str,
         track_name: str,
         marker_name: str = "Act I",
+        frame_rate: Any = "23.976",
     ) -> None:
         self.item = item
         self.track_kind = track_kind
         self.track_name = track_name
+        self.frame_rate = frame_rate
         self.markers = {
             5: {"color": "Cyan", "name": marker_name, "note": "chapter", "duration": 1}
         }
@@ -747,12 +749,11 @@ class _Timeline:
     def GetName(self) -> str:
         return "disposable-timeline"
 
-    def GetSetting(self, name: str) -> str:
+    def GetSetting(self, name: str) -> Any:
         return {
-            "timelineFrameRate": "23.976",
+            "timelineFrameRate": self.frame_rate,
             "timelineResolutionWidth": "1920",
             "timelineResolutionHeight": "1080",
-            "timelineSampleRate": "48000",
         }[name]
 
     def GetStartFrame(self) -> int:
@@ -885,7 +886,7 @@ class _EmptyTargetProject:
     ) -> None:
         self.timeline = timeline
         self.pool = _EmptyPool([timeline.pool_item] if clips is None else clips)
-        self.settings = {
+        self.settings: dict[str, Any] = {
             "timelineFrameRate": "23.976",
             "timelineResolutionWidth": "1920",
             "timelineResolutionHeight": "1080",
@@ -896,7 +897,7 @@ class _EmptyTargetProject:
     def GetMediaPool(self) -> _EmptyPool:
         return self.pool
 
-    def GetSetting(self, key: str) -> str:
+    def GetSetting(self, key: str) -> Any:
         return self.settings[key]
 
     def SetSetting(self, key: str, value: str) -> bool:
@@ -1058,6 +1059,19 @@ def test_matching_locked_project_settings_are_verified_without_setter(
     assert state["effects"] == []
 
 
+def test_numeric_timeline_rate_is_a_matching_project_setting(
+    tmp_path: Path,
+) -> None:
+    project = _EmptyTargetProject(_EmptyTargetTimeline({"video": 1, "audio": 1}))
+    project.settings["timelineFrameRate"] = 23.976
+    state, _request = _effect_state(tmp_path)
+
+    native._set_project_settings(project, {"timelineFrameRate": "23.976"}, state)
+
+    assert project.set_calls == []
+    assert state["effects"] == []
+
+
 def test_mismatched_project_setting_is_set_and_read_back_exactly(
     tmp_path: Path,
 ) -> None:
@@ -1078,8 +1092,82 @@ def test_mismatched_project_setting_is_set_and_read_back_exactly(
     assert project.GetSetting("timelineResolutionWidth") == "1920"
 
 
+@pytest.mark.parametrize("actual", [23.976, "23.976"])
+def test_timeline_rate_comparison_accepts_only_exact_documented_match(
+    actual: Any,
+) -> None:
+    assert native._setting_matches("timelineFrameRate", "23.976", actual)
+
+
+@pytest.mark.parametrize(
+    "actual",
+    [
+        24.0,
+        "24",
+        23.9760001,
+        "23.9760001",
+        True,
+        float("nan"),
+        float("inf"),
+        23,
+        object(),
+    ],
+)
+def test_timeline_rate_comparison_rejects_wrong_or_unsupported_values(
+    actual: Any,
+) -> None:
+    assert not native._setting_matches("timelineFrameRate", "23.976", actual)
+
+
+def test_numeric_timeline_rate_readback_is_retained_in_effect_observation(
+    tmp_path: Path,
+) -> None:
+    class NumericRateReadbackProject(_EmptyTargetProject):
+        def SetSetting(self, key: str, value: str) -> bool:
+            self.set_calls.append((key, value))
+            self.settings[key] = 23.976 if key == "timelineFrameRate" else value
+            return True
+
+    project = NumericRateReadbackProject(_EmptyTargetTimeline({"video": 1, "audio": 1}))
+    project.settings["timelineFrameRate"] = 24.0
+    state, _request = _effect_state(tmp_path)
+
+    native._set_project_settings(project, {"timelineFrameRate": "23.976"}, state)
+
+    assert project.set_calls == [("timelineFrameRate", "23.976")]
+    assert state["effects"][0]["outcome"] == "observed"
+    observed_path = Path(state["effects"][0]["path"]).with_name("0000-observed.json")
+    observed = _parse(native._read(observed_path, "test numeric rate observation"))
+    assert observed["observation"] == {"return": True, "value": 23.976}
+
+
+def test_wrong_numeric_timeline_rate_readback_reports_safe_value_and_type(
+    tmp_path: Path,
+) -> None:
+    class WrongRateReadbackProject(_EmptyTargetProject):
+        def SetSetting(self, key: str, value: str) -> bool:
+            self.set_calls.append((key, value))
+            self.settings[key] = 24.0 if key == "timelineFrameRate" else value
+            return True
+
+    project = WrongRateReadbackProject(_EmptyTargetTimeline({"video": 1, "audio": 1}))
+    project.settings["timelineFrameRate"] = 24.0
+    state, _request = _effect_state(tmp_path)
+
+    with pytest.raises(OutputConsistencyError, match=r"actual 24\.0 \(float\)"):
+        native._set_project_settings(project, {"timelineFrameRate": "23.976"}, state)
+
+    assert project.set_calls == [("timelineFrameRate", "23.976")]
+    assert len(state["effects"]) == 1
+    assert state["effects"][0]["outcome"] == "unknown"
+
+
 def _geometry_case(
-    tmp_path: Path, *, source_audio: bool = False
+    tmp_path: Path,
+    *,
+    source_audio: bool = False,
+    frame_rate: Any = "23.976",
+    project_sample_rate: Any = "48000",
 ) -> tuple[Any, dict[str, Any], dict[str, Any], _Item, _Timeline]:
     tmp_path = tmp_path.resolve()
     source_root = tmp_path / "verified-public-package"
@@ -1111,7 +1199,9 @@ def _geometry_case(
         "provenance": {"source": "accepted-v2-marker"},
     }
     item = _Item(_Media(source_path), native._event_stamp(event))
-    timeline = _Timeline(item, track_kind=track_kind, track_name=track_name)
+    timeline = _Timeline(
+        item, track_kind=track_kind, track_name=track_name, frame_rate=frame_rate
+    )
     timeline.marker_stamp = native._marker_stamp(marker)
     project = type(
         "Project",
@@ -1121,7 +1211,9 @@ def _geometry_case(
             "GetName": lambda _self: "disposable-project",
             "GetCurrentTimeline": lambda _self: timeline,
             "GetMediaPool": lambda _self: object(),
-            "GetSetting": lambda _self, _key: "value",
+            "GetSetting": lambda _self, key: (
+                project_sample_rate if key == "timelineSampleRate" else "value"
+            ),
             "SetSetting": lambda _self, *_args: True,
         },
     )()
@@ -1183,6 +1275,40 @@ def test_geometry_uses_verified_source_root_and_checks_exact_native_ranges(
     assert geometry["items"][0]["sourceDuration"] == 10
     assert geometry["items"][0]["sourceMappingSha256"] is None
     assert geometry["extentFrames"] == 10
+
+
+def test_geometry_accepts_numeric_timeline_rate_readback(tmp_path: Path) -> None:
+    resolve, request, admitted, _item, _timeline = _geometry_case(
+        tmp_path, frame_rate=23.976
+    )
+
+    geometry = native._capture_geometry(resolve, request, admitted, None)
+
+    assert geometry["rate"] == admitted["manifest"]["timeline"]["frameRate"]
+
+
+def test_geometry_reports_mismatched_numeric_rate_readback(tmp_path: Path) -> None:
+    resolve, request, admitted, _item, _timeline = _geometry_case(
+        tmp_path, frame_rate=24.0
+    )
+
+    with pytest.raises(OutputConsistencyError, match=r"actual 24\.0 \(float\)"):
+        native._capture_geometry(resolve, request, admitted, None)
+
+
+@pytest.mark.parametrize("sample_rate", ["44100", "48000x", None])
+def test_geometry_reads_exact_sample_rate_from_project(
+    tmp_path: Path, sample_rate: Any
+) -> None:
+    resolve, request, admitted, _item, _timeline = _geometry_case(
+        tmp_path, project_sample_rate=sample_rate
+    )
+
+    with pytest.raises(
+        OutputConsistencyError,
+        match="native project setting timelineSampleRate differs or is unreadable",
+    ):
+        native._capture_geometry(resolve, request, admitted, None)
 
 
 def test_geometry_rechecks_source_audio_controls_after_reopen(tmp_path: Path) -> None:
@@ -1325,6 +1451,86 @@ def test_render_lineage_rejects_completion_with_a_different_started_hash(
     monkeypatch.setattr(native, "verify_native_result", verify)
     with pytest.raises(OutputConsistencyError, match="receipt hashes differ"):
         native._verify_render_lineage(request, lineage, completion, completion_sha)
+
+
+def test_start_render_uses_dedicated_status_for_exact_queued_job(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project, state, request = _start_render_case(
+        tmp_path, monkeypatch, {"JobStatus": "Ready"}
+    )
+
+    result = native._start_render(request, object(), state, None)
+
+    assert project.status_calls == ["job-one"]
+    assert project.start_calls == [["job-one"]]
+    assert result["jobId"] == "job-one"
+    assert state["effects"][0]["method"] == "Project.StartRendering"
+    assert state["effects"][0]["outcome"] == "observed"
+
+
+@pytest.mark.parametrize(
+    "status_response",
+    [
+        None,
+        {},
+        {"JobStatus": 1},
+        {"JobStatus": "Rendering"},
+        {"JobStatus": "Complete"},
+        {"JobStatus": "Failed"},
+        {"JobStatus": "Cancelled"},
+        {"JobStatus": "Ready for background render"},
+        {"JobStatus": "Ready to remotely render"},
+        {"JobStatus": "unknown"},
+    ],
+)
+def test_start_render_refuses_any_status_other_than_local_ready(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    status_response: Any,
+) -> None:
+    project, state, request = _start_render_case(tmp_path, monkeypatch, status_response)
+
+    with pytest.raises(OutputConsistencyError):
+        native._start_render(request, object(), state, None)
+
+    assert project.status_calls == ["job-one"]
+    assert project.start_calls == []
+    assert state["effects"] == []
+
+
+def test_start_render_refuses_missing_or_unreadable_status_before_start(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project, state, request = _start_render_case(
+        tmp_path / "missing-getter",
+        monkeypatch,
+        RuntimeError("private status detail"),
+        include_status_getter=False,
+    )
+
+    with pytest.raises(
+        OutputConsistencyError, match="render job status unavailable before start"
+    ):
+        native._start_render(request, object(), state, None)
+
+    assert project.start_calls == []
+    assert state["effects"] == []
+
+    project, state, request = _start_render_case(
+        tmp_path / "unreadable-getter",
+        monkeypatch,
+        RuntimeError("private status detail"),
+    )
+
+    with pytest.raises(
+        OutputConsistencyError, match="render job status unreadable before start"
+    ):
+        native._start_render(request, object(), state, None)
+
+    assert project.status_calls == ["job-one"]
+    assert project.start_calls == []
+    assert state["effects"] == []
 
 
 @pytest.mark.parametrize(
@@ -1620,6 +1826,69 @@ def _effect_state(tmp_path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         "effects": [],
     }
     return state, request
+
+
+def _start_render_case(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    status_response: Any,
+    *,
+    include_status_getter: bool = True,
+) -> tuple[Any, dict[str, Any], dict[str, Any]]:
+    queued_sha = "a" * 64
+    queued_path = tmp_path.resolve() / "queued-result.json"
+    previous = {
+        "jobId": "job-one",
+        "outputPath": str(tmp_path.resolve() / "deliver.mov"),
+        "settings": {"container": "mov", "audioCodec": "lpcm"},
+        "commitmentRawSha256": "1" * 64,
+        "renderIntentSha256": "2" * 64,
+    }
+    state, request = _effect_state(tmp_path)
+    request["payload"] = {
+        "queuedResultPath": str(queued_path),
+        "queuedResultSha256": queued_sha,
+        "jobId": "job-one",
+    }
+
+    class Project:
+        def __init__(self) -> None:
+            self.status_calls: list[str] = []
+            self.start_calls: list[list[str]] = []
+
+        def GetRenderJobList(self) -> list[dict[str, str]]:
+            # The installed RenderJobInfo shape has JobId, but no JobStatus.
+            return [{"JobId": "job-one"}]
+
+        def StartRendering(self, job_ids: list[str]) -> bool:
+            self.start_calls.append(list(job_ids))
+            return True
+
+    project = Project()
+    if include_status_getter:
+
+        def get_render_job_status(job_id: str) -> Any:
+            project.status_calls.append(job_id)
+            if isinstance(status_response, BaseException):
+                raise status_response
+            return status_response
+
+        monkeypatch.setattr(
+            project, "GetRenderJobStatus", get_render_job_status, raising=False
+        )
+    monkeypatch.setattr(
+        native,
+        "_previous_result",
+        lambda _request, action: (
+            (previous, queued_sha, queued_path)
+            if action == "queue_render"
+            else pytest.fail("unexpected predecessor action")
+        ),
+    )
+    monkeypatch.setattr(
+        native, "_project_timeline", lambda *_args: (None, project, None)
+    )
+    return project, state, request
 
 
 def test_construct_normalizes_nonzero_empty_target_and_records_readback(

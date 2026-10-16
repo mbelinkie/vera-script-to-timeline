@@ -18,6 +18,7 @@ import stat
 import sys
 import time
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
@@ -2637,20 +2638,21 @@ def _capture_geometry(
     admitted: dict[str, Any],
     input_binding: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    _, _, timeline = _project_timeline(resolve, request)
+    _, project, timeline = _project_timeline(resolve, request)
     manifest, view = admitted["manifest"], admitted["view"]
     expected_timeline = manifest["timeline"]
     _verify_admitted_extent(manifest)
     rate = expected_timeline["frameRate"]
     _rate_float(rate)
+    actual_rate = timeline.GetSetting("timelineFrameRate")
     _require(
-        timeline.GetSetting("timelineFrameRate") == "23.976",
-        "native timeline rate getter differs",
+        _setting_matches("timelineFrameRate", "23.976", actual_rate),
+        "native timeline rate getter differs "
+        f"(actual {_setting_readback_description(actual_rate)})",
     )
     for key, expected in (
         ("timelineResolutionWidth", expected_timeline["width"]),
         ("timelineResolutionHeight", expected_timeline["height"]),
-        ("timelineSampleRate", expected_timeline["audioSampleRate"]),
     ):
         actual = timeline.GetSetting(key)
         _require(
@@ -2659,6 +2661,13 @@ def _capture_geometry(
             and int(actual) == expected,
             f"native timeline setting {key} differs or is unreadable",
         )
+    sample_rate = project.GetSetting("timelineSampleRate")
+    _require(
+        type(sample_rate) in {str, int}
+        and str(sample_rate).isdigit()
+        and int(sample_rate) == expected_timeline["audioSampleRate"],
+        "native project setting timelineSampleRate differs or is unreadable",
+    )
     timeline_start = timeline.GetStartFrame()
     timeline_end = timeline.GetEndFrame()
     _require(
@@ -3059,23 +3068,52 @@ def _capture_geometry(
     return geometry
 
 
+def _setting_matches(key: str, expected: str, actual: Any) -> bool:
+    if key != "timelineFrameRate":
+        return type(actual) is str and actual == expected
+    if type(expected) is not str or type(actual) not in {str, float}:
+        return False
+    try:
+        actual_rate = Decimal(str(actual))
+        expected_rate = Decimal(expected)
+    except (InvalidOperation, ValueError):
+        return False
+    return (
+        actual_rate.is_finite()
+        and expected_rate.is_finite()
+        and actual_rate == expected_rate
+    )
+
+
+def _setting_readback_description(actual: Any) -> str:
+    actual_type = type(actual).__name__
+    if type(actual) is str:
+        rendered = repr(actual[:160] + ("…" if len(actual) > 160 else ""))
+    elif actual is None or type(actual) in {bool, int, float}:
+        rendered = repr(actual)
+    else:
+        rendered = f"<{actual_type}>"
+    return f"{rendered} ({actual_type})"
+
+
 def _set_project_settings(
     project: Any, settings: dict[str, str], state: dict[str, Any]
 ) -> None:
     for key, value in settings.items():
         current = project.GetSetting(key)
-        if current == value:
+        if _setting_matches(key, value, current):
             continue
         row = _private_effect(state, "Project.SetSetting", {"key": key, "value": value})
         returned = project.SetSetting(key, value)
         _require(returned is True, f"Resolve refused project setting {key}")
+        readback = project.GetSetting(key)
         _require(
-            project.GetSetting(key) == value,
-            f"project setting {key} did not read back",
+            _setting_matches(key, value, readback),
+            "project setting "
+            f"{key} did not read back "
+            f"(actual {_setting_readback_description(readback)})",
         )
-        _effect_observed(
-            state, row, {"return": returned, "value": project.GetSetting(key)}
-        )
+        _effect_observed(state, row, {"return": returned, "value": readback})
 
 
 def _normalize_target_start_timecode(
@@ -3829,9 +3867,22 @@ def _start_render(
         if type(job) is dict and job.get("JobId") == previous["jobId"]
     ]
     _require(len(rows) == 1, "exact queued render job unavailable")
+    get_status = getattr(project, "GetRenderJobStatus", None)
+    if not callable(get_status):
+        raise OutputConsistencyError("render job status unavailable before start")
+    try:
+        status = get_status(previous["jobId"])
+    except Exception:
+        raise OutputConsistencyError(
+            "render job status unreadable before start"
+        ) from None
     _require(
-        rows[0].get("JobStatus") not in {"Rendering", "Complete"},
-        "queued render job already started or completed",
+        type(status) is dict and type(status.get("JobStatus")) is str,
+        "render job status unreadable before start",
+    )
+    _require(
+        status["JobStatus"] == "Ready",
+        "queued render job is not locally ready",
     )
     row = _private_effect(
         state, "Project.StartRendering", {"jobIds": [previous["jobId"]]}
