@@ -76,7 +76,30 @@ Its source-bound preflight request is already prepared. Wait for closed Resolve
 and request-install approval before swapping the consumed standard64 request.
 No overrides64 build authorization is inferred from this visual acceptance.
 
-## Current installed request — overrides64 preflight, not build
+## Current installed request — authorized overrides64 BUILD
+
+Producer explicitly said “Authorize overrides-64 959ff2d2d1a0; External
+Scripting is None”. Resolve was closed before/after request-only swap. Prepared
+the new immutable request through the existing production CLI, exit0, then
+archived the successful preflight request outside plugin discovery at
+out/issue8/installed-request-archive/overrides-64-preflight-75325e0.json.
+Installed only the authorized build request mode0400, SHA256
+2e94fc4c23d638fd4656f29ecf279d1a804691e6bec9e14c8aa1c361bf892c37.
+Receipt: out/issue8/overrides64-build-authorization.json. Exact installed source
+file/directory closure and11source hashes/sizes, release, attestation and
+preflight-result hashes match; only action/authorization/None fields differ
+from preflight. Qualified75325e0 product inputs unchanged. No native run,
+settings change or new build result yet; no other target is authorized.
+
+Next operator: fresh Resolve, keep None, ORIGINAL separate saved disposable
+current project/timeline on Edit (not any generated VERA target), then Workspace
+> Workflow Integrations > VERA Graphics v1 ONCE. Build must create only fresh
+target959ff2d2d1a0, save/reopen and verify. Return result or first error; never
+rerun an uncertain invocation. For subsequent visual check isolate V4 from
+known V5 authored warning and leave V4 at original64-frame duration. This is
+not the old failed diagnostic targetd859f645132f; preserve that project.
+
+### Retained prior stage — overrides64 successful preflight
 
 Operator has now run this preflight once: statuspreflight_passed, no
 discrepancies, Studio21.1.1build10/injected3.14.7/verifier3.12.14, finished

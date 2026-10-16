@@ -1010,3 +1010,29 @@ mutation by agent. Next Producer quits Resolve, explicitly authorizes only
 overrides64 target959ff2d2d1a0 and confirms current None before build-request
 preparation/install. Earlier standard64 visual pass/evidence preserved; other
 native/render/timing/isolation gates and #8 closure still pending.
+
+### Exact overrides64 build authorized; request installed, native run pending
+
+Producer explicitly said “Authorize overrides-64 959ff2d2d1a0; External
+Scripting is None”. Resolve absent before/after guarded request-only swap.
+Existing production CLI prepared immutable build request exit0, SHA256
+2e94fc4c23d638fd4656f29ecf279d1a804691e6bec9e14c8aa1c361bf892c37,
+out/issue8/requests-75325e0/overrides-64-build.json. Archived successful
+preflight request exactb640ae07... outside discovery in
+out/issue8/installed-request-archive/overrides-64-preflight-75325e0.json.
+Installed new request mode0400; exact target959ff2d2d1a0 and only three approved
+field changes vs preflight. No other fresh or failed target authorized.
+
+Before/after source file/directory closure,11source hashes/sizes, release
+b00dccc6..., attestationc5bf1f5e... and actual preflight result1a61cca1... all
+match. Product-input diff vs qualified75325e0 empty. No new native result,
+app launch, settings/native/project mutation or heavy test by agent. Receipt:
+out/issue8/overrides64-build-authorization.json. Earlier results/visual pass
+and both failed targets preserved.
+
+Next operator starts Resolve fresh, keeps None, ORIGINAL separate saved
+disposable current project/timeline on Edit, invokes Graphics once and returns
+result/first error without retry. Native build must save/reopen/verify fresh
+target959ff2d2d1a0. Later visual inspection may isolate V4 from known V5 warning;
+retain original64-frame duration for timing evidence. Render/visual acceptance,
+remaining cases/isolation and #8 closure are not inferred from authorization.
