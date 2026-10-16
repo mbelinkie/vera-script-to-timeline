@@ -1214,7 +1214,6 @@ def build_resolve_import_package(
     publication_time = _validate_verified_at(verified_at or _default_verified_at())
 
     if output.exists():
-        _validate_request_origins(sources, requests)
         try:
             verification = verify_resolve_import_package(
                 output, ffprobe_executable=ffprobe_executable
@@ -1247,6 +1246,7 @@ def build_resolve_import_package(
                 "project root already exists for different materialization artifacts: "
                 f"{output}"
             )
+        _validate_request_origins(sources, requests)
         return _result(output, verification, True)
 
     try:
