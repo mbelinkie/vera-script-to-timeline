@@ -3784,15 +3784,14 @@ def _queue_render(
         row,
         {"return": selected, "formatCodec": selected_format_codec},
     )
-    row = _private_effect(state, "Project.SetCurrentRenderMode", {"mode": 0})
-    mode = project.SetCurrentRenderMode(0)
+    row = _private_effect(state, "Project.SetCurrentRenderMode", {"mode": 1})
+    mode = project.SetCurrentRenderMode(1)
+    mode_readback = project.GetCurrentRenderMode()
     _require(
-        mode is True and project.GetCurrentRenderMode() == 0,
+        mode is True and mode_readback == 1,
         "single-job render mode did not read back",
     )
-    _effect_observed(
-        state, row, {"return": mode, "renderMode": project.GetCurrentRenderMode()}
-    )
+    _effect_observed(state, row, {"return": mode, "renderMode": mode_readback})
     timeline_info = admitted["manifest"]["timeline"]
     render_settings = {
         "ExportVideo": True,
@@ -3804,6 +3803,7 @@ def _queue_render(
         "FormatHeight": timeline_info["height"],
         "FrameRate": _rate_float(timeline_info["frameRate"]),
         "SelectAllFrames": True,
+        "UseUniqueFilenames": False,
         "TargetDir": str(output_path.parent),
         "CustomName": output_path.stem,
     }
@@ -3837,6 +3837,10 @@ def _queue_render(
         job.get("TargetDir") == str(output_path.parent)
         and job.get("OutputFilename") == output_path.name,
         "queued render output path differs",
+    )
+    _require(
+        job.get("RenderMode") == "Single clip",
+        "queued render job is not a single clip",
     )
     _require(
         job.get("IsExportVideo") is True

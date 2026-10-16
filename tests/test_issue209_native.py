@@ -1921,6 +1921,7 @@ def _queue_render_case(
     selected_readback: dict[str, str] | None = None,
     job_video_codec: str = "Apple ProRes 422",
     job_audio_codec: str = "Linear PCM",
+    job_render_mode: str = "Single clip",
 ) -> tuple[Any, dict[str, Any], dict[str, Any], list[tuple[str, Any]]]:
     output_path = tmp_path.resolve() / "deliver.mov"
     settings = dict(native.RENDER_SETTINGS)
@@ -1944,6 +1945,8 @@ def _queue_render_case(
             self.selection_calls: list[tuple[str, str]] = []
             self.render_settings: dict[str, Any] | None = None
             self.jobs: list[dict[str, Any]] = []
+            self.render_mode = 0
+            self.render_mode_calls: list[int] = []
             self.selected_codec = selected_readback or {
                 "format": "mov",
                 "codec": "ProRes422",
@@ -1972,11 +1975,13 @@ def _queue_render_case(
         def GetCurrentRenderFormatAndCodec(self) -> dict[str, str]:
             return self.selected_codec
 
-        def SetCurrentRenderMode(self, _mode: int) -> bool:
+        def SetCurrentRenderMode(self, mode: int) -> bool:
+            self.render_mode_calls.append(mode)
+            self.render_mode = mode
             return True
 
         def GetCurrentRenderMode(self) -> int:
-            return 0
+            return self.render_mode
 
         def SetRenderSettings(self, render_settings: dict[str, Any]) -> bool:
             self.render_settings = render_settings
@@ -1998,6 +2003,7 @@ def _queue_render_case(
                     "FormatHeight": 1080,
                     "VideoCodec": job_video_codec,
                     "VideoFormat": "QuickTime",
+                    "RenderMode": job_render_mode,
                 }
             )
             return "job-one"
@@ -2152,10 +2158,49 @@ def test_queue_render_uses_exact_resolve_codec_label_and_token(
         "format": "mov",
         "codec": "ProRes422",
     }
+    assert project.render_mode_calls == [1]
+    assert project.render_settings is not None
+    assert project.render_settings["UseUniqueFilenames"] is False
+    assert project.jobs[0]["RenderMode"] == "Single clip"
     assert observations[0] == (
         "Project.SetCurrentRenderFormatAndCodec",
         {"return": True, "formatCodec": {"format": "mov", "codec": "ProRes422"}},
     )
+    assert observations[1] == (
+        "Project.SetCurrentRenderMode",
+        {"return": True, "renderMode": 1},
+    )
+
+
+def test_queue_render_rejects_individual_clips_job_even_after_single_clip_readback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project, request, state, _observations = _queue_render_case(
+        tmp_path, monkeypatch, job_render_mode="Individual clips"
+    )
+
+    with pytest.raises(
+        OutputConsistencyError, match="queued render job is not a single clip"
+    ):
+        native._queue_render(
+            request,
+            object(),
+            {
+                "manifest": {
+                    "timeline": {
+                        "width": 1920,
+                        "height": 1080,
+                        "frameRate": {"numerator": 24000, "denominator": 1001},
+                    }
+                }
+            },
+            state,
+            None,
+        )
+
+    assert project.render_mode_calls == [1]
+    assert project.GetCurrentRenderMode() == 1
+    assert project.jobs[0]["RenderMode"] == "Individual clips"
 
 
 @pytest.mark.parametrize(
