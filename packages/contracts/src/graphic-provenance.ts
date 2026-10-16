@@ -751,4 +751,3 @@ export function migrateGraphicTemplate(
     return buildProposal("template_migration", content, snapshot, methodAvailable, previous, input.actorId, input.recordedAt);
   });
 }
-

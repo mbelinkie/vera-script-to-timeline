@@ -14,13 +14,13 @@ I didn't run any commands or edit anything. The plan-mode workflow asks me to wr
 - **Counterexample:** take the passing migration test (`issue-218-provenance.test.ts:392`) and either:
   - set the `revision_1` template record to `compatible: false`, or
   - drop the `revision_1` record while keeping `revision_2` compatible.
-  
+
   `migrateGraphicTemplate` then fails with `GRAPHIC_PROVENANCE_MISMATCH` ("not compatible") or `UNAVAILABLE` ("not retained"). So migrating away from a bad pin always fails, which leaves a graphic whose template was retired or lost with no migration path. No test covers this.
 - **Fix:** when loading the prior revision for migration, verify:
   - the revision record and its content hash
   - the snapshot binding
   - source and badge bytes
-  
+
   Skip verifying the old template's bytes and compatibility. Fully verify only the new target pin, as `checkCandidateEvidence` already does. Add tests for both the missing-old-template and incompatible-old-template cases.
 - **Related, not blocking:** `refreshGraphicContent` (`:700`) has the same root cause. If the old source bytes are lost, refresh fails before it looks at the new evidence. The §6 recovery "new explicit source-backed revision" is still possible through `createGraphicContent` with a new revision ID, but that loses the prior-revision link in the receipt. Worth fixing in the same change.
 
