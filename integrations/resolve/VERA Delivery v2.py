@@ -1078,6 +1078,131 @@ def ti_cap_started(request: dict[str, Any], expected: str) -> dict[str, Any]:
 
 # END IDENTITY PROVENANCE
 
+TI_OUTPUT_RUNTIME_FILES = (
+    *TI_RUNTIME_FILES,
+    "qualification_output_native_v2.py",
+    "qualification_output_records_v2.py",
+)
+TI_OUTPUT_PROVENANCE_ATTR = "__vera_output_release_provenance_v1__"
+
+
+def _ti_output_runtime_modules(
+    root: Path, release_root: Path, declared_files: dict[str, str]
+) -> tuple[dict[str, tuple[Path, str]], dict[str, object]]:
+    prefix = f"{release_root.name}/python/vera_timeline_agent/"
+    expected: dict[str, tuple[Path, str]] = {}
+    for relative, digest in declared_files.items():
+        if not relative.startswith(prefix) or not relative.endswith(".py"):
+            continue
+        module_file = relative.removeprefix(prefix)
+        module_name = module_file.removesuffix(".py").replace("/", ".")
+        if module_name == "__init__":
+            module_name = "vera_timeline_agent"
+        else:
+            module_name = f"vera_timeline_agent.{module_name}"
+        ti_require(module_name not in expected, "duplicate output runtime module")
+        expected[module_name] = (root / relative, digest)
+    runtime_root = root / release_root.name / "python" / "vera_timeline_agent"
+    loaded = {
+        name: module
+        for name, module in sys.modules.items()
+        if name == "vera_timeline_agent" or name.startswith("vera_timeline_agent.")
+    }
+    for name, module in loaded.items():
+        ti_require(name in expected and module is not None, "foreign VERA runtime")
+        expected_path, expected_digest = expected[name]
+        module_source = getattr(module, "__file__", None)
+        ti_require(type(module_source) is str, "foreign VERA runtime")
+        path = ti_path(module_source)
+        ti_require(
+            path == expected_path and path.is_file(),
+            "VERA runtime module root drift",
+        )
+        ti_require(
+            ti_digest(ti_read(path)) == expected_digest,
+            "VERA runtime module hash drift",
+        )
+        spec = getattr(module, "__spec__", None)
+        ti_require(
+            spec is not None and getattr(spec, "origin", None) == str(path),
+            "VERA runtime module loader drift",
+        )
+        if name == "vera_timeline_agent":
+            locations = getattr(spec, "submodule_search_locations", None)
+            ti_require(
+                locations is not None and list(locations) == [str(runtime_root)],
+                "VERA runtime package root drift",
+            )
+            package_path = getattr(module, "__path__", None)
+            ti_require(
+                package_path is not None and list(package_path) == [str(runtime_root)],
+                "VERA runtime package path drift",
+            )
+    return expected, loaded
+
+
+def _ti_output_module_marker(
+    release_manifest_sha256: str,
+    source_graph_sha256: str | None,
+    path: Path,
+    source_sha256: str,
+) -> str:
+    return json.dumps(
+        {
+            "releaseManifestSha256": release_manifest_sha256,
+            "sourceGraphSha256": source_graph_sha256,
+            "sourcePath": str(path),
+            "sourceSha256": source_sha256,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
+def ti_loaded_output_runtime(
+    root: Path,
+    release_root: Path,
+    declared_files: dict[str, str],
+    release_manifest_sha256: str,
+    source_graph_sha256: str | None,
+) -> None:
+    """Re-admit only modules stamped by this exact output release."""
+    expected, loaded = _ti_output_runtime_modules(root, release_root, declared_files)
+    release_digest = ti_hash(release_manifest_sha256)
+    for name, module in loaded.items():
+        path, digest = expected[name]
+        ti_require(
+            getattr(module, TI_OUTPUT_PROVENANCE_ATTR, None)
+            == _ti_output_module_marker(
+                release_digest, source_graph_sha256, path, digest
+            ),
+            "VERA runtime source provenance is missing or drifted",
+        )
+
+
+def ti_stamp_output_runtime(
+    root: Path,
+    release_root: Path,
+    declared_files: dict[str, str],
+    release_manifest_sha256: str,
+    source_graph_sha256: str | None,
+) -> None:
+    """Stamp modules after their first exact-release import for re-entry checks."""
+    expected, loaded = _ti_output_runtime_modules(root, release_root, declared_files)
+    release_digest = ti_hash(release_manifest_sha256)
+    for name, module in loaded.items():
+        path, digest = expected[name]
+        marker = _ti_output_module_marker(
+            release_digest, source_graph_sha256, path, digest
+        )
+        existing = getattr(module, TI_OUTPUT_PROVENANCE_ATTR, None)
+        ti_require(
+            existing is None or existing == marker,
+            "VERA runtime source provenance is already bound differently",
+        )
+        setattr(module, TI_OUTPUT_PROVENANCE_ATTR, marker)
+
+
 PLUGIN_ROOT = Path(
     "/Library/Application Support/Blackmagic Design/DaVinci Resolve/"
     "Workflow Integration Plugins"
@@ -1208,16 +1333,36 @@ def launch(injected_resolve: object) -> None:
     qualification = (
         request.get("schemaVersion") == "vera-native-qualification-request/v1"
     )
-    if qualification:
+    output_qualification = (
+        request.get("schemaVersion") == "qualification-output-native-request/v1"
+    )
+    if qualification or output_qualification:
         request = qualification_object(request_bytes)
+    output_source_graph_sha256: str | None = None
+    if output_qualification:
+        context = request.get("context")
+        if (
+            isinstance(context, dict)
+            and context.get("nativeSourceGraphSha256") is not None
+        ):
+            output_source_graph_sha256 = ti_hash(context["nativeSourceGraphSha256"])
     binding = request["binding"] if qualification else request
     release_path = release_root / "release.json"
     if release_path.is_symlink():
         raise RuntimeError("symbolic link in installed release manifest")
     release_bytes = release_path.read_bytes()
-    if hashlib.sha256(release_bytes).hexdigest() != binding["releaseSha256"]:
+    release_digest = (
+        request["releaseManifestSha256"]
+        if output_qualification
+        else binding["releaseSha256"]
+    )
+    if hashlib.sha256(release_bytes).hexdigest() != release_digest:
         raise RuntimeError("installed release hash differs from the operator request")
-    release = json.loads(release_bytes)
+    release = (
+        qualification_object(release_bytes)
+        if output_qualification
+        else json.loads(release_bytes)
+    )
     if (
         not isinstance(release, dict)
         or set(release) != {"schemaVersion", "deliveryVersion", "sourcePins", "files"}
@@ -1225,7 +1370,26 @@ def launch(injected_resolve: object) -> None:
         or release["deliveryVersion"] != "2"
     ):
         raise RuntimeError("unsupported installed release")
+    declared_hashes: dict[str, str] = {}
     for entry in release["files"]:
+        if (
+            not isinstance(entry, dict)
+            or set(entry) != {"path", "sha256", "sizeBytes"}
+            or not isinstance(entry["path"], str)
+            or not entry["path"]
+            or Path(entry["path"]).is_absolute()
+            or "\\" in entry["path"]
+            or any(part in {"", ".", ".."} for part in entry["path"].split("/"))
+            or entry["path"] in declared_hashes
+            or type(entry["sizeBytes"]) is not int
+            or entry["sizeBytes"] < 0
+        ):
+            raise RuntimeError("invalid closed installed release inventory")
+        if (
+            not isinstance(entry["sha256"], str)
+            or re.fullmatch(r"[0-9a-f]{64}", entry["sha256"]) is None
+        ):
+            raise RuntimeError("invalid installed release digest")
         path = root / entry["path"]
         if (
             not path.resolve().is_relative_to(root)
@@ -1234,6 +1398,7 @@ def launch(injected_resolve: object) -> None:
             or hashlib.sha256(path.read_bytes()).hexdigest() != entry["sha256"]
         ):
             raise RuntimeError("installed source differs from the versioned release")
+        declared_hashes[entry["path"]] = entry["sha256"]
     runtime = release_root / "python"
     declared_files = {entry["path"] for entry in release["files"]}
     entries = list(release_root.rglob("*"))
@@ -1264,9 +1429,24 @@ def launch(injected_resolve: object) -> None:
         raise RuntimeError(
             "installed source inventory differs from release; reinstall clean release"
         )
-    for name in tuple(sys.modules):
-        if name == "vera_timeline_agent" or name.startswith("vera_timeline_agent."):
-            raise RuntimeError("a VERA runtime is already loaded; restart Resolve")
+    if output_qualification:
+        expected_output_files = {
+            f"vera-delivery-v2/python/vera_timeline_agent/{name}"
+            for name in TI_OUTPUT_RUNTIME_FILES
+        } | {SCRIPT_PATH.name}
+        if set(declared_hashes) != expected_output_files:
+            raise RuntimeError("installed output release inventory is not closed")
+    if output_qualification:
+        if ti_loaded_runtime():
+            ti_loaded_output_runtime(
+                root,
+                release_root,
+                declared_hashes,
+                release_digest,
+                output_source_graph_sha256,
+            )
+    elif ti_loaded_runtime():
+        raise RuntimeError("a VERA runtime is already loaded; restart Resolve")
     if qualification:
         # Retain exact input provenance before importing the installed controller.
         if (
@@ -1368,11 +1548,21 @@ def launch(injected_resolve: object) -> None:
     sys.path.insert(0, str(runtime))
     from vera_timeline_agent.workflow_v2_launcher import run_installed_request_v2
 
-    report = run_installed_request_v2(
-        injected_resolve,
-        request_path,
-        expected_request_sha256=hashlib.sha256(request_bytes).hexdigest(),
-    )
+    try:
+        report = run_installed_request_v2(
+            injected_resolve,
+            request_path,
+            expected_request_sha256=hashlib.sha256(request_bytes).hexdigest(),
+        )
+    finally:
+        if output_qualification:
+            ti_stamp_output_runtime(
+                root,
+                release_root,
+                declared_hashes,
+                release_digest,
+                output_source_graph_sha256,
+            )
     print(report)
 
 
