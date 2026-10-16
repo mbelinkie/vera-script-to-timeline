@@ -78,6 +78,18 @@ No overrides64 build authorization is inferred from this visual acceptance.
 
 ## Current installed request — authorized Otis64 BUILD
 
+Producer subsequently replied “passes” to the Otis64 badge/automatic-text and
+entrance/exit visual checklist, V5 hidden and V4 left64frames. Record that
+scoped visual check as accepted; receipt
+out/issue8/otis64-producer-visual-acceptance.json. No retained render/decoded
+48+16frame evidence or remaining-case acceptance is inferred. Current Otis
+build request remains consumed and must not be invoked again.
+
+Next prepared case is standard120, Finland2024/blank overrides, fresh target
+7eda6f4deb70. Its extra56frames must be hold, not stretched entrance/exit.
+Wait for closed Resolve and approval to install the next preflight; no native
+build authorization or installed-request change is inferred from “passes”.
+
 This request is now consumed successfully; DO NOT launch it again. Actual
 result out/issue8/native-evidence-75325e0/otis-64/result-a85efdfb39d44fbfa0f56264d2e92282.json,
 SHA2564e53fe1691203be6bf680352ed4dfce122c640f17da134abc416d65b4cea701f,

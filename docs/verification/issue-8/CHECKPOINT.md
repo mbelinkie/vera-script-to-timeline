@@ -1166,3 +1166,21 @@ checks actual authored Otis badge/text and entrance/exit, returns visual pass
 or first mismatch. No visual/render acceptance inferred from “done”. Four
 native cases and remaining render/timing/isolation gates remain; previous
 passes and failed targets preserved, #8 stays open/In review.
+
+### Producer passes Otis64 visual and animation check
+
+Producer replied “passes” to exacttarget953d849f3f63 checklist: hide V5, keep
+V4 at64frames, authored Otis badge/automatic text and correct entrance/exit.
+Record that visual check accepted, bound to native result4e53fe16... with Year
+omitted from typed snapshot/readback. Receipt:
+out/issue8/otis64-producer-visual-acceptance.json. No retained render/decoded
+48+16frame evidence or all-case acceptance inferred. Earlier standard64 manual
+extension context and overrides64 visual pass remain preserved.
+
+Next prepared preflight is standard120, Finland2024/blank overrides, target
+VERA Delivery 88000000-0000-4000-8000-000000000004 7eda6f4deb70. At120frames
+the extra56frames must be hold, not retimed entrance/exit. Wait for closed
+Resolve and next-preflight request installation approval. Current Otis request
+remains consumed; agent changed no installed/runtime/native/project/settings
+state. Four native cases, remaining render/timing and changed-build isolation
+gates remain; #8 stays open/In review and closure notification conditional.
