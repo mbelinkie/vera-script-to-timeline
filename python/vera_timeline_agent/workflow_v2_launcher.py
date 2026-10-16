@@ -41,6 +41,14 @@ def run_installed_request_v2(
         raise ValueError("operator request changed after release verification")
     request = json.loads(payload)
     if isinstance(request, dict) and request.get("schemaVersion") == (
+        "qualification-output-native-request/v1"
+    ):
+        from .qualification_output_native_v2 import run_qualification_output_request
+
+        return run_qualification_output_request(
+            resolve, request_path, expected_request_sha256=expected_request_sha256
+        )
+    if isinstance(request, dict) and request.get("schemaVersion") == (
         "vera-native-target-identity-request/v1"
     ):
         from .target_identity_v2 import run_target_identity
