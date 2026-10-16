@@ -856,3 +856,35 @@ preflight_passed/new exact target above, with NO new project creation. Return
 result path or first refusal; do not rerun uncertain invocation. A new native
 build still requires separate explicit exact-target authorization. All actual
 External/visual gates remain pending; #8 is not closed.
+
+### Repaired standard64 preflight passed; exact new build authorized
+
+Fresh injected preflight passed Studio21.1.1build10/Python3.14.7, result
+out/issue8/native-evidence-75325e0/standard-64/result-3acb1885052842db9a62dbf6af18c49d.json,
+SHA256 b1ec6ef45984efeeb364f0ab66360ccb409c72e0355f8d2d0077fec80d101569.
+No discrepancies; verifiedfalse/actionpreflight, not native build acceptance.
+
+Producer then explicitly said “Authorize standard-64 d6c79d790514; External
+Scripting is None”. Prepared with existing production CLI, exit0; new request
+out/issue8/requests-75325e0/standard-64-build.json SHA256
+d5306b7a8a2dafb05951d184097a09c33ef1735107ccd0c3837187b57da6219d.
+Only actionbuild/authorizeNewNonproductiontrue/externalScriptingNone differ
+from the successful preflight. Target remains exactly
+VERA Delivery 88000000-0000-4000-8000-000000000001 d6c79d790514.
+
+Resolve closed before/after guarded request-only swap. Moved successful
+preflight request (hash21813459...) to installed-request-archive outside plugin
+discovery, then copied new request mode0400. Initial shasum locale guard failed
+BEFORE mutation; LC_ALL=C/LANG=C retry passed all guards and swap exit0.
+Exact file/directory closure, all11 source hashes/sizes, releaseb00dccc6...,
+request/attestation/preflight-result hashes pass after swap. No source or
+settings change, native execution, render or new build result. Qualified full
+source bytes remain equivalent to75325e0; no repeated full test needed.
+Receipt: out/issue8/repaired-standard-64-build-authorization.json.
+
+Next: operator starts Resolve fresh, keeps None, ORIGINAL separate saved
+disposable current project/timeline on Edit (neither failed target), invokes
+Workspace > Workflow Integrations > VERA Graphics v1 ONCE and returns result
+or first error. Only this fresh standard64 target is authorized. Both failed
+targets stay untouched; all other builds and actual External/visual gates
+remain pending. Issue stays open/In review; no steward closure message yet.

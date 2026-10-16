@@ -1,4 +1,4 @@
-# #8 repaired graph-persistence candidate — preflight installed
+# #8 repaired graph-persistence candidate — standard64 build request installed
 
 Automated verification is complete. Producer explicitly authorized “install
 repaired preflight”; the repaired Graphics release and new standard64 preflight
@@ -6,8 +6,10 @@ request are now installed and verified. The interruption happened after the
 successful file swap/audit; “resume” reverified it without reinstalling.
 No successful new native build, render, visual acceptance or issue
 closure is claimed. Preserve both failed native targets and all old evidence.
-The consumed old build request is now safely archived outside the plugin root,
-not installed. Approval of normalization/installation is not build authorization.
+The consumed old build request is safely archived outside the plugin root.
+The new preflight passed. Producer then explicitly authorized only standard64
+`d6c79d790514` and confirmed External Scripting None. Its new build request is
+installed; native execution remains operator-owned and has not happened yet.
 
 ## Qualifying evidence
 
@@ -50,8 +52,8 @@ Paths are relative to `/Users/matthewbelinkie/.codex/worktrees/46d4/VERA Script 
   SHA256 `b00dccc6023e4e39f101bf71a133d871ebcf9c758e398fc11f36897661253aa3`.
 - Handoffs: `out/issue8/handoffs-75325e0/<case>/{graphic,transport}.json`.
 - Requests: `out/issue8/requests-75325e0/<case>-preflight.json`.
-- Future native evidence: `out/issue8/native-evidence-75325e0/<case>`;
-  these directories have not been created by a native run.
+- Native evidence: `out/issue8/native-evidence-75325e0/<case>`;
+  standard64 contains the successful preflight, not a build result yet.
 - Complete preparation receipt: `out/issue8/operator-preparation-75325e0.json`,
   SHA256 `fb576191a222491b7aad2d8020d71504a37bd152bcb19f77b1563803b2a87448`.
 - Preparation log: `out/issue8/operator-preparation-75325e0.log`, SHA256
@@ -61,9 +63,10 @@ Paths are relative to `/Users/matthewbelinkie/.codex/worktrees/46d4/VERA Script 
 Exact release inventory and all11declared source files match the tested
 checkout. Only studio_graphics_runtime.py differs from the old release. All
 seven original packages stayed byte-identical during independent full-envelope
-and Transport verification. All requests are preflight, authorizationfalse,
-externalScriptingnull. No build requests or current settings confirmation
-were inferred. New runtime/launcher import from the exact bundle under
+and Transport verification. All seven initial requests were preflight,
+authorizationfalse, externalScriptingnull. The separately authorized standard64
+build request below is the only exception; the other six remain unauthorized.
+New runtime/launcher import from the exact bundle under
 CPython3.14.7 `-I -B -S`, with no site packages; all11copied files pass focused
 Rufflint/format. This covers the new equivalent copies without another full run.
 
@@ -80,7 +83,7 @@ Rufflint/format. This covers the new equivalent copies without another full run.
 UUIDs still identify the same immutable compiled packages, but each attestation
 has a new target nonce. None is the old failed target or an overwrite request.
 
-## Next operator sequence — fresh preflight not yet executed
+## Next operator sequence — authorized standard64 build
 
 1. Installation is complete under “install repaired preflight”. Resolve was
    closed before and after the swap and on resumed audit. Exact old Graphics
@@ -91,23 +94,35 @@ has a new target nonce. None is the old failed target or an overwrite request.
    project or native action occurred. Request mode0400, actionpreflight,
    authorizationfalse, externalScriptingnull. Receipt:
    out/issue8/repaired-installation-receipt.json.
-2. Producer starts Resolve with a fresh
-   interpreter, confirms External Scripting None, opens the ORIGINAL separate
-   saved disposable current project/timeline on Edit (not either failed target)
-   and invokes Graphics once. Expected status is preflight_passed, with the new
-   standard64 target above, and NO project creation. Retain result or first
-   refusal, never repeat an uncertain invocation.
-3. Only after the successful fresh preflight and explicit authorization of its
-   exact new target may the agent prepare a hash-bound build request. Do not
-   infer this from “I accept”/“yes correct”, file-installation approval or the
-   old consumed build authorization. Never repair/reuse the old failed targets.
+2. Fresh preflight passed on Studio21.1.1build10, injected Python3.14.7,
+   finished2026-10-16T00:36:50.365721+00:00. Result
+   out/issue8/native-evidence-75325e0/standard-64/result-3acb1885052842db9a62dbf6af18c49d.json,
+   SHA256 b1ec6ef45984efeeb364f0ab66360ccb409c72e0355f8d2d0077fec80d101569.
+   No discrepancies; readonly preflight did not create a project.
+3. Producer explicitly said “Authorize standard-64 d6c79d790514; External
+   Scripting is None”. With Resolve closed, prepared the new build request
+   through the existing production CLI and archived the installed successful
+   preflight request in out/issue8/installed-request-archive/standard-64-preflight-75325e0.json.
+   Installed only the authorized request, mode0400. Exact source/inventory,
+   release, handoff, old request and result hashes rechecked before/after.
+   Producer now starts Resolve fresh, keeps None, opens the ORIGINAL separate
+   saved disposable current project/timeline on Edit (neither failed target),
+   then Workspace > Workflow Integrations > VERA Graphics v1 ONCE.
+   Expected: creates only the new standard64 target above, saves/reopens and
+   verifies it. Return the result path or first error; never rerun an uncertain
+   invocation. Neither failed target may be reused or repaired.
 4. New actual native verification at64/120frames, all semantic configurations,
    save/reopen, built-in badge/atlas pixels, renders/visual judgment and
    changed-build isolation remain required under the operator checklist. Keep
    #8 In review until that External evidence and required visual acceptance exist.
 
 Installed release is now b00dccc6023e4e39f101bf71a133d871ebcf9c758e398fc11f36897661253aa3;
-installed PREFLIGHT request is21813459351e0863918c1e209cd6a8c2a56a3e5801b17db852d601360e221aa8.
+installed BUILD request isd5306b7a8a2dafb05951d184097a09c33ef1735107ccd0c3837187b57da6219d.
+Archived successful preflight request retains21813459351e0863918c1e209cd6a8c2a56a3e5801b17db852d601360e221aa8.
 Archived old release/request retain hashes f955e0f4.../6c00fb4a... exactly.
-All pre-swap, post-swap and resumed-audit logs pass. Resolve was not launched;
-the new native evidence directory is still absent. No build is authorized.
+All pre-swap, post-swap and resumed-audit logs pass. Resolve was not launched
+by the agent; no new build result exists. Exact authorization and request-only
+swap are retained in out/issue8/repaired-standard-64-build-authorization.json.
+The earlier installation/preflight records describe their historical stage,
+not this later explicit build authorization. Actual native/visual acceptance
+and all remaining cases are still pending; #8 remains open.
