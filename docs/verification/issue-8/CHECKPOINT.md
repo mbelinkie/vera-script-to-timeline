@@ -914,3 +914,35 @@ checks this saved/reopened graphic visually and retains render; six other
 native cases and actual visual/timing/isolation gates remain pending. Merely
 reporting launcher execution is not visual acceptance. #8 stays open/In review;
 Sweden-steward notification remains conditional on actual closure.
+
+### Native operator feedback — V5 scaffold, thumbnail polish, manual extension
+
+Producer reports hiding V5's UNRESOLVED VISUAL warning to see the Finland
+Windows95man badge on V4, manually extending V4 with the graphic also extending,
+and an undesirable full-atlas clip thumbnail. Screenshot retained at
+out/issue8/standard64-atlas-thumbnail-operator.png SHA256
+27a0c71279e929b562125a53a56ec964fce43a598fb707ee442ee2419b1712a1.
+No full visual acceptance or rendered/frame-accurate timing evidence supplied.
+
+Read-only manifest overlap assertion reproduces V5 placeholder above V4 across
+0..64 in actual retained package; label is authored Choose an opening visual,
+not a Fusion-generated error. Original and Transport manifests agree. The
+operator guide omitted this test-scaffold visibility step; V4 must be isolated
+from this warning for actual visual/render inspection, without rewriting the
+frozen package. Product adapter correctly keeps those authored placeholder
+events. No claim is made that hiding it is a product fix.
+
+Package writer explicitly uses the trusted atlas as seed before importing the
+exact Fusion composition. This is consistent with the screenshot thumbnail,
+but native thumbnail-selection behavior/remedy has not been reproduced or
+proven. Searched open/closed issues for thumbnail and atlas; no matching native
+thumbnail issue. Filed bounded investigation #221 Inbox via budget/locking
+roadmap CLI, no implementation/claim/dispatch. It depends on #8, not vice versa.
+
+Historical native result remains verified for its then-saved/reopened state;
+current timeline is operator-modified (V5 disabled and V4 extended), so not an
+untouched 64-frame timing sample. Extension is exploratory feedback, not proof
+of accepted 120-frame entrance/hold/exit timing. Do not rerun used build request,
+repair old failed targets or silently restore this timeline. Need clarification
+of visible automatic text and actual visual/render evidence. Agent made no
+native/source/package/settings change; issue remains open/In review.

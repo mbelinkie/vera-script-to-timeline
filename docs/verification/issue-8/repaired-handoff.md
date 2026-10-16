@@ -33,6 +33,37 @@ from the operator saying only that the launcher ran. Historical installation
 sequence below records earlier stages; the latest result supersedes its
 not-yet-executed statements.
 
+### Operator feedback after inspection — not full visual acceptance
+
+Producer reports disabling V5 to see V4, seeing the Finland Windows95man
+badge, manually extending V4 with the graphic extending too, and an undesirable
+full-atlas timeline thumbnail. Retained screenshot:
+out/issue8/standard64-atlas-thumbnail-operator.png, SHA256
+27a0c71279e929b562125a53a56ec964fce43a598fb707ee442ee2419b1712a1.
+
+Both original and Transport manifests explicitly contain the authored
+UNRESOLVED VISUAL: Choose an opening visual placeholder on V5/start0/duration64,
+above V4. A small read-only manifest assertion reproduces that overlap. It is
+not a Fusion-generated warning or proof that graphic placement failed. This
+test scaffold should have been disclosed before the visual checklist. Isolate
+V4 from this known placeholder for visual inspection/render; do not delete or
+silently alter the frozen compiler package.
+
+The atlas-backed seed clip is documented in the approved plan and package
+writer. Screenshot shows the atlas in clip thumbnails, not in final output;
+the exact Resolve thumbnail-selection mechanism/remedy is still unverified.
+Separate bounded investigation [#221](https://github.com/mbelinkie/vera-script-to-timeline/issues/221)
+was filed Inbox only after open/closed duplicate searches. No implementation
+or #8 scope expansion is authorized; thumbnail polish does not gate #8.
+
+The historical verified native receipt remains valid for the saved/reopened
+state it checked, but the Producer subsequently changed track enablement and
+clip duration. Do not represent the current modified timeline as an untouched
+64-frame case or the manual extension as 120-frame timing acceptance. Do not
+rerun the consumed request or silently restore/edit the target. Text, rendered
+badge pixels, original frame-accurate animation and remaining cases are still
+unaccepted. Next clarify whether expected automatic text was visible too.
+
 ## Qualifying evidence
 
 Tested clean commit `75325e01015ff5b5285acbc980bf78e16a49ae1a`, tree
