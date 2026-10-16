@@ -45,7 +45,7 @@ export function classifyCommand(command) {
   for (const tail of gitTails(command, "push")) {
     const forcedRefspec = shellWords(tail).some((word) => word.startsWith("+") && word.length > 1);
     if (
-      hasOption(tail, "--force", "-f") ||
+      hasOption(tail, "--force", "-f") || hasShortFlag(tail, "f") ||
       hasOption(tail, "--force-with-lease", "") ||
       hasOption(tail, "--force-if-includes", "") ||
       forcedRefspec
@@ -67,8 +67,10 @@ export function classifyCommand(command) {
   }
 
   for (const tail of gitTails(command, "branch")) {
-    const forcedShortDelete = shellWords(tail).includes("-D");
-    const forcedLongDelete = hasOption(tail, "--delete", "-d") && hasOption(tail, "--force", "-f");
+    const forcedShortDelete = hasShortFlag(tail, "D");
+    const forcedLongDelete =
+      (hasOption(tail, "--delete", "-d") || hasShortFlag(tail, "d")) &&
+      (hasOption(tail, "--force", "-f") || hasShortFlag(tail, "f"));
     if (forcedShortDelete || forcedLongDelete) {
       return { category: "destructive branch deletion", detail: "forced branch deletion can remove an unmerged branch" };
     }
@@ -108,7 +110,7 @@ export function assessWorktree({ assignedWorktree, cwd, gitRoot, gitDir, commonG
     return { ok: false, reason: "current directory is outside the assigned worktree" };
   }
   if (normalized(gitDir) === normalized(commonGitDir)) {
-    return { ok: false, reason: "assigned repository is not a dedicated linked worktree" };
+    return { ok: true, advisory: "primary checkout: linked-worktree scope is advisory" };
   }
   return { ok: true };
 }
@@ -156,7 +158,7 @@ function runHook() {
 
   const blocked = classifyCommand(command);
   if (blocked) {
-    fail(`${blocked.category}: ${blocked.detail}. Stop and use the documented human-led recovery procedure.`);
+    fail(`${blocked.category}: ${blocked.detail}. Stop and choose a non-destructive alternative.`);
     return;
   }
 

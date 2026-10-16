@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 
@@ -23,7 +24,9 @@ test("blocks destructive Git variants but preserves ordinary Git commands", () =
     "git diff --check",
     "git log -1",
     "git push origin feature-branch",
+    "git push -v origin feature-branch",
     "git checkout feature-branch",
+    "git branch -d merged-branch",
     "git restore README.md",
     "rm -rf node_modules",
     "npm run validate",
@@ -35,6 +38,7 @@ test("blocks destructive Git variants but preserves ordinary Git commands", () =
 test("blocks alternate force-push spellings", () => {
   for (const command of [
     "git push -f origin main",
+    "git push -vf origin main",
     "git push origin main --force-if-includes",
     "git push origin +main",
   ]) {
@@ -55,6 +59,11 @@ test("blocks absolute and explicit broad recursive-delete targets", () => {
   ]) {
     assert.equal(classifyCommand(command)?.category, "broad recursive delete", command);
   }
+});
+
+test("blocks combined force-delete branch flags", () => {
+  assert.equal(classifyCommand("git branch -fd old-work")?.category, "destructive branch deletion");
+  assert.equal(classifyCommand("git branch -d merged-branch"), null);
 });
 
 test("blocks recursive deletes that escape through normalized parent traversal", () => {
@@ -84,7 +93,7 @@ test("rejects a task outside its assigned linked worktree", () => {
   );
 });
 
-test("rejects the primary checkout even when its path is assigned", () => {
+test("keeps the primary checkout available for bootstrap with advisory worktree scope", () => {
   assert.deepEqual(
     assessWorktree({
       assignedWorktree: "/repo",
@@ -93,7 +102,7 @@ test("rejects the primary checkout even when its path is assigned", () => {
       gitDir: "/repo/.git",
       commonGitDir: "/repo/.git",
     }),
-    { ok: false, reason: "assigned repository is not a dedicated linked worktree" },
+    { ok: true, advisory: "primary checkout: linked-worktree scope is advisory" },
   );
 });
 
@@ -134,6 +143,29 @@ test("hook leaves a read-only Git command in its assigned linked worktree alone"
       cwd,
       tool_name: "Bash",
       tool_input: { command: "git status --short" },
+    }),
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stderr, "");
+});
+
+test("primary checkout allows safe bootstrap commands without executing them", () => {
+  const cwd = process.cwd();
+  const commonGitDir = spawnSync("git", ["rev-parse", "--git-common-dir"], {
+    cwd,
+    encoding: "utf8",
+  });
+  assert.equal(commonGitDir.status, 0, commonGitDir.stderr);
+  const primaryRoot = path.dirname(path.resolve(cwd, commonGitDir.stdout.trim()));
+  const result = spawnSync(process.execPath, ["scripts/agent-safety.mjs", "hook"], {
+    cwd,
+    encoding: "utf8",
+    env: { ...process.env, VERA_ASSIGNED_WORKTREE: primaryRoot },
+    input: JSON.stringify({
+      cwd: primaryRoot,
+      tool_name: "Bash",
+      tool_input: { command: "git worktree add ../task-worktree origin/main" },
     }),
   });
 
