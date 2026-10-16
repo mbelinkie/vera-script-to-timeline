@@ -60,9 +60,16 @@ describe("canonical fingerprints and capabilities", () => {
       }).jti,
     ).toBe(issued.claims.jti);
 
+    const signatureStart = issued.token.lastIndexOf(".") + 1;
+    const signature = issued.token.slice(signatureStart);
+    // Change actual HMAC bits, not the final base64url symbol's unused pad bits.
+    const alteredSignature = `${signature[0] === "A" ? "B" : "A"}${signature.slice(1)}`;
+    expect(Buffer.from(alteredSignature, "base64url")).not.toEqual(
+      Buffer.from(signature, "base64url"),
+    );
     expect(() =>
       signer.verify(
-        `${issued.token.slice(0, -1)}x`,
+        `${issued.token.slice(0, signatureStart)}${alteredSignature}`,
         new Date("2026-09-08T17:00:10Z"),
       ),
     ).toThrow(CapabilityError);
