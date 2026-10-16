@@ -303,6 +303,20 @@ function semanticValidation(document: ScriptDocumentV1): ValidationResult {
     "VISUAL_EVENT_ID_DUPLICATE",
     diagnostics,
   );
+  for (const occurrence of visualOccurrences) {
+    if (occurrence.entity.source.kind !== "curated_fusion_graphic") continue;
+    const event = occurrence.entity;
+    if (event.status !== "ready" || event.presentationMode !== "overlay" ||
+        event.framingPolicy !== "native" || event.motionPreset !== "none" ||
+        event.audioPolicy !== "mute" || event.timingOverrides !== null) {
+      diagnostics.push(occurrenceDiagnostic(
+        occurrence,
+        "GRAPHIC_PRESENTATION_INVALID",
+        "A curated Fusion graphic must be ready, native overlay, muted, and anchored without a motion or timing override.",
+        occurrence.jsonPath,
+      ));
+    }
+  }
   validateOccurrenceIds(
     annotationOccurrences,
     "ANNOTATION_ID_DUPLICATE",
@@ -915,7 +929,7 @@ function qualifiesForVoiceoverCoverage(event: VisualEvent): boolean {
   if (event.source.kind === "local_media") {
     return event.status === "ready";
   }
-  return event.source.unresolvedVisual && event.status === "unresolved";
+  return event.source.kind === "placeholder" && event.source.unresolvedVisual && event.status === "unresolved";
 }
 
 function contiguousRanges(flags: readonly boolean[]): [number, number][] {

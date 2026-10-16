@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import platform
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -113,6 +113,13 @@ class PublicResolveAdapter(AcceptedResolveAdapter):
         expected_frames = {marker["frame"] for marker in manifest["markers"]}
         if not isinstance(markers, dict) or set(markers) != expected_frames:
             discrepancies.append("marker inventory differs from manifest")
+        discrepancies.extend(self._verify_v1_media_inventory(manifest))
+        return tuple(discrepancies)
+
+    def _verify_v1_media_inventory(
+        self, manifest: Mapping[str, Any]
+    ) -> tuple[str, ...]:
+        discrepancies: list[str] = []
         folder = self.pool.GetRootFolder()
         for name in self.created_bins:
             folder = next(
@@ -170,6 +177,8 @@ def run_workflow_delivery(
     action: str = "preflight",
     authorize_new_nonproduction: bool = False,
     external_scripting: str | None = None,
+    adapter_factory: Callable[[Any], PublicResolveAdapter] | None = None,
+    handoff_guard: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
     """One audited operator action; failures never delete or reuse a target."""
     result: dict[str, Any] = {
@@ -199,6 +208,8 @@ def run_workflow_delivery(
                 "build requires explicit new nonproduction target authorization "
                 "and operator confirmation of External Scripting None"
             )
+        if handoff_guard is not None:
+            handoff_guard()
         package = load_verified_package(attestation_path, attestation_sha256)
         manifest = package.manifest
         attestation = package.attestation
@@ -223,7 +234,7 @@ def run_workflow_delivery(
             raise ValueError("Resolve did not inject an API object")
         if manifest["timeline"]["startFrame"] != 0:
             raise ValueError("delivery supports only frame-zero timelines")
-        adapter = PublicResolveAdapter(resolve)
+        adapter = (adapter_factory or PublicResolveAdapter)(resolve)
         connected = adapter.connected_facts()
         result["connected"] = asdict(connected)
         if (
@@ -249,6 +260,8 @@ def run_workflow_delivery(
 
         def mutate(method: Any, *arguments: Any) -> None:
             nonlocal mutation_started
+            if handoff_guard is not None:
+                handoff_guard()
             current = load_verified_package(attestation_path, attestation_sha256)
             if current != package:
                 raise ValueError("handoff changed before native mutation")
@@ -283,6 +296,8 @@ def run_workflow_delivery(
             )
             mutate(adapter.add_marker, marker, custom)
         mutate(adapter.save_close_reopen, attestation["projectName"])
+        if handoff_guard is not None:
+            handoff_guard()
         load_verified_package(attestation_path, attestation_sha256)
         discrepancies = adapter.verify(manifest)
         result["discrepancies"] = list(discrepancies)

@@ -16,6 +16,11 @@ class TimingMark(TypedDict):
     value: str
 
 
+class GraphicBadgeAsset(TypedDict):
+    assetId: str
+    contentHash: script_document_v1_schema.ContentHash
+
+
 class CompilerTimelineSettings(TypedDict):
     frameRate: timeline_manifest_v1_schema.TimelineFrameRate
     width: int
@@ -61,7 +66,17 @@ class BuildContext(TypedDict):
     manifestId: script_document_v1_schema.EntityId
     reportId: script_document_v1_schema.EntityId
     buildClass: Literal["preview", "release"]
+    graphicDeliveryTarget: NotRequired[Literal["studio", "free"]]
     timeline: CompilerTimelineSettings
+
+
+class ResolvedGraphicDependency(TypedDict):
+    projectId: script_document_v1_schema.EntityId
+    projectRevisionId: str
+    templateKey: Literal["ev24-lower-third"]
+    packageDigest: script_document_v1_schema.ContentHash
+    entryAssetHash: script_document_v1_schema.ContentHash
+    badgeAssets: list[GraphicBadgeAsset]
 
 
 class NarrationDependency(TypedDict):
@@ -90,3 +105,4 @@ class CompilerDependenciesV1(TypedDict):
     roles: TrackRoles
     narration: list[NarrationDependency]
     resolvedVisuals: list[ResolvedVisualDependency]
+    resolvedGraphics: NotRequired[list[ResolvedGraphicDependency]]

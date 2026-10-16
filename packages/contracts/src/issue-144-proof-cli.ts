@@ -10,7 +10,7 @@ import type { VerifiedRowHandoff } from "./issue-144-omission-build.ts";
 import type { CompositionInputs } from "./issue-144-composition.ts";
 
 const hash = (bytes: Uint8Array): string => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
-const sources = ["./issue-144-proof-cli.ts", "./issue-144-semantics.ts", "./issue-144-text-revision.ts", "./issue-144-omission-build.ts", "./issue-144-composition.ts", "./compiler-core.ts", "./script-validator.ts", "../../../contracts/script-document-v1.schema.json", "../../../contracts/compiler-dependencies-v1.schema.json", "../../../contracts/timeline-manifest-v1.schema.json", "../../../contracts/build-report-v1.schema.json"];
+const sources = ["./issue-144-proof-cli.ts", "./issue-144-semantics.ts", "./issue-144-text-revision.ts", "./issue-144-omission-build.ts", "./issue-144-composition.ts", "./compiler-core.ts", "./ev24-identity.ts", "./script-validator.ts", "../../../contracts/script-document-v1.schema.json", "../../../contracts/compiler-dependencies-v1.schema.json", "../../../contracts/timeline-manifest-v1.schema.json", "../../../contracts/build-report-v1.schema.json"];
 const sourceHashes = (): Record<string, string> => Object.fromEntries(sources.map((path) => [path, hash(readFileSync(new URL(path, import.meta.url)))]));
 const lockHash = (): string => hash(readFileSync(new URL("../../../package-lock.json", import.meta.url)));
 const message = (error: unknown): string => error instanceof Error ? error.message : String(error);

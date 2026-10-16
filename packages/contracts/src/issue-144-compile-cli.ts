@@ -10,6 +10,7 @@ const compilerUrl = new URL("./compiler-core.ts", import.meta.url).href;
 const sourceFiles = [
   "./issue-144-compile-cli.ts",
   "./compiler-core.ts",
+  "./ev24-identity.ts",
   "./script-validator.ts",
   "../../../contracts/script-document-v1.schema.json",
   "../../../contracts/compiler-dependencies-v1.schema.json",

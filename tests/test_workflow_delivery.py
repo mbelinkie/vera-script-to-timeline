@@ -644,6 +644,27 @@ def test_media_readback_normalizes_paths_and_detects_unexpected_bins(
     )
 
 
+def test_v1_verify_dispatches_v1_media_inventory_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(AcceptedResolveAdapter, "verify", lambda *_: ())
+    seen: list[Mapping[str, Any]] = []
+
+    class RecordingAdapter(workflow_delivery.PublicResolveAdapter):
+        def _verify_v1_media_inventory(
+            self, manifest: Mapping[str, Any]
+        ) -> tuple[str, ...]:
+            seen.append(manifest)
+            return ("v1 inventory override",)
+
+    adapter = RecordingAdapter(object())
+    adapter.timeline = SimpleNamespace(GetMarkers=lambda: {})
+    manifest: Mapping[str, Any] = {"tracks": [], "events": [], "markers": []}
+
+    assert adapter.verify(manifest) == ("v1 inventory override",)
+    assert seen == [manifest]
+
+
 def test_missing_track_retains_base_discrepancies(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
