@@ -22,11 +22,18 @@ decides product and taste.**
   watching or listening, usually in Resolve.
 - **Real-world consequences.** Spending money, new paid services or accounts,
   credentials, and deleting, uploading or sharing his media or data.
-- **Hands-on steps only he can do.** For example, opening an app or signing
-  in somewhere.
+- **Hands-on steps only he can do.** For example, signing in or approving an
+  OS permission prompt that the available tools cannot handle.
 
 Ask in plain language, give a recommended default, and batch questions so he
 gets as few interruptions as possible.
+
+Perform authorized mechanical steps yourself: stage/install files, run commands,
+launch apps and execute checks through available tools. Use a wizard only for
+genuinely human-only actions, then resume the automated work. An existing
+helper's prompt or TTY requirement is not itself a reason to delegate the work.
+If blocked, name the actual missing capability and ask for the smallest action;
+preserve data-safety limits and never fabricate human authorization.
 
 **Never ask him to approve:** schemas, contracts, sidecars, fixtures, goldens,
 helper code, dependencies, test changes, model routing, review waivers, test
