@@ -76,7 +76,29 @@ Its source-bound preflight request is already prepared. Wait for closed Resolve
 and request-install approval before swapping the consumed standard64 request.
 No overrides64 build authorization is inferred from this visual acceptance.
 
-## Current installed request — Otis64 PREFLIGHT only
+## Current installed request — authorized Otis64 BUILD
+
+Producer explicitly said “Authorize otis-64 953d849f3f63; External Scripting is
+None”. Resolve closed before/after guarded request-only swap. Existing
+production CLI prepared new immutable request exit0, then archived successful
+preflight outside discovery at
+out/issue8/installed-request-archive/otis-64-preflight-75325e0.json.
+Installed build request mode0400, SHA256
+cf3792f461dcf71e6cf5ab24784177dd6e5aa47969c449b743faec7ae70c5ee6.
+Receipt: out/issue8/otis64-build-authorization.json. Exact source closure/11hashes,
+release, attestation and preflight-result hashes match. Only action/build
+authorization/None differ from preflight; qualified75325e0 product inputs
+unchanged. No native run, new build result or previous-project/settings change.
+
+Next operator starts Resolve fresh, keeps None, opens ORIGINAL separate saved
+disposable current project/timeline on Edit (not generated VERA target), then
+Workspace > Workflow Integrations > VERA Graphics v1 ONCE. Must create only
+fresh target953d849f3f63, save/reopen/verify. Return result/first error, never
+repeat uncertain invocation. Leave new V4 clip at64frames for later visual
+check; known V5 warning may be hidden for inspection after build completes.
+No other target or native/visual acceptance is authorized/inferred.
+
+### Retained prior stage — Otis64 successful preflight
 
 Preflight now passed Studio21.1.1build10/injected3.14.7/verifier3.12.14,
 finished2026-10-16T04:01:18.451571+00:00, no discrepancies, no graphic

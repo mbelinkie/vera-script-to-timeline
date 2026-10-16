@@ -1118,3 +1118,27 @@ is expected for preflight. Next Producer quits Resolve, explicitly authorizes
 only Otis64 target953d849f3f63 and confirms current None before preparing or
 installing a build request. Prior native and visual passes retained; remaining
 actual native/render/timing/isolation acceptance and #8 closure still pending.
+
+### Otis64 exact build request authorized and installed — native run pending
+
+Producer explicitly said “Authorize otis-64 953d849f3f63; External Scripting is
+None”. Resolve absent before/after immediate guarded request-only swap. Existing
+production CLI prepared immutable build request exit0, SHA256
+cf3792f461dcf71e6cf5ab24784177dd6e5aa47969c449b743faec7ae70c5ee6,
+out/issue8/requests-75325e0/otis-64-build.json. Archived exact successful
+preflight request967d979a... outside discovery in
+out/issue8/installed-request-archive/otis-64-preflight-75325e0.json; installed
+new build request mode0400. Only action/authorization/None differ from preflight;
+exact target remains VERA Delivery 88000000-0000-4000-8000-000000000003 953d849f3f63.
+
+Exact source file/directory closure/11hashes, releaseb00dccc6..., attestation
+251c0913... and actual preflight result6b39c4f1... unchanged. Product-input diff
+vs qualified75325e0 empty. Receipt: out/issue8/otis64-build-authorization.json.
+No native/app/settings/project mutation or heavy test by agent, no build result
+yet, prior acceptance/evidence and both failed targets preserved.
+
+Next operator fresh Resolve/None, ORIGINAL separate saved disposable current
+project/timeline on Edit, Graphics ONCE and return result/first refusal. New
+V4 clip remains64frames; known V5 warning can be isolated for later inspection.
+No other target/render authorization or native/visual acceptance inferred;
+remaining gates and #8 closure still pending.
