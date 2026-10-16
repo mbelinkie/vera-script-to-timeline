@@ -202,13 +202,15 @@ You can also double-click `Open VERA Progress.command` in Finder from the
 repository's top-level folder. The launcher finds the repository relative to
 itself, regenerates the dashboard, and opens it in the default browser.
 
-The first screen summarizes both boards and highlights physical lines across
-both tracked codebases, including a separate production-code count. Production
-code is tracked source under `apps/`, `packages/`, `python/`, or `src/`, minus
-tests, fixtures, tooling, build output, and generated files. Separate tabs show
-each board's work items by workstream, including Done items and goal rollups,
-with exact status, routing, priority, size, acceptance authority, and visible
-metadata gaps. Every
+The top of the page shows both boards side by side: percent done, a status
+track, and each codebase's physical line count with a separate production-code
+count. Production code is tracked source under `apps/`, `packages/`,
+`python/`, or `src/`, minus tests, fixtures, tooling, build output, and
+generated files. Below, each board's workstreams start collapsed, each with a
+mini status track and a done count; workstreams with work left come first.
+Opening one lists its work items, active ones first, with exact status,
+routing, priority, size, acceptance authority, and visible metadata gaps. Goal
+rollups sit in their own collapsed row under each board. Every
 non-goal Project issue is one actionable work item; only `Done` counts as
 complete. Completed `Historical — …` draft records also count as Done work,
 but active drafts remain invalid roadmap data. The command never changes

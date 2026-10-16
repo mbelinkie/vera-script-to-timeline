@@ -193,23 +193,39 @@ test("sorts numbered issues before historical records and titles historical reco
   ]);
 });
 
-test("renders every work item and separate goal rollups in the detail tab", () => {
+test("renders every work item, collapsed workstreams with progress tracks, and goal rollups", () => {
   assert.equal(escapeHtml('<script data-name="test">&</script>'), "&lt;script data-name=&quot;test&quot;&gt;&amp;&lt;/script&gt;");
   const data = clone(projectData);
   data.items[4].content.title = "Investigate <unsafe> & missing metadata";
   const model = buildProgressModel(parseProjectItems(data));
   const firstRender = renderDashboard(model);
   assert.equal(firstRender, renderDashboard(model));
-  assert.match(firstRender, /<h1 id="page-title">VERA Progress<\/h1>/);
-  assert.match(firstRender, /Total lines of code/);
-  assert.match(firstRender, /Production code lines/);
+  assert.match(firstRender, /<h1 id="page-title">VERA progress<\/h1>/);
+  assert.match(firstRender, /<b>1 of 4<\/b> work items done</);
+  assert.doesNotMatch(firstRender, /Updated/);
+  assert.match(firstRender, /Lines of code unavailable/);
   assert.match(firstRender, /Goal rollups/);
   assert.match(firstRender, /Investigate &lt;unsafe&gt; &amp; missing metadata/);
   assert.match(firstRender, /href="https:\/\/example\.test\/2"/);
   for (let issue = 1; issue <= 5; issue += 1) {
     assert.equal(firstRender.match(new RegExp(`data-issue="${issue}"`, "g"))?.length, 1);
   }
+  // Workstreams start collapsed, each with its own mini progress track and count.
+  assert.doesNotMatch(firstRender, /<details[^>]*\sopen/);
+  assert.match(firstRender, /<span class="ws-name">Packaging<\/span>\s*<div class="track" role="img" aria-label="Packaging: 1 Done">[\s\S]*?<span class="ws-count">1 of 1<\/span>/);
+  assert.match(firstRender, /<span class="ws-name">Unassigned<\/span>\s*<div class="track" role="img" aria-label="Unassigned: 1 Inbox">/);
+  // Workstreams with work left come before finished ones.
+  assert.ok(firstRender.indexOf('ws-name">Unassigned') < firstRender.indexOf('ws-name">Packaging'));
+  assert.match(firstRender, /<p class="pct"[^>]*>25%<\/p>/);
+  assert.match(firstRender, /Metadata missing: 1 without a workstream, 1 without a priority, 1 without a size, 1 without an acceptance owner\./);
+  assert.match(firstRender, /class="missing">No priority</);
+  assert.match(firstRender, /Expand all/);
   assert.doesNotMatch(firstRender, /weighted estimate|eleven-phase|60 slices/i);
+});
+
+test("shows when the dashboard was generated", () => {
+  const model = buildProgressModel(parseProjectItems(projectData));
+  assert.match(renderDashboard(model, { generatedAt: new Date(2026, 9, 16, 13, 40) }), /Updated Fri, Oct 16, 1:40\sPM/);
 });
 
 test("writes the dashboard and reports an exact terminal summary", async () => {
@@ -219,7 +235,7 @@ test("writes the dashboard and reports an exact terminal summary", async () => {
     projectData,
     codeStats: { total: 100, production: 60 },
   });
-  assert.match(await readFile(outputPath, "utf8"), /25\.0%/);
+  assert.match(await readFile(outputPath, "utf8"), />25%</);
   assert.match(terminalSummary(models, "file:///tmp/progress.html"), /Code: 100 total lines · 60 production[\s\S]*VERA Script-to-Timeline Roadmap: 1 of 4 work items Done \(25\.0%\)[\s\S]*3 remaining[\s\S]*1 Blocked[\s\S]*Dashboard: file:\/\/\/tmp\/progress\.html/);
 });
 
@@ -238,10 +254,11 @@ test("writes both configured VERA boards into one dashboard", async () => {
   assert.equal(models.length, 2);
   assert.match(html, /data-project="1"[\s\S]*VERA Research Roadmap/);
   assert.match(html, /data-project="2"[\s\S]*VERA Script-to-Timeline Roadmap/);
-  assert.match(html, />300<\/strong><span>Total lines of code/);
-  assert.match(html, />180<\/strong><span>Production code lines/);
-  assert.match(html, /role="tablist"[\s\S]*project-1-panel[\s\S]*project-2-panel/);
-  assert.match(html, /Goal rollups/);
+  assert.match(html, /<b>2 of 8<\/b> work items done across both boards/);
+  assert.match(html, /data-project="1"[\s\S]*<b>100<\/b> lines of code, <b>60<\/b> production[\s\S]*data-project="2"[\s\S]*<b>200<\/b> lines of code, <b>120<\/b> production/);
+  assert.match(html, /<h3 id="project-1-ws">Research<\/h3>[\s\S]*<h3 id="project-2-ws">Script-to-Timeline<\/h3>/);
+  assert.equal(html.match(/Goal rollups/g)?.length, 2);
+  assert.match(html, /Updated /);
   assert.match(terminalSummary(models, "file:///tmp/progress.html"), /VERA Research Roadmap[\s\S]*VERA Script-to-Timeline Roadmap/);
 });
 
@@ -257,7 +274,7 @@ test("keeps board progress available when the optional Research checkout is miss
     });
     const html = await readFile(outputPath, "utf8");
     assert.equal(models[0].codeStats, null);
-    assert.match(html, /Unavailable/);
+    assert.match(html, /Lines of code unavailable/);
     assert.match(html, /Set VERA_RESEARCH_REPOSITORY to the local checkout/);
     assert.doesNotMatch(html, new RegExp(directory.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     assert.match(

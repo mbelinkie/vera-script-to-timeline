@@ -305,48 +305,97 @@ function statusClass(status) {
   return status.toLowerCase().replaceAll(" ", "-");
 }
 
-function metadataChip(label, value) {
-  return `<span class="chip${value ? "" : " missing"}"><b>${escapeHtml(label)}</b> ${escapeHtml(value ?? "not set")}</span>`;
+function metadataText(label, value, missingText) {
+  return value
+    ? `<span>${label ? `${escapeHtml(label)} ` : ""}<b>${escapeHtml(value)}</b></span>`
+    : `<span class="missing">${escapeHtml(missingText)}</span>`;
+}
+
+// Order statuses read in: active work first, finished work last.
+const DISPLAY_ORDER = new Map(
+  ["In progress", "In review", "Blocked", "Ready", "Backlog", "Inbox", "Done"].map((status, index) => [status, index]),
+);
+// Left-to-right order of the progress tracks: finished work fills from the left.
+const TRACK_ORDER = ["Done", "In review", "In progress", "Blocked", "Ready", "Backlog", "Inbox"];
+
+function displayPercent(value) {
+  // Floor so a nearly finished board never reads as 100%.
+  return `${Math.floor(value)}%`;
+}
+
+function countStatuses(items) {
+  return Object.fromEntries(
+    BOARD_STATUSES.map((status) => [status, items.filter((item) => item.status === status).length]),
+  );
+}
+
+function renderTrack(statusCounts, label, { large = false } = {}) {
+  const present = TRACK_ORDER.filter((status) => statusCounts[status] > 0);
+  const description = present.map((status) => `${statusCounts[status]} ${status}`).join(", ") || "No work items";
+  const segments = present
+    .map((status) => `<span class="seg ${statusClass(status)}" style="flex-grow:${statusCounts[status]}" title="${escapeHtml(status)}: ${statusCounts[status]}"></span>`)
+    .join("");
+  return `<div class="track${large ? " track-lg" : ""}" role="img" aria-label="${escapeHtml(`${label}: ${description}`)}">${segments}</div>`;
 }
 
 function renderIssue(item, options = {}) {
   const title = item.type === "historical"
     ? escapeHtml(item.title)
-    : `#${item.number} · ${escapeHtml(item.title)}`;
+    : `<span class="num">#${item.number}</span> ${escapeHtml(item.title)}`;
   const titleMarkup = item.url
-    ? `<a href="${escapeHtml(item.url)}">${title}</a>`
+    ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">${title}</a>`
     : `<span class="issue-title">${title}</span>`;
+  const meta = item.type === "historical"
+    ? `<span>Historical record</span>`
+    : [
+      metadataText("", item.priority, "No priority"),
+      metadataText("Size", item.size, "No size"),
+      `<span>${escapeHtml(`${item.model}/${item.effort}`)}</span>`,
+      metadataText("Accepted by", item.acceptance, "No acceptance owner"),
+      options.goal ? "" : `<span>${escapeHtml(item.type)}</span>`,
+    ].join("");
   return `
-              <article class="issue ${statusClass(item.status)}${options.goal ? " goal" : ""}" data-issue="${item.number}">
-                <span class="status-dot" aria-hidden="true"></span>
-                <div class="issue-main">
-                  <div class="issue-heading">
-                    ${titleMarkup}
-                    <span class="status">${escapeHtml(item.status)}</span>
-                  </div>
-                  <div class="chips">
-                    ${metadataChip("Route", `${item.model} · ${item.effort}`)}
-                    ${metadataChip("Type", item.type)}
-                    ${metadataChip("Priority", item.priority)}
-                    ${metadataChip("Size", item.size)}
-                    ${metadataChip("Acceptance", item.acceptance)}
-                  </div>
-                </div>
-              </article>`;
+            <li class="issue ${statusClass(item.status)}" data-issue="${item.number}">
+              <i class="swatch ${statusClass(item.status)}" aria-hidden="true"></i>
+              <div class="issue-body">
+                <div class="issue-line">${titleMarkup}<span class="issue-status">${escapeHtml(item.status)}</span></div>
+                <div class="meta">${meta}</div>
+              </div>
+            </li>`;
 }
 
-function renderWorkstream(group, { open = true } = {}) {
-  const summary = group.remainingCount === 0
-    ? `${group.doneCount} done`
-    : `${group.remainingCount} remaining · ${group.doneCount} done`;
+function sortForDisplay(items) {
+  return [...items].sort((left, right) =>
+    (DISPLAY_ORDER.get(left.status) ?? 99) - (DISPLAY_ORDER.get(right.status) ?? 99)
+    || compareItems(left, right));
+}
+
+function renderWorkstream(group) {
+  const complete = group.remainingCount === 0;
   return `
-        <details class="workstream"${open ? " open" : ""}>
+        <details class="ws${complete ? " ws-complete" : ""}">
           <summary>
-            <span><strong>${escapeHtml(group.name)}</strong><small>${group.items.length} work items</small></span>
-            <span class="workstream-summary">${summary}</span>
+            <span class="ws-name">${escapeHtml(group.name)}</span>
+            ${renderTrack(countStatuses(group.items), group.name)}
+            <span class="ws-count">${group.doneCount} of ${group.items.length}</span>
           </summary>
-          <div class="issues">${group.items.map((item) => renderIssue(item)).join("")}
-          </div>
+          <ul class="issues">${sortForDisplay(group.items).map((item) => renderIssue(item)).join("")}
+          </ul>
+        </details>`;
+}
+
+function renderGoals(model) {
+  return `
+        <details class="ws goals-row">
+          <summary>
+            <span class="ws-name">Goal rollups</span>
+            <span class="ws-note">Context only, not counted</span>
+            <span class="ws-count">${model.goals.length}</span>
+          </summary>
+          <ul class="issues">${model.goals.length > 0
+            ? sortForDisplay(model.goals).map((goal) => renderIssue(goal, { goal: true })).join("")
+            : '<li class="empty">No goal issues on this board.</li>'}
+          </ul>
         </details>`;
 }
 
@@ -364,68 +413,76 @@ function shortProjectTitle(model) {
     .replace(/ Roadmap$/, "");
 }
 
-function renderProjectCard(model, index) {
-  const completion = formatPercent(model.completionPercent);
-  const projectTitle = model.projectTitle ?? "VERA Board";
+function describeGaps(gaps) {
+  const parts = [
+    [gaps.workstream, "a workstream"],
+    [gaps.priority, "a priority"],
+    [gaps.size, "a size"],
+    [gaps.acceptance, "an acceptance owner"],
+  ].filter(([count]) => count > 0).map(([count, field]) => `${count} without ${field}`);
+  return parts.length > 0 ? `Metadata missing: ${parts.join(", ")}.` : "";
+}
+
+function renderBoardCard(model, index) {
   const key = projectKey(model, index);
+  const projectTitle = model.projectTitle ?? "VERA Board";
+  const name = escapeHtml(shortProjectTitle(model));
+  const heading = model.projectUrl
+    ? `<a href="${escapeHtml(model.projectUrl)}" target="_blank" rel="noopener" title="Open ${escapeHtml(projectTitle)} on GitHub">${name}</a>`
+    : name;
+  const legend = TRACK_ORDER
+    .filter((status) => model.statusCounts[status] > 0)
+    .map((status) => `<li><i class="swatch ${statusClass(status)}" aria-hidden="true"></i>${escapeHtml(status)} <b>${model.statusCounts[status]}</b></li>`)
+    .join("");
+  const code = model.codeStats
+    ? `<b>${formatInteger(model.codeStats.total)}</b> lines of code, <b>${formatInteger(model.codeStats.production)}</b> production`
+    : `Lines of code unavailable. ${escapeHtml(model.codeStatsError ?? "Check the local repository path.")}`;
+  const gaps = describeGaps(model.metadataGaps);
   return `
-      <article class="card project-card"${model.projectNumber ? ` data-project="${model.projectNumber}"` : ""}>
-        <div class="project-card-heading">
-          <div>
-            <p class="eyebrow">Project ${model.projectNumber ?? index + 1}</p>
-            <h2>${escapeHtml(shortProjectTitle(model))}</h2>
-          </div>
-          <strong class="project-percent">${completion}</strong>
-        </div>
-        <div class="progress-track" role="img" aria-label="${completion} of ${escapeHtml(projectTitle)} work items Done"><span style="width:${model.completionPercent.toFixed(2)}%"></span></div>
-        <div class="project-stats">
-          <div><strong>${model.totalWork}</strong><span>Total</span></div>
-          <div><strong>${model.doneCount}</strong><span>Done</span></div>
-          <div><strong>${model.remainingCount}</strong><span>Remaining</span></div>
-        </div>
-        <div class="project-actions">
-          <button type="button" data-open-tab="${key}-panel">View all work items</button>
-          ${model.projectUrl ? `<a href="${escapeHtml(model.projectUrl)}" target="_blank" rel="noopener">Open board ↗</a>` : ""}
-        </div>
+      <article class="board" id="${key}" data-project="${model.projectNumber ?? index + 1}">
+        <header class="board-head">
+          <h2>${heading}</h2>
+          <p class="pct" aria-label="${displayPercent(model.completionPercent)} of work items done">${displayPercent(model.completionPercent)}</p>
+        </header>
+        <p class="board-sub"><b>${model.doneCount}</b> of ${model.totalWork} work items done, ${model.remainingCount} to go</p>
+        ${renderTrack(model.statusCounts, projectTitle, { large: true })}
+        <ul class="legend">${legend}</ul>
+        <footer class="board-foot">
+          <p>${code}</p>${gaps ? `
+          <p class="gaps">${escapeHtml(gaps)}</p>` : ""}
+        </footer>
       </article>`;
 }
 
-function renderProjectPanel(model, index) {
+function renderWorkstreamColumn(model, index) {
   const key = projectKey(model, index);
+  const groups = [...model.workstreams].sort((left, right) =>
+    Number(left.remainingCount === 0) - Number(right.remainingCount === 0)
+    || left.name.localeCompare(right.name));
   return `
-      <section id="${key}-panel" class="tab-panel detail-panel" role="tabpanel" aria-labelledby="${key}-tab" hidden>
-        <div class="detail-heading">
-          <div>
-            <p class="eyebrow">${model.totalWork} work items · ${model.goals.length} goals</p>
-            <h1>${escapeHtml(model.projectTitle ?? "VERA Board")}</h1>
-          </div>
-          ${model.projectUrl ? `<a href="${escapeHtml(model.projectUrl)}" target="_blank" rel="noopener">Open GitHub Project ↗</a>` : ""}
+      <section class="column" aria-labelledby="${key}-ws">
+        <h3 id="${key}-ws">${escapeHtml(shortProjectTitle(model))}</h3>
+        <div class="ws-list">${groups.length > 0
+          ? groups.map(renderWorkstream).join("")
+          : '<p class="empty">No work items on this board yet.</p>'}
         </div>
-        <div class="roadmap" aria-label="All board work items by workstream">${model.workstreams.length > 0
-          ? model.workstreams.map((group) => renderWorkstream(group, { open: false })).join("")
-          : '<p class="empty-state">No actionable work items are currently on this board.</p>'}
+        <div class="ws-list goals">${renderGoals(model)}
         </div>
-        <section class="goal-panel card" aria-label="Goal rollups">
-          <h2>Goal rollups</h2>
-          <p>Goals provide context and are excluded from actionable work totals.</p>
-          <div class="issues">${model.goals.length > 0
-            ? model.goals.map((goal) => renderIssue(goal, { goal: true })).join("")
-            : '<p class="empty-state">No goal issues are currently on this board.</p>'}
-          </div>
-        </section>
       </section>`;
 }
 
-export function renderDashboard(models) {
+function formatGeneratedAt(date) {
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+  }).format(date);
+}
+
+export function renderDashboard(models, options = {}) {
   const projects = Array.isArray(models) ? models : [models];
-  const unavailableCodeProjects = projects.filter((model) => !model.codeStats);
-  const codeTotals = projects.reduce((totals, model) => ({
-    total: totals.total + (model.codeStats?.total ?? 0),
-    production: totals.production + (model.codeStats?.production ?? 0),
-  }), { total: 0, production: 0 });
   const totalWork = projects.reduce((total, model) => total + model.totalWork, 0);
   const doneCount = projects.reduce((total, model) => total + model.doneCount, 0);
-  const remainingCount = totalWork - doneCount;
+  const scope = projects.length > 1 ? " across both boards" : "";
+  const updated = options.generatedAt ? `. Updated ${escapeHtml(formatGeneratedAt(options.generatedAt))}` : "";
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -433,132 +490,121 @@ export function renderDashboard(models) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>VERA Progress</title>
   <style>
-    :root { color-scheme:dark; --ink:#f6f3ed; --muted:#a9b1c1; --deep:#080b13; --panel:#111724; --panel2:#171f2f; --line:#2b3445; --cyan:#60d8ee; --violet:#a58aff; --amber:#ffbf69; --green:#70dda4; --red:#ff7d83; }
+    :root {
+      color-scheme: light dark;
+      --bg:#1b1c1f; --surface:#232529; --raised:#2b2e33; --line:#363940; --ink:#e8e6e1; --muted:#9b9fa6; --faint:#6e737b; --focus:#8fc3ff;
+      --done:#5cb88a; --review:#b095e8; --progress:#e5aa4a; --blocked:#e2645c; --ready:#5aa5e0; --backlog:#5c6068; --inbox:#474a51; --warn:#d9a54a;
+    }
+    @media (prefers-color-scheme: light) {
+      :root { --bg:#eef0f3; --surface:#ffffff; --raised:#f6f7f9; --line:#d8dce1; --ink:#1c1f24; --muted:#5c626b; --faint:#8a9099; --focus:#1f6fd1;
+        --done:#2e9462; --review:#8862cf; --progress:#c4861a; --blocked:#c8423a; --ready:#2d7dc0; --backlog:#a8adb5; --inbox:#c9cdd3; --warn:#a46a00; }
+    }
     * { box-sizing:border-box; }
-    html { scroll-behavior:smooth; }
-    body { margin:0; min-width:320px; background:radial-gradient(circle at 15% 0%,rgba(96,216,238,.12),transparent 34rem),radial-gradient(circle at 90% 12%,rgba(165,138,255,.13),transparent 30rem),var(--deep); color:var(--ink); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; line-height:1.5; }
-    button,a { font:inherit; }
-    .shell { width:min(1180px,calc(100% - 32px)); margin:0 auto; }
-    .tabs { position:sticky; top:0; z-index:5; display:flex; gap:8px; padding:12px 0; background:linear-gradient(var(--deep) 70%,transparent); }
-    .tabs button { padding:9px 13px; border:1px solid var(--line); border-radius:9px; background:var(--panel2); color:var(--ink); cursor:pointer; }
-    .tabs button:hover,.tabs button[aria-selected="true"] { border-color:var(--cyan); color:var(--cyan); }
-    .tabs button[aria-selected="true"] { background:rgba(96,216,238,.1); }
-    .overview { min-height:calc(100svh - 62px); display:flex; flex-direction:column; justify-content:center; gap:22px; padding:26px 0 42px; }
-    .page-header { display:flex; justify-content:space-between; align-items:end; gap:24px; }
-    .eyebrow { margin:0 0 7px; color:var(--cyan); font-size:.7rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
-    h1,h2 { margin:0; letter-spacing:-.035em; }
-    h1 { font-size:clamp(2.2rem,5vw,4rem); line-height:1; }
-    .summary { margin:0; color:var(--muted); text-align:right; }
-    .summary strong { color:var(--ink); }
-    .card,.workstream { border:1px solid var(--line); border-radius:18px; background:linear-gradient(145deg,rgba(23,31,47,.96),rgba(13,18,29,.96)); box-shadow:0 18px 45px rgba(0,0,0,.18); }
-    .loc-card { display:grid; grid-template-columns:minmax(180px,.7fr) repeat(2,minmax(220px,1fr)); gap:18px; align-items:center; padding:22px 26px; border-color:rgba(96,216,238,.34); background:linear-gradient(120deg,rgba(96,216,238,.13),rgba(165,138,255,.12)),var(--panel); }
-    .loc-card h2 { font-size:1.1rem; }
-    .loc-number { padding-left:22px; border-left:1px solid var(--line); }
-    .loc-number strong { display:block; font-size:clamp(2rem,4.5vw,3.8rem); line-height:1; letter-spacing:-.055em; }
-    .loc-number span { display:block; margin-top:6px; color:var(--muted); font-size:.72rem; letter-spacing:.09em; text-transform:uppercase; }
-    .definition { margin:6px 0 0; color:var(--muted); font-size:.73rem; }
-    .project-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
-    .project-card { padding:22px; }
-    .project-card-heading { display:flex; align-items:start; justify-content:space-between; gap:16px; }
-    .project-card h2 { font-size:clamp(1.35rem,2.5vw,2rem); }
-    .project-percent { color:var(--green); font-size:1.65rem; letter-spacing:-.04em; }
-    .progress-track { height:8px; margin:19px 0; overflow:hidden; border-radius:999px; background:rgba(112,221,164,.1); }
-    .progress-track span { display:block; height:100%; border-radius:inherit; background:var(--green); }
-    .project-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
-    .project-stats div { padding:10px; border-radius:10px; background:rgba(8,11,19,.52); }
-    .project-stats strong,.project-stats span { display:block; }
-    .project-stats strong { font-size:1.35rem; }
-    .project-stats span { color:var(--muted); font-size:.68rem; text-transform:uppercase; letter-spacing:.08em; }
-    .project-actions { display:flex; align-items:center; gap:16px; margin-top:18px; }
-    .project-actions button { padding:9px 13px; border:1px solid var(--line); border-radius:9px; background:var(--panel2); color:var(--ink); cursor:pointer; }
-    .project-actions button:hover { border-color:var(--cyan); color:var(--cyan); }
-    .project-actions a,.detail-heading a { color:var(--muted); font-size:.8rem; text-decoration:none; }
-    .project-actions a:hover,.detail-heading a:hover { color:var(--cyan); text-decoration:underline; }
-    .detail-panel { padding:38px 0 80px; }
-    .detail-heading { display:flex; justify-content:space-between; align-items:end; gap:20px; margin:0 0 24px; }
-    .detail-heading h1 { font-size:clamp(1.8rem,4vw,3rem); }
-    .roadmap { display:grid; gap:10px; }
-    .workstream { overflow:hidden; }
-    .workstream summary { display:flex; justify-content:space-between; gap:16px; align-items:center; padding:16px 19px; cursor:pointer; }
-    .workstream summary strong,.workstream summary small { display:block; }
-    .workstream summary small,.workstream-summary { color:var(--muted); font-size:.76rem; }
-    .issues { display:grid; gap:1px; padding:0 10px 10px; }
-    .issue { display:grid; grid-template-columns:12px minmax(0,1fr); gap:10px; padding:13px; border-radius:10px; background:rgba(8,11,19,.55); }
-    .status-dot { width:8px; height:8px; margin-top:7px; border-radius:50%; background:var(--muted); }
-    .issue.in-progress .status-dot,.issue.ready .status-dot { background:var(--cyan); }
-    .issue.in-review .status-dot { background:var(--violet); }
-    .issue.blocked .status-dot { background:var(--red); }
-    .issue.inbox .status-dot,.issue.backlog .status-dot { background:var(--amber); }
-    .issue-heading { display:flex; justify-content:space-between; align-items:start; gap:14px; }
-    .issue-heading a,.issue-title { min-width:0; color:var(--ink); font-weight:650; text-decoration:none; }
-    .issue-heading a:hover { color:var(--cyan); text-decoration:underline; }
-    .goal-panel { margin-top:26px; padding:20px; }
-    .goal-panel h2 { font-size:1.25rem; }
-    .goal-panel > p { margin:5px 0 14px; color:var(--muted); font-size:.8rem; }
-    .status { flex:none; color:var(--muted); font-size:.74rem; }
-    .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-    .chip { padding:3px 7px; border:1px solid var(--line); border-radius:999px; color:var(--muted); font-size:.68rem; }
-    .chip b { color:var(--violet); font-weight:650; }
-    .chip.missing { color:var(--amber); border-color:rgba(255,191,105,.35); }
-    .empty-state { margin:0; padding:24px; border:1px solid var(--line); border-radius:16px; color:var(--muted); }
-    [hidden] { display:none !important; }
-    @media (max-width:760px) { .overview{min-height:auto;padding-top:30px}.page-header,.detail-heading{align-items:start;flex-direction:column}.summary{text-align:left}.loc-card{grid-template-columns:1fr 1fr}.loc-copy{grid-column:1/-1}.loc-number{padding:0;border:0}.project-grid{grid-template-columns:1fr}.tabs button{flex:1} }
-    @media (max-width:480px) { .shell{width:calc(100% - 20px)}.loc-card{grid-template-columns:1fr}.loc-copy{grid-column:auto}.project-actions{align-items:start;flex-direction:column}.issue-heading{align-items:start;flex-direction:column}.status{align-self:flex-start} }
+    body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif; font-variant-numeric:tabular-nums; -webkit-font-smoothing:antialiased; }
+    a { color:inherit; }
+    a:focus-visible, summary:focus-visible, button:focus-visible { outline:2px solid var(--focus); outline-offset:2px; border-radius:4px; }
+    .shell { width:min(1240px, calc(100% - 32px)); margin:0 auto; padding:40px 0 72px; }
+    .top { display:flex; justify-content:space-between; align-items:baseline; gap:8px 24px; flex-wrap:wrap; margin-bottom:24px; }
+    h1 { margin:0; font-size:1.75rem; font-weight:600; letter-spacing:-.01em; }
+    .top p { margin:0; color:var(--muted); }
+    .top p b { color:var(--ink); font-weight:600; }
+    .grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:20px; }
+    .grid.single { grid-template-columns:minmax(0, 1fr); }
+    .board { padding:22px 24px 18px; border:1px solid var(--line); border-radius:10px; background:var(--surface); }
+    .board-head { display:flex; justify-content:space-between; align-items:baseline; gap:16px; }
+    .board h2 { margin:0; font-size:1.3rem; font-weight:600; }
+    .board h2 a { text-decoration:none; }
+    .board h2 a:hover { text-decoration:underline; text-underline-offset:3px; }
+    .pct { margin:0; font-size:2.25rem; font-weight:500; line-height:1; color:var(--done); }
+    .board-sub { margin:6px 0 16px; color:var(--muted); }
+    .board-sub b { color:var(--ink); font-weight:600; }
+    /* Progress reads like a track of clips on an edit timeline. */
+    .track { display:flex; gap:2px; height:6px; overflow:hidden; border-radius:3px; background:var(--raised); }
+    .track-lg { height:28px; gap:3px; border-radius:5px; }
+    .seg { flex-basis:0; min-width:3px; }
+    .track-lg .seg { border-radius:3px; }
+    .track-lg .seg:first-child { transform-origin:left; animation:grow .7s cubic-bezier(.2,.7,.2,1) both; }
+    @keyframes grow { from { transform:scaleX(0); } }
+    @media (prefers-reduced-motion: reduce) { .track-lg .seg:first-child { animation:none; } }
+    .done { background:var(--done); } .in-review { background:var(--review); } .in-progress { background:var(--progress); }
+    .blocked { background:var(--blocked); } .ready { background:var(--ready); } .backlog { background:var(--backlog); } .inbox { background:var(--inbox); }
+    .legend { display:flex; flex-wrap:wrap; gap:4px 16px; margin:12px 0 0; padding:0; list-style:none; color:var(--muted); font-size:.82rem; }
+    .legend li { display:flex; align-items:center; gap:6px; }
+    .legend b { color:var(--ink); font-weight:600; }
+    .swatch { display:inline-block; flex:none; width:9px; height:9px; border-radius:2px; }
+    .board-foot { margin-top:16px; padding-top:12px; border-top:1px solid var(--line); color:var(--muted); font-size:.82rem; }
+    .board-foot p { margin:0; }
+    .board-foot b { color:var(--ink); font-weight:600; }
+    .board-foot .gaps { margin-top:4px; color:var(--warn); }
+    .section-head { display:flex; justify-content:space-between; align-items:baseline; gap:16px; margin:44px 0 12px; }
+    .section-head h2 { margin:0; font-size:1.1rem; font-weight:600; }
+    .toggle-all { padding:5px 10px; border:1px solid var(--line); border-radius:6px; background:none; color:var(--muted); font:inherit; font-size:.82rem; cursor:pointer; }
+    .toggle-all:hover { border-color:var(--muted); color:var(--ink); }
+    .column h3 { margin:0 0 8px; color:var(--muted); font-size:.9rem; font-weight:500; }
+    .ws-list { overflow:hidden; border:1px solid var(--line); border-radius:10px; background:var(--surface); }
+    .ws-list.goals { margin-top:12px; }
+    .ws + .ws { border-top:1px solid var(--line); }
+    .ws summary { display:grid; grid-template-columns:14px minmax(9rem, 1.3fr) minmax(5rem, 1fr) 4.8rem; align-items:center; gap:12px; padding:11px 16px 11px 12px; cursor:pointer; list-style:none; }
+    .ws summary::-webkit-details-marker { display:none; }
+    .ws summary::before { content:""; width:6px; height:6px; margin-left:3px; border-right:1.5px solid var(--faint); border-bottom:1.5px solid var(--faint); transform:rotate(-45deg); transition:transform .15s; }
+    .ws[open] > summary::before { transform:rotate(45deg); }
+    .ws summary:hover { background:var(--raised); }
+    .ws-name { overflow:hidden; font-weight:500; text-overflow:ellipsis; white-space:nowrap; }
+    .ws-count { color:var(--muted); font-size:.82rem; text-align:right; white-space:nowrap; }
+    .ws-complete .ws-name { color:var(--muted); }
+    .ws-complete .ws-count { color:var(--done); }
+    .ws-note { color:var(--faint); font-size:.8rem; }
+    .issues { margin:0; padding:2px 0 8px; border-top:1px solid var(--line); background:var(--raised); list-style:none; }
+    .issue { display:grid; grid-template-columns:9px minmax(0, 1fr); gap:12px; padding:9px 16px 9px 38px; background:none; }
+    .issue .swatch { margin-top:7px; }
+    .issue-line { display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
+    .issue-line a, .issue-title { min-width:0; text-decoration:none; }
+    .issue-line a:hover { text-decoration:underline; text-underline-offset:3px; }
+    .issue.done .issue-line a, .issue.done .issue-title { color:var(--muted); }
+    .num { color:var(--faint); }
+    .issue-status { flex:none; color:var(--muted); font-size:.8rem; }
+    .meta { display:flex; flex-wrap:wrap; gap:2px 14px; margin-top:2px; color:var(--faint); font-size:.78rem; }
+    .meta b { color:var(--muted); font-weight:500; }
+    .meta .missing { color:var(--warn); }
+    .empty { margin:0; padding:16px; color:var(--muted); list-style:none; }
+    @media (max-width: 900px) { .grid { grid-template-columns:minmax(0, 1fr); } .column + .column { margin-top:28px; } }
+    @media (max-width: 520px) {
+      .shell { padding-top:28px; } .board { padding:18px 16px 14px; } .pct { font-size:1.9rem; }
+      .ws summary { grid-template-columns:14px minmax(0, 1fr) 4.2rem 3.8rem; gap:10px; } .ws-note { display:none; }
+      .goals-row summary { grid-template-columns:14px minmax(0, 1fr) auto; }
+      .issue { padding-left:16px; } .issue-line { flex-direction:column; gap:0; }
+    }
   </style>
 </head>
 <body>
   <main class="shell">
-    <nav class="tabs" role="tablist" aria-label="VERA progress views">
-      <button id="dashboard-tab" type="button" role="tab" aria-selected="true" aria-controls="dashboard-panel" tabindex="0">Dashboard</button>
-      ${projects.map((model, index) => {
-        const key = projectKey(model, index);
-        return `<button id="${key}-tab" type="button" role="tab" aria-selected="false" aria-controls="${key}-panel" tabindex="-1">${escapeHtml(shortProjectTitle(model))}</button>`;
-      }).join("\n")}
-    </nav>
-    <section id="dashboard-panel" class="overview tab-panel" role="tabpanel" aria-labelledby="dashboard-tab">
-      <header class="page-header">
-        <div><p class="eyebrow">Live GitHub Projects</p><h1 id="page-title">VERA Progress</h1></div>
-        <p class="summary"><strong>${doneCount} of ${totalWork}</strong> work items Done<br>${remainingCount} remaining across both projects</p>
-      </header>
-      <section class="card loc-card" aria-label="VERA code line counts">
-        <div class="loc-copy"><p class="eyebrow">Both codebases</p><h2>Tracked source lines</h2><p class="definition">Physical lines in tracked source files. Production excludes tests, fixtures, tooling, and generated output.${unavailableCodeProjects.length > 0 ? ` Counts unavailable for ${unavailableCodeProjects.map((model) => escapeHtml(model.projectTitle ?? "a project")).join(", ")}. ${unavailableCodeProjects.map((model) => escapeHtml(model.codeStatsError ?? "Check the local repository path.")).join(" ")}` : ""}</p></div>
-        <div class="loc-number"><strong>${unavailableCodeProjects.length > 0 ? "Unavailable" : formatInteger(codeTotals.total)}</strong><span>Total lines of code</span></div>
-        <div class="loc-number"><strong>${unavailableCodeProjects.length > 0 ? "Unavailable" : formatInteger(codeTotals.production)}</strong><span>Production code lines</span></div>
-      </section>
-      <section class="project-grid" aria-label="Project progress summaries">
-        ${projects.map(renderProjectCard).join("\n")}
-      </section>
+    <header class="top">
+      <h1 id="page-title">VERA progress</h1>
+      <p><b>${doneCount} of ${totalWork}</b> work items done${scope}${updated}</p>
+    </header>
+    <section class="grid${projects.length === 1 ? " single" : ""}" aria-label="Board progress">${projects.map(renderBoardCard).join("")}
     </section>
-    ${projects.map(renderProjectPanel).join("\n")}
+    <div class="section-head">
+      <h2>Work by workstream</h2>
+      <button type="button" class="toggle-all" aria-pressed="false">Expand all</button>
+    </div>
+    <div class="grid${projects.length === 1 ? " single" : ""}">${projects.map(renderWorkstreamColumn).join("")}
+    </div>
   </main>
   <script>
-    const tabs = [...document.querySelectorAll('[role="tab"]')];
-    const panels = [...document.querySelectorAll('[role="tabpanel"]')];
-    function selectPanel(panelId, { focus = false } = {}) {
-      const selectedTab = tabs.find((tab) => tab.getAttribute('aria-controls') === panelId);
-      if (!selectedTab) return;
-      for (const tab of tabs) {
-        const selected = tab === selectedTab;
-        tab.setAttribute('aria-selected', String(selected));
-        tab.tabIndex = selected ? 0 : -1;
-      }
-      for (const panel of panels) panel.hidden = panel.id !== panelId;
-      if (focus) selectedTab.focus();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    const toggle = document.querySelector('.toggle-all');
+    const rows = [...document.querySelectorAll('details.ws')];
+    function syncToggle() {
+      const allOpen = rows.length > 0 && rows.every((row) => row.open);
+      toggle.textContent = allOpen ? 'Collapse all' : 'Expand all';
+      toggle.setAttribute('aria-pressed', String(allOpen));
     }
-    for (const tab of tabs) {
-      tab.addEventListener('click', () => selectPanel(tab.getAttribute('aria-controls')));
-      tab.addEventListener('keydown', (event) => {
-        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-        event.preventDefault();
-        const current = tabs.indexOf(tab);
-        const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (current + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
-        selectPanel(tabs[next].getAttribute('aria-controls'), { focus: true });
-      });
-    }
-    for (const button of document.querySelectorAll('[data-open-tab]')) {
-      button.addEventListener('click', () => selectPanel(button.dataset.openTab));
-    }
+    toggle.addEventListener('click', () => {
+      const open = !rows.every((row) => row.open);
+      for (const row of rows) row.open = open;
+      syncToggle();
+    });
+    for (const row of rows) row.addEventListener('toggle', syncToggle);
   </script>
 </body>
 </html>
@@ -617,7 +663,7 @@ export async function writeDashboard(repositoryRoot, outputPath, options = {}) {
     projectData: options.projectData ?? projectDataByNumber[projectConfig.projectNumber],
     codeStats: options.codeStats ?? options.codeStatsByNumber?.[projectConfig.projectNumber],
   })));
-  const html = renderDashboard(models);
+  const html = renderDashboard(models, { generatedAt: options.generatedAt ?? new Date() });
   await mkdir(path.dirname(outputPath), { recursive: true });
   await writeFile(outputPath, html, "utf8");
   return models;
