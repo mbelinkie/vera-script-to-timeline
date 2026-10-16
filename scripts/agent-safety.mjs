@@ -3,7 +3,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-const BROAD_DELETE_TARGETS = new Set(["/", "/*", ".", "./", "./*", "..", "../", "../*", "~", "~/", "*", "$HOME", "${HOME}"]);
+const BROAD_DELETE_TARGETS = new Set(["/", "/*", ".", "./", "./*", "..", "../", "../*", "~", "~/", "*", "$HOME", "${HOME}", "$PWD", "${PWD}"]);
 const BROAD_GIT_PATHS = new Set([".", "./", "./*", ":/", ":(top)", "*"]);
 
 function shellWords(value) {
@@ -16,8 +16,9 @@ function shellWords(value) {
 }
 
 function gitTails(command, subcommand) {
-  const optionWithValue = String.raw`(?:-C|--git-dir|--work-tree)(?:=|\s+)(?:"[^"]*"|'[^']*'|\S+)`;
-  const pattern = new RegExp(String.raw`\bgit(?:\s+${optionWithValue})*\s+${subcommand}\b([^;&|\n]*)`, "giu");
+  const optionWithValue = String.raw`(?:-C|--git-dir|--work-tree|-c)(?:=|\s+)(?:"[^"]*"|'[^']*'|\S+)`;
+  const globalOption = String.raw`(?:${optionWithValue}|--no-pager)`;
+  const pattern = new RegExp(String.raw`\bgit(?:\s+${globalOption})*\s+${subcommand}\b([^;&|\n]*)`, "giu");
   return [...command.matchAll(pattern)].map((match) => match[1]);
 }
 

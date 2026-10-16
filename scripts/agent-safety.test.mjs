@@ -46,6 +46,15 @@ test("blocks alternate force-push spellings", () => {
   }
 });
 
+test("blocks force pushes after supported Git global options", () => {
+  for (const command of [
+    "git -c core.quotepath=false push --force origin main",
+    "git --no-pager push --force origin main",
+  ]) {
+    assert.equal(classifyCommand(command)?.category, "force push", command);
+  }
+});
+
 test("blocks absolute and explicit broad recursive-delete targets", () => {
   for (const command of [
     "rm -rf /",
@@ -78,6 +87,12 @@ test("blocks recursive deletes that escape through normalized parent traversal",
   }
 
   assert.equal(classifyCommand("rm -rf child/../output"), null);
+});
+
+test("blocks recursive deletion of the current worktree via PWD", () => {
+  for (const command of ['rm -rf "$PWD"', 'rm -rf "${PWD}"']) {
+    assert.equal(classifyCommand(command)?.category, "broad recursive delete", command);
+  }
 });
 
 test("rejects a task outside its assigned linked worktree", () => {
