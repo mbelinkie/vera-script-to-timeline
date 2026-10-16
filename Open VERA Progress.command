@@ -23,14 +23,14 @@ fi
 
 if ! npm run progress "${arguments[@]}"; then
   echo
-  echo "The live VERA board progress dashboard could not be generated."
+  echo "The live VERA progress dashboard could not be generated."
   read -r "?Press Return to close."
   exit 1
 fi
 
 echo
 if [[ "${VERA_PROGRESS_NO_OPEN:-0}" == "1" ]]; then
-  echo "Live VERA board progress generated successfully."
+  echo "Live VERA progress for both boards generated successfully."
 else
-  echo "Live VERA board progress opened in your browser."
+  echo "Live VERA progress for both boards opened in your browser."
 fi
