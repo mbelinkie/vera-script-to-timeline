@@ -1,0 +1,52 @@
+{
+  "source": "2832f84cda774ee3d1395a89ebf9c9e137f70e47",
+  "allTrackedInputsStillMatch": true,
+  "beforeAfterInventoriesEqual": true,
+  "trackedFileCount": 7074,
+  "typescript": {
+    "contractFiles": 27,
+    "contractTests": 545,
+    "toolingTests": 1,
+    "progressTests": 6,
+    "roadmapTests": 23,
+    "cloudEvidenceTests": 32,
+    "failures": 0,
+    "skips": 0
+  },
+  "python": {
+    "collected": 1151,
+    "uniqueJUnitCases": 1151,
+    "passed": 1151,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 4128.92,
+    "durationsRetained": 25,
+    "ruffFormattedFiles": 549,
+    "mypyFiles": 158
+  },
+  "toolchain": {
+    "node": "v24.19.0",
+    "npm": "11.17.0",
+    "uv": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)",
+    "python": "Python 3.12.14",
+    "ffmpeg": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers",
+    "ffprobe": "ffprobe version 8.1.2 Copyright (c) 2007-2026 the FFmpeg developers"
+  },
+  "runtimeMetadata": {
+    "node_modules/.package-lock.json": "2b1559b94c870707b0f48397683401065454f79fc0010527889bf40bf55247d0",
+    ".venv/pyvenv.cfg": "a4c0b7a08e00b9d78c91a085f8428f84694c3669ab235722562b022888847f77"
+  },
+  "environment": {
+    "PYTEST_ADDOPTS": "--durations=25 --junitxml=out/issue218/full-final-2832f84/pytest-results.xml",
+    "UPDATE_ISSUE_218_GOLDENS": null,
+    "NODE_OPTIONS": null
+  },
+  "artifactSha256": {
+    "validation.log": "4e8269da004a6a733a29351e2faa06144d7d5270217a010f102b9dcdef366816",
+    "pytest-results.xml": "9054e5f715ad40a12b4c5e5f7f3d8d34bf084059a6fca115815b8c3fcccef4d0",
+    "inputs-before.json": "f33802b28660d4bf200752185fc9e7388d2b2eba6add79c9819e28bc6bf596be",
+    "inputs-after.json": "f33802b28660d4bf200752185fc9e7388d2b2eba6add79c9819e28bc6bf596be",
+    "result.json": "13a30838e7a26dd0749f8c59604ac8bd8d3cefb780b3dd5fc957c08772e36504"
+  }
+}
