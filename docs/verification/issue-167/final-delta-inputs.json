@@ -1,0 +1,36 @@
+{
+  "candidate": "824923d14271a5dd341b0df7c6cc1f5c47014dfb",
+  "bundleSha256": "fc0f8bae8b0b289b1517e98ee06939d1ebf71bc37d0c9942817d3af241055b9d",
+  "inputs": [
+    {
+      "name": "824923d14271a5dd341b0df7c6cc1f5c47014dfb:docs/plans/issue-167-proposed-contract-change.md",
+      "sha256": "c31d6443e6b272d7593354241368325fbed8ee09ace73bb6dafd524aebb83cea",
+      "bytes": 19606
+    },
+    {
+      "name": "824923d14271a5dd341b0df7c6cc1f5c47014dfb:docs/verification/issue-167/runtime-handoff.md",
+      "sha256": "95260c81b99ff0cb478080ef7a66cd97823fd6df5adc7c10a276320b8fc176d1",
+      "bytes": 3456
+    },
+    {
+      "name": "previous required delta review",
+      "sha256": "23b51059d1d65d4a67742698561845ed3972e9db320dbdb5c595a922f5094e2f",
+      "bytes": 8066
+    },
+    {
+      "name": "exact delta f326fac..824923d",
+      "sha256": "374001d9f22379ddb127ac4a7e76c3b9467f7edc7a6debaadc956fec19024e55",
+      "bytes": 9876
+    },
+    {
+      "name": "accepted #7 contracts/script-document-v1.schema.json $defs extraction",
+      "sha256": "3b5005e369a9088778886931fc4dd26922473a785a2d7b29851577e1fec0d460",
+      "bytes": 3735
+    },
+    {
+      "name": "accepted #7 contracts/compiler-dependencies-v1.schema.json $defs extraction",
+      "sha256": "3aaf87023b91123af03ba509182a1a474d88585a03b14fede99d15d1f59deff6",
+      "bytes": 3616
+    }
+  ]
+}

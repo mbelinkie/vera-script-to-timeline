@@ -1,0 +1,36 @@
+{
+  "candidate": "2e4da712d220cfe03c3cdfc9e777712cdf8619f1",
+  "base": "22f65c4f2b4ff61e7b08f530cdda3d92fea11d08",
+  "checks": {
+    "git_diff_check": "PASS exit 0",
+    "frozen_executable_confinement": "PASS; five new issue-owned Markdown files only",
+    "local_links": "PASS; eight local references resolve",
+    "pinned_source_links": "PASS; referenced git blobs exist",
+    "target_manifest_byte_hash": "PASS dc21391f032d35cadab909e590302bc7ed8a46567703da93b4f82846d7948424",
+    "synthetic_dataset_byte_hash": "PASS 1aec6e192c64748a6102507e45c59bb5d193bb8ae5e43e3e5e2469672d220d64",
+    "check_input_reference_scan": "PASS; rg issue-167 over scripts/packages/python/tests/.github/package.json exit 1; no references"
+  },
+  "full_suite": "Not applicable: no executable/check input changed; documentation-only policy. No runtime claim.",
+  "files": [
+    {
+      "path": "docs/design/issue-167-semantic-highlight-cues.md",
+      "sha256": "02d25038ff8d1f7b44993a29c8a74215791a683dfe002f7a96a9e34307f576d1"
+    },
+    {
+      "path": "docs/plans/issue-167-proposed-contract-change.md",
+      "sha256": "6e42cd744e8b24898de2622ff7e85e0666ba09351dfe37c578f9645f16ed33f4"
+    },
+    {
+      "path": "docs/plans/issue-167-semantic-highlight-cues.md",
+      "sha256": "72b9a45d9d61d79e1e229cd311d7d3eb9672f5ea8913f4e980df2413ee1e5e36"
+    },
+    {
+      "path": "docs/verification/issue-167/runtime-handoff.md",
+      "sha256": "95260c81b99ff0cb478080ef7a66cd97823fd6df5adc7c10a276320b8fc176d1"
+    },
+    {
+      "path": "docs/verification/issue-167/runtime-inbox-body.md",
+      "sha256": "2ffcb7577048284007e18967bf93d1dc1c44ae7b0af76af0b6274f24ed29933f"
+    }
+  ]
+}
