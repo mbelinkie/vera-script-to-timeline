@@ -1,0 +1,55 @@
+{
+  "task": "01a1416d-5da8-7003-9494-e9a75a62f1a5",
+  "startedAt": "2026-10-16T03:59:23.490431+00:00",
+  "supervisorPid": 30694,
+  "source": "7121f1ec55c6b9a3126066301a2416b1c905b94b",
+  "trackedStatus": "",
+  "VITEST_MAX_WORKERS": "1",
+  "fullValidation": "PAUSED BY PRODUCER",
+  "checkpointMinutes": 75,
+  "stages": [
+    {
+      "name": "lint-python",
+      "command": [
+        "rtk",
+        "proxy",
+        "npm",
+        "run",
+        "lint:python"
+      ],
+      "startedAt": "2026-10-16T03:59:23.949003+00:00",
+      "endedAt": "2026-10-16T03:59:27.303179+00:00",
+      "exitCode": 0
+    },
+    {
+      "name": "types-python",
+      "command": [
+        "rtk",
+        "proxy",
+        "npm",
+        "run",
+        "typecheck:python"
+      ],
+      "startedAt": "2026-10-16T03:59:27.303299+00:00",
+      "endedAt": "2026-10-16T03:59:32.723843+00:00",
+      "exitCode": 0
+    },
+    {
+      "name": "tests-python-fast",
+      "command": [
+        "rtk",
+        "proxy",
+        "npm",
+        "run",
+        "test:python:fast"
+      ],
+      "startedAt": "2026-10-16T03:59:32.724020+00:00",
+      "endedAt": "2026-10-16T04:08:08.954866+00:00",
+      "exitCode": 0
+    }
+  ],
+  "endedAt": "2026-10-16T04:08:08.957640+00:00",
+  "exitCode": 0,
+  "status": "passed",
+  "finalTrackedStatus": ""
+}

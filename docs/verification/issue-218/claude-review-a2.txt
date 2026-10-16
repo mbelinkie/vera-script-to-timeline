@@ -1,0 +1,37 @@
+Permission allow rule (../../../../.claude/settings.json): Bash(git -C * push origin claude/*) has a wildcard before the rest of the command, so it also matches any options inserted at that position and approves them without a prompt. For git, options such as -c and --exec-path can run arbitrary commands. Replace that * with the exact value you mean, or only use * after the subcommand (for example Bash(git status *)).
+**Verdict: GO** for the bounded CN-218-A2 helper delta and the proposed TypeScript evidence reuse. The bb534bd `validate:fast` run stays **FAILED**, and so does the 04d5abc full run. The final full gate stays **paused** until the Producer resumes it, and #218 cannot close. I made this review with Read/Grep/Glob only and ran nothing.
+
+The candidate is `7121f1e` (`out/issue218/review-a2/candidate.txt:1`), and its helper source is the same as `bb534bd`.
+
+## 1. #190 helper — `tests/issue190_case.py:40-43`
+**Correct and narrowly scoped.**
+- **Only the default scenario:** classification is set only when `scenario == "default"`. That scenario always loads the two #173 default fixtures (`tests/issue177_package_fixture.py:19-22`, `:399-402`). Every other scenario goes through `_SCENARIOS` and is untouched.
+- **Matches the approved migrated goldens:** `legacy_unclassified` is the value already approved under CN-218-A1 in the migrated copies, e.g. `visual-only-graphic-still-25fps-default.issue-218-migrated.input.golden.json:175`. The original #173 goldens have no `graphicContentClass`, so nothing existing is overwritten.
+- **Not inference and not a provenance bypass:[REDACTED] the value goes into `dependencies`, which is written at `:164` and compiled by the real `BRIDGE` at `:165-174`, then pinned by sha256 in `originalInputs`/`executionInputs` at `:198-207`. The compiler still applies its own rule (`graphic-provenance-compiler.ts:137-139`): if retained content or a binding exists, `legacy_unclassified` is rejected with `GRAPHIC_PROVENANCE_UNEXPECTED`. So the label cannot hide real content. Other values still go through the class-vs-content check at `:147`.
+- **All callers were re-run:** `make_proof_case` is only used in `test_issue190_build.py`, `test_issue190_native.py`, and `issue192_case.py`, which is only imported by `test_issue192_proof.py`. All of these were in the 163-test rerun. `test_issue192_public_path.py` and `issue192_public_case.py` import only `pin`/`write`, which did not change.
+
+## 2. #144 helper — `tests/test_issue144_omission_bridge.py:28-37`
+**Correct, and the wrapping is equivalent.**
+- **Wrapping:** the `sources` array is split across lines inside the brackets, which does not change its meaning in JavaScript. `listed` is exactly the approved predicate `parents.includes(context.parentURL)&&sources.includes(source)`, and `next(listed?source:specifier,context)` matches the approved patch. Nothing else in the logic changed.
+- **Same rule as the existing CLI:** it mirrors line for line the compiler rule in `packages/contracts/src/issue-144-proof-cli.ts:13,40-41`.
+- **Graph is closed at these five modules:**
+  - The only value imports with relative `.js` paths are the five listed modules.
+  - The `generated/*.js` imports are type-only (`compiler-core.ts:10-29`, `script-validator.ts:1-8`, `graphic-provenance-compiler.ts:2-3`), so Node strips them.
+  - Bare/`node:` specifiers and the `../../../contracts/*.json` imports pass through unchanged.
+- **No broader resolver weakening:** a remap only happens when both the parent and the target are in the list, and the hook is deregistered after import (`:37`). The real `compiler.sha256CanonicalJson` is still called, and `timeout=120` and `check=True` are unchanged.
+
+## 3. Evidence disposition
+- **Failed run stays failed:** `pre-full-bb534bd-result.json` records `"status": "failed"` and exit 1. In `fast.log` (lines 49-129), 540 of 545 tests passed and 5 failed, all with `Test timed out in 5000ms`. There are no assertion failures. The disposition doc and `fast-evidence.txt:6` both say it remains failed. I agree that host contention explains it but does not make it green.
+- **TypeScript reuse is valid under `VERIFICATION_POLICY.md:38-56`:**
+  - The base is a completed exit-0 fast run at 04d5abc (`fast-04d5abc-result.json`), with a matching inventory of 545.
+  - No TypeScript check reads the changed paths. The contracts tests read `tests/data/**` and `docs/verification/issue-179/**`, none of which changed. `generate-contracts.mjs` lists only `/contracts` and its output directories. `cloud-evidence-collect.mjs` lists only `packages/`. The cloud-evidence tests use synthetic temporary repositories.
+  - None of the three tests that timed out start Python: they `spawnSync` Node only (`issue-144-omission-bridge.test.ts:20`). So the changed helpers cannot explain those failures.
+  - Toolchain, lock/venv, and inherited options match exactly (`input-equivalence.json:63-98`).
+- **Fresh Python checks exist for the exact candidate:** `out/issue218/python-checks-bb534bd/result.json` shows source `7121f1e` with Ruff, mypy, and the non-slow Python tests all at exit 0. The affected slow modules passed 163 tests (`affected-slow.log:4`).
+
+## Remaining gaps (non-blocking for this delta)
+1. **The equivalence record stops at bb534bd, not the candidate.** `input-equivalence.json:3` compares against `bb534bd`. Files added in `7121f1e` are not listed with hashes there: `pre-full-bb534bd-disposition.md`, `pre-full-bb534bd-result.json`, `affected-slow-bb534bd.log.gz` and `fast-bb534bd.log.gz`. `fix-delta.diff` also leaves out the last three. I confirmed none of them are read by TypeScript checks, but policy line 51 asks for every post-test difference to be listed. Extend the record before the final handoff.
+2. **The 15 failures and 55 setup errors are not mapped to modules in any readable artifact.** The only copy is the gzipped full log. The affected rerun covers every caller of the two helpers, but that does not prove all 70 failures are fixed. The plan doc says the same at `issue-218-slow-test-compatibility-change.md:55-56`. Only the paused final full gate can settle this.
+3. **The TypeScript timeouts are unresolved risk, not cleared.** When the final gate resumes, it should run on a quiet host. If the 5000ms timeouts come back without contention, they are a real blocker. Timeouts must not be raised.
+
+No native application, runtime, or production claims are made or supported here.

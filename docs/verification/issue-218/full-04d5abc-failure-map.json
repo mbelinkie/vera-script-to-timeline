@@ -1,0 +1,311 @@
+{
+  "failedSource": "04d5abc",
+  "fullRunStatus": "failed",
+  "fullPythonSummary": {
+    "passed": 1081,
+    "failed": 15,
+    "errors": 55,
+    "collected": 1151
+  },
+  "modules": {
+    "tests/test_issue144_omission_bridge.py": {
+      "FAILED": 1,
+      "ERROR": 0
+    },
+    "tests/test_issue190_build.py": {
+      "FAILED": 13,
+      "ERROR": 0
+    },
+    "tests/test_issue190_native.py": {
+      "FAILED": 1,
+      "ERROR": 44
+    },
+    "tests/test_issue192_proof.py": {
+      "FAILED": 0,
+      "ERROR": 11
+    }
+  },
+  "failures": [
+    {
+      "outcome": "FAILED",
+      "nodeId": "tests/test_issue144_omission_bridge.py::test_actual_service_handoff_finalizes_compiles_and_packages_new_whole_row"
+    },
+    {
+      "outcome": "FAILED",
+      "nodeId": "tests/test_issue190_build.py::test_synthetic_deterministic_preflight_and_public_package"
+    },
+    {
+      "outcome": "FAILED",
+      "nodeId": "tests/test_issue190_build.py::test_preflight_refuses_before_native_effects[unknown]"
+    },
+    {
+      "outcome": "FAILED",
+      "nodeId": "tests/test_issue190_build.py::test_preflight_refuses_before_native_effects[rate]"
+    },
+    {
+      "outcome": "FAILED",
+      "nodeId": "tests/test_issue190_build.py::test_preflight_refuses_before_native_effects[receipt]"
+    },
+    {
+      "outcome": "FAILED",
+      "nodeId": "tests/test_issue190_build.py::test_preflight_refuses_before_native_effects[media]"
+    },
+    {
+      "outcome": "FAILED",
+      "nodeId": "tests/test_issue190_build.py::test_preflight_refuses_before_native_effects[compiler]"
+    },
+    {
+      "outcome": "FAILED",
+      "nodeId": "tests/test_issue190_build.py::test_preflight_refuses_before_native_effects[source]"
+    },
+    {
+      "outcome": "FAILED",
+      "nodeId": "tests/test_issue190_build.py::test_preflight_refuses_before_native_effects[authority]"
+    },
+    {
+      "outcome": "FAILED",
+      "nodeId": "tests/test_issue190_build.py::test_preflight_refuses_before_native_effects[r16-substitution]"
+    },
+    {
+      "outcome": "FAILED",
+      "nodeId": "tests/test_issue190_build.py::test_preflight_refuses_before_native_effects[unknown-profile]"
+    },
+    {
+      "outcome": "FAILED",
+      "nodeId": "tests/test_issue190_build.py::test_missing_actual_probe_and_rejected_authority_refuse"
+    },
+    {
+      "outcome": "FAILED",
+      "nodeId": "tests/test_issue190_build.py::test_r16_rehashed_substitution_refuses_before_authority[document]"
+    },
+    {
+      "outcome": "FAILED",
+      "nodeId": "tests/test_issue190_build.py::test_r16_rehashed_substitution_refuses_before_authority[dependencies]"
+    },
+    {
+      "outcome": "FAILED",
+      "nodeId": "tests/test_issue190_native.py::test_fractional_public_delivery_refusal_precedes_adapter_creation"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_public_delivery_once_and_readonly_recovery[default]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_copied_or_drifted_delivery_records_refuse_recovery[default-intent-owner-delivery"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_copied_or_drifted_delivery_records_refuse_recovery[default-effect-intent-delivery"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_copied_or_drifted_delivery_records_refuse_recovery[default-effect-attestation-delivery"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_copied_or_drifted_delivery_records_refuse_recovery[default-complete-effect-delivery"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_observation_records_explicit_external_or_owned_delivery_lineage[default]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_failed_owned_delivery_cannot_be_captured_as_external_target[default]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_complete_track_state_refuses_unknown_or_disabled[default-disabled]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_complete_track_state_refuses_unknown_or_disabled[default-missing-enabled]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_complete_track_state_refuses_unknown_or_disabled[default-missing-locked]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_complete_track_state_refuses_unknown_or_disabled[default-unknown-locked]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_failed_delivery_retains_effect_and_cannot_retry[default-collision]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_failed_delivery_retains_effect_and_cannot_retry[default-create_project]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_failed_delivery_retains_effect_and_cannot_retry[default-place_event]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_failed_delivery_retains_effect_and_cannot_retry[default-save_close_reopen]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_capture_binds_adjacent_raw_and_derived_hashes[default]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_capture_drift_refuses_without_evidence_or_render[default-target]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_capture_drift_refuses_without_evidence_or_render[default-adjacent]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_capture_drift_refuses_without_evidence_or_render[default-mapping]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_capture_drift_refuses_without_evidence_or_render[default-controls]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_capture_drift_refuses_without_evidence_or_render[default-item]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_capture_drift_refuses_without_evidence_or_render[default-rate]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_actual_render_complete_and_repeat_is_readonly[default]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_pending_owned_render_only_polls_on_resume[default]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_pending_render_drift_refuses_without_restart[default-target]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_pending_render_drift_refuses_without_restart[default-queue-id]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_pending_render_drift_refuses_without_restart[default-queue-settings]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_pending_render_drift_refuses_without_restart[default-poll-failed]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_pending_render_drift_refuses_without_restart[default-start-record]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_render_stale_observation_refuses_before_effect[default]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_render_refusals_preserve_intent_and_never_restart[default-format]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_render_refusals_preserve_intent_and_never_restart[default-settings]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_render_refusals_preserve_intent_and_never_restart[default-job-id]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_render_refusals_preserve_intent_and_never_restart[default-output]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_render_refusals_preserve_intent_and_never_restart[default-job-settings]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_render_refusals_preserve_intent_and_never_restart[default-unknown-control]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_render_refusals_preserve_intent_and_never_restart[default-uncertain]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_render_refusals_preserve_intent_and_never_restart[default-incomplete]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_render_refusals_preserve_intent_and_never_restart[default-short]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_render_refusals_preserve_intent_and_never_restart[default-mono]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_render_refusals_preserve_intent_and_never_restart[default-truncated]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_output_path_reservation_survives_changed_parameters[default]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_preexisting_output_and_queue_collision_never_mutate[default]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue190_native.py::test_split_audio_source_keeps_two_verified_segments[default]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue192_proof.py::test_public_capture_and_host_baseline_actual_compiler_binding"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue192_proof.py::test_consumption_rechecks_actual_adjacent_facts_before_pure_or_effect"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue192_proof.py::test_early_reject_never_requests_stage_provider_or_build"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue192_proof.py::test_fresh_package_public_delivery_save_reopen_and_readonly_recovery"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue192_proof.py::test_reopened_discrepancy_refuses_without_more_delivery[record]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue192_proof.py::test_reopened_discrepancy_refuses_without_more_delivery[source]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue192_proof.py::test_reopened_discrepancy_refuses_without_more_delivery[target]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue192_proof.py::test_reopened_discrepancy_refuses_without_more_delivery[disabled]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue192_proof.py::test_reopened_discrepancy_refuses_without_more_delivery[control]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue192_proof.py::test_reopened_discrepancy_refuses_without_more_delivery[links]"
+    },
+    {
+      "outcome": "ERROR",
+      "nodeId": "tests/test_issue192_proof.py::test_revised_real_lane_and_changed_accepted_input_refuse_before_effect"
+    }
+  ],
+  "followup": "All four listed modules reran serially on bb534bd:163 passed. Only the paused final full gate can settle complete acceptance."
+}
