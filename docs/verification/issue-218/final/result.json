@@ -1,0 +1,30 @@
+{
+  "task": "01a1416d-5da8-7003-9494-e9a75a62f1a5",
+  "startedAt": "2026-10-16T10:18:51.715833+00:00",
+  "supervisorPid": 99146,
+  "source": "2832f84cda774ee3d1395a89ebf9c9e137f70e47",
+  "branch": "codex/issue-218-provenance-core",
+  "trackedStatus": "",
+  "command": [
+    "rtk",
+    "proxy",
+    "npm",
+    "run",
+    "validate"
+  ],
+  "environment": {
+    "PATH": "/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/usr/local/bin:/usr/bin:/bin:/Users/matthewbelinkie/.local/bin",
+    "VITEST_MAX_WORKERS": "1",
+    "PYTHONUNBUFFERED": "1",
+    "PYTEST_ADDOPTS": "--durations=25 --junitxml=out/issue218/full-final-2832f84/pytest-results.xml"
+  },
+  "authority": "Producer conditional existing-218 full resume at usage reserve, verified in coordinator user-provided goal; shared slot expressly released and drained",
+  "priorFailedEvidencePreserved": true,
+  "endedAt": "2026-10-16T11:29:01.045290+00:00",
+  "exitCode": 0,
+  "status": "passed",
+  "inputInventoryUnchanged": true,
+  "finalTrackedStatus": "",
+  "junitReport": "out/issue218/full-final-2832f84/pytest-results.xml",
+  "log": "/Users/matthewbelinkie/.codex/worktrees/44b7/VERA Script to Timeline/out/issue218/full-final-2832f84/validation.log"
+}

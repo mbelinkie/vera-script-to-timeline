@@ -774,7 +774,15 @@ describe("pure v2 compiler", () => {
       binding.verification.deliveredHash = digest(`${scenarioName} delivered still`);
       binding.derivation = { ...binding.derivation!, outputHash: binding.verification.deliveredHash, commandHash: digest(`${scenarioName} command`) };
 
-      readFrozenInput(scenarioName, doc, deps);
+      if (item.pictureKind === "graphic") {
+        // CN-166-P1: retain the original, require explicit legacy classification.
+        expect(`${JSON.stringify({ document: doc, dependencies: deps }, null, 2)}\n`).toBe(readFileSync(fixture(`issue_173/compiler/${scenarioName}.input.golden.json`), "utf8"));
+        const unmigrated = compileTimelineV2(doc, deps);
+        expect(unmigrated.ok).toBe(false);
+        if (!unmigrated.ok) expect(unmigrated.diagnostics.map((entry) => entry.code)).toContain("GRAPHIC_PROVENANCE_INCOMPLETE");
+        descriptor.graphicContentClass = "legacy_unclassified";
+        readFrozenInput(`${scenarioName}.issue-218-migrated`, doc, deps);
+      } else readFrozenInput(scenarioName, doc, deps);
       const compiled = compileTimelineV2(doc, deps);
       expect(compiled.ok, JSON.stringify(compiled)).toBe(true);
       if (compiled.ok) {
@@ -785,7 +793,7 @@ describe("pure v2 compiler", () => {
         expect(compiled.manifest.events[0]?.pictureTreatment).toEqual({ kind: "still_frame", pictureKind: item.pictureKind, framingPolicy: "contain" });
         expect(compiled.report.mediaPreparation.requirements[0]?.status).toBe("prepared");
         readGolden(`${scenarioName}.manifest`, compiled.manifestJson);
-        readGolden(`${scenarioName}.report`, compiled.reportJson);
+        readGolden(`${scenarioName}${item.pictureKind === "graphic" ? ".issue-218-migrated" : ""}.report`, compiled.reportJson);
       }
       }
     }

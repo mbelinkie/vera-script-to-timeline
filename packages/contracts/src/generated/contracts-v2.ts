@@ -229,6 +229,42 @@ export type TokenTimingV2 = {
   };
   endBasis: "evidenced_audible_end" | "next_word_derived" | "unknown";
 };
+export type OccurrenceMediaResolutionV2 = {
+  [k: string]: unknown;
+} & {
+  payloadId: string;
+  owner:
+    | {
+        kind: "primary_slot";
+        sequenceId: string;
+        slotId: string;
+      }
+    | {
+        kind: "overlay_event";
+        blockId: string;
+        overlayEventId: string;
+      }
+    | {
+        kind: "visual_only_block";
+        blockId: string;
+      };
+  mediaReferenceId: string;
+  sourceSnapshot: {
+    system: "research" | "local_import" | "captured_frame" | "graphic_asset";
+    snapshotId: string;
+    version: number;
+    packageId: string;
+    contentHash: string;
+    probeHash: string;
+  };
+  logicalSourceBounds: LogicalSourceBoundsV2;
+  sourceFrameMap: SourceFrameMapV1;
+  occurrenceSourceInFrame: number;
+  selectedSourceRange: FrameRangeV2 | null;
+  preparedMediaRequirementKey: string | null;
+  graphicContentClass?: "legacy_unclassified" | "manual" | "derived";
+  graphicContentBinding?: GraphicContentBinding;
+};
 export type PreparedMediaBindingV1 = {
   [k: string]: unknown;
 } & {
@@ -276,6 +312,15 @@ export type BoundaryTokenEvidenceV1 = (
     numerator?: number;
     [k: string]: unknown;
   };
+};
+export type GraphicProvenanceDerivation = {
+  [k: string]: unknown;
+} & {
+  mode: "manual" | "deterministic";
+  version: string;
+  note: string;
+  method: null | GraphicProvenanceMethod;
+  parameters: JsonObject;
 };
 export type TimelineEventV2 = {
   [k: string]: unknown;
@@ -858,6 +903,8 @@ export interface CompilerDependenciesV2 {
   preparedMedia: PreparedMediaBindingV1[];
   presenterAlignmentResolutions: PresenterAlignmentResolutionV1[];
   narrationBoundaryEvidence?: NarrationBoundaryEvidenceV1[];
+  graphicProvenanceSnapshots?: GraphicProvenanceSnapshot[];
+  resolvedGraphicContents?: ResolvedGraphicContent[];
 }
 export interface DocumentBindingV2 {
   documentId: string;
@@ -947,38 +994,6 @@ export interface RationalTime {
   numerator: number;
   denominator: number;
 }
-export interface OccurrenceMediaResolutionV2 {
-  payloadId: string;
-  owner:
-    | {
-        kind: "primary_slot";
-        sequenceId: string;
-        slotId: string;
-      }
-    | {
-        kind: "overlay_event";
-        blockId: string;
-        overlayEventId: string;
-      }
-    | {
-        kind: "visual_only_block";
-        blockId: string;
-      };
-  mediaReferenceId: string;
-  sourceSnapshot: {
-    system: "research" | "local_import" | "captured_frame" | "graphic_asset";
-    snapshotId: string;
-    version: number;
-    packageId: string;
-    contentHash: string;
-    probeHash: string;
-  };
-  logicalSourceBounds: LogicalSourceBoundsV2;
-  sourceFrameMap: SourceFrameMapV1;
-  occurrenceSourceInFrame: number;
-  selectedSourceRange: FrameRangeV2 | null;
-  preparedMediaRequirementKey: string | null;
-}
 export interface LogicalSourceBoundsV2 {
   startFrame: number;
   endFrame: number;
@@ -1018,6 +1033,11 @@ export interface SourceAudioStreamMappingV1 {
 export interface FrameRangeV2 {
   startFrame: number;
   endFrame: number;
+}
+export interface GraphicContentBinding {
+  graphicId: string;
+  revisionId: string;
+  provenanceHash: string;
 }
 export interface RequestedPreparationRangeV1 {
   sourceInFrame: number;
@@ -1126,6 +1146,133 @@ export interface BoundaryVerificationV1 {
   reviewArtifactLocator: string;
   reviewArtifactHash: string;
 }
+export interface GraphicProvenanceSnapshot {
+  schemaVersion: "graphic-provenance/v1";
+  projectId: string;
+  template: GraphicTemplatePin;
+  semanticSnapshot: GraphicProvenanceSemanticSnapshot;
+  semanticSnapshotHash: string;
+  /**
+   * @minItems 1
+   */
+  sources: [GraphicProvenanceSource, ...GraphicProvenanceSource[]];
+  derivation: GraphicProvenanceDerivation;
+}
+export interface GraphicTemplatePin {
+  templateKey: "ev24-lower-third";
+  projectRevisionId: string;
+  packageDigest: string;
+  entryAssetHash: string;
+}
+export interface GraphicProvenanceSemanticSnapshot {
+  values: Ev24SemanticInputs;
+  badgeAsset: null | {
+    assetId: string;
+    contentHash: string;
+  };
+}
+export interface Ev24SemanticInputs {
+  country:
+    | "albania"
+    | "andorra"
+    | "armenia"
+    | "australia"
+    | "austria"
+    | "azerbaijan"
+    | "belarus"
+    | "belgium"
+    | "bosnia-and-herzegovina"
+    | "bulgaria"
+    | "canada"
+    | "croatia"
+    | "cyprus"
+    | "czechia"
+    | "denmark"
+    | "estonia"
+    | "finland"
+    | "france"
+    | "georgia"
+    | "germany"
+    | "greece"
+    | "hungary"
+    | "iceland"
+    | "ireland"
+    | "israel"
+    | "italy"
+    | "latvia"
+    | "lithuania"
+    | "luxembourg"
+    | "malta"
+    | "moldova"
+    | "monaco"
+    | "montenegro"
+    | "morocco"
+    | "netherlands"
+    | "north-macedonia"
+    | "norway"
+    | "poland"
+    | "portugal"
+    | "romania"
+    | "russia"
+    | "san-marino"
+    | "serbia"
+    | "serbia-and-montenegro"
+    | "slovakia"
+    | "slovenia"
+    | "spain"
+    | "sweden"
+    | "switzerland"
+    | "turkiye"
+    | "ukraine"
+    | "united-kingdom"
+    | "yugoslavia"
+    | "otis";
+  year?: number;
+  topLineOverride: string | null;
+  bottomLineOverride: string | null;
+  badgeOverrideAssetId: string | null;
+}
+export interface GraphicProvenanceSource {
+  sourceKey: string;
+  citation: GraphicProvenanceCitation;
+  snapshot: GraphicProvenanceSourceSnapshot;
+}
+export interface GraphicProvenanceCitation {
+  title: string;
+  publisher: string;
+  originalLocator: string | null;
+  versionLabel: string | null;
+}
+export interface GraphicProvenanceSourceSnapshot {
+  artifactId: string;
+  contentHash: string;
+  mediaType: string;
+}
+export interface GraphicProvenanceMethod {
+  id: string;
+  version: string;
+  artifactId: string;
+  contentHash: string;
+}
+export interface JsonObject {
+  [k: string]: unknown;
+}
+export interface ResolvedGraphicContent {
+  graphicId: string;
+  revisionId: string;
+  projectId: string;
+  template: GraphicTemplatePin;
+  semanticSnapshot: GraphicProvenanceSemanticSnapshot;
+  semanticSnapshotHash: string;
+  provenance:
+    | {
+        kind: "manual";
+      }
+    | {
+        kind: "derived";
+        snapshotHash: string;
+      };
+}
 /**
  * Deterministic integer-frame v2 timeline with frozen source, timing, preparation, sequence, and boundary evidence.
  */
@@ -1179,6 +1326,7 @@ export interface EventProvenanceV2 {
   deliveredSourceHash: string | null;
   timingMapHash: string | null;
   compilerVersion: string;
+  graphicProvenanceHash?: string;
   boundaryEvidenceHash?: string;
 }
 export interface StillPictureTreatmentV2 {
@@ -1361,7 +1509,12 @@ export interface BuildDiagnosticV2 {
     | "MIGRATION_REVIEW_REQUIRED"
     | "PRESENTER_ALIGNMENT_UNRESOLVED"
     | "TEMPORARY_PRESENTER_STILL"
-    | "BOUNDARY_EVIDENCE_REQUIRED";
+    | "BOUNDARY_EVIDENCE_REQUIRED"
+    | "GRAPHIC_PROVENANCE_INCOMPLETE"
+    | "GRAPHIC_PROVENANCE_MISMATCH"
+    | "GRAPHIC_PROVENANCE_UNAVAILABLE"
+    | "GRAPHIC_PROVENANCE_UNAUTHORIZED"
+    | "GRAPHIC_PROVENANCE_UNEXPECTED";
   message: string;
   entity: EntityReferenceV2;
   evidence:

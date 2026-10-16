@@ -68,6 +68,27 @@
       "type": "string",
       "pattern": "^sha256:[a-f0-9]{64}$"
     },
+    "GraphicProvenanceBinding": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": { "const": "manual" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "snapshotHash"],
+          "properties": {
+            "kind": { "const": "derived" },
+            "snapshotHash": { "$ref": "#/$defs/ContentHash" }
+          }
+        }
+      ]
+    },
     "EntityVersion": {
       "type": "integer",
       "minimum": 1
@@ -372,7 +393,8 @@
         "templateKey": { "const": "ev24-lower-third" },
         "projectRevisionId": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" },
         "packageDigest": { "$ref": "#/$defs/ContentHash" },
-        "semanticInputs": { "$ref": "#/$defs/Ev24SemanticInputs" }
+        "semanticInputs": { "$ref": "#/$defs/Ev24SemanticInputs" },
+        "provenance": { "$ref": "#/$defs/GraphicProvenanceBinding" }
       }
     },
     "Ev24SemanticInputs": {

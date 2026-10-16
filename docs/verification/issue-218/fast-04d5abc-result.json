@@ -1,0 +1,23 @@
+{
+  "task": "01a1416d-5da8-7003-9494-e9a75a62f1a5",
+  "supervisorPid": 54975,
+  "startedAt": "2026-10-15T23:08:34.448557+00:00",
+  "source": "04d5abc272364fc37d448ff029eca346953c5abc",
+  "branch": "codex/issue-218-provenance-core",
+  "trackedStatus": "",
+  "command": [
+    "rtk",
+    "proxy",
+    "ctx-wire",
+    "run",
+    "npm",
+    "run",
+    "validate:fast"
+  ],
+  "VITEST_MAX_WORKERS": "1",
+  "checkpointMinutes": 25,
+  "endedAt": "2026-10-15T23:14:05.226695+00:00",
+  "status": "passed",
+  "exitCode": 0,
+  "finalTrackedStatus": ""
+}

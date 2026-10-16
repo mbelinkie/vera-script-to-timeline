@@ -1,0 +1,14 @@
+{
+  "releasedAt": "2026-10-16T11:31:12.892775+00:00",
+  "ownerTask": "01a1416d-5da8-7003-9494-e9a75a62f1a5",
+  "source": "2832f84cda774ee3d1395a89ebf9c9e137f70e47",
+  "heavyCapacity": "RELEASED",
+  "releaseTo": "Sweden sequence coordinator / issue209",
+  "actualGlobalHeavyJobs": [],
+  "latestOwnedSupervisorAndValidationPidsAbsent": [
+    99146,
+    99170
+  ],
+  "fullResult": "passed",
+  "remaining218Work": "bounded evidence and Automated closure only; no heavy jobs planned"
+}

@@ -1,0 +1,51 @@
+{
+  "source": "2832f84cda774ee3d1395a89ebf9c9e137f70e47",
+  "featureBaseline": "f4df73e",
+  "changedSchemas": [
+    "contracts/build-report-v1.schema.json",
+    "contracts/build-report-v2.schema.json",
+    "contracts/compiler-dependencies-v1.schema.json",
+    "contracts/compiler-dependencies-v2.schema.json",
+    "contracts/script-document-v1.schema.json",
+    "contracts/timeline-manifest-v1.schema.json",
+    "contracts/timeline-manifest-v2.schema.json"
+  ],
+  "existingTestChanges": [
+    "packages/contracts/test/compiler-v2.test.ts",
+    "packages/contracts/test/issue-144-test-inputs.ts",
+    "tests/issue190_case.py",
+    "tests/test_issue144_omission_bridge.py"
+  ],
+  "notes": "CN-166-P1@0c50a30; CN-218-A1@1a7cb50; CN-218-A2@79a7349, actual Producer receipts retained",
+  "originalFixtureChanges": [],
+  "v2ScriptSchemaAndModelsUnchanged": true,
+  "models": [
+    "python/vera_timeline_agent/generated/contracts/script_document_v2_schema.py"
+  ],
+  "migratedCopies": [
+    {
+      "stem": "tests/data/authoring_v2/issue_173/compiler/visual-only-graphic-still-ntsc-default",
+      "originalManifestSha256": "84c84d25204446b45775f632ba6efac106bcc33829738858b35242c689fc876e",
+      "onlyInputDelta": "graphicContentClass legacy_unclassified",
+      "onlyReportDelta": "dependenciesHash",
+      "compiledManifestByteEquality": "passed full issue-218 compiler tests"
+    },
+    {
+      "stem": "tests/data/authoring_v2/issue_173/compiler/visual-only-graphic-still-25fps-default",
+      "originalManifestSha256": "b4826b4d915fa980e3ea27d4ecc91b3e94bfe159384f94ac2d9986bb9e7303d3",
+      "onlyInputDelta": "graphicContentClass legacy_unclassified",
+      "onlyReportDelta": "dependenciesHash",
+      "compiledManifestByteEquality": "passed full issue-218 compiler tests"
+    },
+    {
+      "stem": "tests/data/authoring_v2/issue_173/compiler/visual-only-graphic-still-ntsc-override",
+      "originalManifestSha256": "32cceec198cb4fafb782ff99364d50816dbf8f6e1186b23e89bea473c3fc5b59",
+      "onlyInputDelta": "graphicContentClass legacy_unclassified",
+      "onlyReportDelta": "dependenciesHash",
+      "compiledManifestByteEquality": "passed full issue-218 compiler tests"
+    }
+  ],
+  "foundationPatchIdentitiesVerified": true,
+  "approvedNoteBytesVerified": true,
+  "noAdditionalFrozenException": true
+}

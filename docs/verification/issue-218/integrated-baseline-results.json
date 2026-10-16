@@ -1,0 +1,39 @@
+{
+  "baseline": "f4df73e",
+  "compatibilityPatchSha256": "5ea1a4b89d148d12c452c6c82a2f597cca664fae2ed8c7424029a366ddb5ed9d",
+  "files": [
+    "packages/contracts/src/issue-144-semantics.ts",
+    "packages/contracts/test/issue-144-test-inputs.ts",
+    "packages/contracts/src/issue-144-compile-cli.ts",
+    "packages/contracts/src/issue-144-proof-cli.ts",
+    "packages/contracts/src/compiler-core.ts"
+  ],
+  "noProvenanceFeatureCode": true,
+  "results": [
+    {
+      "check": "types",
+      "command": [
+        "node24.19.0",
+        "<owning-worktree>/node_modules/typescript/bin/tsc",
+        "--project",
+        "<isolated-baseline>/packages/contracts/tsconfig.json"
+      ],
+      "exitCode": 0
+    },
+    {
+      "check": "regression",
+      "command": [
+        "node24.19.0",
+        "<owning-worktree>/node_modules/vitest/vitest.mjs",
+        "run",
+        "test/issue-144-semantics.test.ts",
+        "test/issue-144-composition.test.ts",
+        "test/issue-144-text-revision.test.ts",
+        "test/fusion-graphics.test.ts",
+        "test/template-library.test.ts",
+        "test/ev24-lower-third.test.ts"
+      ],
+      "exitCode": 0
+    }
+  ]
+}

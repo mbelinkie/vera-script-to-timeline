@@ -1,0 +1,20 @@
+{
+  "featureBaseline": "f4df73e",
+  "existingTestsChanged": [
+    "packages/contracts/test/compiler-v2.test.ts",
+    "packages/contracts/test/issue-144-test-inputs.ts",
+    "tests/issue190_case.py",
+    "tests/test_issue144_omission_bridge.py"
+  ],
+  "approvedNote": "CN-166-P1 at0c50a30, CN-218-A1 at1a7cb50 and CN-218-A2 at79a7349",
+  "originalFixturesChanged": [],
+  "unchangedV2ScriptSchemaAndPythonModel": true,
+  "migratedCopies": [
+    "visual-only-graphic-still-ntsc-default",
+    "visual-only-graphic-still-25fps-default",
+    "visual-only-graphic-still-ntsc-override"
+  ],
+  "onlyMigratedInputDelta": "graphicContentClass legacy_unclassified",
+  "onlyMigratedReportDelta": "dependenciesHash",
+  "manifestByteEquality": "passing issue-218 compiler tests"
+}

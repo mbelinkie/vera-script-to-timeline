@@ -72,7 +72,7 @@ function validateObservation(observation: ProofObservation, manifest: TimelineMa
     requireFact(validRange(item.recordRange) && validRange(item.sourceRange, true), "uncertain fractional or incomplete ranges");
     requireFact(Array.isArray(item.linkedUids) && item.linkedUids.every((uid) => typeof uid === "string" && uid.length > 0 && uid !== item.itemUid) && new Set(item.linkedUids).size === item.linkedUids.length, "ambiguous links");
     const source = manifest.sources.find((row) => row.id === event.sourceId)!;
-    requireFact(source.kind !== "fusion_template", "Fusion graphics are outside this media reconciliation proof");
+    requireFact(source.kind !== "fusion_template", "Fusion graphic observations require a verified adapter");
     const path = source.kind === "placeholder" ? `Media/Placeholders/${source.id}.png` : source.path;
     requireFact(item.sourcePath === path && /^sha256:[a-f0-9]{64}$/.test(item.sourceHash) && (source.kind === "placeholder" || item.sourceHash === source.contentHash), "source identity/bytes changed");
     requireFact(item.trackId === event.trackId && item.trackKind === event.trackKind, "track reassignment is unsupported");

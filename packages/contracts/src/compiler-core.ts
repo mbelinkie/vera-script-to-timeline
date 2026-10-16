@@ -28,6 +28,7 @@ import type {
   VisualEvent,
 } from "./generated/contracts.js";
 import { EV24_SETTING_HASH } from "./ev24-identity.ts";
+import { graphicProvenanceJsonProblem, graphicProvenanceSchemaCode, validateGraphicSnapshotInventory, type GraphicProvenanceContext } from "./graphic-provenance-compiler.js";
 import { validateScriptDocument } from "./script-validator.js";
 
 export interface CompileDiagnostic {
@@ -39,7 +40,6 @@ export interface CompileDiagnostic {
 
 class CompileFailure extends Error {
   readonly code: string;
-
   constructor(code: string, message: string) {
     super(message);
     this.code = code;
@@ -196,7 +196,7 @@ function stableUuid(name: string): string {
 
 function schemaDiagnostics(errors: ErrorObject[] | null | undefined, prefix: string): CompileDiagnostic[] {
   return (errors ?? []).map((error) => ({
-    code: `${prefix}_SCHEMA_INVALID`,
+    code: graphicProvenanceSchemaCode(error) ?? `${prefix}_SCHEMA_INVALID`,
     message: `${error.instancePath || "/"}: ${error.message ?? "schema validation failed"}`,
     jsonPath: error.instancePath || "/",
   }));
@@ -211,10 +211,12 @@ function compareDiagnostic(left: CompileDiagnostic, right: CompileDiagnostic): n
 }
 
 export function compileTimeline(documentInput: unknown, dependenciesInput: unknown): CompileResult {
+  const provenanceJsonProblem = graphicProvenanceJsonProblem(dependenciesInput);
+  if (provenanceJsonProblem) return fail(provenanceJsonProblem);
   const documentValidation = validateScriptDocument(documentInput);
   if (!documentValidation.valid) {
     return fail(...documentValidation.diagnostics.map((item) => ({
-      code: item.code,
+      code: item.jsonPath.includes("/provenance") ? item.message.startsWith("required:") ? "GRAPHIC_PROVENANCE_INCOMPLETE" : "GRAPHIC_PROVENANCE_MISMATCH" : item.code,
       message: item.message,
       jsonPath: item.jsonPath,
       ...(item.entityId === undefined ? {} : { entityId: item.entityId }),
@@ -328,6 +330,7 @@ function validatePreconditions(document: ScriptDocumentV1, dependencies: Compile
     diagnostics.push(diag("GRAPHIC_DELIVERY_TARGET_MISSING", "Graphic delivery target must be free or studio.", dependencies.build.buildId));
   }
   const requiredGraphicRevisions = new Set<string>();
+  const provenanceContexts: GraphicProvenanceContext[] = [];
   for (const { event } of graphicOccurrences) {
     if (event.source.kind !== "curated_fusion_graphic") continue;
     const source = event.source;
@@ -349,10 +352,19 @@ function validatePreconditions(document: ScriptDocumentV1, dependencies: Compile
     if (source.semanticInputs.badgeOverrideAssetId !== null && !badgeIds.has(source.semanticInputs.badgeOverrideAssetId)) {
       diagnostics.push(diag("GRAPHIC_BADGE_MISSING", `Graphic ${event.id} refers to an unavailable project badge.`, event.id));
     }
+    const badgeId = source.semanticInputs.badgeOverrideAssetId;
+    const badgeAsset = badgeId === null ? null : resolved.badgeAssets.find((asset) => asset.assetId === badgeId);
+    if (badgeAsset !== undefined) {
+      const semanticSnapshot = { values: source.semanticInputs, badgeAsset };
+      provenanceContexts.push({ entityId: event.id, projectId: document.projectId,
+        template: { templateKey: source.templateKey, projectRevisionId: source.projectRevisionId, packageDigest: source.packageDigest, entryAssetHash: resolved.entryAssetHash },
+        semanticSnapshot, semanticSnapshotHash: sha256CanonicalJson(semanticSnapshot), ...(source.provenance ? { binding: source.provenance } : {}) });
+    }
   }
   for (const item of dependencies.resolvedGraphics ?? []) {
     if (!requiredGraphicRevisions.has(item.projectRevisionId)) diagnostics.push(diag("GRAPHIC_DEPENDENCY_UNEXPECTED", `Resolved graphic ${item.projectRevisionId} is not used.`, item.projectRevisionId));
   }
+  diagnostics.push(...validateGraphicSnapshotInventory(dependencies.graphicProvenanceSnapshots ?? [], provenanceContexts));
   return diagnostics.sort(compareDiagnostic);
 }
 
@@ -750,12 +762,13 @@ function compileVisual(
       timingPrecision: resolved.precision, alignmentVersion: resolved.alignmentVersion,
       semanticSnapshot,
       semanticSnapshotHash: sha256CanonicalJson(semanticSnapshot),
+      ...(graphic.provenance ? { graphicProvenance: structuredClone(graphic.provenance) } : {}),
       provenance: { documentId: document.id, blockId: occurrence.ownerBlockId, authoringKind: "visual_event", authoringId: authored.id },
     };
     sources.push(source);
     events.push(event);
     const free = dependencies.build.graphicDeliveryTarget === "free";
-    results.push({ ...resultFor(event, free ? "placeholder" : "placed", free ? "EV24 graphic requires manual completion in Resolve Free." : "EV24 live graphic planned for Studio; placement is not yet verified."), graphicMaterialization: free ? "placeholder" : "live", manualCompletionRequired: free });
+    results.push({ ...resultFor(event, free ? "placeholder" : "placed", free ? "EV24 graphic requires manual completion in Resolve Free." : "EV24 live graphic planned for Studio; placement is not yet verified."), graphicMaterialization: free ? "placeholder" : "live", manualCompletionRequired: free, ...(graphic.provenance ? { graphicProvenance: structuredClone(graphic.provenance) } : {}) });
     if (free) {
       issues.push(makeIssue("GRAPHIC_MANUAL_COMPLETION", "warning", `EV24 graphic ${authored.id} requires manual completion in Resolve Free.`, "timeline_event", authored.id));
       manual.push(makeManual("COMPLETE_FUSION_GRAPHIC", "Complete this EV24 graphic manually.", "Place the pinned EV24 revision at the reported track and range, then verify its semantic inputs.", "timeline_event", authored.id));

@@ -1,0 +1,8 @@
+packages/contracts/src/issue-144-semantics.ts(75,97): error TS2339: Property 'path' does not exist on type 'VideoSource | StillSource | AudioSource | FusionTemplateSource'.
+  Property 'path' does not exist on type 'FusionTemplateSource'.
+packages/contracts/src/issue-144-semantics.ts(76,155): error TS2339: Property 'contentHash' does not exist on type 'VideoSource | StillSource | AudioSource | FusionTemplateSource'.
+  Property 'contentHash' does not exist on type 'FusionTemplateSource'.
+packages/contracts/test/issue-144-test-inputs.ts(55,100): error TS2339: Property 'path' does not exist on type 'VideoSource | StillSource | AudioSource | FusionTemplateSource'.
+  Property 'path' does not exist on type 'FusionTemplateSource'.
+packages/contracts/test/issue-144-test-inputs.ts(56,72): error TS2339: Property 'contentHash' does not exist on type 'VideoSource | StillSource | AudioSource | FusionTemplateSource'.
+  Property 'contentHash' does not exist on type 'FusionTemplateSource'.

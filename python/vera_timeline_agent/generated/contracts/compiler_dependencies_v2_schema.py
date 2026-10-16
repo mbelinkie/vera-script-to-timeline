@@ -98,6 +98,83 @@ class SourceAudio(TypedDict):
     sampleRate: PositiveSafeInteger | None
 
 
+class Ev24SemanticInputs(TypedDict):
+    country: Literal[
+        "albania",
+        "andorra",
+        "armenia",
+        "australia",
+        "austria",
+        "azerbaijan",
+        "belarus",
+        "belgium",
+        "bosnia-and-herzegovina",
+        "bulgaria",
+        "canada",
+        "croatia",
+        "cyprus",
+        "czechia",
+        "denmark",
+        "estonia",
+        "finland",
+        "france",
+        "georgia",
+        "germany",
+        "greece",
+        "hungary",
+        "iceland",
+        "ireland",
+        "israel",
+        "italy",
+        "latvia",
+        "lithuania",
+        "luxembourg",
+        "malta",
+        "moldova",
+        "monaco",
+        "montenegro",
+        "morocco",
+        "netherlands",
+        "north-macedonia",
+        "norway",
+        "poland",
+        "portugal",
+        "romania",
+        "russia",
+        "san-marino",
+        "serbia",
+        "serbia-and-montenegro",
+        "slovakia",
+        "slovenia",
+        "spain",
+        "sweden",
+        "switzerland",
+        "turkiye",
+        "ukraine",
+        "united-kingdom",
+        "yugoslavia",
+        "otis",
+    ]
+    year: NotRequired[int]
+    topLineOverride: str | None
+    bottomLineOverride: str | None
+    badgeOverrideAssetId: str | None
+
+
+class GraphicProvenanceBinding1(TypedDict):
+    kind: Literal["manual"]
+
+
+class GraphicProvenanceCitation(TypedDict):
+    title: str
+    publisher: str
+    originalLocator: str | None
+    versionLabel: str | None
+
+
+type JsonValue = bool | float | str | list[JsonValue] | dict[str, JsonValue] | None
+
+
 type EntityId = script_document_v2_schema.EntityId
 
 
@@ -197,18 +274,6 @@ class SourceSnapshot(TypedDict):
     packageId: EntityId
     contentHash: ContentHash
     probeHash: ContentHash
-
-
-class OccurrenceMediaResolutionV2(TypedDict):
-    payloadId: EntityId
-    owner: OccurrenceOwnerV2
-    mediaReferenceId: EntityId
-    sourceSnapshot: SourceSnapshot
-    logicalSourceBounds: LogicalSourceBoundsV2
-    sourceFrameMap: SourceFrameMapV1
-    occurrenceSourceInFrame: NonNegativeSafeInteger
-    selectedSourceRange: FrameRangeV2 | None
-    preparedMediaRequirementKey: NonEmptyString | None
 
 
 class MasterIdentity(TypedDict):
@@ -377,6 +442,63 @@ class BoundaryVerificationV1(TypedDict):
     reviewArtifactHash: ContentHash
 
 
+class GraphicTemplatePin(TypedDict):
+    templateKey: Literal["ev24-lower-third"]
+    projectRevisionId: str
+    packageDigest: ContentHash
+    entryAssetHash: ContentHash
+
+
+class GraphicProvenanceBinding2(TypedDict):
+    kind: Literal["derived"]
+    snapshotHash: ContentHash
+
+
+type GraphicProvenanceBinding = GraphicProvenanceBinding1 | GraphicProvenanceBinding2
+
+
+class BadgeAsset(TypedDict):
+    assetId: str
+    contentHash: ContentHash
+
+
+class GraphicProvenanceSemanticSnapshot(TypedDict):
+    values: Ev24SemanticInputs
+    badgeAsset: BadgeAsset | None
+
+
+class GraphicProvenanceSourceSnapshot(TypedDict):
+    artifactId: EntityId
+    contentHash: ContentHash
+    mediaType: str
+
+
+class GraphicProvenanceMethod(TypedDict):
+    id: EntityId
+    version: str
+    artifactId: EntityId
+    contentHash: ContentHash
+
+
+type JsonObject = dict[str, JsonValue]
+
+
+class ResolvedGraphicContent(TypedDict):
+    graphicId: EntityId
+    revisionId: EntityId
+    projectId: EntityId
+    template: GraphicTemplatePin
+    semanticSnapshot: GraphicProvenanceSemanticSnapshot
+    semanticSnapshotHash: ContentHash
+    provenance: GraphicProvenanceBinding
+
+
+class GraphicContentBinding(TypedDict):
+    graphicId: EntityId
+    revisionId: EntityId
+    provenanceHash: ContentHash
+
+
 class AuthoringDefaultsV2(TypedDict):
     settingsHash: ContentHash
     visualOnlyStillDurationMs: PositiveSafeInteger
@@ -400,6 +522,22 @@ class NarrationTokenTimingMapV2(TypedDict):
     tokens: list[TokenTimingV2]
 
 
+class OccurrenceMediaResolutionV2(TypedDict):
+    payloadId: EntityId
+    owner: OccurrenceOwnerV2
+    mediaReferenceId: EntityId
+    sourceSnapshot: SourceSnapshot
+    logicalSourceBounds: LogicalSourceBoundsV2
+    sourceFrameMap: SourceFrameMapV1
+    occurrenceSourceInFrame: NonNegativeSafeInteger
+    selectedSourceRange: FrameRangeV2 | None
+    preparedMediaRequirementKey: NonEmptyString | None
+    graphicContentClass: NotRequired[
+        Literal["legacy_unclassified", "manual", "derived"]
+    ]
+    graphicContentBinding: NotRequired[GraphicContentBinding]
+
+
 class NarrationBoundaryEvidenceV1(TypedDict):
     blockId: EntityId
     blockRevision: PositiveSafeInteger
@@ -413,6 +551,30 @@ class NarrationBoundaryEvidenceV1(TypedDict):
     tokens: list[BoundaryTokenEvidenceV1]
     schemaVersion: Literal["narration-boundary-evidence/v1"]
     verification: BoundaryVerificationV1
+
+
+class GraphicProvenanceSource(TypedDict):
+    sourceKey: str
+    citation: GraphicProvenanceCitation
+    snapshot: GraphicProvenanceSourceSnapshot
+
+
+class GraphicProvenanceDerivation(TypedDict):
+    mode: Literal["manual", "deterministic"]
+    version: str
+    note: str
+    method: GraphicProvenanceMethod | None
+    parameters: JsonObject
+
+
+class GraphicProvenanceSnapshot(TypedDict):
+    schemaVersion: Literal["graphic-provenance/v1"]
+    projectId: EntityId
+    template: GraphicTemplatePin
+    semanticSnapshot: GraphicProvenanceSemanticSnapshot
+    semanticSnapshotHash: ContentHash
+    sources: list[GraphicProvenanceSource]
+    derivation: GraphicProvenanceDerivation
 
 
 class CompilerDependenciesV2(TypedDict):
@@ -429,3 +591,5 @@ class CompilerDependenciesV2(TypedDict):
     preparedMedia: list[PreparedMediaBindingV1]
     presenterAlignmentResolutions: list[PresenterAlignmentResolutionV1]
     narrationBoundaryEvidence: NotRequired[list[NarrationBoundaryEvidenceV1]]
+    graphicProvenanceSnapshots: NotRequired[list[GraphicProvenanceSnapshot]]
+    resolvedGraphicContents: NotRequired[list[ResolvedGraphicContent]]

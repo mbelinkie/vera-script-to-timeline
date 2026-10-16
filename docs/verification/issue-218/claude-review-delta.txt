@@ -1,0 +1,70 @@
+Permission allow rule (../../../../.claude/settings.json): Bash(git -C * push origin claude/*) has a wildcard before the rest of the command, so it also matches any options inserted at that position and approves them without a prompt. For git, options such as -c and --exec-path can run arbitrary commands. Replace that * with the exact value you mean, or only use * after the subcommand (for example Bash(git status *)).
+# #218 FIX-DELTA review: candidate `04d5abc`, reviewed against prior `4bf02e0`
+
+**Verdict: GO to proceed to the final full gate.** No material issues remain in this delta. The full `VITEST_MAX_WORKERS=1 npm run validate` gate hasn't run yet. This review doesn't waive it, and a passing focused suite doesn't count as acceptance.
+
+I only read files. I ran no commands or tests and edited nothing. Plan mode asked for a plan file and an ExitPlanMode call, but this session has neither a write tool nor that call, so the report is here. The tool output shortened `fix-delta.diff` partway through, so I read the hidden section in pieces and covered the whole diff.
+
+## Inputs checked
+- **Candidate:** `candidate.txt` names commit `04d5abc…` (tree `18c9260…`), which matches HEAD.
+- **Fast evidence:** `fast-evidence.txt` exists and says `validate:fast` passed on this candidate (exit 0, clean checkout) and that 45 owned focused tests passed. It says final full validation is still pending.
+- **Files touched by the delta:** the API design doc, `compiler-core.ts`, `graphic-provenance-compiler.ts`, `graphic-provenance.ts`, and the two owned #218 tests.
+  - No schema, canonical serializer, frozen test or original fixture changed.
+  - The design doc change only describes the new behaviour; it adds no new format or decision.
+
+## B1: migration and refresh recovery are resolved
+
+**Prior revision loader:** `loadRevisionHistory` (`graphic-provenance.ts:553-582`) is private and not exported. It still checks:
+- the exact address, with closed-shape checks on both legacy and new records;
+- that legacy bytes match their hash;
+- the content against the approved contract, including that its semantic values match their hash;
+- the content address and its stored hash (`:577`);
+- the bound snapshot (`findSnapshot` at `:514-528`): it must be the only one with that hash in the project, match the contract, and agree with the content's template, semantic values and semantic hash.
+
+What it skips is only the replaceable evidence: template package bytes, compatibility, and source, badge and method bytes.
+
+**Public resolve:** `resolveRetainedGraphicRevision` (`:585-597`) runs that loader and then `checkCandidateEvidence(..., false)` (`:641-652`).
+- This is equivalent to the old behaviour. Derived content goes through `verifySnapshotEvidence`, which checks the template, badge, sources and an optional method. Manual content checks the template and badge.
+- Legacy records still come back with no content.
+- Unverified current content can't come back as resolved.
+
+**Repeat** (`:695`) still goes through full resolution, and the new refresh test confirms repeat refuses when old source bytes are missing.
+
+**Migration** (`:726-753`):
+- A legacy record is refused at `:735`, so a legacy record can't silently turn into the new format.
+- The semantic values and badge must be exactly the same as before (`:741`).
+- Sources and derivation are copied from the verified old snapshot.
+- `checkCandidateEvidence` fully checks the **new** template pin: present, `compatible: true`, matching digest and entry hash. It also requires the preserved source and badge bytes.
+- Method bytes are optional, as before.
+
+**Refresh** (`:704-724`):
+- It requires the prior derived snapshot record, so the prior P is the actual verified snapshot hash.
+- It fully checks the replacement sources, the carried-over template and any method that is required.
+- If old source bytes are lost, refresh still works, and the receipt keeps the prior revision ID, content hash and P (`buildProposal` at `:654-663`).
+
+**Tests** (`issue-218-provenance.test.ts:179-211`):
+- All three old-template states are covered: missing, incompatible, and corrupt (the `revision_1` record carries the `r2` package, so its digest doesn't match).
+- Migration still refuses when the target or a source is missing, or when the prior content hash is corrupt.
+- Refresh still refuses when the new sources are missing.
+
+## S1: unsafe integer parameters are resolved
+- **Core:** `assertJsonValue` (`graphic-provenance.ts:234`) refuses unsafe integers. It runs before Ajv validation and hashing, through `validateWireShape` and `cloneJson`, for create, refresh, migrate and anything loaded from history.
+- **Compilers:** `finiteJson` (`graphic-provenance-compiler.ts:23`) now refuses them too.
+  - `graphicProvenanceJsonProblem` is the first statement in both `compileTimeline` (`compiler-core.ts:214`) and `compileTimelineV2` (`compiler-core-v2.ts:1348`), so the refusal happens before schema checks and hashing.
+  - The v1 exemption is removed, so the global `INTEGER_UNSAFE` check (`compiler-core.ts:249-268`) also applies again as a backstop.
+- **Core test:** it uses a deterministic method that is retained and valid. Positive and negative unsafe values are refused, while `MAX_SAFE_INTEGER` and `1.25` are accepted. Without the fix the unsafe case would be accepted, so the test would fail.
+- **Compiler test** (`issue-218-compiler.test.ts:67-79`):
+  - The derivation is schema-valid: deterministic, with a method, a `note` and parameters.
+  - v1 updates the snapshot hash it binds to; v2 updates both the content's snapshot hash and the binding's P. The v2 binding has no content hash, so nothing is left stale.
+  - The expected `GRAPHIC_PROVENANCE_INCOMPLETE` diagnostic comes specifically from the preflight check. If only the exemption had been removed, v1 would report `INTEGER_UNSAFE` instead and the test would fail.
+
+## N1–N4
+- **N3:** the four new v2 cases at `issue-218-compiler.test.ts:164-167` refuse with the expected codes: missing snapshot, unused snapshot, and content whose template or semantic values differ from its snapshot.
+- **N1, N2, N4:** the dispositions keep the approved format, storage and historical-reader boundaries. Nothing in the delta changes them.
+
+## Non-blocking observations
+1. **Large whole-number floats are refused.** Values like `1e300` count as unsafe integers, so they're refused as parameters. That matches the v1 global `INTEGER_UNSAFE` rule and the updated design text. True fractions are still allowed.
+2. **The N3 matrix checks loosely.** It uses `toContain(code)`, so the template and semantic cases could be satisfied by another mismatch check. They still prove the input is refused.
+3. **The core unsafe-integer test only exercises create.** Refresh and migrate are covered structurally because they share `makeSnapshot` → `validateWireShape` → `assertJsonValue`.
+
+**Next step:** run the final `VITEST_MAX_WORKERS=1 npm run validate` on its own on `04d5abc`, then complete the remaining acceptance gates.

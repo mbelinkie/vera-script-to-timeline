@@ -34,6 +34,7 @@ class EventBuildResult(TypedDict):
     trackKind: timeline_manifest_v1_schema.TrackKind
     recordRange: timeline_manifest_v1_schema.FrameRange
     message: str
+    graphicProvenance: NotRequired[script_document_v1_schema.GraphicProvenanceBinding]
     graphicMaterialization: NotRequired[Literal["live", "placeholder", "baked"]]
     manualCompletionRequired: NotRequired[bool]
 

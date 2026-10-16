@@ -519,7 +519,8 @@
         "alignmentVersion": { "type": "string", "minLength": 1 },
         "semanticSnapshot": { "$ref": "#/$defs/ResolvedEv24SemanticSnapshot" },
         "semanticSnapshotHash": { "$ref": "script-document-v1.schema.json#/$defs/ContentHash" },
-        "provenance": { "$ref": "#/$defs/EventProvenance" }
+        "provenance": { "$ref": "#/$defs/EventProvenance" },
+        "graphicProvenance": { "$ref": "script-document-v1.schema.json#/$defs/GraphicProvenanceBinding" }
       }
     },
     "ResolvedEv24SemanticSnapshot": {

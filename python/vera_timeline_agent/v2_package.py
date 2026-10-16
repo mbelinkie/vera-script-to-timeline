@@ -426,6 +426,28 @@ def _validate_inputs(
     manifest: JsonObject,
     report: JsonObject,
 ) -> None:
+    # The pure provenance resolver does not grant evidence-export permission.
+    if (
+        dependencies.get("graphicProvenanceSnapshots")
+        or dependencies.get("resolvedGraphicContents")
+        or any(
+            isinstance(item, dict)
+            and (
+                item.get("graphicContentClass") in ("manual", "derived")
+                or item.get("graphicContentBinding") is not None
+            )
+            for item in dependencies.get("occurrenceResolutions", [])
+        )
+        or any(
+            isinstance(event, dict)
+            and isinstance(event.get("provenance"), dict)
+            and event["provenance"].get("graphicProvenanceHash") is not None
+            for event in manifest.get("events", [])
+        )
+    ):
+        raise _error(
+            "new-format graphic provenance requires a verified evidence-package adapter"
+        )
     for value in (document, dependencies, manifest, report):
         _walk_rationals(value)
     _validate_schema(document, "script-document-v2", "script document v2")
