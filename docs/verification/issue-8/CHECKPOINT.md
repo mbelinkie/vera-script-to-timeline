@@ -1350,3 +1350,30 @@ render/native action claimed. Need actual export paths/hashes and frame/timing
 inspection for48entrance/16exit/56hold before closure. No new full tests or
 runtime/request/package mutation. #8 remains open until this evidence exists;
 conditional Sweden-steward notification has not fired.
+
+### Supplied64/120renders pass — all External evidence complete
+
+Producer supplied actual overrides64/revised120MOVs. Originals untouched,
+hash-identical private copies out/issue8/timing-renders/overrides-64.mov and
+revised-120.mov, SHA97389390f21075e40b9a4518bfeb608e95799f1ff04ab26ae301aae29b438084
+and57dde5bc07342a21805910bc5b987e58f23268c2a6dd217a37df63061d8dfbd7.
+Both1920x1080/24fps/H264; decoded64/120frames,2.666667/5s. Contact-sheet
+inspection confirms expected badge/text/revised output, no V5/atlas output.
+
+Read-only stdlib checker verify-timing-exports.py exit0/PASS; verification.json
+SHA231647bb95a19b956a75976ae0c2159cfddc41f26f04534a1c1ea0a4a72d1d90.
+Badge motion first48direct/last16at+56match(maxMAE0.023/0.074125); added56hold
+near-static(max0.006594); uniform-stretch negative control disagrees(mean18.69).
+Preserved authored48/16phase envelopes, not stretched; lossy H264 near-equality
+and settled frames explicitly accounted for. NumPy unavailable in initial
+probe; no dependency installed, stdlib checker used. FFmpeg8.1.2/no native call.
+
+Final full/review/exit/four native logs/all package hashes/installed exactsource
+closure and both failed native result hashes rechecked. Frozen7cb942e/4e31565/
+8ef9f864audits exit0; product inputs unchanged from75325e0, only unconsumed
+issue8Markdown changed (reader searches repeated--no-ignore-vcs). Reuse full,
+not expensive rerun. ACCEPTANCE.md maps all criteria. Under approved reduction
+all actual acceptance evidence now complete; normal roadmap completion and
+Closed/Done confirmation precede conditional steward handoff. #221 remains
+separate thumbnail Inbox polish; no new Astra-register risk warranted. No
+native/settings/project/source mutation, merge/push/deploy or next dispatch.

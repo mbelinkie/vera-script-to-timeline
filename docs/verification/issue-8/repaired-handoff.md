@@ -1,5 +1,15 @@
 # #8 repaired graph-persistence candidate — standard64 native build verified
 
+## Final acceptance complete
+
+See [ACCEPTANCE.md](ACCEPTANCE.md) for criteria/evidence mapping. Four required
+native builds and Producer visual/isolation checks pass. Supplied64/120exports
+pass decoded frame counts, picture inspection and48/16animation phase alignment
+plus56extra hold (uniform-stretch negative control disagrees). No more builds
+or operator tests remain. Installed final request is consumed: never rerun it.
+Authoritative Closed/Done and steward delivery are recorded after completion.
+Everything below is historical; old pending statements are not rerun instructions.
+
 Automated verification is complete. Producer explicitly authorized “install
 repaired preflight”; the repaired Graphics release and new standard64 preflight
 request are now installed and verified. The interruption happened after the

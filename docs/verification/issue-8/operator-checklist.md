@@ -1,5 +1,10 @@
 # Issue #8 — External acceptance checklist (operator gates pending)
 
+**Completed:** see [final acceptance](ACCEPTANCE.md). Four native builds,
+Producer visual/isolation checks and supplied64/120timing renders pass under
+the approved reduction. No operator step remains. Checklist below preserves
+the accepted procedure; do not repeat it or launch the consumed build request.
+
 Status: three64-frame native builds and scoped visual checks passed. Final
 120-frame timing/new-build isolation and retained timing renders remain pending.
 Producer explicitly approved the [reduced matrix](acceptance-matrix-reduction.md)
