@@ -20,6 +20,7 @@ from .recognition_artifact_v1_schema import RecognitionArtifactV1
 from .script_document_v1_schema import ScriptDocumentV1
 from .script_document_v2_schema import ScriptDocumentV2, WordAudibleEndAnchor
 from .script_reconciliation_v1_schema import ScriptReconciliationV1
+from .shoot_registration_v1_schema import ShootRegistrationProjectV1
 from .spotlight_evidence_v1_schema import SpotlightEvidenceV1
 from .timeline_manifest_v1_schema import TimelineManifestV1
 from .timeline_manifest_v2_schema import TimelineManifestV2
@@ -44,6 +45,7 @@ __all__ = [
     "ScriptDocumentV1",
     "ScriptDocumentV2",
     "ScriptReconciliationV1",
+    "ShootRegistrationProjectV1",
     "SpotlightEvidenceV1",
     "TimelineManifestV1",
     "TimelineManifestV2",

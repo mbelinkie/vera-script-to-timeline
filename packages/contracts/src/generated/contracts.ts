@@ -388,6 +388,8 @@ export interface VeraContractsV1 {
   publicPageCaptureWorker?: PublicPageCaptureWorkerV1;
   publicPageCaptureProvenance?: PublicPageCaptureProvenanceV1;
   spotlightEvidence?: SpotlightEvidenceV1;
+  shootRegistration: ShootRegistrationProjectV1;
+  localSourceHandoffInventory: LocalSourceHandoffInventoryV1;
 }
 /**
  * Editor-independent canonical ScriptDocument serialization for Phase 1.
@@ -2504,4 +2506,86 @@ export interface Rect {
   y: number;
   width: number;
   height: number;
+}
+/**
+ * Shared, path-safe record of immutable local presenter masters.
+ */
+export interface ShootRegistrationProjectV1 {
+  schemaVersion: "shoot-registration/v1";
+  projectId: string;
+  mediaLibrary:
+    | {
+        kind: "project_local";
+        libraryId: string;
+      }
+    | {
+        kind: "unconfigured";
+      };
+  sessions: ShootSession[];
+}
+export interface ShootSession {
+  id: string;
+  name: string;
+  frozenPrompter: PrompterExportReference;
+  processingProfileVersion: string;
+  sources: ShootSource[];
+}
+export interface PrompterExportReference {
+  sourceDocument: DocumentReference;
+  prompterExportSha256: string;
+  beatMapSha256: string;
+}
+export interface ShootSource {
+  id: string;
+  mediaHash: string;
+  byteSize: number;
+  safeDisplayName: string;
+  locator?: SourceLocator;
+  inspection: SourceInspection;
+  authorization: "authorized_local";
+  status: "ready";
+  relinkHistory: RelinkEvidence[];
+}
+export interface SourceLocator {
+  libraryId: string;
+  relativePath: string;
+}
+export interface SourceInspection {
+  formatName: string;
+  durationMs: number;
+  /**
+   * @minItems 1
+   */
+  videoStreams: [VideoStreamInspection, ...VideoStreamInspection[]];
+  audioStreams: AudioStreamInspection[];
+}
+export interface VideoStreamInspection {
+  codec: string;
+  width: number;
+  height: number;
+  frameRate: string;
+  timecode: string | null;
+  colorMetadata: {
+    space: string | null;
+    transfer: string | null;
+    primaries: string | null;
+    range: string | null;
+  };
+}
+export interface AudioStreamInspection {
+  codec: string;
+  channels: number;
+  layout: string | null;
+  sampleRate: number;
+}
+export interface RelinkEvidence {
+  locator: SourceLocator;
+  mediaHash: string;
+  observedAt: string;
+}
+export interface LocalSourceHandoffInventoryV1 {
+  schemaVersion: "local-source-handoff-inventory/v1";
+  projectId: string;
+  sessionId: string;
+  sources: ShootSource[];
 }

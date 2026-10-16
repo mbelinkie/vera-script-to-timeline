@@ -39,6 +39,7 @@ const v1SchemaFiles = [
   "public-page-capture-worker-v1.schema.json",
   "public-page-capture-provenance-v1.schema.json",
   "spotlight-evidence-v1.schema.json",
+  "shoot-registration-v1.schema.json",
 ];
 const v2SchemaFiles = [
   "script-document-v2.schema.json",
@@ -66,6 +67,11 @@ const typeScriptGroups = [
       ["publicPageCaptureWorker", v1SchemaFiles[10]],
       ["publicPageCaptureProvenance", v1SchemaFiles[11]],
       ["spotlightEvidence", v1SchemaFiles[12]],
+      ["shootRegistration", v1SchemaFiles[13]],
+      [
+        "localSourceHandoffInventory",
+        v1SchemaFiles[13] + "#/$defs/LocalSourceHandoffInventoryV1",
+      ],
     ],
     requiredRoots: [
       "scriptDocument",
@@ -77,6 +83,8 @@ const typeScriptGroups = [
       "alignmentArtifact",
       "scriptReconciliation",
       "portRefusal",
+      "shootRegistration",
+      "localSourceHandoffInventory",
     ],
   },
   {
@@ -114,6 +122,7 @@ const pythonGroups = [
       ["public_page_capture_worker_v1_schema", "PublicPageCaptureWorkerV1"],
       ["public_page_capture_provenance_v1_schema", "PublicPageCaptureProvenanceV1"],
       ["spotlight_evidence_v1_schema", "SpotlightEvidenceV1"],
+      ["shoot_registration_v1_schema", "ShootRegistrationProjectV1"],
     ],
   },
   {

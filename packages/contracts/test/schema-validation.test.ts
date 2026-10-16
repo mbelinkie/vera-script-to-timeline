@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import {
   validBuildReport,
   validCompilerDependencies,
+  validShootRegistration,
   validScriptDocument,
   validTimelineManifest,
 } from "./samples.js";
@@ -23,6 +24,7 @@ const schemaPaths = [
   "contracts/timeline-manifest-v1.schema.json",
   "contracts/build-report-v1.schema.json",
   "contracts/compiler-dependencies-v1.schema.json",
+  "contracts/shoot-registration-v1.schema.json",
 ] as const;
 
 const schemas: AnySchemaObject[] = schemaPaths.map((relativePath) => {
@@ -45,6 +47,9 @@ const validators = {
   report: ajv.getSchema("https://schemas.vera.video/contracts/build-report-v1.schema.json"),
   dependencies: ajv.getSchema(
     "https://schemas.vera.video/contracts/compiler-dependencies-v1.schema.json",
+  ),
+  shootRegistration: ajv.getSchema(
+    "https://schemas.vera.video/contracts/shoot-registration-v1.schema.json",
   ),
 };
 
@@ -74,10 +79,20 @@ describe("contract schemas", () => {
     ["TimelineManifest", validators.manifest, validTimelineManifest],
     ["BuildReport", validators.report, validBuildReport],
     ["CompilerDependencies", validators.dependencies, validCompilerDependencies],
+    ["ShootRegistration", validators.shootRegistration, validShootRegistration],
   ])("accepts a representative %s v1 instance", (_name, validate, value) => {
     expect(validate?.(value), JSON.stringify(validate?.errors, null, 2)).toBe(
       true,
     );
+  });
+
+  it("rejects absolute local roots and locators from shared shoot records", () => {
+    const invalid = structuredClone(validShootRegistration);
+    invalid.sessions[0]!.sources[0]!.locator.relativePath = "/Users/private/master.mov";
+    expectInvalid(validators.shootRegistration!, invalid, {
+      keyword: "pattern",
+      instancePath: "/sessions/0/sources/0/locator/relativePath",
+    });
   });
 
   it("rejects unknown ScriptDocument properties", () => {

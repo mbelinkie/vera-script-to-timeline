@@ -13,7 +13,8 @@
     "./compiler-core-v2": "./src/compiler-core-v2.ts",
     "./prompter-export": "./src/prompter-export.ts",
     "./template-library": "./src/template-library.ts",
-    "./ev24-lower-third": "./src/ev24-lower-third.ts"
+    "./ev24-lower-third": "./src/ev24-lower-third.ts",
+    "./shoot-registration": "./src/shoot-registration.ts"
   },
   "scripts": {
     "lint": "eslint src test --max-warnings=0",
