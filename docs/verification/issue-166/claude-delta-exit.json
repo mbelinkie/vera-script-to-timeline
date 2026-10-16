@@ -1,0 +1,28 @@
+{
+  "exitCode": 0,
+  "elapsedSeconds": 87.5,
+  "candidate": "74013ee9307c922264a54b803311a7d3a426981c",
+  "command": [
+    "claude",
+    "-p",
+    "--safe-mode",
+    "--tools",
+    "Read,Grep,Glob",
+    "--allowedTools",
+    "Read,Grep,Glob",
+    "--permission-mode",
+    "plan",
+    "--strict-mcp-config",
+    "--mcp-config",
+    "/var/folders/j8/dqmyr6_56t372cwn6c9z991r0000gn/T/vera-166-review-3a7ik4zk/mcp.json",
+    "--disable-slash-commands",
+    "--no-chrome",
+    "--no-session-persistence",
+    "--setting-sources",
+    "",
+    "--output-format",
+    "json",
+    "--system-prompt",
+    "You are an independent adversarial reviewer. Read only the supplied sanitized packet. Never mutate files, run commands, access network or private material, or delegate. Return a concrete review, not an approval request."
+  ]
+}

@@ -1,0 +1,186 @@
+{
+  "candidate": "d9eef4e3fcb22af4379b1e13a9ff5287f16cc209",
+  "baseline": "22f65c4f2b4ff61e7b08f530cdda3d92fea11d08",
+  "result": "PASS",
+  "checks": [
+    "docs-only frozen-boundary confinement",
+    "git diff baseline candidate --check",
+    "local and pinned Git source link targets",
+    "accepted source revisions and ancestry",
+    "exact #7 revision pattern and main v2 source/diagnostic interface consistency",
+    "qualified cloud policy byte-identical section",
+    "synthetic example arithmetic",
+    "v2 dependency hash and three named original graphic fixture inventories",
+    "all retained JSON parses",
+    "Markdown table delimiters"
+  ],
+  "changedFiles": [
+    "docs/VERIFICATION_POLICY.md",
+    "docs/design/issue-166-derived-graphic-provenance.md",
+    "docs/plans/issue-166-derived-graphic-provenance.md",
+    "docs/plans/issue-166-proposed-contract-change.md",
+    "docs/verification/issue-166/README.md",
+    "docs/verification/issue-166/candidate.patch.gz",
+    "docs/verification/issue-166/claude-delta-exit.json",
+    "docs/verification/issue-166/claude-delta-prompt.md",
+    "docs/verification/issue-166/claude-delta-result.json",
+    "docs/verification/issue-166/claude-delta-stderr.txt",
+    "docs/verification/issue-166/claude-delta.patch.gz",
+    "docs/verification/issue-166/claude-dispositions.md",
+    "docs/verification/issue-166/claude-exit.json",
+    "docs/verification/issue-166/claude-prompt.md",
+    "docs/verification/issue-166/claude-result.json",
+    "docs/verification/issue-166/claude-stderr.txt",
+    "docs/verification/issue-166/focused-checks.json",
+    "docs/verification/issue-166/provenance-core-inbox.md",
+    "docs/verification/issue-166/review-packet.json"
+  ],
+  "artifactByteHashes": {
+    "docs/design/issue-166-derived-graphic-provenance.md": "sha256:b91ab157da0be679f6759ad57ed65fddce94af31a0aa96e0c44eec77182eb526",
+    "docs/plans/issue-166-proposed-contract-change.md": "sha256:7b3949440d81e955a1306aeb1de0eed7990539619aed1b60c040295cd4d20716",
+    "docs/plans/issue-166-derived-graphic-provenance.md": "sha256:61c22f129342583e5de7ff2a4c9bf584fc05513c78283abfd4007b9565c12396",
+    "docs/VERIFICATION_POLICY.md": "sha256:fddd80b73b0a7389a0ca797e9c0282a53db81571b830c0cf10552b36ec84a4ca"
+  },
+  "links": [
+    {
+      "from": "docs/VERIFICATION_POLICY.md",
+      "target": "verification/issue-196/GO-NO-GO.md",
+      "verified": "local exists"
+    },
+    {
+      "from": "docs/design/issue-166-derived-graphic-provenance.md",
+      "target": "../plans/issue-166-proposed-contract-change.md",
+      "verified": "local exists"
+    },
+    {
+      "from": "docs/design/issue-166-derived-graphic-provenance.md",
+      "target": "https://github.com/mbelinkie/vera-script-to-timeline/blob/22f65c4f2b4ff61e7b08f530cdda3d92fea11d08/docs/Script-to-Timeline%20Product%20Spec%20-%20Fable%20Rev2.md",
+      "verified": "git object exists"
+    },
+    {
+      "from": "docs/design/issue-166-derived-graphic-provenance.md",
+      "target": "https://github.com/mbelinkie/vera-script-to-timeline/blob/e72aa2436fa49d6b256b7cf811d5c1dea39120c3/docs/investigations/issue-24-representative-script-coverage.md",
+      "verified": "git object exists"
+    },
+    {
+      "from": "docs/design/issue-166-derived-graphic-provenance.md",
+      "target": "https://github.com/mbelinkie/vera-script-to-timeline/blob/7cb942e4d9b8d75d87ae6adc8aac97fba5d5d6ab/docs/plans/issue-7-fusion-graphics-contract-change.md",
+      "verified": "git object exists"
+    },
+    {
+      "from": "docs/design/issue-166-derived-graphic-provenance.md",
+      "target": "https://github.com/mbelinkie/vera-script-to-timeline/blob/951c658bf06fc9b06caeab88c9d43809c41cef94/packages/contracts/src/template-library.ts",
+      "verified": "git object exists"
+    },
+    {
+      "from": "docs/design/issue-166-derived-graphic-provenance.md",
+      "target": "https://github.com/mbelinkie/vera-script-to-timeline/blob/75029de57baa594d3dfc7f509a09cfc21943e088/docs/investigations/issue-147-completion-roadmap-audit.md",
+      "verified": "git object exists"
+    },
+    {
+      "from": "docs/design/issue-166-derived-graphic-provenance.md",
+      "target": "../plans/curated-fusion-graphics.md",
+      "verified": "local exists"
+    },
+    {
+      "from": "docs/design/issue-166-derived-graphic-provenance.md",
+      "target": "../plans/issue-24-representative-script-content-model-audit.md",
+      "verified": "local exists"
+    },
+    {
+      "from": "docs/design/issue-166-derived-graphic-provenance.md",
+      "target": "../IMPLEMENTATION_PROGRESS.md",
+      "verified": "local exists"
+    },
+    {
+      "from": "docs/design/issue-166-derived-graphic-provenance.md",
+      "target": "../plans/issue-166-proposed-contract-change.md",
+      "verified": "local exists"
+    },
+    {
+      "from": "docs/plans/issue-166-derived-graphic-provenance.md",
+      "target": "../design/issue-166-derived-graphic-provenance.md",
+      "verified": "local exists"
+    },
+    {
+      "from": "docs/plans/issue-166-derived-graphic-provenance.md",
+      "target": "issue-166-proposed-contract-change.md",
+      "verified": "local exists"
+    },
+    {
+      "from": "docs/plans/issue-166-proposed-contract-change.md",
+      "target": "../design/issue-166-derived-graphic-provenance.md",
+      "verified": "local exists"
+    },
+    {
+      "from": "docs/verification/issue-166/README.md",
+      "target": "../../design/issue-166-derived-graphic-provenance.md",
+      "verified": "local exists"
+    },
+    {
+      "from": "docs/verification/issue-166/README.md",
+      "target": "../../plans/issue-166-proposed-contract-change.md",
+      "verified": "local exists"
+    },
+    {
+      "from": "docs/verification/issue-166/README.md",
+      "target": "../../plans/issue-166-derived-graphic-provenance.md",
+      "verified": "local exists"
+    },
+    {
+      "from": "docs/verification/issue-166/README.md",
+      "target": "provenance-core-inbox.md",
+      "verified": "local exists"
+    },
+    {
+      "from": "docs/verification/issue-166/claude-dispositions.md",
+      "target": "claude-prompt.md",
+      "verified": "local exists"
+    },
+    {
+      "from": "docs/verification/issue-166/claude-dispositions.md",
+      "target": "candidate.patch.gz",
+      "verified": "local exists"
+    },
+    {
+      "from": "docs/verification/issue-166/claude-dispositions.md",
+      "target": "claude-result.json",
+      "verified": "local exists"
+    },
+    {
+      "from": "docs/verification/issue-166/claude-dispositions.md",
+      "target": "claude-exit.json",
+      "verified": "local exists"
+    }
+  ],
+  "suiteDisposition": "Documentation-only gate. package.json validate targets, contract-generator inputs and TypeScript/Python source discovery do not consume these Markdown/review evidence files. No executable/config/check inputs changed; no full or fast application suite run.",
+  "reviewedCandidate": "d9eef4e3fcb22af4379b1e13a9ff5287f16cc209",
+  "postReviewSourceDelta": "CN-166-P1 only: escape two literal Markdown table union delimiters; identical enum and prose. Evidence/status records added.",
+  "linksVerifiedAtFinalHandoff": 32,
+  "finalChangedFiles": [
+    "docs/VERIFICATION_POLICY.md",
+    "docs/design/issue-166-derived-graphic-provenance.md",
+    "docs/plans/issue-166-derived-graphic-provenance.md",
+    "docs/plans/issue-166-proposed-contract-change.md",
+    "docs/verification/issue-166/README.md",
+    "docs/verification/issue-166/candidate.patch.gz",
+    "docs/verification/issue-166/claude-delta-exit.json",
+    "docs/verification/issue-166/claude-delta-prompt.md",
+    "docs/verification/issue-166/claude-delta-result.json",
+    "docs/verification/issue-166/claude-delta-stderr.txt",
+    "docs/verification/issue-166/claude-delta.patch.gz",
+    "docs/verification/issue-166/claude-dispositions.md",
+    "docs/verification/issue-166/claude-exit.json",
+    "docs/verification/issue-166/claude-final-delta.patch.gz",
+    "docs/verification/issue-166/claude-final-exit.json",
+    "docs/verification/issue-166/claude-final-prompt.md",
+    "docs/verification/issue-166/claude-final-result.json",
+    "docs/verification/issue-166/claude-final-stderr.txt",
+    "docs/verification/issue-166/claude-prompt.md",
+    "docs/verification/issue-166/claude-result.json",
+    "docs/verification/issue-166/claude-stderr.txt",
+    "docs/verification/issue-166/focused-checks.json",
+    "docs/verification/issue-166/provenance-core-inbox.md",
+    "docs/verification/issue-166/review-packet.json"
+  ]
+}
