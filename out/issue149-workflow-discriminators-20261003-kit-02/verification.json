@@ -1,0 +1,71 @@
+{
+  "taskId": "/root/discriminator_verify",
+  "scope": "offline verifier for Issue 149 Workflow Integration W3/W6 discriminator follow-ups",
+  "worktree": "REPOSITORY",
+  "status": "offline-gates-passed-native-pending",
+  "nativeActionsPerformed": false,
+  "nativeEvidenceReviewed": false,
+  "frozenSourceHashes": {
+    "harness.py": "5663ec6cd01ae119846281d384b4db02faa82ca508890a80b952324c314fe24a",
+    "launcher.py": "a605b875e0755151e1fa03e91a61612fecbf5058f3fb12a67ac6216e6536e2e9",
+    "dispatch.py": "47534d06e5742e0875b63085072ac983d7b27b5d708b1954a2ed6e00c362224b",
+    "hammerspoon-launch.lua": "31fa92f6ede8a29d82ab4dfa227a8e39ab6be5fb950e022afa0424bc226565fb",
+    "console-render.py": "2946c63991c07b16e3c7af68389f1379fe433789cb95043ee9df045f0cfd880f"
+  },
+  "commands": [
+    {
+      "command": "python3.14 -S docs/investigations/issue-149/workflow-discriminators/harness-check.py",
+      "result": "passed",
+      "nativeApplicationLaunched": false
+    },
+    {
+      "command": "python3.14 -S docs/investigations/issue-149/workflow-discriminators/discriminator-check.py",
+      "result": "passed",
+      "nativeApplicationLaunched": false
+    }
+  ],
+  "fixturePreflight": {
+    "path": "out/issue149-workflow-discriminators-20261003-kit-02/fixture-preflight.md",
+    "sameLayoutReplacementHasAudio": true,
+    "replacementAudioChannels": 1,
+    "baseFrames": 400,
+    "fps": 25,
+    "sampleRate": 48000
+  },
+  "requiredNativeCases": [
+    "D6-kept atomic replacement with preserved mtime, RelinkClips, render",
+    "D6-changed atomic replacement with new mtime, RelinkClips, render",
+    "D3-direct never-rendered timeline, Workflow Integration mute and render",
+    "D3-console Workflow Integration mute, operator Console render",
+    "D3-operator Workflow Integration mute, operator Fairlight/page or playback, Workflow Integration render"
+  ],
+  "verifiedGuards": [
+    "External Scripting None attestation and exact project/output guards",
+    "Workflow Integration injected-object path with no scriptapp fallback",
+    "documented SetCurrentRenderMode and fixed render settings",
+    "single-dispatch receipt, disarm, attribution, and no retry",
+    "complete snapshot and journal shape",
+    "W3 target-only mapping delta and exact restore guard",
+    "W6 same-layout mono-audio replacement guard"
+  ],
+  "consoleHelper": {
+    "path": "docs/investigations/issue-149/workflow-discriminators/console-render.py",
+    "sha256": "2946c63991c07b16e3c7af68389f1379fe433789cb95043ee9df045f0cfd880f",
+    "injectedObjectOnly": true,
+    "sourceMappingUntouched": true,
+    "capturesFullPair": true,
+    "startsAndPollsSameReturnedJob": true,
+    "usesDocumentedRenderMethod": "SetCurrentRenderMode"
+  },
+  "limitations": [
+    "No native Resolve or operator action was performed by this verifier.",
+    "No W3 pilot, number-word, render hash, or snapshot result is available yet.",
+    "No W6 decoded source-id or modified-time result is available yet."
+  ],
+  "sourceReferences": [
+    "docs/investigations/issue-149/workflow-discriminators/task-brief.md",
+    "docs/investigations/issue-149/workflow-discriminators/evidence-review.md",
+    "docs/investigations/issue-149/codex-rerun.md",
+    "out/issue149-workflow-discriminators-20261003-kit-02/fixture-preflight.md"
+  ]
+}

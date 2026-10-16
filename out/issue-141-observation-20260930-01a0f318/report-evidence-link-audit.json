@@ -1,0 +1,93 @@
+{
+  "kind": "issue-141-report-opening-evidence-link-audit-v1",
+  "status": "audit-complete-actionable-findings",
+  "scope": {
+    "reportOpening": "docs/investigations/issue-141/report.md lines 1-34",
+    "comparedEvidence": "Compact retained R1-R5 review artifacts and the newest audio-mapping restore, held-render completion, and PCM comparison summaries.",
+    "protectedMediaBytesRead": false,
+    "reportModified": false,
+    "dashboardModified": false
+  },
+  "evidenceFiles": [
+    {
+      "path": "out/issue-141-observation-20260930-01a0f318/r1-copy-paste-delta-review.json",
+      "sha256": "46d0c1430a2b81fd53a53905fe0d7fd835ef7dc8070fe9be0576d29db978c1b6",
+      "finding": "Copy/Paste creates new reciprocal linked UIDs; the retained comparison also records Source Usage +1 and four Matrix pool Out clearings. The opening row's phrase 'retain occurrence/source IDs' can be read as preserving the original IDs; its next row gives the more precise new-ID and clearing facts."
+    },
+    {
+      "path": "out/issue-141-observation-20260930-01a0f318/graphic-full-pair-independent-review.json",
+      "sha256": "3110dd254f4410e74e573383de138c59b5a2c1a8e338fba9c02b775ad655f556",
+      "finding": "R3 Graphic structural result is supported; preserve its explicit caveat that the restore wrapper reported final-readback-refused-or-mismatched while the retained final context pair matched the split pair. No program-visibility inference is supported."
+    },
+    {
+      "path": "out/issue-141-observation-20260930-01a0f318/r4-offline-prefix-comparison.json",
+      "sha256": "acdb6f00bbe1e465b633de8d79413a3d2f91721c9d0b341a85aa14930dd93ea4",
+      "finding": "Retains the bounded offline-versus-present state delta; use with the separate same-byte relink and wrong-byte mismatch evidence rather than generalizing to arbitrary relink behavior."
+    },
+    {
+      "path": "out/issue-141-observation-20260930-01a0f318/r4-recovery-independent-comparison.json",
+      "sha256": "08b38911580d9a7ddefdc491510aa1212161a495c2136f3880f4e654f1702a4b",
+      "finding": "Supports the bounded live relink/restoration claim; other R4 wrong-byte evidence records actual SHA 771b4bbbe771b980831e0a7b6d93ef11e1315cd995df22c5c7fbf7c2bf62c88b versus expected c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942."
+    },
+    {
+      "path": "out/issue-141-observation-20260930-01a0f318/r5-independent-fresh-comparison-20261001T181642Z.json",
+      "sha256": "cf0704b9582f24060dd7ce9837c74d676b0c3388cb763762ac84c73537ea452c",
+      "finding": "Supports the specific linked one-frame move in both stable fresh passes. It explicitly retains unrelated context changes and an omitted audio GetProperties field; do not summarize as all-fields-identical or atomic."
+    },
+    {
+      "path": "out/issue-141-observation-20260930-01a0f318/r5-fresh-move-review.json",
+      "sha256": "48b5505c6ab0cae0345653867085f6d06fde01a2e03fec87887c70d0d6d6641d",
+      "finding": "Earlier 14:22 capture was inconsistent and lacked pool passes; this is superseded by the later 18:16 producer-confirmed stable comparison above. Do not use its manual-move-unverified status as current."
+    },
+    {
+      "path": "out/issue-141-observation-20260930-01a0f318/pcm-r2-independent-completion-review.json",
+      "sha256": "ff7ed203d8f14c627d853eb9b7a571eca11850de6f9545e3723ac588290c3cb2",
+      "finding": "Supports six bounded R2 edit/output observations and their waveform limits. The summary is tied to the October 1 render; it does not replace the newer held-mute render evidence."
+    },
+    {
+      "path": "out/issue-141-observation-20260930-01a0f318/audio-mapping-restore-summary.json",
+      "sha256": "e2c00b2945e96eaea265b4ecbb4b8e489eae0bf0d0dba07b49a4a46e97599f9c",
+      "finding": "Newest restore evidence binds held result SHA c70a29b0dc7efc4245e57f2929750fc64d342f7611a9609dcc7916ccbc864425, target UID f4e9f649-894a-42f2-9f54-a8321ae7c163, targetMute=false, and restored/original pair SHA d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14."
+    },
+    {
+      "path": "out/issue-141-observation-20260930-01a0f318/mute-render-existing-job-completion-summary.json",
+      "sha256": "4160535fe3bdc58ccded79ed5649cffe1648eedb56f1384d865ff47ad1b25057",
+      "finding": "Verified held render is Complete/100%; MOV SHA 7c69f239a3a8e08f5617c4e72f843c345d91bf3baef813f7c43501efccbcbbf4; render-time full pair SHA a171acbb58b84753b624b316230455e4b59b78a32e55fdcf04c72c3095292cd3. This render state is distinct from the subsequent restored pair."
+    },
+    {
+      "path": "out/issue-141-observation-20260930-01a0f318/mute-pcm-comparison-result.json",
+      "sha256": "175c7b3d82c0d6e5cff1cf335e034c723201915fc3649bff88a342affe099262",
+      "finding": "The comparison UID matches the authoritative held UID; baseline and extracted WAV hashes are exactly equal. However, target.heldResultPath points to cli-mute-native-once-result-reviewed.json (the earlier one-shot roundtrip), not the actual held result at audio-mapping-mute-20261002T020031.880586Z/result.json with SHA c70a29b0dc7efc4245e57f2929750fc64d342f7611a9609dcc7916ccbc864425. This is a broken provenance link; waveform measurements remain supported by the WAV hashes and completed render binding."
+    }
+  ],
+  "actionableFindings": [
+    {
+      "severity": "high",
+      "location": "out/issue-141-observation-20260930-01a0f318/mute-pcm-comparison-result.json target.heldResultPath",
+      "issue": "Held-result path names the earlier roundtrip artifact, not the source-mapping-mute hold result verified by the newest restore summary.",
+      "correctReference": "out/issue-141-observation-20260930-01a0f318/audio-mapping-mute-20261002T020031.880586Z/result.json",
+      "correctSha256": "c70a29b0dc7efc4245e57f2929750fc64d342f7611a9609dcc7916ccbc864425"
+    },
+    {
+      "severity": "high",
+      "location": "docs/investigations/issue-141/report.md around line 312; docs/investigations/issue-141/operator-checklist.md line 435",
+      "issue": "Current-looking status text still says held-mute program output is pending and R2-offset output/audio evidence is pending. New completed-render and PCM comparison records supersede those statuses. The held mapping test completed with byte-identical output, which means the flag did not establish program-speech mute in this case; Fairlight Solo/routing remain pending."
+    },
+    {
+      "severity": "medium",
+      "location": "docs/investigations/issue-141/report.md and docs/investigations/issue-141/operator-record.md R2-derived-end entry near lines 1354 and 1253",
+      "issue": "The derived-end note says sample precision and omission await PCM/routing evidence, although PCM output analysis has since completed. The derived-end review remains unsupported for native sample-accurate acceptance; wording should distinguish completed bounded PCM evidence from still-unproved endpoint convention and complete omission."
+    },
+    {
+      "severity": "medium",
+      "location": "docs/investigations/issue-141/report.md opening R1 summary",
+      "issue": "'Copy/Paste retain occurrence/source IDs' risks implying copied occurrences reuse original UIDs. Retained Copy/Paste evidence shows new linked child UIDs and separately records inherited markers, Usage +1 and four pool Out clearings. The detailed R1 row clarifies this; keep the opening wording aligned."
+    }
+  ],
+  "supportedClaimBoundaries": [
+    "The held mapping was true during the completed render; the extracted PCM24 stereo WAV hash equals the unmuted baseline hash exactly. This supports identical output samples for this build/case, not a universal mapping API failure.",
+    "The restored state has targetMute=false and its complete pair hash equals the held operation's original pair hash. Render-time pair and post-restore pair are different phases and have different hashes.",
+    "R2-derived-end remains unsupported for native sample-accurate endpoint acceptance. The existence of PCM evidence does not prove generalized endpoint semantics, complete word omission, routing, or audibility.",
+    "October 1 sections explicitly dated as pending PCM are historical records; preserve chronology. Current-looking undated status tables are the stale items requiring reconciliation."
+  ]
+}

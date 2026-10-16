@@ -1,0 +1,120 @@
+{
+  "status": "affected-runtime-pass-not-full-acceptance",
+  "source": "f04eb4b6f6d6fbc921bc7ffea5436bf36e4765f8",
+  "combinedCases": 39,
+  "coverage": {
+    "runtime11UnchangedPublic": 3,
+    "runtime12": 36,
+    "skips": 0
+  },
+  "equivalence": {
+    "materialChangesFromRuntime11": [
+      "tests/test_issue192_proof.py"
+    ],
+    "postRuntime12MaterialChanges": [],
+    "generatedBytecodeChangesFromRuntime11": [
+      "python/vera_timeline_agent/__pycache__/roundtrip_v2_revised_build.cpython-312.pyc",
+      "tests/__pycache__/test_issue192_proof.cpython-312-pytest-9.1.1.pyc",
+      "tests/__pycache__/test_issue192_public_path.cpython-312-pytest-9.1.1.pyc"
+    ],
+    "sameToolchainEnvironment": true,
+    "comparison": "all captured source/test/config/lock/contract inputs; raw JSON receipts retain complete inventories"
+  },
+  "records": [
+    {
+      "receipt": "out/issue192/runtime-11/complete.json",
+      "receiptSha256": "4ec0ce08917f3c617f79b707dc599587366fff38d2697a14a084f655e43ba4ad",
+      "source": "578c8d71c994cba2ba74dd298d31edcd3e0bebd1",
+      "command": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "-x",
+        "--durations=25",
+        "tests/test_issue192_public_path.py",
+        "tests/test_issue192_proof.py",
+        "tests/test_issue190_native.py::test_public_delivery_once_and_readonly_recovery",
+        "tests/test_issue190_native.py::test_copied_or_drifted_delivery_records_refuse_recovery",
+        "tests/test_issue190_native.py::test_fractional_public_delivery_refusal_precedes_adapter_creation",
+        "tests/test_issue190_native.py::test_capture_drift_refuses_without_evidence_or_render"
+      ],
+      "node": "v24.19.0",
+      "nodeSha256": "1052eb9c7d6c60a79b968e09f75af55a73462b0f6dff0964336d63b5e13eb63c",
+      "tools": {
+        "/Users/matthewbelinkie/.local/bin/uv": {
+          "binary": "/Users/matthewbelinkie/.local/bin/uv",
+          "sha256": "9f810c3f3ea6b29f5e02b03acb0dcff74f516d4c24b91cd5491f172829e5c9e4",
+          "version": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)"
+        },
+        ".venv/bin/python": {
+          "binary": "/Users/matthewbelinkie/.local/share/uv/python/cpython-3.12.14-macos-x86_64-none/bin/python3.12",
+          "sha256": "a8e10ff8d348800219a8f1f2bb04f5b7d2d62a34f9656cad5520f10560f8df35",
+          "version": "Python 3.12.14"
+        },
+        ".venv/bin/ruff": {
+          "binary": "/Users/matthewbelinkie/.codex/worktrees/f5f4/VERA Script to Timeline/.venv/bin/ruff",
+          "sha256": "40a2ecbb65bcf18e99b424b60eeccaad58a6b35608341b6b64f426e02f54c233",
+          "version": "ruff 0.16.4"
+        },
+        ".venv/bin/mypy": {
+          "binary": "/Users/matthewbelinkie/.codex/worktrees/f5f4/VERA Script to Timeline/.venv/bin/mypy",
+          "sha256": "b9ea015568aac93e2bc0c9630de8be3ebc63d1e0202a524af4c148659cd4e8e6",
+          "version": "mypy 2.3.1 (compiled: no)"
+        }
+      },
+      "PATH": "/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/Users/matthewbelinkie/.local/bin:/usr/local/bin:/usr/bin:/bin",
+      "exitCode": 1,
+      "signal": null,
+      "startedAt": "2026-10-14T08:34:43.275Z",
+      "finishedAt": "2026-10-14T08:43:25.642Z",
+      "logSha256": "a10958c29456e3d6348e3ce935618d75c4e86f655d26c0e89016235cb5589b89"
+    },
+    {
+      "receipt": "out/issue192/runtime-12/complete.json",
+      "receiptSha256": "ec7d823a02bbad2aee037b1e9d28f850f5f033ca26e33549b386d694f258af0e",
+      "source": "f04eb4b6f6d6fbc921bc7ffea5436bf36e4765f8",
+      "command": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "-x",
+        "--durations=25",
+        "tests/test_issue192_proof.py",
+        "tests/test_issue190_native.py::test_public_delivery_once_and_readonly_recovery",
+        "tests/test_issue190_native.py::test_copied_or_drifted_delivery_records_refuse_recovery",
+        "tests/test_issue190_native.py::test_fractional_public_delivery_refusal_precedes_adapter_creation",
+        "tests/test_issue190_native.py::test_capture_drift_refuses_without_evidence_or_render"
+      ],
+      "node": "v24.19.0",
+      "nodeSha256": "1052eb9c7d6c60a79b968e09f75af55a73462b0f6dff0964336d63b5e13eb63c",
+      "tools": {
+        "/Users/matthewbelinkie/.local/bin/uv": {
+          "binary": "/Users/matthewbelinkie/.local/bin/uv",
+          "sha256": "9f810c3f3ea6b29f5e02b03acb0dcff74f516d4c24b91cd5491f172829e5c9e4",
+          "version": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)"
+        },
+        ".venv/bin/python": {
+          "binary": "/Users/matthewbelinkie/.local/share/uv/python/cpython-3.12.14-macos-x86_64-none/bin/python3.12",
+          "sha256": "a8e10ff8d348800219a8f1f2bb04f5b7d2d62a34f9656cad5520f10560f8df35",
+          "version": "Python 3.12.14"
+        },
+        ".venv/bin/ruff": {
+          "binary": "/Users/matthewbelinkie/.codex/worktrees/f5f4/VERA Script to Timeline/.venv/bin/ruff",
+          "sha256": "40a2ecbb65bcf18e99b424b60eeccaad58a6b35608341b6b64f426e02f54c233",
+          "version": "ruff 0.16.4"
+        },
+        ".venv/bin/mypy": {
+          "binary": "/Users/matthewbelinkie/.codex/worktrees/f5f4/VERA Script to Timeline/.venv/bin/mypy",
+          "sha256": "b9ea015568aac93e2bc0c9630de8be3ebc63d1e0202a524af4c148659cd4e8e6",
+          "version": "mypy 2.3.1 (compiled: no)"
+        }
+      },
+      "PATH": "/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/Users/matthewbelinkie/.local/bin:/usr/local/bin:/usr/bin:/bin",
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T08:50:18.793Z",
+      "finishedAt": "2026-10-14T08:53:28.552Z",
+      "logSha256": "ef11c23c57af2964129257a08655cac8a6d4160a349ec238fc63daeb85d93eea"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "detail": "RuntimeError: Current project is not the prepared baseline-only state",
+  "instruction": "Retain evidence and stop. Do not rerun preparation or change scripting mode.",
+  "status": "launcher-failed"
+}

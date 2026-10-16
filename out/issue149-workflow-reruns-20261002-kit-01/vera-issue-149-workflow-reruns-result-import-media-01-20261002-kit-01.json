@@ -1,0 +1,24 @@
+{
+  "action": "import-media",
+  "actionId": "import-media-01-20261002-kit-01",
+  "configSha256": "69fe0f21bdb7909d1a1b0be63780c2e72c1368a9ca2db9b802217de3b9c1fa1e",
+  "error": {
+    "message": "ImportMedia did not return exactly the hash-pinned files",
+    "type": "HarnessError"
+  },
+  "journal": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/evidence/import-media-01-20261002-kit-01/journal.jsonl",
+  "launcher": "workflow-injected",
+  "partialState": {
+    "itemUids": [],
+    "mediaUids": [],
+    "projectUid": "1a05ff3a-8b04-43e3-95ab-c970b93b6415",
+    "timelineUids": [],
+    "timelines": []
+  },
+  "phase": "import-media-01",
+  "preSnapshot": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/evidence/import-media-01-20261002-kit-01/pre.json",
+  "progress": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-progress-import-media-01-20261002-kit-01.jsonl",
+  "schemaVersion": "issue-149-workflow-reruns-v1",
+  "stateId": "checkpoint01",
+  "status": "failure"
+}

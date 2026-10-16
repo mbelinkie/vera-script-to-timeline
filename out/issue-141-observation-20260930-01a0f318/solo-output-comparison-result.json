@@ -1,0 +1,418 @@
+{
+  "baseline": {
+    "format": {
+      "channels": 2,
+      "compression": "NONE",
+      "frames": 17664000,
+      "sampleRateHz": 48000,
+      "sampleWidthBytes": 3
+    },
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/pcm-real-render-20261001T235643.512549Z.wav",
+    "sha256": "d2581dc047a348a104821cbd53c7b84e4a47b80fd4443ebf52f6fbd3382362a7"
+  },
+  "controls": {
+    "A1-only speech control": {
+      "baselinePerChannel": [
+        {
+          "channel": 1,
+          "frames": 17048,
+          "peak": 0.73870849609375,
+          "rms": 0.1327658481919228
+        },
+        {
+          "channel": 2,
+          "frames": 17048,
+          "peak": 0.73870849609375,
+          "rms": 0.1327658481919228
+        }
+      ],
+      "recordFrames": [
+        2260,
+        2269
+      ],
+      "sampleRange": [
+        4339210,
+        4356258
+      ],
+      "soloPerChannel": [
+        {
+          "channel": 1,
+          "frames": 17048,
+          "peak": 0.0,
+          "rms": 0.0
+        },
+        {
+          "channel": 2,
+          "frames": 17048,
+          "peak": 0.0,
+          "rms": 0.0
+        }
+      ]
+    },
+    "A2 speech support with A3 bed": {
+      "baselinePerChannel": [
+        {
+          "channel": 1,
+          "frames": 17048,
+          "peak": 0.5281722545623779,
+          "rms": 0.09457784105373414
+        },
+        {
+          "channel": 2,
+          "frames": 17048,
+          "peak": 0.5281722545623779,
+          "rms": 0.09457784105373414
+        }
+      ],
+      "recordFrames": [
+        4560,
+        4569
+      ],
+      "sampleRange": [
+        8755210,
+        8772258
+      ],
+      "soloPerChannel": [
+        {
+          "channel": 1,
+          "frames": 17048,
+          "peak": 0.5229655504226685,
+          "rms": 0.09399101958771947
+        },
+        {
+          "channel": 2,
+          "frames": 17048,
+          "peak": 0.5229655504226685,
+          "rms": 0.09399101958771947
+        }
+      ]
+    },
+    "A3-only track control": {
+      "baselinePerChannel": [
+        {
+          "channel": 1,
+          "frames": 9600,
+          "peak": 0.010802388191223145,
+          "rms": 0.007638621580240596
+        },
+        {
+          "channel": 2,
+          "frames": 9600,
+          "peak": 0.010802388191223145,
+          "rms": 0.007638621580240596
+        }
+      ],
+      "recordFrames": [
+        4065,
+        4070
+      ],
+      "sampleRange": [
+        7804800,
+        7814400
+      ],
+      "soloPerChannel": [
+        {
+          "channel": 1,
+          "frames": 9600,
+          "peak": 0.0,
+          "rms": 0.0
+        },
+        {
+          "channel": 2,
+          "frames": 9600,
+          "peak": 0.0,
+          "rms": 0.0
+        }
+      ]
+    }
+  },
+  "fullProgram": {
+    "meaning": "whole rendered waveform comparison only; no requirement of equality outside a target interval",
+    "pcmSampleFramesExactlyEqual": false,
+    "perChannel": [
+      {
+        "baselineRms": 0.03788206863335432,
+        "channel": 1,
+        "differentSamples": 7323819,
+        "exactEqualSamples": 10340181,
+        "residualRms": 0.03646536365989025,
+        "soloRms": 0.005839942172515474
+      },
+      {
+        "baselineRms": 0.03788206863335432,
+        "channel": 2,
+        "differentSamples": 7323819,
+        "exactEqualSamples": 10340181,
+        "residualRms": 0.03646536365989025,
+        "soloRms": 0.005839942172515474
+      }
+    ],
+    "sampleFramesPerChannel": 17664000
+  },
+  "job": {
+    "jobId": "a6ed7f33-9ad4-4d82-bfac-ff72903f4567",
+    "jobStatus": "Complete",
+    "movBytes": 131423740,
+    "movPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T033005.646357Z/render/vera141-av-20261002T033005.646357Z.mov",
+    "movSha256": "8af6fb6916afa4c1bc674617ad52460928582a3dbc22dd2af8550786bd28020c",
+    "terminalHandoffPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/solo-terminal-handoff-20261002T035122.313956Z.json",
+    "terminalHandoffSha256": "de4b677ca5e494dbc6b6f93394449966b8f421f927321f31196f5cb4c26bc7c9"
+  },
+  "kind": "issue-141-a2-solo-program-pcm-comparison-v1",
+  "limitations": [
+    "Solo state is operator-held UI evidence and is absent from the API readback.",
+    "Bus origin, routing, and final audibility remain unknown.",
+    "Whole-file comparison is descriptive; equality outside any named interval is not required.",
+    "The existing repeated.wav comparator measures waveform correlation only, not deletion or audibility.",
+    "A3 control reports output energy only; it is not bed.wav correlation."
+  ],
+  "operatorState": "A2 Solo on, operator-reported; no output/bus labels visible",
+  "repeatedSourceSupport": {
+    "inputs": {
+      "pair": {
+        "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-context-20261002T031927.605476Z/pair.json",
+        "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14"
+      },
+      "pairBinding": {
+        "poolConsistency": "equal-adjacent-reads",
+        "repeatedItemCount": 46,
+        "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+        "sha256Argument": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+        "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+        "timelineConsistency": "equal-adjacent-reads"
+      },
+      "rendered": {
+        "channels": 2,
+        "frames": 17664000,
+        "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/solo-output-20261002T033005.646357Z.wav",
+        "pcm": "PCM24; channels averaged for comparison",
+        "sampleRateHz": 48000,
+        "sha256": "2add2d9d7fdbc174f155d97786204cc41f4aec7e324d64e1a5ca4b1a412c8eef"
+      },
+      "source": {
+        "channels": 1,
+        "frames": 384000,
+        "path": "REPOSITORY/out/issue-141-media-20260930-01a0f318/repeated.wav",
+        "pcm": "PCM16",
+        "sampleRateHz": 48000,
+        "sha256": "832dd31cc46b9f4b4fdb7cbde18b4edc09ec249885634fba43da2a7b87dc768e"
+      }
+    },
+    "kind": "issue-141-generated-program-pcm-comparison-v1",
+    "limitations": [
+      "Waveform correlation does not establish speech deletion, clip deletion, program visibility, routing, or audibility.",
+      "Only generated repeated.wav and a generated rendered WAV are read; protected presenter metadata may remain in the retained pair.",
+      "Source-support mapping is emitted only for explicit 100% audio speed records.",
+      "A weak/insufficient correlation is unresolved evidence, not a Resolve capability failure."
+    ],
+    "observations": [
+      {
+        "enabled": true,
+        "filename": "repeated.wav",
+        "segments": [
+          {
+            "comparison": {
+              "bestLagSamples": 0,
+              "gain": 0.0,
+              "limits": {
+                "coarseStepSamples": 32,
+                "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                "maxLagSamples": 1920,
+                "strongCorrelationThreshold": 0.8
+              },
+              "renderedEnergy": 0.0,
+              "residualEnergy": 0.0,
+              "sampleCount": 17048,
+              "score": 0.0,
+              "status": "weak-or-ambiguous-correlation"
+            },
+            "recordEndSample": 4356258,
+            "recordStartSample": 4339210,
+            "sourceEndSample": 36258,
+            "sourceStartSample": 19210
+          },
+          {
+            "comparison": {
+              "bestLagSamples": 0,
+              "gain": 0.0,
+              "limits": {
+                "coarseStepSamples": 32,
+                "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                "maxLagSamples": 1920,
+                "strongCorrelationThreshold": 0.8
+              },
+              "renderedEnergy": 0.0,
+              "residualEnergy": 0.0,
+              "sampleCount": 17048,
+              "score": 0.0,
+              "status": "weak-or-ambiguous-correlation"
+            },
+            "recordEndSample": 4452258,
+            "recordStartSample": 4435210,
+            "sourceEndSample": 132258,
+            "sourceStartSample": 115210
+          },
+          {
+            "comparison": {
+              "bestLagSamples": 0,
+              "gain": 0.0,
+              "limits": {
+                "coarseStepSamples": 32,
+                "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                "maxLagSamples": 1920,
+                "strongCorrelationThreshold": 0.8
+              },
+              "renderedEnergy": 0.0,
+              "residualEnergy": 0.0,
+              "sampleCount": 17048,
+              "score": 0.0,
+              "status": "weak-or-ambiguous-correlation"
+            },
+            "recordEndSample": 4548258,
+            "recordStartSample": 4531210,
+            "sourceEndSample": 228258,
+            "sourceStartSample": 211210
+          },
+          {
+            "comparison": {
+              "bestLagSamples": 0,
+              "gain": 0.0,
+              "limits": {
+                "coarseStepSamples": 32,
+                "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                "maxLagSamples": 1920,
+                "strongCorrelationThreshold": 0.8
+              },
+              "renderedEnergy": 0.0,
+              "residualEnergy": 0.0,
+              "sampleCount": 17048,
+              "score": 0.0,
+              "status": "weak-or-ambiguous-correlation"
+            },
+            "recordEndSample": 4644258,
+            "recordStartSample": 4627210,
+            "sourceEndSample": 324258,
+            "sourceStartSample": 307210
+          }
+        ],
+        "speedPercent": 100.0,
+        "status": "compared",
+        "trackEnabled": true,
+        "trackIndex": 1,
+        "uid": "a9175c87-6bc0-4c07-a167-3b7c9de70fba"
+      },
+      {
+        "enabled": true,
+        "filename": "repeated.wav",
+        "segments": [
+          {
+            "comparison": {
+              "bestLagSamples": 0,
+              "gain": 0.7079457621649969,
+              "limits": {
+                "coarseStepSamples": 32,
+                "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                "maxLagSamples": 1920,
+                "strongCorrelationThreshold": 0.8
+              },
+              "renderedEnergy": 150.60734693799475,
+              "residualEnergy": 2.0459723764992025e-11,
+              "sampleCount": 17048,
+              "score": 0.9999999999999319,
+              "status": "strong-correlation"
+            },
+            "recordEndSample": 8676258,
+            "recordStartSample": 8659210,
+            "sourceEndSample": 36258,
+            "sourceStartSample": 19210
+          },
+          {
+            "comparison": {
+              "bestLagSamples": 0,
+              "gain": 0.7079457621649969,
+              "limits": {
+                "coarseStepSamples": 32,
+                "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                "maxLagSamples": 1920,
+                "strongCorrelationThreshold": 0.8
+              },
+              "renderedEnergy": 150.60734693799475,
+              "residualEnergy": 2.0459723764992025e-11,
+              "sampleCount": 17048,
+              "score": 0.9999999999999319,
+              "status": "strong-correlation"
+            },
+            "recordEndSample": 8772258,
+            "recordStartSample": 8755210,
+            "sourceEndSample": 132258,
+            "sourceStartSample": 115210
+          },
+          {
+            "comparison": {
+              "bestLagSamples": 0,
+              "gain": 0.7079457621649969,
+              "limits": {
+                "coarseStepSamples": 32,
+                "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                "maxLagSamples": 1920,
+                "strongCorrelationThreshold": 0.8
+              },
+              "renderedEnergy": 150.60734693799475,
+              "residualEnergy": 2.0459723764992025e-11,
+              "sampleCount": 17048,
+              "score": 0.9999999999999319,
+              "status": "strong-correlation"
+            },
+            "recordEndSample": 8868258,
+            "recordStartSample": 8851210,
+            "sourceEndSample": 228258,
+            "sourceStartSample": 211210
+          },
+          {
+            "comparison": {
+              "bestLagSamples": 0,
+              "gain": 0.7079457621649969,
+              "limits": {
+                "coarseStepSamples": 32,
+                "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                "maxLagSamples": 1920,
+                "strongCorrelationThreshold": 0.8
+              },
+              "renderedEnergy": 150.60734693799475,
+              "residualEnergy": 2.0459723764992025e-11,
+              "sampleCount": 17048,
+              "score": 0.9999999999999319,
+              "status": "strong-correlation"
+            },
+            "recordEndSample": 8964258,
+            "recordStartSample": 8947210,
+            "sourceEndSample": 324258,
+            "sourceStartSample": 307210
+          }
+        ],
+        "speedPercent": 100.0,
+        "status": "compared",
+        "trackEnabled": true,
+        "trackIndex": 2,
+        "uid": "f4e9f649-894a-42f2-9f54-a8321ae7c163"
+      }
+    ],
+    "status": "comparison-complete-waveform-only",
+    "taskId": "pcm-comparator"
+  },
+  "routing": "unknown",
+  "soloOutput": {
+    "bytes": 105984102,
+    "extraction": "ffmpeg stream decode: MOV audio 0:a:0 to PCM24 48 kHz",
+    "format": {
+      "channels": 2,
+      "compression": "NONE",
+      "frames": 17664000,
+      "sampleRateHz": 48000,
+      "sampleWidthBytes": 3
+    },
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/solo-output-20261002T033005.646357Z.wav",
+    "sha256": "2add2d9d7fdbc174f155d97786204cc41f4aec7e324d64e1a5ca4b1a412c8eef"
+  },
+  "status": "comparison-complete-waveform-only"
+}

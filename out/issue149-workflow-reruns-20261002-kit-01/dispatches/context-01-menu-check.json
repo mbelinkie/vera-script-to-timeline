@@ -1,0 +1,19 @@
+{
+  "taskId": "#149",
+  "actionId": "context-01-20261002-kit-01",
+  "check": "initial",
+  "command": "hs -c dofile(hammerspoon-launch.lua).check(true)",
+  "launcherSha256": "e4f58381c398bc0ce13130fddb25c956876f7754dc877346fe389dfb826c2450",
+  "macroSha256": "bc8ca493e2193218208cb43bafaaf90514da9faae4ba51be05b620f5b01ccd02",
+  "dispatchSha256": "e7f022f1c603c6dff78cc3b28c5f8bc8f3b7abed1110a30ffa8233389a5fd89d",
+  "result": {
+    "bundleId": "com.blackmagic-design.DaVinciResolve",
+    "windowTitle": "",
+    "menuFound": false,
+    "menuEnabled": false,
+    "triggered": false
+  },
+  "status": "menu-unavailable",
+  "nativeActionTaken": false,
+  "retryAllowed": false
+}

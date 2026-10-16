@@ -1,0 +1,41 @@
+{
+  "kind": "compact-redacted-source-inventory",
+  "note": "Raw files remain in their original locations; no machine-specific absolute paths copied.",
+  "sourceFiles": {
+    "launcherResult": {
+      "bytes": 506,
+      "name": "vera-issue-141-observation-result-20261001T023017.194070Z.json",
+      "sha256": "7428e71e67bfb894c3dccf15ab8921b9d4d8e4b78d822aa865d329da7809242f"
+    },
+    "originalExportXml": {
+      "bytes": 6174,
+      "name": "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z.xml",
+      "sha256": "1b3b21a728c3216f9782d87aa2feae977747c377901eb6b81ed5a83a2da06595"
+    },
+    "readOnlyDeliverDiagnostic": {
+      "bytes": 4381989,
+      "name": "capture-20261001T023200.897507Z.json",
+      "sha256": "9aefdcdb5dcb25c7a38d7c2e573ccc9cde049c5806f652c4fac3260d2839bc4a"
+    },
+    "recoveryJournal": {
+      "bytes": 615,
+      "name": "journal.jsonl",
+      "sha256": "a90db38f79037940895fd5eea58de1a53ca61c0340877a9ab7808f350bd2d142"
+    },
+    "recoveryResult": {
+      "bytes": 506,
+      "name": "result.json",
+      "sha256": "7428e71e67bfb894c3dccf15ab8921b9d4d8e4b78d822aa865d329da7809242f"
+    },
+    "refusedPreflight": {
+      "bytes": 251,
+      "name": "preflight.json",
+      "sha256": "a93d4dcda802b1716304dde4fe1dab691582ced98ce205f6c3b208d72c235a14"
+    },
+    "selectedMatrixPin": {
+      "bytes": 4658530,
+      "name": "matrix-checkpoint-20261001T015209.473668Z-matrix-observation.json",
+      "sha256": "0220a23be312aea5906900dd094c8e21b363294bb11f9b0f1201ab23f40c4cbf"
+    }
+  }
+}

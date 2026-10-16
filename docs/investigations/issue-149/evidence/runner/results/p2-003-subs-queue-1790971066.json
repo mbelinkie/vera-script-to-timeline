@@ -1,0 +1,69 @@
+{
+ "job_id": "p2-003-subs-queue-1790971066",
+ "started": 1790971066.088775,
+ "seconds": 0.89,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "subs": {
+   "SO Baseline": [
+    [
+     "Alpha 1 Bravo 2 Charlie 3 Delta 4 Echo 5",
+     13,
+     247
+    ],
+    [
+     "Foxtrot 6 Golf",
+     263,
+     322
+    ],
+    [
+     "7 Hotel 8",
+     336,
+     393
+    ]
+   ],
+   "SO T2 linked cut": [
+    [
+     "Alpha 1 Bravo 2 Delta 3 Echo",
+     13,
+     174
+    ],
+    [
+     "4 Foxtrot 5 Golf 6 Hotel 7 8",
+     174,
+     393
+    ]
+   ],
+   "SO T3 picture-only cut": [
+    [
+     "Alpha 1 Bravo 2 Charlie 3 Delta 4 Echo 5",
+     13,
+     247
+    ],
+    [
+     "Foxtrot 6 Golf",
+     263,
+     322
+    ],
+    [
+     "7 Hotel 8",
+     336,
+     393
+    ]
+   ],
+   "SO T4 A1 clip disabled": [
+    [
+     "1, 2, 3, 4, 5, 6, 7, 8",
+     38,
+     392
+    ]
+   ],
+   "SO T5 A1 track disabled": []
+  },
+  "started": [
+   "SO T5 A1 track disabled",
+   true
+  ]
+ }
+}

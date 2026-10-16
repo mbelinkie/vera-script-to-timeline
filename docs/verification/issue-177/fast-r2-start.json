@@ -1,0 +1,20 @@
+{
+  "childPid": 53725,
+  "command": [
+    "rtk",
+    "proxy",
+    "ctx-wire",
+    "run",
+    "npm",
+    "run",
+    "validate:fast"
+  ],
+  "environment": {
+    "PATH": "/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/usr/local/bin:/usr/bin:/bin:/Users/matthewbelinkie/.local/bin",
+    "VITEST_MAX_WORKERS": "1"
+  },
+  "sourceBefore": "/Users/matthewbelinkie/.codex/worktrees/ed01/VERA Script to Timeline/out/issue177/fast-r2/source-before.json",
+  "startedAt": "2026-10-13T06:34:06.285980+00:00",
+  "worktree": "/Users/matthewbelinkie/.codex/worktrees/ed01/VERA Script to Timeline",
+  "wrapperPid": 53622
+}

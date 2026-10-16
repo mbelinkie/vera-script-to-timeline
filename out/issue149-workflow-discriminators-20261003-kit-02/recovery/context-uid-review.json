@@ -1,0 +1,35 @@
+{
+  "taskId": "/root/discriminator_recovery_review",
+  "scope": "Bounded context-only UID precondition review for Issue 149",
+  "verdict": "go-for-context-04-uid-guard",
+  "go": true,
+  "goHash": "874027b24b492361c8041dc00062b4eb9bc74443d8a7c698e3a026dbcfe997f8",
+  "diffReview": {
+    "baseline": "out/issue149-workflow-discriminators-20261003-kit-02/sources/b6728fca237db1403a9360407495949708184ae9330fdb47ed66640913e3f400/harness.py",
+    "current": "docs/investigations/issue-149/workflow-discriminators/harness.py",
+    "result": "Only _context_only changed: reads GetUniqueId when a current project exists and returns currentProjectUid; no other source change found.",
+    "sourceChangeJustified": "Creation needs the observed current project UID before prepare so the known-disposable guard cannot rely on a guessed UID."
+  },
+  "focusedChecks": [
+    {
+      "command": "python3.14 -S docs/investigations/issue-149/workflow-discriminators/harness-check.py",
+      "result": "passed",
+      "nativeApplicationLaunched": false
+    },
+    {
+      "command": "python3.14 -S docs/investigations/issue-149/workflow-discriminators/discriminator-check.py",
+      "result": "passed",
+      "nativeApplicationLaunched": false
+    }
+  ],
+  "testMockDisposition": "No mock adjustment was needed; both focused checks passed with the existing supported getter behavior.",
+  "boundary": "GO applies only to a new unique context-04 action that observes and records the exact current project UID before prepare. Do not guess a UID, replay context-02, or infer native behavior from these offline gates.",
+  "archives": {
+    "oldRecoveryArchiveSha256": "19fcf7444fbd3a4dc31c6afb613743846e7a163e3680496c051bbe975b9e81e3",
+    "unchanged": true
+  },
+  "limitations": [
+    "No native application, menu, project creation, or context-04 action was run by this reviewer.",
+    "The checks validate the offline guard and fake objects only; they do not establish a real Resolve UID or native outcome."
+  ]
+}

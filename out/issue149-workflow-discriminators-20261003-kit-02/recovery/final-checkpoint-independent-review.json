@@ -1,0 +1,64 @@
+{
+  "taskId": "/root/discriminator_output_verify",
+  "scope": "document-only final verification after W3/W6 native runs",
+  "outcome": "GO",
+  "project": {
+    "uid": "0591bb41-d645-4af7-a2ee-ff75f8f43162",
+    "timelineCount": 9,
+    "itemCount": 36,
+    "poolObjectCount": 16,
+    "finalSavePrePostEqual": true,
+    "finalSaveSnapshotSha256": "c0f8757df49d537d96ec00cbbbba0a80330fbf32a2c3f9dbe1862ae527a99a82",
+    "finalSaveProjectReturn": true,
+    "renderingInProgress": false,
+    "queueCount": 12,
+    "currentPage": "deliver"
+  },
+  "directCloseout": {
+    "jobId": "de6df76f-a57b-4642-aafd-75fa30955a2d",
+    "jobStatus": "Complete",
+    "outputSha256": "75170940ae0b2b09e48fc298a2dd8ecd438372b36f5382712f52158134453feb",
+    "frameCount": 399,
+    "sourceIds": [1],
+    "frameMismatchCount": 0,
+    "pilots": {"1000": 0.02828, "1500": 0.01986, "2000": 0.02003},
+    "numberWordsPresent": ["one", "two", "three", "four", "five", "six", "seven", "eight"],
+    "analysisSha256": "103d825a4ff86107ccf948aaa0e30e5c68917482ea41cc23bcd30984ce997b88"
+  },
+  "mappingRestoration": {
+    "timelineNames": ["D3-direct-av-20261003", "D3-console-av-20261003", "D3-operator-av-20261003"],
+    "allA2MuteFalse": true,
+    "allA2MappingsMatchBuildSnapshot": true,
+    "unexpectedRestoreDifferences": []
+  },
+  "sourcePins": {
+    "base.mov": {"sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036", "mtimeNs": 1790976491073030271},
+    "swap.mov": {"sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036", "mtimeNs": 1790976491428416718},
+    "relink_alt.mov": {"sha256": "2bad2d2457c3d572d2fe3542ef22da915ec38306c8985026bec10d1289f76579", "mtimeNs": 1790976491792119537},
+    "restoredBaseAndSwapMatchOriginalPins": true
+  },
+  "toolPins": {
+    "harnessSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438",
+    "launcherSha256": "a605b875e0755151e1fa03e91a61612fecbf5058f3fb12a67ac6216e6536e2e9",
+    "consoleConfigSha256": "ee05f7d1033c9b64fefaa1cc970a5cf1a9478c598075f82ebc3e89fd0011326c",
+    "consoleHelperSha256": "48f8d3e5499cc4073f5c25fe70dfc3a2d88a04bc459cbe5bbba3783aa6ad90bb",
+    "externalScripting": "None",
+    "configsDisarmed": true
+  },
+  "allQueuedJobsTerminal": true,
+  "residualContextChanges": [
+    "page transitions to Deliver",
+    "render queue grows from the preparation checkpoint to 12 retained jobs",
+    "playhead readings normalize from 00:00:15:24 in early captures to 00:00:00:00 at final checkpoint"
+  ],
+  "limitations": [
+    "The full snapshot comparison is not an atomic snapshot guarantee.",
+    "The causal source of page/playhead context changes was not isolated.",
+    "Producer acceptance for Issue #149 remains pending."
+  ],
+  "evidence": {
+    "finalSaveResultSha256": "a1cf6eb30f590e3bac3df139607993bdf94d3ce49ecd8854781d73a9c25b70c7",
+    "directCloseoutPollResultSha256": "7a9766bce1a6422523f11d8f6c37631b503b4a5d52ee1cbf42c74c809477ae1a",
+    "finalObserveResultSha256": "f1dd939292249123de5defc7d1e9ce9d50154376875defe74d50b07acea86ce5"
+  }
+}

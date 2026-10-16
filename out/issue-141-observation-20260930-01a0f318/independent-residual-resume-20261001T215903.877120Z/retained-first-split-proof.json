@@ -1,0 +1,27 @@
+{
+  "case": "R2-residual",
+  "childUids": {
+    "audio": [
+      "09373858-39dd-474b-9eb8-56c5e523cc76",
+      "7ef661f3-9b3e-427c-8d00-9dab85a0cfcb"
+    ],
+    "video": [
+      "55ef1242-5a71-45e5-a1b4-d90300589de2",
+      "bbd48d17-f8ef-430f-9cfd-cd14c3860ae0"
+    ]
+  },
+  "firstSplitPair": {
+    "path": "editorial-case-20261001T214604.411256Z/after.json",
+    "sha256": "7a7d0db1be976dd4e3463e1231a7e00923318742188c0a107c8fc0962085b40d"
+  },
+  "menuCommandDispatched": false,
+  "positionCheckpoint": {
+    "path": "residual-position-continuation-record.json",
+    "sha256": "cdd615061aed1e3fd7d5136d4732d27f26ec500a3ec24fab0991d3dfcea03a93"
+  },
+  "preparationResult": {
+    "path": "independent-residual-resume-20261001T214559.089529Z/preparation.json",
+    "sha256": "dc9714cba9b16c8f946baf206f2d73f98cc50e162f8888e23aa883cad49c87af"
+  },
+  "status": "retained-first-split-proof"
+}

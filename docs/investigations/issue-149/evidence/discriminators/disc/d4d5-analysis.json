@@ -1,0 +1,120 @@
+{
+ "C1_codexproj_dup_console_mute.mov": {
+  "sha256": "403e4af34c19cdea082bd5dc6057967e74585bc7ed7ad1873d4d41d7222d9b5b",
+  "frames": 399,
+  "src_ids": [
+   1
+  ],
+  "pilots": {
+   "1000": 0.02869,
+   "1500": 0.00019,
+   "2000": 0.02016
+  },
+  "present": [
+   "alpha",
+   "bravo",
+   "charlie",
+   "delta",
+   "echo",
+   "foxtrot",
+   "golf",
+   "hotel"
+  ]
+ },
+ "C2_codexproj_fresh_console_mute.mov": {
+  "sha256": "8fb5356b48763603eb19ffab5478897495a4191b1e9e88bc5a417bd5f518a654",
+  "frames": 399,
+  "src_ids": [
+   1
+  ],
+  "pilots": {
+   "1000": 0.02869,
+   "1500": 0.00019,
+   "2000": 0.02016
+  },
+  "present": [
+   "alpha",
+   "bravo",
+   "charlie",
+   "delta",
+   "echo",
+   "foxtrot",
+   "golf",
+   "hotel"
+  ]
+ },
+ "H0_unmuted_control.mov": {
+  "sha256": "822c75bdf3b1a015aa1223f02a2aacf805298d8f27ea8147bd705c14ff98afb8",
+  "frames": 399,
+  "src_ids": [
+   1
+  ],
+  "pilots": {
+   "1000": 0.02828,
+   "1500": 0.01986,
+   "2000": 0.02003
+  },
+  "present": [
+   "alpha",
+   "bravo",
+   "charlie",
+   "delta",
+   "echo",
+   "foxtrot",
+   "golf",
+   "hotel",
+   "one",
+   "two",
+   "three",
+   "four",
+   "five",
+   "six",
+   "seven",
+   "eight"
+  ]
+ },
+ "H1_append_handle_mute.mov": {
+  "sha256": "35d81774ae292af856a34872218d3229b31e2cf061a40f8dd57f4d0c40d6e81a",
+  "frames": 399,
+  "src_ids": [
+   1
+  ],
+  "pilots": {
+   "1000": 0.02869,
+   "1500": 0.00019,
+   "2000": 0.02016
+  },
+  "present": [
+   "alpha",
+   "bravo",
+   "charlie",
+   "delta",
+   "echo",
+   "foxtrot",
+   "golf",
+   "hotel"
+  ]
+ },
+ "H2_codex_literal_mute.mov": {
+  "sha256": "8cd907fc391a30b6ef8f97f49627c8063786ee6ddc04b9ccf313068685b9c200",
+  "frames": 399,
+  "src_ids": [
+   1
+  ],
+  "pilots": {
+   "1000": 0.02869,
+   "1500": 0.00019,
+   "2000": 0.02016
+  },
+  "present": [
+   "alpha",
+   "bravo",
+   "charlie",
+   "delta",
+   "echo",
+   "foxtrot",
+   "golf",
+   "hotel"
+  ]
+ }
+}

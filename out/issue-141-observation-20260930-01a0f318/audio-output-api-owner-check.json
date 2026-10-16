@@ -1,0 +1,20 @@
+{
+  "status": "all-literal-native-call-owners-documented",
+  "source": "audio-output.py",
+  "calls": [
+    "Project.AddRenderJob",
+    "Project.DeleteRenderJob",
+    "Project.DeleteRenderPreset",
+    "Project.GetCurrentRenderFormatAndCodec",
+    "Project.GetCurrentRenderMode",
+    "Project.GetRenderJobList",
+    "Project.GetRenderJobStatus",
+    "Project.GetRenderPresetList",
+    "Project.IsRenderingInProgress",
+    "Project.LoadRenderPreset",
+    "Project.SaveAsNewRenderPreset",
+    "Project.SetRenderSettings",
+    "Project.StartRendering",
+    "Resolve.ExportRenderPreset"
+  ]
+}

@@ -1,0 +1,20 @@
+[
+  {
+    "filename": "capture-20260930T234711.275916Z.json",
+    "publishedSha256": "92edb94759a2949e28c4abf026450a74a7e43ade9d256801b98ec047e3f4cf14",
+    "rawSha256": "3d08f757c8e188bbc5c1584158f5ea29c23f5bb7745bf01bd5de42c6d6436a46",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "hammerspoon-launch-20260930T234710.738665Z.jsonl",
+    "publishedSha256": "eb9d720fa3bb284af51faa444a451430204c418e3652db1dac7ea0a00e1cc860",
+    "rawSha256": "eb9d720fa3bb284af51faa444a451430204c418e3652db1dac7ea0a00e1cc860",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "vera-issue-141-observation-result-20260930T234711.253214Z.json",
+    "publishedSha256": "0b4c6f83a70d4a42da095924ebb5d68c9fd030bf06b33b51b7fc714e039e2abb",
+    "rawSha256": "176115cd9e3e1aa1f0da6023ba14a89e7665d1adacb15165c61be1c20a8c7d7b",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  }
+]

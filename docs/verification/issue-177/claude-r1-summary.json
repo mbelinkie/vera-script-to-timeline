@@ -1,0 +1,9 @@
+{
+  "reviewedCommit": "1457e52ffce46c7c7f9620b240d41fc9b0b8ffe7",
+  "verdict": "NO-GO",
+  "isError": false,
+  "promptSha256": "5ab52c84ce181ca6802a732d96fac987879a06db74cf3baf4910c0b54d72e69a",
+  "sourceUnchanged": true,
+  "retainedOriginalDirectory": "/Users/matthewbelinkie/.codex/worktrees/ed01/VERA Script to Timeline/out/issue177/claude-r1",
+  "acceptance": false
+}

@@ -1,0 +1,86 @@
+{
+  "taskId": "issue-141/R3-boundary",
+  "scope": "R3-boundary base linked V1/A1 single-split attempt",
+  "status": "preparation-refused-before-split",
+  "check": {
+    "command": "ctx-wire run rtk proxy /usr/local/bin/python3.14 -S out/issue-141-observation-20260930-01a0f318/independent-structural-sequence.py --case R3-boundary --prior-pair r3-graphic-context-20261001T200750.808432Z/pair.json --prior-sha256 b45c1e45ace27f59052618536cd0121646b4995297b6eb2628d87b3686d7e78b --check",
+    "exitCode": 0,
+    "output": "Fake R3 sequence checks pass; input pin: pair.json; no Resolve action."
+  },
+  "run": {
+    "command": "ctx-wire run rtk proxy /usr/local/bin/python3.14 -S out/issue-141-observation-20260930-01a0f318/independent-structural-sequence.py --case R3-boundary --prior-pair r3-graphic-context-20261001T200750.808432Z/pair.json --prior-sha256 b45c1e45ace27f59052618536cd0121646b4995297b6eb2628d87b3686d7e78b --run",
+    "exitCode": 1,
+    "driverPath": "out/issue-141-observation-20260930-01a0f318/independent-structural-sequence.py",
+    "driverSha256": "630d0f11cb961aed8bf5207e29f72dab063631b9a201915dd26bc556d0425945",
+    "helperPath": "out/issue-141-observation-20260930-01a0f318/independent-native-call.py",
+    "helperSha256": "61ef935b47f5138545df909f41edffc2f10c7dcf55283068948950248e2c0531",
+    "auditDirectory": "independent-action-20261001T202101.527330Z",
+    "launchPath": "independent-action-20261001T202101.527330Z/launch.json",
+    "resultReferencePath": "independent-action-20261001T202101.527330Z/result-reference.json",
+    "resultReferenceSha256": "b1a8d655fc06aeb2d4d4518c1bbce0a7cb4e15cd305ea7a6018625074b8a5de2",
+    "resultPath": "independent-structural-sequence-20261001T202101.214578Z/preparation.json",
+    "resultSha256": "f3307cfad904ff7c2dfe35976bcb973ed3e9c08269369f313228d44e6429f22e",
+    "nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T202103.928483Z.json",
+    "nativeResultSha256": "f3307cfad904ff7c2dfe35976bcb973ed3e9c08269369f313228d44e6429f22e",
+    "nativeProgressPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-progress-20261001T202103.928483Z.jsonl",
+    "nativeProgressSha256": "46c23b7fc300f7684f3cdf4d5c10b0b25b48a4bd4f49e524fb5a5a45dcbb089c",
+    "nativeProgressPhases": [
+      "started",
+      "module-loaded:editorial-case-prepare",
+      "probe-request",
+      "probe-failure",
+      "result-written"
+    ],
+    "nativeMutationsBeforeRefusal": [],
+    "failure": "R3-boundary preparation did not validate",
+    "refusal": {
+      "status": "launcher-failed",
+      "detail": "RuntimeError: Exact enabled R3-boundary A3 crossing bed changed",
+      "instruction": "Retain evidence and stop. Do not rerun preparation or change scripting mode."
+    }
+  },
+  "pins": {
+    "priorPair": {
+      "path": "r3-graphic-context-20261001T200750.808432Z/pair.json",
+      "sha256": "b45c1e45ace27f59052618536cd0121646b4995297b6eb2628d87b3686d7e78b"
+    },
+    "finalPair": {
+      "path": "r2-unlinked-selected-20261001T124418.214172Z/pair.json",
+      "sha256": "31a36fbf4730802705280056c73265240969e752bc2db8a71df74409f2289636",
+      "source": "unchanged live-config afterPairSha256"
+    },
+    "restorationResult": {
+      "status": "not-dispatched-preparation-refusal",
+      "path": null,
+      "sha256": null
+    },
+    "liveConfig": {
+      "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation.json",
+      "sha256": "f126e17bb3b3d9091a9c0f97eeb4ca43da5096b4dab54a464548e1d1938b4801",
+      "action": "observe",
+      "stage": "baseline-repeat",
+      "case": "R3-boundary",
+      "externalScriptingSetting": "None",
+      "timelineInventory": "protected-six",
+      "preparationResult": null,
+      "firstSelectionResult": null,
+      "firstSplitPair": null,
+      "postEditPair": null
+    }
+  },
+  "verification": {
+    "latestReviewedSourcePinsPath": "latest-reviewed-source-pins.json",
+    "latestReviewedSourcePinsSha256": "929cf0da5a781e4b97a211df275d6a4dfab32253d2fe79ad816e02551323d1c3",
+    "sourcePinsMatch": true,
+    "ownedModulesAstTableCount": 1,
+    "editorialReadbackPin": [
+      "editorial-readback.py",
+      "d9df76229ead502b2d9ff31a1847eb9b858aa8931d25d279b560244e93690354"
+    ],
+    "splitDispatched": false,
+    "a3SplitDispatched": false,
+    "saveDispatched": false,
+    "renderDispatched": false,
+    "replayed": false
+  }
+}

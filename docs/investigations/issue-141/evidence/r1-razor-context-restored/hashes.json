@@ -1,0 +1,38 @@
+[
+  {
+    "filename": "before-pair.json",
+    "rawSha256": "5eabacdb141908d6bc5aa805136d5148913c3ab63936e19fc1dc9801fa448fba",
+    "publishedSha256": "47317f9b4fe9cb1b7fed238c1c40f45fecd8f8e2a52654c7eecb72587d332953",
+    "redaction": "private owned-output, plugin and home paths replaced"
+  },
+  {
+    "filename": "after-pair.json",
+    "rawSha256": "8be8fc612618e874241f90b693a4c7a732e4eb0fbdd3de4afe17cd2756df82ff",
+    "publishedSha256": "6902f9ef5c5ef1b9fd61ae477d85ba7cc98a90037deb448c54125d9d94336356",
+    "redaction": "private owned-output, plugin and home paths replaced"
+  },
+  {
+    "filename": "result.json",
+    "rawSha256": "bbe59d5b10c825f82a9c952bc3955811ea3d7f3741192d1891e5b884d0dd01ab",
+    "publishedSha256": "c88f87f4a3bd9090c595c0221d983fc04166594b7e8d831e7ccdb12c91db3864",
+    "redaction": "private owned-output, plugin and home paths replaced"
+  },
+  {
+    "filename": "journal.jsonl",
+    "rawSha256": "15dcd206c84917f63fa95143965f39ad4485e44e4b8ceb788aa23fdf490101ce",
+    "publishedSha256": "15dcd206c84917f63fa95143965f39ad4485e44e4b8ceb788aa23fdf490101ce",
+    "redaction": "private owned-output, plugin and home paths replaced"
+  },
+  {
+    "filename": "launcher-result.json",
+    "rawSha256": "bbe59d5b10c825f82a9c952bc3955811ea3d7f3741192d1891e5b884d0dd01ab",
+    "publishedSha256": "c88f87f4a3bd9090c595c0221d983fc04166594b7e8d831e7ccdb12c91db3864",
+    "redaction": "private owned-output, plugin and home paths replaced"
+  },
+  {
+    "filename": "launch.jsonl",
+    "rawSha256": "1ca2c958eca7d74646943feb379f7ded75c05e955915c6ee692da021138e45ea",
+    "publishedSha256": "d2ec99245e2df43aaf7b3cd7ddb3e4440da8b348960e083f6114a84abbda7277",
+    "redaction": "private owned-output, plugin and home paths replaced"
+  }
+]

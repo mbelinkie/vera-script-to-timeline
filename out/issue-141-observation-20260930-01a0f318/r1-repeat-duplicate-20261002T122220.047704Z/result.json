@@ -1,0 +1,5 @@
+{
+  "status": "refused",
+  "error": "RuntimeError: selected R1 source signature changed; no duplicate attempted",
+  "rawCapture": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r1-repeat-duplicate-20261002T122220.047704Z/raw.json"
+}

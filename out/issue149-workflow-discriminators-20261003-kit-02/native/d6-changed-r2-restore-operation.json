@@ -1,0 +1,33 @@
+{
+  "case": "D6-changed-r2",
+  "operation": "atomic-restore-original-bytes-and-mtime",
+  "target": "out/issue149-workflow-discriminators-20261003-kit-02/media/swap.mov",
+  "restoreSource": "out/issue149-workflow-discriminators-20261003-kit-02/media/base.mov",
+  "before": {
+    "path": "out/issue149-workflow-discriminators-20261003-kit-02/media/swap.mov",
+    "sha256": "2bad2d2457c3d572d2fe3542ef22da915ec38306c8985026bec10d1289f76579",
+    "size": 4593112,
+    "inode": 548130899,
+    "atimeNs": 1791004460009895353,
+    "mtimeNs": 1790976492428416718
+  },
+  "expectedOriginal": {
+    "path": "out/issue149-workflow-discriminators-20261003-kit-02/media/swap.mov",
+    "sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+    "size": 3443686,
+    "inode": 548023084,
+    "atimeNs": 1791004460009895353,
+    "mtimeNs": 1790976491428416718
+  },
+  "after": {
+    "path": "out/issue149-workflow-discriminators-20261003-kit-02/media/swap.mov",
+    "sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+    "size": 3443686,
+    "inode": 548131480,
+    "atimeNs": 1791004460009895353,
+    "mtimeNs": 1790976491428416718
+  },
+  "bytesRestored": true,
+  "mtimeRestored": true,
+  "recordedAtNs": 1791005627085021000
+}

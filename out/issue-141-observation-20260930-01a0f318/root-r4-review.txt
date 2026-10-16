@@ -1,0 +1,8 @@
+Root review blockers before any live transition:
+1. Use private output / MATRIX_NAME for raw MATRIX_SHA256. Published evidence file hash is 798fcd67a01710f009b2cda9d8503540f2992e3ee07aa574e817c1786c0dfe98, not raw a294...
+2. Manifest relink entry uses sizeBytes=792989; bytes key absent. Fake must mirror sizeBytes.
+3. ProjectManager.SaveProject takes no project argument.
+4. Never expected[""]=MEDIA_SHA256: probe source_evidence would try reading current directory. Blank locator should remain unapproved-locator-not-accessed; no hashing.
+5. False/throw unlink/relink with restored readbacks must retain refused/recovered status distinct from normal cycle success; no automatic retry.
+6. Full state and selected-R4 guard immediately before save.
+7. Validate actual raw pins/manifests with real probe before staging; fake currently failed historical checkpoint validation on root run.

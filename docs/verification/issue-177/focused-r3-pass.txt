@@ -1,0 +1,29 @@
+........................................................................ [ 76%]
+......................                                                   [100%]
+============================= slowest 25 durations =============================
+1.99s call     tests/test_issue177_document.py::test_compiler_hash_matches_actual_typescript_unicode_and_integer_canonicalization
+1.93s call     tests/test_v2_package.py::test_package_renders_and_binds_authored_intentional_slate
+1.90s call     tests/test_v2_package.py::test_public_packages_attest_and_pass_read_only_preflight[root-child-overlay-return]
+1.36s call     tests/test_v2_package.py::test_public_packages_attest_and_pass_read_only_preflight[source-audio-quiet]
+1.27s call     tests/test_workflow_v2.py::test_public_builder_handoff_preserves_root_child_overlay_return
+1.23s call     tests/test_v2_package.py::test_build_verify_and_exact_retry
+1.22s call     tests/test_v2_package.py::test_public_root_child_overlay_return_package_round_trip_without_source_audio
+1.10s call     tests/test_v2_package.py::test_public_packages_attest_and_pass_read_only_preflight[source-audio-full]
+1.05s call     tests/test_v2_package.py::test_public_packages_attest_and_pass_read_only_preflight[verified-reuse]
+0.85s call     tests/test_v2_package.py::test_build_refuses_different_inputs_at_an_existing_build_root
+0.73s call     tests/test_v2_package.py::test_public_package_build_verifies_aligned_source_audio[source-audio-full-full-0]
+0.70s call     tests/test_v2_package.py::test_public_package_build_verifies_aligned_source_audio[source-audio-quiet-quiet--18]
+0.70s call     tests/test_issue177_handoff.py::test_stdlib_bootstrap_retains_unique_refusals
+0.63s call     tests/test_issue177_handoff.py::test_cli_request_binds_verified_package_and_owned_release[unauthorized-build]
+0.63s call     tests/test_issue177_handoff.py::test_cli_request_binds_verified_package_and_owned_release[tampered]
+0.62s call     tests/test_v2_package.py::test_verify_checks_otio_metadata_after_receipt_hash_rebinding
+0.61s call     tests/test_issue177_handoff.py::test_cli_request_binds_verified_package_and_owned_release[rehashed]
+0.61s call     tests/test_issue177_handoff.py::test_cli_request_binds_verified_package_and_owned_release[None]
+0.60s call     tests/test_issue177_handoff.py::test_independent_attestation_roundtrip_and_media_drift
+0.56s call     tests/test_v2_package.py::test_public_package_build_preserves_no_source_audio_case
+0.52s call     tests/test_v2_package.py::test_build_round_trips_accepted_24000_over_1001_timeline
+0.39s call     tests/test_v2_package.py::test_verify_refuses_tampered_package_media
+0.31s call     tests/test_v2_package.py::test_build_rejects_preparation_status_mismatch_for_empty_binding_set
+0.29s call     tests/test_workflow_v2.py::test_build_authorization_order_and_private_marker_text_redaction
+0.26s call     tests/test_workflow_v2.py::test_failed_save_retains_named_partial_target
+94 passed in 27.68s

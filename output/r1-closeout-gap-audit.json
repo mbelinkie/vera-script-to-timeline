@@ -1,0 +1,39 @@
+{
+  "scope": "Read-only audit of Issue 141 report against its downstream handoff acceptance, #144/#145, #131/#139, #101-#104, #146, and relevant Product Spec slices.",
+  "asOf": "2026-10-02; latest Solo queue state supplied by task owner",
+  "overall": "No unsupported Resolve capability is claimed for the named positive move/trim/spoken-range cases. The report preserves bounded observations, ambiguities, and non-capability probe failures. The material gap is that the current summary does not give #144/#145 a concise case-to-evidence decision, and its latest Solo queue instruction is stale.",
+  "findings": [
+    {
+      "severity": "material-handoff-gap",
+      "location": "docs/investigations/issue-141/report.md:19-52, 308-341",
+      "issue": "The current R1/R2 summaries say linked-pair move/trim and producer-accepted phrase omission were observed, and note their limits, but do not explicitly state which evidence #144/#145 may use. A reader must assemble this from historical entries.",
+      "evidenceAndBounds": {
+        "move": "A real 25-frame nudge moved linked synthetic V1/A1 together (report lines 1018-1045); IDs, source ranges, markers, and reciprocal links remained. It supports only a bounded linked-pair move observation; it does not establish general lineage, visual-only movement, spoken-text order changes, or rendered output.",
+        "trim": "A real 25-frame linked V1/A1 end trim preserved IDs, sources, links, and markers (lines 987-1016). It supports only a bounded synthetic trim within this tested case; it does not establish sample-accurate audio endpoints or rendered output.",
+        "spokenPhrase": "The producer accepted source-transcript plus enabled-occurrence range reconstruction omitting 'singing in Swedish' in a named timeline (lines 1317-1345). It is a source-range/transcript result, not proof of audible silence. Edge clipping remains possible; complete transcript coverage and final-mix routing/audibility are unproved."
+      },
+      "downstreamRule": "#144 may count move/trim only with the linked-pair and synthetic evidence limits explicit. Its transcript option requires accepted #146 and a Blocked by #146 dependency before Ready; otherwise it needs a non-transcript path with verified complete audible routing/timing, not yet available. #145 must inherit #144's chosen evidence path and still produce the actual real-script run; Issue 141 synthetic evidence alone cannot satisfy #145.",
+      "recommendedWording": "For #144/#145, Issue 141 supports only a 25-frame linked V1/A1 move and a 25-frame linked V1/A1 trim on named synthetic occurrences, with bounded identity/marker preservation and no rendered-output claim. It also supports producer-accepted source-range reconstruction of the named omitted phrase, not audible deletion. Use that transcript path only after #146 acceptance and coverage/freshness gating; otherwise keep the spoken-omission positive blocked until complete audible routing/timing is verified. Partial-word edges, residual speech, and unclear routing remain ambiguous/manual review."
+    },
+    {
+      "severity": "stale-current-status",
+      "location": "docs/investigations/issue-141/report.md:1723-1731",
+      "issue": "The latest subsection says one render start is authorized next. The task owner reports that exactly one start has since occurred and Resolve is Rendering at 1%. This is a superseded queue checkpoint, not a Solo-output result.",
+      "requiredDistinction": "Update the current dated status when appropriate: render started once and is at 1%; comparison, output interpretation, Solo-off restoration, and any Solo conclusion remain pending. Earlier queue-only / pre-start statements remain historical."
+    }
+  ],
+  "alreadyAdequate": [
+    "The report distinguishes supported bounded observations from ambiguity/manual review and says guard/harness failures do not establish Resolve capability failure.",
+    "Lines 330-341 map raw facts, explicit ambiguity, manual review, safe apply, and production limits to #131/#139 and #101-#104; Product Spec \u00a76.16 and \u00a713 supply corresponding conflict, preserve-source, and fail-closed behavior.",
+    "The report tracks #146 and correctly says coverage is future enforcement, not implemented; transcript coverage alone does not establish audible routing. #144/#145 remain distinct from the later production placeholders."
+  ],
+  "referencesReviewed": [
+    "Issue #141 current acceptance and bounded downstream decision handoff",
+    "Issues #144, #145, #146, and #139 current roadmap bodies",
+    "docs/investigations/issue-141/transcript-coverage-requirement.md",
+    "docs/prototypes/issue-131/feasibility-report.md",
+    "docs/plans/issue-141-resolve-observation.md",
+    "Product Spec \u00a7\u00a76.6, 6.15-6.16, 13",
+    "Issue 141 current report and operator checklist"
+  ]
+}

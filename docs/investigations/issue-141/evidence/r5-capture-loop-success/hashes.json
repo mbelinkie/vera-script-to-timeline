@@ -1,0 +1,32 @@
+[
+  {
+    "name": "result.json",
+    "sha256": "ae3ab4efe1aa4e323d86b29e85d0d094fdb27f5b108fad537edbe6306495eee9",
+    "bytes": 1576
+  },
+  {
+    "name": "journal.jsonl",
+    "sha256": "7500a274465ca0e618836a3cfc7e4461a38c0f35aa14272248ddd8a2ec6cf338",
+    "bytes": 1929
+  },
+  {
+    "name": "preflight.json",
+    "sha256": "a174b6ec5260977ffd4de9f11655793a9b62e147c94f19832e2186157034aa5a",
+    "bytes": 4601652
+  },
+  {
+    "name": "after-capture.json",
+    "sha256": "a9ef4ab1a03c8d8ca40a375b2ea60bba768b424abe843276ca3c1f65f72442c6",
+    "bytes": 4601764
+  },
+  {
+    "name": "restored.json",
+    "sha256": "a174b6ec5260977ffd4de9f11655793a9b62e147c94f19832e2186157034aa5a",
+    "bytes": 4601652
+  },
+  {
+    "name": "capture-20261001T042003.870943Z.json",
+    "sha256": "ad7f97fd471a86ed5f411b8141990fae3b0bca9ed2404cf2cc3c45f6758e6b89",
+    "bytes": 4323333
+  }
+]

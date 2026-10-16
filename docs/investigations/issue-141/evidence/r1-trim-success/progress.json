@@ -1,0 +1,20 @@
+{
+  "issue": 141,
+  "status": "in-progress",
+  "completedChecks": 24,
+  "plannedChecks": 41,
+  "acceptanceAuthority": "External",
+  "latestVerifiedSlice": "R1 linked-pair 25-frame trim and context restoration",
+  "evidenceDirectory": "evidence/r1-trim-success/",
+  "nextBoundedCandidate": "R1 move",
+  "remainingR1": [
+    "move",
+    "copy/paste",
+    "full repeat"
+  ],
+  "limits": [
+    "Sample-accurate audio endpoints are unproved.",
+    "Rendered output for the trimmed pair is unproved.",
+    "External producer acceptance remains required."
+  ]
+}

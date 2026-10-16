@@ -1,0 +1,38 @@
+{
+  "kind": "reviewed-local-only-editorial-guards",
+  "reviewedAt": "2026-10-01T09:00:11.001471+00:00",
+  "sources": {
+    "editorial-readback-check.py": "d84d6a56b2d1f4d576ddeb5372c1fd05e0dfe6f5ef773c4397414e7d886cc32e",
+    "editorial-readback.py": "ec97ed4ee37e5ce9561fafe5bae5bbff25bfd651c768f4b872156a1915ddf703",
+    "check.py": "ddf22b7172559b00968e982956d9eedf1baa128e948154fb87a17be189792373",
+    "previous-observe-config.json": "d99968dfc9e40e0cc427d3a617935ac6d8315e56d15235ffe007a09f24b349fa",
+    "r5-edit-evidence-check.py": "d2d9d29a77f8c76a293569af0808106689972dd4b3d8936e10895ac0a18c1493",
+    "launcher-check.py": "53f2a8152200e30357cbbccb73b3fb5313afca68a113ad7a2fb62821041c5166",
+    "editorial-cases.py": "2078389df0f543dc58724cf8afab75f42be311ebcc85c70788090f1806a80be7",
+    "hammerspoon-launch.lua": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+    "hammerspoon-editorial.lua": "70015c4731538662ec66255861cd69a1b10577ad0caf86f85b4a7da666e6528c",
+    "probe.py": "8ab9e409405dc53202aa8665b28565a19f3884b9673ff13fd44c99a38032d9da",
+    "editorial-cases-check.py": "fe370708a8c0923954b60a9e53767149405ef8d04284151346121aeaa19ba8fb",
+    "previous-restoration-review.json": "9d7153a20bde47050130873e12eeea6217b6e20d975a432ca240b9cc3a651595"
+  },
+  "probeSha256": "8ab9e409405dc53202aa8665b28565a19f3884b9673ff13fd44c99a38032d9da",
+  "moduleSha256": "2078389df0f543dc58724cf8afab75f42be311ebcc85c70788090f1806a80be7",
+  "readbackSha256": "ec97ed4ee37e5ce9561fafe5bae5bbff25bfd651c768f4b872156a1915ddf703",
+  "privateConfigSha256": "2156fb2057b3bf26e6655c075e9423cb290a36f04d88f11772ce786707cf7ef0",
+  "privateConfigAction": "observe",
+  "checks": [
+    "R1-R3 guarded fake checks, including residual readiness/position/review/delete and ordered boundary/A3 refusal",
+    "Read-only editorial labels and refusal checks",
+    "Main harness",
+    "One-shot launcher",
+    "R5 note/move local guard self-check",
+    "Retained Copy/Paste full-pair review",
+    "Focused Ruff",
+    "git diff --check"
+  ],
+  "nativeLaunchPerformed": false,
+  "nativeMutationStaged": false,
+  "restorationDecision": "pending",
+  "nativeCompleted": 26,
+  "nativeTotal": 41
+}

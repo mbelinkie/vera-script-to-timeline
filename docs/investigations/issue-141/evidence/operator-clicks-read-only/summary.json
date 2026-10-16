@@ -1,0 +1,37 @@
+{
+  "status": "post-operator-clicks-content-unchanged",
+  "timelineAndPoolEqualPriorR4Postflight": true,
+  "stableContext": {
+    "currentPage": {
+      "value": "deliver"
+    },
+    "formatCodec": {
+      "value": {
+        "codec": "H264",
+        "format": "mov"
+      }
+    },
+    "jobs": {
+      "value": []
+    },
+    "playhead": {
+      "value": "00:00:00:00"
+    },
+    "rendering": {
+      "value": false
+    },
+    "selectedTimelineUid": {
+      "value": "64de8a4c-86bd-4f19-9d20-47b8940f610b"
+    }
+  },
+  "operatorReport": "Accidentally clicked some things in Resolve; may have moved playhead",
+  "limits": [
+    "No prior playhead value is used to infer whether it moved.",
+    "Equal adjacent reads are not an atomic revision token or a complete effect/mix observation."
+  ],
+  "files": {
+    "vera-issue-141-observation-result-20261001T030157.751233Z.json": "26759e9c71e2521f32435bd5c54fa1995ced5ad3db6aed622ec1cd9b0488b56b",
+    "r4-pool-read-only-20261001T030157.768476Z.json": "15c190c39212f29e159614c5805f5ed9a9319d943b159a98d4c243d003fb474a",
+    "capture-20261001T030157.768476Z.json": "75b854b050493a5179e2e2a5a5bf14964866efa31def9e59c22dd58cb49d26da"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "action": "matrix-finalize",
+  "captures": [
+    {
+      "capturePath": "<probe-output>/capture-20260930T223313.312609Z-preflight.json",
+      "sha256": "2a9686e4fddac37698fc6d0401e4c4b64030a360a42dd8b195100c02fb0e7441",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T223313.312609Z-saved.json",
+      "sha256": "a29402d405ab8cf1bc1abedd4c1ed0c479e983e2ef3ba6fc41d1c2389d6d36d2",
+      "status": "equal-adjacent-reads"
+    }
+  ],
+  "journal": "<probe-output>/matrix-finalize-20260930T223313.312609Z.jsonl",
+  "occurrences": 114,
+  "sections": 19,
+  "status": "equal-adjacent-reads",
+  "timelineId": "29ae8331-b86e-4041-a548-960695cc7b24"
+}

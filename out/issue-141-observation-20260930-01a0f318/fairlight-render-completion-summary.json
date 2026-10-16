@@ -1,0 +1,79 @@
+{
+  "jobId": "a6ed7f33-9ad4-4d82-bfac-ff72903f4567",
+  "status": "render-complete-restored",
+  "jobStatus": {
+    "CompletionPercentage": 100,
+    "JobStatus": "Complete",
+    "TimeTakenToRenderInMs": 734801
+  },
+  "completionPercentage": 100,
+  "durationSeconds": "368.000000",
+  "nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261002T035122.313956Z.json",
+  "nativeResultSha256": "7b19db15cbdf37ba852243387b5165e082725beba49c91ad46dfc8fbc7f3efed",
+  "startJournalPath": "out/issue-141-observation-20260930-01a0f318/av-output-full-matrix-continue-20261002T033724.188897Z/journal.jsonl",
+  "startJournalSha256": "862ccfa22d96ebc9a23de9cb311520109c0ed2c1c1212b0763484fe80687f2f2",
+  "startRenderingRequestCount": 1,
+  "startRenderingTrueReturnCount": 1,
+  "continuationJournalPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-full-matrix-continue-20261002T035123.642380Z/journal.jsonl",
+  "continuationJournalSha256": "f22d2a1d4f76344fc51a4a30125cda51a5133f5d1d9b0a28b8e6cd0654882b9c",
+  "continuationStartRenderingRequestCount": 0,
+  "continuationSkippedExistingJobCount": 1,
+  "outputPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T033005.646357Z/render/vera141-av-20261002T033005.646357Z.mov",
+  "outputSha256": "8af6fb6916afa4c1bc674617ad52460928582a3dbc22dd2af8550786bd28020c",
+  "outputHashSource": "native continuation result; no output bytes read by this summary",
+  "finalPairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-full-matrix-continue-20261002T035123.642380Z/full-pair-003-restored.json",
+  "finalPairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+  "finalPairMatchesQueueCheckpoint": true,
+  "queueCheckpointPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-context-20261002T031927.605476Z/pair.json",
+  "queueCheckpointSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+  "queueSettingsSha256": "c70b74d6df5723e284207f352fda36c7ba8ec399d5f6aef3f1242a7cfb1a1250",
+  "queueSnapshotXml": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T033005.646357Z/VERA141_AV_OUTPUT_20261002T033005.646357Z.drp/VERA141_AV_OUTPUT_20261002T033005.646357Z.xml",
+  "queueSnapshotSha256": "aa2a668043ec97279abbd65155b4c591ffea09b54b841244ea07ea0d5673a57a",
+  "recoveryOutcome": "render-complete-restored",
+  "hiddenRenderSettingsEquality": "not exposed",
+  "ffprobe": {
+    "format": {
+      "duration": "368.000000",
+      "format_name": "mov,mp4,m4a,3gp,3g2,mj2"
+    },
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "height": 1080,
+        "nb_frames": "9200",
+        "r_frame_rate": "25/1",
+        "width": 1920
+      },
+      {
+        "bits_per_sample": 24,
+        "codec_name": "pcm_s24le",
+        "codec_type": "audio",
+        "nb_frames": "17664000",
+        "r_frame_rate": "0/0",
+        "sample_rate": "48000"
+      },
+      {
+        "codec_type": "data",
+        "nb_frames": "1",
+        "r_frame_rate": "0/0"
+      }
+    ]
+  },
+  "watchLog": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/fairlight-menu-availability-watch.jsonl",
+  "ownedJobDeleteReturnedTrue": true,
+  "ownedPresetDeleteReturnedTrue": true,
+  "renderingFalseAtRecoveryEnd": true,
+  "availabilityWatchObservations": 5,
+  "lastMenuObservation": {
+    "bundleId": "com.blackmagic-design.DaVinciResolve",
+    "exitCode": 0,
+    "menuEnabled": true,
+    "menuFound": true,
+    "observedAtUtc": "2026-10-02T03:50:51.886606+00:00",
+    "triggered": false,
+    "windowTitle": "VERA Issue 141 Synthetic Probe 20260930-01a0f318"
+  }
+}

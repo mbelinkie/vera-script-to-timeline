@@ -1,0 +1,43 @@
+{
+  "acceptance": "External remains incomplete; no issue closure, merge or deployment",
+  "artifactHashes": {
+    "01-prepare-identity.command": "8ae667fddde41cd61d3a7ac076499caa003fe9ea119c413fc33af02760457b56",
+    "02-confirm-identity.command": "32795fe56921c9fda9c1030adced5aab928431e3b755e1cfa6f5952f996296b6",
+    "README.md": "c1ea0e5515ea0148150d4918f79ef525a6793f81561f07a53d494b0885ea6d85",
+    "affected-checks.json": "ba51e79b93398b66d16b48f230d68c8928c9b1dacbe467f1d568c284c46cbadf",
+    "equivalence.json": "af1d3bb0fac67754b5ea4d48173731a8a9307f19440617f8ccd4f75265a0cb64",
+    "handoff.json": "c5364c5d02d65f08a0aed93bc3c582ae20415ef7e3b2908fb195d947a5fa24b2"
+  },
+  "authorityIssued": false,
+  "branch": "codex/issue-208-target-identity",
+  "checks": {
+    "actualReviewReceiptsMatch": true,
+    "affectedTests": "9 passed, 33 deselected in 24.69s",
+    "artifactWhitespaceAndLinksPass": true,
+    "embeddedValidatorAstEqual": true,
+    "frozenBoundaryDiffEmpty": true,
+    "helperSyntaxPass": true,
+    "lintFormat": "four changed Python files passed",
+    "mypy": "156 source files passed",
+    "releaseSourceAndInventoryPinsMatch": true,
+    "runtimeAstMatchesReview": true
+  },
+  "finalFullValidation": "HELD until actual installed identity AND #204 capability report; no full run is claimed",
+  "heavySlot": "Release expressly after verified owned-job drain; no successor dispatch",
+  "heldInputs": [
+    "Exact coordinator installation/runtime grant for prepared release",
+    "Operator-selected already-saved disposable NONproduction project/timeline exact visible names",
+    "Personal operator authority and later independent four-identifier/hash acknowledgement",
+    "Actual installed injected-flow identity and capability artifacts plus unchanged-target evidence"
+  ],
+  "helperExecuted": false,
+  "issue": 208,
+  "nativeOperations": 0,
+  "operatorAttemptCreated": false,
+  "preparedAt": "2026-10-14T16:46:45.802384+00:00",
+  "releaseManifestSha256": "221b5060fe704a04bd28d76f789850c500f32b837b2c7b27b8bfbb445e102695",
+  "requestPrepared": false,
+  "reviewedBehaviorCommit": "1b49081fe40271695a91e9136f3f6106332f8da4",
+  "status": "prepared operator gate held; issue OPEN/In progress/External; claim active",
+  "task": "01a13aaf-1142-7ef1-b8bb-f0396cb5d0ec"
+}

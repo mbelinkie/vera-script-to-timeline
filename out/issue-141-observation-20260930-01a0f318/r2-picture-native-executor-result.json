@@ -1,0 +1,133 @@
+{
+  "case": "R2-picture",
+  "configBinding": {
+    "action": "observe",
+    "externalScriptingSetting": "None",
+    "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation.json",
+    "probeSha256": "64a9c91da7093382f52d3ba1178d87d36fc10709276f93f383f6bec701b1eef2",
+    "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+    "sha256": "e920504d0ce7a9b46db6eb08dd8997d43facfc7053d1a10270a4a8eaf10e8fd4",
+    "stage": "baseline-repeat",
+    "timelineInventory": "protected-six"
+  },
+  "failure": {
+    "command": "ctx-wire run rtk python3.14 -S REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-cut-sequence.py --case R2-picture --prior-pair producer-matrix-selection-20261001T183030.414033Z/after-pair.json --prior-sha256 59d4b9bde36af0c0a2c06a126f426fefd1e6dd1a76ddbf562574e70b535ff2b0 --run",
+    "exception": "RuntimeError",
+    "exitCode": 1,
+    "instruction": "Retain evidence and stop. Do not rerun preparation or change scripting mode.",
+    "message": "Pinned bounded probe module changed; refusing",
+    "nativeResult": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T185638.957506Z.json",
+    "nativeResultReference": "independent-action-20261001T185637.670323Z/result-reference.json",
+    "nativeResultReferenceSha256": "23e4eb9f53935ab53c6330c2336679b7401a42bad1a9afe7fc85c30a1e33b721",
+    "nativeResultSha256": "c8bf0b33f91033031c2953fdf7b6592d024d504753e784e3127f5f30143a5e06",
+    "retryOrCleanup": false
+  },
+  "firstFailureArchive": "r2-picture-native-first-pre-dispatch-failure.json",
+  "inputPair": {
+    "path": "producer-matrix-selection-20261001T183030.414033Z/after-pair.json",
+    "sha256": "59d4b9bde36af0c0a2c06a126f426fefd1e6dd1a76ddbf562574e70b535ff2b0",
+    "timelineInventory": "protected-six"
+  },
+  "lastAction": {
+    "label": "r2-picture-deselected",
+    "nativeReadbackRetained": false,
+    "requested": "editorial-readback",
+    "stage": "after deselect menu; helper refused before readback getters"
+  },
+  "limits": [
+    "No split or deletion occurred.",
+    "No selected-clip readback was retained.",
+    "No own-context restoration was attempted after refusal.",
+    "No R2-partial or output action.",
+    "No speech-deletion or final-output claim.",
+    "Protected preservation after the last menu actions is unverified."
+  ],
+  "menuActionsDispatched": [
+    {
+      "directory": "independent-action-20261001T185634.416110Z",
+      "exitCode": 0,
+      "launchJsonSha256": "c7a1e0878a18d7f2881e225100f196a862780d9927f2975176d7d9673efbe053",
+      "menu": "auto-none",
+      "sourceSha256": "47b6ec354c00e3ef1296a70c29e8846e1661fef692177d90bc96f27ba5b6bc6d"
+    },
+    {
+      "directory": "independent-action-20261001T185635.498025Z",
+      "exitCode": 0,
+      "launchJsonSha256": "185d0d5249340c42f2b7ef62927d8b2cfd2cbee986ac7298dc1dad111b67e2cf",
+      "menu": "auto-v1",
+      "sourceSha256": "47b6ec354c00e3ef1296a70c29e8846e1661fef692177d90bc96f27ba5b6bc6d"
+    },
+    {
+      "directory": "independent-action-20261001T185636.617715Z",
+      "exitCode": 0,
+      "launchJsonSha256": "9a64adc3a6290b5ddaabbd46c9be7187ef1fa8a9cd1305eed37aabe80a8f6056",
+      "menu": "deselect",
+      "sourceSha256": "47b6ec354c00e3ef1296a70c29e8846e1661fef692177d90bc96f27ba5b6bc6d"
+    }
+  ],
+  "preparation": {
+    "beforePairSha256": "59d4b9bde36af0c0a2c06a126f426fefd1e6dd1a76ddbf562574e70b535ff2b0",
+    "case": "R2-picture",
+    "journal": "editorial-case-20261001T185627.214629Z/journal.jsonl",
+    "journalSha256": "ecb636c4cb9912a4290646871c0ccbacf201f5e6a0adbee5322e4fcb13710bde",
+    "noSave": true,
+    "path": "independent-cut-sequence-20261001T185619.919970Z/preparation.json",
+    "preparedPair": {
+      "path": "editorial-case-20261001T185627.214629Z/after.json",
+      "sha256": "4d21b54fa3fa855ee65a9d8af54a3be206927b6cafa87af7dc979d92ae4f3329"
+    },
+    "sha256": "574f4c2d86f905eebf997da92fa1794cc00b45260c22f20ad7b0c545ae46c34e",
+    "splitCommandDispatched": false,
+    "status": "case-prepared"
+  },
+  "priorTerminalPreDispatchFailure": "r2-picture-native-first-pre-dispatch-failure.json",
+  "protectedStateEvidence": {
+    "identitiesGeometryMarkersLinksSourcePoolFinalPreservation": "not evaluated after refusal",
+    "preparedPairConsistency": "equal-adjacent-reads",
+    "protectedPreservationClaimed": false,
+    "timelineInventory": "protected-six"
+  },
+  "resultBindings": [
+    {
+      "path": "independent-cut-sequence-20261001T185619.919970Z/preparation.json",
+      "sha256": "574f4c2d86f905eebf997da92fa1794cc00b45260c22f20ad7b0c545ae46c34e"
+    },
+    {
+      "path": "editorial-case-20261001T185627.214629Z/after.json",
+      "sha256": "4d21b54fa3fa855ee65a9d8af54a3be206927b6cafa87af7dc979d92ae4f3329"
+    },
+    {
+      "path": "editorial-case-20261001T185627.214629Z/journal.jsonl",
+      "sha256": "ecb636c4cb9912a4290646871c0ccbacf201f5e6a0adbee5322e4fcb13710bde"
+    },
+    {
+      "path": "independent-action-20261001T185637.670323Z/result-reference.json",
+      "sha256": "23e4eb9f53935ab53c6330c2336679b7401a42bad1a9afe7fc85c30a1e33b721"
+    },
+    {
+      "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T185638.957506Z.json",
+      "sha256": "c8bf0b33f91033031c2953fdf7b6592d024d504753e784e3127f5f30143a5e06"
+    }
+  ],
+  "sourceBindings": {
+    "av-output.py": "a7d52eb21e805ccc0bfd084d994afb3f49d31066448b7307d044fcbcd0c4c91a",
+    "editorial-cases-check.py": "0da0fb622bdadd33bb50510fdcc36680ad2dc4b88795d697348febd7bbb9dde2",
+    "editorial-cases.py": "1e1c2685de795bdc60ffa806c0fde10d75e300340fc2c1178b8ccf4d1a93f372",
+    "editorial-readback.py": "d9df76229ead502b2d9ff31a1847eb9b858aa8931d25d279b560244e93690354",
+    "hammerspoon-editorial-check.lua": "ccd000d9dc489a7b50ed622b1a01d82ce71d8b466524d089d72140ba8fd4be63",
+    "hammerspoon-editorial.lua": "47b6ec354c00e3ef1296a70c29e8846e1661fef692177d90bc96f27ba5b6bc6d",
+    "hammerspoon-launch.lua": "f92cc1b6e5bd7e0611bf94aa9a7262f3c14936de03fc5072e1c0100593cd461d",
+    "independent-cut-sequence.py": "4132ab08e677269a9eaf33e0d5deab1422599d46f929f7dd2d19e24c582c74a7",
+    "independent-native-call.py": "d0b1d7fa36a8e3ba452feba4b2488f5695bc3546370523cbd44592ad11f0e88d",
+    "probe.py": "64a9c91da7093382f52d3ba1178d87d36fc10709276f93f383f6bec701b1eef2",
+    "r4-range-repair.py": "9b6977747a1f3decf957ead6134f10fc4f597bf9d0c3dc5c081b7bf2671879a4"
+  },
+  "sourcePinMismatch": {
+    "actualSha256": "d9df76229ead502b2d9ff31a1847eb9b858aa8931d25d279b560244e93690354",
+    "module": "editorial-readback.py",
+    "probeOwnedExpectedSha256": "dba56a716aff973afdcc977df51fdc4b08ae1f727ce24f7c41d94c0f9ce32d22",
+    "probeSha256": "64a9c91da7093382f52d3ba1178d87d36fc10709276f93f383f6bec701b1eef2"
+  },
+  "status": "stopped-native-helper-refusal",
+  "terminalVsPending": "terminal; sequence exited code 1, no result pending"
+}

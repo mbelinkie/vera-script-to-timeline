@@ -1,0 +1,5 @@
+{
+  "exitCode": 69,
+  "stdout": "",
+  "stderr": "error communicating with Hammerspoon: receive timeout\n"
+}

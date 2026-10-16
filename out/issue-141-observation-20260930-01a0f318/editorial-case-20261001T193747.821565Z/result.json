@@ -1,0 +1,87 @@
+{
+  "case": "R2-partial",
+  "directory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T193747.821565Z",
+  "environment": {
+    "productName": "DaVinci Resolve Studio",
+    "python": "3.14.7",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "failure": null,
+  "journal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T193747.821565Z/journal.jsonl",
+  "menuCommandDispatched": false,
+  "originalLocks": {
+    "audio:1": false,
+    "audio:2": true,
+    "audio:3": true,
+    "video:1": false,
+    "video:2": true,
+    "video:3": true
+  },
+  "originalPage": "edit",
+  "originalPlayhead": "00:00:00:00",
+  "playheadAfter": "00:02:42:15",
+  "preparedPair": {
+    "path": "editorial-case-20261001T193747.821565Z/after.json",
+    "sha256": "e077be9dbdf4259936e997b7e011bf53f439ea76f6faa817a2fba54d7a5fe09f"
+  },
+  "priorPair": {
+    "path": "r2-picture-context-20261001T193350.646564Z/pair.json",
+    "sha256": "90c4ad9a1cebcf1918165e1e62e4343ae225635012331afd56a9385ab8187661"
+  },
+  "protectedTracks": [
+    [
+      "video",
+      1
+    ],
+    [
+      "video",
+      2
+    ],
+    [
+      "video",
+      3
+    ],
+    [
+      "audio",
+      2
+    ],
+    [
+      "audio",
+      3
+    ]
+  ],
+  "saveDispatched": false,
+  "setters": [
+    "SetClipsLinked",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetCurrentTimecode"
+  ],
+  "status": "case-prepared",
+  "target": {
+    "endFrame": 4199,
+    "frameRate": 25,
+    "sourceUids": {
+      "audio": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+      "video": "9202163a-8381-43e6-9157-3a60f35c6f79"
+    },
+    "splitPlayheadFrame": 4065,
+    "splitPlayheadTimecode": "00:02:42:15",
+    "startFrame": 4000,
+    "targetTrack": "audio",
+    "uids": {
+      "audio": "d5d00807-e77d-4914-9b49-dd025ff5430d",
+      "video": "ac20bfd7-e56d-4b0f-9ab5-7451fd9093fd"
+    },
+    "unlinkPrepared": true
+  }
+}

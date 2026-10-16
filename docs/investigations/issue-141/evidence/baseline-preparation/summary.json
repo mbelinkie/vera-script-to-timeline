@@ -1,0 +1,158 @@
+{
+  "captureRawSha256": "92c04d10bafe86499b7d11a27d457e655893ee6340d73a290a80e29e35887161",
+  "consistency": "equal-adjacent-reads",
+  "contentFingerprint": "143d56e6f118008b8415bfead2d5c0f84b57d21d79111a9a2d8ae0d1ebc3b239",
+  "kind": "interpretation-of-retained-real-readback",
+  "limitations": [
+    "Two adjacent reads only; reopen and separate-launch repeat pending.",
+    "Actual bounds differ from requested durations; no silent baseline correction.",
+    "No complete program routing, rendered visibility, word deletion or edit lineage established."
+  ],
+  "occurrences": [
+    {
+      "enabled": true,
+      "linkedUids": [
+        {
+          "value": "5f26e407-361c-40ea-b120-fdcb2cffd1e9"
+        }
+      ],
+      "mediaUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+      "name": "base.mov",
+      "observedDuration": 199,
+      "observedEnd": 199,
+      "observedStart": 0,
+      "requestedDuration": 200,
+      "requestedStart": 0,
+      "seedOccurrence": 0,
+      "sourceBytes": {
+        "hashMatches": true,
+        "sha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+        "status": "reachable"
+      },
+      "track": [
+        "video",
+        1
+      ],
+      "uid": "1c80a88c-317c-462d-9664-b0c777207e6a"
+    },
+    {
+      "enabled": true,
+      "linkedUids": [
+        {
+          "value": "1c80a88c-317c-462d-9664-b0c777207e6a"
+        }
+      ],
+      "mediaUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+      "name": "repeated.wav",
+      "observedDuration": 199,
+      "observedEnd": 199,
+      "observedStart": 0,
+      "requestedDuration": 200,
+      "requestedStart": 0,
+      "seedOccurrence": 1,
+      "sourceBytes": {
+        "hashMatches": true,
+        "sha256": "832dd31cc46b9f4b4fdb7cbde18b4edc09ec249885634fba43da2a7b87dc768e",
+        "status": "reachable"
+      },
+      "track": [
+        "audio",
+        1
+      ],
+      "uid": "5f26e407-361c-40ea-b120-fdcb2cffd1e9"
+    },
+    {
+      "enabled": false,
+      "linkedUids": [],
+      "mediaUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+      "name": "repeated.wav",
+      "observedDuration": 199,
+      "observedEnd": 199,
+      "observedStart": 0,
+      "requestedDuration": 200,
+      "requestedStart": 0,
+      "seedOccurrence": 2,
+      "sourceBytes": {
+        "hashMatches": true,
+        "sha256": "832dd31cc46b9f4b4fdb7cbde18b4edc09ec249885634fba43da2a7b87dc768e",
+        "status": "reachable"
+      },
+      "track": [
+        "audio",
+        2
+      ],
+      "uid": "bec168d3-b26e-418b-968f-7ea5dc67362d"
+    },
+    {
+      "enabled": true,
+      "linkedUids": [],
+      "mediaUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+      "name": "bed.wav",
+      "observedDuration": 199,
+      "observedEnd": 199,
+      "observedStart": 0,
+      "requestedDuration": 200,
+      "requestedStart": 0,
+      "seedOccurrence": 3,
+      "sourceBytes": {
+        "hashMatches": true,
+        "sha256": "f6da7ab4ffb4cc549e4b41e19da714097877b035abfb0235ac9bf94ea4860c02",
+        "status": "reachable"
+      },
+      "track": [
+        "audio",
+        3
+      ],
+      "uid": "b99c0b5b-9efb-4441-936a-ba2564f9395c"
+    },
+    {
+      "enabled": false,
+      "linkedUids": [],
+      "mediaUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+      "name": "cutaway.mov",
+      "observedDuration": 49,
+      "observedEnd": 99,
+      "observedStart": 50,
+      "requestedDuration": 50,
+      "requestedStart": 50,
+      "seedOccurrence": 4,
+      "sourceBytes": {
+        "hashMatches": true,
+        "sha256": "771b4bbbe771b980831e0a7b6d93ef11e1315cd995df22c5c7fbf7c2bf62c88b",
+        "status": "reachable"
+      },
+      "track": [
+        "video",
+        2
+      ],
+      "uid": "2033688c-2055-4c52-a7b6-854299ccd013"
+    },
+    {
+      "enabled": false,
+      "linkedUids": [],
+      "mediaUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+      "name": "overlay.png",
+      "observedDuration": 125,
+      "observedEnd": 200,
+      "observedStart": 75,
+      "requestedDuration": 50,
+      "requestedStart": 75,
+      "seedOccurrence": 5,
+      "sourceBytes": {
+        "hashMatches": true,
+        "sha256": "071eb12b64238770244dead14fda01a0aeca3623f7962aab9edefa93b68d3140",
+        "status": "reachable"
+      },
+      "track": [
+        "video",
+        3
+      ],
+      "uid": "cf9584b0-028a-4a94-93fa-a3b86e590646"
+    }
+  ],
+  "operatorNoneConfirmation": "confirmed: operator stated None stayed set for this successful run",
+  "operatorReport": "It worked!",
+  "projectId": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+  "timelineId": "88f7923d-55a7-471f-b09b-cf10f9fae8ad",
+  "untouchedExistingStateConfirmation": "confirmed: operator stated synthetic project only for this successful run"
+}

@@ -1,0 +1,5612 @@
+{
+  "title": "Issue 141 retained audio mapping full review",
+  "scope": "Read-only comparison of the exact retained full Matrix and Media Pool pair; no Resolve calls and no media files opened, read, or hashed.",
+  "readback": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-residual-second-split-20261001T215948.487403Z/pair.json",
+    "sha256": "3f510f532db58ae58b6dd29cdba7a508d3791ba5b6ee7d7ba41b17738f8e53d7",
+    "status": "editorial-pair-retained",
+    "readOnly": true,
+    "pairConsistency": {
+      "timeline": "equal-adjacent-reads",
+      "pool": "equal-adjacent-reads",
+      "timelineInventory": "protected-six",
+      "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24"
+    }
+  },
+  "getterScope": {
+    "timelineGetter": "GetSourceAudioChannelMapping",
+    "poolGetter": "GetAudioMapping",
+    "passes": 2,
+    "matrixOnlyForTimelineCounts": true,
+    "poolIncludesAllRetainedPoolEntries": true
+  },
+  "matrix": [
+    {
+      "passIndex": 0,
+      "timelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+      "timelineName": "VERA 141 Batched Matrix",
+      "itemCount": 132,
+      "getterCounts": {
+        "success": 132
+      },
+      "mappingClasses": {
+        "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{}}": 46,
+        "{\"embedded_audio_channels\":0,\"linked_audio\":{},\"track_mapping\":{}}": 19,
+        "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}": 67
+      },
+      "linkedAudio": {
+        "nonEmptyMappingCount": 0,
+        "entryCount": 0
+      },
+      "perTrack": {
+        "video:1": {
+          "itemCount": 27,
+          "getterCounts": {
+            "success": 27
+          },
+          "mappingClasses": {
+            "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{}}": 27
+          }
+        },
+        "video:2": {
+          "itemCount": 19,
+          "getterCounts": {
+            "success": 19
+          },
+          "mappingClasses": {
+            "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{}}": 19
+          }
+        },
+        "video:3": {
+          "itemCount": 19,
+          "getterCounts": {
+            "success": 19
+          },
+          "mappingClasses": {
+            "{\"embedded_audio_channels\":0,\"linked_audio\":{},\"track_mapping\":{}}": 19
+          }
+        },
+        "audio:1": {
+          "itemCount": 28,
+          "getterCounts": {
+            "success": 28
+          },
+          "mappingClasses": {
+            "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}": 28
+          }
+        },
+        "audio:2": {
+          "itemCount": 19,
+          "getterCounts": {
+            "success": 19
+          },
+          "mappingClasses": {
+            "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}": 19
+          }
+        },
+        "audio:3": {
+          "itemCount": 20,
+          "getterCounts": {
+            "success": 20
+          },
+          "mappingClasses": {
+            "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}": 20
+          }
+        }
+      },
+      "items": [
+        {
+          "timelineUid": "33270bc5-52d0-4361-a6e3-96eb2b6d4a91",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "36aa9baf-affc-493a-b09e-90e16996caf0",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "36b5882f-d928-4424-b4a6-ee3f7dcc8e03",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "381ff8e1-62dd-49c9-9745-7ad3984ee52a",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "3f2de461-d510-46f8-939f-0c794d48e38b",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "43a86094-c5b5-40f0-b781-a419923f25fe",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "44bfdfa0-6aa6-40af-8916-679d557f18ee",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "462ae76e-bf69-41be-b967-b70c163c0c1a",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "47695059-c269-43d8-913e-e946ce13bf0a",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "485076d1-5bdc-4136-8628-3b2aaa955c25",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "55ef1242-5a71-45e5-a1b4-d90300589de2",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "6e1833c2-2695-481b-9d56-2e65ad57bf33",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "70717d8e-6888-421b-825a-8e093beb2c45",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "7ab66c6f-a666-4e10-933f-a20b2502c33c",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "7d3b18f2-0dbd-4e7b-85b4-63bfe5c2330a",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "7dc4a98b-33cb-4feb-9727-b2bca434138e",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "883e3e81-75b0-4163-8fdb-fff8d382edcc",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "9e990622-a172-4bab-96fc-1198d84b1279",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "9ffce397-be8c-4cca-9f15-1670e0e4ae1a",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "ac20bfd7-e56d-4b0f-9ab5-7451fd9093fd",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "bbd48d17-f8ef-430f-9cfd-cd14c3860ae0",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "be502d02-0df5-40fc-9d93-3d6307dad029",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "ccabcb9a-8e7d-462e-a8a1-4f6ce8c4f5f7",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "d282448a-d7bf-4cb9-bc6b-9402666aa351",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "d89f0c29-9132-4b81-8f1b-ce1440621638",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "e64549d6-eee5-49f2-985b-475c31ccb07d",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "eabb3ade-3fbf-4b27-8d52-caaec25e10bc",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "0763a3f3-6df3-4276-ac85-42ad458221cf",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "0d8dc45f-80d1-4a7f-a22e-7825fa87b5ea",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "2e81bd0f-a4ca-4955-8373-fc6db16380fb",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "312d799a-378a-4b05-9e0e-839033adda53",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "3fa5a794-d488-4c14-b381-b19b0d1b1f83",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "413bc155-619d-4efb-8afa-1f6a2c2a3d5d",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "4b259d65-59be-497b-ad6e-efa10f433040",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "4f341ba4-1d8a-4ca4-89dd-31bc23d98195",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "5c4fab9f-1a9f-4333-a56a-a02ffd321b66",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "6265a4c5-76ab-4377-a922-1d5031bb5556",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "76bdecff-b881-4e14-b2fe-e24eb68a7adb",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "78181908-dcbe-4506-b9ea-6029d3e33a29",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "861df236-2ca9-4bfc-b925-9499926a44fb",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "9fedaf97-89ee-4a41-b9d7-94e189a3a77f",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "a3cefd0b-5c57-4649-8d68-397cc6a0a4a8",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "cdfcd799-1dcb-4939-9408-d4c2390c53eb",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "d8081ee6-0e86-4772-bc39-d0c7e505f754",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "eca5bd62-4825-424a-a27d-0f88e636cb7d",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "ffa32d06-3bf2-49b4-93b0-963b32c4b180",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "2a4c49e0-f898-48ee-b0ff-23409a8c56f3",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "2aaa26e2-db0b-4841-8eb9-744eb19a594d",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "2b06a44d-d825-4040-b4c2-0d7d017561f1",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "2fa6527a-4005-4abf-9b0b-4eb91b177be9",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "31dd3ffb-d129-46f4-b488-27b0108482a2",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "3a3aa71f-29fe-4de4-9b21-6b8c45bb0ef3",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "5e014836-6ddc-4785-9870-746b702781ea",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "6255bf1f-0116-415b-8f1d-dbf33acf3cc0",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "8c207334-1f6f-4be2-8506-5fbdd105fbcd",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "92282f91-0793-4a27-b689-89524a929eab",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "9355c637-9379-4931-92a3-d4cfc8d6261e",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "b9f6a186-abc8-425c-98f1-245096f7911b",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "baec42e2-ce62-4a1d-972f-efb487ad37f1",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "bf381707-6f44-4758-b420-e555abe7c035",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "cbde93e8-d9e9-4ed8-aaa0-315c37dc9e34",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "ceffcf83-6f99-46f7-9eaf-2c36b49a18ae",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "d400bc47-3df7-47f2-8929-7b0d6bf32702",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "dcc94b55-ec47-4aff-bdda-8eb403ae4ba8",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "ea448c37-4821-419d-8fbf-112790cc0499",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "04567868-28d3-47f5-bd7b-dca08fef8b27",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "09373858-39dd-474b-9eb8-56c5e523cc76",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "17267938-81b0-4777-9db5-0a27d359dbfc",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "22561398-bce0-4c22-b55f-a73d3ad5e4cf",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "23dc6e60-704c-456e-918e-36caa179f314",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "2e8c2ba4-7220-44cc-bb75-1c2e251ae5c4",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "2e9c3451-1ed8-4e88-985d-ef5e7f3a070b",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "37090958-a265-4ebe-ae6a-50d0b95bbd8a",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "3a1a52ec-5a60-4972-8509-274b4a7d1f64",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "4d08e64a-85fd-4dfe-ac80-77e4d9d28835",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "55229fb5-7478-47c9-984f-613cec35afb1",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "6332623e-9e1b-4539-949f-38debcc9bbc1",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "6f7c7dd4-9e80-444d-a4ae-b225cb5f5839",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "7808b1fb-3423-4dac-a07b-58f1e1e456cd",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "7c970634-6fcb-4117-9a51-221a482c7142",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "7ef661f3-9b3e-427c-8d00-9dab85a0cfcb",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "81d64d76-1b80-4314-a68c-4b5bce7807eb",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "9b7c5a04-8349-4a68-aa4b-9fcc81065cc8",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "9ba774a9-05db-419c-bd8c-39073567d9f3",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "a9175c87-6bc0-4c07-a167-3b7c9de70fba",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "b4f84273-a32c-48bd-acfe-7939fbbdc54b",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "c6280b39-7618-4136-81e3-17c855866c84",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "d5d00807-e77d-4914-9b49-dd025ff5430d",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "d9d00f42-1b56-4d09-868f-55c3b752d7be",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "dd5571fb-6b2c-486d-87eb-242a69802267",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "f0b986dd-b580-42f9-a7f8-ba464cca7076",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "f7bb7700-1072-47ce-acb5-8e50ac6f9a88",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "fe6f2f29-c8c3-498c-b4a3-fa5f06f1b0a6",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "03a58df7-469a-41c4-b359-956bffb3fc32",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "1f8a9cbb-97a9-4b2d-8b8d-d08432f243e9",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "33041955-47f7-4f37-9a40-b6234f178e91",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "3b4a306d-0235-45f3-8d27-fde368ff4c66",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "413e5c9c-d76d-4052-acda-c526c8a91dfb",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "57e3f7b0-0ebe-4e90-af53-a4e9f9fee646",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "5ba9ee2e-ac9b-4bd0-a8e5-b2bd29e9e622",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "76b31a26-0be5-49da-8d44-558c78f963d0",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "8395442e-4d0c-4ded-a6b7-7a9511811106",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "97729a5b-582a-4218-8c2b-506e5aa4d9ba",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "9d8a6df4-f889-4f5e-a718-86c263a4f8e9",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "9f1f39c4-0fa9-4ec7-97b1-d3f172c99946",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "9fbe5182-8f54-44e2-931a-1a6c07a60132",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "a4ef8231-15d4-44b8-accf-9694bec62775",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "aa462900-5efe-49d1-bc1b-cb7b2b7daed9",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "b7a4901a-9b9c-41b4-b24d-d5e23bc65b62",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "c5a870c5-35c0-4158-aa5e-3ef186522410",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "c6240ed5-ee5f-4db4-a654-7d7a63715691",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "f4e9f649-894a-42f2-9f54-a8321ae7c163",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "050ec572-54d8-4025-a1c7-0e625766245a",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "16b1902c-74e2-4a65-9bac-b7b1fac86485",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "1dde7d80-6057-4a48-94a4-134a6d79e41f",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "368ab8db-136e-40ed-b37f-c0328c21c1d1",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "36e55e90-6a14-408d-8a4d-484be27ef252",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "3b6ee2f9-fb22-4052-9181-c440d5d3dbf0",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "41181fd9-2993-4808-8b62-95caeb776f45",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "4c4a5f04-57bf-40ee-bf90-6766861ef3bf",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "4ddfa766-09fc-4189-b8f2-a1ffa28f8dd4",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "58364066-e8a7-42ac-befe-16dd9ff72578",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "67b2a12d-59d5-447c-9ccf-0f054b1cecc9",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "8b7633f6-7c68-4ce6-9aff-db778b470e91",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "9d052518-8d90-4dc3-b09e-64c4778899f6",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "ac0994d2-39f5-4f0b-80c4-bbfebdf7311e",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "b29880f3-1e58-40ca-98b4-00754e004f4f",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "c26c6dc4-a774-4ba5-96a2-30bd6de7fcca",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "c7139447-92ea-40e5-ab64-419643138551",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "c829f754-0f42-417c-b547-d1fe6451b467",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "d9be97a6-00a8-4cc3-bf21-818012dc4b41",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "e3f72625-f257-4d3f-a1ee-0385044121e5",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "passIndex": 1,
+      "timelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+      "timelineName": "VERA 141 Batched Matrix",
+      "itemCount": 132,
+      "getterCounts": {
+        "success": 132
+      },
+      "mappingClasses": {
+        "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{}}": 46,
+        "{\"embedded_audio_channels\":0,\"linked_audio\":{},\"track_mapping\":{}}": 19,
+        "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}": 67
+      },
+      "linkedAudio": {
+        "nonEmptyMappingCount": 0,
+        "entryCount": 0
+      },
+      "perTrack": {
+        "video:1": {
+          "itemCount": 27,
+          "getterCounts": {
+            "success": 27
+          },
+          "mappingClasses": {
+            "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{}}": 27
+          }
+        },
+        "video:2": {
+          "itemCount": 19,
+          "getterCounts": {
+            "success": 19
+          },
+          "mappingClasses": {
+            "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{}}": 19
+          }
+        },
+        "video:3": {
+          "itemCount": 19,
+          "getterCounts": {
+            "success": 19
+          },
+          "mappingClasses": {
+            "{\"embedded_audio_channels\":0,\"linked_audio\":{},\"track_mapping\":{}}": 19
+          }
+        },
+        "audio:1": {
+          "itemCount": 28,
+          "getterCounts": {
+            "success": 28
+          },
+          "mappingClasses": {
+            "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}": 28
+          }
+        },
+        "audio:2": {
+          "itemCount": 19,
+          "getterCounts": {
+            "success": 19
+          },
+          "mappingClasses": {
+            "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}": 19
+          }
+        },
+        "audio:3": {
+          "itemCount": 20,
+          "getterCounts": {
+            "success": 20
+          },
+          "mappingClasses": {
+            "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}": 20
+          }
+        }
+      },
+      "items": [
+        {
+          "timelineUid": "33270bc5-52d0-4361-a6e3-96eb2b6d4a91",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "36aa9baf-affc-493a-b09e-90e16996caf0",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "36b5882f-d928-4424-b4a6-ee3f7dcc8e03",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "381ff8e1-62dd-49c9-9745-7ad3984ee52a",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "3f2de461-d510-46f8-939f-0c794d48e38b",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "43a86094-c5b5-40f0-b781-a419923f25fe",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "44bfdfa0-6aa6-40af-8916-679d557f18ee",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "462ae76e-bf69-41be-b967-b70c163c0c1a",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "47695059-c269-43d8-913e-e946ce13bf0a",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "485076d1-5bdc-4136-8628-3b2aaa955c25",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "55ef1242-5a71-45e5-a1b4-d90300589de2",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "6e1833c2-2695-481b-9d56-2e65ad57bf33",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "70717d8e-6888-421b-825a-8e093beb2c45",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "7ab66c6f-a666-4e10-933f-a20b2502c33c",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "7d3b18f2-0dbd-4e7b-85b4-63bfe5c2330a",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "7dc4a98b-33cb-4feb-9727-b2bca434138e",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "883e3e81-75b0-4163-8fdb-fff8d382edcc",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "9e990622-a172-4bab-96fc-1198d84b1279",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "9ffce397-be8c-4cca-9f15-1670e0e4ae1a",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "ac20bfd7-e56d-4b0f-9ab5-7451fd9093fd",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "bbd48d17-f8ef-430f-9cfd-cd14c3860ae0",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "be502d02-0df5-40fc-9d93-3d6307dad029",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "ccabcb9a-8e7d-462e-a8a1-4f6ce8c4f5f7",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "d282448a-d7bf-4cb9-bc6b-9402666aa351",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "d89f0c29-9132-4b81-8f1b-ce1440621638",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "e64549d6-eee5-49f2-985b-475c31ccb07d",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "eabb3ade-3fbf-4b27-8d52-caaec25e10bc",
+          "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "track": {
+            "type": "video",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "0763a3f3-6df3-4276-ac85-42ad458221cf",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "0d8dc45f-80d1-4a7f-a22e-7825fa87b5ea",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "2e81bd0f-a4ca-4955-8373-fc6db16380fb",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "312d799a-378a-4b05-9e0e-839033adda53",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "3fa5a794-d488-4c14-b381-b19b0d1b1f83",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "413bc155-619d-4efb-8afa-1f6a2c2a3d5d",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "4b259d65-59be-497b-ad6e-efa10f433040",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "4f341ba4-1d8a-4ca4-89dd-31bc23d98195",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "5c4fab9f-1a9f-4333-a56a-a02ffd321b66",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "6265a4c5-76ab-4377-a922-1d5031bb5556",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "76bdecff-b881-4e14-b2fe-e24eb68a7adb",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "78181908-dcbe-4506-b9ea-6029d3e33a29",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "861df236-2ca9-4bfc-b925-9499926a44fb",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "9fedaf97-89ee-4a41-b9d7-94e189a3a77f",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "a3cefd0b-5c57-4649-8d68-397cc6a0a4a8",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "cdfcd799-1dcb-4939-9408-d4c2390c53eb",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "d8081ee6-0e86-4772-bc39-d0c7e505f754",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "eca5bd62-4825-424a-a27d-0f88e636cb7d",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "ffa32d06-3bf2-49b4-93b0-963b32c4b180",
+          "sourceUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "track": {
+            "type": "video",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "2a4c49e0-f898-48ee-b0ff-23409a8c56f3",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "2aaa26e2-db0b-4841-8eb9-744eb19a594d",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "2b06a44d-d825-4040-b4c2-0d7d017561f1",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "2fa6527a-4005-4abf-9b0b-4eb91b177be9",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "31dd3ffb-d129-46f4-b488-27b0108482a2",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "3a3aa71f-29fe-4de4-9b21-6b8c45bb0ef3",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "5e014836-6ddc-4785-9870-746b702781ea",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "6255bf1f-0116-415b-8f1d-dbf33acf3cc0",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "8c207334-1f6f-4be2-8506-5fbdd105fbcd",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "92282f91-0793-4a27-b689-89524a929eab",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "9355c637-9379-4931-92a3-d4cfc8d6261e",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "b9f6a186-abc8-425c-98f1-245096f7911b",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "baec42e2-ce62-4a1d-972f-efb487ad37f1",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "bf381707-6f44-4758-b420-e555abe7c035",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "cbde93e8-d9e9-4ed8-aaa0-315c37dc9e34",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "ceffcf83-6f99-46f7-9eaf-2c36b49a18ae",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "d400bc47-3df7-47f2-8929-7b0d6bf32702",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "dcc94b55-ec47-4aff-bdda-8eb403ae4ba8",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "ea448c37-4821-419d-8fbf-112790cc0499",
+          "sourceUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "track": {
+            "type": "video",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "timelineUid": "04567868-28d3-47f5-bd7b-dca08fef8b27",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "09373858-39dd-474b-9eb8-56c5e523cc76",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "17267938-81b0-4777-9db5-0a27d359dbfc",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "22561398-bce0-4c22-b55f-a73d3ad5e4cf",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "23dc6e60-704c-456e-918e-36caa179f314",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "2e8c2ba4-7220-44cc-bb75-1c2e251ae5c4",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "2e9c3451-1ed8-4e88-985d-ef5e7f3a070b",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "37090958-a265-4ebe-ae6a-50d0b95bbd8a",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "3a1a52ec-5a60-4972-8509-274b4a7d1f64",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "4d08e64a-85fd-4dfe-ac80-77e4d9d28835",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "55229fb5-7478-47c9-984f-613cec35afb1",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "6332623e-9e1b-4539-949f-38debcc9bbc1",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "6f7c7dd4-9e80-444d-a4ae-b225cb5f5839",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "7808b1fb-3423-4dac-a07b-58f1e1e456cd",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "7c970634-6fcb-4117-9a51-221a482c7142",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "7ef661f3-9b3e-427c-8d00-9dab85a0cfcb",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "81d64d76-1b80-4314-a68c-4b5bce7807eb",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "9b7c5a04-8349-4a68-aa4b-9fcc81065cc8",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "9ba774a9-05db-419c-bd8c-39073567d9f3",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "a9175c87-6bc0-4c07-a167-3b7c9de70fba",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "b4f84273-a32c-48bd-acfe-7939fbbdc54b",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "c6280b39-7618-4136-81e3-17c855866c84",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "d5d00807-e77d-4914-9b49-dd025ff5430d",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "d9d00f42-1b56-4d09-868f-55c3b752d7be",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "dd5571fb-6b2c-486d-87eb-242a69802267",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "f0b986dd-b580-42f9-a7f8-ba464cca7076",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "f7bb7700-1072-47ce-acb5-8e50ac6f9a88",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "fe6f2f29-c8c3-498c-b4a3-fa5f06f1b0a6",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 1
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "03a58df7-469a-41c4-b359-956bffb3fc32",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "1f8a9cbb-97a9-4b2d-8b8d-d08432f243e9",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "33041955-47f7-4f37-9a40-b6234f178e91",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "3b4a306d-0235-45f3-8d27-fde368ff4c66",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "413e5c9c-d76d-4052-acda-c526c8a91dfb",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "57e3f7b0-0ebe-4e90-af53-a4e9f9fee646",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "5ba9ee2e-ac9b-4bd0-a8e5-b2bd29e9e622",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "76b31a26-0be5-49da-8d44-558c78f963d0",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "8395442e-4d0c-4ded-a6b7-7a9511811106",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "97729a5b-582a-4218-8c2b-506e5aa4d9ba",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "9d8a6df4-f889-4f5e-a718-86c263a4f8e9",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "9f1f39c4-0fa9-4ec7-97b1-d3f172c99946",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "9fbe5182-8f54-44e2-931a-1a6c07a60132",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "a4ef8231-15d4-44b8-accf-9694bec62775",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "aa462900-5efe-49d1-bc1b-cb7b2b7daed9",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "b7a4901a-9b9c-41b4-b24d-d5e23bc65b62",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "c5a870c5-35c0-4158-aa5e-3ef186522410",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "c6240ed5-ee5f-4db4-a654-7d7a63715691",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "f4e9f649-894a-42f2-9f54-a8321ae7c163",
+          "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "track": {
+            "type": "audio",
+            "index": 2
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "050ec572-54d8-4025-a1c7-0e625766245a",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "16b1902c-74e2-4a65-9bac-b7b1fac86485",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "1dde7d80-6057-4a48-94a4-134a6d79e41f",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "368ab8db-136e-40ed-b37f-c0328c21c1d1",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "36e55e90-6a14-408d-8a4d-484be27ef252",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "3b6ee2f9-fb22-4052-9181-c440d5d3dbf0",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "41181fd9-2993-4808-8b62-95caeb776f45",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "4c4a5f04-57bf-40ee-bf90-6766861ef3bf",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "4ddfa766-09fc-4189-b8f2-a1ffa28f8dd4",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "58364066-e8a7-42ac-befe-16dd9ff72578",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "67b2a12d-59d5-447c-9ccf-0f054b1cecc9",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "8b7633f6-7c68-4ce6-9aff-db778b470e91",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "9d052518-8d90-4dc3-b09e-64c4778899f6",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "ac0994d2-39f5-4f0b-80c4-bbfebdf7311e",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "b29880f3-1e58-40ca-98b4-00754e004f4f",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "c26c6dc4-a774-4ba5-96a2-30bd6de7fcca",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "c7139447-92ea-40e5-ab64-419643138551",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "c829f754-0f42-417c-b547-d1fe6451b467",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "d9be97a6-00a8-4cc3-bf21-818012dc4b41",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "timelineUid": "e3f72625-f257-4d3f-a1ee-0385044121e5",
+          "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "track": {
+            "type": "audio",
+            "index": 3
+          },
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "pool": [
+    {
+      "passIndex": 0,
+      "itemCount": 13,
+      "getterCounts": {
+        "success": 7,
+        "missing": 6
+      },
+      "mappingClasses": {
+        "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}": 5,
+        "{\"embedded_audio_channels\":0,\"linked_audio\":{},\"track_mapping\":{}}": 1,
+        "{\"embedded_audio_channels\":2,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1,2],\"mute\":false,\"type\":\"stereo\"}}}": 1
+      },
+      "linkedAudio": {
+        "nonEmptyMappingCount": 0,
+        "entryCount": 0
+      },
+      "missingMappingNames": [
+        "VERA 141 Baseline",
+        "VERA 141 R1 identity",
+        "VERA 141 Batched Matrix",
+        "VERA 141 R4 availability",
+        "transcription test 1",
+        "transcription test 2"
+      ],
+      "items": [
+        {
+          "poolUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "poolUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "poolUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "poolUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "poolUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "poolUid": "69ed3976-c511-49f3-aa6c-267a8532c2df",
+          "name": "VERA 141 Baseline",
+          "status": "missing",
+          "mapping": null
+        },
+        {
+          "poolUid": "726dfa96-aa09-4cb6-8ff4-5b12a57c28cf",
+          "name": "VERA 141 R1 identity",
+          "status": "missing",
+          "mapping": null
+        },
+        {
+          "poolUid": "de8efefa-310d-451c-863c-d6b847e8b82e",
+          "name": "VERA 141 Batched Matrix",
+          "status": "missing",
+          "mapping": null
+        },
+        {
+          "poolUid": "81d81dc0-4c37-478b-8079-03debba5e780",
+          "name": "base.mov",
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "poolUid": "91853c24-9e0c-435c-8550-209a76425270",
+          "name": "VERA 141 R4 availability",
+          "status": "missing",
+          "mapping": null
+        },
+        {
+          "poolUid": "be5f1584-f0c4-4dd9-988b-73f3167e77d1",
+          "name": "semi1b.mp4",
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 2,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1,
+                  2
+                ],
+                "mute": false,
+                "type": "stereo"
+              }
+            }
+          }
+        },
+        {
+          "poolUid": "b3314ba0-fd74-46a2-aa50-b5fc342ab9df",
+          "name": "transcription test 1",
+          "status": "missing",
+          "mapping": null
+        },
+        {
+          "poolUid": "adf46ea1-7d6f-4014-ad2b-37111d3e36f9",
+          "name": "transcription test 2",
+          "status": "missing",
+          "mapping": null
+        }
+      ]
+    },
+    {
+      "passIndex": 1,
+      "itemCount": 13,
+      "getterCounts": {
+        "success": 7,
+        "missing": 6
+      },
+      "mappingClasses": {
+        "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}": 5,
+        "{\"embedded_audio_channels\":0,\"linked_audio\":{},\"track_mapping\":{}}": 1,
+        "{\"embedded_audio_channels\":2,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1,2],\"mute\":false,\"type\":\"stereo\"}}}": 1
+      },
+      "linkedAudio": {
+        "nonEmptyMappingCount": 0,
+        "entryCount": 0
+      },
+      "missingMappingNames": [
+        "VERA 141 Baseline",
+        "VERA 141 R1 identity",
+        "VERA 141 Batched Matrix",
+        "VERA 141 R4 availability",
+        "transcription test 1",
+        "transcription test 2"
+      ],
+      "items": [
+        {
+          "poolUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "name": "base.mov",
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "poolUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+          "name": "cutaway.mov",
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "poolUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "name": "repeated.wav",
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "poolUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+          "name": "bed.wav",
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "poolUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+          "name": "overlay.png",
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 0,
+            "linked_audio": {},
+            "track_mapping": {}
+          }
+        },
+        {
+          "poolUid": "69ed3976-c511-49f3-aa6c-267a8532c2df",
+          "name": "VERA 141 Baseline",
+          "status": "missing",
+          "mapping": null
+        },
+        {
+          "poolUid": "726dfa96-aa09-4cb6-8ff4-5b12a57c28cf",
+          "name": "VERA 141 R1 identity",
+          "status": "missing",
+          "mapping": null
+        },
+        {
+          "poolUid": "de8efefa-310d-451c-863c-d6b847e8b82e",
+          "name": "VERA 141 Batched Matrix",
+          "status": "missing",
+          "mapping": null
+        },
+        {
+          "poolUid": "81d81dc0-4c37-478b-8079-03debba5e780",
+          "name": "base.mov",
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 1,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1
+                ],
+                "mute": false,
+                "type": "mono"
+              }
+            }
+          }
+        },
+        {
+          "poolUid": "91853c24-9e0c-435c-8550-209a76425270",
+          "name": "VERA 141 R4 availability",
+          "status": "missing",
+          "mapping": null
+        },
+        {
+          "poolUid": "be5f1584-f0c4-4dd9-988b-73f3167e77d1",
+          "name": "semi1b.mp4",
+          "status": "success",
+          "mapping": {
+            "embedded_audio_channels": 2,
+            "linked_audio": {},
+            "track_mapping": {
+              "1": {
+                "channel_idx": [
+                  1,
+                  2
+                ],
+                "mute": false,
+                "type": "stereo"
+              }
+            }
+          }
+        },
+        {
+          "poolUid": "b3314ba0-fd74-46a2-aa50-b5fc342ab9df",
+          "name": "transcription test 1",
+          "status": "missing",
+          "mapping": null
+        },
+        {
+          "poolUid": "adf46ea1-7d6f-4014-ad2b-37111d3e36f9",
+          "name": "transcription test 2",
+          "status": "missing",
+          "mapping": null
+        }
+      ]
+    }
+  ],
+  "stability": {
+    "matrixIdentityStableAcrossBothPasses": true,
+    "matrixMappingStableAcrossBothPasses": true,
+    "poolIdentityStableAcrossBothPasses": true,
+    "poolMappingStableAcrossBothPasses": true,
+    "aggregateGetterCountsAcrossBothPasses": {
+      "GetSourceAudioChannelMapping": {
+        "success": 264
+      },
+      "GetAudioMapping": {
+        "success": 14,
+        "missing": 12
+      }
+    }
+  },
+  "linkedAudioOffsetObservation": {
+    "matrixNonEmptyMappingCountAcrossBothPasses": 0,
+    "poolNonEmptyMappingCountAcrossBothPasses": 0,
+    "matrixLinkedAudioEntryCountAcrossBothPasses": 0,
+    "poolLinkedAudioEntryCountAcrossBothPasses": 0,
+    "result": "No retained mapping contained a nonempty linked_audio object, so linked-audio sample offsets were not exercised by this capture."
+  },
+  "interpretation": {
+    "supported": [
+      "The documented source-channel mapping getter returned a native value for all 132 Matrix timeline items on each of two passes.",
+      "The documented MediaPoolItem audio-mapping getter returned a native value for 7 of 13 retained pool entries on each pass; the other 6 entries had no mapping field in the retained readback.",
+      "Matrix item identity, source binding, track location, mapping status, and parsed mapping value were stable across both passes; pool identity and mapping readback were also stable.",
+      "Captured mapping values expose embedded channel count, track_mapping channel indices/type, and the captured mute field for these items."
+    ],
+    "limits": [
+      "The 6 pool entries without GetAudioMapping are timeline assets in the retained pool inventory; this review does not turn that absence into an unsupported-capability claim.",
+      "Source-channel mapping does not establish Fairlight track mute/solo, bus routing, program audibility, or rendered output.",
+      "An empty linked_audio object is an observation of this capture, not evidence that linked-audio offsets cannot be represented.",
+      "No lineage, speech deletion, or asset-deletion claim is made."
+    ]
+  },
+  "generatedAt": "2026-10-01T22:56:11.658593Z"
+}

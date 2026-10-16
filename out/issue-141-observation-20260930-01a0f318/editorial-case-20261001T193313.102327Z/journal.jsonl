@@ -1,0 +1,3 @@
+{"at": "2026-10-01T19:33:13.393317+00:00", "method": "FullReadback", "phase": "before", "value": {"path": "before.json"}}
+{"at": "2026-10-01T19:33:13.393660+00:00", "method": "Timeline.DeleteClips", "phase": "request", "value": {"ripple": false, "uids": ["401f8da9-0a5c-4694-93f5-0d388348d0b4"]}}
+{"at": "2026-10-01T19:33:13.436092+00:00", "method": "Timeline.DeleteClips", "phase": "return", "value": true}

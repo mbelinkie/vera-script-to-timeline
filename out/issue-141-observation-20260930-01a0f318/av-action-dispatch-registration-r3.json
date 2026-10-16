@@ -1,0 +1,21 @@
+{
+  "kind": "issue141-action-runtime-dispatch-registration",
+  "at": "2026-10-01T23:43:49.329425+00:00",
+  "probePath": "REPOSITORY/docs/investigations/issue-141/probe.py",
+  "probeSha256": "7a08016575a631f52a8528f3b77ce24eab5752b69a3e76338ed7cbaafcab1cd1",
+  "configPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation.json",
+  "configSha256": "74f63887918c6d47f73b01e07949a571a4a0cf5b5031c10b64e6c183d341a9ec",
+  "dispatchCheckerPath": "REPOSITORY/docs/investigations/issue-141/dispatch-registration-check.py",
+  "dispatchCheckerSha256": "d2dbcc9a0d0ff4923599192b947949137ea7c89bc4b0f0c57592cb50fff0a1f7",
+  "checks": [
+    "27 owned aliases/modules exactly match runtime branch and allowed actions",
+    "missing continuation runtime route regression refused"
+  ],
+  "runtimeAction": "av-output-full-matrix-continue",
+  "avModuleSha256": "134fd7fdbbf4673fe8385be78eaea138adc1ea55ad55b309a0a17813815438c0",
+  "nativeActionPerformed": false,
+  "priorRegistration": "av-output-source-registration-r2.json",
+  "fix": "Add missing runtime route; non-observe fallthrough now refuses instead of returning readback.",
+  "independentNativeCallPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-native-call.py",
+  "independentNativeCallSha256": "9f1827d3aa10a0f9b6964a0269009fef4c97cda73eb8bd3502479c3595d6113b"
+}

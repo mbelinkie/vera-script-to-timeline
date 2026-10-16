@@ -1,0 +1,36 @@
+[
+  [
+    [
+      "timelinePasses",
+      0,
+      "timelines",
+      0,
+      "tracks",
+      0,
+      "items",
+      5,
+      "GetSpeed",
+      "value",
+      "PitchCorrection"
+    ],
+    true,
+    null
+  ],
+  [
+    [
+      "timelinePasses",
+      1,
+      "timelines",
+      0,
+      "tracks",
+      0,
+      "items",
+      5,
+      "GetSpeed",
+      "value",
+      "PitchCorrection"
+    ],
+    true,
+    null
+  ]
+]

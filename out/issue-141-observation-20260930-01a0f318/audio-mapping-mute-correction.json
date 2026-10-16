@@ -1,0 +1,40 @@
+{
+  "baselineMappingMute": false,
+  "case": "R2-disable-mute",
+  "kind": "issue-141-audio-mapping-mute-local-correction",
+  "pair": {
+    "equalTargets": true,
+    "passes": 2,
+    "path": "out/issue-141-observation-20260930-01a0f318/r2-residual-context-20261001T230139.059176Z/pair.json",
+    "sha256": "1616fa7f512b1a23d4c2756d2246bef51ee9d085ba8c443170ad060c385949a4"
+  },
+  "status": "actual-retained-target-pinned-local-only",
+  "target": {
+    "marker": "141 R2-residual item 2",
+    "occurrenceUid": "f4e9f649-894a-42f2-9f54-a8321ae7c163",
+    "range": {
+      "end": 4699,
+      "start": 4500
+    },
+    "sourceName": "repeated.wav",
+    "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+    "track": {
+      "index": 2,
+      "type": "audio"
+    }
+  },
+  "targetFactSha256": {
+    "marker": "3c7df1ede863785d244eb8ea383e624d655798fc0e98545fdea65cdeea418d39",
+    "occurrenceUid": "1a93049e78ef476286f7cebd90b74ca02561d133ef48733208af267839d3dc21",
+    "range": "930292ba6f71e8b76b136f6cac0c076bccf3fc035f5595575a06756a14b96534",
+    "sourceName": "45afd6be4f973c97f8d034319d306c064fc4045f8341cc2c98d4a8765bc4df51",
+    "sourceUid": "3e594fb3339ed5cb8f4ea64b9ca758d7c308390c0d002b82f24dc16158caa789",
+    "track": "c7c8c3181921a1f8cd6b96de503e215e46729cf7d558c4e71b5fc57891499fc6"
+  },
+  "verification": {
+    "actualPairDiscovery": "PASS: exactly one pinned target in each of two passes",
+    "mediaBytesReadOrHashed": false,
+    "nativeRegistration": false,
+    "resolveCalls": 0
+  }
+}

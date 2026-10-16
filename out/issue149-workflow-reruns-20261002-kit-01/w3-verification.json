@@ -1,0 +1,827 @@
+{
+  "schema": "issue149-workflow-reruns-w3-verification-v1",
+  "taskId": "#149",
+  "analysis": {
+    "path": "out/issue149-workflow-reruns-20261002-kit-01/w3-analysis.json",
+    "sha256": "ed495b969265be687a0bfb370a51d455487ff912a20bc11429d637d1253b4660"
+  },
+  "analysisChecks": {
+    "restoreAllWordsAndComparison": {
+      "passed": true,
+      "command": "/usr/local/bin/python3.13 docs/investigations/issue-149/workflow-reruns/analysis-check.py out/issue149-workflow-reruns-20261002-kit-01/w3-analysis.json --expect-present W3-restored=alpha,bravo,charlie,delta,echo,foxtrot,golf,hotel,one,two,three,four,five,six,seven,eight"
+    },
+    "muteExpectedSilence": {
+      "passed": false,
+      "command": "/usr/local/bin/python3.13 docs/investigations/issue-149/workflow-reruns/analysis-check.py out/issue149-workflow-reruns-20261002-kit-01/w3-analysis.json --expect-present W3-mute=alpha,bravo,charlie,delta,echo,foxtrot,golf,hotel --expect-absent W3-mute=one,two,three,four,five,six,seven,eight --expect-pilot-max W3-mute=1500:0.001 --expect-pilot W3-mute=1000:0.015 --expect-pilot W3-mute=2000:0.015",
+      "error": "'W3-mute' contains forbidden words: eight, five, four, one, seven, six, three, two"
+    }
+  },
+  "renders": {
+    "baseline": {
+      "path": "out/issue149-workflow-reruns-20261002-kit-01/renders/W3-baseline-01.mov",
+      "sha256": "735abfeaf301d74985b48e7b950891bd03aabccea0dd16f4cb0c9e481ee72feb",
+      "pcm_s16le_48k_stereo_sha256": "f0e1d5c4dc4c52e2d68d4a7ea92ba683f2c736b5dad059867e86e82dcf203b96",
+      "pcm_bytes": 3064320,
+      "ffprobe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "index": 0,
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 640,
+            "height": 360,
+            "r_frame_rate": "25/1",
+            "avg_frame_rate": "25/1",
+            "duration": "15.960000",
+            "nb_frames": "399"
+          },
+          {
+            "index": 1,
+            "codec_name": "pcm_s16le",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "channel_layout": "stereo",
+            "bits_per_sample": 16,
+            "r_frame_rate": "0/0",
+            "avg_frame_rate": "0/0",
+            "duration": "15.960000",
+            "nb_frames": "766080"
+          },
+          {
+            "index": 2,
+            "codec_type": "data",
+            "r_frame_rate": "0/0",
+            "avg_frame_rate": "12800/512",
+            "duration": "15.960000",
+            "nb_frames": "1"
+          }
+        ],
+        "format": {
+          "duration": "15.960000"
+        }
+      },
+      "audio": {
+        "samples": 766080,
+        "pilots": {
+          "1000": 0.02828,
+          "1500": 0.01986,
+          "2000": 0.02003
+        },
+        "words": {
+          "alpha": {
+            "score": 0.995,
+            "at_sample": 24000,
+            "at_frame": 12.5
+          },
+          "bravo": {
+            "score": 0.996,
+            "at_sample": 120000,
+            "at_frame": 62.5
+          },
+          "charlie": {
+            "score": 0.995,
+            "at_sample": 216000,
+            "at_frame": 112.5
+          },
+          "delta": {
+            "score": 0.996,
+            "at_sample": 312000,
+            "at_frame": 162.5
+          },
+          "echo": {
+            "score": 0.995,
+            "at_sample": 408000,
+            "at_frame": 212.5
+          },
+          "foxtrot": {
+            "score": 0.992,
+            "at_sample": 504000,
+            "at_frame": 262.5
+          },
+          "golf": {
+            "score": 0.995,
+            "at_sample": 600000,
+            "at_frame": 312.5
+          },
+          "hotel": {
+            "score": 0.995,
+            "at_sample": 696000,
+            "at_frame": 362.5
+          },
+          "one": {
+            "score": 0.991,
+            "at_sample": 72000,
+            "at_frame": 37.5
+          },
+          "two": {
+            "score": 0.992,
+            "at_sample": 168000,
+            "at_frame": 87.5
+          },
+          "three": {
+            "score": 0.991,
+            "at_sample": 264000,
+            "at_frame": 137.5
+          },
+          "four": {
+            "score": 0.985,
+            "at_sample": 360000,
+            "at_frame": 187.5
+          },
+          "five": {
+            "score": 0.986,
+            "at_sample": 456000,
+            "at_frame": 237.5
+          },
+          "six": {
+            "score": 0.974,
+            "at_sample": 552000,
+            "at_frame": 287.5
+          },
+          "seven": {
+            "score": 0.988,
+            "at_sample": 648000,
+            "at_frame": 337.5
+          },
+          "eight": {
+            "score": 0.987,
+            "at_sample": 744000,
+            "at_frame": 387.5
+          }
+        },
+        "present": [
+          "alpha",
+          "bravo",
+          "charlie",
+          "delta",
+          "echo",
+          "foxtrot",
+          "golf",
+          "hotel",
+          "one",
+          "two",
+          "three",
+          "four",
+          "five",
+          "six",
+          "seven",
+          "eight"
+        ],
+        "path": "renders/W3-baseline-01.mov"
+      },
+      "decode": {
+        "path": "renders/W3-baseline-01.mov",
+        "frame_count": 399,
+        "src_ids": [
+          1
+        ],
+        "first": [
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        "frame_123": [
+          1,
+          123
+        ],
+        "last": [
+          1,
+          398
+        ],
+        "frame_mismatch_count": 0,
+        "frame_mismatch_examples": [],
+        "expected_src_id": 1,
+        "matches_expected_src_id": true
+      }
+    },
+    "mute": {
+      "path": "out/issue149-workflow-reruns-20261002-kit-01/renders/W3-mapping-mute-01.mov",
+      "sha256": "04130e2a23a7277ec2c5930fb1f1f6821d3cfcc2c1fdf39e13b966ccd2847a75",
+      "pcm_s16le_48k_stereo_sha256": "f0e1d5c4dc4c52e2d68d4a7ea92ba683f2c736b5dad059867e86e82dcf203b96",
+      "pcm_bytes": 3064320,
+      "ffprobe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "index": 0,
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 640,
+            "height": 360,
+            "r_frame_rate": "25/1",
+            "avg_frame_rate": "25/1",
+            "duration": "15.960000",
+            "nb_frames": "399"
+          },
+          {
+            "index": 1,
+            "codec_name": "pcm_s16le",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "channel_layout": "stereo",
+            "bits_per_sample": 16,
+            "r_frame_rate": "0/0",
+            "avg_frame_rate": "0/0",
+            "duration": "15.960000",
+            "nb_frames": "766080"
+          },
+          {
+            "index": 2,
+            "codec_type": "data",
+            "r_frame_rate": "0/0",
+            "avg_frame_rate": "12800/512",
+            "duration": "15.960000",
+            "nb_frames": "1"
+          }
+        ],
+        "format": {
+          "duration": "15.960000"
+        }
+      },
+      "audio": {
+        "samples": 766080,
+        "pilots": {
+          "1000": 0.02828,
+          "1500": 0.01986,
+          "2000": 0.02003
+        },
+        "words": {
+          "alpha": {
+            "score": 0.995,
+            "at_sample": 24000,
+            "at_frame": 12.5
+          },
+          "bravo": {
+            "score": 0.996,
+            "at_sample": 120000,
+            "at_frame": 62.5
+          },
+          "charlie": {
+            "score": 0.995,
+            "at_sample": 216000,
+            "at_frame": 112.5
+          },
+          "delta": {
+            "score": 0.996,
+            "at_sample": 312000,
+            "at_frame": 162.5
+          },
+          "echo": {
+            "score": 0.995,
+            "at_sample": 408000,
+            "at_frame": 212.5
+          },
+          "foxtrot": {
+            "score": 0.992,
+            "at_sample": 504000,
+            "at_frame": 262.5
+          },
+          "golf": {
+            "score": 0.995,
+            "at_sample": 600000,
+            "at_frame": 312.5
+          },
+          "hotel": {
+            "score": 0.995,
+            "at_sample": 696000,
+            "at_frame": 362.5
+          },
+          "one": {
+            "score": 0.991,
+            "at_sample": 72000,
+            "at_frame": 37.5
+          },
+          "two": {
+            "score": 0.992,
+            "at_sample": 168000,
+            "at_frame": 87.5
+          },
+          "three": {
+            "score": 0.991,
+            "at_sample": 264000,
+            "at_frame": 137.5
+          },
+          "four": {
+            "score": 0.985,
+            "at_sample": 360000,
+            "at_frame": 187.5
+          },
+          "five": {
+            "score": 0.986,
+            "at_sample": 456000,
+            "at_frame": 237.5
+          },
+          "six": {
+            "score": 0.974,
+            "at_sample": 552000,
+            "at_frame": 287.5
+          },
+          "seven": {
+            "score": 0.988,
+            "at_sample": 648000,
+            "at_frame": 337.5
+          },
+          "eight": {
+            "score": 0.987,
+            "at_sample": 744000,
+            "at_frame": 387.5
+          }
+        },
+        "present": [
+          "alpha",
+          "bravo",
+          "charlie",
+          "delta",
+          "echo",
+          "foxtrot",
+          "golf",
+          "hotel",
+          "one",
+          "two",
+          "three",
+          "four",
+          "five",
+          "six",
+          "seven",
+          "eight"
+        ],
+        "path": "renders/W3-mapping-mute-01.mov"
+      },
+      "decode": {
+        "path": "renders/W3-mapping-mute-01.mov",
+        "frame_count": 399,
+        "src_ids": [
+          1
+        ],
+        "first": [
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        "frame_123": [
+          1,
+          123
+        ],
+        "last": [
+          1,
+          398
+        ],
+        "frame_mismatch_count": 0,
+        "frame_mismatch_examples": [],
+        "expected_src_id": 1,
+        "matches_expected_src_id": true
+      }
+    },
+    "restored": {
+      "path": "out/issue149-workflow-reruns-20261002-kit-01/renders/W3-restored-01.mov",
+      "sha256": "fa0b87fec339e61d37a5a7d007ab0e3d1422ddf786b0dc0cc53b79509cde19fe",
+      "pcm_s16le_48k_stereo_sha256": "f0e1d5c4dc4c52e2d68d4a7ea92ba683f2c736b5dad059867e86e82dcf203b96",
+      "pcm_bytes": 3064320,
+      "ffprobe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "index": 0,
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 640,
+            "height": 360,
+            "r_frame_rate": "25/1",
+            "avg_frame_rate": "25/1",
+            "duration": "15.960000",
+            "nb_frames": "399"
+          },
+          {
+            "index": 1,
+            "codec_name": "pcm_s16le",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "channel_layout": "stereo",
+            "bits_per_sample": 16,
+            "r_frame_rate": "0/0",
+            "avg_frame_rate": "0/0",
+            "duration": "15.960000",
+            "nb_frames": "766080"
+          },
+          {
+            "index": 2,
+            "codec_type": "data",
+            "r_frame_rate": "0/0",
+            "avg_frame_rate": "12800/512",
+            "duration": "15.960000",
+            "nb_frames": "1"
+          }
+        ],
+        "format": {
+          "duration": "15.960000"
+        }
+      },
+      "audio": {
+        "samples": 766080,
+        "pilots": {
+          "1000": 0.02828,
+          "1500": 0.01986,
+          "2000": 0.02003
+        },
+        "words": {
+          "alpha": {
+            "score": 0.995,
+            "at_sample": 24000,
+            "at_frame": 12.5
+          },
+          "bravo": {
+            "score": 0.996,
+            "at_sample": 120000,
+            "at_frame": 62.5
+          },
+          "charlie": {
+            "score": 0.995,
+            "at_sample": 216000,
+            "at_frame": 112.5
+          },
+          "delta": {
+            "score": 0.996,
+            "at_sample": 312000,
+            "at_frame": 162.5
+          },
+          "echo": {
+            "score": 0.995,
+            "at_sample": 408000,
+            "at_frame": 212.5
+          },
+          "foxtrot": {
+            "score": 0.992,
+            "at_sample": 504000,
+            "at_frame": 262.5
+          },
+          "golf": {
+            "score": 0.995,
+            "at_sample": 600000,
+            "at_frame": 312.5
+          },
+          "hotel": {
+            "score": 0.995,
+            "at_sample": 696000,
+            "at_frame": 362.5
+          },
+          "one": {
+            "score": 0.991,
+            "at_sample": 72000,
+            "at_frame": 37.5
+          },
+          "two": {
+            "score": 0.992,
+            "at_sample": 168000,
+            "at_frame": 87.5
+          },
+          "three": {
+            "score": 0.991,
+            "at_sample": 264000,
+            "at_frame": 137.5
+          },
+          "four": {
+            "score": 0.985,
+            "at_sample": 360000,
+            "at_frame": 187.5
+          },
+          "five": {
+            "score": 0.986,
+            "at_sample": 456000,
+            "at_frame": 237.5
+          },
+          "six": {
+            "score": 0.974,
+            "at_sample": 552000,
+            "at_frame": 287.5
+          },
+          "seven": {
+            "score": 0.988,
+            "at_sample": 648000,
+            "at_frame": 337.5
+          },
+          "eight": {
+            "score": 0.987,
+            "at_sample": 744000,
+            "at_frame": 387.5
+          }
+        },
+        "present": [
+          "alpha",
+          "bravo",
+          "charlie",
+          "delta",
+          "echo",
+          "foxtrot",
+          "golf",
+          "hotel",
+          "one",
+          "two",
+          "three",
+          "four",
+          "five",
+          "six",
+          "seven",
+          "eight"
+        ],
+        "path": "renders/W3-restored-01.mov"
+      },
+      "decode": {
+        "path": "renders/W3-restored-01.mov",
+        "frame_count": 399,
+        "src_ids": [
+          1
+        ],
+        "first": [
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        "frame_123": [
+          1,
+          123
+        ],
+        "last": [
+          1,
+          398
+        ],
+        "frame_mismatch_count": 0,
+        "frame_mismatch_examples": [],
+        "expected_src_id": 1,
+        "matches_expected_src_id": true
+      }
+    }
+  },
+  "mapping": {
+    "muteTargetOnlyDelta": {
+      "changedPaths": [
+        "track_mapping.1.mute"
+      ],
+      "onlyTarget": true,
+      "path": "track_mapping.1.mute"
+    },
+    "originalMapping": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+    "mutedMapping": "{\"embedded_audio_channels\": 1, \"linked_audio\": {}, \"track_mapping\": {\"1\": {\"channel_idx\": [1], \"mute\": true, \"type\": \"mono\"}}}",
+    "mutedReadback": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":true,\"type\":\"mono\"}}}",
+    "restoreRequest": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+    "restoredMapping": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+    "restoreSemanticEqual": true,
+    "restoreSnapshotDifferences": {
+      "all": [
+        "project.timelines[0].tracks.audio[1].GetItemListInTrack.value[0].GetSourceAudioChannelMapping.value"
+      ],
+      "allowed": [
+        "project.timelines[0].tracks.audio[1].GetItemListInTrack.value[0].GetSourceAudioChannelMapping"
+      ],
+      "unexpected": []
+    }
+  },
+  "audioAssertions": {
+    "muteNatoPresent": true,
+    "muteNumberWordsFound": [
+      "eight",
+      "five",
+      "four",
+      "one",
+      "seven",
+      "six",
+      "three",
+      "two"
+    ],
+    "mutePilot1500": 0.01986,
+    "mutePilot1000": 0.02828,
+    "mutePilot2000": 0.02003,
+    "restoredAll16Present": true,
+    "restoredAnalysisEqualBaseline": true,
+    "baselineRestoredPcmByteEqual": true,
+    "baselineMutePcmByteEqual": true
+  },
+  "stateComparison": {
+    "baselinePost": "out/issue149-workflow-reruns-20261002-kit-01/evidence/render-stage-w3-baseline-01-20261002-kit-01/post.json",
+    "restoredPost": "out/issue149-workflow-reruns-20261002-kit-01/evidence/render-stage-w3-restored-01-20261002-kit-01/post.json",
+    "allDifferences": [
+      "project.GetRenderJobList.value[1]",
+      "project.GetRenderJobList.value[2]",
+      "project.timelines[0].getters.GetCurrentTimecode.value"
+    ],
+    "allowedExplicitQueueAdditions": [
+      "project.GetRenderJobList.value[1]",
+      "project.GetRenderJobList.value[2]"
+    ],
+    "allowedQueueJobIds": [
+      "6a13a8f5-fe0b-4fce-ac29-725f9a6b40ff",
+      "dcb00965-d5b7-496e-8036-c61384359ee1"
+    ],
+    "unexpectedDifferences": [
+      "project.timelines[0].getters.GetCurrentTimecode.value"
+    ],
+    "renderCustomNameSettings": {
+      "baseline": "W3-baseline-01",
+      "restored": "W3-restored-01"
+    }
+  },
+  "nativeEvidence": {
+    "render-stage-w3-baseline-01-20261002-kit-01": {
+      "files": {
+        "result": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-render-stage-w3-baseline-01-20261002-kit-01.json",
+          "sha256": "f751d34a7f6229ffd9d7f697140ca0f4b8f6c54e5d5d90ca3814d82e1650f749"
+        },
+        "journal.jsonl": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/evidence/render-stage-w3-baseline-01-20261002-kit-01/journal.jsonl",
+          "sha256": "9a833051dfd116433037edd67f4639dff72ec7334148d8fae07cac6e923e2039"
+        },
+        "pre.json": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/evidence/render-stage-w3-baseline-01-20261002-kit-01/pre.json",
+          "sha256": "8f1a6c728001ae3639ce75f42d60d375112f4078076c28978e60016679659ddb"
+        },
+        "post.json": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/evidence/render-stage-w3-baseline-01-20261002-kit-01/post.json",
+          "sha256": "a25a47526737331017654cca69c1264f06235d1e82b49fba2c0d68a69f59c9af"
+        }
+      },
+      "jobId": "531c3325-30ba-4232-9017-11a523b1c787",
+      "jobStatus": "started"
+    },
+    "render-poll-w3-baseline-01-20261002-kit-01": {
+      "files": {
+        "result": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-render-poll-w3-baseline-01-20261002-kit-01.json",
+          "sha256": "dd63636c8067be93ae91c2a50e990ac4ce06ba026ec77da7d8eef97abf2b0c83"
+        },
+        "journal.jsonl": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/evidence/render-poll-w3-baseline-01-20261002-kit-01/journal.jsonl",
+          "sha256": "0327c6b91bb6945e816f8c6e8a0b80206186eca44db3426b5b0d2f56387e685d"
+        },
+        "pre.json": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/evidence/render-poll-w3-baseline-01-20261002-kit-01/pre.json",
+          "sha256": "89063d733da7cee57e9c3c72242083ff0955399a4f931c4cab134aaa9afd4eb1"
+        },
+        "post.json": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/evidence/render-poll-w3-baseline-01-20261002-kit-01/post.json",
+          "sha256": "89063d733da7cee57e9c3c72242083ff0955399a4f931c4cab134aaa9afd4eb1"
+        }
+      },
+      "jobId": "531c3325-30ba-4232-9017-11a523b1c787",
+      "jobStatus": {
+        "CompletionPercentage": 100,
+        "JobStatus": "Complete",
+        "TimeTakenToRenderInMs": 2175
+      }
+    },
+    "w3-mapping-mute-01-20261002-kit-01": {
+      "files": {
+        "result": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-w3-mapping-mute-01-20261002-kit-01.json",
+          "sha256": "946fe06211d2d528690b75b67636ec85ed1ebaf3c90df890e47662c36bb433d7"
+        },
+        "journal.jsonl": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/evidence/w3-mapping-mute-01-20261002-kit-01/journal.jsonl",
+          "sha256": "7a187e2388997b7f80fb0e7efd47f33970db4a505b26be42ca92a741d0bee2b0"
+        },
+        "pre.json": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/evidence/w3-mapping-mute-01-20261002-kit-01/pre.json",
+          "sha256": "89063d733da7cee57e9c3c72242083ff0955399a4f931c4cab134aaa9afd4eb1"
+        },
+        "post.json": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/evidence/w3-mapping-mute-01-20261002-kit-01/post.json",
+          "sha256": "2df05ef49511228b33db3d462f1a71e9c99e3bc237da7d3750f61e41b1054eef"
+        }
+      },
+      "jobId": "6a13a8f5-fe0b-4fce-ac29-725f9a6b40ff",
+      "jobStatus": "started"
+    },
+    "render-poll-w3-mute-01-20261002-kit-01": {
+      "files": {
+        "result": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-render-poll-w3-mute-01-20261002-kit-01.json",
+          "sha256": "18ecfa5275e05813a34b1bead67c53a816d6746ba69e900bb6bfdabad58fd777"
+        },
+        "journal.jsonl": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/evidence/render-poll-w3-mute-01-20261002-kit-01/journal.jsonl",
+          "sha256": "3a7acbbef8e2b21e6946cd94c71069d0bcbf1a9b4608d0606b7e1008197948ed"
+        },
+        "pre.json": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/evidence/render-poll-w3-mute-01-20261002-kit-01/pre.json",
+          "sha256": "e9e31ddb706f96d183b9b91b719b5bcfa016168992fd859e189ec0abef72c2ab"
+        },
+        "post.json": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/evidence/render-poll-w3-mute-01-20261002-kit-01/post.json",
+          "sha256": "e9e31ddb706f96d183b9b91b719b5bcfa016168992fd859e189ec0abef72c2ab"
+        }
+      },
+      "jobId": "6a13a8f5-fe0b-4fce-ac29-725f9a6b40ff",
+      "jobStatus": {
+        "CompletionPercentage": 100,
+        "JobStatus": "Complete",
+        "TimeTakenToRenderInMs": 1818
+      }
+    },
+    "w3-mapping-restore-01-20261002-kit-01": {
+      "files": {
+        "result": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-w3-mapping-restore-01-20261002-kit-01.json",
+          "sha256": "a59ffcbe764cf89df98b05e469a22401f14b9632ac748934499f5ee7037adb43"
+        },
+        "journal.jsonl": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/evidence/w3-mapping-restore-01-20261002-kit-01/journal.jsonl",
+          "sha256": "954834a6bb6d12235947735783a8faac4abe0b414df011ffc89f060fcc1c0da6"
+        },
+        "pre.json": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/evidence/w3-mapping-restore-01-20261002-kit-01/pre.json",
+          "sha256": "e9e31ddb706f96d183b9b91b719b5bcfa016168992fd859e189ec0abef72c2ab"
+        },
+        "post.json": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/evidence/w3-mapping-restore-01-20261002-kit-01/post.json",
+          "sha256": "3ed2972404386195100021e5a2139adb17212935921811902eb37d55b21563be"
+        }
+      }
+    },
+    "render-stage-w3-restored-01-20261002-kit-01": {
+      "files": {
+        "result": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-render-stage-w3-restored-01-20261002-kit-01.json",
+          "sha256": "a0afed02970da8774cedc9ea1d3c516fb6c6314cedc13295449481b61568dad6"
+        },
+        "journal.jsonl": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/evidence/render-stage-w3-restored-01-20261002-kit-01/journal.jsonl",
+          "sha256": "f63f48e6001ed37825f797626d14ea06d366e20ae7c80d8950463b7c8de1b1b3"
+        },
+        "pre.json": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/evidence/render-stage-w3-restored-01-20261002-kit-01/pre.json",
+          "sha256": "3ed2972404386195100021e5a2139adb17212935921811902eb37d55b21563be"
+        },
+        "post.json": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/evidence/render-stage-w3-restored-01-20261002-kit-01/post.json",
+          "sha256": "fa4ada19af9f995b3369776ec8c9a5743801d6c98d19d0c9832f2487d079d234"
+        }
+      },
+      "jobId": "dcb00965-d5b7-496e-8036-c61384359ee1",
+      "jobStatus": "started"
+    },
+    "render-poll-w3-restored-01-20261002-kit-01": {
+      "files": {
+        "result": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-render-poll-w3-restored-01-20261002-kit-01.json",
+          "sha256": "ebf1176af657658627471ad67298f007b8bdce31737af6958e62e7f3e82e35b6"
+        },
+        "journal.jsonl": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/evidence/render-poll-w3-restored-01-20261002-kit-01/journal.jsonl",
+          "sha256": "33deca803545a5fb6634465a71dc316f02c5a436f00dda9e5265b6c94987f937"
+        },
+        "pre.json": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/evidence/render-poll-w3-restored-01-20261002-kit-01/pre.json",
+          "sha256": "e76dcbe42224426afae6ac771d6a9bee6c7ae23e0eccb3ff0d5679ba8e826a0e"
+        },
+        "post.json": {
+          "path": "out/issue149-workflow-reruns-20261002-kit-01/evidence/render-poll-w3-restored-01-20261002-kit-01/post.json",
+          "sha256": "e76dcbe42224426afae6ac771d6a9bee6c7ae23e0eccb3ff0d5679ba8e826a0e"
+        }
+      },
+      "jobId": "dcb00965-d5b7-496e-8036-c61384359ee1",
+      "jobStatus": {
+        "CompletionPercentage": 100,
+        "JobStatus": "Complete",
+        "TimeTakenToRenderInMs": 1816
+      }
+    }
+  },
+  "classification": {
+    "value": "adverse",
+    "reason": "Native mapping mute changed only track_mapping.1.mute and read back true, but the mute render retained every A2 number word and the 1500 Hz pilot; baseline, mute, and restored PCM hashes are identical. Restore readback and restored render audio equal baseline.",
+    "alternativeExplanation": "Fixture-version mismatch is ruled out by manifest hashes in w3-analysis. Whether the unchanged render reflects Resolve mapping semantics or render-side caching remains unresolved by this case."
+  }
+}

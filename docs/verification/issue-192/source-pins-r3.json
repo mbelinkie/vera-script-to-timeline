@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "issue-192-draft-source-pins/v1",
+  "status": "unexecuted_additive_native_candidate_pending_check_grant_and_review",
+  "chatId": "01a13775-72eb-7ef0-befe-189389e23036",
+  "acceptedIssue190Merge": "bd6048b02604954df037bf0b2dd01906e986d19d",
+  "acceptedIssue190Tree": "372ab23daa550780ce7bb9eba1d159706efd4472",
+  "preAmendmentRebasedHead": "e4a0408ac73d984a877253f83474a61cb0b1eed4",
+  "provisionalIssue202Fix": "77b82b3ea83bac5f9125571b352cfc0acfc3041b",
+  "provisionalCoreRawSha256": "f6669b700fd676a451a2402c0390cb9fdfc726409c393df91ca9e7d0120069cf",
+  "ownerDelegationRawSha256": "27028207695429908492f98ed06ad46a1ab4bd437230f3fa90f7c2323ade7411",
+  "approvedNoteRawSha256": "92a28cd3fba89f176d4f633d640f35ef11a2f6564b40f9f6aebabd3c6cb218c8",
+  "oldNativeRawSha256": "98ec3c098f1ab16a6b3351758de9fe8d5d3c7d5154de46c406ec9b28a534b1e4",
+  "rawSourceSha256": {
+    "python/vera_timeline_agent/roundtrip_v2_native.py": "844d99dc99f52cf4457546e38dd1df1f1d8b77a17cb6248f87fc3a6d93e219c8",
+    "python/vera_timeline_agent/roundtrip_v2_proof.py": "432a456d690a0220f85672ba12152415b5e85adbbd7625fef43857c461776b0f",
+    "python/vera_timeline_agent/roundtrip_v2_revised_build.py": "1cd8fa731e1872f3cf48ce1eef7b401b51bdbcd1520ba7b729d646dd33012e6e",
+    "tests/issue192_public_case.py": "4f9804bbcff675a892a633662c152250d250e0fa2251870a00112d334b6fbd1d",
+    "tests/test_issue192_public_path.py": "2ecd08e6363610de37aa1fff05824022116acdb10d274a8464421754f2ae9594"
+  },
+  "rebaseEquivalence": "git range-diff all six commits identical; accepted190merge vs reviewed e17 source diff empty",
+  "invalidatedEvidence": "old proof source graphs/packages/attestations/native bindings/affected receipts require public rebuild and rebind",
+  "validation": null,
+  "review": null,
+  "toolchainReceipt": null,
+  "realGates": "177 native/package refusals and 178/145 external/human gates preserved"
+}

@@ -1,0 +1,108 @@
+{
+  "buildClass": "preview",
+  "buildId": "00000000-0000-4000-8000-000000000003",
+  "compiler": {
+    "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "sourceHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "version": "compiler/v2"
+  },
+  "dependenciesHash": "sha256:aa8f274fbaa89859f1b7cf2b811c9b43fb35a47e83a64d4b1866ca28bae49991",
+  "diagnostics": [
+    {
+      "code": "MIGRATION_REVIEW_REQUIRED",
+      "entity": {
+        "id": "00000000-0000-4000-8000-000000000010",
+        "kind": "slot",
+        "path": "presenterChoiceId"
+      },
+      "evidence": {
+        "kind": "details",
+        "message": "A recorded presenter alignment is present, but this compiler has no qualified recorded-media provider; the generic still fallback is suppressed."
+      },
+      "id": "affd3f2e-3bbe-5298-8078-58aa2115c8cd",
+      "message": "A recorded presenter alignment is present, but this compiler has no qualified recorded-media provider; the generic still fallback is suppressed.",
+      "recoveryActionKinds": [
+        "manual_review"
+      ],
+      "severity": "blocking"
+    }
+  ],
+  "document": {
+    "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "documentId": "00000000-0000-4000-8000-000000000001",
+    "liveHeadSequence": 0,
+    "projectId": "00000000-0000-4000-8000-000000000002",
+    "revision": 1,
+    "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "textHash": "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+  },
+  "eventResults": [
+    {
+      "disposition": "placed",
+      "eventId": "e3a1d77f-0c0e-5ffe-8d4e-77ce0e21cb88",
+      "kind": "narration",
+      "message": "Compiled from frozen source bindings.",
+      "recordRange": {
+        "endFrame": 96,
+        "startFrame": 0
+      },
+      "sourceId": "00000000-0000-4000-8000-000000000013",
+      "trackId": "narration"
+    }
+  ],
+  "id": "00000000-0000-4000-8000-000000000005",
+  "itemResults": [],
+  "manifest": {
+    "contentHash": "sha256:a3bf565d7838d0bf58e737c9ec850faf8cf6359616ee4e8ddcde691ceb3d11ff",
+    "id": "00000000-0000-4000-8000-000000000004"
+  },
+  "manualCompletionItems": [],
+  "mediaPreparation": {
+    "requirements": [],
+    "status": "not_required"
+  },
+  "migrationIssues": [],
+  "readiness": {
+    "blockingIssueIds": [
+      "affd3f2e-3bbe-5298-8078-58aa2115c8cd"
+    ],
+    "preview": "blocked",
+    "release": "blocked"
+  },
+  "recoveryActions": [
+    {
+      "entity": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "kind": "document",
+        "path": "document"
+      },
+      "instruction": "Review the compiler diagnostic.",
+      "kind": "manual_review"
+    }
+  ],
+  "schemaVersion": "build-report/v2",
+  "sourceSufficiency": [],
+  "status": "blocked",
+  "summary": {
+    "blockedCount": 0,
+    "diagnosticCount": 1,
+    "eventCount": 1,
+    "manualCompletionCount": 0,
+    "placedCount": 1,
+    "placeholderCount": 0,
+    "recoveryActionCount": 1,
+    "sourceCount": 1,
+    "supportingItemCount": 0
+  },
+  "timeline": {
+    "audioSampleRate": 48000,
+    "durationFrames": 96,
+    "frameRate": {
+      "denominator": 1,
+      "numerator": 24
+    },
+    "height": 1080,
+    "startFrame": 0,
+    "width": 1920
+  }
+}

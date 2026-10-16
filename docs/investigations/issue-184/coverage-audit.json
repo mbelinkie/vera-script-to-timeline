@@ -1,0 +1,425 @@
+{
+  "baseline_commit": "f4cc90652c02a40283270ee6ecb32d18983eb3d9",
+  "existing_npm_scripts_unchanged": 19,
+  "python_collection_unchanged": 419,
+  "fast_python_cases": 237,
+  "slow_python_cases": 182,
+  "fast_run_sets_identical": true,
+  "protected_paths_unchanged": true,
+  "slow_test_seconds": 2892.4579999999996,
+  "non_slow_test_seconds": 81.6000000000004,
+  "python_test_asts": [
+    {
+      "file": "tests/test_after_effects_inspection.py",
+      "ast_sha256": "a21034ddf8afed1500282b5ec30d8a1800bd445f55f56c6fedef0800c6027d2e"
+    },
+    {
+      "file": "tests/test_build_jobs.py",
+      "ast_sha256": "50f1622d1494b7a6d0658288cd53acd558cc5610873942ec3c32dd6608b89e5e"
+    },
+    {
+      "file": "tests/test_fixtures.py",
+      "ast_sha256": "51c0967e1bffd907333b8377c98811dd1fbcbd3e01966416765b16642a5ff022"
+    },
+    {
+      "file": "tests/test_free_trial.py",
+      "ast_sha256": "55b522426ceb8b1711d0ee72514f26c251a52495207155db764248a617e20e3e"
+    },
+    {
+      "file": "tests/test_generated_contracts.py",
+      "ast_sha256": "42077e59f73d076c7996ddb04a34cb63fc4cc4b5731199127bf86554184e6637"
+    },
+    {
+      "file": "tests/test_issue144_audio_evidence.py",
+      "ast_sha256": "3648de9784b4223c6633cb7b50c5e8d1d15e1d0fb852af3b39ffe2adec71db67"
+    },
+    {
+      "file": "tests/test_issue144_capture_retry.py",
+      "ast_sha256": "5639348e47bbf2e5d14d545b02a7eac6bd972b456248e2fb15d1413adca6f31c"
+    },
+    {
+      "file": "tests/test_issue144_composition.py",
+      "ast_sha256": "1c734ae1b437f9a030003680a70fe5eb70dd4fb7b24f6478fd933b92b183efa4"
+    },
+    {
+      "file": "tests/test_issue144_composition_audio.py",
+      "ast_sha256": "0badbebc0133533df47dcf29b1b865d831b91447e0be779e2d7bcf1ca839ad53"
+    },
+    {
+      "file": "tests/test_issue144_driver.py",
+      "ast_sha256": "5ea80c42351035c7431b547802947a7354631c013972836394934536bf09b5d4"
+    },
+    {
+      "file": "tests/test_issue144_generation_recovery.py",
+      "ast_sha256": "d38c4afffcc43e67689703040b3ac25e89f4ae4f87f467ce8a92a2094ebac5f9"
+    },
+    {
+      "file": "tests/test_issue144_native_build.py",
+      "ast_sha256": "8c411e8ebeba25fa1b07b1ae4d2a6b7ffd04162f0fa797b21b7d89831cfecd6f"
+    },
+    {
+      "file": "tests/test_issue144_omission_bridge.py",
+      "ast_sha256": "990abe4a6ff87613b61b2762930b2df44b5585d361a1735ce49a3a3b33b3d42a"
+    },
+    {
+      "file": "tests/test_issue144_omission_decisions.py",
+      "ast_sha256": "5a346eb68642a45124b1a25ea25a330c241285236b631ad6581fb1f046b175c5"
+    },
+    {
+      "file": "tests/test_issue144_omission_generation.py",
+      "ast_sha256": "c4e809bd263be27fdadcf89860bd47489e05c48a2dcb961eaf1f04f8020a8a32"
+    },
+    {
+      "file": "tests/test_issue144_omission_preparation.py",
+      "ast_sha256": "8530d5f014d1b317bfb52f1e2ba4554ca923c92aebc77d465e1dd580e511a3d4"
+    },
+    {
+      "file": "tests/test_issue144_prepared_build.py",
+      "ast_sha256": "586a162363a4cfacc16bc1900922a6cbf4aeb1c503f0749c0d6f81b10ff2e811"
+    },
+    {
+      "file": "tests/test_issue144_proof_session.py",
+      "ast_sha256": "11d4ab2784b12b6a9fc63eb66a59540c008dff594bfbb8114262e19795cedb1d"
+    },
+    {
+      "file": "tests/test_issue144_recovery.py",
+      "ast_sha256": "3fd0ee4ae402fcb66fe5b5fe5b525558d78cf6740186a7cae7e7a731e4f9ce92"
+    },
+    {
+      "file": "tests/test_issue144_retained_audio.py",
+      "ast_sha256": "9f1b52a5b40c0735c33866a387e12a13dd66d47e85cce0220fbef74204871763"
+    },
+    {
+      "file": "tests/test_issue144_row_narration.py",
+      "ast_sha256": "d80d1f39832c19d56c8af4c34c9f76680e6ac22376e87ba1a0b75fcca4b7d6f4"
+    },
+    {
+      "file": "tests/test_issue144_wi.py",
+      "ast_sha256": "f62a20733a32469a15482e08b0de8a6b534bc57cbc8763e8383574ee057f6533"
+    },
+    {
+      "file": "tests/test_issue144_wi_flow.py",
+      "ast_sha256": "7f92073dac4a69f29b5969c0d16a8386440e0384ffd0ac3da6745e20bf941c3a"
+    },
+    {
+      "file": "tests/test_issue53_boundaries.py",
+      "ast_sha256": "625e2950ac5b2cddaa6cfa545e11345fbc36cf4362380c4d574480a1804915f8"
+    },
+    {
+      "file": "tests/test_issue53_producer_review.py",
+      "ast_sha256": "0f4a5cced2558f99578879e44cf506d2cde4185c01f411ffa2057b69f364a11a"
+    },
+    {
+      "file": "tests/test_issue53_takes.py",
+      "ast_sha256": "bdeb51d45c244bad33e18527697f137084cc8ef1ab3fe5bc1648ad79aca0fcee"
+    },
+    {
+      "file": "tests/test_narration_cache.py",
+      "ast_sha256": "deb09e0373c0c8be962b89d334d60dd15d4756398991642809e3dbfb7c130a15"
+    },
+    {
+      "file": "tests/test_narration_cli.py",
+      "ast_sha256": "2d05318be68d95b502bc0a0277b52cbdbe1a5b773c67414d5bb61a7136358fa0"
+    },
+    {
+      "file": "tests/test_narration_compiler_dependencies.py",
+      "ast_sha256": "10d5d98a7145d66052eab7f2d919d0d621d32ac0ea5655cce5bb6afb2fe47b6d"
+    },
+    {
+      "file": "tests/test_narration_normalize.py",
+      "ast_sha256": "59d315ddc665e838134212e7b2b8138a8ae1bb96a3be9df3597c62d945c58ff9"
+    },
+    {
+      "file": "tests/test_narration_provider.py",
+      "ast_sha256": "f82885a97b2de40c950754f163dc3e16d1a5fffb382f20521a63a0f48089481c"
+    },
+    {
+      "file": "tests/test_narration_service.py",
+      "ast_sha256": "720fa27c6df661adfa1a5ad6a8f657009e3bb6fa4606485f8774e09710627488"
+    },
+    {
+      "file": "tests/test_otio_package.py",
+      "ast_sha256": "85b6786df23a4a2cbecc71ba779c614c0cd4f5dd4833df2e06f6785ea06dfbba"
+    },
+    {
+      "file": "tests/test_placeholder_slate.py",
+      "ast_sha256": "0837fb3fe37c6eb0ce169bd8b94bba989ed9c1c305a1fa08919e10466e424a4c"
+    },
+    {
+      "file": "tests/test_prompter_contracts.py",
+      "ast_sha256": "9435ac2bcf7942563a7f1dd5c012511dc77f581dd5edbed3d0cd91c10e82095e"
+    },
+    {
+      "file": "tests/test_resolve_import_package.py",
+      "ast_sha256": "4b7d5fdb26931d69195718cc4016b400b657bacdf7a710cc611fd73d351b485c"
+    },
+    {
+      "file": "tests/test_studio_assembly.py",
+      "ast_sha256": "4c36a092d3fa395f1a2b332fa063b213e8098f3839371aee7284684de63d9c64"
+    },
+    {
+      "file": "tests/test_studio_spike.py",
+      "ast_sha256": "954f5684cd97366de177346c1b27d1c222772cd63708b6d084db57742f17e22b"
+    },
+    {
+      "file": "tests/test_text_plus_template.py",
+      "ast_sha256": "4d89d225a0cb10000f9b7b2b98c46529b81ea0fcb47bfbd26bf77dbb71bd6f1c"
+    },
+    {
+      "file": "tests/test_text_plus_validation.py",
+      "ast_sha256": "dfd3565349d6612ee48a0efe28e31c9a9834e8f105f95c9959690f9ab88aa526"
+    },
+    {
+      "file": "tests/test_tooling_smoke.py",
+      "ast_sha256": "4929b2797e762ac3c85bd55369e6d681b2a2889c3b4e943f53a2b21b1836e531"
+    }
+  ],
+  "modules": {
+    "tests/test_after_effects_inspection.py": [
+      2,
+      0.009000000000000001,
+      0,
+      0.0
+    ],
+    "tests/test_build_jobs.py": [
+      9,
+      1.606,
+      1,
+      1.175
+    ],
+    "tests/test_fixtures.py": [
+      8,
+      0.9880000000000001,
+      2,
+      0.8049999999999999
+    ],
+    "tests/test_free_trial.py": [
+      10,
+      3.334,
+      10,
+      3.334
+    ],
+    "tests/test_generated_contracts.py": [
+      2,
+      0.001,
+      0,
+      0.0
+    ],
+    "tests/test_issue144_audio_evidence.py": [
+      47,
+      70.27799999999999,
+      0,
+      0.0
+    ],
+    "tests/test_issue144_capture_retry.py": [
+      2,
+      1.291,
+      2,
+      1.291
+    ],
+    "tests/test_issue144_composition.py": [
+      2,
+      319.024,
+      2,
+      319.024
+    ],
+    "tests/test_issue144_composition_audio.py": [
+      1,
+      6.162,
+      0,
+      0.0
+    ],
+    "tests/test_issue144_driver.py": [
+      3,
+      3.405,
+      3,
+      3.405
+    ],
+    "tests/test_issue144_generation_recovery.py": [
+      3,
+      214.84300000000002,
+      3,
+      214.84300000000002
+    ],
+    "tests/test_issue144_native_build.py": [
+      8,
+      28.343,
+      8,
+      28.343
+    ],
+    "tests/test_issue144_omission_bridge.py": [
+      1,
+      11.452,
+      1,
+      11.452
+    ],
+    "tests/test_issue144_omission_decisions.py": [
+      13,
+      601.5050000000001,
+      13,
+      601.5050000000001
+    ],
+    "tests/test_issue144_omission_generation.py": [
+      7,
+      669.9989999999999,
+      7,
+      669.9989999999999
+    ],
+    "tests/test_issue144_omission_preparation.py": [
+      12,
+      299.54800000000006,
+      12,
+      299.54800000000006
+    ],
+    "tests/test_issue144_prepared_build.py": [
+      20,
+      12.658000000000007,
+      10,
+      12.112
+    ],
+    "tests/test_issue144_proof_session.py": [
+      14,
+      275.891,
+      14,
+      275.891
+    ],
+    "tests/test_issue144_recovery.py": [
+      8,
+      79.812,
+      8,
+      79.812
+    ],
+    "tests/test_issue144_retained_audio.py": [
+      1,
+      7.937,
+      1,
+      7.937
+    ],
+    "tests/test_issue144_row_narration.py": [
+      15,
+      50.123000000000005,
+      14,
+      49.553
+    ],
+    "tests/test_issue144_wi.py": [
+      19,
+      0.531,
+      0,
+      0.0
+    ],
+    "tests/test_issue144_wi_flow.py": [
+      1,
+      294.054,
+      1,
+      294.054
+    ],
+    "tests/test_issue53_boundaries.py": [
+      9,
+      0.005,
+      0,
+      0.0
+    ],
+    "tests/test_issue53_producer_review.py": [
+      17,
+      0.18100000000000002,
+      0,
+      0.0
+    ],
+    "tests/test_issue53_takes.py": [
+      24,
+      0.026000000000000013,
+      0,
+      0.0
+    ],
+    "tests/test_narration_cache.py": [
+      4,
+      0.026,
+      0,
+      0.0
+    ],
+    "tests/test_narration_cli.py": [
+      6,
+      4.015000000000001,
+      2,
+      1.9420000000000002
+    ],
+    "tests/test_narration_compiler_dependencies.py": [
+      5,
+      0.005,
+      0,
+      0.0
+    ],
+    "tests/test_narration_normalize.py": [
+      8,
+      2.286,
+      4,
+      2.282
+    ],
+    "tests/test_narration_provider.py": [
+      17,
+      0.014000000000000005,
+      0,
+      0.0
+    ],
+    "tests/test_narration_service.py": [
+      7,
+      3.6359999999999997,
+      6,
+      3.6359999999999997
+    ],
+    "tests/test_otio_package.py": [
+      20,
+      2.0010000000000003,
+      18,
+      1.964
+    ],
+    "tests/test_placeholder_slate.py": [
+      14,
+      0.04100000000000001,
+      0,
+      0.0
+    ],
+    "tests/test_prompter_contracts.py": [
+      2,
+      0.002,
+      0,
+      0.0
+    ],
+    "tests/test_resolve_import_package.py": [
+      6,
+      1.75,
+      3,
+      1.69
+    ],
+    "tests/test_studio_assembly.py": [
+      8,
+      3.7529999999999997,
+      6,
+      3.751
+    ],
+    "tests/test_studio_spike.py": [
+      50,
+      3.4929999999999994,
+      31,
+      3.110000000000001
+    ],
+    "tests/test_text_plus_template.py": [
+      7,
+      0.023,
+      0,
+      0.0
+    ],
+    "tests/test_text_plus_validation.py": [
+      6,
+      0.005,
+      0,
+      0.0
+    ],
+    "tests/test_tooling_smoke.py": [
+      1,
+      0.002,
+      0,
+      0.0
+    ]
+  }
+}

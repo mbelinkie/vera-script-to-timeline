@@ -1,0 +1,27 @@
+{
+  "taskId": "Issue 141",
+  "beforePairSha256": "6b047339f81bab349ff3e95928bebda192a73e251b7e3989b8fd9d893a882d45",
+  "notedPairSha256": "5577011075fc73b400c9a5b3afe5b9e5795673836eba8c6eb03a826129896242",
+  "latestCaptureSha256": "211eb7be3ce91f56b16f5fe6eb68135626c82b5d60c36175cec92f08e62bee55",
+  "target": {
+    "timeline": "29ae8331-b86e-4041-a548-960695cc7b24",
+    "video": "3f2de461-d510-46f8-939f-0c794d48e38b",
+    "audio": "22561398-bce0-4c22-b55f-a73d3ad5e4cf"
+  },
+  "bothPassesVsNoted": {
+    "video": {"GetStart": [0, 1], "GetStart(True)": [0.0, 1.0], "GetEnd": [199, 200], "GetEnd(True)": [199.0, 200.0]},
+    "audio": {"GetStart": [0, 1], "GetStart(True)": [0.0, 1.0], "GetEnd": [199, 200], "GetEnd(True)": [199.0, 200.0]},
+    "unchanged": ["GetSourceStartFrame", "GetSourceEndFrame", "GetLinkedItems", "GetClipEnabled", "GetUniqueId", "marker0 metadata"]
+  },
+  "pass0OnlyUnexpected": {
+    "baselineUsage": {"base.mov": [24, 23], "cutaway.mov": [21, 20], "overlay.png": [21, 20], "repeated.wav track1": [46, 44], "repeated.wav track2": [46, 44], "bed.wav": [21, 20]}
+  },
+  "bothPassesUnexpected": {
+    "rootPerfCacheClipsLocation": ["owned absolute cache path", "CacheClip"],
+    "timelinePerfCacheClipsLocation": "all four timeline settings changed from the owned absolute cache path to CacheClip"
+  },
+  "betweenPasses": {
+    "baselineUsage": {"base.mov": [23, 24], "cutaway.mov": [20, 21], "overlay.png": [20, 21], "repeated.wav track1": [44, 46], "repeated.wav track2": [44, 46], "bed.wav": [20, 21]},
+    "consistencyDecision": "inconsistent-refused"
+  }
+}

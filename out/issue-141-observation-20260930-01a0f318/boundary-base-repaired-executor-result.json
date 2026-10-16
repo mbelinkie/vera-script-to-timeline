@@ -1,0 +1,18 @@
+{
+  "returncode": 0,
+  "command": [
+    "/usr/local/bin/python3.14",
+    "-S",
+    "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-structural-sequence.py",
+    "--case",
+    "R3-boundary",
+    "--prior-pair",
+    "r3-graphic-context-20261001T200750.808432Z/pair.json",
+    "--prior-sha256",
+    "b45c1e45ace27f59052618536cd0121646b4995297b6eb2628d87b3686d7e78b",
+    "--run"
+  ],
+  "cwd": "REPOSITORY",
+  "stdout": "{\n  \"autoSelectReset\": {\n    \"path\": \"independent-structural-sequence-20261001T203741.675640Z/r3-boundary-context.json\",\n    \"sha256\": \"fa36cb2965eb872292f2880bdd8aacbdf80f614d5fda2fcae41aad184c5090cb\"\n  },\n  \"case\": \"R3-boundary\",\n  \"directory\": \"REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-structural-sequence-20261001T203741.675640Z\",\n  \"finalPairSha256\": \"b0f128efef59738307b6977872aa528f03761e11cd0dd14b7081d03f15743a65\",\n  \"firstSelection\": {\n    \"path\": \"independent-structural-sequence-20261001T203741.675640Z/r3-boundary-selected.json\",\n    \"sha256\": \"77afb8eeb93bcb6ba14043aa7026a65e4f9680ec2203a967c8e7cbaa6d3f2bbf\"\n  },\n  \"preparation\": {\n    \"path\": \"independent-structural-sequence-20261001T203741.675640Z/preparation.json\",\n    \"sha256\": \"40615bdba75a67d35f2a46548bbd1d6f655ff31665ac9c9261ef6a0e3729b702\"\n  },\n  \"priorPair\": {\n    \"path\": \"r3-graphic-context-20261001T200750.808432Z/pair.json\",\n    \"sha256\": \"b45c1e45ace27f59052618536cd0121646b4995297b6eb2628d87b3686d7e78b\"\n  },\n  \"restoration\": {\n    \"path\": \"independent-structural-sequence-20261001T203741.675640Z/restoration.json\",\n    \"sha256\": \"2bcfef93a1f4bdda29fbfcd2630538ff2d1fcbd66ed7434529debabf8f084927\"\n  },\n  \"saveDispatched\": false,\n  \"sourcePins\": {\n    \"editorial-cases-check.py\": \"6d6edf65b4b43971997c8b2fc48afd77959e9fa84c946e349c2308e33875b019\",\n    \"editorial-cases.py\": \"4f8acafc4ba78483518f4b9b39946888b7c79a3109d47a72a610d975abe851c6\",\n    \"independent-native-call.py\": \"61ef935b47f5138545df909f41edffc2f10c7dcf55283068948950248e2c0531\",\n    \"probe.py\": \"2a6a3b1c40f80f98617a43c2ed08e925a4a9668b146c481f270de0e9a047e057\"\n  },\n  \"splitPair\": {\n    \"path\": \"independent-structural-sequence-20261001T203741.675640Z/r3-boundary-split.json\",\n    \"sha256\": \"02448517320a52c56ccb8bb528e9d4f2321c5899dc76b35769f2e31527a5f185\"\n  },\n  \"splitReady\": {\n    \"path\": \"independent-structural-sequence-20261001T203741.675640Z/R3-boundary-split-ready.json\",\n    \"sha256\": \"3f726dc0bb2c06c41e1ad833e38486c31b6b9e95ab09bbc49fdf513366be899a\"\n  },\n  \"splitReview\": {\n    \"path\": \"independent-structural-sequence-20261001T203741.675640Z/split-review.json\",\n    \"sha256\": \"ad691ead1c4d6b18f1a5feb2cf70a5ce239f45d802ac7a4ab2fd74c649b5036c\"\n  },\n  \"status\": \"structural-sequence-complete\"\n}\n",
+  "stderr": ""
+}

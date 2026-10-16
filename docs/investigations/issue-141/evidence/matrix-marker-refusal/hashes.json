@@ -1,0 +1,50 @@
+[
+  {
+    "filename": "capture-20260930T215628.608006Z-preflight.json",
+    "rawSha256": "71a261ba20814a9769824a1c09f5e15539f13128221683dfa8ab05bb04a7d114",
+    "publishedSha256": "e8b284a2c919029592799243e636034912a730b89495fbf1f279197e22c197ad",
+    "redaction": "private absolute paths replaced with bounded placeholders"
+  },
+  {
+    "filename": "capture-20260930T215628.608006Z-empty-selected-matrix.json",
+    "rawSha256": "cc834e8fd34b1bd84348d3dfde00648a2fff5d0fcb17eb6398137a615a4d0445",
+    "publishedSha256": "4ee9cb590ef782b7c31b16d33405c227e1f7b12bb43e8f7e94d201f4d302f9d1",
+    "redaction": "private absolute paths replaced with bounded placeholders"
+  },
+  {
+    "filename": "capture-20260930T215628.608006Z-failure-postflight.json",
+    "rawSha256": "3d32b4abab487b31abd581d439a5006923edfa6c3d355bb15bd6839bdb405638",
+    "publishedSha256": "f08bd52d1b928943b9475a8ae36449debe865cf882808e150e83a2e000f32c36",
+    "redaction": "private absolute paths replaced with bounded placeholders"
+  },
+  {
+    "filename": "native-matrix-20260930T215628.608006Z.jsonl",
+    "rawSha256": "1e456123a3e516a1d1e731fd53aaebd9d6ab9c9cc0cd36f289cd994c5f30931b",
+    "publishedSha256": "a3d4ab2fae130be7b891bcc6bcb3de75e1b12a25f0f61cb59d33b8604cc23d7d",
+    "redaction": "private absolute paths replaced with bounded placeholders"
+  },
+  {
+    "filename": "hammerspoon-launch-20260930T215628.170878Z.jsonl",
+    "rawSha256": "de0f70b264e29a247aeb2b1197fd6dcfbfab3080adbccdb7ec4aab6f9df43d91",
+    "publishedSha256": "de0f70b264e29a247aeb2b1197fd6dcfbfab3080adbccdb7ec4aab6f9df43d91",
+    "redaction": "private absolute paths replaced with bounded placeholders"
+  },
+  {
+    "filename": "vera-issue-141-observation-result-20260930T215628.585921Z.json",
+    "rawSha256": "e6ee9a4fe49410e203a81041bc49edc140d89e7c8760eb544a711caaf9164e48",
+    "publishedSha256": "852fb611cd91d887652906d8660a4c9d8545e92cdc28d82873a1a9517d6d2fcb",
+    "redaction": "private absolute paths replaced with bounded placeholders"
+  },
+  {
+    "filename": "matrix-00-item-0-placed.json",
+    "rawSha256": "fed7041ad2ff6292242f61ca2727e9163fc4dc23f9e0bd5c2f71d9a1b0933724",
+    "publishedSha256": "98eb79b9eda9ad62e452a3fdf21d95ceac6cbbc98479a349734224a1dadab057",
+    "redaction": "private absolute paths replaced with bounded placeholders"
+  },
+  {
+    "filename": "matrix-00-item-0-after.json",
+    "rawSha256": "0a42308b1177df053a1980f33b8c0b8d72ed26c5ee5a64d989bb6a4adc452b5d",
+    "publishedSha256": "81feb31948f7a28f63260a1adddcd8986ed15eb9c43be5e20f2213d1472f3796",
+    "redaction": "private absolute paths replaced with bounded placeholders"
+  }
+]

@@ -1,0 +1,7 @@
+Read-only finished-code checkpoint12a review for VERA #144. Do not write, use shell, contact services, or perform native/provider/cloud/GitHub actions.
+
+Review only the primary narration source binding extension approved in checkpoint12-plan. Read roundtrip_audio.py and its diff from HEAD (the packet contains the diff), plus new same-row/wrong-primary tests and existing raw/decoded aliases/retained tests. Do not re-review the entire workflow plan or repository.
+
+The caller must now supply primary_source_id from the actual compiled narration event. Multiple distinct auxiliary sources can share a row. Operator profile cannot select primary. Source IDs/raw bytes/decoded PCM stay unique, complete route inventory and all support/excision/control/render gates remain. Selected source must match caller row and supports; any other changed route refuses. All48 audio checks pass; this is an unaccepted issue-owned interface extension, not a frozen product contract change. No ProofSession wiring exists yet. Synthetic positive versus retained consistency/unqualified real boundaries remain.
+
+Find actionable correctness/safety regressions in this extension or missing tests that would matter to workflow integration. Check report binding, malformed primary, wrong row/auxiliary selection and aliases. Identify any actual blocker before larger implementation. Static advisory review only; test results are retained separately. User quota guard: stop #144 if Claude hits usage limit; no session/model/account/browser workaround.

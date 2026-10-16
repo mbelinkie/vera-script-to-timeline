@@ -1,0 +1,8 @@
+{
+  "parentCommit": "d5aea3a",
+  "sourceHashes": {
+    "python/vera_timeline_agent/roundtrip_wi.py": "sha256:ca00f503d265e8a3c07d4218b86194a537b384a50f143972a1d68ac283e579fa",
+    "tests/test_issue144_wi.py": "sha256:2aa8883809985c292f28a092738ee191c4513db13a338e3385982d7727ba9f43"
+  },
+  "status": "Finished-code review passed;18 focused fake-handle cases, strict mypy/Ruff pass. Driver/host demonstration and final validation outstanding."
+}

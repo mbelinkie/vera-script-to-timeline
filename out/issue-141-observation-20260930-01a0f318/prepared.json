@@ -1,0 +1,34 @@
+{
+  "environment": {
+    "externalScripting": "None",
+    "externalScriptingEvidence": "operator config attestation, not API readback",
+    "installedDocs": {
+      "DaVinciResolveScript.pyi": "00078fa1256851b9807621a4eea5e670f4266b0e7003763cba4a62655543f0ec",
+      "README.md": "5f58c94da8ec3c1f390d77ad9c60675263591dc101159b302e50b5774513830b"
+    },
+    "productName": "DaVinci Resolve Studio",
+    "python": "3.14.7",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "identity": {
+    "baselineTimelineId": "88f7923d-55a7-471f-b09b-cf10f9fae8ad",
+    "projectId": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+    "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318"
+  },
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "settings": {
+    "colorGalleryStillsLocation": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/storage-20260930T173943.043191Z/gallery",
+    "perfCacheClipsLocation": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/storage-20260930T173943.043191Z/cache",
+    "projectMediaLocation": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/storage-20260930T173943.043191Z/media",
+    "timelineFrameRate": "25",
+    "timelineResolutionHeight": "1080",
+    "timelineResolutionWidth": "1920",
+    "timelineSampleRate": "48000"
+  }
+}

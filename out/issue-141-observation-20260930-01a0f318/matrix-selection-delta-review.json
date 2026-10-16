@@ -1,0 +1,2955 @@
+{
+  "review": "complete",
+  "capture": "producer-matrix-selection-20261001T183030.414033Z",
+  "evidenceSha256": {
+    "before-pair.json": "5131589527428829afe6e1503e245609a4f17bb3207a2fe61a874db4289601b3",
+    "after-pair.json": "59d4b9bde36af0c0a2c06a126f426fefd1e6dd1a76ddbf562574e70b535ff2b0",
+    "result.json": "fd129533dc2cf4a94203cc02aed67f4fe932e2bf3fde374c8fa65a65614f5600",
+    "journal.jsonl": "4d5353e5862506a8326d0b358cc9d8156aa23721b3d23def0efcf008e4b87dd2",
+    "content-comparison.json": "6757cf35f08a38b07bbadac9a3d94abc19d6d7bbfbdb713ff7108277cf27e00a",
+    "context-differences.json": "ab47368d6f3afbc7f854ef56c28e68961a4877d1db78fe7918515f379cbecc4a"
+  },
+  "pairHashes": {
+    "before": "5131589527428829afe6e1503e245609a4f17bb3207a2fe61a874db4289601b3",
+    "after": "59d4b9bde36af0c0a2c06a126f426fefd1e6dd1a76ddbf562574e70b535ff2b0"
+  },
+  "stablePairs": {
+    "before": "equal-adjacent-reads",
+    "after": "equal-adjacent-reads",
+    "poolBefore": "equal-adjacent-reads",
+    "poolAfter": "equal-adjacent-reads"
+  },
+  "selection": {
+    "journaledSetter": "SetCurrentTimeline",
+    "from": "protected-six-r4-pool-20261001T180848.009764Z/pair.json: 21436b8f-057c-49e6-80ba-5f733abe87b2 (transcription test 1)",
+    "to": "29ae8331-b86e-4041-a548-960695cc7b24 (VERA 141 Batched Matrix)",
+    "setterReturn": true,
+    "readback": "29ae8331-b86e-4041-a548-960695cc7b24"
+  },
+  "sixTimelineIdentities": [
+    {
+      "uid": "21436b8f-057c-49e6-80ba-5f733abe87b2",
+      "name": "transcription test 1"
+    },
+    {
+      "uid": "29ae8331-b86e-4041-a548-960695cc7b24",
+      "name": "VERA 141 Batched Matrix"
+    },
+    {
+      "uid": "2db0b2d1-6d81-48d4-b49c-360f56e012cd",
+      "name": "transcription test 2"
+    },
+    {
+      "uid": "64de8a4c-86bd-4f19-9d20-47b8940f610b",
+      "name": "VERA 141 R4 availability"
+    },
+    {
+      "uid": "88f7923d-55a7-471f-b09b-cf10f9fae8ad",
+      "name": "VERA 141 Baseline"
+    },
+    {
+      "uid": "aa2b8e36-83bd-4292-9e33-217c00ca192f",
+      "name": "VERA 141 R1 identity"
+    }
+  ],
+  "allLeafDifferenceClasses": [
+    {
+      "timelineUid": "21436b8f-057c-49e6-80ba-5f733abe87b2",
+      "timelineName": "transcription test 1",
+      "trackIndex": 0,
+      "trackLeafChanges": {
+        "GetIsTrackEnabled": {
+          "before": true,
+          "after": false
+        }
+      },
+      "itemLeafChangesByProperty": {}
+    },
+    {
+      "timelineUid": "21436b8f-057c-49e6-80ba-5f733abe87b2",
+      "timelineName": "transcription test 1",
+      "trackIndex": 1,
+      "trackLeafChanges": {
+        "GetIsTrackEnabled": {
+          "before": true,
+          "after": false
+        }
+      },
+      "itemLeafChangesByProperty": {
+        "AudioVoiceIsolationEnabled": [
+          {
+            "itemUid": "c1eb1d57-c630-4a4f-aea2-202b3a403b82",
+            "before": false,
+            "after": "<MISSING>"
+          }
+        ],
+        "AudioDialogueLevelerBackgroundReduction": [
+          {
+            "itemUid": "c1eb1d57-c630-4a4f-aea2-202b3a403b82",
+            "before": false,
+            "after": "<MISSING>"
+          }
+        ],
+        "AudioDialogueLevelerMode": [
+          {
+            "itemUid": "c1eb1d57-c630-4a4f-aea2-202b3a403b82",
+            "before": 0,
+            "after": "<MISSING>"
+          }
+        ],
+        "AudioDialogueLevelerReduceLoudDialogue": [
+          {
+            "itemUid": "c1eb1d57-c630-4a4f-aea2-202b3a403b82",
+            "before": false,
+            "after": "<MISSING>"
+          }
+        ],
+        "AudioDialogueLevelerLiftSoftDialogue": [
+          {
+            "itemUid": "c1eb1d57-c630-4a4f-aea2-202b3a403b82",
+            "before": false,
+            "after": "<MISSING>"
+          }
+        ],
+        "AudioDialogueLevelerEnabled": [
+          {
+            "itemUid": "c1eb1d57-c630-4a4f-aea2-202b3a403b82",
+            "before": false,
+            "after": "<MISSING>"
+          }
+        ],
+        "AudioVoiceIsolationAmount": [
+          {
+            "itemUid": "c1eb1d57-c630-4a4f-aea2-202b3a403b82",
+            "before": 0,
+            "after": "<MISSING>"
+          }
+        ],
+        "AudioDialogueLevelerOutputGain": [
+          {
+            "itemUid": "c1eb1d57-c630-4a4f-aea2-202b3a403b82",
+            "before": 0.0,
+            "after": "<MISSING>"
+          }
+        ]
+      }
+    },
+    {
+      "timelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+      "timelineName": "VERA 141 Batched Matrix",
+      "trackIndex": 0,
+      "trackLeafChanges": {
+        "GetIsTrackEnabled": {
+          "before": false,
+          "after": true
+        }
+      },
+      "itemLeafChangesByProperty": {}
+    },
+    {
+      "timelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+      "timelineName": "VERA 141 Batched Matrix",
+      "trackIndex": 1,
+      "trackLeafChanges": {
+        "GetIsTrackEnabled": {
+          "before": false,
+          "after": true
+        },
+        "GetIsTrackLocked": {
+          "before": false,
+          "after": true
+        }
+      },
+      "itemLeafChangesByProperty": {}
+    },
+    {
+      "timelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+      "timelineName": "VERA 141 Batched Matrix",
+      "trackIndex": 2,
+      "trackLeafChanges": {
+        "GetIsTrackEnabled": {
+          "before": false,
+          "after": true
+        },
+        "GetIsTrackLocked": {
+          "before": false,
+          "after": true
+        }
+      },
+      "itemLeafChangesByProperty": {}
+    },
+    {
+      "timelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+      "timelineName": "VERA 141 Batched Matrix",
+      "trackIndex": 3,
+      "trackLeafChanges": {
+        "GetIsTrackEnabled": {
+          "before": false,
+          "after": true
+        }
+      },
+      "itemLeafChangesByProperty": {
+        "AudioDialogueLevelerReduceLoudDialogue": [
+          {
+            "itemUid": "04567868-28d3-47f5-bd7b-dca08fef8b27",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "09373858-39dd-474b-9eb8-56c5e523cc76",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "17267938-81b0-4777-9db5-0a27d359dbfc",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "22561398-bce0-4c22-b55f-a73d3ad5e4cf",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "23dc6e60-704c-456e-918e-36caa179f314",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "2e9c3451-1ed8-4e88-985d-ef5e7f3a070b",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "3a1a52ec-5a60-4972-8509-274b4a7d1f64",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "4d08e64a-85fd-4dfe-ac80-77e4d9d28835",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "55229fb5-7478-47c9-984f-613cec35afb1",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "6332623e-9e1b-4539-949f-38debcc9bbc1",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "6f7c7dd4-9e80-444d-a4ae-b225cb5f5839",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "7808b1fb-3423-4dac-a07b-58f1e1e456cd",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "7c970634-6fcb-4117-9a51-221a482c7142",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "81d64d76-1b80-4314-a68c-4b5bce7807eb",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9b7c5a04-8349-4a68-aa4b-9fcc81065cc8",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "a9175c87-6bc0-4c07-a167-3b7c9de70fba",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "b4f84273-a32c-48bd-acfe-7939fbbdc54b",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c6280b39-7618-4136-81e3-17c855866c84",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "d5d00807-e77d-4914-9b49-dd025ff5430d",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "d9d00f42-1b56-4d09-868f-55c3b752d7be",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "dd5571fb-6b2c-486d-87eb-242a69802267",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "f0b986dd-b580-42f9-a7f8-ba464cca7076",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "fe6f2f29-c8c3-498c-b4a3-fa5f06f1b0a6",
+            "before": "<MISSING>",
+            "after": false
+          }
+        ],
+        "AudioDialogueLevelerLiftSoftDialogue": [
+          {
+            "itemUid": "04567868-28d3-47f5-bd7b-dca08fef8b27",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "09373858-39dd-474b-9eb8-56c5e523cc76",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "17267938-81b0-4777-9db5-0a27d359dbfc",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "22561398-bce0-4c22-b55f-a73d3ad5e4cf",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "23dc6e60-704c-456e-918e-36caa179f314",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "2e9c3451-1ed8-4e88-985d-ef5e7f3a070b",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "3a1a52ec-5a60-4972-8509-274b4a7d1f64",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "4d08e64a-85fd-4dfe-ac80-77e4d9d28835",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "55229fb5-7478-47c9-984f-613cec35afb1",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "6332623e-9e1b-4539-949f-38debcc9bbc1",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "6f7c7dd4-9e80-444d-a4ae-b225cb5f5839",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "7808b1fb-3423-4dac-a07b-58f1e1e456cd",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "7c970634-6fcb-4117-9a51-221a482c7142",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "81d64d76-1b80-4314-a68c-4b5bce7807eb",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9b7c5a04-8349-4a68-aa4b-9fcc81065cc8",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "a9175c87-6bc0-4c07-a167-3b7c9de70fba",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "b4f84273-a32c-48bd-acfe-7939fbbdc54b",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c6280b39-7618-4136-81e3-17c855866c84",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "d5d00807-e77d-4914-9b49-dd025ff5430d",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "d9d00f42-1b56-4d09-868f-55c3b752d7be",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "dd5571fb-6b2c-486d-87eb-242a69802267",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "f0b986dd-b580-42f9-a7f8-ba464cca7076",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "fe6f2f29-c8c3-498c-b4a3-fa5f06f1b0a6",
+            "before": "<MISSING>",
+            "after": false
+          }
+        ],
+        "AudioVoiceIsolationAmount": [
+          {
+            "itemUid": "04567868-28d3-47f5-bd7b-dca08fef8b27",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "09373858-39dd-474b-9eb8-56c5e523cc76",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "17267938-81b0-4777-9db5-0a27d359dbfc",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "22561398-bce0-4c22-b55f-a73d3ad5e4cf",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "23dc6e60-704c-456e-918e-36caa179f314",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "2e9c3451-1ed8-4e88-985d-ef5e7f3a070b",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "3a1a52ec-5a60-4972-8509-274b4a7d1f64",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "4d08e64a-85fd-4dfe-ac80-77e4d9d28835",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "55229fb5-7478-47c9-984f-613cec35afb1",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "6332623e-9e1b-4539-949f-38debcc9bbc1",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "6f7c7dd4-9e80-444d-a4ae-b225cb5f5839",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "7808b1fb-3423-4dac-a07b-58f1e1e456cd",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "7c970634-6fcb-4117-9a51-221a482c7142",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "81d64d76-1b80-4314-a68c-4b5bce7807eb",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "9b7c5a04-8349-4a68-aa4b-9fcc81065cc8",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "a9175c87-6bc0-4c07-a167-3b7c9de70fba",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "b4f84273-a32c-48bd-acfe-7939fbbdc54b",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "c6280b39-7618-4136-81e3-17c855866c84",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "d5d00807-e77d-4914-9b49-dd025ff5430d",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "d9d00f42-1b56-4d09-868f-55c3b752d7be",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "dd5571fb-6b2c-486d-87eb-242a69802267",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "f0b986dd-b580-42f9-a7f8-ba464cca7076",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "fe6f2f29-c8c3-498c-b4a3-fa5f06f1b0a6",
+            "before": "<MISSING>",
+            "after": 0
+          }
+        ],
+        "AudioDialogueLevelerEnabled": [
+          {
+            "itemUid": "04567868-28d3-47f5-bd7b-dca08fef8b27",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "09373858-39dd-474b-9eb8-56c5e523cc76",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "17267938-81b0-4777-9db5-0a27d359dbfc",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "22561398-bce0-4c22-b55f-a73d3ad5e4cf",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "23dc6e60-704c-456e-918e-36caa179f314",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "2e9c3451-1ed8-4e88-985d-ef5e7f3a070b",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "3a1a52ec-5a60-4972-8509-274b4a7d1f64",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "4d08e64a-85fd-4dfe-ac80-77e4d9d28835",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "55229fb5-7478-47c9-984f-613cec35afb1",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "6332623e-9e1b-4539-949f-38debcc9bbc1",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "6f7c7dd4-9e80-444d-a4ae-b225cb5f5839",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "7808b1fb-3423-4dac-a07b-58f1e1e456cd",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "7c970634-6fcb-4117-9a51-221a482c7142",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "81d64d76-1b80-4314-a68c-4b5bce7807eb",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9b7c5a04-8349-4a68-aa4b-9fcc81065cc8",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "a9175c87-6bc0-4c07-a167-3b7c9de70fba",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "b4f84273-a32c-48bd-acfe-7939fbbdc54b",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c6280b39-7618-4136-81e3-17c855866c84",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "d5d00807-e77d-4914-9b49-dd025ff5430d",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "d9d00f42-1b56-4d09-868f-55c3b752d7be",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "dd5571fb-6b2c-486d-87eb-242a69802267",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "f0b986dd-b580-42f9-a7f8-ba464cca7076",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "fe6f2f29-c8c3-498c-b4a3-fa5f06f1b0a6",
+            "before": "<MISSING>",
+            "after": false
+          }
+        ],
+        "AudioVoiceIsolationEnabled": [
+          {
+            "itemUid": "04567868-28d3-47f5-bd7b-dca08fef8b27",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "09373858-39dd-474b-9eb8-56c5e523cc76",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "17267938-81b0-4777-9db5-0a27d359dbfc",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "22561398-bce0-4c22-b55f-a73d3ad5e4cf",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "23dc6e60-704c-456e-918e-36caa179f314",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "2e9c3451-1ed8-4e88-985d-ef5e7f3a070b",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "3a1a52ec-5a60-4972-8509-274b4a7d1f64",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "4d08e64a-85fd-4dfe-ac80-77e4d9d28835",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "55229fb5-7478-47c9-984f-613cec35afb1",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "6332623e-9e1b-4539-949f-38debcc9bbc1",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "6f7c7dd4-9e80-444d-a4ae-b225cb5f5839",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "7808b1fb-3423-4dac-a07b-58f1e1e456cd",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "7c970634-6fcb-4117-9a51-221a482c7142",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "81d64d76-1b80-4314-a68c-4b5bce7807eb",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9b7c5a04-8349-4a68-aa4b-9fcc81065cc8",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "a9175c87-6bc0-4c07-a167-3b7c9de70fba",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "b4f84273-a32c-48bd-acfe-7939fbbdc54b",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c6280b39-7618-4136-81e3-17c855866c84",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "d5d00807-e77d-4914-9b49-dd025ff5430d",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "d9d00f42-1b56-4d09-868f-55c3b752d7be",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "dd5571fb-6b2c-486d-87eb-242a69802267",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "f0b986dd-b580-42f9-a7f8-ba464cca7076",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "fe6f2f29-c8c3-498c-b4a3-fa5f06f1b0a6",
+            "before": "<MISSING>",
+            "after": false
+          }
+        ],
+        "AudioDialogueLevelerBackgroundReduction": [
+          {
+            "itemUid": "04567868-28d3-47f5-bd7b-dca08fef8b27",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "09373858-39dd-474b-9eb8-56c5e523cc76",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "17267938-81b0-4777-9db5-0a27d359dbfc",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "22561398-bce0-4c22-b55f-a73d3ad5e4cf",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "23dc6e60-704c-456e-918e-36caa179f314",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "2e9c3451-1ed8-4e88-985d-ef5e7f3a070b",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "3a1a52ec-5a60-4972-8509-274b4a7d1f64",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "4d08e64a-85fd-4dfe-ac80-77e4d9d28835",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "55229fb5-7478-47c9-984f-613cec35afb1",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "6332623e-9e1b-4539-949f-38debcc9bbc1",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "6f7c7dd4-9e80-444d-a4ae-b225cb5f5839",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "7808b1fb-3423-4dac-a07b-58f1e1e456cd",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "7c970634-6fcb-4117-9a51-221a482c7142",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "81d64d76-1b80-4314-a68c-4b5bce7807eb",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9b7c5a04-8349-4a68-aa4b-9fcc81065cc8",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "a9175c87-6bc0-4c07-a167-3b7c9de70fba",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "b4f84273-a32c-48bd-acfe-7939fbbdc54b",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c6280b39-7618-4136-81e3-17c855866c84",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "d5d00807-e77d-4914-9b49-dd025ff5430d",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "d9d00f42-1b56-4d09-868f-55c3b752d7be",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "dd5571fb-6b2c-486d-87eb-242a69802267",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "f0b986dd-b580-42f9-a7f8-ba464cca7076",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "fe6f2f29-c8c3-498c-b4a3-fa5f06f1b0a6",
+            "before": "<MISSING>",
+            "after": false
+          }
+        ],
+        "AudioDialogueLevelerMode": [
+          {
+            "itemUid": "04567868-28d3-47f5-bd7b-dca08fef8b27",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "09373858-39dd-474b-9eb8-56c5e523cc76",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "17267938-81b0-4777-9db5-0a27d359dbfc",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "22561398-bce0-4c22-b55f-a73d3ad5e4cf",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "23dc6e60-704c-456e-918e-36caa179f314",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "2e9c3451-1ed8-4e88-985d-ef5e7f3a070b",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "3a1a52ec-5a60-4972-8509-274b4a7d1f64",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "4d08e64a-85fd-4dfe-ac80-77e4d9d28835",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "55229fb5-7478-47c9-984f-613cec35afb1",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "6332623e-9e1b-4539-949f-38debcc9bbc1",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "6f7c7dd4-9e80-444d-a4ae-b225cb5f5839",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "7808b1fb-3423-4dac-a07b-58f1e1e456cd",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "7c970634-6fcb-4117-9a51-221a482c7142",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "81d64d76-1b80-4314-a68c-4b5bce7807eb",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "9b7c5a04-8349-4a68-aa4b-9fcc81065cc8",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "a9175c87-6bc0-4c07-a167-3b7c9de70fba",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "b4f84273-a32c-48bd-acfe-7939fbbdc54b",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "c6280b39-7618-4136-81e3-17c855866c84",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "d5d00807-e77d-4914-9b49-dd025ff5430d",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "d9d00f42-1b56-4d09-868f-55c3b752d7be",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "dd5571fb-6b2c-486d-87eb-242a69802267",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "f0b986dd-b580-42f9-a7f8-ba464cca7076",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "fe6f2f29-c8c3-498c-b4a3-fa5f06f1b0a6",
+            "before": "<MISSING>",
+            "after": 0
+          }
+        ],
+        "AudioDialogueLevelerOutputGain": [
+          {
+            "itemUid": "04567868-28d3-47f5-bd7b-dca08fef8b27",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "09373858-39dd-474b-9eb8-56c5e523cc76",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "17267938-81b0-4777-9db5-0a27d359dbfc",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "22561398-bce0-4c22-b55f-a73d3ad5e4cf",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "23dc6e60-704c-456e-918e-36caa179f314",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "2e9c3451-1ed8-4e88-985d-ef5e7f3a070b",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "3a1a52ec-5a60-4972-8509-274b4a7d1f64",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "4d08e64a-85fd-4dfe-ac80-77e4d9d28835",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "55229fb5-7478-47c9-984f-613cec35afb1",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "6332623e-9e1b-4539-949f-38debcc9bbc1",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "6f7c7dd4-9e80-444d-a4ae-b225cb5f5839",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "7808b1fb-3423-4dac-a07b-58f1e1e456cd",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "7c970634-6fcb-4117-9a51-221a482c7142",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "81d64d76-1b80-4314-a68c-4b5bce7807eb",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "9b7c5a04-8349-4a68-aa4b-9fcc81065cc8",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "a9175c87-6bc0-4c07-a167-3b7c9de70fba",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "b4f84273-a32c-48bd-acfe-7939fbbdc54b",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "c6280b39-7618-4136-81e3-17c855866c84",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "d5d00807-e77d-4914-9b49-dd025ff5430d",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "d9d00f42-1b56-4d09-868f-55c3b752d7be",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "dd5571fb-6b2c-486d-87eb-242a69802267",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "f0b986dd-b580-42f9-a7f8-ba464cca7076",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "fe6f2f29-c8c3-498c-b4a3-fa5f06f1b0a6",
+            "before": "<MISSING>",
+            "after": 0.0
+          }
+        ]
+      }
+    },
+    {
+      "timelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+      "timelineName": "VERA 141 Batched Matrix",
+      "trackIndex": 4,
+      "trackLeafChanges": {
+        "GetIsTrackEnabled": {
+          "before": false,
+          "after": true
+        },
+        "GetIsTrackLocked": {
+          "before": false,
+          "after": true
+        }
+      },
+      "itemLeafChangesByProperty": {
+        "AudioDialogueLevelerReduceLoudDialogue": [
+          {
+            "itemUid": "03a58df7-469a-41c4-b359-956bffb3fc32",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "1f8a9cbb-97a9-4b2d-8b8d-d08432f243e9",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "33041955-47f7-4f37-9a40-b6234f178e91",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "3b4a306d-0235-45f3-8d27-fde368ff4c66",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "413e5c9c-d76d-4052-acda-c526c8a91dfb",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "57e3f7b0-0ebe-4e90-af53-a4e9f9fee646",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "5ba9ee2e-ac9b-4bd0-a8e5-b2bd29e9e622",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "76b31a26-0be5-49da-8d44-558c78f963d0",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "8395442e-4d0c-4ded-a6b7-7a9511811106",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "97729a5b-582a-4218-8c2b-506e5aa4d9ba",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9d8a6df4-f889-4f5e-a718-86c263a4f8e9",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9f1f39c4-0fa9-4ec7-97b1-d3f172c99946",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9fbe5182-8f54-44e2-931a-1a6c07a60132",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "a4ef8231-15d4-44b8-accf-9694bec62775",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "aa462900-5efe-49d1-bc1b-cb7b2b7daed9",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "b7a4901a-9b9c-41b4-b24d-d5e23bc65b62",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c5a870c5-35c0-4158-aa5e-3ef186522410",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c6240ed5-ee5f-4db4-a654-7d7a63715691",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "f4e9f649-894a-42f2-9f54-a8321ae7c163",
+            "before": "<MISSING>",
+            "after": false
+          }
+        ],
+        "AudioDialogueLevelerLiftSoftDialogue": [
+          {
+            "itemUid": "03a58df7-469a-41c4-b359-956bffb3fc32",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "1f8a9cbb-97a9-4b2d-8b8d-d08432f243e9",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "33041955-47f7-4f37-9a40-b6234f178e91",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "3b4a306d-0235-45f3-8d27-fde368ff4c66",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "413e5c9c-d76d-4052-acda-c526c8a91dfb",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "57e3f7b0-0ebe-4e90-af53-a4e9f9fee646",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "5ba9ee2e-ac9b-4bd0-a8e5-b2bd29e9e622",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "76b31a26-0be5-49da-8d44-558c78f963d0",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "8395442e-4d0c-4ded-a6b7-7a9511811106",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "97729a5b-582a-4218-8c2b-506e5aa4d9ba",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9d8a6df4-f889-4f5e-a718-86c263a4f8e9",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9f1f39c4-0fa9-4ec7-97b1-d3f172c99946",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9fbe5182-8f54-44e2-931a-1a6c07a60132",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "a4ef8231-15d4-44b8-accf-9694bec62775",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "aa462900-5efe-49d1-bc1b-cb7b2b7daed9",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "b7a4901a-9b9c-41b4-b24d-d5e23bc65b62",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c5a870c5-35c0-4158-aa5e-3ef186522410",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c6240ed5-ee5f-4db4-a654-7d7a63715691",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "f4e9f649-894a-42f2-9f54-a8321ae7c163",
+            "before": "<MISSING>",
+            "after": false
+          }
+        ],
+        "AudioVoiceIsolationAmount": [
+          {
+            "itemUid": "03a58df7-469a-41c4-b359-956bffb3fc32",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "1f8a9cbb-97a9-4b2d-8b8d-d08432f243e9",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "33041955-47f7-4f37-9a40-b6234f178e91",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "3b4a306d-0235-45f3-8d27-fde368ff4c66",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "413e5c9c-d76d-4052-acda-c526c8a91dfb",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "57e3f7b0-0ebe-4e90-af53-a4e9f9fee646",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "5ba9ee2e-ac9b-4bd0-a8e5-b2bd29e9e622",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "76b31a26-0be5-49da-8d44-558c78f963d0",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "8395442e-4d0c-4ded-a6b7-7a9511811106",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "97729a5b-582a-4218-8c2b-506e5aa4d9ba",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "9d8a6df4-f889-4f5e-a718-86c263a4f8e9",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "9f1f39c4-0fa9-4ec7-97b1-d3f172c99946",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "9fbe5182-8f54-44e2-931a-1a6c07a60132",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "a4ef8231-15d4-44b8-accf-9694bec62775",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "aa462900-5efe-49d1-bc1b-cb7b2b7daed9",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "b7a4901a-9b9c-41b4-b24d-d5e23bc65b62",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "c5a870c5-35c0-4158-aa5e-3ef186522410",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "c6240ed5-ee5f-4db4-a654-7d7a63715691",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "f4e9f649-894a-42f2-9f54-a8321ae7c163",
+            "before": "<MISSING>",
+            "after": 0
+          }
+        ],
+        "AudioDialogueLevelerEnabled": [
+          {
+            "itemUid": "03a58df7-469a-41c4-b359-956bffb3fc32",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "1f8a9cbb-97a9-4b2d-8b8d-d08432f243e9",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "33041955-47f7-4f37-9a40-b6234f178e91",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "3b4a306d-0235-45f3-8d27-fde368ff4c66",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "413e5c9c-d76d-4052-acda-c526c8a91dfb",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "57e3f7b0-0ebe-4e90-af53-a4e9f9fee646",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "5ba9ee2e-ac9b-4bd0-a8e5-b2bd29e9e622",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "76b31a26-0be5-49da-8d44-558c78f963d0",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "8395442e-4d0c-4ded-a6b7-7a9511811106",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "97729a5b-582a-4218-8c2b-506e5aa4d9ba",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9d8a6df4-f889-4f5e-a718-86c263a4f8e9",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9f1f39c4-0fa9-4ec7-97b1-d3f172c99946",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9fbe5182-8f54-44e2-931a-1a6c07a60132",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "a4ef8231-15d4-44b8-accf-9694bec62775",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "aa462900-5efe-49d1-bc1b-cb7b2b7daed9",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "b7a4901a-9b9c-41b4-b24d-d5e23bc65b62",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c5a870c5-35c0-4158-aa5e-3ef186522410",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c6240ed5-ee5f-4db4-a654-7d7a63715691",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "f4e9f649-894a-42f2-9f54-a8321ae7c163",
+            "before": "<MISSING>",
+            "after": false
+          }
+        ],
+        "AudioVoiceIsolationEnabled": [
+          {
+            "itemUid": "03a58df7-469a-41c4-b359-956bffb3fc32",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "1f8a9cbb-97a9-4b2d-8b8d-d08432f243e9",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "33041955-47f7-4f37-9a40-b6234f178e91",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "3b4a306d-0235-45f3-8d27-fde368ff4c66",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "413e5c9c-d76d-4052-acda-c526c8a91dfb",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "57e3f7b0-0ebe-4e90-af53-a4e9f9fee646",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "5ba9ee2e-ac9b-4bd0-a8e5-b2bd29e9e622",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "76b31a26-0be5-49da-8d44-558c78f963d0",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "8395442e-4d0c-4ded-a6b7-7a9511811106",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "97729a5b-582a-4218-8c2b-506e5aa4d9ba",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9d8a6df4-f889-4f5e-a718-86c263a4f8e9",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9f1f39c4-0fa9-4ec7-97b1-d3f172c99946",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9fbe5182-8f54-44e2-931a-1a6c07a60132",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "a4ef8231-15d4-44b8-accf-9694bec62775",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "aa462900-5efe-49d1-bc1b-cb7b2b7daed9",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "b7a4901a-9b9c-41b4-b24d-d5e23bc65b62",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c5a870c5-35c0-4158-aa5e-3ef186522410",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c6240ed5-ee5f-4db4-a654-7d7a63715691",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "f4e9f649-894a-42f2-9f54-a8321ae7c163",
+            "before": "<MISSING>",
+            "after": false
+          }
+        ],
+        "AudioDialogueLevelerBackgroundReduction": [
+          {
+            "itemUid": "03a58df7-469a-41c4-b359-956bffb3fc32",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "1f8a9cbb-97a9-4b2d-8b8d-d08432f243e9",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "33041955-47f7-4f37-9a40-b6234f178e91",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "3b4a306d-0235-45f3-8d27-fde368ff4c66",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "413e5c9c-d76d-4052-acda-c526c8a91dfb",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "57e3f7b0-0ebe-4e90-af53-a4e9f9fee646",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "5ba9ee2e-ac9b-4bd0-a8e5-b2bd29e9e622",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "76b31a26-0be5-49da-8d44-558c78f963d0",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "8395442e-4d0c-4ded-a6b7-7a9511811106",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "97729a5b-582a-4218-8c2b-506e5aa4d9ba",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9d8a6df4-f889-4f5e-a718-86c263a4f8e9",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9f1f39c4-0fa9-4ec7-97b1-d3f172c99946",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9fbe5182-8f54-44e2-931a-1a6c07a60132",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "a4ef8231-15d4-44b8-accf-9694bec62775",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "aa462900-5efe-49d1-bc1b-cb7b2b7daed9",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "b7a4901a-9b9c-41b4-b24d-d5e23bc65b62",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c5a870c5-35c0-4158-aa5e-3ef186522410",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c6240ed5-ee5f-4db4-a654-7d7a63715691",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "f4e9f649-894a-42f2-9f54-a8321ae7c163",
+            "before": "<MISSING>",
+            "after": false
+          }
+        ],
+        "AudioDialogueLevelerMode": [
+          {
+            "itemUid": "03a58df7-469a-41c4-b359-956bffb3fc32",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "1f8a9cbb-97a9-4b2d-8b8d-d08432f243e9",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "33041955-47f7-4f37-9a40-b6234f178e91",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "3b4a306d-0235-45f3-8d27-fde368ff4c66",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "413e5c9c-d76d-4052-acda-c526c8a91dfb",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "57e3f7b0-0ebe-4e90-af53-a4e9f9fee646",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "5ba9ee2e-ac9b-4bd0-a8e5-b2bd29e9e622",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "76b31a26-0be5-49da-8d44-558c78f963d0",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "8395442e-4d0c-4ded-a6b7-7a9511811106",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "97729a5b-582a-4218-8c2b-506e5aa4d9ba",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "9d8a6df4-f889-4f5e-a718-86c263a4f8e9",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "9f1f39c4-0fa9-4ec7-97b1-d3f172c99946",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "9fbe5182-8f54-44e2-931a-1a6c07a60132",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "a4ef8231-15d4-44b8-accf-9694bec62775",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "aa462900-5efe-49d1-bc1b-cb7b2b7daed9",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "b7a4901a-9b9c-41b4-b24d-d5e23bc65b62",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "c5a870c5-35c0-4158-aa5e-3ef186522410",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "c6240ed5-ee5f-4db4-a654-7d7a63715691",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "f4e9f649-894a-42f2-9f54-a8321ae7c163",
+            "before": "<MISSING>",
+            "after": 0
+          }
+        ],
+        "AudioDialogueLevelerOutputGain": [
+          {
+            "itemUid": "03a58df7-469a-41c4-b359-956bffb3fc32",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "1f8a9cbb-97a9-4b2d-8b8d-d08432f243e9",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "33041955-47f7-4f37-9a40-b6234f178e91",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "3b4a306d-0235-45f3-8d27-fde368ff4c66",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "413e5c9c-d76d-4052-acda-c526c8a91dfb",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "57e3f7b0-0ebe-4e90-af53-a4e9f9fee646",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "5ba9ee2e-ac9b-4bd0-a8e5-b2bd29e9e622",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "76b31a26-0be5-49da-8d44-558c78f963d0",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "8395442e-4d0c-4ded-a6b7-7a9511811106",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "97729a5b-582a-4218-8c2b-506e5aa4d9ba",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "9d8a6df4-f889-4f5e-a718-86c263a4f8e9",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "9f1f39c4-0fa9-4ec7-97b1-d3f172c99946",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "9fbe5182-8f54-44e2-931a-1a6c07a60132",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "a4ef8231-15d4-44b8-accf-9694bec62775",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "aa462900-5efe-49d1-bc1b-cb7b2b7daed9",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "b7a4901a-9b9c-41b4-b24d-d5e23bc65b62",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "c5a870c5-35c0-4158-aa5e-3ef186522410",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "c6240ed5-ee5f-4db4-a654-7d7a63715691",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "f4e9f649-894a-42f2-9f54-a8321ae7c163",
+            "before": "<MISSING>",
+            "after": 0.0
+          }
+        ]
+      }
+    },
+    {
+      "timelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+      "timelineName": "VERA 141 Batched Matrix",
+      "trackIndex": 5,
+      "trackLeafChanges": {
+        "GetIsTrackEnabled": {
+          "before": false,
+          "after": true
+        },
+        "GetIsTrackLocked": {
+          "before": false,
+          "after": true
+        }
+      },
+      "itemLeafChangesByProperty": {
+        "AudioDialogueLevelerReduceLoudDialogue": [
+          {
+            "itemUid": "050ec572-54d8-4025-a1c7-0e625766245a",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "16b1902c-74e2-4a65-9bac-b7b1fac86485",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "1dde7d80-6057-4a48-94a4-134a6d79e41f",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "368ab8db-136e-40ed-b37f-c0328c21c1d1",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "36e55e90-6a14-408d-8a4d-484be27ef252",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "3b6ee2f9-fb22-4052-9181-c440d5d3dbf0",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "41181fd9-2993-4808-8b62-95caeb776f45",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "4c4a5f04-57bf-40ee-bf90-6766861ef3bf",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "4ddfa766-09fc-4189-b8f2-a1ffa28f8dd4",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "58364066-e8a7-42ac-befe-16dd9ff72578",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "67b2a12d-59d5-447c-9ccf-0f054b1cecc9",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "8b7633f6-7c68-4ce6-9aff-db778b470e91",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9d052518-8d90-4dc3-b09e-64c4778899f6",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "ac0994d2-39f5-4f0b-80c4-bbfebdf7311e",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "b29880f3-1e58-40ca-98b4-00754e004f4f",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c26c6dc4-a774-4ba5-96a2-30bd6de7fcca",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c7139447-92ea-40e5-ab64-419643138551",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c829f754-0f42-417c-b547-d1fe6451b467",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "d9be97a6-00a8-4cc3-bf21-818012dc4b41",
+            "before": "<MISSING>",
+            "after": false
+          }
+        ],
+        "AudioDialogueLevelerLiftSoftDialogue": [
+          {
+            "itemUid": "050ec572-54d8-4025-a1c7-0e625766245a",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "16b1902c-74e2-4a65-9bac-b7b1fac86485",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "1dde7d80-6057-4a48-94a4-134a6d79e41f",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "368ab8db-136e-40ed-b37f-c0328c21c1d1",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "36e55e90-6a14-408d-8a4d-484be27ef252",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "3b6ee2f9-fb22-4052-9181-c440d5d3dbf0",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "41181fd9-2993-4808-8b62-95caeb776f45",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "4c4a5f04-57bf-40ee-bf90-6766861ef3bf",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "4ddfa766-09fc-4189-b8f2-a1ffa28f8dd4",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "58364066-e8a7-42ac-befe-16dd9ff72578",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "67b2a12d-59d5-447c-9ccf-0f054b1cecc9",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "8b7633f6-7c68-4ce6-9aff-db778b470e91",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9d052518-8d90-4dc3-b09e-64c4778899f6",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "ac0994d2-39f5-4f0b-80c4-bbfebdf7311e",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "b29880f3-1e58-40ca-98b4-00754e004f4f",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c26c6dc4-a774-4ba5-96a2-30bd6de7fcca",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c7139447-92ea-40e5-ab64-419643138551",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c829f754-0f42-417c-b547-d1fe6451b467",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "d9be97a6-00a8-4cc3-bf21-818012dc4b41",
+            "before": "<MISSING>",
+            "after": false
+          }
+        ],
+        "AudioVoiceIsolationAmount": [
+          {
+            "itemUid": "050ec572-54d8-4025-a1c7-0e625766245a",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "16b1902c-74e2-4a65-9bac-b7b1fac86485",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "1dde7d80-6057-4a48-94a4-134a6d79e41f",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "368ab8db-136e-40ed-b37f-c0328c21c1d1",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "36e55e90-6a14-408d-8a4d-484be27ef252",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "3b6ee2f9-fb22-4052-9181-c440d5d3dbf0",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "41181fd9-2993-4808-8b62-95caeb776f45",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "4c4a5f04-57bf-40ee-bf90-6766861ef3bf",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "4ddfa766-09fc-4189-b8f2-a1ffa28f8dd4",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "58364066-e8a7-42ac-befe-16dd9ff72578",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "67b2a12d-59d5-447c-9ccf-0f054b1cecc9",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "8b7633f6-7c68-4ce6-9aff-db778b470e91",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "9d052518-8d90-4dc3-b09e-64c4778899f6",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "ac0994d2-39f5-4f0b-80c4-bbfebdf7311e",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "b29880f3-1e58-40ca-98b4-00754e004f4f",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "c26c6dc4-a774-4ba5-96a2-30bd6de7fcca",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "c7139447-92ea-40e5-ab64-419643138551",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "c829f754-0f42-417c-b547-d1fe6451b467",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "d9be97a6-00a8-4cc3-bf21-818012dc4b41",
+            "before": "<MISSING>",
+            "after": 0
+          }
+        ],
+        "AudioDialogueLevelerEnabled": [
+          {
+            "itemUid": "050ec572-54d8-4025-a1c7-0e625766245a",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "16b1902c-74e2-4a65-9bac-b7b1fac86485",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "1dde7d80-6057-4a48-94a4-134a6d79e41f",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "368ab8db-136e-40ed-b37f-c0328c21c1d1",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "36e55e90-6a14-408d-8a4d-484be27ef252",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "3b6ee2f9-fb22-4052-9181-c440d5d3dbf0",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "41181fd9-2993-4808-8b62-95caeb776f45",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "4c4a5f04-57bf-40ee-bf90-6766861ef3bf",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "4ddfa766-09fc-4189-b8f2-a1ffa28f8dd4",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "58364066-e8a7-42ac-befe-16dd9ff72578",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "67b2a12d-59d5-447c-9ccf-0f054b1cecc9",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "8b7633f6-7c68-4ce6-9aff-db778b470e91",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9d052518-8d90-4dc3-b09e-64c4778899f6",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "ac0994d2-39f5-4f0b-80c4-bbfebdf7311e",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "b29880f3-1e58-40ca-98b4-00754e004f4f",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c26c6dc4-a774-4ba5-96a2-30bd6de7fcca",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c7139447-92ea-40e5-ab64-419643138551",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c829f754-0f42-417c-b547-d1fe6451b467",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "d9be97a6-00a8-4cc3-bf21-818012dc4b41",
+            "before": "<MISSING>",
+            "after": false
+          }
+        ],
+        "AudioVoiceIsolationEnabled": [
+          {
+            "itemUid": "050ec572-54d8-4025-a1c7-0e625766245a",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "16b1902c-74e2-4a65-9bac-b7b1fac86485",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "1dde7d80-6057-4a48-94a4-134a6d79e41f",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "368ab8db-136e-40ed-b37f-c0328c21c1d1",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "36e55e90-6a14-408d-8a4d-484be27ef252",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "3b6ee2f9-fb22-4052-9181-c440d5d3dbf0",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "41181fd9-2993-4808-8b62-95caeb776f45",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "4c4a5f04-57bf-40ee-bf90-6766861ef3bf",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "4ddfa766-09fc-4189-b8f2-a1ffa28f8dd4",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "58364066-e8a7-42ac-befe-16dd9ff72578",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "67b2a12d-59d5-447c-9ccf-0f054b1cecc9",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "8b7633f6-7c68-4ce6-9aff-db778b470e91",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9d052518-8d90-4dc3-b09e-64c4778899f6",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "ac0994d2-39f5-4f0b-80c4-bbfebdf7311e",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "b29880f3-1e58-40ca-98b4-00754e004f4f",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c26c6dc4-a774-4ba5-96a2-30bd6de7fcca",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c7139447-92ea-40e5-ab64-419643138551",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c829f754-0f42-417c-b547-d1fe6451b467",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "d9be97a6-00a8-4cc3-bf21-818012dc4b41",
+            "before": "<MISSING>",
+            "after": false
+          }
+        ],
+        "AudioDialogueLevelerBackgroundReduction": [
+          {
+            "itemUid": "050ec572-54d8-4025-a1c7-0e625766245a",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "16b1902c-74e2-4a65-9bac-b7b1fac86485",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "1dde7d80-6057-4a48-94a4-134a6d79e41f",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "368ab8db-136e-40ed-b37f-c0328c21c1d1",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "36e55e90-6a14-408d-8a4d-484be27ef252",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "3b6ee2f9-fb22-4052-9181-c440d5d3dbf0",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "41181fd9-2993-4808-8b62-95caeb776f45",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "4c4a5f04-57bf-40ee-bf90-6766861ef3bf",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "4ddfa766-09fc-4189-b8f2-a1ffa28f8dd4",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "58364066-e8a7-42ac-befe-16dd9ff72578",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "67b2a12d-59d5-447c-9ccf-0f054b1cecc9",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "8b7633f6-7c68-4ce6-9aff-db778b470e91",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "9d052518-8d90-4dc3-b09e-64c4778899f6",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "ac0994d2-39f5-4f0b-80c4-bbfebdf7311e",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "b29880f3-1e58-40ca-98b4-00754e004f4f",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c26c6dc4-a774-4ba5-96a2-30bd6de7fcca",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c7139447-92ea-40e5-ab64-419643138551",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "c829f754-0f42-417c-b547-d1fe6451b467",
+            "before": "<MISSING>",
+            "after": false
+          },
+          {
+            "itemUid": "d9be97a6-00a8-4cc3-bf21-818012dc4b41",
+            "before": "<MISSING>",
+            "after": false
+          }
+        ],
+        "AudioDialogueLevelerMode": [
+          {
+            "itemUid": "050ec572-54d8-4025-a1c7-0e625766245a",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "16b1902c-74e2-4a65-9bac-b7b1fac86485",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "1dde7d80-6057-4a48-94a4-134a6d79e41f",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "368ab8db-136e-40ed-b37f-c0328c21c1d1",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "36e55e90-6a14-408d-8a4d-484be27ef252",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "3b6ee2f9-fb22-4052-9181-c440d5d3dbf0",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "41181fd9-2993-4808-8b62-95caeb776f45",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "4c4a5f04-57bf-40ee-bf90-6766861ef3bf",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "4ddfa766-09fc-4189-b8f2-a1ffa28f8dd4",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "58364066-e8a7-42ac-befe-16dd9ff72578",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "67b2a12d-59d5-447c-9ccf-0f054b1cecc9",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "8b7633f6-7c68-4ce6-9aff-db778b470e91",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "9d052518-8d90-4dc3-b09e-64c4778899f6",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "ac0994d2-39f5-4f0b-80c4-bbfebdf7311e",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "b29880f3-1e58-40ca-98b4-00754e004f4f",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "c26c6dc4-a774-4ba5-96a2-30bd6de7fcca",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "c7139447-92ea-40e5-ab64-419643138551",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "c829f754-0f42-417c-b547-d1fe6451b467",
+            "before": "<MISSING>",
+            "after": 0
+          },
+          {
+            "itemUid": "d9be97a6-00a8-4cc3-bf21-818012dc4b41",
+            "before": "<MISSING>",
+            "after": 0
+          }
+        ],
+        "AudioDialogueLevelerOutputGain": [
+          {
+            "itemUid": "050ec572-54d8-4025-a1c7-0e625766245a",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "16b1902c-74e2-4a65-9bac-b7b1fac86485",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "1dde7d80-6057-4a48-94a4-134a6d79e41f",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "368ab8db-136e-40ed-b37f-c0328c21c1d1",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "36e55e90-6a14-408d-8a4d-484be27ef252",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "3b6ee2f9-fb22-4052-9181-c440d5d3dbf0",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "41181fd9-2993-4808-8b62-95caeb776f45",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "4c4a5f04-57bf-40ee-bf90-6766861ef3bf",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "4ddfa766-09fc-4189-b8f2-a1ffa28f8dd4",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "58364066-e8a7-42ac-befe-16dd9ff72578",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "67b2a12d-59d5-447c-9ccf-0f054b1cecc9",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "8b7633f6-7c68-4ce6-9aff-db778b470e91",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "9d052518-8d90-4dc3-b09e-64c4778899f6",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "ac0994d2-39f5-4f0b-80c4-bbfebdf7311e",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "b29880f3-1e58-40ca-98b4-00754e004f4f",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "c26c6dc4-a774-4ba5-96a2-30bd6de7fcca",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "c7139447-92ea-40e5-ab64-419643138551",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "c829f754-0f42-417c-b547-d1fe6451b467",
+            "before": "<MISSING>",
+            "after": 0.0
+          },
+          {
+            "itemUid": "d9be97a6-00a8-4cc3-bf21-818012dc4b41",
+            "before": "<MISSING>",
+            "after": 0.0
+          }
+        ]
+      }
+    }
+  ],
+  "comparisonSummary": {
+    "fullPoolContentEqual": true,
+    "fullTimelineContentEqual": false,
+    "producerTimelineContentEqual": false,
+    "protectedSourceMetadataEqual": true,
+    "contextDifferences": [
+      {
+        "after": "<BlackmagicFusion.PyRemoteObject object at 0x1111826d0>",
+        "before": "<BlackmagicFusion.PyRemoteObject object at 0x1110e0cf0>",
+        "path": "/currentTimeline/getter/value/repr"
+      },
+      {
+        "after": "VERA 141 Batched Matrix",
+        "before": "transcription test 1",
+        "path": "/currentTimeline/identity/GetName/value"
+      },
+      {
+        "after": "29ae8331-b86e-4041-a548-960695cc7b24",
+        "before": "21436b8f-057c-49e6-80ba-5f733abe87b2",
+        "path": "/currentTimeline/identity/GetUniqueId/value"
+      },
+      {
+        "after": "00:00:00:00",
+        "before": "01:00:10:05",
+        "path": "/playhead/value"
+      }
+    ],
+    "nonAudioPropertyValuesChanged": false,
+    "timelineTrackEnabledOrLockedGetterValuesChanged": true,
+    "geometryOrItemIdentityChanges": false,
+    "settingsMarkersLinksOrPoolChanges": false
+  },
+  "protectedPoolItems": {
+    "beforeCount": 13,
+    "afterCount": 13,
+    "uidsEqual": true,
+    "allPoolRecordsEqual": true,
+    "sourceEvidenceAndMetadata": [
+      {
+        "itemUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+        "name": "base.mov",
+        "clipMetadataEqual": true,
+        "markersEqual": true,
+        "identityEqual": true,
+        "sourceBytesBefore": {
+          "hashMatches": true,
+          "sha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+          "status": "reachable"
+        },
+        "sourceBytesAfter": {
+          "hashMatches": true,
+          "sha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+          "status": "reachable"
+        }
+      },
+      {
+        "itemUid": "8366bbfd-ad50-4a17-9b8d-d05224943f0b",
+        "name": "cutaway.mov",
+        "clipMetadataEqual": true,
+        "markersEqual": true,
+        "identityEqual": true,
+        "sourceBytesBefore": {
+          "hashMatches": true,
+          "sha256": "771b4bbbe771b980831e0a7b6d93ef11e1315cd995df22c5c7fbf7c2bf62c88b",
+          "status": "reachable"
+        },
+        "sourceBytesAfter": {
+          "hashMatches": true,
+          "sha256": "771b4bbbe771b980831e0a7b6d93ef11e1315cd995df22c5c7fbf7c2bf62c88b",
+          "status": "reachable"
+        }
+      },
+      {
+        "itemUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+        "name": "repeated.wav",
+        "clipMetadataEqual": true,
+        "markersEqual": true,
+        "identityEqual": true,
+        "sourceBytesBefore": {
+          "hashMatches": true,
+          "sha256": "832dd31cc46b9f4b4fdb7cbde18b4edc09ec249885634fba43da2a7b87dc768e",
+          "status": "reachable"
+        },
+        "sourceBytesAfter": {
+          "hashMatches": true,
+          "sha256": "832dd31cc46b9f4b4fdb7cbde18b4edc09ec249885634fba43da2a7b87dc768e",
+          "status": "reachable"
+        }
+      },
+      {
+        "itemUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+        "name": "bed.wav",
+        "clipMetadataEqual": true,
+        "markersEqual": true,
+        "identityEqual": true,
+        "sourceBytesBefore": {
+          "hashMatches": true,
+          "sha256": "f6da7ab4ffb4cc549e4b41e19da714097877b035abfb0235ac9bf94ea4860c02",
+          "status": "reachable"
+        },
+        "sourceBytesAfter": {
+          "hashMatches": true,
+          "sha256": "f6da7ab4ffb4cc549e4b41e19da714097877b035abfb0235ac9bf94ea4860c02",
+          "status": "reachable"
+        }
+      },
+      {
+        "itemUid": "ce49c87d-edf6-4860-981c-891cc329c447",
+        "name": "overlay.png",
+        "clipMetadataEqual": true,
+        "markersEqual": true,
+        "identityEqual": true,
+        "sourceBytesBefore": {
+          "hashMatches": true,
+          "sha256": "071eb12b64238770244dead14fda01a0aeca3623f7962aab9edefa93b68d3140",
+          "status": "reachable"
+        },
+        "sourceBytesAfter": {
+          "hashMatches": true,
+          "sha256": "071eb12b64238770244dead14fda01a0aeca3623f7962aab9edefa93b68d3140",
+          "status": "reachable"
+        }
+      },
+      {
+        "itemUid": "69ed3976-c511-49f3-aa6c-267a8532c2df",
+        "name": "VERA 141 Baseline",
+        "clipMetadataEqual": true,
+        "markersEqual": true,
+        "identityEqual": true,
+        "sourceBytesBefore": {
+          "status": "timeline-uid-not-hashed"
+        },
+        "sourceBytesAfter": {
+          "status": "timeline-uid-not-hashed"
+        }
+      },
+      {
+        "itemUid": "726dfa96-aa09-4cb6-8ff4-5b12a57c28cf",
+        "name": "VERA 141 R1 identity",
+        "clipMetadataEqual": true,
+        "markersEqual": true,
+        "identityEqual": true,
+        "sourceBytesBefore": {
+          "status": "timeline-uid-not-hashed"
+        },
+        "sourceBytesAfter": {
+          "status": "timeline-uid-not-hashed"
+        }
+      },
+      {
+        "itemUid": "de8efefa-310d-451c-863c-d6b847e8b82e",
+        "name": "VERA 141 Batched Matrix",
+        "clipMetadataEqual": true,
+        "markersEqual": true,
+        "identityEqual": true,
+        "sourceBytesBefore": {
+          "status": "timeline-uid-not-hashed"
+        },
+        "sourceBytesAfter": {
+          "status": "timeline-uid-not-hashed"
+        }
+      },
+      {
+        "itemUid": "81d81dc0-4c37-478b-8079-03debba5e780",
+        "name": "base.mov",
+        "clipMetadataEqual": true,
+        "markersEqual": true,
+        "identityEqual": true,
+        "sourceBytesBefore": {
+          "hashMatches": true,
+          "sha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+          "status": "reachable"
+        },
+        "sourceBytesAfter": {
+          "hashMatches": true,
+          "sha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942",
+          "status": "reachable"
+        }
+      },
+      {
+        "itemUid": "91853c24-9e0c-435c-8550-209a76425270",
+        "name": "VERA 141 R4 availability",
+        "clipMetadataEqual": true,
+        "markersEqual": true,
+        "identityEqual": true,
+        "sourceBytesBefore": {
+          "status": "timeline-uid-not-hashed"
+        },
+        "sourceBytesAfter": {
+          "status": "timeline-uid-not-hashed"
+        }
+      },
+      {
+        "itemUid": "be5f1584-f0c4-4dd9-988b-73f3167e77d1",
+        "name": "semi1b.mp4",
+        "clipMetadataEqual": true,
+        "markersEqual": true,
+        "identityEqual": true,
+        "sourceBytesBefore": {
+          "status": "protected-locator-not-accessed"
+        },
+        "sourceBytesAfter": {
+          "status": "protected-locator-not-accessed"
+        }
+      },
+      {
+        "itemUid": "b3314ba0-fd74-46a2-aa50-b5fc342ab9df",
+        "name": "transcription test 1",
+        "clipMetadataEqual": true,
+        "markersEqual": true,
+        "identityEqual": true,
+        "sourceBytesBefore": {
+          "status": "timeline-uid-not-hashed"
+        },
+        "sourceBytesAfter": {
+          "status": "timeline-uid-not-hashed"
+        }
+      },
+      {
+        "itemUid": "adf46ea1-7d6f-4014-ad2b-37111d3e36f9",
+        "name": "transcription test 2",
+        "clipMetadataEqual": true,
+        "markersEqual": true,
+        "identityEqual": true,
+        "sourceBytesBefore": {
+          "status": "timeline-uid-not-hashed"
+        },
+        "sourceBytesAfter": {
+          "status": "timeline-uid-not-hashed"
+        }
+      }
+    ],
+    "sourceFileAccessPerformedByReview": false
+  },
+  "effectReadback": "The eight AudioDialogueLeveler/AudioVoiceIsolation GetProperties keys are present with defaults in the selected timeline and missing on the inactive timeline for each relevant item; omission does not establish actual effect removal.",
+  "decision": "Use the fresh stable after-pair as the current selected Matrix observation for existing R2-picture preparation, with the all-state/full-timeline equality failure retained. Pool equality and protected source metadata are verified. Treat track enabled/locked and the eight audio-property key-presence differences as selected-timeline getter-context-dependent readbacks; effect state remains unknown. No geometry, item identity, settings, markers, links, or pool metadata changed.",
+  "status": "refused-partial-state-retained",
+  "nativeActionsByReviewer": "none"
+}

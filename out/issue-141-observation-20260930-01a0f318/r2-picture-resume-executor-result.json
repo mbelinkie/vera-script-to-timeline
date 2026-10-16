@@ -1,0 +1,224 @@
+{
+  "approvalPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-picture-root-approved-invocation.json",
+  "approvalSha256": "5318e06d02b49f8d53edd495a283161d73ed91a240359fe61f9cdbe10416d7a7",
+  "argv": [
+    "ctx-wire",
+    "run",
+    "rtk",
+    "proxy",
+    "/usr/local/bin/python3.14",
+    "-S",
+    "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-cut-sequence.py",
+    "--case",
+    "R2-picture",
+    "--prior-pair",
+    "producer-matrix-selection-20261001T183030.414033Z/after-pair.json",
+    "--prior-sha256",
+    "59d4b9bde36af0c0a2c06a126f426fefd1e6dd1a76ddbf562574e70b535ff2b0",
+    "--reviewed-preparation",
+    "independent-cut-sequence-20261001T185619.919970Z/preparation.json",
+    "--reviewed-preparation-sha256",
+    "574f4c2d86f905eebf997da92fa1794cc00b45260c22f20ad7b0c545ae46c34e",
+    "--terminal-refusal",
+    "r2-picture-native-executor-result.json",
+    "--terminal-refusal-sha256",
+    "bfc31c095fa21dedf8233b6a3b20db9cfd9c475be0df658821f6bf126e5dec59",
+    "--context-verification",
+    "r2-picture-resume-context-verified.json",
+    "--context-verification-sha256",
+    "dc762e9398da4d5c5de8e9e8df9340ea0c62b9a685c6d2f5d6eaf0a750483e39",
+    "--run"
+  ],
+  "attempt": 1,
+  "configBinding": {
+    "action": "observe",
+    "externalScriptingSetting": "None",
+    "probeSha256": "1125c66db1f902eef2ab0e09de195c8f75179b38edb7f3c8acc69e84c4fe7ffa",
+    "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+    "sha256": "ec75ec67dcae21ed19b05fe55496304e1251ec40e96f91879971f6c6901d77b5",
+    "stage": "baseline-repeat",
+    "timelineInventory": "protected-six"
+  },
+  "driverSha256": "9e38d0ab5be14c53f0efc17763540021c1a61607b1456649d775b3251606ad51",
+  "exitCode": 0,
+  "finished": true,
+  "finishedAtEpoch": 1790883240.1743512,
+  "physicalEditEvidence": {
+    "audioA1GeometryBeforeAndAfterEqual": true,
+    "audioA1ItemCount": 23,
+    "audioA1LinkRelationAfter": [],
+    "audioA1LinkRelationBefore": [
+      {
+        "value": "381ff8e1-62dd-49c9-9745-7ad3984ee52a"
+      }
+    ],
+    "audioA1LinkedItemRelationChangedByPreparation": true,
+    "cutFrames": [
+      3560,
+      3570
+    ],
+    "deleteStatus": "interval-deleted-unsaved",
+    "deletedInterval": {
+      "recordEnd": 3570,
+      "recordStart": 3560,
+      "sourceEnd": 70,
+      "sourceStart": 60
+    },
+    "deletedIntervalUid": "401f8da9-0a5c-4694-93f5-0d388348d0b4",
+    "rippleDeletion": false,
+    "saveDispatched": false,
+    "selectionChecks": "both selection stages retained exactly one expected target UID before each split",
+    "sourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+    "track": "V1 only; picture-only synthetic case"
+  },
+  "previousTerminalRefusalUnchanged": {
+    "path": "r2-picture-native-executor-result.json",
+    "sha256": "bfc31c095fa21dedf8233b6a3b20db9cfd9c475be0df658821f6bf126e5dec59"
+  },
+  "priorPreDispatchFailureArchive": {
+    "path": "r2-picture-native-first-pre-dispatch-failure.json",
+    "sha256": "6a38c9eb80c6280f29b66bb24009a2bdc753f4a34548bb9c55036983e10d3038"
+  },
+  "processId": 28877,
+  "restorationEvidence": {
+    "autoSelectResetReadbackStatus": "editorial-readback-retained",
+    "failure": null,
+    "finalPair": {
+      "path": "editorial-case-20261001T193339.489012Z/after.json",
+      "sha256": "90c4ad9a1cebcf1918165e1e62e4343ae225635012331afd56a9385ab8187661"
+    },
+    "finalPlayhead": "00:00:00:00",
+    "originalLocks": {
+      "audio:1": false,
+      "audio:2": true,
+      "audio:3": true,
+      "video:1": false,
+      "video:2": true,
+      "video:3": true
+    },
+    "originalPlayhead": "00:00:00:00",
+    "saveDispatched": false,
+    "status": "restored-unsaved"
+  },
+  "result": {
+    "autoSelectReset": {
+      "path": "independent-cut-sequence-20261001T193127.920184Z/r2-picture-context.json",
+      "sha256": "e840032a82e22f65a6046a372947b7465a841544da38e26fd6390bf57e0d9aac"
+    },
+    "case": "R2-picture",
+    "deletedReadback": {
+      "path": "independent-cut-sequence-20261001T193127.920184Z/r2-picture-deleted.json",
+      "sha256": "40e0556d1be04e7df7f1e0d74e7190c715dab0b0995afc84781e959654bca2cf"
+    },
+    "directory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-cut-sequence-20261001T193127.920184Z",
+    "firstSelection": {
+      "path": "independent-cut-sequence-20261001T193127.920184Z/r2-picture-selected.json",
+      "sha256": "56f1b1f19ce3ffbcd8ac2c0d73401fd14630c799936c4eaee69483051694edfa"
+    },
+    "firstSplit": {
+      "path": "independent-cut-sequence-20261001T193127.920184Z/r2-picture-first-split.json",
+      "sha256": "76da1f4f929a9174bb175c95688950ef69a08093199778a89be10440f25cfea4"
+    },
+    "intervalDeletion": {
+      "path": "independent-cut-sequence-20261001T193127.920184Z/interval-deletion.json",
+      "sha256": "5e518e0b0129d127a7b61a0d49da415dc8e7e3c7aea7f8864ee11a4a395e11bb"
+    },
+    "preparation": {
+      "path": "independent-cut-sequence-20261001T193127.920184Z/preparation.json",
+      "sha256": "574f4c2d86f905eebf997da92fa1794cc00b45260c22f20ad7b0c545ae46c34e"
+    },
+    "restoration": {
+      "path": "independent-cut-sequence-20261001T193127.920184Z/restoration.json",
+      "sha256": "72491a8571123187dd7b4cc2ae14e2782fc4aaa152a5ba0a840548343d446cd5"
+    },
+    "saveDispatched": false,
+    "secondPosition": {
+      "path": "independent-cut-sequence-20261001T193127.920184Z/second-position.json",
+      "sha256": "a3a1d1d17ef58d7fe69b243c998bec4399ac06e03882c731143bbf598f7a0695"
+    },
+    "secondSelection": {
+      "path": "independent-cut-sequence-20261001T193127.920184Z/r2-picture-second-selected.json",
+      "sha256": "7c8cfdee3123101f2896948f9b1f083fa7a0c264986fa3cd49ffcda4915b44da"
+    },
+    "secondSplit": {
+      "path": "independent-cut-sequence-20261001T193127.920184Z/r2-picture-second-split.json",
+      "sha256": "d3d82882e21d0f8e8b378eda0201dd52f566c82fff4f6e28c69d93cbcfaf08ed"
+    },
+    "status": "single-track-sequence-complete"
+  },
+  "retainedBindings": {
+    "finalAutoSelectReadback": {
+      "path": "independent-cut-sequence-20261001T193127.920184Z/r2-picture-context.json",
+      "sha256": "e840032a82e22f65a6046a372947b7465a841544da38e26fd6390bf57e0d9aac"
+    },
+    "firstSelection": {
+      "path": "independent-cut-sequence-20261001T193127.920184Z/r2-picture-selected.json",
+      "sha256": "56f1b1f19ce3ffbcd8ac2c0d73401fd14630c799936c4eaee69483051694edfa"
+    },
+    "firstSplit": {
+      "path": "independent-cut-sequence-20261001T193127.920184Z/r2-picture-first-split.json",
+      "sha256": "76da1f4f929a9174bb175c95688950ef69a08093199778a89be10440f25cfea4"
+    },
+    "freshContextVerification": {
+      "approvedLabel": "r2-picture-context",
+      "path": "r2-picture-resume-context-verified.json",
+      "sha256": "dc762e9398da4d5c5de8e9e8df9340ea0c62b9a685c6d2f5d6eaf0a750483e39"
+    },
+    "inputPair": {
+      "path": "producer-matrix-selection-20261001T183030.414033Z/after-pair.json",
+      "sha256": "59d4b9bde36af0c0a2c06a126f426fefd1e6dd1a76ddbf562574e70b535ff2b0"
+    },
+    "intervalDeletion": {
+      "afterPair": {
+        "path": "editorial-case-20261001T193313.102327Z/after.json",
+        "sha256": "f7b4f56a7a27e51dd9b91da869e04ff86acecef4f43e8ffb429ff0626ef894b1"
+      },
+      "path": "independent-cut-sequence-20261001T193127.920184Z/interval-deletion.json",
+      "sha256": "5e518e0b0129d127a7b61a0d49da415dc8e7e3c7aea7f8864ee11a4a395e11bb"
+    },
+    "preparation": {
+      "path": "independent-cut-sequence-20261001T185619.919970Z/preparation.json",
+      "preparedPair": {
+        "path": "editorial-case-20261001T185627.214629Z/after.json",
+        "sha256": "4d21b54fa3fa855ee65a9d8af54a3be206927b6cafa87af7dc979d92ae4f3329"
+      },
+      "sha256": "574f4c2d86f905eebf997da92fa1794cc00b45260c22f20ad7b0c545ae46c34e"
+    },
+    "priorTerminalRefusal": {
+      "path": "r2-picture-native-executor-result.json (pre-run terminal refusal archived separately)",
+      "sha256": "bfc31c095fa21dedf8233b6a3b20db9cfd9c475be0df658821f6bf126e5dec59"
+    },
+    "restoration": {
+      "path": "independent-cut-sequence-20261001T193127.920184Z/restoration.json",
+      "restoredPair": {
+        "path": "editorial-case-20261001T193339.489012Z/after.json",
+        "sha256": "90c4ad9a1cebcf1918165e1e62e4343ae225635012331afd56a9385ab8187661"
+      },
+      "sha256": "72491a8571123187dd7b4cc2ae14e2782fc4aaa152a5ba0a840548343d446cd5"
+    },
+    "secondPosition": {
+      "path": "independent-cut-sequence-20261001T193127.920184Z/second-position.json",
+      "sha256": "a3a1d1d17ef58d7fe69b243c998bec4399ac06e03882c731143bbf598f7a0695"
+    },
+    "secondSelection": {
+      "path": "independent-cut-sequence-20261001T193127.920184Z/r2-picture-second-selected.json",
+      "sha256": "7c8cfdee3123101f2896948f9b1f083fa7a0c264986fa3cd49ffcda4915b44da"
+    },
+    "secondSplit": {
+      "path": "independent-cut-sequence-20261001T193127.920184Z/r2-picture-second-split.json",
+      "sha256": "d3d82882e21d0f8e8b378eda0201dd52f566c82fff4f6e28c69d93cbcfaf08ed"
+    }
+  },
+  "retry": false,
+  "scopeLimits": [
+    "Physical edit evidence only; no speech deletion or audibility conclusion.",
+    "No save, reopen, render, R2-partial, or output action.",
+    "Original Copy/Paste stopped context was not restored or altered.",
+    "R2-picture preparation unlinked the target A1/V1 pair; A1 clip geometry, IDs, markers, and source ranges match, while that link relation is not claimed unchanged."
+  ],
+  "startedAtEpoch": 1790883087.56636,
+  "status": "single-track-sequence-complete",
+  "stderr": "",
+  "stdout": "{\n  \"autoSelectReset\": {\n    \"path\": \"independent-cut-sequence-20261001T193127.920184Z/r2-picture-context.json\",\n    \"sha256\": \"e840032a82e22f65a6046a372947b7465a841544da38e26fd6390bf57e0d9aac\"\n  },\n  \"case\": \"R2-picture\",\n  \"deletedReadback\": {\n    \"path\": \"independent-cut-sequence-20261001T193127.920184Z/r2-picture-deleted.json\",\n    \"sha256\": \"40e0556d1be04e7df7f1e0d74e7190c715dab0b0995afc84781e959654bca2cf\"\n  },\n  \"directory\": \"REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-cut-sequence-20261001T193127.920184Z\",\n  \"firstSelection\": {\n    \"path\": \"independent-cut-sequence-20261001T193127.920184Z/r2-picture-selected.json\",\n    \"sha256\": \"56f1b1f19ce3ffbcd8ac2c0d73401fd14630c799936c4eaee69483051694edfa\"\n  },\n  \"firstSplit\": {\n    \"path\": \"independent-cut-sequence-20261001T193127.920184Z/r2-picture-first-split.json\",\n    \"sha256\": \"76da1f4f929a9174bb175c95688950ef69a08093199778a89be10440f25cfea4\"\n  },\n  \"intervalDeletion\": {\n    \"path\": \"independent-cut-sequence-20261001T193127.920184Z/interval-deletion.json\",\n    \"sha256\": \"5e518e0b0129d127a7b61a0d49da415dc8e7e3c7aea7f8864ee11a4a395e11bb\"\n  },\n  \"preparation\": {\n    \"path\": \"independent-cut-sequence-20261001T193127.920184Z/preparation.json\",\n    \"sha256\": \"574f4c2d86f905eebf997da92fa1794cc00b45260c22f20ad7b0c545ae46c34e\"\n  },\n  \"restoration\": {\n    \"path\": \"independent-cut-sequence-20261001T193127.920184Z/restoration.json\",\n    \"sha256\": \"72491a8571123187dd7b4cc2ae14e2782fc4aaa152a5ba0a840548343d446cd5\"\n  },\n  \"saveDispatched\": false,\n  \"secondPosition\": {\n    \"path\": \"independent-cut-sequence-20261001T193127.920184Z/second-position.json\",\n    \"sha256\": \"a3a1d1d17ef58d7fe69b243c998bec4399ac06e03882c731143bbf598f7a0695\"\n  },\n  \"secondSelection\": {\n    \"path\": \"independent-cut-sequence-20261001T193127.920184Z/r2-picture-second-selected.json\",\n    \"sha256\": \"7c8cfdee3123101f2896948f9b1f083fa7a0c264986fa3cd49ffcda4915b44da\"\n  },\n  \"secondSplit\": {\n    \"path\": \"independent-cut-sequence-20261001T193127.920184Z/r2-picture-second-split.json\",\n    \"sha256\": \"d3d82882e21d0f8e8b378eda0201dd52f566c82fff4f6e28c69d93cbcfaf08ed\"\n  },\n  \"status\": \"single-track-sequence-complete\"\n}\n",
+  "terminalVsPending": "terminal; subprocess exit code 0"
+}

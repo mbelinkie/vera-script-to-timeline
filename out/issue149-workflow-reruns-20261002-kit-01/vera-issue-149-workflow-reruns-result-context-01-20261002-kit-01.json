@@ -1,0 +1,16 @@
+{
+  "action": "context",
+  "actionId": "context-01-20261002-kit-01",
+  "configSha256": "86d7f64b31055c6d25d97c3ac5890f22bd6b9d4108d9ccc6797d2d5480f653b9",
+  "error": {
+    "message": "issubclass() arg 1 must be a class",
+    "type": "TypeError"
+  },
+  "journal": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/evidence/context-01-20261002-kit-01/journal.jsonl",
+  "launcher": "workflow-injected",
+  "phase": "context-01",
+  "progress": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-progress-context-01-20261002-kit-01.jsonl",
+  "schemaVersion": "issue-149-workflow-reruns-v1",
+  "stateId": null,
+  "status": "failure"
+}

@@ -1,0 +1,11 @@
+# Checkpoint12g plan disposition
+
+Claude completed two initial-plan turns and two exact-issue scope-check turns, zero permission denials, no quota error and no blockers. The exact current issue body was supplied to resolve the first review's source gap. Full plan, both prompts, issue body and both verbatim reviews are retained on #144.
+
+Adopt all three concrete safeguards. The pure TypeScript helper constructs and consumes the visual projection only in memory; raw input files and actual compiler/revision results are the only CLI exchange artifacts. The host derives auxiliary geometry directly from the actual visual-only compiler result, never supplier/profile/operator files. The audio verifier checks approved auxiliary geometry structurally and separately from primary token support/deletion, while retaining complete calibration and edited-program reconstruction on every route/channel.
+
+Whole-bundle accept/reject adds the simultaneous three-edit positive without replacing the existing separate lanes. The required linked +25 move, linked -25 end trim and verified primary omission remain required. No mixed acceptance is silently discarded; its schema is unsupported in this lane. #145 must freeze its real scenario against this explicit limit and qualify every native/audio/provider fact. No producer subset reduction or new authorization is requested.
+
+The helper can use one semantic CLI action with exact one-input inspection versus two-input trusted-edit forms: derive visual authority before audio verification, then rederive and transfer accepted surviving ranges after the actual audio verdict. No projection file, operator route allowlist, handwritten canonical revision or old audio splice. A complete finalization still needs actual full-row service/cache and fresh compiler/package/job/native verification. Existing source/hash envelopes and old-lane strict gates remain mandatory.
+
+Checkpoint12f full validation passed329 Python/231 contracts on its unchanged reviewed source; its exact evidence is being saved before implementation. Source hashes match, diff checks pass and protected boundaries are unchanged. Combined code tests/finished review and the later WI/runbook checkpoint remain outstanding. The user's Claude-quota stop condition remains active.

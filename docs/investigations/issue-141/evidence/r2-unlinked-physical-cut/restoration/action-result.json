@@ -1,0 +1,51 @@
+{
+  "_auditDirectory": "<WORKTREE>/out/issue-141-observation-20260930-01a0f318/independent-action-20261001T125353.854021Z",
+  "_nativeResultPath": "<RESOLVE_PLUGIN_DIR>/vera-issue-141-observation-result-20261001T125354.244554Z.json",
+  "case": "R2-unlinked",
+  "directory": "<WORKTREE>/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T125357.380769Z",
+  "environment": {
+    "productName": "DaVinci Resolve Studio",
+    "python": "3.14.7",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "failure": null,
+  "journal": "<WORKTREE>/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T125357.380769Z/journal.jsonl",
+  "originalLocks": {
+    "audio:1": false,
+    "audio:2": true,
+    "audio:3": true,
+    "video:1": false,
+    "video:2": true,
+    "video:3": true
+  },
+  "originalPlayhead": "00:01:37:24",
+  "playheadAfter": "00:01:37:24",
+  "postEditPair": {
+    "path": "editorial-case-20261001T125350.551816Z/after.json",
+    "sha256": "1cb30c17a8a76370a6a489009dac78924c198ed72593be62ccc6ca4f1b2cea36"
+  },
+  "preparationResult": {
+    "path": "independent-cut-sequence-20261001T124409.640872Z/preparation.json",
+    "sha256": "8baa3f66a588e6bb2c1357c75300973102eb0b47aaef783e6b4d8708506818c3"
+  },
+  "restoredPair": {
+    "path": "editorial-case-20261001T125357.380769Z/after.json",
+    "sha256": "6b047339f81bab349ff3e95928bebda192a73e251b7e3989b8fd9d893a882d45"
+  },
+  "saveDispatched": false,
+  "setters": [
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetCurrentTimecode"
+  ],
+  "status": "restored-unsaved"
+}

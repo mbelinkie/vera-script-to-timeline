@@ -1,0 +1,98 @@
+{
+  "artifacts": {
+    "diagnosis": {
+      "path": "out/issue-141-observation-20260930-01a0f318/av-full-matrix-settings-delta-diagnosis.json",
+      "sha256": "83b7c92d1d9895f94ab15e752cc5eb5ce5e6c2de7d874aca4f41096838f5dd56"
+    },
+    "originalAfterPair": {
+      "path": "out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/full-pair-005.json",
+      "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14"
+    },
+    "originalBeforePair": {
+      "path": "out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/full-pair-004.json",
+      "sha256": "1616fa7f512b1a23d4c2756d2246bef51ee9d085ba8c443170ad060c385949a4"
+    },
+    "originalJournal": {
+      "path": "out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/journal.jsonl",
+      "sha256": "fb49271db7c20e78508bae7b1113e466fdc92a8e34fe6f92bb43db8fdba47ae4"
+    },
+    "originalPresetXml": {
+      "path": "out/issue-141-observation-20260930-01a0f318/av-output-20261001T231540.921062Z/VERA141_AV_OUTPUT_20261001T231540.921062Z.drp/VERA141_AV_OUTPUT_20261001T231540.921062Z.xml",
+      "sha256": "a09abc4185e06b915620520745c682933674707394c02855fd7c30ff9bb087ce"
+    },
+    "render-outer-recovery-check.py": {
+      "path": "docs/investigations/issue-141/render-outer-recovery-check.py",
+      "sha256": "e3634630ee553503389f8f047feb7ef3b212a8411dd94e21e6e142144da1be31"
+    },
+    "render-outer-recovery.py": {
+      "path": "docs/investigations/issue-141/render-outer-recovery.py",
+      "sha256": "ff6d38b8c127437146aa31637121e1f960d171303d6f09f7fba023ab07dfc027"
+    }
+  },
+  "automatedCheck": "/usr/local/bin/python3.14 -S docs/investigations/issue-141/render-outer-recovery-check.py",
+  "exclusions": [
+    "Resolve actor/config/probe/launcher",
+    "AddRenderJob/StartRendering",
+    "render output or evidence deletion",
+    "source file reads/hashes/exports/edits",
+    "contract or fixture changes",
+    "PCM or route support claims"
+  ],
+  "focusedResult": {
+    "command": "/usr/local/bin/python3.14 -S docs/investigations/issue-141/render-outer-recovery-check.py",
+    "limitations": "offline fake Resolve only; no native calls, media bytes, or Resolve acceptance",
+    "loadFalse": "one load attempted and no delete",
+    "outcome": "actual run() success; owned preset loaded/deleted once; source XML/output preserved",
+    "refusals": [
+      "wrong visible state",
+      "track drift",
+      "wrong project UID",
+      "queued job",
+      "render active",
+      "preset inventory drift",
+      "wrong checkpoint hash",
+      "wrong post-load render format",
+      "wrong post-load render mode"
+    ],
+    "status": "passed",
+    "validation": "real _context (protected-six), _manifest, and _validate_read_pair executed; fake capture supplied retained full-pair objects",
+    "postLoadVisibleFormatMode": "original stable journal values compared against two post-load reads and final read; wrong format/mode refuse before deletion"
+  },
+  "freshCheckpoint": {
+    "configArguments": [
+      "checkpointPath",
+      "checkpointName",
+      "checkpointSha256",
+      "timelineInventory"
+    ],
+    "inventory": "protected-six",
+    "requiredAtInvocation": true,
+    "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24"
+  },
+  "guardedDelta": "only selected Matrix proxy de8efefa-310d-451c-863c-d6b847e8b82e GetClipProperty.Out and matching Matrix timelineMappings.poolItemProperties.Out in both pool passes, exactly as pinned in full-pair-004/005",
+  "identity": {
+    "build": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ],
+    "externalScriptingSetting": "None",
+    "matrixUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+    "ownedPreset": "VERA141_AV_OUTPUT_20261001T231540.921062Z",
+    "projectId": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+    "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318"
+  },
+  "kind": "issue-141-render-outer-recovery-readiness",
+  "nativeCallsExecuted": false,
+  "operatorAcceptance": [
+    "after audio renders and mute tests, before R1projectsave, register the reviewed script/config through the audited local flow",
+    "confirm fresh protected-six selected-Matrix checkpoint, idle project, zero render jobs, and original owned preset as the only preset-list addition",
+    "review journal/result and final equal full-state pair; confirm only original preset was removed and XML/output/earlier evidence remain"
+  ],
+  "runtimeCallable": "run(resolve, config, *, probe, reader=None); defaults to hash-pinned r4-range-repair.py; caller may pass the existing reader module for tests",
+  "scope": "one final recovery of first full-Matrix attempt render settings; load retained owned preset once, verify visible state twice, then delete only that owned preset",
+  "status": "offline-implementation-ready-native-acceptance-pending",
+  "rootCorrection": "After independent not-ready verdict, added actual format/mode getters and passing regression. Native acceptance remains pending."
+}

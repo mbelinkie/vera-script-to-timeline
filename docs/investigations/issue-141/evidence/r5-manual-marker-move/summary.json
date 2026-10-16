@@ -1,0 +1,19 @@
+{
+  "taskId": "Issue 141",
+  "status": "manual-move-unverified",
+  "verdict": "Do not mark complete",
+  "latestCapture": {
+    "name": "capture-20261001T142246.378925Z.json",
+    "sha256": "211eb7be3ce91f56b16f5fe6eb68135626c82b5d60c36175cec92f08e62bee55",
+    "consistency": "inconsistent-refused",
+    "passes": 2,
+    "poolPasses": 0
+  },
+  "moveObservation": "Both timeline passes show V1/A1 0..199 -> 1..200 with source bounds 0..199, links, IDs, enabled state, and marker metadata unchanged relative to the noted checkpoint.",
+  "unexpectedDeltas": "CacheClip replaced the owned cache locator in root and all four timelines; baseline media-pool Usage differs between passes (base 23/24, cutaway 20/21, overlay 20/21, repeated tracks 44/46, bed 20/21).",
+  "movedState": "Three r5-edit-moved directories contain only empty journal.jsonl files; no pair/result was produced.",
+  "rawCaptureSha256": "211eb7be3ce91f56b16f5fe6eb68135626c82b5d60c36175cec92f08e62bee55",
+  "rawBeforePairSha256": "6b047339f81bab349ff3e95928bebda192a73e251b7e3989b8fd9d893a882d45",
+  "rawNotedPairSha256": "5577011075fc73b400c9a5b3afe5b9e5795673836eba8c6eb03a826129896242",
+  "limits": ["No acceptance claim; no atomic revision token; no pool readback in the latest capture."]
+}

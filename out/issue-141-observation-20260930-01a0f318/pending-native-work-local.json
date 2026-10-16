@@ -1,0 +1,10 @@
+{
+  "kind": "pending-native-work-scope",
+  "localOnly": true,
+  "nativeStage": "stopped-pending-restoration-decision",
+  "nativeCompleted": 26,
+  "nativeTotal": 41,
+  "preparedR5Reviewer": "r5-edit-evidence-check.py",
+  "R3LocalPreparation": "in-progress-not-reviewed",
+  "nativeLatestResult": "vera-issue-141-observation-result-20261001T072554.542143Z.json"
+}

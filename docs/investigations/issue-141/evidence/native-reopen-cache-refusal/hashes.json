@@ -1,0 +1,20 @@
+[
+  {
+    "filename": "capture-20260930T201734.096310Z-reopened-before-duplicate.json",
+    "rawSha256": "ef5b0566d9d3614c0f6100c296d2af181f99b64e6e57bb799dafaaca09da3708",
+    "publishedSha256": "5a1af2a7f254861c41e45cf2c6d42973d8b8134f81f9f3fb3148f5e472d00723",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-cache>"
+  },
+  {
+    "filename": "capture-20260930T173943.043191Z.json",
+    "rawSha256": "92c04d10bafe86499b7d11a27d457e655893ee6340d73a290a80e29e35887161",
+    "publishedSha256": "e5a402bdbb0bcb08e27e2d467f75c61f312cb1196e5bdc6230cd0118b0a49990",
+    "redaction": "baseline publication referenced in evidence/baseline-preparation/hashes.json"
+  },
+  {
+    "filename": "vera-issue-141-observation-result-20260930T201734.079542Z.json",
+    "rawSha256": "0cbdc448774f7358b8f098acb65f9f628ef837e8baf2323f5b6ad9b23483e998",
+    "publishedSha256": "0cbdc448774f7358b8f098acb65f9f628ef837e8baf2323f5b6ad9b23483e998",
+    "redaction": "none required; result has no path"
+  }
+]

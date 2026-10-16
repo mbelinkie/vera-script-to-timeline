@@ -1,0 +1,44 @@
+[
+  {
+    "filename": "capture-20260930T204438.948629Z-reopened-before-duplicate.json",
+    "rawSha256": "e75dc5c9c39d2f3f882c392a23e3a4d1766a5d16e177c87762533de53bff5eeb",
+    "publishedSha256": "d9042bc1895f74ae55b4084d151b4a2449abe6ae024b858f292444ff2a9b95b2",
+    "redaction": "private absolute paths replaced with <probe-output> or <user-home>"
+  },
+  {
+    "filename": "capture-20260930T204438.948629Z-cache-restoration.json",
+    "rawSha256": "774dc4bb12de0057aa5194d8838ef8447fefa3c1d5485c97731522d81e8690b5",
+    "publishedSha256": "ec26ca67cc522cf94bc83805918edf4a9bc09b0c53bafb5591a4b28b5eea242d",
+    "redaction": "private absolute paths replaced with <probe-output> or <user-home>"
+  },
+  {
+    "filename": "capture-20260930T204438.948629Z-duplicated.json",
+    "rawSha256": "6f968ff7d948bba48f496f529d802a3d512442b0b1ce401465150cc63196bf76",
+    "publishedSha256": "97fd4a8cd34ff0536acccd6705e20407bd98ea593a83bf39c6cd269cf532e50d",
+    "redaction": "private absolute paths replaced with <probe-output> or <user-home>"
+  },
+  {
+    "filename": "capture-20260930T204438.948629Z-current-duplicate-saved.json",
+    "rawSha256": "fab588ea4f4e10394b0ca878358cb55743cb8c1dbaa72cd4822320e7e9cae85f",
+    "publishedSha256": "781d7d4d76dd29f93d36d792a11319a68cf75583b81dd810c4289285a002f0b9",
+    "redaction": "private absolute paths replaced with <probe-output> or <user-home>"
+  },
+  {
+    "filename": "native-duplicate-20260930T204438.948629Z.jsonl",
+    "rawSha256": "1fd8dd667984d0744fec750e0514c1a175985ce3b943365757cf2c27235b4958",
+    "publishedSha256": "51c29da53718250a02fff4ef1113926ec7eb52312cec41a6e77133776aba4ae7",
+    "redaction": "private absolute paths replaced with <probe-output> or <user-home>"
+  },
+  {
+    "filename": "vera-issue-141-observation-result-20260930T204438.922504Z.json",
+    "rawSha256": "81ce4ce08b5357767d933d3e6626b18c5b3eec5ba6b4964771f53b630c1905c6",
+    "publishedSha256": "0ec0e84c683f519bff15a1821a8e3eeab422f635df040a4151f49b75e1d76796",
+    "redaction": "private absolute paths replaced with <probe-output> or <user-home>"
+  },
+  {
+    "filename": "capture-20260930T173943.043191Z.json",
+    "rawSha256": "92c04d10bafe86499b7d11a27d457e655893ee6340d73a290a80e29e35887161",
+    "publishedSha256": "e5a402bdbb0bcb08e27e2d467f75c61f312cb1196e5bdc6230cd0118b0a49990",
+    "redaction": "baseline published artifact referenced in evidence/baseline-preparation/hashes.json"
+  }
+]

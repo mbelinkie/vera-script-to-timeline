@@ -1,0 +1,7 @@
+The independent review confirmed exactly four changed leaves between pairs 004 and 005: the selected Matrix proxy’s `Out` value cleared in both pool passes and both mapping copies. Timeline state, inventory, and source identity were unchanged. The registered source pins matched.
+
+The single queue-only attempt succeeded. It created job `0460d82a-3436-4efc-be12-b57c8523ebf5`, with `MarkIn=0` and `MarkOut=9199`; endpoint inclusivity remains unknown. **No rendering, status polling, or cleanup was performed.**
+
+Evidence and the reviewed continuation config are in [the queue result](cli-av-queue-after-settings-result.json), [the continuation config](av-full-matrix-owned-continuation-config.json), and [the independent delta review](av-full-matrix-settings-delta-independent-review.json). The continuation binding validated offline. The installed config was restored to its prior `observe` state through the existing helper.
+
+One requested preflight detail remains unverified: the fresh AV pair confirms the protected-six inventory, selected Matrix timeline, and absence of the protected source from Matrix content, but it does not record empty selection or playhead zero. The result records this limitation; I made no additional native call. Both recovery snapshots remain outstanding. The original first-attempt preset and XML still require restoration after the later render; the second attempt’s recovery only captures its own entry state.

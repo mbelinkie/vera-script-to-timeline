@@ -1,0 +1,188 @@
+{
+  "action": "render-stage",
+  "actionId": "render-stage-d6-kept-baseline-r2-20261003-kit-02",
+  "configSha256": "d67763fdfa894585b4e00806a7b806b7ff13e9a7858997bfaa169a30265fa6a4",
+  "journal": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/evidence/render-stage-d6-kept-baseline-r2-20261003-kit-02/journal.jsonl",
+  "launcher": "workflow-injected",
+  "phase": "render-stage-d6-kept-baseline-r2",
+  "progress": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-progress-render-stage-d6-kept-baseline-r2-20261003-kit-02.jsonl",
+  "render": {
+    "formatCodec": {
+      "readback": {
+        "codec": "H264",
+        "format": "mov"
+      },
+      "setReturn": true
+    },
+    "jobId": "fa550bdf-3df3-49cc-89c6-f3a7afdc12a3",
+    "queuedJob": {
+      "AudioBitDepth": 16,
+      "AudioCodec": "lpcm",
+      "AudioSampleRate": 48000,
+      "ClipStartFrame": 1,
+      "EncodingProfile": "Auto",
+      "ExportAlpha": false,
+      "FormatHeight": 360,
+      "FormatWidth": 640,
+      "FrameRate": "25",
+      "IsExportAudio": true,
+      "IsExportVideo": true,
+      "JobId": "fa550bdf-3df3-49cc-89c6-f3a7afdc12a3",
+      "MarkIn": 0,
+      "MarkOut": 398,
+      "MultiPassEncode": false,
+      "NetworkOptimization": false,
+      "OutputFilename": "D6-kept-r2-baseline.mov",
+      "PixelAspectRatio": 1.0,
+      "PresetName": "Custom",
+      "RenderJobName": "Job 1",
+      "RenderMode": "Single clip",
+      "TargetDir": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/renders/d6-kept-r2",
+      "TimelineName": "D6-kept-r2-20261003",
+      "TimelineStartTimecode": "00:00:00:00",
+      "VideoCodec": "H.264",
+      "VideoFormat": "QuickTime"
+    },
+    "renderMode": {
+      "readback": 1,
+      "setReturn": true
+    },
+    "settings": {
+      "AudioBitDepth": 16,
+      "AudioCodec": "lpcm",
+      "AudioSampleRate": 48000,
+      "CustomName": "D6-kept-r2-baseline",
+      "ExportAudio": true,
+      "ExportVideo": true,
+      "FormatHeight": 360,
+      "FormatWidth": 640,
+      "FrameRate": 25,
+      "RenderAll": true,
+      "TargetDir": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/renders/d6-kept-r2"
+    },
+    "startReturn": true,
+    "startedExactlyOnce": true
+  },
+  "runtime": {
+    "machine": "x86_64",
+    "platform": "macOS-15.1-x86_64-i386-64bit-Mach-O",
+    "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 17.0.0 (clang-1700.6.4.2)]"
+  },
+  "schemaVersion": "issue-149-workflow-discriminators-v1",
+  "state": {
+    "itemUids": [
+      "ee79ae78-c356-4224-b83c-e61ca3c250e2",
+      "d39825a2-da77-48fb-b231-32b24b4b0503",
+      "7370d40b-6bf2-4177-a683-19835573220a",
+      "15896858-8ee7-439f-bea7-dc21b7ced67e",
+      "4a2c7322-d973-4526-943f-6b0620c7d4f1",
+      "26387e10-02cc-4b8b-952a-bc41277301de",
+      "a5ec6d21-ae4f-44d3-bd16-d8ccba495bbb",
+      "18ed5a80-1e6b-4e1b-9acc-f0a820551b59",
+      "6acc3e2c-3262-45f5-ae17-89755de39191",
+      "74ba68da-6afb-45c2-8a73-68b0892c1b85",
+      "54d8375f-f5da-404d-9a9b-67c481f8adf3",
+      "ea6b62ce-6c75-4dd2-b320-ca52cbc5d96b",
+      "05755820-ce54-4058-bf5c-8fd3b404afbb",
+      "e8baa5a0-9a6e-49c0-ba15-aa9f6bb90a89",
+      "08e8bede-759b-4ded-88f0-aa7a3683db85",
+      "0a02d1d7-2f24-4f6d-9a52-6c49d8ceea96",
+      "6d1a4163-762d-4cb1-a069-7d6ce19044aa",
+      "93a214c2-c883-4230-a0d6-85e1e275ae0f",
+      "aa5f8d84-5ebe-4203-a8a9-dfee27ae4b21",
+      "0a4ad60f-bbb6-4b55-8206-6a455a4bbf2d",
+      "48b80c7f-669c-46ad-b9cb-b731f517be2e",
+      "4ac018fb-fef5-40c2-bf8d-4f70caa2f582",
+      "2286b89b-5cf7-401b-983d-d95d366f696f",
+      "fa8b92fc-fa15-453f-896d-4ba432443c3d"
+    ],
+    "mediaUids": [
+      "49a7ba00-960a-4225-9704-b3a0bdcc2d40",
+      "c6212874-c7f8-4a8f-8f92-99f59e0930ac",
+      "0b89e658-4617-408d-bd5d-03291c1f889a",
+      "dfdd5a46-c202-4493-84ab-f8e9d83c81b1",
+      "eb878f01-ce5a-44a2-86e5-1a6da071fc90",
+      "ead5c8a6-0f86-4a00-b5b3-5ae9b0a7843a",
+      "eda97c9f-08da-4e29-be52-4ebe8dfd7620",
+      "dbc55612-32ec-45c3-a72e-23dc055d05f8",
+      "46790f76-2e1f-4700-8d7f-49f10604678e",
+      "a1c64114-4000-485f-8fb9-4b1ff351c5e9",
+      "106507db-a1e1-473f-9a7a-0edecc32ac1c",
+      "9053f954-673c-4e84-8818-ec7a3750fc1d",
+      "f6f9ed73-71e4-4abb-bcd6-46923705c126"
+    ],
+    "projectUid": "0591bb41-d645-4af7-a2ee-ff75f8f43162",
+    "timelineUids": [
+      "9ce8ac2d-bd57-4740-9c19-044d3df53347",
+      "70aee9bd-5928-4e3b-9f0e-f45897773337",
+      "eea50181-c786-4698-9318-bb1100d12576",
+      "24fffc65-ce6c-4bff-acf2-6f3ec3de44b8",
+      "a1e78caf-1ac4-4bec-bff6-763160b9604d",
+      "562731d2-303c-49d8-8f1f-f621f79bdcd8"
+    ],
+    "timelines": [
+      {
+        "itemUids": [
+          "ee79ae78-c356-4224-b83c-e61ca3c250e2",
+          "d39825a2-da77-48fb-b231-32b24b4b0503",
+          "7370d40b-6bf2-4177-a683-19835573220a",
+          "15896858-8ee7-439f-bea7-dc21b7ced67e"
+        ],
+        "name": "D6-kept-20261003",
+        "uid": "9ce8ac2d-bd57-4740-9c19-044d3df53347"
+      },
+      {
+        "itemUids": [
+          "4a2c7322-d973-4526-943f-6b0620c7d4f1",
+          "26387e10-02cc-4b8b-952a-bc41277301de",
+          "a5ec6d21-ae4f-44d3-bd16-d8ccba495bbb",
+          "18ed5a80-1e6b-4e1b-9acc-f0a820551b59"
+        ],
+        "name": "D6-kept-r2-20261003",
+        "uid": "70aee9bd-5928-4e3b-9f0e-f45897773337"
+      },
+      {
+        "itemUids": [
+          "6acc3e2c-3262-45f5-ae17-89755de39191",
+          "74ba68da-6afb-45c2-8a73-68b0892c1b85",
+          "54d8375f-f5da-404d-9a9b-67c481f8adf3",
+          "ea6b62ce-6c75-4dd2-b320-ca52cbc5d96b"
+        ],
+        "name": "D6-changed-r2-20261003",
+        "uid": "eea50181-c786-4698-9318-bb1100d12576"
+      },
+      {
+        "itemUids": [
+          "05755820-ce54-4058-bf5c-8fd3b404afbb",
+          "e8baa5a0-9a6e-49c0-ba15-aa9f6bb90a89",
+          "08e8bede-759b-4ded-88f0-aa7a3683db85",
+          "0a02d1d7-2f24-4f6d-9a52-6c49d8ceea96"
+        ],
+        "name": "D3-direct-r2-20261003",
+        "uid": "24fffc65-ce6c-4bff-acf2-6f3ec3de44b8"
+      },
+      {
+        "itemUids": [
+          "6d1a4163-762d-4cb1-a069-7d6ce19044aa",
+          "93a214c2-c883-4230-a0d6-85e1e275ae0f",
+          "aa5f8d84-5ebe-4203-a8a9-dfee27ae4b21",
+          "0a4ad60f-bbb6-4b55-8206-6a455a4bbf2d"
+        ],
+        "name": "D3-console-r2-20261003",
+        "uid": "a1e78caf-1ac4-4bec-bff6-763160b9604d"
+      },
+      {
+        "itemUids": [
+          "48b80c7f-669c-46ad-b9cb-b731f517be2e",
+          "4ac018fb-fef5-40c2-bf8d-4f70caa2f582",
+          "2286b89b-5cf7-401b-983d-d95d366f696f",
+          "fa8b92fc-fa15-453f-896d-4ba432443c3d"
+        ],
+        "name": "D3-operator-r2-20261003",
+        "uid": "562731d2-303c-49d8-8f1f-f621f79bdcd8"
+      }
+    ]
+  },
+  "stateId": "render-stage-d6-kept-baseline-r2-20261003-kit-02",
+  "status": "ok"
+}

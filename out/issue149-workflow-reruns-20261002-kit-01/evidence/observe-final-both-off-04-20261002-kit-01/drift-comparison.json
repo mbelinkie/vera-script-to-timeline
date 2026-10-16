@@ -1,0 +1,156 @@
+{
+  "schema": "issue-149-final-neutral-x-drift-comparison-v1",
+  "comparison": {
+    "baseline": "evidence/save-checkpoint-w2-restoration-stop-01-20261002-kit-01/post.json",
+    "current": "evidence/observe-final-both-off-04-20261002-kit-01/pre.json",
+    "baselineSha256": "12fa740e15a63da4c54b0d3bedafd9c78b2a0d0415e1c024a29533a96ae2d020",
+    "currentSha256": "59ba860a7403601c22201f4a417b0c67429a5d100dd5db28610a9a4780dfa7ea",
+    "diffMethod": "harness._diff_paths(before, after)",
+    "diffPathCount": 18
+  },
+  "identity": {
+    "projectUid": {
+      "before": "1a05ff3a-8b04-43e3-95ab-c970b93b6415",
+      "after": "1a05ff3a-8b04-43e3-95ab-c970b93b6415"
+    },
+    "currentTimeline": {
+      "name": {
+        "before": "W2-Y-solo",
+        "after": "W2-Y-solo"
+      },
+      "uid": {
+        "before": "bec69cf7-c76e-4820-9e1f-9b425449614f",
+        "after": "bec69cf7-c76e-4820-9e1f-9b425449614f"
+      },
+      "page": {
+        "before": "edit",
+        "after": "edit"
+      }
+    },
+    "inventoryCounts": {
+      "timelines": {
+        "before": 13,
+        "after": 13
+      },
+      "timelineItems": {
+        "before": 64,
+        "after": 64
+      },
+      "mediaPoolItems": {
+        "before": 23,
+        "after": 23
+      }
+    },
+    "activeRender": {
+      "before": false,
+      "after": false
+    }
+  },
+  "diffs": [
+    {
+      "path": "pool[15].GetClipProperty.value.Out",
+      "before": "",
+      "after": "00:00:15:23"
+    },
+    {
+      "path": "pool[15].GetMarkInOut.value.audio.out",
+      "before": null,
+      "after": 399
+    },
+    {
+      "path": "pool[15].GetMarkInOut.value.video.out",
+      "before": null,
+      "after": 399
+    },
+    {
+      "path": "project.timelines[0].getters.GetCurrentTimecode.value",
+      "before": "00:00:15:24",
+      "after": "00:00:00:00"
+    },
+    {
+      "path": "project.timelines[1].getters.GetCurrentTimecode.value",
+      "before": "00:00:15:24",
+      "after": "00:00:00:00"
+    },
+    {
+      "path": "project.timelines[2].getters.GetCurrentTimecode.value",
+      "before": "00:00:15:24",
+      "after": "00:00:00:00"
+    },
+    {
+      "path": "project.timelines[3].getters.GetCurrentTimecode.value",
+      "before": "00:00:15:24",
+      "after": "00:00:00:00"
+    },
+    {
+      "path": "project.timelines[4].getters.GetCurrentTimecode.value",
+      "before": "00:00:15:24",
+      "after": "00:00:00:00"
+    },
+    {
+      "path": "project.timelines[5].getters.GetCurrentTimecode.value",
+      "before": "00:00:15:24",
+      "after": "00:00:00:00"
+    },
+    {
+      "path": "project.timelines[5].getters.GetMarkInOut.value.audio.out",
+      "before": null,
+      "after": 399
+    },
+    {
+      "path": "project.timelines[5].getters.GetMarkInOut.value.video.out",
+      "before": null,
+      "after": 399
+    },
+    {
+      "path": "project.timelines[6].getters.GetCurrentTimecode.value",
+      "before": "00:00:15:24",
+      "after": "00:00:00:00"
+    },
+    {
+      "path": "project.timelines[7].getters.GetCurrentTimecode.value",
+      "before": "00:00:15:24",
+      "after": "00:00:00:00"
+    },
+    {
+      "path": "project.timelines[8].getters.GetCurrentTimecode.value",
+      "before": "00:00:15:24",
+      "after": "00:00:00:00"
+    },
+    {
+      "path": "project.timelines[9].getters.GetCurrentTimecode.value",
+      "before": "00:00:15:24",
+      "after": "00:00:00:00"
+    },
+    {
+      "path": "project.timelines[10].getters.GetCurrentTimecode.value",
+      "before": "00:00:15:24",
+      "after": "00:00:00:00"
+    },
+    {
+      "path": "project.timelines[11].getters.GetCurrentTimecode.value",
+      "before": "00:00:15:24",
+      "after": "00:00:00:00"
+    },
+    {
+      "path": "project.timelines[12].getters.GetCurrentTimecode.value",
+      "before": "00:00:15:24",
+      "after": "00:00:00:00"
+    }
+  ],
+  "classification": {
+    "nativeAction": "observe only; no mutation",
+    "stateDrift": "current capture differs from the verified save checkpoint",
+    "cause": "unassigned",
+    "resolveCapabilityConclusion": "none",
+    "decision": "stop before neutral-X select/export/render/poll/save",
+    "checkpoint": "prior save-checkpoint-w2-restoration-stop-01 remains authoritative",
+    "phase10Impact": "the extra neutral-X confirmation is optional follow-up work; this drift does not negate the original W2 required-state evidence"
+  },
+  "currentConfig": {
+    "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-149-workflow-reruns.json",
+    "action": "__disarmed__",
+    "disarmedFrom": "observe",
+    "externalScriptingSetting": "None"
+  }
+}

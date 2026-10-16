@@ -1,0 +1,6 @@
+{
+  "path": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-context-02-20261002-kit-01.json",
+  "sha256": "7de80599e1f2ca272f48f0f1a3480f1cfa0c63e2e6461fe546491e34b25fce33",
+  "status": "failure",
+  "actionId": "context-02-20261002-kit-01"
+}

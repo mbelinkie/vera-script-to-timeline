@@ -1,0 +1,63 @@
+{
+  "taskId": "/root/discriminator_recovery_review",
+  "scope": "Issue 149 context-02 timeout recovery and retained launch evidence",
+  "verdict": "recovery-verified-native-cases-pending",
+  "decision": "Classify context-02 as a dispatch/observation failure. The later disarmed refusal proves launcher reachability only; it is not a Resolve capability result.",
+  "evidence": {
+    "recovery": {
+      "path": "out/issue149-workflow-discriminators-20261003-kit-02/recovery/context-02-timeout-recovery.json",
+      "actionId": "context-02-20261003-kit-02",
+      "armedArchiveSha256": "19fcf7444fbd3a4dc31c6afb613743846e7a163e3680496c051bbe975b9e81e3",
+      "armedArchiveSha256Recomputed": true,
+      "recoveryDisarmedSha256": "d23d415936fa6d2b03ee80b207ed623678b9781c1ab1e6014cde155b2952f8db",
+      "recoveryDisarmedBytes": 1457,
+      "nativeProgress": null,
+      "nativeResult": null
+    },
+    "timeout": {
+      "path": "out/issue149-workflow-discriminators-20261003-kit-02/dispatches/context-02-20261003-kit-02-launch.json",
+      "exitCode": 69,
+      "stderr": "error communicating with Hammerspoon: receive timeout"
+    },
+    "disarmedRefusal": {
+      "progress": "out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-progress-context-02-20261003-kit-02.jsonl",
+      "result": "out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-context-02-20261003-kit-02.json",
+      "configSha256Consumed": "d23d415936fa6d2b03ee80b207ed623678b9781c1ab1e6014cde155b2952f8db",
+      "action": "__disarmed__",
+      "status": "launcher-failed",
+      "error": "unknown or disarmed action",
+      "meaning": "The registered menu selection reached the launcher and was refused before a native case action."
+    },
+    "frozenSources": {
+      "harness.py": "b6728fca237db1403a9360407495949708184ae9330fdb47ed66640913e3f400",
+      "launcher.py": "a605b875e0755151e1fa03e91a61612fecbf5058f3fb12a67ac6216e6536e2e9",
+      "hammerspoon-launch.lua": "d9bc7e9b35a7b3dd5feaa0704881f1f95e46bdfc9410cb57cc0960f566d9260f",
+      "console-render.py": "48f8d3e5499cc4073f5c25fe70dfc3a2d88a04bc459cbe5bbba3783aa6ad90bb",
+      "method": "SHA-256 recomputed from the retained worktree sources"
+    },
+    "consoleCommand": {
+      "path": "docs/investigations/issue-149/workflow-discriminators/plan.md:172",
+      "explicitFileBinding": true,
+      "detail": "The documented exec(compile(open(...).read(), ..., dict(globals(), __file__=..., ...))) command binds __file__."
+    },
+    "caseCoverage": {
+      "requiredCases": 5,
+      "nativeCasesRun": 0,
+      "allFiveRemainUnrun": true,
+      "projectCreationObserved": false,
+      "projectCreationStatus": "No project-created evidence appears in the reviewed recovery/launcher outputs; the timeout does not prove the timed-out menu invocation never selected."
+    }
+  },
+  "limitations": [
+    "The protected installed config was not read. d23d4159... is verified as the recovery and consumed-config hash from retained receipts; the current post-refusal on-disk hash is intentionally not asserted because the launcher may re-disarm it.",
+    "No harness, Resolve, Hammerspoon, Console, Fairlight, render, or native case was rerun by this reviewer.",
+    "No statement here treats missing progress/result from the timeout as proof that the menu was never selected."
+  ],
+  "references": [
+    "docs/investigations/issue-149/workflow-discriminators/README.md:29-31",
+    "docs/investigations/issue-149/workflow-discriminators/verification.md:48-58",
+    "out/issue149-workflow-discriminators-20261003-kit-02/recovery/context-02-timeout-recovery.json",
+    "out/issue149-workflow-discriminators-20261003-kit-02/dispatches/context-02-20261003-kit-02-launch.json",
+    "out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-context-02-20261003-kit-02.json"
+  ]
+}

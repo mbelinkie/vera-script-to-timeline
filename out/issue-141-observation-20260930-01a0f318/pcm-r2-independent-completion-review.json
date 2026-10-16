@@ -1,0 +1,84 @@
+{
+  "kind": "issue-141-independent-r2-completion-review-v1",
+  "reviewScope": "Read-only review of retained generated PCM comparison, native render completion, exact full-pair binding, and six R2 cases. No Resolve calls or product/source/config/dashboard/docs/contracts/fixtures changes.",
+  "artifacts": {
+    "analysis": {
+      "path": "pcm-real-render-analysis.json",
+      "sha256": "2d279ac63bfcc3d680ff8adbaf7d18bcc48b84b0fe13fa610d0390e74b88054d"
+    },
+    "comparer": {
+      "path": "pcm-real-render-comparer-output.json",
+      "sha256": "46971e80913e8ab5226937a6d5c264cb788fd809019e7822eedd979bfefa90fa"
+    },
+    "resume": {
+      "path": "cli-av-owned-render-resume-result.json",
+      "sha256": "8b3691fa5b22b70a41f078718779caccc3e3a78133566f3ddf5065393100a32e"
+    },
+    "queuePair": {
+      "path": "av-output-20261001T232620.358140Z/full-pair-007.json",
+      "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14"
+    },
+    "postRenderPair": {
+      "path": "av-output-full-matrix-continue-20261001T235643.512549Z/full-pair-002-post-render.json",
+      "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14"
+    },
+    "restoredPair": {
+      "path": "av-output-full-matrix-continue-20261001T235643.512549Z/full-pair-003-restored.json",
+      "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14"
+    },
+    "pairIdentity": "All three pair hashes verified directly; pair identity is selected Matrix UID 29ae8331-b86e-4041-a548-960695cc7b24, protected-six inventory, equal-adjacent timeline and pool reads. Pair has two timeline and two pool passes; repeatedItemCount 46.",
+    "nativeRender": "Resume native result hash verified against referenced c419f0b11cb1c6ea704f7bff4af9106b53210bd9c7434f7adebb5ef22e4e244a. Job 0460d82a-3436-4efc-be12-b57c8523ebf5 reports Complete/100%, 267684ms. One StartRendering request total; resume journal has zero. MOV SHA256 85cd0433278d031e94bf724da432ba8ded36f80cfba66395eeab90d35033e716; 9200 video frames, 368.000 sec, 48kHz PCM24, 17,664,000 audio samples.",
+    "waveformContext": "Only generated repeated.wav and synthetic rendered PCM were compared. repeated.wav is 48kHz mono; support ranges are half-open source samples [19210,36258), [115210,132258), [211210,228258), [307210,324258), with 1920 samples/frame at 25fps. The comparer\u2019s zero-mean-free normalized waveform score does not establish deletion, routing, source origin, or full audibility. Weak correlation alone is not absence evidence; interpretation also considers strong same-source/control supports and explicit gap energy."
+  },
+  "cases": [
+    {
+      "case": "linked-cut",
+      "verdict": "performed_with_bounded_findings",
+      "structural": "Operator record \u00a7\u00a7988-992 documents two verified blades at 2560/2570, non-ripple removal of only linked middle items, full postflight and restoration; pair SHA 1be6a4fe8f6f98e31b9cac544e7251c74e24f7e07aaa0668985d2ae753e66e48.",
+      "pcm": "Generated second support [115210,132258) expected in frames 2560..2570: score .08115, gain .00467; gap energy 1.1203 versus source-support energy 300.5012 (gap peak .01080, RMS .00764 versus source peak .73871, RMS .13277). Neighbor supports [19210,36258), [211210,228258), [307210,324258) score .99836 at zero lag, gain 1.0021. Supports low-level residual energy with absent/near-noise generated support in expected interval, not universal speech deletion.",
+      "dashboard": "Done may be recorded for linked-cut geometry and bounded generated-program waveform observation. Keep broad speech deletion/routing/audibility claims open."
+    },
+    {
+      "case": "unlinked-cut",
+      "verdict": "performed_with_bounded_findings",
+      "structural": "Operator record \u00a71010 records actual A1-only interval 3060..3070/source 60..70 removal, V1 unchanged, postflight/context restoration; final pair SHA 6b047339f81bab349ff3e95928bebda192a73e251b7e3989b8fd9d893a882d45.",
+      "pcm": "Same generated support/control metrics as linked-cut at predicted frame 3060..3070: score .08115, gain .00467, gap energy 1.1203 vs source 300.5012; neighbor controls .99836 at zero lag/gain 1.0021. Specific unlinked physical cut and low-level output interval supported; PCM alone cannot establish link-state behavior or deletion.",
+      "dashboard": "Done may be recorded for unlinked-cut geometry and bounded PCM observation; retain limits on deletion/routing/audibility."
+    },
+    {
+      "case": "picture-only",
+      "verdict": "performed_with_bounded_findings",
+      "structural": "Retained R2-picture case records and pair geometry show one audio item remains continuous across picture interval 3560..3570; analysis item spans record frames 3500..3699/source 0..199.",
+      "pcm": "Support [115210,132258) across picture interval score .99836, zero lag, gain 1.0021; window energy 302.883, RMS .12560, peak .74392. Strong support/control evidence and speech-level energy during picture cut.",
+      "dashboard": "Done for picture-only geometry and bounded generated PCM continuity."
+    },
+    {
+      "case": "partial",
+      "verdict": "performed_with_bounded_findings",
+      "structural": "Retained R2-partial structural records and PCM pair geometry show source pieces 0..65 and 70..199 at record 4000..4065 and 4070..4199: 65..70 is the removed gap.",
+      "pcm": "Retained head source [115210,124800) (9590 samples) strongly matches: score .99843, zero lag, gain 1.00095. Expected full support comparison has score .80095, gain .64435, rendered energy 194.480, residual 69.717 because tail after source sample 124800 (through 132258) is absent from the compared item window. Gap 4065..4070 (9600 samples) energy .56015, RMS .00764, peak .01080. Do not treat whole-support borderline comparison as failed head evidence or infer all speech removed.",
+      "dashboard": "Done for partial cut geometry, retained head, and missing-tail/gap metrics."
+    },
+    {
+      "case": "residual",
+      "verdict": "performed_with_bounded_findings",
+      "structural": "Operator record \u00a7\u00a71426-1470 documents completed A1 middle deletion, restoration and final pair SHA 1616fa7f512b1a23d4c2756d2246bef51ee9d085ba8c443170ad060c385949a. Synthetic A2 full-range item is also present in the rendered pair (track index 2). Concurrent actor\u2019s synthetic mapping mute/restore remains separately in progress.",
+      "pcm": "A1 60..70 gap window at 4560..4570 has energy 152.621, RMS .08916, peak .52817 despite A1 gap; enabled A2 expected full support correlates at zero lag, score .99674, gain .71004 (residual energy .99212). Thus residual speech-like generated support remains in program comparison while A1 has a gap. Comparison does not identify routing or prove human audibility; mute/restore action outcome not reviewed here.",
+      "dashboard": "Done may be recorded for residual geometry and observed residual generated-program energy with the mapping state as captured. Keep mapping mute/restore acceptance and routing/audibility interpretations pending actor evidence."
+    },
+    {
+      "case": "offset",
+      "verdict": "performed_with_bounded_findings",
+      "structural": "Operator record \u00a71413 documents item moved 5000..5199 to 5001..5200 with source bounds unchanged; native context result/pair retained.",
+      "pcm": "At predicted source support [19210,36258), frame-5001 actual alignment is zero lag, score .99835, gain .99585; frame-5000 prediction has +1920-sample (one-frame) best lag with same score/gain. One-frame [5000,5001) diagnostic window energy .11290, peak .01080. No prior baseline render was invented.",
+      "dashboard": "Done for offset geometry and actual frame-5001 versus frame-5000 alignment comparison; do not describe as a before/after render comparison."
+    }
+  ],
+  "remainingEvidence": {
+    "durationCalibration": "INCOMPLETE. Full timeline 9200 frames/368 seconds with 17,664,000 audio samples confirms whole-output duration/rate arithmetic only. It does not calibrate every item endpoint or source-to-record endpoint semantics; retained metadata explicitly keeps inclusive/exclusive semantics unknown.",
+    "residualMappingMuteRestore": "Concurrent synthetic mapping mute/restore actor result remains outstanding at this review cutoff.",
+    "globalLimits": "No private real-source bytes/hash were read or recorded. No universal deletion, final audibility, bus routing, or source-origin conclusion. Broad routing/audibility and generalized endpoint calibration remain open."
+  },
+  "dashboardRecommendation": "Apply only per-case done transitions explicitly scoped above. Keep duration calibration and residual mapping mute/restore transition pending until their separate evidence arrives; do not close broad R2 speech deletion/routing/audibility scope.",
+  "reviewedAt": "2026-10-02"
+}

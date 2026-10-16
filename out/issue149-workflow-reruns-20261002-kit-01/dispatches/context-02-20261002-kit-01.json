@@ -1,0 +1,26 @@
+{
+  "actionId": "context-02-20261002-kit-01",
+  "at": "2026-10-02T23:14:02.175563+00:00",
+  "config": {
+    "_offlineOnly": true,
+    "_approval": "root-approved-context-02-serializer-fix",
+    "schemaVersion": "issue-149-workflow-reruns-v1",
+    "externalScriptingSetting": "None",
+    "projectName": "VERA Issue 149 Workflow Reruns 20261002-kit-01",
+    "action": "context",
+    "phase": "context-02",
+    "actionId": "context-02-20261002-kit-01",
+    "probePath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/sources/b76032dbab910bb985c554b3c3809de80b443e74ff59c3608f21a3c718f81193/harness.py",
+    "probeSha256": "b76032dbab910bb985c554b3c3809de80b443e74ff59c3608f21a3c718f81193",
+    "launcherPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/VERA Issue 149 Workflow Reruns.py",
+    "launcherSha256": "e4f58381c398bc0ce13130fddb25c956876f7754dc877346fe389dfb826c2450",
+    "outputDir": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01",
+    "mediaDir": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/media"
+  },
+  "launcherSha256": "e4f58381c398bc0ce13130fddb25c956876f7754dc877346fe389dfb826c2450",
+  "macroSha256": "bc8ca493e2193218208cb43bafaaf90514da9faae4ba51be05b620f5b01ccd02",
+  "previousResults": [
+    "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-context-01-20261002-kit-01.json"
+  ],
+  "retryAllowed": false
+}

@@ -1,0 +1,28 @@
+{
+  "kind": "bounded-one-shot-audio-preset-import-recovery",
+  "stagedAt": "2026-10-01T02:37:32.308807+00:00",
+  "action": "audio-render-recovery",
+  "stage": "R2-audio-preset-recovery-deliver",
+  "probeSha256": "eea982cec012abda3a6524e7227b7c4ea0d06d84710e9c48586b310b01ad0337",
+  "moduleSha256": "c81e5db42e97012a4891e732bed6082d369c286487a5475548bd8424fd232c0c",
+  "launcherSha256": "806e1f3818365bc961346f62ca410d03dd21df130aa2c132acdaed7bb5aca0e9",
+  "privateConfigSha256": "c531db780273898646cd57aaefe0f4c8de46cf0fa6b6a061a04d1f3db2ba4fba",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "checkpointSha256": "0220a23be312aea5906900dd094c8e21b363294bb11f9b0f1201ab23f40c4cbf",
+  "priorJournalSha256": "fda00cbecbea749aab7d61ae0185b00069e4f639908c7997cc5bffe4098f2f7f",
+  "priorExportJournalSha256": "19bc611d3c32ac686f5f389f3dd414fff04bf3a899f50c962ef3b98a5f235509",
+  "priorPreflightSha256": "3dfc30798ca4769d719d52028b508f8eb8261bf2daf61a9a0255f52091d765b0",
+  "priorXmlSha256": "1b3b21a728c3216f9782d87aa2feae977747c377901eb6b81ed5a83a2da06595",
+  "priorRefusalResultSha256": "0f58231798b54d00f7d4c43aeae99ef21895c1e1408108838176dce84d6762dc",
+  "allowedApiMutations": [
+    "Resolve.ImportRenderPreset exact owned XML once"
+  ],
+  "saveAllowed": false,
+  "retryAllowed": false,
+  "privatePathsPublished": false,
+  "noImportRefusalSha256": "7428e71e67bfb894c3dccf15ab8921b9d4d8e4b78d822aa865d329da7809242f",
+  "noImportRefusalJournalSha256": "a90db38f79037940895fd5eea58de1a53ca61c0340877a9ab7808f350bd2d142",
+  "diagnosticCaptureSha256": "9aefdcdb5dcb25c7a38d7c2e573ccc9cde049c5806f652c4fac3260d2839bc4a",
+  "requiredPage": "deliver"
+}

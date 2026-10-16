@@ -1,0 +1,5 @@
+{
+  "detail": "RuntimeError: Select only the named issue-141 project; no automatic switch",
+  "instruction": "Retain evidence and stop. Do not rerun preparation or change scripting mode.",
+  "status": "launcher-failed"
+}

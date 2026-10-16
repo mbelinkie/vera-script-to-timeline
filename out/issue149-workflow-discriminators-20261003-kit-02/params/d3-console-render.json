@@ -1,0 +1,36 @@
+{
+  "_approval": "root-authorized-resume-stage-console-manual",
+  "action": "__disarmed__",
+  "actionId": "d3-console-render-20261003-kit-02",
+  "consoleSourceSha256": "48f8d3e5499cc4073f5c25fe70dfc3a2d88a04bc459cbe5bbba3783aa6ad90bb",
+  "disarmedAt": "2026-10-03T14:50:17.078693+00:00",
+  "disarmedFrom": "console-render",
+  "externalScriptingSetting": "None",
+  "harnessSourceSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438",
+  "outputDir": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02",
+  "owned": {
+    "projectUid": "0591bb41-d645-4af7-a2ee-ff75f8f43162",
+    "timelineUids": [
+      "9ce8ac2d-bd57-4740-9c19-044d3df53347",
+      "70aee9bd-5928-4e3b-9f0e-f45897773337",
+      "eea50181-c786-4698-9318-bb1100d12576",
+      "24fffc65-ce6c-4bff-acf2-6f3ec3de44b8",
+      "a1e78caf-1ac4-4bec-bff6-763160b9604d",
+      "562731d2-303c-49d8-8f1f-f621f79bdcd8",
+      "ca636ad2-b6f2-47ed-9ff7-7f0029860a95",
+      "dc548f02-103c-495a-8e88-c4b767aa10dc",
+      "f88a069b-af68-40d2-8556-3a7c97c234ec"
+    ]
+  },
+  "phase": "d3-console-render-20261003-kit-02",
+  "projectName": "VERA Issue 149 WI Discriminators 20261003-kit-02",
+  "render": {
+    "settings": {
+      "CustomName": "D3-console-av-20261003",
+      "RenderAll": true
+    },
+    "targetDir": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/renders/d3-console-av-20261003"
+  },
+  "schemaVersion": "issue-149-console-render-v1",
+  "timelineUid": "dc548f02-103c-495a-8e88-c4b767aa10dc"
+}

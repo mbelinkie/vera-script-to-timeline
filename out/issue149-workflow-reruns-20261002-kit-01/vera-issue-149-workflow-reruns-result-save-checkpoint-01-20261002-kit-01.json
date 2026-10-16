@@ -1,0 +1,23 @@
+{
+  "action": "save-checkpoint",
+  "actionId": "save-checkpoint-01-20261002-kit-01",
+  "configSha256": "c38595aeba159bfae5bffc226a8227071e620c749dc737b72a6ded8fac1679ea",
+  "journal": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/evidence/save-checkpoint-01-20261002-kit-01/journal.jsonl",
+  "launcher": "workflow-injected",
+  "phase": "save-checkpoint-01",
+  "progress": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-progress-save-checkpoint-01-20261002-kit-01.jsonl",
+  "saveCheckpoint": {
+    "calledExactlyOnce": true,
+    "return": true
+  },
+  "schemaVersion": "issue-149-workflow-reruns-v1",
+  "state": {
+    "itemUids": [],
+    "mediaUids": [],
+    "projectUid": "1a05ff3a-8b04-43e3-95ab-c970b93b6415",
+    "timelineUids": [],
+    "timelines": []
+  },
+  "stateId": "prepare-01-20261002-kit-01",
+  "status": "ok"
+}

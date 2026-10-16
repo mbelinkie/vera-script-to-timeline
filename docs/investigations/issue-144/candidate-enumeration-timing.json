@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "issue-144-candidate-timing/v1",
+  "evidenceLevel": "synthetic_injected",
+  "runtime": "Node24.19.0",
+  "tokens": 64,
+  "candidateCompilesPerProposalRow": 2080,
+  "proposeMilliseconds": 4528.469295,
+  "decideMilliseconds": 2571.920489,
+  "processExitCodes": [
+    0,
+    0
+  ],
+  "semanticProcessBudgetSeconds": 300,
+  "sourceHashes": {
+    "packages/contracts/src/issue-144-proof-cli.ts": "sha256:2dbb73078e6279bd211a83b9898f01620d4474f20c3871be539c8438d792aa8d",
+    "packages/contracts/src/issue-144-semantics.ts": "sha256:e29eb29fa099c32fe7db54f827f737aaabfdae19a5e5ba1912e25e260c463601",
+    "packages/contracts/src/compiler-core.ts": "sha256:87fddbe07d3c49d7ff99e192c31a5ee936fb2f63c6436758dd7536b167e159e3",
+    "packages/contracts/src/script-validator.ts": "sha256:d738c79953c21c5df850fac24c324d55741e92253d6b6f48c0daa9daa5c00c04",
+    "packages/contracts/test/issue-144-test-inputs.ts": "sha256:22dd259e044cda63444fdf1855b7ecc8582753555975c5d8f5a3ddee16c480d4"
+  },
+  "limit": "One controlled 64-token document and one visual row on this machine; no arbitrary-document or many-row runtime guarantee. No native actions."
+}

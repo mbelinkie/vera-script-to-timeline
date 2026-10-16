@@ -1,0 +1,26 @@
+{
+  "childPid": 97854,
+  "command": [
+    "rtk",
+    "proxy",
+    "ctx-wire",
+    "run",
+    "uv",
+    "run",
+    "--frozen",
+    "pytest",
+    "tests/test_v2_package.py",
+    "tests/test_workflow_v2.py",
+    "tests/test_issue177_handoff.py",
+    "tests/test_issue177_document.py",
+    "-q",
+    "--durations=25"
+  ],
+  "environment": {
+    "PATH": "/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/usr/local/bin:/usr/bin:/bin:/Users/matthewbelinkie/.local/bin"
+  },
+  "sourceBefore": "/Users/matthewbelinkie/.codex/worktrees/ed01/VERA Script to Timeline/out/issue177/focused-r3/source-before.json",
+  "startedAt": "2026-10-13T11:44:57.963804+00:00",
+  "worktree": "/Users/matthewbelinkie/.codex/worktrees/ed01/VERA Script to Timeline",
+  "wrapperPid": 97742
+}

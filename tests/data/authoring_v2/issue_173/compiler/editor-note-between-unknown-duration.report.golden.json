@@ -1,0 +1,183 @@
+{
+  "buildClass": "preview",
+  "buildId": "00000000-0000-4000-8000-000000000003",
+  "compiler": {
+    "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "sourceHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "version": "compiler/v2"
+  },
+  "dependenciesHash": "sha256:0921c06372a746b8908182442ccddaa45e649d202b2371a203de0a746685417b",
+  "diagnostics": [
+    {
+      "code": "UNPLACED_SUPPORTING_ITEM",
+      "entity": {
+        "id": "00000000-0000-4000-8000-00000000004c",
+        "kind": "supporting_item",
+        "path": "supportingItems"
+      },
+      "evidence": {
+        "anchorId": "00000000-0000-4000-8000-00000000004c",
+        "kind": "anchor_issue",
+        "reason": "stale"
+      },
+      "id": "319c72b7-4036-5a8e-8260-5324be9619c8",
+      "message": "The editor-note point is stale or has no exact timeline time; reattach it to a current anchor.",
+      "recoveryActionKinds": [
+        "repair_document",
+        "refresh_timing"
+      ],
+      "severity": "warning"
+    }
+  ],
+  "document": {
+    "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "documentId": "00000000-0000-4000-8000-000000000001",
+    "liveHeadSequence": 0,
+    "projectId": "00000000-0000-4000-8000-000000000002",
+    "revision": 1,
+    "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "textHash": "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+  },
+  "eventResults": [
+    {
+      "disposition": "placed",
+      "eventId": "c54080bb-0d64-5bc7-8693-ce2c32f28afe",
+      "kind": "primary_visual",
+      "message": "Compiled from frozen source bindings.",
+      "recordRange": {
+        "endFrame": 96,
+        "startFrame": 0
+      },
+      "sourceId": "1904c7e6-1f7b-5c3f-87d1-33f5c316921b",
+      "trackId": "video-root"
+    },
+    {
+      "disposition": "placed",
+      "eventId": "e3a1d77f-0c0e-5ffe-8d4e-77ce0e21cb88",
+      "kind": "narration",
+      "message": "Compiled from frozen source bindings.",
+      "recordRange": {
+        "endFrame": 96,
+        "startFrame": 0
+      },
+      "sourceId": "00000000-0000-4000-8000-000000000013",
+      "trackId": "narration"
+    },
+    {
+      "disposition": "placed",
+      "eventId": "77758ef8-c6da-55fc-8e89-b50fe29dcaf1",
+      "kind": "placeholder",
+      "message": "Intentional picture slate: Intentional slate",
+      "recordRange": {
+        "endFrame": 168,
+        "startFrame": 96
+      },
+      "sourceId": null,
+      "trackId": "video-root"
+    }
+  ],
+  "id": "00000000-0000-4000-8000-000000000005",
+  "itemResults": [
+    {
+      "disposition": "unplaced",
+      "itemId": "00000000-0000-4000-8000-00000000004c",
+      "reason": "The editor-note point is stale or has no exact timeline time; reattach it to a current anchor.",
+      "recordRange": null,
+      "role": "editor_note",
+      "version": 1
+    }
+  ],
+  "manifest": {
+    "contentHash": "sha256:031328a38f2c9998ccadc9eed09999229166e57e6d03bbbc8ca5c26b5df5d142",
+    "id": "00000000-0000-4000-8000-000000000004"
+  },
+  "manualCompletionItems": [],
+  "mediaPreparation": {
+    "requirements": [
+      {
+        "bindingHash": "sha256:9eb4cbdef0c46b9e5eb323ffb66858c938e10ddacd56e31aec453df5a4a9a6ab",
+        "deliveredHash": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+        "diagnosticIds": [],
+        "originalHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "requirementKey": "prep:occurrence-1",
+        "status": "prepared"
+      }
+    ],
+    "status": "complete"
+  },
+  "migrationIssues": [
+    {
+      "entity": {
+        "id": "00000000-0000-4000-8000-00000000004c",
+        "kind": "supporting_item",
+        "path": "supportingItems"
+      },
+      "kind": "unplaced_item",
+      "message": "The editor-note point is stale or has no exact timeline time; reattach it to a current anchor.",
+      "recoveryActionKind": "reattach_unplaced_item",
+      "severity": "warning"
+    }
+  ],
+  "readiness": {
+    "blockingIssueIds": [],
+    "preview": "ready",
+    "release": "ready"
+  },
+  "recoveryActions": [
+    {
+      "documentId": "00000000-0000-4000-8000-000000000001",
+      "entity": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "kind": "document",
+        "path": "document"
+      },
+      "instruction": "Repair the authored source and compile again.",
+      "kind": "repair_document"
+    },
+    {
+      "blockId": "00000000-0000-4000-8000-00000000004c",
+      "expectedRevision": 1,
+      "instruction": "Refresh narration timing for the frozen text.",
+      "kind": "refresh_timing"
+    }
+  ],
+  "schemaVersion": "build-report/v2",
+  "sourceSufficiency": [
+    {
+      "availableRange": {
+        "endFrame": 240,
+        "startFrame": 0
+      },
+      "diagnosticId": null,
+      "requiredRange": {
+        "endFrame": 120,
+        "startFrame": 0
+      },
+      "requirementKey": "prep:occurrence-1",
+      "status": "sufficient"
+    }
+  ],
+  "status": "ready",
+  "summary": {
+    "blockedCount": 0,
+    "diagnosticCount": 1,
+    "eventCount": 3,
+    "manualCompletionCount": 0,
+    "placedCount": 3,
+    "placeholderCount": 0,
+    "recoveryActionCount": 2,
+    "sourceCount": 2,
+    "supportingItemCount": 1
+  },
+  "timeline": {
+    "audioSampleRate": 48000,
+    "durationFrames": 168,
+    "frameRate": {
+      "denominator": 1,
+      "numerator": 24
+    },
+    "height": 1080,
+    "startFrame": 0,
+    "width": 1920
+  }
+}

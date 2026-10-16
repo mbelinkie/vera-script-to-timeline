@@ -1,0 +1,47 @@
+{
+  "publishedArtifacts": {
+    "journal-extract.jsonl": "6498050f5f73b2f853c042e63ee2afd52a55c7065dc3dcc857069a466da8b283",
+    "launcher-result-extract.json": "178e32082244b76fc5f5e6a26bf1c3f4b924e477595dc674c8d73b35d26eff7e",
+    "state-diff.json": "a023f8e50b5db7772c537a013764acf0502952380163ecb020766b1b1687446d",
+    "summary.json": "19f99d262e7154a48fc11e99d886c9899e1a347c3b0fe7817891ba00ceb8ab04"
+  },
+  "redaction": "Published files contain no private absolute filesystem paths. Full native captures remain in their private output directory and are SHA-256 bound here.",
+  "sourceEvidence": {
+    "afterEdit": {
+      "bytes": 4601764,
+      "filename": "after-edit.json",
+      "rawSha256": "2efb81d66a98c0aa8d95466f1f621efed1cadb60bd499f1da83da6c5cf30473b"
+    },
+    "dispatch": {
+      "bytes": 400,
+      "filename": "hammerspoon-launch-20261001T035403.112871Z.jsonl",
+      "rawSha256": "d05734601a5ffbf5cdaf5e3be81775a49e7f344ae98da3791862385033dd55e7"
+    },
+    "journal": {
+      "bytes": 1327,
+      "filename": "journal.jsonl",
+      "rawSha256": "4b99769d9572fd40532da02824e20c8e4319f6e793d4f7c8cfdf3ae6fe5430fc"
+    },
+    "launcherResult": {
+      "bytes": 874,
+      "filename": "vera-issue-141-observation-result-20261001T035403.633595Z.json",
+      "location": "Resolve Workflow Integration Plugins result path",
+      "rawSha256": "f73be3c4a4b4a1fae237ae71e8b3798a5a78b18c1efd9b15772e6c45a3b9821e"
+    },
+    "moduleResult": {
+      "bytes": 874,
+      "filename": "result.json",
+      "rawSha256": "f73be3c4a4b4a1fae237ae71e8b3798a5a78b18c1efd9b15772e6c45a3b9821e"
+    },
+    "preflight": {
+      "bytes": 4601652,
+      "filename": "preflight.json",
+      "rawSha256": "a174b6ec5260977ffd4de9f11655793a9b62e147c94f19832e2186157034aa5a"
+    },
+    "restored": {
+      "bytes": 4601652,
+      "filename": "restored.json",
+      "rawSha256": "a174b6ec5260977ffd4de9f11655793a9b62e147c94f19832e2186157034aa5a"
+    }
+  }
+}

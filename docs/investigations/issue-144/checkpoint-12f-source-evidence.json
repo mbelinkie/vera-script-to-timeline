@@ -1,0 +1,33 @@
+{
+  "checkpoint": "12f",
+  "priorVerifiedCommit": "cdc0a53",
+  "files": {
+    "python/vera_timeline_agent/roundtrip_generation.py": "sha256:3c7058636c3145c7fd347e1e4009b69b776e6565a4e70f6e5b81bf3867eba01b",
+    "python/vera_timeline_agent/roundtrip_proof.py": "sha256:145989f65944e15203ea10647add7eb40c5c7bcdf230d014779307f123a90864",
+    "python/vera_timeline_agent/roundtrip_native.py": "sha256:dbf9ea805aa2965c4742aac58993a24b6e94e9e95a3368bc69fcce7a45c7384b",
+    "python/vera_timeline_agent/roundtrip_build.py": "sha256:c55171bf91dcb6411d69e700e2749edb211447fa3eff4e78c6cfc401f256ccb4",
+    "tests/test_issue144_omission_generation.py": "sha256:d848169965eeb905871c5e5f7d063ddaac0422b688bcac3792b16986b3fe4e95"
+  },
+  "focused": {
+    "latestCacheAndInterruptionGuards": "2 passed in222.54s",
+    "supersededSevenCaseRun": "6 passed,1 failed at correct drift refusal with wrong exception-class expectation; test corrected without relaxing guard"
+  },
+  "fullValidation": {
+    "command": "ctx-wire run rtk proxy npm exec --yes --package=node@24.19.0 -- npm run validate",
+    "exitCode": 0,
+    "node": "24.19.0",
+    "python": "3.12.14",
+    "contracts": 231,
+    "tooling": 1,
+    "progress": 6,
+    "roadmap": 23,
+    "pythonTests": 329,
+    "pythonSeconds": 2772.52,
+    "ruffFormattedFiles": 239,
+    "mypySourceFiles": 79,
+    "log": "checkpoint-12f-validation.txt",
+    "logHash": "sha256:d2e93b319670061b6fb3ced0e1a1065818346f7daf1d97ed3994b83ea34139cb"
+  },
+  "protectedBoundaryDiff": "empty against9c8973d; contracts,fixtures,generated types,lockfiles,accepted jobs/assembly/narration unchanged",
+  "diffCheck": "passed"
+}

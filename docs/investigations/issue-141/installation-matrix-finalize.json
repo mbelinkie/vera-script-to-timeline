@@ -1,0 +1,35 @@
+{
+  "kind": "staged-exact-completed-matrix-save-only-not-executed",
+  "stagedAt": "2026-09-30T22:32:50.333370+00:00",
+  "action": "matrix-finalize",
+  "stage": "R1-R3-matrix-save-only",
+  "probeSha256": "d23730ad56807fece9f966bbb03444960abb9984a52a6539ae25398f615ba9b6",
+  "launcherSha256": "e095a9bd195b837f54891b01b498e7cfa0f7e37fbb2d4198ef00c7c597b1252e",
+  "privateConfigSha256": "55677990411f3c901c38e2a97a67da8b1f8469e1311f672b8e7fb336ac465f60",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "guardEvidence": [
+    {
+      "filename": "capture-20260930T221137.773286Z-failure-postflight.json",
+      "sha256": "e68f682b2f0b73bbf8ee883fd375ecd5325061c50c1cd2615fb9ee72e386e0d9"
+    },
+    {
+      "filename": "capture-20260930T215628.608006Z-empty-selected-matrix.json",
+      "sha256": "cc834e8fd34b1bd84348d3dfde00648a2fff5d0fcb17eb6398137a615a4d0445"
+    },
+    {
+      "filename": "native-matrix-20260930T221137.773286Z.jsonl",
+      "sha256": "a67bbafcadc5cac195fc6b93e95abb6382f1a2adb5bdf6a2186ec25d8330a20b"
+    },
+    {
+      "filename": "capture-20260930T173943.043191Z.json",
+      "sha256": "92c04d10bafe86499b7d11a27d457e655893ee6340d73a290a80e29e35887161"
+    }
+  ],
+  "timelineId": "29ae8331-b86e-4041-a548-960695cc7b24",
+  "allowedApiMutations": [
+    "SaveProject"
+  ],
+  "failureLimit": "Retain state and evidence; no retry or cleanup.",
+  "privatePathsPublished": false
+}

@@ -1,0 +1,27 @@
+{
+  "baseline": "5d59b2ad560aa18f96554b71fe34ee5b7f30dfed",
+  "integrationBaseline": "4e31565f88e71e0c1d1cd1be5e52c34df2819347",
+  "sourceCommit": "590c7ed817acdb386d1023010d88f2f3c7a023b8",
+  "frozenFileCount": 285,
+  "frozenAndTrackedBoundary": "passed",
+  "sourceHashes": {
+    "packages/contracts/src/issue-189-v2-omission.ts": "sha256:37310708a6152a8845c91466d2472c2e18b649d40ffd8c5f8c2cf49b71e0a226",
+    "packages/contracts/src/issue-189-v2-replacement.ts": "sha256:b8fe145e2dcfb842963a256935ca83af8b0b0130d84a04a9bc031741e818f3be",
+    "packages/contracts/src/issue-191-proof-cli.ts": "sha256:828812153cf793e6136cfca3ab27197302f976b699355b1e7e28767fd8ca11a5",
+    "packages/contracts/test/issue-191-omission.test.ts": "sha256:e777d5b588adf74cbaab9457346ae88e5f23595317705c5b26a791746d659697",
+    "python/vera_timeline_agent/roundtrip_v2_audio.py": "sha256:163db093788af8e1710a13cf476b06f8bd5f9646b7fecd043ebfffb6a75a663b",
+    "python/vera_timeline_agent/roundtrip_v2_narration.py": "sha256:ad4e0f150aee9827e65806970735751e26b4ed86e5a9a818650029adce1a8295",
+    "tests/test_issue191_audio.py": "sha256:6f906b951f0cfcaaa8621178f8b5068585b5b4b738c7b717ed6dee458edf76d3",
+    "tests/test_issue191_narration.py": "sha256:053128f0349263b818d589fb57ea91d4ee5eb6ea4d516f223f7d0c3b00ed7e2d"
+  },
+  "nodeVersion": "v24.19.0",
+  "nodeBinaryHash": "sha256:1052eb9c7d6c60a79b968e09f75af55a73462b0f6dff0964336d63b5e13eb63c",
+  "pythonVersion": "3.12.14",
+  "pythonBinaryHash": "sha256:a8e10ff8d348800219a8f1f2bb04f5b7d2d62a34f9656cad5520f10560f8df35",
+  "packageLockHash": "sha256:e615667b1bcbea53bb34c4db11a6ca6a2745fae5edac6538ff87d3fdfe35d7b8",
+  "uvLockHash": "sha256:f950bcda5d522d83b28b08f57783b8056e9bfbf7fadf6254215746e3a350cde2",
+  "rootDevDependencyVersionsMatchLock": true,
+  "installedLockPackageCount": 145,
+  "unsupportedOptionalPackageCount": 24
+}
+

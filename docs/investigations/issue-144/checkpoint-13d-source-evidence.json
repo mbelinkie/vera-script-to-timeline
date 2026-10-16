@@ -1,0 +1,9 @@
+{
+  "sourceParent": "5b145027624b8cf43f814c942ae52ab3f9c144fa",
+  "file": ".github/workflows/validate.yml",
+  "beforeHash": "sha256:8194d63dfe182eb1bee63c67525cbc7507d7d07668b83af24b13ffea855888fc",
+  "reviewedProposalHash": "sha256:1465016ff98eb1dc98204c746e50bd49493a39a9b831d08706a24b40f54bf6e4",
+  "appliedHash": "sha256:1465016ff98eb1dc98204c746e50bd49493a39a9b831d08706a24b40f54bf6e4",
+  "change": "Only timeout-minutes15\u219290; all checks/pins/lockfile verification remain",
+  "status": "Plan/exact segment reviewed; applied bytes equal proposal; actual CI/local full validation still outstanding."
+}

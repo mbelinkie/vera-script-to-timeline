@@ -1,0 +1,930 @@
+{
+  "kind": "issue141-per-title-evidence-audit",
+  "asOf": "2026-10-02T13:31:59.949793+00:00",
+  "sourceProgressJson": "LOCAL_DASHBOARD/progress.json",
+  "project": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+  "baseline": "VERA 141 Baseline",
+  "dashboardProgress": {
+    "completed": 40,
+    "total": 41,
+    "statusCounts": {
+      "done": 40,
+      "working": 0,
+      "pending": 1
+    },
+    "progressNote": "Completed evidence checks divided by all 41 planned checks. This is evidence completion, not time remaining; effort differs. Supplemental producer transcript tests stay outside denominator.",
+    "currentNextAction": "Review final report and record Issue #141 External evidence confirmed, or identify a discrepancy. All native testing stopped.",
+    "currentOutcome": "40/41 complete: all 39 preparation/Resolve evidence checks and final report complete; External review pending."
+  },
+  "auditMethod": "This is a reconciliation of prior independent reviews and named retained report/summary records, not a rerun of all raw tests. Compact retained summary/review verdicts and report/operator summaries were read where available. No tests, native actions, raw whole-pair scans, or protected-media reads were run. Rows marked limited are not independently justified by this audit; historical report verdicts reused are named as such.",
+  "classificationDefinitions": {
+    "reviewed-bounded-support": "Retained evidence justifies done for this named case only; does not mean universal capability.",
+    "reviewed-bounded-support-with-explicit-limits": "Done is justified for the named check, with ambiguity or limits preserved in the note.",
+    "partial-evidence-not-complete": "Some evidence exists, but the requirement is still working/incomplete.",
+    "pending-test": "No completion evidence; dashboard pending.",
+    "pending-review": "Evidence exists but required report/independent review remains incomplete.",
+    "pending-external": "External acceptance authority has not completed review.",
+    "collector-unavailable": "The current public readback collector does not expose the requested state; this is not proof that Resolve itself lacks the feature."
+  },
+  "perTitle": [
+    {
+      "group": "Preparation",
+      "title": "Investigation setup",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "",
+      "retainedEvidence": [
+        "docs/plans/issue-141-resolve-observation.md",
+        "docs/investigations/issue-141/report.md"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "The read-only roadmap inspection confirms Issue 141 is open with the active Sol/xhigh claim and #131 resolved; the issue plan bounds scope and baseline. This supports the setup record, not application behavior.",
+      "auditGrade": "recorded-verdict-reviewed",
+      "evidenceVerdict": "The read-only roadmap inspection confirms Issue 141 is open with the active Sol/xhigh claim and #131 resolved; the issue plan bounds scope and baseline. This supports the setup record, not application behavior."
+    },
+    {
+      "group": "Preparation",
+      "title": "Generated synthetic media and manifest",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/baseline-preparation/hashes.json",
+        "docs/investigations/issue-141/evidence/baseline-preparation/identity.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "The retained baseline-preparation manifest/hash record binds generated inputs; the original manifest hash is included in the report. This supports the generated fixture inventory only.",
+      "auditGrade": "summary-supported",
+      "evidenceVerdict": "The retained baseline-preparation manifest/hash record binds generated inputs; the original manifest hash is included in the report. This supports the generated fixture inventory only."
+    },
+    {
+      "group": "Preparation",
+      "title": "Harness checks",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "report-verdict-reused",
+      "dashboardEvidenceNote": "",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/check.py",
+        "docs/investigations/issue-141/report.md"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "The retained report records python3 -S docs/investigations/issue-141/check.py <generated-media-dir> passing its refusal/error-retention and generated-media hash/time-base/sample checks. It also records npm run validate passing after correction: generated types current, TypeScript lint/typecheck, 141 contract tests, smoke/progress/roadmap checks, Python lint/format/strict mypy and 175 tests. Independent review verified all 26 published baseline artifact hashes; this audit reuses those report verdicts and did not rerun them.",
+      "auditGrade": "report-verdict-reused",
+      "evidenceVerdict": "The retained report records python3 -S docs/investigations/issue-141/check.py <generated-media-dir> passing its refusal/error-retention and generated-media hash/time-base/sample checks. It also records npm run validate passing after correction: generated types current, TypeScript lint/typecheck, 141 contract tests, smoke/progress/roadmap checks, Python lint/format/strict mypy and 175 tests. Independent review verified all 26 published baseline artifact hashes; this audit reuses those report verdicts and did not rerun them."
+    },
+    {
+      "group": "Preparation",
+      "title": "Named project and baseline timeline",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "For the baseline-preparation run, the operator confirmed External Scripting stayed None and only the named synthetic project/generated media were used. This attestation is specific to that run; later protected producer transcript observations are separately retained.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/baseline-preparation/summary.json",
+        "docs/investigations/issue-141/operator-record.md"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "baseline-preparation/summary.json identifies the successful named project/timeline and capture environment; the operator record retains the None/synthetic-only confirmation.",
+      "auditGrade": "summary-supported",
+      "evidenceVerdict": "baseline-preparation/summary.json identifies the successful named project/timeline and capture environment; the operator record retains the None/synthetic-only confirmation."
+    },
+    {
+      "group": "Preparation",
+      "title": "Batched matrix prepared and saved",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "19 labeled sections; 114 placements verified, exact before-save/saved reads match. Added as an explicit setup step so the dashboard lists this required work.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/matrix-finalize-success/summary.json",
+        "docs/investigations/issue-141/evidence/matrix-finalize-success/"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "matrix-finalize-success/summary.json records 19-section matrix save, equal before/after state pairs and SaveProject true. It proves construction/save, not later editorial results.",
+      "auditGrade": "summary-supported",
+      "evidenceVerdict": "matrix-finalize-success/summary.json records 19-section matrix save, equal before/after state pairs and SaveProject true. It proves construction/save, not later editorial results."
+    },
+    {
+      "group": "Preparation",
+      "title": "Duration convention calibration",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "Independent generated-only review proves GetEnd is exclusive for the tested100% speed integer picture/audio cases: base0..198; overlay75..199; rendered audio ends before9199 while next source frame199 is nonzero. Fractional boundaries and generalized retime precision remain untested.",
+      "retainedEvidence": [
+        "out/issue-141-observation-20260930-01a0f318/endpoint-calibration-independent-verdict.json",
+        "out/issue-141-observation-20260930-01a0f318/endpoint-calibration-corrected-review.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "endpoint-calibration-independent-verdict.json is PASS for the tested 100% integer-valued picture/audio endpoints. Fractional and generalized retime cases remain outside its scope.",
+      "auditGrade": "independent-verdict-reviewed",
+      "evidenceVerdict": "endpoint-calibration-independent-verdict.json is PASS for the tested 100% integer-valued picture/audio endpoints. Fractional and generalized retime cases remain outside its scope."
+    },
+    {
+      "group": "Preparation",
+      "title": "Overlay placement and visibility calibration",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support-with-explicit-limits",
+      "dashboardEvidenceNote": "Native program samples retain overlay through local199 and black at200; base-video end remains199. Sampling does not establish audio timing or every possible effect.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/picture-calibration-success/summary.json",
+        "docs/investigations/issue-141/evidence/picture-calibration-success/"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "picture-calibration-success/summary.json records sampled base output through local frame 198 and black output at 199/200, with content restoration. Compositing/audio/general visibility are not established.",
+      "auditGrade": "summary-supported",
+      "evidenceVerdict": "picture-calibration-success/summary.json records sampled base output through local frame 198 and black output at 199/200, with content restoration. Compositing/audio/general visibility are not established."
+    },
+    {
+      "group": "R1 \u2014 identity and editorial survival",
+      "title": "R1-reopen: reopen exact project and compare IDs, custom data, ranges",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support-with-explicit-limits",
+      "dashboardEvidenceNote": "Operator reports reopening; retained capture preserves all IDs/custom data/ranges. Only two cache-location readings differ. This is one observed reopen, not a universal stability guarantee.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/native-duplicate-success/summary.json",
+        "docs/investigations/issue-141/evidence/after-reopen-read-only/summary.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "after-reopen-read-only and native-duplicate-success summaries retain reopened observations. IDs/markers/ranges are reported stable for the observed reopen, while four cache-setting reads and earlier Usage variation differ; not a universal stability claim.",
+      "auditGrade": "summary-supported-with-drift",
+      "evidenceVerdict": "after-reopen-read-only and native-duplicate-success summaries retain reopened observations. IDs/markers/ranges are reported stable for the observed reopen, while four cache-setting reads and earlier Usage variation differ; not a universal stability claim."
+    },
+    {
+      "group": "R1 \u2014 identity and editorial survival",
+      "title": "R1-duplicate: DuplicateTimeline to VERA 141 R1 identity; compare both timelines",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "Native duplication retained. Selected-context check also passed: inactive timeline track/audio-property readings differ; copied metadata is not lineage proof.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/native-duplicate-success/summary.json",
+        "docs/investigations/issue-141/evidence/native-duplicate-success/"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "native-duplicate-success/summary.json records DuplicateTimeline true, six fresh occurrence UIDs, five shared media UIDs, matching signatures/markers and exact duplicate saved passes. Baseline track-enabled, Usage and some getter values changed; copied metadata is not lineage.",
+      "auditGrade": "native-summary-reviewed",
+      "evidenceVerdict": "native-duplicate-success/summary.json records DuplicateTimeline true, six fresh occurrence UIDs, five shared media UIDs, matching signatures/markers and exact duplicate saved passes. Baseline track-enabled, Usage and some getter values changed; copied metadata is not lineage."
+    },
+    {
+      "group": "R1 \u2014 identity and editorial survival",
+      "title": "R1-trim: trim a separate labeled linked occurrence by 25 frames",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "Actual End to Playhead trimmed only the pinned linked V1/A1 pair by exactly25 frames: record500..674, source0..174, IDs/markers/links preserved. Original locks/playhead restored; complete comparison passes.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/r1-trim-success/"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "Current report/operator record and r1-trim-success before/after results show End to Playhead shortened the pinned linked V1/A1 pair from record 500..699/source 0..199 to record 500..674/source 0..174. Both record and source ends changed by 25; IDs, starts, links, markers and other state were preserved. Separate restoration retained the trim and restored the original playhead/lock context. This audit reuses the recorded comparison; it did not recompute it.",
+      "auditGrade": "report-verdict-reused",
+      "evidenceVerdict": "Current report/operator record and r1-trim-success before/after results show End to Playhead shortened the pinned linked V1/A1 pair from record 500..699/source 0..199 to record 500..674/source 0..174. Both record and source ends changed by 25; IDs, starts, links, markers and other state were preserved. Separate restoration retained the trim and restored the original playhead/lock context. This audit reuses the recorded comparison; it did not recompute it."
+    },
+    {
+      "group": "R1 \u2014 identity and editorial survival",
+      "title": "R1-move: move a separate labeled linked occurrence 25 frames later",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "All25 individually guarded one-frame nudges verified; only target record Start/End changed by25. IDs/source bounds/markers/links preserved. Full restoration comparison confirms only four temporary locks changed; original playhead restored.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/r1-move-success/"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "Current report/operator record and r1-move-success driver/readbacks record 25 verified one-frame moves: target record bounds advanced 25 while source bounds, IDs, links and markers remained. Temporary locks/playhead were restored; bounded to this pair.",
+      "auditGrade": "report-verdict-reused",
+      "evidenceVerdict": "Current report/operator record and r1-move-success driver/readbacks record 25 verified one-frame moves: target record bounds advanced 25 while source bounds, IDs, links and markers remained. Temporary locks/playhead were restored; bounded to this pair."
+    },
+    {
+      "group": "R1 \u2014 identity and editorial survival",
+      "title": "R1-razor: blade a separate labeled linked occurrence at local frame 100",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support-with-explicit-limits",
+      "dashboardEvidenceNote": "Native split independently verified against complete pairs. Original left IDs survive; right IDs are new; copied markers are ambiguous binding. Only the four temporary locks and recorded playhead were restored; real split retained.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/r1-razor-success/independent-comparison.json",
+        "docs/investigations/issue-141/evidence/r1-razor-context-restored/independent-comparison.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "r1-razor-success/independent-comparison.json verifies the split against full pairs; original left IDs persist, right IDs are new and inherited markers are ambiguous. r1-razor-context-restored/ comparison records locks/playhead restoration.",
+      "auditGrade": "independent-comparison-reviewed",
+      "evidenceVerdict": "r1-razor-success/independent-comparison.json verifies the split against full pairs; original left IDs persist, right IDs are new and inherited markers are ambiguous. r1-razor-context-restored/ comparison records locks/playhead restoration."
+    },
+    {
+      "group": "R1 \u2014 identity and editorial survival",
+      "title": "R1-copy: copy/paste one linked piece at a nonoverlapping location",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "Genuine Copy/Paste retained new V1/A1 IDs, reciprocal links and inherited markers; four Matrix proxy Out clearings remain unexplained. Independent restoration review specifies only locks/playhead restoration, keeping pasted clips and proxy drift. It was not staged or dispatched.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/r1-copy-paste-stopped/",
+        "docs/investigations/issue-141/evidence/r1-copy-paste-stopped/r1-copy-restore-review.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "r1-copy-paste-delta-review.json retains the genuine Copy/Paste result: new reciprocal linked IDs and inherited markers, plus four unexplained Matrix proxy Out-field changes; the review directs stop/no further mutation. r1-copy-restore-review.json separately specifies a limited unsaved restoration of V2/V3/A2/A3 locks and the recorded playhead while retaining the pasted clips and proxy drift. That restoration was reviewed but not staged or dispatched; the proposed scope excludes save, undo, render, retry or deletion.",
+      "auditGrade": "delta-review-reviewed-with-unresolved-drift",
+      "evidenceVerdict": "r1-copy-paste-delta-review.json retains the genuine Copy/Paste result: new reciprocal linked IDs and inherited markers, plus four unexplained Matrix proxy Out-field changes; the review directs stop/no further mutation. r1-copy-restore-review.json separately specifies a limited unsaved restoration of V2/V3/A2/A3 locks and the recorded playhead while retaining the pasted clips and proxy drift. That restoration was reviewed but not staged or dispatched; the proposed scope excludes save, undo, render, retry or deletion.",
+      "explicitLimits": [
+        "Do not undo, save, retry, render, or delete the pasted result or proxy drift; the separately reviewed limited context restoration was not staged or dispatched."
+      ]
+    },
+    {
+      "group": "R1 \u2014 identity and editorial survival",
+      "title": "R1-repeat: save/reopen repeat and second named duplicate",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support-with-explicit-limits",
+      "dashboardEvidenceNote": "Final reopen, exact restoration and actual second duplicate independently reviewed; seven timelines retained; Matrix context exact; native testing stopped.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/native-close-refusal/summary.json",
+        "docs/investigations/issue-141/evidence/native-reopen-cache-refusal/summary.json",
+        "docs/investigations/issue-141/evidence/native-duplicate-success/summary.json",
+        "output/r1-registration-readiness.json",
+        "docs/investigations/issue-141/r1-repeat-six-readiness.md",
+        "output/r1-reopen-final-independent-review.json",
+        "output/r1-selected-context-independent-review.json",
+        "output/r1-selection-restoration-independent-review.json",
+        "output/r1-selection-restoration-local.json",
+        "output/r1-restoration-menu-refusal-record.json",
+        "output/r1-final-native-executor-20261002-state.json",
+        "out/issue-141-observation-20260930-01a0f318/independent-action-20261002T125424.498570Z/launch.json",
+        "output/r1-restoration-menu-refusal-independent-review.json",
+        "output/r1-selection-restoration-native-independent-review.json",
+        "output/r1-final-seven-independent-review.json",
+        "output/r1-final-accepted-evidence.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "Final seven-timeline independent review verifies checkpoint-bound stable pairs, exact new timeline/name, six disjoint occurrence IDs, copied signature/media multisets, original-six/pool preservation except expected Usage and new proxy/mapping, and exact final Matrix context. No lineage inference or further native action.",
+      "auditGrade": "independent-verdict-reviewed",
+      "evidenceVerdict": "PASS_WITH_EXPLICIT_LINEAGE_LIMIT"
+    },
+    {
+      "group": "R2 \u2014 word boundaries and complete audio",
+      "title": "R2-linked-cut: remove frames 60\u201370 on linked V1/A1",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support-with-explicit-limits",
+      "dashboardEvidenceNote": "Physical linked cut and restoration verified; actual program supports absent/near-noise known generated speech in60..70gap, with strong retained neighboring supports. Independent completion review passed. General mixer/routing/audibility limits remain.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/r2-linked-physical-cut/",
+        "out/issue-141-observation-20260930-01a0f318/pcm-r2-independent-completion-review.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "pcm-r2-independent-completion-review.json verdict performed_with_bounded_findings: verified linked physical cut/restoration; generated second-word support is near-noise in the gap with strong neighbor correlations. Not universal speech deletion or routing.",
+      "auditGrade": "independent-r2-review",
+      "evidenceVerdict": "pcm-r2-independent-completion-review.json verdict performed_with_bounded_findings: verified linked physical cut/restoration; generated second-word support is near-noise in the gap with strong neighbor correlations. Not universal speech deletion or routing."
+    },
+    {
+      "group": "R2 \u2014 word boundaries and complete audio",
+      "title": "R2-unlinked-cut: unlink and remove interval on A1 only",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support-with-explicit-limits",
+      "dashboardEvidenceNote": "A1-only physical deletion with V1 preserved, restoration and actual program gap/neighbor metrics independently reviewed. Specific test performed; PCM alone does not establish link semantics or universal speech deletion.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/r2-unlinked-physical-cut/",
+        "out/issue-141-observation-20260930-01a0f318/pcm-r2-independent-completion-review.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "pcm-r2-independent-completion-review.json verdict performed_with_bounded_findings: A1-only removal with V1 preserved and bounded generated-program gap evidence. This does not generalize link semantics or all-source speech deletion.",
+      "auditGrade": "independent-r2-review",
+      "evidenceVerdict": "pcm-r2-independent-completion-review.json verdict performed_with_bounded_findings: A1-only removal with V1 preserved and bounded generated-program gap evidence. This does not generalize link semantics or all-source speech deletion."
+    },
+    {
+      "group": "R2 \u2014 word boundaries and complete audio",
+      "title": "R2-picture-only: remove interval on V1 only",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "V1-only removal with A1 continuous, restoration and actual program speech continuity independently reviewed. Audio survives the picture cut; picture removal must not imply speech deletion.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/audio-cases-success/summary.json",
+        "out/issue-141-observation-20260930-01a0f318/pcm-r2-independent-completion-review.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "pcm-r2-independent-completion-review.json reports the named picture-only cut with continuous A1 program speech. Picture removal does not establish speech omission.",
+      "auditGrade": "independent-r2-review",
+      "evidenceVerdict": "pcm-r2-independent-completion-review.json reports the named picture-only cut with continuous A1 program speech. Picture removal does not establish speech omission."
+    },
+    {
+      "group": "R2 \u2014 word boundaries and complete audio",
+      "title": "R2-partial: remove only frames 65\u201370 on A1",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support-with-explicit-limits",
+      "dashboardEvidenceNote": "65..70A1 removal and restoration reviewed; actual program retains9590samples of word head and low-level tail gap. Partial-word handling/manual review remains necessary.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/audio-cases-success/summary.json",
+        "out/issue-141-observation-20260930-01a0f318/pcm-r2-independent-completion-review.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "pcm-r2-independent-completion-review.json reports the partial cut; 9,590 samples of the word head remain in generated output. Whole-word deletion is not supported for this partial overlap.",
+      "auditGrade": "independent-r2-review",
+      "evidenceVerdict": "pcm-r2-independent-completion-review.json reports the partial cut; 9,590 samples of the word head remain in generated output. Whole-word deletion is not supported for this partial overlap."
+    },
+    {
+      "group": "R2 \u2014 word boundaries and complete audio",
+      "title": "R2-residual-track: enable A2 repeated-speech occurrence",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "A1/video60..70middle removal and restoration reviewed; actual program retains known generated speech inside that gap with enabled A2 present. Routing/track origin is not inferred from correlation.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/audio-cases-success/summary.json",
+        "out/issue-141-observation-20260930-01a0f318/pcm-r2-independent-completion-review.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "pcm-r2-independent-completion-review.json reports generated speech in the primary gap while A2 is enabled. Waveform origin does not prove track/bus routing.",
+      "auditGrade": "independent-r2-review",
+      "evidenceVerdict": "pcm-r2-independent-completion-review.json reports generated speech in the primary gap while A2 is enabled. Waveform origin does not prove track/bus routing."
+    },
+    {
+      "group": "R2 \u2014 word boundaries and complete audio",
+      "title": "R2-disable-mute: compare enabled/disabled, mute/solo, routing and output",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "bounded-restoration-reviewed-with-operator-attestation",
+      "dashboardEvidenceNote": "Completed Solo output comparison and reviewed post-restoration native context readback: the restored editorial pair exactly matches the pre-Solo reference, including adjacent reads, selection, playhead, and render settings. Operator attests Audio2 Solo off and M/S off on A1-A3; The current tested collector cannot attest Solo/bus state; installed documentation search is not global absence proof.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/audio-cases-success/summary.json",
+        "out/issue-141-observation-20260930-01a0f318/solo-output-comparison-result.json",
+        "out/issue-141-observation-20260930-01a0f318/fairlight-render-completion-summary.json",
+        "out/issue-141-observation-20260930-01a0f318/solo-off-restored-state-20261002T121158.440922Z.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "The retained solo-off-restored-state review is PASS_WITH_OPERATOR_ATTESTATION: its read-only post-restoration pair and pair-after-selection both hash-match the pre-Solo reference, adjacent reads are equal, the protected six-timeline inventory and empty selection/playhead/render context are restored. The operator attests Audio2 Solo off and M/S off on A1-A3; the current tested collector cannot attest Solo/bus state; the installed documentation search did not find a relevant getter, which is not proof of global absence. The completed Solo PCM comparison remains bounded to A2-correlated speech and zero A1/A3 controls; no routing or universal audibility claim.",
+      "explicitLimits": [
+        "Do not infer complete routing, bus origin, live monitoring audibility, or universal behavior.",
+        "The current tested collector cannot attest Solo/bus state; installed documentation search is not proof of global absence. The restoration readback covers surrounding editorial context; operator attestation covers Solo/M/S controls."
+      ],
+      "auditGrade": "independent-restoration-readback-reviewed-with-operator-attestation",
+      "evidenceVerdict": "The retained solo-off-restored-state review is PASS_WITH_OPERATOR_ATTESTATION: its read-only post-restoration pair and pair-after-selection both hash-match the pre-Solo reference, adjacent reads are equal, the protected six-timeline inventory and empty selection/playhead/render context are restored. The operator attests Audio2 Solo off and M/S off on A1-A3; the current tested collector cannot attest Solo/bus state; the installed documentation search did not find a relevant getter, which is not proof of global absence. The completed Solo PCM comparison remains bounded to A2-correlated speech and zero A1/A3 controls; no routing or universal audibility claim."
+    },
+    {
+      "group": "R2 \u2014 word boundaries and complete audio",
+      "title": "R2-offset: shift unlinked A1 one frame without changing source bounds",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "Actual A1bounds5001..5200 with unchanged source; current rendered waveform aligns at zero lag there and+1920samples against frame5000prediction. No prior baseline render invented; independently reviewed.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/audio-cases-success/summary.json",
+        "out/issue-141-observation-20260930-01a0f318/pcm-r2-independent-completion-review.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "pcm-r2-independent-completion-review.json reports moved A1 output aligned at the observed one-frame-later mapping against the old-position prediction. This is one generated case; no invented baseline render.",
+      "auditGrade": "independent-r2-review",
+      "evidenceVerdict": "pcm-r2-independent-completion-review.json reports moved A1 output aligned at the observed one-frame-later mapping against the old-position prediction. This is one generated case; no invented baseline render."
+    },
+    {
+      "group": "R2 \u2014 word boundaries and complete audio",
+      "title": "R2-retime: set linked clip to 50% and capture source map",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "Native SetSpeed on linked V1 changed video speed/source end; A1 stayed unchanged. Record duration stayed199; source end became99 and source-end time4.0. Final state restored exactly.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/audio-cases-success/summary.json",
+        "out/issue-141-observation-20260930-01a0f318/pcm-r2-independent-completion-review.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "audio-cases-success/summary.json records successful native audio-state/retime cases, equal adjacent captures and restoration to saved pin. Dashboard/report readback records V1 source end change while A1 stays unchanged; limits to this linked pair.",
+      "auditGrade": "native-audio-summary-reviewed",
+      "evidenceVerdict": "audio-cases-success/summary.json records successful native audio-state/retime cases, equal adjacent captures and restoration to saved pin. Dashboard/report readback records V1 source end change while A1 stays unchanged; limits to this linked pair."
+    },
+    {
+      "group": "R2 \u2014 word boundaries and complete audio",
+      "title": "R2-derived-end: compare subframe/source-time values to exact sample support",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support-with-explicit-limits",
+      "dashboardEvidenceNote": "42 stable native passes show frame-grid clip source times and integral record subframes; known sound-support ends extend0.884375 frames beyond integer frames. Later rendered PCM and integer endpoint calibration are complete for their named cases. Native per-word waveform endpoints, fractional-input precision and generalized retime timing remain unproved; no general API failure is inferred.",
+      "retainedEvidence": [
+        "out/issue-141-observation-20260930-01a0f318/endpoint-calibration-independent-verdict.json",
+        "out/issue-141-observation-20260930-01a0f318/pcm-r2-independent-completion-review.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "endpoint-calibration-independent-verdict.json PASS for tested integer 100% cases; PCM review binds named support. Fractional inputs, native per-word endpoints and generalized retime timing remain unproved.",
+      "auditGrade": "independent-endpoint-verdict",
+      "evidenceVerdict": "endpoint-calibration-independent-verdict.json PASS for tested integer 100% cases; PCM review binds named support. Fractional inputs, native per-word endpoints and generalized retime timing remain unproved."
+    },
+    {
+      "group": "R3 \u2014 visibility and structural boundaries",
+      "title": "R3-opaque: enable V2 and inspect frames 49, 50, 99, 100",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "Observed cutaway at50/98; base at49/99/100 and after disabling. Actual cutaway range is half-open50..99 in these samples.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/picture-cases-success/summary.json",
+        "docs/investigations/issue-141/evidence/picture-cases-success/"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "picture-cases-success/summary.json records 21 captures, 14 exports, all export hashes matching native readback; named samples show cutaway/return. Conclusions are restricted to those frames and synthetic clip.",
+      "auditGrade": "bounded-picture-summary",
+      "evidenceVerdict": "picture-cases-success/summary.json records 21 captures, 14 exports, all export hashes matching native readback; named samples show cutaway/return. Conclusions are restricted to those frames and synthetic clip."
+    },
+    {
+      "group": "R3 \u2014 visibility and structural boundaries",
+      "title": "R3-transparent: enable V3 and inspect overlap and return frames",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "Observed base plus translucent green at75/198, green over black at199, all-black at200; disabled75 returns base.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/picture-cases-success/summary.json",
+        "docs/investigations/issue-141/evidence/picture-cases-success/"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "picture-cases-success/summary.json records successful sampled exports. Current report gives translucent overlay through frame 199 and black at 200; not a general compositing guarantee.",
+      "auditGrade": "bounded-picture-summary",
+      "evidenceVerdict": "picture-cases-success/summary.json records successful sampled exports. Current report gives translucent overlay through frame 199 and black at 200; not a general compositing guarantee."
+    },
+    {
+      "group": "R3 \u2014 visibility and structural boundaries",
+      "title": "R3-effect: apply identified effect and record settings/viewer result",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support-with-explicit-limits",
+      "dashboardEvidenceNote": "Named Inspector Opacity25 was captured and exported at75/100; it reduced the translucent green overlay. Arbitrary OpenFX/Fusion remains unestablished.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/picture-cases-success/summary.json",
+        "docs/investigations/issue-141/evidence/picture-cases-success/"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "picture-cases-success/summary.json retains native setter/readback and export hashes for named Inspector Opacity 25. Arbitrary OpenFX/Fusion behavior remains unestablished.",
+      "auditGrade": "bounded-picture-summary",
+      "evidenceVerdict": "picture-cases-success/summary.json retains native setter/readback and export hashes for named Inspector Opacity 25. Arbitrary OpenFX/Fusion behavior remains unestablished."
+    },
+    {
+      "group": "R3 \u2014 visibility and structural boundaries",
+      "title": "R3-disabled: disable cutaway and overlay separately",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "Separate enable/disable transitions on pinned opaque/transparent targets are captured; disabled samples return base. Original content and playhead restored.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/picture-cases-success/summary.json",
+        "docs/investigations/issue-141/evidence/picture-cases-success/"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "picture-cases-success/summary.json records separately captured enable/disable transitions and restoration; sampled disabled frames return the base. No general visibility claim.",
+      "auditGrade": "bounded-picture-summary",
+      "evidenceVerdict": "picture-cases-success/summary.json records separately captured enable/disable transitions and restoration; sampled disabled frames return the base. No general visibility claim."
+    },
+    {
+      "group": "R3 \u2014 visibility and structural boundaries",
+      "title": "R3-offline: use R4 unlink probe and inspect present offline occurrence",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "Online0/50 show the synthetic base slate; offline0/50 show Media Offline with identical raw PNG hashes. Source and occurrence IDs remain present; one same-byte relink restores complete original timeline/pool pairs and playhead.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/offline-cycle-continuation-success/summary.json",
+        "docs/investigations/issue-141/evidence/picture-cases-success/summary.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "offline-cycle-continuation-success/summary.json and picture cases retain sampled online/offline output and exact relink restoration. Media Offline is distinguished from deletion for sampled frames only.",
+      "auditGrade": "bounded-output-and-relink-summary",
+      "evidenceVerdict": "offline-cycle-continuation-success/summary.json and picture cases retain sampled online/offline output and exact relink restoration. Media Offline is distinguished from deletion for sampled frames only."
+    },
+    {
+      "group": "R3 \u2014 visibility and structural boundaries",
+      "title": "R3-merge-graphic: blade V1/A1 under enabled V3; keep Graphic distinct",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "independent-comparison-reviewed",
+      "dashboardEvidenceNote": "Independent complete raw-pair review passes: only V1/A1 split and source Usage deltas; enabled V3 unchanged, protected state preserved. Final separate deselect readback verifies zero selections/playhead0 twice. Initial locked-track and stale-restoration refusals retained. Supports the structural distinction only, not general program visibility or lineage.",
+      "retainedEvidence": [
+        "out/issue-141-observation-20260930-01a0f318/r3-graphic-native-executor-result.json",
+        "out/issue-141-observation-20260930-01a0f318/r3-graphic-deselected-20261001T195652.401414Z/result.json",
+        "out/issue-141-observation-20260930-01a0f318/graphic-full-pair-independent-review.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "graphic-full-pair-independent-review.json reports completePairPasses=true and the structural criterion PASS: only the intended V1/A1 pair split, reciprocal linked children were retained, enabled V3 was unchanged, and split/final pairs are byte-equal. It records source Usage increments and a restore-wrapper refusal caveat; final context is retained as unsaved with empty selection/playhead at zero. This proves the bounded structural case, not lineage or program visibility.",
+      "auditGrade": "independent-comparison-reviewed",
+      "evidenceVerdict": "graphic-full-pair-independent-review.json reports completePairPasses=true and the structural criterion PASS: only the intended V1/A1 pair split, reciprocal linked children were retained, enabled V3 was unchanged, and split/final pairs are byte-equal. It records source Usage increments and a restore-wrapper refusal caveat; final context is retained as unsaved with empty selection/playhead at zero. This proves the bounded structural case, not lineage or program visibility."
+    },
+    {
+      "group": "R3 \u2014 visibility and structural boundaries",
+      "title": "R3-boundary: blade base A/V at frame 100, then A3 crossing bed",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "independent-verdict-reviewed",
+      "dashboardEvidenceNote": "Independent complete review passes every boundary verdict: base/A3 final readbacks bind to manifest pairs, authored9100 marker and A3 ranges9000..9100/source0..100 plus9100..9199/source100..199 are retained, Usage leaves are correct, locks/playhead0 and empty selections are restored, and enabled V3/A2 crossings are unchanged. Structural boundary behavior is complete; no general visibility, lineage or audibility claim.",
+      "retainedEvidence": [
+        "out/issue-141-observation-20260930-01a0f318/r3-boundary-split-20261001T203852.778627Z/result.json",
+        "out/issue-141-observation-20260930-01a0f318/r3-boundary-a3-split-20261001T204503.938058Z/result.json",
+        "out/issue-141-observation-20260930-01a0f318/boundary-complete-independent-review.json",
+        "out/issue-141-observation-20260930-01a0f318/boundary-base-native-executor-result.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "boundary-complete-independent-review.json has all structural verdicts true: base target links/geometry and normalized pair, A3 unlinked split geometry and normalized pair, authored boundary marker retained, protected V3/A2 crossings unchanged, only expected Usage leaves changed, final locks restored, and empty A3 readback at the original playhead twice. It supports this exact bounded split sequence; it does not establish general visibility, lineage, or audio-sample behavior.",
+      "auditGrade": "independent-verdict-reviewed",
+      "evidenceVerdict": "boundary-complete-independent-review.json has all structural verdicts true: base target links/geometry and normalized pair, A3 unlinked split geometry and normalized pair, authored boundary marker retained, protected V3/A2 crossings unchanged, only expected Usage leaves changed, final locks restored, and empty A3 readback at the original playhead twice. It supports this exact bounded split sequence; it does not establish general visibility, lineage, or audio-sample behavior."
+    },
+    {
+      "group": "R3 \u2014 visibility and structural boundaries",
+      "title": "R3-visibility interpretation: bound claims to inspected frames/effects",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "independent-report-review-reused",
+      "dashboardEvidenceNote": "Consolidated bounded interpretation reverified 39 published bindings, 14 PNG hashes, four raw captures and complete content restoration. It completes the named visibility interpretation; independent Graphic and authored-boundary structural reviews are separately complete. General visibility/export synchronization remains ambiguous.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/visibility-interpretation/report.md",
+        "docs/investigations/issue-141/report.md",
+        "docs/investigations/issue-141/evidence/visibility-interpretation/analysis.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "visibility-interpretation/report.md records rechecking all 39 published file bindings, all 14 exported PNG hashes against the native result, four complete raw-capture bindings, equal adjacent reads, and exact final content equality with the saved Matrix. Independent RGB decoding found the transparent still nonblack at local 199 and entirely black at 200; its 125-frame range agrees with those samples. Export synchronization, audio endpoints, arbitrary effects, and general visibility remain unproved. This audit reuses that completed interpretation; it did not decode images or inspect protected media.",
+      "auditGrade": "independent-report-review-reused",
+      "evidenceVerdict": "visibility-interpretation/report.md records rechecking all 39 published file bindings, all 14 exported PNG hashes against the native result, four complete raw-capture bindings, equal adjacent reads, and exact final content equality with the saved Matrix. Independent RGB decoding found the transparent still nonblack at local 199 and entirely black at 200; its 125-frame range agrees with those samples. Export synchronization, audio endpoints, arbitrary effects, and general visibility remain unproved. This audit reuses that completed interpretation; it did not decode images or inspect protected media."
+    },
+    {
+      "group": "R4 \u2014 asset identity and availability",
+      "title": "R4-unlink: unlink synthetic base.mov pool item; capture occurrence/status",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "One native UnlinkClips returned True. Corrected full adjacent reads retain the exact imported pool/occurrence IDs and explicit Offline status. Relink-only recovery subsequently restored all original online state; no unlink retry.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/offline-cycle-continuation-success/summary.json",
+        "docs/investigations/issue-141/evidence/r4-offline-prefix-read-only/summary.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "r4-offline-prefix-read-only and offline-cycle summaries retain the same occurrence/source pool item in Offline status and the one native unlink return. Initial prefix refusal is a harness/read limitation, not capability failure.",
+      "auditGrade": "summary-supported",
+      "evidenceVerdict": "r4-offline-prefix-read-only and offline-cycle summaries retain the same occurrence/source pool item in Offline status and the one native unlink return. Initial prefix refusal is a harness/read limitation, not capability failure."
+    },
+    {
+      "group": "R4 \u2014 asset identity and availability",
+      "title": "R4-relink: relink exact item to same-byte generated candidate",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support-with-explicit-limits",
+      "dashboardEvidenceNote": "One native RelinkClips returned True at01:45 UTC. Two full postflight timeline/pool reads exactly equal the original online checkpoint. All manifest bytes unchanged; no save or retry. Offline program output remains a separate pending check.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/offline-cycle-continuation-success/summary.json",
+        "docs/investigations/issue-141/evidence/r4-recovery-success/summary.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "r4-recovery-success/summary.json records one RelinkClips True, manifest bytes preserved and complete postflight equal to original online pin. Picture export was not performed in that recovery.",
+      "auditGrade": "recovery-verdict-reviewed",
+      "evidenceVerdict": "r4-recovery-success/summary.json records one RelinkClips True, manifest bytes preserved and complete postflight equal to original online pin. Picture export was not performed in that recovery."
+    },
+    {
+      "group": "R4 \u2014 asset identity and availability",
+      "title": "R4-wrong-bytes: staged same-locator replacement and refresh/reopen",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support-with-explicit-limits",
+      "dashboardEvidenceNote": "Different bytes at the same locator retained identical source/occurrence IDs and Online status. After one relink refresh, frame0 still matched the original slate byte-for-byte; displayed replacement is unestablished. Original bytes, full state and sampled output restored exactly.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/r4-wrong-bytes-success/summary.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "r4-wrong-bytes-success/summary.json records byte mismatch despite stable IDs/Online status and exact source/state restoration; sampled frame remained original slate, so displayed replacement is unestablished.",
+      "auditGrade": "summary-supported",
+      "evidenceVerdict": "r4-wrong-bytes-success/summary.json records byte mismatch despite stable IDs/Online status and exact source/state restoration; sampled frame remained original slate, so displayed replacement is unestablished."
+    },
+    {
+      "group": "R4 \u2014 asset identity and availability",
+      "title": "R4-remove: compare removed occurrence with offline-present case; journal restore",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "Non-ripple deletion removed the old occurrence while preserving the online/hash-verified source. Separate append and read-only postflight re-established source0..199 at record0..199 with actual new UID65a7bcd1\u2026cc84. Append switched to Edit; page guard refusal was diagnosed without retry. This is new-ID content re-preparation, not old identity restoration.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/r4-removal-success/independent-comparison.json",
+        "docs/investigations/issue-141/evidence/r4-reprepare-read-only/independent-comparison.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "r4-removal-success/independent-comparison.json verifies one non-ripple occurrence removal with source retained; r4-reprepare-read-only comparison verifies a separate new occurrence UID, not identity restoration.",
+      "auditGrade": "independent-comparison-reviewed",
+      "evidenceVerdict": "r4-removal-success/independent-comparison.json verifies one non-ripple occurrence removal with source retained; r4-reprepare-read-only comparison verifies a separate new occurrence UID, not identity restoration."
+    },
+    {
+      "group": "R5 \u2014 repeats, markers and freshness",
+      "title": "R5-quiet: separate-launch quiet comparison",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "Raw observation passes match baseline exactly; only outer capturedAt and stage differ.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/quiet-repeat/summary.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "quiet-repeat/summary.json reports zero raw-observation differences across separate launcher runs (envelope capturedAt/stage excluded), matching fingerprints and no getter errors. Adjacent reads do not prove atomicity.",
+      "auditGrade": "summary-supported",
+      "evidenceVerdict": "quiet-repeat/summary.json reports zero raw-observation differences across separate launcher runs (envelope capturedAt/stage excluded), matching fingerprints and no getter errors. Adjacent reads do not prove atomicity."
+    },
+    {
+      "group": "R5 \u2014 repeats, markers and freshness",
+      "title": "R5-reopen: compare markers, IDs, ranges and settings after reopen",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "Native reopen preserves IDs, markers, ranges and verified bytes. Initial read refuses real Usage-counter variation; later two passes equal saved content except four cache readbacks changed to CacheClip.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/after-reopen-read-only/summary.json",
+        "docs/investigations/issue-141/evidence/native-duplicate-success/summary.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "after-reopen-read-only summary records equal adjacent observations after reopen but four cache-location differences from the saved pin; native duplicate summary separately binds IDs/markers. This is a bounded reopen, not atomic/ABA proof.",
+      "auditGrade": "summary-supported-with-settings-drift",
+      "evidenceVerdict": "after-reopen-read-only summary records equal adjacent observations after reopen but four cache-location differences from the saved pin; native duplicate summary separately binds IDs/markers. This is a bounded reopen, not atomic/ABA proof."
+    },
+    {
+      "group": "R5 \u2014 repeats, markers and freshness",
+      "title": "R5-marker-and-move: edit marker note, then move one clip one frame",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "Manual marker note and linked one-frame move verified in complete stable timeline/pool reads. Both target IDs move record0..199 to1..200; source bounds, links, enablement and marker remain unchanged. Authorized producer additions, cache/context changes and omitted inactive audio properties retained separately; no all-state-unchanged or atomicity claim.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/r5-manual-marker-move/summary.json",
+        "out/issue-141-observation-20260930-01a0f318/r5-independent-fresh-comparison-20261001T181642Z.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "r5-independent-fresh-comparison-20261001T181642Z.json says BOUNDED_R5_MOVE_PASS: both linked target IDs move +1 in both stable fresh passes with source bounds, links and marker identity preserved. An earlier r5-manual-marker-move summary is explicitly preliminary/unverified; the later independent verdict supersedes that checkpoint. No atomicity/all-state-unchanged claim.",
+      "auditGrade": "independent-verdict-reviewed",
+      "evidenceVerdict": "r5-independent-fresh-comparison-20261001T181642Z.json says BOUNDED_R5_MOVE_PASS: both linked target IDs move +1 in both stable fresh passes with source bounds, links and marker identity preserved. An earlier r5-manual-marker-move summary is explicitly preliminary/unverified; the later independent verdict supersedes that checkpoint. No atomicity/all-state-unchanged claim."
+    },
+    {
+      "group": "R5 \u2014 repeats, markers and freshness",
+      "title": "R5-concurrent-edit: bounded edit during capture; retain refusal if inconsistent",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support",
+      "dashboardEvidenceNote": "Real probe.capture refused a controlled marker-customData change between its two passes; independent comparison verifies sole-field drift, zero getter/capture failures and exact full restoration. No atomic token, ABA exclusion or simultaneous UI-race claim.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/evidence/r5-capture-loop-success/summary.json",
+        "docs/investigations/issue-141/evidence/r5-controlled-metadata/summary.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "r5-capture-loop-success and r5-controlled-metadata summaries record refusal on the sole controlled interpass marker customData change, zero getter/capture failures, and exact restoration. No simultaneous UI race, atomic token or ABA exclusion.",
+      "auditGrade": "summary-supported",
+      "evidenceVerdict": "r5-capture-loop-success and r5-controlled-metadata summaries record refusal on the sole controlled interpass marker customData change, zero getter/capture failures, and exact restoration. No simultaneous UI race, atomic token or ABA exclusion."
+    },
+    {
+      "group": "Closeout",
+      "title": "Complete evidence report and bounded interpretations for every R1\u2013R5 result",
+      "dashboardStatus": "done",
+      "completionJustified": true,
+      "classification": "reviewed-bounded-support-with-explicit-limits",
+      "dashboardEvidenceNote": "Final findings consolidate all R1\u2013R5 results, supplemental transcript test, explicit limits, safe handling and existing downstream owners. External review is the sole remaining gate.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/report.md",
+        "docs/investigations/issue-141/operator-record.md",
+        "docs/investigations/issue-141/operator-checklist.md",
+        "docs/investigations/issue-141/final-findings.md",
+        "output/r1-final-seven-independent-review.json"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "The complete local report and unchanged 41-title evidence index bind the retained reviewed results; chronological failure/raw records remain preserved. No issue closure, product implementation or contract change is claimed.",
+      "auditGrade": "consolidated-report-ready",
+      "evidenceVerdict": "REPORT_CONSOLIDATED_EXTERNAL_PENDING"
+    },
+    {
+      "group": "Closeout",
+      "title": "External evidence review and remaining operator judgments",
+      "dashboardStatus": "pending",
+      "completionJustified": false,
+      "classification": "pending-external",
+      "dashboardEvidenceNote": "Standing None/synthetic-only attestations are retained; no repeat setting confirmation is requested. Untested editorial/output cases still need actual evidence.",
+      "retainedEvidence": [
+        "docs/investigations/issue-141/operator-record.md",
+        "docs/investigations/issue-141/operator-checklist.md"
+      ],
+      "referenceCheck": {
+        "allPathsPresent": true,
+        "missingPaths": []
+      },
+      "assessment": "Dashboard marks pending. Preparation-scope/None confirmation is retained; final External review and required operator judgments after R1/Solo restoration are outstanding.",
+      "auditGrade": "pending-external-review",
+      "evidenceVerdict": "Dashboard marks pending. Preparation-scope/None confirmation is retained; final External review and required operator judgments after R1/Solo restoration are outstanding."
+    }
+  ],
+  "closeoutGaps": [
+    "External evidence review is the sole remaining dashboard gate; it cannot be supplied by an agent or inferred from tests.",
+    "Preserve explicit lineage, routing, visibility, byte identity, fractional timing and atomicity limits. #146 transcript coverage/freshness enforcement is required future product work, not implemented here.",
+    "No further native actions, old six-timeline collector, save, render, cleanup, rename or deletion after the final duplicate."
+  ],
+  "downstreamCloseoutWording": "Issue 141 supports the named Studio21.1 build14 results only. Reopen/duplicate repeats and trim/move/razor/Copy-Paste observations are reviewed; signatures are not lineage. Rendered PCM establishes named generated-waveform behavior, not universal audible routing. Source-range transcription reconstructed the accepted omission and requires #146 coverage/freshness gating; #145 still needs its own real-script run. Visibility/asset/freshness limits require verified facts, narrower automation or manual review under #101\u2013#104, with downstream constraints for #131/#139. No reproduced core authoring failure is established. External review remains pending.",
+  "explicitLimits": [
+    "Current state: 40 done, 0 working, 1 pending (External review). All native tests are performed and independently reviewed.",
+    "R2 Solo controls are operator-reported; the current collector does not attest full Solo/bus routing.",
+    "Done means the named check was performed/reviewed, including bounded ambiguity, not universal capability."
+  ],
+  "referenceAuditSummary": {
+    "titleCount": 41,
+    "missingReferences": []
+  },
+  "perTitleAuditCaveat": "For dashboard rows marked done, completion is justified only as the named check described by its retained note and references. Reported ambiguity, unavailable readback, restored-state limits and non-general conclusions remain part of that done result.",
+  "evidenceAuditCounts": {
+    "titles": 41,
+    "dashboardDone": 40,
+    "evidenceJustifiedDone": 40,
+    "dashboardWorking": 0,
+    "dashboardPending": 1,
+    "auditGradeCounts": {
+      "bounded-output-and-relink-summary": 1,
+      "bounded-picture-summary": 4,
+      "consolidated-report-ready": 1,
+      "delta-review-reviewed-with-unresolved-drift": 1,
+      "independent-comparison-reviewed": 3,
+      "independent-endpoint-verdict": 1,
+      "independent-r2-review": 6,
+      "independent-report-review-reused": 1,
+      "independent-restoration-readback-reviewed-with-operator-attestation": 1,
+      "independent-verdict-reviewed": 4,
+      "native-audio-summary-reviewed": 1,
+      "native-summary-reviewed": 1,
+      "pending-external-review": 1,
+      "recorded-verdict-reviewed": 1,
+      "recovery-verdict-reviewed": 1,
+      "report-verdict-reused": 3,
+      "summary-supported": 8,
+      "summary-supported-with-drift": 1,
+      "summary-supported-with-settings-drift": 1
+    }
+  },
+  "finalReportOutline": [
+    {
+      "section": "Scope and evidence basis",
+      "supported": "Studio 21.1.0 build 14; named synthetic project, External Scripting None by operator attestation; 41-title matrix. Separate retained real observations from harness outcomes.",
+      "ambiguous": "Only tested disposable conditions/build.",
+      "unavailable": "No API observation of External Scripting preference."
+    },
+    {
+      "section": "R1 identity and editorial survival",
+      "supported": "First and second native duplicates/reopen are reviewed, with six new disjoint occurrence IDs in each named copied timeline and shared source/signature matches. Named trim/move/razor/Copy-Paste and exact final Matrix restoration are retained; all seven timelines are preserved.",
+      "ambiguous": "Copied signatures/metadata do not prove lineage; context-dependent getters and transient Usage/Resolution/cache/Out readings remain explicit. Final original-six/pool comparison permits only expected Usage and new duplicate proxy/mapping.",
+      "unavailable": "Lineage is not established by the observed fields; this does not claim global absence of a Resolve lineage capability. No R1 native test remains pending.",
+      "reconciliationOperation": "#101 identity/source observation; #102 ambiguity classification; #103 review/staleness; #104 refuse unsafe identity binding."
+    },
+    {
+      "section": "R2 speech, mute, Solo and timing",
+      "supported": "Six generated waveform/edit cases, bounded normal-speed integer endpoint calibration, and completed A2-Solo PCM comparison. Mapping mute did not establish speech silence in its tested case.",
+      "ambiguous": "Generated PCM correlation does not establish bus/track origin or universal audibility; partial word/residual speech require review. Solo/M/S restoration is operator-attested; the read-only editorial context pair matches the pre-Solo reference.",
+      "unavailable": "The current tested collector cannot attest Solo/bus state; the installed documentation search is not proof of global absence. Fairlight routing and fractional/general retimed word endpoints remain unproved.",
+      "reconciliationOperation": "Spoken-omission decision in #101\u2013#104; #144/#145 positive cases need bounded source evidence plus either complete route/timing or accepted transcript gate #146."
+    },
+    {
+      "section": "R3 visibility and structure",
+      "supported": "Named opaque/transparent/opacity/disabled/offline samples and separate Graphic/authored-boundary structural edits.",
+      "ambiguous": "Sampled pixels/frames do not prove all-frame visibility, arbitrary effects or lineage; preserve crossing media and Graphic distinction.",
+      "unavailable": "General effect-graph/all-frame visibility remains ambiguous and unproved; missing evidence is not a reproduced Resolve capability failure.",
+      "reconciliationOperation": "Visual ordering/segment regrouping in #102/#103; #104 preserves ambiguous layers and requires review."
+    },
+    {
+      "section": "R4 asset availability and deletion",
+      "supported": "Named offline-present, same-byte relink, wrong-byte same-locator, occurrence removal and source-retention cases with bounded restoration evidence.",
+      "ambiguous": "IDs/path/Online state do not establish bytes or displayed replacement; cache behavior remains bounded.",
+      "unavailable": "Arbitrary-source relink/identity guarantee is unproved, not demonstrated unavailable.",
+      "reconciliationOperation": "Asset replacement/offline/deletion classification across #101/#102; #104 must not delete/replace from locator/status alone."
+    },
+    {
+      "section": "R5 freshness and repeatability",
+      "supported": "Separate-launch quiet comparison; bounded reopened read; manual marker/move independent verdict; controlled interpass change refused and restored.",
+      "ambiguous": "R5 move preliminary summary conflicts with later independent BOUNDED_R5_MOVE_PASS; use later verdict and retain unrelated deltas. Equal reads do not rule out ABA/UI races.",
+      "unavailable": "Current collector supplies no atomic revision token; ABA and simultaneous UI-race protection are unproved. No global absence claim.",
+      "reconciliationOperation": "#103 stale-review invalidation and repeat evidence; #104 blocks commit/apply after drift or incomplete capture."
+    },
+    {
+      "section": "Downstream decision",
+      "supported": "#131/#139 feasibility limits and #101\u2013#104 preservation/review/fail-closed boundaries; #144/#145 only named synthetic move/trim and source-range transcription reconstruction limits.",
+      "ambiguous": "No audible deletion from source transcript alone; #145 needs its own real-script run.",
+      "unavailable": "#146 transcript option requires accepted coverage/freshness; otherwise complete audible routing/timing or keep spoken omission unproved."
+    }
+  ],
+  "followupAuditCaveat": "Final reopen, exact Matrix restoration and actual second duplicate are independently reviewed. One exact seventh timeline with six new disjoint occurrences and shared source/signature multiset is retained. Original six/pool are preserved except expected Usage and new proxy/mapping; final Matrix context is exact. Earlier guard/window refusals remain historical. All native testing stopped. Final report complete; sole outstanding gate is External review."
+}

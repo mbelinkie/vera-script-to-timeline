@@ -1,0 +1,15 @@
+{
+  "changes": {
+    "editorial-cases-check.py": "6d6edf65b4b43971997c8b2fc48afd77959e9fa84c946e349c2308e33875b019",
+    "editorial-cases.py": "4f8acafc4ba78483518f4b9b39946888b7c79a3109d47a72a610d975abe851c6",
+    "independent-residual-sequence.py": "d34094fea74005f95ff5df0b177fa056ec61f774bf03a4e32e70ce0ce46664dd"
+  },
+  "checks": {
+    "editorial-cases-check.py": "passed; fake only; no native app",
+    "py_compile": "passed"
+  },
+  "firstSplitReview": "Removed premature native review; local proof uses _named_linked_children.",
+  "remaining": "Resume-record preparation, exact offset baseline proof, verified resume provenance, and native first-selection binding were not implemented. Recovery must not be run.",
+  "scope": "first split local proof only",
+  "status": "partial-repair"
+}\n

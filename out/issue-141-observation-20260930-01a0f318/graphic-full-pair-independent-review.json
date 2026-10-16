@@ -1,0 +1,54 @@
+{
+  "taskId": "Issue 141",
+  "kind": "issue-141-r3-graphic-full-pair-independent-review",
+  "reviewOnly": true,
+  "sources": {
+    "preparation": {
+      "path": "independent-structural-sequence-20261001T195612.955443Z/preparation.json",
+      "sha256": "01071e407a59b2d8e07d38f9f92f35f2dd337952e9874f76235a4344fd85524b"
+    },
+    "preparedPair": {
+      "path": "editorial-case-20261001T195623.247896Z/after.json",
+      "sha256": "84ef0184afe92463f4da1e8f2ae451da792a0f5e329c12e1594a4cbcae6953b4"
+    },
+    "splitPair": {
+      "path": "r3-graphic-split-20261001T195720.892725Z/pair.json",
+      "sha256": "b45c1e45ace27f59052618536cd0121646b4995297b6eb2628d87b3686d7e78b"
+    },
+    "restoreResult": {
+      "path": "graphic-restore-only-result.json",
+      "sha256": "9a843eeb4da1ab9e089f050a1b5d1a9729ac4c45dcd31f3108f30ed40be5444d"
+    },
+    "deselectResult": {
+      "path": "graphic-deselect-only-result.json",
+      "sha256": "2188b44488257b2939d810304885321afffd18e5ea5671067f8d4a7aeaa5ea4a"
+    },
+    "finalContextPair": {
+      "path": "r3-graphic-context-20261001T200750.808432Z/pair.json",
+      "sha256": "b45c1e45ace27f59052618536cd0121646b4995297b6eb2628d87b3686d7e78b"
+    }
+  },
+  "comparison": {
+    "completePairPasses": true,
+    "protectedTimelinePool": "pass; only the expected R3-Graphic split and source Usage deltas remain",
+    "split": {
+      "videoUid": "70717d8e-6888-421b-825a-8e093beb2c45",
+      "audioUid": "2e9c3451-1ed8-4e88-985d-ef5e7f3a070b",
+      "left": "both retained at 8500..8600, source 0..100, duration 100",
+      "right": "new V1/A1 children at 8600..8699, source 100..199, duration 99, reciprocal links",
+      "v3": "enabled occurrence ea448c37-4821-419d-8fbf-112790cc0499 unchanged",
+      "sourceUsage": {
+        "base.mov/9202163a-8381-43e6-9157-3a60f35c6f79": "25 -> 26",
+        "repeated.wav/a7ad9e19-d49b-428b-9fd5-95c90d60e6f8": "47 -> 48"
+      }
+    },
+    "context": {
+      "splitAndFinalPairByteEqual": true,
+      "restore": "restored-unsaved; playhead 00:00:00:00",
+      "deselect": "pass; selection counts 0,0",
+      "wrapperStatus": "final-readback-refused-or-mismatched",
+      "finalReadback": "editorial-readback-retained"
+    }
+  },
+  "decision": "R3-merge-graphic structural criterion passes. The final pair preserves the split and context readback, but retain the restore wrapper status as a context-restoration caveat; no lineage or program-visibility claim follows."
+}

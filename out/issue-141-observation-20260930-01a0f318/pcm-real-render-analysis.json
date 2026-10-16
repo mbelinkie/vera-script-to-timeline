@@ -1,0 +1,1414 @@
+{
+  "caseFindings": [
+    {
+      "case": "R2-linked",
+      "comparerObservations": [
+        {
+          "enabled": true,
+          "segments": [
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 1.0020988817525676,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 302.7560566575746,
+                "residualEnergy": 0.9921173954405699,
+                "sampleCount": 17048,
+                "score": 0.9983601789483596,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 4836258,
+              "recordStartSample": 4819210,
+              "sourceEndSample": 36258,
+              "sourceStartSample": 19210
+            }
+          ],
+          "speedPercent": 100.0,
+          "status": "compared",
+          "trackEnabled": true,
+          "trackIndex": 1,
+          "uid": "c6280b39-7618-4136-81e3-17c855866c84"
+        },
+        {
+          "enabled": true,
+          "segments": [
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 1.0020988817525676,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 302.7560566575746,
+                "residualEnergy": 0.9921173954405699,
+                "sampleCount": 17048,
+                "score": 0.9983601789483596,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 5028258,
+              "recordStartSample": 5011210,
+              "sourceEndSample": 228258,
+              "sourceStartSample": 211210
+            },
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 1.0020988817525676,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 302.7560566575746,
+                "residualEnergy": 0.9921173954405699,
+                "sampleCount": 17048,
+                "score": 0.9983601789483596,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 5124258,
+              "recordStartSample": 5107210,
+              "sourceEndSample": 324258,
+              "sourceStartSample": 307210
+            }
+          ],
+          "speedPercent": 100.0,
+          "status": "compared",
+          "trackEnabled": true,
+          "trackIndex": 1,
+          "uid": "dd5571fb-6b2c-486d-87eb-242a69802267"
+        }
+      ],
+      "expectedSupportWindow": {
+        "comparison": {
+          "bestLagSamples": -513,
+          "gain": 0.004668714684813016,
+          "limits": {
+            "coarseStepSamples": 32,
+            "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+            "maxLagSamples": 1920,
+            "strongCorrelationThreshold": 0.8
+          },
+          "renderedEnergy": 0.994612643002796,
+          "residualEnergy": 0.9880626497356778,
+          "sampleCount": 17048,
+          "score": 0.08115091837663371,
+          "status": "weak-or-ambiguous-correlation"
+        },
+        "recordPredictionStartFrame": 2500,
+        "recordPredictionStartSample": 4915210,
+        "sourceSamples": [
+          115210,
+          132258
+        ]
+      },
+      "finding": "First and later generated supports correlate strongly; the known second support inside the 60..70 cut has weak correlation and near-noise program energy.",
+      "frameRange": [
+        2500,
+        2699
+      ],
+      "gapOrDiagnosticWindow": {
+        "pcm24MonoAveraged": {
+          "endSampleExclusive": 4934400,
+          "energy": 1.120291961205453,
+          "nonzeroAt1e-4": 19096,
+          "nonzeroAt1e-5": 19192,
+          "peakAbs": 0.010802388191223145,
+          "rms": 0.007638621580240596,
+          "sampleCount": 19200,
+          "startSample": 4915200
+        },
+        "recordFrames": [
+          2560,
+          2570
+        ],
+        "sourceSupportReference": {
+          "endSampleExclusive": 132258,
+          "energy": 300.50118256546557,
+          "nonzeroAt1e-4": 15538,
+          "nonzeroAt1e-5": 16724,
+          "peakAbs": 0.73870849609375,
+          "rms": 0.1327658481919228,
+          "sampleCount": 17048,
+          "startSample": 115210
+        }
+      },
+      "interpretation": "Waveform evidence supports an absent known generated support in the cut window, while routing and final audibility remain unobserved.",
+      "items": [
+        {
+          "enabled": true,
+          "markers": [
+            {
+              "name": "141 R2-linked item 1",
+              "occurrence": 1,
+              "section": "R2-linked"
+            }
+          ],
+          "recordEndFrame": 2560,
+          "recordStartFrame": 2500,
+          "sourceEndFrame": 60,
+          "sourceStartFrame": 0,
+          "speedPercent": 100.0,
+          "trackEnabled": true,
+          "trackIndex": 1,
+          "uid": "c6280b39-7618-4136-81e3-17c855866c84"
+        },
+        {
+          "enabled": true,
+          "markers": [
+            {
+              "name": "141 R2-linked item 1",
+              "occurrence": 1,
+              "section": "R2-linked"
+            }
+          ],
+          "recordEndFrame": 2699,
+          "recordStartFrame": 2570,
+          "sourceEndFrame": 199,
+          "sourceStartFrame": 70,
+          "speedPercent": 100.0,
+          "trackEnabled": true,
+          "trackIndex": 1,
+          "uid": "dd5571fb-6b2c-486d-87eb-242a69802267"
+        }
+      ]
+    },
+    {
+      "case": "R2-unlinked",
+      "comparerObservations": [
+        {
+          "enabled": true,
+          "segments": [
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 1.0020988817525676,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 302.7560566575746,
+                "residualEnergy": 0.9921173954405699,
+                "sampleCount": 17048,
+                "score": 0.9983601789483596,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 5796258,
+              "recordStartSample": 5779210,
+              "sourceEndSample": 36258,
+              "sourceStartSample": 19210
+            }
+          ],
+          "speedPercent": 100.0,
+          "status": "compared",
+          "trackEnabled": true,
+          "trackIndex": 1,
+          "uid": "7c970634-6fcb-4117-9a51-221a482c7142"
+        },
+        {
+          "enabled": true,
+          "segments": [
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 1.0020988817525676,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 302.7560566575746,
+                "residualEnergy": 0.9921173954405699,
+                "sampleCount": 17048,
+                "score": 0.9983601789483596,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 5988258,
+              "recordStartSample": 5971210,
+              "sourceEndSample": 228258,
+              "sourceStartSample": 211210
+            },
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 1.0020988817525676,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 302.7560566575746,
+                "residualEnergy": 0.9921173954405699,
+                "sampleCount": 17048,
+                "score": 0.9983601789483596,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 6084258,
+              "recordStartSample": 6067210,
+              "sourceEndSample": 324258,
+              "sourceStartSample": 307210
+            }
+          ],
+          "speedPercent": 100.0,
+          "status": "compared",
+          "trackEnabled": true,
+          "trackIndex": 1,
+          "uid": "04567868-28d3-47f5-bd7b-dca08fef8b27"
+        }
+      ],
+      "expectedSupportWindow": {
+        "comparison": {
+          "bestLagSamples": -513,
+          "gain": 0.004668714684813016,
+          "limits": {
+            "coarseStepSamples": 32,
+            "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+            "maxLagSamples": 1920,
+            "strongCorrelationThreshold": 0.8
+          },
+          "renderedEnergy": 0.994612643002796,
+          "residualEnergy": 0.9880626497356778,
+          "sampleCount": 17048,
+          "score": 0.08115091837663371,
+          "status": "weak-or-ambiguous-correlation"
+        },
+        "recordPredictionStartFrame": 3000,
+        "recordPredictionStartSample": 5875210,
+        "sourceSamples": [
+          115210,
+          132258
+        ]
+      },
+      "finding": "First and later generated supports correlate strongly; the known second support inside the 60..70 cut has weak correlation and near-noise program energy.",
+      "frameRange": [
+        3000,
+        3199
+      ],
+      "gapOrDiagnosticWindow": {
+        "pcm24MonoAveraged": {
+          "endSampleExclusive": 5894400,
+          "energy": 1.120291961205453,
+          "nonzeroAt1e-4": 19096,
+          "nonzeroAt1e-5": 19192,
+          "peakAbs": 0.010802388191223145,
+          "rms": 0.007638621580240596,
+          "sampleCount": 19200,
+          "startSample": 5875200
+        },
+        "recordFrames": [
+          3060,
+          3070
+        ],
+        "sourceSupportReference": {
+          "endSampleExclusive": 132258,
+          "energy": 300.50118256546557,
+          "nonzeroAt1e-4": 15538,
+          "nonzeroAt1e-5": 16724,
+          "peakAbs": 0.73870849609375,
+          "rms": 0.1327658481919228,
+          "sampleCount": 17048,
+          "startSample": 115210
+        }
+      },
+      "interpretation": "The PCM result matches the unlinked cut geometry but cannot establish link-state behavior or prove deletion.",
+      "items": [
+        {
+          "enabled": true,
+          "markers": [
+            {
+              "name": "141 R2-unlinked item 1",
+              "occurrence": 1,
+              "section": "R2-unlinked"
+            }
+          ],
+          "recordEndFrame": 3060,
+          "recordStartFrame": 3000,
+          "sourceEndFrame": 60,
+          "sourceStartFrame": 0,
+          "speedPercent": 100.0,
+          "trackEnabled": true,
+          "trackIndex": 1,
+          "uid": "7c970634-6fcb-4117-9a51-221a482c7142"
+        },
+        {
+          "enabled": true,
+          "markers": [
+            {
+              "name": "141 R2-unlinked item 1",
+              "occurrence": 1,
+              "section": "R2-unlinked"
+            }
+          ],
+          "recordEndFrame": 3199,
+          "recordStartFrame": 3070,
+          "sourceEndFrame": 199,
+          "sourceStartFrame": 70,
+          "speedPercent": 100.0,
+          "trackEnabled": true,
+          "trackIndex": 1,
+          "uid": "04567868-28d3-47f5-bd7b-dca08fef8b27"
+        }
+      ]
+    },
+    {
+      "case": "R2-picture-only",
+      "comparerObservations": [
+        {
+          "enabled": true,
+          "segments": [
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 1.0020988817525676,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 302.7560566575746,
+                "residualEnergy": 0.9921173954405699,
+                "sampleCount": 17048,
+                "score": 0.9983601789483596,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 6756258,
+              "recordStartSample": 6739210,
+              "sourceEndSample": 36258,
+              "sourceStartSample": 19210
+            },
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 1.0020988817525676,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 302.7560566575746,
+                "residualEnergy": 0.9921173954405699,
+                "sampleCount": 17048,
+                "score": 0.9983601789483596,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 6852258,
+              "recordStartSample": 6835210,
+              "sourceEndSample": 132258,
+              "sourceStartSample": 115210
+            },
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 1.0020988817525676,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 302.7560566575746,
+                "residualEnergy": 0.9921173954405699,
+                "sampleCount": 17048,
+                "score": 0.9983601789483596,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 6948258,
+              "recordStartSample": 6931210,
+              "sourceEndSample": 228258,
+              "sourceStartSample": 211210
+            },
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 1.0020988817525676,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 302.7560566575746,
+                "residualEnergy": 0.9921173954405699,
+                "sampleCount": 17048,
+                "score": 0.9983601789483596,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 7044258,
+              "recordStartSample": 7027210,
+              "sourceEndSample": 324258,
+              "sourceStartSample": 307210
+            }
+          ],
+          "speedPercent": 100.0,
+          "status": "compared",
+          "trackEnabled": true,
+          "trackIndex": 1,
+          "uid": "55229fb5-7478-47c9-984f-613cec35afb1"
+        }
+      ],
+      "expectedSupportWindow": {
+        "comparison": {
+          "bestLagSamples": 0,
+          "gain": 1.0020988817525676,
+          "limits": {
+            "coarseStepSamples": 32,
+            "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+            "maxLagSamples": 1920,
+            "strongCorrelationThreshold": 0.8
+          },
+          "renderedEnergy": 302.7560566575746,
+          "residualEnergy": 0.9921173954405699,
+          "sampleCount": 17048,
+          "score": 0.9983601789483596,
+          "status": "strong-correlation"
+        },
+        "recordPredictionStartFrame": 3500,
+        "recordPredictionStartSample": 6835210,
+        "sourceSamples": [
+          115210,
+          132258
+        ]
+      },
+      "finding": "All four generated source-support windows correlate strongly at zero lag with near-unity gain; the audio window covering the picture cut carries speech-level energy.",
+      "frameRange": [
+        3500,
+        3699
+      ],
+      "gapOrDiagnosticWindow": {
+        "pcm24MonoAveraged": {
+          "endSampleExclusive": 6854400,
+          "energy": 302.88290750468195,
+          "nonzeroAt1e-4": 19164,
+          "nonzeroAt1e-5": 19195,
+          "peakAbs": 0.743915319442749,
+          "rms": 0.1255991697127633,
+          "sampleCount": 19200,
+          "startSample": 6835200
+        },
+        "recordFrames": [
+          3560,
+          3570
+        ],
+        "sourceSupportReference": {
+          "endSampleExclusive": 132258,
+          "energy": 300.50118256546557,
+          "nonzeroAt1e-4": 15538,
+          "nonzeroAt1e-5": 16724,
+          "peakAbs": 0.73870849609375,
+          "rms": 0.1327658481919228,
+          "sampleCount": 17048,
+          "startSample": 115210
+        }
+      },
+      "interpretation": "Generated program PCM preserves the known audio through the picture-only interval.",
+      "items": [
+        {
+          "enabled": true,
+          "markers": [
+            {
+              "name": "141 R2-picture-only item 1",
+              "occurrence": 1,
+              "section": "R2-picture-only"
+            }
+          ],
+          "recordEndFrame": 3699,
+          "recordStartFrame": 3500,
+          "sourceEndFrame": 199,
+          "sourceStartFrame": 0,
+          "speedPercent": 100.0,
+          "trackEnabled": true,
+          "trackIndex": 1,
+          "uid": "55229fb5-7478-47c9-984f-613cec35afb1"
+        }
+      ]
+    },
+    {
+      "case": "R2-partial",
+      "comparerObservations": [
+        {
+          "enabled": true,
+          "segments": [
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 1.0020988817525676,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 302.7560566575746,
+                "residualEnergy": 0.9921173954405699,
+                "sampleCount": 17048,
+                "score": 0.9983601789483596,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 7716258,
+              "recordStartSample": 7699210,
+              "sourceEndSample": 36258,
+              "sourceStartSample": 19210
+            },
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 1.0009547320860366,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 194.0466302239196,
+                "residualEnergy": 0.6096403800538183,
+                "sampleCount": 9590,
+                "score": 0.9984279037388935,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 7804800,
+              "recordStartSample": 7795210,
+              "sourceEndSample": 124800,
+              "sourceStartSample": 115210
+            }
+          ],
+          "speedPercent": 100.0,
+          "status": "compared",
+          "trackEnabled": true,
+          "trackIndex": 1,
+          "uid": "d5d00807-e77d-4914-9b49-dd025ff5430d"
+        },
+        {
+          "enabled": true,
+          "segments": [
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 1.0020988817525676,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 302.7560566575746,
+                "residualEnergy": 0.9921173954405699,
+                "sampleCount": 17048,
+                "score": 0.9983601789483596,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 7908258,
+              "recordStartSample": 7891210,
+              "sourceEndSample": 228258,
+              "sourceStartSample": 211210
+            },
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 1.0020988817525676,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 302.7560566575746,
+                "residualEnergy": 0.9921173954405699,
+                "sampleCount": 17048,
+                "score": 0.9983601789483596,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 8004258,
+              "recordStartSample": 7987210,
+              "sourceEndSample": 324258,
+              "sourceStartSample": 307210
+            }
+          ],
+          "speedPercent": 100.0,
+          "status": "compared",
+          "trackEnabled": true,
+          "trackIndex": 1,
+          "uid": "37090958-a265-4ebe-ae6a-50d0b95bbd8a"
+        }
+      ],
+      "expectedSupportWindow": {
+        "comparison": {
+          "bestLagSamples": 0,
+          "gain": 0.6443458610952049,
+          "limits": {
+            "coarseStepSamples": 32,
+            "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+            "maxLagSamples": 1920,
+            "strongCorrelationThreshold": 0.8
+          },
+          "renderedEnergy": 194.4799322135698,
+          "residualEnergy": 69.71737382664948,
+          "sampleCount": 17048,
+          "score": 0.8009487698261657,
+          "status": "strong-correlation"
+        },
+        "recordPredictionStartFrame": 4000,
+        "recordPredictionStartSample": 7795210,
+        "sourceSamples": [
+          115210,
+          132258
+        ]
+      },
+      "finding": "The first 9,590 samples of the second support correlate strongly before the 65..70 gap; the full support is only borderline because its tail is absent from the expected window.",
+      "frameRange": [
+        4000,
+        4199
+      ],
+      "gapOrDiagnosticWindow": {
+        "pcm24MonoAveraged": {
+          "endSampleExclusive": 7814400,
+          "energy": 0.5601459806027265,
+          "nonzeroAt1e-4": 9548,
+          "nonzeroAt1e-5": 9596,
+          "peakAbs": 0.010802388191223145,
+          "rms": 0.007638621580240596,
+          "sampleCount": 9600,
+          "startSample": 7804800
+        },
+        "recordFrames": [
+          4065,
+          4070
+        ],
+        "sourceSupportReference": {
+          "endSampleExclusive": 132258,
+          "energy": 300.50118256546557,
+          "nonzeroAt1e-4": 15538,
+          "nonzeroAt1e-5": 16724,
+          "peakAbs": 0.73870849609375,
+          "rms": 0.1327658481919228,
+          "sampleCount": 17048,
+          "startSample": 115210
+        }
+      },
+      "interpretation": "PCM evidence supports partial preservation through frame 65 followed by a low-level gap; this does not by itself prove an editorial deletion.",
+      "items": [
+        {
+          "enabled": true,
+          "markers": [
+            {
+              "name": "141 R2-partial item 1",
+              "occurrence": 1,
+              "section": "R2-partial"
+            }
+          ],
+          "recordEndFrame": 4065,
+          "recordStartFrame": 4000,
+          "sourceEndFrame": 65,
+          "sourceStartFrame": 0,
+          "speedPercent": 100.0,
+          "trackEnabled": true,
+          "trackIndex": 1,
+          "uid": "d5d00807-e77d-4914-9b49-dd025ff5430d"
+        },
+        {
+          "enabled": true,
+          "markers": [
+            {
+              "name": "141 R2-partial item 1",
+              "occurrence": 1,
+              "section": "R2-partial"
+            }
+          ],
+          "recordEndFrame": 4199,
+          "recordStartFrame": 4070,
+          "sourceEndFrame": 199,
+          "sourceStartFrame": 70,
+          "speedPercent": 100.0,
+          "trackEnabled": true,
+          "trackIndex": 1,
+          "uid": "37090958-a265-4ebe-ae6a-50d0b95bbd8a"
+        }
+      ]
+    },
+    {
+      "case": "R2-residual",
+      "comparerObservations": [
+        {
+          "enabled": true,
+          "segments": [
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 1.692877818859381,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 863.213384386406,
+                "residualEnergy": 2.0264848179173627,
+                "sampleCount": 17048,
+                "score": 0.9988255073428984,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 8676258,
+              "recordStartSample": 8659210,
+              "sourceEndSample": 36258,
+              "sourceStartSample": 19210
+            }
+          ],
+          "speedPercent": 100.0,
+          "status": "compared",
+          "trackEnabled": true,
+          "trackIndex": 1,
+          "uid": "09373858-39dd-474b-9eb8-56c5e523cc76"
+        },
+        {
+          "enabled": true,
+          "segments": [
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 1.692877818859381,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 863.213384386406,
+                "residualEnergy": 2.0264848179173627,
+                "sampleCount": 17048,
+                "score": 0.9988255073428984,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 8868258,
+              "recordStartSample": 8851210,
+              "sourceEndSample": 228258,
+              "sourceStartSample": 211210
+            },
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 1.692877818859381,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 863.213384386406,
+                "residualEnergy": 2.0264848179173627,
+                "sampleCount": 17048,
+                "score": 0.9988255073428984,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 8964258,
+              "recordStartSample": 8947210,
+              "sourceEndSample": 324258,
+              "sourceStartSample": 307210
+            }
+          ],
+          "speedPercent": 100.0,
+          "status": "compared",
+          "trackEnabled": true,
+          "trackIndex": 1,
+          "uid": "2e8c2ba4-7220-44cc-bb75-1c2e251ae5c4"
+        },
+        {
+          "enabled": true,
+          "segments": [
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 1.692877818859381,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 863.213384386406,
+                "residualEnergy": 2.0264848179173627,
+                "sampleCount": 17048,
+                "score": 0.9988255073428984,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 8676258,
+              "recordStartSample": 8659210,
+              "sourceEndSample": 36258,
+              "sourceStartSample": 19210
+            },
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 0.7100446446571064,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 152.49381477743427,
+                "residualEnergy": 0.9921176506374487,
+                "sampleCount": 17048,
+                "score": 0.996741715096606,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 8772258,
+              "recordStartSample": 8755210,
+              "sourceEndSample": 132258,
+              "sourceStartSample": 115210
+            },
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 1.692877818859381,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 863.213384386406,
+                "residualEnergy": 2.0264848179173627,
+                "sampleCount": 17048,
+                "score": 0.9988255073428984,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 8868258,
+              "recordStartSample": 8851210,
+              "sourceEndSample": 228258,
+              "sourceStartSample": 211210
+            },
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 1.692877818859381,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 863.213384386406,
+                "residualEnergy": 2.0264848179173627,
+                "sampleCount": 17048,
+                "score": 0.9988255073428984,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 8964258,
+              "recordStartSample": 8947210,
+              "sourceEndSample": 324258,
+              "sourceStartSample": 307210
+            }
+          ],
+          "speedPercent": 100.0,
+          "status": "compared",
+          "trackEnabled": true,
+          "trackIndex": 2,
+          "uid": "f4e9f649-894a-42f2-9f54-a8321ae7c163"
+        }
+      ],
+      "expectedSupportWindow": {
+        "comparison": {
+          "bestLagSamples": 0,
+          "gain": 0.7100446446571064,
+          "limits": {
+            "coarseStepSamples": 32,
+            "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+            "maxLagSamples": 1920,
+            "strongCorrelationThreshold": 0.8
+          },
+          "renderedEnergy": 152.49381477743427,
+          "residualEnergy": 0.9921176506374487,
+          "sampleCount": 17048,
+          "score": 0.996741715096606,
+          "status": "strong-correlation"
+        },
+        "recordPredictionStartFrame": 4500,
+        "recordPredictionStartSample": 8755210,
+        "sourceSamples": [
+          115210,
+          132258
+        ]
+      },
+      "finding": "The enabled A2 full-range item correlates strongly in the 60..70 interval; residual program speech remains in the A1 cut gap with a lower measured gain than the mixed first/third/fourth supports.",
+      "frameRange": [
+        4500,
+        4699
+      ],
+      "gapOrDiagnosticWindow": {
+        "pcm24MonoAveraged": {
+          "endSampleExclusive": 8774400,
+          "energy": 152.6206656245416,
+          "nonzeroAt1e-4": 19152,
+          "nonzeroAt1e-5": 19195,
+          "peakAbs": 0.5281722545623779,
+          "rms": 0.0891571253533794,
+          "sampleCount": 19200,
+          "startSample": 8755200
+        },
+        "recordFrames": [
+          4560,
+          4570
+        ],
+        "sourceSupportReference": {
+          "endSampleExclusive": 132258,
+          "energy": 300.50118256546557,
+          "nonzeroAt1e-4": 15538,
+          "nonzeroAt1e-5": 16724,
+          "peakAbs": 0.73870849609375,
+          "rms": 0.1327658481919228,
+          "sampleCount": 17048,
+          "startSample": 115210
+        }
+      },
+      "interpretation": "Program residual speech is directly observed in PCM, but its routing or track origin is not observable from this artifact.",
+      "items": [
+        {
+          "enabled": true,
+          "markers": [
+            {
+              "name": "141 R2-residual item 1",
+              "occurrence": 1,
+              "section": "R2-residual"
+            }
+          ],
+          "recordEndFrame": 4560,
+          "recordStartFrame": 4500,
+          "sourceEndFrame": 60,
+          "sourceStartFrame": 0,
+          "speedPercent": 100.0,
+          "trackEnabled": true,
+          "trackIndex": 1,
+          "uid": "09373858-39dd-474b-9eb8-56c5e523cc76"
+        },
+        {
+          "enabled": true,
+          "markers": [
+            {
+              "name": "141 R2-residual item 1",
+              "occurrence": 1,
+              "section": "R2-residual"
+            }
+          ],
+          "recordEndFrame": 4699,
+          "recordStartFrame": 4570,
+          "sourceEndFrame": 199,
+          "sourceStartFrame": 70,
+          "speedPercent": 100.0,
+          "trackEnabled": true,
+          "trackIndex": 1,
+          "uid": "2e8c2ba4-7220-44cc-bb75-1c2e251ae5c4"
+        },
+        {
+          "enabled": true,
+          "markers": [
+            {
+              "name": "141 R2-residual item 2",
+              "occurrence": 2,
+              "section": "R2-residual"
+            }
+          ],
+          "recordEndFrame": 4699,
+          "recordStartFrame": 4500,
+          "sourceEndFrame": 199,
+          "sourceStartFrame": 0,
+          "speedPercent": 100.0,
+          "trackEnabled": true,
+          "trackIndex": 2,
+          "uid": "f4e9f649-894a-42f2-9f54-a8321ae7c163"
+        }
+      ]
+    },
+    {
+      "alignmentComparisons": {
+        "actualFrame5001": {
+          "bestLagSamples": 0,
+          "gain": 0.9958503396438374,
+          "limits": {
+            "coarseStepSamples": 32,
+            "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+            "maxLagSamples": 1920,
+            "strongCorrelationThreshold": 0.8
+          },
+          "renderedEnergy": 299.0005182673624,
+          "residualEnergy": 0.9881168559152438,
+          "sampleCount": 17048,
+          "score": 0.9983462661219631,
+          "status": "strong-correlation"
+        },
+        "baselineFrame5000": {
+          "bestLagSamples": 1920,
+          "gain": 0.9958503396438374,
+          "limits": {
+            "coarseStepSamples": 32,
+            "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+            "maxLagSamples": 1920,
+            "strongCorrelationThreshold": 0.8
+          },
+          "renderedEnergy": 299.0005182673624,
+          "residualEnergy": 0.9881168559152438,
+          "sampleCount": 17048,
+          "score": 0.9983462661219631,
+          "status": "strong-correlation"
+        }
+      },
+      "case": "R2-offset",
+      "comparerObservations": [
+        {
+          "enabled": true,
+          "segments": [
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 0.9958503396438374,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 299.0005182673624,
+                "residualEnergy": 0.9881168559152438,
+                "sampleCount": 17048,
+                "score": 0.9983462661219631,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 9638178,
+              "recordStartSample": 9621130,
+              "sourceEndSample": 36258,
+              "sourceStartSample": 19210
+            },
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 0.9958503396438374,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 299.0005182673624,
+                "residualEnergy": 0.9881168559152438,
+                "sampleCount": 17048,
+                "score": 0.9983462661219631,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 9734178,
+              "recordStartSample": 9717130,
+              "sourceEndSample": 132258,
+              "sourceStartSample": 115210
+            },
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 0.9958503396438374,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 299.0005182673624,
+                "residualEnergy": 0.9881168559152438,
+                "sampleCount": 17048,
+                "score": 0.9983462661219631,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 9830178,
+              "recordStartSample": 9813130,
+              "sourceEndSample": 228258,
+              "sourceStartSample": 211210
+            },
+            {
+              "comparison": {
+                "bestLagSamples": 0,
+                "gain": 0.9958503396438374,
+                "limits": {
+                  "coarseStepSamples": 32,
+                  "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+                  "maxLagSamples": 1920,
+                  "strongCorrelationThreshold": 0.8
+                },
+                "renderedEnergy": 299.0005182673624,
+                "residualEnergy": 0.9881168559152438,
+                "sampleCount": 17048,
+                "score": 0.9983462661219631,
+                "status": "strong-correlation"
+              },
+              "recordEndSample": 9926178,
+              "recordStartSample": 9909130,
+              "sourceEndSample": 324258,
+              "sourceStartSample": 307210
+            }
+          ],
+          "speedPercent": 100.0,
+          "status": "compared",
+          "trackEnabled": true,
+          "trackIndex": 1,
+          "uid": "f0b986dd-b580-42f9-a7f8-ba464cca7076"
+        }
+      ],
+      "expectedSupportWindow": {
+        "comparison": {
+          "bestLagSamples": 1920,
+          "gain": 0.9958503396438374,
+          "limits": {
+            "coarseStepSamples": 32,
+            "comparison": "normalized zero-mean-free waveform correlation; no deletion/audibility inference",
+            "maxLagSamples": 1920,
+            "strongCorrelationThreshold": 0.8
+          },
+          "renderedEnergy": 299.0005182673624,
+          "residualEnergy": 0.9881168559152438,
+          "sampleCount": 17048,
+          "score": 0.9983462661219631,
+          "status": "strong-correlation"
+        },
+        "recordPredictionStartFrame": 5000,
+        "recordPredictionStartSample": 9619210,
+        "sourceSamples": [
+          19210,
+          36258
+        ]
+      },
+      "finding": "The actual item starts at frame 5001: the baseline frame-5000 prediction finds the same waveform at the bounded +1-frame lag, while the actual frame-5001 prediction aligns at zero lag.",
+      "frameRange": [
+        5000,
+        5200
+      ],
+      "gapOrDiagnosticWindow": {
+        "pcm24MonoAveraged": {
+          "endSampleExclusive": 9601920,
+          "energy": 0.11290116781931658,
+          "nonzeroAt1e-4": 1903,
+          "nonzeroAt1e-5": 1917,
+          "peakAbs": 0.010802388191223145,
+          "rms": 0.007668291307231404,
+          "sampleCount": 1920,
+          "startSample": 9600000
+        },
+        "recordFrames": [
+          5000,
+          5001
+        ],
+        "sourceSupportReference": {
+          "endSampleExclusive": 36258,
+          "energy": 300.50118256546557,
+          "nonzeroAt1e-4": 15538,
+          "nonzeroAt1e-5": 16724,
+          "peakAbs": 0.73870849609375,
+          "rms": 0.1327658481919228,
+          "sampleCount": 17048,
+          "startSample": 19210
+        }
+      },
+      "interpretation": "The retained pair and PCM support a one-frame offset relative to the 5000 baseline coordinate; no prior rendered baseline was fabricated.",
+      "items": [
+        {
+          "enabled": true,
+          "markers": [
+            {
+              "name": "141 R2-offset item 1",
+              "occurrence": 1,
+              "section": "R2-offset"
+            }
+          ],
+          "recordEndFrame": 5200,
+          "recordStartFrame": 5001,
+          "sourceEndFrame": 199,
+          "sourceStartFrame": 0,
+          "speedPercent": 100.0,
+          "trackEnabled": true,
+          "trackIndex": 1,
+          "uid": "f0b986dd-b580-42f9-a7f8-ba464cca7076"
+        }
+      ]
+    }
+  ],
+  "comparer": {
+    "comparisonScope": "11 named-case generated repeated.wav UIDs; full pair binding retained; no all-item correlation run retained.",
+    "limits": [
+      "Waveform correlation does not establish speech deletion, clip deletion, program visibility, routing, or audibility.",
+      "Only generated repeated.wav and a generated rendered WAV are read; protected presenter metadata may remain in the retained pair.",
+      "Source-support mapping is emitted only for explicit 100% audio speed records.",
+      "A weak/insufficient correlation is unresolved evidence, not a Resolve capability failure."
+    ],
+    "pairBinding": {
+      "poolConsistency": "equal-adjacent-reads",
+      "repeatedItemCount": 46,
+      "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+      "sha256Argument": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+      "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+      "timelineConsistency": "equal-adjacent-reads"
+    },
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/pcm-real-render-comparer-output.json",
+    "scriptPath": "REPOSITORY/docs/investigations/issue-141/program-pcm-check.py",
+    "scriptSha256": "da049811705d59424f1b4b162c9e1b4867ccfd260ddef4a4edd97a46d1f71f77",
+    "sha256": "46971e80913e8ab5226937a6d5c264cb788fd809019e7822eedd979bfefa90fa",
+    "status": "comparison-complete-waveform-only"
+  },
+  "durationConvention": {
+    "audioDurationSeconds": 368.0,
+    "endpointSemantics": "diagnostic-only; do not assume inclusive or exclusive",
+    "frameRate": 25,
+    "markIn": 0,
+    "markOut": 9199,
+    "renderedAudioSamples": 17664000,
+    "renderedVideoFrames": 9200,
+    "sampleRateHz": 48000,
+    "timelineEndFrame": 9200,
+    "videoDurationSeconds": 368.0
+  },
+  "extraction": {
+    "audioPts": {
+      "inputStartTimeSeconds": 0.0,
+      "inputTimeBase": "1/48000",
+      "outputWavPtsMetadata": "WAV container has no stream PTS; samples retained from input stream without resampling/trim/remix"
+    },
+    "bytes": 105984102,
+    "command": "ffmpeg -nostdin -hide_banner -loglevel error -n -i <owned MOV> -map 0:a:0 -vn -c:a pcm_s24le <unique owned WAV>",
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/pcm-real-render-20261001T235643.512549Z.wav",
+    "sha256": "d2581dc047a348a104821cbd53c7b84e4a47b80fd4443ebf52f6fbd3382362a7",
+    "wav": {
+      "channels": 2,
+      "compression": "NONE",
+      "durationSeconds": 368.0,
+      "frames": 17664000,
+      "sampleRateHz": 48000,
+      "sampleWidthBytes": 3
+    }
+  },
+  "ffprobe": {
+    "additionalDataStreamPresent": true,
+    "audio": {
+      "bitsPerSample": 24,
+      "channels": 2,
+      "codec": "pcm_s24le",
+      "durationSeconds": 368.0,
+      "frames": 17664000,
+      "sampleRateHz": 48000,
+      "startTimeSeconds": 0.0,
+      "timeBase": "1/48000"
+    },
+    "format": {
+      "durationSeconds": 368.0,
+      "formatName": "mov,mp4,m4a,3gp,3g2,mj2"
+    },
+    "video": {
+      "codec": "h264",
+      "durationSeconds": 368.0,
+      "frameRate": "25/1",
+      "frames": 9200,
+      "height": 1080,
+      "startTimeSeconds": 0.0,
+      "timeBase": "1/12800",
+      "width": 1920
+    }
+  },
+  "kind": "issue-141-generated-program-pcm-real-analysis-v1",
+  "limitations": [
+    "Waveform correlation cannot prove speech deletion, clip deletion, program visibility, routing, or audibility.",
+    "Low-level energy in cut gaps may come from noise, adjacent material, effects, or unobserved protected routing; it is retained as a measured PCM result.",
+    "Strong correlation indicates known generated waveform support in program PCM, not its track or bus origin.",
+    "The bounded lag is \u00b11920 samples; the R2-offset baseline result reaches the +1920-sample bound and is interpreted with retained item frame metadata.",
+    "No prior rendered baseline PCM was available for R2-offset; the baseline-frame comparison is an alignment prediction against the current output only.",
+    "Audio stream start_time was 0.000000 with time_base 1/48000; WAV has no independent PTS field."
+  ],
+  "movStability": {
+    "bytes": 131423692,
+    "bytesAfterAnalysisObserved": 131423692,
+    "bytesBeforeExtractionRecorded": 131423692,
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/render/vera141-av-20261001T232620.358140Z.mov",
+    "sha256AfterAnalysisObserved": "85cd0433278d031e94bf724da432ba8ded36f80cfba66395eeab90d35033e716",
+    "sha256BeforeExtractionRecorded": "85cd0433278d031e94bf724da432ba8ded36f80cfba66395eeab90d35033e716",
+    "unchanged": true
+  },
+  "overallFinding": "The generated program PCM preserves the named full, partial, residual, and shifted supports described above at measured sample windows; the linked and unlinked 60..70 cuts show only low-level residual energy where the second generated support would have occurred. These are artifact-level waveform observations and do not establish editorial deletion, routing, track origin, or final audibility.",
+  "pairBinding": {
+    "expectedSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+    "frameEndpointConvention": "GetStart/GetEnd and MarkIn/MarkOut are retained as diagnostic values; inclusive/exclusive endpoint semantics remain unknown.",
+    "matrixEndFrame": 9200,
+    "matrixStartFrame": 0,
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/full-pair-007.json",
+    "poolConsistency": "equal-adjacent-reads",
+    "repeatedItemCount": 46,
+    "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+    "sha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+    "timelineConsistency": "equal-adjacent-reads",
+    "timelineInventory": "protected-six"
+  },
+  "renderEvidence": {
+    "allPairSha256EqualQueueAfterPair": true,
+    "jobId": "0460d82a-3436-4efc-be12-b57c8523ebf5",
+    "jobStatus": {
+      "CompletionPercentage": 100,
+      "JobStatus": "Complete",
+      "TimeTakenToRenderInMs": 267684
+    },
+    "outputPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/render/vera141-av-20261001T232620.358140Z.mov",
+    "outputSha256FromResume": "85cd0433278d031e94bf724da432ba8ded36f80cfba66395eeab90d35033e716",
+    "outputSha256Observed": "85cd0433278d031e94bf724da432ba8ded36f80cfba66395eeab90d35033e716",
+    "postRenderPairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-full-matrix-continue-20261001T235643.512549Z/full-pair-002-post-render.json",
+    "postRenderPairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+    "queuePairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261001T232620.358140Z/full-pair-007.json",
+    "queuePairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+    "restoredFinalPairPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-full-matrix-continue-20261001T235643.512549Z/full-pair-003-restored.json",
+    "restoredFinalPairSha256": "d8cf8bdc6b1a9f52266dfa076fcdf63cdcaa2557d966389c8f1cd49f621e0b14",
+    "resumeResultPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/cli-av-owned-render-resume-result.json",
+    "resumeResultSha256": "8b3691fa5b22b70a41f078718779caccc3e3a78133566f3ddf5065393100a32e",
+    "resumeStatus": null
+  },
+  "scope": {
+    "description": "Offline PCM analysis of one owned synthetic full-Matrix MOV and one extracted generated WAV.",
+    "excluded": [
+      "Resolve APIs or menus",
+      "source/config/dashboard/docs edits",
+      "semi1b.mp4 bytes/hash/read/export"
+    ],
+    "generatedSourceOnly": true,
+    "protectedMediaRead": false,
+    "resolveCallsMade": false
+  },
+  "source": {
+    "channels": 1,
+    "expectedSha256": "832dd31cc46b9f4b4fdb7cbde18b4edc09ec249885634fba43da2a7b87dc768e",
+    "frames": 384000,
+    "path": "REPOSITORY/out/issue-141-media-20260930-01a0f318/repeated.wav",
+    "pcm": "PCM16 mono",
+    "sampleRateHz": 48000,
+    "sha256": "832dd31cc46b9f4b4fdb7cbde18b4edc09ec249885634fba43da2a7b87dc768e"
+  },
+  "status": "analysis-complete-waveform-only",
+  "supportRanges": [
+    [
+      19210,
+      36258
+    ],
+    [
+      115210,
+      132258
+    ],
+    [
+      211210,
+      228258
+    ],
+    [
+      307210,
+      324258
+    ]
+  ],
+  "taskId": "pcm_analysis_resume"
+}

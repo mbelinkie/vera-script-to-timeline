@@ -1,0 +1,17 @@
+{
+  "recordVersion": "issue-174-qualified-tools/v1",
+  "qualifiedTools": [
+    {
+      "toolHash": "sha256:12dbf25c88549f612ed56e2b501a314e18262ca187d78e00d2fb72ad5554bdb3",
+      "profileHash": "sha256:d9a8852a44524e0f2343127d4014f0d40d06925ee556d1ac5453a958ee9cd131",
+      "policyHash": "sha256:88c69abefa4002b2805803af008a3871759957bd6c8f0ad1714422b70c62411b",
+      "qualificationRecordHash": "sha256:40803f479b0671478d748de5c64d258be385265e91d5ac55ecd6477637180df9"
+    },
+    {
+      "toolHash": "sha256:b8add4fd429a93b2bd7b1191a433b993eaf16a70a418e7f5e94ee0844630c320",
+      "profileHash": "sha256:d9a8852a44524e0f2343127d4014f0d40d06925ee556d1ac5453a958ee9cd131",
+      "policyHash": "sha256:88c69abefa4002b2805803af008a3871759957bd6c8f0ad1714422b70c62411b",
+      "qualificationRecordHash": "sha256:af96a93467660871182e3c0767673eb4fe24568f979ac6fe399eb6f26dc7976d"
+    }
+  ]
+}

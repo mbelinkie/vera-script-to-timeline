@@ -7,7 +7,14 @@ dependencies = [
     "boto3==1.43.79",
     "jsonschema==4.25.1",
     "opentimelineio==0.18.1",
+    "vera-word-timing",
 ]
+
+[tool.uv.workspace]
+members = ["packages/word-timing"]
+
+[tool.uv.sources]
+vera-word-timing = { workspace = true }
 
 [build-system]
 requires = ["hatchling==1.32.0"]
@@ -18,6 +25,7 @@ dev = [
   "datamodel-code-generator==0.75.1",
   "mypy==2.3.1",
   "pytest==9.1.1",
+  "pytest-xdist==3.8.0",
   "ruff==0.16.4",
 ]
 
@@ -35,9 +43,19 @@ strict = true
 [tool.pytest.ini_options]
 addopts = "--strict-config --strict-markers"
 testpaths = ["tests"]
+markers = ["slow: real media rendering/probing or repeated external-process integration"]
 
 [tool.ruff]
 target-version = "py312"
+# Retained Resolve-console evidence: hashed, exec()-ed with injected globals; keep byte-for-byte.
+extend-exclude = ["docs/investigations/issue-149/evidence"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# Engine scripts vendored from the word-timing v2 study; they run inside their
+# own external runtimes (MFA, Parakeet) and keep the study's measured behaviour.
+"packages/word-timing/src/vera_word_timing/adapters/engines/**" = [
+  "E501", "B905", "RUF046", "SIM115", "RUF001", "RUF005", "RUF007", "E741",
+]

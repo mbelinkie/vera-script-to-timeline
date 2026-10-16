@@ -1,0 +1,16 @@
+{
+  "kind": "issue141-blocked-operator-restoration-audit-v1",
+  "recordedAt": "2026-10-02T11:56:44.973939+00:00",
+  "condition": "Existing operator Solo-off restoration and confirmation is missing",
+  "consecutiveGoalTurns": 3,
+  "turnEvidence": [
+    "Solo comparison goal turn: completed output review, requested Solo off once, held native launches",
+    "Following goal turn: current dashboard count-source correction; Solo-off still pending",
+    "Current goal turn: retained operator record still false; no reply in conversation and no restoration capture"
+  ],
+  "operatorRecord": "out/issue-141-observation-20260930-01a0f318/fairlight-operator-solo-on.json",
+  "r1Readiness": "output/r1-final-driver-readiness.json",
+  "meaningfulWorkAvailableWithoutOperator": "Current known findings and resume guards retained. Remaining native R1 requires restoration; final report/External review requires the remaining native evidence.",
+  "notComplete": true,
+  "nextAction": "Wait for the already-requested Solo-off reply, then fresh guarded readback; never restart the completed render."
+}

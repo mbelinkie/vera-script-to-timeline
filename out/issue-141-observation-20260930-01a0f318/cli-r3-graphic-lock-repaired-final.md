@@ -1,0 +1,3 @@
+The registered driver and prior pair hashes matched, and I invoked the approved argv once. It exited 1 during lock/playhead restoration with `R3-Graphic lock/playhead restoration failed`. No retry or cleanup was performed.
+
+The captured return code, empty stdout, stderr, and hash bindings are in [r3-graphic-lock-repaired-executor-result.json](r3-graphic-lock-repaired-executor-result.json). This failure occurred at restoration, so the result needs root review to determine the retained timeline state.

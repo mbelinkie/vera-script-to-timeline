@@ -1,0 +1,5 @@
+{"at": "2026-10-01T01:45:49.266221+00:00", "method": "Capture", "phase": "preflight", "poolPasses": 2, "status": "equal-adjacent-reads", "timelinePasses": 2}
+{"at": "2026-10-01T01:45:49.553848+00:00", "method": "RelinkClips", "phase": "request", "value": {"uidCount": 1, "uids": ["81d81dc0-4c37-478b-8079-03debba5e780"]}}
+{"at": "2026-10-01T01:45:49.815997+00:00", "method": "RelinkClips", "phase": "return", "value": true}
+{"at": "2026-10-01T01:45:52.838638+00:00", "method": "Capture", "phase": "postflight", "poolPasses": 2, "status": "equal-adjacent-reads", "timelinePasses": 2}
+{"at": "2026-10-01T01:45:52.993247+00:00", "method": "R4Recovery", "phase": "complete", "status": "relinked-online-unsaved"}

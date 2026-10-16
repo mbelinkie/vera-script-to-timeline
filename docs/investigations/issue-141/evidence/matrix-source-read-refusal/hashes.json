@@ -1,0 +1,32 @@
+[
+  {
+    "filename": "capture-20260930T214915.543545Z-preflight.json",
+    "rawSha256": "a4d467287070c7957d419ea0a913b4a9c5bd84c187ad7505266c1b5cc730de11",
+    "publishedSha256": "46e261b9b114d3bbeffa9d9fd1f96abd3a1a820e351ad0a474e26b70129deb93",
+    "redaction": "private absolute paths replaced with bounded placeholders"
+  },
+  {
+    "filename": "capture-20260930T214915.543545Z-failure-postflight.json",
+    "rawSha256": "25dd91bdc97dabbe22956bad25b2e1c2698620de344237aae2a20347acb91335",
+    "publishedSha256": "5e3f9480a78375d92466a6ddc658160b3a6a6bf07927d6261dd93f7ea84fce00",
+    "redaction": "private absolute paths replaced with bounded placeholders"
+  },
+  {
+    "filename": "native-matrix-20260930T214915.543545Z.jsonl",
+    "rawSha256": "f99c3fd6eef149d56e629af37b88c19343eae59ed86990be220873173137477a",
+    "publishedSha256": "fe5e5d21d279502e26c7075e91db80252c6cc2652db069fc6d776cf789cb7699",
+    "redaction": "private absolute paths replaced with bounded placeholders"
+  },
+  {
+    "filename": "hammerspoon-launch-20260930T214914.307413Z.jsonl",
+    "rawSha256": "b4829b717c8dcaea1f25405fefbed92e9c4e9fe2dbf05fe89e620a7beb11fd91",
+    "publishedSha256": "b4829b717c8dcaea1f25405fefbed92e9c4e9fe2dbf05fe89e620a7beb11fd91",
+    "redaction": "private absolute paths replaced with bounded placeholders"
+  },
+  {
+    "filename": "vera-issue-141-observation-result-20260930T214915.528263Z.json",
+    "rawSha256": "986a1dc1e09fab8a88385e1a5039cbe0d8fa4b99e732923d5d535f41d3c03f34",
+    "publishedSha256": "a2c6c1df033eb621154969f0ba471fa72f84728a9a113a6add5b2bc11bc37288",
+    "redaction": "private absolute paths replaced with bounded placeholders"
+  }
+]

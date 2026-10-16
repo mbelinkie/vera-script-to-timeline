@@ -1,0 +1,87 @@
+{
+  "status": "new-test-fixture-correction-runtime-pending",
+  "sourcePins": {
+    "tests/test_issue192_proof.py": "da0468b1a952bc7e681485e30e4dfec3611decf45415d6b3c68bf5034f7b7547"
+  },
+  "unchangedPublicPathEvidence": {
+    "receipt": "out/issue192/runtime-11/complete.json",
+    "publicCases": 3,
+    "changedInputs": [
+      "python/vera_timeline_agent/__pycache__/roundtrip_v2_revised_build.cpython-312.pyc",
+      "tests/__pycache__/test_issue192_public_path.cpython-312-pytest-9.1.1.pyc",
+      "tests/test_issue192_proof.py"
+    ],
+    "materialChanges": [
+      "tests/test_issue192_proof.py"
+    ]
+  },
+  "records": [
+    {
+      "receipt": "out/issue192/runtime-11/complete.json",
+      "receiptSha256": "4ec0ce08917f3c617f79b707dc599587366fff38d2697a14a084f655e43ba4ad",
+      "source": "578c8d71c994cba2ba74dd298d31edcd3e0bebd1",
+      "command": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "-x",
+        "--durations=25",
+        "tests/test_issue192_public_path.py",
+        "tests/test_issue192_proof.py",
+        "tests/test_issue190_native.py::test_public_delivery_once_and_readonly_recovery",
+        "tests/test_issue190_native.py::test_copied_or_drifted_delivery_records_refuse_recovery",
+        "tests/test_issue190_native.py::test_fractional_public_delivery_refusal_precedes_adapter_creation",
+        "tests/test_issue190_native.py::test_capture_drift_refuses_without_evidence_or_render"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "startedAt": "2026-10-14T08:34:43.275Z",
+      "finishedAt": "2026-10-14T08:43:25.642Z",
+      "logSha256": "a10958c29456e3d6348e3ce935618d75c4e86f655d26c0e89016235cb5589b89"
+    },
+    {
+      "receipt": "out/issue192/review-fix-audio-test-format/complete.json",
+      "receiptSha256": "66bff46d0e50d3ce3254376cac4a8d6590834f287e1bbdf82d026d8486adda95",
+      "source": "578c8d71c994cba2ba74dd298d31edcd3e0bebd1",
+      "command": [
+        ".venv/bin/ruff",
+        "format",
+        "tests/test_issue192_proof.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T08:49:04.378Z",
+      "finishedAt": "2026-10-14T08:49:05.144Z",
+      "logSha256": "413a709001976657cb743636fd34e48fc41d8d302d665460d3f874b3313da127"
+    },
+    {
+      "receipt": "out/issue192/review-fix-audio-test-ruff/complete.json",
+      "receiptSha256": "cddcd92c073a69b40d4b52ba2c0fbeb38b60e51bdfdbbcdcbfb39bdbdfa4d4d7",
+      "source": "578c8d71c994cba2ba74dd298d31edcd3e0bebd1",
+      "command": [
+        ".venv/bin/ruff",
+        "check",
+        "tests/test_issue192_proof.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T08:49:20.217Z",
+      "finishedAt": "2026-10-14T08:49:20.924Z",
+      "logSha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "receipt": "out/issue192/review-fix-audio-test-mypy/complete.json",
+      "receiptSha256": "39165c2934562b5ae845644b33a56271ed7e69064aad350c374432b0214de017",
+      "source": "578c8d71c994cba2ba74dd298d31edcd3e0bebd1",
+      "command": [
+        ".venv/bin/mypy",
+        "tests/test_issue192_proof.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "startedAt": "2026-10-14T08:49:20.217Z",
+      "finishedAt": "2026-10-14T08:49:22.469Z",
+      "logSha256": "5d4b6d285b77932e3d08212c3b4974d0a803f98ec60408ac6ccf6a063fa6c19e"
+    }
+  ]
+}

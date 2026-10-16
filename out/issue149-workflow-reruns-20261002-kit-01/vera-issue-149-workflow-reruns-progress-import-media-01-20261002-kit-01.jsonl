@@ -1,0 +1,6 @@
+{"at": "2026-10-03T00:06:43.657843+00:00", "phase": "started", "value": {"actionId": "import-media-01-20261002-kit-01", "configSha256": "69fe0f21bdb7909d1a1b0be63780c2e72c1368a9ca2db9b802217de3b9c1fa1e"}}
+{"at": "2026-10-03T00:06:43.681088+00:00", "phase": "probe-verified", "value": {"probePath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/sources/b899685c4ef79884eec45d9ad7096eace4afd4eda12db131bd31bd5544796631/harness.py", "probeSha256": "b899685c4ef79884eec45d9ad7096eace4afd4eda12db131bd31bd5544796631"}}
+{"at": "2026-10-03T00:06:43.682755+00:00", "phase": "disarmed", "value": {"action": "import-media", "actionId": "import-media-01-20261002-kit-01"}}
+{"at": "2026-10-03T00:06:43.682881+00:00", "phase": "probe-request", "value": {"action": "import-media", "phase": "import-media-01"}}
+{"at": "2026-10-03T00:06:43.762974+00:00", "phase": "probe-return", "value": {"status": "failure"}}
+{"at": "2026-10-03T00:06:43.763440+00:00", "phase": "result-written", "value": {"result": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-import-media-01-20261002-kit-01.json", "status": "failure"}}

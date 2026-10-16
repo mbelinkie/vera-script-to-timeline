@@ -1,0 +1,7 @@
+{"method": "Capture", "phase": "preflight", "value": {"path": "preflight.json"}}
+{"method": "UpdateMarkerCustomData", "phase": "request", "value": {"customData": "{\"index\": 0, \"issue\": 141, \"section\": \"calibration\"} | issue141 controlled interpass 20261001T035403.810952Z", "frame": 0, "label": "interpass-edit", "timelineUid": "29ae8331-b86e-4041-a548-960695cc7b24"}}
+{"method": "UpdateMarkerCustomData", "phase": "return", "value": {"error": null, "label": "interpass-edit", "value": true}}
+{"method": "Capture", "phase": "after-edit", "value": {"path": "after-edit.json"}}
+{"method": "UpdateMarkerCustomData", "phase": "request", "value": {"customData": "{\"index\": 0, \"issue\": 141, \"section\": \"calibration\"}", "frame": 0, "label": "exact-restoration", "timelineUid": "29ae8331-b86e-4041-a548-960695cc7b24"}}
+{"method": "UpdateMarkerCustomData", "phase": "return", "value": {"error": null, "label": "exact-restoration", "value": true}}
+{"method": "Capture", "phase": "restored", "value": {"path": "restored.json"}}

@@ -1,0 +1,30 @@
+{
+  "checkpoint": "12a",
+  "checks": {
+    "contractTests": 216,
+    "generatedCurrent": true,
+    "progressTests": 6,
+    "pythonFormatFiles": 205,
+    "pythonRuff": true,
+    "pythonStrictMypySources": 72,
+    "pythonTests": 296,
+    "roadmapTests": 23,
+    "toolingTests": 1,
+    "typescriptLint": true,
+    "typescriptTypecheck": true
+  },
+  "cloudActions": 0,
+  "command": "npm exec --yes --package=node@24.19.0 -- npm run validate",
+  "evidenceLevel": "synthetic_injected",
+  "exitCode": 0,
+  "limitation": "Reviewed primary source interface only; omission workflow/composition/WI/runbook remain incomplete.",
+  "nativeActions": 0,
+  "pythonSeconds": 789.14,
+  "schemaVersion": "issue-144-checkpoint-validation/v1",
+  "sourceHashes": {
+    "python/vera_timeline_agent/roundtrip_audio.py": "sha256:a114938f87f6d52fe9d395202419b9dbe803a1f6a47085555439afabe92332fe",
+    "tests/test_issue144_audio_evidence.py": "sha256:3500fcd570a5a4eb0aee158894398b2f7c03a72f4adcf3e447adc7a2ca0954af",
+    "tests/test_issue144_retained_audio.py": "sha256:5d8669d611f84e91de077e498cee8045e3bee4a3ffa1790c12190c22c1132dd5"
+  },
+  "validationLogHash": "sha256:269c124c6a70e5a19dfc7c4e0c57513598e07ac6ba8689dc42017345c2976a16"
+}

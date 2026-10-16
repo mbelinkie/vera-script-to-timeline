@@ -1,0 +1,24 @@
+{
+  "jobId": "a6ed7f33-9ad4-4d82-bfac-ff72903f4567",
+  "lastObservedStatus": "render-pending-or-ambiguous-recovery-retained",
+  "lastObservedJobStatus": {
+    "CompletionPercentage": 1,
+    "EstimatedTimeRemainingInMs": 1766000,
+    "JobStatus": "Rendering"
+  },
+  "lastObservedAt": "native result 20261002T033721.081857Z; no later native result returned",
+  "firstStartNativeResult": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261002T033721.081857Z.json",
+  "firstStartNativeResultSha256": "a1a06c6c17481915614cc3c3456e42071d904a750fa5c661216e74e4ebb90482",
+  "startRenderingRequestCount": 1,
+  "startRenderingTrueReturnCount": 1,
+  "startJournal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-full-matrix-continue-20261002T033724.188897Z/journal.jsonl",
+  "startJournalSha256": "862ccfa22d96ebc9a23de9cb311520109c0ed2c1c1212b0763484fe80687f2f2",
+  "ownedOutputPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/av-output-20261002T033005.646357Z/render/vera141-av-20261002T033005.646357Z.mov",
+  "followupObservation": "refused before native dispatch",
+  "followupResumeExistingJob": true,
+  "refusalLaunchPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261002T033933.804940Z/launch.json",
+  "refusalLaunchSha256": "13580998f4e17ca99857e68a245ed7dc0a9c4a3d6a59ff2e23a9107940d7ff1c",
+  "refusalAuditDirectory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-action-20261002T033933.804940Z",
+  "refusal": "Exact observation menu item unavailable (exit 65); no retry or job mutation followed",
+  "queueSetupSummary": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/fairlight-queue-only-summary.json"
+}

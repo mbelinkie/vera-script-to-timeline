@@ -1,0 +1,31 @@
+{
+  "dispatch": {
+    "launchReturnedExitCode": 0,
+    "launcherResultStatus": "launcher-failed"
+  },
+  "eventCount": 4,
+  "events": [
+    {
+      "destination": null,
+      "method": "SaveAsNewRenderPreset",
+      "phase": "request",
+      "presetName": "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z"
+    },
+    {
+      "method": "SaveAsNewRenderPreset",
+      "phase": "return",
+      "value": true
+    },
+    {
+      "destination": "<owned-export-directory>",
+      "method": "ExportRenderPreset",
+      "phase": "request",
+      "presetName": "VERA141_AUDIO_OUTPUT_20261001T015945.287072Z"
+    },
+    {
+      "method": "ExportRenderPreset",
+      "phase": "return",
+      "value": true
+    }
+  ]
+}

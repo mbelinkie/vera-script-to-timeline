@@ -1,0 +1,9 @@
+# Checkpoint 12f plan disposition
+
+Initial Claude plan review completed1 turn, no denials, with one question about the proposed generation-intent file. The follow-up clarification review completed1 turn, no denials, and confirmed the specific crash/resume service-selection gap. No remaining blocker.
+
+Adopt the smaller formulation: generation-inputs.json is one immutable request/config/normalizer/cache/decision binding written using the existing publish_immutable_output under proof.lock. No new reservation, lock, state machine or store. The existing accepted service cache deduplicates identical requests; this record refuses changed service inputs after a successful provider/cache write and interruption before the complete handoff is saved. The actual service request identity function is reused; no synthesis-key clone.
+
+Historical finalization/cache rederivation may verify existing evidence but cannot create a missing binding/handoff/generation or new target against an obsolete pointer. Original visual status/UID/freshness gates remain intact through schema-specific dispatch. Actual service/cache verification immediately precedes every pure finalization call. Complete compiler preview determines the only new narration source; unrelated declarations/origins must match actual prior sources. Existing native jobs/CAS/promotion recovery are reused. Default missing service/native boundaries wait.
+
+Checkpoint12e is reviewed, focused13/type/lint/diff passing, committed/pushed atcdc0a53. Current12f plan is approved for bounded wiring; no12f implementation or new check/qualification/closure claim yet. Full validation is required at its integrated checkpoint. Combined edits/WI/runbook/real145 qualification still remain. User quota-stop guard persists; these successful reviews did not hit a usage limit.

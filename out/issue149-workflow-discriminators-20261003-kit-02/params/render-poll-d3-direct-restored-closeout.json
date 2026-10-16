@@ -1,0 +1,41 @@
+{
+  "_approval": "root-authorized-resume-final-d3-direct-restored-closeout-poll",
+  "schemaVersion": "issue-149-workflow-discriminators-v1",
+  "externalScriptingSetting": "None",
+  "projectName": "VERA Issue 149 WI Discriminators 20261003-kit-02",
+  "action": "render-poll",
+  "phase": "render-poll-d3-direct-restored-closeout",
+  "actionId": "render-poll-d3-direct-restored-closeout-20261003-kit-02",
+  "stateId": "render-poll-d3-direct-restored-closeout-20261003-kit-02",
+  "probePath": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/sources/ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438/harness.py",
+  "probeSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438",
+  "launcherPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/VERA Issue 149 Workflow Reruns.py",
+  "launcherSha256": "a605b875e0755151e1fa03e91a61612fecbf5058f3fb12a67ac6216e6536e2e9",
+  "outputDir": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02",
+  "mediaDir": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/media",
+  "owned": {
+    "projectUid": "0591bb41-d645-4af7-a2ee-ff75f8f43162",
+    "timelineUids": [
+      "9ce8ac2d-bd57-4740-9c19-044d3df53347",
+      "70aee9bd-5928-4e3b-9f0e-f45897773337",
+      "eea50181-c786-4698-9318-bb1100d12576",
+      "24fffc65-ce6c-4bff-acf2-6f3ec3de44b8",
+      "a1e78caf-1ac4-4bec-bff6-763160b9604d",
+      "562731d2-303c-49d8-8f1f-f621f79bdcd8",
+      "ca636ad2-b6f2-47ed-9ff7-7f0029860a95",
+      "dc548f02-103c-495a-8e88-c4b767aa10dc",
+      "f88a069b-af68-40d2-8556-3a7c97c234ec"
+    ]
+  },
+  "timelineUid": "ca636ad2-b6f2-47ed-9ff7-7f0029860a95",
+  "render": {
+    "targetDir": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/renders/d3-direct-av-restored-closeout-20261003",
+    "settings": {
+      "CustomName": "D3-direct-av-restored-closeout-20261003",
+      "RenderAll": true
+    }
+  },
+  "jobId": "de6df76f-a57b-4642-aafd-75fa30955a2d",
+  "pollTimeoutSec": 180,
+  "pollIntervalSec": 0.25
+}

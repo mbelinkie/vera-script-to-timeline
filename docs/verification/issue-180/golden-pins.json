@@ -1,0 +1,20 @@
+{
+  "tests/data/authoring_v2/issue_180/after-beta-24000-1001.input.golden.json": "3e67f6ceaeb8094cf05b92ff0b9c6e738b4ae81f6771ca435ea0dad730bcdbce",
+  "tests/data/authoring_v2/issue_180/after-beta-24000-1001.manifest.golden.json": "440652fd401238e9a6c80c070a2db83c33f2a84f1695ae557c9b3982eeca0ce5",
+  "tests/data/authoring_v2/issue_180/after-beta-24000-1001.report.golden.json": "3db0d5b7f52fff236d40d6b0fffcf69232abd653f7ad9b184d9fa9bfe4efeafc",
+  "tests/data/authoring_v2/issue_180/after-beta-25-1.input.golden.json": "ac8b5410bb0caee9d0c3e6b1767a9b9b356b438c995b4ed660eed623813fa27b",
+  "tests/data/authoring_v2/issue_180/after-beta-25-1.manifest.golden.json": "a05ccbf830c889efc4b68cec158bb5d8ff0e313736c2c968ed0321e2f9bf484f",
+  "tests/data/authoring_v2/issue_180/after-beta-25-1.report.golden.json": "a7e40d98f745606fdf691840879e665c66f9d48e2cf05b02bbd3542182f0dcd5",
+  "tests/data/authoring_v2/issue_180/before-gamma-24000-1001.input.golden.json": "86029c00517ade1c4e4224785bd7aac213bf9a77f1eb5bbebce194cc97a1a618",
+  "tests/data/authoring_v2/issue_180/before-gamma-24000-1001.manifest.golden.json": "b8de254aa687cb9c9e79b75857f48d0c60cf0a16360a21a611ff79e34c1a566d",
+  "tests/data/authoring_v2/issue_180/before-gamma-24000-1001.report.golden.json": "160ff2cdd0ce390800e29cc629ed7d1dca28b459f6493f4f2786b098ea0fe1a4",
+  "tests/data/authoring_v2/issue_180/before-gamma-25-1.input.golden.json": "2c1ab96b4b760b4723da353f5757f4005e60b2b0117ef840c942e348823c9234",
+  "tests/data/authoring_v2/issue_180/before-gamma-25-1.manifest.golden.json": "4468db3c67a28937d3714cc1fe009e0b3b743d23287671e17224aa9597625824",
+  "tests/data/authoring_v2/issue_180/before-gamma-25-1.report.golden.json": "b15bef86b09c2befcd6bef3406165f4d411bfad5eda88f253062d13d2cdd813e",
+  "tests/data/authoring_v2/issue_180/final-tail-24000-1001.input.golden.json": "3f0a7016b0d79cdba37fba792b4ea9637587df478f81f5dbb72f0be17fbf00ed",
+  "tests/data/authoring_v2/issue_180/final-tail-24000-1001.manifest.golden.json": "56bf23ca546b3d5661b609a44f9740267c0f4cc9722167928ab6c8af46bc732f",
+  "tests/data/authoring_v2/issue_180/final-tail-24000-1001.report.golden.json": "ab700b6b9cc43f051ce3372444f800524337def2aac17d609d308e3f3a9f18da",
+  "tests/data/authoring_v2/issue_180/final-tail-25-1.input.golden.json": "ee8e455deda63f2eec51ff72d8702b0daa1905f4c5e81ce652a7809330fc9bd3",
+  "tests/data/authoring_v2/issue_180/final-tail-25-1.manifest.golden.json": "0e1a52095721e1de85da7e7430736d2ad2b26ac173719cefa0874a154bc0bfd1",
+  "tests/data/authoring_v2/issue_180/final-tail-25-1.report.golden.json": "168b1e09e240997a03c26d1f33a764a1888f1db48aea7c304e93affd8f094aab"
+}

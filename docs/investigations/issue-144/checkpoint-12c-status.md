@@ -1,0 +1,9 @@
+# Checkpoint12c finished internal omission canonical bridge (pause target)
+
+Scope: completed pure revise/finalize stdout bridge, existing host receipt/source/artifact checks and actual service-to-core/package test. New public omission evidence/decision/generation workflow, composed operations, stdlib WI and runbook remain future required #144 work. This segment is compiler_only / injected synthetic service evidence, not an audible omission decision or real native qualification. It is the producer-requested next pause checkpoint.
+
+13 new TS tests were red before implementation. Corrected observed65 focused TS pass and new actual service integration1 pass16.23s. Retained failures: initial mock reused old audio hash; corrected mock then actual compiler rejected wrong UUID-shaped narration asset ID (must64hex); the first Python invocation used defaultNode26 and correctly failed runtime69, rerun pinned; pinned integrated test initially assumed all sources require origins, but accepted package generates declared placeholders, so it now omits placeholders from materialization map. No accepted gate was relaxed. Ruff lint/format, strict mypy73, contracts lint/typecheck and diff check passed. Full npm validate pending; source will remain fixed during validation/review.
+
+Bridge only accepts a just-rederived synthetic full-row handoff; Python future ProofSession must own actual evidence/choice/cache rederivation. Returning canonical artifacts never accepts a decision, writes canonical input, invokes provider/native or promotes baseline. Actual compiler IDs/bytes drive materialization, with old non-narration and unchanged row dependencies preserved. No frozen/generated/fixture/golden/accepted jobs/assembly/dependency changes. User quota guard remains active.
+
+Final result: full230 contract/297 Python checks passed; full Claude review/disposition retained. Producer resumed, so continue with reviewed evidence preparation and public omission workflow.

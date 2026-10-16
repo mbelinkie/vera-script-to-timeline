@@ -1,0 +1,46 @@
+{
+  "taskId": "/root/discriminator_output_verify",
+  "verification": "D3-direct mapping-mute restoration and stop checkpoint",
+  "verdict": "accepted-restored-checkpoint",
+  "scope": "retained local evidence only; no native action by verifier",
+  "case": "D3-direct-av-20261003",
+  "timelineUid": "ca636ad2-b6f2-47ed-9ff7-7f0029860a95",
+  "targetA2ItemUid": "4a7677a5-6237-489d-80a1-32cebfde4a5d",
+  "muteOutcome": {
+    "classification": "adverse",
+    "setterReadback": true,
+    "pilot1500Hz": 0.01986,
+    "silenceThreshold": 0.001,
+    "numberWordsPresent": ["one", "two", "three", "four", "five", "six", "seven", "eight"],
+    "renderJobId": "a6d08df1-8e8d-4e2e-b654-5bfe86d60540",
+    "renderStatus": "Complete",
+    "renderSha256": "c26efae392a6db5a73a2988b88472fff395e26b08eae75e50efa5ce9fee1caf1",
+    "noBaselineRenderBeforeMute": true
+  },
+  "restoration": {
+    "restoreReturn": true,
+    "restoreSemanticEqual": true,
+    "restoredMapping": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+    "originalMapping": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+    "unexpectedSnapshotDifferences": [],
+    "allowedSnapshotDifference": "project.timelines[6].tracks.audio[1].GetItemListInTrack.value[0].GetSourceAudioChannelMapping"
+  },
+  "saveCheckpoint": {
+    "calledExactlyOnce": true,
+    "return": true,
+    "preSha256": "fe9dacd24bf32cb54cdc43eeb6905e3d9428e55886913f4d081a583be779c460",
+    "postSha256": "fe9dacd24bf32cb54cdc43eeb6905e3d9428e55886913f4d081a583be779c460",
+    "prePostEqual": true,
+    "renderingInProgress": false,
+    "currentPage": "deliver",
+    "currentTimeline": "D3-direct-av-20261003",
+    "queueTerminal": true,
+    "externalScriptingSetting": "None"
+  },
+  "evidence": {
+    "mutePreSha256": "ce570d1858f761f7973262972b91c68276b62d422f8a62180d2c71f8959e90c2",
+    "mutePostSha256": "fcc7fb51b40a596e6f55bc7a1604626fe3c9349bf89daa985530cb32c296c905",
+    "restorePreSha256": "40b8b23839808b8c368c5756a465ec5f1d138ed3a2b7a03366afef8a5bbfc4b0",
+    "restorePostSha256": "fe9dacd24bf32cb54cdc43eeb6905e3d9428e55886913f4d081a583be779c460"
+  }
+}

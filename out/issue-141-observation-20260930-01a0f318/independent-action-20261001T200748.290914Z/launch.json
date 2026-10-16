@@ -1,0 +1,7 @@
+{
+  "menu": "deselect",
+  "sourceSha256": "47b6ec354c00e3ef1296a70c29e8846e1661fef692177d90bc96f27ba5b6bc6d",
+  "exitCode": 0,
+  "stdout": "Named editorial command selected once; verify injected postflight before continuing\n",
+  "stderr": ""
+}

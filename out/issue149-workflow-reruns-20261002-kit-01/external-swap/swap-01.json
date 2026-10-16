@@ -1,0 +1,19 @@
+{
+  "at": "2026-10-03T01:19:01.222637+00:00",
+  "method": "atomic os.replace; original inode hard-linked as exclusive retained backup",
+  "originalSha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+  "replacementSha256": "2bad2d2457c3d572d2fe3542ef22da915ec38306c8985026bec10d1289f76579",
+  "path": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/media/swap.mov",
+  "backupPath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/external-swap/swap-original-01.mov",
+  "before": {
+    "size": 3443686,
+    "inode": 547705168,
+    "mtimeNs": 1790976491428416718
+  },
+  "after": {
+    "size": 4593112,
+    "inode": 547844691,
+    "mtimeNs": 1790976491428416718
+  },
+  "audioLayout": "retained same-layout gate: mono PCM48k plus H26464036025"
+}

@@ -1,0 +1,64 @@
+{
+  "taskId": "/root/discriminator_output_verify",
+  "scope": "Independent read-only verification of the producer stop checkpoint",
+  "verdict": "checkpoint-verified",
+  "project": {
+    "name": "VERA Issue 149 WI Discriminators 20261003-kit-02",
+    "uid": "0591bb41-d645-4af7-a2ee-ff75f8f43162",
+    "currentTimeline": {
+      "name": "D6-kept-r2-20261003",
+      "uid": "70aee9bd-5928-4e3b-9f0e-f45897773337"
+    },
+    "timelineCount": 6,
+    "timelineItemCount": 24,
+    "mediaPoolObjectCount": 13,
+    "renderQueueCount": 0,
+    "isRenderingInProgress": false,
+    "timelineFrameRate": 25,
+    "timelinePlaybackFrameRate": 25,
+    "resolution": "1920x1080",
+    "sampleRate": 48000
+  },
+  "save": {
+    "actionId": "save-checkpoint-user-stop-20261003-kit-02",
+    "calledExactlyOnce": true,
+    "return": true,
+    "resultPath": "out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-save-checkpoint-user-stop-20261003-kit-02.json",
+    "resultSha256": "0ba02bdd3b87180d8f43b392718518e43624234a5e691ad0ab9a3ed3120770f2"
+  },
+  "fullPairComparison": {
+    "prePath": "out/issue149-workflow-discriminators-20261003-kit-02/evidence/save-checkpoint-user-stop-20261003-kit-02/pre.json",
+    "postPath": "out/issue149-workflow-discriminators-20261003-kit-02/evidence/save-checkpoint-user-stop-20261003-kit-02/post.json",
+    "preSha256": "ad09854eb528219ac8764b4ad571a5021a3a6cac2e6ae467f4ba94a33d0e4c59",
+    "postSha256": "ad09854eb528219ac8764b4ad571a5021a3a6cac2e6ae467f4ba94a33d0e4c59",
+    "equal": true,
+    "comparison": "byte-identical JSON captures; all captured fields equal"
+  },
+  "fixtureSources": {
+    "base.mov": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+    "swap.mov": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+    "relink_alt.mov": "2bad2d2457c3d572d2fe3542ef22da915ec38306c8985026bec10d1289f76579",
+    "source": "out/issue149-workflow-discriminators-20261003-kit-02/media/manifest.json and Python hashlib recomputation"
+  },
+  "nativeScope": {
+    "performed": "The retained checkpoint observation and one SaveProject action only",
+    "notPerformed": [
+      "W6 replacement, RelinkClips, or render",
+      "W3 mapping mute or render",
+      "Console action",
+      "Fairlight action",
+      "protected media or retained #141 project access"
+    ]
+  },
+  "limitations": [
+    "This is a checkpoint integrity result, not evidence for any W3 or W6 outcome.",
+    "The source hash proves fixture identity only; it does not prove Resolve's cached bytes or relink behavior."
+  ],
+  "references": [
+    "out/issue149-workflow-discriminators-20261003-kit-02/checkpoint-user-stop.md",
+    "out/issue149-workflow-discriminators-20261003-kit-02/dispatches/save-checkpoint-user-stop-20261003-kit-02-result.json",
+    "out/issue149-workflow-discriminators-20261003-kit-02/evidence/save-checkpoint-user-stop-20261003-kit-02/pre.json",
+    "out/issue149-workflow-discriminators-20261003-kit-02/evidence/save-checkpoint-user-stop-20261003-kit-02/post.json",
+    "out/issue149-workflow-discriminators-20261003-kit-02/media/manifest.json"
+  ]
+}

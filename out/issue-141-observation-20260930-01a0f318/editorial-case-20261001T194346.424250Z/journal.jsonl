@@ -1,0 +1,3 @@
+{"at": "2026-10-01T19:43:47.280951+00:00", "method": "FullReadback", "phase": "before", "value": {"path": "before.json"}}
+{"at": "2026-10-01T19:43:47.462972+00:00", "method": "SetClipEnabled", "phase": "request", "value": {"enabled": true, "trackIndex": 3, "trackType": "video", "uid": "ea448c37-4821-419d-8fbf-112790cc0499"}}
+{"at": "2026-10-01T19:43:47.465793+00:00", "method": "SetClipEnabled", "phase": "return", "value": false}

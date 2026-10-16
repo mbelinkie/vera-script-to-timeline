@@ -1,0 +1,55 @@
+{
+  "journal": "<probe-output>/r4-recovery-20261001T014545.846698Z.jsonl",
+  "media": {
+    "bytes": 792989,
+    "locator": "<approved relink/base.mov>",
+    "sha256": "c54ed675ded4e6e7665965680c4991e274058862f7ad8a2d95831c9ec07b7942"
+  },
+  "nativeRecovery": {
+    "api": "MediaPool.RelinkClips",
+    "return": true,
+    "saved": false,
+    "state": "Online"
+  },
+  "pins": {
+    "launcherResult": {
+      "name": "vera-issue-141-observation-result-20261001T012111.805222Z.json",
+      "sha256": "66a55767b53acf9dfa300d0f5f8a10ccbb67870b62cfb3d7579d6879851e266d"
+    },
+    "matrix": {
+      "name": "capture-20260930T223313.312609Z-saved.json",
+      "sha256": "a29402d405ab8cf1bc1abedd4c1ed0c479e983e2ef3ba6fc41d1c2389d6d36d2"
+    },
+    "offlineCapture": {
+      "name": "capture-20261001T012446.349239Z.json",
+      "sha256": "c3cb459f1dd6736014e15f687141b58cb1af74722836cb724112d093011a9008"
+    },
+    "offlinePool": {
+      "name": "r4-pool-read-only-20261001T012446.349239Z.json",
+      "sha256": "6af8465205951d5bb7157c46916de09f6d6577d6695a58224d0ab29bc960e596"
+    },
+    "refusal": {
+      "name": "r4-transitions-refusal-20261001T012112.314811Z.json",
+      "sha256": "f1dc4645b5af2003c7a4aa563d98fc14f1b5429659fcda4a55853905b8d6fbdb"
+    },
+    "setupCapture": {
+      "name": "capture-20261001T003310.397326Z.json",
+      "sha256": "f3a321fcd5ae47c90e25b3dcf254a0d983ff0bdde8862700b2411c710b3fe0fa"
+    },
+    "setupPool": {
+      "name": "r4-pool-read-only-20261001T003310.397326Z.json",
+      "sha256": "ac6f4661f59f910029dae51dcc758bd1d766e8f810fb4996fcee1b18c681e751"
+    },
+    "unlinkJournal": {
+      "name": "r4-transitions-20261001T012112.314811Z.jsonl",
+      "sha256": "efbfc5ba818225a9217c805d809e0b1a97470569d2b267a789fb0959add2a837"
+    },
+    "unlinkPostflight": {
+      "name": "r4-transitions-20261001T012112.314811Z-unlink-postflight.json",
+      "sha256": "5f52acc7108910ddc84fca0b4cec30ff0ce77af8c55251a3f4a0868cd03a4f12"
+    }
+  },
+  "postflight": "<probe-output>/r4-recovery-20261001T014545.846698Z-postflight.json",
+  "preflight": "<probe-output>/r4-recovery-20261001T014545.846698Z-preflight.json",
+  "status": "relinked-online-unsaved"
+}

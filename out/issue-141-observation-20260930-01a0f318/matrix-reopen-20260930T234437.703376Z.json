@@ -1,0 +1,34 @@
+{
+  "build": [
+    21,
+    1,
+    0,
+    14,
+    ""
+  ],
+  "captures": [
+    {
+      "capturePath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/capture-20260930T234437.703376Z-preflight.json",
+      "sha256": "ae4e656d0f415d660f6288e51c711d95c45bdc54c64f2e044d4548b0e8c6a972",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/capture-20260930T234437.703376Z-pre-close.json",
+      "sha256": "712404d59c7044a0157373390c1fb7be566bc1b7ad5a12fcaf0b94de9663bce6",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/capture-20260930T234437.703376Z-reopened.json",
+      "sha256": "e8b55f2300a86471e4b1b32b54716583a48a1c5a399ddbbbf2a364c1e6f1b492",
+      "status": "inconsistent-refused"
+    }
+  ],
+  "failure": "RuntimeError: Reopened raw capture is incomplete or unstable",
+  "instruction": "Retain evidence; do not retry or alter either project.",
+  "kind": "pinned-matrix-reopen-observation",
+  "project": {
+    "projectId": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+    "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318"
+  },
+  "stage": "reopened-capture"
+}

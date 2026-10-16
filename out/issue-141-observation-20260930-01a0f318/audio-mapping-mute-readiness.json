@@ -1,0 +1,142 @@
+{
+  "checker": {
+    "command": "/usr/local/bin/python3.14 -S docs/investigations/issue-141/audio-mapping-mute-check.py",
+    "covered": [
+      "actual retained pair discovery in both equal passes",
+      "exact marker, occurrence UID, source UID, track, and range pin",
+      "mute false baseline and mute-only mapping delta",
+      "fake setter transition and exact raw mapping restoration",
+      "wrong UID/source/track/range and duplicate marker refusal",
+      "channel-index drift, unrelated range drift, and protected source refusal",
+      "default roundtrip remains unchanged",
+      "successful hold leaves mute true with complete retained pairs",
+      "correct held-result restore performs exactly one original-mapping setter and proves full-pair equality",
+      "second hold, wrong held hash, and malformed held status refuse before setter",
+      "hold setter refusal attempts existing scoped restoration and retains evidence",
+      "wrong phase and unrelated fresh held-state drift refuse before setter",
+      "held before/after pair validation proves the only permitted target mute delta"
+    ],
+    "path": "docs/investigations/issue-141/audio-mapping-mute-check.py",
+    "result": "PASS",
+    "sha256": "8fe60b8164ec6da72057312b136ee048920c524dcea9a41bce5b6234b82e6c99"
+  },
+  "createdAt": "2026-10-01T23:08:35.841442Z",
+  "helper": {
+    "action": "audio-mapping-mute",
+    "afterGuard": [
+      "Requires both after passes to be stable before comparison.",
+      "Requires pool passes and every timeline field outside the target GetSourceAudioChannelMapping value to be unchanged.",
+      "Requires target mapping parsed delta to be exactly mute false to true; channel indices, type, embedded count, linked_audio, and all other fields must match."
+    ],
+    "beforeGuard": [
+      "Requires a directly contained hash-bound full Matrix checkpoint.",
+      "Requires two equal current timeline passes and two equal current protected-six pool passes.",
+      "Requires fresh current pair to equal the supplied checkpoint.",
+      "Requires exact project, Resolve Studio 21.1 build 14, Edit page, selected Matrix, protected-six inventory, and idle context."
+    ],
+    "case": "R2-disable-mute",
+    "mutation": "Default roundtrip remains unchanged. Explicit hold changes only track_mapping[\"1\"].mute false to true and retains the complete successful pairs while held for output. Explicit restore requires the exact hash-bound held result and fresh current pair, then sets the original raw mapping once.",
+    "path": "docs/investigations/issue-141/audio-mapping-mute.py",
+    "restoreGuard": [
+      "Rebinds the same occurrence UID, source UID, track, and marker before restoration.",
+      "Calls the setter with the original raw mapping.",
+      "Requires the final full timeline/pool pair to equal the stable before pair byte-for-byte as parsed JSON and the playhead to remain unchanged."
+    ],
+    "sha256": "324eaccac4de7b124cd62d187ee4046b0307d7dbd5bc7cc26c0e267b11204dd8",
+    "targetGuard": {
+      "markerNamesAcceptedExactly": [
+        "141 R2-residual item 2"
+      ],
+      "occurrenceUid": "f4e9f649-894a-42f2-9f54-a8321ae7c163",
+      "protectedSourceRefusal": [
+        "be5f1584-f0c4-4dd9-988b-73f3167e77d1",
+        "semi1b.mp4"
+      ],
+      "range": {
+        "end": 4699,
+        "start": 4500
+      },
+      "requiredOriginalMute": false,
+      "selectedTimelineName": "VERA 141 Batched Matrix",
+      "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+      "sourceName": "repeated.wav",
+      "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+      "track": {
+        "index": 2,
+        "type": "audio"
+      },
+      "trackType": "audio"
+    },
+    "phaseGuards": [
+      "mappingPhase defaults to roundtrip; only roundtrip, hold, and restore are accepted.",
+      "Hold errors use only the existing scoped restoration and retain partial readbacks; successful hold stays muted and reports mapping-muted-held-for-output.",
+      "Restore validates the held result path/hash/status/project/Matrix/target and exact before/muted pairs before setter access.",
+      "Restore requires a fresh full pair equal to the held muted pair and proves the complete original pair and own playhead after one original-raw setter call."
+    ]
+  },
+  "kind": "issue-141-audio-mapping-mute-readiness",
+  "nativeRegistration": {
+    "configChanged": true,
+    "registered": true,
+    "requiredBeforeRegistration": [
+      "Native actor must independently verify this readiness record against current approved state before any separately authorized native action."
+    ],
+    "resolveCalls": 0
+  },
+  "realGuardLimitations": [
+    "The local checker discovers the pinned target from the retained pair; this readiness does not register or invoke native execution.",
+    "A successful mapping setter/readback would establish source-channel mapping mute state only. It would not establish Fairlight track mute, Solo, bus routing, or final program audibility.",
+    "No native setter result is claimed by this local check."
+  ],
+  "reusedReader": {
+    "functions": [
+      "_pin",
+      "_manifest",
+      "_context",
+      "_read_pair",
+      "_validate_read_pair"
+    ],
+    "path": "docs/investigations/issue-141/r4-range-repair.py",
+    "purpose": "Reuse existing protected-six timeline identity, generated-media manifest, two-pass read, and pool checks.",
+    "sha256": "9b6977747a1f3decf957ead6134f10fc4f597bf9d0c3dc5c081b7bf2671879a4"
+  },
+  "scope": "Local-only helper/checker readiness. No Resolve call, no Hammerspoon dispatch, no config/probe/shared-helper/docs/dashboard change, and no media access occurred.",
+  "status": "local-ready-native-registration-separate",
+  "targetEvidence": {
+    "baselineMappingMute": false,
+    "pairPath": "out/issue-141-observation-20260930-01a0f318/r2-residual-context-20261001T230139.059176Z/pair.json",
+    "pairSha256": "1616fa7f512b1a23d4c2756d2246bef51ee9d085ba8c443170ad060c385949a4",
+    "passes": 2,
+    "target": {
+      "marker": "141 R2-residual item 2",
+      "occurrenceUid": "f4e9f649-894a-42f2-9f54-a8321ae7c163",
+      "range": {
+        "end": 4699,
+        "start": 4500
+      },
+      "sourceName": "repeated.wav",
+      "sourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+      "track": {
+        "index": 2,
+        "type": "audio"
+      }
+    },
+    "targetFactSha256": {
+      "marker": "3c7df1ede863785d244eb8ea383e624d655798fc0e98545fdea65cdeea418d39",
+      "occurrenceUid": "1a93049e78ef476286f7cebd90b74ca02561d133ef48733208af267839d3dc21",
+      "range": "930292ba6f71e8b76b136f6cac0c076bccf3fc035f5595575a06756a14b96534",
+      "sourceName": "45afd6be4f973c97f8d034319d306c064fc4045f8341cc2c98d4a8765bc4df51",
+      "sourceUid": "3e594fb3339ed5cb8f4ea64b9ca758d7c308390c0d002b82f24dc16158caa789",
+      "track": "c7c8c3181921a1f8cd6b96de503e215e46729cf7d558c4e71b5fc57891499fc6"
+    }
+  },
+  "latestRegistration": "out/issue-141-observation-20260930-01a0f318/held-mute-registration.json",
+  "latestSourcePins": {
+    "probe.py": "54bbbeee926a5ef423615b1f981ec8ebe6586e91f938a8aad05db441ecc53310",
+    "audio-mapping-mute.py": "324eaccac4de7b124cd62d187ee4046b0307d7dbd5bc7cc26c0e267b11204dd8",
+    "audio-mapping-mute-check.py": "8fe60b8164ec6da72057312b136ee048920c524dcea9a41bce5b6234b82e6c99",
+    "independent-native-call.py": "956463d19b0fd11f783c4f715e52a313dc5aaf153ffe8baf4f9ec4a829fb7011"
+  },
+  "rootFinalFailureReadbackRegression": "passed; even restore setter refusal retains final full pair",
+  "focusedOutcome": "PASS: python3.14 -S audio-mapping-mute-check.py; fake roundtrip, hold, restore, wrong phase/hash/status, repeated hold, unrelated drift, setter refusal and retained evidence; no claim of broad audibility"
+}

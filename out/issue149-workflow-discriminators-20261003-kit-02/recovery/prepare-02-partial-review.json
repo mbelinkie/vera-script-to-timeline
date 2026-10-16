@@ -1,0 +1,50 @@
+{
+  "taskId": "/root/discriminator_verify_cont",
+  "scope": "Independent verification of prepare-02 partial setup before the required operator checkpoint",
+  "verdict": "manual-playback-rate-checkpoint-required",
+  "nativeCases": "unrun",
+  "evidence": {
+    "result": "out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-prepare-02-20261003-kit-02.json",
+    "resultSha256": "301c5e70faa976942b00d4582db18bff321ae45a73eee3cf34b0c044ba9b9868",
+    "journal": "out/issue149-workflow-discriminators-20261003-kit-02/evidence/prepare-02-20261003-kit-02/journal.jsonl",
+    "journalSha256": "4c02006291aa5391a5ea1d22dbb4ac879261f4354fb13f0d6e1dc06d804cc6d5",
+    "pre": "out/issue149-workflow-discriminators-20261003-kit-02/evidence/prepare-02-20261003-kit-02/pre.json",
+    "preSha256": "12eefd4fe26301209ab7b80f1cc118eb3117ef02d547ff7192c79444e6a89f5c",
+    "postPartial": "out/issue149-workflow-discriminators-20261003-kit-02/evidence/prepare-02-20261003-kit-02/post-partial.json",
+    "postPartialSha256": "e85a6d1b0e4f59d15dda61fec7a0a4c8b43ac5fddb401fc38add1af518e434d"
+  },
+  "observed": {
+    "actionId": "prepare-02-20261003-kit-02",
+    "projectUid": "0591bb41-d645-4af7-a2ee-ff75f8f43162",
+    "projectName": "VERA Issue 149 WI Discriminators 20261003-kit-02",
+    "createProject": true,
+    "setSettings": true,
+    "timelineFrameRate": "25",
+    "timelinePlaybackFrameRate": "24",
+    "resolution": "1920x1080",
+    "sampleRate": "48000",
+    "renderJobs": [],
+    "timelineUids": [],
+    "itemUids": [],
+    "mediaUids": [],
+    "importMediaCalled": false,
+    "saveProjectCalled": false,
+    "failure": "prepared timelinePlaybackFrameRate differs: '24', expected 25"
+  },
+  "interpretation": "Harness setup precondition failure after creation; not a W3/W6 product result. The source explicitly treats timelinePlaybackFrameRate as read-only and does not attempt a setter.",
+  "operatorCheckpoint": {
+    "path": "Resolve Project Settings (gear) -> Master Settings -> Timeline Format -> Playback frame rate",
+    "change": "Set Playback frame rate to 25, leave other settings and project contents unchanged, then Save.",
+    "followUp": "Retain the project UID and partial captures; take a fresh read-only settings observation before the bounded save-checkpoint/import continuation.",
+    "doNot": "Do not recreate the project, call a playback-rate setter, import media, create timelines, or classify W3/W6 behavior from this setup stop."
+  },
+  "freshness": "Verified from the retained prepare-02 result, complete pre/post-partial captures, and journal after native action completion; no native call or source change was performed by this reviewer.",
+  "references": [
+    "docs/investigations/issue-149/workflow-discriminators/README.md:37",
+    "docs/investigations/issue-149/workflow-reruns/plan.md:70-83",
+    "docs/investigations/issue-149/workflow-discriminators/harness.py:861-930",
+    "out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-prepare-02-20261003-kit-02.json",
+    "out/issue149-workflow-discriminators-20261003-kit-02/evidence/prepare-02-20261003-kit-02/pre.json",
+    "out/issue149-workflow-discriminators-20261003-kit-02/evidence/prepare-02-20261003-kit-02/post-partial.json"
+  ]
+}

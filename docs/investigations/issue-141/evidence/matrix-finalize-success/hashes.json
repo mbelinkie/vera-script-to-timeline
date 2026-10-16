@@ -1,0 +1,38 @@
+[
+  {
+    "filename": "capture-20260930T223313.312609Z-preflight.json",
+    "rawSha256": "2a9686e4fddac37698fc6d0401e4c4b64030a360a42dd8b195100c02fb0e7441",
+    "publishedSha256": "10ea3ea509e41e55c6664d0b6f68dd835ce8ecaf49f4aae7aee5420823baabdf",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T223313.312609Z-saved.json",
+    "rawSha256": "a29402d405ab8cf1bc1abedd4c1ed0c479e983e2ef3ba6fc41d1c2389d6d36d2",
+    "publishedSha256": "798fcd67a01710f009b2cda9d8503540f2992e3ee07aa574e817c1786c0dfe98",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "matrix-finalize-20260930T223313.312609Z.jsonl",
+    "rawSha256": "ad10de46191819f2118912b39a6b5577ecd0af1f984901d6c9faa97aeac95091",
+    "publishedSha256": "ad10de46191819f2118912b39a6b5577ecd0af1f984901d6c9faa97aeac95091",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "matrix-layout.json",
+    "rawSha256": "a785aa4bfb31d3b58314d45e6c3ecc6e3c77f96369dd4a96bdd69f858ab7ed79",
+    "publishedSha256": "5694b0de0e0db2ee7755f7032b28a137df97c96efd2680e28078fc474b9ef0b0",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "vera-issue-141-observation-result-20260930T223313.296914Z.json",
+    "rawSha256": "c6433fdc1fc192b862697201f427758e8d88b45a1321bdb12e7c62182ac02de7",
+    "publishedSha256": "780332234572d7940a1878e9ab5a56570f563af078e0b8f9b2dba49e5f2b60e9",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "hammerspoon-launch-20260930T223311.948617Z.jsonl",
+    "rawSha256": "ff54bbc6104922a5bebfb521e8d1abb6068f35b257cb3d54e6103c80ba16f27b",
+    "publishedSha256": "ff54bbc6104922a5bebfb521e8d1abb6068f35b257cb3d54e6103c80ba16f27b",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  }
+]

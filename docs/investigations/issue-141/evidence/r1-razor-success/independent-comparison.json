@@ -1,0 +1,34 @@
+{
+  "fullExpectedMatch": true,
+  "leftUidsPreserved": [
+    "33270bc5-52d0-4361-a6e3-96eb2b6d4a91",
+    "4d08e64a-85fd-4dfe-ac80-77e4d9d28835"
+  ],
+  "rightUidsNew": [
+    "43a86094-c5b5-40f0-b781-a419923f25fe",
+    "9b7c5a04-8349-4a68-aa4b-9fcc81065cc8"
+  ],
+  "recordRanges": [
+    [
+      1500,
+      1600
+    ],
+    [
+      1600,
+      1699
+    ]
+  ],
+  "sourceRanges": [
+    [
+      0,
+      100
+    ],
+    [
+      100,
+      199
+    ]
+  ],
+  "copiedMarkersAreNotUniqueBinding": true,
+  "sourceUsageIncrement": 1,
+  "afterPairSha256": "5eabacdb141908d6bc5aa805136d5148913c3ab63936e19fc1dc9801fa448fba"
+}

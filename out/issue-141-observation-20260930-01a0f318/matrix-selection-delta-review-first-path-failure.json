@@ -1,0 +1,9 @@
+{
+  "review": "blocked",
+  "capture": "native producer-matrix-selection-20261001T183030.414033Z",
+  "finding": "Requested before-pair.json, after-pair.json, result.json, journal.jsonl, and context/content-comparison evidence were not present in the workspace paths searched (out/issue-141-observation-20260930-01a0f318 and docs/investigations/issue-141/evidence). Therefore no leaf enumeration, hash retention, identity verification, or source-metadata comparison can be substantiated.",
+  "prior_context": "docs/investigations/issue-141/report.md records selected-timeline getter context behavior near lines 150+, but that does not establish that this capture's differences are limited to audio-key presence.",
+  "decision": "Do not certify the after-pair as a current Matrix observation for R2-picture preparation from this review. Precise blocker: the named capture files and content-comparison are unavailable. Preserve the reported all-state-equality failure and unknown effect readback; omission of GetProperties keys is not evidence of effect removal.",
+  "required_evidence": ["before-pair.json", "after-pair.json", "result.json", "journal.jsonl", "context/content-comparison", "hashes for compared pairs"],
+  "actions": "No Resolve/API/UI/config/media action; no relaunch or normalization."
+}

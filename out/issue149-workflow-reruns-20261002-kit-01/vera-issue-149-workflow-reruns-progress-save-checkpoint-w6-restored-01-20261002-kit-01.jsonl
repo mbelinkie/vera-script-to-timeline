@@ -1,0 +1,6 @@
+{"at": "2026-10-03T01:25:39.423203+00:00", "phase": "started", "value": {"actionId": "save-checkpoint-w6-restored-01-20261002-kit-01", "configSha256": "ed834ce550ada501d3743c01fcf1a4513f9e8646ca70c2fa741397ab41a58da1"}}
+{"at": "2026-10-03T01:25:39.452021+00:00", "phase": "probe-verified", "value": {"probePath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/sources/be467c29fad0f7c8da474eadc9f51ec4a6e7b13f64ee479bebd7eaeceda0cc93/harness.py", "probeSha256": "be467c29fad0f7c8da474eadc9f51ec4a6e7b13f64ee479bebd7eaeceda0cc93"}}
+{"at": "2026-10-03T01:25:39.453098+00:00", "phase": "disarmed", "value": {"action": "save-checkpoint", "actionId": "save-checkpoint-w6-restored-01-20261002-kit-01"}}
+{"at": "2026-10-03T01:25:39.453218+00:00", "phase": "probe-request", "value": {"action": "save-checkpoint", "phase": "save-checkpoint-w6-restored-01"}}
+{"at": "2026-10-03T01:25:42.773471+00:00", "phase": "probe-return", "value": {"status": "ok"}}
+{"at": "2026-10-03T01:25:42.774318+00:00", "phase": "result-written", "value": {"result": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-save-checkpoint-w6-restored-01-20261002-kit-01.json", "status": "ok"}}

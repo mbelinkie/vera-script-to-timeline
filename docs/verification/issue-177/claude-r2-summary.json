@@ -1,0 +1,18 @@
+{
+  "reviewedCommit": "302154617eecffe3f9e1f4cbb888791304a8ad1b",
+  "deltaBase": "1457e52ffce46c7c7f9620b240d41fc9b0b8ffe7",
+  "promptSha256": "f0d779cadb9ce0102ff258e0ab267c7a19bbc0fd2c64447c6773b455e8f8cd6a",
+  "verdict": "NO-GO",
+  "exit": {
+    "exitCode": 0,
+    "finishedAt": "2026-10-13T11:17:49.834907+00:00",
+    "logSha256": "a0ac1b27552b35f638e0eaf1aa3f451a95e8df380100d38f711e705c5b34b7b6",
+    "sourceUnchanged": true,
+    "startedAt": "2026-10-13T11:13:33.122638+00:00"
+  },
+  "model": [
+    "claude-opus-5-5"
+  ],
+  "blockingFinding": "D1: verified_reuse report status must be reused, not prepared.",
+  "disposition": "Fresh source fix, focused/fast checks, delta review and final qualifying evidence required."
+}

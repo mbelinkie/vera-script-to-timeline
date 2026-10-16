@@ -1,0 +1,44 @@
+[
+  {
+    "filename": "matrix-reopen-20260930T234437.703376Z.json",
+    "publishedSha256": "c5550735bfcd95051be10b7730f106073c409a50f0aa37f25830dd4cc41e90bd",
+    "rawSha256": "f3b5306050b966fe05262f0234312142e7a7fb5f41f66056888701ba7607e7f5",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "matrix-reopen-20260930T234437.703376Z.jsonl",
+    "publishedSha256": "012237f83e9ce6a1d084b207ac2e500db9ea2c14a23bef513e9d42012b842a54",
+    "rawSha256": "012237f83e9ce6a1d084b207ac2e500db9ea2c14a23bef513e9d42012b842a54",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "hammerspoon-launch-20260930T234437.260168Z.jsonl",
+    "publishedSha256": "9167978b2a3745cc4f4a45dd3ff50813157cc98683a130df0d103611af1ce568",
+    "rawSha256": "9167978b2a3745cc4f4a45dd3ff50813157cc98683a130df0d103611af1ce568",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "vera-issue-141-observation-result-20260930T234437.679745Z.json",
+    "publishedSha256": "1c833a13212604f508fb07835cd4317e78d2d685c87bd99e5544c899fbb162ab",
+    "rawSha256": "a2d9fca391199b52248040e82363a14dbf3f2cc4974195019632590ec51a77f1",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T234437.703376Z-preflight.json",
+    "publishedSha256": "a11c6c5e7b50d821786e8d3e420a4937fb0293fd0d313684c148984158b5853d",
+    "rawSha256": "ae4e656d0f415d660f6288e51c711d95c45bdc54c64f2e044d4548b0e8c6a972",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T234437.703376Z-pre-close.json",
+    "publishedSha256": "833a1c7cd5c48de500e4e2e3a24cbcd036ff1a93a9504c53943c8006354f8947",
+    "rawSha256": "712404d59c7044a0157373390c1fb7be566bc1b7ad5a12fcaf0b94de9663bce6",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  },
+  {
+    "filename": "capture-20260930T234437.703376Z-reopened.json",
+    "publishedSha256": "262eea232736c355c03b97f0659fb49958389a5bce6b14053a9a020687bebeff",
+    "rawSha256": "e8b55f2300a86471e4b1b32b54716583a48a1c5a399ddbbbf2a364c1e6f1b492",
+    "redaction": "private absolute paths replaced with <probe-output>, <user-home>, or <resolve-plugins>"
+  }
+]

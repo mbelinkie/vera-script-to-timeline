@@ -1,0 +1,6 @@
+{"at": "2026-10-03T05:10:54.890733+00:00", "phase": "started", "value": {"actionId": "save-checkpoint-user-stop-20261003-kit-02", "configSha256": "29cade5a13b4f4a189300bfd4a37d8a81743071427c90aab46cc90095d24d85e"}}
+{"at": "2026-10-03T05:10:55.046105+00:00", "phase": "probe-verified", "value": {"probePath": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/sources/ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438/harness.py", "probeSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438"}}
+{"at": "2026-10-03T05:10:55.049942+00:00", "phase": "disarmed", "value": {"action": "save-checkpoint", "actionId": "save-checkpoint-user-stop-20261003-kit-02"}}
+{"at": "2026-10-03T05:10:55.050516+00:00", "phase": "probe-request", "value": {"action": "save-checkpoint", "phase": "save-checkpoint-user-stop"}}
+{"at": "2026-10-03T05:11:03.515822+00:00", "phase": "probe-return", "value": {"status": "ok"}}
+{"at": "2026-10-03T05:11:03.520002+00:00", "phase": "result-written", "value": {"result": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-save-checkpoint-user-stop-20261003-kit-02.json", "status": "ok"}}

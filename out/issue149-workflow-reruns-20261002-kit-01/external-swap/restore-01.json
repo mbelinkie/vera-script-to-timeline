@@ -1,0 +1,9 @@
+{
+  "at": "2026-10-03T01:24:25.705790+00:00",
+  "method": "atomic original-byte restore from exclusive retained hard-link backup",
+  "restoredSha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+  "originalMtimePreserved": true,
+  "inode": 547847558,
+  "path": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/media/swap.mov",
+  "backupRetained": true
+}

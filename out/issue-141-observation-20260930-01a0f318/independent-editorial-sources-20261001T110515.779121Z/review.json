@@ -1,0 +1,20 @@
+{
+  "scope": "Independent R2/R3 base probes from pinned held-secondary context; preserve stopped Copy/Paste and Out metadata",
+  "producerApproval": "Yes\u2014continue independent tests",
+  "sourceHashes": {
+    "editorial-readback.py": "ec97ed4ee37e5ce9561fafe5bae5bbff25bfd651c768f4b872156a1915ddf703",
+    "previous-observe-config.json": "50e790864ff1472d1e8427db3b1c12a45cb7a7f47e0c64201eddb53fd9800795",
+    "editorial-cases.py": "4db1e19f0b5d1e876a6f1d3b52659ee90f1912bf63c3514cbf66ee254ef50f5a",
+    "hammerspoon-launch.lua": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+    "hammerspoon-editorial.lua": "70015c4731538662ec66255861cd69a1b10577ad0caf86f85b4a7da666e6528c",
+    "probe.py": "598e961f1dcf86fc49425438b92ad03df7bb24fadeca0fc1b601aed17d4c337b",
+    "editorial-cases-check.py": "3f03af0b78dc06b67b7a427716235c266569f4dcd5a5817c81efa6d3da75a89b"
+  },
+  "checks": [
+    "R1-R3 guarded fake checks with held-context preparation/restoration and primary-lock refusal",
+    "Ruff"
+  ],
+  "nativeActionStaged": false,
+  "copyCaseRestorationApproved": false,
+  "oldAudioCheckpointStillStale": true
+}

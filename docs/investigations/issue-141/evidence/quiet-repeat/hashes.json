@@ -1,0 +1,20 @@
+[
+  {
+    "filename": "capture-20260930T182247.403177Z.json",
+    "rawSha256": "fcdff8df7d68ce28a7a491e568f6c1cda028c5a0397354fce666ac90d3032827",
+    "publishedSha256": "8350f2269a1164de9a4c41453d992f7891e9d1f82d51a4037baddd3520db41d1",
+    "redaction": "private absolute path values replaced with <probe-output> or <user-home>"
+  },
+  {
+    "filename": "capture-20260930T173943.043191Z.json",
+    "rawSha256": "92c04d10bafe86499b7d11a27d457e655893ee6340d73a290a80e29e35887161",
+    "publishedSha256": "e5a402bdbb0bcb08e27e2d467f75c61f312cb1196e5bdc6230cd0118b0a49990",
+    "redaction": "baseline publication retained under evidence/baseline-preparation/hashes.json"
+  },
+  {
+    "filename": "vera-issue-141-observation-result-20260930T182247.165539Z.json",
+    "rawSha256": "ab67f40c346d737ed6dfaff27ddfd5222df30a97c1c30952bb40c2cab01f4a2e",
+    "publishedSha256": "1ed7f5ae9ceece52951423695af9e8c6d30718d41bfe060da0b42b409974ceb8",
+    "redaction": "capturePath replaced with <probe-output>; launcher result status and capture SHA-256 retained"
+  }
+]

@@ -1,0 +1,168 @@
+{
+  "artifact": "residual-driver-reviewed.json",
+  "boundary": {
+    "change": "Removed stale Graphic-only registration coupling; contained reviewed path+digest is the handoff.",
+    "nativeReviewStatus": "no native actor invoked in this review",
+    "nextIndependentlyReviewedPair": {
+      "acceptedByContainedPrior": true,
+      "path": "r2-partial-context-20261001T193945.838631Z/pair.json",
+      "sha256": "6ab9ed7028222f9a3fb0773ed66f86265b77a6035bdbbc4ebb0f7414c6bc9807"
+    },
+    "registrationAfterPairSha256": "31a36fbf4730802705280056c73265240969e752bc2db8a71df74409f2289636",
+    "registrationCase": "R3-Graphic",
+    "registrationPath": "locked-layer-pin-registration.json",
+    "registrationUpdated": false,
+    "restriction": "contained_prior previously required locked-layer-pin-registration.afterConfig.case=R3-Graphic and afterConfig.afterPairSha256=input digest"
+  },
+  "checks": {
+    "command": "/usr/local/bin/python3.14 -S out/issue-141-observation-20260930-01a0f318/independent-residual-sequence.py --check",
+    "currentAttempt": {
+      "returnCode": 1,
+      "status": "unavailable-source-pin-mismatch",
+      "stderr": "Traceback (most recent call last):\n  File \"REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-residual-sequence.py\", line 387, in <module>\n    sys.exit(main())\n             ~~~~^^\n  File \"REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-residual-sequence.py\", line 378, in main\n    check()\n    ~~~~~^^\n  File \"REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-residual-sequence.py\", line 345, in check\n    sources = pin_sources(native=False)\n  File \"REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-residual-sequence.py\", line 37, in pin_sources\n    raise RuntimeError(f\"Reviewed source pin changed: {path.resolve()}\")\nRuntimeError: Reviewed source pin changed: REPOSITORY/docs/investigations/issue-141/editorial-cases.py",
+      "stdout": ""
+    },
+    "currentCheckerDirectEvidence": {
+      "happy": {
+        "failure": null,
+        "razorCalls": [],
+        "restoredPlayhead": "00:01:30:00",
+        "status": "completed",
+        "statuses": {
+          "delete": "interval-deleted-unsaved",
+          "firstReady": "split-ready",
+          "position": "second-position-ready",
+          "preparation": "case-prepared",
+          "restore": "restored-unsaved",
+          "review": "split-readback-retained",
+          "secondReady": "split-ready"
+        }
+      },
+      "wrongSelection": {
+        "failure": "r2-residual-selected selected UIDs are not the exact split targets",
+        "razorCalls": [],
+        "restoredPlayhead": null,
+        "status": "completed",
+        "statuses": {
+          "preparation": "case-prepared"
+        }
+      }
+    },
+    "driverRunSequenceExecuted": false,
+    "focusedNonemptySelectionRefusal": {
+      "failure": "r2-residual-selected selected UIDs are not the exact split targets",
+      "razorCalls": [],
+      "refusedBeforeRazor": true
+    },
+    "historicalPreRepairPass": {
+      "output": "R2-residual orchestration fake pass and pre-split wrong-selection refusal pass; no native action.",
+      "status": "passed"
+    },
+    "nextPairBoundary": "contained_prior accepted the stable reviewed pair without registration lookup"
+  },
+  "driverSha256": "8aa43cd125644f5e799dabe8f1d3c142b6ea75af9f75a6691b4e3578fdbb654b",
+  "flowReview": {
+    "deselectPasses": [
+      {
+        "label": "r2-residual-deselected",
+        "pair": "preparedPair",
+        "passes": 2,
+        "stage": "first"
+      },
+      {
+        "label": "r2-residual-second-deselected",
+        "pair": "secondPositionPair",
+        "passes": 2,
+        "stage": "second"
+      },
+      {
+        "label": "r2-residual-deselected",
+        "pair": "secondSplitPair",
+        "passes": 2,
+        "stage": "interval"
+      }
+    ],
+    "finalContextGuard": {
+      "menu": "deselect",
+      "passes": 2,
+      "requiresEmptyItems": true,
+      "requiresOriginalPlayhead": true,
+      "requiresRestoredPair": true,
+      "runtimeExecuted": false
+    },
+    "selectedReadbackGuard": "driver invokes cases._selected_uids for first, second, and interval selections; this checks pair pin, label, two equal passes, source UID, and reciprocal links before each guarded action",
+    "splitChildGuard": "driver validates read pairs and cases._named_linked_children for both splits, including ranges, retained/new occurrence IDs, markers, reciprocal links, source usage, and unrelated full state"
+  },
+  "nativeDispatched": false,
+  "recordedAt": "2026-10-01T20:30:47.737923+00:00",
+  "retainedFailure": {
+    "actual": {
+      "editorial-cases-check.py": "6d6edf65b4b43971997c8b2fc48afd77959e9fa84c946e349c2308e33875b019",
+      "editorial-cases.py": "4f8acafc4ba78483518f4b9b39946888b7c79a3109d47a72a610d975abe851c6"
+    },
+    "currentFailure": "--check now refuses before fake flow because editorial-cases.py and editorial-cases-check.py changed from the driver pins",
+    "resolution": "do not refresh pins until boundary source repair is reviewed; root must register final cases/probe/helper pins",
+    "type": "pending-source-repair"
+  },
+  "scope": {
+    "driver": "independent-residual-sequence.py",
+    "excluded": [
+      "Resolve/native dispatch",
+      "locked-layer-pin-registration.json mutation",
+      "new prior-pair registration",
+      "broad reruns"
+    ],
+    "review": "local source/hash and fake-check review"
+  },
+  "sourcePins": {
+    "checkPolicy": {
+      "fakeOnlySkips": [
+        "probe.py",
+        "independent-native-call.py"
+      ],
+      "pendingSourceRepairRequiresRootPinReview": true,
+      "runEnforcesAllPins": true
+    },
+    "latestReviewedSourcePins": "latest-reviewed-source-pins.json",
+    "refreshed": {
+      "independent-native-call.py": {
+        "currentRegisteredPin": "61ef935b47f5138545df909f41edffc2f10c7dcf55283068948950248e2c0531",
+        "previousDriverPin": "28abcace8d61f5596905ed237c8008c394597eb3837d3ad9811e339791023c8b"
+      },
+      "probe.py": {
+        "currentRegisteredPin": "b2d9adaa7d9925353d5bcb7d70f8b94c75034f90dd72a96127744baacd5a4cb2",
+        "previousDriverPin": "21e39a7086248fca7e31a15cbb56aedc75afa6e53d9c39281c2a3ddcc7141fe7"
+      }
+    },
+    "verified": {
+      "editorial-cases-check.py": {
+        "actualSha256": "6d6edf65b4b43971997c8b2fc48afd77959e9fa84c946e349c2308e33875b019",
+        "driverPinSha256": "868e706d0041b82f5af05e3639ed7c5e4f1a649e0b729069be6c9061b63ced05",
+        "latestReviewedSha256": "868e706d0041b82f5af05e3639ed7c5e4f1a649e0b729069be6c9061b63ced05",
+        "matchesDriverAndLatest": false,
+        "path": "docs/investigations/issue-141/editorial-cases-check.py"
+      },
+      "editorial-cases.py": {
+        "actualSha256": "4f8acafc4ba78483518f4b9b39946888b7c79a3109d47a72a610d975abe851c6",
+        "driverPinSha256": "474daf2eae3eb39890d28a83bd177ff700b2af785e69d31f91fc236a67544f8e",
+        "latestReviewedSha256": "474daf2eae3eb39890d28a83bd177ff700b2af785e69d31f91fc236a67544f8e",
+        "matchesDriverAndLatest": false,
+        "path": "docs/investigations/issue-141/editorial-cases.py"
+      },
+      "independent-native-call.py": {
+        "actualSha256": "61ef935b47f5138545df909f41edffc2f10c7dcf55283068948950248e2c0531",
+        "driverPinSha256": "61ef935b47f5138545df909f41edffc2f10c7dcf55283068948950248e2c0531",
+        "latestReviewedSha256": "61ef935b47f5138545df909f41edffc2f10c7dcf55283068948950248e2c0531",
+        "matchesDriverAndLatest": true,
+        "path": "out/issue-141-observation-20260930-01a0f318/independent-native-call.py"
+      },
+      "probe.py": {
+        "actualSha256": "b2d9adaa7d9925353d5bcb7d70f8b94c75034f90dd72a96127744baacd5a4cb2",
+        "driverPinSha256": "b2d9adaa7d9925353d5bcb7d70f8b94c75034f90dd72a96127744baacd5a4cb2",
+        "latestReviewedSha256": "b2d9adaa7d9925353d5bcb7d70f8b94c75034f90dd72a96127744baacd5a4cb2",
+        "matchesDriverAndLatest": true,
+        "path": "docs/investigations/issue-141/probe.py"
+      }
+    }
+  }
+}

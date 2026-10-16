@@ -1,0 +1,3 @@
+Implemented the guarded R2-picture terminal-refusal continuation in `independent-cut-sequence.py` and added fake boundary pass/refusal checks. The driver check passed against the pinned Matrix pair; `git diff --check` passed. Driver SHA-256: `bfd96510…9a357b0`.
+
+Preflight and exact invocation are recorded in [r2-picture-resume-preflight.json](r2-picture-resume-preflight.json). I did not dispatch native actions: the instruction requires root review of this driver change first. The previous terminal result remains unchanged.

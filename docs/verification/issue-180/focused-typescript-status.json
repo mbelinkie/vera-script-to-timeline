@@ -1,0 +1,21 @@
+{
+  "sourceCommit": "7b3cbd63a8e572d9e4f99c3427a74afee3fb8ccc",
+  "command": [
+    "npm",
+    "exec",
+    "--workspace",
+    "@vera/contracts",
+    "--",
+    "vitest",
+    "run",
+    "test/boundary-evidence-v2.test.ts",
+    "test/compiler-core-v2.test.ts",
+    "test/authoring-v2.test.ts"
+  ],
+  "startedAt": "2026-10-09T20:57:17.962Z",
+  "finishedAt": "2026-10-09T20:57:36.025Z",
+  "exitCode": 0,
+  "state": "passed",
+  "nodeCompileCache": "/Users/matthewbelinkie/.codex/worktrees/6484/VERA Script to Timeline/test-results/issue-180/node-compile-cache",
+  "logSHA256": "a20c73a069f14298de5ab90f7daeec6bbf185d1b81b313d2d884d7064fe6a52a"
+}

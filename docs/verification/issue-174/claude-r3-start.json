@@ -1,0 +1,28 @@
+{
+  "reviewedCommit": "bd1fb70f926802b491be3e75c20c5bc56d3a53fe",
+  "cliVersion": "2.1.296 (Claude Code)",
+  "pauseAfterLaunch": true,
+  "command": [
+    "/Users/matthewbelinkie/.local/bin/claude",
+    "-p",
+    "--safe-mode",
+    "--tools",
+    "",
+    "--no-chrome",
+    "--strict-mcp-config",
+    "--mcp-config",
+    "{\"mcpServers\":{}}",
+    "--no-session-persistence",
+    "--output-format",
+    "json",
+    "--effort",
+    "high"
+  ],
+  "worktree": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline",
+  "launchdLabel": "com.vera.issue174.claude-r3",
+  "keepAlive": false,
+  "promptHash": "sha256:0f8d0b33449184269fa99ef3d56ce9636f0cd2d010a362c7150eed9dc7f8d83f",
+  "startedAt": 1791856873.405925,
+  "resultPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/claude-r3/result.json",
+  "exitStatusPath": "/Users/matthewbelinkie/.codex/worktrees/488c/VERA Script to Timeline/out/issue174/claude-r3/exit.json"
+}

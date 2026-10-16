@@ -1,0 +1,52 @@
+{
+  "taskId": "Issue 141",
+  "kind": "r1-selection-restoration-independent-review",
+  "status": "PASS_WITH_BOUNDED_OFFLINE_SCOPE",
+  "decision": "The exact hash-pinned candidate is accepted for the bounded R1-to-Matrix selection-restoration scope; no native dispatch was performed.",
+  "helperPath": "docs/investigations/issue-141/r1-repeat-six.py",
+  "helperSha256": "1948ec4339cc92ca949db9be4f554806f237614a4ee9ad886467e6d3b77475c3",
+  "checkerPath": "docs/investigations/issue-141/r1-repeat-six-check.py",
+  "checkerSha256": "7e7874d8dedcd1c4a5dcdca57d5f3c4825078c6b16545ed8a670ca6613f1782f",
+  "localReadinessRecord": {
+    "path": "output/r1-selection-restoration-local.json",
+    "sha256": "c1c33f451ba6f4ae5d847adb67798308d22d1a582ebdd200aae8944032848ae9"
+  },
+  "command": {
+    "value": "ctx-wire run rtk proxy /usr/local/bin/python3.14 -S docs/investigations/issue-141/r1-repeat-six-check.py",
+    "exitCode": 0,
+    "observedOutput": [
+      "PASS: [REDACTED] inventory/hash, refusal, fake reopen/duplicate, failure journal",
+      "PASS: [REDACTED] fake API guards and real selected-context regression; no native dispatch"
+    ]
+  },
+  "coverage": {
+    "normal": "One successful restore returned restored-selection, exact target pair/context equality, and exactly one SetCurrentTimeline(Matrix).",
+    "boundaries": [
+      "Hash-bound current R1 pair and stable adjacent reads",
+      "Exact six-timeline protected inventory and project identity",
+      "Exact Matrix handle uniqueness",
+      "Idle empty render queue and unchanged context guards"
+    ],
+    "refusals": [
+      "Stale current R1 pair before setter",
+      "Stale target hash before setter",
+      "Wrong target selected UID before setter",
+      "Foreign render queue before setter",
+      "False SetCurrentTimeline result with no retry"
+    ],
+    "postcondition": "Matrix pair and native context are read back and compared by exact parsed-object equality with the retained target pins."
+  },
+  "mutationAssessment": {
+    "sequence": "Preflight current R1 pair, guard exact Matrix target pair/context, call SetCurrentTimeline(Matrix) once, then read back pair/context.",
+    "allowedMutation": "SetCurrentTimeline(Matrix)",
+    "forbiddenMutatorsObservedInRestorePath": false,
+    "nativeDispatchPerformed": false,
+    "noSaveRenderClipLockOrPlayheadMutationClaim": "Implemented result field is consistent with the inspected restore path; the checker uses fake APIs only."
+  },
+  "limitations": [
+    "No Resolve, UI, native action, registration, source edit, dashboard write, or duplicate action was performed.",
+    "The checker does not exercise live Resolve behavior or a post-setter mismatch against a separately observed Matrix state; the implementation does explicitly refuse when post-setter pair/context readback differs from the pinned target."
+  ],
+  "residualRisk": "Acceptance evidence remains limited to the offline fake API and retained pair fixtures; producer/native execution is a separate gate.",
+  "decisionNeededFromMain": "Proceed with the one bounded native restoration under the existing producer/registration gate; retain this report as the independent candidate review."
+}

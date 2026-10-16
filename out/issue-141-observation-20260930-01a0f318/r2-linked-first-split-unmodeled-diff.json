@@ -1,0 +1,12 @@
+[
+  {
+    "path": "/timelineState/timelines/0/tracks/0/items/14/GetSourceEndTime/value",
+    "expected": 7.96,
+    "actual": 7.959999999999999
+  },
+  {
+    "path": "/timelineState/timelines/0/tracks/3/items/1/GetSourceEndTime/value",
+    "expected": 7.96,
+    "actual": 7.959999999999999
+  }
+]

@@ -1,0 +1,3 @@
+{"at": "2026-10-01T19:32:25.936202+00:00", "method": "FullReadback", "phase": "before", "value": {"path": "before.json"}}
+{"at": "2026-10-01T19:32:25.982010+00:00", "method": "SetCurrentTimecode", "phase": "request", "value": {"timecode": "00:02:22:20"}}
+{"at": "2026-10-01T19:32:25.983869+00:00", "method": "SetCurrentTimecode", "phase": "return", "value": true}

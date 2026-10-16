@@ -1,0 +1,9 @@
+{"at": "2026-09-30T23:44:40.781095+00:00", "method": "SaveProject", "phase": "request", "value": []}
+{"at": "2026-09-30T23:44:40.855487+00:00", "method": "SaveProject", "phase": "return", "value": true}
+{"at": "2026-09-30T23:44:43.842186+00:00", "method": "CloseProject", "phase": "request", "value": ["97037b5a-aab6-48a9-b7e4-4c5697ae10a0"]}
+{"at": "2026-09-30T23:44:44.772516+00:00", "method": "CloseProject", "phase": "return", "value": true}
+{"at": "2026-09-30T23:44:44.961808+00:00", "method": "automatic handoff", "phase": "readback", "value": {"projectId": "2886b8d5-106f-4b0f-a225-f6ae9d78065e", "projectName": "Untitled Project", "rootClipCount": 0, "rootSubfolderCount": 0, "timelineCount": 0}}
+{"at": "2026-09-30T23:44:44.963976+00:00", "method": "automatic handoff recheck", "phase": "readback", "value": {"projectId": "2886b8d5-106f-4b0f-a225-f6ae9d78065e", "projectName": "Untitled Project", "rootClipCount": 0, "rootSubfolderCount": 0, "timelineCount": 0}}
+{"at": "2026-09-30T23:44:44.964137+00:00", "method": "LoadProject", "phase": "request", "value": ["VERA Issue 141 Synthetic Probe 20260930-01a0f318"]}
+{"at": "2026-09-30T23:44:46.725758+00:00", "method": "LoadProject(identity readback)", "phase": "readback", "value": {"current": {"projectId": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0", "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318"}, "returned": {"projectId": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0", "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318"}}}
+{"at": "2026-09-30T23:44:49.631102+00:00", "method": "matrix-reopen", "phase": "failure", "value": {"error": "RuntimeError: Reopened raw capture is incomplete or unstable", "stage": "reopened-capture"}}

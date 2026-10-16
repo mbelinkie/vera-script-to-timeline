@@ -1,0 +1,261 @@
+{
+  "dependencies": {
+    "authoringDefaults": {
+      "presenterStill": null,
+      "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "sourceAudioLevelPolicy": {
+        "fullGainDb": 0,
+        "quietGainDb": -18,
+        "version": "source-audio-level/v1"
+      },
+      "visualOnlyStillDurationMs": 3000
+    },
+    "build": {
+      "buildClass": "preview",
+      "buildId": "00000000-0000-4000-8000-000000000003",
+      "manifestId": "00000000-0000-4000-8000-000000000004",
+      "reportId": "00000000-0000-4000-8000-000000000005"
+    },
+    "compiler": {
+      "profileHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "sourceHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "version": "compiler/v2"
+    },
+    "document": {
+      "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "documentId": "00000000-0000-4000-8000-000000000001",
+      "liveHeadSequence": 0,
+      "projectId": "00000000-0000-4000-8000-000000000002",
+      "revision": 1,
+      "settingsHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "textHash": "sha256:64989ccbf3efa9c84e2afe7cee9bc5828bf0fcb91e44f8c1e591638a2c2e90e3"
+    },
+    "narrationBoundaryEvidence": [
+      {
+        "alignmentVersion": "aligner/v1",
+        "audio": {
+          "audioHash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "cacheAssetId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "channels": 1,
+          "durationSamples": 192000,
+          "locator": "Builds/narration/hello.wav",
+          "narrationAssetId": "00000000-0000-4000-8000-000000000013",
+          "sampleRate": 48000,
+          "timingHash": "sha256:9689fb1b628dff31fd901a479428014c3c9d3aca9fa2502741dfdc58c0a5a43a"
+        },
+        "audioHash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "blockId": "00000000-0000-4000-8000-000000000006",
+        "blockRevision": 1,
+        "narrationAssetId": "00000000-0000-4000-8000-000000000013",
+        "schemaVersion": "narration-boundary-evidence/v1",
+        "textHash": "sha256:64989ccbf3efa9c84e2afe7cee9bc5828bf0fcb91e44f8c1e591638a2c2e90e3",
+        "timingHash": "sha256:9689fb1b628dff31fd901a479428014c3c9d3aca9fa2502741dfdc58c0a5a43a",
+        "tokenizationVersion": "script-document/v2-frozen-tokens",
+        "tokens": [
+          {
+            "audibleEnd": {
+              "denominator": 2,
+              "numerator": 3
+            },
+            "endOffset": 10,
+            "onset": {
+              "denominator": 1,
+              "numerator": 1
+            },
+            "quotedText": "beta",
+            "startOffset": 6,
+            "tokenId": "00000000-0000-4000-8000-000000000029"
+          }
+        ],
+        "verification": {
+          "method": "reviewed_audio_boundaries/v1",
+          "reviewArtifactHash": "sha256:019dd5f1692d0ae6bd8913b504a30c4706ef8c8c53cf75462156e2b5029943de",
+          "reviewArtifactLocator": "Reviews/synthetic-180.json",
+          "reviewId": "00000000-0000-4000-8000-0000000000b4",
+          "reviewRevision": 1,
+          "reviewerReference": "synthetic-test-reviewer"
+        }
+      }
+    ],
+    "narrationTimingMaps": [],
+    "occurrenceResolutions": [],
+    "preparedMedia": [],
+    "presenterAlignmentResolutions": [],
+    "roles": {
+      "childTrackIds": [
+        "video-child"
+      ],
+      "markerTrackId": "markers",
+      "narrationTrackId": "narration",
+      "overlayTrackIds": [
+        "video-overlay"
+      ],
+      "placeholderTrackId": "placeholder",
+      "presenterTrackId": "presenter",
+      "primaryRootTrackId": "video-root",
+      "sourceAudioTrackIds": []
+    },
+    "schemaVersion": "compiler-dependencies/v2",
+    "timeline": {
+      "audioSampleRate": 48000,
+      "durationFrames": 240,
+      "frameRate": {
+        "denominator": 1001,
+        "numerator": 24000
+      },
+      "height": 1080,
+      "startFrame": 0,
+      "width": 1920
+    },
+    "tracks": [
+      {
+        "id": "video-root",
+        "index": 1,
+        "kind": "video",
+        "name": "Primary root"
+      },
+      {
+        "id": "narration",
+        "index": 1,
+        "kind": "audio",
+        "name": "Narration"
+      },
+      {
+        "id": "placeholder",
+        "index": 4,
+        "kind": "video",
+        "name": "Placeholder"
+      },
+      {
+        "id": "presenter",
+        "index": 5,
+        "kind": "video",
+        "name": "Presenter"
+      },
+      {
+        "id": "markers",
+        "index": 6,
+        "kind": "video",
+        "name": "Markers"
+      },
+      {
+        "id": "video-child",
+        "index": 2,
+        "kind": "video",
+        "name": "Child"
+      },
+      {
+        "id": "video-overlay",
+        "index": 3,
+        "kind": "video",
+        "name": "Overlay"
+      }
+    ]
+  },
+  "document": {
+    "activeDraft": {
+      "blocks": [
+        {
+          "id": "00000000-0000-4000-8000-000000000006",
+          "notes": [],
+          "orderKey": "a0",
+          "overlayEvents": [],
+          "primaryVisualSequence": {
+            "id": "00000000-0000-4000-8000-000000000009",
+            "slots": [
+              {
+                "boundaryBefore": {
+                  "kind": "row_start"
+                },
+                "id": "00000000-0000-4000-8000-000000000010",
+                "kind": "content",
+                "payload": {
+                  "kind": "on_camera",
+                  "presenterChoiceId": null
+                },
+                "playoutPolicy": "match_structural_interval",
+                "relation": {
+                  "kind": "base"
+                },
+                "version": 1
+              },
+              {
+                "boundaryBefore": {
+                  "anchor": {
+                    "affinity": "before",
+                    "anchorVersion": 1,
+                    "blockId": "00000000-0000-4000-8000-000000000006",
+                    "quotedWord": "beta",
+                    "tokenId": "00000000-0000-4000-8000-000000000029"
+                  },
+                  "kind": "spoken_word"
+                },
+                "id": "00000000-0000-4000-8000-000000000013",
+                "kind": "content",
+                "payload": {
+                  "kind": "on_camera",
+                  "presenterChoiceId": null
+                },
+                "playoutPolicy": "match_structural_interval",
+                "relation": {
+                  "kind": "cutaway",
+                  "parentSlotId": "00000000-0000-4000-8000-000000000010"
+                },
+                "version": 1
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000016",
+                "inpoint": {
+                  "affinity": "after",
+                  "anchorVersion": 1,
+                  "blockId": "00000000-0000-4000-8000-000000000006",
+                  "quotedWord": "beta",
+                  "tokenId": "00000000-0000-4000-8000-000000000029"
+                },
+                "kind": "return",
+                "parentSlotId": "00000000-0000-4000-8000-000000000010",
+                "version": 1
+              }
+            ],
+            "version": 1
+          },
+          "state": "active",
+          "text": "alpha beta gamma",
+          "timingPolicy": "narration_spine",
+          "tokens": [
+            {
+              "endOffset": 5,
+              "id": "00000000-0000-4000-8000-000000000028",
+              "startOffset": 0,
+              "value": "alpha"
+            },
+            {
+              "endOffset": 10,
+              "id": "00000000-0000-4000-8000-000000000029",
+              "startOffset": 6,
+              "value": "beta"
+            },
+            {
+              "endOffset": 16,
+              "id": "00000000-0000-4000-8000-00000000002a",
+              "startOffset": 11,
+              "value": "gamma"
+            }
+          ],
+          "type": "narration",
+          "version": 1
+        }
+      ],
+      "supportingItems": []
+    },
+    "extras": [],
+    "id": "00000000-0000-4000-8000-000000000001",
+    "ideaOutline": [],
+    "liveContentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "liveHeadSequence": 0,
+    "liveStateVector": "",
+    "projectId": "00000000-0000-4000-8000-000000000002",
+    "schemaVersion": "script-document/v2",
+    "title": "Issue 180 synthetic boundary evidence"
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "latest_av_snapshot": {
+    "FormatHeight": "1080",
+    "FormatWidth": "1920",
+    "RecordAudioBitDepth": "16",
+    "RecordAudioEnabled": "true",
+    "RecordAudioNumChannels": "2",
+    "RecordFPS": "25",
+    "RecordFormatSubType": "avc1",
+    "RecordFormatType": "mov",
+    "extra_info": {
+      "aud_codec": "lpcm",
+      "aud_discrete": "0",
+      "aud_src_config": "AUX0",
+      "h264_bframes": "1",
+      "h264_datarate": "0",
+      "h264_entropy_mode": "0",
+      "h264_iframefreq": "0",
+      "h264_level": "0",
+      "h264_passes": "1",
+      "h264_prioritize_speed": "n",
+      "h264_profile": "0",
+      "imf_profile_level": "0",
+      "immersive_workflow": "0",
+      "include_spatial_metadata": "0",
+      "network_optimization": "0",
+      "smpte": "y",
+      "subs_enable": "0",
+      "use_hw_acc_on_mac": "1"
+    }
+  },
+  "prior_audio_snapshot": {
+    "FormatHeight": "1080",
+    "FormatWidth": "1920",
+    "RecordAudioBitDepth": "24",
+    "RecordAudioEnabled": "true",
+    "RecordAudioNumChannels": "2",
+    "RecordFPS": "25",
+    "RecordFormatSubType": "avc1",
+    "RecordFormatType": "mov",
+    "extra_info": {
+      "aud_codec": "lpcm",
+      "aud_discrete": "0",
+      "aud_src_config": "AUX0",
+      "h264_bframes": "1",
+      "h264_datarate": "0",
+      "h264_entropy_mode": "0",
+      "h264_iframefreq": "0",
+      "h264_level": "0",
+      "h264_passes": "1",
+      "h264_prioritize_speed": "n",
+      "h264_profile": "0",
+      "imf_profile_level": "0",
+      "immersive_workflow": "0",
+      "include_spatial_metadata": "0",
+      "network_optimization": "0",
+      "smpte": "y",
+      "subs_enable": "0",
+      "use_hw_acc_on_mac": "1"
+    }
+  }
+}

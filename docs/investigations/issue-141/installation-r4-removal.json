@@ -1,0 +1,24 @@
+{
+  "kind": "one-exact-r4-timeline-occurrence-removal",
+  "stagedAt": "2026-10-01T03:13:02.806422+00:00",
+  "action": "r4-occurrence-remove",
+  "stage": "R4-non-ripple-occurrence-removal",
+  "probeSha256": "1fa10d5cde8f2d9129ed723129bf1b5d3bbd82e0fcf490f165892c67d52f8275",
+  "moduleSha256": "6a0089d56cbfdc72d3360f843337eb84fa47fac62af91c85c0683e8156072a6e",
+  "readerSha256": "06eff080c45e5c520a1c8c31787e4d4f1604198a3a98a9e3c8e025917fcf455b",
+  "launcherSha256": "1f807e2e669cd99a2d77dea6cd1a887972bed06dd170988858542fa0ee3ea119",
+  "privateConfigSha256": "3daa7ce5ffaad1fd8b278d3855df3a399f7b3503000ebc19b9a7cb673270fe30",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "timelinePinSha256": "75b854b050493a5179e2e2a5a5bf14964866efa31def9e59c22dd58cb49d26da",
+  "poolPinSha256": "15c190c39212f29e159614c5805f5ed9a9319d943b159a98d4c243d003fb474a",
+  "allowedApiMutations": [
+    "Timeline.DeleteClips only af55478a-0ba3-458a-a6e1-e47b2544111d; ripple false"
+  ],
+  "sourceOrPoolDeletionAllowed": false,
+  "appendAllowed": false,
+  "saveAllowed": false,
+  "renderAllowed": false,
+  "retryAllowed": false,
+  "privatePathsPublished": false
+}

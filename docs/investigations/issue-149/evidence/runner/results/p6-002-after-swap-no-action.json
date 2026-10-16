@@ -1,0 +1,31 @@
+{
+ "job_id": "p6-002-after-swap-no-action",
+ "started": 1790973671.565121,
+ "seconds": 7.58,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "capture": {
+   "tag": "p6b_swapped_no_action",
+   "file_sha256": "34c364eb8debae77754448b7e272467d6fbf7a9ff46a2cca338032b778acc42e",
+   "file_size": 3054519,
+   "props": {
+    "Clip Color": "",
+    "Date Created": "Fri Oct 2 2026 16:38:31",
+    "Date Modified": "Fri Oct  2 16:38:34 2026",
+    "Duration": "00:00:16:00",
+    "File Name": "swap.mov",
+    "File Path": "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/fixtures/relink/swap.mov",
+    "Frames": "400",
+    "Online Status": "Online",
+    "Proxy": "None",
+    "Resolution": "640x360",
+    "Video Codec": "H.264 High L3.0"
+   },
+   "set_tc": true,
+   "still": true,
+   "render_settings": true,
+   "render_start": true
+  }
+ }
+}

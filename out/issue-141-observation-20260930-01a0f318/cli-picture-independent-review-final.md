@@ -1,0 +1,3 @@
+Created the ignored [picture-native-independent-review.json](picture-native-independent-review.json).
+
+All sequence result SHA bindings verified. The evidence supports V1-only cuts at frames 3560 and 3570, deletion of the middle interval at record `[3560,3570)` / source `[60,70)`, preservation of the target A1 geometry, ID, and source, and restoration to the prepared context, which was explicitly unlinked. The review records the pair paths and hashes, lock/playhead/selection context, and scope limits; it makes no claim about audibility, lineage, or speech deletion.

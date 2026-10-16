@@ -69,12 +69,14 @@ def test_checked_in_sizes_and_sha256_hashes_match() -> None:
     verify_hashes(load_descriptor())
 
 
+@pytest.mark.slow
 def test_ffprobe_metadata_matches_descriptor() -> None:
     if not ffprobe_available():
         pytest.skip("FFprobe is not installed")
     verify_media_metadata(load_descriptor())
 
 
+@pytest.mark.slow
 def test_standalone_verification_command() -> None:
     if not ffprobe_available():
         pytest.skip("FFprobe is not installed")

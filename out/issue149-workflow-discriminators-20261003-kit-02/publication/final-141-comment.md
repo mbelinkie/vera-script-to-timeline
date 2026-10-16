@@ -1,0 +1,12 @@
+## Five Workflow Integration discriminators complete
+
+The [final #149 result, including the complete Fairlight case and five-case comparison](https://github.com/mbelinkie/vera-script-to-timeline/issues/149#issuecomment-5970657049) is independently reviewed on Resolve Studio 21.1.1.10, External Scripting None, in a new disposable synthetic project. The retained #141 project and `semi1b.mp4` were excluded.
+
+- **Two replacement cases reproduced:** atomic replace with kept modified time rendered original source ID 1; atomic replace with modified time advanced one second and relink rendered replacement source ID 2. Both original hashes/times and restored output are verified.
+- **Three mapping-mute cases adverse:** fresh WI mute/render, WI mute/Console render, and WI mute/Fairlight page-only/WI render each retained A2 pilot 0.01986 and all eight number words despite getter mute:true. Silence requires ≤0.001 and no number words. Moving only rendering to Console or opening Fairlight did not fix the WI-applied flag/output discrepancy. Claude’s Console-applied setter remains a different path; the internal cause is unresolved.
+
+**Bounded #141 design input:** detect replacement by content hash; force reload with changed modified time → `RelinkClips` → render verification. Online/Date Modified/relink success alone do not prove replacement display. VERA must not infer program silence or speech removal from the WI mapping flag alone; verify output or use a separately validated control. These results did not reproduce a core script-to-timeline authoring failure.
+
+All restoration/output closeouts are complete, including the deferred direct restored-output render. Final SaveProject=True with identical pre/post SHA-256 `c0f8757df49d537d96ec00cbbbba0a80330fbf32a2c3f9dbe1862ae527a99a82`; 9 timelines, 36 items, 16 pool objects and 12 terminal jobs. Resolve is idle and both bounded configs are disarmed. No further operator action is requested.
+
+Local records: `docs/investigations/issue-149/workflow-discriminators/results/{d6-kept,d6-changed,d3-direct,d3-console,d3-operator,final-summary,final-checkpoint-review}.md`. Raw evidence remains locally retained, not attached to this comment. The #141 report and handoff limitation update cite these results. Original #141 is 40/41 pending External review; the new observations are 5/5 reviewed. **#149 remains open for producer review; acceptance is not inferred.**

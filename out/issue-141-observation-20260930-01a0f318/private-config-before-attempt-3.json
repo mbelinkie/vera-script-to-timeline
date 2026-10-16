@@ -1,0 +1,15 @@
+{
+  "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+  "externalScriptingSetting": "None",
+  "action": "resume-preparation",
+  "stage": "resume-recorded-empty-project",
+  "mediaDir": "REPOSITORY/out/issue-141-media-20260930-01a0f318",
+  "outputDir": "REPOSITORY/out/issue-141-observation-20260930-01a0f318",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "probePath": "REPOSITORY/docs/investigations/issue-141/probe.py",
+  "probeSha256": "05c2b619d71428afc5b280239bddffc934a7724dd693d64245e9a69c38e2eafb",
+  "resumeFailure": "preparation-failure-20260930T165637.925707Z.json",
+  "resumeFailureSha256": "ff1ba0425793088fa4c2c55a7a8757c022d4bade073c2069ecbd534996db800c",
+  "resumeJournal": "preparation-20260930T165637.925707Z.jsonl",
+  "resumeJournalSha256": "90b66606fce20da3d62e0aa24f7e8574592581920be36aaa08a73dfdd16086de"
+}

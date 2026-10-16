@@ -1,0 +1,13 @@
+{
+  "kind": "read-only-pool-inventory-after-refused-postappend-comparison",
+  "stagedAt": "2026-10-01T00:33:09.723740+00:00",
+  "action": "r4-pool-read-only",
+  "stage": "R4-post-append-partial-state-read-only",
+  "probeSha256": "a1a17031c81c2a2d0d91e14328ae83c3b52e0aae200880568efd71fe68f44775",
+  "launcherSha256": "d090ce7cace514263b65ddfbf30945f77dbd49608c6f4137d2db6a0e6080b53e",
+  "privateConfigSha256": "18ce8a2ed97235cfce1a7cfd4c3478e0b2bde448699dd3a23a03110388241c6a",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "allowedApiMutations": [],
+  "privatePathsPublished": false
+}

@@ -1,0 +1,754 @@
+{"at": "2026-09-30T22:11:38.133684+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 1, "recordFrame": 0, "section": "calibration", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:38.154682+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "22561398-bce0-4c22-b55f-a73d3ad5e4cf"}]}
+{"at": "2026-09-30T22:11:38.200293+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:38.203007+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:38.206843+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 calibration item 1", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 1, \"section\": \"calibration\"}"]}
+{"at": "2026-09-30T22:11:38.208294+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:38.234460+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 2, "recordFrame": 0, "section": "calibration", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:38.266701+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "c6240ed5-ee5f-4db4-a654-7d7a63715691"}]}
+{"at": "2026-09-30T22:11:38.351226+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:38.357261+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:38.368930+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 calibration item 2", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 2, \"section\": \"calibration\"}"]}
+{"at": "2026-09-30T22:11:38.370264+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:38.615694+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f", "mediaType": 2, "occurrence": 3, "recordFrame": 0, "section": "calibration", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:38.637934+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "3b6ee2f9-fb22-4052-9181-c440d5d3dbf0"}]}
+{"at": "2026-09-30T22:11:38.669304+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:38.672440+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:38.676157+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 calibration item 3", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 3, \"section\": \"calibration\"}"]}
+{"at": "2026-09-30T22:11:38.677593+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:38.699411+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "8366bbfd-ad50-4a17-9b8d-d05224943f0b", "mediaType": 1, "occurrence": 4, "recordFrame": 50, "section": "calibration", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:38.903311+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "3fa5a794-d488-4c14-b381-b19b0d1b1f83"}]}
+{"at": "2026-09-30T22:11:38.943806+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:38.949044+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:38.970609+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 calibration item 4", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 4, \"section\": \"calibration\"}"]}
+{"at": "2026-09-30T22:11:38.972693+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:39.231521+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "ce49c87d-edf6-4860-981c-891cc329c447", "mediaType": 1, "occurrence": 5, "recordFrame": 75, "section": "calibration", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:39.254121+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "bf381707-6f44-4758-b420-e555abe7c035"}]}
+{"at": "2026-09-30T22:11:39.273117+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:39.275459+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:39.280648+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 calibration item 5", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 5, \"section\": \"calibration\"}"]}
+{"at": "2026-09-30T22:11:39.281726+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:39.529289+00:00", "method": "SetClipsLinked", "phase": "request", "value": [["3f2de461-d510-46f8-939f-0c794d48e38b", "22561398-bce0-4c22-b55f-a73d3ad5e4cf"], true]}
+{"at": "2026-09-30T22:11:39.536558+00:00", "method": "SetClipsLinked", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:39.541112+00:00", "method": "AddMarker", "phase": "request", "value": [500, "Green", "141 R1-trim", "Synthetic matrix case boundary", 1, "{\"index\": 1, \"issue\": 141, \"section\": \"R1-trim\"}"]}
+{"at": "2026-09-30T22:11:39.542557+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:39.569107+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "9202163a-8381-43e6-9157-3a60f35c6f79", "mediaType": 1, "occurrence": 0, "recordFrame": 500, "section": "R1-trim", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:39.588073+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "36b5882f-d928-4424-b4a6-ee3f7dcc8e03"}]}
+{"at": "2026-09-30T22:11:39.632985+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:39.635974+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:39.639466+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-trim item 0", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 0, \"section\": \"R1-trim\"}"]}
+{"at": "2026-09-30T22:11:39.640629+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:39.683012+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 1, "recordFrame": 500, "section": "R1-trim", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:39.694815+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "17267938-81b0-4777-9db5-0a27d359dbfc"}]}
+{"at": "2026-09-30T22:11:39.767564+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:39.770771+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:39.774280+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-trim item 1", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R1-trim\"}"]}
+{"at": "2026-09-30T22:11:39.775493+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:39.813951+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 2, "recordFrame": 500, "section": "R1-trim", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:39.826121+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "9fbe5182-8f54-44e2-931a-1a6c07a60132"}]}
+{"at": "2026-09-30T22:11:39.880321+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:39.883474+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:39.890077+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-trim item 2", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 2, \"section\": \"R1-trim\"}"]}
+{"at": "2026-09-30T22:11:39.891385+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:40.168136+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f", "mediaType": 2, "occurrence": 3, "recordFrame": 500, "section": "R1-trim", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:40.185885+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "ac0994d2-39f5-4f0b-80c4-bbfebdf7311e"}]}
+{"at": "2026-09-30T22:11:40.249983+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:40.254014+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:40.259441+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-trim item 3", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 3, \"section\": \"R1-trim\"}"]}
+{"at": "2026-09-30T22:11:40.261172+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:40.290377+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "8366bbfd-ad50-4a17-9b8d-d05224943f0b", "mediaType": 1, "occurrence": 4, "recordFrame": 550, "section": "R1-trim", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:40.354584+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "cdfcd799-1dcb-4939-9408-d4c2390c53eb"}]}
+{"at": "2026-09-30T22:11:40.373548+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:40.378519+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:40.390973+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-trim item 4", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 4, \"section\": \"R1-trim\"}"]}
+{"at": "2026-09-30T22:11:40.392977+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:40.653297+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "ce49c87d-edf6-4860-981c-891cc329c447", "mediaType": 1, "occurrence": 5, "recordFrame": 575, "section": "R1-trim", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:40.673516+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "b9f6a186-abc8-425c-98f1-245096f7911b"}]}
+{"at": "2026-09-30T22:11:40.698233+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:40.700997+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:40.720394+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-trim item 5", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 5, \"section\": \"R1-trim\"}"]}
+{"at": "2026-09-30T22:11:40.721743+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:41.015456+00:00", "method": "SetClipsLinked", "phase": "request", "value": [["36b5882f-d928-4424-b4a6-ee3f7dcc8e03", "17267938-81b0-4777-9db5-0a27d359dbfc"], true]}
+{"at": "2026-09-30T22:11:41.019636+00:00", "method": "SetClipsLinked", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:41.039668+00:00", "method": "AddMarker", "phase": "request", "value": [1000, "Green", "141 R1-move", "Synthetic matrix case boundary", 1, "{\"index\": 2, \"issue\": 141, \"section\": \"R1-move\"}"]}
+{"at": "2026-09-30T22:11:41.041203+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:41.087107+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "9202163a-8381-43e6-9157-3a60f35c6f79", "mediaType": 1, "occurrence": 0, "recordFrame": 1000, "section": "R1-move", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:41.131286+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "9e990622-a172-4bab-96fc-1198d84b1279"}]}
+{"at": "2026-09-30T22:11:41.174974+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:41.179147+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:41.213851+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-move item 0", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 0, \"section\": \"R1-move\"}"]}
+{"at": "2026-09-30T22:11:41.215642+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:41.235191+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 1, "recordFrame": 1000, "section": "R1-move", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:41.274096+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "6f7c7dd4-9e80-444d-a4ae-b225cb5f5839"}]}
+{"at": "2026-09-30T22:11:41.316609+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:41.319940+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:41.323926+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-move item 1", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R1-move\"}"]}
+{"at": "2026-09-30T22:11:41.325307+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:41.349279+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 2, "recordFrame": 1000, "section": "R1-move", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:41.361548+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "76b31a26-0be5-49da-8d44-558c78f963d0"}]}
+{"at": "2026-09-30T22:11:41.415062+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:41.418242+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:41.422131+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-move item 2", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 2, \"section\": \"R1-move\"}"]}
+{"at": "2026-09-30T22:11:41.423439+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:41.698441+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f", "mediaType": 2, "occurrence": 3, "recordFrame": 1000, "section": "R1-move", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:41.710484+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "67b2a12d-59d5-447c-9ccf-0f054b1cecc9"}]}
+{"at": "2026-09-30T22:11:41.732934+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:41.736147+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:41.740057+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-move item 3", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 3, \"section\": \"R1-move\"}"]}
+{"at": "2026-09-30T22:11:41.741287+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:41.764158+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "8366bbfd-ad50-4a17-9b8d-d05224943f0b", "mediaType": 1, "occurrence": 4, "recordFrame": 1050, "section": "R1-move", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:41.827704+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "78181908-dcbe-4506-b9ea-6029d3e33a29"}]}
+{"at": "2026-09-30T22:11:41.853488+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:41.860408+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:41.900909+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-move item 4", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 4, \"section\": \"R1-move\"}"]}
+{"at": "2026-09-30T22:11:41.903303+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:42.160720+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "ce49c87d-edf6-4860-981c-891cc329c447", "mediaType": 1, "occurrence": 5, "recordFrame": 1075, "section": "R1-move", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:42.181362+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "2a4c49e0-f898-48ee-b0ff-23409a8c56f3"}]}
+{"at": "2026-09-30T22:11:42.198250+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:42.201084+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:42.220337+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-move item 5", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 5, \"section\": \"R1-move\"}"]}
+{"at": "2026-09-30T22:11:42.221768+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:42.477775+00:00", "method": "SetClipsLinked", "phase": "request", "value": [["9e990622-a172-4bab-96fc-1198d84b1279", "6f7c7dd4-9e80-444d-a4ae-b225cb5f5839"], true]}
+{"at": "2026-09-30T22:11:42.480454+00:00", "method": "SetClipsLinked", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:42.490855+00:00", "method": "AddMarker", "phase": "request", "value": [1500, "Green", "141 R1-razor", "Synthetic matrix case boundary", 1, "{\"index\": 3, \"issue\": 141, \"section\": \"R1-razor\"}"]}
+{"at": "2026-09-30T22:11:42.492060+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:42.503846+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "9202163a-8381-43e6-9157-3a60f35c6f79", "mediaType": 1, "occurrence": 0, "recordFrame": 1500, "section": "R1-razor", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:42.521764+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "33270bc5-52d0-4361-a6e3-96eb2b6d4a91"}]}
+{"at": "2026-09-30T22:11:42.563614+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:42.566635+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:42.590467+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-razor item 0", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 0, \"section\": \"R1-razor\"}"]}
+{"at": "2026-09-30T22:11:42.592064+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:42.615540+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 1, "recordFrame": 1500, "section": "R1-razor", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:42.627592+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "4d08e64a-85fd-4dfe-ac80-77e4d9d28835"}]}
+{"at": "2026-09-30T22:11:42.663520+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:42.666491+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:42.670976+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-razor item 1", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R1-razor\"}"]}
+{"at": "2026-09-30T22:11:42.672358+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:42.699343+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 2, "recordFrame": 1500, "section": "R1-razor", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:42.712039+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "1f8a9cbb-97a9-4b2d-8b8d-d08432f243e9"}]}
+{"at": "2026-09-30T22:11:42.765028+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:42.768178+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:42.772231+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-razor item 2", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 2, \"section\": \"R1-razor\"}"]}
+{"at": "2026-09-30T22:11:42.773594+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:43.050374+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f", "mediaType": 2, "occurrence": 3, "recordFrame": 1500, "section": "R1-razor", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:43.063847+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "8b7633f6-7c68-4ce6-9aff-db778b470e91"}]}
+{"at": "2026-09-30T22:11:43.081940+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:43.084943+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:43.089965+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-razor item 3", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 3, \"section\": \"R1-razor\"}"]}
+{"at": "2026-09-30T22:11:43.091282+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:43.113908+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "8366bbfd-ad50-4a17-9b8d-d05224943f0b", "mediaType": 1, "occurrence": 4, "recordFrame": 1550, "section": "R1-razor", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:43.176605+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "413bc155-619d-4efb-8afa-1f6a2c2a3d5d"}]}
+{"at": "2026-09-30T22:11:43.197768+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:43.202969+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:43.215887+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-razor item 4", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 4, \"section\": \"R1-razor\"}"]}
+{"at": "2026-09-30T22:11:43.217960+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:43.403211+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "ce49c87d-edf6-4860-981c-891cc329c447", "mediaType": 1, "occurrence": 5, "recordFrame": 1575, "section": "R1-razor", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:43.474700+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "9355c637-9379-4931-92a3-d4cfc8d6261e"}]}
+{"at": "2026-09-30T22:11:43.530648+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:43.535926+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:43.540551+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-razor item 5", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 5, \"section\": \"R1-razor\"}"]}
+{"at": "2026-09-30T22:11:43.541839+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:43.799385+00:00", "method": "SetClipsLinked", "phase": "request", "value": [["33270bc5-52d0-4361-a6e3-96eb2b6d4a91", "4d08e64a-85fd-4dfe-ac80-77e4d9d28835"], true]}
+{"at": "2026-09-30T22:11:43.802424+00:00", "method": "SetClipsLinked", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:43.807736+00:00", "method": "AddMarker", "phase": "request", "value": [2000, "Green", "141 R1-copy", "Synthetic matrix case boundary", 1, "{\"index\": 4, \"issue\": 141, \"section\": \"R1-copy\"}"]}
+{"at": "2026-09-30T22:11:43.809030+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:43.837083+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "9202163a-8381-43e6-9157-3a60f35c6f79", "mediaType": 1, "occurrence": 0, "recordFrame": 2000, "section": "R1-copy", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:43.889624+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "be502d02-0df5-40fc-9d93-3d6307dad029"}]}
+{"at": "2026-09-30T22:11:43.942583+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:43.945998+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:43.955560+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-copy item 0", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 0, \"section\": \"R1-copy\"}"]}
+{"at": "2026-09-30T22:11:43.957065+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:44.016380+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 1, "recordFrame": 2000, "section": "R1-copy", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:44.028968+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "3a1a52ec-5a60-4972-8509-274b4a7d1f64"}]}
+{"at": "2026-09-30T22:11:44.063416+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:44.066465+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:44.070757+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-copy item 1", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R1-copy\"}"]}
+{"at": "2026-09-30T22:11:44.072181+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:44.099520+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 2, "recordFrame": 2000, "section": "R1-copy", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:44.112477+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "9d8a6df4-f889-4f5e-a718-86c263a4f8e9"}]}
+{"at": "2026-09-30T22:11:44.167084+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:44.170386+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:44.174210+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-copy item 2", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 2, \"section\": \"R1-copy\"}"]}
+{"at": "2026-09-30T22:11:44.175561+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:44.431010+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f", "mediaType": 2, "occurrence": 3, "recordFrame": 2000, "section": "R1-copy", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:44.443125+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "36e55e90-6a14-408d-8a4d-484be27ef252"}]}
+{"at": "2026-09-30T22:11:44.464737+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:44.467843+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:44.507978+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-copy item 3", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 3, \"section\": \"R1-copy\"}"]}
+{"at": "2026-09-30T22:11:44.509753+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:44.550146+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "8366bbfd-ad50-4a17-9b8d-d05224943f0b", "mediaType": 1, "occurrence": 4, "recordFrame": 2050, "section": "R1-copy", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:44.614101+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "eca5bd62-4825-424a-a27d-0f88e636cb7d"}]}
+{"at": "2026-09-30T22:11:44.634423+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:44.639499+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:44.651914+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-copy item 4", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 4, \"section\": \"R1-copy\"}"]}
+{"at": "2026-09-30T22:11:44.654665+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:44.967276+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "ce49c87d-edf6-4860-981c-891cc329c447", "mediaType": 1, "occurrence": 5, "recordFrame": 2075, "section": "R1-copy", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:45.006161+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "5e014836-6ddc-4785-9870-746b702781ea"}]}
+{"at": "2026-09-30T22:11:45.060911+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:45.064395+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:45.071486+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R1-copy item 5", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 5, \"section\": \"R1-copy\"}"]}
+{"at": "2026-09-30T22:11:45.073423+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:45.361610+00:00", "method": "SetClipsLinked", "phase": "request", "value": [["be502d02-0df5-40fc-9d93-3d6307dad029", "3a1a52ec-5a60-4972-8509-274b4a7d1f64"], true]}
+{"at": "2026-09-30T22:11:45.364819+00:00", "method": "SetClipsLinked", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:45.372014+00:00", "method": "AddMarker", "phase": "request", "value": [2500, "Green", "141 R2-linked", "Synthetic matrix case boundary", 1, "{\"index\": 5, \"issue\": 141, \"section\": \"R2-linked\"}"]}
+{"at": "2026-09-30T22:11:45.373261+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:45.407606+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "9202163a-8381-43e6-9157-3a60f35c6f79", "mediaType": 1, "occurrence": 0, "recordFrame": 2500, "section": "R2-linked", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:45.452953+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "485076d1-5bdc-4136-8628-3b2aaa955c25"}]}
+{"at": "2026-09-30T22:11:45.492611+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:45.495889+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:45.520784+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-linked item 0", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 0, \"section\": \"R2-linked\"}"]}
+{"at": "2026-09-30T22:11:45.522411+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:45.549953+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 1, "recordFrame": 2500, "section": "R2-linked", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:45.563547+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "c6280b39-7618-4136-81e3-17c855866c84"}]}
+{"at": "2026-09-30T22:11:45.599617+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:45.602835+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:45.606951+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-linked item 1", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-linked\"}"]}
+{"at": "2026-09-30T22:11:45.608470+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:45.630854+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 2, "recordFrame": 2500, "section": "R2-linked", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:45.643063+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "a4ef8231-15d4-44b8-accf-9694bec62775"}]}
+{"at": "2026-09-30T22:11:45.702195+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:45.705689+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:45.709873+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-linked item 2", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 2, \"section\": \"R2-linked\"}"]}
+{"at": "2026-09-30T22:11:45.711419+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:46.007599+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f", "mediaType": 2, "occurrence": 3, "recordFrame": 2500, "section": "R2-linked", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:46.021122+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "41181fd9-2993-4808-8b62-95caeb776f45"}]}
+{"at": "2026-09-30T22:11:46.053913+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:46.057266+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:46.061303+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-linked item 3", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 3, \"section\": \"R2-linked\"}"]}
+{"at": "2026-09-30T22:11:46.062821+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:46.080659+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "8366bbfd-ad50-4a17-9b8d-d05224943f0b", "mediaType": 1, "occurrence": 4, "recordFrame": 2550, "section": "R2-linked", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:46.137188+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "5c4fab9f-1a9f-4333-a56a-a02ffd321b66"}]}
+{"at": "2026-09-30T22:11:46.155244+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:46.160491+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:46.173193+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-linked item 4", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 4, \"section\": \"R2-linked\"}"]}
+{"at": "2026-09-30T22:11:46.175388+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:46.448785+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "ce49c87d-edf6-4860-981c-891cc329c447", "mediaType": 1, "occurrence": 5, "recordFrame": 2575, "section": "R2-linked", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:46.469196+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "2b06a44d-d825-4040-b4c2-0d7d017561f1"}]}
+{"at": "2026-09-30T22:11:46.499019+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:46.501850+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:46.553807+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-linked item 5", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 5, \"section\": \"R2-linked\"}"]}
+{"at": "2026-09-30T22:11:46.555629+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:46.801376+00:00", "method": "SetClipsLinked", "phase": "request", "value": [["485076d1-5bdc-4136-8628-3b2aaa955c25", "c6280b39-7618-4136-81e3-17c855866c84"], true]}
+{"at": "2026-09-30T22:11:46.804594+00:00", "method": "SetClipsLinked", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:46.809764+00:00", "method": "AddMarker", "phase": "request", "value": [3000, "Green", "141 R2-unlinked", "Synthetic matrix case boundary", 1, "{\"index\": 6, \"issue\": 141, \"section\": \"R2-unlinked\"}"]}
+{"at": "2026-09-30T22:11:46.811123+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:46.839054+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "9202163a-8381-43e6-9157-3a60f35c6f79", "mediaType": 1, "occurrence": 0, "recordFrame": 3000, "section": "R2-unlinked", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:46.888069+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "44bfdfa0-6aa6-40af-8916-679d557f18ee"}]}
+{"at": "2026-09-30T22:11:46.936557+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:46.939742+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:46.970973+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-unlinked item 0", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 0, \"section\": \"R2-unlinked\"}"]}
+{"at": "2026-09-30T22:11:46.972640+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:46.999949+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 1, "recordFrame": 3000, "section": "R2-unlinked", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:47.013934+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "7c970634-6fcb-4117-9a51-221a482c7142"}]}
+{"at": "2026-09-30T22:11:47.049438+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:47.052405+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:47.056744+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-unlinked item 1", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-unlinked\"}"]}
+{"at": "2026-09-30T22:11:47.058340+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:47.081160+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 2, "recordFrame": 3000, "section": "R2-unlinked", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:47.094089+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "5ba9ee2e-ac9b-4bd0-a8e5-b2bd29e9e622"}]}
+{"at": "2026-09-30T22:11:47.153596+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:47.157025+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:47.161500+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-unlinked item 2", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 2, \"section\": \"R2-unlinked\"}"]}
+{"at": "2026-09-30T22:11:47.163038+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:47.407050+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f", "mediaType": 2, "occurrence": 3, "recordFrame": 3000, "section": "R2-unlinked", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:47.454783+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "4c4a5f04-57bf-40ee-bf90-6766861ef3bf"}]}
+{"at": "2026-09-30T22:11:47.499652+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:47.503361+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:47.508592+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-unlinked item 3", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 3, \"section\": \"R2-unlinked\"}"]}
+{"at": "2026-09-30T22:11:47.510222+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:47.568585+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "8366bbfd-ad50-4a17-9b8d-d05224943f0b", "mediaType": 1, "occurrence": 4, "recordFrame": 3050, "section": "R2-unlinked", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:47.632128+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "ffa32d06-3bf2-49b4-93b0-963b32c4b180"}]}
+{"at": "2026-09-30T22:11:47.651251+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:47.656808+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:47.670261+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-unlinked item 4", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 4, \"section\": \"R2-unlinked\"}"]}
+{"at": "2026-09-30T22:11:47.672447+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:47.915777+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "ce49c87d-edf6-4860-981c-891cc329c447", "mediaType": 1, "occurrence": 5, "recordFrame": 3075, "section": "R2-unlinked", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:47.938908+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "92282f91-0793-4a27-b689-89524a929eab"}]}
+{"at": "2026-09-30T22:11:47.965458+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:47.968288+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:48.004402+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-unlinked item 5", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 5, \"section\": \"R2-unlinked\"}"]}
+{"at": "2026-09-30T22:11:48.020770+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:48.229661+00:00", "method": "SetClipsLinked", "phase": "request", "value": [["44bfdfa0-6aa6-40af-8916-679d557f18ee", "7c970634-6fcb-4117-9a51-221a482c7142"], true]}
+{"at": "2026-09-30T22:11:48.232440+00:00", "method": "SetClipsLinked", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:48.240223+00:00", "method": "AddMarker", "phase": "request", "value": [3500, "Green", "141 R2-picture-only", "Synthetic matrix case boundary", 1, "{\"index\": 7, \"issue\": 141, \"section\": \"R2-picture-only\"}"]}
+{"at": "2026-09-30T22:11:48.241567+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:48.253926+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "9202163a-8381-43e6-9157-3a60f35c6f79", "mediaType": 1, "occurrence": 0, "recordFrame": 3500, "section": "R2-picture-only", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:48.271605+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "381ff8e1-62dd-49c9-9745-7ad3984ee52a"}]}
+{"at": "2026-09-30T22:11:48.317088+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:48.320287+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:48.324254+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-picture-only item 0", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 0, \"section\": \"R2-picture-only\"}"]}
+{"at": "2026-09-30T22:11:48.325650+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:48.366891+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 1, "recordFrame": 3500, "section": "R2-picture-only", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:48.379790+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "55229fb5-7478-47c9-984f-613cec35afb1"}]}
+{"at": "2026-09-30T22:11:48.452778+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:48.456166+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:48.460376+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-picture-only item 1", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-picture-only\"}"]}
+{"at": "2026-09-30T22:11:48.462240+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:48.480842+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 2, "recordFrame": 3500, "section": "R2-picture-only", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:48.493601+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "413e5c9c-d76d-4052-acda-c526c8a91dfb"}]}
+{"at": "2026-09-30T22:11:48.552203+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:48.555660+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:48.560218+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-picture-only item 2", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 2, \"section\": \"R2-picture-only\"}"]}
+{"at": "2026-09-30T22:11:48.561863+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:48.820547+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f", "mediaType": 2, "occurrence": 3, "recordFrame": 3500, "section": "R2-picture-only", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:48.839621+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "4ddfa766-09fc-4189-b8f2-a1ffa28f8dd4"}]}
+{"at": "2026-09-30T22:11:48.865808+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:48.869506+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:48.873890+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-picture-only item 3", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 3, \"section\": \"R2-picture-only\"}"]}
+{"at": "2026-09-30T22:11:48.875689+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:48.949133+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "8366bbfd-ad50-4a17-9b8d-d05224943f0b", "mediaType": 1, "occurrence": 4, "recordFrame": 3550, "section": "R2-picture-only", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:49.024870+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "4b259d65-59be-497b-ad6e-efa10f433040"}]}
+{"at": "2026-09-30T22:11:49.050735+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:49.056867+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:49.072225+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-picture-only item 4", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 4, \"section\": \"R2-picture-only\"}"]}
+{"at": "2026-09-30T22:11:49.075012+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:49.092824+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "ce49c87d-edf6-4860-981c-891cc329c447", "mediaType": 1, "occurrence": 5, "recordFrame": 3575, "section": "R2-picture-only", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:49.111922+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "d400bc47-3df7-47f2-8929-7b0d6bf32702"}]}
+{"at": "2026-09-30T22:11:49.378730+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:49.381550+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:49.408950+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-picture-only item 5", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 5, \"section\": \"R2-picture-only\"}"]}
+{"at": "2026-09-30T22:11:49.410701+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:49.660102+00:00", "method": "SetClipsLinked", "phase": "request", "value": [["381ff8e1-62dd-49c9-9745-7ad3984ee52a", "55229fb5-7478-47c9-984f-613cec35afb1"], true]}
+{"at": "2026-09-30T22:11:49.663287+00:00", "method": "SetClipsLinked", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:49.672017+00:00", "method": "AddMarker", "phase": "request", "value": [4000, "Green", "141 R2-partial", "Synthetic matrix case boundary", 1, "{\"index\": 8, \"issue\": 141, \"section\": \"R2-partial\"}"]}
+{"at": "2026-09-30T22:11:49.673428+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:49.691498+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "9202163a-8381-43e6-9157-3a60f35c6f79", "mediaType": 1, "occurrence": 0, "recordFrame": 4000, "section": "R2-partial", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:49.706535+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "ac20bfd7-e56d-4b0f-9ab5-7451fd9093fd"}]}
+{"at": "2026-09-30T22:11:49.749175+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:49.752276+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:49.756766+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-partial item 0", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 0, \"section\": \"R2-partial\"}"]}
+{"at": "2026-09-30T22:11:49.758419+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:49.805326+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 1, "recordFrame": 4000, "section": "R2-partial", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:49.819085+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "d5d00807-e77d-4914-9b49-dd025ff5430d"}]}
+{"at": "2026-09-30T22:11:49.881785+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:49.885564+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:49.939445+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-partial item 1", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-partial\"}"]}
+{"at": "2026-09-30T22:11:49.941746+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:49.967224+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 2, "recordFrame": 4000, "section": "R2-partial", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:49.994761+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "8395442e-4d0c-4ded-a6b7-7a9511811106"}]}
+{"at": "2026-09-30T22:11:50.068544+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:50.072009+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:50.076333+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-partial item 2", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 2, \"section\": \"R2-partial\"}"]}
+{"at": "2026-09-30T22:11:50.077867+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:50.361458+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f", "mediaType": 2, "occurrence": 3, "recordFrame": 4000, "section": "R2-partial", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:50.374269+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "050ec572-54d8-4025-a1c7-0e625766245a"}]}
+{"at": "2026-09-30T22:11:50.400637+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:50.404208+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:50.408519+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-partial item 3", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 3, \"section\": \"R2-partial\"}"]}
+{"at": "2026-09-30T22:11:50.410206+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:50.430988+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "8366bbfd-ad50-4a17-9b8d-d05224943f0b", "mediaType": 1, "occurrence": 4, "recordFrame": 4050, "section": "R2-partial", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:50.488297+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "2e81bd0f-a4ca-4955-8373-fc6db16380fb"}]}
+{"at": "2026-09-30T22:11:50.507013+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:50.512181+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:50.525488+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-partial item 4", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 4, \"section\": \"R2-partial\"}"]}
+{"at": "2026-09-30T22:11:50.527773+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:50.753118+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "ce49c87d-edf6-4860-981c-891cc329c447", "mediaType": 1, "occurrence": 5, "recordFrame": 4075, "section": "R2-partial", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:50.809495+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "2fa6527a-4005-4abf-9b0b-4eb91b177be9"}]}
+{"at": "2026-09-30T22:11:50.833084+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:50.835909+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:50.853762+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-partial item 5", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 5, \"section\": \"R2-partial\"}"]}
+{"at": "2026-09-30T22:11:50.855733+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:51.099756+00:00", "method": "SetClipsLinked", "phase": "request", "value": [["ac20bfd7-e56d-4b0f-9ab5-7451fd9093fd", "d5d00807-e77d-4914-9b49-dd025ff5430d"], true]}
+{"at": "2026-09-30T22:11:51.102747+00:00", "method": "SetClipsLinked", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:51.108173+00:00", "method": "AddMarker", "phase": "request", "value": [4500, "Green", "141 R2-residual", "Synthetic matrix case boundary", 1, "{\"index\": 9, \"issue\": 141, \"section\": \"R2-residual\"}"]}
+{"at": "2026-09-30T22:11:51.109641+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:51.139230+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "9202163a-8381-43e6-9157-3a60f35c6f79", "mediaType": 1, "occurrence": 0, "recordFrame": 4500, "section": "R2-residual", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:51.188224+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "55ef1242-5a71-45e5-a1b4-d90300589de2"}]}
+{"at": "2026-09-30T22:11:51.237959+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:51.241879+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:51.255681+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-residual item 0", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 0, \"section\": \"R2-residual\"}"]}
+{"at": "2026-09-30T22:11:51.257467+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:51.319814+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 1, "recordFrame": 4500, "section": "R2-residual", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:51.332245+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "09373858-39dd-474b-9eb8-56c5e523cc76"}]}
+{"at": "2026-09-30T22:11:51.364958+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:51.368552+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:51.373009+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-residual item 1", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-residual\"}"]}
+{"at": "2026-09-30T22:11:51.375187+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:51.407302+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 2, "recordFrame": 4500, "section": "R2-residual", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:51.421085+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "f4e9f649-894a-42f2-9f54-a8321ae7c163"}]}
+{"at": "2026-09-30T22:11:51.465756+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:51.469263+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:51.473519+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-residual item 2", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 2, \"section\": \"R2-residual\"}"]}
+{"at": "2026-09-30T22:11:51.475089+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:51.767666+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f", "mediaType": 2, "occurrence": 3, "recordFrame": 4500, "section": "R2-residual", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:51.780319+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "1dde7d80-6057-4a48-94a4-134a6d79e41f"}]}
+{"at": "2026-09-30T22:11:51.820797+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:51.823948+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:51.827634+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-residual item 3", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 3, \"section\": \"R2-residual\"}"]}
+{"at": "2026-09-30T22:11:51.829204+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:51.883914+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "8366bbfd-ad50-4a17-9b8d-d05224943f0b", "mediaType": 1, "occurrence": 4, "recordFrame": 4550, "section": "R2-residual", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:51.940606+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "76bdecff-b881-4e14-b2fe-e24eb68a7adb"}]}
+{"at": "2026-09-30T22:11:51.959064+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:51.964284+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:51.978774+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-residual item 4", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 4, \"section\": \"R2-residual\"}"]}
+{"at": "2026-09-30T22:11:51.980978+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:52.228756+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "ce49c87d-edf6-4860-981c-891cc329c447", "mediaType": 1, "occurrence": 5, "recordFrame": 4575, "section": "R2-residual", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:52.247295+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "ceffcf83-6f99-46f7-9eaf-2c36b49a18ae"}]}
+{"at": "2026-09-30T22:11:52.263022+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:52.265501+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:52.293323+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-residual item 5", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 5, \"section\": \"R2-residual\"}"]}
+{"at": "2026-09-30T22:11:52.295128+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:52.530287+00:00", "method": "SetClipsLinked", "phase": "request", "value": [["55ef1242-5a71-45e5-a1b4-d90300589de2", "09373858-39dd-474b-9eb8-56c5e523cc76"], true]}
+{"at": "2026-09-30T22:11:52.533191+00:00", "method": "SetClipsLinked", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:52.540205+00:00", "method": "AddMarker", "phase": "request", "value": [5000, "Green", "141 R2-offset", "Synthetic matrix case boundary", 1, "{\"index\": 10, \"issue\": 141, \"section\": \"R2-offset\"}"]}
+{"at": "2026-09-30T22:11:52.541675+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:52.571619+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "9202163a-8381-43e6-9157-3a60f35c6f79", "mediaType": 1, "occurrence": 0, "recordFrame": 5000, "section": "R2-offset", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:52.588564+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "ccabcb9a-8e7d-462e-a8a1-4f6ce8c4f5f7"}]}
+{"at": "2026-09-30T22:11:52.631136+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:52.634274+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:52.653753+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-offset item 0", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 0, \"section\": \"R2-offset\"}"]}
+{"at": "2026-09-30T22:11:52.655767+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:52.681533+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 1, "recordFrame": 5000, "section": "R2-offset", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:52.694678+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "f0b986dd-b580-42f9-a7f8-ba464cca7076"}]}
+{"at": "2026-09-30T22:11:52.767600+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:52.771038+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:52.774890+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-offset item 1", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-offset\"}"]}
+{"at": "2026-09-30T22:11:52.776541+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:52.800515+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 2, "recordFrame": 5000, "section": "R2-offset", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:52.814491+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "9f1f39c4-0fa9-4ec7-97b1-d3f172c99946"}]}
+{"at": "2026-09-30T22:11:52.901468+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:52.906738+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:52.925268+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-offset item 2", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 2, \"section\": \"R2-offset\"}"]}
+{"at": "2026-09-30T22:11:52.927733+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:53.185550+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f", "mediaType": 2, "occurrence": 3, "recordFrame": 5000, "section": "R2-offset", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:53.198072+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "c829f754-0f42-417c-b547-d1fe6451b467"}]}
+{"at": "2026-09-30T22:11:53.234604+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:53.238564+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:53.259656+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-offset item 3", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 3, \"section\": \"R2-offset\"}"]}
+{"at": "2026-09-30T22:11:53.261549+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:53.281107+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "8366bbfd-ad50-4a17-9b8d-d05224943f0b", "mediaType": 1, "occurrence": 4, "recordFrame": 5050, "section": "R2-offset", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:53.338528+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "4f341ba4-1d8a-4ca4-89dd-31bc23d98195"}]}
+{"at": "2026-09-30T22:11:53.356132+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:53.361374+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:53.374007+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-offset item 4", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 4, \"section\": \"R2-offset\"}"]}
+{"at": "2026-09-30T22:11:53.376353+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:53.648061+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "ce49c87d-edf6-4860-981c-891cc329c447", "mediaType": 1, "occurrence": 5, "recordFrame": 5075, "section": "R2-offset", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:53.667135+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "2aaa26e2-db0b-4841-8eb9-744eb19a594d"}]}
+{"at": "2026-09-30T22:11:53.683501+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:53.686443+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:53.691174+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-offset item 5", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 5, \"section\": \"R2-offset\"}"]}
+{"at": "2026-09-30T22:11:53.692710+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:53.993666+00:00", "method": "SetClipsLinked", "phase": "request", "value": [["ccabcb9a-8e7d-462e-a8a1-4f6ce8c4f5f7", "f0b986dd-b580-42f9-a7f8-ba464cca7076"], true]}
+{"at": "2026-09-30T22:11:53.996645+00:00", "method": "SetClipsLinked", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:54.008097+00:00", "method": "AddMarker", "phase": "request", "value": [5500, "Green", "141 R2-retime", "Synthetic matrix case boundary", 1, "{\"index\": 11, \"issue\": 141, \"section\": \"R2-retime\"}"]}
+{"at": "2026-09-30T22:11:54.009715+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:54.021207+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "9202163a-8381-43e6-9157-3a60f35c6f79", "mediaType": 1, "occurrence": 0, "recordFrame": 5500, "section": "R2-retime", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:54.041770+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "e64549d6-eee5-49f2-985b-475c31ccb07d"}]}
+{"at": "2026-09-30T22:11:54.066091+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:54.069203+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:54.073175+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-retime item 0", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 0, \"section\": \"R2-retime\"}"]}
+{"at": "2026-09-30T22:11:54.074837+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:54.114500+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 1, "recordFrame": 5500, "section": "R2-retime", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:54.127372+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "7808b1fb-3423-4dac-a07b-58f1e1e456cd"}]}
+{"at": "2026-09-30T22:11:54.179448+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:54.182558+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:54.190275+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-retime item 1", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R2-retime\"}"]}
+{"at": "2026-09-30T22:11:54.191955+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:54.214687+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 2, "recordFrame": 5500, "section": "R2-retime", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:54.227214+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "c5a870c5-35c0-4158-aa5e-3ef186522410"}]}
+{"at": "2026-09-30T22:11:54.280604+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:54.283751+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:54.289959+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-retime item 2", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 2, \"section\": \"R2-retime\"}"]}
+{"at": "2026-09-30T22:11:54.291621+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:54.550668+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f", "mediaType": 2, "occurrence": 3, "recordFrame": 5500, "section": "R2-retime", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:54.563914+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "58364066-e8a7-42ac-befe-16dd9ff72578"}]}
+{"at": "2026-09-30T22:11:54.600159+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:54.603300+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:54.608165+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-retime item 3", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 3, \"section\": \"R2-retime\"}"]}
+{"at": "2026-09-30T22:11:54.609864+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:54.646777+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "8366bbfd-ad50-4a17-9b8d-d05224943f0b", "mediaType": 1, "occurrence": 4, "recordFrame": 5550, "section": "R2-retime", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:54.703060+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "9fedaf97-89ee-4a41-b9d7-94e189a3a77f"}]}
+{"at": "2026-09-30T22:11:54.722092+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:54.727480+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:54.739933+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-retime item 4", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 4, \"section\": \"R2-retime\"}"]}
+{"at": "2026-09-30T22:11:54.742196+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:55.007240+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "ce49c87d-edf6-4860-981c-891cc329c447", "mediaType": 1, "occurrence": 5, "recordFrame": 5575, "section": "R2-retime", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:55.039731+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "6255bf1f-0116-415b-8f1d-dbf33acf3cc0"}]}
+{"at": "2026-09-30T22:11:55.071727+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:55.074663+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:55.105588+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R2-retime item 5", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 5, \"section\": \"R2-retime\"}"]}
+{"at": "2026-09-30T22:11:55.112775+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:55.329429+00:00", "method": "SetClipsLinked", "phase": "request", "value": [["e64549d6-eee5-49f2-985b-475c31ccb07d", "7808b1fb-3423-4dac-a07b-58f1e1e456cd"], true]}
+{"at": "2026-09-30T22:11:55.332384+00:00", "method": "SetClipsLinked", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:55.340236+00:00", "method": "AddMarker", "phase": "request", "value": [6000, "Green", "141 R3-opaque", "Synthetic matrix case boundary", 1, "{\"index\": 12, \"issue\": 141, \"section\": \"R3-opaque\"}"]}
+{"at": "2026-09-30T22:11:55.341791+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:55.354183+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "9202163a-8381-43e6-9157-3a60f35c6f79", "mediaType": 1, "occurrence": 0, "recordFrame": 6000, "section": "R3-opaque", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:55.371894+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "7d3b18f2-0dbd-4e7b-85b4-63bfe5c2330a"}]}
+{"at": "2026-09-30T22:11:55.415604+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:55.418806+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:55.438688+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-opaque item 0", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 0, \"section\": \"R3-opaque\"}"]}
+{"at": "2026-09-30T22:11:55.440506+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:55.464725+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 1, "recordFrame": 6000, "section": "R3-opaque", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:55.477895+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "d9d00f42-1b56-4d09-868f-55c3b752d7be"}]}
+{"at": "2026-09-30T22:11:55.515410+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:55.518612+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:55.522874+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-opaque item 1", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-opaque\"}"]}
+{"at": "2026-09-30T22:11:55.524601+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:55.549122+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 2, "recordFrame": 6000, "section": "R3-opaque", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:55.562738+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "57e3f7b0-0ebe-4e90-af53-a4e9f9fee646"}]}
+{"at": "2026-09-30T22:11:55.615299+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:55.618618+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:55.622915+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-opaque item 2", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 2, \"section\": \"R3-opaque\"}"]}
+{"at": "2026-09-30T22:11:55.624574+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:55.881486+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f", "mediaType": 2, "occurrence": 3, "recordFrame": 6000, "section": "R3-opaque", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:55.894145+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "d9be97a6-00a8-4cc3-bf21-818012dc4b41"}]}
+{"at": "2026-09-30T22:11:55.915601+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:55.918970+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:55.956190+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-opaque item 3", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 3, \"section\": \"R3-opaque\"}"]}
+{"at": "2026-09-30T22:11:55.958110+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:56.000187+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "8366bbfd-ad50-4a17-9b8d-d05224943f0b", "mediaType": 1, "occurrence": 4, "recordFrame": 6050, "section": "R3-opaque", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:56.064576+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "861df236-2ca9-4bfc-b925-9499926a44fb"}]}
+{"at": "2026-09-30T22:11:56.083822+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:56.089327+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:56.102453+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-opaque item 4", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 4, \"section\": \"R3-opaque\"}"]}
+{"at": "2026-09-30T22:11:56.105148+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:56.363775+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "ce49c87d-edf6-4860-981c-891cc329c447", "mediaType": 1, "occurrence": 5, "recordFrame": 6075, "section": "R3-opaque", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:56.385809+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "8c207334-1f6f-4be2-8506-5fbdd105fbcd"}]}
+{"at": "2026-09-30T22:11:56.402691+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:56.406152+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:56.411110+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-opaque item 5", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 5, \"section\": \"R3-opaque\"}"]}
+{"at": "2026-09-30T22:11:56.413091+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:56.655348+00:00", "method": "SetClipsLinked", "phase": "request", "value": [["7d3b18f2-0dbd-4e7b-85b4-63bfe5c2330a", "d9d00f42-1b56-4d09-868f-55c3b752d7be"], true]}
+{"at": "2026-09-30T22:11:56.659393+00:00", "method": "SetClipsLinked", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:56.672755+00:00", "method": "AddMarker", "phase": "request", "value": [6500, "Green", "141 R3-transparent", "Synthetic matrix case boundary", 1, "{\"index\": 13, \"issue\": 141, \"section\": \"R3-transparent\"}"]}
+{"at": "2026-09-30T22:11:56.674402+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:56.691601+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "9202163a-8381-43e6-9157-3a60f35c6f79", "mediaType": 1, "occurrence": 0, "recordFrame": 6500, "section": "R3-transparent", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:56.708968+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "7ab66c6f-a666-4e10-933f-a20b2502c33c"}]}
+{"at": "2026-09-30T22:11:56.732047+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:56.735199+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:56.739456+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-transparent item 0", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 0, \"section\": \"R3-transparent\"}"]}
+{"at": "2026-09-30T22:11:56.741235+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:56.780809+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 1, "recordFrame": 6500, "section": "R3-transparent", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:56.794165+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "6332623e-9e1b-4539-949f-38debcc9bbc1"}]}
+{"at": "2026-09-30T22:11:56.832667+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:56.837253+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:56.869153+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-transparent item 1", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-transparent\"}"]}
+{"at": "2026-09-30T22:11:56.872188+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:56.945654+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 2, "recordFrame": 6500, "section": "R3-transparent", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:56.962046+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "97729a5b-582a-4218-8c2b-506e5aa4d9ba"}]}
+{"at": "2026-09-30T22:11:57.000034+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:57.003568+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:57.014364+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-transparent item 2", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 2, \"section\": \"R3-transparent\"}"]}
+{"at": "2026-09-30T22:11:57.017513+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:57.291317+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f", "mediaType": 2, "occurrence": 3, "recordFrame": 6500, "section": "R3-transparent", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:57.322478+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "b29880f3-1e58-40ca-98b4-00754e004f4f"}]}
+{"at": "2026-09-30T22:11:57.349322+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:57.352481+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:57.357074+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-transparent item 3", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 3, \"section\": \"R3-transparent\"}"]}
+{"at": "2026-09-30T22:11:57.358965+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:57.381389+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "8366bbfd-ad50-4a17-9b8d-d05224943f0b", "mediaType": 1, "occurrence": 4, "recordFrame": 6550, "section": "R3-transparent", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:57.445005+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "d8081ee6-0e86-4772-bc39-d0c7e505f754"}]}
+{"at": "2026-09-30T22:11:57.465917+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:57.471154+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:57.483399+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-transparent item 4", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 4, \"section\": \"R3-transparent\"}"]}
+{"at": "2026-09-30T22:11:57.485898+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:57.505771+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "ce49c87d-edf6-4860-981c-891cc329c447", "mediaType": 1, "occurrence": 5, "recordFrame": 6575, "section": "R3-transparent", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:57.525815+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "dcc94b55-ec47-4aff-bdda-8eb403ae4ba8"}]}
+{"at": "2026-09-30T22:11:57.749228+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:57.752171+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:57.757482+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-transparent item 5", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 5, \"section\": \"R3-transparent\"}"]}
+{"at": "2026-09-30T22:11:57.759249+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:58.011906+00:00", "method": "SetClipsLinked", "phase": "request", "value": [["7ab66c6f-a666-4e10-933f-a20b2502c33c", "6332623e-9e1b-4539-949f-38debcc9bbc1"], true]}
+{"at": "2026-09-30T22:11:58.015289+00:00", "method": "SetClipsLinked", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:58.022438+00:00", "method": "AddMarker", "phase": "request", "value": [7000, "Green", "141 R3-effect", "Synthetic matrix case boundary", 1, "{\"index\": 14, \"issue\": 141, \"section\": \"R3-effect\"}"]}
+{"at": "2026-09-30T22:11:58.024057+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:58.039021+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "9202163a-8381-43e6-9157-3a60f35c6f79", "mediaType": 1, "occurrence": 0, "recordFrame": 7000, "section": "R3-effect", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:58.055592+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "d282448a-d7bf-4cb9-bc6b-9402666aa351"}]}
+{"at": "2026-09-30T22:11:58.104016+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:58.107471+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:58.111330+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-effect item 0", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 0, \"section\": \"R3-effect\"}"]}
+{"at": "2026-09-30T22:11:58.113333+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:58.131060+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 1, "recordFrame": 7000, "section": "R3-effect", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:58.143871+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "23dc6e60-704c-456e-918e-36caa179f314"}]}
+{"at": "2026-09-30T22:11:58.219632+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:58.223051+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:58.227197+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-effect item 1", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-effect\"}"]}
+{"at": "2026-09-30T22:11:58.239112+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:58.264807+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 2, "recordFrame": 7000, "section": "R3-effect", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:58.277543+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "b7a4901a-9b9c-41b4-b24d-d5e23bc65b62"}]}
+{"at": "2026-09-30T22:11:58.314532+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:58.318000+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:58.322394+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-effect item 2", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 2, \"section\": \"R3-effect\"}"]}
+{"at": "2026-09-30T22:11:58.324226+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:58.598660+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f", "mediaType": 2, "occurrence": 3, "recordFrame": 7000, "section": "R3-effect", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:58.612376+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "c26c6dc4-a774-4ba5-96a2-30bd6de7fcca"}]}
+{"at": "2026-09-30T22:11:58.633618+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:58.636782+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:58.641113+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-effect item 3", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 3, \"section\": \"R3-effect\"}"]}
+{"at": "2026-09-30T22:11:58.642924+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:58.679299+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "8366bbfd-ad50-4a17-9b8d-d05224943f0b", "mediaType": 1, "occurrence": 4, "recordFrame": 7050, "section": "R3-effect", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:58.743522+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "0d8dc45f-80d1-4a7f-a22e-7825fa87b5ea"}]}
+{"at": "2026-09-30T22:11:58.763668+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:58.768714+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:58.781596+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-effect item 4", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 4, \"section\": \"R3-effect\"}"]}
+{"at": "2026-09-30T22:11:58.784085+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:58.803729+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "ce49c87d-edf6-4860-981c-891cc329c447", "mediaType": 1, "occurrence": 5, "recordFrame": 7075, "section": "R3-effect", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:58.823737+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "cbde93e8-d9e9-4ed8-aaa0-315c37dc9e34"}]}
+{"at": "2026-09-30T22:11:59.029376+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:59.032247+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:59.039492+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-effect item 5", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 5, \"section\": \"R3-effect\"}"]}
+{"at": "2026-09-30T22:11:59.041119+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:59.296179+00:00", "method": "SetClipsLinked", "phase": "request", "value": [["d282448a-d7bf-4cb9-bc6b-9402666aa351", "23dc6e60-704c-456e-918e-36caa179f314"], true]}
+{"at": "2026-09-30T22:11:59.299411+00:00", "method": "SetClipsLinked", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:59.307955+00:00", "method": "AddMarker", "phase": "request", "value": [7500, "Green", "141 R3-disabled-cutaway", "Synthetic matrix case boundary", 1, "{\"index\": 15, \"issue\": 141, \"section\": \"R3-disabled-cutaway\"}"]}
+{"at": "2026-09-30T22:11:59.309719+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:59.340391+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "9202163a-8381-43e6-9157-3a60f35c6f79", "mediaType": 1, "occurrence": 0, "recordFrame": 7500, "section": "R3-disabled-cutaway", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:59.356389+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "6e1833c2-2695-481b-9d56-2e65ad57bf33"}]}
+{"at": "2026-09-30T22:11:59.416773+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:59.420093+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:59.424157+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-disabled-cutaway item 0", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 0, \"section\": \"R3-disabled-cutaway\"}"]}
+{"at": "2026-09-30T22:11:59.426036+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:59.464948+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 1, "recordFrame": 7500, "section": "R3-disabled-cutaway", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:11:59.477958+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "fe6f2f29-c8c3-498c-b4a3-fa5f06f1b0a6"}]}
+{"at": "2026-09-30T22:11:59.514100+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:59.517452+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:59.521604+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-disabled-cutaway item 1", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-disabled-cutaway\"}"]}
+{"at": "2026-09-30T22:11:59.523458+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:59.550596+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 2, "recordFrame": 7500, "section": "R3-disabled-cutaway", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:11:59.564008+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "3b4a306d-0235-45f3-8d27-fde368ff4c66"}]}
+{"at": "2026-09-30T22:11:59.625272+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:11:59.628570+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:59.639366+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-disabled-cutaway item 2", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 2, \"section\": \"R3-disabled-cutaway\"}"]}
+{"at": "2026-09-30T22:11:59.641239+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:59.915558+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f", "mediaType": 2, "occurrence": 3, "recordFrame": 7500, "section": "R3-disabled-cutaway", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:11:59.937689+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "368ab8db-136e-40ed-b37f-c0328c21c1d1"}]}
+{"at": "2026-09-30T22:11:59.966439+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:11:59.969693+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:11:59.973860+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-disabled-cutaway item 3", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 3, \"section\": \"R3-disabled-cutaway\"}"]}
+{"at": "2026-09-30T22:11:59.975788+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:00.019763+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "8366bbfd-ad50-4a17-9b8d-d05224943f0b", "mediaType": 1, "occurrence": 4, "recordFrame": 7550, "section": "R3-disabled-cutaway", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:12:00.084900+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "6265a4c5-76ab-4377-a922-1d5031bb5556"}]}
+{"at": "2026-09-30T22:12:00.104436+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:12:00.109838+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:00.122846+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-disabled-cutaway item 4", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 4, \"section\": \"R3-disabled-cutaway\"}"]}
+{"at": "2026-09-30T22:12:00.125347+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:00.402161+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "ce49c87d-edf6-4860-981c-891cc329c447", "mediaType": 1, "occurrence": 5, "recordFrame": 7575, "section": "R3-disabled-cutaway", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:12:00.422384+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "3a3aa71f-29fe-4de4-9b21-6b8c45bb0ef3"}]}
+{"at": "2026-09-30T22:12:00.448123+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:12:00.451127+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:00.475731+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-disabled-cutaway item 5", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 5, \"section\": \"R3-disabled-cutaway\"}"]}
+{"at": "2026-09-30T22:12:00.477571+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:00.748621+00:00", "method": "SetClipsLinked", "phase": "request", "value": [["6e1833c2-2695-481b-9d56-2e65ad57bf33", "fe6f2f29-c8c3-498c-b4a3-fa5f06f1b0a6"], true]}
+{"at": "2026-09-30T22:12:00.752003+00:00", "method": "SetClipsLinked", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:00.757335+00:00", "method": "AddMarker", "phase": "request", "value": [8000, "Green", "141 R3-disabled-overlay", "Synthetic matrix case boundary", 1, "{\"index\": 16, \"issue\": 141, \"section\": \"R3-disabled-overlay\"}"]}
+{"at": "2026-09-30T22:12:00.759224+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:00.787514+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "9202163a-8381-43e6-9157-3a60f35c6f79", "mediaType": 1, "occurrence": 0, "recordFrame": 8000, "section": "R3-disabled-overlay", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:12:00.809782+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "d89f0c29-9132-4b81-8f1b-ce1440621638"}]}
+{"at": "2026-09-30T22:12:00.833616+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:12:00.838218+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:00.871213+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-disabled-overlay item 0", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 0, \"section\": \"R3-disabled-overlay\"}"]}
+{"at": "2026-09-30T22:12:00.874179+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:00.937170+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 1, "recordFrame": 8000, "section": "R3-disabled-overlay", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:12:00.957306+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "81d64d76-1b80-4314-a68c-4b5bce7807eb"}]}
+{"at": "2026-09-30T22:12:01.018301+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:12:01.022876+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:01.040843+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-disabled-overlay item 1", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-disabled-overlay\"}"]}
+{"at": "2026-09-30T22:12:01.043744+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:01.068311+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 2, "recordFrame": 8000, "section": "R3-disabled-overlay", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:12:01.098617+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "33041955-47f7-4f37-9a40-b6234f178e91"}]}
+{"at": "2026-09-30T22:12:01.169316+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:12:01.173095+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:01.194179+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-disabled-overlay item 2", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 2, \"section\": \"R3-disabled-overlay\"}"]}
+{"at": "2026-09-30T22:12:01.196453+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:01.470658+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f", "mediaType": 2, "occurrence": 3, "recordFrame": 8000, "section": "R3-disabled-overlay", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:12:01.484494+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "16b1902c-74e2-4a65-9bac-b7b1fac86485"}]}
+{"at": "2026-09-30T22:12:01.500618+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:12:01.504049+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:01.508340+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-disabled-overlay item 3", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 3, \"section\": \"R3-disabled-overlay\"}"]}
+{"at": "2026-09-30T22:12:01.510554+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:01.531467+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "8366bbfd-ad50-4a17-9b8d-d05224943f0b", "mediaType": 1, "occurrence": 4, "recordFrame": 8050, "section": "R3-disabled-overlay", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:12:01.596040+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "312d799a-378a-4b05-9e0e-839033adda53"}]}
+{"at": "2026-09-30T22:12:01.617349+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:12:01.622614+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:01.635118+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-disabled-overlay item 4", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 4, \"section\": \"R3-disabled-overlay\"}"]}
+{"at": "2026-09-30T22:12:01.637702+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:01.656085+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "ce49c87d-edf6-4860-981c-891cc329c447", "mediaType": 1, "occurrence": 5, "recordFrame": 8075, "section": "R3-disabled-overlay", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:12:01.675947+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "31dd3ffb-d129-46f4-b488-27b0108482a2"}]}
+{"at": "2026-09-30T22:12:01.955103+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:12:01.958248+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:01.963094+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-disabled-overlay item 5", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 5, \"section\": \"R3-disabled-overlay\"}"]}
+{"at": "2026-09-30T22:12:01.964870+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:02.230784+00:00", "method": "SetClipsLinked", "phase": "request", "value": [["d89f0c29-9132-4b81-8f1b-ce1440621638", "81d64d76-1b80-4314-a68c-4b5bce7807eb"], true]}
+{"at": "2026-09-30T22:12:02.234078+00:00", "method": "SetClipsLinked", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:02.240644+00:00", "method": "AddMarker", "phase": "request", "value": [8500, "Green", "141 R3-Graphic", "Synthetic matrix case boundary", 1, "{\"index\": 17, \"issue\": 141, \"section\": \"R3-Graphic\"}"]}
+{"at": "2026-09-30T22:12:02.242354+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:02.254481+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "9202163a-8381-43e6-9157-3a60f35c6f79", "mediaType": 1, "occurrence": 0, "recordFrame": 8500, "section": "R3-Graphic", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:12:02.273189+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "70717d8e-6888-421b-825a-8e093beb2c45"}]}
+{"at": "2026-09-30T22:12:02.301301+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:12:02.304877+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:02.309036+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-Graphic item 0", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 0, \"section\": \"R3-Graphic\"}"]}
+{"at": "2026-09-30T22:12:02.311044+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:02.348828+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 1, "recordFrame": 8500, "section": "R3-Graphic", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:12:02.363121+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "2e9c3451-1ed8-4e88-985d-ef5e7f3a070b"}]}
+{"at": "2026-09-30T22:12:02.400020+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:12:02.403349+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:02.408091+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-Graphic item 1", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-Graphic\"}"]}
+{"at": "2026-09-30T22:12:02.410140+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:02.431340+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 2, "recordFrame": 8500, "section": "R3-Graphic", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:12:02.444475+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "03a58df7-469a-41c4-b359-956bffb3fc32"}]}
+{"at": "2026-09-30T22:12:02.500679+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:12:02.504226+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:02.508653+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-Graphic item 2", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 2, \"section\": \"R3-Graphic\"}"]}
+{"at": "2026-09-30T22:12:02.510760+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:02.795659+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f", "mediaType": 2, "occurrence": 3, "recordFrame": 8500, "section": "R3-Graphic", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:12:02.809111+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "c7139447-92ea-40e5-ab64-419643138551"}]}
+{"at": "2026-09-30T22:12:02.833171+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:12:02.836391+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:02.840958+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-Graphic item 3", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 3, \"section\": \"R3-Graphic\"}"]}
+{"at": "2026-09-30T22:12:02.842895+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:02.865617+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "8366bbfd-ad50-4a17-9b8d-d05224943f0b", "mediaType": 1, "occurrence": 4, "recordFrame": 8550, "section": "R3-Graphic", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:12:02.921939+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "0763a3f3-6df3-4276-ac85-42ad458221cf"}]}
+{"at": "2026-09-30T22:12:02.941278+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:12:02.946313+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:02.959305+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-Graphic item 4", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 4, \"section\": \"R3-Graphic\"}"]}
+{"at": "2026-09-30T22:12:02.961946+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:03.190370+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "ce49c87d-edf6-4860-981c-891cc329c447", "mediaType": 1, "occurrence": 5, "recordFrame": 8575, "section": "R3-Graphic", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:12:03.258740+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "ea448c37-4821-419d-8fbf-112790cc0499"}]}
+{"at": "2026-09-30T22:12:03.297518+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:12:03.300399+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:03.319821+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-Graphic item 5", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 5, \"section\": \"R3-Graphic\"}"]}
+{"at": "2026-09-30T22:12:03.322048+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:03.352327+00:00", "method": "SetClipsLinked", "phase": "request", "value": [["70717d8e-6888-421b-825a-8e093beb2c45", "2e9c3451-1ed8-4e88-985d-ef5e7f3a070b"], true]}
+{"at": "2026-09-30T22:12:03.355774+00:00", "method": "SetClipsLinked", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:03.590028+00:00", "method": "AddMarker", "phase": "request", "value": [9000, "Green", "141 R3-boundary", "Synthetic matrix case boundary", 1, "{\"index\": 18, \"issue\": 141, \"section\": \"R3-boundary\"}"]}
+{"at": "2026-09-30T22:12:03.592279+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:03.604720+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "9202163a-8381-43e6-9157-3a60f35c6f79", "mediaType": 1, "occurrence": 0, "recordFrame": 9000, "section": "R3-boundary", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:12:03.639576+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "462ae76e-bf69-41be-b967-b70c163c0c1a"}]}
+{"at": "2026-09-30T22:12:03.676267+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:12:03.679499+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:03.703955+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-boundary item 0", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 0, \"section\": \"R3-boundary\"}"]}
+{"at": "2026-09-30T22:12:03.706290+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:03.731318+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 1, "recordFrame": 9000, "section": "R3-boundary", "startFrame": 0, "trackIndex": 1}]}
+{"at": "2026-09-30T22:12:03.744837+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "b4f84273-a32c-48bd-acfe-7939fbbdc54b"}]}
+{"at": "2026-09-30T22:12:03.781533+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:12:03.785100+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:03.790529+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-boundary item 1", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 1, \"section\": \"R3-boundary\"}"]}
+{"at": "2026-09-30T22:12:03.792515+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:03.815178+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8", "mediaType": 2, "occurrence": 2, "recordFrame": 9000, "section": "R3-boundary", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:12:03.828675+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "aa462900-5efe-49d1-bc1b-cb7b2b7daed9"}]}
+{"at": "2026-09-30T22:12:03.881015+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:12:03.884152+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:03.890381+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-boundary item 2", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 2, \"section\": \"R3-boundary\"}"]}
+{"at": "2026-09-30T22:12:03.892375+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:04.146954+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 199, "mediaPoolItem": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f", "mediaType": 2, "occurrence": 3, "recordFrame": 9000, "section": "R3-boundary", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:12:04.160903+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "9d052518-8d90-4dc3-b09e-64c4778899f6"}]}
+{"at": "2026-09-30T22:12:04.183178+00:00", "method": "SetClipEnabled", "phase": "request", "value": [true]}
+{"at": "2026-09-30T22:12:04.186399+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:04.191102+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-boundary item 3", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 3, \"section\": \"R3-boundary\"}"]}
+{"at": "2026-09-30T22:12:04.193079+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:04.241531+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "8366bbfd-ad50-4a17-9b8d-d05224943f0b", "mediaType": 1, "occurrence": 4, "recordFrame": 9050, "section": "R3-boundary", "startFrame": 0, "trackIndex": 2}]}
+{"at": "2026-09-30T22:12:04.296212+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "a3cefd0b-5c57-4649-8d68-397cc6a0a4a8"}]}
+{"at": "2026-09-30T22:12:04.325649+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:12:04.330862+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:04.344343+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-boundary item 4", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 4, \"section\": \"R3-boundary\"}"]}
+{"at": "2026-09-30T22:12:04.346936+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:04.370799+00:00", "method": "AppendToTimeline", "phase": "request", "value": [{"endFrame": 49, "mediaPoolItem": "ce49c87d-edf6-4860-981c-891cc329c447", "mediaType": 1, "occurrence": 5, "recordFrame": 9075, "section": "R3-boundary", "startFrame": 0, "trackIndex": 3}]}
+{"at": "2026-09-30T22:12:04.391666+00:00", "method": "AppendToTimeline", "phase": "return", "value": [{"value": "baec42e2-ce62-4a1d-972f-efb487ad37f1"}]}
+{"at": "2026-09-30T22:12:04.613829+00:00", "method": "SetClipEnabled", "phase": "request", "value": [false]}
+{"at": "2026-09-30T22:12:04.616892+00:00", "method": "SetClipEnabled", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:04.637936+00:00", "method": "AddMarker", "phase": "request", "value": [0, "Blue", "141 R3-boundary item 5", "Synthetic matrix occurrence", 1, "{\"issue\": 141, \"occurrence\": 5, \"section\": \"R3-boundary\"}"]}
+{"at": "2026-09-30T22:12:04.639814+00:00", "method": "AddMarker", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:04.881461+00:00", "method": "SetClipsLinked", "phase": "request", "value": [["462ae76e-bf69-41be-b967-b70c163c0c1a", "b4f84273-a32c-48bd-acfe-7939fbbdc54b"], true]}
+{"at": "2026-09-30T22:12:04.884731+00:00", "method": "SetClipsLinked", "phase": "return", "value": true}
+{"at": "2026-09-30T22:12:07.568274+00:00", "method": "native-matrix", "phase": "failure", "value": "RuntimeError: Final matrix audio tracks are not all mono"}
+{"at": "2026-09-30T22:12:10.041499+00:00", "method": "native-matrix(failure capture)", "phase": "readback", "value": {"capturePath": "<probe-output>/capture-20260930T221137.773286Z-failure-postflight.json", "sha256": "e68f682b2f0b73bbf8ee883fd375ecd5325061c50c1cd2615fb9ee72e386e0d9", "status": "equal-adjacent-reads"}}

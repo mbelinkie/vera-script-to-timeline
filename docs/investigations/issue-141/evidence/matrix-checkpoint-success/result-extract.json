@@ -1,0 +1,28 @@
+{
+  "independentComparison": {
+    "equalCompleteMatrixContextPair": true,
+    "fullPoolUnchanged": true,
+    "historicalMatrixBaselineR1Equal": true,
+    "noContentSourceSettingsSaveOrRenderMutation": true,
+    "preflightEqualsOriginalOnlineR4Pin": true,
+    "status": "verified-selected-matrix-checkpoint"
+  },
+  "kind": "selected-matrix-checkpoint-extract",
+  "limits": [
+    "Equal adjacent reads do not establish atomicity or exclude ABA changes."
+  ],
+  "nativeResult": "vera-issue-141-observation-result-20261001T015209.426591Z.json",
+  "nativeResultSha256": "a12f6cb5cb10c2ecc29dd2b2fbc61c13ed70a5e1bc7a0707b03812666a6e7946",
+  "readback": {
+    "poolPair": "equal-adjacent-reads",
+    "timelinePair": "equal-adjacent-reads"
+  },
+  "selectedTimelineName": "VERA 141 Batched Matrix",
+  "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+  "selectionCall": {
+    "count": 1,
+    "method": "Project.SetCurrentTimeline",
+    "return": true
+  },
+  "status": "selected-matrix-checkpoint"
+}

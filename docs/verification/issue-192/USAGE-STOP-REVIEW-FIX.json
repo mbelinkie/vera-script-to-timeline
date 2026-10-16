@@ -1,0 +1,91 @@
+{
+  "status": "usage-stop-drained-release",
+  "usage": {
+    "accountId": "c267d165-3391-4d8a-8a3e-35ccb9aba878",
+    "fiveHourUsedPercent": 98,
+    "weeklyUsedPercent": 78
+  },
+  "source": "a463c35655d3307d980ddca95699752a99774ab8",
+  "pid": 80050,
+  "session": 40633,
+  "ownedDrained": true,
+  "command": [
+    ".venv/bin/python",
+    "-m",
+    "pytest",
+    "-x",
+    "--durations=25",
+    "tests/test_issue192_public_path.py",
+    "tests/test_issue192_proof.py",
+    "tests/test_issue190_native.py::test_public_delivery_once_and_readonly_recovery",
+    "tests/test_issue190_native.py::test_copied_or_drifted_delivery_records_refuse_recovery",
+    "tests/test_issue190_native.py::test_fractional_public_delivery_refusal_precedes_adapter_creation",
+    "tests/test_issue190_native.py::test_capture_drift_refuses_without_evidence_or_render"
+  ],
+  "node": "v24.19.0",
+  "nodeBinary": "/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin/node",
+  "nodeSha256": "1052eb9c7d6c60a79b968e09f75af55a73462b0f6dff0964336d63b5e13eb63c",
+  "tools": {
+    "/Users/matthewbelinkie/.local/bin/uv": {
+      "binary": "/Users/matthewbelinkie/.local/bin/uv",
+      "sha256": "9f810c3f3ea6b29f5e02b03acb0dcff74f516d4c24b91cd5491f172829e5c9e4",
+      "version": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)"
+    },
+    ".venv/bin/python": {
+      "binary": "/Users/matthewbelinkie/.local/share/uv/python/cpython-3.12.14-macos-x86_64-none/bin/python3.12",
+      "sha256": "a8e10ff8d348800219a8f1f2bb04f5b7d2d62a34f9656cad5520f10560f8df35",
+      "version": "Python 3.12.14"
+    },
+    ".venv/bin/ruff": {
+      "binary": "/Users/matthewbelinkie/.codex/worktrees/f5f4/VERA Script to Timeline/.venv/bin/ruff",
+      "sha256": "40a2ecbb65bcf18e99b424b60eeccaad58a6b35608341b6b64f426e02f54c233",
+      "version": "ruff 0.16.4"
+    },
+    ".venv/bin/mypy": {
+      "binary": "/Users/matthewbelinkie/.codex/worktrees/f5f4/VERA Script to Timeline/.venv/bin/mypy",
+      "sha256": "b9ea015568aac93e2bc0c9630de8be3ebc63d1e0202a524af4c148659cd4e8e6",
+      "version": "mypy 2.3.1 (compiled: no)"
+    }
+  },
+  "PATH": "/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin:/Users/matthewbelinkie/.local/bin:/usr/local/bin:/usr/bin:/bin",
+  "selection": {
+    "grant": "Retained NEXTBOUNDEDSERIAL PYTHONRUNTIME own-scope fixes and affected reruns",
+    "source": "a463c35",
+    "scope": {
+      "tests/test_issue192_public_path.py": "Blocking B1 complete authenticated-case consumption at compose/stage/proposal/decide; exact pinned preflight cases and nonempty required191input inventory; measuredD1mismatch/probe/freshrestage/cache replay, revisednative route refusal, full publicpath.",
+      "tests/test_issue192_proof.py": "Owned guard delta: gain/channel/AVlink reopen refusal, realR16 excluded synthetic shortcut, independentcurrentnesscapture namespace, plus existing transport/currentness/recovery. Explicitdoubles neverAC.",
+      "tests/test_issue190_native.py::test_public_delivery_once_and_readonly_recovery": "Original constructor/shared initializer and inherited delivery/recovery compatibility, both accepted fixture profiles.",
+      "tests/test_issue190_native.py::test_copied_or_drifted_delivery_records_refuse_recovery": "Original intent/effect/completion ancestry drift rejection without repeated effects.",
+      "tests/test_issue190_native.py::test_fractional_public_delivery_refusal_precedes_adapter_creation": "Original fractional refusal before adapter creation plus read-only recovery.",
+      "tests/test_issue190_native.py::test_capture_drift_refuses_without_evidence_or_render": "Original target/adjacent/mapping/control/item/rate currentness refusals."
+    },
+    "profile": "Same2newPythonfiles+4original190selectedfunctions38cases(3reopennegativeparametersadded), serial-x/durations25, lockedtools/freshalltmpinputs/source-boundpackages/bindings/authcaseledger; no realeffects/frozen/controlchanges.",
+    "finalPinRecords": [
+      "docs/verification/issue-192/runtime-job-fix.json",
+      "docs/verification/issue-192/runtime-mapping-fix.json",
+      "docs/verification/issue-192/runtime-authority-fix.json",
+      "docs/verification/issue-192/runtime-decision-hash-fix.json",
+      "docs/verification/issue-192/runtime-fractional-hash-fix.json",
+      "docs/verification/issue-192/review-fix-checkpoint.json"
+    ]
+  },
+  "startedAt": "2026-10-14T04:56:26.813Z",
+  "finishedAt": "2026-10-14T04:56:54.225Z",
+  "exitCode": 1,
+  "signal": null,
+  "completeReceipt": "out/issue192/runtime-8/complete.json",
+  "completeReceiptSha256": "1cfb7f7cee477400fa1f16b3682ccb9a96d3a44f030d07b53ecc6ddcb06e85a6",
+  "log": "out/issue192/runtime-8/check.log",
+  "logSha256": "70fa63ea202cc7c1a365c8ea494ab41684993d6a78bb35798bb943c30583614c",
+  "result": {
+    "collected": 38,
+    "passed": 1,
+    "failed": 1,
+    "unreached": 36,
+    "durationSeconds": 26.28,
+    "failure": "new _verify_exact_view AV link topology differs during baseline public evidence()"
+  },
+  "nextStep": "After actual capacity returns under explicit overnight heartbeat authority: verify same owner/source/job/claim/reservation. Diagnose actual observed link pairs versus expected authored ownership in the new local N1 guard and new fixture; preserve acceptednative/202/contract/coverage. Fix only approved own scope, affected checks/runtime/fast and adversarialdelta rereview beforefinalfull. No source fix/test/review launched at threshold.",
+  "review": "Initial actualClaudeNO-GO retained; B1/N1-N4/D1 fix candidate runtime still fails; old35pass/fullfast historical, no final acceptance.",
+  "resumeAuthority": "Producer authorized existing central heartbeat usage-only scheduled wakes; both actual windows must be <97, ordinaryusageallowed/notratelimited. No credits/purchases/accountswitch action/extra monitor/tightloop."
+}

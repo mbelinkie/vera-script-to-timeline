@@ -1,0 +1,6 @@
+{"at": "2026-10-03T00:52:57.160622+00:00", "phase": "started", "value": {"actionId": "render-poll-w1-linked-cut-01-20261002-kit-01", "configSha256": "92f7a6bef8fc40f508870cd6d0e7e66d192cabd5e4dd159ceeb9ac31c1fcfef2"}}
+{"at": "2026-10-03T00:52:57.188803+00:00", "phase": "probe-verified", "value": {"probePath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/sources/0810d527f006a805e81fda9e73671c31871daaa9a13a74342f1dd96b89ff049d/harness.py", "probeSha256": "0810d527f006a805e81fda9e73671c31871daaa9a13a74342f1dd96b89ff049d"}}
+{"at": "2026-10-03T00:52:57.189983+00:00", "phase": "disarmed", "value": {"action": "render-poll", "actionId": "render-poll-w1-linked-cut-01-20261002-kit-01"}}
+{"at": "2026-10-03T00:52:57.190102+00:00", "phase": "probe-request", "value": {"action": "render-poll", "phase": "render-poll-w1-linked-cut-01"}}
+{"at": "2026-10-03T00:52:59.536244+00:00", "phase": "probe-return", "value": {"status": "ok"}}
+{"at": "2026-10-03T00:52:59.536977+00:00", "phase": "result-written", "value": {"result": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-render-poll-w1-linked-cut-01-20261002-kit-01.json", "status": "ok"}}

@@ -1,0 +1,24 @@
+{
+  "action": "matrix-reopen",
+  "captures": [
+    {
+      "capturePath": "<probe-output>/capture-20260930T234437.703376Z-preflight.json",
+      "sha256": "ae4e656d0f415d660f6288e51c711d95c45bdc54c64f2e044d4548b0e8c6a972",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T234437.703376Z-pre-close.json",
+      "sha256": "712404d59c7044a0157373390c1fb7be566bc1b7ad5a12fcaf0b94de9663bce6",
+      "status": "equal-adjacent-reads"
+    },
+    {
+      "capturePath": "<probe-output>/capture-20260930T234437.703376Z-reopened.json",
+      "sha256": "e8b55f2300a86471e4b1b32b54716583a48a1c5a399ddbbbf2a364c1e6f1b492",
+      "status": "inconsistent-refused"
+    }
+  ],
+  "evidence": "<probe-output>/matrix-reopen-20260930T234437.703376Z.json",
+  "failure": "RuntimeError: Reopened raw capture is incomplete or unstable",
+  "journal": "<probe-output>/matrix-reopen-20260930T234437.703376Z.jsonl",
+  "status": "matrix-reopen-refused"
+}

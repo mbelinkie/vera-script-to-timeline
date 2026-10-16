@@ -1,0 +1,208 @@
+{
+  "title": "Issue 141 audio controls next bounded review",
+  "reviewedAt": "2026-10-01T23:00:53.269592Z",
+  "scope": "Read-only review of retained Resolve 21.1 documentation, approved Hammerspoon macros, local audio harness, output plan, and retained native mapping evidence. No Resolve call, macro dispatch, config change, harness edit, or media access occurred.",
+  "approvedHammerspoonMacros": {
+    "source": "docs/investigations/issue-141/hammerspoon-editorial.lua",
+    "names": [
+      "edit-page",
+      "step-forward",
+      "timeline-start",
+      "save-project",
+      "focus-timeline",
+      "auto-none",
+      "auto-v1",
+      "auto-a1",
+      "auto-a3",
+      "deselect",
+      "select",
+      "split",
+      "trim-end",
+      "nudge-right",
+      "copy",
+      "paste"
+    ],
+    "audioSpecificMacroPresent": false,
+    "observationLauncherPresent": true,
+    "interpretation": "The approved Hammerspoon set guards the exact synthetic Resolve window and dispatches named editorial commands only. It contains no Fairlight mute, solo, bus, send, or routing command."
+  },
+  "retainedNativeMapping": {
+    "reviewPath": "out/issue-141-observation-20260930-01a0f318/retained-audio-mapping-full-review.json",
+    "reviewSha256": "84aa3045878b06d735833a556bb26bba132bb7855950d85ac7b631db4f13a58f",
+    "matrix": {
+      "itemsPerPass": 132,
+      "passes": 2,
+      "GetSourceAudioChannelMapping": {
+        "successPerPass": 132,
+        "missingPerPass": 0,
+        "errorPerPass": 0
+      },
+      "mappingClassesPerPass": {
+        "embedded1_trackMappingMono_unmuted": 67,
+        "embedded1_emptyTrackMapping": 46,
+        "embedded0_emptyTrackMapping": 19
+      }
+    },
+    "pool": {
+      "entriesPerPass": 13,
+      "passes": 2,
+      "GetAudioMapping": {
+        "successPerPass": 7,
+        "missingPerPass": 6,
+        "errorPerPass": 0
+      },
+      "missingEntriesAre": "timeline assets in the retained pool inventory; absence is not classified as an unsupported-capability result."
+    },
+    "linkedAudio": "Every retained Matrix and pool mapping had linked_audio empty; linked-audio offsets were not exercised."
+  },
+  "documentedCapabilities": {
+    "clipMappingMute": {
+      "status": "documented-and-bounded-testable",
+      "calls": [
+        "MediaPoolItem.GetAudioMapping() -> JSON",
+        "MediaPoolItem.SetAudioMapping(audioMapping) -> bool",
+        "TimelineItem.GetSourceAudioChannelMapping() -> JSON",
+        "TimelineItem.SetSourceAudioChannelMapping(audioMapping) -> bool"
+      ],
+      "documentationFacts": [
+        "track_mapping entries expose channel_idx, mute, and type; mute true means the mapped track is muted.",
+        "SetAudioMapping and SetSourceAudioChannelMapping process only track_mapping; embedded_audio_channels and linked_audio are ignored.",
+        "SetSourceAudioChannelMapping must receive exactly one track_mapping track."
+      ],
+      "recommendedBoundedTest": [
+        "Choose one Matrix audio occurrence whose fresh readback has a nonempty track_mapping, and bind its timeline UID and source UID.",
+        "Capture two equal reads; change only that occurrence\u2019s track_mapping[1].mute from false to true with SetSourceAudioChannelMapping.",
+        "Capture two equal post-reads and verify channel_idx, type, source binding, record/source ranges, links, all other items, and pool mapping are unchanged.",
+        "Restore the exact original mapping once and verify two equal post-restore reads."
+      ],
+      "manualIntervention": "None for the mapping-state observation itself. Manual Fairlight listening or the guarded synthetic output check is required if the question is whether the mute changes final program audibility.",
+      "scopeLimit": "A MediaPoolItem setter changes source clip mapping and may affect multiple occurrences; use the TimelineItem setter for this one-occurrence test."
+    },
+    "trackEnable": {
+      "status": "already-supported-and-tested-separately",
+      "calls": [
+        "Timeline.GetIsTrackEnabled(kind, index)",
+        "Timeline.SetTrackEnable(kind, index, enabled)"
+      ],
+      "evidence": "The current audio harness stages SetTrackEnable(audio,2) and verifies GetIsTrackEnabled(audio,2).",
+      "limit": "Track enable is distinct from track mute and Solo; do not use the existing A2 enable result as Solo or routing evidence."
+    },
+    "trackSolo": {
+      "status": "manual-fairlight-observation-required",
+      "apiFinding": "No track-Solo getter/setter appears in the retained Resolve 21.1 documentation or API search evidence reviewed. This is an API-surface gap, not a reproduced Resolve failure.",
+      "approvedMacroFinding": "No approved Hammerspoon macro targets a Fairlight Solo control.",
+      "manualAction": [
+        "With the exact synthetic Matrix selected and a fresh native before pin, open Fairlight and identify the named target audio track.",
+        "Record the visible Solo state and the visible track/send/program-bus context, toggle Solo once, and record the changed visible state plus a bounded program listening/output observation.",
+        "Toggle Solo off, verify the visible state is restored, then retain a fresh native post-read without changing clip mappings or track-enable state."
+      ],
+      "interpretation": "Public native readback can confirm the surrounding clip/track identity, but cannot confirm Solo state from the retained API surface; visible Fairlight state and bounded output evidence are required."
+    },
+    "busRouting": {
+      "status": "manual-fairlight-observation-required",
+      "apiFinding": "No bus-send, program-output-assignment, or Fairlight-routing getter/setter appears in the retained Resolve 21.1 documentation or API search evidence reviewed. This is an API-surface gap, not a reproduced Resolve failure.",
+      "approvedMacroFinding": "No approved Hammerspoon macro targets Fairlight buses, sends, or routing controls.",
+      "manualAction": [
+        "In the exact synthetic Matrix, inspect the named audio tracks in Fairlight and record the visible track output, sends, bus names, and program-output assignment.",
+        "Keep clip mapping and track-enable state fixed while making no routing change unless a separate bounded transition is explicitly staged.",
+        "After the manual observation, use the existing guarded audio-output path to render the owned synthetic program and compare the expected source-support windows; do not infer a route from clip mapping alone."
+      ],
+      "interpretation": "Unknown or inaccessible routing stays unsupported for automation. A successful render can establish the named synthetic output result under the manually observed route, not general Fairlight behavior."
+    }
+  },
+  "guardedOutputPath": {
+    "status": "documented-and-prepared-not-executed-by-this-review",
+    "callsInRetainedPath": [
+      "GetCurrentRenderFormatAndCodec",
+      "GetCurrentRenderMode",
+      "GetRenderJobList",
+      "IsRenderingInProgress",
+      "GetRenderPresetList",
+      "SaveAsNewRenderPreset",
+      "ExportRenderPreset",
+      "LoadRenderPreset",
+      "SetRenderSettings",
+      "AddRenderJob",
+      "StartRendering([ownedJobId])",
+      "GetRenderJobStatus",
+      "DeleteRenderJob",
+      "DeleteRenderPreset"
+    ],
+    "boundary": "This path provides program-output evidence after routing is manually observed; it does not expose or replace Fairlight route state."
+  },
+  "nextAction": {
+    "smallestIndependentQuestion": "Test one TimelineItem source mapping mute transition on a single Matrix audio occurrence, with exact before/after/restore reads.",
+    "requiresNewNativeStaging": true,
+    "requiresHammerspoonAudioMacro": false,
+    "requiresManualOperator": "Only if audibility, Solo, or bus/send/program routing is part of the claim.",
+    "doNotConflate": [
+      "track enable",
+      "clip mapping mute",
+      "track Solo",
+      "bus routing",
+      "final program audibility"
+    ]
+  },
+  "limits": [
+    "This review does not claim any unsupported capability failure; it distinguishes documented calls from absent retained API declarations and manual-only observations.",
+    "No setter behavior, Fairlight UI state, Solo state, bus state, or rendered waveform was tested in this review.",
+    "All recommendations remain bounded to the named synthetic project and require fresh identity/state guards before execution."
+  ],
+  "sourceEvidence": [
+    {
+      "path": "docs/investigations/issue-141/hammerspoon-editorial.lua",
+      "sha256": "47b6ec354c00e3ef1296a70c29e8846e1661fef692177d90bc96f27ba5b6bc6d",
+      "role": "approved named Hammerspoon editorial command set"
+    },
+    {
+      "path": "docs/investigations/issue-141/hammerspoon-editorial-check.lua",
+      "sha256": "ccd000d9dc489a7b50ed622b1a01d82ce71d8b466524d089d72140ba8fd4be63",
+      "role": "fake-only macro guard coverage"
+    },
+    {
+      "path": "docs/investigations/issue-141/hammerspoon-launch.lua",
+      "sha256": "f92cc1b6e5bd7e0611bf94aa9a7262f3c14936de03fc5072e1c0100593cd461d",
+      "role": "approved observation launcher"
+    },
+    {
+      "path": "docs/investigations/issue-141/audio-cases.py",
+      "sha256": "643f520f051c0c7435d921dc1964e0b940abd75305a5cf7be3693ec41bbf6fa6",
+      "role": "local guarded audio harness; current allowed mutations"
+    },
+    {
+      "path": "docs/investigations/issue-141/installation-audio-cases.json",
+      "sha256": "11fda854dfc3cabab06cf4ace4c5fe3886b320150747a8cd278f5527d148f8d0",
+      "role": "staged audio harness manifest"
+    },
+    {
+      "path": "docs/investigations/issue-141/audio-output.py",
+      "sha256": "0740a4b74b967e4037f0e09f45d4d527e1f660f0ac486f81954f5c8d226cb5b1",
+      "role": "guarded synthetic audio-output path; not executed by this review"
+    },
+    {
+      "path": "docs/investigations/issue-141/audio-output-plan.md",
+      "sha256": "4a021c34b665d12775aae9c670664dd2790ff7e9460f9ebebd99a826486e61b5",
+      "role": "retained routing/output evidence boundary"
+    },
+    {
+      "path": "docs/investigations/issue-141/editorial-macro-plan.md",
+      "sha256": "edf37989f5d34c007d28daf90f40d417b73250717bb7f9df35aea371f891ab9d",
+      "role": "producer-approved editorial macro scope"
+    },
+    {
+      "path": "out/issue-141-observation-20260930-01a0f318/resolve21.1-scripting-api-readme.md",
+      "sha256": "5f58c94da8ec3c1f390d77ad9c60675263591dc101159b302e50b5774513830b",
+      "role": "retained Resolve 21.1 audio-mapping documentation"
+    },
+    {
+      "path": "out/issue-141-observation-20260930-01a0f318/audio-mapping-api-stub-search.json",
+      "sha256": "ecc6c025d28ede24eade847e3fef9503be77745e992d88a1a5ddd4971e36b28c",
+      "role": "retained Resolve 21.1 API declaration search"
+    },
+    {
+      "path": "out/issue-141-observation-20260930-01a0f318/retained-audio-mapping-full-review.json",
+      "sha256": "84aa3045878b06d735833a556bb26bba132bb7855950d85ac7b631db4f13a58f",
+      "role": "full retained Matrix/pool native mapping comparison"
+    }
+  ]
+}

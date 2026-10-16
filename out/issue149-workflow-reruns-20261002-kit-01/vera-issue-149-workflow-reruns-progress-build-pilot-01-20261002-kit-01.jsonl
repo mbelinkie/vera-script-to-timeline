@@ -1,0 +1,6 @@
+{"at": "2026-10-03T00:24:08.261195+00:00", "phase": "started", "value": {"actionId": "build-pilot-01-20261002-kit-01", "configSha256": "97984db09262201159433e568660a641e7d1e1c3098ae9a77924de05d9deec4a"}}
+{"at": "2026-10-03T00:24:08.288819+00:00", "phase": "probe-verified", "value": {"probePath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/sources/25d3bf713afd2e0036d131c2ef9d9fa3ad0082ebc5183f69ddf3d02f98e003c3/harness.py", "probeSha256": "25d3bf713afd2e0036d131c2ef9d9fa3ad0082ebc5183f69ddf3d02f98e003c3"}}
+{"at": "2026-10-03T00:24:08.289844+00:00", "phase": "disarmed", "value": {"action": "build", "actionId": "build-pilot-01-20261002-kit-01"}}
+{"at": "2026-10-03T00:24:08.289962+00:00", "phase": "probe-request", "value": {"action": "build", "phase": "build-pilot-01"}}
+{"at": "2026-10-03T00:24:11.515033+00:00", "phase": "probe-return", "value": {"status": "ok"}}
+{"at": "2026-10-03T00:24:11.515750+00:00", "phase": "result-written", "value": {"result": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-build-pilot-01-20261002-kit-01.json", "status": "ok"}}

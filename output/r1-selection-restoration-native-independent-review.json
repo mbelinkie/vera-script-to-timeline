@@ -1,0 +1,50 @@
+{
+  "taskId": "Issue 141",
+  "kind": "r1-selection-restoration-native-independent-review",
+  "status": "PASS",
+  "decision": "The retained native R1-to-Matrix selection restoration satisfies the bounded acceptance contract. Exactly one Matrix selection setter is recorded; the original refusal remains terminal and no duplicate was attempted.",
+  "artifacts": {
+    "wrapperPath": "out/issue-141-observation-20260930-01a0f318/r1-final-executor-restore-20261002T131040.592207Z/result.json",
+    "wrapperSha256": "faa5da4d6e775b6ccf7e259895aa71bc53881991b038fac68c12fb7683dca576",
+    "nativeResultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261002T131042.182117Z.json",
+    "nativeResultSha256": "4b7de4d96c27ee7bd43ec592a85b56a3e47e80a6c68e6644143ab8093b22ee19",
+    "continuationStatePath": "output/r1-window-readiness-continuation-state.json",
+    "continuationStateSha256": "22f30bb319f476f924582ccc5c1dcd93405154b10e5b2502199bf04714b7c358",
+    "priorRefusalRecordPath": "output/r1-restoration-menu-refusal-record.json",
+    "priorExecutorStatePath": "output/r1-final-native-executor-20261002-state.json",
+    "priorExecutorStateSha256": "4682ed35d3fa0999e3e36263d9bb3fe0ddc81a1ec43fcd9de1e1507de1a4a710"
+  },
+  "verification": {
+    "status": "restored-selection",
+    "action": "r1-repeat-restore-selection",
+    "fromSelectedTimelineUid": "aa2b8e36-83bd-4292-9e33-217c00ca192f",
+    "targetTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+    "nativeMutation": "SetCurrentTimeline",
+    "mutationCount": 1,
+    "beforePairEqualsRetainedCheckpoint": true,
+    "beforePairEqualsBoundR1Checkpoint": true,
+    "beforePairSelectedR1": true,
+    "beforeContextPreflightMatchedPinnedR1Context": true,
+    "afterPairEqualsTargetPair": true,
+    "afterContextEqualsTargetContext": true,
+    "pairExactlyEqual": true,
+    "contextExactlyEqual": true,
+    "stableAdjacentTimelineAndPoolPairs": true,
+    "protectedSixInventory": true,
+    "sixOriginalTimelineIdentitiesPreserved": true,
+    "noSaveRenderClipLockOrPlayheadMutation": true
+  },
+  "priorRefusalIntegrity": {
+    "executorStateHashMatchesRefusalRecord": true,
+    "restoreStatus": "terminal-failure",
+    "finalDuplicateAttempted": false,
+    "noInjectedDispatch": true,
+    "noNativeRestoration": true,
+    "noDuplicateAttempted": true
+  },
+  "limitations": [
+    "No native dispatch, macro, or broad test rerun was performed by this review.",
+    "The native result retains the successful after context and the pinned preflight context is retained in the staged configuration; it does not duplicate a separate beforeContext object in the result payload."
+  ],
+  "decisionNeededFromMain": "Accept the bounded restoration evidence and retain the terminal prior refusal plus finalDuplicateAttempted=false as the stopping boundary."
+}

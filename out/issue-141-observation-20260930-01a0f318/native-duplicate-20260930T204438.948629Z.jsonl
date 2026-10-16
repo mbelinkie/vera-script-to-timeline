@@ -1,0 +1,10 @@
+{"at": "2026-09-30T20:44:39.127432+00:00", "method": "SetSettings", "phase": "request", "value": [{"perfCacheClipsLocation": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/storage-20260930T173943.043191Z/cache"}]}
+{"at": "2026-09-30T20:44:39.132264+00:00", "method": "SetSettings", "phase": "return", "value": true}
+{"at": "2026-09-30T20:44:39.275875+00:00", "method": "SetSettings(cache restoration capture)", "phase": "readback", "value": {"capturePath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/capture-20260930T204438.948629Z-cache-restoration.json", "sha256": "774dc4bb12de0057aa5194d8838ef8447fefa3c1d5485c97731522d81e8690b5", "status": "equal-adjacent-reads"}}
+{"at": "2026-09-30T20:44:39.281837+00:00", "method": "DuplicateTimeline", "phase": "request", "value": ["VERA 141 R1 identity"]}
+{"at": "2026-09-30T20:44:39.837235+00:00", "method": "DuplicateTimeline", "phase": "return", "value": {"GetName": {"value": "VERA 141 R1 identity"}, "GetUniqueId": {"value": "aa2b8e36-83bd-4292-9e33-217c00ca192f"}}}
+{"at": "2026-09-30T20:44:40.154831+00:00", "method": "SetCurrentTimeline", "phase": "request", "value": ["aa2b8e36-83bd-4292-9e33-217c00ca192f"]}
+{"at": "2026-09-30T20:44:40.289345+00:00", "method": "SetCurrentTimeline", "phase": "return", "value": true}
+{"at": "2026-09-30T20:44:40.371101+00:00", "method": "SetCurrentTimeline(readback)", "phase": "readback", "value": {"GetCurrentTimeline.UniqueId": "aa2b8e36-83bd-4292-9e33-217c00ca192f"}}
+{"at": "2026-09-30T20:44:40.373157+00:00", "method": "SaveProject", "phase": "request", "value": []}
+{"at": "2026-09-30T20:44:40.436845+00:00", "method": "SaveProject", "phase": "return", "value": true}

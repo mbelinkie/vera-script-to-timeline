@@ -1,0 +1,60 @@
+{
+ "job_id": "p7-003-per-timeline-noise",
+ "started": 1790974717.886821,
+ "seconds": 27.569,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "log": [
+   [
+    "start",
+    "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/dbcopy/p7_003/01_start.db"
+   ],
+   [
+    "idle",
+    "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/dbcopy/p7_003/02_idle.db"
+   ],
+   [
+    "playhead",
+    "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/dbcopy/p7_003/03_playhead.db"
+   ],
+   [
+    "page fairlight",
+    "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/dbcopy/p7_003/04_page_fairlight.db"
+   ],
+   [
+    "page edit",
+    "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/dbcopy/p7_003/05_page_edit.db"
+   ],
+   [
+    "switch to T2",
+    "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/dbcopy/p7_003/06_switch_to_T2.db"
+   ],
+   [
+    "switch to base",
+    "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/dbcopy/p7_003/07_switch_to_base.db"
+   ],
+   [
+    "T2 marker add (base current)",
+    "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/dbcopy/p7_003/08_T2_marker_add_(base_current).db"
+   ],
+   [
+    "T2 marker delete",
+    "~/Desktop/ONGOING/VERA Script to Timeline/out/issue-141-second-opinion/dbcopy/p7_003/09_T2_marker_delete.db"
+   ]
+  ],
+  "uids": {
+   "SO Baseline": "2f8e6f08-5e48-4053-900f-d697b6bdfea7",
+   "SO T2 linked cut": "bf12b471-9ceb-43ad-9ec7-e1ff11aaa457",
+   "SO T3 picture-only cut": "6ffc4f36-318d-4f1a-a4c1-52bbcfa74d74",
+   "SO T4 A1 clip disabled": "47ef642c-48d5-4b3e-8fe5-0408b63de672",
+   "SO T5 A1 track disabled": "1f9e3b42-393f-4924-b422-bff37a9448c2",
+   "SO T6 A2 mapping mute": "c7b6cddb-3798-4ed9-9353-883e29ca7df7",
+   "SO T7 A2 Mute button": "11683324-6a78-4d33-95b2-71fc1126f084",
+   "SO T8 A2 Solo button": "345872d1-6267-4c19-84e3-a1a80f804124",
+   "SO T9 speed 37.5": "e44e8f60-ae03-4574-b238-5dc9bfa9dc4d",
+   "SO T10 speed 150": "11d391d8-83e1-492f-805b-e6522c139525",
+   "SO T11 relink swap": "198cd7e2-612f-475e-bdf4-b6400607a5ee"
+  }
+ }
+}

@@ -1,0 +1,15 @@
+{
+  "originalRangeComparison": "producer-transcript-range-comparison.json",
+  "originalSha256": "d4912a85ffea6f85854a2507cba3903b822261d720c06ee01cbac5e4a940fb6c",
+  "producerCorrection": {
+    "KAJ/Kai": "accepted spoken-name transcription",
+    "Namely/Specifically": "Specifically is correct; original expectation was wrong",
+    "up/out": "minor transcript wording mistake"
+  },
+  "currentOutcome": "successful intended phrase-omission test through source transcripts plus timeline ranges",
+  "limits": [
+    "no direct timeline transcript returned",
+    "no final-audibility proof",
+    "endpoint precision remains under review"
+  ]
+}

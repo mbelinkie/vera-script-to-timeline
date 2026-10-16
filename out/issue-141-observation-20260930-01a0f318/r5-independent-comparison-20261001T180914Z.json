@@ -1,0 +1,221 @@
+{
+  "taskId": "Issue 141 / R5 marker-and-move evidence comparison",
+  "kind": "r5-independent-out-only-comparison",
+  "reviewedAt": "2026-10-01T18:09:14Z",
+  "scope": "Retained JSON/checker metadata only; no Resolve/API/config/dashboard/source/media calls and no manual move replay.",
+  "guardCheck": {
+    "command": "python3 -S docs/investigations/issue-141/r5-edit-evidence-check.py",
+    "observed": "R5 note/move guard checks pass; no live R5 edit evidence claimed.",
+    "checkerSha256": "d2d9d29a77f8c76a293569af0808106689972dd4b3d8936e10895ac0a18c1493"
+  },
+  "completePins": {
+    "nativeNoteBefore": {
+      "path": "out/issue-141-observation-20260930-01a0f318/r5-edit-context-20261001T125713.586871Z/pair.json",
+      "sha256": "6b047339f81bab349ff3e95928bebda192a73e251b7e3989b8fd9d893a882d45",
+      "timelinePasses": 2,
+      "poolPasses": 2,
+      "marker0Note": "Synthetic matrix case boundary"
+    },
+    "nativeNoteAfter": {
+      "path": "out/issue-141-observation-20260930-01a0f318/r5-edit-note-20261001T130724.954003Z/pair.json",
+      "sha256": "5577011075fc73b400c9a5b3afe5b9e5795673836eba8c6eb03a826129896242",
+      "timelinePasses": 2,
+      "poolPasses": 2,
+      "marker0Note": "Issue 141 R5 marker-note observation"
+    },
+    "noteDiffCount": 2,
+    "noteDiffs": [
+      {
+        "path": "/timelinePasses/0/timelines/0/GetMarkers/value/0/note",
+        "before": "Synthetic matrix case boundary",
+        "after": "Issue 141 R5 marker-note observation"
+      },
+      {
+        "path": "/timelinePasses/1/timelines/0/GetMarkers/value/0/note",
+        "before": "Synthetic matrix case boundary",
+        "after": "Issue 141 R5 marker-note observation"
+      }
+    ],
+    "checkerFixture": {
+      "path": "docs/investigations/issue-141/evidence/r1-copy-paste-stopped/r1-copy-pasted-20261001T072554.638674Z/pair.json.gz",
+      "publishedSha256": "4c03d06a8746255ecded62f362e3e95abba76c9cbd5dccc1374fafad74299eee",
+      "role": "hash-bound baseline used by checker demo to synthesize expected note/move; not native R5 move evidence"
+    }
+  },
+  "expectedR5Edit": {
+    "noteOnly": "Across both passes, change only Matrix marker key 0 note to Issue 141 R5 marker-note observation; preserve color/customData/duration/name, both target bounds/source bounds/enabled/links, all pool state and all other fields.",
+    "linkedOneFrameMove": {
+      "targets": {
+        "video": "3f2de461-d510-46f8-939f-0c794d48e38b",
+        "audio": "22561398-bce0-4c22-b55f-a73d3ad5e4cf"
+      },
+      "passes": 2,
+      "fields": [
+        "GetStart",
+        "GetStart(True)",
+        "GetEnd",
+        "GetEnd(True)"
+      ],
+      "delta": 1,
+      "preserve": [
+        "GetSourceStartFrame",
+        "GetSourceEndFrame",
+        "GetClipEnabled",
+        "GetLinkedItems",
+        "marker note",
+        "pool state",
+        "all unrelated fields"
+      ]
+    }
+  },
+  "freshCaptureStatus": {
+    "latestReview": "out/issue-141-observation-20260930-01a0f318/r5-fresh-move-review.json",
+    "latestCapture": {
+      "latestCapture": "capture-20261001T142246.378925Z.json",
+      "capturedAt": "2026-10-01T14:22:46.378925Z",
+      "sha256": "211eb7be3ce91f56b16f5fe6eb68135626c82b5d60c36175cec92f08e62bee55",
+      "kind": "real-injected-readback",
+      "stage": "baseline-repeat",
+      "consistency": "inconsistent-refused",
+      "getterFailures": 0,
+      "applicationRevisionToken": null,
+      "contentFingerprints": [
+        "942055cd497112de1aca1fbc880a558b34206e1ce8d2d0d86a1c850008bafeeb",
+        "0cf81c669cf8d503fcaec620952bbe729fdc46c691c4a6246486e9f4f657c96"
+      ],
+      "captureStructure": "two timeline passes only; no pool passes"
+    },
+    "consistency": "inconsistent-refused",
+    "captureStructure": "two timeline passes only; no pool passes",
+    "observedFields": {
+      "video": {
+        "start": [
+          0,
+          1
+        ],
+        "end": [
+          199,
+          200
+        ]
+      },
+      "audio": {
+        "start": [
+          0,
+          1
+        ],
+        "end": [
+          199,
+          200
+        ]
+      },
+      "sourceBoundsLinksEnabledIds": "unchanged relative to noted pair"
+    },
+    "completePairProduced": false,
+    "resultProduced": false,
+    "movedDirectories": [
+      {
+        "name": "r5-edit-moved-20261001T142246.395560Z",
+        "journalBytes": 0
+      },
+      {
+        "name": "r5-edit-moved-20261001T142246.395575Z",
+        "journalBytes": 0
+      },
+      {
+        "name": "r5-edit-moved-20261001T142246.395587Z",
+        "journalBytes": 0
+      }
+    ],
+    "manualMoveReport": {
+      "path": "out/issue-141-observation-20260930-01a0f318/r5-manual-move-report.json",
+      "status": "launcher-timeout-evidence-retained",
+      "newNativeResults": [],
+      "operatorReply": "moved"
+    },
+    "sequenceFailure": {
+      "path": "out/issue-141-observation-20260930-01a0f318/r5-marker-move-sequence.json",
+      "status": "stopped-evidence-retained",
+      "failure": "AssertionError: Delta exceeds the linked one-frame record move"
+    }
+  },
+  "cacheAndUsageContextDifferences": {
+    "pass0VsNoted": {
+      "cacheLocator": {
+        "root.GetSettings.perfCacheClipsLocation": "owned absolute cache path -> CacheClip",
+        "timelineSettings": "all four timeline GetSettings.perfCacheClipsLocation values changed from the owned absolute cache path to CacheClip"
+      },
+      "baselineUsage": {
+        "base.mov video1": [
+          24,
+          23
+        ],
+        "cutaway.mov video2": [
+          21,
+          20
+        ],
+        "overlay.png video3": [
+          21,
+          20
+        ],
+        "repeated.wav audio1": [
+          46,
+          44
+        ],
+        "repeated.wav audio2": [
+          46,
+          44
+        ],
+        "bed.wav audio3": [
+          21,
+          20
+        ]
+      }
+    },
+    "pass1VsNoted": {
+      "cacheLocator": "same root plus all four timeline GetSettings changes to CacheClip",
+      "baselineUsage": "no delta"
+    },
+    "pass0VsPass1": {
+      "baselineUsage": {
+        "base.mov video1": [
+          23,
+          24
+        ],
+        "cutaway.mov video2": [
+          20,
+          21
+        ],
+        "overlay.png video3": [
+          20,
+          21
+        ],
+        "repeated.wav audio1": [
+          44,
+          46
+        ],
+        "repeated.wav audio2": [
+          44,
+          46
+        ],
+        "bed.wav audio3": [
+          20,
+          21
+        ]
+      }
+    }
+  },
+  "decision": "Current R5 marker-and-move evidence remains partial. The note-only native pair is complete and exact; the one-frame fields appear in an inconsistent latest capture, but no complete moved pair or pool state exists. Do not mark the manual move complete.",
+  "missingForFreshProtectedSixAcceptance": [
+    "fresh protected-six capture with two consistent timeline passes and two pool passes",
+    "version-stamped native result and exact selection/menu journal",
+    "note-only delta against the fresh baseline",
+    "linked video+audio +1-frame delta in both passes with source bounds/enabled/links unchanged",
+    "cache locator and Usage context either stable or explicitly explained",
+    "fresh restored postflight and hashes"
+  ],
+  "limits": [
+    "The checker proves comparison rules and rejects source drift, marker-color drift, one-sided move, and interpass drift; it does not prove native menu execution.",
+    "Observed one-frame fields are retained only as incomplete evidence because adjacent reads were inconsistent and pool state was absent.",
+    "No atomic revision token or ABA exclusion is established."
+  ]
+}

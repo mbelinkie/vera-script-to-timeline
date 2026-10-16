@@ -1,0 +1,37 @@
+{
+  "jobConclusion": "cancelled",
+  "checkConclusion": "cancelled",
+  "output": {
+    "title": null,
+    "summary": null,
+    "text": null,
+    "annotations_count": 2,
+    "annotations_url": "https://api.github.com/repos/mbelinkie/vera-script-to-timeline/check-runs/111462535929/annotations"
+  },
+  "annotations": [
+    {
+      "path": ".github",
+      "blob_href": "https://github.com/mbelinkie/vera-script-to-timeline/blob/5b145027624b8cf43f814c942ae52ab3f9c144fa/.github",
+      "start_line": 1,
+      "start_column": null,
+      "end_line": 1,
+      "end_column": null,
+      "annotation_level": "failure",
+      "title": "",
+      "message": "The job has exceeded the maximum execution time of 15m0s",
+      "raw_details": ""
+    },
+    {
+      "path": ".github",
+      "blob_href": "https://github.com/mbelinkie/vera-script-to-timeline/blob/5b145027624b8cf43f814c942ae52ab3f9c144fa/.github",
+      "start_line": 220,
+      "start_column": null,
+      "end_line": 220,
+      "end_column": null,
+      "annotation_level": "failure",
+      "title": "",
+      "message": "The operation was canceled.",
+      "raw_details": ""
+    }
+  ]
+}

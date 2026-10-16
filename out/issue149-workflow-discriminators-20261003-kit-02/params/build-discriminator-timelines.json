@@ -1,0 +1,76 @@
+{
+  "_approval": "root-authorized-build-discriminator-timelines",
+  "schemaVersion": "issue-149-workflow-discriminators-v1",
+  "externalScriptingSetting": "None",
+  "projectName": "VERA Issue 149 WI Discriminators 20261003-kit-02",
+  "action": "build",
+  "phase": "build-discriminator-timelines",
+  "actionId": "build-discriminator-timelines-20261003-kit-02",
+  "stateId": "build-discriminator-timelines-20261003-kit-02",
+  "probePath": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/sources/ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438/harness.py",
+  "probeSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438",
+  "launcherPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/VERA Issue 149 Workflow Reruns.py",
+  "launcherSha256": "a605b875e0755151e1fa03e91a61612fecbf5058f3fb12a67ac6216e6536e2e9",
+  "outputDir": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02",
+  "mediaDir": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/media",
+  "owned": {
+    "projectUid": "0591bb41-d645-4af7-a2ee-ff75f8f43162"
+  },
+  "timelineSpecs": [
+    {
+      "name": "D6-kept-20261003",
+      "audioTracks": 2,
+      "videoTracks": 0,
+      "placements": [
+        {"mediaName": "base.mov", "sourceStart": 0, "sourceEndExclusive": 400, "recordFrame": 0, "trackType": "av", "trackIndex": 1},
+        {"mediaName": "a2_numbers.wav", "sourceStart": 0, "sourceEndExclusive": 400, "recordFrame": 0, "trackType": "audio", "trackIndex": 2},
+        {"mediaName": "a3_bed.wav", "sourceStart": 0, "sourceEndExclusive": 400, "recordFrame": 0, "trackType": "audio", "trackIndex": 3}
+      ],
+      "linkVideoAudio": true
+    },
+    {
+      "name": "D6-changed-20261003",
+      "audioTracks": 2,
+      "videoTracks": 0,
+      "placements": [
+        {"mediaName": "swap.mov", "sourceStart": 0, "sourceEndExclusive": 400, "recordFrame": 0, "trackType": "av", "trackIndex": 1},
+        {"mediaName": "a2_numbers.wav", "sourceStart": 0, "sourceEndExclusive": 400, "recordFrame": 0, "trackType": "audio", "trackIndex": 2},
+        {"mediaName": "a3_bed.wav", "sourceStart": 0, "sourceEndExclusive": 400, "recordFrame": 0, "trackType": "audio", "trackIndex": 3}
+      ],
+      "linkVideoAudio": true
+    },
+    {
+      "name": "D3-direct-20261003",
+      "audioTracks": 2,
+      "videoTracks": 0,
+      "placements": [
+        {"mediaName": "base.mov", "sourceStart": 0, "sourceEndExclusive": 400, "recordFrame": 0, "trackType": "av", "trackIndex": 1},
+        {"mediaName": "a2_numbers.wav", "sourceStart": 0, "sourceEndExclusive": 400, "recordFrame": 0, "trackType": "audio", "trackIndex": 2},
+        {"mediaName": "a3_bed.wav", "sourceStart": 0, "sourceEndExclusive": 400, "recordFrame": 0, "trackType": "audio", "trackIndex": 3}
+      ],
+      "linkVideoAudio": true
+    },
+    {
+      "name": "D3-console-20261003",
+      "audioTracks": 2,
+      "videoTracks": 0,
+      "placements": [
+        {"mediaName": "base.mov", "sourceStart": 0, "sourceEndExclusive": 400, "recordFrame": 0, "trackType": "av", "trackIndex": 1},
+        {"mediaName": "a2_numbers.wav", "sourceStart": 0, "sourceEndExclusive": 400, "recordFrame": 0, "trackType": "audio", "trackIndex": 2},
+        {"mediaName": "a3_bed.wav", "sourceStart": 0, "sourceEndExclusive": 400, "recordFrame": 0, "trackType": "audio", "trackIndex": 3}
+      ],
+      "linkVideoAudio": true
+    },
+    {
+      "name": "D3-operator-20261003",
+      "audioTracks": 2,
+      "videoTracks": 0,
+      "placements": [
+        {"mediaName": "base.mov", "sourceStart": 0, "sourceEndExclusive": 400, "recordFrame": 0, "trackType": "av", "trackIndex": 1},
+        {"mediaName": "a2_numbers.wav", "sourceStart": 0, "sourceEndExclusive": 400, "recordFrame": 0, "trackType": "audio", "trackIndex": 2},
+        {"mediaName": "a3_bed.wav", "sourceStart": 0, "sourceEndExclusive": 400, "recordFrame": 0, "trackType": "audio", "trackIndex": 3}
+      ],
+      "linkVideoAudio": true
+    }
+  ]
+}

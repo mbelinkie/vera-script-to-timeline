@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "issue-149-w7-selection-proof-v1",
+  "actionId": "w7-observe-selection-01-20261002-kit-01",
+  "timelineUid": "14a27cb4-0ecd-4daa-9e90-38c1ff12bdb5",
+  "timelineName": "W7-lock",
+  "page": "edit",
+  "selectedReadReturns": 2,
+  "selectedReadRequirement": "two adjacent native GetSelectedClips returns from observe pre/post snapshots",
+  "selectedUids": {
+    "pre": [
+      "df179a83-7455-4184-a909-0bbbac2500bd",
+      "abd3e5f5-c209-491d-84b1-d82a87e770a2"
+    ],
+    "post": [
+      "df179a83-7455-4184-a909-0bbbac2500bd",
+      "abd3e5f5-c209-491d-84b1-d82a87e770a2"
+    ]
+  },
+  "expectedOwnedV1LinkedUids": [
+    "df179a83-7455-4184-a909-0bbbac2500bd",
+    "abd3e5f5-c209-491d-84b1-d82a87e770a2"
+  ],
+  "expectedUidSetMatches": true,
+  "selectedOrderStable": true,
+  "itemUids": {
+    "pre": [
+      "df179a83-7455-4184-a909-0bbbac2500bd",
+      "abd3e5f5-c209-491d-84b1-d82a87e770a2",
+      "1e34ee0b-76cf-42c5-a7b2-680a97d7c65a",
+      "2e7e9984-762a-4ad7-839e-a6b0adf17410"
+    ],
+    "post": [
+      "df179a83-7455-4184-a909-0bbbac2500bd",
+      "abd3e5f5-c209-491d-84b1-d82a87e770a2",
+      "1e34ee0b-76cf-42c5-a7b2-680a97d7c65a",
+      "2e7e9984-762a-4ad7-839e-a6b0adf17410"
+    ]
+  },
+  "itemCountUnchanged": true,
+  "itemUidsUnchanged": true,
+  "trackLocks": {
+    "pre": {
+      "audio1": false,
+      "audio2": false,
+      "audio3": false,
+      "video1": false
+    },
+    "post": {
+      "audio1": false,
+      "audio2": false,
+      "audio3": false,
+      "video1": false
+    }
+  },
+  "allOriginalTracksUnlocked": true,
+  "rawSnapshots": {
+    "prePath": "out/issue149-workflow-reruns-20261002-kit-01/evidence/w7-observe-selection-01-20261002-kit-01/pre.json",
+    "postPath": "out/issue149-workflow-reruns-20261002-kit-01/evidence/w7-observe-selection-01-20261002-kit-01/post.json",
+    "preSha256": "b1bffc0a23ec870fb28f382720b7059e6566f54b11f80d39e7824ab2f9909ff3",
+    "postSha256": "7d3a047e500755313dce255151b607f6b0b0c3425026840f1e4956931a65c133",
+    "rawEqual": false,
+    "rawDifference": "only volatile PyRemoteObject __repr__ addresses under GetSelectedClips values"
+  },
+  "canonicalSnapshots": {
+    "preSha256": "d17adb63d122307871e4a99624adbdc6f909006509f2a1894bc14a685d14b1e9",
+    "postSha256": "d17adb63d122307871e4a99624adbdc6f909006509f2a1894bc14a685d14b1e9",
+    "equal": true
+  }
+}

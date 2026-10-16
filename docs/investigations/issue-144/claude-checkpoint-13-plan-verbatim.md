@@ -1,0 +1,38 @@
+## Checkpoint 13 plan review — executable WI/file/runbook handoff
+
+**Files read:** `checkpoint-13-wi-plan.md`, `wi-handoff-design-notes.md`, `operator-runbook-draft.md`, `seam-matrix-draft.md`. Cross-checked against the #144 issue body already supplied and reviewed earlier in this session (Outcome/Scope/Acceptance/Dependencies/Exclusions/Unresolved-decisions/Duplicate-audit sections), and against the actually-implemented code I reviewed in checkpoints through 12g2 (`ProofSession`, `NativeStages`, `_capture_files`, `OmissionProof`). This is a plan-only review; no code was written or executed.
+
+### Blockers
+None.
+
+### Verdict on the core question
+The proposed seam — a stdlib-only `roundtrip_wi.py` that performs *only* the already-accepted #141 structural reads (project/timeline identity, track/item inventory, record/source geometry including fractional cross-checks, enabled/speed, reciprocal links, media UID/path/bytes) plus an exclusive-intent link/render dispatcher, wired into the **existing, unmodified** `ProofSession` injection points (`native_provider`/`capture`/`omission_evidence`/`narration_service`) — is correctly minimal. It introduces no new native API surface (reuses only #141-accepted getters), no new orchestration framework (reuses `ProofSession.run`), no new dependency (stdlib-only), and correctly refuses to let #144 fake the one thing it cannot honestly supply: complete audio control/routing and qualified render observability. Those stay explicitly delegated to separately-reviewed #145-owned injected callables, consistent with how `verify_omission_evidence`'s `real_issue145` gate already refuses any operator-boolean escape. I don't see a way to shrink this seam further while still giving #144 *any* real executable path — the alternative (deferring 100% of native reading to #145 as well) would leave #144 permanently synthetic-only, which the documents correctly refuse to accept as "done."
+
+The documents are explicitly self-aware about the two failure modes you asked me to check for and avoid both: they repeatedly disclaim that the current no-injection CLI "cannot close #144," and they explicitly require the synthetic demonstration to exercise real file-staged capture consumption and explicit three-edit decisions rather than a handwritten-JSON or raw-echo substitute (`checkpoint-13-wi-plan.md` lines 69-77).
+
+### Stress-point verification
+- **Target/path/code/source/request guards**: repeated explicitly before/after every read and before publication (`checkpoint-13-wi-plan.md` line 35); matches existing `_assert_current`/hash-rebind discipline.
+- **Birth/split native identity conversion**: WI entry reports raw facts only and is explicitly forbidden from inventing event IDs for split items; the host (not the WI entry) retains the source-key/birth-UID association logic already proven in `roundtrip_omission.py`/`issue-144-composition.ts`. Correct division of responsibility.
+- **Fractional geometry**: both integer and fractional bounds are read and cross-checked, with fractional *uncertainty* refusing rather than being rounded/silently coerced into the existing int-only schema (`roundtrip_omission.py`'s `type(value["startFrame"]) is int` check would otherwise reject a rounded value anyway — the WI-level refusal catches it earlier and honestly).
+- **Complete unknown controls**: explicitly never filled in by the WI entry's own structural reader; left as a named, separately-injected #145 callable. No neutral-default risk.
+- **Current-state checks / exclusive pre-effect intent / no-auto-retry**: link and render both require a persisted exclusive intent *before* the native effect, with uncertain/failed invocations waiting for read-only reconciliation rather than retrying — consistent with the already-reviewed `NativeStages` crash-recovery pattern.
+- **Same render job/output/extent ownership**: `inspect-render` is required to read the exact same job `render` created, over the exact full extent, with explicit "output ownership" guarding — directly addresses the stale-output/wrong-job risk.
+- **Actual host file consumption**: the WI entry's output is wired through the unmodified `_capture_files` two-adjacent-reads/nonce/requestHash contract, not a new channel.
+- **One canonical decision/replacement/fresh verification**: the numbered handoff walks the exact existing sequence (build→link→bind→bind-omission-evidence→propose-omission→decide-omission→generate-omission→rebuild→promote); no parallel mechanism is introduced.
+- **#148/#145 ordering**: both are correctly kept as prerequisite gates *external to* #144's own execution, and the plan explicitly guards against a subtle real mistake — treating the two historical positives (move/trim on build14, omission on build 21.1.1.10) as composable just because each was separately proven; #145 must requalify all three together on one chosen build. That's a genuine strength, not a gap.
+- **All three named positives / whole-row regeneration**: preserved verbatim throughout; no splicing reintroduced.
+- **No frozen API/test/dependency/assembly/job/service change**: stated explicitly in every document.
+
+### Necessary simplifications / clarifications (non-blocking)
+1. **Name the reused locking primitive explicitly.** `checkpoint-13-wi-plan.md`'s "Persist an exclusive pre-effect intent before `SetClipsLinked`" doesn't say the WI entry must reuse `roundtrip_proof.py`'s existing `_exclusive()` (O_EXCL|O_NOFOLLOW, fsync-on-directory) pattern rather than inventing a parallel one. I'd make this explicit in the next plan revision so an implementer doesn't build a second, less-proven locking scheme for link/render intents.
+2. **Justify or defer the "readable old/new row/anchor comparison" tool.** This is a new piece of surface area (`checkpoint-13-wi-plan.md` line 75) not required by any existing pass/fail logic — `beforeText`/`afterText` already exist in the proposal report. If it's meant purely as an operator-facing convenience for the runbook's decision step (not part of #144's automated acceptance), say so explicitly so it isn't scored as a blocking engineering deliverable for this checkpoint.
+3. **State whether #148 and #145 are parallel or sequential prerequisites.** Both are clearly required before #144's real run, but the documents don't say whether script preparation (#148) can proceed independently of Resolve-build qualification (#145) or must wait on it. Low risk, but worth a one-line clarification to avoid an implementer assuming an ordering that isn't intended.
+
+### Required acceptance checks (for the eventual code review, not yet satisfied by this plan alone)
+- Confirm `roundtrim_wi.py` never falls back to manifest-expected values when a native getter returns missing/unknown/failed — must be a hard refusal, never a silent fill.
+- Confirm the synthetic demonstration test exercises the actual `roundtrip_wi.py` code paths (shape/validation/intent persistence) against a fake-but-API-shaped Resolve handle, not just the existing `ProofSession`-level fakes bypassing the new file entirely.
+- Confirm the link/render exclusive-intent files live under the proof root and use the existing `_exclusive`/fsync pattern, and that replaying a completed intent is read-verified rather than re-invoked.
+- Confirm no existing golden/fixture/contract file hash changed as a side effect of adding the new stdlib module.
+
+### Scope/evidence gaps
+I did not re-fetch the literal #144 issue text in this turn (relying on the full body already read and cross-checked in the checkpoint 12g2 turn of this same session); I have no indication it changed. I have not executed anything — this is a text-only plan review, and I cannot confirm the stated "3 focused cases in 363.09s" result myself.

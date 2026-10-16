@@ -1,0 +1,98 @@
+{
+  "case": "R3-boundary-A3",
+  "directory": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T204414.413049Z",
+  "environment": {
+    "productName": "DaVinci Resolve Studio",
+    "python": "3.14.7",
+    "version": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ]
+  },
+  "failure": null,
+  "journal": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/editorial-case-20261001T204414.413049Z/journal.jsonl",
+  "menuCommandDispatched": false,
+  "originalLocks": {
+    "audio:1": false,
+    "audio:2": true,
+    "audio:3": true,
+    "video:1": false,
+    "video:2": true,
+    "video:3": true
+  },
+  "originalPage": "edit",
+  "originalPlayhead": "00:00:00:00",
+  "playheadAfter": "00:06:04:00",
+  "preparedPair": {
+    "path": "editorial-case-20261001T204414.413049Z/after.json",
+    "sha256": "d8430a8b3393c26f59e76bb1c85a38f0f884248acc594179de4cb85a95ef6f6a"
+  },
+  "preparedTrackLocks": {
+    "audio:3": false
+  },
+  "priorPair": {
+    "path": "r3-boundary-context-20261001T203933.206631Z/pair.json",
+    "sha256": "b0f128efef59738307b6977872aa528f03761e11cd0dd14b7081d03f15743a65"
+  },
+  "protectedTracks": [
+    [
+      "video",
+      1
+    ],
+    [
+      "video",
+      2
+    ],
+    [
+      "video",
+      3
+    ],
+    [
+      "audio",
+      1
+    ],
+    [
+      "audio",
+      2
+    ],
+    [
+      "audio",
+      3
+    ]
+  ],
+  "saveDispatched": false,
+  "setters": [
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetTrackLock",
+    "SetCurrentTimecode"
+  ],
+  "status": "case-prepared",
+  "target": {
+    "baseRestoreResult": {
+      "path": "independent-structural-sequence-20261001T203741.675640Z/restoration.json",
+      "sha256": "2bcfef93a1f4bdda29fbfcd2630538ff2d1fcbd66ed7434529debabf8f084927"
+    },
+    "baseSplitResult": {
+      "path": "independent-structural-sequence-20261001T203741.675640Z/split-review.json",
+      "sha256": "ad691ead1c4d6b18f1a5feb2cf70a5ce239f45d802ac7a4ab2fd74c649b5036c"
+    },
+    "endFrame": 9199,
+    "frameRate": 25,
+    "sourceUid": "0438f3a0-b58f-4d6f-a36d-81e02cdeaf3f",
+    "splitPlayheadFrame": 9100,
+    "splitPlayheadTimecode": "00:06:04:00",
+    "startFrame": 9000,
+    "track": [
+      "audio",
+      3
+    ],
+    "uid": "9d052518-8d90-4dc3-b09e-64c4778899f6"
+  }
+}

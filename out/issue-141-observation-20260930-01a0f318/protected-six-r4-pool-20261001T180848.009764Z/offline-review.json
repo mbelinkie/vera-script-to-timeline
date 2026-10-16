@@ -1,0 +1,17 @@
+{
+  "capturePath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/capture-20261001T180849.818792Z.json",
+  "captureSha256": "dd4c8c0e911e0bceec7379196d15c7e0c69eaa20b181e061b50cfbb025b0146f",
+  "generatedReachableEvidenceCount": 134,
+  "inventoryPath": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r4-pool-read-only-20261001T180849.818792Z.json",
+  "inventorySha256": "82069be60e83da4c578e42231f3c88d9b99575c44d5c42649a04b66c988c8d9d",
+  "pairPath": "out/issue-141-observation-20260930-01a0f318/protected-six-r4-pool-20261001T180848.009764Z/pair.json",
+  "pairSha256": "5131589527428829afe6e1503e245609a4f17bb3207a2fe61a874db4289601b3",
+  "poolPasses": 2,
+  "protectedEvidenceCount": 7,
+  "resultPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/vera-issue-141-observation-result-20261001T180849.628526Z.json",
+  "resultSha256": "521656dfaec1db76bf01a02b95e77ee6b8d3b259607910de037c5b439f3fe2f2",
+  "status": "pass",
+  "timelineCount": 6,
+  "timelineInventory": "protected-six",
+  "timelinePasses": 2
+}

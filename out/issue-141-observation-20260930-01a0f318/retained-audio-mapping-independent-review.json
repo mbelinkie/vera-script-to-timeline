@@ -1,0 +1,252 @@
+{
+  "title": "Issue 141 retained audio mapping independent review",
+  "scope": "Read-only comparison of the existing R2 residual second-split readback; no media was opened or hashed.",
+  "readback": {
+    "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-residual-resume-20261001T215903.877120Z/006-r2-residual-second-split.json",
+    "sha256": "bb1ed96372b34b19b95365182c6c629e11495a861275ce595f8ca8c8aee5124f",
+    "status": "editorial-readback-retained",
+    "readOnly": true,
+    "label": "r2-residual-second-split",
+    "productVersion": [
+      21,
+      1,
+      0,
+      14,
+      ""
+    ],
+    "pair": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/r2-residual-second-split-20261001T215948.487403Z/pair.json",
+      "sha256": "3f510f532db58ae58b6dd29cdba7a508d3791ba5b6ee7d7ba41b17738f8e53d7"
+    }
+  },
+  "mappingApiReferences": {
+    "resolve21.1-scripting-api-readme.md": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/resolve21.1-scripting-api-readme.md",
+      "sha256": "5f58c94da8ec3c1f390d77ad9c60675263591dc101159b302e50b5774513830b"
+    },
+    "audio-mapping-api-stub-search.json": {
+      "path": "REPOSITORY/out/issue-141-observation-20260930-01a0f318/audio-mapping-api-stub-search.json",
+      "sha256": "ecc6c025d28ede24eade847e3fef9503be77745e992d88a1a5ddd4971e36b28c"
+    }
+  },
+  "method": "Compared raw JSON strings and parsed JSON values for only the issue-141 R2-residual matrix items, on both captured selection passes. No additional getter calls were made.",
+  "getterCounts": {
+    "GetSourceAudioChannelMapping": {
+      "success": 4,
+      "noData": 0,
+      "error": 0
+    },
+    "GetAudioMapping": {
+      "success": 4,
+      "noData": 0,
+      "error": 0
+    }
+  },
+  "passes": [
+    {
+      "passIndex": 0,
+      "selectionItemCount": 2,
+      "observations": [
+        {
+          "case": 0,
+          "marker": "141 R2-residual item 0",
+          "timelineItemUid": "bbd48d17-f8ef-430f-9cfd-cd14c3860ae0",
+          "track": [
+            "video",
+            1
+          ],
+          "enabled": true,
+          "mediaPoolSourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "sourceName": "base.mov",
+          "timelineGetter": {
+            "name": "GetSourceAudioChannelMapping",
+            "status": "success",
+            "raw": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{}}",
+            "parsed": {
+              "embedded_audio_channels": 1,
+              "linked_audio": {},
+              "track_mapping": {}
+            }
+          },
+          "poolGetter": {
+            "name": "GetAudioMapping",
+            "status": "success",
+            "raw": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+            "parsed": {
+              "embedded_audio_channels": 1,
+              "linked_audio": {},
+              "track_mapping": {
+                "1": {
+                  "channel_idx": [
+                    1
+                  ],
+                  "mute": false,
+                  "type": "mono"
+                }
+              }
+            }
+          }
+        },
+        {
+          "case": 1,
+          "marker": "141 R2-residual item 1",
+          "timelineItemUid": "7ef661f3-9b3e-427c-8d00-9dab85a0cfcb",
+          "track": [
+            "audio",
+            1
+          ],
+          "enabled": true,
+          "mediaPoolSourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "sourceName": "repeated.wav",
+          "timelineGetter": {
+            "name": "GetSourceAudioChannelMapping",
+            "status": "success",
+            "raw": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+            "parsed": {
+              "embedded_audio_channels": 1,
+              "linked_audio": {},
+              "track_mapping": {
+                "1": {
+                  "channel_idx": [
+                    1
+                  ],
+                  "mute": false,
+                  "type": "mono"
+                }
+              }
+            }
+          },
+          "poolGetter": {
+            "name": "GetAudioMapping",
+            "status": "success",
+            "raw": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+            "parsed": {
+              "embedded_audio_channels": 1,
+              "linked_audio": {},
+              "track_mapping": {
+                "1": {
+                  "channel_idx": [
+                    1
+                  ],
+                  "mute": false,
+                  "type": "mono"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "passIndex": 1,
+      "selectionItemCount": 2,
+      "observations": [
+        {
+          "case": 0,
+          "marker": "141 R2-residual item 0",
+          "timelineItemUid": "bbd48d17-f8ef-430f-9cfd-cd14c3860ae0",
+          "track": [
+            "video",
+            1
+          ],
+          "enabled": true,
+          "mediaPoolSourceUid": "9202163a-8381-43e6-9157-3a60f35c6f79",
+          "sourceName": "base.mov",
+          "timelineGetter": {
+            "name": "GetSourceAudioChannelMapping",
+            "status": "success",
+            "raw": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{}}",
+            "parsed": {
+              "embedded_audio_channels": 1,
+              "linked_audio": {},
+              "track_mapping": {}
+            }
+          },
+          "poolGetter": {
+            "name": "GetAudioMapping",
+            "status": "success",
+            "raw": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+            "parsed": {
+              "embedded_audio_channels": 1,
+              "linked_audio": {},
+              "track_mapping": {
+                "1": {
+                  "channel_idx": [
+                    1
+                  ],
+                  "mute": false,
+                  "type": "mono"
+                }
+              }
+            }
+          }
+        },
+        {
+          "case": 1,
+          "marker": "141 R2-residual item 1",
+          "timelineItemUid": "7ef661f3-9b3e-427c-8d00-9dab85a0cfcb",
+          "track": [
+            "audio",
+            1
+          ],
+          "enabled": true,
+          "mediaPoolSourceUid": "a7ad9e19-d49b-428b-9fd5-95c90d60e6f8",
+          "sourceName": "repeated.wav",
+          "timelineGetter": {
+            "name": "GetSourceAudioChannelMapping",
+            "status": "success",
+            "raw": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+            "parsed": {
+              "embedded_audio_channels": 1,
+              "linked_audio": {},
+              "track_mapping": {
+                "1": {
+                  "channel_idx": [
+                    1
+                  ],
+                  "mute": false,
+                  "type": "mono"
+                }
+              }
+            }
+          },
+          "poolGetter": {
+            "name": "GetAudioMapping",
+            "status": "success",
+            "raw": "{\"embedded_audio_channels\":1,\"linked_audio\":{},\"track_mapping\":{\"1\":{\"channel_idx\":[1],\"mute\":false,\"type\":\"mono\"}}}",
+            "parsed": {
+              "embedded_audio_channels": 1,
+              "linked_audio": {},
+              "track_mapping": {
+                "1": {
+                  "channel_idx": [
+                    1
+                  ],
+                  "mute": false,
+                  "type": "mono"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "comparison": {
+    "rawValuesConsistentAcrossBothPasses": true,
+    "parsedValuesConsistentAcrossBothPasses": true,
+    "observationBindingsStableAcrossBothPasses": true,
+    "observedMappingFacts": [
+      "embedded_audio_channels is 1",
+      "linked_audio is empty object",
+      "track_mapping contains track 1 with channel_idx [1], mute false, type mono"
+    ],
+    "interpretation": "This captured data is sufficient to inspect the tested source-channel selection and the captured clip audio-mapping attributes. The API README describes these as audio clip attributes / track mapping; this does not establish Fairlight track mute/solo, bus routing, program audibility, or rendered output. The README documents linked-audio sample offsets, but this capture has linked_audio empty, so offsets were not exercised."
+  },
+  "readinessCorrection": "Corrects the earlier readiness statement that mapping was unobserved: the pre-existing full-pair capture already contains successful results from both documented getters, and the values are stable across both passes.",
+  "limits": [
+    "Evidence is limited to these captured R2-residual items and passes; it does not generalize to other sources, mappings, or sessions.",
+    "No lineage claim is made.",
+    "No protected media file was opened or hashed."
+  ]
+}

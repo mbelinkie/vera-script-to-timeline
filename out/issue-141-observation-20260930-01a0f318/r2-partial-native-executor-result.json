@@ -1,0 +1,25 @@
+{
+  "approved_driver_sha256": "9e38d0ab5be14c53f0efc17763540021c1a61607b1456649d775b3251606ad51",
+  "actual_driver_sha256": "9e38d0ab5be14c53f0efc17763540021c1a61607b1456649d775b3251606ad51",
+  "argv": [
+    "ctx-wire",
+    "run",
+    "rtk",
+    "proxy",
+    "/usr/local/bin/python3.14",
+    "-S",
+    "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-cut-sequence.py",
+    "--case",
+    "R2-partial",
+    "--prior-pair",
+    "r2-picture-context-20261001T193350.646564Z/pair.json",
+    "--prior-sha256",
+    "90c4ad9a1cebcf1918165e1e62e4343ae225635012331afd56a9385ab8187661",
+    "--run"
+  ],
+  "returncode": 0,
+  "stdout": "{\n  \"autoSelectReset\": {\n    \"path\": \"independent-cut-sequence-20261001T193743.340038Z/r2-partial-context.json\",\n    \"sha256\": \"f846b3ff594b9dcdda91dbcb80066e85fadb4b0e8cc73fde794fbd2930edb193\"\n  },\n  \"case\": \"R2-partial\",\n  \"deletedReadback\": {\n    \"path\": \"independent-cut-sequence-20261001T193743.340038Z/r2-partial-deleted.json\",\n    \"sha256\": \"76143b259704c005f181bcbd29f365ecf35c61b4e62bb3a99297409573757c87\"\n  },\n  \"directory\": \"REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-cut-sequence-20261001T193743.340038Z\",\n  \"firstSelection\": {\n    \"path\": \"independent-cut-sequence-20261001T193743.340038Z/r2-partial-selected.json\",\n    \"sha256\": \"469be63b06ad4aa46b7c914ea1280799b83db0ee2484b172a3095399c27ca14e\"\n  },\n  \"firstSplit\": {\n    \"path\": \"independent-cut-sequence-20261001T193743.340038Z/r2-partial-first-split.json\",\n    \"sha256\": \"df861aecfeb7fc992902416b6bb36a515613e97fc217ff831980630c85572182\"\n  },\n  \"intervalDeletion\": {\n    \"path\": \"independent-cut-sequence-20261001T193743.340038Z/interval-deletion.json\",\n    \"sha256\": \"ba1a436809d5d51f046a4ccf20017f6d71bf7f85aff6293f369c80c38537e782\"\n  },\n  \"preparation\": {\n    \"path\": \"independent-cut-sequence-20261001T193743.340038Z/preparation.json\",\n    \"sha256\": \"cfaf3bfca32fa67cddb18eb41d41d34946ff80e3b5c3e48379a6abf77bdc5fe5\"\n  },\n  \"restoration\": {\n    \"path\": \"independent-cut-sequence-20261001T193743.340038Z/restoration.json\",\n    \"sha256\": \"8ac1847e6870e9779641c19eab94c73f32e3561194bc695f1a7040591c712562\"\n  },\n  \"saveDispatched\": false,\n  \"secondPosition\": {\n    \"path\": \"independent-cut-sequence-20261001T193743.340038Z/second-position.json\",\n    \"sha256\": \"215b9401b74ac9cd71ee2dcb7e97c567cc7827f0cf652a4a5ba21ec0532a87d5\"\n  },\n  \"secondSelection\": {\n    \"path\": \"independent-cut-sequence-20261001T193743.340038Z/r2-partial-second-selected.json\",\n    \"sha256\": \"05c77561807ae46993066ff8b5f843149624b97c68de07631356239670122421\"\n  },\n  \"secondSplit\": {\n    \"path\": \"independent-cut-sequence-20261001T193743.340038Z/r2-partial-second-split.json\",\n    \"sha256\": \"0dea70d1b2d70965e74cda36dda7a44d64e6ad9972f64a2c456e0f2c9f8d2c7b\"\n  },\n  \"status\": \"single-track-sequence-complete\"\n}\n",
+  "stderr": "",
+  "stdout_sha256": "91efbe4657aabf72d11738cb31fdf3797fa85ebb71c8e4d7c5f6fe4b6955f3ed",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

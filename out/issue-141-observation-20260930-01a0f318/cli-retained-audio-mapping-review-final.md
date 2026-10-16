@@ -1,0 +1,3 @@
+Created [retained-audio-mapping-independent-review.json](retained-audio-mapping-independent-review.json).
+
+It records both captured passes: 4 successful reads per getter, with no missing or error results. Raw and parsed mappings and their bindings are stable. It also corrects the earlier readiness note: the existing capture already observes both getters. The review documents what the data supports and the remaining routing and rendered-output gaps. No other files were changed.

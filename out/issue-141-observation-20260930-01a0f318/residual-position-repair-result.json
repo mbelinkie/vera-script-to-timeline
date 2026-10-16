@@ -1,0 +1,34 @@
+{
+  "alreadyCompletedSkipped": [
+    "preparation",
+    "first-cut",
+    "position"
+  ],
+  "case": "R2-residual",
+  "checkpoint": {
+    "path": "residual-position-continuation-record.json",
+    "sha256": "cdd615061aed1e3fd7d5136d4732d27f26ec500a3ec24fab0991d3dfcea03a93"
+  },
+  "checks": [
+    {
+      "command": "/usr/local/bin/python3.14 -S -m py_compile out/issue-141-observation-20260930-01a0f318/independent-residual-sequence.py",
+      "result": "passed"
+    },
+    {
+      "command": "/usr/local/bin/python3.14 -S out/issue-141-observation-20260930-01a0f318/independent-residual-sequence.py --check",
+      "result": "passed; fake-only orchestration and real editorial-readback LABELS compatibility"
+    },
+    {
+      "command": "local retained manifest/preparation/position/resume binding script; wrong checkpoint SHA with native caller that raises on invocation",
+      "result": "passed; records bound, metadata matched, wrong SHA refused before native invocation"
+    }
+  ],
+  "nativeActionsPerformed": false,
+  "notes": "No Resolve action or source-media read. Native execution is pending root review and driver hash registration.",
+  "schema": "issue141-residual-position-repair-result/v1",
+  "sourceHashes": {
+    "editorial-readback.py": "d9df76229ead502b2d9ff31a1847eb9b858aa8931d25d279b560244e93690354",
+    "independent-residual-sequence.py": "2101f1f43b4179c93cfa003e120e1636d6389d5efc1b8a091526c5ff18982bf6"
+  },
+  "status": "local-repair-ready-for-root-review"
+}

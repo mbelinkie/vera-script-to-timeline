@@ -1,0 +1,20 @@
+{
+  "sourceCommit": "28900607d146643c1771ab011d45878b4232e7dd",
+  "sourceTree": "0da75ef7a611125810a62a47b71c193e5123b9dd",
+  "branch": "claude/180-gate-evidence",
+  "startedAt": "2026-10-11T03:44:57.819Z",
+  "logPath": "test-results/issue-180/full-validation/validate.log",
+  "statusPath": "test-results/issue-180/full-validation/status.json",
+  "command": "VITEST_MAX_WORKERS=1 npm run validate",
+  "nodeVersion": "v24.19.0",
+  "nodeCompileCache": null,
+  "state": "passed",
+  "launcherPid": 71805,
+  "validationPid": 71834,
+  "exitCode": 0,
+  "signal": null,
+  "error": null,
+  "finishedAt": "2026-10-11T04:39:46.463Z",
+  "elapsedSeconds": 3288.635,
+  "logSHA256": "3ba0ab254abf730dd1bb89ab8fbabcab1eb309e1dec29b5f5fa66b04640104e1"
+}

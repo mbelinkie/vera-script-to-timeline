@@ -1,0 +1,15 @@
+{
+  "kind": "issue141-window-readiness-continuation-decision",
+  "at": "2026-10-02T13:07:07.114277+00:00",
+  "priorTerminalRefusal": "output/r1-restoration-menu-refusal-independent-review.json",
+  "newReadiness": "output/r1-current-window-readiness.json",
+  "basis": "Fresh read-only check returned exact project title, enabled named menu and triggered=false; existing producer authorization covers bounded synthetic restoration. No mutation or injected action followed prior refusal.",
+  "authorizedNextAction": "One new invocation of registered r1-repeat-restore-selection bound to the retained selected-R1 pair/context and Matrix target pair/context; refuse any live drift before setter.",
+  "noBlindRetry": true,
+  "maximumInvocations": 1,
+  "forbidden": "No reopen, render, copy/paste, save, generalized UI, duplicate or further launch after a refusal without new reviewed evidence.",
+  "operatorRequest": "Window availability now supplied by the read-only tool; no additional producer approval or ready response required for this bounded action.",
+  "goalStatus": "active",
+  "existingDriverSha256": "375263529a07069bdf9c6acfb58645b8567b931e61afdc63ca5feb32cbb8b78e",
+  "stateRule": "Keep the original terminal state/readiness untouched. Reuse existing prepare/restore functions with new uniquely named continuation READINESS and STATE paths; retain continuation-of original terminal state and fresh read-only readiness. One invocation only; fresh native pair/context equality still required."
+}

@@ -1,0 +1,25 @@
+{
+  "terminalReturnCode": 1,
+  "nativeCommandDispatched": false,
+  "failure": "Driver refused second-selection deselected readback: Unapproved editorial readback label; native command not invoked.",
+  "sourceHashes": {
+    "probe.py": "f0c87c02070163fa6790e5f7f317303b12f57e319024b749b8ab061d573e4c99",
+    "editorial-cases.py": "2963ad80449c93fd13831a761f36a35ac9c38749b7240ceb8d3cf115c8008154",
+    "editorial-cases-check.py": "66a11c2ce1ed1b0b2e1d22044f3d30088f219e2030ec8dfda959812b65eac1cf",
+    "independent-native-call.py": "71c8d21654f67e467caab726820a9e4b06d83301c18d62a0486d97653043870e",
+    "independent-residual-sequence.py": "765ee6451fd9cfe397edb37b75c45934520931f1c374a91957e93cd01f472949"
+  },
+  "driverHashes": {
+    "independent-native-call.py": "71c8d21654f67e467caab726820a9e4b06d83301c18d62a0486d97653043870e",
+    "independent-residual-sequence.py": "765ee6451fd9cfe397edb37b75c45934520931f1c374a91957e93cd01f472949"
+  },
+  "stdoutReference": "residual-resume-driver-stdout.txt",
+  "stderrReference": "residual-resume-driver-stderr.txt",
+  "phaseDirectory": "independent-residual-resume-20261001T214559.089529Z",
+  "actualFinalPair": null,
+  "finalReadback": null,
+  "priorPair": {
+    "path": "r2-offset-context-20261001T205629.518751Z/pair.json",
+    "sha256": "7a7d0db1be976dd4e3463e1231a7e00923318742188c0a107c8fc0962085b40d"
+  }
+}

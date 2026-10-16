@@ -1,0 +1,35 @@
+{
+  "actionId": "save-checkpoint-01-20261002-kit-01",
+  "at": "2026-10-02T23:51:21.084443+00:00",
+  "config": {
+    "_approval": "root-approved-save-checkpoint-01-partial-prepare",
+    "schemaVersion": "issue-149-workflow-reruns-v1",
+    "externalScriptingSetting": "None",
+    "projectName": "VERA Issue 149 Workflow Reruns 20261002-kit-01",
+    "action": "save-checkpoint",
+    "phase": "save-checkpoint-01",
+    "actionId": "save-checkpoint-01-20261002-kit-01",
+    "stateId": "prepare-01-20261002-kit-01",
+    "probePath": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/sources/a9f30ac0d26dcacef8194ba1f08146d997738393e9d51ab1ea8cd90f3da43ea4/harness.py",
+    "probeSha256": "a9f30ac0d26dcacef8194ba1f08146d997738393e9d51ab1ea8cd90f3da43ea4",
+    "launcherPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/VERA Issue 149 Workflow Reruns.py",
+    "launcherSha256": "e4f58381c398bc0ce13130fddb25c956876f7754dc877346fe389dfb826c2450",
+    "outputDir": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01",
+    "mediaDir": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/media",
+    "owned": {
+      "projectUid": "1a05ff3a-8b04-43e3-95ab-c970b93b6415",
+      "timelineUids": [],
+      "itemUids": [],
+      "mediaUids": []
+    }
+  },
+  "launcherSha256": "e4f58381c398bc0ce13130fddb25c956876f7754dc877346fe389dfb826c2450",
+  "macroSha256": "bc8ca493e2193218208cb43bafaaf90514da9faae4ba51be05b620f5b01ccd02",
+  "previousResults": [
+    "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-context-03-20261002-kit-01.json",
+    "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-context-02-20261002-kit-01.json",
+    "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-context-01-20261002-kit-01.json",
+    "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-prepare-01-20261002-kit-01.json"
+  ],
+  "retryAllowed": false
+}

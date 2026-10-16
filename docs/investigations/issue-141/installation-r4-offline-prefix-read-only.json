@@ -1,0 +1,14 @@
+{
+  "kind": "read-only-after-offline-display-prefix-refusal",
+  "stagedAt": "2026-10-01T01:24:23.546519+00:00",
+  "action": "r4-pool-read-only",
+  "stage": "R4-offline-prefix-read-only",
+  "probeSha256": "5864d501390971ccc40a65c37bf6adce0668ef0dfd76157a96c9f8589192f12f",
+  "launcherSha256": "f0967834a3cfba15cecc77c03e68f60b522328aca16505d1bb0138beec808162",
+  "privateConfigSha256": "23ca65ab3ed3907e6f7d77070c89c067b666c6a191a3d866a0fc0a9c57e79da4",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "allowedApiMutations": [],
+  "refusedActionDisarmed": true,
+  "privatePathsPublished": false
+}

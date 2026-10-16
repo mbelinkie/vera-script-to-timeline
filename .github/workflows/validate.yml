@@ -7,11 +7,18 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same pull request supersedes its older, now-obsolete
+# revision. Push runs are keyed by commit so post-merge integration runs are
+# never cancelled or replaced. Cancelled runs remain non-passing evidence.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('push-{0}', github.sha) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   validate:
     name: TypeScript and Python
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 90
 
     steps:
       - name: Check out repository
@@ -45,8 +52,49 @@ jobs:
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install --yes ffmpeg
 
+      # Frozen fixture tests skip when FFprobe is absent; fail before the gate
+      # instead of letting a missing tool become a silent skip.
+      - name: Preflight required media tools
+        id: preflight
+        run: |
+          command -v ffmpeg
+          command -v ffprobe
+          ffmpeg -hide_banner -version
+          ffprobe -hide_banner -version
+
+      # JUnit, durations and the teed log are reporting-only; they do not change
+      # test selection. pipefail keeps the gate's exit status authoritative.
       - name: Run repository validation
-        run: npm run validate
+        id: validate
+        shell: bash
+        env:
+          PYTEST_ADDOPTS: --junitxml=${{ runner.temp }}/vera-evidence/pytest-junit.xml --durations=25
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/vera-evidence"
+          VITEST_MAX_WORKERS=1 npm run validate 2>&1 | tee "$RUNNER_TEMP/vera-evidence/validate.log"
 
       - name: Verify lockfiles remain unchanged
+        id: lockfiles
         run: git diff --exit-code -- package-lock.json uv.lock
+
+      # Runs after failures too, so evidence is retained; a successful
+      # collection or upload never changes an earlier failed step's result.
+      - name: Collect validation evidence
+        if: ${{ !cancelled() }}
+        env:
+          VERA_OUTCOME_PREFLIGHT: ${{ steps.preflight.outcome }}
+          VERA_OUTCOME_VALIDATE: ${{ steps.validate.outcome }}
+          VERA_OUTCOME_LOCKFILES: ${{ steps.lockfiles.outcome }}
+          VERA_RUNNER_LABEL: ubuntu-24.04
+        run: node scripts/cloud-evidence-collect.mjs --output "$RUNNER_TEMP/vera-evidence"
+
+      # Only the sanitized manifest is published; raw JUnit, the teed log,
+      # worktree contents and caches are not. Treat this artifact as public.
+      - name: Upload validation evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vera-validation-evidence-attempt-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/vera-evidence/manifest.json
+          if-no-files-found: warn

@@ -1,0 +1,205 @@
+{
+  "kind": "producer-transcript-range-comparison",
+  "taskId": "producer-transcript-probe",
+  "native": {
+    "dispatchAudit": "producer-transcript-dispatch-20261001T170339.693489Z",
+    "resultSha256": "19984e2f10e25e644cdbd565e17d19c2c4d64050433d4323f5d598986c8c1cae",
+    "status": "complete",
+    "contextUnchanged": true,
+    "configurationRestored": true
+  },
+  "raw": {
+    "path": "producer-transcript-probe-20261001T170340.864739Z/raw-readback.json",
+    "sha256": "08de0f64f2ae928b9fe7c81f47edb4e7f9776b0d89f909dc7590ee0666569355",
+    "sourceUid": "be5f1584-f0c4-4dd9-988b-73f3167e77d1",
+    "sourceName": "semi1b.mp4",
+    "transcriptionArgument": false,
+    "repeatConsistency": "equal-adjacent-reads",
+    "nestedTranscription": "GetTranscription(True) returned the same word-level data as False on equal adjacent reads",
+    "fps": 29.97,
+    "startTimecode": "14:57:30;11"
+  },
+  "timelineTranscriptionGetters": {
+    "transcription test 1": {
+      "uid": "21436b8f-057c-49e6-80ba-5f733abe87b2",
+      "GetTranscription(False)": "call returned null on both reads",
+      "GetTranscription(True)": "call returned null on both reads",
+      "directTimelineWords": null
+    },
+    "transcription test 2": {
+      "uid": "2db0b2d1-6d81-48d4-b49c-360f56e012cd",
+      "GetTranscription(False)": "call returned null on both reads",
+      "GetTranscription(True)": "call returned null on both reads",
+      "directTimelineWords": null
+    }
+  },
+  "timebaseCheck": {
+    "rule": "Parse observed HH:MM:SS;FF source word times at the retained 29.97 FPS and compare to GetSourceStartTime/GetSourceEndTime seconds.",
+    "observedBoundaryAgreement": "All three enabled audio ranges agree within 1.6 source frames; endpoint convention remains uncertain by approximately two frames.",
+    "sourceWordsAtBoundary": "No spoken word straddles an observed range edge; ranges begin/end in silence or inter-word gaps, subject to the stated frame uncertainty."
+  },
+  "audioOccurrences": {
+    "transcription test 1": {
+      "sourceAlignedTokens": [
+        "kai", "is", "three", "finns", "singing", "in", "swedish",
+        "playing", "out", "the", "stereotypes", "that", "swedes", "have",
+        "for", "finns", "specifically", "that", "finns", "really", "like", "saunas"
+      ],
+      "sourceWords": [
+        ["Kai", "14:57:59;01", "14:57:59;15"],
+        ["is", "14:57:59;15", "14:57:59;24"],
+        ["three", "14:57:59;24", "14:58:00;04"],
+        ["Finns", "14:58:00;04", "14:58:00;21"],
+        ["singing", "14:58:00;24", "14:58:01;07"],
+        ["in", "14:58:01;07", "14:58:01;12"],
+        ["Swedish,", "14:58:01;12", "14:58:02;02"],
+        ["playing", "14:58:02;07", "14:58:02;17"],
+        ["out", "14:58:02;17", "14:58:02;21"],
+        ["the", "14:58:02;21", "14:58:02;23"],
+        ["stereotypes", "14:58:02;23", "14:58:03;13"],
+        ["that", "14:58:03;13", "14:58:03;18"],
+        ["Swedes", "14:58:03;18", "14:58:04;02"],
+        ["have", "14:58:04;02", "14:58:04;10"],
+        ["for", "14:58:04;10", "14:58:04;15"],
+        ["Finns.", "14:58:04;15", "14:58:05;04"],
+        ["Specifically,", "14:58:05;09", "14:58:06;00"],
+        ["that", "14:58:06;00", "14:58:06;07"],
+        ["Finns", "14:58:06;07", "14:58:06;18"],
+        ["really", "14:58:06;19", "14:58:07;02"],
+        ["like", "14:58:07;02", "14:58:07;15"],
+        ["saunas.", "14:58:07;16", "14:58:08;12"]
+      ],
+      "audioGeometry": [
+        {
+          "track": ["audio", 1],
+          "itemIndex": 0,
+          "timelineRange": [90000, 90255],
+          "sourceFrames": [841, 1147],
+          "sourceTimes": [53878.376500000006, 53888.56986666667],
+          "clipEnabled": true,
+          "speed": {"Percentage": 100.0, "PitchCorrection": true}
+        }
+      ],
+      "rangeGroups": [
+        {
+          "sourceFrames": [841, 1147],
+          "sourceTimes": [53878.376500000006, 53888.56986666667],
+          "tokens": [
+            "kai", "is", "three", "finns", "singing", "in", "swedish",
+            "playing", "out", "the", "stereotypes", "that", "swedes", "have",
+            "for", "finns", "specifically", "that", "finns", "really", "like", "saunas"
+          ],
+          "boundary": "Initial and final overlap is silence; no spoken word is cut by the retained boundary, within approximately two-frame uncertainty."
+        }
+      ],
+      "expectedTokens": [
+        "kaj", "is", "three", "finns", "singing", "in", "swedish",
+        "playing", "up", "the", "stereotypes", "that", "swedes", "have",
+        "for", "finns", "namely", "that", "finns", "really", "like", "saunas"
+      ],
+      "differences": [
+        {"index": 0, "expected": "kaj", "source": "kai"},
+        {"index": 8, "expected": "up", "source": "out"},
+        {"index": 16, "expected": "namely", "source": "specifically"}
+      ]
+    },
+    "transcription test 2": {
+      "sourceAlignedTokens": [
+        "kai", "is", "three", "finns", "playing", "out", "the",
+        "stereotypes", "that", "swedes", "have", "for", "finns",
+        "specifically", "that", "finns", "really", "like", "saunas"
+      ],
+      "sourceWords": [
+        ["Kai", "14:57:59;01", "14:57:59;15"],
+        ["is", "14:57:59;15", "14:57:59;24"],
+        ["three", "14:57:59;24", "14:58:00;04"],
+        ["Finns", "14:58:00;04", "14:58:00;21"],
+        ["playing", "14:58:02;07", "14:58:02;17"],
+        ["out", "14:58:02;17", "14:58:02;21"],
+        ["the", "14:58:02;21", "14:58:02;23"],
+        ["stereotypes", "14:58:02;23", "14:58:03;13"],
+        ["that", "14:58:03;13", "14:58:03;18"],
+        ["Swedes", "14:58:03;18", "14:58:04;02"],
+        ["have", "14:58:04;02", "14:58:04;10"],
+        ["for", "14:58:04;10", "14:58:04;15"],
+        ["Finns.", "14:58:04;15", "14:58:05;04"],
+        ["Specifically,", "14:58:05;09", "14:58:06;00"],
+        ["that", "14:58:06;00", "14:58:06;07"],
+        ["Finns", "14:58:06;07", "14:58:06;18"],
+        ["really", "14:58:06;19", "14:58:07;02"],
+        ["like", "14:58:07;02", "14:58:07;15"],
+        ["saunas.", "14:58:07;16", "14:58:08;12"]
+      ],
+      "audioGeometry": [
+        {
+          "track": ["audio", 1],
+          "itemIndex": 0,
+          "timelineRange": [90000, 90059],
+          "sourceFrames": [841, 912],
+          "sourceTimes": [53878.376500000006, 53880.729866666676],
+          "clipEnabled": true,
+          "speed": {"Percentage": 100.0, "PitchCorrection": true}
+        },
+        {
+          "track": ["audio", 1],
+          "itemIndex": 1,
+          "timelineRange": [90059, 90220],
+          "sourceFrames": [954, 1147],
+          "sourceTimes": [53882.1365, 53888.569866666665],
+          "clipEnabled": true,
+          "speed": {"Percentage": 100.0, "PitchCorrection": true}
+        }
+      ],
+      "rangeGroups": [
+        {
+          "sourceFrames": [841, 912],
+          "sourceTimes": [53878.376500000006, 53880.729866666676],
+          "tokens": ["kai", "is", "three", "finns"],
+          "boundary": "Initial overlap is silence; the end is after Finns and before singing, within approximately two-frame uncertainty."
+        },
+        {
+          "sourceFrames": [954, 1147],
+          "sourceTimes": [53882.1365, 53888.569866666665],
+          "tokens": [
+            "playing", "out", "the", "stereotypes", "that", "swedes", "have",
+            "for", "finns", "specifically", "that", "finns", "really", "like", "saunas"
+          ],
+          "boundary": "Start is in the gap after Swedish and before playing; end overlaps trailing silence, within approximately two-frame uncertainty."
+        }
+      ],
+      "expectedTokens": [
+        "kaj", "is", "three", "finns", "playing", "up", "the",
+        "stereotypes", "that", "swedes", "have", "for", "finns", "namely",
+        "that", "finns", "really", "like", "saunas"
+      ],
+      "differences": [
+        {"index": 0, "expected": "kaj", "source": "kai"},
+        {"index": 5, "expected": "up", "source": "out"},
+        {"index": 13, "expected": "namely", "source": "specifically"}
+      ]
+    }
+  },
+  "interpretation": {
+    "directTimelineMatch": "unavailable: both timeline pool GetTranscription(False/True) calls returned null",
+    "sourceDerivedMatch": "neither expected string equals the source-aligned words; each differs at KAJ/Kai, up/out, and Namely/Specifically",
+    "sourceOnly": true,
+    "safeToDeriveEditedRanges": false,
+    "boundaryAmbiguity": "The source timing and occurrence geometry provide conditional word-range candidates, but no timeline-specific transcript or guarantee that these source words are the final audible edited text. Do not infer mix/audibility or exact word-edge cuts."
+  },
+  "focusedMappingCheck": {
+    "status": "passed",
+    "checks": [
+      "29.97 FPS and Start TC 14:57:30;11 retained",
+      "transcription test 1 has one enabled audio range and 22 source words",
+      "transcription test 2 has two enabled audio ranges and 19 source words",
+      "boundary limits and safeToDeriveEditedRanges=false retained"
+    ]
+  },
+  "derivedFrom": {
+    "rawReadbackSha256": "08de0f64f2ae928b9fe7c81f47edb4e7f9776b0d89f909dc7590ee0666569355",
+    "comparisonSha256": "344c700a16024c88193d52c5f9f26dcef1bcd77087ce18903fb8540e4e9925d4",
+    "resultSha256": "19984e2f10e25e644cdbd565e17d19c2c4d64050433d4323f5d598986c8c1cae",
+    "moduleSha256": "c7d41c4697a3a4b91ef8daded91777b62948ef9d5a4dd24faed006841e5d01d9",
+    "method": "offline stdlib derivation from retained raw API readback; no Resolve or source-file access"
+  }
+}

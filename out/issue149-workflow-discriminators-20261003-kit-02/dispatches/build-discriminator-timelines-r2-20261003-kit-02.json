@@ -1,0 +1,239 @@
+{
+  "actionId": "build-discriminator-timelines-r2-20261003-kit-02",
+  "at": "2026-10-03T05:04:16.925741+00:00",
+  "config": {
+    "_approval": "root-authorized-build-discriminator-timelines-r2-after-av-observation",
+    "schemaVersion": "issue-149-workflow-discriminators-v1",
+    "externalScriptingSetting": "None",
+    "projectName": "VERA Issue 149 WI Discriminators 20261003-kit-02",
+    "action": "build",
+    "phase": "build-discriminator-timelines-r2",
+    "actionId": "build-discriminator-timelines-r2-20261003-kit-02",
+    "stateId": "build-discriminator-timelines-r2-20261003-kit-02",
+    "probePath": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/sources/ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438/harness.py",
+    "probeSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438",
+    "launcherPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/VERA Issue 149 Workflow Reruns.py",
+    "launcherSha256": "a605b875e0755151e1fa03e91a61612fecbf5058f3fb12a67ac6216e6536e2e9",
+    "outputDir": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02",
+    "mediaDir": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/media",
+    "owned": {
+      "projectUid": "0591bb41-d645-4af7-a2ee-ff75f8f43162"
+    },
+    "timelineSpecs": [
+      {
+        "name": "D6-kept-r2-20261003",
+        "audioTracks": 2,
+        "videoTracks": 0,
+        "placements": [
+          {
+            "mediaName": "base.mov",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "video",
+            "trackIndex": 1
+          },
+          {
+            "mediaName": "base.mov",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "audio",
+            "trackIndex": 1
+          },
+          {
+            "mediaName": "a2_numbers.wav",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "audio",
+            "trackIndex": 2
+          },
+          {
+            "mediaName": "a3_bed.wav",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "audio",
+            "trackIndex": 3
+          }
+        ],
+        "linkVideoAudio": true
+      },
+      {
+        "name": "D6-changed-r2-20261003",
+        "audioTracks": 2,
+        "videoTracks": 0,
+        "placements": [
+          {
+            "mediaName": "swap.mov",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "video",
+            "trackIndex": 1
+          },
+          {
+            "mediaName": "swap.mov",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "audio",
+            "trackIndex": 1
+          },
+          {
+            "mediaName": "a2_numbers.wav",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "audio",
+            "trackIndex": 2
+          },
+          {
+            "mediaName": "a3_bed.wav",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "audio",
+            "trackIndex": 3
+          }
+        ],
+        "linkVideoAudio": true
+      },
+      {
+        "name": "D3-direct-r2-20261003",
+        "audioTracks": 2,
+        "videoTracks": 0,
+        "placements": [
+          {
+            "mediaName": "base.mov",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "video",
+            "trackIndex": 1
+          },
+          {
+            "mediaName": "base.mov",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "audio",
+            "trackIndex": 1
+          },
+          {
+            "mediaName": "a2_numbers.wav",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "audio",
+            "trackIndex": 2
+          },
+          {
+            "mediaName": "a3_bed.wav",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "audio",
+            "trackIndex": 3
+          }
+        ],
+        "linkVideoAudio": true
+      },
+      {
+        "name": "D3-console-r2-20261003",
+        "audioTracks": 2,
+        "videoTracks": 0,
+        "placements": [
+          {
+            "mediaName": "base.mov",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "video",
+            "trackIndex": 1
+          },
+          {
+            "mediaName": "base.mov",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "audio",
+            "trackIndex": 1
+          },
+          {
+            "mediaName": "a2_numbers.wav",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "audio",
+            "trackIndex": 2
+          },
+          {
+            "mediaName": "a3_bed.wav",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "audio",
+            "trackIndex": 3
+          }
+        ],
+        "linkVideoAudio": true
+      },
+      {
+        "name": "D3-operator-r2-20261003",
+        "audioTracks": 2,
+        "videoTracks": 0,
+        "placements": [
+          {
+            "mediaName": "base.mov",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "video",
+            "trackIndex": 1
+          },
+          {
+            "mediaName": "base.mov",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "audio",
+            "trackIndex": 1
+          },
+          {
+            "mediaName": "a2_numbers.wav",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "audio",
+            "trackIndex": 2
+          },
+          {
+            "mediaName": "a3_bed.wav",
+            "sourceStart": 0,
+            "sourceEndExclusive": 400,
+            "recordFrame": 0,
+            "trackType": "audio",
+            "trackIndex": 3
+          }
+        ],
+        "linkVideoAudio": true
+      }
+    ]
+  },
+  "launcherSha256": "a605b875e0755151e1fa03e91a61612fecbf5058f3fb12a67ac6216e6536e2e9",
+  "macroSha256": "d9bc7e9b35a7b3dd5feaa0704881f1f95e46bdfc9410cb57cc0960f566d9260f",
+  "previousResults": [
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-context-02-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-prepare-02-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-build-discriminator-timelines-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-context-03-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-prepare-01-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-context-04-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-import-media-after-settings-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-observe-after-manual-settings-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-observe-prepare-02-settings-20261003-kit-02.json"
+  ],
+  "retryAllowed": false
+}

@@ -1,0 +1,49 @@
+{
+  "schema": "issue149-publication-index-v1",
+  "issue149RemainsOpen": true,
+  "producerAcceptance": "pending",
+  "rows": {
+    "W1": {
+      "149": "https://github.com/mbelinkie/vera-script-to-timeline/issues/149#issuecomment-5963986370",
+      "141": "https://github.com/mbelinkie/vera-script-to-timeline/issues/141#issuecomment-5963986555"
+    },
+    "W3": {
+      "149": "https://github.com/mbelinkie/vera-script-to-timeline/issues/149#issuecomment-5963821842",
+      "141": "https://github.com/mbelinkie/vera-script-to-timeline/issues/141#issuecomment-5963823005",
+      "edit149": "https://github.com/mbelinkie/vera-script-to-timeline/issues/149#issuecomment-5964195014",
+      "edit141": "https://github.com/mbelinkie/vera-script-to-timeline/issues/141#issuecomment-5964195159"
+    },
+    "W4": {
+      "149": "https://github.com/mbelinkie/vera-script-to-timeline/issues/149#issuecomment-5964033332",
+      "141": "https://github.com/mbelinkie/vera-script-to-timeline/issues/141#issuecomment-5964033458"
+    },
+    "W5": {
+      "149": "https://github.com/mbelinkie/vera-script-to-timeline/issues/149#issuecomment-5964921838",
+      "141": "https://github.com/mbelinkie/vera-script-to-timeline/issues/141#issuecomment-5964921987"
+    },
+    "W6": {
+      "149": "https://github.com/mbelinkie/vera-script-to-timeline/issues/149#issuecomment-5964191971",
+      "141": "https://github.com/mbelinkie/vera-script-to-timeline/issues/141#issuecomment-5964192100"
+    },
+    "W7": {
+      "149": "https://github.com/mbelinkie/vera-script-to-timeline/issues/149#issuecomment-5964227757",
+      "141": "https://github.com/mbelinkie/vera-script-to-timeline/issues/141#issuecomment-5964227952"
+    },
+    "W2": {
+      "149": "https://github.com/mbelinkie/vera-script-to-timeline/issues/149#issuecomment-5965021351",
+      "141": "https://github.com/mbelinkie/vera-script-to-timeline/issues/141#issuecomment-5965021531"
+    }
+  },
+  "initialVerdict": {
+    "149": "https://github.com/mbelinkie/vera-script-to-timeline/issues/149#issuecomment-5964283820",
+    "141": "https://github.com/mbelinkie/vera-script-to-timeline/issues/141#issuecomment-5964284062"
+  },
+  "finalSummary": {
+    "149": "https://github.com/mbelinkie/vera-script-to-timeline/issues/149#issuecomment-5965027605",
+    "141": "https://github.com/mbelinkie/vera-script-to-timeline/issues/141#issuecomment-5965027786"
+  },
+  "finalVerdict": {
+    "149": "https://github.com/mbelinkie/vera-script-to-timeline/issues/149#issuecomment-5964283820",
+    "141": "https://github.com/mbelinkie/vera-script-to-timeline/issues/141#issuecomment-5964284062"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "kind": "bounded-existing-r4-timeline-range-repair",
+  "stagedAt": "2026-10-01T02:54:02.601455+00:00",
+  "action": "r4-range-repair",
+  "stage": "R4-program-range-repair",
+  "probeSha256": "68e38928ec5aa571d1edcdee5d1b08b08259d6094f222621161f86b0eaf8de37",
+  "moduleSha256": "06eff080c45e5c520a1c8c31787e4d4f1604198a3a98a9e3c8e025917fcf455b",
+  "launcherSha256": "9434f94d4f3b19bbcf2978c51d52a5b069934b2da83280fbed425b4c72323518",
+  "privateConfigSha256": "5773116e237d65b66882ac2acddc0d49b49fb63694b5586e65213f91e70cd98d",
+  "macroSha256": "f3c9a76b5c95f6fbb04d546f33a5ae23d37579e8f890851a86f3daf9a9d5f5b1",
+  "manifestSha256": "10eafc271a38be2db2cc34a808e5d0346755009a366d3566a562d8b28442aef3",
+  "matrixCheckpointSha256": "0220a23be312aea5906900dd094c8e21b363294bb11f9b0f1201ab23f40c4cbf",
+  "r4CheckpointSha256": "f3a321fcd5ae47c90e25b3dcf254a0d983ff0bdde8862700b2411c710b3fe0fa",
+  "r4PoolCheckpointSha256": "ac6f4661f59f910029dae51dcc758bd1d766e8f810fb4996fcee1b18c681e751",
+  "knownFormatRecoveryResultSha256": "10f0038d70a1cd65deb3bbc72225c6fef1571a224784a311d936d300f8f20cee",
+  "allowedApiMutations": [
+    "SetCurrentTimeline existing R4",
+    "SetStartTimecode 00:00:00:00 once",
+    "Only verified selection/range restoration on refusal"
+  ],
+  "saveAllowed": false,
+  "retryAllowed": false,
+  "renderAllowed": false,
+  "privatePathsPublished": false
+}

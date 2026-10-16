@@ -1,0 +1,5 @@
+{
+  "exitCode": 0,
+  "stdout": "{\"samples\":[{\"windowExists\":true,\"titleMatches\":true,\"label\":\"before\",\"titleLength\":48,\"frontIsResolve\":false},{\"windowExists\":true,\"titleMatches\":true,\"label\":\"200ms\",\"titleLength\":48,\"frontIsResolve\":false},{\"windowExists\":true,\"titleMatches\":true,\"label\":\"1000ms\",\"titleLength\":48,\"frontIsResolve\":false}],\"menuSelected\":false}\n",
+  "stderr": ""
+}

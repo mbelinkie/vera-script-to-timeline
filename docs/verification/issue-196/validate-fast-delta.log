@@ -1,0 +1,193 @@
+
+> vera-script-to-timeline@0.0.0 validate:fast
+> npm run check:contracts-generated && npm run check:typescript && npm run lint:python && npm run typecheck:python && npm run test:python:fast
+
+
+> vera-script-to-timeline@0.0.0 check:contracts-generated
+> node packages/contracts/scripts/generate-contracts.mjs --check
+
+Generated contract types are current.
+
+> vera-script-to-timeline@0.0.0 check:typescript
+> npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript
+
+
+> vera-script-to-timeline@0.0.0 lint:typescript
+> eslint scripts/*.mjs --max-warnings=0 && npm run lint --workspaces --if-present
+
+
+> @vera/contracts@0.0.0 lint
+> eslint src test --max-warnings=0
+
+
+> @vera/tooling-smoke@0.0.0 lint
+> eslint . --max-warnings=0
+
+
+> vera-script-to-timeline@0.0.0 typecheck:typescript
+> npm run typecheck --workspaces --if-present
+
+
+> @vera/contracts@0.0.0 typecheck
+> tsc --project tsconfig.json
+
+
+> @vera/tooling-smoke@0.0.0 typecheck
+> tsc --project tsconfig.json
+
+
+> vera-script-to-timeline@0.0.0 test:typescript
+> npm run test --workspaces --if-present && npm run test:progress && npm run test:roadmap && npm run test:cloud-evidence
+
+
+> @vera/contracts@0.0.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/matthewbelinkie/Desktop/ONGOING/VERA Script to Timeline/worktrees/claude/issue-196-cloud-preparation/packages/contracts
+
+
+ Test Files  19 passed (19)
+      Tests  402 passed (402)
+   Start at  14:26:35
+   Duration  16.24s (transform 5.08s, setup 0ms, import 26.55s, tests 55.39s, environment 5ms)
+
+
+> @vera/tooling-smoke@0.0.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/matthewbelinkie/Desktop/ONGOING/VERA Script to Timeline/worktrees/claude/issue-196-cloud-preparation/packages/tooling-smoke
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  14:26:51
+   Duration  346ms (transform 35ms, setup 0ms, import 55ms, tests 5ms, environment 0ms)
+
+
+> vera-script-to-timeline@0.0.0 test:progress
+> node --test scripts/project-progress.test.mjs
+
+✔ parses the authoritative board without counting goals as work (3.486275ms)
+✔ calculates exact done and remaining scope from actionable board issues (21.890645ms)
+✔ fails closed on incomplete or ambiguous board data (1.422483ms)
+✔ renders every issue once with escaped links and board metadata (2.066119ms)
+✔ writes the dashboard and reports an exact terminal summary (15.63098ms)
+✔ fails clearly when the live GitHub Project is unavailable (8.212831ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 246.787
+
+> vera-script-to-timeline@0.0.0 test:roadmap
+> node --test scripts/roadmap.test.mjs scripts/roadmap-rate-limit.test.mjs scripts/roadmap-lock.test.mjs
+
+✔ serializes roadmap commands before any GitHub request (8.816142ms)
+✔ reclaims a sufficiently old lock whose owner process is gone (4.397138ms)
+✔ parses authoritative direct GraphQL rateLimit fields and omits response metadata (5.994494ms)
+✔ fails closed on GitHub's graphql_rate_limit exhaustion response with reset guidance (1.192091ms)
+✔ never accepts a false REST-green payload as GraphQL authority (1.885197ms)
+✔ preflight reserves points for the planned GraphQL work (0.717752ms)
+✔ honors direct Retry-After evidence during a secondary throttle (0.542639ms)
+✔ accounts for issue, comment, dependency, and Project V2 operations by actual transport (0.380218ms)
+✔ distinguishes REST, GraphQL, secondary, and client/tooling failures (0.272686ms)
+✔ parses commands and flags (3.720537ms)
+✔ accepts one exact routing profile (0.537168ms)
+✔ rejects missing routing labels (0.695195ms)
+✔ rejects duplicate routing labels (0.26649ms)
+✔ rejects Luna claiming Terra work (0.383018ms)
+✔ rejects Sol claiming Luna work (0.276334ms)
+✔ rejects unsupported effort labels (0.271652ms)
+✔ uses the latest claim marker (0.826785ms)
+✔ preserves exclusive ownership across Luna-to-Terra and Terra-to-Sol escalation markers (0.530488ms)
+✔ parses no dependencies and same-repository blockers (1.679579ms)
+✔ parses cross-roadmap dependency references (0.535759ms)
+✔ rejects prose and duplicate dependency declarations (0.555749ms)
+✔ requires every dependency to be closed and Done (2.446174ms)
+✔ inspect, ready, and claim preflight before GraphQL reads and again before mutation (2141.609835ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2345.930546
+
+> vera-script-to-timeline@0.0.0 test:cloud-evidence
+> node --test scripts/cloud-evidence.test.mjs
+
+✔ accepts complete evidence whose facts all come from GitHub and the qualified profile (25.578717ms)
+✔ an unqualified, unbound or edited profile never yields substitution (3.670237ms)
+✔ rejects malformed profiles before they can judge a run (6.22934ms)
+✔ rejects a tested tree that differs from the delivered tree (0.582377ms)
+✔ rejects a stale tree listing and a manifest that misreports its checkout (1.178228ms)
+✔ rejects a gate that changed tracked files or did not record that state (0.978565ms)
+✔ requires the PR merge commit of the run's head, and the head itself for push runs (1.864306ms)
+✔ rejects the wrong job or duplicated jobs (1.37894ms)
+✔ rejects evidence for a different attempt (2.391545ms)
+✔ rejects nonzero, aborted and incomplete runs from GitHub's own conclusions (3.142248ms)
+✔ rejects incomplete collection and missing or empty inventory (2.164647ms)
+✔ rejects unqualified pytest skips, failures and reporter-altered collection (2.54064ms)
+✔ rejects runtime Vitest and node:test skips, todos and count disagreements (2.989627ms)
+✔ treats every gate configuration that tools discover per directory as a control (0.208421ms)
+✔ a changed or added control cannot self-certify, even when the manifest repeats the qualified digests (2.46454ms)
+✔ runtime drift fails everything; media drift suspends only media-sensitive scope (3.354801ms)
+✔ a later green attempt does not hide an unexplained earlier failure, and accepted dispositions stay visible (2.72411ms)
+✔ fails closed on malformed or incomplete facts (1.782621ms)
+✔ parses pytest JUnit identities, outcomes and skip reasons without failure text (2.098539ms)
+✔ maps pytest node IDs to JUnit identities and reads collect-only output (0.357983ms)
+✔ reads runtime outcomes from the gate's own Vitest and node:test output (1.427549ms)
+✔ reads NUL-delimited tree and status listings with unusual paths (0.506426ms)
+✔ collector records checkout, unusual control paths, inventories and runtime outcomes (651.683551ms)
+✔ collector reports tracked-file changes and marks failed collection incomplete (496.851396ms)
+✔ the workflow defines every required step, the exact command and the artifact name (1.614806ms)
+✔ gathers every earlier attempt on the same tested source, including recommits of an identical tree (1.815607ms)
+✔ refuses to evaluate a run history it could not read completely, or malformed identifiers (7.66536ms)
+✔ CLI rejects malformed arguments before any subprocess or GitHub request (1.113674ms)
+✔ CLI exits nonzero for unresolved history and zero once the failure is dispositioned (8.028727ms)
+✔ CLI success is scoped: suspended media scope fails a full-scope request (7.934812ms)
+✔ CLI drafts only unqualified profiles, and only from a clean complete calibration run (23.402069ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1493.757018
+
+> vera-script-to-timeline@0.0.0 lint:python
+> uv run --frozen ruff check . && uv run --frozen ruff format --check .
+
+All checks passed!
+387 files already formatted
+
+> vera-script-to-timeline@0.0.0 typecheck:python
+> uv run --frozen mypy python tests
+
+Success: no issues found in 111 source files
+
+> vera-script-to-timeline@0.0.0 test:python:fast
+> uv run --frozen pytest -m "not slow" -n 2
+
+============================= test session starts ==============================
+platform darwin -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/matthewbelinkie/Desktop/ONGOING/VERA Script to Timeline/worktrees/claude/issue-196-cloud-preparation
+configfile: pyproject.toml
+testpaths: tests
+plugins: xdist-3.8.0, typeguard-4.6.0
+created: 2/2 workers
+2 workers [317 items]
+
+........................................................................ [ 22%]
+........................................................................ [ 45%]
+........................................................................ [ 68%]
+........................................................................ [ 90%]
+.............................                                            [100%]
+======================== 317 passed in 70.17s (0:01:10) ========================

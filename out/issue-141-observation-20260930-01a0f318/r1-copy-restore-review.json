@@ -1,0 +1,24 @@
+{
+  "kind": "reviewed-not-staged-r1-copy-context-restoration",
+  "reviewedAt": "2026-10-01T07:29:45.885078+00:00",
+  "producerDecision": "required under explicit stop-on-unrelated-drift instruction",
+  "probeSha256": "67985056bdc4d2e136bf03ffe33048670dc5500259c87bc5517dea5cb881bbcc",
+  "moduleSha256": "694c0ac4785733b52119aaac209f51d793adeb8aa767437ace58fe7d2f393471",
+  "proposedConfigUpdates": {
+    "action": "editorial-case-restore",
+    "case": "R1-copy",
+    "preparationResult": "editorial-case-20261001T072033.855985Z/result.json",
+    "preparationResultSha256": "4d4f2f033514251655ee1cb565e13d3b3229f8cbe9b4f20549a3dd3c3dcf2175",
+    "postEditPair": "r1-copy-pasted-20261001T072554.638674Z/pair.json",
+    "postEditPairSha256": "b8a12d66415ed2cef4ab1922ac1c764ec42aa41aad58cfa40d4435c24c75b9a7"
+  },
+  "allowedNativeMutations": [
+    "Restore only V2/V3/A2/A3 lock flags True\u2192False",
+    "Restore only recorded Matrix playhead00:06:07:24"
+  ],
+  "pastedClipsRetained": true,
+  "poolOutClearingRetained": true,
+  "saveUndoRenderRetryOrDeleteAllowed": false,
+  "sourcesExact": true,
+  "staged": false
+}

@@ -1,0 +1,35 @@
+{
+  "checkpoint": "12c",
+  "checks": {
+    "contractTests": 230,
+    "generatedCurrent": true,
+    "mypySources": 73,
+    "newBridgeTests": 14,
+    "progressTests": 6,
+    "pythonFormatFiles": 217,
+    "pythonRuff": true,
+    "pythonSeconds": 679.9,
+    "pythonTests": 297,
+    "roadmapTests": 23,
+    "toolingTests": 1,
+    "typescriptLint": true,
+    "typescriptTypecheck": true
+  },
+  "cloudActions": 0,
+  "command": "npm exec --yes --package=node@24.19.0 -- npm run validate",
+  "evidenceLevel": "synthetic_injected",
+  "exitCode": 0,
+  "limitation": "Internal canonical bridge only. Public omission workflow, composed edits, stdlib WI and runbook incomplete.",
+  "logHash": "sha256:6156afdc58cb3ae6c78d3f69dfde91138740723c3407e8b66b6d648376b99aa8",
+  "nativeActions": 0,
+  "schemaVersion": "issue-144-checkpoint-validation/v1",
+  "sourceHashes": {
+    "packages/contracts/src/issue-144-omission-build.ts": "sha256:ca3ef5f083ae282f13ff777830387df0e0688bd84df4586701210207996c3399",
+    "packages/contracts/src/issue-144-proof-cli.ts": "sha256:25227cc465dc40aeeadfd0f35a186dc8219e93f3803e2f7ada207b4fe4072ab3",
+    "packages/contracts/src/issue-144-semantics.ts": "sha256:9d6cb9bb11c5ab3191d9c46c6e1973072e418cc6754a3cf9e21398f4a415d870",
+    "packages/contracts/test/issue-144-omission-bridge.test.ts": "sha256:6af5e73869f475f494b3ae521e3da44278d1355bc3fc4807ff84a829254e65f0",
+    "python/vera_timeline_agent/roundtrip_build.py": "sha256:4fb5775484d637af251302a063d907268ec76f480691bcf899ac2a3f73b97371",
+    "python/vera_timeline_agent/roundtrip_proof.py": "sha256:5a11acfdb9d446f8c313df5c061d3271a43c8ed01851bd6135f339b061389c82",
+    "tests/test_issue144_omission_bridge.py": "sha256:60d7037faf7d925b68494643e319990e6348bb68902897e52d0abdd23c511992"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "testedCommit": "f5e5ac6a2607c5406afb10fcc5a269201184c0c1",
+  "command": "VITEST_MAX_WORKERS=1 npm run validate:fast",
+  "result": "PASS",
+  "sourceUnchanged": true,
+  "exit": {
+    "exitCode": 0,
+    "finishedAt": "2026-10-13T11:09:43.015572+00:00",
+    "logSha256": "d24e5918a9f11ae4ee3e314d01b36d60c029dc9ec1d5e177f684be04e6533ebf",
+    "sourceUnchanged": true,
+    "startedAt": "2026-10-13T11:05:13.065578+00:00"
+  },
+  "counts": {
+    "contractVitest": 429,
+    "toolingVitest": 1,
+    "progressNode": 6,
+    "roadmapNode": 23,
+    "cloudEvidenceNode": 32,
+    "pythonFast": 458
+  },
+  "pythonWorkers": 2,
+  "typescriptWorkers": 1,
+  "skips": 0,
+  "ruffFormattedFiles": 447,
+  "mypyFiles": 136,
+  "contractGeneratedCurrentness": "PASS",
+  "toolchain": {
+    "node": "24.19.0",
+    "npm": "11.17.0",
+    "uv": "0.12.5",
+    "python": "3.12.14"
+  },
+  "scope": "Iteration fast gate only; required delta review and final full evidence remain pending."
+}

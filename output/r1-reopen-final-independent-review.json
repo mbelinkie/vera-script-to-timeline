@@ -1,0 +1,93 @@
+{
+  "taskId": "Issue 141",
+  "kind": "r1-reopen-final-independent-review",
+  "status": "PASS_WITH_TRANSIENT_READBACK_REFUSAL",
+  "decision": "R1 repeat is accepted for its bounded evidence; final duplicate may proceed under its separate pinned preflight.",
+  "classification": "SaveProject and CloseProject returned true, LoadProject returned the exact synthetic project identity, the first post-load pair was correctly refused for real adjacent-read inconsistency, and the subsequent retained pair was stable.",
+  "artifacts": {
+    "directory": "out/issue-141-observation-20260930-01a0f318/r1-repeat-reopen-20261002T121322.897176Z",
+    "resultPath": "out/issue-141-observation-20260930-01a0f318/r1-repeat-reopen-20261002T121322.897176Z/result.json",
+    "resultSha256": "4427fbdfee02610eead2eced72edd0a88108c4dbe5baac0017d3428ddca49306",
+    "rawPath": "out/issue-141-observation-20260930-01a0f318/r1-repeat-reopen-20261002T121322.897176Z/raw.json",
+    "rawSha256": "02ad399151eecd748b5e4b623d320b5ceb53875afb54cdb80d6d16cefcaab2a4",
+    "journalPath": "out/issue-141-observation-20260930-01a0f318/r1-repeat-reopen-20261002T121322.897176Z/journal.jsonl",
+    "journalSha256": "ecce68a92746cf44d9bb9df1765f1068e5216dc769a9330f9ea047a68d27aec0",
+    "journalLines": 22
+  },
+  "apiSequence": {
+    "SaveProject": {"request": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0", "return": true},
+    "CloseProject": {"request": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0", "return": true},
+    "LoadProject": {
+      "request": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+      "return": {
+        "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+        "projectUid": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0"
+      }
+    }
+  },
+  "pairHashes": {
+    "pair-01.json": "16b39567315b225eb3a748065c7a5df2d8b1e0fe2cc732788e75907281abcf28",
+    "pair-02.json": "16b39567315b225eb3a748065c7a5df2d8b1e0fe2cc732788e75907281abcf28",
+    "pair-03.json": "eef6e5ab43c1e45519c9dd7a7b40363450233a9463ad5ce6e0b292cd5b19dd52",
+    "pair-04.json": "b5d2b291be801f65be762d813e76335223f2bde83701c95a56882f919180e519"
+  },
+  "adjacentReadChecks": {
+    "pair01EqualsPair02": true,
+    "pair03TimelineDiffCount": 8,
+    "pair03PoolDiffCount": 0,
+    "pair03TimelineConsistency": "incomplete-or-inconsistent-refused",
+    "pair03PoolConsistency": "equal-adjacent-reads",
+    "pair04TimelineDiffCount": 0,
+    "pair04PoolDiffCount": 0,
+    "pair04TimelineConsistency": "equal-adjacent-reads",
+    "pair04PoolConsistency": "equal-adjacent-reads"
+  },
+  "exactDiffs": {
+    "pair03AdjacentTimelineUsage": [
+      {"path": "$.timelines[0].tracks[0].items[0].GetMediaPoolItem.GetClipProperty.value.Usage", "first": "2", "second": "6"},
+      {"path": "$.timelines[0].tracks[1].items[0].GetMediaPoolItem.GetClipProperty.value.Usage", "first": "2", "second": "6"},
+      {"path": "$.timelines[4].tracks[0].items[0].GetMediaPoolItem.GetClipProperty.value.Usage", "first": "27", "second": "28"},
+      {"path": "$.timelines[4].tracks[1].items[0].GetMediaPoolItem.GetClipProperty.value.Usage", "first": "20", "second": "21"},
+      {"path": "$.timelines[4].tracks[2].items[0].GetMediaPoolItem.GetClipProperty.value.Usage", "first": "20", "second": "21"},
+      {"path": "$.timelines[4].tracks[3].items[0].GetMediaPoolItem.GetClipProperty.value.Usage", "first": "48", "second": "50"},
+      {"path": "$.timelines[4].tracks[4].items[0].GetMediaPoolItem.GetClipProperty.value.Usage", "first": "48", "second": "50"},
+      {"path": "$.timelines[4].tracks[5].items[0].GetMediaPoolItem.GetClipProperty.value.Usage", "first": "21", "second": "22"}
+    ],
+    "pair01ToPair04Resolution": [
+      {"path": "$.pair.poolPasses[0].items[11].evidence.GetClipProperty.value.Resolution", "before": "0x0", "after": "1920x1080"},
+      {"path": "$.pair.poolPasses[0].items[12].evidence.GetClipProperty.value.Resolution", "before": "0x0", "after": "1920x1080"},
+      {"path": "$.pair.poolPasses[0].timelineMappings[4].poolItemProperties.value.Resolution", "before": "0x0", "after": "1920x1080"},
+      {"path": "$.pair.poolPasses[0].timelineMappings[5].poolItemProperties.value.Resolution", "before": "0x0", "after": "1920x1080"},
+      {"path": "$.pair.poolPasses[1].items[11].evidence.GetClipProperty.value.Resolution", "before": "0x0", "after": "1920x1080"},
+      {"path": "$.pair.poolPasses[1].items[12].evidence.GetClipProperty.value.Resolution", "before": "0x0", "after": "1920x1080"},
+      {"path": "$.pair.poolPasses[1].timelineMappings[4].poolItemProperties.value.Resolution", "before": "0x0", "after": "1920x1080"},
+      {"path": "$.pair.poolPasses[1].timelineMappings[5].poolItemProperties.value.Resolution", "before": "0x0", "after": "1920x1080"}
+    ]
+  },
+  "preservation": {
+    "otherPair01ToPair04Diffs": 0,
+    "allFourNativeContextsEqual": true,
+    "errorKeyCountAcrossPairsAndRaw": 0,
+    "protectedTimelineSourceGeometryIdsMarkersPreservedOutsideListedResolutionLeaves": true,
+    "semi1bMetadataOnly": true,
+    "semi1bBytesHashExportRetranscriptionAccessed": false
+  },
+  "stableContext": {
+    "product": "DaVinci Resolve Studio",
+    "version": [21, 1, 0, 14, ""],
+    "projectUid": "97037b5a-aab6-48a9-b7e4-4c5697ae10a0",
+    "projectName": "VERA Issue 141 Synthetic Probe 20260930-01a0f318",
+    "page": "edit",
+    "idle": true,
+    "queue": [],
+    "selectedTimelineUid": "29ae8331-b86e-4041-a548-960695cc7b24",
+    "playhead": "00:00:00:00",
+    "selection": []
+  },
+  "result": {
+    "status": "refused",
+    "error": "RuntimeError: post-load pair is inconsistent, incomplete, or wrongly selected",
+    "interpretation": "The refusal is retained evidence of the transient first post-load inconsistency; pair-04 is an independent stable observation, not a masked repair."
+  },
+  "method": "Offline Python deep comparison of pair wrappers, adjacent timeline/pool passes, raw capture, and JSONL journal; no native action or production/documentation change."
+}

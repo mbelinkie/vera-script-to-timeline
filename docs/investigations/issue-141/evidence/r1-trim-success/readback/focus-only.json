@@ -1,0 +1,7 @@
+{
+  "at": "2026-10-01T05:51:59.448881+00:00",
+  "exitCode": 0,
+  "stdout": "{\"after\":[{\"frontBundle\":\"com.blackmagic-design.DaVinciResolve\",\"id\":5766,\"title\":\"VERA Issue 141 Synthetic Probe 20260930-01a0f318\",\"waitMicroseconds\":200000,\"expectedProjectMatches\":true},{\"frontBundle\":\"com.blackmagic-design.DaVinciResolve\",\"id\":5766,\"title\":\"VERA Issue 141 Synthetic Probe 20260930-01a0f318\",\"waitMicroseconds\":200000,\"expectedProjectMatches\":true},{\"frontBundle\":\"com.blackmagic-design.DaVinciResolve\",\"id\":5766,\"title\":\"VERA Issue 141 Synthetic Probe 20260930-01a0f318\",\"waitMicroseconds\":400000,\"expectedProjectMatches\":true}],\"before\":{\"id\":5766,\"title\":\"VERA Issue 141 Synthetic Probe 20260930-01a0f318\"},\"menuTriggered\":false}\n",
+  "stderr": "",
+  "menuTriggered": false
+}

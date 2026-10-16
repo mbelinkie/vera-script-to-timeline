@@ -1,0 +1,6 @@
+{"at": "2026-10-03T14:32:46.859683+00:00", "phase": "started", "value": {"actionId": "w3-mapping-mute-d3-console-av-20261003-kit-02", "configSha256": "be99f906ca9923433f61789802fa40825b53ca16568461faa698c89a617f6def"}}
+{"at": "2026-10-03T14:32:46.892116+00:00", "phase": "probe-verified", "value": {"probePath": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/sources/ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438/harness.py", "probeSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438"}}
+{"at": "2026-10-03T14:32:46.893172+00:00", "phase": "disarmed", "value": {"action": "w3-mapping-mute", "actionId": "w3-mapping-mute-d3-console-av-20261003-kit-02"}}
+{"at": "2026-10-03T14:32:46.893317+00:00", "phase": "probe-request", "value": {"action": "w3-mapping-mute", "phase": "w3-mapping-mute-d3-console-av"}}
+{"at": "2026-10-03T14:32:48.876778+00:00", "phase": "probe-return", "value": {"status": "ok"}}
+{"at": "2026-10-03T14:32:48.877629+00:00", "phase": "result-written", "value": {"result": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-w3-mapping-mute-d3-console-av-20261003-kit-02.json", "status": "ok"}}

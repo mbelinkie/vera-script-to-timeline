@@ -1,0 +1,96 @@
+{
+ "job_id": "p0-001-inventory",
+ "started": 1790970373.7776058,
+ "seconds": 0.424,
+ "error": null,
+ "stdout": "",
+ "result": {
+  "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 17.0.0 (clang-1700.6.4.2)]",
+  "executable": "/Applications/DaVinci Resolve/DaVinci Resolve.app/Contents/MacOS/Resolve",
+  "platform": "macOS-15.1-x86_64-i386-64bit-Mach-O",
+  "product": "DaVinci Resolve Studio",
+  "version": "21.1.1.10",
+  "page": "deliver",
+  "database": {
+   "DbType": "Disk",
+   "DbName": "Local Database"
+  },
+  "current_project": {
+   "name": "EV24 Table Validation 2026-10-02",
+   "uid": "4fb32e39-642a-43c9-b9f6-11ce7bd76277",
+   "timelines": 17
+  },
+  "docs": {
+   "README.txt": {
+    "exists": false,
+    "sha256": "ERR FileNotFoundError(2, 'No such file or directory')"
+   },
+   "README.md": {
+    "exists": true,
+    "sha256": "5f58c94da8ec3c1f390d77ad9c60675263591dc101159b302e50b5774513830b"
+   },
+   "DaVinciResolveScript.pyi": {
+    "exists": true,
+    "sha256": "2755259ef5f57b5d477786f799892e5b86ed3945db84bf88fb69bf751b36e651"
+   }
+  },
+  "tools": {
+   "hs": null,
+   "ffmpeg": null,
+   "ffprobe": null,
+   "say": "/usr/bin/say",
+   "whisper": null,
+   "sqlite3": "/usr/bin/sqlite3"
+  },
+  "hs_app": true,
+  "resolve_methods": [
+   "DeleteBurnInPreset",
+   "DeleteKeyboardPreset",
+   "DeleteLayoutPreset",
+   "DeleteUserPreferencesPreset",
+   "DisableBackgroundTasksForCurrentResolveSession",
+   "EncryptDCTL",
+   "ExportBurnInPreset",
+   "ExportKeyboardPreset",
+   "ExportLayoutPreset",
+   "ExportRenderPreset",
+   "ExportUserPreferencesPreset",
+   "Fusion",
+   "GetBurnInPresetList",
+   "GetCurrentKeyboardPreset",
+   "GetCurrentPage",
+   "GetCurrentProject",
+   "GetCurrentTimeline",
+   "GetFairlightPresets",
+   "GetGallery",
+   "GetKeyboardPresetList",
+   "GetKeyframeMode",
+   "GetLayoutPresetList",
+   "GetMediaPool",
+   "GetMediaStorage",
+   "GetProductName",
+   "GetProjectManager",
+   "GetUserPreferencesPresetList",
+   "GetVersion",
+   "GetVersionString",
+   "ImportBurnInPreset",
+   "ImportKeyboardPreset",
+   "ImportLayoutPreset",
+   "ImportRenderPreset",
+   "ImportUserPreferencesPreset",
+   "IsStudio",
+   "LoadKeyboardPreset",
+   "LoadLayoutPreset",
+   "LoadUserPreferencesPreset",
+   "OpenPage",
+   "Print",
+   "Quit",
+   "SaveLayoutPreset",
+   "SaveUserPreferencesPreset",
+   "SetHighPriority",
+   "SetKeyframeMode",
+   "UpdateLayoutPreset",
+   "ValidateDCTL"
+  ]
+ }
+}

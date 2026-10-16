@@ -1,0 +1,52 @@
+{
+  "actionId": "w6-kept-before-swap-r2-20261003-kit-02",
+  "at": "2026-10-03T05:22:43.437199+00:00",
+  "config": {
+    "_approval": "root-authorized-autonomous-d6-kept-r2",
+    "schemaVersion": "issue-149-workflow-discriminators-v1",
+    "externalScriptingSetting": "None",
+    "projectName": "VERA Issue 149 WI Discriminators 20261003-kit-02",
+    "action": "w6-before-swap",
+    "phase": "w6-kept-before-swap-r2",
+    "actionId": "w6-kept-before-swap-r2-20261003-kit-02",
+    "stateId": "w6-kept-before-swap-r2-20261003-kit-02",
+    "probePath": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/sources/ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438/harness.py",
+    "probeSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438",
+    "launcherPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/VERA Issue 149 Workflow Reruns.py",
+    "launcherSha256": "a605b875e0755151e1fa03e91a61612fecbf5058f3fb12a67ac6216e6536e2e9",
+    "outputDir": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02",
+    "mediaDir": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/media",
+    "owned": {
+      "projectUid": "0591bb41-d645-4af7-a2ee-ff75f8f43162"
+    },
+    "timelineUid": "70aee9bd-5928-4e3b-9f0e-f45897773337",
+    "mediaUid": "dfdd5a46-c202-4493-84ab-f8e9d83c81b1",
+    "swap": {
+      "path": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/media/base.mov",
+      "expectedSha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+      "originalSha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036",
+      "replacementHasAudio": true,
+      "replacementAudioChannels": 1
+    }
+  },
+  "launcherSha256": "a605b875e0755151e1fa03e91a61612fecbf5058f3fb12a67ac6216e6536e2e9",
+  "macroSha256": "d9bc7e9b35a7b3dd5feaa0704881f1f95e46bdfc9410cb57cc0960f566d9260f",
+  "previousResults": [
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-save-checkpoint-user-stop-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-select-w6-kept-r2-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-render-poll-d6-kept-baseline-r2-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-context-02-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-prepare-02-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-build-discriminator-timelines-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-context-03-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-build-discriminator-timelines-r2-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-render-stage-d6-kept-baseline-r2-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-observe-user-stop-checkpoint-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-prepare-01-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-context-04-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-import-media-after-settings-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-observe-after-manual-settings-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-observe-prepare-02-settings-20261003-kit-02.json"
+  ],
+  "retryAllowed": false
+}

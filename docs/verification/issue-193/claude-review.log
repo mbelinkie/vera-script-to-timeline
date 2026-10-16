@@ -1,0 +1,28 @@
+Permission allow rule (../../../../.claude/settings.json): Bash(git -C * push origin claude/*) has a wildcard before the rest of the command, so it also matches any options inserted at that position and approves them without a prompt. For git, options such as -c and --exec-path can run arbitrary commands. Replace that * with the exact value you mean, or only use * after the subcommand (for example Bash(git status *)).
+I found no blockers in the change itself. The lockfile repair is correct and stays in scope. The issue can't close yet because the final serial validation hasn't run, which `automated.md` already says.
+
+I made no edits and no network calls. Besides reading files, I ran `shasum` and `git diff --quiet` to check the hashes and that the manifests are unchanged.
+
+## What I verified
+- **Lockfile linkage and schema:** the lockfile is format version 3 and its root entry declares the `packages/*` workspaces. The new `node_modules/@vera/word-timing` entry is `{ resolved: "packages/word-timing", link: true }` and `packages/word-timing` is `{ name: "@vera/word-timing", version: "0.1.0" }`. These match `packages/word-timing/package.json` exactly, follow the same pattern as the existing `@vera/tooling-smoke` entries, and sit where alphabetical order puts them.
+- **Scope:** `git diff --stat` shows only `package-lock.json` (+8, -0). `package.json` and `packages/word-timing/package.json` are unchanged from `5d59b2a`. No versions, registry dependencies or hashes changed.
+- **Evidence hashes:** all three SHA-256 values in `automated.md:35-37` match the current files. HEAD is the recorded base `5d59b2ad…`.
+- **Fast gate:** `/tmp/vera-issue193-validate-fast.exit` contains `0`. The log shows:
+  - generated contract types are current
+  - ESLint and tsc are clean
+  - vitest: contracts 402/402 tests (19 files), tooling-smoke 1/1
+  - `node --test` (progress and roadmap): 0 failures
+  - ruff and format check pass
+  - mypy: no issues in 111 files
+  - pytest (not slow): 317 passed
+
+  The log contains no coverage summary, and none is configured for this gate.
+- **Clean install:** a disposable checkout at the base revision with this branch's lockfile copied in is the same as the branch content, because only the lockfile changed. Running `npm ci` there under pinned Node 24.19.0 / npm 11.17.0 meets the criterion.
+
+## Findings
+1. **Medium (acceptance gate, not a defect)** — `docs/verification/issue-193/automated.md:47-51`: the final serial `VITEST_MAX_WORKERS=1 npm run validate` has not been run or logged. The criterion "final serial validation pass" is not met yet. The issue must stay open (not Done) until that run's revision, command, log path and final status are recorded.
+2. **Low (evidence provenance)** — `automated.md:12-15`: the baseline failure is cited from the issue text rather than reproduced. No command output or log path is kept, so "exact failure evidence retained" rests on the issue record. Attaching the issue comment link, or a re-run log under Node 24.19.0 / npm 11.17.0, would close this.
+3. **Low (evidence provenance)** — `automated.md:16-22`: the repaired `npm ci` and `check:contracts-generated` results are short quotes from `/tmp/vera-issue193-check`, which won't last. Also, `npm ci --workspaces=false` is cited as failing at baseline but there is no evidence it succeeds after the repair.
+4. **Low (evidence completeness)** — `automated.md` never mentions the fast-gate run. The log and exit receipt are in `/tmp`, which won't last, and don't record the revision they ran against. Add them to the evidence with the revision and the summary counts above.
+
+None of these call for changes to `package-lock.json`.

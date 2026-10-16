@@ -1,0 +1,292 @@
+{
+  "schema": "issue149-workflow-reruns-w1-analysis-check-v1",
+  "taskId": "#149",
+  "case": "W1-linked-cut-01",
+  "analysis": {
+    "path": "out/issue149-workflow-reruns-20261002-kit-01/w1-analysis.json",
+    "sha256": "b46ba28860d4210e08b8eef99ab1ac4417c17fc0f14ace897ae2eea8d4419900"
+  },
+  "subtitlePoll": {
+    "path": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/evidence/w1-subtitle-poll-linked-cut-01-20261002-kit-01/journal.jsonl",
+    "status": "complete",
+    "complete": true,
+    "subtitleItemCount": 2,
+    "timelineUid": "a481d34a-69e6-4256-9797-634f93c42b8b",
+    "rawItems": [
+      {
+        "name": "Alpha 1 Bravo 2 Delta 3 Echo",
+        "start": 13,
+        "end": 174,
+        "uid": "6c8769c9-e93f-43d0-b19e-16aea378303e"
+      },
+      {
+        "name": "4 Foxtrot 5 Golf 6 Hotel 7 8",
+        "start": 174,
+        "end": 393,
+        "uid": "0a8dc045-2f10-416a-b5bd-533c738bdc9d"
+      }
+    ]
+  },
+  "rawSubtitleText": "Alpha 1 Bravo 2 Delta 3 Echo | 4 Foxtrot 5 Golf 6 Hotel 7 8",
+  "renderPoll": {
+    "path": "REPOSITORY/out/issue149-workflow-reruns-20261002-kit-01/evidence/render-poll-w1-linked-cut-01-20261002-kit-01/journal.jsonl",
+    "jobId": "7c9cfef7-08f3-42cb-8a67-fd893e72a8b4",
+    "jobStatus": {
+      "CompletionPercentage": 100,
+      "JobStatus": "Complete",
+      "TimeTakenToRenderInMs": 1678
+    }
+  },
+  "render": {
+    "path": "out/issue149-workflow-reruns-20261002-kit-01/renders/W1-linked-cut-01.mov",
+    "sha256": "71e48f25ef0592ec14d63d2fe6fada6205854ab45c60581db5d4e64f9e390012",
+    "ffprobe": {
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 640,
+          "height": 360,
+          "r_frame_rate": "25/1",
+          "avg_frame_rate": "25/1",
+          "sample_rate": null,
+          "channels": null,
+          "channel_layout": null,
+          "bits_per_sample": null,
+          "duration": "15.960000",
+          "nb_frames": "399"
+        },
+        {
+          "index": 1,
+          "codec_name": "pcm_s16le",
+          "codec_type": "audio",
+          "width": null,
+          "height": null,
+          "r_frame_rate": "0/0",
+          "avg_frame_rate": "0/0",
+          "sample_rate": "48000",
+          "channels": 2,
+          "channel_layout": "stereo",
+          "bits_per_sample": 16,
+          "duration": "15.960000",
+          "nb_frames": "766080"
+        },
+        {
+          "index": 2,
+          "codec_name": null,
+          "codec_type": "data",
+          "width": null,
+          "height": null,
+          "r_frame_rate": "0/0",
+          "avg_frame_rate": "12800/512",
+          "sample_rate": null,
+          "channels": null,
+          "channel_layout": null,
+          "bits_per_sample": null,
+          "duration": "15.960000",
+          "nb_frames": "1"
+        }
+      ],
+      "format_duration": "15.960000"
+    }
+  },
+  "audioGate": {
+    "expectedPresent": [
+      "alpha",
+      "bravo",
+      "delta",
+      "echo",
+      "foxtrot",
+      "golf",
+      "hotel",
+      "one",
+      "two",
+      "three",
+      "four",
+      "five",
+      "six",
+      "seven",
+      "eight"
+    ],
+    "expectedAbsent": [
+      "charlie"
+    ],
+    "actualPresent": [
+      "alpha",
+      "bravo",
+      "delta",
+      "echo",
+      "foxtrot",
+      "golf",
+      "hotel",
+      "one",
+      "two",
+      "three",
+      "four",
+      "five",
+      "six",
+      "seven",
+      "eight"
+    ],
+    "pilots": {
+      "1000": 0.02481,
+      "1500": 0.01991,
+      "2000": 0.02005
+    },
+    "wordScores": {
+      "alpha": {
+        "score": 0.995,
+        "at_sample": 24000,
+        "at_frame": 12.5
+      },
+      "bravo": {
+        "score": 0.996,
+        "at_sample": 120000,
+        "at_frame": 62.5
+      },
+      "charlie": {
+        "score": 0.424,
+        "at_sample": 738460,
+        "at_frame": 384.615
+      },
+      "delta": {
+        "score": 0.996,
+        "at_sample": 216000,
+        "at_frame": 112.5
+      },
+      "echo": {
+        "score": 0.995,
+        "at_sample": 312000,
+        "at_frame": 162.5
+      },
+      "foxtrot": {
+        "score": 0.992,
+        "at_sample": 408000,
+        "at_frame": 212.5
+      },
+      "golf": {
+        "score": 0.995,
+        "at_sample": 504000,
+        "at_frame": 262.5
+      },
+      "hotel": {
+        "score": 0.995,
+        "at_sample": 600000,
+        "at_frame": 312.5
+      },
+      "one": {
+        "score": 0.991,
+        "at_sample": 72000,
+        "at_frame": 37.5
+      },
+      "two": {
+        "score": 0.992,
+        "at_sample": 168000,
+        "at_frame": 87.5
+      },
+      "three": {
+        "score": 0.991,
+        "at_sample": 264000,
+        "at_frame": 137.5
+      },
+      "four": {
+        "score": 0.985,
+        "at_sample": 360000,
+        "at_frame": 187.5
+      },
+      "five": {
+        "score": 0.986,
+        "at_sample": 456000,
+        "at_frame": 237.5
+      },
+      "six": {
+        "score": 0.974,
+        "at_sample": 552000,
+        "at_frame": 287.5
+      },
+      "seven": {
+        "score": 0.988,
+        "at_sample": 648000,
+        "at_frame": 337.5
+      },
+      "eight": {
+        "score": 0.994,
+        "at_sample": 744000,
+        "at_frame": 387.5
+      }
+    },
+    "passed": true
+  },
+  "decode": {
+    "observed": {
+      "path": "renders/W1-linked-cut-01.mov",
+      "frame_count": 399,
+      "src_ids": [
+        0,
+        1
+      ],
+      "first": [
+        [
+          1,
+          0
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "frame_123": [
+        1,
+        173
+      ],
+      "last": [
+        0,
+        0
+      ],
+      "frame_mismatch_count": 300,
+      "frame_mismatch_examples": [
+        99,
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108
+      ],
+      "expected_src_id": 1,
+      "matches_expected_src_id": false
+    },
+    "interpretation": "Expected cut semantics: output frames 0-98 decode source 0-98; frame 99 is black; output 100-348 decode source 150-398; output 349-398 are black tail frames. Generic full-sequence checker therefore fails, while audio gate remains independent."
+  },
+  "analysisCheck": {
+    "command": "/usr/local/bin/python3.13 docs/investigations/issue-149/workflow-reruns/analysis-check.py out/issue149-workflow-reruns-20261002-kit-01/w1-analysis.json --expect-present W1-linked-cut=alpha,bravo,delta,echo,foxtrot,golf,hotel,one,two,three,four,five,six,seven,eight --expect-absent W1-linked-cut=charlie --expect-pilot W1-linked-cut=1000:0.015 --expect-pilot W1-linked-cut=1500:0.015 --expect-pilot W1-linked-cut=2000:0.015",
+    "passed": false,
+    "returncode": 1,
+    "stdout": "",
+    "stderr": "analysis-check.py: frame-code sequence mismatch for 'W1-linked-cut': {'path': 'renders/W1-linked-cut-01.mov', 'frame_count': 399, 'src_ids': [0, 1], 'first': [[1, 0], [1, 1], [1, 2]], 'frame_123': [1, 173], 'last': [0, 0], 'frame_mismatch_count': 300, 'frame_mismatch_examples': [99, 100, 101, 102, 103, 104, 105, 106, 107, 108], 'expected_src_id': 1, 'matches_expected_src_id': False}\n"
+  },
+  "saveCheckpoint": {
+    "path": "out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-save-checkpoint-w1-linked-cut-01-20261002-kit-01.json",
+    "status": "ok",
+    "nativeResult": {
+      "calledExactlyOnce": true,
+      "return": true
+    }
+  },
+  "subtitleRequestFailureRetained": {
+    "path": "out/issue149-workflow-reruns-20261002-kit-01/vera-issue-149-workflow-reruns-result-w1-subtitle-request-linked-cut-01-20261002-kit-01.json",
+    "status": "failure",
+    "error": {
+      "message": "SaveProject refused the W1 duplicate",
+      "type": "HarnessError"
+    }
+  }
+}

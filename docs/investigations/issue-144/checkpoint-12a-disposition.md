@@ -1,0 +1,5 @@
+# Checkpoint12a finished-code review disposition
+
+Claude completed4 read-only turns with zero permission denials. No blocker or correctness regression found. Confirmed selection by trusted caller primary ID followed by row cross-check; shared-row auxiliaries retain global raw/decoded alias and unchanged-route guards; supported and refused reports bind the supplied primary ID. The plausible wrong auxiliary test reaches the actual changed-nonprimary route refusal.
+
+Claude noted only cosmetic stale wording in the raw-byte alias error. Leave it unchanged: the existing row/source alias refusal remains accurate as a broader label and no behavior change is justified. Claude did not execute tests. Host observed48 audio cases passing in85.76s, focused Ruff/format and diff check passing; full validation pending. No ProofSession wiring/native/real-input qualification is claimed. Next bounded segment remains the approved omission workflow plan. The user's quota stop condition remains active; this successful review did not hit it.

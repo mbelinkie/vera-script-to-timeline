@@ -1,0 +1,35 @@
+Remaining FAST-R4 stage: lint:python
+
+> vera-script-to-timeline@0.0.0 lint:python
+> uv run --frozen ruff check . && uv run --frozen ruff format --check .
+
+All checks passed!
+449 files already formatted
+Remaining FAST-R4 stage: typecheck:python
+
+> vera-script-to-timeline@0.0.0 typecheck:python
+> uv run --frozen mypy python tests
+
+Success: no issues found in 136 source files
+Remaining FAST-R4 stage: test:python:fast
+
+> vera-script-to-timeline@0.0.0 test:python:fast
+> uv run --frozen pytest -m "not slow" -n 2
+
+============================= test session starts ==============================
+platform darwin -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/matthewbelinkie/.codex/worktrees/ed01/VERA Script to Timeline
+configfile: pyproject.toml
+testpaths: tests
+plugins: xdist-3.8.0, typeguard-4.6.0
+created: 2/2 workers
+2 workers [465 items]
+
+........................................................................ [ 15%]
+........................................................................ [ 30%]
+........................................................................ [ 46%]
+........................................................................ [ 61%]
+........................................................................ [ 77%]
+........................................................................ [ 92%]
+.................................                                        [100%]
+======================= 465 passed in 132.26s (0:02:12) ========================

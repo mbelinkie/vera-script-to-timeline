@@ -1,0 +1,298 @@
+# HYPOTHETICAL local approval evaluation - NOT Producer approval; activation disabled
+# command: node scripts/cloud-evidence-validate.mjs --repo mbelinkie/vera-script-to-timeline --run 38296403984 --attempt 1 --event pull_request --pr 198 --expected-tree 5eb5c6e808508b4973537fbe475693123870efe7 --profile <job-temp HYPOTHETICAL-profile.json> --scope full
+{
+  "status": "pass",
+  "profileDigest": "1d6b3c41d0bfbba1c9e012796a1067ebba7944e6a8615ecf96e77444071257c7",
+  "failures": [],
+  "limitations": [
+    {
+      "code": "history-scope",
+      "detail": "Prior attempts are those on the same head SHA or on the same branch with an identical head tree"
+    },
+    {
+      "code": "checkout-attested",
+      "detail": "The merge commit is named by the collector; GitHub corroborates its tree and its head parent"
+    },
+    {
+      "code": "outcome-by-step-only",
+      "detail": "Lint, type checks and generated-currentness are proven by the GitHub step conclusion, not per-check reports"
+    }
+  ],
+  "acceptedDispositions": [],
+  "suspendedScopes": [],
+  "manifest": {
+    "source": "artifact vera-validation-evidence-attempt-1",
+    "sha256": "1360314b79b86b1342f97d5f4a84ad579b0a15a9de33ac397321cf5296b04b04"
+  },
+  "run": {
+    "url": "https://github.com/mbelinkie/vera-script-to-timeline/actions/runs/38296403984",
+    "id": 38296403984,
+    "attempt": 1,
+    "event": "pull_request"
+  },
+  "testedTree": "5eb5c6e808508b4973537fbe475693123870efe7",
+  "testedCommit": "cc0aa6fcfb11d283ed4db8ac303227acdee7905d",
+  "testedBase": "98b9a614bad0539a9df5a29abab63345041c9135",
+  "history": [
+    {
+      "runId": 38296397261,
+      "attempt": 1,
+      "headSha": "d9c63a84b2c7620b0f83cf9379fcf7e958bd0d85",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38296403984,
+      "attempt": 1,
+      "headSha": "d9c63a84b2c7620b0f83cf9379fcf7e958bd0d85",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "steps": [
+    {
+      "name": "Set up job",
+      "conclusion": "success",
+      "seconds": 1
+    },
+    {
+      "name": "Check out repository",
+      "conclusion": "success",
+      "seconds": 9
+    },
+    {
+      "name": "Set up Node.js",
+      "conclusion": "success",
+      "seconds": 8
+    },
+    {
+      "name": "Pin npm",
+      "conclusion": "success",
+      "seconds": 2
+    },
+    {
+      "name": "Install TypeScript dependencies",
+      "conclusion": "success",
+      "seconds": 2
+    },
+    {
+      "name": "Set up uv and Python",
+      "conclusion": "success",
+      "seconds": 6
+    },
+    {
+      "name": "Install Python dependencies",
+      "conclusion": "success",
+      "seconds": 2
+    },
+    {
+      "name": "Install FFmpeg",
+      "conclusion": "success",
+      "seconds": 22
+    },
+    {
+      "name": "Preflight required media tools",
+      "conclusion": "success",
+      "seconds": 1
+    },
+    {
+      "name": "Run repository validation",
+      "conclusion": "success",
+      "seconds": 2274
+    },
+    {
+      "name": "Verify lockfiles remain unchanged",
+      "conclusion": "success",
+      "seconds": 0
+    },
+    {
+      "name": "Collect validation evidence",
+      "conclusion": "success",
+      "seconds": 7
+    },
+    {
+      "name": "Upload validation evidence",
+      "conclusion": "success",
+      "seconds": 1
+    },
+    {
+      "name": "Post Set up uv and Python",
+      "conclusion": "success",
+      "seconds": 0
+    },
+    {
+      "name": "Post Set up Node.js",
+      "conclusion": "success",
+      "seconds": 1
+    },
+    {
+      "name": "Post Check out repository",
+      "conclusion": "success",
+      "seconds": 0
+    },
+    {
+      "name": "Complete job",
+      "conclusion": "success",
+      "seconds": 0
+    }
+  ],
+  "pytest": {
+    "total": 499,
+    "passed": 499,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "pytestSlowest": [
+    {
+      "id": "tests.test_issue144_wi_flow.test_actual_cli_file_wi_composition_generation_and_replay",
+      "seconds": 218.622
+    },
+    {
+      "id": "tests.test_issue144_composition.test_three_edits_one_revision_full_row_audio_fresh_target_and_replay",
+      "seconds": 152.884
+    },
+    {
+      "id": "tests.test_issue144_omission_generation.test_accepted_omission_replaces_whole_row_retimes_and_promotes_fresh_target",
+      "seconds": 113.742
+    },
+    {
+      "id": "tests.test_issue144_composition.test_composed_rejection_forged_geometry_and_stale_choice_have_no_effects",
+      "seconds": 98.401
+    },
+    {
+      "id": "tests.test_issue144_omission_generation.test_pending_native_resume_and_pointer_publication_recovery_use_same_target",
+      "seconds": 92.838
+    },
+    {
+      "id": "tests.test_issue144_omission_generation.test_retained_generation_and_actual_cache_cannot_be_replaced_by_status_claims",
+      "seconds": 91.6
+    },
+    {
+      "id": "tests.test_issue144_omission_generation.test_interrupted_handoff_binds_service_before_resume_and_reuses_actual_cache",
+      "seconds": 56.651
+    },
+    {
+      "id": "tests.test_issue144_generation_recovery.test_uncertain_request_is_shared_across_byte_different_decisions",
+      "seconds": 54.929
+    },
+    {
+      "id": "tests.test_issue144_generation_recovery.test_normalization_failure_resumes_from_synthesis_cache",
+      "seconds": 49.258
+    },
+    {
+      "id": "tests.test_issue144_generation_recovery.test_validator_fault_before_service_call_can_resume_without_second_synthesis",
+      "seconds": 48.956
+    },
+    {
+      "id": "tests.test_issue144_omission_generation.test_missing_service_and_stale_split_refuse_before_new_provider_or_native",
+      "seconds": 47.524
+    },
+    {
+      "id": "tests.test_issue144_omission_generation.test_rejected_omission_cannot_request_generation_or_rebuild",
+      "seconds": 45.234
+    },
+    {
+      "id": "tests.test_issue144_proof_session.test_interruption_after_pointer_publish_finishes_same_promotion",
+      "seconds": 41.74
+    },
+    {
+      "id": "tests.test_issue144_omission_generation.test_generation_binding_link_alias_refuses_before_provider",
+      "seconds": 40.125
+    },
+    {
+      "id": "tests.test_issue144_omission_decisions.test_retained_omission_choice_rederives_report_and_prepared_artifacts[request]",
+      "seconds": 39.834
+    },
+    {
+      "id": "tests.test_issue144_omission_decisions.test_explicit_omission_choice_prepares_only_accepted_canonical_revision[accept]",
+      "seconds": 39.75
+    },
+    {
+      "id": "tests.test_issue144_omission_decisions.test_explicit_omission_choice_prepares_only_accepted_canonical_revision[reject]",
+      "seconds": 39.504
+    },
+    {
+      "id": "tests.test_issue144_omission_decisions.test_retained_omission_choice_rederives_report_and_prepared_artifacts[receipt]",
+      "seconds": 39.364
+    },
+    {
+      "id": "tests.test_issue144_omission_decisions.test_retained_omission_choice_rederives_report_and_prepared_artifacts[script]",
+      "seconds": 39.348
+    },
+    {
+      "id": "tests.test_issue144_proof_session.test_file_session_runs_actual_visual_roundtrip_and_promotes_only_after_verify",
+      "seconds": 37.244
+    },
+    {
+      "id": "tests.test_issue144_omission_preparation.test_prepares_pristine_observed_audio_and_proposes_linked_charlie_omission",
+      "seconds": 34.841
+    },
+    {
+      "id": "tests.test_issue144_omission_decisions.test_retained_omission_choice_rederives_report_and_prepared_artifacts[evidence]",
+      "seconds": 34.245
+    },
+    {
+      "id": "tests.test_issue144_omission_decisions.test_changed_split_geometry_invalidates_choice_before_generation",
+      "seconds": 33.057
+    },
+    {
+      "id": "tests.test_issue144_omission_decisions.test_consistently_rehashed_omission_report_is_not_decision_authority[classification]",
+      "seconds": 32.416
+    },
+    {
+      "id": "tests.test_issue144_omission_decisions.test_consistently_rehashed_omission_report_is_not_decision_authority[revision]",
+      "seconds": 32.148
+    }
+  ],
+  "vitest": [
+    {
+      "total": 402,
+      "passed": 402
+    },
+    {
+      "total": 1,
+      "passed": 1
+    }
+  ],
+  "node": [
+    {
+      "command": "node --test scripts/project-progress.test.mjs",
+      "counts": {
+        "tests": 6,
+        "pass": 6,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      }
+    },
+    {
+      "command": "node --test scripts/roadmap.test.mjs scripts/roadmap-rate-limit.test.mjs scripts/roadmap-lock.test.mjs",
+      "counts": {
+        "tests": 23,
+        "pass": 23,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      }
+    },
+    {
+      "command": "node --test scripts/cloud-evidence.test.mjs",
+      "counts": {
+        "tests": 32,
+        "pass": 32,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      }
+    }
+  ],
+  "requestedScope": "full",
+  "accepted": true
+}
+# exit 0

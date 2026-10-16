@@ -1,0 +1,81 @@
+{
+  "actionId": "prepare-02-20261003-kit-02",
+  "at": "2026-10-03T04:52:03.988280+00:00",
+  "config": {
+    "_approval": "root-approved-prepare-02-known-disposable-context-04",
+    "schemaVersion": "issue-149-workflow-discriminators-v1",
+    "externalScriptingSetting": "None",
+    "projectName": "VERA Issue 149 WI Discriminators 20261003-kit-02",
+    "action": "prepare",
+    "phase": "prepare-02",
+    "actionId": "prepare-02-20261003-kit-02",
+    "stateId": "prepare-02-20261003-kit-02",
+    "probePath": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/sources/ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438/harness.py",
+    "probeSha256": "ef859db33d1e53136c41431a4189c053a4629d64d309b891cabffe6d9fd16438",
+    "launcherPath": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/VERA Issue 149 Workflow Reruns.py",
+    "launcherSha256": "a605b875e0755151e1fa03e91a61612fecbf5058f3fb12a67ac6216e6536e2e9",
+    "outputDir": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02",
+    "mediaDir": "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/media",
+    "owned": {},
+    "creationGuard": {
+      "mode": "known-disposable",
+      "projectName": "VERA 149 Discriminators 20261002-b",
+      "projectUid": "14375719-513e-456a-9aed-3a2baa54c01a",
+      "allowedProjectNames": [
+        "VERA 149 Discriminators 20261002-b"
+      ]
+    },
+    "settings": {
+      "timelineFrameRate": "25",
+      "timelineResolutionWidth": "1920",
+      "timelineResolutionHeight": "1080",
+      "timelineSampleRate": "48000"
+    },
+    "media": [
+      {
+        "name": "a1_alpha.wav",
+        "relative": "a1_alpha.wav",
+        "sha256": "4bc4b8cfa118dab9f75ec2072f79af0c856f41566d7e2da60fca5268f7d81253"
+      },
+      {
+        "name": "a2_numbers.wav",
+        "relative": "a2_numbers.wav",
+        "sha256": "d9aeccc2d50cb96d81341167450eeb1b2c43fecf0f02b9291b4cd65afa92f9ba"
+      },
+      {
+        "name": "a3_bed.wav",
+        "relative": "a3_bed.wav",
+        "sha256": "022e3dd779808e5b38ff870cd541d8e25fb940836443262aaa95ce8768817e2b"
+      },
+      {
+        "name": "base.mov",
+        "relative": "base.mov",
+        "sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036"
+      },
+      {
+        "name": "cutaway.mov",
+        "relative": "cutaway.mov",
+        "sha256": "34c364eb8debae77754448b7e272467d6fbf7a9ff46a2cca338032b778acc42e"
+      },
+      {
+        "name": "relink_alt.mov",
+        "relative": "relink_alt.mov",
+        "sha256": "2bad2d2457c3d572d2fe3542ef22da915ec38306c8985026bec10d1289f76579"
+      },
+      {
+        "name": "swap.mov",
+        "relative": "swap.mov",
+        "sha256": "164348e62292c173ac23708244f6350c6a2d6211667930ebadffacc1021a7036"
+      }
+    ]
+  },
+  "launcherSha256": "a605b875e0755151e1fa03e91a61612fecbf5058f3fb12a67ac6216e6536e2e9",
+  "macroSha256": "d9bc7e9b35a7b3dd5feaa0704881f1f95e46bdfc9410cb57cc0960f566d9260f",
+  "previousResults": [
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-context-02-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-context-03-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-prepare-01-20261003-kit-02.json",
+    "REPOSITORY/out/issue149-workflow-discriminators-20261003-kit-02/vera-issue-149-workflow-discriminators-result-context-04-20261003-kit-02.json"
+  ],
+  "retryAllowed": false
+}

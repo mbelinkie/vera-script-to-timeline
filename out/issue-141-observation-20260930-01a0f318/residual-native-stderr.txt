@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-residual-sequence.py", line 387, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-residual-sequence.py", line 382, in main
+    result = run_sequence(args.prior_pair, args.prior_sha256)
+  File "REPOSITORY/out/issue-141-observation-20260930-01a0f318/independent-residual-sequence.py", line 215, in run_sequence
+    raise RuntimeError("First split full-state review refused")
+RuntimeError: First split full-state review refused

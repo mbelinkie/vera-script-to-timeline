@@ -1,0 +1,20 @@
+{
+  "kind": "issue141-second-opinion-document-verification",
+  "at": "2026-10-02T16:33:12.621958+00:00",
+  "document": "docs/investigations/issue-141/second-opinion-handoff.md",
+  "sha256": "2ef6d08d764fcc973f6fc70adf0ac8ac4d5210b7382500efbab6374505a4aaee",
+  "status": "PASS",
+  "localFileLinks": 300,
+  "plannedTitles": 41,
+  "h1Count": 1,
+  "independentReviewer": "handoff_failures_v2",
+  "independentFullAudit": "PASS_NO_MATERIAL_BLOCKER",
+  "independentTranscriptTableAudit": {
+    "status": "PASS",
+    "sourceWordRows": 22,
+    "test2SelectedRows": 19,
+    "normalizationAdded": false
+  },
+  "nativeTestsRerun": false,
+  "externalReviewAccepted": false
+}

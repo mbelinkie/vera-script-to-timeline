@@ -1,0 +1,23 @@
+Checkout: /tmp/vera-issue193-disposable
+HEAD: 5d59b2ad560aa18f96554b71fe34ee5b7f30dfed
+Runtime: Node v24.19.0 / npm 11.17.0
+SHA2-256(package-lock.json)= e615667b1bcbea53bb34c4db11a6ca6a2745fae5edac6538ff87d3fdfe35d7b8
+Command: rtk proxy npm ci
+Exit: 0
+
+
+added 148 packages, and audited 152 packages in 3s
+
+51 packages are looking for funding
+  run `npm fund` for details
+
+4 high severity vulnerabilities
+
+To address all issues, run:
+  npm audit fix
+
+Run `npm audit` for details.
+npm warn allow-scripts 1 package has install scripts not yet covered by allowScripts:
+npm warn allow-scripts   fsevents@2.3.3 (install: (install scripts present))
+npm warn allow-scripts
+npm warn allow-scripts Run `npm approve-scripts --allow-scripts-pending` to review, or `npm approve-scripts <pkg>` to allow.

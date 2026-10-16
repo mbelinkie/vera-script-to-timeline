@@ -1,0 +1,18 @@
+{
+  "kind": "bounded-av-output-pinned-snapshot-continuation",
+  "moduleSha256": "9fe8333c5d67aa243bfee93a08a3409d3e3959458e3416a87838089579679e68",
+  "probeSha256": "aa8e7372ccfd04f5950cfaf371fcd12f9ea8c60f7fc8af52c8a2d6e66f3afb0b",
+  "continuationRecordSha256": "b169854fa9e6f9509dc22e1b8aa41e2d7e63b79baf74909c3246302c29fedc36",
+  "checkpointSha256": "35f7132f331a8ecf0f1685dd1167c636add1aea3118bfbf2f2e7896ae348c1c3",
+  "previousSuccessfulSnapshotSaveExportReplayed": false,
+  "SetRenderSettingsPreviouslyDispatched": false,
+  "AddRenderJobPreviouslyDispatched": false,
+  "StartRenderingPreviouslyDispatched": false,
+  "oneRenderOnly": true,
+  "renderRange": [
+    0,
+    200
+  ],
+  "retryAllowed": false,
+  "cleanupOnlyOnVerifiedSuccess": true
+}

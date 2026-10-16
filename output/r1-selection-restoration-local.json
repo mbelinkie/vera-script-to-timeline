@@ -1,0 +1,50 @@
+{
+  "kind": "r1-selection-restoration-local",
+  "at": "2026-10-02T12:47:19.193116+00:00",
+  "status": "local-check-passed-awaiting-independent-review-and-registration",
+  "nativeDispatchPerformed": false,
+  "action": "r1-repeat-restore-selection",
+  "configArgumentNames": {
+    "repeatCheckpoint": "direct child of outputDir; extracted pair-03.pair",
+    "repeatCheckpointSha256": "SHA-256 of repeatCheckpoint bytes",
+    "repeatExpectedContext": "pair-03.nativeContext (selected R1)",
+    "restoreTargetPair": "direct child of outputDir; extracted pair-01.pair",
+    "restoreTargetPairSha256": "SHA-256 of restoreTargetPair bytes",
+    "restoreTargetContext": "pair-01.nativeContext (selected Matrix)"
+  },
+  "pathRule": "repeatCheckpoint and restoreTargetPair must be regular, non-symlink files directly inside outputDir",
+  "retainedSources": {
+    "currentR1": "out/issue-141-observation-20260930-01a0f318/r1-repeat-duplicate-20261002T122220.047704Z/pair-03.json",
+    "targetMatrix": "out/issue-141-observation-20260930-01a0f318/r1-repeat-duplicate-20261002T122220.047704Z/pair-01.json",
+    "currentR1WrapperSha256": "21327670e17a48675c466d9c1f3e7f63b751e45b6fc26b4f8e382934c698c486",
+    "targetMatrixWrapperSha256": "b5d2b291be801f65be762d813e76335223f2bde83701c95a56882f919180e519"
+  },
+  "canonicalExtractedPins": {
+    "serialization": "json.dumps(value, indent=2, sort_keys=True), UTF-8, no trailing newline",
+    "currentR1PairSha256": "f458c12e6d70c1617b7af717885838db3383d8632b11be681b40b3542be7ec48",
+    "targetMatrixPairSha256": "774a256039d9e965f03e5d7d5a9f2df3692edd08da936fd2f3bc44c104dc641a",
+    "currentR1ContextSha256": "10839c14c9767cdf6f975987e2ced776175904a952c13aff5e87524f7f7ace0e",
+    "targetMatrixContextSha256": "d9642680c12d848b8401b6137eca1ae35e136c312da7ddcde5b24e474322783c"
+  },
+  "helperSha256": "1948ec4339cc92ca949db9be4f554806f237614a4ee9ad886467e6d3b77475c3",
+  "checkerSha256": "7e7874d8dedcd1c4a5dcdca57d5f3c4825078c6b16545ed8a670ca6613f1782f",
+  "checks": {
+    "focusedFakeAndRegression": {
+      "command": "ctx-wire run rtk proxy /usr/local/bin/python3.14 -S docs/investigations/issue-141/r1-repeat-six-check.py",
+      "result": "PASS: fake API guards, restoration success/refusals, and selected-context regression; no native dispatch"
+    },
+    "compile": {
+      "command": "ctx-wire run rtk proxy /usr/local/bin/python3.14 -S -m py_compile docs/investigations/issue-141/r1-repeat-six.py docs/investigations/issue-141/r1-repeat-six-check.py",
+      "result": "passed"
+    }
+  },
+  "fakeCases": [
+    "success with one SetCurrentTimeline(Matrix)",
+    "stale current R1 pair",
+    "stale target pair hash",
+    "wrong target selected UID",
+    "foreign render queue",
+    "false SetCurrentTimeline result"
+  ],
+  "nativeMutation": "one SetCurrentTimeline(Matrix) only; no save, render, clip, lock, or playhead mutation; no retry"
+}

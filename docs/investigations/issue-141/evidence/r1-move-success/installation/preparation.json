@@ -1,0 +1,14 @@
+{
+  "kind": "approved-r1-move-preparation",
+  "stagedAt": "2026-10-01T06:07:23.736433+00:00",
+  "probeSha256": "0dd03bf212aa17e67fb27856d6b6c479308661bcc76240f4fbd1c0df31f6667c",
+  "moduleSha256": "3fc036d8e87d8f1b62fabd41a650ca3fba7374479d56e523ebabd8251cb60602",
+  "priorPairSha256": "a668958e6441b0176e8926c932784bbebe9a747698fa0bf83a1509ba61434089",
+  "privateConfigSha256": "07db2253b94dcbaca3a40741eabde46357ac481aa27b7ca24311f58f4175015b",
+  "allowedNativeMutations": [
+    "lock V2/V3/A2/A3",
+    "set Matrix playhead1100"
+  ],
+  "editorialCommandDispatched": false,
+  "retryAllowed": false
+}
