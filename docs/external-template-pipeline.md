@@ -1,5 +1,10 @@
 # External Fusion template intake, integration and review
 
+Process update, 2026-10-16: [AGENTS.md](../AGENTS.md) and the
+[verification policy](VERIFICATION_POLICY.md) govern delivery. Historical
+source pins below identify product artifacts, not workflow approval gates.
+Every implementation and documentation change reaches `main` through a PR.
+
 This guide makes the accepted registration/library workflow reusable. VERA
 receives externally authored animation; a package revision is immutable. A
 newer revision does not change an existing use or build. The authoritative
@@ -31,7 +36,8 @@ commit `59838d6a8bf7fa536af3382788a947f5701a7d2c`:
 `docs/issue-12-ev24-registration-acceptance.md`,
 `packages/contracts/src/ev24-lower-third.ts`, and
 `packages/contracts/test/ev24-lower-third.test.ts`.
-This local accepted commit need not be on default main or publicly retrievable.
+This is a historical acceptance pin; accepted implementation must also reach
+`main` before it counts as delivered. Rescue PRs #228/#229 carry these foundations.
 
 **S20:** [Producer acceptance of #20](https://github.com/mbelinkie/vera-script-to-timeline/issues/20#issuecomment-5504417300),
 commit `951c658bf06fc9b06caeab88c9d43809c41cef94`:
@@ -129,7 +135,8 @@ Do not substitute a title's display name or timestamp for an identity.
 file set, not just the setting's SHA-256. Rights/provenance changes can change
 package identity without changing artwork. S20 derives distinct registered,
 project item and project revision IDs; placed-use identity includes an exact
-project revision and resolved snapshot hash. Retain all of them in receipts.
+project revision and resolved snapshot hash. Preserve these product identities
+in the immutable package/use records; no separate workflow receipt is needed.
 
 S20 validates normalized relative POSIX paths (no traversal, absolute paths,
 backslashes or case-insensitive collisions), declared/provided file agreement,
@@ -233,14 +240,15 @@ ctx-wire run rtk npm run test --workspace @vera/contracts -- test/template-libra
 ctx-wire run rtk npm run test --workspace @vera/contracts -- test/ev24-lower-third.test.ts
 ```
 
-Expected accepted inventories are 15 and 12 respectively. These files may be
-absent on default main; retrieve accepted source first and do not merge it as a
-documentation side effect. Those old full passes certify their source revisions,
-not a new package, modern toolchain or current runtime. Apply the verification
-policy for focused checks, required review, fixes/delta checks, then final local
-evidence. Check coordinator/queue and in-flight validation/media jobs before
-heavy work. CI substitution is not qualified. Retain command, exit status,
-test inventory/skips, source/config/lock/input hashes and toolchain/environment.
+Historical accepted inventories were 15 and 12 respectively; current tests may
+have grown. If these files are absent from main, finish their delivery rescue
+before starting a dependent feature. Old passes do not certify a new package
+or runtime. Run focused checks and `npm run validate:fast` locally with the
+pinned Node runtime; full `npm run validate` runs only in GitHub Actions.
+Code issues get one read-only Claude CLI review; if unavailable, note that in
+the PR and continue. Docs-only changes skip review. The PR diff, short test
+summary and green Validate check are sufficient workflow evidence. Real
+Resolve behavior still needs targeted app checks; one agent drives Resolve.
 
 ## Troubleshooting and change control
 
@@ -260,12 +268,12 @@ Repairable intake work restores declared bytes, supplies missing factual
 provenance, fixes caller values within accepted semantics, or resolves an
 authorized local dependency. It never edits the supplied composition.
 Brand, licensing/distribution, new controls, fitting policy, minimum timing,
-Free fallback and supported-target changes need producer decisions. Shared
-schema/compiler changes need an approved contract-change note stating changes,
-breakage, generated types and acceptance effects. Frozen fixtures/accepted
-tests need explicit producer-approved change notes. If the assigned route is
-insufficient, retain evidence, mark Blocked with `needs:model-escalation`,
-release the claim and await steward-approved relabeling; do not broaden a slice.
+Free fallback and visible supported-target behavior need producer decisions
+when the product specification does not settle them. Agents decide technical
+schema/compiler, generated-type, fixture, golden, dependency and test changes
+and explain their effects in the PR; no approval note is needed. Correct an
+unsuitable model/effort route with a brief reason and continue. Keep larger
+unrelated discoveries in their own Inbox issue.
 
 For updates, retain R1 and supply R2 as a new exact candidate with new hashes,
 source revision and acceptance evidence. Compare controls, dependencies, rights,
@@ -274,51 +282,39 @@ modify production projects as an incidental package update (S12/S20/spec).
 
 ## Reusable Producer acceptance handoff
 
-Copy this checklist into the future package's acceptance record. Fill every
-bracket before handoff; label unsupported checks explicitly and explain their
-approved disposition. The producer approves a concrete package, not this guide.
+Complete the technical checks above first. Ask the Producer only for actual
+product/taste, rights, money, private-data or hands-on decisions. Fill the
+brackets and give this short checklist for a concrete package, not this guide.
 
 **Candidate:** `[template name / lineage / external revision]` for
 `[project ID]`; package digest `[sha256:...]`, project revision `[ID]`.
-**Exact artifacts:** `[approved private package locator]`, `[manifest and
-file-hash receipt]`, `[profile/control map]`, `[automated commands/results]`,
-`[Resolve edition/build/project/timeline]`, `[stills/motion/readback/reopen
-receipts]`, `[rights/provenance record]`. Public handoffs omit sensitive locators.
+**Open:** `[private preview or disposable Resolve project/timeline]` on
+`[Resolve edition/build]`. Agent technical checks and the rights/provenance
+summary are linked from the PR; public handoffs omit sensitive locators.
 
-1. Open the package and hash receipt. Compare every declared file and entry
-   point to the producer-supplied version. **Expected:** exact bytes, no extras,
-   source revision clear, test-only assets labeled and excluded from production.
-2. Open rights/provenance and project availability. Confirm brand, holder,
+1. Open the rights/provenance summary and project availability. Confirm brand, holder,
    permitted project/distribution and licensed local fonts. **Expected:** the
    exact destination and permissions are explicit; available fonts do not
    stand in for rights. Any unresolved permission is a failure.
-3. Open profile/control-map and automated report. Review valid and rejected
-   inputs, unknown IDs, missing text/assets and isolation. **Expected:** only
-   declared semantic inputs reach trusted targets, named failures leave no
-   partial state, and the result pins the exact package/revision.
-4. Open `[disposable Resolve project / timeline]`, select `[candidate clip]`
+2. Open `[disposable Resolve project / timeline]`, select `[candidate clip]`
    and its Inspector. Perform `[enumerated control/value cases with expected
    text/logo/diagnostic per case]`. **Expected:** readback and rendered result
    match; no stale clip, substituted font, silent fallback or foreign asset.
-5. Open `[minimum/long-duration timelines and frame-numbered evidence]`.
+3. Play `[minimum/long-duration timelines or previews]`.
    Compare entrance, held layout and exit at `[rates/resolutions/durations]`.
    **Expected:** approved timing and safe areas, duration changes hold only,
    readable unclipped text and explicit overflow. Judge layout, motion,
    typography, logo treatment and fitting visually; automation cannot accept
    those preferences.
-6. Save/reopen through the approved test workflow and compare `[reopen receipt
-   and stills]`. **Expected:** the exact graph/values/range and visual result
-   persist; unsupported capabilities are honestly recorded. Verify previous
-   clips/projects remain unchanged when testing a newer revision.
-7. Review `[project-library/copy receipt]`. **Expected:** authorized discovery,
-   exact revision and allowed availability only; any None/Some/All test honors
-   per-choice failures, rights and immutable destination ownership. If copy is
-   prohibited, confirm visible refusal, not an undocumented override.
+4. Judge whether the visual controls/defaults, optional fields and fitting
+   behavior are what you want. The agent verifies package identities,
+   authorization, copy isolation and save/reopen automatically or through
+   targeted app checks; the Producer need not repeat those technical tests.
 
 Record exactly one response on the package's issue:
 
 ```text
-ACCEPT #<issue> — I, <producer>, accept <template/revision/package digest> for project <ID>. Checklist steps 1–7 and the listed approved exceptions are satisfied; brand, asset/font rights, permitted distribution, semantic behavior and visual/timing results are approved for the recorded target.
+ACCEPT #<issue> — I accept <template/revision> for project <ID>: the listed rights, visual behavior and timing are approved for the recorded target.
 FAIL #<issue> — checklist step <number> failed: <observed mismatch>. Required correction or decision: <what is needed>.
 ```
 
@@ -328,11 +324,13 @@ templates. Future external and Producer gates stay binding.
 
 ## Documentation verification and remaining work
 
-Run the retained [audit](verification/issue-17/audit.mjs):
+The retained [historical audit](verification/issue-17/audit.mjs) was run against
+the original documentation-only baseline. Its whole-slice inventory check is
+not a modern-main integration gate. For a current docs edit, check links and
+whitespace; do not recreate historical inventories or hashes:
 
 ```sh
-ctx-wire run rtk node docs/verification/issue-17/audit.mjs
-ctx-wire run rtk git diff --check
+rtk ctx-wire run git diff --check
 ```
 
 The [verification record](verification/issue-17/verification.md) maps all seven
