@@ -515,6 +515,24 @@ def _validate_manifest_semantics(manifest: JsonObject) -> None:
             )
 
 
+def _validate_request_origins(
+    sources: Mapping[str, JsonObject],
+    requests: Mapping[str, _MaterializationRequest],
+) -> None:
+    """Require each mapped origin to still match its manifest content hash."""
+    for source_id, request in requests.items():
+        source = sources[source_id]
+        expected_hash = _hash_value(
+            cast(str, source["contentHash"]), f"source {source_id} hash"
+        )
+        actual_hash = _sha256_file(request.origin)
+        if actual_hash != expected_hash:
+            raise ResolveImportPackageError(
+                f"origin hash mismatch for source {source_id}: expected "
+                f"{expected_hash}, found {actual_hash}"
+            )
+
+
 def _probe(path: Path, executable: str) -> JsonObject:
     command = [
         executable,
@@ -1196,6 +1214,7 @@ def build_resolve_import_package(
     publication_time = _validate_verified_at(verified_at or _default_verified_at())
 
     if output.exists():
+        _validate_request_origins(sources, requests)
         try:
             verification = verify_resolve_import_package(
                 output, ffprobe_executable=ffprobe_executable
