@@ -21,7 +21,8 @@ import type {
   StartAttemptRequest,
   StartAttemptResponse,
 } from "@vera/contracts";
-import { describe, expect, it } from "vitest";
+import { chromium } from "playwright";
+import { describe, expect, it, vi } from "vitest";
 
 import { validateProvenance } from "../src/contracts.js";
 import { sha256 } from "../src/crypto.js";
@@ -70,6 +71,49 @@ const readyJob = JSON.parse(
     "utf8",
   ),
 ) as { readonly job: CaptureJobView };
+
+function sanitizedLaunchDiagnostics(error: unknown): {
+  readonly message: string;
+  readonly name: string;
+  readonly stderr: readonly string[];
+} {
+  const message = error instanceof Error ? error.message : "Unknown launch error.";
+  const sanitize = (value: string): string =>
+    value
+      .replace(/\b[a-z][a-z\d+.-]*:\/\/\S+/gi, "<URL>")
+      .replace(/\/(?:Users|home|tmp|var\/folders)\/\S+/g, "<PATH>");
+  const stderr = message
+    .split("\n")
+    .filter((line) => /\[pid=\d+\]\[err\]/.test(line))
+    .map((line) =>
+      sanitize(line.replace(/^.*?\[err\]\s*/, "")),
+    )
+    .filter((line) =>
+      /\b(?:ERROR|FATAL|sandbox|namespace|setuid|permission|not permitted|error while loading|cannot open shared object|no such file)\b/i.test(line),
+    )
+    .slice(-8);
+  return {
+    message: sanitize(message.split("\n", 1)[0] ?? "Unknown launch error.").slice(
+      0,
+      240,
+    ),
+    name: error instanceof Error ? error.name : "UnknownError",
+    stderr,
+  };
+}
+
+it("redacts paths and URLs from launch diagnostics", () => {
+  const diagnostic = sanitizedLaunchDiagnostics(
+    new Error(
+      "https://capture.example.org/page /home/runner/cache\n" +
+        "[pid=1][err] ERROR: sandbox denied access to /tmp/profile",
+    ),
+  );
+
+  expect(diagnostic.message).not.toContain("https://");
+  expect(diagnostic.message).not.toContain("/home/");
+  expect(diagnostic.stderr).toEqual(["ERROR: sandbox denied access to <PATH>"]);
+});
 
 function assignment(url = "https://capture.example.org/story"): LeaseAssignment {
   return {
@@ -358,14 +402,39 @@ describe("LocalPublicPageCaptureWorker browser boundary", () => {
   it("renders a guarded isolated synthetic page as a 3840x2160 PNG", async () => {
     const protocol = new FixtureProtocol(assignment());
     const transport = new FixtureTransport();
+    let launchFailure: unknown;
+    const originalLaunch = chromium.launch.bind(chromium);
+    const launchSpy = vi.spyOn(chromium, "launch").mockImplementation(async (options) => {
+      try {
+        return await originalLaunch(options);
+      } catch (error) {
+        launchFailure = error;
+        throw error;
+      }
+    });
+    let result: Awaited<ReturnType<LocalPublicPageCaptureWorker["runOnce"]>>;
+    try {
+      result = await worker(
+        protocol,
+        new FixtureResolver(),
+        transport,
+      ).runOnce();
+    } finally {
+      launchSpy.mockRestore();
+    }
 
-    const result = await worker(
-      protocol,
-      new FixtureResolver(),
-      transport,
-    ).runOnce();
-
-    expect(result.kind).toBe("committed");
+    expect(
+      result.kind,
+      result.kind === "failed"
+        ? JSON.stringify({
+            denial: result.denial,
+            isolation: result.isolation,
+            launch: launchFailure
+              ? sanitizedLaunchDiagnostics(launchFailure)
+              : null,
+          })
+        : undefined,
+    ).toBe("committed");
     expect(result.isolation).toEqual({
       browserLaunched: true,
       directNetworkFallback: false,
