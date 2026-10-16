@@ -1323,6 +1323,51 @@ def test_geometry_rechecks_source_audio_controls_after_reopen(tmp_path: Path) ->
         native._capture_geometry(resolve, request, admitted, None)
 
 
+@pytest.mark.parametrize(
+    ("source_audio", "speed"),
+    [
+        (False, {"Percentage": 100.0}),
+        (True, {"Percentage": 100.0, "PitchCorrection": True}),
+    ],
+)
+def test_geometry_accepts_installed_speed_option_shapes(
+    tmp_path: Path, source_audio: bool, speed: dict[str, Any]
+) -> None:
+    resolve, request, admitted, item, _timeline = _geometry_case(
+        tmp_path, source_audio=source_audio
+    )
+    item.speed = speed
+
+    geometry = native._capture_geometry(resolve, request, admitted, None)
+
+    assert geometry["items"][0]["sourceDuration"] == 10
+
+
+@pytest.mark.parametrize(
+    "speed",
+    [
+        {},
+        {"PitchCorrection": False},
+        {"Percentage": True},
+        {"Percentage": 99.0},
+        {"Percentage": float("nan")},
+        {"Percentage": float("inf")},
+        {"Percentage": 100.0, "PitchCorrection": "true"},
+        {"Percentage": 100.0, "StretchKeyframesToFit": True},
+        {"Percentage": 100.0, "RippleTimeline": True},
+        {"Percentage": 100.0, "UnreviewedOption": False},
+    ],
+)
+def test_geometry_rejects_malformed_or_unsafe_speed_options(
+    tmp_path: Path, speed: dict[str, Any]
+) -> None:
+    resolve, request, admitted, item, _timeline = _geometry_case(tmp_path)
+    item.speed = speed
+
+    with pytest.raises(OutputConsistencyError):
+        native._capture_geometry(resolve, request, admitted, None)
+
+
 @pytest.mark.parametrize("drift", ["speed", "fractional_frame", "marker"])
 def test_geometry_refuses_unqualified_speed_frame_or_marker_drift(
     tmp_path: Path, drift: str

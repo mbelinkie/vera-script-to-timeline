@@ -2868,19 +2868,32 @@ def _capture_geometry(
                     "native item lies outside programme extent",
                 )
                 speed = item.GetSpeed()
-                speed = _shape(
-                    speed,
-                    "Percentage PitchCorrection StretchKeyframesToFit RippleTimeline",
-                    "native speed options",
+                allowed_speed_options = frozenset(
+                    {
+                        "Percentage",
+                        "PitchCorrection",
+                        "StretchKeyframesToFit",
+                        "RippleTimeline",
+                    }
+                )
+                _require(
+                    type(speed) is dict
+                    and "Percentage" in speed
+                    and speed.keys() <= allowed_speed_options,
+                    "closed native speed options shape",
                 )
                 _require(
                     type(speed["Percentage"]) in {int, float}
                     and speed["Percentage"] == 100
-                    and type(speed["PitchCorrection"]) is bool
-                    and type(speed["StretchKeyframesToFit"]) is bool
-                    and speed["StretchKeyframesToFit"] is False
-                    and type(speed["RippleTimeline"]) is bool
-                    and speed["RippleTimeline"] is False,
+                    and (
+                        "PitchCorrection" not in speed
+                        or type(speed["PitchCorrection"]) is bool
+                    )
+                    and all(
+                        option not in speed
+                        or (type(speed[option]) is bool and speed[option] is False)
+                        for option in ("StretchKeyframesToFit", "RippleTimeline")
+                    ),
                     "non-unit/unreadable native speed",
                 )
                 _require(item.GetClipEnabled() is True, "disabled native item")
