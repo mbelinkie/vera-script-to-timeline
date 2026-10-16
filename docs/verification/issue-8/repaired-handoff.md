@@ -78,6 +78,17 @@ No overrides64 build authorization is inferred from this visual acceptance.
 
 ## Current installed request — Otis64 PREFLIGHT only
 
+Preflight now passed Studio21.1.1build10/injected3.14.7/verifier3.12.14,
+finished2026-10-16T04:01:18.451571+00:00, no discrepancies, no graphic
+observations/verifiedfalse. Actual result
+out/issue8/native-evidence-75325e0/otis-64/result-8ccb6618a35641d28636fa9b6e65f53e.json
+SHA2566b39c4f17a95492a7e9940916020e3cc638e8acf528d42ec8c7a52ce05a69660
+matches companion and installed request/release/graphic-attestation hashes.
+Checkpoint: out/issue8/otis64-preflight-checkpoint.json. No build authorization
+or None operator statement inferred from “done”. Next quit Resolve, authorize
+only Otis64 target953d849f3f63 and confirm current External Scripting None
+before any build-request preparation/install. Do not repeat this preflight.
+
 Producer said “install next” after the Otis64 preflight proposal. Resolve
 closed before/after guarded request-only swap. Archived consumed overrides64
 build request (2e94fc4c...) outside discovery at

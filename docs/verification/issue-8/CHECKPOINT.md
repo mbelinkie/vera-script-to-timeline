@@ -1100,3 +1100,21 @@ Next operator: fresh Resolve/None, ORIGINAL separate saved disposable current
 project/timeline on Edit (not generated VERA target), Graphics ONCE; return
 preflight result or first refusal. No new project creation expected. Explicit
 exact-target build authorization required after successful preflight; #8 open.
+
+### Otis64 actual preflight passes — explicit build gate remains
+
+Operator said “done”. Actual result8ccb6618a35641d28636fa9b6e65f53e in
+out/issue8/native-evidence-75325e0/otis-64 is preflight_passed, no discrepancies,
+verifiedfalse/no graphic observations. Finished2026-10-16T04:01:18.451571+00:00,
+Studio21.1.1build10/injected3.14.7/verifier3.12.14, exact target953d849f3f63.
+ResultSHA6b39c4f17a95492a7e9940916020e3cc638e8acf528d42ec8c7a52ce05a69660
+matches companion; prepared/installed request967d979a..., releaseb00dccc6...,
+attestation251c0913... hashes match. Checkpoint:
+out/issue8/otis64-preflight-checkpoint.json.
+
+No native build, source/installed-request/settings change or test rerun by
+agent. “done” does not authorize a build or confirm None; result statementnull
+is expected for preflight. Next Producer quits Resolve, explicitly authorizes
+only Otis64 target953d849f3f63 and confirms current None before preparing or
+installing a build request. Prior native and visual passes retained; remaining
+actual native/render/timing/isolation acceptance and #8 closure still pending.
