@@ -5,7 +5,9 @@ import hashlib
 import html
 import math
 import re
+import shutil
 import struct
+import tempfile
 import uuid
 from collections.abc import Callable
 from pathlib import Path
@@ -81,12 +83,8 @@ class FrameProvider:
         )
 
 
-def inputs(root: Path) -> tuple[NarrationService, FrameProvider, str]:
-    _visual_inputs(root)
-    doc = load_operator_json(root / "script-document.json")
-    deps = load_operator_json(root / "compiler-dependencies.json")
-    provider = FrameProvider()
-    service = NarrationService(
+def _service(root: Path, provider: FrameProvider) -> NarrationService:
+    return NarrationService(
         cache=NarrationCache(root / "narration-cache"),
         provider=provider,
         normalizer=Normalizer(),
@@ -102,6 +100,14 @@ def inputs(root: Path) -> tuple[NarrationService, FrameProvider, str]:
             )
         ),
     )
+
+
+def _build_inputs(root: Path) -> tuple[NarrationService, FrameProvider, str]:
+    _visual_inputs(root)
+    doc = load_operator_json(root / "script-document.json")
+    deps = load_operator_json(root / "compiler-dependencies.json")
+    provider = FrameProvider()
+    service = _service(root, provider)
     first = doc["activeDraft"]["blocks"][1]
     _row(first, "Alpha Bravo Charlie Delta Echo Foxtrot Golf Hotel", "omission-first")
     first["hostVisibilitySpans"][0]["state"] = "voiceover"
@@ -168,6 +174,36 @@ def inputs(root: Path) -> tuple[NarrationService, FrameProvider, str]:
     provider.requests.clear()
     provider.revised = True
     return service, provider, first["id"]
+
+
+_INPUT_TEMPLATE: tempfile.TemporaryDirectory[str] | None = None
+
+
+def inputs(root: Path) -> tuple[NarrationService, FrameProvider, str]:
+    """Clone immutable synthetic proof inputs into an independent test root."""
+    global _INPUT_TEMPLATE
+    if _INPUT_TEMPLATE is None:
+        template = tempfile.TemporaryDirectory(
+            prefix="issue144-omission-inputs-",
+            dir=Path(tempfile.gettempdir()).resolve(),
+        )
+        _build_inputs(Path(template.name) / "proof")
+        _INPUT_TEMPLATE = template
+
+    template_root = Path(_INPUT_TEMPLATE.name) / "proof"
+    shutil.copytree(template_root, root)
+
+    plan_path = root / "materialization-plan.json"
+    plan = load_operator_json(plan_path)
+    for row in plan.values():
+        row["origin"] = str(root / Path(row["origin"]).relative_to(template_root))
+    plan_path.write_bytes(_receipt_bytes(plan))
+
+    document = load_operator_json(root / "script-document.json")
+    row_id = document["activeDraft"]["blocks"][1]["id"]
+    provider = FrameProvider()
+    provider.revised = True
+    return _service(root, provider), provider, row_id
 
 
 class OmissionBoundary(Boundary):
