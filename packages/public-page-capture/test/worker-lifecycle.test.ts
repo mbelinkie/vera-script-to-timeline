@@ -412,9 +412,16 @@ describe("capture worker lease lifecycle", () => {
       supportedProfileDigests: [CAPTURE_PROFILE_V1.profileDigest],
     });
     const validLease = proof(claimed.assignment, null);
+    const signatureStart = validLease.leaseCapability.lastIndexOf(".") + 1;
+    const firstSignatureCharacter =
+      validLease.leaseCapability[signatureStart];
+    // The final base64url symbol has unused pad bits, so change the first
+    // signature character to guarantee that the decoded HMAC bytes differ.
     const lease: LeaseProof = {
       ...validLease,
-      leaseCapability: `${validLease.leaseCapability.slice(0, -1)}x`,
+      leaseCapability: `${validLease.leaseCapability.slice(0, signatureStart)}${
+        firstSignatureCharacter === "A" ? "B" : "A"
+      }${validLease.leaseCapability.slice(signatureStart + 1)}`,
     };
 
     await expect(

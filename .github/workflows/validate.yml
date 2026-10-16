@@ -36,6 +36,11 @@ jobs:
       - name: Install TypeScript dependencies
         run: npm ci
 
+      # Capture tests launch Chromium directly; npm ci installs Playwright but
+      # does not provision its browser binary or Linux system dependencies.
+      - name: Install Chromium for capture tests
+        run: npx playwright install --with-deps chromium
+
       - name: Set up uv and Python
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
