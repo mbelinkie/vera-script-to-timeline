@@ -823,3 +823,36 @@ fix or by a future installation approval. Producer must explicitly authorize
 the new full target after fresh preflight. Do not launch old menu/request.
 Native64/120matrix, reopen checks, atlas/badge pixels, renders/visual judgment
 and new-build-only changed value remain outstanding; issue stays In review.
+
+### Repaired preflight installed; interrupted turn safely resumed
+
+Producer explicitly authorized “install repaired preflight”. Resolve process
+checks were empty; immediate guarded swap checked again before mutation. Old
+exact VERA Graphics v1.py and vera-graphics-v1 directory (including consumed
+old request) were MOVED, not deleted, to out/issue8/installation-archive-75325e0
+outside discovery. Copied only the new repaired Graphics entries plus new
+standard64 PREFLIGHT request, mode0400. No Delivery/other plugin/project or
+preferences were touched; no Resolve launch/native API/build/render happened.
+
+Before and after read-only audits passed exact source hashes,11declared files,
+full file/directory closure, immutable request/target/flags, full handoff and
+archive hashes. All unrelated top-level plugin inode/mode/size/mtime snapshots
+equal. Turn interruption occurred AFTER successful swap and after-audit. On
+“resume”, rechecked the already installed candidate and archive (no repeat
+install); same audit passes and Resolve remains closed, evidence directory
+absent. All3audit logs SHA256
+`7f812fbc25217ccdf8652604c329eac56b4b470e3accd96911a25f6248b99596`.
+Durable record: out/issue8/repaired-installation-receipt.json.
+
+Installed release b00dccc6023e4e39f101bf71a133d871ebcf9c758e398fc11f36897661253aa3;
+installed request21813459351e0863918c1e209cd6a8c2a56a3e5801b17db852d601360e221aa8.
+Actionpreflight/authorizeNewNonproductionfalse/externalScriptingnull; target
+VERA Delivery 88000000-0000-4000-8000-000000000001 d6c79d790514.
+No current None setting confirmation inferred from installation approval.
+Next operator: fresh Resolve interpreter, confirm None, ORIGINAL separate
+saved disposable current project/timeline on Edit (neither failed target),
+Workspace > Workflow Integrations > VERA Graphics v1 ONCE. Expect
+preflight_passed/new exact target above, with NO new project creation. Return
+result path or first refusal; do not rerun uncertain invocation. A new native
+build still requires separate explicit exact-target authorization. All actual
+External/visual gates remain pending; #8 is not closed.

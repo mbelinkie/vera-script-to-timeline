@@ -2,10 +2,11 @@
 
 **Superseded operator instructions.** The current repaired candidate and
 next safe steps are in [repaired-handoff.md](repaired-handoff.md). New reviewed
-full validation passed729Python cases with durable exit0; new release and
-fresh preflight targets are prepared but NOT installed/authorized for builds.
-Do NOT launch the old installed Graphics menu: its request still names the
-consumed failed first target. Both old native targets/evidence stay untouched.
+full validation passed729Python cases with durable exit0; the repaired release
+and fresh standard64 PREFLIGHT are now installed under explicit Producer
+authorization. The old consumed build request is archived outside discovery;
+no fresh build is authorized. Follow only the new repaired handoff for the
+one-shot preflight. Both old native targets/evidence stay untouched.
 The remainder of this document is the historical pre-repair artifact/installation
 record, not current execution instructions or native acceptance.
 

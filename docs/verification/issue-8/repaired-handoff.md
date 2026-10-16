@@ -1,10 +1,13 @@
-# #8 repaired graph-persistence candidate — ready for installation approval
+# #8 repaired graph-persistence candidate — preflight installed
 
-Automated verification is complete. The repaired release is prepared but NOT
-installed. No successful new native build, render, visual acceptance or issue
+Automated verification is complete. Producer explicitly authorized “install
+repaired preflight”; the repaired Graphics release and new standard64 preflight
+request are now installed and verified. The interruption happened after the
+successful file swap/audit; “resume” reverified it without reinstalling.
+No successful new native build, render, visual acceptance or issue
 closure is claimed. Preserve both failed native targets and all old evidence.
-Do not launch the old installed Graphics menu: it still carries the consumed
-first-target build request. Approval of normalization is not build authorization.
+The consumed old build request is now safely archived outside the plugin root,
+not installed. Approval of normalization/installation is not build authorization.
 
 ## Qualifying evidence
 
@@ -77,14 +80,18 @@ Rufflint/format. This covers the new equivalent copies without another full run.
 UUIDs still identify the same immutable compiled packages, but each attestation
 has a new target nonce. None is the old failed target or an overwrite request.
 
-## Next operator sequence — not yet authorized/executed
+## Next operator sequence — fresh preflight not yet executed
 
-1. Ask the Producer to close Resolve and approve installing the repaired
-   Graphics files plus the new standard64 PREFLIGHT request. Agent may then
-   archive the exact old Graphics installation/request outside the plugin
-   discovery root, install only the two Graphics entries, verify full inventory
-   and byte hashes. Leave Delivery, other plugins and all Resolve projects alone.
-2. After that installation is confirmed, Producer restarts Resolve with a fresh
+1. Installation is complete under “install repaired preflight”. Resolve was
+   closed before and after the swap and on resumed audit. Exact old Graphics
+   entries/request are preserved in out/issue8/installation-archive-75325e0,
+   outside plugin discovery. Only the two Graphics entries were replaced;
+   all11declared files and exact file/directory closure match the tested release.
+   Unrelated plugin entry inode/mode/size/mtime stayed unchanged. No settings,
+   project or native action occurred. Request mode0400, actionpreflight,
+   authorizationfalse, externalScriptingnull. Receipt:
+   out/issue8/repaired-installation-receipt.json.
+2. Producer starts Resolve with a fresh
    interpreter, confirms External Scripting None, opens the ORIGINAL separate
    saved disposable current project/timeline on Edit (not either failed target)
    and invokes Graphics once. Expected status is preflight_passed, with the new
@@ -99,7 +106,8 @@ has a new target nonce. None is the old failed target or an overwrite request.
    changed-build isolation remain required under the operator checklist. Keep
    #8 In review until that External evidence and required visual acceptance exist.
 
-Installed release remains f955e0f46993028a951d3331f9ce6aaba0bd510134590b73e2e9c481c3956614;
-installed old request remains6c00fb4a4f1e9c0377ea4b068fbf55dc6dc41ebc96332c4b5d8d17edffe22cfb.
-Preparation asserted full installed file inventory/launcher equality before and
-after. No install, global setting, native target or render was changed.
+Installed release is now b00dccc6023e4e39f101bf71a133d871ebcf9c758e398fc11f36897661253aa3;
+installed PREFLIGHT request is21813459351e0863918c1e209cd6a8c2a56a3e5801b17db852d601360e221aa8.
+Archived old release/request retain hashes f955e0f4.../6c00fb4a... exactly.
+All pre-swap, post-swap and resumed-audit logs pass. Resolve was not launched;
+the new native evidence directory is still absent. No build is authorized.
