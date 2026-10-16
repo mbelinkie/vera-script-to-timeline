@@ -86,8 +86,15 @@ generated currentness, frozen boundaries and git diff --check.
 Use disposable issue-owned Resolve projects/new timelines after establishing
 a safe application baseline. Retain the actual edition/build, source and asset
 hashes, semantic readback and start/duration/track before and after reopen.
-Render standard auto-fill, explicit text overrides and Otis at both 64 and
-120 frames. A changed value must appear only in a newly generated timeline.
+Producer-approved2026-10-16 [matrix reduction](../verification/issue-8/acceptance-matrix-reduction.md)
+supersedes the original requirement to render all three configurations at both
+durations. Retain the three completed64-frame native/visual cases, then use
+one revised120-frame build for long hold and changed-value isolation. Retain
+timing renders from existing overrides64 and new revised120; verify48-frame
+entrance,16-frame exit and56extra hold frames. The prior project/timelines and
+The Code/Nemo values must remain unchanged. Existing64 vs new120 is not a
+same-duration one-field native A/B comparison. Unused prepared variants remain
+retained, not passed. Actual native, visual, timing and isolation gates remain.
 Provide the exact project/timeline and artifacts in a short ordered operator
 accept/fail checklist for the remaining visual judgment. External acceptance
 cannot be replaced by mocks or CI; remain In review until it is retained.

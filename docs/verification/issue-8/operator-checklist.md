@@ -1,24 +1,25 @@
 # Issue #8 — External acceptance checklist (operator gates pending)
 
-Status: native acceptance is **not established**. No #8 project, composition
-or render has been created. Do not interpret a package verification pass as
-Fusion placement. The `Transport` directory is internal media scaffolding;
-never build it directly to accept graphics.
+Status: three64-frame native builds and scoped visual checks passed. Final
+120-frame timing/new-build isolation and retained timing renders remain pending.
+Producer explicitly approved the [reduced matrix](acceptance-matrix-reduction.md)
+on2026-10-16. This supersedes the original six-combination checklist; unused
+variants are not passed. `Transport` remains internal media scaffolding,
+never a direct graphics acceptance route.
 
 ## Preconditions
 
 Complete the reviewed-source fast/slow/full gates first. The Producer approved
 adapting #8 to #109's injected path for Studio21.1.1/build10. That path is now
-implemented and reviewed; a source-bound release and seven handoffs are
-prepared. Complete full validation passed with a durable exit0 and644Python
-cases; no unchanged rerun remains. #219's exclusive window and #8's heavy run
-have both ended. Fresh EV24 native qualification remains pending. The last
-operator-reported External Scripting value was Local; actual None confirmation
-is still required. The old external CLI still refuses this installation.
-Do not edit a receipt, fabricate LocalFacts or enable external scripting.
-Follow [injected delivery](injected-delivery.md) for operator-owned installation,
-preflight and launch, then perform this visual checklist. No new adaptation
-approval is needed; actual installation, preference and visual gates remain.
+implemented and reviewed. Repaired source75325e0 passed qualifying full exit0,
+729Python cases plus439contracts/all required stages; the old644-case pass
+does not qualify the repaired source. Three actual injected builds now verify
+onStudio21.1.1build10/Python3.14.7. Preserve original failed evidence. Follow
+[repaired handoff](repaired-handoff.md) for current release/requests/target
+nonces, not old installed-request instructions. Each new build still requires
+its own successful preflight, exact disposable-target approval and current
+External Scripting None statement. Do not edit a receipt, fabricate LocalFacts,
+enable external scripting or infer authorization from matrix-plan approval.
 
 ## Prepared matrix
 
@@ -32,25 +33,24 @@ V4. The stable graphic-use ID is
 | `standard-64` | `000000000001` | 64 | Finland, 2024; blank text overrides |
 | `overrides-64` | `000000000002` | 64 | Finland, 2024; The Code / Nemo |
 | `otis-64` | `000000000003` | 64 | Otis; Year omitted; blank text overrides |
-| `standard-120` | `000000000004` | 120 | Finland, 2024; blank text overrides |
-| `overrides-120` | `000000000005` | 120 | Finland, 2024; The Code / Nemo |
-| `otis-120` | `000000000006` | 120 | Otis; Year omitted; blank text overrides |
 | `revised-120` | `000000000007` | 120 | Finland, 2024; The Code — revised / Nemo |
 
-Full build UUIDs have prefix `88000000-0000-4000-8000-`. The first six
-packages are retained and verified. The seventh is a new actually compiled
-one-field revision; its package and independent attestation are now prepared.
-All seven preflight-only requests are listed in [prepared handoff](prepared-handoff.md).
-Fresh inputs are retained in
-`out/issue8/revision-inputs`; all original six manifests/reports and registered
-template files compare byte-identical to the earlier input set. Do not run or
-accept an absent package artifact.
+Full build UUIDs have prefix `88000000-0000-4000-8000-`. Current target suffixes:
+standard64d6c79d790514, overrides64959ff2d2d1a0, Otis64953d849f3f63,
+revised120512372ce6db1. First three native/visual cases are completed; do not
+rebuild consumed targets. Prepared standard120/overrides120/Otis120 artifacts
+remain retained but are no longer required native cases under this amendment.
+The revised120 compiler input is the retained one-field revision of unbuilt
+overrides120. Our native unchanged-text reference is existing overrides64:
+different durations, not a same-duration one-field native A/B.
 
 ## Ordered accept/fail checks
 
-1. Save a disposable nonproduction current project manually. Record its project
-   name and timeline names/counts. No production project is in scope.
-2. For each matrix package, use its source-bound graphics attestation and
+1. Before the final build, record the original separate saved disposable
+   current project's name and timeline names/counts. Also record existing
+   overrides64 target959ff2d2d1a0 timeline names/counts and The Code/Nemo values.
+   No production project is in scope; do not edit an old timeline for this test.
+2. For the remaining revised120 package only, use its source-bound attestation and
    **preflight request** with Workspace > Workflow Integrations > VERA Graphics
    v1, following the injected guide. Require `preflight_passed`, actual connected
    edition/version/build and the exact fresh target names from `graphic.json`.
@@ -64,28 +64,31 @@ accept an absent package artifact.
    `VERA Delivery <full build UUID> <12-hex unique suffix>`, pinned in the
    attestation and request. They never reuse an existing
    target. Retain any partial target on failure; do not delete or repair it.
-4. In each saved/reopened target, open Edit and select the V4 graphic. Check
-   start 0 and duration exactly 64 or 120 frames. In Fusion confirm the exact
-   pinned EV24 composition, trusted values and built-in badge. Blank overrides
-   must show authored auto-fill. Otis must use authored Otis behavior without
-   a Year assignment. Explicit overrides must display The Code / Nemo.
-5. Play and retain a render of each of the six original cases. Confirm the
-   authored 48-frame entrance and 16-frame exit at both durations; the extra
-   56 frames in the 120-frame case are hold, not stretched entrance/exit.
-   Check actual badge pixels and text, including after reopen. Record exact
-   render paths/hashes; no render is currently supplied by this task.
-6. Compare `overrides-120` with the separately built `revised-120`: only the
-   new timeline displays The Code — revised; both keep Nemo and the Finland
-   built-in badge. Reopen the old project and confirm it still displays The
-   Code. Confirm the original disposable project's timeline list/count is
-   unchanged. Do not edit the old timeline to perform this check.
+4. In saved/reopened revised120, select V4 and check start0/duration120, pinned
+   EV24 composition, The Code — revised/Nemo and Finland built-in badge. Hide
+   the known authored V5 UNRESOLVED VISUAL scaffold for inspection; do not change
+   V4 duration. Preserve the accepted appearance evidence from the three64
+   cases. Standard64 was manually extended, so is not the timing reference.
+5. Retain renders from existing overrides64 and new revised120, with paths and
+   hashes. Confirm48-frame entrance and16-frame exit in each, plus56hold frames
+   in120, not stretched animation. Isolate V4 from V5's authored warning for
+   those renders without editing package bytes or clip durations. Check badge
+   pixels/text after reopen. Do not require six repeated combination renders.
+6. Compare existing `overrides-64` with separately built `revised-120`: only the
+   new timeline displays The Code — revised; both keep Nemo/Finland badge.
+   Reopen the old project and confirm The Code and its recorded timeline
+   names/counts remain unchanged; compare the original separate disposable
+   project's recorded timeline list/count too. Different clip durations are
+   intentional here; do not claim a same-duration one-field native A/B.
 7. Retain the exact delivered revision, native result files/hashes, actual
    runtime/build, project/timeline names, post-reopen graphic observations and
    visual/render evidence. Reply:
-   `Accepted #8: six visual/timing cases and one-field new-build isolation
-   pass after reopen; result files <names/hashes>; existing timelines unchanged.`
+   `Accepted #8 under the approved reduced matrix: three64-frame configuration
+   checks and revised120 pass after reopen; retained64/120timing evidence and
+   new-build isolation pass; result/render files <names/hashes>; earlier
+   projects/timelines unchanged.`
    Or report the first failed step, exact target and result/artifact reference.
 
 The issue remains open until the automated and actual External gates pass.
-No badge override, Free baking, global installation, merge or deployment is
-authorized by this checklist.
+No badge override, Free baking, additional installation, merge or deployment
+is authorized by this checklist. Matrix approval is not a build authorization.

@@ -1213,3 +1213,26 @@ and new-build isolation in one revised120 build against existing overrides64,
 retain actual timing/render evidence, acknowledge different-duration baseline
 rather than claiming a same-duration one-field A/B. Proposal not yet approved;
 no product/frozen-test/fixture/contract change or native acceptance inferred.
+
+### Producer approves reduced final native acceptance plan
+
+Producer replied “Yes” to one final revised120 build covering long hold and
+new-build isolation rather than the remaining full combination matrix.
+Approved note: acceptance-matrix-reduction.md; plan/operator-checklist updated.
+Keep three completed64native/visual cases; remaining final target512372ce6db1
+has The Code — revised/Nemo/Finland2024/start0/V4/120frames. Compare existing
+overrides64 target959ff2d2d1a0 as unchanged reference, explicitly different
+durations (not a same-duration native one-field A/B). Retain timing renders of
+existing overrides64/new revised120 to establish48entrance/16exit and56hold;
+record original-disposable and old-reference timeline names/counts before/after.
+Unused standard120/overrides120/Otis120 packages retained, not reported passed.
+
+Final preflight SHA37e268d5b04fbca0f6ed957b153990c7fe2af8a12ce3c874402d5817cc34756c
+and attestation50dadcfa... match actual package hashes/semantics/range/Transport
+binding. Earlier resulte2203bd6... unchanged; final native evidence absent.
+Resolve runningPID39633; installed standard120 preflighta3ab1346... and
+releaseb00dccc6... remain unchanged. No native/install/settings/source action.
+Next quit and final-preflight install approval; exact build authorization still
+required after actual successful final preflight. No closure/acceptance inferred
+from plan approval. Only docs/private state change, no frozen tests/contracts/
+fixtures/product byte changes or full rerun. #8 remains open/In review.

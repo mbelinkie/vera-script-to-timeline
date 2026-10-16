@@ -76,7 +76,24 @@ Its source-bound preflight request is already prepared. Wait for closed Resolve
 and request-install approval before swapping the consumed standard64 request.
 No overrides64 build authorization is inferred from this visual acceptance.
 
-## Current installed request — standard120 PREFLIGHT; hold for matrix decision
+## Current installed request — unused standard120 PREFLIGHT; final swap pending
+
+Producer replied “Yes” to the reduced final-check proposal. The
+[approved amendment](acceptance-matrix-reduction.md) and updated
+[operator checklist](operator-checklist.md) now replace the full six-combination
+matrix: keep three completed64native/visual cases, one final revised120 build,
+timing renders from existing overrides64/new revised120, and unchanged-old/
+original-disposable timeline evidence. Skipped three120variants are not passed.
+Different-duration native comparison is explicit, not a same-duration A/B.
+
+Current installed request remains standard120 preflight, unchanged. Do not
+launch it. Final revised120 preflight is prepared/verified but not installed,
+requestSHA37e268d5b04fbca0f6ed957b153990c7fe2af8a12ce3c874402d5817cc34756c,
+target512372ce6db1, graphic-attestationSHA50dadcfa56db12f2ca8444340dfe3ad891ce819dec62214d8f08eb7ffe50bdca.
+All package hashes/semantic range and old overrides64 result rechecked. Resolve
+runningPID39633, no swap/native call. Next quit Resolve and approve installation
+of final preflight. “Yes” approves evidence-plan reduction only, no build flags,
+settings changes/native action, visual acceptance or closure.
 
 Producer authorized next preflight, then “closed”. Initial process check still
 found ResolvePID33711 and stopped without mutation; after “closed”, immediate
