@@ -21,6 +21,32 @@ from vera_timeline_agent.roundtrip_proof import ProofSession
 pytestmark = pytest.mark.slow
 
 
+def test_cached_omission_inputs_are_isolated_between_roots(tmp_path: Path) -> None:
+    first_root, second_root = tmp_path / "first", tmp_path / "second"
+    first_service, first_provider, first_row = inputs(first_root)
+    first_plan = load_operator_json(first_root / "materialization-plan.json")
+    first_origins = [Path(row["origin"]) for row in first_plan.values()]
+    assert all(
+        path.is_absolute() and path.is_relative_to(first_root) for path in first_origins
+    )
+    origin = next(path for path in first_origins if "narration-cache" in path.parts)
+    relative_origin = origin.relative_to(first_root)
+    original_asset = origin.read_bytes()
+    origin.write_bytes(b"changed only in the first test root")
+
+    second_service, second_provider, second_row = inputs(second_root)
+    second_plan = load_operator_json(second_root / "materialization-plan.json")
+    second_origins = [Path(row["origin"]) for row in second_plan.values()]
+    assert all(
+        path.is_absolute() and path.is_relative_to(second_root)
+        for path in second_origins
+    )
+    assert (second_root / relative_origin).read_bytes() == original_asset
+    assert first_row == second_row
+    assert first_service is not second_service
+    assert first_provider is not second_provider
+
+
 def setup(
     tmp_path: Path,
     *,
