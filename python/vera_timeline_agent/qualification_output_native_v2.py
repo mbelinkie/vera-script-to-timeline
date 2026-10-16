@@ -2846,7 +2846,7 @@ def _capture_geometry(
                     )
                     and duration > 0
                     and record_end - record_start in {duration, duration - 1}
-                    and source_end >= source_start,
+                    and source_end > source_start,
                     "unsupported native range getter",
                 )
                 _require(
@@ -2915,9 +2915,11 @@ def _capture_geometry(
                     )
                     expected_source_start = source_range["startFrame"]
                     expected_source_duration = source_range["durationFrames"]
+                # Resolve 21.1.1/10 reports an exclusive GetSourceEndFrame.
+                source_duration = source_end - source_start
                 _require(
                     source_start == expected_source_start
-                    and source_end + 1 - source_start == expected_source_duration,
+                    and source_duration == expected_source_duration,
                     "native source range differs "
                     f"(track={kind}:{index}, itemUid={uid}, eventId={event_id}, "
                     f"start={source_start}, end={source_end}, "
@@ -2972,7 +2974,7 @@ def _capture_geometry(
                         "recordStart": record_start,
                         "recordDuration": duration,
                         "sourceStart": source_start,
-                        "sourceDuration": source_end + 1 - source_start,
+                        "sourceDuration": source_duration,
                         "linkedItemUids": linked_uids,
                         "online": True,
                         "enabled": True,

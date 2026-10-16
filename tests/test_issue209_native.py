@@ -685,7 +685,7 @@ class _Item:
         }
         self.true_start = 0
         self.source_start_frame = 12
-        self.source_end_frame = 21
+        self.source_end_frame = 22
 
     def GetUniqueId(self) -> str:
         return "timeline-item-one"
@@ -1279,6 +1279,23 @@ def test_geometry_uses_verified_source_root_and_checks_exact_native_ranges(
     assert geometry["extentFrames"] == 10
 
 
+@pytest.mark.parametrize("source_end_frame", [21, 23])
+def test_geometry_rejects_source_end_one_frame_short_or_long(
+    tmp_path: Path, source_end_frame: int
+) -> None:
+    resolve, request, admitted, item, _timeline = _geometry_case(tmp_path)
+    item.source_end_frame = source_end_frame
+
+    with pytest.raises(
+        OutputConsistencyError,
+        match=(
+            rf"native source range differs .*start=12, end={source_end_frame}, "
+            r"expectedStart=12, expectedDuration=10"
+        ),
+    ):
+        native._capture_geometry(resolve, request, admitted, None)
+
+
 def test_geometry_accepts_numeric_timeline_rate_readback(tmp_path: Path) -> None:
     resolve, request, admitted, _item, _timeline = _geometry_case(
         tmp_path, frame_rate=23.976
@@ -1388,7 +1405,7 @@ def test_geometry_refuses_unqualified_speed_frame_or_marker_drift(
     diagnostic = (
         r"native source range differs \(track=video:1, "
         r"itemUid=timeline-item-one, eventId=event-one, "
-        r"start=13, end=21, "
+        r"start=13, end=22, "
         r"expectedStart=12, expectedDuration=10\)"
         if drift == "source_range"
         else None
