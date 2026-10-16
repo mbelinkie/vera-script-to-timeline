@@ -946,3 +946,20 @@ of accepted 120-frame entrance/hold/exit timing. Do not rerun used build request
 repair old failed targets or silently restore this timeline. Need clarification
 of visible automatic text and actual visual/render evidence. Agent made no
 native/source/package/settings change; issue remains open/In review.
+
+### Producer accepts standard64 badge and automatic-text appearance
+
+Producer explicitly confirmed “The text appears. This test passes.” Record the
+Finland badge/automatic-text visual check as passed for d6c79d790514, bound to
+the actual verified native result6ba3859e... and retained earlier feedback.
+Receipt: out/issue8/standard64-producer-visual-acceptance.json. This resolves
+the prior text-appearance uncertainty; do not discard the Producer's pass.
+Manual extension/V5 disablement remain recorded, so this statement is not
+substituted for an untouched64-frame render/timing check or all-case acceptance.
+
+Next prepared case is overrides64 target959ff2d2d1a0, The Code / Nemo. Existing
+request remains consumed standard64; no installed-file/native/source mutation
+or new build authorization occurred. Wait for closed Resolve and approval of
+the next preflight-request swap. Six other native cases, retained render/timing
+and changed-build isolation remain; #8 stays open with conditional steward
+notification unchanged.

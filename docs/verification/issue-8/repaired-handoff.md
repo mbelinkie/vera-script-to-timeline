@@ -13,7 +13,7 @@ The new preflight passed. Producer then explicitly authorized only standard64
 installed and was invoked once by the operator. It is now consumed: DO NOT
 launch this installed build request again.
 
-## Current operator step — inspect the successful standard64 build
+## First case — native verification and badge/text visual check passed
 
 Native result: out/issue8/native-evidence-75325e0/standard-64/result-4b014c521d0849ffada659641dbf59fd.json,
 SHA256 `6ba3859e6b5114d3447063c060b8eb7900469330d7e21117391966b358db7168`.
@@ -62,7 +62,19 @@ clip duration. Do not represent the current modified timeline as an untouched
 64-frame case or the manual extension as 120-frame timing acceptance. Do not
 rerun the consumed request or silently restore/edit the target. Text, rendered
 badge pixels, original frame-accurate animation and remaining cases are still
-unaccepted. Next clarify whether expected automatic text was visible too.
+unaccepted at that checkpoint. Producer subsequently confirmed:
+“The text appears. This test passes.” Record the Finland badge and authored
+automatic-text visual check as accepted for this target. Receipt:
+out/issue8/standard64-producer-visual-acceptance.json. This resolves the text
+question, without converting the manually extended timeline into an untouched
+64-frame timing/render sample. Remaining render, timing, six native cases and
+changed-build isolation gates still apply.
+
+Next case is overrides64, The Code / Nemo, target
+VERA Delivery 88000000-0000-4000-8000-000000000002 959ff2d2d1a0.
+Its source-bound preflight request is already prepared. Wait for closed Resolve
+and request-install approval before swapping the consumed standard64 request.
+No overrides64 build authorization is inferred from this visual acceptance.
 
 ## Qualifying evidence
 
