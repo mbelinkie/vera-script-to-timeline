@@ -33,6 +33,7 @@ _READ_CHUNK_BYTES = 64 * 1024
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _RATE = re.compile(r"[0-9]{1,6}/[0-9]{1,6}\Z")
 _DECIMAL_TIME = re.compile(r"-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?\Z")
+_TIMECODE = re.compile(r"[0-9]{2}:[0-9]{2}:[0-9]{2}[:;][0-9]{2}\Z")
 
 FFMPEG_PATH = Path("/usr/local/Cellar/ffmpeg/8.1.2_1/bin/ffmpeg")
 FFPROBE_PATH = Path("/usr/local/Cellar/ffmpeg/8.1.2_1/bin/ffprobe")
@@ -71,7 +72,8 @@ _PROBE_ENTRIES = (
     "stream=index,start_pts,start_time,codec_type,codec_name,codec_tag_string,profile,width,height,"
     "r_frame_rate,avg_frame_rate,nb_read_frames,sample_rate,channels,"
     "channel_layout,sample_fmt,bits_per_raw_sample,bits_per_sample,time_base,"
-    "duration_ts:stream_disposition=attached_pic:format=format_name,format_long_name,start_time:"
+    "duration_ts,nb_frames:stream_disposition=attached_pic:stream_tags=timecode:"
+    "format=format_name,format_long_name,start_time:"
     "format_tags=major_brand"
 )
 
@@ -515,13 +517,14 @@ def _validate_profile(
 ) -> None:
     streams = probe.get("streams")
     fmt = probe.get("format")
-    if type(streams) is not list or len(streams) != 2 or type(fmt) is not dict:
-        _refuse("MOV must contain exactly one video and one audio stream")
+    if type(streams) is not list or not 2 <= len(streams) <= 3 or type(fmt) is not dict:
+        _refuse("MOV needs one video, one audio, and at most one timecode stream")
     if any(type(stream) is not dict for stream in streams):
         _refuse("MOV stream inventory is invalid")
     videos = [stream for stream in streams if stream.get("codec_type") == "video"]
     audios = [stream for stream in streams if stream.get("codec_type") == "audio"]
-    if len(videos) != 1 or len(audios) != 1:
+    metadata = [stream for stream in streams if stream.get("codec_type") == "data"]
+    if len(videos) != 1 or len(audios) != 1 or len(metadata) != len(streams) - 2:
         _refuse("MOV has an unexpected stream layout")
     video, audio = videos[0], audios[0]
     for stream, label in ((video, "video"), (audio, "audio")):
@@ -532,8 +535,21 @@ def _validate_profile(
             _refuse(f"MOV {label} timestamp origin differs")
     if _time(fmt.get("start_time"), "container start time") != 0:
         _refuse("MOV container timestamp origin differs")
-    if len({_integer(stream.get("index"), "stream index") for stream in streams}) != 2:
+    if len(
+        {_integer(stream.get("index"), "stream index") for stream in streams}
+    ) != len(streams):
         _refuse("MOV stream indexes are not unique")
+    if metadata:
+        timecode = metadata[0]
+        timecode_tags = timecode.get("tags")
+        if (
+            timecode.get("codec_tag_string") != "tmcd"
+            or _integer(timecode.get("nb_frames"), "timecode metadata frame count") != 1
+            or type(timecode_tags) is not dict
+            or type(timecode_tags.get("timecode")) is not str
+            or _TIMECODE.fullmatch(timecode_tags["timecode"]) is None
+        ):
+            _refuse("MOV timecode metadata stream differs")
     format_names = fmt.get("format_name")
     tags = fmt.get("tags")
     if (

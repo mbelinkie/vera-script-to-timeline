@@ -78,6 +78,16 @@ def probe(*, codec: str = "prores", width: int = 1920) -> Json:
     }
 
 
+def timecode_stream(index: int = 2) -> Json:
+    return {
+        "index": index,
+        "codec_type": "data",
+        "codec_tag_string": "tmcd",
+        "nb_frames": "1",
+        "tags": {"timecode": "00:00:00:00"},
+    }
+
+
 def _fake_toolchain() -> d._Toolchain:
     state = d._FileState(1, 2, 3, 4, 5)
     return d._Toolchain(
@@ -125,10 +135,50 @@ def test_decoder_refuses_unexpected_stream() -> None:
     unexpected = probe()
     unexpected["streams"].append({"index": 2, "codec_type": "subtitle"})
 
-    with pytest.raises(
-        r.OutputConsistencyError, match="exactly one video and one audio"
-    ):
+    with pytest.raises(r.OutputConsistencyError, match="unexpected stream layout"):
         d._validate_profile(unexpected, extent_frames=1, width=1920, height=1080)
+
+
+def test_decoder_accepts_standard_timecode_metadata_stream() -> None:
+    with_timecode = probe()
+    with_timecode["streams"].append(timecode_stream())
+
+    d._validate_profile(with_timecode, extent_frames=1, width=1920, height=1080)
+
+
+def test_decoder_refuses_unknown_metadata_stream() -> None:
+    with_unknown_metadata = probe()
+    with_unknown_metadata["streams"].append(
+        {"index": 2, "codec_type": "data", "codec_tag_string": "mett"}
+    )
+
+    with pytest.raises(r.OutputConsistencyError, match="timecode metadata stream"):
+        d._validate_profile(
+            with_unknown_metadata, extent_frames=1, width=1920, height=1080
+        )
+
+
+@pytest.mark.parametrize("codec_type", ["video", "audio"])
+def test_decoder_refuses_extra_audio_or_video_stream(codec_type: str) -> None:
+    with_extra_av = probe()
+    with_extra_av["streams"].append({"index": 2, "codec_type": codec_type})
+
+    with pytest.raises(r.OutputConsistencyError, match="unexpected stream layout"):
+        d._validate_profile(with_extra_av, extent_frames=1, width=1920, height=1080)
+
+
+def test_decoder_refuses_duplicate_timecode_stream_or_index() -> None:
+    duplicate_metadata = probe()
+    duplicate_metadata["streams"].extend([timecode_stream(), timecode_stream(3)])
+    with pytest.raises(r.OutputConsistencyError, match="at most one timecode stream"):
+        d._validate_profile(
+            duplicate_metadata, extent_frames=1, width=1920, height=1080
+        )
+
+    duplicate_index = probe()
+    duplicate_index["streams"].append(timecode_stream(index=1))
+    with pytest.raises(r.OutputConsistencyError, match="indexes are not unique"):
+        d._validate_profile(duplicate_index, extent_frames=1, width=1920, height=1080)
 
 
 def test_decoder_refuses_unproven_pcm24_mov_tag() -> None:
