@@ -76,6 +76,29 @@ Its source-bound preflight request is already prepared. Wait for closed Resolve
 and request-install approval before swapping the consumed standard64 request.
 No overrides64 build authorization is inferred from this visual acceptance.
 
+## Current installed request — overrides64 preflight, not build
+
+Producer said “install next preflight”, then “closed”. First process check
+still found Resolve, so no mutation happened then. After “closed”, checks and
+immediate guarded swap confirmed Resolve absent. Archived consumed standard64
+build request outside discovery to out/issue8/installed-request-archive/standard-64-build-75325e0.json,
+retaining d5306b7a...; copied only overrides64 preflight request mode0400.
+Installed SHA256 b640ae07b9d4ec87dbae4c75eeeac4c459499ceafd7df47b585303c1639f3fe6.
+Releaseb00dccc6..., all11 source hashes/sizes and exact file/directory closure
+unchanged; all15 package-file hashes and Transport attestation checked. Prior
+standard64 result unchanged; next evidence directory absent. Receipt:
+out/issue8/overrides64-preflight-installation.json. No settings/project/native
+operation or new build authorization occurred.
+
+Next operator starts Resolve fresh, keeps External Scripting None, opens the
+ORIGINAL separate saved disposable current project/timeline on Edit (not any
+generated VERA build target), then Workspace > Workflow Integrations > VERA
+Graphics v1 ONCE. Expect preflight_passed for target959ff2d2d1a0, with no new
+project creation. Return result or first error; do not rerun if uncertain.
+Only after successful preflight and explicit exact-target approval may a build
+request be prepared/installed. Historical installed-standard64 statements below
+refer to earlier stages; this overrides64 preflight is now the active request.
+
 ## Qualifying evidence
 
 Tested clean commit `75325e01015ff5b5285acbc980bf78e16a49ae1a`, tree

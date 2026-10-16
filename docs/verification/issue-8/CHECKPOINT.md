@@ -963,3 +963,31 @@ or new build authorization occurred. Wait for closed Resolve and approval of
 the next preflight-request swap. Six other native cases, retained render/timing
 and changed-build isolation remain; #8 stays open with conditional steward
 notification unchanged.
+
+### Overrides64 preflight installed — no new build authorized
+
+Producer asked “install next preflight”. Initial process check found Resolve
+PID18010; stopped without changing installed request and asked for quit. After
+“closed”, Resolve absent before/after immediate guarded request-only swap.
+Archived consumed standard64 build request with exact d5306b7a... hash to
+out/issue8/installed-request-archive/standard-64-build-75325e0.json, outside
+plugin discovery. Installed existing source-bound overrides64 PREFLIGHT,
+mode0400, SHA256 b640ae07b9d4ec87dbae4c75eeeac4c459499ceafd7df47b585303c1639f3fe6.
+Target VERA Delivery 88000000-0000-4000-8000-000000000002 959ff2d2d1a0;
+actionpreflight/authorizationfalse/externalScriptingnull. This is not the failed
+old overrides64 target d859f645132f and does not authorize new project creation.
+
+Exact installed file/directory closure and all11 source hashes/sizes unchanged;
+releaseb00dccc6... unchanged; all15 package-file hashes match graphic attestation
+c5bf1f5eb2443167ce4592eabe10697221efd60226fadccab80e67651fdce04c, Transport
+attestation matches. Standard64 result6ba3859e... retained unchanged; next
+evidence directory absent. Product input diff vs qualified75325e0 empty.
+Receipt: out/issue8/overrides64-preflight-installation.json. No app launch,
+native API, project/settings change or heavy test. Prior acceptance/evidence
+and failed targets preserved.
+
+Next operator: fresh Resolve, None, ORIGINAL separate saved disposable current
+project/timeline on Edit (no generated VERA target), Graphics menu ONCE.
+Expected preflight_passed, no project creation. Return result or first refusal;
+do not rerun uncertain invocation. Explicit new target authorization remains
+required after successful preflight before any overrides64 build request.
