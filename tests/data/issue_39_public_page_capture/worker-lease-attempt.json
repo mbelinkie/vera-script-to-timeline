@@ -1,0 +1,132 @@
+{
+  "schemaVersion": "public-page-capture-worker/v1",
+  "messageType": "lease_claimed",
+  "requestId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaab1",
+  "assignment": {
+    "projectId": "11111111-1111-4111-8111-111111111111",
+    "captureId": "22222222-2222-4222-8222-222222222222",
+    "configurationVersion": 1,
+    "jobId": "44444444-4444-4444-8444-444444444441",
+    "leaseId": "12121212-1212-4212-8212-121212121212",
+    "leaseEpoch": 1,
+    "attemptId": null,
+    "leaseCapability": "eyJqb2JJZCI6IjQ0NDQ0NDQ0LTQ0NDQtNDQ0NC04NDQ0LTQ0NDQ0NDQ0NDQ0MSJ9.c2lnbmF0dXJlX2Zvcl9zeW50aGV0aWNfZml4dHVyZV9vbmx5",
+    "capabilityJtiDigest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+    "capabilityScopeDigest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+    "commitNonce": "13131313-1313-4313-8313-131313131313",
+    "issuedAt": "2026-09-08T16:00:00Z",
+    "expiresAt": "2026-09-08T16:00:30Z",
+    "exactRequestedUrl": "https://capture.example.org/story?edition=public",
+    "settingsDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "profile": {
+      "profileId": "33333333-3333-4333-8333-333333333333",
+      "profileVersion": 1,
+      "adapterVersion": "playwright_v1",
+      "securityPolicyVersion": "egress_v1",
+      "profileDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "network": {
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "ports": [
+          80,
+          443
+        ],
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "idna": "uts46_nontransitional",
+        "rejectMixedDns": true,
+        "pinResolvedAddresses": true,
+        "verifyActualPeer": true,
+        "revalidateRedirects": true,
+        "revalidateFrames": true,
+        "revalidateSubresources": true,
+        "directBrowserNetworkFallback": false,
+        "webSocket": "blocked",
+        "webRtc": "blocked",
+        "referrer": "none"
+      },
+      "isolation": {
+        "disposableContext": true,
+        "importedState": false,
+        "cookies": "empty_and_discarded",
+        "storage": "empty_and_discarded",
+        "cache": "ephemeral",
+        "extensions": "blocked",
+        "downloads": "blocked",
+        "permissions": "none",
+        "filesystem": "page_inaccessible",
+        "localNetwork": "blocked",
+        "inboundListeners": "blocked",
+        "attachedBrowser": false,
+        "credentialEnvironment": "allowlist_only"
+      },
+      "render": {
+        "javaScript": "sandboxed_bounded",
+        "viewportWidth": 1920,
+        "viewportHeight": 1080,
+        "deviceScaleFactor": 2,
+        "region": {
+          "kind": "full_viewport"
+        },
+        "encoding": "png",
+        "color": "srgb",
+        "background": "opaque_white",
+        "locale": "en-US",
+        "timezone": "UTC",
+        "userAgent": "VERA Public Page Capture/1",
+        "animations": "disabled",
+        "reducedMotion": "reduce",
+        "fonts": "system_only_no_webfonts",
+        "media": "blocked",
+        "popups": "blocked",
+        "forms": "blocked",
+        "interaction": "none"
+      },
+      "stability": {
+        "waitUntil": "domcontentloaded",
+        "settleMilliseconds": 3000,
+        "hardDeadlineMilliseconds": 30000
+      },
+      "warningPolicy": {
+        "anyWarningRequiresReview": true,
+        "hardFailureCodes": [
+          "blocked_destination",
+          "resource_limit",
+          "invalid_raster"
+        ]
+      },
+      "limits": {
+        "urlBytes": 2048,
+        "redirects": 10,
+        "dnsAnswers": 16,
+        "connectionAttemptsPerRequest": 4,
+        "topLevelRequests": 2,
+        "frameRequests": 16,
+        "subresourceRequests": 128,
+        "totalRequests": 256,
+        "responseBytes": 8388608,
+        "totalBytes": 33554432,
+        "frameDepth": 4,
+        "popups": 0,
+        "navigationMilliseconds": 15000,
+        "stabilityMilliseconds": 3000,
+        "scriptCpuMilliseconds": 5000,
+        "attemptMilliseconds": 30000,
+        "memoryMiB": 512,
+        "processes": 8,
+        "workerConcurrency": 2,
+        "outputPixels": 8294400,
+        "rasterBytes": 16777216,
+        "diagnostics": 64,
+        "diagnosticFieldBytes": 512,
+        "retries": 2,
+        "leaseMilliseconds": 30000,
+        "heartbeatMilliseconds": 5000
+      }
+    }
+  }
+}

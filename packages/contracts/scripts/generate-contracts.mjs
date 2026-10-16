@@ -35,6 +35,10 @@ const v1SchemaFiles = [
   "alignment-artifact-v1.schema.json",
   "script-reconciliation-v1.schema.json",
   "port-refusal-v1.schema.json",
+  "public-page-capture-api-v1.schema.json",
+  "public-page-capture-worker-v1.schema.json",
+  "public-page-capture-provenance-v1.schema.json",
+  "spotlight-evidence-v1.schema.json",
 ];
 const v2SchemaFiles = [
   "script-document-v2.schema.json",
@@ -58,6 +62,21 @@ const typeScriptGroups = [
       ["alignmentArtifact", v1SchemaFiles[6]],
       ["scriptReconciliation", v1SchemaFiles[7]],
       ["portRefusal", v1SchemaFiles[8]],
+      ["publicPageCaptureApi", v1SchemaFiles[9]],
+      ["publicPageCaptureWorker", v1SchemaFiles[10]],
+      ["publicPageCaptureProvenance", v1SchemaFiles[11]],
+      ["spotlightEvidence", v1SchemaFiles[12]],
+    ],
+    requiredRoots: [
+      "scriptDocument",
+      "timelineManifest",
+      "buildReport",
+      "compilerDependencies",
+      "prompterExport",
+      "recognitionArtifact",
+      "alignmentArtifact",
+      "scriptReconciliation",
+      "portRefusal",
     ],
   },
   {
@@ -91,6 +110,10 @@ const pythonGroups = [
       ["alignment_artifact_v1_schema", "AlignmentArtifactV1"],
       ["script_reconciliation_v1_schema", "ScriptReconciliationV1"],
       ["port_refusal_v1_schema", "PortRefusalV1"],
+      ["public_page_capture_api_v1_schema", "PublicPageCaptureApiV1"],
+      ["public_page_capture_worker_v1_schema", "PublicPageCaptureWorkerV1"],
+      ["public_page_capture_provenance_v1_schema", "PublicPageCaptureProvenanceV1"],
+      ["spotlight_evidence_v1_schema", "SpotlightEvidenceV1"],
     ],
   },
   {
@@ -130,7 +153,7 @@ async function generateTypeScript(outputDirectory, group) {
       "Generated aggregate type surface for the VERA shared contracts.",
     type: "object",
     additionalProperties: false,
-    required: group.roots.map(([name]) => name),
+    required: group.requiredRoots ?? group.roots.map(([name]) => name),
     properties: Object.fromEntries(
       group.roots.map(([name, schemaFile]) => [name, { $ref: schemaFile }]),
     ),

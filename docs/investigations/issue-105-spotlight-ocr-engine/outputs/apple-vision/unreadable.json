@@ -1,0 +1,178 @@
+{
+  "candidate": "apple-vision",
+  "lines": [
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 0,
+      "readingOrder": 0,
+      "rect": {
+        "height": 43,
+        "width": 287,
+        "x": 72,
+        "y": 68
+      },
+      "text": "Failure Safety"
+    },
+    {
+      "confidenceMillionths": 1000000,
+      "rawOrdinal": 1,
+      "readingOrder": 1,
+      "rect": {
+        "height": 29,
+        "width": 305,
+        "x": 82,
+        "y": 189
+      },
+      "text": "Readable control label"
+    },
+    {
+      "confidenceMillionths": 500000,
+      "rawOrdinal": 2,
+      "readingOrder": 2,
+      "rect": {
+        "height": 26,
+        "width": 359,
+        "x": 79,
+        "y": 692
+      },
+      "text": "No OCR output confirms a target"
+    }
+  ],
+  "profile": "vision-r3-accurate-en-US-no-language-correction-v1",
+  "rasterHeight": 900,
+  "rasterWidth": 1600,
+  "words": [
+    {
+      "lineRawOrdinal": 0,
+      "rawOrdinal": 0,
+      "readingOrder": 0,
+      "rect": {
+        "height": 43,
+        "width": 149,
+        "x": 72,
+        "y": 68
+      },
+      "text": "Failure"
+    },
+    {
+      "lineRawOrdinal": 0,
+      "rawOrdinal": 1,
+      "readingOrder": 1,
+      "rect": {
+        "height": 43,
+        "width": 134,
+        "x": 225,
+        "y": 68
+      },
+      "text": "Safety"
+    },
+    {
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 2,
+      "readingOrder": 2,
+      "rect": {
+        "height": 29,
+        "width": 130,
+        "x": 82,
+        "y": 189
+      },
+      "text": "Readable"
+    },
+    {
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 4,
+      "readingOrder": 3,
+      "rect": {
+        "height": 29,
+        "width": 72,
+        "x": 315,
+        "y": 189
+      },
+      "text": "label"
+    },
+    {
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 3,
+      "readingOrder": 4,
+      "rect": {
+        "height": 27,
+        "width": 99,
+        "x": 214,
+        "y": 190
+      },
+      "text": "control"
+    },
+    {
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 5,
+      "readingOrder": 5,
+      "rect": {
+        "height": 25,
+        "width": 37,
+        "x": 79,
+        "y": 693
+      },
+      "text": "No"
+    },
+    {
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 6,
+      "readingOrder": 6,
+      "rect": {
+        "height": 24,
+        "width": 57,
+        "x": 118,
+        "y": 693
+      },
+      "text": "OCR"
+    },
+    {
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 7,
+      "readingOrder": 7,
+      "rect": {
+        "height": 24,
+        "width": 72,
+        "x": 178,
+        "y": 693
+      },
+      "text": "output"
+    },
+    {
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 8,
+      "readingOrder": 8,
+      "rect": {
+        "height": 24,
+        "width": 97,
+        "x": 252,
+        "y": 693
+      },
+      "text": "confirms"
+    },
+    {
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 9,
+      "readingOrder": 9,
+      "rect": {
+        "height": 24,
+        "width": 15,
+        "x": 352,
+        "y": 693
+      },
+      "text": "a"
+    },
+    {
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 10,
+      "readingOrder": 10,
+      "rect": {
+        "height": 25,
+        "width": 69,
+        "x": 369,
+        "y": 693
+      },
+      "text": "target"
+    }
+  ]
+}

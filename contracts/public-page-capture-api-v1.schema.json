@@ -1,0 +1,1132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.vera.video/contracts/public-page-capture-api-v1.schema.json",
+  "title": "PublicPageCaptureApiV1",
+  "description": "Closed public-page capture API requests and sanitized views approved by issue 38.",
+  "oneOf": [
+    { "$ref": "#/$defs/CreateCaptureRequest" },
+    { "$ref": "#/$defs/CreateConfigurationVersionRequest" },
+    { "$ref": "#/$defs/RequestCaptureJobRequest" },
+    { "$ref": "#/$defs/CaptureViewMessage" },
+    { "$ref": "#/$defs/CaptureJobViewMessage" },
+    { "$ref": "#/$defs/CaptureRevisionViewMessage" },
+    { "$ref": "#/$defs/RecordRevisionUseDecisionRequest" },
+    { "$ref": "#/$defs/SelectRevisionRequest" },
+    { "$ref": "#/$defs/AddExplicitPinRequest" },
+    { "$ref": "#/$defs/ReleaseExplicitPinRequest" },
+    { "$ref": "#/$defs/AuditEventsViewMessage" },
+    { "$ref": "#/$defs/ApiError" }
+  ],
+  "$defs": {
+    "SchemaVersion": {
+      "type": "string",
+      "const": "public-page-capture-api/v1"
+    },
+    "EntityId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "OpaqueIdempotencyKey": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._~-]+$",
+      "writeOnly": true
+    },
+    "ContentDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "KeyedFingerprint": {
+      "type": "string",
+      "pattern": "^hmac-sha256-v[1-9][0-9]*:[a-f0-9]{64}$"
+    },
+    "UtcTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "BoundedText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]*$"
+    },
+    "SafeCode": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "RawPublicUrl": {
+      "type": "string",
+      "format": "uri",
+      "minLength": 9,
+      "maxLength": 2048,
+      "pattern": "^(?!.*[?&](?:access_token|api_key|apikey|auth|authorization|credential|jwt|password|secret|signature|sig|token)=)https?://(?![^/\\s]*@)[^\\s\\\\]+$",
+      "writeOnly": true
+    },
+    "PrincipalRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["principalKind", "principalId"],
+      "properties": {
+        "principalKind": {
+          "type": "string",
+          "enum": ["user", "service"]
+        },
+        "principalId": { "$ref": "#/$defs/EntityId" }
+      }
+    },
+    "AuthorizationDecisionRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decisionId",
+        "action",
+        "principal",
+        "projectId",
+        "role",
+        "decidedAt",
+        "recheckMode"
+      ],
+      "properties": {
+        "decisionId": { "$ref": "#/$defs/EntityId" },
+        "action": { "$ref": "#/$defs/SafeCode" },
+        "principal": { "$ref": "#/$defs/PrincipalRef" },
+        "projectId": { "$ref": "#/$defs/EntityId" },
+        "role": {
+          "type": "string",
+          "enum": ["producer", "editor", "viewer", "service"]
+        },
+        "membershipVersion": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "decidedAt": { "$ref": "#/$defs/UtcTimestamp" },
+        "recheckMode": {
+          "type": "string",
+          "enum": ["every_request", "commit_time", "immutable_reference"]
+        }
+      }
+    },
+    "DraftOccurrenceReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "kind",
+        "resourceId",
+        "resourceVersionDigest",
+        "occurrenceId"
+      ],
+      "properties": {
+        "projectId": { "$ref": "#/$defs/EntityId" },
+        "kind": { "type": "string", "const": "draft_occurrence" },
+        "resourceId": { "$ref": "#/$defs/EntityId" },
+        "resourceVersionDigest": { "$ref": "#/$defs/ContentDigest" },
+        "occurrenceId": { "$ref": "#/$defs/EntityId" }
+      }
+    },
+    "VersionedExternalReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projectId", "kind", "resourceId", "resourceVersionDigest"],
+      "properties": {
+        "projectId": { "$ref": "#/$defs/EntityId" },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "document_revision",
+            "document_checkpoint",
+            "preview_build",
+            "release_build",
+            "selection_evidence",
+            "review_hold",
+            "integrity_hold"
+          ]
+        },
+        "resourceId": { "$ref": "#/$defs/EntityId" },
+        "resourceVersionDigest": { "$ref": "#/$defs/ContentDigest" }
+      }
+    },
+    "BuildSnapshotReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projectId", "kind", "resourceId", "resourceVersionDigest"],
+      "properties": {
+        "projectId": { "$ref": "#/$defs/EntityId" },
+        "kind": {
+          "type": "string",
+          "enum": ["preview_build", "release_build"]
+        },
+        "resourceId": { "$ref": "#/$defs/EntityId" },
+        "resourceVersionDigest": { "$ref": "#/$defs/ContentDigest" }
+      }
+    },
+    "ExternalReference": {
+      "oneOf": [
+        { "$ref": "#/$defs/DraftOccurrenceReference" },
+        { "$ref": "#/$defs/VersionedExternalReference" }
+      ]
+    },
+    "RedactedUrl": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["display", "canonicalDigest", "queryKeys"],
+      "properties": {
+        "display": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "pattern": "^https?://[^\\s\\\\]+$"
+        },
+        "canonicalDigest": { "$ref": "#/$defs/ContentDigest" },
+        "queryKeys": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9_.~-]+$"
+          }
+        }
+      }
+    },
+    "FullViewportRegion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "type": "string", "const": "full_viewport" }
+      }
+    },
+    "RectangleRegion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "x", "y", "width", "height"],
+      "properties": {
+        "kind": { "type": "string", "const": "rectangle" },
+        "x": { "type": "integer", "minimum": 0, "maximum": 32767 },
+        "y": { "type": "integer", "minimum": 0, "maximum": 32767 },
+        "width": { "type": "integer", "minimum": 1, "maximum": 32768 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 32768 }
+      }
+    },
+    "RegionIntent": {
+      "oneOf": [
+        { "$ref": "#/$defs/FullViewportRegion" },
+        { "$ref": "#/$defs/RectangleRegion" }
+      ]
+    },
+    "ExecutableAcquisitionPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["now", "on_build"] }
+      }
+    },
+    "ReservedPeriodicPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "execution"],
+      "properties": {
+        "kind": { "type": "string", "const": "periodic_reserved" },
+        "execution": { "type": "string", "const": "disabled" }
+      }
+    },
+    "AcquisitionPolicy": {
+      "oneOf": [
+        { "$ref": "#/$defs/ExecutableAcquisitionPolicy" },
+        { "$ref": "#/$defs/ReservedPeriodicPolicy" }
+      ]
+    },
+    "CaptureConfigurationView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "captureId",
+        "configurationVersion",
+        "requestedUrl",
+        "regionIntent",
+        "acquisitionPolicy",
+        "captureProfileId",
+        "captureProfileVersion",
+        "settingsDigest",
+        "createdBy",
+        "createdAt"
+      ],
+      "properties": {
+        "captureId": { "$ref": "#/$defs/EntityId" },
+        "configurationVersion": { "type": "integer", "minimum": 1 },
+        "requestedUrl": { "$ref": "#/$defs/RedactedUrl" },
+        "regionIntent": { "$ref": "#/$defs/RegionIntent" },
+        "acquisitionPolicy": { "$ref": "#/$defs/AcquisitionPolicy" },
+        "captureProfileId": { "$ref": "#/$defs/EntityId" },
+        "captureProfileVersion": { "type": "integer", "minimum": 1 },
+        "settingsDigest": { "$ref": "#/$defs/ContentDigest" },
+        "previousConfigurationDigest": { "$ref": "#/$defs/ContentDigest" },
+        "createdBy": { "$ref": "#/$defs/PrincipalRef" },
+        "createdAt": { "$ref": "#/$defs/UtcTimestamp" }
+      }
+    },
+    "CaptureView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "captureId",
+        "projectId",
+        "lifecycle",
+        "currentConfigurationVersion",
+        "rowVersion",
+        "createdBy",
+        "createdAt",
+        "updatedAt",
+        "configuration"
+      ],
+      "properties": {
+        "captureId": { "$ref": "#/$defs/EntityId" },
+        "projectId": { "$ref": "#/$defs/EntityId" },
+        "lifecycle": {
+          "type": "string",
+          "enum": ["draft", "active", "paused", "retired"]
+        },
+        "currentConfigurationVersion": { "type": "integer", "minimum": 1 },
+        "rowVersion": { "type": "integer", "minimum": 1 },
+        "createdBy": { "$ref": "#/$defs/PrincipalRef" },
+        "createdAt": { "$ref": "#/$defs/UtcTimestamp" },
+        "updatedAt": { "$ref": "#/$defs/UtcTimestamp" },
+        "configuration": { "$ref": "#/$defs/CaptureConfigurationView" }
+      }
+    },
+    "NoSelectionIntent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "type": "string", "const": "none" }
+      }
+    },
+    "ConditionalSelectionIntent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "target", "expectedPreviousSelectionId"],
+      "properties": {
+        "kind": { "type": "string", "const": "conditional" },
+        "target": { "$ref": "#/$defs/ExternalReference" },
+        "expectedPreviousSelectionId": {
+          "oneOf": [
+            { "$ref": "#/$defs/EntityId" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "NowTrigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "commandId", "selectionIntent"],
+      "properties": {
+        "kind": { "type": "string", "const": "now" },
+        "commandId": { "$ref": "#/$defs/EntityId" },
+        "selectionIntent": {
+          "oneOf": [
+            { "$ref": "#/$defs/NoSelectionIntent" },
+            { "$ref": "#/$defs/ConditionalSelectionIntent" }
+          ]
+        }
+      }
+    },
+    "OnBuildTrigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "buildSnapshot"],
+      "properties": {
+        "kind": { "type": "string", "const": "on_build" },
+        "buildSnapshot": { "$ref": "#/$defs/BuildSnapshotReference" }
+      }
+    },
+    "JobTrigger": {
+      "oneOf": [
+        { "$ref": "#/$defs/NowTrigger" },
+        { "$ref": "#/$defs/OnBuildTrigger" }
+      ]
+    },
+    "ArtifactDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "projectId",
+        "kind",
+        "digest",
+        "byteLength",
+        "mimeType",
+        "verifierProfile",
+        "verifierVersion",
+        "verifiedAt",
+        "accessClass"
+      ],
+      "properties": {
+        "artifactId": { "$ref": "#/$defs/EntityId" },
+        "projectId": { "$ref": "#/$defs/EntityId" },
+        "kind": {
+          "type": "string",
+          "enum": ["capture_raster", "capture_provenance"]
+        },
+        "digest": { "$ref": "#/$defs/ContentDigest" },
+        "byteLength": { "type": "integer", "minimum": 1, "maximum": 67108864 },
+        "mimeType": {
+          "type": "string",
+          "enum": ["image/png", "application/json"]
+        },
+        "width": { "type": "integer", "minimum": 1, "maximum": 32768 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 32768 },
+        "encoding": { "type": "string", "enum": ["png", "json"] },
+        "color": { "type": "string", "enum": ["srgb", "not_applicable"] },
+        "alpha": {
+          "type": "string",
+          "enum": ["opaque", "present", "not_applicable"]
+        },
+        "verifierProfile": { "$ref": "#/$defs/SafeCode" },
+        "verifierVersion": { "type": "integer", "minimum": 1 },
+        "verifiedAt": { "$ref": "#/$defs/UtcTimestamp" },
+        "accessClass": {
+          "type": "string",
+          "enum": ["project_visual", "restricted_provenance"]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "capture_raster" } } },
+          "then": {
+            "required": ["width", "height", "encoding", "color", "alpha"],
+            "properties": {
+              "mimeType": { "const": "image/png" },
+              "width": { "type": "integer", "minimum": 1, "maximum": 32768 },
+              "height": { "type": "integer", "minimum": 1, "maximum": 32768 },
+              "encoding": { "const": "png" },
+              "color": { "const": "srgb" },
+              "alpha": { "enum": ["opaque", "present"] },
+              "accessClass": { "const": "project_visual" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "capture_provenance" } } },
+          "then": {
+            "properties": {
+              "mimeType": { "const": "application/json" },
+              "accessClass": { "const": "restricted_provenance" }
+            }
+          }
+        }
+      ]
+    },
+    "ChangeSignal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "changeSignalId",
+        "captureId",
+        "currentRevisionId",
+        "baselineRevisionId",
+        "currentArtifactId",
+        "baselineArtifactId",
+        "signal",
+        "differences",
+        "algorithm",
+        "algorithmVersion",
+        "computedAt",
+        "materiality"
+      ],
+      "properties": {
+        "changeSignalId": { "$ref": "#/$defs/EntityId" },
+        "captureId": { "$ref": "#/$defs/EntityId" },
+        "currentRevisionId": { "$ref": "#/$defs/EntityId" },
+        "baselineRevisionId": {
+          "oneOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
+        },
+        "currentArtifactId": { "$ref": "#/$defs/EntityId" },
+        "baselineArtifactId": {
+          "oneOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
+        },
+        "signal": {
+          "type": "string",
+          "enum": [
+            "initial_observation",
+            "same_exact_bytes",
+            "different_exact_bytes",
+            "not_comparable"
+          ]
+        },
+        "differences": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "finalUrl",
+            "redirectChain",
+            "profile",
+            "region",
+            "warnings",
+            "loadEvidence"
+          ],
+          "properties": {
+            "finalUrl": { "type": ["boolean", "null"] },
+            "redirectChain": { "type": ["boolean", "null"] },
+            "profile": { "type": ["boolean", "null"] },
+            "region": { "type": ["boolean", "null"] },
+            "warnings": { "type": ["boolean", "null"] },
+            "loadEvidence": { "type": ["boolean", "null"] }
+          }
+        },
+        "algorithm": { "type": "string", "const": "exact_bytes_and_provenance" },
+        "algorithmVersion": { "type": "integer", "minimum": 1 },
+        "computedAt": { "$ref": "#/$defs/UtcTimestamp" },
+        "materiality": {
+          "type": "string",
+          "const": "non_semantic_no_automatic_replacement_selection_or_notification"
+        }
+      }
+    },
+    "CaptureRevisionView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revisionId",
+        "projectId",
+        "captureId",
+        "configurationVersion",
+        "jobId",
+        "winningAttemptId",
+        "revisionNumber",
+        "artifact",
+        "provenance",
+        "changeSignal",
+        "status",
+        "warningCodes",
+        "settingsDigest",
+        "profileDigest",
+        "committedAt",
+        "observationStatement"
+      ],
+      "properties": {
+        "revisionId": { "$ref": "#/$defs/EntityId" },
+        "projectId": { "$ref": "#/$defs/EntityId" },
+        "captureId": { "$ref": "#/$defs/EntityId" },
+        "configurationVersion": { "type": "integer", "minimum": 1 },
+        "jobId": { "$ref": "#/$defs/EntityId" },
+        "winningAttemptId": { "$ref": "#/$defs/EntityId" },
+        "revisionNumber": { "type": "integer", "minimum": 1 },
+        "artifact": { "$ref": "#/$defs/ArtifactDescriptor" },
+        "provenance": { "$ref": "#/$defs/ArtifactDescriptor" },
+        "changeSignal": { "$ref": "#/$defs/ChangeSignal" },
+        "status": {
+          "type": "string",
+          "enum": ["ready", "review_required"]
+        },
+        "warningCodes": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/SafeCode" }
+        },
+        "settingsDigest": { "$ref": "#/$defs/ContentDigest" },
+        "profileDigest": { "$ref": "#/$defs/ContentDigest" },
+        "committedAt": { "$ref": "#/$defs/UtcTimestamp" },
+        "observationStatement": {
+          "type": "string",
+          "const": "Stored bytes and provenance are reproducible; the live page may later differ."
+        }
+      }
+    },
+    "CaptureJobView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "jobId",
+        "projectId",
+        "captureId",
+        "configurationVersion",
+        "trigger",
+        "idempotencyFingerprint",
+        "initiatingAuthorization",
+        "settingsDigest",
+        "captureProfileId",
+        "captureProfileVersion",
+        "profileDigest",
+        "retryBudget",
+        "state",
+        "outputRevisionId",
+        "conditionalSelectionResult",
+        "requestedAt",
+        "enqueuedAt",
+        "availableAt",
+        "terminalAt",
+        "rowVersion",
+        "duplicateDelivery"
+      ],
+      "properties": {
+        "jobId": { "$ref": "#/$defs/EntityId" },
+        "projectId": { "$ref": "#/$defs/EntityId" },
+        "captureId": { "$ref": "#/$defs/EntityId" },
+        "configurationVersion": { "type": "integer", "minimum": 1 },
+        "trigger": { "$ref": "#/$defs/JobTrigger" },
+        "idempotencyFingerprint": { "$ref": "#/$defs/ContentDigest" },
+        "initiatingAuthorization": { "$ref": "#/$defs/AuthorizationDecisionRef" },
+        "settingsDigest": { "$ref": "#/$defs/ContentDigest" },
+        "captureProfileId": { "$ref": "#/$defs/EntityId" },
+        "captureProfileVersion": { "type": "integer", "minimum": 1 },
+        "profileDigest": { "$ref": "#/$defs/ContentDigest" },
+        "retryBudget": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "state": {
+          "type": "string",
+          "enum": [
+            "requested",
+            "queued",
+            "leased",
+            "running",
+            "committed_ready",
+            "committed_review_required",
+            "rejected",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "outputRevisionId": {
+          "oneOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
+        },
+        "conditionalSelectionResult": {
+          "type": "string",
+          "enum": ["not_requested", "applied", "conflict", "blocked_review"]
+        },
+        "requestedAt": { "$ref": "#/$defs/UtcTimestamp" },
+        "enqueuedAt": {
+          "oneOf": [{ "$ref": "#/$defs/UtcTimestamp" }, { "type": "null" }]
+        },
+        "availableAt": {
+          "oneOf": [{ "$ref": "#/$defs/UtcTimestamp" }, { "type": "null" }]
+        },
+        "terminalAt": {
+          "oneOf": [{ "$ref": "#/$defs/UtcTimestamp" }, { "type": "null" }]
+        },
+        "rowVersion": { "type": "integer", "minimum": 1 },
+        "duplicateDelivery": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "enum": ["committed_ready", "committed_review_required"]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "outputRevisionId": { "$ref": "#/$defs/EntityId" },
+              "terminalAt": { "$ref": "#/$defs/UtcTimestamp" }
+            }
+          },
+          "else": {
+            "if": {
+              "properties": {
+                "state": {
+                  "enum": ["rejected", "failed", "cancelled"]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "outputRevisionId": { "type": "null" },
+                "terminalAt": { "$ref": "#/$defs/UtcTimestamp" }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "RevisionUseDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decisionId",
+        "projectId",
+        "captureId",
+        "revisionId",
+        "context",
+        "decision",
+        "authorization",
+        "warningSetDigest",
+        "idempotencyEffectDigest",
+        "recordedAt"
+      ],
+      "properties": {
+        "decisionId": { "$ref": "#/$defs/EntityId" },
+        "projectId": { "$ref": "#/$defs/EntityId" },
+        "captureId": { "$ref": "#/$defs/EntityId" },
+        "revisionId": { "$ref": "#/$defs/EntityId" },
+        "context": { "$ref": "#/$defs/ExternalReference" },
+        "decision": {
+          "type": "string",
+          "enum": ["preview_acknowledged", "release_accepted"]
+        },
+        "authorization": { "$ref": "#/$defs/AuthorizationDecisionRef" },
+        "warningSetDigest": { "$ref": "#/$defs/ContentDigest" },
+        "idempotencyEffectDigest": { "$ref": "#/$defs/ContentDigest" },
+        "recordedAt": { "$ref": "#/$defs/UtcTimestamp" }
+      }
+    },
+    "RevisionSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selectionId",
+        "projectId",
+        "captureId",
+        "revisionId",
+        "target",
+        "targetSequence",
+        "previousSelectionId",
+        "expectedPreviousSelectionId",
+        "reason",
+        "authorization",
+        "requiredUseDecisionId",
+        "idempotencyEffectDigest",
+        "selectedAt"
+      ],
+      "properties": {
+        "selectionId": { "$ref": "#/$defs/EntityId" },
+        "projectId": { "$ref": "#/$defs/EntityId" },
+        "captureId": { "$ref": "#/$defs/EntityId" },
+        "revisionId": { "$ref": "#/$defs/EntityId" },
+        "target": { "$ref": "#/$defs/ExternalReference" },
+        "targetSequence": { "type": "integer", "minimum": 1 },
+        "previousSelectionId": {
+          "oneOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
+        },
+        "expectedPreviousSelectionId": {
+          "oneOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
+        },
+        "reason": {
+          "type": "string",
+          "enum": ["manual", "capture_and_use", "checkpoint_restore"]
+        },
+        "authorization": { "$ref": "#/$defs/AuthorizationDecisionRef" },
+        "requiredUseDecisionId": {
+          "oneOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
+        },
+        "idempotencyEffectDigest": { "$ref": "#/$defs/ContentDigest" },
+        "selectedAt": { "$ref": "#/$defs/UtcTimestamp" }
+      }
+    },
+    "RevisionProtection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protectionId",
+        "projectId",
+        "captureId",
+        "revisionId",
+        "reason",
+        "source",
+        "authorization",
+        "idempotencyEffectDigest",
+        "addedAt"
+      ],
+      "properties": {
+        "protectionId": { "$ref": "#/$defs/EntityId" },
+        "projectId": { "$ref": "#/$defs/EntityId" },
+        "captureId": { "$ref": "#/$defs/EntityId" },
+        "revisionId": { "$ref": "#/$defs/EntityId" },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "draft_selection",
+            "document_revision",
+            "checkpoint",
+            "preview_build",
+            "release_build",
+            "explicit_pin",
+            "selection_evidence",
+            "review_hold",
+            "integrity_hold"
+          ]
+        },
+        "source": { "$ref": "#/$defs/ExternalReference" },
+        "authorization": { "$ref": "#/$defs/AuthorizationDecisionRef" },
+        "idempotencyEffectDigest": { "$ref": "#/$defs/ContentDigest" },
+        "addedAt": { "$ref": "#/$defs/UtcTimestamp" }
+      }
+    },
+    "ProtectionRelease": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "releaseId",
+        "projectId",
+        "protectionId",
+        "authorization",
+        "reason",
+        "idempotencyEffectDigest",
+        "releasedAt"
+      ],
+      "properties": {
+        "releaseId": { "$ref": "#/$defs/EntityId" },
+        "projectId": { "$ref": "#/$defs/EntityId" },
+        "protectionId": { "$ref": "#/$defs/EntityId" },
+        "authorization": { "$ref": "#/$defs/AuthorizationDecisionRef" },
+        "reason": { "$ref": "#/$defs/BoundedText" },
+        "idempotencyEffectDigest": { "$ref": "#/$defs/ContentDigest" },
+        "releasedAt": { "$ref": "#/$defs/UtcTimestamp" }
+      }
+    },
+    "CaptureAuditEventView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eventId",
+        "projectId",
+        "primaryObjectKind",
+        "primaryObjectId",
+        "objectSequence",
+        "eventType",
+        "principal",
+        "requestId",
+        "correlationId",
+        "policyVersion",
+        "profileVersion",
+        "beforeState",
+        "afterState",
+        "resultCode",
+        "safeDetails",
+        "correctedEventId",
+        "serverTime"
+      ],
+      "properties": {
+        "eventId": { "$ref": "#/$defs/EntityId" },
+        "projectId": { "$ref": "#/$defs/EntityId" },
+        "primaryObjectKind": { "$ref": "#/$defs/SafeCode" },
+        "primaryObjectId": { "$ref": "#/$defs/EntityId" },
+        "objectSequence": { "type": "integer", "minimum": 1 },
+        "eventType": { "$ref": "#/$defs/SafeCode" },
+        "principal": { "$ref": "#/$defs/PrincipalRef" },
+        "requestId": { "$ref": "#/$defs/EntityId" },
+        "correlationId": { "$ref": "#/$defs/EntityId" },
+        "policyVersion": { "type": "integer", "minimum": 1 },
+        "profileVersion": { "type": "integer", "minimum": 1 },
+        "beforeState": { "type": ["string", "null"], "maxLength": 64 },
+        "afterState": { "type": ["string", "null"], "maxLength": 64 },
+        "resultCode": { "$ref": "#/$defs/SafeCode" },
+        "safeDetails": {
+          "type": "object",
+          "additionalProperties": {
+            "type": ["string", "integer", "boolean", "null"]
+          },
+          "maxProperties": 32
+        },
+        "correctedEventId": {
+          "oneOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
+        },
+        "serverTime": { "$ref": "#/$defs/UtcTimestamp" }
+      }
+    },
+    "CreateCaptureRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "projectId",
+        "clientRequestId",
+        "idempotencyKey",
+        "requestedUrl",
+        "regionIntent",
+        "acquisitionPolicy",
+        "captureProfileId",
+        "captureProfileVersion"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "create_capture" },
+        "projectId": { "$ref": "#/$defs/EntityId" },
+        "clientRequestId": { "$ref": "#/$defs/EntityId" },
+        "idempotencyKey": { "$ref": "#/$defs/OpaqueIdempotencyKey" },
+        "requestedUrl": { "$ref": "#/$defs/RawPublicUrl" },
+        "regionIntent": { "$ref": "#/$defs/RegionIntent" },
+        "acquisitionPolicy": { "$ref": "#/$defs/AcquisitionPolicy" },
+        "captureProfileId": { "$ref": "#/$defs/EntityId" },
+        "captureProfileVersion": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "CreateConfigurationVersionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "projectId",
+        "captureId",
+        "clientRequestId",
+        "idempotencyKey",
+        "expectedCaptureRowVersion",
+        "requestedUrl",
+        "regionIntent",
+        "acquisitionPolicy",
+        "captureProfileId",
+        "captureProfileVersion"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": {
+          "type": "string",
+          "const": "create_configuration_version"
+        },
+        "projectId": { "$ref": "#/$defs/EntityId" },
+        "captureId": { "$ref": "#/$defs/EntityId" },
+        "clientRequestId": { "$ref": "#/$defs/EntityId" },
+        "idempotencyKey": { "$ref": "#/$defs/OpaqueIdempotencyKey" },
+        "expectedCaptureRowVersion": { "type": "integer", "minimum": 1 },
+        "requestedUrl": { "$ref": "#/$defs/RawPublicUrl" },
+        "regionIntent": { "$ref": "#/$defs/RegionIntent" },
+        "acquisitionPolicy": { "$ref": "#/$defs/AcquisitionPolicy" },
+        "captureProfileId": { "$ref": "#/$defs/EntityId" },
+        "captureProfileVersion": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "RequestCaptureJobRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "projectId",
+        "captureId",
+        "clientRequestId",
+        "idempotencyKey",
+        "expectedCaptureRowVersion",
+        "trigger"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "request_capture_job" },
+        "projectId": { "$ref": "#/$defs/EntityId" },
+        "captureId": { "$ref": "#/$defs/EntityId" },
+        "clientRequestId": { "$ref": "#/$defs/EntityId" },
+        "idempotencyKey": { "$ref": "#/$defs/OpaqueIdempotencyKey" },
+        "expectedCaptureRowVersion": { "type": "integer", "minimum": 1 },
+        "trigger": { "$ref": "#/$defs/JobTrigger" }
+      }
+    },
+    "CaptureViewMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "messageType", "requestId", "capture"],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "capture_view" },
+        "requestId": { "$ref": "#/$defs/EntityId" },
+        "capture": { "$ref": "#/$defs/CaptureView" }
+      }
+    },
+    "CaptureJobViewMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "messageType", "requestId", "job"],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "capture_job_view" },
+        "requestId": { "$ref": "#/$defs/EntityId" },
+        "job": { "$ref": "#/$defs/CaptureJobView" }
+      }
+    },
+    "CaptureRevisionViewMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "messageType", "requestId", "revision"],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "capture_revision_view" },
+        "requestId": { "$ref": "#/$defs/EntityId" },
+        "revision": { "$ref": "#/$defs/CaptureRevisionView" }
+      }
+    },
+    "RecordRevisionUseDecisionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "projectId",
+        "revisionId",
+        "clientRequestId",
+        "idempotencyKey",
+        "context",
+        "decision"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": {
+          "type": "string",
+          "const": "record_revision_use_decision"
+        },
+        "projectId": { "$ref": "#/$defs/EntityId" },
+        "revisionId": { "$ref": "#/$defs/EntityId" },
+        "clientRequestId": { "$ref": "#/$defs/EntityId" },
+        "idempotencyKey": { "$ref": "#/$defs/OpaqueIdempotencyKey" },
+        "context": { "$ref": "#/$defs/ExternalReference" },
+        "decision": {
+          "type": "string",
+          "enum": ["preview_acknowledged", "release_accepted"]
+        }
+      }
+    },
+    "SelectRevisionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "projectId",
+        "revisionId",
+        "clientRequestId",
+        "idempotencyKey",
+        "target",
+        "expectedPreviousSelectionId",
+        "reason",
+        "requiredUseDecisionId"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "select_revision" },
+        "projectId": { "$ref": "#/$defs/EntityId" },
+        "revisionId": { "$ref": "#/$defs/EntityId" },
+        "clientRequestId": { "$ref": "#/$defs/EntityId" },
+        "idempotencyKey": { "$ref": "#/$defs/OpaqueIdempotencyKey" },
+        "target": { "$ref": "#/$defs/ExternalReference" },
+        "expectedPreviousSelectionId": {
+          "oneOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
+        },
+        "reason": {
+          "type": "string",
+          "enum": ["manual", "capture_and_use", "checkpoint_restore"]
+        },
+        "requiredUseDecisionId": {
+          "oneOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
+        }
+      }
+    },
+    "AddExplicitPinRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "projectId",
+        "revisionId",
+        "clientRequestId",
+        "idempotencyKey",
+        "source"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "add_explicit_pin" },
+        "projectId": { "$ref": "#/$defs/EntityId" },
+        "revisionId": { "$ref": "#/$defs/EntityId" },
+        "clientRequestId": { "$ref": "#/$defs/EntityId" },
+        "idempotencyKey": { "$ref": "#/$defs/OpaqueIdempotencyKey" },
+        "source": { "$ref": "#/$defs/ExternalReference" }
+      }
+    },
+    "ReleaseExplicitPinRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "projectId",
+        "pinId",
+        "clientRequestId",
+        "idempotencyKey",
+        "reason"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "release_explicit_pin" },
+        "projectId": { "$ref": "#/$defs/EntityId" },
+        "pinId": { "$ref": "#/$defs/EntityId" },
+        "clientRequestId": { "$ref": "#/$defs/EntityId" },
+        "idempotencyKey": { "$ref": "#/$defs/OpaqueIdempotencyKey" },
+        "reason": { "$ref": "#/$defs/BoundedText" }
+      }
+    },
+    "AuditEventsViewMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "messageType", "requestId", "events"],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "audit_events_view" },
+        "requestId": { "$ref": "#/$defs/EntityId" },
+        "events": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": { "$ref": "#/$defs/CaptureAuditEventView" }
+        }
+      }
+    },
+    "ApiError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "requestId",
+        "code",
+        "safeMessage",
+        "retryable",
+        "fieldPaths"
+      ],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/SchemaVersion" },
+        "messageType": { "type": "string", "const": "error" },
+        "requestId": { "$ref": "#/$defs/EntityId" },
+        "code": {
+          "type": "string",
+          "enum": [
+            "request_invalid",
+            "authentication_required",
+            "action_not_allowed",
+            "resource_not_found",
+            "version_conflict",
+            "idempotency_key_reused",
+            "selection_conflict",
+            "revision_requires_review",
+            "job_not_committable",
+            "capture_resource_limit",
+            "capture_request_denied",
+            "authorization_unavailable",
+            "capture_worker_unavailable",
+            "object_verification_unavailable"
+          ]
+        },
+        "safeMessage": { "$ref": "#/$defs/BoundedText" },
+        "retryable": { "type": "boolean" },
+        "fieldPaths": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "maxLength": 256,
+            "pattern": "^(?:|/(?:[A-Za-z0-9_~-]|~[01])*)$"
+          }
+        },
+        "denialFingerprint": { "$ref": "#/$defs/KeyedFingerprint" }
+      }
+    }
+  }
+}

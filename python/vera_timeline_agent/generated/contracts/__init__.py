@@ -13,10 +13,14 @@ from .compiler_dependencies_v2_schema import (
 )
 from .port_refusal_v1_schema import PortRefusalV1
 from .prompter_export_v1_schema import PrompterExportV1
+from .public_page_capture_api_v1_schema import PublicPageCaptureApiV1
+from .public_page_capture_provenance_v1_schema import PublicPageCaptureProvenanceV1
+from .public_page_capture_worker_v1_schema import PublicPageCaptureWorkerV1
 from .recognition_artifact_v1_schema import RecognitionArtifactV1
 from .script_document_v1_schema import ScriptDocumentV1
 from .script_document_v2_schema import ScriptDocumentV2, WordAudibleEndAnchor
 from .script_reconciliation_v1_schema import ScriptReconciliationV1
+from .spotlight_evidence_v1_schema import SpotlightEvidenceV1
 from .timeline_manifest_v1_schema import TimelineManifestV1
 from .timeline_manifest_v2_schema import TimelineManifestV2
 
@@ -33,10 +37,14 @@ __all__ = [
     "NarrationBoundaryEvidenceV1",
     "PortRefusalV1",
     "PrompterExportV1",
+    "PublicPageCaptureApiV1",
+    "PublicPageCaptureProvenanceV1",
+    "PublicPageCaptureWorkerV1",
     "RecognitionArtifactV1",
     "ScriptDocumentV1",
     "ScriptDocumentV2",
     "ScriptReconciliationV1",
+    "SpotlightEvidenceV1",
     "TimelineManifestV1",
     "TimelineManifestV2",
     "WordAudibleEndAnchor",

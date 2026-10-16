@@ -1,0 +1,426 @@
+{
+  "candidate": "tesseract",
+  "lines": [
+    {
+      "confidenceMillionths": null,
+      "lineRawOrdinal": null,
+      "rawOrdinal": 0,
+      "readingOrder": 0,
+      "rect": {
+        "height": 30,
+        "width": 533,
+        "x": 77,
+        "y": 74
+      },
+      "text": "Scaled and rotated notices"
+    },
+    {
+      "confidenceMillionths": null,
+      "lineRawOrdinal": null,
+      "rawOrdinal": 1,
+      "readingOrder": 1,
+      "rect": {
+        "height": 32,
+        "width": 529,
+        "x": 80,
+        "y": 171
+      },
+      "text": "Large type remains easy to inspect"
+    },
+    {
+      "confidenceMillionths": null,
+      "lineRawOrdinal": null,
+      "rawOrdinal": 2,
+      "readingOrder": 2,
+      "rect": {
+        "height": 10,
+        "width": 188,
+        "x": 81,
+        "y": 268
+      },
+      "text": "‘Small labels remain selectable"
+    },
+    {
+      "confidenceMillionths": null,
+      "lineRawOrdinal": null,
+      "rawOrdinal": 3,
+      "readingOrder": 3,
+      "rect": {
+        "height": 39,
+        "width": 921,
+        "x": 81,
+        "y": 350
+      },
+      "text": "ZOOM ONE HUNDRED TWENTY FIVE"
+    },
+    {
+      "confidenceMillionths": null,
+      "lineRawOrdinal": null,
+      "rawOrdinal": 4,
+      "readingOrder": 4,
+      "rect": {
+        "height": 25,
+        "width": 115,
+        "x": 262,
+        "y": 580
+      },
+      "text": "te ;"
+    },
+    {
+      "confidenceMillionths": null,
+      "lineRawOrdinal": null,
+      "rawOrdinal": 5,
+      "readingOrder": 5,
+      "rect": {
+        "height": 69,
+        "width": 538,
+        "x": 188,
+        "y": 587
+      },
+      "text": "Rota’ review efore apet oval"
+    }
+  ],
+  "profile": "tesseract-5.5.3-oem1-psm3-eng-tsv-v1",
+  "rasterHeight": 900,
+  "rasterWidth": 1600,
+  "words": [
+    {
+      "confidenceMillionths": 968270,
+      "lineRawOrdinal": 0,
+      "rawOrdinal": 0,
+      "readingOrder": 0,
+      "rect": {
+        "height": 30,
+        "width": 131,
+        "x": 77,
+        "y": 74
+      },
+      "text": "Scaled"
+    },
+    {
+      "confidenceMillionths": 962910,
+      "lineRawOrdinal": 0,
+      "rawOrdinal": 1,
+      "readingOrder": 1,
+      "rect": {
+        "height": 30,
+        "width": 71,
+        "x": 224,
+        "y": 74
+      },
+      "text": "and"
+    },
+    {
+      "confidenceMillionths": 965177,
+      "lineRawOrdinal": 0,
+      "rawOrdinal": 2,
+      "readingOrder": 2,
+      "rect": {
+        "height": 30,
+        "width": 137,
+        "x": 313,
+        "y": 74
+      },
+      "text": "rotated"
+    },
+    {
+      "confidenceMillionths": 960063,
+      "lineRawOrdinal": 0,
+      "rawOrdinal": 3,
+      "readingOrder": 3,
+      "rect": {
+        "height": 30,
+        "width": 142,
+        "x": 468,
+        "y": 74
+      },
+      "text": "notices"
+    },
+    {
+      "confidenceMillionths": 969463,
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 4,
+      "readingOrder": 4,
+      "rect": {
+        "height": 32,
+        "width": 84,
+        "x": 80,
+        "y": 171
+      },
+      "text": "Large"
+    },
+    {
+      "confidenceMillionths": 966544,
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 6,
+      "readingOrder": 5,
+      "rect": {
+        "height": 25,
+        "width": 118,
+        "x": 252,
+        "y": 171
+      },
+      "text": "remains"
+    },
+    {
+      "confidenceMillionths": 965995,
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 9,
+      "readingOrder": 6,
+      "rect": {
+        "height": 32,
+        "width": 105,
+        "x": 504,
+        "y": 171
+      },
+      "text": "inspect"
+    },
+    {
+      "confidenceMillionths": 968329,
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 5,
+      "readingOrder": 7,
+      "rect": {
+        "height": 31,
+        "width": 62,
+        "x": 176,
+        "y": 172
+      },
+      "text": "type"
+    },
+    {
+      "confidenceMillionths": 968231,
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 8,
+      "readingOrder": 8,
+      "rect": {
+        "height": 24,
+        "width": 26,
+        "x": 464,
+        "y": 172
+      },
+      "text": "to"
+    },
+    {
+      "confidenceMillionths": 965922,
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 7,
+      "readingOrder": 9,
+      "rect": {
+        "height": 25,
+        "width": 71,
+        "x": 382,
+        "y": 178
+      },
+      "text": "easy"
+    },
+    {
+      "confidenceMillionths": 750374,
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 10,
+      "readingOrder": 10,
+      "rect": {
+        "height": 10,
+        "width": 33,
+        "x": 81,
+        "y": 268
+      },
+      "text": "‘Small"
+    },
+    {
+      "confidenceMillionths": 932070,
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 11,
+      "readingOrder": 11,
+      "rect": {
+        "height": 10,
+        "width": 35,
+        "x": 120,
+        "y": 268
+      },
+      "text": "labels"
+    },
+    {
+      "confidenceMillionths": 958734,
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 13,
+      "readingOrder": 12,
+      "rect": {
+        "height": 10,
+        "width": 61,
+        "x": 208,
+        "y": 268
+      },
+      "text": "selectable"
+    },
+    {
+      "confidenceMillionths": 930635,
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 12,
+      "readingOrder": 13,
+      "rect": {
+        "height": 8,
+        "width": 41,
+        "x": 161,
+        "y": 270
+      },
+      "text": "remain"
+    },
+    {
+      "confidenceMillionths": 963548,
+      "lineRawOrdinal": 3,
+      "rawOrdinal": 14,
+      "readingOrder": 14,
+      "rect": {
+        "height": 39,
+        "width": 152,
+        "x": 81,
+        "y": 350
+      },
+      "text": "ZOOM"
+    },
+    {
+      "confidenceMillionths": 956385,
+      "lineRawOrdinal": 3,
+      "rawOrdinal": 15,
+      "readingOrder": 15,
+      "rect": {
+        "height": 39,
+        "width": 108,
+        "x": 253,
+        "y": 350
+      },
+      "text": "ONE"
+    },
+    {
+      "confidenceMillionths": 959341,
+      "lineRawOrdinal": 3,
+      "rawOrdinal": 16,
+      "readingOrder": 16,
+      "rect": {
+        "height": 38,
+        "width": 253,
+        "x": 383,
+        "y": 351
+      },
+      "text": "HUNDRED"
+    },
+    {
+      "confidenceMillionths": 961897,
+      "lineRawOrdinal": 3,
+      "rawOrdinal": 17,
+      "readingOrder": 17,
+      "rect": {
+        "height": 37,
+        "width": 218,
+        "x": 655,
+        "y": 351
+      },
+      "text": "TWENTY"
+    },
+    {
+      "confidenceMillionths": 966218,
+      "lineRawOrdinal": 3,
+      "rawOrdinal": 18,
+      "readingOrder": 18,
+      "rect": {
+        "height": 37,
+        "width": 109,
+        "x": 893,
+        "y": 351
+      },
+      "text": "FIVE"
+    },
+    {
+      "confidenceMillionths": 809302,
+      "lineRawOrdinal": 4,
+      "rawOrdinal": 19,
+      "readingOrder": 19,
+      "rect": {
+        "height": 25,
+        "width": 30,
+        "x": 262,
+        "y": 580
+      },
+      "text": "te"
+    },
+    {
+      "confidenceMillionths": 392307,
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 21,
+      "readingOrder": 20,
+      "rect": {
+        "height": 34,
+        "width": 76,
+        "x": 188,
+        "y": 587
+      },
+      "text": "Rota’"
+    },
+    {
+      "confidenceMillionths": 291154,
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 22,
+      "readingOrder": 21,
+      "rect": {
+        "height": 40,
+        "width": 101,
+        "x": 323,
+        "y": 589
+      },
+      "text": "review"
+    },
+    {
+      "confidenceMillionths": 0,
+      "lineRawOrdinal": 4,
+      "rawOrdinal": 20,
+      "readingOrder": 22,
+      "rect": {
+        "height": 5,
+        "width": 5,
+        "x": 372,
+        "y": 593
+      },
+      "text": ";"
+    },
+    {
+      "confidenceMillionths": 209032,
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 23,
+      "readingOrder": 23,
+      "rect": {
+        "height": 38,
+        "width": 102,
+        "x": 456,
+        "y": 599
+      },
+      "text": "efore"
+    },
+    {
+      "confidenceMillionths": 952327,
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 25,
+      "readingOrder": 24,
+      "rect": {
+        "height": 36,
+        "width": 64,
+        "x": 662,
+        "y": 600
+      },
+      "text": "oval"
+    },
+    {
+      "confidenceMillionths": 610190,
+      "lineRawOrdinal": 5,
+      "rawOrdinal": 24,
+      "readingOrder": 25,
+      "rect": {
+        "height": 36,
+        "width": 70,
+        "x": 589,
+        "y": 620
+      },
+      "text": "apet"
+    }
+  ]
+}

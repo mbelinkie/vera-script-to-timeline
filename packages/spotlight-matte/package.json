@@ -1,0 +1,14 @@
+{
+  "name": "@vera/spotlight-matte",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/spotlight-matte.ts"
+  },
+  "scripts": {
+    "lint": "eslint src test --max-warnings=0",
+    "typecheck": "tsc --project tsconfig.json",
+    "test": "vitest run"
+  }
+}

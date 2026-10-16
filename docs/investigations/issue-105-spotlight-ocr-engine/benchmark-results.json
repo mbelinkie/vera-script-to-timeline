@@ -1,0 +1,776 @@
+{
+  "candidates": {
+    "apple-vision": {
+      "aggregate": {
+        "fixtureCount": 5,
+        "lines": {
+          "exactTextAndOverlapMatches": 37,
+          "exactTextRecall": 0.925,
+          "expected": 40,
+          "meanGroundTruthBoxIou": 0.754706
+        },
+        "peakResidentBytesMaximum": 76533760,
+        "repeatableFixtures": 5,
+        "wallMsMedian": 598.826,
+        "wallMsP95": 656.98,
+        "words": {
+          "exactTextAndOverlapMatches": 115,
+          "exactTextRecall": 0.927419,
+          "expected": 124,
+          "meanGroundTruthBoxIou": 0.667643
+        }
+      },
+      "executableDigest": "sha256:188e152ec8cc6e9de223c71ffead1940f78e0f6964562b1c4fd5ab3869164b7c",
+      "executableLocation": "ephemeral evaluation build from retained source",
+      "fixtures": {
+        "clean-page": {
+          "canonicalOutputDigest": "sha256:dc9ea70595b5bb876418987698fbe01806250d160c714dc1d2d32834cc4f2d50",
+          "confidence": {
+            "line": "provider_reported",
+            "word": "unavailable"
+          },
+          "inputDigest": "sha256:b9fbe89641fd1253fd690d4ff23d9a60f7604f63d37bb38d59afd3744118fe43",
+          "lines": {
+            "exactTextAndOverlapMatches": 8,
+            "exactTextRecall": 1.0,
+            "expected": 8,
+            "meanGroundTruthBoxIou": 0.842929,
+            "meanMatchedBoxIou": 0.842929,
+            "predicted": 8
+          },
+          "outputDigest": "sha256:b097d828e39c38e68c644ad14b89dc1946ff7da3a2fdae2939b90a0f19ff0afd",
+          "peakResidentBytes": {
+            "maximum": 73261056,
+            "median": 72966144,
+            "runs": [
+              72966144,
+              73117696,
+              72609792,
+              72933376,
+              73261056
+            ]
+          },
+          "repeatable": true,
+          "runOutputDigests": [
+            "sha256:dc9ea70595b5bb876418987698fbe01806250d160c714dc1d2d32834cc4f2d50",
+            "sha256:dc9ea70595b5bb876418987698fbe01806250d160c714dc1d2d32834cc4f2d50",
+            "sha256:dc9ea70595b5bb876418987698fbe01806250d160c714dc1d2d32834cc4f2d50",
+            "sha256:dc9ea70595b5bb876418987698fbe01806250d160c714dc1d2d32834cc4f2d50",
+            "sha256:dc9ea70595b5bb876418987698fbe01806250d160c714dc1d2d32834cc4f2d50"
+          ],
+          "wallMs": {
+            "median": 591.559,
+            "p95": 1514.652,
+            "runs": [
+              1514.652,
+              587.719,
+              591.559,
+              576.366,
+              614.446
+            ]
+          },
+          "words": {
+            "exactTextAndOverlapMatches": 25,
+            "exactTextRecall": 1.0,
+            "expected": 25,
+            "meanGroundTruthBoxIou": 0.759937,
+            "meanMatchedBoxIou": 0.759937,
+            "predicted": 25
+          }
+        },
+        "mixed-layout": {
+          "canonicalOutputDigest": "sha256:46606fa69ec9154a93fcdd2973aded57f7e32681994453868b0b88e05b10ebba",
+          "confidence": {
+            "line": "provider_reported",
+            "word": "unavailable"
+          },
+          "inputDigest": "sha256:6e12a002a4b8d2065100a8acaa6680922af0005314cc6e63c982cff92b48f244",
+          "lines": {
+            "exactTextAndOverlapMatches": 16,
+            "exactTextRecall": 1.0,
+            "expected": 16,
+            "meanGroundTruthBoxIou": 0.817969,
+            "meanMatchedBoxIou": 0.817969,
+            "predicted": 16
+          },
+          "outputDigest": "sha256:1c4fce96b1b6f176e3597499504a181d73d8ba01d6b7a687c4039c6f6da08cb4",
+          "peakResidentBytes": {
+            "maximum": 72118272,
+            "median": 71929856,
+            "runs": [
+              71700480,
+              71929856,
+              71659520,
+              72101888,
+              72118272
+            ]
+          },
+          "repeatable": true,
+          "runOutputDigests": [
+            "sha256:46606fa69ec9154a93fcdd2973aded57f7e32681994453868b0b88e05b10ebba",
+            "sha256:46606fa69ec9154a93fcdd2973aded57f7e32681994453868b0b88e05b10ebba",
+            "sha256:46606fa69ec9154a93fcdd2973aded57f7e32681994453868b0b88e05b10ebba",
+            "sha256:46606fa69ec9154a93fcdd2973aded57f7e32681994453868b0b88e05b10ebba",
+            "sha256:46606fa69ec9154a93fcdd2973aded57f7e32681994453868b0b88e05b10ebba"
+          ],
+          "wallMs": {
+            "median": 635.086,
+            "p95": 656.98,
+            "runs": [
+              631.384,
+              635.086,
+              656.98,
+              641.467,
+              630.593
+            ]
+          },
+          "words": {
+            "exactTextAndOverlapMatches": 36,
+            "exactTextRecall": 1.0,
+            "expected": 36,
+            "meanGroundTruthBoxIou": 0.725224,
+            "meanMatchedBoxIou": 0.725224,
+            "predicted": 36
+          }
+        },
+        "multilingual": {
+          "canonicalOutputDigest": "sha256:04061f2cc3ae0670315bc1d30b38370fe27873b8dd229d1a37ef374656b8ba75",
+          "confidence": {
+            "line": "provider_reported",
+            "word": "unavailable"
+          },
+          "inputDigest": "sha256:32cee0b2b8ce8bb774c40de206c84c123cc980ec15338fab51786c8c4d38d6d1",
+          "lines": {
+            "exactTextAndOverlapMatches": 6,
+            "exactTextRecall": 1.0,
+            "expected": 6,
+            "meanGroundTruthBoxIou": 0.810924,
+            "meanMatchedBoxIou": 0.810924,
+            "predicted": 6
+          },
+          "outputDigest": "sha256:40296d6de28352f2dc8225c06c2999484f146178df66392e3b315753b5ed381e",
+          "peakResidentBytes": {
+            "maximum": 72642560,
+            "median": 72617984,
+            "runs": [
+              72630272,
+              72617984,
+              72642560,
+              72114176,
+              72216576
+            ]
+          },
+          "repeatable": true,
+          "runOutputDigests": [
+            "sha256:04061f2cc3ae0670315bc1d30b38370fe27873b8dd229d1a37ef374656b8ba75",
+            "sha256:04061f2cc3ae0670315bc1d30b38370fe27873b8dd229d1a37ef374656b8ba75",
+            "sha256:04061f2cc3ae0670315bc1d30b38370fe27873b8dd229d1a37ef374656b8ba75",
+            "sha256:04061f2cc3ae0670315bc1d30b38370fe27873b8dd229d1a37ef374656b8ba75",
+            "sha256:04061f2cc3ae0670315bc1d30b38370fe27873b8dd229d1a37ef374656b8ba75"
+          ],
+          "wallMs": {
+            "median": 598.826,
+            "p95": 627.064,
+            "runs": [
+              598.324,
+              564.722,
+              598.826,
+              600.471,
+              627.064
+            ]
+          },
+          "words": {
+            "exactTextAndOverlapMatches": 20,
+            "exactTextRecall": 1.0,
+            "expected": 20,
+            "meanGroundTruthBoxIou": 0.728785,
+            "meanMatchedBoxIou": 0.728785,
+            "predicted": 20
+          }
+        },
+        "scaled-rotated": {
+          "canonicalOutputDigest": "sha256:502540ef2ab1d098a86dce3c610340ae52a94d502b433c13e1e6d4fdbdf70c4f",
+          "confidence": {
+            "line": "provider_reported",
+            "word": "unavailable"
+          },
+          "inputDigest": "sha256:f512a08b57f6b02ab961615eae46c9f0330281be3a6a30160eb4bbbd49107983",
+          "lines": {
+            "exactTextAndOverlapMatches": 4,
+            "exactTextRecall": 0.8,
+            "expected": 5,
+            "meanGroundTruthBoxIou": 0.592437,
+            "meanMatchedBoxIou": 0.740546,
+            "predicted": 8
+          },
+          "outputDigest": "sha256:0657d1e8eed0245a86eff5a239a738cf2cc988de299a2e808914c4f4a643cac0",
+          "peakResidentBytes": {
+            "maximum": 76533760,
+            "median": 76140544,
+            "runs": [
+              76013568,
+              76374016,
+              76533760,
+              76115968,
+              76140544
+            ]
+          },
+          "repeatable": true,
+          "runOutputDigests": [
+            "sha256:502540ef2ab1d098a86dce3c610340ae52a94d502b433c13e1e6d4fdbdf70c4f",
+            "sha256:502540ef2ab1d098a86dce3c610340ae52a94d502b433c13e1e6d4fdbdf70c4f",
+            "sha256:502540ef2ab1d098a86dce3c610340ae52a94d502b433c13e1e6d4fdbdf70c4f",
+            "sha256:502540ef2ab1d098a86dce3c610340ae52a94d502b433c13e1e6d4fdbdf70c4f",
+            "sha256:502540ef2ab1d098a86dce3c610340ae52a94d502b433c13e1e6d4fdbdf70c4f"
+          ],
+          "wallMs": {
+            "median": 601.384,
+            "p95": 625.161,
+            "runs": [
+              625.161,
+              577.406,
+              601.384,
+              592.666,
+              608.228
+            ]
+          },
+          "words": {
+            "exactTextAndOverlapMatches": 23,
+            "exactTextRecall": 1.0,
+            "expected": 23,
+            "meanGroundTruthBoxIou": 0.667584,
+            "meanMatchedBoxIou": 0.667584,
+            "predicted": 23
+          }
+        },
+        "unreadable": {
+          "canonicalOutputDigest": "sha256:89a135f06b329391c6cdc607a641bfd4f569fbbdf2c830dfdc7bd619453e146b",
+          "confidence": {
+            "line": "provider_reported",
+            "word": "unavailable"
+          },
+          "inputDigest": "sha256:6b30c655db5e7f5bcfb761ea2c2bdc17523ee0de83c065794e63c2cad4726e68",
+          "lines": {
+            "exactTextAndOverlapMatches": 3,
+            "exactTextRecall": 0.6,
+            "expected": 5,
+            "meanGroundTruthBoxIou": 0.505916,
+            "meanMatchedBoxIou": 0.843193,
+            "predicted": 3
+          },
+          "outputDigest": "sha256:bf5fe773062bf63d570151803a58497ea95f3655f80c0b76a5bd400ed4973463",
+          "peakResidentBytes": {
+            "maximum": 72622080,
+            "median": 72536064,
+            "runs": [
+              72396800,
+              72613888,
+              72536064,
+              72622080,
+              72495104
+            ]
+          },
+          "repeatable": true,
+          "runOutputDigests": [
+            "sha256:89a135f06b329391c6cdc607a641bfd4f569fbbdf2c830dfdc7bd619453e146b",
+            "sha256:89a135f06b329391c6cdc607a641bfd4f569fbbdf2c830dfdc7bd619453e146b",
+            "sha256:89a135f06b329391c6cdc607a641bfd4f569fbbdf2c830dfdc7bd619453e146b",
+            "sha256:89a135f06b329391c6cdc607a641bfd4f569fbbdf2c830dfdc7bd619453e146b",
+            "sha256:89a135f06b329391c6cdc607a641bfd4f569fbbdf2c830dfdc7bd619453e146b"
+          ],
+          "wallMs": {
+            "median": 566.6,
+            "p95": 576.229,
+            "runs": [
+              566.6,
+              551.369,
+              559.524,
+              576.229,
+              568.626
+            ]
+          },
+          "words": {
+            "exactTextAndOverlapMatches": 11,
+            "exactTextRecall": 0.55,
+            "expected": 20,
+            "meanGroundTruthBoxIou": 0.387553,
+            "meanMatchedBoxIou": 0.704641,
+            "predicted": 11
+          }
+        }
+      },
+      "profile": {
+        "adapter": "issue-105-vision-probe.swift",
+        "adapterSourceDigest": "sha256:15613bbeab07b3905cb7b55497c53130a9dfa3cda36a255a7dd09f1f966ae6fc",
+        "adapterVersion": "1",
+        "automaticLanguageDetection": false,
+        "canonicalizationVersion": "vera.spotlight.canonical-json.v1",
+        "costPolicy": "local-no-provider-charge-usd-zero-v1",
+        "customWords": [],
+        "evaluationExecutableDigest": "sha256:188e152ec8cc6e9de223c71ffead1940f78e0f6964562b1c4fd5ab3869164b7c",
+        "executionLocation": "local",
+        "geometryVersion": "vision-normalized-to-outward-rounded-source-pixels-v1",
+        "hostPlatform": {
+          "macOSBuildVersion": "24B83",
+          "macOSProductVersion": "15.1",
+          "machine": "x86_64"
+        },
+        "languagePolicy": "fixed-en-US-reject-other-hints-v1",
+        "languages": [
+          "en-US"
+        ],
+        "limits": {
+          "maximumDecodedBytes": 67108864,
+          "maximumEncodedBytes": 26214400,
+          "maximumLines": 10000,
+          "maximumRasterHeight": 8192,
+          "maximumRasterPixels": 16777216,
+          "maximumRasterWidth": 8192,
+          "maximumUtf8BytesPerElement": 16384,
+          "maximumWords": 50000,
+          "retryLimit": 0,
+          "timeoutMilliseconds": 30000
+        },
+        "modelArtifactDigest": {
+          "reason": "Apple does not expose the embedded model artifact",
+          "state": "unavailable"
+        },
+        "modelName": "VNRecognizeTextRequest",
+        "modelVersion": "request-revision-3",
+        "preprocessing": "none",
+        "privacyPolicy": "local-device-only-no-network-v1",
+        "profileId": "vision-r3-accurate-en-US-no-language-correction-v1",
+        "providerApiVersion": "Vision.framework-macOS-15.1-build-24B83",
+        "providerId": "apple-vision-local",
+        "rawResponseEnvelopeVersion": "vision-response-envelope-v1",
+        "readingOrderVersion": "top-edge-left-edge-raw-ordinal-v1",
+        "recognitionLevel": "accurate",
+        "usesLanguageCorrection": false
+      },
+      "profileDigest": "sha256:c95cee13fa2e2f912ff65cb5dfeac62655cb345ccb78a7828935791baf8acd51",
+      "supportedLanguages": {
+        "accurate": [
+          "ar-SA",
+          "ars-SA",
+          "de-DE",
+          "en-US",
+          "es-ES",
+          "fr-FR",
+          "it-IT",
+          "ja-JP",
+          "ko-KR",
+          "pt-BR",
+          "ru-RU",
+          "th-TH",
+          "uk-UA",
+          "vi-VT",
+          "yue-Hans",
+          "yue-Hant",
+          "zh-Hans",
+          "zh-Hant"
+        ],
+        "fast": [
+          "de-DE",
+          "en-US",
+          "es-ES",
+          "fr-FR",
+          "it-IT",
+          "pt-BR"
+        ],
+        "revision": 3
+      }
+    },
+    "tesseract": {
+      "aggregate": {
+        "fixtureCount": 5,
+        "lines": {
+          "exactTextAndOverlapMatches": 27,
+          "exactTextRecall": 0.675,
+          "expected": 40,
+          "meanGroundTruthBoxIou": 0.661887
+        },
+        "peakResidentBytesMaximum": 51683328,
+        "repeatableFixtures": 5,
+        "wallMsMedian": 328.444,
+        "wallMsP95": 414.12,
+        "words": {
+          "exactTextAndOverlapMatches": 103,
+          "exactTextRecall": 0.830645,
+          "expected": 124,
+          "meanGroundTruthBoxIou": 0.788001
+        }
+      },
+      "executableDigest": "sha256:ba1ac07012b5506adec3b0231ebaeb86daac37dd1b02b46dffe00531b432af10",
+      "executableLocation": "Homebrew-linked tesseract 5.5.3",
+      "fixtures": {
+        "clean-page": {
+          "canonicalOutputDigest": "sha256:39e6d6facb90b3440ba6ee65ee2074d911cd2d1d3eec1a48b5ee314ee06251da",
+          "confidence": {
+            "line": "unavailable",
+            "word": "provider_reported"
+          },
+          "inputDigest": "sha256:b9fbe89641fd1253fd690d4ff23d9a60f7604f63d37bb38d59afd3744118fe43",
+          "lines": {
+            "exactTextAndOverlapMatches": 5,
+            "exactTextRecall": 0.625,
+            "expected": 8,
+            "meanGroundTruthBoxIou": 0.616324,
+            "meanMatchedBoxIou": 0.986119,
+            "predicted": 6
+          },
+          "outputDigest": "sha256:6ce129218512e30c41981135d895a3d72c0ac336e7095027b35f89d1a7efc65f",
+          "peakResidentBytes": {
+            "maximum": 51683328,
+            "median": 51453952,
+            "runs": [
+              51453952,
+              51089408,
+              51683328,
+              51314688,
+              51490816
+            ]
+          },
+          "repeatable": true,
+          "runOutputDigests": [
+            "sha256:39e6d6facb90b3440ba6ee65ee2074d911cd2d1d3eec1a48b5ee314ee06251da",
+            "sha256:39e6d6facb90b3440ba6ee65ee2074d911cd2d1d3eec1a48b5ee314ee06251da",
+            "sha256:39e6d6facb90b3440ba6ee65ee2074d911cd2d1d3eec1a48b5ee314ee06251da",
+            "sha256:39e6d6facb90b3440ba6ee65ee2074d911cd2d1d3eec1a48b5ee314ee06251da",
+            "sha256:39e6d6facb90b3440ba6ee65ee2074d911cd2d1d3eec1a48b5ee314ee06251da"
+          ],
+          "wallMs": {
+            "median": 347.124,
+            "p95": 363.2,
+            "runs": [
+              350.956,
+              334.499,
+              363.2,
+              347.124,
+              332.697
+            ]
+          },
+          "words": {
+            "exactTextAndOverlapMatches": 23,
+            "exactTextRecall": 0.92,
+            "expected": 25,
+            "meanGroundTruthBoxIou": 0.877759,
+            "meanMatchedBoxIou": 0.954085,
+            "predicted": 23
+          }
+        },
+        "mixed-layout": {
+          "canonicalOutputDigest": "sha256:e1aa6a486932c8ccdc2254511ae46669fe47df0347fb4e1a539edc82fd4fb74f",
+          "confidence": {
+            "line": "unavailable",
+            "word": "provider_reported"
+          },
+          "inputDigest": "sha256:6e12a002a4b8d2065100a8acaa6680922af0005314cc6e63c982cff92b48f244",
+          "lines": {
+            "exactTextAndOverlapMatches": 12,
+            "exactTextRecall": 0.75,
+            "expected": 16,
+            "meanGroundTruthBoxIou": 0.739058,
+            "meanMatchedBoxIou": 0.98541,
+            "predicted": 14
+          },
+          "outputDigest": "sha256:fb06bbfc9230dd296a48b997752d70e9e20c06bd875885a8bef052cce9341f86",
+          "peakResidentBytes": {
+            "maximum": 49807360,
+            "median": 49680384,
+            "runs": [
+              49639424,
+              49684480,
+              49598464,
+              49680384,
+              49807360
+            ]
+          },
+          "repeatable": true,
+          "runOutputDigests": [
+            "sha256:e1aa6a486932c8ccdc2254511ae46669fe47df0347fb4e1a539edc82fd4fb74f",
+            "sha256:e1aa6a486932c8ccdc2254511ae46669fe47df0347fb4e1a539edc82fd4fb74f",
+            "sha256:e1aa6a486932c8ccdc2254511ae46669fe47df0347fb4e1a539edc82fd4fb74f",
+            "sha256:e1aa6a486932c8ccdc2254511ae46669fe47df0347fb4e1a539edc82fd4fb74f",
+            "sha256:e1aa6a486932c8ccdc2254511ae46669fe47df0347fb4e1a539edc82fd4fb74f"
+          ],
+          "wallMs": {
+            "median": 410.298,
+            "p95": 416.578,
+            "runs": [
+              407.247,
+              410.298,
+              416.578,
+              407.864,
+              414.12
+            ]
+          },
+          "words": {
+            "exactTextAndOverlapMatches": 36,
+            "exactTextRecall": 1.0,
+            "expected": 36,
+            "meanGroundTruthBoxIou": 0.950878,
+            "meanMatchedBoxIou": 0.950878,
+            "predicted": 36
+          }
+        },
+        "multilingual": {
+          "canonicalOutputDigest": "sha256:0e71d21d21e7a2b55bdad4df4bff8b2d3df2aef5b5c47a940e99fc5be4727294",
+          "confidence": {
+            "line": "unavailable",
+            "word": "provider_reported"
+          },
+          "inputDigest": "sha256:32cee0b2b8ce8bb774c40de206c84c123cc980ec15338fab51786c8c4d38d6d1",
+          "lines": {
+            "exactTextAndOverlapMatches": 3,
+            "exactTextRecall": 0.5,
+            "expected": 6,
+            "meanGroundTruthBoxIou": 0.485592,
+            "meanMatchedBoxIou": 0.971184,
+            "predicted": 6
+          },
+          "outputDigest": "sha256:64ab49819abefb2554b016c9e37ae27fdf93e1ac369b82e2a9ddbe92357f83f4",
+          "peakResidentBytes": {
+            "maximum": 51187712,
+            "median": 50900992,
+            "runs": [
+              50790400,
+              50860032,
+              51060736,
+              51187712,
+              50900992
+            ]
+          },
+          "repeatable": true,
+          "runOutputDigests": [
+            "sha256:0e71d21d21e7a2b55bdad4df4bff8b2d3df2aef5b5c47a940e99fc5be4727294",
+            "sha256:0e71d21d21e7a2b55bdad4df4bff8b2d3df2aef5b5c47a940e99fc5be4727294",
+            "sha256:0e71d21d21e7a2b55bdad4df4bff8b2d3df2aef5b5c47a940e99fc5be4727294",
+            "sha256:0e71d21d21e7a2b55bdad4df4bff8b2d3df2aef5b5c47a940e99fc5be4727294",
+            "sha256:0e71d21d21e7a2b55bdad4df4bff8b2d3df2aef5b5c47a940e99fc5be4727294"
+          ],
+          "wallMs": {
+            "median": 314.436,
+            "p95": 317.17,
+            "runs": [
+              317.17,
+              313.969,
+              314.436,
+              314.652,
+              311.601
+            ]
+          },
+          "words": {
+            "exactTextAndOverlapMatches": 13,
+            "exactTextRecall": 0.65,
+            "expected": 20,
+            "meanGroundTruthBoxIou": 0.613676,
+            "meanMatchedBoxIou": 0.944118,
+            "predicted": 20
+          }
+        },
+        "scaled-rotated": {
+          "canonicalOutputDigest": "sha256:33f40b92a9226d898e9ff14f703f6ac750b1f1bfb5b150e2017495e453c2cbf6",
+          "confidence": {
+            "line": "unavailable",
+            "word": "provider_reported"
+          },
+          "inputDigest": "sha256:f512a08b57f6b02ab961615eae46c9f0330281be3a6a30160eb4bbbd49107983",
+          "lines": {
+            "exactTextAndOverlapMatches": 4,
+            "exactTextRecall": 0.8,
+            "expected": 5,
+            "meanGroundTruthBoxIou": 0.776422,
+            "meanMatchedBoxIou": 0.970527,
+            "predicted": 6
+          },
+          "outputDigest": "sha256:945874f5a206a34c5c583bb58f9a17f0c56317a23ab3bc6726618eead652dd97",
+          "peakResidentBytes": {
+            "maximum": 50425856,
+            "median": 50155520,
+            "runs": [
+              50155520,
+              50114560,
+              50196480,
+              49852416,
+              50425856
+            ]
+          },
+          "repeatable": true,
+          "runOutputDigests": [
+            "sha256:33f40b92a9226d898e9ff14f703f6ac750b1f1bfb5b150e2017495e453c2cbf6",
+            "sha256:33f40b92a9226d898e9ff14f703f6ac750b1f1bfb5b150e2017495e453c2cbf6",
+            "sha256:33f40b92a9226d898e9ff14f703f6ac750b1f1bfb5b150e2017495e453c2cbf6",
+            "sha256:33f40b92a9226d898e9ff14f703f6ac750b1f1bfb5b150e2017495e453c2cbf6",
+            "sha256:33f40b92a9226d898e9ff14f703f6ac750b1f1bfb5b150e2017495e453c2cbf6"
+          ],
+          "wallMs": {
+            "median": 328.444,
+            "p95": 339.16,
+            "runs": [
+              339.16,
+              328.444,
+              327.291,
+              328.888,
+              324.405
+            ]
+          },
+          "words": {
+            "exactTextAndOverlapMatches": 20,
+            "exactTextRecall": 0.869565,
+            "expected": 23,
+            "meanGroundTruthBoxIou": 0.821696,
+            "meanMatchedBoxIou": 0.944951,
+            "predicted": 26
+          }
+        },
+        "unreadable": {
+          "canonicalOutputDigest": "sha256:1285ad344a29f423cd1550734ff954fe303ecfa1bb8a0e4900235360b9c7486d",
+          "confidence": {
+            "line": "unavailable",
+            "word": "provider_reported"
+          },
+          "inputDigest": "sha256:6b30c655db5e7f5bcfb761ea2c2bdc17523ee0de83c065794e63c2cad4726e68",
+          "lines": {
+            "exactTextAndOverlapMatches": 3,
+            "exactTextRecall": 0.6,
+            "expected": 5,
+            "meanGroundTruthBoxIou": 0.584863,
+            "meanMatchedBoxIou": 0.974772,
+            "predicted": 3
+          },
+          "outputDigest": "sha256:88beab3c87cb5aff2d7222af47cf9e8c74b3753a3b20fa16f55c1ffb4d80bf83",
+          "peakResidentBytes": {
+            "maximum": 50708480,
+            "median": 50696192,
+            "runs": [
+              50696192,
+              50700288,
+              50638848,
+              50708480,
+              50593792
+            ]
+          },
+          "repeatable": true,
+          "runOutputDigests": [
+            "sha256:1285ad344a29f423cd1550734ff954fe303ecfa1bb8a0e4900235360b9c7486d",
+            "sha256:1285ad344a29f423cd1550734ff954fe303ecfa1bb8a0e4900235360b9c7486d",
+            "sha256:1285ad344a29f423cd1550734ff954fe303ecfa1bb8a0e4900235360b9c7486d",
+            "sha256:1285ad344a29f423cd1550734ff954fe303ecfa1bb8a0e4900235360b9c7486d",
+            "sha256:1285ad344a29f423cd1550734ff954fe303ecfa1bb8a0e4900235360b9c7486d"
+          ],
+          "wallMs": {
+            "median": 262.292,
+            "p95": 274.775,
+            "runs": [
+              261.205,
+              266.559,
+              252.344,
+              262.292,
+              274.775
+            ]
+          },
+          "words": {
+            "exactTextAndOverlapMatches": 11,
+            "exactTextRecall": 0.55,
+            "expected": 20,
+            "meanGroundTruthBoxIou": 0.518203,
+            "meanMatchedBoxIou": 0.942188,
+            "predicted": 11
+          }
+        }
+      },
+      "installedLanguages": [
+        "eng",
+        "osd",
+        "snum"
+      ],
+      "modelDigest": "sha256:7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2",
+      "modelLocation": "Homebrew-bundled eng.traineddata",
+      "profile": {
+        "adapter": "issue-105-evaluate.py",
+        "adapterSourceDigest": "sha256:d819a1d0b933641845542730a5d8c02d0c3f6f6b8fd57e4faf0b719917706e44",
+        "adapterVersion": "1",
+        "canonicalizationVersion": "vera.spotlight.canonical-json.v1",
+        "costPolicy": "local-no-provider-charge-usd-zero-v1",
+        "engineExecutableDigest": "sha256:ba1ac07012b5506adec3b0231ebaeb86daac37dd1b02b46dffe00531b432af10",
+        "engineMode": 1,
+        "executionLocation": "local",
+        "geometryVersion": "tesseract-tsv-integer-source-pixels-v1",
+        "languagePolicy": "fixed-eng-reject-other-hints-v1",
+        "languages": [
+          "eng"
+        ],
+        "limits": {
+          "maximumDecodedBytes": 67108864,
+          "maximumEncodedBytes": 26214400,
+          "maximumLines": 10000,
+          "maximumRasterHeight": 8192,
+          "maximumRasterPixels": 16777216,
+          "maximumRasterWidth": 8192,
+          "maximumUtf8BytesPerElement": 16384,
+          "maximumWords": 50000,
+          "retryLimit": 0,
+          "timeoutMilliseconds": 30000
+        },
+        "modelArtifactDigest": "sha256:7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2",
+        "modelName": "eng.traineddata",
+        "modelVersion": "LSTM: network=[1,36,0,1Ct3,3,16Mp3,3Lfys48Lfx96Lrx96Lfx192O1c1], int_mode=1, recoding=1, iteration=6352400, sample_iteration=6352704, null_char=110, learning_rate=0.001, momentum=0.5, adam_beta=0.999\nLayer Learning Rates: :0(Input)=0.001, :1:0(Convolve)=0.001, :1:1(ConvNL)=0.000125, :2(Maxpool)=0.001, :3:0(Lfys48)=0.000125, :4(Lfx96)=0.000125, :5:0(Lrx96)=0.000125, :6(Lfx192)=0.000125, :7(Output)=0.000125",
+        "pageSegmentationMode": 3,
+        "preprocessing": "none",
+        "privacyPolicy": "local-process-only-no-network-v1",
+        "profileId": "tesseract-5.5.3-oem1-psm3-eng-tsv-v1",
+        "providerApiVersion": "tesseract-cli-5.5.3",
+        "providerId": "tesseract-local",
+        "rawResponseEnvelopeVersion": "tesseract-tsv-5.5.3-v1",
+        "readingOrderVersion": "top-edge-left-edge-raw-ordinal-v1"
+      },
+      "profileDigest": "sha256:2ea3ccfbe824a4258f8dc04d1c1f170c866e8169c15903a7fa312a1667416e48"
+    }
+  },
+  "corpusDigest": "sha256:b2d8f8a05f58e9737973e4f5104e5cc36a7ebde1b413ceb63bbdfb0aab02c81a",
+  "evaluationId": "vera-spotlight-ocr-engine-evaluation-v1",
+  "negativeControls": [
+    {
+      "actualDigest": "sha256:7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2",
+      "batchProduced": false,
+      "candidate": "tesseract",
+      "confirmationProduced": false,
+      "engineExecuted": false,
+      "expectedDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "id": "model-digest-mismatch",
+      "terminalCode": "model_digest_mismatch"
+    },
+    {
+      "batchProduced": false,
+      "candidate": "tesseract",
+      "configuredExecutable": "/nonexistent/vera-ocr-engine",
+      "confirmationProduced": false,
+      "engineExecuted": false,
+      "id": "engine-unavailable",
+      "terminalCode": "engine_unavailable"
+    },
+    {
+      "batchProduced": false,
+      "candidate": "apple-vision",
+      "confirmationProduced": false,
+      "engineExecuted": true,
+      "id": "recognized-element-without-geometry",
+      "terminalCode": "invalid_provider_geometry"
+    }
+  ],
+  "platform": {
+    "macOSBuildVersion": "24B83",
+    "macOSProductVersion": "15.1",
+    "machine": "x86_64",
+    "pillow": "12.3.0",
+    "python": "3.12.14",
+    "swift": "swift-driver version: 1.115.1 Apple Swift version 6.0.3 (swiftlang-6.0.3.1.10 clang-1600.0.30.1)\nTarget: x86_64-apple-macosx15.0"
+  },
+  "privacy": {
+    "externalOcrCalls": 0,
+    "networkRequiredByHarness": false,
+    "rasterSources": "generated synthetic fixtures only",
+    "sourceUrlsCredentialsOrPrivateTextPresent": false
+  },
+  "runsPerFixture": 5
+}
