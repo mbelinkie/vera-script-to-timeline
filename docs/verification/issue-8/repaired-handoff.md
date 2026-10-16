@@ -78,6 +78,22 @@ No overrides64 build authorization is inferred from this visual acceptance.
 
 ## Current installed request — final revised120 PREFLIGHT only
 
+Actual final preflight now passed, zero discrepancies, Studio21.1.1build10/
+injected3.14.7/verifier3.12.14, finished2026-10-16T04:29:16.627701+00:00.
+Result out/issue8/native-evidence-75325e0/revised-120/result-8eb28ad9b5f942a295f3f28decc95923.json,
+SHA256267c8d4b4a7b07b59cff354efc97ab64466320a1ade9ee59970f61d7887c2e82,
+matches companion and actual prepared/installed request/release/attestation
+bindings. Verifiedfalse/no graphic observations are expected for readonly
+preflight. Checkpoint: out/issue8/revised120-preflight-checkpoint.json.
+“done” does not authorize build or confirm None; no final build request exists.
+
+Before the final build, retain the original disposable and old overrides64
+project/timeline lists/counts and existing The Code/Nemo appearance for later
+unchanged comparison (screenshots/reported names acceptable). Quit Resolve and
+explicitly authorize revised120 target512372ce6db1 with current None. Do not
+repeat this preflight or prepare/install build flags before that authorization.
+Reduced final native/render/timing/isolation gates remain pending.
+
 Producer explicitly said “install final preflight”. Resolve absent before/after
 guarded request-only swap. Archived unused standard120 preflighta3ab1346...
 outside discovery at out/issue8/installed-request-archive/standard-120-preflight-75325e0.json;

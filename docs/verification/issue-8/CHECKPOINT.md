@@ -1258,3 +1258,24 @@ current project/timeline on Edit (not generated VERA target), Graphics once;
 retain preflight result or first refusal. Exact final build authorization and
 current None still required after successful preflight. Remaining reduced-plan
 timing/render/unchanged-old evidence and #8 closure remain pending.
+
+### Final revised120 preflight passes — exact build authorization still needed
+
+Operator said “done”. Actual result8eb28ad9b5f942a295f3f28decc95923 in
+out/issue8/native-evidence-75325e0/revised-120 is preflight_passed with zero
+discrepancies, verifiedfalse/no graphic observations as expected. Exact
+target512372ce6db1, Studio21.1.1build10/injected3.14.7/verifier3.12.14,
+finished2026-10-16T04:29:16.627701+00:00. ResultSHA256
+267c8d4b4a7b07b59cff354efc97ab64466320a1ade9ee59970f61d7887c2e82
+matches companion and actual prepared/installed request37e268d5..., release
+b00dccc6... and attestation50dadcfa... hashes. Retained checkpoint:
+out/issue8/revised120-preflight-checkpoint.json.
+
+No source/request/native/settings mutation by agent, no test rerun, no build
+authorization or current None inferred from “done”. Before the final build,
+retain original-disposable and existing overrides64 project/timeline lists/
+counts and The Code/Nemo values for unchanged comparison. Then Producer quits
+Resolve and explicitly authorizes only revised120 target512372ce6db1 plus
+current None before build-request preparation/install. Reduced-plan final
+native/render/timing/isolation gates remain; #8 OPEN/In review confirmed by
+notification heartbeat, so no closure handoff sent.
