@@ -113,10 +113,12 @@ class PublicResolveAdapter(AcceptedResolveAdapter):
         expected_frames = {marker["frame"] for marker in manifest["markers"]}
         if not isinstance(markers, dict) or set(markers) != expected_frames:
             discrepancies.append("marker inventory differs from manifest")
-        discrepancies.extend(self._verify_media_inventory(manifest))
+        discrepancies.extend(self._verify_v1_media_inventory(manifest))
         return tuple(discrepancies)
 
-    def _verify_media_inventory(self, manifest: Mapping[str, Any]) -> tuple[str, ...]:
+    def _verify_v1_media_inventory(
+        self, manifest: Mapping[str, Any]
+    ) -> tuple[str, ...]:
         discrepancies: list[str] = []
         folder = self.pool.GetRootFolder()
         for name in self.created_bins:

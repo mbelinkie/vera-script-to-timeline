@@ -303,7 +303,7 @@ def test_injected_inventory_checks_regular_and_template_bins(
         GetRootFolder=lambda: folder("root", root_clips, children)
     )
     adapter.timeline = SimpleNamespace(GetMediaPoolItem=lambda: None)
-    assert bool(adapter._verify_media_inventory(package.transport.manifest)) is (
+    assert bool(adapter._verify_v1_media_inventory(package.transport.manifest)) is (
         failure is not None
     )
 

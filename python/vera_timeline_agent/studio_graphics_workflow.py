@@ -126,7 +126,9 @@ class InjectedGraphicAdapter(PublicStudioGraphicAdapter, WorkflowAdapter):
         super().import_media(sources)
         self.expected_paths = {source_id: path.resolve() for source_id, path in sources}
 
-    def _verify_media_inventory(self, manifest: Mapping[str, Any]) -> tuple[str, ...]:
+    def _verify_v1_media_inventory(
+        self, manifest: Mapping[str, Any]
+    ) -> tuple[str, ...]:
         timeline_media = self.timeline.GetMediaPoolItem()
         timeline_id = timeline_media.GetMediaId() if timeline_media else None
         graphic_ids = {
