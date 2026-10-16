@@ -1,5 +1,11 @@
 # Qualify cloud regression validation for VERA
 
+> **Superseded on 2026-10-16 by [D-0016](../../DECISIONS.md).** A green
+> GitHub Actions `Validate` run is now the full regression gate for every
+> issue, with no qualification profile, validator run or scope restriction.
+> See the [verification policy](../VERIFICATION_POLICY.md). This plan is kept
+> as history.
+
 Status: proposed implementation plan, revised after Claude review, 2026-10-12.
 Requested by the Producer;
 implementation, cloud execution and acceptance substitution are not authorized

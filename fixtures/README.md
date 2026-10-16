@@ -59,5 +59,6 @@ libx264, FFmpeg build configuration, Python, and zlib behavior. A different
 encoder or compression build may produce semantically identical media with
 different container bytes, and the recipe intentionally does not claim
 otherwise. Do not update checked-in hashes after such a run; changing
-canonical fixture bytes after Slice 0.1 acceptance requires an approved
-fixture-change note.
+canonical fixture bytes after Slice 0.1 acceptance should be deliberate:
+regenerate the hashes in the same PR and explain the change in its description
+(see `AGENTS.md`).
