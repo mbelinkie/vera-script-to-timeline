@@ -3744,10 +3744,10 @@ def _queue_render(
         "Resolve lacks the reviewed MOV container",
     )
     codecs = project.GetRenderCodecs("mov")
+    codec_label = "Apple ProRes 422"
+    codec_token = "ProRes422"
     _require(
-        type(codecs) is dict
-        and "ProRes 422" in codecs
-        and str(codecs["ProRes 422"]).casefold() in {"prores422", "prores 422"},
+        type(codecs) is dict and codecs.get(codec_label) == codec_token,
         "Resolve lacks the exact ProRes 422 codec",
     )
     audio_codecs = project.GetAudioRenderCodecs("mov")
@@ -3761,19 +3761,19 @@ def _queue_render(
     row = _private_effect(
         state,
         "Project.SetCurrentRenderFormatAndCodec",
-        {"format": "mov", "codec": "prores422"},
+        {"format": "mov", "codec": codec_token},
     )
-    selected = project.SetCurrentRenderFormatAndCodec("mov", "prores422")
+    selected = project.SetCurrentRenderFormatAndCodec("mov", codec_token)
+    _require(selected is True, "Resolve refused MOV/ProRes 422 selection")
+    selected_format_codec = project.GetCurrentRenderFormatAndCodec()
     _require(
-        selected is True
-        and project.GetCurrentRenderFormatAndCodec()
-        == {"format": "mov", "codec": "prores422"},
+        selected_format_codec == {"format": "mov", "codec": codec_token},
         "MOV/ProRes 422 selection did not read back",
     )
     _effect_observed(
         state,
         row,
-        {"return": selected, "formatCodec": project.GetCurrentRenderFormatAndCodec()},
+        {"return": selected, "formatCodec": selected_format_codec},
     )
     row = _private_effect(state, "Project.SetCurrentRenderMode", {"mode": 0})
     mode = project.SetCurrentRenderMode(0)
@@ -3832,7 +3832,6 @@ def _queue_render(
     _require(
         job.get("IsExportVideo") is True
         and job.get("IsExportAudio") is True
-        and job.get("AudioCodec") == "lpcm"
         and job.get("AudioBitDepth") == 24
         and job.get("AudioSampleRate") == 48000
         and job.get("FormatWidth") == timeline_info["width"]
@@ -3840,7 +3839,8 @@ def _queue_render(
         "queued render job settings differ",
     )
     _require(
-        job.get("VideoCodec") in {"prores422", "ProRes 422"}
+        job.get("VideoCodec") in {codec_label, codec_token}
+        and job.get("AudioCodec") in {"Linear PCM", "lpcm"}
         and job.get("VideoFormat") in {"QuickTime", "mov"},
         "queued render job codec/container differ",
     )

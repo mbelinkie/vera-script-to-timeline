@@ -1873,6 +1873,140 @@ def _effect_state(tmp_path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     return state, request
 
 
+def _queue_render_case(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    video_codecs: dict[str, str] | None = None,
+    selected_readback: dict[str, str] | None = None,
+    job_video_codec: str = "Apple ProRes 422",
+    job_audio_codec: str = "Linear PCM",
+) -> tuple[Any, dict[str, Any], dict[str, Any], list[tuple[str, Any]]]:
+    output_path = tmp_path.resolve() / "deliver.mov"
+    settings = dict(native.RENDER_SETTINGS)
+    request = {
+        "payload": {
+            "settings": settings,
+            "outputPath": str(output_path),
+            "outputFilename": output_path.stem,
+        },
+        "package": {"packageRoot": str(tmp_path.resolve())},
+        "profile": native.SYNTHETIC_PROFILE,
+        "renderIntent": {},
+        "reservation": {"path": str(tmp_path.resolve() / "reservation.json")},
+        "context": {},
+    }
+    state: dict[str, Any] = {"effects": []}
+    observations: list[tuple[str, Any]] = []
+
+    class Project:
+        def __init__(self) -> None:
+            self.selection_calls: list[tuple[str, str]] = []
+            self.render_settings: dict[str, Any] | None = None
+            self.jobs: list[dict[str, Any]] = []
+            self.selected_codec = selected_readback or {
+                "format": "mov",
+                "codec": "ProRes422",
+            }
+
+        def GetRenderFormats(self) -> dict[str, str]:
+            return {"QuickTime": "mov"}
+
+        def GetRenderCodecs(self, _format: str) -> dict[str, str]:
+            return (
+                {"Apple ProRes 422": "ProRes422"}
+                if video_codecs is None
+                else video_codecs
+            )
+
+        def GetAudioRenderCodecs(self, _format: str) -> dict[str, str]:
+            return {"Linear PCM": "lpcm"}
+
+        def GetRenderJobList(self) -> list[dict[str, Any]]:
+            return list(self.jobs)
+
+        def SetCurrentRenderFormatAndCodec(self, fmt: str, codec: str) -> bool:
+            self.selection_calls.append((fmt, codec))
+            return True
+
+        def GetCurrentRenderFormatAndCodec(self) -> dict[str, str]:
+            return self.selected_codec
+
+        def SetCurrentRenderMode(self, _mode: int) -> bool:
+            return True
+
+        def GetCurrentRenderMode(self) -> int:
+            return 0
+
+        def SetRenderSettings(self, render_settings: dict[str, Any]) -> bool:
+            self.render_settings = render_settings
+            return True
+
+        def AddRenderJob(self) -> str:
+            assert self.render_settings is not None
+            self.jobs.append(
+                {
+                    "JobId": "job-one",
+                    "TargetDir": str(output_path.parent),
+                    "OutputFilename": output_path.name,
+                    "IsExportVideo": True,
+                    "IsExportAudio": True,
+                    "AudioCodec": job_audio_codec,
+                    "AudioBitDepth": 24,
+                    "AudioSampleRate": 48000,
+                    "FormatWidth": 1920,
+                    "FormatHeight": 1080,
+                    "VideoCodec": job_video_codec,
+                    "VideoFormat": "QuickTime",
+                }
+            )
+            return "job-one"
+
+    project = Project()
+    monkeypatch.setattr(native, "_previous_result", lambda *_args: None)
+    monkeypatch.setattr(
+        native, "_project_timeline", lambda *_args: (None, project, None)
+    )
+    monkeypatch.setattr(native, "_expected_settings", lambda *_args: settings)
+    monkeypatch.setattr(
+        native,
+        "_read_ref",
+        lambda *_args: (b"render intent", "a" * 64, None),
+    )
+    monkeypatch.setattr(
+        native,
+        "_read",
+        lambda *_args, **_kwargs: b"reservation",
+    )
+    monkeypatch.setattr(
+        native,
+        "_parse",
+        lambda _raw: {"commitmentRawSha256": "b" * 64},
+    )
+    monkeypatch.setattr(
+        native,
+        "verify_render_intent",
+        lambda *_args, **_kwargs: {"outputPath": str(output_path)},
+    )
+
+    def private_effect(
+        _state: dict[str, Any], method: str, arguments: Any
+    ) -> dict[str, Any]:
+        row = {"method": method, "arguments": arguments, "outcome": "unknown"}
+        state["effects"].append(row)
+        return row
+
+    def effect_observed(
+        _state: dict[str, Any], row: dict[str, Any], observation: Any
+    ) -> None:
+        row["outcome"] = "observed"
+        observations.append((row["method"], observation))
+
+    monkeypatch.setattr(native, "_private_effect", private_effect)
+    monkeypatch.setattr(native, "_effect_observed", effect_observed)
+    return project, request, state, observations
+
+
 def _start_render_case(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1934,6 +2068,139 @@ def _start_render_case(
         native, "_project_timeline", lambda *_args: (None, project, None)
     )
     return project, state, request
+
+
+@pytest.mark.parametrize(
+    ("job_video_codec", "job_audio_codec"),
+    [
+        ("Apple ProRes 422", "Linear PCM"),
+        ("ProRes422", "lpcm"),
+    ],
+)
+def test_queue_render_uses_exact_resolve_codec_label_and_token(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    job_video_codec: str,
+    job_audio_codec: str,
+) -> None:
+    project, request, state, observations = _queue_render_case(
+        tmp_path,
+        monkeypatch,
+        job_video_codec=job_video_codec,
+        job_audio_codec=job_audio_codec,
+    )
+
+    result = native._queue_render(
+        request,
+        object(),
+        {
+            "manifest": {
+                "timeline": {
+                    "width": 1920,
+                    "height": 1080,
+                    "frameRate": {"numerator": 24000, "denominator": 1001},
+                }
+            }
+        },
+        state,
+        None,
+    )
+
+    assert result["settings"]["videoCodec"] == "prores422"
+    assert project.selection_calls == [("mov", "ProRes422")]
+    assert state["effects"][0]["arguments"] == {
+        "format": "mov",
+        "codec": "ProRes422",
+    }
+    assert observations[0] == (
+        "Project.SetCurrentRenderFormatAndCodec",
+        {"return": True, "formatCodec": {"format": "mov", "codec": "ProRes422"}},
+    )
+
+
+@pytest.mark.parametrize(
+    "video_codecs",
+    [
+        {},
+        {"Apple ProRes 422 HQ": "ProRes422HQ"},
+        {"Apple ProRes 422": "prores422"},
+        {"Apple ProRes 422": "ProRes422HQ"},
+    ],
+)
+def test_queue_render_rejects_missing_or_different_prores_codec_mapping(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    video_codecs: dict[str, str],
+) -> None:
+    project, request, state, _observations = _queue_render_case(
+        tmp_path, monkeypatch, video_codecs=video_codecs
+    )
+
+    with pytest.raises(
+        OutputConsistencyError, match="Resolve lacks the exact ProRes 422 codec"
+    ):
+        native._queue_render(
+            request, object(), {"manifest": {"timeline": {}}}, state, None
+        )
+
+    assert project.selection_calls == []
+    assert state["effects"] == []
+
+
+def test_queue_render_requires_exact_native_codec_readback_before_queueing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project, request, state, _observations = _queue_render_case(
+        tmp_path,
+        monkeypatch,
+        selected_readback={"format": "mov", "codec": "prores422"},
+    )
+
+    with pytest.raises(
+        OutputConsistencyError, match="MOV/ProRes 422 selection did not read back"
+    ):
+        native._queue_render(
+            request, object(), {"manifest": {"timeline": {}}}, state, None
+        )
+
+    assert project.selection_calls == [("mov", "ProRes422")]
+    assert project.jobs == []
+    assert state["effects"][0]["outcome"] == "unknown"
+
+
+@pytest.mark.parametrize(
+    "job_video_codec", ["ProRes 422 HQ", "ProRes422HQ", "prores422", "unknown"]
+)
+def test_queue_render_rejects_other_queued_codec_variants(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    job_video_codec: str,
+) -> None:
+    project, request, state, _observations = _queue_render_case(
+        tmp_path, monkeypatch, job_video_codec=job_video_codec
+    )
+
+    with pytest.raises(
+        OutputConsistencyError, match="queued render job codec/container differ"
+    ):
+        native._queue_render(
+            request,
+            object(),
+            {
+                "manifest": {
+                    "timeline": {
+                        "width": 1920,
+                        "height": 1080,
+                        "frameRate": {"numerator": 24000, "denominator": 1001},
+                    }
+                }
+            },
+            state,
+            None,
+        )
+
+    assert project.selection_calls == [("mov", "ProRes422")]
+    assert project.jobs[0]["VideoCodec"] == job_video_codec
 
 
 def test_construct_normalizes_nonzero_empty_target_and_records_readback(
