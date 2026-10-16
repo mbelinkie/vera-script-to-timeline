@@ -1303,3 +1303,29 @@ None, ORIGINAL separate saved disposable current project/timeline on Edit,
 Graphics ONCE, then returns result/first error without retry. Keep V4 at120
 frames. Actual final native/render/timing/visual/old-project isolation gates
 still apply under approved reduced plan. No other target or closure authorized.
+
+### Final revised120 native build verifies — required native builds complete
+
+Operator said “done”. Actual result3e3e20805a4f4ce18bcb2a73abd2d0a5 in
+out/issue8/native-evidence-75325e0/revised-120 is verifiedtrue/statusverified,
+zero discrepancies, one graphic observation/verifiedAfterReopentrue, exact
+V4/start0/duration120, The Code — revised/Nemo/Finland2024 controls and snapshot.
+Target exactly512372ce6db1, Studio21.1.1build10/injected3.14.7/verifier3.12.14,
+operator statementNone. Finished2026-10-16T04:33:57.024904+00:00.
+
+ResultSHAe6c96667d74be58f9b8d6e02124cd8c34b95fdeede6be6de43541389098e4756
+matches companion557520041b6f29eba2d25baec83f6504f11b07317a579622cc83017db0ca5e98;
+startedSHA46d1d4122c39649ad86acd994d2ba8d5f473cde0524039751380ec63be1129cc.
+Actual prepared/installed request/release/attestation hashes match; graph
+fingerprint945e17e0... retained. Old reference resulte2203bd6... unchanged,
+but no actual old-project/timeline comparison inferred from that file check.
+Checkpoint: out/issue8/revised120-native-checkpoint.json. Four required native
+builds now pass under approved reduction; skipped variants remain unused.
+
+Current request consumed; no rerun. Next actual final visual check of revised
+text/badge/long hold, old overrides64 and original-disposable timeline/value
+comparison against baseline, then retain two timing renders for48/16/56checks.
+No visual/timing/isolation acceptance inferred from “done”; no agent source/
+request/native/settings/project mutation or heavy test. Earlier visual/native
+passes and both failed targets preserved. #8 stays open/In review until those
+reduced-plan actual External gates are retained.

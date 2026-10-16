@@ -78,6 +78,29 @@ No overrides64 build authorization is inferred from this visual acceptance.
 
 ## Current installed request — authorized final revised120 BUILD
 
+Final request is now consumed successfully; DO NOT invoke it again. Actual
+result out/issue8/native-evidence-75325e0/revised-120/result-3e3e20805a4f4ce18bcb2a73abd2d0a5.json,
+SHA256e6c96667d74be58f9b8d6e02124cd8c34b95fdeede6be6de43541389098e4756,
+is statusverified/verifiedtrue, zero discrepancies, one graphic observation/
+verifiedAfterReopentrue, exact V4/start0/duration120. Readback The Code — revised/
+Nemo/Country16/Year2024, Studio21.1.1build10/injected3.14.7/verifier3.12.14.
+Finished2026-10-16T04:33:57.024904+00:00. Actual result/companion and installed
+request/release/attestation hashes match. Old overrides64 result file remains
+unchanged; that alone does NOT prove its actual native project stayed unchanged.
+Checkpoint: out/issue8/revised120-native-checkpoint.json. All four native builds
+required under reduced matrix now pass; no additional variants required.
+
+Current operator step: hide known V5 warning in final target512372ce6db1,
+leave V4 at120frames, check revised text/Nemo/Finland badge and longer central
+hold without slowed entrance/exit. Then reopen old overrides64 target959ff2d2d1a0:
+The Code/Nemo and baseline timeline lists/counts must remain unchanged; compare
+original-disposable timeline lists/counts too. Return scoped visual/isolation
+acceptance and before/after evidence. Retain the two planned64/120timing renders
+for48entrance/16exit/56extra hold checks. None of this is inferred from “done”.
+No source/install/native mutation or new tests by agent; #8 stays open until
+actual reduced-plan evidence is complete. The sequence below is historical,
+not another build-launch instruction.
+
 Producer explicitly said “Authorize revised-120 512372ce6db1; External
 Scripting is None”. Resolve absent before/after guarded request-only swap.
 Existing production CLI prepared immutable final build request exit0, SHA256
