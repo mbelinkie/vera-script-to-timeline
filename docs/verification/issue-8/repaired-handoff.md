@@ -76,7 +76,29 @@ Its source-bound preflight request is already prepared. Wait for closed Resolve
 and request-install approval before swapping the consumed standard64 request.
 No overrides64 build authorization is inferred from this visual acceptance.
 
-## Current installed request — final revised120 PREFLIGHT only
+## Current installed request — authorized final revised120 BUILD
+
+Producer explicitly said “Authorize revised-120 512372ce6db1; External
+Scripting is None”. Resolve absent before/after guarded request-only swap.
+Existing production CLI prepared immutable final build request exit0, SHA256
+23614b8ba603d2c3ccebba3acc4fcc67d445564d29ac0314c59f51cbeec9d26f.
+Archived successful preflight outside discovery at
+out/issue8/installed-request-archive/revised-120-preflight-75325e0.json;
+installed only new request mode0400. Exact source closure/11hashes, release,
+attestation, preflight result and old reference evidence unchanged; only three
+approved request fields differ. No native run/new build result/settings or
+old-project mutation by agent. Receipt: out/issue8/revised120-build-authorization.json.
+
+Baseline screenshots were requested, not yet received/verified; do not infer
+them from authorization. Before invoking build, operator retains original
+disposable/old-reference timeline list and text snapshots. Then fresh Resolve,
+None, ORIGINAL separate saved disposable current project/timeline on Edit
+(not generated VERA target), Graphics ONCE. Must create only target512372ce6db1,
+save/reopen/verify, preserve older projects. Leave V4 at120frames. Return result
+or first error, no uncertain retry. Reduced timing/render/visual/isolation
+acceptance remains outstanding; do not close #8 from authorization alone.
+
+### Retained prior stage — final revised120 successful preflight
 
 Actual final preflight now passed, zero discrepancies, Studio21.1.1build10/
 injected3.14.7/verifier3.12.14, finished2026-10-16T04:29:16.627701+00:00.

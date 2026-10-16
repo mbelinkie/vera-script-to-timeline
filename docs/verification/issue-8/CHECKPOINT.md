@@ -1279,3 +1279,27 @@ Resolve and explicitly authorizes only revised120 target512372ce6db1 plus
 current None before build-request preparation/install. Reduced-plan final
 native/render/timing/isolation gates remain; #8 OPEN/In review confirmed by
 notification heartbeat, so no closure handoff sent.
+
+### Final revised120 exact build request authorized and installed
+
+Producer explicitly said “Authorize revised-120 512372ce6db1; External
+Scripting is None”. Resolve absent before/after guarded request-only swap.
+Existing production CLI prepared immutable request exit0, SHA256
+23614b8ba603d2c3ccebba3acc4fcc67d445564d29ac0314c59f51cbeec9d26f,
+out/issue8/requests-75325e0/revised-120-build.json. Archived exact successful
+preflight37e268d5... outside discovery at
+installed-request-archive/revised-120-preflight-75325e0.json; copied new request
+mode0400. Only action/authorization/None fields differ; target512372ce6db1 fixed.
+
+Exact source closure/11hashes, releaseb00dccc6..., attestation50dadcfa... and
+preflight result267c8d4b... unchanged, old reference resulte2203bd6... retained.
+Product input diff vs qualifying75325e0 empty; no new native result, app/native/
+settings/old-project mutation or heavy test by agent. Receipt:
+out/issue8/revised120-build-authorization.json. Baseline screenshots requested
+but not received/verified; authorization is not a claim that they were kept.
+
+Next operator retains baseline snapshots before final build, fresh Resolve/
+None, ORIGINAL separate saved disposable current project/timeline on Edit,
+Graphics ONCE, then returns result/first error without retry. Keep V4 at120
+frames. Actual final native/render/timing/visual/old-project isolation gates
+still apply under approved reduced plan. No other target or closure authorized.
