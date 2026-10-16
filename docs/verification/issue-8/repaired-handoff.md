@@ -76,7 +76,29 @@ Its source-bound preflight request is already prepared. Wait for closed Resolve
 and request-install approval before swapping the consumed standard64 request.
 No overrides64 build authorization is inferred from this visual acceptance.
 
-## Current installed request — authorized overrides64 BUILD
+## Current installed request — Otis64 PREFLIGHT only
+
+Producer said “install next” after the Otis64 preflight proposal. Resolve
+closed before/after guarded request-only swap. Archived consumed overrides64
+build request (2e94fc4c...) outside discovery at
+out/issue8/installed-request-archive/overrides-64-build-75325e0.json. Installed
+existing Otis64 preflight mode0400, SHA256
+967d979a7f5aa75f8632e400779abb18523dcfbf778abd27668b74dcda09c85e.
+Target953d849f3f63, Otis/noYear/blank overrides, compiled64frames/start0.
+Exact installed source closure/11hashes and releaseb00dccc6... unchanged;
+all15package hashes and Transport attestation match; previous native result
+unchanged, next evidence directory absent. Receipt:
+out/issue8/otis64-preflight-installation.json. No build authorization,
+app/native/project/settings mutation or source change by agent.
+
+Next operator starts Resolve fresh, keeps External Scripting None, opens the
+ORIGINAL separate saved disposable project/timeline on Edit (not a generated
+VERA target), and invokes Graphics ONCE. Expect preflight_passed for
+VERA Delivery 88000000-0000-4000-8000-000000000003 953d849f3f63,
+with no new project creation. Return result or first error; no uncertain rerun.
+Exact build authorization remains a separate gate after successful preflight.
+
+## Retained prior stage — consumed overrides64 BUILD
 
 Producer subsequently replied “passes” to the explicit64-frame visual checklist:
 The Code/Nemo, Finland badge and correct entrance/exit, V5 warning hidden and

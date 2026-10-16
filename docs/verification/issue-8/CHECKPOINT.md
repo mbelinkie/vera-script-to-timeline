@@ -1078,3 +1078,25 @@ Wait for closed Resolve and next-preflight installation approval; existing
 overrides64 build request remains consumed. No app/native/source/settings or
 installed-request mutation by agent. Five native cases, remaining render/timing
 evidence and changed-build isolation still pending; #8 stays open/In review.
+
+### Otis64 preflight installed — no build authorization
+
+Producer said “install next” following exact next-preflight proposal. Resolve
+absent before/after guarded request-only swap. Archived consumed overrides64
+build request2e94fc4c... in installed-request-archive/overrides-64-build-75325e0.json,
+outside discovery; installed existing Otis64 preflight mode0400, SHA256
+967d979a7f5aa75f8632e400779abb18523dcfbf778abd27668b74dcda09c85e.
+Exact target953d849f3f63, actionpreflight/authorizationfalse/externalScriptingnull.
+
+Exact source file/directory closure,11hashes/sizes and releaseb00dccc6...
+unchanged. All15package hashes match attestation251c0913...; Transport binding
+matches. Semantic snapshot Otis, Year absent, blank overrides; range0/64.
+Previous native resulte2203bd6... unchanged; next evidence absent. Product
+input diff vs qualifying75325e0 empty. Receipt:
+out/issue8/otis64-preflight-installation.json. No native/project/settings/source
+mutation or heavy test; prior acceptance and both failed targets preserved.
+
+Next operator: fresh Resolve/None, ORIGINAL separate saved disposable current
+project/timeline on Edit (not generated VERA target), Graphics ONCE; return
+preflight result or first refusal. No new project creation expected. Explicit
+exact-target build authorization required after successful preflight; #8 open.
