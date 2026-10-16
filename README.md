@@ -87,8 +87,8 @@ by Python Ruff lint/format checks, strict mypy, and pytest. Pytest validates the
 fixture descriptor, exact media inventory, sizes, hashes, and (when FFprobe is
 available) metadata. The GitHub Actions `Validate` workflow installs from both
 lockfiles and runs this exact command on every pull request and push to `main`;
-a green `Validate` check is the full regression gate. Don't run it on the reference
-Intel Mac during normal work, because it takes one to three hours there.
+a green `Validate` check is the full regression gate. Don't run it on the
+reference Intel Mac during normal work, because it takes one to three hours there.
 
 An environment without FFprobe does **not** claim metadata verification: the
 FFprobe-specific pytest checks are reported as skipped, and the standalone
