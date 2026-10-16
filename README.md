@@ -180,8 +180,8 @@ The full Python test discovery used by `npm run validate` includes the Slice
 
 ## Project progress dashboard
 
-Generate a self-contained, read-only roadmap dashboard from the live GitHub
-Project configured in `.github/vera-roadmap.json`:
+Generate a self-contained, read-only roadmap dashboard from both live VERA
+GitHub Projects configured in `.github/vera-roadmap.json`:
 
 ```sh
 npm run progress
@@ -202,12 +202,21 @@ You can also double-click `Open VERA Progress.command` in Finder from the
 repository's top-level folder. The launcher finds the repository relative to
 itself, regenerates the dashboard, and opens it in the default browser.
 
-The dashboard counts every non-goal Project issue as one actionable work item.
-Only `Done` counts as complete; every other lifecycle status counts as
-remaining scope. Goal issues appear as separate rollups and are excluded from
-the denominator to avoid double-counting. Work is grouped by its live
-workstream and shows exact status, routing, priority, size, acceptance
-authority, and visible metadata gaps. The command never changes Project state.
+The top of the page shows both boards side by side: percent done, a status
+track, and each codebase's physical line count with a separate production-code
+count. Production code is tracked source under `apps/`, `packages/`,
+`python/`, or `src/`, minus tests, fixtures, tooling, build output, and
+generated files. Below, each board's workstreams start collapsed, each with a
+mini status track and a done count; workstreams with work left come first.
+Opening one lists its work items, active ones first, with exact status,
+routing, priority, size, acceptance authority, and visible metadata gaps. Goal
+rollups sit in their own collapsed row under each board. Every
+non-goal Project issue is one actionable work item; only `Done` counts as
+complete. Completed `Historical — …` draft records also count as Done work,
+but active drafts remain invalid roadmap data. The command never changes
+Project state. The Research Video Clips checkout defaults to the sibling
+`../VERA Research Video Clips` path; set `VERA_RESEARCH_REPOSITORY` when it is
+located elsewhere.
 
 ## Slice 0.2 producer package
 

@@ -2,5 +2,20 @@
   "owner": "mbelinkie",
   "repository": "mbelinkie/vera-script-to-timeline",
   "projectTitle": "VERA Script-to-Timeline Roadmap",
-  "projectNumber": 2
+  "projectNumber": 2,
+  "progressProjects": [
+    {
+      "owner": "mbelinkie",
+      "projectTitle": "VERA Research Roadmap",
+      "projectNumber": 1,
+      "repositoryPath": "../VERA Research Video Clips",
+      "repositoryPathEnv": "VERA_RESEARCH_REPOSITORY"
+    },
+    {
+      "owner": "mbelinkie",
+      "projectTitle": "VERA Script-to-Timeline Roadmap",
+      "projectNumber": 2,
+      "repositoryPath": "."
+    }
+  ]
 }
