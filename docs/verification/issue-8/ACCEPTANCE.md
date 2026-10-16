@@ -1,5 +1,21 @@
 # #8 External acceptance — complete
 
+**Closure confirmed:** normal roadmap completion exited0; fresh inspection
+confirmed GitHub **CLOSED**, Project **Done**, Acceptance External. Accepted
+local delivered revision `4c9e8e0c60cf3a3ee7a868121769d3032dcceb3c`, tree
+`31de6dba5256690f0083eb7064ff8f56e764319b`, includes the complete acceptance
+record and product bytes equivalent to tested75325e0. This later confirmation
+append changes documentation only. Actual completion/inspection logs and
+hashes are retained in `out/issue8/closure-receipt.json`.
+
+One authorized completion handoff delivered to **steward for Sweden sample
+sequence**, thread01a11bea-e437-71e2-87df-5409e80ee96b; actual send receipt in
+`out/issue8/sweden-steward-closure-notification.json`. Closure notifier PAUSED
+after delivery, validation check-in remains PAUSED. No duplicate message,
+next-issue dispatch, merge/push/deployment or native effect from this closure.
+Final session-token entry is deferred to steward after the task's final turn,
+not estimated from an in-progress count.
+
 All acceptance evidence is complete under the Producer-approved
 [reduced matrix](acceptance-matrix-reduction.md). This covers the exact repaired
 release on Studio21.1.1/build10, not other versions, Free, custom badges or
