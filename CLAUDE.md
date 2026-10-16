@@ -1,23 +1,23 @@
-# Claude Code coordination guide
+# Claude Code guide
 
-Read `AGENTS.md` and `.agents/skills/vera-roadmap-coordination/SKILL.md` before coordinating or implementing work. The GitHub Project configured in `.github/vera-roadmap.json` is authoritative for live scope, status, dependencies, ownership, priority, and model routing. Product specifications, decisions, plans, contracts, and historical acceptance records remain authoritative for their durable subjects.
+Read `AGENTS.md`. It applies to Claude exactly as it does to Codex. Then read
+`docs/VERIFICATION_POLICY.md` before testing or merging. In short:
 
-Before testing, reviewing or handing off a ticket, read
-`docs/VERIFICATION_POLICY.md`: focused/fast checks → required review → fixes
-and delta checks → final full passing evidence. Reuse verified equivalent
-evidence at unchanged handoffs and scale review depth to risk; don't restart
-an in-flight gate or waive local/runtime/human acceptance requirements.
-Within the policy's qualified cloud scope, a complete CI pass accepted by the
-validator from accepted `main` replaces the local full rerun.
-
-Implement only one Ready issue in one dedicated `claude/<issue>-<slug>` branch/worktree. Claim only an exact model-class and effort match. File out-of-scope discoveries in Inbox without starting them. If the assigned profile is insufficient, stop before scope expansion, record evidence, request escalation, release the claim, and wait for steward relabeling.
-
-Record prerequisites under `## Dependencies` as one `- Blocked by #123` or `- Blocked by owner/repo#123` line per issue, or `None`. Parent/sub-issue hierarchy does not imply execution order. Promote work only through `npm run roadmap -- ready <issue>`; both that command and `claim` require every dependency to be closed and `Done` on its own VERA roadmap. For design-first work, keep implementation in Backlog or Blocked until the accepted design issue is Done.
-
-Merged or agent-complete code remains `In review` until every required automated, listening, visual, Resolve, and producer-acceptance gate passes. Never infer acceptance from an implementation report.
-
-Follow the validation target rules in `AGENTS.md`'s slice ritual: use
-`npm run validate:fast` during implementation, relevant slow tests serially for
-affected integrations, and `VITEST_MAX_WORKERS=1 npm run validate` for acceptance
-and agent handoffs. Never run the full gate alongside other heavy work; check
-`pgrep -fl "npm run validate|pytest"` and wait for other test runs to finish.
+- Matthew (the Producer) is not a developer. Decide technical matters
+  yourself; ask him only about product behaviour, taste, money, his data, or
+  steps only he can physically do.
+- One issue per `claude/<issue>-<slug>` branch/worktree from freshly fetched
+  `origin/main`. Claim it with `npm run roadmap -- claim`. Push early, open a
+  draft PR, and keep the branch short-lived. Never work in the main project
+  folder; it stays on `main`. "Done" means merged into `main`.
+- Locally, run focused tests and `npm run validate:fast`. Never run the full
+  `npm run validate` on the Mac; GitHub Actions runs it on every push, and a
+  green `Validate` check on the PR is the full gate.
+- Get one read-only Claude CLI review per code issue. Merge when CI is green.
+  Fix later bugs forward in new issues.
+- Close Automated issues yourself after merging (`npm run roadmap -- complete`).
+  Ask Matthew only for Producer (taste or product) judgments, with a short
+  checklist.
+- The GitHub Project in `.github/vera-roadmap.json` is the live roadmap. Use
+  the dependency format and coordination steps in
+  `.agents/skills/vera-roadmap-coordination/SKILL.md`.

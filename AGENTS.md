@@ -1,111 +1,178 @@
 # Repository Agent Instructions
 
-These instructions apply to the entire repository. Before working, read the
-assigned Ready issue on the GitHub Project configured in
-`.github/vera-roadmap.json`, the authoritative slice in
-`docs/Script-to-Timeline Product Spec - Fable Rev2.md`, and the relevant plan.
-`docs/IMPLEMENTATION_PROGRESS.md` is retained as a historical orchestration and
-acceptance record, not a live tracker.
+These instructions apply to the whole repository and to every agent: Codex,
+Claude and their helpers. They were rewritten on 2026-10-16 at the Producer's
+direction ([D-0016](DECISIONS.md)). Where an older plan, issue or historical
+record asks for more process, this file and
+[the verification policy](docs/VERIFICATION_POLICY.md) win.
 
-## Slice ritual
+## How we work
 
-- Keep work within one bounded slice and state scope, exclusions, touched
-  contracts/fixtures, dependency justifications, automated checks, and the
-  producer acceptance steps before implementation.
-- Work test-first where practical. Compiler-touching slices require
-  byte-identical golden-file tests from frozen fixtures.
-- Use `npm run validate:fast` during implementation iterations (all lint, types,
-  generated-currentness, TypeScript tests, and non-slow Python tests with two
-  workers). Run relevant slow tests serially when changing their code. Use
-  `VITEST_MAX_WORKERS=1 npm run validate` for acceptance, CI, and agent handoffs;
-  fast validation alone never supplies full acceptance evidence. Never run the
-  full gate alongside other heavy work: check
-  `pgrep -fl "npm run validate|pytest"` and wait for other test runs to finish.
-- Before testing, reviewing or handing off work, follow
-  `docs/VERIFICATION_POLICY.md`: focused/fast checks, required review and fixes,
-  then final full evidence. Reuse verified equivalent passing evidence across
-  unchanged handoffs; scale review depth to risk. Within the policy's qualified
-  cloud scope, a complete CI pass accepted by the validator from accepted `main`
-  replaces the local full rerun. Otherwise local full acceptance, frozen
-  boundaries and actual External/Producer gates remain required.
-- Finish with passing checks, a plain-language walkthrough and judgment calls,
-  and the producer acceptance checklist.
-- The GitHub Project's `Acceptance` field names the closing authority. For
-  `Automated`, retained passing commands/tests are sufficient evidence; for
-  `External`, retain evidence from the required real application or service;
-  for `Producer`, explicit producer acceptance is required. An agent
-  self-report alone never closes any slice.
-- Require one Ready issue, one task, and one dedicated branch/worktree. Claim
-  only an exact `model:*` and `effort:*` match through `npm run roadmap`.
-- After an issue is closed and its implementation task has finished, the
-  roadmap steward records the claimed task's final local session token total on
-  the issue. The entry must identify it as a cumulative total including cached
-  input; never use account-wide usage, an estimate, or a separate closure task.
-  If the claimed session record is missing or ambiguous, omit the metric.
-- After each materially difficult completed issue, the roadmap steward checks
-  whether retained evidence reveals a bounded unresolved engineering risk for
-  later Astra reconsideration. Add only evidence-backed entries to
-  `docs/POSSIBLE_ISSUES_FOR_ASTRA.md`, with the precise question and retirement
-  condition; do not turn the register into a dispatch queue or model override.
-- Record prerequisites under `## Dependencies` as `- Blocked by #123` or
-  `- Blocked by owner/repo#123`, or `None`; hierarchy alone does not imply
-  ordering. Promote only with `npm run roadmap -- ready <issue>`. Both Ready
-  promotion and claim require every dependency to be closed and `Done`.
+VERA is a one-person project. Matthew, the Producer, is not a developer and is
+not on a team that needs enterprise-grade controls. Move fast. Bugs get fixed
+later in their own issues. **Agents lead every technical decision; Matthew
+decides product and taste.**
 
-## Standing guardrails
+### Ask Matthew only about
 
-- Do not expand a slice's scope; file discovered work as proposed new slices.
-- File out-of-scope discoveries as Inbox issues and do not start them. If the
-  assigned profile is insufficient, stop, mark the issue Blocked with
-  `needs:model-escalation`, retain evidence, release the claim, and wait for
-  steward-approved relabeling.
-- When a durable product-spec slice or clearly adopted future requirement is
-  identified, create a bounded Inbox placeholder promptly—even when its
-  implementation details remain unknown—so the live roadmap and progress
-  dashboard represent the known remaining scope. Give it tentative routing,
-  acceptance authority, canonical dependencies, and explicit unresolved
-  decisions; never use a placeholder as dispatch authorization.
-- Do not modify `/contracts`, `/fixtures`, golden files, or previously accepted
-  acceptance tests without an explicit contract-change or fixture-change note
-  approved by the producer.
-- Do not add dependencies without a one-line justification in the plan.
-- Anything irreversible in the real world—deleting files, touching the
-  research project's data, uploading, or changing sharing—happens only inside
-  the product's own audited flows, never as an agent side effect.
-- When blocked or uncertain between two reasonable interpretations of the
-  specification, stop and ask; a wrong guess embedded in a contract costs ten
-  times the question.
+- **Product behaviour.** What VERA should do, or how a workflow should feel,
+  when the spec does not settle it and the choice changes what he will see or
+  use.
+- **Taste.** Look, sound, timing, on-screen wording: anything judged by
+  watching or listening, usually in Resolve.
+- **Real-world consequences.** Spending money, new paid services or accounts,
+  credentials, and deleting, uploading or sharing his media or data.
+- **Hands-on steps only he can do.** For example, opening an app or signing
+  in somewhere.
 
-Contracts are frozen between accepted slices. Any proposed contract change
-must state what changes, why, what it breaks, which generated types need
-regeneration, and how acceptance changes.
+Ask in plain language, give a recommended default, and batch questions so he
+gets as few interruptions as possible.
+
+**Never ask him to approve:** schemas, contracts, sidecars, fixtures, goldens,
+helper code, dependencies, test changes, model routing, review waivers, test
+queues, evidence or merges.
+
+### Decide everything technical yourself
+
+When two technical readings are reasonable, pick the more reversible one, note
+the choice in one line in the PR, and keep going.
+
+## Starting an issue
+
+- Read the issue on the GitHub Project configured in
+  `.github/vera-roadmap.json`, the relevant slice of
+  `docs/Script-to-Timeline Product Spec - Fable Rev2.md`, and the relevant plan
+  if there is one. `docs/IMPLEMENTATION_PROGRESS.md` is a historical record,
+  not a tracker.
+- Work on one issue in one dedicated branch/worktree (`codex/<issue>-<slug>` or
+  `claude/<issue>-<slug>`) created from a freshly fetched `origin/main`.
+  Bootstrap a new worktree with `npm ci` and `uv sync --frozen`.
+- Claim it with `npm run roadmap -- claim <issue> --model <model> --effort
+  <effort> --task <task> --branch <branch>`. If the issue clearly needs a
+  different model or effort, relabel it (`gh issue edit`), say so in a comment
+  and continue; don't park it waiting for a steward.
+- Record prerequisites under `## Dependencies` as one `- Blocked by #123` (or
+  `- Blocked by owner/repo#123`) line each, or `None`. The roadmap tooling reads
+  this format. Promote with `npm run roadmap -- ready <issue>`.
+- Small, low-risk fixes you find in the files you are already touching: just
+  do them and mention them. Anything bigger: file an Inbox issue and keep
+  going.
+- When a clearly adopted future requirement has no issue yet, add an Inbox
+  placeholder so the roadmap and progress dashboard show the known scope.
+
+## Building
+
+- Prefer small unit tests over end-to-end tests. Compiler-touching work keeps
+  byte-identical golden tests. Mark slow tests as the verification policy
+  describes.
+- Contracts (`/contracts`), fixtures, goldens and earlier acceptance tests may
+  change when the work needs it. Regenerate types, update affected tests, and
+  explain the change in the PR description: what changed, why, and what it
+  affects. No separate change note or approval is needed.
+- Adding a dependency is fine; give a one-line reason in the PR.
+- Do feasibility checks against the real application early when an
+  external-application assumption could sink a design. Simulated tests do not
+  prove what Resolve can do.
+- Anything irreversible in the real world (deleting, uploading or sharing the
+  Producer's media or the research project's data) happens only through the
+  product's own flows, never as an agent side effect.
+
+## Testing, review and merging
+
+Follow [docs/VERIFICATION_POLICY.md](docs/VERIFICATION_POLICY.md):
+
+- Fast and focused checks run locally.
+- One Claude CLI review is done per code issue.
+- The full suite runs only in GitHub Actions; never run it on the Mac.
+- Merge when CI is green.
+- Fix bugs forward.
+
+## Branches: everything lands on `main`
+
+`main` on GitHub is the only place work counts. On 2026-10-16, several issues
+were marked done while their code existed only in local worktrees, and 38
+branches held work that never reached `main`. Don't let that happen again:
+
+- **Push early.** Push your branch to GitHub as soon as it has a commit, and
+  open a draft PR. Work that exists only on the Mac is one disk failure from
+  gone.
+- **Every change goes through a PR into `main`,** including docs, rules and
+  process changes. Don't edit or commit in the main project folder. It stays
+  on `main` and is only ever pulled, so every new worktree and agent reads the
+  same rules.
+- **Keep branches short-lived.** Merge within the issue. Before merging, bring
+  the branch up to date with `main` (merge or rebase) so CI tests what will
+  actually land. If an issue stalls, open a smaller PR for what's finished
+  rather than letting the branch drift.
+- **Don't end a task with uncommitted or unpushed work.** If you must stop,
+  commit, push, and say in the issue what's left.
+- **"Done" means merged into `main`.** A passing test run on a branch that
+  isn't merged is not delivery. Evidence-only closure is not allowed.
+- After merging, delete the branch and remove its worktree.
+
+## Closing an issue
+
+The Project's `Acceptance` field says who closes it. In every case the work
+must already be merged into `main`:
+
+- **Automated** (the default): when the PR is merged and CI is green, close it
+  yourself with `npm run roadmap -- complete <issue> --accepted-by Automated
+  --evidence <PR link>`.
+- **External**: real application or service evidence is needed. Run the check
+  yourself where the tooling allows, post the result as one comment and close.
+  Ask Matthew only for steps he must physically do.
+- **Producer**: reserved for taste or product judgment. Finish everything
+  else first, then give him a short checklist: what to open, what to look or
+  listen for, and exactly what to reply. Leave it `In review` until he
+  answers.
+
+Use a separate design-first issue only when the design is a product or taste
+choice. For technical design, decide and build in the same issue.
+
+## Helpers
+
+- Use Luna Max subagents (`gpt-6-luna`, `reasoning_effort="max"`) for bounded
+  implementation, tests, inspection and documentation. Standing authorization;
+  no route selection needed.
+- Give each helper a coherent task, explicit file ownership, minimal fresh
+  context (`fork_turns="none"`) and constraints. Helpers share the checkout:
+  preserve others' edits. The parent owns integration and the claim.
+
+## Keeping Matthew informed
+
+At the start, give a rough size. Tell him promptly if the work turns out much
+bigger than expected, why, and a sensible way to split it. Otherwise stay quiet
+until there is a result or a question that needs him.
+
+## Specific workflows
+
+- Claude-backed design stories: follow
+  [docs/CLAUDE_DESIGN_STORY_PLAYBOOK.md](docs/CLAUDE_DESIGN_STORY_PLAYBOOK.md).
+- Manual audio timing or human-verified word boundaries: follow
+  [docs/AUDIO_TIMING_REVIEW_WORKFLOW.md](docs/AUDIO_TIMING_REVIEW_WORKFLOW.md),
+  which prepares machine timing and a prefilled Audition marker file so
+  Matthew only corrects.
 
 ## Producer learning channel
 
-- Keep implementation, roadmap, review, and acceptance tasks focused. Do not
-  include teaching asides or "engineering lens" notes in their commentary or
-  final responses.
-- When a completed milestone, important tradeoff, surprising failure, contract
-  boundary, or useful test reveals a genuinely helpful technical lesson,
-  send the lesson context to the dedicated Codex task **VERA Engineering
-  Lessons** (`threadId: 01a0627e-a2ea-7ab1-8975-9a85c5e8b4e9`, `hostId: local`)
-  with `send_message_to_thread`.
-- Ask that task to turn the context into one brief, self-contained technical
-  explainer for a non-engineer. It should name the actual mechanism, explain
-  why it exists, identify the failure or risk it prevents, and connect it to
-  the VERA work that exposed it. Use plain language and define unavoidable
-  jargon; do not replace the technical substance with generic project advice.
-- Include the source issue or task title when available so the lesson remains
-  connected to the real project. Send at most one lesson per meaningful
-  milestone, and skip lessons that would be repetitive or forced.
+- Keep implementation, roadmap and review tasks focused. Do not put teaching
+  asides in their commentary or final responses.
+- When a completed milestone, important trade-off, surprising failure or useful
+  test reveals a genuinely helpful technical lesson, send the context to the
+  Codex task **VERA Engineering Lessons**
+  (`threadId: 01a0627e-a2ea-7ab1-8975-9a85c5e8b4e9`, `hostId: local`) with
+  `send_message_to_thread`. Ask it for one brief plain-language explainer for a
+  non-engineer: the actual mechanism, why it exists, what it prevents, and the
+  VERA work that exposed it. Include the source issue. At most one lesson per
+  meaningful milestone; skip forced or repetitive ones.
 
 ## Shell commands
 
-Always prefix shell commands with `rtk`, following
+Codex sessions prefix shell commands with `rtk`, following
 `/Users/matthewbelinkie/.codex/RTK.md`:
 
 ```sh
 rtk git status
-rtk npm run validate
-rtk uv run pytest
+rtk npm run validate:fast
+rtk uv run pytest tests/test_example.py
 ```
