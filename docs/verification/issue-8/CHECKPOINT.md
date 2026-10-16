@@ -1062,3 +1062,19 @@ five remaining native cases and changed-build isolation still pending. Earlier
 standard64 acceptance and both failed targets retained. Roadmap inspection in
 concurrent notification heartbeat remains OPEN/In review, so no closure handoff
 sent and no issue completion inferred.
+
+### Producer passes overrides64 text, badge and visual animation check
+
+Producer replied “passes” to the checklist naming exacttarget959ff2d2d1a0,
+V5 warning hidden, V4 left64frames, The Code/Nemo, Finland badge and correct
+entrance/exit animation. Record this visual check as accepted, bound to actual
+native resulte2203bd6...; receipt out/issue8/overrides64-producer-visual-acceptance.json.
+Do not infer retained render files/decoded48+16frame evidence or other-case
+acceptance. Previous standard64 visual pass/extension context preserved.
+
+Next prepared case Otis64 has no Year assignment and blank text overrides,
+target VERA Delivery 88000000-0000-4000-8000-000000000003 953d849f3f63.
+Wait for closed Resolve and next-preflight installation approval; existing
+overrides64 build request remains consumed. No app/native/source/settings or
+installed-request mutation by agent. Five native cases, remaining render/timing
+evidence and changed-build isolation still pending; #8 stays open/In review.

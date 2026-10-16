@@ -78,6 +78,19 @@ No overrides64 build authorization is inferred from this visual acceptance.
 
 ## Current installed request — authorized overrides64 BUILD
 
+Producer subsequently replied “passes” to the explicit64-frame visual checklist:
+The Code/Nemo, Finland badge and correct entrance/exit, V5 warning hidden and
+V4 left64frames. Record this visual/animation check accepted. Receipt:
+out/issue8/overrides64-producer-visual-acceptance.json. Retained render and
+frame-accurate timing evidence remain pending; five other native cases and
+changed-build isolation are not accepted by this response. The installed
+request remains consumed; do not launch it again.
+
+Next case: Otis64, with Year omitted and authored automatic text behavior,
+fresh target953d849f3f63. Preflight is already prepared. Wait for closed Resolve
+and approval to install that next preflight; no native/build authorization or
+installed-request change is inferred from the visual pass.
+
 This request has now been consumed successfully; DO NOT invoke it again.
 Operator's actual result
 out/issue8/native-evidence-75325e0/overrides-64/result-10b3141c2e6149e3b18daa807cb6c1cd.json
