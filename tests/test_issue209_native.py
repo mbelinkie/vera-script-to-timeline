@@ -684,6 +684,8 @@ class _Item:
             "AudioVolume": -6.0,
         }
         self.true_start = 0
+        self.source_start_frame = 12
+        self.source_end_frame = 21
 
     def GetUniqueId(self) -> str:
         return "timeline-item-one"
@@ -698,10 +700,10 @@ class _Item:
         return self.true_start + 10
 
     def GetSourceStartFrame(self) -> int:
-        return 12
+        return self.source_start_frame
 
     def GetSourceEndFrame(self) -> int:
-        return 21
+        return self.source_end_frame
 
     def GetLinkedItems(self) -> list[Any]:
         return []
@@ -1368,7 +1370,9 @@ def test_geometry_rejects_malformed_or_unsafe_speed_options(
         native._capture_geometry(resolve, request, admitted, None)
 
 
-@pytest.mark.parametrize("drift", ["speed", "fractional_frame", "marker"])
+@pytest.mark.parametrize(
+    "drift", ["speed", "fractional_frame", "source_range", "marker"]
+)
 def test_geometry_refuses_unqualified_speed_frame_or_marker_drift(
     tmp_path: Path, drift: str
 ) -> None:
@@ -1377,9 +1381,19 @@ def test_geometry_refuses_unqualified_speed_frame_or_marker_drift(
         item.speed["StretchKeyframesToFit"] = True
     elif drift == "fractional_frame":
         item.true_start = 1
+    elif drift == "source_range":
+        item.source_start_frame = 13
     else:
         timeline.markers[5]["name"] = "changed chapter"
-    with pytest.raises(OutputConsistencyError):
+    diagnostic = (
+        r"native source range differs \(track=video:1, "
+        r"itemUid=timeline-item-one, eventId=event-one, "
+        r"start=13, end=21, "
+        r"expectedStart=12, expectedDuration=10\)"
+        if drift == "source_range"
+        else None
+    )
+    with pytest.raises(OutputConsistencyError, match=diagnostic):
         native._capture_geometry(resolve, request, admitted, None)
 
 

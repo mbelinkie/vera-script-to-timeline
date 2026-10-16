@@ -2918,7 +2918,11 @@ def _capture_geometry(
                 _require(
                     source_start == expected_source_start
                     and source_end + 1 - source_start == expected_source_duration,
-                    "native source range differs",
+                    "native source range differs "
+                    f"(track={kind}:{index}, itemUid={uid}, eventId={event_id}, "
+                    f"start={source_start}, end={source_end}, "
+                    f"expectedStart={expected_source_start}, "
+                    f"expectedDuration={expected_source_duration})",
                 )
                 if event.get("kind") == "source_audio":
                     gain = event.get("gainDb")
