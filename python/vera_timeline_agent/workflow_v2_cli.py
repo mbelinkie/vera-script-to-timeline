@@ -10,6 +10,7 @@ import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from .workflow_delivery_cli import RUNTIME_FILES as V1_RUNTIME_FILES
 from .workflow_package import (
@@ -28,6 +29,11 @@ RUNTIME_FILES = (
     "workflow_v2_launcher.py",
     "native_qualification_v2.py",
     "target_identity_v2.py",
+)
+OUTPUT_RUNTIME_FILES = (
+    *RUNTIME_FILES,
+    "qualification_output_native_v2.py",
+    "qualification_output_records_v2.py",
 )
 BUILD_FILES = (
     "timeline-manifest.json",
@@ -132,12 +138,21 @@ def _no_symlinks(path: Path) -> None:
 
 def build_release_v2(output: Path) -> Path:
     """Ship only the stdlib native runtime; never install into Resolve."""
+    return _build_release(output, RUNTIME_FILES)
+
+
+def build_output_release_v2(output: Path) -> Path:
+    """Separately named closed output sibling; legacy release is unchanged."""
+    return _build_release(output, OUTPUT_RUNTIME_FILES)
+
+
+def _build_release(output: Path, runtime_files: tuple[str, ...]) -> Path:
     _no_symlinks(output)
     output.mkdir(parents=True, exist_ok=False)
     runtime = output / RELEASE_NAME / "python" / "vera_timeline_agent"
     runtime.mkdir(parents=True)
     source = Path(__file__).parent
-    for name in RUNTIME_FILES:
+    for name in runtime_files:
         shutil.copyfile(source / name, runtime / name)
     launcher = (
         Path(__file__).resolve().parents[2] / "integrations/resolve" / LAUNCHER_NAME
@@ -157,6 +172,14 @@ def build_release_v2(output: Path) -> Path:
 
 
 def _verify_release(root: Path) -> Path:
+    return _verify_release_files(root, RUNTIME_FILES)
+
+
+def _verify_output_release(root: Path) -> Path:
+    return _verify_release_files(root, OUTPUT_RUNTIME_FILES)
+
+
+def _verify_release_files(root: Path, runtime_files: tuple[str, ...]) -> Path:
     _regular_directory(root)
     manifest = root / RELEASE_NAME / "release.json"
     _no_symlinks(manifest)
@@ -177,7 +200,7 @@ def _verify_release(root: Path) -> Path:
     source = Path(__file__).parent
     expected = {
         f"{RELEASE_NAME}/python/vera_timeline_agent/{name}": sha256(source / name)
-        for name in RUNTIME_FILES
+        for name in runtime_files
     }
     expected[LAUNCHER_NAME] = sha256(
         Path(__file__).resolve().parents[2] / "integrations/resolve" / LAUNCHER_NAME
@@ -200,6 +223,50 @@ def main(argv: Sequence[str] | None = None) -> int:
     attest.add_argument("--output", type=Path, required=True)
     release = commands.add_parser("release")
     release.add_argument("--output", type=Path, required=True)
+    output_release = commands.add_parser("output-release")
+    output_release.add_argument("--output", type=Path, required=True)
+    output_authorize = commands.add_parser("output-authorize")
+    output_authorize.add_argument("--plan", type=Path, required=True)
+    output_authorize.add_argument("--output", type=Path, required=True)
+    output_prepare = commands.add_parser("output-prepare")
+    output_prepare.add_argument("--output", type=Path, required=True)
+    output_prepare.add_argument(
+        "--profile",
+        choices=(
+            "verified-v2-package/v1",
+            "qualification-output-r16-presenter-override/v1",
+        ),
+        required=True,
+    )
+    output_prepare.add_argument("--package", type=Path)
+    output_prepare.add_argument("--project-uid", required=True)
+    output_prepare.add_argument("--timeline-uid", required=True)
+    output_prepare.add_argument("--project-name", required=True)
+    output_prepare.add_argument("--timeline-name", required=True)
+    output_prepare.add_argument("--case-id", required=True)
+    output_next = commands.add_parser("output-next")
+    output_next.add_argument("--session", type=Path, required=True)
+    output_next.add_argument("--session-sha256", required=True)
+    output_next.add_argument("--approval", type=Path, required=True)
+    output_replan = commands.add_parser("output-replan")
+    output_replan.add_argument("--session", type=Path, required=True)
+    output_replan.add_argument("--session-sha256", required=True)
+    output_replan.add_argument(
+        "--output", "--plan", dest="output", type=Path, required=True
+    )
+    output_recover = commands.add_parser("output-recover")
+    output_recover.add_argument("--session", type=Path, required=True)
+    output_recover.add_argument("--session-sha256", required=True)
+    output_ingest = commands.add_parser("output-ingest")
+    output_ingest.add_argument("--session", type=Path, required=True)
+    output_ingest.add_argument("--session-sha256", required=True)
+    output_ingest.add_argument("--result", type=Path, required=True)
+    output_ingest.add_argument("--result-sha256", required=True)
+    output_finalize = commands.add_parser("output-finalize")
+    output_finalize.add_argument("--session", type=Path, required=True)
+    output_finalize.add_argument("--session-sha256", required=True)
+    output_finalize.add_argument("--result", type=Path, required=True)
+    output_finalize.add_argument("--result-sha256", required=True)
     request = commands.add_parser("request")
     request.add_argument("attestation", type=Path)
     request.add_argument("--release", type=Path, required=True)
@@ -260,11 +327,80 @@ def main(argv: Sequence[str] | None = None) -> int:
     from_identity.add_argument("--confirm-read-only", action="store_true")
     from_identity.add_argument("--external-scripting-none", action="store_true")
     arguments = parser.parse_args(argv)
+    output: Path | dict[str, Any]
+    native_handoff_path: Path | None = None
     try:
         if arguments.command == "attest":
             output = attest_package_v2(arguments.package, arguments.output)
         elif arguments.command == "release":
             output = build_release_v2(arguments.output)
+        elif arguments.command == "output-release":
+            output = build_output_release_v2(arguments.output)
+        elif arguments.command == "output-authorize":
+            from .qualification_output_controller_v2 import issue_operator_approval
+
+            output = issue_operator_approval(
+                arguments.plan.absolute(), arguments.output.absolute()
+            )
+        elif arguments.command == "output-prepare":
+            from .qualification_output_controller_v2 import prepare_output_session
+
+            output = prepare_output_session(
+                arguments.output.absolute(),
+                profile=arguments.profile,
+                package_root=None
+                if arguments.package is None
+                else arguments.package.absolute(),
+                target={
+                    "projectUid": arguments.project_uid,
+                    "timelineUid": arguments.timeline_uid,
+                    "projectName": arguments.project_name,
+                    "timelineName": arguments.timeline_name,
+                },
+                case_id=arguments.case_id,
+            )
+        elif arguments.command == "output-next":
+            from .qualification_output_controller_v2 import load_output_session
+
+            controller = load_output_session(
+                arguments.session.absolute(), arguments.session_sha256
+            )
+            output = controller.prepare_next_native_request(
+                arguments.approval.absolute()
+            )
+            native_handoff_path = controller.native_operator_handoff_path(output)
+        elif arguments.command == "output-replan":
+            from .qualification_output_controller_v2 import load_output_session
+
+            controller = load_output_session(
+                arguments.session.absolute(), arguments.session_sha256
+            )
+            output = controller.prepare_operator_replan(arguments.output.absolute())
+        elif arguments.command == "output-recover":
+            from .qualification_output_controller_v2 import load_output_session
+
+            controller = load_output_session(
+                arguments.session.absolute(), arguments.session_sha256
+            )
+            output = controller.inspect_recovery()
+        elif arguments.command == "output-ingest":
+            from .qualification_output_controller_v2 import load_output_session
+
+            controller = load_output_session(
+                arguments.session.absolute(), arguments.session_sha256
+            )
+            output = controller.ingest_native_result(
+                arguments.result.absolute(), arguments.result_sha256
+            )
+        elif arguments.command == "output-finalize":
+            from .qualification_output_controller_v2 import load_output_session
+
+            controller = load_output_session(
+                arguments.session.absolute(), arguments.session_sha256
+            )
+            output = controller.finalize_output(
+                arguments.result.absolute(), arguments.result_sha256
+            )
         elif arguments.command == "capability-authorize":
             from .native_qualification_v2 import create_capability_authority
 
@@ -398,7 +534,22 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "evidenceDir": str(arguments.evidence_dir.absolute()),
                 },
             )
-        print(f"{output.absolute()} sha256:{sha256(output)}")
+        if isinstance(output, Path):
+            print(f"{output.absolute()} sha256:{sha256(output)}")
+            if arguments.command == "output-prepare":
+                plan = output.parent / "operator-plan.json"
+                print(f"{plan.absolute()} sha256:{sha256(plan)}")
+            elif arguments.command == "output-next":
+                if native_handoff_path is None:
+                    raise ValueError("native operator handoff is missing")
+                print(
+                    f"{native_handoff_path.absolute()} "
+                    f"sha256:{sha256(native_handoff_path)}"
+                )
+        else:
+            import json
+
+            print(json.dumps(output, indent=2, sort_keys=True))
         return 0
     except Exception as error:
         print(f"Preparation refused: {error}", file=sys.stderr)
