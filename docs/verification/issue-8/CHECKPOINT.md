@@ -1236,3 +1236,25 @@ Next quit and final-preflight install approval; exact build authorization still
 required after actual successful final preflight. No closure/acceptance inferred
 from plan approval. Only docs/private state change, no frozen tests/contracts/
 fixtures/product byte changes or full rerun. #8 remains open/In review.
+
+### Final revised120 preflight installed under approved reduced matrix
+
+Producer said “install final preflight”. Resolve absent before/after guarded
+request-only swap. Archived unused standard120 request exacta3ab1346... hash
+outside discovery at installed-request-archive/standard-120-preflight-75325e0.json;
+installed existing revised120 preflight mode0400 SHA256
+37e268d5b04fbca0f6ed957b153990c7fe2af8a12ce3c874402d5817cc34756c.
+Exact target512372ce6db1, actionpreflight/authorizationfalse/externalScriptingnull.
+Snapshot The Code — revised/Nemo/Finland2024, range0/120. Exact source closure/
+11hashes, releaseb00dccc6..., all15package hashes and Transport binding match
+attestation50dadcfa.... Old overrides64 resulte2203bd6... unchanged; final and
+standard120 native evidence absent. Product input diff vs qualified75325e0
+empty. Receipt: out/issue8/revised120-preflight-installation.json.
+
+No native/app/project/settings or runtime/accepted-test/package changes by
+agent, no new full rerun. Previous passes, unused variants and failed targets
+preserved. Next operator fresh Resolve/None, ORIGINAL separate saved disposable
+current project/timeline on Edit (not generated VERA target), Graphics once;
+retain preflight result or first refusal. Exact final build authorization and
+current None still required after successful preflight. Remaining reduced-plan
+timing/render/unchanged-old evidence and #8 closure remain pending.

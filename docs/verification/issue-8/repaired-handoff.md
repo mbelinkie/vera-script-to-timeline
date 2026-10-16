@@ -76,7 +76,28 @@ Its source-bound preflight request is already prepared. Wait for closed Resolve
 and request-install approval before swapping the consumed standard64 request.
 No overrides64 build authorization is inferred from this visual acceptance.
 
-## Current installed request — unused standard120 PREFLIGHT; final swap pending
+## Current installed request — final revised120 PREFLIGHT only
+
+Producer explicitly said “install final preflight”. Resolve absent before/after
+guarded request-only swap. Archived unused standard120 preflighta3ab1346...
+outside discovery at out/issue8/installed-request-archive/standard-120-preflight-75325e0.json;
+installed final revised120 preflight mode0400, SHA256
+37e268d5b04fbca0f6ed957b153990c7fe2af8a12ce3c874402d5817cc34756c.
+Exact target512372ce6db1, The Code — revised/Nemo/Finland2024/start0/120frames.
+Exact source closure/11hashes/release and all15package/Transport hashes match;
+old overrides64 result unchanged; final and unused standard120 evidence absent.
+No product changes, new full test, native call, project/settings mutation or
+build authorization. Receipt: out/issue8/revised120-preflight-installation.json.
+
+Next operator starts Resolve fresh, keeps None, ORIGINAL separate saved
+disposable project/timeline on Edit (not generated VERA target), then Workspace
+> Workflow Integrations > VERA Graphics v1 ONCE. Expect preflight_passed for
+VERA Delivery 88000000-0000-4000-8000-000000000007 512372ce6db1,
+no new project creation. Return result or first refusal; no uncertain retry.
+Only after actual preflight success and exact-target approval/current None
+may the final build request be prepared/installed. Reduced timing/render and
+unchanged-old-timeline gates still apply. Statements below retain earlier
+matrix-discussion stages, not the current installed standard120 request.
 
 Producer replied “Yes” to the reduced final-check proposal. The
 [approved amendment](acceptance-matrix-reduction.md) and updated
