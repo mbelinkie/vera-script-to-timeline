@@ -991,3 +991,22 @@ project/timeline on Edit (no generated VERA target), Graphics menu ONCE.
 Expected preflight_passed, no project creation. Return result or first refusal;
 do not rerun uncertain invocation. Explicit new target authorization remains
 required after successful preflight before any overrides64 build request.
+
+### Overrides64 actual preflight passed; waiting for exact build authorization
+
+Operator said “done”. Actual result-b22ab8677791495bbb0091fc12ac697a.json in
+out/issue8/native-evidence-75325e0/overrides-64 is preflight_passed, no
+discrepancies, no graphic observations/verifiedfalse. Result SHA256
+1a61cca1442066d49a35cd1c82620f301355c86e441bd27f2cf04f5850128272 matches
+companion. Installed/prepared requestb640ae07..., releaseb00dccc6... and
+attestationc5bf1f5e... bindings match. Exact fresh target959ff2d2d1a0,
+Studio21.1.1build10/injected3.14.7/verifier3.12.14. Finished
+2026-10-16T03:47:35.394858+00:00. Retained checkpoint:
+out/issue8/overrides64-preflight-checkpoint.json.
+
+No build authorization/None operator statement inferred from “done”; preflight
+statement is null as expected. No source, installed request, settings or native
+mutation by agent. Next Producer quits Resolve, explicitly authorizes only
+overrides64 target959ff2d2d1a0 and confirms current None before build-request
+preparation/install. Earlier standard64 visual pass/evidence preserved; other
+native/render/timing/isolation gates and #8 closure still pending.

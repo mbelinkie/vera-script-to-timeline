@@ -78,6 +78,17 @@ No overrides64 build authorization is inferred from this visual acceptance.
 
 ## Current installed request — overrides64 preflight, not build
 
+Operator has now run this preflight once: statuspreflight_passed, no
+discrepancies, Studio21.1.1build10/injected3.14.7/verifier3.12.14, finished
+2026-10-16T03:47:35.394858+00:00. Actual result
+out/issue8/native-evidence-75325e0/overrides-64/result-b22ab8677791495bbb0091fc12ac697a.json
+SHA2561a61cca1442066d49a35cd1c82620f301355c86e441bd27f2cf04f5850128272
+matches companion and exact installed request/release/graphic attestation
+bindings. Receipt: out/issue8/overrides64-preflight-checkpoint.json. No project
+creation/graphic observation or build authorization inferred. Next: quit Resolve
+and explicitly authorize overrides64 target959ff2d2d1a0 plus current None before
+any build-request preparation/install. Do not repeat this successful preflight.
+
 Producer said “install next preflight”, then “closed”. First process check
 still found Resolve, so no mutation happened then. After “closed”, checks and
 immediate guarded swap confirmed Resolve absent. Archived consumed standard64
