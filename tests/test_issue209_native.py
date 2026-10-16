@@ -839,15 +839,32 @@ class _EmptyTargetTimeline:
         counts: dict[str, int],
         items: dict[tuple[str, int], list[Any]] | None = None,
         pool_item: _PoolItem | None = None,
+        start_frame: Any = 0,
+        start_timecode_result: Any = True,
+        start_timecode_readback: Any = None,
     ) -> None:
         self.counts = counts
         self.items = {} if items is None else items
         self.pool_item = (
             _PoolItem("target-timeline-pool-item") if pool_item is None else pool_item
         )
+        self.start_frame = start_frame
+        self.start_timecode_result = start_timecode_result
+        self.start_timecode_readback = start_timecode_readback
+        self.start_timecode_calls: list[str] = []
 
-    def GetStartFrame(self) -> int:
-        return 0
+    def GetStartFrame(self) -> Any:
+        return self.start_frame
+
+    def SetStartTimecode(self, timecode: str) -> Any:
+        self.start_timecode_calls.append(timecode)
+        if self.start_timecode_result is True:
+            self.start_frame = (
+                0
+                if self.start_timecode_readback is None
+                else self.start_timecode_readback
+            )
+        return self.start_timecode_result
 
     def GetTrackCount(self, kind: str) -> int:
         return self.counts.get(kind, 0)
@@ -892,11 +909,51 @@ def test_empty_target_accepts_empty_default_video_audio_tracks() -> None:
     timeline = _EmptyTargetTimeline({"video": 1, "audio": 1, "subtitle": 0})
     project = _EmptyTargetProject(timeline)
 
-    native._check_empty_target(
-        project,
-        timeline,
-        {"video": 1, "audio": 1, "subtitle": 0},
+    assert (
+        native._check_empty_target(
+            project,
+            timeline,
+            {"video": 1, "audio": 1, "subtitle": 0},
+        )
+        == 0
     )
+
+
+def test_empty_target_admits_nonzero_frame_for_later_normalization() -> None:
+    timeline = _EmptyTargetTimeline(
+        {"video": 1, "audio": 1, "subtitle": 0}, start_frame=86_400
+    )
+    project = _EmptyTargetProject(timeline)
+
+    assert (
+        native._check_empty_target(
+            project,
+            timeline,
+            {"video": 1, "audio": 1, "subtitle": 0},
+        )
+        == 86_400
+    )
+    assert timeline.start_timecode_calls == []
+
+
+@pytest.mark.parametrize("start_frame", [None, -1, True])
+def test_empty_target_rejects_unreadable_or_invalid_start_frame(
+    start_frame: Any,
+) -> None:
+    timeline = _EmptyTargetTimeline(
+        {"video": 1, "audio": 1, "subtitle": 0}, start_frame=start_frame
+    )
+    project = _EmptyTargetProject(timeline)
+
+    with pytest.raises(
+        OutputConsistencyError, match="start frame is unreadable or invalid"
+    ):
+        native._check_empty_target(
+            project,
+            timeline,
+            {"video": 1, "audio": 1, "subtitle": 0},
+        )
+    assert timeline.start_timecode_calls == []
 
 
 @pytest.mark.parametrize("other_uid", ["imported-media", "another-timeline"])
@@ -1563,6 +1620,94 @@ def _effect_state(tmp_path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         "effects": [],
     }
     return state, request
+
+
+def test_construct_normalizes_nonzero_empty_target_and_records_readback(
+    tmp_path: Path,
+) -> None:
+    timeline = _EmptyTargetTimeline(
+        {"video": 1, "audio": 1, "subtitle": 0}, start_frame=86_400
+    )
+    project = _EmptyTargetProject(timeline)
+    start_frame = native._check_empty_target(
+        project,
+        timeline,
+        {"video": 1, "audio": 1, "subtitle": 0},
+    )
+    state, _request = _effect_state(tmp_path)
+
+    native._normalize_target_start_timecode(timeline, start_frame, state)
+
+    assert timeline.start_timecode_calls == ["00:00:00:00"]
+    assert timeline.GetStartFrame() == 0
+    assert len(state["effects"]) == 1
+    row = state["effects"][0]
+    assert row["method"] == "Timeline.SetStartTimecode"
+    assert row["outcome"] == "observed"
+    observed_path = Path(row["path"]).with_name("0000-observed.json")
+    observed = _parse(native._read(observed_path, "test start-timecode observation"))
+    assert observed["observation"] == {"return": True, "startFrame": 0}
+
+
+def test_construct_does_not_set_timecode_for_zero_start(tmp_path: Path) -> None:
+    timeline = _EmptyTargetTimeline({"video": 1, "audio": 1, "subtitle": 0})
+    state, _request = _effect_state(tmp_path)
+
+    native._normalize_target_start_timecode(timeline, 0, state)
+
+    assert timeline.start_timecode_calls == []
+    assert state["effects"] == []
+
+
+@pytest.mark.parametrize(
+    ("setter_result", "readback"),
+    [(False, None), (True, 86_400)],
+)
+def test_start_timecode_refusal_or_wrong_readback_stays_uncertain_without_retry(
+    tmp_path: Path, setter_result: Any, readback: Any
+) -> None:
+    timeline = _EmptyTargetTimeline(
+        {"video": 1, "audio": 1, "subtitle": 0},
+        start_frame=86_400,
+        start_timecode_result=setter_result,
+        start_timecode_readback=readback,
+    )
+    state, _request = _effect_state(tmp_path)
+
+    with pytest.raises(OutputConsistencyError):
+        native._normalize_target_start_timecode(timeline, 86_400, state)
+
+    assert timeline.start_timecode_calls == ["00:00:00:00"]
+    assert len(state["effects"]) == 1
+    assert state["effects"][0]["outcome"] == "unknown"
+    assert native._failed_stage_status(state["effects"]) == "uncertain"
+
+
+def test_construct_refuses_populated_target_before_timecode_setter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    timeline = _EmptyTargetTimeline(
+        {"video": 1, "audio": 1, "subtitle": 0},
+        items={("video", 1): [object()]},
+        start_frame=86_400,
+    )
+    project = _EmptyTargetProject(timeline)
+    state, _request = _effect_state(tmp_path)
+    monkeypatch.setattr(native, "_connected", lambda _resolve: {})
+    monkeypatch.setattr(
+        native, "_project_timeline", lambda *_args: (None, project, timeline)
+    )
+    monkeypatch.setattr(
+        native,
+        "_required_track_counts",
+        lambda _view: {"video": 1, "audio": 1, "subtitle": 0},
+    )
+
+    with pytest.raises(OutputConsistencyError, match="already contains items"):
+        native._construct(object(), {}, {"manifest": {}, "view": {}}, state)
+
+    assert timeline.start_timecode_calls == []
+    assert state["effects"] == []
 
 
 def test_effect_ledger_binds_method_arguments_chain_and_observation(

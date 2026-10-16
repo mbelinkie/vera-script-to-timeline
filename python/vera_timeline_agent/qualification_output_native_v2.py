@@ -2466,11 +2466,13 @@ def _required_track_counts(view: dict[str, Any]) -> dict[str, int]:
 
 def _check_empty_target(
     project: Any, timeline: Any, required_track_counts: dict[str, int]
-) -> None:
+) -> int:
+    start_frame = timeline.GetStartFrame()
     _require(
-        timeline.GetStartFrame() == 0,
-        "saved target timeline must be empty at frame zero",
+        type(start_frame) is int and start_frame >= 0,
+        "target timeline start frame is unreadable or invalid",
     )
+    assert type(start_frame) is int
     _require_api(project.GetMediaPool(), ("ImportMedia", "GetRootFolder"), "MediaPool")
     for kind in ("video", "audio", "subtitle"):
         count = timeline.GetTrackCount(kind)
@@ -2554,6 +2556,7 @@ def _check_empty_target(
         timeline_pool_item_count == 1,
         "target timeline media-pool item is missing from project inventory",
     )
+    return start_frame
 
 
 def _source_hash(value: Any) -> str:
@@ -3075,6 +3078,24 @@ def _set_project_settings(
         )
 
 
+def _normalize_target_start_timecode(
+    timeline: Any, start_frame: int, state: dict[str, Any]
+) -> None:
+    if start_frame == 0:
+        return
+    row = _private_effect(
+        state, "Timeline.SetStartTimecode", {"timecode": "00:00:00:00"}
+    )
+    returned = timeline.SetStartTimecode("00:00:00:00")
+    _require(returned is True, "Resolve refused target timeline start timecode")
+    readback = timeline.GetStartFrame()
+    _require(
+        type(readback) is int and readback == 0,
+        "target timeline start timecode did not reset to frame zero",
+    )
+    _effect_observed(state, row, {"return": returned, "startFrame": readback})
+
+
 def _construct(
     resolve: Any,
     request: dict[str, Any],
@@ -3085,7 +3106,8 @@ def _construct(
     _, project, timeline = _project_timeline(resolve, request)
     manifest, view = admitted["manifest"], admitted["view"]
     required_track_counts = _required_track_counts(view)
-    _check_empty_target(project, timeline, required_track_counts)
+    start_frame = _check_empty_target(project, timeline, required_track_counts)
+    _normalize_target_start_timecode(timeline, start_frame, state)
     pool = project.GetMediaPool()
     settings = _project_settings(manifest)
     _set_project_settings(project, settings, state)
