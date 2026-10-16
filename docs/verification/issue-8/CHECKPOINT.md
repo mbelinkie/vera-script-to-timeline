@@ -1184,3 +1184,32 @@ Resolve and next-preflight request installation approval. Current Otis request
 remains consumed; agent changed no installed/runtime/native/project/settings
 state. Four native cases, remaining render/timing and changed-build isolation
 gates remain; #8 stays open/In review and closure notification conditional.
+
+### Standard120 preflight installed; Producer questions full variant matrix
+
+Producer authorized “install next preflight”, then “closed”. Initial Resolve
+checkPID33711 stopped without mutation. After “closed”, guarded request-only
+swap confirmed Resolve absent before/after. Moved consumed Otis64 request
+exactcf3792f4... hash to installed-request-archive/otis-64-build-75325e0.json
+outside discovery; installed prepared standard120 preflight mode0400 SHA256
+a3ab1346ac08258bde9e746d02ebcca36b0376b233b77513c00c7cef8d868a08.
+Target7eda6f4deb70, actionpreflight/authorizationfalse/externalScriptingnull.
+Exact source closure/11hashes/releaseb00dccc6... unchanged, all15package and
+Transport hashes match attestation5e34ece9..., Finland2024/blank overrides/
+range0..120. Previous Otis resulte4e53fe16... unchanged, next evidence absent,
+product input diff vs qualifying75325e0 empty. Receipt:
+out/issue8/standard120-preflight-installation.json. No native/settings/project
+mutation or build authorization.
+
+Producer then asked whether all remaining variants are necessary. Stop operator
+launch instructions pending that discussion; installed preflight was already
+swapped before the question. Re-inspected authoritative #8 OPEN/In review:
+requires standard/override/Otis configurations,64/120timing and changed value
+only in a new timeline, not explicitly every cross-product combination. Our
+plan/operator checklist DOES explicitly prescribe six combinations plus
+revised120, so do not silently drop or report those tests passed. Recommended
+explicit plan reduction: keep three64native/visual cases, combine long-hold
+and new-build isolation in one revised120 build against existing overrides64,
+retain actual timing/render evidence, acknowledge different-duration baseline
+rather than claiming a same-duration one-field A/B. Proposal not yet approved;
+no product/frozen-test/fixture/contract change or native acceptance inferred.

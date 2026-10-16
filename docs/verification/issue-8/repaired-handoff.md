@@ -76,7 +76,31 @@ Its source-bound preflight request is already prepared. Wait for closed Resolve
 and request-install approval before swapping the consumed standard64 request.
 No overrides64 build authorization is inferred from this visual acceptance.
 
-## Current installed request — authorized Otis64 BUILD
+## Current installed request — standard120 PREFLIGHT; hold for matrix decision
+
+Producer authorized next preflight, then “closed”. Initial process check still
+found ResolvePID33711 and stopped without mutation; after “closed”, immediate
+guarded swap confirmed absent before/after. Archived consumed Otis64 request
+outside discovery at out/issue8/installed-request-archive/otis-64-build-75325e0.json,
+exactcf3792f4... hash. Installed standard120 preflight mode0400, SHA256
+a3ab1346ac08258bde9e746d02ebcca36b0376b233b77513c00c7cef8d868a08,
+target7eda6f4deb70, Finland2024/blank overrides/start0/duration120.
+Exact source closure/11hashes/release and all15package/Transport hashes match;
+previous native result unchanged, next evidence absent, qualified product
+inputs unchanged. Receipt: out/issue8/standard120-preflight-installation.json.
+No native call, settings/project mutation or build authorization by agent.
+
+Before the handoff, Producer questioned the necessity of all duration/config
+combinations. Hold operator launch while discussing a reduced matrix. Actual
+issue requires all three configurations,64/120timing, save/reopen and new-build
+isolation; the written plan/checklist explicitly expands this to all six
+config/duration combinations and revised120. Proposed reduction: use existing
+three64native/visual cases plus one revised120 build to test long hold and
+isolation against existing overrides64. Preserve render/timing evidence and
+explicitly acknowledge different baseline duration, not a same-duration A/B.
+This is a proposal only; no plan amendment or skipped-case acceptance yet.
+
+## Retained prior stage — consumed Otis64 BUILD
 
 Producer subsequently replied “passes” to the Otis64 badge/automatic-text and
 entrance/exit visual checklist, V5 hidden and V4 left64frames. Record that
