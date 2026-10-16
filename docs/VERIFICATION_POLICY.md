@@ -32,8 +32,9 @@ find problems, not to produce paperwork.
    **is** the full regression gate. Do not run the full `npm run validate` on
    the Producer's Mac: it takes one to three hours, occupies the machine and
    duplicates CI.
-4. **Merge.** Merge when local fast checks pass and the PR's `Validate` check
-   is green. Do not watch CI. Push, then do other work or end the turn and come
+4. **Merge.** Bring the branch up to date with `main`, then merge when local
+   fast checks pass and the PR's `Validate` check is green. An issue is not
+   done until its work is merged into `main`. Do not watch CI. Push, then do other work or end the turn and come
    back. If CI fails, reproduce just the failing tests locally, fix and push.
 5. **Real-application checks.** Only when the issue changes DaVinci Resolve,
    Fusion or media behaviour that CI cannot exercise. Keep them short and
