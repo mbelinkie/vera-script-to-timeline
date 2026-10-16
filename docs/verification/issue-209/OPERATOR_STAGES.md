@@ -1,9 +1,20 @@
 # #209 operator stage handoff
 
-Status: source implementation in progress; checks/review and actual operator
-authority are outstanding. This document grants no installation or app action.
-An exact reviewed release, package/session/operator-plan hashes and named saved
-disposable target must replace this preliminary status before the operator gate.
+Status: implementation and Claude review completed; actual Studio construction,
+save/reopen and pre-render geometry passed. Delivered-MOV rendering and comparison
+remain pending. This document grants no installation or app action.
+
+Prepare a saved empty disposable project at 23.976 fps, 1920×1080 and 48 kHz.
+Set the project frame rate before creating its empty timeline: Studio can refuse
+the rate change once the timeline exists. The synthetic input needs audio
+headroom; an exactly full-scale sample correctly blocks prediction before render.
+Use authored quiet audio where needed rather than weakening the clipping check.
+
+When the Producer authorizes agent operation, the agent handles reversible file
+copies, app restarts and menu launches through the same installed flow. Retain
+the actual chat authorization with the exact target and finite plan; never claim
+that an agent entered a human terminal challenge. Ask the Producer only for a
+step the available tooling cannot perform.
 
 The source CLI has separate preparation, human authority, request and result
 stages. `output-prepare` writes an immutable session and operator plan without
