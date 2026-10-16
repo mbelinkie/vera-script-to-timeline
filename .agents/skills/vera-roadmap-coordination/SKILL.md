@@ -48,7 +48,8 @@ Choose by the judgment needed, not by issue size.
   wanted. Leave it `In review` until he answers.
 
 A bare agent claim of success without a merged PR and green CI is not
-evidence. Closing an issue does not authorize starting the next one.
+evidence. No issue closes, under any acceptance class, until its work is
+merged into `main`. Closing an issue does not authorize starting the next one.
 
 For audio timing or word-boundary review, follow
 `docs/AUDIO_TIMING_REVIEW_WORKFLOW.md` regardless of acceptance class.
@@ -73,6 +74,10 @@ Pick the cheapest profile that fits; relabel when reality differs.
 ## Steward boundary
 
 Scheduled steward passes may tidy scope, labels, dependencies and stale claims.
+Each pass also checks delivery. It flags any closed issue whose PR is not
+merged into `main`, and any branch with unmerged work older than three days.
+It comments on the issue (reopening it if closed), so stranded work is found
+in days, not weeks.
 They do not reprioritize goals, implement code, close implementation issues or
 dispatch work. A direct Producer invocation of the personal
 `$vera-roadmap-dispatch` skill may start exactly one Ready issue. Stay quiet

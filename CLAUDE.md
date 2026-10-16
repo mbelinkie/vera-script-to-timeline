@@ -6,8 +6,10 @@ Read `AGENTS.md`. It applies to Claude exactly as it does to Codex. Then read
 - Matthew (the Producer) is not a developer. Decide technical matters
   yourself; ask him only about product behaviour, taste, money, his data, or
   steps only he can physically do.
-- One issue per `claude/<issue>-<slug>` branch/worktree from current `main`.
-  Claim it with `npm run roadmap -- claim`.
+- One issue per `claude/<issue>-<slug>` branch/worktree from freshly fetched
+  `origin/main`. Claim it with `npm run roadmap -- claim`. Push early, open a
+  draft PR, and keep the branch short-lived. Never work in the main project
+  folder; it stays on `main`. "Done" means merged into `main`.
 - Locally, run focused tests and `npm run validate:fast`. Never run the full
   `npm run validate` on the Mac; GitHub Actions runs it on every push, and a
   green `Validate` check on the PR is the full gate.
