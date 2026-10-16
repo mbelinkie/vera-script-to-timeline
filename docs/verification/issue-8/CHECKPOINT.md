@@ -1036,3 +1036,29 @@ result/first error without retry. Native build must save/reopen/verify fresh
 target959ff2d2d1a0. Later visual inspection may isolate V4 from known V5 warning;
 retain original64-frame duration for timing evidence. Render/visual acceptance,
 remaining cases/isolation and #8 closure are not inferred from authorization.
+
+### Overrides64 native build verified after reopen — visual check pending
+
+Operator said “done”. Actual result10b3141c2e6149e3b18daa807cb6c1cd in
+out/issue8/native-evidence-75325e0/overrides-64 is statusverified/verifiedtrue,
+zero discrepancies, one graphic observation/verifiedAfterReopentrue, exact
+V4/start0/duration64, controls The Code/Nemo and Finland2024. Target exactly
+authorized959ff2d2d1a0, Studio21.1.1build10/injected3.14.7/verifier3.12.14,
+operator statementNone. Finished2026-10-16T03:52:10.848770+00:00.
+
+ResultSHAe2203bd6ad223de1720e8a3a68666876ab52424ebcdfa250236959879e262bb6
+matches companion9373dfe395782f02d149ebd7cc61f5503a101270bc2ec341c1710a862861a2a8;
+startedSHAdc13fb0ef09ab068e70fdadda1431df8529b1ce5b9baf45e9f0cdbf876fbc566.
+Actual prepared/installed request, release and graphic-attestation bindings
+match. Graphfingerprint75c6e0c9... matches the corrected authentic witness replay,
+now with fresh actual native save/reopen evidence, not merely offline replay.
+Receipt: out/issue8/overrides64-native-checkpoint.json. No source, installed
+request or native mutation by agent; no test rerun. Request now consumed.
+
+Next operator hides known V5 authored placeholder for inspection, leaves V4
+at64frames and checks The Code/Nemo, Finland badge, entrance/exit. Do not rerun
+Graphics or extend this sample. Need visual pass and retained render/timing;
+five remaining native cases and changed-build isolation still pending. Earlier
+standard64 acceptance and both failed targets retained. Roadmap inspection in
+concurrent notification heartbeat remains OPEN/In review, so no closure handoff
+sent and no issue completion inferred.

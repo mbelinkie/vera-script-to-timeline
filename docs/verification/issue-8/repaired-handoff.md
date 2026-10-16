@@ -78,6 +78,24 @@ No overrides64 build authorization is inferred from this visual acceptance.
 
 ## Current installed request — authorized overrides64 BUILD
 
+This request has now been consumed successfully; DO NOT invoke it again.
+Operator's actual result
+out/issue8/native-evidence-75325e0/overrides-64/result-10b3141c2e6149e3b18daa807cb6c1cd.json
+SHA256e2203bd6ad223de1720e8a3a68666876ab52424ebcdfa250236959879e262bb6
+is verifiedtrue/statusverified, no discrepancies, one graphic observation,
+verifiedAfterReopentrue. Exact64-frame V4/start0, The Code/Nemo controls and
+Finland2024 semantic snapshot. RuntimeStudio21.1.1build10/injected3.14.7/
+verifier3.12.14. Actual result-companion and request/release/attestation bindings
+pass. Finished2026-10-16T03:52:10.848770+00:00. Receipt:
+out/issue8/overrides64-native-checkpoint.json. No visual acceptance inferred.
+
+Current operator step: in the reopened target ending959ff2d2d1a0, hide the known
+V5 authored warning to inspect V4, leave the clip64frames, play and verify
+The Code/Nemo text, Finland badge and entrance/exit. Return visual pass or
+first mismatch; retain render for frame-accurate timing review. Five remaining
+native cases and remaining visual/render/isolation gates stay pending. The
+authorization/install sequence below is historical, not another launch request.
+
 Producer explicitly said “Authorize overrides-64 959ff2d2d1a0; External
 Scripting is None”. Resolve was closed before/after request-only swap. Prepared
 the new immutable request through the existing production CLI, exit0, then
