@@ -137,6 +137,19 @@ def test_builds_verifies_and_exactly_reuses_one_project(tmp_path: Path) -> None:
     assert (project / "Media/Narration/minimal.wav").stat().st_nlink == 1
 
 
+@pytest.mark.slow
+def test_refuses_reuse_when_current_mapped_origin_is_corrupt(
+    tmp_path: Path,
+) -> None:
+    manifest_path, report_path, plan_path = _inputs(tmp_path)
+    project = tmp_path / "Authoring Project"
+    build_resolve_import_package(manifest_path, report_path, plan_path, project)
+    (plan_path.parent / "narration.wav").write_bytes(b"corrupt")
+
+    with pytest.raises(ResolveImportPackageError, match="origin hash mismatch"):
+        build_resolve_import_package(manifest_path, report_path, plan_path, project)
+
+
 @pytest.mark.parametrize("status", ["blocked", "failed"])
 def test_refuses_unready_report_without_publication(
     tmp_path: Path, status: str
