@@ -45,8 +45,8 @@ the choice in one line in the PR, and keep going.
   if there is one. `docs/IMPLEMENTATION_PROGRESS.md` is a historical record,
   not a tracker.
 - Work on one issue in one dedicated branch/worktree (`codex/<issue>-<slug>` or
-  `claude/<issue>-<slug>`) created from current `main`. Bootstrap a new
-  worktree with `npm ci` and `uv sync --frozen`.
+  `claude/<issue>-<slug>`) created from a freshly fetched `origin/main`.
+  Bootstrap a new worktree with `npm ci` and `uv sync --frozen`.
 - Claim it with `npm run roadmap -- claim <issue> --model <model> --effort
   <effort> --task <task> --branch <branch>`. If the issue clearly needs a
   different model or effort, relabel it (`gh issue edit`), say so in a comment
@@ -87,9 +87,33 @@ Follow [docs/VERIFICATION_POLICY.md](docs/VERIFICATION_POLICY.md):
 - Merge when CI is green.
 - Fix bugs forward.
 
+## Branches: everything lands on `main`
+
+`main` on GitHub is the only place work counts. On 2026-10-16, several issues
+were marked done while their code existed only in local worktrees, and 38
+branches held work that never reached `main`. Don't let that happen again:
+
+- **Push early.** Push your branch to GitHub as soon as it has a commit, and
+  open a draft PR. Work that exists only on the Mac is one disk failure from
+  gone.
+- **Every change goes through a PR into `main`,** including docs, rules and
+  process changes. Don't edit or commit in the main project folder. It stays
+  on `main` and is only ever pulled, so every new worktree and agent reads the
+  same rules.
+- **Keep branches short-lived.** Merge within the issue. Before merging, bring
+  the branch up to date with `main` (merge or rebase) so CI tests what will
+  actually land. If an issue stalls, open a smaller PR for what's finished
+  rather than letting the branch drift.
+- **Don't end a task with uncommitted or unpushed work.** If you must stop,
+  commit, push, and say in the issue what's left.
+- **"Done" means merged into `main`.** A passing test run on a branch that
+  isn't merged is not delivery. Evidence-only closure is not allowed.
+- After merging, delete the branch and remove its worktree.
+
 ## Closing an issue
 
-The Project's `Acceptance` field says who closes it:
+The Project's `Acceptance` field says who closes it. In every case the work
+must already be merged into `main`:
 
 - **Automated** (the default): when the PR is merged and CI is green, close it
   yourself with `npm run roadmap -- complete <issue> --accepted-by Automated
