@@ -37,20 +37,22 @@ append_to_path() {
 # Finder-launched scripts don't read ~/.zshrc, so tools installed through
 # nvm, fnm, Volta, asdf, mise, etc. are invisible. Borrow the PATH from the
 # user's real login shell (with a 10-second limit in case a startup file
-# waits for input).
+# waits for input). +m keeps that shell from taking over the terminal, and
+# SIGKILL stops it even though interactive shells ignore SIGTERM.
 load_login_shell_path() {
   local user_shell="${SHELL:-/bin/zsh}"
   local tmp captured pid waited=0
   tmp="$(mktemp "${TMPDIR:-/tmp}/vera-path.XXXXXX")" || return
 
-  "$user_shell" -ilc 'printf "\n__VERA_PATH__=%s\n" "$PATH"' \
+  "$user_shell" +m -ilc 'printf "\n__VERA_PATH__=%s\n" "$PATH"' \
     </dev/null >"$tmp" 2>/dev/null &
   pid=$!
   while kill -0 "$pid" 2>/dev/null && (( waited < 100 )); do
     sleep 0.1
     (( waited++ ))
   done
-  kill "$pid" 2>/dev/null
+  kill -KILL "$pid" 2>/dev/null
+  wait "$pid" 2>/dev/null
 
   captured="$(sed -n 's/^__VERA_PATH__=//p' "$tmp" | tail -n 1)"
   rm -f "$tmp"
@@ -117,7 +119,7 @@ if [[ ! -d node_modules ]]; then
   echo
 elif [[ -f package-lock.json && package-lock.json -nt node_modules/.package-lock.json ]]; then
   echo "Dependencies changed since the last install. Updating…"
-  npm install || fail "Updating dependencies failed. See the output above."
+  npm ci || fail "Updating dependencies failed. See the output above."
   echo
 fi
 

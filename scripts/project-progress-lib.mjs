@@ -355,7 +355,7 @@ function renderIssue(item, options = {}) {
       options.goal ? "" : `<span>${escapeHtml(item.type)}</span>`,
     ].join("");
   return `
-            <li class="issue ${statusClass(item.status)}" data-issue="${item.number}">
+            <li class="issue ${statusClass(item.status)}" data-issue="${escapeHtml(item.number)}">
               <i class="swatch ${statusClass(item.status)}" aria-hidden="true"></i>
               <div class="issue-body">
                 <div class="issue-line">${titleMarkup}<span class="issue-status">${escapeHtml(item.status)}</span></div>
@@ -442,7 +442,7 @@ function renderBoardCard(model, index) {
       <article class="board" id="${key}" data-project="${model.projectNumber ?? index + 1}">
         <header class="board-head">
           <h2>${heading}</h2>
-          <p class="pct" aria-label="${displayPercent(model.completionPercent)} of work items done">${displayPercent(model.completionPercent)}</p>
+          <p class="pct">${displayPercent(model.completionPercent)}</p>
         </header>
         <p class="board-sub"><b>${model.doneCount}</b> of ${model.totalWork} work items done, ${model.remainingCount} to go</p>
         ${renderTrack(model.statusCounts, projectTitle, { large: true })}
@@ -481,7 +481,7 @@ export function renderDashboard(models, options = {}) {
   const projects = Array.isArray(models) ? models : [models];
   const totalWork = projects.reduce((total, model) => total + model.totalWork, 0);
   const doneCount = projects.reduce((total, model) => total + model.doneCount, 0);
-  const scope = projects.length > 1 ? " across both boards" : "";
+  const scope = projects.length === 2 ? " across both boards" : projects.length > 2 ? ` across ${projects.length} boards` : "";
   const updated = options.generatedAt ? `. Updated ${escapeHtml(formatGeneratedAt(options.generatedAt))}` : "";
   return `<!doctype html>
 <html lang="en">
@@ -497,7 +497,7 @@ export function renderDashboard(models, options = {}) {
     }
     @media (prefers-color-scheme: light) {
       :root { --bg:#eef0f3; --surface:#ffffff; --raised:#f6f7f9; --line:#d8dce1; --ink:#1c1f24; --muted:#5c626b; --faint:#8a9099; --focus:#1f6fd1;
-        --done:#2e9462; --review:#8862cf; --progress:#c4861a; --blocked:#c8423a; --ready:#2d7dc0; --backlog:#a8adb5; --inbox:#c9cdd3; --warn:#a46a00; }
+        --done:#2e9462; --review:#8862cf; --progress:#c4861a; --blocked:#c8423a; --ready:#2d7dc0; --backlog:#8a9099; --inbox:#b4b9c0; --warn:#a46a00; }
     }
     * { box-sizing:border-box; }
     body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif; font-variant-numeric:tabular-nums; -webkit-font-smoothing:antialiased; }
@@ -586,7 +586,7 @@ export function renderDashboard(models, options = {}) {
     </section>
     <div class="section-head">
       <h2>Work by workstream</h2>
-      <button type="button" class="toggle-all" aria-pressed="false">Expand all</button>
+      <button type="button" class="toggle-all">Expand all</button>
     </div>
     <div class="grid${projects.length === 1 ? " single" : ""}">${projects.map(renderWorkstreamColumn).join("")}
     </div>
@@ -597,7 +597,6 @@ export function renderDashboard(models, options = {}) {
     function syncToggle() {
       const allOpen = rows.length > 0 && rows.every((row) => row.open);
       toggle.textContent = allOpen ? 'Collapse all' : 'Expand all';
-      toggle.setAttribute('aria-pressed', String(allOpen));
     }
     toggle.addEventListener('click', () => {
       const open = !rows.every((row) => row.open);
