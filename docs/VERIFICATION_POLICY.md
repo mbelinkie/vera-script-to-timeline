@@ -27,8 +27,8 @@ find problems, not to produce paperwork.
    or metadata-only changes skip review. If the CLI is unavailable, say so in
    the PR and carry on; no waiver is needed.
 3. **Full suite in the cloud.** The GitHub Actions `Validate` workflow runs the
-   complete `npm run validate` on every push and pull request. Standard runners
-   are free for this public repository. A green `Validate` check on the PR
+   complete `npm run validate` on every pull request and push to `main`.
+   Standard runners are free for this public repository. A green `Validate` check on the PR
    **is** the full regression gate. Do not run the full `npm run validate` on
    the Producer's Mac: it takes one to three hours, occupies the machine and
    duplicates CI.

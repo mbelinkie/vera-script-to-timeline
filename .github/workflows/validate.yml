@@ -3,6 +3,8 @@ name: Validate
 on:
   pull_request:
   push:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -68,7 +70,12 @@ jobs:
         id: validate
         shell: bash
         env:
-          PYTEST_ADDOPTS: --junitxml=${{ runner.temp }}/vera-evidence/pytest-junit.xml --durations=25
+          # Public ubuntu-24.04 runners have four cores; two workers leave room
+          # for media and CLI subprocesses.
+          PYTEST_ADDOPTS: >-
+            -n 2 --dist load
+            --junitxml=${{ runner.temp }}/vera-evidence/pytest-junit.xml
+            --durations=25
         run: |
           set -o pipefail
           mkdir -p "$RUNNER_TEMP/vera-evidence"
