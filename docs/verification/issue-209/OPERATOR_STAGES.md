@@ -1,8 +1,9 @@
 # #209 operator stage handoff
 
-Status: implementation and Claude review completed; actual Studio construction,
-save/reopen and pre-render geometry passed. Delivered-MOV rendering and comparison
-remain pending. This document grants no installation or app action.
+Status: implementation and Claude review completed. Actual Studio construction,
+save/reopen, render, adjacent geometry and same-MOV comparison passed on
+2026-10-16; see [the smoke result](STUDIO_SMOKE.md). This document grants no
+installation or app action.
 
 Prepare a saved empty disposable project at 23.976 fps, 1920×1080 and 48 kHz.
 Set the project frame rate before creating its empty timeline: Studio can refuse
