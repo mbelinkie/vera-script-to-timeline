@@ -814,6 +814,14 @@ class _EmptyFolder:
         return []
 
 
+class _PoolItem:
+    def __init__(self, uid: Any) -> None:
+        self.uid = uid
+
+    def GetUniqueId(self) -> Any:
+        return self.uid
+
+
 class _EmptyPool:
     def __init__(self, clips: list[Any] | None = None) -> None:
         self.root = _EmptyFolder(clips)
@@ -830,9 +838,13 @@ class _EmptyTargetTimeline:
         self,
         counts: dict[str, int],
         items: dict[tuple[str, int], list[Any]] | None = None,
+        pool_item: _PoolItem | None = None,
     ) -> None:
         self.counts = counts
         self.items = {} if items is None else items
+        self.pool_item = (
+            _PoolItem("target-timeline-pool-item") if pool_item is None else pool_item
+        )
 
     def GetStartFrame(self) -> int:
         return 0
@@ -846,13 +858,16 @@ class _EmptyTargetTimeline:
     def GetMarkers(self) -> dict[int, Any]:
         return {}
 
+    def GetMediaPoolItem(self) -> _PoolItem:
+        return self.pool_item
+
 
 class _EmptyTargetProject:
     def __init__(
         self, timeline: _EmptyTargetTimeline, clips: list[Any] | None = None
     ) -> None:
         self.timeline = timeline
-        self.pool = _EmptyPool(clips)
+        self.pool = _EmptyPool([timeline.pool_item] if clips is None else clips)
         self.settings = {
             "timelineFrameRate": "23.976",
             "timelineResolutionWidth": "1920",
@@ -882,6 +897,61 @@ def test_empty_target_accepts_empty_default_video_audio_tracks() -> None:
         timeline,
         {"video": 1, "audio": 1, "subtitle": 0},
     )
+
+
+@pytest.mark.parametrize("other_uid", ["imported-media", "another-timeline"])
+def test_empty_target_rejects_unrelated_media_pool_items(other_uid: str) -> None:
+    timeline = _EmptyTargetTimeline({"video": 1, "audio": 1, "subtitle": 0})
+    project = _EmptyTargetProject(timeline, [timeline.pool_item, _PoolItem(other_uid)])
+
+    with pytest.raises(OutputConsistencyError, match="already contains media"):
+        native._check_empty_target(
+            project,
+            timeline,
+            {"video": 1, "audio": 1, "subtitle": 0},
+        )
+
+
+def test_empty_target_rejects_duplicate_or_unreadable_pool_item_uids() -> None:
+    timeline = _EmptyTargetTimeline({"video": 1, "audio": 1, "subtitle": 0})
+    duplicate_project = _EmptyTargetProject(
+        timeline,
+        [timeline.pool_item, _PoolItem("target-timeline-pool-item")],
+    )
+
+    with pytest.raises(
+        OutputConsistencyError, match="duplicate target media-pool item"
+    ):
+        native._check_empty_target(
+            duplicate_project,
+            timeline,
+            {"video": 1, "audio": 1, "subtitle": 0},
+        )
+
+    unreadable_project = _EmptyTargetProject(
+        timeline, [timeline.pool_item, _PoolItem(None)]
+    )
+    with pytest.raises(OutputConsistencyError, match="identity is unreadable"):
+        native._check_empty_target(
+            unreadable_project,
+            timeline,
+            {"video": 1, "audio": 1, "subtitle": 0},
+        )
+
+
+def test_empty_target_rejects_unreadable_target_timeline_pool_item_uid() -> None:
+    timeline = _EmptyTargetTimeline(
+        {"video": 1, "audio": 1, "subtitle": 0},
+        pool_item=_PoolItem(None),
+    )
+    project = _EmptyTargetProject(timeline)
+
+    with pytest.raises(OutputConsistencyError, match="identity is unreadable"):
+        native._check_empty_target(
+            project,
+            timeline,
+            {"video": 1, "audio": 1, "subtitle": 0},
+        )
 
 
 @pytest.mark.parametrize(
@@ -1341,11 +1411,30 @@ def test_expired_readonly_stages_require_prior_native_lineage(
     ("action", "prior_action"),
     [("poll_render", "start_render"), ("capture_post", "poll_render")],
 )
+@pytest.mark.parametrize(
+    ("stage_error_type", "error_message", "expected_reason"),
+    [
+        (None, "", ""),
+        (
+            OutputConsistencyError,
+            "target pool identity is unreadable",
+            "target pool identity is unreadable",
+        ),
+        (
+            RuntimeError,
+            "private path should stay redacted",
+            "RuntimeError: native stage stopped; retained effects are not retried",
+        ),
+    ],
+)
 def test_dispatcher_uses_historical_auth_only_after_readonly_lineage(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     action: str,
     prior_action: str,
+    stage_error_type: type[Exception] | None,
+    error_message: str,
+    expected_reason: str,
 ) -> None:
     monkeypatch.setattr(native, "NATIVE_RELEASE_ROOT", tmp_path.resolve())
     request_path = tmp_path.resolve() / "request.json"
@@ -1413,13 +1502,31 @@ def test_dispatcher_uses_historical_auth_only_after_readonly_lineage(
         lambda *_args: {"approvalPath": None, "settings": None},
     )
     monkeypatch.setattr(native, "_connected", lambda _resolve: {})
-    monkeypatch.setattr(native, "_native_stage", lambda *_args: {"status": "complete"})
+
+    def native_stage(*_args: Any) -> dict[str, Any]:
+        if stage_error_type is not None:
+            raise stage_error_type(error_message)
+        return {
+            "status": "complete",
+            "inputBindingPath": str(tmp_path / "input-binding.json"),
+            "inputBindingSha256": "a" * 64,
+            "completionResultSha256": "b" * 64,
+            "renderLineageSha256": "c" * 64,
+        }
+
+    monkeypatch.setattr(native, "_native_stage", native_stage)
     monkeypatch.setattr(
         native,
         "_previous_result",
         lambda *_args: ({"settings": {}}, "f" * 64, request_path),
     )
-    monkeypatch.setattr(native, "_publish", lambda path, _result: path)
+    published: list[dict[str, Any]] = []
+
+    def publish(path: Path, result: dict[str, Any]) -> Path:
+        published.append(result)
+        return path
+
+    monkeypatch.setattr(native, "_publish", publish)
 
     result = native.run_qualification_output_request(
         object(),
@@ -1428,6 +1535,10 @@ def test_dispatcher_uses_historical_auth_only_after_readonly_lineage(
     )
 
     assert result == request_path
+    assert published[0]["reason"] == expected_reason
+    if stage_error_type is not None:
+        assert published[0]["status"] == "refused"
+        assert published[0]["effectLedger"] == []
     assert calls == [
         ("lineage", prior_action),
         ("reservation", False),

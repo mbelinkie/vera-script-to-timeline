@@ -136,20 +136,28 @@ class _Trust:
         return datetime.now(UTC)
 
 
+class _EmptyPoolItem:
+    def GetUniqueId(self) -> str:
+        return "timeline-pool-item"
+
+
 class _EmptyRoot:
+    def __init__(self, timeline_item: _EmptyPoolItem) -> None:
+        self.timeline_item = timeline_item
+
     def GetUniqueId(self) -> str:
         return "empty-root"
 
     def GetClipList(self) -> list[Any]:
-        return []
+        return [self.timeline_item]
 
     def GetSubFolderList(self) -> list[Any]:
         return []
 
 
 class _EmptyMediaPool:
-    def __init__(self) -> None:
-        self.root = _EmptyRoot()
+    def __init__(self, timeline_item: _EmptyPoolItem) -> None:
+        self.root = _EmptyRoot(timeline_item)
 
     def ImportMedia(self, _paths: list[str]) -> list[Any]:
         return []
@@ -159,6 +167,9 @@ class _EmptyMediaPool:
 
 
 class _EmptyTimeline:
+    def __init__(self, pool_item: _EmptyPoolItem) -> None:
+        self.pool_item = pool_item
+
     def GetUniqueId(self) -> str:
         return "timeline-one"
 
@@ -189,6 +200,9 @@ class _EmptyTimeline:
     def GetMarkers(self) -> dict[int, Any]:
         return {}
 
+    def GetMediaPoolItem(self) -> _EmptyPoolItem:
+        return self.pool_item
+
     def GetMarkerCustomData(self, _frame: int) -> str:
         return ""
 
@@ -215,8 +229,9 @@ class _EmptyTimeline:
 
 class _EmptyProject:
     def __init__(self) -> None:
-        self.timeline = _EmptyTimeline()
-        self.pool = _EmptyMediaPool()
+        timeline_item = _EmptyPoolItem()
+        self.timeline = _EmptyTimeline(timeline_item)
+        self.pool = _EmptyMediaPool(timeline_item)
 
     def GetUniqueId(self) -> str:
         return "project-one"

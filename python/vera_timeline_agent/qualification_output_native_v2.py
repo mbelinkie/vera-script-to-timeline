@@ -2498,28 +2498,62 @@ def _check_empty_target(
         type(markers) is dict and not markers,
         "target timeline already has markers; refusing to overwrite",
     )
+    _require_api(timeline, ("GetMediaPoolItem",), "target timeline")
+    timeline_pool_item = timeline.GetMediaPoolItem()
+    _require_api(
+        timeline_pool_item, ("GetUniqueId",), "target timeline media-pool item"
+    )
+    timeline_pool_uid = timeline_pool_item.GetUniqueId()
+    _require(
+        type(timeline_pool_uid) is str and bool(timeline_pool_uid.strip()),
+        "target timeline media-pool item identity is unreadable",
+    )
     pool = project.GetMediaPool()
     root = pool.GetRootFolder()
     _require_api(root, ("GetClipList", "GetSubFolderList"), "MediaPool root folder")
     pending = [root]
     seen: set[str] = set()
+    seen_media: set[str] = set()
+    timeline_pool_item_count = 0
     while pending:
         folder = pending.pop()
         uid = folder.GetUniqueId()
         _require(
-            type(uid) is str and uid not in seen, "invalid/cyclic target media folders"
+            type(uid) is str and bool(uid.strip()) and uid not in seen,
+            "invalid/cyclic target media folders",
         )
         seen.add(uid)
         clips = folder.GetClipList()
         children = folder.GetSubFolderList()
         _require(
-            type(clips) in {list, tuple} and not clips,
-            "target project already contains media; refusing to overwrite",
+            type(clips) in {list, tuple},
+            "incomplete target media item inventory",
         )
         _require(
             type(children) in {list, tuple}, "incomplete target media folder inventory"
         )
+        for item in clips:
+            _require_api(item, ("GetUniqueId",), "target media-pool item")
+            item_uid = item.GetUniqueId()
+            _require(
+                type(item_uid) is str and bool(item_uid.strip()),
+                "target media-pool item identity is unreadable",
+            )
+            _require(
+                item_uid not in seen_media,
+                "duplicate target media-pool item identity",
+            )
+            seen_media.add(item_uid)
+            _require(
+                item_uid == timeline_pool_uid,
+                "target project already contains media; refusing to overwrite",
+            )
+            timeline_pool_item_count += 1
         pending.extend(children)
+    _require(
+        timeline_pool_item_count == 1,
+        "target timeline media-pool item is missing from project inventory",
+    )
 
 
 def _source_hash(value: Any) -> str:
@@ -4611,6 +4645,10 @@ def run_qualification_output_request(
             )
             result["settings"] = prior_result["settings"]
         result["reason"] = value.get("reason", "")
+    except OutputConsistencyError as error:
+        result["status"] = _failed_stage_status(state["effects"])
+        result["reason"] = str(error)[:1024]
+        result["effectLedger"] = state["effects"]
     except Exception as error:
         result["status"] = _failed_stage_status(state["effects"])
         reason = (
