@@ -1,0 +1,30 @@
+--- a/tests/issue190_case.py
++++ b/tests/issue190_case.py
+@@ -37,6 +37,10 @@
+ ) -> tuple[Json, Any]:
+     case = make_package_case(root, rate=rate, scenario=scenario)
+     dependencies = json.loads(case.dependencies_path.read_bytes())
++    if scenario == "default":
++        for resolution in dependencies["occurrenceResolutions"]:
++            if resolution["sourceSnapshot"]["system"] == "graphic_asset":
++                resolution["graphicContentClass"] = "legacy_unclassified"
+     sources = proof_source_hashes_v2()
+     dependencies["compiler"]["sourceHash"] = sources[
+         "packages/contracts/src/compiler-core-v2.ts"
+--- a/tests/test_issue144_omission_bridge.py
++++ b/tests/test_issue144_omission_bridge.py
+@@ -25,10 +25,11 @@
+ import {readFileSync} from 'node:fs';
+ import {registerHooks} from 'node:module';
+ const url=process.argv[1];
++const sources=['./compiler-core.ts','./script-validator.ts','./ev24-lower-third.ts','./template-library.ts','./graphic-provenance-compiler.ts'];
++const parents=sources.map(path=>new URL(path,url).href);
+ const hook=registerHooks({resolve(specifier,context,next){
+-  if(context.parentURL===url&&specifier==='./script-validator.js')
+-    return next('./script-validator.ts',context);
+-  return next(specifier,context);
++  const source=specifier.endsWith('.js')?specifier.slice(0,-3)+'.ts':specifier;
++  return next(parents.includes(context.parentURL)&&sources.includes(source)?source:specifier,context);
+ }});
+ const compiler=await import(url);hook.deregister();
+ process.stdout.write(compiler.sha256CanonicalJson(JSON.parse(readFileSync(process.argv[2],'utf8'))));
