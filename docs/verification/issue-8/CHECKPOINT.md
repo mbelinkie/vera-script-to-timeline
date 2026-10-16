@@ -888,3 +888,29 @@ Workspace > Workflow Integrations > VERA Graphics v1 ONCE and returns result
 or first error. Only this fresh standard64 target is authorized. Both failed
 targets stay untouched; all other builds and actual External/visual gates
 remain pending. Issue stays open/In review; no steward closure message yet.
+
+### First repaired native build passes — standard64 d6c79d790514
+
+Operator reported “I have run VERA Graphics v1”. Actual result
+out/issue8/native-evidence-75325e0/standard-64/result-4b014c521d0849ffada659641dbf59fd.json
+is statusverified/verifiedtrue with zero discrepancies, one graphic observation
+and verifiedAfterReopentrue. Finished2026-10-16T03:29:43.276018+00:00;
+Studio21.1.1build10/injected3.14.7/verifier3.12.14, operator statementNone.
+Target exactly approved d6c79d790514, V4/start0/duration64; expected Finland2024
+semantic snapshot and blank overrides. Reopened graph fingerprint
+sha256:dca01896f951eedacc128b3953d6403c537a9edee27ff65f1dea1f27d2a65591.
+
+Result SHA256 6ba3859e6b5114d3447063c060b8eb7900469330d7e21117391966b358db7168
+matches companion; companionSHA06b5ef30b768d068eaac52ae6196e225f5ef4852c695296daef92d82681c9263;
+startedSHAdcb0a4d08a76d33a33b890c35f39b1d6da681b7b1cbb50c9dc1b6bc912530b59.
+Actual prepared request/release/attestation hashes rechecked against result,
+companion and retained artifacts. Native evidence confirms approved persistence
+repair for this case; old failed targets/results remain failed and untouched.
+Private checkpoint: out/issue8/repaired-standard-64-native-checkpoint.json.
+
+No agent native call, source/installed-request mutation or test rerun. Installed
+standard64 request is consumed and must NOT be launched again. Next operator
+checks this saved/reopened graphic visually and retains render; six other
+native cases and actual visual/timing/isolation gates remain pending. Merely
+reporting launcher execution is not visual acceptance. #8 stays open/In review;
+Sweden-steward notification remains conditional on actual closure.

@@ -1,15 +1,37 @@
-# #8 repaired graph-persistence candidate — standard64 build request installed
+# #8 repaired graph-persistence candidate — standard64 native build verified
 
 Automated verification is complete. Producer explicitly authorized “install
 repaired preflight”; the repaired Graphics release and new standard64 preflight
 request are now installed and verified. The interruption happened after the
 successful file swap/audit; “resume” reverified it without reinstalling.
-No successful new native build, render, visual acceptance or issue
-closure is claimed. Preserve both failed native targets and all old evidence.
+The new standard64 native build now verifies successfully after save/reopen.
+Render, visual acceptance and issue closure are not claimed. Preserve both
+failed native targets and all old evidence.
 The consumed old build request is safely archived outside the plugin root.
 The new preflight passed. Producer then explicitly authorized only standard64
 `d6c79d790514` and confirmed External Scripting None. Its new build request is
-installed; native execution remains operator-owned and has not happened yet.
+installed and was invoked once by the operator. It is now consumed: DO NOT
+launch this installed build request again.
+
+## Current operator step — inspect the successful standard64 build
+
+Native result: out/issue8/native-evidence-75325e0/standard-64/result-4b014c521d0849ffada659641dbf59fd.json,
+SHA256 `6ba3859e6b5114d3447063c060b8eb7900469330d7e21117391966b358db7168`.
+Status verified/verifiedtrue, zero discrepancies, one graphic observation,
+verifiedAfterReopentrue, V4/start0/duration64, expected Finland/2024 semantic
+snapshot and blank overrides. Studio21.1.1build10, injected3.14.7, verifier3.12.14.
+Result companion hash and exact request/release/attestation bindings all pass.
+This is actual native evidence, not an offline replay. The agent did not run
+Resolve. Retained checkpoint: out/issue8/repaired-standard-64-native-checkpoint.json.
+
+In the saved/reopened target ending d6c79d790514, play the V4 graphic and check
+the Finland badge, authored automatic text, and entrance/exit without visible
+errors; retain a render for frame-accurate 48-frame entrance/16-frame exit review.
+Do not run Graphics again. Six other native cases, six-case visual/render
+evidence and changed-build isolation remain pending. No acceptance is inferred
+from the operator saying only that the launcher ran. Historical installation
+sequence below records earlier stages; the latest result supersedes its
+not-yet-executed statements.
 
 ## Qualifying evidence
 
@@ -53,7 +75,7 @@ Paths are relative to `/Users/matthewbelinkie/.codex/worktrees/46d4/VERA Script 
 - Handoffs: `out/issue8/handoffs-75325e0/<case>/{graphic,transport}.json`.
 - Requests: `out/issue8/requests-75325e0/<case>-preflight.json`.
 - Native evidence: `out/issue8/native-evidence-75325e0/<case>`;
-  standard64 contains the successful preflight, not a build result yet.
+  standard64 contains its successful preflight and verified native build.
 - Complete preparation receipt: `out/issue8/operator-preparation-75325e0.json`,
   SHA256 `fb576191a222491b7aad2d8020d71504a37bd152bcb19f77b1563803b2a87448`.
 - Preparation log: `out/issue8/operator-preparation-75325e0.log`, SHA256
@@ -83,7 +105,7 @@ Rufflint/format. This covers the new equivalent copies without another full run.
 UUIDs still identify the same immutable compiled packages, but each attestation
 has a new target nonce. None is the old failed target or an overwrite request.
 
-## Next operator sequence — authorized standard64 build
+## Retained operator sequence — authorized standard64 build (now completed)
 
 1. Installation is complete under “install repaired preflight”. Resolve was
    closed before and after the swap and on resumed audit. Exact old Graphics
@@ -121,7 +143,8 @@ installed BUILD request isd5306b7a8a2dafb05951d184097a09c33ef1735107ccd0c3837187
 Archived successful preflight request retains21813459351e0863918c1e209cd6a8c2a56a3e5801b17db852d601360e221aa8.
 Archived old release/request retain hashes f955e0f4.../6c00fb4a... exactly.
 All pre-swap, post-swap and resumed-audit logs pass. Resolve was not launched
-by the agent; no new build result exists. Exact authorization and request-only
+by the agent; the operator's later verified build result is recorded above.
+Exact authorization and request-only
 swap are retained in out/issue8/repaired-standard-64-build-authorization.json.
 The earlier installation/preflight records describe their historical stage,
 not this later explicit build authorization. Actual native/visual acceptance
