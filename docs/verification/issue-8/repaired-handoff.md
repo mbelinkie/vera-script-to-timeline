@@ -78,6 +78,24 @@ No overrides64 build authorization is inferred from this visual acceptance.
 
 ## Current installed request — authorized Otis64 BUILD
 
+This request is now consumed successfully; DO NOT launch it again. Actual
+result out/issue8/native-evidence-75325e0/otis-64/result-a85efdfb39d44fbfa0f56264d2e92282.json,
+SHA2564e53fe1691203be6bf680352ed4dfce122c640f17da134abc416d65b4cea701f,
+is statusverified/verifiedtrue, zero discrepancies, one graphic observation,
+verifiedAfterReopentrue. Exact V4/start0/duration64, OtisCountry53/blank text
+overrides, Year absent from typed snapshot/readback. RuntimeStudio21.1.1build10/
+injected3.14.7/verifier3.12.14, finished2026-10-16T04:08:43.567192+00:00.
+Actual result-companion and installed request/release/attestation hashes match.
+Checkpoint: out/issue8/otis64-native-checkpoint.json. No visual pass inferred.
+
+Current operator step: in reopened target953d849f3f63, hide known authored V5
+warning to see V4, leave V4 at64frames, and check authored Otis badge/automatic
+text plus entrance/exit animation. No forced Year assignment is applied; do
+not substitute assumptions about authored Otis display for actual inspection.
+Return visual pass/first mismatch and retain render for precise timing review.
+Four native cases and remaining render/visual/isolation gates remain pending.
+Authorization/install sequence below describes the completed earlier stage.
+
 Producer explicitly said “Authorize otis-64 953d849f3f63; External Scripting is
 None”. Resolve closed before/after guarded request-only swap. Existing
 production CLI prepared new immutable request exit0, then archived successful

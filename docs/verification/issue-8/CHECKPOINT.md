@@ -1142,3 +1142,27 @@ project/timeline on Edit, Graphics ONCE and return result/first refusal. New
 V4 clip remains64frames; known V5 warning can be isolated for later inspection.
 No other target/render authorization or native/visual acceptance inferred;
 remaining gates and #8 closure still pending.
+
+### Otis64 native build verified after reopen — visual check next
+
+Operator said “done”. Actual resulta85efdfb39d44fbfa0f56264d2e92282 in
+out/issue8/native-evidence-75325e0/otis-64 is verifiedtrue/statusverified, zero
+discrepancies, one actual observation/verifiedAfterReopentrue. Exact V4/start0/
+duration64, OtisCountry53, blank override controls; Year absent from typed
+snapshot/readback as required (no Year assignment). Target exactly953d849f3f63,
+Studio21.1.1build10/injected3.14.7/verifier3.12.14, operator statementNone.
+Finished2026-10-16T04:08:43.567192+00:00.
+
+ResultSHA4e53fe1691203be6bf680352ed4dfce122c640f17da134abc416d65b4cea701f
+matches companion357141c0d26979b95226d1cd1f2cecf6f509028bf2f5c371e4b632ce3d22f550;
+startedSHA5749506fe1b58fce3e3678e11dc104432c1b56147c6efb21c0fcd93f6b58cda7.
+Actual result and prepared/installed request/release/attestation hashes match.
+Reopened graphfingerprint153874cd... retained; checkpoint
+out/issue8/otis64-native-checkpoint.json. No source/request/native mutation or
+heavy test by agent. Request consumed; do not rerun Graphics.
+
+Next operator hides V5 authored warning for inspection, keeps V4 at64frames,
+checks actual authored Otis badge/text and entrance/exit, returns visual pass
+or first mismatch. No visual/render acceptance inferred from “done”. Four
+native cases and remaining render/timing/isolation gates remain; previous
+passes and failed targets preserved, #8 stays open/In review.
