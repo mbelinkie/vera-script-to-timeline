@@ -121,10 +121,6 @@ def test_mixed_25_and_30_sources_compile_and_admit_with_real_p5(
             abs(samples[index]) >= 1_000_000
             for index in case.expected_audio_samples[label]
         )
-    preparation_paths = {
-        prepared.binding["requirementKey"]: prepared.receipt_path
-        for prepared in case.preparations.values()
-    }
     with pytest.raises(
         QualificationPackageError,
         match="first smoke profile requires one actual picture/source-audio pair",
@@ -133,5 +129,4 @@ def test_mixed_25_and_30_sources_compile_and_admit_with_real_p5(
             tmp_path / "old-smoke-profile",
             profile=SYNTHETIC_PROFILE,
             package_root=case.package_root,
-            preparation_paths=preparation_paths,
         )

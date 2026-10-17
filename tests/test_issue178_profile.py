@@ -105,3 +105,30 @@ def test_prepare_cli_passes_exact_matrix_receipt_paths(
         == 0
     )
     assert captured["preparation_paths"] == {"key": receipt}
+
+
+def test_matrix_refuses_dotdot_escape_from_published_root() -> None:
+    key = "0" * 64
+    path = (
+        package.MATRIX_PREPARATION_ROOT
+        / ".."
+        / "outside/published"
+        / key
+        / "receipt.json"
+    )
+    with pytest.raises(package.QualificationPackageError, match="canonical matrix"):
+        package._verify_public_receipt("sha256:" + key, path, {}, {}, matrix=True)
+
+
+def test_generated_track_layout_can_be_constructed_natively(tmp_path: Path) -> None:
+    import json
+
+    from issue178_qualification_fixture import _build_case_inputs
+
+    _, dependencies = _build_case_inputs(tmp_path, ())
+    view = json.loads(dependencies.read_bytes())
+    assert native._required_track_counts(view) == {
+        "video": 4,
+        "audio": 3,
+        "subtitle": 0,
+    }

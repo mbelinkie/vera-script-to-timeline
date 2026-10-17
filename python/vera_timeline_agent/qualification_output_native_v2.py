@@ -1049,8 +1049,18 @@ def _verify_admission(request: dict[str, Any]) -> dict[str, Any]:
         _require(_hash(raw_input) == admission[field], f"current {name} pin differs")
     if request["profile"] in PUBLIC_PROFILES:
         _require(
-            admission["disposition"] == "verified_synthetic"
-            and admission["creativeQualification"] == "qualified_synthetic_only",
+            admission["disposition"]
+            == (
+                "verified_matrix_inputs"
+                if request["profile"] == MATRIX_PROFILE
+                else "verified_synthetic"
+            )
+            and admission["creativeQualification"]
+            == (
+                "unqualified_studio_matrix"
+                if request["profile"] == MATRIX_PROFILE
+                else "qualified_synthetic_only"
+            ),
             "ordinary package is not a verified synthetic",
         )
         _require(

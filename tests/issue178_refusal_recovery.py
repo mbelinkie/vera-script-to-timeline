@@ -168,7 +168,7 @@ def _compile(
     return compiled, cast(Json, envelope["result"])
 
 
-def run_package_refusals(case: QualificationCase, root: Path) -> Json:
+def _run_package_refusals(case: QualificationCase, root: Path) -> Json:
     """Check package-byte and semantic-anchor refusals against one accepted case."""
     if not isinstance(case, QualificationCase):
         raise ValueError("an existing issue 178 qualification case is required")
@@ -338,7 +338,7 @@ def run_package_refusals(case: QualificationCase, root: Path) -> Json:
     return result
 
 
-def run_refusal_recovery(root: Path) -> Json:
+def _run_refusal_recovery(root: Path) -> Json:
     """Run real 24000/1001 preparation refusals and immutable recovery checks.
 
     Writes only below the caller-provided fresh root and retains a compact JSON
@@ -613,3 +613,27 @@ def run_refusal_recovery(root: Path) -> Json:
     result["status"] = "passed"
     _write_result(result_path, result)
     return result
+
+
+def _record_failure(path: Path, error: Exception) -> None:
+    if path.is_file():
+        result = json.loads(path.read_bytes())
+        if result.get("status") == "running":
+            result.update(status="failed", reason=str(error))
+            _write_result(path, result)
+
+
+def run_package_refusals(case: QualificationCase, root: Path) -> Json:
+    try:
+        return _run_package_refusals(case, root)
+    except Exception as error:
+        _record_failure(root / "issue178-package-refusals/result.json", error)
+        raise
+
+
+def run_refusal_recovery(root: Path) -> Json:
+    try:
+        return _run_refusal_recovery(root)
+    except Exception as error:
+        _record_failure(root / "issue178-refusal-recovery/result.json", error)
+        raise

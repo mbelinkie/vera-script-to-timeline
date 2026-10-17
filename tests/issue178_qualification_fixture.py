@@ -98,11 +98,12 @@ class _ClipSpec:
     has_audio: bool = True
     selected_range: bool = True
     duration_override_ms: int | None = None
+    source_system: Literal["research", "local_import"] = "local_import"
 
 
 _CASES: dict[str, tuple[_ClipSpec, ...]] = {
     "mixed25_30": (
-        _ClipSpec("clip-1-25fps", Fraction(25), 1001),
+        _ClipSpec("clip-1-25fps", Fraction(25), 1001, source_system="research"),
         _ClipSpec("clip-2-30fps", Fraction(30), 90, audio_policy="mute"),
     ),
     "same_rate": (_ClipSpec("clip-1-24000_1001fps", _TARGET_RATE, 72),),
@@ -294,6 +295,7 @@ def _prepare_clip(
         audio=spec.has_audio,
         in_frame=_SOURCE_ORIGIN_FRAME + source_offset,
     )
+    occurrence["sourceSnapshot"]["system"] = spec.source_system
     occurrence["payloadId"] = payload_id
     occurrence["owner"] = {"kind": "visual_only_block", "blockId": block_id}
     occurrence["mediaReferenceId"] = media_reference_id
@@ -406,6 +408,12 @@ def _build_case_inputs(root: Path, clips: tuple[_Clip, ...]) -> tuple[Path, Path
     compiler_core = REPOSITORY_ROOT / "packages/contracts/src/compiler-core-v2.ts"
     dependencies["compiler"]["sourceHash"] = (
         "sha256:" + hashlib.sha256(compiler_core.read_bytes()).hexdigest()
+    )
+    for track in dependencies["tracks"]:
+        if track["id"] == dependencies["roles"]["sourceAudioTrackIds"][0]:
+            track["index"] = 3
+    dependencies["tracks"].append(
+        {"id": "narration-second", "kind": "audio", "index": 2, "name": "Narration 2"}
     )
     document["activeDraft"]["blocks"] = []
     dependencies["occurrenceResolutions"] = []

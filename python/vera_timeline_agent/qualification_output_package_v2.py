@@ -1206,6 +1206,10 @@ def admit_qualification_package_v2(
     """
     _need(type(profile) is str and profile in _PROFILES, "unsupported package profile")
     _need(
+        profile == MATRIX_PROFILE or preparation_paths is None,
+        "published preparation paths are only accepted by the matrix profile",
+    )
+    _need(
         isinstance(output_root, Path) and output_root.is_absolute(),
         "absolute output root required",
     )
@@ -1979,6 +1983,10 @@ def _verify_public_receipt(
     )
     expected_dir = receipt_path.parent if matrix else _PREPARED_ROOT / key_hex
     if matrix:
+        _need(
+            receipt_path.is_absolute() and ".." not in receipt_path.parts,
+            "canonical matrix published receipt path required",
+        )
         v2_package._require_path_components_no_symlink(receipt_path, "matrix receipt")
         _need(
             receipt_path.is_relative_to(MATRIX_PREPARATION_ROOT)
@@ -2468,8 +2476,10 @@ def _verify_actual_174_source(
         _need(_hash_file(tool) == digest, "source verification executable changed")
     inputs = record["inputs"]
     original = record["binding"]["originalSource"]
+    source_state = _state(source_path)
+    source_hash = _hash_file(source_path)
     _need(
-        _hash_file(source_path) == original["contentHash"].removeprefix("sha256:"),
+        source_hash == original["contentHash"].removeprefix("sha256:"),
         "#174 source media hash differs",
     )
     inspection = inspect_media(
@@ -2497,10 +2507,9 @@ def _verify_actual_174_source(
         )
     else:
         _need(inspection.audio is None, "unexpected source audio stream")
-    tracked_states[source_path] = _state(source_path)
-    tracked_hashes[source_path] = _sha(
-        _read(source_path, maximum=4 * 1024 * 1024 * 1024)
-    )
+    _need(_state(source_path) == source_state, "source changed during reinspection")
+    tracked_states[source_path] = source_state
+    tracked_hashes[source_path] = source_hash
     for path, digest in ((_FFMPEG, _FFMPEG_SHA256), (_FFPROBE, _FFPROBE_SHA256)):
         tracked_states[path] = _state(path)
         tracked_hashes[path] = digest
@@ -3038,7 +3047,13 @@ def _admit_synthetic(
             1 <= manifest["timeline"]["durationFrames"] <= 1498
             and all(
                 event["kind"]
-                in {"primary_visual", "source_audio", "overlay_visual", "placeholder"}
+                in {
+                    "primary_visual",
+                    "source_audio",
+                    "overlay_visual",
+                    "placeholder",
+                    "narration",
+                }
                 for event in manifest["events"]
             ),
             "matrix requires bounded picture/source-audio events",
@@ -3084,8 +3099,12 @@ def _admit_synthetic(
     return _finish_admission(
         output_root,
         profile=profile,
-        disposition="verified_synthetic",
-        creative_qualification="qualified_synthetic_only",
+        disposition="verified_matrix_inputs"
+        if profile == MATRIX_PROFILE
+        else "verified_synthetic",
+        creative_qualification="unqualified_studio_matrix"
+        if profile == MATRIX_PROFILE
+        else "qualified_synthetic_only",
         original_document=document_raw,
         original_dependencies=dependencies_raw,
         execution_document=document_raw,

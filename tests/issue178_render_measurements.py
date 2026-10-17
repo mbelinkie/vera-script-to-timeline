@@ -14,13 +14,14 @@ from itertools import pairwise
 from pathlib import Path
 from typing import Any, cast
 
-from vera_timeline_agent.media_preparation import MediaTools
+from vera_timeline_agent.media_preparation import MediaTools, file_hash
 
 Json = dict[str, Any]
 TARGET_RATE = Fraction(24000, 1001)
 AUDIO_RATE = 48000
 SAMPLES_PER_FRAME = AUDIO_RATE * TARGET_RATE.denominator // TARGET_RATE.numerator
-_CLICK_SEARCH_SAMPLES = AUDIO_RATE // 100  # 10 ms
+_CLICK_SEARCH_SAMPLES = AUDIO_RATE // 20  # Search 50 ms; gate remains 10 ms.
+_CLICK_RESIDUAL_SAMPLES = AUDIO_RATE // 100
 _CLICK_DRIFT_SAMPLES = AUDIO_RATE // 200  # 5 ms
 _GAIN_TOLERANCE_DB = 0.5
 
@@ -277,7 +278,7 @@ def _verify_video_probe(
             "-show_streams",
             "-show_frames",
             "-show_entries",
-            "stream=codec_name,width,height,pix_fmt,time_base,avg_frame_rate,r_frame_rate,duration,duration_ts,nb_frames:frame=best_effort_timestamp,best_effort_timestamp_time,pkt_duration,pkt_duration_time",
+            "stream=codec_name,width,height,pix_fmt,time_base,avg_frame_rate,r_frame_rate,duration,duration_ts,nb_frames:frame=best_effort_timestamp,best_effort_timestamp_time,duration,duration_time",
             "-of",
             "json",
             str(mov_path),
@@ -319,12 +320,10 @@ def _verify_video_probe(
             )
         else:
             raise AssertionError("rendered frame has no presentation timestamp")
-        if "pkt_duration" in frame:
-            packet_durations.append(Fraction(int(frame["pkt_duration"])) * time_base)
-        elif "pkt_duration_time" in frame:
-            packet_durations.append(
-                _fraction(frame["pkt_duration_time"], "frame duration")
-            )
+        if "duration" in frame:
+            packet_durations.append(Fraction(int(frame["duration"])) * time_base)
+        elif "duration_time" in frame:
+            packet_durations.append(_fraction(frame["duration_time"], "frame duration"))
     _require(
         len(timestamps) == expected_frames,
         "render PTS count differs from manifest frame count",
@@ -337,7 +336,8 @@ def _verify_video_probe(
             f"{right - left}, expected {expected_frame_duration}",
         )
     _require(
-        all(duration == expected_frame_duration for duration in packet_durations),
+        len(packet_durations) == expected_frames
+        and all(duration == expected_frame_duration for duration in packet_durations),
         "rendered frame packet duration differs from exact 24000/1001 cadence",
     )
 
@@ -780,7 +780,7 @@ def _measure_rendered_clicks(
     max_residual = max(abs(residual) for residual in residuals)
     drift = max(residuals) - min(residuals)
     _require(
-        max_residual <= _CLICK_SEARCH_SAMPLES,
+        max_residual <= _CLICK_RESIDUAL_SAMPLES,
         f"{label} rendered click residual exceeds 10 ms",
     )
     _require(
@@ -874,8 +874,77 @@ def _verify_ordinals(
     return cuts
 
 
+def authenticate_render(
+    case: MeasurementCase, mov_path: Path, session_path: Path, session_sha256: str
+) -> Json:
+    """Bind measurements to the authenticated completed native operation chain."""
+    from vera_timeline_agent.qualification_output_controller_v2 import (
+        load_output_session,
+    )
+
+    controller = load_output_session(session_path, session_sha256)
+    admission = controller.admission
+    admission.assert_current()
+    _require(
+        case.manifest == admission.manifest,
+        "measurement manifest differs from admitted package",
+    )
+    bindings = {
+        row["requirementKey"]: row for row in admission.manifest["preparationBindings"]
+    }
+    _require(
+        set(bindings)
+        == {
+            prepared.binding["requirementKey"]
+            for prepared in case.preparations.values()
+        },
+        "measurement preparation inventory differs",
+    )
+    for prepared in case.preparations.values():
+        _require(
+            prepared.binding == bindings[prepared.binding["requirementKey"]],
+            "measurement preparation binding differs",
+        )
+        for path in (prepared.receipt_path, prepared.audio_path):
+            if path is not None:
+                _require(
+                    admission._tracked_hashes.get(path)
+                    == file_hash(path).removeprefix("sha256:"),
+                    "measurement preparation bytes differ from admission",
+                )
+    attempt = controller._latest_attempt()
+    _require(
+        attempt is not None and attempt["state"] == "compared_consistent",
+        "completed native output comparison required",
+    )
+    completion_path, completion_hash, completion = controller._native_result(5)
+    _require(
+        completion["status"] == "complete"
+        and completion["outputPath"] == str(mov_path),
+        "measurement MOV differs from completed native output",
+    )
+    output_hash = file_hash(mov_path).removeprefix("sha256:")
+    _require(
+        completion["sourceOutputRawSha256"] == output_hash,
+        "measurement MOV bytes differ from native output",
+    )
+    return {
+        "sessionSha256": session_sha256,
+        "admissionSha256": file_hash(admission.admission_path).removeprefix("sha256:"),
+        "manifestSha256": admission.admission["manifestSha256"],
+        "completionResultPath": str(completion_path),
+        "completionResultSha256": completion_hash,
+        "outputSha256": output_hash,
+    }
+
+
 def measure_render(
-    case: MeasurementCase, mov_path: Path, outputdir: Path
+    case: MeasurementCase,
+    mov_path: Path,
+    outputdir: Path,
+    *,
+    session_path: Path,
+    session_sha256: str,
 ) -> dict[str, Any]:
     """Measure an actual native render and raise if any Issue 178 gate fails.
 
@@ -883,6 +952,7 @@ def measure_render(
     source-audio policy, preparation bounds and gain targets all come from the
     supplied ordinary qualification case.
     """
+    binding = authenticate_render(case, mov_path, session_path, session_sha256)
     _require(outputdir.is_absolute(), "measurement output directory must be absolute")
     outputdir.mkdir(parents=True, exist_ok=True)
     tools = MediaTools()
@@ -1012,6 +1082,7 @@ def measure_render(
         "status": "passed",
         "caseName": case.case_name,
         "movPath": str(mov_path),
+        "nativeBinding": binding,
         "targetFrameRate": {
             "numerator": TARGET_RATE.numerator,
             "denominator": TARGET_RATE.denominator,
