@@ -49,8 +49,10 @@ APPROVAL_SCHEMA = "qualification-output-operator-approval/v1"
 RENDER_INTENT_SCHEMA = "qualification-output-render-intent/v1"
 INVENTORY_SCHEMA = "qualification-output-package-inventory/v1"
 SYNTHETIC_PROFILE = "verified-v2-package/v1"
+MATRIX_PROFILE = "qualification-output-studio-matrix/v1"
+PUBLIC_PROFILES = frozenset({SYNTHETIC_PROFILE, MATRIX_PROFILE})
 R16_PROFILE = "qualification-output-r16-presenter-override/v1"
-PROFILES = frozenset({SYNTHETIC_PROFILE, R16_PROFILE})
+PROFILES = frozenset({*PUBLIC_PROFILES, R16_PROFILE})
 ACTIONS = frozenset(
     {
         "construct",
@@ -1045,10 +1047,20 @@ def _verify_admission(request: dict[str, Any]) -> dict[str, Any]:
         raw_input = _read(_path(request["inputs"][name], name), name, maximum=MAX_BYTES)
         field = name.removesuffix("Path") + "Sha256"
         _require(_hash(raw_input) == admission[field], f"current {name} pin differs")
-    if request["profile"] == SYNTHETIC_PROFILE:
+    if request["profile"] in PUBLIC_PROFILES:
         _require(
-            admission["disposition"] == "verified_synthetic"
-            and admission["creativeQualification"] == "qualified_synthetic_only",
+            admission["disposition"]
+            == (
+                "verified_matrix_inputs"
+                if request["profile"] == MATRIX_PROFILE
+                else "verified_synthetic"
+            )
+            and admission["creativeQualification"]
+            == (
+                "unqualified_studio_matrix"
+                if request["profile"] == MATRIX_PROFILE
+                else "qualified_synthetic_only"
+            ),
             "ordinary package is not a verified synthetic",
         )
         _require(
@@ -1891,7 +1903,7 @@ def _admission_profile(request: dict[str, Any]) -> dict[str, Any]:
     _require(
         view.get("tracks") == manifest.get("tracks"), "view tracks differ from manifest"
     )
-    if request["profile"] == SYNTHETIC_PROFILE:
+    if request["profile"] in PUBLIC_PROFILES:
         # Existing #177 verifier is stdlib-only and consumes the exact admitted
         # package. It never connects to Resolve or invokes compiler behavior.
         from .workflow_v2 import load_verified_package_v2
