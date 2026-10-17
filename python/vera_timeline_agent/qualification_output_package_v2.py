@@ -36,6 +36,11 @@ Json = dict[str, Any]
 
 SYNTHETIC_PROFILE = "verified-v2-package/v1"
 MATRIX_PROFILE = "qualification-output-studio-matrix/v1"
+MATRIX_PREPARATION_ROOT = (
+    Path.home()
+    / "Library/Application Support/VERA/qualification-output-preparation"
+    / "issue178-20261016-01/cases"
+)
 _PUBLIC_PROFILES = frozenset({SYNTHETIC_PROFILE, MATRIX_PROFILE})
 R16_PROFILE = "qualification-output-r16-presenter-override/v1"
 ADMISSION_SCHEMA = "qualification-output-package-admission/v1"
@@ -1973,6 +1978,14 @@ def _verify_public_receipt(
         "public preparation key is malformed",
     )
     expected_dir = receipt_path.parent if matrix else _PREPARED_ROOT / key_hex
+    if matrix:
+        v2_package._require_path_components_no_symlink(receipt_path, "matrix receipt")
+        _need(
+            receipt_path.is_relative_to(MATRIX_PREPARATION_ROOT)
+            and expected_dir.parent.name == "published"
+            and receipt_path.name == "receipt.json",
+            "matrix receipt is outside its approved published root",
+        )
     _need(expected_dir.name == key_hex, "published preparation directory differs")
     _need(
         receipt_path == expected_dir / "receipt.json",

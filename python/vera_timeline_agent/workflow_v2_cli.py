@@ -240,6 +240,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         required=True,
     )
     output_prepare.add_argument("--package", type=Path)
+    output_prepare.add_argument(
+        "--preparation",
+        nargs=2,
+        action="append",
+        default=[],
+        metavar=("KEY", "RECEIPT"),
+    )
     output_prepare.add_argument("--project-uid", required=True)
     output_prepare.add_argument("--timeline-uid", required=True)
     output_prepare.add_argument("--project-name", required=True)
@@ -346,12 +353,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif arguments.command == "output-prepare":
             from .qualification_output_controller_v2 import prepare_output_session
 
+            preparation_paths = {
+                key: Path(path).absolute() for key, path in arguments.preparation
+            }
+            if len(preparation_paths) != len(arguments.preparation):
+                raise ValueError("duplicate preparation requirement key")
             output = prepare_output_session(
                 arguments.output.absolute(),
                 profile=arguments.profile,
                 package_root=None
                 if arguments.package is None
                 else arguments.package.absolute(),
+                preparation_paths=preparation_paths or None,
                 target={
                     "projectUid": arguments.project_uid,
                     "timelineUid": arguments.timeline_uid,
