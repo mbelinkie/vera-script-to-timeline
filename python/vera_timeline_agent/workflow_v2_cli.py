@@ -234,6 +234,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--profile",
         choices=(
             "verified-v2-package/v1",
+            "qualification-output-studio-matrix/v1",
             "qualification-output-r16-presenter-override/v1",
         ),
         required=True,
