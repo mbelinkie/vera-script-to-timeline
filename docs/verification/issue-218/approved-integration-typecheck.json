@@ -1,0 +1,8 @@
+{
+  "baseline": "f4df73e",
+  "delta": "exact two CN-218-A1 guards approved at 1a7cb50",
+  "command": "Node 24.19.0 node_modules/typescript/bin/tsc --project packages/contracts/tsconfig.json",
+  "isolatedArchive": true,
+  "dependencies": "unchanged locked npm ci environment of owning worktree",
+  "exitCode": 0
+}

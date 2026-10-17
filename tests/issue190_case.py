@@ -37,6 +37,10 @@ def make_proof_case(
 ) -> tuple[Json, Any]:
     case = make_package_case(root, rate=rate, scenario=scenario)
     dependencies = json.loads(case.dependencies_path.read_bytes())
+    if scenario == "default":
+        for resolution in dependencies["occurrenceResolutions"]:
+            if resolution["sourceSnapshot"]["system"] == "graphic_asset":
+                resolution["graphicContentClass"] = "legacy_unclassified"
     sources = proof_source_hashes_v2()
     dependencies["compiler"]["sourceHash"] = sources[
         "packages/contracts/src/compiler-core-v2.ts"

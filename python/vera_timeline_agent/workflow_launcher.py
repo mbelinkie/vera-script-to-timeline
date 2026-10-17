@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +19,13 @@ from .workflow_package import (
 
 
 def run_installed_request(
-    resolve: Any, request_path: Path, *, expected_request_sha256: str
+    resolve: Any,
+    request_path: Path,
+    *,
+    expected_request_sha256: str,
+    package_loader: Callable[[Path, str], Any] | None = None,
+    runner: Callable[..., dict[str, Any]] | None = None,
+    request_schema: str = "vera-injected-delivery-request/v1",
 ) -> Path:
     payload = request_path.read_bytes()
     request_sha256 = hashlib.sha256(payload).hexdigest()
@@ -27,7 +34,7 @@ def run_installed_request(
     request = json.loads(payload)
     if not isinstance(request, dict):
         raise ValueError("operator request must contain one JSON object")
-    if request.get("schemaVersion") != "vera-injected-delivery-request/v1":
+    if request.get("schemaVersion") != request_schema:
         raise ValueError("unsupported operator request")
     if (
         request.get("action") not in {"preflight", "build"}
@@ -59,14 +66,16 @@ def run_installed_request(
     }
     write_immutable_json(evidence / f"started-{run_id}.json", context)
     if attestation_path.exists():
-        package = load_verified_package(attestation_path, request["attestationSha256"])
+        package = (package_loader or load_verified_package)(
+            attestation_path, request["attestationSha256"]
+        )
         if (
             package.root.resolve() != root
             or request["projectName"] != package.attestation["projectName"]
             or request["timelineName"] != package.attestation["timelineName"]
         ):
             raise ValueError("operator-authorized target differs from attestation")
-    result = run_workflow_delivery(
+    result = (runner or run_workflow_delivery)(
         resolve,
         attestation_path,
         request["attestationSha256"],

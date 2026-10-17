@@ -1,0 +1,192 @@
+{
+  "candidate": "tesseract",
+  "lines": [
+    {
+      "confidenceMillionths": null,
+      "lineRawOrdinal": null,
+      "rawOrdinal": 0,
+      "readingOrder": 0,
+      "rect": {
+        "height": 40,
+        "width": 279,
+        "x": 78,
+        "y": 68
+      },
+      "text": "Failure Safety"
+    },
+    {
+      "confidenceMillionths": null,
+      "lineRawOrdinal": null,
+      "rawOrdinal": 1,
+      "readingOrder": 1,
+      "rect": {
+        "height": 22,
+        "width": 298,
+        "x": 82,
+        "y": 191
+      },
+      "text": "Readable control label"
+    },
+    {
+      "confidenceMillionths": null,
+      "lineRawOrdinal": null,
+      "rawOrdinal": 2,
+      "readingOrder": 2,
+      "rect": {
+        "height": 22,
+        "width": 351,
+        "x": 82,
+        "y": 695
+      },
+      "text": "No OCR output confirms a target"
+    }
+  ],
+  "profile": "tesseract-5.5.3-oem1-psm3-eng-tsv-v1",
+  "rasterHeight": 900,
+  "rasterWidth": 1600,
+  "words": [
+    {
+      "confidenceMillionths": 969166,
+      "lineRawOrdinal": 0,
+      "rawOrdinal": 0,
+      "readingOrder": 0,
+      "rect": {
+        "height": 31,
+        "width": 136,
+        "x": 78,
+        "y": 68
+      },
+      "text": "Failure"
+    },
+    {
+      "confidenceMillionths": 966474,
+      "lineRawOrdinal": 0,
+      "rawOrdinal": 1,
+      "readingOrder": 1,
+      "rect": {
+        "height": 40,
+        "width": 126,
+        "x": 231,
+        "y": 68
+      },
+      "text": "Safety"
+    },
+    {
+      "confidenceMillionths": 964956,
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 2,
+      "readingOrder": 2,
+      "rect": {
+        "height": 22,
+        "width": 125,
+        "x": 82,
+        "y": 191
+      },
+      "text": "Readable"
+    },
+    {
+      "confidenceMillionths": 966593,
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 3,
+      "readingOrder": 3,
+      "rect": {
+        "height": 22,
+        "width": 87,
+        "x": 219,
+        "y": 191
+      },
+      "text": "control"
+    },
+    {
+      "confidenceMillionths": 968699,
+      "lineRawOrdinal": 1,
+      "rawOrdinal": 4,
+      "readingOrder": 4,
+      "rect": {
+        "height": 22,
+        "width": 60,
+        "x": 320,
+        "y": 191
+      },
+      "text": "label"
+    },
+    {
+      "confidenceMillionths": 963630,
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 5,
+      "readingOrder": 5,
+      "rect": {
+        "height": 17,
+        "width": 27,
+        "x": 82,
+        "y": 695
+      },
+      "text": "No"
+    },
+    {
+      "confidenceMillionths": 963630,
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 6,
+      "readingOrder": 6,
+      "rect": {
+        "height": 17,
+        "width": 52,
+        "x": 119,
+        "y": 695
+      },
+      "text": "OCR"
+    },
+    {
+      "confidenceMillionths": 966656,
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 7,
+      "readingOrder": 7,
+      "rect": {
+        "height": 22,
+        "width": 65,
+        "x": 180,
+        "y": 695
+      },
+      "text": "output"
+    },
+    {
+      "confidenceMillionths": 964341,
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 8,
+      "readingOrder": 8,
+      "rect": {
+        "height": 17,
+        "width": 89,
+        "x": 254,
+        "y": 695
+      },
+      "text": "confirms"
+    },
+    {
+      "confidenceMillionths": 955626,
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 10,
+      "readingOrder": 9,
+      "rect": {
+        "height": 22,
+        "width": 61,
+        "x": 372,
+        "y": 695
+      },
+      "text": "target"
+    },
+    {
+      "confidenceMillionths": 965876,
+      "lineRawOrdinal": 2,
+      "rawOrdinal": 9,
+      "readingOrder": 10,
+      "rect": {
+        "height": 13,
+        "width": 11,
+        "x": 352,
+        "y": 699
+      },
+      "text": "a"
+    }
+  ]
+}

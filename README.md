@@ -86,9 +86,9 @@ TypeScript lint, strict typechecking, and tests in every npm workspace, followed
 by Python Ruff lint/format checks, strict mypy, and pytest. Pytest validates the
 fixture descriptor, exact media inventory, sizes, hashes, and (when FFprobe is
 available) metadata. The GitHub Actions `Validate` workflow installs from both
-lockfiles and runs this exact command on every push and pull request; a green
-`Validate` check is the full regression gate. Don't run it on the reference
-Intel Mac during normal work, because it takes one to three hours there.
+lockfiles and runs this exact command on every pull request and push to `main`;
+a green `Validate` check is the full regression gate. Don't run it on the
+reference Intel Mac during normal work, because it takes one to three hours there.
 
 An environment without FFprobe does **not** claim metadata verification: the
 FFprobe-specific pytest checks are reported as skipped, and the standalone
@@ -458,6 +458,38 @@ Submitting `demo-1` again returns the same job ID. The first speech block's
 hash and file stay unchanged; the Free job ends at `ready_to_import` until an
 explicit `confirm-import` command records user confirmation. The automated
 force-kill version of this exercise is in `tests/test_build_jobs.py`.
+## EV24 Fusion semantic-input capability spike
+
+Issue #3 operates only on the immutable EV24 package registered by #12. It
+refuses a changed setting or test badge, unknown graph/control identity,
+unapproved badge identity, a non-21.1.0/build-14 Studio connection, or any
+duration other than the retained 64/120-frame cases. It creates one uniquely
+named audit project only after a nonmutating preflight; it does not touch a
+production project or overwrite prior evidence.
+
+With Resolve Studio 21.1.0 build 14 open on a timeline page and external
+scripting enabled, run:
+
+```sh
+uv run --frozen python -m vera_timeline_agent.ev24_fusion_spike_cli \
+  --action preflight \
+  --project-name "VERA EV24 Capability YYYYMMDD-HHMMSS"
+```
+
+After the preflight succeeds, use the same unused project name for the retained
+audit project and report:
+
+```sh
+uv run --frozen python -m vera_timeline_agent.ev24_fusion_spike_cli \
+  --action build \
+  --project-name "VERA EV24 Capability YYYYMMDD-HHMMSS" \
+  --report out/ev24-capability-YYYYMMDD-HHMMSS.json
+```
+
+The report records the four declared configurations, their semantic snapshots,
+the pinned graph hash, V4 placement, duration, and control readback before and
+after save/reopen. Open the four retained timelines in Resolve to review the
+64- and 120-frame animation; producer acceptance remains required.
 
 ## Slice workflow
 

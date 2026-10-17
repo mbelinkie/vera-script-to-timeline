@@ -1,0 +1,205 @@
+{
+  "schemaVersion": "public-page-capture-provenance/v1",
+  "recordType": "terminal_attempt_evidence",
+  "identity": {
+    "projectId": "11111111-1111-4111-8111-111111111111",
+    "captureId": "22222222-2222-4222-8222-222222222222",
+    "configurationVersionId": "23232323-2323-4323-8323-232323232323",
+    "jobId": "44444444-4444-4444-8444-444444444446",
+    "leaseEpoch": 2,
+    "attemptId": "55555555-5555-4555-8555-555555555556",
+    "revisionId": null
+  },
+  "authorization": {
+    "principal": {
+      "principalId": "dddddddd-dddd-4ddd-8ddd-ddddddddddd4",
+      "principalKind": "service"
+    },
+    "role": "service",
+    "action": "capture.commit",
+    "decisionId": "dddddddd-dddd-4ddd-8ddd-ddddddddddd5",
+    "decision": "allowed",
+    "decidedAt": "2026-09-08T17:00:02Z",
+    "commitRecheck": true,
+    "originReference": {
+      "kind": "preview_build",
+      "referenceId": "cccccccc-cccc-4ccc-8ccc-ccccccccccc1",
+      "revision": 3
+    }
+  },
+  "request": {
+    "triggerKind": "on_build",
+    "requestedUrl": "https://blocked.example.org/internal",
+    "redactedRequestedUrl": "https://blocked.example.org/internal",
+    "requestedUrlDigest": "sha256:2121212121212121212121212121212121212121212121212121212121212121",
+    "requestedUrlFingerprint": "hmac-sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "queryKeyNames": [],
+    "settingsDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "captureProfileId": "vera-public-page-capture-v1",
+    "captureProfileDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "regionIntent": {
+      "kind": "full_viewport"
+    },
+    "idempotencyScopeDigest": "sha256:2323232323232323232323232323232323232323232323232323232323232323",
+    "idempotencyKeyDigest": "sha256:2424242424242424242424242424242424242424242424242424242424242424",
+    "requestedAt": "2026-09-08T17:00:00Z",
+    "enqueuedAt": "2026-09-08T17:00:00Z"
+  },
+  "network": {
+    "evidenceClass": "synthetic",
+    "dnsAdmissions": [
+      {
+        "host": "blocked.example.org",
+        "resolver": "synthetic-fixture-v1",
+        "resolvedAt": "2026-09-08T17:00:02Z",
+        "answers": [
+          {
+            "address": "127.0.0.1",
+            "family": 4,
+            "addressClass": "loopback"
+          }
+        ],
+        "admitted": false
+      }
+    ],
+    "peerConnections": [],
+    "tls": {
+      "availability": "unavailable",
+      "protocol": null,
+      "cipher": null,
+      "peerCertificateSha256": null,
+      "unavailableReason": "Destination policy denied the address before connection."
+    },
+    "redirectChain": [
+      {
+        "sequence": 0,
+        "url": "https://blocked.example.org/internal",
+        "redactedUrl": "https://blocked.example.org/internal",
+        "urlDigest": "sha256:2121212121212121212121212121212121212121212121212121212121212121",
+        "status": null,
+        "locationDigest": null,
+        "admitted": false
+      }
+    ],
+    "finalUrl": null,
+    "redactedFinalUrl": null,
+    "response": null,
+    "frameManifestDigest": null,
+    "subresourceManifestDigest": null,
+    "actualConnectionCount": 0,
+    "denial": {
+      "phase": "dns",
+      "code": "blocked_destination",
+      "sanitizedMessage": "The destination resolved to an address class that public capture does not allow.",
+      "navigationStarted": false
+    }
+  },
+  "runtime": {
+    "workerBuildId": "capture-worker-test",
+    "workerBuildDigest": "sha256:1717171717171717171717171717171717171717171717171717171717171717",
+    "installationId": "18181818-1818-4818-8818-181818181818",
+    "os": "synthetic",
+    "sandbox": "synthetic_fixture",
+    "browser": "synthetic_fixture",
+    "browserVersion": "1",
+    "adapterVersion": "synthetic-v1",
+    "policyDigest": "sha256:1919191919191919191919191919191919191919191919191919191919191919",
+    "cleanProfileId": "20202020-2020-4020-8020-202020202020",
+    "importedState": false,
+    "initialCookieCount": 0,
+    "finalCookieCount": 0,
+    "persistedStateDiscarded": true,
+    "javascriptMode": "sandboxed_bounded",
+    "locale": "en-US",
+    "timezone": "UTC",
+    "userAgentProfile": "vera-public-page-capture-v1",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "deviceScaleFactor": 2,
+    "colorProfile": "srgb",
+    "outputFormat": "png",
+    "blockedCapabilities": [
+      "downloads",
+      "file_access",
+      "forms",
+      "local_network",
+      "permissions",
+      "popups",
+      "printing",
+      "web_rtc",
+      "web_sockets",
+      "write_clipboard"
+    ]
+  },
+  "timing": {
+    "serverStartedAt": "2026-09-08T17:00:00Z",
+    "workerStartedAt": "2026-09-08T17:00:01Z",
+    "workerFinishedAt": "2026-09-08T17:00:02Z",
+    "durationMilliseconds": 1000,
+    "settleOutcome": "not_reached",
+    "settleMilliseconds": 0,
+    "navigationDeadlineMilliseconds": 15000,
+    "jobDeadlineMilliseconds": 30000,
+    "retryNumber": 1,
+    "retryBudget": 2,
+    "leaseHistory": [
+      {
+        "event": "claimed",
+        "leaseEpoch": 2,
+        "at": "2026-09-08T17:00:00Z",
+        "deadline": "2026-09-08T17:00:30Z",
+        "workerInstallationId": "18181818-1818-4818-8818-181818181818"
+      },
+      {
+        "event": "failed",
+        "leaseEpoch": 2,
+        "at": "2026-09-08T17:00:02Z",
+        "deadline": "2026-09-08T17:00:30Z",
+        "workerInstallationId": "18181818-1818-4818-8818-181818181818"
+      }
+    ],
+    "milestones": [
+      {
+        "name": "lease_claimed",
+        "wallAt": "2026-09-08T17:00:00Z",
+        "monotonicMilliseconds": 0
+      },
+      {
+        "name": "terminal",
+        "wallAt": "2026-09-08T17:00:02Z",
+        "monotonicMilliseconds": 1000
+      }
+    ],
+    "captureInstant": null
+  },
+  "output": null,
+  "change": null,
+  "honesty": {
+    "statement": "Observed facts and unavailable facts are explicitly distinguished.",
+    "classification": "terminal_denial",
+    "partialReason": "Destination policy stopped the attempt before navigation.",
+    "warnings": [],
+    "unavailableObservations": [
+      {
+        "field": "network.tls",
+        "reason": "No TLS connection was attempted after the DNS denial."
+      },
+      {
+        "field": "network.response",
+        "reason": "No response exists observed after the DNS denial."
+      }
+    ],
+    "redactionPolicyVersion": "vera-url-redaction-v1"
+  },
+  "terminal": {
+    "outcome": "denied",
+    "code": "blocked_destination",
+    "sanitizedMessage": "The destination is not eligible for public-page capture.",
+    "phase": "dns",
+    "retryable": false,
+    "navigationStarted": false,
+    "leaseDisposition": "consumed"
+  }
+}

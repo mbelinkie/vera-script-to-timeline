@@ -361,6 +361,12 @@ def _validate_manifest_semantics(manifest: JsonObject) -> None:
     tracks = cast(list[JsonObject], manifest["tracks"])
     sources = cast(list[JsonObject], manifest["sources"])
     events = cast(list[JsonObject], manifest["events"])
+    if any(event["kind"] == "fusion_graphic" for event in events) or any(
+        source["kind"] == "fusion_template" for source in sources
+    ):
+        raise ResolveImportPackageError(
+            "fusion_graphic requires a future verified graphic package adapter"
+        )
     transitions = cast(list[JsonObject], manifest["transitions"])
     markers = cast(list[JsonObject], manifest["markers"])
     track_by_id = _unique_by_id(tracks, "track")
@@ -512,6 +518,24 @@ def _validate_manifest_semantics(manifest: JsonObject) -> None:
         if not timeline_start <= marker["frame"] <= timeline_end:
             raise ResolveImportPackageError(
                 f"marker {marker['id']} is outside the timeline"
+            )
+
+
+def _validate_request_origins(
+    sources: Mapping[str, JsonObject],
+    requests: Mapping[str, _MaterializationRequest],
+) -> None:
+    """Require each mapped origin to still match its manifest content hash."""
+    for source_id, request in requests.items():
+        source = sources[source_id]
+        expected_hash = _hash_value(
+            cast(str, source["contentHash"]), f"source {source_id} hash"
+        )
+        actual_hash = _sha256_file(request.origin)
+        if actual_hash != expected_hash:
+            raise ResolveImportPackageError(
+                f"origin hash mismatch for source {source_id}: expected "
+                f"{expected_hash}, found {actual_hash}"
             )
 
 
@@ -1228,6 +1252,7 @@ def build_resolve_import_package(
                 "project root already exists for different materialization artifacts: "
                 f"{output}"
             )
+        _validate_request_origins(sources, requests)
         return _result(output, verification, True)
 
     try:

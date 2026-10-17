@@ -1,0 +1,41 @@
+{
+  "startingCommit": "98b9a614bad0539a9df5a29abab63345041c9135",
+  "sources": [
+    {
+      "issue": 12,
+      "commit": "59838d6a8bf7fa536af3382788a947f5701a7d2c",
+      "path": "docs/issue-12-ev24-registration-acceptance.md",
+      "sha256": "bc38c3caf7bf50bde689d91d7cd0f331b3e5b3fde91f2e685de6bbcc13a9ef82"
+    },
+    {
+      "issue": 12,
+      "commit": "59838d6a8bf7fa536af3382788a947f5701a7d2c",
+      "path": "packages/contracts/src/ev24-lower-third.ts",
+      "sha256": "fd49986eb3151b65971acd6866718e29a3b06b436f917c97097d02b8730a2744"
+    },
+    {
+      "issue": 12,
+      "commit": "59838d6a8bf7fa536af3382788a947f5701a7d2c",
+      "path": "packages/contracts/test/ev24-lower-third.test.ts",
+      "sha256": "bfcde465f3d26c2d37ef516fe565df4604c5a9379e19fdf5edc62afe7ad2b774"
+    },
+    {
+      "issue": 20,
+      "commit": "951c658bf06fc9b06caeab88c9d43809c41cef94",
+      "path": "docs/issue-20-template-library-copy-acceptance.md",
+      "sha256": "d79a811639a47dccae1fa0da979b7da60295bb1fcf101d96e4152aa1697a3033"
+    },
+    {
+      "issue": 20,
+      "commit": "951c658bf06fc9b06caeab88c9d43809c41cef94",
+      "path": "packages/contracts/src/template-library.ts",
+      "sha256": "e0f6d22473a8152fbdd62cc0a85abffb811897b4472caf9524f4939d293e69ae"
+    },
+    {
+      "issue": 20,
+      "commit": "951c658bf06fc9b06caeab88c9d43809c41cef94",
+      "path": "packages/contracts/test/template-library.test.ts",
+      "sha256": "7dccc76893fb3f5408940b7ac734a034f9ac08880f23bc075a37d72336be49ff"
+    }
+  ]
+}

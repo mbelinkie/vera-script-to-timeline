@@ -1,0 +1,36 @@
+{
+  "source_tree": "7a3819eeb4e3557b1a9b78ec23ab60e228968005",
+  "tracked_hashes_unchanged": true,
+  "tracked_count": 7003,
+  "counts": [
+    "Test Files  22 passed (22)",
+    "Tests  464 passed (464)",
+    "Test Files  1 passed (1)",
+    "Tests  1 passed (1)",
+    "\u2139 tests 6",
+    "\u2139 pass 6",
+    "\u2139 fail 0",
+    "\u2139 tests 23",
+    "\u2139 pass 23",
+    "\u2139 fail 0",
+    "\u2139 tests 32",
+    "\u2139 pass 32",
+    "\u2139 fail 0",
+    "540 files already formatted",
+    "Success: no issues found in 156 source files",
+    "====================== 1145 passed in 5562.62s (1:32:42) ======================="
+  ],
+  "versions": {
+    "node": "v24.19.0",
+    "npm": "11.17.0",
+    "python": "Python 3.12.14",
+    "uv": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)"
+  },
+  "host": "Darwin x86_64",
+  "inventory_sha256": "cbcf4a0a44cd54fb717a2de9a3b3ca11e630269db4078a1b12b26676151ea122",
+  "tested_commit": "5ae5e34fd3594071865974d25afc4975bf878972",
+  "command": "VITEST_MAX_WORKERS=1 npm run validate",
+  "exit_code": 0,
+  "finished_at": "2026-10-15T18:18:09.520529+00:00",
+  "log_sha256": "45ad08ea007e356da756239ff91b96db0b63c63ac034cc3245c99e1546660d5e"
+}

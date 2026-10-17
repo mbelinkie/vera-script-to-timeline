@@ -1,0 +1,98 @@
+{
+  "testedSource": "2832f84cda774ee3d1395a89ebf9c9e137f70e47",
+  "reviewedExecutableSource": "7121f1ec55c6b9a3126066301a2416b1c905b94b",
+  "deliveredState": "the clean commit containing this record; exact revision is retained by roadmap acceptance comment",
+  "originalTrackedInputCount": 7074,
+  "originalTrackedInputsUnchanged": true,
+  "postTestDifferences": [
+    {
+      "path": "docs/verification/issue-218/ACCEPTANCE.md",
+      "sha256": "4bf40fd6ca4f307de381e3f6dd06f4968765f5d91b7728e600c7267fb872f5ee",
+      "consumption": "non-consumed acceptance receipt, log, inventory or archived source patch"
+    },
+    {
+      "path": "docs/verification/issue-218/final/complete-source.patch.gz",
+      "sha256": "3d51b3d1a379c115e153dfbe71c8e3820d052aee34b2490f617d88acc2cafaa8",
+      "consumption": "non-consumed acceptance receipt, log, inventory or archived source patch"
+    },
+    {
+      "path": "docs/verification/issue-218/final/durations25.txt",
+      "sha256": "c68603d5353c9d5b2175cd1ba19a8d2b2b9a8b4f29aadd070e08270130569ce3",
+      "consumption": "non-consumed acceptance receipt, log, inventory or archived source patch"
+    },
+    {
+      "path": "docs/verification/issue-218/final/feature-source.patch.gz",
+      "sha256": "6807e1ecbc4e61f6f0d2c9fff51d3fb11b880aa0e2ba0048004a9331e5f4a5b8",
+      "consumption": "non-consumed acceptance receipt, log, inventory or archived source patch"
+    },
+    {
+      "path": "docs/verification/issue-218/final/frozen-boundary-audit.json",
+      "sha256": "018368e4f3b39d84b57983a536f5491d7a4ff8afc576e7137004625681d90f22",
+      "consumption": "non-consumed acceptance receipt, log, inventory or archived source patch"
+    },
+    {
+      "path": "docs/verification/issue-218/final/heavy-slot-release.json",
+      "sha256": "c9bd7fa7d8378e39c79bb16086bed8574e65498e03b1a051324a82ae82361121",
+      "consumption": "non-consumed acceptance receipt, log, inventory or archived source patch"
+    },
+    {
+      "path": "docs/verification/issue-218/final/inputs-after.json.gz",
+      "sha256": "24587e6d9dc7623a57b1a31d1e479f4c67279242eba61d08915ebc679bd80785",
+      "consumption": "non-consumed acceptance receipt, log, inventory or archived source patch"
+    },
+    {
+      "path": "docs/verification/issue-218/final/inputs-before.json.gz",
+      "sha256": "24587e6d9dc7623a57b1a31d1e479f4c67279242eba61d08915ebc679bd80785",
+      "consumption": "non-consumed acceptance receipt, log, inventory or archived source patch"
+    },
+    {
+      "path": "docs/verification/issue-218/final/integration-source.patch.gz",
+      "sha256": "f93507cdf35b8d036e05d597bd26e7fbc87bd68efab2ee9cf307fe09434606c4",
+      "consumption": "non-consumed acceptance receipt, log, inventory or archived source patch"
+    },
+    {
+      "path": "docs/verification/issue-218/final/post-test-differences.json",
+      "sha256": null,
+      "consumption": "non-consumed evidence input; self hash omitted"
+    },
+    {
+      "path": "docs/verification/issue-218/final/pytest-results.xml.gz",
+      "sha256": "5b9d20d10a4f4369da2422b2e6d416b2ed741422ef12ec0c5dd9468f5778800d",
+      "consumption": "non-consumed acceptance receipt, log, inventory or archived source patch"
+    },
+    {
+      "path": "docs/verification/issue-218/final/qualification-audit.json",
+      "sha256": "8aa86703293aff1bb8c8313e534dc82db8ab81d42405c7ede543a3eeb1e33a13",
+      "consumption": "non-consumed acceptance receipt, log, inventory or archived source patch"
+    },
+    {
+      "path": "docs/verification/issue-218/final/result.json",
+      "sha256": "13a30838e7a26dd0749f8c59604ac8bd8d3cefb780b3dd5fc957c08772e36504",
+      "consumption": "non-consumed acceptance receipt, log, inventory or archived source patch"
+    },
+    {
+      "path": "docs/verification/issue-218/final/startup-report-path-failed-result.json",
+      "sha256": "b0cda71f490f542991dcc01ceb33a40e4093e027641a6f36b35135f5cd728ec0",
+      "consumption": "non-consumed acceptance receipt, log, inventory or archived source patch"
+    },
+    {
+      "path": "docs/verification/issue-218/final/startup-report-path-failed.log.gz",
+      "sha256": "664b3f259e0811e6d7b3045556c6ce60323cee998e302cd3581ab7fd5a0c9c09",
+      "consumption": "non-consumed acceptance receipt, log, inventory or archived source patch"
+    },
+    {
+      "path": "docs/verification/issue-218/final/validation.log.gz",
+      "sha256": "24edf798088af88df20f919371e33c0b9184d2fd56dc52bebd0ef7fa00ba0bfc",
+      "consumption": "non-consumed acceptance receipt, log, inventory or archived source patch"
+    }
+  ],
+  "checkScopeProof": [
+    "TypeScript lint and types consume scripts/packages and their configured graph, which is unchanged.",
+    "Contract generation reads the fixed contracts roots and emits the existing generated outputs; no new evidence file is an input.",
+    "Runtime tests consume named unchanged fixtures/evidence (including other issues) or temporary repositories; source/check-scope audit found no arbitrary docs-directory discovery and no references to these new #218 paths, with explicit no-ignore retry.",
+    "Python mypy consumes python/tests. Ruff discovery was queried: no issue218 scratch/evidence files are selected; all new artifacts are md/json/txt/gz and introduce no Python source.",
+    "Independent Claude accepted the same evidence-only equivalence principle and the complete reviewed source; this final delta adds only the individually listed artifacts.",
+    "All actual tests ran and passed in the final gate on2832f84; no previous failed or reused partial result supplies the final aggregate pass."
+  ],
+  "requiredPostTestChecks": "diff/link/hash/frozen-boundary verification; no expensive suite rerun for proven non-consumed evidence additions"
+}

@@ -1,0 +1,36 @@
+{
+  "connected": {
+    "build": "14",
+    "edition": "studio",
+    "product_name": "DaVinci Resolve Studio",
+    "scripting_available": true,
+    "suffix": "",
+    "version": "21.1.0"
+  },
+  "discrepancies": [],
+  "local": {
+    "app_installed": true,
+    "app_path": "/Applications/DaVinci Resolve/DaVinci Resolve.app",
+    "architecture": "x86_64",
+    "bundle_build": "21.1.00014",
+    "bundle_identifier": "com.blackmagic-design.DaVinciResolve",
+    "bundle_name": "DaVinci Resolve",
+    "bundle_version": "21.1.0",
+    "install_source": "unknown_non_mas",
+    "mas_receipt": false,
+    "os_name": "macOS",
+    "os_version": "15.1",
+    "package_receipt_id": "com.blackmagic-design.ManifestLite",
+    "package_receipt_version": "21.0.4",
+    "scripting_docs_installed": false,
+    "scripting_docs_path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/README.txt",
+    "scripting_module_installed": true,
+    "scripting_module_path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/Modules/DaVinciResolveScript.py"
+  },
+  "message": "EV24 spike failed after project creation. The uniquely named project is retained for audit. Detail: expected exactly one EV24LowerThird macro and no unknown graph tools",
+  "project_name": "VERA EV24 Capability 20260922-030001",
+  "reports": [],
+  "setting_sha256": "7abb4e07a3c6472fd93e6b752a8623855f2fa03a8591fff10e6e33746e7ff2df",
+  "status": "mutation_failed",
+  "verified": false
+}

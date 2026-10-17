@@ -1,0 +1,39 @@
+{
+  "status": "PASS",
+  "startingCommit": "98b9a614bad0539a9df5a29abab63345041c9135",
+  "acceptedArtifacts": 6,
+  "traceGroups": 6,
+  "internalLinks": 12,
+  "negativeChecks": 3,
+  "criterionSections": 8,
+  "artifacts": [
+    {
+      "path": "docs/external-template-pipeline.md",
+      "sha256": "7947f5b1bdbb3b7dcb6d22c745c071bcbcb8e3aa0430c5e6cc0d2e50ba22e7f9"
+    },
+    {
+      "path": "docs/plans/issue-17-external-template-pipeline.md",
+      "sha256": "1e8820ec85d11a08b65f23974c0fafdee8c71c3dc0ac9fd5bbfcd06d0b5041db"
+    },
+    {
+      "path": "docs/verification/issue-17/verification.md",
+      "sha256": "db4a446357974734157b8701092d93d563c64dc9cb7bb7c60cc70e20ed386324"
+    }
+  ],
+  "changedPaths": [
+    "docs/external-template-pipeline.md",
+    "docs/plans/issue-17-external-template-pipeline.md",
+    "docs/verification/issue-17/audit-result.json",
+    "docs/verification/issue-17/audit.mjs",
+    "docs/verification/issue-17/source-pins.json",
+    "docs/verification/issue-17/starter-package-proposal.md",
+    "docs/verification/issue-17/verification.md"
+  ],
+  "runtimeAcceptance": "Not performed or implied",
+  "command": "node docs/verification/issue-17/audit.mjs",
+  "exitCode": 0,
+  "nodeVersion": "v26.5.0",
+  "gitVersion": "git version 2.39.5 (Apple Git-154)",
+  "platform": "macOS-15.1-x86_64-i386-64bit-Mach-O",
+  "review": "Focused documentation criteria/source/confinement review and final receipt delta review completed; no blocking findings."
+}

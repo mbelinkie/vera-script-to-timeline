@@ -1,0 +1,31 @@
+{
+  "check": "second clean artifact-root run against retained benchmark",
+  "corpusDigest": "sha256:b2d8f8a05f58e9737973e4f5104e5cc36a7ebde1b413ceb63bbdfb0aab02c81a",
+  "corpusDigestMatch": true,
+  "candidates": {
+    "apple-vision": {
+      "profileDigestMatch": true,
+      "executableDigestMatch": true,
+      "fixtures": {
+        "clean-page": "sha256:dc9ea70595b5bb876418987698fbe01806250d160c714dc1d2d32834cc4f2d50",
+        "mixed-layout": "sha256:46606fa69ec9154a93fcdd2973aded57f7e32681994453868b0b88e05b10ebba",
+        "multilingual": "sha256:04061f2cc3ae0670315bc1d30b38370fe27873b8dd229d1a37ef374656b8ba75",
+        "scaled-rotated": "sha256:502540ef2ab1d098a86dce3c610340ae52a94d502b433c13e1e6d4fdbdf70c4f",
+        "unreadable": "sha256:89a135f06b329391c6cdc607a641bfd4f569fbbdf2c830dfdc7bd619453e146b"
+      },
+      "allInputAndCanonicalOutputDigestsMatch": true
+    },
+    "tesseract": {
+      "profileDigestMatch": true,
+      "executableDigestMatch": true,
+      "fixtures": {
+        "clean-page": "sha256:39e6d6facb90b3440ba6ee65ee2074d911cd2d1d3eec1a48b5ee314ee06251da",
+        "mixed-layout": "sha256:e1aa6a486932c8ccdc2254511ae46669fe47df0347fb4e1a539edc82fd4fb74f",
+        "multilingual": "sha256:0e71d21d21e7a2b55bdad4df4bff8b2d3df2aef5b5c47a940e99fc5be4727294",
+        "scaled-rotated": "sha256:33f40b92a9226d898e9ff14f703f6ac750b1f1bfb5b150e2017495e453c2cbf6",
+        "unreadable": "sha256:1285ad344a29f423cd1550734ff954fe303ecfa1bb8a0e4900235360b9c7486d"
+      },
+      "allInputAndCanonicalOutputDigestsMatch": true
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "task": "01a1416d-5da8-7003-9494-e9a75a62f1a5",
+  "startedAt": "2026-10-16T03:29:30.350256+00:00",
+  "supervisorPid": 18681,
+  "source": "bb534bd191bedbc566f95560a0482e927826eae0",
+  "trackedStatus": "",
+  "VITEST_MAX_WORKERS": "1",
+  "fullValidation": "PAUSED BY PRODUCER",
+  "checkpointMinutes": 75,
+  "stages": [
+    {
+      "name": "affected-slow",
+      "command": [
+        "rtk",
+        "proxy",
+        "uv",
+        "run",
+        "--frozen",
+        "pytest",
+        "tests/test_issue144_omission_bridge.py",
+        "tests/test_issue190_build.py",
+        "tests/test_issue190_native.py",
+        "tests/test_issue192_proof.py",
+        "-q"
+      ],
+      "startedAt": "2026-10-16T03:29:30.529128+00:00",
+      "endedAt": "2026-10-16T03:39:04.797382+00:00",
+      "exitCode": 0
+    },
+    {
+      "name": "fast",
+      "command": [
+        "rtk",
+        "proxy",
+        "npm",
+        "run",
+        "validate:fast"
+      ],
+      "startedAt": "2026-10-16T03:39:04.797454+00:00",
+      "endedAt": "2026-10-16T03:44:15.352914+00:00",
+      "exitCode": 1
+    }
+  ],
+  "endedAt": "2026-10-16T03:44:15.353194+00:00",
+  "exitCode": 1,
+  "status": "failed",
+  "finalTrackedStatus": ""
+}

@@ -11,8 +11,8 @@ Read `AGENTS.md`. It applies to Claude exactly as it does to Codex. Then read
   draft PR, and keep the branch short-lived. Never work in the main project
   folder; it stays on `main`. "Done" means merged into `main`.
 - Locally, run focused tests and `npm run validate:fast`. Never run the full
-  `npm run validate` on the Mac; GitHub Actions runs it on every push, and a
-  green `Validate` check on the PR is the full gate.
+  `npm run validate` on the Mac; GitHub Actions runs it on every pull request
+  and push to `main`. A green `Validate` check on the PR is the full gate.
 - Get one read-only Claude CLI review per code issue. Merge when CI is green.
   Fix later bugs forward in new issues.
 - Close Automated issues yourself after merging (`npm run roadmap -- complete`).

@@ -65,6 +65,7 @@ class EventProvenanceV2(TypedDict):
     deliveredSourceHash: ContentHash | None
     timingMapHash: ContentHash | None
     compilerVersion: compiler_dependencies_v2_schema.NonEmptyString
+    graphicProvenanceHash: NotRequired[ContentHash]
     boundaryEvidenceHash: NotRequired[ContentHash]
 
 

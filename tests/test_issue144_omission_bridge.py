@@ -25,10 +25,14 @@ def _canonical_hash(node: str, path: Path) -> str:
 import {readFileSync} from 'node:fs';
 import {registerHooks} from 'node:module';
 const url=process.argv[1];
+const sources=['./compiler-core.ts','./script-validator.ts',
+  './ev24-identity.ts','./ev24-lower-third.ts','./template-library.ts',
+  './graphic-provenance-compiler.ts'];
+const parents=sources.map(path=>new URL(path,url).href);
 const hook=registerHooks({resolve(specifier,context,next){
-  if(context.parentURL===url&&specifier==='./script-validator.js')
-    return next('./script-validator.ts',context);
-  return next(specifier,context);
+  const source=specifier.endsWith('.js')?specifier.slice(0,-3)+'.ts':specifier;
+  const listed=parents.includes(context.parentURL)&&sources.includes(source);
+  return next(listed?source:specifier,context);
 }});
 const compiler=await import(url);hook.deregister();
 process.stdout.write(compiler.sha256CanonicalJson(JSON.parse(readFileSync(process.argv[2],'utf8'))));

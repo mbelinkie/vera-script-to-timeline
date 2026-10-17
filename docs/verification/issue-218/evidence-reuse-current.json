@@ -1,0 +1,217 @@
+{
+  "passingTypeScriptSource": "04d5abc",
+  "reviewedSource": "7121f1ec55c6b9a3126066301a2416b1c905b94b",
+  "deliveredState": "reviewed source plus enumerated evidence-only additions in the commit containing this record",
+  "sameRuntimeToolchainOptions": true,
+  "versionsBefore": {
+    "node": "v24.19.0",
+    "npm": "11.17.0",
+    "uv": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)",
+    "python": "Python 3.12.14",
+    "ffmpeg": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers",
+    "ffprobe": "ffprobe version 8.1.2 Copyright (c) 2007-2026 the FFmpeg developers"
+  },
+  "versionsAfter": {
+    "node": "v24.19.0",
+    "npm": "11.17.0",
+    "uv": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-apple-darwin)",
+    "python": "Python 3.12.14",
+    "ffmpeg": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers",
+    "ffprobe": "ffprobe version 8.1.2 Copyright (c) 2007-2026 the FFmpeg developers"
+  },
+  "runtimeBefore": {
+    "node_modules/.package-lock.json": "2b1559b94c870707b0f48397683401065454f79fc0010527889bf40bf55247d0",
+    ".venv/pyvenv.cfg": "a4c0b7a08e00b9d78c91a085f8428f84694c3669ab235722562b022888847f77"
+  },
+  "runtimeAfter": {
+    "node_modules/.package-lock.json": "2b1559b94c870707b0f48397683401065454f79fc0010527889bf40bf55247d0",
+    ".venv/pyvenv.cfg": "a4c0b7a08e00b9d78c91a085f8428f84694c3669ab235722562b022888847f77"
+  },
+  "inheritedOptionsBefore": {
+    "PYTEST_ADDOPTS": null,
+    "UPDATE_ISSUE_218_GOLDENS": null,
+    "NODE_OPTIONS": null
+  },
+  "inheritedOptionsAfter": {
+    "PYTEST_ADDOPTS": null,
+    "UPDATE_ISSUE_218_GOLDENS": null,
+    "NODE_OPTIONS": null
+  },
+  "postTestDifferences": [
+    {
+      "path": "docs/plans/issue-218-slow-test-compatibility-change.md",
+      "before": null,
+      "after": "8a4ae999f0db3ebfd332ef5ec980ce5daa4cdec918331fdd8d6b94a56fce4605",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/CN-218-A2-approval.md",
+      "before": null,
+      "after": "b071ddb6b6bbfb17bd2d71342e0a825ab2b2f290fb0c62fd0a53ccc786db14d4",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/CN-218-A2-proposed.patch",
+      "before": null,
+      "after": "4049b4d620215b5f838df2187668cb960e2cad592aece111c0d7f3b117671b37",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/CN-218-A2-reproduction.json",
+      "before": null,
+      "after": "d0eb6fa4d08f0413e6c460813cd2b05e502ba724d88b826b28e2dcd2b1d5f70c",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/affected-slow-bb534bd.log.gz",
+      "before": null,
+      "after": "c6e0b4761c8b6ab44ca4cecb9e9df4b2d24eaed73f934bb663c17ead56b2a2e3",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/claude-review-a2-fast-evidence.txt",
+      "before": null,
+      "after": "5ec64599ecefbd7dadbce69c0200ff81e12267e20d3d11eacc9c4e4bbd7fdc5b",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/claude-review-a2-prompt.md",
+      "before": null,
+      "after": "a46d91db3c72bf8ed8d484e138035199e10269d296e938219f7e5720eb4fb31e",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/claude-review-a2-result.json",
+      "before": null,
+      "after": "17ed608c981c80aed92b5b9c20c06cc01333625130fd40dcb5570793c5c99bbc",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/claude-review-a2.txt",
+      "before": null,
+      "after": "0d1ffaf948efe0aa7e582aa62f4cc5810f14f692616c7ad4b1a3a93c35d4cf3b",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/claude-review-delta-prompt.md",
+      "before": null,
+      "after": "aa3d6b6733868f61ca702f47b546ffffbce296bbd4eb1539ff0617ae65a7ead6",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/claude-review-delta-result.json",
+      "before": null,
+      "after": "4417de696bccbcd19ffcd0d6167a0cbf5f0f50d1bebe4f2fbe3a1d3126e53bbe",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/claude-review-delta.txt",
+      "before": null,
+      "after": "0c7f8c3ac9e4c291ccdb23d70ceadec43cc997be7813e892e85ed3270a67fa1b",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/fast-04d5abc-result.json",
+      "before": null,
+      "after": "e6df46e5e9703c24bffa00743fd3305c3df45dbecd5dca8783c57545234c7e18",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/fast-04d5abc.log.gz",
+      "before": null,
+      "after": "bb0f3b67950a99398cde4ba208ed271b66c7f656a6304a9730cbfaada0ab2227",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/fast-bb534bd.log.gz",
+      "before": null,
+      "after": "e67c0057a6a81ffa2531cca061b226bbae4991237a9c0a1ae58704fe8518889c",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/frozen-boundary-audit.json",
+      "before": "5b2225ea82d62c4715db7fb6a1bfbe4fd634e2289a0c476501e0a141eae01616",
+      "after": "dca530e8593ffdb1eea6012a549a97eaab3de09acd32fc6fd6ec6795df771489",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/full-04d5abc-failed-result.json",
+      "before": null,
+      "after": "4782faee65c393ee138ce2ac1fa96e6b2d32a34d1173adb62d3edc38dad3567d",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/full-04d5abc-failed.log.gz",
+      "before": null,
+      "after": "1957a04c1ae156b953ec9067c3ad23fbe47fbd1433c753bc7192ad32b3a1001d",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/full-04d5abc-failure-map.json",
+      "before": null,
+      "after": "a2639cf701f6f5bcae1257bd939c67acc8e7004b1dab2bf044e2ca4904721341",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/lint-python-7121f1e.log.gz",
+      "before": null,
+      "after": "bd0c19ae6446e7507efc453be0664d1ca7da6a11e03b6f7b7469fa5130adaf87",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/paused-before-full.md",
+      "before": null,
+      "after": "56daf1a0050d63e8f80274f6bc2ee87acc46ea28b9a895fb5c97fd03a2ba57d0",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/pre-full-bb534bd-disposition.md",
+      "before": null,
+      "after": "137837b035d5faff559dd463ba4507e82d23138e63ae5f22ca08808ca9fbdfa0",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/pre-full-bb534bd-result.json",
+      "before": null,
+      "after": "a59bd0a1117fab76cf242febacd253fb9aeb3fd8ab8d9f169254340bce8e4b9b",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/python-checks-7121f1e-result.json",
+      "before": null,
+      "after": "63e6bbb934f9db55049dfd7c2bca841e96c8f690d7d71671ab58b4996e1f6cba",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/tests-python-fast-7121f1e.log.gz",
+      "before": null,
+      "after": "0fddc913151e95996e8755d9ff6b6790eb274c4fdbac273374614aa17887585f",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "docs/verification/issue-218/types-python-7121f1e.log.gz",
+      "before": null,
+      "after": "e5c12c0e585ee1c1245548a1e903130478302c393cf86fd0fd1a7342115aa090",
+      "coverage": "non-consumed evidence/plan; confirmed source/check-scope audit and Claude review"
+    },
+    {
+      "path": "tests/issue190_case.py",
+      "before": "cab7d0a3a13025ccab7878e5694ad3ebf5423784ac83dc08264de4bd97af75ac",
+      "after": "54591d44f490caf7d81eac001449ba3a0beef3852e141b9f9b4186b9a41fdf3a",
+      "coverage": "fresh163affected-slow+657non-slow+lint/types"
+    },
+    {
+      "path": "tests/test_issue144_omission_bridge.py",
+      "before": "1db31ce6e73c26b75b022f759fac9e22a944933ecab5e4722cb46fca01408a6b",
+      "after": "064a19d068494dd35e411c09bc0c3aeddb91b9d3f925d569e5c3fb30d436051c",
+      "coverage": "fresh163affected-slow+657non-slow+lint/types"
+    },
+    {
+      "path": "docs/verification/issue-218/evidence-reuse-current.json",
+      "after": "self-reference; hash intentionally omitted",
+      "coverage": "non-consumed JSON evidence record; not referenced by checks"
+    }
+  ],
+  "consumptionAudit": "TS lint/types use scripts/packages; generator fixed contracts roots; tests named unchanged fixtures or temporary repositories. No references to changed Python helpers or new evidence files; no arbitrary docs-directory reads. See pre-full-bb534bd-disposition.md and independent claude-review-a2.txt.",
+  "fullGate": "paused; prior full and latest whole fast remain failed"
+}

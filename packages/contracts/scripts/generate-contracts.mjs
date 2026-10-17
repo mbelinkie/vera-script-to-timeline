@@ -35,6 +35,11 @@ const v1SchemaFiles = [
   "alignment-artifact-v1.schema.json",
   "script-reconciliation-v1.schema.json",
   "port-refusal-v1.schema.json",
+  "public-page-capture-api-v1.schema.json",
+  "public-page-capture-worker-v1.schema.json",
+  "public-page-capture-provenance-v1.schema.json",
+  "spotlight-evidence-v1.schema.json",
+  "shoot-registration-v1.schema.json",
 ];
 const v2SchemaFiles = [
   "script-document-v2.schema.json",
@@ -58,6 +63,28 @@ const typeScriptGroups = [
       ["alignmentArtifact", v1SchemaFiles[6]],
       ["scriptReconciliation", v1SchemaFiles[7]],
       ["portRefusal", v1SchemaFiles[8]],
+      ["publicPageCaptureApi", v1SchemaFiles[9]],
+      ["publicPageCaptureWorker", v1SchemaFiles[10]],
+      ["publicPageCaptureProvenance", v1SchemaFiles[11]],
+      ["spotlightEvidence", v1SchemaFiles[12]],
+      ["shootRegistration", v1SchemaFiles[13]],
+      [
+        "localSourceHandoffInventory",
+        v1SchemaFiles[13] + "#/$defs/LocalSourceHandoffInventoryV1",
+      ],
+    ],
+    requiredRoots: [
+      "scriptDocument",
+      "timelineManifest",
+      "buildReport",
+      "compilerDependencies",
+      "prompterExport",
+      "recognitionArtifact",
+      "alignmentArtifact",
+      "scriptReconciliation",
+      "portRefusal",
+      "shootRegistration",
+      "localSourceHandoffInventory",
     ],
   },
   {
@@ -91,6 +118,11 @@ const pythonGroups = [
       ["alignment_artifact_v1_schema", "AlignmentArtifactV1"],
       ["script_reconciliation_v1_schema", "ScriptReconciliationV1"],
       ["port_refusal_v1_schema", "PortRefusalV1"],
+      ["public_page_capture_api_v1_schema", "PublicPageCaptureApiV1"],
+      ["public_page_capture_worker_v1_schema", "PublicPageCaptureWorkerV1"],
+      ["public_page_capture_provenance_v1_schema", "PublicPageCaptureProvenanceV1"],
+      ["spotlight_evidence_v1_schema", "SpotlightEvidenceV1"],
+      ["shoot_registration_v1_schema", "ShootRegistrationProjectV1"],
     ],
   },
   {
@@ -122,6 +154,7 @@ function recreateDirectory(path) {
 
 async function generateTypeScript(outputDirectory, group) {
   mkdirSync(outputDirectory, { recursive: true });
+  const typeScriptSchemaDirectory = mkdtempSync(join(tmpdir(), "vera-typescript-contracts-"));
   const aggregateSchema = {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     title: group.title,
@@ -129,7 +162,7 @@ async function generateTypeScript(outputDirectory, group) {
       "Generated aggregate type surface for the VERA shared contracts.",
     type: "object",
     additionalProperties: false,
-    required: group.roots.map(([name]) => name),
+    required: group.requiredRoots ?? group.roots.map(([name]) => name),
     properties: Object.fromEntries(
       group.roots.map(([name, schemaFile]) => [name, { $ref: schemaFile }]),
     ),
@@ -141,31 +174,44 @@ async function generateTypeScript(outputDirectory, group) {
     readJson(join(contractsDirectory, schemaFile));
   }
 
-  const generated = await compile(aggregateSchema, group.title, {
-    bannerComment: [
-      "/**\n * Generated from /contracts by npm run generate:contracts.\n * Do not edit by hand.\n */",
-      ...(group.output === "contracts-v2.ts"
-        ? [
-            "/* eslint-disable @typescript-eslint/no-duplicate-type-constituents -- JSON Schema conditionals repeat shared token fields. */",
-          ]
-        : []),
-    ].join("\n"),
-    cwd: contractsDirectory,
-    enableConstEnums: false,
-    format: true,
-    style: {
-      bracketSpacing: true,
-      printWidth: 88,
-      semi: true,
-      singleQuote: false,
-      tabWidth: 2,
-      trailingComma: "all",
-      useTabs: false,
-    },
-    unknownAny: true,
-    unreachableDefinitions: false,
-  });
-  writeFileSync(join(outputDirectory, group.output), generated);
+  // The pinned generator cannot emit recursive unions reached through aggregate
+  // roots. Keep strict recursive wire schemas; unknown forces callers to validate.
+  for (const schemaFile of readdirSync(contractsDirectory).filter((name) => name.endsWith(".schema.json"))) {
+    const schema = readJson(join(contractsDirectory, schemaFile));
+    if (/^compiler-dependencies-v[12]\.schema\.json$/.test(schemaFile)) {
+      schema.$defs.JsonValue.tsType = "unknown";
+    }
+    writeFileSync(join(typeScriptSchemaDirectory, schemaFile), JSON.stringify(schema));
+  }
+  try {
+    const generated = await compile(aggregateSchema, group.title, {
+      bannerComment: [
+        "/**\n * Generated from /contracts by npm run generate:contracts.\n * Do not edit by hand.\n */",
+        ...(group.output === "contracts-v2.ts"
+          ? [
+              "/* eslint-disable @typescript-eslint/no-duplicate-type-constituents -- JSON Schema conditionals repeat shared token fields. */",
+            ]
+          : []),
+      ].join("\n"),
+      cwd: typeScriptSchemaDirectory,
+      enableConstEnums: false,
+      format: true,
+      style: {
+        bracketSpacing: true,
+        printWidth: 88,
+        semi: true,
+        singleQuote: false,
+        tabWidth: 2,
+        trailingComma: "all",
+        useTabs: false,
+      },
+      unknownAny: true,
+      unreachableDefinitions: false,
+    });
+    writeFileSync(join(outputDirectory, group.output), generated);
+  } finally {
+    rmSync(typeScriptSchemaDirectory, { recursive: true, force: true });
+  }
 }
 
 function generatePythonGroup(outputDirectory, group) {

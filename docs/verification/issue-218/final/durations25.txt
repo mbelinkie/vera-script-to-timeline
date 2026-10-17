@@ -1,0 +1,27 @@
+============================= slowest 25 durations =============================
+270.23s call     tests/test_issue192_public_path.py::test_public_b1_b3_core_fresh_package_and_truthful_native_refusal
+246.16s call     tests/test_issue144_wi_flow.py::test_actual_cli_file_wi_composition_generation_and_replay
+205.11s call     tests/test_issue144_composition.py::test_three_edits_one_revision_full_row_audio_fresh_target_and_replay
+127.97s call     tests/test_issue144_omission_generation.py::test_accepted_omission_replaces_whole_row_retimes_and_promotes_fresh_target
+126.94s call     tests/test_issue144_composition.py::test_composed_rejection_forged_geometry_and_stale_choice_have_no_effects
+105.55s call     tests/test_issue144_omission_generation.py::test_pending_native_resume_and_pointer_publication_recovery_use_same_target
+103.65s call     tests/test_issue144_omission_generation.py::test_retained_generation_and_actual_cache_cannot_be_replaced_by_status_claims
+85.73s call     tests/test_issue144_generation_recovery.py::test_uncertain_request_is_shared_across_byte_different_decisions
+79.11s call     tests/test_issue144_generation_recovery.py::test_normalization_failure_resumes_from_synthesis_cache
+67.62s call     tests/test_issue144_generation_recovery.py::test_validator_fault_before_service_call_can_resume_without_second_synthesis
+66.99s call     tests/test_issue144_omission_generation.py::test_interrupted_handoff_binds_service_before_resume_and_reuses_actual_cache
+52.88s call     tests/test_issue144_omission_generation.py::test_missing_service_and_stale_split_refuse_before_new_provider_or_native
+51.41s call     tests/test_issue144_omission_generation.py::test_rejected_omission_cannot_request_generation_or_rebuild
+49.94s call     tests/test_issue144_omission_decisions.py::test_explicit_omission_choice_prepares_only_accepted_canonical_revision[accept]
+49.05s call     tests/test_issue144_omission_decisions.py::test_explicit_omission_choice_prepares_only_accepted_canonical_revision[reject]
+46.32s call     tests/test_issue144_omission_generation.py::test_generation_binding_link_alias_refuses_before_provider
+43.68s call     tests/test_issue144_omission_decisions.py::test_retained_omission_choice_rederives_report_and_prepared_artifacts[receipt]
+43.62s call     tests/test_issue144_omission_decisions.py::test_retained_omission_choice_rederives_report_and_prepared_artifacts[script]
+43.49s call     tests/test_issue144_omission_decisions.py::test_retained_omission_choice_rederives_report_and_prepared_artifacts[request]
+42.70s call     tests/test_issue144_proof_session.py::test_interruption_after_pointer_publish_finishes_same_promotion
+39.73s call     tests/test_issue144_omission_preparation.py::test_prepares_pristine_observed_audio_and_proposes_linked_charlie_omission
+39.46s call     tests/test_issue144_omission_decisions.py::test_consistently_rehashed_omission_report_is_not_decision_authority[text]
+38.98s call     tests/test_issue144_omission_decisions.py::test_consistently_rehashed_omission_report_is_not_decision_authority[classification]
+38.60s call     tests/test_issue144_proof_session.py::test_file_session_runs_actual_visual_roundtrip_and_promotes_only_after_verify
+37.94s call     tests/test_issue144_omission_decisions.py::test_consistently_rehashed_omission_report_is_not_decision_authority[revision]
+====================== 1151 passed in 4128.92s (1:08:48) =======================
