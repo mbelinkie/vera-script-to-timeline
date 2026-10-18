@@ -929,9 +929,7 @@ def _calibrate_baseline(
             abs(start) * PROGRAMME["frameSamples"] < 0.5
             and (
                 abs((end - start) - duration) * PROGRAMME["frameSamples"] < 0.5
-                or abs((end - start + 1) - duration)
-                * PROGRAMME["frameSamples"]
-                < 0.5
+                or abs((end - start + 1) - duration) * PROGRAMME["frameSamples"] < 0.5
             ),
             "baseline raw timeline start/end/duration getters disagree",
         )
@@ -1516,9 +1514,9 @@ def run_sample_precision_probe(
         )
         construction.update(
             {
-            "delete": {"timelineItemUid": baseline_item_uid, "rippleDelete": False},
-            "survivors": append_evidence,
-            "status": "constructed_fractional_arguments",
+                "delete": {"timelineItemUid": baseline_item_uid, "rippleDelete": False},
+                "survivors": append_evidence,
+                "status": "constructed_fractional_arguments",
             }
         )
         state["observations"].append(_snapshot("sample_lift", timeline, 2))

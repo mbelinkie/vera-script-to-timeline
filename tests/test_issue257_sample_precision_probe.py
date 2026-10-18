@@ -357,8 +357,7 @@ class _TimelineItem:
 
     def GetSourceEndTime(self) -> float:
         return (
-            cast(float, self.row["endFrame"])
-            + int(self.state.append_end_inclusive)
+            cast(float, self.row["endFrame"]) + int(self.state.append_end_inclusive)
         ) / 23.976
 
 
