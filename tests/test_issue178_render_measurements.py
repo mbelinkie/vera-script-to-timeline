@@ -15,8 +15,56 @@ from issue178_render_measurements import (
     _click_template,
     _measure_click,
     _verify_ordinals,
+    authenticate_render,
     load_measurement_case,
 )
+
+
+@pytest.mark.parametrize("wrong_output", [False, True])
+def test_measurements_require_the_completed_native_movie(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, wrong_output: bool
+) -> None:
+    from vera_timeline_agent import qualification_output_controller_v2 as controller
+    from vera_timeline_agent.media_preparation import file_hash
+
+    movie = tmp_path / "native.mov"
+    movie.write_bytes(b"actual native movie")
+    admission_path = tmp_path / "admission.json"
+    admission_path.write_text("{}")
+    manifest: dict[str, Any] = {"preparationBindings": []}
+    case: Any = SimpleNamespace(manifest=manifest, preparations={})
+    admission = SimpleNamespace(
+        assert_current=lambda: None,
+        manifest=manifest,
+        admission_path=admission_path,
+        admission={"manifestSha256": "manifest-hash"},
+    )
+    completed = {
+        "status": "complete",
+        "outputPath": str(movie),
+        "sourceOutputRawSha256": (
+            "wrong" if wrong_output else file_hash(movie).removeprefix("sha256:")
+        ),
+    }
+    native = SimpleNamespace(
+        admission=admission,
+        _latest_attempt=lambda: {"state": "compared_consistent"},
+        _native_result=lambda sequence: (
+            tmp_path / "result.json",
+            "result-hash",
+            completed,
+        ),
+    )
+    monkeypatch.setattr(controller, "load_output_session", lambda *_args: native)
+
+    if wrong_output:
+        with pytest.raises(AssertionError, match="MOV bytes differ"):
+            authenticate_render(case, movie, tmp_path / "session.json", "session-hash")
+    else:
+        result = authenticate_render(
+            case, movie, tmp_path / "session.json", "session-hash"
+        )
+        assert result["completionResultSha256"] == "result-hash"
 
 
 def _pcm24(value: int) -> bytes:
