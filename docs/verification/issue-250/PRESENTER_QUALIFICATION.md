@@ -36,7 +36,7 @@ and the application check must use that admitted output.
 
 ## Validation status
 
-All 29 focused issue tests pass, including admission against the retained real
+All 29 initial focused issue tests pass, including admission against the retained real
 preparations, ordinary-package refusal and sealed cached reopen. Earlier
 package/native/controller checks also pass. Claude's read-only review completed;
 its three findings were fixed: measurements load the admitted manifest, the
@@ -50,6 +50,46 @@ the opaque red/green bounds must match contain geometry, and overlay samples
 must remain above the Presenter and cross its end independently. These checks
 are additional to the unchanged zero-lag, unity-gain PCM residual gates.
 
-Native save/reopen, bound rendering, decoded transparent composition and full CI
-remain pending. The separate #249 owner currently holds the Resolve lock; #250
-has not installed a request or altered that owner's target.
+## Actual Studio result — 2026-10-18
+
+Resolve Studio 21.1.1 build 10 completed all seven installed stages in the fresh
+saved project `VERA 250 Transparent Presenter 01`, timeline `Qualification`.
+Construction, save/reopen, pre/post geometry, the owned ProRes MOV render and
+fixed same-MOV PCM comparison pass. Programme residual RMS is
+0.0000164077438 per channel; maximum sliding 960-sample RMS is 0.000599893700.
+Limits remain 0.0004/0.006 at zero lag and unity gain.
+
+The authenticated decoded MOV passes the transparent picture checks:
+
+| Record frame | Visible source ordinal | Checked behavior |
+| --- | --- | --- |
+| 144 | root 160 | Before Presenter |
+| 150 / 180 / 240 | root 166 / 197 / 260 | Root advances through transparent PNG margins |
+| 270 | overlay 22 | Independent overlay is above Presenter |
+| 281 / 305 | overlay 33 / 59 | Overlay continues beyond Presenter end |
+| 306 | root 329 | Return reveals the continuously advancing root |
+
+In the 480×480 decoded center crop at frame 180, the red body bounds are
+`(186,67,293,412)` against expected `(187,67,293,413)`; the green head bounds
+are `(214,13,265,66)` against `(213,13,267,67)`. Maximum edge error is two pixels,
+within the fixed four-pixel measurement tolerance. The actual image was also
+visually inspected. The initial measurement refusal included the root's green
+sync flash in the green bounds; the corrected check follows the connected
+Presenter component and still rejects shifted geometry. Both measurement
+attempts and the original render remain retained.
+
+The comparison and picture report bind the same native output SHA-256
+`7f30c235ab488431c5cf0fa308471af4ab79bef52e9f5c19ac58ff0aeb6ad27b`.
+The retained local case root is
+`qualification-output-preparation/issue250-20261018-01`; the passed picture
+report is `measurements/presenter-02/issue250-presenter-measurements.json`.
+Only `bounded_output_residual_consistency` is claimed; creative acceptance,
+internal controls, continuous stability and causal exclusivity stay unclaimed.
+
+Studio ownership was released after completion. #249's previous project,
+request and release were preserved in the normal installed-flow archives.
+The #248 integration passed 191 focused checks and type/lint checks. A broad
+fast run encountered seven existing target-identity clock-uncertainty refusals;
+all 86 tests in that file pass on the focused rerun. The final integrated
+non-slow rerun passes all 1198 tests in 177.60 seconds. TypeScript, lint and
+types also pass. The current GitHub Actions gate remains required before merge.
