@@ -1,7 +1,8 @@
 # #248 confirmed render retry
 
-Status: implementation procedure only. No DaVinci Resolve retry has been run
-or accepted as Studio evidence.
+This document describes the installed procedure. See
+[#248](https://github.com/mbelinkie/vera-script-to-timeline/issues/248) for the
+current actual Studio qualification result.
 
 This is a narrow exception to the earlier #209 no-relaunch guidance: VERA
 permits one visible retry after it authenticates a terminal `Failed` or
@@ -107,4 +108,4 @@ uv run --frozen python -m vera_timeline_agent.workflow_v2_cli output-finalize \
 A successful residual comparison supports only
 `bounded_output_residual_consistency`. Internal controls remain unverified;
 continuous state stability and causal exclusivity remain unclaimed. Actual
-Studio execution and its evidence are still required.
+Studio execution and its evidence are required for External acceptance.
