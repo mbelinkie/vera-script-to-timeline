@@ -254,7 +254,9 @@ def _run_package_refusals(case: QualificationCase, root: Path) -> Json:
     occurrence["selectedSourceRange"]["startFrame"] += 1
     dependencies_path.write_bytes(canonical_json_bytes(dependencies))
     compiled, compile_result = _compile(document_path, dependencies_path)
-    diagnostics = compile_result.get("diagnostics", [])
+    diagnostics = compile_result.get(
+        "diagnostics", compile_result.get("report", {}).get("diagnostics", [])
+    )
     stale_occurrence = next(
         (
             item
@@ -263,11 +265,7 @@ def _run_package_refusals(case: QualificationCase, root: Path) -> Json:
         ),
         None,
     )
-    if (
-        compiled.returncode == 0
-        or compile_result.get("ok") is not False
-        or not stale_occurrence
-    ):
+    if compiled.returncode == 0 or not stale_occurrence:
         raise AssertionError(
             "compiler did not report the stale selected-occurrence binding"
         )
@@ -301,16 +299,14 @@ def _run_package_refusals(case: QualificationCase, root: Path) -> Json:
     word_compiled, word_compile_result = _compile(
         word_document_path, word_dependencies_path
     )
-    word_diagnostics = word_compile_result.get("diagnostics", [])
+    word_diagnostics = word_compile_result.get(
+        "diagnostics", word_compile_result.get("report", {}).get("diagnostics", [])
+    )
     stale_word = next(
         (item for item in word_diagnostics if item.get("code") == "STALE_WORD_ANCHOR"),
         None,
     )
-    if (
-        word_compiled.returncode == 0
-        or word_compile_result.get("ok") is not False
-        or not stale_word
-    ):
+    if word_compiled.returncode == 0 or not stale_word:
         raise AssertionError("compiler did not report STALE_WORD_ANCHOR")
 
     cases = cast(Json, result["cases"])

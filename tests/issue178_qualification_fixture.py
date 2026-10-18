@@ -111,9 +111,13 @@ _CASES: dict[str, tuple[_ClipSpec, ...]] = {
         _ClipSpec("clip-1-30000_1001fps", Fraction(30000, 1001), 300),
         _ClipSpec("clip-2-24fps", Fraction(24), 72, audio_policy="mute"),
     ),
-    "endpoint10s": (_ClipSpec("clip-1-25fps", Fraction(25), 250, audio_policy="mute"),),
+    "endpoint10s": (
+        _ClipSpec("clip-1-25fps", Fraction(25), 250, audio_policy="mute"),
+        _ClipSpec("reference-full", _TARGET_RATE, 72),
+    ),
     "audio_no": (
         _ClipSpec("clip-1-24000_1001fps", _TARGET_RATE, 72, audio_policy="mute"),
+        _ClipSpec("reference-full", _TARGET_RATE, 72),
     ),
     "audio_quiet": (
         _ClipSpec("clip-1-24000_1001fps", _TARGET_RATE, 72, audio_policy="quiet"),
