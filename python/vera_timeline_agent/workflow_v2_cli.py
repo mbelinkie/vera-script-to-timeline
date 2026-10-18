@@ -35,6 +35,7 @@ OUTPUT_RUNTIME_FILES = (
     "qualification_output_native_v2.py",
     "qualification_output_records_v2.py",
 )
+SAMPLE_PRECISION_RUNTIME_FILES = (*RUNTIME_FILES, "sample_precision_probe_v2.py")
 BUILD_FILES = (
     "timeline-manifest.json",
     "build-report.json",
@@ -147,6 +148,11 @@ def build_output_release_v2(output: Path) -> Path:
     return _build_release(output, OUTPUT_RUNTIME_FILES)
 
 
+def build_sample_precision_release_v2(output: Path) -> Path:
+    """Explicit finite precision experiment, separate from strict output lanes."""
+    return _build_release(output, SAMPLE_PRECISION_RUNTIME_FILES)
+
+
 def _build_release(output: Path, runtime_files: tuple[str, ...]) -> Path:
     _no_symlinks(output)
     output.mkdir(parents=True, exist_ok=False)
@@ -226,6 +232,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     release.add_argument("--output", type=Path, required=True)
     output_release = commands.add_parser("output-release")
     output_release.add_argument("--output", type=Path, required=True)
+    precision_release = commands.add_parser("sample-precision-release")
+    precision_release.add_argument("--output", type=Path, required=True)
+    precision_prepare = commands.add_parser("sample-precision-prepare")
+    for name in ("release", "output", "source", "review"):
+        precision_prepare.add_argument(f"--{name}", type=Path, required=True)
+    for name in (
+        "project-uid",
+        "timeline-uid",
+        "project-name",
+        "timeline-name",
+        "producer-authorization",
+        "task-id",
+    ):
+        precision_prepare.add_argument(f"--{name}", required=True)
+    precision_finalize = commands.add_parser("sample-precision-finalize")
+    for name in ("request", "result", "output"):
+        precision_finalize.add_argument(f"--{name}", type=Path, required=True)
     output_authorize = commands.add_parser("output-authorize")
     output_authorize.add_argument("--plan", type=Path, required=True)
     output_authorize.add_argument("--output", type=Path, required=True)
@@ -354,6 +377,34 @@ def main(argv: Sequence[str] | None = None) -> int:
             output = build_release_v2(arguments.output)
         elif arguments.command == "output-release":
             output = build_output_release_v2(arguments.output)
+        elif arguments.command == "sample-precision-release":
+            output = build_sample_precision_release_v2(arguments.output)
+        elif arguments.command == "sample-precision-prepare":
+            from .sample_precision_probe_v2 import prepare_probe_request
+
+            _verify_release_files(arguments.release, SAMPLE_PRECISION_RUNTIME_FILES)
+            output = prepare_probe_request(
+                release_root=arguments.release.absolute(),
+                output=arguments.output.absolute(),
+                source=arguments.source.absolute(),
+                review=arguments.review.absolute(),
+                target={
+                    "projectUid": arguments.project_uid,
+                    "timelineUid": arguments.timeline_uid,
+                    "projectName": arguments.project_name,
+                    "timelineName": arguments.timeline_name,
+                },
+                producer_authorization=arguments.producer_authorization,
+                task_id=arguments.task_id,
+            )
+        elif arguments.command == "sample-precision-finalize":
+            from .sample_precision_compare_v2 import finalize_probe
+
+            output = finalize_probe(
+                arguments.request.absolute(),
+                arguments.result.absolute(),
+                arguments.output.absolute(),
+            )
         elif arguments.command == "output-authorize":
             from .qualification_output_controller_v2 import issue_operator_approval
 
