@@ -20,6 +20,12 @@ and current compiler output. A uses identical audio and individual residual
 checks; B/C also require the delivered pair-discriminability check. C requires
 independent token11 and neighbour10/12 acoustic support and listening before
 whole-row replacement. Provider consent/cost limits remain separate authority.
+The omission review prompt is answered only by the human who listened to the
+source and edited mix. Agents prepare the audio and Audition markers and must
+never type the listening confirmation on the Producer's behalf.
+C stops at the accepted whole-row regeneration request. The host refuses raw
+replacement handoffs until a concrete provider/cache/review finalizer binds the
+new request; structural JSON validation cannot establish that provenance.
 
 The proof reopens concrete product sessions, native results, same-MOV decodes,
 receipts and the complete cross-binding journal. Both original files, execution

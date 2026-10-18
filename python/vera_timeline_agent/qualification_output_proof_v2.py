@@ -32,9 +32,12 @@ from .qualification_output_controller_v2 import (
 )
 from .qualification_output_records_v2 import (
     LANE,
+    OutputConsistencyError,
     _canonical,
     _digest,
     _integer,
+    _json_hash,
+    _ledger_head,
     _parse,
     _refusal,
     _shape,
@@ -45,6 +48,33 @@ Json = dict[str, Any]
 BRIDGE = ROOT / "packages/contracts/src/qualification-output-proof-cli.ts"
 SESSION_SCHEMA = "qualification-output-proof-session/v1"
 PREFLIGHT_SCHEMA = "qualification-output-revised-preflight/v1"
+
+
+class _PairTrust:
+    """Route each exact phase context to its own concrete product receipt vault."""
+
+    def __init__(
+        self,
+        baseline: QualificationOutputController,
+        edited: QualificationOutputController,
+    ) -> None:
+        self.baseline = baseline
+        self.edited = edited
+
+    def checked_now(self) -> datetime:
+        return self.baseline.trust.checked_now()
+
+    def authenticate(self, kind: str, receipt: bytes, expected: Json) -> None:
+        context = expected.get("context")
+        if context is None and isinstance(expected.get("geometry"), dict):
+            context = expected["geometry"].get("context")
+        if context is None or context == self.baseline.context:
+            controller = self.baseline
+        elif context == self.edited.context:
+            controller = self.edited
+        else:
+            raise OutputConsistencyError("receipt context is outside this output pair")
+        controller.trust.authenticate(kind, receipt, expected)
 
 
 def _pin(path: Path) -> Json:
@@ -304,7 +334,7 @@ class QualificationOutputProofV2:
             }
         else:
             pair = output.compare_prediction_pair(
-                pristine, edited, trust=self.baseline.trust
+                pristine, edited, trust=_PairTrust(self.baseline, self.edited)
             )
         facts = self._pure({"mode": "baseline"})
         observation = {
@@ -425,11 +455,12 @@ class QualificationOutputProofV2:
         edited-mix listening. It is never evidence merely because it is JSON.
         """
         self._current()
-        pristine, edited = load_terminal_output(self.baseline), load_terminal_output(
-            self.edited
+        pristine, edited = (
+            load_terminal_output(self.baseline),
+            load_terminal_output(self.edited),
         )
         pair = output.compare_prediction_pair(
-            pristine, edited, trust=self.baseline.trust
+            pristine, edited, trust=_PairTrust(self.baseline, self.edited)
         )
         facts = self._pure({"mode": "baseline"})
         document = _parse(self.baseline.blobs["executionDocumentSha256"])
@@ -539,8 +570,9 @@ class QualificationOutputProofV2:
                 ),
                 "reviewed token identity/offset/quote differs",
             )
-            start, end = _integer(support["onsetSample"]), _integer(
-                support["endSample"], 1
+            start, end = (
+                _integer(support["onsetSample"]),
+                _integer(support["endSample"], 1),
             )
             _require(
                 start < end <= source["durationSamples"],
@@ -573,7 +605,9 @@ class QualificationOutputProofV2:
             "rightNeighborSourceInterval": following,
             "recordIntervalFrames": {"startFrame": start_frame, "endFrame": end_frame},
             "audioSha256": source["pcmFileSha256"],
-            "timingHash": event["provenance"]["timingMapHash"],
+            "nativeFrameOrigin": source["nativeFrameOrigin"],
+            "pcmSampleOrigin": source["pcmSampleOrigin"],
+            "timingHash": event["provenance"]["timingMapHash"].removeprefix("sha256:"),
             "reviewArtifactSha256": review_pin["sha256"],
             "pristineGeometryRawSha256": _hash(pristine.output.inputs.geometry),
             "editedGeometryRawSha256": _hash(edited.output.inputs.geometry),
@@ -600,14 +634,29 @@ class QualificationOutputProofV2:
         _retain(destination, _canonical(plan))
         return destination
 
+    def _decision_claim_path(self, name: str) -> Path:
+        _require(name in {"inference", "revision"}, "unsupported decision claim")
+        identity = _json_hash(
+            {
+                "caseId": self.baseline.context["caseId"],
+                "pristineLedgerHead": _ledger_head(self.baseline.journal.history()),
+                "editedLedgerHead": _ledger_head(self.edited.journal.history()),
+            }
+        )
+        return (
+            self.baseline.journal.directory
+            / "proof-decisions"
+            / f"{name}-{identity}.json"
+        )
+
     def _claim_decision(self, name: str, identity: str, raw: bytes) -> None:
         """One decision across proof directories on the complete native UID chain."""
         _require(identity.startswith("sha256:"), "canonical decision identity required")
         _digest(identity[7:])
         directory = self.baseline.journal.directory / "proof-decisions"
         directory.mkdir(mode=0o700, exist_ok=True)
+        path = self._decision_claim_path(name)
         with self.baseline.journal._lock():
-            path = directory / f"{name}-{identity[7:]}.json"
             _require(not path.exists(), "proposal already decided on this native chain")
             _publish(path, raw)
 
@@ -615,12 +664,7 @@ class QualificationOutputProofV2:
         _require(identity.startswith("sha256:"), "canonical decision identity required")
         _digest(identity[7:])
         _require(
-            _read(
-                self.baseline.journal.directory
-                / "proof-decisions"
-                / f"{name}-{identity[7:]}.json"
-            )
-            == raw,
+            _read(self._decision_claim_path(name)) == raw,
             "retained native-chain decision differs",
         )
 
@@ -689,6 +733,11 @@ class QualificationOutputProofV2:
     def proposal(
         self, *, prepared_media: list[Json] | None = None, handoff: Json | None = None
     ) -> Json:
+        _require(
+            handoff is None,
+            "manual replacement handoff refused; retain the accepted regeneration "
+            "request until the concrete provider/cache/review finalizer is wired",
+        )
         decision = self._accepted_inference()
         candidate = self._pure(
             {
@@ -806,6 +855,10 @@ class QualificationOutputProofV2:
                 "revision decision/input lineage changed",
             )
         candidate = _parse(_read(self.root / "proposal.json"))
+        _require(
+            candidate["request"]["handoff"] is None,
+            "replacement handoff requires a concrete authenticated finalizer",
+        )
         decision = _parse(_read(self.root / "decision.json"))
         self._check_decision_claim(
             "revision", candidate["proposalHash"], _canonical(decision)
@@ -901,7 +954,6 @@ class QualificationOutputProofV2:
         return path
 
     def _lineage_files(self, candidate: Json) -> Json:
-        claims = self.baseline.journal.directory / "proof-decisions"
         inference_hash = candidate["inference"]["inferenceHash"]
         proposal_hash = candidate["proposalHash"]
         for digest in (inference_hash, proposal_hash):
@@ -921,8 +973,8 @@ class QualificationOutputProofV2:
                 self.root / "inference-decision-receipt.json"
             ),
             "stage": _pin(self.root / "stage.json"),
-            "inferenceClaim": _pin(claims / f"inference-{inference_hash[7:]}.json"),
-            "revisionClaim": _pin(claims / f"revision-{proposal_hash[7:]}.json"),
+            "inferenceClaim": _pin(self._decision_claim_path("inference")),
+            "revisionClaim": _pin(self._decision_claim_path("revision")),
             "omissionSupport": omission,
             "omissionSourceReviewReceipt": source_receipt,
             "omissionSourceReview": source_review,
@@ -1024,6 +1076,45 @@ def verify_revised_preflight_v2(path: Path, expected_sha256: str) -> Json:
         "fresh compiler build/manifest/report identities required",
     )
     return copy.deepcopy(record)
+
+
+@_refusal
+def verify_revised_rebuild_reservation_v2(
+    record: Json,
+    preflight_sha256: str,
+    *,
+    admission_path: Path,
+    target: Json,
+    case_id: str,
+    invocation_id: str,
+) -> None:
+    """Reopened sessions cannot choose another target, invocation or admission."""
+    proof_pin = record["proofSession"]
+    proof = QualificationOutputProofV2(Path(proof_pin["path"]), proof_pin["sha256"])
+    _require(
+        case_id == proof.baseline.context["caseId"]
+        and target["timelineUid"] != proof.baseline.context["target"]["timelineUid"],
+        "rebuild requires the baseline case and a fresh target timeline UID",
+    )
+    reservation = (
+        proof.baseline.journal.directory
+        / "proof-rebuilds"
+        / (record["revisionLedger"]["sha256"] + ".json")
+    )
+    _require(reservation.is_file(), "fresh rebuild reservation is absent")
+    _require(
+        _parse(_read(reservation))
+        == {
+            "proofSession": proof.session_pin,
+            "preflightSha256": preflight_sha256,
+            "outputRoot": str(admission_path.parent.parent),
+            "target": target,
+            "caseId": case_id,
+            "invocationId": invocation_id,
+            "admission": _pin(admission_path),
+        },
+        "fresh rebuild reservation differs from this session",
+    )
 
 
 def prepare_output_proof_v2(
@@ -1132,16 +1223,7 @@ def prepare_revised_output_session(
         revised_preflight_path=preflight_path,
         revised_preflight_sha256=preflight_sha256,
     )
-    controller = QualificationOutputController.from_revised(
-        HOST_STATE_ROOT,
-        admission=admission,
-        release_root=proof.baseline.release_root,
-        target=target,
-        case_id=proof.baseline.context["caseId"],
-        invocation_id=str(uuid.uuid4()),
-        revised_preflight_path=preflight_path,
-        revised_preflight_sha256=preflight_sha256,
-    )
+    invocation_id = str(uuid.uuid4())
     # A new directory or target cannot reset this accepted revision's effects.
     reservation_root = proof.baseline.journal.directory / "proof-rebuilds"
     reservation_root.mkdir(mode=0o700, exist_ok=True)
@@ -1161,9 +1243,22 @@ def prepare_revised_output_session(
                     "preflightSha256": preflight_sha256,
                     "outputRoot": str(root),
                     "target": target,
+                    "caseId": proof.baseline.context["caseId"],
+                    "invocationId": invocation_id,
+                    "admission": _pin(admission.admission_path),
                 }
             ),
         )
+    controller = QualificationOutputController.from_revised(
+        HOST_STATE_ROOT,
+        admission=admission,
+        release_root=proof.baseline.release_root,
+        target=target,
+        case_id=proof.baseline.context["caseId"],
+        invocation_id=invocation_id,
+        revised_preflight_path=preflight_path,
+        revised_preflight_sha256=preflight_sha256,
+    )
     return _write_controller_session(root, controller)
 
 
@@ -1197,7 +1292,11 @@ def build_output_revision_package(
 
 
 def issue_output_omission_review(plan_path: Path, output_path: Path) -> Path:
-    """Attended listening receipt; neither filesystem access nor a plan is review."""
+    """Human listening receipt. Agents must never answer the review prompt.
+
+    Only the person who listened to both sources may confirm this step;
+    filesystem access, waveform inspection and machine alignment are not review.
+    """
     raw = _read(plan_path)
     plan = _shape(
         _parse(raw),

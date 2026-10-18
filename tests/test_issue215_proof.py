@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import os
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,8 +11,9 @@ from typing import Any
 
 import pytest
 from test_issue214_comparison import rendered, terminal
-from test_issue214_prediction import case
+from test_issue214_prediction import case, change_items
 from vera_timeline_agent import qualification_output_proof_v2 as proof
+from vera_timeline_agent import qualification_output_v2 as output
 from vera_timeline_agent.qualification_output_controller_v2 import (
     QualificationOutputController,
 )
@@ -40,6 +42,12 @@ def test_pin_rejects_changed_bytes_symlinks_and_aliases(tmp_path: Path) -> None:
     link.symlink_to(path)
     with pytest.raises(OutputConsistencyError, match="symlink"):
         proof._pinned({"path": str(link), "sha256": pin["sha256"]})
+
+
+def test_raw_provider_handoff_refuses_before_proof_or_provider_work() -> None:
+    session: Any = object.__new__(proof.QualificationOutputProofV2)
+    with pytest.raises(OutputConsistencyError, match="manual replacement handoff"):
+        session.proposal(handoff={"schemaVersion": "issue-189-v2-row-handoff/v1"})
 
 
 @pytest.mark.parametrize(
@@ -142,8 +150,9 @@ def test_decision_is_single_use_across_proof_directories(tmp_path: Path) -> None
     journal = OutputAttemptJournal(tmp_path / "host", context())
     one: Any = object.__new__(proof.QualificationOutputProofV2)
     two: Any = object.__new__(proof.QualificationOutputProofV2)
-    one.baseline = SimpleNamespace(journal=journal)
-    two.baseline = SimpleNamespace(journal=journal)
+    one.baseline = SimpleNamespace(journal=journal, context={"caseId": "C"})
+    two.baseline = SimpleNamespace(journal=journal, context={"caseId": "C"})
+    one.edited = two.edited = SimpleNamespace(journal=journal)
     one.root, two.root = tmp_path / "one", tmp_path / "two"
     identity = "sha256:" + _hash(b"same actual inference")
     decision = b"explicit accepted decision"
@@ -151,5 +160,110 @@ def test_decision_is_single_use_across_proof_directories(tmp_path: Path) -> None
     two._check_decision_claim("inference", identity, decision)
     with pytest.raises(OutputConsistencyError, match="already decided"):
         two._claim_decision("inference", identity, decision)
+    # Reissuing C's source review changes its inference hash, not its native pair.
+    with pytest.raises(OutputConsistencyError, match="already decided"):
+        two._claim_decision("inference", "sha256:" + _hash(b"new review"), decision)
     with pytest.raises(OutputConsistencyError, match="differs"):
         two._check_decision_claim("inference", identity, b"changed decision")
+
+
+def test_pair_trust_keeps_distinct_phase_vaults_without_receipt_fallback() -> None:
+    from test_issue214_records import SealedTrust
+
+    pristine, edited = SealedTrust(), SealedTrust()
+    left, right = {"phase": "pristine"}, {"phase": "edited"}
+    baseline_controller: Any = SimpleNamespace(context=left, trust=pristine)
+    edited_controller: Any = SimpleNamespace(context=right, trust=edited)
+    trust = proof._PairTrust(baseline_controller, edited_controller)
+    expected = {"context": right, "value": "actual edited payload"}
+    receipt = edited.seal("output_residual_comparison", expected)
+    trust.authenticate("output_residual_comparison", receipt, expected)
+    assert pristine.calls == []
+    assert edited.calls == ["output_residual_comparison"]
+    geometry = {"geometry": {"context": right}, "inputBinding": {"context": right}}
+    geometry_receipt = edited.seal("output_geometry_snapshot", geometry)
+    trust.authenticate("output_geometry_snapshot", geometry_receipt, geometry)
+    assert pristine.calls == []
+    with pytest.raises(OutputConsistencyError, match="outside"):
+        trust.authenticate(
+            "output_residual_comparison", receipt, {"context": {"phase": "rebuild"}}
+        )
+    with pytest.raises(OutputConsistencyError, match="authentication"):
+        trust.authenticate("output_residual_comparison", receipt, {"context": left})
+
+
+def test_pair_comparison_authenticates_separate_phase_receipts() -> None:
+    pristine, edited = case(), case(phase="edited")
+    item = json.loads(edited.inputs.geometry)["geometry"]["items"][0]
+    change_items(edited, [{**item, "recordDuration": 2, "sourceDuration": 2}])
+    left, right = (
+        terminal(pristine, rendered(pristine)),
+        terminal(edited, rendered(edited)),
+    )
+    baseline_controller: Any = SimpleNamespace(
+        context=pristine.binding["context"], trust=pristine.trust
+    )
+    edited_controller: Any = SimpleNamespace(
+        context=edited.binding["context"], trust=edited.trust
+    )
+    result = output.compare_prediction_pair(
+        left, right, trust=proof._PairTrust(baseline_controller, edited_controller)
+    )
+    assert result["geometryStability"] == result["controlStability"] == "not_claimed"
+
+
+@pytest.mark.parametrize(
+    "attack", [None, "target", "case", "invocation", "root", "missing"]
+)
+def test_reopened_rebuild_requires_its_original_reservation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, attack: str | None
+) -> None:
+    baseline = SimpleNamespace(
+        context={"caseId": "A", "target": {"timelineUid": "original"}},
+        journal=SimpleNamespace(directory=tmp_path / "journal"),
+    )
+    admission = tmp_path / "revised/admitted/admission.json"
+    admission.parent.mkdir(parents=True)
+    admission.write_bytes(b"admission")
+    proof_pin = {"path": str(tmp_path / "proof.json"), "sha256": "1" * 64}
+    owner = SimpleNamespace(baseline=baseline, session_pin=proof_pin)
+    monkeypatch.setattr(proof, "QualificationOutputProofV2", lambda *_: owner)
+    record = {"proofSession": proof_pin, "revisionLedger": {"sha256": "2" * 64}}
+    target = {"timelineUid": "fresh"}
+    reservation = baseline.journal.directory / "proof-rebuilds" / ("2" * 64 + ".json")
+    reservation.parent.mkdir(parents=True)
+    reservation.write_bytes(
+        _canonical(
+            {
+                "proofSession": proof_pin,
+                "preflightSha256": "3" * 64,
+                "outputRoot": str(admission.parent.parent),
+                "target": target,
+                "caseId": "A",
+                "invocationId": "first",
+                "admission": proof._pin(admission),
+            }
+        )
+    )
+    if attack == "missing":
+        reservation.unlink()
+    if attack == "root":
+        admission = tmp_path / "copied/admitted/admission.json"
+        admission.parent.mkdir(parents=True)
+        admission.write_bytes(b"admission")
+
+    def verify() -> None:
+        proof.verify_revised_rebuild_reservation_v2(
+            record,
+            "3" * 64,
+            admission_path=admission,
+            target={"timelineUid": "another"} if attack == "target" else target,
+            case_id="B" if attack == "case" else "A",
+            invocation_id="second" if attack == "invocation" else "first",
+        )
+
+    if attack is None:
+        verify()
+    else:
+        with pytest.raises(OutputConsistencyError):
+            verify()

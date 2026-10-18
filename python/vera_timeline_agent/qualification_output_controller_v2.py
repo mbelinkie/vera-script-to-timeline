@@ -1144,6 +1144,18 @@ class QualificationOutputController:
             )
             assert revised_preflight is not None
             revision = verify_revised_preflight_v2(*revised_preflight)
+            from .qualification_output_proof_v2 import (
+                verify_revised_rebuild_reservation_v2,
+            )
+
+            verify_revised_rebuild_reservation_v2(
+                revision,
+                revised_preflight[1],
+                admission_path=admission.admission_path,
+                target=target,
+                case_id=case_id,
+                invocation_id=invocation_id,
+            )
         else:
             _require(revised_preflight is None, "revised proof requires rebuild phase")
         admission.assert_current()
@@ -1234,7 +1246,19 @@ class QualificationOutputController:
     def _environment_current(self) -> None:
         self.admission.assert_current()
         if self.revised_preflight is not None:
-            verify_revised_preflight_v2(*self.revised_preflight)
+            revision = verify_revised_preflight_v2(*self.revised_preflight)
+            from .qualification_output_proof_v2 import (
+                verify_revised_rebuild_reservation_v2,
+            )
+
+            verify_revised_rebuild_reservation_v2(
+                revision,
+                self.revised_preflight[1],
+                admission_path=self.admission.admission_path,
+                target=self.context["target"],
+                case_id=self.context["caseId"],
+                invocation_id=self.context["invocationId"],
+            )
         from .roundtrip_v2_records import proof_source_hashes_v2
 
         _require(
@@ -1796,7 +1820,7 @@ class QualificationOutputController:
             and request["release"]["sha256"] == self.context["installedReleaseSha256"],
             "native handoff differs from the reviewed request/release",
         )
-        handoff = {
+        handoff: Json = {
             "schemaVersion": "qualification-output-native-operator-handoff/v1",
             "lane": LANE,
             "context": self.context,

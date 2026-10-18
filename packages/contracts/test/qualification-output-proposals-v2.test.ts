@@ -150,13 +150,18 @@ function newCase(input: ReturnType<typeof specimen>, kind: "A" | "B" | "C", exec
     const rowEventId = compiled.manifest.events.find((event) => event.kind === "narration" && event.provenance.blockId === row.id)!.eventId;
     const left = editedGeometry.geometry.items.find((item) => item.eventId === rowEventId && item.recordStart === 0)!;
     const right = editedGeometry.geometry.items.find((item) => item.eventId === left.eventId && item.recordStart > left.recordStart)!;
+    const nativeFrameOrigin = 3;
+    const pcmSampleOrigin = 37;
+    const cutStartSamples = (left.sourceStart + left.sourceDuration - nativeFrameOrigin) * 2002 + pcmSampleOrigin;
+    const cutEndSamples = (right.sourceStart - nativeFrameOrigin) * 2002 + pcmSampleOrigin;
     omissionSupport = {
       schemaVersion: "qualification-output-omission-support/v1", lane: "bounded_output_residual_consistency", caseId,
       documentHash: sha256CanonicalJson(input.document), dependenciesHash: sha256CanonicalJson(input.dependencies),
       blockId: row.id, blockRevision: row.version, selectedTokenId: row.tokens[11]!.id, leftNeighborTokenId: row.tokens[10]!.id, rightNeighborTokenId: row.tokens[12]!.id,
-      leftNeighborSourceInterval: { startSample: 200000, endSample: 240000 },
-      selectedSourceInterval: { startSample: (left.sourceStart + left.sourceDuration) * 2002, endSample: right.sourceStart * 2002 },
-      rightNeighborSourceInterval: { startSample: right.sourceStart * 2002 + 1, endSample: right.sourceStart * 2002 + 5000 },
+      nativeFrameOrigin, pcmSampleOrigin,
+      leftNeighborSourceInterval: { startSample: 200000, endSample: cutStartSamples - 10 },
+      selectedSourceInterval: { startSample: cutStartSamples, endSample: cutEndSamples },
+      rightNeighborSourceInterval: { startSample: cutEndSamples + 1, endSample: cutEndSamples + 5000 },
       recordIntervalFrames: { startFrame: left.recordStart + left.recordDuration, endFrame: right.recordStart },
       audioSha256: bare(boundary.audioHash), timingHash: bare(boundary.timingHash), reviewArtifactSha256: bare(boundary.verification.reviewArtifactHash),
       reviewReceiptSha256: bare(hash("independent acoustic/listening review receipt")),
@@ -260,6 +265,13 @@ describe("#215 authenticated output observation to explicit revision bridge", ()
 
   it("requires token 11 plus pinned neighbor listening support before staging C regeneration", () => {
     const input = specimen(); const evidence = batch(input, ["C"]);
+    const support = evidence.cases[0]!.omissionSupport!;
+    // Speech supports are acoustic sample edges inside a frame-aligned cut;
+    // their independent review differs from the prior sparse picture review.
+    support.selectedSourceInterval.startSample += 37;
+    support.selectedSourceInterval.endSample -= 61;
+    support.reviewArtifactSha256 = rawHash("new independent token support review");
+    expect([support.nativeFrameOrigin, support.pcmSampleOrigin]).toEqual([3, 37]);
     const inference = inferQualificationOutputV2(input.document, input.dependencies, evidence);
     expect(inference.omission?.tokenIds).toEqual([input.document.activeDraft.blocks.find((b) => b.type === "narration")!.tokens[11]!.id]);
     const decision = accept(inference.inferenceHash);
@@ -270,6 +282,11 @@ describe("#215 authenticated output observation to explicit revision bridge", ()
     const handoff = replacementHandoff(stage);
     const proposal = createQualificationOutputProposalV2(input.document, input.dependencies, evidence, decision, [], [], handoff);
     expect(proposal.schemaVersion).toBe("qualification-output-proposal/v1");
+    for (const field of ["nativeFrameOrigin", "pcmSampleOrigin"] as const) {
+      const invalidOrigins = structuredClone(evidence);
+      invalidOrigins.cases[0]!.omissionSupport![field] += 0.5;
+      expect(() => inferQualificationOutputV2(input.document, input.dependencies, invalidOrigins)).toThrow();
+    }
     const fractional = structuredClone(handoff);
     fractional.boundaryEvidence.audio.durationSamples += 1;
     expect(() => createQualificationOutputProposalV2(input.document, input.dependencies, evidence, decision, [], [], fractional))

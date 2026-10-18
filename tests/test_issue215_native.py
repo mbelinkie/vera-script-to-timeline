@@ -101,6 +101,147 @@ def _held_picture_boundary_case(
     return request, admitted, resolve, timeline, (left, right)
 
 
+def _matrix_av_trim_case(
+    tmp_path: Path,
+) -> tuple[dict[str, Any], dict[str, Any], Any]:
+    resolve, request, admitted, video_first, timeline = fixtures._geometry_case(
+        tmp_path
+    )
+    request["profile"] = native.MATRIX_PROFILE
+    video_source = admitted["view"]["sources"][0]
+    audio_path = admitted["sourceRoot"] / "media/narration.wav"
+    audio_path.write_bytes(b"verified narration source bytes")
+    audio_hash = hashlib.sha256(audio_path.read_bytes()).hexdigest()
+    audio_source = {
+        **video_source,
+        "id": "audio-one",
+        "kind": "audio",
+        "path": "media/narration.wav",
+        "contentHash": audio_hash,
+    }
+    admitted["view"]["sources"].append(audio_source)
+    admitted["view"]["tracks"] = [
+        {"id": "video-main", "kind": "video", "index": 1, "name": "V1"},
+        {"id": "audio-main", "kind": "audio", "index": 1, "name": "A1"},
+    ]
+
+    def event(
+        event_id: str,
+        kind: str,
+        source_id: str,
+        track_id: str,
+        record_start: int,
+        record_duration: int,
+        source_start: int,
+        source_duration: int,
+    ) -> dict[str, Any]:
+        row: dict[str, Any] = {
+            "id": event_id,
+            "kind": kind,
+            "trackId": track_id,
+            "trackKind": "audio" if track_id == "audio-main" else "video",
+            "sourceId": source_id,
+            "recordRange": {
+                "startFrame": record_start,
+                "durationFrames": record_duration,
+            },
+            "sourceRange": {
+                "startFrame": source_start,
+                "durationFrames": source_duration,
+            },
+            "v2Event": {"id": event_id, "description": "linked AV trim"},
+        }
+        if kind == "source_audio":
+            row["gainDb"] = -6.0
+        return row
+
+    audio = event("audio", "source_audio", "audio-one", "audio-main", 0, 6, 10, 6)
+    picture = event(
+        "picture", "primary_visual", "picture-one", "video-main", 0, 6, 20, 6
+    )
+    downstream_audio = event(
+        "downstream-audio", "source_audio", "audio-one", "audio-main", 6, 4, 16, 4
+    )
+    downstream_picture = event(
+        "downstream-picture",
+        "primary_visual",
+        "picture-one",
+        "video-main",
+        6,
+        4,
+        26,
+        4,
+    )
+    events = [audio, picture, downstream_audio, downstream_picture]
+    admitted["view"]["events"] = events
+
+    video_media = video_first.media
+    audio_media: Any = fixtures._Media(audio_path)
+    audio_media.GetUniqueId = lambda: "media-audio"
+    video_first = _set_item(
+        video_first,
+        uid="video-first",
+        stamp=native._event_stamp(picture),
+        start=0,
+        duration=4,
+        source_start=20,
+        source_end=24,
+    )
+    audio_first = _set_item(
+        fixtures._Item(audio_media, native._event_stamp(audio)),
+        uid="audio-first",
+        stamp=native._event_stamp(audio),
+        start=0,
+        duration=4,
+        source_start=10,
+        source_end=14,
+    )
+    video_downstream = _set_item(
+        fixtures._Item(video_media, native._event_stamp(downstream_picture)),
+        uid="video-downstream",
+        stamp=native._event_stamp(downstream_picture),
+        start=4,
+        duration=4,
+        source_start=26,
+        source_end=30,
+    )
+    audio_downstream = _set_item(
+        fixtures._Item(audio_media, native._event_stamp(downstream_audio)),
+        uid="audio-downstream",
+        stamp=native._event_stamp(downstream_audio),
+        start=4,
+        duration=4,
+        source_start=16,
+        source_end=20,
+    )
+    video_first.GetLinkedItems = lambda: [audio_first]
+    audio_first.GetLinkedItems = lambda: [video_first]
+    video_downstream.GetLinkedItems = lambda: [audio_downstream]
+    audio_downstream.GetLinkedItems = lambda: [video_downstream]
+
+    frame_seconds = 1001 / 24000
+    for item, start, end in (
+        (audio_first, 10, 14),
+        (audio_downstream, 16, 20),
+    ):
+        item.GetSourceStartTime = lambda start=start: start * frame_seconds
+        item.GetSourceEndTime = lambda end=end: end * frame_seconds
+
+    timeline_items = {
+        "video": [video_first, video_downstream],
+        "audio": [audio_first, audio_downstream],
+    }
+    timeline_any: Any = timeline
+    timeline_any.GetTrackCount = lambda kind: 1 if kind in timeline_items else 0
+    timeline_any.GetTrackName = lambda kind, _index: "V1" if kind == "video" else "A1"
+    timeline_any.GetIsTrackEnabled = lambda _kind, _index: True
+    timeline_any.GetIsTrackLocked = lambda _kind, _index: False
+    timeline_any.GetItemListInTrack = lambda kind, _index: timeline_items[kind]
+    timeline_any.GetEndFrame = lambda: 8
+    request["context"] = _edited_context(request["context"])
+    return request, admitted, resolve
+
+
 def test_edited_phase_selects_static_observation_route_and_strict_phase_stays_strict(
     tmp_path: Path,
 ) -> None:
@@ -213,6 +354,24 @@ def test_observed_held_picture_boundary_transfer_accepts_and_strict_capture_refu
     assert [item.GetLinkedItems() for item in items] == [[], []]
 
 
+def test_observed_held_picture_transfer_normalizes_nonzero_still_counter_by_time(
+    tmp_path: Path,
+) -> None:
+    request, admitted, resolve, _timeline, items = _held_picture_boundary_case(tmp_path)
+    for item in items:
+        item.GetSourceStartFrame = lambda: 86
+        item.GetSourceEndFrame = lambda: 86
+        item.GetSourceStartTime = lambda: 0.0
+        item.GetSourceEndTime = lambda: 1001 / 24000
+
+    request["context"] = _edited_context(request["context"])
+    geometry = native._capture_observed_geometry(resolve, request, admitted, None)
+
+    assert [
+        (item["sourceStart"], item["sourceDuration"]) for item in geometry["items"]
+    ] == [(0, 6), (0, 4)]
+
+
 def test_observed_held_picture_transfer_rejects_nonadjacent_boundary(
     tmp_path: Path,
 ) -> None:
@@ -230,8 +389,9 @@ def test_observed_held_picture_transfer_rejects_nonadjacent_boundary(
         native._capture_observed_geometry(resolve, request, admitted, None)
 
 
-def test_observed_narration_split_accepts_two_affine_segments_only(
-    tmp_path: Path,
+@pytest.mark.parametrize("end_error", [0.0, 0.001])
+def test_matrix_observed_narration_split_requires_sample_aligned_audio_edges(
+    tmp_path: Path, end_error: float
 ) -> None:
     resolve, request, admitted, first, timeline = fixtures._geometry_case(
         tmp_path, source_audio=True
@@ -246,7 +406,7 @@ def test_observed_narration_split_accepts_two_affine_segments_only(
         start=0,
         duration=4,
         source_start=12,
-        source_end=15,
+        source_end=16,
     )
     second = _set_item(
         fixtures._Item(first.media, native._event_stamp(event)),
@@ -255,10 +415,24 @@ def test_observed_narration_split_accepts_two_affine_segments_only(
         start=6,
         duration=4,
         source_start=18,
-        source_end=21,
+        source_end=22,
     )
+    request["profile"] = native.MATRIX_PROFILE
+    frame_seconds = 1001 / 24000
+    first.GetSourceStartTime = lambda: 12 * frame_seconds
+    first.GetSourceEndTime = lambda: 16 * frame_seconds
+    second.GetSourceStartTime = lambda: 18 * frame_seconds
+    second.GetSourceEndTime = lambda: 22 * frame_seconds + end_error
     _set_inventory(timeline, [first, second], 10)
     request["context"] = _edited_context(request["context"])
+
+    if end_error:
+        with pytest.raises(
+            OutputConsistencyError,
+            match="edited audio source range lacks sample-accurate edges",
+        ):
+            native._capture_observed_geometry(resolve, request, admitted, None)
+        return
 
     geometry = native._capture_observed_geometry(resolve, request, admitted, None)
 
@@ -271,6 +445,28 @@ def test_observed_narration_split_accepts_two_affine_segments_only(
         )
         for item in geometry["items"]
     ] == [(0, 4, 12, 4), (6, 4, 18, 4)]
+
+
+def test_matrix_observed_linked_av_trim_captures_exclusive_audio_ends(
+    tmp_path: Path,
+) -> None:
+    request, admitted, resolve = _matrix_av_trim_case(tmp_path)
+
+    geometry = native._capture_observed_geometry(resolve, request, admitted, None)
+
+    items = {item["eventId"]: item for item in geometry["items"]}
+    assert (
+        max(item["recordStart"] + item["recordDuration"] for item in geometry["items"])
+        == 8
+    )
+    assert (items["audio"]["recordDuration"], items["audio"]["sourceDuration"]) == (
+        4,
+        4,
+    )
+    assert (
+        items["downstream-audio"]["recordStart"],
+        items["downstream-audio"]["sourceDuration"],
+    ) == (4, 4)
 
 
 @pytest.mark.parametrize(
@@ -418,3 +614,136 @@ def test_observed_linked_av_end_trim_ripples_downstream_by_exact_delta() -> None
         timeline_end=8,
         expected_end=10,
     )
+
+
+def _edited_queue_render_case(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, mark_out: int
+) -> tuple[Any, dict[str, Any], dict[str, Any]]:
+    project, request, state, _observations = fixtures._queue_render_case(
+        tmp_path, monkeypatch
+    )
+    settings = request["payload"]["settings"]
+    settings.update({"startFrame": 0, "endFrame": 9})
+    request["context"] = {"phase": "edited"}
+    request["profile"] = native.MATRIX_PROFILE
+    pre_capture = {
+        "inputBindingPath": str(tmp_path.resolve() / "input-binding.json"),
+        "inputBindingSha256": "b" * 64,
+        "nativeGeometry": {"items": []},
+    }
+    monkeypatch.setattr(
+        native,
+        "_previous_result",
+        lambda *_args: (pre_capture, "c" * 64, tmp_path.resolve() / "capture.json"),
+    )
+    monkeypatch.setattr(
+        native, "_input_binding", lambda *_args: ({}, None, "b" * 64, None)
+    )
+    monkeypatch.setattr(
+        native,
+        "_capture_observed_geometry",
+        lambda *_args: pre_capture["nativeGeometry"],
+    )
+    add_render_job = project.AddRenderJob
+
+    def add_job_with_reported_marks() -> str:
+        job_id = add_render_job()
+        project.jobs[-1]["MarkIn"] = settings["startFrame"]
+        project.jobs[-1]["MarkOut"] = mark_out
+        return str(job_id)
+
+    project.AddRenderJob = add_job_with_reported_marks
+    return project, request, state
+
+
+@pytest.mark.parametrize(("mark_out", "accepted"), [(9, True), (8, False)])
+def test_edited_queue_checks_reported_render_mark_range(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mark_out: int,
+    accepted: bool,
+) -> None:
+    project, request, state = _edited_queue_render_case(
+        tmp_path, monkeypatch, mark_out=mark_out
+    )
+    admitted = {
+        "manifest": {
+            "timeline": {
+                "width": 1920,
+                "height": 1080,
+                "frameRate": {"numerator": 24000, "denominator": 1001},
+            }
+        }
+    }
+
+    if accepted:
+        native._queue_render(request, object(), admitted, state, None)
+        assert project.jobs[0]["MarkOut"] == request["payload"]["settings"]["endFrame"]
+    else:
+        with pytest.raises(
+            OutputConsistencyError,
+            match="queued render job mark range differs from the edited render extent",
+        ):
+            native._queue_render(request, object(), admitted, state, None)
+
+
+def _edited_start_render_case(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    include_marks: bool,
+    mark_out: int = 9,
+) -> tuple[Any, dict[str, Any], dict[str, Any]]:
+    project, state, request = fixtures._start_render_case(
+        tmp_path, monkeypatch, {"JobStatus": "Ready"}
+    )
+    request["context"]["phase"] = "edited"
+    previous = {
+        "jobId": "job-one",
+        "outputPath": str(tmp_path.resolve() / "deliver.mov"),
+        "settings": {"startFrame": 0, "endFrame": 9},
+        "commitmentRawSha256": "1" * 64,
+        "renderIntentSha256": "2" * 64,
+    }
+    queued_sha = request["payload"]["queuedResultSha256"]
+    queued_path = Path(request["payload"]["queuedResultPath"])
+    monkeypatch.setattr(
+        native,
+        "_previous_result",
+        lambda *_args: (previous, queued_sha, queued_path),
+    )
+    job: dict[str, Any] = {"JobId": "job-one"}
+    if include_marks:
+        job.update({"MarkIn": 0, "MarkOut": mark_out})
+    project.GetRenderJobList = lambda: [job]
+    return project, state, request
+
+
+def test_edited_start_refuses_changed_reported_render_mark_range(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project, state, request = _edited_start_render_case(
+        tmp_path, monkeypatch, include_marks=True, mark_out=8
+    )
+
+    with pytest.raises(
+        OutputConsistencyError,
+        match="queued render job mark range differs from the edited render extent",
+    ):
+        native._start_render(request, object(), state, None)
+
+    assert project.status_calls == []
+    assert project.start_calls == []
+
+
+def test_edited_start_keeps_mark_check_optional_when_api_omits_fields(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project, state, request = _edited_start_render_case(
+        tmp_path, monkeypatch, include_marks=False
+    )
+
+    native._start_render(request, object(), state, None)
+
+    assert project.status_calls == ["job-one"]
+    assert project.start_calls == [["job-one"]]

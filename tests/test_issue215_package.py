@@ -31,9 +31,7 @@ def _pin_inputs(case: Any, root: Path) -> tuple[Path, dict[str, Any]]:
     original_dependencies = json.loads(case.dependencies_path.read_bytes())
     original_dependencies["build"]["buildId"] = "issue215-original-build"
     original_dependencies_raw = _canonical(original_dependencies)
-    original_document = _write(
-        root / "original-document.json", original_document_raw
-    )
+    original_document = _write(root / "original-document.json", original_document_raw)
     original_dependencies_path = _write(
         root / "original-dependencies.json", original_dependencies_raw
     )
@@ -110,17 +108,13 @@ def test_revision_package_seam_refuses_any_compiler_output_pin_mismatch(
             tmp_path / f"bad-preflight-{index}.json", _canonical(bad_preflight)
         )
         output_root = tmp_path / f"refused-{index}"
-        with pytest.raises(
-            package.QualificationPackageError, match="preflight pins"
-        ):
+        with pytest.raises(package.QualificationPackageError, match="preflight pins"):
             package.admit_qualification_revision_v2(
                 output_root,
                 package_root=case.project_root,
                 preparation_paths=case.preparation_paths,
                 revised_preflight_path=bad_preflight_path,
-                revised_preflight_sha256=package._sha(
-                    bad_preflight_path.read_bytes()
-                ),
+                revised_preflight_sha256=package._sha(bad_preflight_path.read_bytes()),
             )
         assert not output_root.exists()
 
@@ -187,9 +181,7 @@ def test_revision_package_seam_refuses_any_compiler_output_pin_mismatch(
                 package_root=case.project_root,
                 preparation_paths=case.preparation_paths,
                 revised_preflight_path=bad_original_path,
-                revised_preflight_sha256=package._sha(
-                    bad_original_path.read_bytes()
-                ),
+                revised_preflight_sha256=package._sha(bad_original_path.read_bytes()),
             )
         assert not bad_original_root.exists()
 
@@ -216,7 +208,7 @@ def test_admission_cache_keeps_original_and_execution_bytes_distinct(
     tracked_hashes: dict[Path, str] = {}
     for path in (original_document_path, original_dependencies_path):
         package._track(path, tracked_paths, tracked_hashes)
-    view = {"sources": [], "events": []}
+    view: dict[str, Any] = {"sources": [], "events": []}
 
     admission = package._finish_admission(
         output_root,
@@ -227,8 +219,8 @@ def test_admission_cache_keeps_original_and_execution_bytes_distinct(
         original_dependencies=original_dependencies,
         execution_document=execution_document,
         execution_dependencies=execution_dependencies,
-        manifest={},
-        manifest_raw=b"{}",
+        manifest={"events": []},
+        manifest_raw=b'{"events":[]}',
         report={},
         report_raw=b"{}",
         compiler_runs=(b"{}", b"{}"),

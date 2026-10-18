@@ -12,9 +12,11 @@ import test_issue209_native as fixtures
 from vera_timeline_agent import qualification_output_native_v2 as native
 from vera_timeline_agent.qualification_output_records_v2 import (
     AUTHORITY_REFERENCE_FIELDS,
+    LANE,
     OutputConsistencyError,
     _canonical,
     _json_hash,
+    _parse,
 )
 
 
@@ -85,7 +87,7 @@ def _revised_request(tmp_path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
 
     record: dict[str, Any] = {
         "schemaVersion": "qualification-output-revised-preflight/v1",
-        "lane": native.LANE,
+        "lane": LANE,
         "status": "prepared",
         "sourceHashes": {"qualification_output_proof_v2.py": "a" * 64},
         "proofSession": _pin_file(root, "proof-session.json"),
@@ -121,7 +123,7 @@ def _revised_request(tmp_path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     record["result"] = _pin_file(root, "result.json", _canonical({"outcome": "accept"}))
     ledger = {
         "schemaVersion": "qualification-output-revision-ledger/v1",
-        "lane": native.LANE,
+        "lane": LANE,
         "proofSessionSha256": record["proofSession"]["sha256"],
         "evidenceSha256": record["evidence"]["sha256"],
         "inferenceDecisionSha256": "1" * 64,
@@ -246,7 +248,7 @@ def test_revised_preflight_rejects_unknown_inventory_or_rebuild_request_fields(
 def test_revised_preflight_record_rejects_unknown_fields(tmp_path: Path) -> None:
     request, _ = _revised_request(tmp_path)
     preflight = Path(request["revisedPreflight"]["path"])
-    record = native._parse(preflight.read_bytes())
+    record = _parse(preflight.read_bytes())
     record["unexpected"] = True
     preflight.chmod(0o600)
     raw = _canonical(record)
@@ -263,7 +265,7 @@ def test_revised_preflight_requires_all_or_no_omission_proof_pins(
 ) -> None:
     request, _ = _revised_request(tmp_path)
     preflight = Path(request["revisedPreflight"]["path"])
-    record = native._parse(preflight.read_bytes())
+    record = _parse(preflight.read_bytes())
     record["proofFiles"]["omissionSupport"] = {
         "path": str(tmp_path / "omission-support.json"),
         "sha256": "a" * 64,
@@ -286,7 +288,7 @@ def test_revised_preflight_accepts_all_current_omission_proof_pins(
 ) -> None:
     request, _ = _revised_request(tmp_path)
     preflight = Path(request["revisedPreflight"]["path"])
-    record = native._parse(preflight.read_bytes())
+    record = _parse(preflight.read_bytes())
     for name in native.REVISED_PREFLIGHT_OMISSION_PROOF_FILES:
         pin = _pin_file(preflight.parent, f"{name}.json")
         record["proofFiles"][name] = pin

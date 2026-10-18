@@ -88,6 +88,8 @@ export interface QualificationOutputOmissionSupportV1 {
   selectedTokenId: string;
   leftNeighborTokenId: string;
   rightNeighborTokenId: string;
+  nativeFrameOrigin: number;
+  pcmSampleOrigin: number;
   selectedSourceInterval: { startSample: number; endSample: number };
   leftNeighborSourceInterval: { startSample: number; endSample: number };
   rightNeighborSourceInterval: { startSample: number; endSample: number };
@@ -665,7 +667,7 @@ function narrationEvidence(dependencies: CompilerDependenciesV2, blockId: string
 function inferOmissionCase(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2, input: ParsedCase, documentHash: string, dependenciesHash: string): { omission: QualificationOutputInferenceV1["omission"]; evidence: QualificationOutputOmissionSupportV1 } | null {
   if (input.source.omissionSupport === null) return null;
   const supportRecord = shape(input.source.omissionSupport, ["schemaVersion", "lane", "caseId", "documentHash", "dependenciesHash", "blockId", "blockRevision",
-    "selectedTokenId", "leftNeighborTokenId", "rightNeighborTokenId", "selectedSourceInterval", "leftNeighborSourceInterval", "rightNeighborSourceInterval",
+    "selectedTokenId", "leftNeighborTokenId", "rightNeighborTokenId", "nativeFrameOrigin", "pcmSampleOrigin", "selectedSourceInterval", "leftNeighborSourceInterval", "rightNeighborSourceInterval",
     "recordIntervalFrames", "audioSha256", "timingHash", "reviewArtifactSha256", "reviewReceiptSha256", "pristineGeometryRawSha256", "editedGeometryRawSha256",
     "pristineComparisonRawSha256", "editedComparisonRawSha256", "pairRawSha256"], "omission support");
   const support = supportRecord as unknown as QualificationOutputOmissionSupportV1;
@@ -682,10 +684,13 @@ function inferOmissionCase(document: ScriptDocumentV2, dependencies: CompilerDep
   "C must support only token 11 and its two adjacent tokens");
   const boundary = narrationEvidence(dependencies, row.id);
   const audio = record(boundary.audio, "narration audio evidence");
-  const verification = record(boundary.verification, "narration listening review");
+  const nativeFrameOrigin = integer(support.nativeFrameOrigin, "native frame origin");
+  const pcmSampleOrigin = integer(support.pcmSampleOrigin, "PCM sample origin");
+  const durationSamples = integer(audio.durationSamples);
+  fact(pcmSampleOrigin <= durationSamples, "PCM sample origin exceeds narration audio");
   const prefixedOrBare = (value: unknown) => typeof value === "string" ? value.replace(/^sha256:/u, "") : value;
-  fact(prefixedOrBare(support.audioSha256) === prefixedOrBare(boundary.audioHash) && prefixedOrBare(support.timingHash) === prefixedOrBare(boundary.timingHash) &&
-    prefixedOrBare(support.reviewArtifactSha256) === prefixedOrBare(verification.reviewArtifactHash), "omission support audio/timing/listening pins differ");
+  fact(prefixedOrBare(support.audioSha256) === prefixedOrBare(boundary.audioHash) && prefixedOrBare(support.timingHash) === prefixedOrBare(boundary.timingHash),
+    "omission support audio/timing pins differ");
   const sourceSelected = interval(support.selectedSourceInterval, "selected token source interval", "endSample", "startSample");
   const sourceLeft = interval(support.leftNeighborSourceInterval, "left neighbor source interval", "endSample", "startSample");
   const sourceRight = interval(support.rightNeighborSourceInterval, "right neighbor source interval", "endSample", "startSample");
@@ -704,8 +709,13 @@ function inferOmissionCase(document: ScriptDocumentV2, dependencies: CompilerDep
     right.sourceStart + right.sourceDuration === prior.sourceStart + prior.sourceDuration && gapRecordEnd - gapRecordStart > 0 &&
     gapRecordEnd - gapRecordStart === gapSourceEnd - gapSourceStart && gapSourceEnd > gapSourceStart &&
     equal(selectedRecord, { start: gapRecordStart, end: gapRecordEnd }), "C split is not a bounded non-ripple selected-token lift");
-  fact(sourceSelected.start === gapSourceStart * FRAME_SAMPLES && sourceSelected.end === gapSourceEnd * FRAME_SAMPLES &&
-    sourceSelected.end - sourceSelected.start === (gapRecordEnd - gapRecordStart) * FRAME_SAMPLES, "reviewed token interval differs from native source/record cut");
+  fact(gapSourceStart >= nativeFrameOrigin && gapSourceEnd >= nativeFrameOrigin, "C cut precedes native frame origin");
+  const cutStartSamples = integer((gapSourceStart - nativeFrameOrigin) * FRAME_SAMPLES + pcmSampleOrigin, "C cut start sample");
+  const cutEndSamples = integer((gapSourceEnd - nativeFrameOrigin) * FRAME_SAMPLES + pcmSampleOrigin, "C cut end sample");
+  fact(cutEndSamples - cutStartSamples === (gapRecordEnd - gapRecordStart) * FRAME_SAMPLES && cutEndSamples <= durationSamples &&
+    sourceLeft.end <= cutStartSamples && cutStartSamples <= sourceSelected.start &&
+    sourceSelected.end <= cutEndSamples && cutEndSamples <= sourceRight.start,
+    "cut clips a neighbor or incompletely removes the reviewed token");
   for (const segment of segments) fact(sameStableItem({ ...prior, itemUid: segment.itemUid }, segment), "C split changed source, track, link or control identity");
   const eventIds = new Set(input.pristine.geometry.items.map((item) => item.eventId));
   const untouched = input.edited.geometry.items.filter((item) => item.eventId !== event[0]!.eventId);

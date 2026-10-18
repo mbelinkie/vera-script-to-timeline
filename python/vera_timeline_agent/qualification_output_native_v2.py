@@ -1014,7 +1014,9 @@ def _chain_key(context: dict[str, Any]) -> str:
 
 
 def _revised_preflight_route(context: dict[str, Any]) -> bool:
-    return context["phase"] == "rebuild" and context["binding"]["kind"] == "revised"
+    return bool(
+        context["phase"] == "rebuild" and context["binding"]["kind"] == "revised"
+    )
 
 
 def _verify_revised_preflight_currentness(request: dict[str, Any]) -> None:
@@ -3860,6 +3862,12 @@ def _capture_geometry(
                 if (
                     source_start != expected_source_start
                     or source_duration != expected_source_duration
+                    or (
+                        _observed_edit
+                        and request.get("profile")
+                        in {MATRIX_PROFILE, PRESENTER_PROFILE}
+                        and kind == "audio"
+                    )
                 ):
                     for method_name in ("GetSourceStartTime", "GetSourceEndTime"):
                         method = getattr(item, method_name, None)
@@ -3873,7 +3881,7 @@ def _capture_geometry(
                     and source_start == source_end
                     and source_start >= 0
                     and expected_source_start == 0
-                    and expected_source_duration == duration
+                    and (expected_source_duration == duration or _observed_edit)
                     and props.get("Frames") == "1"
                     and all(
                         type(range_times.get(method)) in {int, float}
@@ -3900,16 +3908,25 @@ def _capture_geometry(
                 if (
                     request.get("profile") in {MATRIX_PROFILE, PRESENTER_PROFILE}
                     and kind == "audio"
-                    and source_start == expected_source_start
-                    and source_end == expected_source_end
+                    and (
+                        _observed_edit
+                        or (
+                            source_start == expected_source_start
+                            and source_end == expected_source_end
+                        )
+                    )
                 ):
                     sample_tolerance = Fraction(1, 48000)
                     rate_seconds = Fraction(1001, 24000)
-                    edges = (
-                        ("GetSourceStartTime", expected_source_start),
-                        ("GetSourceEndTime", expected_source_end),
+                    start_frame = (
+                        source_start if _observed_edit else expected_source_start
                     )
-                    if all(
+                    end_frame = source_end if _observed_edit else expected_source_end
+                    edges = (
+                        ("GetSourceStartTime", start_frame),
+                        ("GetSourceEndTime", end_frame),
+                    )
+                    exact_frame_edges = all(
                         type(range_times.get(method)) in {int, float}
                         and math.isfinite(range_times[method])
                         and abs(
@@ -3917,7 +3934,13 @@ def _capture_geometry(
                         )
                         <= sample_tolerance
                         for method, frame in edges
-                    ):
+                    )
+                    if _observed_edit:
+                        _require(
+                            exact_frame_edges,
+                            "edited audio source range lacks sample-accurate edges",
+                        )
+                    if exact_frame_edges:
                         source_duration = source_end - source_start
                 if not _observed_edit:
                     _require(
@@ -3999,7 +4022,7 @@ def _capture_geometry(
             "native links are not reciprocal",
         )
     if _observed_edit:
-        _require(items, "observed native event inventory is empty")
+        _require(bool(items), "observed native event inventory is empty")
         observed_end = max(
             item["recordStart"] + item["recordDuration"] for item in items
         )
@@ -4804,6 +4827,28 @@ def _capture(
     }
 
 
+def _verify_render_job_marks_if_reported(
+    job: dict[str, Any], settings: dict[str, Any]
+) -> None:
+    has_mark_in = "MarkIn" in job
+    has_mark_out = "MarkOut" in job
+    _require(
+        has_mark_in == has_mark_out,
+        "queued render job mark range is incomplete",
+    )
+    if not has_mark_in:
+        return
+    _require(
+        type(settings.get("startFrame")) is int
+        and type(settings.get("endFrame")) is int
+        and type(job.get("MarkIn")) is int
+        and type(job.get("MarkOut")) is int
+        and job["MarkIn"] == settings["startFrame"]
+        and job["MarkOut"] == settings["endFrame"],
+        "queued render job mark range differs from the edited render extent",
+    )
+
+
 def _queue_render(
     request: dict[str, Any],
     resolve: Any,
@@ -5003,6 +5048,8 @@ def _queue_render(
         and job.get("VideoFormat") in {"QuickTime", "mov"},
         "queued render job codec/container differ",
     )
+    if observed_edit:
+        _verify_render_job_marks_if_reported(job, settings)
     _effect_observed(state, row, {"jobId": job_id, "job": job})
     return {
         "jobId": job_id,
@@ -5039,6 +5086,8 @@ def _start_render(
         if type(job) is dict and job.get("JobId") == previous["jobId"]
     ]
     _require(len(rows) == 1, "exact queued render job unavailable")
+    if request["context"].get("phase") == "edited":
+        _verify_render_job_marks_if_reported(rows[0], previous["settings"])
     get_status = getattr(project, "GetRenderJobStatus", None)
     if not callable(get_status):
         raise OutputConsistencyError("render job status unavailable before start")
