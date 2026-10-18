@@ -1,8 +1,10 @@
-"""Static package admission for the #209 bounded output qualification lane.
+"""Static package admission for the bounded output qualification lane.
 
 The ordinary profile is only a wrapper around the unchanged public v2 package
 verifier.  The R16 profile is a separate, qualification-only exception whose
 input, compiler output, media preparation and diagnostics are pinned here.
+The current Presenter profile separately reproduces its fixed issue-owned
+fixture with fresh current-compiler execution inputs.
 This module never contacts Resolve and never grants native operator authority.
 """
 
@@ -43,10 +45,24 @@ MATRIX_PREPARATION_ROOT = (
 )
 _PUBLIC_PROFILES = frozenset({SYNTHETIC_PROFILE, MATRIX_PROFILE})
 R16_PROFILE = "qualification-output-r16-presenter-override/v1"
+PRESENTER_PROFILE = "qualification-output-current-presenter/v1"
 ADMISSION_SCHEMA = "qualification-output-package-admission/v1"
 INVENTORY_SCHEMA = "qualification-output-package-inventory/v1"
 CREATIVE_UNQUALIFIED = "unqualified_temporary_presenter"
-_PROFILES = frozenset({*_PUBLIC_PROFILES, R16_PROFILE})
+_PROFILES = frozenset({*_PUBLIC_PROFILES, R16_PROFILE, PRESENTER_PROFILE})
+_PRESENTER_ROOT = MATRIX_PREPARATION_ROOT / "presenter-alpha-01"
+_PRESENTER_INPUT_PINS = {
+    "script-document-v2.json": (
+        "a9b0c63b823dd22f0f4e187d0ec5b2a528115fa065a89106123734957b813681"
+    ),
+    "compiler-dependencies-v2.json": (
+        "d0f6b7e595e7d5fd4cf5b8216f299fc601f46d3766e47d9e6601af6ffd336aca"
+    ),
+}
+_PRESENTER_PNG_SHA256 = (
+    "928d034d15389a5a5891c435c6318fd8c48c4ae9c8db4cda67f3d359714d1f91"
+)
+_PRESENTER_SLOT = "8ef61d23-9625-5b03-a046-e3f1051bbd75"
 _EXPECTED_ORIGINAL_DOCUMENT = (
     "27b9d5ddfb097f254d44ce0b6428e461f9e948010e95e1a4c817a8c71e76fa71"
 )
@@ -1198,11 +1214,11 @@ def admit_qualification_package_v2(
     package_root: Path | None = None,
     preparation_paths: Mapping[str, Path] | None = None,
 ) -> QualificationOutputAdmissionV2:
-    """Admit the R16 qualification package or an unchanged verified synthetic.
+    """Admit a fixed qualification fixture or an unchanged verified public package.
 
     The profile is a closed enum selected by the caller.  R16 always loads the
-    pinned private vector; ordinary admission requires an already verified
-    public v2 package and delegates its normal gate unchanged.
+    pinned private vector; Presenter uses its fixed RGBA fixture and current
+    compiler. Ordinary admission delegates the public v2 gate unchanged.
     """
     _need(type(profile) is str and profile in _PROFILES, "unsupported package profile")
     _need(
@@ -1222,6 +1238,9 @@ def admit_qualification_package_v2(
     )
     if profile == R16_PROFILE:
         return _admit_r16(output_root)
+    if profile == PRESENTER_PROFILE:
+        _need(package_root is None, "Presenter profile uses only its pinned fixture")
+        return _admit_presenter(output_root)
     synthetic_root = package_root
     _need(
         synthetic_root is not None and isinstance(synthetic_root, Path),
@@ -2927,6 +2946,230 @@ def _admit_r16(
     )
 
 
+def _presenter_report(document: Json, manifest: Json, report: Json) -> None:
+    message = "On Camera uses the effective temporary presenter still."
+    diagnostics = _array(report.get("diagnostics"), "Presenter warnings required")
+    _need(
+        len(diagnostics) == 1
+        and diagnostics[0]
+        == {
+            "id": "5e77b270-31bf-5ab0-8a99-4698599c131e",
+            "code": "TEMPORARY_PRESENTER_STILL",
+            "severity": "warning",
+            "message": message,
+            "entity": {"id": _PRESENTER_SLOT, "kind": "slot", "path": "presenterStill"},
+            "evidence": {"kind": "details", "message": message},
+            "recoveryActionKinds": ["REPLACE_TEMPORARY_PRESENTER"],
+        },
+        "Presenter profile requires its exact single temporary-still warning",
+    )
+    _need(
+        report.get("status") == "ready"
+        and report.get("migrationIssues") == []
+        and report.get("recoveryActions")
+        == [
+            {
+                "documentId": document["id"],
+                "instruction": (
+                    "Replace the temporary still with an accepted presenter source "
+                    "when available."
+                ),
+                "kind": "REPLACE_TEMPORARY_PRESENTER",
+                "slotId": _PRESENTER_SLOT,
+            }
+        ],
+        "Presenter qualification readiness/recovery differs",
+    )
+    _validate_r16_duration(manifest)
+    pictures = [event for event in manifest["events"] if event["kind"] == "placeholder"]
+    reference = (
+        pictures[0]["pictureTreatment"]["reference"] if len(pictures) == 1 else {}
+    )
+    _need(
+        len(pictures) == 1
+        and pictures[0]["provenance"]["slotId"] == _PRESENTER_SLOT
+        and pictures[0]["pictureTreatment"]["kind"] == "still"
+        and pictures[0]["pictureTreatment"]["composition"]["framingPolicy"] == "contain"
+        and reference.get("contentHash") == "sha256:" + _PRESENTER_PNG_SHA256
+        and (reference.get("width"), reference.get("height")) == (320, 720),
+        "Presenter image identity/contain geometry differs",
+    )
+
+
+def _presenter_pixels(
+    path: Path,
+    states: dict[Path, tuple[int, int, int, int, int]],
+    hashes: dict[Path, str],
+) -> None:
+    raw = _track(path, states, hashes)
+    _need(_sha(raw) == _PRESENTER_PNG_SHA256, "Presenter PNG bytes differ")
+    _need(
+        raw[:16] == b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+        and struct.unpack(">IIBBBBB", raw[16:29]) == (320, 720, 8, 6, 0, 0, 0),
+        "Presenter requires the exact 320x720 RGBA image",
+    )
+    pixels = _run_ffmpeg_raw(path, still=True)
+    _need(
+        len(pixels) == 320 * 720 * 4 and set(pixels[3::4]) == {0, 255},
+        "Presenter pixels must contain transparent and opaque regions",
+    )
+    states[_FFMPEG] = _state(_FFMPEG)
+    hashes[_FFMPEG] = _FFMPEG_SHA256
+
+
+def _admit_presenter(output_root: Path) -> QualificationOutputAdmissionV2:
+    """Fresh versioned execution of the issue-owned fixture, never an R16 waiver."""
+    states: dict[Path, tuple[int, int, int, int, int]] = {}
+    hashes: dict[Path, str] = {}
+    links: dict[Path, tuple[str, Path]] = {}
+    originals = tuple(
+        _track(_PRESENTER_ROOT / "inputs" / name, states, hashes)
+        for name in _PRESENTER_INPUT_PINS
+    )
+    _need(
+        all(
+            _sha(raw) == pin
+            for raw, pin in zip(originals, _PRESENTER_INPUT_PINS.values(), strict=True)
+        ),
+        "Presenter original fixture inputs differ",
+    )
+    image = _PRESENTER_ROOT / "presenter.png"
+    _presenter_pixels(image, states, hashes)
+    document = _json(originals[0], "Presenter original document")
+    dependencies = _json(originals[1], "Presenter original dependencies")
+    # A new execution input changes only this consumed compiler identity; all
+    # original private inputs and the older R16 source pin remain untouched.
+    core = (
+        Path(__file__).resolve().parents[2]
+        / "packages/contracts/src/compiler-core-v2.ts"
+    )
+    dependencies["compiler"]["sourceHash"] = "sha256:" + _sha(
+        _track(core, states, hashes)
+    )
+    execution_dependencies = _canonical(dependencies)
+    _track_compiler(dependencies, states, hashes)
+    root = output_root / "package"
+    root.mkdir(mode=0o700, parents=True, exist_ok=False)
+    document_path = root / "Execution/script-document-v2.json"
+    dependencies_path = root / "Execution/compiler-dependencies-v2.json"
+    _write_exclusive(document_path, originals[0])
+    _write_exclusive(dependencies_path, execution_dependencies)
+    one = _compiler_bytes(document_path, dependencies_path)
+    compiled = _locked_compiler(document_path, dependencies_path, one, one)
+    result = _object(compiled.get("result"), "Presenter compiler result required")
+    _need(result.get("ok") is True, "current compiler refused Presenter fixture")
+    manifest_raw = result["manifestJson"].encode()
+    report_raw = result["reportJson"].encode()
+    manifest = _json(manifest_raw, "Presenter manifest")
+    report = _json(report_raw, "Presenter report")
+    _need(
+        result["manifest"] == manifest and result["report"] == report,
+        "Presenter compiler envelope differs",
+    )
+    _validate_scoped_r16_inputs(document, dependencies, manifest, report)
+    _presenter_report(document, manifest, report)
+    paths: dict[str, Path] = {}
+    media: dict[str, Path] = {}
+    for binding in manifest["preparationBindings"]:
+        key = binding["requirementKey"]
+        delivered = _locators(binding["artifactLocator"], "Presenter prepared picture")
+        receipt = delivered.parent / "receipt.json"
+        record, _raw, _audio, _wav, _pcm = _verify_public_receipt(
+            key, receipt, states, hashes, matrix=True
+        )
+        _need(record["binding"] == binding, "Presenter preparation binding differs")
+        paths[key] = receipt
+    prepared = v2_package._validate_preparations(
+        document, dependencies, manifest, report, paths
+    )
+    original_picture = (
+        MATRIX_PREPARATION_ROOT
+        / "mixed-01/sources/clip-1-25fps/issue174-media/source-pcm_s24le.mov"
+    )
+    for source in manifest["sources"]:
+        sid = source["id"]
+        if "narrationAudio" in source:
+            media[f"source:{sid}"] = _locators(
+                source["narrationAudio"]["locator"],
+                "Presenter narration",
+                tracked_states=states,
+                tracked_links=links,
+            )
+        else:
+            item = prepared[source["preparationRequirementKey"]]
+            _verify_actual_174_source(item.record, original_picture, states, hashes)
+            media[f"source:{sid}"] = _locators(
+                item.record["binding"]["artifactLocator"], "Presenter delivered picture"
+            )
+            media[f"original:{sid}"] = original_picture
+    for event in manifest["events"]:
+        if event["kind"] == "placeholder":
+            media[f"event:{event['eventId']}"] = image
+        elif event["kind"] == "source_audio":
+            item = next(
+                item
+                for item in prepared.values()
+                if _compiler_json_hash(item.record["binding"])
+                == event["preparationBindingHash"]
+            )
+            media[f"event:{event['eventId']}"] = (
+                paths[item.requirement_key].parent / "audio.wav"
+            )
+    artifacts = v2_package._media_artifacts(manifest, prepared, media)
+    for artifact in artifacts.values():
+        digest = artifact.content_hash.removeprefix("sha256:")
+        states[artifact.origin] = _state(artifact.origin)
+        hashes[artifact.origin] = digest
+        _copy_exclusive(artifact.origin, root / artifact.relative_path, digest)
+    view = v2_package._delivery_view(manifest, dependencies, prepared, artifacts)
+    view_raw = v2_package._canonical_json(view)
+    source_paths = {row["id"]: root / row["path"] for row in view["sources"]}
+    wavs, proofs, entries, payloads = _audio_proofs(
+        manifest, dependencies, view, source_paths, prepared, states, hashes
+    )
+    preflight, preparation = _snapshots(
+        profile=PRESENTER_PROFILE,
+        originals=(originals[0], originals[1]),
+        execution=(originals[0], execution_dependencies),
+        manifest_raw=manifest_raw,
+        report_raw=report_raw,
+        view_raw=view_raw,
+        source_entries=entries,
+        proofs=proofs,
+        wavs=wavs,
+        public_verified=False,
+    )
+    return _finish_admission(
+        output_root,
+        profile=PRESENTER_PROFILE,
+        disposition="qualification_only",
+        creative_qualification=CREATIVE_UNQUALIFIED,
+        original_document=originals[0],
+        original_dependencies=originals[1],
+        execution_document=originals[0],
+        execution_dependencies=execution_dependencies,
+        manifest=manifest,
+        manifest_raw=manifest_raw,
+        report=report,
+        report_raw=report_raw,
+        compiler_runs=(one, one),
+        view=view,
+        view_raw=view_raw,
+        diagnostics=report["diagnostics"],
+        recoveries=report["recoveryActions"],
+        preflight_raw=preflight,
+        preparation_raw=preparation,
+        source_entries=entries,
+        source_proofs=proofs,
+        source_wavs=wavs,
+        source_paths=source_paths,
+        tracked_paths=states,
+        tracked_hashes=hashes,
+        tracked_links=links,
+        proof_payloads=payloads,
+    )
+
+
 def _prepared_matrix(
     document: Json,
     dependencies: Json,
@@ -3282,6 +3525,19 @@ def _load_verified_admission_cache(
         _need(compile_one == compile_two, "retained compiler runs differ")
         _canonical_r16_report(document, dependencies, manifest, report, compile_one)
         _validate_scoped_r16_inputs(document, dependencies, manifest, report)
+    elif record["profile"] == PRESENTER_PROFILE:
+        _need(compile_one == compile_two, "retained Presenter compiler runs differ")
+        _need(
+            compile_one.get("result", {}).get("manifest") == manifest
+            and compile_one.get("result", {}).get("report") == report
+            and compile_one["result"].get("manifestJson", "").encode()
+            == retained["Compiler/timeline-manifest-v2.json"]
+            and compile_one["result"].get("reportJson", "").encode()
+            == retained["Compiler/build-report-v2.json"],
+            "retained Presenter compiler envelope differs from emitted output",
+        )
+        _presenter_report(document, manifest, report)
+        _validate_scoped_r16_inputs(document, dependencies, manifest, report)
     _need(
         type(view.get("sources")) is list
         and set(cached_source_paths)
@@ -3369,7 +3625,7 @@ def _load_verified_admission_cache(
     seal_raw = _read(seal_path)
     tracked_paths[seal_path] = _state(seal_path)
     tracked_hashes[seal_path] = _sha(seal_raw)
-    if record["profile"] == R16_PROFILE:
+    if record["profile"] in {R16_PROFILE, PRESENTER_PROFILE}:
         attestation_path = admission_path
         attestation_sha256 = _sha(admission_raw)
     else:
@@ -3498,7 +3754,12 @@ def _finish_admission(
         "Qualification/preparation-snapshot.json": preparation_raw,
     }
     for relative, raw in fixed.items():
-        _retain(root / relative, raw, existing=existing)
+        _retain(
+            root / relative,
+            raw,
+            existing=existing
+            or (profile == PRESENTER_PROFILE and relative.startswith("Execution/")),
+        )
     for source_id, source_path in source_paths.items():
         view_source = next(item for item in view["sources"] if item["id"] == source_id)
         _need(
@@ -3510,7 +3771,7 @@ def _finish_admission(
             == view_source["contentHash"].removeprefix("sha256:"),
             "materialized source media hash differs",
         )
-    if profile == R16_PROFILE:
+    if profile in {R16_PROFILE, PRESENTER_PROFILE}:
         _need(
             attestation_path is None,
             "R16 admission is its native attestation reference",

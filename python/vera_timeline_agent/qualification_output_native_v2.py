@@ -54,7 +54,14 @@ SYNTHETIC_PROFILE = "verified-v2-package/v1"
 MATRIX_PROFILE = "qualification-output-studio-matrix/v1"
 PUBLIC_PROFILES = frozenset({SYNTHETIC_PROFILE, MATRIX_PROFILE})
 R16_PROFILE = "qualification-output-r16-presenter-override/v1"
-PROFILES = frozenset({*PUBLIC_PROFILES, R16_PROFILE})
+PRESENTER_PROFILE = "qualification-output-current-presenter/v1"
+PRESENTER_SLOT_ID = "8ef61d23-9625-5b03-a046-e3f1051bbd75"
+PRESENTER_WARNING_ID = "5e77b270-31bf-5ab0-8a99-4698599c131e"
+PRESENTER_WARNING_MESSAGE = "On Camera uses the effective temporary presenter still."
+PRESENTER_RECOVERY_INSTRUCTION = (
+    "Replace the temporary still with an accepted presenter source when available."
+)
+PROFILES = frozenset({*PUBLIC_PROFILES, R16_PROFILE, PRESENTER_PROFILE})
 ACTIONS = frozenset(
     {
         "construct",
@@ -98,6 +105,19 @@ _R16_ORIGINAL_TARGET_ROOT = (
     _R16_PRIVATE_ROOT
     / "issue-148/2026-10-11-r15-heroes-base-binding/attempt-01/candidate-inputs"
 )
+_PRESENTER_INPUT_ROOT = (
+    Path.home()
+    / "Library/Application Support/VERA/qualification-output-preparation"
+    / "issue178-20261016-01/cases/presenter-alpha-01/inputs"
+)
+_PRESENTER_ORIGINALS = {
+    "script-document-v2.json": (
+        "a9b0c63b823dd22f0f4e187d0ec5b2a528115fa065a89106123734957b813681"
+    ),
+    "compiler-dependencies-v2.json": (
+        "d0f6b7e595e7d5fd4cf5b8216f299fc601f46d3766e47d9e6601af6ffd336aca"
+    ),
+}
 _R16_DELTA_PATH = (
     _R16_PRIVATE_ROOT
     / "issue-145/advance-inputs/issue209-r16-preparation-cn209p1-attempt02"
@@ -630,6 +650,82 @@ def _verify_r16_parent_pins(root: Path, admission: dict[str, Any]) -> None:
         _require(_hash(raw) == expected, f"R16 parent {name} pin differs")
 
 
+def _verify_presenter_report_rows(
+    admission: dict[str, Any], report: dict[str, Any], document_id: str
+) -> None:
+    """Bind the one accepted Presenter warning and recovery to compiler output."""
+    report_warnings = report.get("diagnostics")
+    report_recovery = report.get("recoveryActions")
+    _require(
+        type(report_warnings) is list and admission["diagnostics"] == report_warnings,
+        "Presenter warning rows differ from the full report",
+    )
+    _require(
+        type(report_recovery) is list
+        and admission["recoveryActions"] == report_recovery,
+        "Presenter recovery rows differ from the full report",
+    )
+    assert type(report_warnings) is list
+    assert type(report_recovery) is list
+    _require(
+        len(report_warnings) == 1 and type(report_warnings[0]) is dict,
+        "exactly one Presenter warning is required",
+    )
+    _require(
+        len(report_recovery) == 1 and type(report_recovery[0]) is dict,
+        "exactly one Presenter recovery is required",
+    )
+    warning = report_warnings[0]
+    recovery = report_recovery[0]
+    _require(
+        warning
+        == {
+            "id": PRESENTER_WARNING_ID,
+            "code": "TEMPORARY_PRESENTER_STILL",
+            "severity": "warning",
+            "message": PRESENTER_WARNING_MESSAGE,
+            "entity": {
+                "id": PRESENTER_SLOT_ID,
+                "kind": "slot",
+                "path": "presenterStill",
+            },
+            "evidence": {"kind": "details", "message": PRESENTER_WARNING_MESSAGE},
+            "recoveryActionKinds": ["REPLACE_TEMPORARY_PRESENTER"],
+        },
+        "unexpected current Presenter warning",
+    )
+    _require(
+        recovery
+        == {
+            "documentId": document_id,
+            "instruction": PRESENTER_RECOVERY_INSTRUCTION,
+            "kind": "REPLACE_TEMPORARY_PRESENTER",
+            "slotId": PRESENTER_SLOT_ID,
+        },
+        "unexpected current Presenter recovery",
+    )
+
+
+def _verify_presenter_admission(
+    admission: dict[str, Any], report: dict[str, Any], document_id: str
+) -> None:
+    _require(
+        admission["disposition"] == "qualification_only"
+        and admission["creativeQualification"] == "unqualified_temporary_presenter",
+        "current Presenter profile lacks qualification-only disposition",
+    )
+    _require(
+        type(admission["diagnostics"]) is list and len(admission["diagnostics"]) == 1,
+        "current Presenter warning inventory is incomplete",
+    )
+    _require(
+        type(admission["recoveryActions"]) is list
+        and len(admission["recoveryActions"]) == 1,
+        "current Presenter recovery inventory is incomplete",
+    )
+    _verify_presenter_report_rows(admission, report, document_id)
+
+
 def verify_operator_approval(
     raw: bytes,
     *,
@@ -1070,10 +1166,12 @@ def _verify_admission(request: dict[str, Any]) -> dict[str, Any]:
         and admission["reportSha256"] == request["context"]["reportSha256"],
         "admission manifest/report pins differ",
     )
+    input_bytes: dict[str, bytes] = {}
     for name in INPUT_FIELDS:
         raw_input = _read(_path(request["inputs"][name], name), name, maximum=MAX_BYTES)
         field = name.removesuffix("Path") + "Sha256"
         _require(_hash(raw_input) == admission[field], f"current {name} pin differs")
+        input_bytes[name] = raw_input
     if request["profile"] in PUBLIC_PROFILES:
         _require(
             admission["disposition"]
@@ -1094,7 +1192,7 @@ def _verify_admission(request: dict[str, Any]) -> dict[str, Any]:
             admission["diagnostics"] == [] and admission["recoveryActions"] == [],
             "ordinary package diagnostics refuse",
         )
-    else:
+    elif request["profile"] == R16_PROFILE:
         _require(
             admission["disposition"] == "qualification_only"
             and admission["creativeQualification"] == "unqualified_temporary_presenter",
@@ -1110,6 +1208,8 @@ def _verify_admission(request: dict[str, Any]) -> dict[str, Any]:
             and len(admission["recoveryActions"]) == 1,
             "R16 recovery inventory is incomplete",
         )
+    else:
+        _require(request["profile"] == PRESENTER_PROFILE, "unsupported package profile")
     for field in (
         "manifestSha256",
         "reportSha256",
@@ -1228,7 +1328,7 @@ def _verify_admission(request: dict[str, Any]) -> dict[str, Any]:
     _verify_admitted_extent(manifest)
     _verify_r16_parent_pins(root, admission)
     _require(type(report) is dict, "admitted report must be an object")
-    if request["profile"] == R16_PROFILE:
+    if request["profile"] in {R16_PROFILE, PRESENTER_PROFILE}:
         # These rows are retained from the exact hashed report, never synthesized
         # into the installed request. The package builder records their canonical
         # full rows in its admission projection.
@@ -1237,36 +1337,46 @@ def _verify_admission(request: dict[str, Any]) -> dict[str, Any]:
         _require(
             type(report_warnings) is list
             and admission["diagnostics"] == report_warnings,
-            "R16 warning rows differ from the full report",
+            "Presenter warning rows differ from the full report",
         )
         _require(
             type(report_recovery) is list
             and admission["recoveryActions"] == report_recovery,
-            "R16 recovery rows differ from the full report",
+            "Presenter recovery rows differ from the full report",
         )
         assert type(report_warnings) is list
         assert type(report_recovery) is list
-        _require(
-            all(
-                row.get("code") == "TEMPORARY_PRESENTER_STILL"
-                for row in report_warnings
-                if type(row) is dict
-            ),
-            "unexpected R16 diagnostic code",
-        )
-        _require(
-            len(report_warnings) == 3
-            and all(type(row) is dict for row in report_warnings),
-            "exact three R16 warnings required",
-        )
-        _require(
-            len(report_recovery) == 1
-            and all(
-                type(row) is dict and row.get("kind") == "REPLACE_TEMPORARY_PRESENTER"
-                for row in report_recovery
-            ),
-            "exact R16 recovery row required",
-        )
+        if request["profile"] == R16_PROFILE:
+            _require(
+                all(
+                    row.get("code") == "TEMPORARY_PRESENTER_STILL"
+                    for row in report_warnings
+                    if type(row) is dict
+                ),
+                "unexpected R16 diagnostic code",
+            )
+            _require(
+                len(report_warnings) == 3
+                and all(type(row) is dict for row in report_warnings),
+                "exact three R16 warnings required",
+            )
+            _require(
+                len(report_recovery) == 1
+                and all(
+                    type(row) is dict
+                    and row.get("kind") == "REPLACE_TEMPORARY_PRESENTER"
+                    for row in report_recovery
+                ),
+                "exact R16 recovery row required",
+            )
+        else:
+            original_document = _parse(input_bytes["originalDocumentPath"])
+            _require(
+                type(original_document) is dict,
+                "current Presenter original document must be an object",
+            )
+            document_id = _identity(original_document.get("id"))
+            _verify_presenter_admission(admission, report, document_id)
     return admission
 
 
@@ -2039,7 +2149,7 @@ def _admission_profile(request: dict[str, Any]) -> dict[str, Any]:
             "ordinary verified package differs from native snapshots",
         )
         source_root = _path(str(loaded.root), "verified public package root")
-    else:
+    elif request["profile"] == R16_PROFILE:
         _require(
             admission["disposition"] == "qualification_only"
             and admission["creativeQualification"] == "unqualified_temporary_presenter",
@@ -2059,6 +2169,16 @@ def _admission_profile(request: dict[str, Any]) -> dict[str, Any]:
             "R16 package no longer matches the pinned original/execution inputs",
         )
         source_root = root
+    elif request["profile"] == PRESENTER_PROFILE:
+        _require(
+            admission["disposition"] == "qualification_only"
+            and admission["creativeQualification"] == "unqualified_temporary_presenter",
+            "current Presenter package is not qualification-only",
+        )
+        _verify_presenter_input_scope(root, admission, manifest)
+        source_root = root
+    else:
+        raise OutputConsistencyError("unsupported native package profile")
     return {
         "admission": admission,
         "manifest": manifest,
@@ -2206,6 +2326,100 @@ def _verify_r16_original_currentness_inner() -> dict[str, bytes]:
         )
         snapshots[name] = raw
     return snapshots
+
+
+def _verify_presenter_original_currentness() -> dict[str, bytes]:
+    """Read only the two pinned issue-owned Presenter fixture inputs."""
+    try:
+        snapshots: dict[str, bytes] = {}
+        for name, expected_sha256 in _PRESENTER_ORIGINALS.items():
+            path = _PRESENTER_INPUT_ROOT / name
+            raw = _read(
+                path, f"current Presenter original {name}", maximum=16 * 1024 * 1024
+            )
+            _require(
+                _hash(raw) == expected_sha256,
+                f"current Presenter original bytes changed: {name}",
+            )
+            snapshots[name] = raw
+        return snapshots
+    except OutputConsistencyError:
+        raise
+    except (OSError, RuntimeError, ValueError) as error:
+        raise OutputConsistencyError(
+            "current Presenter original inputs are unavailable"
+        ) from error
+
+
+def _verify_presenter_input_scope(
+    root: Path, admission: dict[str, Any], manifest: dict[str, Any]
+) -> None:
+    originals = _verify_presenter_original_currentness()
+    original_document = originals["script-document-v2.json"]
+    original_dependencies = originals["compiler-dependencies-v2.json"]
+    _require(
+        admission["originalDocumentSha256"]
+        == _PRESENTER_ORIGINALS["script-document-v2.json"]
+        and admission["originalDependenciesSha256"]
+        == _PRESENTER_ORIGINALS["compiler-dependencies-v2.json"],
+        "current Presenter original input pins differ",
+    )
+    original_document_copy = _read(
+        root / "Original/script-document-v2.json", "Presenter package original document"
+    )
+    original_dependencies_copy = _read(
+        root / "Original/compiler-dependencies-v2.json",
+        "Presenter package original dependencies",
+    )
+    execution_document = _read(
+        root / "Execution/script-document-v2.json", "Presenter execution document"
+    )
+    execution_dependencies_raw = _read(
+        root / "Execution/compiler-dependencies-v2.json",
+        "Presenter execution dependencies",
+    )
+    _require(
+        original_document_copy == original_document
+        and original_dependencies_copy == original_dependencies
+        and execution_document == original_document,
+        "current Presenter original/execution document bytes differ",
+    )
+    _require(
+        admission["executionDocumentSha256"]
+        == _PRESENTER_ORIGINALS["script-document-v2.json"]
+        and admission["executionDependenciesSha256"]
+        == _hash(execution_dependencies_raw),
+        "current Presenter execution input pins differ",
+    )
+    original_dependencies_value = _parse(original_dependencies)
+    execution_dependencies_value = _parse(execution_dependencies_raw)
+    _require(
+        type(original_dependencies_value) is dict
+        and type(execution_dependencies_value) is dict,
+        "current Presenter dependency inputs must be JSON objects",
+    )
+    original_compiler = original_dependencies_value.get("compiler")
+    execution_compiler = execution_dependencies_value.get("compiler")
+    _require(
+        type(original_compiler) is dict and type(execution_compiler) is dict,
+        "current Presenter compiler identity is missing",
+    )
+    assert type(original_compiler) is dict
+    assert type(execution_compiler) is dict
+    _source_hash(execution_compiler.get("sourceHash"))
+    expected_execution_dependencies = dict(original_dependencies_value)
+    expected_execution_dependencies["compiler"] = dict(original_compiler)
+    expected_execution_dependencies["compiler"]["sourceHash"] = execution_compiler[
+        "sourceHash"
+    ]
+    _require(
+        execution_dependencies_value == expected_execution_dependencies,
+        "current Presenter execution dependencies changed beyond compiler.sourceHash",
+    )
+    _require(
+        manifest.get("compiler") == execution_compiler,
+        "current Presenter manifest compiler identity differs from execution inputs",
+    )
 
 
 _OUTPUT_RUNTIME_FILES = (
@@ -3022,7 +3236,8 @@ def _capture_geometry(
                     and (
                         speed["Percentage"] == 100
                         or (
-                            request.get("profile") == MATRIX_PROFILE
+                            request.get("profile")
+                            in {MATRIX_PROFILE, PRESENTER_PROFILE}
                             and static_picture
                             and speed["Percentage"] == 0
                         )
@@ -3110,7 +3325,7 @@ def _capture_geometry(
                 # Studio can expose its arbitrary held-frame counter for a still.
                 # Normalize only a verified one-frame source with exact time edges.
                 if (
-                    request.get("profile") == MATRIX_PROFILE
+                    request.get("profile") in {MATRIX_PROFILE, PRESENTER_PROFILE}
                     and static_picture
                     and source_start == source_end
                     and source_start >= 0
@@ -3131,7 +3346,7 @@ def _capture_geometry(
                     source_start = 0
                     source_duration = duration
                 if (
-                    request.get("profile") == MATRIX_PROFILE
+                    request.get("profile") in {MATRIX_PROFILE, PRESENTER_PROFILE}
                     and kind == "audio"
                     and source_start == expected_source_start
                     and source_end == expected_source_end
