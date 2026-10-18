@@ -1033,11 +1033,30 @@ def _validated(
         delivery = delivery_map[item["eventId"]]
         _require(delivery["kind"] == event["kind"], "delivery event kind differs")
         source_start, source_duration = _native_range(delivery["sourceRange"])
+        held_picture = event["kind"] == "placeholder" or (
+            event["kind"] in {"primary_visual", "overlay_visual"}
+            and isinstance(event.get("pictureTreatment"), dict)
+            and event["pictureTreatment"].get("kind") == "still_frame"
+        )
+        # A held picture has no advancing source clock. Its authenticated
+        # single frame can remain on screen past the authored hold duration;
+        # the observed native route and semantic bridge bound the actual edit.
+        edited_hold = (
+            context["phase"] == "edited"
+            and held_picture
+            and item["kind"] == "video"
+            and item["sourceStart"] == source_start
+            and item["sourceDuration"] == item["recordDuration"]
+            and item["sourceDuration"] <= geometry["extentFrames"]
+        )
         _require(
-            source_start
-            <= item["sourceStart"]
-            < item["sourceStart"] + item["sourceDuration"]
-            <= source_start + source_duration,
+            edited_hold
+            or (
+                source_start
+                <= item["sourceStart"]
+                < item["sourceStart"] + item["sourceDuration"]
+                <= source_start + source_duration
+            ),
             "native segment outside authenticated event",
         )
     for event_id, delivery in delivery_map.items():
