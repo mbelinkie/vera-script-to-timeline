@@ -2930,8 +2930,38 @@ def _capture_geometry(
                     )
                     expected_source_start = source_range["startFrame"]
                     expected_source_duration = source_range["durationFrames"]
-                # Resolve 21.1.1/10 reports exclusive video and inclusive audio ends.
-                source_duration = source_end - source_start + (kind == "audio")
+                # Video end getters are exclusive in the clip interior, but Studio
+                # saturates them at the last source frame when the clip reaches EOF.
+                expected_source_end = expected_source_start + expected_source_duration
+                verified_video_frames = None
+                if kind == "video":
+                    for manifest_source in manifest.get("sources", []):
+                        if manifest_source["id"] != source_id:
+                            continue
+                        for binding in manifest.get("preparationBindings", []):
+                            if binding["requirementKey"] == manifest_source.get(
+                                "preparationRequirementKey"
+                            ):
+                                verification = binding["verification"]
+                                if _source_hash(
+                                    verification["deliveredHash"]
+                                ) == _source_hash(source["contentHash"]):
+                                    verified_video_frames = verification[
+                                        "decodedFrameCount"
+                                    ]
+                video_end_saturated_at_eof = (
+                    kind == "video"
+                    and type(verified_video_frames) is int
+                    and verified_video_frames == expected_source_end
+                    and props.get("Frames") == str(expected_source_end)
+                    and source_end == expected_source_end - 1
+                    and expected_source_duration == duration
+                )
+                source_duration = (
+                    source_end
+                    - source_start
+                    + (kind == "audio" or video_end_saturated_at_eof)
+                )
                 _require(
                     source_start == expected_source_start
                     and source_duration == expected_source_duration,

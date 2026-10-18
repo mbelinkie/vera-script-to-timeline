@@ -658,6 +658,7 @@ def test_r16_admission_accepts_the_retained_recovery_kind_shape(
 class _Media:
     def __init__(self, path: Path) -> None:
         self.path = path
+        self.frame_count: int | None = None
 
     def GetUniqueId(self) -> str:
         return "media-one"
@@ -666,7 +667,10 @@ class _Media:
         return "media-id-one"
 
     def GetClipProperty(self) -> dict[str, str]:
-        return {"Online Status": "Online", "File Path": str(self.path)}
+        properties = {"Online Status": "Online", "File Path": str(self.path)}
+        if self.frame_count is not None:
+            properties["Frames"] = str(self.frame_count)
+        return properties
 
 
 class _Item:
@@ -1281,6 +1285,38 @@ def test_geometry_uses_verified_source_root_and_checks_exact_native_ranges(
     assert geometry["items"][0]["sourceDuration"] == 10
     assert geometry["items"][0]["sourceMappingSha256"] is None
     assert geometry["extentFrames"] == 10
+
+
+@pytest.mark.parametrize(
+    "verified_count,native_count,accepted",
+    [(22, 22, True), (23, 22, False), (22, 23, False), (None, 22, False)],
+)
+def test_geometry_normalizes_only_verified_video_eof(
+    tmp_path: Path, verified_count: int | None, native_count: int, accepted: bool
+) -> None:
+    resolve, request, admitted, item, _timeline = _geometry_case(tmp_path)
+    source = admitted["view"]["sources"][0]
+    admitted["manifest"]["sources"] = [
+        {"id": source["id"], "preparationRequirementKey": "prepared-video"}
+    ]
+    admitted["manifest"]["preparationBindings"] = [
+        {
+            "requirementKey": "prepared-video",
+            "verification": {
+                "deliveredHash": source["contentHash"],
+                "decodedFrameCount": verified_count,
+            },
+        }
+    ]
+    item.source_end_frame = 21
+    item.media.frame_count = native_count
+    if accepted:
+        geometry = native._capture_geometry(resolve, request, admitted, None)
+        assert geometry["items"][0]["sourceStart"] == 12
+        assert geometry["items"][0]["sourceDuration"] == 10
+    else:
+        with pytest.raises(OutputConsistencyError, match="native source range differs"):
+            native._capture_geometry(resolve, request, admitted, None)
 
 
 @pytest.mark.parametrize(
