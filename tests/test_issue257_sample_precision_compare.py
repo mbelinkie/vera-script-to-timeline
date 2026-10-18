@@ -462,7 +462,7 @@ def test_finalize_status_never_claims_support_without_geometry_and_pcm(
                     "method": "Project.GetRenderSettings",
                 },
             },
-            "formatCodec": {"format": "mov", "codec": "apcn"},
+            "formatCodec": {"format": "mov", "codec": "ProRes422"},
             "jobStatus": {"JobStatus": "Complete"},
         },
         "failure": None,

@@ -941,7 +941,7 @@ def _verify_effect_journals(
             raise SamplePrecisionCompareError(
                 "render settings effect journal differs from the fixed request"
             )
-        if effects[10].get("arguments") != ["mov", "apcn"]:
+        if effects[10].get("arguments") != ["mov", "ProRes422"]:
             raise SamplePrecisionCompareError("render format effect journal differs")
         if effects[11].get("arguments") != [1]:
             raise SamplePrecisionCompareError("render mode effect journal differs")
@@ -1209,7 +1209,7 @@ def finalize_probe(request_path: Path, result_path: Path, output: Path) -> Path:
             render.get("status") != "rendered_for_pcm_verification"
             or render.get("outputPath") != str(expected_mov)
             or type(render.get("sha256")) is not str
-            or render.get("formatCodec") != {"format": "mov", "codec": "apcn"}
+            or render.get("formatCodec") != {"format": "mov", "codec": "ProRes422"}
             or type(render.get("jobId")) is not str
             or type(render.get("job")) is not dict
             or type(render.get("jobStatus")) is not dict
