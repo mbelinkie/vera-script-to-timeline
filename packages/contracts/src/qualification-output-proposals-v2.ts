@@ -34,6 +34,16 @@ const CONTEXT_HASH_FIELDS = [
 const CONTEXT_FIELDS = ["lane", "invocationId", "caseId", "phase", "target", ...CONTEXT_HASH_FIELDS, "binding"];
 const GEOMETRY_FIELDS = ["context", "extentFrames", "rate", "tracks", "items", "sourceMappings"];
 const TRACK_FIELDS = ["trackId", "kind", "index", "name", "enabled", "locked"];
+const INPUT_BINDING_FIELDS = ["schemaVersion", "lane", "context", "delivery", "sourceEntries", "tracks", "itemMappings", "nativeSources"];
+const DELIVERY_FIELDS = ["eventId", "kind", "recordRange", "sourceRange"];
+const RANGE_FIELDS = ["startFrame", "durationFrames"];
+const ITEM_MAPPING_FIELDS = ["itemUid", "eventId", "sourceId", "mediaUid"];
+const SOURCE_FIELDS = [
+  "sourceId", "nativeSourceSha256", "pcmMode", "provenanceReceiptSha256", "provenancePinsSha256",
+  "deliveryDerivationSha256", "pcmFileSha256", "decodedSamplesSha256", "originalBitDepth", "channels",
+  "durationSamples", "sampleRate", "pcmMappingSha256", "nativeFrameOrigin", "pcmSampleOrigin",
+];
+const NATIVE_SOURCE_FIELDS = ["sourceId", "nativeSourceSha256"];
 const ITEM_FIELDS = [
   "itemUid", "eventId", "sourceId", "mediaUid", "kind", "trackId", "recordStart", "recordDuration",
   "sourceStart", "sourceDuration", "linkedItemUids", "online", "enabled", "speed", "sourceMappingSha256",
@@ -57,6 +67,8 @@ export interface QualificationOutputObservationCaseV1 {
   caseId: string;
   pristineGeometryJson: string;
   editedGeometryJson: string;
+  pristineInputBindingJson: string;
+  editedInputBindingJson: string;
   pristineComparisonJson: string;
   editedComparisonJson: string;
   pairJson: string | null;
@@ -192,7 +204,7 @@ interface GeometryV1 extends RecordValue {
   context: RecordValue; extentFrames: number; tracks: TrackV1[]; items: ItemV1[]; sourceMappings: RecordValue[];
 }
 interface ParsedGeometry {
-  raw: string; rawSha256: string; envelope: RecordValue; geometry: GeometryV1; context: RecordValue;
+  raw: string; rawSha256: string; envelope: RecordValue; geometry: GeometryV1; context: RecordValue; inputBinding: RecordValue;
 }
 interface ParsedComparison { raw: string; rawSha256: string; value: RecordValue; context: RecordValue; }
 interface ParsedCase {
@@ -309,17 +321,23 @@ function validateContext(value: unknown, phase: "pristine" | "edited", caseId: s
   return context;
 }
 
-function validateGeometry(raw: unknown, label: string, phase: "pristine" | "edited", caseId: string): ParsedGeometry {
+function validateGeometry(raw: unknown, inputBindingRaw: unknown, label: string, phase: "pristine" | "edited", caseId: string): ParsedGeometry {
   const text = raw as string;
   const envelope = shape(parseRaw(text, label), ["schemaVersion", "lane", "geometry", "inputBindingSha256", "capturePhase", "capturedAt", "expiresAt", "receiptSha256"], `${label} geometry envelope`);
   fact(envelope.schemaVersion === "qualification-output-geometry/v1" && envelope.lane === LANE, "wrong geometry namespace/lane");
   fact(envelope.capturePhase === "pre_render", "proposal inference requires authenticated pre-render geometry");
   bareHash(envelope.inputBindingSha256, "input binding hash"); bareHash(envelope.receiptSha256, "geometry receipt hash");
+  fact(typeof inputBindingRaw === "string", "raw input binding JSON text required");
+  const inputBindingText = inputBindingRaw;
+  const inputBinding = shape(parseRaw(inputBindingText, `${label} input binding`), INPUT_BINDING_FIELDS, `${label} input binding`);
+  fact(rawSha256(inputBindingText) === envelope.inputBindingSha256, "geometry/input binding raw hash differs");
+  fact(inputBinding.schemaVersion === "qualification-output-inputs/v1" && inputBinding.lane === LANE, "wrong input binding namespace/lane");
   fact(typeof envelope.capturedAt === "string" && typeof envelope.expiresAt === "string" &&
     Number.isFinite(Date.parse(envelope.capturedAt)) && Number.isFinite(Date.parse(envelope.expiresAt)) &&
     Date.parse(envelope.capturedAt) <= Date.parse(envelope.expiresAt), "geometry capture chronology differs");
   const geometry = shape(envelope.geometry, GEOMETRY_FIELDS, `${label} semantic geometry`) as GeometryV1;
   const context = validateContext(geometry.context, phase, caseId);
+  fact(equal(inputBinding.context, context), "input binding context differs from geometry");
   const extent = integer(geometry.extentFrames, "programme extent"); fact(extent > 0 && extent <= 1498, "unsupported programme extent");
   const rate = shape(geometry.rate, ["numerator", "denominator"], "frame rate");
   fact(integer(rate.numerator) === 24000 && integer(rate.denominator) === 1001, "unsupported frame rate");
@@ -340,6 +358,57 @@ function validateGeometry(raw: unknown, label: string, phase: "pristine" | "edit
     fact(indexes.every((n, i) => n === i + 1), "incomplete track index inventory");
   }
 
+  const boundTracks = list(inputBinding.tracks, 64).map((value) => {
+    const track = shape(value, TRACK_FIELDS, "bound input track") as TrackV1;
+    identity(track.trackId); identity(track.name);
+    fact((track.kind === "video" || track.kind === "audio") && integer(track.index) >= 1 && integer(track.index) <= 32 &&
+      track.enabled === true && typeof track.locked === "boolean", "unsupported bound input track");
+    return track;
+  });
+  fact(equal(boundTracks, tracks), "geometry tracks differ from input binding");
+
+  const delivery = list(inputBinding.delivery, 2048).map((value) => {
+    const row = shape(value, DELIVERY_FIELDS, "bound delivery row");
+    identity(row.eventId, "delivery event identity"); identity(row.kind, "delivery event kind");
+    for (const key of ["recordRange", "sourceRange"]) {
+      const range = shape(row[key], RANGE_FIELDS, `delivery ${key}`);
+      integer(range.startFrame); fact(integer(range.durationFrames) > 0, "delivery duration required");
+    }
+    return row;
+  });
+  const deliveryIds = delivery.map((row) => row.eventId as string);
+  fact(new Set(deliveryIds).size === deliveryIds.length && equal(deliveryIds, [...deliveryIds].sort(codepointCompare)), "duplicate or unordered delivery inventory");
+
+  const sourceEntries = list(inputBinding.sourceEntries, 16).map((value) => {
+    const source = shape(value, SOURCE_FIELDS, "bound PCM source entry");
+    identity(source.sourceId, "source entry identity");
+    for (const key of SOURCE_FIELDS.filter((field) => field.endsWith("Sha256"))) bareHash(source[key], `source entry ${key}`);
+    fact(source.pcmMode === "wav-direct" || source.pcmMode === "prepared-audio", "unsupported source PCM mode");
+    fact([16, 24].includes(integer(source.originalBitDepth)) && integer(source.channels) >= 1 && integer(source.channels) <= 2 &&
+      integer(source.durationSamples) >= 960 && integer(source.durationSamples) <= 16_000_000 && integer(source.sampleRate) === 48000 &&
+      integer(source.pcmSampleOrigin) <= integer(source.durationSamples), "unsupported PCM source geometry");
+    integer(source.nativeFrameOrigin);
+    return source;
+  });
+  const sourceEntryIds = sourceEntries.map((source) => source.sourceId as string);
+  fact(new Set(sourceEntryIds).size === sourceEntryIds.length && equal(sourceEntryIds, [...sourceEntryIds].sort(codepointCompare)), "duplicate or unordered PCM source inventory");
+  fact(sourceEntries.reduce((cells, source) => cells + integer(source.channels) * integer(source.durationSamples), 0) <= 32_000_000,
+    "aggregate PCM source sample cells exceed bound");
+
+  const nativeSources = list(inputBinding.nativeSources, 64).map((value) => {
+    const source = shape(value, NATIVE_SOURCE_FIELDS, "bound native source");
+    identity(source.sourceId, "native source identity"); bareHash(source.nativeSourceSha256, "native source hash");
+    return source;
+  });
+  const nativeIds = nativeSources.map((source) => source.sourceId as string);
+  fact(new Set(nativeIds).size === nativeIds.length && equal(nativeIds, [...nativeIds].sort(codepointCompare)), "duplicate or unordered native source inventory");
+  const nativeSourceMap = new Map(nativeSources.map((source) => [source.sourceId as string, source]));
+  const sourceEntryMap = new Map(sourceEntries.map((source) => [source.sourceId as string, source]));
+  for (const source of sourceEntries) {
+    fact(nativeSourceMap.get(source.sourceId as string)?.nativeSourceSha256 === source.nativeSourceSha256,
+      "PCM source native hash differs from complete native source binding");
+  }
+
   const sources = list(geometry.sourceMappings, 16).map((value) => {
     const source = shape(value, ["sourceId", "nativeSourceSha256", "sourceEntrySha256"], "source mapping");
     identity(source.sourceId); bareHash(source.nativeSourceSha256); bareHash(source.sourceEntrySha256);
@@ -348,7 +417,12 @@ function validateGeometry(raw: unknown, label: string, phase: "pristine" | "edit
   fact(new Set(sources.map((s) => s.sourceId)).size === sources.length, "duplicate source identity");
   const sourceIds = sources.map((s) => s.sourceId as string);
   fact(equal(sourceIds, [...sourceIds].sort(codepointCompare)), "unordered source inventory");
-  const sourceMap = new Map(sources.map((s) => [s.sourceId as string, s]));
+  const expectedMappings = sourceEntries.map((source) => ({
+    sourceId: source.sourceId,
+    nativeSourceSha256: source.nativeSourceSha256,
+    sourceEntrySha256: pythonJsonHash(source),
+  }));
+  fact(equal(sources, expectedMappings), "audio source mapping inventory differs from input binding");
   const trackMap = new Map(tracks.map((t) => [t.trackId, t]));
   const audioMappingBySource = new Map<string, string>();
   const items = list(geometry.items, 2048).map((value) => {
@@ -356,18 +430,21 @@ function validateGeometry(raw: unknown, label: string, phase: "pristine" | "edit
     for (const key of ["itemUid", "eventId", "sourceId", "mediaUid", "trackId"]) identity(item[key], `item ${key}`);
     fact(item.kind === "video" || item.kind === "audio", "unknown item kind");
     const track = trackMap.get(item.trackId); fact(track !== undefined && track.kind === item.kind, "unknown or mismatched item track");
-    fact(sourceMap.has(item.sourceId), "unknown item source");
+    const nativeSource = nativeSourceMap.get(item.sourceId);
+    fact(nativeSource !== undefined, "unknown item source");
     const recordStart = integer(item.recordStart); const recordDuration = integer(item.recordDuration);
     integer(item.sourceStart); const sourceDuration = integer(item.sourceDuration);
     fact(recordDuration > 0 && sourceDuration === recordDuration && recordStart + recordDuration <= extent, "unsupported item interval");
     const speed = shape(item.speed, ["numerator", "denominator"], "item speed");
     fact(integer(speed.numerator) === 1 && integer(speed.denominator) === 1 && item.enabled === true && item.online === true, "offline, disabled or non-unit-speed item");
     bareHash(item.sourceMappingSha256, "item source mapping hash");
-    const mappedSource = sourceMap.get(item.sourceId)!;
-    if (item.kind === "video") fact(item.sourceMappingSha256 === mappedSource.nativeSourceSha256, "video source mapping differs");
+    if (item.kind === "video") fact(item.sourceMappingSha256 === nativeSource.nativeSourceSha256, "video source mapping differs");
     else {
+      const sourceEntry = sourceEntryMap.get(item.sourceId);
+      fact(sourceEntry !== undefined, "audio item has no bound PCM source entry");
       const old = audioMappingBySource.get(item.sourceId);
       fact(old === undefined || old === item.sourceMappingSha256, "split audio source mapping differs");
+      fact(item.sourceMappingSha256 === sourceEntry.pcmMappingSha256, "audio source mapping differs from bound PCM source entry");
       audioMappingBySource.set(item.sourceId, item.sourceMappingSha256);
     }
     const links = list(item.linkedItemUids, 2048).map((uid) => identity(uid, "linked item UID"));
@@ -380,8 +457,20 @@ function validateGeometry(raw: unknown, label: string, phase: "pristine" | "edit
   for (const item of items) for (const uid of item.linkedItemUids) {
     const linked = byUid.get(uid); fact(linked !== undefined && linked.linkedItemUids.includes(item.itemUid), "incomplete/asymmetric item links");
   }
-  fact(sources.every((s) => items.some((item) => item.sourceId === s.sourceId)), "unexplained source inventory entry");
-  return { raw: text, rawSha256: rawSha256(text), envelope, geometry, context };
+  const usedNativeIds = [...new Set(items.map((item) => item.sourceId))].sort(codepointCompare);
+  fact(equal(nativeIds, usedNativeIds), "complete native source inventory differs from item source identities");
+  fact(sourceEntries.every((source) => items.some((item) => item.kind === "audio" && item.sourceId === source.sourceId)), "unexplained PCM source inventory entry");
+  const itemMappings = items.map((item) => ({ itemUid: item.itemUid, eventId: item.eventId, sourceId: item.sourceId, mediaUid: item.mediaUid }))
+    .sort((a, b) => codepointCompare(a.itemUid, b.itemUid));
+  const boundItemMappings = list(inputBinding.itemMappings, 2048).map((value) => {
+    const mapping = shape(value, ITEM_MAPPING_FIELDS, "bound native item mapping");
+    for (const key of ITEM_MAPPING_FIELDS) identity(mapping[key], `item mapping ${key}`);
+    return mapping;
+  });
+  fact(equal(boundItemMappings, itemMappings), "native item mappings differ from input binding");
+  const itemEventIds = [...new Set(items.map((item) => item.eventId))].sort(codepointCompare);
+  fact(equal(deliveryIds, itemEventIds), "delivery inventory differs from native item mappings");
+  return { raw: text, rawSha256: rawSha256(text), envelope, geometry, context, inputBinding };
 }
 
 function metricRows(value: unknown, consistentExpected: boolean | null): RecordValue[] {
@@ -447,13 +536,14 @@ function validateAudioEquality(value: unknown, caseId: string, a: GeometryV1, b:
 }
 
 function parseCase(value: unknown): ParsedCase {
-  const source = shape(value, ["schemaVersion", "lane", "caseId", "pristineGeometryJson", "editedGeometryJson", "pristineComparisonJson", "editedComparisonJson", "pairJson", "audioEquality", "omissionSupport"], "observation case") as unknown as QualificationOutputObservationCaseV1;
+  const source = shape(value, ["schemaVersion", "lane", "caseId", "pristineGeometryJson", "editedGeometryJson", "pristineInputBindingJson", "editedInputBindingJson", "pristineComparisonJson", "editedComparisonJson", "pairJson", "audioEquality", "omissionSupport"], "observation case") as unknown as QualificationOutputObservationCaseV1;
   fact(source.schemaVersion === "qualification-output-observation/v1" && source.lane === LANE, "wrong observation namespace/lane");
   const caseId = identity(source.caseId, "case identity");
   fact(typeof source.pristineGeometryJson === "string" && typeof source.editedGeometryJson === "string" &&
+    typeof source.pristineInputBindingJson === "string" && typeof source.editedInputBindingJson === "string" &&
     typeof source.pristineComparisonJson === "string" && typeof source.editedComparisonJson === "string", "raw authenticated JSON text required");
-  const pristine = validateGeometry(source.pristineGeometryJson, "pristine", "pristine", caseId);
-  const edited = validateGeometry(source.editedGeometryJson, "edited", "edited", caseId);
+  const pristine = validateGeometry(source.pristineGeometryJson, source.pristineInputBindingJson, "pristine", "pristine", caseId);
+  const edited = validateGeometry(source.editedGeometryJson, source.editedInputBindingJson, "edited", "edited", caseId);
   const pristineComparison = validateComparison(source.pristineComparisonJson, "pristine comparison", pristine.context);
   const editedComparison = validateComparison(source.editedComparisonJson, "edited comparison", edited.context);
   fact(equal(pristine.context.target, edited.context.target) && pristine.context.invocationId !== edited.context.invocationId, "target replay or target switch");

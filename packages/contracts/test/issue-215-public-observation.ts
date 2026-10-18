@@ -40,12 +40,19 @@ function geometryEnvelope(
   const compiled = compileTimelineV2(input.document, input.dependencies);
   if (!compiled.ok || compiled.report.status !== "ready") throw new Error("sanitized baseline compile failed");
   const manifest = compiled.manifest;
-  const sourceRows = new Map<string, { sourceId: string; nativeSourceSha256: string; sourceEntrySha256: string }>();
-  for (const item of raw.items) sourceRows.set(item.sourceId, {
-    sourceId: item.sourceId,
-    nativeSourceSha256: bare(item.sourceHash),
-    sourceEntrySha256: bare(hash(`entry:${item.sourceId}`)),
-  });
+  const nativeSourceRows = new Map<string, { sourceId: string; nativeSourceSha256: string }>();
+  for (const item of raw.items) nativeSourceRows.set(item.sourceId, { sourceId: item.sourceId, nativeSourceSha256: bare(item.sourceHash) });
+  const audioItems = new Map<string, ReturnType<typeof observations>["items"][number]>();
+  for (const item of raw.items.filter((row) => row.kind === "audio")) audioItems.set(item.sourceId, item);
+  const sourceEntries = [...audioItems].map(([sourceId, item]) => ({
+    sourceId, nativeSourceSha256: nativeSourceRows.get(sourceId)!.nativeSourceSha256, pcmMode: "prepared-audio",
+    provenanceReceiptSha256: bare(hash(`entry:${sourceId}:receipt`)), provenancePinsSha256: bare(hash(`entry:${sourceId}:pins`)),
+    deliveryDerivationSha256: bare(hash(`entry:${sourceId}:delivery`)), pcmFileSha256: bare(hash(`entry:${sourceId}:pcm-file`)),
+    decodedSamplesSha256: bare(hash(`entry:${sourceId}:samples`)), originalBitDepth: 24, channels: 1,
+    durationSamples: 4_000_000, sampleRate: 48000,
+    pcmMappingSha256: bare(item.sourceHash), nativeFrameOrigin: 0, pcmSampleOrigin: 0,
+  })).sort((a, b) => a.sourceId.localeCompare(b.sourceId));
+  const sourceEntriesById = new Map(sourceEntries.map((entry) => [entry.sourceId, entry]));
   const tracks = raw.tracks.map((track) => {
     const sourceTrack = manifest.tracks.find((row) => row.kind === track.kind && row.index === track.index);
     if (!sourceTrack) throw new Error("sanitized track mapping missing");
@@ -58,8 +65,8 @@ function geometryEnvelope(
     const event = manifest.events.find((row) => row.eventId === item.eventId);
     if (!event) throw new Error("sanitized event mapping missing");
     const sourceMappingSha256 = item.kind === "video"
-      ? sourceRows.get(item.sourceId)!.nativeSourceSha256
-      : bare(item.sourceHash);
+      ? nativeSourceRows.get(item.sourceId)!.nativeSourceSha256
+      : sourceEntriesById.get(item.sourceId)!.pcmMappingSha256;
     return {
       itemUid: item.itemUid, eventId: item.eventId, sourceId: item.sourceId, mediaUid: item.mediaUid,
       kind: item.kind, trackId: event.trackId, recordStart: item.recordStart,
@@ -92,19 +99,39 @@ function geometryEnvelope(
     !["preflightSha256", "preparationSha256", "invocationId"].includes(key)));
   projection.binding = { kind: "baseline" };
   context.binding = { kind: "baseline", bindingSha256: pythonHash(projection) };
+  const delivery = manifest.events.filter((event) => event.kind !== "script_marker").map((event) => {
+    const start = event.recordRange.startFrame; const duration = event.recordRange.endFrame - start;
+    const sourceStart = event.sourceRange?.startFrame ?? 0;
+    const sourceDuration = event.sourceRange === null ? duration : event.sourceRange.endFrame - sourceStart;
+    return {
+      eventId: event.eventId, kind: event.kind,
+      recordRange: { startFrame: start, durationFrames: duration },
+      sourceRange: { startFrame: sourceStart, durationFrames: sourceDuration },
+    };
+  }).sort((a, b) => a.eventId.localeCompare(b.eventId));
+  const nativeSources = [...nativeSourceRows.values()].sort((a, b) => a.sourceId.localeCompare(b.sourceId));
+  const itemMappings = items.map(({ itemUid, eventId, sourceId, mediaUid }) => ({ itemUid, eventId, sourceId, mediaUid }))
+    .sort((a, b) => a.itemUid.localeCompare(b.itemUid));
+  const inputBindingJson = JSON.stringify(pythonSorted({
+    schemaVersion: "qualification-output-inputs/v1", lane: "bounded_output_residual_consistency", context,
+    delivery, sourceEntries, tracks, itemMappings, nativeSources,
+  }));
   const geometry = {
     context, extentFrames: raw.timeline.durationFrames, rate: { numerator: 24000, denominator: 1001 }, tracks, items,
-    sourceMappings: [...sourceRows.values()].sort((a, b) => a.sourceId.localeCompare(b.sourceId)),
+    sourceMappings: sourceEntries.map((source) => ({
+      sourceId: source.sourceId, nativeSourceSha256: source.nativeSourceSha256, sourceEntrySha256: pythonHash(source),
+    })),
   };
   return {
     envelope: {
       schemaVersion: "qualification-output-geometry/v1", lane: "bounded_output_residual_consistency", geometry,
-      inputBindingSha256: bare(hash(`isolated-A:${phase}:input-binding`)), capturePhase: "pre_render",
+      inputBindingSha256: rawHash(inputBindingJson), capturePhase: "pre_render",
       capturedAt: "2026-10-18T12:00:00Z", expiresAt: "2026-10-18T12:05:00Z",
       receiptSha256: bare(hash(`isolated-A:${phase}:receipt`)),
     },
     geometry,
     context,
+    inputBindingJson,
   };
 }
 
@@ -153,6 +180,7 @@ const evidence: QualificationOutputObservationBatchV1 = {
   cases: [{
     schemaVersion: "qualification-output-observation/v1", lane: "bounded_output_residual_consistency", caseId: "isolated-A",
     pristineGeometryJson: JSON.stringify(pristineGeometry.envelope), editedGeometryJson: JSON.stringify(editedGeometry.envelope),
+    pristineInputBindingJson: pristineGeometry.inputBindingJson, editedInputBindingJson: editedGeometry.inputBindingJson,
     pristineComparisonJson, editedComparisonJson, pairJson: null,
     audioEquality: {
       schemaVersion: "qualification-output-audio-equality/v1", lane: "bounded_output_residual_consistency", caseId: "isolated-A",

@@ -346,6 +346,8 @@ class QualificationOutputProofV2:
             "caseId": case_id,
             "pristineGeometryJson": before.inputs.geometry.decode(),
             "editedGeometryJson": after.inputs.geometry.decode(),
+            "pristineInputBindingJson": before.inputs.input_binding.decode(),
+            "editedInputBindingJson": after.inputs.input_binding.decode(),
             "pristineComparisonJson": pristine.comparison.decode(),
             "editedComparisonJson": edited.comparison.decode(),
             "pairJson": None if pair is None else _canonical(pair).decode(),

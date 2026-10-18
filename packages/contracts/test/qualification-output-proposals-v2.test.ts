@@ -34,12 +34,19 @@ function geometryEnvelope(input: ReturnType<typeof specimen>, raw: FakeRaw, phas
   const compiled = compileTimelineV2(input.document, input.dependencies);
   if (!compiled.ok || compiled.report.status !== "ready") throw new Error("sanitized baseline compile failed");
   const manifest = compiled.manifest;
-  const sourceRows = new Map<string, { sourceId: string; nativeSourceSha256: string; sourceEntrySha256: string }>();
-  for (const item of raw.items) sourceRows.set(item.sourceId, {
-    sourceId: item.sourceId,
-    nativeSourceSha256: bare(item.sourceHash),
-    sourceEntrySha256: bare(hash(`entry:${item.sourceId}`)),
-  });
+  const nativeSourceRows = new Map<string, { sourceId: string; nativeSourceSha256: string }>();
+  for (const item of raw.items) nativeSourceRows.set(item.sourceId, { sourceId: item.sourceId, nativeSourceSha256: bare(item.sourceHash) });
+  const audioItems = new Map<string, FakeRaw["items"][number]>();
+  for (const item of raw.items.filter((row) => row.kind === "audio")) audioItems.set(item.sourceId, item);
+  const sourceEntries = [...audioItems].map(([sourceId, item]) => ({
+    sourceId, nativeSourceSha256: nativeSourceRows.get(sourceId)!.nativeSourceSha256, pcmMode: "prepared-audio",
+    provenanceReceiptSha256: bare(hash(`entry:${sourceId}:receipt`)), provenancePinsSha256: bare(hash(`entry:${sourceId}:pins`)),
+    deliveryDerivationSha256: bare(hash(`entry:${sourceId}:delivery`)), pcmFileSha256: bare(hash(`entry:${sourceId}:pcm-file`)),
+    decodedSamplesSha256: bare(hash(`entry:${sourceId}:samples`)), originalBitDepth: 24, channels: 1,
+    durationSamples: 4_000_000, sampleRate: 48000,
+    pcmMappingSha256: bare(item.sourceHash), nativeFrameOrigin: 0, pcmSampleOrigin: 0,
+  })).sort((a, b) => a.sourceId.localeCompare(b.sourceId));
+  const sourceEntriesById = new Map(sourceEntries.map((entry) => [entry.sourceId, entry]));
   const tracks = raw.tracks.map((track) => {
     const sourceTrack = manifest.tracks.find((row) => row.kind === track.kind && row.index === track.index);
     if (!sourceTrack) throw new Error("sanitized track mapping missing");
@@ -48,7 +55,7 @@ function geometryEnvelope(input: ReturnType<typeof specimen>, raw: FakeRaw, phas
   const items = raw.items.map((item) => {
     const event = manifest.events.find((row) => row.eventId === item.eventId);
     if (!event) throw new Error("sanitized event mapping missing");
-    const sourceMappingSha256 = item.kind === "video" ? sourceRows.get(item.sourceId)!.nativeSourceSha256 : bare(item.sourceHash);
+    const sourceMappingSha256 = item.kind === "video" ? nativeSourceRows.get(item.sourceId)!.nativeSourceSha256 : sourceEntriesById.get(item.sourceId)!.pcmMappingSha256;
     return {
       itemUid: item.itemUid, eventId: item.eventId, sourceId: item.sourceId, mediaUid: item.mediaUid, kind: item.kind,
       trackId: event.trackId, recordStart: item.recordStart, recordDuration: item.recordEnd - item.recordStart,
@@ -74,16 +81,35 @@ function geometryEnvelope(input: ReturnType<typeof specimen>, raw: FakeRaw, phas
     !["preflightSha256", "preparationSha256", "invocationId"].includes(key)));
   projection.binding = { kind: "baseline" };
   context.binding = { kind: "baseline", bindingSha256: pythonHash(projection) };
+  const delivery = manifest.events.filter((event) => event.kind !== "script_marker").map((event) => {
+    const start = event.recordRange.startFrame; const duration = event.recordRange.endFrame - start;
+    const sourceStart = event.sourceRange?.startFrame ?? 0;
+    const sourceDuration = event.sourceRange === null ? duration : event.sourceRange.endFrame - sourceStart;
+    return {
+      eventId: event.eventId, kind: event.kind,
+      recordRange: { startFrame: start, durationFrames: duration },
+      sourceRange: { startFrame: sourceStart, durationFrames: sourceDuration },
+    };
+  }).sort((a, b) => a.eventId.localeCompare(b.eventId));
+  const nativeSources = [...nativeSourceRows.values()].sort((a, b) => a.sourceId.localeCompare(b.sourceId));
+  const itemMappings = items.map(({ itemUid, eventId, sourceId, mediaUid }) => ({ itemUid, eventId, sourceId, mediaUid }))
+    .sort((a, b) => a.itemUid.localeCompare(b.itemUid));
+  const inputBindingJson = JSON.stringify(pythonSorted({
+    schemaVersion: "qualification-output-inputs/v1", lane: "bounded_output_residual_consistency", context,
+    delivery, sourceEntries, tracks, itemMappings, nativeSources,
+  }));
   const geometry = {
     context, extentFrames: raw.timeline.durationFrames, rate: { numerator: 24000, denominator: 1001 }, tracks,
-    items, sourceMappings: [...sourceRows.values()].sort((a, b) => a.sourceId.localeCompare(b.sourceId)),
+    items, sourceMappings: sourceEntries.map((source) => ({
+      sourceId: source.sourceId, nativeSourceSha256: source.nativeSourceSha256, sourceEntrySha256: pythonHash(source),
+    })),
   };
   const envelope = {
     schemaVersion: "qualification-output-geometry/v1", lane: "bounded_output_residual_consistency", geometry,
-    inputBindingSha256: bare(hash(`${caseId}:${phase}:input-binding`)), capturePhase: "pre_render",
+    inputBindingSha256: rawHash(inputBindingJson), capturePhase: "pre_render",
     capturedAt: "2026-10-18T12:00:00Z", expiresAt: "2026-10-18T12:05:00Z", receiptSha256: bare(hash(`${caseId}:${phase}:receipt`)),
   };
-  return { envelope, geometry, context };
+  return { envelope, geometry, context, inputBindingJson };
 }
 
 function comparison(geometry: ReturnType<typeof geometryEnvelope>, phase: "pristine" | "edited", caseId: string) {
@@ -172,10 +198,21 @@ function newCase(input: ReturnType<typeof specimen>, kind: "A" | "B" | "C", exec
   return {
     schemaVersion: "qualification-output-observation/v1", lane: "bounded_output_residual_consistency", caseId,
     pristineGeometryJson: JSON.stringify(pristineGeometry.envelope), editedGeometryJson: JSON.stringify(editedGeometry.envelope),
+    pristineInputBindingJson: pristineGeometry.inputBindingJson, editedInputBindingJson: editedGeometry.inputBindingJson,
     pristineComparisonJson, editedComparisonJson, pairJson,
     audioEquality: kind === "A" ? equality(caseId, pristineGeometry.geometry.extentFrames) : null,
     omissionSupport,
   };
+}
+
+function replaceInputBinding(row: QualificationOutputObservationCaseV1, phase: "pristine" | "edited", binding: unknown): void {
+  const bindingKey = phase === "pristine" ? "pristineInputBindingJson" : "editedInputBindingJson";
+  const geometryKey = phase === "pristine" ? "pristineGeometryJson" : "editedGeometryJson";
+  const raw = JSON.stringify(pythonSorted(binding));
+  row[bindingKey] = raw;
+  const envelope = JSON.parse(row[geometryKey]) as { inputBindingSha256: string };
+  envelope.inputBindingSha256 = rawHash(raw);
+  row[geometryKey] = JSON.stringify(envelope);
 }
 
 function batch(input: ReturnType<typeof specimen>, kinds: ("A" | "B" | "C")[], executionDiffers = false): QualificationOutputObservationBatchV1 {
@@ -221,6 +258,49 @@ describe("#215 authenticated output observation to explicit revision bridge", ()
     expect(inference.internalControls).toBe("unverified"); expect(inference.futureAuthority).toBe(false);
   });
 
+  it("keeps video native sources outside the audio PCM source mappings", () => {
+    const input = specimen(); const evidence = batch(input, ["A"]); const row = evidence.cases[0]!;
+    const geometry = JSON.parse(row.pristineGeometryJson) as { geometry: { items: { kind: string; sourceId: string }[]; sourceMappings: { sourceId: string }[] } };
+    const binding = JSON.parse(row.pristineInputBindingJson) as {
+      nativeSources: { sourceId: string }[]; sourceEntries: { sourceId: string }[];
+    };
+    const audioIds = new Set(geometry.geometry.items.filter((item) => item.kind === "audio").map((item) => item.sourceId));
+    const videoOnlyId = geometry.geometry.items.find((item) => item.kind === "video" && !audioIds.has(item.sourceId))!.sourceId;
+    expect(binding.nativeSources.map((source) => source.sourceId)).toContain(videoOnlyId);
+    expect(binding.sourceEntries.map((source) => source.sourceId)).not.toContain(videoOnlyId);
+    expect(geometry.geometry.sourceMappings.map((source) => source.sourceId)).toEqual(binding.sourceEntries.map((source) => source.sourceId));
+    expect(inferQualificationOutputV2(input.document, input.dependencies, evidence).caseKinds).toEqual(["A"]);
+
+    const unknown = batch(input, ["A"]); const unknownRow = unknown.cases[0]!;
+    const unknownBinding = JSON.parse(unknownRow.pristineInputBindingJson) as { nativeSources: { sourceId: string }[] };
+    unknownBinding.nativeSources = unknownBinding.nativeSources.filter((source) => source.sourceId !== videoOnlyId);
+    replaceInputBinding(unknownRow, "pristine", unknownBinding);
+    expect(() => inferQualificationOutputV2(input.document, input.dependencies, unknown)).toThrow(/unknown item source/);
+
+    const tampered = batch(input, ["A"]); const tamperedRow = tampered.cases[0]!;
+    const tamperedBinding = JSON.parse(tamperedRow.pristineInputBindingJson) as {
+      nativeSources: { sourceId: string; nativeSourceSha256: string }[];
+    };
+    tamperedBinding.nativeSources.find((source) => source.sourceId === videoOnlyId)!.nativeSourceSha256 = "0".repeat(64);
+    replaceInputBinding(tamperedRow, "pristine", tamperedBinding);
+    expect(() => inferQualificationOutputV2(input.document, input.dependencies, tampered)).toThrow(/video source mapping differs/);
+  });
+
+  it("refuses a changed input binding unless its raw geometry hash and PCM mappings agree", () => {
+    const input = specimen();
+    const stale = batch(input, ["A"]); const staleRow = stale.cases[0]!;
+    staleRow.pristineInputBindingJson = staleRow.pristineInputBindingJson.replace("qualification-output-inputs/v1", "changed-input-binding/v1");
+    expect(() => inferQualificationOutputV2(input.document, input.dependencies, stale)).toThrow(/geometry\/input binding raw hash differs/);
+
+    const pcm = batch(input, ["A"]); const pcmRow = pcm.cases[0]!;
+    const pcmBinding = JSON.parse(pcmRow.pristineInputBindingJson) as {
+      sourceEntries: { sourceId: string; pcmMappingSha256: string }[];
+    };
+    pcmBinding.sourceEntries[0]!.pcmMappingSha256 = "0".repeat(64);
+    replaceInputBinding(pcmRow, "pristine", pcmBinding);
+    expect(() => inferQualificationOutputV2(input.document, input.dependencies, pcm)).toThrow(/audio source mapping inventory differs from input binding/);
+  });
+
   it("preserves distinct authenticated original/execution pins and rejects pair pin disagreement", () => {
     const input = specimen();
     const valid = batch(input, ["B"], true);
@@ -228,7 +308,7 @@ describe("#215 authenticated output observation to explicit revision bridge", ()
 
     const mismatched = batch(input, ["B"], true);
     const row = mismatched.cases[0]!;
-    const editedEnvelope = JSON.parse(row.editedGeometryJson) as { geometry: { context: Record<string, unknown> } };
+    const editedEnvelope = JSON.parse(row.editedGeometryJson) as { inputBindingSha256: string; geometry: { context: Record<string, unknown> } };
     const context = editedEnvelope.geometry.context;
     context.originalDocumentSha256 = bare(hash("different authenticated original document"));
     context.originalDependenciesSha256 = bare(hash("different authenticated original dependencies"));
@@ -236,6 +316,10 @@ describe("#215 authenticated output observation to explicit revision bridge", ()
       !["preflightSha256", "preparationSha256", "invocationId"].includes(key)));
     projection.binding = { kind: "baseline" };
     context.binding = { kind: "baseline", bindingSha256: pythonHash(projection) };
+    const editedInputBinding = JSON.parse(row.editedInputBindingJson) as { context: Record<string, unknown> };
+    editedInputBinding.context = structuredClone(context);
+    row.editedInputBindingJson = JSON.stringify(pythonSorted(editedInputBinding));
+    editedEnvelope.inputBindingSha256 = rawHash(row.editedInputBindingJson);
     row.editedGeometryJson = JSON.stringify(editedEnvelope);
 
     const editedComparison = JSON.parse(row.editedComparisonJson) as {

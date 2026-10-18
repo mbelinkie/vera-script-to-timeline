@@ -121,6 +121,61 @@ def test_terminal_loader_recomputes_complete_chain_without_effects(
     assert reopened.output.decoded_samples == sealed.output.decoded_samples
 
 
+def test_observation_transports_original_phase_input_binding_bytes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pristine = case()
+    edited = case(phase="edited")
+    controllers = {
+        "pristine": SimpleNamespace(inputs=pristine.inputs),
+        "edited": SimpleNamespace(inputs=edited.inputs),
+    }
+    outputs = {
+        "pristine": SimpleNamespace(
+            output=SimpleNamespace(
+                inputs=pristine.inputs, prediction=b"\0" * 16, decoded_samples=b"\0" * 8
+            ),
+            comparison=b"pristine comparison",
+        ),
+        "edited": SimpleNamespace(
+            output=SimpleNamespace(
+                inputs=edited.inputs, prediction=b"\0" * 16, decoded_samples=b"\0" * 8
+            ),
+            comparison=b"edited comparison",
+        ),
+    }
+    monkeypatch.setattr(
+        proof,
+        "load_terminal_output",
+        lambda controller: outputs[
+            "pristine" if controller is controllers["pristine"] else "edited"
+        ],
+    )
+    session: Any = object.__new__(proof.QualificationOutputProofV2)
+    session.baseline = controllers["pristine"]
+    session.edited = controllers["edited"]
+    session._current = lambda: None
+    requests: list[dict[str, Any]] = []
+
+    def pure(request: dict[str, Any]) -> dict[str, str]:
+        requests.append(request)
+        if request["mode"] == "baseline":
+            return {"documentHash": "document", "dependenciesHash": "dependencies"}
+        return {}
+
+    session._pure = pure
+    evidence = session.evidence("A")
+    observation = evidence["cases"][0]
+    assert (
+        observation["pristineInputBindingJson"]
+        == pristine.inputs.input_binding.decode()
+    )
+    assert observation["editedInputBindingJson"] == edited.inputs.input_binding.decode()
+    assert "sourceEntries" in observation["pristineInputBindingJson"]
+    assert "nativeSources" in observation["pristineInputBindingJson"]
+    assert requests[-1]["evidence"] == evidence
+
+
 @pytest.mark.parametrize(
     "attack", ["missing_terminal", "uncertain", "changed_decode", "changed_comparison"]
 )
