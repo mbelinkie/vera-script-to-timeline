@@ -35,11 +35,18 @@ from .qualification_output_v2 import SourceProof
 Json = dict[str, Any]
 
 SYNTHETIC_PROFILE = "verified-v2-package/v1"
+MATRIX_PROFILE = "qualification-output-studio-matrix/v1"
+MATRIX_PREPARATION_ROOT = (
+    Path.home()
+    / "Library/Application Support/VERA/qualification-output-preparation"
+    / "issue178-20261016-01/cases"
+)
+_PUBLIC_PROFILES = frozenset({SYNTHETIC_PROFILE, MATRIX_PROFILE})
 R16_PROFILE = "qualification-output-r16-presenter-override/v1"
 ADMISSION_SCHEMA = "qualification-output-package-admission/v1"
 INVENTORY_SCHEMA = "qualification-output-package-inventory/v1"
 CREATIVE_UNQUALIFIED = "unqualified_temporary_presenter"
-_PROFILES = frozenset({SYNTHETIC_PROFILE, R16_PROFILE})
+_PROFILES = frozenset({*_PUBLIC_PROFILES, R16_PROFILE})
 _EXPECTED_ORIGINAL_DOCUMENT = (
     "27b9d5ddfb097f254d44ce0b6428e461f9e948010e95e1a4c817a8c71e76fa71"
 )
@@ -1189,6 +1196,7 @@ def admit_qualification_package_v2(
     *,
     profile: str = R16_PROFILE,
     package_root: Path | None = None,
+    preparation_paths: Mapping[str, Path] | None = None,
 ) -> QualificationOutputAdmissionV2:
     """Admit the R16 qualification package or an unchanged verified synthetic.
 
@@ -1197,6 +1205,10 @@ def admit_qualification_package_v2(
     public v2 package and delegates its normal gate unchanged.
     """
     _need(type(profile) is str and profile in _PROFILES, "unsupported package profile")
+    _need(
+        profile == MATRIX_PROFILE or preparation_paths is None,
+        "published preparation paths are only accepted by the matrix profile",
+    )
     _need(
         isinstance(output_root, Path) and output_root.is_absolute(),
         "absolute output root required",
@@ -1216,7 +1228,12 @@ def admit_qualification_package_v2(
         "verified synthetic package root required",
     )
     assert isinstance(synthetic_root, Path)
-    return _admit_synthetic(output_root, synthetic_root)
+    return _admit_synthetic(
+        output_root,
+        synthetic_root,
+        profile=profile,
+        preparation_paths=preparation_paths,
+    )
 
 
 def _parse_original_link(
@@ -1954,7 +1971,9 @@ def _verify_public_receipt(
     receipt_path: Path,
     tracked_states: dict[Path, tuple[int, int, int, int, int]],
     tracked_hashes: dict[Path, str],
-) -> tuple[Json, bytes, Path, bytes, bytes]:
+    *,
+    matrix: bool = False,
+) -> tuple[Json, bytes, Path | None, bytes, bytes]:
     from .narration.models import identity_hash
 
     key_hex = requirement_key.removeprefix("sha256:")
@@ -1962,7 +1981,20 @@ def _verify_public_receipt(
         re.fullmatch(r"[0-9a-f]{64}", key_hex) is not None,
         "public preparation key is malformed",
     )
-    expected_dir = _PREPARED_ROOT / key_hex
+    expected_dir = receipt_path.parent if matrix else _PREPARED_ROOT / key_hex
+    if matrix:
+        _need(
+            receipt_path.is_absolute() and ".." not in receipt_path.parts,
+            "canonical matrix published receipt path required",
+        )
+        v2_package._require_path_components_no_symlink(receipt_path, "matrix receipt")
+        _need(
+            receipt_path.is_relative_to(MATRIX_PREPARATION_ROOT)
+            and expected_dir.parent.name == "published"
+            and receipt_path.name == "receipt.json",
+            "matrix receipt is outside its approved published root",
+        )
+    _need(expected_dir.name == key_hex, "published preparation directory differs")
     _need(
         receipt_path == expected_dir / "receipt.json",
         "preparation receipt path differs from the approved published tree",
@@ -1971,7 +2003,6 @@ def _verify_public_receipt(
         receipt_path,
         expected_dir / "receipt-checksum.json",
         expected_dir / "request.json",
-        expected_dir / "audio.wav",
     ):
         _need(
             path.is_file() and not path.is_symlink(),
@@ -2005,7 +2036,33 @@ def _verify_public_receipt(
     request_inputs_object = _object(
         request_inputs, "public preparation inputs must be an object"
     )
+    _need(
+        requirement_key == identity_hash(request_inputs_object)
+        and record.get("recordVersion") == "authoring-media-preparation/v1",
+        "public preparation identity differs",
+    )
+    if matrix and record.get("audio") is None:
+        _need(
+            request_inputs_object.get("audioStreamIndex") is None
+            and record_binding["timeMapping"]["sourceFrameMap"][
+                "sourceAudioStreamMappings"
+            ]
+            == [],
+            "silent preparation retains an audio stream mapping",
+        )
+        for path, digest in (
+            (receipt_path, _sha(raw)),
+            (expected_dir / "receipt-checksum.json", _sha(checksum_raw)),
+            (expected_dir / "request.json", _sha(request_raw)),
+        ):
+            tracked_hashes[path] = digest
+        return record, raw, None, b"", b""
     audio_path = expected_dir / "audio.wav"
+    _need(
+        audio_path.is_file() and not audio_path.is_symlink(),
+        "public preparation file is unavailable: audio.wav",
+    )
+    tracked_states[audio_path] = _state(audio_path)
     audio_raw = _read(audio_path, maximum=_MAX_WAV)
     audio_record = _object(
         record.get("audio"), "public preparation has no actual audio receipt"
@@ -2035,7 +2092,7 @@ def _verify_public_receipt(
         and type(source_first) is int
         and type(source_exclusive) is int
         and type(resampled_exclusive) is int
-        and resampled_first == _PREPARED_Q[requirement_key]
+        and (matrix or resampled_first == _PREPARED_Q[requirement_key])
         and source_first >= 0
         and source_exclusive > source_first
         and resampled_exclusive == resampled_first + frames,
@@ -2444,8 +2501,10 @@ def _verify_actual_174_source(
         _need(_hash_file(tool) == digest, "source verification executable changed")
     inputs = record["inputs"]
     original = record["binding"]["originalSource"]
+    source_state = _state(source_path)
+    source_hash = _hash_file(source_path)
     _need(
-        _hash_file(source_path) == original["contentHash"].removeprefix("sha256:"),
+        source_hash == original["contentHash"].removeprefix("sha256:"),
         "#174 source media hash differs",
     )
     inspection = inspect_media(
@@ -2473,10 +2532,9 @@ def _verify_actual_174_source(
         )
     else:
         _need(inspection.audio is None, "unexpected source audio stream")
-    tracked_states[source_path] = _state(source_path)
-    tracked_hashes[source_path] = _sha(
-        _read(source_path, maximum=4 * 1024 * 1024 * 1024)
-    )
+    _need(_state(source_path) == source_state, "source changed during reinspection")
+    tracked_states[source_path] = source_state
+    tracked_hashes[source_path] = source_hash
     for path, digest in ((_FFMPEG, _FFMPEG_SHA256), (_FFPROBE, _FFPROBE_SHA256)):
         tracked_states[path] = _state(path)
         tracked_hashes[path] = digest
@@ -2589,6 +2647,8 @@ def _prepared_public(
             record["binding"] == binding,
             "actual public receipt binding differs from compiler",
         )
+        _need(audio_path is not None, "first smoke requires prepared audio")
+        assert audio_path is not None
         paths[key] = path
         sidecars[key] = audio_path
     public_manifest = {**manifest, "preparationBindings": bindings}
@@ -2606,6 +2666,8 @@ def _audio_proofs(
     prepared: Mapping[str, v2_package._Preparation],
     states: dict[Path, tuple[int, int, int, int, int]],
     hashes: dict[Path, str],
+    *,
+    allow_silent: bool = False,
 ) -> tuple[
     dict[str, bytes],
     dict[str, SourceProof],
@@ -2650,7 +2712,17 @@ def _audio_proofs(
     entries, payloads = _audio_source_entries(
         manifest, dependencies, view, prepared, wavs, proofs
     )
-    _need(bool(entries), "qualification requires actual programme audio")
+    _need(
+        bool(entries)
+        or (
+            allow_silent
+            and not any(
+                event["kind"] in {"source_audio", "narration"}
+                for event in manifest["events"]
+            )
+        ),
+        "qualification requires actual programme audio",
+    )
     return wavs, proofs, entries, payloads
 
 
@@ -2855,8 +2927,66 @@ def _admit_r16(
     )
 
 
+def _prepared_matrix(
+    document: Json,
+    dependencies: Json,
+    manifest: Json,
+    report: Json,
+    build: Path,
+    preparation_paths: Mapping[str, Path],
+    states: dict[Path, tuple[int, int, int, int, int]],
+    hashes: dict[Path, str],
+) -> dict[str, v2_package._Preparation]:
+    """Authenticate each real published preparation and its packaged original."""
+    _need(
+        set(preparation_paths)
+        == {row["requirementKey"] for row in manifest["preparationBindings"]},
+        "matrix preparation path inventory differs",
+    )
+    paths: dict[str, Path] = {}
+    for binding in manifest["preparationBindings"]:
+        key = binding["requirementKey"]
+        embedded = (
+            build
+            / "Preparation/receipts"
+            / hashlib.sha256(key.encode()).hexdigest()
+            / "receipt.json"
+        )
+        _track(embedded, states, hashes)
+        receipt = preparation_paths[key]
+        _need(receipt.is_absolute(), "absolute matrix preparation path required")
+        actual, raw, _, _, _ = _verify_public_receipt(
+            key, receipt, states, hashes, matrix=True
+        )
+        _need(
+            raw == _read(embedded) and actual["binding"] == binding,
+            "matrix published receipt differs from package",
+        )
+        paths[key] = receipt
+    prepared = v2_package._validate_preparations(
+        document, dependencies, manifest, report, paths
+    )
+    for key, item in prepared.items():
+        sources = [
+            row
+            for row in manifest["sources"]
+            if row.get("preparationRequirementKey") == key
+        ]
+        _need(bool(sources), "matrix preparation has no manifest source")
+        for source in sources:
+            originals = list((build / "Preparation/original").glob(source["id"] + ".*"))
+            _need(len(originals) == 1, "matrix original source inventory differs")
+            _verify_actual_174_source(item.record, originals[0], states, hashes)
+    return prepared
+
+
 def _admit_synthetic(
-    output_root: Path, public_root: Path, *, existing: bool = False
+    output_root: Path,
+    public_root: Path,
+    *,
+    existing: bool = False,
+    profile: str = SYNTHETIC_PROFILE,
+    preparation_paths: Mapping[str, Path] | None = None,
 ) -> QualificationOutputAdmissionV2:
     from .workflow_v2 import load_verified_package_v2
     from .workflow_v2_cli import attest_package_v2
@@ -2920,29 +3050,69 @@ def _admit_synthetic(
         and compiled["result"]["reportJson"].encode() == report_raw,
         "synthetic package differs from exact current compiler output",
     )
-    _need(
-        len(manifest["events"]) == 2
-        and {row["kind"] for row in manifest["events"]}
-        == {"primary_visual", "source_audio"},
-        "first smoke profile requires one actual picture/source-audio pair",
-    )
-    prepared, _sidecars = _prepared_public(
-        document, dependencies, manifest, report, states, hashes
-    )
-    _need(
-        len(prepared) == 1 and len(manifest["preparationBindings"]) == 1,
-        "single public preparation required for first smoke",
-    )
-    for item in prepared.values():
-        originals = list((build / "Preparation" / "original").iterdir())
-        _need(len(originals) == 1, "synthetic original source inventory differs")
-        _verify_actual_174_source(item.record, originals[0], states, hashes)
+    if profile == SYNTHETIC_PROFILE:
+        _need(
+            len(manifest["events"]) == 2
+            and {row["kind"] for row in manifest["events"]}
+            == {"primary_visual", "source_audio"},
+            "first smoke profile requires one actual picture/source-audio pair",
+        )
+        prepared, _sidecars = _prepared_public(
+            document, dependencies, manifest, report, states, hashes
+        )
+        _need(
+            len(prepared) == 1 and len(manifest["preparationBindings"]) == 1,
+            "single public preparation required for first smoke",
+        )
+        for item in prepared.values():
+            originals = list((build / "Preparation" / "original").iterdir())
+            _need(len(originals) == 1, "synthetic original source inventory differs")
+            _verify_actual_174_source(item.record, originals[0], states, hashes)
+    else:
+        _need(profile == MATRIX_PROFILE, "unsupported public qualification profile")
+        _need(
+            1 <= manifest["timeline"]["durationFrames"] <= 1498
+            and all(
+                event["kind"]
+                in {
+                    "primary_visual",
+                    "source_audio",
+                    "overlay_visual",
+                    "placeholder",
+                    "narration",
+                }
+                for event in manifest["events"]
+            ),
+            "matrix requires bounded picture/source-audio events",
+        )
+        _need(
+            preparation_paths is not None,
+            "matrix requires exact published preparation paths",
+        )
+        assert preparation_paths is not None
+        prepared = _prepared_matrix(
+            document,
+            dependencies,
+            manifest,
+            report,
+            build,
+            preparation_paths,
+            states,
+            hashes,
+        )
     source_paths = {row["id"]: inner / row["path"] for row in view["sources"]}
     wavs, proofs, entries, payloads = _audio_proofs(
-        manifest, dependencies, view, source_paths, prepared, states, hashes
+        manifest,
+        dependencies,
+        view,
+        source_paths,
+        prepared,
+        states,
+        hashes,
+        allow_silent=profile == MATRIX_PROFILE,
     )
     preflight, preparation = _snapshots(
-        profile=SYNTHETIC_PROFILE,
+        profile=profile,
         originals=(document_raw, dependencies_raw),
         execution=(document_raw, dependencies_raw),
         manifest_raw=manifest_raw,
@@ -2955,9 +3125,13 @@ def _admit_synthetic(
     )
     return _finish_admission(
         output_root,
-        profile=SYNTHETIC_PROFILE,
-        disposition="verified_synthetic",
-        creative_qualification="qualified_synthetic_only",
+        profile=profile,
+        disposition="verified_matrix_inputs"
+        if profile == MATRIX_PROFILE
+        else "verified_synthetic",
+        creative_qualification="unqualified_studio_matrix"
+        if profile == MATRIX_PROFILE
+        else "qualified_synthetic_only",
         original_document=document_raw,
         original_dependencies=dependencies_raw,
         execution_document=document_raw,
@@ -3116,7 +3290,7 @@ def _load_verified_admission_cache(
     )
     source_paths: dict[str, Path] = {}
     source_root = (
-        root / "PublicPackage" if record["profile"] == SYNTHETIC_PROFILE else root
+        root / "PublicPackage" if record["profile"] in _PUBLIC_PROFILES else root
     )
     for source in view["sources"]:
         row = _object(source, "delivery source")
@@ -3342,7 +3516,7 @@ def _finish_admission(
             "R16 admission is its native attestation reference",
         )
         chosen_attestation = output_root / "qualification-output-package-admission.json"
-    elif profile == SYNTHETIC_PROFILE:
+    elif profile in _PUBLIC_PROFILES:
         _need(
             attestation_path is not None,
             "ordinary profile requires an authentic #177 attestation",
@@ -3369,7 +3543,7 @@ def _finish_admission(
     }
     tracked_paths.update(package_states)
     tracked_hashes.update(package_hashes)
-    if profile == SYNTHETIC_PROFILE:
+    if profile in _PUBLIC_PROFILES:
         _need(
             chosen_attestation.is_file() and not chosen_attestation.is_symlink(),
             "#177 attestation is not a regular file",
@@ -3422,7 +3596,7 @@ def _finish_admission(
     admission_path = output_root / "qualification-output-package-admission.json"
     admission_raw = _canonical(record)
     _retain(admission_path, admission_raw, existing=existing)
-    if profile == SYNTHETIC_PROFILE:
+    if profile in _PUBLIC_PROFILES:
         _need(
             chosen_attestation.is_file() and not chosen_attestation.is_symlink(),
             "#177 attestation is not a regular file",
@@ -3443,7 +3617,7 @@ def _finish_admission(
     }
     tracked_paths[admission_path] = _state(admission_path)
     tracked_hashes[admission_path] = _sha(admission_raw)
-    if profile == SYNTHETIC_PROFILE:
+    if profile in _PUBLIC_PROFILES:
         tracked_paths[chosen_attestation] = _state(chosen_attestation)
         tracked_hashes[chosen_attestation] = attestation_sha256
     admission = QualificationOutputAdmissionV2(

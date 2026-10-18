@@ -658,6 +658,7 @@ def test_r16_admission_accepts_the_retained_recovery_kind_shape(
 class _Media:
     def __init__(self, path: Path) -> None:
         self.path = path
+        self.frame_count: int | None = None
 
     def GetUniqueId(self) -> str:
         return "media-one"
@@ -666,7 +667,10 @@ class _Media:
         return "media-id-one"
 
     def GetClipProperty(self) -> dict[str, str]:
-        return {"Online Status": "Online", "File Path": str(self.path)}
+        properties = {"Online Status": "Online", "File Path": str(self.path)}
+        if self.frame_count is not None:
+            properties["Frames"] = str(self.frame_count)
+        return properties
 
 
 class _Item:
@@ -1284,6 +1288,84 @@ def test_geometry_uses_verified_source_root_and_checks_exact_native_ranges(
 
 
 @pytest.mark.parametrize(
+    "verified_count,native_count,accepted",
+    [(22, 22, True), (23, 22, False), (22, 23, False), (None, 22, False)],
+)
+def test_geometry_normalizes_only_verified_video_eof(
+    tmp_path: Path, verified_count: int | None, native_count: int, accepted: bool
+) -> None:
+    resolve, request, admitted, item, _timeline = _geometry_case(tmp_path)
+    source = admitted["view"]["sources"][0]
+    admitted["manifest"]["sources"] = [
+        {"id": source["id"], "preparationRequirementKey": "prepared-video"}
+    ]
+    admitted["manifest"]["preparationBindings"] = [
+        {
+            "requirementKey": "prepared-video",
+            "verification": {
+                "deliveredHash": source["contentHash"],
+                "decodedFrameCount": verified_count,
+            },
+        }
+    ]
+    item.source_end_frame = 21
+    item.media.frame_count = native_count
+    if accepted:
+        geometry = native._capture_geometry(resolve, request, admitted, None)
+        assert geometry["items"][0]["sourceStart"] == 12
+        assert geometry["items"][0]["sourceDuration"] == 10
+    else:
+        with pytest.raises(OutputConsistencyError, match="native source range differs"):
+            native._capture_geometry(resolve, request, admitted, None)
+
+
+def test_geometry_static_picture_uses_exact_record_duration(tmp_path: Path) -> None:
+    resolve, request, admitted, item, _timeline = _geometry_case(tmp_path)
+    request["profile"] = native.MATRIX_PROFILE
+    source = admitted["view"]["sources"][0]
+    source["kind"] = "still"
+    event = admitted["view"]["events"][0]
+    event["sourceRange"] = {"startFrame": 0, "durationFrames": 10}
+    item.stamp = native._event_stamp(event)
+    item.source_start_frame = item.source_end_frame = 0
+    item.speed["Percentage"] = 0
+    geometry = native._capture_geometry(resolve, request, admitted, None)
+    assert geometry["items"][0]["sourceDuration"] == 10
+
+
+@pytest.mark.parametrize("end_error", [0.0, 0.001])
+def test_matrix_still_counter_requires_single_frame_and_exact_time_edges(
+    tmp_path: Path, end_error: float
+) -> None:
+    resolve, request, admitted, item, _timeline = _geometry_case(tmp_path)
+    request["profile"] = native.MATRIX_PROFILE
+    admitted["view"]["sources"][0]["kind"] = "still"
+    event = admitted["view"]["events"][0]
+    event["sourceRange"] = {"startFrame": 0, "durationFrames": 10}
+    item.stamp = native._event_stamp(event)
+    item.source_start_frame = item.source_end_frame = 86
+    item.media.frame_count = 1
+    item.GetSourceStartTime = lambda: 0.0  # type: ignore[attr-defined]
+    item.GetSourceEndTime = lambda: 1001 / 24000 + end_error  # type: ignore[attr-defined]
+    if end_error:
+        with pytest.raises(OutputConsistencyError, match="native source range differs"):
+            native._capture_geometry(resolve, request, admitted, None)
+    else:
+        geometry = native._capture_geometry(resolve, request, admitted, None)
+        assert geometry["items"][0]["sourceStart"] == 0
+        assert geometry["items"][0]["sourceDuration"] == 10
+
+
+def test_geometry_rejects_frozen_video_source_clock(tmp_path: Path) -> None:
+    resolve, request, admitted, item, _timeline = _geometry_case(tmp_path)
+    item.speed["Percentage"] = 0
+    with pytest.raises(
+        OutputConsistencyError, match="non-unit/unreadable native speed"
+    ):
+        native._capture_geometry(resolve, request, admitted, None)
+
+
+@pytest.mark.parametrize(
     ("source_audio", "source_end_frame"),
     [(False, 21), (False, 23), (True, 20), (True, 22)],
 )
@@ -1303,6 +1385,25 @@ def test_geometry_rejects_source_end_one_frame_short_or_long(
         ),
     ):
         native._capture_geometry(resolve, request, admitted, None)
+
+
+@pytest.mark.parametrize("end_error", [0.0, 0.001])
+def test_matrix_audio_exclusive_end_requires_sample_accurate_time(
+    tmp_path: Path, end_error: float
+) -> None:
+    resolve, request, admitted, item, _timeline = _geometry_case(
+        tmp_path, source_audio=True
+    )
+    request["profile"] = native.MATRIX_PROFILE
+    item.source_end_frame = 22
+    item.GetSourceStartTime = lambda: 12 * 1001 / 24000  # type: ignore[attr-defined]
+    item.GetSourceEndTime = lambda: 22 * 1001 / 24000 + end_error  # type: ignore[attr-defined]
+    if end_error:
+        with pytest.raises(OutputConsistencyError, match="native source range differs"):
+            native._capture_geometry(resolve, request, admitted, None)
+    else:
+        geometry = native._capture_geometry(resolve, request, admitted, None)
+        assert geometry["items"][0]["sourceDuration"] == 10
 
 
 def test_geometry_accepts_numeric_timeline_rate_readback(tmp_path: Path) -> None:
@@ -1415,7 +1516,7 @@ def test_geometry_refuses_unqualified_speed_frame_or_marker_drift(
         r"native source range differs \(track=video:1, "
         r"itemUid=timeline-item-one, eventId=event-one, "
         r"start=13, end=22, "
-        r"expectedStart=12, expectedDuration=10\)"
+        r"expectedStart=12, expectedDuration=10, mediaFrames=None, sourceTimes={}\)"
         if drift == "source_range"
         else None
     )

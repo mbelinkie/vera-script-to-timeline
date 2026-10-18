@@ -811,6 +811,7 @@ def prepare_output_session(
     case_id: str,
     phase: str = "pristine",
     package_root: Path | None = None,
+    preparation_paths: dict[str, Path] | None = None,
 ) -> Path:
     """Create reviewable host artifacts; no installation or native connection."""
     from .qualification_output_package_v2 import admit_qualification_package_v2
@@ -820,7 +821,10 @@ def prepare_output_session(
     _require(not output_root.exists(), "new output session root required")
     output_root.mkdir(mode=0o700, parents=True, exist_ok=False)
     admission = admit_qualification_package_v2(
-        output_root / "admitted", profile=profile, package_root=package_root
+        output_root / "admitted",
+        profile=profile,
+        package_root=package_root,
+        preparation_paths=preparation_paths,
     )
     release_root = output_root / "release"
     build_output_release_v2(release_root)
@@ -1406,7 +1410,10 @@ class QualificationOutputController:
         commitment_receipt = _read(
             self.vault.root / commitment_value["commitmentReceiptSha256"]
         )
-        prediction = _read(self.journal.artifacts / attempt["predictionBytesSha256"])
+        prediction = _read(
+            self.journal.artifacts / attempt["predictionBytesSha256"],
+            maximum=48_000_000,
+        )
         materials = {
             "commitment": commitment,
             "commitment_receipt": commitment_receipt,

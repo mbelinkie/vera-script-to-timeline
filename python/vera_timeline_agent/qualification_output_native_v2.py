@@ -12,6 +12,7 @@ import getpass
 import hashlib
 import hmac
 import json
+import math
 import os
 import pwd
 import stat
@@ -19,6 +20,7 @@ import sys
 import time
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
@@ -49,8 +51,10 @@ APPROVAL_SCHEMA = "qualification-output-operator-approval/v1"
 RENDER_INTENT_SCHEMA = "qualification-output-render-intent/v1"
 INVENTORY_SCHEMA = "qualification-output-package-inventory/v1"
 SYNTHETIC_PROFILE = "verified-v2-package/v1"
+MATRIX_PROFILE = "qualification-output-studio-matrix/v1"
+PUBLIC_PROFILES = frozenset({SYNTHETIC_PROFILE, MATRIX_PROFILE})
 R16_PROFILE = "qualification-output-r16-presenter-override/v1"
-PROFILES = frozenset({SYNTHETIC_PROFILE, R16_PROFILE})
+PROFILES = frozenset({*PUBLIC_PROFILES, R16_PROFILE})
 ACTIONS = frozenset(
     {
         "construct",
@@ -1045,10 +1049,20 @@ def _verify_admission(request: dict[str, Any]) -> dict[str, Any]:
         raw_input = _read(_path(request["inputs"][name], name), name, maximum=MAX_BYTES)
         field = name.removesuffix("Path") + "Sha256"
         _require(_hash(raw_input) == admission[field], f"current {name} pin differs")
-    if request["profile"] == SYNTHETIC_PROFILE:
+    if request["profile"] in PUBLIC_PROFILES:
         _require(
-            admission["disposition"] == "verified_synthetic"
-            and admission["creativeQualification"] == "qualified_synthetic_only",
+            admission["disposition"]
+            == (
+                "verified_matrix_inputs"
+                if request["profile"] == MATRIX_PROFILE
+                else "verified_synthetic"
+            )
+            and admission["creativeQualification"]
+            == (
+                "unqualified_studio_matrix"
+                if request["profile"] == MATRIX_PROFILE
+                else "qualified_synthetic_only"
+            ),
             "ordinary package is not a verified synthetic",
         )
         _require(
@@ -1891,7 +1905,7 @@ def _admission_profile(request: dict[str, Any]) -> dict[str, Any]:
     _require(
         view.get("tracks") == manifest.get("tracks"), "view tracks differ from manifest"
     )
-    if request["profile"] == SYNTHETIC_PROFILE:
+    if request["profile"] in PUBLIC_PROFILES:
         # Existing #177 verifier is stdlib-only and consumes the exact admitted
         # package. It never connects to Resolve or invokes compiler behavior.
         from .workflow_v2 import load_verified_package_v2
@@ -2833,6 +2847,10 @@ def _capture_geometry(
                 record_end = item.GetEnd(False)
                 source_start = item.GetSourceStartFrame()
                 source_end = item.GetSourceEndFrame()
+                static_picture = kind == "video" and source.get("kind") in {
+                    "still",
+                    "placeholder",
+                }
                 _require(
                     all(
                         type(value) is int
@@ -2848,9 +2866,16 @@ def _capture_geometry(
                     and record_end - record_start in {duration, duration - 1}
                     and (
                         source_end > source_start
-                        or (kind == "audio" and source_end == source_start)
+                        or (
+                            (kind == "audio" or static_picture)
+                            and source_end == source_start
+                        )
                     ),
-                    "unsupported native range getter",
+                    "unsupported native range getter "
+                    f"(kind={kind}, record="
+                    f"({record_start!r},{duration!r},{record_end!r}), "
+                    f"source=({source_start!r},{source_end!r}), "
+                    f"static={static_picture})",
                 )
                 _require(
                     all(
@@ -2885,9 +2910,17 @@ def _capture_geometry(
                     and speed.keys() <= allowed_speed_options,
                     "closed native speed options shape",
                 )
+                # Static images may report a frozen 0% source clock.
                 _require(
                     type(speed["Percentage"]) in {int, float}
-                    and speed["Percentage"] == 100
+                    and (
+                        speed["Percentage"] == 100
+                        or (
+                            request.get("profile") == MATRIX_PROFILE
+                            and static_picture
+                            and speed["Percentage"] == 0
+                        )
+                    )
                     and (
                         "PitchCorrection" not in speed
                         or type(speed["PitchCorrection"]) is bool
@@ -2897,7 +2930,8 @@ def _capture_geometry(
                         or (type(speed[option]) is bool and speed[option] is False)
                         for option in ("StretchKeyframesToFit", "RippleTimeline")
                     ),
-                    "non-unit/unreadable native speed",
+                    f"non-unit/unreadable native speed (static={static_picture}, "
+                    f"speed={speed!r})",
                 )
                 _require(item.GetClipEnabled() is True, "disabled native item")
                 record = event["recordRange"]
@@ -2918,8 +2952,100 @@ def _capture_geometry(
                     )
                     expected_source_start = source_range["startFrame"]
                     expected_source_duration = source_range["durationFrames"]
-                # Resolve 21.1.1/10 reports exclusive video and inclusive audio ends.
-                source_duration = source_end - source_start + (kind == "audio")
+                # Video end getters are exclusive in the clip interior, but Studio
+                # saturates them at the last source frame when the clip reaches EOF.
+                expected_source_end = expected_source_start + expected_source_duration
+                verified_video_frames = None
+                if kind == "video":
+                    for manifest_source in manifest.get("sources", []):
+                        if manifest_source["id"] != source_id:
+                            continue
+                        for binding in manifest.get("preparationBindings", []):
+                            if binding["requirementKey"] == manifest_source.get(
+                                "preparationRequirementKey"
+                            ):
+                                verification = binding["verification"]
+                                if _source_hash(
+                                    verification["deliveredHash"]
+                                ) == _source_hash(source["contentHash"]):
+                                    verified_video_frames = verification[
+                                        "decodedFrameCount"
+                                    ]
+                video_end_saturated_at_eof = (
+                    kind == "video"
+                    and type(verified_video_frames) is int
+                    and verified_video_frames == expected_source_end
+                    and props.get("Frames") == str(expected_source_end)
+                    and source_end == expected_source_end - 1
+                    and expected_source_duration == duration
+                )
+                source_duration = (
+                    source_end
+                    - source_start
+                    + (kind == "audio" or video_end_saturated_at_eof)
+                )
+                # A still has no advancing source clock; its held extent is the
+                # exact record duration, while the single source frame stays zero.
+                if (
+                    static_picture
+                    and source_start == source_end == expected_source_start == 0
+                    and expected_source_duration == duration
+                ):
+                    source_duration = duration
+                range_times = {}
+                if (
+                    source_start != expected_source_start
+                    or source_duration != expected_source_duration
+                ):
+                    for method_name in ("GetSourceStartTime", "GetSourceEndTime"):
+                        method = getattr(item, method_name, None)
+                        if callable(method):
+                            range_times[method_name] = method()
+                # Studio can expose its arbitrary held-frame counter for a still.
+                # Normalize only a verified one-frame source with exact time edges.
+                if (
+                    request.get("profile") == MATRIX_PROFILE
+                    and static_picture
+                    and source_start == source_end
+                    and source_start >= 0
+                    and expected_source_start == 0
+                    and expected_source_duration == duration
+                    and props.get("Frames") == "1"
+                    and all(
+                        type(range_times.get(method)) in {int, float}
+                        and math.isfinite(range_times[method])
+                        and abs(Fraction(str(range_times[method])) - expected)
+                        <= Fraction(1, 48000)
+                        for method, expected in (
+                            ("GetSourceStartTime", Fraction(0)),
+                            ("GetSourceEndTime", Fraction(1001, 24000)),
+                        )
+                    )
+                ):
+                    source_start = 0
+                    source_duration = duration
+                if (
+                    request.get("profile") == MATRIX_PROFILE
+                    and kind == "audio"
+                    and source_start == expected_source_start
+                    and source_end == expected_source_end
+                ):
+                    sample_tolerance = Fraction(1, 48000)
+                    rate_seconds = Fraction(1001, 24000)
+                    edges = (
+                        ("GetSourceStartTime", expected_source_start),
+                        ("GetSourceEndTime", expected_source_end),
+                    )
+                    if all(
+                        type(range_times.get(method)) in {int, float}
+                        and math.isfinite(range_times[method])
+                        and abs(
+                            Fraction(str(range_times[method])) - frame * rate_seconds
+                        )
+                        <= sample_tolerance
+                        for method, frame in edges
+                    ):
+                        source_duration = source_end - source_start
                 _require(
                     source_start == expected_source_start
                     and source_duration == expected_source_duration,
@@ -2927,7 +3053,9 @@ def _capture_geometry(
                     f"(track={kind}:{index}, itemUid={uid}, eventId={event_id}, "
                     f"start={source_start}, end={source_end}, "
                     f"expectedStart={expected_source_start}, "
-                    f"expectedDuration={expected_source_duration})",
+                    f"expectedDuration={expected_source_duration}, "
+                    f"mediaFrames={props.get('Frames')!r}, "
+                    f"sourceTimes={range_times!r})",
                 )
                 if event.get("kind") == "source_audio":
                     gain = event.get("gainDb")
