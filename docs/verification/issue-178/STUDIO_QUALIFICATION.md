@@ -3,7 +3,7 @@
 Issue #178 starts from merged main `ba7f07f54ceda3fa8225b51427ca82e4a2137d3e`.
 The installed #209 route is the native build/save-reopen/render boundary.
 
-Status: physical qualification remains incomplete. Ten actual native renders
+Status: physical qualification remains incomplete. Twelve actual native renders
 and their decoded measurements pass; no complete #178 acceptance is claimed.
 
 | Retained run | Physical result |
@@ -18,6 +18,8 @@ and their decoded measurements pass; no complete #178 acceptance is claimed.
 | `endpoint-02` | 250-frame/10-second 25 fps picture becomes 240 target frames/10.01 seconds; exact cadence. Endpoint interval is muted, with an audible reference afterward. Enabled endpoint sound remains blocked by #249. |
 | `mixed-09` | Research 25 fps plus local 30 fps; 1032 frames, exact cadence, Full 0 dB, zero click offset/drift; muted peak 0. |
 | `quiet-mix-01` | 641 frames; prepared Quiet source sound under real narration, root/child/return/overlay geometry, every visible numbered frame and fixed same-MOV PCM comparison pass. Listening remains outstanding. |
+| `defaults-04` | 168 frames; intentional default slate holds exactly 72 frames, explicit one-second override holds 24, followed by 72 verified reference frames. Every slate frame matches its admitted picture (maximum 8-bit pixel RMSE 2.375). |
+| `recovery-01` | Host preparation with Resolve unavailable, retained uninvoked request, application relaunch, then all seven native stages and 72 measured same-rate frames pass. No consumed operation was replayed. |
 
 Each passed run completed all seven installed native stages, save/reopen,
 pre/post geometry, bound render job/output, and the fixed zero-lag/unity-gain
@@ -32,6 +34,10 @@ wrong derived bytes (`package_file_hash_mismatch`), stale selected occurrences
 (`MISSING_OCCURRENCE_BINDING`) and stale word anchors (`STALE_WORD_ANCHOR`).
 An actual prepared three-source Quiet overlap refuses compilation with
 `SOURCE_AUDIO_OVERLAP` and never reaches native construction.
+`mismatch-01` constructs and saves/reopens in Resolve, then mechanically
+disables its owned clips. Installed `capture_pre` refuses `disabled native
+item`; no render is queued, no output exists, and the failed chain refuses
+replay. The changed disposable target remains saved.
 
 `quiet-01` completed native rendering but final comparison refused host clock
 uncertainty; it is retained and not counted as a pass. Fully silent No/endpoint
@@ -78,6 +84,19 @@ matrix profile when precise source-time edges match within one 48 kHz sample.
 Old smoke/private profiles retain their prior audio counter guard. The host's
 prediction read now uses its existing 48 MB PCM bound rather than the 8 MB JSON
 bound. No comparison tolerance changed.
+
+Still-image observations exposed a frozen 0% source clock and an arbitrary
+held-frame counter (86/86). The matrix-only arbitrary-counter normalization requires a static
+source, exact record geometry, one native source frame and source-time edges
+of zero/one target frame within one audio sample. Ordinary video still refuses
+zero speed or shifted source ranges. The failed `defaults-01` through
+`defaults-03` targets remain retained; `defaults-04` is the fresh passing case.
+
+The unavailable-application run also retained an interrupted mechanical
+driver: its already issued request had no native start, effects or result.
+After read-only inspection, that exact request was invoked for the first time.
+This qualifies the uninvoked-request boundary; render failure/retry recovery
+remains unavailable under #248 and is not implied by this result.
 
 The scheduled continuation resumed on 2026-10-18. The retained private root
 `qualification-output-preparation/issue178-20261016-01` contains prepared
