@@ -60,6 +60,7 @@ from vera_timeline_agent.qualification_output_records_v2 import (
     _sources,
     _timestamp,
 )
+from vera_timeline_agent.source_audio_endpoint import endpoint_plan, endpoint_wav
 
 FRAME = 2002
 RATE = {"numerator": 24000, "denominator": 1001}
@@ -415,6 +416,15 @@ def _geometry(
     return envelope
 
 
+def _source_endpoint(event: Json, audio: Json) -> tuple[int, int, int] | None:
+    try:
+        return endpoint_plan(event, audio, Fraction(24000, 1001))
+    except ValueError as error:
+        raise OutputConsistencyError(
+            f"off-grid/unit-speed source mapping: {error}"
+        ) from error
+
+
 def _provenance(
     source: Json,
     event: Json,
@@ -582,9 +592,7 @@ def _provenance(
             _legacy_digest(binding["verification"]["deliveredHash"])
             == _legacy_digest(provenance["deliveredSourceHash"])
             and source["sourceId"] == event["eventId"]
-            and _legacy_digest(audio["contentHash"])
-            == source["pcmFileSha256"]
-            == source["nativeSourceSha256"]
+            and _legacy_digest(audio["contentHash"]) == source["pcmFileSha256"]
             and _legacy_digest(audio["sourceAudioHash"])
             == _legacy_digest(event["audio"]["audioHash"])
             and _integer(audio["decodedSamples"], 960) == source["durationSamples"]
@@ -631,11 +639,21 @@ def _provenance(
             "fractional PCM mapping",
         )
         start, end = int(start_fraction), int(end_fraction)
+        plan = _source_endpoint(event, audio)
         _require(
-            start % FRAME == end % FRAME == 0 and end - start == (re - rs) * FRAME,
+            plan is not None
+            or (start % FRAME == end % FRAME == 0 and end - start == (re - rs) * FRAME),
             "off-grid/unit-speed source mapping",
         )
-        native_start = Fraction(start - origin_sample, FRAME) + origin_frame
+        _require(
+            plan is not None or source["nativeSourceSha256"] == source["pcmFileSha256"],
+            "prepared native WAV differs",
+        )
+        native_start = (
+            Fraction(0)
+            if plan is not None
+            else Fraction(start - origin_sample, FRAME) + origin_frame
+        )
         _require(
             native_start.denominator == 1 and native_start >= 0,
             "unsupported native origin conversion",
@@ -1074,6 +1092,29 @@ def _validated(
                 "decoded-channel source alias",
             )
             channel_owners[digest] = sid
+        if event["kind"] == "source_audio":
+            audio_record = _parse(inputs.source_proofs[sid].record)["audio"]
+            plan = _source_endpoint(event, audio_record)
+            if plan is not None:
+                try:
+                    native_wav = endpoint_wav(
+                        inputs.source_wavs[sid], plan, audio_record
+                    )
+                except ValueError as error:
+                    raise OutputConsistencyError(
+                        f"endpoint native WAV refused: {error}"
+                    ) from error
+                _require(
+                    _hash(native_wav) == source["nativeSourceSha256"],
+                    "endpoint native WAV derivation differs",
+                )
+                first, exclusive, envelope = plan
+                pcm[sid] = [
+                    channel[first:exclusive]
+                    + array("d", [0.0]) * (envelope - (exclusive - first))
+                    for channel in pcm[sid]
+                ]
+                start, end = 0, envelope
         gain: int | float = 0
         if event["kind"] == "source_audio":
             gain = event["audio"]["gainDb"]
@@ -1094,7 +1135,7 @@ def _validated(
             ) * FRAME + source["pcmSampleOrigin"]
             count = item["recordDuration"] * FRAME
             _require(
-                start <= local < local + count <= end <= source["durationSamples"],
+                start <= local < local + count <= end <= len(pcm[sid][0]),
                 "mapped segment outside exact event/source",
             )
             source_intervals.append((local, local + count))
