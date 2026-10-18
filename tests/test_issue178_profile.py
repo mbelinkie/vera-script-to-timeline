@@ -132,3 +132,48 @@ def test_generated_track_layout_can_be_constructed_natively(tmp_path: Path) -> N
         "audio": 3,
         "subtitle": 0,
     }
+
+
+def test_matrix_authenticates_preparation_without_source_sound(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import hashlib
+    import json
+
+    from vera_timeline_agent.narration.models import identity_hash
+
+    inputs = {"audioStreamIndex": None}
+    key = identity_hash(inputs)
+    directory = tmp_path / "published" / key.removeprefix("sha256:")
+    directory.mkdir(parents=True)
+    binding = {
+        "authorizationReference": "test",
+        "timeMapping": {"sourceFrameMap": {"sourceAudioStreamMappings": []}},
+    }
+    record = {
+        "recordVersion": "authoring-media-preparation/v1",
+        "requirementKey": key,
+        "inputs": inputs,
+        "binding": binding,
+        "audio": None,
+    }
+    raw = json.dumps(record).encode()
+    receipt = directory / "receipt.json"
+    receipt.write_bytes(raw)
+    (directory / "receipt-checksum.json").write_text(
+        json.dumps({"receiptHash": "sha256:" + hashlib.sha256(raw).hexdigest()})
+    )
+    (directory / "request.json").write_text(
+        json.dumps(
+            {"authorizationReference": "test", "inputs": inputs, "requirementKey": key}
+        )
+    )
+    monkeypatch.setattr(package, "MATRIX_PREPARATION_ROOT", tmp_path)
+    states: dict[Path, tuple[int, int, int, int, int]] = {}
+    hashes: dict[Path, str] = {}
+    result = package._verify_public_receipt(key, receipt, states, hashes, matrix=True)
+    assert result == (record, raw, None, b"", b"")
+    assert len(hashes) == 3
+    monkeypatch.setattr(package, "_PREPARED_ROOT", tmp_path / "published")
+    with pytest.raises(package.QualificationPackageError, match=r"audio\.wav"):
+        package._verify_public_receipt(key, receipt, {}, {}, matrix=False)

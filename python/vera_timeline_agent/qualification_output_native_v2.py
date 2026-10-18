@@ -12,6 +12,7 @@ import getpass
 import hashlib
 import hmac
 import json
+import math
 import os
 import pwd
 import stat
@@ -19,6 +20,7 @@ import sys
 import time
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
@@ -2962,6 +2964,37 @@ def _capture_geometry(
                     - source_start
                     + (kind == "audio" or video_end_saturated_at_eof)
                 )
+                range_times = {}
+                if (
+                    source_start != expected_source_start
+                    or source_duration != expected_source_duration
+                ):
+                    for method_name in ("GetSourceStartTime", "GetSourceEndTime"):
+                        method = getattr(item, method_name, None)
+                        if callable(method):
+                            range_times[method_name] = method()
+                if (
+                    request.get("profile") == MATRIX_PROFILE
+                    and kind == "audio"
+                    and source_start == expected_source_start
+                    and source_end == expected_source_end
+                ):
+                    sample_tolerance = Fraction(1, 48000)
+                    rate_seconds = Fraction(1001, 24000)
+                    edges = (
+                        ("GetSourceStartTime", expected_source_start),
+                        ("GetSourceEndTime", expected_source_end),
+                    )
+                    if all(
+                        type(range_times.get(method)) in {int, float}
+                        and math.isfinite(range_times[method])
+                        and abs(
+                            Fraction(str(range_times[method])) - frame * rate_seconds
+                        )
+                        <= sample_tolerance
+                        for method, frame in edges
+                    ):
+                        source_duration = source_end - source_start
                 _require(
                     source_start == expected_source_start
                     and source_duration == expected_source_duration,
@@ -2969,7 +3002,9 @@ def _capture_geometry(
                     f"(track={kind}:{index}, itemUid={uid}, eventId={event_id}, "
                     f"start={source_start}, end={source_end}, "
                     f"expectedStart={expected_source_start}, "
-                    f"expectedDuration={expected_source_duration})",
+                    f"expectedDuration={expected_source_duration}, "
+                    f"mediaFrames={props.get('Frames')!r}, "
+                    f"sourceTimes={range_times!r})",
                 )
                 if event.get("kind") == "source_audio":
                     gain = event.get("gainDb")

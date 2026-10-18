@@ -1410,7 +1410,10 @@ class QualificationOutputController:
         commitment_receipt = _read(
             self.vault.root / commitment_value["commitmentReceiptSha256"]
         )
-        prediction = _read(self.journal.artifacts / attempt["predictionBytesSha256"])
+        prediction = _read(
+            self.journal.artifacts / attempt["predictionBytesSha256"],
+            maximum=48_000_000,
+        )
         materials = {
             "commitment": commitment,
             "commitment_receipt": commitment_receipt,

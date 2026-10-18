@@ -1973,7 +1973,7 @@ def _verify_public_receipt(
     tracked_hashes: dict[Path, str],
     *,
     matrix: bool = False,
-) -> tuple[Json, bytes, Path, bytes, bytes]:
+) -> tuple[Json, bytes, Path | None, bytes, bytes]:
     from .narration.models import identity_hash
 
     key_hex = requirement_key.removeprefix("sha256:")
@@ -2003,7 +2003,6 @@ def _verify_public_receipt(
         receipt_path,
         expected_dir / "receipt-checksum.json",
         expected_dir / "request.json",
-        expected_dir / "audio.wav",
     ):
         _need(
             path.is_file() and not path.is_symlink(),
@@ -2037,7 +2036,33 @@ def _verify_public_receipt(
     request_inputs_object = _object(
         request_inputs, "public preparation inputs must be an object"
     )
+    _need(
+        requirement_key == identity_hash(request_inputs_object)
+        and record.get("recordVersion") == "authoring-media-preparation/v1",
+        "public preparation identity differs",
+    )
+    if matrix and record.get("audio") is None:
+        _need(
+            request_inputs_object.get("audioStreamIndex") is None
+            and record_binding["timeMapping"]["sourceFrameMap"][
+                "sourceAudioStreamMappings"
+            ]
+            == [],
+            "silent preparation retains an audio stream mapping",
+        )
+        for path, digest in (
+            (receipt_path, _sha(raw)),
+            (expected_dir / "receipt-checksum.json", _sha(checksum_raw)),
+            (expected_dir / "request.json", _sha(request_raw)),
+        ):
+            tracked_hashes[path] = digest
+        return record, raw, None, b"", b""
     audio_path = expected_dir / "audio.wav"
+    _need(
+        audio_path.is_file() and not audio_path.is_symlink(),
+        "public preparation file is unavailable: audio.wav",
+    )
+    tracked_states[audio_path] = _state(audio_path)
     audio_raw = _read(audio_path, maximum=_MAX_WAV)
     audio_record = _object(
         record.get("audio"), "public preparation has no actual audio receipt"
@@ -2622,6 +2647,8 @@ def _prepared_public(
             record["binding"] == binding,
             "actual public receipt binding differs from compiler",
         )
+        _need(audio_path is not None, "first smoke requires prepared audio")
+        assert audio_path is not None
         paths[key] = path
         sidecars[key] = audio_path
     public_manifest = {**manifest, "preparationBindings": bindings}

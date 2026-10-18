@@ -1341,6 +1341,25 @@ def test_geometry_rejects_source_end_one_frame_short_or_long(
         native._capture_geometry(resolve, request, admitted, None)
 
 
+@pytest.mark.parametrize("end_error", [0.0, 0.001])
+def test_matrix_audio_exclusive_end_requires_sample_accurate_time(
+    tmp_path: Path, end_error: float
+) -> None:
+    resolve, request, admitted, item, _timeline = _geometry_case(
+        tmp_path, source_audio=True
+    )
+    request["profile"] = native.MATRIX_PROFILE
+    item.source_end_frame = 22
+    item.GetSourceStartTime = lambda: 12 * 1001 / 24000  # type: ignore[attr-defined]
+    item.GetSourceEndTime = lambda: 22 * 1001 / 24000 + end_error  # type: ignore[attr-defined]
+    if end_error:
+        with pytest.raises(OutputConsistencyError, match="native source range differs"):
+            native._capture_geometry(resolve, request, admitted, None)
+    else:
+        geometry = native._capture_geometry(resolve, request, admitted, None)
+        assert geometry["items"][0]["sourceDuration"] == 10
+
+
 def test_geometry_accepts_numeric_timeline_rate_readback(tmp_path: Path) -> None:
     resolve, request, admitted, _item, _timeline = _geometry_case(
         tmp_path, frame_rate=23.976
@@ -1451,7 +1470,7 @@ def test_geometry_refuses_unqualified_speed_frame_or_marker_drift(
         r"native source range differs \(track=video:1, "
         r"itemUid=timeline-item-one, eventId=event-one, "
         r"start=13, end=22, "
-        r"expectedStart=12, expectedDuration=10\)"
+        r"expectedStart=12, expectedDuration=10, mediaFrames=None, sourceTimes={}\)"
         if drift == "source_range"
         else None
     )

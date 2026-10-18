@@ -96,6 +96,32 @@ def test_reopened_journal_has_complete_cross_binding_uid_chain(tmp_path: Path) -
     assert len(journal.history()) == 2
 
 
+def test_attempt_materials_reopens_pcm_larger_than_json_limit(tmp_path: Path) -> None:
+    from types import SimpleNamespace
+
+    prediction = bytes(8 * 1024 * 1024 + 1)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    receipt = b"receipt"
+    receipt_hash = _hash(receipt)
+    commitment = _canonical({"commitmentReceiptSha256": receipt_hash})
+    for value in (prediction, commitment, receipt):
+        (artifacts / _hash(value)).write_bytes(value)
+    controller: Any = SimpleNamespace(
+        journal=SimpleNamespace(artifacts=artifacts),
+        vault=SimpleNamespace(root=artifacts),
+    )
+    materials = QualificationOutputController._attempt_materials(
+        controller,
+        {
+            "state": "committed",
+            "commitmentRawSha256": _hash(commitment),
+            "predictionBytesSha256": _hash(prediction),
+        },
+    )
+    assert materials["prediction"] == prediction
+
+
 def test_invocation_and_authority_renewal_cannot_reset_attempt(tmp_path: Path) -> None:
     first = context()
     journal = OutputAttemptJournal(tmp_path / "private", first)
