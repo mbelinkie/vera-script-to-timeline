@@ -3,7 +3,7 @@
 Issue #178 starts from merged main `ba7f07f54ceda3fa8225b51427ca82e4a2137d3e`.
 The installed #209 route is the native build/save-reopen/render boundary.
 
-Status: physical qualification remains incomplete. Four actual native renders
+Status: physical qualification remains incomplete. Ten actual native renders
 and their decoded measurements pass; no complete #178 acceptance is claimed.
 
 | Retained run | Physical result |
@@ -12,16 +12,26 @@ and their decoded measurements pass; no complete #178 acceptance is claimed.
 | `full-02` | 72 frames; Full 0 dB, zero click offset/drift. |
 | `fractional-01` | 30000/1001 and 24 fps at nonzero inpoints; 312 frames, exact cadence, Full 0 dB, zero click offset/drift; muted interval peak 0. |
 | `mixed-08` | 25/30 fps derivatives; 1032 frames, exact cadence, Full 0 dB, zero click offset/drift; muted interval peak 0. Research-descriptor variant remains separate. |
+| `topology-01` | 641 frames; continuous root, child, return and independent overlay with real narration. Every visible numbered frame and the same-MOV PCM comparison pass. |
+| `quiet-02` | 72 frames; measured −18.0000064 dB, zero click offset/drift. |
+| `no-02` | 72 silent tested frames followed by a 72-frame Full reference; no source-audio event in the tested interval, decoded peak 0. |
+| `endpoint-02` | 250-frame/10-second 25 fps picture becomes 240 target frames/10.01 seconds; exact cadence. Endpoint interval is muted, with an audible reference afterward. Enabled endpoint sound remains blocked by #249. |
+| `mixed-09` | Research 25 fps plus local 30 fps; 1032 frames, exact cadence, Full 0 dB, zero click offset/drift; muted peak 0. |
+| `quiet-mix-01` | 641 frames; prepared Quiet source sound under real narration, root/child/return/overlay geometry, every visible numbered frame and fixed same-MOV PCM comparison pass. Listening remains outstanding. |
 
 Each passed run completed all seven installed native stages, save/reopen,
 pre/post geometry, bound render job/output, and the fixed zero-lag/unity-gain
 same-MOV PCM comparison. Measurement reports authenticate the completed session,
-admission, preparation and actual MOV hash. Root/child/return/overlay, still
-composition, listening and recovery are not implied by these flat cases.
+admission, preparation and actual MOV hash. Still/Presenter composition,
+listening and native recovery remain outstanding. Sessions pin their consumed
+production source; these historical results do not qualify later changed
+native source automatically.
 
 Actual preparation refusals/restart pass. Public package checks also refuse
 wrong derived bytes (`package_file_hash_mismatch`), stale selected occurrences
 (`MISSING_OCCURRENCE_BINDING`) and stale word anchors (`STALE_WORD_ANCHOR`).
+An actual prepared three-source Quiet overlap refuses compilation with
+`SOURCE_AUDIO_OVERLAP` and never reaches native construction.
 
 `quiet-01` completed native rendering but final comparison refused host clock
 uncertainty; it is retained and not counted as a pass. Fully silent No/endpoint
@@ -31,7 +41,9 @@ gate. Every unsuccessful target and attempt remains retained.
 
 Follow-up gaps are tracked in [#248](https://github.com/mbelinkie/vera-script-to-timeline/issues/248)
 (bounded render retry) and [#249](https://github.com/mbelinkie/vera-script-to-timeline/issues/249)
-(enabled source sound at fractional complete-clip endpoints). Neither was
+(enabled source sound at fractional complete-clip endpoints), and
+[#250](https://github.com/mbelinkie/vera-script-to-timeline/issues/250)
+(current-compiler Presenter qualification admission). None was
 dispatched. These gaps do not become qualification success by being ticketed.
 
 The qualification uses issue-owned numbered-frame/flash/click media through
@@ -70,5 +82,5 @@ bound. No comparison tolerance changed.
 The scheduled continuation resumed on 2026-10-18. The retained private root
 `qualification-output-preparation/issue178-20261016-01` contains prepared
 cases, targets, runs and measurement reports. Fast validation passes, including
-1129 non-slow Python tests; focused native/controller checks pass. Full CI
+1133 non-slow Python tests; focused native/controller checks pass. Full CI
 remains the regression gate before merging.

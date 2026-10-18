@@ -2910,9 +2910,17 @@ def _capture_geometry(
                     and speed.keys() <= allowed_speed_options,
                     "closed native speed options shape",
                 )
+                # Static images may report a frozen 0% source clock.
                 _require(
                     type(speed["Percentage"]) in {int, float}
-                    and speed["Percentage"] == 100
+                    and (
+                        speed["Percentage"] == 100
+                        or (
+                            request.get("profile") == MATRIX_PROFILE
+                            and static_picture
+                            and speed["Percentage"] == 0
+                        )
+                    )
                     and (
                         "PitchCorrection" not in speed
                         or type(speed["PitchCorrection"]) is bool
@@ -2922,7 +2930,8 @@ def _capture_geometry(
                         or (type(speed[option]) is bool and speed[option] is False)
                         for option in ("StretchKeyframesToFit", "RippleTimeline")
                     ),
-                    "non-unit/unreadable native speed",
+                    f"non-unit/unreadable native speed (static={static_picture}, "
+                    f"speed={speed!r})",
                 )
                 _require(item.GetClipEnabled() is True, "disabled native item")
                 record = event["recordRange"]
@@ -2992,6 +3001,29 @@ def _capture_geometry(
                         method = getattr(item, method_name, None)
                         if callable(method):
                             range_times[method_name] = method()
+                # Studio can expose its arbitrary held-frame counter for a still.
+                # Normalize only a verified one-frame source with exact time edges.
+                if (
+                    request.get("profile") == MATRIX_PROFILE
+                    and static_picture
+                    and source_start == source_end
+                    and source_start >= 0
+                    and expected_source_start == 0
+                    and expected_source_duration == duration
+                    and props.get("Frames") == "1"
+                    and all(
+                        type(range_times.get(method)) in {int, float}
+                        and math.isfinite(range_times[method])
+                        and abs(Fraction(str(range_times[method])) - expected)
+                        <= Fraction(1, 48000)
+                        for method, expected in (
+                            ("GetSourceStartTime", Fraction(0)),
+                            ("GetSourceEndTime", Fraction(1001, 24000)),
+                        )
+                    )
+                ):
+                    source_start = 0
+                    source_duration = duration
                 if (
                     request.get("profile") == MATRIX_PROFILE
                     and kind == "audio"

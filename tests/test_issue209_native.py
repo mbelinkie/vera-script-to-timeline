@@ -1321,14 +1321,48 @@ def test_geometry_normalizes_only_verified_video_eof(
 
 def test_geometry_static_picture_uses_exact_record_duration(tmp_path: Path) -> None:
     resolve, request, admitted, item, _timeline = _geometry_case(tmp_path)
+    request["profile"] = native.MATRIX_PROFILE
     source = admitted["view"]["sources"][0]
     source["kind"] = "still"
     event = admitted["view"]["events"][0]
     event["sourceRange"] = {"startFrame": 0, "durationFrames": 10}
     item.stamp = native._event_stamp(event)
     item.source_start_frame = item.source_end_frame = 0
+    item.speed["Percentage"] = 0
     geometry = native._capture_geometry(resolve, request, admitted, None)
     assert geometry["items"][0]["sourceDuration"] == 10
+
+
+@pytest.mark.parametrize("end_error", [0.0, 0.001])
+def test_matrix_still_counter_requires_single_frame_and_exact_time_edges(
+    tmp_path: Path, end_error: float
+) -> None:
+    resolve, request, admitted, item, _timeline = _geometry_case(tmp_path)
+    request["profile"] = native.MATRIX_PROFILE
+    admitted["view"]["sources"][0]["kind"] = "still"
+    event = admitted["view"]["events"][0]
+    event["sourceRange"] = {"startFrame": 0, "durationFrames": 10}
+    item.stamp = native._event_stamp(event)
+    item.source_start_frame = item.source_end_frame = 86
+    item.media.frame_count = 1
+    item.GetSourceStartTime = lambda: 0.0  # type: ignore[attr-defined]
+    item.GetSourceEndTime = lambda: 1001 / 24000 + end_error  # type: ignore[attr-defined]
+    if end_error:
+        with pytest.raises(OutputConsistencyError, match="native source range differs"):
+            native._capture_geometry(resolve, request, admitted, None)
+    else:
+        geometry = native._capture_geometry(resolve, request, admitted, None)
+        assert geometry["items"][0]["sourceStart"] == 0
+        assert geometry["items"][0]["sourceDuration"] == 10
+
+
+def test_geometry_rejects_frozen_video_source_clock(tmp_path: Path) -> None:
+    resolve, request, admitted, item, _timeline = _geometry_case(tmp_path)
+    item.speed["Percentage"] = 0
+    with pytest.raises(
+        OutputConsistencyError, match="non-unit/unreadable native speed"
+    ):
+        native._capture_geometry(resolve, request, admitted, None)
 
 
 @pytest.mark.parametrize(
