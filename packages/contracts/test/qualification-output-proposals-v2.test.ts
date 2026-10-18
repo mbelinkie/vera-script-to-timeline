@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { canonicalJson, sha256CanonicalJson } from "../src/compiler-core.js";
+import { sha256CanonicalJson } from "../src/compiler-core.js";
 import { compileTimelineV2 } from "../src/compiler-core-v2.js";
 import type { NarrationBlockV2 } from "../src/generated/contracts-v2.js";
 import type { RowHandoffV2 } from "../src/issue-189-v2-replacement.js";
@@ -249,7 +249,8 @@ describe("#215 authenticated output observation to explicit revision bridge", ()
   it("derives an AV end trim from geometry while preserving the original extent as a silence tail", () => {
     const input = specimen(); const inference = inferQualificationOutputV2(input.document, input.dependencies, batch(input, ["B"]));
     expect(inference.caseKinds).toEqual(["B"]);
-    expect(inference.commands.trim).toMatchObject({ blockId: expect.any(String), expectedBlockVersion: 1, durationFrames: 67 });
+    expect(inference.commands.trim?.blockId).toEqual(expect.any(String));
+    expect(inference.commands.trim).toMatchObject({ expectedBlockVersion: 1, durationFrames: 67 });
     expect(inference.commands.boundary).toBeNull();
     const stage = stageQualificationOutputV2(input.document, input.dependencies, batch(input, ["B"]), accept(inference.inferenceHash), []);
     expect(stage.outcome).toBe("accept");

@@ -226,10 +226,6 @@ function bareHash(value: unknown, label = "raw lowercase SHA256"): string {
   fact(typeof value === "string" && /^[a-f0-9]{64}$/u.test(value), `${label} required`);
   return value;
 }
-function prefixedHash(value: unknown, label = "sha256 hash"): string {
-  fact(typeof value === "string" && /^sha256:[a-f0-9]{64}$/u.test(value), `${label} required`);
-  return value;
-}
 function rawSha256(raw: string): string { return createHash("sha256").update(raw, "utf8").digest("hex"); }
 function codepointCompare(a: string, b: string): number {
   const left = Array.from(a, (c) => c.codePointAt(0)!); const right = Array.from(b, (c) => c.codePointAt(0)!);
@@ -272,9 +268,9 @@ function parseRaw(raw: unknown, label: string): RecordValue {
   try { parsed = JSON.parse(raw); } catch { throw new Error(`invalid ${label} JSON`); }
   checkJsonTree(parsed);
   const stack: { object: boolean; expectKey: boolean; keys: Set<string> }[] = [];
-  const tokens = raw.matchAll(/"(?:[^"\\]|\\.)*"|[{}\[\]:,]|[^\s{}\[\]:,]+/gu);
+  const tokens = raw.matchAll(/"(?:[^"\\]|\\.)*"|[{}[\]:,]|[^\s{}[\]:,]+/gu);
   for (const match of tokens) {
-    const token = match[0]!;
+    const token = match[0];
     const top = stack.at(-1);
     if (token === "{" || token === "[") {
       fact(stack.length < 64, `${label} nesting exceeds bound`);
@@ -360,7 +356,7 @@ function validateGeometry(raw: unknown, label: string, phase: "pristine" | "edit
     const track = trackMap.get(item.trackId); fact(track !== undefined && track.kind === item.kind, "unknown or mismatched item track");
     fact(sourceMap.has(item.sourceId), "unknown item source");
     const recordStart = integer(item.recordStart); const recordDuration = integer(item.recordDuration);
-    const sourceStart = integer(item.sourceStart); const sourceDuration = integer(item.sourceDuration);
+    integer(item.sourceStart); const sourceDuration = integer(item.sourceDuration);
     fact(recordDuration > 0 && sourceDuration === recordDuration && recordStart + recordDuration <= extent, "unsupported item interval");
     const speed = shape(item.speed, ["numerator", "denominator"], "item speed");
     fact(integer(speed.numerator) === 1 && integer(speed.denominator) === 1 && item.enabled === true && item.online === true, "offline, disabled or non-unit-speed item");
@@ -448,7 +444,7 @@ function validateAudioEquality(value: unknown, caseId: string, a: GeometryV1, b:
   fact(predictionA === predictionB && decodedA === decodedB, "video-only edit changed predicted or decoded audio bytes");
 }
 
-function parseCase(value: unknown, documentHash: string, dependenciesHash: string): ParsedCase {
+function parseCase(value: unknown): ParsedCase {
   const source = shape(value, ["schemaVersion", "lane", "caseId", "pristineGeometryJson", "editedGeometryJson", "pristineComparisonJson", "editedComparisonJson", "pairJson", "audioEquality", "omissionSupport"], "observation case") as unknown as QualificationOutputObservationCaseV1;
   fact(source.schemaVersion === "qualification-output-observation/v1" && source.lane === LANE, "wrong observation namespace/lane");
   const caseId = identity(source.caseId, "case identity");
@@ -481,7 +477,7 @@ function validateBatch(value: unknown, document: ScriptDocumentV2, dependencies:
   const documentHash = sha256CanonicalJson(document); const dependenciesHash = sha256CanonicalJson(dependencies);
   fact(batch.schemaVersion === "qualification-output-observation-batch/v1" && batch.lane === LANE && batch.documentHash === documentHash && batch.dependenciesHash === dependenciesHash, "stale document/dependency observation batch");
   const rows = list(batch.cases, 3); fact(rows.length > 0, "one to three isolated observation cases required");
-  const cases = rows.map((item) => parseCase(item, documentHash, dependenciesHash));
+  const cases = rows.map((item) => parseCase(item));
   fact(new Set(cases.map((c) => c.source.caseId)).size === cases.length, "duplicate observation case identity");
   return { batch, cases, documentHash, dependenciesHash };
 }
@@ -528,7 +524,7 @@ function compileForDocument(document: ScriptDocumentV2, dependencies: CompilerDe
 function exactPreparedMediaForTrim(dependencies: CompilerDependenciesV2, blockId: string, durationFrames: number): PreparedMediaBindingV1[] {
   const occurrences = dependencies.occurrenceResolutions.filter((row) => row.owner.kind === "visual_only_block" && row.owner.blockId === blockId);
   fact(occurrences.length === 1 && occurrences[0]!.preparedMediaRequirementKey !== null, "trim preparation occurrence is ambiguous");
-  const requirementKey = occurrences[0]!.preparedMediaRequirementKey!;
+  const requirementKey = occurrences[0]!.preparedMediaRequirementKey;
   const bindings = dependencies.preparedMedia.filter((row) => row.requirementKey === requirementKey);
   fact(bindings.length === 1, "trim prepared-media binding is ambiguous");
   const prior = bindings[0]!;
@@ -578,7 +574,7 @@ function isHeldPicture(event: TimelineEventV2): boolean {
   return event.kind === "placeholder" || event.pictureTreatment?.kind === "still_frame";
 }
 
-function inferBoundaryCase(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2, input: ParsedCase, baseline: ReturnType<typeof compileForDocument>, pristineItems: Map<string, ItemV1>): RevisionCommandsV2["boundary"][] {
+function inferBoundaryCase(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2, input: ParsedCase, baseline: ReturnType<typeof compileForDocument>): RevisionCommandsV2["boundary"][] {
   const matches: RevisionCommandsV2["boundary"][] = [];
   const rows = document.activeDraft.blocks.filter((block) => block.type === "narration" && block.primaryVisualSequence !== undefined);
   for (const row of rows) {
@@ -725,7 +721,7 @@ function inferCase(document: ScriptDocumentV2, dependencies: CompilerDependencie
   baseline: ReturnType<typeof compileForDocument>, pristineItems: Map<string, ItemV1>, documentHash: string, dependenciesHash: string): { kind: CaseKind; boundary: RevisionCommandsV2["boundary"]; trim: RevisionCommandsV2["trim"]; omission: QualificationOutputInferenceV1["omission"] } {
   const possible: { kind: CaseKind; boundary: RevisionCommandsV2["boundary"]; trim: RevisionCommandsV2["trim"]; omission: QualificationOutputInferenceV1["omission"] }[] = [];
   if (input.source.omissionSupport === null) {
-    for (const boundary of inferBoundaryCase(document, dependencies, input, baseline, pristineItems)) possible.push({ kind: "A", boundary, trim: null, omission: null });
+    for (const boundary of inferBoundaryCase(document, dependencies, input, baseline)) possible.push({ kind: "A", boundary, trim: null, omission: null });
   }
   if (input.source.omissionSupport === null) {
     for (const trim of inferTrimCase(document, dependencies, input, pristineItems)) possible.push({ kind: "B", boundary: null, trim, omission: null });
