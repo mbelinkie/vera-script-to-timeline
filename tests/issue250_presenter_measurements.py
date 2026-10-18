@@ -108,18 +108,8 @@ def _binding_path(locator: object) -> Path:
     return resolved
 
 
-def load_presenter_case(case_root: Path) -> MeasurementCase:
-    """Load the retained fixture and its bound preparation files for measurement."""
-    _require(
-        case_root.is_absolute() and not case_root.is_symlink() and case_root.is_dir(),
-        "Presenter case root must be an absolute real directory",
-    )
-    manifest_path = case_root / "inputs" / "timeline-manifest-v2.json"
-    _require(
-        manifest_path.is_file() and not manifest_path.is_symlink(),
-        "retained Presenter manifest is missing",
-    )
-    manifest = cast(Json, json.loads(manifest_path.read_bytes()))
+def load_presenter_case(manifest: Json) -> MeasurementCase:
+    """Use the current admission's manifest and its exact preparation bindings."""
     root, _presenter, overlay = _presenter_events(manifest)
     raw_bindings = manifest.get("preparationBindings")
     raw_sources = manifest.get("sources")

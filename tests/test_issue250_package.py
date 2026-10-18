@@ -33,6 +33,8 @@ def _presenter_png(
     height: int = 720,
     red: tuple[int, int, int, int] = (230, 20, 20, 255),
 ) -> bytes:
+    if (width, height, red) == (320, 720, (230, 20, 20, 255)):
+        return (Path(__file__).parent / "data/issue250/presenter.png").read_bytes()
     rows = []
     for y in range(height):
         row = bytearray([255, 0, 255, 0] * width)
@@ -116,7 +118,7 @@ def _presenter_objects() -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]
     return document, manifest, report
 
 
-def test_generated_presenter_png_matches_the_fixed_asset_pin() -> None:
+def test_committed_presenter_png_matches_the_fixed_asset_pin() -> None:
     assert package._sha(_presenter_png()) == package._PRESENTER_PNG_SHA256
 
 

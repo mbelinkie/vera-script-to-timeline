@@ -16,6 +16,7 @@ from issue250_presenter_measurements import (
     _MARKER_SIZE,
     _PRESENTER_BOUNDS,
     _PRESENTER_FRAMES,
+    load_presenter_case,
     measure_presenter_render,
 )
 from vera_timeline_agent import qualification_output_controller_v2 as controller
@@ -117,6 +118,24 @@ def _bounds_frame() -> bytes:
 
 def _native_session(profile: str = PRESENTER_PROFILE) -> SimpleNamespace:
     return SimpleNamespace(admission=SimpleNamespace(profile=profile))
+
+
+def test_presenter_case_uses_the_current_admitted_manifest(tmp_path: Path) -> None:
+    manifest = _case().manifest
+    manifest["compiler"] = {"sourceHash": "sha256:" + "b" * 64}
+    for binding in manifest["preparationBindings"]:
+        directory = tmp_path / binding["requirementKey"]
+        directory.mkdir()
+        picture = directory / "picture.mp4"
+        picture.write_bytes(b"picture")
+        (directory / "receipt.json").write_text("{}")
+        binding["artifactLocator"] = picture.as_uri()
+
+    case = load_presenter_case(manifest)
+
+    assert case.manifest == manifest
+    assert case.manifest["compiler"]["sourceHash"] == "sha256:" + "b" * 64
+    assert len(case.preparations) == 2
 
 
 def test_presenter_measurement_checks_sparse_composite_pixels_and_contain_bounds(

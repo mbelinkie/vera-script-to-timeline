@@ -3527,6 +3527,15 @@ def _load_verified_admission_cache(
         _validate_scoped_r16_inputs(document, dependencies, manifest, report)
     elif record["profile"] == PRESENTER_PROFILE:
         _need(compile_one == compile_two, "retained Presenter compiler runs differ")
+        _need(
+            compile_one.get("result", {}).get("manifest") == manifest
+            and compile_one.get("result", {}).get("report") == report
+            and compile_one["result"].get("manifestJson", "").encode()
+            == retained["Compiler/timeline-manifest-v2.json"]
+            and compile_one["result"].get("reportJson", "").encode()
+            == retained["Compiler/build-report-v2.json"],
+            "retained Presenter compiler envelope differs from emitted output",
+        )
         _presenter_report(document, manifest, report)
         _validate_scoped_r16_inputs(document, dependencies, manifest, report)
     _need(
