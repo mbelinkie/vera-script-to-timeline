@@ -35,7 +35,11 @@ def test_complete_source_endpoints_prepare_package_and_reload(
             case = prepare_endpoint_case(
                 tmp_path / f"{seconds}s-{policy}", seconds, policy
             )
-            assert case.manifest["timeline"]["durationFrames"] == seconds * 24
+            reference_frames = 72 if (seconds, policy) == (10, "quiet") else 0
+            assert (
+                case.manifest["timeline"]["durationFrames"]
+                == seconds * 24 + reference_frames
+            )
             assert verify_v2_package(case.package_root).build_id == case.build.build_id
             loaded = admission.load_qualification_package_v2(
                 case.admission.admission_path,

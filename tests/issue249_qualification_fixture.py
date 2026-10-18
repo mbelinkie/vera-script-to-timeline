@@ -20,7 +20,7 @@ def prepare_endpoint_case(
     if seconds not in {3, 10} or policy not in {"full", "quiet"}:
         raise ValueError("unsupported issue249 endpoint case")
     name = f"issue249-{seconds}s-{policy}"
-    specs = (
+    specs: tuple[_ClipSpec, ...] = (
         _ClipSpec(
             f"endpoint-{seconds}s-{policy}",
             Fraction(25),
@@ -28,6 +28,9 @@ def prepare_endpoint_case(
             audio_policy=policy,
         ),
     )
+    if seconds == 10 and policy == "quiet":
+        # Sparse Quiet clicks need a reference for the unchanged programme gate.
+        specs += (_ClipSpec("reference-full", Fraction(24000, 1001), 72),)
     _CASES[name] = specs
     try:
         return prepare_qualification_case(root, name)
