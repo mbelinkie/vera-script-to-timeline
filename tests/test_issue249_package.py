@@ -6,6 +6,7 @@ import hashlib
 import io
 import wave
 from pathlib import Path
+from typing import Literal
 
 import pytest
 from issue249_qualification_fixture import prepare_endpoint_case
@@ -28,15 +29,18 @@ def test_complete_source_endpoints_prepare_package_and_reload(
 ) -> None:
     _require_qualified_host()
     monkeypatch.setattr(admission, "MATRIX_PREPARATION_ROOT", tmp_path)
-    case = prepare_endpoint_case(tmp_path / "complete-source-sound")
-    assert case.manifest["timeline"]["durationFrames"] == 624
-    assert verify_v2_package(case.package_root).build_id == case.build.build_id
-    loaded = admission.load_qualification_package_v2(
-        case.admission.admission_path,
-        hashlib.sha256(case.admission.admission_path.read_bytes()).hexdigest(),
-    )
+    policies: tuple[Literal["full", "quiet"], ...] = ("full", "quiet")
     for seconds in (3, 10):
-        for policy in ("full", "quiet"):
+        for policy in policies:
+            case = prepare_endpoint_case(
+                tmp_path / f"{seconds}s-{policy}", seconds, policy
+            )
+            assert case.manifest["timeline"]["durationFrames"] == seconds * 24
+            assert verify_v2_package(case.package_root).build_id == case.build.build_id
+            loaded = admission.load_qualification_package_v2(
+                case.admission.admission_path,
+                hashlib.sha256(case.admission.admission_path.read_bytes()).hexdigest(),
+            )
             payload_id = case.payload_ids[f"endpoint-{seconds}s-{policy}"]
             event = next(
                 row

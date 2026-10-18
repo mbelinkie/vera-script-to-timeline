@@ -86,6 +86,7 @@ def test_source_entry_identifies_delivered_wav_not_native_audio_stream(
     event = {
         "eventId": "event-audio",
         "kind": "source_audio",
+        "recordRange": {"startFrame": 0, "endFrame": 1},
         "preparationBindingHash": package._compiler_json_hash(binding),
         "sourceTimeMapping": {
             "sourceFrameMap": {
@@ -347,8 +348,8 @@ def test_load_reopens_verified_cache_without_running_toolchain(
         original_dependencies=empty,
         execution_document=empty,
         execution_dependencies=empty,
-        manifest={},
-        manifest_raw=empty,
+        manifest={"events": []},
+        manifest_raw=_canonical({"events": []}),
         report={},
         report_raw=empty,
         compiler_runs=(empty, empty),

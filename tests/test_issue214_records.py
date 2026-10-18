@@ -165,7 +165,11 @@ def test_context_refuses_bad_identity(key: str, value: Any) -> None:
 
 
 def test_host_production_import_closure() -> None:
-    for name in ("qualification_output_records_v2", "qualification_output_v2"):
+    for name in (
+        "qualification_output_records_v2",
+        "qualification_output_v2",
+        "source_audio_endpoint",
+    ):
         path = Path("python/vera_timeline_agent") / f"{name}.py"
         for node in ast.walk(ast.parse(path.read_text())):
             if isinstance(node, ast.Import):
@@ -177,7 +181,11 @@ def test_host_production_import_closure() -> None:
             for module in modules:
                 assert module.split(".")[0] in sys.stdlib_module_names or (
                     name == "qualification_output_v2"
-                    and module == "vera_timeline_agent.qualification_output_records_v2"
+                    and module
+                    in {
+                        "vera_timeline_agent.qualification_output_records_v2",
+                        "vera_timeline_agent.source_audio_endpoint",
+                    }
                 ), module
 
 

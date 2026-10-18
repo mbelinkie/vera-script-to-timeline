@@ -1,4 +1,4 @@
-"""Four complete 25 fps source clips for one bounded native endpoint render."""
+"""Complete 25 fps source clips for bounded native endpoint renders."""
 
 from fractions import Fraction
 from pathlib import Path
@@ -12,19 +12,21 @@ from issue178_qualification_fixture import (
 )
 
 
-def prepare_endpoint_case(root: Path) -> QualificationCase:
-    name = "issue249-complete-source-sound"
-    policies: tuple[Literal["full", "quiet"], ...] = ("full", "quiet")
-    specs = tuple(
+def prepare_endpoint_case(
+    root: Path,
+    seconds: int,
+    policy: Literal["full", "quiet"],
+) -> QualificationCase:
+    if seconds not in {3, 10} or policy not in {"full", "quiet"}:
+        raise ValueError("unsupported issue249 endpoint case")
+    name = f"issue249-{seconds}s-{policy}"
+    specs = (
         _ClipSpec(
             f"endpoint-{seconds}s-{policy}",
             Fraction(25),
             seconds * 25,
             audio_policy=policy,
-            selected_range=False,
-        )
-        for seconds in (3, 10)
-        for policy in policies
+        ),
     )
     _CASES[name] = specs
     try:
