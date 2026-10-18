@@ -28,6 +28,7 @@ from referencing import Registry, Resource
 
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
 from vera_timeline_agent.placeholder_slate import render_placeholder_slate
+from vera_timeline_agent.source_audio_endpoint import endpoint_plan, endpoint_wav
 
 BUILD_DIRECTORY = "Builds"
 MEDIA_DIRECTORY = "Media"
@@ -1078,6 +1079,7 @@ class _InputArtifact:
     relative_path: str
     content_hash: str
     kind: str
+    generated: bytes | None = None
 
 
 @dataclass(frozen=True)
@@ -1589,7 +1591,44 @@ def _media_artifacts(
             relative = f"{MEDIA_DIRECTORY}/{area}/{identity}{suffix}"
         _safe_relative(relative, f"package path for {key}")
         artifacts[key] = _InputArtifact(key, source_path, relative, actual, kind)
+    by_binding = {
+        _compiler_hash(item.record["binding"]): item for item in prepared.values()
+    }
+    rate = _fraction(manifest["timeline"]["frameRate"], "timeline rate", positive=True)
+    for event in events.values():
+        if event["kind"] != "source_audio":
+            continue
+        event_id = event["eventId"]
+        audio = by_binding[event["preparationBindingHash"]].record["audio"]
+        try:
+            plan = endpoint_plan(event, audio, rate)
+            if plan is None:
+                continue
+            artifact = artifacts[f"event:{event_id}"]
+            raw = endpoint_wav(artifact.origin.read_bytes(), plan, audio)
+        except (OSError, ValueError) as error:
+            raise _error(f"source audio {event_id}: {error}") from error
+        original_key = f"original-audio:{event_id}"
+        artifacts[original_key] = _InputArtifact(
+            original_key,
+            artifact.origin,
+            _original_audio_path(manifest, event_id),
+            artifact.content_hash,
+            "audio",
+        )
+        artifacts[artifact.key] = _InputArtifact(
+            artifact.key,
+            artifact.origin,
+            artifact.relative_path,
+            _hash_bytes(raw),
+            artifact.kind,
+            raw,
+        )
     return artifacts
+
+
+def _original_audio_path(manifest: JsonObject, event_id: str) -> str:
+    return f"{BUILD_DIRECTORY}/{manifest['buildId']}/Preparation/audio/{event_id}.wav"
 
 
 def _ceil_fraction(value: Fraction) -> int:
@@ -1603,6 +1642,12 @@ def _source_audio_range(
 ) -> dict[str, int]:
     event_id = cast(str, event["eventId"])
     audio_record = cast(JsonObject, preparation.record["audio"])
+    try:
+        plan = endpoint_plan(event, audio_record, timeline_rate)
+    except ValueError as error:
+        raise _error(
+            f"source audio {event_id} does not map to exact timeline frames: {error}"
+        ) from error
     audio = cast(JsonObject, event["audio"])
     mapping = cast(JsonObject, event["sourceTimeMapping"])
     source_frame_map = cast(JsonObject, mapping["sourceFrameMap"])
@@ -1635,6 +1680,11 @@ def _source_audio_range(
         raise _error(
             f"source audio event {event_id} is not the verified 48 kHz PCM sidecar"
         )
+    if plan is not None:
+        record_start, record_end = _range(
+            event["recordRange"], "source audio record range"
+        )
+        return {"startFrame": 0, "durationFrames": record_end - record_start}
     # The accepted #174 receipt pins PCM rate in its independently hashed probe;
     # it intentionally has no redundant top-level audio.sampleRate field.
     output_sample_rate = 48000
@@ -2007,6 +2057,29 @@ def _validate_delivery_view(
                 cast(JsonObject, prep.record["audio"]).get("contentHash"),
                 f"source audio {event_id} content hash",
             )
+            try:
+                plan = endpoint_plan(
+                    event,
+                    prep.record["audio"],
+                    _fraction(
+                        manifest["timeline"]["frameRate"],
+                        "timeline rate",
+                        positive=True,
+                    ),
+                )
+                if plan is not None:
+                    original = artifacts.get(f"original-audio:{event_id}")
+                    if original is None or _file_hash(original.origin) != content_hash:
+                        raise _error(
+                            f"source audio {event_id} lacks its original #174 WAV"
+                        )
+                    content_hash = _hash_bytes(
+                        endpoint_wav(
+                            original.origin.read_bytes(), plan, prep.record["audio"]
+                        )
+                    )
+            except (OSError, ValueError) as error:
+                raise _error(f"source audio {event_id}: {error}") from error
             package_source = sources[event_id]
             if package_source.get("contentHash") != content_hash:
                 raise _error(f"source audio {event_id} does not retain its #174 WAV")
@@ -2483,6 +2556,11 @@ def _write_exclusive(path: Path, data: bytes) -> None:
 
 
 def _copy_artifact(artifact: _InputArtifact, root: Path) -> None:
+    if artifact.generated is not None:
+        if _hash_bytes(artifact.generated) != artifact.content_hash:
+            raise _error(f"generated artifact {artifact.key} hash differs")
+        _write_exclusive(root / artifact.relative_path, artifact.generated)
+        return
     _copy_input_file(
         artifact.origin, root / artifact.relative_path, artifact.content_hash
     )
@@ -2812,6 +2890,36 @@ def _verify_package(project_root: Path) -> tuple[V2PackageVerification, JsonObje
                 view_source["contentHash"],
                 "audio",
             )
+            prep = next(
+                item
+                for item in prepared.values()
+                if _compiler_hash(item.record["binding"])
+                == event["preparationBindingHash"]
+            )
+            try:
+                plan = endpoint_plan(
+                    event,
+                    prep.record["audio"],
+                    _fraction(
+                        manifest["timeline"]["frameRate"],
+                        "timeline rate",
+                        positive=True,
+                    ),
+                )
+            except ValueError as error:
+                raise _error(f"source audio {event_id}: {error}") from error
+            if plan is not None:
+                original_audio_relative = _original_audio_path(manifest, event_id)
+                original_audio = _safe_package_file(
+                    project_root, original_audio_relative, "original source audio"
+                )
+                artifacts[f"original-audio:{event_id}"] = _InputArtifact(
+                    f"original-audio:{event_id}",
+                    original_audio,
+                    original_audio_relative,
+                    prep.record["audio"]["contentHash"],
+                    "audio",
+                )
     _validate_delivery_view(manifest, dependencies, view, prepared, artifacts)
 
     # Reconstruct the only permitted package inventory from frozen IDs, view
@@ -2830,6 +2938,11 @@ def _verify_package(project_root: Path) -> tuple[V2PackageVerification, JsonObje
     }
     expected_inventory.update(item.relative_path for item in prepared.values())
     expected_inventory.update(source["path"] for source in sources.values())
+    expected_inventory.update(
+        item.relative_path
+        for key, item in artifacts.items()
+        if key.startswith("original-audio:")
+    )
     for source_id, source in manifest_sources.items():
         if "narrationAudio" in source:
             continue

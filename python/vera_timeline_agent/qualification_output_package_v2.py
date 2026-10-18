@@ -31,6 +31,7 @@ from urllib.parse import unquote, urlparse
 from . import v2_package
 from .qualification_output_records_v2 import _canonical, _parse
 from .qualification_output_v2 import SourceProof
+from .source_audio_endpoint import endpoint_plan, endpoint_wav
 
 Json = dict[str, Any]
 
@@ -2404,9 +2405,13 @@ def _audio_source_entries(
                 "fractional source-audio sample mapping",
             )
             start_sample, end_sample = int(start_fraction), int(end_fraction)
+            plan = endpoint_plan(event, audio, Fraction(24000, 1001))
             _need(
-                start_sample % _FRAME_SAMPLES == end_sample % _FRAME_SAMPLES == 0
-                and end_sample - start_sample == frames * _FRAME_SAMPLES,
+                plan is not None
+                or (
+                    start_sample % _FRAME_SAMPLES == end_sample % _FRAME_SAMPLES == 0
+                    and end_sample - start_sample == frames * _FRAME_SAMPLES
+                ),
                 "source-audio sample interval is off-grid or not unit-speed",
             )
             _need(
@@ -2415,6 +2420,8 @@ def _audio_source_entries(
             )
             pins = preparation.record["binding"]
             native_hash = audio["contentHash"].removeprefix("sha256:")
+            if plan is not None:
+                native_hash = _sha(endpoint_wav(wav_raw, plan, audio))
             channels = audio["channels"]
             expected_wav_hash = audio["contentHash"].removeprefix("sha256:")
             entries_kind = "private_preparation"
@@ -2658,6 +2665,16 @@ def _prepared_public(
     return prepared, sidecars
 
 
+def _prediction_audio_path(
+    manifest: Json, event: Json, audio: Json, native_path: Path
+) -> Path:
+    if endpoint_plan(event, audio, Fraction(24000, 1001)) is None:
+        return native_path
+    return native_path.parents[2] / v2_package._original_audio_path(
+        manifest, event["eventId"]
+    )
+
+
 def _audio_proofs(
     manifest: Json,
     dependencies: Json,
@@ -2685,6 +2702,9 @@ def _audio_proofs(
             continue
         sid = view_events[event["eventId"]]["sourceId"]
         path = source_paths[sid]
+        if event["kind"] == "source_audio":
+            item = by_binding[event["preparationBindingHash"]]
+            path = _prediction_audio_path(manifest, event, item.record["audio"], path)
         raw = _read(path, maximum=_MAX_WAV)
         states[path] = _state(path)
         hashes[path] = _sha(raw)
@@ -2878,7 +2898,7 @@ def _admit_r16(
         if existing:
             _need(_hash_file(destination) == digest, "retained R16 media differs")
         else:
-            _copy_exclusive(artifact.origin, destination, digest)
+            v2_package._copy_artifact(artifact, root)
     source_paths = {row["id"]: root / row["path"] for row in view["sources"]}
     wavs, proofs, entries, payloads = _audio_proofs(
         manifest, dependencies, view, source_paths, prepared, states, hashes
@@ -3305,8 +3325,18 @@ def _load_verified_admission_cache(
         )
         source_paths[source_id] = expected
     source_wavs: dict[str, bytes] = {}
+    source_audio_events = {
+        row["eventId"]: row
+        for row in manifest["events"]
+        if row["kind"] == "source_audio"
+    }
     for source_id, expected_hash in source_wav_hashes.items():
-        raw = _read(source_paths[source_id], maximum=_MAX_WAV)
+        path = source_paths[source_id]
+        event = source_audio_events.get(source_id)
+        if event is not None:
+            proof_record = _json(source_proofs[source_id].record, "source audio proof")
+            path = _prediction_audio_path(manifest, event, proof_record["audio"], path)
+        raw = _read(path, maximum=_MAX_WAV)
         _need(
             _sha(raw) == expected_hash,
             f"verified source WAV changed: {source_id}",
