@@ -344,6 +344,7 @@ def _runtime_fixture(
     journal._retain(b"native-source-graph")
     journal._retain(release_bytes)
     controller: Any = object.__new__(QualificationOutputController)
+    controller.revised_preflight = None
     controller.context = context
     controller.admission = admission
     controller.release_root = release_root
@@ -432,6 +433,7 @@ def test_controller_bytes_pass_actual_request_and_authority_validators(
     journal._retain(b"native-source-graph")
     journal._retain(release_bytes)
     controller: Any = object.__new__(QualificationOutputController)
+    controller.revised_preflight = None
     controller.context = context
     controller.admission = admission
     controller.release_root = release_root
