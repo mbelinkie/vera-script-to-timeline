@@ -1301,9 +1301,7 @@ def admit_qualification_revision_v2(
     from .qualification_output_proof_v2 import verify_revised_preflight_v2
 
     preflight = _object(
-        verify_revised_preflight_v2(
-            revised_preflight_path, revised_preflight_sha256
-        ),
+        verify_revised_preflight_v2(revised_preflight_path, revised_preflight_sha256),
         "verified revised preflight object required",
     )
     original_inputs = _object(
@@ -2421,6 +2419,8 @@ def _audio_source_entries(
     prepared: Mapping[str, v2_package._Preparation],
     wavs: Mapping[str, bytes],
     proofs: Mapping[str, SourceProof],
+    *,
+    matrix_profile: bool = False,
 ) -> tuple[list[Json], dict[tuple[str, str], tuple[Json, ...]]]:
 
     manifest_sources = {row["id"]: row for row in manifest["sources"]}
@@ -2437,13 +2437,17 @@ def _audio_source_entries(
     has_narration = any(
         event.get("kind") == "narration" for event in manifest["events"]
     )
-    review_raw = _read(_R14, maximum=4 * 1024 * 1024) if has_narration else b""
+    review_raw = (
+        _read(_R14, maximum=4 * 1024 * 1024)
+        if has_narration and not matrix_profile
+        else b""
+    )
     timing_by_block = {
         path.stem: _read(path, maximum=4 * 1024 * 1024)
         for path in timing_root.glob("*.json")
         if path.stem in _NARRATION_TIMING_HASHES
     }
-    if has_narration:
+    if has_narration and not matrix_profile:
         _need(
             _sha(review_raw) == _R14_SHA256 and _sha(_r6_review()) == _R6_SHA256,
             "R14/R6 narration review receipt pins differ",
@@ -2489,11 +2493,32 @@ def _audio_source_entries(
             )
             assert timing_raw is not None
             _need(
-                _sha(proof.receipt) == _R14_SHA256
-                and proof.review == review_raw
-                and proof.timing == timing_raw,
-                "narration proof does not retain the actual R14/TIMING bytes",
+                proof.timing == timing_raw,
+                "narration proof does not retain the actual TIMING bytes",
             )
+            if matrix_profile:
+                declared_review_hash = _allowed_narration_review_hash(
+                    _object(
+                        record.get("verification"),
+                        "narration listening review required",
+                    ).get("reviewArtifactHash")
+                )
+                _need(
+                    proof.review is not None
+                    and proof.review == proof.receipt
+                    and _sha(proof.review) == declared_review_hash,
+                    "narration proof review/receipt differs from "
+                    "declared pinned artifact",
+                )
+                assert proof.review is not None
+                review_bytes = proof.review
+            else:
+                _need(
+                    _sha(proof.receipt) == _R14_SHA256 and proof.review == review_raw,
+                    "narration proof does not retain the actual R14 "
+                    "review/receipt bytes",
+                )
+                review_bytes = review_raw
             audio = narration_source["narrationAudio"]
             count = audio["durationSamples"]
             expected_wav_hash = audio["audioHash"].removeprefix("sha256:")
@@ -2504,7 +2529,7 @@ def _audio_source_entries(
             )
             pins = {
                 "timing": _sha(timing_raw),
-                "review": _sha(review_raw),
+                "review": _sha(review_bytes),
                 "receipt": _sha(proof.receipt),
             }
             source_rate, q, start_sample, end_sample = 48000, 0, 0, count
@@ -2740,14 +2765,44 @@ def _track(
     return raw
 
 
+def _allowed_narration_review_hash(value: object) -> str:
+    declared = _text(value, "narration review artifact hash required")
+    digest = declared.removeprefix("sha256:")
+    _need(
+        declared in {digest, "sha256:" + digest}
+        and digest in {_R6_SHA256, _R14_SHA256},
+        "narration review artifact is outside the statically pinned inventory",
+    )
+    return digest
+
+
+def _track_narration_review(
+    value: object,
+    states: dict[Path, tuple[int, int, int, int, int]],
+    hashes: dict[Path, str],
+) -> bytes:
+    digest = _allowed_narration_review_hash(value)
+    if digest == _R6_SHA256:
+        expected = _r6_review()
+        path = _R6_TARGET
+    else:
+        expected = None
+        path = _R14
+    raw = _track(path, states, hashes)
+    _need(
+        _sha(raw) == digest and (expected is None or raw == expected),
+        "narration review bytes differ from the statically pinned artifact",
+    )
+    return raw
+
+
 def _read_revised_pin(value: object, label: str) -> tuple[Path, bytes, str]:
     pin = _object(value, f"{label} pin required")
     _need(set(pin) == {"path", "sha256"}, f"{label} pin shape differs")
     path = Path(_text(pin["path"], f"{label} pin path required"))
     digest = _text(pin["sha256"], f"{label} pin hash required")
     _need(
-        path.is_absolute()
-        and re.fullmatch(r"[0-9a-f]{64}", digest) is not None,
+        path.is_absolute() and re.fullmatch(r"[0-9a-f]{64}", digest) is not None,
         f"{label} pin is malformed",
     )
     raw = _read(path)
@@ -2844,6 +2899,7 @@ def _audio_proofs(
     hashes: dict[Path, str],
     *,
     allow_silent: bool = False,
+    matrix_profile: bool = False,
 ) -> tuple[
     dict[str, bytes],
     dict[str, SourceProof],
@@ -2882,14 +2938,32 @@ def _audio_proofs(
             timing = _track(
                 _CANDIDATE / "TimingSources" / f"{block_id}.json", states, hashes
             )
-            review = _track(_R14, states, hashes)
-            _r6_review()
-            _track(_R6_TARGET, states, hashes)
+            if matrix_profile:
+                review = _track_narration_review(
+                    _object(
+                        _object(rows[0], "narration boundary record required").get(
+                            "verification"
+                        ),
+                        "narration listening review required",
+                    ).get("reviewArtifactHash"),
+                    states,
+                    hashes,
+                )
+            else:
+                review = _track(_R14, states, hashes)
+                _r6_review()
+                _track(_R6_TARGET, states, hashes)
             proofs[sid] = SourceProof(
                 _canonical(rows[0]), review, timing=timing, review=review
             )
     entries, payloads = _audio_source_entries(
-        manifest, dependencies, view, prepared, wavs, proofs
+        manifest,
+        dependencies,
+        view,
+        prepared,
+        wavs,
+        proofs,
+        matrix_profile=matrix_profile,
     )
     _need(
         bool(entries)
@@ -3428,8 +3502,7 @@ def _admit_synthetic(
             _track(path, states, hashes) for path, _expected in revision_originals
         )
         _need(
-            original_raw
-            == tuple(expected for _path, expected in revision_originals),
+            original_raw == tuple(expected for _path, expected in revision_originals),
             "revised original input changed after preflight verification",
         )
         revision_original_bytes = (original_raw[0], original_raw[1])
@@ -3438,9 +3511,7 @@ def _admit_synthetic(
         _need(
             {
                 "document": _read(public_build / v2_package.DOCUMENT_FILENAME),
-                "dependencies": _read(
-                    public_build / v2_package.DEPENDENCIES_FILENAME
-                ),
+                "dependencies": _read(public_build / v2_package.DEPENDENCIES_FILENAME),
                 "manifest": _read(public_build / v2_package.MANIFEST_FILENAME),
                 "report": _read(public_build / v2_package.REPORT_FILENAME),
             }
@@ -3578,6 +3649,7 @@ def _admit_synthetic(
         states,
         hashes,
         allow_silent=profile == MATRIX_PROFILE,
+        matrix_profile=profile == MATRIX_PROFILE,
     )
     preflight, preparation = _snapshots(
         profile=profile,

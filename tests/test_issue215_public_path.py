@@ -18,9 +18,8 @@ from vera_timeline_agent.qualification_output_records_v2 import (
 )
 from vera_timeline_agent.roundtrip_v2_records import ROOT
 
-NODE_24 = Path(
-    "/Users/matthewbelinkie/.cache/codex-runtimes/"
-    "codex-primary-runtime/dependencies/node/bin"
+NODE_24 = (
+    Path.home() / ".cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin"
 )
 OBSERVATION_FIXTURE = ROOT / "packages/contracts/test/issue-215-public-observation.ts"
 
