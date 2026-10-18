@@ -2847,6 +2847,10 @@ def _capture_geometry(
                 record_end = item.GetEnd(False)
                 source_start = item.GetSourceStartFrame()
                 source_end = item.GetSourceEndFrame()
+                static_picture = kind == "video" and source.get("kind") in {
+                    "still",
+                    "placeholder",
+                }
                 _require(
                     all(
                         type(value) is int
@@ -2862,9 +2866,16 @@ def _capture_geometry(
                     and record_end - record_start in {duration, duration - 1}
                     and (
                         source_end > source_start
-                        or (kind == "audio" and source_end == source_start)
+                        or (
+                            (kind == "audio" or static_picture)
+                            and source_end == source_start
+                        )
                     ),
-                    "unsupported native range getter",
+                    "unsupported native range getter "
+                    f"(kind={kind}, record="
+                    f"({record_start!r},{duration!r},{record_end!r}), "
+                    f"source=({source_start!r},{source_end!r}), "
+                    f"static={static_picture})",
                 )
                 _require(
                     all(
@@ -2964,6 +2975,14 @@ def _capture_geometry(
                     - source_start
                     + (kind == "audio" or video_end_saturated_at_eof)
                 )
+                # A still has no advancing source clock; its held extent is the
+                # exact record duration, while the single source frame stays zero.
+                if (
+                    static_picture
+                    and source_start == source_end == expected_source_start == 0
+                    and expected_source_duration == duration
+                ):
+                    source_duration = duration
                 range_times = {}
                 if (
                     source_start != expected_source_start

@@ -1319,6 +1319,18 @@ def test_geometry_normalizes_only_verified_video_eof(
             native._capture_geometry(resolve, request, admitted, None)
 
 
+def test_geometry_static_picture_uses_exact_record_duration(tmp_path: Path) -> None:
+    resolve, request, admitted, item, _timeline = _geometry_case(tmp_path)
+    source = admitted["view"]["sources"][0]
+    source["kind"] = "still"
+    event = admitted["view"]["events"][0]
+    event["sourceRange"] = {"startFrame": 0, "durationFrames": 10}
+    item.stamp = native._event_stamp(event)
+    item.source_start_frame = item.source_end_frame = 0
+    geometry = native._capture_geometry(resolve, request, admitted, None)
+    assert geometry["items"][0]["sourceDuration"] == 10
+
+
 @pytest.mark.parametrize(
     ("source_audio", "source_end_frame"),
     [(False, 21), (False, 23), (True, 20), (True, 22)],
