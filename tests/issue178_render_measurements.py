@@ -1035,9 +1035,13 @@ def measure_topology_render(
         any(event["kind"] == "narration" for event in events),
         "topology case requires authenticated narration",
     )
+    source_audio = [event for event in events if event["kind"] == "source_audio"]
     _require(
-        not any(event["kind"] == "source_audio" for event in events),
-        "this topology fixture requires muted source clips",
+        all(
+            event["audio"]["audioPolicy"] == "quiet" and event["audio"]["gainDb"] == -18
+            for event in source_audio
+        ),
+        "topology source sound must be Quiet under narration",
     )
     result = {
         "schemaVersion": "issue178-topology-measurements/v1",
@@ -1046,6 +1050,7 @@ def measure_topology_render(
         "frameCount": count,
         "durationSeconds": float(duration),
         "appearances": appearances,
+        "quietSourceAudioEvents": len(source_audio),
     }
     outputdir.mkdir(parents=True, exist_ok=False)
     (outputdir / "topology-measurements.json").write_text(json.dumps(result, indent=2))
