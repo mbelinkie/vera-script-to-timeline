@@ -257,6 +257,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     output_next.add_argument("--session", type=Path, required=True)
     output_next.add_argument("--session-sha256", required=True)
     output_next.add_argument("--approval", type=Path, required=True)
+    output_retry = commands.add_parser("output-retry")
+    output_retry.add_argument("--session", type=Path, required=True)
+    output_retry.add_argument("--session-sha256", required=True)
+    output_retry.add_argument("--approval", type=Path, required=True)
+    output_retry_plan = commands.add_parser("output-retry-plan")
+    output_retry_plan.add_argument("--session", type=Path, required=True)
+    output_retry_plan.add_argument("--session-sha256", required=True)
+    output_retry_plan.add_argument("--output", type=Path, required=True)
     output_replan = commands.add_parser("output-replan")
     output_replan.add_argument("--session", type=Path, required=True)
     output_replan.add_argument("--session-sha256", required=True)
@@ -374,23 +382,31 @@ def main(argv: Sequence[str] | None = None) -> int:
                 },
                 case_id=arguments.case_id,
             )
-        elif arguments.command == "output-next":
+        elif arguments.command in {"output-next", "output-retry"}:
             from .qualification_output_controller_v2 import load_output_session
 
             controller = load_output_session(
                 arguments.session.absolute(), arguments.session_sha256
             )
-            output = controller.prepare_next_native_request(
-                arguments.approval.absolute()
+            output = (
+                controller.prepare_render_retry_request(arguments.approval.absolute())
+                if arguments.command == "output-retry"
+                else controller.prepare_next_native_request(
+                    arguments.approval.absolute()
+                )
             )
             native_handoff_path = controller.native_operator_handoff_path(output)
-        elif arguments.command == "output-replan":
+        elif arguments.command in {"output-replan", "output-retry-plan"}:
             from .qualification_output_controller_v2 import load_output_session
 
             controller = load_output_session(
                 arguments.session.absolute(), arguments.session_sha256
             )
-            output = controller.prepare_operator_replan(arguments.output.absolute())
+            output = (
+                controller.prepare_render_retry_plan(arguments.output.absolute())
+                if arguments.command == "output-retry-plan"
+                else controller.prepare_operator_replan(arguments.output.absolute())
+            )
         elif arguments.command == "output-recover":
             from .qualification_output_controller_v2 import load_output_session
 
@@ -554,7 +570,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             if arguments.command == "output-prepare":
                 plan = output.parent / "operator-plan.json"
                 print(f"{plan.absolute()} sha256:{sha256(plan)}")
-            elif arguments.command == "output-next":
+            elif arguments.command in {"output-next", "output-retry"}:
                 if native_handoff_path is None:
                     raise ValueError("native operator handoff is missing")
                 print(

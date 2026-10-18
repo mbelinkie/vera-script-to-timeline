@@ -442,6 +442,7 @@ def _ledger_head(ledger: list[Json]) -> str:
     _list(ledger, 4096)
     head = EMPTY_HEAD
     previous: dict[tuple[str, str, str, str], Json] = {}
+    retry_used: set[tuple[str, str, str, str]] = set()
     chain: tuple[str, str, str] | None = None
     for sequence, entry in enumerate(ledger):
         _shape(
@@ -483,14 +484,25 @@ def _ledger_head(ledger: list[Json]) -> str:
         _identity(state)
         if state == "committed":
             _require(
-                prior is None or prior["state"] == "expired_unused",
+                prior is None
+                or prior["state"] == "expired_unused"
+                or (prior["state"] == "render_failed" and key not in retry_used),
                 "binding already attempted",
             )
-            if prior is not None:
+            if prior is not None and prior["state"] == "render_failed":
+                _require(
+                    entry["context"] == prior["context"]
+                    and entry["predictionBytesSha256"]
+                    == prior["predictionBytesSha256"],
+                    "render retry context/prediction changed",
+                )
+                retry_used.add(key)
+            elif prior is not None:
                 _require(
                     entry["predictionBytesSha256"] == prior["predictionBytesSha256"],
                     "expired prediction changed",
                 )
+                _require(key not in retry_used, "render retry already used")
             _require(
                 entry["reservationRawSha256"] is None
                 and entry["resultRawSha256"] is None,
@@ -521,7 +533,13 @@ def _ledger_head(ledger: list[Json]) -> str:
                 _digest(entry["reservationRawSha256"])
             else:
                 _require(
-                    state in {"uncertain", "compared_consistent", "compared_refused"}
+                    state
+                    in {
+                        "uncertain",
+                        "render_failed",
+                        "compared_consistent",
+                        "compared_refused",
+                    }
                     and prior["state"] == "reserved_by_render_intent",
                     "terminal/uncertain attempt cannot restart",
                 )
@@ -572,6 +590,18 @@ def _attempt(ledger: list[Json], context: Json) -> Json | None:
     return next(
         (row for row in reversed(ledger) if _ledger_key(row["context"]) == key), None
     )
+
+
+def _render_retry_used(ledger: list[Json], context: Json) -> bool:
+    _ledger_head(ledger)
+    key = _ledger_key(context)
+    prior_state: str | None = None
+    for row in ledger:
+        if _ledger_key(row["context"]) == key:
+            if row["state"] == "committed" and prior_state == "render_failed":
+                return True
+            prior_state = row["state"]
+    return False
 
 
 def _blobs(blobs: Mapping[str, bytes], context: Json) -> None:

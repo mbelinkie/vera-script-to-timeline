@@ -209,12 +209,22 @@ def _recovery_file_record(path: Path) -> Json:
 def _recovery_native_operations(context: Json) -> list[Json]:
     from .qualification_output_native_v2 import (
         APPROVAL_ACTION_PLAN,
+        RETRY_ACTION_PLAN,
         native_request_paths,
     )
 
     operations = []
-    for sequence, action in enumerate(APPROVAL_ACTION_PLAN):
+    for sequence, action in enumerate((*APPROVAL_ACTION_PLAN, *RETRY_ACTION_PLAN[1:])):
         result, _, intent, request = native_request_paths(context, sequence)
+        if sequence == 6:
+            action = "capture_post|retry_capture"
+            if request.exists():
+                try:
+                    retained_action = _parse(_read(request)).get("action")
+                    if retained_action in {"capture_post", "retry_capture"}:
+                        action = retained_action
+                except (OutputConsistencyError, OSError, ValueError):
+                    pass
         effects_dir = request.parent / "effects"
         try:
             _safe(effects_dir)
@@ -370,13 +380,23 @@ def _validated_history(rows: list[Json], chain: Json) -> str:
             )
         if state == "committed":
             _require(
-                prior is None or prior["state"] == "expired_unused",
+                prior is None or prior["state"] in {"expired_unused", "render_failed"},
                 "stable binding already attempted",
             )
             if prior:
                 _require(
-                    prior["predictionBytesSha256"] == row["predictionBytesSha256"],
-                    "expired unused prediction changed",
+                    prior["predictionBytesSha256"] == row["predictionBytesSha256"]
+                    and prior["context"] == row["context"],
+                    "recommitted prediction or context changed",
+                )
+            if prior:
+                failures = sum(
+                    r["state"] == "render_failed" and _binding(r["context"]) == key
+                    for r in rows[:sequence]
+                )
+                _require(
+                    failures == (1 if prior["state"] == "render_failed" else 0),
+                    "render retry budget exhausted",
                 )
             _require(
                 row["reservationRawSha256"] is None and row["resultRawSha256"] is None,
@@ -414,7 +434,13 @@ def _validated_history(rows: list[Json], chain: Json) -> str:
                 )
             else:
                 _require(
-                    state in {"uncertain", "compared_consistent", "compared_refused"}
+                    state
+                    in {
+                        "uncertain",
+                        "render_failed",
+                        "compared_consistent",
+                        "compared_refused",
+                    }
                     and prior["state"] == "reserved_by_render_intent"
                     and row["reservationRawSha256"] == prior["reservationRawSha256"],
                     "terminal or uncertain attempt cannot restart",
@@ -646,14 +672,25 @@ class OutputAttemptJournal:
             event["reservationRawSha256"] = _hash(reservation)
         if result is not None:
             value = _parse(result)
-            _require(
-                value["context"] == context
-                and value["status"] == state
-                and value["priorLedgerHeadSha256"] == expected_head
-                and value["commitmentRawSha256"] == prior["commitmentRawSha256"]
-                and value["reservationRawSha256"] == prior["reservationRawSha256"],
-                "terminal lineage/head differs",
-            )
+            if state == "render_failed":
+                _require(
+                    value["context"] == context
+                    and value["status"] == "partial"
+                    and value["action"] == "poll_render"
+                    and value["renderStatus"]["JobStatus"] in {"Failed", "Cancelled"}
+                    and value["reservationSha256"] == prior["reservationRawSha256"]
+                    and value["commitmentRawSha256"] == prior["commitmentRawSha256"],
+                    "confirmed failed render lineage required",
+                )
+            else:
+                _require(
+                    value["context"] == context
+                    and value["status"] == state
+                    and value["priorLedgerHeadSha256"] == expected_head
+                    and value["commitmentRawSha256"] == prior["commitmentRawSha256"]
+                    and value["reservationRawSha256"] == prior["reservationRawSha256"],
+                    "terminal lineage/head differs",
+                )
             event["resultRawSha256"] = _hash(result)
         artifacts = tuple(raw for raw in (reservation, result) if raw is not None)
         return self._append(event, expected_head=expected_head, artifacts=artifacts)
@@ -1153,10 +1190,10 @@ class QualificationOutputController:
     ) -> Path:
         """Prepare one static action under genuine existing operator authority."""
         from .qualification_output_native_v2 import (
-            APPROVAL_ACTION_PLAN,
             AUTHORITY_SCHEMA,
             INTENT_SCHEMA,
             REQUEST_SCHEMA,
+            native_action,
             native_request_paths,
             next_native_operation,
             verify_native_request,
@@ -1178,12 +1215,21 @@ class QualificationOutputController:
             release_manifest_sha256=release_manifest_sha256,
             require_live=not read_only_action,
             require_output_absent=action
-            in {"construct", "save_reopen", "capture_pre", "queue_render"},
+            in {
+                "construct",
+                "save_reopen",
+                "capture_pre",
+                "retry_capture",
+                "queue_render",
+            },
         )
-        sequence, prior_head = next_native_operation(self.context)
+        sequence, prior_head = (
+            next_native_operation(self.context, retry=True)
+            if action == "retry_capture"
+            else next_native_operation(self.context)
+        )
         _require(
-            sequence < len(APPROVAL_ACTION_PLAN)
-            and action == APPROVAL_ACTION_PLAN[sequence],
+            action == native_action(self.context, sequence),
             "native action must follow the fixed reviewed stage order",
         )
         result_path, authority_path, intent_path, request_path = native_request_paths(
@@ -1265,6 +1311,7 @@ class QualificationOutputController:
                     "chain": self.journal.chain,
                     "binding": _binding(self.context),
                     "action": action,
+                    "sequence": sequence,
                 }
             ),
             "sequence": sequence,
@@ -1355,14 +1402,15 @@ class QualificationOutputController:
         from .qualification_output_native_v2 import verify_native_request
 
         input_binding, input_path = self._input_binding()
-        result_path, result_sha256, result = self._native_result(2)
+        pre_sequence = self._render_sequences()[0]
+        result_path, result_sha256, result = self._native_result(pre_sequence)
         request_path = Path(result["requestPath"])
         request_raw = _read(request_path)
         request = verify_native_request(
             request_raw, expected_request_sha256=result["requestSha256"]
         )
         _require(
-            request["action"] == "capture_pre"
+            request["action"] in {"capture_pre", "retry_capture"}
             and request["payload"]
             == {
                 "inputBindingPath": str(input_path),
@@ -1443,7 +1491,7 @@ class QualificationOutputController:
         self, inputs: output.PredictionInputs
     ) -> tuple[bytes, bytes, bytes]:
         attempt = self._latest_attempt()
-        if attempt is None or attempt["state"] == "expired_unused":
+        if attempt is None or attempt["state"] in {"expired_unused", "render_failed"}:
             return self.publish_prediction(inputs)
         materials = self._attempt_materials(attempt)
         output.verify_prediction_commitment(
@@ -1498,10 +1546,24 @@ class QualificationOutputController:
         self.journal._retain(raw)
         return raw
 
+    def _render_sequences(self) -> tuple[int, int, int, int, int]:
+        from .qualification_output_native_v2 import native_request_paths
+
+        retry_path = native_request_paths(self.context, 6)[0]
+        if retry_path.exists():
+            raw = _read(retry_path)
+            if _parse(raw)["action"] == "retry_capture":
+                self._native_result(6)
+                return 6, 7, 8, 9, 10
+        return 2, 3, 4, 5, 6
+
     def _render_lineage(self) -> bytes:
-        queued = self._native_result(3)
-        started = self._native_result(4)
-        completed = self._native_result(5)
+        _, queue_sequence, start_sequence, completion_sequence, _ = (
+            self._render_sequences()
+        )
+        queued = self._native_result(queue_sequence)
+        started = self._native_result(start_sequence)
+        completed = self._native_result(completion_sequence)
         return self.render_lineage(
             queued=(queued[0], queued[1]),
             started=(started[0], started[1]),
@@ -1511,25 +1573,32 @@ class QualificationOutputController:
     def prepare_next_native_request(self, approval_path: Path) -> Path:
         """Prepare exactly the next reviewed native action from the fixed chain."""
         from .qualification_output_native_v2 import (
-            APPROVAL_ACTION_PLAN,
+            native_action,
             native_request_paths,
             next_native_operation,
         )
 
         sequence, _ = next_native_operation(self.context)
-        action = APPROVAL_ACTION_PLAN[sequence]
+        action = native_action(self.context, sequence)
         payload: Json = {}
         reservation: bytes | None = None
         reservation_receipt: bytes | None = None
         render_intent: bytes | None = None
 
-        if sequence == 2:
+        (
+            pre_sequence,
+            queue_sequence,
+            start_sequence,
+            completion_sequence,
+            post_sequence,
+        ) = self._render_sequences()
+        if sequence == pre_sequence:
             input_binding, input_path = self._input_binding()
             payload = {
                 "inputBindingPath": str(input_path),
                 "inputBindingSha256": _hash(input_binding),
             }
-        elif sequence == 3:
+        elif sequence == queue_sequence:
             inputs = self._pre_capture_inputs()
             commitment, commitment_receipt, prediction = self._ensure_prediction(inputs)
             attempt = self._latest_attempt()
@@ -1562,8 +1631,8 @@ class QualificationOutputController:
                 "outputPath": intent["outputPath"],
                 "outputFilename": Path(intent["outputPath"]).stem,
             }
-        elif sequence == 4:
-            _, _, queued = self._native_result(3)
+        elif sequence == start_sequence:
+            _, _, queued = self._native_result(queue_sequence)
             attempt = self._latest_attempt()
             _require(attempt is not None, "reserved output attempt required")
             assert attempt is not None
@@ -1571,14 +1640,14 @@ class QualificationOutputController:
             reservation = materials["reservation"]
             reservation_receipt = materials["reservation_receipt"]
             render_intent = materials["render_intent"]
-            result_path = native_request_paths(self.context, 3)[0]
+            result_path = native_request_paths(self.context, queue_sequence)[0]
             payload = {
                 "jobId": queued["jobId"],
                 "queuedResultPath": str(result_path),
                 "queuedResultSha256": _hash(_read(result_path)),
             }
-        elif sequence == 5:
-            _, _, started = self._native_result(4)
+        elif sequence == completion_sequence:
+            _, _, started = self._native_result(start_sequence)
             attempt = self._latest_attempt()
             _require(attempt is not None, "reserved output attempt required")
             assert attempt is not None
@@ -1586,13 +1655,13 @@ class QualificationOutputController:
             reservation = materials["reservation"]
             reservation_receipt = materials["reservation_receipt"]
             render_intent = materials["render_intent"]
-            result_path = native_request_paths(self.context, 4)[0]
+            result_path = native_request_paths(self.context, start_sequence)[0]
             payload = {
                 "jobId": started["jobId"],
                 "startedResultPath": str(result_path),
                 "startedResultSha256": _hash(_read(result_path)),
             }
-        elif sequence == 6:
+        elif sequence == post_sequence:
             input_binding, input_path = self._input_binding()
             lineage = self._render_lineage()
             attempt = self._latest_attempt()
@@ -1603,7 +1672,7 @@ class QualificationOutputController:
             reservation_receipt = materials["reservation_receipt"]
             render_intent = materials["render_intent"]
             lineage_path = self.journal.artifacts / _hash(lineage)
-            completion_path = native_request_paths(self.context, 5)[0]
+            completion_path = native_request_paths(self.context, completion_sequence)[0]
             payload = {
                 "inputBindingPath": str(input_path),
                 "inputBindingSha256": _hash(input_binding),
@@ -1728,8 +1797,17 @@ class QualificationOutputController:
         if result["status"] != "complete":
             attempt = self._latest_attempt()
             if attempt is not None and attempt["state"] == "reserved_by_render_intent":
-                self.record_uncertain((result_path, result_sha256))
-                host_stage = "attempt_marked_uncertain"
+                if (
+                    result["action"] == "poll_render"
+                    and result["status"] == "partial"
+                    and (result.get("renderStatus") or {}).get("JobStatus")
+                    in {"Failed", "Cancelled"}
+                ):
+                    self.record_native_failure((result_path, result_sha256))
+                    host_stage = "render_failure_retained"
+                else:
+                    self.record_uncertain((result_path, result_sha256))
+                    host_stage = "attempt_marked_uncertain"
             return {
                 "sequence": sequence,
                 "action": result["action"],
@@ -1738,13 +1816,13 @@ class QualificationOutputController:
                 "hostStage": host_stage,
             }
 
-        if sequence == 2:
+        if result["action"] in {"capture_pre", "retry_capture"}:
             self._ensure_prediction(self._pre_capture_inputs())
             host_stage = "prediction_committed"
-        elif sequence == 5:
+        elif result["action"] == "poll_render":
             self._render_lineage()
             host_stage = "render_lineage_retained"
-        elif sequence == 6:
+        elif result["action"] == "capture_post":
             host_stage = "post_capture_ready_to_finalize"
         return {
             "sequence": sequence,
@@ -1791,7 +1869,7 @@ class QualificationOutputController:
     def inspect_recovery(self) -> Json:
         """Report fixed-chain recovery evidence without changing or retrying it."""
         from .qualification_output_native_v2 import (
-            APPROVAL_ACTION_PLAN,
+            native_action,
             next_native_operation,
         )
 
@@ -1818,10 +1896,14 @@ class QualificationOutputController:
         exhausted = False
         sequence = None
         try:
-            sequence, prior = next_native_operation(self.context)
+            sequence, prior = (
+                next_native_operation(self.context, retry=True)
+                if latest is not None and latest["state"] == "render_failed"
+                else next_native_operation(self.context)
+            )
             next_operation = {
                 "sequence": sequence,
-                "action": APPROVAL_ACTION_PLAN[sequence],
+                "action": native_action(self.context, sequence),
                 "priorResultSha256": prior,
             }
         except (OutputConsistencyError, OSError) as error:
@@ -1851,6 +1933,10 @@ class QualificationOutputController:
                 status = "empty"
             elif latest is not None and latest["state"] == "uncertain":
                 status = "uncertain"
+            elif latest is not None and latest["state"] == "render_failed":
+                status = "render_failed"
+                if next_operation is not None:
+                    next_operation["requiresExplicitRetryApproval"] = True
             elif (
                 exhausted
                 and latest is not None
@@ -1889,11 +1975,12 @@ class QualificationOutputController:
         )
 
         result = verify_native_result(result_path, result_sha256)
-        expected_path = native_request_paths(self.context, 6)[0]
+        _, _, _, completion_sequence, post_sequence = self._render_sequences()
+        expected_path = native_request_paths(self.context, post_sequence)[0]
         _require(
             result_path.absolute() == expected_path
             and result["context"] == self.context
-            and result["sequence"] == 6
+            and result["sequence"] == post_sequence
             and result["action"] == "capture_post"
             and result["status"] == "complete",
             "complete final native capture for this session required",
@@ -1927,7 +2014,7 @@ class QualificationOutputController:
             )
             assert isinstance(post_capture, tuple)
             post_geometry, post_geometry_receipt = post_capture
-            completion = self._native_result(5)
+            completion = self._native_result(completion_sequence)
             stage = "decode"
             decode_record, decode_receipt, decoded_samples = self.decode_output(
                 lineage=lineage,
@@ -1960,7 +2047,7 @@ class QualificationOutputController:
                 )
             raise
 
-    def prepare_operator_plan(self, plan_path: Path) -> Path:
+    def prepare_operator_plan(self, plan_path: Path, *, retry: bool = False) -> Path:
         """Prepare a reviewable exact plan; this does not issue authority."""
         from .qualification_output_native_v2 import (
             APPROVAL_ACTION_PLAN,
@@ -1968,6 +2055,7 @@ class QualificationOutputController:
             CONFIRMATIONS,
             MAX_POLL_COUNT,
             NATIVE_STATE_ROOT,
+            RETRY_ACTION_PLAN,
             _settings_for_timeline,
         )
         from .workflow_v2_cli import RELEASE_NAME, _verify_output_release
@@ -2007,10 +2095,14 @@ class QualificationOutputController:
             "admissionSha256": _hash(_read(self.admission.admission_path)),
             "sourceGraphSha256": self.context["nativeSourceGraphSha256"],
             "outputPath": str(
-                output_parent / (self.context["binding"]["bindingSha256"] + ".mov")
+                output_parent
+                / (
+                    self.context["binding"]["bindingSha256"]
+                    + ("-retry-1.mov" if retry else ".mov")
+                )
             ),
             "settings": _settings_for_timeline(self.admission.manifest["timeline"]),
-            "actionPlan": list(APPROVAL_ACTION_PLAN),
+            "actionPlan": list(RETRY_ACTION_PLAN if retry else APPROVAL_ACTION_PLAN),
             "maxPolls": MAX_POLL_COUNT,
             "confirmations": CONFIRMATIONS,
             "oneUse": True,
@@ -2032,6 +2124,48 @@ class QualificationOutputController:
         )
         _publish(plan_path, raw)
         return plan_path
+
+    def prepare_render_retry_plan(self, plan_path: Path) -> Path:
+        """Propose one fresh authority after a confirmed terminal render failure."""
+        from .qualification_output_native_v2 import (
+            next_native_operation,
+            verified_render_failure,
+        )
+
+        self._environment_current()
+        sequence, _ = next_native_operation(self.context, retry=True)
+        _require(sequence == 6, "only the first failed render may be retried")
+        _, digest, _ = verified_render_failure(self.context)
+        latest = self._latest_attempt()
+        _require(
+            latest is not None
+            and latest["state"] == "render_failed"
+            and latest["resultRawSha256"] == digest,
+            "authenticated render failure must be ingested before retry",
+        )
+        return self.prepare_operator_plan(plan_path, retry=True)
+
+    def prepare_render_retry_request(self, approval_path: Path) -> Path:
+        """Consume the fresh retry approval for a read-only saved-target check."""
+        from .qualification_output_native_v2 import RETRY_ACTION_PLAN
+
+        _require(
+            _parse(_read(approval_path))["actionPlan"] == list(RETRY_ACTION_PLAN),
+            "fresh bounded retry approval required",
+        )
+        latest = self._latest_attempt()
+        _require(
+            latest is not None and latest["state"] == "render_failed",
+            "confirmed render failure required",
+        )
+        binding, path = self._input_binding()
+        request = self.prepare_native_request(
+            "retry_capture",
+            {"inputBindingPath": str(path), "inputBindingSha256": _hash(binding)},
+            approval_path=approval_path,
+        )
+        self._publish_native_operator_handoff(request, 6, "retry_capture")
+        return request
 
     def prepare_operator_replan(self, plan_path: Path) -> Path:
         """Prepare a fresh review-only proposal for this exact existing session."""
@@ -2248,7 +2382,12 @@ class QualificationOutputController:
             ),
             "renderIntentSha256": _hash(render_intent),
             "reservationId": _json_hash(
-                {"binding": _binding(self.context), "chain": self.journal.chain}
+                {
+                    "binding": _binding(self.context),
+                    "chain": self.journal.chain,
+                    "commitmentRawSha256": _hash(commitment),
+                    "renderIntentSha256": _hash(render_intent),
+                }
             ),
             "reservedAt": self.trust.checked_now().isoformat().replace("+00:00", "Z"),
         }
@@ -2273,7 +2412,7 @@ class QualificationOutputController:
         started: tuple[Path, str],
         completed: tuple[Path, str],
     ) -> bytes:
-        """Bind the exact queued, started and completed native job, with no retry."""
+        """Bind the exact job and the authenticated complete native attempt chain."""
         from .qualification_output_native_v2 import verify_native_result
 
         queue, start, completion = [
@@ -2481,4 +2620,30 @@ class QualificationOutputController:
         _require(bool(rows), "owned attempt required")
         return self.journal.transition(
             self.context, "uncertain", expected_head=rows[-1]["entrySha256"]
+        )
+
+    def record_native_failure(self, native_result: tuple[Path, str]) -> Json:
+        """Retain a confirmed failed job; a fresh approval still gates retry."""
+        from .qualification_output_native_v2 import verify_native_result
+
+        value = verify_native_result(*native_result)
+        raw = _read(native_result[0])
+        _require(
+            _hash(raw) == native_result[1], "native failure changed after verification"
+        )
+        _require(
+            value["context"] == self.context
+            and value["status"] == "partial"
+            and value["action"] == "poll_render"
+            and (value.get("renderStatus") or {}).get("JobStatus")
+            in {"Failed", "Cancelled"},
+            "actual terminal render failure required",
+        )
+        rows = self.journal.history()
+        _require(bool(rows), "owned attempt required")
+        return self.journal.transition(
+            self.context,
+            "render_failed",
+            expected_head=rows[-1]["entrySha256"],
+            result=raw,
         )

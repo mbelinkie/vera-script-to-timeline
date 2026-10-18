@@ -66,6 +66,7 @@ ACTIONS = frozenset(
     {
         "construct",
         "capture_pre",
+        "retry_capture",
         "save_reopen",
         "queue_render",
         "start_render",
@@ -163,6 +164,24 @@ APPROVAL_ACTION_PLAN = (
     "poll_render",
     "capture_post",
 )
+RETRY_ACTION_PLAN = (
+    "retry_capture",
+    "queue_render",
+    "start_render",
+    "poll_render",
+    "capture_post",
+)
+
+
+def _approval_plan_for_request(request: dict[str, Any]) -> tuple[str, ...]:
+    if request["sequence"] > len(APPROVAL_ACTION_PLAN) - 1 or (
+        request["sequence"] == len(APPROVAL_ACTION_PLAN) - 1
+        and request["action"] == "retry_capture"
+    ):
+        return RETRY_ACTION_PLAN
+    return APPROVAL_ACTION_PLAN
+
+
 APPROVAL_FIELDS = frozenset(
     {
         "schemaVersion",
@@ -757,7 +776,7 @@ def verify_operator_approval(
         "approval admission pin differs",
     )
     _require(
-        approval["actionPlan"] == list(APPROVAL_ACTION_PLAN),
+        approval["actionPlan"] in (list(APPROVAL_ACTION_PLAN), list(RETRY_ACTION_PLAN)),
         "approval action plan differs",
     )
     _require(approval["maxPolls"] == MAX_POLL_COUNT, "approval poll bound differs")
@@ -965,6 +984,11 @@ def verify_native_request(
     )
     _digest(request["priorResultSha256"])
     context = _context(request["context"])
+    _require(
+        request["sequence"] < len(APPROVAL_ACTION_PLAN) + len(RETRY_ACTION_PLAN) - 1
+        and request["action"] == native_action(context, request["sequence"]),
+        "native action order differs",
+    )
     target = _target(request["target"])
     _require(target == context["target"], "request/context target differs")
     package = _shape(request["package"], PACKAGE_FIELDS, "native package")
@@ -1064,6 +1088,7 @@ def _payload_fields(action: str) -> frozenset[str]:
     fields = {
         "construct": frozenset(),
         "capture_pre": frozenset({"inputBindingPath", "inputBindingSha256"}),
+        "retry_capture": frozenset({"inputBindingPath", "inputBindingSha256"}),
         "save_reopen": frozenset(),
         "queue_render": frozenset({"settings", "outputPath", "outputFilename"}),
         "start_render": frozenset({"jobId", "queuedResultPath", "queuedResultSha256"}),
@@ -1382,7 +1407,7 @@ def _historical_approval(raw: bytes, request: dict[str, Any]) -> dict[str, Any]:
         "historical approval release/source differs",
     )
     _require(
-        approval["actionPlan"] == list(APPROVAL_ACTION_PLAN)
+        approval["actionPlan"] == list(_approval_plan_for_request(request))
         and approval["maxPolls"] == MAX_POLL_COUNT
         and approval["confirmations"] == CONFIRMATIONS
         and approval["oneUse"] is True,
@@ -1488,13 +1513,20 @@ def _verify_authority(
             release_manifest_sha256=request["releaseManifestSha256"],
             require_live=True,
             require_output_absent=request["action"]
-            in {"construct", "save_reopen", "capture_pre", "queue_render"},
+            in {
+                "construct",
+                "save_reopen",
+                "capture_pre",
+                "retry_capture",
+                "queue_render",
+            },
         )
         if current
         else _historical_approval(approval_raw, request)
     )
     _require(
-        request["action"] in approval["actionPlan"],
+        request["action"] in approval["actionPlan"]
+        and approval["actionPlan"] == list(_approval_plan_for_request(request)),
         "action is outside the reviewed approval plan",
     )
     _require(
@@ -1650,6 +1682,7 @@ def _host_attempt_history(context: dict[str, Any]) -> list[dict[str, Any]]:
                 "committed",
                 "expired_unused",
                 "reserved_by_render_intent",
+                "render_failed",
                 "uncertain",
                 "compared_consistent",
                 "compared_refused",
@@ -1658,9 +1691,25 @@ def _host_attempt_history(context: dict[str, Any]) -> list[dict[str, Any]]:
         )
         if state == "committed":
             _require(
-                prior is None or prior["state"] == "expired_unused",
+                prior is None or prior["state"] in {"expired_unused", "render_failed"},
                 "host commitment replayed",
             )
+            if prior is not None:
+                _require(
+                    row["context"] == prior["context"]
+                    and row["predictionBytesSha256"] == prior["predictionBytesSha256"],
+                    "host recommit changed context or prediction bytes",
+                )
+            if prior is not None:
+                failed_renders = sum(
+                    item["state"] == "render_failed"
+                    and item["context"]["binding"]["bindingSha256"] == binding
+                    for item in rows
+                )
+                _require(
+                    failed_renders == (1 if prior["state"] == "render_failed" else 0),
+                    "host render retry budget exhausted",
+                )
             _require(
                 row["reservationRawSha256"] is None and row["resultRawSha256"] is None,
                 "host commitment has future references",
@@ -1694,11 +1743,62 @@ def _host_attempt_history(context: dict[str, Any]) -> list[dict[str, Any]]:
                     and row["resultRawSha256"] is None,
                     "invalid host reservation transition",
                 )
-            else:
+            elif state == "render_failed":
+                result_sha = row["resultRawSha256"]
                 _require(
                     prior["state"] == "reserved_by_render_intent"
+                    and row["reservationRawSha256"] == prior["reservationRawSha256"]
+                    and result_sha is not None,
+                    "invalid host failed-render transition",
+                )
+                result_raw = _read(
+                    directory / "artifacts" / result_sha,
+                    "retained native failed poll",
+                    maximum=48_000_000,
+                )
+                failed = _shape(_parse(result_raw), RESULT_FIELDS, "failed poll result")
+                retry_poll_sequence = (
+                    len(APPROVAL_ACTION_PLAN)
+                    - 1
+                    + RETRY_ACTION_PLAN.index("poll_render")
+                )
+                _require(
+                    type(failed["sequence"]) is int
+                    and failed["sequence"]
+                    in {
+                        len(APPROVAL_ACTION_PLAN) - 2,
+                        retry_poll_sequence,
+                    },
+                    "host failed result is outside the reviewed poll slots",
+                )
+                failed_path = native_request_paths(row_context, failed["sequence"])[0]
+                _require(
+                    result_raw == _canonical(failed)
+                    and failed["action"] == "poll_render"
+                    and _terminal_failed_render(failed)
+                    and failed["context"] == row["context"]
+                    and failed["reservationSha256"] == row["reservationRawSha256"]
+                    and failed["commitmentRawSha256"] == row["commitmentRawSha256"]
+                    and _hash(result_raw) == result_sha,
+                    "host failed-render result lineage differs",
+                )
+                _immutable(failed_path, "native failed poll result")
+                _require(
+                    _read(failed_path, "canonical native failed poll") == result_raw,
+                    "host failed-render result is not the canonical native poll",
+                )
+            else:
+                _require(
+                    state in {"uncertain", "compared_consistent", "compared_refused"}
+                    and prior["state"] == "reserved_by_render_intent"
                     and row["reservationRawSha256"] == prior["reservationRawSha256"],
                     "invalid host terminal transition",
+                )
+                _require(
+                    row["resultRawSha256"] is None
+                    if state == "uncertain"
+                    else row["resultRawSha256"] is not None,
+                    "invalid host terminal result reference",
                 )
         previous = row["entrySha256"]
         last[binding] = row
@@ -1781,7 +1881,12 @@ def _verify_reservation(request: dict[str, Any], *, current: bool = True) -> str
     if ref is None:
         _require(
             request["action"]
-            not in {"queue_render", "start_render", "poll_render", "capture_post"},
+            not in {
+                "queue_render",
+                "start_render",
+                "poll_render",
+                "capture_post",
+            },
             "render action requires an owned reservation",
         )
         return None
@@ -1822,7 +1927,8 @@ def _verify_reservation(request: dict[str, Any], *, current: bool = True) -> str
             render_raw,
             context=request["context"],
             commitment_sha256=reservation["commitmentRawSha256"],
-            require_output_absent=request["action"] == "queue_render",
+            require_output_absent=request["action"]
+            in {"retry_capture", "queue_render"},
         )
     else:
         render_intent = _shape(
@@ -3769,7 +3875,7 @@ def _previous_result(
 ) -> tuple[dict[str, Any], str, Path]:
     sequence = request["sequence"] - 1
     _require(
-        sequence >= 0 and APPROVAL_ACTION_PLAN[sequence] == action,
+        sequence >= 0 and native_action(request["context"], sequence) == action,
         "native action order differs",
     )
     result_path = native_request_paths(request["context"], sequence)[0]
@@ -3778,17 +3884,49 @@ def _previous_result(
     _require(digest == request["priorResultSha256"], "native predecessor hash differs")
     result = verify_native_result(result_path, digest)
     _require(
-        result["status"] == "complete" and result["action"] == action,
-        "complete native predecessor required",
+        result["action"] == action
+        and (
+            result["status"] == "complete"
+            or (action == "poll_render" and _terminal_failed_render(result))
+        ),
+        "complete native predecessor or authenticated failed render required",
     )
+    if action == "poll_render" and _terminal_failed_render(result):
+        verified_render_failure(request["context"])
     return result, digest, result_path
 
 
 def _verify_readonly_native_lineage(request: dict[str, Any]) -> None:
     if request["action"] == "poll_render":
         _previous_result(request, "start_render")
-    elif request["action"] == "capture_post":
+    elif request["action"] in {"capture_post", "retry_capture"}:
         _previous_result(request, "poll_render")
+
+
+def _terminal_failed_render(result: dict[str, Any]) -> bool:
+    render_status = result.get("renderStatus")
+    return (
+        result.get("action") == "poll_render"
+        and result.get("status") == "partial"
+        and type(render_status) is dict
+        and render_status.get("JobStatus") in {"Failed", "Cancelled"}
+    )
+
+
+def _verify_retry_capture_geometry(
+    result: dict[str, Any], original_capture: dict[str, Any]
+) -> None:
+    _require(
+        original_capture["action"] == "capture_pre"
+        and original_capture["status"] == "complete",
+        "original complete geometry/input binding is unavailable",
+    )
+    if result["status"] == "complete":
+        _require(
+            result["nativeGeometry"] == original_capture["nativeGeometry"]
+            and result["inputBindingSha256"] == original_capture["inputBindingSha256"],
+            "retry capture differs from original complete geometry/input binding",
+        )
 
 
 def _save_reopen(
@@ -3887,7 +4025,11 @@ def _verify_render_lineage(
 ) -> None:
     _require(
         request["action"] == "capture_post"
-        and request["sequence"] == len(APPROVAL_ACTION_PLAN) - 1,
+        and request["sequence"]
+        in {
+            len(APPROVAL_ACTION_PLAN) - 1,
+            len(APPROVAL_ACTION_PLAN) + len(RETRY_ACTION_PLAN) - 2,
+        },
         "render lineage is only valid at the fixed post-render stage",
     )
     queue_path = native_request_paths(request["context"], request["sequence"] - 3)[0]
@@ -4063,8 +4205,35 @@ def _queue_render(
     state: dict[str, Any],
     reservation_sha: str | None,
 ) -> dict[str, Any]:
-    _previous_result(request, "capture_pre")
+    retrying = request.get("sequence") == len(APPROVAL_ACTION_PLAN)
+    if retrying:
+        pre_capture, _, _ = _previous_result(request, "retry_capture")
+    else:
+        _previous_result(request, "capture_pre")
+        pre_capture = None
     _, project, _ = _project_timeline(resolve, request)
+    if retrying:
+        _, _, failure = _native_result_at(request["context"], 5)
+        verified_render_failure(request["context"])
+        _verify_retry_job_quiescent(project, failure)
+        if type(pre_capture) is not dict:
+            raise OutputConsistencyError("retry capture result is unavailable")
+        _, _, original_capture = _native_result_at(request["context"], 2)
+        binding_request = {
+            **request,
+            "payload": {
+                "inputBindingPath": pre_capture["inputBindingPath"],
+                "inputBindingSha256": pre_capture["inputBindingSha256"],
+            },
+        }
+        binding, _, binding_sha, _ = _input_binding(binding_request)
+        geometry = _capture_geometry(resolve, request, admitted, binding)
+        _require(
+            binding_sha == original_capture["inputBindingSha256"]
+            and geometry == pre_capture["nativeGeometry"]
+            and geometry == original_capture["nativeGeometry"],
+            "retry geometry or input binding changed before render queueing",
+        )
     settings = request["payload"]["settings"]
     _require(
         settings
@@ -4083,6 +4252,12 @@ def _queue_render(
         )["commitmentRawSha256"],
         require_output_absent=True,
     )
+    if retrying:
+        _require(
+            _path(render["outputPath"], "retry MOV output")
+            == _retry_output_path(request["context"]),
+            "retry output must use the one-use retry filename",
+        )
     output_path = _path(request["payload"]["outputPath"], "MOV output")
     _require(
         str(output_path) == render["outputPath"]
@@ -4307,10 +4482,19 @@ def _poll_render(
         time.sleep(min(POLL_INTERVAL_SECONDS, remaining))
     _require(type(status) is dict, "render status unavailable")
     if status.get("JobStatus") != "Complete":
+        terminal_failure = status.get("JobStatus") in {"Failed", "Cancelled"}
+        output_path = _path(previous["outputPath"], "failed MOV")
+        source_hash = (
+            _hash_file(output_path)[0]
+            if terminal_failure and output_path.exists()
+            else None
+        )
         return {
             "status": "partial",
             "reason": (
-                "render job did not reach Complete within the bounded poll window"
+                "render job reached a terminal failure"
+                if terminal_failure
+                else "render job did not reach Complete within the bounded poll window"
             ),
             "jobId": previous["jobId"],
             "outputPath": previous["outputPath"],
@@ -4322,7 +4506,8 @@ def _poll_render(
             "startedResultSha256": started_sha,
             "startedAt": previous["startedAt"],
             "completedAt": None,
-            "sourceOutputRawSha256": None,
+            "sourceOutputRawSha256": source_hash,
+            "renderStatus": status,
         }
     output_path = _path(previous["outputPath"], "completed MOV")
     source_hash, _ = _hash_file(output_path)
@@ -4348,6 +4533,108 @@ def _capture_post(
 ) -> dict[str, Any]:
     _previous_result(request, "poll_render")
     return _capture(request, resolve, admitted, phase="post_render")
+
+
+def _verify_retry_job_quiescent(project: Any, failure: dict[str, Any]) -> None:
+    is_rendering = getattr(project, "IsRenderingInProgress", None)
+    if not callable(is_rendering):
+        raise OutputConsistencyError("Resolve render state unavailable for retry")
+    try:
+        rendering = is_rendering()
+    except Exception:
+        raise OutputConsistencyError(
+            "Resolve render state is unreadable for retry"
+        ) from None
+    _require(rendering is False, "Resolve is still rendering")
+    jobs = project.GetRenderJobList()
+    _require(type(jobs) in {list, tuple}, "render job list unavailable for retry")
+    get_status = getattr(project, "GetRenderJobStatus", None)
+    if not callable(get_status):
+        raise OutputConsistencyError("render job status unavailable for retry")
+    statuses: dict[str, str] = {}
+    for job in jobs:
+        _require(type(job) is dict, "render job list is unreadable for retry")
+        job_id = job.get("JobId")
+        _require(type(job_id) is str and bool(job_id), "render job ID unreadable")
+        _require(job_id not in statuses, "duplicate render job in retry queue")
+        status = get_status(job_id)
+        _require(
+            type(status) is dict and type(status.get("JobStatus")) is str,
+            "render job status unreadable for retry",
+        )
+        statuses[job_id] = status["JobStatus"]
+    failed_job_id = failure["jobId"]
+    _require(
+        statuses.get(failed_job_id) in {"Failed", "Cancelled"},
+        "original render job is no longer failed or cancelled",
+    )
+    _require(
+        all(
+            status in {"Complete", "Failed", "Cancelled"}
+            for status in statuses.values()
+        ),
+        "Resolve has a render job that is not terminal",
+    )
+
+
+def _retry_output_path(context: dict[str, Any]) -> Path:
+    _, _, queue = _native_result_at(context, 3)
+    _require(
+        queue["action"] == "queue_render"
+        and queue["status"] == "complete"
+        and queue["sequence"] == 3,
+        "original native render queue result is unavailable",
+    )
+    original = _path(queue["outputPath"], "original render output")
+    return original.with_name(f"{original.stem}-retry-1.mov")
+
+
+def _retry_capture(
+    request: dict[str, Any], resolve: Any, admitted: dict[str, Any]
+) -> dict[str, Any]:
+    failure, _, _ = _previous_result(request, "poll_render")
+    verified_render_failure(request["context"])
+    failed_output = _path(failure["outputPath"], "failed MOV output")
+    if failure["sourceOutputRawSha256"] is None:
+        _require(
+            not failed_output.exists(), "failed render output appeared before retry"
+        )
+    else:
+        _require(
+            failed_output.is_file() and not failed_output.is_symlink(),
+            "failed render output disappeared before retry",
+        )
+        failed_output_sha, _ = _hash_file(failed_output)
+        _require(
+            failed_output_sha == failure["sourceOutputRawSha256"],
+            "failed render output changed before retry",
+        )
+    _, _, original_capture = _native_result_at(request["context"], 2)
+    _require(
+        original_capture["action"] == "capture_pre"
+        and original_capture["status"] == "complete",
+        "original pre-render geometry is unavailable",
+    )
+    _, _binding_raw, binding_sha, _binding_path = _input_binding(request)
+    _require(
+        binding_sha == original_capture["inputBindingSha256"],
+        "retry input binding differs from the original capture",
+    )
+    _, project, _ = _project_timeline(resolve, request)
+    _verify_retry_job_quiescent(project, failure)
+    approval = _verify_authority(request, current=True)[2]
+    _require(
+        _path(approval["outputPath"], "retry MOV output")
+        == _retry_output_path(request["context"]),
+        "retry output must use the one-use retry filename",
+    )
+    captured = _capture(request, resolve, admitted, phase="pre_render")
+    _require(
+        captured["nativeGeometry"] == original_capture["nativeGeometry"]
+        and captured["inputBindingSha256"] == original_capture["inputBindingSha256"],
+        "saved target geometry or input binding changed since the original capture",
+    )
+    return captured
 
 
 def _base_result(
@@ -4562,7 +4849,7 @@ def verify_native_result(result_path: Path, expected_sha256: str) -> dict[str, A
         "unsupported native result",
     )
     _require(
-        result["profile"] in PROFILES and result["action"] in APPROVAL_ACTION_PLAN,
+        result["profile"] in PROFILES and result["action"] in ACTIONS,
         "unsupported native result profile/action",
     )
     _require(
@@ -4581,11 +4868,13 @@ def verify_native_result(result_path: Path, expected_sha256: str) -> dict[str, A
     )
     _require(
         type(result["sequence"]) is int
-        and 0 <= result["sequence"] < len(APPROVAL_ACTION_PLAN),
+        and 0
+        <= result["sequence"]
+        < len(APPROVAL_ACTION_PLAN) + len(RETRY_ACTION_PLAN) - 1,
         "native result sequence out of range",
     )
     _require(
-        result["action"] == APPROVAL_ACTION_PLAN[result["sequence"]],
+        result["action"] == native_action(context, result["sequence"]),
         "native action order differs",
     )
     expected_result, expected_authority, expected_intent, expected_request = (
@@ -4685,7 +4974,8 @@ def verify_native_result(result_path: Path, expected_sha256: str) -> dict[str, A
         )
         prior = verify_native_result(prior_path, result["priorResultSha256"])
         _require(
-            prior["status"] == "complete",
+            prior["status"] == "complete"
+            or (result["action"] == "retry_capture" and _terminal_failed_render(prior)),
             "native operation follows an incomplete predecessor",
         )
         _require(
@@ -4703,10 +4993,28 @@ def verify_native_result(result_path: Path, expected_sha256: str) -> dict[str, A
                 "start result is not bound to its exact queued predecessor",
             )
         elif result["action"] == "poll_render":
+            queue_path = native_request_paths(context, result["sequence"] - 2)[0]
+            queue_raw = _read(queue_path, "native queue result")
+            queue_sha = _hash(queue_raw)
+            queue = verify_native_result(queue_path, queue_sha)
             _require(
                 prior["action"] == "start_render"
                 and result["startedResultSha256"] == result["priorResultSha256"]
-                and result["queuedResultSha256"] == prior["queuedResultSha256"],
+                and result["queuedResultSha256"] == prior["queuedResultSha256"]
+                and result["queuedResultSha256"] == queue_sha
+                and queue["action"] == "queue_render"
+                and queue["status"] == "complete"
+                and all(
+                    queue[field] == prior[field] == result[field]
+                    for field in (
+                        "jobId",
+                        "outputPath",
+                        "settings",
+                        "commitmentRawSha256",
+                        "reservationSha256",
+                        "renderIntentSha256",
+                    )
+                ),
                 "poll result is not bound to its exact queued/started predecessors",
             )
         elif result["action"] == "capture_post":
@@ -4714,6 +5022,28 @@ def verify_native_result(result_path: Path, expected_sha256: str) -> dict[str, A
                 prior["action"] == "poll_render"
                 and result["completionResultSha256"] == result["priorResultSha256"],
                 "post-render capture is not bound to its exact completion predecessor",
+            )
+        elif result["action"] == "retry_capture":
+            failure_path, failure_sha, _ = verified_render_failure(context)
+            _require(
+                failure_path == prior_path
+                and failure_sha == result["priorResultSha256"],
+                "retry capture is not bound to the authenticated original failure",
+            )
+            original_capture_path = native_request_paths(context, 2)[0]
+            original_capture_raw = _read(
+                original_capture_path, "original pre-render geometry"
+            )
+            original_capture = verify_native_result(
+                original_capture_path, _hash(original_capture_raw)
+            )
+            _verify_retry_capture_geometry(result, original_capture)
+        elif result["action"] == "queue_render" and result["sequence"] == len(
+            APPROVAL_ACTION_PLAN
+        ):
+            _require(
+                prior["action"] == "retry_capture" and prior["status"] == "complete",
+                "retry queue is not bound to the completed retry capture",
             )
     if result["nativeGeometry"] is not None:
         geometry = result["nativeGeometry"]
@@ -4780,16 +5110,150 @@ def verify_native_result(result_path: Path, expected_sha256: str) -> dict[str, A
         _require(
             _time(result["startedAt"], "render start")
             <= _time(result["completedAt"], "render completion")
+            and type(result["renderStatus"]) is dict
+            and result["renderStatus"].get("JobStatus") == "Complete"
             and result["sourceOutputRawSha256"] is not None
             and result["queuedResultSha256"] is not None
             and result["startedResultSha256"] is not None,
             "complete render lacks verified output/time/stage lineage",
         )
+    if result["action"] == "poll_render" and result["status"] == "partial":
+        _require(
+            type(result["renderStatus"]) is dict
+            and type(result["renderStatus"].get("JobStatus")) is str,
+            "partial render result must retain its observed job status",
+        )
+        if _terminal_failed_render(result):
+            if result["sourceOutputRawSha256"] is None:
+                _require(
+                    not _path(result["outputPath"], "failed MOV output").exists(),
+                    "existing failed render output requires a retained digest",
+                )
+            else:
+                output_sha, _ = _hash_file(
+                    _path(result["outputPath"], "failed MOV output")
+                )
+                _require(
+                    output_sha == result["sourceOutputRawSha256"],
+                    "failed render output changed after the terminal poll",
+                )
     return result
 
 
+def _native_result_at(
+    context: dict[str, Any], sequence: int
+) -> tuple[Path, str, dict[str, Any]]:
+    path = native_request_paths(context, sequence)[0]
+    raw = _read(path, "native history result")
+    digest = _hash(raw)
+    return path, digest, verify_native_result(path, digest)
+
+
+def verified_render_failure(
+    context: dict[str, Any],
+) -> tuple[Path, str, dict[str, Any]]:
+    """Authenticate the one original terminal failure and its queue/start lineage."""
+    path, digest, result = _native_result_at(context, len(APPROVAL_ACTION_PLAN) - 2)
+    _require(
+        result["sequence"] == len(APPROVAL_ACTION_PLAN) - 2
+        and _terminal_failed_render(result),
+        "native history has no authenticated terminal render failure",
+    )
+    queue_path, queue_sha, queue = _native_result_at(context, 3)
+    start_path, start_sha, start = _native_result_at(context, 4)
+    _require(
+        queue["action"] == "queue_render"
+        and queue["status"] == "complete"
+        and start["action"] == "start_render"
+        and start["status"] == "complete"
+        and result["queuedResultSha256"] == queue_sha
+        and result["startedResultSha256"] == start_sha
+        and start["queuedResultSha256"] == queue_sha
+        and all(
+            queue[field] == start[field] == result[field]
+            for field in (
+                "jobId",
+                "outputPath",
+                "settings",
+                "commitmentRawSha256",
+                "reservationSha256",
+                "renderIntentSha256",
+            )
+        ),
+        "terminal failure is not bound to the original queue/start lineage",
+    )
+    del queue_path, start_path
+    return path, digest, result
+
+
+def _routing_result_at(context: dict[str, Any], sequence: int) -> dict[str, Any]:
+    """Read a closed retained result for action routing without recursive verification.
+
+    This view is only a selector. Operations that can authorize work authenticate the
+    complete predecessor chain through ``_native_operation_tail`` or
+    ``verify_native_result`` before continuing.
+    """
+    path = native_request_paths(context, sequence)[0]
+    raw = _read(path, "native routing result")
+    _immutable(path, "native routing result")
+    result = _shape(_parse(raw), RESULT_FIELDS, "native routing result")
+    _require(
+        raw == _canonical(result)
+        and result["context"] == context
+        and result["sequence"] == sequence,
+        "native routing result identity differs",
+    )
+    return result
+
+
+def native_action(context: dict[str, Any], sequence: int) -> str:
+    """Resolve the fixed action at a sequence, including the one retry branch."""
+    _require(type(sequence) is int and sequence >= 0, "invalid native sequence")
+    if sequence < len(APPROVAL_ACTION_PLAN) - 1:
+        return APPROVAL_ACTION_PLAN[sequence]
+    _require(
+        sequence < len(APPROVAL_ACTION_PLAN) + len(RETRY_ACTION_PLAN) - 1,
+        "native action plan is exhausted",
+    )
+    if sequence == len(APPROVAL_ACTION_PLAN) - 1:
+        poll = _routing_result_at(context, sequence - 1)
+        _require(
+            poll["action"] == "poll_render" and poll["sequence"] == sequence - 1,
+            "original render poll is unavailable",
+        )
+        if poll["status"] == "complete":
+            _require(
+                type(poll["renderStatus"]) is dict
+                and poll["renderStatus"].get("JobStatus") == "Complete",
+                "complete original poll lacks a completed Resolve status",
+            )
+            return "capture_post"
+        _require(
+            _terminal_failed_render(poll),
+            "only a terminal Failed/Cancelled poll enables retry",
+        )
+        return "retry_capture"
+    poll = _routing_result_at(context, len(APPROVAL_ACTION_PLAN) - 2)
+    _require(
+        poll["action"] == "poll_render" and _terminal_failed_render(poll),
+        "retry action requires a terminal failed original poll",
+    )
+    retry_sequence = len(APPROVAL_ACTION_PLAN) - 1
+    retry_capture = _routing_result_at(context, retry_sequence)
+    _require(
+        retry_capture["action"] == "retry_capture"
+        and retry_capture["sequence"] == retry_sequence
+        and retry_capture["status"] == "complete",
+        "retry action requires one complete retry capture",
+    )
+    return RETRY_ACTION_PLAN[sequence - (len(APPROVAL_ACTION_PLAN) - 1)]
+
+
 def _native_operation_tail(
-    context: dict[str, Any], *, prepared_sequence: int | None = None
+    context: dict[str, Any],
+    *,
+    prepared_sequence: int | None = None,
+    allow_retry: bool = False,
 ) -> tuple[int, str]:
     checked = _context(context)
     first = native_request_paths(checked, 0)[0]
@@ -4798,6 +5262,10 @@ def _native_operation_tail(
         _require(prepared_sequence is None, "prepared native operation is absent")
         return 0, EMPTY_HEAD
     directories = sorted(root.iterdir())
+    _require(
+        len(directories) <= len(APPROVAL_ACTION_PLAN) + len(RETRY_ACTION_PLAN) - 1,
+        "native operation history exceeds the reviewed plans",
+    )
     if prepared_sequence is not None:
         _require(
             type(prepared_sequence) is int
@@ -4819,6 +5287,14 @@ def _native_operation_tail(
                 not result_path.exists(),
                 "prepared native operation already has a result",
             )
+            if (
+                sequence == len(APPROVAL_ACTION_PLAN) - 1
+                and native_action(checked, sequence) == "retry_capture"
+            ):
+                _require(
+                    allow_retry,
+                    "failed render requires the explicit retry entrypoint",
+                )
             return sequence, prior
         _require(
             result_path.is_file(),
@@ -4827,25 +5303,48 @@ def _native_operation_tail(
         )
         raw = _read(result_path, "native operation result")
         result = verify_native_result(result_path, _hash(raw))
-        _require(
-            result["status"] == "complete" and result["sequence"] == sequence,
-            "native operation history is partial/uncertain and cannot be replayed",
-        )
+        _require(result["sequence"] == sequence, "native operation sequence differs")
+        if result["status"] != "complete":
+            _require(
+                sequence == len(APPROVAL_ACTION_PLAN) - 2
+                and _terminal_failed_render(result)
+                and (allow_retry or sequence + 1 < len(directories)),
+                "native operation history is partial/uncertain and cannot be replayed",
+            )
+            verified_render_failure(checked)
+            if sequence + 1 == len(directories):
+                return sequence + 1, _hash(raw)
         prior = _hash(raw)
     _require(
         prepared_sequence is None,
         "prepared native operation is absent from the native history tail",
     )
     _require(
-        len(directories) < len(APPROVAL_ACTION_PLAN),
+        len(directories) < len(APPROVAL_ACTION_PLAN) + len(RETRY_ACTION_PLAN) - 1,
         "reviewed native action plan is exhausted",
     )
+    next_sequence = len(directories)
+    if next_sequence == len(APPROVAL_ACTION_PLAN):
+        _, _, last = _native_result_at(checked, next_sequence - 1)
+        _require(
+            last["action"] == "retry_capture" and last["status"] == "complete",
+            "reviewed native action plan is exhausted",
+        )
     return len(directories), prior
 
 
-def next_native_operation(context: dict[str, Any]) -> tuple[int, str]:
+def next_native_operation(
+    context: dict[str, Any], *, retry: bool = False
+) -> tuple[int, str]:
     """Return the next one-use stage only after authenticating the full chain."""
-    return _native_operation_tail(context)
+    next_operation = _native_operation_tail(context, allow_retry=retry)
+    if retry:
+        _require(
+            next_operation[0] == len(APPROVAL_ACTION_PLAN) - 1
+            and native_action(context, next_operation[0]) == "retry_capture",
+            "explicit retry entrypoint requires the authenticated failed poll",
+        )
+    return next_operation
 
 
 NATIVE_START_SCHEMA = "qualification-output-native-start/v1"
@@ -4880,7 +5379,8 @@ def _claim_prepared_native_operation(
     context = _context(request["context"])
     sequence = request["sequence"]
     _require(
-        type(sequence) is int and 0 <= sequence < len(APPROVAL_ACTION_PLAN),
+        type(sequence) is int
+        and 0 <= sequence < len(APPROVAL_ACTION_PLAN) + len(RETRY_ACTION_PLAN) - 1,
         "prepared native sequence is out of range",
     )
     result_path, authority_path, intent_path, request_path = native_request_paths(
@@ -4894,7 +5394,7 @@ def _claim_prepared_native_operation(
         "prepared native request bytes are not canonical/current",
     )
     _require(
-        request["action"] == APPROVAL_ACTION_PLAN[sequence]
+        request["action"] == native_action(context, sequence)
         and request["priorResultSha256"] == _digest(request["priorResultSha256"])
         and request["resultPath"] == str(result_path)
         and request["authority"]["path"] == str(authority_path)
@@ -4906,7 +5406,11 @@ def _claim_prepared_native_operation(
     _immutable(request_path, "prepared native request")
     _immutable(authority_path, "prepared native authority")
     _immutable(intent_path, "prepared native intent")
-    tail, prior = _native_operation_tail(context, prepared_sequence=sequence)
+    tail, prior = _native_operation_tail(
+        context,
+        prepared_sequence=sequence,
+        allow_retry=request["action"] == "retry_capture",
+    )
     _require(
         tail == sequence and prior == request["priorResultSha256"],
         "prepared native request does not extend the complete operation history",
@@ -4975,7 +5479,8 @@ def _native_stage(
         )
         prior = verify_native_result(prior_path, _hash(prior_raw))
         _require(
-            prior["status"] == "complete",
+            prior["status"] == "complete"
+            or (action == "retry_capture" and _terminal_failed_render(prior)),
             "native runtime predecessor is incomplete",
         )
         _verify_native_identity_continuity(prior["nativeIdentity"], current_identity)
@@ -4986,6 +5491,8 @@ def _native_stage(
     if action == "capture_pre":
         _previous_result(request, "save_reopen")
         return _capture(request, resolve, admitted, phase="pre_render")
+    if action == "retry_capture":
+        return _retry_capture(request, resolve, admitted)
     if action == "queue_render":
         return _queue_render(request, resolve, admitted, state, reservation_sha)
     if action == "start_render":
@@ -5068,7 +5575,7 @@ def run_qualification_output_request(
         if value.get("status") is not None:
             result["status"] = value["status"]
         result["effectLedger"] = state["effects"]
-        if request["action"] == "capture_pre" or request["action"] == "capture_post":
+        if request["action"] in {"capture_pre", "retry_capture", "capture_post"}:
             result["inputBindingPath"] = value["inputBindingPath"]
             result["inputBindingSha256"] = value["inputBindingSha256"]
         if request["action"] == "capture_post":
