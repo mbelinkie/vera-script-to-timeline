@@ -87,6 +87,7 @@ def controller_fixture(
         sealed.output.decode_record,
         sealed.output.decoded_samples,
         sealed.comparison,
+        sealed.output.lineage,
     ):
         (artifacts / _hash(raw)).write_bytes(raw)
     for raw in (*c.trust.seals, sealed.output.post_geometry):
@@ -102,7 +103,11 @@ def controller_fixture(
     monkeypatch.setattr(controller, "_native_result", lambda _: None)
     monkeypatch.setattr(controller, "_render_sequences", lambda: (2, 3, 4, 5, 6))
     monkeypatch.setattr(controller, "_pre_capture_inputs", lambda **_: c.inputs)
-    monkeypatch.setattr(controller, "_render_lineage", lambda: sealed.output.lineage)
+    monkeypatch.setattr(
+        controller,
+        "_render_lineage",
+        lambda: pytest.fail("terminal loading must not rebuild a live reservation"),
+    )
     return controller, sealed
 
 

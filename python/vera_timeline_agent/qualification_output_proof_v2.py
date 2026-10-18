@@ -159,7 +159,10 @@ def load_terminal_output(
         decoded_samples=_read(
             artifacts / decode["decodedSamplesSha256"], maximum=24_000_000
         ),
-        lineage=controller._render_lineage(),
+        # Reopen the immutable lineage already authenticated by the terminal
+        # comparison. The live builder requires a still-reserved attempt and
+        # cannot be called after that attempt has reached its terminal state.
+        lineage=_read(artifacts / _hash(_canonical(comparison["renderLineage"]))),
         ledger=ledger[: terminal_entry["sequence"]],
     )
     result = output.TerminalOutput(
