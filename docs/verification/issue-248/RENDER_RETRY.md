@@ -29,6 +29,10 @@ uv run --frozen python -m vera_timeline_agent.workflow_v2_cli output-ingest \
 Prepare a fresh retry proposal, then issue its approval in an attended
 terminal. The approval command displays the exact proposal and asks the local
 operator to type its hash challenge; an agent must not answer that challenge.
+For explicitly authorized agent operation, the existing
+[#209 operator flow](../issue-209/OPERATOR_STAGES.md) also permits retaining
+the actual chat authorization with the exact target and finite plan; that
+route does not claim an attended terminal challenge.
 
 ```sh
 uv run --frozen python -m vera_timeline_agent.workflow_v2_cli output-retry-plan \

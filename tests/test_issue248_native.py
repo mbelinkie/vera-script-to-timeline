@@ -11,6 +11,7 @@ from typing import Any
 import pytest
 from vera_timeline_agent import qualification_output_native_v2 as native
 from vera_timeline_agent.qualification_output_records_v2 import (
+    LANE,
     OutputConsistencyError,
     _canonical,
 )
@@ -63,18 +64,9 @@ def test_native_action_preserves_original_stages_and_resolves_only_one_retry(
     }
     results = {3: queue, 4: start, 5: poll, 6: retry_capture}
 
-    def result_at(
-        _context: dict[str, Any], sequence: int
-    ) -> tuple[Path, str, dict[str, Any]]:
-        value = results[sequence]
-        return Path(f"/tmp/{sequence}.json"), f"{sequence:x}" * 64, value
-
     monkeypatch.setattr(
-        native,
-        "verified_render_failure",
-        lambda _context: (Path("/tmp/5.json"), "5" * 64, poll),
+        native, "_routing_result_at", lambda _context, seq: results[seq]
     )
-    monkeypatch.setattr(native, "_native_result_at", result_at)
 
     assert native.native_action(context, 6) == "retry_capture"
     assert [native.native_action(context, index) for index in range(7, 11)] == list(
@@ -90,15 +82,183 @@ def test_native_action_does_not_turn_nonterminal_poll_into_retry(
 ) -> None:
     monkeypatch.setattr(
         native,
-        "_native_result_at",
-        lambda _context, _sequence: (
-            Path("/tmp/5.json"),
-            "5" * 64,
-            _failure(job_status),
-        ),
+        "_routing_result_at",
+        lambda _context, _sequence: _failure(job_status),
     )
-    with pytest.raises(OutputConsistencyError, match="only an authenticated terminal"):
+    with pytest.raises(OutputConsistencyError, match="only a terminal"):
         native.native_action({}, 6)
+
+
+def test_native_action_routing_does_not_recursively_verify_history(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    results = {
+        5: _failure(),
+        6: {"action": "retry_capture", "sequence": 6, "status": "complete"},
+    }
+    monkeypatch.setattr(
+        native, "_routing_result_at", lambda _context, seq: results[seq]
+    )
+    calls = 0
+
+    def verify(_path: Path, _expected_sha256: str) -> dict[str, Any]:
+        nonlocal calls
+        calls += 1
+        raise AssertionError("action routing must not recursively verify history")
+
+    monkeypatch.setattr(native, "verify_native_result", verify)
+
+    assert [native.native_action({}, sequence) for sequence in range(6, 11)] == [
+        "retry_capture",
+        "queue_render",
+        "start_render",
+        "poll_render",
+        "capture_post",
+    ]
+    assert calls == 0
+
+
+def _record_host_failure(
+    controller: Any,
+    context: dict[str, Any],
+    prediction: bytes,
+    sequence: int,
+    attempt: int,
+) -> None:
+    journal = controller.journal
+    commitment = _canonical(
+        {
+            "context": context,
+            "predictionBytesSha256": hashlib.sha256(prediction).hexdigest(),
+            "commitmentReceiptSha256": f"{attempt:064x}",
+        }
+    )
+    commitment_value = json.loads(commitment)
+    commitment_payload_sha = hashlib.sha256(
+        _canonical(
+            {
+                key: value
+                for key, value in commitment_value.items()
+                if key != "commitmentReceiptSha256"
+            }
+        )
+    ).hexdigest()
+    journal.commit(context, commitment, prediction)
+    reservation = _canonical(
+        {
+            "context": context,
+            "commitmentRawSha256": hashlib.sha256(commitment).hexdigest(),
+            "commitmentPayloadSha256": commitment_payload_sha,
+        }
+    )
+    rows = journal.history()
+    journal.transition(
+        context,
+        "reserved_by_render_intent",
+        expected_head=rows[-1]["entrySha256"],
+        reservation=reservation,
+    )
+    result: dict[str, Any] = dict.fromkeys(native.RESULT_FIELDS)
+    result.update(
+        {
+            "schemaVersion": native.RESULT_SCHEMA,
+            "lane": LANE,
+            "profile": native.SYNTHETIC_PROFILE,
+            "action": "poll_render",
+            "operationId": f"host-history-test-{sequence}",
+            "sequence": sequence,
+            "priorResultSha256": "0" * 64,
+            "requestSha256": "1" * 64,
+            "authoritySha256": "2" * 64,
+            "intentSha256": "3" * 64,
+            "reservationSha256": hashlib.sha256(reservation).hexdigest(),
+            "context": context,
+            "target": context["target"],
+            "status": "partial",
+            "reason": "Resolve reported a terminal failed render",
+            "commitmentRawSha256": hashlib.sha256(commitment).hexdigest(),
+            "renderStatus": {"JobStatus": "Failed"},
+            "effectLedger": [],
+        }
+    )
+    result_raw = _canonical(result)
+    result_path = native.native_request_paths(context, sequence)[0]
+    result_path.parent.mkdir(parents=True, exist_ok=True)
+    result_path.write_bytes(result_raw)
+    result_path.chmod(0o400)
+    rows = journal.history()
+    journal.transition(
+        context,
+        "render_failed",
+        expected_head=rows[-1]["entrySha256"],
+        result=result_raw,
+    )
+
+
+def test_host_attempt_history_authenticates_original_and_retry_poll_slots(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    controller, _, _, context, _, _ = _runtime_fixture(tmp_path, monkeypatch)
+    prediction = b"stable render prediction"
+
+    _record_host_failure(controller, context, prediction, sequence=5, attempt=1)
+    _record_host_failure(controller, context, prediction, sequence=9, attempt=2)
+
+    history = native._host_attempt_history(context)
+    assert [row["state"] for row in history] == [
+        "committed",
+        "reserved_by_render_intent",
+        "render_failed",
+        "committed",
+        "reserved_by_render_intent",
+        "render_failed",
+    ]
+
+
+def test_host_attempt_history_rejects_non_poll_retry_slot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    controller, _, _, context, _, _ = _runtime_fixture(tmp_path, monkeypatch)
+    prediction = b"stable render prediction"
+
+    _record_host_failure(controller, context, prediction, sequence=5, attempt=1)
+    _record_host_failure(controller, context, prediction, sequence=10, attempt=2)
+
+    with pytest.raises(OutputConsistencyError, match="outside the reviewed poll slots"):
+        native._host_attempt_history(context)
+
+
+def test_full_native_chain_verification_rejects_tampered_result_action(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    controller, approval_path, installed_root, context, resolve, _ = _runtime_fixture(
+        tmp_path, monkeypatch
+    )
+    request_path = controller.prepare_native_request(
+        "construct", {}, approval_path=approval_path
+    )
+    request_raw = request_path.read_bytes()
+    installed_root.mkdir()
+    installed_request = installed_root / "request.json"
+    installed_request.write_bytes(request_raw)
+    installed_request.chmod(0o400)
+    result_path = native.run_qualification_output_request(
+        resolve,
+        installed_request,
+        expected_request_sha256=hashlib.sha256(request_raw).hexdigest(),
+    )
+
+    tampered = json.loads(result_path.read_bytes())
+    tampered["action"] = "save_reopen"
+    result_path.chmod(0o600)
+    result_path.write_bytes(_canonical(tampered))
+    result_path.chmod(0o400)
+
+    with pytest.raises(OutputConsistencyError, match="native action order differs"):
+        native._native_operation_tail(context)
 
 
 def test_refused_retry_capture_does_not_need_matching_geometry() -> None:
@@ -154,6 +314,9 @@ def test_next_native_operation_requires_explicit_retry_after_failed_poll(
     monkeypatch.setattr(native, "native_request_paths", paths)
     monkeypatch.setattr(
         native, "verify_native_result", lambda path, _sha: rows[int(path.parent.name)]
+    )
+    monkeypatch.setattr(
+        native, "_routing_result_at", lambda _context, sequence: rows[sequence]
     )
     monkeypatch.setattr(
         native,

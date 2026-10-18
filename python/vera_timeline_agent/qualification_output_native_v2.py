@@ -1590,14 +1590,14 @@ def _host_attempt_history(context: dict[str, Any]) -> list[dict[str, Any]]:
                     and row["predictionBytesSha256"] == prior["predictionBytesSha256"],
                     "host recommit changed context or prediction bytes",
                 )
-            if prior is not None and prior["state"] == "render_failed":
+            if prior is not None:
+                failed_renders = sum(
+                    item["state"] == "render_failed"
+                    and item["context"]["binding"]["bindingSha256"] == binding
+                    for item in rows
+                )
                 _require(
-                    sum(
-                        item["state"] == "render_failed"
-                        and item["context"]["binding"]["bindingSha256"] == binding
-                        for item in rows
-                    )
-                    == 1,
+                    failed_renders == (1 if prior["state"] == "render_failed" else 0),
                     "host render retry budget exhausted",
                 )
             _require(
@@ -1647,12 +1647,17 @@ def _host_attempt_history(context: dict[str, Any]) -> list[dict[str, Any]]:
                     maximum=48_000_000,
                 )
                 failed = _shape(_parse(result_raw), RESULT_FIELDS, "failed poll result")
+                retry_poll_sequence = (
+                    len(APPROVAL_ACTION_PLAN)
+                    - 1
+                    + RETRY_ACTION_PLAN.index("poll_render")
+                )
                 _require(
                     type(failed["sequence"]) is int
                     and failed["sequence"]
                     in {
                         len(APPROVAL_ACTION_PLAN) - 2,
-                        len(APPROVAL_ACTION_PLAN) + len(RETRY_ACTION_PLAN) - 2,
+                        retry_poll_sequence,
                     },
                     "host failed result is outside the reviewed poll slots",
                 )
@@ -4966,6 +4971,26 @@ def verified_render_failure(
     return path, digest, result
 
 
+def _routing_result_at(context: dict[str, Any], sequence: int) -> dict[str, Any]:
+    """Read a closed retained result for action routing without recursive verification.
+
+    This view is only a selector. Operations that can authorize work authenticate the
+    complete predecessor chain through ``_native_operation_tail`` or
+    ``verify_native_result`` before continuing.
+    """
+    path = native_request_paths(context, sequence)[0]
+    raw = _read(path, "native routing result")
+    _immutable(path, "native routing result")
+    result = _shape(_parse(raw), RESULT_FIELDS, "native routing result")
+    _require(
+        raw == _canonical(result)
+        and result["context"] == context
+        and result["sequence"] == sequence,
+        "native routing result identity differs",
+    )
+    return result
+
+
 def native_action(context: dict[str, Any], sequence: int) -> str:
     """Resolve the fixed action at a sequence, including the one retry branch."""
     _require(type(sequence) is int and sequence >= 0, "invalid native sequence")
@@ -4976,8 +5001,11 @@ def native_action(context: dict[str, Any], sequence: int) -> str:
         "native action plan is exhausted",
     )
     if sequence == len(APPROVAL_ACTION_PLAN) - 1:
-        _, _, poll = _native_result_at(context, sequence - 1)
-        _require(poll["action"] == "poll_render", "original render poll is unavailable")
+        poll = _routing_result_at(context, sequence - 1)
+        _require(
+            poll["action"] == "poll_render" and poll["sequence"] == sequence - 1,
+            "original render poll is unavailable",
+        )
         if poll["status"] == "complete":
             _require(
                 type(poll["renderStatus"]) is dict
@@ -4987,14 +5015,19 @@ def native_action(context: dict[str, Any], sequence: int) -> str:
             return "capture_post"
         _require(
             _terminal_failed_render(poll),
-            "only an authenticated terminal Failed/Cancelled poll enables retry",
+            "only a terminal Failed/Cancelled poll enables retry",
         )
-        verified_render_failure(context)
         return "retry_capture"
-    verified_render_failure(context)
-    _, _, retry_capture = _native_result_at(context, len(APPROVAL_ACTION_PLAN) - 1)
+    poll = _routing_result_at(context, len(APPROVAL_ACTION_PLAN) - 2)
+    _require(
+        poll["action"] == "poll_render" and _terminal_failed_render(poll),
+        "retry action requires a terminal failed original poll",
+    )
+    retry_sequence = len(APPROVAL_ACTION_PLAN) - 1
+    retry_capture = _routing_result_at(context, retry_sequence)
     _require(
         retry_capture["action"] == "retry_capture"
+        and retry_capture["sequence"] == retry_sequence
         and retry_capture["status"] == "complete",
         "retry action requires one complete retry capture",
     )

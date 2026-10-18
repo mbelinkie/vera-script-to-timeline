@@ -209,12 +209,22 @@ def _recovery_file_record(path: Path) -> Json:
 def _recovery_native_operations(context: Json) -> list[Json]:
     from .qualification_output_native_v2 import (
         APPROVAL_ACTION_PLAN,
+        RETRY_ACTION_PLAN,
         native_request_paths,
     )
 
     operations = []
-    for sequence, action in enumerate(APPROVAL_ACTION_PLAN):
+    for sequence, action in enumerate((*APPROVAL_ACTION_PLAN, *RETRY_ACTION_PLAN[1:])):
         result, _, intent, request = native_request_paths(context, sequence)
+        if sequence == 6:
+            action = "capture_post|retry_capture"
+            if request.exists():
+                try:
+                    retained_action = _parse(_read(request)).get("action")
+                    if retained_action in {"capture_post", "retry_capture"}:
+                        action = retained_action
+                except (OutputConsistencyError, OSError, ValueError):
+                    pass
         effects_dir = request.parent / "effects"
         try:
             _safe(effects_dir)
@@ -1886,7 +1896,11 @@ class QualificationOutputController:
         exhausted = False
         sequence = None
         try:
-            sequence, prior = next_native_operation(self.context)
+            sequence, prior = (
+                next_native_operation(self.context, retry=True)
+                if latest is not None and latest["state"] == "render_failed"
+                else next_native_operation(self.context)
+            )
             next_operation = {
                 "sequence": sequence,
                 "action": native_action(self.context, sequence),
@@ -1921,6 +1935,8 @@ class QualificationOutputController:
                 status = "uncertain"
             elif latest is not None and latest["state"] == "render_failed":
                 status = "render_failed"
+                if next_operation is not None:
+                    next_operation["requiresExplicitRetryApproval"] = True
             elif (
                 exhausted
                 and latest is not None
@@ -2611,6 +2627,10 @@ class QualificationOutputController:
         from .qualification_output_native_v2 import verify_native_result
 
         value = verify_native_result(*native_result)
+        raw = _read(native_result[0])
+        _require(
+            _hash(raw) == native_result[1], "native failure changed after verification"
+        )
         _require(
             value["context"] == self.context
             and value["status"] == "partial"
@@ -2625,5 +2645,5 @@ class QualificationOutputController:
             self.context,
             "render_failed",
             expected_head=rows[-1]["entrySha256"],
-            result=_read(native_result[0]),
+            result=raw,
         )

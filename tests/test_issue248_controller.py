@@ -12,6 +12,7 @@ from vera_timeline_agent import qualification_output_native_v2 as native
 from vera_timeline_agent.qualification_output_controller_v2 import (
     OutputAttemptJournal,
     QualificationOutputController,
+    _recovery_native_operations,
 )
 from vera_timeline_agent.qualification_output_records_v2 import (
     EMPTY_HEAD,
@@ -19,6 +20,28 @@ from vera_timeline_agent.qualification_output_records_v2 import (
     _canonical,
     _hash,
 )
+
+
+def test_recovery_inventory_retains_retry_stages_and_effects(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(native, "NATIVE_STATE_ROOT", tmp_path / "native")
+    ctx = context()
+    request = native.native_request_paths(ctx, 6)[3]
+    request.parent.mkdir(parents=True)
+    request.write_bytes(_canonical({"action": "retry_capture"}))
+    effects = native.native_request_paths(ctx, 8)[3].parent / "effects"
+    effects.mkdir(parents=True)
+    effect = effects / "0000-intent.json"
+    effect.write_bytes(b"retained start effect")
+    rows = _recovery_native_operations(ctx)
+    assert len(rows) == 11
+    assert rows[6]["action"] == "retry_capture"
+    assert [row["action"] for row in rows[7:]] == list(native.RETRY_ACTION_PLAN[1:])
+    assert rows[8]["effects"] == [
+        {"path": str(effect), "sha256": _hash(effect.read_bytes())}
+    ]
+
 
 _attempt_helpers: Any = import_module("test_issue209_controller")
 commit: Any = _attempt_helpers.commit
