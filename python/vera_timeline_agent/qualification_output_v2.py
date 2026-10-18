@@ -54,6 +54,7 @@ from vera_timeline_agent.qualification_output_records_v2 import (
     _projection,
     _record,
     _refusal,
+    _render_retry_used,
     _require,
     _shape,
     _sources,
@@ -1250,16 +1251,23 @@ def create_prediction(
     )["context"]
     prior = _attempt(ledger, context)
     _require(
-        prior is None or prior["state"] == "expired_unused",
+        prior is None
+        or prior["state"] == "expired_unused"
+        or prior["state"] == "render_failed",
         "binding already committed/reserved/terminal",
     )
     candidate = _candidate(
         inputs, trust, _now(trust).isoformat().replace("+00:00", "Z"), require_live=True
     )
     if prior is not None:
+        if prior["state"] == "render_failed":
+            _require(
+                not _render_retry_used(ledger, context) and prior["context"] == context,
+                "binding already attempted or render retry unavailable",
+            )
         _require(
             _hash(candidate.pcm) == prior["predictionBytesSha256"],
-            "expired prediction changed",
+            "retry prediction changed",
         )
     return candidate
 
