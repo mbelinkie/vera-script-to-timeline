@@ -278,7 +278,7 @@ def _prepare_primary_stills(
             tools=tools,
         )
         occurrence["preparedMediaRequirementKey"] = prepared.binding["requirementKey"]
-        new_bindings.append(copy.deepcopy(prepared.binding))
+        new_bindings.append(copy.deepcopy(dict(prepared.binding)))
         prepared_by_requirement[prepared.binding["requirementKey"]] = prepared
         source_by_requirement[prepared.binding["requirementKey"]] = source_path
     return new_bindings, prepared_by_requirement, source_by_requirement
