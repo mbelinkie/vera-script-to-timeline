@@ -69,6 +69,7 @@ def attest_package_v2(package_root: Path, output: Path) -> Path:
     repository = Path(__file__).resolve().parents[2]
     verifier_sources = [
         Path("python/vera_timeline_agent/v2_package.py"),
+        Path("python/vera_timeline_agent/source_audio_endpoint.py"),
         Path("python/vera_timeline_agent/workflow_v2.py"),
         Path("python/vera_timeline_agent/workflow_v2_cli.py"),
         Path("python/vera_timeline_agent/workflow_package.py"),
