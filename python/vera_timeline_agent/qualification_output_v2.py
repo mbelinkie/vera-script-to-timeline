@@ -1221,8 +1221,7 @@ def create_prediction(
     if prior is not None:
         if prior["state"] == "render_failed":
             _require(
-                not _render_retry_used(ledger, context)
-                and prior["context"] == context,
+                not _render_retry_used(ledger, context) and prior["context"] == context,
                 "binding already attempted or render retry unavailable",
             )
         _require(

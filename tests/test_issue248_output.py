@@ -53,7 +53,7 @@ def _reserved_then_terminal(
         ),
         r._ledger_head(ledger),
     )
-    result_hash = digest(b"authenticated native failed poll result")
+    result_hash: str | None = digest(b"authenticated native failed poll result")
     result_hash = result_hash if terminal == "render_failed" else None
     ledger = r._append_ledger(
         ledger,
@@ -74,7 +74,6 @@ def test_verified_render_failure_allows_one_same_context_prediction_retry() -> N
     prediction, context, ledger = _reserved_then_terminal(c, "render_failed")
 
     retry = q.create_prediction(c.inputs, trust=c.trust, ledger=ledger)
-
     assert retry.pcm == prediction.pcm
     changed_context = copy.deepcopy(context)
     changed_context["invocationId"] = "another invocation"
@@ -100,6 +99,7 @@ def test_render_failure_after_the_retry_does_not_allow_another_retry() -> None:
     c = case()
     prediction, context, ledger = _reserved_then_terminal(c, "render_failed")
     retry = q.create_prediction(c.inputs, trust=c.trust, ledger=ledger)
+    assert retry.pcm == prediction.pcm
     prediction_hash = digest(prediction.pcm)
 
     retry_commit = r._append_ledger(
