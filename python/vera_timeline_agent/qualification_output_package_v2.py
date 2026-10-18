@@ -1,8 +1,10 @@
-"""Static package admission for the #209 bounded output qualification lane.
+"""Static package admission for the bounded output qualification lane.
 
 The ordinary profile is only a wrapper around the unchanged public v2 package
 verifier.  The R16 profile is a separate, qualification-only exception whose
 input, compiler output, media preparation and diagnostics are pinned here.
+The current Presenter profile separately reproduces its fixed issue-owned
+fixture with fresh current-compiler execution inputs.
 This module never contacts Resolve and never grants native operator authority.
 """
 
@@ -1212,11 +1214,11 @@ def admit_qualification_package_v2(
     package_root: Path | None = None,
     preparation_paths: Mapping[str, Path] | None = None,
 ) -> QualificationOutputAdmissionV2:
-    """Admit the R16 qualification package or an unchanged verified synthetic.
+    """Admit a fixed qualification fixture or an unchanged verified public package.
 
     The profile is a closed enum selected by the caller.  R16 always loads the
-    pinned private vector; ordinary admission requires an already verified
-    public v2 package and delegates its normal gate unchanged.
+    pinned private vector; Presenter uses its fixed RGBA fixture and current
+    compiler. Ordinary admission delegates the public v2 gate unchanged.
     """
     _need(type(profile) is str and profile in _PROFILES, "unsupported package profile")
     _need(
