@@ -284,6 +284,56 @@ def main(argv: Sequence[str] | None = None) -> int:
     output_finalize.add_argument("--session-sha256", required=True)
     output_finalize.add_argument("--result", type=Path, required=True)
     output_finalize.add_argument("--result-sha256", required=True)
+    output_edited = commands.add_parser("output-edited")
+    output_edited.add_argument("--baseline-session", type=Path, required=True)
+    output_edited.add_argument("--baseline-sha256", required=True)
+    output_edited.add_argument("--output", type=Path, required=True)
+    output_proof = commands.add_parser("output-proof")
+    output_proof.add_argument("--baseline-session", type=Path, required=True)
+    output_proof.add_argument("--baseline-sha256", required=True)
+    output_proof.add_argument("--edited-session", type=Path, required=True)
+    output_proof.add_argument("--edited-sha256", required=True)
+    output_proof.add_argument("--output", type=Path, required=True)
+    output_proof_step = commands.add_parser("output-proof-step")
+    output_proof_step.add_argument("--session", type=Path, required=True)
+    output_proof_step.add_argument("--session-sha256", required=True)
+    output_proof_step.add_argument(
+        "--action",
+        choices=(
+            "observe",
+            "infer",
+            "decide-inference",
+            "proposal",
+            "decide",
+            "preflight",
+        ),
+        required=True,
+    )
+    output_proof_step.add_argument("--input", type=Path)
+    output_proof_step.add_argument("--case", choices=("A", "B", "C"))
+    output_proof_step.add_argument("--omission-support", type=Path)
+    output_review = commands.add_parser("output-omission-review-plan")
+    output_review.add_argument("--session", type=Path, required=True)
+    output_review.add_argument("--session-sha256", required=True)
+    output_review.add_argument("--source-review", type=Path, required=True)
+    output_review.add_argument("--output", type=Path, required=True)
+    output_review_authorize = commands.add_parser("output-omission-review-authorize")
+    output_review_authorize.add_argument("--plan", type=Path, required=True)
+    output_review_authorize.add_argument("--output", type=Path, required=True)
+    output_revised = commands.add_parser("output-revised")
+    output_revised.add_argument("--proof-session", type=Path, required=True)
+    output_revised.add_argument("--proof-sha256", required=True)
+    output_revised.add_argument("--package", type=Path, required=True)
+    output_revised.add_argument(
+        "--preparation",
+        nargs=2,
+        action="append",
+        default=[],
+        metavar=("KEY", "RECEIPT"),
+    )
+    output_revised.add_argument("--output", type=Path, required=True)
+    for name in ("project-uid", "timeline-uid", "project-name", "timeline-name"):
+        output_revised.add_argument("--" + name, required=True)
     request = commands.add_parser("request")
     request.add_argument("attestation", type=Path)
     request.add_argument("--release", type=Path, required=True)
@@ -370,9 +420,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             output = prepare_output_session(
                 arguments.output.absolute(),
                 profile=arguments.profile,
-                package_root=None
-                if arguments.package is None
-                else arguments.package.absolute(),
+                package_root=(
+                    None if arguments.package is None else arguments.package.absolute()
+                ),
                 preparation_paths=preparation_paths or None,
                 target={
                     "projectUid": arguments.project_uid,
@@ -431,6 +481,114 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             output = controller.finalize_output(
                 arguments.result.absolute(), arguments.result_sha256
+            )
+        elif arguments.command == "output-edited":
+            from .qualification_output_proof_v2 import prepare_edited_output_session
+
+            output = prepare_edited_output_session(
+                arguments.output.absolute(),
+                baseline_session=arguments.baseline_session.absolute(),
+                baseline_sha256=arguments.baseline_sha256,
+            )
+        elif arguments.command == "output-proof":
+            from .qualification_output_proof_v2 import prepare_output_proof_v2
+
+            output = prepare_output_proof_v2(
+                arguments.output.absolute(),
+                baseline_session=arguments.baseline_session.absolute(),
+                baseline_sha256=arguments.baseline_sha256,
+                edited_session=arguments.edited_session.absolute(),
+                edited_sha256=arguments.edited_sha256,
+            )
+        elif arguments.command == "output-proof-step":
+            from .qualification_output_controller_v2 import _read
+            from .qualification_output_proof_v2 import (
+                QualificationOutputProofV2,
+                _pin,
+            )
+            from .qualification_output_records_v2 import _parse, _shape
+
+            proof = QualificationOutputProofV2(
+                arguments.session.absolute(), arguments.session_sha256
+            )
+            if arguments.action == "observe":
+                if arguments.case is None or arguments.input is not None:
+                    raise ValueError(
+                        "observe requires an isolated case and "
+                        "no supplied observation JSON"
+                    )
+                output = proof.observe(
+                    arguments.case,
+                    omission_support=(
+                        None
+                        if arguments.omission_support is None
+                        else _pin(arguments.omission_support.absolute())
+                    ),
+                )
+            else:
+                if arguments.case is not None or arguments.omission_support is not None:
+                    raise ValueError("observation arguments are only valid for observe")
+                if arguments.action in {"infer", "preflight"}:
+                    if arguments.input is not None:
+                        raise ValueError(
+                            "this operation does not accept supplied inputs"
+                        )
+                    output = (
+                        proof.infer()
+                        if arguments.action == "infer"
+                        else proof.prepare_revised_preflight()
+                    )
+                else:
+                    if arguments.input is None:
+                        raise ValueError(
+                            "explicit decision/proposal input file required"
+                        )
+                    supplied = _parse(_read(arguments.input.absolute()))
+                    if arguments.action == "decide-inference":
+                        output = proof.decide_inference(supplied)
+                    elif arguments.action == "decide":
+                        output = proof.decide(supplied)
+                    else:
+                        _shape(supplied, "preparedMedia handoff", "proposal inputs")
+                        output = proof.proposal(
+                            prepared_media=supplied["preparedMedia"],
+                            handoff=supplied["handoff"],
+                        )
+        elif arguments.command == "output-omission-review-plan":
+            from .qualification_output_proof_v2 import QualificationOutputProofV2
+
+            proof = QualificationOutputProofV2(
+                arguments.session.absolute(), arguments.session_sha256
+            )
+            output = proof.prepare_omission_review_plan(
+                arguments.source_review.absolute(), arguments.output.absolute()
+            )
+        elif arguments.command == "output-omission-review-authorize":
+            from .qualification_output_proof_v2 import issue_output_omission_review
+
+            output = issue_output_omission_review(
+                arguments.plan.absolute(), arguments.output.absolute()
+            )
+        elif arguments.command == "output-revised":
+            from .qualification_output_proof_v2 import prepare_revised_output_session
+
+            preparations = {
+                key: Path(path).absolute() for key, path in arguments.preparation
+            }
+            if len(preparations) != len(arguments.preparation):
+                raise ValueError("duplicate preparation requirement key")
+            output = prepare_revised_output_session(
+                arguments.output.absolute(),
+                proof_session=arguments.proof_session.absolute(),
+                proof_sha256=arguments.proof_sha256,
+                package_root=arguments.package.absolute(),
+                preparation_paths=preparations,
+                target={
+                    "projectUid": arguments.project_uid,
+                    "timelineUid": arguments.timeline_uid,
+                    "projectName": arguments.project_name,
+                    "timelineName": arguments.timeline_name,
+                },
             )
         elif arguments.command == "capability-authorize":
             from .native_qualification_v2 import create_capability_authority
@@ -559,15 +717,19 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "timelineName": package.attestation["timelineName"],
                     "action": arguments.action,
                     "authorizeNewNonproduction": arguments.authorize_new_nonproduction,
-                    "externalScripting": "None"
-                    if arguments.external_scripting_none
-                    else None,
+                    "externalScripting": (
+                        "None" if arguments.external_scripting_none else None
+                    ),
                     "evidenceDir": str(arguments.evidence_dir.absolute()),
                 },
             )
         if isinstance(output, Path):
             print(f"{output.absolute()} sha256:{sha256(output)}")
-            if arguments.command == "output-prepare":
+            if arguments.command in {
+                "output-prepare",
+                "output-edited",
+                "output-revised",
+            }:
                 plan = output.parent / "operator-plan.json"
                 print(f"{plan.absolute()} sha256:{sha256(plan)}")
             elif arguments.command in {"output-next", "output-retry"}:

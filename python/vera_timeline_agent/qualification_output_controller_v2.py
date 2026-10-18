@@ -96,6 +96,10 @@ _RECEIPT_KINDS = frozenset(
         "output_render_reservation",
         "output_decode_record",
         "output_residual_comparison",
+        "output_proposal_evidence",
+        "output_proposal_decision",
+        "output_revised_preflight",
+        "output_omission_review",
     }
 )
 ENTRY_FIELDS = frozenset(
@@ -208,13 +212,15 @@ def _recovery_file_record(path: Path) -> Json:
 
 def _recovery_native_operations(context: Json) -> list[Json]:
     from .qualification_output_native_v2 import (
-        APPROVAL_ACTION_PLAN,
         RETRY_ACTION_PLAN,
+        action_plan_for_context,
         native_request_paths,
     )
 
     operations = []
-    for sequence, action in enumerate((*APPROVAL_ACTION_PLAN, *RETRY_ACTION_PLAN[1:])):
+    for sequence, action in enumerate(
+        (*action_plan_for_context(context), *RETRY_ACTION_PLAN[1:])
+    ):
         result, _, intent, request = native_request_paths(context, sequence)
         if sequence == 6:
             action = "capture_post|retry_capture"
@@ -446,10 +452,12 @@ def _validated_history(rows: list[Json], chain: Json) -> str:
                     "terminal or uncertain attempt cannot restart",
                 )
                 _require(
-                    row["resultRawSha256"] is None
-                    if state == "uncertain"
-                    else type(row["resultRawSha256"]) is str
-                    and len(row["resultRawSha256"]) == 64,
+                    (
+                        row["resultRawSha256"] is None
+                        if state == "uncertain"
+                        else type(row["resultRawSha256"]) is str
+                        and len(row["resultRawSha256"]) == 64
+                    ),
                     "invalid terminal result reference",
                 )
         head = row["entrySha256"]
@@ -696,9 +704,18 @@ class OutputAttemptJournal:
         return self._append(event, expected_head=expected_head, artifacts=artifacts)
 
 
-def verify_revised_preflight_v2(*_args: Any, **_kwargs: Any) -> None:
-    """Static #215 port: no request-selected verifier and no inverse dependency."""
-    raise OutputConsistencyError("#215 revised output preflight is unavailable")
+def verify_revised_preflight_v2(
+    path: Any = None, expected_sha256: str | None = None
+) -> Json:
+    """Static #215 port; an absent or legacy proof still fails closed."""
+    _require(
+        isinstance(path, Path) and expected_sha256 is not None,
+        "#215 revised output preflight is unavailable without its bound proof",
+    )
+    from .qualification_output_proof_v2 import verify_revised_preflight_v2 as verify
+
+    assert isinstance(path, Path) and expected_sha256 is not None
+    return verify(path, expected_sha256)
 
 
 def output_runtime_snapshot() -> bytes:
@@ -722,9 +739,11 @@ def output_runtime_snapshot() -> bytes:
         )
         actual = result.stdout.decode("utf-8").strip()
         _require(
-            actual == expected
-            if executable != "uv"
-            else actual.split(" (")[0] == expected,
+            (
+                actual == expected
+                if executable != "uv"
+                else actual.split(" (")[0] == expected
+            ),
             f"locked {executable} differs",
         )
         versions[executable] = expected.removeprefix("v").removeprefix("uv ")
@@ -899,18 +918,20 @@ def load_output_session(
     raw = _read(session_path)
     _require(_hash(raw) == expected_sha256, "session raw pin differs")
     session = _parse(raw)
+    fields = {
+        "schemaVersion",
+        "lane",
+        "profile",
+        "admissionPath",
+        "admissionSha256",
+        "releaseRoot",
+        "context",
+        "hostJournalRoot",
+    }
+    if session.get("context", {}).get("phase") == "rebuild":
+        fields.add("revisedPreflight")
     _require(
-        set(session)
-        == {
-            "schemaVersion",
-            "lane",
-            "profile",
-            "admissionPath",
-            "admissionSha256",
-            "releaseRoot",
-            "context",
-            "hostJournalRoot",
-        }
+        set(session) == fields
         and session["schemaVersion"] == "qualification-output-session/v1"
         and session["lane"] == LANE
         and session["hostJournalRoot"] == str(HOST_STATE_ROOT),
@@ -928,6 +949,14 @@ def load_output_session(
         case_id=context["caseId"],
         phase=context["phase"],
         invocation_id=context["invocationId"],
+        revised_preflight=(
+            None
+            if "revisedPreflight" not in session
+            else (
+                Path(session["revisedPreflight"]["path"]),
+                session["revisedPreflight"]["sha256"],
+            )
+        ),
     )
     _require(
         controller.context == context, "session inputs/runtime/source/release changed"
@@ -1096,6 +1125,7 @@ class QualificationOutputController:
         case_id: str,
         phase: str,
         invocation_id: str,
+        revised_preflight: tuple[Path, str] | None = None,
     ) -> None:
         from .qualification_output_package_v2 import QualificationOutputAdmissionV2
 
@@ -1106,11 +1136,20 @@ class QualificationOutputController:
         _require(
             root == HOST_STATE_ROOT, "controller uses the fixed complete host journal"
         )
+        revision = None
         if phase == "rebuild":
-            verify_revised_preflight_v2()
+            _require(
+                revised_preflight is not None,
+                "rebuild requires the accepted revised preflight",
+            )
+            assert revised_preflight is not None
+            revision = verify_revised_preflight_v2(*revised_preflight)
+        else:
+            _require(revised_preflight is None, "revised proof requires rebuild phase")
         admission.assert_current()
         self.admission = admission
         self.release_root = release_root
+        self.revised_preflight = revised_preflight
         self.blobs = dict(admission.blobs)
         from .roundtrip_v2_records import proof_source_hashes_v2
 
@@ -1140,6 +1179,45 @@ class QualificationOutputController:
                 "binding": {"kind": "baseline"},
             }
         )
+        if revision is not None:
+            for name, key in (
+                ("document", "executionDocumentSha256"),
+                ("dependencies", "executionDependenciesSha256"),
+            ):
+                _require(
+                    _hash(self.blobs[key])
+                    == revision["executionInputs"][name]["sha256"],
+                    "admitted revised execution input differs",
+                )
+            for name, key in (
+                ("document", "originalDocumentSha256"),
+                ("dependencies", "originalDependenciesSha256"),
+            ):
+                _require(
+                    _hash(self.blobs[key])
+                    == revision["originalInputs"][name]["sha256"],
+                    "original document AND dependencies admission differs",
+                )
+            _require(
+                _hash(self.blobs["manifestSha256"]) == revision["manifest"]["sha256"]
+                and _hash(self.blobs["reportSha256"]) == revision["report"]["sha256"],
+                "admitted revised compiler output differs",
+            )
+            context["binding"] = {
+                "kind": "revised",
+                "acceptedDecisionReceiptSha256": revision["acceptedDecisionReceipt"][
+                    "sha256"
+                ],
+                "revisionLedgerSha256": revision["revisionLedger"]["sha256"],
+                "proposalEvidenceSha256": revision["evidence"]["sha256"],
+                "revisedDocumentSha256": revision["executionInputs"]["document"][
+                    "sha256"
+                ],
+                "revisedDependenciesSha256": revision["executionInputs"][
+                    "dependencies"
+                ]["sha256"],
+                "revisedManifestSha256": revision["manifest"]["sha256"],
+            }
         projection = {
             key: value
             for key, value in context.items()
@@ -1155,6 +1233,8 @@ class QualificationOutputController:
 
     def _environment_current(self) -> None:
         self.admission.assert_current()
+        if self.revised_preflight is not None:
+            verify_revised_preflight_v2(*self.revised_preflight)
         from .roundtrip_v2_records import proof_source_hashes_v2
 
         _require(
@@ -1368,6 +1448,11 @@ class QualificationOutputController:
             "payload": copy.deepcopy(payload),
             "resultPath": str(result_path),
         }
+        if self.revised_preflight is not None:
+            request["revisedPreflight"] = {
+                "path": str(self.revised_preflight[0]),
+                "sha256": self.revised_preflight[1],
+            }
         raw = _canonical(request)
         verify_native_request(raw, expected_request_sha256=_hash(raw))
         _publish(request_path, raw)
@@ -1761,6 +1846,14 @@ class QualificationOutputController:
                 "#manual-installation-and-update",
             },
         }
+        if action == "observe_edited":
+            handoff["manualFlow"]["beforeObservation"] = (
+                "Perform and save the intended bounded edit on this same "
+                "disposable target through Resolve's editor before launching "
+                "observe_edited. This action only reads the actual edit; it "
+                "does not construct clips or apply a planned geometry. Keep "
+                "the original package and both original input files unchanged."
+            )
         handoff_raw = _canonical(handoff)
         handoff_path = self.native_operator_handoff_path(request_path)
         _publish(handoff_path, handoff_raw)
@@ -2050,13 +2143,13 @@ class QualificationOutputController:
     def prepare_operator_plan(self, plan_path: Path, *, retry: bool = False) -> Path:
         """Prepare a reviewable exact plan; this does not issue authority."""
         from .qualification_output_native_v2 import (
-            APPROVAL_ACTION_PLAN,
             APPROVAL_SCHEMA,
             CONFIRMATIONS,
             MAX_POLL_COUNT,
             NATIVE_STATE_ROOT,
             RETRY_ACTION_PLAN,
             _settings_for_timeline,
+            action_plan_for_context,
         )
         from .workflow_v2_cli import RELEASE_NAME, _verify_output_release
 
@@ -2102,7 +2195,9 @@ class QualificationOutputController:
                 )
             ),
             "settings": _settings_for_timeline(self.admission.manifest["timeline"]),
-            "actionPlan": list(RETRY_ACTION_PLAN if retry else APPROVAL_ACTION_PLAN),
+            "actionPlan": list(
+                RETRY_ACTION_PLAN if retry else action_plan_for_context(self.context)
+            ),
             "maxPolls": MAX_POLL_COUNT,
             "confirmations": CONFIRMATIONS,
             "oneUse": True,
@@ -2197,9 +2292,28 @@ class QualificationOutputController:
         return self.prepare_operator_plan(plan_path)
 
     @classmethod
-    def from_revised(cls, *_args: Any, **_kwargs: Any) -> QualificationOutputController:
-        verify_revised_preflight_v2()
-        raise AssertionError("unreachable revised verifier")
+    def from_revised(
+        cls,
+        root: Path,
+        *,
+        admission: Any,
+        release_root: Path,
+        target: Json,
+        case_id: str,
+        invocation_id: str,
+        revised_preflight_path: Path,
+        revised_preflight_sha256: str,
+    ) -> QualificationOutputController:
+        return cls(
+            root,
+            admission=admission,
+            release_root=release_root,
+            target=target,
+            case_id=case_id,
+            phase="rebuild",
+            invocation_id=invocation_id,
+            revised_preflight=(revised_preflight_path, revised_preflight_sha256),
+        )
 
     def input_binding_from_native(self, result_path: Path, result_sha256: str) -> bytes:
         """Derive native UID mappings only from the audited complete readback."""
