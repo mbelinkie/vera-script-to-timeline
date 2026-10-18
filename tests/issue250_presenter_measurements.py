@@ -224,21 +224,30 @@ def _source_ordinal(event: Json, record_frame: int, prepared: Sequence[int]) -> 
 
 def _color_bounds(frame: bytes, *, color: str) -> tuple[int, int, int, int] | None:
     _require(len(frame) == _COLOR_FRAME_BYTES, "Presenter color frame size differs")
+    left, top, right, bottom = _PRESENTER_BOUNDS[color]
+    seed = ((left + right) // 2, (top + bottom) // 2)
+    pending = [seed]
+    visited: set[tuple[int, int]] = set()
     min_x, min_y = _COLOR_SIZE, _COLOR_SIZE
     max_x = max_y = -1
-    for y in range(_COLOR_SIZE):
-        row = y * _COLOR_SIZE * 3
-        for x in range(_COLOR_SIZE):
-            offset = row + x * 3
-            red, green, blue = frame[offset : offset + 3]
-            match = (
-                red >= 120 and red - green >= 80 and red - blue >= 80
-                if color == "red"
-                else green >= 120 and green - red >= 80 and green - blue >= 80
-            )
-            if match:
-                min_x, min_y = min(min_x, x), min(min_y, y)
-                max_x, max_y = max(max_x, x), max(max_y, y)
+    # The advancing root has its own green sync flash. Measure the connected
+    # Presenter component, including its full edges, rather than that flash.
+    while pending:
+        x, y = pending.pop()
+        if (x, y) in visited or not (0 <= x < _COLOR_SIZE and 0 <= y < _COLOR_SIZE):
+            continue
+        visited.add((x, y))
+        offset = (y * _COLOR_SIZE + x) * 3
+        red, green, blue = frame[offset : offset + 3]
+        match = (
+            red >= 120 and red - green >= 80 and red - blue >= 80
+            if color == "red"
+            else green >= 120 and green - red >= 80 and green - blue >= 80
+        )
+        if match:
+            min_x, min_y = min(min_x, x), min(min_y, y)
+            max_x, max_y = max(max_x, x), max(max_y, y)
+            pending.extend(((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)))
     return None if max_x < 0 else (min_x, min_y, max_x, max_y)
 
 

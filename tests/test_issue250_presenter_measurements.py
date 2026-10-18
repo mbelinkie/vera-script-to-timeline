@@ -16,6 +16,7 @@ from issue250_presenter_measurements import (
     _MARKER_SIZE,
     _PRESENTER_BOUNDS,
     _PRESENTER_FRAMES,
+    _verify_presenter_bounds,
     load_presenter_case,
     measure_presenter_render,
 )
@@ -118,6 +119,32 @@ def _bounds_frame() -> bytes:
 
 def _native_session(profile: str = PRESENTER_PROFILE) -> SimpleNamespace:
     return SimpleNamespace(admission=SimpleNamespace(profile=profile))
+
+
+def test_contain_bounds_ignore_the_separate_root_sync_flash() -> None:
+    frame = bytearray(_bounds_frame())
+    for y in range(420, 450):
+        for x in range(206, 266):
+            offset = (y * _COLOR_SIZE + x) * 3
+            frame[offset : offset + 3] = b"\x14\xe6\x14"
+
+    result = _verify_presenter_bounds(bytes(frame))
+
+    assert result["observedBounds"]["green"] == list(_PRESENTER_BOUNDS["green"])
+
+
+def test_contain_bounds_still_refuse_a_shifted_presenter_head() -> None:
+    frame = bytearray(_bounds_frame())
+    left, top, right, bottom = _PRESENTER_BOUNDS["green"]
+    for y in range(top, bottom + 1):
+        for x in range(left, right + 11):
+            offset = (y * _COLOR_SIZE + x) * 3
+            frame[offset : offset + 3] = (
+                b"\x14\xe6\x14" if x >= left + 10 else b"\x00\x00\x00"
+            )
+
+    with pytest.raises(AssertionError, match="green bounds differ"):
+        _verify_presenter_bounds(bytes(frame))
 
 
 def test_presenter_case_uses_the_current_admitted_manifest(tmp_path: Path) -> None:
