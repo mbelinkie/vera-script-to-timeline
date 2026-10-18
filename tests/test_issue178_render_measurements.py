@@ -17,7 +17,50 @@ from issue178_render_measurements import (
     _verify_ordinals,
     authenticate_render,
     load_measurement_case,
+    verify_composite_ordinals,
 )
+
+
+def test_composite_frames_keep_root_advancing_under_child_and_overlay() -> None:
+    manifest = {
+        "timeline": {"durationFrames": 8},
+        "tracks": [
+            {"id": name, "index": index}
+            for index, name in enumerate(("root", "child", "overlay"), 1)
+        ],
+        "events": [
+            {
+                "eventId": "root",
+                "kind": "primary_visual",
+                "trackId": "root",
+                "recordRange": {"startFrame": 0, "endFrame": 8},
+                "sourceRange": {"startFrame": 0},
+                "provenance": {"sourceId": "r"},
+            },
+            {
+                "eventId": "child",
+                "kind": "primary_visual",
+                "trackId": "child",
+                "recordRange": {"startFrame": 2, "endFrame": 5},
+                "sourceRange": {"startFrame": 0},
+                "provenance": {"sourceId": "c"},
+            },
+            {
+                "eventId": "overlay",
+                "kind": "overlay_visual",
+                "trackId": "overlay",
+                "recordRange": {"startFrame": 4, "endFrame": 6},
+                "sourceRange": {"startFrame": 0},
+                "provenance": {"sourceId": "o"},
+            },
+        ],
+    }
+    sources = {"r": tuple(range(8)), "c": (20, 21, 22), "o": (40, 41)}
+    rendered = (0, 1, 20, 21, 40, 41, 6, 7)
+    result = verify_composite_ordinals(manifest, sources, rendered)
+    assert result["root"]["visibleFrames"] == 4
+    with pytest.raises(AssertionError, match="frame 6"):
+        verify_composite_ordinals(manifest, sources, (*rendered[:6], 0, 1))
 
 
 @pytest.mark.parametrize("wrong_output", [False, True])

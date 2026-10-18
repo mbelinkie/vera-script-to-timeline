@@ -905,6 +905,11 @@ def authenticate_render(
             prepared.binding == bindings[prepared.binding["requirementKey"]],
             "measurement preparation binding differs",
         )
+        _require(
+            file_hash(prepared.video_path)
+            == prepared.binding["verification"]["deliveredHash"],
+            "measurement prepared picture bytes differ from admission",
+        )
         for path in (prepared.receipt_path, prepared.audio_path):
             if path is not None:
                 _require(
@@ -938,6 +943,115 @@ def authenticate_render(
     }
 
 
+def expected_prepared_ordinals(binding: Json) -> tuple[int, ...]:
+    """Derive numbered-source expectations from the authenticated P5 mapping."""
+    mapping = binding["timeMapping"]
+    rate = _fraction(mapping["sourceRate"], "original rate")
+    target = _fraction(binding["targetRate"], "prepared rate")
+    count = binding["verification"]["decodedFrameCount"]
+    origin = mapping["sourceFrameMap"]["packageFrameZeroLogicalFrame"]
+    first = (
+        Fraction(0)
+        if binding["mode"] == "verified_reuse"
+        else Fraction(binding["requestedRange"]["sourceInFrame"] - origin, 1) / rate
+    )
+    return tuple(
+        math.floor((first + Fraction(frame, 1) / target) * rate)
+        for frame in range(count)
+    )
+
+
+def verify_composite_ordinals(
+    manifest: Json,
+    source_ordinals: Mapping[str, tuple[int, ...]],
+    rendered: Sequence[int],
+) -> Json:
+    """Verify every visible numbered frame across roots, children and overlays."""
+    events = [
+        event
+        for event in manifest["events"]
+        if event["kind"] in {"primary_visual", "overlay_visual"}
+    ]
+    tracks = {track["id"]: track["index"] for track in manifest["tracks"]}
+    count = manifest["timeline"]["durationFrames"]
+    _require(len(rendered) == count, "composite rendered frame count differs")
+    appearances: dict[str, list[int]] = {}
+    for frame in range(count):
+        active = [
+            event
+            for event in events
+            if event["recordRange"]["startFrame"]
+            <= frame
+            < event["recordRange"]["endFrame"]
+        ]
+        _require(bool(active), f"composite has no picture at frame {frame}")
+        event = max(active, key=lambda row: tracks[row["trackId"]])
+        source_frame = (
+            event["sourceRange"]["startFrame"]
+            + frame
+            - event["recordRange"]["startFrame"]
+        )
+        expected = source_ordinals[event["provenance"]["sourceId"]][source_frame]
+        _require(
+            rendered[frame] == expected, f"composite ordinal differs at frame {frame}"
+        )
+        appearances.setdefault(event["eventId"], []).append(frame)
+    return {
+        event_id: {
+            "visibleFrames": len(frames),
+            "firstFrame": frames[0],
+            "lastFrame": frames[-1],
+        }
+        for event_id, frames in appearances.items()
+    }
+
+
+def measure_topology_render(
+    case: MeasurementCase,
+    mov_path: Path,
+    outputdir: Path,
+    *,
+    session_path: Path,
+    session_sha256: str,
+) -> Json:
+    binding = authenticate_render(case, mov_path, session_path, session_sha256)
+    sources = case.manifest["sources"]
+    expected = {
+        source["id"]: expected_prepared_ordinals(prepared.binding)
+        for source in sources
+        for prepared in case.preparations.values()
+        if source.get("preparationRequirementKey") == prepared.binding["requirementKey"]
+    }
+    tools = MediaTools()
+    _, duration, count = _verify_video_probe(case, mov_path, tools)
+    rendered = _decode_rgb_frames(tools, mov_path)
+    appearances = verify_composite_ordinals(case.manifest, expected, rendered)
+    events = case.manifest["events"]
+    _require(
+        any(event["kind"] == "overlay_visual" for event in events),
+        "topology case requires an independent overlay",
+    )
+    _require(
+        any(event["kind"] == "narration" for event in events),
+        "topology case requires authenticated narration",
+    )
+    _require(
+        not any(event["kind"] == "source_audio" for event in events),
+        "this topology fixture requires muted source clips",
+    )
+    result = {
+        "schemaVersion": "issue178-topology-measurements/v1",
+        "status": "passed",
+        "nativeBinding": binding,
+        "frameCount": count,
+        "durationSeconds": float(duration),
+        "appearances": appearances,
+    }
+    outputdir.mkdir(parents=True, exist_ok=False)
+    (outputdir / "topology-measurements.json").write_text(json.dumps(result, indent=2))
+    return result
+
+
 def measure_render(
     case: MeasurementCase,
     mov_path: Path,
@@ -953,6 +1067,12 @@ def measure_render(
     supplied ordinary qualification case.
     """
     binding = authenticate_render(case, mov_path, session_path, session_sha256)
+    for prepared_label, prepared in case.preparations.items():
+        _require(
+            case.expected_frame_ordinals[prepared_label]
+            == expected_prepared_ordinals(prepared.binding),
+            "persisted ordinal expectations differ from admitted mapping",
+        )
     _require(outputdir.is_absolute(), "measurement output directory must be absolute")
     outputdir.mkdir(parents=True, exist_ok=True)
     tools = MediaTools()
