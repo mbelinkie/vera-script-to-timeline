@@ -1256,6 +1256,129 @@ def admit_qualification_package_v2(
     )
 
 
+@_admission_boundary
+def admit_qualification_revision_v2(
+    output_root: Path,
+    *,
+    package_root: Path,
+    preparation_paths: Mapping[str, Path],
+    revised_preflight_path: Path,
+    revised_preflight_sha256: str,
+) -> QualificationOutputAdmissionV2:
+    """Admit a fresh public matrix build while retaining its pinned originals."""
+    _need(
+        isinstance(output_root, Path) and output_root.is_absolute(),
+        "absolute qualification output root required",
+    )
+    v2_package._require_path_components_no_symlink(
+        output_root, "qualification output root"
+    )
+    _need(
+        not output_root.exists() and not output_root.is_symlink(),
+        "output root must be new",
+    )
+    _need(
+        isinstance(package_root, Path) and package_root.is_absolute(),
+        "absolute revised public package root required",
+    )
+    _need(
+        isinstance(preparation_paths, Mapping),
+        "published matrix preparation paths required",
+    )
+    _need(
+        isinstance(revised_preflight_path, Path)
+        and revised_preflight_path.is_absolute()
+        and type(revised_preflight_sha256) is str
+        and re.fullmatch(r"[0-9a-f]{64}", revised_preflight_sha256) is not None,
+        "revised preflight path and lowercase raw hash required",
+    )
+    v2_package._require_path_components_no_symlink(
+        revised_preflight_path, "revised preflight"
+    )
+
+    # This verifier owns the decision/evidence chain.  The package lane only
+    # consumes its current, file-pinned output and binds it to #177 bytes.
+    from .qualification_output_proof_v2 import verify_revised_preflight_v2
+
+    preflight = _object(
+        verify_revised_preflight_v2(revised_preflight_path, revised_preflight_sha256),
+        "verified revised preflight object required",
+    )
+    original_inputs = _object(
+        preflight.get("originalInputs"), "revised original input pins required"
+    )
+    baseline_inputs = _object(
+        preflight.get("baselineInputs"), "revised baseline input pins required"
+    )
+    execution_inputs = _object(
+        preflight.get("executionInputs"), "revised execution input pins required"
+    )
+    original_document_path, original_document, _ = _read_revised_pin(
+        original_inputs.get("document"), "original document"
+    )
+    original_dependencies_path, original_dependencies, _ = _read_revised_pin(
+        original_inputs.get("dependencies"), "original dependencies"
+    )
+    _baseline_document_path, _baseline_document, _ = _read_revised_pin(
+        baseline_inputs.get("document"), "baseline document"
+    )
+    _baseline_dependencies_path, baseline_dependencies_raw, _ = _read_revised_pin(
+        baseline_inputs.get("dependencies"), "baseline dependencies"
+    )
+    execution_document = _read_revised_pin(
+        execution_inputs.get("document"), "execution document"
+    )[1]
+    execution_dependencies = _read_revised_pin(
+        execution_inputs.get("dependencies"), "execution dependencies"
+    )[1]
+    manifest_raw = _read_revised_pin(preflight.get("manifest"), "manifest")[1]
+    report_raw = _read_revised_pin(preflight.get("report"), "report")[1]
+    baseline_build_id = _object(
+        _json(baseline_dependencies_raw, "baseline dependencies").get("build"),
+        "baseline build identity required",
+    ).get("buildId")
+    execution_build_id = _object(
+        _json(execution_dependencies, "execution dependencies").get("build"),
+        "execution build identity required",
+    ).get("buildId")
+    _need(
+        type(baseline_build_id) is str
+        and type(execution_build_id) is str
+        and baseline_build_id != execution_build_id,
+        "revised execution build id must be fresh from the baseline",
+    )
+
+    verified = v2_package.verify_v2_package(package_root)
+    build = package_root / "Builds" / verified.build_id
+    package_bytes = {
+        "document": _read(build / v2_package.DOCUMENT_FILENAME),
+        "dependencies": _read(build / v2_package.DEPENDENCIES_FILENAME),
+        "manifest": _read(build / v2_package.MANIFEST_FILENAME),
+        "report": _read(build / v2_package.REPORT_FILENAME),
+    }
+    _need(
+        package_bytes
+        == {
+            "document": execution_document,
+            "dependencies": execution_dependencies,
+            "manifest": manifest_raw,
+            "report": report_raw,
+        },
+        "revised public package bytes differ from the verified preflight pins",
+    )
+    return _admit_synthetic(
+        output_root,
+        package_root,
+        profile=MATRIX_PROFILE,
+        preparation_paths=preparation_paths,
+        revision_originals=(
+            (original_document_path, original_document),
+            (original_dependencies_path, original_dependencies),
+        ),
+        revision_execution_pins=package_bytes,
+    )
+
+
 def _parse_original_link(
     path: Path, expected_sha256: str, final_state: Json
 ) -> tuple[bytes, dict[Path, tuple[int, int, int, int, int]], dict[Path, str]]:
@@ -2296,6 +2419,8 @@ def _audio_source_entries(
     prepared: Mapping[str, v2_package._Preparation],
     wavs: Mapping[str, bytes],
     proofs: Mapping[str, SourceProof],
+    *,
+    matrix_profile: bool = False,
 ) -> tuple[list[Json], dict[tuple[str, str], tuple[Json, ...]]]:
 
     manifest_sources = {row["id"]: row for row in manifest["sources"]}
@@ -2312,13 +2437,17 @@ def _audio_source_entries(
     has_narration = any(
         event.get("kind") == "narration" for event in manifest["events"]
     )
-    review_raw = _read(_R14, maximum=4 * 1024 * 1024) if has_narration else b""
+    review_raw = (
+        _read(_R14, maximum=4 * 1024 * 1024)
+        if has_narration and not matrix_profile
+        else b""
+    )
     timing_by_block = {
         path.stem: _read(path, maximum=4 * 1024 * 1024)
         for path in timing_root.glob("*.json")
         if path.stem in _NARRATION_TIMING_HASHES
     }
-    if has_narration:
+    if has_narration and not matrix_profile:
         _need(
             _sha(review_raw) == _R14_SHA256 and _sha(_r6_review()) == _R6_SHA256,
             "R14/R6 narration review receipt pins differ",
@@ -2364,11 +2493,32 @@ def _audio_source_entries(
             )
             assert timing_raw is not None
             _need(
-                _sha(proof.receipt) == _R14_SHA256
-                and proof.review == review_raw
-                and proof.timing == timing_raw,
-                "narration proof does not retain the actual R14/TIMING bytes",
+                proof.timing == timing_raw,
+                "narration proof does not retain the actual TIMING bytes",
             )
+            if matrix_profile:
+                declared_review_hash = _allowed_narration_review_hash(
+                    _object(
+                        record.get("verification"),
+                        "narration listening review required",
+                    ).get("reviewArtifactHash")
+                )
+                _need(
+                    proof.review is not None
+                    and proof.review == proof.receipt
+                    and _sha(proof.review) == declared_review_hash,
+                    "narration proof review/receipt differs from "
+                    "declared pinned artifact",
+                )
+                assert proof.review is not None
+                review_bytes = proof.review
+            else:
+                _need(
+                    _sha(proof.receipt) == _R14_SHA256 and proof.review == review_raw,
+                    "narration proof does not retain the actual R14 "
+                    "review/receipt bytes",
+                )
+                review_bytes = review_raw
             audio = narration_source["narrationAudio"]
             count = audio["durationSamples"]
             expected_wav_hash = audio["audioHash"].removeprefix("sha256:")
@@ -2379,7 +2529,7 @@ def _audio_source_entries(
             )
             pins = {
                 "timing": _sha(timing_raw),
-                "review": _sha(review_raw),
+                "review": _sha(review_bytes),
                 "receipt": _sha(proof.receipt),
             }
             source_rate, q, start_sample, end_sample = 48000, 0, 0, count
@@ -2615,6 +2765,51 @@ def _track(
     return raw
 
 
+def _allowed_narration_review_hash(value: object) -> str:
+    declared = _text(value, "narration review artifact hash required")
+    digest = declared.removeprefix("sha256:")
+    _need(
+        declared in {digest, "sha256:" + digest}
+        and digest in {_R6_SHA256, _R14_SHA256},
+        "narration review artifact is outside the statically pinned inventory",
+    )
+    return digest
+
+
+def _track_narration_review(
+    value: object,
+    states: dict[Path, tuple[int, int, int, int, int]],
+    hashes: dict[Path, str],
+) -> bytes:
+    digest = _allowed_narration_review_hash(value)
+    if digest == _R6_SHA256:
+        expected = _r6_review()
+        path = _R6_TARGET
+    else:
+        expected = None
+        path = _R14
+    raw = _track(path, states, hashes)
+    _need(
+        _sha(raw) == digest and (expected is None or raw == expected),
+        "narration review bytes differ from the statically pinned artifact",
+    )
+    return raw
+
+
+def _read_revised_pin(value: object, label: str) -> tuple[Path, bytes, str]:
+    pin = _object(value, f"{label} pin required")
+    _need(set(pin) == {"path", "sha256"}, f"{label} pin shape differs")
+    path = Path(_text(pin["path"], f"{label} pin path required"))
+    digest = _text(pin["sha256"], f"{label} pin hash required")
+    _need(
+        path.is_absolute() and re.fullmatch(r"[0-9a-f]{64}", digest) is not None,
+        f"{label} pin is malformed",
+    )
+    raw = _read(path)
+    _need(_sha(raw) == digest, f"{label} pin bytes differ")
+    return path, raw, digest
+
+
 def _r6_review() -> bytes:
     _need(_R6.resolve(strict=True) == _R6_TARGET, "R6 review target changed")
     raw = _read(_R6_TARGET)
@@ -2704,6 +2899,7 @@ def _audio_proofs(
     hashes: dict[Path, str],
     *,
     allow_silent: bool = False,
+    matrix_profile: bool = False,
 ) -> tuple[
     dict[str, bytes],
     dict[str, SourceProof],
@@ -2742,14 +2938,32 @@ def _audio_proofs(
             timing = _track(
                 _CANDIDATE / "TimingSources" / f"{block_id}.json", states, hashes
             )
-            review = _track(_R14, states, hashes)
-            _r6_review()
-            _track(_R6_TARGET, states, hashes)
+            if matrix_profile:
+                review = _track_narration_review(
+                    _object(
+                        _object(rows[0], "narration boundary record required").get(
+                            "verification"
+                        ),
+                        "narration listening review required",
+                    ).get("reviewArtifactHash"),
+                    states,
+                    hashes,
+                )
+            else:
+                review = _track(_R14, states, hashes)
+                _r6_review()
+                _track(_R6_TARGET, states, hashes)
             proofs[sid] = SourceProof(
                 _canonical(rows[0]), review, timing=timing, review=review
             )
     entries, payloads = _audio_source_entries(
-        manifest, dependencies, view, prepared, wavs, proofs
+        manifest,
+        dependencies,
+        view,
+        prepared,
+        wavs,
+        proofs,
+        matrix_profile=matrix_profile,
     )
     _need(
         bool(entries)
@@ -3250,12 +3464,60 @@ def _admit_synthetic(
     existing: bool = False,
     profile: str = SYNTHETIC_PROFILE,
     preparation_paths: Mapping[str, Path] | None = None,
+    revision_originals: tuple[tuple[Path, bytes], tuple[Path, bytes]] | None = None,
+    revision_execution_pins: Mapping[str, bytes] | None = None,
 ) -> QualificationOutputAdmissionV2:
     from .workflow_v2 import load_verified_package_v2
     from .workflow_v2_cli import attest_package_v2
 
     _need(public_root.is_absolute(), "absolute public package root required")
+    _need(
+        (revision_originals is None) == (revision_execution_pins is None),
+        "complete revised input pins required",
+    )
+    if revision_originals is not None:
+        _need(profile == MATRIX_PROFILE, "revised originals require the matrix profile")
+        _need(
+            type(revision_originals) is tuple
+            and len(revision_originals) == 2
+            and all(
+                isinstance(path, Path) and path.is_absolute() and type(raw) is bytes
+                for path, raw in revision_originals
+            ),
+            "revised original bytes and paths required",
+        )
+        _need(
+            type(revision_execution_pins) is dict
+            and set(revision_execution_pins)
+            == {"document", "dependencies", "manifest", "report"}
+            and all(type(raw) is bytes for raw in revision_execution_pins.values()),
+            "revised execution pin set differs",
+        )
     verified = v2_package.verify_v2_package(public_root)
+    states: dict[Path, tuple[int, int, int, int, int]] = {}
+    hashes: dict[Path, str] = {}
+    revision_original_bytes: tuple[bytes, bytes] | None = None
+    if revision_originals is not None:
+        original_raw = tuple(
+            _track(path, states, hashes) for path, _expected in revision_originals
+        )
+        _need(
+            original_raw == tuple(expected for _path, expected in revision_originals),
+            "revised original input changed after preflight verification",
+        )
+        revision_original_bytes = (original_raw[0], original_raw[1])
+    if revision_execution_pins is not None:
+        public_build = public_root / "Builds" / verified.build_id
+        _need(
+            {
+                "document": _read(public_build / v2_package.DOCUMENT_FILENAME),
+                "dependencies": _read(public_build / v2_package.DEPENDENCIES_FILENAME),
+                "manifest": _read(public_build / v2_package.MANIFEST_FILENAME),
+                "report": _read(public_build / v2_package.REPORT_FILENAME),
+            }
+            == revision_execution_pins,
+            "revised public package differs from its preflight pins",
+        )
     root = output_root / "package"
     inner = root / "PublicPackage"
     if not existing:
@@ -3281,12 +3543,26 @@ def _admit_synthetic(
     loaded = load_verified_package_v2(attestation_path, _sha(_read(attestation_path)))
     _need(loaded.root == inner, "attestation targets another package")
     build = inner / "Builds" / verified.build_id
-    states: dict[Path, tuple[int, int, int, int, int]] = {}
-    hashes: dict[Path, str] = {}
     document_raw = _track(build / v2_package.DOCUMENT_FILENAME, states, hashes)
     dependencies_raw = _track(build / v2_package.DEPENDENCIES_FILENAME, states, hashes)
     manifest_raw = _track(build / v2_package.MANIFEST_FILENAME, states, hashes)
     report_raw = _track(build / v2_package.REPORT_FILENAME, states, hashes)
+    if revision_execution_pins is not None:
+        _need(
+            {
+                "document": document_raw,
+                "dependencies": dependencies_raw,
+                "manifest": manifest_raw,
+                "report": report_raw,
+            }
+            == revision_execution_pins,
+            "cloned revised package bytes differ from the verified preflight pins",
+        )
+    original_documents = (
+        revision_original_bytes
+        if revision_original_bytes is not None
+        else (document_raw, dependencies_raw)
+    )
     view_raw = _track(build / v2_package.DELIVERY_VIEW_FILENAME, states, hashes)
     document, dependencies = (
         _json(document_raw, "synthetic document"),
@@ -3373,10 +3649,11 @@ def _admit_synthetic(
         states,
         hashes,
         allow_silent=profile == MATRIX_PROFILE,
+        matrix_profile=profile == MATRIX_PROFILE,
     )
     preflight, preparation = _snapshots(
         profile=profile,
-        originals=(document_raw, dependencies_raw),
+        originals=original_documents,
         execution=(document_raw, dependencies_raw),
         manifest_raw=manifest_raw,
         report_raw=report_raw,
@@ -3395,8 +3672,8 @@ def _admit_synthetic(
         creative_qualification="unqualified_studio_matrix"
         if profile == MATRIX_PROFILE
         else "qualified_synthetic_only",
-        original_document=document_raw,
-        original_dependencies=dependencies_raw,
+        original_document=original_documents[0],
+        original_dependencies=original_documents[1],
         execution_document=document_raw,
         execution_dependencies=dependencies_raw,
         manifest=manifest,

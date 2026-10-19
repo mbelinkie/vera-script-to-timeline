@@ -55,6 +55,7 @@ MATRIX_PROFILE = "qualification-output-studio-matrix/v1"
 PUBLIC_PROFILES = frozenset({SYNTHETIC_PROFILE, MATRIX_PROFILE})
 R16_PROFILE = "qualification-output-r16-presenter-override/v1"
 PRESENTER_PROFILE = "qualification-output-current-presenter/v1"
+CONSTRUCTOR_LINK_PROFILES = frozenset({MATRIX_PROFILE, PRESENTER_PROFILE})
 PRESENTER_SLOT_ID = "8ef61d23-9625-5b03-a046-e3f1051bbd75"
 PRESENTER_WARNING_ID = "5e77b270-31bf-5ab0-8a99-4698599c131e"
 PRESENTER_WARNING_MESSAGE = "On Camera uses the effective temporary presenter still."
@@ -65,6 +66,7 @@ PROFILES = frozenset({*PUBLIC_PROFILES, R16_PROFILE, PRESENTER_PROFILE})
 ACTIONS = frozenset(
     {
         "construct",
+        "observe_edited",
         "capture_pre",
         "retry_capture",
         "save_reopen",
@@ -164,6 +166,15 @@ APPROVAL_ACTION_PLAN = (
     "poll_render",
     "capture_post",
 )
+OBSERVED_ACTION_PLAN = (
+    "observe_edited",
+    "save_reopen",
+    "capture_pre",
+    "queue_render",
+    "start_render",
+    "poll_render",
+    "capture_post",
+)
 RETRY_ACTION_PLAN = (
     "retry_capture",
     "queue_render",
@@ -174,12 +185,24 @@ RETRY_ACTION_PLAN = (
 
 
 def _approval_plan_for_request(request: dict[str, Any]) -> tuple[str, ...]:
-    if request["sequence"] > len(APPROVAL_ACTION_PLAN) - 1 or (
-        request["sequence"] == len(APPROVAL_ACTION_PLAN) - 1
-        and request["action"] == "retry_capture"
+    context = request.get("context", {})
+    plan = action_plan_for_context(context)
+    if context.get("phase") == "edited":
+        return plan
+    if request["sequence"] > len(plan) - 1 or (
+        request["sequence"] == len(plan) - 1 and request["action"] == "retry_capture"
     ):
         return RETRY_ACTION_PLAN
-    return APPROVAL_ACTION_PLAN
+    return plan
+
+
+def action_plan_for_context(context: dict[str, Any]) -> tuple[str, ...]:
+    """Return the one reviewed native plan statically selected by phase."""
+    return (
+        OBSERVED_ACTION_PLAN
+        if context.get("phase") == "edited"
+        else APPROVAL_ACTION_PLAN
+    )
 
 
 APPROVAL_FIELDS = frozenset(
@@ -306,6 +329,7 @@ ALLOWED_EFFECT_METHODS = frozenset(
         "TimelineItem.AddMarker",
         "TimelineItem.SetProperties",
         "Timeline.AddMarker",
+        "Timeline.SetClipsLinked",
         "ProjectManager.SaveProject",
         "ProjectManager.CloseProject",
         "ProjectManager.LoadProject",
@@ -354,6 +378,70 @@ REQUEST_FIELDS = frozenset(
         "reservation",
         "payload",
         "resultPath",
+    }
+)
+REVISED_PREFLIGHT_REQUEST_FIELDS = REQUEST_FIELDS | frozenset({"revisedPreflight"})
+REVISED_PREFLIGHT_FIELDS = frozenset(
+    {
+        "schemaVersion",
+        "lane",
+        "status",
+        "sourceHashes",
+        "proofSession",
+        "originalInputs",
+        "baselineInputs",
+        "executionInputs",
+        "manifest",
+        "report",
+        "evidence",
+        "proposal",
+        "decision",
+        "result",
+        "revisionLedger",
+        "acceptedDecisionReceipt",
+        "proofFiles",
+        "verifiedFiles",
+        "receipt",
+    }
+)
+REVISED_PREFLIGHT_PROOF_FILE_FIELDS = frozenset(
+    {
+        "evidenceReceipt",
+        "inferenceDecision",
+        "inferenceDecisionReceipt",
+        "stage",
+        "inferenceClaim",
+        "revisionClaim",
+        "omissionSupport",
+        "omissionSourceReviewReceipt",
+        "omissionSourceReview",
+    }
+)
+REVISED_PREFLIGHT_REQUIRED_PROOF_FILES = (
+    "evidenceReceipt",
+    "inferenceDecision",
+    "inferenceDecisionReceipt",
+    "stage",
+    "inferenceClaim",
+    "revisionClaim",
+)
+REVISED_PREFLIGHT_OMISSION_PROOF_FILES = (
+    "omissionSupport",
+    "omissionSourceReviewReceipt",
+    "omissionSourceReview",
+)
+REVISED_PREFLIGHT_LEDGER_FIELDS = frozenset(
+    {
+        "schemaVersion",
+        "lane",
+        "proofSessionSha256",
+        "evidenceSha256",
+        "inferenceDecisionSha256",
+        "candidateSha256",
+        "decisionSha256",
+        "resultSha256",
+        "outcome",
+        "history",
     }
 )
 INPUT_FIELDS = frozenset(
@@ -775,10 +863,10 @@ def verify_operator_approval(
         approval["admissionSha256"] == _digest(admission_sha256),
         "approval admission pin differs",
     )
-    _require(
-        approval["actionPlan"] in (list(APPROVAL_ACTION_PLAN), list(RETRY_ACTION_PLAN)),
-        "approval action plan differs",
-    )
+    valid_plans = [list(action_plan_for_context(approved_context))]
+    if approved_context["phase"] != "edited":
+        valid_plans.append(list(RETRY_ACTION_PLAN))
+    _require(approval["actionPlan"] in valid_plans, "approval action plan differs")
     _require(approval["maxPolls"] == MAX_POLL_COUNT, "approval poll bound differs")
     _require(
         approval["confirmations"] == CONFIRMATIONS and approval["oneUse"] is True,
@@ -927,6 +1015,181 @@ def _chain_key(context: dict[str, Any]) -> str:
     )
 
 
+def _revised_preflight_route(context: dict[str, Any]) -> bool:
+    return bool(
+        context["phase"] == "rebuild" and context["binding"]["kind"] == "revised"
+    )
+
+
+def _verify_revised_preflight_currentness(request: dict[str, Any]) -> None:
+    """Check host-pinned revised proof files immediately before native work.
+
+    The host verifier owns proof semantics and receipt authentication. This
+    stdlib-only boundary rechecks the exact closed record and all of its
+    referenced bytes against the operator-bound context so a previously
+    verified decision or input cannot go stale between request preparation
+    and the first native effect.
+    """
+    reference = _shape(
+        request["revisedPreflight"], PATH_HASH_FIELDS, "revised preflight reference"
+    )
+    preflight_raw, preflight_sha256, preflight_path = _read_ref(
+        reference, "revised preflight"
+    )
+    preflight_info = preflight_path.stat(follow_symlinks=False)
+    _require(preflight_info.st_nlink == 1, "aliased revised preflight refused")
+    record = _shape(
+        _parse(preflight_raw), REVISED_PREFLIGHT_FIELDS, "revised preflight"
+    )
+    _require(
+        record["schemaVersion"] == "qualification-output-revised-preflight/v1"
+        and record["lane"] == LANE
+        and record["status"] == "prepared",
+        "prepared revised preflight required",
+    )
+    context = request["context"]
+    binding = context["binding"]
+    source_hashes = record["sourceHashes"]
+    _require(
+        type(source_hashes) is dict
+        and _hash(_canonical(source_hashes)) == context["hostSourceGraphSha256"],
+        "revised preflight source graph differs",
+    )
+
+    pin_groups: dict[str, dict[str, dict[str, Any]]] = {}
+    for group_name in ("originalInputs", "baselineInputs", "executionInputs"):
+        pin_groups[group_name] = _shape(
+            record[group_name], frozenset({"document", "dependencies"}), group_name
+        )
+    single_names = (
+        "manifest",
+        "report",
+        "evidence",
+        "proposal",
+        "decision",
+        "result",
+        "revisionLedger",
+        "acceptedDecisionReceipt",
+    )
+    proof_files = _shape(
+        record["proofFiles"],
+        REVISED_PREFLIGHT_PROOF_FILE_FIELDS,
+        "revised preflight proof files",
+    )
+    omission_values = [
+        proof_files[name] for name in REVISED_PREFLIGHT_OMISSION_PROOF_FILES
+    ]
+    _require(
+        all(value is None for value in omission_values)
+        or all(value is not None for value in omission_values),
+        "revised omission proof pins must be all present or all absent",
+    )
+    pins = {
+        "proofSession": record["proofSession"],
+        **{
+            f"{group_name}.{name}": pin
+            for group_name, group in pin_groups.items()
+            for name, pin in group.items()
+        },
+        **{name: record[name] for name in single_names},
+        **{
+            f"proofFiles.{name}": proof_files[name]
+            for name in REVISED_PREFLIGHT_REQUIRED_PROOF_FILES
+        },
+        **{
+            f"proofFiles.{name}": proof_files[name]
+            for name in REVISED_PREFLIGHT_OMISSION_PROOF_FILES
+            if proof_files[name] is not None
+        },
+    }
+    verified_files = {
+        pin["path"]: pin["sha256"]
+        for pin in pins.values()
+        if type(pin) is dict and set(pin) == PATH_HASH_FIELDS
+    }
+    _require(
+        len(verified_files) == len(pins) and record["verifiedFiles"] == verified_files,
+        "revised verified-file inventory differs",
+    )
+
+    current: dict[str, bytes] = {}
+    for name, pin_value in pins.items():
+        pin = _shape(pin_value, PATH_HASH_FIELDS, f"revised {name} pin")
+        path = _path(pin["path"], f"revised {name}")
+        expected = _digest(pin["sha256"])
+        raw = _read(path, f"revised {name}")
+        info = path.stat(follow_symlinks=False)
+        _require(info.st_nlink == 1, f"aliased revised {name} refused")
+        _require(_hash(raw) == expected, f"current revised {name} pin differs")
+        current[name] = raw
+
+    receipt_pin = _shape(
+        record["receipt"], PATH_HASH_FIELDS, "revised preflight receipt"
+    )
+    receipt_path = _path(receipt_pin["path"], "revised preflight receipt")
+    receipt_sha256 = _digest(receipt_pin["sha256"])
+    receipt_raw = _read(receipt_path, "revised preflight receipt")
+    _require(
+        receipt_path.stat(follow_symlinks=False).st_nlink == 1
+        and _hash(receipt_raw) == receipt_sha256,
+        "current revised preflight receipt differs",
+    )
+
+    for name, context_field in (
+        ("originalInputs.document", "originalDocumentSha256"),
+        ("originalInputs.dependencies", "originalDependenciesSha256"),
+        ("executionInputs.document", "executionDocumentSha256"),
+        ("executionInputs.dependencies", "executionDependenciesSha256"),
+        ("manifest", "manifestSha256"),
+        ("report", "reportSha256"),
+    ):
+        pin = (
+            pin_groups[name.split(".")[0]][name.split(".")[1]]
+            if "." in name
+            else record[name]
+        )
+        _require(
+            pin["sha256"] == context[context_field],
+            f"revised {name} context pin differs",
+        )
+    for binding_field, pin_name in (
+        ("acceptedDecisionReceiptSha256", "acceptedDecisionReceipt"),
+        ("revisionLedgerSha256", "revisionLedger"),
+        ("proposalEvidenceSha256", "evidence"),
+    ):
+        _require(
+            binding[binding_field] == record[pin_name]["sha256"],
+            f"revised {binding_field} pin differs",
+        )
+
+    decision = _parse(current["decision"])
+    result = _parse(current["result"])
+    _require(
+        type(decision) is dict
+        and decision.get("outcome") == "accept"
+        and type(result) is dict
+        and result.get("outcome") == "accept",
+        "accepted revised decision and result required",
+    )
+    ledger = _shape(
+        _parse(current["revisionLedger"]),
+        REVISED_PREFLIGHT_LEDGER_FIELDS,
+        "revised revision ledger",
+    )
+    _require(
+        ledger["schemaVersion"] == "qualification-output-revision-ledger/v1"
+        and ledger["lane"] == LANE
+        and ledger["outcome"] == "accept"
+        and ledger["proofSessionSha256"] == record["proofSession"]["sha256"]
+        and ledger["evidenceSha256"] == record["evidence"]["sha256"]
+        and ledger["candidateSha256"] == record["proposal"]["sha256"]
+        and ledger["decisionSha256"] == record["decision"]["sha256"]
+        and ledger["resultSha256"] == record["result"]["sha256"],
+        "accepted revised ledger lineage differs",
+    )
+    _digest(preflight_sha256)
+
+
 def native_request_paths(
     context: dict[str, Any], sequence: int
 ) -> tuple[Path, Path, Path, Path]:
@@ -969,7 +1232,14 @@ def verify_native_request(
         type(raw) is bytes and len(raw) <= MAX_BYTES, "bounded request bytes required"
     )
     _require(_hash(raw) == _digest(expected_request_sha256), "request digest differs")
-    request = _shape(_parse(raw), REQUEST_FIELDS, "native request")
+    parsed_request = _parse(raw)
+    _require(
+        type(parsed_request) is dict
+        and frozenset(parsed_request)
+        in {frozenset(REQUEST_FIELDS), frozenset(REVISED_PREFLIGHT_REQUEST_FIELDS)},
+        "closed native request shape",
+    )
+    request = parsed_request
     _require(
         request["schemaVersion"] == REQUEST_SCHEMA and request["lane"] == LANE,
         "unsupported native request version/lane",
@@ -984,8 +1254,20 @@ def verify_native_request(
     )
     _digest(request["priorResultSha256"])
     context = _context(request["context"])
+    revised_route = _revised_preflight_route(context)
     _require(
-        request["sequence"] < len(APPROVAL_ACTION_PLAN) + len(RETRY_ACTION_PLAN) - 1
+        set(request)
+        == (REVISED_PREFLIGHT_REQUEST_FIELDS if revised_route else REQUEST_FIELDS),
+        "native request fields differ for context",
+    )
+    _require(
+        request["sequence"]
+        < len(action_plan_for_context(request["context"]))
+        + (
+            len(RETRY_ACTION_PLAN) - 1
+            if request["context"].get("phase") != "edited"
+            else 0
+        )
         and request["action"] == native_action(context, request["sequence"]),
         "native action order differs",
     )
@@ -1065,6 +1347,14 @@ def verify_native_request(
             render_intent is not None,
             "render stage requires the reviewed render intent",
         )
+    if revised_route:
+        _shape(
+            request["revisedPreflight"],
+            PATH_HASH_FIELDS,
+            "revised preflight reference",
+        )
+        _path(request["revisedPreflight"]["path"], "revised preflight")
+        _digest(request["revisedPreflight"]["sha256"])
     result_path = _path(request["resultPath"], "native result")
     _require(result_path.parent.exists(), "native result directory must exist")
     _shape(
@@ -1081,12 +1371,15 @@ def verify_native_request(
                 _hash(_read(_path(inputs[field], field), field)) == digest,
                 f"current {field} pin differs",
             )
+        if revised_route:
+            _verify_revised_preflight_currentness(request)
     return request
 
 
 def _payload_fields(action: str) -> frozenset[str]:
     fields = {
         "construct": frozenset(),
+        "observe_edited": frozenset(),
         "capture_pre": frozenset({"inputBindingPath", "inputBindingSha256"}),
         "retry_capture": frozenset({"inputBindingPath", "inputBindingSha256"}),
         "save_reopen": frozenset(),
@@ -1515,6 +1808,7 @@ def _verify_authority(
             require_output_absent=request["action"]
             in {
                 "construct",
+                "observe_edited",
                 "save_reopen",
                 "capture_pre",
                 "retry_capture",
@@ -2548,6 +2842,13 @@ def _private_effect(
         method in ALLOWED_EFFECT_METHODS,
         "native effect is outside the closed method set",
     )
+    if method == "Timeline.SetClipsLinked":
+        request = state["request"]
+        _require(
+            request.get("action") == "construct"
+            and request.get("profile") in CONSTRUCTOR_LINK_PROFILES,
+            "qualification AV linking is limited to MATRIX/PRESENTER construction",
+        )
     index = len(state["effects"])
     directory = Path(state["request"]["resultPath"]).parent / "effects"
     directory.mkdir(mode=0o700, exist_ok=True)
@@ -2966,11 +3267,261 @@ def _marker_stamp(marker: dict[str, Any]) -> str:
     )
 
 
+def _validate_observed_event_geometry(
+    events: dict[str, dict[str, Any]],
+    items: list[dict[str, Any]],
+    sources: dict[str, dict[str, Any]],
+    raw_links: dict[str, list[str]],
+    *,
+    timeline_end: int,
+    expected_end: int,
+) -> None:
+    """Admit unchanged items or one bounded still, AV-ripple, or narration edit."""
+    by_event: dict[str, list[dict[str, Any]]] = {}
+    for item in items:
+        by_event.setdefault(item["eventId"], []).append(item)
+    _require(set(by_event) == set(events), "native event inventory is incomplete")
+
+    def parent_ranges(event: dict[str, Any]) -> tuple[int, int, int, int]:
+        record = event["recordRange"]
+        record_start = _integer(record["startFrame"])
+        record_duration = _integer(record["durationFrames"], 1)
+        source_range = event.get("sourceRange")
+        if source_range is None:
+            source_start, source_duration = 0, record_duration
+        else:
+            source_range = _shape(
+                source_range,
+                frozenset({"startFrame", "durationFrames"}),
+                "observed parent source range",
+            )
+            source_start = _integer(source_range["startFrame"])
+            source_duration = _integer(source_range["durationFrames"], 1)
+        return record_start, record_duration, source_start, source_duration
+
+    moved_pictures: list[dict[str, Any]] = []
+    trimmed: list[dict[str, Any]] = []
+    ripple_shifted: set[str] = set()
+    split_events: list[tuple[dict[str, Any], list[dict[str, Any]]]] = []
+    changed: set[str] = set()
+    for event_id, group in by_event.items():
+        event = events[event_id]
+        record_start, record_duration, source_start, source_duration = parent_ranges(
+            event
+        )
+        if len(group) == 2:
+            _require(
+                event["kind"] == "narration",
+                "only an admitted narration event may split",
+            )
+            segments = sorted(group, key=lambda row: row["recordStart"])
+            first, second = segments
+            first_source_end = first["sourceStart"] + first["sourceDuration"]
+            second_source_end = second["sourceStart"] + second["sourceDuration"]
+            omitted = second["sourceStart"] - first_source_end
+            record_gap = second["recordStart"] - (
+                first["recordStart"] + first["recordDuration"]
+            )
+            _require(
+                first["recordStart"] == record_start
+                and first["sourceStart"] == source_start
+                and first["recordDuration"] == first["sourceDuration"]
+                and second["recordStart"] > first["recordStart"]
+                and second["recordDuration"] == second["sourceDuration"]
+                and omitted > 0
+                and record_gap == omitted
+                and second_source_end == source_start + source_duration
+                and first_source_end < second["sourceStart"]
+                and second["recordStart"] + second["recordDuration"]
+                == record_start + record_duration
+                and first["sourceStart"] - first["recordStart"]
+                == source_start - record_start
+                and second["sourceStart"] - second["recordStart"]
+                == source_start - record_start,
+                "narration split does not map two unique segments around one omission",
+            )
+            split_events.append((event, segments))
+            changed.add(event_id)
+            continue
+        _require(len(group) == 1, "native event has an unsupported item multiplicity")
+        item = group[0]
+        record_exact = (
+            item["recordStart"] == record_start
+            and item["recordDuration"] == record_duration
+        )
+        source_exact = (
+            item["sourceStart"] == source_start
+            and item["sourceDuration"] == source_duration
+        )
+        if record_exact and source_exact:
+            continue
+
+        source = sources[event["sourceId"]]
+        is_static_picture = event["kind"] in {
+            "primary_visual",
+            "overlay_visual",
+            "placeholder",
+        } and source["kind"] in {"still", "placeholder"}
+        if (
+            is_static_picture
+            and item["sourceStart"] == source_start
+            and item["sourceDuration"] == item["recordDuration"]
+        ):
+            moved_pictures.append(item)
+            changed.add(event_id)
+            continue
+        if (
+            event["kind"] in {"primary_visual", "overlay_visual", "source_audio"}
+            and record_duration == source_duration
+            and item["recordStart"] == record_start
+            and item["recordDuration"] < record_duration
+            and item["sourceStart"] == source_start
+            and item["sourceDuration"] == item["recordDuration"]
+        ):
+            trimmed.append(item)
+            changed.add(event_id)
+            continue
+        if (
+            event["kind"] in {"primary_visual", "overlay_visual", "source_audio"}
+            and item["recordDuration"] == record_duration
+            and item["sourceStart"] == source_start
+            and item["sourceDuration"] == source_duration
+            and item["recordStart"] < record_start
+        ):
+            ripple_shifted.add(event_id)
+            continue
+        _require(False, "native edited item differs outside the observed edit rules")
+
+    _require(
+        len(moved_pictures) in {0, 2}
+        and len(trimmed) in {0, 2}
+        and len(split_events) <= 1,
+        "observed edit multiplicity is outside the reviewed A/B/split cases",
+    )
+    _require(
+        not (moved_pictures and trimmed)
+        and not (split_events and (moved_pictures or trimmed)),
+        "observed edit cases cannot be combined in one native capture",
+    )
+    _require(
+        not ripple_shifted or bool(trimmed),
+        "downstream shift is only admitted with a linked AV end trim",
+    )
+    if moved_pictures:
+        moved_pictures.sort(key=lambda row: parent_ranges(events[row["eventId"]])[0])
+        left, right = moved_pictures
+        left_event, right_event = events[left["eventId"]], events[right["eventId"]]
+        left_parent = parent_ranges(left_event)
+        right_parent = parent_ranges(right_event)
+        left_source = sources[left_event["sourceId"]]
+        right_source = sources[right_event["sourceId"]]
+        original_boundary = left_parent[0] + left_parent[1]
+        observed_boundary = left["recordStart"] + left["recordDuration"]
+        hold_frames = observed_boundary - original_boundary
+        _require(
+            left_source["kind"] in {"still", "placeholder"}
+            and right_source["kind"] in {"still", "placeholder"}
+            and left_event["kind"]
+            in {"primary_visual", "overlay_visual", "placeholder"}
+            and right_event["kind"]
+            in {"primary_visual", "overlay_visual", "placeholder"}
+            and left_parent[0] + left_parent[1] == right_parent[0]
+            and left["recordStart"] == left_parent[0]
+            and right["recordStart"] == observed_boundary
+            and hold_frames > 0
+            and left["recordDuration"] == left_parent[1] + hold_frames
+            and right["recordDuration"] == right_parent[1] - hold_frames
+            and right["recordDuration"] > 0
+            and right["recordStart"] + right["recordDuration"]
+            == right_parent[0] + right_parent[1]
+            and left["sourceStart"] == left_parent[2]
+            and right["sourceStart"] == right_parent[2]
+            and left["sourceDuration"] == left["recordDuration"]
+            and right["sourceDuration"] == right["recordDuration"],
+            "held-picture boundary edit is not an adjacent hold transfer",
+        )
+        _require(
+            timeline_end == expected_end,
+            "held-picture boundary edit changed the original programme end",
+        )
+    if trimmed:
+        trimmed.sort(key=lambda row: row["itemUid"])
+        left, right = trimmed
+        left_event, right_event = events[left["eventId"]], events[right["eventId"]]
+        left_parent = parent_ranges(left_event)
+        right_parent = parent_ranges(right_event)
+        trim_frames = left_parent[1] - left["recordDuration"]
+        _require(
+            {left_event["kind"], right_event["kind"]}
+            in (
+                {"source_audio", "primary_visual"},
+                {"source_audio", "overlay_visual"},
+            )
+            and {left["kind"], right["kind"]} == {"audio", "video"}
+            and left_parent[:2] == right_parent[:2]
+            and left["recordStart"] == right["recordStart"]
+            and left["recordDuration"] == right["recordDuration"]
+            and trim_frames > 0
+            and right_parent[1] - right["recordDuration"] == trim_frames
+            and right["sourceDuration"] == right["recordDuration"]
+            and left["sourceDuration"] == left["recordDuration"]
+            and right["itemUid"] in raw_links[left["itemUid"]]
+            and left["itemUid"] in raw_links[right["itemUid"]],
+            "AV trim is not one linked pair with matching source and record cuts",
+        )
+        original_end = left_parent[0] + left_parent[1]
+        downstream = 0
+        for event_id, group in by_event.items():
+            if event_id in changed:
+                continue
+            event = events[event_id]
+            start, duration, source_start, source_duration = parent_ranges(event)
+            item = group[0]
+            shift = trim_frames if start >= original_end else 0
+            _require(
+                item["recordStart"] == start - shift
+                and item["recordDuration"] == duration
+                and item["sourceStart"] == source_start
+                and item["sourceDuration"] == source_duration,
+                "linked AV end trim has an unpaired or nonuniform downstream shift",
+            )
+            downstream += shift > 0
+        _require(downstream > 0, "linked AV end trim lacks its downstream ripple shift")
+        _require(
+            timeline_end == expected_end - trim_frames,
+            "linked AV trim end differs from the admitted ripple extent",
+        )
+    if split_events:
+        _require(
+            timeline_end == expected_end,
+            "narration split changed the original programme end",
+        )
+    if not (moved_pictures or trimmed or split_events):
+        _require(
+            timeline_end == expected_end,
+            "unchanged edited target differs from the admitted programme end",
+        )
+
+
+def _source_time_error_samples(
+    value: Any, frame: int, rate_seconds: Fraction
+) -> Fraction | None:
+    if type(value) is int:
+        seconds = Fraction(value)
+    elif type(value) is float and math.isfinite(value):
+        seconds = Fraction(str(value))
+    else:
+        return None
+    return (seconds - frame * rate_seconds) * 48_000
+
+
 def _capture_geometry(
     resolve: Any,
     request: dict[str, Any],
     admitted: dict[str, Any],
     input_binding: dict[str, Any] | None,
+    *,
+    _observed_edit: bool = False,
 ) -> dict[str, Any]:
     _, project, timeline = _project_timeline(resolve, request)
     manifest, view = admitted["manifest"], admitted["view"]
@@ -3004,16 +3555,24 @@ def _capture_geometry(
     )
     timeline_start = timeline.GetStartFrame()
     timeline_end = timeline.GetEndFrame()
+    expected_end = timeline_start + expected_timeline["durationFrames"]
     _require(
         type(timeline_start) is int
         and timeline_start == expected_timeline["startFrame"],
         "native timeline start differs",
     )
-    _require(
-        type(timeline_end) is int
-        and timeline_end == timeline_start + expected_timeline["durationFrames"],
-        "native timeline extent differs",
-    )
+    if _observed_edit:
+        _require(
+            request["context"].get("phase") == "edited"
+            and type(timeline_end) is int
+            and timeline_start < timeline_end <= expected_end,
+            "observed edited timeline end is outside the admitted programme",
+        )
+    else:
+        _require(
+            type(timeline_end) is int and timeline_end == expected_end,
+            "native timeline extent differs",
+        )
 
     track_by_slot = {(row["kind"], row["index"]): row for row in view["tracks"]}
     tracks: list[dict[str, Any]] = []
@@ -3121,11 +3680,13 @@ def _capture_geometry(
                 )
                 event_id = _identity(stamp["v2EventId"])
                 event = expected_events.get(event_id)
-                _require(
-                    event is not None and event_id not in event_ids,
-                    "missing/duplicate/unadmitted native event stamp",
-                )
+                _require(event is not None, "missing/unadmitted native event stamp")
                 assert event is not None
+                if not _observed_edit:
+                    _require(
+                        event_id not in event_ids,
+                        "missing/duplicate/unadmitted native event stamp",
+                    )
                 event_ids.add(event_id)
                 _require(
                     custom == _event_stamp(event), "native event stamp digest differs"
@@ -3157,6 +3718,10 @@ def _capture_geometry(
                 )
                 assert source is not None
                 source_id = source["id"]
+                _require(
+                    source_id == event["sourceId"],
+                    "native event is bound to a different admitted source",
+                )
                 _require(
                     _hash_file(Path(media_path))[0]
                     == _source_hash(source["contentHash"]),
@@ -3256,11 +3821,12 @@ def _capture_geometry(
                 )
                 _require(item.GetClipEnabled() is True, "disabled native item")
                 record = event["recordRange"]
-                _require(
-                    record_start == record["startFrame"]
-                    and duration == record["durationFrames"],
-                    "native record range differs",
-                )
+                if not _observed_edit:
+                    _require(
+                        record_start == record["startFrame"]
+                        and duration == record["durationFrames"],
+                        "native record range differs",
+                    )
                 source_range = event.get("sourceRange")
                 if source_range is None:
                     expected_source_start = 0
@@ -3317,6 +3883,12 @@ def _capture_geometry(
                 if (
                     source_start != expected_source_start
                     or source_duration != expected_source_duration
+                    or (
+                        _observed_edit
+                        and request.get("profile")
+                        in {MATRIX_PROFILE, PRESENTER_PROFILE}
+                        and kind == "audio"
+                    )
                 ):
                     for method_name in ("GetSourceStartTime", "GetSourceEndTime"):
                         method = getattr(item, method_name, None)
@@ -3330,7 +3902,7 @@ def _capture_geometry(
                     and source_start == source_end
                     and source_start >= 0
                     and expected_source_start == 0
-                    and expected_source_duration == duration
+                    and (expected_source_duration == duration or _observed_edit)
                     and props.get("Frames") == "1"
                     and all(
                         type(range_times.get(method)) in {int, float}
@@ -3346,38 +3918,107 @@ def _capture_geometry(
                     source_start = 0
                     source_duration = duration
                 if (
+                    _observed_edit
+                    and static_picture
+                    and source_start == source_end == expected_source_start
+                    and source_start >= 0
+                    and props.get("Frames") == "1"
+                    and expected_source_duration == record["durationFrames"]
+                ):
+                    source_duration = duration
+                if (
                     request.get("profile") in {MATRIX_PROFILE, PRESENTER_PROFILE}
                     and kind == "audio"
-                    and source_start == expected_source_start
-                    and source_end == expected_source_end
+                    and (
+                        _observed_edit
+                        or (
+                            source_start == expected_source_start
+                            and source_end == expected_source_end
+                        )
+                    )
                 ):
                     sample_tolerance = Fraction(1, 48000)
                     rate_seconds = Fraction(1001, 24000)
-                    edges = (
-                        ("GetSourceStartTime", expected_source_start),
-                        ("GetSourceEndTime", expected_source_end),
+                    start_frame = (
+                        source_start if _observed_edit else expected_source_start
                     )
-                    if all(
-                        type(range_times.get(method)) in {int, float}
-                        and math.isfinite(range_times[method])
-                        and abs(
-                            Fraction(str(range_times[method])) - frame * rate_seconds
+                    end_frame = source_end if _observed_edit else expected_source_end
+                    edges = (
+                        ("GetSourceStartTime", start_frame),
+                        ("GetSourceEndTime", end_frame),
+                    )
+                    if _observed_edit:
+                        start_time = range_times.get("GetSourceStartTime")
+                        end_time = range_times.get("GetSourceEndTime")
+                        start_error = _source_time_error_samples(
+                            start_time, start_frame, rate_seconds
                         )
-                        <= sample_tolerance
-                        for method, frame in edges
-                    ):
+                        exclusive_end_error = _source_time_error_samples(
+                            end_time, source_end, rate_seconds
+                        )
+                        inclusive_end_error = _source_time_error_samples(
+                            end_time, source_end + 1, rate_seconds
+                        )
+                        sample_errors = {
+                            "start": start_error,
+                            "exclusiveEnd": exclusive_end_error,
+                            "inclusiveEnd": inclusive_end_error,
+                        }
+                        matching_end_frames = [
+                            frame
+                            for frame, error in (
+                                (source_end, exclusive_end_error),
+                                (source_end + 1, inclusive_end_error),
+                            )
+                            if error is not None and abs(error) <= 1
+                        ]
+                        exact_frame_edges = (
+                            start_error is not None
+                            and abs(start_error) <= 1
+                            and len(matching_end_frames) == 1
+                        )
+                        _require(
+                            exact_frame_edges,
+                            "edited audio source range lacks sample-accurate edges "
+                            f"(track={kind}:{index}, itemUid={uid}, "
+                            f"sourceId={source_id}, "
+                            f"sourceFrames=({source_start},{source_end}), "
+                            f"GetSourceStartTime={start_time!r}, "
+                            f"GetSourceEndTime={end_time!r}, "
+                            "expectedSourceTimes="
+                            f"(start={start_frame * rate_seconds!r}, "
+                            f"endExclusive={source_end * rate_seconds!r}, "
+                            f"endInclusive={(source_end + 1) * rate_seconds!r}), "
+                            f"sampleErrors={sample_errors!r}, "
+                            "toleranceSamples=1)",
+                        )
+                        assert len(matching_end_frames) == 1
+                        source_duration = matching_end_frames[0] - start_frame
+                    else:
+                        exact_frame_edges = all(
+                            type(range_times.get(method)) in {int, float}
+                            and math.isfinite(range_times[method])
+                            and abs(
+                                Fraction(str(range_times[method]))
+                                - frame * rate_seconds
+                            )
+                            <= sample_tolerance
+                            for method, frame in edges
+                        )
+                    if exact_frame_edges and not _observed_edit:
                         source_duration = source_end - source_start
-                _require(
-                    source_start == expected_source_start
-                    and source_duration == expected_source_duration,
-                    "native source range differs "
-                    f"(track={kind}:{index}, itemUid={uid}, eventId={event_id}, "
-                    f"start={source_start}, end={source_end}, "
-                    f"expectedStart={expected_source_start}, "
-                    f"expectedDuration={expected_source_duration}, "
-                    f"mediaFrames={props.get('Frames')!r}, "
-                    f"sourceTimes={range_times!r})",
-                )
+                if not _observed_edit:
+                    _require(
+                        source_start == expected_source_start
+                        and source_duration == expected_source_duration,
+                        "native source range differs "
+                        f"(track={kind}:{index}, itemUid={uid}, eventId={event_id}, "
+                        f"start={source_start}, end={source_end}, "
+                        f"expectedStart={expected_source_start}, "
+                        f"expectedDuration={expected_source_duration}, "
+                        f"mediaFrames={props.get('Frames')!r}, "
+                        f"sourceTimes={range_times!r})",
+                    )
                 if event.get("kind") == "source_audio":
                     gain = event.get("gainDb")
                     properties = item.GetProperties()
@@ -3444,6 +4085,23 @@ def _capture_geometry(
         _require(
             all(uid in raw_links[peer] for peer in values),
             "native links are not reciprocal",
+        )
+    if _observed_edit:
+        _require(bool(items), "observed native event inventory is empty")
+        observed_end = max(
+            item["recordStart"] + item["recordDuration"] for item in items
+        )
+        _require(
+            timeline_end == observed_end,
+            "observed timeline end differs from the captured item extent",
+        )
+        _validate_observed_event_geometry(
+            expected_events,
+            items,
+            sources,
+            raw_links,
+            timeline_end=timeline_end,
+            expected_end=expected_end,
         )
     expected_markers: dict[int, dict[str, Any]] = {}
     for marker in view["markers"]:
@@ -3530,6 +4188,8 @@ def _capture_geometry(
         items = [{**row, "sourceMappingSha256": None} for row in items]
     geometry = {
         "context": request["context"],
+        # Geometry keeps the admitted render interval; the captured item ranges
+        # bound the observed end, which may be shorter after an approved ripple edit.
         "extentFrames": expected_timeline["durationFrames"],
         "rate": rate,
         "tracks": tracks,
@@ -3537,6 +4197,22 @@ def _capture_geometry(
         "sourceMappings": source_mappings,
     }
     return geometry
+
+
+def _capture_observed_geometry(
+    resolve: Any,
+    request: dict[str, Any],
+    admitted: dict[str, Any],
+    input_binding: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Read an edited target through the bounded observation-only geometry rules."""
+    _require(
+        request["context"].get("phase") == "edited",
+        "observed edit capture requires an edited context",
+    )
+    return _capture_geometry(
+        resolve, request, admitted, input_binding, _observed_edit=True
+    )
 
 
 def _setting_matches(key: str, expected: str, actual: Any) -> bool:
@@ -3605,6 +4281,155 @@ def _normalize_target_start_timecode(
     _effect_observed(state, row, {"return": returned, "startFrame": readback})
 
 
+def _unbound_geometry_projection(geometry: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **geometry,
+        "sourceMappings": [],
+        "items": [{**item, "sourceMappingSha256": None} for item in geometry["items"]],
+    }
+
+
+def _constructor_av_link_pairs(
+    view: dict[str, Any], profile: str
+) -> list[tuple[str, str]]:
+    """Select only authored, same-occurrence AV pairs for qualification targets."""
+    if profile not in CONSTRUCTOR_LINK_PROFILES:
+        return []
+
+    sources = {source["id"]: source for source in view["sources"]}
+    groups: dict[tuple[Any, ...], dict[str, list[dict[str, Any]]]] = {}
+    for event in view["events"]:
+        kind = event["kind"]
+        if kind not in {"primary_visual", "overlay_visual", "source_audio"}:
+            continue
+        authored = event.get("v2Event")
+        provenance = authored.get("provenance") if type(authored) is dict else None
+        if type(provenance) is not dict:
+            continue
+        source_id = event.get("sourceId")
+        source = sources.get(source_id) if type(source_id) is str else None
+        authored_source_id = provenance.get("sourceId")
+        delivered_hash = provenance.get("deliveredSourceHash")
+        if (
+            type(source) is not dict
+            or type(source.get("contentHash")) is not str
+            or type(authored_source_id) is not str
+            or type(delivered_hash) is not str
+        ):
+            continue
+        _identity(source_id)
+        _source_hash(source["contentHash"])
+        authored_source_id = _identity(authored_source_id)
+        authored_source = sources.get(authored_source_id)
+        if (
+            type(authored_source) is not dict
+            or type(authored_source.get("contentHash")) is not str
+            or _source_hash(authored_source["contentHash"])
+            != _source_hash(delivered_hash)
+        ):
+            continue
+        authored_source_hash = _source_hash(delivered_hash)
+        identity_fields = ("documentId", "blockId", "payloadId")
+        if any(type(provenance.get(field)) is not str for field in identity_fields):
+            continue
+        authored_identity = tuple(
+            _identity(provenance[field]) for field in identity_fields
+        )
+        occurrence_fields = ("sequenceId", "slotId", "overlayEventId")
+        occurrence = tuple(provenance.get(field) for field in occurrence_fields)
+        if any(value is not None and type(value) is not str for value in occurrence):
+            continue
+        occurrence = tuple(
+            None if value is None else _identity(value) for value in occurrence
+        )
+        record = event.get("recordRange")
+        if (
+            type(record) is not dict
+            or type(record.get("startFrame")) is not int
+            or type(record.get("durationFrames")) is not int
+            or record["startFrame"] < 0
+            or record["durationFrames"] <= 0
+        ):
+            continue
+        key = (
+            *authored_identity,
+            authored_source_id,
+            authored_source_hash,
+            *occurrence,
+            record["startFrame"],
+            record["durationFrames"],
+        )
+        group = groups.setdefault(key, {"visual": [], "audio": []})
+        group["audio" if kind == "source_audio" else "visual"].append(event)
+
+    pairs: list[tuple[str, str]] = []
+    for group in groups.values():
+        if group["visual"] and group["audio"]:
+            _require(
+                len(group["visual"]) == len(group["audio"]) == 1,
+                "ambiguous qualification constructor AV link pair",
+            )
+            visual, audio = group["visual"][0], group["audio"][0]
+            pairs.append((_identity(visual["id"]), _identity(audio["id"])))
+    return pairs
+
+
+def _link_constructed_av_pairs(
+    timeline: Any,
+    pairs: list[tuple[str, str]],
+    items_by_event: dict[str, Any],
+    state: dict[str, Any],
+) -> None:
+    if not pairs:
+        return
+    _require_api(timeline, ("SetClipsLinked",), "qualification timeline")
+    used_events: set[str] = set()
+    for visual_id, audio_id in pairs:
+        _require(
+            visual_id != audio_id
+            and visual_id not in used_events
+            and audio_id not in used_events
+            and visual_id in items_by_event
+            and audio_id in items_by_event,
+            "qualification AV constructor pair is incomplete",
+        )
+        used_events.update((visual_id, audio_id))
+        visual, audio = items_by_event[visual_id], items_by_event[audio_id]
+        visual_uid, audio_uid = (
+            _identity(visual.GetUniqueId()),
+            _identity(audio.GetUniqueId()),
+        )
+        _require(visual_uid != audio_uid, "qualification AV items share a native UID")
+        row = _private_effect(
+            state,
+            "Timeline.SetClipsLinked",
+            {"itemUids": [visual_uid, audio_uid], "linked": True},
+        )
+        linked = timeline.SetClipsLinked([visual, audio], True)
+        _require(linked is True, "Resolve did not confirm qualification AV linking")
+        observed_links: dict[str, list[str]] = {}
+        for item, uid, peer_uid in (
+            (visual, visual_uid, audio_uid),
+            (audio, audio_uid, visual_uid),
+        ):
+            linked_items = item.GetLinkedItems()
+            _require(
+                type(linked_items) in {list, tuple},
+                "qualification AV link readback is unavailable",
+            )
+            linked_uids = sorted(_identity(peer.GetUniqueId()) for peer in linked_items)
+            _require(
+                linked_uids == [peer_uid],
+                "qualification AV link readback differs from the exact pair",
+            )
+            observed_links[uid] = linked_uids
+        _effect_observed(
+            state,
+            row,
+            {"return": linked, "linkedItemUids": observed_links},
+        )
+
+
 def _construct(
     resolve: Any,
     request: dict[str, Any],
@@ -3614,6 +4439,7 @@ def _construct(
     connected = _connected(resolve)
     _, project, timeline = _project_timeline(resolve, request)
     manifest, view = admitted["manifest"], admitted["view"]
+    av_link_pairs = _constructor_av_link_pairs(view, request.get("profile", ""))
     required_track_counts = _required_track_counts(view)
     start_frame = _check_empty_target(project, timeline, required_track_counts)
     _normalize_target_start_timecode(timeline, start_frame, state)
@@ -3649,6 +4475,7 @@ def _construct(
         source["id"]: media_by_path[path]
         for source, path in zip(sources, source_paths, strict=True)
     }
+    items_by_event: dict[str, Any] = {}
     media_uids: dict[str, str] = {}
     for source_id, media in media_by_source.items():
         uid = _identity(media.GetUniqueId())
@@ -3780,6 +4607,7 @@ def _construct(
             "Resolve did not append exactly one admitted event",
         )
         item = placed[0]
+        items_by_event[_identity(event["id"])] = item
         _require(append_row is not None, "native append intent is missing")
         _effect_observed(
             state,
@@ -3866,6 +4694,7 @@ def _construct(
                 ),
             },
         )
+    _link_constructed_av_pairs(timeline, av_link_pairs, items_by_event, state)
     geometry = _capture_geometry(resolve, request, admitted, None)
     return {"nativeGeometry": geometry, "nativeIdentity": connected}
 
@@ -3935,7 +4764,9 @@ def _save_reopen(
     admitted: dict[str, Any],
     state: dict[str, Any],
 ) -> dict[str, Any]:
-    previous, _, _ = _previous_result(request, "construct")
+    observed_edit = request["context"].get("phase") == "edited"
+    previous_action = "observe_edited" if observed_edit else "construct"
+    previous, _, _ = _previous_result(request, previous_action)
     manager, project, _ = _project_timeline(resolve, request)
     row = _private_effect(state, "ProjectManager.SaveProject", {})
     saved = manager.SaveProject()
@@ -3963,10 +4794,14 @@ def _save_reopen(
         row,
         {"projectUid": reopened.GetUniqueId(), "projectName": reopened.GetName()},
     )
-    geometry = _capture_geometry(resolve, request, admitted, None)
+    geometry = (
+        _capture_observed_geometry(resolve, request, admitted, None)
+        if observed_edit
+        else _capture_geometry(resolve, request, admitted, None)
+    )
     _require(
         geometry == previous["nativeGeometry"],
-        "saved/reopened native geometry differs from construction readback",
+        "saved/reopened native geometry differs from the prior readback",
     )
     return {"nativeGeometry": geometry, "nativeIdentity": _connected(resolve)}
 
@@ -4091,7 +4926,11 @@ def _capture(
     request: dict[str, Any], resolve: Any, admitted: dict[str, Any], *, phase: str
 ) -> dict[str, Any]:
     binding, _raw_binding, binding_sha, binding_path = _input_binding(request)
-    geometry = _capture_geometry(resolve, request, admitted, binding)
+    geometry = (
+        _capture_observed_geometry(resolve, request, admitted, binding)
+        if request["context"].get("phase") == "edited"
+        else _capture_geometry(resolve, request, admitted, binding)
+    )
     captured = _timestamp()
     envelope = {
         "schemaVersion": "qualification-output-geometry/v1",
@@ -4198,6 +5037,28 @@ def _capture(
     }
 
 
+def _verify_render_job_marks_if_reported(
+    job: dict[str, Any], settings: dict[str, Any]
+) -> None:
+    has_mark_in = "MarkIn" in job
+    has_mark_out = "MarkOut" in job
+    _require(
+        has_mark_in == has_mark_out,
+        "queued render job mark range is incomplete",
+    )
+    if not has_mark_in:
+        return
+    _require(
+        type(settings.get("startFrame")) is int
+        and type(settings.get("endFrame")) is int
+        and type(job.get("MarkIn")) is int
+        and type(job.get("MarkOut")) is int
+        and job["MarkIn"] == settings["startFrame"]
+        and job["MarkOut"] == settings["endFrame"],
+        "queued render job mark range differs from the edited render extent",
+    )
+
+
 def _queue_render(
     request: dict[str, Any],
     resolve: Any,
@@ -4206,8 +5067,11 @@ def _queue_render(
     reservation_sha: str | None,
 ) -> dict[str, Any]:
     retrying = request.get("sequence") == len(APPROVAL_ACTION_PLAN)
+    observed_edit = request["context"].get("phase") == "edited"
     if retrying:
         pre_capture, _, _ = _previous_result(request, "retry_capture")
+    elif observed_edit:
+        pre_capture, _, _ = _previous_result(request, "capture_pre")
     else:
         _previous_result(request, "capture_pre")
         pre_capture = None
@@ -4233,6 +5097,22 @@ def _queue_render(
             and geometry == pre_capture["nativeGeometry"]
             and geometry == original_capture["nativeGeometry"],
             "retry geometry or input binding changed before render queueing",
+        )
+    elif observed_edit:
+        assert type(pre_capture) is dict
+        binding_request = {
+            **request,
+            "payload": {
+                "inputBindingPath": pre_capture["inputBindingPath"],
+                "inputBindingSha256": pre_capture["inputBindingSha256"],
+            },
+        }
+        binding, _, binding_sha, _ = _input_binding(binding_request)
+        geometry = _capture_observed_geometry(resolve, request, admitted, binding)
+        _require(
+            binding_sha == pre_capture["inputBindingSha256"]
+            and geometry == pre_capture["nativeGeometry"],
+            "edited geometry or UID binding changed before render queueing",
         )
     settings = request["payload"]["settings"]
     _require(
@@ -4320,11 +5200,14 @@ def _queue_render(
         "FormatWidth": timeline_info["width"],
         "FormatHeight": timeline_info["height"],
         "FrameRate": _rate_float(timeline_info["frameRate"]),
-        "SelectAllFrames": True,
+        "SelectAllFrames": not observed_edit,
         "UseUniqueFilenames": False,
         "TargetDir": str(output_path.parent),
         "CustomName": output_path.stem,
     }
+    if observed_edit:
+        render_settings["MarkIn"] = settings["startFrame"]
+        render_settings["MarkOut"] = settings["endFrame"]
     row = _private_effect(state, "Project.SetRenderSettings", render_settings)
     applied = project.SetRenderSettings(render_settings)
     _require(applied is True, "Resolve refused the exact render settings")
@@ -4375,6 +5258,8 @@ def _queue_render(
         and job.get("VideoFormat") in {"QuickTime", "mov"},
         "queued render job codec/container differ",
     )
+    if observed_edit:
+        _verify_render_job_marks_if_reported(job, settings)
     _effect_observed(state, row, {"jobId": job_id, "job": job})
     return {
         "jobId": job_id,
@@ -4411,6 +5296,8 @@ def _start_render(
         if type(job) is dict and job.get("JobId") == previous["jobId"]
     ]
     _require(len(rows) == 1, "exact queued render job unavailable")
+    if request["context"].get("phase") == "edited":
+        _verify_render_job_marks_if_reported(rows[0], previous["settings"])
     get_status = getattr(project, "GetRenderJobStatus", None)
     if not callable(get_status):
         raise OutputConsistencyError("render job status unavailable before start")
@@ -4532,7 +5419,15 @@ def _capture_post(
     request: dict[str, Any], resolve: Any, admitted: dict[str, Any]
 ) -> dict[str, Any]:
     _previous_result(request, "poll_render")
-    return _capture(request, resolve, admitted, phase="post_render")
+    captured = _capture(request, resolve, admitted, phase="post_render")
+    if request["context"].get("phase") == "edited":
+        _, _, pre_capture = _native_result_at(request["context"], 2)
+        _require(
+            captured["nativeGeometry"] == pre_capture["nativeGeometry"]
+            and captured["inputBindingSha256"] == pre_capture["inputBindingSha256"],
+            "post-render observed geometry or UID binding changed",
+        )
+    return captured
 
 
 def _verify_retry_job_quiescent(project: Any, failure: dict[str, Any]) -> None:
@@ -4751,6 +5646,12 @@ def _verify_effect_ledger(result: dict[str, Any]) -> None:
             and row["outcome"] in {"observed", "unknown"},
             "native effect order/outcome differs",
         )
+        if row["method"] == "Timeline.SetClipsLinked":
+            _require(
+                result["action"] == "construct"
+                and result["profile"] in CONSTRUCTOR_LINK_PROFILES,
+                "qualification AV link effect is outside its fixed constructor scope",
+            )
         _digest(row["sha256"])
         _digest(row["argumentsSha256"])
         if row["outcome"] == "observed":
@@ -4870,7 +5771,8 @@ def verify_native_result(result_path: Path, expected_sha256: str) -> dict[str, A
         type(result["sequence"]) is int
         and 0
         <= result["sequence"]
-        < len(APPROVAL_ACTION_PLAN) + len(RETRY_ACTION_PLAN) - 1,
+        < len(action_plan_for_context(context))
+        + (0 if context["phase"] == "edited" else len(RETRY_ACTION_PLAN) - 1),
         "native result sequence out of range",
     )
     _require(
@@ -5209,13 +6111,17 @@ def _routing_result_at(context: dict[str, Any], sequence: int) -> dict[str, Any]
 def native_action(context: dict[str, Any], sequence: int) -> str:
     """Resolve the fixed action at a sequence, including the one retry branch."""
     _require(type(sequence) is int and sequence >= 0, "invalid native sequence")
-    if sequence < len(APPROVAL_ACTION_PLAN) - 1:
-        return APPROVAL_ACTION_PLAN[sequence]
+    plan = action_plan_for_context(context)
+    if context.get("phase") == "edited":
+        _require(sequence < len(plan), "native action plan is exhausted")
+        return plan[sequence]
+    if sequence < len(plan) - 1:
+        return plan[sequence]
     _require(
-        sequence < len(APPROVAL_ACTION_PLAN) + len(RETRY_ACTION_PLAN) - 1,
+        sequence < len(plan) + len(RETRY_ACTION_PLAN) - 1,
         "native action plan is exhausted",
     )
-    if sequence == len(APPROVAL_ACTION_PLAN) - 1:
+    if sequence == len(plan) - 1:
         poll = _routing_result_at(context, sequence - 1)
         _require(
             poll["action"] == "poll_render" and poll["sequence"] == sequence - 1,
@@ -5233,12 +6139,12 @@ def native_action(context: dict[str, Any], sequence: int) -> str:
             "only a terminal Failed/Cancelled poll enables retry",
         )
         return "retry_capture"
-    poll = _routing_result_at(context, len(APPROVAL_ACTION_PLAN) - 2)
+    poll = _routing_result_at(context, len(plan) - 2)
     _require(
         poll["action"] == "poll_render" and _terminal_failed_render(poll),
         "retry action requires a terminal failed original poll",
     )
-    retry_sequence = len(APPROVAL_ACTION_PLAN) - 1
+    retry_sequence = len(plan) - 1
     retry_capture = _routing_result_at(context, retry_sequence)
     _require(
         retry_capture["action"] == "retry_capture"
@@ -5246,7 +6152,7 @@ def native_action(context: dict[str, Any], sequence: int) -> str:
         and retry_capture["status"] == "complete",
         "retry action requires one complete retry capture",
     )
-    return RETRY_ACTION_PLAN[sequence - (len(APPROVAL_ACTION_PLAN) - 1)]
+    return RETRY_ACTION_PLAN[sequence - (len(plan) - 1)]
 
 
 def _native_operation_tail(
@@ -5256,6 +6162,10 @@ def _native_operation_tail(
     allow_retry: bool = False,
 ) -> tuple[int, str]:
     checked = _context(context)
+    plan = action_plan_for_context(checked)
+    max_operations = len(plan) + (
+        0 if checked.get("phase") == "edited" else len(RETRY_ACTION_PLAN) - 1
+    )
     first = native_request_paths(checked, 0)[0]
     root = first.parent.parent
     if not root.exists():
@@ -5263,7 +6173,7 @@ def _native_operation_tail(
         return 0, EMPTY_HEAD
     directories = sorted(root.iterdir())
     _require(
-        len(directories) <= len(APPROVAL_ACTION_PLAN) + len(RETRY_ACTION_PLAN) - 1,
+        len(directories) <= max_operations,
         "native operation history exceeds the reviewed plans",
     )
     if prepared_sequence is not None:
@@ -5288,7 +6198,7 @@ def _native_operation_tail(
                 "prepared native operation already has a result",
             )
             if (
-                sequence == len(APPROVAL_ACTION_PLAN) - 1
+                sequence == len(plan) - 1
                 and native_action(checked, sequence) == "retry_capture"
             ):
                 _require(
@@ -5306,7 +6216,7 @@ def _native_operation_tail(
         _require(result["sequence"] == sequence, "native operation sequence differs")
         if result["status"] != "complete":
             _require(
-                sequence == len(APPROVAL_ACTION_PLAN) - 2
+                sequence == len(plan) - 2
                 and _terminal_failed_render(result)
                 and (allow_retry or sequence + 1 < len(directories)),
                 "native operation history is partial/uncertain and cannot be replayed",
@@ -5320,11 +6230,11 @@ def _native_operation_tail(
         "prepared native operation is absent from the native history tail",
     )
     _require(
-        len(directories) < len(APPROVAL_ACTION_PLAN) + len(RETRY_ACTION_PLAN) - 1,
+        len(directories) < max_operations,
         "reviewed native action plan is exhausted",
     )
     next_sequence = len(directories)
-    if next_sequence == len(APPROVAL_ACTION_PLAN):
+    if next_sequence == len(plan) and checked["phase"] != "edited":
         _, _, last = _native_result_at(checked, next_sequence - 1)
         _require(
             last["action"] == "retry_capture" and last["status"] == "complete",
@@ -5340,7 +6250,8 @@ def next_native_operation(
     next_operation = _native_operation_tail(context, allow_retry=retry)
     if retry:
         _require(
-            next_operation[0] == len(APPROVAL_ACTION_PLAN) - 1
+            context.get("phase") != "edited"
+            and next_operation[0] == len(APPROVAL_ACTION_PLAN) - 1
             and native_action(context, next_operation[0]) == "retry_capture",
             "explicit retry entrypoint requires the authenticated failed poll",
         )
@@ -5380,7 +6291,14 @@ def _claim_prepared_native_operation(
     sequence = request["sequence"]
     _require(
         type(sequence) is int
-        and 0 <= sequence < len(APPROVAL_ACTION_PLAN) + len(RETRY_ACTION_PLAN) - 1,
+        and 0
+        <= sequence
+        < len(action_plan_for_context(request["context"]))
+        + (
+            0
+            if request["context"].get("phase") == "edited"
+            else len(RETRY_ACTION_PLAN) - 1
+        ),
         "prepared native sequence is out of range",
     )
     result_path, authority_path, intent_path, request_path = native_request_paths(
@@ -5484,13 +6402,23 @@ def _native_stage(
             "native runtime predecessor is incomplete",
         )
         _verify_native_identity_continuity(prior["nativeIdentity"], current_identity)
+    if action == "observe_edited":
+        geometry = _capture_observed_geometry(resolve, request, admitted, None)
+        return {"nativeGeometry": geometry, "nativeIdentity": current_identity}
     if action == "construct":
         return _construct(resolve, request, admitted, state)
     if action == "save_reopen":
         return _save_reopen(resolve, request, admitted, state)
     if action == "capture_pre":
-        _previous_result(request, "save_reopen")
-        return _capture(request, resolve, admitted, phase="pre_render")
+        previous, _, _ = _previous_result(request, "save_reopen")
+        captured = _capture(request, resolve, admitted, phase="pre_render")
+        if request["context"].get("phase") == "edited":
+            _require(
+                _unbound_geometry_projection(captured["nativeGeometry"])
+                == previous["nativeGeometry"],
+                "edited input binding differs from the saved/reopened readback",
+            )
+        return captured
     if action == "retry_capture":
         return _retry_capture(request, resolve, admitted)
     if action == "queue_render":
