@@ -55,6 +55,7 @@ MATRIX_PROFILE = "qualification-output-studio-matrix/v1"
 PUBLIC_PROFILES = frozenset({SYNTHETIC_PROFILE, MATRIX_PROFILE})
 R16_PROFILE = "qualification-output-r16-presenter-override/v1"
 PRESENTER_PROFILE = "qualification-output-current-presenter/v1"
+CONSTRUCTOR_LINK_PROFILES = frozenset({MATRIX_PROFILE, PRESENTER_PROFILE})
 PRESENTER_SLOT_ID = "8ef61d23-9625-5b03-a046-e3f1051bbd75"
 PRESENTER_WARNING_ID = "5e77b270-31bf-5ab0-8a99-4698599c131e"
 PRESENTER_WARNING_MESSAGE = "On Camera uses the effective temporary presenter still."
@@ -328,6 +329,7 @@ ALLOWED_EFFECT_METHODS = frozenset(
         "TimelineItem.AddMarker",
         "TimelineItem.SetProperties",
         "Timeline.AddMarker",
+        "Timeline.SetClipsLinked",
         "ProjectManager.SaveProject",
         "ProjectManager.CloseProject",
         "ProjectManager.LoadProject",
@@ -2840,6 +2842,13 @@ def _private_effect(
         method in ALLOWED_EFFECT_METHODS,
         "native effect is outside the closed method set",
     )
+    if method == "Timeline.SetClipsLinked":
+        request = state["request"]
+        _require(
+            request.get("action") == "construct"
+            and request.get("profile") in CONSTRUCTOR_LINK_PROFILES,
+            "qualification AV linking is limited to MATRIX/PRESENTER construction",
+        )
     index = len(state["effects"])
     directory = Path(state["request"]["resultPath"]).parent / "effects"
     directory.mkdir(mode=0o700, exist_ok=True)
@@ -4280,6 +4289,147 @@ def _unbound_geometry_projection(geometry: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _constructor_av_link_pairs(
+    view: dict[str, Any], profile: str
+) -> list[tuple[str, str]]:
+    """Select only authored, same-occurrence AV pairs for qualification targets."""
+    if profile not in CONSTRUCTOR_LINK_PROFILES:
+        return []
+
+    sources = {source["id"]: source for source in view["sources"]}
+    groups: dict[tuple[Any, ...], dict[str, list[dict[str, Any]]]] = {}
+    for event in view["events"]:
+        kind = event["kind"]
+        if kind not in {"primary_visual", "overlay_visual", "source_audio"}:
+            continue
+        authored = event.get("v2Event")
+        provenance = authored.get("provenance") if type(authored) is dict else None
+        if type(provenance) is not dict:
+            continue
+        source_id = event.get("sourceId")
+        source = sources.get(source_id) if type(source_id) is str else None
+        authored_source_id = provenance.get("sourceId")
+        delivered_hash = provenance.get("deliveredSourceHash")
+        if (
+            type(source) is not dict
+            or type(source.get("contentHash")) is not str
+            or type(authored_source_id) is not str
+            or type(delivered_hash) is not str
+        ):
+            continue
+        _identity(source_id)
+        _source_hash(source["contentHash"])
+        authored_source_id = _identity(authored_source_id)
+        authored_source = sources.get(authored_source_id)
+        if (
+            type(authored_source) is not dict
+            or type(authored_source.get("contentHash")) is not str
+            or _source_hash(authored_source["contentHash"])
+            != _source_hash(delivered_hash)
+        ):
+            continue
+        authored_source_hash = _source_hash(delivered_hash)
+        identity_fields = ("documentId", "blockId", "payloadId")
+        if any(type(provenance.get(field)) is not str for field in identity_fields):
+            continue
+        authored_identity = tuple(
+            _identity(provenance[field]) for field in identity_fields
+        )
+        occurrence_fields = ("sequenceId", "slotId", "overlayEventId")
+        occurrence = tuple(provenance.get(field) for field in occurrence_fields)
+        if any(value is not None and type(value) is not str for value in occurrence):
+            continue
+        occurrence = tuple(
+            None if value is None else _identity(value) for value in occurrence
+        )
+        record = event.get("recordRange")
+        if (
+            type(record) is not dict
+            or type(record.get("startFrame")) is not int
+            or type(record.get("durationFrames")) is not int
+            or record["startFrame"] < 0
+            or record["durationFrames"] <= 0
+        ):
+            continue
+        key = (
+            *authored_identity,
+            authored_source_id,
+            authored_source_hash,
+            *occurrence,
+            record["startFrame"],
+            record["durationFrames"],
+        )
+        group = groups.setdefault(key, {"visual": [], "audio": []})
+        group["audio" if kind == "source_audio" else "visual"].append(event)
+
+    pairs: list[tuple[str, str]] = []
+    for group in groups.values():
+        if group["visual"] and group["audio"]:
+            _require(
+                len(group["visual"]) == len(group["audio"]) == 1,
+                "ambiguous qualification constructor AV link pair",
+            )
+            visual, audio = group["visual"][0], group["audio"][0]
+            pairs.append((_identity(visual["id"]), _identity(audio["id"])))
+    return pairs
+
+
+def _link_constructed_av_pairs(
+    timeline: Any,
+    pairs: list[tuple[str, str]],
+    items_by_event: dict[str, Any],
+    state: dict[str, Any],
+) -> None:
+    if not pairs:
+        return
+    _require_api(timeline, ("SetClipsLinked",), "qualification timeline")
+    used_events: set[str] = set()
+    for visual_id, audio_id in pairs:
+        _require(
+            visual_id != audio_id
+            and visual_id not in used_events
+            and audio_id not in used_events
+            and visual_id in items_by_event
+            and audio_id in items_by_event,
+            "qualification AV constructor pair is incomplete",
+        )
+        used_events.update((visual_id, audio_id))
+        visual, audio = items_by_event[visual_id], items_by_event[audio_id]
+        visual_uid, audio_uid = (
+            _identity(visual.GetUniqueId()),
+            _identity(audio.GetUniqueId()),
+        )
+        _require(visual_uid != audio_uid, "qualification AV items share a native UID")
+        row = _private_effect(
+            state,
+            "Timeline.SetClipsLinked",
+            {"itemUids": [visual_uid, audio_uid], "linked": True},
+        )
+        linked = timeline.SetClipsLinked([visual, audio], True)
+        _require(linked is True, "Resolve did not confirm qualification AV linking")
+        observed_links: dict[str, list[str]] = {}
+        for item, uid, peer_uid in (
+            (visual, visual_uid, audio_uid),
+            (audio, audio_uid, visual_uid),
+        ):
+            linked_items = item.GetLinkedItems()
+            _require(
+                type(linked_items) in {list, tuple},
+                "qualification AV link readback is unavailable",
+            )
+            linked_uids = sorted(_identity(peer.GetUniqueId()) for peer in linked_items)
+            _require(
+                linked_uids == [peer_uid],
+                "qualification AV link readback differs from the exact pair",
+            )
+            observed_links[uid] = linked_uids
+        _effect_observed(
+            state,
+            row,
+            {"return": linked, "linkedItemUids": observed_links},
+        )
+
+
 def _construct(
     resolve: Any,
     request: dict[str, Any],
@@ -4289,6 +4439,7 @@ def _construct(
     connected = _connected(resolve)
     _, project, timeline = _project_timeline(resolve, request)
     manifest, view = admitted["manifest"], admitted["view"]
+    av_link_pairs = _constructor_av_link_pairs(view, request.get("profile", ""))
     required_track_counts = _required_track_counts(view)
     start_frame = _check_empty_target(project, timeline, required_track_counts)
     _normalize_target_start_timecode(timeline, start_frame, state)
@@ -4324,6 +4475,7 @@ def _construct(
         source["id"]: media_by_path[path]
         for source, path in zip(sources, source_paths, strict=True)
     }
+    items_by_event: dict[str, Any] = {}
     media_uids: dict[str, str] = {}
     for source_id, media in media_by_source.items():
         uid = _identity(media.GetUniqueId())
@@ -4455,6 +4607,7 @@ def _construct(
             "Resolve did not append exactly one admitted event",
         )
         item = placed[0]
+        items_by_event[_identity(event["id"])] = item
         _require(append_row is not None, "native append intent is missing")
         _effect_observed(
             state,
@@ -4541,6 +4694,7 @@ def _construct(
                 ),
             },
         )
+    _link_constructed_av_pairs(timeline, av_link_pairs, items_by_event, state)
     geometry = _capture_geometry(resolve, request, admitted, None)
     return {"nativeGeometry": geometry, "nativeIdentity": connected}
 
@@ -5492,6 +5646,12 @@ def _verify_effect_ledger(result: dict[str, Any]) -> None:
             and row["outcome"] in {"observed", "unknown"},
             "native effect order/outcome differs",
         )
+        if row["method"] == "Timeline.SetClipsLinked":
+            _require(
+                result["action"] == "construct"
+                and result["profile"] in CONSTRUCTOR_LINK_PROFILES,
+                "qualification AV link effect is outside its fixed constructor scope",
+            )
         _digest(row["sha256"])
         _digest(row["argumentsSha256"])
         if row["outcome"] == "observed":

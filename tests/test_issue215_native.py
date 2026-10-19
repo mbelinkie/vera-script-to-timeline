@@ -243,6 +243,232 @@ def _matrix_av_trim_case(
     return request, admitted, resolve, audio_first, audio_downstream
 
 
+def _constructor_av_view() -> dict[str, Any]:
+    sources: list[dict[str, Any]] = []
+    events = []
+    for block, start, duration in (("a", 0, 91), ("b", 91, 48)):
+        authored_source_id = f"video-source-{block}"
+        delivered_hash = f"sha256:{block * 64}"
+        source_ids = {"source_audio": f"audio-source-{block}"}
+        source_ids["primary_visual"] = f"video-source-{block}"
+        sources.extend(
+            [
+                {
+                    "id": source_ids["source_audio"],
+                    "contentHash": f"sha256:{('c' if block == 'a' else 'd') * 64}",
+                },
+                {
+                    "id": source_ids["primary_visual"],
+                    "contentHash": delivered_hash,
+                },
+            ]
+        )
+        for kind, suffix in (("source_audio", "audio"), ("primary_visual", "visual")):
+            event_id = f"{block}-{suffix}"
+            events.append(
+                {
+                    "id": event_id,
+                    "kind": kind,
+                    "sourceId": source_ids[kind],
+                    "recordRange": {
+                        "startFrame": start,
+                        "durationFrames": duration,
+                    },
+                    "v2Event": {
+                        "id": event_id,
+                        "provenance": {
+                            "documentId": "document-one",
+                            "blockId": f"block-{block}",
+                            "payloadId": f"payload-{block}",
+                            "sourceId": authored_source_id,
+                            "deliveredSourceHash": delivered_hash,
+                            "sequenceId": None,
+                            "slotId": None,
+                            "overlayEventId": None,
+                        },
+                    },
+                }
+            )
+    return {"sources": sources, "events": events}
+
+
+def test_constructor_pairs_only_same_authored_av_occurrences_and_admitted_sources(
+    tmp_path: Path,
+) -> None:
+    view = _constructor_av_view()
+
+    assert set(native._constructor_av_link_pairs(view, native.MATRIX_PROFILE)) == {
+        ("a-visual", "a-audio"),
+        ("b-visual", "b-audio"),
+    }
+    assert native._constructor_av_link_pairs(view, native.SYNTHETIC_PROFILE) == []
+    assert native._constructor_av_link_pairs(view, native.R16_PROFILE) == []
+    state, request = fixtures._effect_state(tmp_path)
+    request.update(action="construct", profile=native.SYNTHETIC_PROFILE)
+    with pytest.raises(OutputConsistencyError, match="limited to MATRIX/PRESENTER"):
+        native._private_effect(state, "Timeline.SetClipsLinked", {})
+    assert state["effects"] == []
+
+    unrelated = copy.deepcopy(view)
+    unrelated["events"][1]["v2Event"]["provenance"]["blockId"] = "other-block"
+    assert native._constructor_av_link_pairs(unrelated, native.MATRIX_PROFILE) == [
+        ("b-visual", "b-audio")
+    ]
+
+    missing_source = copy.deepcopy(view)
+    missing_source["sources"] = [
+        source
+        for source in missing_source["sources"]
+        if source["id"] != "audio-source-a"
+    ]
+    assert native._constructor_av_link_pairs(missing_source, native.MATRIX_PROFILE) == [
+        ("b-visual", "b-audio")
+    ]
+
+    changed_authored_source = copy.deepcopy(view)
+    changed_authored_source["events"][0]["v2Event"]["provenance"]["sourceId"] = (
+        "other-authored-source"
+    )
+    assert native._constructor_av_link_pairs(
+        changed_authored_source, native.MATRIX_PROFILE
+    ) == [("b-visual", "b-audio")]
+
+    changed_delivered_hash = copy.deepcopy(view)
+    changed_delivered_hash["events"][0]["v2Event"]["provenance"][
+        "deliveredSourceHash"
+    ] = "sha256:" + "e" * 64
+    assert native._constructor_av_link_pairs(
+        changed_delivered_hash, native.MATRIX_PROFILE
+    ) == [("b-visual", "b-audio")]
+
+    changed_geometry = copy.deepcopy(view)
+    changed_geometry["events"][0]["recordRange"]["durationFrames"] = 90
+    assert native._constructor_av_link_pairs(
+        changed_geometry, native.MATRIX_PROFILE
+    ) == [("b-visual", "b-audio")]
+
+
+def test_constructor_av_link_refuses_ambiguous_authored_pair_before_effects(
+    tmp_path: Path,
+) -> None:
+    view = _constructor_av_view()
+    duplicate = copy.deepcopy(view["events"][0])
+    duplicate["id"] = duplicate["v2Event"]["id"] = "a-audio-duplicate"
+    view["events"].append(duplicate)
+    state, _request = fixtures._effect_state(tmp_path)
+
+    with pytest.raises(OutputConsistencyError, match="ambiguous qualification"):
+        native._constructor_av_link_pairs(view, native.MATRIX_PROFILE)
+
+    assert state["effects"] == []
+
+
+def test_constructor_av_link_journals_each_exact_pair_and_reads_back_reciprocal_links(
+    tmp_path: Path,
+) -> None:
+    class Item:
+        def __init__(self, uid: str) -> None:
+            self.uid = uid
+            self.links: list[Item] = []
+
+        def GetUniqueId(self) -> str:
+            return self.uid
+
+        def GetLinkedItems(self) -> list[Item]:
+            return self.links
+
+    class Timeline:
+        def __init__(self) -> None:
+            self.calls: list[list[str]] = []
+
+        def SetClipsLinked(self, items: list[Item], linked: bool) -> bool:
+            assert linked is True
+            self.calls.append([item.uid for item in items])
+            items[0].links = [items[1]]
+            items[1].links = [items[0]]
+            return True
+
+    pairs = native._constructor_av_link_pairs(
+        _constructor_av_view(), native.MATRIX_PROFILE
+    )
+    items = {
+        event_id: Item(f"native-{event_id}") for pair in pairs for event_id in pair
+    }
+    timeline = Timeline()
+    state, _request = fixtures._effect_state(tmp_path)
+    state["request"].update(action="construct", profile=native.MATRIX_PROFILE)
+
+    native._link_constructed_av_pairs(timeline, pairs, items, state)
+
+    assert timeline.calls == [
+        [items[visual].uid, items[audio].uid] for visual, audio in pairs
+    ]
+    assert [row["method"] for row in state["effects"]] == [
+        "Timeline.SetClipsLinked",
+        "Timeline.SetClipsLinked",
+    ]
+    assert all(row["outcome"] == "observed" for row in state["effects"])
+
+
+@pytest.mark.parametrize(
+    ("returned", "partial"), [(False, False), (None, False), (True, True)]
+)
+def test_constructor_av_link_keeps_failed_or_partial_call_uncertain_without_retry(
+    tmp_path: Path, returned: Any, partial: bool
+) -> None:
+    class Item:
+        def __init__(self, uid: str) -> None:
+            self.uid = uid
+            self.links: list[Item] = []
+
+        def GetUniqueId(self) -> str:
+            return self.uid
+
+        def GetLinkedItems(self) -> list[Item]:
+            return self.links
+
+    class Timeline:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def SetClipsLinked(self, items: list[Item], linked: bool) -> Any:
+            self.calls += 1
+            assert linked is True
+            items[0].links = [items[1]]
+            if not partial and returned is True:
+                items[1].links = [items[0]]
+            return returned
+
+    pairs = [("visual", "audio")]
+    items = {
+        event_id: Item(f"native-{event_id}") for pair in pairs for event_id in pair
+    }
+    timeline = Timeline()
+    state, _request = fixtures._effect_state(tmp_path)
+    state["request"].update(action="construct", profile=native.MATRIX_PROFILE)
+
+    with pytest.raises(OutputConsistencyError):
+        native._link_constructed_av_pairs(timeline, pairs, items, state)
+
+    assert timeline.calls == 1
+    assert len(state["effects"]) == 1
+    assert state["effects"][0]["method"] == "Timeline.SetClipsLinked"
+    assert state["effects"][0]["outcome"] == "unknown"
+    assert native._failed_stage_status(state["effects"]) == "uncertain"
+    with pytest.raises(
+        OutputConsistencyError, match="outside its fixed constructor scope"
+    ):
+        native._verify_effect_ledger(
+            {
+                "effectLedger": state["effects"],
+                "profile": native.SYNTHETIC_PROFILE,
+                "action": "construct",
+            }
+        )
+    observed = Path(state["effects"][0]["path"]).with_name("0000-observed.json")
+    assert observed.exists() is (returned is True and not partial)
+
+
 def test_edited_phase_selects_static_observation_route_and_strict_phase_stays_strict(
     tmp_path: Path,
 ) -> None:
