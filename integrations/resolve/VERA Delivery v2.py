@@ -1084,6 +1084,10 @@ TI_OUTPUT_RUNTIME_FILES = (
     "qualification_output_records_v2.py",
 )
 TI_SAMPLE_PRECISION_RUNTIME_FILES = (*TI_RUNTIME_FILES, "sample_precision_probe_v2.py")
+TI_SAMPLE_IMPORT_RUNTIME_FILES = (
+    *TI_SAMPLE_PRECISION_RUNTIME_FILES,
+    "sample_import_probe_v2.py",
+)
 TI_OUTPUT_PROVENANCE_ATTR = "__vera_output_release_provenance_v1__"
 
 
@@ -1340,7 +1344,10 @@ def launch(injected_resolve: object) -> None:
     sample_precision = (
         request.get("schemaVersion") == "vera-sample-precision-probe-request/v1"
     )
-    if qualification or output_qualification or sample_precision:
+    sample_import = (
+        request.get("schemaVersion") == "vera-sample-import-probe-request/v1"
+    )
+    if qualification or output_qualification or sample_precision or sample_import:
         request = qualification_object(request_bytes)
     output_source_graph_sha256: str | None = None
     if output_qualification:
@@ -1447,6 +1454,13 @@ def launch(injected_resolve: object) -> None:
         } | {SCRIPT_PATH.name}
         if set(declared_hashes) != expected_precision_files:
             raise RuntimeError("installed precision release inventory is not closed")
+    if sample_import:
+        expected_import_files = {
+            f"vera-delivery-v2/python/vera_timeline_agent/{name}"
+            for name in TI_SAMPLE_IMPORT_RUNTIME_FILES
+        } | {SCRIPT_PATH.name}
+        if set(declared_hashes) != expected_import_files:
+            raise RuntimeError("installed import release inventory is not closed")
     if output_qualification:
         if ti_loaded_runtime():
             ti_loaded_output_runtime(
