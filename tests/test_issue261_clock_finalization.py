@@ -348,6 +348,29 @@ def test_wall_that_never_regains_high_water_quarantines(
     assert record["outcome"] == "terminal"
 
 
+def test_rollback_during_recheck_bookkeeping_stays_detectable(
+    tmp_path: Path, clock: ReplayClock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The re-anchor uses the validated readings, not a later unchecked one."""
+    harness = FinalizeHarness(tmp_path, clock)
+    harness.environment_hooks = [harness.fresh_proof_trust]
+    record = QualificationOutputController._retain_finalize_clock_record
+
+    def record_then_rollback(self: Any, **kwargs: Any) -> None:
+        record(self, **kwargs)
+        clock.step_wall(-2.0)
+
+    monkeypatch.setattr(
+        QualificationOutputController,
+        "_retain_finalize_clock_record",
+        record_then_rollback,
+    )
+    with pytest.raises(HostClockRegression):
+        harness.finalize()
+    assert harness.state() == "uncertain"
+    assert "compare" not in harness.calls
+
+
 def test_second_clock_refusal_during_recheck_quarantines(
     tmp_path: Path, clock: ReplayClock
 ) -> None:

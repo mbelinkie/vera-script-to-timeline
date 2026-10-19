@@ -2190,12 +2190,14 @@ class QualificationOutputController:
             datetime.fromisoformat(diagnostics["priorWall"]), self.trust.wall
         )
         permitted = error.recheckable
+        wall, monotonic = self.trust.wall, self.trust.monotonic
         if permitted:
             deadline = time.monotonic() + FINALIZE_CLOCK_STEP_ALLOWANCE_SECONDS
             while datetime.now(UTC) < high_water and time.monotonic() < deadline:
                 time.sleep(0.01)
-            monotonic = time.monotonic()
+            # Wall before monotonic, as in _ControllerTrust.__init__.
             wall = datetime.now(UTC)
+            monotonic = time.monotonic()
             controller_lag = (monotonic - self.trust.monotonic) - (
                 wall - self.trust.wall
             ).total_seconds()
@@ -2211,7 +2213,11 @@ class QualificationOutputController:
             outcome="recheck" if permitted else "terminal",
         )
         if permitted:
-            self.trust = _ControllerTrust(self.vault, self.admission)
+            # Anchor to the validated readings, so a rollback during the
+            # bookkeeping above is still caught by the next checked_now.
+            trust = _ControllerTrust(self.vault, self.admission)
+            trust.wall, trust.monotonic = wall, monotonic
+            self.trust = trust
         return permitted
 
     def finalize_output(self, result_path: Path, result_sha256: str) -> Path:
