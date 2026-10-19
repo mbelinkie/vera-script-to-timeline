@@ -263,7 +263,8 @@ class _NativeState:
         *,
         fail_lift: bool = False,
         active_timeout: bool = False,
-        append_end_inclusive: bool = True,
+        append_end_inclusive: bool = False,
+        wrong_project_on_load: bool = False,
     ) -> None:
         self.request = request
         self.project_uid = cast(str, request["target"]["projectUid"])
@@ -277,6 +278,7 @@ class _NativeState:
         self.fail_lift = fail_lift
         self.active_timeout = active_timeout
         self.append_end_inclusive = append_end_inclusive
+        self.wrong_project_on_load = wrong_project_on_load
         self.append_count = 0
         self.queue: list[dict[str, Any]] = []
         self.render_settings: dict[str, Any] = {}
@@ -470,13 +472,14 @@ class _Timeline:
 
 
 class _Project:
-    def __init__(self, state: _NativeState) -> None:
+    def __init__(self, state: _NativeState, *, project_uid: str | None = None) -> None:
         self.state = state
+        self.project_uid = project_uid or state.project_uid
         self.timeline = _Timeline(state)
         self.pool = _MediaPool(state)
 
     def GetUniqueId(self) -> str:
-        return self.state.project_uid
+        return self.project_uid
 
     def GetName(self) -> str:
         return self.state.project_name
@@ -574,9 +577,11 @@ class _Project:
 class _Manager:
     def __init__(self, state: _NativeState) -> None:
         self.state = state
-        self.current: _Project | None = _Project(state)
+        self.current: Any = _Project(state)
+        self.loaded_names: list[str] = []
+        self.saw_nonempty_current_at_load: list[bool] = []
 
-    def GetCurrentProject(self) -> _Project | None:
+    def GetCurrentProject(self) -> Any:
         return self.current
 
     def SaveProject(self) -> bool:
@@ -584,14 +589,24 @@ class _Manager:
 
     def CloseProject(self, project: _Project) -> bool:
         assert project is self.current
-        self.current = None
+        # Resolve may expose a placeholder/default project wrapper after close.
+        self.current = object()
         return True
 
     def LoadProject(self, name: str) -> _Project:
         assert name == self.state.project_name
+        self.loaded_names.append(name)
+        self.saw_nonempty_current_at_load.append(self.current is not None)
         self.state.epoch += 1
-        self.current = _Project(self.state)
-        return self.current
+        self.current = _Project(
+            self.state,
+            project_uid=(
+                "unexpected-project-uid"
+                if self.state.wrong_project_on_load
+                else self.state.project_uid
+            ),
+        )
+        return cast(_Project, self.current)
 
 
 class _Resolve:
@@ -633,8 +648,9 @@ def test_runner_journals_fractional_lift_and_retains_partial_failure(
         append_end_inclusive=append_end_inclusive,
     )
 
+    resolve = _Resolve(state)
     result_path = probe.run_sample_precision_probe(
-        _Resolve(state), request_path, expected_request_sha256=request_sha
+        resolve, request_path, expected_request_sha256=request_sha
     )
     result = json.loads(result_path.read_text())
     adjustment = -1 if append_end_inclusive else 0
@@ -649,6 +665,12 @@ def test_runner_journals_fractional_lift_and_retains_partial_failure(
         "appendEndFrameAdjustment": adjustment,
     }
     assert result["calibration"] == result["construction"]["calibration"]
+    assert resolve.manager.loaded_names == [request["target"]["projectName"]] * (
+        1 if fail_lift else 2
+    )
+    assert resolve.manager.saw_nonempty_current_at_load == [True] * (
+        1 if fail_lift else 2
+    )
     baseline_effect = next(
         row for row in result["effects"] if row["stage"] == "append_baseline"
     )
@@ -700,6 +722,36 @@ def test_runner_journals_fractional_lift_and_retains_partial_failure(
             result["render"]["postRenderObservation"]["items"]
             == result["observations"][-1]["items"]
         )
+
+
+def test_reopen_loads_authorized_name_then_rejects_changed_project_uid(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    request_path, request_sha, _ = _environment(tmp_path, monkeypatch)
+    request = probe.load_probe_request(request_path, request_sha)
+    release_sha = request["releaseSha256"]
+    monkeypatch.setattr(
+        probe,
+        "_verify_release",
+        lambda _root, expected=None, **_kw: expected or release_sha,
+    )
+    monkeypatch.setattr(probe, "PROBE_STATE_ROOT", tmp_path / "probe-state")
+    state = _NativeState(request, wrong_project_on_load=True)
+    resolve = _Resolve(state)
+
+    result_path = probe.run_sample_precision_probe(
+        resolve, request_path, expected_request_sha256=request_sha
+    )
+    result = json.loads(result_path.read_text())
+
+    assert result["status"] == "ambiguous"
+    assert result["failure"]["message"] == "reopened target identity differs"
+    assert resolve.manager.loaded_names == [request["target"]["projectName"]]
+    assert resolve.manager.saw_nonempty_current_at_load == [True]
+    assert not any(
+        effect["stage"] == "delete_own_baseline_nonripple"
+        for effect in result["effects"]
+    )
 
 
 def test_render_timeout_retains_exact_active_job_without_claiming_completion(

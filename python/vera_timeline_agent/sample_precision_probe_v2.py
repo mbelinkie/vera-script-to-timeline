@@ -738,13 +738,13 @@ def _journal_effect(
     current_required: bool = True,
     call_arguments: list[Any] | None = None,
 ) -> Any:
+    _require(
+        current_required or method == "LoadProject",
+        "only the authorized named-project reopen may run "
+        "without current-target context",
+    )
     if current_required:
         _context(state["resolve"], state["request"]["target"])
-    elif method == "LoadProject":
-        _require(
-            _invoke(owner, "GetCurrentProject") is None,
-            "Resolve current project changed before reopen",
-        )
     _check_live_window(state["request"])
     sequence = len(state["effects"]) + 1
     journal_path = (
@@ -774,11 +774,6 @@ def _journal_effect(
     try:
         if current_required:
             _context(state["resolve"], state["request"]["target"])
-        elif method == "LoadProject":
-            _require(
-                _invoke(owner, "GetCurrentProject") is None,
-                "Resolve current project changed before reopen",
-            )
         _check_live_window(state["request"])
         value = _invoke(
             owner, method, *(arguments if call_arguments is None else call_arguments)
@@ -1004,10 +999,6 @@ def _save_reopen(state: dict[str, Any], stage: str) -> tuple[Any, Any]:
         call_arguments=[project],
     )
     _require(closed is True, f"{stage}: Resolve did not confirm CloseProject")
-    _require(
-        _invoke(manager, "GetCurrentProject") is None,
-        f"{stage}: Resolve changed current project during close",
-    )
     loaded = _journal_effect(
         state,
         f"{stage}_reopen",
