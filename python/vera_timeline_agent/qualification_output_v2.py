@@ -690,8 +690,25 @@ def _provenance(
     return start, end
 
 
+def _shortened_edit(geometry: Json) -> bool:
+    """An edited capture may end early only where its items end (no tail)."""
+    items = _list(geometry["items"], 2048)
+    return (
+        geometry["context"].get("phase") == "edited"
+        and bool(items)
+        and max(item["recordStart"] + item["recordDuration"] for item in items)
+        == geometry["extentFrames"]
+    )
+
+
 def _package_view(
-    binding: Json, manifest: Json, dependencies: Json, raw: bytes, extent: int
+    binding: Json,
+    manifest: Json,
+    dependencies: Json,
+    raw: bytes,
+    extent: int,
+    *,
+    shortened_edit: bool = False,
 ) -> None:
     view = _shape(
         _parse(raw),
@@ -705,8 +722,11 @@ def _package_view(
         and _canonical(view["composition"]) == _canonical(manifest["composition"]),
         "verified package/manifest projection differs",
     )
+    duration = _integer(view["timeline"]["durationFrames"], 1, 1498)
+    # Shorter only for an edited capture whose native authentication derived
+    # the extent from one linked AV ripple trim; never longer than the package.
     _require(
-        _integer(view["timeline"]["durationFrames"], 1, 1498) == extent
+        (extent == duration or (shortened_edit and 0 < extent < duration))
         and view["timeline"]["frameRate"] == RATE
         and all(type(x) is int for x in view["timeline"]["frameRate"].values()),
         "package extent/rate differs",
@@ -980,6 +1000,7 @@ def _validated(
         dependencies,
         inputs.blobs["packageSha256"],
         geometry["extentFrames"],
+        shortened_edit=_shortened_edit(geometry),
     )
     _host_identity(inputs.blobs, manifest)
     # The trusted capture authenticator verifies full accepted manifest/package
@@ -1681,13 +1702,27 @@ def compare_prediction_pair(
         ),
         "pair authenticated input identity differs",
     )
-    count = len(pristine.output.prediction) // 16
+    # Each complete output already matched its own full-extent prediction.
+    # Unequal extents (a linked ripple trim) are compared at zero lag over
+    # their authenticated common prefix; both full lengths stay recorded, and
+    # duration alone never distinguishes the pair.
+    pristine_count = len(pristine.output.prediction) // 16
+    edited_count = len(edited.output.prediction) // 16
+    _require(
+        edited_count <= pristine_count
+        and len(pristine.output.decoded_samples) == pristine_count * 8
+        and len(edited.output.decoded_samples) == edited_count * 8,
+        "pair extents are not the committed complete outputs",
+    )
+    count = edited_count
     lp, rp = (
-        _channels(pristine.output.prediction, count, prediction=True),
+        _channels(pristine.output.prediction[: count * 16], count, prediction=True),
         _channels(edited.output.prediction, count, prediction=True),
     )
     lo, ro = (
-        _channels(pristine.output.decoded_samples, count, prediction=False),
+        _channels(
+            pristine.output.decoded_samples[: count * 8], count, prediction=False
+        ),
         _channels(edited.output.decoded_samples, count, prediction=False),
     )
     cross = {
@@ -1709,6 +1744,9 @@ def compare_prediction_pair(
         "editedComparisonRawSha256": _hash(edited.comparison),
         "pristineLedgerHeadSha256": _ledger_head(pristine.ledger),
         "editedLedgerHeadSha256": _ledger_head(edited.ledger),
+        "pristineSampleCount": pristine_count,
+        "editedSampleCount": edited_count,
+        "commonInterval": {"startSample": 0, "endSample": count},
         "crossMetrics": cross,
         "internalControls": "unverified",
         "geometryStability": "not_claimed",

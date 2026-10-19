@@ -3275,8 +3275,12 @@ def _validate_observed_event_geometry(
     *,
     timeline_end: int,
     expected_end: int,
-) -> None:
-    """Admit unchanged items or one bounded still, AV-ripple, or narration edit."""
+) -> int:
+    """Admit unchanged items or one bounded still, AV-ripple, or narration edit.
+
+    Returns the authenticated ripple trim in frames: positive only for one
+    linked AV end trim whose uniform downstream shift shortened the programme.
+    """
     by_event: dict[str, list[dict[str, Any]]] = {}
     for item in items:
         by_event.setdefault(item["eventId"], []).append(item)
@@ -3501,6 +3505,7 @@ def _validate_observed_event_geometry(
             timeline_end == expected_end,
             "unchanged edited target differs from the admitted programme end",
         )
+    return expected_end - timeline_end
 
 
 def _source_time_error_samples(
@@ -4095,7 +4100,7 @@ def _capture_geometry(
             timeline_end == observed_end,
             "observed timeline end differs from the captured item extent",
         )
-        _validate_observed_event_geometry(
+        ripple_trim = _validate_observed_event_geometry(
             expected_events,
             items,
             sources,
@@ -4103,6 +4108,13 @@ def _capture_geometry(
             timeline_end=timeline_end,
             expected_end=expected_end,
         )
+    else:
+        ripple_trim = 0
+    extent_frames = expected_timeline["durationFrames"] - ripple_trim
+    _require(
+        0 < extent_frames <= expected_timeline["durationFrames"],
+        "authenticated programme extent is outside the admitted interval",
+    )
     expected_markers: dict[int, dict[str, Any]] = {}
     for marker in view["markers"]:
         frame = _integer(marker["frame"])
@@ -4188,9 +4200,9 @@ def _capture_geometry(
         items = [{**row, "sourceMappingSha256": None} for row in items]
     geometry = {
         "context": request["context"],
-        # Geometry keeps the admitted render interval; the captured item ranges
-        # bound the observed end, which may be shorter after an approved ripple edit.
-        "extentFrames": expected_timeline["durationFrames"],
+        # The admitted interval, shortened only by an authenticated linked AV
+        # ripple trim; render marks, decode and prediction all bind this extent.
+        "extentFrames": extent_frames,
         "rate": rate,
         "tracks": tracks,
         "items": items,
@@ -5037,24 +5049,49 @@ def _capture(
     }
 
 
+def _edited_render_marks(
+    settings: dict[str, Any], geometry: dict[str, Any]
+) -> tuple[int, int, bool]:
+    """Bind edited marks to the authenticated geometry extent.
+
+    The approved settings remain the admitted interval and bound the marks; a
+    shorter extent exists only after an authenticated linked ripple trim.
+    """
+    start, end = settings.get("startFrame"), settings.get("endFrame")
+    extent = geometry.get("extentFrames")
+    _require(
+        type(start) is int
+        and type(end) is int
+        and type(extent) is int
+        and 0 < extent <= end - start + 1,
+        "edited render extent is outside the approved interval",
+    )
+    assert type(start) is int and type(end) is int and type(extent) is int
+    return start, start + extent - 1, extent < end - start + 1
+
+
 def _verify_render_job_marks_if_reported(
-    job: dict[str, Any], settings: dict[str, Any]
+    job: dict[str, Any], marks: tuple[int, int, bool]
 ) -> None:
+    mark_in, mark_out, shortened = marks
     has_mark_in = "MarkIn" in job
     has_mark_out = "MarkOut" in job
     _require(
         has_mark_in == has_mark_out,
         "queued render job mark range is incomplete",
     )
+    # A shortened programme's only output-length binding is the queued range.
+    _require(
+        has_mark_in or not shortened,
+        "shortened render job does not report its mark range",
+    )
     if not has_mark_in:
         return
     _require(
-        type(settings.get("startFrame")) is int
-        and type(settings.get("endFrame")) is int
-        and type(job.get("MarkIn")) is int
+        type(job.get("MarkIn")) is int
         and type(job.get("MarkOut")) is int
-        and job["MarkIn"] == settings["startFrame"]
-        and job["MarkOut"] == settings["endFrame"],
+        and job["MarkIn"] == mark_in
+        and job["MarkOut"] == mark_out,
         "queued render job mark range differs from the edited render extent",
     )
 
@@ -5121,6 +5158,11 @@ def _queue_render(
             _path(request["package"]["packageRoot"], "package root"), request["profile"]
         ),
         "render settings differ from admitted package",
+    )
+    marks = (
+        _edited_render_marks(settings, pre_capture["nativeGeometry"])
+        if observed_edit and type(pre_capture) is dict
+        else None
     )
     render_ref = request["renderIntent"]
     render_raw, render_sha, _ = _read_ref(render_ref, "host render intent")
@@ -5205,9 +5247,8 @@ def _queue_render(
         "TargetDir": str(output_path.parent),
         "CustomName": output_path.stem,
     }
-    if observed_edit:
-        render_settings["MarkIn"] = settings["startFrame"]
-        render_settings["MarkOut"] = settings["endFrame"]
+    if marks is not None:
+        render_settings["MarkIn"], render_settings["MarkOut"] = marks[:2]
     row = _private_effect(state, "Project.SetRenderSettings", render_settings)
     applied = project.SetRenderSettings(render_settings)
     _require(applied is True, "Resolve refused the exact render settings")
@@ -5258,8 +5299,8 @@ def _queue_render(
         and job.get("VideoFormat") in {"QuickTime", "mov"},
         "queued render job codec/container differ",
     )
-    if observed_edit:
-        _verify_render_job_marks_if_reported(job, settings)
+    if marks is not None:
+        _verify_render_job_marks_if_reported(job, marks)
     _effect_observed(state, row, {"jobId": job_id, "job": job})
     return {
         "jobId": job_id,
@@ -5297,7 +5338,11 @@ def _start_render(
     ]
     _require(len(rows) == 1, "exact queued render job unavailable")
     if request["context"].get("phase") == "edited":
-        _verify_render_job_marks_if_reported(rows[0], previous["settings"])
+        # Marks bind the extent this edited attempt authenticated at capture_pre.
+        _, _, capture = _native_result_at(request["context"], 2)
+        _require(capture["action"] == "capture_pre", "edited pre-capture required")
+        marks = _edited_render_marks(previous["settings"], capture["nativeGeometry"])
+        _verify_render_job_marks_if_reported(rows[0], marks)
     get_status = getattr(project, "GetRenderJobStatus", None)
     if not callable(get_status):
         raise OutputConsistencyError("render job status unavailable before start")

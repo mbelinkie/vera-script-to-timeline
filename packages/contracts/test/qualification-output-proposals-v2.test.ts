@@ -135,12 +135,14 @@ function comparison(geometry: ReturnType<typeof geometryEnvelope>, phase: "prist
   };
 }
 
-function pairRecord(pristineComparisonJson: string, editedComparisonJson: string, caseId: string) {
+function pairRecord(pristineComparisonJson: string, editedComparisonJson: string, caseId: string, pristineFrames: number, editedFrames: number) {
+  const pristineSampleCount = pristineFrames * 2002; const editedSampleCount = editedFrames * 2002;
   const differs = { residualRms: 0.001, maximumSliding20msResidualRms: 0.007, consistent: false };
   const pair = {
     schemaVersion: "qualification-output-pair/v1", lane: "bounded_output_residual_consistency",
     pristineComparisonRawSha256: rawHash(pristineComparisonJson), editedComparisonRawSha256: rawHash(editedComparisonJson),
     pristineLedgerHeadSha256: bare(hash(`${caseId}:pristine-ledger`)), editedLedgerHeadSha256: bare(hash(`${caseId}:edited-ledger`)),
+    pristineSampleCount, editedSampleCount, commonInterval: { startSample: 0, endSample: Math.min(pristineSampleCount, editedSampleCount) },
     crossMetrics: { predictionDifference: [differs, differs], editedAgainstPristine: [differs, differs], pristineAgainstEdited: [differs, differs] },
     internalControls: "unverified", geometryStability: "not_claimed", controlStability: "not_claimed", futureAuthority: false,
   };
@@ -160,13 +162,12 @@ function equality(caseId: string, extentFrames: number): QualificationOutputAudi
 function newCase(input: ReturnType<typeof specimen>, kind: "A" | "B" | "C", executionDiffers = false): QualificationOutputObservationCaseV1 {
   const pristineRaw = observations(input);
   const editedRaw = edits(pristineRaw, kind);
-  if (kind === "B") editedRaw.timeline.durationFrames = pristineRaw.timeline.durationFrames; // Real B retains the original extent and ends with silence.
   const caseId = `isolated-${kind}`;
   const pristineGeometry = geometryEnvelope(input, pristineRaw, "pristine", caseId, executionDiffers);
   const editedGeometry = geometryEnvelope(input, editedRaw, "edited", caseId, executionDiffers);
   const pristineComparisonJson = JSON.stringify(comparison(pristineGeometry, "pristine", caseId));
   const editedComparisonJson = JSON.stringify(comparison(editedGeometry, "edited", caseId));
-  const pairJson = kind === "A" ? null : pairRecord(pristineComparisonJson, editedComparisonJson, caseId);
+  const pairJson = kind === "A" ? null : pairRecord(pristineComparisonJson, editedComparisonJson, caseId, pristineGeometry.geometry.extentFrames, editedGeometry.geometry.extentFrames);
   let omissionSupport: QualificationOutputObservationCaseV1["omissionSupport"] = null;
   if (kind === "C") {
     const row = input.document.activeDraft.blocks.find((block): block is NarrationBlockV2 => block.type === "narration" && block.tokens.length > 12)!;
@@ -203,6 +204,11 @@ function newCase(input: ReturnType<typeof specimen>, kind: "A" | "B" | "C", exec
     audioEquality: kind === "A" ? equality(caseId, pristineGeometry.geometry.extentFrames) : null,
     omissionSupport,
   };
+}
+
+function pairFrames(row: QualificationOutputObservationCaseV1, phase: "pristine" | "edited"): number {
+  const text = phase === "pristine" ? row.pristineGeometryJson : row.editedGeometryJson;
+  return (JSON.parse(text) as { geometry: { extentFrames: number } }).geometry.extentFrames;
 }
 
 function replaceInputBinding(row: QualificationOutputObservationCaseV1, phase: "pristine" | "edited", binding: unknown): void {
@@ -329,18 +335,21 @@ describe("#215 authenticated output observation to explicit revision bridge", ()
     editedComparison.renderLineage.context = structuredClone(context);
     editedComparison.geometrySha256 = pythonHash(editedEnvelope.geometry);
     row.editedComparisonJson = JSON.stringify(editedComparison);
-    row.pairJson = pairRecord(row.pristineComparisonJson, row.editedComparisonJson, row.caseId);
+    row.pairJson = pairRecord(row.pristineComparisonJson, row.editedComparisonJson, row.caseId, pairFrames(row, "pristine"), pairFrames(row, "edited"));
 
     expect(() => inferQualificationOutputV2(input.document, input.dependencies, mismatched))
       .toThrow(/pristine\/edited authenticated input identities differ/);
   }, 15000);
 
-  it("derives an AV end trim from geometry while preserving the original extent as a silence tail", () => {
+  it("derives an AV ripple trim from geometry with a genuinely shortened programme extent", () => {
     const input = specimen(); const inference = inferQualificationOutputV2(input.document, input.dependencies, batch(input, ["B"]));
     expect(inference.caseKinds).toEqual(["B"]);
     expect(inference.commands.trim?.blockId).toEqual(expect.any(String));
     expect(inference.commands.trim).toMatchObject({ expectedBlockVersion: 1, durationFrames: 67 });
     expect(inference.commands.boundary).toBeNull();
+    const trimBatch = batch(input, ["B"]);
+    const extents = [pairFrames(trimBatch.cases[0]!, "pristine"), pairFrames(trimBatch.cases[0]!, "edited")];
+    expect(extents[1]).toBeLessThan(extents[0]!); // fixture ripple: edited programme is pristine minus the trim delta, no padding
     const stage = stageQualificationOutputV2(input.document, input.dependencies, batch(input, ["B"]), accept(inference.inferenceHash), []);
     expect(stage.outcome).toBe("accept");
     const trimmed = stage.document.activeDraft.blocks.find((block) => block.id === inference.commands.trim?.blockId);
@@ -424,6 +433,70 @@ describe("#215 authenticated output observation to explicit revision bridge", ()
 
     const noPair = batch(input, ["B"]); noPair.cases[0]!.pairJson = null;
     expect(() => inferQualificationOutputV2(input.document, input.dependencies, noPair)).toThrow(/pair evidence|pair comparison|pair discriminability/);
+  });
+
+  describe("shortened render extent and pair sample evidence", () => {
+    function setExtent(row: QualificationOutputObservationCaseV1, extentFrames: number): void {
+      const edited = JSON.parse(row.editedGeometryJson) as { geometry: { extentFrames: number } };
+      edited.geometry.extentFrames = extentFrames; row.editedGeometryJson = JSON.stringify(edited);
+      const comparisonValue = JSON.parse(row.editedComparisonJson) as { geometrySha256: string };
+      comparisonValue.geometrySha256 = pythonHash(edited.geometry); row.editedComparisonJson = JSON.stringify(comparisonValue);
+    }
+    function mutatePair(row: QualificationOutputObservationCaseV1, change: (pair: Record<string, unknown>) => void): void {
+      const pair = JSON.parse(row.pairJson!) as Record<string, unknown>; change(pair); row.pairJson = JSON.stringify(pair);
+    }
+    const run = (input: ReturnType<typeof specimen>, evidence: QualificationOutputObservationBatchV1) =>
+      () => inferQualificationOutputV2(input.document, input.dependencies, evidence);
+
+    it("refuses an edited extent longer than the pristine extent", () => {
+      const input = specimen(); const evidence = batch(input, ["B"]); const row = evidence.cases[0]!;
+      setExtent(row, pairFrames(row, "pristine") + 1);
+      expect(run(input, evidence)).toThrow(/lengthened capture extent/);
+    });
+
+    it("yields no trim proposal when the edited extent is not pristine minus the trim delta", () => {
+      const input = specimen(); const evidence = batch(input, ["B"]); const row = evidence.cases[0]!;
+      const pristineFrames = pairFrames(row, "pristine");
+      setExtent(row, pristineFrames - 23);
+      row.pairJson = pairRecord(row.pristineComparisonJson, row.editedComparisonJson, row.caseId, pristineFrames, pristineFrames - 23);
+      expect(run(input, evidence)).toThrow(/unique supported A\/B\/C/);
+    });
+
+    it("refuses a shortened extent on a non-trim video-only case", () => {
+      const input = specimen(); const evidence = batch(input, ["A"]); const row = evidence.cases[0]!;
+      setExtent(row, pairFrames(row, "pristine") - 1);
+      expect(run(input, evidence)).toThrow(/unsupported item interval|only an authenticated linked trim/);
+    });
+
+    it("refuses a shortened extent on a non-trim omission case", () => {
+      const input = specimen(); const evidence = batch(input, ["C"]); const row = evidence.cases[0]!;
+      const pristineFrames = pairFrames(row, "pristine");
+      setExtent(row, pristineFrames - 1);
+      row.pairJson = pairRecord(row.pristineComparisonJson, row.editedComparisonJson, row.caseId, pristineFrames, pristineFrames - 1);
+      expect(run(input, evidence)).toThrow(/unsupported item interval|only an authenticated linked trim/);
+    });
+
+    it("refuses pair sample counts and common interval that disagree with geometry", () => {
+      const input = specimen();
+      for (const change of [
+        (pair: Record<string, unknown>) => { pair.pristineSampleCount = (pair.pristineSampleCount as number) + 1; },
+        (pair: Record<string, unknown>) => { pair.editedSampleCount = (pair.editedSampleCount as number) + 2002; },
+        (pair: Record<string, unknown>) => { pair.commonInterval = { startSample: 1, endSample: (pair.commonInterval as { endSample: number }).endSample }; },
+        (pair: Record<string, unknown>) => { pair.commonInterval = { startSample: 0, endSample: pair.pristineSampleCount }; },
+        (pair: Record<string, unknown>) => { pair.commonInterval = { startSample: 0, endSample: 959 }; },
+      ]) {
+        const evidence = batch(input, ["B"]); mutatePair(evidence.cases[0]!, change);
+        expect(run(input, evidence)).toThrow(/pair sample counts|pair common interval/);
+      }
+    });
+
+    it("refuses a pair record missing the new sample fields", () => {
+      const input = specimen();
+      for (const key of ["pristineSampleCount", "editedSampleCount", "commonInterval"]) {
+        const evidence = batch(input, ["B"]); mutatePair(evidence.cases[0]!, (pair) => { delete pair[key]; });
+        expect(run(input, evidence)).toThrow(/pair comparison/);
+      }
+    });
   });
 
   it("rejects C cut geometry without a new closed support record", () => {
