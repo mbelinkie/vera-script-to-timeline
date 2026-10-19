@@ -1000,7 +1000,26 @@ def _select(
     _project_context(state)
 
 
-def _render(state: dict[str, Any], project: Any, output_path: Path) -> dict[str, Any]:
+def _require_job_timeline(
+    evidence: dict[str, Any], job: dict[str, Any], candidate_name: str
+) -> None:
+    """The queued job must be bound to the pinned candidate timeline."""
+    observed = job.get("TimelineName")
+    if observed != candidate_name:
+        evidence["status"] = "render_job_not_bound_to_candidate"
+        evidence["jobTimelineName"] = base._native_value(observed)
+        evidence["expectedTimelineName"] = candidate_name
+        raise ProbeStop(
+            "render_limited",
+            "queued render job TimelineName is "
+            + ("absent" if "TimelineName" not in job else "not the candidate")
+            + "; refusing to start rendering",
+        )
+
+
+def _render(
+    state: dict[str, Any], project: Any, output_path: Path, candidate_name: str
+) -> dict[str, Any]:
     request = state["request"]
     base._no_symlink_ancestry(output_path.parent)
     output_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -1039,22 +1058,29 @@ def _render(state: dict[str, Any], project: Any, output_path: Path) -> dict[str,
     )
     base._require(applied is True, "Resolve refused fixed MOV render settings")
     settings_readback: Any
+    readback_mismatch: Any = None
     getter = getattr(project, "GetRenderSettings", None)
     if callable(getter):
         try:
             raw_settings = getter()
-            base._require(
-                type(raw_settings) is dict
-                and all(raw_settings.get(k) == v for k, v in settings.items()),
-                "render settings readback differs from the fixed profile",
-            )
-            settings_readback = base._native_value(raw_settings)
         except Exception as error:
             settings_readback = {
                 "status": "ambiguous",
                 "method": "Project.GetRenderSettings",
                 "error": str(error)[:500],
             }
+        else:
+            if type(raw_settings) is dict and all(
+                raw_settings.get(k) == v for k, v in settings.items()
+            ):
+                settings_readback = base._native_value(raw_settings)
+            else:
+                readback_mismatch = base._native_value(raw_settings)
+                settings_readback = {
+                    "status": "mismatch",
+                    "method": "Project.GetRenderSettings",
+                    "value": readback_mismatch,
+                }
     else:
         settings_readback = {
             "status": "unsupported",
@@ -1067,6 +1093,14 @@ def _render(state: dict[str, Any], project: Any, output_path: Path) -> dict[str,
         "formatCodec": format_codec,
     }
     state["render"] = evidence
+    if readback_mismatch is not None:
+        # Explicit limited outcome BEFORE any job is added to the queue.
+        evidence["status"] = "render_settings_readback_differs"
+        raise ProbeStop(
+            "render_limited",
+            "render settings readback differs from the requested profile; "
+            "no render job was added",
+        )
     job_id = _journal(state, "render_add_job", project, "AddRenderJob", [])
     if type(job_id) is not str or not job_id:
         # Explicit limited outcome. The cause is not assumed; the queue is
@@ -1087,6 +1121,7 @@ def _render(state: dict[str, Any], project: Any, output_path: Path) -> dict[str,
         status="queued_job_unverified", jobId=job_id, job=base._native_value(job)
     )
     base._verify_job(job, job_id, output_path)
+    _require_job_timeline(evidence, job, candidate_name)
     status = base._invoke(project, "GetRenderJobStatus", job_id)
     evidence["jobStatus"] = base._native_value(status)
     base._require(
@@ -1101,6 +1136,7 @@ def _render(state: dict[str, Any], project: Any, output_path: Path) -> dict[str,
     )
     job = base._job_for(project, job_id)
     base._verify_job(job, job_id, output_path)
+    _require_job_timeline(evidence, job, candidate_name)
     evidence["job"] = base._native_value(job)
     started = _journal(
         state, "render_start_exact_job", project, "StartRendering", [[job_id]]
@@ -1290,7 +1326,9 @@ def run_sample_import_probe(
             )
         # Render only the candidate (it is the current timeline after the loop).
         output_path = render_output_path(request)
-        state["render"] = _render(state, project, output_path)
+        state["render"] = _render(
+            state, project, output_path, timelines["candidate"]["name"]
+        )
         post = _observe(
             "candidate_after_render",
             "candidate",

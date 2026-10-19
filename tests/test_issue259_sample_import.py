@@ -56,8 +56,16 @@ class _S(_NativeState):  # type: ignore[misc,valid-type]
         frame_rate: str = "23.976",
         extra_target_item: bool = False,
         project_uid: str | None = None,
+        job_timeline: str = "candidate",
+        readback: str = "exact",
+        subtype_raises: bool = False,
+        remap_after_reopen: bool = False,
     ) -> None:
         super().__init__(request)
+        self.job_timeline = job_timeline
+        self.readback = readback
+        self.subtype_raises = subtype_raises
+        self.remap_after_reopen = remap_after_reopen
         if project_uid is not None:
             self.project_uid = project_uid
         self.source_path = cast(str, request["sourcePath"])
@@ -142,7 +150,8 @@ class _Item:
         return cast(float, self.row["source"][1] / 48000)
 
     def GetSourceAudioChannelMapping(self) -> str:
-        return "mono"
+        state = object.__getattribute__(self, "state")
+        return "stereo" if state.remap_after_reopen and state.epoch >= 1 else "mono"
 
 
 class _Timeline:
@@ -184,6 +193,8 @@ class _Timeline:
 
     def GetTrackSubType(self, kind: str, index: int) -> str:
         assert kind == "audio" and index == 1
+        if self.state.subtype_raises:
+            raise RuntimeError("GetTrackSubType failed")
         return "mono"
 
     def GetMarkers(self) -> dict[str, Any]:
@@ -286,7 +297,20 @@ class _P(_Project):  # type: ignore[misc,valid-type]
     def AddRenderJob(self) -> str:
         if self.s.empty_job:
             return ""
-        return cast(str, super().AddRenderJob())
+        job_id = cast(str, super().AddRenderJob())
+        if self.s.job_timeline == "candidate":
+            self.s.queue[-1]["TimelineName"] = self._row()["name"]
+        elif self.s.job_timeline == "other":
+            self.s.queue[-1]["TimelineName"] = "some-other-timeline"
+        return job_id
+
+    def GetRenderSettings(self) -> dict[str, Any]:
+        if self.s.readback == "raises":
+            raise RuntimeError("GetRenderSettings failed")
+        settings = cast(dict[str, Any], super().GetRenderSettings())
+        if self.s.readback == "differs":
+            settings["TargetDir"] = "/somewhere/else"
+        return settings
 
 
 class _Manager:
@@ -897,15 +921,116 @@ def test_finalizer_refuses_tampered_native_record(
         env.installed_request,
         expected_request_sha256=env.request_sha,
     )
+    assert result_path == Path(env.request["outputDir"]) / "result.json"
     result = json.loads(result_path.read_text())
     result["effects"][0]["arguments"][1]["importSourceClips"] = False
-    forged = tmp_path / "forged-result.json"
-    forged.write_text(json.dumps(result))
-    forged.chmod(0o400)
-    with pytest.raises(pcm_base.SamplePrecisionCompareError):
+    result_path.chmod(0o600)
+    result_path.write_text(json.dumps(result))
+    result_path.chmod(0o400)
+    with pytest.raises(
+        pcm_base.SamplePrecisionCompareError,
+        match="native effect journal content differs",
+    ):
         compare.finalize_import_probe(
-            env.request_path, forged, tmp_path / "forged-final.json"
+            env.request_path, result_path, tmp_path / "forged-final.json"
         )
+
+
+@pytest.mark.parametrize("mode", ["absent", "other"])
+def test_job_not_bound_to_candidate_timeline_never_renders(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    env = _env(tmp_path, monkeypatch)
+    result, _, state = _run(env, job_timeline=mode)
+    assert result["status"] == "render_limited"
+    assert result["render"]["status"] == "render_job_not_bound_to_candidate"
+    assert "StartRendering" not in [row["method"] for row in result["effects"]]
+    assert not Path(probe.render_output_path(env.request)).exists()
+    assert state.render_status != "Complete"
+
+
+def test_finalizer_requires_job_timeline_to_equal_candidate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = _env(tmp_path, monkeypatch)
+    # The native check is bypassed by a forged-but-consistent recorded job:
+    # the finalizer must independently refuse a job not bound to the candidate.
+    result, _, _ = _run(env)
+    result["render"]["job"]["TimelineName"] = "some-other-timeline"
+    with pytest.raises(pcm_base.SamplePrecisionCompareError, match="candidate"):
+        compare._authenticate_render(env.request, result)
+    del result["render"]["job"]["TimelineName"]
+    with pytest.raises(pcm_base.SamplePrecisionCompareError, match="candidate"):
+        compare._authenticate_render(env.request, result)
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"subtype_raises": True},
+        {"absent_getter": "GetSourceAudioChannelMapping"},
+        {"missing_getter": "GetSourceAudioChannelMapping"},
+        {"remap_after_reopen": True},
+    ],
+)
+def test_unverified_or_changed_channel_layout_is_ambiguous(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, options: dict[str, Any]
+) -> None:
+    env = _env(tmp_path, monkeypatch)
+    result, _, _ = _run(env, **options)
+    geometry = _geometry(env, result)
+    assert geometry["status"] == "ambiguous"
+    assert geometry["channelLayoutProblem"]
+    assert geometry["channelLayout"]["candidate_imported"]["trackSubType"] is not None
+    assert _verdict_of(geometry, "rendered_for_pcm_verification")[0] == "ambiguous"
+
+
+def test_observed_identical_channel_layout_is_recorded_in_report(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = _env(tmp_path, monkeypatch)
+    result, _, _ = _run(env)
+    layout = _geometry(env, result)["channelLayout"]
+    for stage in ("candidate_imported", "candidate_after_reopen"):
+        assert layout[stage]["trackSubType"] == {"observed": True, "value": "mono"}
+        assert all(
+            row == {"observed": True, "value": "mono"}
+            for row in layout[stage]["itemChannelMappings"]
+        )
+
+
+def test_render_settings_readback_mismatch_stops_before_add_render_job(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = _env(tmp_path, monkeypatch)
+    result, _, state = _run(env, readback="differs")
+    assert result["status"] == "render_limited"
+    assert result["render"]["status"] == "render_settings_readback_differs"
+    assert result["render"]["settings"]["readback"]["status"] == "mismatch"
+    assert state.queue == []
+    assert result["effects"][-1]["stage"] == "render_set_settings"
+    assert "render_add_job" not in [row["stage"] for row in result["effects"]]
+
+
+def test_finalizer_accepts_readback_mismatch_limited_result_as_ambiguous(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = _env(tmp_path, monkeypatch)
+    report = _finalize(env, monkeypatch, None, readback="differs")
+    assert report["nativeResultStatus"] == "render_limited"
+    assert report["status"] == "ambiguous"
+    assert report["reasonCategory"] == "render_limited"
+
+
+def test_unavailable_settings_readback_is_recorded_but_never_supported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = _env(tmp_path, monkeypatch)
+    report = _finalize(env, monkeypatch, _native_pcm(SAMPLES), readback="raises")
+    assert report["nativeRender"]["settings"]["readback"]["status"] == "ambiguous"
+    assert report["nativeRender"]["settingsReadbackVerified"] is False
+    assert report["status"] == "ambiguous"
+    assert report["reasonCategory"] == "render_settings_readback_unavailable"
 
 
 # ----------------------------------------------------------------------------

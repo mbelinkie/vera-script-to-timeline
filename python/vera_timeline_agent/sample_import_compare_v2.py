@@ -156,6 +156,47 @@ def _audio_items(
     )
 
 
+def _observed(row: Any) -> tuple[bool, Any]:
+    """(observed, value) for one recorded getter row; unavailable is unobserved."""
+    if type(row) is not dict or row.get("status") != "supported":
+        return False, None
+    value = row.get("value")
+    return value not in (None, "", [], {}), value
+
+
+def _channel_layout(
+    snapshot: dict[str, Any], items: list[dict[str, Any]]
+) -> dict[str, Any]:
+    track = snapshot["tracks"]["audio"][0]
+    sub_ok, sub_value = _observed(track.get("subType"))
+    mappings = []
+    for item in items:
+        ok, value = _observed(
+            item.get("rawGetters", {}).get("GetSourceAudioChannelMapping")
+        )
+        mappings.append({"observed": ok, "value": value})
+    return {
+        "trackSubType": {"observed": sub_ok, "value": sub_value},
+        "itemChannelMappings": mappings,
+    }
+
+
+def _layout_problem(layouts: dict[str, dict[str, Any]]) -> str | None:
+    stages = ("candidate_imported", "candidate_after_reopen")
+    for stage in stages:
+        layout = layouts[stage]
+        if not layout["trackSubType"]["observed"]:
+            return f"{stage}: candidate audio track subtype was not observed"
+        if not layout["itemChannelMappings"] or not all(
+            row["observed"] for row in layout["itemChannelMappings"]
+        ):
+            return f"{stage}: a candidate item channel mapping was not observed"
+    before, after = (layouts[stage] for stage in stages)
+    if before != after:
+        return "candidate channel layout differs between import and reopen"
+    return None
+
+
 def _raw(item: dict[str, Any]) -> dict[str, float]:
     getter = pcm_base._getter_number
     return {
@@ -228,8 +269,10 @@ def analyze_geometry(
         plans = {row["role"]: row["plan"]["audioClips"] for row in imports}
         raws: dict[str, list[dict[str, Any]]] = {}
         uids: dict[str, list[str]] = {}
+        layouts: dict[str, dict[str, Any]] = {}
         for stage, snapshot in stages.items():
             items = _audio_items(snapshot, plans[snapshot["role"]], source_path)
+            layouts[stage] = _channel_layout(snapshot, items)
             raws[stage] = [_raw(item) for item in items]
             uids[stage] = [item["timelineItemUid"] for item in items]
         for role in probe.ROLES:
@@ -292,9 +335,14 @@ def analyze_geometry(
             "off-grid calibration and candidate both differ: getter versus "
             "import quantization are not separable",
         )
+    layout_problem = _layout_problem(layouts)
+    if status == "pass" and layout_problem is not None:
+        status, reason = "ambiguous", layout_problem
     return {
         "status": status,
         "reason": reason,
+        "channelLayout": layouts,
+        "channelLayoutProblem": layout_problem,
         "semantics": _semantics_label(semantics),
         "calibrationOffGridExact": calibration_exact,
         "candidateExact": candidate_exact,
@@ -471,7 +519,12 @@ def _verify_effect_journals(
         raise SamplePrecisionCompareError("native effect list is malformed")
     if status == "rendered_for_pcm_verification" and len(effects) != len(sequence):
         raise SamplePrecisionCompareError("completed native result is incomplete")
-    if status == "render_limited" and len(effects) != len(sequence) - 1:
+    # render_limited stops either before AddRenderJob (settings readback
+    # differs) or after the job was queued but before StartRendering.
+    if status == "render_limited" and len(effects) not in {
+        len(sequence) - 2,
+        len(sequence) - 1,
+    }:
         raise SamplePrecisionCompareError("limited render result sequence differs")
     timelines = result.get("timelines")
     journal_dir = Path(request["outputDir"]) / "journal"
@@ -545,7 +598,7 @@ def _verify_effect_journals(
             names["render_select_format"]["arguments"] != ["mov", "ProRes422"]
             or names["render_select_single_clip"]["arguments"] != [1]
             or names["render_set_settings"]["arguments"] != [expected_settings]
-            or names["render_add_job"]["arguments"] != []
+            or names.get("render_add_job", {"arguments": []})["arguments"] != []
         ):
             raise SamplePrecisionCompareError("render effects differ from the request")
         if status == "rendered_for_pcm_verification" and names[
@@ -560,6 +613,7 @@ def _verdict(
     pcm: dict[str, Any],
     *,
     source_unchanged: bool,
+    render_settings_verified: bool = False,
 ) -> tuple[str, str | None]:
     if pcm.get("status") == "fail":
         return "unsupported", "measured_pcm_mismatch"
@@ -579,6 +633,8 @@ def _verdict(
         return "unsupported", "pcm_decode_unavailable"
     if native_status != "rendered_for_pcm_verification":
         return "unsupported", "native_probe_unsupported"
+    if not render_settings_verified:
+        return "ambiguous", "render_settings_readback_unavailable"
     return "supported", None
 
 
@@ -607,6 +663,20 @@ def _authenticate_render(
         raise SamplePrecisionCompareError(
             "native render job differs from the fixed profile"
         ) from error
+    candidate = (
+        result.get("timelines", {}).get("candidate")
+        if type(result.get("timelines")) is dict
+        else None
+    )
+    candidate_name = candidate.get("name") if type(candidate) is dict else None
+    if (
+        type(candidate_name) is not str
+        or not candidate_name
+        or render["job"].get("TimelineName") != candidate_name
+    ):
+        raise SamplePrecisionCompareError(
+            "native render job is not bound to the pinned candidate timeline"
+        )
     requested = native_base._render_settings(expected_mov)
     settings = render.get("settings")
     if type(settings) is not dict or settings.get("requested") != requested:
@@ -614,11 +684,14 @@ def _authenticate_render(
     readback = settings.get("readback")
     if type(readback) is not dict:
         raise SamplePrecisionCompareError("render settings readback is malformed")
+    readback_verified = False
     if readback.get("status") in {"unsupported", "ambiguous"}:
         if readback.get("method") != "Project.GetRenderSettings":
             raise SamplePrecisionCompareError("render settings diagnostic differs")
     elif any(readback.get(key) != value for key, value in requested.items()):
         raise SamplePrecisionCompareError("render settings getter differs")
+    else:
+        readback_verified = True
     mov_sha = pcm_base._file_sha256(expected_mov)
     if mov_sha != render["sha256"]:
         raise SamplePrecisionCompareError("native render bytes differ from result hash")
@@ -644,6 +717,7 @@ def _authenticate_render(
         "jobStatus": render["jobStatus"],
         "formatCodec": render["formatCodec"],
         "settings": settings,
+        "settingsReadbackVerified": readback_verified,
     }
 
 
@@ -749,6 +823,7 @@ def finalize_import_probe(request_path: Path, result_path: Path, output: Path) -
         geometry,
         pcm,
         source_unchanged=result["sourceIntegrity"].get("unchanged") is True,
+        render_settings_verified=native_render.get("settingsReadbackVerified") is True,
     )
     report = {
         "schemaVersion": "vera-sample-import-probe-finalization/v1",
