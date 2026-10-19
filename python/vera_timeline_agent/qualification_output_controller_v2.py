@@ -2156,7 +2156,7 @@ class QualificationOutputController:
         *,
         result_sha256: str,
         stage: str,
-        error: HostClockRegression,
+        diagnostics: Json,
         outcome: str,
     ) -> None:
         """Retain private measured clock diagnostics for one finalize refusal."""
@@ -2168,7 +2168,7 @@ class QualificationOutputController:
                 "capturePostResultSha256": result_sha256,
                 "stage": stage,
                 "outcome": outcome,
-                "diagnostics": error.diagnostics,
+                "diagnostics": diagnostics,
             }
         )
         digest = self.journal._retain(raw)
@@ -2183,20 +2183,31 @@ class QualificationOutputController:
 
         No later trusted reading may precede one already trusted, so expiry
         and chronology are never judged at an earlier wall time than before.
+        The controller's own clock lag is bounded too before it is replaced.
         """
+        diagnostics = dict(error.diagnostics)
         high_water = max(
-            datetime.fromisoformat(error.diagnostics["priorWall"]), self.trust.wall
+            datetime.fromisoformat(diagnostics["priorWall"]), self.trust.wall
         )
         permitted = error.recheckable
         if permitted:
             deadline = time.monotonic() + FINALIZE_CLOCK_STEP_ALLOWANCE_SECONDS
             while datetime.now(UTC) < high_water and time.monotonic() < deadline:
                 time.sleep(0.01)
-            permitted = datetime.now(UTC) >= high_water
+            monotonic = time.monotonic()
+            wall = datetime.now(UTC)
+            controller_lag = (monotonic - self.trust.monotonic) - (
+                wall - self.trust.wall
+            ).total_seconds()
+            diagnostics["controllerLagSeconds"] = controller_lag
+            permitted = (
+                wall >= high_water
+                and controller_lag <= FINALIZE_CLOCK_STEP_ALLOWANCE_SECONDS
+            )
         self._retain_finalize_clock_record(
             result_sha256=result_sha256,
             stage=stage,
-            error=error,
+            diagnostics=diagnostics,
             outcome="recheck" if permitted else "terminal",
         )
         if permitted:
@@ -2294,7 +2305,7 @@ class QualificationOutputController:
                         self._retain_finalize_clock_record(
                             result_sha256=result_sha256,
                             stage=stage,
-                            error=error,
+                            diagnostics=error.diagnostics,
                             outcome="terminal",
                         )
                     elif self._prepare_finalize_clock_recheck(

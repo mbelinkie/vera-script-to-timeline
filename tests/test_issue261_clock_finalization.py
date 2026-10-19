@@ -175,9 +175,11 @@ class FinalizeHarness:
 
     def pre_capture_inputs(self, *, validate_prediction: bool) -> Any:
         assert validate_prediction is False
+        self.calls.append("inputs")
         return SimpleNamespace(input_binding=b"binding")
 
     def attempt_materials(self, attempt: dict[str, Any]) -> dict[str, bytes]:
+        self.calls.append("materials")
         return dict.fromkeys(
             (
                 "commitment",
@@ -190,9 +192,11 @@ class FinalizeHarness:
         )
 
     def capture_inputs(self, *args: Any, **kwargs: Any) -> tuple[bytes, bytes]:
+        self.calls.append("geometry")
         return b"post", b"post-receipt"
 
     def decode_output(self, **kwargs: Any) -> tuple[bytes, bytes, bytes]:
+        self.calls.append("decode")
         return b"decode", b"decode-receipt", b"samples"
 
     def compare(self, completed: Any) -> tuple[bytes, bytes]:
@@ -245,6 +249,10 @@ def test_measured_step_during_finalize_rechecks_once_and_compares(
         "environment",
         "verify_result",
         "environment",
+        "inputs",
+        "materials",
+        "geometry",
+        "decode",
         "compare",
     ]
     assert harness.controller.trust is not first_trust
@@ -255,6 +263,9 @@ def test_measured_step_during_finalize_rechecks_once_and_compares(
     assert record["stage"] == "post_capture_authentication"
     assert record["capturePostResultSha256"] == "f" * 64
     assert record["diagnostics"]["lagSeconds"] == pytest.approx(0.063833714, abs=1e-5)
+    assert record["diagnostics"]["controllerLagSeconds"] == pytest.approx(
+        0.063833714, abs=1e-3
+    )
 
 
 def test_main_trust_step_rechecks_after_wall_regains_high_water(
@@ -289,6 +300,50 @@ def test_actual_backward_wall_time_beyond_allowance_quarantines(
     assert harness.calls == ["verify_result", "environment"]
     (refusal,) = harness.records("finalize-refusal")
     assert refusal["reason"] == "host clock rollback/uncertainty"
+    (record,) = harness.records("finalize-clock")
+    assert record["outcome"] == "terminal"
+
+
+def test_hidden_controller_lag_beyond_allowance_quarantines(
+    tmp_path: Path, clock: ReplayClock
+) -> None:
+    """A step only the long-lived controller spans cannot be re-anchored away."""
+    harness = FinalizeHarness(tmp_path, clock)
+
+    def hidden_then_measured() -> None:
+        clock.advance(2.0)
+        clock.step_wall(-2.5)
+        harness.fresh_proof_trust()
+
+    harness.environment_hooks = [hidden_then_measured]
+    first_trust = harness.controller.trust
+    with pytest.raises(HostClockRegression):
+        harness.finalize()
+    assert harness.state() == "uncertain"
+    assert harness.controller.trust is first_trust
+    (record,) = harness.records("finalize-clock")
+    assert record["outcome"] == "terminal"
+    assert record["diagnostics"]["controllerLagSeconds"] > 2.5
+
+
+def test_wall_that_never_regains_high_water_quarantines(
+    tmp_path: Path, clock: ReplayClock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    harness = FinalizeHarness(tmp_path, clock)
+
+    def stalled_wall_sleep(seconds: float) -> None:
+        clock.monotonic_value += seconds
+
+    def step_main() -> None:
+        clock.advance(0.01)
+        clock.step_wall(-0.5)
+        monkeypatch.setattr(time, "sleep", stalled_wall_sleep)
+
+    harness.environment_hooks = [step_main]
+    with pytest.raises(HostClockRegression):
+        harness.finalize()
+    assert harness.state() == "uncertain"
+    assert harness.calls == ["verify_result", "environment"]
     (record,) = harness.records("finalize-clock")
     assert record["outcome"] == "terminal"
 
