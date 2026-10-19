@@ -3939,10 +3939,7 @@ def _capture_geometry(
                         start_time = range_times.get("GetSourceStartTime")
                         end_time = range_times.get("GetSourceEndTime")
                         sample_errors = tuple(
-                            (
-                                Fraction(str(range_times[method]))
-                                - frame * rate_seconds
-                            )
+                            (Fraction(str(range_times[method])) - frame * rate_seconds)
                             * 48_000
                             if type(range_times.get(method)) in {int, float}
                             and math.isfinite(range_times[method])
