@@ -327,3 +327,145 @@ def test_reopened_rebuild_requires_its_original_reservation(
     else:
         with pytest.raises(OutputConsistencyError):
             verify()
+
+
+def test_omission_review_plan_reports_the_measured_frame_snapped_cut(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Route A: the human reviewer sees the sample-exact cut report (-88/+802)."""
+    frame = output.FRAME
+    sel_start, sel_end = 20108, 23222
+    cut_start, cut_end = 10 * frame, 12 * frame
+    assert (cut_start - sel_start, cut_end - sel_end) == (-88, 802)
+    left_end, right_start = 20100, 23500
+    tokens = [
+        {"id": f"t{i}", "startOffset": i * 2, "endOffset": i * 2 + 1, "value": f"w{i}"}
+        for i in range(13)
+    ]
+    row = {
+        "id": "n1",
+        "type": "narration",
+        "version": 3,
+        "text": "narration text",
+        "tokens": tokens,
+    }
+    intervals = [(10000, left_end), (sel_start, sel_end), (right_start, 30000)]
+    review = {
+        "schemaVersion": "issue-189-v2-selected-review/v1",
+        "method": "independent_source_listening_waveform/v1",
+        "reviewerReference": "reviewer",
+        "reviewId": "r1",
+        "reviewRevision": 1,
+        "documentHash": "d" * 64,
+        "blockId": "n1",
+        "blockRevision": 3,
+        "textHash": "sha256:" + _hash(b"narration text"),
+        "sourceHash": "sha256:" + "a" * 64,
+        "supports": [
+            {
+                "tokenId": token["id"],
+                "startOffset": token["startOffset"],
+                "endOffset": token["endOffset"],
+                "quotedText": token["value"],
+                "onsetSample": start,
+                "endSample": end,
+            }
+            for token, (start, end) in zip(tokens[10:13], intervals, strict=True)
+        ],
+    }
+    review_path = tmp_path / "review.json"
+    review_path.write_bytes(_canonical(review))
+    review_path.chmod(0o400)
+
+    def geometry(items: list[dict[str, Any]]) -> bytes:
+        return _canonical({"context": {}, "geometry": {"items": items}})
+
+    original = {
+        "eventId": "e1",
+        "recordStart": 0,
+        "recordDuration": 30,
+        "sourceStart": 0,
+        "sourceDuration": 30,
+    }
+    left = {**original, "recordDuration": 10, "sourceDuration": 10}
+    right = {
+        **original,
+        "recordStart": 12,
+        "recordDuration": 18,
+        "sourceStart": 12,
+        "sourceDuration": 18,
+    }
+    lineage = {"renderLineage": {"sourceOutputRawSha256": "e" * 64}}
+    side = SimpleNamespace(
+        output=SimpleNamespace(inputs=SimpleNamespace(geometry=b"")),
+        comparison=_canonical(lineage),
+    )
+    pristine = SimpleNamespace(
+        output=SimpleNamespace(inputs=SimpleNamespace(geometry=geometry([original]))),
+        comparison=side.comparison,
+    )
+    edited = SimpleNamespace(
+        output=SimpleNamespace(
+            inputs=SimpleNamespace(geometry=geometry([left, right]))
+        ),
+        comparison=side.comparison,
+    )
+    queued = iter([pristine, edited])
+    monkeypatch.setattr(proof, "load_terminal_output", lambda _c: next(queued))
+    monkeypatch.setattr(output, "compare_prediction_pair", lambda *_a, **_k: {})
+    monkeypatch.setattr(proof, "_PairTrust", lambda *_a: None)
+
+    host: Any = object.__new__(proof.QualificationOutputProofV2)
+    host.baseline = SimpleNamespace(
+        admission=SimpleNamespace(
+            manifest={
+                "events": [
+                    {
+                        "kind": "narration",
+                        "eventId": "e1",
+                        "provenance": {
+                            "blockId": "n1",
+                            "sourceId": "s1",
+                            "timingMapHash": "sha256:" + "b" * 64,
+                        },
+                    }
+                ]
+            },
+            source_entries=[
+                {
+                    "sourceId": "s1",
+                    "pcmFileSha256": "a" * 64,
+                    "durationSamples": 40000,
+                    "nativeFrameOrigin": 0,
+                    "pcmSampleOrigin": 0,
+                }
+            ],
+        ),
+        blobs={
+            "executionDocumentSha256": _canonical({"activeDraft": {"blocks": [row]}})
+        },
+    )
+    host.edited = SimpleNamespace()
+    host.session_pin = {"path": "p", "sha256": "0" * 64}
+    host._current = lambda: None
+    host._pure = lambda _request: {
+        "documentHash": "d" * 64,
+        "dependenciesHash": "c" * 64,
+    }
+
+    destination = tmp_path / "plans" / "plan.json"
+    host.prepare_omission_review_plan(review_path, destination)
+
+    plan = json.loads(destination.read_bytes())
+    assert plan["measurement"] == {
+        "cutStartSample": cut_start,
+        "cutEndSample": cut_end,
+        "selectedStartSample": sel_start,
+        "selectedEndSample": sel_end,
+        "cutStartOffsetSamples": -88,
+        "cutEndOffsetSamples": 802,
+        "leftNeighborClippedSamples": left_end - cut_start,
+        "rightNeighborClippedSamples": cut_end - right_start,
+        "residualTokenSamplesLeft": 0,
+        "residualTokenSamplesRight": 0,
+    }

@@ -564,15 +564,24 @@ describe("#215 authenticated output observation to explicit revision bridge", ()
     });
 
     it("refuses downstream ripple", () => {
-      const { input, evidence } = snapped(88, 802);
+      const { input, evidence, support } = snapped(88, 802);
       const row = evidence.cases[0]!;
-      const envelope = JSON.parse(row.editedGeometryJson) as { geometry: { items: { recordStart: number; recordDuration: number; eventId: string }[] } };
-      const eventIds = new Set(envelope.geometry.items.map((item) => item.eventId));
-      const later = envelope.geometry.items.filter((item) => item.recordStart > 0).sort((a, b) => b.recordStart - a.recordStart)[0]!;
-      expect(eventIds.size).toBeGreaterThan(1);
-      later.recordStart += 1;
+      const envelope = JSON.parse(row.editedGeometryJson) as { geometry: { extentFrames: number; items: { recordStart: number; recordDuration: number; eventId: string; itemUid: string }[] } };
+      const pristineItems = (JSON.parse(row.pristineGeometryJson) as { geometry: { items: { eventId: string }[] } }).geometry.items;
+      const cutEventId = pristineItems.find((item) => envelope.geometry.items.filter((edited) => edited.eventId === item.eventId).length === 2)!.eventId;
+      // Shift one untouched item by a frame, keeping it inside the extent and the inventory order, so only C's ripple guard can refuse it.
+      const ordered = envelope.geometry.items;
+      const index = ordered.findIndex((item, i) => item.eventId !== cutEventId && item.recordStart > 0 && i + 1 < ordered.length &&
+        item.recordStart + 1 < ordered[i + 1]!.recordStart && item.recordStart + item.recordDuration + 1 <= envelope.geometry.extentFrames);
+      expect(index).toBeGreaterThanOrEqual(0);
+      ordered[index]!.recordStart += 1;
       row.editedGeometryJson = JSON.stringify(envelope);
-      expect(() => inferQualificationOutputV2(input.document, input.dependencies, evidence)).toThrow(/unsupported item interval|ripple/);
+      const comparison = JSON.parse(row.editedComparisonJson) as { geometrySha256: string };
+      comparison.geometrySha256 = pythonHash(envelope.geometry); row.editedComparisonJson = JSON.stringify(comparison);
+      row.pairJson = pairRecord(row.pristineComparisonJson, row.editedComparisonJson, row.caseId, pairFrames(row, "pristine"), pairFrames(row, "edited"));
+      support.editedGeometryRawSha256 = rawHash(row.editedGeometryJson); support.editedComparisonRawSha256 = rawHash(row.editedComparisonJson);
+      support.pairRawSha256 = rawHash(row.pairJson);
+      expect(() => inferQualificationOutputV2(input.document, input.dependencies, evidence)).toThrow(/C cut caused ripple/);
     });
   });
 

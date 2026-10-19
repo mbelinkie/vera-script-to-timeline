@@ -620,6 +620,18 @@ class QualificationOutputProofV2:
             "editedComparisonRawSha256": _hash(edited.comparison),
             "pairRawSha256": _hash(_canonical(pair)),
         }
+        measurement = {
+            "cutStartSample": cut_start,
+            "cutEndSample": cut_end,
+            "selectedStartSample": selected["startSample"],
+            "selectedEndSample": selected["endSample"],
+            "cutStartOffsetSamples": cut_start - selected["startSample"],
+            "cutEndOffsetSamples": cut_end - selected["endSample"],
+            "leftNeighborClippedSamples": max(0, previous["endSample"] - cut_start),
+            "rightNeighborClippedSamples": max(0, cut_end - following["startSample"]),
+            "residualTokenSamplesLeft": max(0, cut_start - selected["startSample"]),
+            "residualTokenSamplesRight": max(0, selected["endSample"] - cut_end),
+        }
         plan = {
             "schemaVersion": "qualification-output-omission-review-plan/v1",
             "lane": LANE,
@@ -627,13 +639,15 @@ class QualificationOutputProofV2:
             "proofSession": self.session_pin,
             "sourceReview": review_pin,
             "support": support,
+            "measurement": measurement,
             "editedOutputSha256": _parse(edited.comparison)["renderLineage"][
                 "sourceOutputRawSha256"
             ],
             "requiredReview": (
                 "Independently listen to original token10/11/12 and inspect "
-                "their source supports; listen to the actual edited mix, "
-                "confirm token11 alone is absent and both neighbours remain complete."
+                "their source supports; listen to the actual edited mix and "
+                "confirm token11 is absent. Route A: frame-snapped cut edges may "
+                "clip neighbours by under one frame, as measured in the inference."
             ),
         }
         _retain(destination, _canonical(plan))
@@ -1306,7 +1320,7 @@ def issue_output_omission_review(plan_path: Path, output_path: Path) -> Path:
     plan = _shape(
         _parse(raw),
         "schemaVersion lane authorityStatus proofSession sourceReview support "
-        "editedOutputSha256 requiredReview",
+        "measurement editedOutputSha256 requiredReview",
         "omission listening plan",
     )
     _require(
