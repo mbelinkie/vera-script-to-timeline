@@ -326,6 +326,28 @@ def test_hidden_controller_lag_beyond_allowance_quarantines(
     assert record["diagnostics"]["controllerLagSeconds"] > 2.5
 
 
+def test_monotonic_regression_before_fresh_proof_step_quarantines(
+    tmp_path: Path, clock: ReplayClock
+) -> None:
+    """A fresh controller's bounded step cannot re-anchor away a main-trust
+    monotonic regression (its negative controller lag is not a valid reading)."""
+    harness = FinalizeHarness(tmp_path, clock)
+
+    def regress_then_measured() -> None:
+        clock.monotonic_value -= 10.0
+        harness.fresh_proof_trust()
+
+    harness.environment_hooks = [regress_then_measured]
+    first_trust = harness.controller.trust
+    with pytest.raises(HostClockRegression):
+        harness.finalize()
+    assert harness.state() == "uncertain"
+    assert harness.controller.trust is first_trust
+    (record,) = harness.records("finalize-clock")
+    assert record["outcome"] == "terminal"
+    assert record["diagnostics"]["controllerLagSeconds"] < 0
+
+
 def test_wall_that_never_regains_high_water_quarantines(
     tmp_path: Path, clock: ReplayClock, monkeypatch: pytest.MonkeyPatch
 ) -> None:

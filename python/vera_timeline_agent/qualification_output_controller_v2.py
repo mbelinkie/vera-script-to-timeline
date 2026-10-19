@@ -2202,8 +2202,11 @@ class QualificationOutputController:
                 wall - self.trust.wall
             ).total_seconds()
             diagnostics["controllerLagSeconds"] = controller_lag
+            # Monotonic behind the controller's own anchor is a regression no
+            # bounded wall step can explain, whatever another controller saw.
             permitted = (
                 wall >= high_water
+                and monotonic >= self.trust.monotonic
                 and controller_lag <= FINALIZE_CLOCK_STEP_ALLOWANCE_SECONDS
             )
         self._retain_finalize_clock_record(
