@@ -85,6 +85,10 @@ FINALIZE_REFUSAL_FIELDS = frozenset(
         "reason",
     }
 )
+FINALIZE_CLOCK_SCHEMA = "qualification-output-finalize-clock/v1"
+# Largest backward OS wall step a completed render may recheck across. The
+# measured backward steps were 57-189 ms; expiry windows are minutes long.
+FINALIZE_CLOCK_STEP_ALLOWANCE_SECONDS = 1.0
 HOST_STATE_ROOT = (
     Path.home()
     / "Library/Application Support/VERA/qualification-output-host/v1/attempts"
@@ -1076,6 +1080,30 @@ class _ReceiptVault:
             )
 
 
+def _iso(value: datetime) -> str:
+    return value.isoformat().replace("+00:00", "Z")
+
+
+class HostClockRegression(OutputConsistencyError):
+    """Wall time lagged monotonic time beyond sampling and slew bounds.
+
+    macOS ``timed`` steps the wall clock with settimeofday, measured on the
+    qualification Mac at -189 ms to +971 ms roughly hourly; A11's refusal
+    followed a -63.8 ms step. Only finalization may recheck a bounded lag.
+    """
+
+    def __init__(self, diagnostics: Json) -> None:
+        super().__init__("host clock rollback/uncertainty")
+        self.diagnostics = diagnostics
+
+    @property
+    def recheckable(self) -> bool:
+        return bool(
+            self.diagnostics["classification"] == "wall_lag"
+            and self.diagnostics["lagSeconds"] <= FINALIZE_CLOCK_STEP_ALLOWANCE_SECONDS
+        )
+
+
 class _ControllerTrust:
     """Statically bound provenance and clock; never selected by request JSON."""
 
@@ -1090,13 +1118,32 @@ class _ControllerTrust:
         now = datetime.now(UTC)
         after = time.monotonic()
         elapsed = before - self.monotonic
-        _require(
+        wall_elapsed = (now - self.wall).total_seconds()
+        if not (
             elapsed >= 0
             and now >= self.wall
-            and (now - self.wall).total_seconds() + 0.000002 + elapsed * 0.0005
-            >= elapsed,
-            "host clock rollback/uncertainty",
-        )
+            and wall_elapsed + 0.000002 + elapsed * 0.0005 >= elapsed
+        ):
+            raise HostClockRegression(
+                {
+                    "classification": (
+                        "monotonic_regression" if elapsed < 0 else "wall_lag"
+                    ),
+                    "priorWall": _iso(self.wall),
+                    "observedWall": _iso(now),
+                    "monotonicElapsedSeconds": elapsed,
+                    "wallElapsedSeconds": wall_elapsed,
+                    "lagSeconds": elapsed - wall_elapsed,
+                    "lagPartsPerMillion": (
+                        (elapsed - wall_elapsed) / elapsed * 1_000_000
+                        if elapsed > 0
+                        else None
+                    ),
+                    "toleranceSeconds": 0.000002 + max(elapsed, 0) * 0.0005,
+                    "samplingWindowSeconds": after - before,
+                    "wallBeforePriorSample": now < self.wall,
+                }
+            )
         self.wall, self.monotonic = now, after
         return now
 
@@ -2084,8 +2131,8 @@ class QualificationOutputController:
             "nextOperation": next_operation,
         }
 
-    def finalize_output(self, result_path: Path, result_sha256: str) -> Path:
-        """Decode the delivered MOV and append the terminal comparison receipt."""
+    def _verified_final_capture(self, result_path: Path, result_sha256: str) -> int:
+        """Authenticate this session's complete post-capture; return completion."""
         from .qualification_output_native_v2 import (
             native_request_paths,
             verify_native_result,
@@ -2102,8 +2149,93 @@ class QualificationOutputController:
             and result["status"] == "complete",
             "complete final native capture for this session required",
         )
+        return completion_sequence
+
+    def _retain_finalize_clock_record(
+        self,
+        *,
+        result_sha256: str,
+        stage: str,
+        error: HostClockRegression,
+        outcome: str,
+    ) -> None:
+        """Retain private measured clock diagnostics for one finalize refusal."""
+        raw = _canonical(
+            {
+                "schemaVersion": FINALIZE_CLOCK_SCHEMA,
+                "lane": LANE,
+                "context": self.context,
+                "capturePostResultSha256": result_sha256,
+                "stage": stage,
+                "outcome": outcome,
+                "diagnostics": error.diagnostics,
+            }
+        )
+        digest = self.journal._retain(raw)
+        marker = self.journal.directory / f"finalize-clock-{digest}.json"
+        if not marker.exists():
+            _publish(marker, raw)
+
+    def _prepare_finalize_clock_recheck(
+        self, error: HostClockRegression, *, result_sha256: str, stage: str
+    ) -> bool:
+        """Permit one full recheck after a bounded measured OS wall step.
+
+        No later trusted reading may precede one already trusted, so expiry
+        and chronology are never judged at an earlier wall time than before.
+        """
+        high_water = max(
+            datetime.fromisoformat(error.diagnostics["priorWall"]), self.trust.wall
+        )
+        permitted = error.recheckable
+        if permitted:
+            deadline = time.monotonic() + FINALIZE_CLOCK_STEP_ALLOWANCE_SECONDS
+            while datetime.now(UTC) < high_water and time.monotonic() < deadline:
+                time.sleep(0.01)
+            permitted = datetime.now(UTC) >= high_water
+        self._retain_finalize_clock_record(
+            result_sha256=result_sha256,
+            stage=stage,
+            error=error,
+            outcome="recheck" if permitted else "terminal",
+        )
+        if permitted:
+            self.trust = _ControllerTrust(self.vault, self.admission)
+        return permitted
+
+    def finalize_output(self, result_path: Path, result_sha256: str) -> Path:
+        """Decode the delivered MOV and append the terminal comparison receipt.
+
+        A bounded host wall-clock step permits exactly one complete recheck;
+        every other refusal, or a second one, retains the slot as uncertain.
+        """
+        completion_sequence = self._verified_final_capture(result_path, result_sha256)
+        path = self._finalize_attempt(
+            result_path, result_sha256, completion_sequence, recheck=False
+        )
+        if path is None:
+            path = self._finalize_attempt(
+                result_path, result_sha256, completion_sequence, recheck=True
+            )
+            assert path is not None
+        return path
+
+    def _finalize_attempt(
+        self,
+        result_path: Path,
+        result_sha256: str,
+        completion_sequence: int,
+        *,
+        recheck: bool,
+    ) -> Path | None:
         stage = "post_capture_authentication"
         try:
+            if recheck:
+                _require(
+                    self._verified_final_capture(result_path, result_sha256)
+                    == completion_sequence,
+                    "complete final native capture for this session required",
+                )
             self._environment_current()
             # A valid reservation permits historical pre-capture comparison
             # after the approval/geometry live window. Environment, source and
@@ -2156,6 +2288,19 @@ class QualificationOutputController:
             comparison, _ = self.compare(completed)
             return self.journal.artifacts / _hash(comparison)
         except (OutputConsistencyError, OSError, ValueError) as error:
+            if isinstance(error, HostClockRegression):
+                with suppress(OutputConsistencyError, OSError, ValueError):
+                    if recheck:
+                        self._retain_finalize_clock_record(
+                            result_sha256=result_sha256,
+                            stage=stage,
+                            error=error,
+                            outcome="terminal",
+                        )
+                    elif self._prepare_finalize_clock_recheck(
+                        error, result_sha256=result_sha256, stage=stage
+                    ):
+                        return None
             # The complete post-capture result has already been authenticated;
             # preserve the refusal and prevent a retry from the reserved slot.
             with suppress(OutputConsistencyError, OSError, ValueError):
