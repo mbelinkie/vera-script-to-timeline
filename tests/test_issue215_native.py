@@ -1121,7 +1121,7 @@ def test_shortened_queue_refuses_when_job_omits_its_mark_range(
     def add_without_marks() -> str:
         job_id = add_with_marks()
         del project.jobs[-1]["MarkIn"], project.jobs[-1]["MarkOut"]
-        return job_id
+        return str(job_id)
 
     project.AddRenderJob = add_without_marks
     with pytest.raises(
