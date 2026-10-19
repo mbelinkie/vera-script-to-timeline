@@ -36,6 +36,11 @@ OUTPUT_RUNTIME_FILES = (
     "qualification_output_records_v2.py",
 )
 SAMPLE_PRECISION_RUNTIME_FILES = (*RUNTIME_FILES, "sample_precision_probe_v2.py")
+# The #259 import probe reuses the #257 helpers, so it ships both modules.
+SAMPLE_IMPORT_RUNTIME_FILES = (
+    *SAMPLE_PRECISION_RUNTIME_FILES,
+    "sample_import_probe_v2.py",
+)
 BUILD_FILES = (
     "timeline-manifest.json",
     "build-report.json",
@@ -153,6 +158,11 @@ def build_sample_precision_release_v2(output: Path) -> Path:
     return _build_release(output, SAMPLE_PRECISION_RUNTIME_FILES)
 
 
+def build_sample_import_release_v2(output: Path) -> Path:
+    """Explicit finite OTIO-import experiment, separate from every other lane."""
+    return _build_release(output, SAMPLE_IMPORT_RUNTIME_FILES)
+
+
 def _build_release(output: Path, runtime_files: tuple[str, ...]) -> Path:
     _no_symlinks(output)
     output.mkdir(parents=True, exist_ok=False)
@@ -249,6 +259,24 @@ def main(argv: Sequence[str] | None = None) -> int:
     precision_finalize = commands.add_parser("sample-precision-finalize")
     for name in ("request", "result", "output"):
         precision_finalize.add_argument(f"--{name}", type=Path, required=True)
+    import_release = commands.add_parser("sample-import-release")
+    import_release.add_argument("--output", type=Path, required=True)
+    import_prepare = commands.add_parser("sample-import-prepare")
+    for name in ("release", "output", "source", "review"):
+        import_prepare.add_argument(f"--{name}", type=Path, required=True)
+    for name in (
+        "project-uid",
+        "timeline-uid",
+        "project-name",
+        "timeline-name",
+        "producer-authorization",
+        "task-id",
+    ):
+        import_prepare.add_argument(f"--{name}", required=True)
+    import_prepare.add_argument("--with-picture", action="store_true")
+    import_finalize = commands.add_parser("sample-import-finalize")
+    for name in ("request", "result", "output"):
+        import_finalize.add_argument(f"--{name}", type=Path, required=True)
     output_authorize = commands.add_parser("output-authorize")
     output_authorize.add_argument("--plan", type=Path, required=True)
     output_authorize.add_argument("--output", type=Path, required=True)
@@ -451,6 +479,35 @@ def main(argv: Sequence[str] | None = None) -> int:
             from .sample_precision_compare_v2 import finalize_probe
 
             output = finalize_probe(
+                arguments.request.absolute(),
+                arguments.result.absolute(),
+                arguments.output.absolute(),
+            )
+        elif arguments.command == "sample-import-release":
+            output = build_sample_import_release_v2(arguments.output)
+        elif arguments.command == "sample-import-prepare":
+            from .sample_import_probe_v2 import prepare_import_request
+
+            _verify_release_files(arguments.release, SAMPLE_IMPORT_RUNTIME_FILES)
+            output = prepare_import_request(
+                release_root=arguments.release.absolute(),
+                output=arguments.output.absolute(),
+                source=arguments.source.absolute(),
+                review=arguments.review.absolute(),
+                target={
+                    "projectUid": arguments.project_uid,
+                    "timelineUid": arguments.timeline_uid,
+                    "projectName": arguments.project_name,
+                    "timelineName": arguments.timeline_name,
+                },
+                producer_authorization=arguments.producer_authorization,
+                task_id=arguments.task_id,
+                with_picture=arguments.with_picture,
+            )
+        elif arguments.command == "sample-import-finalize":
+            from .sample_import_compare_v2 import finalize_import_probe
+
+            output = finalize_import_probe(
                 arguments.request.absolute(),
                 arguments.result.absolute(),
                 arguments.output.absolute(),

@@ -321,7 +321,10 @@ def _verify_release(
     expected_sha: str | None = None,
     *,
     installed: bool = False,
+    runtime_files: tuple[str, ...] | None = None,
 ) -> str:
+    # A sibling probe (issue 259) pins its own, larger closed inventory.
+    declared_runtime = RELEASE_RUNTIME_FILES if runtime_files is None else runtime_files
     _no_symlink_ancestry(Path(os.path.abspath(release_root)))
     manifest_path = release_root / "vera-delivery-v2" / "release.json"
     payload = _read(manifest_path)
@@ -343,7 +346,7 @@ def _verify_release(
         "VERA Delivery v2.py",
         *(
             f"vera-delivery-v2/python/vera_timeline_agent/{name}"
-            for name in RELEASE_RUNTIME_FILES
+            for name in declared_runtime
         ),
     }
     seen: set[str] = set()

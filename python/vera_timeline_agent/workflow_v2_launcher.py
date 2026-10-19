@@ -41,6 +41,14 @@ def run_installed_request_v2(
         raise ValueError("operator request changed after release verification")
     request = json.loads(payload)
     if isinstance(request, dict) and request.get("schemaVersion") == (
+        "vera-sample-import-probe-request/v1"
+    ):
+        from .sample_import_probe_v2 import run_sample_import_probe
+
+        return run_sample_import_probe(
+            resolve, request_path, expected_request_sha256=expected_request_sha256
+        )
+    if isinstance(request, dict) and request.get("schemaVersion") == (
         "vera-sample-precision-probe-request/v1"
     ):
         from .sample_precision_probe_v2 import run_sample_precision_probe
