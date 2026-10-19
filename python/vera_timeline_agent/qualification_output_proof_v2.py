@@ -585,14 +585,14 @@ class QualificationOutputProofV2:
             )
             intervals.append({"startSample": start, "endSample": end})
         previous, selected, following = intervals
+        # Producer route A (#215): the cut snaps to Resolve's frame grid, so each
+        # edge need only land within one frame of the reviewed token edge.
         _require(
-            previous["endSample"]
-            <= cut_start
-            <= selected["startSample"]
-            < selected["endSample"]
-            <= cut_end
-            <= following["startSample"],
-            "cut clips a neighbour or incompletely removes token11",
+            previous["endSample"] <= selected["startSample"]
+            and selected["endSample"] <= following["startSample"]
+            and abs(cut_start - selected["startSample"]) < output.FRAME
+            and abs(cut_end - selected["endSample"]) < output.FRAME,
+            "cut edge is a full frame or more away from the reviewed token",
         )
         support = {
             "schemaVersion": "qualification-output-omission-support/v1",

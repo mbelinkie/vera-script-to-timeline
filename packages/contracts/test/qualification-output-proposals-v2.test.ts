@@ -159,9 +159,9 @@ function equality(caseId: string, extentFrames: number): QualificationOutputAudi
   };
 }
 
-function newCase(input: ReturnType<typeof specimen>, kind: "A" | "B" | "C", executionDiffers = false): QualificationOutputObservationCaseV1 {
+function newCase(input: ReturnType<typeof specimen>, kind: "A" | "B" | "C", executionDiffers = false, uncutC = false): QualificationOutputObservationCaseV1 {
   const pristineRaw = observations(input);
-  const editedRaw = edits(pristineRaw, kind);
+  const editedRaw = edits(pristineRaw, uncutC ? "A" : kind);
   const caseId = `isolated-${kind}`;
   const pristineGeometry = geometryEnvelope(input, pristineRaw, "pristine", caseId, executionDiffers);
   const editedGeometry = geometryEnvelope(input, editedRaw, "edited", caseId, executionDiffers);
@@ -169,7 +169,7 @@ function newCase(input: ReturnType<typeof specimen>, kind: "A" | "B" | "C", exec
   const editedComparisonJson = JSON.stringify(comparison(editedGeometry, "edited", caseId));
   const pairJson = kind === "A" ? null : pairRecord(pristineComparisonJson, editedComparisonJson, caseId, pristineGeometry.geometry.extentFrames, editedGeometry.geometry.extentFrames);
   let omissionSupport: QualificationOutputObservationCaseV1["omissionSupport"] = null;
-  if (kind === "C") {
+  if (kind === "C" && !uncutC) {
     const row = input.document.activeDraft.blocks.find((block): block is NarrationBlockV2 => block.type === "narration" && block.tokens.length > 12)!;
     const boundary = input.dependencies.narrationBoundaryEvidence!.find((record) => record.blockId === row.id)!;
     const compiled = compileTimelineV2(input.document, input.dependencies);
@@ -502,6 +502,78 @@ describe("#215 authenticated output observation to explicit revision bridge", ()
   it("rejects C cut geometry without a new closed support record", () => {
     const input = specimen(); const evidence = batch(input, ["C"]); evidence.cases[0]!.omissionSupport = null;
     expect(() => inferQualificationOutputV2(input.document, input.dependencies, evidence)).toThrow(/unique supported A\/B\/C/);
+  });
+
+  describe("C one-frame snapped cut (Producer route A)", () => {
+    // Token edges relative to the actual native cut: cutStart = start - startGap, cutEnd = end + endGap.
+    function snapped(startGap: number, endGap: number, leftOverlap = 0, rightOverlap = 0) {
+      const input = specimen(); const evidence = batch(input, ["C"]);
+      const support = evidence.cases[0]!.omissionSupport!;
+      const cutStart = support.selectedSourceInterval.startSample; const cutEnd = support.selectedSourceInterval.endSample;
+      support.selectedSourceInterval = { startSample: cutStart + startGap, endSample: cutEnd - endGap };
+      const selected = support.selectedSourceInterval;
+      support.leftNeighborSourceInterval = { startSample: 200000, endSample: Math.min(cutStart + leftOverlap, selected.startSample) };
+      support.rightNeighborSourceInterval = { startSample: Math.max(cutEnd - rightOverlap, selected.endSample), endSample: cutEnd + 9000 };
+      return { input, evidence, support, cutStart, cutEnd };
+    }
+
+    it("accepts a -88/+802 snapped cut and reports measured clip and residual samples", () => {
+      const { input, evidence, cutStart, cutEnd } = snapped(88, 802);
+      const inference = inferQualificationOutputV2(input.document, input.dependencies, evidence);
+      expect(inference.omissionMeasurement).toEqual({
+        cutStartSample: cutStart, cutEndSample: cutEnd, selectedStartSample: cutStart + 88, selectedEndSample: cutEnd - 802,
+        cutStartOffsetSamples: -88, cutEndOffsetSamples: 802,
+        leftNeighborClippedSamples: 0, rightNeighborClippedSamples: 0, residualTokenSamplesLeft: 0, residualTokenSamplesRight: 0,
+      });
+      expect(stageQualificationOutputV2(input.document, input.dependencies, evidence, accept(inference.inferenceHash), []).outcome).toBe("accept");
+    });
+
+    it("accepts a neighbor clipped within tolerance and reports residual token samples", () => {
+      const { input, evidence, cutStart, cutEnd } = snapped(-300, -400, 0, 0);
+      const support = evidence.cases[0]!.omissionSupport!;
+      // Cut starts 300 samples inside the token (residue left) and ends 400 samples inside it (residue right).
+      support.leftNeighborSourceInterval.endSample = cutStart - 300;
+      support.rightNeighborSourceInterval.startSample = cutEnd + 400;
+      const inside = inferQualificationOutputV2(input.document, input.dependencies, evidence).omissionMeasurement!;
+      expect([inside.residualTokenSamplesLeft, inside.residualTokenSamplesRight]).toEqual([300, 400]);
+      const clipped = snapped(88, 802, 50, 70);
+      const m = inferQualificationOutputV2(clipped.input.document, clipped.input.dependencies, clipped.evidence).omissionMeasurement!;
+      expect([m.leftNeighborClippedSamples, m.rightNeighborClippedSamples]).toEqual([50, 70]);
+    });
+
+    it("refuses a cut edge a full frame or more from the reviewed token", () => {
+      for (const [startGap, endGap] of [[2002, 0], [-2002, 0], [0, 2002], [0, -2002], [3000, 3000]] as const) {
+        const { input, evidence } = snapped(startGap, endGap);
+        expect(() => inferQualificationOutputV2(input.document, input.dependencies, evidence)).toThrow(/full frame or more/);
+      }
+      const edge = snapped(2001, -2001);
+      expect(inferQualificationOutputV2(edge.input.document, edge.input.dependencies, edge.evidence).omissionMeasurement).not.toBeNull();
+    });
+
+    it("refuses a missing cut", () => {
+      const { input, evidence, support } = snapped(88, 802);
+      const row = evidence.cases[0]!;
+      // Replace the edited side with an uncut capture (the edited A-shaped geometry) and re-pin every raw hash.
+      const uncut = newCase(input, "C", false, true);
+      row.editedGeometryJson = uncut.editedGeometryJson; row.editedInputBindingJson = uncut.editedInputBindingJson;
+      row.editedComparisonJson = uncut.editedComparisonJson;
+      row.pairJson = pairRecord(row.pristineComparisonJson, row.editedComparisonJson, row.caseId, pairFrames(row, "pristine"), pairFrames(row, "edited"));
+      support.editedGeometryRawSha256 = rawHash(row.editedGeometryJson); support.editedComparisonRawSha256 = rawHash(row.editedComparisonJson);
+      support.pairRawSha256 = rawHash(row.pairJson);
+      expect(() => inferQualificationOutputV2(input.document, input.dependencies, evidence)).toThrow(/two new UIDs/);
+    });
+
+    it("refuses downstream ripple", () => {
+      const { input, evidence } = snapped(88, 802);
+      const row = evidence.cases[0]!;
+      const envelope = JSON.parse(row.editedGeometryJson) as { geometry: { items: { recordStart: number; recordDuration: number; eventId: string }[] } };
+      const eventIds = new Set(envelope.geometry.items.map((item) => item.eventId));
+      const later = envelope.geometry.items.filter((item) => item.recordStart > 0).sort((a, b) => b.recordStart - a.recordStart)[0]!;
+      expect(eventIds.size).toBeGreaterThan(1);
+      later.recordStart += 1;
+      row.editedGeometryJson = JSON.stringify(envelope);
+      expect(() => inferQualificationOutputV2(input.document, input.dependencies, evidence)).toThrow(/unsupported item interval|ripple/);
+    });
   });
 
   it("keeps the pure CLI request closed", () => {

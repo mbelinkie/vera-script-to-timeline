@@ -132,6 +132,20 @@ export interface QualificationOutputDecisionV1 {
   outcome: "accept" | "reject";
 }
 
+/** Sample-exact report of where Resolve's frame-grid cut landed relative to the reviewed token. */
+export interface QualificationOutputOmissionMeasurementV1 {
+  cutStartSample: number;
+  cutEndSample: number;
+  selectedStartSample: number;
+  selectedEndSample: number;
+  cutStartOffsetSamples: number;
+  cutEndOffsetSamples: number;
+  leftNeighborClippedSamples: number;
+  rightNeighborClippedSamples: number;
+  residualTokenSamplesLeft: number;
+  residualTokenSamplesRight: number;
+}
+
 export interface QualificationOutputInferenceV1 {
   schemaVersion: "qualification-output-inference/v1";
   lane: typeof LANE;
@@ -141,6 +155,8 @@ export interface QualificationOutputInferenceV1 {
   caseEvidenceHashes: string[];
   commands: RevisionCommandsV2;
   omission: { blockId: string; blockRevision: number; tokenIds: string[]; evidenceHash: string } | null;
+  /** Measured geometry of the snapped native cut against the reviewed token (C only; null otherwise). */
+  omissionMeasurement: QualificationOutputOmissionMeasurementV1 | null;
   caseKinds: CaseKind[];
   inferenceHash: string;
   internalControls: "unverified";
@@ -760,7 +776,7 @@ function narrationEvidence(dependencies: CompilerDependenciesV2, blockId: string
   return evidence[0] as unknown as RecordValue;
 }
 
-function inferOmissionCase(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2, input: ParsedCase, documentHash: string, dependenciesHash: string): { omission: QualificationOutputInferenceV1["omission"]; evidence: QualificationOutputOmissionSupportV1 } | null {
+function inferOmissionCase(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2, input: ParsedCase, documentHash: string, dependenciesHash: string): { omission: QualificationOutputInferenceV1["omission"]; measurement: QualificationOutputOmissionMeasurementV1; evidence: QualificationOutputOmissionSupportV1 } | null {
   if (input.source.omissionSupport === null) return null;
   const supportRecord = shape(input.source.omissionSupport, ["schemaVersion", "lane", "caseId", "documentHash", "dependenciesHash", "blockId", "blockRevision",
     "selectedTokenId", "leftNeighborTokenId", "rightNeighborTokenId", "nativeFrameOrigin", "pcmSampleOrigin", "selectedSourceInterval", "leftNeighborSourceInterval", "rightNeighborSourceInterval",
@@ -808,10 +824,20 @@ function inferOmissionCase(document: ScriptDocumentV2, dependencies: CompilerDep
   fact(gapSourceStart >= nativeFrameOrigin && gapSourceEnd >= nativeFrameOrigin, "C cut precedes native frame origin");
   const cutStartSamples = integer((gapSourceStart - nativeFrameOrigin) * FRAME_SAMPLES + pcmSampleOrigin, "C cut start sample");
   const cutEndSamples = integer((gapSourceEnd - nativeFrameOrigin) * FRAME_SAMPLES + pcmSampleOrigin, "C cut end sample");
+  // Producer route A (#215): Resolve snaps cut edges to its 23.976 frame grid, so each edge need only land
+  // within one frame of the reviewed token edge; neighbour loss and token residue are measured, not forbidden.
   fact(cutEndSamples - cutStartSamples === (gapRecordEnd - gapRecordStart) * FRAME_SAMPLES && cutEndSamples <= durationSamples &&
-    sourceLeft.end <= cutStartSamples && cutStartSamples <= sourceSelected.start &&
-    sourceSelected.end <= cutEndSamples && cutEndSamples <= sourceRight.start,
-    "cut clips a neighbor or incompletely removes the reviewed token");
+    Math.abs(cutStartSamples - sourceSelected.start) < FRAME_SAMPLES && Math.abs(cutEndSamples - sourceSelected.end) < FRAME_SAMPLES,
+  "cut edge is a full frame or more away from the reviewed token boundary");
+  const measurement: QualificationOutputOmissionMeasurementV1 = {
+    cutStartSample: cutStartSamples, cutEndSample: cutEndSamples,
+    selectedStartSample: sourceSelected.start, selectedEndSample: sourceSelected.end,
+    cutStartOffsetSamples: cutStartSamples - sourceSelected.start, cutEndOffsetSamples: cutEndSamples - sourceSelected.end,
+    leftNeighborClippedSamples: Math.max(0, sourceLeft.end - cutStartSamples),
+    rightNeighborClippedSamples: Math.max(0, cutEndSamples - sourceRight.start),
+    residualTokenSamplesLeft: Math.max(0, cutStartSamples - sourceSelected.start),
+    residualTokenSamplesRight: Math.max(0, sourceSelected.end - cutEndSamples),
+  };
   for (const segment of segments) fact(sameStableItem({ ...prior, itemUid: segment.itemUid }, segment), "C split changed source, track, link or control identity");
   const eventIds = new Set(input.pristine.geometry.items.map((item) => item.eventId));
   const untouched = input.edited.geometry.items.filter((item) => item.eventId !== event[0]!.eventId);
@@ -820,20 +846,20 @@ function inferOmissionCase(document: ScriptDocumentV2, dependencies: CompilerDep
     return old !== undefined && sameStableItem(old, item) && equal([old.recordStart, old.recordDuration, old.sourceStart, old.sourceDuration],
       [item.recordStart, item.recordDuration, item.sourceStart, item.sourceDuration]);
   }) && eventIds.has(event[0]!.eventId), "C cut caused ripple or unrelated geometry change");
-  return { omission: { blockId: row.id, blockRevision: row.version, tokenIds: [row.tokens[11]!.id], evidenceHash: sha256CanonicalJson(support) }, evidence: support };
+  return { omission: { blockId: row.id, blockRevision: row.version, tokenIds: [row.tokens[11]!.id], evidenceHash: sha256CanonicalJson(support) }, measurement, evidence: support };
 }
 
 function inferCase(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2, input: ParsedCase,
-  baseline: ReturnType<typeof compileForDocument>, pristineItems: Map<string, ItemV1>, documentHash: string, dependenciesHash: string): { kind: CaseKind; boundary: RevisionCommandsV2["boundary"]; trim: RevisionCommandsV2["trim"]; omission: QualificationOutputInferenceV1["omission"] } {
-  const possible: { kind: CaseKind; boundary: RevisionCommandsV2["boundary"]; trim: RevisionCommandsV2["trim"]; omission: QualificationOutputInferenceV1["omission"] }[] = [];
+  baseline: ReturnType<typeof compileForDocument>, pristineItems: Map<string, ItemV1>, documentHash: string, dependenciesHash: string): { kind: CaseKind; boundary: RevisionCommandsV2["boundary"]; trim: RevisionCommandsV2["trim"]; omission: QualificationOutputInferenceV1["omission"]; omissionMeasurement: QualificationOutputOmissionMeasurementV1 | null } {
+  const possible: { kind: CaseKind; boundary: RevisionCommandsV2["boundary"]; trim: RevisionCommandsV2["trim"]; omission: QualificationOutputInferenceV1["omission"]; omissionMeasurement: QualificationOutputOmissionMeasurementV1 | null }[] = [];
   if (input.source.omissionSupport === null) {
-    for (const boundary of inferBoundaryCase(document, dependencies, input, baseline)) possible.push({ kind: "A", boundary, trim: null, omission: null });
+    for (const boundary of inferBoundaryCase(document, dependencies, input, baseline)) possible.push({ kind: "A", boundary, trim: null, omission: null, omissionMeasurement: null });
   }
   if (input.source.omissionSupport === null) {
-    for (const trim of inferTrimCase(document, dependencies, input, pristineItems)) possible.push({ kind: "B", boundary: null, trim, omission: null });
+    for (const trim of inferTrimCase(document, dependencies, input, pristineItems)) possible.push({ kind: "B", boundary: null, trim, omission: null, omissionMeasurement: null });
   }
   const omission = inferOmissionCase(document, dependencies, input, documentHash, dependenciesHash);
-  if (omission !== null) possible.push({ kind: "C", boundary: null, trim: null, omission: omission.omission });
+  if (omission !== null) possible.push({ kind: "C", boundary: null, trim: null, omission: omission.omission, omissionMeasurement: omission.measurement });
   fact(possible.length === 1, "observation must yield one unique supported A/B/C proposal");
   const selected = possible[0]!;
   if (selected.kind !== "B") fact(input.pristine.geometry.extentFrames === input.edited.geometry.extentFrames, "only an authenticated linked trim may shorten the capture extent");
@@ -868,7 +894,8 @@ export function inferQualificationOutputV2(document: ScriptDocumentV2, dependenc
     schemaVersion: "qualification-output-inference/v1" as const, lane: LANE,
     documentHash: checked.documentHash, dependenciesHash: checked.dependenciesHash,
     evidenceHash: sha256CanonicalJson(checked.batch), caseEvidenceHashes: checked.cases.map((c) => sha256CanonicalJson(c.source)),
-    commands, omission: omissions[0] ?? null, caseKinds: kinds,
+    commands, omission: omissions[0] ?? null,
+    omissionMeasurement: cases.map(({ inference }) => inference.omissionMeasurement).find((m) => m !== null) ?? null, caseKinds: kinds,
     internalControls: "unverified" as const, geometryStability: "not_claimed" as const,
     controlStability: "not_claimed" as const, futureAuthority: false as const,
   };
