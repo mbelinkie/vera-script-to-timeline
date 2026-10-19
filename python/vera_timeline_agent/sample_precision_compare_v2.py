@@ -387,11 +387,9 @@ def _baseline_control_frames(observations: Any) -> int:
 
 
 def _geometry(observations: Any) -> dict[str, Any]:
-    """Require unique source-time units plus saved, sub-sample record geometry."""
+    """Report calibrated geometry, including numeric edge errors on failure."""
     if type(observations) is not list or len(observations) != len(_OBSERVATION_STAGES):
-        raise _EvidenceError(
-            "unsupported", "all four native geometry snapshots are required"
-        )
+        raise _EvidenceError("ambiguous", "native probe lifecycle is incomplete")
     stages: dict[str, list[dict[str, Any]]] = {}
     for expected_stage, snapshot in zip(_OBSERVATION_STAGES, observations, strict=True):
         if type(snapshot) is not dict or snapshot.get("stage") != expected_stage:
@@ -489,6 +487,9 @@ def _geometry(observations: Any) -> dict[str, Any]:
                 )
             )
 
+    baseline_timeline_rows = [
+        row for row in timeline_rows if row[0] in {"baseline", "baseline_after_reopen"}
+    ]
     timeline_candidates: list[dict[str, Any]] = []
     for endpoint, end_adjustment in (("exclusive", 0), ("inclusive", 1)):
         checks: list[dict[str, Any]] = []
@@ -500,7 +501,7 @@ def _geometry(observations: Any) -> dict[str, Any]:
             start_frame,
             end_frame,
             duration,
-        ) in timeline_rows:
+        ) in baseline_timeline_rows:
             expected_start, expected_end = expected_range
             actual_start = start_frame * 2002
             actual_end = (end_frame + end_adjustment) * 2002
@@ -526,8 +527,44 @@ def _geometry(observations: Any) -> dict[str, Any]:
             "ambiguous",
             "timeline endpoint semantics do not uniquely prove sample edges",
         )
-    timeline_checks: list[dict[str, Any]] = timeline_candidates[0]["checks"]
+    timeline_endpoint = timeline_candidates[0]["endEndpoint"]
+    timeline_adjustment = 0 if timeline_endpoint == "exclusive" else 1
+    timeline_checks: list[dict[str, Any]] = []
+    for (
+        stage,
+        index,
+        item,
+        expected_range,
+        start_frame,
+        end_frame,
+        duration,
+    ) in timeline_rows:
+        expected_start, expected_end = expected_range
+        actual_start = start_frame * 2002
+        actual_end = (end_frame + timeline_adjustment) * 2002
+        actual_duration = duration * 2002
+        errors = {
+            "startSamples": actual_start - expected_start,
+            "exclusiveEndSamples": actual_end - expected_end,
+            "durationSamples": actual_duration - (expected_end - expected_start),
+        }
+        timeline_checks.append(
+            {
+                "stage": stage,
+                "itemIndex": index,
+                "timelineItemUid": item["timelineItemUid"],
+                "expectedRecordStartSamples": expected_start,
+                "expectedRecordEndExclusiveSamples": expected_end,
+                "actualRecordStartSamples": actual_start,
+                "actualRecordEndExclusiveSamples": actual_end,
+                "readbackErrorsSamples": errors,
+                "pass": all(abs(error) < 0.5 for error in errors.values()),
+            }
+        )
 
+    baseline_source_rows = [
+        row for row in source_rows if row[0] in {"baseline", "baseline_after_reopen"}
+    ]
     candidates: list[dict[str, Any]] = []
     for unit, scale in (("seconds", SAMPLE_RATE), ("milliseconds", SAMPLE_RATE / 1000)):
         for endpoint, end_adjustment in (
@@ -536,7 +573,7 @@ def _geometry(observations: Any) -> dict[str, Any]:
             ("inclusive_frame", 2002),
         ):
             checks = []
-            for stage, index, item, expected in source_rows:
+            for stage, index, item, expected in baseline_source_rows:
                 raw_start = _getter_number(item, "GetSourceStartTime")
                 raw_end = _getter_number(item, "GetSourceEndTime")
                 start_error = raw_start * scale - expected[0]
@@ -561,32 +598,67 @@ def _geometry(observations: Any) -> dict[str, Any]:
             "source time units/end-point semantics are not uniquely calibrated",
         )
 
-    # The baseline getter assessment remains explicit even if later survivor
-    # evidence fails. The overall geometry gate above requires every snapshot.
-    baseline = [
+    source_unit = candidates[0]["unit"]
+    source_endpoint = candidates[0]["endEndpoint"]
+    source_scale = SAMPLE_RATE if source_unit == "seconds" else SAMPLE_RATE / 1000
+    source_adjustment = {
+        "exclusive": 0,
+        "inclusive_sample": 1,
+        "inclusive_frame": 2002,
+    }[source_endpoint]
+    source_checks: list[dict[str, Any]] = []
+    for stage, index, item, expected in source_rows:
+        raw_start = _getter_number(item, "GetSourceStartTime")
+        raw_end = _getter_number(item, "GetSourceEndTime")
+        actual_start = raw_start * source_scale
+        actual_end = raw_end * source_scale + source_adjustment
+        start_error = actual_start - expected[0]
+        end_error = actual_end - expected[1]
+        source_checks.append(
+            {
+                "stage": stage,
+                "itemIndex": index,
+                "timelineItemUid": item["timelineItemUid"],
+                "expectedSourceStartSamples": expected[0],
+                "expectedSourceEndExclusiveSamples": expected[1],
+                "actualSourceStartSamples": actual_start,
+                "actualSourceEndExclusiveSamples": actual_end,
+                "startErrorSamples": start_error,
+                "endExclusiveErrorSamples": end_error,
+                "pass": abs(start_error) < 0.5 and abs(end_error) < 0.5,
+            }
+        )
+
+    geometry_pass = all(row["pass"] for row in (*timeline_checks, *source_checks))
+    reason = None if geometry_pass else "measured record or source edge mismatch"
+    baseline_timeline = [
         check
         for check in timeline_checks
         if check["stage"] in {"baseline", "baseline_after_reopen"}
     ]
     baseline_source = [
         check
-        for check in candidates[0]["checks"]
+        for check in source_checks
         if check["stage"] in {"baseline", "baseline_after_reopen"}
     ]
     return {
-        "status": "pass",
+        "status": "pass" if geometry_pass else "mismatch",
+        "reason": reason,
         "baselineControlFrames": baseline_frames,
-        "timelineEndEndpoint": timeline_candidates[0]["endEndpoint"],
+        "timelineEndEndpoint": timeline_endpoint,
         "baselineGetterPrecision": {
-            "status": "pass",
-            "timelineChecks": baseline,
+            "status": "pass"
+            if all(row["pass"] for row in (*baseline_timeline, *baseline_source))
+            else "mismatch",
+            "timelineChecks": baseline_timeline,
             "sourceTimeChecks": baseline_source,
         },
         "sourceTimeCalibration": {
-            "unit": candidates[0]["unit"],
-            "endEndpoint": candidates[0]["endEndpoint"],
+            "unit": source_unit,
+            "endEndpoint": source_endpoint,
             "candidateCount": len(candidates),
-            "checks": candidates[0]["checks"],
+            "calibratedFrom": "baseline_control",
+            "checks": source_checks,
         },
         "timelineChecks": timeline_checks,
         "itemIdentities": [
@@ -1080,6 +1152,8 @@ def _verdict(
 ) -> tuple[str, str | None]:
     if pcm.get("status") == "fail":
         return "unsupported", "measured_pcm_mismatch"
+    if geometry.get("status") == "mismatch":
+        return "unsupported", "measured_geometry_mismatch"
     if geometry.get("status") == "ambiguous":
         return "ambiguous", "geometry_or_mapping_ambiguous"
     if geometry.get("status") != "pass":
@@ -1288,7 +1362,9 @@ def finalize_probe(request_path: Path, result_path: Path, output: Path) -> Path:
                 "host PCM comparator source changed during finalization"
             )
     else:
-        pcm["reason"] = "native probe did not produce a completed render"
+        pcm["reason"] = (
+            "PCM comparison not run: native probe produced no completed render/MOV"
+        )
 
     # Recheck every mutable source binding after the potentially long decode.
     _current_release(request)

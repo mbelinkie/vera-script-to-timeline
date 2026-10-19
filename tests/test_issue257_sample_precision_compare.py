@@ -252,8 +252,11 @@ def test_geometry_requires_unique_units_exact_edges_and_reopen_identity() -> Non
 
     shifted = _geometry_observations()
     shifted[-1]["items"][0]["rawGetters"]["GetStart(True)"]["value"] += 0.001
-    with pytest.raises(SamplePrecisionCompareError, match="sample edges"):
-        compare_module._geometry(shifted)
+    shifted_result = compare_module._geometry(shifted)
+    assert shifted_result["status"] == "mismatch"
+    assert shifted_result["timelineChecks"][-2]["readbackErrorsSamples"][
+        "startSamples"
+    ] == pytest.approx(2.002)
 
     reloaded = _geometry_observations()
     reloaded[-1]["items"][1]["timelineItemUid"] = "replaced-survivor"
@@ -265,8 +268,11 @@ def test_geometry_requires_unique_units_exact_edges_and_reopen_identity() -> Non
 
     inconsistent = _geometry_observations()
     inconsistent[-1]["items"][1]["rawGetters"]["GetEnd(True)"]["value"] += 1
-    with pytest.raises(SamplePrecisionCompareError, match="endpoint semantics"):
-        compare_module._geometry(inconsistent)
+    inconsistent_result = compare_module._geometry(inconsistent)
+    assert inconsistent_result["status"] == "mismatch"
+    assert inconsistent_result["timelineChecks"][-1]["readbackErrorsSamples"][
+        "exclusiveEndSamples"
+    ] == pytest.approx(2002)
 
 
 @pytest.mark.parametrize(
@@ -291,6 +297,71 @@ def test_geometry_calibrates_baseline_control_and_source_end_semantics(
     assert result["baselineControlFrames"] == baseline_frames
     assert result["sourceTimeCalibration"]["endEndpoint"] == source_endpoint
     assert append_adjustment == (0 if baseline_frames == 100 else -1)
+
+
+def test_geometry_reports_measured_native_rounding_errors_and_source_edges() -> None:
+    observations = _geometry_observations()
+    for snapshot in observations[:2]:
+        baseline = snapshot["items"][0]["rawGetters"]
+        baseline["GetEnd(True)"]["value"] = 100.00000000000001
+        baseline["GetDuration(True)"]["value"] = 100.00000000000001
+    first = {
+        "GetStart(True)": 0.0,
+        "GetEnd(True)": 116.0,
+        "GetDuration(True)": 116.0,
+        "GetSourceStartTime": 0.0,
+        "GetSourceEndTime": 4.838166666666666,
+    }
+    second = {
+        "GetStart(True)": 120.5994005994006,
+        "GetEnd(True)": 199.5994005994006,
+        "GetDuration(True)": 79.0,
+        "GetSourceStartTime": 5.046708333333333,
+        "GetSourceEndTime": 8.341666666666665,
+    }
+    for snapshot in observations[2:]:
+        for index, values in enumerate((first, second)):
+            getters = snapshot["items"][index]["rawGetters"]
+            for getter_name, value in values.items():
+                getters[getter_name]["value"] = value
+
+    result = compare_module._geometry_report(observations)
+
+    assert result["status"] == "mismatch"
+    assert result["sourceTimeCalibration"]["unit"] == "seconds"
+    assert result["sourceTimeCalibration"]["endEndpoint"] == "exclusive"
+    first_edge = result["sourceTimeCalibration"]["checks"][2]
+    second_edge = result["sourceTimeCalibration"]["checks"][3]
+    assert first_edge["actualSourceEndExclusiveSamples"] == pytest.approx(232232)
+    assert first_edge["endExclusiveErrorSamples"] == pytest.approx(-88)
+    assert second_edge["actualSourceStartSamples"] == pytest.approx(242242)
+    assert second_edge["startErrorSamples"] == pytest.approx(802)
+    timeline_first = result["timelineChecks"][2]
+    timeline_second = result["timelineChecks"][3]
+    assert timeline_first["readbackErrorsSamples"][
+        "exclusiveEndSamples"
+    ] == pytest.approx(-88)
+    assert timeline_second["readbackErrorsSamples"][
+        "exclusiveEndSamples"
+    ] == pytest.approx(-802)
+    assert compare_module._verdict("ambiguous", result, {"status": "unsupported"}) == (
+        "unsupported",
+        "measured_geometry_mismatch",
+    )
+    assert result["baselineGetterPrecision"]["status"] == "pass"
+    assert result["baselineControlFrames"] == 100
+
+
+def test_incomplete_probe_observations_are_ambiguous_lifecycle_evidence() -> None:
+    observations = _geometry_observations()[:3]
+
+    result = compare_module._geometry_report(observations)
+
+    assert result["status"] == "ambiguous"
+    assert compare_module._verdict("ambiguous", result, {"status": "unsupported"}) == (
+        "ambiguous",
+        "geometry_or_mapping_ambiguous",
+    )
 
 
 @pytest.mark.parametrize(("baseline_frames", "adjustment"), [(100, 0), (101, -1)])
