@@ -1427,3 +1427,40 @@ def test_malformed_foreign_row_is_a_typed_refusal() -> None:
         q.create_prediction(
             replace(c.inputs, source_proofs={sid: broken}), trust=c.trust, ledger=[]
         )
+
+
+def with_extent(phase: str, extent: int, *, item_frames: int | None = None) -> Case:
+    """Package duration stays the admitted 6 frames; geometry extent is varied."""
+    c = case(phase=phase)
+    snapshot = json.loads(c.inputs.geometry)
+    snapshot["geometry"]["extentFrames"] = extent
+    if item_frames is not None:
+        item = snapshot["geometry"]["items"][0]
+        snapshot["geometry"]["items"] = [
+            {**item, "recordDuration": item_frames, "sourceDuration": item_frames}
+        ]
+    c.inputs = replace(c.inputs, geometry=canonical(snapshot))
+    c.reseal_geometry()
+    return c
+
+
+def test_shortened_edited_extent_without_tail_is_accepted() -> None:
+    c = with_extent("edited", 2, item_frames=2)
+    predicted = q.create_prediction(c.inputs, trust=c.trust, ledger=[])
+    assert len(predicted.pcm) // 16 == 2 * q.FRAME
+
+
+@pytest.mark.parametrize(
+    "phase,extent,item_frames",
+    [
+        ("edited", 4, 2),  # shorter than the package but with a tail past the items
+        ("pristine", 2, 2),  # only an edited capture may end early
+        ("edited", 7, 7),  # never longer than the package
+    ],
+)
+def test_shortened_extent_outside_authenticated_edit_refuses(
+    phase: str, extent: int, item_frames: int
+) -> None:
+    c = with_extent(phase, extent, item_frames=item_frames)
+    with pytest.raises(r.OutputConsistencyError):
+        q.create_prediction(c.inputs, trust=c.trust, ledger=[])

@@ -2288,6 +2288,7 @@ class QualificationOutputController:
             decode_record, decode_receipt, decoded_samples = self.decode_output(
                 lineage=lineage,
                 completion=(completion[0], completion[1]),
+                commitment=materials["commitment"],
             )
             completed = output.CommittedOutput(
                 inputs=inputs,
@@ -2793,7 +2794,7 @@ class QualificationOutputController:
         return raw
 
     def decode_output(
-        self, *, lineage: bytes, completion: tuple[Path, str]
+        self, *, lineage: bytes, completion: tuple[Path, str], commitment: bytes
     ) -> tuple[bytes, bytes, bytes]:
         """Run the fixed decoder against the actual job's same delivered MOV."""
         from .qualification_output_decode_v2 import (
@@ -2819,12 +2820,24 @@ class QualificationOutputController:
             _read(self.journal.artifacts / _hash(lineage)) == lineage,
             "unowned native lineage",
         )
+        # The committed extent: the admitted interval, or the shorter extent of
+        # an authenticated linked ripple trim. Never padded to the package.
+        committed = _parse(commitment)
+        _require(
+            _hash(commitment) == value["commitmentRawSha256"]
+            and committed["context"] == self.context
+            and type(committed["extentFrames"]) is int
+            and 0
+            < committed["extentFrames"]
+            <= self.admission.manifest["timeline"]["durationFrames"],
+            "decode extent is not this attempt's committed extent",
+        )
         timeline = self.admission.manifest["timeline"]
         decoded = decode_delivered_mov(
             Path(native["outputPath"]),
             context=self.context,
             expected_output_sha256=value["sourceOutputRawSha256"],
-            expected_extent_frames=timeline["durationFrames"],
+            expected_extent_frames=committed["extentFrames"],
             expected_width=timeline["width"],
             expected_height=timeline["height"],
             render_lineage=VerifiedRenderLineage(value),
