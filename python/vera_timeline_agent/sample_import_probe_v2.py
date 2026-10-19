@@ -805,10 +805,10 @@ def _pin_identity(identity: dict[str, Any], expected_name: str, known: set[str])
         raise ProbeStop("ambiguous", "import did not create a new timeline")
     frame_rate = _supported(identity["frameRate"])
     start = _supported(identity["startFrame"])
-    if str(frame_rate) != "23.976" or start != 0:
+    if str(frame_rate) != "23.976" or type(start) is not int or start < 0:
         raise ProbeStop(
             "unsupported",
-            f"imported timeline is not 23.976 fps from frame 0 "
+            f"imported timeline is not 23.976 fps with an integer start frame "
             f"(frameRate={frame_rate!r}, startFrame={start!r})",
         )
     return uid
@@ -1017,8 +1017,30 @@ def _require_job_timeline(
         )
 
 
+def _verify_job_marks(
+    job: dict[str, Any], job_id: str, output_path: Path, start_frame: int
+) -> None:
+    """Verify the job against the fixed profile with start-relative marks.
+
+    The shared profile check pins marks 0..199; the candidate timeline starts
+    at its own start frame, so the marks must be start..start+199 instead.
+    """
+    base._require(
+        job.get("MarkIn") == start_frame
+        and job.get("MarkOut") == start_frame + PICTURE_FRAMES - 1,
+        "queued job mark range is not the candidate start-relative 200 frames",
+    )
+    base._verify_job(
+        {**job, "MarkIn": 0, "MarkOut": PICTURE_FRAMES - 1}, job_id, output_path
+    )
+
+
 def _render(
-    state: dict[str, Any], project: Any, output_path: Path, candidate_name: str
+    state: dict[str, Any],
+    project: Any,
+    output_path: Path,
+    candidate_name: str,
+    start_frame: int,
 ) -> dict[str, Any]:
     request = state["request"]
     base._no_symlink_ancestry(output_path.parent)
@@ -1052,7 +1074,11 @@ def _render(
         mode is True and base._invoke(project, "GetCurrentRenderMode") == 1,
         "single-clip render mode did not read back",
     )
-    settings = base._render_settings(output_path)
+    settings = {
+        **base._render_settings(output_path),
+        "MarkIn": start_frame,
+        "MarkOut": start_frame + PICTURE_FRAMES - 1,
+    }
     applied = _journal(
         state, "render_set_settings", project, "SetRenderSettings", [settings]
     )
@@ -1120,7 +1146,7 @@ def _render(
     evidence.update(
         status="queued_job_unverified", jobId=job_id, job=base._native_value(job)
     )
-    base._verify_job(job, job_id, output_path)
+    _verify_job_marks(job, job_id, output_path, start_frame)
     _require_job_timeline(evidence, job, candidate_name)
     status = base._invoke(project, "GetRenderJobStatus", job_id)
     evidence["jobStatus"] = base._native_value(status)
@@ -1135,7 +1161,7 @@ def _render(
         "render queue changed before exact-job start",
     )
     job = base._job_for(project, job_id)
-    base._verify_job(job, job_id, output_path)
+    _verify_job_marks(job, job_id, output_path, start_frame)
     _require_job_timeline(evidence, job, candidate_name)
     evidence["job"] = base._native_value(job)
     started = _journal(
@@ -1164,7 +1190,7 @@ def _render(
             "render status is unreadable after timeout",
         )
         final_job = base._job_for(project, job_id)
-        base._verify_job(final_job, job_id, output_path)
+        _verify_job_marks(final_job, job_id, output_path, start_frame)
         evidence.update(
             status=(
                 "active_timeout_retained"
@@ -1179,7 +1205,7 @@ def _render(
             "exact render job did not reach a terminal state within 180 seconds"
         )
     final_job = base._job_for(project, job_id)
-    base._verify_job(final_job, job_id, output_path)
+    _verify_job_marks(final_job, job_id, output_path, start_frame)
     base._require(
         last_status["JobStatus"] == "Complete",
         f"native render ended {last_status['JobStatus']}",
@@ -1327,7 +1353,11 @@ def run_sample_import_probe(
         # Render only the candidate (it is the current timeline after the loop).
         output_path = render_output_path(request)
         state["render"] = _render(
-            state, project, output_path, timelines["candidate"]["name"]
+            state,
+            project,
+            output_path,
+            timelines["candidate"]["name"],
+            _supported(timelines["candidate"]["identity"]["startFrame"]),
         )
         post = _observe(
             "candidate_after_render",

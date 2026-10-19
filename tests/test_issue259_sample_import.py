@@ -60,8 +60,14 @@ class _S(_NativeState):  # type: ignore[misc,valid-type]
         readback: str = "exact",
         subtype_raises: bool = False,
         remap_after_reopen: bool = False,
+        start_frame: int | str = 0,
+        reopen_start_frame: int | None = None,
+        job_marks: tuple[int, int] | None = None,
     ) -> None:
         super().__init__(request)
+        self.start_frame = start_frame
+        self.reopen_start_frame = reopen_start_frame
+        self.job_marks = job_marks
         self.job_timeline = job_timeline
         self.readback = readback
         self.subtype_raises = subtype_raises
@@ -126,11 +132,11 @@ class _Item:
         return _Media(self.path)
 
     def GetStart(self, sub: bool = False) -> float:
-        frames = self.row["record"][0] / 2002
+        frames = self.row["record"][0] / 2002 + self.row.get("offset", 0)
         return frames if sub else float(int(frames))
 
     def GetEnd(self, sub: bool = False) -> float:
-        frames = self.row["record"][1] / 2002
+        frames = self.row["record"][1] / 2002 + self.row.get("offset", 0)
         return frames if sub else float(int(frames))
 
     def GetDuration(self, sub: bool = False) -> float:
@@ -181,7 +187,12 @@ class _Timeline:
         }[key]
 
     def GetStartFrame(self) -> int:
-        return 0
+        state = self.state
+        if self.row is state.timelines[0]:
+            return 0
+        if state.reopen_start_frame is not None and state.epoch >= 1:
+            return state.reopen_start_frame
+        return cast(int, state.start_frame)
 
     def GetStartTimecode(self) -> str:
         return "00:00:00:00"
@@ -247,6 +258,9 @@ class _Pool:
                         source = (_quantize(source[0]), _quantize(source[1]))
                     row = {
                         "uid": f"item-{state.next_uid}",
+                        "offset": state.start_frame
+                        if type(state.start_frame) is int
+                        else 0,
                         "record": (cursor, cursor + duration),
                         "source": source,
                     }
@@ -298,6 +312,11 @@ class _P(_Project):  # type: ignore[misc,valid-type]
         if self.s.empty_job:
             return ""
         job_id = cast(str, super().AddRenderJob())
+        settings = self.s.render_settings
+        self.s.queue[-1]["MarkIn"] = settings["MarkIn"]
+        self.s.queue[-1]["MarkOut"] = settings["MarkOut"]
+        if self.s.job_marks is not None:
+            self.s.queue[-1]["MarkIn"], self.s.queue[-1]["MarkOut"] = self.s.job_marks
         if self.s.job_timeline == "candidate":
             self.s.queue[-1]["TimelineName"] = self._row()["name"]
         elif self.s.job_timeline == "other":
@@ -737,6 +756,65 @@ def test_wrong_frame_rate_stops_before_more_effects(
     assert state.calls == ["ImportTimelineFromFile"]
 
 
+def test_nonzero_start_frame_is_accepted_and_render_marks_are_start_relative(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = _env(tmp_path, monkeypatch)
+    result, _, state = _run(env, start_frame=86400)
+    assert result["status"] == "rendered_for_pcm_verification"
+    settings = result["render"]["settings"]["requested"]
+    assert (settings["MarkIn"], settings["MarkOut"]) == (86400, 86599)
+    assert (result["render"]["job"]["MarkIn"], result["render"]["job"]["MarkOut"]) == (
+        86400,
+        86599,
+    )
+    assert result["timelines"]["candidate"]["identity"]["startFrame"]["value"] == 86400
+    geometry = _geometry(env, result)
+    assert geometry["status"] == "pass"
+    assert geometry["startFrames"] == {
+        "control": 86400,
+        "calibration": 86400,
+        "candidate": 86400,
+    }
+    assert state.queue[0]["MarkIn"] == 86400
+
+
+def test_job_with_zero_based_marks_is_refused_when_start_is_nonzero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = _env(tmp_path, monkeypatch)
+    result, _, state = _run(env, start_frame=86400, job_marks=(0, 199))
+    assert result["status"] not in {"rendered_for_pcm_verification"}
+    assert "StartRendering" not in [row["method"] for row in result["effects"]]
+    assert "mark range" in result["failure"]["message"]
+    assert state.render_status != "Complete"
+
+
+@pytest.mark.parametrize("start_frame", ["86400", -1, 1.5])
+def test_missing_or_non_integer_start_frame_is_unsupported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, start_frame: Any
+) -> None:
+    env = _env(tmp_path, monkeypatch)
+    result, _, state = _run(env, start_frame=start_frame)
+    assert result["status"] == "unsupported"
+    assert "integer start frame" in result["failure"]["message"]
+    assert state.calls == ["ImportTimelineFromFile"]
+
+
+def test_start_frame_changed_after_reopen_is_not_supported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = _env(tmp_path, monkeypatch)
+    result, _, _ = _run(env, start_frame=86400, reopen_start_frame=0)
+    geometry = _geometry(env, result)
+    assert geometry["status"] == "unsupported"
+    assert "differs from its pinned import value" in geometry["reason"]
+    assert (
+        result["status"] != "rendered_for_pcm_verification"
+        or geometry["status"] != "pass"
+    )
+
+
 def test_empty_add_render_job_is_an_explicit_limited_outcome(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -874,6 +952,32 @@ def test_exact_geometry_and_matching_pcm_is_supported(
     assert report["pcm"]["status"] == "pass"
     assert report["nativeRequestPath"] == str(env.installed_request)
     assert report["sourceIntegrity"]["unchanged"] is True
+
+
+def test_nonzero_start_frame_with_relative_geometry_and_pcm_is_supported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = _env(tmp_path, monkeypatch)
+    report = _finalize(env, monkeypatch, _native_pcm(SAMPLES), start_frame=86400)
+    assert report["status"] == "supported"
+    assert report["geometry"]["startFrames"]["candidate"] == 86400
+    assert report["nativeRender"]["job"]["MarkIn"] == 86400
+    assert report["nativeRender"]["job"]["MarkOut"] == 86599
+
+
+def test_start_frame_changed_between_import_and_reopen_is_not_supported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = _env(tmp_path, monkeypatch)
+    # The drifted start frame is refused outright; no supported report exists.
+    with pytest.raises(pcm_base.SamplePrecisionCompareError, match="after native"):
+        _finalize(
+            env,
+            monkeypatch,
+            _native_pcm(SAMPLES),
+            start_frame=86400,
+            reopen_start_frame=0,
+        )
 
 
 def test_pcm_mismatch_with_exact_geometry_is_unsupported(

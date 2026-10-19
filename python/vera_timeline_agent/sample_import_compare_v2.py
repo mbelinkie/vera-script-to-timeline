@@ -98,7 +98,11 @@ def _identity_value(snapshot: dict[str, Any], key: str) -> Any:
     return row.get("value")
 
 
-def _check_timeline_identity(stages: dict[str, dict[str, Any]], timelines: Any) -> None:
+def _check_timeline_identity(
+    stages: dict[str, dict[str, Any]], timelines: Any
+) -> dict[str, int]:
+    """Check pins; return each role's pinned start frame (any integer >= 0)."""
+    start_frames: dict[str, int] = {}
     for stage, snapshot in stages.items():
         role = snapshot["role"]
         pinned = timelines.get(role) if type(timelines) is dict else None
@@ -110,16 +114,37 @@ def _check_timeline_identity(stages: dict[str, dict[str, Any]], timelines: Any) 
             raise _EvidenceError(
                 "ambiguous", f"{stage}: timeline identity differs from its pin"
             )
+        pinned_identity = pinned.get("identity")
+        pinned_row = (
+            pinned_identity.get("startFrame") if type(pinned_identity) is dict else None
+        )
+        if type(pinned_row) is not dict or pinned_row.get("status") != "supported":
+            raise _EvidenceError(
+                "ambiguous", f"{stage}: pinned timeline start frame is unobserved"
+            )
+        pinned_start = pinned_row.get("value")
+        start = _identity_value(snapshot, "startFrame")
         if (
             str(_identity_value(snapshot, "frameRate")) != "23.976"
-            or _identity_value(snapshot, "startFrame") != 0
+            or type(start) is not int
+            or type(pinned_start) is not int
+            or pinned_start < 0
+            or start < 0
         ):
             raise _EvidenceError(
                 "unsupported",
-                f"{stage}: timeline is not 23.976 fps from frame 0 "
+                f"{stage}: timeline is not 23.976 fps with an integer start frame "
                 f"(frameRate={_identity_value(snapshot, 'frameRate')!r}, "
-                f"startFrame={_identity_value(snapshot, 'startFrame')!r})",
+                f"startFrame={start!r})",
             )
+        if start != pinned_start:
+            raise _EvidenceError(
+                "unsupported",
+                f"{stage}: timeline start frame {start!r} differs from its pinned "
+                f"import value {pinned_start!r}",
+            )
+        start_frames[role] = pinned_start
+    return start_frames
 
 
 def _audio_items(
@@ -209,11 +234,17 @@ def _raw(item: dict[str, Any]) -> dict[str, float]:
 
 
 def _measure(
-    raw: dict[str, float], clip: dict[str, Any], semantics: dict[str, Any]
+    raw: dict[str, float],
+    clip: dict[str, Any],
+    semantics: dict[str, Any],
+    start_frame: int,
 ) -> dict[str, Any]:
+    # Record coordinates are relative to the timeline's own start frame.
     actual = {
-        "recordStart": raw["startFrames"] * FRAME_SAMPLES,
-        "recordEndExclusive": (raw["endFrames"] + semantics["recordEndAdjustment"])
+        "recordStart": (raw["startFrames"] - start_frame) * FRAME_SAMPLES,
+        "recordEndExclusive": (
+            raw["endFrames"] + semantics["recordEndAdjustment"] - start_frame
+        )
         * FRAME_SAMPLES,
         "recordDuration": raw["durationFrames"] * FRAME_SAMPLES,
         "sourceStart": raw["sourceStartSeconds"] * semantics["sourceScale"],
@@ -265,7 +296,7 @@ def analyze_geometry(
     """Interpret getters only through semantics calibrated from the controls."""
     try:
         stages = _observations_by_stage(observations)
-        _check_timeline_identity(stages, timelines)
+        start_frames = _check_timeline_identity(stages, timelines)
         plans = {row["role"]: row["plan"]["audioClips"] for row in imports}
         raws: dict[str, list[dict[str, Any]]] = {}
         uids: dict[str, list[str]] = {}
@@ -288,7 +319,7 @@ def analyze_geometry(
     ) -> dict[str, list[dict[str, Any]]]:
         return {
             stage: [
-                _measure(raw, clip, semantics)
+                _measure(raw, clip, semantics, start_frames[role])
                 for raw, clip in zip(raws[stage], plans[role], strict=True)
             ]
             for stage in (f"{role}_imported", f"{role}_after_reopen")
@@ -309,6 +340,7 @@ def analyze_geometry(
                 "getter endpoint semantics are not uniquely calibrated by the "
                 f"untouched control ({len(control_candidates)} candidates)"
             ),
+            "startFrames": start_frames,
             "rawGetterValues": raws,
         }
     semantics = control_candidates[0]
@@ -344,6 +376,7 @@ def analyze_geometry(
         "channelLayout": layouts,
         "channelLayoutProblem": layout_problem,
         "semantics": _semantics_label(semantics),
+        "startFrames": start_frames,
         "calibrationOffGridExact": calibration_exact,
         "candidateExact": candidate_exact,
         "controlChecks": stage_rows("control", semantics),
@@ -592,7 +625,12 @@ def _verify_effect_journals(
         render = result.get("render")
         if type(render) is not dict or type(render.get("outputPath")) is not str:
             raise SamplePrecisionCompareError("result has no fixed render path")
-        expected_settings = native_base._render_settings(Path(render["outputPath"]))
+        start_frame = _candidate_start_frame(result)
+        expected_settings = {
+            **native_base._render_settings(Path(render["outputPath"])),
+            "MarkIn": start_frame,
+            "MarkOut": start_frame + probe.PICTURE_FRAMES - 1,
+        }
         names = {row["stage"]: row for row in effects}
         if (
             names["render_select_format"]["arguments"] != ["mov", "ProRes422"]
@@ -638,6 +676,25 @@ def _verdict(
     return "supported", None
 
 
+def _candidate_start_frame(result: dict[str, Any]) -> int:
+    """The candidate's pinned start frame: an observed integer >= 0."""
+    timelines = result.get("timelines")
+    candidate = timelines.get("candidate") if type(timelines) is dict else None
+    identity = candidate.get("identity") if type(candidate) is dict else None
+    row = identity.get("startFrame") if type(identity) is dict else None
+    value = row.get("value") if type(row) is dict else None
+    if (
+        type(row) is not dict
+        or row.get("status") != "supported"
+        or type(value) is not int
+        or value < 0
+    ):
+        raise SamplePrecisionCompareError(
+            "pinned candidate start frame is not an observed integer"
+        )
+    return value
+
+
 def _authenticate_render(
     request: dict[str, Any], result: dict[str, Any]
 ) -> dict[str, Any]:
@@ -657,8 +714,11 @@ def _authenticate_render(
         raise SamplePrecisionCompareError(
             "native render profile or terminal job binding differs"
         )
+    start_frame = _candidate_start_frame(result)
     try:
-        native_base._verify_job(render["job"], render["jobId"], expected_mov)
+        probe._verify_job_marks(
+            render["job"], render["jobId"], expected_mov, start_frame
+        )
     except (ValueError, TypeError, KeyError) as error:
         raise SamplePrecisionCompareError(
             "native render job differs from the fixed profile"
@@ -677,7 +737,11 @@ def _authenticate_render(
         raise SamplePrecisionCompareError(
             "native render job is not bound to the pinned candidate timeline"
         )
-    requested = native_base._render_settings(expected_mov)
+    requested = {
+        **native_base._render_settings(expected_mov),
+        "MarkIn": start_frame,
+        "MarkOut": start_frame + probe.PICTURE_FRAMES - 1,
+    }
     settings = render.get("settings")
     if type(settings) is not dict or settings.get("requested") != requested:
         raise SamplePrecisionCompareError("native render requested settings differ")
@@ -704,6 +768,8 @@ def _authenticate_render(
         or post.get("stage") != "candidate_after_render"
         or post.get("tracks") != reopened.get("tracks")
         or post.get("timeline") != reopened.get("timeline")
+        or (post.get("timeline") or {}).get("startFrame", {}).get("value")
+        != start_frame
     ):
         raise SamplePrecisionCompareError(
             "candidate geometry changed or is unverified after native render"
