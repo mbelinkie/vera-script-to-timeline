@@ -1030,9 +1030,12 @@ def _verify_job_marks(
         and job.get("MarkOut") == start_frame + PICTURE_FRAMES - 1,
         "queued job mark range is not the candidate start-relative 200 frames",
     )
-    base._verify_job(
-        {**job, "MarkIn": 0, "MarkOut": PICTURE_FRAMES - 1}, job_id, output_path
-    )
+    # Resolve 21.1.1 reports the job frame rate as the string "23.976"; that is
+    # the same fixed rate, not a different profile.
+    normalized = {**job, "MarkIn": 0, "MarkOut": PICTURE_FRAMES - 1}
+    if normalized.get("FrameRate") == "23.976":
+        normalized["FrameRate"] = 23.976
+    base._verify_job(normalized, job_id, output_path)
 
 
 def _render(

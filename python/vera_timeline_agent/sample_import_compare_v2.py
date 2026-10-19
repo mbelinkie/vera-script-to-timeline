@@ -752,6 +752,10 @@ def _authenticate_render(
     if readback.get("status") in {"unsupported", "ambiguous"}:
         if readback.get("method") != "Project.GetRenderSettings":
             raise SamplePrecisionCompareError("render settings diagnostic differs")
+        # An absent getter (Resolve 21.1.1 has none) leaves the profile to the
+        # verified queued-job readback above and the decoder's own MOV checks;
+        # an ambiguous (raising) getter still never yields supported.
+        readback_verified = readback.get("status") == "unsupported"
     elif any(readback.get(key) != value for key, value in requested.items()):
         raise SamplePrecisionCompareError("render settings getter differs")
     else:

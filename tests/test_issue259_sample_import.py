@@ -315,6 +315,8 @@ class _P(_Project):  # type: ignore[misc,valid-type]
         settings = self.s.render_settings
         self.s.queue[-1]["MarkIn"] = settings["MarkIn"]
         self.s.queue[-1]["MarkOut"] = settings["MarkOut"]
+        # Real Resolve 21.1.1 reports the job frame rate as a string.
+        self.s.queue[-1]["FrameRate"] = "23.976"
         if self.s.job_marks is not None:
             self.s.queue[-1]["MarkIn"], self.s.queue[-1]["MarkOut"] = self.s.job_marks
         if self.s.job_timeline == "candidate":
@@ -322,6 +324,15 @@ class _P(_Project):  # type: ignore[misc,valid-type]
         elif self.s.job_timeline == "other":
             self.s.queue[-1]["TimelineName"] = "some-other-timeline"
         return job_id
+
+    def __getattribute__(self, name: str) -> Any:
+        # Real Resolve 21.1.1 has no Project.GetRenderSettings at all.
+        if (
+            name == "GetRenderSettings"
+            and object.__getattribute__(self, "s").readback == "absent"
+        ):
+            raise AttributeError(name)
+        return super().__getattribute__(name)
 
     def GetRenderSettings(self) -> dict[str, Any]:
         if self.s.readback == "raises":
@@ -1273,3 +1284,16 @@ def test_black_picture_control_is_generated_deterministically_by_pinned_ffmpeg(
     probe.generate_black_picture(second)
     assert first.read_bytes() == second.read_bytes()
     assert not first.stat().st_mode & 0o222
+
+
+def test_absent_settings_getter_uses_verified_job_readback_and_can_support(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Resolve 21.1.1 lacks GetRenderSettings: the verified queued-job readback
+    (string "23.976" frame rate, start-relative marks) and decoder checks stand."""
+    env = _env(tmp_path, monkeypatch)
+    report = _finalize(env, monkeypatch, _native_pcm(SAMPLES), readback="absent")
+    assert report["nativeRender"]["settings"]["readback"]["status"] == "unsupported"
+    assert report["nativeRender"]["job"]["FrameRate"] == "23.976"
+    assert report["nativeRender"]["settingsReadbackVerified"] is True
+    assert report["status"] == "supported"
