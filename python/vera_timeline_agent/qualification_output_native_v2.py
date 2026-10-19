@@ -3936,9 +3936,32 @@ def _capture_geometry(
                         for method, frame in edges
                     )
                     if _observed_edit:
+                        start_time = range_times.get("GetSourceStartTime")
+                        end_time = range_times.get("GetSourceEndTime")
+                        sample_errors = tuple(
+                            (
+                                Fraction(str(range_times[method]))
+                                - frame * rate_seconds
+                            )
+                            * 48_000
+                            if type(range_times.get(method)) in {int, float}
+                            and math.isfinite(range_times[method])
+                            else None
+                            for method, frame in edges
+                        )
                         _require(
                             exact_frame_edges,
-                            "edited audio source range lacks sample-accurate edges",
+                            "edited audio source range lacks sample-accurate edges "
+                            f"(track={kind}:{index}, itemUid={uid}, "
+                            f"sourceId={source_id}, "
+                            f"sourceFrames=({source_start},{source_end}), "
+                            f"GetSourceStartTime={start_time!r}, "
+                            f"GetSourceEndTime={end_time!r}, "
+                            "expectedSourceTimes="
+                            f"({start_frame * rate_seconds!r}, "
+                            f"{end_frame * rate_seconds!r}), "
+                            f"sampleErrors={sample_errors!r}, "
+                            "toleranceSamples=1)",
                         )
                     if exact_frame_edges:
                         source_duration = source_end - source_start

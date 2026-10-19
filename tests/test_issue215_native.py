@@ -430,8 +430,12 @@ def test_matrix_observed_narration_split_requires_sample_aligned_audio_edges(
         with pytest.raises(
             OutputConsistencyError,
             match="edited audio source range lacks sample-accurate edges",
-        ):
+        ) as refused:
             native._capture_observed_geometry(resolve, request, admitted, None)
+        reason = str(refused.value)
+        assert "sourceFrames=(18,22)" in reason
+        assert "GetSourceStartTime" in reason and "GetSourceEndTime" in reason
+        assert "sampleErrors=" in reason and "toleranceSamples=1" in reason
         return
 
     geometry = native._capture_observed_geometry(resolve, request, admitted, None)
