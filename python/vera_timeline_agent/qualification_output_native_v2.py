@@ -3494,6 +3494,18 @@ def _validate_observed_event_geometry(
         )
 
 
+def _source_time_error_samples(
+    value: Any, frame: int, rate_seconds: Fraction
+) -> Fraction | None:
+    if type(value) is int:
+        seconds = Fraction(value)
+    elif type(value) is float and math.isfinite(value):
+        seconds = Fraction(str(value))
+    else:
+        return None
+    return (seconds - frame * rate_seconds) * 48_000
+
+
 def _capture_geometry(
     resolve: Any,
     request: dict[str, Any],
@@ -3926,25 +3938,35 @@ def _capture_geometry(
                         ("GetSourceStartTime", start_frame),
                         ("GetSourceEndTime", end_frame),
                     )
-                    exact_frame_edges = all(
-                        type(range_times.get(method)) in {int, float}
-                        and math.isfinite(range_times[method])
-                        and abs(
-                            Fraction(str(range_times[method])) - frame * rate_seconds
-                        )
-                        <= sample_tolerance
-                        for method, frame in edges
-                    )
                     if _observed_edit:
                         start_time = range_times.get("GetSourceStartTime")
                         end_time = range_times.get("GetSourceEndTime")
-                        sample_errors = tuple(
-                            (Fraction(str(range_times[method])) - frame * rate_seconds)
-                            * 48_000
-                            if type(range_times.get(method)) in {int, float}
-                            and math.isfinite(range_times[method])
-                            else None
-                            for method, frame in edges
+                        start_error = _source_time_error_samples(
+                            start_time, start_frame, rate_seconds
+                        )
+                        exclusive_end_error = _source_time_error_samples(
+                            end_time, source_end, rate_seconds
+                        )
+                        inclusive_end_error = _source_time_error_samples(
+                            end_time, source_end + 1, rate_seconds
+                        )
+                        sample_errors = {
+                            "start": start_error,
+                            "exclusiveEnd": exclusive_end_error,
+                            "inclusiveEnd": inclusive_end_error,
+                        }
+                        matching_end_frames = [
+                            frame
+                            for frame, error in (
+                                (source_end, exclusive_end_error),
+                                (source_end + 1, inclusive_end_error),
+                            )
+                            if error is not None and abs(error) <= 1
+                        ]
+                        exact_frame_edges = (
+                            start_error is not None
+                            and abs(start_error) <= 1
+                            and len(matching_end_frames) == 1
                         )
                         _require(
                             exact_frame_edges,
@@ -3955,12 +3977,26 @@ def _capture_geometry(
                             f"GetSourceStartTime={start_time!r}, "
                             f"GetSourceEndTime={end_time!r}, "
                             "expectedSourceTimes="
-                            f"({start_frame * rate_seconds!r}, "
-                            f"{end_frame * rate_seconds!r}), "
+                            f"(start={start_frame * rate_seconds!r}, "
+                            f"endExclusive={source_end * rate_seconds!r}, "
+                            f"endInclusive={(source_end + 1) * rate_seconds!r}), "
                             f"sampleErrors={sample_errors!r}, "
                             "toleranceSamples=1)",
                         )
-                    if exact_frame_edges:
+                        assert len(matching_end_frames) == 1
+                        source_duration = matching_end_frames[0] - start_frame
+                    else:
+                        exact_frame_edges = all(
+                            type(range_times.get(method)) in {int, float}
+                            and math.isfinite(range_times[method])
+                            and abs(
+                                Fraction(str(range_times[method]))
+                                - frame * rate_seconds
+                            )
+                            <= sample_tolerance
+                            for method, frame in edges
+                        )
+                    if exact_frame_edges and not _observed_edit:
                         source_duration = source_end - source_start
                 if not _observed_edit:
                     _require(

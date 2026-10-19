@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
@@ -103,7 +104,7 @@ def _held_picture_boundary_case(
 
 def _matrix_av_trim_case(
     tmp_path: Path,
-) -> tuple[dict[str, Any], dict[str, Any], Any]:
+) -> tuple[dict[str, Any], dict[str, Any], Any, Any, Any]:
     resolve, request, admitted, video_first, timeline = fixtures._geometry_case(
         tmp_path
     )
@@ -239,7 +240,7 @@ def _matrix_av_trim_case(
     timeline_any.GetItemListInTrack = lambda kind, _index: timeline_items[kind]
     timeline_any.GetEndFrame = lambda: 8
     request["context"] = _edited_context(request["context"])
-    return request, admitted, resolve
+    return request, admitted, resolve, audio_first, audio_downstream
 
 
 def test_edited_phase_selects_static_observation_route_and_strict_phase_stays_strict(
@@ -454,7 +455,9 @@ def test_matrix_observed_narration_split_requires_sample_aligned_audio_edges(
 def test_matrix_observed_linked_av_trim_captures_exclusive_audio_ends(
     tmp_path: Path,
 ) -> None:
-    request, admitted, resolve = _matrix_av_trim_case(tmp_path)
+    request, admitted, resolve, _audio_first, _audio_downstream = _matrix_av_trim_case(
+        tmp_path
+    )
 
     geometry = native._capture_observed_geometry(resolve, request, admitted, None)
 
@@ -471,6 +474,44 @@ def test_matrix_observed_linked_av_trim_captures_exclusive_audio_ends(
         items["downstream-audio"]["recordStart"],
         items["downstream-audio"]["sourceDuration"],
     ) == (4, 4)
+
+
+@pytest.mark.parametrize(
+    ("inclusive_end_sample_error", "refuse"),
+    [(Fraction(0), False), (Fraction(1, 48_000), False), (Fraction(24, 48_000), True)],
+)
+def test_matrix_observed_av_trim_validates_mixed_audio_endpoints_with_sample_tolerance(
+    tmp_path: Path, inclusive_end_sample_error: Fraction, refuse: bool
+) -> None:
+    request, admitted, resolve, audio_first, audio_downstream = _matrix_av_trim_case(
+        tmp_path
+    )
+    # The trimmed clip reports an exclusive end. The shifted downstream WAV
+    # ends at its 20-frame EOF, where Resolve reports the final included frame.
+    audio_downstream.media.frame_count = 20
+    audio_downstream.GetSourceEndFrame = lambda: 19
+    end_time = Fraction(20 * 1001, 24_000) + inclusive_end_sample_error
+    audio_downstream.GetSourceEndTime = lambda: float(end_time)
+
+    if refuse:
+        with pytest.raises(
+            OutputConsistencyError,
+            match="edited audio source range lacks sample-accurate edges",
+        ) as refused:
+            native._capture_observed_geometry(resolve, request, admitted, None)
+        reason = str(refused.value)
+        assert "sourceFrames=(16,19)" in reason
+        assert "GetSourceStartTime" in reason and "GetSourceEndTime" in reason
+        assert "sampleErrors=" in reason and "toleranceSamples=1" in reason
+        return
+
+    geometry = native._capture_observed_geometry(resolve, request, admitted, None)
+    items = {item["eventId"]: item for item in geometry["items"]}
+    assert (
+        items["audio"]["sourceDuration"],
+        items["downstream-audio"]["sourceDuration"],
+    ) == (4, 4)
+    assert audio_first.GetSourceEndFrame() == 14
 
 
 @pytest.mark.parametrize(
