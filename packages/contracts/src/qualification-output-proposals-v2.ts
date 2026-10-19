@@ -510,14 +510,19 @@ function metricDifference(value: unknown): RecordValue[] {
   fact(rows.some((row) => row.consistent === false), "audio-changing pair is not discriminable at fixed thresholds");
   return rows;
 }
-function validatePair(raw: unknown, pristine: ParsedComparison, edited: ParsedComparison): RecordValue {
+function validatePair(raw: unknown, pristine: ParsedComparison, edited: ParsedComparison, pristineGeometry: GeometryV1, editedGeometry: GeometryV1): RecordValue {
   fact(typeof raw === "string", "audio-changing proposal requires host-recomputed pair evidence");
   const pair = shape(parseRaw(raw, "pair comparison"), ["schemaVersion", "lane", "pristineComparisonRawSha256", "editedComparisonRawSha256",
-    "pristineLedgerHeadSha256", "editedLedgerHeadSha256", "crossMetrics", "internalControls", "geometryStability", "controlStability", "futureAuthority"], "pair comparison");
+    "pristineLedgerHeadSha256", "editedLedgerHeadSha256", "pristineSampleCount", "editedSampleCount", "commonInterval", "crossMetrics", "internalControls", "geometryStability", "controlStability", "futureAuthority"], "pair comparison");
   fact(pair.schemaVersion === "qualification-output-pair/v1" && pair.lane === LANE, "wrong pair namespace/lane");
   fact(pair.pristineComparisonRawSha256 === pristine.rawSha256 && pair.editedComparisonRawSha256 === edited.rawSha256, "pair comparison raw pins differ");
   bareHash(pair.pristineLedgerHeadSha256); bareHash(pair.editedLedgerHeadSha256);
   fact(pair.pristineLedgerHeadSha256 !== pair.editedLedgerHeadSha256, "replayed pair ledger head");
+  const pristineSamples = integer(pair.pristineSampleCount, "pair pristine sample count");
+  const editedSamples = integer(pair.editedSampleCount, "pair edited sample count");
+  fact(pristineSamples === pristineGeometry.extentFrames * FRAME_SAMPLES && editedSamples === editedGeometry.extentFrames * FRAME_SAMPLES, "pair sample counts differ from geometry extents");
+  const common = shape(pair.commonInterval, ["startSample", "endSample"], "pair common interval");
+  fact(common.startSample === 0 && common.endSample === Math.min(pristineSamples, editedSamples) && integer(common.endSample, "pair common interval end") >= 960, "pair common interval differs from shared extent");
   const cross = shape(pair.crossMetrics, ["predictionDifference", "editedAgainstPristine", "pristineAgainstEdited"], "pair cross metrics");
   for (const metrics of Object.values(cross)) metricDifference(metrics);
   fact(pair.internalControls === "unverified" && pair.geometryStability === "not_claimed" && pair.controlStability === "not_claimed" && pair.futureAuthority === false, "unsupported pair authority/control claim");
@@ -558,8 +563,8 @@ function parseCase(value: unknown): ParsedCase {
     pristineLineage.sourceOutputRawSha256 !== editedLineage.sourceOutputRawSha256 &&
     pristineComparison.value.commitmentRawSha256 !== editedComparison.value.commitmentRawSha256 &&
     pristineComparison.value.reservationRawSha256 !== editedComparison.value.reservationRawSha256, "terminal output replay detected");
-  fact(pristine.geometry.extentFrames === edited.geometry.extentFrames, "observed edit changed capture extent");
-  const pair = source.pairJson === null ? null : validatePair(source.pairJson, pristineComparison, editedComparison);
+  fact(edited.geometry.extentFrames <= pristine.geometry.extentFrames, "observed edit lengthened capture extent");
+  const pair = source.pairJson === null ? null : validatePair(source.pairJson, pristineComparison, editedComparison, pristine.geometry, edited.geometry);
   if (source.audioEquality !== null) validateAudioEquality(source.audioEquality, caseId, pristine.geometry, edited.geometry);
   return { source, pristine, edited, pristineComparison, editedComparison, pair };
 }
@@ -642,10 +647,10 @@ function sameStableItem(a: ItemV1, b: ItemV1, allowUidChange = false): boolean {
   return equal(Object.fromEntries(fields.map((key) => [key, a[key]])), Object.fromEntries(fields.map((key) => [key, b[key]])));
 }
 
-function matchManifestGeometry(manifest: TimelineManifestV2, pristine: GeometryV1, edited: GeometryV1, options: { allowTail: number }): boolean {
+function matchManifestGeometry(manifest: TimelineManifestV2, pristine: GeometryV1, edited: GeometryV1, options: { trimFrames: number }): boolean {
   if (!equal(pristine.tracks, edited.tracks) || !equal(pristine.sourceMappings, edited.sourceMappings)) return false;
   const expectedEvents = manifest.events.filter((event) => event.kind !== "script_marker");
-  if (edited.items.length !== expectedEvents.length || edited.extentFrames !== pristine.extentFrames) return false;
+  if (edited.items.length !== expectedEvents.length) return false;
   const beforeByUid = new Map(pristine.items.map((item) => [item.itemUid, item]));
   const afterByEvent = new Map(edited.items.map((item) => [item.eventId, item]));
   if (afterByEvent.size !== edited.items.length) return false;
@@ -655,7 +660,7 @@ function matchManifestGeometry(manifest: TimelineManifestV2, pristine: GeometryV
     if (prior === undefined || !sameStableItem(prior, item)) return false;
     try { checkItemAgainstEvent(item, event, prior); } catch { return false; }
   }
-  if (options.allowTail < 0 || manifest.timeline.durationFrames + options.allowTail !== edited.extentFrames) return false;
+  if (options.trimFrames < 0 || edited.extentFrames !== pristine.extentFrames - options.trimFrames || manifest.timeline.durationFrames !== edited.extentFrames) return false;
   return edited.items.every((item) => item.recordStart + item.recordDuration <= manifest.timeline.durationFrames);
 }
 
@@ -686,7 +691,7 @@ function inferBoundaryCase(document: ScriptDocumentV2, dependencies: CompilerDep
         });
         if (changed.length !== 2 || changed.some((event) => expectedKind(event) !== "video" || !isHeldPicture(event) || event.provenance.blockId !== row.id)) continue;
         if (!changed.some((event) => event.provenance.slotId === slot.id)) continue;
-        if (!matchManifestGeometry(candidate.manifest, input.pristine.geometry, input.edited.geometry, { allowTail: 0 })) continue;
+        if (!matchManifestGeometry(candidate.manifest, input.pristine.geometry, input.edited.geometry, { trimFrames: 0 })) continue;
         const priorEvents = baseline.manifest.events.filter((event) => event.kind !== "script_marker");
         const afterByUid = new Map(input.edited.geometry.items.map((item) => [item.itemUid, item]));
         if (input.pristine.geometry.items.some((item) => item.kind === "audio" && !equal(
@@ -735,8 +740,9 @@ function inferTrimCase(document: ScriptDocumentV2, dependencies: CompilerDepende
     try { stage = prepareRevisionInputsV2(document, dependencies, commands, exactPreparedMediaForTrim(dependencies, block.id, command.durationFrames)); } catch { continue; }
     const revisedDependencies = dependenciesForDocument(stage.document, stage.dependencies);
     const candidate = compileTimelineV2(stage.document, revisedDependencies);
-    if (!candidate.ok || candidate.report.status !== "ready" || candidate.manifest.timeline.durationFrames + delta !== input.edited.geometry.extentFrames) continue;
-    if (!matchManifestGeometry(candidate.manifest, input.pristine.geometry, input.edited.geometry, { allowTail: delta })) continue;
+    if (!candidate.ok || candidate.report.status !== "ready" || candidate.manifest.timeline.durationFrames !== input.edited.geometry.extentFrames ||
+      input.pristine.geometry.extentFrames - delta !== input.edited.geometry.extentFrames) continue;
+    if (!matchManifestGeometry(candidate.manifest, input.pristine.geometry, input.edited.geometry, { trimFrames: delta })) continue;
     matches.push(command);
   }
   return matches;
@@ -830,6 +836,7 @@ function inferCase(document: ScriptDocumentV2, dependencies: CompilerDependencie
   if (omission !== null) possible.push({ kind: "C", boundary: null, trim: null, omission: omission.omission });
   fact(possible.length === 1, "observation must yield one unique supported A/B/C proposal");
   const selected = possible[0]!;
+  if (selected.kind !== "B") fact(input.pristine.geometry.extentFrames === input.edited.geometry.extentFrames, "only an authenticated linked trim may shorten the capture extent");
   if (selected.kind === "A") {
     fact(input.pair === null && input.source.audioEquality !== null, "A picture-only move requires byte-identical predicted/decoded audio evidence");
   } else {

@@ -620,3 +620,76 @@ def test_full_programme_bound_complete_prediction_and_comparison() -> None:
         q.compare_committed_output(output, trust=c.trust)["status"]
         == "compared_consistent"
     )
+
+
+def shortened_pair(frames: int = 2, source_start: int = 0) -> tuple[Case, Case]:
+    """Pristine 6-frame render and an edited ripple-trimmed render of `frames`."""
+    pristine, edited = case(), case(phase="edited")
+    pristine.trust.seals.update(edited.trust.seals)
+    edited.trust = pristine.trust
+    item = json.loads(edited.inputs.geometry)["geometry"]["items"][0]
+    change_items(
+        edited,
+        [
+            {
+                **item,
+                "sourceStart": source_start,
+                "recordDuration": frames,
+                "sourceDuration": frames,
+            }
+        ],
+    )
+    snapshot = json.loads(edited.inputs.geometry)
+    snapshot["geometry"]["extentFrames"] = frames
+    edited.inputs = replace(edited.inputs, geometry=canonical(snapshot))
+    edited.reseal_geometry()
+    return pristine, edited
+
+
+def test_shortened_edited_pair_compares_over_common_prefix() -> None:
+    pristine, edited = shortened_pair(source_start=1)
+    left, right = rendered(pristine), rendered(edited)
+    for output in (left, right):
+        assert (
+            q.compare_committed_output(output, trust=pristine.trust)["status"]
+            == "compared_consistent"
+        )
+    result = q.compare_prediction_pair(
+        terminal(pristine, left), terminal(edited, right), trust=pristine.trust
+    )
+    assert result["pristineSampleCount"] == 6 * q.FRAME
+    assert result["editedSampleCount"] == 2 * q.FRAME
+    assert result["commonInterval"] == {
+        "startSample": 0,
+        "endSample": 2 * q.FRAME,
+    }
+    assert result["geometryStability"] == result["controlStability"] == "not_claimed"
+
+
+def test_shortened_pair_with_identical_common_audio_is_indistinguishable() -> None:
+    pristine, edited = shortened_pair()
+    left, right = rendered(pristine), rendered(edited)
+    # Same item audio over the common prefix: duration alone never distinguishes.
+    with pytest.raises(r.OutputConsistencyError, match="indistinguishable"):
+        q.compare_prediction_pair(
+            terminal(pristine, left), terminal(edited, right), trust=pristine.trust
+        )
+
+
+def test_pair_with_longer_edited_output_refuses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Pristine is the shorter (2-frame) programme; the edited output is longer.
+    # Different-length packages differ in authenticated input identity, so that
+    # (already separately enforced) check is neutralised to reach the extent gate.
+    monkeypatch.setattr(q, "AUTHORITY_REFERENCE_FIELDS", frozenset(context().keys()))
+    pristine, edited = case(frames=2), case(phase="edited")
+    pristine.trust.seals.update(edited.trust.seals)
+    edited.trust = pristine.trust
+    left, right = rendered(pristine), rendered(edited)
+    with pytest.raises(
+        r.OutputConsistencyError, match="not the committed complete outputs"
+    ):
+        q.compare_prediction_pair(
+            terminal(pristine, left), terminal(edited, right), trust=pristine.trust
+        )

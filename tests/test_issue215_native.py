@@ -874,7 +874,7 @@ def test_observed_linked_av_end_trim_ripples_downstream_by_exact_delta() -> None
         "v-downstream": ["a-downstream"],
     }
 
-    native._validate_observed_event_geometry(
+    trim = native._validate_observed_event_geometry(
         events,
         items,
         {
@@ -885,10 +885,16 @@ def test_observed_linked_av_end_trim_ripples_downstream_by_exact_delta() -> None
         timeline_end=8,
         expected_end=10,
     )
+    # #260: the authenticated ripple trim is the only programme shortening.
+    assert trim == 2
 
 
 def _edited_queue_render_case(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, mark_out: int
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    mark_out: int,
+    extent: int = 10,
 ) -> tuple[Any, dict[str, Any], dict[str, Any]]:
     project, request, state, _observations = fixtures._queue_render_case(
         tmp_path, monkeypatch
@@ -900,7 +906,7 @@ def _edited_queue_render_case(
     pre_capture = {
         "inputBindingPath": str(tmp_path.resolve() / "input-binding.json"),
         "inputBindingSha256": "b" * 64,
-        "nativeGeometry": {"items": []},
+        "nativeGeometry": {"items": [], "extentFrames": extent},
     }
     monkeypatch.setattr(
         native,
@@ -964,6 +970,7 @@ def _edited_start_render_case(
     *,
     include_marks: bool,
     mark_out: int = 9,
+    extent: int = 10,
 ) -> tuple[Any, dict[str, Any], dict[str, Any]]:
     project, state, request = fixtures._start_render_case(
         tmp_path, monkeypatch, {"JobStatus": "Ready"}
@@ -982,6 +989,12 @@ def _edited_start_render_case(
         native,
         "_previous_result",
         lambda *_args: (previous, queued_sha, queued_path),
+    )
+    capture = {"action": "capture_pre", "nativeGeometry": {"extentFrames": extent}}
+    monkeypatch.setattr(
+        native,
+        "_native_result_at",
+        lambda _context, sequence: (tmp_path / f"{sequence}.json", "d" * 64, capture),
     )
     job: dict[str, Any] = {"JobId": "job-one"}
     if include_marks:
@@ -1017,4 +1030,81 @@ def test_edited_start_keeps_mark_check_optional_when_api_omits_fields(
     native._start_render(request, object(), state, None)
 
     assert project.status_calls == ["job-one"]
+    assert project.start_calls == [["job-one"]]
+
+
+def _queue_admitted() -> dict[str, Any]:
+    return {
+        "manifest": {
+            "timeline": {
+                "width": 1920,
+                "height": 1080,
+                "frameRate": {"numerator": 24000, "denominator": 1001},
+            }
+        }
+    }
+
+
+@pytest.mark.parametrize(("mark_out", "accepted"), [(7, True), (9, False), (6, False)])
+def test_shortened_edit_queues_marks_for_authenticated_extent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mark_out: int,
+    accepted: bool,
+) -> None:
+    """#260: a 10-frame admitted interval trimmed by 2 queues 0..7, not 0..9.
+
+    This reproduces the measured 139->115 clamp: Resolve reports the shortened
+    MarkOut, which must equal the extent the native capture authenticated.
+    """
+    project, request, state = _edited_queue_render_case(
+        tmp_path, monkeypatch, mark_out=mark_out, extent=8
+    )
+    if accepted:
+        native._queue_render(request, object(), _queue_admitted(), state, None)
+        assert (project.jobs[0]["MarkIn"], project.jobs[0]["MarkOut"]) == (0, 7)
+    else:
+        with pytest.raises(
+            OutputConsistencyError,
+            match="queued render job mark range differs from the edited render extent",
+        ):
+            native._queue_render(request, object(), _queue_admitted(), state, None)
+
+
+def test_edited_extent_beyond_approved_interval_refuses_before_queueing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project, request, state = _edited_queue_render_case(
+        tmp_path, monkeypatch, mark_out=10, extent=11
+    )
+    with pytest.raises(
+        OutputConsistencyError,
+        match="edited render extent is outside the approved interval",
+    ):
+        native._queue_render(request, object(), _queue_admitted(), state, None)
+    assert project.jobs == []
+
+
+@pytest.mark.parametrize(("include_marks", "mark_out"), [(False, 7), (True, 9)])
+def test_shortened_start_requires_its_reported_mark_range(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    include_marks: bool,
+    mark_out: int,
+) -> None:
+    project, state, request = _edited_start_render_case(
+        tmp_path, monkeypatch, include_marks=include_marks, mark_out=mark_out, extent=8
+    )
+    with pytest.raises(OutputConsistencyError, match="mark range"):
+        native._start_render(request, object(), state, None)
+    assert project.start_calls == []
+
+
+def test_shortened_start_accepts_its_exact_reported_mark_range(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project, state, request = _edited_start_render_case(
+        tmp_path, monkeypatch, include_marks=True, mark_out=7, extent=8
+    )
+    native._start_render(request, object(), state, None)
     assert project.start_calls == [["job-one"]]
