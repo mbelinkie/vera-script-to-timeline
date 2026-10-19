@@ -5338,7 +5338,7 @@ def _start_render(
     ]
     _require(len(rows) == 1, "exact queued render job unavailable")
     if request["context"].get("phase") == "edited":
-        # Retry captures must equal this original edited capture geometry.
+        # Marks bind the extent this edited attempt authenticated at capture_pre.
         _, _, capture = _native_result_at(request["context"], 2)
         _require(capture["action"] == "capture_pre", "edited pre-capture required")
         marks = _edited_render_marks(previous["settings"], capture["nativeGeometry"])

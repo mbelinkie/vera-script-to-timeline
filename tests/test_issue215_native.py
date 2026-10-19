@@ -1108,3 +1108,24 @@ def test_shortened_start_accepts_its_exact_reported_mark_range(
     )
     native._start_render(request, object(), state, None)
     assert project.start_calls == [["job-one"]]
+
+
+def test_shortened_queue_refuses_when_job_omits_its_mark_range(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project, request, state = _edited_queue_render_case(
+        tmp_path, monkeypatch, mark_out=7, extent=8
+    )
+    add_with_marks = project.AddRenderJob
+
+    def add_without_marks() -> str:
+        job_id = add_with_marks()
+        del project.jobs[-1]["MarkIn"], project.jobs[-1]["MarkOut"]
+        return job_id
+
+    project.AddRenderJob = add_without_marks
+    with pytest.raises(
+        OutputConsistencyError,
+        match="shortened render job does not report its mark range",
+    ):
+        native._queue_render(request, object(), _queue_admitted(), state, None)
