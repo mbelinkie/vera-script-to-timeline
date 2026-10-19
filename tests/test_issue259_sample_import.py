@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from vera_timeline_agent import qualification_output_decode_v2 as decode_v2
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "python"))
 from test_issue257_sample_precision_compare import _native_pcm, _source_wav
@@ -1276,6 +1277,10 @@ def test_cli_import_commands_are_wired(
 
 
 @pytest.mark.slow
+@pytest.mark.skipif(
+    not Path(decode_v2.FFMPEG_PATH).exists(),
+    reason="pinned ffmpeg toolchain exists only on the Resolve Mac",
+)
 def test_black_picture_control_is_generated_deterministically_by_pinned_ffmpeg(
     tmp_path: Path,
 ) -> None:
