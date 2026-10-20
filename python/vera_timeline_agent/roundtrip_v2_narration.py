@@ -10,12 +10,40 @@ import wave
 from dataclasses import asdict
 from pathlib import Path
 
+from vera_timeline_agent.narration.campaign import (
+    CAP_MICRO_USD,
+    STATUS_ATTEMPTED,
+    STATUS_CHARGED,
+    Ledger,
+    _micro,
+)
 from vera_timeline_agent.narration.compiler_dependencies import (
     narration_dependency_from_asset,
 )
-from vera_timeline_agent.narration.models import NarrationAudioAsset, identity_hash
-from vera_timeline_agent.narration.normalize import NORMALIZER_VERSION
-from vera_timeline_agent.narration.service import NarrationService
+from vera_timeline_agent.narration.measure import (
+    METHOD as MEASURED_METHOD,
+)
+from vera_timeline_agent.narration.measure import (
+    MeasurementError,
+    load_asset,
+    measure_asset,
+)
+from vera_timeline_agent.narration.models import (
+    NarrationAudioAsset,
+    ProviderResult,
+    SynthesisRequest,
+    identity_hash,
+)
+from vera_timeline_agent.narration.normalize import NORMALIZER_VERSION, Normalizer
+from vera_timeline_agent.narration.polly import PRICE_USD_PER_MILLION_CHARACTERS
+from vera_timeline_agent.narration.provider import SpeechSynthesisProvider
+from vera_timeline_agent.narration.service import (
+    MATTHEW_PROFILE_ID,
+    BlockPlan,
+    NarrationService,
+    ServiceConfig,
+    voice_profile,
+)
 from vera_timeline_agent.roundtrip_audio import _pcm
 from vera_timeline_agent.roundtrip_build import (
     ROOT,
@@ -383,13 +411,19 @@ def finalize_replacement_row_v2(
         "channels": asset.channels,
         "locator": f"Media/Narration/{asset.asset_id}.wav",
     }
+    verification = evidence.get("verification", {})
+    measured = verification.get("method") == MEASURED_METHOD
+    if measured:
+        # #182 measured evidence keeps the cache-relative locator the measurer
+        # recorded and pins its measurement artifact instead of a human review.
+        expected_audio["locator"] = asset.locators["audio"]
+    artifact_key = "measurementArtifactHash" if measured else "reviewArtifactHash"
     fact(
         evidence.get("audio") == expected_audio
         and evidence.get("narrationAssetId") == audio_id
         and evidence.get("audioHash") == asset.normalized_audio_hash
         and evidence.get("timingHash") == asset.raw_timing_hash
-        and evidence.get("verification", {}).get("reviewArtifactHash")
-        == _hash(review_artifact),
+        and verification.get(artifact_key) == _hash(review_artifact),
         "fresh boundary/verified cache/review binding differs",
     )
     authenticate(
@@ -427,3 +461,179 @@ def finalize_replacement_row_v2(
     publish_immutable_output(root / "row-handoff.json", _bytes(handoff))
     publish_immutable_output(root / "replacement-preview.json", _bytes(preview))
     return {"handoff": handoff, "preview": preview}
+
+
+# --------------------------------------------------------------------- #215
+# Whole-row regeneration of an accepted omission with automatic timing.
+
+
+class ProviderCallRefused(ProofBuildError):
+    """A real provider call is needed but is not authorized or affordable."""
+
+
+class LedgerGuardedProvider:
+    """Reserve every real call in the campaign ledger before it can reach AWS.
+
+    Wraps the provider a NarrationService calls. Cache hits never reach
+    ``synthesize`` so they reserve and charge nothing. The reservation is
+    written (under the ledger lock, cap checked) strictly before the inner call
+    and is settled ``charged``/``attempted``; nothing is ever refunded.
+    """
+
+    def __init__(
+        self,
+        inner: SpeechSynthesisProvider,
+        ledger: Ledger,
+        *,
+        confirmed: bool,
+        cap_micro_usd: int = CAP_MICRO_USD,
+    ) -> None:
+        self.inner = inner
+        self.adapter_version = inner.adapter_version
+        self.ledger = ledger
+        self.confirmed = confirmed
+        self.cap_micro_usd = cap_micro_usd
+
+    def prepare_input(self, request: SynthesisRequest) -> bytes:
+        return self.inner.prepare_input(request)
+
+    def synthesize(self, request: SynthesisRequest) -> ProviderResult:
+        if not self.confirmed:
+            raise ProviderCallRefused("provider call was not confirmed")
+        request_hash = identity_hash(
+            request.identity(
+                self.inner.prepare_input(request), self.inner.adapter_version
+            )
+        )
+        estimated = len(request.text) * PRICE_USD_PER_MILLION_CHARACTERS / 1_000_000
+        with self.ledger.locked():
+            reservation = self.ledger.reserve(
+                request_hash=request_hash,
+                block_id=request.block_id,
+                characters=len(request.text),
+                estimated_cost_usd=estimated,
+                cap_micro_usd=self.cap_micro_usd,
+            )
+            try:
+                result = self.inner.synthesize(request)
+            except BaseException:
+                self.ledger.settle(reservation["reservationId"], STATUS_ATTEMPTED)
+                raise
+            self.ledger.settle(
+                reservation["reservationId"], STATUS_CHARGED, result.request_ids
+            )
+            return result
+
+
+def production_narration_service(
+    cache_dir: Path,
+    *,
+    data_policy: str,
+    provider: SpeechSynthesisProvider | None = None,
+    normalizer: Normalizer | None = None,
+    profile_id: str = MATTHEW_PROFILE_ID,
+) -> NarrationService:
+    """The #182 campaign service: campaign cache, Matthew Neural, attested policy."""
+    from vera_timeline_agent.narration.cache import NarrationCache
+    from vera_timeline_agent.narration.polly import PollyProvider
+
+    return NarrationService(
+        cache=NarrationCache(cache_dir),
+        provider=provider or PollyProvider(),
+        normalizer=normalizer or Normalizer(),
+        config=ServiceConfig(
+            profile=voice_profile(profile_id),
+            data_policy_attestation=data_policy,
+            max_cost_usd=1.0,
+        ),
+    )
+
+
+def guard_service(
+    service: NarrationService,
+    ledger: Ledger,
+    *,
+    confirm_provider_call: bool,
+    cap_micro_usd: int = CAP_MICRO_USD,
+) -> NarrationService:
+    """The same service and cache, with every real provider call ledger-guarded."""
+    return NarrationService(
+        cache=service.cache,
+        provider=LedgerGuardedProvider(
+            service.provider,
+            ledger,
+            confirmed=confirm_provider_call,
+            cap_micro_usd=cap_micro_usd,
+        ),
+        normalizer=service.normalizer,
+        config=service.config,
+    )
+
+
+def preflight_provider_call(
+    service: NarrationService,
+    row: JsonObject,
+    *,
+    ledger: Ledger,
+    confirm_provider_call: bool,
+    cap_micro_usd: int = CAP_MICRO_USD,
+) -> BlockPlan:
+    """Decide, before any intent or reservation exists, whether a call is needed.
+
+    A cache hit (identical request) needs no call, no confirmation, no charge.
+    An uncertain earlier attempt for the same request is refused here too, so
+    it can never be silently re-sent. Otherwise confirmation and cap are
+    required.
+    """
+    plan = service.plan_block(row)
+    request_key = plan.request_hash[7:]
+    intent = service.cache.root / "issue-191-call-intents" / request_key / "intent.json"
+    if plan.cached:
+        return plan
+    if intent.exists():
+        raise ProviderCallRefused(
+            "an earlier provider attempt for this exact request has no verified "
+            "result; it is preserved and will not be resynthesized automatically"
+        )
+    if not confirm_provider_call:
+        raise ProviderCallRefused(
+            f"a real Polly call (about ${plan.estimated_cost_usd:.6f}, "
+            f"{plan.characters} characters) is needed for the regenerated row; "
+            "re-run with --confirm-provider-call to authorize it"
+        )
+    ledger.check(_micro(plan.estimated_cost_usd), cap_micro_usd)
+    return plan
+
+
+def measure_replacement_row_v2(
+    root: Path,
+    *,
+    row: JsonObject,
+    service: NarrationService,
+    project_root: Path,
+) -> tuple[JsonObject, bytes, bytes]:
+    """Measure the retained fresh asset (#182) and retain artifact + evidence.
+
+    Returns the boundary evidence, the measurement artifact bytes and the
+    provider timing bytes. Nothing is synthesized here; a refusal (connected
+    speech, unverified lag, ...) leaves the cached asset untouched.
+    """
+    retained = _parse(_operator_bytes(root / "generation.json"))
+    asset_key = f"{row['id']}/{retained['assetId']}"
+    loaded = load_asset(service.cache, asset_key)
+    artifact_path = (
+        root / "narration-measurements" / f"{retained['assetId']}.measurement.json"
+    )
+    try:
+        locator = artifact_path.resolve().relative_to(project_root.resolve()).as_posix()
+        result = measure_asset(loaded, row, artifact_locator=locator)
+    except (ValueError, MeasurementError) as error:
+        raise ProofBuildError(
+            f"regenerated row measurement refused: {error}"
+        ) from error
+    publish_immutable_output(artifact_path, result.artifact_bytes)
+    publish_immutable_output(
+        artifact_path.with_name(f"{retained['assetId']}.boundary-evidence.json"),
+        _bytes(result.evidence),
+    )
+    return result.evidence, result.artifact_bytes, loaded.timing_bytes
