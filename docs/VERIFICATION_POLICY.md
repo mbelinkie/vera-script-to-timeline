@@ -25,7 +25,8 @@ find problems, not to produce paperwork.
    the diff from the Claude CLI (read-only tools) before merging. Fix the real
    findings. Small follow-up fixes do not need another review. Documentation-
    or metadata-only changes skip review. If the CLI is unavailable, say so in
-   the PR and carry on; no waiver is needed.
+   the PR and carry on; no waiver is needed. Run it as
+   [docs/CLAUDE_REVIEW_PLAYBOOK.md](CLAUDE_REVIEW_PLAYBOOK.md) describes.
 3. **Full suite in the cloud.** The GitHub Actions `Validate` workflow runs the
    complete `npm run validate` on every pull request and push to `main`.
    Standard runners are free for this public repository. A green `Validate`
