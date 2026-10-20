@@ -200,7 +200,7 @@ export interface QualificationOutputProposalV1 {
 
 export interface QualificationOutputPureRequestV1 {
   schemaVersion: "qualification-output-pure-request/v1";
-  mode: "baseline" | "infer" | "stage" | "proposal" | "decide";
+  mode: "baseline" | "infer" | "derive_omission" | "stage" | "proposal" | "decide";
   document: ScriptDocumentV2;
   dependencies: CompilerDependenciesV2;
   evidence: QualificationOutputObservationBatchV1 | null;
@@ -870,6 +870,32 @@ function inferOmissionCase(document: ScriptDocumentV2, dependencies: CompilerDep
     input.source.pairJson !== null && supplied.pairRawSha256 === rawSha256(input.source.pairJson), "omission support raw evidence pins differ");
   const row = document.activeDraft.blocks.find((block) => block.type === "narration" && block.id === supplied.blockId);
   fact(row?.type === "narration" && row.version === supplied.blockRevision, "omission support names a stale or unknown narration row");
+  const derived = deriveOmissionSupport(document, dependencies, input, row, documentHash, dependenciesHash);
+  fact(equal(derived, supplied), "omission support differs from the record derived from measured evidence and the observed cut");
+  return { omission: { blockId: row.id, blockRevision: row.version, tokenIds: [derived.selectedTokenId], evidenceHash: sha256CanonicalJson(derived) }, evidence: derived };
+}
+
+/**
+ * Host-facing derivation: the support for the one narration row whose pristine item the
+ * observed edit split into two. The host passes the raw evidence with omissionSupport null.
+ */
+export function deriveOmissionSupportV2(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2, evidence: QualificationOutputObservationBatchV1): QualificationOutputOmissionSupportV2 {
+  fact(validateScriptDocumentV2(document).valid, "invalid baseline script document");
+  const checked = validateBatch(evidence, document, dependencies);
+  fact(checked.cases.length === 1 && checked.cases[0]!.source.omissionSupport === null, "one observation case without a support record required");
+  const input = checked.cases[0]!;
+  const split = compileForDocument(document, dependencies).manifest.events.filter((event) => event.kind === "narration" &&
+    input.pristine.geometry.items.filter((item) => item.eventId === event.eventId).length === 1 &&
+    input.edited.geometry.items.filter((item) => item.eventId === event.eventId).length === 2);
+  fact(split.length === 1, "the observed edit does not split exactly one narration item");
+  const row = document.activeDraft.blocks.find((block) => block.type === "narration" && block.id === split[0]!.provenance.blockId);
+  fact(row?.type === "narration", "split narration event names an unknown row");
+  return deriveOmissionSupport(document, dependencies, input, row, checked.documentHash, checked.dependenciesHash);
+}
+
+function deriveOmissionSupport(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2, input: ParsedCase, row: Extract<ScriptDocumentV2["activeDraft"]["blocks"][number], { type: "narration" }>, documentHash: string, dependenciesHash: string): QualificationOutputOmissionSupportV2 {
+  const pairJson = input.source.pairJson;
+  fact(pairJson !== null, "omission support requires the authenticated pair comparison");
   const boundary = narrationEvidence(dependencies, row.id);
   const problem = boundaryEvidenceProblemV2(row, boundary);
   fact(problem === null, `narration boundary evidence refused: ${problem?.message}`);
@@ -938,10 +964,9 @@ function inferOmissionCase(document: ScriptDocumentV2, dependencies: CompilerDep
     cutEndEnvelope: { minSample: Number(fracCeil(selection.envelope.end.low)), maxSample: Number(fracFloor(selection.envelope.end.high)) },
     pristineGeometryRawSha256: input.pristine.rawSha256, editedGeometryRawSha256: input.edited.rawSha256,
     pristineComparisonRawSha256: input.pristineComparison.rawSha256, editedComparisonRawSha256: input.editedComparison.rawSha256,
-    pairRawSha256: rawSha256(input.source.pairJson),
+    pairRawSha256: rawSha256(pairJson),
   };
-  fact(equal(derived, supplied), "omission support differs from the record derived from measured evidence and the observed cut");
-  return { omission: { blockId: row.id, blockRevision: row.version, tokenIds: [selected.tokenId], evidenceHash: sha256CanonicalJson(derived) }, evidence: derived };
+  return derived;
 }
 
 function inferCase(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2, input: ParsedCase,
@@ -1110,7 +1135,7 @@ export function parseQualificationOutputPureRequest(raw: Uint8Array): Qualificat
   fact(raw.byteLength <= MAX_JSON_BYTES, "bounded pure request required");
   const decoded = new TextDecoder("utf-8", { fatal: true }).decode(raw);
   const request = shape(parseRaw(decoded, "pure request"), ["schemaVersion", "mode", "document", "dependencies", "evidence", "preparedMedia", "handoff", "inferenceDecision", "inferenceHistory", "candidate", "decision", "history"], "qualification output pure request") as unknown as QualificationOutputPureRequestV1;
-  fact(request.schemaVersion === "qualification-output-pure-request/v1" && ["baseline", "infer", "stage", "proposal", "decide"].includes(request.mode), "unsupported pure request");
+  fact(request.schemaVersion === "qualification-output-pure-request/v1" && ["baseline", "infer", "derive_omission", "stage", "proposal", "decide"].includes(request.mode), "unsupported pure request");
   for (const rows of [request.inferenceHistory, request.history]) {
     fact(Array.isArray(rows) && rows.every((hash) => typeof hash === "string" && /^sha256:[a-f0-9]{64}$/u.test(hash)) && new Set(rows).size === rows.length, "malformed replay history");
   }
@@ -1123,7 +1148,7 @@ export function parseQualificationOutputPureRequest(raw: Uint8Array): Qualificat
     fact(request.evidence === null && request.preparedMedia.length === 0 && request.handoff === null && request.inferenceDecision === null &&
       emptyHistory(request.inferenceHistory) && request.candidate === null && request.decision === null && emptyHistory(request.history),
     "baseline request contains unused proposal fields");
-  } else if (request.mode === "infer") {
+  } else if (request.mode === "infer" || request.mode === "derive_omission") {
     fact(request.evidence !== null && request.preparedMedia.length === 0 && request.handoff === null && request.inferenceDecision === null &&
       emptyHistory(request.inferenceHistory) && request.candidate === null && request.decision === null && emptyHistory(request.history),
     "inference request contains unused decision/stage fields");
@@ -1152,6 +1177,7 @@ export function runQualificationOutputPureRequest(request: QualificationOutputPu
       documentJson: canonicalJson(document), manifest: compiled.manifest };
   }
   fact(request.evidence !== null, "host-verified output evidence required");
+  if (request.mode === "derive_omission") return deriveOmissionSupportV2(document, dependencies, request.evidence);
   if (request.mode === "infer") return inferQualificationOutputV2(document, dependencies, request.evidence);
   if (request.mode === "stage") {
     fact(request.inferenceDecision !== null, "explicit inference decision required");

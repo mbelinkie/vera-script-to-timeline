@@ -5,6 +5,7 @@ Fake providers only: no AWS, no Resolve, nothing outside tmp_path.
 
 from __future__ import annotations
 
+import copy
 import json
 import struct
 from pathlib import Path
@@ -54,111 +55,42 @@ CAMPAIGN_DOCUMENT = (
 
 # ------------------------------------------------------------ derived support
 
+GOLDEN = ROOT / "tests/data/issue215/omission-derive-case.json"
 
-def _geometry(
-    cut: tuple[int, int], origins: tuple[int, int] = (0, 0)
-) -> dict[str, Any]:
-    document = json.loads(CAMPAIGN_DOCUMENT.read_text())
-    evidence = json.loads(CAMPAIGN_EVIDENCE.read_text())
-    row = document["activeDraft"]["blocks"][0]
-    frames = -(-evidence["audio"]["durationSamples"] // 2002)
 
-    def item(uid: str, start: int, duration: int, source_start: int) -> dict[str, Any]:
-        return {
-            "itemUid": uid,
-            "eventId": "event-narration",
-            "sourceId": "source-pcm",
-            "recordStart": start,
-            "recordDuration": duration,
-            "sourceStart": source_start,
-            "sourceDuration": duration,
+def _stub_proof(tmp_path: Path, golden: dict[str, Any]) -> Any:
+    session: Any = object.__new__(proof.QualificationOutputProofV2)
+    session.root = tmp_path
+    session._current = lambda: None
+    session.baseline = SimpleNamespace(
+        blobs={
+            "executionDocumentSha256": _canonical(golden["document"]),
+            "executionDependenciesSha256": _canonical(golden["dependencies"]),
         }
-
-    before = {"geometry": {"items": [item("whole", 0, frames, 0)]}}
-    after = {
-        "geometry": {
-            "items": [
-                item("left", 0, cut[0], 0),
-                item("right", cut[1], frames - cut[1], cut[1]),
-            ]
-        }
-    }
-    entry = {
-        "sourceId": "source-pcm",
-        "nativeFrameOrigin": origins[0],
-        "pcmSampleOrigin": origins[1],
-        "sampleRate": 48000,
-        "durationSamples": evidence["audio"]["durationSamples"],
-        "pcmMode": "prepared-audio",
-        "pcmFileSha256": "0" * 64,
-    }
-    return {
-        "case_id": "C",
-        "document": document,
-        "dependencies": {"narrationBoundaryEvidence": [evidence]},
-        "manifest": {
-            "events": [
-                {
-                    "kind": "narration",
-                    "eventId": "event-narration",
-                    "provenance": {"blockId": row["id"]},
-                }
-            ]
-        },
-        "document_hash": "sha256:" + "a" * 64,
-        "dependencies_hash": "sha256:" + "b" * 64,
-        "pristine_geometry": _canonical(before),
-        "edited_geometry": _canonical(after),
-        "pristine_binding": _canonical({"sourceEntries": [entry]}),
-        "edited_binding": _canonical({"sourceEntries": [entry]}),
-        "pristine_comparison": b"pristine-comparison",
-        "edited_comparison": b"edited-comparison",
-        "pair_json": b"pair",
-        "_row": row,
-    }
+    )
+    return session
 
 
-def _derive(cut: tuple[int, int], origins: tuple[int, int] = (0, 0)) -> dict[str, Any]:
-    inputs = _geometry(cut, origins)
-    row = inputs.pop("_row")
-    support = proof.derive_omission_support_v2(**inputs)
-    assert support["blockId"] == row["id"]
-    return support
-
-
-def test_support_is_derived_from_measured_evidence_without_review_or_token_index() -> (
-    None
-):
-    support = _derive((55, 72))
-    row = json.loads(CAMPAIGN_DOCUMENT.read_text())["activeDraft"]["blocks"][0]
-    # Campaign "slowly" (token 8) with the TS bridge's envelopes for this cut.
-    assert support["selectedTokenId"] == row["tokens"][8]["id"]
-    assert support["leftNeighborTokenId"] == row["tokens"][7]["id"]
-    assert support["rightNeighborTokenId"] == row["tokens"][9]["id"]
-    assert support["cutStartEnvelope"] == {"minSample": 106555, "maxSample": 112795}
-    assert support["cutEndEnvelope"] == {"minSample": 140635, "maxSample": 146971}
-    assert support["cutSamples"] == {"startSample": 110110, "endSample": 144144}
+@pytest.mark.slow
+def test_python_derives_support_through_the_ts_bridge_and_ts_infer_accepts_it(
+    tmp_path: Path,
+) -> None:
+    golden = json.loads(GOLDEN.read_text())
+    session = _stub_proof(tmp_path, golden)
+    support = session.derive_omission_support(golden["evidence"])
+    assert support == golden["expectedSupport"]
     assert support["schemaVersion"] == "qualification-output-omission-support/v2"
     assert "reviewReceiptSha256" not in support
-
-
-def test_sample_origins_come_from_the_bound_pcm_entry() -> None:
-    support = _derive((58, 75), origins=(3, 37))
-    assert support["cutSamples"] == {"startSample": 110147, "endSample": 144181}
-    assert support["nativeFrameOrigin"] == 3 and support["pcmSampleOrigin"] == 37
-
-
-@pytest.mark.parametrize(
-    ("cut", "message"),
-    [
-        ((40, 72), "neighbour-straddling"),
-        ((55, 90), "neighbour-straddling"),
-        ((59, 72), "neighbour-straddling"),
-    ],
-)
-def test_partial_or_straddling_cut_refuses(cut: tuple[int, int], message: str) -> None:
-    with pytest.raises(OutputConsistencyError, match=message):
-        _derive(cut)
+    evidence = copy.deepcopy(golden["evidence"])
+    evidence["cases"][0]["omissionSupport"] = support
+    inference = session._pure({"mode": "infer", "evidence": evidence})
+    assert inference["omission"]["tokenIds"] == [support["selectedTokenId"]]
+    tampered = copy.deepcopy(evidence)
+    tampered["cases"][0]["omissionSupport"]["selectedTokenId"] = support[
+        "leftNeighborTokenId"
+    ]
+    with pytest.raises(OutputConsistencyError, match="differs from the record derived"):
+        session._pure({"mode": "infer", "evidence": tampered})
 
 
 # ------------------------------------------------------- fake regeneration lane

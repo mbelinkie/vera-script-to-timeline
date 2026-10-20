@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { sha256CanonicalJson } from "../src/compiler-core.js";
 import { compileTimelineV2 } from "../src/compiler-core-v2.js";
@@ -9,7 +9,9 @@ import type { RowHandoffV2 } from "../src/issue-189-v2-replacement.js";
 import {
   decideQualificationOutputV2,
   createQualificationOutputProposalV2,
+  deriveOmissionSupportV2,
   inferQualificationOutputV2,
+  runQualificationOutputPureRequest,
   parseQualificationOutputPureRequest,
   stageQualificationOutputV2,
   type QualificationOutputObservationBatchV1,
@@ -432,6 +434,33 @@ describe("#215 authenticated output observation to explicit revision bridge", ()
       expect(support.cutSamples).toEqual({ startSample: 55 * 2002, endSample: 72 * 2002 });
       expect(inference.omission?.evidenceHash).toBe(sha256CanonicalJson(support));
       expect(Object.keys(support)).not.toContain("reviewArtifactSha256");
+    });
+
+    it("derives the support from raw evidence alone (the host bridge) and inference accepts exactly that record", () => {
+      const input = campaignInput();
+      const full = batch(input, ["C"]);
+      const expected = full.cases[0]!.omissionSupport!;
+      const bare = structuredClone(full); bare.cases[0]!.omissionSupport = null;
+      const derived = deriveOmissionSupportV2(input.document, input.dependencies, bare);
+      expect(derived).toEqual(expected);
+      const request = { schemaVersion: "qualification-output-pure-request/v1", mode: "derive_omission", document: input.document, dependencies: input.dependencies,
+        evidence: bare, preparedMedia: [], handoff: null, inferenceDecision: null, inferenceHistory: [], candidate: null, decision: null, history: [] };
+      const parsed = parseQualificationOutputPureRequest(new TextEncoder().encode(JSON.stringify(request)));
+      expect(runQualificationOutputPureRequest(parsed)).toEqual(expected);
+      const attached = structuredClone(bare); attached.cases[0]!.omissionSupport = derived;
+      expect(inferQualificationOutputV2(input.document, input.dependencies, attached).omission?.tokenIds).toEqual([input.row.tokens[CAMPAIGN.slowlyIndex]!.id]);
+      // Golden for the python parity test; regenerate with VERA_WRITE_GOLDEN=1.
+      if (process.env.VERA_WRITE_GOLDEN === "1") {
+        const directory = new URL("../../../tests/data/issue215/", import.meta.url);
+        mkdirSync(directory, { recursive: true });
+        writeFileSync(new URL("omission-derive-case.json", directory), `${JSON.stringify({ document: input.document, dependencies: input.dependencies, evidence: bare, expectedSupport: expected })}\n`);
+      }
+    });
+
+    it("refuses to derive support when the edit does not split one narration item", () => {
+      const input = campaignInput();
+      const none = batch(input, ["A"]);
+      expect(() => deriveOmissionSupportV2(input.document, input.dependencies, none)).toThrow(/does not split exactly one narration item/);
     });
 
     it("accepts every whole-frame edge inside the python envelope and refuses the first frame outside it on each side", () => {

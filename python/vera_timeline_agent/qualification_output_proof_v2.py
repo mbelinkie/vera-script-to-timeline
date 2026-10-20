@@ -17,13 +17,11 @@ import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime
-from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
 from . import qualification_output_v2 as output
 from .narration.campaign import CAP_MICRO_USD, Ledger
-from .narration.omission_envelope import EnvelopeRefused, verify_evidence_binding
 from .narration.service import NarrationService
 from .qualification_output_controller_v2 import (
     HOST_STATE_ROOT,
@@ -40,7 +38,6 @@ from .qualification_output_records_v2 import (
     OutputConsistencyError,
     _canonical,
     _digest,
-    _integer,
     _json_hash,
     _ledger_head,
     _parse,
@@ -190,328 +187,10 @@ def load_terminal_output(
     return result
 
 
-def _rational_samples(value: Json, rate: int) -> Fraction:
-    return Fraction(value["numerator"], value["denominator"]) * rate
-
-
-def _ceil(value: Fraction) -> int:
-    return -((-value.numerator) // value.denominator)
-
-
-def _floor(value: Fraction) -> int:
-    return value.numerator // value.denominator
-
-
 def _boundary_hash(value: Json) -> str:
     """sha256CanonicalJson of the TypeScript compiler: sorted, indent 2, newline."""
     text = json.dumps(value, sort_keys=True, ensure_ascii=False, indent=2) + "\n"
     return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-def _word_envelope(
-    marks: list[Json],
-    index: int,
-    rate: int,
-    duration: int,
-    onset_unc: Fraction,
-    end_unc: Fraction,
-) -> tuple[list[str], Json | None]:
-    selected = marks[index]
-    left = marks[index - 1] if index > 0 else None
-    right = marks[index + 1] if index + 1 < len(marks) else None
-    reasons: list[str] = []
-    if not selected.get("onset"):
-        reasons.append(f"{selected['quotedText']} has no measured onset")
-    if not selected.get("audibleEnd"):
-        reasons.append(
-            f"{selected['quotedText']} has no measured audible end (connected speech)"
-        )
-    if left is not None and not left.get("audibleEnd"):
-        reasons.append(
-            f"left neighbour {left['quotedText']} has no measured audible end "
-            "(connected speech)"
-        )
-    if right is not None and not right.get("onset"):
-        reasons.append(f"right neighbour {right['quotedText']} has no measured onset")
-    if reasons:
-        return reasons, None
-    start_low = (
-        Fraction(0)
-        if left is None
-        else _rational_samples(left["audibleEnd"], rate) + end_unc
-    )
-    start_high = _rational_samples(selected["onset"], rate) - onset_unc
-    end_low = _rational_samples(selected["audibleEnd"], rate) + end_unc
-    end_high = (
-        Fraction(duration)
-        if right is None
-        else _rational_samples(right["onset"], rate) - onset_unc
-    )
-    if start_high <= start_low:
-        reasons.append(
-            f"cut start envelope of {selected['quotedText']} collapses under the "
-            "declared uncertainty"
-        )
-    if end_high <= end_low:
-        reasons.append(
-            f"cut end envelope of {selected['quotedText']} collapses under the "
-            "declared uncertainty"
-        )
-    if reasons:
-        return reasons, None
-    return [], {
-        "start": (start_low, start_high),
-        "end": (end_low, end_high),
-    }
-
-
-def _select_omitted_word(
-    marks: list[Json],
-    rate: int,
-    duration: int,
-    onset_unc: Fraction,
-    end_unc: Fraction,
-    cut_start: int,
-    cut_end: int,
-) -> tuple[int, Json]:
-    """The one measured word whose envelopes contain the observed cut."""
-    hits: list[tuple[int, Json]] = []
-    unmeasured: list[str] = []
-    for index in range(len(marks)):
-        reasons, envelope = _word_envelope(
-            marks, index, rate, duration, onset_unc, end_unc
-        )
-        if envelope is None:
-            onset = marks[index].get("onset")
-            next_onset = next(
-                (m["onset"] for m in marks[index + 1 :] if m.get("onset")), None
-            )
-            span_start = _rational_samples(onset, rate) if onset else None
-            span_end = (
-                _rational_samples(next_onset, rate)
-                if next_onset
-                else Fraction(duration)
-            )
-            if span_start is not None and span_start <= cut_start < span_end:
-                unmeasured.append("; ".join(reasons))
-            continue
-        (start_low, start_high), (end_low, end_high) = (
-            envelope["start"],
-            envelope["end"],
-        )
-        if start_low <= cut_start <= start_high and end_low <= cut_end <= end_high:
-            hits.append((index, envelope))
-    _require(
-        len(hits) <= 1,
-        "ambiguous omission cut: more than one measured word is compatible with it",
-    )
-    _require(
-        len(hits) == 1,
-        "omission cut does not isolate exactly one measured word between its "
-        "neighbours (partial-word, multi-word or neighbour-straddling cut)"
-        + (
-            "; the cut touches a word without a safe measured envelope: "
-            + "; ".join(unmeasured)
-            if unmeasured
-            else ""
-        ),
-    )
-    return hits[0]
-
-
-def derive_omission_support_v2(
-    *,
-    case_id: str,
-    document: Json,
-    dependencies: Json,
-    manifest: Json,
-    document_hash: str,
-    dependencies_hash: str,
-    pristine_geometry: bytes,
-    edited_geometry: bytes,
-    pristine_binding: bytes,
-    edited_binding: bytes,
-    pristine_comparison: bytes,
-    edited_comparison: bytes,
-    pair_json: bytes,
-) -> Json:
-    """Machine-derive omission support v2 from measured evidence and native cuts.
-
-    No reviewer, token index, timestamp or sample coordinate is supplied: the
-    omitted word is the one measured word whose frame-snapped cut envelopes
-    contain the observed cut. This mirrors the TypeScript bridge's derivation
-    exactly; the bridge re-derives the record and refuses any difference, so a
-    divergence here fails closed instead of granting anything.
-    """
-    pristine = _parse(pristine_geometry)
-    edited = _parse(edited_geometry)
-    events = [
-        event
-        for event in manifest["events"]
-        if event["kind"] == "narration"
-        and sum(
-            item["eventId"] == event["eventId"]
-            for item in pristine["geometry"]["items"]
-        )
-        == 1
-        and sum(
-            item["eventId"] == event["eventId"] for item in edited["geometry"]["items"]
-        )
-        == 2
-    ]
-    _require(len(events) == 1, "the observed edit does not split one narration item")
-    event = events[0]
-    block_id = event["provenance"]["blockId"]
-    rows = [
-        row
-        for row in document["activeDraft"]["blocks"]
-        if row["type"] == "narration" and row["id"] == block_id
-    ]
-    _require(len(rows) == 1, "split narration event names an unknown row")
-    row = rows[0]
-    evidence_rows = [
-        value
-        for value in dependencies.get("narrationBoundaryEvidence") or []
-        if value["blockId"] == row["id"]
-    ]
-    _require(len(evidence_rows) == 1, "narration boundary evidence required")
-    boundary = evidence_rows[0]
-    try:
-        verify_evidence_binding(boundary, row)
-    except EnvelopeRefused as error:
-        raise OutputConsistencyError(
-            f"measured narration boundary evidence refused: {error}"
-        ) from error
-    verification = boundary["verification"]
-    audio = boundary["audio"]
-    _require(
-        audio["sampleRate"] == 48000
-        and audio["channels"] == 1
-        and audio["durationSamples"] > 0,
-        "48 kHz mono narration audio evidence required",
-    )
-    original = [
-        item
-        for item in pristine["geometry"]["items"]
-        if item["eventId"] == event["eventId"]
-    ]
-    segments = sorted(
-        (
-            item
-            for item in edited["geometry"]["items"]
-            if item["eventId"] == event["eventId"]
-        ),
-        key=lambda item: item["recordStart"],
-    )
-    _require(
-        len(original) == 1
-        and len(segments) == 2
-        and all(item["itemUid"] != original[0]["itemUid"] for item in segments),
-        "C must split one narration item into two new UIDs",
-    )
-    prior = original[0]
-    left, right = segments
-    record_start = left["recordStart"] + left["recordDuration"]
-    record_end = right["recordStart"]
-    source_start = left["sourceStart"] + left["sourceDuration"]
-    source_end = right["sourceStart"]
-    _require(
-        left["recordStart"] == prior["recordStart"]
-        and record_start < record_end < prior["recordStart"] + prior["recordDuration"]
-        and right["recordStart"] + right["recordDuration"]
-        == prior["recordStart"] + prior["recordDuration"]
-        and left["sourceStart"] == prior["sourceStart"]
-        and right["sourceStart"] + right["sourceDuration"]
-        == prior["sourceStart"] + prior["sourceDuration"]
-        and record_end - record_start == source_end - source_start > 0,
-        "C split is not a bounded non-ripple whole-frame lift",
-    )
-
-    def entry_for(raw: bytes) -> Json:
-        # Sample origins come from the authenticated PCM binding for this source.
-        entries = [
-            entry
-            for entry in _parse(raw)["sourceEntries"]
-            if entry["sourceId"] == prior["sourceId"]
-        ]
-        _require(
-            len(entries) == 1, "narration item has no unique bound PCM source entry"
-        )
-        return dict(entries[0])
-
-    entry = entry_for(pristine_binding)
-    _require(
-        entry == entry_for(edited_binding),
-        "narration PCM source binding differs between pristine and edited captures",
-    )
-    native_origin = _integer(entry["nativeFrameOrigin"])
-    pcm_origin = _integer(entry["pcmSampleOrigin"])
-    _require(
-        entry["sampleRate"] == audio["sampleRate"]
-        and entry["durationSamples"] >= audio["durationSamples"],
-        "bound PCM source is shorter than the measured narration audio",
-    )
-    _require(
-        entry["pcmMode"] != "wav-direct"
-        or entry["pcmFileSha256"] == boundary["audioHash"].removeprefix("sha256:"),
-        "bound PCM file differs from the measured narration audio",
-    )
-    _require(source_start >= native_origin, "cut precedes native frame origin")
-    cut_start = (source_start - native_origin) * output.FRAME + pcm_origin
-    cut_end = (source_end - native_origin) * output.FRAME + pcm_origin
-    _require(
-        cut_end - cut_start == (record_end - record_start) * output.FRAME
-        and cut_end <= audio["durationSamples"],
-        "cut escapes the measured narration audio",
-    )
-    rate = audio["sampleRate"]
-    index, envelope = _select_omitted_word(
-        boundary["tokens"],
-        rate,
-        audio["durationSamples"],
-        _rational_samples(verification["onsetUncertainty"], rate),
-        _rational_samples(verification["audibleEndUncertainty"], rate),
-        cut_start,
-        cut_end,
-    )
-    marks = boundary["tokens"]
-    (start_low, start_high), (end_low, end_high) = envelope["start"], envelope["end"]
-    return {
-        "schemaVersion": SUPPORT_SCHEMA,
-        "lane": LANE,
-        "caseId": case_id,
-        "documentHash": document_hash,
-        "dependenciesHash": dependencies_hash,
-        "blockId": row["id"],
-        "blockRevision": row["version"],
-        "method": "measured_audio_boundaries/v1",
-        "selectedTokenId": marks[index]["tokenId"],
-        "leftNeighborTokenId": marks[index - 1]["tokenId"] if index > 0 else None,
-        "rightNeighborTokenId": (
-            marks[index + 1]["tokenId"] if index + 1 < len(marks) else None
-        ),
-        "boundaryEvidenceHash": _boundary_hash(boundary),
-        "measurementArtifactHash": verification["measurementArtifactHash"],
-        "audioSha256": boundary["audioHash"].removeprefix("sha256:"),
-        "timingHash": boundary["timingHash"].removeprefix("sha256:"),
-        "onsetUncertainty": verification["onsetUncertainty"],
-        "audibleEndUncertainty": verification["audibleEndUncertainty"],
-        "nativeFrameOrigin": native_origin,
-        "pcmSampleOrigin": pcm_origin,
-        "cutRecordFrames": {"startFrame": record_start, "endFrame": record_end},
-        "cutSourceFrames": {"startFrame": source_start, "endFrame": source_end},
-        "cutSamples": {"startSample": cut_start, "endSample": cut_end},
-        "cutStartEnvelope": {
-            "minSample": _ceil(start_low),
-            "maxSample": _floor(start_high),
-        },
-        "cutEndEnvelope": {"minSample": _ceil(end_low), "maxSample": _floor(end_high)},
-        "pristineGeometryRawSha256": _hash(pristine_geometry),
-        "editedGeometryRawSha256": _hash(edited_geometry),
-        "pristineComparisonRawSha256": _hash(pristine_comparison),
-        "editedComparisonRawSha256": _hash(edited_comparison),
-        "pairRawSha256": _hash(pair_json),
-    }
 
 
 class QualificationOutputProofV2:
@@ -697,10 +376,6 @@ class QualificationOutputProofV2:
             "audioEquality": equality,
             "omissionSupport": None,
         }
-        if case_id == "C":
-            observation["omissionSupport"] = self._derived_support(
-                case_id, pristine, edited, pair, facts
-            )
         value = {
             "schemaVersion": "qualification-output-observation-batch/v1",
             "lane": LANE,
@@ -708,34 +383,17 @@ class QualificationOutputProofV2:
             "dependenciesHash": facts["dependenciesHash"],
             "cases": [observation],
         }
+        if case_id == "C":
+            # Machine-derived by the TypeScript bridge from the measured
+            # evidence and the observed native cut; `infer` below re-derives it.
+            observation["omissionSupport"] = self.derive_omission_support(value)
         self._pure({"mode": "infer", "evidence": value})
         self._current()
         return value
 
-    def _derived_support(
-        self,
-        case_id: str,
-        pristine: output.TerminalOutput,
-        edited: output.TerminalOutput,
-        pair: Json | None,
-        facts: Json,
-    ) -> Json:
-        _require(pair is not None, "C requires an authenticated pair comparison")
-        return derive_omission_support_v2(
-            case_id=case_id,
-            document=_parse(self.baseline.blobs["executionDocumentSha256"]),
-            dependencies=_parse(self.baseline.blobs["executionDependenciesSha256"]),
-            manifest=self.baseline.admission.manifest,
-            document_hash=facts["documentHash"],
-            dependencies_hash=facts["dependenciesHash"],
-            pristine_geometry=pristine.output.inputs.geometry,
-            edited_geometry=edited.output.inputs.geometry,
-            pristine_binding=pristine.output.inputs.input_binding,
-            edited_binding=edited.output.inputs.input_binding,
-            pristine_comparison=pristine.comparison,
-            edited_comparison=edited.comparison,
-            pair_json=_canonical(pair),
-        )
+    def derive_omission_support(self, evidence: Json) -> Json:
+        """Support v2 for evidence whose omissionSupport is null (TS bridge)."""
+        return self._pure({"mode": "derive_omission", "evidence": evidence})
 
     def observe(self, case_id: str) -> Path:
         evidence = self.evidence(case_id)
