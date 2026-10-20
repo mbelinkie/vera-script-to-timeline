@@ -20,7 +20,7 @@ function composed(d1: number) {
   const handoff: RowHandoffV2 = { schemaVersion: "issue-189-v2-row-handoff/v1", request: stage.regeneration!,
     priorDependenciesHash: sha256CanonicalJson(stage.dependencies), serviceRequestHash: hash("fake service request"), generationReceiptHash: hash("fake actual receipt"),
     assetRecordHash: hash("fake asset record"), audioHash: fresh.audioHash, providerTimingHash: fresh.timingHash,
-    reviewArtifactHash: fresh.verification.reviewArtifactHash, boundaryEvidence: fresh };
+    reviewArtifactHash: (fresh.verification as { reviewArtifactHash: string }).reviewArtifactHash, boundaryEvidence: fresh };
   const candidate = createInferredRevisionV2(input.document, input.dependencies, cases, fakeAuthentication,
     { preparedMedia, handoff }, decisionHash);
   return { input, cases, candidate, handoff, stage, preparedMedia, decisionHash };
@@ -161,7 +161,7 @@ describe("#192 independent native-derived inference (sanitized fake only)", () =
     const handoff: RowHandoffV2 = { schemaVersion: "issue-189-v2-row-handoff/v1", request: stage.regeneration!,
       priorDependenciesHash: sha256CanonicalJson(stage.dependencies), serviceRequestHash: hash("fake request"), generationReceiptHash: hash("fake receipt"),
       assetRecordHash: hash("fake asset"), audioHash: fresh.audioHash, providerTimingHash: fresh.timingHash,
-      reviewArtifactHash: fresh.verification.reviewArtifactHash, boundaryEvidence: fresh };
+      reviewArtifactHash: (fresh.verification as { reviewArtifactHash: string }).reviewArtifactHash, boundaryEvidence: fresh };
     expect(() => createInferredRevisionV2(input.document, input.dependencies, cases, fakeAuthentication,
       { preparedMedia, handoff }, decisionHash)).toThrow(/blocked/);
   });

@@ -311,6 +311,13 @@
         },
         "boundaryEvidenceHash": {
           "$ref": "#/$defs/ContentHash"
+        },
+        "boundaryEvidenceMethod": {
+          "enum": [
+            "reviewed_audio_boundaries/v1",
+            "measured_audio_boundaries/v1"
+          ],
+          "description": "Method of the boundary evidence behind boundaryEvidenceHash. Emitted only for measured evidence; absence with a boundaryEvidenceHash means reviewed_audio_boundaries/v1. Measured evidence is never labelled reviewed."
         }
       }
     },
@@ -766,6 +773,13 @@
         },
         "boundaryEvidenceHash": {
           "$ref": "#/$defs/ContentHash"
+        },
+        "boundaryEvidenceMethod": {
+          "enum": [
+            "reviewed_audio_boundaries/v1",
+            "measured_audio_boundaries/v1"
+          ],
+          "description": "Method of the boundary evidence behind boundaryEvidenceHash. Emitted only for measured evidence; absence with a boundaryEvidenceHash means reviewed_audio_boundaries/v1. Measured evidence is never labelled reviewed."
         }
       }
     },

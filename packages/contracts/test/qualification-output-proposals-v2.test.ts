@@ -190,7 +190,7 @@ function newCase(input: ReturnType<typeof specimen>, kind: "A" | "B" | "C", exec
       selectedSourceInterval: { startSample: cutStartSamples, endSample: cutEndSamples },
       rightNeighborSourceInterval: { startSample: cutEndSamples + 1, endSample: cutEndSamples + 5000 },
       recordIntervalFrames: { startFrame: left.recordStart + left.recordDuration, endFrame: right.recordStart },
-      audioSha256: bare(boundary.audioHash), timingHash: bare(boundary.timingHash), reviewArtifactSha256: bare(boundary.verification.reviewArtifactHash),
+      audioSha256: bare(boundary.audioHash), timingHash: bare(boundary.timingHash), reviewArtifactSha256: bare((boundary.verification as { reviewArtifactHash: string }).reviewArtifactHash),
       reviewReceiptSha256: bare(hash("independent acoustic/listening review receipt")),
       pristineGeometryRawSha256: rawHash(JSON.stringify(pristineGeometry.envelope)), editedGeometryRawSha256: rawHash(JSON.stringify(editedGeometry.envelope)),
       pristineComparisonRawSha256: rawHash(pristineComparisonJson), editedComparisonRawSha256: rawHash(editedComparisonJson), pairRawSha256: rawHash(pairJson!),
@@ -249,7 +249,7 @@ function replacementHandoff(stage: ReturnType<typeof stageQualificationOutputV2>
     priorDependenciesHash: sha256CanonicalJson(stage.dependencies), serviceRequestHash: hash("synthetic C service request"),
     generationReceiptHash: hash("synthetic C generation receipt"), assetRecordHash: hash("synthetic C asset record"),
     audioHash: boundaryEvidence.audioHash, providerTimingHash: boundaryEvidence.timingHash,
-    reviewArtifactHash: boundaryEvidence.verification.reviewArtifactHash, boundaryEvidence,
+    reviewArtifactHash: (boundaryEvidence.verification as { reviewArtifactHash: string }).reviewArtifactHash, boundaryEvidence,
   };
 }
 

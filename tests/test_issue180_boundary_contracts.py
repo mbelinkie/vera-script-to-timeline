@@ -40,9 +40,15 @@ def test_issue180_public_generated_evidence_shapes() -> None:
     }
     assert onset["onset"] == {"numerator": 1, "denominator": 1}
     assert end_only["audibleEnd"] == {"numerator": 3, "denominator": 2}
+    reviewed, measured_type = BoundaryVerificationV1.__value__.__args__
     assert {"reviewId", "reviewRevision", "reviewArtifactHash"} <= get_type_hints(
-        BoundaryVerificationV1
+        reviewed
     ).keys()
+    assert {
+        "algorithm",
+        "measurementArtifactHash",
+        "onsetUncertainty",
+    } <= get_type_hints(measured_type).keys()
     assert "affinity" in get_type_hints(WordAudibleEndAnchor)
 
 

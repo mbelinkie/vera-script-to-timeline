@@ -1561,6 +1561,13 @@
         },
         "boundaryEvidenceHash": {
           "$ref": "#/$defs/ContentHash"
+        },
+        "boundaryEvidenceMethod": {
+          "enum": [
+            "reviewed_audio_boundaries/v1",
+            "measured_audio_boundaries/v1"
+          ],
+          "description": "Method of the boundary evidence behind boundaryEvidenceHash. Emitted only for measured evidence; absence with a boundaryEvidenceHash means reviewed_audio_boundaries/v1. Measured evidence is never labelled reviewed."
         }
       }
     },
@@ -1779,38 +1786,14 @@
       ]
     },
     "BoundaryVerificationV1": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "method",
-        "reviewId",
-        "reviewRevision",
-        "reviewerReference",
-        "reviewArtifactLocator",
-        "reviewArtifactHash"
-      ],
-      "properties": {
-        "method": {
-          "const": "reviewed_audio_boundaries/v1"
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ReviewedBoundaryVerificationV1"
         },
-        "reviewId": {
-          "$ref": "#/$defs/EntityId"
-        },
-        "reviewRevision": {
-          "$ref": "#/$defs/PositiveSafeInteger"
-        },
-        "reviewerReference": {
-          "$ref": "#/$defs/NonEmptyString"
-        },
-        "reviewArtifactLocator": {
-          "$ref": "script-document-v2.schema.json#/$defs/ProjectRelativePath",
-          "pattern": "^(?!.*//)(?!.*/$)[^\\r\\n]+$",
-          "type": "string"
-        },
-        "reviewArtifactHash": {
-          "$ref": "#/$defs/ContentHash"
+        {
+          "$ref": "#/$defs/MeasuredBoundaryVerificationV1"
         }
-      }
+      ]
     },
     "Ev24SemanticInputs": {
       "type": "object",
@@ -2338,6 +2321,103 @@
         },
         "provenanceHash": {
           "$ref": "#/$defs/ContentHash"
+        }
+      }
+    },
+    "ReviewedBoundaryVerificationV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "reviewId",
+        "reviewRevision",
+        "reviewerReference",
+        "reviewArtifactLocator",
+        "reviewArtifactHash"
+      ],
+      "properties": {
+        "method": {
+          "const": "reviewed_audio_boundaries/v1"
+        },
+        "reviewId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "reviewRevision": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "reviewerReference": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "reviewArtifactLocator": {
+          "$ref": "script-document-v2.schema.json#/$defs/ProjectRelativePath",
+          "pattern": "^(?!.*//)(?!.*/$)[^\\r\\n]+$",
+          "type": "string"
+        },
+        "reviewArtifactHash": {
+          "$ref": "#/$defs/ContentHash"
+        }
+      }
+    },
+    "MeasuredBoundaryVerificationV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "algorithm",
+        "measurementArtifactLocator",
+        "measurementArtifactHash",
+        "onsetBasis",
+        "onsetUncertainty",
+        "audibleEndUncertainty"
+      ],
+      "properties": {
+        "method": {
+          "const": "measured_audio_boundaries/v1"
+        },
+        "algorithm": {
+          "$ref": "#/$defs/MeasuredBoundaryAlgorithmV1"
+        },
+        "measurementArtifactLocator": {
+          "$ref": "script-document-v2.schema.json#/$defs/ProjectRelativePath",
+          "pattern": "^(?!.*//)(?!.*/$)[^\\r\\n]+$",
+          "type": "string"
+        },
+        "measurementArtifactHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "onsetBasis": {
+          "const": "provider_word_marks_lag_verified"
+        },
+        "onsetUncertainty": {
+          "$ref": "#/$defs/NonNegativeRationalTime"
+        },
+        "audibleEndUncertainty": {
+          "$ref": "#/$defs/NonNegativeRationalTime"
+        }
+      }
+    },
+    "MeasuredBoundaryAlgorithmV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "parametersHash",
+        "parameters"
+      ],
+      "properties": {
+        "id": {
+          "const": "vera-polly-marks-energy-ends"
+        },
+        "version": {
+          "const": "1"
+        },
+        "parametersHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": true
         }
       }
     }

@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, NotRequired, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
 
 from . import script_document_v2_schema
 
@@ -399,6 +399,9 @@ class VisualSequenceResolutionV2(TypedDict):
         "verified_onset",
     ]
     boundaryEvidenceHash: NotRequired[ContentHash]
+    boundaryEvidenceMethod: NotRequired[
+        Literal["reviewed_audio_boundaries/v1", "measured_audio_boundaries/v1"]
+    ]
 
 
 class SupportingItemResultV2(TypedDict):
@@ -431,15 +434,6 @@ class BoundaryTokenEvidenceV12(TypedDict):
 
 
 type BoundaryTokenEvidenceV1 = BoundaryTokenEvidenceV11 | BoundaryTokenEvidenceV12
-
-
-class BoundaryVerificationV1(TypedDict):
-    method: Literal["reviewed_audio_boundaries/v1"]
-    reviewId: EntityId
-    reviewRevision: PositiveSafeInteger
-    reviewerReference: NonEmptyString
-    reviewArtifactLocator: str
-    reviewArtifactHash: ContentHash
 
 
 class GraphicTemplatePin(TypedDict):
@@ -499,6 +493,22 @@ class GraphicContentBinding(TypedDict):
     provenanceHash: ContentHash
 
 
+class ReviewedBoundaryVerificationV1(TypedDict):
+    method: Literal["reviewed_audio_boundaries/v1"]
+    reviewId: EntityId
+    reviewRevision: PositiveSafeInteger
+    reviewerReference: NonEmptyString
+    reviewArtifactLocator: str
+    reviewArtifactHash: ContentHash
+
+
+class MeasuredBoundaryAlgorithmV1(TypedDict):
+    id: Literal["vera-polly-marks-energy-ends"]
+    version: Literal["1"]
+    parametersHash: ContentHash
+    parameters: dict[str, Any]
+
+
 class AuthoringDefaultsV2(TypedDict):
     settingsHash: ContentHash
     visualOnlyStillDurationMs: PositiveSafeInteger
@@ -538,21 +548,6 @@ class OccurrenceMediaResolutionV2(TypedDict):
     graphicContentBinding: NotRequired[GraphicContentBinding]
 
 
-class NarrationBoundaryEvidenceV1(TypedDict):
-    blockId: EntityId
-    blockRevision: PositiveSafeInteger
-    textHash: ContentHash
-    tokenizationVersion: Literal["script-document/v2-frozen-tokens"]
-    narrationAssetId: EntityId
-    audioHash: ContentHash
-    timingHash: ContentHash
-    alignmentVersion: NonEmptyString
-    audio: NarrationAudioBindingV2
-    tokens: list[BoundaryTokenEvidenceV1]
-    schemaVersion: Literal["narration-boundary-evidence/v1"]
-    verification: BoundaryVerificationV1
-
-
 class GraphicProvenanceSource(TypedDict):
     sourceKey: str
     citation: GraphicProvenanceCitation
@@ -567,6 +562,21 @@ class GraphicProvenanceDerivation(TypedDict):
     parameters: JsonObject
 
 
+class MeasuredBoundaryVerificationV1(TypedDict):
+    method: Literal["measured_audio_boundaries/v1"]
+    algorithm: MeasuredBoundaryAlgorithmV1
+    measurementArtifactLocator: str
+    measurementArtifactHash: ContentHash
+    onsetBasis: Literal["provider_word_marks_lag_verified"]
+    onsetUncertainty: NonNegativeRationalTime
+    audibleEndUncertainty: NonNegativeRationalTime
+
+
+type BoundaryVerificationV1 = (
+    ReviewedBoundaryVerificationV1 | MeasuredBoundaryVerificationV1
+)
+
+
 class GraphicProvenanceSnapshot(TypedDict):
     schemaVersion: Literal["graphic-provenance/v1"]
     projectId: EntityId
@@ -575,6 +585,21 @@ class GraphicProvenanceSnapshot(TypedDict):
     semanticSnapshotHash: ContentHash
     sources: list[GraphicProvenanceSource]
     derivation: GraphicProvenanceDerivation
+
+
+class NarrationBoundaryEvidenceV1(TypedDict):
+    blockId: EntityId
+    blockRevision: PositiveSafeInteger
+    textHash: ContentHash
+    tokenizationVersion: Literal["script-document/v2-frozen-tokens"]
+    narrationAssetId: EntityId
+    audioHash: ContentHash
+    timingHash: ContentHash
+    alignmentVersion: NonEmptyString
+    audio: NarrationAudioBindingV2
+    tokens: list[BoundaryTokenEvidenceV1]
+    schemaVersion: Literal["narration-boundary-evidence/v1"]
+    verification: BoundaryVerificationV1
 
 
 class CompilerDependenciesV2(TypedDict):
