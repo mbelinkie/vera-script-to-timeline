@@ -341,3 +341,13 @@ def test_parameters_hash_cross_language_vectors() -> None:
     )
     with pytest.raises(MeasurementError):
         parameters_hash({"ratio": 0.9})
+
+
+@pytest.mark.parametrize(
+    "parameters",
+    [{"10": 1, "2": 2}, {"a": [{"0": 1}]}, {"a": {"b": {"7": "x"}}}],
+)
+def test_parameters_hash_refuses_integer_like_keys(parameters: dict[str, Any]) -> None:
+    with pytest.raises(MeasurementError, match="integer-like"):
+        parameters_hash(parameters)
+    assert parameters_hash({"01": 1, "-1": 2, "a1": 3})

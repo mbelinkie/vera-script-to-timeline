@@ -17,6 +17,7 @@ from __future__ import annotations
 import io
 import json
 import math
+import re
 import sys
 import uuid
 import wave
@@ -119,7 +120,17 @@ def parameters_hash(parameters: Mapping[str, Any]) -> str:
                 raise MeasurementError(["algorithm parameters must be safe integers"])
             return
         if isinstance(value, Mapping):
-            for nested in value.values():
+            for key, nested in value.items():
+                # JavaScript orders integer-like keys numerically, Python
+                # sorts lexically, so such keys would hash differently.
+                if isinstance(key, str) and re.fullmatch(r"(0|[1-9][0-9]*)", key):
+                    raise MeasurementError(
+                        [
+                            "algorithm parameters must not contain integer-like "
+                            f"object keys (found {key!r}); JavaScript and Python "
+                            "order them differently"
+                        ]
+                    )
                 check(nested)
             return
         if isinstance(value, list):

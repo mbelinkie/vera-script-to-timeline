@@ -152,14 +152,24 @@ class Ledger:
             or not isinstance(value.get("rows"), list)
         ):
             raise LedgerError("ledger has an unexpected shape")
-        rows = value["rows"]
-        for row in rows:
+        rows = []
+        for row in value["rows"]:
+            if not isinstance(row, dict) or isinstance(
+                row.get("estimatedCostUsd"), bool
+            ):
+                raise LedgerError("ledger row is malformed")
+            if "status" not in row and isinstance(row.get("requestIds"), list):
+                # Rows written before statuses existed were real, already
+                # charged calls; keep their cost counting toward the cap.
+                row = {**row, "status": STATUS_CHARGED}
             if (
-                not isinstance(row, dict)
-                or not isinstance(row.get("estimatedCostUsd"), int | float)
+                not isinstance(row.get("estimatedCostUsd"), int | float)
+                or not math.isfinite(row["estimatedCostUsd"])
+                or row["estimatedCostUsd"] < 0
                 or row.get("status") not in LEDGER_STATUSES
             ):
                 raise LedgerError("ledger row is malformed")
+            rows.append(row)
         return cast(list[dict[str, Any]], rows)
 
     def cumulative_micro_usd(self) -> int:

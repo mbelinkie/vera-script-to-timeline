@@ -28,6 +28,14 @@ export function boundaryEvidenceOutputFieldsV2(evidence: NarrationBoundaryEviden
   return evidence.verification.method === "measured_audio_boundaries/v1" ? { boundaryEvidenceHash: hash, boundaryEvidenceMethod: evidence.verification.method } : { boundaryEvidenceHash: hash };
 }
 
+const integerLikeKey = /^(0|[1-9][0-9]*)$/;
+/** JavaScript orders integer-like keys numerically while Python sorts lexically, so such keys cannot be hashed portably. */
+function hasIntegerLikeKey(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(hasIntegerLikeKey);
+  if (value !== null && typeof value === "object") return Object.entries(value).some(([key, nested]) => integerLikeKey.test(key) || hasIntegerLikeKey(nested));
+  return false;
+}
+
 /** Check frozen attestations; receipt/audio byte verification belongs to the assembling flow. */
 export function boundaryEvidenceProblemV2(row: NarrationBlockV2, input: unknown): { code: "STALE_TIMING_MAP" | "TEXT_HASH_MISMATCH" | "TIMING_HASH_MISMATCH" | "COLLAPSED_BOUNDARY"; message: string } | null {
   const stale = (message: string) => ({ code: "STALE_TIMING_MAP" as const, message });
@@ -39,6 +47,7 @@ export function boundaryEvidenceProblemV2(row: NarrationBlockV2, input: unknown)
   if (evidence.textHash !== textHash) return { code: "TEXT_HASH_MISMATCH", message: "Boundary evidence names a different frozen narration text." };
   const verification = evidence.verification;
   if (verification.method === "measured_audio_boundaries/v1" && (!reduced(verification.onsetUncertainty) || !reduced(verification.audibleEndUncertainty))) return stale("Measured boundary uncertainties must be reduced non-negative rationals.");
+  if (verification.method === "measured_audio_boundaries/v1" && hasIntegerLikeKey(verification.algorithm.parameters)) return stale("Measured algorithm.parameters must not contain integer-like object keys; JavaScript and Python order them differently, so the hash is not portable.");
   if (verification.method === "measured_audio_boundaries/v1" && verification.algorithm.parametersHash !== sha256CanonicalJson(verification.algorithm.parameters)) return stale("Measured algorithm.parametersHash is not the canonical hash of its parameters.");
   const audio = evidence.audio;
   if (audio.narrationAssetId !== evidence.narrationAssetId || audio.audioHash !== evidence.audioHash) return stale("Boundary evidence and verified audio asset/hash disagree.");

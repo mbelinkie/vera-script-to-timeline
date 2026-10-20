@@ -143,6 +143,15 @@ for (const [name, mutate] of malformed) test(`malformed measured verification is
   refused(input);
 });
 
+for (const parameters of [{ "10": 1, "2": 2 }, { nested: [{ "0": 1 }] }]) test(`measured parameters with integer-like keys are refused even when correctly hashed: ${JSON.stringify(parameters)}`, () => {
+  const input = measured();
+  const algorithm = (evidence(input).verification as unknown as { algorithm: Record<string, unknown> }).algorithm;
+  algorithm.parameters = parameters;
+  algorithm.parametersHash = sha256CanonicalJson(parameters);
+  expect(boundaryEvidenceProblemV2(row(input), evidence(input))).not.toBeNull();
+  refused(input);
+});
+
 test("reviewed verification still validates unchanged and a measured shape cannot pose as reviewed", () => {
   const input = specimen();
   expect(boundaryEvidenceProblemV2(row(input), evidence(input))).toBeNull();

@@ -292,6 +292,37 @@ def test_unreadable_ledger_refuses_rather_than_resetting(tmp_path: Path) -> None
         run_generate(FakeService(), document("hello"), ledger)
 
 
+def test_legacy_rows_without_status_read_as_charged(tmp_path: Path) -> None:
+    ledger = ledger_at(tmp_path)
+    ledger.path.parent.mkdir(parents=True)
+    legacy = {
+        "at": "2026-10-20T02:10:36+00:00",
+        "blockId": "b",
+        "characters": 112,
+        "estimatedCostUsd": 0.003584,
+        "requestHash": "sha256:x",
+        "requestIds": ["r1"],
+    }
+    ledger.path.write_text(
+        json.dumps({"schemaVersion": "polly-campaign-ledger/v1", "rows": [legacy]})
+    )
+    rows = ledger.rows()
+    assert rows[0]["status"] == "charged"
+    assert rows[0]["estimatedCostUsd"] == 0.003584
+    assert ledger.cumulative_micro_usd() == 3584
+    for bad in (
+        {**legacy, "estimatedCostUsd": "1"},
+        {**legacy, "estimatedCostUsd": True},
+        {**legacy, "status": "bogus"},
+        {k: v for k, v in legacy.items() if k != "requestIds"},
+    ):
+        ledger.path.write_text(
+            json.dumps({"schemaVersion": "polly-campaign-ledger/v1", "rows": [bad]})
+        )
+        with pytest.raises(LedgerError):
+            ledger.rows()
+
+
 class RecordingProvider:
     adapter_version = "recording/v1"
 

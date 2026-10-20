@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import importlib.util
 import json
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 import pytest
 
@@ -92,6 +94,7 @@ def test_recorded_fixture_round_trip(tmp_path: Path) -> None:
             {
                 "tokenIndex": 0,
                 "sub": 0,
+                "text": "one",
                 "startMs": 110,
                 "endMs": 410,
                 "status": "acoustic",
@@ -99,6 +102,7 @@ def test_recorded_fixture_round_trip(tmp_path: Path) -> None:
             {
                 "tokenIndex": 1,
                 "sub": 0,
+                "text": "two",
                 "startMs": 590,
                 "endMs": 900,
                 "status": "acoustic",
@@ -198,7 +202,9 @@ def _bound_case(tmp_path: Path, module: ModuleType) -> list[str]:
     }
     alignment = {
         "identity": {"aligner": {}, "audio": {"hash": digest}},
-        "words": [{"tokenIndex": 0, "startMs": 100, "endMs": 400}],
+        "words": [
+            {"tokenIndex": 0, "sub": 0, "text": "one", "startMs": 100, "endMs": 400}
+        ],
     }
     (tmp_path / "w.wav").write_bytes(wav)
     (tmp_path / "m.json").write_text(json.dumps(artifact))
@@ -232,3 +238,51 @@ def test_inputs_are_bound_to_the_measured_audio(tmp_path: Path) -> None:
     del alignment["identity"]["audio"]
     (tmp_path / "a.json").write_text(json.dumps(alignment))
     assert module.main(arguments) == 2
+
+
+def test_partially_aligned_hyphenated_token_is_unaligned() -> None:
+    module = load()
+    artifact = {"tokens": [{"quotedText": "twenty-one"}, {"quotedText": "two"}]}
+    engine = {
+        "words": [
+            {"i": 0, "sub": 0, "start": 0.1, "end": 0.4, "status": "aligned"},
+            {"i": 0, "sub": 1, "start": None, "end": None, "status": "failed"},
+            {"i": 1, "start": 0.5, "end": 0.9, "status": "aligned"},
+        ]
+    }
+    assert module.intervals_from_engine(engine, artifact) == [None, (500.0, 900.0)]
+    # A piece that is simply absent from the result is also unaligned.
+    del engine["words"][1]
+    assert module.intervals_from_engine(engine, artifact)[0] is None
+    recorded = {
+        "words": [
+            {"tokenIndex": 0, "sub": 0, "text": "twenty", "startMs": 100, "endMs": 400},
+            {"tokenIndex": 1, "sub": 0, "text": "two", "startMs": 500, "endMs": 900},
+        ]
+    }
+    assert module.intervals_from_alignment(recorded, artifact) == [
+        None,
+        (500.0, 900.0),
+    ]
+    tokens = [token(0, 100, 400), token(1, 500, 900)]
+    report = module.compare(tokens, module.intervals_from_alignment(recorded, artifact))
+    assert report["onsetCoverage"]["complete"] is False
+    assert report["corpusGatePass"] is False
+
+
+def test_recorded_words_must_match_the_measured_tokens(tmp_path: Path) -> None:
+    module = load()
+    arguments = _bound_case(tmp_path, module)
+    assert module.main(arguments) == 0
+    alignment = json.loads((tmp_path / "a.json").read_text())
+    mutations: list[Callable[[list[dict[str, Any]]], object]] = [
+        lambda w: w[0].update(text="uno"),
+        lambda w: w[0].update(tokenIndex=3),
+        lambda w: w.append(dict(w[0])),
+        lambda w: w[0].pop("text"),
+    ]
+    for mutate in mutations:
+        broken = json.loads(json.dumps(alignment))
+        mutate(broken["words"])
+        (tmp_path / "a.json").write_text(json.dumps(broken))
+        assert module.main(arguments) == 2

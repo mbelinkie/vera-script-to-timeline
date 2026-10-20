@@ -287,26 +287,75 @@ def mfa_command_and_env() -> tuple[list[str], dict[str, str]]:
     return command, env
 
 
+def expected_units(artifact: dict[str, Any]) -> dict[tuple[int, int], str]:
+    """Every (token index, sub-word index) -> piece the aligner must align."""
+
+    units: dict[tuple[int, int], str] = {}
+    for index, row in enumerate(artifact["tokens"]):
+        for sub, piece in enumerate(spoken_pieces(row["quotedText"])):
+            units[(index, sub)] = piece
+    return units
+
+
+def _unit_key(
+    index: object, sub: object, units: dict[tuple[int, int], str]
+) -> tuple[int, int]:
+    if (
+        not isinstance(index, int)
+        or isinstance(index, bool)
+        or not isinstance(sub, int)
+        or isinstance(sub, bool)
+        or (index, sub) not in units
+    ):
+        raise ValueError(
+            f"aligner unit (token {index!r}, sub {sub!r}) is not part of the "
+            "measured script tokens"
+        )
+    return (index, sub)
+
+
+def _collect_intervals(
+    artifact: dict[str, Any],
+    spans: dict[tuple[int, int], tuple[float, float] | None],
+    units: dict[tuple[int, int], str],
+) -> list[tuple[float, float] | None]:
+    """A token is aligned only if every one of its sub-word pieces is."""
+
+    out: list[tuple[float, float] | None] = []
+    for index, _token in enumerate(artifact["tokens"]):
+        keys = sorted(key for key in units if key[0] == index)
+        parts = [spans.get(key) for key in keys]
+        if not keys or any(part is None for part in parts):
+            out.append(None)
+        else:
+            present = [part for part in parts if part is not None]
+            out.append((present[0][0], present[-1][1]))
+    return out
+
+
 def intervals_from_engine(
     result: dict[str, Any], artifact: dict[str, Any]
 ) -> list[tuple[float, float] | None]:
-    """Map engine rows (seconds) to one (startMs, endMs) per script token."""
+    """Map engine rows (seconds) to one (startMs, endMs) per script token.
 
-    rows: dict[int, list[dict[str, Any]]] = {}
+    Rows must be exactly units of the measured script tokens; a token whose
+    pieces are not all aligned (a missing, failed or unbounded piece) is
+    unaligned and fails the coverage gate.
+    """
+
+    units = expected_units(artifact)
+    spans: dict[tuple[int, int], tuple[float, float] | None] = {}
     for row in result["words"]:
-        rows.setdefault(row["i"], []).append(row)
-    out: list[tuple[float, float] | None] = []
-    for index, token in enumerate(artifact["tokens"]):
-        parts = sorted(rows.get(index, []), key=lambda r: r.get("sub", 0))
-        if (
-            not spoken_pieces(token["quotedText"])
-            or not parts
-            or any(p["status"] != "aligned" for p in parts)
-        ):
-            out.append(None)
-        else:
-            out.append((parts[0]["start"] * 1000.0, parts[-1]["end"] * 1000.0))
-    return out
+        key = _unit_key(row.get("i"), row.get("sub", 0), units)
+        if key in spans:
+            raise ValueError(f"duplicate aligner unit {key}")
+        ok = (
+            row.get("status") == "aligned"
+            and row.get("start") is not None
+            and row.get("end") is not None
+        )
+        spans[key] = (row["start"] * 1000.0, row["end"] * 1000.0) if ok else None
+    return _collect_intervals(artifact, spans, units)
 
 
 def run_mfa(
@@ -363,19 +412,33 @@ def run_mfa(
 
 
 def intervals_from_alignment(
-    alignment: dict[str, Any], token_count: int
+    alignment: dict[str, Any], artifact: dict[str, Any]
 ) -> list[tuple[float, float] | None]:
-    spans: dict[int, list[dict[str, Any]]] = {}
+    """Map a recorded alignment/v1 result to one interval per script token.
+
+    The recorded words must be the measurement's own script words: each unit's
+    (tokenIndex, sub) and text must match the expected piece.  A token is
+    aligned only when every one of its pieces is present with bounds.
+    """
+
+    units = expected_units(artifact)
+    spans: dict[tuple[int, int], tuple[float, float] | None] = {}
     for word in alignment["words"]:
-        spans.setdefault(word["tokenIndex"], []).append(word)
-    result: list[tuple[float, float] | None] = []
-    for index in range(token_count):
-        parts = spans.get(index, [])
-        if not parts or any(p["startMs"] is None or p["endMs"] is None for p in parts):
-            result.append(None)
-        else:
-            result.append((float(parts[0]["startMs"]), float(parts[-1]["endMs"])))
-    return result
+        key = _unit_key(word.get("tokenIndex"), word.get("sub"), units)
+        if key in spans:
+            raise ValueError(f"duplicate aligner unit {key}")
+        if word.get("text") != units[key]:
+            raise ValueError(
+                f"recorded unit {key} text {word.get('text')!r} is not the "
+                f"measured script word {units[key]!r}"
+            )
+        ok = (
+            word.get("status") != "unaligned"
+            and word.get("startMs") is not None
+            and word.get("endMs") is not None
+        )
+        spans[key] = (float(word["startMs"]), float(word["endMs"])) if ok else None
+    return _collect_intervals(artifact, spans, units)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -393,7 +456,7 @@ def main(argv: list[str] | None = None) -> int:
         if options.mfa_result is not None:
             alignment = json.loads(options.mfa_result.read_text(encoding="utf-8"))
             bind_inputs(artifact, wav_bytes, alignment)
-            intervals = intervals_from_alignment(alignment, len(tokens))
+            intervals = intervals_from_alignment(alignment, artifact)
             provenance = alignment.get("identity", {}).get("aligner")
         else:
             bind_inputs(artifact, wav_bytes)
