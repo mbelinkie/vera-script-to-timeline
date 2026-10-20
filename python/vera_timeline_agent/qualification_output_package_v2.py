@@ -33,6 +33,11 @@ from urllib.parse import unquote, urlparse
 from . import v2_package
 from .qualification_output_records_v2 import _canonical, _parse
 from .qualification_output_v2 import SourceProof
+from .roundtrip_build import ProofBuildError
+from .roundtrip_v2_audio import (
+    narration_evidence_method,
+    verify_measured_narration_evidence,
+)
 from .source_audio_endpoint import endpoint_plan, endpoint_wav
 
 Json = dict[str, Any]
@@ -1214,6 +1219,7 @@ def admit_qualification_package_v2(
     profile: str = R16_PROFILE,
     package_root: Path | None = None,
     preparation_paths: Mapping[str, Path] | None = None,
+    narration_evidence_paths: Mapping[str, Mapping[str, Path]] | None = None,
 ) -> QualificationOutputAdmissionV2:
     """Admit a fixed qualification fixture or an unchanged verified public package.
 
@@ -1225,6 +1231,10 @@ def admit_qualification_package_v2(
     _need(
         profile == MATRIX_PROFILE or preparation_paths is None,
         "published preparation paths are only accepted by the matrix profile",
+    )
+    _need(
+        profile == MATRIX_PROFILE or narration_evidence_paths is None,
+        "measured narration evidence is only accepted by the matrix profile",
     )
     _need(
         isinstance(output_root, Path) and output_root.is_absolute(),
@@ -1253,6 +1263,7 @@ def admit_qualification_package_v2(
         synthetic_root,
         profile=profile,
         preparation_paths=preparation_paths,
+        narration_evidence_paths=narration_evidence_paths,
     )
 
 
@@ -1264,6 +1275,7 @@ def admit_qualification_revision_v2(
     preparation_paths: Mapping[str, Path],
     revised_preflight_path: Path,
     revised_preflight_sha256: str,
+    narration_evidence_paths: Mapping[str, Mapping[str, Path]] | None = None,
 ) -> QualificationOutputAdmissionV2:
     """Admit a fresh public matrix build while retaining its pinned originals."""
     _need(
@@ -1371,6 +1383,7 @@ def admit_qualification_revision_v2(
         package_root,
         profile=MATRIX_PROFILE,
         preparation_paths=preparation_paths,
+        narration_evidence_paths=narration_evidence_paths,
         revision_originals=(
             (original_document_path, original_document),
             (original_dependencies_path, original_dependencies),
@@ -2485,18 +2498,39 @@ def _audio_source_entries(
                 len(matching) == 1 and _canonical(matching[0]) == _canonical(record),
                 "narration proof row differs from exact boundary dependency",
             )
-            timing_raw = timing_by_block.get(block_id)
-            _need(
-                timing_raw is not None
-                and _sha(timing_raw) == _NARRATION_TIMING_HASHES[block_id],
-                "narration timing source is not the pinned actual file",
-            )
-            assert timing_raw is not None
-            _need(
-                proof.timing == timing_raw,
-                "narration proof does not retain the actual TIMING bytes",
-            )
-            if matrix_profile:
+            timing_raw: bytes | None
+            measured = matrix_profile and _narration_method(record) == "measured"
+            if measured:
+                # Measured (#182) evidence is admitted by self-consistent hash
+                # pins rather than the statically pinned reviewed inventory.
+                _need(
+                    proof.timing is not None
+                    and proof.review is not None
+                    and proof.review == proof.receipt,
+                    "measured narration proof must retain its timing and "
+                    "measurement artifact bytes",
+                )
+                assert proof.timing is not None and proof.review is not None
+                timing_raw = proof.timing
+                _verify_measured_narration(
+                    record, timing_raw, proof.review, _sha(wav_raw)
+                )
+                review_bytes = proof.review
+            else:
+                timing_raw = timing_by_block.get(block_id)
+                _need(
+                    timing_raw is not None
+                    and _sha(timing_raw) == _NARRATION_TIMING_HASHES[block_id],
+                    "narration timing source is not the pinned actual file",
+                )
+                assert timing_raw is not None
+                _need(
+                    proof.timing == timing_raw,
+                    "narration proof does not retain the actual TIMING bytes",
+                )
+            if measured:
+                pass  # review bytes already bound above
+            elif matrix_profile:
                 declared_review_hash = _allowed_narration_review_hash(
                     _object(
                         record.get("verification"),
@@ -2765,6 +2799,65 @@ def _track(
     return raw
 
 
+def _narration_method(row: object) -> str:
+    """``reviewed`` or ``measured`` evidence; unknown methods refuse."""
+    try:
+        return narration_evidence_method(row)
+    except ProofBuildError as error:
+        raise QualificationPackageError(str(error)) from error
+
+
+def _verify_measured_narration(
+    row: object, timing: bytes, artifact: bytes, audio_sha256: str | None
+) -> None:
+    try:
+        verify_measured_narration_evidence(
+            row, timing=timing, artifact=artifact, audio_sha256=audio_sha256
+        )
+    except ProofBuildError as error:
+        raise QualificationPackageError(str(error)) from error
+
+
+def _track_measured_narration(
+    row: Json,
+    paths: Mapping[str, Path] | None,
+    states: dict[Path, tuple[int, int, int, int, int]],
+    hashes: dict[Path, str],
+) -> tuple[bytes, bytes]:
+    """Read measured evidence's timing and measurement artifact from the inputs.
+
+    The caller declares the two files; each must end in the locator the
+    evidence itself pins, so the evidence cannot be satisfied by other bytes.
+    """
+    _need(
+        isinstance(paths, Mapping) and set(paths) == {"timing", "measurement"},
+        "measured narration requires its timing and measurement artifact paths",
+    )
+    assert paths is not None
+    verification = _object(row.get("verification"), "measured verification required")
+    audio = _object(row.get("audio"), "measured audio binding required")
+    locator = _text(
+        verification.get("measurementArtifactLocator"),
+        "measurement artifact locator required",
+    )
+    audio_locator = _text(audio.get("locator"), "narration audio locator required")
+    timing_locator = audio_locator.rsplit("/", 1)[0] + "/timing.json"
+    for key, expected in (("timing", timing_locator), ("measurement", locator)):
+        path = paths[key]
+        _need(
+            isinstance(path, Path)
+            and path.is_absolute()
+            and not path.is_symlink()
+            and ("/" + path.as_posix().lstrip("/")).endswith("/" + expected)
+            and ".." not in expected.split("/"),
+            f"measured narration {key} path is not inside the evidence locator",
+        )
+    timing = _track(paths["timing"], states, hashes)
+    artifact = _track(paths["measurement"], states, hashes)
+    _verify_measured_narration(row, timing, artifact, None)
+    return timing, artifact
+
+
 def _allowed_narration_review_hash(value: object) -> str:
     declared = _text(value, "narration review artifact hash required")
     digest = declared.removeprefix("sha256:")
@@ -2900,6 +2993,7 @@ def _audio_proofs(
     *,
     allow_silent: bool = False,
     matrix_profile: bool = False,
+    narration_evidence_paths: Mapping[str, Mapping[str, Path]] | None = None,
 ) -> tuple[
     dict[str, bytes],
     dict[str, SourceProof],
@@ -2935,6 +3029,17 @@ def _audio_proofs(
                 if row["blockId"] == block_id
             ]
             _need(len(rows) == 1, "exact narration boundary row required")
+            if matrix_profile and _narration_method(rows[0]) == "measured":
+                timing, review = _track_measured_narration(
+                    rows[0],
+                    (narration_evidence_paths or {}).get(block_id),
+                    states,
+                    hashes,
+                )
+                proofs[sid] = SourceProof(
+                    _canonical(rows[0]), review, timing=timing, review=review
+                )
+                continue
             timing = _track(
                 _CANDIDATE / "TimingSources" / f"{block_id}.json", states, hashes
             )
@@ -3464,6 +3569,7 @@ def _admit_synthetic(
     existing: bool = False,
     profile: str = SYNTHETIC_PROFILE,
     preparation_paths: Mapping[str, Path] | None = None,
+    narration_evidence_paths: Mapping[str, Mapping[str, Path]] | None = None,
     revision_originals: tuple[tuple[Path, bytes], tuple[Path, bytes]] | None = None,
     revision_execution_pins: Mapping[str, bytes] | None = None,
 ) -> QualificationOutputAdmissionV2:
@@ -3650,6 +3756,7 @@ def _admit_synthetic(
         hashes,
         allow_silent=profile == MATRIX_PROFILE,
         matrix_profile=profile == MATRIX_PROFILE,
+        narration_evidence_paths=narration_evidence_paths,
     )
     preflight, preparation = _snapshots(
         profile=profile,

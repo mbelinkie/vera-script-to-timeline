@@ -82,6 +82,29 @@ def _reviewed_artifact_hash(record: Any) -> str:
     return cast(str, verification["reviewArtifactHash"])  # type: ignore[index]
 
 
+def _narration_review_pin(record: Any, proof: Any) -> str:
+    """Review pin of reviewed evidence, or the verified measurement artifact hash.
+
+    Measured (#182) evidence is admitted only when its method, algorithm
+    parameters, measurement artifact, provider timing and audio hashes are
+    self-consistent; the method stays on the retained row.  Unknown methods
+    refuse.
+    """
+
+    from vera_timeline_agent.roundtrip_build import ProofBuildError
+    from vera_timeline_agent.roundtrip_v2_audio import narration_review_pin
+
+    try:
+        return narration_review_pin(
+            record,
+            timing=proof.timing,
+            artifact=proof.review,
+            audio_sha256=_legacy_digest(record.get("audioHash")),
+        )
+    except ProofBuildError as error:
+        raise OutputConsistencyError(str(error)) from error
+
+
 RATE = {"numerator": 24000, "denominator": 1001}
 ENCODING = "float64le-interleaved-stereo"
 ALGORITHM = {
@@ -548,7 +571,7 @@ def _provenance(
             # The authenticated TS compiler hash is not a Python row hash.
             _legacy_digest(provenance["boundaryEvidenceHash"])
             _require(
-                _legacy_digest(_reviewed_artifact_hash(record)) == pins["review"],
+                _legacy_digest(_narration_review_pin(record, proof)) == pins["review"],
                 "boundary review differs",
             )
         trust.authenticate(

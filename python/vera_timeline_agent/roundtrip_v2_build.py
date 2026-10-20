@@ -30,7 +30,7 @@ from vera_timeline_agent.roundtrip_proof import _destination, publish_immutable_
 from vera_timeline_agent.roundtrip_v2_audio import (
     ReceiptVerifier,
     fact,
-    reviewed_artifact_hash,
+    narration_review_pin,
     shape,
 )
 from vera_timeline_agent.roundtrip_v2_records import (
@@ -337,7 +337,13 @@ class PreparedProofBuildV2:
             )
             if row.get("schemaVersion") == "narration-boundary-evidence/v1":
                 fact(
-                    _digest(review) == reviewed_artifact_hash(row),
+                    _digest(review)
+                    == narration_review_pin(
+                        row,
+                        timing=actual_timing,
+                        artifact=review,
+                        audio_sha256=_digest(pcm),
+                    ),
                     "boundary review artifact differs",
                 )
             self.authenticate(
