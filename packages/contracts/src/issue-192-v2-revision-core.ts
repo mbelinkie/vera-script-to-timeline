@@ -141,8 +141,9 @@ export function prepareRevisionInputsV2(
     const oldIndex = dependencies.preparedMedia.findIndex((b) => b.requirementKey === oldKey);
     fact(replacement.requirementKey === oldKey || !dependencies.preparedMedia.some((b) => b.requirementKey === replacement.requirementKey),
       "replacement preparation key duplicates an existing binding");
-    occurrence.preparedMediaRequirementKey = replacement.requirementKey;
     const shared = dependencies.occurrenceResolutions.some((d) => d !== occurrence && d.preparedMediaRequirementKey === oldKey);
+    fact(!(shared && replacement.requirementKey === oldKey), "replacement keeps a preparation key shared by an unaffected occurrence");
+    occurrence.preparedMediaRequirementKey = replacement.requirementKey;
     if (shared) dependencies.preparedMedia.push(structuredClone(replacement));
     else dependencies.preparedMedia[oldIndex] = structuredClone(replacement);
   }

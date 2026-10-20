@@ -365,7 +365,7 @@ export function applyAcceptedOmissionV2(
   );
   const previous = originalRow.tokens[firstRemovedIndex - 1]!;
   const following = originalRow.tokens[lastRemovedIndex + 1]!;
-  // Narrow rule: a single token set off as a comma-delimited parenthetical (", " on both sides) is joined with one space.
+  // Narrow rule: a single token set off as a comma-delimited parenthetical (", " on both sides) is joined by exactly one comma and space (", "), so lists stay correct.
   const parentheticalSingleToken = firstRemovedIndex === lastRemovedIndex &&
     originalRow.text.slice(previous.endOffset, originalRow.tokens[firstRemovedIndex]!.startOffset) === ", " &&
     originalRow.text.slice(originalRow.tokens[lastRemovedIndex]!.endOffset, following.startOffset) === ", ";
@@ -389,9 +389,10 @@ export function applyAcceptedOmissionV2(
   const document = structuredClone(input);
   const revisedRow = narrationRow(document, edit.blockId);
   requireFact(revisedRow !== undefined, "missing cloned narration row");
-  const delta = 1 - (following.startOffset - previous.endOffset);
+  const joiner = parentheticalSingleToken ? ", " : " ";
+  const delta = joiner.length - (following.startOffset - previous.endOffset);
   revisedRow.text = originalRow.text.slice(0, previous.endOffset) +
-    " " +
+    joiner +
     originalRow.text.slice(following.startOffset);
   const kept = revisedRow.tokens
     .filter((token) => !removedTokenIds.has(token.id))

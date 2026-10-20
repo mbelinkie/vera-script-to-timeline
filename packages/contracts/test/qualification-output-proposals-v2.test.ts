@@ -17,6 +17,7 @@ import {
   type QualificationOutputObservationBatchV1,
   type QualificationOutputObservationCaseV1,
   type QualificationOutputAudioEqualityV1,
+  requireInteriorOmissionIndex,
 } from "../src/qualification-output-proposals-v2.js";
 import { edits, hash, id, observations, rational, specimen, timing, type FakeRaw } from "./issue-192-case.js";
 
@@ -35,7 +36,7 @@ const pythonHash = (value: unknown) => rawHash(JSON.stringify(pythonSorted(value
 
 interface Origins { nativeFrameOrigin: number; pcmSampleOrigin: number }
 function geometryEnvelope(input: ReturnType<typeof specimen>, raw: FakeRaw, phase: "pristine" | "edited", caseId: string,
-  executionDiffers = false, origins: Origins = { nativeFrameOrigin: 0, pcmSampleOrigin: 0 }) {
+  executionDiffers = false, origins: Origins = { nativeFrameOrigin: 0, pcmSampleOrigin: 0 }, pcmMode = "wav-direct") {
   const compiled = compileTimelineV2(input.document, input.dependencies);
   if (!compiled.ok || compiled.report.status !== "ready") throw new Error("sanitized baseline compile failed");
   const manifest = compiled.manifest;
@@ -44,9 +45,9 @@ function geometryEnvelope(input: ReturnType<typeof specimen>, raw: FakeRaw, phas
   const audioItems = new Map<string, FakeRaw["items"][number]>();
   for (const item of raw.items.filter((row) => row.kind === "audio")) audioItems.set(item.sourceId, item);
   const sourceEntries = [...audioItems].map(([sourceId, item]) => ({
-    sourceId, nativeSourceSha256: nativeSourceRows.get(sourceId)!.nativeSourceSha256, pcmMode: "prepared-audio",
+    sourceId, nativeSourceSha256: nativeSourceRows.get(sourceId)!.nativeSourceSha256, pcmMode,
     provenanceReceiptSha256: bare(hash(`entry:${sourceId}:receipt`)), provenancePinsSha256: bare(hash(`entry:${sourceId}:pins`)),
-    deliveryDerivationSha256: bare(hash(`entry:${sourceId}:delivery`)), pcmFileSha256: bare(hash(`entry:${sourceId}:pcm-file`)),
+    deliveryDerivationSha256: bare(hash(`entry:${sourceId}:delivery`)), pcmFileSha256: pcmMode === "wav-direct" ? bare(input.dependencies.narrationBoundaryEvidence![0]!.audioHash) : bare(hash(`entry:${sourceId}:pcm-file`)),
     decodedSamplesSha256: bare(hash(`entry:${sourceId}:samples`)), originalBitDepth: 24, channels: 1,
     durationSamples: 4_000_000, sampleRate: 48000,
     pcmMappingSha256: bare(item.sourceHash), ...origins,
@@ -177,6 +178,7 @@ interface CaseOptions {
   /** Whole-frame gap (record == narration source frames) cut out of the narration item. */
   cut?: { startFrame: number; endFrame: number };
   origins?: Origins;
+  pcmMode?: "wav-direct" | "prepared-audio";
   /** Edits the derived support before it is attached, to model a hand-authored or stale record. */
   tamperSupport?: (support: Record<string, unknown>) => void;
 }
@@ -225,8 +227,8 @@ function newCase(input: ReturnType<typeof specimen>, kind: "A" | "B" | "C", opti
   const pristineRaw = observations(input);
   const editedRaw = kind === "C" ? splitNarration(pristineRaw, cut) : edits(pristineRaw, kind);
   const caseId = `isolated-${kind}`;
-  const pristineGeometry = geometryEnvelope(input, pristineRaw, "pristine", caseId, options.executionDiffers, origins);
-  const editedGeometry = geometryEnvelope(input, editedRaw, "edited", caseId, options.executionDiffers, origins);
+  const pristineGeometry = geometryEnvelope(input, pristineRaw, "pristine", caseId, options.executionDiffers, origins, options.pcmMode);
+  const editedGeometry = geometryEnvelope(input, editedRaw, "edited", caseId, options.executionDiffers, origins, options.pcmMode);
   const pristineComparisonJson = JSON.stringify(comparison(pristineGeometry, "pristine", caseId));
   const editedComparisonJson = JSON.stringify(comparison(editedGeometry, "edited", caseId));
   const pairJson = kind === "A" ? null : pairRecord(pristineComparisonJson, editedComparisonJson, caseId, pristineGeometry.geometry.extentFrames, editedGeometry.geometry.extentFrames);
@@ -514,6 +516,18 @@ describe("#215 authenticated output observation to explicit revision bridge", ()
       expect(() => infer(input, { tamperSupport: (support) => { support.reviewArtifactSha256 = "0".repeat(64); } })).toThrow(/unsupported omission support fields/);
     });
 
+    it("refuses measured-evidence omission when the narration source is not wav-direct", () => {
+      const input = campaignInput();
+      expect(() => infer(input, { pcmMode: "prepared-audio" })).toThrow(/requires a wav-direct narration source/);
+      expect(infer(input).omission).not.toBeNull();
+    });
+
+    it("refuses first and last token omissions so inference agrees with the interior-only transform", () => {
+      expect(() => requireInteriorOmissionIndex(0, 12)).toThrow(/first or last narration token omission is unsupported/);
+      expect(() => requireInteriorOmissionIndex(11, 12)).toThrow(/first or last narration token omission is unsupported/);
+      expect(() => requireInteriorOmissionIndex(CAMPAIGN.slowlyIndex, 12)).not.toThrow();
+    });
+
     it("takes PCM sample origins from the bound source entry, not from the support record", () => {
       const input = campaignInput();
       const origins = { nativeFrameOrigin: 3, pcmSampleOrigin: 37 };
@@ -562,10 +576,10 @@ describe("#215 authenticated output observation to explicit revision bridge", ()
         schemaVersion: "issue-189-v2-accepted-omission/v1", expectedDocumentHash: sha256CanonicalJson(document), blockId: row.id,
         blockRevision: row.version, tokenIds: [row.tokens[CAMPAIGN.slowlyIndex]!.id], evidenceHash: hash("evidence"), decisionHash: hash("decision"),
       });
-      // The real baseline sets "slowly" off by commas; the comma-delimited single-word parenthetical rule drops both commas.
       expect(row.text).toContain("harbor, slowly, toward");
       const revised = edit(baseline).document.activeDraft.blocks[0] as NarrationBlockV2;
-      expect(revised.text).toBe("Every morning the old ferry crosses the harbor toward the little island where the market opens at nine.");
+      // The real baseline sets "slowly" off by commas; the single-word parenthetical rule keeps exactly one comma ("harbor, toward").
+      expect(revised.text).toBe("Every morning the old ferry crosses the harbor, toward the little island where the market opens at nine.");
       for (const token of revised.tokens) expect(revised.text.slice(token.startOffset, token.endOffset)).toBe(token.value);
       const plain = structuredClone(baseline);
       const plainRow = campaignInput({ commas: false }).row;

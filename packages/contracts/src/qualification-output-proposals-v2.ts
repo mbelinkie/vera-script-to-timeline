@@ -846,6 +846,11 @@ function selectOmittedWord(marks: readonly BoundaryMark[], sampleRate: number, d
   return hits[0]!;
 }
 
+/** The omission transform joins a previous and a following token, so inference refuses first/last tokens the same way. */
+export function requireInteriorOmissionIndex(index: number, tokenCount: number): void {
+  fact(index > 0 && index < tokenCount - 1, "first or last narration token omission is unsupported; only interior tokens can be omitted");
+}
+
 function narrationEvidence(dependencies: CompilerDependenciesV2, blockId: string): NarrationBoundaryEvidenceV1 {
   const evidence = (dependencies.narrationBoundaryEvidence ?? []).filter((row) => row.blockId === blockId);
   fact(evidence.length === 1, "narration boundary evidence required");
@@ -939,7 +944,8 @@ function deriveOmissionSupport(document: ScriptDocumentV2, dependencies: Compile
   const nativeFrameOrigin = integer(entry.nativeFrameOrigin, "native frame origin");
   const pcmSampleOrigin = integer(entry.pcmSampleOrigin, "PCM sample origin");
   fact(integer(entry.sampleRate) === audio.sampleRate && integer(entry.durationSamples) >= audio.durationSamples, "bound PCM source is shorter than the measured narration audio");
-  fact(entry.pcmMode !== "wav-direct" || entry.pcmFileSha256 === bare(boundary.audioHash), "bound PCM file differs from the measured narration audio");
+  fact(entry.pcmMode === "wav-direct", "measured-evidence omission requires a wav-direct narration source");
+  fact(entry.pcmFileSha256 === bare(boundary.audioHash), "bound PCM file differs from the measured narration audio");
   fact(gapSourceStart >= nativeFrameOrigin, "cut precedes native frame origin");
   const cutStart = integer((gapSourceStart - nativeFrameOrigin) * FRAME_SAMPLES + pcmSampleOrigin, "cut start sample");
   const cutEnd = integer((gapSourceEnd - nativeFrameOrigin) * FRAME_SAMPLES + pcmSampleOrigin, "cut end sample");
@@ -949,6 +955,7 @@ function deriveOmissionSupport(document: ScriptDocumentV2, dependencies: Compile
   const endUncertainty = timeSamples(verification.audibleEndUncertainty, audio.sampleRate);
   const selection = selectOmittedWord(boundary.tokens, audio.sampleRate, audio.durationSamples, onsetUncertainty, endUncertainty, cutStart, cutEnd);
   const marks = boundary.tokens;
+  requireInteriorOmissionIndex(selection.index, marks.length);
   const selected = marks[selection.index]!;
   const derived: QualificationOutputOmissionSupportV2 = {
     schemaVersion: "qualification-output-omission-support/v2", lane: LANE, caseId: input.source.caseId, documentHash, dependenciesHash,
