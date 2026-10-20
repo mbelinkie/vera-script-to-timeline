@@ -235,6 +235,22 @@ describe("#202 pure explicit commands (synthetic, no native/provider authenticat
     expect(() => createRevisionProposalV2(short.document, short.dependencies, { commands: c.command, preparedMedia: c.preparedMedia, handoff: shortHandoff })).toThrow("blocked/nondeterministic/mutated replacement preview");
     expect(canonicalJson(c.input)).toBe(bytes);
   });
+  it("adopts a replacement preparation's own honest key for the affected occurrence", () => {
+    const input = specimen(); const bytes = canonicalJson(input);
+    const honest = patches(input).slice(1); honest[0]!.requirementKey = "prep:51:honest-67";
+    const stage = prepareRevisionInputsV2(input.document, input.dependencies, commands(), honest);
+    const occurrence = stage.dependencies.occurrenceResolutions.find((d) => d.owner.kind === "visual_only_block" && d.owner.blockId === id(50))!;
+    expect(occurrence.preparedMediaRequirementKey).toBe("prep:51:honest-67");
+    const keys = stage.dependencies.preparedMedia.map((b) => b.requirementKey);
+    expect(keys).toContain("prep:51:honest-67");
+    expect(keys).not.toContain("prep:51");
+    expect(stage.dependencies.occurrenceResolutions.filter((d) => d.preparedMediaRequirementKey === "prep:51")).toHaveLength(0);
+    const second = structuredClone(honest[0]!); second.requirementKey = "prep:51:other";
+    expect(() => prepareRevisionInputsV2(input.document, input.dependencies, commands(), [honest[0]!, second])).toThrow(/unrelated\/duplicate/);
+    const clash = structuredClone(honest); clash[0]!.requirementKey = "prep:41";
+    expect(() => prepareRevisionInputsV2(input.document, input.dependencies, commands(), clash)).toThrow(/duplicates an existing binding/);
+    expect(canonicalJson(input)).toBe(bytes);
+  });
   it("refuses unrelated media, changed profile/authorization, real picture-only input and unexpected handoff", () => {
     const input = specimen(); const bytes = canonicalJson(input);
     const request = { commands: commands(), preparedMedia: patches(input).slice(1), handoff: null };

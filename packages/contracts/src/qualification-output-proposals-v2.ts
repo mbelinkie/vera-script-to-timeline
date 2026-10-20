@@ -640,6 +640,9 @@ function compileForDocument(document: ScriptDocumentV2, dependencies: CompilerDe
   fact(compiled.ok && compiled.report.status === "ready", "candidate compile refused");
   return compiled;
 }
+// Inference-only stand-in: it carries the prior key with the trimmed range, because the revision core
+// matches a replacement to its occurrence by pinned inputs and adopts the replacement's own key. The
+// honest key of a real preparation is computed by the preparation (identity of its inputs), not predicted here.
 function exactPreparedMediaForTrim(dependencies: CompilerDependenciesV2, blockId: string, durationFrames: number): PreparedMediaBindingV1[] {
   const occurrences = dependencies.occurrenceResolutions.filter((row) => row.owner.kind === "visual_only_block" && row.owner.blockId === blockId);
   fact(occurrences.length === 1 && occurrences[0]!.preparedMediaRequirementKey !== null, "trim preparation occurrence is ambiguous");

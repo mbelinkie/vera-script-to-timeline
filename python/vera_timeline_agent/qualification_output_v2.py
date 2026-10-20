@@ -596,7 +596,14 @@ def _provenance(
             proof.origin_record is None and proof.origin_receipt is None,
             "narration origin cannot be overridden",
         )
-        start, end = 0, (re - rs) * FRAME
+        # D-0014 ceiling framing: the event may extend past the asset by less
+        # than one frame; that tail is explicit silence, never padded audio.
+        full = (re - rs) * FRAME
+        _require(
+            source["durationSamples"] > 0 and full - source["durationSamples"] < FRAME,
+            "narration event exceeds exact source samples by a frame or more",
+        )
+        start, end = 0, min(full, source["durationSamples"])
     else:
         _require(
             event["kind"] == "source_audio" and source["pcmMode"] == "prepared-audio",
@@ -1215,6 +1222,10 @@ def _validated(
                 item["sourceStart"] - source["nativeFrameOrigin"]
             ) * FRAME + source["pcmSampleOrigin"]
             count = item["recordDuration"] * FRAME
+            if event["kind"] == "narration":
+                # Only the asset's own samples are mapped; the sub-frame tail of
+                # a ceiling-framed event stays silent in the prediction.
+                count = min(count, end - local)
             _require(
                 start <= local < local + count <= end <= len(pcm[sid][0]),
                 "mapped segment outside exact event/source",
