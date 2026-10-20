@@ -1,0 +1,167 @@
+{
+  "schemaVersion": "script-document/v2",
+  "id": "18200000-0000-4000-8002-000000000001",
+  "projectId": "18200000-0000-4000-8002-000000000002",
+  "title": "Issue 182 Polly campaign (revised)",
+  "activeDraft": {
+    "blocks": [
+      {
+        "type": "narration",
+        "id": "18200000-0000-4000-8000-000000000010",
+        "orderKey": "a0",
+        "text": "Every morning the old ferry crosses the harbor toward the little island where the market opens at nine.",
+        "tokens": [
+          {
+            "id": "18200000-0000-4000-8002-000000000100",
+            "value": "Every",
+            "startOffset": 0,
+            "endOffset": 5
+          },
+          {
+            "id": "18200000-0000-4000-8002-000000000101",
+            "value": "morning",
+            "startOffset": 6,
+            "endOffset": 13
+          },
+          {
+            "id": "18200000-0000-4000-8002-000000000102",
+            "value": "the",
+            "startOffset": 14,
+            "endOffset": 17
+          },
+          {
+            "id": "18200000-0000-4000-8002-000000000103",
+            "value": "old",
+            "startOffset": 18,
+            "endOffset": 21
+          },
+          {
+            "id": "18200000-0000-4000-8002-000000000104",
+            "value": "ferry",
+            "startOffset": 22,
+            "endOffset": 27
+          },
+          {
+            "id": "18200000-0000-4000-8002-000000000105",
+            "value": "crosses",
+            "startOffset": 28,
+            "endOffset": 35
+          },
+          {
+            "id": "18200000-0000-4000-8002-000000000106",
+            "value": "the",
+            "startOffset": 36,
+            "endOffset": 39
+          },
+          {
+            "id": "18200000-0000-4000-8002-000000000107",
+            "value": "harbor",
+            "startOffset": 40,
+            "endOffset": 46
+          },
+          {
+            "id": "18200000-0000-4000-8002-000000000108",
+            "value": "toward",
+            "startOffset": 47,
+            "endOffset": 53
+          },
+          {
+            "id": "18200000-0000-4000-8002-000000000109",
+            "value": "the",
+            "startOffset": 54,
+            "endOffset": 57
+          },
+          {
+            "id": "18200000-0000-4000-8002-000000000110",
+            "value": "little",
+            "startOffset": 58,
+            "endOffset": 64
+          },
+          {
+            "id": "18200000-0000-4000-8002-000000000111",
+            "value": "island",
+            "startOffset": 65,
+            "endOffset": 71
+          },
+          {
+            "id": "18200000-0000-4000-8002-000000000112",
+            "value": "where",
+            "startOffset": 72,
+            "endOffset": 77
+          },
+          {
+            "id": "18200000-0000-4000-8002-000000000113",
+            "value": "the",
+            "startOffset": 78,
+            "endOffset": 81
+          },
+          {
+            "id": "18200000-0000-4000-8002-000000000114",
+            "value": "market",
+            "startOffset": 82,
+            "endOffset": 88
+          },
+          {
+            "id": "18200000-0000-4000-8002-000000000115",
+            "value": "opens",
+            "startOffset": 89,
+            "endOffset": 94
+          },
+          {
+            "id": "18200000-0000-4000-8002-000000000116",
+            "value": "at",
+            "startOffset": 95,
+            "endOffset": 97
+          },
+          {
+            "id": "18200000-0000-4000-8002-000000000117",
+            "value": "nine",
+            "startOffset": 98,
+            "endOffset": 102
+          }
+        ],
+        "primaryVisualSequence": {
+          "id": "18200000-0000-4000-8002-000000000012",
+          "version": 1,
+          "slots": [
+            {
+              "id": "18200000-0000-4000-8002-000000000013",
+              "kind": "content",
+              "relation": {
+                "kind": "base"
+              },
+              "boundaryBefore": {
+                "kind": "row_start"
+              },
+              "payload": {
+                "kind": "visual",
+                "payloadId": "18200000-0000-4000-8002-000000000014",
+                "pictureKind": "unresolved_visual",
+                "source": {
+                  "kind": "unresolved_visual",
+                  "description": "Ferry crossing the harbor"
+                },
+                "sourceUsage": null,
+                "audioPolicy": "mute",
+                "framingPolicy": "contain"
+              },
+              "playoutPolicy": "match_structural_interval",
+              "version": 1
+            }
+          ]
+        },
+        "overlayEvents": [],
+        "timingPolicy": "narration_spine",
+        "state": "active",
+        "notes": [],
+        "version": 2
+      }
+    ],
+    "supportingItems": []
+  },
+  "ideaOutline": [],
+  "extras": [],
+  "liveHeadSequence": 2,
+  "liveStateVector": "AQID",
+  "liveContentHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+}

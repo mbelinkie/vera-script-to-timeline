@@ -81,6 +81,27 @@ def fact(condition: bool, message: str) -> None:
         raise ProofBuildError(message)
 
 
+def reviewed_artifact_hash(row: Any) -> str:
+    """Review artifact hash of reviewed boundary evidence; refuse measured evidence.
+
+    These proof paths bind a human-review receipt.  Measured evidence (#182) has
+    a measurement artifact instead and is not accepted here.
+    """
+
+    verification = row.get("verification") if isinstance(row, dict) else None
+    method = verification.get("method") if isinstance(verification, dict) else None
+    # Legacy reviewed records carry no method field; only measured/unknown
+    # methods and records without a review artifact are refused.
+    fact(
+        isinstance(verification, dict)
+        and method in (None, "reviewed_audio_boundaries/v1")
+        and "reviewArtifactHash" in verification,
+        f"boundary evidence method {method!r} is not supported by this "
+        "reviewed-only proof path (measured evidence has no review artifact)",
+    )
+    return str(verification["reviewArtifactHash"])  # type: ignore[index]
+
+
 def shape(value: Any, keys: str, label: str) -> JsonObject:
     fact(isinstance(value, dict) and set(value) == set(keys.split()), f"{label} shape")
     return value  # type: ignore[no-any-return]

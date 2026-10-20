@@ -92,6 +92,17 @@ def _timing_json(result: ProviderResult) -> bytes:
     )
 
 
+@dataclass(frozen=True)
+class BlockPlan:
+    """What ``process_block`` would do for one block, decided without a call."""
+
+    block_id: str
+    request_hash: str
+    characters: int
+    estimated_cost_usd: float
+    cached: bool
+
+
 class NarrationService:
     def __init__(
         self,
@@ -146,6 +157,27 @@ class NarrationService:
             controls=self.config.controls,
             data_policy_attestation=self.config.data_policy_attestation,
             max_cost_usd=self.config.max_cost_usd,
+        )
+
+    def plan_block(self, block: dict[str, Any]) -> BlockPlan:
+        """Report the request identity and whether a provider call is needed."""
+
+        request = self._request(block)
+        provider_input = self.provider.prepare_input(request)
+        request_hash = identity_hash(
+            request.identity(provider_input, self.provider.adapter_version)
+        )
+        key = _bare_hash(request_hash)
+        with self.cache.lock(key):
+            cached = self.cache.read("synthesis", key, "synthesis.json") is not None
+        return BlockPlan(
+            block_id=request.block_id,
+            request_hash=request_hash,
+            characters=len(request.text),
+            estimated_cost_usd=len(request.text)
+            * PRICE_USD_PER_MILLION_CHARACTERS
+            / 1_000_000,
+            cached=cached,
         )
 
     def _raw_result(

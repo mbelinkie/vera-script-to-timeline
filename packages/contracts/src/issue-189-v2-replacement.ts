@@ -43,14 +43,14 @@ export function finalizeReplacementV2(document: ScriptDocumentV2, prior: Compile
   fact(handoff.priorDependenciesHash === sha256CanonicalJson(prior), "prior dependencies changed");
   const evidence = handoff.boundaryEvidence;
   fact(boundaryEvidenceProblemV2(row, evidence) === null && evidence.audioHash === handoff.audioHash &&
-    evidence.timingHash === handoff.providerTimingHash && evidence.verification.reviewArtifactHash === handoff.reviewArtifactHash,
+    evidence.timingHash === handoff.providerTimingHash && (evidence.verification.method === "measured_audio_boundaries/v1" ? evidence.verification.measurementArtifactHash : evidence.verification.reviewArtifactHash) === handoff.reviewArtifactHash,
     "fresh sparse boundary/audio/timing/review binding differs");
   const old = [...prior.narrationTimingMaps, ...(prior.narrationBoundaryEvidence ?? [])].filter((r) => r.blockId === row.id);
   const previous = old[0];
   fact(old.length === 1 && previous !== undefined && previous.blockRevision + 1 === row.version && previous.audioHash !== evidence.audioHash &&
     previous.narrationAssetId !== evidence.narrationAssetId && previous.timingHash !== evidence.timingHash &&
     previous.audio?.cacheAssetId !== evidence.audio.cacheAssetId, "fresh whole-row asset/revision/timing required");
-  fact(!("verification" in previous) || previous.verification.reviewArtifactHash !== handoff.reviewArtifactHash,
+  fact(!("verification" in previous) || (previous.verification.method === "measured_audio_boundaries/v1" ? previous.verification.measurementArtifactHash : previous.verification.reviewArtifactHash) !== handoff.reviewArtifactHash,
     "old acoustic review cannot supply new boundaries");
   const dependencies = structuredClone(prior);
   dependencies.narrationTimingMaps = dependencies.narrationTimingMaps.filter((r) => r.blockId !== row.id);

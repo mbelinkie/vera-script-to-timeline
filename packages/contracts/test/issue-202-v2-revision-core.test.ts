@@ -125,7 +125,7 @@ function cCase(d1: number) {
   const evidence = boundary(revisedRow, d1, true);
   const handoff: RowHandoffV2 = { schemaVersion: "issue-189-v2-row-handoff/v1", request: stage.regeneration!, priorDependenciesHash: sha256CanonicalJson(stage.dependencies),
     serviceRequestHash: hash("fake service request"), generationReceiptHash: hash("fake receipt"), assetRecordHash: hash("fake asset"), audioHash: evidence.audioHash,
-    providerTimingHash: evidence.timingHash, reviewArtifactHash: evidence.verification.reviewArtifactHash, boundaryEvidence: evidence };
+    providerTimingHash: evidence.timingHash, reviewArtifactHash: (evidence.verification as { reviewArtifactHash: string }).reviewArtifactHash, boundaryEvidence: evidence };
   return { input, command, handoff, preparedMedia: patches(input, d1) };
 }
 describe("#202 pure explicit commands (synthetic, no native/provider authentication)", () => {

@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
+from vera_timeline_agent.roundtrip_v2_audio import reviewed_artifact_hash
 from vera_timeline_agent.roundtrip_v2_build import (
     BRIDGE,
     PRIVATE_PROFILES,
@@ -669,8 +670,7 @@ class PreparedRevisedProofBuildV2:
             )
             if row.get("schemaVersion") == "narration-boundary-evidence/v1":
                 fact(
-                    _digest(values["review"])
-                    == row["verification"]["reviewArtifactHash"],
+                    _digest(values["review"]) == reviewed_artifact_hash(row),
                     "revised boundary review bytes differ",
                 )
             self.authenticate(

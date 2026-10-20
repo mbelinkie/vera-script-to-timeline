@@ -67,6 +67,9 @@ class EventProvenanceV2(TypedDict):
     compilerVersion: compiler_dependencies_v2_schema.NonEmptyString
     graphicProvenanceHash: NotRequired[ContentHash]
     boundaryEvidenceHash: NotRequired[ContentHash]
+    boundaryEvidenceMethod: NotRequired[
+        Literal["reviewed_audio_boundaries/v1", "measured_audio_boundaries/v1"]
+    ]
 
 
 class SourceAudioEventV2(TypedDict):
@@ -145,6 +148,9 @@ class BoundaryEvidenceV2(TypedDict):
     ]
     relatedTokenId: NotRequired[compiler_dependencies_v2_schema.EntityId | None]
     boundaryEvidenceHash: NotRequired[ContentHash]
+    boundaryEvidenceMethod: NotRequired[
+        Literal["reviewed_audio_boundaries/v1", "measured_audio_boundaries/v1"]
+    ]
 
 
 class StillPictureTreatmentV2(TypedDict):

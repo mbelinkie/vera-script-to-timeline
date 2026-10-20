@@ -6,7 +6,7 @@ import { compileTimelineV2, resolveMediaRequirementsV2 } from "../src/compiler-c
 import { canonicalJson, sha256CanonicalJson } from "../src/compiler-core.js";
 import { applyVisualSequenceEditV2, projectPrimarySequenceV2, validateScriptDocumentV2 } from "../src/authoring-v2.js";
 import type { WordBoundaryAnchorV2, VisualSequenceEditCommandV2 } from "../src/authoring-v2.js";
-import type { CompilerDependenciesV2, NarrationBlockV2, NarrationBoundaryEvidenceV1, ContentSlot, ReturnSlot, ScriptDocumentV2, PointPlacement } from "../src/generated/contracts-v2.js";
+import type { CompilerDependenciesV2, NarrationBlockV2, NarrationBoundaryEvidenceV1, ReviewedBoundaryVerificationV1, ContentSlot, ReturnSlot, ScriptDocumentV2, PointPlacement } from "../src/generated/contracts-v2.js";
 
 type Input = { document: ScriptDocumentV2; dependencies: CompilerDependenciesV2 };
 const root = fileURLToPath(new URL("../../../", import.meta.url));
@@ -36,7 +36,8 @@ function row(input: Input): NarrationBlockV2 {
   if (value.type !== "narration") throw new Error("synthetic row missing");
   return value;
 }
-const evidence = (input: Input) => input.dependencies.narrationBoundaryEvidence![0]!;
+type ReviewedEvidence = Omit<NarrationBoundaryEvidenceV1, "verification"> & { verification: ReviewedBoundaryVerificationV1 };
+const evidence = (input: Input) => input.dependencies.narrationBoundaryEvidence![0]! as ReviewedEvidence;
 function child(input: Input): ContentSlot {
   const slot = row(input).primaryVisualSequence!.slots[1]!;
   if (slot.kind !== "content") throw new Error("child missing");
@@ -353,7 +354,7 @@ test("synthetic assembling-flow checks source/audio/receipt bytes, current bindi
   expect(() => assemble(audioBytes, `${sourceBytes}!`, receiptBytes)).toThrow();
   expect(() => assemble(audioBytes, sourceBytes, `${receiptBytes}!`)).toThrow();
   expect(() => assemble(audioBytes, sourceBytes, receiptBytes, "candidate")).toThrow();
-  value.verification.reviewRevision++; expect(() => assemble(audioBytes, sourceBytes, receiptBytes)).toThrow(); value.verification.reviewRevision--;
+  (value.verification as { reviewRevision: number }).reviewRevision++; expect(() => assemble(audioBytes, sourceBytes, receiptBytes)).toThrow(); (value.verification as { reviewRevision: number }).reviewRevision--;
   value.tokens[0]!.onset = time(5, 4); expect(() => assemble(audioBytes, sourceBytes, receiptBytes)).toThrow(); value.tokens[0]!.onset = time(1);
   value.audio.locator = "Narration/stale.wav"; expect(() => assemble(audioBytes, sourceBytes, receiptBytes)).toThrow();
 });
