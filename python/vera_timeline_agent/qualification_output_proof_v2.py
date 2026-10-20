@@ -46,6 +46,7 @@ from .qualification_output_records_v2 import (
 )
 from .roundtrip_v2_audio import verify_measured_narration_evidence
 from .roundtrip_v2_narration import (
+    campaign_ledger,
     finalize_replacement_row_v2,
     guard_service,
     measure_replacement_row_v2,
@@ -664,7 +665,7 @@ class QualificationOutputProofV2:
         self,
         *,
         service: NarrationService,
-        ledger: Ledger,
+        ledger: Ledger | None = None,
         confirm_provider_call: bool,
         cap_micro_usd: int = CAP_MICRO_USD,
     ) -> Json | None:
@@ -676,7 +677,18 @@ class QualificationOutputProofV2:
         (cache hit: no call, no charge); the fresh asset is measured with #182
         and finalized into the RowHandoffV2 that ``proposal`` consumes. Returns
         None when the accepted proposal changes no narration text.
+
+        The spend is recorded only in the approved campaign ledger
+        (``ledger=None``); any other ledger path is refused outside tests, and a
+        ``reserved``/``attempted`` ledger row for the same request without a
+        cached result is never resent.
+
+        Cost note: the paid replacement audio stays cached once synthesized.
+        Rejecting the later revision proposal leaves that audio cached and the
+        canonical text unchanged; only rejecting the *inference* (before this
+        step) avoids synthesis.
         """
+        ledger = campaign_ledger(ledger)
         with self._decision_lock():
             self._accepted_inference()
             stage = self._stage()
@@ -1289,8 +1301,13 @@ def prepare_revised_output_session(
     package_root: Path,
     preparation_paths: dict[str, Path],
     target: Json,
+    narration_evidence_paths: dict[str, dict[str, Path]] | None = None,
 ) -> Path:
-    """Bind an accepted revision to a fresh verified package and a fresh target."""
+    """Bind an accepted revision to a fresh verified package and a fresh target.
+
+    Measured narration evidence files are tracked and hashed by the admission,
+    whose currentness check (on every session load) refuses swapped bytes.
+    """
     from .qualification_output_package_v2 import admit_qualification_revision_v2
 
     proof = QualificationOutputProofV2(proof_session, proof_sha256)
@@ -1309,6 +1326,7 @@ def prepare_revised_output_session(
         preparation_paths=preparation_paths,
         revised_preflight_path=preflight_path,
         revised_preflight_sha256=preflight_sha256,
+        narration_evidence_paths=narration_evidence_paths,
     )
     invocation_id = str(uuid.uuid4())
     # A new directory or target cannot reset this accepted revision's effects.

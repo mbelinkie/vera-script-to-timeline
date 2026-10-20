@@ -872,8 +872,13 @@ def prepare_output_session(
     phase: str = "pristine",
     package_root: Path | None = None,
     preparation_paths: dict[str, Path] | None = None,
+    narration_evidence_paths: dict[str, dict[str, Path]] | None = None,
 ) -> Path:
-    """Create reviewable host artifacts; no installation or native connection."""
+    """Create reviewable host artifacts; no installation or native connection.
+
+    Measured narration evidence files are tracked and hashed by the admission,
+    whose currentness check (on every session load) refuses swapped bytes.
+    """
     from .qualification_output_package_v2 import admit_qualification_package_v2
     from .workflow_v2_cli import build_output_release_v2
 
@@ -885,6 +890,7 @@ def prepare_output_session(
         profile=profile,
         package_root=package_root,
         preparation_paths=preparation_paths,
+        narration_evidence_paths=narration_evidence_paths,
     )
     release_root = output_root / "release"
     build_output_release_v2(release_root)

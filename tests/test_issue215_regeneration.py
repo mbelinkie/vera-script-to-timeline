@@ -21,6 +21,7 @@ from vera_timeline_agent.narration.campaign import (
     STATUS_ATTEMPTED,
     STATUS_CHARGED,
     Ledger,
+    default_ledger_path,
 )
 from vera_timeline_agent.narration.models import (
     ProviderResult,
@@ -43,7 +44,11 @@ from vera_timeline_agent.qualification_output_records_v2 import (
     _canonical,
 )
 from vera_timeline_agent.roundtrip_build import ROOT, ProofBuildError
-from vera_timeline_agent.roundtrip_v2_narration import ProviderCallRefused
+from vera_timeline_agent.roundtrip_v2_narration import (
+    TEST_LEDGER_ENV,
+    ProviderCallRefused,
+    campaign_ledger,
+)
 
 CAMPAIGN_EVIDENCE = (
     ROOT / "packages/contracts/test/data/issue182-baseline.boundary-evidence.json"
@@ -174,6 +179,11 @@ class HoldNormalizer(Normalizer):
 
     def placeholder(self, block_id: str) -> NormalizationResult:
         return self._result([0] * 48000)
+
+
+@pytest.fixture(autouse=True)
+def _allow_tmp_ledger(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(TEST_LEDGER_ENV, "1")
 
 
 class Lane:
@@ -330,3 +340,40 @@ def test_forged_handoff_without_the_vault_seal_is_refused(tmp_path: Path) -> Non
     receipt.write_bytes(receipt.read_bytes().replace(b"stageSha256", b"stageSha257"))
     with pytest.raises(OutputConsistencyError):
         lane.object._regenerated_handoff(lane.object._stage())
+
+
+@pytest.mark.parametrize("status", ["reserved", STATUS_ATTEMPTED])
+def test_uncertain_ledger_row_without_cached_synthesis_is_never_resent(
+    tmp_path: Path, status: str
+) -> None:
+    lane = Lane(tmp_path)
+    row = next(
+        b
+        for b in lane.document["activeDraft"]["blocks"]
+        if b["id"] == lane.request["blockId"]
+    )
+    plan = lane.service.plan_block(row)
+    assert not plan.cached
+    reservation = lane.ledger.reserve(
+        request_hash=plan.request_hash,
+        block_id=lane.request["blockId"],
+        characters=plan.characters,
+        estimated_cost_usd=plan.estimated_cost_usd,
+        cap_micro_usd=10**9,
+    )
+    if status == STATUS_ATTEMPTED:
+        lane.ledger.settle(reservation["reservationId"], STATUS_ATTEMPTED)
+    with pytest.raises(ProviderCallRefused, match="uncertain earlier attempt"):
+        lane.regenerate(confirm=True)
+    assert lane.provider.calls == 0 and len(lane.ledger.rows()) == 1
+
+
+def test_only_the_approved_campaign_ledger_is_accepted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv(TEST_LEDGER_ENV)
+    lane = Lane(tmp_path)
+    with pytest.raises(ProviderCallRefused, match="approved campaign ledger"):
+        lane.regenerate(confirm=True)
+    assert lane.provider.calls == 0 and not lane.ledger.path.exists()
+    assert campaign_ledger().path == default_ledger_path()

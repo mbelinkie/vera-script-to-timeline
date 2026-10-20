@@ -82,27 +82,34 @@ def _reviewed_artifact_hash(record: Any) -> str:
     return cast(str, verification["reviewArtifactHash"])  # type: ignore[index]
 
 
-def _narration_review_pin(record: Any, proof: Any) -> str:
-    """Review pin of reviewed evidence, or the verified measurement artifact hash.
+_MEASURED_METHOD = "measured_audio_boundaries/v1"
 
-    Measured (#182) evidence is admitted only when its method, algorithm
-    parameters, measurement artifact, provider timing and audio hashes are
-    self-consistent; the method stays on the retained row.  Unknown methods
-    refuse.
+
+def _narration_review_pin(record: Any, proof: Any) -> str:
+    """Review pin of reviewed evidence, or the measurement artifact hash.
+
+    This host module stays stdlib-only, so it cannot re-run the (#182) measured
+    verifier.  That full cross-check (algorithm, timing, audio, tokens) happens
+    in the authenticated package/proof builders before a receipt exists; here
+    the measured row must only pin exactly the measurement artifact bytes the
+    receipt retained.  Unknown methods refuse.
     """
 
-    from vera_timeline_agent.roundtrip_build import ProofBuildError
-    from vera_timeline_agent.roundtrip_v2_audio import narration_review_pin
-
-    try:
-        return narration_review_pin(
-            record,
-            timing=proof.timing,
-            artifact=proof.review,
-            audio_sha256=_legacy_digest(record.get("audioHash")),
+    verification = record.get("verification") if isinstance(record, dict) else None
+    method = verification.get("method") if isinstance(verification, dict) else None
+    if method == _MEASURED_METHOD:
+        assert isinstance(verification, dict)
+        _require(
+            "measurementArtifactHash" in verification and proof.review is not None,
+            "measured evidence requires its measurement artifact",
         )
-    except ProofBuildError as error:
-        raise OutputConsistencyError(str(error)) from error
+        _require(
+            _legacy_digest(verification["measurementArtifactHash"])
+            == _hash(proof.review),
+            "measurement artifact bytes differ from the pinned hash",
+        )
+        return cast(str, verification["measurementArtifactHash"])
+    return _reviewed_artifact_hash(record)
 
 
 RATE = {"numerator": 24000, "denominator": 1001}

@@ -232,6 +232,21 @@ def _verify_release_files(root: Path, runtime_files: tuple[str, ...]) -> Path:
     return manifest
 
 
+def _narration_evidence_paths(
+    values: Sequence[Sequence[str]],
+) -> dict[str, dict[str, Path]] | None:
+    """Parse repeatable ``--narration-evidence BLOCK_ID TIMING MEASUREMENT``."""
+    evidence: dict[str, dict[str, Path]] = {}
+    for block_id, timing, measurement in values:
+        if block_id in evidence:
+            raise ValueError("duplicate narration evidence block id")
+        evidence[block_id] = {
+            "timing": Path(timing).absolute(),
+            "measurement": Path(measurement).absolute(),
+        }
+    return evidence or None
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -293,6 +308,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         required=True,
     )
     output_prepare.add_argument("--package", type=Path)
+    output_prepare.add_argument(
+        "--narration-evidence",
+        nargs=3,
+        action="append",
+        default=[],
+        metavar=("BLOCK_ID", "TIMING_PATH", "MEASUREMENT_PATH"),
+        help="measured (#182) narration evidence files for one block (repeatable)",
+    )
     output_prepare.add_argument(
         "--preparation",
         nargs=2,
@@ -382,6 +405,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         metavar=("KEY", "RECEIPT"),
     )
     output_revised.add_argument("--output", type=Path, required=True)
+    output_revised.add_argument(
+        "--narration-evidence",
+        nargs=3,
+        action="append",
+        default=[],
+        metavar=("BLOCK_ID", "TIMING_PATH", "MEASUREMENT_PATH"),
+        help="measured (#182) narration evidence files for one block (repeatable)",
+    )
     for name in ("project-uid", "timeline-uid", "project-name", "timeline-name"):
         output_revised.add_argument("--" + name, required=True)
     request = commands.add_parser("request")
@@ -531,6 +562,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     None if arguments.package is None else arguments.package.absolute()
                 ),
                 preparation_paths=preparation_paths or None,
+                narration_evidence_paths=_narration_evidence_paths(
+                    arguments.narration_evidence
+                ),
                 target={
                     "projectUid": arguments.project_uid,
                     "timelineUid": arguments.timeline_uid,
@@ -631,20 +665,36 @@ def main(argv: Sequence[str] | None = None) -> int:
                     arguments.aws_data_policy,
                 )
                 if arguments.action == "regenerate":
-                    if arguments.input is not None or None in provider_flags:
+                    if (
+                        arguments.input is not None
+                        or arguments.cache_dir is None
+                        or arguments.aws_data_policy is None
+                    ):
                         raise ValueError(
-                            "regenerate requires --cache-dir, --ledger and "
-                            "--aws-data-policy and takes no input file"
+                            "regenerate requires --cache-dir and "
+                            "--aws-data-policy and takes no input file; --ledger "
+                            "may only name the approved campaign ledger"
                         )
-                    from .narration.campaign import Ledger
-                    from .roundtrip_v2_narration import production_narration_service
+                    from .narration.campaign import Ledger, default_ledger_path
+                    from .roundtrip_v2_narration import (
+                        campaign_ledger,
+                        production_narration_service,
+                    )
+
+                    # Only the approved campaign ledger may record real spend.
+                    approved_ledger = campaign_ledger(
+                        None
+                        if arguments.ledger is None
+                        or arguments.ledger.absolute() == default_ledger_path()
+                        else Ledger(arguments.ledger.absolute())
+                    )
 
                     handoff = proof.regenerate_row(
                         service=production_narration_service(
                             arguments.cache_dir.absolute(),
                             data_policy=arguments.aws_data_policy,
                         ),
-                        ledger=Ledger(arguments.ledger.absolute()),
+                        ledger=approved_ledger,
                         confirm_provider_call=arguments.confirm_provider_call,
                     )
                     output = (
@@ -701,6 +751,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 proof_sha256=arguments.proof_sha256,
                 package_root=arguments.package.absolute(),
                 preparation_paths=preparations,
+                narration_evidence_paths=_narration_evidence_paths(
+                    arguments.narration_evidence
+                ),
                 target={
                     "projectUid": arguments.project_uid,
                     "timelineUid": arguments.timeline_uid,

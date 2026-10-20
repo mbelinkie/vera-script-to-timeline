@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import os
 import shutil
 import subprocess
 import uuid
@@ -14,8 +15,10 @@ from vera_timeline_agent.narration.campaign import (
     CAP_MICRO_USD,
     STATUS_ATTEMPTED,
     STATUS_CHARGED,
+    STATUS_RESERVED,
     Ledger,
     _micro,
+    default_ledger_path,
 )
 from vera_timeline_agent.narration.compiler_dependencies import (
     narration_dependency_from_asset,
@@ -471,6 +474,43 @@ class ProviderCallRefused(ProofBuildError):
     """A real provider call is needed but is not authorized or affordable."""
 
 
+# Tests only: allow a ledger other than the approved campaign ledger.
+TEST_LEDGER_ENV = "VERA_ALLOW_NONCAMPAIGN_LEDGER_FOR_TESTS"
+
+
+def campaign_ledger(ledger: Ledger | None = None) -> Ledger:
+    """The approved campaign ledger; any other path is refused.
+
+    ``None`` selects ``narration.campaign.default_ledger_path()``. Another path
+    is accepted only when the test hook environment variable is set, so a real
+    run can never spend against (or hide spend from) an unapproved ledger.
+    """
+    approved = default_ledger_path()
+    if ledger is None:
+        return Ledger(approved)
+    if ledger.path.absolute() != approved.absolute() and (
+        os.environ.get(TEST_LEDGER_ENV) != "1"
+    ):
+        raise ProviderCallRefused(
+            "only the approved campaign ledger may be used for provider calls"
+        )
+    return ledger
+
+
+def refuse_uncertain_prior_attempt(ledger: Ledger, request_hash: str) -> None:
+    """Never resend a request whose earlier attempt has no verified result."""
+    for row in ledger.rows():
+        if row.get("requestHash") == request_hash and row.get("status") in (
+            STATUS_RESERVED,
+            STATUS_ATTEMPTED,
+        ):
+            raise ProviderCallRefused(
+                "the campaign ledger records an uncertain earlier attempt "
+                f"({row['status']}) for this exact request with no cached "
+                "result; it will not be resent automatically"
+            )
+
+
 class LedgerGuardedProvider:
     """Reserve every real call in the campaign ledger before it can reach AWS.
 
@@ -507,6 +547,7 @@ class LedgerGuardedProvider:
         )
         estimated = len(request.text) * PRICE_USD_PER_MILLION_CHARACTERS / 1_000_000
         with self.ledger.locked():
+            refuse_uncertain_prior_attempt(self.ledger, request_hash)
             reservation = self.ledger.reserve(
                 request_hash=request_hash,
                 block_id=request.block_id,
@@ -595,6 +636,7 @@ def preflight_provider_call(
             "an earlier provider attempt for this exact request has no verified "
             "result; it is preserved and will not be resynthesized automatically"
         )
+    refuse_uncertain_prior_attempt(ledger, plan.request_hash)
     if not confirm_provider_call:
         raise ProviderCallRefused(
             f"a real Polly call (about ${plan.estimated_cost_usd:.6f}, "

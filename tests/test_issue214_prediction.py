@@ -641,9 +641,18 @@ def test_exact_coverage_and_unaligned_narration_refusal(phase: str) -> None:
     change_items(c, [item])
     with pytest.raises(r.OutputConsistencyError, match="coverage"):
         q.create_prediction(c.inputs, trust=c.trust, ledger=[])
-    unaligned = case(count=6 * q.FRAME - 1, phase=phase)
-    with pytest.raises(r.OutputConsistencyError, match="no padding"):
-        q.create_prediction(unaligned.inputs, trust=unaligned.trust, ledger=[])
+    # D-0014 (#215): narration may fall short of its event by less than one
+    # frame (explicit silent tail); a full frame or more is still refused.
+    ceiling = case(count=6 * q.FRAME - 1, phase=phase)
+    # (This synthetic fixture's mapping digest assumes a full-length source, so
+    # it refuses later for that reason; the ceiling success path is covered by
+    # tests/test_issue215_narration_ceiling.py.)
+    with pytest.raises(r.OutputConsistencyError) as ceiling_error:
+        q.create_prediction(ceiling.inputs, trust=ceiling.trust, ledger=[])
+    assert "frame or more" not in str(ceiling_error.value)
+    short = case(count=5 * q.FRAME, phase=phase)
+    with pytest.raises(r.OutputConsistencyError, match="frame or more"):
+        q.create_prediction(short.inputs, trust=short.trust, ledger=[])
 
 
 @pytest.mark.parametrize("kind", ["narration", "source_audio"])
