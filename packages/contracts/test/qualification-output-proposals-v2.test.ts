@@ -533,9 +533,11 @@ describe("#215 authenticated output observation to explicit revision bridge", ()
         schemaVersion: "issue-189-v2-accepted-omission/v1", expectedDocumentHash: sha256CanonicalJson(document), blockId: row.id,
         blockRevision: row.version, tokenIds: [row.tokens[CAMPAIGN.slowlyIndex]!.id], evidenceHash: hash("evidence"), decisionHash: hash("decision"),
       });
-      // The real baseline sets "slowly" off by commas, which the canonical transform refuses as joining-gap punctuation.
+      // The real baseline sets "slowly" off by commas; the comma-delimited single-word parenthetical rule drops both commas.
       expect(row.text).toContain("harbor, slowly, toward");
-      expect(() => edit(baseline)).toThrow(/unsupported joining-gap punctuation/);
+      const revised = edit(baseline).document.activeDraft.blocks[0] as NarrationBlockV2;
+      expect(revised.text).toBe("Every morning the old ferry crosses the harbor toward the little island where the market opens at nine.");
+      for (const token of revised.tokens) expect(revised.text.slice(token.startOffset, token.endOffset)).toBe(token.value);
       const plain = structuredClone(baseline);
       const plainRow = campaignInput({ commas: false }).row;
       const target = plain.activeDraft.blocks[0] as NarrationBlockV2;

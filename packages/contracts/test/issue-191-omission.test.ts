@@ -430,6 +430,29 @@ describe("Issue 191 v2 accepted omission", () => {
     expect(() => applyAcceptedOmissionV2(input, editFor(input))).toThrow(/joining-gap/);
   });
 
+  it("joins a comma-delimited single-word parenthetical with one space", () => {
+    const input = documentWith(rowWith(["Alpha", "Bravo", "Charlie", "Delta", "Echo"], [" ", ", ", ", ", " "]));
+    const revised = applyAcceptedOmissionV2(input, editFor(input)).document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(revised.text).toBe("Alpha Bravo Delta Echo");
+    for (const token of revised.tokens) expect(revised.text.slice(token.startOffset, token.endOffset)).toBe(token.value);
+  });
+
+  it.each([
+    [[" ", ", ", ",", " "]],
+    [[" ", ",", ", ", " "]],
+    [[" ", ",  ", ", ", " "]],
+    [[" ", ", ", " , ", " "]],
+    [[" ", "; ", "; ", " "]],
+  ])("keeps refusing other single-token punctuation gaps: %j", (separators) => {
+    const input = documentWith(rowWith(["Alpha", "Bravo", "Charlie", "Delta", "Echo"], separators));
+    expect(() => applyAcceptedOmissionV2(input, editFor(input))).toThrow(/joining-gap/);
+  });
+
+  it("keeps refusing a multi-token phrase set off by commas", () => {
+    const input = documentWith(rowWith(["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"], [" ", ", ", " ", ", ", " "]));
+    expect(() => applyAcceptedOmissionV2(input, editFor(input, [2, 3]))).toThrow(/joining-gap/);
+  });
+
   it.each([
     [" ", "", " ", " "],
     [" ", " ", "", " "],

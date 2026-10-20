@@ -365,11 +365,17 @@ export function applyAcceptedOmissionV2(
   );
   const previous = originalRow.tokens[firstRemovedIndex - 1]!;
   const following = originalRow.tokens[lastRemovedIndex + 1]!;
-  for (let index = firstRemovedIndex; index <= lastRemovedIndex + 1; index += 1) {
-    requireFact(
-      JOINING_GAP.test(originalRow.text.slice(originalRow.tokens[index - 1]!.endOffset, originalRow.tokens[index]!.startOffset)),
-      "unsupported joining-gap punctuation",
-    );
+  // Narrow rule: a single token set off as a comma-delimited parenthetical (", " on both sides) is joined with one space.
+  const parentheticalSingleToken = firstRemovedIndex === lastRemovedIndex &&
+    originalRow.text.slice(previous.endOffset, originalRow.tokens[firstRemovedIndex]!.startOffset) === ", " &&
+    originalRow.text.slice(originalRow.tokens[lastRemovedIndex]!.endOffset, following.startOffset) === ", ";
+  if (!parentheticalSingleToken) {
+    for (let index = firstRemovedIndex; index <= lastRemovedIndex + 1; index += 1) {
+      requireFact(
+        JOINING_GAP.test(originalRow.text.slice(originalRow.tokens[index - 1]!.endOffset, originalRow.tokens[index]!.startOffset)),
+        "unsupported joining-gap punctuation",
+      );
+    }
   }
   const selectedText = originalRow.text.slice(
     originalRow.tokens[firstRemovedIndex]!.startOffset,
