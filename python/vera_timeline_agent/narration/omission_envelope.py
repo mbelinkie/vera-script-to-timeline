@@ -14,6 +14,9 @@ from collections.abc import Mapping, Sequence
 from fractions import Fraction
 from typing import Any
 
+from vera_timeline_agent.narration.measure import parameters_hash
+from vera_timeline_agent.narration.models import sha256_bytes
+
 SAMPLE_RATE = 48_000
 FRAME_SAMPLES = 2002  # 1001/24000 s at 48 kHz: one 23.976 fps frame
 MEASURED_METHOD = "measured_audio_boundaries/v1"
@@ -65,26 +68,94 @@ def _envelope(
     return result
 
 
-def omission_envelope(evidence: Mapping[str, Any], token_id: str) -> dict[str, Any]:
+def verify_evidence_binding(
+    evidence: Mapping[str, Any], block: Mapping[str, Any]
+) -> None:
+    """Refuse unless the evidence covers exactly the frozen block's tokens.
+
+    The neighbours of a selected token are only trustworthy when the evidence
+    lists every frozen token in order with no gap, so the whole token list is
+    compared, not just the selected token.
+    """
+
+    verification = evidence.get("verification")
+    if (
+        not isinstance(verification, Mapping)
+        or verification.get("method") != MEASURED_METHOD
+    ):
+        raise EnvelopeRefused(
+            "envelope requires measured evidence; reviewed or derived timing "
+            "is not relabelled"
+        )
+    algorithm = verification.get("algorithm")
+    if not isinstance(algorithm, Mapping) or not isinstance(
+        algorithm.get("parameters"), Mapping
+    ):
+        raise EnvelopeRefused("measured evidence has no algorithm parameters")
+    try:
+        expected_hash = parameters_hash(algorithm["parameters"])
+    except ValueError as error:
+        raise EnvelopeRefused(
+            f"algorithm.parameters are not hashable: {error}"
+        ) from error
+    if algorithm.get("parametersHash") != expected_hash:
+        raise EnvelopeRefused(
+            "algorithm.parametersHash is not the canonical hash of its parameters"
+        )
+    if evidence.get("blockId") != block.get("id") or evidence.get(
+        "blockRevision"
+    ) != block.get("version"):
+        raise EnvelopeRefused("evidence block id/revision differs from the block")
+    text = block.get("text")
+    if not isinstance(text, str) or evidence.get("textHash") != sha256_bytes(
+        text.encode("utf-8")
+    ):
+        raise EnvelopeRefused("evidence textHash differs from the block text")
+    frozen = block.get("tokens")
+    measured = evidence.get("tokens")
+    if not isinstance(frozen, list) or not isinstance(measured, list):
+        raise EnvelopeRefused("block or evidence has no token list")
+    if len(frozen) != len(measured):
+        raise EnvelopeRefused(
+            f"evidence covers {len(measured)} tokens but the block has "
+            f"{len(frozen)}; every frozen token must be present with no gap"
+        )
+    for position, (token, row) in enumerate(zip(frozen, measured, strict=True)):
+        if not isinstance(token, Mapping) or not isinstance(row, Mapping):
+            raise EnvelopeRefused(f"token {position} is malformed")
+        if (
+            row.get("tokenId") != token.get("id")
+            or row.get("startOffset") != token.get("startOffset")
+            or row.get("endOffset") != token.get("endOffset")
+            or row.get("quotedText") != token.get("value")
+        ):
+            raise EnvelopeRefused(
+                f"evidence token {position} ({row.get('tokenId')!r}) is not the "
+                f"block's token {token.get('id')!r} at that position"
+            )
+
+
+def omission_envelope(
+    evidence: Mapping[str, Any], token_id: str, block: Mapping[str, Any]
+) -> dict[str, Any]:
     """Return the report for ``token_id``; raise ``EnvelopeRefused`` if unsafe."""
 
-    report = omission_envelope_report(evidence, token_id)
+    report = omission_envelope_report(evidence, token_id, block)
     if not report["uniquelySafe"]:
         raise EnvelopeRefused("; ".join(report["refusalReasons"]))
     return report
 
 
 def omission_envelope_report(
-    evidence: Mapping[str, Any], token_id: str
+    evidence: Mapping[str, Any], token_id: str, block: Mapping[str, Any]
 ) -> dict[str, Any]:
-    """Full report, including the refusal reasons when the target is not safe."""
+    """Full report, including the refusal reasons when the target is not safe.
 
-    verification = evidence.get("verification", {})
-    if verification.get("method") != MEASURED_METHOD:
-        raise EnvelopeRefused(
-            "envelope requires measured evidence; reviewed or derived timing "
-            "is not relabelled"
-        )
+    ``block`` is the frozen v2 narration block the evidence was measured for.
+    """
+
+    verify_evidence_binding(evidence, block)
+    verification = evidence["verification"]
     audio = evidence["audio"]
     rate = int(audio["sampleRate"])
     duration = Fraction(int(audio["durationSamples"]))

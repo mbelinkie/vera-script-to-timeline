@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import replace
 from fractions import Fraction
 from pathlib import Path
@@ -25,7 +26,7 @@ from vera_timeline_agent.narration.measure import (
     measure_asset,
     parameters_hash,
 )
-from vera_timeline_agent.narration.models import identity_hash, sha256_bytes
+from vera_timeline_agent.narration.models import sha256_bytes
 
 LOCATOR = "narration-measurements/x.measurement.json"
 QUIET = 6
@@ -115,7 +116,6 @@ def test_evidence_json_has_the_spec_shape(tmp_path: Path) -> None:
     assert algorithm["id"] == "vera-polly-marks-energy-ends"
     assert algorithm["version"] == "1"
     assert algorithm["parameters"] == DEFAULT_PARAMETERS
-    assert algorithm["parametersHash"] == identity_hash(algorithm["parameters"])
     assert algorithm["parametersHash"] == parameters_hash(DEFAULT_PARAMETERS)
     assert verification["measurementArtifactLocator"] == LOCATOR
     assert verification["measurementArtifactHash"] == sha256_bytes(
@@ -245,32 +245,60 @@ def _levels(peak: float, tail: list[float]) -> list[float]:
 def test_threshold_edges() -> None:
     def decide(levels: list[float]) -> Any:
         return decide_audible_end(
-            levels, relative_drop_db=30, absolute_floor_dbfs=-50, quiet_windows=QUIET
+            levels, relative_drop_db=18, quiet_dbfs=-50, quiet_windows=QUIET
         )
 
-    # Exactly six quiet windows after the last loud one: end is measured.
+    # Exactly six quiet windows run to the end of the span: end is measured.
     ok = decide(_levels(-20.0, [-60.0] * 6))
     assert ok.end_sample == 2 and ok.quiet_windows_after == 6
     # Five quiet windows is connected speech: no end.
     assert decide(_levels(-20.0, [-60.0] * 5)).end_sample is None
-    # A window exactly at peak - 30 dB still counts as loud.
-    edge = decide(_levels(-20.0, [-50.0, *[-60.0] * 6]))
-    assert edge.end_sample == 3 and edge.threshold_db == -50.0
-    # Just below the relative threshold counts as quiet.
-    below = decide(_levels(-20.0, [-50.01, *[-60.0] * 5]))
-    assert below.end_sample == 2
-    # The absolute floor wins for quiet words: peak -60 -> threshold -50.
-    quiet_word = decide([-60.0] * 20)
-    assert quiet_word.end_sample is None
-    assert quiet_word.threshold_db == -50.0
-    assert "absolute floor" in quiet_word.reason
-    # A later loud window after a gap moves the end (last loud window wins).
+    # A window exactly at the quiet threshold (-50) is quiet.
+    edge = decide(_levels(-20.0, [-50.0, *[-60.0] * 5]))
+    assert edge.end_sample == 2 and edge.threshold_db == -50.0
+    # Just above the quiet threshold is audible.
+    above = decide(_levels(-20.0, [-49.99, *[-60.0] * 6]))
+    assert above.end_sample == 3
+    # The relative drop is an additional requirement: for a quiet peak (-55)
+    # the threshold is peak - 18 = -73, so -60 tails are NOT quiet.
+    assert decide(_levels(-55.0, [-60.0] * 8)).end_sample is None
+    assert decide(_levels(-55.0, [-80.0] * 6)).end_sample == 2
+    # A quiet run must reach the span end: a later loud window moves the end.
     late = decide([-20.0, *[-70.0] * 8, -25.0, *[-70.0] * 6])
     assert late.end_sample == 10
+    # A loud tail after the silence leaves no trailing quiet run.
+    assert decide([-20.0, *[-70.0] * 8, -25.0]).end_sample is None
     # Empty span.
     assert decide([]).end_sample is None
-    # Peak just above the floor: threshold is peak - 30, never below -50.
-    assert decide(_levels(-30.0, [-60.0] * 6)).threshold_db == -50.0
+
+
+def test_quiet_fricative_after_a_loud_vowel_is_not_a_gap(tmp_path: Path) -> None:
+    # alpha: loud vowel (-10 dBFS) 100-390 ms, then a 100 ms -32 dBFS fricative.
+    vowel = round(32768 * 10 ** (-10 / 20) * math.sqrt(2))
+    fricative = round(32768 * 10 ** (-32 / 20) * math.sqrt(2))
+    bursts = (
+        (100, 390, 400, vowel),
+        (390, 490, 5000, fricative),
+        (520, 820, 600),
+        (820, 1120, 800),
+        (1270, 1520, 1000),
+    )
+    result = measured(tmp_path, bursts=bursts)
+    alpha = result.artifact["tokens"][0]
+    assert alpha["endMeasuredOn"] == "raw_provider_pcm"
+    assert alpha["audibleEndSamples"] != alpha["onsetSamples"] + 290 * 48
+    # The end is the fricative's end (490 ms), not the vowel's end (390 ms).
+    assert alpha["audibleEndSamples"] == alpha["onsetSamples"] + 390 * 48
+
+
+def test_negative_onset_is_refused_not_clamped(tmp_path: Path) -> None:
+    # A 1 ms-early mark with a +1 ms normalization lead would land before zero.
+    cache, _asset, key = build_cache(
+        tmp_path / "cache", lag_samples=-96, mark_ms=(1, 520, 820, 1270)
+    )
+    with pytest.raises(MeasurementError) as caught:
+        measure_asset(load_asset(cache, key), frozen_block(), artifact_locator=LOCATOR)
+    assert any("negative" in reason for reason in caught.value.reasons)
 
 
 def test_last_loud_window_in_token_ids_matches_fixture(tmp_path: Path) -> None:
@@ -299,3 +327,17 @@ def test_evidence_validates_against_the_v2_contract_schema(tmp_path: Path) -> No
         format_checker=Draft202012Validator.FORMAT_CHECKER,
     )
     validator.validate(measured(tmp_path).evidence)
+
+
+def test_parameters_hash_cross_language_vectors() -> None:
+    # The same vectors are asserted in
+    # packages/contracts/test/measured-boundary-evidence-v2.test.ts against
+    # sha256CanonicalJson, so Python and TypeScript hash parameters identically.
+    assert parameters_hash({"b": [1, {"z": "é", "a": 0}], "a": "x"}) == (
+        "sha256:3a92e85a00e73199bcec8c5f6f98aaed74efcfb435a8e785198c59742e3610c1"
+    )
+    assert parameters_hash(DEFAULT_PARAMETERS) == (
+        "sha256:628c4c9e17822d9ed812b9cdbf31062eb71e1768d6946cc333f522a2b878ded4"
+    )
+    with pytest.raises(MeasurementError):
+        parameters_hash({"ratio": 0.9})

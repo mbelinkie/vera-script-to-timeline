@@ -71,9 +71,10 @@ function refused(input: Input, code?: string) {
 const omit = (value: object, keys: string[]) => Object.fromEntries(Object.entries(value).filter(([key]) => !keys.includes(key)));
 
 
+const measuredParameters = { windowMs: 5, hopMs: 5, relativeDb: -30 };
 const measuredVerification = (): NarrationBoundaryEvidenceV1["verification"] => ({
   method: "measured_audio_boundaries/v1",
-  algorithm: { id: "vera-polly-marks-energy-ends", version: "1", parametersHash: hash("params"), parameters: { windowMs: 5, hopMs: 5, relativeDb: -30 } },
+  algorithm: { id: "vera-polly-marks-energy-ends", version: "1", parametersHash: sha256CanonicalJson(measuredParameters), parameters: { ...measuredParameters } },
   measurementArtifactLocator: "Measurements/synthetic-182.json", measurementArtifactHash: hash("measurement artifact"),
   onsetBasis: "provider_word_marks_lag_verified", onsetUncertainty: time(1, 100), audibleEndUncertainty: time(1, 200),
 });
@@ -121,6 +122,8 @@ test("measured token without audibleEnd fails closed for an after-word anchor", 
 });
 
 const malformed: Array<[string, (v: Record<string, unknown>) => void]> = [
+  ["parametersHash is not the canonical hash of parameters", (v) => { (v.algorithm as Record<string, unknown>).parametersHash = hash("params"); }],
+  ["parameters changed after hashing", (v) => { ((v.algorithm as Record<string, unknown>).parameters as Record<string, unknown>).relativeDb = -29; }],
   ["bad parametersHash", (v) => { (v.algorithm as Record<string, unknown>).parametersHash = "sha256:xyz"; }],
   ["negative uncertainty", (v) => { v.onsetUncertainty = time(-1, 100); }],
   ["negative end uncertainty", (v) => { v.audibleEndUncertainty = time(-1, 200); }],
@@ -146,4 +149,13 @@ test("reviewed verification still validates unchanged and a measured shape canno
   const mixed = evidence(input).verification as unknown as Record<string, unknown>;
   mixed.method = "reviewed_audio_boundaries/v1"; Object.assign(mixed, { algorithm: measuredVerification() });
   expect(boundaryEvidenceProblemV2(row(input), evidence(input))).not.toBeNull();
+});
+
+test("algorithm parametersHash matches the Python measure.parameters_hash vectors", () => {
+  // Same vectors as tests/test_issue182_measure.py::test_parameters_hash_cross_language_vectors.
+  expect(sha256CanonicalJson({ b: [1, { z: "é", a: 0 }], a: "x" })).toBe("sha256:3a92e85a00e73199bcec8c5f6f98aaed74efcfb435a8e785198c59742e3610c1");
+  expect(sha256CanonicalJson({
+    sampleRateHz: 48000, lagEnvelopeWindowMs: 5, lagEnvelopeHopMs: 1, lagSearchMs: 20, lagToleranceMs: 2, minLagCorrelationPermille: 900,
+    endWindowMs: 5, endRelativeDropDb: 18, endQuietDbfs: -42, endQuietRunMs: 30, onsetUncertaintyMs: 25, audibleEndUncertaintyMs: 30,
+  })).toBe("sha256:628c4c9e17822d9ed812b9cdbf31062eb71e1768d6946cc333f522a2b878ded4");
 });

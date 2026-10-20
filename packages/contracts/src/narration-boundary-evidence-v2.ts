@@ -3,6 +3,7 @@ import { Ajv2020 } from "ajv/dist/2020.js";
 import * as formatsModule from "ajv-formats";
 import dependenciesSchema from "../../../contracts/compiler-dependencies-v2.schema.json" with { type: "json" };
 import documentSchema from "../../../contracts/script-document-v2.schema.json" with { type: "json" };
+import { sha256CanonicalJson } from "./compiler-core.js";
 import type { NarrationBlockV2, NarrationBoundaryEvidenceV1, RationalTime } from "./generated/contracts-v2.js";
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
@@ -38,6 +39,7 @@ export function boundaryEvidenceProblemV2(row: NarrationBlockV2, input: unknown)
   if (evidence.textHash !== textHash) return { code: "TEXT_HASH_MISMATCH", message: "Boundary evidence names a different frozen narration text." };
   const verification = evidence.verification;
   if (verification.method === "measured_audio_boundaries/v1" && (!reduced(verification.onsetUncertainty) || !reduced(verification.audibleEndUncertainty))) return stale("Measured boundary uncertainties must be reduced non-negative rationals.");
+  if (verification.method === "measured_audio_boundaries/v1" && verification.algorithm.parametersHash !== sha256CanonicalJson(verification.algorithm.parameters)) return stale("Measured algorithm.parametersHash is not the canonical hash of its parameters.");
   const audio = evidence.audio;
   if (audio.narrationAssetId !== evidence.narrationAssetId || audio.audioHash !== evidence.audioHash) return stale("Boundary evidence and verified audio asset/hash disagree.");
   if (audio.timingHash !== evidence.timingHash) return { code: "TIMING_HASH_MISMATCH", message: "Boundary evidence and cached audio pin different timing sources." };

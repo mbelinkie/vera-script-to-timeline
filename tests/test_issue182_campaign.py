@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import io
 import json
+import math
 import os
 import stat
+import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -28,10 +31,18 @@ PRICE_PER_CHAR = 32.0 / 1_000_000
 class FakeService:
     """Stands in for NarrationService: counts real provider calls."""
 
-    def __init__(self, fail_texts: tuple[str, ...] = ()) -> None:
+    def __init__(
+        self,
+        fail_texts: tuple[str, ...] = (),
+        fail_after_audio_texts: tuple[str, ...] = (),
+        delay: float = 0.0,
+    ) -> None:
         self.cache: set[str] = set()
         self.calls: list[str] = []
         self.fail_texts = fail_texts
+        # Provider audio arrived (cache filled) but a later step failed.
+        self.fail_after_audio_texts = fail_after_audio_texts
+        self.delay = delay
 
     def _hash(self, block: dict[str, Any]) -> str:
         return sha256_bytes(block["text"].encode())
@@ -48,9 +59,20 @@ class FakeService:
     def process_block(self, block: dict[str, Any]) -> NarrationAudioAsset:
         request_hash = self._hash(block)
         failed = block["text"] in self.fail_texts and request_hash not in self.cache
+        late = (
+            block["text"] in self.fail_after_audio_texts
+            and request_hash not in self.cache
+        )
         disposition = "reused"
         ids: tuple[str, ...] = ()
-        if failed:
+        if self.delay:
+            time.sleep(self.delay)
+        if late:
+            self.cache.add(request_hash)
+            self.calls.append(block["id"])
+            failed = True
+            disposition = "failed"
+        elif failed:
             disposition = "failed"
         elif request_hash not in self.cache:
             self.cache.add(request_hash)
@@ -116,6 +138,9 @@ def test_real_calls_are_recorded_and_cache_hits_are_not(tmp_path: Path) -> None:
     rows = ledger.rows()
     assert [row["blockId"] for row in rows] == ["block-0", "block-1"]
     assert set(rows[0]) == {
+        "reservationId",
+        "status",
+        "settledAt",
         "requestHash",
         "blockId",
         "characters",
@@ -125,6 +150,7 @@ def test_real_calls_are_recorded_and_cache_hits_are_not(tmp_path: Path) -> None:
     }
     assert rows[0]["characters"] == len("Every morning the ferry crosses.")
     assert rows[0]["requestIds"] == ["req-1"]
+    assert [row["status"] for row in rows] == ["charged", "charged"]
     # Re-running is an idempotent retry: every request is a cache hit.
     second = run_generate(service, doc, ledger)
     assert len(second.reused) == 2 and not second.generated
@@ -178,7 +204,7 @@ def test_identical_requests_are_estimated_once(tmp_path: Path) -> None:
     assert len(ledger.rows()) == 1
 
 
-def test_failed_call_is_not_billed_and_retry_bills_only_the_new_call(
+def test_failed_call_keeps_its_reservation_and_retry_bills_again(
     tmp_path: Path,
 ) -> None:
     ledger = ledger_at(tmp_path)
@@ -186,11 +212,76 @@ def test_failed_call_is_not_billed_and_retry_bills_only_the_new_call(
     doc = document("first", "second")
     report = run_generate(service, doc, ledger)
     assert len(report.generated) == 1 and len(report.failed) == 1
-    assert len(ledger.rows()) == 1
+    # No refund: the failed attempt stays in the total as "attempted".
+    assert [row["status"] for row in ledger.rows()] == ["charged", "attempted"]
     service.fail_texts = ()
     retry = run_generate(service, doc, ledger)
     assert len(retry.reused) == 1 and len(retry.generated) == 1
-    assert [row["blockId"] for row in ledger.rows()] == ["block-0", "block-1"]
+    assert [row["status"] for row in ledger.rows()] == [
+        "charged",
+        "attempted",
+        "charged",
+    ]
+
+
+def test_failure_after_audio_success_is_still_counted(tmp_path: Path) -> None:
+    ledger = ledger_at(tmp_path)
+    service = FakeService(fail_after_audio_texts=("second",))
+    doc = document("second")
+    report = run_generate(service, doc, ledger)
+    assert len(report.failed) == 1
+    expected = _micro_of("second")
+    assert ledger.cumulative_micro_usd() == expected
+    assert [row["status"] for row in ledger.rows()] == ["attempted"]
+    # Retry: the synthesis cache is filled, so it is a hit - no second charge,
+    # and the original charge is not lost.
+    retry = run_generate(service, doc, ledger)
+    assert len(retry.reused) == 1 and not retry.generated
+    assert service.calls == ["block-0"]
+    assert ledger.cumulative_micro_usd() == expected
+    assert len(ledger.rows()) == 1
+
+
+def test_exception_during_processing_keeps_the_reservation(tmp_path: Path) -> None:
+    class Exploding(FakeService):
+        def process_block(self, block: dict[str, Any]) -> NarrationAudioAsset:
+            raise RuntimeError("cache corrupt")
+
+    ledger = ledger_at(tmp_path)
+    with pytest.raises(RuntimeError):
+        run_generate(Exploding(), document("hello"), ledger)
+    assert [row["status"] for row in ledger.rows()] == ["attempted"]
+    assert ledger.cumulative_micro_usd() == _micro_of("hello")
+
+
+def _micro_of(text: str) -> int:
+    return math.ceil(round(len(text) * PRICE_PER_CHAR * 1_000_000, 6))
+
+
+def test_concurrent_runs_cannot_exceed_the_cap(tmp_path: Path) -> None:
+    path = tmp_path / "vera" / "ledger.json"
+    outcomes: list[str] = []
+    barrier = threading.Barrier(2)
+
+    def worker(letter: str) -> None:
+        # Own Ledger instance and own service/cache: two independent processes.
+        service = FakeService(delay=0.15)
+        ledger = Ledger(path)
+        barrier.wait()
+        try:
+            # $0.64 each; only one fits under the $1.00 cap.
+            run_generate(service, document(letter * 20_000), ledger)
+            outcomes.append("ran")
+        except CapExceeded:
+            outcomes.append("refused")
+
+    threads = [threading.Thread(target=worker, args=(c,)) for c in "ab"]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert sorted(outcomes) == ["ran", "refused"]
+    assert Ledger(path).cumulative_micro_usd() <= 1_000_000
 
 
 def test_unreadable_ledger_refuses_rather_than_resetting(tmp_path: Path) -> None:
@@ -305,6 +396,13 @@ def test_cli_measure_then_omission_round_trip(tmp_path: Path) -> None:
     assert evidence["verification"]["measurementArtifactHash"] == sha256_bytes(
         artifact.read_bytes()
     )
+    # The recorded locator is project-relative (project root defaults to the
+    # parent of --out), never an absolute path.
+    locator = evidence["verification"]["measurementArtifactLocator"]
+    assert (
+        locator == f"project/narration-measurements/{asset.asset_id}.measurement.json"
+    )
+    assert (tmp_path / locator).read_bytes() == artifact.read_bytes()
     assert "absent (connected speech" in stdout.getvalue()
     report_out = tmp_path / "report.json"
     code = run_campaign(
@@ -312,6 +410,8 @@ def test_cli_measure_then_omission_round_trip(tmp_path: Path) -> None:
             "omission",
             "--evidence",
             str(evidence_path),
+            "--block",
+            str(block_file),
             "--token",
             TOKEN_IDS[0],
             "--out",
@@ -324,9 +424,232 @@ def test_cli_measure_then_omission_round_trip(tmp_path: Path) -> None:
     assert json.loads(report_out.read_text())["uniquelySafe"] is True
     # Connected-speech target refuses with a non-zero exit.
     code = run_campaign(
-        ["omission", "--evidence", str(evidence_path), "--token", TOKEN_IDS[2]],
+        [
+            "omission",
+            "--evidence",
+            str(evidence_path),
+            "--block",
+            str(block_file),
+            "--token",
+            TOKEN_IDS[2],
+        ],
         stdout=io.StringIO(),
         stderr=stderr,
     )
     assert code == 2
     assert BLOCK_ID in key
+
+
+def test_real_service_normalization_failure_is_still_counted(tmp_path: Path) -> None:
+    import struct
+
+    from vera_timeline_agent.narration.cache import NarrationCache
+    from vera_timeline_agent.narration.models import ProviderResult
+    from vera_timeline_agent.narration.normalize import MediaToolError, Normalizer
+    from vera_timeline_agent.narration.service import NarrationService, ServiceConfig
+
+    class Provider:
+        adapter_version = "t/v1"
+        calls = 0
+
+        def prepare_input(self, request: Any) -> bytes:
+            return bytes(request.text.encode())
+
+        def synthesize(self, request: Any) -> ProviderResult:
+            self.calls += 1
+            return ProviderResult(
+                audio_bytes=struct.pack("<4h", 1, 2, 3, 4),
+                audio_format="pcm_s16le",
+                sample_rate=16000,
+                channels=1,
+                provider_input=request.text.encode(),
+                timing_marks=(),
+                provenance={"provider": "t"},
+                request_ids=("req-real",),
+            )
+
+    class BrokenNormalizer(Normalizer):
+        def normalize_pcm(self, *args: Any, **kwargs: Any) -> Any:
+            raise MediaToolError("ffmpeg exploded")
+
+        def placeholder(self, block_id: str) -> Any:
+            return build_asset_normalization()
+
+    def build_asset_normalization() -> Any:
+        from vera_timeline_agent.narration.normalize import NormalizationResult
+
+        return NormalizationResult(
+            wav_bytes=b"RIFF",
+            profile_id="p",
+            normalizer_version="v",
+            tool_fingerprint="sha256:" + "0" * 64,
+            sample_rate=48000,
+            channels=1,
+            sample_format="s16",
+            duration_samples=0,
+            duration_ms=0,
+            padding_samples=0,
+            integrated_lufs=-16.0,
+            true_peak_dbtp=-1.0,
+            loudness_range_lu=1.0,
+        )
+
+    provider = Provider()
+    service = NarrationService(
+        cache=NarrationCache(tmp_path / "cache"),
+        provider=provider,
+        normalizer=BrokenNormalizer(),
+        config=ServiceConfig(data_policy_attestation="provider_terms_accepted"),
+    )
+    ledger = ledger_at(tmp_path)
+    doc = document("hello there")
+    report = run_generate(service, doc, ledger)
+    assert len(report.failed) == 1 and provider.calls == 1
+    assert [row["status"] for row in ledger.rows()] == ["attempted"]
+    spent = ledger.cumulative_micro_usd()
+    assert spent == _micro_of("hello there")
+    # The synthesis cache is filled, so the retry makes no second call/charge.
+    run_generate(service, doc, ledger)
+    assert provider.calls == 1 and ledger.cumulative_micro_usd() == spent
+
+
+def test_cli_measure_locator_follows_an_explicit_project_root(tmp_path: Path) -> None:
+    _cache, asset, key = build_cache(tmp_path / "cache")
+    block_file = tmp_path / "block.json"
+    block_file.write_text(json.dumps(frozen_block()))
+    base = [
+        "measure",
+        "--cache",
+        str(tmp_path / "cache"),
+        "--asset",
+        key,
+        "--block",
+        str(block_file),
+    ]
+    stderr = io.StringIO()
+    code = run_campaign(
+        [
+            *base,
+            "--out",
+            str(tmp_path / "a/b/out"),
+            "--project-root",
+            str(tmp_path / "a"),
+        ],
+        stdout=io.StringIO(),
+        stderr=stderr,
+    )
+    assert code == 0, stderr.getvalue()
+    evidence = json.loads(
+        (
+            tmp_path / f"a/b/out/narration-measurements/{asset.asset_id}"
+            ".boundary-evidence.json"
+        ).read_text()
+    )
+    assert evidence["verification"]["measurementArtifactLocator"] == (
+        f"b/out/narration-measurements/{asset.asset_id}.measurement.json"
+    )
+    # An output directory outside the project root is refused.
+    stderr = io.StringIO()
+    code = run_campaign(
+        [
+            *base,
+            "--out",
+            str(tmp_path / "elsewhere"),
+            "--project-root",
+            str(tmp_path / "a"),
+        ],
+        stdout=io.StringIO(),
+        stderr=stderr,
+    )
+    assert code == 2 and "not inside the project root" in stderr.getvalue()
+
+
+def test_driver_script_parses_real_generate_output_portably(tmp_path: Path) -> None:
+    import re
+    import struct
+    import subprocess
+
+    from vera_timeline_agent.narration.models import ProviderResult
+    from vera_timeline_agent.narration.normalize import (
+        NormalizationResult,
+        Normalizer,
+    )
+
+    script = Path(__file__).resolve().parents[1] / "scripts/word-timing"
+    text = (script / "issue182_campaign.sh").read_text()
+    assert "\\|" not in text, "GNU-only sed alternation"
+    expression = re.search(r"sed -En '([^']+)'", text)
+    assert expression is not None
+
+    class Provider:
+        adapter_version = "t/v1"
+
+        def prepare_input(self, request: Any) -> bytes:
+            return bytes(request.text.encode())
+
+        def synthesize(self, request: Any) -> ProviderResult:
+            return ProviderResult(
+                audio_bytes=struct.pack("<4h", 1, 2, 3, 4),
+                audio_format="pcm_s16le",
+                sample_rate=16000,
+                channels=1,
+                provider_input=request.text.encode(),
+                timing_marks=(),
+                provenance={"provider": "t"},
+                request_ids=("req-driver",),
+            )
+
+    class StubNormalizer(Normalizer):
+        def normalize_pcm(self, *args: Any, **kwargs: Any) -> NormalizationResult:
+            from issue182_fixture import wav_bytes
+
+            return NormalizationResult(
+                wav_bytes=wav_bytes([0, 1, 2, 3]),
+                profile_id="p",
+                normalizer_version="v",
+                tool_fingerprint="sha256:" + "0" * 64,
+                sample_rate=48000,
+                channels=1,
+                sample_format="s16",
+                duration_samples=4,
+                duration_ms=0,
+                padding_samples=0,
+                integrated_lufs=-16.0,
+                true_peak_dbtp=-1.0,
+                loudness_range_lu=1.0,
+            )
+
+    doc = tmp_path / "doc.json"
+    doc.write_text(json.dumps(document("hello there")))
+    stdout = io.StringIO()
+    code = run_campaign(
+        [
+            "generate",
+            "--doc",
+            str(doc),
+            "--cache",
+            str(tmp_path / "cache"),
+            "--aws-data-policy",
+            "provider_terms_accepted",
+            "--confirm-provider-call",
+        ],
+        stdout=stdout,
+        stderr=io.StringIO(),
+        provider=Provider(),
+        ledger_path=tmp_path / "ledger" / "ledger.json",
+        validator=lambda path: (json.loads(path.read_text()), "ok"),
+        normalizer=StubNormalizer(),
+    )
+    assert code == 0
+    parsed = subprocess.run(
+        ["sed", "-En", expression.group(1)],
+        input=stdout.getvalue(),
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    block_id, _, asset_id = parsed.partition("/")
+    assert block_id == "block-0" and len(asset_id) == 64
+    # The driver reads narration.wav from the cache's real layout.
+    assert '"$CACHE/v1/assets/$key/narration.wav"' in text
+    assert (tmp_path / "cache/v1/assets" / parsed / "narration.wav").is_file()

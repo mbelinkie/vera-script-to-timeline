@@ -56,6 +56,11 @@ def test_compare_requires_one_interval_per_token_and_tolerates_unaligned() -> No
         module.compare([token(0, 1, 2)], [])
     report = module.compare([token(0, 1, 2), token(1, 3, 4)], [None, (3.0, 4.0)])
     assert report["mfaUnaligned"] == ["t0"]
+    # An unaligned token with a measured onset fails the gate even though the
+    # remaining errors are tiny.
+    assert report["onset"]["pass"] is True
+    assert report["onsetCoverage"] == {"aligned": 1, "total": 2, "complete": False}
+    assert report["corpusGatePass"] is False
 
 
 def test_recorded_fixture_round_trip(tmp_path: Path) -> None:
@@ -100,6 +105,11 @@ def test_recorded_fixture_round_trip(tmp_path: Path) -> None:
             },
         ],
     }
+    wav = b"RIFF-fake-wav-bytes"
+    digest = module.sha256_hash(wav)
+    artifact["asset"]["audioHash"] = digest  # type: ignore[index]
+    alignment["identity"]["audio"] = {"hash": digest}  # type: ignore[index]
+    (tmp_path / "unused.wav").write_bytes(wav)
     (tmp_path / "m.json").write_text(json.dumps(artifact))
     (tmp_path / "a.json").write_text(json.dumps(alignment))
     code = module.main(
@@ -170,3 +180,55 @@ def test_run_mfa_invokes_engine_directly_with_exact_script(
     assert [w["text"] for w in segment["words"]] == ["hello", "well", "known"]
     assert intervals == [(100.0, 400.0), (500.0, 900.0), None]
     assert "evaluation-only" in provenance["kind"]
+
+
+def _bound_case(tmp_path: Path, module: ModuleType) -> list[str]:
+    wav = b"measured-audio"
+    digest = module.sha256_hash(wav)
+    artifact = {
+        "asset": {"sampleRate": 48000, "cacheAssetId": "c" * 64, "audioHash": digest},
+        "tokens": [
+            {
+                "tokenId": "t0",
+                "quotedText": "one",
+                "onsetSamples": 4800,
+                "audibleEndSamples": 19200,
+            }
+        ],
+    }
+    alignment = {
+        "identity": {"aligner": {}, "audio": {"hash": digest}},
+        "words": [{"tokenIndex": 0, "startMs": 100, "endMs": 400}],
+    }
+    (tmp_path / "w.wav").write_bytes(wav)
+    (tmp_path / "m.json").write_text(json.dumps(artifact))
+    (tmp_path / "a.json").write_text(json.dumps(alignment))
+    return [
+        "--measurement",
+        str(tmp_path / "m.json"),
+        "--wav",
+        str(tmp_path / "w.wav"),
+        "--mfa-result",
+        str(tmp_path / "a.json"),
+        "--out",
+        str(tmp_path / "r.json"),
+    ]
+
+
+def test_inputs_are_bound_to_the_measured_audio(tmp_path: Path) -> None:
+    module = load()
+    arguments = _bound_case(tmp_path, module)
+    assert module.main(arguments) == 0
+    # A different WAV is refused.
+    (tmp_path / "w.wav").write_bytes(b"some other audio")
+    assert module.main(arguments) == 2
+    # A recorded MFA result for different audio is refused.
+    (tmp_path / "w.wav").write_bytes(b"measured-audio")
+    alignment = json.loads((tmp_path / "a.json").read_text())
+    alignment["identity"]["audio"]["hash"] = module.sha256_hash(b"elsewhere")
+    (tmp_path / "a.json").write_text(json.dumps(alignment))
+    assert module.main(arguments) == 2
+    # Missing identity is refused too.
+    del alignment["identity"]["audio"]
+    (tmp_path / "a.json").write_text(json.dumps(alignment))
+    assert module.main(arguments) == 2

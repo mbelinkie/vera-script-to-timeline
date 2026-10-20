@@ -6,12 +6,13 @@
         --asset BLOCK_ID/ASSET_ID --block FROZEN_V2_BLOCK_OR_DOCUMENT.json --out DIR
     python -m vera_timeline_agent.narration.campaign omission \\
         --evidence DIR/narration-measurements/ASSET_ID.boundary-evidence.json \\
-        --token TOKEN_ID
+        --block FROZEN_V2_BLOCK_OR_DOCUMENT.json --token TOKEN_ID
 
 ``generate`` wraps the existing NarrationService unchanged.  A cumulative cost
 ledger outside the repository refuses any live call that would take the total
-past the cap, and records a row only for calls that really reached the
-provider (cache hits cost nothing and record nothing).
+past the cap.  Each call that may reach the provider is reserved first and the
+reservation is never refunded (see ``Ledger``); cache hits cost nothing and
+record nothing.
 """
 
 from __future__ import annotations
@@ -24,6 +25,8 @@ import math
 import os
 import sys
 import tempfile
+import threading
+import uuid
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -84,8 +87,22 @@ def _micro(usd: float) -> int:
     return math.ceil(round(usd * 1_000_000, 6))
 
 
+STATUS_RESERVED = "reserved"
+STATUS_ATTEMPTED = "attempted"
+STATUS_CHARGED = "charged"
+LEDGER_STATUSES = (STATUS_RESERVED, STATUS_ATTEMPTED, STATUS_CHARGED)
+
+
 class Ledger:
-    """Append-only cumulative record of real provider calls."""
+    """Cumulative record of provider spend that is never refunded.
+
+    Every call that may reach the provider first writes a ``reserved`` row at
+    its estimated cost.  The row becomes ``charged`` (with request ids) when
+    the block succeeded, or ``attempted`` on any other outcome.  All three
+    statuses count toward the cap, so a failure can never lower the total.
+    Callers hold :meth:`locked` across check, provider call and settlement so
+    concurrent runs cannot jointly exceed the cap.
+    """
 
     def __init__(
         self,
@@ -95,17 +112,30 @@ class Ledger:
     ) -> None:
         self.path = path
         self.clock = clock
+        self._local = threading.local()
 
     @contextlib.contextmanager
-    def _locked(self) -> Iterator[None]:
+    def locked(self) -> Iterator[None]:
+        """Exclusive cross-process lock; re-entrant within one thread."""
+
+        depth = getattr(self._local, "depth", 0)
+        if depth:
+            self._local.depth = depth + 1
+            try:
+                yield
+            finally:
+                self._local.depth -= 1
+            return
         directory = self.path.parent
         directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         os.chmod(directory, 0o700)
         descriptor = os.open(directory / "ledger.lock", os.O_CREAT | os.O_RDWR, 0o600)
         try:
             fcntl.flock(descriptor, fcntl.LOCK_EX)
+            self._local.depth = 1
             yield
         finally:
+            self._local.depth = 0
             fcntl.flock(descriptor, fcntl.LOCK_UN)
             os.close(descriptor)
 
@@ -124,13 +154,16 @@ class Ledger:
             raise LedgerError("ledger has an unexpected shape")
         rows = value["rows"]
         for row in rows:
-            if not isinstance(row, dict) or not isinstance(
-                row.get("estimatedCostUsd"), int | float
+            if (
+                not isinstance(row, dict)
+                or not isinstance(row.get("estimatedCostUsd"), int | float)
+                or row.get("status") not in LEDGER_STATUSES
             ):
                 raise LedgerError("ledger row is malformed")
         return cast(list[dict[str, Any]], rows)
 
     def cumulative_micro_usd(self) -> int:
+        # Every reserved, attempted and charged row counts; none is refunded.
         return sum(_micro(float(row["estimatedCostUsd"])) for row in self.rows())
 
     def check(
@@ -143,6 +176,93 @@ class Ledger:
                 f"${cap_micro_usd / 1e6:.2f} campaign cap"
             )
 
+    def _write(self, rows: list[dict[str, Any]]) -> None:
+        payload = json.dumps(
+            {"schemaVersion": LEDGER_VERSION, "rows": rows},
+            indent=2,
+            sort_keys=True,
+        )
+        descriptor, temporary = tempfile.mkstemp(
+            dir=self.path.parent, prefix=".ledger-"
+        )
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+                handle.write(payload + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.chmod(temporary, 0o600)
+            os.replace(temporary, self.path)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+
+    def _new_row(
+        self,
+        *,
+        status: str,
+        request_hash: str,
+        block_id: str,
+        characters: int,
+        estimated_cost_usd: float,
+        request_ids: tuple[str, ...],
+    ) -> dict[str, Any]:
+        return {
+            "reservationId": uuid.uuid4().hex,
+            "status": status,
+            "requestHash": request_hash,
+            "blockId": block_id,
+            "characters": characters,
+            "estimatedCostUsd": estimated_cost_usd,
+            "requestIds": list(request_ids),
+            "at": self.clock().isoformat(),
+        }
+
+    def reserve(
+        self,
+        *,
+        request_hash: str,
+        block_id: str,
+        characters: int,
+        estimated_cost_usd: float,
+        cap_micro_usd: int = CAP_MICRO_USD,
+    ) -> dict[str, Any]:
+        """Check the cap and record a ``reserved`` row atomically."""
+
+        with self.locked():
+            self.check(_micro(estimated_cost_usd), cap_micro_usd)
+            row = self._new_row(
+                status=STATUS_RESERVED,
+                request_hash=request_hash,
+                block_id=block_id,
+                characters=characters,
+                estimated_cost_usd=estimated_cost_usd,
+                request_ids=(),
+            )
+            self._write([*self.rows(), row])
+        return row
+
+    def settle(
+        self,
+        reservation_id: str,
+        status: str,
+        request_ids: tuple[str, ...] = (),
+    ) -> dict[str, Any]:
+        """Move a reservation to ``charged`` or ``attempted``; cost is kept."""
+
+        if status not in (STATUS_ATTEMPTED, STATUS_CHARGED):
+            raise LedgerError(f"cannot settle a reservation as {status!r}")
+        with self.locked():
+            rows = self.rows()
+            for row in rows:
+                if row.get("reservationId") == reservation_id:
+                    row["status"] = status
+                    if request_ids:
+                        row["requestIds"] = list(request_ids)
+                    row["settledAt"] = self.clock().isoformat()
+                    self._write(rows)
+                    return row
+        raise LedgerError(f"unknown reservation {reservation_id}")
+
     def append(
         self,
         *,
@@ -152,35 +272,18 @@ class Ledger:
         estimated_cost_usd: float,
         request_ids: tuple[str, ...],
     ) -> dict[str, Any]:
-        row = {
-            "requestHash": request_hash,
-            "blockId": block_id,
-            "characters": characters,
-            "estimatedCostUsd": estimated_cost_usd,
-            "requestIds": list(request_ids),
-            "at": self.clock().isoformat(),
-        }
-        with self._locked():
-            rows = self.rows()
-            rows.append(row)
-            payload = json.dumps(
-                {"schemaVersion": LEDGER_VERSION, "rows": rows},
-                indent=2,
-                sort_keys=True,
-            )
-            descriptor, temporary = tempfile.mkstemp(
-                dir=self.path.parent, prefix=".ledger-"
-            )
-            try:
-                with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-                    handle.write(payload + "\n")
-                    handle.flush()
-                    os.fsync(handle.fileno())
-                os.chmod(temporary, 0o600)
-                os.replace(temporary, self.path)
-            finally:
-                if os.path.exists(temporary):
-                    os.unlink(temporary)
+        """Record an already-incurred charge directly."""
+
+        row = self._new_row(
+            status=STATUS_CHARGED,
+            request_hash=request_hash,
+            block_id=block_id,
+            characters=characters,
+            estimated_cost_usd=estimated_cost_usd,
+            request_ids=request_ids,
+        )
+        with self.locked():
+            self._write([*self.rows(), row])
         return row
 
 
@@ -227,26 +330,47 @@ def run_generate(
 
     report = GenerateReport()
     for block, _upfront in plans:
-        # Re-plan right before each block: an identical earlier block may have
-        # filled the cache, and the ledger may have grown.
-        plan = service.plan_block(block)
-        if not plan.cached:
-            ledger.check(_micro(plan.estimated_cost_usd), cap_micro_usd)
-        asset = service.process_block(block)
+        # The ledger lock spans re-plan -> cap check -> reservation -> provider
+        # call -> settlement, so concurrent runs cannot jointly exceed the cap
+        # and no failure can lower the recorded spend.
+        with ledger.locked():
+            # Re-plan under the lock: an identical earlier block may have
+            # filled the cache, and another run may have grown the ledger.
+            plan = service.plan_block(block)
+            reservation = (
+                None
+                if plan.cached
+                else ledger.reserve(
+                    request_hash=plan.request_hash,
+                    block_id=plan.block_id,
+                    characters=plan.characters,
+                    estimated_cost_usd=plan.estimated_cost_usd,
+                    cap_micro_usd=cap_micro_usd,
+                )
+            )
+            try:
+                asset = service.process_block(block)
+            except BaseException:
+                if reservation is not None:
+                    ledger.settle(reservation["reservationId"], STATUS_ATTEMPTED)
+                raise
+            if reservation is not None:
+                charged = (
+                    asset.status != "failed"
+                    and asset.synthesis_disposition == "generated"
+                )
+                report.rows.append(
+                    ledger.settle(
+                        reservation["reservationId"],
+                        STATUS_CHARGED if charged else STATUS_ATTEMPTED,
+                        asset.request_ids,
+                    )
+                )
         report.assets.append(asset)
         if asset.status == "failed":
             report.failed.append(asset)
         elif asset.synthesis_disposition == "generated":
             report.generated.append(asset)
-            report.rows.append(
-                ledger.append(
-                    request_hash=asset.request_hash,
-                    block_id=asset.block_id,
-                    characters=plan.characters,
-                    estimated_cost_usd=plan.estimated_cost_usd,
-                    request_ids=asset.request_ids,
-                )
-            )
         else:
             report.reused.append(asset)
     return report
@@ -294,14 +418,21 @@ def _parser() -> argparse.ArgumentParser:
     )
     measure.add_argument("--out", type=Path, required=True)
     measure.add_argument(
-        "--artifact-locator",
+        "--project-root",
+        type=Path,
         default=None,
-        help="project-relative artifact path under --out "
-        "(default narration-measurements/ASSET_ID.measurement.json)",
+        help="project root the recorded measurementArtifactLocator is relative "
+        "to (default: the parent of --out; --out must be inside it)",
     )
 
     omission = sub.add_parser("omission")
     omission.add_argument("--evidence", type=Path, required=True)
+    omission.add_argument(
+        "--block",
+        type=Path,
+        required=True,
+        help="frozen v2 narration block JSON, or a v2 ScriptDocument containing it",
+    )
     omission.add_argument("--token", required=True)
     omission.add_argument("--out", type=Path, default=None)
     return parser
@@ -447,15 +578,19 @@ def _measure(options: argparse.Namespace, stdout: TextIO, stderr: TextIO) -> int
     cache = NarrationCache(cast(Path, options.cache))
     loaded = load_asset(cache, asset_key)
     block = _select_block(_read_json(cast(Path, options.block)), block_id)
-    locator = (
-        cast(str | None, options.artifact_locator)
-        or f"narration-measurements/{asset_id}.measurement.json"
-    )
-    if locator.startswith("/") or ".." in Path(locator).parts or "\n" in locator:
-        raise MeasurementError(["artifact locator must be project-relative"])
-    result = measure_asset(loaded, block, artifact_locator=locator)
     out = cast(Path, options.out)
-    artifact_path = out / locator
+    root_option = cast(Path | None, options.project_root)
+    project_root = (root_option if root_option is not None else out.parent).resolve()
+    artifact_path = (
+        out.resolve() / "narration-measurements" / f"{asset_id}.measurement.json"
+    )
+    try:
+        locator = artifact_path.relative_to(project_root).as_posix()
+    except ValueError as error:
+        raise MeasurementError(
+            [f"--out {out} is not inside the project root {project_root}"]
+        ) from error
+    result = measure_asset(loaded, block, artifact_locator=locator)
     evidence_path = artifact_path.with_name(f"{asset_id}.boundary-evidence.json")
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
     artifact_path.write_bytes(result.artifact_bytes)
@@ -481,7 +616,11 @@ def _measure(options: argparse.Namespace, stdout: TextIO, stderr: TextIO) -> int
 
 def _omission(options: argparse.Namespace, stdout: TextIO, stderr: TextIO) -> int:
     evidence = _read_json(cast(Path, options.evidence))
-    report = omission_envelope_report(evidence, cast(str, options.token))
+    block_id = evidence.get("blockId") if isinstance(evidence, dict) else None
+    if not isinstance(block_id, str):
+        raise EnvelopeRefused("evidence has no blockId")
+    block = _select_block(_read_json(cast(Path, options.block)), block_id)
+    report = omission_envelope_report(evidence, cast(str, options.token), block)
     text = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if options.out is not None:
         cast(Path, options.out).write_text(text, encoding="utf-8")

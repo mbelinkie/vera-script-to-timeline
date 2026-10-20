@@ -1,10 +1,12 @@
 """Audio-bound measured word boundaries for a generated narration asset (#182).
 
 Onsets come from the provider's word marks, shifted by a *verified* lag between
-the raw provider PCM and the normalized WAV.  Audible ends come from the
-normalized audio's own energy and exist only where a real quiet gap follows the
-word.  Connected speech therefore yields an onset but no audible end; consumers
-fail closed on it exactly as they do for missing reviewed ends.
+the raw provider PCM and the normalized WAV.  Audible ends are measured on the
+raw provider PCM (before compression can lift quiet tails) and mapped onto the
+normalized timeline through that same verified lag.  They exist only where a
+real quiet gap follows the word.  Connected speech therefore yields an onset
+but no audible end; consumers fail closed on it exactly as they do for missing
+reviewed ends.
 
 Standard library only: ``wave``/``array``/``math`` are fast enough for rows of
 at most about 30 seconds.
@@ -29,7 +31,6 @@ from vera_timeline_agent.narration.cache import CacheError, NarrationCache
 from vera_timeline_agent.narration.models import (
     NarrationAudioAsset,
     canonical_json_bytes,
-    identity_hash,
     sha256_bytes,
 )
 
@@ -50,10 +51,10 @@ DEFAULT_PARAMETERS: dict[str, Any] = {
     "lagEnvelopeHopMs": 1,
     "lagSearchMs": 20,
     "lagToleranceMs": 2,
-    "minLagCorrelation": 0.9,
+    "minLagCorrelationPermille": 900,
     "endWindowMs": 5,
     "endRelativeDropDb": 18,
-    "endAbsoluteFloorDbfs": -50,
+    "endQuietDbfs": -42,
     "endQuietRunMs": 30,
     "onsetUncertaintyMs": 25,
     "audibleEndUncertaintyMs": 30,
@@ -104,7 +105,35 @@ class LoadedAsset:
 
 
 def parameters_hash(parameters: Mapping[str, Any]) -> str:
-    return identity_hash(dict(parameters))
+    """Hash in the compiler's canonical form (``sha256CanonicalJson`` in
+    ``packages/contracts/src/compiler-core.ts``): sorted keys, two-space indent,
+    trailing newline.  Parameters are integer-only so Python and JavaScript
+    serialize them identically.
+    """
+
+    def check(value: object) -> None:
+        if isinstance(value, bool) or value is None or isinstance(value, str):
+            return
+        if isinstance(value, int):
+            if abs(value) > 2**53 - 1:
+                raise MeasurementError(["algorithm parameters must be safe integers"])
+            return
+        if isinstance(value, Mapping):
+            for nested in value.values():
+                check(nested)
+            return
+        if isinstance(value, list):
+            for nested in value:
+                check(nested)
+            return
+        raise MeasurementError(["algorithm parameters must be integer-only JSON"])
+
+    check(parameters)
+    text = (
+        json.dumps(dict(parameters), sort_keys=True, ensure_ascii=False, indent=2)
+        + "\n"
+    )
+    return sha256_bytes(text.encode("utf-8"))
 
 
 def rational(samples: int | Fraction, rate: int = SAMPLE_RATE) -> dict[str, int]:
@@ -266,11 +295,12 @@ def estimate_lag(
         correlation=scores[best],
         integer_ms=best * hop_ms,
     )
-    if lag.correlation < float(parameters["minLagCorrelation"]):
+    if lag.correlation < int(parameters["minLagCorrelationPermille"]) / 1000:
         raise MeasurementError(
             [
                 "normalization timing not verified: envelope correlation "
-                f"{lag.correlation:.3f} is below {parameters['minLagCorrelation']}"
+                f"{lag.correlation:.3f} is below "
+                f"{int(parameters['minLagCorrelationPermille']) / 1000}"
             ]
         )
     if abs(lag.milliseconds) > float(parameters["lagToleranceMs"]):
@@ -307,34 +337,29 @@ def decide_audible_end(
     levels: Sequence[float],
     *,
     relative_drop_db: float,
-    absolute_floor_dbfs: float,
+    quiet_dbfs: float,
     quiet_windows: int,
 ) -> EndDecision:
-    """Apply the energy rule to one word span's window levels.
+    """Apply the energy rule to one word span's raw-PCM window levels.
 
-    Audible end = end of the last window at or above
-    ``max(peak - drop, floor)`` provided at least ``quiet_windows`` windows
-    below that threshold follow before the span ends.
+    A window is *quiet* when its level is at or below the absolute
+    ``quiet_dbfs`` threshold and also at least ``relative_drop_db`` below the
+    word's peak window.  The audible end is the end of the last non-quiet
+    window, provided the quiet windows after it run unbroken to the end of the
+    span and number at least ``quiet_windows``.
     """
 
     count = len(levels)
     if count == 0:
         return EndDecision(None, "span shorter than one window", 0, None, None, None, 0)
     peak = max(levels)
-    threshold = max(peak - relative_drop_db, absolute_floor_dbfs)
-    loud = [index for index, level in enumerate(levels) if level >= threshold]
-    if not loud:
-        return EndDecision(
-            None,
-            "no window reaches the absolute floor",
-            count,
-            peak,
-            threshold,
-            None,
-            0,
-        )
-    last = loud[-1]
-    quiet_after = count - 1 - last
+    threshold = min(quiet_dbfs, peak - relative_drop_db)
+    quiet_after = 0
+    for level in reversed(levels):
+        if level > threshold:
+            break
+        quiet_after += 1
+    last = count - 1 - quiet_after
     if quiet_after < quiet_windows:
         return EndDecision(
             None,
@@ -568,16 +593,29 @@ def measure_asset(
 
     lag = estimate_lag(loaded.raw_pcm, loaded.raw_sample_rate, samples, params)
 
+    raw_rate = loaded.raw_sample_rate
+    if raw_rate <= 0 or SAMPLE_RATE % raw_rate != 0 or raw_rate % 1000 != 0:
+        raise MeasurementError(
+            [f"raw provider sample rate {raw_rate} does not map onto 48 kHz"]
+        )
+    ratio = SAMPLE_RATE // raw_rate
+    raw_samples = _pcm_s16le(loaded.raw_pcm)
+    raw_frames = len(raw_samples)
+
     onsets: list[int] = []
-    clamped: set[int] = set()
+    raw_starts: list[int] = []
     for index, (_token, mark) in enumerate(ordered):
         onset = mark["time_ms"] * SAMPLE_RATE // 1000 + lag.samples
         if onset < 0:
-            onset = 0
-            clamped.add(index)
+            # Refuse rather than silently clamp: a clamped onset is not measured.
+            reasons.append(
+                f"onset of token {ordered[index][0]['id']} would be negative "
+                f"({onset} samples) after lag correction"
+            )
         onsets.append(onset)
+        raw_starts.append(mark["time_ms"] * raw_rate // 1000)
     for index, onset in enumerate(onsets):
-        if onset >= frames:
+        if onset >= frames or raw_starts[index] >= raw_frames:
             reasons.append(
                 f"onset of token {ordered[index][0]['id']} is beyond the audio"
             )
@@ -589,24 +627,27 @@ def measure_asset(
     if reasons:
         raise MeasurementError(reasons)
 
-    window = int(params["endWindowMs"]) * SAMPLE_RATE // 1000
+    # Ends are measured on the raw provider PCM, then mapped through the lag.
+    window = int(params["endWindowMs"]) * raw_rate // 1000
     quiet_windows = -(-int(params["endQuietRunMs"]) // int(params["endWindowMs"]))
-    prefix = _prefix_square_sums(samples)
+    prefix = _prefix_square_sums(raw_samples)
 
     token_rows: list[dict[str, Any]] = []
     evidence_tokens: list[dict[str, Any]] = []
     for index, (token, mark) in enumerate(ordered):
         span_start = onsets[index]
         span_stop = onsets[index + 1] if index + 1 < len(onsets) else frames
-        levels = window_levels_db(prefix, span_start, span_stop, window)
+        raw_start = raw_starts[index]
+        raw_stop = raw_starts[index + 1] if index + 1 < len(onsets) else raw_frames
+        levels = window_levels_db(prefix, raw_start, raw_stop, window)
         decision = decide_audible_end(
             levels,
             relative_drop_db=float(params["endRelativeDropDb"]),
-            absolute_floor_dbfs=float(params["endAbsoluteFloorDbfs"]),
+            quiet_dbfs=float(params["endQuietDbfs"]),
             quiet_windows=quiet_windows,
         )
         end_sample = (
-            span_start + decision.end_sample * window
+            (raw_start + decision.end_sample * window) * ratio + lag.samples
             if decision.end_sample is not None
             else None
         )
@@ -618,8 +659,10 @@ def measure_asset(
                 "endOffset": token["endOffset"],
                 "providerMarkMs": mark["time_ms"],
                 "onsetSamples": span_start,
-                "onsetClampedToZero": index in clamped,
                 "spanEndSamples": span_stop,
+                "rawSpanStartSamples": raw_start,
+                "rawSpanStopSamples": raw_stop,
+                "endMeasuredOn": "raw_provider_pcm",
                 "rowFinal": index + 1 == len(ordered),
                 "windowCount": decision.window_count,
                 "peakDb": _round(decision.peak_db),

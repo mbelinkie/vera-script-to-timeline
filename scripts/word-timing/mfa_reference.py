@@ -21,13 +21,17 @@ without running MFA.
 
 MFA only sees the audio and the script words (one segment spanning the row);
 it never sees the measured times.
-Corpus gate: p95 absolute error <= 150 ms for onsets (and for measured ends).
+Inputs are bound: the WAV's sha256 must equal the measurement artifact's asset
+audio hash, and a recorded ``--mfa-result`` must record that same audio hash.
+Corpus gate: p95 absolute error <= 150 ms for onsets (and for measured ends),
+and every token with a measured onset must be aligned by MFA (100% coverage).
 """
 
 from __future__ import annotations
 
 import argparse
 import array
+import hashlib
 import io
 import json
 import math
@@ -121,9 +125,53 @@ def compare(
         "onset": onset,
         "audibleEnd": ends,
         "mfaUnaligned": unaligned,
+        "onsetCoverage": {
+            "aligned": len(onset_errors),
+            "total": len(tokens),
+            "complete": not unaligned,
+        },
         "audibleEndAbstained": abstained,
-        "corpusGatePass": onset["pass"] and (ends["pass"] or not end_errors),
+        # Every token carries a measured onset, so an unaligned token is an
+        # unverified onset and fails the gate.
+        "corpusGatePass": bool(
+            onset["pass"] and not unaligned and (ends["pass"] or not end_errors)
+        ),
     }
+
+
+def sha256_hash(data: bytes) -> str:
+    return f"sha256:{hashlib.sha256(data).hexdigest()}"
+
+
+def _same_hash(left: object, right: str) -> bool:
+    if not isinstance(left, str):
+        return False
+    return left.removeprefix("sha256:") == right.removeprefix("sha256:")
+
+
+def bind_inputs(
+    artifact: dict[str, Any],
+    wav_bytes: bytes,
+    alignment: dict[str, Any] | None = None,
+) -> None:
+    """Refuse unless the WAV (and a recorded MFA result) are the measured audio."""
+
+    expected = artifact.get("asset", {}).get("audioHash")
+    if not isinstance(expected, str):
+        raise ValueError("measurement artifact records no asset audio hash")
+    actual = sha256_hash(wav_bytes)
+    if not _same_hash(expected, actual):
+        raise ValueError(
+            f"WAV sha256 {actual} differs from the measurement artifact's "
+            f"asset audio hash {expected}"
+        )
+    if alignment is not None:
+        recorded = alignment.get("identity", {}).get("audio", {}).get("hash")
+        if not _same_hash(recorded, actual):
+            raise ValueError(
+                f"recorded MFA result audio identity {recorded!r} is not the "
+                f"measured WAV {actual}"
+            )
 
 
 def tokens_from_artifact(artifact: dict[str, Any]) -> list[dict[str, Any]]:
@@ -339,13 +387,20 @@ def main(argv: list[str] | None = None) -> int:
     options = parser.parse_args(argv)
     artifact = json.loads(options.measurement.read_text(encoding="utf-8"))
     tokens = tokens_from_artifact(artifact)
+    wav_bytes = options.wav.read_bytes()
     provenance: dict[str, Any] | None = None
-    if options.mfa_result is not None:
-        alignment = json.loads(options.mfa_result.read_text(encoding="utf-8"))
-        intervals = intervals_from_alignment(alignment, len(tokens))
-        provenance = alignment.get("identity", {}).get("aligner")
-    else:
-        intervals, provenance = run_mfa(artifact, options.wav.read_bytes())
+    try:
+        if options.mfa_result is not None:
+            alignment = json.loads(options.mfa_result.read_text(encoding="utf-8"))
+            bind_inputs(artifact, wav_bytes, alignment)
+            intervals = intervals_from_alignment(alignment, len(tokens))
+            provenance = alignment.get("identity", {}).get("aligner")
+        else:
+            bind_inputs(artifact, wav_bytes)
+            intervals, provenance = run_mfa(artifact, wav_bytes)
+    except ValueError as error:
+        print(f"REFUSED: {error}", file=sys.stderr)
+        return 2
     report = compare(tokens, intervals)
     report["aligner"] = provenance
     report["evaluationOnly"] = True

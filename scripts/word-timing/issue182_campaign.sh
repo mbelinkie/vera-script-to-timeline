@@ -68,8 +68,9 @@ done
 
 # Asset key = BLOCK_ID/ASSET_ID, parsed from the generate report line
 # "block=<id> revision=N asset=<id> generated|reused ...".
+# Extended regex (-E) works on both BSD (macOS) and GNU sed.
 asset_key() {
-  sed -n 's/^block=\([^ ]*\) revision=[0-9]* asset=\([^ ]*\) \(generated\|reused\).*/\1\/\2/p' \
+  sed -En 's/^block=([^ ]+) revision=[0-9]+ asset=([^ ]+) (generated|reused) .*/\1\/\2/p' \
     "$OUT/$1.generate.txt" | head -n 1
 }
 
@@ -85,15 +86,24 @@ for row in baseline revised; do
   [ -n "$key" ] || { echo "no asset for $row (generation failed?)" >&2; exit 1; }
   mkdir -p "$OUT/$row"
   campaign measure --cache "$CACHE" --asset "$key" \
-    --block "$DATA/$row.v2.script-document.json" --out "$OUT/$row"
+    --block "$DATA/$row.v2.script-document.json" --out "$OUT/$row" \
+    --project-root "$OUT"
   echo "$key" >"$OUT/$row/asset-key.txt"
 done
 
 echo "== 4. omission envelope for \"slowly\" (baseline)"
 base_asset=$(cut -d/ -f2 "$OUT/baseline/asset-key.txt")
+slowly_id=$(uv run --frozen python -c '
+import json, sys
+doc = json.load(open(sys.argv[1]))
+ids = [t["id"] for b in doc["activeDraft"]["blocks"] if b.get("type") == "narration"
+       for t in b["tokens"] if t["value"] == "slowly"]
+assert len(ids) == 1, ids
+print(ids[0])' "$DATA/baseline.v2.script-document.json")
 campaign omission \
   --evidence "$OUT/baseline/narration-measurements/$base_asset.boundary-evidence.json" \
-  --token slowly --out "$OUT/baseline/omission-slowly.json"
+  --block "$DATA/baseline.v2.script-document.json" \
+  --token "$slowly_id" --out "$OUT/baseline/omission-slowly.json"
 
 if [ "${SKIP_MFA:-0}" != 1 ]; then
   echo "== 5. MFA reference (local, needs micromamba env 'mfa')"

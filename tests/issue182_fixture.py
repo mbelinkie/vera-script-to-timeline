@@ -40,20 +40,22 @@ RAW_RATE = 16_000
 
 
 def burst_pcm(
-    bursts: tuple[tuple[int, int, int], ...] = BURSTS,
+    bursts: tuple[tuple[int, ...], ...] = BURSTS,
     total_ms: int = RAW_MS,
     amplitude: float = 8000.0,
 ) -> list[int]:
     samples = [0] * (total_ms * RAW_RATE // 1000)
     ramp = 5 * RAW_RATE // 1000
-    for start_ms, end_ms, hertz in bursts:
+    for burst in bursts:
+        start_ms, end_ms, hertz = burst[:3]
+        level = float(burst[3]) if len(burst) > 3 else amplitude
         first = start_ms * RAW_RATE // 1000
         last = end_ms * RAW_RATE // 1000
         for index in range(first, last):
             fade = min(1.0, (index - first) / ramp, (last - 1 - index) / ramp)
             fade = 0.5 - 0.5 * math.cos(math.pi * max(0.0, fade))
             samples[index] = round(
-                amplitude * fade * math.sin(2 * math.pi * hertz * index / RAW_RATE)
+                level * fade * math.sin(2 * math.pi * hertz * index / RAW_RATE)
             )
     return samples
 
@@ -128,11 +130,12 @@ def build_cache(
     lag_samples: int = 0,
     gain: float = 0.5,
     mark_ms: tuple[int, ...] = MARK_MS,
+    bursts: tuple[tuple[int, ...], ...] = BURSTS,
 ) -> tuple[NarrationCache, NarrationAudioAsset, str]:
     """Publish synthesis + asset entries the way NarrationService lays them out."""
 
     cache = NarrationCache(root)
-    raw = burst_pcm()
+    raw = burst_pcm(bursts)
     raw_bytes = pcm_bytes(raw)
     wav = wav_bytes(normalize(raw, lag_samples=lag_samples, gain=gain))
     timing = timing_bytes(mark_ms)

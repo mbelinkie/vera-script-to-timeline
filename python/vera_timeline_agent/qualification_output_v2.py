@@ -19,7 +19,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from fractions import Fraction
 from pathlib import PurePosixPath
-from typing import Any
+from typing import Any, cast
 
 from vera_timeline_agent.qualification_output_records_v2 import (
     AUTHORITY_REFERENCE_FIELDS,
@@ -63,6 +63,25 @@ from vera_timeline_agent.qualification_output_records_v2 import (
 from vera_timeline_agent.source_audio_endpoint import endpoint_plan, endpoint_wav
 
 FRAME = 2002
+
+
+def _reviewed_artifact_hash(record: Any) -> str:
+    """Review artifact hash of reviewed evidence; measured evidence is refused."""
+
+    verification = record.get("verification") if isinstance(record, dict) else None
+    method = verification.get("method") if isinstance(verification, dict) else None
+    # Legacy reviewed records carry no method field; only measured/unknown
+    # methods and records without a review artifact are refused.
+    _require(
+        isinstance(verification, dict)
+        and method in (None, "reviewed_audio_boundaries/v1")
+        and "reviewArtifactHash" in verification,
+        f"boundary evidence method {method!r} is not supported by this "
+        "reviewed-only output path (measured evidence has no review artifact)",
+    )
+    return cast(str, verification["reviewArtifactHash"])  # type: ignore[index]
+
+
 RATE = {"numerator": 24000, "denominator": 1001}
 ENCODING = "float64le-interleaved-stereo"
 ALGORITHM = {
@@ -529,8 +548,7 @@ def _provenance(
             # The authenticated TS compiler hash is not a Python row hash.
             _legacy_digest(provenance["boundaryEvidenceHash"])
             _require(
-                _legacy_digest(record["verification"]["reviewArtifactHash"])
-                == pins["review"],
+                _legacy_digest(_reviewed_artifact_hash(record)) == pins["review"],
                 "boundary review differs",
             )
         trust.authenticate(
