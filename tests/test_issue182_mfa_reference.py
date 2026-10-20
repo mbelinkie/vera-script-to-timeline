@@ -117,3 +117,56 @@ def test_recorded_fixture_round_trip(tmp_path: Path) -> None:
     assert code == 0
     report = json.loads((tmp_path / "r.json").read_text())
     assert report["onset"]["count"] == 2 and report["audibleEnd"]["count"] == 1
+
+
+def test_run_mfa_invokes_engine_directly_with_exact_script(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import io
+    import subprocess
+    import wave
+
+    module = load()
+    monkeypatch.delenv("VERA_MFA_COMMAND", raising=False)
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as writer:
+        writer.setnchannels(1)
+        writer.setsampwidth(2)
+        writer.setframerate(48000)
+        writer.writeframes(b"\x00\x00" * 48000)
+    artifact = {
+        "tokens": [
+            {"quotedText": "Hello,"},
+            {"quotedText": "well-known"},
+            {"quotedText": "--"},
+        ]
+    }
+    seen: dict[str, object] = {}
+
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        seen["cmd"] = cmd
+        segments = json.loads(Path(cmd[cmd.index("--segments") + 1]).read_text())
+        seen["segments"] = segments
+        result = {
+            "variant": "english_us_arpa",
+            "provenance": {"packages": {"montreal-forced-aligner": "3"}},
+            "words": [
+                {"i": 0, "start": 0.1, "end": 0.4, "status": "aligned"},
+                {"i": 1, "sub": 0, "start": 0.5, "end": 0.6, "status": "aligned"},
+                {"i": 1, "sub": 1, "start": 0.6, "end": 0.9, "status": "aligned"},
+            ],
+        }
+        Path(cmd[cmd.index("--out") + 1]).write_text(json.dumps(result))
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    intervals, provenance = module.run_mfa(artifact, buffer.getvalue())
+    cmd = seen["cmd"]
+    assert isinstance(cmd, list)
+    assert cmd[1:4] == ["run", "-n", "mfa"] and str(module.ENGINE) in cmd
+    assert cmd[cmd.index("--variant") + 1] == "english_us_arpa"
+    (segment,) = seen["segments"]["segments"]  # type: ignore[index]
+    assert segment["end"] == 1.0
+    assert [w["text"] for w in segment["words"]] == ["hello", "well", "known"]
+    assert intervals == [(100.0, 400.0), (500.0, 900.0), None]
+    assert "evaluation-only" in provenance["kind"]

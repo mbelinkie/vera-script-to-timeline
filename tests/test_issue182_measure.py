@@ -109,8 +109,8 @@ def test_evidence_json_has_the_spec_shape(tmp_path: Path) -> None:
     }
     assert verification["method"] == "measured_audio_boundaries/v1"
     assert verification["onsetBasis"] == "provider_word_marks_lag_verified"
-    assert verification["onsetUncertainty"] == {"numerator": 1, "denominator": 100}
-    assert verification["audibleEndUncertainty"] == {"numerator": 1, "denominator": 200}
+    assert verification["onsetUncertainty"] == {"numerator": 1, "denominator": 40}
+    assert verification["audibleEndUncertainty"] == {"numerator": 3, "denominator": 100}
     algorithm = verification["algorithm"]
     assert algorithm["id"] == "vera-polly-marks-energy-ends"
     assert algorithm["version"] == "1"

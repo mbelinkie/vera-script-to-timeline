@@ -3,8 +3,10 @@
 
 CI never runs this script.
 
-Aligns a normalized narration WAV to its script words with the repository's
-existing MfaAligner and compares the Montreal Forced Aligner's word intervals to
+EVALUATION-ONLY independent reference: aligns a narration WAV to the exact
+script words by running the MFA engine (adapters/engines/mfa_engine.py)
+directly (the production MfaAligner port refuses reference text by design,
+D-P009), then compares the Montreal Forced Aligner's word intervals to
 the measured onsets and audible ends in a ``narration-measurement/v1`` artifact:
 
     VERA_MFA_COMMAND="micromamba run -n mfa python" \\
@@ -17,8 +19,8 @@ If VERA_MFA_COMMAND is unset the micromamba env ``mfa`` is used
 FILE`` (an ``alignment-artifact/v1`` JSON) to compare against a recorded MFA run
 without running MFA.
 
-MFA only sees the audio and the script words.  Measured onsets are passed to
-its VAD stage purely to assign words to speech segments; MFA decides the times.
+MFA only sees the audio and the script words (one segment spanning the row);
+it never sees the measured times.
 Corpus gate: p95 absolute error <= 150 ms for onsets (and for measured ends).
 """
 
@@ -26,16 +28,18 @@ from __future__ import annotations
 
 import argparse
 import array
-import hashlib
 import io
 import json
 import math
 import os
+import re
+import shlex
+import shutil
+import subprocess
 import sys
 import tempfile
 import wave
 from collections.abc import Sequence
-from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -142,11 +146,25 @@ def downsample_16k(wav_bytes: bytes) -> tuple[bytes, int]:
     """48 kHz mono 16-bit -> 16 kHz (boxcar mean of three); returns (wav, frames)."""
 
     with wave.open(io.BytesIO(wav_bytes)) as handle:
-        if handle.getnchannels() != 1 or handle.getsampwidth() != 2:
-            raise ValueError("mono 16-bit WAV required")
+        width = handle.getsampwidth()
+        if handle.getnchannels() != 1 or width not in (2, 3):
+            raise ValueError("mono 16-bit or 24-bit WAV required")
         rate = handle.getframerate()
+        raw = handle.readframes(handle.getnframes())
+    if width == 3:
+        # VERA's normalized assets are PCM-24; reduce to 16-bit for MFA input.
+        samples = array.array(
+            "h",
+            (
+                int.from_bytes(raw[i : i + 3], "little", signed=True) >> 8
+                for i in range(0, len(raw) - len(raw) % 3, 3)
+            ),
+        )
+        if sys.byteorder == "big":
+            samples.byteswap()
+    else:
         samples = array.array("h")
-        samples.frombytes(handle.readframes(handle.getnframes()))
+        samples.frombytes(raw)
     if sys.byteorder == "big":
         samples.byteswap()
     if rate != 48_000:
@@ -169,63 +187,131 @@ def downsample_16k(wav_bytes: bytes) -> tuple[bytes, int]:
     return buffer.getvalue(), len(out)
 
 
+ENGINE = (
+    Path(__file__).resolve().parents[2]
+    / "packages/word-timing/src/vera_word_timing/adapters/engines/mfa_engine.py"
+)
+_WORD = re.compile(r"[a-z0-9]+(?:'[a-z0-9]+)*")
+
+
+def spoken_pieces(text: str) -> list[str]:
+    """Lower-case word pieces MFA will see for one script token (hyphens split)."""
+
+    return _WORD.findall(text.lower().replace("\u2019", "'"))
+
+
+def build_segments(
+    artifact: dict[str, Any], audio_name: str, frames: int
+) -> dict[str, Any]:
+    """One segment spanning the whole row with the exact script words."""
+
+    words = []
+    for index, row in enumerate(artifact["tokens"]):
+        pieces = spoken_pieces(row["quotedText"])
+        for sub, piece in enumerate(pieces):
+            words.append(
+                {"i": index, "text": piece, **({"sub": sub} if len(pieces) > 1 else {})}
+            )
+    return {
+        "audio": audio_name,
+        "offsetSec": 0.0,
+        "segments": [
+            {"id": "s000", "start": 0.0, "end": frames / 16_000, "words": words}
+        ],
+    }
+
+
+def mfa_command_and_env() -> tuple[list[str], dict[str, str]]:
+    command = shlex.split(os.environ.get("VERA_MFA_COMMAND", ""))
+    env = {
+        k: v for k in ("MAMBA_ROOT_PREFIX", "VERA_MFA_HOME") if (v := os.environ.get(k))
+    }
+    if root := os.environ.get("VERA_MFA_ROOT_DIR"):
+        env["MFA_ROOT_DIR"] = root
+    if not command:
+        micromamba = shutil.which("micromamba") or str(
+            Path.home() / ".local/bin/micromamba"
+        )
+        command = [micromamba, "run", "-n", "mfa", "python"]
+        env.setdefault(
+            "MAMBA_ROOT_PREFIX", str(Path.home() / ".local/share/micromamba")
+        )
+    return command, env
+
+
+def intervals_from_engine(
+    result: dict[str, Any], artifact: dict[str, Any]
+) -> list[tuple[float, float] | None]:
+    """Map engine rows (seconds) to one (startMs, endMs) per script token."""
+
+    rows: dict[int, list[dict[str, Any]]] = {}
+    for row in result["words"]:
+        rows.setdefault(row["i"], []).append(row)
+    out: list[tuple[float, float] | None] = []
+    for index, token in enumerate(artifact["tokens"]):
+        parts = sorted(rows.get(index, []), key=lambda r: r.get("sub", 0))
+        if (
+            not spoken_pieces(token["quotedText"])
+            or not parts
+            or any(p["status"] != "aligned" for p in parts)
+        ):
+            out.append(None)
+        else:
+            out.append((parts[0]["start"] * 1000.0, parts[-1]["end"] * 1000.0))
+    return out
+
+
 def run_mfa(
     artifact: dict[str, Any], wav_bytes: bytes
 ) -> tuple[list[tuple[float, float] | None], dict[str, Any]]:
-    from vera_word_timing.adapters.local_engines import EngineConfig, MfaAligner
-    from vera_word_timing.artifacts import (
-        AudioRef,
-        RecognizerInfo,
-        Token,
-        recognition_artifact,
-    )
-    from vera_word_timing.ports import ProjectPolicy
+    """Run the MFA engine directly on the exact script text (evaluation-only).
 
-    config = EngineConfig.from_env()
-    if not config.mfa_command:
-        config = replace(
-            config,
-            mfa_command=("micromamba", "run", "-n", "mfa", "python"),
-            mfa_env={
-                "MAMBA_ROOT_PREFIX": os.environ.get(
-                    "MAMBA_ROOT_PREFIX",
-                    str(Path.home() / ".local/share/micromamba"),
-                ),
-                **config.mfa_env,
-            },
-        )
+    Deliberately bypasses the production MfaAligner port, which refuses
+    reference text (D-P009); this script is the evaluation-only exception.
+    """
+
+    command, extra_env = mfa_command_and_env()
     wav16, frames = downsample_16k(wav_bytes)
-    rate = int(artifact["asset"]["sampleRate"])
-    rows = artifact["tokens"]
     with tempfile.TemporaryDirectory(prefix="vera-mfa-ref-") as directory:
-        path = Path(directory) / "narration16k.wav"
-        path.write_bytes(wav16)
-        audio = AudioRef(
-            path=path,
-            original_hash="sha256:" + hashlib.sha256(wav_bytes).hexdigest(),
-            sample_rate=16_000,
-            duration_samples=frames,
+        audio_dir = Path(directory) / "audio"
+        audio_dir.mkdir()
+        (audio_dir / "narration16k.wav").write_bytes(wav16)
+        seg_file, out = Path(directory) / "segments.json", Path(directory) / "r.json"
+        seg_file.write_text(
+            json.dumps(build_segments(artifact, "narration16k.wav", frames))
         )
-        tokens = []
-        for index, row in enumerate(rows):
-            start = row["onsetSamples"] / rate
-            stop = (
-                rows[index + 1]["onsetSamples"] / rate
-                if index + 1 < len(rows)
-                else artifact["asset"]["durationSamples"] / rate
+        cmd = [
+            *command,
+            str(ENGINE),
+            "--segments",
+            str(seg_file),
+            "--audio-dir",
+            str(audio_dir),
+            "--out",
+            str(out),
+            "--variant",
+            "english_us_arpa",
+            "-j",
+            "1",
+        ]
+        done = subprocess.run(
+            cmd,
+            env={**os.environ, **extra_env},
+            capture_output=True,
+            text=True,
+            timeout=1800,
+        )
+        if done.returncode != 0 or not out.exists():
+            raise RuntimeError(
+                f"MFA engine failed ({done.returncode}): {done.stderr[-2000:]}"
             )
-            tokens.append(Token(row["quotedText"], "word", start, stop, "segment"))
-        recognition = recognition_artifact(
-            audio,
-            RecognizerInfo("reference-text", "vera", "script", "1"),
-            tokens,
-            language="en",
-            consent_policy=None,
-        )
-        alignment = MfaAligner(config).align(audio, recognition, policy=ProjectPolicy())
-    return intervals_from_alignment(alignment, len(rows)), alignment["identity"][
-        "aligner"
-    ]
+        result = json.loads(out.read_text())
+    provenance = {
+        "kind": "evaluation-only independent reference (exact script text)",
+        "variant": result.get("variant"),
+        **result.get("provenance", {}),
+    }
+    return intervals_from_engine(result, artifact), provenance
 
 
 def intervals_from_alignment(
@@ -262,6 +348,7 @@ def main(argv: list[str] | None = None) -> int:
         intervals, provenance = run_mfa(artifact, options.wav.read_bytes())
     report = compare(tokens, intervals)
     report["aligner"] = provenance
+    report["evaluationOnly"] = True
     report["asset"] = artifact["asset"]["cacheAssetId"]
     options.out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     print(

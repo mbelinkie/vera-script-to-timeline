@@ -52,11 +52,11 @@ DEFAULT_PARAMETERS: dict[str, Any] = {
     "lagToleranceMs": 2,
     "minLagCorrelation": 0.9,
     "endWindowMs": 5,
-    "endRelativeDropDb": 30,
+    "endRelativeDropDb": 18,
     "endAbsoluteFloorDbfs": -50,
     "endQuietRunMs": 30,
-    "onsetUncertaintyMs": 10,
-    "audibleEndUncertaintyMs": 5,
+    "onsetUncertaintyMs": 25,
+    "audibleEndUncertaintyMs": 30,
 }
 
 
@@ -121,7 +121,7 @@ def _ms_rational(milliseconds: int) -> dict[str, int]:
 
 
 def read_wav(wav_bytes: bytes) -> tuple[array[int], int, int, int]:
-    """Return (samples, sample_rate, channels, frame_count) for 16-bit PCM."""
+    """Return (samples, rate, channels, frames) at 16-bit scale (PCM-16/24)."""
 
     try:
         with wave.open(io.BytesIO(wav_bytes)) as handle:
@@ -134,8 +134,18 @@ def read_wav(wav_bytes: bytes) -> tuple[array[int], int, int, int]:
         raise MeasurementError(
             [f"normalized audio is not a readable WAV: {error}"]
         ) from error
+    if width == 3:
+        # VERA's normalized assets are PCM-24; keep the 16-bit level scale.
+        samples = array(
+            "h",
+            (
+                int.from_bytes(raw[i : i + 3], "little", signed=True) >> 8
+                for i in range(0, len(raw) - len(raw) % 3, 3)
+            ),
+        )
+        return samples, rate, channels, frames
     if width != 2:
-        raise MeasurementError(["normalized audio must be 16-bit PCM"])
+        raise MeasurementError(["normalized audio must be 16-bit or 24-bit PCM"])
     samples = array("h")
     samples.frombytes(raw)
     if samples.itemsize != 2:  # pragma: no cover - platform guard
