@@ -55,10 +55,10 @@ from issue215_real_fixture import (  # noqa: E402
     _write_json,
 )
 from test_issue174_real_media import issue174_descriptor  # noqa: E402
+from vera_timeline_agent import qualification_output_native_v2 as _native  # noqa: E402
 from vera_timeline_agent import (  # noqa: E402
     qualification_output_package_v2 as _package,
 )
-from vera_timeline_agent import qualification_output_native_v2 as _native  # noqa: E402
 from vera_timeline_agent.media_preparation import (  # noqa: E402
     MediaTools,
     PreparationAuthorization,
