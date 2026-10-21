@@ -15,6 +15,10 @@ The Producer authorized sending the selected private R16 text to VERA's existing
 
 The original R16 and prior timelines remain intact. This is a derived generated-narration revision, not a byte-identical R16 rebuild. Use actual audio duration; do not apply the superseded 25-fps, fixed-sample, manual-timing or frozen-original-duration gates, splice old speech, or relax comparison limits to force a pass.
 
+Use A's accepted revision package as the canonical input to a fresh C pristine session, so C's regenerated rebuild retains the accepted visual boundary. Keep B's disposable picture-plus-generated-audio derivative traceable to its original visual association; its linked trim has no narration-token deletion semantics.
+
+Keep the compiler's temporary-presenter warnings visible for the approved still. Packaging may accept those exact renderable warnings and their matching completion records; errors, other warnings and unresolved pictures remain refused.
+
 ## Verification
 
 For implementation changes, run focused checks and `npm run validate:fast`, obtain one read-only Claude CLI review, and require GitHub Actions Validate to pass. Follow [the verification policy](../VERIFICATION_POLICY.md): do not run the full suite on the Mac. Use Resolve only for the bounded real-application checks above. Keep the Producer's final acceptance focused on the exact visible and audible result.

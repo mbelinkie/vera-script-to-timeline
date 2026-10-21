@@ -54,6 +54,19 @@ _V2_SCHEMA_FILES = (
 
 JsonObject = dict[str, Any]
 
+_TEMPORARY_PRESENTER_MESSAGE = "On Camera uses the effective temporary presenter still."
+_TEMPORARY_PRESENTER_EVENT_MESSAGE = (
+    "Temporary presenter still requires manual replacement when an accepted "
+    "presenter source is available."
+)
+_TEMPORARY_PRESENTER_COMPLETION_MESSAGE = (
+    "Replace the temporary presenter still when an accepted presenter source "
+    "is available."
+)
+_TEMPORARY_PRESENTER_RECOVERY_INSTRUCTION = (
+    "Replace the temporary still with an accepted presenter source when available."
+)
+
 
 class V2PackageError(RuntimeError):
     """An actionable failure that prevents v2 package publication or import."""
@@ -575,20 +588,181 @@ def _validate_inputs(
     if manifest.get("authoringDefaults") != dependencies.get("authoringDefaults"):
         raise _error("manifest authoring defaults differ from compiler dependencies")
 
+    temporary_presenter_events = _validate_temporary_presenter_report(
+        document, manifest, report
+    )
     readiness = cast(JsonObject, report.get("readiness"))
     if (
         report.get("status") != "ready"
         or readiness.get("preview") != "ready"
         or readiness.get("release") != "ready"
         or readiness.get("blockingIssueIds") != []
-        or report.get("diagnostics") != []
         or report.get("migrationIssues") != []
-        or report.get("recoveryActions") != []
     ):
         raise _error("only a fully ready v2 report can be packaged")
 
     _validate_manifest_semantics(document, dependencies, manifest)
-    _validate_report_semantics(manifest, report, dependencies)
+    _validate_report_semantics(
+        manifest, report, dependencies, temporary_presenter_events
+    )
+
+
+def _stable_compiler_id(label: str) -> str:
+    hex_id = hashlib.sha256(label.encode("utf-8")).hexdigest()[:32]
+    return (
+        f"{hex_id[:8]}-{hex_id[8:12]}-5{hex_id[13:16]}-8{hex_id[17:20]}-{hex_id[20:]}"
+    )
+
+
+def _validate_temporary_presenter_report(
+    document: JsonObject, manifest: JsonObject, report: JsonObject
+) -> set[str]:
+    """Accept only compiler-shaped temporary presenter still completions.
+
+    This warning is renderable: the manifest carries the actual still event and
+    the compiler marks that event for manual completion. All other diagnostic
+    kinds remain outside the public package lane.
+    """
+    events = _unique_by_id(manifest.get("events"), "manifest event", "eventId")
+    authored_slots: dict[str, tuple[str, str]] = {}
+    active_draft = cast(JsonObject, document.get("activeDraft"))
+    for block in cast(list[JsonObject], active_draft.get("blocks", [])):
+        if block.get("type") != "narration" or block.get("state") != "active":
+            continue
+        sequence = block.get("primaryVisualSequence")
+        if not isinstance(sequence, dict):
+            continue
+        sequence_id = cast(str, sequence.get("id"))
+        block_id = cast(str, block.get("id"))
+        for slot in cast(list[JsonObject], sequence.get("slots", [])):
+            payload = slot.get("payload")
+            if (
+                isinstance(payload, dict)
+                and payload.get("kind") == "on_camera"
+                and payload.get("presenterChoiceId") is None
+            ):
+                slot_id = cast(str, slot.get("id"))
+                if slot_id in authored_slots:
+                    raise _error("temporary presenter slot identity is duplicated")
+                authored_slots[slot_id] = (block_id, sequence_id)
+
+    events_by_temporary_slot: dict[str, set[str]] = {}
+    for event_id, event in events.items():
+        provenance = event.get("provenance")
+        if not isinstance(provenance, dict):
+            continue
+        event_slot_id = provenance.get("slotId")
+        authored_identity = (
+            authored_slots.get(event_slot_id)
+            if isinstance(event_slot_id, str)
+            else None
+        )
+        if authored_identity is None:
+            continue
+        block_id, sequence_id = authored_identity
+        treatment = event.get("pictureTreatment")
+        if (
+            provenance.get("blockId") != block_id
+            or provenance.get("sequenceId") != sequence_id
+            or event.get("kind") != "placeholder"
+            or not isinstance(treatment, dict)
+            or treatment.get("kind") != "still"
+        ):
+            raise _error(
+                "authored temporary presenter has no matching concrete still event"
+            )
+        events_by_temporary_slot.setdefault(cast(str, event_slot_id), set()).add(
+            event_id
+        )
+
+    if set(events_by_temporary_slot) != set(authored_slots):
+        raise _error("authored temporary presenter slots have no concrete still events")
+
+    diagnostic_values = report.get("diagnostics")
+    if not isinstance(diagnostic_values, list):
+        raise _error("build report diagnostics are not an array")
+    if not diagnostic_values:
+        if events_by_temporary_slot:
+            raise _error("temporary presenter event is missing its canonical warning")
+        if report.get("recoveryActions") != []:
+            raise _error("build report has recovery actions without diagnostics")
+        return set()
+
+    expected_slots = set(events_by_temporary_slot)
+    warnings: list[JsonObject] = []
+    seen_slots: set[str] = set()
+    for diagnostic in diagnostic_values:
+        if not isinstance(diagnostic, dict):
+            raise _error("build report contains an unsupported diagnostic")
+        entity = diagnostic.get("entity")
+        if not isinstance(entity, dict):
+            raise _error("build report contains an unsupported diagnostic")
+        slot_id = cast(str, entity.get("id"))
+        if (
+            diagnostic.get("code") != "TEMPORARY_PRESENTER_STILL"
+            or diagnostic.get("severity") != "warning"
+            or diagnostic.get("message") != _TEMPORARY_PRESENTER_MESSAGE
+            or entity != {"id": slot_id, "kind": "slot", "path": "presenterStill"}
+            or not isinstance(slot_id, str)
+            or slot_id in seen_slots
+            or diagnostic.get("evidence")
+            != {"kind": "details", "message": _TEMPORARY_PRESENTER_MESSAGE}
+            or diagnostic.get("recoveryActionKinds") != ["REPLACE_TEMPORARY_PRESENTER"]
+            or diagnostic.get("id")
+            != _stable_compiler_id(
+                f"TEMPORARY_PRESENTER_STILL:slot:{slot_id}:presenterStill:"
+                f"{_TEMPORARY_PRESENTER_MESSAGE}"
+            )
+        ):
+            raise _error("build report contains a non-canonical presenter warning")
+        seen_slots.add(slot_id)
+        warnings.append(cast(JsonObject, diagnostic))
+
+    warnings.sort(
+        key=lambda row: (
+            cast(str, row["code"]),
+            cast(str, cast(JsonObject, row["entity"])["id"]),
+            cast(str, row["id"]),
+        )
+    )
+    if diagnostic_values != warnings or seen_slots != expected_slots:
+        raise _error(
+            "presenter warnings do not exactly cover concrete temporary still events"
+        )
+
+    document_id = cast(JsonObject, manifest.get("document"))
+    document_id_value = document_id.get("documentId")
+    recovery_actions = report.get("recoveryActions")
+    first_slot = cast(JsonObject, warnings[0]["entity"])["id"]
+    expected_recoveries = [
+        {
+            "documentId": document_id_value,
+            "instruction": _TEMPORARY_PRESENTER_RECOVERY_INSTRUCTION,
+            "kind": "REPLACE_TEMPORARY_PRESENTER",
+            "slotId": first_slot,
+        }
+    ]
+    if recovery_actions != expected_recoveries:
+        raise _error("presenter warning recovery action is not canonical")
+
+    expected_completions = [
+        {
+            "entity": row["entity"],
+            "id": _stable_compiler_id(
+                f"manual-completion:{document_id_value}:{row['entity']['id']}"
+            ),
+            "kind": "placeholder",
+            "message": _TEMPORARY_PRESENTER_COMPLETION_MESSAGE,
+        }
+        for row in warnings
+    ]
+    if report.get("manualCompletionItems") != expected_completions:
+        raise _error("presenter manual completion items are not canonical")
+    return {
+        event_id
+        for slot_events in events_by_temporary_slot.values()
+        for event_id in slot_events
+    }
 
 
 def narration_ceiling_frames(samples: int, sample_rate: int, rate: Fraction) -> int:
@@ -1016,7 +1190,10 @@ def _validate_manifest_semantics(
 
 
 def _validate_report_semantics(
-    manifest: JsonObject, report: JsonObject, dependencies: JsonObject
+    manifest: JsonObject,
+    report: JsonObject,
+    dependencies: JsonObject,
+    temporary_presenter_events: set[str],
 ) -> None:
     events = _unique_by_id(manifest.get("events"), "manifest event", "eventId")
     results = _unique_by_id(report.get("eventResults"), "report event", "eventId")
@@ -1024,15 +1201,23 @@ def _validate_report_semantics(
         raise _error(
             "build report event results do not cover the exact manifest event set"
         )
+    diagnostics = cast(list[JsonObject], report.get("diagnostics"))
+    manual_completion_count = len(temporary_presenter_events)
     for event_id, event in events.items():
         result = results[event_id]
         provenance = cast(JsonObject, event["provenance"])
+        temporary_presenter = event_id in temporary_presenter_events
         if (
             result.get("kind") != event.get("kind")
             or result.get("trackId") != event.get("trackId")
             or result.get("recordRange") != event.get("recordRange")
             or result.get("sourceId") != provenance.get("sourceId")
-            or result.get("disposition") != "placed"
+            or result.get("disposition")
+            != ("manual_completion" if temporary_presenter else "placed")
+            or (
+                temporary_presenter
+                and result.get("message") != _TEMPORARY_PRESENTER_EVENT_MESSAGE
+            )
         ):
             raise _error(
                 f"build report event result does not exactly cover event {event_id}"
@@ -1074,9 +1259,11 @@ def _validate_report_semantics(
     summary = cast(JsonObject, report.get("summary"))
     if (
         summary.get("eventCount") != len(events)
-        or summary.get("placedCount") != len(events)
+        or summary.get("placedCount") != len(events) - manual_completion_count
         or summary.get("blockedCount") != 0
-        or summary.get("diagnosticCount") != 0
+        or summary.get("diagnosticCount") != len(diagnostics)
+        or summary.get("manualCompletionCount") != manual_completion_count
+        or summary.get("recoveryActionCount") != len(report["recoveryActions"])
     ):
         raise _error("build report summary does not describe every event as placed")
 
