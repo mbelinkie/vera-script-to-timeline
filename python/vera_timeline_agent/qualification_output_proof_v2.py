@@ -8,18 +8,21 @@ from __future__ import annotations
 
 import copy
 import fcntl
+import hashlib
+import json
 import os
-import pwd
 import shutil
 import subprocess
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from . import qualification_output_v2 as output
+from .narration.campaign import CAP_MICRO_USD, Ledger
+from .narration.service import NarrationService
 from .qualification_output_controller_v2 import (
     HOST_STATE_ROOT,
     QualificationOutputController,
@@ -35,12 +38,20 @@ from .qualification_output_records_v2 import (
     OutputConsistencyError,
     _canonical,
     _digest,
-    _integer,
     _json_hash,
     _ledger_head,
     _parse,
     _refusal,
     _shape,
+)
+from .roundtrip_v2_audio import verify_measured_narration_evidence
+from .roundtrip_v2_narration import (
+    campaign_ledger,
+    finalize_replacement_row_v2,
+    guard_service,
+    measure_replacement_row_v2,
+    preflight_provider_call,
+    prepare_replacement_row_v2,
 )
 from .roundtrip_v2_records import ROOT, _open_file, proof_source_hashes_v2
 
@@ -48,6 +59,7 @@ Json = dict[str, Any]
 BRIDGE = ROOT / "packages/contracts/src/qualification-output-proof-cli.ts"
 SESSION_SCHEMA = "qualification-output-proof-session/v1"
 PREFLIGHT_SCHEMA = "qualification-output-revised-preflight/v1"
+SUPPORT_SCHEMA = "qualification-output-omission-support/v2"
 
 
 class _PairTrust:
@@ -174,6 +186,12 @@ def load_terminal_output(
     output._terminal_comparison(result, controller.trust)
     controller._environment_current()
     return result
+
+
+def _boundary_hash(value: Json) -> str:
+    """sha256CanonicalJson of the TypeScript compiler: sorted, indent 2, newline."""
+    text = json.dumps(value, sort_keys=True, ensure_ascii=False, indent=2) + "\n"
+    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 class QualificationOutputProofV2:
@@ -308,8 +326,13 @@ class QualificationOutputProofV2:
         self._current()
         return copy.deepcopy(envelope["result"])
 
-    def evidence(self, case_id: str, *, omission_support: Json | None = None) -> Json:
-        """Derive a new-domain transport only from reauthenticated native outputs."""
+    def evidence(self, case_id: str) -> Json:
+        """Derive a new-domain transport only from reauthenticated native outputs.
+
+        C carries machine-derived omission support (#215): the word is isolated
+        by the measured narration evidence and the observed native cut; nobody
+        enters a timestamp, token or review.
+        """
         self._current()
         _require(case_id in {"A", "B", "C"}, "supported isolated case required")
         pristine = load_terminal_output(self.baseline)
@@ -354,47 +377,6 @@ class QualificationOutputProofV2:
             "audioEquality": equality,
             "omissionSupport": None,
         }
-        if case_id == "C":
-            _require(
-                omission_support is not None,
-                "C requires independent source support and edited-mix listening",
-            )
-            assert omission_support is not None
-            receipt = _pinned(omission_support)
-            payload = _parse(receipt).get("payload")
-            _require(type(payload) is dict, "authenticated omission support required")
-            assert isinstance(payload, dict)
-            self.baseline.vault.authenticate("output_omission_review", receipt, payload)
-            _shape(
-                payload,
-                "proofSessionSha256 support sourceReviewReceipt",
-                "omission review origin",
-            )
-            source_receipt = _pinned(payload["sourceReviewReceipt"])
-            source_payload = _shape(
-                _parse(source_receipt).get("payload"),
-                "proofSessionSha256 sourceReview editedOutputSha256 "
-                "reviewer reviewedAt",
-                "source/listening review",
-            )
-            self.baseline.vault.authenticate(
-                "output_omission_review", source_receipt, source_payload
-            )
-            _pinned(source_payload["sourceReview"])
-            _require(
-                source_payload["proofSessionSha256"] == self.session_pin["sha256"]
-                and source_payload["editedOutputSha256"]
-                == _parse(edited.comparison)["renderLineage"]["sourceOutputRawSha256"]
-                and payload["support"]["reviewReceiptSha256"] == _hash(source_receipt),
-                "source/listening review lineage differs",
-            )
-            _require(
-                payload["proofSessionSha256"] == self.session_pin["sha256"],
-                "omission review belongs to another proof",
-            )
-            observation["omissionSupport"] = payload["support"]
-        else:
-            _require(omission_support is None, "unexpected omission support")
         value = {
             "schemaVersion": "qualification-output-observation-batch/v1",
             "lane": LANE,
@@ -402,17 +384,29 @@ class QualificationOutputProofV2:
             "dependenciesHash": facts["dependenciesHash"],
             "cases": [observation],
         }
+        if case_id == "C":
+            # Machine-derived by the TypeScript bridge from the measured
+            # evidence and the observed native cut; `infer` below re-derives it.
+            observation["omissionSupport"] = self.derive_omission_support(value)
         self._pure({"mode": "infer", "evidence": value})
         self._current()
         return value
 
-    def observe(self, case_id: str, *, omission_support: Json | None = None) -> Path:
-        evidence = self.evidence(case_id, omission_support=omission_support)
+    def derive_omission_support(self, evidence: Json) -> Json:
+        """Support v2 for evidence whose omissionSupport is null (TS bridge)."""
+        return self._pure({"mode": "derive_omission", "evidence": evidence})
+
+    def observe(self, case_id: str) -> Path:
+        evidence = self.evidence(case_id)
         pin = _retain(self.root / "evidence.json", _canonical(evidence))
+        omission = None
+        support = evidence["cases"][0]["omissionSupport"]
+        if support is not None:
+            omission = self._retain_omission_support(support)
         origin = {
             "proofSessionSha256": self.session_pin["sha256"],
             "evidenceSha256": pin["sha256"],
-            "omissionSupport": omission_support,
+            "omissionSupport": omission,
         }
         receipt = self.baseline.vault._issue(
             "output_proposal_evidence",
@@ -421,6 +415,68 @@ class QualificationOutputProofV2:
         )
         _retain(self.root / "evidence-receipt.json", receipt)
         return Path(pin["path"])
+
+    def _omission_boundary(self, support: Json) -> Json:
+        dependencies = _parse(self.baseline.blobs["executionDependenciesSha256"])
+        rows = [
+            row
+            for row in dependencies.get("narrationBoundaryEvidence") or []
+            if row["blockId"] == support["blockId"]
+        ]
+        _require(len(rows) == 1, "one measured boundary evidence row required")
+        _require(
+            _boundary_hash(rows[0]) == support["boundaryEvidenceHash"],
+            "omission support names different boundary evidence",
+        )
+        return rows[0]  # type: ignore[no-any-return]
+
+    def _retain_omission_support(self, support: Json) -> Json:
+        """Retain the machine-derived record and its measured-evidence origin.
+
+        The three retained files keep the preflight's closed omission pin
+        triple: the sealed support receipt, the derived support record and
+        the measured boundary evidence it was derived from. No reviewer exists.
+        """
+        support_raw = _canonical(support)
+        boundary_raw = _canonical(self._omission_boundary(support))
+        support_pin = _retain(self.root / "omission-support.json", support_raw)
+        boundary_pin = _retain(
+            self.root / "omission-measured-evidence.json", boundary_raw
+        )
+        payload = {
+            "proofSessionSha256": self.session_pin["sha256"],
+            "derivation": "machine_measured_audio_boundaries/v1",
+            "support": support,
+            "supportSha256": support_pin["sha256"],
+            "boundaryEvidenceSha256": boundary_pin["sha256"],
+        }
+        receipt = self.baseline.vault._issue(
+            "output_omission_review", payload, (support_raw, boundary_raw)
+        )
+        return _retain(self.root / "omission-support-receipt.json", receipt)
+
+    def _verify_omission_support(self, pin: Json | None, support: Json | None) -> None:
+        if pin is None or support is None:
+            _require(pin is None and support is None, "omission support origin differs")
+            return
+        receipt = _pinned(pin)
+        payload = _parse(receipt).get("payload")
+        _require(type(payload) is dict, "authenticated omission support required")
+        assert isinstance(payload, dict)
+        self.baseline.vault.authenticate("output_omission_review", receipt, payload)
+        _require(
+            payload["proofSessionSha256"] == self.session_pin["sha256"]
+            and payload["derivation"] == "machine_measured_audio_boundaries/v1"
+            and payload["support"] == support
+            and payload["supportSha256"] == _hash(_canonical(support))
+            and _pin(self.root / "omission-support.json")["sha256"]
+            == payload["supportSha256"]
+            and _pin(self.root / "omission-measured-evidence.json")["sha256"]
+            == payload["boundaryEvidenceSha256"]
+            and _canonical(self._omission_boundary(support))
+            == _pinned(_pin(self.root / "omission-measured-evidence.json")),
+            "omission support lineage differs",
+        )
 
     def _evidence(self) -> Json:
         raw = _read(self.root / "evidence.json")
@@ -440,204 +496,17 @@ class QualificationOutputProofV2:
             "observation origin differs",
         )
         evidence = _parse(raw)
-        actual = self.evidence(
-            evidence["cases"][0]["caseId"], omission_support=origin["omissionSupport"]
-        )
+        actual = self.evidence(evidence["cases"][0]["caseId"])
         _require(
             _canonical(actual) == raw, "native output evidence changed before decision"
+        )
+        self._verify_omission_support(
+            origin["omissionSupport"], actual["cases"][0]["omissionSupport"]
         )
         return evidence
 
     def infer(self) -> Json:
         return self._pure({"mode": "infer", "evidence": self._evidence()})
-
-    def prepare_omission_review_plan(
-        self, source_review: Path, destination: Path
-    ) -> Path:
-        """Bind a reviewed source-support artifact to this actual edited output.
-
-        This proposal requires attended confirmation of independent source and
-        edited-mix listening. It is never evidence merely because it is JSON.
-        """
-        self._current()
-        pristine, edited = (
-            load_terminal_output(self.baseline),
-            load_terminal_output(self.edited),
-        )
-        pair = output.compare_prediction_pair(
-            pristine, edited, trust=_PairTrust(self.baseline, self.edited)
-        )
-        facts = self._pure({"mode": "baseline"})
-        document = _parse(self.baseline.blobs["executionDocumentSha256"])
-        manifest = self.baseline.admission.manifest
-        review_pin = _pin(source_review)
-        review = _shape(
-            _parse(_pinned(review_pin)),
-            "schemaVersion method reviewerReference reviewId reviewRevision "
-            "documentHash blockId blockRevision textHash sourceHash supports",
-            "selected source review",
-        )
-        _require(
-            review["schemaVersion"] == "issue-189-v2-selected-review/v1"
-            and review["method"] == "independent_source_listening_waveform/v1"
-            and review["documentHash"] == facts["documentHash"],
-            "independent reviewed source artifact for this document required",
-        )
-        rows = [
-            row
-            for row in document["activeDraft"]["blocks"]
-            if row["id"] == review["blockId"] and row["type"] == "narration"
-        ]
-        _require(len(rows) == 1, "unique reviewed narration row required")
-        row = rows[0]
-        _require(
-            row["version"] == review["blockRevision"]
-            and len(row["tokens"]) > 12
-            and review["textHash"] == "sha256:" + _hash(row["text"].encode()),
-            "reviewed row revision/text differs",
-        )
-        events = [
-            event
-            for event in manifest["events"]
-            if event["kind"] == "narration"
-            and event["provenance"]["blockId"] == row["id"]
-        ]
-        _require(len(events) == 1, "unique admitted narration source required")
-        event = events[0]
-        source_id = event["provenance"]["sourceId"]
-        source = next(
-            entry
-            for entry in self.baseline.admission.source_entries
-            if entry["sourceId"] == source_id
-        )
-        _require(
-            review["sourceHash"] == "sha256:" + source["pcmFileSha256"],
-            "review source is not the original admitted PCM",
-        )
-        before_geometry = _parse(pristine.output.inputs.geometry)["geometry"]
-        after_geometry = _parse(edited.output.inputs.geometry)["geometry"]
-        original = [
-            item
-            for item in before_geometry["items"]
-            if item["eventId"] == event["eventId"]
-        ]
-        segments = sorted(
-            [
-                item
-                for item in after_geometry["items"]
-                if item["eventId"] == event["eventId"]
-            ],
-            key=lambda item: item["recordStart"],
-        )
-        _require(
-            len(original) == 1 and len(segments) == 2,
-            "actual two-segment narration lift required",
-        )
-        left, right = segments
-        start_frame = left["recordStart"] + left["recordDuration"]
-        end_frame = right["recordStart"]
-        cut_start = (
-            left["sourceStart"] + left["sourceDuration"] - source["nativeFrameOrigin"]
-        ) * output.FRAME + source["pcmSampleOrigin"]
-        cut_end = (
-            right["sourceStart"] - source["nativeFrameOrigin"]
-        ) * output.FRAME + source["pcmSampleOrigin"]
-        _require(
-            start_frame < end_frame
-            and cut_start < cut_end
-            and cut_end - cut_start == (end_frame - start_frame) * output.FRAME,
-            "exact nonripple source/record cut required",
-        )
-        supports = review["supports"]
-        _require(
-            type(supports) is list and len(supports) == 3,
-            "token10/11/12 independent source supports required",
-        )
-        intervals = []
-        for support, token in zip(supports, row["tokens"][10:13], strict=True):
-            _shape(
-                support,
-                "tokenId startOffset endOffset quotedText onsetSample endSample",
-                "independent token support",
-            )
-            _require(
-                (
-                    support["tokenId"],
-                    support["startOffset"],
-                    support["endOffset"],
-                    support["quotedText"],
-                )
-                == (
-                    token["id"],
-                    token["startOffset"],
-                    token["endOffset"],
-                    token["value"],
-                ),
-                "reviewed token identity/offset/quote differs",
-            )
-            start, end = (
-                _integer(support["onsetSample"]),
-                _integer(support["endSample"], 1),
-            )
-            _require(
-                start < end <= source["durationSamples"],
-                "reviewed source support bounds differ",
-            )
-            intervals.append({"startSample": start, "endSample": end})
-        previous, selected, following = intervals
-        _require(
-            previous["endSample"]
-            <= cut_start
-            <= selected["startSample"]
-            < selected["endSample"]
-            <= cut_end
-            <= following["startSample"],
-            "cut clips a neighbour or incompletely removes token11",
-        )
-        support = {
-            "schemaVersion": "qualification-output-omission-support/v1",
-            "lane": LANE,
-            "caseId": "C",
-            "documentHash": facts["documentHash"],
-            "dependenciesHash": facts["dependenciesHash"],
-            "blockId": row["id"],
-            "blockRevision": row["version"],
-            "selectedTokenId": row["tokens"][11]["id"],
-            "leftNeighborTokenId": row["tokens"][10]["id"],
-            "rightNeighborTokenId": row["tokens"][12]["id"],
-            "selectedSourceInterval": selected,
-            "leftNeighborSourceInterval": previous,
-            "rightNeighborSourceInterval": following,
-            "recordIntervalFrames": {"startFrame": start_frame, "endFrame": end_frame},
-            "audioSha256": source["pcmFileSha256"],
-            "nativeFrameOrigin": source["nativeFrameOrigin"],
-            "pcmSampleOrigin": source["pcmSampleOrigin"],
-            "timingHash": event["provenance"]["timingMapHash"].removeprefix("sha256:"),
-            "reviewArtifactSha256": review_pin["sha256"],
-            "pristineGeometryRawSha256": _hash(pristine.output.inputs.geometry),
-            "editedGeometryRawSha256": _hash(edited.output.inputs.geometry),
-            "pristineComparisonRawSha256": _hash(pristine.comparison),
-            "editedComparisonRawSha256": _hash(edited.comparison),
-            "pairRawSha256": _hash(_canonical(pair)),
-        }
-        plan = {
-            "schemaVersion": "qualification-output-omission-review-plan/v1",
-            "lane": LANE,
-            "authorityStatus": "review_only_not_authority",
-            "proofSession": self.session_pin,
-            "sourceReview": review_pin,
-            "support": support,
-            "editedOutputSha256": _parse(edited.comparison)["renderLineage"][
-                "sourceOutputRawSha256"
-            ],
-            "requiredReview": (
-                "Independently listen to original token10/11/12 and inspect "
-                "their source supports; listen to the actual edited mix, "
-                "confirm token11 alone is absent and both neighbours remain complete."
-            ),
-        }
-        _retain(destination, _canonical(plan))
-        return destination
 
     def _decision_claim_path(self, name: str) -> Path:
         _require(name in {"inference", "revision"}, "unsupported decision claim")
@@ -735,13 +604,237 @@ class QualificationOutputProofV2:
         )
         return decision
 
+    def _stage(self) -> Json:
+        """The staged revision; callers recompute it through _accepted_inference."""
+        return _parse(_read(self.root / "stage.json"))
+
+    def _regeneration_request(self, stage: Json) -> Json | None:
+        regeneration = stage["regeneration"]
+        if regeneration is None:
+            return None
+        _shape(
+            regeneration,
+            "schemaVersion lane policy blockId blockRevision text textHash "
+            "revisedDocumentHash evidenceHash decisionHash",
+            "regeneration request",
+        )
+        _require(
+            regeneration["schemaVersion"]
+            == "qualification-output-regeneration-request/v1"
+            and regeneration["lane"] == LANE
+            and regeneration["policy"] == "replace_whole_row",
+            "whole-row regeneration request required",
+        )
+        return {
+            "schemaVersion": "issue-189-v2-row-request/v1",
+            **{
+                k: v
+                for k, v in regeneration.items()
+                if k not in {"schemaVersion", "lane"}
+            },
+        }
+
+    def _generation_authorization(
+        self,
+        request: Json,
+        service: NarrationService,
+        ledger: Ledger,
+        cap_micro_usd: int,
+    ) -> bytes:
+        """Exact spend/privacy scope of this one regeneration, bound to the
+        explicitly accepted inference, its staged request and the ledger."""
+        return _canonical(
+            {
+                "schemaVersion": "issue-215-generation-authorization/v1",
+                "lane": LANE,
+                "proofSessionSha256": self.session_pin["sha256"],
+                "inferenceDecisionSha256": _hash(
+                    _read(self.root / "inference-decision.json")
+                ),
+                "stageSha256": _hash(_read(self.root / "stage.json")),
+                "request": request,
+                "dataPolicyAttestation": service.config.data_policy_attestation,
+                "profileId": service.config.profile.profile_id,
+                "maxCostUsd": service.config.max_cost_usd,
+                "ledgerPath": str(ledger.path),
+                "capMicroUsd": cap_micro_usd,
+            }
+        )
+
+    def regenerate_row(
+        self,
+        *,
+        service: NarrationService,
+        ledger: Ledger | None = None,
+        confirm_provider_call: bool,
+        cap_micro_usd: int = CAP_MICRO_USD,
+    ) -> Json | None:
+        """Regenerate the entire accepted-omission row, measure it, hand it off.
+
+        Runs only after an explicitly accepted inference (a rejection or an
+        undecided inference refuses here, before any provider contact). The
+        new text is synthesized as a whole row through the guarded service
+        (cache hit: no call, no charge); the fresh asset is measured with #182
+        and finalized into the RowHandoffV2 that ``proposal`` consumes. Returns
+        None when the accepted proposal changes no narration text.
+
+        The spend is recorded only in the approved campaign ledger
+        (``ledger=None``); any other ledger path is refused outside tests, and a
+        ``reserved``/``attempted`` ledger row for the same request without a
+        cached result is never resent.
+
+        Cost note: the paid replacement audio stays cached once synthesized.
+        Rejecting the later revision proposal leaves that audio cached and the
+        canonical text unchanged; only rejecting the *inference* (before this
+        step) avoids synthesis.
+        """
+        ledger = campaign_ledger(ledger)
+        with self._decision_lock():
+            self._accepted_inference()
+            stage = self._stage()
+            request = self._regeneration_request(stage)
+            if request is None:
+                return None
+            document, prior = stage["document"], stage["dependencies"]
+            row = next(
+                block
+                for block in document["activeDraft"]["blocks"]
+                if block["id"] == request["blockId"] and block["type"] == "narration"
+            )
+            root = self.root / "regeneration"
+            authorization = self._generation_authorization(
+                request, service, ledger, cap_micro_usd
+            )
+            retained: dict[str, bytes] = {}
+
+            def authenticate(kind: str, raw: bytes, expected: Json) -> None:
+                if kind == "synthesis_authorization":
+                    _require(
+                        raw == authorization
+                        and expected["request"] == request
+                        and expected["service"]["config"]["data_policy_attestation"]
+                        == service.config.data_policy_attestation
+                        and expected["service"]["cacheRoot"] == str(service.cache.root),
+                        "synthesis authorization differs from the accepted request",
+                    )
+                elif kind == "replacement_boundaries":
+                    _require(
+                        "timing" in retained and expected["request"] == request,
+                        "measured replacement boundaries need their measured timing",
+                    )
+                    verify_measured_narration_evidence(
+                        expected["boundaryEvidence"],
+                        timing=retained["timing"],
+                        artifact=raw,
+                        audio_sha256=expected["audio"]["audioHash"],
+                    )
+                else:
+                    raise OutputConsistencyError("unsupported regeneration receipt")
+
+            # Decide before any intent or reservation exists whether a real call
+            # is needed and allowed; a cache hit proceeds without one.
+            preflight_provider_call(
+                service,
+                row,
+                ledger=ledger,
+                confirm_provider_call=confirm_provider_call,
+                cap_micro_usd=cap_micro_usd,
+            )
+            guarded = guard_service(
+                service,
+                ledger,
+                confirm_provider_call=confirm_provider_call,
+                cap_micro_usd=cap_micro_usd,
+            )
+            prepare_replacement_row_v2(
+                root,
+                request=request,
+                document=document,
+                prior_dependencies=prior,
+                service=guarded,
+                authorization=authorization,
+                authenticate=authenticate,
+            )
+            evidence, artifact, timing = measure_replacement_row_v2(
+                root, row=row, service=guarded, project_root=self.root
+            )
+            retained["timing"] = timing
+            finalized = finalize_replacement_row_v2(
+                root,
+                request=request,
+                document=document,
+                prior_dependencies=prior,
+                service=guarded,
+                authorization=authorization,
+                boundary_evidence=evidence,
+                review_artifact=artifact,
+                authenticate=authenticate,
+            )
+            handoff_raw = _read(root / "row-handoff.json")
+            payload = {
+                "proofSessionSha256": self.session_pin["sha256"],
+                "kind": "whole-row-regeneration-handoff/v1",
+                "stageSha256": _hash(_read(self.root / "stage.json")),
+                "handoffSha256": _hash(handoff_raw),
+                "previewSha256": _hash(_read(root / "replacement-preview.json")),
+                "generationSha256": _hash(_read(root / "generation.json")),
+                "measurementArtifactHash": "sha256:" + _hash(artifact),
+            }
+            receipt = self.baseline.vault._issue(
+                "output_proposal_evidence",
+                payload,
+                (
+                    handoff_raw,
+                    _read(root / "replacement-preview.json"),
+                    _read(root / "generation.json"),
+                    artifact,
+                ),
+            )
+            _retain(root / "handoff-receipt.json", receipt)
+            return copy.deepcopy(finalized["handoff"])  # type: ignore[no-any-return]
+
+    def _regenerated_handoff(self, stage: Json) -> Json | None:
+        """The one handoff the verified finalizer produced for this stage.
+
+        A caller cannot supply one: it must carry the proof vault's seal over
+        the exact retained handoff/preview/generation bytes for this stage.
+        """
+        if stage["regeneration"] is None:
+            return None
+        root = self.root / "regeneration"
+        _require(
+            (root / "row-handoff.json").is_file()
+            and (root / "handoff-receipt.json").is_file(),
+            "accepted omission needs its whole-row regeneration (regenerate step) "
+            "before a proposal",
+        )
+        raw = _read(root / "row-handoff.json")
+        receipt = _read(root / "handoff-receipt.json")
+        payload = _parse(receipt).get("payload")
+        _require(type(payload) is dict, "sealed regeneration handoff required")
+        assert isinstance(payload, dict)
+        self.baseline.vault.authenticate("output_proposal_evidence", receipt, payload)
+        handoff = _parse(raw)
+        _require(
+            payload.get("kind") == "whole-row-regeneration-handoff/v1"
+            and payload["proofSessionSha256"] == self.session_pin["sha256"]
+            and payload["stageSha256"] == _hash(_read(self.root / "stage.json"))
+            and payload["handoffSha256"] == _hash(raw)
+            and payload["previewSha256"]
+            == _hash(_read(root / "replacement-preview.json"))
+            and payload["generationSha256"] == _hash(_read(root / "generation.json"))
+            and handoff["request"] == self._regeneration_request(stage),
+            "regeneration handoff lineage differs",
+        )
+        return handoff
+
     def proposal(
         self, *, prepared_media: list[Json] | None = None, handoff: Json | None = None
     ) -> Json:
         _require(
             handoff is None,
-            "manual replacement handoff refused; retain the accepted regeneration "
-            "request until the concrete provider/cache/review finalizer is wired",
+            "manual replacement handoff refused; a handoff comes only from the "
+            "verified whole-row regeneration step",
         )
         decision = self._accepted_inference()
         candidate = self._pure(
@@ -750,7 +843,7 @@ class QualificationOutputProofV2:
                 "evidence": self._evidence(),
                 "inferenceDecision": decision,
                 "preparedMedia": prepared_media or [],
-                "handoff": handoff,
+                "handoff": self._regenerated_handoff(self._stage()),
             }
         )
         _retain(self.root / "proposal.json", _canonical(candidate))
@@ -861,8 +954,8 @@ class QualificationOutputProofV2:
             )
         candidate = _parse(_read(self.root / "proposal.json"))
         _require(
-            candidate["request"]["handoff"] is None,
-            "replacement handoff requires a concrete authenticated finalizer",
+            candidate["request"]["handoff"] == self._regenerated_handoff(self._stage()),
+            "replacement handoff differs from the verified whole-row regeneration",
         )
         decision = _parse(_read(self.root / "decision.json"))
         self._check_decision_claim(
@@ -966,11 +1059,12 @@ class QualificationOutputProofV2:
             _digest(digest[7:])
         origin = _parse(_read(self.root / "evidence-receipt.json"))["payload"]
         omission = origin["omissionSupport"]
+        # Closed legacy names; the machine lineage fills them: sealed support
+        # receipt, derived support record, measured boundary evidence.
         source_receipt = source_review = None
         if omission is not None:
-            outer = _parse(_pinned(omission))["payload"]
-            source_receipt = outer["sourceReviewReceipt"]
-            source_review = _parse(_pinned(source_receipt))["payload"]["sourceReview"]
+            source_receipt = _pin(self.root / "omission-support.json")
+            source_review = _pin(self.root / "omission-measured-evidence.json")
         return {
             "evidenceReceipt": _pin(self.root / "evidence-receipt.json"),
             "inferenceDecision": _pin(self.root / "inference-decision.json"),
@@ -1207,8 +1301,13 @@ def prepare_revised_output_session(
     package_root: Path,
     preparation_paths: dict[str, Path],
     target: Json,
+    narration_evidence_paths: dict[str, dict[str, Path]] | None = None,
 ) -> Path:
-    """Bind an accepted revision to a fresh verified package and a fresh target."""
+    """Bind an accepted revision to a fresh verified package and a fresh target.
+
+    Measured narration evidence files are tracked and hashed by the admission,
+    whose currentness check (on every session load) refuses swapped bytes.
+    """
     from .qualification_output_package_v2 import admit_qualification_revision_v2
 
     proof = QualificationOutputProofV2(proof_session, proof_sha256)
@@ -1227,6 +1326,7 @@ def prepare_revised_output_session(
         preparation_paths=preparation_paths,
         revised_preflight_path=preflight_path,
         revised_preflight_sha256=preflight_sha256,
+        narration_evidence_paths=narration_evidence_paths,
     )
     invocation_id = str(uuid.uuid4())
     # A new directory or target cannot reset this accepted revision's effects.
@@ -1294,72 +1394,3 @@ def build_output_revision_package(
     )
     proof._current()
     return output_root
-
-
-def issue_output_omission_review(plan_path: Path, output_path: Path) -> Path:
-    """Human listening receipt. Agents must never answer the review prompt.
-
-    Only the person who listened to both sources may confirm this step;
-    filesystem access, waveform inspection and machine alignment are not review.
-    """
-    raw = _read(plan_path)
-    plan = _shape(
-        _parse(raw),
-        "schemaVersion lane authorityStatus proofSession sourceReview support "
-        "editedOutputSha256 requiredReview",
-        "omission listening plan",
-    )
-    _require(
-        plan["schemaVersion"] == "qualification-output-omission-review-plan/v1"
-        and plan["lane"] == LANE
-        and plan["authorityStatus"] == "review_only_not_authority",
-        "review-only omission plan required",
-    )
-    pin = plan["proofSession"]
-    proof = QualificationOutputProofV2(Path(pin["path"]), pin["sha256"])
-    proof.prepare_omission_review_plan(Path(plan["sourceReview"]["path"]), plan_path)
-    _require(_read(plan_path) == raw, "omission plan changed before review")
-    _safe(output_path)
-    _require(
-        not output_path.exists()
-        and output_path.parent.is_dir()
-        and output_path.parent.stat().st_uid == os.getuid()
-        and output_path.parent.stat().st_mode & 0o077 == 0,
-        "new private review receipt destination required",
-    )
-    phrase = "REVIEWED " + _hash(raw)
-    with open("/dev/tty", "r+", encoding="utf-8") as terminal:
-        _require(terminal.isatty(), "attended source and edited-mix review required")
-        terminal.write(plan["requiredReview"] + "\n")
-        terminal.write(
-            f"Exact review plan: {plan_path}\n"
-            f"Only after completing that review, type {phrase}: "
-        )
-        terminal.flush()
-        answer = terminal.readline(256).rstrip("\r\n")
-    _require(answer == phrase, "source/listening review was not confirmed")
-    proof.prepare_omission_review_plan(Path(plan["sourceReview"]["path"]), plan_path)
-    source_payload = {
-        "proofSessionSha256": pin["sha256"],
-        "sourceReview": plan["sourceReview"],
-        "editedOutputSha256": plan["editedOutputSha256"],
-        "reviewer": pwd.getpwuid(os.getuid()).pw_name,
-        "reviewedAt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-    }
-    source_receipt = proof.baseline.vault._issue(
-        "output_omission_review", source_payload, (_pinned(plan["sourceReview"]), raw)
-    )
-    source_pin = _retain(
-        proof.root / "omission-source-review-receipt.json", source_receipt
-    )
-    support = {**plan["support"], "reviewReceiptSha256": _hash(source_receipt)}
-    payload = {
-        "proofSessionSha256": pin["sha256"],
-        "support": support,
-        "sourceReviewReceipt": source_pin,
-    }
-    receipt = proof.baseline.vault._issue(
-        "output_omission_review", payload, (source_receipt, raw, _canonical(support))
-    )
-    _retain(output_path, receipt)
-    return output_path

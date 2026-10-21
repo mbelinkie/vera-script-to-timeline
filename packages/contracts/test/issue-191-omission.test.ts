@@ -430,6 +430,38 @@ describe("Issue 191 v2 accepted omission", () => {
     expect(() => applyAcceptedOmissionV2(input, editFor(input))).toThrow(/joining-gap/);
   });
 
+  it("joins a comma-delimited single-word parenthetical with exactly one comma", () => {
+    const input = documentWith(rowWith(["Alpha", "Bravo", "Charlie", "Delta", "Echo"], [" ", ", ", ", ", " "]));
+    const revised = applyAcceptedOmissionV2(input, editFor(input)).document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(revised.text).toBe("Alpha Bravo, Delta Echo");
+    for (const token of revised.tokens) expect(revised.text.slice(token.startOffset, token.endOffset)).toBe(token.value);
+  });
+
+  it("keeps list commas when one list item is deleted", () => {
+    const input = documentWith(rowWith(["I", "chose", "apples", "pears", "bananas"], [" ", " ", ", ", ", "]));
+    const revised = applyAcceptedOmissionV2(input, editFor(input, [3])).document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(revised.text).toBe("I chose apples, bananas");
+    for (const token of revised.tokens) expect(revised.text.slice(token.startOffset, token.endOffset)).toBe(token.value);
+    const harbor = documentWith(rowWith(["the", "harbor", "slowly", "toward", "x"], [" ", ", ", ", ", " "]));
+    expect((applyAcceptedOmissionV2(harbor, editFor(harbor, [2])).document.activeDraft.blocks[0] as NarrationBlockV2).text).toBe("the harbor, toward x");
+  });
+
+  it.each([
+    [[" ", ", ", ",", " "]],
+    [[" ", ",", ", ", " "]],
+    [[" ", ",  ", ", ", " "]],
+    [[" ", ", ", " , ", " "]],
+    [[" ", "; ", "; ", " "]],
+  ])("keeps refusing other single-token punctuation gaps: %j", (separators) => {
+    const input = documentWith(rowWith(["Alpha", "Bravo", "Charlie", "Delta", "Echo"], separators));
+    expect(() => applyAcceptedOmissionV2(input, editFor(input))).toThrow(/joining-gap/);
+  });
+
+  it("keeps refusing a multi-token phrase set off by commas", () => {
+    const input = documentWith(rowWith(["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"], [" ", ", ", " ", ", ", " "]));
+    expect(() => applyAcceptedOmissionV2(input, editFor(input, [2, 3]))).toThrow(/joining-gap/);
+  });
+
   it.each([
     [" ", "", " ", " "],
     [" ", " ", "", " "],

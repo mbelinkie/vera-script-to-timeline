@@ -318,14 +318,21 @@ class PollyProvider:
         except Exception as error:
             raise PollyError(f"could not initialize AWS Polly: {error}") from error
 
-    def synthesize(self, request: SynthesisRequest) -> ProviderResult:
+    def preflight(self, request: SynthesisRequest) -> None:
+        """Validate a request and initialize its client before ledger reservation."""
         self._validate_preflight(request)
-        ssml, source_map = build_polly_ssml(request)
+        ssml, _source_map = build_polly_ssml(request)
         if len(ssml.decode("utf-8")) > 6000:
             raise PollyError(
                 "Polly synchronous input exceeds the 6,000-character limit"
             )
-        client = self._get_client(request.profile.region)
+        self._client = self._get_client(request.profile.region)
+
+    def synthesize(self, request: SynthesisRequest) -> ProviderResult:
+        self.preflight(request)
+        ssml, source_map = build_polly_ssml(request)
+        client = self._client
+        assert client is not None
         common: dict[str, Any] = {
             "Engine": request.profile.engine,
             "LanguageCode": request.profile.language,

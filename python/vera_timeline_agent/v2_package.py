@@ -591,6 +591,16 @@ def _validate_inputs(
     _validate_report_semantics(manifest, report, dependencies)
 
 
+def narration_ceiling_frames(samples: int, sample_rate: int, rate: Fraction) -> int:
+    """Longest narration event, in frames, an audio asset may back.
+
+    D-0014: the compiler frames narration at exact rational ceiling frame
+    boundaries, so an event may extend to ceil(audio duration in frames). The
+    sub-frame remainder is silence past the asset end, never audio.
+    """
+    return -((-samples * rate) // sample_rate)
+
+
 def _validate_manifest_semantics(
     document: JsonObject, dependencies: JsonObject, manifest: JsonObject
 ) -> None:
@@ -860,9 +870,8 @@ def _validate_manifest_semantics(
                 f"narration {source_id} durationSamples",
                 positive=True,
             )
-            if (
-                Fraction(samples, sample_rate)
-                < Fraction(record_end - record_start, 1) / rate
+            if record_end - record_start > narration_ceiling_frames(
+                samples, sample_rate, rate
             ):
                 raise _error(
                     f"narration event {event_id} exceeds its verified audio asset"

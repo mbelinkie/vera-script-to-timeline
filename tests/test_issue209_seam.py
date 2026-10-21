@@ -14,6 +14,7 @@ from vera_timeline_agent import qualification_output_native_v2 as native
 from vera_timeline_agent import qualification_output_records_v2 as records
 from vera_timeline_agent import workflow_v2_cli
 from vera_timeline_agent.qualification_output_controller_v2 import (
+    HostClockRegression,
     OutputAttemptJournal,
     QualificationOutputController,
     _hash,
@@ -504,6 +505,61 @@ def test_controller_bytes_pass_actual_request_and_authority_validators(
     authority, _, checked_approval = native._verify_authority(request, current=True)
     assert checked_approval["approvalId"] == "approval-one"
     assert authority["issuedAt"] == approval["issuedAt"]
+
+
+def test_clock_refusal_leaves_no_native_slot_and_can_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (
+        controller,
+        approval_path,
+        _installed_root,
+        context,
+        _resolve,
+        _manifest,
+    ) = _runtime_fixture(tmp_path, monkeypatch)
+    result_path, authority_path, intent_path, request_path = (
+        native.native_request_paths(context, 0)
+    )
+    operation_root = request_path.parent
+    operations_root = operation_root.parent
+    calls = 0
+
+    def fail_first_clock_sample() -> datetime:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise HostClockRegression({"classification": "wall_lag", "lagSeconds": 0.1})
+        return datetime.now(UTC)
+
+    monkeypatch.setattr(controller.trust, "checked_now", fail_first_clock_sample)
+    with pytest.raises(HostClockRegression, match="host clock rollback/uncertainty"):
+        controller.prepare_native_request("construct", {}, approval_path=approval_path)
+
+    assert not operation_root.exists()
+    assert not any(
+        path.exists()
+        for path in (result_path, authority_path, intent_path, request_path)
+    )
+
+    request_path = controller.prepare_native_request(
+        "construct", {}, approval_path=approval_path
+    )
+    request_raw = request_path.read_bytes()
+    request = native.verify_native_request(
+        request_raw, expected_request_sha256=_hash(request_raw), current=True
+    )
+    assert request["action"] == "construct"
+    assert calls == 2
+    assert [path.name for path in operations_root.iterdir()] == ["00000000"]
+    assert {path.name for path in operation_root.iterdir()} == {
+        "authority.json",
+        "intent.json",
+        "request.json",
+    }
+    assert not result_path.exists()
+    assert not (operation_root / "native-start.json").exists()
+    assert not (operation_root / "effects").exists()
 
 
 def test_controller_request_runs_native_result_and_host_ingest_then_next_stage(

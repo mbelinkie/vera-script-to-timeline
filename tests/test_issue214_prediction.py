@@ -20,7 +20,6 @@ from vera_timeline_agent import qualification_output_v2 as q
 from vera_timeline_agent.generated.contracts import (
     compiler_dependencies_v2_schema as deps_schema,
 )
-from vera_timeline_agent.roundtrip_v2_audio import _mix as old_mix
 from vera_timeline_agent.v2_package import (
     _compiler_hash,
     _delivery_view,
@@ -67,6 +66,28 @@ def wav(samples: list[int], *, width: int = 3, channels: int = 1) -> bytes:
             b"".join(value.to_bytes(width, "little", signed=True) for value in samples)
         )
     return buffer.getvalue()
+
+
+def _independent_faded_mix(
+    routes: list[dict[str, Any]], sources: dict[str, list[array[float]]], extent: int
+) -> list[array[float]]:
+    """Route-order oracle for the native ramps, independent of the predictor."""
+    mixed = [array("d", [0.0]) * (extent * q.FRAME) for _ in range(2)]
+    for route in routes:
+        pcm = sources[route["sourceId"]]
+        gain = 10 ** (route["controls"]["gainDb"] / 20)
+        for segment in route["segments"]:
+            count = (segment["recordEnd"] - segment["recordStart"]) * q.FRAME
+            record = segment["recordStart"] * q.FRAME
+            source = segment["sourceStart"] * q.FRAME
+            for channel in range(2):
+                samples = pcm[0 if len(pcm) == 1 else channel]
+                for offset in range(count):
+                    edge_gain = min(1.0, offset / 72, (count - offset) / 72)
+                    mixed[channel][record + offset] += (
+                        samples[source + offset] * gain * edge_gain
+                    )
+    return mixed
 
 
 def case(
@@ -572,7 +593,8 @@ def test_independent_exact_prediction_and_recomputation(
             "<d",
             c.samples[index * channels + (0 if channels == 1 else ch)]
             / 2**23
-            * 10 ** (gain / 20),
+            * 10 ** (gain / 20)
+            * min(1.0, index / 72, (6 * q.FRAME - index) / 72),
         )
         for index in range(6 * q.FRAME)
         for ch in range(2)
@@ -587,7 +609,7 @@ def test_independent_exact_prediction_and_recomputation(
         )
 
 
-def test_mixer_matches_old_math_in_same_codepoint_segment_order() -> None:
+def test_mixer_preserves_order_and_applies_fixed_native_clip_edges() -> None:
     extent = 3
     sources = {
         sid: [array("d", [0.005 * (index + 1)]) * (extent * q.FRAME)]
@@ -623,9 +645,9 @@ def test_mixer_matches_old_math_in_same_codepoint_segment_order() -> None:
         }
         for row in intent
     ]
-    old = old_mix(routes, sources, extent)
+    expected = _independent_faded_mix(routes, sources, extent)
     assert q._mix(intent, sources, extent) == b"".join(
-        struct.pack("<dd", left, right) for left, right in zip(*old, strict=True)
+        struct.pack("<dd", left, right) for left, right in zip(*expected, strict=True)
     )
 
 
@@ -641,9 +663,18 @@ def test_exact_coverage_and_unaligned_narration_refusal(phase: str) -> None:
     change_items(c, [item])
     with pytest.raises(r.OutputConsistencyError, match="coverage"):
         q.create_prediction(c.inputs, trust=c.trust, ledger=[])
-    unaligned = case(count=6 * q.FRAME - 1, phase=phase)
-    with pytest.raises(r.OutputConsistencyError, match="no padding"):
-        q.create_prediction(unaligned.inputs, trust=unaligned.trust, ledger=[])
+    # D-0014 (#215): narration may fall short of its event by less than one
+    # frame (explicit silent tail); a full frame or more is still refused.
+    ceiling = case(count=6 * q.FRAME - 1, phase=phase)
+    # (This synthetic fixture's mapping digest assumes a full-length source, so
+    # it refuses later for that reason; the ceiling success path is covered by
+    # tests/test_issue215_narration_ceiling.py.)
+    with pytest.raises(r.OutputConsistencyError) as ceiling_error:
+        q.create_prediction(ceiling.inputs, trust=ceiling.trust, ledger=[])
+    assert "frame or more" not in str(ceiling_error.value)
+    short = case(count=5 * q.FRAME, phase=phase)
+    with pytest.raises(r.OutputConsistencyError, match="frame or more"):
+        q.create_prediction(short.inputs, trust=short.trust, ledger=[])
 
 
 @pytest.mark.parametrize("kind", ["narration", "source_audio"])
@@ -695,14 +726,19 @@ def test_prepared_mapping_differential_with_accepted_oracle(
     )
     assert oracle == c.binding["delivery"][0]["sourceRange"]
     raw, receipt, pcm = committed(c)
-    assert struct.unpack_from("<d", pcm)[0] == c.samples[start * q.FRAME] / 2**23
+    assert (
+        struct.unpack_from("<d", pcm, 72 * 16)[0]
+        == c.samples[start * q.FRAME + 72] / 2**23
+    )
     q.verify_prediction_commitment(c.inputs, raw, receipt, pcm, trust=c.trust)
 
 
 def test_supplied_nonzero_origin_refuses_and_zero_origin_matches_package() -> None:
     c = case(kind="source_audio", source_start=2, q_origin=48000)
     raw, receipt, pcm = committed(c)
-    assert struct.unpack_from("<d", pcm)[0] == c.samples[2 * q.FRAME] / 2**23
+    assert (
+        struct.unpack_from("<d", pcm, 72 * 16)[0] == c.samples[2 * q.FRAME + 72] / 2**23
+    )
     q.verify_prediction_commitment(c.inputs, raw, receipt, pcm, trust=c.trust)
     sid = next(iter(c.inputs.source_proofs))
     proof = c.inputs.source_proofs[sid]
@@ -1412,7 +1448,7 @@ def test_mixer_differential_with_late_offsets_and_multiple_segments() -> None:
         }
         for row in intent
     ]
-    expected = old_mix(routes, pcm, frames)
+    expected = _independent_faded_mix(routes, pcm, frames)
     assert q._mix(intent, pcm, frames) == b"".join(
         struct.pack("<dd", left, right) for left, right in zip(*expected, strict=True)
     )

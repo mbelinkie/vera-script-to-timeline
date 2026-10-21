@@ -3509,7 +3509,7 @@ def _validate_observed_event_geometry(
 
 
 def _source_time_error_samples(
-    value: Any, frame: int, rate_seconds: Fraction
+    value: Any, frame: int, rate_seconds: Fraction, sample_rate: int = 48_000
 ) -> Fraction | None:
     if type(value) is int:
         seconds = Fraction(value)
@@ -3517,7 +3517,61 @@ def _source_time_error_samples(
         seconds = Fraction(str(value))
     else:
         return None
-    return (seconds - frame * rate_seconds) * 48_000
+    return (seconds - frame * rate_seconds) * sample_rate
+
+
+def _verified_fractional_narration_eof(
+    audio: Any,
+    source_hash: str,
+    rate: dict[str, Any],
+    source_start: int,
+    timeline_sample_rate: int,
+    range_times: dict[str, Any],
+) -> int | None:
+    if (
+        type(audio) is not dict
+        or type(audio.get("audioHash")) is not str
+        or _source_hash(audio["audioHash"]) != _source_hash(source_hash)
+    ):
+        return None
+    sample_count, sample_rate = audio.get("durationSamples"), audio.get("sampleRate")
+    if (
+        type(sample_count) is not int
+        or sample_count <= 0
+        or type(sample_rate) is not int
+        or sample_rate != timeline_sample_rate
+    ):
+        return None
+    exact_frames = Fraction(
+        sample_count * rate["numerator"], sample_rate * rate["denominator"]
+    )
+    expected_end = math.ceil(exact_frames)
+    expected_duration = expected_end - source_start
+    start_error = _source_time_error_samples(
+        range_times.get("GetSourceStartTime"),
+        source_start,
+        Fraction(rate["denominator"], rate["numerator"]),
+        sample_rate,
+    )
+    end_error = _source_time_error_samples(
+        range_times.get("GetSourceEndTime"),
+        sample_count,
+        Fraction(1, sample_rate),
+        sample_rate,
+    )
+    return (
+        expected_duration
+        if (
+            exact_frames.denominator != 1
+            and source_start >= 0
+            and expected_duration > 0
+            and start_error is not None
+            and abs(start_error) <= 1
+            and end_error is not None
+            and abs(end_error) <= 1
+        )
+        else None
+    )
 
 
 def _capture_geometry(
@@ -3587,6 +3641,8 @@ def _capture_geometry(
         str(_admitted_media_path(admitted, row)): row for row in view["sources"]
     }
     expected_events = {row["id"]: row for row in view["events"]}
+    manifest_events = {row["eventId"]: row for row in manifest.get("events", [])}
+    manifest_sources = {row["id"]: row for row in manifest.get("sources", [])}
     event_ids: set[str] = set()
     item_objects: dict[str, Any] = {}
     raw_links: dict[str, list[str]] = {}
@@ -3687,6 +3743,7 @@ def _capture_geometry(
                 event = expected_events.get(event_id)
                 _require(event is not None, "missing/unadmitted native event stamp")
                 assert event is not None
+                manifest_event = manifest_events.get(event_id)
                 if not _observed_edit:
                     _require(
                         event_id not in event_ids,
@@ -3899,6 +3956,37 @@ def _capture_geometry(
                         method = getattr(item, method_name, None)
                         if callable(method):
                             range_times[method_name] = method()
+                fractional_narration_eof = False
+                if (
+                    not _observed_edit
+                    and request.get("profile") == MATRIX_PROFILE
+                    and request["context"].get("phase") in {"pristine", "rebuild"}
+                    and kind == "audio"
+                    and source.get("kind") == "audio"
+                    and event.get("kind") == "narration"
+                    and manifest_event is not None
+                    and manifest_event.get("kind") == "narration"
+                    and "sourceRange" in manifest_event
+                    and manifest_event["sourceRange"] is None
+                    and source_start == expected_source_start == 0
+                    and expected_source_duration == duration
+                    and source_end == expected_source_end - 2
+                    and source_duration == expected_source_duration - 1
+                ):
+                    expected_narration_duration = _verified_fractional_narration_eof(
+                        manifest_sources.get(source_id, {}).get("narrationAudio"),
+                        source["contentHash"],
+                        rate,
+                        source_start,
+                        expected_timeline["audioSampleRate"],
+                        range_times,
+                    )
+                    fractional_narration_eof = (
+                        expected_narration_duration == expected_source_duration
+                    )
+                if fractional_narration_eof:
+                    # Keep raw getters; normalize only the proven comparison extent.
+                    source_duration = expected_source_duration
                 # Studio can expose its arbitrary held-frame counter for a still.
                 # Normalize only a verified one-frame source with exact time edges.
                 if (
@@ -3977,10 +4065,41 @@ def _capture_geometry(
                             )
                             if error is not None and abs(error) <= 1
                         ]
+                        narration_eof_duration = None
+                        if (
+                            request.get("profile") == MATRIX_PROFILE
+                            and request["context"].get("phase") == "edited"
+                            and kind == "audio"
+                            and source.get("kind") == "audio"
+                            and event.get("kind") == "narration"
+                        ):
+                            narration_eof_duration = _verified_fractional_narration_eof(
+                                manifest_sources.get(source_id, {}).get(
+                                    "narrationAudio"
+                                ),
+                                source["contentHash"],
+                                rate,
+                                source_start,
+                                expected_timeline["audioSampleRate"],
+                                range_times,
+                            )
+                            if (
+                                narration_eof_duration is not None
+                                and duration == narration_eof_duration
+                                and source_end
+                                == source_start + narration_eof_duration - 2
+                                and source_duration == narration_eof_duration - 1
+                            ):
+                                source_duration = narration_eof_duration
+                            else:
+                                narration_eof_duration = None
                         exact_frame_edges = (
                             start_error is not None
                             and abs(start_error) <= 1
-                            and len(matching_end_frames) == 1
+                            and (
+                                narration_eof_duration is not None
+                                or len(matching_end_frames) == 1
+                            )
                         )
                         _require(
                             exact_frame_edges,
@@ -3997,8 +4116,9 @@ def _capture_geometry(
                             f"sampleErrors={sample_errors!r}, "
                             "toleranceSamples=1)",
                         )
-                        assert len(matching_end_frames) == 1
-                        source_duration = matching_end_frames[0] - start_frame
+                        if narration_eof_duration is None:
+                            assert len(matching_end_frames) == 1
+                            source_duration = matching_end_frames[0] - start_frame
                     else:
                         exact_frame_edges = all(
                             type(range_times.get(method)) in {int, float}
