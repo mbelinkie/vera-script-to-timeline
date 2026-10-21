@@ -915,8 +915,16 @@ function deriveOmissionSupport(document: ScriptDocumentV2, dependencies: Compile
   fact(event.length === 1, "selected narration event is ambiguous");
   const original = input.pristine.geometry.items.filter((item) => item.eventId === event[0]!.eventId);
   const segments = input.edited.geometry.items.filter((item) => item.eventId === event[0]!.eventId).sort((a, b) => a.recordStart - b.recordStart);
-  fact(original.length === 1 && segments.length === 2 && segments.every((item) => item.itemUid !== original[0]!.itemUid), "C must split one narration item into two new UIDs");
+  fact(original.length === 1 && segments.length === 2, "C must split exactly one narration item");
   const prior = original[0]!; const [left, right] = segments as [ItemV1, ItemV1];
+  const retainsOriginalLeft = left.itemUid === prior.itemUid && right.itemUid !== prior.itemUid;
+  const replacesBoth = left.itemUid !== prior.itemUid && right.itemUid !== prior.itemUid;
+  fact((retainsOriginalLeft || replacesBoth) && left.itemUid !== right.itemUid,
+    "C split must retain the original UID on the left or use two distinct new UIDs");
+  const unrelatedBaselineUids = new Set(input.pristine.geometry.items
+    .filter((item) => item.eventId !== event[0]!.eventId)
+    .map((item) => item.itemUid));
+  fact(!segments.some((item) => unrelatedBaselineUids.has(item.itemUid)), "C split reuses an unrelated baseline item UID");
   const gapRecordStart = left.recordStart + left.recordDuration; const gapRecordEnd = right.recordStart;
   const gapSourceStart = left.sourceStart + left.sourceDuration; const gapSourceEnd = right.sourceStart;
   fact(left.recordStart === prior.recordStart && right.recordStart > gapRecordStart && right.recordStart < prior.recordStart + prior.recordDuration &&
@@ -924,7 +932,7 @@ function deriveOmissionSupport(document: ScriptDocumentV2, dependencies: Compile
     right.sourceStart + right.sourceDuration === prior.sourceStart + prior.sourceDuration && gapRecordEnd - gapRecordStart > 0 &&
     gapRecordEnd - gapRecordStart === gapSourceEnd - gapSourceStart && gapSourceEnd > gapSourceStart,
   "C split is not a bounded non-ripple whole-frame lift");
-  for (const segment of segments) fact(sameStableItem({ ...prior, itemUid: segment.itemUid }, segment), "C split changed source, track, link or control identity");
+  for (const segment of segments) fact(sameStableItem(prior, segment, true), "C split changed source, track, link or control identity");
   const eventIds = new Set(input.pristine.geometry.items.map((item) => item.eventId));
   const untouched = input.edited.geometry.items.filter((item) => item.eventId !== event[0]!.eventId);
   fact(untouched.length === input.pristine.geometry.items.length - 1 && untouched.every((item) => {

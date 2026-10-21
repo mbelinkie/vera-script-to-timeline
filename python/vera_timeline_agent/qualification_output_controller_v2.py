@@ -1393,9 +1393,9 @@ class QualificationOutputController:
             self.context, sequence
         )
         _safe(request_path)
-        request_path.parent.mkdir(mode=0o700, parents=True, exist_ok=False)
         operation_id = str(uuid.uuid4())
         now = self.trust.checked_now().isoformat().replace("+00:00", "Z")
+        request_path.parent.mkdir(mode=0o700, parents=True, exist_ok=False)
         authority: Json = {
             "schemaVersion": AUTHORITY_SCHEMA,
             "lane": LANE,

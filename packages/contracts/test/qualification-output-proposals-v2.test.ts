@@ -179,6 +179,8 @@ interface CaseOptions {
   cut?: { startFrame: number; endFrame: number };
   origins?: Origins;
   pcmMode?: "wav-direct" | "prepared-audio";
+  /** Models Resolve's retained-left/new-right split and rejected UID substitutions. */
+  cUidLayout?: "replace-both" | "retain-left" | "retain-right" | "reuse-unrelated" | "duplicate";
   /** Edits the derived support before it is attached, to model a hand-authored or stale record. */
   tamperSupport?: (support: Record<string, unknown>) => void;
 }
@@ -210,12 +212,25 @@ function campaignInput(options: { commas?: boolean; durationSamples?: number } =
   return { ...input, row, evidence };
 }
 
-function splitNarration(raw: FakeRaw, cut: { startFrame: number; endFrame: number }): FakeRaw {
+function splitNarration(
+  raw: FakeRaw,
+  cut: { startFrame: number; endFrame: number },
+  uidLayout: NonNullable<CaseOptions["cUidLayout"]> = "replace-both",
+): FakeRaw {
   const result = structuredClone(raw);
   const index = result.items.findIndex((item) => item.authoredEvent.kind === "narration" && item.recordStart === 0);
   const original = result.items[index]!; const left = structuredClone(original); const right = structuredClone(original);
   left.itemUid += ":left"; left.recordEnd = cut.startFrame; left.sourceEnd = left.sourceStart + cut.startFrame; left.rawRecordEnd = cut.startFrame - 1;
   right.itemUid += ":right"; right.recordStart = cut.endFrame; right.sourceStart += cut.endFrame;
+  if (uidLayout === "retain-left") left.itemUid = original.itemUid;
+  if (uidLayout === "retain-right") right.itemUid = original.itemUid;
+  if (uidLayout === "reuse-unrelated") {
+    const unrelated = result.items.find((item) => item.eventId !== original.eventId && item.linkedUids.length === 0);
+    if (unrelated === undefined) throw new Error("unrelated unlinked item missing");
+    right.itemUid = unrelated.itemUid;
+    unrelated.itemUid += ":reassigned";
+  }
+  if (uidLayout === "duplicate") right.itemUid = left.itemUid;
   result.items.splice(index, 1, left, right);
   return result;
 }
@@ -225,7 +240,7 @@ const DEFAULT_CUT = { startFrame: 55, endFrame: 72 };
 function newCase(input: ReturnType<typeof specimen>, kind: "A" | "B" | "C", options: CaseOptions = {}): QualificationOutputObservationCaseV1 {
   const cut = options.cut ?? DEFAULT_CUT; const origins = options.origins ?? { nativeFrameOrigin: 0, pcmSampleOrigin: 0 };
   const pristineRaw = observations(input);
-  const editedRaw = kind === "C" ? splitNarration(pristineRaw, cut) : edits(pristineRaw, kind);
+  const editedRaw = kind === "C" ? splitNarration(pristineRaw, cut, options.cUidLayout) : edits(pristineRaw, kind);
   const caseId = `isolated-${kind}`;
   const pristineGeometry = geometryEnvelope(input, pristineRaw, "pristine", caseId, options.executionDiffers, origins, options.pcmMode);
   const editedGeometry = geometryEnvelope(input, editedRaw, "edited", caseId, options.executionDiffers, origins, options.pcmMode);
@@ -421,6 +436,31 @@ describe("#215 authenticated output observation to explicit revision bridge", ()
   describe("machine-derived word omission from measured campaign evidence", () => {
     const infer = (input: ReturnType<typeof campaignInput>, options: CaseOptions = {}) =>
       inferQualificationOutputV2(input.document, input.dependencies, batch(input, ["C"], options));
+
+    it("accepts Resolve's retained-left/new-right item UID split", () => {
+      const input = campaignInput();
+      const observed = batch(input, ["C"], { cUidLayout: "retain-left" }).cases[0]!;
+      const pristine = JSON.parse(observed.pristineGeometryJson) as { geometry: { items: { itemUid: string; eventId: string }[] } };
+      const edited = JSON.parse(observed.editedGeometryJson) as { geometry: { items: { itemUid: string; eventId: string; recordStart: number }[] } };
+      const compiled = compileTimelineV2(input.document, input.dependencies);
+      if (!compiled.ok || compiled.report.status !== "ready") throw new Error("sanitized baseline compile failed");
+      const eventId = compiled.manifest.events.find((event) => event.kind === "narration" && event.provenance.blockId === input.row.id)!.eventId;
+      const [original] = pristine.geometry.items.filter((item) => item.eventId === eventId);
+      const segments = edited.geometry.items.filter((item) => item.eventId === eventId).sort((a, b) => a.recordStart - b.recordStart);
+      expect(original).toBeDefined();
+      expect(segments).toHaveLength(2);
+      expect(segments[0]!.itemUid).toBe(original!.itemUid);
+      expect(segments[1]!.itemUid).not.toBe(original!.itemUid);
+      expect(pristine.geometry.items.some((item) => item.eventId !== eventId && item.itemUid === segments[1]!.itemUid)).toBe(false);
+      expect(infer(input, { cUidLayout: "retain-left" }).omission?.tokenIds).toEqual([input.row.tokens[CAMPAIGN.slowlyIndex]!.id]);
+    });
+
+    it("refuses old UID only on the right, unrelated baseline UID reuse, and duplicate segment UIDs", () => {
+      const input = campaignInput();
+      expect(() => infer(input, { cUidLayout: "retain-right" })).toThrow(/retain the original UID on the left or use two distinct new UIDs/);
+      expect(() => infer(input, { cUidLayout: "reuse-unrelated" })).toThrow(/reuses an unrelated baseline item UID/);
+      expect(() => infer(input, { cUidLayout: "duplicate" })).toThrow(/duplicate native item UID/);
+    });
 
     it("accepts a frame-snapped cut on the unique word the #182 evidence isolates, with no token named by the host", () => {
       const input = campaignInput();
