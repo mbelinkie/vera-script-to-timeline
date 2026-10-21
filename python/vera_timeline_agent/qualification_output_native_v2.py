@@ -4080,6 +4080,7 @@ def _capture_geometry(
                             )
                             if (
                                 narration_eof_duration is not None
+                                and duration == narration_eof_duration
                                 and source_end
                                 == source_start + narration_eof_duration - 2
                                 and source_duration == narration_eof_duration - 1

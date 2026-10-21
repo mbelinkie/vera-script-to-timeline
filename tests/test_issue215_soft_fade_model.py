@@ -111,6 +111,20 @@ def test_fade_out_ends_at_active_source_eof_before_frame_ceiled_silence() -> Non
     assert _left(predicted, 2 * frame - 1) == 0
 
 
+def test_pair_edge_mask_uses_fractional_narration_active_eof() -> None:
+    frame = output.FRAME
+    active_samples = 6 * frame - 17
+    c = case(count=active_samples)
+    binding = json.loads(c.inputs.input_binding)
+    assert binding["sourceEntries"][0]["durationSamples"] == active_samples
+
+    mask = output._clip_edge_exclusion_mask([c.inputs], 6 * frame)
+
+    assert all(mask[:72])
+    assert all(mask[active_samples - 72 : active_samples])
+    assert not any(mask[active_samples : 6 * frame])
+
+
 def test_unqualified_overlapping_edge_ramps_refuse_short_clips() -> None:
     intent = [
         {

@@ -75,6 +75,22 @@ def _fractional_narration_case(
     return resolve, request, admitted, item
 
 
+def _one_sample_tail_eof(item: Any, admitted: dict[str, Any]) -> None:
+    sample_count = (FRAME_COUNT - 1) * 2002 + 1
+    media_path = item.media.path
+    with wave.open(str(media_path), "wb") as audio_file:
+        audio_file.setnchannels(1)
+        audio_file.setsampwidth(2)
+        audio_file.setframerate(SAMPLE_RATE)
+        audio_file.writeframes(b"\0\0" * sample_count)
+    audio_hash = hashlib.sha256(media_path.read_bytes()).hexdigest()
+    admitted["view"]["sources"][0]["contentHash"] = audio_hash
+    narration_audio = admitted["manifest"]["sources"][0]["narrationAudio"]
+    narration_audio["audioHash"] = f"sha256:{audio_hash}"
+    narration_audio["durationSamples"] = sample_count
+    item.__dict__["GetSourceEndTime"] = lambda: (sample_count - 1) / SAMPLE_RATE
+
+
 @pytest.mark.parametrize("phase", ["pristine", "rebuild"])
 def test_unobserved_fractional_narration_uses_verified_sample_eof(
     tmp_path: Path, phase: str
@@ -229,4 +245,57 @@ def test_observed_source_audio_does_not_use_narration_eof_rule(
     item.stamp = native._event_stamp(event)
 
     with pytest.raises(OutputConsistencyError):
+        native._capture_observed_geometry(resolve, request, admitted, None)
+
+
+def test_observed_one_sample_eof_tail_does_not_normalize_a_trimmed_row(
+    tmp_path: Path,
+) -> None:
+    resolve, request, admitted, item = _fractional_narration_case(tmp_path, "edited")
+    _one_sample_tail_eof(item, admitted)
+    item.__dict__["GetDuration"] = lambda _in_frames: FRAME_COUNT - 1
+    item.__dict__["GetEnd"] = lambda _in_frames: FRAME_COUNT - 1
+    timeline = resolve.GetProjectManager().GetCurrentProject().GetCurrentTimeline()
+    timeline.__dict__["GetEndFrame"] = lambda: FRAME_COUNT - 1
+
+    with pytest.raises(
+        OutputConsistencyError,
+        match="native edited item differs outside the observed edit rules",
+    ):
+        native._capture_observed_geometry(resolve, request, admitted, None)
+
+
+def test_observed_one_sample_eof_tail_does_not_normalize_trimmed_split_right(
+    tmp_path: Path,
+) -> None:
+    resolve, request, admitted, right = _fractional_narration_case(tmp_path, "edited")
+    _one_sample_tail_eof(right, admitted)
+    timeline = resolve.GetProjectManager().GetCurrentProject().GetCurrentTimeline()
+    left = type(right)(right.media, right.stamp)
+    left.source_start_frame, left.source_end_frame = 0, 69
+    left.__dict__.update(
+        {
+            "GetDuration": lambda _in_frames: 70,
+            "GetEnd": lambda _in_frames: 70,
+            "GetSourceStartTime": lambda: 0.0,
+            "GetSourceEndTime": lambda: float(Fraction(70 * 1001, 24000)),
+        }
+    )
+    right.true_start = 72
+    right.source_start_frame, right.source_end_frame = 72, FRAME_COUNT - 2
+    right.__dict__.update(
+        {
+            "GetDuration": lambda _in_frames: FRAME_COUNT - 72 - 1,
+            "GetEnd": lambda _in_frames: FRAME_COUNT - 1,
+            "GetSourceStartTime": lambda: float(Fraction(72 * 1001, 24000)),
+            "GetUniqueId": lambda: "timeline-item-two",
+        }
+    )
+    timeline.__dict__["GetItemListInTrack"] = lambda _kind, _index: [left, right]
+    timeline.__dict__["GetEndFrame"] = lambda: FRAME_COUNT - 1
+
+    with pytest.raises(
+        OutputConsistencyError,
+        match="narration split does not map two unique segments around one omission",
+    ):
         native._capture_observed_geometry(resolve, request, admitted, None)

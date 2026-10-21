@@ -645,7 +645,7 @@ def shortened_pair(frames: int = 2, source_start: int = 0) -> tuple[Case, Case]:
     return pristine, edited
 
 
-def test_shortened_edited_pair_compares_over_common_prefix() -> None:
+def test_shortened_pair_source_shift_beyond_edges_compares_over_common_prefix() -> None:
     pristine, edited = shortened_pair(source_start=1)
     left, right = rendered(pristine), rendered(edited)
     for output in (left, right):
@@ -656,6 +656,8 @@ def test_shortened_edited_pair_compares_over_common_prefix() -> None:
     result = q.compare_prediction_pair(
         terminal(pristine, left), terminal(edited, right), trust=pristine.trust
     )
+    # A one-frame source shift changes samples outside the masked 72-sample
+    # clip-edge ramps, so real audio-content differences remain distinguishable.
     assert result["pristineSampleCount"] == 6 * q.FRAME
     assert result["editedSampleCount"] == 2 * q.FRAME
     assert result["commonInterval"] == {
@@ -663,21 +665,21 @@ def test_shortened_edited_pair_compares_over_common_prefix() -> None:
         "endSample": 2 * q.FRAME,
     }
     assert result["geometryStability"] == result["controlStability"] == "not_claimed"
-
-
-def test_shortened_pair_edge_fade_distinguishes_common_audio() -> None:
-    pristine, edited = shortened_pair()
-    left, right = rendered(pristine), rendered(edited)
-    # Shortening creates a clip edge inside the common interval, where Resolve
-    # fades the edited audio and leaves the longer pristine clip unchanged.
-    result = q.compare_prediction_pair(
-        terminal(pristine, left), terminal(edited, right), trust=pristine.trust
-    )
-    assert result["commonInterval"] == {"startSample": 0, "endSample": 2 * q.FRAME}
     assert all(
         any(not channel["consistent"] for channel in metrics)
         for metrics in result["crossMetrics"].values()
     )
+
+
+def test_shortened_pair_with_only_new_edge_fade_is_indistinguishable() -> None:
+    pristine, edited = shortened_pair()
+    left, right = rendered(pristine), rendered(edited)
+    # The only common-prefix difference comes from the newly introduced edge
+    # fade; it must not establish that the edit changed audio content.
+    with pytest.raises(r.OutputConsistencyError, match="indistinguishable"):
+        q.compare_prediction_pair(
+            terminal(pristine, left), terminal(edited, right), trust=pristine.trust
+        )
 
 
 def test_pair_with_longer_edited_output_refuses(

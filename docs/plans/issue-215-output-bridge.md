@@ -68,6 +68,9 @@ the real B render additionally exhibits that exact envelope at programme edges.
 The model is fixed before rendering and never estimated from a candidate
 output. Settings snapshots do not expose the Soft Fades control, so the result
 does not certify that setting. Actual renders must still satisfy the limits.
+The pair's audio-distinction check excludes those prescribed edge ramps, so a
+new fade alone cannot establish a meaningful audio edit. Each render's own
+residual comparison still checks every sample.
 
 Only `bounded_output_residual_consistency` is claimed. Internal controls,
 continuous control stability and causal exclusivity remain unverified. Existing

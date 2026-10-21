@@ -142,6 +142,8 @@ ALGORITHM = {
     "gain": "10**(manifestGainDb/20)",
     "comparisonGain": 1,
     "lagSamples": 0,
+    "pairDiscrimination": "exclude union of committed active clip-edge fade zones; "
+    "each complete render remains fully compared",
     "programmeRmsLimit": 0.0004,
     "slidingSamples": 960,
     "slidingRmsLimit": 0.006,
@@ -1506,6 +1508,65 @@ def _metrics(expected: list[array[float]], actual: list[array[float]]) -> list[J
     return results
 
 
+def _clip_edge_exclusion_mask(inputs: list[PredictionInputs], count: int) -> bytearray:
+    """Mark committed audio clip-edge fade zones in a common pair interval."""
+    mask = bytearray(count)
+    for prediction_inputs in inputs:
+        capture = _parse(prediction_inputs.geometry)
+        geometry = _shape(
+            capture["geometry"],
+            "context extentFrames rate tracks items sourceMappings",
+            "semantic geometry",
+        )
+        extent = _integer(geometry["extentFrames"], 1, 1498) * FRAME
+        _require(extent >= count, "pair geometry is shorter than its common interval")
+        binding = _record(
+            prediction_inputs.input_binding,
+            "inputs",
+            "schemaVersion lane context delivery sourceEntries tracks "
+            "itemMappings nativeSources",
+        )
+        sources = {row["sourceId"]: row for row in _sources(binding["sourceEntries"])}
+        deliveries = {row["eventId"]: row for row in _list(binding["delivery"], 2048)}
+        for item in _list(geometry["items"], 2048):
+            if item["kind"] != "audio":
+                continue
+            record_start = _integer(item["recordStart"]) * FRAME
+            record_end = (
+                record_start + _integer(item["recordDuration"], 1, 1498) * FRAME
+            )
+            _require(record_end <= extent, "pair audio edge exceeds committed geometry")
+            delivery = deliveries[item["eventId"]]
+            active_count = record_end - record_start
+            if delivery["kind"] == "narration":
+                source = sources[item["sourceId"]]
+                local = (
+                    _integer(item["sourceStart"])
+                    - _integer(source["nativeFrameOrigin"])
+                ) * FRAME + _integer(source["pcmSampleOrigin"], 0)
+                active_count = min(
+                    active_count, _integer(source["durationSamples"], 1) - local
+                )
+            _require(active_count > 0, "pair audio active extent is empty")
+            active_end = record_start + active_count
+            for edge_start, edge_end in (
+                (record_start, record_start + SOFT_FADE_SAMPLES),
+                (active_end - SOFT_FADE_SAMPLES, active_end),
+            ):
+                low, high = max(0, edge_start), min(count, edge_end)
+                if low < high:
+                    mask[low:high] = b"\x01" * (high - low)
+    return mask
+
+
+def _exclude_clip_edge_zones(channels: list[array[float]], mask: bytearray) -> None:
+    for channel in channels:
+        _require(len(channel) == len(mask), "pair edge mask extent differs")
+        for index, excluded in enumerate(mask):
+            if excluded:
+                channel[index] = 0.0
+
+
 def _nonvacuity(prediction: bytes, count: int) -> list[Json]:
     predicted = _channels(prediction, count, prediction=True)
     signal = _metrics(predicted, [array("d", [0.0]) * count for _ in range(2)])
@@ -1789,9 +1850,9 @@ def compare_prediction_pair(
         "pair authenticated input identity differs",
     )
     # Each complete output already matched its own full-extent prediction.
-    # Unequal extents (a linked ripple trim) are compared at zero lag over
-    # their authenticated common prefix; both full lengths stay recorded, and
-    # duration alone never distinguishes the pair.
+    # Unequal extents are compared at zero lag over their authenticated common
+    # prefix, with committed clip-edge fade zones excluded from discrimination.
+    # A duration-only edge ramp therefore cannot establish an audio change.
     pristine_count = len(pristine.output.prediction) // 16
     edited_count = len(edited.output.prediction) // 16
     _require(
@@ -1811,6 +1872,11 @@ def compare_prediction_pair(
         ),
         _channels(edited.output.decoded_samples, count, prediction=False),
     )
+    edge_mask = _clip_edge_exclusion_mask(
+        [pristine.output.inputs, edited.output.inputs], count
+    )
+    for channels in (lp, rp, lo, ro):
+        _exclude_clip_edge_zones(channels, edge_mask)
     cross = {
         "predictionDifference": _metrics(lp, rp),
         "editedAgainstPristine": _metrics(lp, ro),
