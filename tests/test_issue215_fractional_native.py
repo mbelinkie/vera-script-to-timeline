@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import wave
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
@@ -92,6 +93,50 @@ def test_unobserved_fractional_narration_uses_verified_sample_eof(
     ) == (0, FRAME_COUNT)
 
 
+def test_observed_untouched_fractional_narration_uses_verified_sample_eof(
+    tmp_path: Path,
+) -> None:
+    resolve, request, admitted, item = _fractional_narration_case(tmp_path, "edited")
+
+    geometry = native._capture_observed_geometry(resolve, request, admitted, None)
+
+    assert item.GetSourceEndFrame() == FRAME_COUNT - 2
+    assert item.__dict__["GetSourceEndTime"]() == SAMPLE_COUNT / SAMPLE_RATE
+    assert geometry["items"][0]["sourceDuration"] == FRAME_COUNT
+
+
+def test_observed_fractional_narration_accepts_split_right_segment_at_eof(
+    tmp_path: Path,
+) -> None:
+    resolve, request, admitted, right = _fractional_narration_case(tmp_path, "edited")
+    timeline = resolve.GetProjectManager().GetCurrentProject().GetCurrentTimeline()
+    left = type(right)(right.media, right.stamp)
+    left.source_start_frame, left.source_end_frame = 0, 69
+    left.__dict__.update(
+        {
+            "GetDuration": lambda _in_frames: 70,
+            "GetEnd": lambda _in_frames: 70,
+            "GetSourceStartTime": lambda: 0.0,
+            "GetSourceEndTime": lambda: float(Fraction(70 * 1001, 24000)),
+        }
+    )
+    right.true_start = 72
+    right.source_start_frame, right.source_end_frame = 72, FRAME_COUNT - 2
+    right.__dict__.update(
+        {
+            "GetDuration": lambda _in_frames: 59,
+            "GetEnd": lambda _in_frames: FRAME_COUNT,
+            "GetSourceStartTime": lambda: float(Fraction(72 * 1001, 24000)),
+            "GetUniqueId": lambda: "timeline-item-two",
+        }
+    )
+    timeline.__dict__["GetItemListInTrack"] = lambda _kind, _index: [left, right]
+
+    geometry = native._capture_observed_geometry(resolve, request, admitted, None)
+
+    assert [row["sourceDuration"] for row in geometry["items"]] == [70, 59]
+
+
 def test_fractional_narration_rejects_inexact_native_eof(
     tmp_path: Path,
 ) -> None:
@@ -158,3 +203,30 @@ def test_fractional_narration_eof_rule_does_not_cover_edited_split(
 
     with pytest.raises(OutputConsistencyError, match="native source range differs"):
         native._capture_geometry(resolve, request, admitted, None)
+
+
+@pytest.mark.parametrize("drift", ["partial", "eof"])
+def test_observed_fractional_narration_rejects_partial_or_drifting_ends(
+    tmp_path: Path, drift: str
+) -> None:
+    resolve, request, admitted, item = _fractional_narration_case(tmp_path, "edited")
+    if drift == "partial":
+        item.source_end_frame = FRAME_COUNT - 3
+    else:
+        item.__dict__["GetSourceEndTime"] = lambda: (SAMPLE_COUNT + 2) / SAMPLE_RATE
+
+    with pytest.raises(OutputConsistencyError):
+        native._capture_observed_geometry(resolve, request, admitted, None)
+
+
+def test_observed_source_audio_does_not_use_narration_eof_rule(
+    tmp_path: Path,
+) -> None:
+    resolve, request, admitted, item = _fractional_narration_case(tmp_path, "edited")
+    event = admitted["view"]["events"][0]
+    event["kind"] = "source_audio"
+    event["gainDb"] = -6.0
+    item.stamp = native._event_stamp(event)
+
+    with pytest.raises(OutputConsistencyError):
+        native._capture_observed_geometry(resolve, request, admitted, None)

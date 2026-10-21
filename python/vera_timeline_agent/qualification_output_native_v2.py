@@ -3524,16 +3524,16 @@ def _verified_fractional_narration_eof(
     audio: Any,
     source_hash: str,
     rate: dict[str, Any],
-    expected_duration: int,
+    source_start: int,
     timeline_sample_rate: int,
     range_times: dict[str, Any],
-) -> bool:
+) -> int | None:
     if (
         type(audio) is not dict
         or type(audio.get("audioHash")) is not str
         or _source_hash(audio["audioHash"]) != _source_hash(source_hash)
     ):
-        return False
+        return None
     sample_count, sample_rate = audio.get("durationSamples"), audio.get("sampleRate")
     if (
         type(sample_count) is not int
@@ -3541,12 +3541,17 @@ def _verified_fractional_narration_eof(
         or type(sample_rate) is not int
         or sample_rate != timeline_sample_rate
     ):
-        return False
+        return None
     exact_frames = Fraction(
         sample_count * rate["numerator"], sample_rate * rate["denominator"]
     )
+    expected_end = math.ceil(exact_frames)
+    expected_duration = expected_end - source_start
     start_error = _source_time_error_samples(
-        range_times.get("GetSourceStartTime"), 0, Fraction(1, sample_rate), sample_rate
+        range_times.get("GetSourceStartTime"),
+        source_start,
+        Fraction(rate["denominator"], rate["numerator"]),
+        sample_rate,
     )
     end_error = _source_time_error_samples(
         range_times.get("GetSourceEndTime"),
@@ -3555,12 +3560,17 @@ def _verified_fractional_narration_eof(
         sample_rate,
     )
     return (
-        exact_frames.denominator != 1
-        and math.ceil(exact_frames) == expected_duration
-        and start_error is not None
-        and abs(start_error) <= 1
-        and end_error is not None
-        and abs(end_error) <= 1
+        expected_duration
+        if (
+            exact_frames.denominator != 1
+            and source_start >= 0
+            and expected_duration > 0
+            and start_error is not None
+            and abs(start_error) <= 1
+            and end_error is not None
+            and abs(end_error) <= 1
+        )
+        else None
     )
 
 
@@ -3631,6 +3641,7 @@ def _capture_geometry(
         str(_admitted_media_path(admitted, row)): row for row in view["sources"]
     }
     expected_events = {row["id"]: row for row in view["events"]}
+    manifest_sources = {row["id"]: row for row in manifest.get("sources", [])}
     event_ids: set[str] = set()
     item_objects: dict[str, Any] = {}
     raw_links: dict[str, list[str]] = {}
@@ -3957,17 +3968,16 @@ def _capture_geometry(
                     and source_end == expected_source_end - 2
                     and source_duration == expected_source_duration - 1
                 ):
-                    manifest_source = next(
-                        (row for row in manifest["sources"] if row["id"] == source_id),
-                        {"narrationAudio": None},
-                    )
-                    fractional_narration_eof = _verified_fractional_narration_eof(
-                        manifest_source.get("narrationAudio"),
+                    expected_narration_duration = _verified_fractional_narration_eof(
+                        manifest_sources.get(source_id, {}).get("narrationAudio"),
                         source["contentHash"],
                         rate,
-                        expected_source_duration,
+                        source_start,
                         expected_timeline["audioSampleRate"],
                         range_times,
+                    )
+                    fractional_narration_eof = (
+                        expected_narration_duration == expected_source_duration
                     )
                 if fractional_narration_eof:
                     # Keep raw getters; normalize only the proven comparison extent.
@@ -4050,10 +4060,40 @@ def _capture_geometry(
                             )
                             if error is not None and abs(error) <= 1
                         ]
+                        narration_eof_duration = None
+                        if (
+                            request.get("profile") == MATRIX_PROFILE
+                            and request["context"].get("phase") == "edited"
+                            and kind == "audio"
+                            and source.get("kind") == "audio"
+                            and event.get("kind") == "narration"
+                        ):
+                            narration_eof_duration = _verified_fractional_narration_eof(
+                                manifest_sources.get(source_id, {}).get(
+                                    "narrationAudio"
+                                ),
+                                source["contentHash"],
+                                rate,
+                                source_start,
+                                expected_timeline["audioSampleRate"],
+                                range_times,
+                            )
+                            if (
+                                narration_eof_duration is not None
+                                and source_end
+                                == source_start + narration_eof_duration - 2
+                                and source_duration == narration_eof_duration - 1
+                            ):
+                                source_duration = narration_eof_duration
+                            else:
+                                narration_eof_duration = None
                         exact_frame_edges = (
                             start_error is not None
                             and abs(start_error) <= 1
-                            and len(matching_end_frames) == 1
+                            and (
+                                narration_eof_duration is not None
+                                or len(matching_end_frames) == 1
+                            )
                         )
                         _require(
                             exact_frame_edges,
@@ -4070,8 +4110,9 @@ def _capture_geometry(
                             f"sampleErrors={sample_errors!r}, "
                             "toleranceSamples=1)",
                         )
-                        assert len(matching_end_frames) == 1
-                        source_duration = matching_end_frames[0] - start_frame
+                        if narration_eof_duration is None:
+                            assert len(matching_end_frames) == 1
+                            source_duration = matching_end_frames[0] - start_frame
                     else:
                         exact_frame_edges = all(
                             type(range_times.get(method)) in {int, float}
