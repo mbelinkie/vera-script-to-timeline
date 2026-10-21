@@ -46,7 +46,7 @@ Do not use raw Resolve scripting or Fairlight/Deliver UI fallbacks.
 
 Measured evidence at matrix admission is replayed from the existing local cache
 using raw provider PCM, normalized WAV, provider timing and the frozen compiled
-block. Supplied evidence and measurement artifacts must match that replay; their
+block with the generator's fixed default parameters. Supplied evidence and measurement artifacts must match that replay; their
 mutual hash consistency alone is not proof of machine measurement. Consumed
 cache files remain bound by admission currentness checks.
 

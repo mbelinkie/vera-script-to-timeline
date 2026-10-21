@@ -524,17 +524,32 @@ def test_matrix_audio_proofs_read_and_track_measured_inputs(
     ) <= set(hashes)
 
 
+@pytest.mark.parametrize("forgery", ["boundary", "parameters"])
 def test_matrix_ingress_rejects_forged_self_consistent_boundaries(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, forgery: str
 ) -> None:
     fixture = CachedMeasured(tmp_path)
-    artifact_value = json.loads(fixture.artifact)
-    artifact_value["tokens"][0]["onsetSamples"] += 48
-    fixture.artifact = canonical_json_bytes(artifact_value)
-    fixture.row["tokens"][0]["onset"] = rat(artifact_value["tokens"][0]["onsetSamples"])
-    fixture.row["verification"]["measurementArtifactHash"] = sha256_bytes(
-        fixture.artifact
-    )
+    if forgery == "parameters":
+        parameters = dict(DEFAULT_PARAMETERS)
+        parameters["onsetUncertaintyMs"] += 1
+        result = measure_asset(
+            load_asset(fixture.cache, fixture.asset_key),
+            fixture.block,
+            artifact_locator=fixture.measurement_locator,
+            parameters=parameters,
+        )
+        fixture.artifact = result.artifact_bytes
+        fixture.row = result.evidence
+    else:
+        artifact_value = json.loads(fixture.artifact)
+        artifact_value["tokens"][0]["onsetSamples"] += 48
+        fixture.artifact = canonical_json_bytes(artifact_value)
+        fixture.row["tokens"][0]["onset"] = rat(
+            artifact_value["tokens"][0]["onsetSamples"]
+        )
+        fixture.row["verification"]["measurementArtifactHash"] = sha256_bytes(
+            fixture.artifact
+        )
     fixture.paths["measurement"].write_bytes(fixture.artifact)
 
     # The generic proof verifier establishes self-consistency only; the matrix

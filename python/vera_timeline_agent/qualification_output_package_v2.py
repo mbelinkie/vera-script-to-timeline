@@ -2950,18 +2950,12 @@ def _track_measured_narration(
         verification = _object(
             row.get("verification"), "measured verification required"
         )
-        algorithm = _object(
-            verification.get("algorithm"), "measured algorithm required"
-        )
         result = measure_asset(
             loaded,
             frozen_block,
             artifact_locator=_text(
                 verification.get("measurementArtifactLocator"),
                 "measurement artifact locator required",
-            ),
-            parameters=_object(
-                algorithm.get("parameters"), "algorithm parameters required"
             ),
         )
     except (
