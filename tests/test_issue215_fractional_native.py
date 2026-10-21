@@ -42,7 +42,7 @@ def _fractional_narration_case(
     event["kind"] = "narration"
     event.pop("gainDb", None)
     event["recordRange"] = {"startFrame": 0, "durationFrames": FRAME_COUNT}
-    event["sourceRange"] = None
+    event["sourceRange"] = {"startFrame": 0, "durationFrames": FRAME_COUNT}
     event["v2Event"] = {
         "id": event["id"],
         "description": "fractional narration EOF",
@@ -68,6 +68,13 @@ def _fractional_narration_case(
                 "durationSamples": SAMPLE_COUNT,
                 "sampleRate": SAMPLE_RATE,
             },
+        }
+    ]
+    admitted["manifest"]["events"] = [
+        {
+            "eventId": event["id"],
+            "kind": "narration",
+            "sourceRange": None,
         }
     ]
     request["profile"] = native.MATRIX_PROFILE
@@ -203,6 +210,19 @@ def test_source_audio_does_not_use_narration_eof_rule(
     event["kind"] = "source_audio"
     event["gainDb"] = -6.0
     item.stamp = native._event_stamp(event)
+
+    with pytest.raises(OutputConsistencyError, match="native source range differs"):
+        native._capture_geometry(resolve, request, admitted, None)
+
+
+def test_fractional_narration_eof_requires_compiler_whole_source(
+    tmp_path: Path,
+) -> None:
+    resolve, request, admitted, _item = _fractional_narration_case(tmp_path)
+    admitted["manifest"]["events"][0]["sourceRange"] = {
+        "startFrame": 0,
+        "endFrame": FRAME_COUNT,
+    }
 
     with pytest.raises(OutputConsistencyError, match="native source range differs"):
         native._capture_geometry(resolve, request, admitted, None)

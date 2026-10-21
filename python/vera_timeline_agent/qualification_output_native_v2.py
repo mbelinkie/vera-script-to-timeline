@@ -3641,6 +3641,7 @@ def _capture_geometry(
         str(_admitted_media_path(admitted, row)): row for row in view["sources"]
     }
     expected_events = {row["id"]: row for row in view["events"]}
+    manifest_events = {row["eventId"]: row for row in manifest.get("events", [])}
     manifest_sources = {row["id"]: row for row in manifest.get("sources", [])}
     event_ids: set[str] = set()
     item_objects: dict[str, Any] = {}
@@ -3742,6 +3743,7 @@ def _capture_geometry(
                 event = expected_events.get(event_id)
                 _require(event is not None, "missing/unadmitted native event stamp")
                 assert event is not None
+                manifest_event = manifest_events.get(event_id)
                 if not _observed_edit:
                     _require(
                         event_id not in event_ids,
@@ -3962,7 +3964,10 @@ def _capture_geometry(
                     and kind == "audio"
                     and source.get("kind") == "audio"
                     and event.get("kind") == "narration"
-                    and source_range is None
+                    and manifest_event is not None
+                    and manifest_event.get("kind") == "narration"
+                    and "sourceRange" in manifest_event
+                    and manifest_event["sourceRange"] is None
                     and source_start == expected_source_start == 0
                     and expected_source_duration == duration
                     and source_end == expected_source_end - 2

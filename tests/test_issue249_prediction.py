@@ -113,8 +113,11 @@ def _expected_pcm(c: Case) -> bytes:
         ]
         for offset in range(item["recordDuration"] * q.FRAME):
             source_index = start + offset
+            edge_gain = min(
+                1.0, offset / 72, (item["recordDuration"] * q.FRAME - offset) / 72
+            )
             value = (
-                c.samples[source_index] / 2**23 * gain
+                c.samples[source_index] / 2**23 * gain * edge_gain
                 if source_index < len(c.samples)
                 else 0.0
             )
@@ -137,8 +140,11 @@ def _expected_decoded(c: Case) -> list[int]:
         ]
         for offset in range(item["recordDuration"] * q.FRAME):
             source_index = start + offset
+            edge_gain = min(
+                1.0, offset / 72, (item["recordDuration"] * q.FRAME - offset) / 72
+            )
             value = (
-                round(c.samples[source_index] * gain)
+                round(c.samples[source_index] * gain * edge_gain)
                 if source_index < len(c.samples)
                 else 0
             )
