@@ -196,9 +196,7 @@ def test_admission_cache_keeps_original_and_execution_bytes_distinct(
     attestation_path.write_bytes(b"test-only attestation")
     original_document = b'{"id":"original"}'
     original_dependencies = b'{"build":{"buildId":"original"}}'
-    execution_document = _canonical(
-        {"id": "revised", "activeDraft": {"blocks": []}}
-    )
+    execution_document = _canonical({"id": "revised", "activeDraft": {"blocks": []}})
     execution_dependencies = b'{"build":{"buildId":"fresh"}}'
     original_document_path = _write(
         tmp_path / "original-document.json", original_document
