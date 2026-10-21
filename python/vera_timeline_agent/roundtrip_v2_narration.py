@@ -38,7 +38,10 @@ from vera_timeline_agent.narration.models import (
     identity_hash,
 )
 from vera_timeline_agent.narration.normalize import NORMALIZER_VERSION, Normalizer
-from vera_timeline_agent.narration.polly import PRICE_USD_PER_MILLION_CHARACTERS
+from vera_timeline_agent.narration.polly import (
+    PRICE_USD_PER_MILLION_CHARACTERS,
+    PollyError,
+)
 from vera_timeline_agent.narration.provider import SpeechSynthesisProvider
 from vera_timeline_agent.narration.service import (
     MATTHEW_PROFILE_ID,
@@ -305,6 +308,35 @@ def _verified_asset(
     return asset, receipt
 
 
+def _clear_owned_unsent_intent(
+    service: NarrationService,
+    intent_path: Path,
+    intent_raw: bytes,
+    request_hash: str,
+) -> None:
+    """Remove only a new intent with neither a guarded attempt nor cached result."""
+    provider = service.provider
+    if not isinstance(provider, LedgerGuardedProvider):
+        return
+    try:
+        if any(
+            row.get("requestHash") == request_hash for row in provider.ledger.rows()
+        ):
+            return
+        if service.cache.read("synthesis", request_hash[7:], "synthesis.json"):
+            return
+        if (
+            intent_path.is_symlink()
+            or not intent_path.is_file()
+            or _operator_bytes(intent_path) != intent_raw
+        ):
+            return
+        intent_path.unlink()
+    except Exception:
+        # Cleanup is best-effort; uncertainty or filesystem trouble keeps intent.
+        return
+
+
 def prepare_replacement_row_v2(
     root: Path,
     *,
@@ -343,10 +375,11 @@ def prepare_replacement_row_v2(
             "schemaVersion": "issue-189-v2-call-intent/v1",
             "requestIdentity": binding["service"]["requestIdentity"],
         }
+        intent_raw = _bytes(intent)
         old_intent = intent_path.exists()
         if old_intent:
             fact(
-                _operator_bytes(intent_path) == _bytes(intent),
+                _operator_bytes(intent_path) == intent_raw,
                 "service request intent differs",
             )
             fact(
@@ -355,16 +388,27 @@ def prepare_replacement_row_v2(
                 "uncertain synthesis: no duplicate call without verified cache",
             )
         else:
-            publish_immutable_output(intent_path, _bytes(intent))
-        if (root / "generation.json").exists():
-            retained = _parse(_operator_bytes(root / "generation.json"))
-            asset_id = retained["assetId"]
-        else:
-            asset_id = service.process_block(row).asset_id
-        _cache_safety(service)
-        _, receipt = _verified_asset(
-            service, row, _prior_row(prior_dependencies, row["id"]), binding, asset_id
-        )
+            publish_immutable_output(intent_path, intent_raw)
+        try:
+            if (root / "generation.json").exists():
+                retained = _parse(_operator_bytes(root / "generation.json"))
+                asset_id = retained["assetId"]
+            else:
+                asset_id = service.process_block(row).asset_id
+            _cache_safety(service)
+            _, receipt = _verified_asset(
+                service,
+                row,
+                _prior_row(prior_dependencies, row["id"]),
+                binding,
+                asset_id,
+            )
+        except BaseException:
+            if not old_intent:
+                _clear_owned_unsent_intent(
+                    service, intent_path, intent_raw, request_hash
+                )
+            raise
         fact(_sources() == binding["sourceHashes"], "generation source code changed")
         publish_immutable_output(root / "generation.json", _bytes(receipt))
         return copy.deepcopy(receipt)
@@ -644,6 +688,14 @@ def preflight_provider_call(
             "re-run with --confirm-provider-call to authorize it"
         )
     ledger.check(_micro(plan.estimated_cost_usd), cap_micro_usd)
+    preflight = getattr(service.provider, "preflight", None)
+    if callable(preflight):
+        try:
+            preflight(service._request(row))
+        except PollyError as error:
+            raise ProviderCallRefused(
+                f"provider preflight failed before any call: {error}"
+            ) from error
     return plan
 
 

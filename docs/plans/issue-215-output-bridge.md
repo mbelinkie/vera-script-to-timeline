@@ -30,7 +30,9 @@ reflows dependent picture placements. It never cuts or stitches the old speech
 for the rebuild. Unchanged narration reuses its asset. The existing Matthew
 Neural voice, provider_terms_accepted policy and $1 cumulative campaign cap
 apply; C's expected call is about $0.003. Uncertain attempts are never blindly
-resent. No live provider calls run in CI.
+resent. Known failures before dispatch (credentials/client/input or a cap race)
+leave the request retryable without recording an uncertain send. No live
+provider calls run in CI.
 
 ## Native qualification
 
@@ -41,6 +43,12 @@ save/reopen. C compares against its NEW generated source and timing. A/B require
 no synthesis. D and rejection require no synthesis or unsafe state change.
 Preserve all old attempts and media, especially VERA215B04 and its retained job.
 Do not use raw Resolve scripting or Fairlight/Deliver UI fallbacks.
+
+Measured evidence at matrix admission is replayed from the existing local cache
+using raw provider PCM, normalized WAV, provider timing and the frozen compiled
+block. Supplied evidence and measurement artifacts must match that replay; their
+mutual hash consistency alone is not proof of machine measurement. Consumed
+cache files remain bound by admission currentness checks.
 
 Fixture track indices must be contiguous per media kind before native construct.
 The shared fixture uses source-audio track 2 beside narration track 1; B adds its

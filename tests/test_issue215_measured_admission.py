@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from issue182_fixture import build_cache, frozen_block
 from vera_timeline_agent import qualification_output_package_v2 as package
 from vera_timeline_agent.narration.measure import (
     ALGORITHM_ID,
@@ -21,6 +22,8 @@ from vera_timeline_agent.narration.measure import (
     METHOD,
     ONSET_BASIS,
     TOKENIZATION_VERSION,
+    load_asset,
+    measure_asset,
     parameters_hash,
 )
 from vera_timeline_agent.narration.models import canonical_json_bytes, sha256_bytes
@@ -329,29 +332,49 @@ def test_unclean_locators_are_refused() -> None:
 # --------------------------------------------------------------- package lanes
 
 
-def write_inputs(root: Path, fixture: Measured) -> dict[str, Path]:
-    measurement = root / "out" / MEASUREMENT_LOCATOR
-    timing = root / "cache" / TIMING_LOCATOR
-    wav = root / "package" / "narration.wav"
-    for path, raw in (
-        (measurement, fixture.artifact),
-        (timing, fixture.timing),
-        (wav, fixture.wav),
-    ):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(raw)
-    return {"measurement": measurement, "timing": timing, "wav": wav}
+class CachedMeasured:
+    """A replayable local cache measurement for package-ingress tests."""
+
+    def __init__(self, root: Path) -> None:
+        self.cache, self.asset, self.asset_key = build_cache(root / "cache")
+        self.block = frozen_block()
+        loaded = load_asset(self.cache, self.asset_key)
+        self.measurement_locator = (
+            f"baseline/narration-measurements/{self.asset.asset_id}.measurement.json"
+        )
+        result = measure_asset(
+            loaded, self.block, artifact_locator=self.measurement_locator
+        )
+        self.wav = loaded.wav_bytes
+        self.timing = loaded.timing_bytes
+        self.artifact = result.artifact_bytes
+        self.row = result.evidence
+        self.asset_dir = self.cache.root / "assets" / self.asset_key
+        synthesis_key = self.asset.request_hash.removeprefix("sha256:")
+        self.synthesis_dir = self.cache.root / "synthesis" / synthesis_key
+        measurement = root / "out" / self.measurement_locator
+        wav = root / "package" / "narration.wav"
+        measurement.parent.mkdir(parents=True, exist_ok=True)
+        wav.parent.mkdir(parents=True, exist_ok=True)
+        measurement.write_bytes(self.artifact)
+        wav.write_bytes(self.wav)
+        self.paths = {
+            "measurement": measurement,
+            "timing": self.asset_dir / "timing.json",
+            "wav": wav,
+        }
 
 
 def package_inputs(
-    fixture: Measured,
+    fixture: Any,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    block_id = fixture.row["blockId"]
     audio = {
         "narrationAssetId": SOURCE,
         "audioHash": fixture.row["audioHash"],
-        "durationSamples": SAMPLES,
-        "sampleRate": 48_000,
-        "channels": 1,
+        "durationSamples": fixture.row["audio"]["durationSamples"],
+        "sampleRate": fixture.row["audio"]["sampleRate"],
+        "channels": fixture.row["audio"]["channels"],
     }
     manifest = {
         "sources": [{"id": SOURCE, "narrationAudio": audio}],
@@ -359,7 +382,7 @@ def package_inputs(
             {
                 "eventId": EVENT,
                 "kind": "narration",
-                "provenance": {"blockId": BLOCK},
+                "provenance": {"blockId": block_id},
             }
         ],
     }
@@ -466,15 +489,19 @@ def test_r16_profile_does_not_admit_measured_evidence(
 
 
 def evidence_paths(paths: dict[str, Path]) -> dict[str, dict[str, Path]]:
-    return {BLOCK: {"timing": paths["timing"], "measurement": paths["measurement"]}}
+    block_id = paths["timing"].parts[-3]
+    return {block_id: {"timing": paths["timing"], "measurement": paths["measurement"]}}
 
 
-def test_matrix_audio_proofs_read_and_track_measured_inputs(tmp_path: Path) -> None:
-    fixture = Measured()
-    paths = write_inputs(tmp_path, fixture)
+def test_matrix_audio_proofs_read_and_track_measured_inputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture = CachedMeasured(tmp_path)
+    paths = fixture.paths
     states: dict[Path, Any] = {}
     hashes: dict[Path, str] = {}
     manifest, view, dependencies = package_inputs(fixture)
+    bypass_source_entry_profile_check(monkeypatch)
     wavs, proofs, entries, _payloads = _audio_proofs(
         manifest,
         dependencies,
@@ -485,51 +512,101 @@ def test_matrix_audio_proofs_read_and_track_measured_inputs(tmp_path: Path) -> N
         hashes,
         matrix_profile=True,
         narration_evidence_paths=evidence_paths(paths),
+        narration_document={"activeDraft": {"blocks": [fixture.block]}},
     )
     assert wavs[SOURCE] == fixture.wav
     assert proofs[SOURCE].timing == fixture.timing
     assert proofs[SOURCE].review == fixture.artifact == proofs[SOURCE].receipt
-    assert len(entries) == 1
+    assert entries == [{}]
     assert {paths["timing"], paths["measurement"], paths["wav"]} <= set(hashes)
+    assert set(fixture.asset_dir.iterdir()) | set(
+        fixture.synthesis_dir.iterdir()
+    ) <= set(hashes)
 
 
-def run_proofs(fixture: Measured, paths: dict[str, Path], tmp_evidence: Any) -> Any:
+def test_matrix_ingress_rejects_forged_self_consistent_boundaries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture = CachedMeasured(tmp_path)
+    artifact_value = json.loads(fixture.artifact)
+    artifact_value["tokens"][0]["onsetSamples"] += 48
+    fixture.artifact = canonical_json_bytes(artifact_value)
+    fixture.row["tokens"][0]["onset"] = rat(artifact_value["tokens"][0]["onsetSamples"])
+    fixture.row["verification"]["measurementArtifactHash"] = sha256_bytes(
+        fixture.artifact
+    )
+    fixture.paths["measurement"].write_bytes(fixture.artifact)
+
+    # The generic proof verifier establishes self-consistency only; the matrix
+    # package ingress must additionally remeasure against the local raw PCM.
+    assert (
+        verify_measured_narration_evidence(
+            fixture.row,
+            timing=fixture.timing,
+            artifact=fixture.artifact,
+            audio_sha256=sha256_bytes(fixture.wav),
+        )
+        == fixture.row["verification"]["measurementArtifactHash"]
+    )
+    with pytest.raises(
+        QualificationPackageError,
+        match="artifact differs from local cache remeasurement",
+    ):
+        run_proofs(fixture, evidence_paths(fixture.paths), monkeypatch)
+
+
+def bypass_source_entry_profile_check(monkeypatch: pytest.MonkeyPatch) -> None:
+    # This cache fixture is PCM-16; source-entry serialization independently
+    # verifies the production PCM-24 package profile.
+    monkeypatch.setattr(
+        package, "_audio_source_entries", lambda *args, **kwargs: ([{}], {})
+    )
+
+
+def run_proofs(
+    fixture: CachedMeasured, tmp_evidence: Any, monkeypatch: pytest.MonkeyPatch
+) -> Any:
+    bypass_source_entry_profile_check(monkeypatch)
     manifest, view, dependencies = package_inputs(fixture)
     return _audio_proofs(
         manifest,
         dependencies,
         view,
-        {SOURCE: paths["wav"]},
+        {SOURCE: fixture.paths["wav"]},
         {},
         {},
         {},
         matrix_profile=True,
         narration_evidence_paths=tmp_evidence,
+        narration_document={"activeDraft": {"blocks": [fixture.block]}},
     )
 
 
-def test_matrix_audio_proofs_refuse_tampered_files(tmp_path: Path) -> None:
+def test_matrix_audio_proofs_refuse_tampered_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     for victim in ("measurement", "timing", "wav"):
-        fixture = Measured()
-        root = tmp_path / victim
-        paths = write_inputs(root, fixture)
+        fixture = CachedMeasured(tmp_path / victim)
+        paths = fixture.paths
         paths[victim].write_bytes(paths[victim].read_bytes() + b" ")
         with pytest.raises(QualificationPackageError):
-            run_proofs(fixture, paths, evidence_paths(paths))
+            run_proofs(fixture, evidence_paths(paths), monkeypatch)
 
 
 def test_matrix_audio_proofs_require_declared_paths_inside_the_locator(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    fixture = Measured()
-    paths = write_inputs(tmp_path, fixture)
+    fixture = CachedMeasured(tmp_path)
+    paths = fixture.paths
     with pytest.raises(QualificationPackageError, match="requires its timing"):
-        run_proofs(fixture, paths, None)
+        run_proofs(fixture, None, monkeypatch)
     other = tmp_path / "elsewhere.json"
     other.write_bytes(fixture.artifact)
-    swapped = {BLOCK: {"timing": paths["timing"], "measurement": other}}
+    swapped = {
+        fixture.row["blockId"]: {"timing": paths["timing"], "measurement": other}
+    }
     with pytest.raises(QualificationPackageError, match="not inside the evidence"):
-        run_proofs(fixture, paths, swapped)
+        run_proofs(fixture, swapped, monkeypatch)
 
 
 def test_package_admission_entry_points_accept_evidence_paths_only_for_matrix() -> None:

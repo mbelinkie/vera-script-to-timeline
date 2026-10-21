@@ -8,6 +8,8 @@ from __future__ import annotations
 import copy
 import json
 import struct
+import sys
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -18,6 +20,7 @@ from issue182_fixture import normalize as hold_normalize
 from test_issue191_narration import FakeProvider, setup_case
 from vera_timeline_agent import qualification_output_proof_v2 as proof
 from vera_timeline_agent.narration.campaign import (
+    CAP_MICRO_USD,
     STATUS_ATTEMPTED,
     STATUS_CHARGED,
     Ledger,
@@ -33,6 +36,7 @@ from vera_timeline_agent.narration.normalize import (
     NormalizationResult,
     Normalizer,
 )
+from vera_timeline_agent.narration.polly import PollyProvider
 from vera_timeline_agent.narration.service import NarrationService
 from vera_timeline_agent.qualification_output_controller_v2 import (
     _publish,
@@ -239,12 +243,17 @@ class Lane:
         return {"outcome": "accept"}
 
     def regenerate(
-        self, *, confirm: bool, service: NarrationService | None = None
+        self,
+        *,
+        confirm: bool,
+        service: NarrationService | None = None,
+        cap_micro_usd: int = CAP_MICRO_USD,
     ) -> Any:
         return self.object.regenerate_row(
             service=service or self.service,
             ledger=self.ledger,
             confirm_provider_call=confirm,
+            cap_micro_usd=cap_micro_usd,
         )
 
 
@@ -257,6 +266,89 @@ def test_unconfirmed_real_call_stops_with_clear_message_and_no_state(
     assert lane.provider.calls == 0
     assert lane.ledger.rows() == []
     assert not (lane.root / "regeneration").exists()
+
+
+def test_missing_aws_credentials_refuse_before_intent_or_reservation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class MissingCredentialsSession:
+        def get_credentials(self) -> None:
+            return None
+
+        def client(self, *_args: Any, **_kwargs: Any) -> Any:
+            pytest.fail("Polly client must not be created without credentials")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "boto3",
+        SimpleNamespace(Session=lambda **_kwargs: MissingCredentialsSession()),
+    )
+    lane = Lane(tmp_path)
+    lane.service.provider = PollyProvider()
+    lane.service.config = replace(
+        lane.service.config, data_policy_attestation="provider_terms_accepted"
+    )
+
+    with pytest.raises(ProviderCallRefused, match="credentials are unavailable"):
+        lane.regenerate(confirm=True)
+
+    assert lane.ledger.rows() == []
+    assert not (lane.root / "regeneration").exists()
+    assert not (lane.service.cache.root / "issue-191-call-intents").exists()
+
+
+def test_reservation_cap_race_removes_only_the_unsent_intent_and_can_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    lane = Lane(tmp_path)
+    lane.ledger.append(
+        request_hash="sha256:" + "a" * 64,
+        block_id="other-block",
+        characters=10,
+        estimated_cost_usd=2.0,
+        request_ids=("prior-call",),
+    )
+    check = lane.ledger.check
+    checks = 0
+
+    def fail_reservation_after_preflight(
+        additional_micro_usd: int, cap_micro_usd: int = CAP_MICRO_USD
+    ) -> None:
+        nonlocal checks
+        checks += 1
+        if checks == 1:
+            return
+        check(additional_micro_usd, cap_micro_usd)
+
+    monkeypatch.setattr(lane.ledger, "check", fail_reservation_after_preflight)
+    row = next(
+        b
+        for b in lane.document["activeDraft"]["blocks"]
+        if b["id"] == lane.request["blockId"]
+    )
+    request_hash = lane.service.plan_block(row).request_hash
+    intent = (
+        lane.service.cache.root
+        / "issue-191-call-intents"
+        / request_hash[7:]
+        / "intent.json"
+    )
+
+    with pytest.raises(ProofBuildError):
+        lane.regenerate(confirm=True)
+
+    assert checks == 2
+    assert lane.provider.calls == 0
+    assert len(lane.ledger.rows()) == 1
+    assert not intent.exists()
+
+    monkeypatch.setattr(lane.ledger, "check", check)
+    retry = Lane(tmp_path / "retry")
+    retry.service.cache = lane.service.cache
+    retry.ledger = lane.ledger
+    handoff = retry.regenerate(confirm=True, cap_micro_usd=10_000_000)
+    assert handoff is not None and retry.provider.calls == 1
+    assert [row["status"] for row in lane.ledger.rows()] == ["charged", STATUS_CHARGED]
 
 
 def test_rejected_or_undecided_inference_never_synthesizes(tmp_path: Path) -> None:
@@ -321,10 +413,23 @@ def test_identical_text_cache_hit_makes_no_call_and_no_charge(tmp_path: Path) ->
 @pytest.mark.slow
 def test_uncertain_attempt_is_preserved_and_never_resent(tmp_path: Path) -> None:
     lane = Lane(tmp_path, fail=True)
+    row = next(
+        b
+        for b in lane.document["activeDraft"]["blocks"]
+        if b["id"] == lane.request["blockId"]
+    )
+    request_hash = lane.service.plan_block(row).request_hash
+    intent = (
+        lane.service.cache.root
+        / "issue-191-call-intents"
+        / request_hash[7:]
+        / "intent.json"
+    )
     with pytest.raises(ProofBuildError):
         lane.regenerate(confirm=True)
     assert lane.provider.calls == 1
     assert [row["status"] for row in lane.ledger.rows()] == [STATUS_ATTEMPTED]
+    assert intent.is_file()
     lane.provider.fail = False
     with pytest.raises(ProviderCallRefused, match="will not be resynthesized"):
         lane.regenerate(confirm=True)

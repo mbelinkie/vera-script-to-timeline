@@ -2792,8 +2792,10 @@ def _track(
     path: Path,
     states: dict[Path, tuple[int, int, int, int, int]],
     hashes: dict[Path, str],
+    *,
+    maximum: int = _MAX_JSON,
 ) -> bytes:
-    raw = _read(path)
+    raw = _read(path, maximum=maximum)
     states[path] = _state(path)
     hashes[path] = _sha(raw)
     return raw
@@ -2821,6 +2823,8 @@ def _verify_measured_narration(
 def _track_measured_narration(
     row: Json,
     paths: Mapping[str, Path] | None,
+    wav: bytes,
+    frozen_block: Mapping[str, Any],
     states: dict[Path, tuple[int, int, int, int, int]],
     hashes: dict[Path, str],
 ) -> tuple[bytes, bytes]:
@@ -2854,8 +2858,179 @@ def _track_measured_narration(
         )
     timing = _track(paths["timing"], states, hashes)
     artifact = _track(paths["measurement"], states, hashes)
-    _verify_measured_narration(row, timing, artifact, None)
+    _verify_measured_narration(row, timing, artifact, _sha(wav))
+
+    from .narration.cache import CacheError, NarrationCache
+    from .narration.measure import MeasurementError, load_asset, measure_asset
+
+    block_id = _text(row.get("blockId"), "measured narration block id required")
+    audio = _object(row.get("audio"), "measured narration audio binding required")
+    asset_id = _text(audio.get("cacheAssetId"), "cache asset id required")
+    audio_locator_parts = _text(
+        audio.get("locator"), "narration audio locator required"
+    ).split("/")
+    _need(
+        len(audio_locator_parts) == 5
+        and audio_locator_parts[:2] == ["v1", "assets"]
+        and audio_locator_parts[2] == block_id
+        and audio_locator_parts[3] == asset_id
+        and audio_locator_parts[4] == "narration.wav"
+        and re.fullmatch(r"[A-Za-z0-9-]{1,128}", block_id) is not None
+        and re.fullmatch(r"[0-9a-f]{64}", asset_id) is not None,
+        "measured narration locator must identify its local cache asset",
+    )
+    timing_path = paths["timing"]
+    _need(
+        ".." not in timing_path.parts
+        and timing_path.parts[-5:]
+        == ("v1", "assets", block_id, asset_id, "timing.json"),
+        "measured narration timing path must identify its local cache asset",
+    )
+    v2_package._require_path_components_no_symlink(
+        timing_path, "measured narration cache input"
+    )
+    cache_root = timing_path.parents[4]
+    version_root = cache_root / "v1"
+    _need(
+        all(
+            (version_root / name).is_dir() and not (version_root / name).is_symlink()
+            for name in ("assets", "synthesis", "normalization", "locks")
+        ),
+        "measured narration cache is incomplete",
+    )
+    try:
+        cache = NarrationCache(cache_root)
+        asset_key = f"{block_id}/{asset_id}"
+        asset_entry = cache.read("assets", asset_key, "asset.json")
+        _need(asset_entry is not None, "measured narration cache asset is missing")
+        assert asset_entry is not None
+        loaded = load_asset(cache, f"{block_id}/{asset_id}")
+        asset_dir = cache.root / "assets" / block_id / asset_id
+        _need(
+            asset_dir.resolve(strict=True) == timing_path.parent.resolve(strict=True),
+            "measured narration timing path differs from its cache asset",
+        )
+        _track_measured_cache_entry(
+            asset_dir,
+            asset_entry,
+            "asset.json",
+            states,
+            hashes,
+        )
+        expected_asset = loaded.asset.as_json()
+        expected_asset["request_ids"] = list(loaded.asset.request_ids)
+        _need(
+            asset_entry.metadata.get("asset") == expected_asset
+            and asset_entry.files.get("narration.wav") == loaded.wav_bytes == wav
+            and asset_entry.files.get("timing.json") == loaded.timing_bytes == timing,
+            "measured narration cache asset differs from package inputs",
+        )
+        synthesis_key = loaded.asset.request_hash.removeprefix("sha256:")
+        synthesis_dir = cache.root / "synthesis" / synthesis_key
+        synthesis_entry = cache.read("synthesis", synthesis_key, "synthesis.json")
+        _need(
+            synthesis_entry is not None,
+            "measured narration synthesis cache entry is missing",
+        )
+        assert synthesis_entry is not None
+        _track_measured_cache_entry(
+            synthesis_dir,
+            synthesis_entry,
+            "synthesis.json",
+            states,
+            hashes,
+        )
+        _need(
+            synthesis_entry.metadata.get("audioFormat") == "pcm_s16le"
+            and synthesis_entry.metadata.get("sampleRate") == loaded.raw_sample_rate
+            and synthesis_entry.metadata.get("channels") == 1
+            and synthesis_entry.files.get("provider-audio.pcm") == loaded.raw_pcm,
+            "measured narration raw PCM differs from its cache entry",
+        )
+        verification = _object(
+            row.get("verification"), "measured verification required"
+        )
+        algorithm = _object(
+            verification.get("algorithm"), "measured algorithm required"
+        )
+        result = measure_asset(
+            loaded,
+            frozen_block,
+            artifact_locator=_text(
+                verification.get("measurementArtifactLocator"),
+                "measurement artifact locator required",
+            ),
+            parameters=_object(
+                algorithm.get("parameters"), "algorithm parameters required"
+            ),
+        )
+    except (
+        CacheError,
+        MeasurementError,
+        OSError,
+        KeyError,
+        TypeError,
+        ValueError,
+    ) as error:
+        if isinstance(error, QualificationPackageError):
+            raise
+        raise QualificationPackageError(
+            f"measured narration cache remeasurement refused: {error}"
+        ) from error
+    _need(
+        result.artifact_bytes == artifact,
+        "measured narration artifact differs from local cache remeasurement",
+    )
+    _need(
+        _canonical(result.evidence) == _canonical(row),
+        "measured narration evidence differs from local cache remeasurement",
+    )
     return timing, artifact
+
+
+def _track_measured_cache_entry(
+    path: Path,
+    entry: Any,
+    metadata_name: str,
+    states: dict[Path, tuple[int, int, int, int, int]],
+    hashes: dict[Path, str],
+) -> None:
+    _need(path.is_dir() and not path.is_symlink(), "narration cache entry required")
+    tracked = {
+        child.name: _track(
+            child,
+            states,
+            hashes,
+            maximum=_MAX_JSON if child.name == metadata_name else _MAX_WAV,
+        )
+        for child in sorted(path.iterdir())
+    }
+    metadata_raw = tracked.get(metadata_name)
+    _need(metadata_raw is not None, "narration cache metadata required")
+    assert metadata_raw is not None
+    _need(
+        set(tracked) == set(entry.files) | {metadata_name}
+        and {name: raw for name, raw in tracked.items() if name != metadata_name}
+        == entry.files
+        and _json(metadata_raw, "narration cache metadata") == entry.metadata,
+        "narration cache entry changed while being admitted",
+    )
+
+
+def _document_narration_block(document: Json | None, block_id: str) -> Json:
+    _need(document is not None, "measured narration requires the compiled document")
+    assert document is not None
+    draft = _object(document.get("activeDraft"), "active narration draft required")
+    blocks = _array(draft.get("blocks"), "active narration blocks required")
+    matches = [
+        block
+        for block in blocks
+        if isinstance(block, dict)
+        and block.get("type") == "narration"
+        and block.get("id") == block_id
+    ]
+    _need(len(matches) == 1, "measured narration must bind to one compiled block")
+    return matches[0]
 
 
 def _allowed_narration_review_hash(value: object) -> str:
@@ -2994,6 +3169,7 @@ def _audio_proofs(
     allow_silent: bool = False,
     matrix_profile: bool = False,
     narration_evidence_paths: Mapping[str, Mapping[str, Path]] | None = None,
+    narration_document: Json | None = None,
 ) -> tuple[
     dict[str, bytes],
     dict[str, SourceProof],
@@ -3033,6 +3209,8 @@ def _audio_proofs(
                 timing, review = _track_measured_narration(
                     rows[0],
                     (narration_evidence_paths or {}).get(block_id),
+                    raw,
+                    _document_narration_block(narration_document, block_id),
                     states,
                     hashes,
                 )
@@ -3757,6 +3935,7 @@ def _admit_synthetic(
         allow_silent=profile == MATRIX_PROFILE,
         matrix_profile=profile == MATRIX_PROFILE,
         narration_evidence_paths=narration_evidence_paths,
+        narration_document=document,
     )
     preflight, preparation = _snapshots(
         profile=profile,
