@@ -3509,7 +3509,7 @@ def _validate_observed_event_geometry(
 
 
 def _source_time_error_samples(
-    value: Any, frame: int, rate_seconds: Fraction
+    value: Any, frame: int, rate_seconds: Fraction, sample_rate: int = 48_000
 ) -> Fraction | None:
     if type(value) is int:
         seconds = Fraction(value)
@@ -3517,7 +3517,51 @@ def _source_time_error_samples(
         seconds = Fraction(str(value))
     else:
         return None
-    return (seconds - frame * rate_seconds) * 48_000
+    return (seconds - frame * rate_seconds) * sample_rate
+
+
+def _verified_fractional_narration_eof(
+    audio: Any,
+    source_hash: str,
+    rate: dict[str, Any],
+    expected_duration: int,
+    timeline_sample_rate: int,
+    range_times: dict[str, Any],
+) -> bool:
+    if (
+        type(audio) is not dict
+        or type(audio.get("audioHash")) is not str
+        or _source_hash(audio["audioHash"]) != _source_hash(source_hash)
+    ):
+        return False
+    sample_count, sample_rate = audio.get("durationSamples"), audio.get("sampleRate")
+    if (
+        type(sample_count) is not int
+        or sample_count <= 0
+        or type(sample_rate) is not int
+        or sample_rate != timeline_sample_rate
+    ):
+        return False
+    exact_frames = Fraction(
+        sample_count * rate["numerator"], sample_rate * rate["denominator"]
+    )
+    start_error = _source_time_error_samples(
+        range_times.get("GetSourceStartTime"), 0, Fraction(1, sample_rate), sample_rate
+    )
+    end_error = _source_time_error_samples(
+        range_times.get("GetSourceEndTime"),
+        sample_count,
+        Fraction(1, sample_rate),
+        sample_rate,
+    )
+    return (
+        exact_frames.denominator != 1
+        and math.ceil(exact_frames) == expected_duration
+        and start_error is not None
+        and abs(start_error) <= 1
+        and end_error is not None
+        and abs(end_error) <= 1
+    )
 
 
 def _capture_geometry(
@@ -3899,6 +3943,35 @@ def _capture_geometry(
                         method = getattr(item, method_name, None)
                         if callable(method):
                             range_times[method_name] = method()
+                fractional_narration_eof = False
+                if (
+                    not _observed_edit
+                    and request.get("profile") == MATRIX_PROFILE
+                    and request["context"].get("phase") in {"pristine", "rebuild"}
+                    and kind == "audio"
+                    and source.get("kind") == "audio"
+                    and event.get("kind") == "narration"
+                    and source_range is None
+                    and source_start == expected_source_start == 0
+                    and expected_source_duration == duration
+                    and source_end == expected_source_end - 2
+                    and source_duration == expected_source_duration - 1
+                ):
+                    manifest_source = next(
+                        (row for row in manifest["sources"] if row["id"] == source_id),
+                        {"narrationAudio": None},
+                    )
+                    fractional_narration_eof = _verified_fractional_narration_eof(
+                        manifest_source.get("narrationAudio"),
+                        source["contentHash"],
+                        rate,
+                        expected_source_duration,
+                        expected_timeline["audioSampleRate"],
+                        range_times,
+                    )
+                if fractional_narration_eof:
+                    # Keep raw getters; normalize only the proven comparison extent.
+                    source_duration = expected_source_duration
                 # Studio can expose its arbitrary held-frame counter for a still.
                 # Normalize only a verified one-frame source with exact time edges.
                 if (
