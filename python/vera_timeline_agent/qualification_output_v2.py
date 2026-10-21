@@ -63,6 +63,8 @@ from vera_timeline_agent.qualification_output_records_v2 import (
 from vera_timeline_agent.source_audio_endpoint import endpoint_plan, endpoint_wav
 
 FRAME = 2002
+SOFT_FADE_SAMPLES = 72
+SOFT_FADE_MODEL = "resolve-studio-21.1.1-linear-72-sample-clip-edges/v1"
 
 
 def _reviewed_artifact_hash(record: Any) -> str:
@@ -115,8 +117,22 @@ def _narration_review_pin(record: Any, proof: Any) -> str:
 RATE = {"numerator": 24000, "denominator": 1001}
 ENCODING = "float64le-interleaved-stereo"
 ALGORITHM = {
-    "version": "qualification-output-fixed-pcm/v1",
+    "version": "qualification-output-fixed-pcm/v2",
     "runtime": "CPython-3.12.14",
+    "renderer": {
+        "product": "DaVinci Resolve Studio",
+        "version": [21, 1, 1, 10, ""],
+        "softFades": {
+            "model": SOFT_FADE_MODEL,
+            "controlState": "not_attested",
+            "samplesPerEdge": SOFT_FADE_SAMPLES,
+            "shape": "linear",
+            "fadeInGain": "sampleOffset/72",
+            "fadeOutGain": "samplesToExclusiveActiveEnd/72",
+            "activeEnd": "segmentSampleCount; frame-ceiled EOF padding stays zero",
+            "shortClips": "refuse when 72-sample edges overlap",
+        },
+    },
     "frameRate": RATE,
     "sampleRate": 48000,
     "samplesPerFrame": FRAME,
@@ -1244,6 +1260,7 @@ def _validated(
                     "recordStart": item["recordStart"],
                     "sampleStart": local,
                     "sampleCount": count,
+                    "edgeFadeModel": SOFT_FADE_MODEL,
                 }
             )
         ordered = sorted(source_intervals)
@@ -1287,10 +1304,20 @@ def _mix(intent: list[Json], pcm: dict[str, list[array[float]]], extent: int) ->
         channels = pcm[source["sourceId"]]
         for segment in source["segments"]:
             record, start = segment["recordStart"] * FRAME, segment["sampleStart"]
-            for ch in range(2):
-                samples = channels[0 if len(channels) == 1 else ch]
-                for offset in range(segment["sampleCount"]):
-                    mix[ch][record + offset] += samples[start + offset] * gain
+            count = segment["sampleCount"]
+            _require(
+                count >= 2 * SOFT_FADE_SAMPLES,
+                "native soft-fade model does not cover overlapping clip-edge ramps",
+            )
+            for offset in range(count):
+                fade = min(
+                    1.0,
+                    offset / SOFT_FADE_SAMPLES,
+                    (count - offset) / SOFT_FADE_SAMPLES,
+                )
+                for ch in range(2):
+                    samples = channels[0 if len(channels) == 1 else ch]
+                    mix[ch][record + offset] += samples[start + offset] * gain * fade
     _require(
         all(math.isfinite(x) and abs(x) < 1.0 for channel in mix for x in channel),
         "predicted clipping/nonfinite samples",

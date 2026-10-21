@@ -36,14 +36,16 @@ def independently_rendered(c: Case) -> list[int]:
         start = (item["sourceStart"] - source["nativeFrameOrigin"]) * q.FRAME + source[
             "pcmSampleOrigin"
         ]
-        for offset in range(item["recordDuration"] * q.FRAME):
+        count = item["recordDuration"] * q.FRAME
+        for offset in range(count):
+            edge_gain = min(1.0, offset / 72, (count - offset) / 72)
             for channel in range(2):
                 source_channel = 0 if source["channels"] == 1 else channel
                 value = c.samples[
                     (start + offset) * source["channels"] + source_channel
                 ]
                 values[(item["recordStart"] * q.FRAME + offset) * 2 + channel] += round(
-                    value * 10 ** (gain / 20)
+                    value * 10 ** (gain / 20) * edge_gain
                 )
     return values
 
@@ -252,16 +254,13 @@ def test_complete_comparison_and_acyclic_terminal_cas() -> None:
     output = rendered(c)
     result = q.compare_committed_output(output, trust=c.trust)
     assert result["status"] == "compared_consistent"
-    assert (
-        result["metrics"]
-        == [
-            {
-                "residualRms": 0.0,
-                "maximumSliding20msResidualRms": 0.0,
-                "consistent": True,
-            }
-        ]
-        * 2
+    half_lsb = 0.5 / 2**23
+    assert len(result["metrics"]) == 2
+    assert all(
+        0 < metric["residualRms"] < half_lsb
+        and 0 < metric["maximumSliding20msResidualRms"] < half_lsb
+        and metric["consistent"] is True
+        for metric in result["metrics"]
     )
     assert result["internalControls"] == "unverified"
     assert result["geometryStability"] == result["controlStability"] == "not_claimed"
@@ -666,14 +665,19 @@ def test_shortened_edited_pair_compares_over_common_prefix() -> None:
     assert result["geometryStability"] == result["controlStability"] == "not_claimed"
 
 
-def test_shortened_pair_with_identical_common_audio_is_indistinguishable() -> None:
+def test_shortened_pair_edge_fade_distinguishes_common_audio() -> None:
     pristine, edited = shortened_pair()
     left, right = rendered(pristine), rendered(edited)
-    # Same item audio over the common prefix: duration alone never distinguishes.
-    with pytest.raises(r.OutputConsistencyError, match="indistinguishable"):
-        q.compare_prediction_pair(
-            terminal(pristine, left), terminal(edited, right), trust=pristine.trust
-        )
+    # Shortening creates a clip edge inside the common interval, where Resolve
+    # fades the edited audio and leaves the longer pristine clip unchanged.
+    result = q.compare_prediction_pair(
+        terminal(pristine, left), terminal(edited, right), trust=pristine.trust
+    )
+    assert result["commonInterval"] == {"startSample": 0, "endSample": 2 * q.FRAME}
+    assert all(
+        any(not channel["consistent"] for channel in metrics)
+        for metrics in result["crossMetrics"].values()
+    )
 
 
 def test_pair_with_longer_edited_output_refuses(

@@ -46,14 +46,28 @@ Do not use raw Resolve scripting or Fairlight/Deliver UI fallbacks.
 
 Measured evidence at matrix admission is replayed from the existing local cache
 using raw provider PCM, normalized WAV, provider timing and the frozen compiled
-block with the generator's fixed default parameters. Supplied evidence and measurement artifacts must match that replay; their
-mutual hash consistency alone is not proof of machine measurement. Consumed
+block with the generator's fixed default parameters. Supplied evidence and
+measurement artifacts must match that replay; their mutual hash consistency
+alone is not proof of machine measurement. Consumed
 cache files remain bound by admission currentness checks.
 
 Fixture track indices must be contiguous per media kind before native construct.
 The shared fixture uses source-audio track 2 beside narration track 1; B adds its
 second narration track at 2 and explicitly places source-audio at 3. Keep the
 native contiguity refusal intact.
+
+Fractional narration EOF uses the admitted WAV's hash-bound sample count and
+sample-accurate native time getters when the integer getter omits its final
+fractional frame. This covers intact narration and a surviving edited EOF
+segment; ordinary frame edges, source audio and drift remain strict.
+
+The fixed PCM prediction prescribes Studio 21.1.1's 72-sample linear audio edge
+ramps, with its algorithm identity included in each pre-render commitment.
+Resolve's reference manual documents 1.5 ms Soft Fades between adjacent clips;
+the real B render additionally exhibits that exact envelope at programme edges.
+The model is fixed before rendering and never estimated from a candidate
+output. Settings snapshots do not expose the Soft Fades control, so the result
+does not certify that setting. Actual renders must still satisfy the limits.
 
 Only `bounded_output_residual_consistency` is claimed. Internal controls,
 continuous control stability and causal exclusivity remain unverified. Existing
