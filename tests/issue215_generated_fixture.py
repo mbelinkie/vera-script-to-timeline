@@ -58,6 +58,7 @@ from test_issue174_real_media import issue174_descriptor  # noqa: E402
 from vera_timeline_agent import (  # noqa: E402
     qualification_output_package_v2 as _package,
 )
+from vera_timeline_agent import qualification_output_native_v2 as _native  # noqa: E402
 from vera_timeline_agent.media_preparation import (  # noqa: E402
     MediaTools,
     PreparationAuthorization,
@@ -220,6 +221,11 @@ def _slate_payload(label: str, text: str) -> Json:
 def _base_dependencies(document: Json, label: str) -> Json:
     template = _read_json(TEMPLATE)
     dependencies = copy.deepcopy(template["dependencies"])
+    source_audio_track = dependencies["roles"]["sourceAudioTrackIds"][0]
+    for track in dependencies["tracks"]:
+        if track["id"] == source_audio_track:
+            track["index"] = 2
+            break
     dependencies["compiler"]["sourceHash"] = _file_hash(
         REPOSITORY_ROOT / "packages/contracts/src/compiler-core-v2.ts"
     )
@@ -299,6 +305,7 @@ def prepare_narration_case(
         narration_evidence_paths=campaign.evidence_paths,
     )
     admission.assert_current()
+    _native._required_track_counts(admission.view)
     token_ids = [t["id"] for t in document["activeDraft"]["blocks"][0]["tokens"]]
     result: Json = {
         "case": label,
@@ -616,6 +623,7 @@ def prepare_b_linked_av_case(campaign: Campaign, output_root: Path) -> Json:
             preparation_paths=preparation_paths,
         )
     admission.assert_current()
+    _native._required_track_counts(admission.view)
     _write_json(
         case_root / "fixture-paths.json",
         {

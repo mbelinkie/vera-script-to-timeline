@@ -1,48 +1,61 @@
 # #215 output observation and revision bridge
 
-Started from main `166a14eb4dd1272c50346410d38a8fcf189ae226`, on
-`codex/215-output-consistency-bridge`, claimed by chat
-`01a1500a-72f0-7521-98f3-bc6cfe0cb618` (Sol/high, External).
+The 2026-10-19 issue scope supersedes the earlier recorded-audio qualification.
+Continue in PR #269 on `claude/215-generated-narration-bridge`, using the
+fresh Polly baseline and automatic timing from merged #182. Complete #215 and
+stop; #145 retains the later Producer creative/listening acceptance.
 
-The host owns `qualification_output_proof_v2.py`. Its pure subprocess is
-`packages/contracts/src/qualification-output-proof-cli.ts`, using the new
-`qualification-output-proposals-v2.ts` and the delivered revision transforms.
-These remain host files; the installed stdlib native closure gains only the
-observed-edit route in `qualification_output_native_v2.py`. Static controller
-and CLI ports select the bridge. Requests cannot select an adapter or import.
+## Product path
 
-The existing pristine/rebuild captures keep exact compiled ranges and event
-uniqueness. A separate edited route reads the existing disposable target,
-freezes observed item UIDs, and permits only source-bound, unambiguous split
-narration. It never substitutes planned geometry for native readback. Supported
-semantic proposals are uniquely derived from the complete before/after geometry
-and current compiler output. A uses identical audio and individual residual
-checks; B/C also require the delivered pair-discriminability check. C requires
-independent token11 and neighbour10/12 acoustic support and listening before
-whole-row replacement. Provider consent/cost limits remain separate authority.
-The omission review prompt is answered only by the human who listened to the
-source and edited mix. Agents prepare the audio and Audition markers and must
-never type the listening confirmation on the Producer's behalf.
-C stops at the accepted whole-row regeneration request. The host refuses raw
-replacement handoffs until a concrete provider/cache/review finalizer binds the
-new request; structural JSON validation cannot establish that provenance.
+The host proof and TypeScript bridge consume authenticated native readback,
+derive bounded proposals, record explicit decisions and compile a separate
+canonical revision. Original document AND dependency guards, source/target/job
+identity, currentness, one-use reservations and uncertain-run recovery remain
+required. No AI rewrite or manually authored omission proposal substitutes for
+observed geometry.
 
-The proof reopens concrete product sessions, native results, same-MOV decodes,
-receipts and the complete cross-binding journal. Both original files, execution
-files, source graphs and native lineage remain bound. Explicit rejection has
-no build/provider effects. Accepted decisions create a canonical new revision,
-readable comparison, new compiler identities and a separate revised preflight.
-Fresh package admission preserves the original document AND dependencies while
-executing the decided revision on a new target. Old inference/omission/preflight
-records cannot be upgraded by changing a label.
+All audible test sources derive from campaign-generated Polly speech. A moves
+a picture boundary without changing narration. B trims linked AV from 91 to 67
+frames and shifts the downstream occurrence, using the replacement preparation's
+honest requirement key; geometry alone cannot imply word deletion. C identifies
+a uniquely supported omitted word from measured timing and frame-snapped native
+geometry. Ambiguous, partial and straddling cuts refuse. D disables an item and
+must refuse safely. Explicit proposal rejection preserves canonical text and
+makes no provider request.
 
-Only `bounded_output_residual_consistency` is claimed. Internal controls remain
-unverified; continuous geometry/control stability and causal exclusivity remain
-unclaimed. The fixed per-channel limits are programme RMS <=0.0004 and maximum
-sliding 960-sample RMS <=0.006, zero lag, unity gain, no fitting.
+After accepted C inference, the product's NarrationService regenerates the
+entire revised row, derives automatic timing and seals the replacement handoff.
+The accepted canonical revision compiles the new audio's actual duration and
+reflows dependent picture placements. It never cuts or stitches the old speech
+for the rebuild. Unchanged narration reuses its asset. The existing Matthew
+Neural voice, provider_terms_accepted policy and $1 cumulative campaign cap
+apply; C's expected call is about $0.003. Uncertain attempts are never blindly
+resent. No live provider calls run in CI.
 
-Validation: focused Python and TypeScript checks, local `validate:fast`, one
-read-only Claude CLI review, GitHub Actions full Validate, targeted real Studio
-product flow on issue-owned disposable targets. #145 retains private Sweden
-creative/listening acceptance. No local full suite, provider calls, uploads or
-original media mutations are authorized by this implementation.
+## Native qualification
+
+Use only installed product flows on issue-owned disposable Resolve targets.
+Each positive chain requires pristine and edited observations/renders, explicit
+acceptance, a fresh revised package and a new-target rebuild verified after
+save/reopen. C compares against its NEW generated source and timing. A/B require
+no synthesis. D and rejection require no synthesis or unsafe state change.
+Preserve all old attempts and media, especially VERA215B04 and its retained job.
+Do not use raw Resolve scripting or Fairlight/Deliver UI fallbacks.
+
+Fixture track indices must be contiguous per media kind before native construct.
+The shared fixture uses source-audio track 2 beside narration track 1; B adds its
+second narration track at 2 and explicitly places source-audio at 3. Keep the
+native contiguity refusal intact.
+
+Only `bounded_output_residual_consistency` is claimed. Internal controls,
+continuous control stability and causal exclusivity remain unverified. Existing
+per-channel limits stay programme RMS <=0.0004 and maximum sliding 960-sample
+RMS <=0.006, zero lag, unity gain, no fitting.
+
+## Verification and delivery
+
+Run focused Python/TypeScript checks, local `validate:fast`, one read-only
+Claude CLI review and GitHub Actions full Validate. Never run full validate on
+the Mac. Retain the native results and #145 handoff, post one concise External
+result, and merge only on green CI. Confirm the merge before completing #215.
+No uploads, original-media mutation or #145 execution are part of this issue.

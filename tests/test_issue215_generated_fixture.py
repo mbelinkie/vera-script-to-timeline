@@ -13,6 +13,8 @@ from issue215_generated_fixture import (
     BASELINE_DOCUMENT,
     BOUNDARY_TOKEN_INDEX,
     FRAME_SAMPLES,
+    TEMPLATE,
+    _base_dependencies,
     build_b_trimmed_package,
     clip_slice_frames,
     derive_clip_pcm,
@@ -24,6 +26,7 @@ from issue215_generated_fixture import (
     read_mono_pcm24,
     write_stereo_wav,
 )
+from vera_timeline_agent import qualification_output_native_v2 as native
 
 CAMPAIGN = (
     Path.home() / "Library/Application Support/VERA/polly-campaign/issue182-20261020"
@@ -84,6 +87,17 @@ def test_mono_reader_refuses_wrong_format(tmp_path: Path) -> None:
         stream.writeframes(b"\0" * 12)
     with pytest.raises(ValueError, match="PCM24 mono"):
         read_mono_pcm24(path)
+
+
+def test_shared_dependencies_have_native_contiguous_track_layout() -> None:
+    template = json.loads(TEMPLATE.read_bytes())
+    dependencies = _base_dependencies(template["document"], "track-layout")
+
+    assert native._required_track_counts(dependencies) == {
+        "video": 4,
+        "audio": 2,
+        "subtitle": 0,
+    }
 
 
 @needs_campaign

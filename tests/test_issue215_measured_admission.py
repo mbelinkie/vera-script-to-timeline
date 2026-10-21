@@ -440,9 +440,28 @@ def test_matrix_profile_refuses_unknown_method_even_with_a_pinned_review() -> No
         run_entries(fixture, matrix=True)
 
 
-def test_r16_profile_does_not_admit_measured_evidence() -> None:
+def test_r16_profile_does_not_admit_measured_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     fixture = Measured()
-    with pytest.raises(QualificationPackageError):
+    r6_target = tmp_path / "pinned-r6.json"
+    r6_alias = tmp_path / "r6-review.json"
+    r14_path = tmp_path / "pinned-r14.json"
+    r6_raw = b'{"schemaVersion":"r6-test"}'
+    r14_raw = b'{"schemaVersion":"r14-test"}'
+    r6_target.write_bytes(r6_raw)
+    r6_alias.symlink_to(r6_target)
+    r14_path.write_bytes(r14_raw)
+    monkeypatch.setattr(package, "_R6", r6_alias)
+    monkeypatch.setattr(package, "_R6_TARGET", r6_target)
+    monkeypatch.setattr(package, "_R6_SHA256", package._sha(r6_raw))
+    monkeypatch.setattr(package, "_R14", r14_path)
+    monkeypatch.setattr(package, "_R14_SHA256", package._sha(r14_raw))
+
+    with pytest.raises(
+        QualificationPackageError,
+        match="narration timing source is not the pinned actual file",
+    ):
         run_entries(fixture, matrix=False)
 
 
