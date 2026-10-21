@@ -196,7 +196,9 @@ def test_admission_cache_keeps_original_and_execution_bytes_distinct(
     attestation_path.write_bytes(b"test-only attestation")
     original_document = b'{"id":"original"}'
     original_dependencies = b'{"build":{"buildId":"original"}}'
-    execution_document = b'{"id":"revised"}'
+    execution_document = _canonical(
+        {"id": "revised", "activeDraft": {"blocks": []}}
+    )
     execution_dependencies = b'{"build":{"buildId":"fresh"}}'
     original_document_path = _write(
         tmp_path / "original-document.json", original_document
@@ -209,6 +211,8 @@ def test_admission_cache_keeps_original_and_execution_bytes_distinct(
     for path in (original_document_path, original_dependencies_path):
         package._track(path, tracked_paths, tracked_hashes)
     view: dict[str, Any] = {"sources": [], "events": []}
+    report = {"diagnostics": [], "recoveryActions": []}
+    report_raw = _canonical(report)
 
     admission = package._finish_admission(
         output_root,
@@ -221,8 +225,8 @@ def test_admission_cache_keeps_original_and_execution_bytes_distinct(
         execution_dependencies=execution_dependencies,
         manifest={"events": []},
         manifest_raw=b'{"events":[]}',
-        report={},
-        report_raw=b"{}",
+        report=report,
+        report_raw=report_raw,
         compiler_runs=(b"{}", b"{}"),
         view=view,
         view_raw=_canonical(view),
