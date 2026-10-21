@@ -209,7 +209,7 @@ def test_admission_cache_keeps_original_and_execution_bytes_distinct(
     for path in (original_document_path, original_dependencies_path):
         package._track(path, tracked_paths, tracked_hashes)
     view: dict[str, Any] = {"sources": [], "events": []}
-    report = {"diagnostics": [], "recoveryActions": []}
+    report: dict[str, Any] = {"diagnostics": [], "recoveryActions": []}
     report_raw = _canonical(report)
 
     admission = package._finish_admission(

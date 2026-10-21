@@ -340,7 +340,7 @@ def test_load_reopens_verified_cache_without_running_toolchain(
     }
     empty = b"{}"
     document = _canonical({"activeDraft": {"blocks": []}})
-    report = {"diagnostics": [], "recoveryActions": []}
+    report: dict[str, Any] = {"diagnostics": [], "recoveryActions": []}
     report_raw = _canonical(report)
     admission = package._finish_admission(
         output,
