@@ -40,6 +40,7 @@ from .qualification_output_records_v2 import (
     _list,
     _parse,
     _shape,
+    validate_temporary_presenter_report,
 )
 
 REQUEST_SCHEMA = "qualification-output-native-request/v1"
@@ -814,6 +815,38 @@ def _verify_presenter_admission(
     _verify_presenter_report_rows(admission, report, document_id)
 
 
+def _verify_public_package_diagnostics(
+    profile: str,
+    admission: dict[str, Any],
+    document: dict[str, Any],
+    manifest: dict[str, Any],
+    report: dict[str, Any],
+) -> None:
+    """Keep synthetic packages empty; validate Matrix rows against compiler output."""
+    _require(profile in PUBLIC_PROFILES, "public package profile required")
+    report_warnings = report.get("diagnostics")
+    report_recovery = report.get("recoveryActions")
+    _require(
+        type(report_warnings) is list and type(report_recovery) is list,
+        "public report diagnostic and recovery arrays required",
+    )
+    _require(
+        type(admission.get("diagnostics")) is list
+        and type(admission.get("recoveryActions")) is list
+        and admission["diagnostics"] == report_warnings
+        and admission["recoveryActions"] == report_recovery,
+        "public diagnostic rows differ from the full report",
+    )
+    if profile == SYNTHETIC_PROFILE:
+        _require(
+            report_warnings == [] and report_recovery == [],
+            "ordinary synthetic package diagnostics refuse",
+        )
+        return
+
+    validate_temporary_presenter_report(document, manifest, report)
+
+
 def verify_operator_approval(
     raw: bytes,
     *,
@@ -1481,10 +1514,6 @@ def _verify_admission(request: dict[str, Any]) -> dict[str, Any]:
             ),
             "ordinary package is not a verified synthetic",
         )
-        _require(
-            admission["diagnostics"] == [] and admission["recoveryActions"] == [],
-            "ordinary package diagnostics refuse",
-        )
     elif request["profile"] == R16_PROFILE:
         _require(
             admission["disposition"] == "qualification_only"
@@ -1621,6 +1650,15 @@ def _verify_admission(request: dict[str, Any]) -> dict[str, Any]:
     _verify_admitted_extent(manifest)
     _verify_r16_parent_pins(root, admission)
     _require(type(report) is dict, "admitted report must be an object")
+    if request["profile"] in PUBLIC_PROFILES:
+        execution_document = _parse(input_bytes["executionDocumentPath"])
+        _require(
+            type(execution_document) is dict,
+            "admitted execution document must be an object",
+        )
+        _verify_public_package_diagnostics(
+            request["profile"], admission, execution_document, manifest, report
+        )
     if request["profile"] in {R16_PROFILE, PRESENTER_PROFILE}:
         # These rows are retained from the exact hashed report, never synthesized
         # into the installed request. The package builder records their canonical

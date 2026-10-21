@@ -10,7 +10,13 @@ from typing import Any
 
 import pytest
 from issue177_package_fixture import _refresh_document_closure, _write_json
+from vera_timeline_agent import qualification_output_native_v2 as native
+from vera_timeline_agent import qualification_output_package_v2 as qualification_package
 from vera_timeline_agent import v2_package
+from vera_timeline_agent.qualification_output_records_v2 import (
+    OutputConsistencyError,
+    _canonical,
+)
 
 Json = dict[str, Any]
 _COMPILER_FIXTURES = Path(__file__).parent / "data/authoring_v2/issue_173/compiler"
@@ -48,6 +54,123 @@ def test_public_packager_accepts_the_real_compiler_temporary_still_warning() -> 
     document, dependencies, manifest, report = _presenter_compiler_fixture()
 
     v2_package._validate_inputs(document, dependencies, manifest, report)
+
+
+def test_native_matrix_admission_accepts_canonical_presenter_warning() -> None:
+    document, _dependencies, manifest, report = _presenter_compiler_fixture()
+    admission = {
+        "diagnostics": copy.deepcopy(report["diagnostics"]),
+        "recoveryActions": copy.deepcopy(report["recoveryActions"]),
+    }
+
+    native._verify_public_package_diagnostics(
+        native.MATRIX_PROFILE, admission, document, manifest, report
+    )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "unknown-warning",
+        "error",
+        "admission-warning-mismatch",
+        "admission-recovery-mismatch",
+    ],
+)
+def test_native_matrix_admission_refuses_noncanonical_or_mismatched_warning_rows(
+    mutation: str,
+) -> None:
+    document, _dependencies, manifest, report = _presenter_compiler_fixture()
+    admission = {
+        "diagnostics": copy.deepcopy(report["diagnostics"]),
+        "recoveryActions": copy.deepcopy(report["recoveryActions"]),
+    }
+    if mutation == "unknown-warning":
+        report["diagnostics"][0]["code"] = "OTHER_WARNING"
+        admission["diagnostics"] = copy.deepcopy(report["diagnostics"])
+    elif mutation == "error":
+        report["diagnostics"][0]["severity"] = "error"
+        admission["diagnostics"] = copy.deepcopy(report["diagnostics"])
+    elif mutation == "admission-warning-mismatch":
+        admission["diagnostics"][0]["message"] = "forged warning"
+    elif mutation == "admission-recovery-mismatch":
+        admission["recoveryActions"] = []
+
+    with pytest.raises(OutputConsistencyError):
+        native._verify_public_package_diagnostics(
+            native.MATRIX_PROFILE, admission, document, manifest, report
+        )
+
+
+def test_native_synthetic_admission_keeps_empty_diagnostics_invariant() -> None:
+    document, _dependencies, manifest, report = _presenter_compiler_fixture()
+    admission = {
+        "diagnostics": copy.deepcopy(report["diagnostics"]),
+        "recoveryActions": copy.deepcopy(report["recoveryActions"]),
+    }
+
+    with pytest.raises(OutputConsistencyError, match="synthetic package diagnostics"):
+        native._verify_public_package_diagnostics(
+            native.SYNTHETIC_PROFILE, admission, document, manifest, report
+        )
+
+
+def test_matrix_cached_reopen_refuses_discarded_report_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    document, dependencies, manifest, report = _presenter_compiler_fixture()
+    output = tmp_path / "matrix-admission"
+    package_root = output / "package"
+    package_root.mkdir(parents=True)
+    attestation_path = output / "attestation.json"
+    attestation_path.write_bytes(b"#177 attestation")
+    cache_root = tmp_path / "admission-cache"
+    monkeypatch.setattr(qualification_package, "_ADMISSION_CACHE_ROOT", cache_root)
+    monkeypatch.setattr(
+        qualification_package, "_ADMISSION_CACHE_KEY", cache_root / "hmac-key"
+    )
+    view: Json = {"sources": [], "events": []}
+    raw_empty = b"{}"
+    qualification_package._finish_admission(
+        output,
+        profile=qualification_package.MATRIX_PROFILE,
+        disposition="verified_matrix_inputs",
+        creative_qualification="unqualified_studio_matrix",
+        original_document=_canonical(document),
+        original_dependencies=_canonical(dependencies),
+        execution_document=_canonical(document),
+        execution_dependencies=_canonical(dependencies),
+        manifest=manifest,
+        manifest_raw=_canonical(manifest),
+        report=report,
+        report_raw=_canonical(report),
+        compiler_runs=(raw_empty, raw_empty),
+        view=view,
+        view_raw=_canonical(view),
+        # Model an older sealed Matrix cache that dropped report diagnostics.
+        diagnostics=[],
+        recoveries=[],
+        preflight_raw=raw_empty,
+        preparation_raw=raw_empty,
+        source_entries=[],
+        source_proofs={},
+        source_wavs={},
+        source_paths={},
+        tracked_paths={},
+        tracked_hashes={},
+        tracked_links={},
+        proof_payloads={},
+        attestation_path=attestation_path,
+    )
+    admission_path = output / "qualification-output-package-admission.json"
+
+    with pytest.raises(
+        qualification_package.QualificationPackageError,
+        match="diagnostic rows differ from the full report",
+    ):
+        qualification_package.load_qualification_package_v2(
+            admission_path, qualification_package._sha(admission_path.read_bytes())
+        )
 
 
 def test_public_packager_ignores_temporary_presenters_on_excluded_rows() -> None:
