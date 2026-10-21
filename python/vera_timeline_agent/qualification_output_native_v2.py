@@ -3280,6 +3280,43 @@ def _project_settings(manifest: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def _native_append_source_range(
+    source_start: int,
+    duration: int,
+    source_frame_rate: Any,
+    timeline_rate: dict[str, Any],
+    *,
+    still: bool,
+) -> tuple[int, int]:
+    """Return the source-frame half-open range passed to AppendToTimeline."""
+    start = _integer(source_start)
+    duration = _integer(duration, 1, MAX_NATIVE_EXTENT_FRAMES)
+    if not still:
+        return start, start + duration
+
+    _require(
+        type(source_frame_rate) in {str, int, float},
+        "imported still frame rate is unavailable",
+    )
+    try:
+        source_rate_decimal = Decimal(str(source_frame_rate))
+    except InvalidOperation as error:
+        raise OutputConsistencyError("imported still frame rate is invalid") from error
+    _require(
+        source_rate_decimal.is_finite() and source_rate_decimal > 0,
+        "imported still frame rate is invalid",
+    )
+    source_rate = Fraction(source_rate_decimal)
+
+    _shape(timeline_rate, "numerator denominator", "timeline frame rate")
+    target_rate = Fraction(
+        _integer(timeline_rate["numerator"], 1),
+        _integer(timeline_rate["denominator"], 1),
+    )
+    source_duration = math.ceil(Fraction(duration) * source_rate / target_rate)
+    return start, start + source_duration
+
+
 def _event_stamp(event: dict[str, Any]) -> str:
     _require(type(event.get("v2Event")) is dict, "accepted v2 event stamp unavailable")
     digest = _hash(_canonical(event["v2Event"]))
@@ -4625,6 +4662,7 @@ def _construct(
         "Resolve did not import one item per admitted source",
     )
     media_by_path: dict[str, Any] = {}
+    media_properties_by_path: dict[str, dict[str, Any]] = {}
     for item in imported:
         props = item.GetClipProperty()
         _require(
@@ -4636,6 +4674,7 @@ def _construct(
         resolved = str(Path(item_path).resolve())
         _require(resolved not in media_by_path, "duplicate imported source path")
         media_by_path[resolved] = item
+        media_properties_by_path[resolved] = props
     _require(
         set(media_by_path) == set(source_paths),
         "Resolve imported different source files",
@@ -4643,6 +4682,10 @@ def _construct(
     source_by_id = {source["id"]: source for source in sources}
     media_by_source = {
         source["id"]: media_by_path[path]
+        for source, path in zip(sources, source_paths, strict=True)
+    }
+    media_properties_by_source = {
+        source["id"]: media_properties_by_path[path]
         for source, path in zip(sources, source_paths, strict=True)
     }
     items_by_event: dict[str, Any] = {}
@@ -4658,6 +4701,20 @@ def _construct(
     _effect_observed(
         state, row, {"paths": sorted(media_by_path), "mediaUids": media_uids}
     )
+    still_source_ids = {
+        event["sourceId"]
+        for event in view["events"]
+        if source_by_id[event["sourceId"]]["kind"] in {"still", "placeholder"}
+        or event.get("kind") in {"still", "placeholder"}
+    }
+    for source_id in still_source_ids:
+        _native_append_source_range(
+            0,
+            1,
+            media_properties_by_source[source_id].get("FPS"),
+            manifest["timeline"]["frameRate"],
+            still=True,
+        )
     track_ids: dict[str, dict[str, Any]] = {}
     for track in view["tracks"]:
         _identity(track["id"])
@@ -4719,6 +4776,14 @@ def _construct(
             "still",
             "placeholder",
         }
+        append_source_start, append_source_end = _native_append_source_range(
+            source_start,
+            duration,
+            media_properties_by_source[event["sourceId"]].get("FPS"),
+            manifest["timeline"]["frameRate"],
+            still=still,
+        )
+        append_source_duration = append_source_end - append_source_start
         marked = False
         if still:
             row = _private_effect(
@@ -4726,25 +4791,24 @@ def _construct(
                 "MediaPoolItem.SetMarkInOut",
                 {
                     "sourceId": event["sourceId"],
-                    "start": source_start,
-                    "end": source_start + duration,
+                    "start": append_source_start,
+                    "end": append_source_end,
                     "mediaType": "video",
                 },
             )
             marked_ok = media.SetMarkInOut(
-                source_start, source_start + duration, "video"
+                append_source_start, append_source_end, "video"
             )
             _require(marked_ok is True, "still source mark range was refused")
             marked = True
             _effect_observed(state, row, {"return": marked_ok})
         append_row: dict[str, Any] | None = None
         try:
-            # The pinned 21.1.1/10 workflow uses zero still compensation; readback
-            # below must prove the authored duration before this stage completes.
+            # Resolve's exclusive endFrame is in the imported source frame domain.
             info = {
                 "mediaPoolItem": media,
-                "startFrame": source_start,
-                "endFrame": source_start + duration,
+                "startFrame": append_source_start,
+                "endFrame": append_source_end,
                 "mediaType": 2 if track["kind"] == "audio" else 1,
                 "trackIndex": track["index"],
                 "recordFrame": record["startFrame"],
@@ -4757,8 +4821,8 @@ def _construct(
                     "sourceId": event["sourceId"],
                     "trackId": event["trackId"],
                     "recordFrame": record["startFrame"],
-                    "sourceStart": source_start,
-                    "sourceDuration": duration,
+                    "sourceStart": append_source_start,
+                    "sourceDuration": append_source_duration,
                 },
             )
             placed = pool.AppendToTimeline([info])
