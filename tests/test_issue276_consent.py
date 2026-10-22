@@ -501,3 +501,36 @@ def test_agent_issuance_refuses_a_session_hash_mismatch_before_publish(
 
     assert not approval_path.exists()
     assert not approval_path.with_name(approval_path.name + ".issuance.json").exists()
+
+
+@pytest.mark.parametrize("sidecar_kind", ["file", "dangling_symlink"])
+def test_agent_issuance_refuses_existing_sidecar_without_overwriting_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, sidecar_kind: str
+) -> None:
+    _controller, session_path, session_sha256, _release_manifest = _case(
+        tmp_path, monkeypatch
+    )
+    plan_path = _plan(_controller, tmp_path / "operator-plan.json")
+    output_dir = _approval_dir(tmp_path)
+    approval_path = output_dir / "approval.json"
+    issuance_path = approval_path.with_name(approval_path.name + ".issuance.json")
+    if sidecar_kind == "file":
+        issuance_path.write_bytes(b"retained issuance record")
+        issuance_path.chmod(0o400)
+        retained = issuance_path.read_bytes()
+    else:
+        issuance_path.symlink_to(output_dir / "missing-record.json")
+        retained = issuance_path.readlink()
+
+    with pytest.raises(
+        OutputConsistencyError,
+        match="new private operator approval destination required",
+    ):
+        _issue(plan_path, approval_path, session_path, session_sha256)
+
+    assert not approval_path.exists()
+    if sidecar_kind == "file":
+        assert issuance_path.read_bytes() == retained
+    else:
+        assert issuance_path.is_symlink()
+        assert issuance_path.readlink() == retained

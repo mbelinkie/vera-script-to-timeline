@@ -835,8 +835,11 @@ def issue_operator_approval(
         "operator identity differs from local actor",
     )
     _safe(output_path)
+    issuance_path = output_path.with_name(output_path.name + ".issuance.json")
     _require(
         not output_path.exists()
+        and not issuance_path.exists()
+        and not issuance_path.is_symlink()
         and output_path.parent.is_dir()
         and output_path.parent.stat().st_uid == os.getuid()
         and output_path.parent.stat().st_mode & 0o077 == 0,
@@ -932,7 +935,7 @@ def issue_operator_approval(
     )
     if agent_issued:
         _publish(
-            output_path.with_name(output_path.name + ".issuance.json"),
+            issuance_path,
             _canonical(
                 {
                     "schemaVersion": "qualification-output-agent-issuance/v1",
