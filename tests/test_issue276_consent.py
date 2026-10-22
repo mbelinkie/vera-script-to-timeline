@@ -98,8 +98,11 @@ def _case(
 
 def _plan(controller: Any, path: Path, *, retry: bool = False) -> Path:
     if retry:
-        return controller.prepare_render_retry_plan(path)
-    return controller.prepare_operator_plan(path)
+        result = controller.prepare_render_retry_plan(path)
+    else:
+        result = controller.prepare_operator_plan(path)
+    assert isinstance(result, Path)
+    return result
 
 
 def _write_plan(path: Path, mutate: Any) -> None:
@@ -119,7 +122,7 @@ def _issue(
     reference: str = CONSENT_REFERENCE,
     instruction: str = CONSENT_INSTRUCTION,
 ) -> Path:
-    return controller_module.issue_operator_approval(
+    result = controller_module.issue_operator_approval(
         plan_path,
         output_path,
         session_path=session_path,
@@ -127,6 +130,8 @@ def _issue(
         consent_reference=reference,
         consent_instruction=instruction,
     )
+    assert isinstance(result, Path)
+    return result
 
 
 def _approval_dir(tmp_path: Path) -> Path:
@@ -148,7 +153,7 @@ def _assert_issued(
     consent_reference: str = CONSENT_REFERENCE,
 ) -> dict[str, Any]:
     raw = approval_path.read_bytes()
-    approval = native.verify_operator_approval(
+    approval: dict[str, Any] = native.verify_operator_approval(
         raw,
         context=controller.context,
         profile=controller.admission.profile,
@@ -466,16 +471,19 @@ def test_agent_issuance_rejects_empty_attribution_fields(
     plan_path = _plan(controller, tmp_path / "operator-plan.json")
     output_dir = _approval_dir(tmp_path)
     approval_path = output_dir / "approval.json"
-    fields = {
-        "session_path": session_path,
-        "session_sha256": session_sha256,
-        "consent_reference": CONSENT_REFERENCE,
-        "consent_instruction": CONSENT_INSTRUCTION,
-    }
-    fields[field] = "  "
-
     with pytest.raises(OutputConsistencyError, match="agent issuance"):
-        controller_module.issue_operator_approval(plan_path, approval_path, **fields)
+        controller_module.issue_operator_approval(
+            plan_path,
+            approval_path,
+            session_path=session_path,
+            session_sha256=session_sha256,
+            consent_reference=(
+                "  " if field == "consent_reference" else CONSENT_REFERENCE
+            ),
+            consent_instruction=(
+                "  " if field == "consent_instruction" else CONSENT_INSTRUCTION
+            ),
+        )
 
     assert not approval_path.exists()
     assert not approval_path.with_name(approval_path.name + ".issuance.json").exists()
@@ -514,13 +522,15 @@ def test_agent_issuance_refuses_existing_sidecar_without_overwriting_it(
     output_dir = _approval_dir(tmp_path)
     approval_path = output_dir / "approval.json"
     issuance_path = approval_path.with_name(approval_path.name + ".issuance.json")
+    retained_bytes: bytes | None = None
+    retained_target: Path | None = None
     if sidecar_kind == "file":
         issuance_path.write_bytes(b"retained issuance record")
         issuance_path.chmod(0o400)
-        retained = issuance_path.read_bytes()
+        retained_bytes = issuance_path.read_bytes()
     else:
         issuance_path.symlink_to(output_dir / "missing-record.json")
-        retained = issuance_path.readlink()
+        retained_target = issuance_path.readlink()
 
     with pytest.raises(
         OutputConsistencyError,
@@ -530,7 +540,9 @@ def test_agent_issuance_refuses_existing_sidecar_without_overwriting_it(
 
     assert not approval_path.exists()
     if sidecar_kind == "file":
-        assert issuance_path.read_bytes() == retained
+        assert retained_bytes is not None
+        assert issuance_path.read_bytes() == retained_bytes
     else:
         assert issuance_path.is_symlink()
-        assert issuance_path.readlink() == retained
+        assert retained_target is not None
+        assert issuance_path.readlink() == retained_target
