@@ -12,9 +12,9 @@ result. An uncertain, refused, incomplete, or otherwise unverified result does
 not qualify. If the retry also fails, the binding is terminal.
 
 The retry proposal pins the existing session and target and gives the retry a
-new output path ending in `-retry-1.mov`. Keep the original output and all
-retained records. Review the retry plan's target UIDs, release, inputs, output
-path, and finite action list before issuing fresh authority.
+deterministic new output path ending in `-retry-1.mov`. Keep the original output
+and all retained records. Review the retry plan's target UIDs, release, inputs,
+output path, and finite action list before issuing fresh authority.
 
 From the repository root, ingest the original failed poll result using the
 result path and raw SHA256 printed by the installed script:
@@ -27,13 +27,24 @@ uv run --frozen python -m vera_timeline_agent.workflow_v2_cli output-ingest \
   --result-sha256 "$FAILED_POLL_SHA256"
 ```
 
-Prepare a fresh retry proposal, then issue its approval in an attended
-terminal. The approval command displays the exact proposal and asks the local
-operator to type its hash challenge; an agent must not answer that challenge.
-For explicitly authorized agent operation, the existing
-[#209 operator flow](../issue-209/OPERATOR_STAGES.md) also permits retaining
-the actual chat authorization with the exact target and finite plan; that
-route does not claim an attended terminal challenge.
+Prepare a fresh retry proposal. By default, `output-authorize` displays the
+exact proposal and asks the local operator to type its hash challenge in an
+attended terminal. That human challenge remains available as-is. For the
+instructed-agent path, the trusted local agent must have received the Producer's
+actual explicit authorization for this bounded run; the reference and
+instruction fields below record attribution but do not authenticate a
+transcript or create permission. The existing
+[#209 operator flow](../issue-209/OPERATOR_STAGES.md) describes the trust
+boundary and issuance record. The agent route reloads the exact current
+session, checks the pinned target, inputs, release and context plus the
+deterministic retry output path, and starts the fresh 30-minute native window
+at issuance. It emits an immutable approval and a matching
+`retry-approval.json.issuance.json` sidecar with the issuance mode, scope and
+hashes. The same consent may cover an eligible in-scope replan and this
+permitted retry without another human hash challenge; a changed product,
+privacy, money or production scope needs new consent. This VERA authorization
+does not add spending, upload or private-data permission and does not satisfy or
+disable external tool approval requirements.
 
 ```sh
 uv run --frozen python -m vera_timeline_agent.workflow_v2_cli output-retry-plan \
@@ -44,6 +55,20 @@ uv run --frozen python -m vera_timeline_agent.workflow_v2_cli output-retry-plan 
 uv run --frozen python -m vera_timeline_agent.workflow_v2_cli output-authorize \
   --plan "$SESSION/retry-plan.json" \
   --output "$SESSION/retry-approval.json"
+```
+
+For agent issuance after receiving the actual explicit instruction, set
+`CONSENT_REFERENCE` to its reference and `CONSENT_INSTRUCTION` to its actual
+text, then supply the complete pinned session:
+
+```sh
+uv run --frozen python -m vera_timeline_agent.workflow_v2_cli output-authorize \
+  --plan "$SESSION/retry-plan.json" \
+  --output "$SESSION/retry-approval.json" \
+  --session "$SESSION" \
+  --session-sha256 "$SESSION_SHA256" \
+  --agent-consent-reference "$CONSENT_REFERENCE" \
+  --agent-consent-instruction "$CONSENT_INSTRUCTION"
 ```
 
 Prepare the read-only `retry_capture` request with the fresh approval:
