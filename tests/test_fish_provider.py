@@ -216,7 +216,8 @@ def test_partial_call_is_not_published_or_reissued_after_restart(
         assert not plan.cached
     assert len(calls) == 1
     assert not list((cache.root / "synthesis").iterdir())
-    retained = cache.read("quarantine", plan.request_hash[7:], "response.json")
+    response_key = next((cache.root / "quarantine").iterdir()).name
+    retained = cache.read("quarantine", response_key, "response.json")
     assert retained is not None
     assert retained.files["provider-response.sse"] == b'data: {"audio_base64":'
 
@@ -323,7 +324,8 @@ def test_bad_complete_response_is_retained_and_valid_response_can_decode_offline
     plan = service.plan_block(row)
     with pytest.raises(FishError, match="phrase"):
         service._raw_result(request("Hello world"), plan.request_hash[7:])
-    retained = service.cache.read("quarantine", plan.request_hash[7:], "response.json")
+    response_key = next((service.cache.root / "quarantine").iterdir()).name
+    retained = service.cache.read("quarantine", response_key, "response.json")
     assert retained is not None
     assert retained.files["provider-response.sse"] == bad
     assert (
@@ -374,3 +376,29 @@ def test_document_stops_rejected_calls_and_keeps_failed_placeholders(
         asset.status == "failed" and asset.duration_samples > 0 for asset in assets
     )
     assert not list((service.cache.root / "attempts").iterdir())
+
+
+def test_reconciled_retry_retains_each_distinct_failed_response(tmp_path: Path) -> None:
+    replies = iter([b'data: {"first":1}\n\n', b'data: {"second":2}\n\n'])
+    service = NarrationService(
+        cache=NarrationCache(tmp_path),
+        provider=FishProvider(transport=lambda payload, model: [next(replies)]),
+        normalizer=Normalizer(),
+        config=config(),
+    )
+    row = {"id": "row", "version": 1, "text": "Hello"}
+    key = service.plan_block(row).request_hash[7:]
+    with pytest.raises(FishError):
+        service._raw_result(request("Hello"), key)
+    # Simulate explicit operator reconciliation in this disposable cache only.
+    service.cache.discard_rejected_attempt(key)
+    with pytest.raises(FishError):
+        service._raw_result(request("Hello"), key)
+    entries = [
+        service.cache.read("quarantine", p.name, "response.json")
+        for p in (service.cache.root / "quarantine").iterdir()
+    ]
+    assert len(entries) == 2
+    assert all(
+        entry is not None and entry.metadata["synthesisKey"] == key for entry in entries
+    )

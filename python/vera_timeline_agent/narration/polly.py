@@ -310,12 +310,17 @@ class PollyProvider:
             return self._client
         try:
             import boto3  # type: ignore[import-untyped]
+            from botocore.config import Config  # type: ignore[import-untyped]
 
             session = boto3.Session(region_name=region)
             credentials = session.get_credentials()
             if credentials is None:
                 raise PollyError("AWS credentials are unavailable")
-            return session.client("polly", region_name=region)
+            return session.client(
+                "polly",
+                region_name=region,
+                config=Config(retries={"total_max_attempts": 1, "mode": "standard"}),
+            )
         except PollyError:
             raise
         except Exception as error:
@@ -374,6 +379,7 @@ class PollyProvider:
             rejected = (
                 not audio_accepted
                 and isinstance(metadata, dict)
+                and metadata.get("RetryAttempts", 0) == 0
                 and metadata.get("HTTPStatusCode") in {400, 401, 403, 404, 429}
             )
             raise PollyError(

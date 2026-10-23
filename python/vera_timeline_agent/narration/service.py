@@ -227,14 +227,27 @@ class NarrationService:
                 result = self.provider.synthesize(request)
             except SpeechProviderError as error:
                 if error.response_files:
+                    response_key = _bare_hash(
+                        identity_hash(
+                            {
+                                "synthesisKey": synthesis_key,
+                                "failureReason": str(error),
+                                "files": {
+                                    name: sha256_bytes(data)
+                                    for name, data in error.response_files.items()
+                                },
+                            }
+                        )
+                    )
                     self.cache.publish(
                         "quarantine",
-                        synthesis_key,
+                        response_key,
                         error.response_files,
                         "response.json",
                         {
                             "recordVersion": "provider-response-quarantine/v1",
                             "failureReason": str(error),
+                            "synthesisKey": synthesis_key,
                         },
                     )
                 if error.request_rejected:
