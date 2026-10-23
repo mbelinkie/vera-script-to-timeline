@@ -430,6 +430,120 @@ describe("Issue 191 v2 accepted omission", () => {
     expect(() => applyAcceptedOmissionV2(input, editFor(input))).toThrow(/joining-gap/);
   });
 
+  it("removes the exact sentence-opening Secondly marker and refreshes the surviving before-the anchors", () => {
+    const row = rowWith(["2023", "Secondly", "the", "song", "sounded"], [". ", ", ", " ", " "]);
+    row.primaryVisualSequence!.slots.push({
+      id: id(90),
+      kind: "content",
+      relation: { kind: "sequential" },
+      boundaryBefore: { kind: "spoken_word", anchor: wordAnchor(row, 2, "before") as WordInpointAnchor },
+      payload: visualPayload(91),
+      playoutPolicy: "match_structural_interval",
+      version: 1,
+    });
+    row.annotations = [{
+      id: id(92),
+      kind: "performance_note",
+      range: textRange(row, 2, 4),
+      value: "keep the surviving phrase connected",
+      includeInPrompter: true,
+      version: 1,
+    }];
+    row.overlayEvents.push({
+      id: id(95),
+      payload: visualPayload(96) as Extract<ContentSlot["payload"], { kind: "visual" }>,
+      timing: { kind: "timed", start: pointAnchor(row, 2), end: pointAnchor(row, 4) },
+      version: 1,
+    });
+    const supportingPoint: SupportingItemV2 = {
+      id: id(97),
+      version: 1,
+      orderKey: "support-discourse-marker",
+      role: "reference",
+      content: "retained before-the word anchor",
+      placement: { kind: "point", anchor: pointAnchor(row, 2) },
+    };
+    const input = documentWith(row, [supportingPoint]);
+    const original = canonicalJson(input);
+    const result = applyAcceptedOmissionV2(input, editFor(input, [1]));
+    const revised = result.document.activeDraft.blocks[0]!;
+    if (revised.type !== "narration") throw new Error("missing revised row");
+
+    expect(revised.text).toBe("2023. The song sounded");
+    expect(revised.tokens.map((token) => [token.id, token.value, token.startOffset, token.endOffset])).toEqual([
+      [id(100), "2023", 0, 4],
+      [id(102), "The", 6, 9],
+      [id(103), "song", 10, 14],
+      [id(104), "sounded", 15, 22],
+    ]);
+    const visualSequence = revised.primaryVisualSequence!;
+    expect(visualSequence.version).toBe(2);
+    const slot = visualSequence.slots[1]!;
+    if (slot.kind !== "content" || slot.boundaryBefore.kind !== "spoken_word") {
+      throw new Error("missing before-the visual anchor");
+    }
+    expect(slot.version).toBe(2);
+    expect(slot.boundaryBefore.anchor).toEqual({
+      blockId: row.id,
+      tokenId: id(102),
+      affinity: "before",
+      quotedWord: "The",
+      anchorVersion: 2,
+    });
+    expect(revised.annotations?.[0]?.range).toEqual({
+      ...row.annotations?.[0]?.range,
+      quotedText: "The song sounded",
+      anchorVersion: 2,
+    });
+    expect(revised.annotations?.[0]?.version).toBe(2);
+    const revisedEvent = revised.overlayEvents[0]!;
+    expect(revisedEvent.version).toBe(2);
+    if (revisedEvent.timing.kind !== "timed" || revisedEvent.timing.start?.kind !== "word") {
+      throw new Error("missing timed before-the word anchor");
+    }
+    expect(revisedEvent.timing.start.anchor.quotedWord).toBe("The");
+    const revisedSupport = result.document.activeDraft.supportingItems[0]!;
+    expect(revisedSupport.version).toBe(2);
+    if (revisedSupport.placement.kind !== "point" || revisedSupport.placement.anchor.kind !== "word") {
+      throw new Error("missing supporting before-the word anchor");
+    }
+    expect(revisedSupport.placement.anchor.anchor.quotedWord).toBe("The");
+    expect(validateScriptDocumentV2(result.document).valid).toBe(true);
+    expect(canonicalJson(input)).toBe(original);
+  });
+
+  it.each([
+    ["another marker", ["2023", "Thirdly", "the", "song"], [". ", ", ", " "]],
+    ["different preceding punctuation", ["2023", "Secondly", "the", "song"], ["! ", ", ", " "]],
+    ["different following punctuation", ["2023", "Secondly", "the", "song"], [". ", "; ", " "]],
+    ["punctuation attached to marker", ["2023", "Secondly,", "the", "song"], [". ", " ", " "]],
+  ])("keeps refusing the sentence-opening exception for %s", (_name, values, separators) => {
+    const input = documentWith(rowWith(values, separators));
+    expect(() => applyAcceptedOmissionV2(input, editFor(input, [1]))).toThrow(/joining-gap/);
+  });
+
+  it("refuses Unicode initials whose uppercase form could expand", () => {
+    const input = documentWith(rowWith(["2023", "Secondly", "ßeta", "song"], [". ", ", ", " "]));
+    expect(() => applyAcceptedOmissionV2(input, editFor(input, [1]))).toThrow(/ASCII/);
+  });
+
+  it("still refuses the discourse marker when it is an authored anchor word", () => {
+    const row = rowWith(["2023", "Secondly", "the", "song"], [". ", ", ", " "]);
+    row.primaryVisualSequence!.slots.push({
+      id: id(93),
+      kind: "content",
+      relation: { kind: "sequential" },
+      boundaryBefore: { kind: "spoken_word", anchor: wordAnchor(row, 1, "before") as WordInpointAnchor },
+      payload: visualPayload(94),
+      playoutPolicy: "match_structural_interval",
+      version: 1,
+    });
+    const input = documentWith(row);
+    const original = canonicalJson(input);
+    expect(() => applyAcceptedOmissionV2(input, editFor(input, [1]))).toThrow(/removed/);
+    expect(canonicalJson(input)).toBe(original);
+  });
+
   it("joins a comma-delimited single-word parenthetical with exactly one comma", () => {
     const input = documentWith(rowWith(["Alpha", "Bravo", "Charlie", "Delta", "Echo"], [" ", ", ", ", ", " "]));
     const revised = applyAcceptedOmissionV2(input, editFor(input)).document.activeDraft.blocks[0] as NarrationBlockV2;

@@ -375,19 +375,22 @@ def test_load_reopens_verified_cache_without_running_toolchain(
         "events": [],
     }
     empty = b"{}"
+    document = _canonical({"activeDraft": {"blocks": []}})
+    report: dict[str, Any] = {"diagnostics": [], "recoveryActions": []}
+    report_raw = _canonical(report)
     admission = package._finish_admission(
         output,
         profile=package.SYNTHETIC_PROFILE,
         disposition="verified_synthetic",
         creative_qualification="qualified_synthetic_only",
-        original_document=empty,
+        original_document=document,
         original_dependencies=empty,
-        execution_document=empty,
+        execution_document=document,
         execution_dependencies=empty,
         manifest={"events": []},
         manifest_raw=_canonical({"events": []}),
-        report={},
-        report_raw=empty,
+        report=report,
+        report_raw=report_raw,
         compiler_runs=(empty, empty),
         view=view,
         view_raw=_canonical(view),

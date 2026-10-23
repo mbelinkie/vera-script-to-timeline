@@ -28,6 +28,10 @@ from referencing import Registry, Resource
 
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
 from vera_timeline_agent.placeholder_slate import render_placeholder_slate
+from vera_timeline_agent.qualification_output_records_v2 import (
+    OutputConsistencyError,
+    validate_temporary_presenter_report,
+)
 from vera_timeline_agent.source_audio_endpoint import endpoint_plan, endpoint_wav
 
 BUILD_DIRECTORY = "Builds"
@@ -53,6 +57,11 @@ _V2_SCHEMA_FILES = (
 )
 
 JsonObject = dict[str, Any]
+
+_TEMPORARY_PRESENTER_EVENT_MESSAGE = (
+    "Temporary presenter still requires manual replacement when an accepted "
+    "presenter source is available."
+)
 
 
 class V2PackageError(RuntimeError):
@@ -125,7 +134,7 @@ def _canonical_json(value: object) -> bytes:
 
 
 def _compiler_hash(value: object) -> str:
-    """Match compiler-core.ts canonical JSON for the frozen integer-only schemas."""
+    """Match compiler-core JSON for safe integers and approved source-audio gain."""
     text = (
         json.dumps(
             _compiler_json_values(value),
@@ -144,12 +153,17 @@ def _compiler_hash(value: object) -> str:
     return _hash_bytes(text.encode("utf-8"))
 
 
-def _compiler_json_values(value: object) -> object:
+def _compiler_json_values(value: object, *, key: str | None = None) -> object:
     if isinstance(value, dict):
-        return {key: _compiler_json_values(nested) for key, nested in value.items()}
+        return {
+            name: _compiler_json_values(nested, key=name)
+            for name, nested in value.items()
+        }
     if isinstance(value, list):
         return [_compiler_json_values(nested) for nested in value]
     if isinstance(value, float):
+        if key in {"fullGainDb", "gainDb"} and value == -0.1:
+            return value
         if not math.isfinite(value) or not value.is_integer() or abs(value) > _MAX_SAFE:
             raise _error("compiler hash input is not a schema-supported safe integer")
         return int(value)
@@ -575,20 +589,33 @@ def _validate_inputs(
     if manifest.get("authoringDefaults") != dependencies.get("authoringDefaults"):
         raise _error("manifest authoring defaults differ from compiler dependencies")
 
+    temporary_presenter_events = _validate_temporary_presenter_report(
+        document, manifest, report
+    )
     readiness = cast(JsonObject, report.get("readiness"))
     if (
         report.get("status") != "ready"
         or readiness.get("preview") != "ready"
         or readiness.get("release") != "ready"
         or readiness.get("blockingIssueIds") != []
-        or report.get("diagnostics") != []
         or report.get("migrationIssues") != []
-        or report.get("recoveryActions") != []
     ):
         raise _error("only a fully ready v2 report can be packaged")
 
     _validate_manifest_semantics(document, dependencies, manifest)
-    _validate_report_semantics(manifest, report, dependencies)
+    _validate_report_semantics(
+        manifest, report, dependencies, temporary_presenter_events
+    )
+
+
+def _validate_temporary_presenter_report(
+    document: JsonObject, manifest: JsonObject, report: JsonObject
+) -> set[str]:
+    """Translate the shared stdlib warning check into a package refusal."""
+    try:
+        return validate_temporary_presenter_report(document, manifest, report)
+    except OutputConsistencyError as error:
+        raise _error(str(error)) from error
 
 
 def narration_ceiling_frames(samples: int, sample_rate: int, rate: Fraction) -> int:
@@ -1016,7 +1043,10 @@ def _validate_manifest_semantics(
 
 
 def _validate_report_semantics(
-    manifest: JsonObject, report: JsonObject, dependencies: JsonObject
+    manifest: JsonObject,
+    report: JsonObject,
+    dependencies: JsonObject,
+    temporary_presenter_events: set[str],
 ) -> None:
     events = _unique_by_id(manifest.get("events"), "manifest event", "eventId")
     results = _unique_by_id(report.get("eventResults"), "report event", "eventId")
@@ -1024,15 +1054,23 @@ def _validate_report_semantics(
         raise _error(
             "build report event results do not cover the exact manifest event set"
         )
+    diagnostics = cast(list[JsonObject], report.get("diagnostics"))
+    manual_completion_count = len(temporary_presenter_events)
     for event_id, event in events.items():
         result = results[event_id]
         provenance = cast(JsonObject, event["provenance"])
+        temporary_presenter = event_id in temporary_presenter_events
         if (
             result.get("kind") != event.get("kind")
             or result.get("trackId") != event.get("trackId")
             or result.get("recordRange") != event.get("recordRange")
             or result.get("sourceId") != provenance.get("sourceId")
-            or result.get("disposition") != "placed"
+            or result.get("disposition")
+            != ("manual_completion" if temporary_presenter else "placed")
+            or (
+                temporary_presenter
+                and result.get("message") != _TEMPORARY_PRESENTER_EVENT_MESSAGE
+            )
         ):
             raise _error(
                 f"build report event result does not exactly cover event {event_id}"
@@ -1074,9 +1112,11 @@ def _validate_report_semantics(
     summary = cast(JsonObject, report.get("summary"))
     if (
         summary.get("eventCount") != len(events)
-        or summary.get("placedCount") != len(events)
+        or summary.get("placedCount") != len(events) - manual_completion_count
         or summary.get("blockedCount") != 0
-        or summary.get("diagnosticCount") != 0
+        or summary.get("diagnosticCount") != len(diagnostics)
+        or summary.get("manualCompletionCount") != manual_completion_count
+        or summary.get("recoveryActionCount") != len(report["recoveryActions"])
     ):
         raise _error("build report summary does not describe every event as placed")
 

@@ -31,7 +31,12 @@ from typing import Any
 from urllib.parse import unquote, urlparse
 
 from . import v2_package
-from .qualification_output_records_v2 import _canonical, _parse
+from .qualification_output_records_v2 import (
+    OutputConsistencyError,
+    _canonical,
+    _parse,
+    validate_temporary_presenter_report,
+)
 from .qualification_output_v2 import SourceProof
 from .roundtrip_build import ProofBuildError
 from .roundtrip_v2_audio import (
@@ -3969,8 +3974,8 @@ def _admit_synthetic(
         compiler_runs=(first, first),
         view=view,
         view_raw=view_raw,
-        diagnostics=[],
-        recoveries=[],
+        diagnostics=copy.deepcopy(report["diagnostics"]),
+        recoveries=copy.deepcopy(report["recoveryActions"]),
         preflight_raw=preflight,
         preparation_raw=preparation,
         source_entries=entries,
@@ -4103,6 +4108,26 @@ def _load_verified_admission_cache(
     view = _json(retained["Delivery/delivery-view.json"], "delivery view")
     compile_one = _json(retained["Compiler/compile-1.json"], "compile-1")
     compile_two = _json(retained["Compiler/compile-2.json"], "compile-2")
+    if record["profile"] in _PUBLIC_PROFILES:
+        report_diagnostics = report.get("diagnostics")
+        report_recoveries = report.get("recoveryActions")
+        _need(
+            type(report_diagnostics) is list
+            and type(report_recoveries) is list
+            and record["diagnostics"] == report_diagnostics
+            and record["recoveryActions"] == report_recoveries,
+            "public admission diagnostic rows differ from the full report",
+        )
+        if record["profile"] == SYNTHETIC_PROFILE:
+            _need(
+                report_diagnostics == [] and report_recoveries == [],
+                "ordinary synthetic package diagnostics refuse",
+            )
+        else:
+            try:
+                validate_temporary_presenter_report(document, manifest, report)
+            except OutputConsistencyError as error:
+                raise QualificationPackageError(str(error)) from error
     if record["profile"] == R16_PROFILE:
         _validate_r16_duration(manifest)
         _need(compile_one == compile_two, "retained compiler runs differ")

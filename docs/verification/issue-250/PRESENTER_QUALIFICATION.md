@@ -93,3 +93,22 @@ fast run encountered seven existing target-identity clock-uncertainty refusals;
 all 86 tests in that file pass on the focused rerun. The final integrated
 non-slow rerun passes all 1198 tests in 177.60 seconds. TypeScript, lint and
 types also pass. The current GitHub Actions gate remains required before merge.
+
+## Amendment — 2026-10-21 (#145)
+
+The statement above records #250's original result: the ordinary package lane
+then refused `TEMPORARY_PRESENTER_STILL`, while #250 used its fixed current-
+Presenter qualification profile. #145 now allows the public Studio Matrix lane
+to carry only the exact compiler warning for an active on-camera slot whose
+manifest contains its matching concrete placeholder/still event. Its canonical
+diagnostic, replacement recovery action and manual-completion rows remain in
+the hashed report and admission and are rechecked by native admission and cache
+reopen. The Matrix result keeps its existing
+`verified_matrix_inputs` / `unqualified_studio_matrix` labels; this does not
+claim creative acceptance of the temporary still.
+
+Synthetic packages still require empty diagnostics and recovery actions.
+Errors, other warnings, missing or mismatched still events, forged warning
+rows, and noncanonical recovery or completion records remain refused. The
+fixed #209 R16 and #250 Presenter checks and their original qualification
+claims are unchanged.

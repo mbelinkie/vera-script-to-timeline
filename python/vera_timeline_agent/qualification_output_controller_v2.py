@@ -1287,18 +1287,23 @@ class QualificationOutputController:
                 "rebuild requires the accepted revised preflight",
             )
             assert revised_preflight is not None
-            revision = verify_revised_preflight_v2(*revised_preflight)
             from .qualification_output_proof_v2 import (
-                verify_revised_rebuild_reservation_v2,
+                _verify_revised_preflight_with_proof_v2,
+                _verify_revised_rebuild_reservation_for_proof_v2,
             )
 
-            verify_revised_rebuild_reservation_v2(
+            revision, proof = _verify_revised_preflight_with_proof_v2(
+                *revised_preflight
+            )
+            proof._current()
+            _verify_revised_rebuild_reservation_for_proof_v2(
                 revision,
                 revised_preflight[1],
                 admission_path=admission.admission_path,
                 target=target,
                 case_id=case_id,
                 invocation_id=invocation_id,
+                proof=proof,
             )
         else:
             _require(revised_preflight is None, "revised proof requires rebuild phase")
@@ -1390,18 +1395,23 @@ class QualificationOutputController:
     def _environment_current(self) -> None:
         self.admission.assert_current()
         if self.revised_preflight is not None:
-            revision = verify_revised_preflight_v2(*self.revised_preflight)
             from .qualification_output_proof_v2 import (
-                verify_revised_rebuild_reservation_v2,
+                _verify_revised_preflight_with_proof_v2,
+                _verify_revised_rebuild_reservation_for_proof_v2,
             )
 
-            verify_revised_rebuild_reservation_v2(
+            revision, proof = _verify_revised_preflight_with_proof_v2(
+                *self.revised_preflight
+            )
+            proof._current()
+            _verify_revised_rebuild_reservation_for_proof_v2(
                 revision,
                 self.revised_preflight[1],
                 admission_path=self.admission.admission_path,
                 target=self.context["target"],
                 case_id=self.context["caseId"],
                 invocation_id=self.context["invocationId"],
+                proof=proof,
             )
         from .roundtrip_v2_records import proof_source_hashes_v2
 

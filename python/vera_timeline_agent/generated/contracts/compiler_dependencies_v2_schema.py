@@ -41,7 +41,7 @@ class FrameRangeV2(TypedDict):
 class SourceAudioLevelPolicy(TypedDict):
     version: NonEmptyString
     quietGainDb: Literal[-18]
-    fullGainDb: Literal[0]
+    fullGainDb: Literal[0] | float
 
 
 class TimelineSettingsV2(TypedDict):

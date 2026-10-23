@@ -359,7 +359,7 @@ export type SourceAudioEventV2 = {
 } & {
   audioPolicy: "quiet" | "full";
   levelPolicyVersion: string;
-  gainDb: -18 | 0;
+  gainDb: -18 | -0.1 | 0;
   streamIndex: number;
   audioHash: string;
   sampleRange: FrameRangeV2;
@@ -927,7 +927,7 @@ export interface AuthoringDefaultsV2 {
   sourceAudioLevelPolicy: {
     version: string;
     quietGainDb: -18;
-    fullGainDb: 0;
+    fullGainDb: 0 | -0.1;
   };
 }
 export interface TimelineSettingsV2 {

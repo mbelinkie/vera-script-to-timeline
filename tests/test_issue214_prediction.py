@@ -101,7 +101,8 @@ def case(
     source_start: int = 0,
     rate: int = 48000,
     q_origin: int = 0,
-    gain: int = 0,
+    gain: int | float = 0,
+    audio_policy: str | None = None,
     silent: bool = False,
     native_origin: int = 0,
     pcm_origin: int = 0,
@@ -192,7 +193,7 @@ def case(
                     }
                 },
                 "audio": {
-                    "audioPolicy": "quiet" if gain == -18 else "full",
+                    "audioPolicy": audio_policy or ("quiet" if gain == -18 else "full"),
                     "gainDb": gain,
                     "streamIndex": 1,
                     "audioHash": "sha256:" + stream_hash,
@@ -581,12 +582,22 @@ def change_items(c: Case, items: list[dict[str, Any]]) -> None:
 
 @pytest.mark.parametrize("channels", [1, 2])
 @pytest.mark.parametrize(
-    "kind,gain", [("narration", 0), ("source_audio", 0), ("source_audio", -18)]
+    "kind,gain",
+    [
+        ("narration", 0),
+        ("source_audio", 0),
+        ("source_audio", -0.1),
+        ("source_audio", -18),
+    ],
 )
 def test_independent_exact_prediction_and_recomputation(
-    channels: int, kind: str, gain: int
+    channels: int, kind: str, gain: int | float
 ) -> None:
     c = case(channels=channels, kind=kind, gain=gain)
+    assert (
+        q.validate_prediction_intent(c.inputs, trust=c.trust)["sources"][0]["gainDb"]
+        == gain
+    )
     raw, receipt, pcm = committed(c)
     expected = b"".join(
         struct.pack(
@@ -909,9 +920,16 @@ def test_overlap_speed_order_unknown_items_and_no_policy_refuse() -> None:
         change_items(c, items)
         with pytest.raises(r.OutputConsistencyError):
             q.create_prediction(c.inputs, trust=c.trust, ledger=[])
-    c = case(kind="source_audio", gain=-9)
-    with pytest.raises(r.OutputConsistencyError, match="gain"):
-        q.create_prediction(c.inputs, trust=c.trust, ledger=[])
+    for policy, gain in [
+        ("full", -9),
+        ("full", -0.2),
+        ("quiet", -0.1),
+        ("quiet", 0),
+        ("full", -18),
+    ]:
+        c = case(kind="source_audio", gain=gain, audio_policy=policy)
+        with pytest.raises(r.OutputConsistencyError, match="gain"):
+            q.create_prediction(c.inputs, trust=c.trust, ledger=[])
 
 
 def test_static_compiler_no_and_narration_semantics_remain_pinned() -> None:

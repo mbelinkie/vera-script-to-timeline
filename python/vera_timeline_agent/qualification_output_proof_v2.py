@@ -118,10 +118,14 @@ def _retain(path: Path, raw: bytes) -> Json:
 
 
 @_refusal
-def _load_terminal_output(
+def _load_terminal_output_with_comparison(
     controller: QualificationOutputController,
-) -> output.TerminalOutput:
-    """Reopen one complete controller-owned result without rerendering/decoding."""
+) -> tuple[output.TerminalOutput, Json]:
+    """Load a terminal and retain the comparison verified during this load.
+
+    Recomputing #214 authenticates commitment, reservation, geometry, fixed
+    decode and terminal CAS ancestry against the entire current UID chain.
+    """
     _require(
         type(controller) is QualificationOutputController,
         "concrete output controller required",
@@ -178,25 +182,21 @@ def _load_terminal_output(
         _read(vault / comparison["comparisonReceiptSha256"]),
         ledger,
     )
-    output._terminal_comparison(result, controller.trust)
-    return result
+    comparison_result = output._terminal_comparison(result, controller.trust)
+    return result, comparison_result
 
 
 @_refusal
 def load_terminal_output(
     controller: QualificationOutputController,
 ) -> output.TerminalOutput:
-    """Reopen the result between exact pre/post environment checks.
-
-    Recomputing #214 authenticates commitment, reservation, geometry, fixed
-    decode and terminal CAS ancestry against the entire current UID chain.
-    """
+    """Reopen the result between exact pre/post environment checks."""
     _require(
         type(controller) is QualificationOutputController,
         "concrete output controller required",
     )
     controller._environment_current()
-    result = _load_terminal_output(controller)
+    result, _comparison = _load_terminal_output_with_comparison(controller)
     controller._environment_current()
     return result
 
@@ -348,8 +348,10 @@ class QualificationOutputProofV2:
         """
         self._current()
         _require(case_id in {"A", "B", "C"}, "supported isolated case required")
-        pristine = _load_terminal_output(self.baseline)
-        edited = _load_terminal_output(self.edited)
+        pristine, pristine_comparison = _load_terminal_output_with_comparison(
+            self.baseline
+        )
+        edited, edited_comparison = _load_terminal_output_with_comparison(self.edited)
         before, after = pristine.output, edited.output
         pair = None
         equality = None
@@ -372,8 +374,8 @@ class QualificationOutputProofV2:
                 "sampleCount": len(before.prediction) // 16,
             }
         else:
-            pair = output.compare_prediction_pair(
-                pristine, edited, trust=_PairTrust(self.baseline, self.edited)
+            pair = output._compare_prediction_pair_from_verified(
+                pristine, edited, pristine_comparison, edited_comparison
             )
         facts = self._pure({"mode": "baseline"})
         observation = {
@@ -585,7 +587,7 @@ class QualificationOutputProofV2:
             _retain(self.root / "inference-decision-receipt.json", receipt)
             return stage
 
-    def _accepted_inference(self) -> Json:
+    def _accepted_inference_with_evidence(self, evidence: Json) -> Json:
         raw = _read(self.root / "inference-decision.json")
         decision = _parse(raw)
         _require(
@@ -606,7 +608,7 @@ class QualificationOutputProofV2:
         stage = self._pure(
             {
                 "mode": "stage",
-                "evidence": self._evidence(),
+                "evidence": evidence,
                 "inferenceDecision": decision,
             }
         )
@@ -616,6 +618,9 @@ class QualificationOutputProofV2:
             "staged revision changed",
         )
         return decision
+
+    def _accepted_inference(self) -> Json:
+        return self._accepted_inference_with_evidence(self._evidence())
 
     def _stage(self) -> Json:
         """The staged revision; callers recompute it through _accepted_inference."""
@@ -933,7 +938,8 @@ class QualificationOutputProofV2:
 
     def accepted_revision(self) -> tuple[Json, Json]:
         """Recompute both decisions and all new canonical bytes before a build."""
-        inference_decision = self._accepted_inference()
+        evidence = self._evidence()
+        inference_decision = self._accepted_inference_with_evidence(evidence)
         ledger_raw = _read(self.root / "revision-ledger.json")
         ledger = _shape(
             _parse(ledger_raw),
@@ -974,10 +980,14 @@ class QualificationOutputProofV2:
         self._check_decision_claim(
             "revision", candidate["proposalHash"], _canonical(decision)
         )
+        _require(
+            _canonical(evidence) == _read(self.root / "evidence.json"),
+            "evidence changed during accepted revision",
+        )
         result = self._pure(
             {
                 "mode": "decide",
-                "evidence": self._evidence(),
+                "evidence": evidence,
                 "inferenceDecision": inference_decision,
                 "candidate": candidate,
                 "decision": decision,
@@ -1094,8 +1104,10 @@ class QualificationOutputProofV2:
 
 
 @_refusal
-def verify_revised_preflight_v2(path: Path, expected_sha256: str) -> Json:
-    """Static default-deny replacement; no legacy preflight or selected verifier."""
+def _verify_revised_preflight_with_proof_v2(
+    path: Path, expected_sha256: str
+) -> tuple[Json, QualificationOutputProofV2]:
+    """Return the validated proof for immediate same-operation reservation checks."""
     raw = _pinned({"path": str(path), "sha256": expected_sha256})
     record = _shape(
         _parse(raw),
@@ -1187,11 +1199,17 @@ def verify_revised_preflight_v2(path: Path, expected_sha256: str) -> Json:
         ),
         "fresh compiler build/manifest/report identities required",
     )
-    return copy.deepcopy(record)
+    return copy.deepcopy(record), proof
 
 
 @_refusal
-def verify_revised_rebuild_reservation_v2(
+def verify_revised_preflight_v2(path: Path, expected_sha256: str) -> Json:
+    """Static default-deny replacement; no legacy preflight or selected verifier."""
+    record, _proof = _verify_revised_preflight_with_proof_v2(path, expected_sha256)
+    return record
+
+
+def _verify_revised_rebuild_reservation_for_proof_v2(
     record: Json,
     preflight_sha256: str,
     *,
@@ -1199,10 +1217,36 @@ def verify_revised_rebuild_reservation_v2(
     target: Json,
     case_id: str,
     invocation_id: str,
+    proof: QualificationOutputProofV2,
 ) -> None:
-    """Reopened sessions cannot choose another target, invocation or admission."""
-    proof_pin = record["proofSession"]
-    proof = QualificationOutputProofV2(Path(proof_pin["path"]), proof_pin["sha256"])
+    """Check a reservation against the caller's freshly current proof object."""
+    _require(
+        record["proofSession"] == proof.session_pin,
+        "preflight proof differs from the current proof session",
+    )
+    _check_revised_rebuild_reservation_v2(
+        record,
+        preflight_sha256,
+        admission_path=admission_path,
+        target=target,
+        case_id=case_id,
+        invocation_id=invocation_id,
+        proof=proof,
+    )
+
+
+@_refusal
+def _check_revised_rebuild_reservation_v2(
+    record: Json,
+    preflight_sha256: str,
+    *,
+    admission_path: Path,
+    target: Json,
+    case_id: str,
+    invocation_id: str,
+    proof: QualificationOutputProofV2,
+) -> None:
+    """Validate reservation fields after the proof's currentness was checked."""
     _require(
         case_id == proof.baseline.context["caseId"]
         and target["timelineUid"] != proof.baseline.context["target"]["timelineUid"],
@@ -1226,6 +1270,30 @@ def verify_revised_rebuild_reservation_v2(
             "admission": _pin(admission_path),
         },
         "fresh rebuild reservation differs from this session",
+    )
+
+
+@_refusal
+def verify_revised_rebuild_reservation_v2(
+    record: Json,
+    preflight_sha256: str,
+    *,
+    admission_path: Path,
+    target: Json,
+    case_id: str,
+    invocation_id: str,
+) -> None:
+    """Reopened sessions cannot choose another target, invocation or admission."""
+    proof_pin = record["proofSession"]
+    proof = QualificationOutputProofV2(Path(proof_pin["path"]), proof_pin["sha256"])
+    _verify_revised_rebuild_reservation_for_proof_v2(
+        record,
+        preflight_sha256,
+        admission_path=admission_path,
+        target=target,
+        case_id=case_id,
+        invocation_id=invocation_id,
+        proof=proof,
     )
 
 

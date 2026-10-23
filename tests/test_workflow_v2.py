@@ -35,6 +35,8 @@ def _make_package(
     view_frame_rate: tuple[int, int] | None = None,
     return_frame: int | None = None,
     source_audio: bool = False,
+    source_audio_gain: int | float = -18,
+    source_audio_policy: str | None = None,
     source_audio_range_duration: int | None = None,
     picture_treatment: dict[str, Any] | None = None,
     marker_track_kind: str = "video",
@@ -169,9 +171,10 @@ def _make_package(
             "sourceTimeMapping": None,
             "preparationBindingHash": "sha256:" + "1" * 64,
             "audio": {
-                "audioPolicy": "quiet",
+                "audioPolicy": source_audio_policy
+                or ("quiet" if source_audio_gain == -18 else "full"),
                 "levelPolicyVersion": "source-audio-level/v1",
-                "gainDb": -18,
+                "gainDb": source_audio_gain,
                 "streamIndex": 0,
                 "audioHash": audio_hash,
                 "sampleRange": {"startFrame": 0, "endFrame": 4800},
@@ -200,7 +203,7 @@ def _make_package(
                     "durationFrames": source_audio_range_duration or 10,
                 },
                 "v2Event": audio_event,
-                "gainDb": -18,
+                "gainDb": source_audio_gain,
                 "pictureTreatment": None,
             }
         )
@@ -404,7 +407,7 @@ class _FakeAdapter:
         return self.verification_discrepancies
 
 
-def _native_audio_fixture(gain_db: int) -> tuple[Any, Any, dict[str, Any]]:
+def _native_audio_fixture(gain_db: int | float) -> tuple[Any, Any, dict[str, Any]]:
     class Media:
         def GetMediaId(self) -> str:
             return "media-id"
@@ -881,8 +884,40 @@ def test_native_source_audio_is_refused_before_adapter_creation(tmp_path: Path) 
     assert result["sourceAudioNativeQualified"] is False
 
 
-@pytest.mark.parametrize("gain_db", [-18, 0])
-def test_native_audio_adapter_writes_and_reads_back_policy_gain(gain_db: int) -> None:
+@pytest.mark.parametrize(
+    ("policy", "gain_db", "expected_status"),
+    [
+        ("full", -0.1, "preflight_passed"),
+        ("quiet", -0.1, "stopped_safely"),
+        ("full", -0.2, "stopped_safely"),
+    ],
+)
+def test_source_audio_preflight_allows_only_approved_headroom_pair(
+    tmp_path: Path,
+    policy: str,
+    gain_db: int | float,
+    expected_status: str,
+) -> None:
+    attestation, digest, _ = _make_package(
+        tmp_path,
+        source_audio=True,
+        source_audio_gain=gain_db,
+        source_audio_policy=policy,
+    )
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        adapter_factory=lambda _resolve: _FakeAdapter(),
+    )
+
+    assert result["status"] == expected_status
+
+
+@pytest.mark.parametrize("gain_db", [-18, -0.1, 0])
+def test_native_audio_adapter_writes_and_reads_back_policy_gain(
+    gain_db: int | float,
+) -> None:
     adapter, item, view = _native_audio_fixture(gain_db)
     event = view["events"][0]
 

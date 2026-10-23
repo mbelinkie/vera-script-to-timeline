@@ -17,6 +17,7 @@ const HASH_PATTERN = /^sha256:[0-9a-f]{64}$/u;
 const JOINING_GAP = /^[ \t\r\n]+$/u;
 const SENTENCE_PUNCTUATION = /[.!?]/u;
 const SENTENCE_END = /[.!?]$/u;
+const SENTENCE_OPENING_DISCOURSE_MARKERS = new Set(["Secondly"]);
 
 export interface AcceptedOmissionV2 {
   schemaVersion: "issue-189-v2-accepted-omission/v1";
@@ -78,6 +79,11 @@ function isTextRange(value: unknown): value is TextAnchorRange {
 
 function isWordAnchor(value: unknown): value is WordAnchor {
   return typeof value === "object" && value !== null && "blockId" in value && "tokenId" in value && "quotedWord" in value;
+}
+
+function isWordPointAnchor(value: unknown): value is { kind: "word" | "audible_word_end"; anchor: WordAnchor } {
+  return typeof value === "object" && value !== null && "kind" in value && "anchor" in value &&
+    (value.kind === "word" || value.kind === "audible_word_end");
 }
 
 function checkWordAnchor(
@@ -238,52 +244,91 @@ function rangeQuote(row: NarrationBlockV2, range: TextAnchorRange): string {
   return row.text.slice(start, end);
 }
 
+function capitalizeAsciiInitial(value: string): string | undefined {
+  const initial = value[0];
+  if (initial === undefined) return undefined;
+  if (/^[A-Z]$/u.test(initial)) return value;
+  if (!/^[a-z]$/u.test(initial)) return undefined;
+  const capitalized = initial.toUpperCase();
+  return capitalized.length === 1 ? `${capitalized}${value.slice(1)}` : undefined;
+}
+
 function rewriteRange(
   range: TextAnchorRange,
-  originalRow: NarrationBlockV2,
   revisedRow: NarrationBlockV2,
-  firstRemovedIndex: number,
-  lastRemovedIndex: number,
 ): boolean {
-  if (range.blockId !== originalRow.id) return false;
-  const startIndex = tokenIndex(originalRow, range.startTokenId);
-  const endIndex = tokenIndex(originalRow, range.endTokenId);
-  requireFact(startIndex >= 0 && endIndex >= 0, "omission leaves a stale text range");
-  if (startIndex >= firstRemovedIndex || endIndex <= lastRemovedIndex) return false;
-  range.quotedText = rangeQuote(revisedRow, range);
+  if (range.blockId !== revisedRow.id) return false;
+  const revisedQuote = rangeQuote(revisedRow, range);
+  if (revisedQuote === range.quotedText) return false;
+  range.quotedText = revisedQuote;
   range.anchorVersion = next(range.anchorVersion, "text anchor version");
+  return true;
+}
+
+function rewriteWordAnchor(
+  anchor: WordAnchor,
+  revisedRow: NarrationBlockV2,
+): boolean {
+  if (anchor.blockId !== revisedRow.id) return false;
+  const token = revisedRow.tokens.find((candidate) => candidate.id === anchor.tokenId);
+  requireFact(token !== undefined, "omission leaves a stale word anchor");
+  if (anchor.quotedWord === token.value) return false;
+  anchor.quotedWord = token.value;
+  anchor.anchorVersion = next(anchor.anchorVersion, "word anchor version");
   return true;
 }
 
 function rewriteSupportingAnchor(
   value: AnchorValue,
-  originalRow: NarrationBlockV2,
   revisedRow: NarrationBlockV2,
-  firstRemovedIndex: number,
-  lastRemovedIndex: number,
 ): boolean {
-  return isTextRange(value)
-    ? rewriteRange(value, originalRow, revisedRow, firstRemovedIndex, lastRemovedIndex)
-    : false;
+  if (isTextRange(value)) {
+    return rewriteRange(value, revisedRow);
+  }
+  if (isWordAnchor(value)) return rewriteWordAnchor(value, revisedRow);
+  return isWordPointAnchor(value) && rewriteWordAnchor(value.anchor, revisedRow);
 }
 
 function rewriteAnchors(
   document: ScriptDocumentV2,
-  originalRow: NarrationBlockV2,
   revisedRow: NarrationBlockV2,
-  firstRemovedIndex: number,
-  lastRemovedIndex: number,
 ): void {
   for (const block of document.activeDraft.blocks) {
     if (block.type !== "narration") continue;
-    if (block.id === originalRow.id) {
+    if (block.id === revisedRow.id) {
+      let sequenceChanged = false;
+      for (const slot of block.primaryVisualSequence?.slots ?? []) {
+        let slotChanged = false;
+        if (slot.kind === "return") {
+          if (slot.inpoint) slotChanged = rewriteWordAnchor(slot.inpoint, revisedRow);
+        } else if (slot.boundaryBefore.kind === "spoken_word" || slot.boundaryBefore.kind === "audible_word_end") {
+          slotChanged = rewriteWordAnchor(slot.boundaryBefore.anchor, revisedRow);
+        }
+        if (slotChanged) {
+          slot.version = next(slot.version, "visual slot version");
+          sequenceChanged = true;
+        }
+      }
+      if (sequenceChanged && block.primaryVisualSequence) {
+        block.primaryVisualSequence.version = next(block.primaryVisualSequence.version, "visual sequence version");
+      }
+      for (const event of block.overlayEvents) {
+        let eventChanged = false;
+        if (event.timing.start) {
+          eventChanged = rewriteSupportingAnchor(event.timing.start, revisedRow) || eventChanged;
+        }
+        if (event.timing.end) {
+          eventChanged = rewriteSupportingAnchor(event.timing.end, revisedRow) || eventChanged;
+        }
+        if (eventChanged) event.version = next(event.version, "overlay event version");
+      }
       for (const annotation of block.annotations ?? []) {
-        if (rewriteRange(annotation.range, originalRow, revisedRow, firstRemovedIndex, lastRemovedIndex)) {
+        if (rewriteRange(annotation.range, revisedRow)) {
           annotation.version = next(annotation.version, "annotation version");
         }
       }
       for (const beat of block.performanceBeats ?? []) {
-        if (rewriteRange(beat.range, originalRow, revisedRow, firstRemovedIndex, lastRemovedIndex)) {
+        if (rewriteRange(beat.range, revisedRow)) {
           beat.version = next(beat.version, "performance beat version");
         }
       }
@@ -292,17 +337,17 @@ function rewriteAnchors(
   for (const item of document.activeDraft.supportingItems) {
     let changed = false;
     if (item.placement.kind === "range") {
-      changed = rewriteRange(item.placement.range, originalRow, revisedRow, firstRemovedIndex, lastRemovedIndex);
+      changed = rewriteRange(item.placement.range, revisedRow);
     } else if (item.placement.kind === "unplaced" && item.placement.priorAnchor) {
-      changed = rewriteSupportingAnchor(item.placement.priorAnchor, originalRow, revisedRow, firstRemovedIndex, lastRemovedIndex);
+      changed = rewriteSupportingAnchor(item.placement.priorAnchor, revisedRow);
     } else if (item.placement.kind === "point") {
-      changed = rewriteSupportingAnchor(item.placement.anchor, originalRow, revisedRow, firstRemovedIndex, lastRemovedIndex);
+      changed = rewriteSupportingAnchor(item.placement.anchor, revisedRow);
     } else if (item.placement.kind === "timed") {
-      if (item.placement.start) changed = rewriteSupportingAnchor(item.placement.start, originalRow, revisedRow, firstRemovedIndex, lastRemovedIndex) || changed;
-      if (item.placement.end) changed = rewriteSupportingAnchor(item.placement.end, originalRow, revisedRow, firstRemovedIndex, lastRemovedIndex) || changed;
+      if (item.placement.start) changed = rewriteSupportingAnchor(item.placement.start, revisedRow) || changed;
+      if (item.placement.end) changed = rewriteSupportingAnchor(item.placement.end, revisedRow) || changed;
     }
     if (item.displayAttachment) {
-      changed = rewriteSupportingAnchor(item.displayAttachment, originalRow, revisedRow, firstRemovedIndex, lastRemovedIndex) || changed;
+      changed = rewriteSupportingAnchor(item.displayAttachment, revisedRow) || changed;
     }
     if (changed) item.version = next(item.version, "supporting item version");
   }
@@ -364,12 +409,29 @@ export function applyAcceptedOmissionV2(
     "selected token IDs must be an ordered contiguous interior phrase",
   );
   const previous = originalRow.tokens[firstRemovedIndex - 1]!;
+  const firstRemoved = originalRow.tokens[firstRemovedIndex]!;
   const following = originalRow.tokens[lastRemovedIndex + 1]!;
+  const previousGap = originalRow.text.slice(previous.endOffset, firstRemoved.startOffset);
+  const followingGap = originalRow.text.slice(originalRow.tokens[lastRemovedIndex]!.endOffset, following.startOffset);
   // Narrow rule: a single token set off as a comma-delimited parenthetical (", " on both sides) is joined by exactly one comma and space (", "), so lists stay correct.
   const parentheticalSingleToken = firstRemovedIndex === lastRemovedIndex &&
-    originalRow.text.slice(previous.endOffset, originalRow.tokens[firstRemovedIndex]!.startOffset) === ", " &&
-    originalRow.text.slice(originalRow.tokens[lastRemovedIndex]!.endOffset, following.startOffset) === ", ";
-  if (!parentheticalSingleToken) {
+    previousGap === ", " &&
+    followingGap === ", ";
+  // Preserve the exact sentence stop while removing only this approved discourse marker and its comma.
+  const sentenceOpeningDiscourseMarker = firstRemovedIndex === lastRemovedIndex &&
+    SENTENCE_OPENING_DISCOURSE_MARKERS.has(firstRemoved.value) &&
+    previousGap === ". " &&
+    followingGap === ", ";
+  const capitalizedFollowingValue = sentenceOpeningDiscourseMarker
+    ? capitalizeAsciiInitial(following.value)
+    : undefined;
+  if (sentenceOpeningDiscourseMarker) {
+    requireFact(
+      capitalizedFollowingValue !== undefined,
+      "sentence-opening discourse marker requires a one-character ASCII initial",
+    );
+  }
+  if (!parentheticalSingleToken && !sentenceOpeningDiscourseMarker) {
     for (let index = firstRemovedIndex; index <= lastRemovedIndex + 1; index += 1) {
       requireFact(
         JOINING_GAP.test(originalRow.text.slice(originalRow.tokens[index - 1]!.endOffset, originalRow.tokens[index]!.startOffset)),
@@ -389,21 +451,29 @@ export function applyAcceptedOmissionV2(
   const document = structuredClone(input);
   const revisedRow = narrationRow(document, edit.blockId);
   requireFact(revisedRow !== undefined, "missing cloned narration row");
-  const joiner = parentheticalSingleToken ? ", " : " ";
+  const joiner = parentheticalSingleToken ? ", " : sentenceOpeningDiscourseMarker ? ". " : " ";
   const delta = joiner.length - (following.startOffset - previous.endOffset);
   revisedRow.text = originalRow.text.slice(0, previous.endOffset) +
     joiner +
-    originalRow.text.slice(following.startOffset);
+    (capitalizedFollowingValue ?? following.value) +
+    originalRow.text.slice(following.endOffset);
   const kept = revisedRow.tokens
     .filter((token) => !removedTokenIds.has(token.id))
     .map((token) => token.startOffset >= following.startOffset
-      ? { ...token, startOffset: token.startOffset + delta, endOffset: token.endOffset + delta }
+      ? {
+        ...token,
+        ...(token.id === following.id && capitalizedFollowingValue !== undefined
+          ? { value: capitalizedFollowingValue }
+          : {}),
+        startOffset: token.startOffset + delta,
+        endOffset: token.endOffset + delta,
+      }
       : token);
   const firstKept = kept[0];
   requireFact(firstKept !== undefined, "empty narration after omission");
   revisedRow.tokens = [firstKept, ...kept.slice(1)];
   revisedRow.version = next(originalRow.version, "narration row version");
-  rewriteAnchors(document, originalRow, revisedRow, firstRemovedIndex, lastRemovedIndex);
+  rewriteAnchors(document, revisedRow);
 
   document.liveHeadSequence = next(input.liveHeadSequence, "live head sequence");
   document.liveStateVector = "";
