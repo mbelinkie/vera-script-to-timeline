@@ -171,7 +171,12 @@ def _binding(
             "requestIdentity": synth.identity(
                 provider_input, service.provider.adapter_version
             ),
-            "config": asdict(service.config),
+            # The optional injected policy must not rewrite historical defaults.
+            "config": {
+                key: value
+                for key, value in asdict(service.config).items()
+                if key != "pricing_policy" or value is not None
+            },
             "cacheRoot": str(service.cache.root),
             "normalizer": {
                 "profileId": service.normalizer.profile_id,
