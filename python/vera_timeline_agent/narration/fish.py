@@ -9,6 +9,7 @@ import unicodedata
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from fractions import Fraction
+from http.client import HTTPException
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -64,7 +65,7 @@ def _ignorable(text: str) -> bool:
 def _number(value: object, label: str) -> Fraction:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise FishError(f"invalid Fish {label}")
-    if not math.isfinite(value) or value < 0:
+    if (isinstance(value, float) and not math.isfinite(value)) or value < 0:
         raise FishError(f"invalid Fish {label}")
     return Fraction(str(value))
 
@@ -335,9 +336,10 @@ class FishProvider:
                 422: "request/model/capability",
             }.get(error.code, "service")
             raise FishError(
-                f"Fish {category} error (HTTP {error.code}); no retry performed"
+                f"Fish {category} error (HTTP {error.code}); no retry performed",
+                request_rejected=error.code in {400, 401, 402, 403, 422, 429},
             ) from None
-        except (URLError, TimeoutError, OSError):
+        except (URLError, TimeoutError, OSError, HTTPException):
             raise FishError(
                 "Fish transport failed; result is uncertain; no retry performed"
             ) from None
@@ -345,10 +347,33 @@ class FishProvider:
     def synthesize(self, request: SynthesisRequest) -> ProviderResult:
         self.preflight(request)
         payload = self.prepare_input(request)
+        captured = bytearray()
+
+        def chunks() -> Iterable[bytes]:
+            for chunk in self._transport(payload, request.profile.engine):
+                if len(captured) + len(chunk) > 256 * 1024 * 1024:
+                    raise FishError("Fish response exceeds the retention limit")
+                captured.extend(chunk)
+                yield chunk
+
         try:
-            audio, snapshots = parse_timestamp_stream(
-                self._transport(payload, request.profile.engine)
-            )
+            return self.decode_response(request, chunks())
+        except SpeechProviderError as error:
+            if captured:
+                error.response_files = {
+                    "provider-input.json": payload,
+                    "provider-response.sse": bytes(captured),
+                }
+                error.request_rejected = False
+            raise
+
+    def decode_response(
+        self, request: SynthesisRequest, chunks: Iterable[bytes]
+    ) -> ProviderResult:
+        """Reprocess a retained response offline; never opens a connection."""
+        payload = self.prepare_input(request)
+        try:
+            audio, snapshots = parse_timestamp_stream(chunks)
         except FishStreamError as error:
             raise FishError(str(error)) from error
         if len(audio) % 2:

@@ -216,6 +216,9 @@ def test_partial_call_is_not_published_or_reissued_after_restart(
         assert not plan.cached
     assert len(calls) == 1
     assert not list((cache.root / "synthesis").iterdir())
+    retained = cache.read("quarantine", plan.request_hash[7:], "response.json")
+    assert retained is not None
+    assert retained.files["provider-response.sse"] == b'data: {"audio_base64":'
 
 
 def test_authentication_and_pricing_fail_before_transport() -> None:
@@ -242,7 +245,9 @@ def test_remote_errors_are_sanitized_and_never_retried(
 
     def fail(*args: object, **kwargs: object) -> None:
         calls.append(status)
-        raise HTTPError("https://api.fish.audio", status, "private text", Message(), None)
+        raise HTTPError(
+            "https://api.fish.audio", status, "private text", Message(), None
+        )
 
     monkeypatch.setenv("FISH_AUDIO_API_KEY", "test-only-key")
     monkeypatch.setattr(fish, "urlopen", fail)
@@ -250,6 +255,7 @@ def test_remote_errors_are_sanitized_and_never_retried(
         list(FishProvider._stream(b"{}", "s2.1-pro-free"))
     assert "private text" not in str(error.value)
     assert len(calls) == 1
+    assert error.value.request_rejected is (status != 503)
 
 
 def test_transport_timeout_is_explicitly_uncertain(
@@ -271,3 +277,100 @@ def test_invalid_credentials_are_not_echoed(monkeypatch: pytest.MonkeyPatch) -> 
     with pytest.raises(FishError, match="missing or invalid") as error:
         FishProvider().preflight(request())
     assert "private" not in str(error.value)
+
+
+def test_definite_rejection_releases_marker_but_does_not_automatically_retry(
+    tmp_path: Path,
+) -> None:
+    calls: list[bytes] = []
+    raw = stream(snapshot("Hello", [("Hello", 0.1, 0.8)]))
+
+    def transport(payload: bytes, model: str) -> list[bytes]:
+        calls.append(payload)
+        if len(calls) == 1:
+            raise FishError("authentication rejected", request_rejected=True)
+        return [raw]
+
+    service = NarrationService(
+        cache=NarrationCache(tmp_path),
+        provider=FishProvider(transport=transport),
+        normalizer=Normalizer(),
+        config=config(),
+    )
+    plan = service.plan_block({"id": "row", "version": 1, "text": "Hello"})
+    with pytest.raises(FishError, match="authentication"):
+        service._raw_result(request("Hello"), plan.request_hash[7:])
+    assert len(calls) == 1
+    assert service.cache.read("attempts", plan.request_hash[7:], "attempt.json") is None
+    result, disposition = service._raw_result(request("Hello"), plan.request_hash[7:])
+    assert disposition == "generated"
+    assert len(calls) == 2
+    assert result.timing_marks
+
+
+def test_bad_complete_response_is_retained_and_valid_response_can_decode_offline(
+    tmp_path: Path,
+) -> None:
+    bad = stream(snapshot("Hello world", [("Hello world", 0.1, 0.9)]))
+    provider = FishProvider(transport=lambda payload, model: [bad])
+    service = NarrationService(
+        cache=NarrationCache(tmp_path),
+        provider=provider,
+        normalizer=Normalizer(),
+        config=config(),
+    )
+    row = {"id": "row", "version": 1, "text": "Hello world"}
+    plan = service.plan_block(row)
+    with pytest.raises(FishError, match="phrase"):
+        service._raw_result(request("Hello world"), plan.request_hash[7:])
+    retained = service.cache.read("quarantine", plan.request_hash[7:], "response.json")
+    assert retained is not None
+    assert retained.files["provider-response.sse"] == bad
+    assert (
+        service.cache.read("synthesis", plan.request_hash[7:], "synthesis.json") is None
+    )
+    good = stream(snapshot("Hello world", [("Hello", 0.1, 0.4), ("world", 0.5, 0.9)]))
+    result = FishProvider().decode_response(request("Hello world"), [good])
+    assert len([mark for mark in result.timing_marks if mark.kind == "word"]) == 2
+
+
+@pytest.mark.slow
+def test_document_stops_rejected_calls_and_keeps_failed_placeholders(
+    tmp_path: Path,
+) -> None:
+    calls: list[bytes] = []
+
+    def transport(payload: bytes, model: str) -> list[bytes]:
+        calls.append(payload)
+        raise FishError("authentication rejected", request_rejected=True)
+
+    service = NarrationService(
+        cache=NarrationCache(tmp_path),
+        provider=FishProvider(transport=transport),
+        normalizer=Normalizer(),
+        config=config(),
+    )
+    document = {
+        "activeDraft": {
+            "blocks": [
+                {
+                    "id": key,
+                    "version": 1,
+                    "text": text,
+                    "type": "narration",
+                    "state": "active",
+                    "orderKey": str(index),
+                }
+                for index, (key, text) in enumerate(
+                    [("first", "Hello"), ("second", "World")]
+                )
+            ]
+        }
+    }
+    assets = service.process_document(document)
+    assert len(calls) == 1
+    assert len(assets) == 2
+    assert all(
+        asset.status == "failed" and asset.duration_samples > 0 for asset in assets
+    )
+    assert not list((service.cache.root / "attempts").iterdir())

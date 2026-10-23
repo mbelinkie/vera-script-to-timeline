@@ -141,7 +141,19 @@ class NarrationService:
         blocks.sort(
             key=lambda block: (str(block.get("orderKey", "")), str(block.get("id", "")))
         )
-        return [self.process_block(block) for block in blocks]
+        assets: list[NarrationAudioAsset] = []
+        rejection: SpeechProviderError | None = None
+        for block in blocks:
+            asset = self.process_block(block, _provider_error=rejection)
+            assets.append(asset)
+            if asset.extra.get("requestRejected"):
+                rejection = SpeechProviderError(
+                    (asset.failure_reason or "provider request rejected").removeprefix(
+                        "provider: "
+                    ),
+                    request_rejected=True,
+                )
+        return assets
 
     def _request(self, block: dict[str, Any]) -> SynthesisRequest:
         return self.config.request_for(block)
@@ -166,7 +178,10 @@ class NarrationService:
         )
 
     def _raw_result(
-        self, request: SynthesisRequest, synthesis_key: str
+        self,
+        request: SynthesisRequest,
+        synthesis_key: str,
+        provider_error: SpeechProviderError | None = None,
     ) -> tuple[ProviderResult, str]:
         with self.cache.lock(synthesis_key):
             entry = self.cache.read("synthesis", synthesis_key, "synthesis.json")
@@ -190,6 +205,8 @@ class NarrationService:
                     ),
                     "reused",
                 )
+            if provider_error is not None:
+                raise provider_error
             preflight = getattr(self.provider, "preflight", None)
             if callable(preflight):
                 preflight(request)
@@ -206,7 +223,23 @@ class NarrationService:
                 "attempt.json",
                 {"recordVersion": "synthesis-attempt/v1"},
             )
-            result = self.provider.synthesize(request)
+            try:
+                result = self.provider.synthesize(request)
+            except SpeechProviderError as error:
+                if error.response_files:
+                    self.cache.publish(
+                        "quarantine",
+                        synthesis_key,
+                        error.response_files,
+                        "response.json",
+                        {
+                            "recordVersion": "provider-response-quarantine/v1",
+                            "failureReason": str(error),
+                        },
+                    )
+                if error.request_rejected:
+                    self.cache.discard_rejected_attempt(synthesis_key)
+                raise
             if result.provider_input != self.provider.prepare_input(request):
                 raise SpeechProviderError("provider result differs from prepared input")
             if result.audio_format != "pcm_s16le":
@@ -298,7 +331,12 @@ class NarrationService:
             )
             return normalized, disposition
 
-    def process_block(self, block: dict[str, Any]) -> NarrationAudioAsset:
+    def process_block(
+        self,
+        block: dict[str, Any],
+        *,
+        _provider_error: SpeechProviderError | None = None,
+    ) -> NarrationAudioAsset:
         request = self._request(block)
         provider_input = self.provider.prepare_input(request)
         request_identity = request.identity(
@@ -308,8 +346,11 @@ class NarrationService:
         synthesis_key = _bare_hash(request_hash)
         generated_at = datetime.now(UTC).isoformat()
         estimated_cost = pricing_for(request.profile).estimate(request.text)
+        request_rejected = False
         try:
-            raw, synthesis_disposition = self._raw_result(request, synthesis_key)
+            raw, synthesis_disposition = self._raw_result(
+                request, synthesis_key, _provider_error
+            )
             timing = _timing_json(raw)
             normalization_identity = {
                 "recordVersion": "normalization-key/v1",
@@ -328,6 +369,9 @@ class NarrationService:
         except CacheError:
             raise
         except Exception as error:
+            request_rejected = (
+                isinstance(error, SpeechProviderError) and error.request_rejected
+            )
             normalized = self.normalizer.placeholder(request.block_id)
             raw = None
             timing = canonical_json_bytes(
@@ -431,6 +475,7 @@ class NarrationService:
                 "integratedLufs": normalized.integrated_lufs,
                 "truePeakDbtp": normalized.true_peak_dbtp,
                 "loudnessRangeLu": normalized.loudness_range_lu,
+                **({"requestRejected": True} if request_rejected else {}),
             },
         )
         with self.cache.lock(asset_id):

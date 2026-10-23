@@ -347,12 +347,14 @@ class PollyProvider:
             common["LexiconNames"] = [
                 name for name, _content_hash in request.profile.lexicons
             ]
+        audio_accepted = False
         try:
             audio_response = client.synthesize_speech(
                 **common,
                 OutputFormat="pcm",
                 SampleRate="16000",
             )
+            audio_accepted = True
             timing_response = client.synthesize_speech(
                 **common,
                 OutputFormat="json",
@@ -363,7 +365,20 @@ class PollyProvider:
         except PollyError:
             raise
         except Exception as error:
-            raise PollyError(f"Polly synthesis failed: {error}") from error
+            response = getattr(error, "response", {})
+            metadata = (
+                response.get("ResponseMetadata", {})
+                if isinstance(response, dict)
+                else {}
+            )
+            rejected = (
+                not audio_accepted
+                and isinstance(metadata, dict)
+                and metadata.get("HTTPStatusCode") in {400, 401, 403, 404, 429}
+            )
+            raise PollyError(
+                f"Polly synthesis failed: {error}", request_rejected=rejected
+            ) from error
         if not audio or len(audio) % 2:
             raise PollyError("Polly returned invalid 16-bit PCM audio")
         request_ids = (_request_id(audio_response), _request_id(timing_response))

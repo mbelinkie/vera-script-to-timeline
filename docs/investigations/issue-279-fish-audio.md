@@ -67,15 +67,23 @@ final partial interval as a sample. The check now uses that actual rounding;
 
 Retained responses were reprocessed locally after fixing source mapping and
 the duration check, without extra provider calls. Both Fish assets became
-ready. A second identical pass reused synthesis and normalization. Existing
+ready. A final fresh request through the default Fish transport also became
+ready at requested 1.1x: 10.437 seconds generation-to-normalized-audio, with
+4.197458 seconds of output. Its warm pass took 0.200 seconds, reused both
+layers and worked after the process credential was removed. Existing
 Polly request identity, SSML/timing bytes and cache filenames remain compatible.
 Fish input is stored as JSON; provider/model/voice/version/rate and generation
 settings remain part of immutable synthesis identity.
 
-An attempt marker is persisted before transport. A failed/uncertain attempt
-without a verified raw cache entry cannot be automatically resent after a
-restart. Investigate and reconcile a retained response before authorizing any
-retry; never erase the marker as an automatic recovery step. Existing cached
+An attempt marker is persisted before transport. Definite rejections such as
+authentication/rate-limit errors release it, allowing a later explicit retry;
+there is no retry inside a call. A definite rejection stops new calls for the
+rest of that document while retaining failed placeholders and reusable cache hits. An uncertain attempt without a verified raw
+cache entry cannot be automatically resent after a restart. Fish responses that
+fail validation are retained with their prepared input in the immutable
+`quarantine` cache. `FishProvider.decode_response` can validate retained SSE
+offline after a parser/mapping fix. Reconcile this response before authorizing
+any new call; never erase an uncertain marker automatically. Existing cached
 audio remains reusable without credentials or another billable call. The
 historical AWS campaign stays AWS-only, preserving #145's inputs and consent.
 
@@ -121,7 +129,7 @@ is $0.006720; 100,000 UTF-8 bytes is $1.50. Native timing has no separately
 listed charge; account billing was not independently audited. Local processing
 adds no provider fee. Retries would add usage, so none were automatic.
 
-The three Fish requests cost $0 at the documented promotion rate. One Polly
+The four Fish requests cost $0 at the documented promotion rate. One Polly
 audio-plus-marks generation was authorized under a $0.01 total cap and estimated
 at $0.002048. AWS SDK retries were disabled for that comparison. The retained
 Polly rate is $32 per million source characters (audio plus separately billed
