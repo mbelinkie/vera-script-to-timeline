@@ -14,7 +14,7 @@ from typing import Any, Literal, cast
 
 from vera_timeline_agent.narration.models import canonical_json_bytes, sha256_bytes
 
-CacheKind = Literal["synthesis", "normalization", "assets"]
+CacheKind = Literal["synthesis", "normalization", "assets", "attempts"]
 
 
 class CacheError(RuntimeError):
@@ -36,7 +36,7 @@ def _validate_name(name: str) -> None:
 class NarrationCache:
     def __init__(self, root: Path) -> None:
         self.root = root.resolve() / "v1"
-        for name in ("locks", "synthesis", "normalization", "assets"):
+        for name in ("locks", "synthesis", "normalization", "assets", "attempts"):
             path = self.root / name
             path.mkdir(parents=True, exist_ok=True)
             if path.is_symlink():

@@ -23,6 +23,7 @@ from vera_timeline_agent.narration.campaign import (
 from vera_timeline_agent.narration.compiler_dependencies import (
     narration_dependency_from_asset,
 )
+from vera_timeline_agent.narration.configuration import pricing_for, provider_for
 from vera_timeline_agent.narration.measure import (
     METHOD as MEASURED_METHOD,
 )
@@ -38,11 +39,10 @@ from vera_timeline_agent.narration.models import (
     identity_hash,
 )
 from vera_timeline_agent.narration.normalize import NORMALIZER_VERSION, Normalizer
-from vera_timeline_agent.narration.polly import (
-    PRICE_USD_PER_MILLION_CHARACTERS,
-    PollyError,
+from vera_timeline_agent.narration.provider import (
+    SpeechProviderError,
+    SpeechSynthesisProvider,
 )
-from vera_timeline_agent.narration.provider import SpeechSynthesisProvider
 from vera_timeline_agent.narration.service import (
     MATTHEW_PROFILE_ID,
     BlockPlan,
@@ -589,7 +589,7 @@ class LedgerGuardedProvider:
                 self.inner.prepare_input(request), self.inner.adapter_version
             )
         )
-        estimated = len(request.text) * PRICE_USD_PER_MILLION_CHARACTERS / 1_000_000
+        estimated = pricing_for(request.profile).estimate(request.text)
         with self.ledger.locked():
             refuse_uncertain_prior_attempt(self.ledger, request_hash)
             reservation = self.ledger.reserve(
@@ -620,11 +620,10 @@ def production_narration_service(
 ) -> NarrationService:
     """The #182 campaign service: campaign cache, Matthew Neural, attested policy."""
     from vera_timeline_agent.narration.cache import NarrationCache
-    from vera_timeline_agent.narration.polly import PollyProvider
 
     return NarrationService(
         cache=NarrationCache(cache_dir),
-        provider=provider or PollyProvider(),
+        provider=provider or provider_for(voice_profile(profile_id)),
         normalizer=normalizer or Normalizer(),
         config=ServiceConfig(
             profile=voice_profile(profile_id),
@@ -683,7 +682,7 @@ def preflight_provider_call(
     refuse_uncertain_prior_attempt(ledger, plan.request_hash)
     if not confirm_provider_call:
         raise ProviderCallRefused(
-            f"a real Polly call (about ${plan.estimated_cost_usd:.6f}, "
+            f"a real provider call (about ${plan.estimated_cost_usd:.6f}, "
             f"{plan.characters} characters) is needed for the regenerated row; "
             "re-run with --confirm-provider-call to authorize it"
         )
@@ -692,7 +691,7 @@ def preflight_provider_call(
     if callable(preflight):
         try:
             preflight(service._request(row))
-        except PollyError as error:
+        except SpeechProviderError as error:
             raise ProviderCallRefused(
                 f"provider preflight failed before any call: {error}"
             ) from error

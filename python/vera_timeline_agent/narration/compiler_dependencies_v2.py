@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import Mapping
 from fractions import Fraction
@@ -91,6 +92,11 @@ def narration_v2_dependency_from_asset(
 
     token_rows = _validated_tokens(text_utf16, tokens)
     word_marks = [mark for mark in timing["marks"] if mark["kind"] == "word"]
+    raw_words = {
+        (mark["start_utf16"], mark["end_utf16"]): mark
+        for mark in json.loads(provider_timing_json)["marks"]
+        if mark["kind"] == "word"
+    }
     mark_by_range: dict[tuple[int, int], dict[str, Any]] = {}
     for mark in word_marks:
         start = cast(int, mark["startUtf16"])
@@ -108,7 +114,7 @@ def narration_v2_dependency_from_asset(
         )
 
     timing_tokens: list[TokenTimingV2] = []
-    previous_start = -1
+    previous_start = Fraction(-1)
     for index, token in enumerate(token_rows):
         mark = mark_by_range[(token["startOffset"], token["endOffset"])]
         time_value = mark["timeMs"]
@@ -117,10 +123,32 @@ def narration_v2_dependency_from_asset(
                 "provider word time must be a nonnegative safe integer"
             )
         time_ms = cast(int, time_value)
-        if time_ms < previous_start:
-            raise NarrationDependencyError("provider word timing is out of order")
-        previous_start = time_ms
         seconds = Fraction(time_ms, 1000)
+        native = raw_words[(token["startOffset"], token["endOffset"])]
+        if native.get("time_sample") is not None:
+            sample = native["time_sample"]
+            rate = native.get("sample_rate")
+            end = native.get("end_sample")
+            if not _nonnegative_safe_integer(sample) or not _positive_safe_integer(
+                rate
+            ):
+                raise NarrationDependencyError("native timing sample/rate is invalid")
+            seconds = Fraction(sample, rate)
+            if round(seconds * 1000) != time_ms:
+                raise NarrationDependencyError(
+                    "native timing sample differs from milliseconds"
+                )
+            if end is not None and (
+                not _nonnegative_safe_integer(end)
+                or end < sample
+                or Fraction(end, rate) > audio_duration
+            ):
+                raise NarrationDependencyError(
+                    "native timing end is outside final audio"
+                )
+        if seconds < previous_start:
+            raise NarrationDependencyError("provider word timing is out of order")
+        previous_start = seconds
         if seconds >= audio_duration:
             raise NarrationDependencyError(
                 "provider word start is at or beyond narration audio duration"

@@ -5,6 +5,10 @@ from typing import Protocol
 from vera_timeline_agent.narration.models import ProviderResult, SynthesisRequest
 
 
+class SpeechProviderError(RuntimeError):
+    """A request cannot produce usable speech; callers must not retry blindly."""
+
+
 class SpeechSynthesisProvider(Protocol):
     adapter_version: str
 

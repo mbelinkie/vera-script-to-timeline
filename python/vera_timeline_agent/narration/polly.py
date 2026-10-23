@@ -12,6 +12,7 @@ from vera_timeline_agent.narration.models import (
     ProviderTimingMark,
     SynthesisRequest,
 )
+from vera_timeline_agent.narration.provider import SpeechProviderError
 
 ADAPTER_VERSION = "aws-polly-adapter/v1"
 PRICE_USD_PER_MILLION_CHARACTERS = 32.0
@@ -26,7 +27,7 @@ _PAUSE = re.compile(
 )
 
 
-class PollyError(RuntimeError):
+class PollyError(SpeechProviderError):
     pass
 
 
