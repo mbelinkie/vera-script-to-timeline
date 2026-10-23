@@ -19,6 +19,7 @@ from vera_timeline_agent.narration.cache import NarrationCache
 from vera_timeline_agent.narration.compiler_dependencies import (
     narration_dependency_from_asset,
 )
+from vera_timeline_agent.narration.configuration import default_profile, pricing_for
 from vera_timeline_agent.narration.models import (
     ProviderResult,
     ProviderTimingMark,
@@ -89,6 +90,7 @@ def _service(root: Path, provider: FrameProvider) -> NarrationService:
         provider=provider,
         normalizer=Normalizer(),
         config=ServiceConfig(
+            pricing_policy=pricing_for(default_profile()),
             profile=VoiceProfile(
                 profile_id="issue144-frame-synthetic/v1",
                 provider="issue144_synthetic",
@@ -97,7 +99,7 @@ def _service(root: Path, provider: FrameProvider) -> NarrationService:
                 voice_id="tones",
                 voice_version="v1",
                 language="en-US",
-            )
+            ),
         ),
     )
 
