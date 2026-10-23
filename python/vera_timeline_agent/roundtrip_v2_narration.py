@@ -16,6 +16,7 @@ from vera_timeline_agent.narration.campaign import (
     STATUS_ATTEMPTED,
     STATUS_CHARGED,
     STATUS_RESERVED,
+    CapExceeded,
     Ledger,
     _micro,
     default_ledger_path,
@@ -604,13 +605,17 @@ class LedgerGuardedProvider:
         estimated = policy.estimate(request.text)
         with self.ledger.locked():
             refuse_uncertain_prior_attempt(self.ledger, request_hash)
-            reservation = self.ledger.reserve(
-                request_hash=request_hash,
-                block_id=request.block_id,
-                characters=len(request.text),
-                estimated_cost_usd=estimated,
-                cap_micro_usd=self.cap_micro_usd,
-            )
+            try:
+                reservation = self.ledger.reserve(
+                    request_hash=request_hash,
+                    block_id=request.block_id,
+                    characters=len(request.text),
+                    estimated_cost_usd=estimated,
+                    cap_micro_usd=self.cap_micro_usd,
+                )
+            except CapExceeded as error:
+                # The reservation refused before transport, so retrying is safe.
+                raise SpeechProviderError(str(error), request_rejected=True) from error
             try:
                 result = self.inner.synthesize(request)
             except BaseException:

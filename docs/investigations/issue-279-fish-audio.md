@@ -113,7 +113,7 @@ Keep the key separate from the script and output directories.
 uv run --frozen python -m vera_timeline_agent.narration script.json \
   --cache /path/to/narration-cache \
   --voice-profile fish-mw1-s2.1-pro-free-en-us-v1 \
-  --rate 110% --data-policy fish_terms_accepted \
+  --rate 100% --data-policy fish_terms_accepted \
   --max-cost-usd 0 --preflight-only
 ```
 
@@ -179,15 +179,17 @@ the tested combination's feasibility.
 
 ## Recommendation and acceptance
 
-Retain Fish as a configuration-selectable option at requested 1.0x. Matthew
-accepted this evaluation and explicitly retained Polly as the default. Native starts support preview/highlighting;
+Retain Fish as a configuration-selectable option at requested 1.0x during #145.
+Matthew accepted this evaluation and directed Fish to become the default after
+#145 finishes; keep Polly as the default while that test is in progress.
+Native starts support preview/highlighting;
 work requiring verified audible edges still uses the accepted timing-review
 workflow. Effective speed remains unreported; naturalness, MW1 consistency and pronunciation
 were listening judgments, not automated assertions.
 
-Local paired playable WAVs and a word-highlighting review page accompany the
-handoff; media is kept outside Git and was not published. Play both short takes,
-then the long Fish take. Check voice/naturalness, pacing, pronunciation and word
-tracking. Reply `Accept #279 Fish evaluation` or `Revise #279: ...`; state any
-default-provider choice separately. Producer acceptance is recorded above. The issue cannot be Done before the
-PR merges with green CI.
+Local paired playable WAVs and a word-highlighting review page supported the
+accepted listening check; media is kept outside Git and was not published.
+Matthew checked the short pair and long Fish take for voice, pacing,
+pronunciation and word tracking, accepting 1.0x. The deferred default switch
+preserves #145's current Polly campaign and does not authorize private inputs.
+The issue cannot be Done before the PR merges with green CI.
