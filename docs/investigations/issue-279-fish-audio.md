@@ -2,8 +2,8 @@
 
 Checked 2026-10-23. Fish works as an opt-in provider through the existing
 `SpeechSynthesisProvider`/`NarrationService` boundary. Polly remains the default.
-Sound quality and suitability for Matthew's workflow require Producer judgment;
-this report does not claim a preferred voice or verified audible word ends.
+Matthew accepted the revised 1.0x evaluation and retained Polly as the default
+on 2026-10-23. This report does not claim verified audible word ends.
 
 ## Actual service checks
 
@@ -44,8 +44,24 @@ The short 1.1x take contains one zero-length native segment; the long take has
 two. Starts mostly fall on an approximately 80 ms grid. Those starts can drive
 the existing next-word highlighting contract, but native ends are not reliable
 audible-cut evidence. The adapter retains them as machine candidates and never
-promotes them into verified audible ends. Quality/word tracking is pending the
-listening review.
+promotes them into verified audible ends. The Producer accepted the revised 1.0x listening/word-tracking evaluation;
+this does not turn native ends into verified audible-cut evidence.
+
+## Producer pacing revision
+
+Matthew found the 1.1x take too fast and requested 1.0x on 2026-10-23. The
+listening page now defaults to requested 1.0x; the original 1.1x page and audio
+remain available for comparison. This revises the evaluation candidate, not
+Polly's application default.
+
+The retained 1.0x short Fish take was reused (4.272479 seconds); one additional
+free Fish call produced the same longer text at requested 1.0x (31.428125
+seconds). Both return complete source-bound timing and normalized PCM. One
+matching 100% Polly audio-plus-marks request produced the same short text within
+the existing spending cap. Matthew explicitly accepted the Fish evaluation at 1.0x on 2026-10-23 and
+chose to retain Polly as the default. The long 1.0x generation completed through
+normalization in 18.925 seconds, with two text chunks and one zero-length native
+segment; the matching Polly 100% take is 3.867500 seconds.
 
 ## Integration and cache behavior
 
@@ -133,9 +149,9 @@ is $0.006720; 100,000 UTF-8 bytes is $1.50. Native timing has no separately
 listed charge; account billing was not independently audited. Local processing
 adds no provider fee. Retries would add usage, so none were automatic.
 
-The four Fish requests cost $0 at the documented promotion rate. One Polly
-audio-plus-marks generation was authorized under a $0.01 total cap and estimated
-at $0.002048. AWS SDK retries were disabled for that comparison. The retained
+The five Fish requests cost $0 at the documented promotion rate. Two Polly
+audio-plus-marks generations (110% and 100%) used the approved $0.01 total cap
+and were estimated at $0.002048 each, $0.004096 combined. AWS SDK retries were disabled for that comparison. The retained
 Polly rate is $32 per million source characters (audio plus separately billed
 marks), confirmed against the current [AWS pricing page](https://aws.amazon.com/polly/pricing/)
 on 2026-10-23 and the historical [#112 cost correction](https://github.com/mbelinkie/vera-script-to-timeline/issues/112#issuecomment-5624255388).
@@ -163,15 +179,15 @@ the tested combination's feasibility.
 
 ## Recommendation and acceptance
 
-Retain Fish as a configuration-selectable evaluation option. Keep Polly as
-default pending Producer judgment. Native starts support preview/highlighting;
+Retain Fish as a configuration-selectable option at requested 1.0x. Matthew
+accepted this evaluation and explicitly retained Polly as the default. Native starts support preview/highlighting;
 work requiring verified audible edges still uses the accepted timing-review
-workflow. Effective speed, naturalness, MW1 consistency and pronunciation remain
-listening judgments, not automated assertions.
+workflow. Effective speed remains unreported; naturalness, MW1 consistency and pronunciation
+were listening judgments, not automated assertions.
 
 Local paired playable WAVs and a word-highlighting review page accompany the
 handoff; media is kept outside Git and was not published. Play both short takes,
 then the long Fish take. Check voice/naturalness, pacing, pronunciation and word
 tracking. Reply `Accept #279 Fish evaluation` or `Revise #279: ...`; state any
-default-provider choice separately. The issue stays In review until acceptance,
-and cannot be Done before the PR merges with green CI.
+default-provider choice separately. Producer acceptance is recorded above. The issue cannot be Done before the
+PR merges with green CI.
