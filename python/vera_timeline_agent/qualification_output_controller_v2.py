@@ -1014,7 +1014,7 @@ def load_output_session(
     session_path: Path, expected_sha256: str
 ) -> QualificationOutputController:
     """Reopen only a complete verified session, retaining its immutable UID chain."""
-    from .qualification_output_package_v2 import load_qualification_package_v2
+    from .qualification_output_package_v2 import _load_qualification_package_v2
 
     raw = _read(session_path)
     _require(_hash(raw) == expected_sha256, "session raw pin differs")
@@ -1038,7 +1038,7 @@ def load_output_session(
         and session["hostJournalRoot"] == str(HOST_STATE_ROOT),
         "closed owned session required",
     )
-    admission = load_qualification_package_v2(
+    admission = _load_qualification_package_v2(
         Path(session["admissionPath"]), session["admissionSha256"]
     )
     context = _context(session["context"])
