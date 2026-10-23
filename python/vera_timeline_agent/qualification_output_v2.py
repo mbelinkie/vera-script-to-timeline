@@ -1235,7 +1235,7 @@ def _validated(
                 type(gain) in {int, float}
                 and math.isfinite(gain)
                 and (event["audio"]["audioPolicy"], gain)
-                in {("full", 0), ("quiet", -18)},
+                in {("full", 0), ("full", -0.1), ("quiet", -18)},
                 "unapproved manifest gain/No policy",
             )
         segments: list[Json] = []
@@ -1820,14 +1820,13 @@ def _terminal_comparison(terminal: TerminalOutput, trust: OutputTrust) -> Json:
 
 
 @_refusal
-def compare_prediction_pair(
-    pristine: TerminalOutput, edited: TerminalOutput, *, trust: OutputTrust
+def _compare_prediction_pair_from_verified(
+    pristine: TerminalOutput,
+    edited: TerminalOutput,
+    left: Json,
+    right: Json,
 ) -> Json:
-    """Pure audio-changing pair test. Video-only A uses per-output consistency."""
-    left, right = (
-        _terminal_comparison(pristine, trust),
-        _terminal_comparison(edited, trust),
-    )
+    """Run pair checks only after both terminals were verified in this call."""
     a, b = left["context"], right["context"]
     _require(
         left["status"] == right["status"] == "compared_consistent",
@@ -1905,3 +1904,15 @@ def compare_prediction_pair(
         "controlStability": "not_claimed",
         "futureAuthority": False,
     }
+
+
+@_refusal
+def compare_prediction_pair(
+    pristine: TerminalOutput, edited: TerminalOutput, *, trust: OutputTrust
+) -> Json:
+    """Pure audio-changing pair test. Video-only A uses per-output consistency."""
+    left, right = (
+        _terminal_comparison(pristine, trust),
+        _terminal_comparison(edited, trust),
+    )
+    return _compare_prediction_pair_from_verified(pristine, edited, left, right)

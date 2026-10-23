@@ -1168,6 +1168,32 @@ describe("pure v2 compiler", () => {
       readGolden("selected-clip-ntsc.manifest", compiled.manifestJson);
       readGolden("selected-clip-ntsc.report", compiled.reportJson);
     }
+
+    deps.authoringDefaults.sourceAudioLevelPolicy.fullGainDb = -0.1;
+    const headroomCompiled = compileTimelineV2(doc, deps);
+    expect(headroomCompiled.ok).toBe(true);
+    if (headroomCompiled.ok) {
+      expect(
+        headroomCompiled.manifest.events.find((event) => event.kind === "source_audio")?.audio,
+      ).toMatchObject({ audioPolicy: "full", gainDb: -0.1 });
+    }
+
+    const unsupportedHeadroom = dependencies();
+    Object.assign(unsupportedHeadroom.authoringDefaults.sourceAudioLevelPolicy, {
+      fullGainDb: -0.2,
+    });
+    const refusedHeadroom = resolveMediaRequirementsV2(doc, {
+      timing: [],
+      defaults: unsupportedHeadroom.authoringDefaults,
+      sourceDescriptors: unsupportedHeadroom.occurrenceResolutions,
+      frameRate: unsupportedHeadroom.timeline.frameRate,
+    });
+    expect(refusedHeadroom.ok).toBe(false);
+    if (!refusedHeadroom.ok) {
+      expect(refusedHeadroom.diagnostics.map((item) => item.code)).toContain(
+        "DEPENDENCIES_SCHEMA_INVALID",
+      );
+    }
   });
 
   it("refuses a visual-only selected range that disagrees with its bound descriptor", () => {

@@ -134,7 +134,7 @@ def _canonical_json(value: object) -> bytes:
 
 
 def _compiler_hash(value: object) -> str:
-    """Match compiler-core.ts canonical JSON for the frozen integer-only schemas."""
+    """Match compiler-core JSON for safe integers and approved source-audio gain."""
     text = (
         json.dumps(
             _compiler_json_values(value),
@@ -153,12 +153,17 @@ def _compiler_hash(value: object) -> str:
     return _hash_bytes(text.encode("utf-8"))
 
 
-def _compiler_json_values(value: object) -> object:
+def _compiler_json_values(value: object, *, key: str | None = None) -> object:
     if isinstance(value, dict):
-        return {key: _compiler_json_values(nested) for key, nested in value.items()}
+        return {
+            name: _compiler_json_values(nested, key=name)
+            for name, nested in value.items()
+        }
     if isinstance(value, list):
         return [_compiler_json_values(nested) for nested in value]
     if isinstance(value, float):
+        if key in {"fullGainDb", "gainDb"} and value == -0.1:
+            return value
         if not math.isfinite(value) or not value.is_integer() or abs(value) > _MAX_SAFE:
             raise _error("compiler hash input is not a schema-supported safe integer")
         return int(value)

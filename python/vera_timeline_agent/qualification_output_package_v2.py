@@ -814,12 +814,18 @@ class QualificationOutputAdmissionV2:
                     not path.is_symlink(),
                     f"admitted source path became a link: {path.name}",
                 )
+        inventory, inventory_raw = _inventory(self.package_root)
+        inventory_hashes = {
+            self.package_root / row["path"]: row["sha256"] for row in inventory["files"]
+        }
         for path, expected in self._tracked_hashes.items():
+            observed = (
+                inventory_hashes[path] if path in inventory_hashes else _hash_file(path)
+            )
             _need(
-                _hash_file(path) == expected,
+                observed == expected,
                 f"admitted source bytes changed: {path.name}",
             )
-        inventory, inventory_raw = _inventory(self.package_root)
         _need(
             inventory_raw == _read(self.package_root / "package-inventory.json")
             and _sha(inventory_raw) == self.admission["packageInventorySha256"],
@@ -4285,10 +4291,10 @@ def _load_verified_admission_cache(
 
 
 @_admission_boundary
-def load_qualification_package_v2(
+def _load_qualification_package_v2(
     admission_path: Path, expected_sha256: str
 ) -> QualificationOutputAdmissionV2:
-    """Reauthenticate fixed wrapper/currentness bytes and reopen its proof cache."""
+    """Reauthenticate the fixed package projection without a currentness scan."""
     _need(
         admission_path.is_absolute()
         and admission_path.name == "qualification-output-package-admission.json",
@@ -4310,6 +4316,15 @@ def load_qualification_package_v2(
         _read(admission.admission_path) == raw and admission.admission == record,
         "reconstructed admission differs",
     )
+    return admission
+
+
+@_admission_boundary
+def load_qualification_package_v2(
+    admission_path: Path, expected_sha256: str
+) -> QualificationOutputAdmissionV2:
+    """Reauthenticate fixed wrapper/currentness bytes and reopen its proof cache."""
+    admission = _load_qualification_package_v2(admission_path, expected_sha256)
     admission.assert_current()
     return admission
 

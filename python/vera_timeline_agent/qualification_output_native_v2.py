@@ -16,6 +16,7 @@ import math
 import os
 import pwd
 import stat
+import struct
 import sys
 import time
 from datetime import UTC, datetime, timedelta
@@ -86,6 +87,7 @@ CONFIRMATIONS = {
 MAX_BYTES = 8 * 1024 * 1024
 MAX_LIFETIME_SECONDS = 1800
 POLL_INTERVAL_SECONDS = 0.25
+MAX_REOPEN_MEDIA_POOL_READY_SECONDS = 5.0
 MAX_POLL_SECONDS = 180
 MAX_POLL_COUNT = int(MAX_POLL_SECONDS / POLL_INTERVAL_SECONDS) + 1
 MAX_NATIVE_EXTENT_FRAMES = 1498
@@ -3436,6 +3438,23 @@ def _validate_observed_event_geometry(
             continue
 
         source = sources[event["sourceId"]]
+        if (
+            event["kind"]
+            in {
+                "primary_visual",
+                "overlay_visual",
+                "source_audio",
+                "narration",
+                "placeholder",
+            }
+            and item["recordDuration"] == record_duration
+            and item["sourceStart"] == source_start
+            and item["sourceDuration"] == source_duration
+            and item["recordStart"] < record_start
+        ):
+            ripple_shifted.add(event_id)
+            continue
+
         is_static_picture = event["kind"] in {
             "primary_visual",
             "overlay_visual",
@@ -3459,15 +3478,6 @@ def _validate_observed_event_geometry(
         ):
             trimmed.append(item)
             changed.add(event_id)
-            continue
-        if (
-            event["kind"] in {"primary_visual", "overlay_visual", "source_audio"}
-            and item["recordDuration"] == record_duration
-            and item["sourceStart"] == source_start
-            and item["sourceDuration"] == source_duration
-            and item["recordStart"] < record_start
-        ):
-            ripple_shifted.add(event_id)
             continue
         _require(False, "native edited item differs outside the observed edit rules")
 
@@ -3647,6 +3657,157 @@ def _verified_fractional_narration_eof(
         )
         else None
     )
+
+
+def _verified_video_start_frame_rounding(
+    *,
+    event: dict[str, Any],
+    manifest_event: dict[str, Any] | None,
+    manifest_source: dict[str, Any] | None,
+    verification: dict[str, Any] | None,
+    source_hash: str,
+    media_frames: Any,
+    source_start: int,
+    source_end: int,
+    source_duration: int,
+    expected_source_start: int,
+    expected_source_end: int,
+    expected_source_duration: int,
+    record_duration: int,
+    range_times: dict[str, Any],
+    rate: dict[str, Any],
+) -> bool:
+    """Authenticate Resolve's one-frame integer in-point floor on a CFR source."""
+    if (
+        source_start != expected_source_start - 1
+        or expected_source_start <= 0
+        or expected_source_end != expected_source_start + expected_source_duration
+        or not 0 < record_duration <= expected_source_duration
+        or source_end != expected_source_start + record_duration
+        or source_duration != record_duration + 1
+        or type(verification) is not dict
+        or type(manifest_event) is not dict
+        or type(manifest_source) is not dict
+    ):
+        return False
+
+    source_frame_map = manifest_source.get("sourceFrameMap")
+    manifest_mapping = manifest_event.get("sourceTimeMapping")
+    source_mapping = manifest_source.get("sourceTimeMapping")
+    view_event = event.get("v2Event")
+    expected_range = {
+        "startFrame": expected_source_start,
+        "endFrame": expected_source_end,
+    }
+    view_mapping = (
+        view_event.get("sourceTimeMapping") if type(view_event) is dict else None
+    )
+    if (
+        type(source_frame_map) is not dict
+        or type(manifest_mapping) is not dict
+        or type(source_mapping) is not dict
+        or type(view_event) is not dict
+        or type(view_mapping) is not dict
+        or manifest_event.get("sourceRange") != expected_range
+        or view_event.get("sourceRange") != expected_range
+        or manifest_mapping != source_mapping
+        or manifest_mapping != view_mapping
+        or manifest_mapping.get("sourceFrameMap") != source_frame_map
+        or manifest_mapping.get("sourceOrigin") != {"numerator": 0, "denominator": 1}
+        or manifest_mapping.get("deliveredOrigin") != {"numerator": 0, "denominator": 1}
+    ):
+        return False
+
+    frame_count = verification.get("decodedFrameCount")
+    probe_hash = verification.get("probeHash")
+    delivered_hash = verification.get("deliveredHash")
+    frame_rate = verification.get("decodedFrameRate")
+    mapped_count = source_frame_map.get("decodedPackageFrameCount")
+    mapped_rate = source_frame_map.get("decodedPackageFrameRate")
+    mapped_probe_hash = source_frame_map.get("probeHash")
+    timeline_rate = {
+        "numerator": rate["numerator"],
+        "denominator": rate["denominator"],
+    }
+    if (
+        type(frame_count) is not int
+        or frame_count <= 0
+        or type(mapped_count) is not int
+        or frame_count != mapped_count
+        or frame_rate != timeline_rate
+        or mapped_rate != timeline_rate
+        or manifest_mapping.get("sourceRate") != timeline_rate
+        or manifest_mapping.get("deliveredRate") != timeline_rate
+        or type(delivered_hash) is not str
+        or _source_hash(delivered_hash) != _source_hash(source_hash)
+        or type(manifest_source.get("deliveredHash")) is not str
+        or _source_hash(manifest_source["deliveredHash"]) != _source_hash(source_hash)
+        or type(probe_hash) is not str
+        or probe_hash != mapped_probe_hash
+        or probe_hash != manifest_source.get("deliveredProbeHash")
+        or probe_hash != source_frame_map.get("descriptorHash")
+        or type(media_frames) is not str
+        or media_frames != str(frame_count)
+        or expected_source_end > frame_count
+        or source_frame_map.get("packageFrameZeroLogicalFrame") != 0
+        or source_frame_map.get("packageVideoPtsOrigin")
+        != {"numerator": 0, "denominator": 1}
+        or source_frame_map.get("loggedTimeAtPackageFrameZero")
+        != {"numerator": 0, "denominator": 1}
+    ):
+        return False
+
+    frame_seconds = Fraction(rate["denominator"], rate["numerator"])
+    start_error = _source_time_error_samples(
+        range_times.get("GetSourceStartTime"), expected_source_start, frame_seconds
+    )
+    end_error = _source_time_error_samples(
+        range_times.get("GetSourceEndTime"), source_end, frame_seconds
+    )
+    return (
+        start_error is not None
+        and abs(start_error) <= 1
+        and end_error is not None
+        and abs(end_error) <= 1
+    )
+
+
+def _native_record_frame_getter_matches(expected: int, actual: Any) -> bool:
+    if type(expected) is not int:
+        return False
+    if type(actual) is int:
+        return actual == expected
+    if type(actual) is not float or not math.isfinite(actual):
+        return False
+    try:
+        expected_float = float(expected)
+    except OverflowError:
+        return False
+    if expected_float != expected:
+        return False
+    return actual in {
+        expected_float,
+        math.nextafter(expected_float, -math.inf),
+        math.nextafter(expected_float, math.inf),
+    }
+
+
+def _native_audio_gain_readback_matches(expected: Any, actual: Any) -> bool:
+    """Accept the declared gain or its exact IEEE-754 float32 representation."""
+    if type(expected) not in {int, float} or type(actual) not in {int, float}:
+        return False
+    try:
+        expected_float = float(expected)
+        actual_float = float(actual)
+    except OverflowError:
+        return False
+    if not math.isfinite(expected_float) or not math.isfinite(actual_float):
+        return False
+    try:
+        float32_expected = struct.unpack("!f", struct.pack("!f", expected_float))[0]
+    except (OverflowError, struct.error):
+        return False
+    return actual in (expected, float32_expected)
 
 
 def _capture_geometry(
@@ -3899,16 +4060,30 @@ def _capture_geometry(
                     f"source=({source_start!r},{source_end!r}), "
                     f"static={static_picture})",
                 )
+                record_getters = {
+                    "GetStart(False)": record_start,
+                    "GetDuration(False)": duration,
+                    "GetEnd(False)": record_end,
+                }
+                frame_getters = {
+                    method: getattr(item, method)(True)
+                    for method in ("GetStart", "GetDuration", "GetEnd")
+                }
                 _require(
                     all(
-                        getattr(item, method)(True) == observed
+                        _native_record_frame_getter_matches(
+                            observed, frame_getters[method]
+                        )
                         for method, observed in (
                             ("GetStart", record_start),
                             ("GetDuration", duration),
                             ("GetEnd", record_end),
                         )
                     ),
-                    "unsupported fractional native record geometry",
+                    "unsupported fractional native record geometry "
+                    f"(track={kind}:{index}, itemUid={uid}, eventId={event_id}, "
+                    f"recordGetters={record_getters!r}, "
+                    f"frameGetters={frame_getters!r})",
                 )
                 _require(
                     timeline_start
@@ -3980,12 +4155,14 @@ def _capture_geometry(
                 # saturates them at the last source frame when the clip reaches EOF.
                 expected_source_end = expected_source_start + expected_source_duration
                 verified_video_frames = None
+                verified_video_verification = None
+                manifest_source = manifest_sources.get(source_id)
                 if kind == "video":
-                    for manifest_source in manifest.get("sources", []):
-                        if manifest_source["id"] != source_id:
+                    for manifest_source_row in manifest.get("sources", []):
+                        if manifest_source_row["id"] != source_id:
                             continue
                         for binding in manifest.get("preparationBindings", []):
-                            if binding["requirementKey"] == manifest_source.get(
+                            if binding["requirementKey"] == manifest_source_row.get(
                                 "preparationRequirementKey"
                             ):
                                 verification = binding["verification"]
@@ -3995,6 +4172,7 @@ def _capture_geometry(
                                     verified_video_frames = verification[
                                         "decodedFrameCount"
                                     ]
+                                    verified_video_verification = verification
                 video_end_saturated_at_eof = (
                     kind == "video"
                     and type(verified_video_frames) is int
@@ -4031,6 +4209,36 @@ def _capture_geometry(
                         method = getattr(item, method_name, None)
                         if callable(method):
                             range_times[method_name] = method()
+                if (
+                    request.get("profile") in {MATRIX_PROFILE, PRESENTER_PROFILE}
+                    and request["context"].get("phase")
+                    in {"pristine", "edited", "rebuild"}
+                    and kind == "video"
+                    and source.get("kind") == "video"
+                    and not static_picture
+                    and _verified_video_start_frame_rounding(
+                        event=event,
+                        manifest_event=manifest_event,
+                        manifest_source=manifest_source,
+                        verification=verified_video_verification,
+                        source_hash=source["contentHash"],
+                        media_frames=props.get("Frames"),
+                        source_start=source_start,
+                        source_end=source_end,
+                        source_duration=source_duration,
+                        expected_source_start=expected_source_start,
+                        expected_source_end=expected_source_end,
+                        expected_source_duration=expected_source_duration,
+                        record_duration=duration,
+                        range_times=range_times,
+                        rate=rate,
+                    )
+                ):
+                    # Resolve's integer getter can floor this boundary by one
+                    # frame. Exact authenticated source times preserve the actual
+                    # outpoint, including an admitted end trim.
+                    source_start = expected_source_start
+                    source_duration = duration
                 fractional_narration_eof = False
                 if (
                     not _observed_edit
@@ -4062,8 +4270,45 @@ def _capture_geometry(
                 if fractional_narration_eof:
                     # Keep raw getters; normalize only the proven comparison extent.
                     source_duration = expected_source_duration
+                still_frame_seconds = None
+                still_fps = props.get("FPS")
+                if static_picture and type(still_fps) in {str, int, float}:
+                    try:
+                        fps_decimal = Decimal(str(still_fps))
+                        if fps_decimal.is_finite() and fps_decimal > 0:
+                            still_frame_seconds = Fraction(1, 1) / Fraction(fps_decimal)
+                    except (InvalidOperation, ZeroDivisionError):
+                        pass
+                still_start_error = _source_time_error_samples(
+                    range_times.get("GetSourceStartTime"), 0, Fraction(1)
+                )
+                timeline_end_error = _source_time_error_samples(
+                    range_times.get("GetSourceEndTime"),
+                    1,
+                    Fraction(rate["denominator"], rate["numerator"]),
+                )
+                still_end_error = (
+                    _source_time_error_samples(
+                        range_times.get("GetSourceEndTime"),
+                        1,
+                        still_frame_seconds,
+                    )
+                    if still_frame_seconds is not None
+                    else None
+                )
+                still_time_edges_match = (
+                    still_start_error is not None
+                    and abs(still_start_error) <= 1
+                    and (
+                        (
+                            timeline_end_error is not None
+                            and abs(timeline_end_error) <= 1
+                        )
+                        or (still_end_error is not None and abs(still_end_error) <= 1)
+                    )
+                )
                 # Studio can expose its arbitrary held-frame counter for a still.
-                # Normalize only a verified one-frame source with exact time edges.
+                # Its source clock can use the imported still FPS, not timeline FPS.
                 if (
                     request.get("profile") in {MATRIX_PROFILE, PRESENTER_PROFILE}
                     and static_picture
@@ -4072,16 +4317,7 @@ def _capture_geometry(
                     and expected_source_start == 0
                     and (expected_source_duration == duration or _observed_edit)
                     and props.get("Frames") == "1"
-                    and all(
-                        type(range_times.get(method)) in {int, float}
-                        and math.isfinite(range_times[method])
-                        and abs(Fraction(str(range_times[method])) - expected)
-                        <= Fraction(1, 48000)
-                        for method, expected in (
-                            ("GetSourceStartTime", Fraction(0)),
-                            ("GetSourceEndTime", Fraction(1001, 24000)),
-                        )
-                    )
+                    and still_time_edges_match
                 ):
                     source_start = 0
                     source_duration = duration
@@ -4230,8 +4466,9 @@ def _capture_geometry(
                     _require(
                         type(gain) in {int, float}
                         and properties.get("AudioVolumeEnabled") is True
-                        and type(properties.get("AudioVolume")) in {int, float}
-                        and properties["AudioVolume"] == gain,
+                        and _native_audio_gain_readback_matches(
+                            gain, properties.get("AudioVolume")
+                        ),
                         "reopened source-audio controls differ",
                     )
                 linked = item.GetLinkedItems()
@@ -4887,7 +5124,9 @@ def _construct(
                 updated is True
                 and type(actual) is dict
                 and actual.get("AudioVolumeEnabled") is True
-                and actual.get("AudioVolume") == gain,
+                and _native_audio_gain_readback_matches(
+                    gain, actual.get("AudioVolume")
+                ),
                 "source-audio controls did not read back",
             )
             _effect_observed(
@@ -4992,6 +5231,77 @@ def _verify_retry_capture_geometry(
         )
 
 
+def _wait_for_reopened_media_pool_items(
+    resolve: Any,
+    request: dict[str, Any],
+    admitted: dict[str, Any],
+    expected_geometry: dict[str, Any],
+) -> None:
+    """Wait for the prior item inventory and its media handles after reload."""
+    tracks = admitted["view"]["tracks"]
+    _require(type(tracks) is list, "admitted native track inventory is unavailable")
+    expected_counts: dict[str, int] = {}
+    for track in tracks:
+        _require(type(track) is dict, "admitted native track row is unavailable")
+        track_id = _identity(track.get("id"))
+        _require(track_id not in expected_counts, "duplicate admitted native track")
+        expected_counts[track_id] = 0
+    expected_items = expected_geometry.get("items")
+    _require(
+        type(expected_items) is list
+        and len(expected_items) <= MAX_ITEMS * max(1, len(tracks)),
+        "prior native item inventory is unavailable/oversized",
+    )
+    assert type(expected_items) is list
+    for item in expected_items:
+        _require(type(item) is dict, "prior native item row is unavailable")
+        track_id = _identity(item.get("trackId"))
+        _require(
+            track_id in expected_counts,
+            "prior native item is outside the admitted track inventory",
+        )
+        expected_counts[track_id] += 1
+
+    deadline = time.monotonic() + MAX_REOPEN_MEDIA_POOL_READY_SECONDS
+    while True:
+        _, _, timeline = _project_timeline(resolve, request)
+        ready = True
+        unavailable_reason = "native item inventory is incomplete"
+        for track in tracks:
+            items = timeline.GetItemListInTrack(track["kind"], track["index"])
+            if items is None:
+                ready = False
+                unavailable_reason = "native item inventory is unavailable"
+                break
+            _require(
+                type(items) in {list, tuple} and len(items) <= MAX_ITEMS,
+                "native item inventory unavailable/oversized",
+            )
+            expected_count = expected_counts[track["id"]]
+            if len(items) < expected_count:
+                ready = False
+                unavailable_reason = "native item inventory is incomplete"
+                break
+            _require(
+                len(items) == expected_count,
+                "reopened native item inventory differs",
+            )
+            for item in items:
+                _require_api(item, ("GetMediaPoolItem",), "TimelineItem")
+                if item.GetMediaPoolItem() is None:
+                    ready = False
+                    unavailable_reason = "MediaPoolItem is unavailable"
+                    break
+            if not ready:
+                break
+        if ready:
+            return
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise OutputConsistencyError(unavailable_reason)
+        time.sleep(min(POLL_INTERVAL_SECONDS, remaining))
+
+
 def _save_reopen(
     resolve: Any,
     request: dict[str, Any],
@@ -5027,6 +5337,9 @@ def _save_reopen(
         state,
         row,
         {"projectUid": reopened.GetUniqueId(), "projectName": reopened.GetName()},
+    )
+    _wait_for_reopened_media_pool_items(
+        resolve, request, admitted, previous["nativeGeometry"]
     )
     geometry = (
         _capture_observed_geometry(resolve, request, admitted, None)

@@ -295,6 +295,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     output_authorize = commands.add_parser("output-authorize")
     output_authorize.add_argument("--plan", type=Path, required=True)
     output_authorize.add_argument("--output", type=Path, required=True)
+    output_authorize.add_argument("--session", type=Path)
+    output_authorize.add_argument("--session-sha256")
+    output_authorize.add_argument(
+        "--agent-consent-reference",
+        help="actual Producer instruction reference; attribution, not authentication",
+    )
+    output_authorize.add_argument(
+        "--agent-consent-instruction",
+        help="actual explicit instruction received by the trusted local agent",
+    )
     output_prepare = commands.add_parser("output-prepare")
     output_prepare.add_argument("--output", type=Path, required=True)
     output_prepare.add_argument(
@@ -545,7 +555,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             from .qualification_output_controller_v2 import issue_operator_approval
 
             output = issue_operator_approval(
-                arguments.plan.absolute(), arguments.output.absolute()
+                arguments.plan.absolute(),
+                arguments.output.absolute(),
+                session_path=(
+                    None if arguments.session is None else arguments.session.absolute()
+                ),
+                session_sha256=arguments.session_sha256,
+                consent_reference=arguments.agent_consent_reference,
+                consent_instruction=arguments.agent_consent_instruction,
             )
         elif arguments.command == "output-prepare":
             from .qualification_output_controller_v2 import prepare_output_session

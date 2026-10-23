@@ -11,24 +11,53 @@ the rate change once the timeline exists. The synthetic input needs audio
 headroom; an exactly full-scale sample correctly blocks prediction before render.
 Use authored quiet audio where needed rather than weakening the clipping check.
 
-When the Producer authorizes agent operation, the agent handles reversible file
-copies, app restarts and menu launches through the same installed flow. Retain
-the actual chat authorization with the exact target and finite plan; never claim
-that an agent entered a human terminal challenge. Ask the Producer only for a
-step the available tooling cannot perform.
+When the Producer explicitly authorizes the trusted local agent to operate this
+bounded local workflow, the agent handles reversible file copies, app restarts
+and menu launches through the same installed flow. The instruction must actually
+be present in the agent's conversation. A reference and instruction text passed
+to the CLI record attribution; they do not authenticate a transcript or create
+permission. The same authorization may cover in-scope replanning and the one
+permitted retry for that exact run without another human hash entry. Changed
+product, privacy, money or production scope needs new actual consent. External
+tool approval requirements remain in force.
 
-The source CLI has separate preparation, human authority, request and result
-stages. `output-prepare` writes an immutable session and operator plan without
-connecting to Resolve. `output-authorize` is the human-only terminal challenge
-for that exact plan. An agent must never answer that challenge. `output-next`
-prepares one canonical request extending the authenticated native operation
-chain. `output-ingest` authenticates the actual result and retains the required
-prediction/reservation/lineage artifacts. `output-finalize` consumes the actual
-post-render capture, decodes the same delivered MOV and records comparison.
-The first app exercise uses the ordinary verified synthetic profile.
-`output-replan` prepares a fresh review-only proposal for the same pinned,
-unfinished session when a new human grant is needed. It neither issues approval
-nor resets a prepared, started, failed or uncertain native operation.
+The source CLI has separate preparation, authority, request and result stages.
+`output-prepare` writes an immutable session and operator plan without
+connecting to Resolve. `output-authorize --plan ... --output ...` defaults to
+the attended human terminal challenge. The instructed-agent mode additionally
+requires the pinned `--session` and `--session-sha256`, plus
+`--agent-consent-reference` and `--agent-consent-instruction`; an agent must not
+answer a human challenge. It loads the exact current session and checks the plan
+against the pinned target, inputs, release, context and deterministic output
+path. Agent-issued authority gets a fresh 30-minute native window starting at
+issuance, and writes the immutable approval plus an `APPROVAL.issuance.json`
+sidecar with its mode, attribution, scope, and session, plan and approval hashes.
+Its mode is `agent_mediated_not_transcript_authenticated`.
+
+For agent issuance, pass the reference to the actual Producer instruction and
+its actual text. Those strings only record attribution; the trusted agent must
+have received the explicit instruction before using them:
+
+```sh
+uv run --frozen python -m vera_timeline_agent.workflow_v2_cli output-authorize \
+  --plan "$PLAN" \
+  --output "$APPROVAL" \
+  --session "$SESSION" \
+  --session-sha256 "$SESSION_SHA256" \
+  --agent-consent-reference "$CONSENT_REFERENCE" \
+  --agent-consent-instruction "$CONSENT_INSTRUCTION"
+```
+
+`output-next` prepares one canonical request extending the authenticated native
+operation chain. `output-ingest` authenticates the actual result and retains the
+required prediction/reservation/lineage artifacts. `output-finalize` consumes
+the actual post-render capture, decodes the same delivered MOV and records
+comparison. The first app exercise uses the ordinary verified synthetic
+profile. `output-replan` prepares a fresh review-only proposal for the same
+pinned, unfinished session; it neither issues approval nor resets a prepared,
+started, failed or uncertain native operation. The same explicit authorization
+can support fresh exact-plan issuance for in-scope replanning and the one
+permitted retry, without another human hash challenge.
 `output-recover` only lists retained status, reasons and artifact hashes.
 
 Each prepared host request must enter the installed script through the accepted

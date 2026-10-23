@@ -75,7 +75,7 @@ class EventProvenanceV2(TypedDict):
 class SourceAudioEventV2(TypedDict):
     audioPolicy: Literal["quiet", "full"]
     levelPolicyVersion: compiler_dependencies_v2_schema.NonEmptyString
-    gainDb: Literal[-18, 0]
+    gainDb: Literal[-18, 0] | float
     streamIndex: compiler_dependencies_v2_schema.NonNegativeSafeInteger
     audioHash: ContentHash
     sampleRange: FrameRangeV2

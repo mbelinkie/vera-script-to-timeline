@@ -156,7 +156,7 @@ def _operator_plan_proposal(raw: bytes) -> Json:
 
 
 def _approval_from_proposal(proposal: Json) -> Json:
-    """Construct the native approval only after the attended review challenge."""
+    """Construct native approval content; the issuer supplies the consent path."""
     from .qualification_output_native_v2 import APPROVAL_FIELDS, APPROVAL_SCHEMA
 
     value = copy.deepcopy(proposal)
@@ -812,8 +812,20 @@ def output_profile_snapshot(manifest: Json) -> bytes:
     )
 
 
-def issue_operator_approval(plan_path: Path, output_path: Path) -> Path:
-    """Attended issuer; the review-only proposal is converted after the tty check."""
+def issue_operator_approval(
+    plan_path: Path,
+    output_path: Path,
+    *,
+    session_path: Path | None = None,
+    session_sha256: str | None = None,
+    consent_reference: str | None = None,
+    consent_instruction: str | None = None,
+) -> Path:
+    """Issue through attended review or an explicitly instructed local agent.
+
+    Consent references attribute the agent's instruction; they do not authenticate
+    a conversation. The trusted local agent must actually have received consent.
+    """
     from .qualification_output_native_v2 import verify_operator_approval
 
     plan_raw = _read(plan_path)
@@ -823,33 +835,95 @@ def issue_operator_approval(plan_path: Path, output_path: Path) -> Path:
         "operator identity differs from local actor",
     )
     _safe(output_path)
+    issuance_path = output_path.with_name(output_path.name + ".issuance.json")
     _require(
         not output_path.exists()
+        and not issuance_path.exists()
+        and not issuance_path.is_symlink()
         and output_path.parent.is_dir()
         and output_path.parent.stat().st_uid == os.getuid()
         and output_path.parent.stat().st_mode & 0o077 == 0,
         "new private operator approval destination required",
     )
-    # The challenge covers the complete proposal wrapper. It contains no bytes
-    # accepted by the native approval validator.
-    challenge = plan_raw
-    print(challenge.decode("utf-8"))
-    phrase = "APPROVE " + _hash(challenge)
-    print("Review the exact target, release, inputs, output and finite actions above.")
-    # /dev/tty excludes piped confirmations and keeps this human-only boundary
-    # separate from the agent's ordinary noninteractive preparation commands.
-    with open("/dev/tty", "r+", encoding="utf-8") as terminal:
-        _require(terminal.isatty(), "interactive operator terminal required")
-        terminal.write(f"To issue this one-use product authority, type {phrase}: ")
-        terminal.flush()
-        answer = terminal.readline(256).rstrip("\r\n")
-    _require(answer == phrase, "operator did not approve the exact plan")
+    agent_fields = (
+        session_path,
+        session_sha256,
+        consent_reference,
+        consent_instruction,
+    )
+    agent_issued = any(value is not None for value in agent_fields)
+    approval = _approval_from_proposal(proposal)
+    if agent_issued:
+        _require(
+            isinstance(session_path, Path)
+            and type(session_sha256) is str
+            and all(
+                type(value) is str and 0 < len(value.strip()) <= 4096
+                for value in (consent_reference, consent_instruction)
+            ),
+            "agent issuance requires the pinned session and actual consent "
+            "reference/instruction",
+        )
+        assert isinstance(session_path, Path) and isinstance(session_sha256, str)
+        controller = load_output_session(session_path, session_sha256)
+        controller._environment_current()
+        from .qualification_output_native_v2 import (
+            MAX_LIFETIME_SECONDS,
+            NATIVE_STATE_ROOT,
+            RETRY_ACTION_PLAN,
+            action_plan_for_context,
+            next_native_operation,
+        )
+        from .workflow_v2_cli import _verify_output_release
+
+        retry = approval["actionPlan"] == list(RETRY_ACTION_PLAN)
+        sequence, _ = next_native_operation(controller.context, retry=retry)
+        _require(
+            retry or sequence < len(action_plan_for_context(controller.context)),
+            "completed run or retry requires its own bounded retry plan",
+        )
+        expected_output = (
+            NATIVE_STATE_ROOT
+            / "renders"
+            / _json_hash(controller.journal.chain)
+            / (
+                controller.context["binding"]["bindingSha256"]
+                + ("-retry-1.mov" if retry else ".mov")
+            )
+        )
+        _require(
+            approval["context"] == controller.context
+            and approval["profile"] == controller.admission.profile
+            and approval["packageRoot"] == str(controller.admission.package_root)
+            and approval["admissionSha256"]
+            == _hash(_read(controller.admission.admission_path))
+            and approval["releaseManifestSha256"]
+            == _hash(_read(_verify_output_release(controller.release_root)))
+            and approval["outputPath"] == str(expected_output),
+            "operator plan is outside the current pinned session scope",
+        )
+        # Preparation is review-only; the live 30-minute window starts at issuance.
+        now = controller.trust.checked_now()
+        approval["issuedAt"] = _iso(now)
+        approval["expiresAt"] = _iso(now + timedelta(seconds=MAX_LIFETIME_SECONDS))
+    else:
+        # The legacy human challenge continues to cover the complete proposal.
+        print(plan_raw.decode("utf-8"))
+        phrase = "APPROVE " + _hash(plan_raw)
+        print(
+            "Review the exact target, release, inputs, output and finite actions above."
+        )
+        with open("/dev/tty", "r+", encoding="utf-8") as terminal:
+            _require(terminal.isatty(), "interactive operator terminal required")
+            terminal.write(f"To issue this one-use product authority, type {phrase}: ")
+            terminal.flush()
+            answer = terminal.readline(256).rstrip("\r\n")
+        _require(answer == phrase, "operator did not approve the exact plan")
     _require(_read(plan_path) == plan_raw, "operator plan changed during review")
     _require(
         _canonical(_operator_plan_proposal(plan_raw)) == _canonical(proposal),
         "operator proposal changed during review",
     )
-    approval = _approval_from_proposal(proposal)
     approval_raw = _canonical(approval)
     # Revalidate the constructed approval, then publish exactly those bytes.
     verify_operator_approval(
@@ -859,6 +933,23 @@ def issue_operator_approval(plan_path: Path, output_path: Path) -> Path:
         admission_sha256=proposal["admissionSha256"],
         release_manifest_sha256=proposal["releaseManifestSha256"],
     )
+    if agent_issued:
+        _publish(
+            issuance_path,
+            _canonical(
+                {
+                    "schemaVersion": "qualification-output-agent-issuance/v1",
+                    "issuanceMode": "agent_mediated_not_transcript_authenticated",
+                    "consentReference": consent_reference,
+                    "consentInstruction": consent_instruction,
+                    "sessionPath": str(session_path),
+                    "sessionSha256": session_sha256,
+                    "planSha256": _hash(plan_raw),
+                    "approvalSha256": _hash(approval_raw),
+                    "scope": approval,
+                }
+            ),
+        )
     _publish(output_path, approval_raw)
     return output_path
 
@@ -923,7 +1014,7 @@ def load_output_session(
     session_path: Path, expected_sha256: str
 ) -> QualificationOutputController:
     """Reopen only a complete verified session, retaining its immutable UID chain."""
-    from .qualification_output_package_v2 import load_qualification_package_v2
+    from .qualification_output_package_v2 import _load_qualification_package_v2
 
     raw = _read(session_path)
     _require(_hash(raw) == expected_sha256, "session raw pin differs")
@@ -947,7 +1038,7 @@ def load_output_session(
         and session["hostJournalRoot"] == str(HOST_STATE_ROOT),
         "closed owned session required",
     )
-    admission = load_qualification_package_v2(
+    admission = _load_qualification_package_v2(
         Path(session["admissionPath"]), session["admissionSha256"]
     )
     context = _context(session["context"])
@@ -1196,18 +1287,23 @@ class QualificationOutputController:
                 "rebuild requires the accepted revised preflight",
             )
             assert revised_preflight is not None
-            revision = verify_revised_preflight_v2(*revised_preflight)
             from .qualification_output_proof_v2 import (
-                verify_revised_rebuild_reservation_v2,
+                _verify_revised_preflight_with_proof_v2,
+                _verify_revised_rebuild_reservation_for_proof_v2,
             )
 
-            verify_revised_rebuild_reservation_v2(
+            revision, proof = _verify_revised_preflight_with_proof_v2(
+                *revised_preflight
+            )
+            proof._current()
+            _verify_revised_rebuild_reservation_for_proof_v2(
                 revision,
                 revised_preflight[1],
                 admission_path=admission.admission_path,
                 target=target,
                 case_id=case_id,
                 invocation_id=invocation_id,
+                proof=proof,
             )
         else:
             _require(revised_preflight is None, "revised proof requires rebuild phase")
@@ -1299,18 +1395,23 @@ class QualificationOutputController:
     def _environment_current(self) -> None:
         self.admission.assert_current()
         if self.revised_preflight is not None:
-            revision = verify_revised_preflight_v2(*self.revised_preflight)
             from .qualification_output_proof_v2 import (
-                verify_revised_rebuild_reservation_v2,
+                _verify_revised_preflight_with_proof_v2,
+                _verify_revised_rebuild_reservation_for_proof_v2,
             )
 
-            verify_revised_rebuild_reservation_v2(
+            revision, proof = _verify_revised_preflight_with_proof_v2(
+                *self.revised_preflight
+            )
+            proof._current()
+            _verify_revised_rebuild_reservation_for_proof_v2(
                 revision,
                 self.revised_preflight[1],
                 admission_path=self.admission.admission_path,
                 target=self.context["target"],
                 case_id=self.context["caseId"],
                 invocation_id=self.context["invocationId"],
+                proof=proof,
             )
         from .roundtrip_v2_records import proof_source_hashes_v2
 
@@ -2399,7 +2500,7 @@ class QualificationOutputController:
             "oneUse": True,
         }
         # Keep the prepared artifact a proposal with a distinct schema/status.
-        # The tty issuer constructs native approval bytes only after review.
+        # Only the explicit attended/agent-mediated issuer creates approval bytes.
         proposal = {
             **plan,
             "schemaVersion": OPERATOR_PROPOSAL_SCHEMA,
