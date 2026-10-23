@@ -12,12 +12,14 @@ from typing import Any
 import pytest
 from test_issue214_comparison import rendered, terminal
 from test_issue214_prediction import case, change_items
+from vera_timeline_agent import qualification_output_controller_v2 as controller_module
 from vera_timeline_agent import qualification_output_proof_v2 as proof
 from vera_timeline_agent import qualification_output_v2 as output
 from vera_timeline_agent.qualification_output_controller_v2 import (
     QualificationOutputController,
 )
 from vera_timeline_agent.qualification_output_records_v2 import (
+    LANE,
     OutputConsistencyError,
     _canonical,
     _hash,
@@ -111,14 +113,71 @@ def controller_fixture(
     return controller, sealed
 
 
+def test_output_session_checks_admission_once_after_reconstruction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    c = case()
+    session_path = tmp_path / "session.json"
+    session = {
+        "schemaVersion": "qualification-output-session/v1",
+        "lane": LANE,
+        "profile": "synthetic-test",
+        "admissionPath": str(tmp_path / "admission.json"),
+        "admissionSha256": "admission-pin",
+        "releaseRoot": str(tmp_path),
+        "context": c.binding["context"],
+        "hostJournalRoot": str(controller_module.HOST_STATE_ROOT),
+    }
+    raw = _canonical(session)
+    session_path.write_bytes(raw)
+    checks = 0
+
+    class Admission:
+        def assert_current(self) -> None:
+            nonlocal checks
+            checks += 1
+
+    class Controller:
+        def __init__(
+            self, _root: Path, *, admission: Admission, **_kwargs: Any
+        ) -> None:
+            admission.assert_current()
+            self.context = c.binding["context"]
+
+    monkeypatch.setattr(controller_module, "QualificationOutputController", Controller)
+    from vera_timeline_agent import qualification_output_package_v2 as package
+
+    monkeypatch.setattr(
+        package, "_load_qualification_package_v2", lambda *_args: Admission()
+    )
+    monkeypatch.setattr(
+        package,
+        "load_qualification_package_v2",
+        lambda *_args: pytest.fail(
+            "session loading must defer to the controller check"
+        ),
+    )
+    loaded = controller_module.load_output_session(session_path, _hash(raw))
+    assert loaded.context == c.binding["context"]
+    assert checks == 1
+
+
 def test_terminal_loader_recomputes_complete_chain_without_effects(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     controller, sealed = controller_fixture(tmp_path, monkeypatch)
+    currentness_checks = 0
+
+    def environment_current() -> None:
+        nonlocal currentness_checks
+        currentness_checks += 1
+
+    monkeypatch.setattr(controller, "_environment_current", environment_current)
     reopened = proof.load_terminal_output(controller)
     assert reopened.comparison == sealed.comparison
     assert reopened.ledger == sealed.ledger
     assert reopened.output.decoded_samples == sealed.output.decoded_samples
+    assert currentness_checks == 2
 
 
 def test_observation_transports_original_phase_input_binding_bytes(
@@ -146,22 +205,39 @@ def test_observation_transports_original_phase_input_binding_bytes(
     }
     monkeypatch.setattr(
         proof,
-        "load_terminal_output",
+        "_load_terminal_output",
         lambda controller: outputs[
             "pristine" if controller is controllers["pristine"] else "edited"
         ],
     )
+    monkeypatch.setattr(
+        proof,
+        "load_terminal_output",
+        lambda _controller: pytest.fail(
+            "evidence must use its pair-wide currentness boundary"
+        ),
+    )
     session: Any = object.__new__(proof.QualificationOutputProofV2)
     session.baseline = controllers["pristine"]
     session.edited = controllers["edited"]
-    session._current = lambda: None
+    currentness_checks = 0
+
+    def current() -> None:
+        nonlocal currentness_checks
+        currentness_checks += 1
+
+    session._current = current
     requests: list[dict[str, Any]] = []
 
     def pure(request: dict[str, Any]) -> dict[str, str]:
+        session._current()
         requests.append(request)
         if request["mode"] == "baseline":
-            return {"documentHash": "document", "dependenciesHash": "dependencies"}
-        return {}
+            result = {"documentHash": "document", "dependenciesHash": "dependencies"}
+        else:
+            result = {}
+        session._current()
+        return result
 
     session._pure = pure
     evidence = session.evidence("A")
@@ -174,6 +250,7 @@ def test_observation_transports_original_phase_input_binding_bytes(
     assert "sourceEntries" in observation["pristineInputBindingJson"]
     assert "nativeSources" in observation["pristineInputBindingJson"]
     assert requests[-1]["evidence"] == evidence
+    assert currentness_checks == 6
 
 
 @pytest.mark.parametrize(

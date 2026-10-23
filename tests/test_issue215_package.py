@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -187,7 +188,7 @@ def test_revision_package_seam_refuses_any_compiler_output_pin_mismatch(
 
 
 def test_admission_cache_keeps_original_and_execution_bytes_distinct(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     output_root = tmp_path / "admission"
     root = output_root / "package"
@@ -204,9 +205,10 @@ def test_admission_cache_keeps_original_and_execution_bytes_distinct(
     original_dependencies_path = _write(
         tmp_path / "original-dependencies.json", original_dependencies
     )
+    retained_media = _write(root / "retained-generated-media.wav", b"R" * 4096)
     tracked_paths: dict[Path, tuple[int, int, int, int, int]] = {}
     tracked_hashes: dict[Path, str] = {}
-    for path in (original_document_path, original_dependencies_path):
+    for path in (original_document_path, original_dependencies_path, retained_media):
         package._track(path, tracked_paths, tracked_hashes)
     view: dict[str, Any] = {"sources": [], "events": []}
 
@@ -246,7 +248,48 @@ def test_admission_cache_keeps_original_and_execution_bytes_distinct(
     assert admission.blobs["executionDocumentSha256"] == execution_document
     assert admission.blobs["executionDependenciesSha256"] == execution_dependencies
     admission_path, digest = admission.serialize_native_admission()
+    currentness_checks = 0
+    original_assert_current = package.QualificationOutputAdmissionV2.assert_current
+
+    def count_currentness(self: Any) -> None:
+        nonlocal currentness_checks
+        currentness_checks += 1
+        original_assert_current(self)
+
+    monkeypatch.setattr(
+        package.QualificationOutputAdmissionV2, "assert_current", count_currentness
+    )
     reopened = package.load_qualification_package_v2(admission_path, digest)
+    assert currentness_checks == 1
     assert reopened.blobs == admission.blobs
     assert original_document_path in reopened._tracked_paths
     assert original_dependencies_path in reopened._tracked_paths
+    assert retained_media in reopened._tracked_paths
+
+    media_hashes = 0
+    original_hash_file = package._hash_file
+
+    def count_media_hash(path: Path) -> str:
+        nonlocal media_hashes
+        if path == retained_media:
+            media_hashes += 1
+        return original_hash_file(path)
+
+    monkeypatch.setattr(package, "_hash_file", count_media_hash)
+    reopened.assert_current()
+    assert media_hashes == 1
+
+    old_state = reopened._tracked_paths[retained_media]
+    old_stat = retained_media.stat()
+    retained_media.write_bytes(b"S" * 4096)
+    os.utime(retained_media, ns=(old_stat.st_atime_ns, old_stat.st_mtime_ns))
+    original_state = package._state
+    monkeypatch.setattr(
+        package,
+        "_state",
+        lambda path: old_state if path == retained_media else original_state(path),
+    )
+    with pytest.raises(
+        package.QualificationPackageError, match="admitted source bytes changed"
+    ):
+        reopened.assert_current()
