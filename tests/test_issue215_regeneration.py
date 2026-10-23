@@ -26,6 +26,7 @@ from vera_timeline_agent.narration.campaign import (
     Ledger,
     default_ledger_path,
 )
+from vera_timeline_agent.narration.configuration import default_profile
 from vera_timeline_agent.narration.models import (
     ProviderResult,
     ProviderTimingMark,
@@ -286,7 +287,10 @@ def test_missing_aws_credentials_refuse_before_intent_or_reservation(
     lane = Lane(tmp_path)
     lane.service.provider = PollyProvider()
     lane.service.config = replace(
-        lane.service.config, data_policy_attestation="provider_terms_accepted"
+        lane.service.config,
+        profile=default_profile(),
+        pricing_policy=None,
+        data_policy_attestation="provider_terms_accepted",
     )
 
     with pytest.raises(ProviderCallRefused, match="credentials are unavailable"):
