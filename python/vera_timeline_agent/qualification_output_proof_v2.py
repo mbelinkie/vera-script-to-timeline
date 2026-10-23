@@ -118,19 +118,14 @@ def _retain(path: Path, raw: bytes) -> Json:
 
 
 @_refusal
-def load_terminal_output(
+def _load_terminal_output(
     controller: QualificationOutputController,
 ) -> output.TerminalOutput:
-    """Reopen the complete controller-owned result without rerendering/decoding.
-
-    Recomputing #214 authenticates commitment, reservation, geometry, fixed
-    decode and terminal CAS ancestry against the entire current UID chain.
-    """
+    """Reopen one complete controller-owned result without rerendering/decoding."""
     _require(
         type(controller) is QualificationOutputController,
         "concrete output controller required",
     )
-    controller._environment_current()
     ledger = controller.journal.history()
     entries = [row for row in ledger if row["context"] == controller.context]
     _require(
@@ -184,6 +179,24 @@ def load_terminal_output(
         ledger,
     )
     output._terminal_comparison(result, controller.trust)
+    return result
+
+
+@_refusal
+def load_terminal_output(
+    controller: QualificationOutputController,
+) -> output.TerminalOutput:
+    """Reopen the result between exact pre/post environment checks.
+
+    Recomputing #214 authenticates commitment, reservation, geometry, fixed
+    decode and terminal CAS ancestry against the entire current UID chain.
+    """
+    _require(
+        type(controller) is QualificationOutputController,
+        "concrete output controller required",
+    )
+    controller._environment_current()
+    result = _load_terminal_output(controller)
     controller._environment_current()
     return result
 
@@ -335,8 +348,8 @@ class QualificationOutputProofV2:
         """
         self._current()
         _require(case_id in {"A", "B", "C"}, "supported isolated case required")
-        pristine = load_terminal_output(self.baseline)
-        edited = load_terminal_output(self.edited)
+        pristine = _load_terminal_output(self.baseline)
+        edited = _load_terminal_output(self.edited)
         before, after = pristine.output, edited.output
         pair = None
         equality = None
