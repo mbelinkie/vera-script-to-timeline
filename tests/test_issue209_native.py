@@ -1287,9 +1287,7 @@ def test_save_reopen_readiness_rechecks_media_pool_item_after_load(
     monkeypatch.setattr(item, "GetMediaPoolItem", becomes_available)
     sleeps: list[float] = []
     monkeypatch.setattr(time, "sleep", sleeps.append)
-    expected_geometry = {
-        "items": [{"trackId": admitted["view"]["tracks"][0]["id"]}]
-    }
+    expected_geometry = {"items": [{"trackId": admitted["view"]["tracks"][0]["id"]}]}
 
     native._wait_for_reopened_media_pool_items(
         resolve, request, admitted, expected_geometry
@@ -1307,9 +1305,7 @@ def test_save_reopen_readiness_refuses_media_pool_item_that_stays_unavailable(
     times = iter((0.0, native.MAX_REOPEN_MEDIA_POOL_READY_SECONDS))
     monkeypatch.setattr(time, "monotonic", lambda: next(times))
     monkeypatch.setattr(time, "sleep", lambda _seconds: None)
-    expected_geometry = {
-        "items": [{"trackId": admitted["view"]["tracks"][0]["id"]}]
-    }
+    expected_geometry = {"items": [{"trackId": admitted["view"]["tracks"][0]["id"]}]}
 
     with pytest.raises(OutputConsistencyError, match="MediaPoolItem is unavailable"):
         native._wait_for_reopened_media_pool_items(
@@ -1343,11 +1339,7 @@ def test_save_reopen_readiness_waits_for_full_split_item_inventory(
             },
         ]
     }
-    initial = (
-        [item]
-        if initial_inventory == "partial"
-        else initial_inventory
-    )
+    initial = [item] if initial_inventory == "partial" else initial_inventory
     inventories = iter((initial, [item, item]))
     reads: list[tuple[str, int]] = []
 

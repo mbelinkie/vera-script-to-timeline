@@ -27,6 +27,7 @@ from issue190_native_fixture import FakeProject, FakeResolve, fake_controls
 from test_issue191_narration import FakeNormalizer
 from test_workflow_v2 import _FakeAdapter
 from vera_timeline_agent.narration.cache import NarrationCache
+from vera_timeline_agent.narration.configuration import default_profile, pricing_for
 from vera_timeline_agent.narration.models import (
     ProviderResult,
     ProviderTimingMark,
@@ -875,6 +876,7 @@ def service_case(
         provider=provider,
         normalizer=ExactFrameNormalizer(),
         config=ServiceConfig(
+            pricing_policy=pricing_for(default_profile()),
             profile=VoiceProfile(
                 "fake", "issue192_fake", "local-test", "fake", "fake", "1", "en-US"
             ),

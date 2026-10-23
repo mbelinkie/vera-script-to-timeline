@@ -14,7 +14,7 @@ from typing import Any, Literal, cast
 
 from vera_timeline_agent.narration.models import canonical_json_bytes, sha256_bytes
 
-CacheKind = Literal["synthesis", "normalization", "assets"]
+CacheKind = Literal["synthesis", "normalization", "assets", "attempts", "quarantine"]
 
 
 class CacheError(RuntimeError):
@@ -36,7 +36,14 @@ def _validate_name(name: str) -> None:
 class NarrationCache:
     def __init__(self, root: Path) -> None:
         self.root = root.resolve() / "v1"
-        for name in ("locks", "synthesis", "normalization", "assets"):
+        for name in (
+            "locks",
+            "synthesis",
+            "normalization",
+            "assets",
+            "attempts",
+            "quarantine",
+        ):
             path = self.root / name
             path.mkdir(parents=True, exist_ok=True)
             if path.is_symlink():
@@ -68,6 +75,14 @@ class NarrationCache:
         if not re_full_key(key):
             raise CacheError("cache key must be 64 lowercase hexadecimal characters")
         return self.root / kind / key
+
+    def discard_rejected_attempt(self, key: str) -> None:
+        """Under the synthesis lock, release only a definite provider rejection."""
+        entry = self.read("attempts", key, "attempt.json")
+        if entry is not None:
+            if entry.files:
+                raise CacheError("attempt marker unexpectedly contains response data")
+            shutil.rmtree(entry.path)
 
     def _assert_safe_ancestors(self, path: Path) -> None:
         current = path

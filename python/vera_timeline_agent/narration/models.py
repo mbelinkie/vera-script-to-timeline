@@ -103,6 +103,9 @@ class ProviderTimingMark:
     start_utf16: int
     end_utf16: int
     value: str
+    time_sample: int | None = None
+    end_sample: int | None = None
+    sample_rate: int | None = None
 
 
 @dataclass(frozen=True)
@@ -115,6 +118,7 @@ class ProviderResult:
     timing_marks: tuple[ProviderTimingMark, ...]
     provenance: dict[str, Any]
     request_ids: tuple[str, ...] = ()
+    provider_input_format: str = "ssml"
 
 
 @dataclass(frozen=True)

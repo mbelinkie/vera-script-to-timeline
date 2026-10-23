@@ -889,7 +889,6 @@ def test_observed_linked_av_end_trim_ripples_downstream_by_exact_delta() -> None
     assert trim == 2
 
 
-
 def _b_linked_av_ripple_case() -> tuple[
     dict[str, dict[str, Any]],
     list[dict[str, Any]],
@@ -938,33 +937,71 @@ def _b_linked_av_ripple_case() -> tuple[
 
     add(
         "9b19fa0d-3bf7-50f5-8a53-3db459c9469d",
-        "primary_visual", "9ab8485e-0d6f-5e47-8b3d-94ae34eca7f4", "video",
-        "primary-root", 143, 111, 5809, 143, 87,
+        "primary_visual",
+        "9ab8485e-0d6f-5e47-8b3d-94ae34eca7f4",
+        "video",
+        "primary-root",
+        143,
+        111,
+        5809,
+        143,
+        87,
     )
     add(
         "fbb405b6-c62d-5af7-8f0d-d3ee050379f7",
-        "source_audio", "9ab8485e-0d6f-5e47-8b3d-94ae34eca7f4", "video",
-        "source-audio", 143, 111, 0, 143, 87,
+        "source_audio",
+        "9ab8485e-0d6f-5e47-8b3d-94ae34eca7f4",
+        "video",
+        "source-audio",
+        143,
+        111,
+        0,
+        143,
+        87,
     )
     add(
         "55752ec4-3554-5df9-8630-de6ab7ba3b04",
-        "placeholder", "55752ec4-3554-5df9-8630-de6ab7ba3b04", "still",
-        "primary-root", 254, 122, 0, 230,
+        "placeholder",
+        "55752ec4-3554-5df9-8630-de6ab7ba3b04",
+        "still",
+        "primary-root",
+        254,
+        122,
+        0,
+        230,
     )
     add(
         "7299c32b-6bb5-51ec-8b91-6d3b84ae4fe6",
-        "narration", "cdc8267a-6c99-5f69-a204-f894a3e92fbf", "audio",
-        "narration", 254, 610, 0, 230,
+        "narration",
+        "cdc8267a-6c99-5f69-a204-f894a3e92fbf",
+        "audio",
+        "narration",
+        254,
+        610,
+        0,
+        230,
     )
     add(
         "6bcba16b-aa83-5880-8321-0512a2084a89",
-        "placeholder", "6bcba16b-aa83-5880-8321-0512a2084a89", "still",
-        "primary-root", 517, 148, 0, 493,
+        "placeholder",
+        "6bcba16b-aa83-5880-8321-0512a2084a89",
+        "still",
+        "primary-root",
+        517,
+        148,
+        0,
+        493,
     )
     add(
         "f6a3c354-a235-5083-8cd1-9e885b04cf77",
-        "placeholder", "f6a3c354-a235-5083-8cd1-9e885b04cf77", "still",
-        "primary-root", 764, 100, 0, 740,
+        "placeholder",
+        "f6a3c354-a235-5083-8cd1-9e885b04cf77",
+        "still",
+        "primary-root",
+        764,
+        100,
+        0,
+        740,
     )
     raw_links: dict[str, list[str]] = {item["itemUid"]: [] for item in items}
     visual_uid = "native-9b19fa0d-3bf7-50f5-8a53-3db459c9469d"
@@ -1049,9 +1086,7 @@ def test_observed_b_ripple_still_refuses_changed_source_duration_or_delta(
 ) -> None:
     events, items, sources, raw_links = _b_linked_av_ripple_case()
     item = next(
-        row
-        for row in items
-        if row["eventId"] == "6bcba16b-aa83-5880-8321-0512a2084a89"
+        row for row in items if row["eventId"] == "6bcba16b-aa83-5880-8321-0512a2084a89"
     )
     if mutation == "source":
         item["sourceStart"] = 1
