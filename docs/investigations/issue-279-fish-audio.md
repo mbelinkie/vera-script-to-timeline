@@ -133,7 +133,8 @@ The four Fish requests cost $0 at the documented promotion rate. One Polly
 audio-plus-marks generation was authorized under a $0.01 total cap and estimated
 at $0.002048. AWS SDK retries were disabled for that comparison. The retained
 Polly rate is $32 per million source characters (audio plus separately billed
-marks), supported by the historical [#112 cost correction](https://github.com/mbelinkie/vera-script-to-timeline/issues/112#issuecomment-5624255388).
+marks), confirmed against the current [AWS pricing page](https://aws.amazon.com/polly/pricing/)
+on 2026-10-23 and the historical [#112 cost correction](https://github.com/mbelinkie/vera-script-to-timeline/issues/112#issuecomment-5624255388).
 No paid Fish request was made.
 
 Fish's [free announcement](https://fish.audio/blog/s2-1-pro-free-api/) currently
