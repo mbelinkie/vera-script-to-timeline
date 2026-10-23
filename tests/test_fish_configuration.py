@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 from vera_timeline_agent.narration import cli
+from vera_timeline_agent.narration.cache import NarrationCache
 from vera_timeline_agent.narration.configuration import (
     FISH_PROFILE_ID,
     MATTHEW_PROFILE_ID,
@@ -21,10 +22,12 @@ from vera_timeline_agent.narration.models import (
     SynthesisRequest,
     SynthesisSettings,
     TextControl,
+    VoiceProfile,
     identity_hash,
 )
+from vera_timeline_agent.narration.normalize import Normalizer
 from vera_timeline_agent.narration.polly import PollyProvider
-from vera_timeline_agent.narration.service import ServiceConfig
+from vera_timeline_agent.narration.service import NarrationService, ServiceConfig
 
 BLOCK = {"id": "block-1", "version": 1, "text": "Hello."}
 FISH_DOCUMENT = {
@@ -136,6 +139,25 @@ def test_base_polly_request_identity_remains_historical() -> None:
     assert identity_hash(
         request.identity(provider_input, provider.adapter_version)
     ) == ("sha256:664cd3deb0feff80427c14a54353e3c4603e5e09019c7f608dd3ae5b75983df6")
+
+
+def test_injected_provider_uses_explicit_pricing_without_unknown_model_fallback(
+    tmp_path: Path,
+) -> None:
+    profile = VoiceProfile("test", "test", "local", "test", "tones", "1", "en-US")
+    with pytest.raises(ValueError, match="unsupported provider/model"):
+        ServiceConfig(profile=profile).request_for(BLOCK)
+    policy = pricing_for(default_profile())
+    config = ServiceConfig(profile=profile, pricing_policy=policy)
+    service = NarrationService(
+        cache=NarrationCache(tmp_path),
+        provider=PreparedOnlyProvider(),
+        normalizer=Normalizer(),
+        config=config,
+    )
+    plan = service.plan_block(BLOCK)
+    assert plan.estimated_cost_usd == policy.estimate(str(BLOCK["text"]))
+    assert config.request_for(BLOCK).pricing_policy_version == policy.version
 
 
 def test_fish_cli_preflight_is_offline_bills_utf8_and_rejects_aws_consent(

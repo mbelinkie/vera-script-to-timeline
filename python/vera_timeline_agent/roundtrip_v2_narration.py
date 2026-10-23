@@ -23,7 +23,11 @@ from vera_timeline_agent.narration.campaign import (
 from vera_timeline_agent.narration.compiler_dependencies import (
     narration_dependency_from_asset,
 )
-from vera_timeline_agent.narration.configuration import pricing_for, provider_for
+from vera_timeline_agent.narration.configuration import (
+    PricingPolicy,
+    pricing_for,
+    provider_for,
+)
 from vera_timeline_agent.narration.measure import (
     METHOD as MEASURED_METHOD,
 )
@@ -571,12 +575,14 @@ class LedgerGuardedProvider:
         *,
         confirmed: bool,
         cap_micro_usd: int = CAP_MICRO_USD,
+        pricing_policy: PricingPolicy | None = None,
     ) -> None:
         self.inner = inner
         self.adapter_version = inner.adapter_version
         self.ledger = ledger
         self.confirmed = confirmed
         self.cap_micro_usd = cap_micro_usd
+        self.pricing_policy = pricing_policy
 
     def prepare_input(self, request: SynthesisRequest) -> bytes:
         return self.inner.prepare_input(request)
@@ -589,7 +595,8 @@ class LedgerGuardedProvider:
                 self.inner.prepare_input(request), self.inner.adapter_version
             )
         )
-        estimated = pricing_for(request.profile).estimate(request.text)
+        policy = self.pricing_policy or pricing_for(request.profile)
+        estimated = policy.estimate(request.text)
         with self.ledger.locked():
             refuse_uncertain_prior_attempt(self.ledger, request_hash)
             reservation = self.ledger.reserve(
@@ -648,6 +655,7 @@ def guard_service(
             ledger,
             confirmed=confirm_provider_call,
             cap_micro_usd=cap_micro_usd,
+            pricing_policy=service.config.pricing,
         ),
         normalizer=service.normalizer,
         config=service.config,

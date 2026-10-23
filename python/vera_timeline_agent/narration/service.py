@@ -13,10 +13,10 @@ from vera_timeline_agent.narration.configuration import (
     MATTHEW_PROFILE_ID as MATTHEW_PROFILE_ID,
 )
 from vera_timeline_agent.narration.configuration import VOICE_PROFILES as VOICE_PROFILES
+from vera_timeline_agent.narration.configuration import PricingPolicy, pricing_for
 from vera_timeline_agent.narration.configuration import (
     default_profile as default_profile,
 )
-from vera_timeline_agent.narration.configuration import pricing_for
 from vera_timeline_agent.narration.configuration import voice_profile as voice_profile
 from vera_timeline_agent.narration.models import (
     NarrationAudioAsset,
@@ -51,6 +51,11 @@ class ServiceConfig:
     controls: tuple[TextControl, ...] = ()
     data_policy_attestation: str | None = None
     max_cost_usd: float = 1.0
+    pricing_policy: PricingPolicy | None = None
+
+    @property
+    def pricing(self) -> PricingPolicy:
+        return self.pricing_policy or pricing_for(self.profile)
 
     def request_for(self, block: dict[str, Any]) -> SynthesisRequest:
         block_id = block.get("id")
@@ -74,7 +79,7 @@ class ServiceConfig:
             controls=self.controls,
             data_policy_attestation=self.data_policy_attestation,
             max_cost_usd=self.max_cost_usd,
-            pricing_policy_version=pricing_for(self.profile).version,
+            pricing_policy_version=self.pricing.version,
         )
 
 
@@ -173,7 +178,7 @@ class NarrationService:
             block_id=request.block_id,
             request_hash=request_hash,
             characters=len(request.text),
-            estimated_cost_usd=pricing_for(request.profile).estimate(request.text),
+            estimated_cost_usd=self.config.pricing.estimate(request.text),
             cached=cached,
         )
 
@@ -358,7 +363,7 @@ class NarrationService:
         request_hash = identity_hash(request_identity)
         synthesis_key = _bare_hash(request_hash)
         generated_at = datetime.now(UTC).isoformat()
-        estimated_cost = pricing_for(request.profile).estimate(request.text)
+        estimated_cost = self.config.pricing.estimate(request.text)
         request_rejected = False
         try:
             raw, synthesis_disposition = self._raw_result(
