@@ -5,18 +5,19 @@ import json
 import math
 import subprocess
 import sys
+from dataclasses import replace
 from enum import IntEnum
 from pathlib import Path
 from typing import Any, Never, TextIO, cast
 
 from vera_timeline_agent.narration.cache import CacheError, NarrationCache
+from vera_timeline_agent.narration.configuration import pricing_for, provider_for
+from vera_timeline_agent.narration.models import SynthesisSettings
 from vera_timeline_agent.narration.normalize import MediaToolError, Normalizer
-from vera_timeline_agent.narration.polly import (
-    PRICE_USD_PER_MILLION_CHARACTERS,
-    PollyError,
-    PollyProvider,
+from vera_timeline_agent.narration.provider import (
+    SpeechProviderError,
+    SpeechSynthesisProvider,
 )
-from vera_timeline_agent.narration.provider import SpeechSynthesisProvider
 from vera_timeline_agent.narration.service import (
     MATTHEW_PROFILE_ID,
     VOICE_PROFILES,
@@ -60,9 +61,17 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--aws-data-policy",
-        required=True,
         choices=("opt_out_confirmed", "provider_terms_accepted"),
     )
+    parser.add_argument("--data-policy", choices=("fish_terms_accepted",))
+    parser.add_argument("--model", help="Explicit provider model; never falls back.")
+    parser.add_argument(
+        "--voice-id", help="Existing provider voice ID; creates no voice."
+    )
+    parser.add_argument(
+        "--voice-version", help="Version label for immutable cache identity."
+    )
+    parser.add_argument("--rate", default="100%", help="Speaking speed, e.g. 110%%.")
     parser.add_argument("--max-cost-usd", type=float, default=1.0)
     mode = parser.add_mutually_exclusive_group(required=False)
     mode.add_argument("--preflight-only", action="store_true")
@@ -131,37 +140,65 @@ def run_cli(
             return CliExit.VALIDATION
         blocks = _active_blocks(document)
         selected_profile = voice_profile(cast(str, options.voice_profile))
+        selected_profile = replace(
+            selected_profile,
+            engine=options.model or selected_profile.engine,
+            voice_id=options.voice_id or selected_profile.voice_id,
+            voice_version=options.voice_version or selected_profile.voice_version,
+        )
+        if options.aws_data_policy and options.data_policy:
+            stderr.write("USAGE_ERROR: choose one provider-specific data policy\n")
+            return CliExit.USAGE
+        policy_attestation = options.data_policy or options.aws_data_policy
+        if not policy_attestation:
+            stderr.write("USAGE_ERROR: an explicit provider data policy is required\n")
+            return CliExit.USAGE
+        if (selected_profile.provider == "fish_audio") != (
+            policy_attestation == "fish_terms_accepted"
+        ):
+            stderr.write("USAGE_ERROR: data policy does not match selected provider\n")
+            return CliExit.USAGE
+        try:
+            pricing = pricing_for(selected_profile)
+        except ValueError as error:
+            stderr.write(f"PREFLIGHT_ERROR: {error}\n")
+            return CliExit.PREFLIGHT
         if not math.isfinite(options.max_cost_usd) or options.max_cost_usd < 0:
             stderr.write(
                 "PREFLIGHT_ERROR: cost ceiling must be finite and nonnegative\n"
             )
             return CliExit.PREFLIGHT
-        billed_characters = sum(len(cast(str, block["text"])) for block in blocks) * 2
-        estimated_cost = (
-            billed_characters * (PRICE_USD_PER_MILLION_CHARACTERS / 2) / 1_000_000
-        )
-        # PRICE is already audio plus marks ($32/M); billed_characters is printed as
-        # two requests for transparency, while cost uses authored characters once.
-        estimated_cost = (
-            sum(len(cast(str, block["text"])) for block in blocks)
-            * PRICE_USD_PER_MILLION_CHARACTERS
-            / 1_000_000
-        )
+        estimated_cost = sum(pricing.estimate(block["text"]) for block in blocks)
         stdout.write("VERA temporary narration preflight\n")
         stdout.write(f"script: {script}\n")
         stdout.write(f"validation: {validation_output.splitlines()[0]}\n")
         stdout.write(f"active narration blocks: {len(blocks)}\n")
-        stdout.write(f"billed characters (audio + marks): {billed_characters}\n")
+        units = sum(pricing.units(block["text"]) for block in blocks)
+        if pricing.unit == "characters":
+            stdout.write(f"billed characters (audio + marks): {units * 2}\n")
+        else:
+            stdout.write(f"billed UTF-8 bytes (audio + timing): {units}\n")
         stdout.write(f"estimated maximum charge: ${estimated_cost:.6f}\n")
         stdout.write(f"cost ceiling: ${options.max_cost_usd:.6f}\n")
-        stdout.write(f"AWS data policy attestation: {options.aws_data_policy}\n")
+        stdout.write(f"provider data policy attestation: {policy_attestation}\n")
         stdout.write(f"profile: {selected_profile.profile_id}\n")
         stdout.write(f"voice: {selected_profile.voice_id}\n")
+        stdout.write(f"model: {selected_profile.engine}; rate: {options.rate}\n")
         stdout.write("normalization: vera-temporary-narration-v1\n")
         stdout.write("excluded narration is not synthesized\n")
         if estimated_cost > options.max_cost_usd:
             stderr.write("PREFLIGHT_ERROR: estimated charge exceeds cost ceiling\n")
             return CliExit.PREFLIGHT
+        selected_provider = provider or provider_for(selected_profile)
+        config = ServiceConfig(
+            profile=selected_profile,
+            settings=SynthesisSettings(rate=options.rate),
+            data_policy_attestation=policy_attestation,
+            max_cost_usd=options.max_cost_usd,
+        )
+        # Capability checks are pure; credentials and transport stay in live preflight.
+        for block in blocks:
+            selected_provider.prepare_input(config.request_for(block))
         if options.preflight_only:
             stdout.write(
                 "preflight complete; no provider call or cache write occurred\n"
@@ -180,13 +217,9 @@ def run_cli(
         stdout.write(f"media tool fingerprint: {tool_fingerprint}\n")
         service = NarrationService(
             cache=NarrationCache(cast(Path, options.cache)),
-            provider=provider or PollyProvider(),
+            provider=selected_provider,
             normalizer=normalizer,
-            config=ServiceConfig(
-                profile=selected_profile,
-                data_policy_attestation=cast(str, options.aws_data_policy),
-                max_cost_usd=cast(float, options.max_cost_usd),
-            ),
+            config=config,
         )
         assets = service.process_document(document)
         for asset in assets:
@@ -220,7 +253,7 @@ def run_cli(
     except MediaToolError as error:
         stderr.write(f"MEDIA_TOOL_ERROR: {error}\n")
         return CliExit.MEDIA_TOOL
-    except (PollyError, CacheError) as error:
+    except (SpeechProviderError, CacheError) as error:
         stderr.write(f"PROVIDER_OR_CACHE_ERROR: {error}\n")
         return CliExit.PROVIDER
     except Exception as error:

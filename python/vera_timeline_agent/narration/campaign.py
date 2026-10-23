@@ -406,7 +406,14 @@ def _parser() -> argparse.ArgumentParser:
     generate.add_argument("--cache", type=Path, required=True)
     generate.add_argument(
         "--voice-profile",
-        choices=tuple(sorted(VOICE_PROFILES)),
+        # Historical campaign authorization and ledger remain AWS-specific.
+        choices=tuple(
+            sorted(
+                key
+                for key, profile in VOICE_PROFILES.items()
+                if profile.provider == "aws_polly"
+            )
+        ),
         default=MATTHEW_PROFILE_ID,
     )
     generate.add_argument(

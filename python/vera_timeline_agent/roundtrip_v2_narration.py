@@ -16,12 +16,18 @@ from vera_timeline_agent.narration.campaign import (
     STATUS_ATTEMPTED,
     STATUS_CHARGED,
     STATUS_RESERVED,
+    CapExceeded,
     Ledger,
     _micro,
     default_ledger_path,
 )
 from vera_timeline_agent.narration.compiler_dependencies import (
     narration_dependency_from_asset,
+)
+from vera_timeline_agent.narration.configuration import (
+    PricingPolicy,
+    pricing_for,
+    provider_for,
 )
 from vera_timeline_agent.narration.measure import (
     METHOD as MEASURED_METHOD,
@@ -38,11 +44,10 @@ from vera_timeline_agent.narration.models import (
     identity_hash,
 )
 from vera_timeline_agent.narration.normalize import NORMALIZER_VERSION, Normalizer
-from vera_timeline_agent.narration.polly import (
-    PRICE_USD_PER_MILLION_CHARACTERS,
-    PollyError,
+from vera_timeline_agent.narration.provider import (
+    SpeechProviderError,
+    SpeechSynthesisProvider,
 )
-from vera_timeline_agent.narration.provider import SpeechSynthesisProvider
 from vera_timeline_agent.narration.service import (
     MATTHEW_PROFILE_ID,
     BlockPlan,
@@ -167,7 +172,12 @@ def _binding(
             "requestIdentity": synth.identity(
                 provider_input, service.provider.adapter_version
             ),
-            "config": asdict(service.config),
+            # The optional injected policy must not rewrite historical defaults.
+            "config": {
+                key: value
+                for key, value in asdict(service.config).items()
+                if key != "pricing_policy" or value is not None
+            },
             "cacheRoot": str(service.cache.root),
             "normalizer": {
                 "profileId": service.normalizer.profile_id,
@@ -571,12 +581,14 @@ class LedgerGuardedProvider:
         *,
         confirmed: bool,
         cap_micro_usd: int = CAP_MICRO_USD,
+        pricing_policy: PricingPolicy | None = None,
     ) -> None:
         self.inner = inner
         self.adapter_version = inner.adapter_version
         self.ledger = ledger
         self.confirmed = confirmed
         self.cap_micro_usd = cap_micro_usd
+        self.pricing_policy = pricing_policy
 
     def prepare_input(self, request: SynthesisRequest) -> bytes:
         return self.inner.prepare_input(request)
@@ -589,16 +601,21 @@ class LedgerGuardedProvider:
                 self.inner.prepare_input(request), self.inner.adapter_version
             )
         )
-        estimated = len(request.text) * PRICE_USD_PER_MILLION_CHARACTERS / 1_000_000
+        policy = self.pricing_policy or pricing_for(request.profile)
+        estimated = policy.estimate(request.text)
         with self.ledger.locked():
             refuse_uncertain_prior_attempt(self.ledger, request_hash)
-            reservation = self.ledger.reserve(
-                request_hash=request_hash,
-                block_id=request.block_id,
-                characters=len(request.text),
-                estimated_cost_usd=estimated,
-                cap_micro_usd=self.cap_micro_usd,
-            )
+            try:
+                reservation = self.ledger.reserve(
+                    request_hash=request_hash,
+                    block_id=request.block_id,
+                    characters=len(request.text),
+                    estimated_cost_usd=estimated,
+                    cap_micro_usd=self.cap_micro_usd,
+                )
+            except CapExceeded as error:
+                # The reservation refused before transport, so retrying is safe.
+                raise SpeechProviderError(str(error), request_rejected=True) from error
             try:
                 result = self.inner.synthesize(request)
             except BaseException:
@@ -620,11 +637,10 @@ def production_narration_service(
 ) -> NarrationService:
     """The #182 campaign service: campaign cache, Matthew Neural, attested policy."""
     from vera_timeline_agent.narration.cache import NarrationCache
-    from vera_timeline_agent.narration.polly import PollyProvider
 
     return NarrationService(
         cache=NarrationCache(cache_dir),
-        provider=provider or PollyProvider(),
+        provider=provider or provider_for(voice_profile(profile_id)),
         normalizer=normalizer or Normalizer(),
         config=ServiceConfig(
             profile=voice_profile(profile_id),
@@ -649,6 +665,7 @@ def guard_service(
             ledger,
             confirmed=confirm_provider_call,
             cap_micro_usd=cap_micro_usd,
+            pricing_policy=service.config.pricing,
         ),
         normalizer=service.normalizer,
         config=service.config,
@@ -683,7 +700,7 @@ def preflight_provider_call(
     refuse_uncertain_prior_attempt(ledger, plan.request_hash)
     if not confirm_provider_call:
         raise ProviderCallRefused(
-            f"a real Polly call (about ${plan.estimated_cost_usd:.6f}, "
+            f"a real provider call (about ${plan.estimated_cost_usd:.6f}, "
             f"{plan.characters} characters) is needed for the regenerated row; "
             "re-run with --confirm-provider-call to authorize it"
         )
@@ -692,7 +709,7 @@ def preflight_provider_call(
     if callable(preflight):
         try:
             preflight(service._request(row))
-        except PollyError as error:
+        except SpeechProviderError as error:
             raise ProviderCallRefused(
                 f"provider preflight failed before any call: {error}"
             ) from error
