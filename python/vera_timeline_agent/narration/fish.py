@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from fractions import Fraction
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from vera_timeline_agent.narration.configuration import pricing_for
 from vera_timeline_agent.narration.fish_stream import (
@@ -36,9 +36,28 @@ class FishError(SpeechProviderError):
     pass
 
 
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
+        # The API key is authorized for this exact endpoint only.
+        return None
+
+
+urlopen = build_opener(_NoRedirect()).open
+
+
+def _api_key() -> str:
+    key = os.environ.get("FISH_AUDIO_API_KEY", "").strip()
+    if not key or len(key) > 4096 or any(not 33 <= ord(char) <= 126 for char in key):
+        raise FishError("FISH_AUDIO_API_KEY is missing or invalid")
+    return key
+
+
 def _ignorable(text: str) -> bool:
     return all(
-        char.isspace() or unicodedata.category(char).startswith("P") for char in text
+        char.isspace()
+        or unicodedata.category(char).startswith("P")
+        or unicodedata.category(char) == "Sc"
+        for char in text
     )
 
 
@@ -283,11 +302,8 @@ class FishProvider:
             raise FishError(
                 "Fish free promotion must be reverified before further calls"
             )
-        if (
-            self._transport == self._stream
-            and not os.environ.get("FISH_AUDIO_API_KEY", "").strip()
-        ):
-            raise FishError("FISH_AUDIO_API_KEY is not configured")
+        if self._transport == self._stream:
+            _api_key()
 
     @staticmethod
     def _stream(payload: bytes, model: str) -> Iterable[bytes]:
@@ -296,7 +312,7 @@ class FishProvider:
             data=payload,
             method="POST",
             headers={
-                "Authorization": "Bearer " + os.environ["FISH_AUDIO_API_KEY"].strip(),
+                "Authorization": "Bearer " + _api_key(),
                 "Content-Type": "application/json",
                 "Accept": "text/event-stream",
                 "model": model,

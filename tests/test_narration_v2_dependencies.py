@@ -100,6 +100,17 @@ def timing_json(*, sentence_only: bool = False, last_time_ms: int = 1450) -> byt
     )
 
 
+def test_native_sample_start_survives_projection_without_ms_quantization() -> None:
+    payload = json.loads(timing_json())
+    payload["marks"][2].update(time_sample=31973, end_sample=35000, sample_rate=44100)
+    timing = canonical_json_bytes(payload)
+    result = narration_v2_dependency_from_asset(asset(timing), timing, block())
+    assert result["tokens"][2]["startTime"] == {
+        "numerator": 31973,
+        "denominator": 44100,
+    }
+
+
 def asset(timing: bytes, *, sentence_only: bool = False) -> NarrationAudioAsset:
     return NarrationAudioAsset(
         record_version="narration-audio-asset/v1",

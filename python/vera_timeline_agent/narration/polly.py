@@ -90,6 +90,8 @@ def _validate_range(start: int, end: int, length: int, label: str) -> None:
 
 
 def build_polly_ssml(request: SynthesisRequest) -> tuple[bytes, PollySourceMap]:
+    if request.profile.provider != "aws_polly":
+        raise PollyError("voice profile does not belong to AWS Polly")
     text = request.text
     if not _RATE.fullmatch(request.settings.rate):
         raise PollyError("invalid prosody rate")

@@ -154,3 +154,22 @@ def test_event_count_limit_is_enforced(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with pytest.raises(FishStreamError, match="too many events"):
         parse_timestamp_stream((wire,))
+
+
+def test_total_transport_limit_caps_alignment_only_events(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frames = (frame(message(audio=b"", seq=0)), frame(message(audio=b"", seq=1)))
+    monkeypatch.setattr(fish_stream, "_MAX_STREAM_BYTES", sum(map(len, frames)) - 1)
+
+    with pytest.raises(FishStreamError, match="total transport size limit"):
+        parse_timestamp_stream(iter(frames))
+
+
+def test_unsupported_event_errors_do_not_echo_provider_text() -> None:
+    wire = b"event: private-provider-event-name\n" + frame(message())
+
+    with pytest.raises(FishStreamError) as raised:
+        parse_timestamp_stream((wire,))
+
+    assert "private-provider-event-name" not in str(raised.value)

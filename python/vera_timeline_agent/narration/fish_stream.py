@@ -9,6 +9,7 @@ from typing import Any
 
 _MAX_EVENT_BYTES = 8 * 1024 * 1024
 _MAX_AUDIO_BYTES = 128 * 1024 * 1024
+_MAX_STREAM_BYTES = 256 * 1024 * 1024
 _MAX_EVENTS = 100_000
 
 
@@ -37,6 +38,7 @@ def parse_timestamp_stream(
     after_cr = False
     done = False
     event_count = 0
+    stream_size = 0
     audio_parts: list[bytes] = []
     audio_size = 0
     seen_sequences: set[int] = set()
@@ -54,7 +56,7 @@ def parse_timestamp_stream(
 
         event_type = frame_event or "message"
         if event_type not in ("", "message"):
-            raise FishStreamError(f"unsupported Fish stream event: {event_type}")
+            raise FishStreamError("Fish stream contains an unsupported event type")
 
         data = "\n".join(frame_data)
         frame_data = []
@@ -163,12 +165,15 @@ def parse_timestamp_stream(
         elif field == "event":
             frame_event = value
             if value not in ("", "message"):
-                raise FishStreamError(f"unsupported Fish stream event: {value}")
+                raise FishStreamError("Fish stream contains an unsupported event type")
         # Standard SSE fields such as id/retry and unknown fields are ignored.
 
     for chunk in chunks:
         if not isinstance(chunk, bytes):
             raise FishStreamError("Fish stream chunks must be bytes")
+        stream_size += len(chunk)
+        if stream_size > _MAX_STREAM_BYTES:
+            raise FishStreamError("Fish stream exceeds the total transport size limit")
         position = 0
         while position < len(chunk):
             if after_cr:
