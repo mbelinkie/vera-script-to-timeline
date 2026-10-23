@@ -118,6 +118,10 @@ To add another provider, implement the existing protocol, return validated PCM
 and source-bound timing, then register its constructor/profile/pricing in
 `narration/configuration.py` with tests. Service, compiler, cache and narration
 consumers need no vendor branch. There is no new frontend or provider framework.
+Injected synthetic providers can supply `ServiceConfig.pricing_policy` explicitly;
+the service and guarded ledger use the same policy. Historical synthetic tests
+retain their former policy/version so their request identities do not drift.
+An unknown live model still refuses instead of inheriting another vendor's rate.
 
 ## Cost and terms
 
