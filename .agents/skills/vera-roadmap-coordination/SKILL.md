@@ -24,7 +24,9 @@ should only see product and taste questions.
    If the labels clearly do not fit the work, fix them with `gh issue edit`,
    note why in a comment, and claim. No steward approval is needed.
 4. Build, test, review and merge per `AGENTS.md` and
-   `docs/VERIFICATION_POLICY.md`. Evidence is the PR plus CI result.
+   `docs/VERIFICATION_POLICY.md`. Before any Claude CLI review, read and follow
+   `docs/CLAUDE_REVIEW_PLAYBOOK.md`, including for in-flight issues with older
+   review instructions. Evidence is the PR plus CI result.
 5. Out-of-scope discoveries go to Inbox as new issues; small, low-risk fixes in
    files already being touched may just be done.
 6. Close according to the acceptance field (below), then re-inspect to confirm

@@ -74,6 +74,8 @@ def args(script: Path, cache: Path) -> list[str]:
         str(script),
         "--cache",
         str(cache),
+        "--voice-profile",
+        MATTHEW_PROFILE_ID,
         "--aws-data-policy",
         "provider_terms_accepted",
     ]
@@ -142,6 +144,92 @@ def test_cli_selects_joanna_as_named_alternative_without_silent_attestation(
         provider=provider,
     )
     assert missing_attestation == CliExit.USAGE
+
+
+def test_cli_defaults_to_fish_mw1_and_custom_voice_model_change_identity(
+    tmp_path: Path,
+) -> None:
+    default_provider = CliFakeProvider()
+    code = run_cli(
+        [
+            str(MINIMAL),
+            "--cache",
+            str(tmp_path / "default-cache"),
+            "--data-policy",
+            "fish_terms_accepted",
+            "--confirm-provider-call",
+        ],
+        stdout=io.StringIO(),
+        stderr=io.StringIO(),
+        provider=default_provider,
+    )
+
+    assert code == CliExit.OK
+    default_request = default_provider.requests[0]
+    assert default_request.profile.profile_id == "fish-mw1-s2.1-pro-free-en-us-v1"
+    assert default_request.profile.provider == "fish_audio"
+    assert default_request.profile.engine == "s2.1-pro-free"
+    assert default_request.profile.voice_id == "f051ceb7fd8d47f09f63944298f589fc"
+
+    custom_provider = CliFakeProvider()
+    custom_code = run_cli(
+        [
+            str(MINIMAL),
+            "--cache",
+            str(tmp_path / "custom-cache"),
+            "--data-policy",
+            "fish_terms_accepted",
+            "--model",
+            "s2.1-pro",
+            "--voice-id",
+            "synthetic-configured-voice",
+            "--voice-version",
+            "config-v2",
+            "--confirm-provider-call",
+        ],
+        stdout=io.StringIO(),
+        stderr=io.StringIO(),
+        provider=custom_provider,
+    )
+
+    assert custom_code == CliExit.OK
+    custom_request = custom_provider.requests[0]
+    assert custom_request.profile.engine == "s2.1-pro"
+    assert custom_request.profile.voice_id == "synthetic-configured-voice"
+    assert custom_request.profile.voice_version == "config-v2"
+    assert default_request.identity(b"same-provider-input", "cli-fake/v1") != (
+        custom_request.identity(b"same-provider-input", "cli-fake/v1")
+    )
+
+
+@pytest.mark.parametrize(
+    "override",
+    [("--model", ""), ("--voice-id", " "), ("--voice-version", "")],
+)
+def test_cli_rejects_empty_voice_configuration_without_fallback(
+    tmp_path: Path, override: tuple[str, str]
+) -> None:
+    provider = CliFakeProvider()
+    stderr = io.StringIO()
+
+    code = run_cli(
+        [
+            str(MINIMAL),
+            "--cache",
+            str(tmp_path / "cache"),
+            "--data-policy",
+            "fish_terms_accepted",
+            *override,
+            "--preflight-only",
+        ],
+        stdout=io.StringIO(),
+        stderr=stderr,
+        provider=provider,
+    )
+
+    assert code == CliExit.USAGE
+    assert "must not be empty" in stderr.getvalue()
+    assert provider.calls == 0
 
 
 @pytest.mark.slow

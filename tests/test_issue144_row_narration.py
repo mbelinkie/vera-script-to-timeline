@@ -19,7 +19,11 @@ from vera_timeline_agent.narration.cache import NarrationCache
 from vera_timeline_agent.narration.compiler_dependencies import (
     narration_dependency_from_asset,
 )
-from vera_timeline_agent.narration.configuration import default_profile, pricing_for
+from vera_timeline_agent.narration.configuration import (
+    MATTHEW_PROFILE_ID,
+    pricing_for,
+    voice_profile,
+)
 from vera_timeline_agent.narration.models import (
     ProviderResult,
     ProviderTimingMark,
@@ -161,7 +165,7 @@ def _setup(
         provider=provider,
         normalizer=Normalizer(),
         config=ServiceConfig(
-            pricing_policy=pricing_for(default_profile()),
+            pricing_policy=pricing_for(voice_profile(MATTHEW_PROFILE_ID)),
             profile=VoiceProfile(
                 profile_id="issue144-synthetic/v1",
                 provider="issue144_synthetic",

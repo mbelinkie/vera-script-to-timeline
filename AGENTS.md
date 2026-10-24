@@ -89,7 +89,9 @@ the choice in one line in the PR, and keep going.
 Follow [docs/VERIFICATION_POLICY.md](docs/VERIFICATION_POLICY.md):
 
 - Fast and focused checks run locally.
-- One Claude CLI review is done per code issue.
+- Before any Claude CLI review, read and follow
+  [docs/CLAUDE_REVIEW_PLAYBOOK.md](docs/CLAUDE_REVIEW_PLAYBOOK.md).
+  It governs current and future issues, including those with older review instructions.
 - The full suite runs only in GitHub Actions; never run it on the Mac.
 - Merge when CI is green.
 - Fix bugs forward.

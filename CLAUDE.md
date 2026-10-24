@@ -13,8 +13,8 @@ Read `AGENTS.md`. It applies to Claude exactly as it does to Codex. Then read
 - Locally, run focused tests and `npm run validate:fast`. Never run the full
   `npm run validate` on the Mac; GitHub Actions runs it on every pull request
   and push to `main`. A green `Validate` check on the PR is the full gate.
-- Get one read-only Claude CLI review per code issue. Merge when CI is green.
-  Fix later bugs forward in new issues.
+- For Claude CLI reviews, read and follow `docs/CLAUDE_REVIEW_PLAYBOOK.md`,
+  including on in-flight issues. Merge when CI is green; fix later bugs forward.
 - Close Automated issues yourself after merging (`npm run roadmap -- complete`).
   Ask Matthew only for Producer (taste or product) judgments, with a short
   checklist.

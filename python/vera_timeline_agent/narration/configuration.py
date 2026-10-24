@@ -12,6 +12,7 @@ MATTHEW_PROFILE_ID = "aws-polly-matthew-neural-en-us-v1"
 JOANNA_PROFILE_ID = "aws-polly-joanna-neural-en-us-v1"
 FISH_PROFILE_ID = "fish-mw1-s2.1-pro-free-en-us-v1"
 MW1_REFERENCE_ID = "f051ceb7fd8d47f09f63944298f589fc"
+DEFAULT_PROFILE_ID = FISH_PROFILE_ID
 
 
 def _polly_profile(profile_id: str, voice_id: str) -> VoiceProfile:
@@ -52,7 +53,7 @@ def voice_profile(profile_id: str) -> VoiceProfile:
 
 
 def default_profile() -> VoiceProfile:
-    return voice_profile(MATTHEW_PROFILE_ID)
+    return voice_profile(DEFAULT_PROFILE_ID)
 
 
 @dataclass(frozen=True)

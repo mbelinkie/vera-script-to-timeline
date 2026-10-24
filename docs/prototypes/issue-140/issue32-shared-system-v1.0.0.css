@@ -1,0 +1,192 @@
+/* issue32-shared-system-v1.0.0-candidate.css — Issue #32 versioned candidate shared design system.
+   Candidate package for review. Not a producer-accepted release, not a product asset,
+   not uploaded or shared anywhere.
+
+   Source of record : VERA Redesign.dc.html (frozen for this export)
+   Source SHA-256   : 22d5e1ce03b7fc7a03dbc12b4e4b266185270affb109ad8a458e82e5f738012d
+   Source bytes     : 520901  ·  lines: 5049
+   Extracted from   : :root declarations L11-L171 and the approved base/focus rules L173-L180
+   Provenance       : accepted remaining-token-audit decisions 1-29 / section 12, accepted
+                      palette, radius, T-A and T-B decisions, and wiring ledgers batches 1-7
+                      plus the A40 batch. Reconciled against those retained ledgers only.
+   A40              : --header-gap-wide 15px / --header-gap-narrow 9px, per the producer
+                      correction of 3 Sep 2026 (supersedes the List A 13px wide figure).
+   Rule             : values are extracted verbatim. Nothing renamed, added, recomputed or
+                      invented. Consumers reference these by var() and must not restate any
+                      declaration locally.
+   Mechanism        : link-import, same mechanism proven by issue32-pilot-tokens.css.
+   Limitations      : see the manifest — row 13a fixed-height precondition hold, the two
+                      recorded focus defects, and the #54 compact who-logged clipping are
+                      carried forward unfixed and unaccepted. */
+
+:root{
+  /* Colour — declared */
+  --desk: #0a0b0d;
+  --surface-app: #0f1116;
+  --surface-panel: #131519;
+  --surface-raised: #171a20;
+  --surface-chrome: #1b1e24;
+  --surface-field: #0c0e12;
+  --surface-thead: #101217;
+  --surface-control: #1c2028;
+  --border: #262b33;
+  --border-strong: #3f4753;
+  --border-field: #2f3540;
+  --divider: #1e2229;
+  --divider-row: #16191f;
+  --text: #e7e4dd;
+  --text-strong: #f2efe8;
+  --text-body: #d9dce2;
+  --text-muted: #8b929e;
+  --text-faint: #656c78;
+  --text-dim: #5b626d;
+  --gold: #c49b50;
+  --gold-hover: #d8bd86;
+  --gold-border: #d1ad67;
+  --gold-dim: #806a3f;
+  --gold-text: #e0c58e;
+  --gold-text-strong: #f4e1b9;
+  --gold-surface: #262117;
+  --gold-surface-strong: #3a3016;
+  --gold-ink: #17120a;
+  --warn-surface: #1a1710;
+  --success: #9ed6b4;
+  --success-surface: #1a2a21;
+  --error: #efb0ad;
+  --error-surface: #2b1d1d;
+  --error-border: #724342;
+  --row-selected: #1b1e17;
+  --row-hover: #171a20;
+  /* Colour — List A promotions */
+  --warn-surface-strong: #332c1c;
+  --warn-border: #4b4330;
+  --text-body-soft: #c3c8d0;
+  --mark-mine: #a08748;
+  --mark-others: #6c88a6;
+  --mark-search: #5c7590;
+  --info: #9fb6cc;
+  --info-surface: #1a2430;
+  --success-border: #2f4a38;
+  --success-fill: #20342a;
+  --error-surface-quiet: #1a1213;
+  --gold-pressed: #b3893f;
+  --control-track: #3a4048;
+  --surface-video: #07080a;
+  /* Colour — List A preserve-as-token */
+  --warn-text: #f0d39b;
+  --text-off: #4d545e;
+  --badge-ink-bright: #ffffff;
+  --text-action-hover: #fff;
+  --success-text: #a9c9b7;
+  --success-border-badge: #2f5c44;
+  --error-border-hover: #a05a58;
+  --error-text: #d7b3b0;
+  --gold-border-quiet: #5d5036;
+  --text-clip: #e2dfd7;
+  --text-spec-caption: #d7c9aa;
+  /* Type size leaves — flattened from TYPE_TOKENS composites */
+  --type-h1-size: 23px;
+  --type-h2-size: 21px;
+  --type-transcript-size: 14.5px;
+  --type-body-size: 13.5px;
+  --type-row-size: 13.5px; --type-row-family:var(--font-ui); --type-row-leading:1.2; --type-row-weight:500;
+  --type-clip-size: 14.5px;
+  --type-clip-source-size: 12px;
+  --type-control-size: 13px;
+  --type-label-size: 12.5px;
+  --type-meta-size: 12px;
+  --type-micro-size: 11.5px; --type-micro-family:var(--font-ui); --type-micro-leading:1.4; --type-micro-weight:400;
+  --type-eyebrow-size: 10.5px;
+  --type-badge-size: 10px;
+  /* Type size leaves — List A */
+  --type-micro-tight-size: 11px;
+  --type-spec-caption-size: 9.5px;
+  --type-dialog-title-size: 14px;
+  --type-wordmark-size: 15px;
+  /* Font-family tokens — referenced by every T-A role family leaf */
+  --font-ui: Inter,sans-serif;
+  --font-mono: ui-monospace,Menlo,monospace;
+  /* Type role leaves — List T-A · 19 value sets */
+  --type-chip-family:var(--font-ui); --type-chip-size:12px; --type-chip-leading:1; --type-chip-weight:500; --type-chip-weight-strong:600;
+  --type-control-sm-family:var(--font-ui); --type-control-sm-size:11.5px; --type-control-sm-leading:1; --type-control-sm-weight:500; --type-control-sm-weight-strong:600;
+  --type-body-sm-family:var(--font-ui); --type-body-sm-size:12px; --type-body-sm-leading:1.55; --type-body-sm-weight:400;
+  --type-micro-flat-family:var(--font-ui); --type-micro-flat-size:11.5px; --type-micro-flat-leading:1; --type-micro-flat-weight:400;
+  --type-subhead-family:var(--font-ui); --type-subhead-size:12.5px; --type-subhead-leading:1.3; --type-subhead-weight:600;
+  --type-pill-family:var(--font-ui); --type-pill-size:10.5px; --type-pill-leading:1.2; --type-pill-weight:600;
+  --type-eyebrow-admin-family:var(--font-ui); --type-eyebrow-admin-size:10.5px; --type-eyebrow-admin-leading:1.4; --type-eyebrow-admin-weight:600; --type-eyebrow-admin-tracking:.06em;
+  --type-timecode-family:var(--font-mono); --type-timecode-size:11.5px; --type-timecode-leading:1; --type-timecode-weight:400; --type-timecode-weight-medium:500; --type-timecode-weight-strong:600;
+  --type-panel-body-family:var(--font-ui); --type-panel-body-size:12.5px; --type-panel-body-leading:1.55; --type-panel-body-weight:400;
+  --type-action-family:var(--font-ui); --type-action-size:13.5px; --type-action-leading:1; --type-action-weight:700;
+  --type-menu-item-family:var(--font-ui); --type-menu-item-size:12.5px; --type-menu-item-leading:1.3; --type-menu-item-weight:500;
+  --type-badge-numeral-family:var(--font-ui); --type-badge-numeral-size:10px; --type-badge-numeral-leading:1; --type-badge-numeral-weight:700;
+  --type-action-sm-family:var(--font-ui); --type-action-sm-size:12px; --type-action-sm-leading:1; --type-action-sm-weight:700;
+  --type-card-title-family:var(--font-ui); --type-card-title-size:13px; --type-card-title-leading:1.3; --type-card-title-weight:600;
+  --type-header-title-family:var(--font-ui); --type-header-title-size:13.5px; --type-header-title-leading:1; --type-header-title-weight:600;
+  --type-menu-row-family:var(--font-ui); --type-menu-row-size:13px; --type-menu-row-leading:1.2; --type-menu-row-weight:500;
+  --type-input-mono-family:var(--font-mono); --type-input-mono-size:12.5px; --type-input-mono-leading:1; --type-input-mono-weight:400;
+  --type-playhead-family:var(--font-mono); --type-playhead-size:14px; --type-playhead-leading:1; --type-playhead-weight:600;
+  --type-eyebrow-family:var(--font-ui); --type-eyebrow-leading:1; --type-eyebrow-weight:600; --type-eyebrow-weight-strong:700; --type-eyebrow-tracking:.08em;
+  /* Type role leaves — List T-A · 8 alias roles */
+  --type-state-word-family: var(--type-chip-family); --type-state-word-size: var(--type-chip-size); --type-state-word-leading: var(--type-chip-leading); --type-state-word-weight: var(--type-chip-weight);
+  --type-inline-name-family: var(--type-chip-family); --type-inline-name-size: var(--type-chip-size); --type-inline-name-leading: var(--type-chip-leading); --type-inline-name-weight: var(--type-chip-weight); --type-inline-name-weight-strong: var(--type-chip-weight-strong);
+  --type-cell-truncated-family: var(--type-micro-flat-family); --type-cell-truncated-size: var(--type-micro-flat-size); --type-cell-truncated-leading: var(--type-micro-flat-leading); --type-cell-truncated-weight: var(--type-micro-flat-weight);
+  --type-counter-family: var(--type-timecode-family); --type-counter-size: var(--type-timecode-size); --type-counter-leading: var(--type-timecode-leading); --type-counter-weight: var(--type-timecode-weight); --type-counter-weight-medium: var(--type-timecode-weight-medium); --type-counter-weight-strong: var(--type-timecode-weight-strong);
+  --type-mono-meta-family: var(--type-timecode-family); --type-mono-meta-size: var(--type-timecode-size); --type-mono-meta-leading: var(--type-timecode-leading); --type-mono-meta-weight: var(--type-timecode-weight);
+  --type-mono-caption-family: var(--type-timecode-family); --type-mono-caption-size: var(--type-timecode-size); --type-mono-caption-leading: var(--type-timecode-leading); --type-mono-caption-weight: var(--type-timecode-weight);
+  --type-entity-name-family: var(--type-menu-item-family); --type-entity-name-size: var(--type-menu-item-size); --type-entity-name-leading: var(--type-menu-item-leading); --type-entity-name-weight: var(--type-menu-item-weight);
+  --type-avatar-initials-family: var(--type-badge-numeral-family); --type-avatar-initials-size: var(--type-badge-numeral-size); --type-avatar-initials-leading: var(--type-badge-numeral-leading); --type-avatar-initials-weight: var(--type-badge-numeral-weight);
+  /* Radius — accepted five-way split plus List A */
+  --radius-chip: 5px;
+  --radius-control: 6px;
+  --radius-field-group: 7px;
+  --radius-panel: 8px;
+  --radius-window: 10px;
+  --radius-pill: 999px;
+  --radius-hairline: 3px;
+  --radius-mark: 2px;
+  /* Control height — flattened from --btn-h */
+  --control-h-primary: 34px;
+  --control-h-toolbar: 32px;
+  --control-h-inline: 28px;
+  --control-h-micro: 24px;
+  /* Dialog width — flattened from --dialog-w */
+  --dialog-w-standard: 540px;
+  --dialog-w-wide: 560px;
+  /* Responsive pairs — emitted, deliberately NOT wired (see report) */
+  --gutter-wide: 15px;
+  --gutter-narrow: 13px;
+  --table-gap-wide: 11px;
+  --table-gap-narrow: 9px;
+  --rail-w-wide: 440px;
+  --rail-w-narrow: 348px;
+  --setup-rail-w-wide: 258px;
+  --setup-rail-w-narrow: 208px;
+  --stage-h-wide: 720px;
+  --stage-h-narrow: 688px;
+  --col-comments-wide: 104px;
+  --col-comments-narrow: 100px;
+  --thread-indent-wide: 54px;
+  --thread-indent-narrow: 48px;
+  /* Layout scalars — single-valued at both widths */
+  --app-w: 1280px;
+  --app-h: 800px;
+  --titlebar-h: 30px;
+  --header-h: 50px;
+  --row-h-source: 38px;
+  --row-h-clip: 34px;
+  --thead-h: 30px;
+  --toolbar-h: 44px;
+  --select-bar-h: 40px;
+  --measure-clip: 68ch;
+  --border-w: 1px; /* Spacing scale — List A promotions A3-A17 */ --space-2: 2px; --space-3: 3px; --space-4: 4px; --space-5: 5px; --space-6: 6px; --space-7: 7px; --space-8: 8px; --space-10: 10px; --space-12: 12px; --space-14: 14px; --space-16: 16px; --space-17: 17px; --space-24: 24px; /* Fixed dimensions — List A promotions A19, A22, A25 */ --control-h-26: 26px; --control-h-42: 42px; --size-w-96: 96px; /* Responsive pairs — List A promotions, declared; branch expressions preserved */ --transcript-pad-wide: 13px; --transcript-pad-narrow: 11px; --header-pad-wide: 13px; --header-pad-narrow: 10px; --header-gap-wide: 15px; --header-gap-narrow: 9px; --kw-strip-gap-wide: 10px; --kw-strip-gap-narrow: 8px; --kw-strip-pad-wide: 12px; --kw-strip-pad-narrow: 10px; --kw-pop-w-wide: 288px; --kw-pop-w-narrow: 250px; --wholog-pop-w-wide: 214px; --wholog-pop-w-narrow: 190px; --row-menu-w-wide: 232px; --row-menu-w-narrow: 208px; --src-filter-w-wide: 200px; --src-filter-w-narrow: 146px; --queue-title-measure-wide: 240px; --queue-title-measure-narrow: 150px; --queue-menu-w-wide: 400px; --queue-menu-w-narrow: 336px; --legend-gap-wide: 12px; --legend-gap-narrow: 9px; --logged-card-w-wide: 320px; --logged-card-w-narrow: 268px; --transcript-lead-wide: 52px; --transcript-lead-narrow: 44px; --transcript-gap-wide: 15px; --transcript-gap-narrow: 11px; --lang-list-h-wide: 168px; --lang-list-h-narrow: 132px; --lang-menu-w-wide: 318px; --lang-menu-w-narrow: 280px; --companion-inset-wide: 26px; --companion-inset-narrow: 16px; /* Breakpoint — List A A61 */ --bp-compact: 1024px; /* Elevation — accepted #21 shadow promotions */ --shadow-overlay: 0 34px 80px rgb(0 0 0 / 68%); --shadow-popover: 0 18px 44px rgb(0 0 0 / 55%); --field-glow: 0 0 0 3px rgb(196 155 80 / 14%); --shadow-window: 0 30px 80px rgb(0 0 0 / 55%); /* Focus metrics — #21 accepted focus decisions, Batch 6 */ --focus-ring-w: 2px; --focus-ring-offset: 2px; --focus-ring-offset-field: 1px;
+}
+
+/* Approved base and focus rules — verbatim from source L173-L180 */
+body{margin:0;background:var(--desk);font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--gold);text-decoration:none}a:hover{color:#e0bd76;text-decoration:underline}
+*{box-sizing:border-box}
+input,select,textarea,button{font:inherit;color:inherit}
+::selection{background:#5a4724;color:var(--gold-text-strong)}
+@keyframes vpulse{to{background-position:-200% 0}}
+:focus-visible{outline:var(--focus-ring-w) solid var(--gold);outline-offset:var(--focus-ring-offset)}
+input:focus-visible,textarea:focus-visible,select:focus-visible{outline:var(--focus-ring-w) solid var(--gold);outline-offset:var(--focus-ring-offset-field)}
