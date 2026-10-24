@@ -11,7 +11,11 @@ from pathlib import Path
 from typing import Any, Never, TextIO, cast
 
 from vera_timeline_agent.narration.cache import CacheError, NarrationCache
-from vera_timeline_agent.narration.configuration import pricing_for, provider_for
+from vera_timeline_agent.narration.configuration import (
+    DEFAULT_PROFILE_ID,
+    pricing_for,
+    provider_for,
+)
 from vera_timeline_agent.narration.models import SynthesisSettings
 from vera_timeline_agent.narration.normalize import MediaToolError, Normalizer
 from vera_timeline_agent.narration.provider import (
@@ -19,7 +23,6 @@ from vera_timeline_agent.narration.provider import (
     SpeechSynthesisProvider,
 )
 from vera_timeline_agent.narration.service import (
-    MATTHEW_PROFILE_ID,
     VOICE_PROFILES,
     NarrationService,
     ServiceConfig,
@@ -56,8 +59,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--voice-profile",
         choices=tuple(sorted(VOICE_PROFILES)),
-        default=MATTHEW_PROFILE_ID,
-        help="Named project voice profile (default: Matthew Neural).",
+        default=DEFAULT_PROFILE_ID,
+        help="Named project voice profile (default: Fish MW1).",
     )
     parser.add_argument(
         "--aws-data-policy",
@@ -139,12 +142,30 @@ def run_cli(
             stderr.write(f"VALIDATION_ERROR:\n{validation_output}\n")
             return CliExit.VALIDATION
         blocks = _active_blocks(document)
+        for option, value in (
+            ("--model", options.model),
+            ("--voice-id", options.voice_id),
+            ("--voice-version", options.voice_version),
+        ):
+            if value is not None and not value.strip():
+                stderr.write(f"USAGE_ERROR: {option} must not be empty\n")
+                return CliExit.USAGE
         selected_profile = voice_profile(cast(str, options.voice_profile))
         selected_profile = replace(
             selected_profile,
-            engine=options.model or selected_profile.engine,
-            voice_id=options.voice_id or selected_profile.voice_id,
-            voice_version=options.voice_version or selected_profile.voice_version,
+            engine=(
+                options.model if options.model is not None else selected_profile.engine
+            ),
+            voice_id=(
+                options.voice_id
+                if options.voice_id is not None
+                else selected_profile.voice_id
+            ),
+            voice_version=(
+                options.voice_version
+                if options.voice_version is not None
+                else selected_profile.voice_version
+            ),
         )
         if options.aws_data_policy and options.data_policy:
             stderr.write("USAGE_ERROR: choose one provider-specific data policy\n")

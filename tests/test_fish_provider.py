@@ -10,7 +10,11 @@ from urllib.error import HTTPError
 
 import pytest
 from vera_timeline_agent.narration.cache import NarrationCache
-from vera_timeline_agent.narration.configuration import FISH_PROFILE_ID, voice_profile
+from vera_timeline_agent.narration.configuration import (
+    FISH_PROFILE_ID,
+    pricing_for,
+    voice_profile,
+)
 from vera_timeline_agent.narration.fish import (
     SAMPLE_RATE,
     FishError,
@@ -90,6 +94,35 @@ def test_adapter_returns_native_source_bound_samples_and_json_input() -> None:
     assert words[0].time_sample == 3528
     assert words[0].end_sample == 17640
     assert result.provenance["effectiveSpeed"] == "provider_not_reported"
+
+
+def test_configured_voice_reference_and_model_reach_fish_request() -> None:
+    configured = request()
+    profile = replace(
+        configured.profile,
+        engine="s2.1-pro",
+        voice_id="a" * 32,
+        voice_version="configured-v1",
+    )
+    configured = replace(
+        configured,
+        profile=profile,
+        pricing_policy_version=pricing_for(profile).version,
+        max_cost_usd=1.0,
+    )
+    sent: list[tuple[bytes, str]] = []
+    raw = stream(snapshot("Hello, world!", [("Hello", 0.08, 0.4), ("world", 0.5, 0.9)]))
+
+    def transport(payload: bytes, model: str) -> list[bytes]:
+        sent.append((payload, model))
+        return [raw]
+
+    result = FishProvider(transport=transport).synthesize(configured)
+
+    assert sent[0][1] == "s2.1-pro"
+    assert json.loads(sent[0][0])["reference_id"] == "a" * 32
+    assert result.provenance["engine"] == "s2.1-pro"
+    assert result.provenance["voiceId"] == "a" * 32
 
 
 def test_multichunk_offsets_unicode_repetition_and_sentence_source_spans() -> None:
