@@ -60,6 +60,35 @@ audio/media remain local; no hosted aligner, reviewer, GitHub or CI upload.
 Calls remain disabled until both first-stage access prerequisites are resolved.
 Parent serializes spend; helpers perform no provider calls.
 
+## Candidate endpoint plan (documentation only)
+
+Inworld's synchronous `/tts/v1/voice` endpoint documents explicit
+`modelId: inworld-tts-2` and `timestampType: WORD`, with native word start/end
+metadata. Use an account-accessible English narration voice and lossless WAV/
+LINEAR16 if the account supports it. The 2,000 UTF-16-unit row limit fits both
+selected rows. Final voice availability and account credit remain unverified.
+[Inworld synthesis](https://docs.inworld.ai/api-reference/ttsAPI/texttospeech/synthesize-speech),
+[Inworld authentication](https://docs.inworld.ai/api-reference/introduction).
+
+ElevenLabs' `/v1/text-to-speech/{voice_id}/with-timestamps` returns original and
+normalized character alignment, requiring exact source mapping before grouping
+into words. `eleven_v4` is a provisional narration candidate; validate its actual
+account/endpoint compatibility and available voices before relying on it. Keep
+the selected authored text unchanged. Use an approved row for any charged
+compatibility attempt, record the attempt, and stop on incompatibility rather
+than silently retrying another model. Avoid assuming premium 44.1 kHz PCM/WAV
+access: that output format is tier restricted.
+[ElevenLabs timestamp endpoint](https://elevenlabs.io/docs/api-reference/text-to-speech/convert-with-timestamps),
+[ElevenLabs authentication](https://elevenlabs.io/docs/api-reference/authentication).
+
+The direct credential names are `ELEVENLABS_API_KEY` and `INWORLD_API_KEY`.
+Inworld's server credential is the complete Base64 value supplied by its Portal,
+sent as Basic authentication without encoding it a second time. Keys must remain
+in secure local storage/environment, not Git or chat. The selected text's TTS
+authorization does not require enterprise zero-retention access; do not invent
+that additional prerequisite. Do record actual retention/usage terms as an
+operational limitation, and keep all acoustic analysis local.
+
 ## Remaining delivery
 
 Provider access, pinned candidate configuration, fresh generation, independent
