@@ -1,0 +1,22 @@
+{
+ Tools = ordered() {
+  VERA292CurveDissolve = GroupOperator {
+   Inputs = ordered() {
+    MainInput1 = InstanceInput { SourceOp = "Dissolve1", Source = "Background", },
+    MainInput2 = InstanceInput { SourceOp = "Dissolve1", Source = "Foreground", },
+    Curve = InstanceInput { SourceOp = "AnimCurves1", Source = "Curve", },
+    EaseIn = InstanceInput { SourceOp = "AnimCurves1", Source = "EaseIn", },
+    EaseOut = InstanceInput { SourceOp = "AnimCurves1", Source = "EaseOut", },
+   },
+   Outputs = { MainOutput1 = InstanceOutput { SourceOp = "Dissolve1", Source = "Output", } },
+   Tools = ordered() {
+    Dissolve1 = Dissolve {
+     Transitions = { [0] = "DFTDissolve" },
+     Inputs = { Mix = Input { SourceOp = "AnimCurves1", Source = "Value", }, },
+    },
+    AnimCurves1 = LUTLookup { Inputs = { Curve = Input { Value = FuID { "Linear" }, }, }, },
+   },
+  }
+ },
+ ActiveTool = "VERA292CurveDissolve"
+}
