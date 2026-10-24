@@ -335,6 +335,7 @@ def test_invalid_credentials_are_not_echoed(monkeypatch: pytest.MonkeyPatch) -> 
 def test_api_key_uses_macos_keychain_when_environment_is_unset(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    import subprocess
     from types import SimpleNamespace
 
     from vera_timeline_agent.narration import fish
@@ -347,7 +348,7 @@ def test_api_key_uses_macos_keychain_when_environment_is_unset(
         calls.append((args, kwargs))
         return SimpleNamespace(returncode=0, stdout="keychain-only-key\n")
 
-    monkeypatch.setattr(fish.subprocess, "run", read_keychain)
+    monkeypatch.setattr(subprocess, "run", read_keychain)
     assert fish._api_key() == "keychain-only-key"
     assert calls == [
         (
