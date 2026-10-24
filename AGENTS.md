@@ -155,8 +155,9 @@ until there is a result or a question that needs him.
 
 ## Specific workflows
 
-- Claude-backed design stories: follow
-  [docs/CLAUDE_DESIGN_STORY_PLAYBOOK.md](docs/CLAUDE_DESIGN_STORY_PLAYBOOK.md).
+- Every visual design story must pass the capability-evidence gate in
+  [docs/CLAUDE_DESIGN_STORY_PLAYBOOK.md](docs/CLAUDE_DESIGN_STORY_PLAYBOOK.md#capability-evidence-before-design)
+  before feature design or Claude edits; missing feasibility is a design blocker.
 - Manual audio timing or human-verified word boundaries: follow
   [docs/AUDIO_TIMING_REVIEW_WORKFLOW.md](docs/AUDIO_TIMING_REVIEW_WORKFLOW.md),
   which prepares machine timing and a prefilled Audition marker file so
