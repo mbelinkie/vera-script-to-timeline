@@ -134,3 +134,18 @@ above. Provider Arena preferences were not treated as timing-accuracy evidence.
 - Inworld: [TTS model IDs and features](https://docs.inworld.ai/tts/tts-models), [synchronous synthesis API](https://docs.inworld.ai/api-reference/ttsAPI/texttospeech/synthesize-speech), [TTS-2 Flash release note](https://docs.inworld.ai/release-notes/tts), [custom pronunciation](https://dev.docs.inworld.ai/tts/capabilities/custom-pronunciation), [pricing and credit tiers](https://inworld.ai/pricing).
 - MiniMax: [TTS HTTP API](https://platform.minimax.io/docs/api-reference/speech-t2a-http), [TTS WebSocket API](https://platform.minimax.io/docs/api-reference/speech-t2a-websocket), [official pricing overview](https://platform.minimax.io/docs/pricing/overview).
 - Existing Polly comparison anchor: [accepted Slice 1.2 plan](../plans/slice-1.2-voice-cache.md).
+
+## ElevenLabs key permissions for #289
+
+For the restricted Sweden TTS probe, enable `text_to_speech`, `voices_read`,
+and `models_read`; ElevenLabs documents these as API-key permission scopes. Its
+Text to Dialogue guide also requires `Text to Speech`, with no separate
+dialogue scope in the key permissions. Add `user_read` only if the probe reads
+`/v1/user/subscription` for quota details. [API key permissions](https://elevenlabs.io/docs/api-reference/service-accounts/api-keys/create), [dialogue guide](https://elevenlabs.io/docs/eleven-api/guides/how-to/websockets/realtime-tdd), [subscription endpoint](https://elevenlabs.io/docs/api-reference/user/subscription/get)
+
+Keep `forced_alignment` disabled for #289. Native TTS timestamps return audio
+and character alignment in the synthesis response; forced alignment is a
+separate endpoint that requires an audio file and text. #289 permits selected
+Sweden text to ElevenLabs TTS, not private audio to hosted alignment. Consider
+that scope only in a future test with explicit audio-upload authorization.
+[TTS timestamps](https://elevenlabs.io/docs/api-reference/text-to-speech/convert-with-timestamps), [forced alignment](https://elevenlabs.io/docs/api-reference/forced-alignment/create)
