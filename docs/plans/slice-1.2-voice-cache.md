@@ -34,6 +34,20 @@ output hashes, and an honest `voiceVersion: provider_not_supplied`. It must not
 invent immutable vendor identity. Output bytes are cached immutably so later
 managed-provider drift cannot rewrite an accepted artifact.
 
+### Follow-up: configured Fish Audio default (2026-10-23)
+
+The accepted Slice 1.2 decision above remains historical context. For new CLI
+requests, the default profile is Fish Audio MW1
+(`fish-mw1-s2.1-pro-free-en-us-v1`), using reference
+`f051ceb7fd8d47f09f63944298f589fc` and model `s2.1-pro-free`. An explicit
+`--voice-profile aws-polly-matthew-neural-en-us-v1` continues to select Polly
+Matthew and requires the AWS data-policy flag. Fish requests require
+`--data-policy fish_terms_accepted`. `--model`, `--voice-id`, and
+`--voice-version` override the selected profile's synthesis configuration;
+these profile fields are part of synthesis identity, so a change causes a cache
+miss. The CLI remains the configuration seam; persisted project preferences and
+UI selection remain out of scope.
+
 The initial request asks Polly for 16 kHz mono signed PCM and separately asks
 for word and sentence speech marks. Both requests are included in the cost
 estimate. Polly's synchronous 3,000 billed-character/6,000 total-character

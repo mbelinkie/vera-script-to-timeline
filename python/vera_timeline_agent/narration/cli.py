@@ -11,7 +11,11 @@ from pathlib import Path
 from typing import Any, Never, TextIO, cast
 
 from vera_timeline_agent.narration.cache import CacheError, NarrationCache
-from vera_timeline_agent.narration.configuration import pricing_for, provider_for
+from vera_timeline_agent.narration.configuration import (
+    DEFAULT_PROFILE_ID,
+    pricing_for,
+    provider_for,
+)
 from vera_timeline_agent.narration.models import SynthesisSettings
 from vera_timeline_agent.narration.normalize import MediaToolError, Normalizer
 from vera_timeline_agent.narration.provider import (
@@ -19,7 +23,6 @@ from vera_timeline_agent.narration.provider import (
     SpeechSynthesisProvider,
 )
 from vera_timeline_agent.narration.service import (
-    MATTHEW_PROFILE_ID,
     VOICE_PROFILES,
     NarrationService,
     ServiceConfig,
@@ -56,8 +59,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--voice-profile",
         choices=tuple(sorted(VOICE_PROFILES)),
-        default=MATTHEW_PROFILE_ID,
-        help="Named project voice profile (default: Matthew Neural).",
+        default=DEFAULT_PROFILE_ID,
+        help="Named project voice profile (default: Fish MW1).",
     )
     parser.add_argument(
         "--aws-data-policy",
