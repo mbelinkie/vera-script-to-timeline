@@ -1,6 +1,12 @@
 # Fish/Polly timing study and retained-take recovery (#289)
 
-Status: in progress. No recovery or provider ranking is established.
+Status: paused at the Producer's request, 2026-10-24. No recovery is accepted.
+The 25-take native study is complete; public MFA completed, public Qwen was
+interrupted. The retained take's prefilled Audition markers exist locally, but
+the full public review pack is unfinished. No reviewed acoustic reference exists.
+The guarded recovery implementation is a draft: focused checks passed; the full
+fast check, completed code review, real admission/compiler proof and CI acceptance
+are outstanding. Nothing has merged and #275 remains blocked.
 
 ## Frozen protocol (before acoustic scoring)
 
