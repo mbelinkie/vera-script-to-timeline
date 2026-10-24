@@ -129,7 +129,7 @@ def test_service_cache_identity_tracks_profile_and_rate() -> None:
 def test_base_polly_request_identity_remains_historical() -> None:
     request = ServiceConfig(
         profile=voice_profile(MATTHEW_PROFILE_ID),
-        data_policy_attestation="provider_terms_accepted"
+        data_policy_attestation="provider_terms_accepted",
     ).request_for(BLOCK)
     provider = PollyProvider()
     provider_input = provider.prepare_input(request)
