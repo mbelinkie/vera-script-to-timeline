@@ -209,15 +209,19 @@ def _prefix_square_sums(samples: Sequence[int]) -> array[float]:
     return prefix
 
 
-def _envelope(samples: Sequence[int], window: int, hop: int) -> list[float]:
+def _envelope(
+    samples: Sequence[int], rate: int, window_ms: int, hop_ms: int
+) -> list[float]:
     prefix = _prefix_square_sums(samples)
-    count = (len(samples) - window) // hop + 1
+    count = (len(samples) * 1000 - window_ms * rate) // (hop_ms * rate) + 1
     if count < 1:
         return []
-    return [
-        math.sqrt((prefix[k * hop + window] - prefix[k * hop]) / window)
-        for k in range(count)
-    ]
+    envelope: list[float] = []
+    for k in range(count):
+        start = k * hop_ms * rate // 1000
+        end = (k * hop_ms + window_ms) * rate // 1000
+        envelope.append(math.sqrt((prefix[end] - prefix[start]) / (end - start)))
+    return envelope
 
 
 def _pearson(a: Sequence[float], b: Sequence[float]) -> float | None:
@@ -246,27 +250,30 @@ def estimate_lag(
 ) -> Lag:
     """Lag (normalized minus raw) from cross-correlating 5 ms RMS envelopes.
 
-    Envelopes are taken at a 1 ms hop on each signal at its native rate (equal
-    to resampling the raw PCM to 48 kHz, without the interpolation cost) so the
-    search has 1 ms resolution; a parabolic fit refines it below 1 ms.
+    Window boundaries follow exact millisecond positions at each native rate,
+    so both envelopes share a 1 ms grid without resampling. A parabolic fit
+    refines the lag below 1 ms.
     """
 
     window_ms = int(parameters["lagEnvelopeWindowMs"])
     hop_ms = int(parameters["lagEnvelopeHopMs"])
     search = int(parameters["lagSearchMs"]) // hop_ms
     raw_samples = _pcm_s16le(raw_pcm)
-    if raw_rate % 1000 != 0:
+    if raw_rate <= 0 or (raw_rate % 1000 != 0 and raw_rate != 44_100):
         raise MeasurementError(
-            [f"raw provider sample rate {raw_rate} is not a whole kHz"]
+            [
+                f"raw provider sample rate {raw_rate} is not supported for "
+                "lag verification"
+            ]
         )
-    raw_env = _envelope(
-        raw_samples, window_ms * raw_rate // 1000, hop_ms * raw_rate // 1000
-    )
-    norm_env = _envelope(
-        normalized, window_ms * SAMPLE_RATE // 1000, hop_ms * SAMPLE_RATE // 1000
-    )
+    raw_env = _envelope(raw_samples, raw_rate, window_ms, hop_ms)
+    norm_env = _envelope(normalized, SAMPLE_RATE, window_ms, hop_ms)
     if len(raw_env) < 4 or len(norm_env) < 4:
         raise MeasurementError(["audio too short to verify normalization timing"])
+    if not any(raw_env):
+        raise MeasurementError(["raw provider PCM has no audible support"])
+    if not any(norm_env):
+        raise MeasurementError(["normalized audio has no audible support"])
 
     def correlation_at(lag: int) -> float | None:
         # normalized[k] corresponds to raw[k - lag]
@@ -552,6 +559,7 @@ def measure_asset(
     record_version, marks = _word_marks(loaded.timing_bytes, reasons)
 
     by_range: dict[tuple[int, int], dict[str, Any]] = {}
+    mark_times: dict[tuple[int, int], Fraction] = {}
     for mark in marks:
         key = (mark.get("start_utf16"), mark.get("end_utf16"))
         time_ms = mark.get("time_ms")
@@ -563,10 +571,36 @@ def measure_asset(
         ):
             reasons.append("provider word mark is malformed")
             continue
+        native_sample = mark.get("time_sample")
+        if native_sample is not None:
+            native_rate = mark.get("sample_rate")
+            if (
+                not isinstance(native_sample, int)
+                or native_sample < 0
+                or not isinstance(native_rate, int)
+                or native_rate <= 0
+            ):
+                reasons.append("provider word mark native sample timing is malformed")
+                continue
+            if native_rate != loaded.raw_sample_rate:
+                reasons.append(
+                    "provider word mark sample rate differs from raw PCM sample rate"
+                )
+                continue
+            mark_time = Fraction(native_sample, native_rate)
+            if round(mark_time * 1000) != time_ms:
+                reasons.append(
+                    "provider word mark native sample differs from milliseconds"
+                )
+                continue
+        else:
+            mark_time = Fraction(time_ms, 1000)
         if key in by_range:
             reasons.append(f"duplicate provider word mark for range {key}")
             continue
-        by_range[cast(tuple[int, int], key)] = mark
+        valid_key = cast(tuple[int, int], key)
+        by_range[valid_key] = mark
+        mark_times[valid_key] = mark_time
     if tokens and not reasons:
         token_ranges = {(t["startOffset"], t["endOffset"]) for t in tokens}
         for token in tokens:
@@ -594,29 +628,37 @@ def measure_asset(
         (token, by_range[(token["startOffset"], token["endOffset"])])
         for token in tokens
     ]
-    previous = -1
-    for token, mark in ordered:
-        if mark["time_ms"] <= previous:
+    previous = Fraction(-1)
+    for token, _mark in ordered:
+        key = (token["startOffset"], token["endOffset"])
+        if mark_times[key] <= previous:
             reasons.append(f"provider word marks out of order at token {token['id']}")
-        previous = mark["time_ms"]
+        previous = mark_times[key]
     if reasons:
         raise MeasurementError(reasons)
 
     lag = estimate_lag(loaded.raw_pcm, loaded.raw_sample_rate, samples, params)
 
     raw_rate = loaded.raw_sample_rate
-    if raw_rate <= 0 or SAMPLE_RATE % raw_rate != 0 or raw_rate % 1000 != 0:
+    if raw_rate <= 0 or (
+        raw_rate != 44_100 and (SAMPLE_RATE % raw_rate != 0 or raw_rate % 1000 != 0)
+    ):
         raise MeasurementError(
             [f"raw provider sample rate {raw_rate} does not map onto 48 kHz"]
         )
-    ratio = SAMPLE_RATE // raw_rate
     raw_samples = _pcm_s16le(loaded.raw_pcm)
     raw_frames = len(raw_samples)
 
     onsets: list[int] = []
     raw_starts: list[int] = []
     for index, (_token, mark) in enumerate(ordered):
-        onset = mark["time_ms"] * SAMPLE_RATE // 1000 + lag.samples
+        if mark.get("time_sample") is not None:
+            onset = mark["time_sample"] * SAMPLE_RATE // mark["sample_rate"]
+            raw_start = mark["time_sample"]
+        else:
+            onset = mark["time_ms"] * SAMPLE_RATE // 1000
+            raw_start = mark["time_ms"] * raw_rate // 1000
+        onset += lag.samples
         if onset < 0:
             # Refuse rather than silently clamp: a clamped onset is not measured.
             reasons.append(
@@ -624,7 +666,7 @@ def measure_asset(
                 f"({onset} samples) after lag correction"
             )
         onsets.append(onset)
-        raw_starts.append(mark["time_ms"] * raw_rate // 1000)
+        raw_starts.append(raw_start)
     for index, onset in enumerate(onsets):
         if onset >= frames or raw_starts[index] >= raw_frames:
             reasons.append(
@@ -657,11 +699,10 @@ def measure_asset(
             quiet_dbfs=float(params["endQuietDbfs"]),
             quiet_windows=quiet_windows,
         )
-        end_sample = (
-            (raw_start + decision.end_sample * window) * ratio + lag.samples
-            if decision.end_sample is not None
-            else None
-        )
+        end_sample = None
+        if decision.end_sample is not None:
+            raw_end = raw_start + decision.end_sample * window
+            end_sample = raw_end * SAMPLE_RATE // raw_rate + lag.samples
         token_rows.append(
             {
                 "tokenId": token["id"],
