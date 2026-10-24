@@ -1,9 +1,11 @@
 # #289 revised Sweden comparison checkpoint
 
 Status, 2026-10-24: all four providers generated both selected rows in stage 1.
-Native inspection and an independent local MFA comparison are complete. The
-private eight-clip Audition pack is prepared. No candidate has human-confirmed
-acoustic accuracy, confirmed spoken fidelity or sound approval.
+Ashley has three complete Inworld generations and a 102-onset Producer review.
+Arthur, the Producer-selected next voice, has one passage and a confirmed short-row
+native prefill; long-row review and selected-voice repeat qualification are pending.
+Captured output passes shared narration admission/projection and the v2 compiler.
+The live Inworld product/CLI adapter is not implemented; #275 remains blocked.
 
 The finish line is reliable, compiler-usable word timing first, natural speech
 and pronunciation second. Fish recovery is optional. Keep the existing owner,
@@ -98,8 +100,8 @@ operational limitation, and keep all acoustic analysis local.
 
 ## Remaining delivery
 
-Human timing/fidelity review, finalist repeats,
-admission/compiler proof and the blind sound audition are outstanding. Native
+Arthur long-row review, selected-voice repeat qualification, final validation/CI
+and the live provider integration handoff remain outstanding. Native
 arrays matching the source and having increasing times are structural evidence
 only. The Producer explicitly requires manual accuracy confirmation even for
 apparently clean data. Custom/cloned voices are a separate future investigation.
@@ -246,3 +248,44 @@ Inworld library voice; Ashley remains the measured baseline. A new chosen voice
 requires fresh synthesis and timing checks, with no automatic transfer of this
 voice's qualification. The same TTS-2 model and exact authored passage remain
 the comparison basis.
+
+
+## Captured-output admission/compiler proof and Arthur review
+
+A study-only `InworldCaptureReplayProvider` verifies hashes for retained request,
+semantic JSON input, native response and original audio. It checks explicit
+model/voice identity and response/audio agreement, maps exact frozen source spans,
+rejects unsafe intervals, and preserves native samples through `ProviderResult`.
+A capture-specific adapter identity prevents distinct generations sharing a
+synthesis cache entry. There is no network transport or live product route.
+
+All three Ashley generations passed the real `NarrationService`, production
+FFmpeg normalization/cache, exact v2 token projection, TypeScript compiler and
+media-needs checks: six admitted assets, 306 projected tokens. Arthur's first
+generation passed the same path: two assets and 102 tokens. These proofs use a
+derived two-row document with explicit picture placeholders, preserving exact
+source text, token IDs, row IDs and revisions. The original script was not
+modified. This is a narration-interface proof, not the #275 full-script benchmark,
+a Resolve qualification, live provider adapter or default switch.
+
+Arthur is an available English US system voice. Its first two rows have complete
+native mapping and no ties/collapses. Local MFA placed 102/102 tokens; per-row
+native/MFA p95 differences are 80 and 90 ms, with worst differences 610 and 130 ms.
+The Producer reviewed the short row's unchanged native prefill as accurate,
+resolving the 610 ms second-word disagreement in favor of native timing. Record
+this as an **MFA outlier**, not a reason to shift or reject the native start.
+The long row is the next review. No human-confirmed audible ends are inferred.
+
+Arthur's reservation adds $0.014550; the cumulative new-provider reservation is
+**$0.104760** of $5, with actual billing still unconfirmed. The original separate
+Polly and Fish caps are unchanged. No top-up, paid fallback, custom voice or
+additional ElevenLabs generation was used.
+
+The replay/analysis/projection focused check passes 25 tests; replay-specific
+checks, Ruff and focused mypy passed. The final fast run again encountered the
+same unrelated five-second qualification-output-proposals timeout; remaining
+Python checks are running separately. The requested code-only Claude review was
+attempted with the playbook's restricted settings but could not execute because
+the CLI account hit its session limit. No adversarial findings or completed
+review are claimed; the playbook permits documenting unavailability and
+continuing without a waiver.
