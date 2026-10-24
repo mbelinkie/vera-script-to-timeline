@@ -16,6 +16,7 @@ from urllib.request import Request
 import pytest
 from vera_timeline_agent.narration import inworld
 from vera_timeline_agent.narration.cache import NarrationCache
+from vera_timeline_agent.narration.campaign import Ledger
 from vera_timeline_agent.narration.configuration import (
     DEFAULT_PROFILE_ID,
     INWORLD_PROFILE_ID,
@@ -34,6 +35,7 @@ from vera_timeline_agent.narration.models import (
 )
 from vera_timeline_agent.narration.normalize import NormalizationResult
 from vera_timeline_agent.narration.service import NarrationService, ServiceConfig
+from vera_timeline_agent.roundtrip_v2_narration import guard_service
 
 BLOCK = {"id": "block-1", "version": 1, "text": "hello"}
 CONSENT = "inworld_terms_accepted"
@@ -501,7 +503,7 @@ def test_inworld_input_rejects_unsupported_controls_and_utf16_overflow() -> None
 
 def test_preflight_requires_matching_pricing_consent_and_cost_ceiling() -> None:
     request = _request()
-    provider = InworldProvider()
+    provider = InworldProvider(transport=lambda _payload: b"")
 
     with pytest.raises(InworldError, match="pricing policy"):
         provider.preflight(replace(request, pricing_policy_version="stale"))
@@ -595,8 +597,11 @@ def test_missing_credential_does_not_block_later_authorized_attempt(
         normalizer=normalizer,  # type: ignore[arg-type]
         config=ServiceConfig(data_policy_attestation=CONSENT),
     )
+    ledger = Ledger(tmp_path / "ledger.json")
+    service = guard_service(service, ledger, confirm_provider_call=True)
     failed = service.process_block(BLOCK)
     assert failed.status == "failed" and failed.extra["requestRejected"]
+    assert ledger.rows() == []
     monkeypatch.setenv("INWORLD_API_KEY", "YWJjOnNlY3JldA==")
     monkeypatch.setattr(
         inworld,
@@ -606,3 +611,18 @@ def test_missing_credential_does_not_block_later_authorized_attempt(
     recovered = service.process_block(BLOCK)
     assert recovered.status == "ready"
     assert recovered.synthesis_disposition == "generated"
+    assert len(ledger.rows()) == 1
+
+
+def test_joined_symbols_are_rejected_before_transport() -> None:
+    calls: list[bytes] = []
+
+    def transport(payload: bytes) -> bytes:
+        calls.append(payload)
+        return b""
+
+    with pytest.raises(InworldError, match="joined-symbol"):
+        InworldProvider(transport=transport).synthesize(
+            _request(text="Meet 👨‍👩‍👧 now")
+        )
+    assert calls == []

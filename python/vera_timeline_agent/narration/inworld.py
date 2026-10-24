@@ -111,6 +111,8 @@ class InworldProvider:
         if not 0.5 <= speed <= 1.5:
             raise InworldError("Inworld speed must be between 50% and 150%")
         units = len(request.text.encode("utf-16-le")) // 2
+        if "\u200d" in request.text:
+            raise InworldError("Inworld joined-symbol source spans are unsupported")
         if (
             not request.text.strip()
             or units > 2000
@@ -151,6 +153,8 @@ class InworldProvider:
             raise InworldError("cost ceiling must be finite and nonnegative")
         if policy.estimate(request.text) > request.max_cost_usd:
             raise InworldError("Inworld estimated charge exceeds cost ceiling")
+        if self._transport is None:
+            _api_key()
 
     @staticmethod
     def _send(payload: bytes) -> bytes:

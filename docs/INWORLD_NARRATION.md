@@ -48,7 +48,8 @@ with `--data-policy fish_terms_accepted`, or a named Polly profile with its
 The live adapter requests synchronous WORD timing and mono 48 kHz LINEAR16 WAV.
 It accepts 1–2,000 UTF-16 code units per row and speed from 50% to 150%; it
 rejects unsupported pitch, volume, pronunciation, inline delivery controls and
-pause/emphasis settings. TTS-2 delivery is explicitly BALANCED; Flash requests
+pause/emphasis settings and zero-width-joined symbol sequences before transport.
+TTS-2 delivery is explicitly BALANCED; Flash requests
 temperature 1.0. These fixed wire settings belong to the
 adapter version. Longer rows fail clearly rather than silently changing the
 text or splitting the synthesis. Native pieces must exactly cover authored
