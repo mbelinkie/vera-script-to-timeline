@@ -119,7 +119,7 @@ not that the audio actually speaks every word correctly.
 | ElevenLabs v4 / Matilda | Both rows have finite, increasing, in-bounds lexical word starts | 102/102 compared; median 40 ms, p95 260 ms, worst 590 ms |
 | Inworld TTS-2 / Ashley | Both rows have finite, increasing, in-bounds lexical word starts | 102/102 compared; median 10 ms, p95 90 ms, worst 120 ms |
 | Fish S2.1 Pro Free / existing voice | Short row passes; long row fails with four tied adjacent starts and five collapsed word intervals | 101/102 compared; median 20 ms, p95 50 ms, worst 320 ms; one local reference abstention |
-| Polly neural / Joanna | Both rows have finite, increasing, in-bounds word starts; native audible ends unavailable | 102/102 compared; median 40 ms, p95 133 ms, worst 263 ms |
+| Polly neural / Joanna | Both rows have finite, increasing, in-bounds word starts; native word ends unavailable | 102/102 compared; median 40 ms, p95 133 ms, worst 263 ms |
 
 Differences are rounded diagnostic disagreements against **unreviewed MFA**,
 not measured errors against human truth. The 150 ms p95 gate cannot establish
@@ -146,3 +146,32 @@ hashes and canonical token correspondence. Descriptions say NOT HUMAN VERIFIED.
 The recommended first review is Inworld's two rows; clean-looking starts need
 manual confirmation as well as flagged disagreements. Native ends are never
 claimed to be verified audible ends, and Polly markers remain onset points.
+
+
+| Candidate | First-passage generation wall time | Audio duration | Conservative reservation |
+| --- | --- | --- | --- |
+| ElevenLabs | 10.27 s | 39.52 s | $0.046560 |
+| Inworld | 7.00 s | 35.14 s | $0.014550 |
+| Fish | 19.03 s | 35.16 s | $0 |
+| Polly | 1.08 s | 33.83 s | $0.018624, audio plus speech marks |
+
+These are one sequential two-row attempt each, including transport and local
+response decoding; they are not throughput benchmarks. Ordinary 1.0x settings
+produce different speaking rates across voices. MFA's eight-row batch took
+141.79 s, including local execution setup. Actual provider billing remains
+unconfirmed; reservations remain committed even where included credits may
+cover usage. No production service-level or retention guarantees are inferred.
+
+
+## Checkpoint verification
+
+All eight review-audio hashes and 32 marker-file hashes/inventories were checked.
+The 14 focused study/analyzer tests pass, as do all 1,772 non-slow Python tests,
+Python lint/format and mypy. Generated types, TypeScript lint/type checks, the
+other workspace tests and all four fast tooling groups pass. The initial
+`validate:fast` invocation failed on a 5-second timeout in an unrelated
+qualification-output-proposals test; its focused 30-test file passes on rerun.
+Remaining fast groups were completed individually. No full-suite Mac run was
+performed. Final-diff Claude review, CI/merge and issue completion remain pending;
+this is a pushed manual-review checkpoint. The existing #256 tracks fast-suite
+runtime. No code-check result establishes acoustic accuracy.
