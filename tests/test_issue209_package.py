@@ -181,7 +181,46 @@ def test_public_packager_keeps_refusing_r16(
         v2_package._validate_inputs(document, dependencies, manifest, report)
 
 
-def test_r16_delta_recovers_both_original_input_guards(
+def test_original_input_link_guards_reject_replaced_targets(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(package, "_PRIVATE", tmp_path)
+    target_dir = (
+        tmp_path
+        / "issue-148/2026-10-11-r15-heroes-base-binding/attempt-01/candidate-inputs"
+    )
+    target_dir.mkdir(parents=True)
+    for name in ("script-document-v2.json", "compiler-dependencies-v2.json"):
+        target = target_dir / name
+        expected_raw = b'{"synthetic":true}'
+        target.write_bytes(expected_raw)
+        link = tmp_path / name
+        link.symlink_to(target)
+        digest = package._sha(expected_raw)
+        state = {
+            "regularFiles": {
+                str(link): {
+                    "rawSha256": f"sha256:{digest}",
+                    "identity": {
+                        "path": str(link),
+                        "resolvedTarget": str(target),
+                        "linkText": str(target),
+                        "linkIdentity": package._file_identity(link),
+                        "targetIdentity": package._file_identity(target),
+                    },
+                }
+            }
+        }
+        raw, states, hashes = package._parse_original_link(link, digest, state)
+        assert raw == expected_raw and link in states and target in states
+        assert hashes[target] == digest
+        target.rename(target.with_suffix(".retained"))
+        target.write_bytes(expected_raw)
+        with pytest.raises(package.QualificationPackageError, match="identity changed"):
+            package._parse_original_link(link, digest, state)
+
+
+def test_r16_delta_recovers_original_dependency_bytes(
     retained_r16: tuple[dict[str, Any], ...],
 ) -> None:
     delta_raw = package._DELTA.read_bytes()
@@ -192,12 +231,9 @@ def test_r16_delta_recovers_both_original_input_guards(
         (package._ORIGINAL_DOCUMENT, package._EXPECTED_ORIGINAL_DOCUMENT),
         (package._ORIGINAL_DEPENDENCIES, package._EXPECTED_ORIGINAL_DEPENDENCIES),
     ):
-        raw, states, hashes = package._parse_original_link(
-            path, digest, delta["finalInputState"]
-        )
+        raw = path.read_bytes()
+        assert package._sha(raw) == digest
         originals.append(raw)
-        assert path in states and path.resolve() in states
-        assert hashes[path.resolve()] == digest
     package._authenticate_dependency_delta(
         json.loads(originals[1]),
         retained_r16[1],
@@ -339,19 +375,22 @@ def test_load_reopens_verified_cache_without_running_toolchain(
         "events": [],
     }
     empty = b"{}"
+    document = _canonical({"activeDraft": {"blocks": []}})
+    report: dict[str, Any] = {"diagnostics": [], "recoveryActions": []}
+    report_raw = _canonical(report)
     admission = package._finish_admission(
         output,
         profile=package.SYNTHETIC_PROFILE,
         disposition="verified_synthetic",
         creative_qualification="qualified_synthetic_only",
-        original_document=empty,
+        original_document=document,
         original_dependencies=empty,
-        execution_document=empty,
+        execution_document=document,
         execution_dependencies=empty,
         manifest={"events": []},
         manifest_raw=_canonical({"events": []}),
-        report={},
-        report_raw=empty,
+        report=report,
+        report_raw=report_raw,
         compiler_runs=(empty, empty),
         view=view,
         view_raw=_canonical(view),

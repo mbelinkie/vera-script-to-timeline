@@ -6,6 +6,18 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 
 from vera_timeline_agent.narration.cache import CacheError, NarrationCache
+from vera_timeline_agent.narration.configuration import (
+    JOANNA_PROFILE_ID as JOANNA_PROFILE_ID,
+)
+from vera_timeline_agent.narration.configuration import (
+    MATTHEW_PROFILE_ID as MATTHEW_PROFILE_ID,
+)
+from vera_timeline_agent.narration.configuration import VOICE_PROFILES as VOICE_PROFILES
+from vera_timeline_agent.narration.configuration import PricingPolicy, pricing_for
+from vera_timeline_agent.narration.configuration import (
+    default_profile as default_profile,
+)
+from vera_timeline_agent.narration.configuration import voice_profile as voice_profile
 from vera_timeline_agent.narration.models import (
     NarrationAudioAsset,
     PronunciationEntry,
@@ -25,43 +37,10 @@ from vera_timeline_agent.narration.normalize import (
     NormalizationResult,
     Normalizer,
 )
-from vera_timeline_agent.narration.polly import PRICE_USD_PER_MILLION_CHARACTERS
-from vera_timeline_agent.narration.provider import SpeechSynthesisProvider
-
-MATTHEW_PROFILE_ID = "aws-polly-matthew-neural-en-us-v1"
-JOANNA_PROFILE_ID = "aws-polly-joanna-neural-en-us-v1"
-
-
-def _polly_profile(profile_id: str, voice_id: str) -> VoiceProfile:
-    return VoiceProfile(
-        profile_id=profile_id,
-        provider="aws_polly",
-        region="us-east-1",
-        engine="neural",
-        voice_id=voice_id,
-        voice_version="provider_not_supplied",
-        language="en-US",
-    )
-
-
-VOICE_PROFILES = {
-    MATTHEW_PROFILE_ID: _polly_profile(MATTHEW_PROFILE_ID, "Matthew"),
-    JOANNA_PROFILE_ID: _polly_profile(JOANNA_PROFILE_ID, "Joanna"),
-}
-
-
-def voice_profile(profile_id: str) -> VoiceProfile:
-    try:
-        return VOICE_PROFILES[profile_id]
-    except KeyError as error:
-        choices = ", ".join(sorted(VOICE_PROFILES))
-        raise ValueError(
-            f"unknown voice profile {profile_id!r}; choose one of: {choices}"
-        ) from error
-
-
-def default_profile() -> VoiceProfile:
-    return voice_profile(MATTHEW_PROFILE_ID)
+from vera_timeline_agent.narration.provider import (
+    SpeechProviderError,
+    SpeechSynthesisProvider,
+)
 
 
 @dataclass(frozen=True)
@@ -72,6 +51,36 @@ class ServiceConfig:
     controls: tuple[TextControl, ...] = ()
     data_policy_attestation: str | None = None
     max_cost_usd: float = 1.0
+    pricing_policy: PricingPolicy | None = None
+
+    @property
+    def pricing(self) -> PricingPolicy:
+        return self.pricing_policy or pricing_for(self.profile)
+
+    def request_for(self, block: dict[str, Any]) -> SynthesisRequest:
+        block_id = block.get("id")
+        revision = block.get("version")
+        text = block.get("text")
+        if (
+            not isinstance(block_id, str)
+            or not isinstance(revision, int)
+            or not isinstance(text, str)
+        ):
+            raise ValueError(
+                "active narration block requires string id/text and integer version"
+            )
+        return SynthesisRequest(
+            block_id=block_id,
+            block_revision=revision,
+            text=text,
+            profile=self.profile,
+            settings=self.settings,
+            pronunciations=self.pronunciations,
+            controls=self.controls,
+            data_policy_attestation=self.data_policy_attestation,
+            max_cost_usd=self.max_cost_usd,
+            pricing_policy_version=self.pricing.version,
+        )
 
 
 def _bare_hash(value: str) -> str:
@@ -87,9 +96,24 @@ def _timing_json(result: ProviderResult) -> bytes:
                 if any(mark.kind == "word" for mark in result.timing_marks)
                 else "sentence_start"
             ),
-            "marks": [asdict(mark) for mark in result.timing_marks],
+            # Omit optional native samples to preserve historical Polly bytes.
+            "marks": [
+                {key: value for key, value in asdict(mark).items() if value is not None}
+                for mark in result.timing_marks
+            ],
         }
     )
+
+
+@dataclass(frozen=True)
+class BlockPlan:
+    """What ``process_block`` would do for one block, decided without a call."""
+
+    block_id: str
+    request_hash: str
+    characters: int
+    estimated_cost_usd: float
+    cached: bool
 
 
 class NarrationService:
@@ -122,34 +146,47 @@ class NarrationService:
         blocks.sort(
             key=lambda block: (str(block.get("orderKey", "")), str(block.get("id", "")))
         )
-        return [self.process_block(block) for block in blocks]
+        assets: list[NarrationAudioAsset] = []
+        rejection: SpeechProviderError | None = None
+        for block in blocks:
+            asset = self.process_block(block, _provider_error=rejection)
+            assets.append(asset)
+            if asset.extra.get("requestRejected"):
+                rejection = SpeechProviderError(
+                    (asset.failure_reason or "provider request rejected").removeprefix(
+                        "provider: "
+                    ),
+                    request_rejected=True,
+                )
+        return assets
 
     def _request(self, block: dict[str, Any]) -> SynthesisRequest:
-        block_id = block.get("id")
-        revision = block.get("version")
-        text = block.get("text")
-        if (
-            not isinstance(block_id, str)
-            or not isinstance(revision, int)
-            or not isinstance(text, str)
-        ):
-            raise ValueError(
-                "active narration block requires string id/text and integer version"
-            )
-        return SynthesisRequest(
-            block_id=block_id,
-            block_revision=revision,
-            text=text,
-            profile=self.config.profile,
-            settings=self.config.settings,
-            pronunciations=self.config.pronunciations,
-            controls=self.config.controls,
-            data_policy_attestation=self.config.data_policy_attestation,
-            max_cost_usd=self.config.max_cost_usd,
+        return self.config.request_for(block)
+
+    def plan_block(self, block: dict[str, Any]) -> BlockPlan:
+        """Report the request identity and whether a provider call is needed."""
+
+        request = self._request(block)
+        provider_input = self.provider.prepare_input(request)
+        request_hash = identity_hash(
+            request.identity(provider_input, self.provider.adapter_version)
+        )
+        key = _bare_hash(request_hash)
+        with self.cache.lock(key):
+            cached = self.cache.read("synthesis", key, "synthesis.json") is not None
+        return BlockPlan(
+            block_id=request.block_id,
+            request_hash=request_hash,
+            characters=len(request.text),
+            estimated_cost_usd=self.config.pricing.estimate(request.text),
+            cached=cached,
         )
 
     def _raw_result(
-        self, request: SynthesisRequest, synthesis_key: str
+        self,
+        request: SynthesisRequest,
+        synthesis_key: str,
+        provider_error: SpeechProviderError | None = None,
     ) -> tuple[ProviderResult, str]:
         with self.cache.lock(synthesis_key):
             entry = self.cache.read("synthesis", synthesis_key, "synthesis.json")
@@ -163,20 +200,77 @@ class NarrationService:
                         audio_format=str(metadata["audioFormat"]),
                         sample_rate=int(metadata["sampleRate"]),
                         channels=int(metadata["channels"]),
-                        provider_input=entry.files["provider-input.ssml"],
+                        provider_input=entry.files[
+                            metadata.get("inputFile", "provider-input.ssml")
+                        ],
                         timing_marks=marks,
                         provenance=dict(metadata["provenance"]),
                         request_ids=tuple(metadata["requestIds"]),
+                        provider_input_format=str(metadata.get("inputFormat", "ssml")),
                     ),
                     "reused",
                 )
-            result = self.provider.synthesize(request)
+            if provider_error is not None:
+                raise provider_error
+            preflight = getattr(self.provider, "preflight", None)
+            if callable(preflight):
+                preflight(request)
+            if self.cache.read("attempts", synthesis_key, "attempt.json") is not None:
+                raise SpeechProviderError(
+                    "an earlier synthesis attempt has no verified cached result; "
+                    "manual reconciliation is required before retrying"
+                )
+            # Persist before transport: a timeout or crash must not spend again.
+            self.cache.publish(
+                "attempts",
+                synthesis_key,
+                {},
+                "attempt.json",
+                {"recordVersion": "synthesis-attempt/v1"},
+            )
+            try:
+                result = self.provider.synthesize(request)
+            except SpeechProviderError as error:
+                if error.response_files:
+                    response_key = _bare_hash(
+                        identity_hash(
+                            {
+                                "synthesisKey": synthesis_key,
+                                "failureReason": str(error),
+                                "files": {
+                                    name: sha256_bytes(data)
+                                    for name, data in error.response_files.items()
+                                },
+                            }
+                        )
+                    )
+                    self.cache.publish(
+                        "quarantine",
+                        response_key,
+                        error.response_files,
+                        "response.json",
+                        {
+                            "recordVersion": "provider-response-quarantine/v1",
+                            "failureReason": str(error),
+                            "synthesisKey": synthesis_key,
+                        },
+                    )
+                if error.request_rejected:
+                    self.cache.discard_rejected_attempt(synthesis_key)
+                raise
+            if result.provider_input != self.provider.prepare_input(request):
+                raise SpeechProviderError("provider result differs from prepared input")
+            if result.audio_format != "pcm_s16le":
+                raise SpeechProviderError("provider returned unsupported audio format")
+            if result.provider_input_format not in {"ssml", "json"}:
+                raise SpeechProviderError("provider returned unsupported input format")
+            input_file = f"provider-input.{result.provider_input_format}"
             timing = _timing_json(result)
             disposition = self.cache.publish(
                 "synthesis",
                 synthesis_key,
                 {
-                    "provider-input.ssml": result.provider_input,
+                    input_file: result.provider_input,
                     "provider-audio.pcm": result.audio_bytes,
                     "provider-timing.json": timing,
                 },
@@ -188,6 +282,14 @@ class NarrationService:
                     "channels": result.channels,
                     "provenance": result.provenance,
                     "requestIds": list(result.request_ids),
+                    **(
+                        {
+                            "inputFile": input_file,
+                            "inputFormat": result.provider_input_format,
+                        }
+                        if result.provider_input_format != "ssml"
+                        else {}
+                    ),
                 },
             )
             return result, disposition
@@ -247,7 +349,12 @@ class NarrationService:
             )
             return normalized, disposition
 
-    def process_block(self, block: dict[str, Any]) -> NarrationAudioAsset:
+    def process_block(
+        self,
+        block: dict[str, Any],
+        *,
+        _provider_error: SpeechProviderError | None = None,
+    ) -> NarrationAudioAsset:
         request = self._request(block)
         provider_input = self.provider.prepare_input(request)
         request_identity = request.identity(
@@ -256,11 +363,12 @@ class NarrationService:
         request_hash = identity_hash(request_identity)
         synthesis_key = _bare_hash(request_hash)
         generated_at = datetime.now(UTC).isoformat()
-        estimated_cost = (
-            len(request.text) * PRICE_USD_PER_MILLION_CHARACTERS / 1_000_000
-        )
+        estimated_cost = self.config.pricing.estimate(request.text)
+        request_rejected = False
         try:
-            raw, synthesis_disposition = self._raw_result(request, synthesis_key)
+            raw, synthesis_disposition = self._raw_result(
+                request, synthesis_key, _provider_error
+            )
             timing = _timing_json(raw)
             normalization_identity = {
                 "recordVersion": "normalization-key/v1",
@@ -279,6 +387,9 @@ class NarrationService:
         except CacheError:
             raise
         except Exception as error:
+            request_rejected = (
+                isinstance(error, SpeechProviderError) and error.request_rejected
+            )
             normalized = self.normalizer.placeholder(request.block_id)
             raw = None
             timing = canonical_json_bytes(
@@ -382,6 +493,7 @@ class NarrationService:
                 "integratedLufs": normalized.integrated_lufs,
                 "truePeakDbtp": normalized.true_peak_dbtp,
                 "loudnessRangeLu": normalized.loudness_range_lu,
+                **({"requestRejected": True} if request_rejected else {}),
             },
         )
         with self.cache.lock(asset_id):

@@ -6,7 +6,7 @@ import { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 import { applyAcceptedOmissionV2, type AcceptedOmissionV2 } from "./issue-189-v2-omission.js";
 import { finalizeReplacementV2, type RowHandoffV2, type RowRequestV2 } from "./issue-189-v2-replacement.js";
-import type { CompilerDependenciesV2, PreparedMediaBindingV1, ScriptDocumentV2, TimelineManifestV2, TimelineEventV2 } from "./generated/contracts-v2.js";
+import type { CompilerDependenciesV2, OccurrenceMediaResolutionV2, PreparedMediaBindingV1, ScriptDocumentV2, TimelineManifestV2, TimelineEventV2 } from "./generated/contracts-v2.js";
 
 export interface RevisionCommandsV2 {
   boundary: {
@@ -115,23 +115,37 @@ export function prepareRevisionInputsV2(
     affected.add(commands.omission.blockId);
   }
   fact(validateScriptDocumentV2(document).valid, "invalid staged revision");
-  const allowed = new Set(dependencies.occurrenceResolutions.filter((d) => {
+  const affectedOccurrences = dependencies.occurrenceResolutions.filter((d) => {
     const owner = d.owner;
+    if (d.preparedMediaRequirementKey === null) return false;
     if (owner.kind === "visual_only_block" || owner.kind === "overlay_event") return affected.has(owner.blockId);
     return document.activeDraft.blocks.some((b) => b.type === "narration" && affected.has(b.id) && b.primaryVisualSequence?.id === owner.sequenceId);
-  }).map((d) => d.preparedMediaRequirementKey).filter((k): k is string => k !== null));
-  const seen = new Set<string>();
+  });
+  // A preparation's requirementKey is the identity of its inputs (requestedRange included), so an honest
+  // replacement carries its OWN key. It is matched to exactly one affected occurrence by what the occurrence
+  // pins (original source, profile, rate, authorization, mode) and then adopted, along with its key.
+  const resolved = new Set<OccurrenceMediaResolutionV2>();
   for (const replacement of preparedMedia) {
-    const key = replacement.requirementKey;
-    fact(allowed.has(key) && !seen.has(key), "unrelated/duplicate preparation replacement");
-    const matches = dependencies.preparedMedia.filter((b) => b.requirementKey === key);
-    fact(matches.length === 1, "ambiguous prior preparation binding");
-    const old = matches[0]!;
-    fact(equal(old.originalSource, replacement.originalSource) && equal(old.profile, replacement.profile) &&
-      equal(old.targetRate, replacement.targetRate) && old.authorizationReference === replacement.authorizationReference &&
-      old.mode === replacement.mode, "preparation source/profile/authorization changed");
-    dependencies.preparedMedia[dependencies.preparedMedia.indexOf(old)] = structuredClone(replacement);
-    seen.add(key);
+    const priorFor = (d: OccurrenceMediaResolutionV2) => dependencies.preparedMedia.find((b) => b.requirementKey === d.preparedMediaRequirementKey);
+    const matching = affectedOccurrences.filter((d) => d.mediaReferenceId === replacement.originalSource.mediaReferenceId &&
+      equal(priorFor(d)?.originalSource, replacement.originalSource));
+    fact(matching.length === 1 && !resolved.has(matching[0]!), "unrelated/duplicate preparation replacement");
+    const old = priorFor(matching[0]!);
+    fact(old !== undefined, "ambiguous prior preparation binding");
+    fact(equal(old.profile, replacement.profile) && equal(old.targetRate, replacement.targetRate) &&
+      old.authorizationReference === replacement.authorizationReference && old.mode === replacement.mode,
+      "preparation source/profile/authorization changed");
+    const occurrence = matching[0]!;
+    resolved.add(occurrence);
+    const oldKey = occurrence.preparedMediaRequirementKey;
+    const oldIndex = dependencies.preparedMedia.findIndex((b) => b.requirementKey === oldKey);
+    fact(replacement.requirementKey === oldKey || !dependencies.preparedMedia.some((b) => b.requirementKey === replacement.requirementKey),
+      "replacement preparation key duplicates an existing binding");
+    const shared = dependencies.occurrenceResolutions.some((d) => d !== occurrence && d.preparedMediaRequirementKey === oldKey);
+    fact(!(shared && replacement.requirementKey === oldKey), "replacement keeps a preparation key shared by an unaffected occurrence");
+    occurrence.preparedMediaRequirementKey = replacement.requirementKey;
+    if (shared) dependencies.preparedMedia.push(structuredClone(replacement));
+    else dependencies.preparedMedia[oldIndex] = structuredClone(replacement);
   }
   return { document, dependencies, regeneration };
 }

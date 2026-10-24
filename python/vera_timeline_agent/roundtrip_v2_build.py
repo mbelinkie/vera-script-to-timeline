@@ -27,7 +27,12 @@ from vera_timeline_agent.roundtrip_build import (
     _parse,
 )
 from vera_timeline_agent.roundtrip_proof import _destination, publish_immutable_output
-from vera_timeline_agent.roundtrip_v2_audio import ReceiptVerifier, fact, shape
+from vera_timeline_agent.roundtrip_v2_audio import (
+    ReceiptVerifier,
+    fact,
+    narration_review_pin,
+    shape,
+)
 from vera_timeline_agent.roundtrip_v2_records import (
     ProofNativeError,
     proof_source_hashes_v2,
@@ -332,7 +337,13 @@ class PreparedProofBuildV2:
             )
             if row.get("schemaVersion") == "narration-boundary-evidence/v1":
                 fact(
-                    _digest(review) == row["verification"]["reviewArtifactHash"],
+                    _digest(review)
+                    == narration_review_pin(
+                        row,
+                        timing=actual_timing,
+                        artifact=review,
+                        audio_sha256=_digest(pcm),
+                    ),
                     "boundary review artifact differs",
                 )
             self.authenticate(

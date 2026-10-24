@@ -359,7 +359,7 @@ export type SourceAudioEventV2 = {
 } & {
   audioPolicy: "quiet" | "full";
   levelPolicyVersion: string;
-  gainDb: -18 | 0;
+  gainDb: -18 | -0.1 | 0;
   streamIndex: number;
   audioHash: string;
   sampleRange: FrameRangeV2;
@@ -548,7 +548,7 @@ export interface VeraContractsV2 {
   buildReport: BuildReportV2;
   compilerResult: CompilerResultV2;
   boundaryTokenEvidence: BoundaryTokenEvidenceV1;
-  boundaryVerification: BoundaryVerificationV1;
+  boundaryVerification: ReviewedBoundaryVerificationV1 | MeasuredBoundaryVerificationV1;
   wordAudibleEndAnchor: WordAudibleEndAnchor;
 }
 /**
@@ -927,7 +927,7 @@ export interface AuthoringDefaultsV2 {
   sourceAudioLevelPolicy: {
     version: string;
     quietGainDb: -18;
-    fullGainDb: 0;
+    fullGainDb: 0 | -0.1;
   };
 }
 export interface TimelineSettingsV2 {
@@ -1133,9 +1133,9 @@ export interface NarrationBoundaryEvidenceV1 {
   audio: NarrationAudioBindingV2;
   tokens: BoundaryTokenEvidenceV1[];
   schemaVersion: "narration-boundary-evidence/v1";
-  verification: BoundaryVerificationV1;
+  verification: ReviewedBoundaryVerificationV1 | MeasuredBoundaryVerificationV1;
 }
-export interface BoundaryVerificationV1 {
+export interface ReviewedBoundaryVerificationV1 {
   method: "reviewed_audio_boundaries/v1";
   reviewId: string;
   reviewRevision: number;
@@ -1145,6 +1145,32 @@ export interface BoundaryVerificationV1 {
    */
   reviewArtifactLocator: string;
   reviewArtifactHash: string;
+}
+export interface MeasuredBoundaryVerificationV1 {
+  method: "measured_audio_boundaries/v1";
+  algorithm: MeasuredBoundaryAlgorithmV1;
+  /**
+   * Canonical slash-separated project-relative locator; absolute paths and dot segments are not accepted.
+   */
+  measurementArtifactLocator: string;
+  measurementArtifactHash: string;
+  onsetBasis: "provider_word_marks_lag_verified";
+  onsetUncertainty: RationalTime & {
+    numerator?: number;
+    [k: string]: unknown;
+  };
+  audibleEndUncertainty: RationalTime & {
+    numerator?: number;
+    [k: string]: unknown;
+  };
+}
+export interface MeasuredBoundaryAlgorithmV1 {
+  id: "vera-polly-marks-energy-ends";
+  version: "1";
+  parametersHash: string;
+  parameters: {
+    [k: string]: unknown;
+  };
 }
 export interface GraphicProvenanceSnapshot {
   schemaVersion: "graphic-provenance/v1";
@@ -1328,6 +1354,11 @@ export interface EventProvenanceV2 {
   compilerVersion: string;
   graphicProvenanceHash?: string;
   boundaryEvidenceHash?: string;
+  /**
+   * Method of the boundary evidence behind boundaryEvidenceHash. Emitted only for measured evidence; absence with a boundaryEvidenceHash means reviewed_audio_boundaries/v1. Measured evidence is never labelled reviewed.
+   */
+  boundaryEvidenceMethod?:
+    "reviewed_audio_boundaries/v1" | "measured_audio_boundaries/v1";
 }
 export interface StillPictureTreatmentV2 {
   kind: "still";
@@ -1395,6 +1426,11 @@ export interface VisualSequenceResolutionV2 {
     | "not_applicable"
     | "verified_onset";
   boundaryEvidenceHash?: string;
+  /**
+   * Method of the boundary evidence behind boundaryEvidenceHash. Emitted only for measured evidence; absence with a boundaryEvidenceHash means reviewed_audio_boundaries/v1. Measured evidence is never labelled reviewed.
+   */
+  boundaryEvidenceMethod?:
+    "reviewed_audio_boundaries/v1" | "measured_audio_boundaries/v1";
 }
 export interface DurationBasisV2 {
   kind: "narration_spine" | "visual_only_duration" | "standalone_clip";
@@ -1450,6 +1486,11 @@ export interface BoundaryEvidenceV2 {
     | "at_word_end";
   relatedTokenId?: string | null;
   boundaryEvidenceHash?: string;
+  /**
+   * Method of the boundary evidence behind boundaryEvidenceHash. Emitted only for measured evidence; absence with a boundaryEvidenceHash means reviewed_audio_boundaries/v1. Measured evidence is never labelled reviewed.
+   */
+  boundaryEvidenceMethod?:
+    "reviewed_audio_boundaries/v1" | "measured_audio_boundaries/v1";
 }
 export interface ManifestReferenceV2 {
   id: string;

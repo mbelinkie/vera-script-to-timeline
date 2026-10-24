@@ -85,6 +85,10 @@ FINALIZE_REFUSAL_FIELDS = frozenset(
         "reason",
     }
 )
+FINALIZE_CLOCK_SCHEMA = "qualification-output-finalize-clock/v1"
+# Largest backward OS wall step a completed render may recheck across. The
+# measured backward steps were 57-189 ms; expiry windows are minutes long.
+FINALIZE_CLOCK_STEP_ALLOWANCE_SECONDS = 1.0
 HOST_STATE_ROOT = (
     Path.home()
     / "Library/Application Support/VERA/qualification-output-host/v1/attempts"
@@ -152,7 +156,7 @@ def _operator_plan_proposal(raw: bytes) -> Json:
 
 
 def _approval_from_proposal(proposal: Json) -> Json:
-    """Construct the native approval only after the attended review challenge."""
+    """Construct native approval content; the issuer supplies the consent path."""
     from .qualification_output_native_v2 import APPROVAL_FIELDS, APPROVAL_SCHEMA
 
     value = copy.deepcopy(proposal)
@@ -808,8 +812,20 @@ def output_profile_snapshot(manifest: Json) -> bytes:
     )
 
 
-def issue_operator_approval(plan_path: Path, output_path: Path) -> Path:
-    """Attended issuer; the review-only proposal is converted after the tty check."""
+def issue_operator_approval(
+    plan_path: Path,
+    output_path: Path,
+    *,
+    session_path: Path | None = None,
+    session_sha256: str | None = None,
+    consent_reference: str | None = None,
+    consent_instruction: str | None = None,
+) -> Path:
+    """Issue through attended review or an explicitly instructed local agent.
+
+    Consent references attribute the agent's instruction; they do not authenticate
+    a conversation. The trusted local agent must actually have received consent.
+    """
     from .qualification_output_native_v2 import verify_operator_approval
 
     plan_raw = _read(plan_path)
@@ -819,33 +835,95 @@ def issue_operator_approval(plan_path: Path, output_path: Path) -> Path:
         "operator identity differs from local actor",
     )
     _safe(output_path)
+    issuance_path = output_path.with_name(output_path.name + ".issuance.json")
     _require(
         not output_path.exists()
+        and not issuance_path.exists()
+        and not issuance_path.is_symlink()
         and output_path.parent.is_dir()
         and output_path.parent.stat().st_uid == os.getuid()
         and output_path.parent.stat().st_mode & 0o077 == 0,
         "new private operator approval destination required",
     )
-    # The challenge covers the complete proposal wrapper. It contains no bytes
-    # accepted by the native approval validator.
-    challenge = plan_raw
-    print(challenge.decode("utf-8"))
-    phrase = "APPROVE " + _hash(challenge)
-    print("Review the exact target, release, inputs, output and finite actions above.")
-    # /dev/tty excludes piped confirmations and keeps this human-only boundary
-    # separate from the agent's ordinary noninteractive preparation commands.
-    with open("/dev/tty", "r+", encoding="utf-8") as terminal:
-        _require(terminal.isatty(), "interactive operator terminal required")
-        terminal.write(f"To issue this one-use product authority, type {phrase}: ")
-        terminal.flush()
-        answer = terminal.readline(256).rstrip("\r\n")
-    _require(answer == phrase, "operator did not approve the exact plan")
+    agent_fields = (
+        session_path,
+        session_sha256,
+        consent_reference,
+        consent_instruction,
+    )
+    agent_issued = any(value is not None for value in agent_fields)
+    approval = _approval_from_proposal(proposal)
+    if agent_issued:
+        _require(
+            isinstance(session_path, Path)
+            and type(session_sha256) is str
+            and all(
+                type(value) is str and 0 < len(value.strip()) <= 4096
+                for value in (consent_reference, consent_instruction)
+            ),
+            "agent issuance requires the pinned session and actual consent "
+            "reference/instruction",
+        )
+        assert isinstance(session_path, Path) and isinstance(session_sha256, str)
+        controller = load_output_session(session_path, session_sha256)
+        controller._environment_current()
+        from .qualification_output_native_v2 import (
+            MAX_LIFETIME_SECONDS,
+            NATIVE_STATE_ROOT,
+            RETRY_ACTION_PLAN,
+            action_plan_for_context,
+            next_native_operation,
+        )
+        from .workflow_v2_cli import _verify_output_release
+
+        retry = approval["actionPlan"] == list(RETRY_ACTION_PLAN)
+        sequence, _ = next_native_operation(controller.context, retry=retry)
+        _require(
+            retry or sequence < len(action_plan_for_context(controller.context)),
+            "completed run or retry requires its own bounded retry plan",
+        )
+        expected_output = (
+            NATIVE_STATE_ROOT
+            / "renders"
+            / _json_hash(controller.journal.chain)
+            / (
+                controller.context["binding"]["bindingSha256"]
+                + ("-retry-1.mov" if retry else ".mov")
+            )
+        )
+        _require(
+            approval["context"] == controller.context
+            and approval["profile"] == controller.admission.profile
+            and approval["packageRoot"] == str(controller.admission.package_root)
+            and approval["admissionSha256"]
+            == _hash(_read(controller.admission.admission_path))
+            and approval["releaseManifestSha256"]
+            == _hash(_read(_verify_output_release(controller.release_root)))
+            and approval["outputPath"] == str(expected_output),
+            "operator plan is outside the current pinned session scope",
+        )
+        # Preparation is review-only; the live 30-minute window starts at issuance.
+        now = controller.trust.checked_now()
+        approval["issuedAt"] = _iso(now)
+        approval["expiresAt"] = _iso(now + timedelta(seconds=MAX_LIFETIME_SECONDS))
+    else:
+        # The legacy human challenge continues to cover the complete proposal.
+        print(plan_raw.decode("utf-8"))
+        phrase = "APPROVE " + _hash(plan_raw)
+        print(
+            "Review the exact target, release, inputs, output and finite actions above."
+        )
+        with open("/dev/tty", "r+", encoding="utf-8") as terminal:
+            _require(terminal.isatty(), "interactive operator terminal required")
+            terminal.write(f"To issue this one-use product authority, type {phrase}: ")
+            terminal.flush()
+            answer = terminal.readline(256).rstrip("\r\n")
+        _require(answer == phrase, "operator did not approve the exact plan")
     _require(_read(plan_path) == plan_raw, "operator plan changed during review")
     _require(
         _canonical(_operator_plan_proposal(plan_raw)) == _canonical(proposal),
         "operator proposal changed during review",
     )
-    approval = _approval_from_proposal(proposal)
     approval_raw = _canonical(approval)
     # Revalidate the constructed approval, then publish exactly those bytes.
     verify_operator_approval(
@@ -855,6 +933,23 @@ def issue_operator_approval(plan_path: Path, output_path: Path) -> Path:
         admission_sha256=proposal["admissionSha256"],
         release_manifest_sha256=proposal["releaseManifestSha256"],
     )
+    if agent_issued:
+        _publish(
+            issuance_path,
+            _canonical(
+                {
+                    "schemaVersion": "qualification-output-agent-issuance/v1",
+                    "issuanceMode": "agent_mediated_not_transcript_authenticated",
+                    "consentReference": consent_reference,
+                    "consentInstruction": consent_instruction,
+                    "sessionPath": str(session_path),
+                    "sessionSha256": session_sha256,
+                    "planSha256": _hash(plan_raw),
+                    "approvalSha256": _hash(approval_raw),
+                    "scope": approval,
+                }
+            ),
+        )
     _publish(output_path, approval_raw)
     return output_path
 
@@ -868,8 +963,13 @@ def prepare_output_session(
     phase: str = "pristine",
     package_root: Path | None = None,
     preparation_paths: dict[str, Path] | None = None,
+    narration_evidence_paths: dict[str, dict[str, Path]] | None = None,
 ) -> Path:
-    """Create reviewable host artifacts; no installation or native connection."""
+    """Create reviewable host artifacts; no installation or native connection.
+
+    Measured narration evidence files are tracked and hashed by the admission,
+    whose currentness check (on every session load) refuses swapped bytes.
+    """
     from .qualification_output_package_v2 import admit_qualification_package_v2
     from .workflow_v2_cli import build_output_release_v2
 
@@ -881,6 +981,7 @@ def prepare_output_session(
         profile=profile,
         package_root=package_root,
         preparation_paths=preparation_paths,
+        narration_evidence_paths=narration_evidence_paths,
     )
     release_root = output_root / "release"
     build_output_release_v2(release_root)
@@ -913,7 +1014,7 @@ def load_output_session(
     session_path: Path, expected_sha256: str
 ) -> QualificationOutputController:
     """Reopen only a complete verified session, retaining its immutable UID chain."""
-    from .qualification_output_package_v2 import load_qualification_package_v2
+    from .qualification_output_package_v2 import _load_qualification_package_v2
 
     raw = _read(session_path)
     _require(_hash(raw) == expected_sha256, "session raw pin differs")
@@ -937,7 +1038,7 @@ def load_output_session(
         and session["hostJournalRoot"] == str(HOST_STATE_ROOT),
         "closed owned session required",
     )
-    admission = load_qualification_package_v2(
+    admission = _load_qualification_package_v2(
         Path(session["admissionPath"]), session["admissionSha256"]
     )
     context = _context(session["context"])
@@ -1076,6 +1177,30 @@ class _ReceiptVault:
             )
 
 
+def _iso(value: datetime) -> str:
+    return value.isoformat().replace("+00:00", "Z")
+
+
+class HostClockRegression(OutputConsistencyError):
+    """Wall time lagged monotonic time beyond sampling and slew bounds.
+
+    macOS ``timed`` steps the wall clock with settimeofday, measured on the
+    qualification Mac at -189 ms to +971 ms roughly hourly; A11's refusal
+    followed a -63.8 ms step. Only finalization may recheck a bounded lag.
+    """
+
+    def __init__(self, diagnostics: Json) -> None:
+        super().__init__("host clock rollback/uncertainty")
+        self.diagnostics = diagnostics
+
+    @property
+    def recheckable(self) -> bool:
+        return bool(
+            self.diagnostics["classification"] == "wall_lag"
+            and self.diagnostics["lagSeconds"] <= FINALIZE_CLOCK_STEP_ALLOWANCE_SECONDS
+        )
+
+
 class _ControllerTrust:
     """Statically bound provenance and clock; never selected by request JSON."""
 
@@ -1090,13 +1215,32 @@ class _ControllerTrust:
         now = datetime.now(UTC)
         after = time.monotonic()
         elapsed = before - self.monotonic
-        _require(
+        wall_elapsed = (now - self.wall).total_seconds()
+        if not (
             elapsed >= 0
             and now >= self.wall
-            and (now - self.wall).total_seconds() + 0.000002 + elapsed * 0.0005
-            >= elapsed,
-            "host clock rollback/uncertainty",
-        )
+            and wall_elapsed + 0.000002 + elapsed * 0.0005 >= elapsed
+        ):
+            raise HostClockRegression(
+                {
+                    "classification": (
+                        "monotonic_regression" if elapsed < 0 else "wall_lag"
+                    ),
+                    "priorWall": _iso(self.wall),
+                    "observedWall": _iso(now),
+                    "monotonicElapsedSeconds": elapsed,
+                    "wallElapsedSeconds": wall_elapsed,
+                    "lagSeconds": elapsed - wall_elapsed,
+                    "lagPartsPerMillion": (
+                        (elapsed - wall_elapsed) / elapsed * 1_000_000
+                        if elapsed > 0
+                        else None
+                    ),
+                    "toleranceSeconds": 0.000002 + max(elapsed, 0) * 0.0005,
+                    "samplingWindowSeconds": after - before,
+                    "wallBeforePriorSample": now < self.wall,
+                }
+            )
         self.wall, self.monotonic = now, after
         return now
 
@@ -1143,18 +1287,23 @@ class QualificationOutputController:
                 "rebuild requires the accepted revised preflight",
             )
             assert revised_preflight is not None
-            revision = verify_revised_preflight_v2(*revised_preflight)
             from .qualification_output_proof_v2 import (
-                verify_revised_rebuild_reservation_v2,
+                _verify_revised_preflight_with_proof_v2,
+                _verify_revised_rebuild_reservation_for_proof_v2,
             )
 
-            verify_revised_rebuild_reservation_v2(
+            revision, proof = _verify_revised_preflight_with_proof_v2(
+                *revised_preflight
+            )
+            proof._current()
+            _verify_revised_rebuild_reservation_for_proof_v2(
                 revision,
                 revised_preflight[1],
                 admission_path=admission.admission_path,
                 target=target,
                 case_id=case_id,
                 invocation_id=invocation_id,
+                proof=proof,
             )
         else:
             _require(revised_preflight is None, "revised proof requires rebuild phase")
@@ -1246,18 +1395,23 @@ class QualificationOutputController:
     def _environment_current(self) -> None:
         self.admission.assert_current()
         if self.revised_preflight is not None:
-            revision = verify_revised_preflight_v2(*self.revised_preflight)
             from .qualification_output_proof_v2 import (
-                verify_revised_rebuild_reservation_v2,
+                _verify_revised_preflight_with_proof_v2,
+                _verify_revised_rebuild_reservation_for_proof_v2,
             )
 
-            verify_revised_rebuild_reservation_v2(
+            revision, proof = _verify_revised_preflight_with_proof_v2(
+                *self.revised_preflight
+            )
+            proof._current()
+            _verify_revised_rebuild_reservation_for_proof_v2(
                 revision,
                 self.revised_preflight[1],
                 admission_path=self.admission.admission_path,
                 target=self.context["target"],
                 case_id=self.context["caseId"],
                 invocation_id=self.context["invocationId"],
+                proof=proof,
             )
         from .roundtrip_v2_records import proof_source_hashes_v2
 
@@ -1340,9 +1494,9 @@ class QualificationOutputController:
             self.context, sequence
         )
         _safe(request_path)
-        request_path.parent.mkdir(mode=0o700, parents=True, exist_ok=False)
         operation_id = str(uuid.uuid4())
         now = self.trust.checked_now().isoformat().replace("+00:00", "Z")
+        request_path.parent.mkdir(mode=0o700, parents=True, exist_ok=False)
         authority: Json = {
             "schemaVersion": AUTHORITY_SCHEMA,
             "lane": LANE,
@@ -2084,8 +2238,8 @@ class QualificationOutputController:
             "nextOperation": next_operation,
         }
 
-    def finalize_output(self, result_path: Path, result_sha256: str) -> Path:
-        """Decode the delivered MOV and append the terminal comparison receipt."""
+    def _verified_final_capture(self, result_path: Path, result_sha256: str) -> int:
+        """Authenticate this session's complete post-capture; return completion."""
         from .qualification_output_native_v2 import (
             native_request_paths,
             verify_native_result,
@@ -2102,8 +2256,113 @@ class QualificationOutputController:
             and result["status"] == "complete",
             "complete final native capture for this session required",
         )
+        return completion_sequence
+
+    def _retain_finalize_clock_record(
+        self,
+        *,
+        result_sha256: str,
+        stage: str,
+        diagnostics: Json,
+        outcome: str,
+    ) -> None:
+        """Retain private measured clock diagnostics for one finalize refusal."""
+        raw = _canonical(
+            {
+                "schemaVersion": FINALIZE_CLOCK_SCHEMA,
+                "lane": LANE,
+                "context": self.context,
+                "capturePostResultSha256": result_sha256,
+                "stage": stage,
+                "outcome": outcome,
+                "diagnostics": diagnostics,
+            }
+        )
+        digest = self.journal._retain(raw)
+        marker = self.journal.directory / f"finalize-clock-{digest}.json"
+        if not marker.exists():
+            _publish(marker, raw)
+
+    def _prepare_finalize_clock_recheck(
+        self, error: HostClockRegression, *, result_sha256: str, stage: str
+    ) -> bool:
+        """Permit one full recheck after a bounded measured OS wall step.
+
+        No later trusted reading may precede one already trusted, so expiry
+        and chronology are never judged at an earlier wall time than before.
+        The controller's own clock lag is bounded too before it is replaced.
+        """
+        diagnostics = dict(error.diagnostics)
+        high_water = max(
+            datetime.fromisoformat(diagnostics["priorWall"]), self.trust.wall
+        )
+        permitted = error.recheckable
+        wall, monotonic = self.trust.wall, self.trust.monotonic
+        if permitted:
+            deadline = time.monotonic() + FINALIZE_CLOCK_STEP_ALLOWANCE_SECONDS
+            while datetime.now(UTC) < high_water and time.monotonic() < deadline:
+                time.sleep(0.01)
+            # Wall before monotonic, as in _ControllerTrust.__init__.
+            wall = datetime.now(UTC)
+            monotonic = time.monotonic()
+            controller_lag = (monotonic - self.trust.monotonic) - (
+                wall - self.trust.wall
+            ).total_seconds()
+            diagnostics["controllerLagSeconds"] = controller_lag
+            # Monotonic behind the controller's own anchor is a regression no
+            # bounded wall step can explain, whatever another controller saw.
+            permitted = (
+                wall >= high_water
+                and monotonic >= self.trust.monotonic
+                and controller_lag <= FINALIZE_CLOCK_STEP_ALLOWANCE_SECONDS
+            )
+        self._retain_finalize_clock_record(
+            result_sha256=result_sha256,
+            stage=stage,
+            diagnostics=diagnostics,
+            outcome="recheck" if permitted else "terminal",
+        )
+        if permitted:
+            # Anchor to the validated readings, so a rollback during the
+            # bookkeeping above is still caught by the next checked_now.
+            trust = _ControllerTrust(self.vault, self.admission)
+            trust.wall, trust.monotonic = wall, monotonic
+            self.trust = trust
+        return permitted
+
+    def finalize_output(self, result_path: Path, result_sha256: str) -> Path:
+        """Decode the delivered MOV and append the terminal comparison receipt.
+
+        A bounded host wall-clock step permits exactly one complete recheck;
+        every other refusal, or a second one, retains the slot as uncertain.
+        """
+        completion_sequence = self._verified_final_capture(result_path, result_sha256)
+        path = self._finalize_attempt(
+            result_path, result_sha256, completion_sequence, recheck=False
+        )
+        if path is None:
+            path = self._finalize_attempt(
+                result_path, result_sha256, completion_sequence, recheck=True
+            )
+            assert path is not None
+        return path
+
+    def _finalize_attempt(
+        self,
+        result_path: Path,
+        result_sha256: str,
+        completion_sequence: int,
+        *,
+        recheck: bool,
+    ) -> Path | None:
         stage = "post_capture_authentication"
         try:
+            if recheck:
+                _require(
+                    self._verified_final_capture(result_path, result_sha256)
+                    == completion_sequence,
+                    "complete final native capture for this session required",
+                )
             self._environment_current()
             # A valid reservation permits historical pre-capture comparison
             # after the approval/geometry live window. Environment, source and
@@ -2136,6 +2395,7 @@ class QualificationOutputController:
             decode_record, decode_receipt, decoded_samples = self.decode_output(
                 lineage=lineage,
                 completion=(completion[0], completion[1]),
+                commitment=materials["commitment"],
             )
             completed = output.CommittedOutput(
                 inputs=inputs,
@@ -2156,6 +2416,19 @@ class QualificationOutputController:
             comparison, _ = self.compare(completed)
             return self.journal.artifacts / _hash(comparison)
         except (OutputConsistencyError, OSError, ValueError) as error:
+            if isinstance(error, HostClockRegression):
+                with suppress(OutputConsistencyError, OSError, ValueError):
+                    if recheck:
+                        self._retain_finalize_clock_record(
+                            result_sha256=result_sha256,
+                            stage=stage,
+                            diagnostics=error.diagnostics,
+                            outcome="terminal",
+                        )
+                    elif self._prepare_finalize_clock_recheck(
+                        error, result_sha256=result_sha256, stage=stage
+                    ):
+                        return None
             # The complete post-capture result has already been authenticated;
             # preserve the refusal and prevent a retry from the reserved slot.
             with suppress(OutputConsistencyError, OSError, ValueError):
@@ -2227,7 +2500,7 @@ class QualificationOutputController:
             "oneUse": True,
         }
         # Keep the prepared artifact a proposal with a distinct schema/status.
-        # The tty issuer constructs native approval bytes only after review.
+        # Only the explicit attended/agent-mediated issuer creates approval bytes.
         proposal = {
             **plan,
             "schemaVersion": OPERATOR_PROPOSAL_SCHEMA,
@@ -2628,7 +2901,7 @@ class QualificationOutputController:
         return raw
 
     def decode_output(
-        self, *, lineage: bytes, completion: tuple[Path, str]
+        self, *, lineage: bytes, completion: tuple[Path, str], commitment: bytes
     ) -> tuple[bytes, bytes, bytes]:
         """Run the fixed decoder against the actual job's same delivered MOV."""
         from .qualification_output_decode_v2 import (
@@ -2654,12 +2927,24 @@ class QualificationOutputController:
             _read(self.journal.artifacts / _hash(lineage)) == lineage,
             "unowned native lineage",
         )
+        # The committed extent: the admitted interval, or the shorter extent of
+        # an authenticated linked ripple trim. Never padded to the package.
+        committed = _parse(commitment)
+        _require(
+            _hash(commitment) == value["commitmentRawSha256"]
+            and committed["context"] == self.context
+            and type(committed["extentFrames"]) is int
+            and 0
+            < committed["extentFrames"]
+            <= self.admission.manifest["timeline"]["durationFrames"],
+            "decode extent is not this attempt's committed extent",
+        )
         timeline = self.admission.manifest["timeline"]
         decoded = decode_delivered_mov(
             Path(native["outputPath"]),
             context=self.context,
             expected_output_sha256=value["sourceOutputRawSha256"],
-            expected_extent_frames=timeline["durationFrames"],
+            expected_extent_frames=committed["extentFrames"],
             expected_width=timeline["width"],
             expected_height=timeline["height"],
             render_lineage=VerifiedRenderLineage(value),

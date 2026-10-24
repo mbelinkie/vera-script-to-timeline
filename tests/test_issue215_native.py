@@ -874,7 +874,7 @@ def test_observed_linked_av_end_trim_ripples_downstream_by_exact_delta() -> None
         "v-downstream": ["a-downstream"],
     }
 
-    native._validate_observed_event_geometry(
+    trim = native._validate_observed_event_geometry(
         events,
         items,
         {
@@ -885,10 +885,239 @@ def test_observed_linked_av_end_trim_ripples_downstream_by_exact_delta() -> None
         timeline_end=8,
         expected_end=10,
     )
+    # #260: the authenticated ripple trim is the only programme shortening.
+    assert trim == 2
+
+
+def _b_linked_av_ripple_case() -> tuple[
+    dict[str, dict[str, Any]],
+    list[dict[str, Any]],
+    dict[str, dict[str, Any]],
+    dict[str, list[str]],
+]:
+    events: dict[str, dict[str, Any]] = {}
+    items: list[dict[str, Any]] = []
+    sources: dict[str, dict[str, Any]] = {}
+
+    def add(
+        event_id: str,
+        event_kind: str,
+        source_id: str,
+        source_kind: str,
+        track_id: str,
+        start: int,
+        duration: int,
+        source_start: int,
+        observed_start: int,
+        observed_duration: int | None = None,
+    ) -> None:
+        observed_duration = duration if observed_duration is None else observed_duration
+        events[event_id] = {
+            "id": event_id,
+            "kind": event_kind,
+            "sourceId": source_id,
+            "trackId": track_id,
+            "recordRange": {"startFrame": start, "durationFrames": duration},
+            "sourceRange": {"startFrame": source_start, "durationFrames": duration},
+        }
+        sources.setdefault(source_id, {"kind": source_kind})
+        items.append(
+            {
+                "itemUid": f"native-{event_id}",
+                "eventId": event_id,
+                "kind": "audio"
+                if event_kind in {"narration", "source_audio"}
+                else "video",
+                "recordStart": observed_start,
+                "recordDuration": observed_duration,
+                "sourceStart": source_start,
+                "sourceDuration": observed_duration,
+            }
+        )
+
+    add(
+        "9b19fa0d-3bf7-50f5-8a53-3db459c9469d",
+        "primary_visual",
+        "9ab8485e-0d6f-5e47-8b3d-94ae34eca7f4",
+        "video",
+        "primary-root",
+        143,
+        111,
+        5809,
+        143,
+        87,
+    )
+    add(
+        "fbb405b6-c62d-5af7-8f0d-d3ee050379f7",
+        "source_audio",
+        "9ab8485e-0d6f-5e47-8b3d-94ae34eca7f4",
+        "video",
+        "source-audio",
+        143,
+        111,
+        0,
+        143,
+        87,
+    )
+    add(
+        "55752ec4-3554-5df9-8630-de6ab7ba3b04",
+        "placeholder",
+        "55752ec4-3554-5df9-8630-de6ab7ba3b04",
+        "still",
+        "primary-root",
+        254,
+        122,
+        0,
+        230,
+    )
+    add(
+        "7299c32b-6bb5-51ec-8b91-6d3b84ae4fe6",
+        "narration",
+        "cdc8267a-6c99-5f69-a204-f894a3e92fbf",
+        "audio",
+        "narration",
+        254,
+        610,
+        0,
+        230,
+    )
+    add(
+        "6bcba16b-aa83-5880-8321-0512a2084a89",
+        "placeholder",
+        "6bcba16b-aa83-5880-8321-0512a2084a89",
+        "still",
+        "primary-root",
+        517,
+        148,
+        0,
+        493,
+    )
+    add(
+        "f6a3c354-a235-5083-8cd1-9e885b04cf77",
+        "placeholder",
+        "f6a3c354-a235-5083-8cd1-9e885b04cf77",
+        "still",
+        "primary-root",
+        764,
+        100,
+        0,
+        740,
+    )
+    raw_links: dict[str, list[str]] = {item["itemUid"]: [] for item in items}
+    visual_uid = "native-9b19fa0d-3bf7-50f5-8a53-3db459c9469d"
+    audio_uid = "native-fbb405b6-c62d-5af7-8f0d-d3ee050379f7"
+    raw_links[visual_uid] = [audio_uid]
+    raw_links[audio_uid] = [visual_uid]
+    return events, items, sources, raw_links
+
+
+def test_observed_linked_av_ripple_accepts_b_narration_and_static_pictures() -> None:
+    events, items, sources, raw_links = _b_linked_av_ripple_case()
+
+    trim = native._validate_observed_event_geometry(
+        events,
+        items,
+        sources,
+        raw_links,
+        timeline_end=995,
+        expected_end=1019,
+    )
+
+    assert trim == 24
+
+
+@pytest.mark.parametrize(
+    ("event_kind", "source_kind", "duration"),
+    [("narration", "audio", 610), ("placeholder", "still", 122)],
+)
+def test_observed_unchanged_earlier_shift_still_requires_linked_av_trim(
+    event_kind: str, source_kind: str, duration: int
+) -> None:
+    event_id = f"shifted-{event_kind}"
+    source_id = f"{event_kind}-source"
+    events = {
+        event_id: {
+            "id": event_id,
+            "kind": event_kind,
+            "sourceId": source_id,
+            "recordRange": {"startFrame": 254, "durationFrames": duration},
+            "sourceRange": {"startFrame": 0, "durationFrames": duration},
+        }
+    }
+    items = [
+        {
+            "itemUid": "shifted-item",
+            "eventId": event_id,
+            "kind": "audio" if event_kind == "narration" else "video",
+            "recordStart": 230,
+            "recordDuration": duration,
+            "sourceStart": 0,
+            "sourceDuration": duration,
+        }
+    ]
+
+    with pytest.raises(
+        OutputConsistencyError,
+        match="downstream shift is only admitted with a linked AV end trim",
+    ):
+        native._validate_observed_event_geometry(
+            events,
+            items,
+            {source_id: {"kind": source_kind}},
+            {"shifted-item": []},
+            timeline_end=995,
+            expected_end=1019,
+        )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ("source", "native edited item differs outside the observed edit rules"),
+        (
+            "duration",
+            "observed edit multiplicity is outside the reviewed A/B/split cases",
+        ),
+        ("delta", "linked AV end trim has an unpaired or nonuniform downstream shift"),
+    ],
+)
+def test_observed_b_ripple_still_refuses_changed_source_duration_or_delta(
+    mutation: str, message: str
+) -> None:
+    events, items, sources, raw_links = _b_linked_av_ripple_case()
+    item = next(
+        row for row in items if row["eventId"] == "6bcba16b-aa83-5880-8321-0512a2084a89"
+    )
+    if mutation == "source":
+        item["sourceStart"] = 1
+    elif mutation == "duration":
+        item["recordDuration"] -= 1
+        item["sourceDuration"] -= 1
+    else:
+        narration = next(
+            row
+            for row in items
+            if row["eventId"] == "7299c32b-6bb5-51ec-8b91-6d3b84ae4fe6"
+        )
+        narration["recordStart"] -= 1
+
+    with pytest.raises(OutputConsistencyError, match=message):
+        native._validate_observed_event_geometry(
+            events,
+            items,
+            sources,
+            raw_links,
+            timeline_end=995,
+            expected_end=1019,
+        )
 
 
 def _edited_queue_render_case(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, mark_out: int
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    mark_out: int,
+    extent: int = 10,
 ) -> tuple[Any, dict[str, Any], dict[str, Any]]:
     project, request, state, _observations = fixtures._queue_render_case(
         tmp_path, monkeypatch
@@ -900,7 +1129,7 @@ def _edited_queue_render_case(
     pre_capture = {
         "inputBindingPath": str(tmp_path.resolve() / "input-binding.json"),
         "inputBindingSha256": "b" * 64,
-        "nativeGeometry": {"items": []},
+        "nativeGeometry": {"items": [], "extentFrames": extent},
     }
     monkeypatch.setattr(
         native,
@@ -964,6 +1193,7 @@ def _edited_start_render_case(
     *,
     include_marks: bool,
     mark_out: int = 9,
+    extent: int = 10,
 ) -> tuple[Any, dict[str, Any], dict[str, Any]]:
     project, state, request = fixtures._start_render_case(
         tmp_path, monkeypatch, {"JobStatus": "Ready"}
@@ -982,6 +1212,12 @@ def _edited_start_render_case(
         native,
         "_previous_result",
         lambda *_args: (previous, queued_sha, queued_path),
+    )
+    capture = {"action": "capture_pre", "nativeGeometry": {"extentFrames": extent}}
+    monkeypatch.setattr(
+        native,
+        "_native_result_at",
+        lambda _context, sequence: (tmp_path / f"{sequence}.json", "d" * 64, capture),
     )
     job: dict[str, Any] = {"JobId": "job-one"}
     if include_marks:
@@ -1018,3 +1254,101 @@ def test_edited_start_keeps_mark_check_optional_when_api_omits_fields(
 
     assert project.status_calls == ["job-one"]
     assert project.start_calls == [["job-one"]]
+
+
+def _queue_admitted() -> dict[str, Any]:
+    return {
+        "manifest": {
+            "timeline": {
+                "width": 1920,
+                "height": 1080,
+                "frameRate": {"numerator": 24000, "denominator": 1001},
+            }
+        }
+    }
+
+
+@pytest.mark.parametrize(("mark_out", "accepted"), [(7, True), (9, False), (6, False)])
+def test_shortened_edit_queues_marks_for_authenticated_extent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mark_out: int,
+    accepted: bool,
+) -> None:
+    """#260: a 10-frame admitted interval trimmed by 2 queues 0..7, not 0..9.
+
+    This reproduces the measured 139->115 clamp: Resolve reports the shortened
+    MarkOut, which must equal the extent the native capture authenticated.
+    """
+    project, request, state = _edited_queue_render_case(
+        tmp_path, monkeypatch, mark_out=mark_out, extent=8
+    )
+    if accepted:
+        native._queue_render(request, object(), _queue_admitted(), state, None)
+        assert (project.jobs[0]["MarkIn"], project.jobs[0]["MarkOut"]) == (0, 7)
+    else:
+        with pytest.raises(
+            OutputConsistencyError,
+            match="queued render job mark range differs from the edited render extent",
+        ):
+            native._queue_render(request, object(), _queue_admitted(), state, None)
+
+
+def test_edited_extent_beyond_approved_interval_refuses_before_queueing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project, request, state = _edited_queue_render_case(
+        tmp_path, monkeypatch, mark_out=10, extent=11
+    )
+    with pytest.raises(
+        OutputConsistencyError,
+        match="edited render extent is outside the approved interval",
+    ):
+        native._queue_render(request, object(), _queue_admitted(), state, None)
+    assert project.jobs == []
+
+
+@pytest.mark.parametrize(("include_marks", "mark_out"), [(False, 7), (True, 9)])
+def test_shortened_start_requires_its_reported_mark_range(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    include_marks: bool,
+    mark_out: int,
+) -> None:
+    project, state, request = _edited_start_render_case(
+        tmp_path, monkeypatch, include_marks=include_marks, mark_out=mark_out, extent=8
+    )
+    with pytest.raises(OutputConsistencyError, match="mark range"):
+        native._start_render(request, object(), state, None)
+    assert project.start_calls == []
+
+
+def test_shortened_start_accepts_its_exact_reported_mark_range(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project, state, request = _edited_start_render_case(
+        tmp_path, monkeypatch, include_marks=True, mark_out=7, extent=8
+    )
+    native._start_render(request, object(), state, None)
+    assert project.start_calls == [["job-one"]]
+
+
+def test_shortened_queue_refuses_when_job_omits_its_mark_range(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project, request, state = _edited_queue_render_case(
+        tmp_path, monkeypatch, mark_out=7, extent=8
+    )
+    add_with_marks = project.AddRenderJob
+
+    def add_without_marks() -> str:
+        job_id = add_with_marks()
+        del project.jobs[-1]["MarkIn"], project.jobs[-1]["MarkOut"]
+        return str(job_id)
+
+    project.AddRenderJob = add_without_marks
+    with pytest.raises(
+        OutputConsistencyError,
+        match="shortened render job does not report its mark range",
+    ):
+        native._queue_render(request, object(), _queue_admitted(), state, None)

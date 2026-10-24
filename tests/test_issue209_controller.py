@@ -760,3 +760,100 @@ def test_native_request_handoff_pins_both_release_hash_domains(
     )
     assert "Keep Resolve running" in manual_flow["launch"]
     assert "Do not restart Resolve" in manual_flow["launch"]
+
+
+def _decode_harness(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    extent: int,
+    duration: int = 6,
+) -> tuple[Any, bytes, bytes, dict[str, Any]]:
+    """Controller stub whose native/decoder collaborators are faked (no native)."""
+    from types import SimpleNamespace
+
+    from vera_timeline_agent import qualification_output_decode_v2 as decode
+    from vera_timeline_agent import qualification_output_native_v2 as native
+
+    ctx = context()
+    commitment = _canonical({"context": ctx, "extentFrames": extent})
+    lineage = _canonical(
+        {
+            "context": ctx,
+            "commitmentRawSha256": _hash(commitment),
+            "completionReceiptSha256": "c" * 64,
+            "sourceOutputRawSha256": "d" * 64,
+            "jobId": "job-1",
+        }
+    )
+    journal = OutputAttemptJournal(tmp_path / "private", ctx)
+    (journal.artifacts / _hash(lineage)).write_bytes(lineage)
+    seen: dict[str, Any] = {}
+
+    def fake_native(_path: Path, _sha: str) -> dict[str, Any]:
+        return {
+            "context": ctx,
+            "status": "complete",
+            "action": "poll_render",
+            "sourceOutputRawSha256": "d" * 64,
+            "jobId": "job-1",
+            "outputPath": str(tmp_path / "out.mov"),
+        }
+
+    def fake_decode(*_args: Any, **kwargs: Any) -> Any:
+        seen.update(kwargs)
+        raise OutputConsistencyError("decoder reached")
+
+    monkeypatch.setattr(native, "verify_native_result", fake_native)
+    monkeypatch.setattr(decode, "decode_delivered_mov", fake_decode)
+    controller = object.__new__(QualificationOutputController)
+    controller.context = ctx
+    controller.journal = journal
+    controller.admission = SimpleNamespace(
+        manifest={"timeline": {"durationFrames": duration, "width": 1, "height": 1}}
+    )
+    completion = (tmp_path / "result.json", "c" * 64)
+    return controller, lineage, commitment, {"completion": completion, "seen": seen}
+
+
+@pytest.mark.parametrize("extent", [2, 6])
+def test_decode_uses_the_committed_extent_not_the_admitted_duration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, extent: int
+) -> None:
+    controller, lineage, commitment, aux = _decode_harness(
+        tmp_path, monkeypatch, extent=extent
+    )
+    with pytest.raises(OutputConsistencyError, match="decoder reached"):
+        controller.decode_output(
+            lineage=lineage, completion=aux["completion"], commitment=commitment
+        )
+    assert aux["seen"]["expected_extent_frames"] == extent
+
+
+@pytest.mark.parametrize("extent", [0, 7])
+def test_decode_refuses_committed_extent_outside_admitted_interval(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, extent: int
+) -> None:
+    controller, lineage, commitment, aux = _decode_harness(
+        tmp_path, monkeypatch, extent=extent
+    )
+    with pytest.raises(OutputConsistencyError, match="committed extent"):
+        controller.decode_output(
+            lineage=lineage, completion=aux["completion"], commitment=commitment
+        )
+    assert aux["seen"] == {}
+
+
+def test_decode_refuses_commitment_not_pinned_by_the_lineage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    controller, lineage, commitment, aux = _decode_harness(
+        tmp_path, monkeypatch, extent=6
+    )
+    other = _canonical({"context": controller.context, "extentFrames": 2})
+    assert _hash(other) != _hash(commitment)
+    with pytest.raises(OutputConsistencyError, match="committed extent"):
+        controller.decode_output(
+            lineage=lineage, completion=aux["completion"], commitment=other
+        )
+    assert aux["seen"] == {}

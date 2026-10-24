@@ -154,7 +154,10 @@ class Normalizer:
         if max(abs(sample) for sample in samples) == 0:
             raise MediaToolError("provider PCM is silent")
         source_samples = len(samples)
-        resampled_samples = round(source_samples * OUTPUT_SAMPLE_RATE / sample_rate)
+        # FFmpeg flushes the final partial resampling interval as one sample.
+        resampled_samples = (
+            source_samples * OUTPUT_SAMPLE_RATE + sample_rate - 1
+        ) // sample_rate
         padding_samples = max(0, MINIMUM_DURATION_SAMPLES - resampled_samples)
         with tempfile.TemporaryDirectory(
             prefix="vera-narration-normalize-"

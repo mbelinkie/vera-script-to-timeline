@@ -19,7 +19,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from fractions import Fraction
 from pathlib import PurePosixPath
-from typing import Any
+from typing import Any, cast
 
 from vera_timeline_agent.qualification_output_records_v2 import (
     AUTHORITY_REFERENCE_FIELDS,
@@ -63,11 +63,76 @@ from vera_timeline_agent.qualification_output_records_v2 import (
 from vera_timeline_agent.source_audio_endpoint import endpoint_plan, endpoint_wav
 
 FRAME = 2002
+SOFT_FADE_SAMPLES = 72
+SOFT_FADE_MODEL = "resolve-studio-21.1.1-linear-72-sample-clip-edges/v1"
+
+
+def _reviewed_artifact_hash(record: Any) -> str:
+    """Review artifact hash of reviewed evidence; measured evidence is refused."""
+
+    verification = record.get("verification") if isinstance(record, dict) else None
+    method = verification.get("method") if isinstance(verification, dict) else None
+    # Legacy reviewed records carry no method field; only measured/unknown
+    # methods and records without a review artifact are refused.
+    _require(
+        isinstance(verification, dict)
+        and method in (None, "reviewed_audio_boundaries/v1")
+        and "reviewArtifactHash" in verification,
+        f"boundary evidence method {method!r} is not supported by this "
+        "reviewed-only output path (measured evidence has no review artifact)",
+    )
+    return cast(str, verification["reviewArtifactHash"])  # type: ignore[index]
+
+
+_MEASURED_METHOD = "measured_audio_boundaries/v1"
+
+
+def _narration_review_pin(record: Any, proof: Any) -> str:
+    """Review pin of reviewed evidence, or the measurement artifact hash.
+
+    This host module stays stdlib-only, so it cannot re-run the (#182) measured
+    verifier.  That full cross-check (algorithm, timing, audio, tokens) happens
+    in the authenticated package/proof builders before a receipt exists; here
+    the measured row must only pin exactly the measurement artifact bytes the
+    receipt retained.  Unknown methods refuse.
+    """
+
+    verification = record.get("verification") if isinstance(record, dict) else None
+    method = verification.get("method") if isinstance(verification, dict) else None
+    if method == _MEASURED_METHOD:
+        assert isinstance(verification, dict)
+        _require(
+            "measurementArtifactHash" in verification and proof.review is not None,
+            "measured evidence requires its measurement artifact",
+        )
+        _require(
+            _legacy_digest(verification["measurementArtifactHash"])
+            == _hash(proof.review),
+            "measurement artifact bytes differ from the pinned hash",
+        )
+        return cast(str, verification["measurementArtifactHash"])
+    return _reviewed_artifact_hash(record)
+
+
 RATE = {"numerator": 24000, "denominator": 1001}
 ENCODING = "float64le-interleaved-stereo"
 ALGORITHM = {
-    "version": "qualification-output-fixed-pcm/v1",
+    "version": "qualification-output-fixed-pcm/v2",
     "runtime": "CPython-3.12.14",
+    "renderer": {
+        "product": "DaVinci Resolve Studio",
+        "version": [21, 1, 1, 10, ""],
+        "softFades": {
+            "model": SOFT_FADE_MODEL,
+            "controlState": "not_attested",
+            "samplesPerEdge": SOFT_FADE_SAMPLES,
+            "shape": "linear",
+            "fadeInGain": "sampleOffset/72",
+            "fadeOutGain": "samplesToExclusiveActiveEnd/72",
+            "activeEnd": "segmentSampleCount; frame-ceiled EOF padding stays zero",
+            "shortClips": "refuse when 72-sample edges overlap",
+        },
+    },
     "frameRate": RATE,
     "sampleRate": 48000,
     "samplesPerFrame": FRAME,
@@ -77,6 +142,8 @@ ALGORITHM = {
     "gain": "10**(manifestGainDb/20)",
     "comparisonGain": 1,
     "lagSamples": 0,
+    "pairDiscrimination": "exclude union of committed active clip-edge fade zones; "
+    "each complete render remains fully compared",
     "programmeRmsLimit": 0.0004,
     "slidingSamples": 960,
     "slidingRmsLimit": 0.006,
@@ -529,8 +596,7 @@ def _provenance(
             # The authenticated TS compiler hash is not a Python row hash.
             _legacy_digest(provenance["boundaryEvidenceHash"])
             _require(
-                _legacy_digest(record["verification"]["reviewArtifactHash"])
-                == pins["review"],
+                _legacy_digest(_narration_review_pin(record, proof)) == pins["review"],
                 "boundary review differs",
             )
         trust.authenticate(
@@ -555,7 +621,14 @@ def _provenance(
             proof.origin_record is None and proof.origin_receipt is None,
             "narration origin cannot be overridden",
         )
-        start, end = 0, (re - rs) * FRAME
+        # D-0014 ceiling framing: the event may extend past the asset by less
+        # than one frame; that tail is explicit silence, never padded audio.
+        full = (re - rs) * FRAME
+        _require(
+            source["durationSamples"] > 0 and full - source["durationSamples"] < FRAME,
+            "narration event exceeds exact source samples by a frame or more",
+        )
+        start, end = 0, min(full, source["durationSamples"])
     else:
         _require(
             event["kind"] == "source_audio" and source["pcmMode"] == "prepared-audio",
@@ -690,8 +763,25 @@ def _provenance(
     return start, end
 
 
+def _shortened_edit(geometry: Json) -> bool:
+    """An edited capture may end early only where its items end (no tail)."""
+    items = _list(geometry["items"], 2048)
+    return (
+        geometry["context"].get("phase") == "edited"
+        and bool(items)
+        and max(item["recordStart"] + item["recordDuration"] for item in items)
+        == geometry["extentFrames"]
+    )
+
+
 def _package_view(
-    binding: Json, manifest: Json, dependencies: Json, raw: bytes, extent: int
+    binding: Json,
+    manifest: Json,
+    dependencies: Json,
+    raw: bytes,
+    extent: int,
+    *,
+    shortened_edit: bool = False,
 ) -> None:
     view = _shape(
         _parse(raw),
@@ -705,8 +795,11 @@ def _package_view(
         and _canonical(view["composition"]) == _canonical(manifest["composition"]),
         "verified package/manifest projection differs",
     )
+    duration = _integer(view["timeline"]["durationFrames"], 1, 1498)
+    # Shorter only for an edited capture whose native authentication derived
+    # the extent from one linked AV ripple trim; never longer than the package.
     _require(
-        _integer(view["timeline"]["durationFrames"], 1, 1498) == extent
+        (extent == duration or (shortened_edit and 0 < extent < duration))
         and view["timeline"]["frameRate"] == RATE
         and all(type(x) is int for x in view["timeline"]["frameRate"].values()),
         "package extent/rate differs",
@@ -980,6 +1073,7 @@ def _validated(
         dependencies,
         inputs.blobs["packageSha256"],
         geometry["extentFrames"],
+        shortened_edit=_shortened_edit(geometry),
     )
     _host_identity(inputs.blobs, manifest)
     # The trusted capture authenticator verifies full accepted manifest/package
@@ -1141,7 +1235,7 @@ def _validated(
                 type(gain) in {int, float}
                 and math.isfinite(gain)
                 and (event["audio"]["audioPolicy"], gain)
-                in {("full", 0), ("quiet", -18)},
+                in {("full", 0), ("full", -0.1), ("quiet", -18)},
                 "unapproved manifest gain/No policy",
             )
         segments: list[Json] = []
@@ -1153,6 +1247,10 @@ def _validated(
                 item["sourceStart"] - source["nativeFrameOrigin"]
             ) * FRAME + source["pcmSampleOrigin"]
             count = item["recordDuration"] * FRAME
+            if event["kind"] == "narration":
+                # Only the asset's own samples are mapped; the sub-frame tail of
+                # a ceiling-framed event stays silent in the prediction.
+                count = min(count, end - local)
             _require(
                 start <= local < local + count <= end <= len(pcm[sid][0]),
                 "mapped segment outside exact event/source",
@@ -1164,6 +1262,7 @@ def _validated(
                     "recordStart": item["recordStart"],
                     "sampleStart": local,
                     "sampleCount": count,
+                    "edgeFadeModel": SOFT_FADE_MODEL,
                 }
             )
         ordered = sorted(source_intervals)
@@ -1207,10 +1306,20 @@ def _mix(intent: list[Json], pcm: dict[str, list[array[float]]], extent: int) ->
         channels = pcm[source["sourceId"]]
         for segment in source["segments"]:
             record, start = segment["recordStart"] * FRAME, segment["sampleStart"]
-            for ch in range(2):
-                samples = channels[0 if len(channels) == 1 else ch]
-                for offset in range(segment["sampleCount"]):
-                    mix[ch][record + offset] += samples[start + offset] * gain
+            count = segment["sampleCount"]
+            _require(
+                count >= 2 * SOFT_FADE_SAMPLES,
+                "native soft-fade model does not cover overlapping clip-edge ramps",
+            )
+            for offset in range(count):
+                fade = min(
+                    1.0,
+                    offset / SOFT_FADE_SAMPLES,
+                    (count - offset) / SOFT_FADE_SAMPLES,
+                )
+                for ch in range(2):
+                    samples = channels[0 if len(channels) == 1 else ch]
+                    mix[ch][record + offset] += samples[start + offset] * gain * fade
     _require(
         all(math.isfinite(x) and abs(x) < 1.0 for channel in mix for x in channel),
         "predicted clipping/nonfinite samples",
@@ -1397,6 +1506,65 @@ def _metrics(expected: list[array[float]], actual: list[array[float]]) -> list[J
             }
         )
     return results
+
+
+def _clip_edge_exclusion_mask(inputs: list[PredictionInputs], count: int) -> bytearray:
+    """Mark committed audio clip-edge fade zones in a common pair interval."""
+    mask = bytearray(count)
+    for prediction_inputs in inputs:
+        capture = _parse(prediction_inputs.geometry)
+        geometry = _shape(
+            capture["geometry"],
+            "context extentFrames rate tracks items sourceMappings",
+            "semantic geometry",
+        )
+        extent = _integer(geometry["extentFrames"], 1, 1498) * FRAME
+        _require(extent >= count, "pair geometry is shorter than its common interval")
+        binding = _record(
+            prediction_inputs.input_binding,
+            "inputs",
+            "schemaVersion lane context delivery sourceEntries tracks "
+            "itemMappings nativeSources",
+        )
+        sources = {row["sourceId"]: row for row in _sources(binding["sourceEntries"])}
+        deliveries = {row["eventId"]: row for row in _list(binding["delivery"], 2048)}
+        for item in _list(geometry["items"], 2048):
+            if item["kind"] != "audio":
+                continue
+            record_start = _integer(item["recordStart"]) * FRAME
+            record_end = (
+                record_start + _integer(item["recordDuration"], 1, 1498) * FRAME
+            )
+            _require(record_end <= extent, "pair audio edge exceeds committed geometry")
+            delivery = deliveries[item["eventId"]]
+            active_count = record_end - record_start
+            if delivery["kind"] == "narration":
+                source = sources[item["sourceId"]]
+                local = (
+                    _integer(item["sourceStart"])
+                    - _integer(source["nativeFrameOrigin"])
+                ) * FRAME + _integer(source["pcmSampleOrigin"], 0)
+                active_count = min(
+                    active_count, _integer(source["durationSamples"], 1) - local
+                )
+            _require(active_count > 0, "pair audio active extent is empty")
+            active_end = record_start + active_count
+            for edge_start, edge_end in (
+                (record_start, record_start + SOFT_FADE_SAMPLES),
+                (active_end - SOFT_FADE_SAMPLES, active_end),
+            ):
+                low, high = max(0, edge_start), min(count, edge_end)
+                if low < high:
+                    mask[low:high] = b"\x01" * (high - low)
+    return mask
+
+
+def _exclude_clip_edge_zones(channels: list[array[float]], mask: bytearray) -> None:
+    for channel in channels:
+        _require(len(channel) == len(mask), "pair edge mask extent differs")
+        for index, excluded in enumerate(mask):
+            if excluded:
+                channel[index] = 0.0
 
 
 def _nonvacuity(prediction: bytes, count: int) -> list[Json]:
@@ -1652,14 +1820,13 @@ def _terminal_comparison(terminal: TerminalOutput, trust: OutputTrust) -> Json:
 
 
 @_refusal
-def compare_prediction_pair(
-    pristine: TerminalOutput, edited: TerminalOutput, *, trust: OutputTrust
+def _compare_prediction_pair_from_verified(
+    pristine: TerminalOutput,
+    edited: TerminalOutput,
+    left: Json,
+    right: Json,
 ) -> Json:
-    """Pure audio-changing pair test. Video-only A uses per-output consistency."""
-    left, right = (
-        _terminal_comparison(pristine, trust),
-        _terminal_comparison(edited, trust),
-    )
+    """Run pair checks only after both terminals were verified in this call."""
     a, b = left["context"], right["context"]
     _require(
         left["status"] == right["status"] == "compared_consistent",
@@ -1681,15 +1848,34 @@ def compare_prediction_pair(
         ),
         "pair authenticated input identity differs",
     )
-    count = len(pristine.output.prediction) // 16
+    # Each complete output already matched its own full-extent prediction.
+    # Unequal extents are compared at zero lag over their authenticated common
+    # prefix, with committed clip-edge fade zones excluded from discrimination.
+    # A duration-only edge ramp therefore cannot establish an audio change.
+    pristine_count = len(pristine.output.prediction) // 16
+    edited_count = len(edited.output.prediction) // 16
+    _require(
+        edited_count <= pristine_count
+        and len(pristine.output.decoded_samples) == pristine_count * 8
+        and len(edited.output.decoded_samples) == edited_count * 8,
+        "pair extents are not the committed complete outputs",
+    )
+    count = edited_count
     lp, rp = (
-        _channels(pristine.output.prediction, count, prediction=True),
+        _channels(pristine.output.prediction[: count * 16], count, prediction=True),
         _channels(edited.output.prediction, count, prediction=True),
     )
     lo, ro = (
-        _channels(pristine.output.decoded_samples, count, prediction=False),
+        _channels(
+            pristine.output.decoded_samples[: count * 8], count, prediction=False
+        ),
         _channels(edited.output.decoded_samples, count, prediction=False),
     )
+    edge_mask = _clip_edge_exclusion_mask(
+        [pristine.output.inputs, edited.output.inputs], count
+    )
+    for channels in (lp, rp, lo, ro):
+        _exclude_clip_edge_zones(channels, edge_mask)
     cross = {
         "predictionDifference": _metrics(lp, rp),
         "editedAgainstPristine": _metrics(lp, ro),
@@ -1709,9 +1895,24 @@ def compare_prediction_pair(
         "editedComparisonRawSha256": _hash(edited.comparison),
         "pristineLedgerHeadSha256": _ledger_head(pristine.ledger),
         "editedLedgerHeadSha256": _ledger_head(edited.ledger),
+        "pristineSampleCount": pristine_count,
+        "editedSampleCount": edited_count,
+        "commonInterval": {"startSample": 0, "endSample": count},
         "crossMetrics": cross,
         "internalControls": "unverified",
         "geometryStability": "not_claimed",
         "controlStability": "not_claimed",
         "futureAuthority": False,
     }
+
+
+@_refusal
+def compare_prediction_pair(
+    pristine: TerminalOutput, edited: TerminalOutput, *, trust: OutputTrust
+) -> Json:
+    """Pure audio-changing pair test. Video-only A uses per-output consistency."""
+    left, right = (
+        _terminal_comparison(pristine, trust),
+        _terminal_comparison(edited, trust),
+    )
+    return _compare_prediction_pair_from_verified(pristine, edited, left, right)

@@ -36,14 +36,16 @@ def independently_rendered(c: Case) -> list[int]:
         start = (item["sourceStart"] - source["nativeFrameOrigin"]) * q.FRAME + source[
             "pcmSampleOrigin"
         ]
-        for offset in range(item["recordDuration"] * q.FRAME):
+        count = item["recordDuration"] * q.FRAME
+        for offset in range(count):
+            edge_gain = min(1.0, offset / 72, (count - offset) / 72)
             for channel in range(2):
                 source_channel = 0 if source["channels"] == 1 else channel
                 value = c.samples[
                     (start + offset) * source["channels"] + source_channel
                 ]
                 values[(item["recordStart"] * q.FRAME + offset) * 2 + channel] += round(
-                    value * 10 ** (gain / 20)
+                    value * 10 ** (gain / 20) * edge_gain
                 )
     return values
 
@@ -252,16 +254,13 @@ def test_complete_comparison_and_acyclic_terminal_cas() -> None:
     output = rendered(c)
     result = q.compare_committed_output(output, trust=c.trust)
     assert result["status"] == "compared_consistent"
-    assert (
-        result["metrics"]
-        == [
-            {
-                "residualRms": 0.0,
-                "maximumSliding20msResidualRms": 0.0,
-                "consistent": True,
-            }
-        ]
-        * 2
+    half_lsb = 0.5 / 2**23
+    assert len(result["metrics"]) == 2
+    assert all(
+        0 < metric["residualRms"] < half_lsb
+        and 0 < metric["maximumSliding20msResidualRms"] < half_lsb
+        and metric["consistent"] is True
+        for metric in result["metrics"]
     )
     assert result["internalControls"] == "unverified"
     assert result["geometryStability"] == result["controlStability"] == "not_claimed"
@@ -620,3 +619,83 @@ def test_full_programme_bound_complete_prediction_and_comparison() -> None:
         q.compare_committed_output(output, trust=c.trust)["status"]
         == "compared_consistent"
     )
+
+
+def shortened_pair(frames: int = 2, source_start: int = 0) -> tuple[Case, Case]:
+    """Pristine 6-frame render and an edited ripple-trimmed render of `frames`."""
+    pristine, edited = case(), case(phase="edited")
+    pristine.trust.seals.update(edited.trust.seals)
+    edited.trust = pristine.trust
+    item = json.loads(edited.inputs.geometry)["geometry"]["items"][0]
+    change_items(
+        edited,
+        [
+            {
+                **item,
+                "sourceStart": source_start,
+                "recordDuration": frames,
+                "sourceDuration": frames,
+            }
+        ],
+    )
+    snapshot = json.loads(edited.inputs.geometry)
+    snapshot["geometry"]["extentFrames"] = frames
+    edited.inputs = replace(edited.inputs, geometry=canonical(snapshot))
+    edited.reseal_geometry()
+    return pristine, edited
+
+
+def test_shortened_pair_source_shift_beyond_edges_compares_over_common_prefix() -> None:
+    pristine, edited = shortened_pair(source_start=1)
+    left, right = rendered(pristine), rendered(edited)
+    for output in (left, right):
+        assert (
+            q.compare_committed_output(output, trust=pristine.trust)["status"]
+            == "compared_consistent"
+        )
+    result = q.compare_prediction_pair(
+        terminal(pristine, left), terminal(edited, right), trust=pristine.trust
+    )
+    # A one-frame source shift changes samples outside the masked 72-sample
+    # clip-edge ramps, so real audio-content differences remain distinguishable.
+    assert result["pristineSampleCount"] == 6 * q.FRAME
+    assert result["editedSampleCount"] == 2 * q.FRAME
+    assert result["commonInterval"] == {
+        "startSample": 0,
+        "endSample": 2 * q.FRAME,
+    }
+    assert result["geometryStability"] == result["controlStability"] == "not_claimed"
+    assert all(
+        any(not channel["consistent"] for channel in metrics)
+        for metrics in result["crossMetrics"].values()
+    )
+
+
+def test_shortened_pair_with_only_new_edge_fade_is_indistinguishable() -> None:
+    pristine, edited = shortened_pair()
+    left, right = rendered(pristine), rendered(edited)
+    # The only common-prefix difference comes from the newly introduced edge
+    # fade; it must not establish that the edit changed audio content.
+    with pytest.raises(r.OutputConsistencyError, match="indistinguishable"):
+        q.compare_prediction_pair(
+            terminal(pristine, left), terminal(edited, right), trust=pristine.trust
+        )
+
+
+def test_pair_with_longer_edited_output_refuses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Pristine is the shorter (2-frame) programme; the edited output is longer.
+    # Different-length packages differ in authenticated input identity, so that
+    # (already separately enforced) check is neutralised to reach the extent gate.
+    monkeypatch.setattr(q, "AUTHORITY_REFERENCE_FIELDS", frozenset(context().keys()))
+    pristine, edited = case(frames=2), case(phase="edited")
+    pristine.trust.seals.update(edited.trust.seals)
+    edited.trust = pristine.trust
+    left, right = rendered(pristine), rendered(edited)
+    with pytest.raises(
+        r.OutputConsistencyError, match="not the committed complete outputs"
+    ):
+        q.compare_prediction_pair(
+            terminal(pristine, left), terminal(edited, right), trust=pristine.trust
+        )

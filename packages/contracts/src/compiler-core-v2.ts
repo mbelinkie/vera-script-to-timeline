@@ -38,7 +38,7 @@ import { canonicalJson, sha256CanonicalJson } from "./compiler-core.js";
 import { placementAnchorKeyV2, resolveTimedPlacementV2 } from "./authoring-v2-placement.js";
 import { projectPrimarySequenceV2 } from "./authoring-v2-projection.js";
 import type { WordBoundaryAnchorV2 } from "./authoring-v2.js";
-import { boundaryEvidenceProblemV2 } from "./narration-boundary-evidence-v2.js";
+import { boundaryEvidenceOutputFieldsV2, boundaryEvidenceProblemV2 } from "./narration-boundary-evidence-v2.js";
 import { graphicProvenanceJsonProblem, graphicProvenanceSchemaCode, validateGraphicContentsV2 } from "./graphic-provenance-compiler.js";
 import { isWordAnchorCurrentV2, validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 
@@ -486,7 +486,7 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
       return frame === undefined ? null : safe(BigInt(rowStart) + BigInt(frame), "token frame");
     };
     const evidenceHash = "verification" in row.map ? sha256CanonicalJson(row.map) : null;
-    const provenanceEvidence = evidenceHash ? { boundaryEvidenceHash: evidenceHash } : {};
+    const provenanceEvidence = "verification" in row.map && evidenceHash ? boundaryEvidenceOutputFieldsV2(row.map, evidenceHash) : {};
     const resolvedEdges = new Map<string, { time: Fraction; frame: number; kind: "word_start" | "word_end" | "media_end"; precision: VisualSequenceResolutionV2["alignmentPrecision"] }>();
     const recordEvidence = (entityId: string, kind: BoundaryEvidenceV2["kind"], time: Fraction, frame: number, precision: BoundaryEvidenceV2["precision"], relatedTokenId?: string): void => {
       if (!evidenceHash && kind !== "word_end") return;
@@ -1256,7 +1256,7 @@ function compileSupportingItems(
           originalSourceHash: null,
           deliveredSourceHash: null,
           timingMapHash: pointRow?.map.timingHash ?? null,
-          ...(pointRow && "verification" in pointRow.map ? { boundaryEvidenceHash: sha256CanonicalJson(pointRow.map) } : {}),
+          ...(pointRow && "verification" in pointRow.map ? boundaryEvidenceOutputFieldsV2(pointRow.map, sha256CanonicalJson(pointRow.map)) : {}),
           compilerVersion: dependencies.compiler.version,
         },
         sourceRange: null,
@@ -1396,7 +1396,7 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
     }
     for (const row of resolved.timedRows) {
       if (row.kind !== "narration") continue;
-      const provenanceEvidence = "verification" in row.map ? { boundaryEvidenceHash: sha256CanonicalJson(row.map) } : {};
+      const provenanceEvidence = "verification" in row.map ? boundaryEvidenceOutputFieldsV2(row.map, sha256CanonicalJson(row.map)) : {};
       const start = row.startFrame; const end = start + row.durationFrames;
       const eventId = stableId(`narration:${document.id}:${row.block.id}:${row.map.audio!.narrationAssetId}`);
       resolved.events.push({ eventId, kind: "narration", trackId: dependencies.roles.narrationTrackId, trackRole: "narration", recordRange: { startFrame: start, endFrame: end }, provenance: { documentId: document.id, blockId: row.block.id, sequenceId: null, slotId: null, payloadId: null, overlayEventId: null, sourceId: row.map.audio!.narrationAssetId, originalSourceHash: row.map.audio!.audioHash, deliveredSourceHash: row.map.audio!.audioHash, timingMapHash: row.map.timingHash, ...provenanceEvidence, compilerVersion: dependencies.compiler.version }, sourceRange: null, sourceTimeMapping: null, preparationBindingHash: null, audio: null });

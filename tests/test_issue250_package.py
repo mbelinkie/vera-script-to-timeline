@@ -335,13 +335,13 @@ def test_presenter_admission_uses_pinned_originals_and_current_execution_depende
     assert package._sha(execution_dependencies) == package._sha(
         _canonical(original_value)
     )
-    with pytest.raises(v2_package.V2PackageError, match="fully ready"):
-        v2_package._validate_inputs(
-            json.loads(original_document),
-            execution_value,
-            admission.manifest,
-            admission.report,
-        )
+    v2_package._validate_inputs(
+        json.loads(original_document),
+        execution_value,
+        admission.manifest,
+        admission.report,
+    )
+    assert admission.report["diagnostics"] == list(admission.diagnostics)
     reopened = package.load_qualification_package_v2(
         admission.admission_path, package._sha(admission.admission_path.read_bytes())
     )

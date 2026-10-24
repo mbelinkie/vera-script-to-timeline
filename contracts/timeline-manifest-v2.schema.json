@@ -311,6 +311,13 @@
         },
         "boundaryEvidenceHash": {
           "$ref": "#/$defs/ContentHash"
+        },
+        "boundaryEvidenceMethod": {
+          "enum": [
+            "reviewed_audio_boundaries/v1",
+            "measured_audio_boundaries/v1"
+          ],
+          "description": "Method of the boundary evidence behind boundaryEvidenceHash. Emitted only for measured evidence; absence with a boundaryEvidenceHash means reviewed_audio_boundaries/v1. Measured evidence is never labelled reviewed."
         }
       }
     },
@@ -338,6 +345,7 @@
         "gainDb": {
           "enum": [
             -18,
+            -0.1,
             0
           ]
         },
@@ -385,7 +393,10 @@
           "then": {
             "properties": {
               "gainDb": {
-                "const": 0
+                "enum": [
+                  0,
+                  -0.1
+                ]
               }
             }
           }
@@ -766,6 +777,13 @@
         },
         "boundaryEvidenceHash": {
           "$ref": "#/$defs/ContentHash"
+        },
+        "boundaryEvidenceMethod": {
+          "enum": [
+            "reviewed_audio_boundaries/v1",
+            "measured_audio_boundaries/v1"
+          ],
+          "description": "Method of the boundary evidence behind boundaryEvidenceHash. Emitted only for measured evidence; absence with a boundaryEvidenceHash means reviewed_audio_boundaries/v1. Measured evidence is never labelled reviewed."
         }
       }
     },
