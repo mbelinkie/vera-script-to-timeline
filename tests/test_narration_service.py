@@ -93,7 +93,7 @@ def service(tmp_path: Path, provider: FakeProvider) -> NarrationService:
         cache=NarrationCache(tmp_path / "cache"),
         provider=provider,
         normalizer=Normalizer(),
-        config=ServiceConfig(data_policy_attestation="provider_terms_accepted"),
+        config=ServiceConfig(data_policy_attestation="fish_terms_accepted"),
     )
 
 
@@ -206,13 +206,13 @@ def test_normalization_profile_change_reuses_raw_provider_result(
         cache=cache,
         provider=provider,
         normalizer=Normalizer(profile_id="profile-one"),
-        config=ServiceConfig(data_policy_attestation="provider_terms_accepted"),
+        config=ServiceConfig(data_policy_attestation="fish_terms_accepted"),
     )
     second = NarrationService(
         cache=cache,
         provider=provider,
         normalizer=Normalizer(profile_id="profile-two"),
-        config=ServiceConfig(data_policy_attestation="provider_terms_accepted"),
+        config=ServiceConfig(data_policy_attestation="fish_terms_accepted"),
     )
 
     first.process_document(document(MINIMAL))

@@ -17,7 +17,11 @@ from typing import Any
 
 import pytest
 from vera_timeline_agent.narration.cache import NarrationCache
-from vera_timeline_agent.narration.configuration import default_profile, pricing_for
+from vera_timeline_agent.narration.configuration import (
+    MATTHEW_PROFILE_ID,
+    pricing_for,
+    voice_profile,
+)
 from vera_timeline_agent.narration.models import (
     ProviderResult,
     ProviderTimingMark,
@@ -220,7 +224,7 @@ def setup_case(
         provider=provider,
         normalizer=FakeNormalizer(),
         config=ServiceConfig(
-            pricing_policy=pricing_for(default_profile()),
+            pricing_policy=pricing_for(voice_profile(MATTHEW_PROFILE_ID)),
             profile=VoiceProfile(
                 "fake", "issue191_fake", "local-test", "fake", "fake", "1", "en-US"
             ),

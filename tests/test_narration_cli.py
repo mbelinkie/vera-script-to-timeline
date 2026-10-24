@@ -202,6 +202,36 @@ def test_cli_defaults_to_fish_mw1_and_custom_voice_model_change_identity(
     )
 
 
+@pytest.mark.parametrize(
+    "override",
+    [("--model", ""), ("--voice-id", " "), ("--voice-version", "")],
+)
+def test_cli_rejects_empty_voice_configuration_without_fallback(
+    tmp_path: Path, override: tuple[str, str]
+) -> None:
+    provider = CliFakeProvider()
+    stderr = io.StringIO()
+
+    code = run_cli(
+        [
+            str(MINIMAL),
+            "--cache",
+            str(tmp_path / "cache"),
+            "--data-policy",
+            "fish_terms_accepted",
+            *override,
+            "--preflight-only",
+        ],
+        stdout=io.StringIO(),
+        stderr=stderr,
+        provider=provider,
+    )
+
+    assert code == CliExit.USAGE
+    assert "must not be empty" in stderr.getvalue()
+    assert provider.calls == 0
+
+
 @pytest.mark.slow
 def test_cli_reports_generated_then_all_reused_in_block_order(tmp_path: Path) -> None:
     provider = CliFakeProvider()

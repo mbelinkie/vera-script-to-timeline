@@ -26,7 +26,10 @@ from vera_timeline_agent.narration.campaign import (
     Ledger,
     default_ledger_path,
 )
-from vera_timeline_agent.narration.configuration import default_profile
+from vera_timeline_agent.narration.configuration import (
+    MATTHEW_PROFILE_ID,
+    voice_profile,
+)
 from vera_timeline_agent.narration.models import (
     ProviderResult,
     ProviderTimingMark,
@@ -288,7 +291,7 @@ def test_missing_aws_credentials_refuse_before_intent_or_reservation(
     lane.service.provider = PollyProvider()
     lane.service.config = replace(
         lane.service.config,
-        profile=default_profile(),
+        profile=voice_profile(MATTHEW_PROFILE_ID),
         pricing_policy=None,
         data_policy_attestation="provider_terms_accepted",
     )

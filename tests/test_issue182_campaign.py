@@ -19,6 +19,10 @@ from vera_timeline_agent.narration.campaign import (
     run_campaign,
     run_generate,
 )
+from vera_timeline_agent.narration.configuration import (
+    MATTHEW_PROFILE_ID,
+    voice_profile,
+)
 from vera_timeline_agent.narration.models import (
     NarrationAudioAsset,
     sha256_bytes,
@@ -530,7 +534,10 @@ def test_real_service_normalization_failure_is_still_counted(tmp_path: Path) -> 
         cache=NarrationCache(tmp_path / "cache"),
         provider=provider,
         normalizer=BrokenNormalizer(),
-        config=ServiceConfig(data_policy_attestation="provider_terms_accepted"),
+        config=ServiceConfig(
+            profile=voice_profile(MATTHEW_PROFILE_ID),
+            data_policy_attestation="provider_terms_accepted",
+        ),
     )
     ledger = ledger_at(tmp_path)
     doc = document("hello there")
