@@ -128,3 +128,19 @@ def test_rejects_lexical_intervals_outside_audio(start: float, end: float) -> No
 def test_rejects_positive_interval_that_collapses_on_sample_grid() -> None:
     with pytest.raises(InworldTimingError, match="sample grid"):
         timing_marks("go", _response(["go"], [0.100001], [0.100004]), SAMPLE_RATE)
+
+
+def test_symbols_receive_timing_instead_of_being_silently_skipped() -> None:
+    marks = timing_marks(
+        "5 + 3 🙂",
+        _response(
+            ["5", " ", "+", " ", "3", " ", "🙂"],
+            [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7],
+            [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8],
+        ),
+        SAMPLE_RATE,
+    )
+    assert [mark.value for mark in marks] == ["5", "+", "3", "🙂"]
+    assert (marks[-1].start_utf16, marks[-1].end_utf16) == (6, 8)
+    with pytest.raises(InworldTimingError, match="finite number"):
+        timing_marks("🙂", _response(["🙂"], [float("nan")], [0.2]), SAMPLE_RATE)

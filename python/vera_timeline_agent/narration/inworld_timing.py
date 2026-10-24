@@ -139,7 +139,7 @@ def timing_marks(
     marks: list[ProviderTimingMark] = []
     for (first_cp, last_cp), spans in zip(tokens, by_token, strict=True):
         if not spans:
-            continue
+            raise InworldTimingError("native timing does not cover every source word")
         token_value = text[first_cp:last_cp]
         if not token_value:
             raise InworldTimingError("source token is empty")
@@ -180,4 +180,4 @@ def _finite_fraction(value: Any, label: str) -> Fraction:
 
 
 def _is_lexical(char: str) -> bool:
-    return unicodedata.category(char)[0] in {"L", "M", "N"}
+    return unicodedata.category(char)[0] in {"L", "M", "N", "S"}

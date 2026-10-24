@@ -228,6 +228,7 @@ def test_keychain_output_is_not_in_errors_or_subprocess_arguments(
         inworld._api_key()
 
     assert secret not in str(error.value)
+    assert error.value.request_rejected
     assert calls == [
         [
             "/usr/bin/security",
@@ -574,3 +575,34 @@ def _request_from_payload(payload: bytes) -> SynthesisRequest:
         ),
         text=value["text"],
     )
+
+
+def test_missing_credential_does_not_block_later_authorized_attempt(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.delenv("INWORLD_API_KEY", raising=False)
+    monkeypatch.setattr(inworld, "sys", SimpleNamespace(platform="linux"))
+    cache = NarrationCache(tmp_path / "cache")
+    normalizer = _CheapNormalizer()
+    monkeypatch.setattr(
+        normalizer,
+        "placeholder",
+        lambda _block_id: normalizer.normalize_pcm(PCM, sample_rate=48000, channels=1),
+    )
+    service = NarrationService(
+        cache=cache,
+        provider=InworldProvider(),
+        normalizer=normalizer,  # type: ignore[arg-type]
+        config=ServiceConfig(data_policy_attestation=CONSENT),
+    )
+    failed = service.process_block(BLOCK)
+    assert failed.status == "failed" and failed.extra["requestRejected"]
+    monkeypatch.setenv("INWORLD_API_KEY", "YWJjOnNlY3JldA==")
+    monkeypatch.setattr(
+        inworld,
+        "urlopen",
+        lambda *_args, **_kwargs: _JSONResponse(_response(_request())),
+    )
+    recovered = service.process_block(BLOCK)
+    assert recovered.status == "ready"
+    assert recovered.synthesis_disposition == "generated"

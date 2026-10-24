@@ -73,7 +73,8 @@ def _api_key() -> str:
             pass
     if not key or len(key) > 4096 or any(not 33 <= ord(c) <= 126 for c in key):
         raise InworldError(
-            "INWORLD_API_KEY missing or invalid in environment/macOS Keychain"
+            "INWORLD_API_KEY missing or invalid in environment/macOS Keychain",
+            request_rejected=True,
         )
     # Portal supplies the complete Base64 credential. Never encode it again.
     return key

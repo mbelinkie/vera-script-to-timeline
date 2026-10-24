@@ -95,7 +95,7 @@ config = ServiceConfig(
     profile=default_profile(),
     settings=SynthesisSettings(rate="100%"),
     data_policy_attestation="inworld_terms_accepted",
-    max_cost_usd=0.02,  # Set from the separately authorized selected-text allowance.
+    max_cost_usd=0.02,  # Per-request ceiling, not a cumulative campaign allowance.
 )
 service = NarrationService(
     cache=cache,
@@ -112,3 +112,8 @@ Pass the verified asset and its cached provider timing to
 existing v2 compiler/media-needs path. This preserves frozen token IDs. The v1
 CLI above does not accept a v2 ScriptDocument; it is an alternative product entry
 point, not a v2 conversion command.
+
+`ServiceConfig.max_cost_usd` applies to each row request. A benchmark must also
+wrap the service with the existing campaign `guard_service` / cumulative ledger
+before processing rows; the per-row ceiling alone does not enforce its total
+allowance. The CLI separately sums the document estimate before generation.
