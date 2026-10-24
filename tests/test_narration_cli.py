@@ -5,6 +5,11 @@ from pathlib import Path
 
 import pytest
 from vera_timeline_agent.narration.cli import CliExit, run_cli
+from vera_timeline_agent.narration.configuration import (
+    DEFAULT_PROFILE_ID,
+    FISH_PROFILE_ID,
+    INWORLD_PROFILE_ID,
+)
 from vera_timeline_agent.narration.models import (
     ProviderResult,
     ProviderTimingMark,
@@ -146,30 +151,35 @@ def test_cli_selects_joanna_as_named_alternative_without_silent_attestation(
     assert missing_attestation == CliExit.USAGE
 
 
-def test_cli_defaults_to_fish_mw1_and_custom_voice_model_change_identity(
+def test_cli_defaults_to_inworld_and_configured_model_voice_and_rate_reach_provider(
     tmp_path: Path,
 ) -> None:
     default_provider = CliFakeProvider()
+    default_stdout = io.StringIO()
     code = run_cli(
         [
             str(MINIMAL),
             "--cache",
             str(tmp_path / "default-cache"),
             "--data-policy",
-            "fish_terms_accepted",
+            "inworld_terms_accepted",
             "--confirm-provider-call",
         ],
-        stdout=io.StringIO(),
+        stdout=default_stdout,
         stderr=io.StringIO(),
         provider=default_provider,
     )
 
     assert code == CliExit.OK
     default_request = default_provider.requests[0]
-    assert default_request.profile.profile_id == "fish-mw1-s2.1-pro-free-en-us-v1"
-    assert default_request.profile.provider == "fish_audio"
-    assert default_request.profile.engine == "s2.1-pro-free"
-    assert default_request.profile.voice_id == "f051ceb7fd8d47f09f63944298f589fc"
+    assert DEFAULT_PROFILE_ID == INWORLD_PROFILE_ID
+    assert default_request.profile.profile_id == INWORLD_PROFILE_ID
+    assert default_request.profile.provider == "inworld"
+    assert default_request.profile.engine == "inworld-tts-2"
+    assert default_request.profile.voice_id == "Arthur"
+    assert default_request.settings.rate == "100%"
+    assert "billed characters:" in default_stdout.getvalue()
+    assert "billed characters (audio + marks):" not in default_stdout.getvalue()
 
     custom_provider = CliFakeProvider()
     custom_code = run_cli(
@@ -178,13 +188,13 @@ def test_cli_defaults_to_fish_mw1_and_custom_voice_model_change_identity(
             "--cache",
             str(tmp_path / "custom-cache"),
             "--data-policy",
-            "fish_terms_accepted",
+            "inworld_terms_accepted",
             "--model",
-            "s2.1-pro",
+            "inworld-tts-2-flash",
             "--voice-id",
             "synthetic-configured-voice",
-            "--voice-version",
-            "config-v2",
+            "--rate",
+            "110%",
             "--confirm-provider-call",
         ],
         stdout=io.StringIO(),
@@ -194,17 +204,51 @@ def test_cli_defaults_to_fish_mw1_and_custom_voice_model_change_identity(
 
     assert custom_code == CliExit.OK
     custom_request = custom_provider.requests[0]
-    assert custom_request.profile.engine == "s2.1-pro"
+    assert custom_request.profile.provider == "inworld"
+    assert custom_request.profile.engine == "inworld-tts-2-flash"
     assert custom_request.profile.voice_id == "synthetic-configured-voice"
-    assert custom_request.profile.voice_version == "config-v2"
+    assert custom_request.settings.rate == "110%"
     assert default_request.identity(b"same-provider-input", "cli-fake/v1") != (
         custom_request.identity(b"same-provider-input", "cli-fake/v1")
     )
 
 
+def test_cli_rejects_unpriced_inworld_model_without_fallback(tmp_path: Path) -> None:
+    provider = CliFakeProvider()
+    stderr = io.StringIO()
+
+    code = run_cli(
+        [
+            str(MINIMAL),
+            "--cache",
+            str(tmp_path / "cache"),
+            "--data-policy",
+            "inworld_terms_accepted",
+            "--model",
+            "unlisted-inworld-model",
+            "--confirm-provider-call",
+        ],
+        stdout=io.StringIO(),
+        stderr=stderr,
+        provider=provider,
+    )
+
+    assert code == CliExit.PREFLIGHT
+    assert (
+        "unsupported provider/model pricing: 'inworld'/'unlisted-inworld-model'"
+        in stderr.getvalue()
+    )
+    assert provider.calls == 0
+
+
 @pytest.mark.parametrize(
     "override",
-    [("--model", ""), ("--voice-id", " "), ("--voice-version", "")],
+    [
+        ("--model", ""),
+        ("--voice-id", " "),
+        ("--voice-version", ""),
+        ("--rate", " "),
+    ],
 )
 def test_cli_rejects_empty_voice_configuration_without_fallback(
     tmp_path: Path, override: tuple[str, str]
@@ -217,6 +261,8 @@ def test_cli_rejects_empty_voice_configuration_without_fallback(
             str(MINIMAL),
             "--cache",
             str(tmp_path / "cache"),
+            "--voice-profile",
+            FISH_PROFILE_ID,
             "--data-policy",
             "fish_terms_accepted",
             *override,

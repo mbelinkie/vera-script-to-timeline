@@ -2364,6 +2364,35 @@
     "MeasuredBoundaryVerificationV1": {
       "type": "object",
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "onsetBasis": { "const": "local_acoustic_alignment" }
+            }
+          },
+          "then": {
+            "properties": {
+              "algorithm": {
+                "type": "object",
+                "properties": {
+                  "id": { "const": "vera-local-acoustic-recovery" }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "algorithm": {
+                "type": "object",
+                "properties": {
+                  "id": { "const": "vera-polly-marks-energy-ends" }
+                }
+              }
+            }
+          }
+        }
+      ],
       "required": [
         "method",
         "algorithm",
@@ -2389,7 +2418,10 @@
           "$ref": "#/$defs/ContentHash"
         },
         "onsetBasis": {
-          "const": "provider_word_marks_lag_verified"
+          "enum": [
+            "provider_word_marks_lag_verified",
+            "local_acoustic_alignment"
+          ]
         },
         "onsetUncertainty": {
           "$ref": "#/$defs/NonNegativeRationalTime"
@@ -2410,7 +2442,10 @@
       ],
       "properties": {
         "id": {
-          "const": "vera-polly-marks-energy-ends"
+          "enum": [
+            "vera-polly-marks-energy-ends",
+            "vera-local-acoustic-recovery"
+          ]
         },
         "version": {
           "const": "1"
