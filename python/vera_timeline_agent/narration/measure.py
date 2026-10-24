@@ -250,9 +250,9 @@ def estimate_lag(
 ) -> Lag:
     """Lag (normalized minus raw) from cross-correlating 5 ms RMS envelopes.
 
-    Envelopes are taken at a 1 ms hop on each signal at its native rate (equal
-    to resampling the raw PCM to 48 kHz, without the interpolation cost) so the
-    search has 1 ms resolution; a parabolic fit refines it below 1 ms.
+    Window boundaries follow exact millisecond positions at each native rate,
+    so both envelopes share a 1 ms grid without resampling. A parabolic fit
+    refines the lag below 1 ms.
     """
 
     window_ms = int(parameters["lagEnvelopeWindowMs"])
