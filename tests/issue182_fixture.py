@@ -168,9 +168,7 @@ def build_cache(
     timing = timing_bytes(
         mark_ms,
         mark_samples=mark_samples,
-        sample_rate=(
-            raw_sample_rate if mark_sample_rate is None else mark_sample_rate
-        ),
+        sample_rate=(raw_sample_rate if mark_sample_rate is None else mark_sample_rate),
     )
     request_hash = sha256_bytes(b"request-" + wav[:64])
     synthesis_key = request_hash.removeprefix("sha256:")

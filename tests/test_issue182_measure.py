@@ -168,9 +168,7 @@ def test_44100_raw_samples_map_exactly_onto_48k_with_verified_lag(
     lag = result.artifact["lag"]["samples"]
     assert lag == 48
     rows = result.artifact["tokens"]
-    for row, native_start, expected_ms in zip(
-        rows, mark_samples, mark_ms, strict=True
-    ):
+    for row, native_start, expected_ms in zip(rows, mark_samples, mark_ms, strict=True):
         # Native marks stay in their original clock; only their normalized
         # sample positions are converted and shifted by the measured lag.
         assert row["providerMarkMs"] == expected_ms
