@@ -79,6 +79,18 @@ const measuredVerification = (): NarrationBoundaryEvidenceV1["verification"] => 
   onsetBasis: "provider_word_marks_lag_verified", onsetUncertainty: time(1, 100), audibleEndUncertainty: time(1, 200),
 });
 function measured(): Input { const input = specimen(); evidence(input).verification = measuredVerification(); return input; }
+
+test("local acoustic onsets retain explicit provenance through compiler admission", () => {
+  const input = configure(measured(), "before-gamma");
+  const verification = evidence(input).verification;
+  if (verification.method !== "measured_audio_boundaries/v1") throw new Error("wrong method");
+  verification.onsetBasis = "local_acoustic_alignment";
+  verification.algorithm.id = "vera-local-acoustic-recovery";
+  const result = compiled(input);
+  expect(result.report.status).toBe("ready");
+  expect(evidence(input).verification).toMatchObject({ onsetBasis: "local_acoustic_alignment" });
+  expect(result.manifest.boundaryEvidence.every((item) => item.boundaryEvidenceMethod === "measured_audio_boundaries/v1")).toBe(true);
+});
 function configure(input: Input, mode: "before-gamma" | "after-beta" | "final-tail") {
   const base = row(input).primaryVisualSequence!.slots[0]!;
   if (base.kind !== "content") throw new Error("root missing");

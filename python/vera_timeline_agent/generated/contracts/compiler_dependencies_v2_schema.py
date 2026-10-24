@@ -503,7 +503,7 @@ class ReviewedBoundaryVerificationV1(TypedDict):
 
 
 class MeasuredBoundaryAlgorithmV1(TypedDict):
-    id: Literal["vera-polly-marks-energy-ends"]
+    id: Literal["vera-polly-marks-energy-ends", "vera-local-acoustic-recovery"]
     version: Literal["1"]
     parametersHash: ContentHash
     parameters: dict[str, Any]
@@ -567,7 +567,7 @@ class MeasuredBoundaryVerificationV1(TypedDict):
     algorithm: MeasuredBoundaryAlgorithmV1
     measurementArtifactLocator: str
     measurementArtifactHash: ContentHash
-    onsetBasis: Literal["provider_word_marks_lag_verified"]
+    onsetBasis: Literal["provider_word_marks_lag_verified", "local_acoustic_alignment"]
     onsetUncertainty: NonNegativeRationalTime
     audibleEndUncertainty: NonNegativeRationalTime
 
