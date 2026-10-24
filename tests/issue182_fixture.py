@@ -43,19 +43,20 @@ def burst_pcm(
     bursts: tuple[tuple[int, ...], ...] = BURSTS,
     total_ms: int = RAW_MS,
     amplitude: float = 8000.0,
+    sample_rate: int = RAW_RATE,
 ) -> list[int]:
-    samples = [0] * (total_ms * RAW_RATE // 1000)
-    ramp = 5 * RAW_RATE // 1000
+    samples = [0] * (total_ms * sample_rate // 1000)
+    ramp = 5 * sample_rate // 1000
     for burst in bursts:
         start_ms, end_ms, hertz = burst[:3]
         level = float(burst[3]) if len(burst) > 3 else amplitude
-        first = start_ms * RAW_RATE // 1000
-        last = end_ms * RAW_RATE // 1000
+        first = start_ms * sample_rate // 1000
+        last = end_ms * sample_rate // 1000
         for index in range(first, last):
             fade = min(1.0, (index - first) / ramp, (last - 1 - index) / ramp)
             fade = 0.5 - 0.5 * math.cos(math.pi * max(0.0, fade))
             samples[index] = round(
-                level * fade * math.sin(2 * math.pi * hertz * index / RAW_RATE)
+                level * fade * math.sin(2 * math.pi * hertz * index / sample_rate)
             )
     return samples
 
@@ -65,11 +66,20 @@ def pcm_bytes(samples: list[int]) -> bytes:
 
 
 def normalize(
-    raw: list[int], *, lag_samples: int = 0, gain: float = 0.5, tail_ms: int = 100
+    raw: list[int],
+    *,
+    raw_sample_rate: int = RAW_RATE,
+    lag_samples: int = 0,
+    gain: float = 0.5,
+    tail_ms: int = 100,
 ) -> list[int]:
-    """Upsample 16 -> 48 kHz by holding, delay by ``lag_samples``, gain, pad."""
+    """Resample by sample index, delay by ``lag_samples``, gain, and pad."""
 
-    wide = [round(sample * gain) for sample in raw for _ in range(3)]
+    output_frames = len(raw) * 48_000 // raw_sample_rate
+    wide = [
+        round(raw[index * raw_sample_rate // 48_000] * gain)
+        for index in range(output_frames)
+    ]
     wide = [0] * lag_samples + wide if lag_samples >= 0 else wide[-lag_samples:]
     return wide + [0] * (tail_ms * 48)
 
@@ -102,7 +112,12 @@ def frozen_block(text: str = TEXT) -> dict[str, Any]:
     }
 
 
-def timing_bytes(mark_ms: tuple[int, ...] = MARK_MS) -> bytes:
+def timing_bytes(
+    mark_ms: tuple[int, ...] = MARK_MS,
+    *,
+    mark_samples: tuple[int, ...] | None = None,
+    sample_rate: int | None = None,
+) -> bytes:
     marks = [
         ProviderTimingMark(
             kind="word",
@@ -112,6 +127,8 @@ def timing_bytes(mark_ms: tuple[int, ...] = MARK_MS) -> bytes:
             start_utf16=OFFSETS[n][0],
             end_utf16=OFFSETS[n][1],
             value=WORDS[n],
+            time_sample=mark_samples[n] if mark_samples is not None else None,
+            sample_rate=sample_rate if mark_samples is not None else None,
         )
         for n in range(len(mark_ms))
     ]
@@ -130,15 +147,31 @@ def build_cache(
     lag_samples: int = 0,
     gain: float = 0.5,
     mark_ms: tuple[int, ...] = MARK_MS,
+    mark_samples: tuple[int, ...] | None = None,
+    mark_sample_rate: int | None = None,
+    raw_sample_rate: int = RAW_RATE,
     bursts: tuple[tuple[int, ...], ...] = BURSTS,
 ) -> tuple[NarrationCache, NarrationAudioAsset, str]:
     """Publish synthesis + asset entries the way NarrationService lays them out."""
 
     cache = NarrationCache(root)
-    raw = burst_pcm(bursts)
+    raw = burst_pcm(bursts, sample_rate=raw_sample_rate)
     raw_bytes = pcm_bytes(raw)
-    wav = wav_bytes(normalize(raw, lag_samples=lag_samples, gain=gain))
-    timing = timing_bytes(mark_ms)
+    wav = wav_bytes(
+        normalize(
+            raw,
+            raw_sample_rate=raw_sample_rate,
+            lag_samples=lag_samples,
+            gain=gain,
+        )
+    )
+    timing = timing_bytes(
+        mark_ms,
+        mark_samples=mark_samples,
+        sample_rate=(
+            raw_sample_rate if mark_sample_rate is None else mark_sample_rate
+        ),
+    )
     request_hash = sha256_bytes(b"request-" + wav[:64])
     synthesis_key = request_hash.removeprefix("sha256:")
     cache.publish(
@@ -153,7 +186,7 @@ def build_cache(
         {
             "recordVersion": "synthesis-cache/v1",
             "audioFormat": "pcm_s16le",
-            "sampleRate": RAW_RATE,
+            "sampleRate": raw_sample_rate,
             "channels": 1,
             "provenance": {"provider": "fake"},
             "requestIds": ["req-1"],

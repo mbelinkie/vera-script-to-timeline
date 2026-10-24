@@ -146,6 +146,112 @@ def test_lag_beyond_two_milliseconds_is_refused(tmp_path: Path) -> None:
     assert "normalization timing not verified" in str(caught.value)
 
 
+def test_44100_raw_samples_map_exactly_onto_48k_with_verified_lag(
+    tmp_path: Path,
+) -> None:
+    raw_rate = 44_100
+    mark_samples = (4_411, 22_933, 36_163, 56_008)
+    mark_ms = (100, 520, 820, 1270)
+    cache, _asset, key = build_cache(
+        tmp_path / "cache",
+        raw_sample_rate=raw_rate,
+        lag_samples=48,
+        mark_samples=mark_samples,
+        mark_sample_rate=raw_rate,
+        mark_ms=mark_ms,
+    )
+    loaded = load_asset(cache, key)
+    assert loaded.raw_sample_rate == raw_rate
+    assert loaded.asset.sample_rate == 48_000
+
+    result = measure_asset(loaded, frozen_block(), artifact_locator=LOCATOR)
+    lag = result.artifact["lag"]["samples"]
+    assert lag == 48
+    rows = result.artifact["tokens"]
+    for row, native_start, expected_ms in zip(
+        rows, mark_samples, mark_ms, strict=True
+    ):
+        # Native marks stay in their original clock; only their normalized
+        # sample positions are converted and shifted by the measured lag.
+        assert row["providerMarkMs"] == expected_ms
+        assert row["rawSpanStartSamples"] == native_start
+        assert row["onsetSamples"] == native_start * 48_000 // raw_rate + lag
+
+    # The measured raw endpoint is converted once as a whole sample index.
+    alpha = rows[0]
+    raw_window = 5 * raw_rate // 1000
+    raw_end = mark_samples[0] + (alpha["lastLoudWindow"] + 1) * raw_window
+    assert alpha["audibleEndSamples"] == raw_end * 48_000 // raw_rate + lag
+
+
+def test_distinct_native_time_samples_can_share_rounded_milliseconds(
+    tmp_path: Path,
+) -> None:
+    raw_rate = 44_100
+    mark_samples = (4_411, 4_420, 22_932, 36_162)
+    mark_ms = (100, 100, 520, 820)
+    cache, _asset, key = build_cache(
+        tmp_path / "cache",
+        raw_sample_rate=raw_rate,
+        mark_samples=mark_samples,
+        mark_sample_rate=raw_rate,
+        mark_ms=mark_ms,
+    )
+    result = measure_asset(
+        load_asset(cache, key), frozen_block(), artifact_locator=LOCATOR
+    )
+
+    first, second = result.artifact["tokens"][:2]
+    assert first["providerMarkMs"] == second["providerMarkMs"] == 100
+    assert first["onsetSamples"] < second["onsetSamples"]
+    lag = result.artifact["lag"]["samples"]
+    assert first["onsetSamples"] == mark_samples[0] * 48_000 // raw_rate + lag
+    assert second["onsetSamples"] == mark_samples[1] * 48_000 // raw_rate + lag
+
+
+@pytest.mark.parametrize(
+    "mark_samples",
+    [
+        (4_411, 4_411, 22_932, 36_162),  # equal starts
+        (4_420, 4_411, 22_932, 36_162),  # decreasing starts
+    ],
+)
+def test_equal_or_decreasing_native_starts_are_refused(
+    tmp_path: Path, mark_samples: tuple[int, ...]
+) -> None:
+    # Both starts round to 100 ms; native sample order must still be checked.
+    cache, _asset, key = build_cache(
+        tmp_path / "cache",
+        raw_sample_rate=44_100,
+        mark_samples=mark_samples,
+        mark_sample_rate=44_100,
+        mark_ms=(100, 100, 520, 820),
+    )
+    with pytest.raises(MeasurementError) as caught:
+        measure_asset(load_asset(cache, key), frozen_block(), artifact_locator=LOCATOR)
+    assert "out of order" in str(caught.value)
+
+
+def test_native_mark_sample_rate_must_match_raw_pcm(tmp_path: Path) -> None:
+    cache, _asset, key = build_cache(
+        tmp_path / "cache",
+        raw_sample_rate=44_100,
+        mark_samples=(4_800, 24_960, 39_360, 60_960),
+        mark_sample_rate=48_000,
+        mark_ms=MARK_MS,
+    )
+    with pytest.raises(MeasurementError) as caught:
+        measure_asset(load_asset(cache, key), frozen_block(), artifact_locator=LOCATOR)
+    assert "sample rate" in str(caught.value).lower()
+
+
+def test_audio_with_zero_audible_support_is_refused(tmp_path: Path) -> None:
+    cache, _asset, key = build_cache(tmp_path / "cache", bursts=())
+    with pytest.raises(MeasurementError) as caught:
+        measure_asset(load_asset(cache, key), frozen_block(), artifact_locator=LOCATOR)
+    assert "audible support" in str(caught.value).lower()
+
+
 def test_stale_or_wrong_audio_and_timing_are_refused(tmp_path: Path) -> None:
     cache, _asset, key = build_cache(tmp_path / "cache")
     loaded = load_asset(cache, key)
