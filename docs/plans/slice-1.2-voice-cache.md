@@ -48,6 +48,14 @@ these profile fields are part of synthesis identity, so a change causes a cache
 miss. The CLI remains the configuration seam; persisted project preferences and
 UI selection remain out of scope.
 
+### Follow-up: configured Inworld default (#293, 2026-10-24)
+
+The Fish default above is historical. New ordinary requests use the configured
+Inworld TTS-2 / Arthur profile selected in #289. The existing CLI profile and
+voice/model/rate overrides remain the configuration seam; explicit Fish and
+Polly routes remain supported. See [Inworld narration](../INWORLD_NARRATION.md)
+for exact invocation, credentials, consent, limits and cache behavior.
+
 The initial request asks Polly for 16 kHz mono signed PCM and separately asks
 for word and sentence speech marks. Both requests are included in the cost
 estimate. Polly's synchronous 3,000 billed-character/6,000 total-character

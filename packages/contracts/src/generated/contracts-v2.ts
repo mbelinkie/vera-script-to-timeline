@@ -313,6 +313,26 @@ export type BoundaryTokenEvidenceV1 = (
     [k: string]: unknown;
   };
 };
+export type MeasuredBoundaryVerificationV1 = {
+  [k: string]: unknown;
+} & {
+  method: "measured_audio_boundaries/v1";
+  algorithm: MeasuredBoundaryAlgorithmV1;
+  /**
+   * Canonical slash-separated project-relative locator; absolute paths and dot segments are not accepted.
+   */
+  measurementArtifactLocator: string;
+  measurementArtifactHash: string;
+  onsetBasis: "provider_word_marks_lag_verified" | "local_acoustic_alignment";
+  onsetUncertainty: RationalTime & {
+    numerator?: number;
+    [k: string]: unknown;
+  };
+  audibleEndUncertainty: RationalTime & {
+    numerator?: number;
+    [k: string]: unknown;
+  };
+};
 export type GraphicProvenanceDerivation = {
   [k: string]: unknown;
 } & {
@@ -1146,26 +1166,8 @@ export interface ReviewedBoundaryVerificationV1 {
   reviewArtifactLocator: string;
   reviewArtifactHash: string;
 }
-export interface MeasuredBoundaryVerificationV1 {
-  method: "measured_audio_boundaries/v1";
-  algorithm: MeasuredBoundaryAlgorithmV1;
-  /**
-   * Canonical slash-separated project-relative locator; absolute paths and dot segments are not accepted.
-   */
-  measurementArtifactLocator: string;
-  measurementArtifactHash: string;
-  onsetBasis: "provider_word_marks_lag_verified";
-  onsetUncertainty: RationalTime & {
-    numerator?: number;
-    [k: string]: unknown;
-  };
-  audibleEndUncertainty: RationalTime & {
-    numerator?: number;
-    [k: string]: unknown;
-  };
-}
 export interface MeasuredBoundaryAlgorithmV1 {
-  id: "vera-polly-marks-energy-ends";
+  id: "vera-polly-marks-energy-ends" | "vera-local-acoustic-recovery";
   version: "1";
   parametersHash: string;
   parameters: {
