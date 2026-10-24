@@ -5,11 +5,14 @@ from __future__ import annotations
 import math
 import os
 import re
+import subprocess
+import sys
 import unicodedata
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from fractions import Fraction
 from http.client import HTTPException
+from itertools import pairwise
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -27,10 +30,12 @@ from vera_timeline_agent.narration.models import (
 )
 from vera_timeline_agent.narration.provider import SpeechProviderError
 
-ADAPTER_VERSION = "fish-timestamp-pcm-adapter/v1"
+ADAPTER_VERSION = "fish-timestamp-pcm-adapter/v4"
 ENDPOINT = "https://api.fish.audio/v1/tts/stream/with-timestamp"
 SAMPLE_RATE = 44100
 FREE_UNTIL = datetime(2026, 12, 1, tzinfo=UTC)
+KEYCHAIN_SERVICE = "com.vera.script-to-timeline"
+KEYCHAIN_ACCOUNT = "fish_audio_api_key"
 
 
 class FishError(SpeechProviderError):
@@ -48,8 +53,36 @@ urlopen = build_opener(_NoRedirect()).open
 
 def _api_key() -> str:
     key = os.environ.get("FISH_AUDIO_API_KEY", "").strip()
+    if not key and sys.platform == "darwin":
+        try:
+            result = subprocess.run(
+                [
+                    "/usr/bin/security",
+                    "find-generic-password",
+                    "-s",
+                    KEYCHAIN_SERVICE,
+                    "-a",
+                    KEYCHAIN_ACCOUNT,
+                    "-w",
+                ],
+                capture_output=True,
+                check=False,
+                text=True,
+                timeout=5,
+            )
+        except (OSError, subprocess.SubprocessError):
+            result = None
+        if result is not None and result.returncode == 0:
+            key = result.stdout.strip()
     if not key or len(key) > 4096 or any(not 33 <= ord(char) <= 126 for char in key):
-        raise FishError("FISH_AUDIO_API_KEY is missing or invalid")
+        credential_source = (
+            "environment or macOS Keychain"
+            if sys.platform == "darwin"
+            else "environment"
+        )
+        raise FishError(
+            f"FISH_AUDIO_API_KEY is missing or invalid in the {credential_source}"
+        )
     return key
 
 
@@ -137,6 +170,15 @@ def _sentence_spans(text: str) -> list[tuple[int, int]]:
     return spans
 
 
+def _segment_start(text: str, piece: str, start: int, end: int) -> int:
+    # Fish can return a straight apostrophe for an authored curly apostrophe.
+    # Both characters occupy one code point, so normalization preserves offsets.
+    source = text[start:end].replace("\u2019", "'")
+    normalized_piece = piece.replace("\u2019", "'")
+    left = source.find(normalized_piece)
+    return start + left if left >= 0 else -1
+
+
 def timing_marks(
     text: str, snapshots: tuple[dict[str, Any], ...], audio_samples: int
 ) -> tuple[ProviderTimingMark, ...]:
@@ -168,7 +210,7 @@ def timing_marks(
             ):
                 raise FishError("invalid Fish segment")
             piece = segment["text"].strip()
-            left = text.find(piece, cursor, content_end) if piece else -1
+            left = _segment_start(text, piece, cursor, content_end) if piece else -1
             if left < 0 or not _ignorable(text[cursor:left]):
                 raise FishError("Fish word alignment differs from authored text")
             right = left + len(piece)
@@ -197,6 +239,9 @@ def timing_marks(
         source_cursor = content_end
     if text[source_cursor:].strip() or set(coverage) != set(spans) or not spans:
         raise FishError("Fish word alignment does not cover all authored words")
+    word_starts = [coverage[span][0] for span in spans]
+    if any(previous >= current for previous, current in pairwise(word_starts)):
+        raise FishError("Fish word alignment has non-increasing word starts")
     if abs(final_duration - Fraction(audio_samples, SAMPLE_RATE)) > Fraction(1, 20):
         raise FishError("Fish alignment duration differs from final PCM audio")
 
@@ -236,7 +281,12 @@ class FishProvider:
         *,
         transport: Callable[[bytes, str], Iterable[bytes]] | None = None,
     ) -> None:
-        self._transport = transport or self._stream
+        self._credential: str | None = None
+        self._transport = transport or self._authenticated_stream
+
+    def _authenticated_stream(self, payload: bytes, model: str) -> Iterable[bytes]:
+        credential, self._credential = self._credential, None
+        return self._stream(payload, model, api_key=credential)
 
     def prepare_input(self, request: SynthesisRequest) -> bytes:
         if request.profile.provider != "fish_audio" or request.profile.engine not in {
@@ -303,17 +353,19 @@ class FishProvider:
             raise FishError(
                 "Fish free promotion must be reverified before further calls"
             )
-        if self._transport == self._stream:
-            _api_key()
+        if self._transport == self._authenticated_stream:
+            self._credential = _api_key()
 
     @staticmethod
-    def _stream(payload: bytes, model: str) -> Iterable[bytes]:
+    def _stream(
+        payload: bytes, model: str, *, api_key: str | None = None
+    ) -> Iterable[bytes]:
         request = Request(
             ENDPOINT,
             data=payload,
             method="POST",
             headers={
-                "Authorization": "Bearer " + _api_key(),
+                "Authorization": "Bearer " + (api_key or _api_key()),
                 "Content-Type": "application/json",
                 "Accept": "text/event-stream",
                 "model": model,
