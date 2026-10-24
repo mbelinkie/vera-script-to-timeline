@@ -30,7 +30,7 @@ from vera_timeline_agent.narration.models import (
 )
 from vera_timeline_agent.narration.provider import SpeechProviderError
 
-ADAPTER_VERSION = "fish-timestamp-pcm-adapter/v3"
+ADAPTER_VERSION = "fish-timestamp-pcm-adapter/v4"
 ENDPOINT = "https://api.fish.audio/v1/tts/stream/with-timestamp"
 SAMPLE_RATE = 44100
 FREE_UNTIL = datetime(2026, 12, 1, tzinfo=UTC)
@@ -75,7 +75,14 @@ def _api_key() -> str:
         if result is not None and result.returncode == 0:
             key = result.stdout.strip()
     if not key or len(key) > 4096 or any(not 33 <= ord(char) <= 126 for char in key):
-        raise FishError("FISH_AUDIO_API_KEY is missing or invalid")
+        credential_source = (
+            "environment or macOS Keychain"
+            if sys.platform == "darwin"
+            else "environment"
+        )
+        raise FishError(
+            f"FISH_AUDIO_API_KEY is missing or invalid in the {credential_source}"
+        )
     return key
 
 
@@ -164,10 +171,8 @@ def _sentence_spans(text: str) -> list[tuple[int, int]]:
 
 
 def _segment_start(text: str, piece: str, start: int, end: int) -> int:
-    left = text.find(piece, start, end)
-    if left >= 0:
-        return left
     # Fish can return a straight apostrophe for an authored curly apostrophe.
+    # Both characters occupy one code point, so normalization preserves offsets.
     source = text[start:end].replace("\u2019", "'")
     normalized_piece = piece.replace("\u2019", "'")
     left = source.find(normalized_piece)
@@ -276,7 +281,12 @@ class FishProvider:
         *,
         transport: Callable[[bytes, str], Iterable[bytes]] | None = None,
     ) -> None:
-        self._transport = transport or self._stream
+        self._credential: str | None = None
+        self._transport = transport or self._authenticated_stream
+
+    def _authenticated_stream(self, payload: bytes, model: str) -> Iterable[bytes]:
+        credential, self._credential = self._credential, None
+        return self._stream(payload, model, api_key=credential)
 
     def prepare_input(self, request: SynthesisRequest) -> bytes:
         if request.profile.provider != "fish_audio" or request.profile.engine not in {
@@ -343,17 +353,19 @@ class FishProvider:
             raise FishError(
                 "Fish free promotion must be reverified before further calls"
             )
-        if self._transport == self._stream:
-            _api_key()
+        if self._transport == self._authenticated_stream:
+            self._credential = _api_key()
 
     @staticmethod
-    def _stream(payload: bytes, model: str) -> Iterable[bytes]:
+    def _stream(
+        payload: bytes, model: str, *, api_key: str | None = None
+    ) -> Iterable[bytes]:
         request = Request(
             ENDPOINT,
             data=payload,
             method="POST",
             headers={
-                "Authorization": "Bearer " + _api_key(),
+                "Authorization": "Bearer " + (api_key or _api_key()),
                 "Content-Type": "application/json",
                 "Accept": "text/event-stream",
                 "model": model,

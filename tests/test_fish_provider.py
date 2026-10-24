@@ -149,6 +149,29 @@ def test_alignment_normalizes_apostrophes_but_preserves_authored_spans() -> None
     )
 
 
+def test_alignment_uses_earliest_apostrophe_variant_before_later_exact_match() -> None:
+    text = "can\u2019t then can't."
+    value = snapshot(
+        text,
+        [
+            ("can't", 0.1, 0.3),
+            ("then", 0.35, 0.45),
+            ("can't", 0.5, 0.7),
+            (".", 0.72, 0.8),
+        ],
+    )
+
+    words = [
+        mark
+        for mark in timing_marks(text, (value,), SAMPLE_RATE)
+        if mark.kind == "word"
+    ]
+
+    assert [mark.value for mark in words] == ["can\u2019t", "then", "can't"]
+    assert words[0].start_utf16 == 0
+    assert words[2].start_utf16 == len("can\u2019t then ".encode("utf-16-le")) // 2
+
+
 def test_zero_duration_word_alignment_is_refused() -> None:
     text = "Hello world."
     value = snapshot(
@@ -349,6 +372,28 @@ def test_api_key_uses_macos_keychain_when_environment_is_unset(
     monkeypatch.setenv("FISH_AUDIO_API_KEY", "environment-override")
     assert fish._api_key() == "environment-override"
     assert len(calls) == 1
+
+
+def test_keychain_credential_is_read_once_for_preflight_and_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from vera_timeline_agent.narration import fish
+
+    calls: list[str] = []
+    monkeypatch.setenv("FISH_AUDIO_API_KEY", "test-only-key")
+
+    def api_key() -> str:
+        calls.append("read")
+        return "test-only-key"
+
+    monkeypatch.setattr(fish, "_api_key", api_key)
+    provider = FishProvider()
+    provider.preflight(request())
+    monkeypatch.setattr(provider, "_stream", lambda payload, model, *, api_key: ())
+
+    list(provider._transport(b"{}", "s2.1-pro-free"))
+
+    assert calls == ["read"]
 
 
 def test_definite_rejection_releases_marker_but_does_not_automatically_retry(
