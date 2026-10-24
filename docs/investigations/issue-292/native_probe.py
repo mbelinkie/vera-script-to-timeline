@@ -46,6 +46,12 @@ def run():
         "controls": {"angle": 180},
     }, "Only the measured native case is qualified"
     seed = json.loads((root / "producer-angle90.otio").read_text())
+    clips = [x for x in walk(seed) if x.get("OTIO_SCHEMA", "").startswith("Clip.")]
+    assert len(clips) == 2
+    for clip, filename in zip(clips, ("red.mov", "blue.mov"), strict=True):
+        ref = clip["media_references"][clip["active_media_reference_key"]]
+        assert ref["OTIO_SCHEMA"] == "ExternalReference.1"
+        assert Path(ref["target_url"]).resolve() == root / filename
     references = [x["target_url"] for x in walk(seed) if "target_url" in x]
     assert set(references) == {
         str(root / "red.mov"),
@@ -68,6 +74,13 @@ def run():
     )
     assert timeline
     items = timeline.GetItemListInTrack("video", 1)
+    videos = [x for x in items if x.GetType() == "video"]
+    assert len(videos) == 2
+    for item, filename in zip(videos, ("red.mov", "blue.mov"), strict=True):
+        assert item.GetName() == filename
+        assert Path(item.GetMediaPoolItem().GetClipProperty("File Path")).resolve() == (
+            root / filename
+        )
     assert [(x.GetType(), x.GetStart(), x.GetEnd()) for x in items] == [
         ("video", 0, 72),
         ("transition", 60, 84),
@@ -81,6 +94,14 @@ def run():
         if x.get("OTIO_SCHEMA") == "Transition.1"
     )
     values = actual["metadata"]["Resolve_OTIO"]["Effects"]["Parameters"]
+    assert actual["name"] == "Edge Wipe"
+    assert actual["metadata"]["Resolve_OTIO"]["Effects"]["Type"] == 13
+    assert all(actual[k]["value"] == 12 for k in ("in_offset", "out_offset"))
+    assert {
+        x["target_url"]
+        for x in walk(json.loads(destination.read_text()))
+        if "target_url" in x
+    } == set(references)
     assert (
         next(p["Parameter Value"] for p in values if p["Parameter ID"] == "angle")
         == 180

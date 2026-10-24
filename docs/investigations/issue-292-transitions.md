@@ -1,6 +1,6 @@
 # #292 — installed picture-transition capability proof
 
-Status: bounded runtime proof completed, validation/delivery pending, 2026-10-24.
+Status: bounded runtime proof completed, partial delivery pending, 2026-10-24.
 Precise native and custom application works on the tested routes. Full installed
 inventory and exhaustive controls remain unsupported by the tested discovery
 routes. **This result does not clear the current feature promise in #125/#61.**
@@ -96,9 +96,12 @@ Other builds and third-party documentation are not acceptance for this build.
 helper. Its inventory is explicitly scoped to `292-representatives`, never the
 full installed catalog. Simulated tests cover unavailable/incomplete inventory,
 missing/changed/duplicate identities, unsupported controls, gaps, short handles
-and preserving an existing sentinel on preflight refusal. Post-write mismatch
-reports uncertainty and does not claim rollback. Seven focused tests passed
-after correcting the helper to use the actual dictionary AddTransition API.
+and refusing an actually occupied boundary before any writes. Post-write
+mismatch reports uncertainty and does not claim rollback. Fifteen focused tests
+pass, including category mismatch and changed live control metadata. The helper
+uses the actual dictionary AddTransition API. It rechecks enum metadata on the
+newly instantiated group before changing any control, rather than trusting the
+earlier embedded sample as the current version's controls.
 
 The declarations, authored setting, `issue-292/probe.py` and `native_probe.py`
 are the retained reproducible scenarios. Both ran successfully against the real
@@ -177,3 +180,18 @@ does not redesign them or restart design owners.
 This is a negative/narrowed feasibility verdict for universal discovery, not a
 claim that every route or future Resolve build is impossible. The successful
 OTIO native route is specifically why one empty getter cannot establish that.
+
+## Delivery boundary
+
+This PR delivers the working placement/settings proof and preserves the honest
+discovery gap. **#292 remains open**: a reliable full installed Effects Library
+inventory and exhaustive real control discovery have not been delivered. Keep
+that work in this one issue, without creating a duplicate discovery ticket.
+The 68-record template file list is explicitly a partial inventory.
+
+All local fast-check phases passed after the initial typing failure was fixed:
+generated-contract and TypeScript checks/tests from validate:fast; final Python
+lint/format/type checks; 1834 non-slow Python tests in273.75s. The seven further
+review regression tests passed in the final15-test focused run. The complete
+suite remains GitHub Actions only. Review findings and disposition belong in
+the PR description; no mandatory Producer document review is requested.

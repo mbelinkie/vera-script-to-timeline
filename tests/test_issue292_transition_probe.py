@@ -94,6 +94,17 @@ def setup_probe(
         GetAttrs=lambda: {"TOOLS_Name": TOOL},
         SetInput=set_input,
         GetInput=lambda key: state["values"][key],
+        GetInputList=lambda: {
+            1: NS(
+                GetAttrs=lambda: {
+                    "INPS_ID": "Curve",
+                    "INPS_DataType": "FuID",
+                    "INPB_External": True,
+                    "INPB_Disabled": False,
+                    "INPIDT_ComboControl_ID": {1: "Linear", 2: "Easing", 3: "Custom"},
+                }
+            )
+        },
     )
     comp = NS(GetToolList=lambda _selected: {1: tool})
     half = duration // 2
@@ -110,19 +121,19 @@ def setup_probe(
         GetEnd=lambda: state.get("end", end),
         GetDuration=lambda: duration,
         GetFusionCompByIndex=lambda index: comp,
+        GetFusionCompCount=lambda: state.get("fusionCount", 1),
     )
     outgoing = NS(
         GetEnd=lambda: 72,
         GetRightOffset=lambda: 24,
         GetDuration=lambda: 72,
-        existing=[object()],
     )
-    outgoing.sentinel = outgoing.existing[0]
     incoming = NS(GetStart=lambda: 72, GetLeftOffset=lambda: 24, GetDuration=lambda: 72)
 
     def add(*args: Any) -> bool:
         state["calls"].append(args)
         state["added"] = True
+        state["existingTransition"] = transition
         return True
 
     outgoing.AddTransition = add
@@ -135,14 +146,16 @@ def setup_probe(
             "incomingId": "in-marker",
             "outgoing": outgoing,
             "incoming": incoming,
-            "transition": transition if state["added"] else None,
+            "transition": transition
+            if state["added"]
+            else state.get("existingTransition"),
         }
 
     return declaration, inventory, outgoing, transition, state, locate
 
 
 def test_offline_and_incomplete_inventory_refuse_without_write() -> None:
-    d, inv, out, _, state, locate = setup_probe()
+    d, inv, _out, _, state, locate = setup_probe()
     inv["online"] = False
     with pytest.raises(ProbeRefusal, match="offline or incomplete"):
         apply_transition(d, inv, locate)
@@ -150,7 +163,7 @@ def test_offline_and_incomplete_inventory_refuse_without_write() -> None:
     inv["completeWithinScope"] = False
     with pytest.raises(ProbeRefusal):
         apply_transition(d, inv, locate)
-    assert not state["calls"] and out.existing == [out.sentinel]
+    assert not state["calls"]
 
 
 def test_missing_changed_and_duplicate_effect_identities_refuse() -> None:
@@ -194,7 +207,7 @@ def test_native_controls_and_values_absent_from_live_enum_refuse() -> None:
 
 
 def test_gap_and_short_handles_refuse_without_removing_occurrence() -> None:
-    d, inv, out, _, state, locate = setup_probe()
+    d, inv, _out, _, state, locate = setup_probe()
     inv["boundaries"]["cut-72"]["incoming"]["startFrame"] = 78
     with pytest.raises(ProbeRefusal, match="not adjacent"):
         apply_transition(d, inv, locate)
@@ -202,21 +215,21 @@ def test_gap_and_short_handles_refuse_without_removing_occurrence() -> None:
     inv["boundaries"]["cut-72"]["incoming"]["leftHandleFrames"] = 11
     with pytest.raises(ProbeRefusal, match="insufficient source handles"):
         apply_transition(d, inv, locate)
-    assert not state["calls"] and out.existing == [out.sentinel]
+    assert not state["calls"]
 
-    d, inv, out, _, state, locate = setup_probe()
+    d, inv, _out, _, state, locate = setup_probe()
     locate(d)["incoming"].GetStart = lambda: 73
     with pytest.raises(ProbeRefusal, match="live boundary preflight"):
         apply_transition(d, inv, locate)
-    assert not state["calls"] and out.existing == [out.sentinel]
+    assert not state["calls"]
     for available in (0, 2):
-        d, inv, out, _, state, locate = setup_probe()
+        d, inv, _out, _, state, locate = setup_probe()
         boundary = inv["boundaries"]["cut-72"]
         boundary["outgoing"]["rightHandleFrames"] = available
         boundary["incoming"]["leftHandleFrames"] = available
         with pytest.raises(ProbeRefusal, match="insufficient source handles"):
             apply_transition(d, inv, locate)
-        assert not state["calls"] and out.existing == [out.sentinel]
+        assert not state["calls"]
 
 
 def test_alignment_ranges_use_the_correct_handle_side() -> None:
@@ -263,3 +276,58 @@ def test_readback_mismatch_returns_uncertain_after_write() -> None:
     proof = apply_transition(d, inv, locate)
     assert proof["status"] == "uncertain" and proof["mutationOccurred"] is True
     assert state["calls"]
+
+
+def test_existing_transition_is_preserved_without_writes() -> None:
+    d, inv, _out, _, state, locate = setup_probe()
+    existing = object()
+    state["existingTransition"] = existing
+    with pytest.raises(ProbeRefusal, match="already has a transition"):
+        apply_transition(d, inv, locate)
+    assert state["existingTransition"] is existing
+    assert not state["calls"] and not state["writes"]
+
+
+def test_same_name_wrong_family_is_not_observed() -> None:
+    d, inv, _out, _, state, locate = setup_probe(controls={})
+    state["fusionCount"] = 0
+    assert apply_transition(d, inv, locate)["status"] == "uncertain"
+
+
+def test_changed_embedded_control_metadata_refuses_control_write() -> None:
+    d, inv, _out, tr, state, locate = setup_probe()
+    tr.GetFusionCompByIndex(1).GetToolList(False)[1].GetInputList = lambda: {}
+    assert apply_transition(d, inv, locate)["status"] == "uncertain"
+    assert state["calls"] and not state["writes"]
+
+
+def test_missing_transition_observation_refuses_before_write() -> None:
+    d, inv, _out, _, state, locate = setup_probe()
+
+    def unknown(request: dict[str, Any]) -> dict[str, Any]:
+        result = locate(request)
+        del result["transition"]
+        return result
+
+    with pytest.raises(ProbeRefusal, match="already has a transition"):
+        apply_transition(d, inv, unknown)
+    assert not state["calls"] and not state["writes"]
+
+
+@pytest.mark.parametrize(
+    "changed",
+    [
+        {"INPS_DataType": "Number"},
+        {"INPB_Disabled": True},
+        {"INPIDT_ComboControl_ID": {1: "Linear", 2: "Other"}},
+    ],
+)
+def test_changed_control_attributes_do_not_write_values(
+    changed: dict[str, Any],
+) -> None:
+    d, inv, _out, tr, state, locate = setup_probe()
+    tool = tr.GetFusionCompByIndex(1).GetToolList(False)[1]
+    attrs = tool.GetInputList()[1].GetAttrs() | changed
+    tool.GetInputList = lambda: {1: NS(GetAttrs=lambda: attrs)}
+    assert apply_transition(d, inv, locate)["status"] == "uncertain"
+    assert state["calls"] and not state["writes"]

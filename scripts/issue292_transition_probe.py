@@ -184,6 +184,7 @@ def observe_transition(
             "endFrame": transition.GetEnd(),
             "durationFrames": transition.GetDuration(),
             "controls": {},
+            "category": "fusion" if transition.GetFusionCompCount() else "simple",
         }
         if req["controls"]:
             tool = _tool(transition, record)
@@ -200,6 +201,7 @@ def observe_transition(
         plan["endFrame"],
         req["durationFrames"],
         req["controls"],
+        req["effect"]["category"],
     )
     got = tuple(
         actual[key]
@@ -210,6 +212,7 @@ def observe_transition(
             "endFrame",
             "durationFrames",
             "controls",
+            "category",
         )
     )
     if got != wanted:
@@ -224,14 +227,19 @@ def apply_transition(
 ) -> dict[str, Any]:
     """Locator verifies both stable marker IDs and live adjacency on each call.
 
-    Its result contains IDs, outgoing/incoming TimelineItems, and the unique
-    applied transition after AddTransition; locate by boundary/range, not name.
+    Its result always contains IDs, outgoing/incoming TimelineItems, and an
+    explicit transition key (None before creation, unique item afterwards).
+    Locate by boundary/range, not name; an omitted key is unknown, never empty.
     """
     plan = validate_probe_request(declaration, inventory)
     _need(callable(locate_boundary), "live boundary locator is required")
     req, record = plan["requested"], plan["record"]
     try:
         before = locate_boundary(req)
+        _need(
+            "transition" in before and before["transition"] is None,
+            "boundary already has a transition; preserve existing occurrence",
+        )
         _need(
             before.get("outgoingId") == req["outgoingId"]
             and before.get("incomingId") == req["incomingId"],
@@ -273,6 +281,21 @@ def apply_transition(
             return _uncertain(plan, "live locator found no applied transition")
         if req["controls"]:
             tool = _tool(transition, record)
+            inputs = {
+                v.GetAttrs()["INPS_ID"]: v.GetAttrs()
+                for v in tool.GetInputList().values()
+            }
+            for name in req["controls"]:
+                spec = record["controls"][name]
+                attrs = inputs.get(spec["id"], {})
+                if (
+                    attrs.get("INPS_DataType") != "FuID"
+                    or attrs.get("INPB_External") is not True
+                    or attrs.get("INPB_Disabled") is not False
+                    or set(attrs.get("INPIDT_ComboControl_ID", {}).values())
+                    != set(spec["values"])
+                ):
+                    return _uncertain(plan, f"live control metadata changed for {name}")
             for name, value in req["controls"].items():
                 if tool.SetInput(record["controls"][name]["id"], value) is False:
                     return _uncertain(plan, f"SetInput failed for {name}")

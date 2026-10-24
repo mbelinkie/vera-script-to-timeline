@@ -44,6 +44,31 @@ def run():
     media = {item.GetName(): item for item in media_pool.GetRootFolder().GetClipList()}
     for name in ("red.mov", "blue.mov", "narration.wav"):
         assert Path(media[name].GetClipProperty("File Path")).resolve() == root / name
+    # Metadata is measured from an already instantiated representative, not guessed.
+    sample = next(
+        project.GetTimelineByIndex(i)
+        for i in range(1, project.GetTimelineCount() + 1)
+        if project.GetTimelineByIndex(i).GetName() == "292-type-VERA292 Curve Dissolve"
+    )
+    transition = next(
+        i for i in sample.GetItemListInTrack("video", 1) if i.GetType() == "transition"
+    )
+    group = transition.GetFusionCompByIndex(1).FindTool("VERA292CurveDissolve")
+    attrs = {
+        i.GetAttrs()["INPS_ID"]: i.GetAttrs() for i in group.GetInputList().values()
+    }
+    for key in declaration["controls"]:
+        assert attrs[key]["INPS_DataType"] == "FuID"
+        assert attrs[key]["INPB_External"] is True
+        assert attrs[key]["INPB_Disabled"] is False
+    controls = {
+        key: {
+            "id": key,
+            "type": "enum",
+            "values": list(attrs[key]["INPIDT_ComboControl_ID"].values()),
+        }
+        for key in declaration["controls"]
+    }
     timeline = media_pool.CreateEmptyTimeline("292-retained-" + uuid.uuid4().hex[:8])
     assert timeline.SetStartTimecode("00:00:00:00")
     clips = media_pool.AppendToTimeline(
@@ -76,27 +101,6 @@ def run():
     assert timeline.AddMarker(
         72, "Blue", "Boundary 292", "fixed narration anchor", 1, "292:boundary"
     )
-    # Metadata is measured from an already instantiated representative, not guessed.
-    sample = next(
-        project.GetTimelineByIndex(i)
-        for i in range(1, project.GetTimelineCount() + 1)
-        if project.GetTimelineByIndex(i).GetName() == "292-type-VERA292 Curve Dissolve"
-    )
-    transition = next(
-        i for i in sample.GetItemListInTrack("video", 1) if i.GetType() == "transition"
-    )
-    group = transition.GetFusionCompByIndex(1).FindTool("VERA292CurveDissolve")
-    attrs = {
-        i.GetAttrs()["INPS_ID"]: i.GetAttrs() for i in group.GetInputList().values()
-    }
-    controls = {
-        key: {
-            "id": key,
-            "type": "enum",
-            "values": list(attrs[key]["INPIDT_ComboControl_ID"].values()),
-        }
-        for key in declaration["controls"]
-    }
     inventory = {
         "scope": "292-representatives",
         "online": True,
