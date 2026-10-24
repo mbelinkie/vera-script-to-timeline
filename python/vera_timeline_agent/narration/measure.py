@@ -262,7 +262,8 @@ def estimate_lag(
     if raw_rate <= 0 or (raw_rate % 1000 != 0 and raw_rate != 44_100):
         raise MeasurementError(
             [
-                f"raw provider sample rate {raw_rate} is not supported for lag verification"
+                f"raw provider sample rate {raw_rate} is not supported for "
+                "lag verification"
             ]
         )
     raw_env = _envelope(raw_samples, raw_rate, window_ms, hop_ms)
@@ -628,7 +629,7 @@ def measure_asset(
         for token in tokens
     ]
     previous = Fraction(-1)
-    for token, mark in ordered:
+    for token, _mark in ordered:
         key = (token["startOffset"], token["endOffset"])
         if mark_times[key] <= previous:
             reasons.append(f"provider word marks out of order at token {token['id']}")
@@ -640,8 +641,7 @@ def measure_asset(
 
     raw_rate = loaded.raw_sample_rate
     if raw_rate <= 0 or (
-        raw_rate != 44_100
-        and (SAMPLE_RATE % raw_rate != 0 or raw_rate % 1000 != 0)
+        raw_rate != 44_100 and (SAMPLE_RATE % raw_rate != 0 or raw_rate % 1000 != 0)
     ):
         raise MeasurementError(
             [f"raw provider sample rate {raw_rate} does not map onto 48 kHz"]
