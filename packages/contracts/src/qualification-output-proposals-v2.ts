@@ -4,9 +4,12 @@ import { canonicalJson, sha256CanonicalJson } from "./compiler-core.js";
 import { compileTimelineV2 } from "./compiler-core-v2.js";
 import { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
+import { boundaryEvidenceProblemV2 } from "./narration-boundary-evidence-v2.js";
 import type {
   CompilerDependenciesV2,
+  NarrationBoundaryEvidenceV1,
   PreparedMediaBindingV1,
+  RationalTime,
   ScriptDocumentV2,
   TimelineEventV2,
   TimelineManifestV2,
@@ -73,7 +76,7 @@ export interface QualificationOutputObservationCaseV1 {
   editedComparisonJson: string;
   pairJson: string | null;
   audioEquality: QualificationOutputAudioEqualityV1 | null;
-  omissionSupport: QualificationOutputOmissionSupportV1 | null;
+  omissionSupport: QualificationOutputOmissionSupportV2 | null;
 }
 
 export interface QualificationOutputAudioEqualityV1 {
@@ -89,27 +92,45 @@ export interface QualificationOutputAudioEqualityV1 {
   sampleCount: number;
 }
 
-export interface QualificationOutputOmissionSupportV1 {
-  schemaVersion: "qualification-output-omission-support/v1";
+/**
+ * Machine-derived support for a word omission. The host derives this record from the
+ * row's measured boundary evidence and the authenticated native cut geometry; the
+ * bridge re-derives it independently and refuses any record that differs. It names
+ * no token: the selected word is the one the observed cut uniquely isolates.
+ * Hash fields ending in `Sha256` or named `timingHash` are bare lowercase hex; the
+ * `...Hash` evidence pins carry the `sha256:` prefix used by the dependencies.
+ */
+export interface QualificationOutputOmissionSupportV2 {
+  schemaVersion: "qualification-output-omission-support/v2";
   lane: typeof LANE;
   caseId: string;
   documentHash: string;
   dependenciesHash: string;
   blockId: string;
   blockRevision: number;
+  method: "measured_audio_boundaries/v1";
   selectedTokenId: string;
-  leftNeighborTokenId: string;
-  rightNeighborTokenId: string;
-  nativeFrameOrigin: number;
-  pcmSampleOrigin: number;
-  selectedSourceInterval: { startSample: number; endSample: number };
-  leftNeighborSourceInterval: { startSample: number; endSample: number };
-  rightNeighborSourceInterval: { startSample: number; endSample: number };
-  recordIntervalFrames: { startFrame: number; endFrame: number };
+  leftNeighborTokenId: string | null;
+  rightNeighborTokenId: string | null;
+  /** sha256CanonicalJson of the row's NarrationBoundaryEvidenceV1 in the dependencies. */
+  boundaryEvidenceHash: string;
+  /** verification.measurementArtifactHash of that evidence. */
+  measurementArtifactHash: string;
   audioSha256: string;
   timingHash: string;
-  reviewArtifactSha256: string;
-  reviewReceiptSha256: string;
+  onsetUncertainty: RationalTime;
+  audibleEndUncertainty: RationalTime;
+  /** From the bound PCM source entry of the narration item. */
+  nativeFrameOrigin: number;
+  pcmSampleOrigin: number;
+  /** Whole-frame gap actually observed on the timeline (record) and in the narration source. */
+  cutRecordFrames: { startFrame: number; endFrame: number };
+  cutSourceFrames: { startFrame: number; endFrame: number };
+  /** Narration-row-relative PCM samples: (sourceFrame - nativeFrameOrigin) * 2002 + pcmSampleOrigin. */
+  cutSamples: { startSample: number; endSample: number };
+  /** Inclusive integer-sample safe range for each cut edge, from evidence plus uncertainties. */
+  cutStartEnvelope: { minSample: number; maxSample: number };
+  cutEndEnvelope: { minSample: number; maxSample: number };
   pristineGeometryRawSha256: string;
   editedGeometryRawSha256: string;
   pristineComparisonRawSha256: string;
@@ -179,7 +200,7 @@ export interface QualificationOutputProposalV1 {
 
 export interface QualificationOutputPureRequestV1 {
   schemaVersion: "qualification-output-pure-request/v1";
-  mode: "baseline" | "infer" | "stage" | "proposal" | "decide";
+  mode: "baseline" | "infer" | "derive_omission" | "stage" | "proposal" | "decide";
   document: ScriptDocumentV2;
   dependencies: CompilerDependenciesV2;
   evidence: QualificationOutputObservationBatchV1 | null;
@@ -240,6 +261,7 @@ function bareHash(value: unknown, label = "raw lowercase SHA256"): string {
   fact(typeof value === "string" && /^[a-f0-9]{64}$/u.test(value), `${label} required`);
   return value;
 }
+const bare = (value: string): string => value.replace(/^sha256:/u, "");
 function rawSha256(raw: string): string { return createHash("sha256").update(raw, "utf8").digest("hex"); }
 function codepointCompare(a: string, b: string): number {
   const left = Array.from(a, (c) => c.codePointAt(0)!); const right = Array.from(b, (c) => c.codePointAt(0)!);
@@ -618,6 +640,9 @@ function compileForDocument(document: ScriptDocumentV2, dependencies: CompilerDe
   fact(compiled.ok && compiled.report.status === "ready", "candidate compile refused");
   return compiled;
 }
+// Inference-only stand-in: it carries the prior key with the trimmed range, because the revision core
+// matches a replacement to its occurrence by pinned inputs and adopts the replacement's own key. The
+// honest key of a real preparation is computed by the preparation (identity of its inputs), not predicted here.
 function exactPreparedMediaForTrim(dependencies: CompilerDependenciesV2, blockId: string, durationFrames: number): PreparedMediaBindingV1[] {
   const occurrences = dependencies.occurrenceResolutions.filter((row) => row.owner.kind === "visual_only_block" && row.owner.blockId === blockId);
   fact(occurrences.length === 1 && occurrences[0]!.preparedMediaRequirementKey !== null, "trim preparation occurrence is ambiguous");
@@ -748,71 +773,166 @@ function inferTrimCase(document: ScriptDocumentV2, dependencies: CompilerDepende
   return matches;
 }
 
-function interval(value: unknown, label: string, endKey: "endSample" | "endFrame", startKey: "startSample" | "startFrame"): { start: number; end: number } {
-  const row = shape(value, [startKey, endKey], label);
-  const start = integer(row[startKey]); const end = integer(row[endKey]); fact(end > start, `${label} must be nonempty`);
-  return { start, end };
+type Frac = { n: bigint; d: bigint };
+const frac = (n: bigint | number, d: bigint | number = 1n): Frac => ({ n: BigInt(n), d: BigInt(d) });
+const fracAdd = (a: Frac, b: Frac): Frac => frac(a.n * b.d + b.n * a.d, a.d * b.d);
+const fracSub = (a: Frac, b: Frac): Frac => frac(a.n * b.d - b.n * a.d, a.d * b.d);
+const fracCompare = (a: Frac, b: Frac): number => { const delta = a.n * b.d - b.n * a.d; return delta < 0n ? -1 : delta > 0n ? 1 : 0; };
+const fracFloor = (a: Frac): bigint => (a.n >= 0n ? a.n / a.d : -((-a.n + a.d - 1n) / a.d));
+const fracCeil = (a: Frac): bigint => -fracFloor(frac(-a.n, a.d));
+const timeSamples = (time: RationalTime, sampleRate: number): Frac => frac(BigInt(time.numerator) * BigInt(sampleRate), time.denominator);
+
+type BoundaryMark = NarrationBoundaryEvidenceV1["tokens"][number];
+interface WordEnvelope {
+  reasons: string[];
+  start: { low: Frac; high: Frac } | null;
+  end: { low: Frac; high: Frac } | null;
 }
 
-function narrationEvidence(dependencies: CompilerDependenciesV2, blockId: string): RecordValue {
+/**
+ * Safe cut envelopes around one measured word, in narration-row PCM samples. Mirrors
+ * python narration/omission_envelope.py: the cut may start between the left neighbour's
+ * audible end and the word's onset and may end between the word's audible end and the
+ * right neighbour's onset, each bound moved inward by the declared uncertainty. A missing
+ * measured edge (connected speech) or a collapsed envelope makes the word unselectable.
+ */
+function wordEnvelope(marks: readonly BoundaryMark[], index: number, sampleRate: number, durationSamples: number,
+  onsetUncertainty: Frac, endUncertainty: Frac): WordEnvelope {
+  const selected = marks[index]!; const left = index > 0 ? marks[index - 1]! : null; const right = index + 1 < marks.length ? marks[index + 1]! : null;
+  const reasons: string[] = [];
+  if (!selected.onset) reasons.push(`${selected.quotedText} has no measured onset`);
+  if (!selected.audibleEnd) reasons.push(`${selected.quotedText} has no measured audible end (connected speech)`);
+  if (left !== null && !left.audibleEnd) reasons.push(`left neighbour ${left.quotedText} has no measured audible end (connected speech)`);
+  if (right !== null && !right.onset) reasons.push(`right neighbour ${right.quotedText} has no measured onset`);
+  if (reasons.length > 0) return { reasons, start: null, end: null };
+  const startLow = left === null ? frac(0) : fracAdd(timeSamples(left.audibleEnd!, sampleRate), endUncertainty);
+  const startHigh = fracSub(timeSamples(selected.onset!, sampleRate), onsetUncertainty);
+  const endLow = fracAdd(timeSamples(selected.audibleEnd!, sampleRate), endUncertainty);
+  const endHigh = right === null ? frac(durationSamples) : fracSub(timeSamples(right.onset!, sampleRate), onsetUncertainty);
+  if (fracCompare(startHigh, startLow) <= 0) reasons.push(`cut start envelope of ${selected.quotedText} collapses under the declared uncertainty`);
+  if (fracCompare(endHigh, endLow) <= 0) reasons.push(`cut end envelope of ${selected.quotedText} collapses under the declared uncertainty`);
+  if (reasons.length > 0) return { reasons, start: null, end: null };
+  return { reasons, start: { low: startLow, high: startHigh }, end: { low: endLow, high: endHigh } };
+}
+
+interface WordSelection { index: number; envelope: { start: { low: Frac; high: Frac }; end: { low: Frac; high: Frac } } }
+
+function insideEnvelope(sample: bigint, range: { low: Frac; high: Frac }): boolean {
+  const value = frac(sample);
+  return fracCompare(value, range.low) >= 0 && fracCompare(value, range.high) <= 0;
+}
+
+/** The one measured word whose envelopes contain the observed cut; refuses partial, straddling, ambiguous and connected cuts. */
+function selectOmittedWord(marks: readonly BoundaryMark[], sampleRate: number, durationSamples: number, onsetUncertainty: Frac,
+  endUncertainty: Frac, cutStart: number, cutEnd: number): WordSelection {
+  const start = BigInt(cutStart); const end = BigInt(cutEnd);
+  const hits: WordSelection[] = [];
+  const unmeasured: string[] = [];
+  for (let index = 0; index < marks.length; index++) {
+    const envelope = wordEnvelope(marks, index, sampleRate, durationSamples, onsetUncertainty, endUncertainty);
+    if (envelope.start === null || envelope.end === null) {
+      const onset = marks[index]!.onset;
+      const nextOnset = marks.slice(index + 1).find((mark) => mark.onset)?.onset;
+      const spanStart = onset ? timeSamples(onset, sampleRate) : null;
+      const spanEnd = nextOnset ? timeSamples(nextOnset, sampleRate) : frac(durationSamples);
+      if (spanStart !== null && fracCompare(frac(start), spanStart) >= 0 && fracCompare(frac(start), spanEnd) < 0) unmeasured.push(envelope.reasons.join("; "));
+      continue;
+    }
+    if (insideEnvelope(start, envelope.start) && insideEnvelope(end, envelope.end)) hits.push({ index, envelope: { start: envelope.start, end: envelope.end } });
+  }
+  fact(hits.length <= 1, "ambiguous omission cut: more than one measured word is compatible with it");
+  fact(hits.length === 1, "omission cut does not isolate exactly one measured word between its neighbours (partial-word, multi-word or neighbour-straddling cut)" +
+    (unmeasured.length > 0 ? `; the cut touches a word without a safe measured envelope: ${unmeasured.join("; ")}` : ""));
+  return hits[0]!;
+}
+
+/** The omission transform joins a previous and a following token, so inference refuses first/last tokens the same way. */
+export function requireInteriorOmissionIndex(index: number, tokenCount: number): void {
+  fact(index > 0 && index < tokenCount - 1, "first or last narration token omission is unsupported; only interior tokens can be omitted");
+}
+
+function narrationEvidence(dependencies: CompilerDependenciesV2, blockId: string): NarrationBoundaryEvidenceV1 {
   const evidence = (dependencies.narrationBoundaryEvidence ?? []).filter((row) => row.blockId === blockId);
-  fact(evidence.length === 1, "independently reviewed narration boundaries required");
-  return evidence[0] as unknown as RecordValue;
+  fact(evidence.length === 1, "narration boundary evidence required");
+  return evidence[0]!;
 }
 
-function inferOmissionCase(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2, input: ParsedCase, documentHash: string, dependenciesHash: string): { omission: QualificationOutputInferenceV1["omission"]; evidence: QualificationOutputOmissionSupportV1 } | null {
+const OMISSION_SUPPORT_FIELDS = ["schemaVersion", "lane", "caseId", "documentHash", "dependenciesHash", "blockId", "blockRevision", "method",
+  "selectedTokenId", "leftNeighborTokenId", "rightNeighborTokenId", "boundaryEvidenceHash", "measurementArtifactHash", "audioSha256", "timingHash",
+  "onsetUncertainty", "audibleEndUncertainty", "nativeFrameOrigin", "pcmSampleOrigin", "cutRecordFrames", "cutSourceFrames", "cutSamples",
+  "cutStartEnvelope", "cutEndEnvelope", "pristineGeometryRawSha256", "editedGeometryRawSha256", "pristineComparisonRawSha256",
+  "editedComparisonRawSha256", "pairRawSha256"];
+
+function inferOmissionCase(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2, input: ParsedCase, documentHash: string, dependenciesHash: string): { omission: QualificationOutputInferenceV1["omission"]; evidence: QualificationOutputOmissionSupportV2 } | null {
   if (input.source.omissionSupport === null) return null;
-  const supportRecord = shape(input.source.omissionSupport, ["schemaVersion", "lane", "caseId", "documentHash", "dependenciesHash", "blockId", "blockRevision",
-    "selectedTokenId", "leftNeighborTokenId", "rightNeighborTokenId", "nativeFrameOrigin", "pcmSampleOrigin", "selectedSourceInterval", "leftNeighborSourceInterval", "rightNeighborSourceInterval",
-    "recordIntervalFrames", "audioSha256", "timingHash", "reviewArtifactSha256", "reviewReceiptSha256", "pristineGeometryRawSha256", "editedGeometryRawSha256",
-    "pristineComparisonRawSha256", "editedComparisonRawSha256", "pairRawSha256"], "omission support");
-  const support = supportRecord as unknown as QualificationOutputOmissionSupportV1;
-  fact(support.schemaVersion === "qualification-output-omission-support/v1" && support.lane === LANE && support.caseId === input.source.caseId &&
-    support.documentHash === documentHash && support.dependenciesHash === dependenciesHash, "stale omission support binding");
-  for (const key of ["audioSha256", "timingHash", "reviewArtifactSha256", "reviewReceiptSha256", "pristineGeometryRawSha256", "editedGeometryRawSha256",
-    "pristineComparisonRawSha256", "editedComparisonRawSha256", "pairRawSha256"]) bareHash(supportRecord[key]);
-  fact(support.pristineGeometryRawSha256 === input.pristine.rawSha256 && support.editedGeometryRawSha256 === input.edited.rawSha256 &&
-    support.pristineComparisonRawSha256 === input.pristineComparison.rawSha256 && support.editedComparisonRawSha256 === input.editedComparison.rawSha256 &&
-    input.source.pairJson !== null && support.pairRawSha256 === rawSha256(input.source.pairJson), "omission support raw evidence pins differ");
-  const row = document.activeDraft.blocks.find((block) => block.type === "narration" && block.id === support.blockId);
-  fact(row?.type === "narration" && row.version === support.blockRevision && row.tokens.length > 12 &&
-    support.selectedTokenId === row.tokens[11]!.id && support.leftNeighborTokenId === row.tokens[10]!.id && support.rightNeighborTokenId === row.tokens[12]!.id,
-  "C must support only token 11 and its two adjacent tokens");
+  const supplied = shape(input.source.omissionSupport, OMISSION_SUPPORT_FIELDS, "omission support") as unknown as QualificationOutputOmissionSupportV2;
+  fact(supplied.schemaVersion === "qualification-output-omission-support/v2" && supplied.lane === LANE && supplied.caseId === input.source.caseId &&
+    supplied.documentHash === documentHash && supplied.dependenciesHash === dependenciesHash, "stale omission support binding");
+  for (const key of ["audioSha256", "timingHash", "pristineGeometryRawSha256", "editedGeometryRawSha256",
+    "pristineComparisonRawSha256", "editedComparisonRawSha256", "pairRawSha256"] as const) bareHash(supplied[key]);
+  fact(supplied.pristineGeometryRawSha256 === input.pristine.rawSha256 && supplied.editedGeometryRawSha256 === input.edited.rawSha256 &&
+    supplied.pristineComparisonRawSha256 === input.pristineComparison.rawSha256 && supplied.editedComparisonRawSha256 === input.editedComparison.rawSha256 &&
+    input.source.pairJson !== null && supplied.pairRawSha256 === rawSha256(input.source.pairJson), "omission support raw evidence pins differ");
+  const row = document.activeDraft.blocks.find((block) => block.type === "narration" && block.id === supplied.blockId);
+  fact(row?.type === "narration" && row.version === supplied.blockRevision, "omission support names a stale or unknown narration row");
+  const derived = deriveOmissionSupport(document, dependencies, input, row, documentHash, dependenciesHash);
+  fact(equal(derived, supplied), "omission support differs from the record derived from measured evidence and the observed cut");
+  return { omission: { blockId: row.id, blockRevision: row.version, tokenIds: [derived.selectedTokenId], evidenceHash: sha256CanonicalJson(derived) }, evidence: derived };
+}
+
+/**
+ * Host-facing derivation: the support for the one narration row whose pristine item the
+ * observed edit split into two. The host passes the raw evidence with omissionSupport null.
+ */
+export function deriveOmissionSupportV2(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2, evidence: QualificationOutputObservationBatchV1): QualificationOutputOmissionSupportV2 {
+  fact(validateScriptDocumentV2(document).valid, "invalid baseline script document");
+  const checked = validateBatch(evidence, document, dependencies);
+  fact(checked.cases.length === 1 && checked.cases[0]!.source.omissionSupport === null, "one observation case without a support record required");
+  const input = checked.cases[0]!;
+  const split = compileForDocument(document, dependencies).manifest.events.filter((event) => event.kind === "narration" &&
+    input.pristine.geometry.items.filter((item) => item.eventId === event.eventId).length === 1 &&
+    input.edited.geometry.items.filter((item) => item.eventId === event.eventId).length === 2);
+  fact(split.length === 1, "the observed edit does not split exactly one narration item");
+  const row = document.activeDraft.blocks.find((block) => block.type === "narration" && block.id === split[0]!.provenance.blockId);
+  fact(row?.type === "narration", "split narration event names an unknown row");
+  return deriveOmissionSupport(document, dependencies, input, row, checked.documentHash, checked.dependenciesHash);
+}
+
+function deriveOmissionSupport(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2, input: ParsedCase, row: Extract<ScriptDocumentV2["activeDraft"]["blocks"][number], { type: "narration" }>, documentHash: string, dependenciesHash: string): QualificationOutputOmissionSupportV2 {
+  const pairJson = input.source.pairJson;
+  fact(pairJson !== null, "omission support requires the authenticated pair comparison");
   const boundary = narrationEvidence(dependencies, row.id);
-  const audio = record(boundary.audio, "narration audio evidence");
-  const nativeFrameOrigin = integer(support.nativeFrameOrigin, "native frame origin");
-  const pcmSampleOrigin = integer(support.pcmSampleOrigin, "PCM sample origin");
-  const durationSamples = integer(audio.durationSamples);
-  fact(pcmSampleOrigin <= durationSamples, "PCM sample origin exceeds narration audio");
-  const prefixedOrBare = (value: unknown) => typeof value === "string" ? value.replace(/^sha256:/u, "") : value;
-  fact(prefixedOrBare(support.audioSha256) === prefixedOrBare(boundary.audioHash) && prefixedOrBare(support.timingHash) === prefixedOrBare(boundary.timingHash),
-    "omission support audio/timing pins differ");
-  const sourceSelected = interval(support.selectedSourceInterval, "selected token source interval", "endSample", "startSample");
-  const sourceLeft = interval(support.leftNeighborSourceInterval, "left neighbor source interval", "endSample", "startSample");
-  const sourceRight = interval(support.rightNeighborSourceInterval, "right neighbor source interval", "endSample", "startSample");
-  fact(sourceLeft.end <= sourceSelected.start && sourceSelected.end <= sourceRight.start && sourceRight.end <= integer(audio.durationSamples), "token support intervals overlap or escape narration audio");
-  const selectedRecord = interval(support.recordIntervalFrames, "selected omission record interval", "endFrame", "startFrame");
+  const problem = boundaryEvidenceProblemV2(row, boundary);
+  fact(problem === null, `narration boundary evidence refused: ${problem?.message}`);
+  const verification = boundary.verification;
+  fact(verification.method === "measured_audio_boundaries/v1", "measured narration boundary evidence required for omission inference");
+  fact(boundary.tokens.length === row.tokens.length && boundary.tokens.every((mark, index) => mark.tokenId === row.tokens[index]!.id),
+    "measured evidence must cover every frozen token of the row in order");
+  const audio = boundary.audio;
+  fact(audio.sampleRate === 48000 && audio.channels === 1 && audio.durationSamples > 0, "48 kHz mono narration audio evidence required");
+
   const event = compileForDocument(document, dependencies).manifest.events.filter((item) => item.kind === "narration" && item.provenance.blockId === row.id);
   fact(event.length === 1, "selected narration event is ambiguous");
   const original = input.pristine.geometry.items.filter((item) => item.eventId === event[0]!.eventId);
   const segments = input.edited.geometry.items.filter((item) => item.eventId === event[0]!.eventId).sort((a, b) => a.recordStart - b.recordStart);
-  fact(original.length === 1 && segments.length === 2 && segments.every((item) => item.itemUid !== original[0]!.itemUid), "C must split one narration item into two new UIDs");
+  fact(original.length === 1 && segments.length === 2, "C must split exactly one narration item");
   const prior = original[0]!; const [left, right] = segments as [ItemV1, ItemV1];
+  const retainsOriginalLeft = left.itemUid === prior.itemUid && right.itemUid !== prior.itemUid;
+  const replacesBoth = left.itemUid !== prior.itemUid && right.itemUid !== prior.itemUid;
+  fact((retainsOriginalLeft || replacesBoth) && left.itemUid !== right.itemUid,
+    "C split must retain the original UID on the left or use two distinct new UIDs");
+  const unrelatedBaselineUids = new Set(input.pristine.geometry.items
+    .filter((item) => item.eventId !== event[0]!.eventId)
+    .map((item) => item.itemUid));
+  fact(!segments.some((item) => unrelatedBaselineUids.has(item.itemUid)), "C split reuses an unrelated baseline item UID");
   const gapRecordStart = left.recordStart + left.recordDuration; const gapRecordEnd = right.recordStart;
   const gapSourceStart = left.sourceStart + left.sourceDuration; const gapSourceEnd = right.sourceStart;
   fact(left.recordStart === prior.recordStart && right.recordStart > gapRecordStart && right.recordStart < prior.recordStart + prior.recordDuration &&
     right.recordStart + right.recordDuration === prior.recordStart + prior.recordDuration && left.sourceStart === prior.sourceStart &&
     right.sourceStart + right.sourceDuration === prior.sourceStart + prior.sourceDuration && gapRecordEnd - gapRecordStart > 0 &&
-    gapRecordEnd - gapRecordStart === gapSourceEnd - gapSourceStart && gapSourceEnd > gapSourceStart &&
-    equal(selectedRecord, { start: gapRecordStart, end: gapRecordEnd }), "C split is not a bounded non-ripple selected-token lift");
-  fact(gapSourceStart >= nativeFrameOrigin && gapSourceEnd >= nativeFrameOrigin, "C cut precedes native frame origin");
-  const cutStartSamples = integer((gapSourceStart - nativeFrameOrigin) * FRAME_SAMPLES + pcmSampleOrigin, "C cut start sample");
-  const cutEndSamples = integer((gapSourceEnd - nativeFrameOrigin) * FRAME_SAMPLES + pcmSampleOrigin, "C cut end sample");
-  fact(cutEndSamples - cutStartSamples === (gapRecordEnd - gapRecordStart) * FRAME_SAMPLES && cutEndSamples <= durationSamples &&
-    sourceLeft.end <= cutStartSamples && cutStartSamples <= sourceSelected.start &&
-    sourceSelected.end <= cutEndSamples && cutEndSamples <= sourceRight.start,
-    "cut clips a neighbor or incompletely removes the reviewed token");
-  for (const segment of segments) fact(sameStableItem({ ...prior, itemUid: segment.itemUid }, segment), "C split changed source, track, link or control identity");
+    gapRecordEnd - gapRecordStart === gapSourceEnd - gapSourceStart && gapSourceEnd > gapSourceStart,
+  "C split is not a bounded non-ripple whole-frame lift");
+  for (const segment of segments) fact(sameStableItem(prior, segment, true), "C split changed source, track, link or control identity");
   const eventIds = new Set(input.pristine.geometry.items.map((item) => item.eventId));
   const untouched = input.edited.geometry.items.filter((item) => item.eventId !== event[0]!.eventId);
   fact(untouched.length === input.pristine.geometry.items.length - 1 && untouched.every((item) => {
@@ -820,7 +940,48 @@ function inferOmissionCase(document: ScriptDocumentV2, dependencies: CompilerDep
     return old !== undefined && sameStableItem(old, item) && equal([old.recordStart, old.recordDuration, old.sourceStart, old.sourceDuration],
       [item.recordStart, item.recordDuration, item.sourceStart, item.sourceDuration]);
   }) && eventIds.has(event[0]!.eventId), "C cut caused ripple or unrelated geometry change");
-  return { omission: { blockId: row.id, blockRevision: row.version, tokenIds: [row.tokens[11]!.id], evidenceHash: sha256CanonicalJson(support) }, evidence: support };
+
+  // Sample origins come from the authenticated PCM source binding, never from the support record.
+  const entryFor = (parsed: ParsedGeometry) => {
+    const entries = list(parsed.inputBinding.sourceEntries, 16).filter((entry) => record(entry).sourceId === prior.sourceId);
+    fact(entries.length === 1, "narration item has no unique bound PCM source entry");
+    return record(entries[0]);
+  };
+  const entry = entryFor(input.pristine);
+  fact(equal(entry, entryFor(input.edited)), "narration PCM source binding differs between pristine and edited captures");
+  const nativeFrameOrigin = integer(entry.nativeFrameOrigin, "native frame origin");
+  const pcmSampleOrigin = integer(entry.pcmSampleOrigin, "PCM sample origin");
+  fact(integer(entry.sampleRate) === audio.sampleRate && integer(entry.durationSamples) >= audio.durationSamples, "bound PCM source is shorter than the measured narration audio");
+  fact(entry.pcmMode === "wav-direct", "measured-evidence omission requires a wav-direct narration source");
+  fact(entry.pcmFileSha256 === bare(boundary.audioHash), "bound PCM file differs from the measured narration audio");
+  fact(gapSourceStart >= nativeFrameOrigin, "cut precedes native frame origin");
+  const cutStart = integer((gapSourceStart - nativeFrameOrigin) * FRAME_SAMPLES + pcmSampleOrigin, "cut start sample");
+  const cutEnd = integer((gapSourceEnd - nativeFrameOrigin) * FRAME_SAMPLES + pcmSampleOrigin, "cut end sample");
+  fact(cutEnd - cutStart === (gapRecordEnd - gapRecordStart) * FRAME_SAMPLES && cutEnd <= audio.durationSamples, "cut escapes the measured narration audio");
+
+  const onsetUncertainty = timeSamples(verification.onsetUncertainty, audio.sampleRate);
+  const endUncertainty = timeSamples(verification.audibleEndUncertainty, audio.sampleRate);
+  const selection = selectOmittedWord(boundary.tokens, audio.sampleRate, audio.durationSamples, onsetUncertainty, endUncertainty, cutStart, cutEnd);
+  const marks = boundary.tokens;
+  requireInteriorOmissionIndex(selection.index, marks.length);
+  const selected = marks[selection.index]!;
+  const derived: QualificationOutputOmissionSupportV2 = {
+    schemaVersion: "qualification-output-omission-support/v2", lane: LANE, caseId: input.source.caseId, documentHash, dependenciesHash,
+    blockId: row.id, blockRevision: row.version, method: "measured_audio_boundaries/v1", selectedTokenId: selected.tokenId,
+    leftNeighborTokenId: marks[selection.index - 1]?.tokenId ?? null, rightNeighborTokenId: marks[selection.index + 1]?.tokenId ?? null,
+    boundaryEvidenceHash: sha256CanonicalJson(boundary), measurementArtifactHash: verification.measurementArtifactHash,
+    audioSha256: bare(boundary.audioHash), timingHash: bare(boundary.timingHash),
+    onsetUncertainty: verification.onsetUncertainty, audibleEndUncertainty: verification.audibleEndUncertainty,
+    nativeFrameOrigin, pcmSampleOrigin,
+    cutRecordFrames: { startFrame: gapRecordStart, endFrame: gapRecordEnd }, cutSourceFrames: { startFrame: gapSourceStart, endFrame: gapSourceEnd },
+    cutSamples: { startSample: cutStart, endSample: cutEnd },
+    cutStartEnvelope: { minSample: Number(fracCeil(selection.envelope.start.low)), maxSample: Number(fracFloor(selection.envelope.start.high)) },
+    cutEndEnvelope: { minSample: Number(fracCeil(selection.envelope.end.low)), maxSample: Number(fracFloor(selection.envelope.end.high)) },
+    pristineGeometryRawSha256: input.pristine.rawSha256, editedGeometryRawSha256: input.edited.rawSha256,
+    pristineComparisonRawSha256: input.pristineComparison.rawSha256, editedComparisonRawSha256: input.editedComparison.rawSha256,
+    pairRawSha256: rawSha256(pairJson),
+  };
+  return derived;
 }
 
 function inferCase(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2, input: ParsedCase,
@@ -939,19 +1100,18 @@ function checkedInferenceDecision(document: ScriptDocumentV2, dependencies: Comp
   return { inference, decision };
 }
 
-function requireFrameAlignedReplacement(handoff: RowHandoffV2): void {
+/** The compiler ceils a regenerated row to whole frames, so only the audio format must be exact. */
+function requireReplacementAudioFormat(handoff: RowHandoffV2): void {
   const audio = record(handoff.boundaryEvidence.audio, "fresh replacement audio");
-  const sampleRate = integer(audio.sampleRate, "replacement audio sample rate");
-  const durationSamples = integer(audio.durationSamples, "replacement audio duration samples");
-  fact(sampleRate === 48000 && durationSamples > 0 && durationSamples % FRAME_SAMPLES === 0,
-    "fractional whole-row replacement duration refused; require complete 24000/1001 frames at 48 kHz");
+  fact(integer(audio.sampleRate, "replacement audio sample rate") === 48000 && integer(audio.channels, "replacement audio channels") === 1 &&
+    integer(audio.durationSamples, "replacement audio duration samples") > 0, "whole-row replacement requires positive-length 48 kHz mono audio");
 }
 
 export function createQualificationOutputProposalV2(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2,
   evidence: QualificationOutputObservationBatchV1, inferenceDecisionValue: unknown, inferenceHistory: string[],
   preparedMedia: PreparedMediaBindingV1[], handoff: RowHandoffV2 | null): QualificationOutputProposalV1 {
   const { inference, decision } = checkedInferenceDecision(document, dependencies, evidence, inferenceDecisionValue, inferenceHistory);
-  if (handoff !== null) requireFrameAlignedReplacement(handoff);
+  if (handoff !== null) requireReplacementAudioFormat(handoff);
   const commands = acceptedCommands(document, dependencies, inference, decision, preparedMedia);
   const request: RevisionRequestV2 = { commands, preparedMedia, handoff };
   const revision = createRevisionProposalV2(document, dependencies, request);
@@ -990,7 +1150,7 @@ export function parseQualificationOutputPureRequest(raw: Uint8Array): Qualificat
   fact(raw.byteLength <= MAX_JSON_BYTES, "bounded pure request required");
   const decoded = new TextDecoder("utf-8", { fatal: true }).decode(raw);
   const request = shape(parseRaw(decoded, "pure request"), ["schemaVersion", "mode", "document", "dependencies", "evidence", "preparedMedia", "handoff", "inferenceDecision", "inferenceHistory", "candidate", "decision", "history"], "qualification output pure request") as unknown as QualificationOutputPureRequestV1;
-  fact(request.schemaVersion === "qualification-output-pure-request/v1" && ["baseline", "infer", "stage", "proposal", "decide"].includes(request.mode), "unsupported pure request");
+  fact(request.schemaVersion === "qualification-output-pure-request/v1" && ["baseline", "infer", "derive_omission", "stage", "proposal", "decide"].includes(request.mode), "unsupported pure request");
   for (const rows of [request.inferenceHistory, request.history]) {
     fact(Array.isArray(rows) && rows.every((hash) => typeof hash === "string" && /^sha256:[a-f0-9]{64}$/u.test(hash)) && new Set(rows).size === rows.length, "malformed replay history");
   }
@@ -1003,7 +1163,7 @@ export function parseQualificationOutputPureRequest(raw: Uint8Array): Qualificat
     fact(request.evidence === null && request.preparedMedia.length === 0 && request.handoff === null && request.inferenceDecision === null &&
       emptyHistory(request.inferenceHistory) && request.candidate === null && request.decision === null && emptyHistory(request.history),
     "baseline request contains unused proposal fields");
-  } else if (request.mode === "infer") {
+  } else if (request.mode === "infer" || request.mode === "derive_omission") {
     fact(request.evidence !== null && request.preparedMedia.length === 0 && request.handoff === null && request.inferenceDecision === null &&
       emptyHistory(request.inferenceHistory) && request.candidate === null && request.decision === null && emptyHistory(request.history),
     "inference request contains unused decision/stage fields");
@@ -1032,6 +1192,7 @@ export function runQualificationOutputPureRequest(request: QualificationOutputPu
       documentJson: canonicalJson(document), manifest: compiled.manifest };
   }
   fact(request.evidence !== null, "host-verified output evidence required");
+  if (request.mode === "derive_omission") return deriveOmissionSupportV2(document, dependencies, request.evidence);
   if (request.mode === "infer") return inferQualificationOutputV2(document, dependencies, request.evidence);
   if (request.mode === "stage") {
     fact(request.inferenceDecision !== null, "explicit inference decision required");

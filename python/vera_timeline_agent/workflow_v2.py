@@ -754,9 +754,9 @@ def _validate_view(
             gain = audio.get("gainDb") if isinstance(audio, Mapping) else None
             policy = audio.get("audioPolicy") if isinstance(audio, Mapping) else None
             if (
-                gain not in {-18, 0}
+                gain not in {-18, -0.1, 0}
                 or event["gainDb"] != gain
-                or (policy, gain) not in {("quiet", -18), ("full", 0)}
+                or (policy, gain) not in {("quiet", -18), ("full", -0.1), ("full", 0)}
             ):
                 raise WorkflowV2Error("source audio gain policy is unsupported")
             if source_id != event_id:

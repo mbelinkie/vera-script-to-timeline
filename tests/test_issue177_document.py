@@ -9,7 +9,7 @@ from issue177_package_fixture import make_package_case
 from vera_timeline_agent.v2_package import V2PackageError, _compiler_hash
 
 
-def test_compiler_hash_matches_actual_typescript_unicode_and_integer_canonicalization(
+def test_compiler_hash_matches_actual_typescript_canonicalization(
     tmp_path: Path,
 ) -> None:
     case = make_package_case(tmp_path)
@@ -18,6 +18,11 @@ def test_compiler_hash_matches_actual_typescript_unicode_and_integer_canonicaliz
         key: value for key, value in document.items() if key != "liveContentHash"
     }
     unicode_payload = dict(payload, title="é🤖e\u0301\ud800", liveHeadSequence=1.0)
+    full_gain_payload = {
+        "authoringDefaults": {"sourceAudioLevelPolicy": {"fullGainDb": -0.1}}
+    }
+    event_gain_payload = {"events": [{"audio": {"gainDb": -0.1}}]}
+    payloads = [payload, unicode_payload, full_gain_payload, event_gain_payload]
     root = Path(__file__).resolve().parents[1]
     script = """
 import { registerHooks } from 'node:module';
@@ -40,16 +45,31 @@ console.log(JSON.stringify(payloads.map(sha256CanonicalJson)));
     )
     result = subprocess.run(
         ["node", "--input-type=module", "-e", script],
-        input=json.dumps([payload, unicode_payload]),
+        input=json.dumps(payloads),
         text=True,
         capture_output=True,
         check=True,
     )
-    assert json.loads(result.stdout) == [
-        _compiler_hash(payload),
-        _compiler_hash(unicode_payload),
-    ]
+    actual_hashes = json.loads(result.stdout)
+    assert actual_hashes == [_compiler_hash(item) for item in payloads]
     assert document["liveContentHash"] == json.loads(result.stdout)[0]
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"measurement": -0.1},
+        {"measurement": 0.125},
+        {"gainDb": 0.1},
+        {"fullGainDb": -0.2},
+        {"gainDb": float("nan")},
+    ],
+)
+def test_compiler_hash_rejects_unapproved_fractional_gain_values(
+    payload: dict[str, object],
+) -> None:
+    with pytest.raises(V2PackageError, match="schema-supported safe integer"):
+        _compiler_hash(payload)
 
 
 def test_document_edit_with_stale_live_hash_refuses_before_publication(

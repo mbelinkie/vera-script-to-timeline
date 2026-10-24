@@ -8,15 +8,35 @@ Rejected receipts must raise ProofBuildError through the trusted port.
 from __future__ import annotations
 
 import io
+import json
 import math
+import re
 import wave
 from array import array
 from collections.abc import Callable
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
 from vera_timeline_agent.narration.compiler_dependencies_v2 import _validated_tokens
-from vera_timeline_agent.narration.models import sha256_bytes
+from vera_timeline_agent.narration.measure import (
+    ALGORITHM_ID as MEASURE_ALGORITHM_ID,
+)
+from vera_timeline_agent.narration.measure import (
+    ALGORITHM_VERSION as MEASURE_ALGORITHM_VERSION,
+)
+from vera_timeline_agent.narration.measure import (
+    ARTIFACT_VERSION as MEASURE_ARTIFACT_VERSION,
+)
+from vera_timeline_agent.narration.measure import (
+    DEFAULT_PARAMETERS,
+    MeasurementError,
+    parameters_hash,
+)
+from vera_timeline_agent.narration.measure import (
+    ONSET_BASIS as MEASURE_ONSET_BASIS,
+)
+from vera_timeline_agent.narration.models import canonical_json_bytes, sha256_bytes
 from vera_timeline_agent.roundtrip_audio import _Files, _metrics, _pcm
 from vera_timeline_agent.roundtrip_build import (
     JsonObject,
@@ -100,6 +120,239 @@ def reviewed_artifact_hash(row: Any) -> str:
         "reviewed-only proof path (measured evidence has no review artifact)",
     )
     return str(verification["reviewArtifactHash"])  # type: ignore[index]
+
+
+MEASURED_NARRATION_METHOD = "measured_audio_boundaries/v1"
+REVIEWED_NARRATION_METHOD = "reviewed_audio_boundaries/v1"
+_VERIFICATION_KEYS = {
+    "method",
+    "algorithm",
+    "measurementArtifactLocator",
+    "measurementArtifactHash",
+    "onsetBasis",
+    "onsetUncertainty",
+    "audibleEndUncertainty",
+}
+_SHA256 = re.compile(r"sha256:[0-9a-f]{64}")
+
+
+def narration_evidence_method(row: Any) -> str:
+    """Return ``reviewed`` or ``measured``; every other method is refused."""
+
+    verification = row.get("verification") if isinstance(row, dict) else None
+    method = verification.get("method") if isinstance(verification, dict) else None
+    fact(isinstance(verification, dict), "narration evidence verification required")
+    if method in (None, REVIEWED_NARRATION_METHOD):
+        return "reviewed"
+    fact(
+        method == MEASURED_NARRATION_METHOD,
+        f"boundary evidence method {method!r} is unknown and refused",
+    )
+    return "measured"
+
+
+def _ms_rational(value: Any) -> JsonObject:
+    fact(type(value) is int and value > 0, "uncertainty milliseconds required")
+    return {"numerator": value, "denominator": 1000}
+
+
+def _reduced(value: Any) -> tuple[int, int]:
+    fact(
+        isinstance(value, dict)
+        and set(value) == {"numerator", "denominator"}
+        and type(value["numerator"]) is int
+        and type(value["denominator"]) is int
+        and value["denominator"] > 0,
+        "rational shape",
+    )
+    ratio = Fraction(value["numerator"], value["denominator"])
+    return ratio.numerator, ratio.denominator
+
+
+def _same_rational(left: Any, right: Any) -> bool:
+    return _reduced(left) == _reduced(right)
+
+
+def shape_set(value: Any, keys: set[str], label: str) -> JsonObject:
+    fact(isinstance(value, dict) and set(value) == keys, f"{label} shape")
+    return value  # type: ignore[no-any-return]
+
+
+def verify_measured_narration_evidence(
+    row: Any,
+    *,
+    timing: bytes,
+    artifact: bytes,
+    audio_sha256: str | None = None,
+) -> str:
+    """Check measured (#182) evidence against every byte it pins.
+
+    Returns the measurement artifact hash (``sha256:...``).  The evidence must
+    be self-consistent: its method, algorithm parameters and parametersHash,
+    the measurement artifact bytes, the provider timing bytes, the narration
+    audio hash and every token interval must agree.  Anything else refuses.
+    """
+
+    fact(narration_evidence_method(row) == "measured", "measured evidence required")
+    verification = shape_set(row["verification"], _VERIFICATION_KEYS, "verification")
+    algorithm = verification["algorithm"]
+    fact(
+        isinstance(algorithm, dict)
+        and set(algorithm) == {"id", "version", "parametersHash", "parameters"}
+        and algorithm["id"] == MEASURE_ALGORITHM_ID
+        and algorithm["version"] == MEASURE_ALGORITHM_VERSION
+        and isinstance(algorithm["parameters"], dict),
+        "measured algorithm identity differs",
+    )
+    parameters = algorithm["parameters"]
+    try:
+        derived_parameters_hash = parameters_hash(parameters)
+    except MeasurementError as error:
+        raise ProofBuildError(
+            f"measured algorithm parameters invalid: {error}"
+        ) from error
+    fact(
+        set(parameters) == set(DEFAULT_PARAMETERS)
+        and algorithm["parametersHash"] == derived_parameters_hash,
+        "measured algorithm parametersHash differs from its parameters",
+    )
+    fact(
+        verification["onsetBasis"] == MEASURE_ONSET_BASIS
+        and _same_rational(
+            verification["onsetUncertainty"],
+            _ms_rational(parameters["onsetUncertaintyMs"]),
+        )
+        and _same_rational(
+            verification["audibleEndUncertainty"],
+            _ms_rational(parameters["audibleEndUncertaintyMs"]),
+        ),
+        "measured uncertainty declarations differ from the algorithm parameters",
+    )
+    locator = verification["measurementArtifactLocator"]
+    fact(
+        isinstance(locator, str)
+        and bool(locator)
+        and "\\" not in locator
+        and "\0" not in locator
+        and not locator.startswith("/")
+        and all(part not in {"", ".", ".."} for part in locator.split("/")),
+        "measurement artifact locator must be a clean relative path",
+    )
+    artifact_hash = verification["measurementArtifactHash"]
+    fact(
+        isinstance(artifact_hash, str)
+        and _SHA256.fullmatch(artifact_hash) is not None
+        and sha256_bytes(artifact) == artifact_hash,
+        "measurement artifact bytes differ from the pinned hash",
+    )
+    try:
+        parsed = json.loads(artifact)
+    except ValueError as error:
+        raise ProofBuildError(f"measurement artifact is not JSON: {error}") from error
+    fact(
+        isinstance(parsed, dict) and canonical_json_bytes(parsed) == artifact,
+        "measurement artifact must be canonical JSON",
+    )
+    fact(
+        parsed.get("schemaVersion") == MEASURE_ARTIFACT_VERSION
+        and parsed.get("algorithm") == algorithm
+        and parsed.get("refusals") == []
+        and isinstance(parsed.get("lag"), dict)
+        and parsed["lag"].get("verified") is True,
+        "measurement artifact is not a verified measurement of this algorithm",
+    )
+    asset = parsed.get("asset")
+    audio = row.get("audio")
+    fact(isinstance(asset, dict) and isinstance(audio, dict), "asset binding shape")
+    timing_hash = sha256_bytes(timing)
+    fact(
+        row.get("timingHash") == audio.get("timingHash") == timing_hash
+        and asset.get("timingHash") == timing_hash,
+        "provider timing bytes differ from the evidence and measurement pins",
+    )
+    audio_hash = row.get("audioHash")
+    fact(
+        isinstance(audio_hash, str)
+        and _SHA256.fullmatch(audio_hash) is not None
+        and audio.get("audioHash") == audio_hash
+        and asset.get("audioHash") == audio_hash
+        and (
+            audio_sha256 is None
+            or "sha256:" + audio_sha256.removeprefix("sha256:") == audio_hash
+        ),
+        "narration audio bytes differ from the evidence and measurement pins",
+    )
+    fact(
+        row.get("blockId") == asset.get("blockId")
+        and row.get("blockRevision") == asset.get("blockRevision")
+        and row.get("textHash") == asset.get("textHash")
+        and row.get("narrationAssetId") == asset.get("narrationAssetId")
+        and audio.get("narrationAssetId") == asset.get("narrationAssetId")
+        and audio.get("cacheAssetId") == asset.get("cacheAssetId")
+        and audio.get("durationSamples") == asset.get("durationSamples")
+        and audio.get("sampleRate") == asset.get("sampleRate")
+        and audio.get("channels") == asset.get("channels"),
+        "measurement artifact asset differs from the evidence",
+    )
+    measured = parsed.get("tokens")
+    claimed = row.get("tokens")
+    fact(
+        isinstance(measured, list)
+        and isinstance(claimed, list)
+        and len(measured) == len(claimed)
+        and bool(claimed),
+        "measurement artifact tokens differ from the evidence",
+    )
+    rate = asset.get("sampleRate")
+    for token, mark in zip(claimed, measured, strict=True):
+        fact(isinstance(token, dict) and isinstance(mark, dict), "token shape")
+        end = mark.get("audibleEndSamples")
+        onset = mark.get("onsetSamples")
+        fact(
+            token.get("tokenId") == mark.get("tokenId")
+            and token.get("startOffset") == mark.get("startOffset")
+            and token.get("endOffset") == mark.get("endOffset")
+            and token.get("quotedText") == mark.get("quotedText")
+            and type(onset) is int
+            and _same_rational(
+                token.get("onset"), {"numerator": onset, "denominator": rate}
+            )
+            and (("audibleEnd" in token) == (type(end) is int))
+            and (
+                "audibleEnd" not in token
+                or _same_rational(
+                    token["audibleEnd"], {"numerator": end, "denominator": rate}
+                )
+            ),
+            "evidence token differs from the measurement artifact",
+        )
+    return str(artifact_hash)
+
+
+def narration_review_pin(
+    row: Any,
+    *,
+    timing: bytes | None = None,
+    artifact: bytes | None = None,
+    audio_sha256: str | None = None,
+) -> str:
+    """Hash the review/measurement artifact a narration row must be proven by.
+
+    Reviewed rows keep their existing ``reviewArtifactHash`` pin.  Measured rows
+    are fully cross-checked and pinned by their measurement artifact hash.  The
+    method stays visible on the row itself; measured evidence is never reviewed.
+    """
+
+    if narration_evidence_method(row) == "reviewed":
+        return reviewed_artifact_hash(row)
+    fact(
+        timing is not None and artifact is not None,
+        "measured evidence requires its timing and measurement artifact bytes",
+    )
+    assert timing is not None and artifact is not None
+    return verify_measured_narration_evidence(
+        row, timing=timing, artifact=artifact, audio_sha256=audio_sha256
+    )
 
 
 def shape(value: Any, keys: str, label: str) -> JsonObject:

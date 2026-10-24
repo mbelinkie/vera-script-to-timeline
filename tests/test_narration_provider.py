@@ -284,3 +284,33 @@ def test_ssml_control_ranges_use_accepted_utf16_offsets() -> None:
                 }
             )
         )
+
+
+@pytest.mark.parametrize("audio_succeeded", [False, True])
+@pytest.mark.parametrize("retry_attempts", [0, 1])
+def test_polly_rejection_is_definite_only_before_audio_was_accepted(
+    audio_succeeded: bool,
+    retry_attempts: int,
+) -> None:
+    class Rejected(Exception):
+        def __init__(self, message: str) -> None:
+            super().__init__(message)
+            self.response = {
+                "ResponseMetadata": {
+                    "HTTPStatusCode": 403,
+                    "RetryAttempts": retry_attempts,
+                }
+            }
+
+    class Client:
+        calls = 0
+
+        def synthesize_speech(self, **kwargs: object) -> dict[str, object]:
+            self.calls += 1
+            if audio_succeeded and self.calls == 1:
+                return {}
+            raise Rejected("expired credential")
+
+    with pytest.raises(PollyError) as error:
+        PollyProvider(client=Client()).synthesize(request())
+    assert error.value.request_rejected is (not audio_succeeded and retry_attempts == 0)

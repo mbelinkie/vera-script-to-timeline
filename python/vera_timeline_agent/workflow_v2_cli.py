@@ -232,6 +232,21 @@ def _verify_release_files(root: Path, runtime_files: tuple[str, ...]) -> Path:
     return manifest
 
 
+def _narration_evidence_paths(
+    values: Sequence[Sequence[str]],
+) -> dict[str, dict[str, Path]] | None:
+    """Parse repeatable ``--narration-evidence BLOCK_ID TIMING MEASUREMENT``."""
+    evidence: dict[str, dict[str, Path]] = {}
+    for block_id, timing, measurement in values:
+        if block_id in evidence:
+            raise ValueError("duplicate narration evidence block id")
+        evidence[block_id] = {
+            "timing": Path(timing).absolute(),
+            "measurement": Path(measurement).absolute(),
+        }
+    return evidence or None
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -280,6 +295,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     output_authorize = commands.add_parser("output-authorize")
     output_authorize.add_argument("--plan", type=Path, required=True)
     output_authorize.add_argument("--output", type=Path, required=True)
+    output_authorize.add_argument("--session", type=Path)
+    output_authorize.add_argument("--session-sha256")
+    output_authorize.add_argument(
+        "--agent-consent-reference",
+        help="actual Producer instruction reference; attribution, not authentication",
+    )
+    output_authorize.add_argument(
+        "--agent-consent-instruction",
+        help="actual explicit instruction received by the trusted local agent",
+    )
     output_prepare = commands.add_parser("output-prepare")
     output_prepare.add_argument("--output", type=Path, required=True)
     output_prepare.add_argument(
@@ -293,6 +318,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         required=True,
     )
     output_prepare.add_argument("--package", type=Path)
+    output_prepare.add_argument(
+        "--narration-evidence",
+        nargs=3,
+        action="append",
+        default=[],
+        metavar=("BLOCK_ID", "TIMING_PATH", "MEASUREMENT_PATH"),
+        help="measured (#182) narration evidence files for one block (repeatable)",
+    )
     output_prepare.add_argument(
         "--preparation",
         nargs=2,
@@ -355,6 +388,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "observe",
             "infer",
             "decide-inference",
+            "regenerate",
             "proposal",
             "decide",
             "preflight",
@@ -363,15 +397,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     output_proof_step.add_argument("--input", type=Path)
     output_proof_step.add_argument("--case", choices=("A", "B", "C"))
-    output_proof_step.add_argument("--omission-support", type=Path)
-    output_review = commands.add_parser("output-omission-review-plan")
-    output_review.add_argument("--session", type=Path, required=True)
-    output_review.add_argument("--session-sha256", required=True)
-    output_review.add_argument("--source-review", type=Path, required=True)
-    output_review.add_argument("--output", type=Path, required=True)
-    output_review_authorize = commands.add_parser("output-omission-review-authorize")
-    output_review_authorize.add_argument("--plan", type=Path, required=True)
-    output_review_authorize.add_argument("--output", type=Path, required=True)
+    output_proof_step.add_argument("--cache-dir", type=Path)
+    output_proof_step.add_argument("--ledger", type=Path)
+    output_proof_step.add_argument(
+        "--aws-data-policy", choices=("provider_terms_accepted", "opt_out_confirmed")
+    )
+    output_proof_step.add_argument("--confirm-provider-call", action="store_true")
     output_revised = commands.add_parser("output-revised")
     output_revised.add_argument("--proof-session", type=Path, required=True)
     output_revised.add_argument("--proof-sha256", required=True)
@@ -384,6 +415,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         metavar=("KEY", "RECEIPT"),
     )
     output_revised.add_argument("--output", type=Path, required=True)
+    output_revised.add_argument(
+        "--narration-evidence",
+        nargs=3,
+        action="append",
+        default=[],
+        metavar=("BLOCK_ID", "TIMING_PATH", "MEASUREMENT_PATH"),
+        help="measured (#182) narration evidence files for one block (repeatable)",
+    )
     for name in ("project-uid", "timeline-uid", "project-name", "timeline-name"):
         output_revised.add_argument("--" + name, required=True)
     request = commands.add_parser("request")
@@ -516,7 +555,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             from .qualification_output_controller_v2 import issue_operator_approval
 
             output = issue_operator_approval(
-                arguments.plan.absolute(), arguments.output.absolute()
+                arguments.plan.absolute(),
+                arguments.output.absolute(),
+                session_path=(
+                    None if arguments.session is None else arguments.session.absolute()
+                ),
+                session_sha256=arguments.session_sha256,
+                consent_reference=arguments.agent_consent_reference,
+                consent_instruction=arguments.agent_consent_instruction,
             )
         elif arguments.command == "output-prepare":
             from .qualification_output_controller_v2 import prepare_output_session
@@ -533,6 +579,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     None if arguments.package is None else arguments.package.absolute()
                 ),
                 preparation_paths=preparation_paths or None,
+                narration_evidence_paths=_narration_evidence_paths(
+                    arguments.narration_evidence
+                ),
                 target={
                     "projectUid": arguments.project_uid,
                     "timelineUid": arguments.timeline_uid,
@@ -611,10 +660,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         elif arguments.command == "output-proof-step":
             from .qualification_output_controller_v2 import _read
-            from .qualification_output_proof_v2 import (
-                QualificationOutputProofV2,
-                _pin,
-            )
+            from .qualification_output_proof_v2 import QualificationOutputProofV2
             from .qualification_output_records_v2 import _parse, _shape
 
             proof = QualificationOutputProofV2(
@@ -626,18 +672,61 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "observe requires an isolated case and "
                         "no supplied observation JSON"
                     )
-                output = proof.observe(
-                    arguments.case,
-                    omission_support=(
-                        None
-                        if arguments.omission_support is None
-                        else _pin(arguments.omission_support.absolute())
-                    ),
-                )
+                output = proof.observe(arguments.case)
             else:
-                if arguments.case is not None or arguments.omission_support is not None:
+                if arguments.case is not None:
                     raise ValueError("observation arguments are only valid for observe")
-                if arguments.action in {"infer", "preflight"}:
+                provider_flags = (
+                    arguments.cache_dir,
+                    arguments.ledger,
+                    arguments.aws_data_policy,
+                )
+                if arguments.action == "regenerate":
+                    if (
+                        arguments.input is not None
+                        or arguments.cache_dir is None
+                        or arguments.aws_data_policy is None
+                    ):
+                        raise ValueError(
+                            "regenerate requires --cache-dir and "
+                            "--aws-data-policy and takes no input file; --ledger "
+                            "may only name the approved campaign ledger"
+                        )
+                    from .narration.campaign import Ledger, default_ledger_path
+                    from .roundtrip_v2_narration import (
+                        campaign_ledger,
+                        production_narration_service,
+                    )
+
+                    # Only the approved campaign ledger may record real spend.
+                    approved_ledger = campaign_ledger(
+                        None
+                        if arguments.ledger is None
+                        or arguments.ledger.absolute() == default_ledger_path()
+                        else Ledger(arguments.ledger.absolute())
+                    )
+
+                    handoff = proof.regenerate_row(
+                        service=production_narration_service(
+                            arguments.cache_dir.absolute(),
+                            data_policy=arguments.aws_data_policy,
+                        ),
+                        ledger=approved_ledger,
+                        confirm_provider_call=arguments.confirm_provider_call,
+                    )
+                    output = (
+                        {"regeneration": "not needed: no narration text changed"}
+                        if handoff is None
+                        else {
+                            "regeneration": "handoff retained",
+                            "handoff": str(
+                                proof.root / "regeneration" / "row-handoff.json"
+                            ),
+                        }
+                    )
+                elif any(provider_flags) or arguments.confirm_provider_call:
+                    raise ValueError("provider flags are only valid for regenerate")
+                elif arguments.action in {"infer", "preflight"}:
                     if arguments.input is not None:
                         raise ValueError(
                             "this operation does not accept supplied inputs"
@@ -647,6 +736,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                         if arguments.action == "infer"
                         else proof.prepare_revised_preflight()
                     )
+                elif arguments.action == "proposal" and arguments.input is None:
+                    output = proof.proposal()
                 else:
                     if arguments.input is None:
                         raise ValueError(
@@ -663,21 +754,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                             prepared_media=supplied["preparedMedia"],
                             handoff=supplied["handoff"],
                         )
-        elif arguments.command == "output-omission-review-plan":
-            from .qualification_output_proof_v2 import QualificationOutputProofV2
-
-            proof = QualificationOutputProofV2(
-                arguments.session.absolute(), arguments.session_sha256
-            )
-            output = proof.prepare_omission_review_plan(
-                arguments.source_review.absolute(), arguments.output.absolute()
-            )
-        elif arguments.command == "output-omission-review-authorize":
-            from .qualification_output_proof_v2 import issue_output_omission_review
-
-            output = issue_output_omission_review(
-                arguments.plan.absolute(), arguments.output.absolute()
-            )
         elif arguments.command == "output-revised":
             from .qualification_output_proof_v2 import prepare_revised_output_session
 
@@ -692,6 +768,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 proof_sha256=arguments.proof_sha256,
                 package_root=arguments.package.absolute(),
                 preparation_paths=preparations,
+                narration_evidence_paths=_narration_evidence_paths(
+                    arguments.narration_evidence
+                ),
                 target={
                     "projectUid": arguments.project_uid,
                     "timelineUid": arguments.timeline_uid,

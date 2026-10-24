@@ -334,7 +334,10 @@
               "const": -18
             },
             "fullGainDb": {
-              "const": 0
+              "enum": [
+                0,
+                -0.1
+              ]
             }
           }
         }

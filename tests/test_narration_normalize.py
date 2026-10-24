@@ -75,6 +75,13 @@ def test_high_crest_dialogue_meets_loudness_and_true_peak_targets() -> None:
     assert result.true_peak_dbtp <= -1.5
 
 
+@pytest.mark.slow
+def test_44100_pcm_resampling_keeps_the_final_partial_sample() -> None:
+    raw = sine_pcm(1.0, sample_rate=44100) + b"\x01\x00"
+    result = Normalizer().normalize_pcm(raw, sample_rate=44100, channels=1)
+    assert result.duration_samples == 48002
+
+
 @pytest.mark.parametrize(
     ("audio", "sample_rate", "channels", "message"),
     [

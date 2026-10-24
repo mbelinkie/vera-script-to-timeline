@@ -1273,6 +1273,92 @@ def _geometry_case(
     return resolve, request, admitted, item, timeline
 
 
+def test_save_reopen_readiness_rechecks_media_pool_item_after_load(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    resolve, request, admitted, item, _timeline = _geometry_case(tmp_path)
+    media = item.media
+    reads: list[None] = []
+
+    def becomes_available() -> Any:
+        reads.append(None)
+        return None if len(reads) == 1 else media
+
+    monkeypatch.setattr(item, "GetMediaPoolItem", becomes_available)
+    sleeps: list[float] = []
+    monkeypatch.setattr(time, "sleep", sleeps.append)
+    expected_geometry = {"items": [{"trackId": admitted["view"]["tracks"][0]["id"]}]}
+
+    native._wait_for_reopened_media_pool_items(
+        resolve, request, admitted, expected_geometry
+    )
+
+    assert len(reads) == 2
+    assert sleeps == [native.POLL_INTERVAL_SECONDS]
+
+
+def test_save_reopen_readiness_refuses_media_pool_item_that_stays_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    resolve, request, admitted, item, _timeline = _geometry_case(tmp_path)
+    monkeypatch.setattr(item, "GetMediaPoolItem", lambda: None)
+    times = iter((0.0, native.MAX_REOPEN_MEDIA_POOL_READY_SECONDS))
+    monkeypatch.setattr(time, "monotonic", lambda: next(times))
+    monkeypatch.setattr(time, "sleep", lambda _seconds: None)
+    expected_geometry = {"items": [{"trackId": admitted["view"]["tracks"][0]["id"]}]}
+
+    with pytest.raises(OutputConsistencyError, match="MediaPoolItem is unavailable"):
+        native._wait_for_reopened_media_pool_items(
+            resolve, request, admitted, expected_geometry
+        )
+
+
+@pytest.mark.parametrize("initial_inventory", [None, [], "partial"])
+def test_save_reopen_readiness_waits_for_full_split_item_inventory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    initial_inventory: Any,
+) -> None:
+    resolve, request, admitted, item, timeline = _geometry_case(
+        tmp_path, source_audio=True
+    )
+    admitted["view"]["events"][0]["kind"] = "narration"
+    track_id = admitted["view"]["tracks"][0]["id"]
+    # One admitted narration event may have two captured native segments.
+    expected_geometry = {
+        "items": [
+            {
+                "eventId": "event-one",
+                "itemUid": "first-segment",
+                "trackId": track_id,
+            },
+            {
+                "eventId": "event-one",
+                "itemUid": "second-segment",
+                "trackId": track_id,
+            },
+        ]
+    }
+    initial = [item] if initial_inventory == "partial" else initial_inventory
+    inventories = iter((initial, [item, item]))
+    reads: list[tuple[str, int]] = []
+
+    def get_items(kind: str, index: int) -> Any:
+        reads.append((kind, index))
+        return next(inventories)
+
+    monkeypatch.setattr(timeline, "GetItemListInTrack", get_items)
+    sleeps: list[float] = []
+    monkeypatch.setattr(time, "sleep", sleeps.append)
+
+    native._wait_for_reopened_media_pool_items(
+        resolve, request, admitted, expected_geometry
+    )
+
+    assert reads == [("audio", 1), ("audio", 1)]
+    assert sleeps == [native.POLL_INTERVAL_SECONDS]
+
+
 @pytest.mark.parametrize("source_audio", [False, True])
 def test_geometry_uses_verified_source_root_and_checks_exact_native_ranges(
     tmp_path: Path, source_audio: bool
