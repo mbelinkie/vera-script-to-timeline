@@ -14,7 +14,7 @@ import sys
 import wave
 from collections.abc import Callable
 from http.client import HTTPException
-from typing import Any
+from typing import Any, cast
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
@@ -121,7 +121,7 @@ class InworldProvider:
             )
         if request.timing_kinds != ("word", "sentence"):
             raise InworldError("Inworld requires word and sentence timing")
-        payload = {
+        payload: dict[str, Any] = {
             "text": request.text,
             "voiceId": profile.voice_id,
             "modelId": profile.engine,
@@ -135,6 +135,8 @@ class InworldProvider:
         }
         if profile.engine == "inworld-tts-2":
             payload["deliveryMode"] = "BALANCED"
+        else:
+            payload["temperature"] = 1.0
         return canonical_json_bytes(payload)
 
     def preflight(self, request: SynthesisRequest) -> None:
@@ -172,7 +174,7 @@ class InworldProvider:
                     raise InworldError(
                         "Inworld response exceeds retention limit; no retry performed"
                     )
-                return data
+                return cast(bytes, data)
         except HTTPError as error:
             category = {
                 401: "authentication",

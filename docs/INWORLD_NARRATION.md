@@ -48,8 +48,8 @@ with `--data-policy fish_terms_accepted`, or a named Polly profile with its
 The live adapter requests synchronous WORD timing and mono 48 kHz LINEAR16 WAV.
 It accepts 1–2,000 UTF-16 code units per row and speed from 50% to 150%; it
 rejects unsupported pitch, volume, pronunciation, inline delivery controls and
-pause/emphasis settings. TTS-2 delivery is explicitly BALANCED; Flash uses its
-documented default temperature. These fixed wire settings belong to the
+pause/emphasis settings. TTS-2 delivery is explicitly BALANCED; Flash requests
+temperature 1.0. These fixed wire settings belong to the
 adapter version. Longer rows fail clearly rather than silently changing the
 text or splitting the synthesis. Native pieces must exactly cover authored
 text; token grouping preserves original source spans. Invalid, tied, collapsed,
@@ -75,3 +75,38 @@ projection/compiler path. Keep fresh, verified cached and one-row-change cases
 distinct. Carry forward the original selected-text authorization and cumulative
 allowance; account funding does not authorize bulk generation. Integration live
 evidence and remaining allowance are recorded in the #293 result comment.
+
+The #293 live check generated only the two previously authorized rows: two
+provider requests, two ready normalized assets, 102 frozen tokens projected,
+and passing v2 compilation/media-needs. An identical repeat reused both assets
+with a transport that refuses network calls. Additional reservation: $0.014550;
+combined #289/#293 reservation: $0.148410 of $5, actual billing unconfirmed.
+This is integration evidence, not a benchmark or a general timing reliability
+rate. Native ends remain unverified for audible support.
+
+For the v2 benchmark, the equivalent supported service configuration is:
+
+```python
+from vera_timeline_agent.narration.configuration import default_profile, provider_for
+from vera_timeline_agent.narration.models import SynthesisSettings
+from vera_timeline_agent.narration.service import NarrationService, ServiceConfig
+
+config = ServiceConfig(
+    profile=default_profile(),
+    settings=SynthesisSettings(rate="100%"),
+    data_policy_attestation="inworld_terms_accepted",
+    max_cost_usd=0.02,  # Set from the separately authorized selected-text allowance.
+)
+service = NarrationService(
+    cache=cache, provider=provider_for(config.profile),
+    normalizer=normalizer, config=config,
+)
+# Inspect service.plan_block(block) before authorized generation.
+asset = service.process_block(frozen_block)
+```
+
+Pass the verified asset and its cached provider timing to
+`narration_v2_dependency_from_asset(asset, timing_bytes, frozen_block)`, then the
+existing v2 compiler/media-needs path. This preserves frozen token IDs. The v1
+CLI above does not accept a v2 ScriptDocument; it is an alternative product entry
+point, not a v2 conversion command.
