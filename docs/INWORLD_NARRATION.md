@@ -98,8 +98,10 @@ config = ServiceConfig(
     max_cost_usd=0.02,  # Set from the separately authorized selected-text allowance.
 )
 service = NarrationService(
-    cache=cache, provider=provider_for(config.profile),
-    normalizer=normalizer, config=config,
+    cache=cache,
+    provider=provider_for(config.profile),
+    normalizer=normalizer,
+    config=config,
 )
 # Inspect service.plan_block(block) before authorized generation.
 asset = service.process_block(frozen_block)
