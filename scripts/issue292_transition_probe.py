@@ -8,12 +8,14 @@ class ProbeRefusal(ValueError):
     """Preflight refusal; Resolve has not been mutated."""
 
 
-def _need(ok: bool, reason: str) -> None:
+def _need(ok: object, reason: str) -> None:
     if not ok:
         raise ProbeRefusal(reason)
 
 
-def validate_probe_request(declaration: dict, inventory: dict) -> dict:
+def validate_probe_request(
+    declaration: dict[str, Any], inventory: dict[str, Any]
+) -> dict[str, Any]:
     _need(
         isinstance(declaration, dict)
         and isinstance(inventory, dict)
@@ -22,11 +24,11 @@ def validate_probe_request(declaration: dict, inventory: dict) -> dict:
         and inventory.get("completeWithinScope") is True,
         "292 representative inventory is offline or incomplete",
     )
-    frame = declaration.get("boundaryFrame")
-    duration = declaration.get("durationFrames")
-    effect, alignment, controls = map(
-        declaration.get, ("effect", "alignment", "controls")
-    )
+    frame: Any = declaration.get("boundaryFrame")
+    duration: Any = declaration.get("durationFrames")
+    effect: Any = declaration.get("effect")
+    alignment: Any = declaration.get("alignment")
+    controls: Any = declaration.get("controls")
     _need(
         declaration.get("boundaryId")
         and declaration.get("outgoingId")
@@ -46,8 +48,18 @@ def validate_probe_request(declaration: dict, inventory: dict) -> dict:
         and all(effect.get(k) for k in ("name", "sourceIdentity", "fingerprint")),
         "effect identity is incomplete",
     )
-    rows = inventory.get("effects")
+    rows: Any = inventory.get("effects")
     _need(isinstance(rows, list), "effect records are missing")
+    application_matches = [
+        r
+        for r in rows
+        if isinstance(r, dict)
+        and (r.get("category"), r.get("name")) == (effect["category"], effect["name"])
+    ]
+    _need(
+        len(application_matches) <= 1,
+        "duplicate category/name AddTransition selectors are ambiguous",
+    )
     ident = effect["category"], effect["name"], effect["sourceIdentity"]
     matches = [
         r
@@ -74,9 +86,10 @@ def validate_probe_request(declaration: dict, inventory: dict) -> dict:
         not controls or effect["category"] == "fusion",
         "native transition controls are unverified",
     )
-    specs, ids = record.get("controls", {}), set()
+    specs: Any = record.get("controls", {})
+    ids: set[Any] = set()
     for name, value in controls.items():
-        spec = specs.get(name) if isinstance(specs, dict) else None
+        spec: Any = specs.get(name) if isinstance(specs, dict) else None
         _need(isinstance(spec, dict), f"unknown control {name!r}")
         input_id, values = spec.get("id"), spec.get("values")
         valid = (
@@ -92,11 +105,11 @@ def validate_probe_request(declaration: dict, inventory: dict) -> dict:
         _need(valid, f"unsupported or ambiguous control {name!r}")
         ids.add(input_id)
     _need(not controls or record.get("fusionToolName"), "Fusion tool name is missing")
-    boundary_id = declaration.get("boundaryId")
-    bounds = inventory.get("boundaries", {})
-    boundary = bounds.get(boundary_id) if isinstance(bounds, dict) else None
-    out = boundary.get("outgoing") if isinstance(boundary, dict) else None
-    inc = boundary.get("incoming") if isinstance(boundary, dict) else None
+    boundary_id: Any = declaration.get("boundaryId")
+    bounds: Any = inventory.get("boundaries", {})
+    boundary: Any = bounds.get(boundary_id) if isinstance(bounds, dict) else None
+    out: Any = boundary.get("outgoing") if isinstance(boundary, dict) else None
+    inc: Any = boundary.get("incoming") if isinstance(boundary, dict) else None
     _need(
         isinstance(boundary, dict)
         and boundary.get("frame") == frame
@@ -111,7 +124,8 @@ def validate_probe_request(declaration: dict, inventory: dict) -> dict:
         and inc.get("startFrame") == frame,
         "items are not adjacent at the declared boundary",
     )
-    right, left = out.get("rightHandleFrames"), inc.get("leftHandleFrames")
+    right: Any = out.get("rightHandleFrames")
+    left: Any = inc.get("leftHandleFrames")
     _need(
         type(right) is int and type(left) is int and right >= 0 and left >= 0,
         "boundary handle inventory is unknown",
@@ -135,7 +149,9 @@ def validate_probe_request(declaration: dict, inventory: dict) -> dict:
     }
 
 
-def _uncertain(plan: dict, reason: str, observed: dict | None = None) -> dict:
+def _uncertain(
+    plan: dict[str, Any], reason: str, observed: dict[str, Any] | None = None
+) -> dict[str, Any]:
     return {
         "status": "uncertain",
         "mutationOccurred": True,
@@ -145,7 +161,7 @@ def _uncertain(plan: dict, reason: str, observed: dict | None = None) -> dict:
     }
 
 
-def _tool(transition: Any, record: dict) -> Any:
+def _tool(transition: Any, record: dict[str, Any]) -> Any:
     tools = transition.GetFusionCompByIndex(1).GetToolList(False)
     name = record["fusionToolName"]
     found = [t for t in tools.values() if t.GetAttrs().get("TOOLS_Name") == name]
@@ -154,12 +170,14 @@ def _tool(transition: Any, record: dict) -> Any:
     return found[0]
 
 
-def observe_transition(transition: Any, declaration: dict, inventory: dict) -> dict:
+def observe_transition(
+    transition: Any, declaration: dict[str, Any], inventory: dict[str, Any]
+) -> dict[str, Any]:
     """Read actual getters; after a write, any mismatch is an uncertain result."""
     plan = validate_probe_request(declaration, inventory)
     req, record = plan["requested"], plan["record"]
     try:
-        actual = {
+        actual: dict[str, Any] = {
             "name": transition.GetName(),
             "type": transition.GetType(),
             "startFrame": transition.GetStart(),
@@ -200,8 +218,10 @@ def observe_transition(transition: Any, declaration: dict, inventory: dict) -> d
 
 
 def apply_transition(
-    declaration: dict, inventory: dict, locate_boundary: Callable[[dict], dict]
-) -> dict:
+    declaration: dict[str, Any],
+    inventory: dict[str, Any],
+    locate_boundary: Callable[[dict[str, Any]], dict[str, Any]],
+) -> dict[str, Any]:
     """Locator verifies both stable marker IDs and live adjacency on each call.
 
     Its result contains IDs, outgoing/incoming TimelineItems, and the unique

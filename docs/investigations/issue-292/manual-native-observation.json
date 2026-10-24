@@ -1,0 +1,71 @@
+{
+  "runtime": [
+    21,
+    1,
+    1,
+    10
+  ],
+  "source": "Producer changed disposable Edge Wipe Angle to90 in Inspector; exported afterwards",
+  "directAPI": {
+    "GetProperties": {},
+    "GetPropertyAngle": false,
+    "FusionCompCount": 0
+  },
+  "otioTransition": {
+    "OTIO_SCHEMA": "Transition.1",
+    "metadata": {
+      "Resolve_OTIO": {
+        "Effects": {
+          "Display Type": 1,
+          "Effect Name": "Edge Wipe",
+          "Enabled": true,
+          "Name": "Edge Wipe",
+          "Parameters": [
+            {
+              "Default Parameter Value": 0,
+              "Key Frames": {},
+              "Parameter ID": "angle",
+              "Parameter Value": 90,
+              "Variant Type": "Int",
+              "maxValue": 360.0,
+              "minValue": -360.0
+            },
+            {
+              "Default Parameter Value": 0.0,
+              "Key Frames": {
+                "0": {
+                  "Value": 0.0,
+                  "Variant Type": "Double"
+                },
+                "24": {
+                  "Value": 1.0,
+                  "Variant Type": "Double"
+                }
+              },
+              "Parameter ID": "transitionCustomCurvesKeyframes",
+              "Parameter Value": 0.0,
+              "Variant Type": "Double",
+              "maxValue": 1.0,
+              "minValue": 0.0
+            }
+          ],
+          "Type": 13
+        },
+        "Transition Type": "Edge Wipe"
+      }
+    },
+    "name": "Edge Wipe",
+    "in_offset": {
+      "OTIO_SCHEMA": "RationalTime.1",
+      "rate": 24.0,
+      "value": 12.0
+    },
+    "out_offset": {
+      "OTIO_SCHEMA": "RationalTime.1",
+      "rate": 24.0,
+      "value": 12.0
+    },
+    "transition_type": "Custom_Transition"
+  },
+  "scope": "Observed native Angle value, not exhaustive Inspector metadata or qualified import route"
+}

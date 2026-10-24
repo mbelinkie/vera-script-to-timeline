@@ -15,7 +15,8 @@ REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO))
 sys.path.insert(
     0,
-    "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/Modules",
+    "/Library/Application Support/Blackmagic Design/DaVinci Resolve/"
+    "Developer/Scripting/Modules",
 )
 import DaVinciResolveScript as dvr  # noqa: E402
 
@@ -34,7 +35,8 @@ def run():
     )
     installed = (
         Path.home()
-        / "Library/Application Support/Blackmagic Design/DaVinci Resolve/Fusion/Templates/Edit/Transitions/VERA292 Curve Dissolve.setting"
+        / "Library/Application Support/Blackmagic Design/DaVinci Resolve"
+        / "Fusion/Templates/Edit/Transitions/VERA292 Curve Dissolve.setting"
     )
     fingerprint = hashlib.sha256(installed.read_bytes()).hexdigest()
     assert fingerprint == declaration["effect"]["fingerprint"]
