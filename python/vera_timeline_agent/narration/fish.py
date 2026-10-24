@@ -5,6 +5,8 @@ from __future__ import annotations
 import math
 import os
 import re
+import subprocess
+import sys
 import unicodedata
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
@@ -27,10 +29,12 @@ from vera_timeline_agent.narration.models import (
 )
 from vera_timeline_agent.narration.provider import SpeechProviderError
 
-ADAPTER_VERSION = "fish-timestamp-pcm-adapter/v1"
+ADAPTER_VERSION = "fish-timestamp-pcm-adapter/v2"
 ENDPOINT = "https://api.fish.audio/v1/tts/stream/with-timestamp"
 SAMPLE_RATE = 44100
 FREE_UNTIL = datetime(2026, 12, 1, tzinfo=UTC)
+KEYCHAIN_SERVICE = "com.vera.script-to-timeline"
+KEYCHAIN_ACCOUNT = "fish_audio_api_key"
 
 
 class FishError(SpeechProviderError):
@@ -48,6 +52,27 @@ urlopen = build_opener(_NoRedirect()).open
 
 def _api_key() -> str:
     key = os.environ.get("FISH_AUDIO_API_KEY", "").strip()
+    if not key and sys.platform == "darwin":
+        try:
+            result = subprocess.run(
+                [
+                    "/usr/bin/security",
+                    "find-generic-password",
+                    "-s",
+                    KEYCHAIN_SERVICE,
+                    "-a",
+                    KEYCHAIN_ACCOUNT,
+                    "-w",
+                ],
+                capture_output=True,
+                check=False,
+                text=True,
+                timeout=5,
+            )
+        except (OSError, subprocess.SubprocessError):
+            result = None
+        if result is not None and result.returncode == 0:
+            key = result.stdout.strip()
     if not key or len(key) > 4096 or any(not 33 <= ord(char) <= 126 for char in key):
         raise FishError("FISH_AUDIO_API_KEY is missing or invalid")
     return key
@@ -137,6 +162,17 @@ def _sentence_spans(text: str) -> list[tuple[int, int]]:
     return spans
 
 
+def _segment_start(text: str, piece: str, start: int, end: int) -> int:
+    left = text.find(piece, start, end)
+    if left >= 0:
+        return left
+    # Fish can return a straight apostrophe for an authored curly apostrophe.
+    source = text[start:end].replace("\u2019", "'")
+    normalized_piece = piece.replace("\u2019", "'")
+    left = source.find(normalized_piece)
+    return start + left if left >= 0 else -1
+
+
 def timing_marks(
     text: str, snapshots: tuple[dict[str, Any], ...], audio_samples: int
 ) -> tuple[ProviderTimingMark, ...]:
@@ -168,7 +204,7 @@ def timing_marks(
             ):
                 raise FishError("invalid Fish segment")
             piece = segment["text"].strip()
-            left = text.find(piece, cursor, content_end) if piece else -1
+            left = _segment_start(text, piece, cursor, content_end) if piece else -1
             if left < 0 or not _ignorable(text[cursor:left]):
                 raise FishError("Fish word alignment differs from authored text")
             right = left + len(piece)

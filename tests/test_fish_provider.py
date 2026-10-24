@@ -131,6 +131,21 @@ def test_multichunk_offsets_unicode_repetition_and_sentence_source_spans() -> No
     assert sentences == ["Dr. Zoë can't go.", "🌍 go, go!"]
 
 
+def test_alignment_normalizes_apostrophes_but_preserves_authored_spans() -> None:
+    text = "It’s ready."
+    value = snapshot(
+        text,
+        [("It's", 0.1, 0.4), ("ready", 0.45, 0.7), (".", 0.75, 0.8)],
+    )
+
+    marks = timing_marks(text, (value,), SAMPLE_RATE)
+    words = [mark for mark in marks if mark.kind == "word"]
+
+    assert [mark.value for mark in words] == ["It’s", "ready"]
+    assert (words[0].start_utf16, words[0].end_utf16) == (0, 4)
+    assert (words[0].start_byte, words[0].end_byte) == (0, len("It’s".encode()))
+
+
 def test_numbers_abbreviations_currency_combining_marks_and_zero_width_native_end() -> (
     None
 ):
@@ -278,6 +293,48 @@ def test_invalid_credentials_are_not_echoed(monkeypatch: pytest.MonkeyPatch) -> 
     with pytest.raises(FishError, match="missing or invalid") as error:
         FishProvider().preflight(request())
     assert "private" not in str(error.value)
+
+
+def test_api_key_uses_macos_keychain_when_environment_is_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+
+    from vera_timeline_agent.narration import fish
+
+    monkeypatch.delenv("FISH_AUDIO_API_KEY", raising=False)
+    monkeypatch.setattr(fish, "sys", SimpleNamespace(platform="darwin"))
+    calls: list[tuple[list[str], dict[str, object]]] = []
+
+    def read_keychain(args: list[str], **kwargs: object) -> SimpleNamespace:
+        calls.append((args, kwargs))
+        return SimpleNamespace(returncode=0, stdout="keychain-only-key\n")
+
+    monkeypatch.setattr(fish.subprocess, "run", read_keychain)
+    assert fish._api_key() == "keychain-only-key"
+    assert calls == [
+        (
+            [
+                "/usr/bin/security",
+                "find-generic-password",
+                "-s",
+                "com.vera.script-to-timeline",
+                "-a",
+                "fish_audio_api_key",
+                "-w",
+            ],
+            {
+                "capture_output": True,
+                "check": False,
+                "text": True,
+                "timeout": 5,
+            },
+        )
+    ]
+
+    monkeypatch.setenv("FISH_AUDIO_API_KEY", "environment-override")
+    assert fish._api_key() == "environment-override"
+    assert len(calls) == 1
 
 
 def test_definite_rejection_releases_marker_but_does_not_automatically_retry(
