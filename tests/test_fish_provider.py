@@ -132,7 +132,7 @@ def test_multichunk_offsets_unicode_repetition_and_sentence_source_spans() -> No
 
 
 def test_alignment_normalizes_apostrophes_but_preserves_authored_spans() -> None:
-    text = "It’s ready."
+    text = "It\u2019s ready."
     value = snapshot(
         text,
         [("It's", 0.1, 0.4), ("ready", 0.45, 0.7), (".", 0.75, 0.8)],
@@ -141,9 +141,23 @@ def test_alignment_normalizes_apostrophes_but_preserves_authored_spans() -> None
     marks = timing_marks(text, (value,), SAMPLE_RATE)
     words = [mark for mark in marks if mark.kind == "word"]
 
-    assert [mark.value for mark in words] == ["It’s", "ready"]
+    assert [mark.value for mark in words] == ["It\u2019s", "ready"]
     assert (words[0].start_utf16, words[0].end_utf16) == (0, 4)
-    assert (words[0].start_byte, words[0].end_byte) == (0, len("It’s".encode()))
+    assert (words[0].start_byte, words[0].end_byte) == (
+        0,
+        len("It\u2019s".encode()),
+    )
+
+
+def test_zero_duration_word_alignment_is_refused() -> None:
+    text = "Hello world."
+    value = snapshot(
+        text,
+        [("Hello", 0.1, 0.1), ("world", 0.1, 0.8)],
+    )
+
+    with pytest.raises(FishError, match="non-increasing word starts"):
+        timing_marks(text, (value,), SAMPLE_RATE)
 
 
 def test_numbers_abbreviations_currency_combining_marks_and_zero_width_native_end() -> (

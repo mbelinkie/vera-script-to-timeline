@@ -12,6 +12,7 @@ from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from fractions import Fraction
 from http.client import HTTPException
+from itertools import pairwise
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -29,7 +30,7 @@ from vera_timeline_agent.narration.models import (
 )
 from vera_timeline_agent.narration.provider import SpeechProviderError
 
-ADAPTER_VERSION = "fish-timestamp-pcm-adapter/v2"
+ADAPTER_VERSION = "fish-timestamp-pcm-adapter/v3"
 ENDPOINT = "https://api.fish.audio/v1/tts/stream/with-timestamp"
 SAMPLE_RATE = 44100
 FREE_UNTIL = datetime(2026, 12, 1, tzinfo=UTC)
@@ -233,6 +234,9 @@ def timing_marks(
         source_cursor = content_end
     if text[source_cursor:].strip() or set(coverage) != set(spans) or not spans:
         raise FishError("Fish word alignment does not cover all authored words")
+    word_starts = [coverage[span][0] for span in spans]
+    if any(previous >= current for previous, current in pairwise(word_starts)):
+        raise FishError("Fish word alignment has non-increasing word starts")
     if abs(final_duration - Fraction(audio_samples, SAMPLE_RATE)) > Fraction(1, 20):
         raise FishError("Fish alignment duration differs from final PCM audio")
 
