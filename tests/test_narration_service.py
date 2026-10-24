@@ -11,7 +11,10 @@ from typing import Any, cast
 
 import pytest
 from vera_timeline_agent.narration.cache import NarrationCache
-from vera_timeline_agent.narration.configuration import FISH_PROFILE_ID
+from vera_timeline_agent.narration.configuration import (
+    FISH_PROFILE_ID,
+    INWORLD_PROFILE_ID,
+)
 from vera_timeline_agent.narration.models import (
     ProviderResult,
     ProviderTimingMark,
@@ -93,14 +96,21 @@ def service(tmp_path: Path, provider: FakeProvider) -> NarrationService:
         cache=NarrationCache(tmp_path / "cache"),
         provider=provider,
         normalizer=Normalizer(),
-        config=ServiceConfig(data_policy_attestation="fish_terms_accepted"),
+        config=ServiceConfig(data_policy_attestation="inworld_terms_accepted"),
     )
 
 
-def test_fish_mw1_is_default_and_polly_profiles_remain_selectable() -> None:
-    assert default_profile().profile_id == FISH_PROFILE_ID
-    assert default_profile().provider == "fish_audio"
-    assert default_profile().voice_id == "f051ceb7fd8d47f09f63944298f589fc"
+def test_inworld_is_default_and_fish_and_polly_profiles_remain_selectable() -> None:
+    default = default_profile()
+    assert default.profile_id == INWORLD_PROFILE_ID
+    assert default.provider == "inworld"
+    assert default.engine == "inworld-tts-2"
+    assert default.voice_id == "Arthur"
+    fish = voice_profile(FISH_PROFILE_ID)
+    assert (fish.provider, fish.voice_id) == (
+        "fish_audio",
+        "f051ceb7fd8d47f09f63944298f589fc",
+    )
     assert voice_profile(MATTHEW_PROFILE_ID).voice_id == "Matthew"
     assert voice_profile(JOANNA_PROFILE_ID).voice_id == "Joanna"
 
@@ -206,13 +216,13 @@ def test_normalization_profile_change_reuses_raw_provider_result(
         cache=cache,
         provider=provider,
         normalizer=Normalizer(profile_id="profile-one"),
-        config=ServiceConfig(data_policy_attestation="fish_terms_accepted"),
+        config=ServiceConfig(data_policy_attestation="inworld_terms_accepted"),
     )
     second = NarrationService(
         cache=cache,
         provider=provider,
         normalizer=Normalizer(profile_id="profile-two"),
-        config=ServiceConfig(data_policy_attestation="fish_terms_accepted"),
+        config=ServiceConfig(data_policy_attestation="inworld_terms_accepted"),
     )
 
     first.process_document(document(MINIMAL))

@@ -593,9 +593,16 @@ class LedgerGuardedProvider:
     def prepare_input(self, request: SynthesisRequest) -> bytes:
         return self.inner.prepare_input(request)
 
+    def preflight(self, request: SynthesisRequest) -> None:
+        preflight = getattr(self.inner, "preflight", None)
+        if callable(preflight):
+            preflight(request)
+
     def synthesize(self, request: SynthesisRequest) -> ProviderResult:
         if not self.confirmed:
             raise ProviderCallRefused("provider call was not confirmed")
+        # Local refusals must precede both call intent and spend reservation.
+        self.preflight(request)
         request_hash = identity_hash(
             request.identity(
                 self.inner.prepare_input(request), self.inner.adapter_version
