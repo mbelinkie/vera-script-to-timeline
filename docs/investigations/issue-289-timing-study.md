@@ -1,5 +1,11 @@
 # Fish/Polly timing study and retained-take recovery (#289)
 
+Historical first-phase record. The revised live #289 scope adopted later on
+2026-10-24 supersedes the mandatory Fish-recovery protocol below. The current
+comparison is described in [the Sweden comparison checkpoint](issue-289-sweden-provider-comparison.md).
+Preserve these observations and draft recovery code; they are optional evidence,
+not a requirement to continue the former rescue campaign.
+
 Status: paused at the Producer's request, 2026-10-24. No recovery is accepted.
 The 25-take native study is complete; public MFA completed, public Qwen was
 interrupted. The retained take's prefilled Audition markers exist locally, but
