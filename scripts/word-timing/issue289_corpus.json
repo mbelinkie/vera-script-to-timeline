@@ -1,0 +1,50 @@
+{
+  "corpusVersion": "issue289-public-synthetic/v1",
+  "pairedTexts": [
+    {
+      "id": "short",
+      "targetWords": "10-20",
+      "text": "Well, we’re ready: Mia’s map says 12 steps, 12 steps, then turn left—don’t rush."
+    },
+    {
+      "id": "medium",
+      "targetWords": "40-60",
+      "text": "At 7:15, the clock clicked twice, then stopped; nobody noticed at first. Lena said, “It’s probably a loose wire,” but the lights stayed bright. We checked the hallway, kitchen, and office. A note read, “Call 555-0142 before noon.” I read it: was that zero or the letter O? The driver had called twice, and we didn’t want a missed package."
+    },
+    {
+      "id": "long",
+      "targetWords": "90-120",
+      "text": "On Tuesday, Nora opened the community garden before the rain arrived. She carried 3 blue buckets, a folded map, and her brother’s note: don’t rush. “Take the north path,” it said, “then count every gate twice.” At the first gate, a brown dog barked once, paused, then barked again. She wrote 8:30 beside the repair, and Eli brought fresh screws. They passed the pond, where three paper boats spun in circles. One note said, “Bring the seeds, bring the seeds, and please bring water!” One was missing; Nora found it beneath a bench, beside a brass key. Rain began at noon, so they closed the shed and went home."
+    }
+  ],
+  "fishOnlyTexts": [
+    {
+      "id": "fish-01",
+      "text": "Mara’s 2 red folders are here—here, on the chair; don’t move them yet!"
+    },
+    {
+      "id": "fish-02",
+      "text": "Noah called Priya at 6:05, then called again at 6:05. “Did you bring the blue key?” he asked. “The blue key?” she replied."
+    },
+    {
+      "id": "fish-03",
+      "text": "When the bell rang, Inez counted 4 doors, then counted them again: one, two, three, four. The sign said “Room 12,” but the meeting was in Room 21. Nobody panicked; they checked the map and laughed."
+    },
+    {
+      "id": "fish-04",
+      "text": "Every Friday, Sam and Jo walk the market route together. Sam says the east gate is faster; Jo says the west gate is quieter. They test both routes, time each walk, and write the totals beside the date. Today, the east route took 9 minutes, while the west took 11. “That’s close,” Jo said. Sam agreed, but they still chose the path by the river because the baker had fresh rolls."
+    },
+    {
+      "id": "fish-05",
+      "text": "At 4:40, Amira found a note beneath the library clock. It read, “Please return 3 blue books, not 2, to shelf B-14.” She checked the cart, checked it again, and found all three titles. One was a mystery, one was a travel guide, and one was a cookbook with a bent corner. “I didn’t borrow these,” she said, then laughed when Ben admitted he had mixed up their bags. They returned the books together, slowly, slowly, so every label faced forward."
+    },
+    {
+      "id": "fish-06",
+      "text": "The rain stopped at 10:02, but the sidewalk still shone. Luca carried a small yellow umbrella and counted seven puddles beside the station. At puddle four, he saw a paper ticket with 18 written across the top. “Is this yours?” he called. A woman in a green coat turned around, smiled, and said, “No, but it might belong to the conductor.” They walked to the platform together; the next train was due in 6 minutes."
+    },
+    {
+      "id": "fish-07",
+      "text": "Before the doors opened, Elise checked the list twice. It had 14 names, three addresses, and one reminder: “Ask Devon about the spare key.” She read each name aloud so nobody was missed. Kai was early, as always. Rowan arrived with 2 cups of tea and asked about the garden gate. “It sticks, doesn’t it?” Elise said. They tried the handle together; the latch clicked. Nothing was broken; it only needed oil. At noon, fourteen neighbors gathered, shared tea, and planted basil, mint, and beans. When someone asked who wrote the note, everyone looked at Devon. Devon shrugged, then admitted it was his handwriting."
+    }
+  ]
+}
