@@ -175,3 +175,74 @@ Remaining fast groups were completed individually. No full-suite Mac run was
 performed. Final-diff Claude review, CI/merge and issue completion remain pending;
 this is a pushed manual-review checkpoint. The existing #256 tracks fast-suite
 runtime. No code-check result establishes acoustic accuracy.
+
+
+## Producer review and finalist selection
+
+The Producer reviewed both Inworld first-generation rows (102 word starts) and
+prefers its voice to Polly. Native onset corrections: 16/102 starts changed,
+median absolute correction 0 ms, p95 96 ms, maximum 129 ms; 86 starts were left
+unchanged within the reported complete-row reviews. Thirteen starts moved later
+and three earlier. The Producer observed phrase starts arriving early in silence,
+but judged the original timing usable without adjustment. This is evidence for
+these two clips, not a production reliability rate. Reviewed exports and every
+start/end delta are retained privately by hash; no audible-end evidence is
+inferred. One exported point marker and one 29 ms range overlap remain explicit
+range limitations; this study's generated-row evaluation concerns word starts.
+
+The short clip first described as Inworld was corrected by the Producer to
+ElevenLabs. Its 21-start review has two onset changes (worst 299 ms). The later
+ElevenLabs long-row review stopped at the authored year token, ordinal 35:
+24/35 starts changed, p95 155 ms and maximum 237 ms; reviewed ends moved by as
+much as 158 ms. The remaining 46 words are unreviewed. The Producer reported
+whole syllables outside the native ranges and stopped rather than repairing
+all of them. Every displayed original word start/end matches the returned
+ElevenLabs character timing to display precision; MFA was not used to make
+those native ranges.
+
+Reject the tested **ElevenLabs v4 / Matilda native-timing configuration** from
+this comparison and preserve the failure. Do not generalize this to every
+ElevenLabs voice/model or start a new voice-search/custom-voice investigation.
+Published usage for the tested model is $80/M characters versus Inworld TTS-2's
+$25/M at On-Demand rates (3.2x); price reinforces the timing-based decision,
+not the other way around. No top-up was needed.
+[ElevenLabs pricing](https://elevenlabs.io/pricing/api),
+[Inworld pricing](https://inworld.ai/pricing).
+
+Inworld advances to two further independent complete-passage generations, using
+the same pinned model, voice, authored rows and ordinary delivery. All four
+additional rows generated successfully without retries. Across three complete
+passages, native source coverage is 306/306 tokens with finite, increasing,
+in-bounds starts and no tied or collapsed word intervals. Local repeat acoustic
+and wording checks, the admission/compiler proof and any necessary focused
+Producer follow-up are still pending. Conservative new-provider reservation
+is now **$0.090210** of the cumulative $5 allowance; actual billing remains
+unconfirmed. No additional Fish/Polly calls or default changes were made.
+
+
+## Repeat acoustic and fidelity checks
+
+The four additional Inworld rows each retain exact native coverage, increasing
+starts, positive word intervals and audio bounds. The independent, network-denied
+MFA batch placed 204/204 token occurrences in 105.41 s. Native/MFA p95 onset
+differences by repeat row are 50, 90, 40 and 90 ms; worst differences are 90,
+120, 100 and 110 ms. Pooled repeat p95 is 90 ms, worst 120 ms. These remain
+machine disagreements. Against the 102 first-generation human-reviewed starts,
+MFA itself has median 10 ms, p95 50 ms and worst 109 ms disagreement; that
+calibration is specific to the reviewed first-generation audio.
+
+Audio-only local Parakeet recognition ran with networking denied, without script
+text. It flagged proper-name spelling/pronunciation variants and apparently
+omitted a short phrase and a linking word in both long repeats. A 12-second
+four-excerpt check, bound to original sample offsets, was reviewed by the
+Producer: all flagged words are audible and acceptable in both repeats. Record
+these recognition omissions as false alarms at the checked spots, not TTS
+fidelity failures. This spot check does not imply a complete human review of
+every repeat or establish their word-boundary times.
+
+The repeat review pack is separate from stage 1; no reviewed export, original
+capture or previous prefill was replaced. The Producer may select another
+Inworld library voice; Ashley remains the measured baseline. A new chosen voice
+requires fresh synthesis and timing checks, with no automatic transfer of this
+voice's qualification. The same TTS-2 model and exact authored passage remain
+the comparison basis.
