@@ -1,9 +1,22 @@
 # #292 — installed picture-transition capability proof
 
-Status: bounded runtime proof completed, partial delivery pending, 2026-10-24.
-Precise native and custom application works on the tested routes. Full installed
-inventory and exhaustive controls remain unsupported by the tested discovery
-routes. **This result does not clear the current feature promise in #125/#61.**
+Status: bounded runtime proof completed; merge and External closure pending,
+2026-10-24. Precise native and custom application works on the tested routes.
+Full installed inventory and exhaustive controls remain unsupported by the
+tested discovery routes and are deferred under the Producer decision below.
+
+## Producer scope decision — 2026-10-24
+
+Matthew approved an **expandable, verified transition library for V1**. Expose
+only effect/settings combinations supported by real capability evidence; this
+is not a permanently hardcoded trio. Universal installed Effects Library
+browsing and exhaustive automatic settings discovery are deferred to post-V1
+work retained in #88, rather than acceptance blockers for #292.
+
+Existing unknown effects/settings must be shown as unsupported and preserved
+only through a route whose preservation has been proved. If that is unproved,
+refuse the affected write. Never substitute effects or invent default values.
+This decision changes product scope, not the measured capability matrix.
 
 ## Boundaries
 
@@ -63,7 +76,7 @@ Observed results (not universal certification):
 | Narration | Video ranges `[0,72)` and `[72,144)`, audio `[0,144)`, marker at frame72 stayed unchanged. Decoded rendered audio is byte-identical for cut-only, native24, custom24, native12 and custom12. It is not byte-identical to the mono source after the project's normal output routing, so the cut-only comparison is the relevant control. |
 | Zero handles | Raw API refused; no transition, clip/audio range or anchor movement. |
 | Short handles | Two handles on each side silently shortened a requested24 to an actual2-frame transition. This is a failed precise request, not success. |
-| Neighbor move | Incoming moved from72 to78 (six-frame gap); raw API created12 frames for requested24. Clips/audio/anchor stayed put. Preflight must refuse gaps and short handles. |
+| Neighbor gap | A synthetic fixture placed the incoming clip at78 instead of72 (six-frame gap); raw API created12 frames for requested24. Clips/audio/anchor stayed put. Preflight must refuse gaps and short handles. This did not qualify trimming/moving a neighbor of an existing transition. |
 | Native control API | Transition GetProperties/GetProperty return `{}` / false for tested controls; SetProperties Direction/duration/Alignment returned false. This does not prove all possible import/private routes impossible. |
 | Independent manual edit | Producer changed Edge Wipe Angle to90. Subsequent OTIO export exposes parameter ID `angle`, value90, Int, default0, range−360..360. Direct GetProperties still `{}` and GetProperty('Angle') false. Native export includes non-default settings not present in the earlier default export; absence cannot mean exhaustive discovery or default safely. See `issue-292/manual-native-observation.json`. |
 | Native option application through import | Changed the actual Edge Wipe OTIO parameter `angle` from90 to180; imported a fresh timeline and independently re-exported180 at `[60,84)`. Save/reopen preserved it. Rendered frame72 is vertically split for180 versus left/right for90; angle0 gives the opposite vertical split. The Inspector also displayed180. Both retained headless scenarios ran successfully. |
@@ -129,7 +142,7 @@ synthetic movies remain in the issue-owned root; no private source is published.
 | Resolve OTIO, native Edge Wipe | Export names/type metadata identify instantiated occurrence; not an installed catalog. | Non-default angle ID/type/range/current/default appear after manual edit. Default export omitted angle entirely, so absent field is unknown. | Angle180,24frames,center proved in fresh import. | Manual90 and imported180 readback, reopen and output proved. | Supported for the measured native option; exhaustive metadata and other native settings remain ambiguous. |
 | Fusion, bundled/custom templates |67 bundled settings plus1 authored installed fixture can be listed by documented paths/archive entries; exact application checked for Slide Left, Cross Dissolve and VERA292. Registry is not their catalog. | Instantiated graph inputs expose real IDs/types/enums/ranges/default-like attributes/current values and visibility. Numeric “default” on FuID was0, not a usable enum identity. | Custom Curve/Ease settings plus duration/alignment rendered. | Graph values persist; OTIO loses graph. | Supported representative controls; exhaustive arbitrary macro/Inspector equivalence unproved. |
 | Already-installed third-party transition / OFX transition | Installed third-party OFX representative is a color filter, not transition. Existing sample DRFX contains no transitions. | Not tested on a representative transition. | Not tested. | Not tested. | Untested; absence of representative is not pass or universal impossibility. Authored custom fixture is not third-party certification. |
-| Full installed chooser + all settings | File inventory covers templates, not all native/OFX/preset/runtime availability. Known registry omissions contradict treating it as full catalog. | No proven exhaustive conditional/read-only/default/units model across all families. | Cannot promise arbitrary chosen installed effect. | Unknown fields cannot safely be synthesized. | Not deliverable from the tested discovery routes; current broad product promise remains blocked. |
+| Full installed chooser + all settings | File inventory covers templates, not all native/OFX/preset/runtime availability. Known registry omissions contradict treating it as full catalog. | No proven exhaustive conditional/read-only/default/units model across all families. | Cannot promise arbitrary chosen installed effect. | Unknown fields cannot safely be synthesized. | Not deliverable from the tested discovery routes; deferred beyond V1 in #88. |
 
 **#88's smallest seam:** use boundary IDs/markers and exact adjacent source
 ranges, validate handles before writes, call native AddTransition for qualified
@@ -142,12 +155,13 @@ Import into a fresh timeline, not over the existing one. The cut-only portable
 verifier must gain an explicit future transition path in #88; do not weaken its
 current rejection or pass this probe off as production delivery.
 
-**#61/#125 allowed claims:** occurrence duration/alignment on qualified effects;
-measured Fusion enum controls; measured Edge Wipe angle through an explicitly
-qualified native route. The proposed full installed searchable chooser and
-automatic exhaustive settings panels are **not cleared**. Do not silently
-replace them with a three-effect menu. A future broader discovery route must be
-proved, or Matthew must explicitly select a narrower/deferred product scope.
+**#61/#125/#137/#128/#138/#139 design envelope:** the approved expandable
+verified library may expose occurrence duration/alignment on qualified effects,
+measured Fusion enum controls, and measured Edge Wipe angle through its narrow,
+seed-based native route. Adding a combination requires its own capability
+evidence. Full installed browsing, automatic exhaustive settings panels and
+automatic inheritance of unknown settings are not V1 promises. A future broader
+discovery route must be proved before being exposed.
 New cuts, explicit effect addition, project chooser order and keep-existing /
 explicit-replace removal remain the product requirements; this investigation
 does not redesign them or restart design owners.
@@ -160,7 +174,8 @@ does not redesign them or restart design owners.
   untested. Do not infer Studio methods work on Free.
 - Missing template/plugin, changed hash/version, duplicate category/name or
   unknown control: refuse new application/update. Preserve existing embedded
-  instances and opaque settings; never substitute Cut or another effect.
+  instances and opaque settings only through proven preservation routes;
+  otherwise refuse the affected write. Never substitute Cut or another effect.
   AddTransition accepts category/name only, so even distinct source paths cannot
   disambiguate a duplicate dispatch name safely. Tests simulate inventory loss
   instead of uninstalling anything. Localization/duplicate runtime resolution
@@ -184,10 +199,16 @@ OTIO native route is specifically why one empty getter cannot establish that.
 ## Delivery boundary
 
 This PR delivers the working placement/settings proof and preserves the honest
-discovery gap. **#292 remains open**: a reliable full installed Effects Library
-inventory and exhaustive real control discovery have not been delivered. Keep
-that work in this one issue, without creating a duplicate discovery ticket.
-The 68-record template file list is explicitly a partial inventory.
+discovery gap. Under the approved verified-library scope, #292 can close after
+the final head passes Validate and is merged. The 68-record template file list
+remains a partial inventory; universal discovery is deferred work retained in
+#88 alongside its production integration responsibility. No production engine
+is delivered here. Existing-transition neighbor trim/move behavior needs its
+own qualification before any production editing path promises it.
+
+Once #292 is green, merged and Closed/Done, its transition-specific hold on
+#125 is satisfied for this envelope. Other feature proofs and dependencies
+remain in force; closure does not restart or accept downstream design work.
 
 All local fast-check phases passed after the initial typing failure was fixed:
 generated-contract and TypeScript checks/tests from validate:fast; final Python
