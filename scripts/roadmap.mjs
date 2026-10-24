@@ -22,6 +22,7 @@ const VERA_ROADMAPS = new Map([
 ]);
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const GH_OUTPUT_LIMIT_BYTES = 16 * 1024 * 1024;
 
 const RATE_LIMIT_QUERY = `query RoadmapRateLimit {
   rateLimit { limit remaining used resetAt cost }
@@ -118,19 +119,24 @@ function required(flags, name) {
 }
 
 function runGhResult(args, input) {
-  return spawnSync("gh", args, {
+  const result = spawnSync("gh", args, {
     cwd: root,
     encoding: "utf8",
     input,
     env: process.env,
+    maxBuffer: GH_OUTPUT_LIMIT_BYTES,
   });
+  if (result.error?.code === "ENOBUFS") {
+    throw new Error(`GitHub CLI output exceeded the ${GH_OUTPUT_LIMIT_BYTES / (1024 * 1024)} MiB limit`);
+  }
+  if (result.error) throw new Error(`Could not start GitHub CLI: ${result.error.message}`);
+  if (result.signal) throw new Error(`GitHub CLI was terminated by ${result.signal}`);
+  return result;
 }
 
 function runGh(args, input) {
   const result = runGhResult(args, input);
-  if (result.status !== 0) {
-    throw new Error((result.stderr || result.stdout || "GitHub command failed").trim());
-  }
+  if (result.status !== 0) throw new Error((result.stderr || result.stdout || "GitHub command failed").trim());
   return result.stdout.trim();
 }
 
