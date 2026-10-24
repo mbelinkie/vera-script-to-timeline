@@ -1,11 +1,36 @@
-# #289 revised Sweden comparison checkpoint
+# #289 Sweden narration comparison: Inworld selected
 
-Status, 2026-10-24: all four providers generated both selected rows in stage 1.
-Ashley has three complete Inworld generations and a 102-onset Producer review.
-Arthur, the Producer-selected next voice, has one passage and a confirmed short-row
-native prefill; long-row review and selected-voice repeat qualification are pending.
-Captured output passes shared narration admission/projection and the v2 compiler.
-The live Inworld product/CLI adapter is not implemented; #275 remains blocked.
+Decision, 2026-10-24: **select Inworld TTS-2 with Arthur**. The Producer reviewed
+Arthur's complete first passage and accepted the final long repeat as sounding
+great. No further listening is required for this bounded provider decision.
+Ashley and Arthur each have three independently generated full passages; all
+twelve Inworld assets pass shared narration admission/projection and the v2
+compiler through a capture-replay provider. Repeat word boundaries are not all
+human-verified, and this sample does not establish a production failure rate.
+
+The Producer now explicitly requests making Inworld the product default, with
+the voice selected through configuration rather than hardcoded, then restarting
+#275 using that supported path. That is a separate implementation ticket for
+the steward to create/dispatch. The live Inworld product/CLI adapter is not
+implemented here; #275 remains blocked until that integration lands.
+
+| Candidate/configuration | Timing and speech conclusion | First passage generation / audio | First passage reservation |
+| --- | --- | --- | --- |
+| Inworld TTS-2 / Arthur | Selected. Human-reviewed 102 starts: median correction 0 ms, p95 68 ms, worst 128 ms; 87 unchanged. Three passages have valid native structure; final repeat sound accepted. | 7.00 s / 37.26 s | $0.014550 |
+| Inworld TTS-2 / Ashley | Usable baseline; better voice than Polly per Producer. Human-reviewed 102 starts: median 0 ms, p95 96 ms, worst 129 ms. Three structurally valid passages; checked repeat omission flags were false alarms. | 7.00 s / 35.14 s | $0.014550 |
+| ElevenLabs v4 / Matilda | Reject tested configuration. Short clip acceptable; long review stopped after 35 words due to excluded syllables/heavy range corrections. No further repeats. | 10.27 s / 39.52 s | $0.046560 |
+| Fish S2.1 Pro Free / existing voice | Reject native timing for this use: long row has four tied starts/five collapsed intervals; response and audio retained. No new repeats. | 19.03 s / 35.16 s | $0 |
+| Polly neural / Joanna | Explicit supported fallback; both native rows structurally valid, new passage not human-timed. Existing voice judged less good than Inworld. No automatic fallback. | 1.08 s / 33.83 s | $0.018624 including marks |
+
+Actual billed cost is **unconfirmed for every paid entrant**; these are
+conservative reservations, not billing receipts. Wall times include transport
+and decoding and are single-passage observations, not throughput guarantees.
+Native Inworld timing needs no separate aligner in the tested path. Diagnostic
+local MFA batches took 104.97 s for Arthur's first passage and 149.67 s for its
+two repeats; those latencies do not belong in native synthesis runtime.
+Word starts support anchors/highlighting; audible word ends remain unverified.
+Producer listening was unblinded, with direct voice selection and final
+acceptance; no blind preference result is claimed.
 
 The finish line is reliable, compiler-usable word timing first, natural speech
 and pronunciation second. Fish recovery is optional. Keep the existing owner,
@@ -27,8 +52,10 @@ privately outside Git. Neither the script nor its private locator belongs here.
 3. Verify at least one proposed usable result through supported narration
    admission/projection and the v2 compiler. Any missing production integration
    must be explicit; a throwaway comparison script is not an adapter.
-4. Present a short blind sound/pronunciation audition against Polly only for
-   timing passers. Producer acceptance applies to sound, not technical approval.
+4. Present a short sound/pronunciation audition only for timing passers. The
+   initial blind-comparison plan was superseded by the Producer's direct
+   selection of Arthur and explicit final acceptance. Producer acceptance
+   applies to sound, not technical approval.
 
 Generated-row timing supports anchors, highlighting and reconciliation. Do not
 add a requirement for splicing individual generated words: edits regenerate the
@@ -98,15 +125,26 @@ authorization does not require enterprise zero-retention access; do not invent
 that additional prerequisite. Do record actual retention/usage terms as an
 operational limitation, and keep all acoustic analysis local.
 
-## Remaining delivery
+## Consumer handoff
 
-Arthur long-row review, selected-voice repeat qualification, final validation/CI
-and the live provider integration handoff remain outstanding. Native
-arrays matching the source and having increasing times are structural evidence
-only. The Producer explicitly requires manual accuracy confirmation even for
-apparently clean data. Custom/cloned voices are a separate future investigation.
-Preserve the original fail-closed paths and all earlier failures. #275 remains
-blocked; no Resolve run, benchmark restart or default switch.
+The comparison and requested listening are complete. PR merge remains subject
+to green CI. The smallest missing product step is a live Inworld transport
+behind the existing narration provider seam, provider/profile/pricing and CLI
+configuration, secure credential loading, and configurable voice selection.
+Reuse the tested exact source-piece mapping, native 48 kHz samples, strict
+interval validation and capture-isolated proof. Keep model/voice/settings in
+cache identity; preserve existing explicit Polly/Fish routes and fail-closed
+behavior. Arthur is the currently selected configuration value, not a transport
+or compiler constant. No additional provider research or custom voices are
+required for that work.
+
+Only after the new route/default is merged and green should #275 resume through
+its supported fresh/cached/one-row-change workflow with Inworld. Preserve the
+earlier Fish failures and original assets; do not call captured replay a fresh
+live run. The benchmark owner must carry forward applicable text, spending and
+credential authorization. The Producer said he will fund the account; this is
+not a verified balance or an unlimited spending authorization. No Resolve run,
+benchmark restart or default mutation occurred in this comparison.
 
 
 ## Stage-1 timing observations
@@ -125,9 +163,8 @@ not that the audio actually speaks every word correctly.
 
 Differences are rounded diagnostic disagreements against **unreviewed MFA**,
 not measured errors against human truth. The 150 ms p95 gate cannot establish
-actual acoustic accuracy without an independently checked reference. Inworld is
-the first manual-review candidate; ElevenLabs has the largest disagreements to
-inspect. No finalist repeats or sound winner have been selected.
+actual acoustic accuracy without an independently checked reference. This table
+records the initial stage before the human reviews and repeats below.
 
 The local batch used engine-only 16 kHz copies, retained original untrimmed audio,
 recorded exact offsets and English numeral expansions, and preserved diacritics.
@@ -274,18 +311,49 @@ native/MFA p95 differences are 80 and 90 ms, with worst differences 610 and 130 
 The Producer reviewed the short row's unchanged native prefill as accurate,
 resolving the 610 ms second-word disagreement in favor of native timing. Record
 this as an **MFA outlier**, not a reason to shift or reject the native start.
-The long row is the next review. No human-confirmed audible ends are inferred.
+The long row was also reviewed as having only minor disagreements. Its validated
+81-word export changes 15 starts, all later, with p95 absolute correction 82 ms
+and worst 128 ms; 66 starts are unchanged. All ranges are positive, ordered,
+non-overlapping and within the original audio. The review WAV's PCM matches the
+retained capture. Twenty-one ends changed, at most 92 ms; no human-confirmed
+audible ends or formal boundary evidence are admitted by this onset study.
+
+Across both human-reviewed Arthur rows, 87/102 native starts are unchanged,
+p95 absolute correction is 68 ms and worst 128 ms. On that same reviewed audio,
+MFA has median disagreement 10 ms, p95 58 ms and worst 610 ms. Its useful typical
+agreement does not make its outlier a reason to override the human review.
+
+Two further Arthur passages were generated once each, with no retries. All four
+rows retain complete native coverage, ordered positive intervals and audio
+bounds (204/204 token occurrences). Both repeat generations also pass the real
+admission, normalization/cache, projection, compiler and media-needs path.
+Arthur now has six admitted assets and 306 projected tokens across three
+independent generations; the repeat boundaries have not been manually verified.
+Local MFA placed all 204 repeat token occurrences in 149.67 s. Pooled native/MFA
+p95 disagreement is 80 ms, worst 580 ms; row-wise maxima are 540, 280, 580 and
+100 ms. These disagreements remain diagnostic, including the short-row outliers;
+the first generation's human finding does not automatically settle new takes.
+
+Network-denied, audio-only local recognition of the repeats flags proper-name
+variants and apparent omissions in generation 3's long row. These are listening
+flags, not established speech failures; similar earlier Ashley omissions were
+disproved by listening. The Producer listened to that complete 28.18-second row
+and said it sounds great, accepting the final sound/pronunciation check. The
+choice is **Inworld TTS-2 with Arthur**; no further listening, paid provider
+exploration or custom-voice work is needed for this bounded comparison. This
+sound acceptance does not establish every repeat word boundary.
 
 Arthur's reservation adds $0.014550; the cumulative new-provider reservation is
-**$0.104760** of $5, with actual billing still unconfirmed. The original separate
-Polly and Fish caps are unchanged. No top-up, paid fallback, custom voice or
-additional ElevenLabs generation was used.
+**$0.133860** of $5 after both Arthur repeats, with actual billing still
+unconfirmed. The original separate Polly and Fish caps are unchanged. No top-up,
+paid fallback, custom voice or additional ElevenLabs generation was used.
 
 The replay/analysis/projection focused check passes 25 tests; Ruff and the full
 Python mypy check pass. All 1,782 non-slow Python tests pass in 226.23 s. The
 final fast run again encountered the same unrelated five-second
-qualification-output-proposals timeout; its focused file previously passed,
-and the remaining Python checks completed separately. The requested code-only Claude review was
+qualification-output-proposals timeout; its focused 30-test file passed again,
+and the remaining Python checks completed separately. The requested code-only
+Claude review was
 attempted with the playbook's restricted settings but could not execute because
 the CLI account hit its session limit. No adversarial findings or completed
 review are claimed; the playbook permits documenting unavailability and
