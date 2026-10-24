@@ -131,6 +131,58 @@ def test_multichunk_offsets_unicode_repetition_and_sentence_source_spans() -> No
     assert sentences == ["Dr. Zoë can't go.", "🌍 go, go!"]
 
 
+def test_alignment_normalizes_apostrophes_but_preserves_authored_spans() -> None:
+    text = "It\u2019s ready."
+    value = snapshot(
+        text,
+        [("It's", 0.1, 0.4), ("ready", 0.45, 0.7), (".", 0.75, 0.8)],
+    )
+
+    marks = timing_marks(text, (value,), SAMPLE_RATE)
+    words = [mark for mark in marks if mark.kind == "word"]
+
+    assert [mark.value for mark in words] == ["It\u2019s", "ready"]
+    assert (words[0].start_utf16, words[0].end_utf16) == (0, 4)
+    assert (words[0].start_byte, words[0].end_byte) == (
+        0,
+        len("It\u2019s".encode()),
+    )
+
+
+def test_alignment_uses_earliest_apostrophe_variant_before_later_exact_match() -> None:
+    text = "can\u2019t then can't."
+    value = snapshot(
+        text,
+        [
+            ("can't", 0.1, 0.3),
+            ("then", 0.35, 0.45),
+            ("can't", 0.5, 0.7),
+            (".", 0.72, 0.8),
+        ],
+    )
+
+    words = [
+        mark
+        for mark in timing_marks(text, (value,), SAMPLE_RATE)
+        if mark.kind == "word"
+    ]
+
+    assert [mark.value for mark in words] == ["can\u2019t", "then", "can't"]
+    assert words[0].start_utf16 == 0
+    assert words[2].start_utf16 == len("can\u2019t then ".encode("utf-16-le")) // 2
+
+
+def test_zero_duration_word_alignment_is_refused() -> None:
+    text = "Hello world."
+    value = snapshot(
+        text,
+        [("Hello", 0.1, 0.1), ("world", 0.1, 0.8)],
+    )
+
+    with pytest.raises(FishError, match="non-increasing word starts"):
+        timing_marks(text, (value,), SAMPLE_RATE)
+
+
 def test_numbers_abbreviations_currency_combining_marks_and_zero_width_native_end() -> (
     None
 ):
@@ -278,6 +330,71 @@ def test_invalid_credentials_are_not_echoed(monkeypatch: pytest.MonkeyPatch) -> 
     with pytest.raises(FishError, match="missing or invalid") as error:
         FishProvider().preflight(request())
     assert "private" not in str(error.value)
+
+
+def test_api_key_uses_macos_keychain_when_environment_is_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import subprocess
+    from types import SimpleNamespace
+
+    from vera_timeline_agent.narration import fish
+
+    monkeypatch.delenv("FISH_AUDIO_API_KEY", raising=False)
+    monkeypatch.setattr(fish, "sys", SimpleNamespace(platform="darwin"))
+    calls: list[tuple[list[str], dict[str, object]]] = []
+
+    def read_keychain(args: list[str], **kwargs: object) -> SimpleNamespace:
+        calls.append((args, kwargs))
+        return SimpleNamespace(returncode=0, stdout="keychain-only-key\n")
+
+    monkeypatch.setattr(subprocess, "run", read_keychain)
+    assert fish._api_key() == "keychain-only-key"
+    assert calls == [
+        (
+            [
+                "/usr/bin/security",
+                "find-generic-password",
+                "-s",
+                "com.vera.script-to-timeline",
+                "-a",
+                "fish_audio_api_key",
+                "-w",
+            ],
+            {
+                "capture_output": True,
+                "check": False,
+                "text": True,
+                "timeout": 5,
+            },
+        )
+    ]
+
+    monkeypatch.setenv("FISH_AUDIO_API_KEY", "environment-override")
+    assert fish._api_key() == "environment-override"
+    assert len(calls) == 1
+
+
+def test_keychain_credential_is_read_once_for_preflight_and_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from vera_timeline_agent.narration import fish
+
+    calls: list[str] = []
+    monkeypatch.setenv("FISH_AUDIO_API_KEY", "test-only-key")
+
+    def api_key() -> str:
+        calls.append("read")
+        return "test-only-key"
+
+    monkeypatch.setattr(fish, "_api_key", api_key)
+    provider = FishProvider()
+    provider.preflight(request())
+    monkeypatch.setattr(provider, "_stream", lambda payload, model, *, api_key: ())
+
+    list(provider._transport(b"{}", "s2.1-pro-free"))
+
+    assert calls == ["read"]
 
 
 def test_definite_rejection_releases_marker_but_does_not_automatically_retry(
