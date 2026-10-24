@@ -1,0 +1,2775 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="issue32-shared-system-v1.0.0.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="crossorigin" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+body{margin:0;background:#0f1116;color:#e7e4dd}
+a{color:#c49b50}
+a:hover{color:#d8bd86}
+input[type=range]{accent-color:#b8933f}
+[contenteditable]:focus{outline:2px solid #b8933f;outline-offset:3px;border-radius:3px}
+</style>
+</helmet>
+<div style="min-height:100vh;background:#0f1116;padding:16px 16px 36px;display:grid;gap:10px;justify-items:center;align-content:start;font-family:var(--font-ui)">
+
+<div style="display:flex;gap:var(--space-6);align-items:center;flex-wrap:wrap;justify-content:center;padding:var(--space-6) var(--space-10);border:var(--border-w) dashed #2f353e;border-radius:var(--radius-pill)">
+<span style="font:var(--type-micro-flat-weight) var(--type-micro-flat-size)/1 var(--type-micro-flat-family);color:#656c78;margin-right:var(--space-4)">Preview harness</span>
+<sc-for list="{{ views }}" as="v" hint-placeholder-count="2">
+<button type="button" onClick="{{ v.pick }}" aria-pressed="{{ v.on }}" style="{{ v.style }}">{{ v.label }}</button>
+</sc-for>
+<sc-for list="{{ widths }}" as="w" hint-placeholder-count="2">
+<button type="button" onClick="{{ w.pick }}" aria-pressed="{{ w.on }}" style="{{ w.style }}">{{ w.label }}</button>
+</sc-for>
+<button type="button" onClick="{{ doReload }}" style="{{ reloadStyle }}">{{ reloadLabel }}</button>
+</div>
+
+<div style="{{ frameStyle }}">
+
+<div style="height:var(--titlebar-h);flex:0 0 auto;display:flex;align-items:center;gap:var(--space-8);padding:0 var(--space-12);background:#171a20;border-bottom:var(--border-w) solid #262b33">
+<span style="width:8px;height:8px;border-radius:var(--radius-pill);background:#3a4048"></span>
+<span style="font:var(--type-micro-weight) var(--type-micro-size)/var(--type-micro-leading) var(--type-micro-family);color:#7b828c">vera.suite / script-to-timeline / harbor-lights-explainer</span>
+</div>
+
+<div onScroll="{{ onScroll }}" onClick="{{ surfaceClick }}" style="{{ scrollerStyle }}">
+
+<div style="{{ barWrapStyle }}">
+<div style="{{ barStyle }}">
+<div style="display:grid;gap:0;min-width:0;margin-right:var(--space-4)">
+<sc-if value="{{ notRenaming }}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{ startRename }}" aria-label="{{ titleAria }}" style="{{ titleBtnStyle }}" style-hover="border-color:#3a4048;background:#1c2028">{{ headTitle }}</button>
+</sc-if>
+<sc-if value="{{ renaming }}" hint-placeholder-val="{{ true }}">
+<span contenteditable="true" suppressContentEditableWarning="{{ true }}" role="textbox" data-title="1" aria-label="Rename script" onBlur="{{ commitRename }}" onKeyDown="{{ titleKey }}" style="{{ titleEditStyle }}">{{ titleValue }}</span>
+</sc-if>
+<span style="font:var(--type-micro-flat-weight) var(--type-micro-flat-size)/1.3 var(--type-micro-flat-family);color:#7b828c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ headSub }}</span>
+</div>
+<span style="{{ syncStyle }}">✓ Synced</span>
+<span style="flex:1 1 auto"></span>
+
+<div style="position:relative;display:flex;align-items:center;gap:2px">
+<button type="button" onClick="{{ undoOnce }}" aria-disabled="{{ undoDisabled }}" title="{{ undoTitle }}" style="{{ undoBtnStyle }}">↶ Undo</button>
+<button type="button" onClick="{{ toggleUndoMenu }}" aria-expanded="{{ undoMenuOpen }}" aria-label="Show recent actions" style="{{ undoCaretStyle }}">▾</button>
+<sc-if value="{{ undoMenuVisible }}" hint-placeholder-val="{{ true }}">
+<div role="menu" aria-label="Recent actions, newest first" style="position:absolute;top:30px;right:0;z-index:60;width:292px;max-height:318px;overflow:auto;display:grid;gap:1px;padding:var(--space-6);border:var(--border-w) solid #2a2f38;border-radius:var(--radius-panel);background:#171a20;box-shadow:0 18px 44px rgb(0 0 0 / 55%)">
+<span style="padding:var(--space-4) var(--space-8);font:var(--type-micro-flat-weight) var(--type-micro-flat-size)/1.3 var(--type-micro-flat-family);color:#7b828c">Undo through — newest first</span>
+<sc-for list="{{ undoItems }}" as="u" hint-placeholder-count="6">
+<button type="button" role="menuitem" onClick="{{ u.pick }}" style="{{ u.style }}">
+<span style="font:var(--type-mono-caption-weight) var(--type-mono-caption-size)/1 var(--type-mono-caption-family);color:#7b828c;min-width:18px">{{ u.n }}</span>
+<span style="text-align:left;font:var(--type-body-sm-weight) var(--type-body-sm-size)/1.35 var(--type-body-sm-family)">{{ u.label }}</span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+</div>
+
+<label style="display:flex;align-items:center;gap:var(--space-6);white-space:nowrap">
+<span style="font:var(--type-micro-flat-weight) var(--type-micro-flat-size)/1 var(--type-micro-flat-family);color:#8b929e">Thumbnail size</span>
+<input type="range" min="0" max="100" step="1" value="{{ thumbSize }}" onChange="{{ setThumb }}" onInput="{{ setThumb }}" aria-label="Thumbnail size, zero hides thumbnails" style="width:68px" />
+<span style="font:var(--type-mono-caption-weight) var(--type-mono-caption-size)/1 var(--type-mono-caption-family);color:#656c78;min-width:30px">{{ thumbLabel }}</span>
+</label>
+
+<button type="button" onClick="{{ doCheck }}" style="{{ checkStyle }}">Check readiness</button>
+<sc-if value="{{ checkSummary }}" hint-placeholder-val="{{ true }}">
+<span style="{{ checkSummaryStyle }}">{{ checkSummary }}</span>
+</sc-if>
+<button type="button" onClick="{{ toggleSettings }}" aria-expanded="{{ settingsOpen }}" style="{{ settingsBtnStyle }}">Settings</button>
+</div>
+
+<sc-if value="{{ settingsVisible }}" hint-placeholder-val="{{ true }}">
+<div role="dialog" aria-label="Settings" style="{{ settingsPanelStyle }}">
+<div style="display:grid;gap:var(--space-6);max-width:320px">
+<button type="button" onClick="{{ togglePresenterThumb }}" aria-pressed="{{ presenterThumbAria }}" style="{{ presenterToggleStyle }}">{{ presenterToggleLabel }}</button>
+<span style="font:var(--type-body-sm-weight) var(--type-body-sm-size)/1.45 var(--type-body-sm-family);color:#8b929e;text-wrap:pretty">Editor display only. The configured presenter is still used when temporary VO is constructed.</span>
+</div>
+<label style="display:grid;gap:var(--space-5)">
+<span style="font:var(--type-micro-flat-weight) var(--type-micro-flat-size)/1.4 var(--type-micro-flat-family);color:#8b929e">Configured presenter</span>
+<input type="text" value="{{ scriptPresenter }}" onChange="{{ setPresenterName }}" style="{{ fieldStyle }}" />
+</label>
+<div style="display:grid;gap:var(--space-5);max-width:300px">
+<span style="font:var(--type-micro-flat-weight) var(--type-micro-flat-size)/1.4 var(--type-micro-flat-family);color:#8b929e">Authoring size</span>
+<div style="display:flex;align-items:center;gap:var(--space-8)">
+<input type="range" min="80" max="150" step="5" value="{{ textScaleValue }}" onChange="{{ setTextScale }}" onInput="{{ setTextScale }}" aria-label="Authoring size, percent of default" style="width:120px" />
+<span style="font:var(--type-mono-caption-weight) var(--type-mono-caption-size)/1 var(--type-mono-caption-family);color:#c3c8d0;min-width:36px">{{ textScaleLabel }}</span>
+<button type="button" onClick="{{ resetTextScale }}" style="{{ presenterToggleStyle }}">Reset</button>
+</div>
+<span style="font:var(--type-body-sm-weight) var(--type-body-sm-size)/1.45 var(--type-body-sm-family);color:#8b929e;text-wrap:pretty">Scales narration, visual cards, controls and spacing together. Thumbnail size stays independent. Display only — script content, voiceover, timing estimates and cue anchors are unchanged.</span>
+</div>
+</div>
+</sc-if>
+</div>
+
+<sc-if value="{{ isGate }}" hint-placeholder-val="{{ true }}">
+<div style="max-width:600px;margin:0 auto;padding:var(--space-24) var(--space-24) var(--space-32);display:grid;gap:var(--space-16);justify-items:start">
+<h1 style="margin:0;font:600 var(--type-h2-size)/1.25 var(--font-ui);color:#f4e1b9">Projects you can write</h1>
+<div style="width:100%;display:grid;gap:var(--space-8)">
+<sc-for list="{{ projects }}" as="p" hint-placeholder-count="3">
+<button type="button" onClick="{{ p.pick }}" aria-pressed="{{ p.on }}" aria-disabled="{{ p.locked }}" style="{{ p.style }}">
+<span style="display:grid;gap:3px;min-width:0;text-align:left">
+<span style="font:var(--type-card-title-weight) var(--type-card-title-size)/var(--type-card-title-leading) var(--type-card-title-family);color:#e7e4dd">{{ p.name }}</span>
+<span style="font:var(--type-micro-flat-weight) var(--type-micro-flat-size)/1.4 var(--type-micro-flat-family);color:#8b929e">{{ p.meta }}</span>
+</span>
+<span style="{{ p.tagStyle }}">{{ p.tag }}</span>
+</button>
+</sc-for>
+</div>
+<div style="width:100%;display:grid;gap:var(--space-6)">
+<span style="font:var(--type-eyebrow-admin-weight) var(--type-eyebrow-admin-size)/var(--type-eyebrow-admin-leading) var(--type-eyebrow-admin-family);letter-spacing:var(--type-eyebrow-admin-tracking);text-transform:uppercase;color:#7b828c">Sections</span>
+<sc-for list="{{ sections }}" as="sec" hint-placeholder-count="3">
+<button type="button" onClick="{{ sec.pick }}" aria-pressed="{{ sec.on }}" style="{{ sec.style }}">{{ sec.name }}</button>
+</sc-for>
+</div>
+<button type="button" onClick="{{ openScript }}" style="height:var(--control-h-primary);padding:0 var(--space-16);border:var(--border-w) solid var(--gold-border);border-radius:var(--radius-control);background:var(--gold);color:var(--gold-ink);font:var(--type-action-weight) var(--type-action-size)/1 var(--type-action-family);cursor:pointer" style-hover="background:var(--gold-hover)">Open script</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ isDoc }}" hint-placeholder-val="{{ true }}">
+<div style="{{ pageStyle }}">
+
+<button type="button" role="separator" aria-label="{{ dividerAria }}" aria-valuenow="{{ splitNow }}" aria-valuemin="{{ splitMin }}" aria-valuemax="{{ splitMax }}" onMouseDown="{{ startDrag }}" onKeyDown="{{ dividerKey }}" style="{{ dividerStyle }}"></button>
+
+<div style="{{ docBodyStyle }}">
+<sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+
+<div onMouseEnter="{{ r.gapEnter }}" onMouseLeave="{{ r.gapLeave }}" style="{{ r.gapZoneStyle }}">
+<button type="button" onClick="{{ r.addRowBefore }}" onFocus="{{ r.gapEnter }}" onBlur="{{ r.gapLeave }}" aria-label="{{ r.addRowBeforeAria }}" style="{{ r.gapBtnStyle }}">+ Row</button>
+<button type="button" onClick="{{ r.addSection }}" onFocus="{{ r.gapEnter }}" onBlur="{{ r.gapLeave }}" aria-label="{{ r.addSectionAria }}" style="{{ r.gapBtnStyle }}">+ Section</button>
+</div>
+
+<sc-if value="{{ r.hasSection }}" hint-placeholder-val="{{ true }}">
+<h2 contenteditable="true" suppressContentEditableWarning="{{ true }}" role="textbox" data-section="{{ r.id }}" aria-label="{{ r.sectionAria }}" onBlur="{{ r.sectionBlur }}" onKeyDown="{{ r.sectionKey }}" style="{{ r.sectionStyle }}">{{ r.sectionTitle }}</h2>
+<div style="{{ r.sectionRuleStyle }}"></div>
+</sc-if>
+
+<div onMouseEnter="{{ r.enter }}" onMouseLeave="{{ r.leave }}" style="{{ r.bandStyle }}">
+<div data-leftcell="{{ r.id }}" style="{{ r.leftStyle }}">
+<sc-if value="{{ r.hasWords }}" hint-placeholder-val="{{ true }}">
+<p contenteditable="{{ r.editable }}" suppressContentEditableWarning="{{ true }}" role="textbox" aria-label="{{ r.proseAria }}" data-prose="{{ r.id }}" onBlur="{{ r.proseBlur }}" onKeyDown="{{ r.proseKey }}" style="{{ r.proseStyle }}">
+<sc-for list="{{ r.chunks }}" as="ch" hint-placeholder-count="3">
+<span onMouseEnter="{{ ch.enter }}" onMouseLeave="{{ ch.leave }}" onContextMenu="{{ ch.editRange }}" style="{{ ch.style }}">
+<sc-if value="{{ ch.hasCap }}" hint-placeholder-val="{{ true }}">
+<button type="button" data-cap="1" contenteditable="false" id="{{ ch.capOpenId }}" onMouseDown="{{ ch.dragOpen }}" onKeyDown="{{ ch.keyOpen }}" onContextMenu="{{ ch.editRange }}" onFocus="{{ ch.enter }}" onBlur="{{ ch.leave }}" aria-label="{{ ch.ariaOpen }}" style="{{ ch.capOpenStyle }}">{{ ch.capOpenGlyph }}</button>
+</sc-if>
+<sc-for list="{{ ch.words }}" as="w" hint-placeholder-count="12">
+<span data-w="{{ w.key }}" onClick="{{ w.click }}" style="{{ w.style }}">{{ w.text }}</span>
+</sc-for>
+<sc-if value="{{ ch.hasClose }}" hint-placeholder-val="{{ true }}">
+<button type="button" data-cap="1" contenteditable="false" onMouseDown="{{ ch.dragClose }}" onKeyDown="{{ ch.keyClose }}" onContextMenu="{{ ch.editRange }}" onFocus="{{ ch.enter }}" onBlur="{{ ch.leave }}" aria-label="{{ ch.ariaClose }}" style="{{ ch.capCloseStyle }}">{{ ch.capCloseGlyph }}</button>
+</sc-if>
+</span>
+</sc-for>
+</p>
+</sc-if>
+<sc-if value="{{ r.isBlank }}" hint-placeholder-val="{{ true }}">
+<div style="position:relative">
+<span data-hint="1" style="position:absolute;left:0;top:0;pointer-events:none;font:var(--type-transcript-size)/1.8 var(--font-ui);color:#a6acb4">Write narration…</span>
+<div contenteditable="true" role="textbox" aria-label="Spoken narration" data-cell="{{ r.id }}" onKeyDown="{{ r.keyDown }}" onInput="{{ r.input }}" onBlur="{{ r.blankBlur }}" style="{{ r.editStyle }}"></div>
+</div>
+</sc-if>
+<sc-if value="{{ r.pickPrompt }}" hint-placeholder-val="{{ true }}">
+<span style="display:inline-flex;align-items:center;margin-top:var(--space-8);padding:var(--space-5) var(--space-8);border:var(--border-w) solid #e6d6a8;border-radius:var(--radius-chip);background:#fdf7e6;font:var(--type-body-sm-weight) var(--type-body-sm-size)/1.4 var(--type-body-sm-family);color:#7a5c12">{{ r.pickPrompt }}</span>
+</sc-if>
+<sc-if value="{{ r.conflict }}" hint-placeholder-val="{{ true }}">
+<div role="alertdialog" aria-label="Narration and clip audio" style="display:grid;gap:var(--space-6);margin-top:var(--space-8);padding:var(--space-8) var(--space-10);border:var(--border-w) solid #e6d6a8;border-radius:var(--radius-chip);background:#fdf7e6">
+<span style="font:var(--type-body-sm-weight) var(--type-body-sm-size)/1.45 var(--type-body-sm-family);color:#6d5316;text-wrap:pretty">△ This row's clip audio is the primary sound. Narration here needs a choice.</span>
+<div style="display:flex;gap:var(--space-6);flex-wrap:wrap">
+<button type="button" onClick="{{ r.resolveBroll }}" style="{{ r.resolveStyle }}">Keep narration — clip becomes quiet B-roll</button>
+<button type="button" onClick="{{ r.resolveAudio }}" style="{{ r.resolveStyle }}">Remove narration — keep clip audio</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ r.confirmDelete }}" hint-placeholder-val="{{ true }}">
+<div role="alertdialog" aria-label="Delete row" style="display:grid;gap:var(--space-6);margin-top:var(--space-8);padding:var(--space-8) var(--space-10);border:var(--border-w) solid #e0bdb8;border-radius:var(--radius-chip);background:#fdf1ef">
+<span style="font:var(--type-body-sm-weight) var(--type-body-sm-size)/1.45 var(--type-body-sm-family);color:#8c2f26;text-wrap:pretty">{{ r.confirmDelete }}</span>
+<div style="display:flex;gap:var(--space-6)">
+<button type="button" onClick="{{ r.doDelete }}" style="{{ r.resolveStyle }}">Delete row</button>
+<button type="button" onClick="{{ r.cancelDelete }}" style="{{ r.resolveStyle }}">Keep it</button>
+</div>
+</div>
+</sc-if>
+</div>
+
+<div data-rowid="{{ r.id }}" onDragOver="{{ r.dragOver }}" onDrop="{{ r.dropInRow }}" style="{{ r.rightStyle }}">
+
+<sc-for list="{{ r.pins }}" as="p" hint-placeholder-count="2">
+<span style="{{ p.wrapStyle }}">
+<span style="{{ p.stemStyle }}"></span>
+<span style="{{ p.pinStyle }}">{{ p.n }}</span>
+<span style="{{ p.railStyle }}"></span>
+<span style="{{ p.dropStyle }}"></span>
+<span style="{{ p.portStyle }}"></span>
+<span style="{{ p.capStyle }}"></span>
+</span>
+</sc-for>
+
+<sc-for list="{{ r.items }}" as="v" hint-placeholder-count="2">
+<div data-anchor="{{ v.anchorId }}" style="{{ v.blockStyle }}">
+<div onMouseEnter="{{ v.insEnter }}" onMouseLeave="{{ v.insLeave }}" onDragOver="{{ v.insDragOver }}" onDrop="{{ v.insDrop }}" style="{{ v.insZoneStyle }}">
+<button type="button" onClick="{{ v.insert }}" onFocus="{{ v.insEnter }}" onBlur="{{ v.insLeave }}" aria-label="{{ v.insAria }}" style="{{ v.insBtnStyle }}">+</button>
+<span style="{{ v.dropRailStyle }}"></span>
+</div>
+
+<sc-if value="{{ v.isChip }}" hint-placeholder-val="{{ true }}">
+<div style="{{ v.chipStyle }}">
+<span style="{{ v.chipRailStyle }}"></span>
+<sc-if value="{{ v.chipThumb }}" hint-placeholder-val="{{ true }}">
+<span role="img" aria-label="{{ v.chipThumbAlt }}" style="{{ v.chipThumbStyle }}"></span>
+</sc-if>
+<span style="font:var(--type-pill-weight) var(--type-pill-size)/var(--type-pill-leading) var(--type-pill-family);text-transform:uppercase;letter-spacing:.06em;color:#6d5316;white-space:nowrap">{{ v.chipLabel }}</span>
+<span style="flex:1 1 auto"></span>
+<sc-if value="{{ v.chipRemove }}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{ v.chipRemove }}" aria-label="{{ v.chipRemoveAria }}" style="{{ v.xStyle }}">✕</button>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ v.isCard }}" hint-placeholder-val="{{ true }}">
+<div tabindex="0" role="button" data-slot="{{ v.id }}" aria-expanded="{{ v.expandedAria }}" aria-label="{{ v.cardAria }}" onClick="{{ v.cardClick }}" onKeyDown="{{ v.cardKey }}" onFocus="{{ v.focusCard }}" onBlur="{{ v.blurCard }}" onMouseEnter="{{ v.enter }}" onMouseLeave="{{ v.leave }}" onContextMenu="{{ v.moreMenu }}" draggable="true" onDragStart="{{ v.dragStart }}" onDragOver="{{ v.dragOver }}" onDragLeave="{{ v.dragLeaveCard }}" onDrop="{{ v.drop }}" style="{{ v.cardStyle }}">
+
+<sc-if value="{{ v.canBeSwapTarget }}" hint-placeholder-val="{{ true }}">
+<div aria-hidden="true" style="{{ v.swapTargetStyle }}"><span style="{{ v.swapChipStyle }}">⇄ Swap with this visual</span></div>
+</sc-if>
+
+<div style="{{ v.topRowStyle }}">
+<button type="button" onClick="{{ v.moreMenu }}" aria-label="{{ v.handleAria }}" style="{{ v.handleStyle }}">⠿</button>
+<sc-if value="{{ v.ordLabel }}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{ v.goCue }}" aria-label="{{ v.ordAria }}" style="{{ v.ordStyle }}">{{ v.ordLabel }}</button>
+</sc-if>
+<sc-if value="{{ v.isUndef }}" hint-placeholder-val="{{ true }}">
+<select aria-label="Visual type" data-sel="{{ v.id }}" value="{{ v.selValue }}" onChange="{{ v.selectKind }}" onClick="{{ v.stop }}" style="{{ v.selectStyle }}">
+<sc-for list="{{ v.options }}" as="o" hint-placeholder-count="5">
+<option value="{{ o.v }}">{{ o.t }}</option>
+</sc-for>
+</select>
+</sc-if>
+<sc-if value="{{ v.isDefined }}" hint-placeholder-val="{{ true }}">
+<span style="{{ v.typeStyle }}">{{ v.typeLabel }}</span>
+</sc-if>
+<sc-if value="{{ v.unresolved }}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{ v.chooseStart }}" aria-label="{{ v.unresolvedAria }}" style="{{ v.unresolvedStyle }}">⚠ Choose start word</button>
+</sc-if>
+<sc-if value="{{ v.zeroDuration }}" hint-placeholder-val="{{ true }}">
+<span style="flex:0 0 auto;white-space:nowrap;font:var(--type-mono-caption-weight) var(--type-mono-caption-size)/1.3 var(--type-mono-caption-family);color:#5b626c">{{ v.zeroDuration }}</span>
+</sc-if>
+<span style="flex:1 1 auto"></span>
+<button type="button" onClick="{{ v.more }}" aria-label="{{ v.moreAria }}" style="{{ v.moreStyle }}">⋯</button>
+<button type="button" onClick="{{ v.remove }}" aria-label="{{ v.removeAria }}" style="{{ v.xStyle }}">✕</button>
+</div>
+
+<div style="{{ v.bodyStyle }}">
+<sc-if value="{{ v.showThumb }}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{ v.openPreview }}" aria-label="{{ v.previewAria }}" style="{{ v.thumbWrapStyle }}">
+<sc-if value="{{ v.bigText }}" hint-placeholder-val="{{ true }}">
+<span style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font:700 12px/1.25 var(--font-ui);letter-spacing:.04em;text-transform:uppercase;color:#e9ecef">{{ v.bigText }}</span>
+</sc-if>
+<sc-if value="{{ v.playAffordance }}" hint-placeholder-val="{{ true }}">
+<span style="{{ v.playAffordanceStyle }}">▶</span>
+</sc-if>
+</button>
+</sc-if>
+<div style="{{ v.textColStyle }}">
+<sc-if value="{{ v.audioBadge }}" hint-placeholder-val="{{ true }}">
+<span style="{{ v.audioBadgeStyle }}">{{ v.audioBadge }}</span>
+</sc-if>
+<sc-if value="{{ v.headline }}" hint-placeholder-val="{{ true }}">
+<span style="{{ v.excerptStyle }}">{{ v.headline }}</span>
+</sc-if>
+<sc-if value="{{ v.durationLine }}" hint-placeholder-val="{{ true }}">
+<span style="font:var(--type-mono-meta-weight) var(--type-mono-meta-size)/1.35 var(--type-mono-meta-family);color:#5b626c">{{ v.durationLine }}</span>
+</sc-if>
+</div>
+</div>
+<sc-if value="{{ v.advisoryOpen }}" hint-placeholder-val="{{ true }}">
+<div style="{{ v.advisoryStyle }}">
+<span>⚠ {{ v.advisory }}</span>
+<span style="display:flex;gap:var(--space-6);flex-wrap:wrap;margin-top:var(--space-5)">
+<button type="button" onClick="{{ v.advisoryFixIn }}" style="{{ v.previewBtnStyle }}">Change the in point</button>
+<button type="button" onClick="{{ v.advisoryPick }}" style="{{ v.previewBtnStyle }}">Choose another clip</button>
+</span>
+</div>
+</sc-if>
+<sc-if value="{{ v.readyMsg }}" hint-placeholder-val="{{ true }}">
+<span style="{{ v.readyStyle }}">{{ v.readyMsg }}</span>
+</sc-if>
+
+<sc-if value="{{ v.expanded }}" hint-placeholder-val="{{ true }}">
+<div onClick="{{ v.stop }}" style="display:grid;gap:var(--space-8);padding:var(--space-8) var(--space-10);border:var(--border-w) solid #e2e5e8;border-radius:var(--radius-chip);background:#f7f8f9">
+<sc-if value="{{ v.sourceName }}" hint-placeholder-val="{{ true }}">
+<div style="display:grid;gap:2px">
+<span style="font:var(--type-micro-flat-weight) var(--type-micro-flat-size)/1.4 var(--type-micro-flat-family);color:#7b828c">Source video</span>
+<span style="font:var(--type-body-sm-weight) var(--type-body-sm-size)/1.45 var(--type-body-sm-family);color:#2b2f36;text-wrap:pretty">{{ v.sourceName }}</span>
+</div>
+</sc-if>
+<sc-if value="{{ v.fullTranscript }}" hint-placeholder-val="{{ true }}">
+<div style="display:grid;gap:2px">
+<span style="font:var(--type-micro-flat-weight) var(--type-micro-flat-size)/1.4 var(--type-micro-flat-family);color:#7b828c">Clip transcript</span>
+<span style="font:var(--type-body-sm-weight) var(--type-body-sm-size)/1.5 var(--type-body-sm-family);color:#2b2f36;text-wrap:pretty">{{ v.fullTranscript }}</span>
+</div>
+</sc-if>
+<sc-if value="{{ v.modeLabel }}" hint-placeholder-val="{{ true }}">
+<div style="display:grid;gap:var(--space-5)">
+<span style="font:var(--type-micro-flat-weight) var(--type-micro-flat-size)/1.4 var(--type-micro-flat-family);color:#7b828c">Where this clip ends — {{ v.modeLabel }}</span>
+<div style="display:flex;gap:var(--space-6);flex-wrap:wrap">
+<button type="button" onClick="{{ v.setWordMode }}" aria-pressed="{{ v.modeWordOn }}" style="{{ v.modeBtnWordStyle }}">Cut on narration word</button>
+<button type="button" onClick="{{ v.setMediaMode }}" aria-pressed="{{ v.modeMediaOn }}" style="{{ v.modeBtnMediaStyle }}">Play until media outpoint</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ v.isClip }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;gap:var(--space-6);flex-wrap:wrap">
+<button type="button" onClick="{{ v.openPreview }}" style="{{ v.previewBtnStyle }}">▶ Preview clip</button>
+<button type="button" onClick="{{ v.openTrim }}" style="{{ v.trimBtnStyle }}">Trim clip</button>
+</div>
+<button type="button" onClick="{{ v.toggleSound }}" role="switch" aria-checked="{{ v.soundAria }}" style="{{ v.soundStyle }}">
+<span style="{{ v.soundTrackStyle }}"><span style="{{ v.soundKnobStyle }}"></span></span>
+<span style="text-align:left;font:var(--type-body-sm-weight) var(--type-body-sm-size)/1.35 var(--type-body-sm-family)">Play clip sound quietly under narration</span>
+<span style="font:var(--type-mono-caption-weight) var(--type-mono-caption-size)/1 var(--type-mono-caption-family);color:#7b828c">{{ v.soundState }}</span>
+</button>
+</sc-if>
+<sc-if value="{{ v.isPlaceholder }}" hint-placeholder-val="{{ true }}">
+<label style="display:grid;gap:3px"><span style="font:var(--type-micro-flat-weight) var(--type-micro-flat-size)/1.4 var(--type-micro-flat-family);color:#7b828c">On-screen text</span><input type="text" value="{{ v.customText }}" onChange="{{ v.setCustomText }}" aria-label="On-screen text" style="{{ v.textStyle }}" /></label>
+</sc-if>
+<sc-if value="{{ v.provenance }}" hint-placeholder-val="{{ true }}">
+<div style="display:grid;gap:2px;padding-top:var(--space-5);border-top:var(--border-w) solid #e2e5e8">
+<span style="font:var(--type-micro-flat-weight) var(--type-micro-flat-size)/1.4 var(--type-micro-flat-family);color:#7b828c">Provenance</span>
+<span style="font:var(--type-body-sm-weight) var(--type-body-sm-size)/1.45 var(--type-body-sm-family);color:#5b626c;text-wrap:pretty">{{ v.provenance }}</span>
+</div>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+</div>
+</sc-for>
+
+<div onMouseEnter="{{ r.addEnter }}" onMouseLeave="{{ r.addLeave }}" style="{{ r.addZoneStyle }}">
+<button type="button" onClick="{{ r.addVisual }}" onFocus="{{ r.addEnter }}" onBlur="{{ r.addLeave }}" aria-label="{{ r.addAria }}" style="{{ r.addBtnStyle }}">+ Visual</button>
+<sc-if value="{{ r.canCutaway }}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{ r.addMenu }}" onFocus="{{ r.addEnter }}" onBlur="{{ r.addLeave }}" aria-label="{{ r.addMenuAria }}" style="{{ r.addCaretStyle }}">▾</button>
+</sc-if>
+<span style="flex:1 1 auto"></span>
+<button type="button" onClick="{{ r.rowMenu }}" onFocus="{{ r.addEnter }}" onBlur="{{ r.addLeave }}" aria-label="{{ r.rowMenuAria }}" style="{{ r.rowMenuStyle }}">⋯</button>
+</div>
+</div>
+
+</div>
+</sc-for>
+
+<div onMouseEnter="{{ tailEnter }}" onMouseLeave="{{ tailLeave }}" style="{{ tailZoneStyle }}">
+<button type="button" onClick="{{ addRowEnd }}" onFocus="{{ tailEnter }}" onBlur="{{ tailLeave }}" aria-label="Add a row after the last row" style="{{ tailBtnStyle }}">+ Row</button>
+<button type="button" onClick="{{ addSectionEnd }}" onFocus="{{ tailEnter }}" onBlur="{{ tailLeave }}" aria-label="Add a section after the last section" style="{{ tailBtnStyle }}">+ Section</button>
+</div>
+
+</div>
+</div>
+</sc-if>
+
+</div>
+</div>
+
+<sc-if value="{{ hoverPreviewOpen }}">
+<button type="button" onClick="{{ openHoverPreview }}" onMouseEnter="{{ holdPreview }}" onMouseLeave="{{ releasePreview }}" aria-label="{{ hoverPreviewAria }}" style="{{ hoverPreviewStyle }}">
+<span style="position:absolute;left:var(--space-5);bottom:var(--space-4);padding:1px var(--space-5);border-radius:var(--radius-hairline);background:rgb(10 12 16 / 70%);font:var(--type-mono-caption-weight) var(--type-mono-caption-size)/1.35 var(--type-mono-caption-family);color:#e2e5e8">▶ {{ hoverPreviewCaption }}</span>
+</button>
+</sc-if>
+
+<sc-if value="{{ playerOpen }}" hint-placeholder-val="{{ true }}">
+<div role="dialog" aria-label="Clip player" onKeyDown="{{ playerKey }}" style="{{ playerStyle }}">
+<button type="button" onMouseDown="{{ resizeDown }}" onKeyDown="{{ resizeKey }}" aria-label="{{ resizeAria }}" style="{{ resizeStyle }}">⤡</button>
+<div onMouseDown="{{ moveDown }}" style="{{ playerHeaderStyle }}">
+<span style="font:var(--type-subhead-weight) var(--type-subhead-size)/var(--type-subhead-leading) var(--type-subhead-family);color:#e7e4dd">Clip player</span>
+<span style="flex:1 1 auto"></span>
+<button type="button" onClick="{{ closePlayer }}" aria-label="Close the clip player" style="{{ trimCloseStyle }}">✕</button>
+</div>
+<span style="font:var(--type-micro-flat-weight) var(--type-micro-flat-size)/1.4 var(--type-micro-flat-family);color:#8b929e;text-wrap:pretty">{{ trimSource }}</span>
+<div role="img" aria-label="{{ playerAlt }}" style="{{ trimStageStyle }}">
+<span style="position:absolute;left:var(--space-6);bottom:var(--space-5);padding:1px var(--space-5);border-radius:var(--radius-hairline);background:rgb(10 12 16 / 66%);font:var(--type-mono-caption-weight) var(--type-mono-caption-size)/1.35 var(--type-mono-caption-family);color:#e2e5e8">{{ playerTime }}</span>
+</div>
+<div style="height:5px;border-radius:var(--radius-pill);background:#2a2f38;overflow:hidden"><span style="{{ playerBarStyle }}"></span></div>
+<div style="display:flex;align-items:center;gap:var(--space-6);flex-wrap:wrap">
+<button type="button" onClick="{{ playerToggle }}" aria-pressed="{{ playerPlayingAria }}" style="{{ playerBtnStyle }}">{{ playerLabel }}</button>
+<span style="font:var(--type-mono-meta-weight) var(--type-mono-meta-size)/1.4 var(--type-mono-meta-family);color:#c3c8d0">{{ playerRange }}</span>
+</div>
+<button type="button" onClick="{{ toggleTrim }}" aria-expanded="{{ trimExpandedAria }}" aria-controls="trim-controls" style="{{ trimDiscloseStyle }}">{{ trimDiscloseLabel }}</button>
+<sc-if value="{{ trimExpanded }}" hint-placeholder-val="{{ true }}">
+<div id="trim-controls" style="display:grid;gap:var(--space-8);padding-top:var(--space-8);border-top:var(--border-w) solid #2a2f38">
+<div style="display:flex;align-items:center;gap:var(--space-5);flex-wrap:wrap">
+<button type="button" onClick="{{ trimSetIn }}" style="{{ trimSetStyle }}">Set in</button>
+<button type="button" onClick="{{ trimSetOut }}" style="{{ trimSetStyle }}">Set out</button>
+<button type="button" onClick="{{ trimClearOut }}" style="{{ trimSetStyle }}">Clear out</button>
+</div>
+<div data-trimtrack="1" onMouseDown="{{ trimTrackDown }}" style="{{ trimTrackStyle }}">
+<span style="{{ trimSelStyle }}"></span>
+<button type="button" onMouseDown="{{ trimInDown }}" onKeyDown="{{ trimInKey }}" aria-label="{{ trimInAria }}" style="{{ trimInHandleStyle }}"></button>
+<sc-if value="{{ trimHasOut }}" hint-placeholder-val="{{ true }}">
+<button type="button" onMouseDown="{{ trimOutDown }}" onKeyDown="{{ trimOutKey }}" aria-label="{{ trimOutAria }}" style="{{ trimOutHandleStyle }}"></button>
+</sc-if>
+<span style="{{ trimHeadStyle }}"></span>
+</div>
+<span style="font:var(--type-mono-meta-weight) var(--type-mono-meta-size)/1.45 var(--type-mono-meta-family);color:#c3c8d0">{{ trimReadout }}</span>
+<div style="display:grid;gap:var(--space-5)">
+<span style="font:var(--type-micro-flat-weight) var(--type-micro-flat-size)/1.4 var(--type-micro-flat-family);color:#8b929e">Source transcript — activate a word to seek</span>
+<div style="{{ transcriptBoxStyle }}">
+<sc-for list="{{ transcriptWords }}" as="tw" hint-placeholder-count="10">
+<button type="button" onClick="{{ tw.seek }}" aria-label="{{ tw.aria }}" style="{{ tw.style }}">{{ tw.text }}</button>
+</sc-for>
+</div>
+<span style="font:var(--type-micro-flat-weight) var(--type-micro-flat-size)/1.4 var(--type-micro-flat-family);color:#8b929e;text-wrap:pretty">{{ transcriptNote }}</span>
+</div>
+</div>
+</sc-if>
+<span style="font:var(--type-micro-flat-weight) var(--type-micro-flat-size)/1.4 var(--type-micro-flat-family);color:#8b929e">{{ playerHint }}</span>
+</div>
+</sc-if>
+
+<sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ true }}">
+<div role="menu" aria-label="{{ menuLabel }}" onKeyDown="{{ menuKey }}" style="{{ menuStyle }}">
+<span style="padding:var(--space-4) var(--space-8);font:var(--type-micro-flat-weight) var(--type-micro-flat-size)/1.35 var(--type-micro-flat-family);color:#7b828c;text-wrap:pretty">{{ menuLabel }}</span>
+<sc-for list="{{ menuItems }}" as="m" hint-placeholder-count="3">
+<button type="button" role="menuitem" onClick="{{ m.pick }}" style="{{ m.style }}">
+<sc-if value="{{ m.thumbStyle }}">
+<span style="{{ m.thumbStyle }}"></span>
+</sc-if>
+<span style="display:grid;gap:1px;min-width:0;text-align:left">
+<span style="font:var(--type-body-sm-weight) var(--type-body-sm-size)/1.35 var(--type-body-sm-family)">{{ m.label }}</span>
+<sc-if value="{{ m.meta }}" hint-placeholder-val="{{ true }}">
+<span style="font:var(--type-mono-caption-weight) var(--type-mono-caption-size)/1.35 var(--type-mono-caption-family);color:#7b828c">{{ m.meta }}</span>
+</sc-if>
+</span>
+<sc-if value="{{ m.action }}" hint-placeholder-val="{{ true }}">
+<span style="flex:0 0 auto;font:var(--type-control-sm-weight) var(--type-control-sm-size)/1 var(--type-control-sm-family);color:#6d5316">{{ m.action }}</span>
+</sc-if>
+</button>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ toast }}" hint-placeholder-val="{{ true }}">
+<div role="status" aria-live="polite" style="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:90;padding:var(--space-6) var(--space-12);border:var(--border-w) solid #2a2f38;border-radius:var(--radius-pill);background:#171a20;color:#e7e4dd;box-shadow:0 14px 34px rgb(0 0 0 / 46%);font:var(--type-body-sm-weight) var(--type-body-sm-size)/1 var(--type-body-sm-family)">{{ toast }}</div>
+</sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:1000},&quot;viewport&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;1280 × 800&quot;,&quot;1024 × 768&quot;],&quot;default&quot;:&quot;1280 × 800&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;showPresenterThumbnail&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Settings&quot;}}">
+const TYPES = [["undefined", "Visual Undefined"], ["oc", "On Camera"], ["clip", "Logged Clip"], ["still", "Still Image"], ["placeholder", "Onscreen Placeholder"], ["needfind", "Need to Find"]];
+const KIND_NAME = {};
+TYPES.forEach(([v, t]) => { KIND_NAME[v] = t; });
+const MEDIA_KINDS = ["clip"];
+const SHORT_NAME = { clip: "Logged Clip", still: "Still Image", placeholder: "Placeholder", needfind: "Need to Find", oc: "On Camera", undefined: "Undefined" };
+
+const ACCENTS = [
+  { line: "#3f6f8f", ink: "#20455c", wash: "rgb(63 111 143 / 15%)" },
+  { line: "#8a6a25", ink: "#6d5316", wash: "rgb(184 147 63 / 20%)" },
+  { line: "#4a7a5e", ink: "#2f5540", wash: "rgb(74 122 94 / 16%)" },
+  { line: "#7a5a8f", ink: "#553a66", wash: "rgb(122 90 143 / 16%)" },
+  { line: "#4d6470", ink: "#31444e", wash: "rgb(77 100 112 / 16%)" }
+];
+const ERR = "#8c2f26";
+
+const SILHOUETTE = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 90">' +
+  '<rect width="160" height="90" fill="#2b3038"/>' +
+  '<circle cx="80" cy="38" r="15" fill="#626b78"/>' +
+  '<path d="M50 90c0-17 13.4-28 30-28s30 11 30 28z" fill="#626b78"/>' +
+  '</svg>');
+
+const IMG = {
+  harbor: "assets/harbor-mouth-wide.png",
+  sensor: "assets/sensor-housing-waterline.png",
+  ferry: "assets/channel-light-ferry.png",
+  blink: "assets/channel-light-second-blink.png",
+  fog: "assets/fogged-lens-clearing.png",
+  horizon: "assets/horizon-returns.png",
+  gulls: "assets/gulls-lift-off.png"
+};
+
+const LIBRARY = [
+  { img: "harbor", source: "harbour-mouth-wide_0812.mov", excerpt: "“…running out through the mouth, you can see it against the pilings…”", total: 10, in: 2.0, out: 6.8, prov: "Logged in VERA Research · 12 Aug 2026" },
+  { img: "sensor", source: "sensor-housing-cu_0812.mov", excerpt: "“…the housing is fouled to about here, that is the waterline…”", total: 12, in: 0.8, out: 7.4, prov: "Logged in VERA Research · 12 Aug 2026" },
+  { img: "ferry", source: "channel-light-dusk_0809.mov", excerpt: "“…there it goes, and the ferry is still short of the gap…”", total: 14, in: 1.2, out: 7.4, prov: "Logged in VERA Research · 9 Aug 2026" },
+  { img: "blink", source: "channel-light-dusk_0809.mov", excerpt: "“…and the second one, held, while she comes through…”", total: 14, in: 8.0, out: 12.4, prov: "Logged in VERA Research · 9 Aug 2026 · same source clip, later in point" },
+  { img: "fog", source: "fogged-lens_0805.mov", excerpt: "“…you can hear the rig working behind it, the glass is soaked…”", total: 6, in: 0.4, out: 4.2, prov: "Logged in VERA Research · 5 Aug 2026" },
+  { img: "horizon", source: "horizon-steady_0805.mov", excerpt: "“…and there is the marker buoy again, dead flat, the way it reads on a settled afternoon…”", total: 9, in: 0.4, out: 6.2, prov: "Logged in VERA Research · 5 Aug 2026" },
+  { img: "gulls", source: "gull-liftoff_0731.mov", excerpt: "“…they hold until the wash arrives, then the whole line goes up…”", total: 8, in: 1.5, out: 6.0, prov: "Logged in VERA Research · 31 Jul 2026" }
+];
+const libOf = (img) => LIBRARY.find(l => l.img === img);
+const fromLib = (img, over) => {
+  const l = libOf(img);
+  return Object.assign({ img: l.img, source: l.source, excerpt: l.excerpt, prov: l.prov, quiet: false, media: { total: l.total, in: l.in, out: l.out } }, over || {});
+};
+
+const WPS = 2.6;
+const dirMask = (words) => {
+  const m = [];
+  let open = false;
+  words.forEach((w, i) => {
+    const starts = /^\[/.test(w);
+    const ends = /\]/.test(w);
+    if (starts) open = true;
+    m[i] = open;
+    if (open && ends) open = false;
+  });
+  return m;
+};
+
+const INITIAL = [
+  { id: "r1", section: { id: "sec1", title: "Opening the Harbor" }, words: "", visualOnly: true,
+    visuals: [{ id: "v1a", kind: "placeholder", level: 0, cue: null, dur: 3, customText: "FUTURE OPENING GRAPHIC — “Why the Signal Changes” over a wide Harbor Lights image, with space for the series mark and episode title. Not designed in S01–S03." }] },
+
+  { id: "r2",
+    words: "Today we're at the mouth of Harbor Lights, where one small sensor has been producing a very strange-looking signal. I'm Wren Alvarez, and over the next few minutes we're going to compare that signal with what the water was actually doing. The surprising part is that the harbor itself was behaving normally. [turns toward the water behind her] The apparent anomaly came from the way the instrument met the changing tide. Once we line up the footage, the keeper's notes, and the readings, the pattern becomes much easier to understand.",
+    visuals: [
+      { id: "v2a", kind: "oc", level: 0, cue: 0 },
+      { id: "v2b", kind: "placeholder", level: 1, parent: "v2a", overlay: true, cueText: "I'm Wren Alvarez", endMode: "word", outTextAt: "actually doing.", customText: "FUTURE LOWER THIRD OVER ON CAMERA — Wren Alvarez · Harbor Reporter. Not designed in S01–S03." }
+    ] },
+
+  { id: "r3", section: { id: "sec2", title: "Why the Signal Changes" },
+    words: "The tide has just turned, and the water at the harbor mouth is already running the other way. You can watch it slide past the pilings if you stand at the end of the pier. Nothing about the harbor looks dramatic at this point in the cycle. That is exactly why the change in the sensor reading surprises people. The water is behaving normally, and the instrument is recording that change faithfully.",
+    visuals: [Object.assign({ id: "v3a", kind: "clip", level: 0, cue: 0, endMode: "word", outTextAt: "that change faithfully." }, fromLib("harbor", { media: { total: 30, in: 2.0, out: null } }))] },
+
+  { id: "r4", words: "", visualOnly: true,
+    visuals: [Object.assign({ id: "v4a", kind: "clip", level: 0, cue: null }, fromLib("horizon", { excerpt: "“…and there is the marker buoy again, dead flat, the way it reads on a settled afternoon. The wake reaches the piling a few seconds later, and then the signal begins to move.”", media: { total: 14, in: 0.4, out: 9.6 } }))] },
+
+  { id: "r5",
+    words: "Down at the piling, the sensor housing sits directly on the waterline. At high tide it disappears beneath the surface, but as the channel drains it is exposed again. Salt and algae build up around the opening, which changes how quickly the probe responds. [more quietly] A ferry wake can push water past the housing for only a few seconds. Once the wake passes, the reading settles back into the pattern we expect.",
+    visuals: [
+      Object.assign({ id: "v5a", kind: "clip", level: 0, cue: 0, endMode: "word", outTextAt: "the probe responds." }, fromLib("sensor", { media: { total: 26, in: 0.8, out: null } })),
+      Object.assign({ id: "v5b", kind: "clip", level: 0, cueText: "A ferry wake", endMode: "media", derived: "outWord" }, fromLib("ferry", { media: { total: 14, in: 1.2, out: 7.4 } }))
+    ] },
+
+  { id: "r6",
+    words: "From here, you can see how close the housing sits to the normal high-water mark. [gestures toward the piling behind her] Watch the dark band on the post behind me. The band is the line left by repeated tides, and the buildup around the sensor opening sits just below it. When we return to the wider view, compare that position with the keeper's written notes. Together, those details explain why the apparent spike is not a sudden change in the harbor.",
+    visuals: [
+      { id: "v6a", kind: "oc", level: 0, cue: 0 },
+      Object.assign({ id: "v6b", kind: "clip", level: 1, parent: "v6a", cueText: "The band is", returnText: "When we return", endMode: "word", outTextAt: "just below it.", derived: "mediaOut" }, fromLib("sensor", { media: { total: 26, in: 3.2, out: null } }))
+    ] },
+
+  { id: "r7",
+    words: "Across the channel, the keeper checks the same instrument against a second gauge. The comparison matters because a single bad reading can look convincing on its own. A ferry wake reaches the piling before the wider tide changes, and the sensor reacts first. For a moment, the two lines separate. Then the harbor calms, and both readings begin to agree again.",
+    visuals: [
+      { id: "v7a", kind: "oc", level: 0, cue: 0 },
+      Object.assign({ id: "v7b", kind: "clip", level: 1, parent: "v7a", derived: "inWord", cueText: "A ferry wake reaches", returnText: "Then the harbor", endMode: "word", outTextAt: "two lines separate." }, fromLib("blink", { media: { total: 20, in: 8.0, out: 14.6 } }))
+    ] },
+
+  { id: "r8",
+    words: "From the western pier, the first camera watches the marker buoy lean into the current. At the exact moment the wake reaches the piling, a second angle shows water climbing the sensor housing. That view holds until the top of the probe disappears beneath the surface. A third camera then follows the wake toward the channel light. Taken together, the three angles show the same event moving through the harbor.",
+    visuals: [
+      Object.assign({ id: "v8a", kind: "clip", level: 0, cue: 0, endMode: "word" }, fromLib("harbor", { media: { total: 30, in: 2.0, out: null } })),
+      Object.assign({ id: "v8b", kind: "clip", level: 0, cueText: "At the exact moment", endMode: "word", outTextAt: "beneath the surface.", derived: "mediaIn" }, fromLib("sensor", { media: { total: 26, in: 6.0, out: 18.4 } })),
+      Object.assign({ id: "v8c", kind: "clip", level: 0, cueText: "A third camera", endMode: "word", outTextAt: "through the harbor." }, fromLib("gulls", { media: { total: 20, in: 1.5, out: null } }))
+    ] },
+
+  { id: "r9",
+    words: "The camera holds on the narrow opening where water enters the sensor housing. At first, the flow looks steady enough to explain the normal readings. Small pieces of algae begin to bend across the opening as the level falls. The shot ends before we can see whether the passage clears completely. That missing moment is exactly what we need to compare with the sudden change in the data.",
+    visuals: [Object.assign({ id: "v9a", kind: "clip", level: 0, cue: 0, endMode: "word", outTextAt: "change in the data." }, fromLib("fog", { media: { total: 6, in: 1.2, out: null } }))] },
+
+  { id: "r10", section: { id: "sec3", title: "Following the Evidence" },
+    words: "The first line shows the water level predicted from the tide table. The second line shows what the sensor reported at the piling. For most of the morning, the two traces rise and fall together. The important moment comes when the sensor produces a sudden spike even though the expected water level continues to change gradually. That difference is the clue that sends us back to the footage.",
+    visuals: [{ id: "v10a", kind: "placeholder", level: 0, cue: 0, customText: "FUTURE LINE CHART — Title: Expected Tide vs. Sensor Reading. Show both data series. Not designed in S01–S03." }] },
+
+  { id: "r11",
+    words: "The harbor authority publishes a public status page for every monitoring station in the channel. On the morning of this reading, that page showed the sensor as active and reported no communications failure. It also listed the most recent maintenance visit and the time of the last successful upload. Those details do not explain the strange value by themselves, but they rule out several simpler failures. The page gives us a timestamped record to compare with the keeper's notes.",
+    visuals: [{ id: "v11a", kind: "placeholder", level: 0, cue: 0, customText: "FUTURE WEBPAGE CAPTURE — Harbor authority sensor-status page. Show station status, last successful upload, and maintenance date. Future capture selection and refresh policy remain to be designed." }] },
+
+  { id: "r12",
+    words: "An archival photograph shows the same piling before the current sensor was installed. The dark waterline is already visible on the timber, along with years of salt and algae. Near the center of the frame, the mounting bracket sits just above the ordinary low-tide level. A slow move from the full pier toward that bracket would help the audience understand exactly where the instrument sits. The photograph turns an abstract reading into a physical location.",
+    visuals: [{ id: "v12a", kind: "placeholder", level: 0, cue: 0, customText: "FUTURE STILL IMAGE — Archival photograph of the piling before installation. Future motion: slow push from the full pier toward the mounting bracket." }] },
+
+  { id: "r13",
+    words: "The agency posted a behind-the-scenes video about maintaining the harbor sensor. In its first two months, the video attracted more than 50,000 views. Most viewers encountered the explanation on the original video page rather than through the agency's technical report. Showing the surrounding page lets the audience see both the maintenance footage and the scale of that public response. That context is why the view count belongs in the visual story.",
+    visuals: [{ id: "v13a", kind: "placeholder", level: 0, cue: 0, customText: "FUTURE YOUTUBE PAGE COMPOSITE — Show the captured video page with its embedded maintenance Logged Clip playing as silent B-roll. Use normal Logged Clip preview and trim behavior for the embedded video. Begin a slow zoom toward the view-count region, then highlight “50,000 views” when narration says “50,000” in the second sentence. Preserve the surrounding page long enough to establish that the number belongs to this post. Page-capture selection and refresh policy remain for the later composite editor." }] },
+
+  { id: "r14",
+    words: "An archival photograph shows the original sensor bracket before the current housing was installed. A supplied screenshot of the maintenance bulletin records the date the replacement was completed. Next, a screen recording of the monitoring dashboard shows the reading arriving in real time. Together, these sources connect the physical repair to the digital record. None of them changes the conclusion, but each explains a different part of the chain.",
+    visuals: [
+      { id: "v14a", kind: "placeholder", level: 0, cue: 0, endMode: "word", outTextAt: "was installed.", customText: "FUTURE STILL IMAGE — archival photo provenance" },
+      { id: "v14b", kind: "placeholder", level: 0, cueText: "A supplied screenshot", endMode: "word", outTextAt: "was completed.", customText: "FUTURE STILL IMAGE — supplied screenshot provenance" },
+      { id: "v14c", kind: "placeholder", level: 0, cueText: "Next, a screen recording", endMode: "word", outTextAt: "of the chain.", customText: "FUTURE LOGGED CLIP — screen-recording provenance" }
+    ] },
+
+  { id: "r15",
+    words: "The keeper described the change in a phrase that is easier to remember than the graph. She called it “slow, then sudden,” because the water moved steadily while the reported value jumped all at once. Her description captures the difference between the physical event and the recorded signal. The signal changed. The tide did not.",
+    visuals: [
+      { id: "v15a", kind: "placeholder", level: 0, cue: 0, endMode: "word", outTextAt: "the recorded signal.", customText: "FUTURE QUOTE GRAPHIC — “slow, then sudden” · Harbor keeper" },
+      { id: "v15b", kind: "placeholder", level: 0, cueText: "The signal changed.", endMode: "word", outTextAt: "The tide did not.", customText: "FUTURE FULL-SCREEN TEXT — THE SIGNAL CHANGED. THE TIDE DID NOT." }
+    ] },
+
+  { id: "r16",
+    words: "Three stations recorded the tide during the same hour. The east station stayed close to its predicted range, and the north station showed only a small delay. The west station is the only one that produced the sharp temporary jump. That comparison makes a harbor-wide event much less likely. It points instead to a condition at one instrument.",
+    visuals: [{ id: "v16a", kind: "placeholder", level: 0, cue: 0, customText: "FUTURE TABLE — Columns: Station, Expected range, Reported change, Maintenance status. Rows: East, North, West. Future data action: emphasize the West row when narration says “west station”." }] },
+
+  { id: "r17",
+    words: "We still need a closer view of the maintenance crew cleaning the sensor housing. That footage would show whether the opening was blocked before the reading changed. For now, the edit can continue with a clearly labeled request in its place. Anyone working in Research can eventually attach candidate clips to the request. When one is selected later, it should replace the stand-in without changing the surrounding narration.",
+    visuals: [{ id: "v17a", kind: "needfind", level: 0, cue: 0, customText: "NEED TO FIND", desc: "Technician cleaning algae from the sensor housing." }] },
+
+  { id: "r18",
+    words: "The keeper records every reading by hand before it enters the archive. Those notes tell us when the instrument was cleaned, moved, or exposed by the tide. [holds up the field notebook, page toward camera] This entry was written the morning the signal changed. The number alone looks alarming, but the note beside it explains exactly what happened. Once we compare the two, the pattern becomes ordinary again.",
+    visuals: [{ id: "v18a", kind: "oc", level: 0, cue: 0 }] },
+
+  { id: "r19", section: { id: "sec4", title: "Closing the Loop" },
+    words: "The strange signal did not come from a sudden change in the harbor. It came from a familiar sensor meeting an ordinary tide in an unusual way. The footage, the public record, and the keeper's notes all point to the same explanation. [future Project Audio theme begins softly under narration] The lesson is simple: before treating a number as a discovery, look closely at how it was measured. That is where this story ends.",
+    visuals: [{ id: "v19a", kind: "oc", level: 0, cue: 0 }] },
+
+  { id: "r20", words: "", visualOnly: true,
+    visuals: [{ id: "v20a", kind: "placeholder", level: 0, cue: null, dur: 3, customText: "FUTURE ENDING GRAPHIC — Cut here when the future Project Audio theme reaches its named marker “END TITLE HIT”. Hold the Harbor Lights end card through the remaining theme tail." }] },
+
+  { id: "r21",
+    words: "The final maintenance report arrived two weeks after the sensor was cleaned. It confirmed that debris had collected around the opening during the falling tide. The next inspection found the housing clear and the readings back inside their expected range. That result supports the explanation we have followed through the harbor. One final piece of visual evidence still has to be chosen for this passage.",
+    visuals: [{ id: "v21a", kind: "undefined", level: 0, cue: 0 }] },
+
+  { id: "r22", words: "",
+    visuals: [{ id: "v22a", kind: "undefined", level: 0, cue: 0 }] }
+];
+
+const SEED_UNDO = [
+  "Set clip sound on Sensor housing at the waterline", "Trim Ferry wake crossing the piling",
+  "Reorder visuals in “From the western pier”", "Add visual to “Down at the piling”",
+  "Convert cutaway to sequential in “Across the channel”", "Select Logged Clip"
+];
+
+class Component extends DCLogic {
+  state = {
+    view: "doc", compact: false, reloaded: false, project: "harbor", section: "why",
+    rows: null, split: 60, dragging: false,
+    thumb: 22, showPresenterThumb: true,
+    expanded: null, hoverSlot: null, hoverRow: null, hoverIns: null, hoverAdd: null, hoverGap: null, hoverTail: false,
+    menu: null, pick: null, checked: false, settings: false, editRow: null, dropBefore: null, dropSwap: null,
+    textScale: 1, renaming: false, scriptTitle: "Harbor Lights Explainer", laneW: 400,
+    undoMenu: false, undo: SEED_UNDO.map(l => ({ label: l, rows: null })), redo: [],
+    presenterName: "Wren Alvarez", hoverPreview: null, previewHeld: false, previewFocus: false,
+    player: null, playerPos: 0, playerPlaying: false, playerTrim: false,
+    playerW: 0, playerPin: null, resize: null, movePlayer: null,
+    seq: 0, drag: null,
+    capDrag: null, trimDrag: null, offsets: {}, pins: {}, conflict: null, confirmDel: null, toast: ""
+  };
+
+  componentDidMount() {
+    const p = this.props, patch = { rows: this.normalize(JSON.parse(JSON.stringify(INITIAL))) };
+    if (p.viewport === "1024 × 768") patch.compact = true;
+    if (p.showPresenterThumbnail === false) patch.showPresenterThumb = false;
+    this.setState(patch);
+
+    this._key = (e) => {
+      const s = this.state;
+      if (e.key === "Tab" && s.player) {
+        const d = document.querySelector('[role=dialog][aria-label="Clip player"]');
+        if (d) {
+          const f = Array.prototype.filter.call(d.querySelectorAll("button,[tabindex]:not([tabindex='-1'])"), el => el.offsetParent !== null);
+          if (f.length) {
+            const first = f[0], last = f[f.length - 1];
+            if (e.shiftKey && (document.activeElement === first || !d.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && (document.activeElement === last || !d.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
+          }
+        }
+        return;
+      }
+      if (e.key === "Escape") {
+        if (s.player) { this.closePlayer(); return; }
+        if (s.menu) { this.closeMenu(true); return; }
+        if (s.expanded) { this.setState({ expanded: null }); return; }
+        if (s.hoverPreview) { this.setState({ hoverPreview: null, previewFocus: false }); return; }
+      }
+      if (e.key === " " && s.player) {
+        const t = e.target;
+        if (!t || !/^(INPUT|TEXTAREA)$/.test(t.tagName) && !t.isContentEditable) { e.preventDefault(); this.playerToggle(); }
+      }
+      const meta = e.metaKey || e.ctrlKey;
+      if (!meta) return;
+      const k = (e.key || "").toLowerCase();
+      if (k === "z" && e.shiftKey) { e.preventDefault(); this.redo(); }
+      else if (k === "z") {
+        const t = e.target;
+        if (t && t.isContentEditable) return;
+        e.preventDefault(); this.undoOnce();
+      }
+    };
+    this._down = (e) => {
+      const s = this.state;
+      if (s.menu && !e.target.closest("[role=menu]")) this.closeMenu(false);
+      if (s.undoMenu && !e.target.closest("[role=menu]")) this.setState({ undoMenu: false });
+      if (s.player && !e.target.closest('[role=dialog][aria-label="Clip player"]') && !e.target.closest("button") && !e.target.closest("[role=button]")) this.closePlayer();
+    };
+    this._move = (e) => {
+      const s = this.state;
+      if (s.dragging && this._host) {
+        const b = this._host.getBoundingClientRect();
+        this.setState({ split: this.clampSplit(((e.clientX - b.left) / b.width) * 100) });
+        return;
+      }
+      if (s.capDrag && !s.playerTrim) {
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const w = el && el.closest ? el.closest("[data-w]") : null;
+        if (w) this.moveEndpoint(s.capDrag, parseInt(w.getAttribute("data-w").split(":")[1], 10));
+        return;
+      }
+      if (s.resize) {
+        const w = Math.max(this.minW(), Math.min(this.maxW(), s.resize.w0 + (s.resize.dir * (e.clientX - s.resize.x0))));
+        this.setState({ playerW: Math.round(w) });
+        return;
+      }
+      if (s.movePlayer) {
+        const m = s.movePlayer;
+        this.setState({ playerPin: {
+          left: Math.max(6, Math.min(window.innerWidth - m.w - 6, m.left + e.clientX - m.x0)),
+          top: Math.max(6, Math.min(window.innerHeight - 60, m.top + e.clientY - m.y0))
+        } });
+        return;
+      }
+      if (s.trimDrag) {
+        const track = document.querySelector("[data-trimtrack]");
+        const slot = this.trimSlot();
+        if (!track || !slot || !slot.media) return;
+        const b = track.getBoundingClientRect();
+        const t = Math.max(0, Math.min(1, (e.clientX - b.left) / b.width)) * slot.media.total;
+        this.setMedia(s.trimDrag === "in" ? { in: Math.round(t * 10) / 10 } : { out: Math.round(t * 10) / 10 }, true);
+      }
+    };
+    this._up = () => {
+      const s = this.state;
+      if (s.dragging || s.capDrag || s.trimDrag || s.resize || s.movePlayer) this.setState({ dragging: false, capDrag: null, trimDrag: null, resize: null, movePlayer: null });
+    };
+    this._scroll = () => {
+      const s = this.state;
+      const patch = {};
+      if (s.menu) patch.menu = null;
+      if (s.undoMenu) patch.undoMenu = false;
+      if (s.hoverPreview) { patch.hoverPreview = null; patch.previewFocus = false; }
+      if (Object.keys(patch).length) this.setState(patch);
+    };
+    document.addEventListener("scroll", this._scroll, true);
+    document.addEventListener("keydown", this._key);
+    document.addEventListener("mousedown", this._down);
+    document.addEventListener("mousemove", this._move);
+    document.addEventListener("mouseup", this._up);
+    this.rearm();
+  }
+  componentWillUnmount() {
+    document.removeEventListener("scroll", this._scroll, true);
+    document.removeEventListener("keydown", this._key);
+    document.removeEventListener("mousedown", this._down);
+    document.removeEventListener("mousemove", this._move);
+    document.removeEventListener("mouseup", this._up);
+    this.stopTick();
+  }
+
+  alignPass() {
+    if (!this.state.rows || this.state.view === "gate") return;
+    const sig = [this.state.split, this.state.thumb, this.state.textScale].join("|") + "|" + this.state.rows.length;
+    if (this._sig !== sig || this._sigRows !== this.state.rows) { this._sig = sig; this._sigRows = this.state.rows; this._total = 0; }
+    this._total = (this._total || 0) + 1;
+    if (this._total > 12) { this._budget = 0; return; }
+    this._passes = (this._passes || 0) + 1;
+    window.__dcAlign = (window.__dcAlign || 0) + 1;
+    if (this._passes > 40) { this._budget = 0; return; }
+    const off = {}, pins = {}, seen = {};
+    const k = this.state.textScale || 1;
+    let changed = false, drift = 0, stale = false;
+    this.state.rows.forEach(row => {
+      const right = document.querySelector('[data-rowid="' + row.id + '"]');
+      if (!right) return;
+      const rrect = right.getBoundingClientRect();
+      const rtop = rrect.top, rh = rrect.height;
+      const live = {};
+      let floor = null;
+      Array.prototype.forEach.call(right.querySelectorAll("[data-anchor]"), b => {
+        const id = b.getAttribute("data-anchor");
+        if (!id) return;
+        const cap = document.getElementById("cap-" + id);
+        if (!cap) return;
+        const rect = b.getBoundingClientRect();
+        const prev = this.state.offsets[id] || 0;
+        const natural = rect.top - prev * k;
+        const capTop = cap.getBoundingClientRect().top;
+        const target = floor === null ? capTop - 14 * k : Math.max(capTop - 14 * k, floor);
+        const next = Math.max(0, Math.round((target - natural) / k));
+        off[id] = next;
+        const cardEl = b.querySelector("[data-slot]");
+        const cardLeft = cardEl ? Math.round((cardEl.getBoundingClientRect().left - rrect.left) / k) : null;
+        const pinTop = Math.max(0, Math.min(Math.round(rh / k) - 18, Math.round((capTop - rtop) / k + 3)));
+        const cardTop = Math.max(pinTop, Math.min(Math.round(rh / k) - 6, Math.round((natural + next * k - rtop) / k + 14)));
+        pins[id] = { top: pinTop, len: Math.max(0, cardTop - pinTop), port: cardTop, edge: cardLeft };
+        live[id] = true;
+        floor = natural + next * k + rect.height + 6 * k;
+        seen[id] = true;
+        const pp = this.state.pins[id];
+        if (!pp || pp.edge !== cardLeft) changed = true;
+        drift += Math.abs(next - prev);
+        if (Math.abs(next - prev) > 2 || !pp || Math.abs(pp.top - pinTop) > 2 || Math.abs(pp.len - pins[id].len) > 2) changed = true;
+      });
+      row.visuals.forEach(v => { if (!seen[v.id] && this.state.pins[v.id]) stale = true; });
+    });
+    if (stale && !this._staleCleared) { this._staleCleared = true; changed = true; }
+    const worse = this._drift !== undefined && drift >= this._drift - 1;
+    this._drift = drift;
+    if (!changed) return;
+    if (worse && drift > 0 && this._budget < 6) this._budget = 1;
+    this.setState({ offsets: Object.assign({}, this.state.offsets, off), pins: pins });
+  }
+  rearm() { this._budget = 4; this._drift = undefined; this._passes = 0; this._staleCleared = false; }
+  scrubProse() {
+    Array.prototype.forEach.call(document.querySelectorAll("[data-prose]"), p => {
+      if (document.activeElement === p) return;
+      Array.prototype.slice.call(p.childNodes).forEach(n => {
+        if (n.nodeType === 3 && n.textContent.trim()) p.removeChild(n);
+        else if (n.nodeType === 1 && !n.getAttribute("style") && !n.hasAttribute("data-cap")) p.removeChild(n);
+      });
+    });
+  }
+  measureLane() {
+    const el = document.querySelector("[data-rowid]");
+    if (!el) return;
+    const w = Math.round(el.getBoundingClientRect().width);
+    if (Math.abs((this.state.laneW || 0) - w) > 4) this.setState({ laneW: w });
+  }
+  fitPlayer() {
+    if (!this.state.player) return;
+    const d = document.querySelector('[role=dialog][aria-label="Clip player"]');
+    if (!d) return;
+    const r = d.getBoundingClientRect();
+    const pin = this.state.playerPin || {};
+    const patch = {};
+    const over = Math.round(r.bottom - (window.innerHeight - 8));
+    if (over > 1) patch.top = Math.max(8, Math.round((pin.top !== undefined && pin.top !== null ? pin.top : r.top) - over));
+    const card = document.querySelector('[data-slot="' + this.state.player.slotId + '"]');
+    if (card && !this.state.movePlayer && !this.state.resize) {
+      const c = card.getBoundingClientRect();
+      const top = patch.top !== undefined ? patch.top : r.top;
+      const bottom = top + r.height;
+      const overlapY = bottom > c.top + 2 && top < c.bottom - 2;
+      const overlapX = r.right > c.left + 2 && r.left < c.right - 2;
+      if (overlapY && overlapX) {
+        const leftSlot = Math.round(c.left - r.width - 10);
+        if (leftSlot >= 8) patch.left = leftSlot;
+        else if (c.right + r.width + 10 <= window.innerWidth - 8) patch.left = Math.round(c.right + 10);
+      }
+    }
+    if (Object.keys(patch).length) this.setState({ playerPin: Object.assign({}, pin, patch) });
+  }
+  componentDidUpdate() {
+    window.__dcUpdates = (window.__dcUpdates || 0) + 1;
+    if (!window.__dcFirstUpdate) window.__dcFirstUpdate = Math.round(performance.now());
+    this.fitPlayer();
+    if (this._settle) return;
+    this._settle = setTimeout(() => {
+      this._settle = null;
+      this.scrubProse();
+      if ((this._total || 0) <= 12) {
+        this.measureLane();
+        if (this._budget > 0) { this._budget -= 1; this.alignPass(); }
+      }
+    }, 60);
+  }
+
+  bare(w) { return (w || "").toLowerCase().replace(/[^a-z0-9]/g, ""); }
+  wordsOf(row) { return row.words ? row.words.split(/\s+/).filter(Boolean) : []; }
+  findWord(words, phrase) {
+    const seq = (phrase || "").split(/\s+/).filter(Boolean);
+    if (!seq.length) return null;
+    for (let i = 0; i <= words.length - seq.length; i++) {
+      let ok = true;
+      for (let j = 0; j < seq.length; j++) if (this.bare(words[i + j]) !== this.bare(seq[j])) { ok = false; break; }
+      if (ok) return i;
+    }
+    return null;
+  }
+  normalize(rows) {
+    rows.forEach(row => {
+      const words = this.wordsOf(row);
+      row.visuals.forEach(v => {
+        if (v.cueText) { v.cue = this.findWord(words, v.cueText); delete v.cueText; }
+        if (v.returnText) { v.returnAt = this.findWord(words, v.returnText); delete v.returnText; }
+        if (v.outTextAt) { const a = this.findWord(words, v.outTextAt); v.outAt = a === null ? null : a + v.outTextAt.split(/\s+/).length - 1; delete v.outTextAt; }
+        if (v.cue === undefined) v.cue = null;
+        if (!v.endMode) v.endMode = (v.media && v.media.out !== null && v.media.out !== undefined) ? "media" : "word";
+      });
+    });
+    return rows;
+  }
+  sentenceStarts(words) {
+    const out = [0];
+    words.forEach((w, i) => { if (/[.!?]$/.test(w) && i + 1 < words.length) out.push(i + 1); });
+    return out;
+  }
+  clampSplit(v) {
+    const min = this.state.compact ? 46 : 42, max = this.state.compact ? 68 : 74;
+    return Math.round(Math.max(min, Math.min(max, v)));
+  }
+  set(patch) {
+    if (patch && (patch.rows || patch.thumb !== undefined || patch.split !== undefined || patch.compact !== undefined || patch.expanded !== undefined)) this.rearm();
+    this.setState(patch);
+  }
+  flash(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._toast);
+    this._toast = setTimeout(() => this.setState({ toast: "" }), 3200);
+  }
+  closeMenu(restore) {
+    const m = this.state.menu;
+    this.setState({ menu: null });
+    if (restore && m && m.trigger && document.contains(m.trigger)) m.trigger.focus();
+  }
+  openMenu(m) { this.setState({ menu: m, undoMenu: false }); }
+
+  commit(label, fn, after) {
+    const before = JSON.parse(JSON.stringify(this.state.rows));
+    const rows = JSON.parse(JSON.stringify(this.state.rows));
+    fn(rows);
+    this.rearm();
+    this.setState({ rows, undo: [{ label, rows: before }].concat(this.state.undo).slice(0, 20), redo: [], undoMenu: false, menu: null }, after);
+  }
+  quietEdit(fn) {
+    const rows = JSON.parse(JSON.stringify(this.state.rows));
+    fn(rows);
+    this.setState({ rows });
+  }
+  undoOnce() { this.undoThrough(0); }
+  undoThrough(i) {
+    const stack = this.state.undo, t = stack[i];
+    if (t && t.title !== undefined) {
+      this.setState({ scriptTitle: t.title, undo: stack.slice(i + 1), undoMenu: false });
+      return;
+    }
+    if (!t || !t.rows) { this.set({ undoMenu: false }); return; }
+    const redo = [{ label: t.label, rows: JSON.parse(JSON.stringify(this.state.rows)) }].concat(this.state.redo).slice(0, 20);
+    this._align = 0;
+    this.set({ rows: JSON.parse(JSON.stringify(t.rows)), undo: stack.slice(i + 1), redo, undoMenu: false, menu: null, pick: null });
+  }
+  redo() {
+    const r = this.state.redo;
+    if (!r.length) return;
+    const undo = [{ label: r[0].label, rows: JSON.parse(JSON.stringify(this.state.rows)) }].concat(this.state.undo).slice(0, 20);
+    this._align = 0;
+    this.set({ rows: JSON.parse(JSON.stringify(r[0].rows)), redo: r.slice(1), undo });
+  }
+
+  segments(row) {
+    const words = this.wordsOf(row);
+    const n = words.length;
+    if (!n || !this.spokenCount(words, 0, n - 1)) return { words, segs: row.visuals.map(v => ({ slot: v, kind: "authored", start: null, end: null })) };
+    const list = [];
+    row.visuals.forEach(v => {
+      if (v.cue === null || v.cue === undefined) return;
+      list.push({ slot: v, kind: "authored", start: Math.min(v.cue, n - 1) });
+      if (v.level === 1 && v.returnAt !== null && v.returnAt !== undefined) {
+        const parent = row.visuals.find(p => p.id === v.parent);
+        list.push({ kind: "return", of: v, parentSlot: parent, start: Math.min(v.returnAt, n - 1) });
+      }
+    });
+    list.sort((a, b) => a.start - b.start);
+    if (!list.length || list[0].start > 0) list.unshift({ kind: "derived", start: 0 });
+    const out = [];
+    list.forEach((seg, i) => {
+      const boundary = i + 1 < list.length ? list[i + 1].start - 1 : n - 1;
+      const sl = seg.kind === "authored" ? seg.slot : null;
+      let end = boundary;
+      if (sl && sl.endMode === "word" && sl.outAt !== null && sl.outAt !== undefined) end = Math.min(boundary, Math.max(seg.start, sl.outAt));
+      seg.end = end;
+      if (end >= seg.start) out.push(seg);
+      if (end < boundary) out.push({ kind: "derived", start: end + 1, end: boundary });
+    });
+    return { words, segs: out.filter(s => s.end >= s.start) };
+  }
+  softWash(w) { return w.replace(/\/ (\d+)%\)/, (m, n) => "/ " + Math.max(6, Math.round(n * 0.42)) + "%)"); }
+  scaleWash(w, k) {
+    const f = Math.max(0, Math.min(1, k));
+    return w.replace(/\/ (\d+)%\)/, (m, n) => "/ " + (Math.round(n * f * 10) / 10) + "%)");
+  }
+  spokenCount(words, a, b) {
+    const m = dirMask(words);
+    let n = 0;
+    for (let i = a; i <= b && i < words.length; i++) if (!m[i]) n++;
+    return n;
+  }
+  needSeconds(row, slot) {
+    const { words, segs } = this.segments(row);
+    const seg = segs.find(x => x.kind === "authored" && x.slot && x.slot.id === slot.id);
+    if (!seg || seg.start === null) return null;
+    return this.spokenCount(words, seg.start, seg.end) / WPS;
+  }
+  remainingFootage(slot) { return slot.media ? Math.max(0, slot.media.total - slot.media.in) : null; }
+  tooShort(row, slot) {
+    if (!slot.media || slot.endMode !== "word" || !this.wordsOf(row).length) return false;
+    const need = this.needSeconds(row, slot), have = this.remainingFootage(slot);
+    return need !== null && have !== null && have < need - 0.5;
+  }
+  setEndMode(rowId, slotId, mode, value) {
+    this.commit(mode === "word" ? "Cut on narration word" : "Play until media outpoint", rows => {
+      const row = rows.find(r => r.id === rowId);
+      const sl = row && row.visuals.find(v => v.id === slotId);
+      if (!sl) return;
+      sl.endMode = mode;
+      if (mode === "word") {
+        if (sl.media) sl.media = Object.assign({}, sl.media, { out: null });
+        if (value !== undefined) sl.outAt = value;
+        else if (sl.outAt === null || sl.outAt === undefined) {
+          const seg = this.segments(row).segs.find(x => x.kind === "authored" && x.slot && x.slot.id === slotId);
+          sl.outAt = seg ? seg.end : null;
+        }
+      } else {
+        sl.outAt = null;
+        if (sl.media) sl.media = Object.assign({}, sl.media, { out: value !== undefined ? value : Math.min(sl.media.total, sl.media.in + 4) });
+      }
+    });
+    this.flash(mode === "word" ? "Cuts on the narration word — media outpoint cleared" : "Plays to the media outpoint — narration out-word cleared");
+  }
+  releaseLock(rowId, slotId, which) {
+    const NAME = { mediaIn: "media inpoint", mediaOut: "media outpoint", inWord: "start word", outWord: "end word" };
+    this.commit("Release " + NAME[which] + " lock", rows => {
+      const row = rows.find(r => r.id === rowId);
+      const sl = row && row.visuals.find(v => v.id === slotId);
+      if (!sl) return;
+      sl.derived = which;
+      if (which === "mediaOut" && sl.media) sl.endMode = "word";
+      if (which === "outWord") sl.endMode = "media";
+    }, () => this.flash("Now derived from the other three: " + NAME[which] + "."));
+  }
+  lockedCount(slot) {
+    if (!slot.media) return 0;
+    const d = slot.derived;
+    let n = 0;
+    if (d !== "mediaIn" && slot.media.in !== null && slot.media.in !== undefined) n++;
+    if (d !== "mediaOut" && slot.media.out !== null && slot.media.out !== undefined) n++;
+    if (d !== "inWord" && slot.cue !== null && slot.cue !== undefined) n++;
+    if (d !== "outWord" && slot.outAt !== null && slot.outAt !== undefined) n++;
+    return n;
+  }
+  boundaryConflict(slot) {
+    return this.lockedCount(slot) >= 4;
+  }
+  isBroll(seg) {
+    const k = seg.kind === "authored" ? (seg.slot && seg.slot.kind) : (seg.kind === "return" ? (seg.parentSlot && seg.parentSlot.kind) : "oc");
+    return k && k !== "oc" && k !== "undefined";
+  }
+  ordinals() {
+    const map = {};
+    (this.state.rows || []).forEach(row => {
+      const ws = this.wordsOf(row);
+      if (!ws.length || !this.spokenCount(ws, 0, ws.length - 1)) return;
+      let n = 0;
+      this.segments(row).segs.forEach(seg => {
+        if (seg.kind === "authored" && this.isBroll(seg) && !map[seg.slot.id]) { n++; map[seg.slot.id] = n; }
+      });
+    });
+    return map;
+  }
+  accent(ord) { return ACCENTS[((ord || 1) - 1) % ACCENTS.length]; }
+
+  moveEndpoint(cap, wordIndex) {
+    const row = this.state.rows.find(r => r.id === cap.rowId);
+    if (!row) return;
+    const { words, segs } = this.segments(row);
+    const i = segs.findIndex(s => s.kind === "authored" && s.slot.id === cap.slotId);
+    if (i < 0) return;
+    const dm = dirMask(words);
+    let wi = Math.max(0, Math.min(words.length - 1, wordIndex));
+    if (dm[wi]) {
+      const dir = wordIndex >= (cap.edge === "open" ? segs[i].start : segs[i].end) ? 1 : -1;
+      let j = wi;
+      while (j >= 0 && j < words.length && dm[j]) j += dir;
+      if (j < 0 || j >= words.length) return;
+      wi = j;
+    }
+    if (cap.edge === "open") {
+      const prev = i > 0 ? segs[i - 1].start : -1;
+      const next = i + 1 < segs.length ? segs[i + 1].start : words.length;
+      if (wi <= prev || wi >= next) return;
+      this.quietEdit(rs => { const sl = rs.find(r => r.id === row.id).visuals.find(v => v.id === cap.slotId); if (sl) sl.cue = wi; });
+      this._align = 0;
+    } else {
+      const owner = segs[i].slot;
+      if (owner && owner.endMode === "word" && owner.outAt !== null && owner.outAt !== undefined) {
+        const limit = i + 1 < segs.length ? segs[i + 1].start - 1 : words.length - 1;
+        if (wi < segs[i].start || wi > limit) return;
+        this.quietEdit(rs => { const sl = rs.find(r => r.id === row.id).visuals.find(v => v.id === cap.slotId); if (sl) sl.outAt = wi; });
+        return;
+      }
+      if (i + 1 >= segs.length) return;
+      const nx = segs[i + 1];
+      const after = i + 2 < segs.length ? segs[i + 2].start : words.length;
+      const target = wi + 1;
+      if (target <= segs[i].start || target >= after) return;
+      this.quietEdit(rs => {
+        const r = rs.find(x => x.id === row.id);
+        if (nx.kind === "return") { const c = r.visuals.find(v => v.id === nx.of.id); if (c) c.returnAt = target; }
+        else { const sl = r.visuals.find(v => v.id === nx.slot.id); if (sl) sl.cue = target; }
+      });
+    }
+    this._align = 0;
+  }
+
+  patchSlot(label, rowId, slotId, patch) {
+    this.commit(label, rows => {
+      const row = rows.find(r => r.id === rowId);
+      const s = row && row.visuals.find(x => x.id === slotId);
+      if (s) Object.assign(s, patch);
+    });
+  }
+  slotBy(ref) {
+    if (!ref) return null;
+    const row = this.state.rows.find(r => r.id === ref.rowId);
+    return row ? row.visuals.find(v => v.id === ref.slotId) : null;
+  }
+  trimSlot() { return this.slotBy(this.state.player); }
+  playerSlot() { return this.slotBy(this.state.player); }
+  setMedia(patch, silent) {
+    const t = this.state.player;
+    if (!t) return;
+    const apply = rows => {
+      const row = rows.find(r => r.id === t.rowId);
+      const s = row && row.visuals.find(x => x.id === t.slotId);
+      if (!s || !s.media) return;
+      const m = Object.assign({}, s.media, patch);
+      if (m.out !== null && m.out !== undefined && m.out <= m.in + 0.2) m.out = Math.min(m.total, m.in + 0.3);
+      if (m.in >= m.total) m.in = m.total - 0.1;
+      s.media = m;
+    };
+    if (silent) this.quietEdit(apply); else this.commit("Trim clip", apply);
+  }
+  minW() { return 236; }
+  maxW() { return Math.max(260, Math.min(this.state.compact ? 620 : 760, window.innerWidth - 40)); }
+  playerWidth() { return Math.max(this.minW(), Math.min(this.maxW(), this.state.playerW || (this.state.compact ? 300 : 336))); }
+  stopTick() { clearInterval(this._tick); this._tick = null; }
+  startTick() {
+    this.stopTick();
+    this._tick = setInterval(() => {
+      if (!this.state.playerPlaying) return;
+      const sl = this.playerSlot();
+      const m = sl && sl.media ? sl.media : null;
+      if (!m) return;
+      const end = (m.out === null || m.out === undefined) ? m.total : m.out;
+      const next = this.state.playerPos + 0.1;
+      if (next >= end) this.setState({ playerPos: m.in, playerPlaying: false });
+      else this.setState({ playerPos: next });
+    }, 100);
+  }
+  openPlayer(rowId, slotId, trimOpen) {
+    const row = this.state.rows.find(r => r.id === rowId);
+    const sl = row && row.visuals.find(v => v.id === slotId);
+    const same = this.state.player && this.state.player.slotId === slotId;
+    let pin = same ? this.state.playerPin : null;
+    if (!same) {
+      const el = document.querySelector('[data-rowid="' + rowId + '"]');
+      const cardR = el ? el.getBoundingClientRect() : null;
+      const w = this.playerWidth();
+      const frame = el ? el.closest("div[style*='overflow']") : null;
+      const fr = frame ? frame.getBoundingClientRect() : null;
+      const rightEdge = fr ? Math.min(fr.right, window.innerWidth) : window.innerWidth;
+      const lane = el ? el.getBoundingClientRect() : null;
+      const cardEl = document.querySelector('[data-slot="' + slotId + '"]');
+      const cr = cardEl ? cardEl.getBoundingClientRect() : cardR;
+      const left = Math.max(8, Math.min(
+        Math.round(rightEdge - w - (this.state.compact ? 14 : 26)),
+        Math.max(lane ? Math.round(lane.left) : 8, Math.round(rightEdge - w - (this.state.compact ? 14 : 26)))
+      ));
+      const h = this.state.compact ? 372 : 404;
+      const vh = window.innerHeight;
+      const others = Array.prototype.filter.call(document.querySelectorAll("[data-slot]"), el => el.getAttribute("data-slot") !== slotId)
+        .map(el => el.getBoundingClientRect());
+      const hitsCard = (t) => others.some(o => t < o.bottom - 2 && t + h > o.top + 2 && left < o.right - 2 && left + w > o.left + 2);
+      const writingSlot = lane ? Math.max(8, Math.round(lane.left - w - 10)) : null;
+      let top = null, lft = left;
+      const below = cr ? Math.round(cr.bottom + 12) : null;
+      const above = cr ? Math.round(cr.top - h - 12) : null;
+      const belowOk = cr && cr.bottom + h + 14 <= vh - 8;
+      const aboveOk = cr && cr.top - h - 14 >= 8;
+      if (belowOk && !hitsCard(below)) top = below;
+      else if (aboveOk && !hitsCard(above)) top = above;
+      else if (writingSlot !== null && writingSlot >= 8 && cr) {
+        // free writing-column space beats covering a neighbouring visual card
+        top = Math.max(8, Math.min(vh - h - 8, Math.round(cr.top)));
+        lft = writingSlot;
+      }
+      else if (belowOk) top = below;
+      else if (aboveOk) top = above;
+      else if (cr && lane) {
+        // no vertical room: sit left of the visual lane, over the writing column
+        top = Math.max(8, Math.min(vh - h - 8, Math.round(cr.top)));
+        lft = Math.max(8, Math.round(lane.left - w - 10));
+        if (lft + w > cr.left - 6) lft = Math.max(8, Math.round(cr.left - w - 10));
+      }
+      pin = { left: lft, top };
+    }
+    this.setState({ playerPin: pin,
+      player: { rowId, slotId },
+      playerPos: same ? this.state.playerPos : (sl && sl.media ? sl.media.in : 0),
+      playerPlaying: !trimOpen,
+      playerTrim: !!trimOpen,
+      hoverPreview: null, previewFocus: false, menu: null
+    });
+    if (trimOpen) this.stopTick(); else this.startTick();
+    this.focusPlayer();
+  }
+  toggleTrimDisclosure() {
+    const on = !this.state.playerTrim;
+    if (on) this.stopTick();
+    this.setState({ playerTrim: on, playerPlaying: on ? false : this.state.playerPlaying });
+  }
+  closePlayer() {
+    this.stopTick();
+    const back = this._playerOpener;
+    this._playerOpener = null;
+    this.setState({ player: null, playerPlaying: false }, () => {
+      if (back && document.contains(back)) back.focus();
+    });
+  }
+  focusPlayer() {
+    setTimeout(() => {
+      const d = document.querySelector('[role=dialog][aria-label="Clip player"]');
+      if (!d) return;
+      const play = Array.prototype.filter.call(d.querySelectorAll("button"), b => /Play|Pause/.test(b.textContent))[0];
+      (play || d.querySelector("button")).focus();
+    }, 60);
+  }
+  playerToggle() {
+    const on = !this.state.playerPlaying;
+    if (on) this.startTick(); else this.stopTick();
+    this.setState({ playerPlaying: on });
+  }
+
+  seedReturn(row, cutCue, nextBoundary) {
+    const words = this.wordsOf(row);
+    if (!words.length) return null;
+    const cands = this.sentenceStarts(words).filter(i => i > cutCue && i < (nextBoundary === null ? words.length : nextBoundary));
+    return cands.length ? cands[cands.length - 1] : null;
+  }
+  addVisual(rowId, cutaway) {
+    const n = this.state.seq + 1, id = "n" + n;
+    this.commit(cutaway ? "Add cutaway" : "Add visual", rows => {
+      const row = rows.find(r => r.id === rowId);
+      const words = this.wordsOf(row);
+      const last = row.visuals[row.visuals.length - 1];
+      const starts = this.sentenceStarts(words);
+      let cue = null;
+      if (words.length) {
+        const used = row.visuals.map(v => v.cue).filter(c => c !== null && c !== undefined);
+        cue = starts.filter(sx => used.indexOf(sx) < 0 && sx > (last ? (last.cue || 0) : -1))[0];
+        if (cue === undefined) cue = Math.min(words.length - 1, (last && last.cue ? last.cue : 0) + 1);
+      }
+      const v = { id, kind: "undefined", level: cutaway ? 1 : 0, cue: cue === undefined ? null : cue };
+      if (cutaway && last) {
+        v.parent = last.id;
+        v.returnAt = this.seedReturn(row, v.cue === null ? 0 : v.cue, null);
+      }
+      row.visuals.push(v);
+    }, () => { const el = document.querySelector('[data-sel="' + id + '"]'); if (el) el.focus(); });
+    this.setState({ seq: n });
+    if (cutaway) this.flash("Made cutaway");
+  }
+  removeSlot(rowId, slotId, name) {
+    this.commit("Delete " + name, rows => {
+      const row = rows.find(r => r.id === rowId);
+      const i = row.visuals.findIndex(x => x.id === slotId);
+      if (i < 0) return;
+      row.visuals.splice(i, 1);
+      row.visuals.forEach(v => { if (v.parent === slotId) { v.parent = null; v.level = 0; v.returnAt = null; } });
+      if (!row.visuals.length) row.visuals.push({ id: slotId + "u", kind: "undefined", level: 0, cue: 0 });
+      else if (!row.visuals.some(v => v.level === 0)) { row.visuals[0].level = 0; row.visuals[0].parent = null; row.visuals[0].returnAt = null; }
+      if (row.visuals.length && this.wordsOf(row).length) {
+        const first = row.visuals.slice().sort((a, b) => (a.cue === null ? 99 : a.cue) - (b.cue === null ? 99 : b.cue))[0];
+        if (first) first.cue = 0;
+      }
+    });
+    this.flash("Deleted — undo in the header");
+  }
+  makeCutaway(rowId, slotId) {
+    this.commit("Make cutaway", rows => {
+      const row = rows.find(r => r.id === rowId);
+      const i = row.visuals.findIndex(v => v.id === slotId);
+      if (i <= 0) return;
+      const v = row.visuals[i], parent = row.visuals[i - 1];
+      v.level = 1; v.parent = parent.id;
+      const nextSeq = row.visuals.slice(i + 1).find(x => x.level === 0);
+      v.returnAt = this.seedReturn(row, v.cue === null ? 0 : v.cue, nextSeq ? nextSeq.cue : null);
+    });
+    this.flash("Made cutaway");
+  }
+  makeSequential(rowId, slotId) {
+    this.commit("Make sequential", rows => {
+      const row = rows.find(r => r.id === rowId);
+      const v = row.visuals.find(x => x.id === slotId);
+      if (!v) return;
+      v.level = 0; v.parent = null; v.returnAt = null;
+    });
+    this.flash("Made sequential");
+  }
+  deleteReturn(rowId, cutId) {
+    this.commit("Delete return", rows => {
+      const row = rows.find(r => r.id === rowId);
+      const v = row.visuals.find(x => x.id === cutId);
+      if (!v) return;
+      v.returnAt = null; v.level = 0; v.parent = null;
+    });
+    this.flash("Made sequential");
+  }
+  fs(base) { return base; }
+  addSection(index) {
+    const n = this.state.seq + 1;
+    this.commit("Add section", rows => {
+      rows.splice(index, 0, {
+        id: "row" + n, words: "",
+        section: { id: "sec" + n, title: "New section" },
+        visuals: [{ id: "nv" + n, kind: "undefined", level: 0, cue: 0 }]
+      });
+    }, () => {
+      const el = document.querySelector('[data-section="row' + n + '"]');
+      if (el) { el.focus(); document.getSelection().selectAllChildren(el); }
+    });
+    this.setState({ seq: n });
+    this.flash("Section added");
+  }
+  addRow(index) {
+    const n = this.state.seq + 1;
+    this.commit("Add row", rows => {
+      rows.splice(index, 0, { id: "row" + n, words: "", visuals: [{ id: "nv" + n, kind: "undefined", level: 0, cue: 0 }] });
+    }, () => { const el = document.querySelector('[data-cell="row' + n + '"]'); if (el) el.focus(); });
+    this.setState({ seq: n });
+  }
+  deleteRow(rowId) {
+    this.commit("Delete row", rows => {
+      const i = rows.findIndex(r => r.id === rowId);
+      if (i >= 0) rows.splice(i, 1);
+    });
+    this.setState({ confirmDel: null });
+    this.flash("Row deleted — undo in the header");
+  }
+  sentenceEnd(words, from) {
+    const m = dirMask(words);
+    for (let i = from; i < words.length; i++) if (!m[i] && /[.!?]["”']?$/.test(words[i])) return i;
+    return words.length - 1;
+  }
+  prevSpoken(words, i) { const m = dirMask(words); let j = i; while (j >= 0 && m[j]) j--; return j; }
+  nextSpoken(words, i) { const m = dirMask(words); let j = i; while (j < words.length && m[j]) j++; return j < words.length ? j : null; }
+  backSpokenWords(words, end, n) {
+    const m = dirMask(words);
+    let seen = 0, i = end;
+    while (i >= 0) { if (!m[i]) { seen++; if (seen === n) break; } i--; }
+    return i;
+  }
+  canSwap(row, a, b) {
+    if (!a || !b || a.id === b.id) return false;
+    if (a.level || b.level) return false;
+    if (a.kind === "oc" || b.kind === "oc") return false;
+    if (a.kind === "undef" || b.kind === "undef") return false;
+    if (a.kind === "placeholder" || b.kind === "placeholder") return false;
+    return !row.visuals.some(v => v.level === 1 && (v.parent === a.id || v.parent === b.id));
+  }
+  swapSlots(rowId, aId, bId) {
+    const row0 = this.state.rows.find(r => r.id === rowId);
+    if (!row0) return;
+    const A0 = row0.visuals.find(v => v.id === aId), B0 = row0.visuals.find(v => v.id === bId);
+    if (!this.canSwap(row0, A0, B0)) { this.flash("Those two visuals cannot swap coverage slots."); return; }
+    let derivedNote = false;
+    this.commit("Swap visuals between coverage slots", rows => {
+      const r = rows.find(x => x.id === rowId);
+      const ia = r.visuals.findIndex(x => x.id === aId), ib = r.visuals.findIndex(x => x.id === bId);
+      const A = r.visuals[ia], B = r.visuals[ib];
+      // the two narration slots stay put; only the media payloads change places
+      const ca = A.cue, cb = B.cue;
+      r.visuals[ia] = B; r.visuals[ib] = A;
+      B.cue = ca; A.cue = cb;
+      [A, B].forEach(card => {
+        const lockedMedia = card.media && card.media.out !== null && card.media.out !== undefined;
+        if (card.endMode === "word" && card.outAt !== null && card.outAt !== undefined && card.outAt <= card.cue) {
+          if (lockedMedia) { card.endMode = "media"; card.outAt = null; card.derived = "outWord"; }
+          else { card.outAt = null; card.derived = "mediaOut"; }
+          derivedNote = true;
+        }
+      });
+    });
+    this.flash(derivedNote
+      ? "Swapped the two visuals between their coverage slots — one end word was re-derived to keep three locks."
+      : "Swapped the two visuals between their coverage slots.");
+    this._align = 0;
+  }
+  reorderSequential(rowId, slotId, toIndex) {
+    const row0 = this.state.rows.find(r => r.id === rowId);
+    if (!row0) return;
+    const words = this.wordsOf(row0);
+    const segs0 = this.segments(row0).segs;
+    const from = row0.visuals.findIndex(v => v.id === slotId);
+    if (from < 0 || from === toIndex) return;
+    const moving = row0.visuals[from];
+    const displaced = row0.visuals[toIndex];
+    let problem = null, note = "";
+
+    if (toIndex === 0 && words.length && displaced && moving.level !== 1 && displaced.level !== 1) {
+      const dSeg = segs0.find(x => x.kind === "authored" && x.slot && x.slot.id === displaced.id);
+      const rangeStart = dSeg ? dSeg.start : 0;
+      const rangeEnd = dSeg ? dSeg.end : words.length - 1;
+      const avail = this.spokenCount(words, rangeStart, rangeEnd);
+      if (avail < 4) problem = "range";
+      else {
+        let cut = this.sentenceEnd(words, rangeStart);
+        const guard = this.backSpokenWords(words, rangeEnd, 3);
+        if (cut >= guard) { cut = this.prevSpoken(words, guard - 1); note = "Reserved the last three spoken words for the displaced clip."; }
+        if (cut <= rangeStart) problem = "range";
+        else {
+          const nxt = this.nextSpoken(words, cut + 1);
+          if (nxt === null) problem = "range";
+          else {
+            this.commit("Move visual to the start of the row", rows => {
+              const r = rows.find(x => x.id === rowId);
+              const mi = r.visuals.findIndex(v => v.id === slotId);
+              const [card] = r.visuals.splice(mi, 1);
+              r.visuals.splice(0, 0, card);
+              card.cue = rangeStart;
+              const locked = card.endMode === "media" && card.media && card.media.out !== null && card.media.out !== undefined;
+              if (locked) { card.outAt = null; card.derived = "outWord"; }
+              else { card.endMode = "word"; card.outAt = cut; if (card.media) card.media = Object.assign({}, card.media, { out: null }); card.derived = "mediaOut"; }
+              const d = r.visuals.find(v => v.id === displaced.id);
+              if (d) d.cue = nxt;
+            });
+            this.flash("Moved to the start of the row — coverage reassigned." + (note ? " " + note : ""));
+            this._align = 0;
+            return;
+          }
+        }
+      }
+    }
+
+    if (problem === "range") {
+      this.commit("Move visual to the start of the row", rows => {
+        const r = rows.find(x => x.id === rowId);
+        const mi = r.visuals.findIndex(v => v.id === slotId);
+        const [card] = r.visuals.splice(mi, 1);
+        r.visuals.splice(toIndex, 0, card);
+        card.cue = null;
+      });
+      this.flash("Not enough spoken words to split — both clips kept, the moved clip needs a start word.");
+      return;
+    }
+
+    this.commit("Reorder visuals", rows => {
+      const r = rows.find(x => x.id === rowId);
+      const mi = r.visuals.findIndex(v => v.id === slotId);
+      const [card] = r.visuals.splice(mi, 1);
+      r.visuals.splice(toIndex, 0, card);
+    });
+  }
+  moveSlotToRow(fromRowId, slotId, dir) {
+    this.commit("Move visual to another row", rows => {
+      const i = rows.findIndex(r => r.id === fromRowId);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= rows.length) return;
+      const from = rows[i], to = rows[j];
+      const k = from.visuals.findIndex(v => v.id === slotId);
+      if (k < 0) return;
+      const moved = from.visuals.splice(k, 1)[0];
+      from.visuals.forEach(v => { if (v.parent === slotId) { v.parent = null; v.level = 0; v.returnAt = null; } });
+      if (!from.visuals.length) from.visuals.push({ id: slotId + "u", kind: "undefined", level: 0, cue: this.wordsOf(from).length ? 0 : null });
+      else if (this.wordsOf(from).length) {
+        const first = from.visuals.slice().sort((a, b) => (a.cue === null ? 99 : a.cue) - (b.cue === null ? 99 : b.cue))[0];
+        if (first) first.cue = 0;
+      }
+      moved.level = 0; moved.parent = null; moved.returnAt = null; moved.cue = null;
+      const onlyDefault = to.visuals.length === 1 && this.isEmptyRow(to);
+      to.visuals = onlyDefault ? [moved] : to.visuals.concat([moved]);
+    });
+    const off = Object.assign({}, this.state.offsets);
+    delete off[slotId];
+    this.setState({ offsets: off });
+    this.flash("Moved to the next row — choose its start word");
+  }
+  reanchor(rowId) {
+    const node = document.querySelector('[data-prose="' + rowId + '"]');
+    if (!node) return;
+    const rowNow = this.state.rows.find(r => r.id === rowId);
+    if (!rowNow) return;
+    const oldWords = this.wordsOf(rowNow);
+    const clone = node.cloneNode(true);
+    Array.prototype.forEach.call(clone.querySelectorAll("[data-cap]"), b => b.parentNode.removeChild(b));
+    const cleaned = clone.textContent.replace(/\s+/g, " ").trim();
+    if (!cleaned || cleaned === rowNow.words) return;
+    const newWords = cleaned.split(/\s+/);
+    const anchors = {};
+    rowNow.visuals.forEach(v => {
+      if (v.cue !== null && v.cue !== undefined && oldWords[v.cue]) anchors[v.id] = oldWords.slice(v.cue, v.cue + 3).join(" ");
+    });
+    const returns = {};
+    rowNow.visuals.forEach(v => {
+      if (v.returnAt !== null && v.returnAt !== undefined && oldWords[v.returnAt]) returns[v.id] = oldWords.slice(v.returnAt, v.returnAt + 3).join(" ");
+    });
+    this.commit("Edit narration", rows => {
+      const row = rows.find(r => r.id === rowId);
+      row.words = cleaned;
+      row.visuals.forEach(v => {
+        if (anchors[v.id]) {
+          const at = this.findWord(newWords, anchors[v.id]);
+          v.cue = at === null ? null : at;
+        }
+        if (returns[v.id]) {
+          const at = this.findWord(newWords, returns[v.id]);
+          v.returnAt = at === null ? null : at;
+        }
+      });
+      const anchored = row.visuals.filter(v => v.cue !== null && v.cue !== undefined);
+      if (anchored.length) anchored.sort((a, b) => a.cue - b.cue)[0].cue = 0;
+    });
+  }
+
+  isEmptyRow(row) {
+    if (this.wordsOf(row).length) return false;
+    if (row.visuals.length !== 1) return false;
+    const v = row.visuals[0];
+    return v.kind === "undefined" && !v.media && !v.source && !v.excerpt && !v.customText;
+  }
+  slotIssue(row, slot) {
+    if (this.isEmptyRow(row)) return "";
+    const words = this.wordsOf(row);
+    if (slot.kind === "undefined") return "○ Visual undefined — choose a type";
+    if (words.length && (slot.cue === null || slot.cue === undefined)) return "⚠ Choose start word — this footage has no cue";
+    if (slot.level === 1 && !slot.overlay && (slot.returnAt === null || slot.returnAt === undefined) && words.length) return "△ Cutaway needs a return word";
+    if (MEDIA_KINDS.indexOf(slot.kind) >= 0 && !slot.source) return "△ Missing source video";
+    if (MEDIA_KINDS.indexOf(slot.kind) >= 0 && !slot.media) return "△ Missing logged duration";
+    if (this.boundaryConflict(slot)) return "△ Four timing locks are stored at once — release one of media in, media out, start word, or end word";
+    return "";
+  }
+  rowIssues(row) { return row.visuals.map(v => this.slotIssue(row, v)).filter(Boolean); }
+
+  chip(on) {
+    return { height: "var(--control-h-micro)", padding: "0 var(--space-8)",
+      border: "var(--border-w) solid " + (on ? "var(--gold-border)" : "#3a4048"),
+      borderRadius: "var(--radius-pill)", background: on ? "var(--gold-surface-strong)" : "#1a1d22",
+      color: on ? "var(--gold-text-strong)" : "#c3c8d0",
+      font: "var(--type-control-sm-weight) var(--type-control-sm-size)/1 var(--type-control-sm-family)", cursor: "pointer" };
+  }
+  barBtn(on) {
+    return { height: "26px", padding: "0 var(--space-10)", whiteSpace: "nowrap",
+      border: "var(--border-w) solid " + (on ? "var(--gold-border)" : "#2f353e"),
+      borderRadius: "var(--radius-control)", background: on ? "rgb(196 155 80 / 16%)" : "#1c2028",
+      color: on ? "#f4e1b9" : "#d6dae0", cursor: "pointer",
+      font: "var(--type-action-sm-weight) var(--type-action-sm-size)/1 var(--type-action-sm-family)" };
+  }
+  lightBtn() {
+    return { height: "var(--control-h-inline)", padding: "0 var(--space-10)", width: "max-content",
+      border: "var(--border-w) solid #c9cdd3", borderRadius: "var(--radius-control)",
+      background: "#ffffff", color: "#16181c", cursor: "pointer",
+      font: "var(--type-action-sm-weight) var(--type-action-sm-size)/1 var(--type-action-sm-family)" };
+  }
+  itemStyle() {
+    return { display: "flex", alignItems: "center", gap: "var(--space-8)", textAlign: "left",
+      minHeight: "var(--control-h-inline)", padding: "var(--space-5) var(--space-8)", border: "none",
+      borderRadius: "var(--radius-chip)", background: "transparent", color: "#16181c", cursor: "pointer",
+      font: "var(--type-body-sm-weight) var(--type-body-sm-size)/1.35 var(--type-body-sm-family)" };
+  }
+  xBtn(hov) {
+    return { flex: "0 0 auto", width: "19px", height: "19px", display: "inline-flex", alignItems: "center", justifyContent: "center",
+      border: "var(--border-w) solid " + (hov ? "#c9cdd3" : "transparent"), borderRadius: "var(--radius-pill)",
+      background: hov ? "#ffffff" : "transparent", color: hov ? "#5b626c" : "#a6acb4", cursor: "pointer",
+      font: "var(--type-micro-flat-weight) var(--type-micro-flat-size)/1 var(--type-micro-flat-family)" };
+  }
+  ghostBtn(shown, radius) {
+    return { height: "var(--control-h-micro)", padding: "0 var(--space-8)",
+      border: "var(--border-w) dashed #c9cdd3", borderRadius: radius || "var(--radius-chip)",
+      background: "#ffffff", color: "#5b626c", cursor: "pointer", opacity: shown ? 1 : 0,
+      font: "var(--type-control-sm-weight) var(--type-control-sm-size)/1 var(--type-control-sm-family)" };
+  }
+
+  buildItem(row, seg, ordMap, rowIndex) {
+    const s = this.state;
+    const stop = (e) => { e.stopPropagation(); };
+    const zero = s.thumb <= 2;
+
+    if (seg.kind !== "authored") {
+      const parentOrd = seg.kind === "return" ? ordMap[seg.parentSlot ? seg.parentSlot.id : ""] : null;
+      const parentKind = seg.parentSlot ? seg.parentSlot.kind : "oc";
+      const acc = this.accent(parentOrd || 1);
+      // a derived fill that follows an earlier visual reads as a return; only a leading fill is plain On Camera
+      const label = seg.kind === "return"
+        ? (parentKind === "oc" ? "↩ On Camera resumes" : "↩ " + (SHORT_NAME[parentKind] || "Visual") + " " + (parentOrd || "") + " resumes")
+        : (seg.start > 0 ? "↩ On Camera resumes" : "On Camera");
+      return {
+        isChip: true, isCard: false, anchorId: "",
+        chipLabel: label,
+        chipStyle: {
+          display: "flex", alignItems: "center", gap: "var(--space-6)", minWidth: 0,
+          padding: "var(--space-4) var(--space-8)", border: "var(--border-w) dashed #dfe2e6",
+          borderRadius: "var(--radius-pill)", background: "#fbfaf7"
+        },
+        chipRailStyle: { flex: "0 0 auto", width: "3px", height: "13px", borderRadius: "var(--radius-pill)", background: acc.line },
+        chipThumb: parentKind === "oc" && s.showPresenterThumb && !zero,
+        chipThumbStyle: {
+          flex: "0 0 auto", width: s.compact ? "34px" : "40px", aspectRatio: "16 / 9",
+          border: "var(--border-w) solid #d8dbdf", borderRadius: "var(--radius-hairline)",
+          backgroundImage: "url('" + SILHOUETTE + "')", backgroundSize: "cover", backgroundPosition: "center"
+        },
+        chipThumbAlt: "Configured presenter " + s.presenterName,
+        chipRemove: seg.kind === "return" ? () => this.deleteReturn(row.id, seg.of.id) : null,
+        chipRemoveAria: seg.kind === "return" ? "Delete this return and make the cutaway sequential — undoable" : "",
+        xStyle: this.xBtn(s.hoverRow === row.id),
+        blockStyle: { display: "grid", position: "relative" },
+        insZoneStyle: { minHeight: zero ? "6px" : "10px", display: "flex", alignItems: "center" },
+        insBtnStyle: { display: "none" },
+        insEnter: () => {}, insLeave: () => {}, insAria: "", insert: () => {}
+      };
+    }
+
+    const slot = seg.slot;
+    const kind = slot.kind;
+    const isOC = kind === "oc";
+    const isUndef = kind === "undefined";
+    const isClip = MEDIA_KINDS.indexOf(kind) >= 0;
+    const isPlaceholder = kind === "placeholder" || kind === "still" || kind === "needfind";
+    const ord = ordMap[slot.id] || null;
+    const acc = this.accent(ord || 1);
+    const hov = s.hoverSlot === slot.id;
+    const expanded = !!(s.expanded && s.expanded.rowId === row.id && s.expanded.slotId === slot.id);
+    const allWords = this.wordsOf(row);
+    const spokenLen = allWords.length ? this.spokenCount(allWords, 0, allWords.length - 1) : 0;
+    const words = spokenLen ? allWords : [];
+    const unresolved = !!words.length && !isUndef && (slot.cue === null || slot.cue === undefined);
+    const presenterHidden = isOC && !s.showPresenterThumb;
+    const showThumb = !zero && !isUndef && !presenterHidden;
+    const laneW = s.laneW || 400;
+    const indent = slot.level ? (s.compact ? 22 : 30) : 0;
+    const sideBySide = showThumb && s.thumb <= 42 && (laneW - indent) >= 288;
+    const m = slot.media;
+    const primaryAudio = isClip && !words.length;
+
+    const wordMode = isClip && !primaryAudio && slot.endMode === "word";
+    const short = this.tooShort(row, slot);
+    const need = isClip && !primaryAudio ? this.needSeconds(row, slot) : null;
+    const rem = this.remainingFootage(slot);
+    let durationLine = "";
+    if (!isClip && isPlaceholder && slot.dur) durationLine = slot.dur.toFixed(1) + "s on screen";
+    if (isClip && m) {
+      if (primaryAudio || (slot.endMode === "media" && !slot.derived)) {
+        durationLine = m.out !== null && m.out !== undefined
+          ? m.total + "s logged · in " + m.in.toFixed(1) + "s · out " + m.out.toFixed(1) + "s"
+          : m.total + "s logged · in " + m.in.toFixed(1) + "s";
+      } else if (slot.derived === "inWord") {
+        durationLine = m.total + "s logged · in " + m.in.toFixed(1) + "s · out " + m.out.toFixed(1) + "s · start word estimated";
+      } else if (slot.derived === "outWord") {
+        durationLine = m.total + "s logged · in " + m.in.toFixed(1) + "s · out " + m.out.toFixed(1) + "s · end word estimated";
+      } else if (slot.derived === "mediaIn") {
+        durationLine = m.total + "s logged · in ≈" + m.in.toFixed(1) + "s estimated · out " + m.out.toFixed(1) + "s";
+      } else if (slot.derived === "mediaOut") {
+        durationLine = m.total + "s logged · in " + m.in.toFixed(1) + "s · out estimated from the end word";
+      } else {
+        durationLine = m.total + "s logged · in " + m.in.toFixed(1) + "s · " + rem.toFixed(1) + "s of footage left"
+          + (need !== null ? " · ~" + need.toFixed(1) + "s needed" : "");
+      }
+    }
+    const advisory = short
+      ? "About " + rem.toFixed(1) + "s of footage remains after the in point, but this narration needs roughly " + need.toFixed(1) + "s. Move the in point earlier, choose another logged clip, or capture a longer one in VERA Research."
+      : "";
+    const oneLine = (t) => (t || "").replace(/[“”]/g, "").replace(/[\s.…]+$/, "") + "...";
+    const headline = isOC ? "" : (primaryAudio ? (slot.excerpt || "").replace(/[“”]/g, "")
+      : (slot.excerpt ? oneLine(slot.excerpt) : (isPlaceholder ? (slot.desc || slot.customText || "Placeholder") : "")));
+    const issue = s.checked ? this.slotIssue(row, slot) : "";
+    const shortName = SHORT_NAME[kind] || "Visual";
+
+    return {
+      isCard: true, isChip: false, id: slot.id,
+      isUndef, isDefined: !isUndef, isClip, isPlaceholder,
+      showThumb, headline,
+      durationLine, zeroDuration: "",
+      advisory, isShort: short,
+      advisoryOpen: !!advisory && (hov || expanded),
+      advisoryStyle: {
+        display: "block", padding: "var(--space-5) var(--space-6)", border: "var(--border-w) solid #e0bdb8",
+        borderRadius: "var(--radius-chip)", background: "#fdf1ef", color: ERR, textWrap: "pretty",
+        font: "var(--type-body-sm-weight) var(--type-body-sm-size)/1.4 var(--type-body-sm-family)"
+      },
+      advisoryFixIn: (e) => { e.stopPropagation(); this._playerOpener = e.currentTarget; this.openPlayer(row.id, slot.id, true); },
+      advisoryPick: (e) => {
+        e.stopPropagation();
+        const b = e.currentTarget.getBoundingClientRect();
+        this.openMenu({ type: "library", rowId: row.id, slotId: slot.id, x: Math.round(Math.max(12, b.left - 150)), y: Math.round(b.bottom + 6), trigger: e.currentTarget });
+      },
+      bodyStyle: sideBySide
+        ? { display: "flex", gap: "var(--space-8)", alignItems: "flex-start", minWidth: 0 }
+        : { display: "grid", gap: zero ? "var(--space-4)" : "var(--space-6)", minWidth: 0 },
+      textColStyle: { display: "grid", gap: "3px", minWidth: 0, flex: "1 1 auto", alignContent: "start" },
+      modeLabel: wordMode ? "Cuts on “" + (slot.outAt !== null && slot.outAt !== undefined && words[slot.outAt] ? words[slot.outAt].replace(/[^A-Za-z0-9’'.,]/g, "") : "the last covered word") + "”"
+        : (isClip && !primaryAudio ? "Plays to the media outpoint" : ""),
+      modeWordOn: wordMode ? "true" : "false",
+      modeMediaOn: !wordMode ? "true" : "false",
+      setWordMode: (e) => { e.stopPropagation(); this.setEndMode(row.id, slot.id, "word"); },
+      setMediaMode: (e) => { e.stopPropagation(); this.setEndMode(row.id, slot.id, "media"); },
+      modeBtnWordStyle: Object.assign(this.lightBtn(), wordMode ? { borderColor: "#a8863a", background: "#faf4e6", color: "#6d5316" } : {}),
+      modeBtnMediaStyle: Object.assign(this.lightBtn(), !wordMode ? { borderColor: "#a8863a", background: "#faf4e6", color: "#6d5316" } : {}),
+      anchorId: ord && words.length ? slot.id : "",
+      thumbSrc: slot.img ? IMG[slot.img] : "",
+      thumbAlt: slot.img ? (slot.excerpt || KIND_NAME[kind]) : "",
+      bigText: slot.img ? "" : (isOC ? "" : (isPlaceholder
+        ? (kind === "needfind" ? "NEED TO FIND"
+          : ((slot.customText || "PLACEHOLDER").split("—")[0].trim().split(/(?<=[.:])\s/)[0] || "PLACEHOLDER").slice(0, 42))
+        : "")),
+      playAffordance: isClip && slot.img ? "▶" : "",
+      playAffordanceStyle: {
+        position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)",
+        width: "26px", height: "26px", display: "inline-flex", alignItems: "center", justifyContent: "center",
+        borderRadius: "var(--radius-pill)", background: "rgb(10 12 16 / 58%)", color: "#ffffff",
+        font: "11px/1 var(--font-ui)", pointerEvents: "none"
+      },
+      previewAria: "Preview " + (slot.excerpt ? slot.excerpt.replace(/[“”]/g, "").slice(0, 40) : shortName) + " — plays the selected interval, does not change the trim",
+      openPreview: (e) => { e.stopPropagation(); this._playerOpener = e.currentTarget; this.openPlayer(row.id, slot.id); },
+      previewBtnStyle: this.lightBtn(),
+      thumbWrapStyle: {
+        position: "relative", display: "block", padding: 0, flex: "0 0 auto",
+        width: sideBySide ? Math.round(72 + s.thumb * 1.7) + "px" : Math.max(12, s.thumb) + "%",
+        aspectRatio: "16 / 9",
+        border: "var(--border-w) solid #d8dbdf", borderRadius: "var(--radius-chip)", overflow: "hidden",
+        background: slot.img ? "#0f1116" : (isOC ? "#2b3038" : "linear-gradient(150deg, #262b33 0%, #4a5060 100%)"),
+        backgroundImage: slot.img ? "url('" + IMG[slot.img] + "')" : (isOC ? "url('" + SILHOUETTE + "')" : "linear-gradient(150deg, #262b33 0%, #4a5060 100%)"),
+        backgroundSize: "cover", backgroundPosition: "center",
+        cursor: isClip ? "pointer" : "default"
+      },
+      excerptStyle: primaryAudio ? {
+        font: "400 var(--type-transcript-size)/1.6 var(--font-ui)", color: "#16181c", textWrap: "pretty"
+      } : {
+        font: "var(--type-body-sm-weight) var(--type-body-sm-size)/1.4 var(--type-body-sm-family)", color: "#16181c",
+        display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 1, overflow: "hidden"
+      },
+      audioBadge: primaryAudio ? "◖)) Clip audio" : "",
+      audioBadgeStyle: {
+        display: "inline-flex", alignItems: "center", width: "max-content", height: "20px", padding: "0 var(--space-8)",
+        border: "var(--border-w) solid #a8863a", borderRadius: "var(--radius-pill)", background: "#faf4e6",
+        font: "var(--type-pill-weight) var(--type-pill-size)/var(--type-pill-leading) var(--type-pill-family)",
+        textTransform: "uppercase", letterSpacing: ".06em", color: "#6d5316"
+      },
+      fullTranscript: isClip && !primaryAudio ? (slot.excerpt || "").replace(/[“”]/g, "") : "",
+      typeLabel: zero ? shortName : (isOC ? "On Camera" : (KIND_NAME[kind] || "Visual")),
+      typeStyle: {
+        display: "inline-block", height: "18px", lineHeight: "17px", padding: "0 var(--space-6)",
+        border: "var(--border-w) solid " + (isOC ? "#a8863a" : "#dfe2e6"), borderRadius: "var(--radius-pill)",
+        background: isOC ? "#faf4e6" : "#f2f3f4",
+        font: "var(--type-pill-weight) var(--type-pill-size)/var(--type-pill-leading) var(--type-pill-family)",
+        textTransform: "uppercase", letterSpacing: ".06em", color: isOC ? "#6d5316" : "#5b626c",
+        whiteSpace: "nowrap", flex: "0 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis"
+      },
+      unresolved,
+      unresolvedAria: "Unresolved start word for " + shortName + ". Choose the narration word this footage starts on.",
+      unresolvedStyle: {
+        flex: "0 0 auto", height: "18px", padding: "0 var(--space-6)", border: "var(--border-w) solid #e0bdb8",
+        borderRadius: "var(--radius-pill)", background: "#fdf1ef", color: ERR, cursor: "pointer", whiteSpace: "nowrap",
+        font: "var(--type-pill-weight) var(--type-pill-size)/var(--type-pill-leading) var(--type-pill-family)"
+      },
+      chooseStart: (e) => { e.stopPropagation(); this.setState({ pick: { rowId: row.id, slotId: slot.id, edge: "open" }, menu: null }); },
+      ordLabel: "",
+      ordAria: "", goCue: () => {}, ordStyle: {},
+      selValue: isUndef ? "undefined" : kind,
+      options: TYPES.map(([v, t]) => ({ v, t })),
+      stop,
+      selectKind: (e) => {
+        e.stopPropagation();
+        const v = e.target.value;
+        if (v === "clip") {
+          const b = e.target.getBoundingClientRect();
+          this.openMenu({ type: "library", rowId: row.id, slotId: slot.id, x: Math.round(Math.max(12, b.left - 150)), y: Math.round(b.bottom + 6), trigger: e.target });
+          return;
+        }
+        const patch = { kind: v };
+        if (v === "upload") { patch.source = "uploaded-clip.mp4"; patch.excerpt = "Transcript excerpt not set"; patch.quiet = false; patch.media = { total: 12, in: 0, out: 5 }; patch.prov = ""; patch.img = ""; }
+        else if (v === "placeholder") { patch.customText = "PLACEHOLDER TEXT"; patch.excerpt = ""; }
+        else { patch.excerpt = ""; patch.source = ""; patch.media = null; patch.img = ""; }
+        this.patchSlot("Set visual type", row.id, slot.id, patch);
+      },
+      selectStyle: {
+        height: "24px", maxWidth: "182px", padding: "0 var(--space-6)",
+        border: "var(--border-w) solid #c9cdd3", borderRadius: "var(--radius-control)",
+        background: "#ffffff", color: "#16181c", cursor: "pointer", font: "var(--type-control-size)/1 var(--font-ui)"
+      },
+      removeAria: "Delete " + shortName + " — undoable",
+      remove: (e) => { e.stopPropagation(); this.removeSlot(row.id, slot.id, shortName); },
+      xStyle: this.xBtn(hov),
+      moreAria: "More actions for " + shortName,
+      moreStyle: {
+        flex: "0 0 auto", width: "19px", height: "19px", display: hov || expanded ? "inline-flex" : "none",
+        alignItems: "center", justifyContent: "center", border: "var(--border-w) solid #dfe2e6",
+        borderRadius: "var(--radius-pill)", background: "#ffffff", color: "#5b626c", cursor: "pointer",
+        font: "var(--type-micro-flat-weight) var(--type-micro-flat-size)/1 var(--type-micro-flat-family)"
+      },
+      more: (e) => {
+        e.stopPropagation(); e.preventDefault();
+        const b = e.currentTarget.getBoundingClientRect();
+        this.openMenu({ type: "more", rowId: row.id, slotId: slot.id, x: Math.round(Math.min(b.left, window.innerWidth - 300)), y: Math.round(b.bottom + 6), trigger: e.currentTarget });
+      },
+      moreMenu: (e) => {
+        e.preventDefault(); e.stopPropagation();
+        this.openMenu({ type: "more", rowId: row.id, slotId: slot.id, x: Math.round(Math.min(e.clientX, window.innerWidth - 300)), y: Math.round(e.clientY + 6), trigger: e.currentTarget });
+      },
+      handleAria: (ord && words.length ? "Row " + (rowIndex + 1) + ", visual " + ord + ". " : "") + "Move " + shortName + " — opens move and mode actions",
+      handleStyle: {
+        flex: "0 0 auto", width: "18px", height: "18px", display: "inline-flex", alignItems: "center", justifyContent: "center",
+        border: "var(--border-w) solid #dfe2e6", borderRadius: "var(--radius-hairline)",
+        background: "#ffffff", color: "#a6acb4", cursor: "grab",
+        font: "var(--type-micro-flat-weight) var(--type-micro-flat-size)/1 var(--type-micro-flat-family)"
+      },
+      expanded, expandedAria: expanded ? "true" : "false",
+      cardAria: (short ? "Footage may be too short. " : "") + (ord && words.length ? "Row " + (rowIndex + 1) + ", visual " + ord + ", " : "") + (KIND_NAME[kind] || "visual") + (headline ? ", " + headline : "") + (isOC || isUndef ? "" : " — activate for details")
+        + (row.visuals.some(o => this.canSwap(row, slot, o)) ? ". Drag onto another visual to swap the two between their coverage slots." : "")
+        + (row.visuals.indexOf(slot) > 0 && slot.level !== 1 ? " Use the move menu to move it to the start of the row and shift the sequence." : ""),
+      cardClick: () => {
+        if (isOC || isUndef) return;
+        this.set({ expanded: expanded ? null : { rowId: row.id, slotId: slot.id } });
+      },
+      cardKey: (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          if (isOC || isUndef) return;
+          e.preventDefault();
+          if (zero && slot.img && isClip && e.key === "Enter" && this.state.hoverPreview) { this.openPlayer(row.id, slot.id); return; }
+          this.set({ expanded: expanded ? null : { rowId: row.id, slotId: slot.id } });
+        }
+      },
+      focusCard: (e) => {
+        const patch = { hoverSlot: slot.id, hoverRow: row.id };
+        if (zero && slot.img) { patch.hoverPreview = { id: slot.id, rowId: row.id, rect: this.rectOf(e.currentTarget) }; patch.previewFocus = true; }
+        this.set(patch);
+      },
+      blurCard: () => {
+        if (this.state.previewFocus) setTimeout(() => {
+          if (this.state.previewFocus && !this.state.previewHeld) this.setState({ hoverPreview: null, previewFocus: false });
+        }, 160);
+      },
+      enter: (e) => {
+        const patch = { hoverSlot: slot.id, hoverRow: row.id };
+        if (zero && slot.img) patch.hoverPreview = { id: slot.id, rowId: row.id, rect: this.rectOf(e.currentTarget) };
+        this.set(patch);
+      },
+      leave: () => {
+        if (this.state.capDrag) return;
+        this.setState({ hoverSlot: null });
+        setTimeout(() => {
+          if (!this.state.previewHeld && !this.state.previewFocus) this.setState({ hoverPreview: null });
+        }, 220);
+      },
+      dragStart: (e) => { e.stopPropagation(); this.setState({ drag: { rowId: row.id, slotId: slot.id }, dropSwap: null, dropBefore: null }); },
+      dragOver: (e) => {
+        e.preventDefault();
+        const d = s.drag;
+        if (!d || d.rowId !== row.id || d.slotId === slot.id) return;
+        e.stopPropagation();
+        const src = row.visuals.find(v => v.id === d.slotId);
+        const ok = this.canSwap(row, src, slot);
+        const want = ok ? slot.id : null;
+        if (s.dropSwap !== want || s.dropBefore) this.setState({ dropSwap: want, dropBefore: null });
+      },
+      dragLeaveCard: () => { if (s.dropSwap === slot.id) this.setState({ dropSwap: null }); },
+      drop: (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const d = s.drag;
+        this.setState({ drag: null, dropSwap: null, dropBefore: null });
+        if (d && d.slotId !== slot.id && d.rowId === row.id) this.swapSlots(row.id, d.slotId, slot.id);
+      },
+      canBeSwapTarget: row.visuals.some(o => this.canSwap(row, slot, o)),
+      swapTargetStyle: {
+        display: s.dropSwap === slot.id ? "flex" : "none", position: "absolute", inset: 0, zIndex: 3,
+        alignItems: "center", justifyContent: "center", pointerEvents: "none",
+        borderRadius: "var(--radius-panel)", border: "2px dashed " + acc.line, background: "rgb(255 255 255 / 74%)"
+      },
+      swapChipStyle: {
+        font: "var(--type-pill-weight) var(--type-pill-size)/var(--type-pill-leading) var(--type-pill-family)",
+        letterSpacing: ".06em", textTransform: "uppercase",
+        color: "#2c3138", background: "#ffffff", border: "var(--border-w) solid " + acc.line,
+        borderRadius: "var(--radius-pill)", padding: "var(--space-3) var(--space-8)"
+      },
+      topRowStyle: zero
+        ? { display: "flex", alignItems: "center", gap: "var(--space-5)", flexWrap: "nowrap", minWidth: 0 }
+        : { display: "flex", alignItems: "center", gap: "var(--space-5)", flexWrap: "wrap" },
+      cardStyle: {
+        display: "grid", gap: zero ? "var(--space-4)" : "var(--space-6)",
+        padding: zero ? "var(--space-4) var(--space-8)" : "var(--space-8) var(--space-10)",
+        marginLeft: indent + "px", outlineOffset: "2px",
+        border: "var(--border-w) solid " + (hov ? acc.line : "#e2e5e8"),
+        borderLeftWidth: ord ? "2px" : "var(--border-w)",
+        borderLeftColor: ord ? acc.line : (hov ? acc.line : "#e2e5e8"),
+        boxShadow: (unresolved || short) ? "0 0 0 2px rgb(140 47 38 / 42%)" : "none",
+        borderRadius: "var(--radius-panel)", background: hov ? "#fdfcfa" : "#ffffff",
+        position: "relative",
+        cursor: isOC || isUndef ? "default" : "pointer"
+      },
+      sourceName: slot.source || "",
+      openTrim: (e) => { e.stopPropagation(); this._playerOpener = e.currentTarget; this.openPlayer(row.id, slot.id, true); },
+      trimBtnStyle: Object.assign(this.lightBtn(), { borderColor: "#a8863a", color: "#6d5316" }),
+      toggleSound: (e) => { e.stopPropagation(); this.patchSlot("Set clip sound", row.id, slot.id, { quiet: !slot.quiet }); },
+      soundAria: slot.quiet ? "true" : "false",
+      soundState: slot.quiet ? "On" : "Off",
+      soundStyle: {
+        display: "flex", alignItems: "center", gap: "var(--space-8)", width: "100%", textAlign: "left",
+        padding: "var(--space-5) var(--space-8)", border: "var(--border-w) solid #d8dbdf",
+        borderRadius: "var(--radius-chip)", background: "#ffffff", color: "#16181c", cursor: "pointer"
+      },
+      soundTrackStyle: { position: "relative", flex: "0 0 auto", display: "inline-block", width: "30px", height: "17px", borderRadius: "var(--radius-pill)", background: slot.quiet ? "#a8863a" : "#c9cdd3" },
+      soundKnobStyle: { position: "absolute", top: "2px", left: slot.quiet ? "15px" : "2px", width: "13px", height: "13px", borderRadius: "var(--radius-pill)", background: "#ffffff" },
+      customText: slot.customText || "",
+      setCustomText: (e) => this.patchSlot("Set on-screen text", row.id, slot.id, { customText: e.target.value }),
+      textStyle: { height: "var(--control-h-inline)", width: "100%", maxWidth: "260px", padding: "0 var(--space-8)", border: "var(--border-w) solid #c9cdd3", borderRadius: "var(--radius-control)", background: "#ffffff", color: "#16181c", font: "var(--type-control-size)/1 var(--font-ui)" },
+      provenance: slot.prov || "",
+      readyMsg: issue,
+      readyStyle: {
+        display: "inline-flex", alignItems: "center", padding: "2px var(--space-6)",
+        border: "var(--border-w) solid #e0bdb8", borderRadius: "var(--radius-chip)", background: "#fdf1ef",
+        font: "var(--type-body-sm-weight) var(--type-body-sm-size)/1.3 var(--type-body-sm-family)", color: ERR, textWrap: "pretty"
+      },
+      blockStyle: { display: "grid", position: "relative", marginTop: (s.offsets[slot.id] || 0) + "px" },
+      insZoneStyle: { minHeight: zero ? "6px" : "10px", display: "flex", alignItems: "center", paddingLeft: indent + "px" },
+      insBtnStyle: {
+        width: "17px", height: "17px", display: "inline-flex", alignItems: "center", justifyContent: "center",
+        border: "var(--border-w) dashed #c9cdd3", borderRadius: "var(--radius-pill)",
+        background: "#ffffff", color: "#5b626c", cursor: "pointer",
+        opacity: s.hoverIns === slot.id ? 1 : 0,
+        font: "var(--type-control-sm-weight) var(--type-control-sm-size)/1 var(--type-control-sm-family)"
+      },
+      insEnter: () => this.setState({ hoverIns: slot.id }),
+      insLeave: () => this.setState({ hoverIns: null }),
+      insAria: "Insert a visual above " + shortName,
+      insert: () => this.addVisual(row.id, false),
+      insDragOver: (e) => {
+        if (!s.drag || s.drag.rowId !== row.id) return;
+        e.preventDefault(); e.stopPropagation();
+        if (s.dropBefore !== slot.id) this.setState({ dropBefore: slot.id });
+      },
+      insDrop: (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const d = s.drag;
+        this.setState({ drag: null, dropBefore: null });
+        if (!d || d.rowId !== row.id || d.slotId === slot.id) return;
+        const at = row.visuals.findIndex(v => v.id === slot.id);
+        if (at >= 0) this.reorderSequential(row.id, d.slotId, at);
+      },
+      dropRailStyle: {
+        flex: "1 1 auto", height: "2px", borderRadius: "var(--radius-pill)",
+        background: s.dropBefore === slot.id ? acc.line : "transparent",
+        opacity: s.drag && s.drag.rowId === row.id ? 1 : 0
+      }
+    };
+  }
+  rectOf(el) { const b = el.getBoundingClientRect(); return { left: b.left, top: b.top, right: b.right, bottom: b.bottom }; }
+
+  buildRow(row, ordMap, index, total) {
+    const s = this.state;
+    const cmp = s.compact;
+    const zero = s.thumb <= 2;
+    const { words, segs } = this.segments(row);
+    const spoken = words.length ? this.spokenCount(words, 0, words.length - 1) : 0;
+    const dmask = dirMask(words);
+    const pick = s.pick && s.pick.rowId === row.id ? s.pick : null;
+    const hovRow = s.hoverRow === row.id;
+
+    const chunks = [];
+    if (words.length && !spoken) {
+      chunks.push({
+        hasCap: false, hasClose: false, capOpenId: "", capOpenGlyph: "", capCloseGlyph: "",
+        ariaOpen: "", ariaClose: "", dragOpen: () => {}, dragClose: () => {}, keyOpen: () => {}, keyClose: () => {},
+        editRange: (e) => { e.preventDefault(); }, enter: () => {}, leave: () => {},
+        style: { display: "inline" },
+        words: words.map((t, wi) => ({
+          text: t + " ", key: row.id + ":" + wi, click: () => {},
+          style: { display: "inline", color: "#5b626c", fontStyle: "italic", fontWeight: 400 }
+        })),
+        capOpenStyle: {}, capCloseStyle: {}
+      });
+    }
+    if (spoken) segs.forEach((seg, i) => {
+      const broll = this.isBroll(seg) && seg.kind === "authored";
+      const ord = broll ? ordMap[seg.slot.id] : (seg.kind === "return" ? ordMap[seg.parentSlot ? seg.parentSlot.id : ""] : null);
+      const acc = this.accent(ord || 1);
+      const isOCseg = !this.isBroll(seg);
+      const slot = seg.kind === "authored" ? seg.slot : null;
+      const mediaMode = broll && slot.endMode === "media";
+      const headFade = broll && slot.derived === "inWord";
+      const unresolved = seg.kind === "authored" && slot && slot.kind === "undefined";
+      const overlaySeg = broll && slot && !!slot.overlay;
+      const active = broll && (s.hoverSlot === slot.id || (s.capDrag && s.capDrag.slotId === slot.id));
+      const editRange = broll ? (e) => {
+        e.preventDefault(); e.stopPropagation();
+        this.openMenu({ type: "range", rowId: row.id, slotId: slot.id, x: Math.round(Math.min(e.clientX, window.innerWidth - 280)), y: Math.round(e.clientY + 6), trigger: e.currentTarget });
+      } : () => {};
+      chunks.push({
+        hasCap: broll, hasClose: broll && !mediaMode,
+        capOpenId: broll ? "cap-" + slot.id : "",
+        capOpenGlyph: headFade ? "" : "⟦" + (ord || ""),
+        capCloseGlyph: (ord || "") + "⟧",
+        ariaOpen: broll ? (headFade
+          ? "Row " + (index + 1) + ", visual " + ord + " starts approximately near “" + words[seg.start] + "”, estimated from the fixed media duration. Right-click for exact start and end word actions."
+          : "Row " + (index + 1) + ", visual " + ord + " starts on “" + words[seg.start] + "”. Arrow keys move the start; right-click for exact start and end word actions.") : "",
+        ariaClose: broll && !mediaMode ? "Row " + (index + 1) + ", visual " + ord + " ends on “" + words[seg.end] + "”. Arrow keys move the end." : "",
+        dragOpen: (e) => { e.preventDefault(); this.setState({ capDrag: { rowId: row.id, slotId: slot.id, edge: "open" }, hoverSlot: slot.id }); },
+        dragClose: (e) => { e.preventDefault(); this.setState({ capDrag: { rowId: row.id, slotId: slot.id, edge: "close" }, hoverSlot: slot.id }); },
+        keyOpen: (e) => {
+          if (e.key === "ArrowLeft") { e.preventDefault(); this.moveEndpoint({ rowId: row.id, slotId: slot.id, edge: "open" }, seg.start - 1); }
+          if (e.key === "ArrowRight") { e.preventDefault(); this.moveEndpoint({ rowId: row.id, slotId: slot.id, edge: "open" }, seg.start + 1); }
+        },
+        keyClose: (e) => {
+          if (e.key === "ArrowLeft") { e.preventDefault(); this.moveEndpoint({ rowId: row.id, slotId: slot.id, edge: "close" }, seg.end - 1); }
+          if (e.key === "ArrowRight") { e.preventDefault(); this.moveEndpoint({ rowId: row.id, slotId: slot.id, edge: "close" }, seg.end + 1); }
+        },
+        editRange,
+        enter: () => { if (broll) this.setState({ hoverSlot: slot.id, hoverRow: row.id }); },
+        leave: () => { if (!this.state.capDrag) this.setState({ hoverSlot: null }); },
+        style: {
+          display: "inline", borderRadius: "var(--radius-mark)",
+          background: broll && !headFade && !mediaMode && !overlaySeg ? (active ? acc.wash : this.softWash(acc.wash)) : "transparent"
+        },
+        words: (() => {
+          const raw = words.slice(seg.start, seg.end + 1).map((t, wi) => {
+            const abs = seg.start + wi;
+            const dir = dmask[abs];
+            const FS = 5;
+            const tailFade = mediaMode && !overlaySeg && !dir && abs > seg.end - FS;
+            const tailSolid = mediaMode && !overlaySeg && !dir && !tailFade;
+            const leadFade = headFade && !dir && abs < seg.start + FS;
+            const headSolid = headFade && !dir && abs >= seg.start + FS;
+            const solidWash = active ? acc.wash : this.softWash(acc.wash);
+            const pickable = pick && !dir;
+            return {
+              abs, dir, pickable,
+              text: t + " ", key: row.id + ":" + abs,
+              click: pickable ? () => {
+                this.moveEndpointOrAnchor(pick, abs);
+                this.setState({ pick: null });
+              } : () => {},
+              style: dir ? {
+                display: "inline", color: "#5b626c", fontStyle: "italic", fontWeight: 400, background: "transparent"
+              } : {
+                display: "inline", color: (isOCseg || overlaySeg) && !unresolved ? "#0f1116" : "#2b2f36", fontWeight: (isOCseg || overlaySeg) && !unresolved ? 700 : 400,
+                cursor: pickable ? "pointer" : "text",
+                textDecoration: pickable ? "underline dotted #c9cdd3" : "none",
+                background: leadFade
+                  ? this.scaleWash(solidWash, (abs - seg.start + 1) / (FS + 1))
+                  : (headSolid || tailSolid) ? solidWash
+                  : tailFade
+                  ? this.scaleWash(solidWash, (seg.end - abs) / (FS + 1))
+                  : "transparent"
+              }
+            };
+          });
+          if (pick) return raw;
+          const runs = [];
+          raw.forEach(w => {
+            const last = runs[runs.length - 1];
+            if (last && last._sig === JSON.stringify(w.style)) { last.text += w.text; return; }
+            runs.push({ text: w.text, key: w.key, click: w.click, style: w.style, _sig: JSON.stringify(w.style) });
+          });
+          runs.forEach(rr => { delete rr._sig; });
+          return runs;
+        })(),
+        capOpenStyle: {
+          display: "inline-block", margin: "0 .14em 0 0", padding: "0 1px", verticalAlign: "1px",
+          border: "none", background: "transparent", color: acc.ink, cursor: "ew-resize",
+          font: "var(--type-counter-weight-strong) var(--type-counter-size)/1 var(--type-counter-family)"
+        },
+        capCloseStyle: {
+          display: "inline-block", margin: "0 .22em 0 0", padding: "0 1px", verticalAlign: "1px",
+          border: "none", background: "transparent", color: acc.ink, cursor: "ew-resize",
+          font: "var(--type-counter-weight-strong) var(--type-counter-size)/1 var(--type-counter-family)"
+        }
+      });
+    });
+
+    const items = spoken
+      ? segs.filter(seg => seg.kind === "authored" || this.spokenCount(words, seg.start, seg.end) > 0)
+        .map(seg => this.buildItem(row, seg, ordMap, index))
+        .concat(row.visuals
+          .filter(v => v.cue === null || v.cue === undefined)
+          .map(v => this.buildItem(row, { kind: "authored", slot: v, start: null, end: null }, ordMap, index)))
+      : row.visuals.map(v => this.buildItem(row, { kind: "authored", slot: v, start: null, end: null }, ordMap, index));
+
+    const gutterW = cmp ? 32 : 38;
+    const pinned = spoken ? row.visuals.filter(v => ordMap[v.id] && s.pins[v.id]) : [];
+    const order = pinned.map((v, i) => ({ v, i, top: s.pins[v.id].top })).sort((a, b) => a.top - b.top);
+    const nudge = {};
+    let lastTop = -999;
+    order.forEach(o => {
+      const n = o.top - lastTop < 18 ? Math.round(lastTop + 18) - o.top : 0;
+      nudge[o.v.id] = Math.max(0, n);
+      lastTop = o.top + Math.max(0, n);
+    });
+    const pins = pinned.map((v, i) => {
+      const p = s.pins[v.id], acc = this.accent(ordMap[v.id]);
+      const hov = s.hoverSlot === v.id;
+      const off = nudge[v.id] || 0;
+      const edgeX = (s.pins[v.id].edge === null || s.pins[v.id].edge === undefined) ? gutterW : s.pins[v.id].edge;
+      // stagger alternate routes only when the lane is wide enough to keep the dot on the card border
+      const trackX = Math.max(19, Math.min(19 + (pinned.length > 1 ? (i % 2) * 7 : 0), edgeX - 9));
+      // dot sits inside the card header; the inset absorbs small gaps so a same-level route stays flat
+      const inset = Math.max(5, Math.min(18, p.top + 8 + off - p.port));
+      const elbow = Math.max(0, p.port + inset - p.top - 8 - off);
+      const target = (p.edge === null || p.edge === undefined) ? gutterW : p.edge;
+      const dotL = Math.max(trackX + 3, target - 6);
+      return {
+        n: ordMap[v.id],
+        wrapStyle: { position: "absolute", left: "1px", top: p.top + "px", width: (dotL + 9) + "px", pointerEvents: "none", zIndex: 2 },
+        stemStyle: { position: "absolute", left: "7px", top: "3px", width: "1px", height: off + "px", background: acc.line, opacity: off ? (hov ? 0.9 : 0.45) : 0 },
+        pinStyle: {
+          position: "absolute", left: 0, top: off + "px", width: "16px", height: "16px",
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          border: "var(--border-w) solid " + acc.line, borderRadius: "var(--radius-hairline)",
+          background: hov ? acc.wash : "#ffffff", color: acc.ink,
+          font: "var(--type-counter-weight-strong) 9px/1 var(--type-counter-family)"
+        },
+        railStyle: { position: "absolute", left: "16px", top: (off + 8) + "px", width: (trackX - 16) + "px", height: "1px", background: acc.line, opacity: hov ? 0.9 : 0.55 },
+        dropStyle: { position: "absolute", left: trackX + "px", top: (off + 8) + "px", width: "1px", height: elbow + "px", background: acc.line, opacity: hov ? 0.9 : 0.55 },
+        portStyle: { position: "absolute", left: trackX + "px", top: (off + 8 + elbow) + "px", width: (dotL + 7 - trackX) + "px", height: "1px", background: acc.line, opacity: hov ? 0.9 : 0.55 },
+        capStyle: { position: "absolute", left: dotL + "px", top: (off + 5 + elbow) + "px", width: "7px", height: "7px", borderRadius: "var(--radius-pill)", background: acc.line, opacity: hov ? 1 : 0.85 }
+      };
+    });
+
+    const last = row.visuals[row.visuals.length - 1];
+    const lastName = last ? (SHORT_NAME[last.kind] || "the current visual") : "";
+    const sentences = (row.words || "").split(/[.!?]+\s/).filter(x => x.trim()).length;
+    const empty = this.isEmptyRow(row);
+
+    return {
+      id: row.id,
+      hasWords: words.length > 0, isBlank: words.length === 0,
+      editable: pick ? "false" : "true",
+      chunks, items, pins,
+      enter: () => this.setState({ hoverRow: row.id }),
+      leave: () => this.setState({ hoverRow: null }),
+      proseAria: "Spoken narration, row " + (index + 1),
+      proseStyle: { margin: 0, textAlign: "left", fontWeight: 400, fontSize: this.fs("var(--type-transcript-size)"), lineHeight: 1.8, fontFamily: "var(--font-ui)", color: "#2b2f36", textWrap: "pretty" },
+      hasSection: !!row.section,
+      sectionTitle: row.section ? row.section.title : "",
+      sectionAria: row.section ? "Section title, " + row.section.title : "",
+      sectionStyle: {
+        margin: 0,
+        padding: cmp
+          ? "var(--space-14) var(--space-14) var(--space-6) calc(var(--space-16) + 2px)"
+          : "var(--space-16) var(--space-16) var(--space-8) calc(var(--space-24) + 2px)",
+        outline: "none", fontWeight: 600, fontSize: this.fs("var(--type-h2-size)"), lineHeight: 1.3,
+        fontFamily: "var(--font-ui)", color: "#16181c", textWrap: "pretty"
+      },
+      sectionRuleStyle: { height: "2px", background: "linear-gradient(90deg, #16181c 0, #16181c 46px, #e6e8ea 46px, #e6e8ea 100%)" },
+      sectionBlur: (e) => {
+        const t = e.currentTarget.textContent.replace(/\s+/g, " ").trim();
+        if (!t || t === row.section.title) return;
+        this.commit("Rename section", rows => {
+          const r = rows.find(x => x.id === row.id);
+          if (r && r.section) r.section.title = t;
+        });
+      },
+      sectionKey: (e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } },
+      addSectionAria: "Insert a new section before “" + (row.section ? row.section.title : "this row") + "”",
+      addSection: () => this.addSection(index),
+      proseBlur: () => this.reanchor(row.id),
+      proseKey: (e) => {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); this.reanchor(row.id); this.addRow(index + 1); }
+      },
+      editStyle: { minHeight: "26px", outline: "none", textAlign: "left", font: "400 var(--type-transcript-size)/1.8 var(--font-ui)", color: "#2b2f36" },
+      keyDown: (e) => {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); this.addRow(index + 1); }
+      },
+      input: (e) => {
+        const txt = e.currentTarget.textContent.trim();
+        const h = e.currentTarget.parentNode.querySelector("[data-hint]");
+        if (h) h.style.display = txt ? "none" : "block";
+        if (row.visualOnly) this.setState({ conflict: txt ? row.id : null });
+      },
+      blankBlur: (e) => {
+        const txt = e.currentTarget.textContent.trim();
+        if (!txt || row.visualOnly) return;
+        this.commit("Write narration", rows => {
+          const r = rows.find(x => x.id === row.id);
+          r.words = txt.replace(/\s+/g, " ");
+          const first = r.visuals[0];
+          if (first && (first.cue === null || first.cue === undefined) && first.kind !== "undefined") first.cue = 0;
+          if (first && first.kind === "undefined") first.cue = 0;
+        });
+      },
+      pickPrompt: pick ? (pick.edge === "close" ? "Click the last word of this visual" : "Click the word this footage starts on") : "",
+      conflict: !!(s.conflict && s.conflict === row.id),
+      resolveStyle: Object.assign(this.lightBtn(), { borderColor: "#d8cba7", height: "26px" }),
+      resolveBroll: () => {
+        const node = document.querySelector('[data-cell="' + row.id + '"]');
+        const typed = node ? node.textContent.trim() : "";
+        this.commit("Keep narration, clip becomes quiet B-roll", rows => {
+          const r = rows.find(x => x.id === row.id);
+          r.words = typed;
+          r.visualOnly = false;
+          if (r.visuals[0]) { r.visuals[0].quiet = true; r.visuals[0].cue = 0; }
+        });
+        this.setState({ conflict: null });
+      },
+      resolveAudio: () => {
+        const node = document.querySelector('[data-cell="' + row.id + '"]');
+        if (node) node.textContent = "";
+        const hint = node && node.parentNode ? node.parentNode.querySelector("[data-hint]") : null;
+        if (hint) hint.style.display = "block";
+        this.setState({ conflict: null });
+      },
+      confirmDelete: s.confirmDel === row.id
+        ? "Delete this row with " + sentences + " narration " + (sentences === 1 ? "sentence" : "sentences") + " and " + row.visuals.length + " " + (row.visuals.length === 1 ? "visual" : "visuals") + "?"
+        : "",
+      doDelete: () => this.deleteRow(row.id),
+      cancelDelete: () => this.setState({ confirmDel: null }),
+      bandStyle: { display: "flex", alignItems: "stretch", minWidth: 0, background: hovRow ? "#fdfdfc" : "transparent" },
+      leftStyle: {
+        flex: "0 0 " + s.split + "%", minWidth: 0,
+        padding: cmp ? "var(--space-14) var(--space-14) var(--space-6) var(--space-16)" : "var(--space-16) var(--space-16) var(--space-8) var(--space-24)",
+        borderTop: "var(--border-w) solid #edeff1",
+        borderLeft: "2px solid " + (hovRow ? "#d8cba7" : "transparent")
+      },
+      rightStyle: {
+        position: "relative", flex: "1 1 0", minWidth: 0, display: "grid", gap: 0, alignContent: "start",
+        borderLeft: "var(--border-w) solid #e6e8ea",
+        paddingTop: cmp ? "var(--space-6)" : "var(--space-8)",
+        paddingBottom: cmp ? "var(--space-4)" : "var(--space-5)",
+        paddingRight: cmp ? "var(--space-12)" : "var(--space-16)",
+        paddingLeft: gutterW + "px",
+        borderTop: "var(--border-w) solid #edeff1"
+      },
+      dragOver: (e) => { e.preventDefault(); },
+      dropInRow: (e) => {
+        e.preventDefault();
+        const d = s.drag;
+        if (!d || d.rowId === row.id) { this.setState({ drag: null }); return; }
+        const dir = s.rows.findIndex(r => r.id === row.id) - s.rows.findIndex(r => r.id === d.rowId);
+        this.moveSlotToRow(d.rowId, d.slotId, dir);
+        this.setState({ drag: null });
+      },
+      gapZoneStyle: {
+        display: "flex", justifyContent: "center", alignItems: "center",
+        minHeight: s.hoverGap === row.id ? "20px" : "6px",
+        // carries the column divider across the gap so it runs unbroken from a section's start to its end
+        backgroundImage: (index > 0 && !row.section)
+          ? "linear-gradient(90deg, transparent 0, transparent calc(" + s.split + "% - 1px), #e6e8ea calc(" + s.split + "% - 1px), #e6e8ea " + s.split + "%, transparent " + s.split + "%)"
+          : "none"
+      },
+      gapBtnStyle: this.ghostBtn(s.hoverGap === row.id, "var(--radius-pill)"),
+      gapEnter: () => this.setState({ hoverGap: row.id }),
+      gapLeave: () => this.setState({ hoverGap: null }),
+      addRowBefore: () => this.addRow(index),
+      addRowBeforeAria: index === 0 ? "Add a row above the first row" : "Add a row between row " + index + " and row " + (index + 1),
+      addZoneStyle: { display: "flex", gap: "2px", alignItems: "center", minHeight: zero ? "16px" : "20px", marginTop: zero ? "1px" : "2px" },
+      addAria: row.visuals.length ? "Add the next visual sequentially" : "Add a visual",
+      addBtnStyle: Object.assign(this.ghostBtn(s.hoverAdd === row.id, row.visuals.length ? "var(--radius-chip) 0 0 var(--radius-chip)" : "var(--radius-chip)"), { height: zero ? "17px" : "var(--control-h-micro)", opacity: s.hoverAdd === row.id ? 1 : 0.24 }),
+      canCutaway: row.visuals.length > 0 && words.length > 0,
+      addMenuAria: "More ways to add a visual, including a cutaway from " + lastName,
+      addCaretStyle: Object.assign(this.ghostBtn(s.hoverAdd === row.id, "0 var(--radius-chip) var(--radius-chip) 0"), { width: "20px", padding: 0, borderLeft: "none", height: zero ? "17px" : "var(--control-h-micro)", opacity: s.hoverAdd === row.id ? 1 : 0.24, display: "inline-flex", alignItems: "center", justifyContent: "center" }),
+      addEnter: () => this.setState({ hoverAdd: row.id }),
+      addLeave: () => this.setState({ hoverAdd: null }),
+      addVisual: () => this.addVisual(row.id, false),
+      addMenu: (e) => {
+        const b = e.currentTarget.getBoundingClientRect();
+        this.openMenu({ type: "add", rowId: row.id, x: Math.round(Math.min(b.left, window.innerWidth - 300)), y: Math.round(b.bottom + 6), trigger: e.currentTarget });
+      },
+      rowMenuAria: "Row actions for row " + (index + 1),
+      rowMenuStyle: Object.assign(this.ghostBtn(s.hoverAdd === row.id, "var(--radius-pill)"), { width: "22px", padding: 0, opacity: s.hoverAdd === row.id ? 1 : 0, display: "inline-flex", alignItems: "center", justifyContent: "center", height: zero ? "17px" : "var(--control-h-micro)" }),
+      rowMenu: (e) => {
+        const b = e.currentTarget.getBoundingClientRect();
+        this.openMenu({ type: "row", rowId: row.id, empty, index, x: Math.round(Math.min(b.left - 180, window.innerWidth - 300)), y: Math.round(b.bottom + 6), trigger: e.currentTarget });
+      }
+    };
+  }
+  moveEndpointOrAnchor(pick, abs) {
+    if (pick.edge === "close") {
+      const row0 = this.state.rows.find(r => r.id === pick.rowId);
+      const sl0 = row0 && row0.visuals.find(v => v.id === pick.slotId);
+      if (sl0 && sl0.endMode === "word") {
+        this.commit("Change end word", rows => {
+          const sl = rows.find(r => r.id === pick.rowId).visuals.find(v => v.id === pick.slotId);
+          if (sl) { sl.outAt = abs; if (sl.media) sl.media = Object.assign({}, sl.media, { out: null }); }
+        });
+        return;
+      }
+    }
+    const row = this.state.rows.find(r => r.id === pick.rowId);
+    const slot = row && row.visuals.find(v => v.id === pick.slotId);
+    if (!slot) return;
+    if (pick.edge === "open" && (slot.cue === null || slot.cue === undefined)) {
+      this.commit("Set start word", rows => {
+        const sl = rows.find(r => r.id === pick.rowId).visuals.find(v => v.id === pick.slotId);
+        if (sl) sl.cue = abs;
+      });
+      return;
+    }
+    this.moveEndpoint(pick, pick.edge === "close" ? abs : abs);
+  }
+
+  renderVals() {
+    const s = this.state;
+    const cmp = s.compact;
+    if (!s.rows) return { isGate: false, isDoc: false, rows: [], views: [], widths: [] };
+    const ordMap = this.ordinals();
+    const rows = s.rows.map((r, i) => this.buildRow(r, ordMap, i, s.rows.length));
+
+    let menuItems = [], menuLabel = "";
+    if (s.menu) {
+      const row = s.rows.find(r => r.id === s.menu.rowId);
+      const slot = row && s.menu.slotId ? row.visuals.find(v => v.id === s.menu.slotId) : null;
+      const st = this.itemStyle();
+      if (s.menu.type === "add" && row) {
+        const last = row.visuals[row.visuals.length - 1];
+        const lastName = last ? (SHORT_NAME[last.kind] || "the current visual") : "";
+        menuLabel = "Add a visual";
+        menuItems = [
+          { label: "Add next visual (sequential)", style: st, pick: () => this.addVisual(row.id, false) },
+          { label: "Add cutaway, then return to " + lastName, style: st, pick: () => this.addVisual(row.id, true) }
+        ];
+      } else if (s.menu.type === "row" && row) {
+        menuLabel = "Row actions";
+        menuItems = [
+          { label: "Add row above", style: st, pick: () => this.addRow(s.menu.index) },
+          { label: "Add row below", style: st, pick: () => this.addRow(s.menu.index + 1) },
+          { label: "Delete row", style: st, pick: () => {
+            if (this.isEmptyRow(row)) this.deleteRow(row.id);
+            else { this.setState({ confirmDel: row.id, menu: null }); }
+          } }
+        ];
+      } else if (s.menu.type === "more" && row && slot) {
+        const i = row.visuals.findIndex(v => v.id === slot.id);
+        const parent = i > 0 ? row.visuals[i - 1] : null;
+        const pName = parent ? (SHORT_NAME[parent.kind] || "the visual above") : "";
+        const ri = s.rows.findIndex(r => r.id === row.id);
+        menuLabel = (KIND_NAME[slot.kind] || "Visual") + " actions";
+        menuItems = [];
+        if (i > 0 && slot.level === 0) menuItems.push({ label: "Make cutaway from " + pName, style: st, pick: () => this.makeCutaway(row.id, slot.id) });
+        if (slot.level === 1) menuItems.push({ label: "Make sequential", meta: "removes the return this cutaway owns", style: st, pick: () => this.makeSequential(row.id, slot.id) });
+        row.visuals.forEach((other, oi) => {
+          if (!this.canSwap(row, slot, other)) return;
+          const on = ordMap[other.id];
+          menuItems.push({
+            label: "Swap with visual " + (on || (oi + 1)),
+            meta: "exchange the two visuals between their coverage slots",
+            style: st, pick: () => this.swapSlots(row.id, slot.id, other.id)
+          });
+        });
+        if (i > 0 && slot.level !== 1) menuItems.push({ label: "Move to the start of this row", meta: "move it first and shift the sequence forward", style: st, pick: () => this.reorderSequential(row.id, slot.id, 0) });
+        if (i > 0) menuItems.push({ label: "Move up in this row", style: st, pick: () => {
+          this.commit("Reorder visuals", rs => {
+            const r = rs.find(x => x.id === row.id);
+            const a = r.visuals[i - 1], b = r.visuals[i];
+            const ca = a.cue, cb = b.cue, la = a.level, lb = b.level, pa = a.parent, pb = b.parent, ra = a.returnAt, rb = b.returnAt;
+            r.visuals[i - 1] = b; r.visuals[i] = a;
+            b.cue = ca; b.level = la; b.parent = pa; b.returnAt = ra;
+            a.cue = cb; a.level = lb; a.parent = pb; a.returnAt = rb;
+          });
+        } });
+        if (ri > 0) menuItems.push({ label: "Move to previous row", style: st, pick: () => this.moveSlotToRow(row.id, slot.id, -1) });
+        if (ri < s.rows.length - 1) menuItems.push({ label: "Move to next row", style: st, pick: () => this.moveSlotToRow(row.id, slot.id, 1) });
+        if (this.wordsOf(row).length) menuItems.push({ label: "Change start word…", style: st, pick: () => this.setState({ pick: { rowId: row.id, slotId: slot.id, edge: "open" }, menu: null }) });
+        if (slot.kind !== "undefined") menuItems.push({ label: "Return to Visual Undefined", style: st, pick: () => this.patchSlot("Return to Visual Undefined", row.id, slot.id, { kind: "undefined", img: "", source: "", excerpt: "", media: null, prov: "" }) });
+        menuItems.push({ label: "Delete visual", style: st, pick: () => this.removeSlot(row.id, slot.id, SHORT_NAME[slot.kind] || "visual") });
+      } else if (s.menu.type === "range" && row && slot) {
+        const seg = this.segments(row).segs.find(x => x.kind === "authored" && x.slot.id === slot.id);
+        const words = this.wordsOf(row);
+        menuLabel = seg ? "Range — “" + words[seg.start] + "” to “" + words[seg.end] + "”" : "Range";
+        menuItems = [
+          { label: "Change start word…", style: st, pick: () => this.setState({ pick: { rowId: row.id, slotId: slot.id, edge: "open" }, menu: null }) },
+          { label: "Change end word…", style: st, pick: () => this.setState({ pick: { rowId: row.id, slotId: slot.id, edge: "close" }, menu: null }) }
+        ];
+        if (slot.media) {
+          const four = this.lockedCount(slot) >= 4;
+          const rel = [["mediaIn", "media inpoint"], ["mediaOut", "media outpoint"], ["inWord", "start word"], ["outWord", "end word"]]
+            .filter(p => p[0] !== slot.derived)
+            .map(p => ({
+              label: (four ? "Release " : "Derive ") + p[1],
+              meta: four ? "the document derives it from the other three" : "",
+              style: st, pick: () => this.releaseLock(row.id, slot.id, p[0])
+            }));
+          if (four) menuItems.push({ label: "Four timing locks are stored — release one", meta: "any three determine the fourth", style: Object.assign(this.itemStyle(), { color: ERR, cursor: "default" }), pick: () => {} });
+          menuItems = menuItems.concat(rel);
+        }
+      } else if (s.menu.type === "library" && row && slot) {
+        menuLabel = "Clips already logged in VERA Research for this project";
+        menuItems = LIBRARY.map(l => ({
+          label: l.excerpt, action: "Select",
+          thumbStyle: {
+            flex: "0 0 auto", display: "block", width: "64px", aspectRatio: "16 / 9",
+            borderRadius: "var(--radius-hairline)", background: "#0f1116",
+            backgroundImage: "url('" + IMG[l.img] + "')", backgroundSize: "cover", backgroundPosition: "center"
+          },
+          meta: l.total + "s logged · " + (l.out - l.in).toFixed(1) + "s selected",
+          style: Object.assign(this.itemStyle(), { alignItems: "flex-start", padding: "var(--space-6) var(--space-8)" }),
+          pick: () => this.patchSlot("Select clip from VERA Research", row.id, slot.id, Object.assign({ kind: "clip" }, fromLib(l.img)))
+        })).concat([{ label: "Open in VERA Research", meta: "if the clip you need is not logged yet", style: Object.assign(this.itemStyle(), { color: "#6d5316" }), pick: () => this.closeMenu(true) }]);
+      }
+    }
+
+    const totalIssues = s.rows.reduce((n, r) => n + this.rowIssues(r).length, 0);
+    const tslot = this.trimSlot();
+    const tm = tslot && tslot.media ? tslot.media : { total: 10, in: 0, out: null };
+    const hasOut = tm.out !== null && tm.out !== undefined;
+    const inPct = (tm.in / tm.total) * 100;
+    const outPct = hasOut ? (tm.out / tm.total) * 100 : 100;
+
+    const hp = s.hoverPreview;
+    const hpSlot = hp ? (s.rows.map(r => r.visuals.find(v => v.id === hp.id)).filter(Boolean)[0]) : null;
+    const hpW = cmp ? 208 : 244;
+
+    const pslot = this.playerSlot();
+    const pm = pslot && pslot.media ? pslot.media : null;
+    const pEnd = pm ? ((pm.out === null || pm.out === undefined) ? pm.total : pm.out) : 1;
+    const pProg = pm ? Math.max(0, Math.min(1, (s.playerPos - pm.in) / Math.max(0.1, pEnd - pm.in))) : 0;
+
+    return {
+      views: [["gate", "S01 entry"], ["doc", "S02–S03 document"]].map(([k, label]) => ({
+        label, on: s.view === k ? "true" : "false", style: this.chip(s.view === k), pick: () => this.set({ view: k })
+      })),
+      widths: [[false, "1280 × 800"], [true, "1024 × 768"]].map(([v, label]) => ({
+        label, on: cmp === v ? "true" : "false", style: this.chip(cmp === v),
+        pick: () => { this._align = 0; this.setState({ compact: v }, () => this.setState({ split: this.clampSplit(this.state.split) })); }
+      })),
+      doReload: () => this.setState({ reloaded: !s.reloaded }),
+      reloadLabel: s.reloaded ? "✓ Reload acknowledged (simulated)" : "Simulate reload",
+      reloadStyle: this.chip(s.reloaded),
+      isGate: s.view === "gate", isDoc: s.view !== "gate",
+      headTitle: s.view === "gate" ? "Script to Timeline" : s.scriptTitle,
+      headSub: s.view === "gate" ? "Choose a project and script" : "Project · Harbor Lights",
+      renaming: !!s.renaming,
+      notRenaming: !s.renaming,
+      titleBtnStyle: {
+        padding: "0 var(--space-5)", margin: "0 -5px", border: "var(--border-w) solid transparent",
+        borderRadius: "var(--radius-chip)", background: "transparent", color: "#f2efe8", cursor: "text",
+        textAlign: "left", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+        fontWeight: 600, fontSize: "17px", lineHeight: "22px", fontFamily: "var(--font-ui)"
+      },
+      titleAria: "Script title, " + s.scriptTitle + ". Activate to rename.",
+      startRename: () => this.setState({ renaming: true, undoMenu: false, menu: null }, () => {
+        const el = document.querySelector("[data-title]");
+        if (el) { el.focus(); document.getSelection().selectAllChildren(el); }
+      }),
+      titleEditStyle: {
+        minWidth: "120px", padding: "0 var(--space-5)", margin: "0 -5px", outline: "none",
+        border: "var(--border-w) solid var(--gold-border)", borderRadius: "var(--radius-chip)",
+        background: "#1c2028", color: "#f4e1b9", whiteSpace: "nowrap",
+        fontWeight: 600, fontSize: "17px", lineHeight: "22px", fontFamily: "var(--font-ui)"
+      },
+      titleValue: s.scriptTitle,
+      commitRename: (e) => {
+        const t = (e.currentTarget.textContent || "").replace(/\s+/g, " ").trim();
+        const prev = this.state.scriptTitle;
+        this.setState({ renaming: false });
+        if (!t || t === prev) return;
+        this.setState({
+          scriptTitle: t,
+          undo: [{ label: "Rename script to “" + t + "”", title: prev }].concat(this.state.undo).slice(0, 20)
+        });
+      },
+      titleKey: (e) => {
+        if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); }
+        if (e.key === "Escape") { e.preventDefault(); e.currentTarget.textContent = s.scriptTitle; this.setState({ renaming: false }); }
+      },
+      textScaleValue: Math.round((s.textScale || 1) * 100),
+      setTextScale: (e) => this.set({ textScale: Math.round(parseInt(e.target.value, 10)) / 100 }),
+      resetTextScale: () => this.set({ textScale: 1 }),
+      textScaleLabel: Math.round((s.textScale || 1) * 100) + "%",
+      frameStyle: {
+        width: cmp ? "var(--bp-compact)" : "var(--app-w)", height: cmp ? "768px" : "var(--app-h)",
+        maxWidth: "100%", display: "flex", flexDirection: "column",
+        border: "var(--border-w) solid #262b33", borderRadius: "var(--radius-window)",
+        background: "#0f1116", boxShadow: "var(--shadow-window)", overflow: "hidden"
+      },
+      scrollerStyle: { flex: "1 1 auto", minHeight: 0, overflow: "auto", background: "#0f1116", position: "relative" },
+      surfaceClick: (e) => {
+        if (s.expanded && !e.target.closest("[role=button]")) this.set({ expanded: null });
+      },
+      onScroll: () => {
+        const patch = {};
+        if (s.menu) patch.menu = null;
+        if (s.undoMenu) patch.undoMenu = false;
+        if (s.hoverPreview) { patch.hoverPreview = null; patch.previewFocus = false; }
+        if (s.expanded) {
+          const el = document.querySelector('[data-rowid="' + s.expanded.rowId + '"]');
+          const sc = el ? el.closest("div[style*='overflow']") : null;
+          if (el && sc) {
+            const a = el.getBoundingClientRect(), b = sc.getBoundingClientRect();
+            if (a.bottom < b.top - 60 || a.top > b.bottom + 60) patch.expanded = null;
+          }
+        }
+        if (Object.keys(patch).length) this.setState(patch);
+      },
+      barWrapStyle: { position: "sticky", top: 0, zIndex: 30, padding: cmp ? "10px 12px 8px" : "12px 18px 10px", background: "linear-gradient(180deg, #0f1116 62%, rgb(15 17 22 / 0%) 100%)" },
+      barStyle: {
+        display: "flex", alignItems: "center", gap: cmp ? "var(--space-6)" : "var(--space-10)",
+        flexWrap: cmp ? "wrap" : "nowrap", padding: cmp ? "8px 10px" : "7px 12px",
+        border: "var(--border-w) solid #262b33", borderRadius: "var(--radius-panel)",
+        background: "#161920", boxShadow: "0 8px 22px rgb(0 0 0 / 34%)"
+      },
+      syncStyle: {
+        display: "inline-flex", alignItems: "center", height: "var(--control-h-micro)", padding: "0 var(--space-8)",
+        whiteSpace: "nowrap", border: "var(--border-w) solid var(--success-border)", borderRadius: "var(--radius-pill)",
+        background: "var(--success-surface)", font: "var(--type-pill-weight) var(--type-pill-size)/var(--type-pill-leading) var(--type-pill-family)",
+        color: "var(--success-text)"
+      },
+      undoOnce: () => this.undoOnce(),
+      undoDisabled: s.undo.length ? "false" : "true",
+      undoTitle: s.undo.length ? "Undo " + s.undo[0].label + " (Cmd/Ctrl+Z) · Redo with Cmd/Ctrl+Shift+Z" : "Nothing to undo",
+      undoBtnStyle: Object.assign(this.barBtn(false), { opacity: s.undo.length ? 1 : 0.45, borderTopRightRadius: 0, borderBottomRightRadius: 0 }),
+      toggleUndoMenu: () => this.setState({ undoMenu: !s.undoMenu, menu: null }),
+      undoMenuOpen: s.undoMenu ? "true" : "false",
+      undoMenuVisible: !!s.undoMenu,
+      undoCaretStyle: Object.assign(this.barBtn(s.undoMenu), { width: "22px", padding: 0, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, marginLeft: "-1px" }),
+      undoItems: s.undo.slice(0, 20).map((u, i) => ({
+        n: i + 1, label: (u.rows || u.title !== undefined) ? u.label : u.label + " — earlier session",
+        pick: () => this.undoThrough(i),
+        style: {
+          display: "flex", alignItems: "center", gap: "var(--space-8)", textAlign: "left",
+          minHeight: "26px", padding: "var(--space-4) var(--space-8)", border: "none",
+          borderRadius: "var(--radius-chip)", background: "transparent",
+          color: (u.rows || u.title !== undefined) ? "#e7e4dd" : "#8b929e", cursor: "pointer"
+        }
+      })),
+      thumbSize: s.thumb,
+      thumbLabel: s.thumb === 0 ? "off" : s.thumb + "%",
+      setThumb: (e) => this.set({ thumb: parseInt(e.target.value, 10), hoverPreview: null }),
+      doCheck: () => this.setState({ checked: !s.checked }),
+      checkStyle: this.barBtn(s.checked),
+      checkSummary: s.checked ? (totalIssues ? "△ " + totalIssues + " to resolve" : "✓ Coverage complete") : "",
+      checkSummaryStyle: {
+        font: "var(--type-mono-meta-weight) var(--type-mono-meta-size)/1 var(--type-mono-meta-family)",
+        color: totalIssues ? "#e0a49c" : "#9ecfae", whiteSpace: "nowrap"
+      },
+      toggleSettings: () => this.setState({ settings: !s.settings }),
+      settingsOpen: s.settings ? "true" : "false",
+      settingsVisible: !!s.settings,
+      settingsBtnStyle: this.barBtn(s.settings),
+      settingsPanelStyle: {
+        margin: cmp ? "8px 12px 0" : "10px 18px 0", display: "grid",
+        gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: "var(--space-16)", alignItems: "start",
+        padding: "var(--space-14) var(--space-16)", border: "var(--border-w) solid #262b33",
+        borderRadius: "var(--radius-panel)", background: "#161920"
+      },
+      togglePresenterThumb: () => this.setState({ showPresenterThumb: !s.showPresenterThumb }),
+      presenterThumbAria: s.showPresenterThumb ? "true" : "false",
+      presenterToggleLabel: (s.showPresenterThumb ? "✓ " : "○ ") + "Show presenter thumbnail",
+      presenterToggleStyle: Object.assign(this.barBtn(s.showPresenterThumb), { height: "28px", width: "max-content" }),
+      scriptPresenter: s.presenterName,
+      setPresenterName: (e) => this.setState({ presenterName: e.target.value }),
+      fieldStyle: {
+        height: "var(--control-h-inline)", width: "170px", padding: "0 var(--space-8)",
+        border: "var(--border-w) solid #333a44", borderRadius: "var(--radius-control)",
+        background: "#0f1116", color: "#e7e4dd", font: "var(--type-control-size)/1 var(--font-ui)"
+      },
+      pageStyle: {
+        position: "relative", display: "flex", alignItems: "flex-start",
+        maxWidth: cmp ? "none" : "1180px", margin: cmp ? "0 12px 26px" : "0 18px 30px",
+        borderRadius: "var(--radius-panel)", background: "#ffffff",
+        border: "var(--border-w) solid #d8dbdf", overflow: "hidden",
+        boxShadow: "0 16px 40px rgb(0 0 0 / 34%)"
+      },
+      // one authoring-size zoom for the whole document: type, cards, controls, padding, brackets, connectors and row height together
+      docBodyStyle: { flex: "1 1 auto", minWidth: 0, display: "flex", flexDirection: "column", zoom: s.textScale || 1 },
+      rows,
+      tailZoneStyle: { display: "flex", justifyContent: "center", alignItems: "center", minHeight: s.hoverTail ? "26px" : "12px", borderTop: "var(--border-w) solid #edeff1" },
+      tailBtnStyle: this.ghostBtn(s.hoverTail, "var(--radius-pill)"),
+      tailEnter: () => this.setState({ hoverTail: true }),
+      tailLeave: () => this.setState({ hoverTail: false }),
+      addRowEnd: () => this.addRow(s.rows.length),
+      addSectionEnd: () => this.addSection(s.rows.length),
+      splitNow: s.split, splitMin: cmp ? 46 : 42, splitMax: cmp ? 68 : 74,
+      dividerAria: "Column divider for the whole document, " + s.split + " percent narration. Arrow keys adjust, Home resets to sixty forty.",
+      dividerStyle: {
+        position: "absolute", top: 0, bottom: 0, left: "calc(" + s.split + "% - 4px)", width: "9px", zIndex: 6,
+        border: "none", padding: 0, background: s.dragging ? "#e8dcc0" : "transparent", cursor: "col-resize"
+      },
+      startDrag: (e) => { e.preventDefault(); this._host = e.currentTarget.parentNode; this.setState({ dragging: true }); },
+      dividerKey: (e) => {
+        if (e.key === "ArrowLeft") { e.preventDefault(); this.set({ split: this.clampSplit(s.split - 2) }); }
+        if (e.key === "ArrowRight") { e.preventDefault(); this.set({ split: this.clampSplit(s.split + 2) }); }
+        if (e.key === "Home") { e.preventDefault(); this.set({ split: 60 }); }
+      },
+      projects: [
+        { id: "harbor", name: "Harbor Lights Explainer", meta: "Writer · authoring access", tag: "✓ Authorized", locked: false },
+        { id: "ferry", name: "Ferry Terminal Retrofit", meta: "Reader · no authoring access", tag: "◇ Read only", locked: true },
+        { id: "kelp", name: "Kelp Survey Field Notes", meta: "Not shared with you", tag: "— No access", locked: true }
+      ].map(p => {
+        const on = s.project === p.id;
+        return {
+          name: p.name, meta: p.meta, tag: p.tag, on: on ? "true" : "false", locked: p.locked ? "true" : "false",
+          pick: () => { if (!p.locked) this.setState({ project: p.id }); },
+          style: {
+            display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-12)",
+            padding: "var(--space-12) var(--space-14)", textAlign: "left",
+            border: "var(--border-w) solid " + (on ? "var(--gold-border)" : "#262b33"),
+            borderRadius: "var(--radius-panel)", background: on ? "var(--gold-surface)" : "#161920",
+            opacity: p.locked ? 0.6 : 1, cursor: p.locked ? "default" : "pointer"
+          },
+          tagStyle: {
+            display: "inline-flex", alignItems: "center", height: "var(--control-h-micro)", padding: "0 var(--space-8)",
+            whiteSpace: "nowrap", border: "var(--border-w) solid " + (p.locked ? "#3a4048" : "var(--success-border)"),
+            borderRadius: "var(--radius-pill)", background: p.locked ? "#1a1d22" : "var(--success-surface)",
+            font: "var(--type-pill-weight) var(--type-pill-size)/var(--type-pill-leading) var(--type-pill-family)",
+            color: p.locked ? "#8b929e" : "var(--success-text)"
+          }
+        };
+      }),
+      sections: [["why", "Why the Signal Changes"], ["tide", "Reading the Tide Table"], ["log", "What the Keeper Logs"]].map(([k, name]) => ({
+        name, on: s.section === k ? "true" : "false", pick: () => this.setState({ section: k }),
+        style: {
+          textAlign: "left", height: "var(--control-h-toolbar)", padding: "0 var(--space-10)",
+          border: "var(--border-w) solid " + (s.section === k ? "var(--gold-border)" : "transparent"),
+          borderRadius: "var(--radius-chip)", background: s.section === k ? "var(--gold-surface)" : "transparent",
+          color: s.section === k ? "#e7e4dd" : "#8b929e", cursor: "pointer",
+          font: "var(--type-menu-row-weight) var(--type-menu-row-size)/1 var(--type-menu-row-family)"
+        }
+      })),
+      openScript: () => this.set({ view: "doc" }),
+      hoverPreviewOpen: !!(hp && hpSlot && hpSlot.img && !(s.player && s.player.slotId === hp.id)),
+      hoverPreviewSrc: hpSlot && hpSlot.img ? IMG[hpSlot.img] : "",
+      hoverPreviewCaption: hpSlot && hpSlot.media ? "Preview · first frame " + hpSlot.media.in.toFixed(1) + "s" : "Preview",
+      hoverPreviewAria: hpSlot ? "Preview " + (hpSlot.excerpt ? hpSlot.excerpt.replace(/[“”]/g, "").slice(0, 40) : "clip") : "Preview clip",
+      openHoverPreview: () => {
+        if (!hp) return;
+        this._playerOpener = document.querySelector('[data-slot="' + hp.id + '"]');
+        this.openPlayer(hp.rowId, hp.id);
+      },
+      holdPreview: () => this.setState({ previewHeld: true }),
+      releasePreview: () => this.setState({ previewHeld: false, hoverPreview: this.state.previewFocus ? this.state.hoverPreview : null }),
+      hoverPreviewStyle: hp ? {
+        position: "fixed", zIndex: 80, padding: 0, width: hpW + "px", aspectRatio: "16 / 9",
+        left: Math.max(8, hp.rect.left - hpW - 10) + "px",
+        top: Math.max(8, Math.min(hp.rect.top, window.innerHeight - hpW * 0.5625 - 12)) + "px",
+        border: "var(--border-w) solid #2a2f38", borderRadius: "var(--radius-chip)", overflow: "hidden",
+        background: "#0f1116", boxShadow: "0 18px 44px rgb(0 0 0 / 55%)", cursor: "pointer",
+        backgroundImage: hpSlot && hpSlot.img ? "url('" + IMG[hpSlot.img] + "')" : "none",
+        backgroundSize: "cover", backgroundPosition: "center"
+      } : {},
+      playerOpen: !!s.player,
+      playerSrc: pslot && pslot.img ? IMG[pslot.img] : "",
+      playerAlt: pslot ? (pslot.excerpt || "clip frame") : "",
+      playerTime: s.playerPos.toFixed(1) + "s",
+      playerBarStyle: { display: "block", height: "100%", width: (pProg * 100).toFixed(1) + "%", background: "#b8933f" },
+      playerToggle: () => this.playerToggle(),
+      playerPlayingAria: s.playerPlaying ? "true" : "false",
+      playerLabel: s.playerPlaying ? "◼ Pause" : "▶ Play",
+      playerBtnStyle: Object.assign(this.barBtn(s.playerPlaying), { height: "26px" }),
+      playerRange: pm ? "playing " + pm.in.toFixed(1) + "s – " + pEnd.toFixed(1) + "s of " + pm.total + "s logged" : "",
+      playerKey: (e) => { if (e.key === " ") { e.preventDefault(); this.playerToggle(); } },
+      playerHint: s.playerTrim
+        ? "Media trimming only — narration cue words are edited on the brackets in the writing column."
+        : "Preview only — the source in and out points are unchanged. Space plays and pauses.",
+      trimExpanded: !!s.playerTrim,
+      trimExpandedAria: s.playerTrim ? "true" : "false",
+      trimDiscloseLabel: (s.playerTrim ? "▾ " : "▸ ") + "Edit trim",
+      trimDiscloseStyle: Object.assign(this.barBtn(s.playerTrim), { height: "26px", width: "max-content" }),
+      toggleTrim: () => this.toggleTrimDisclosure(),
+      closePlayer: () => this.closePlayer(),
+      playerStyle: (() => {
+        const w = this.playerWidth();
+        const pin = s.playerPin || {};
+        const base = {
+          position: "fixed", zIndex: 82, width: w + "px", maxWidth: "calc(100vw - 16px)",
+          maxHeight: "calc(100vh - 16px)", overflowY: "auto",
+          display: "grid", gap: cmp ? "var(--space-6)" : "var(--space-8)",
+          padding: cmp ? "var(--space-10) var(--space-12)" : "var(--space-12) var(--space-14)",
+          border: "var(--border-w) solid #2a2f38", borderRadius: "var(--radius-panel)",
+          background: "#161920", boxShadow: "0 22px 54px rgb(0 0 0 / 58%)"
+        };
+        base.left = (pin.left !== undefined && pin.left !== null ? pin.left : Math.max(8, window.innerWidth - w - (cmp ? 14 : 26))) + "px";
+        if (pin.top !== undefined && pin.top !== null) base.top = pin.top + "px";
+        else base.bottom = (cmp ? 16 : 26) + "px";
+        return base;
+      })(),
+      playerHeaderStyle: { display: "flex", alignItems: "center", gap: "var(--space-8)", cursor: "grab" },
+      resizeAria: "Resize the clip player, " + this.playerWidth() + " pixels wide. Arrow keys adjust the width.",
+      resizeStyle: {
+        position: "absolute", right: "3px", bottom: "3px", width: "17px", height: "17px",
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        border: "var(--border-w) solid " + (s.resize ? "#b8933f" : "transparent"), borderRadius: "var(--radius-hairline)",
+        background: "transparent", color: s.resize ? "#f0e0bb" : "#5b626c", cursor: "nwse-resize",
+        font: "11px/1 var(--font-ui)"
+      },
+      resizeDown: (e) => {
+        e.preventDefault(); e.stopPropagation();
+        this.setState({ resize: { x0: e.clientX, w0: this.playerWidth(), dir: (s.playerPin && s.playerPin.left !== null ? 1 : 1) } });
+      },
+      resizeKey: (e) => {
+        if (e.key === "ArrowRight" || e.key === "ArrowUp") { e.preventDefault(); this.setState({ playerW: Math.min(this.maxW(), this.playerWidth() + 24) }); }
+        if (e.key === "ArrowLeft" || e.key === "ArrowDown") { e.preventDefault(); this.setState({ playerW: Math.max(this.minW(), this.playerWidth() - 24) }); }
+      },
+      moveDown: (e) => {
+        if (e.target.closest("button")) return;
+        const d = e.currentTarget.closest('[role=dialog]').getBoundingClientRect();
+        e.preventDefault();
+        this.setState({ movePlayer: { x0: e.clientX, y0: e.clientY, left: d.left, top: d.top, w: d.width } });
+      },
+      trimSource: tslot ? (tslot.source || "Source not set") : "",
+      transcriptWords: (() => {
+        if (!tslot || !tslot.excerpt || !tm.total) return [];
+        const ws = tslot.excerpt.replace(/[“”]/g, "").split(/\s+/).filter(Boolean);
+        const step = tm.total / ws.length;
+        return ws.map((t, i) => {
+          const at = Math.round(i * step * 10) / 10;
+          const inSel = at >= tm.in - 0.05 && (hasOut ? at <= tm.out + 0.05 : true);
+          const current = s.playerPos >= at - 0.001 && s.playerPos < at + step;
+          return {
+            text: t, seek: () => this.setState({ playerPos: at }),
+            aria: t + " at " + at.toFixed(1) + " seconds",
+            style: {
+              display: "inline-block", margin: "0 3px 3px 0", padding: "1px 3px", border: "none",
+              borderRadius: "var(--radius-hairline)", cursor: "pointer",
+              background: current ? "#b8933f" : (inSel ? "rgb(184 147 63 / 26%)" : "transparent"),
+              color: current ? "#16181c" : (inSel ? "#f0e0bb" : "#8b929e"),
+              font: "var(--type-body-sm-weight) var(--type-body-sm-size)/1.45 var(--type-body-sm-family)"
+            }
+          };
+        });
+      })(),
+      transcriptBoxStyle: {
+        maxHeight: "96px", overflowY: "auto", padding: "var(--space-6) var(--space-8)",
+        border: "var(--border-w) solid #2a2f38", borderRadius: "var(--radius-chip)", background: "#12151b"
+      },
+      transcriptNote: hasOut
+        ? "Selected source interval " + tm.in.toFixed(1) + "s – " + tm.out.toFixed(1) + "s is highlighted."
+        : "In point " + tm.in.toFixed(1) + "s, open ended — this clip cuts on its narration word.",
+      trimSetStyle: Object.assign(this.barBtn(false), { height: "26px" }),
+      trimSetIn: () => this.setMedia({ in: Math.round(s.playerPos * 10) / 10 }),
+      trimSetOut: () => this.setMedia({ out: Math.round(s.playerPos * 10) / 10 }),
+      trimClearOut: () => this.setMedia({ out: null }),
+      trimTrackStyle: { position: "relative", height: "26px", borderRadius: "var(--radius-hairline)", border: "var(--border-w) solid #2f353e", background: "#1c2028", cursor: "pointer" },
+      trimTrackDown: (e) => {
+        const b = e.currentTarget.getBoundingClientRect();
+        this.setState({ playerPos: Math.round(Math.max(0, Math.min(1, (e.clientX - b.left) / b.width)) * tm.total * 10) / 10 });
+      },
+      trimSelStyle: {
+        position: "absolute", top: 0, bottom: 0, left: inPct + "%", width: (outPct - inPct) + "%",
+        background: hasOut ? "rgb(184 147 63 / 46%)" : "linear-gradient(90deg, rgb(184 147 63 / 46%) 0%, rgb(184 147 63 / 0%) 100%)"
+      },
+      trimHasOut: hasOut,
+      trimInAria: "Media in point handle at " + tm.in.toFixed(1) + " seconds. Arrow keys adjust.",
+      trimOutAria: hasOut ? "Media out point handle at " + tm.out.toFixed(1) + " seconds. Arrow keys adjust." : "",
+      trimInDown: (e) => { e.preventDefault(); e.stopPropagation(); this.setState({ trimDrag: "in" }); },
+      trimOutDown: (e) => { e.preventDefault(); e.stopPropagation(); this.setState({ trimDrag: "out" }); },
+      trimInKey: (e) => {
+        if (e.key === "ArrowLeft") { e.preventDefault(); this.setMedia({ in: Math.max(0, tm.in - 0.2) }); }
+        if (e.key === "ArrowRight") { e.preventDefault(); this.setMedia({ in: Math.min(tm.total - 0.2, tm.in + 0.2) }); }
+      },
+      trimOutKey: (e) => {
+        if (e.key === "ArrowLeft") { e.preventDefault(); this.setMedia({ out: Math.max(tm.in + 0.3, (tm.out || tm.total) - 0.2) }); }
+        if (e.key === "ArrowRight") { e.preventDefault(); this.setMedia({ out: Math.min(tm.total, (tm.out || tm.total) + 0.2) }); }
+      },
+      trimInHandleStyle: { position: "absolute", top: "-3px", bottom: "-3px", left: "calc(" + inPct + "% - 5px)", width: "10px", border: "var(--border-w) solid #f0e0bb", borderRadius: "var(--radius-hairline)", background: "#b8933f", cursor: "ew-resize", padding: 0 },
+      trimOutHandleStyle: { position: "absolute", top: "-3px", bottom: "-3px", left: "calc(" + outPct + "% - 5px)", width: "10px", border: "var(--border-w) solid #f0e0bb", borderRadius: "var(--radius-hairline)", background: "#b8933f", cursor: "ew-resize", padding: 0 },
+      trimHeadStyle: { position: "absolute", top: 0, bottom: 0, left: "calc(" + ((s.playerPos / tm.total) * 100) + "% - 1px)", width: "2px", background: "#e7e4dd" },
+      trimReadout: hasOut
+        ? tm.total + "s logged · in " + tm.in.toFixed(1) + "s · out " + tm.out.toFixed(1) + "s · " + (tm.out - tm.in).toFixed(1) + "s selected"
+        : tm.total + "s logged · in " + tm.in.toFixed(1) + "s · open ended, cuts on its narration word",
+      trimCloseStyle: Object.assign(this.barBtn(false), { width: "26px", padding: 0 }),
+      trimStageStyle: {
+        position: "relative", width: "100%", aspectRatio: "16 / 9", borderRadius: "var(--radius-chip)",
+        border: "var(--border-w) solid #2a2f38", overflow: "hidden", background: "#0f1116",
+        backgroundImage: pslot && pslot.img ? "url('" + IMG[pslot.img] + "')" : "none",
+        backgroundSize: "cover", backgroundPosition: "center"
+      },
+      menuOpen: !!(s.menu && menuItems.length), menuLabel, menuItems,
+      menuKey: (e) => { if (e.key === "Escape") { e.preventDefault(); this.closeMenu(true); } },
+      menuStyle: s.menu ? {
+        position: "fixed", left: Math.max(10, s.menu.x) + "px", top: Math.min(s.menu.y, Math.max(60, window.innerHeight - 330)) + "px", zIndex: 60,
+        display: "grid", gap: "2px", width: s.menu.type === "library" ? "300px" : "auto",
+        minWidth: "236px", maxWidth: "300px", maxHeight: "318px", overflow: "auto", padding: "var(--space-6)",
+        border: "var(--border-w) solid #c9cdd3", borderRadius: "var(--radius-panel)",
+        background: "#ffffff", boxShadow: "0 14px 34px rgb(20 24 30 / 22%)"
+      } : {},
+      toast: s.toast
+    };
+  }
+}
+
+</script>
+</body>
+</html>
