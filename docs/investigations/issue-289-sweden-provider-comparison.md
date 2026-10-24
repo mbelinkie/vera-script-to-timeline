@@ -281,10 +281,11 @@ Arthur's reservation adds $0.014550; the cumulative new-provider reservation is
 Polly and Fish caps are unchanged. No top-up, paid fallback, custom voice or
 additional ElevenLabs generation was used.
 
-The replay/analysis/projection focused check passes 25 tests; replay-specific
-checks, Ruff and focused mypy passed. The final fast run again encountered the
-same unrelated five-second qualification-output-proposals timeout; remaining
-Python checks are running separately. The requested code-only Claude review was
+The replay/analysis/projection focused check passes 25 tests; Ruff and the full
+Python mypy check pass. All 1,782 non-slow Python tests pass in 226.23 s. The
+final fast run again encountered the same unrelated five-second
+qualification-output-proposals timeout; its focused file previously passed,
+and the remaining Python checks completed separately. The requested code-only Claude review was
 attempted with the playbook's restricted settings but could not execute because
 the CLI account hit its session limit. No adversarial findings or completed
 review are claimed; the playbook permits documenting unavailability and

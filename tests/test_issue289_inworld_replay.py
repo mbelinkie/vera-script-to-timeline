@@ -33,7 +33,7 @@ sys.path.insert(
     0,
     str(Path(__file__).resolve().parents[1] / "scripts" / "word-timing"),
 )
-import issue289_inworld_replay as replay
+import issue289_inworld_replay as replay  # type: ignore[import-not-found]
 
 BLOCK_ID = "10000000-0000-4000-8000-000000000001"
 TOKEN_IDS = [
