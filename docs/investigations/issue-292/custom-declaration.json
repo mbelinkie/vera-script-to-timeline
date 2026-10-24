@@ -1,0 +1,19 @@
+{
+  "boundaryId": "292:boundary",
+  "boundaryFrame": 72,
+  "outgoingId": "292:outgoing",
+  "incomingId": "292:incoming",
+  "effect": {
+    "category": "fusion",
+    "name": "VERA292 Curve Dissolve",
+    "sourceIdentity": "user:Edit/Transitions/VERA292 Curve Dissolve.setting",
+    "fingerprint": "6d53269969a2733e614fce3cdefb725bf4b9a1bad5fd213c6def862b3512cc40"
+  },
+  "durationFrames": 24,
+  "alignment": "center",
+  "controls": {
+    "Curve": "Easing",
+    "EaseIn": "Quad",
+    "EaseOut": "None"
+  }
+}
