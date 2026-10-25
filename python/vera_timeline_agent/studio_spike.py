@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import math
 import platform
 import plistlib
 import re
@@ -12,6 +13,7 @@ import sys
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from decimal import Decimal, InvalidOperation
+from fractions import Fraction
 from pathlib import Path
 from typing import Any, Protocol, cast
 
@@ -426,6 +428,8 @@ def load_resolve_adapter(local: LocalFacts) -> ResolveAdapter:
 class PublicResolveAdapter:
     """Thin checked wrapper around APIs documented by the installed SDK."""
 
+    _require_existing_timeline: bool = True
+
     def __init__(self, resolve: Any) -> None:
         self.resolve = resolve
         self.manager: Any = None
@@ -533,6 +537,8 @@ class PublicResolveAdapter:
             raise StudioSpikeError("current project has no callable GetCurrentTimeline")
         current_timeline = current.GetCurrentTimeline()
         if current_timeline is None:
+            if not self._require_existing_timeline:
+                return (*gaps, "Timeline APIs will be checked on the new target.")
             raise StudioSpikeError("current project has no timeline for API preflight")
         for method in ("GetTrackCount", "GetItemListInTrack"):
             if not callable(getattr(current_timeline, method, None)):
@@ -1275,6 +1281,38 @@ def _project_settings(timeline: Mapping[str, Any]) -> dict[str, str]:
         "timelineResolutionHeight": str(timeline["height"]),
         "timelineSampleRate": str(timeline["audioSampleRate"]),
     }
+
+
+def _still_source_frame_duration(
+    duration_frames: int,
+    source_frame_rate: Any,
+    timeline_rate: Mapping[str, Any],
+) -> int:
+    if type(duration_frames) is not int or duration_frames < 1:
+        raise StudioSpikeError("still duration must be a positive frame count")
+    if type(source_frame_rate) not in {str, int, float}:
+        raise StudioSpikeError("imported still frame rate is unavailable")
+    try:
+        source_rate = Decimal(str(source_frame_rate))
+    except InvalidOperation as error:
+        raise StudioSpikeError("imported still frame rate is invalid") from error
+    if not source_rate.is_finite() or source_rate <= 0:
+        raise StudioSpikeError("imported still frame rate is invalid")
+    if not isinstance(timeline_rate, Mapping):
+        raise StudioSpikeError("timeline frame rate is invalid")
+    numerator, denominator = (
+        timeline_rate.get("numerator"),
+        timeline_rate.get("denominator"),
+    )
+    if (
+        type(numerator) is not int
+        or numerator < 1
+        or type(denominator) is not int
+        or denominator < 1
+    ):
+        raise StudioSpikeError("timeline frame rate is invalid")
+    target_rate = Fraction(numerator, denominator)
+    return math.ceil(Fraction(duration_frames) * Fraction(source_rate) / target_rate)
 
 
 def _frame_timecode(frame: int) -> str:

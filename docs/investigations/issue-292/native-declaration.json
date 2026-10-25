@@ -1,0 +1,8 @@
+{
+  "boundaryId": "292:native-red-blue:72",
+  "boundaryFrame": 72,
+  "effect": {"name": "Edge Wipe", "resolveType": 13},
+  "durationFrames": 24,
+  "alignment": "center",
+  "controls": {"angle": 180}
+}

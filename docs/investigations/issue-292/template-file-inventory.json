@@ -1,0 +1,348 @@
+{
+  "scope": "documented shipped archive and user-authorized authored fixture only",
+  "completeInstalledEffectsLibrary": false,
+  "nativeInventory": "not available from measured enumeration route",
+  "thirdPartyTransitionRepresentative": "not qualified; installed third-party filter and title pack are not transitions",
+  "settings": [
+    {
+      "displayNameCandidate": "Flip 3D",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Flip 3D.setting",
+      "sha256": "6bf8f5dc821048f3f8c875399f339a25bf8ea9554a4be8485e0501defbc28190"
+    },
+    {
+      "displayNameCandidate": "Spin",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Spin.setting",
+      "sha256": "7ef332e990bfaacad603d46c13672b5d39240d2cc871d6e89c0fff7080f96eb7"
+    },
+    {
+      "displayNameCandidate": "Slide Up",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Slide Up.setting",
+      "sha256": "32d2b9f86c8811b67ad000fbaad7405bf3828ed18f6f86baba69e64126d4e9c9"
+    },
+    {
+      "displayNameCandidate": "Shash",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Shash.setting",
+      "sha256": "d6f09811fa2bedf52a88a48254057126570b8f7b12c5628094f22322d9e6bae6"
+    },
+    {
+      "displayNameCandidate": "Posterize",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Posterize.setting",
+      "sha256": "f6a12237a18145f80c862b7b3e15d426836b933ae796db804d9730b4e0cee1a2"
+    },
+    {
+      "displayNameCandidate": "Mosaic Dissolve",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Mosaic Dissolve.setting",
+      "sha256": "fa25544df5d328b2f91482ff6034a9503c4e6645f1003544f71ff316c4924bab"
+    },
+    {
+      "displayNameCandidate": "Box Wipe",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Box Wipe.setting",
+      "sha256": "45b048357a9783fa555cf16c3abb4ef4952a0b4782266fa89bc7623568c88258"
+    },
+    {
+      "displayNameCandidate": "Block Glitch",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Block Glitch.setting",
+      "sha256": "65cf65789566a44c4f823be8f6cd542711c3549e1cbea45c5529b21e9c6a028f"
+    },
+    {
+      "displayNameCandidate": "Fall and Bounce",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Fall and Bounce.setting",
+      "sha256": "a3ee7bde57815ae8f1413de1ce336f1fd8e94584ee83a1b5268621b4cd7fab4d"
+    },
+    {
+      "displayNameCandidate": "Zoom In and Out",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Zoom In and Out.setting",
+      "sha256": "e2d4a6d9f09dcecd22fbb64e2d829e9c1b06f26c3caf00d8232fdd67097bc36a"
+    },
+    {
+      "displayNameCandidate": "Slide and Hold",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Slide and Hold.setting",
+      "sha256": "d336198695776c09be450071164e35dcf0d1cd3568df44e22ef70c1833a70630"
+    },
+    {
+      "displayNameCandidate": "Pan Left",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Pan Left.setting",
+      "sha256": "da8a0f206065cf7c9274fbe144f0dba17194d2111ca9ce877b185c2f54c66dce"
+    },
+    {
+      "displayNameCandidate": "Fold",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Fold.setting",
+      "sha256": "50efa3b3d2b02372659eb295c2fbc5a46bc6125d4ec7818c09aa03a76448a969"
+    },
+    {
+      "displayNameCandidate": "Pan Down",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Pan Down.setting",
+      "sha256": "c59227393c9cd315697c813bb1cec9b74e6f9dade78895d385f52c2209f8558d"
+    },
+    {
+      "displayNameCandidate": "Mosaic Edge Wipe",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Mosaic Edge Wipe.setting",
+      "sha256": "a2e6188d02137018b282e0b5322edc4eb1cc911056f1a0ce9d5f2f11583669ed"
+    },
+    {
+      "displayNameCandidate": "Rotate",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Rotate.setting",
+      "sha256": "adf4a1fe723a0d0800955856de12c36d7cdaa7e9b1649d61702020d6ce41b687"
+    },
+    {
+      "displayNameCandidate": "Pop Wobble Reverse",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Pop Wobble Reverse.setting",
+      "sha256": "32b22f85e3c5e505eda5bae578e4ddd87d4824106158032f5998bc43f7bc6bde"
+    },
+    {
+      "displayNameCandidate": "Foreground Wipe",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Foreground Wipe.setting",
+      "sha256": "2764b0495fa19451e4194e71b7c268a494f41bcedc016b3ad9aa0841e9b31bc9"
+    },
+    {
+      "displayNameCandidate": "Multi Circle Wipe",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Multi Circle Wipe.setting",
+      "sha256": "95cab00d2bcd996a9849b13208ef8af6abc4458ec804629cdc8e5f804e5b4f4a"
+    },
+    {
+      "displayNameCandidate": "Cross Dissolve",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Cross Dissolve.setting",
+      "sha256": "0976b049e5e7b41319f7d8ada1d415965ade82d19ce04576ecd0e7cf58589d93"
+    },
+    {
+      "displayNameCandidate": "Pan Up",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Pan Up.setting",
+      "sha256": "1fe252ec97816b48a772b662c8749926fc8a09adfb675e7c9861ae3c3b02f0ea"
+    },
+    {
+      "displayNameCandidate": "Glow",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Glow.setting",
+      "sha256": "09cc763c28f9079fe93dbded5f6931c16b997463821099c2b0b964b8e56c4232"
+    },
+    {
+      "displayNameCandidate": "Vee Wipe",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Vee Wipe.setting",
+      "sha256": "fba5ab60cbd1af42bcc7e897028ac77de7fe1b8212c4edee4ddc075f5a3db3c6"
+    },
+    {
+      "displayNameCandidate": "RGB Splitter",
+      "source": "bundled:Templates.drfx/Edit/Transitions/RGB Splitter.setting",
+      "sha256": "fbb432a97889bde991a611bfa2492cd73570bbaae0c23a3608d75e92d65afb0b"
+    },
+    {
+      "displayNameCandidate": "Noise Dissolve",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Noise Dissolve.setting",
+      "sha256": "1d2f4311b00dee4cc9bca2ea1741a6a34533a075183ee34cf4332e51b437964a"
+    },
+    {
+      "displayNameCandidate": "Mosaic",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Mosaic.setting",
+      "sha256": "f9220b576248e5ce72f2e9e976087bb3799db40fb5ee595b3d2399a88db8104b"
+    },
+    {
+      "displayNameCandidate": "Tunnel of Light",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Tunnel of Light.setting",
+      "sha256": "d397089210fd250b7b9cae181c120eafed6dd1e6ce121db05544607a5e8e7a20"
+    },
+    {
+      "displayNameCandidate": "Horizon Reveal",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Horizon Reveal.setting",
+      "sha256": "fa82c4531dbb1c69ce5a5ccd934469eec2de94253defff09515e174897612a7b"
+    },
+    {
+      "displayNameCandidate": "Slice Push",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Slice Push.setting",
+      "sha256": "0900aa0bf14df6db5cbe321d80db97f5796c28a1a897503ac258c1dcb6361650"
+    },
+    {
+      "displayNameCandidate": "Cube",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Cube.setting",
+      "sha256": "22285bc761f9251ca49dbbe5882d2c5da8ab5e2c850a2a1d591fd9911eaaff0b"
+    },
+    {
+      "displayNameCandidate": "Glitch",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Glitch.setting",
+      "sha256": "9dbee1d7f1fcc680ae81a90df78528853ad64b8d3efab9d21bd72bffcc191ded"
+    },
+    {
+      "displayNameCandidate": "Stretch Blur",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Stretch Blur.setting",
+      "sha256": "b00b845af39518d6742084e45a0c88b335293139a991107eddb95f2821d71d47"
+    },
+    {
+      "displayNameCandidate": "Logo Wipe",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Logo Wipe.setting",
+      "sha256": "d6632245f10d2754354b44c6e4c8e487d2f12ab06390565c20c5b9a67d17e765"
+    },
+    {
+      "displayNameCandidate": "Luma Wipe",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Luma Wipe.setting",
+      "sha256": "a098bc865152d1e4774b76a00a4ac19c7618e3b0519f7299b83073e696e651a8"
+    },
+    {
+      "displayNameCandidate": "Tile Wipe",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Tile Wipe.setting",
+      "sha256": "327e93e635912771ec9ecb4e6635da01f007b86f34648ba53eff3c7be1278b68"
+    },
+    {
+      "displayNameCandidate": "Rotate 90",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Rotate 90.setting",
+      "sha256": "967654210ae76d455d55d0c77af1f2f58dcf0fd20afbe3a380bb8f9adc1c1aeb"
+    },
+    {
+      "displayNameCandidate": "Ripple Warp",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Ripple Warp.setting",
+      "sha256": "8d2060b85c188489a4ac15d152dbf23db73f9f28688dd02c9c97b66b98c7147e"
+    },
+    {
+      "displayNameCandidate": "Drop Warp",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Drop Warp.setting",
+      "sha256": "680c19f9b007e743c7875702e8658183dc8bba9ac2323a3dadc5d422ae6d63ca"
+    },
+    {
+      "displayNameCandidate": "Circle Spin",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Circle Spin.setting",
+      "sha256": "c6267b0cc802150412709c891f1a63670837f368cad28b38737b5d8f4c046e28"
+    },
+    {
+      "displayNameCandidate": "Detail Dissolve",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Detail Dissolve.setting",
+      "sha256": "ade397663da73fb1fb81c34950efdebead0dbe81b3ae662c78cb7c71449cb676"
+    },
+    {
+      "displayNameCandidate": "Circles",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Circles.setting",
+      "sha256": "a03d9cbd1c79965670f6893b790d97ac04b6a20ad926561d2a40d8cfca7758c4"
+    },
+    {
+      "displayNameCandidate": "Paint On",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Paint On.setting",
+      "sha256": "51c9301bde4c7ecb35a876cf1c51ed0d97cd014f1641257c2a71da85ba46e1db"
+    },
+    {
+      "displayNameCandidate": "Box Twist",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Box Twist.setting",
+      "sha256": "e9c62441cad5cd8a585d88697c1c17d0aa755bee5b128fc05ccf37b7a409d56e"
+    },
+    {
+      "displayNameCandidate": "Warp",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Warp.setting",
+      "sha256": "875a62a029cad3393088b44e57c6e5d7e79fd91661ff796c66dbb32bf9c7912f"
+    },
+    {
+      "displayNameCandidate": "Perspective",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Perspective.setting",
+      "sha256": "986a522f5a4e0dd5badd3c71e9c60ed73a81b404b697b80ed58bdf17a0f87057"
+    },
+    {
+      "displayNameCandidate": "Zoom In",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Zoom In.setting",
+      "sha256": "ae663f1669ceb691179d0cba703b701e2bd816aa5e120596d1c1ea43cfa783e8"
+    },
+    {
+      "displayNameCandidate": "Slide Right",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Slide Right.setting",
+      "sha256": "1a7d0b2a4224f24126c2626aa58c9dd0a419b3f92203b5fb037e526595ca3d7f"
+    },
+    {
+      "displayNameCandidate": "Inverse Flash",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Inverse Flash.setting",
+      "sha256": "ff545c121b25272cb6296ae72dad0f7e68a5a3bd33c2ed72d87bf62f40280d28"
+    },
+    {
+      "displayNameCandidate": "Crash Zoom",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Crash Zoom.setting",
+      "sha256": "08463c35c6300930e55f910408c9554ec48b98955cf076c9cdbf027ec9b88009"
+    },
+    {
+      "displayNameCandidate": "Disarrange",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Disarrange.setting",
+      "sha256": "b4aac6428fcb87317444ca5d3552d44d7958062b534e5f95cf03cc7eeb3443d3"
+    },
+    {
+      "displayNameCandidate": "Edgy",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Edgy.setting",
+      "sha256": "a855c2fc5fc95bc4f9e434acfa56e93f7d2d78aa71224379b46fb193b6c74b11"
+    },
+    {
+      "displayNameCandidate": "Slide Down",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Slide Down.setting",
+      "sha256": "42536f9da5d3c394a3b3e21c80fd47f60b33733ad2c4ca7085ab5b3b58674260"
+    },
+    {
+      "displayNameCandidate": "Slide Left",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Slide Left.setting",
+      "sha256": "f01276c961b8b0e32c4fb4d71a30059ec7f9c22761d58113c5c24735b45a37a4"
+    },
+    {
+      "displayNameCandidate": "Round and Down",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Round and Down.setting",
+      "sha256": "9afbe0164f615f5787e048351ff296af3ef0789732f69b1504860fe8e5fbb1df"
+    },
+    {
+      "displayNameCandidate": "Camera Shake",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Camera Shake.setting",
+      "sha256": "fb8c74bf89dd9eef4a69d4351d6182609c4e59d08a37f80f757db058837abc58"
+    },
+    {
+      "displayNameCandidate": "Film Strip",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Film Strip.setting",
+      "sha256": "ef0f86c8a6091f2647d5b3341ad3b0a669e37845ccbca1581d5eff507f65a8d6"
+    },
+    {
+      "displayNameCandidate": "Brightness Flash",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Brightness Flash.setting",
+      "sha256": "e2e70732e02ad651b660037ba4c2d2ceffcbdffc1620e3c0709012ae3ec35e71"
+    },
+    {
+      "displayNameCandidate": "Shape Transition",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Shape Transition.setting",
+      "sha256": "fc78534913c3fb583fb89a7330b0c8257bfa1eff1b86e58b4d272d1e23460799"
+    },
+    {
+      "displayNameCandidate": "Checker Wipe",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Checker Wipe.setting",
+      "sha256": "aafb24610f2e21078c3698197cdd9ffaf68b73939147bc09f7c8bfedbbebf242"
+    },
+    {
+      "displayNameCandidate": "Three Color Flash",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Three Color Flash.setting",
+      "sha256": "51835919aac2bfc12336b24b371d8b5d5962be6d5b36d61193e6b5e728d07e9c"
+    },
+    {
+      "displayNameCandidate": "Page Curl",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Page Curl.setting",
+      "sha256": "d16ba2d315520201cb92527d2dcf05235bc530eb44a8d3673af4848e620681c6"
+    },
+    {
+      "displayNameCandidate": "Elastic Rubber",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Elastic Rubber.setting",
+      "sha256": "1c6904672baaaada20ce0b955a7ec07075234b57233e6495f35b91caa0e2a94c"
+    },
+    {
+      "displayNameCandidate": "Radial",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Radial.setting",
+      "sha256": "7626fed06b6ce89a2feb278c88534d21fdc8cf3f066805b0fb830c5346087376"
+    },
+    {
+      "displayNameCandidate": "Pan Right",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Pan Right.setting",
+      "sha256": "f7798320606056ea6e9638b77144046430d2b3b3d82a8b48f86becbe08b5c497"
+    },
+    {
+      "displayNameCandidate": "Pop Wobble",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Pop Wobble.setting",
+      "sha256": "c134063ebb322a9930e16b0cd37eff7519ebfc31d28af4db401a27446a53885c"
+    },
+    {
+      "displayNameCandidate": "Shatter",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Shatter.setting",
+      "sha256": "acb24faba9d304d5ba5b8d3533672d313b6ff59a69f13d3c8f2962c284d63dfe"
+    },
+    {
+      "displayNameCandidate": "Mosaic Center Wipe",
+      "source": "bundled:Templates.drfx/Edit/Transitions/Mosaic Center Wipe.setting",
+      "sha256": "7d6fd21a4de2e5782ea3ce74f64125e017dce2b99bc21aa09ec31b0ff7d44cc7"
+    },
+    {
+      "displayNameCandidate": "VERA292 Curve Dissolve",
+      "source": "user:Edit/Transitions/VERA292 Curve Dissolve.setting",
+      "sha256": "6d53269969a2733e614fce3cdefb725bf4b9a1bad5fd213c6def862b3512cc40"
+    }
+  ]
+}

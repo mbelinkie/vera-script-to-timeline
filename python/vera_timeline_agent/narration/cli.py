@@ -60,13 +60,16 @@ def _parser() -> argparse.ArgumentParser:
         "--voice-profile",
         choices=tuple(sorted(VOICE_PROFILES)),
         default=DEFAULT_PROFILE_ID,
-        help="Named project voice profile (default: Fish MW1).",
+        help="Named project voice profile (default: configured Inworld profile).",
     )
     parser.add_argument(
         "--aws-data-policy",
         choices=("opt_out_confirmed", "provider_terms_accepted"),
     )
-    parser.add_argument("--data-policy", choices=("fish_terms_accepted",))
+    parser.add_argument(
+        "--data-policy",
+        choices=("fish_terms_accepted", "inworld_terms_accepted"),
+    )
     parser.add_argument("--model", help="Explicit provider model; never falls back.")
     parser.add_argument(
         "--voice-id", help="Existing provider voice ID; creates no voice."
@@ -146,6 +149,7 @@ def run_cli(
             ("--model", options.model),
             ("--voice-id", options.voice_id),
             ("--voice-version", options.voice_version),
+            ("--rate", options.rate),
         ):
             if value is not None and not value.strip():
                 stderr.write(f"USAGE_ERROR: {option} must not be empty\n")
@@ -174,9 +178,12 @@ def run_cli(
         if not policy_attestation:
             stderr.write("USAGE_ERROR: an explicit provider data policy is required\n")
             return CliExit.USAGE
-        if (selected_profile.provider == "fish_audio") != (
-            policy_attestation == "fish_terms_accepted"
-        ):
+        expected_attestation = {
+            "aws_polly": options.aws_data_policy,
+            "fish_audio": "fish_terms_accepted",
+            "inworld": "inworld_terms_accepted",
+        }.get(selected_profile.provider)
+        if policy_attestation != expected_attestation:
             stderr.write("USAGE_ERROR: data policy does not match selected provider\n")
             return CliExit.USAGE
         try:
@@ -195,7 +202,9 @@ def run_cli(
         stdout.write(f"validation: {validation_output.splitlines()[0]}\n")
         stdout.write(f"active narration blocks: {len(blocks)}\n")
         units = sum(pricing.units(block["text"]) for block in blocks)
-        if pricing.unit == "characters":
+        if pricing.unit == "utf16_units":
+            stdout.write(f"billed characters: {units}\n")
+        elif pricing.unit == "characters":
             stdout.write(f"billed characters (audio + marks): {units * 2}\n")
         else:
             stdout.write(f"billed UTF-8 bytes (audio + timing): {units}\n")
