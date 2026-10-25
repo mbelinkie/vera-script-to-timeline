@@ -349,7 +349,7 @@ describe("provisional Sorting trials", () => {
     expect(() => resumeSortingTrialV2(JSON.stringify(saved))).toThrow(/ROW_UNDO_EMPTY/);
     expect(() => resumeSortingTrialV2("x".repeat(5_000_001))).toThrow(/size limit/);
     expect(() => resumeSortingTrialV2("null")).toThrow(/Invalid saved/);
-    saved.actions = Array.from({ length: 1001 }, () => ({ kind: "undo" }));
+    saved.actions = Array.from({ length: 2001 }, () => ({ kind: "undo" }));
     expect(() => resumeSortingTrialV2(JSON.stringify(saved))).toThrow(/Invalid saved/);
   });
 
@@ -412,6 +412,32 @@ describe("provisional Sorting trials", () => {
     expect(trial.apply({ kind: "move_section", sectionId: id(713), destination: { afterSectionId: null, beforeSectionId: id(714) } }).ok).toBe(true);
     expect(trial.movedRowIds).toEqual([]);
     expect(trial.accept(baseline)).toMatchObject({ ok: true, changed: false });
+  });
+
+  it("keeps a deliberate move marked when other moves restore only its numeric row index", () => {
+    const [a, b, c] = [row(720), row(721), row(722)];
+    const trial = createSortingTrialV2(documentWith([a, b, c]));
+    expect(trial.apply({ kind: "move_rows", rowIds: [b.id], destination: gap(null, c.id, null) }).ok).toBe(true);
+    expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, b.id, null) }).ok).toBe(true);
+    expect(rows(trial.document)).toEqual([c.id, b.id, a.id]);
+    expect(trial.movedRowIds).toEqual([b.id, a.id]);
+  });
+
+  it("keeps Undo and resume available when the bounded edit limit is reached", () => {
+    const [a, b] = [row(730), row(731)];
+    const baseline = documentWith([a, b]);
+    const trial = createSortingTrialV2(baseline);
+    for (let index = 0; index < 1000; index++) {
+      const destination = index % 2 === 0 ? gap(null, b.id, null) : gap(null, null, b.id);
+      expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination }).ok).toBe(true);
+    }
+    expect(trial.apply({ kind: "stash_rows", rowIds: [a.id], bundleId: id(732) }).diagnostics[0]?.code).toBe("SORTING_TRIAL_LIMIT");
+    expect(trial.undoDepth).toBe(1000);
+    expect(trial.undo().ok).toBe(true);
+    const resumed = resumeSortingTrialV2(trial.serialize());
+    expect(resumed.document).toEqual(trial.document);
+    expect(resumed.undoDepth).toBe(999);
+    expect(resumed.undo().ok).toBe(true);
   });
 });
 

@@ -255,6 +255,10 @@ describe("saved Stash row edits", () => {
     expect(noOp.ok).toBe(false);
     expect(noOp.diagnostics[0]?.code).toBe("STASH_ROW_EDIT_NO_CHANGE");
     expect(noOp.document).toBe(state.document);
+    const reorderedKeys = Object.fromEntries(Object.entries(row).reverse()) as NarrationBlockV2;
+    const reordered = applyStashRowEditV2(state.document, 1, { bundleId: state.bundleId, rowId: row.id, row: reorderedKeys });
+    expect(reordered.diagnostics[0]?.code).toBe("STASH_ROW_EDIT_NO_CHANGE");
+    expect(reordered.document).toBe(state.document);
 
     const stale = applyStashRowEditV2(state.document, 0, {
       bundleId: state.bundleId,

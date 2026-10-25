@@ -1,4 +1,5 @@
 import type { ScriptDocumentV2 } from "./generated/contracts-v2.js";
+import { sameAuthoringJsonV2 as sameJson } from "./authoring-v2-json.js";
 import {
   createRowEditSessionV2,
   deserializeAuthoringDocumentV2,
@@ -7,36 +8,37 @@ import {
   type RowEditResultV2,
 } from "./authoring-v2-rows.js";
 
-const MAX_ACTIONS = 1000;
+const MAX_EDITS = 1000;
 const MAX_SAVED_CHARACTERS = 5_000_000;
 type Action = RowEditCommandV2 | { kind: "undo" };
 type Phase = "sorting" | "preview" | "accepted" | "discarded";
 
-function sameJson(left: unknown, right: unknown): boolean {
-  if (left === right) return true;
-  if (!left || !right || typeof left !== "object" || typeof right !== "object" || Array.isArray(left) !== Array.isArray(right)) return false;
-  const a = left as Record<string, unknown>;
-  const b = right as Record<string, unknown>;
-  const keys = Object.keys(a);
-  return keys.length === Object.keys(b).length && keys.every((key) => Object.hasOwn(b, key) && sameJson(a[key], b[key]));
-}
-
-function positions(document: ScriptDocumentV2): Map<string, { key: string; sectionId?: string | null }> {
-  const result = new Map<string, { key: string; sectionId?: string | null }>();
+interface Position { container: string; index: number; beforeSections: string[]; sectionId?: string | null }
+function positions(document: ScriptDocumentV2): Map<string, Position> {
+  const result = new Map<string, Position>();
   let sectionId: string | null = null;
-  let sectionIndex = 0;
+  let beforeSections: string[] = [];
   let index = 0;
   for (const block of document.activeDraft.blocks) {
     if (block.type === "section") {
       sectionId = block.id;
-      sectionIndex++;
+      beforeSections = [...beforeSections, block.id];
       index = 0;
-    } else result.set(block.id, { key: JSON.stringify(["draft", sectionId, sectionIndex, index++]), sectionId });
+    } else {
+      result.set(block.id, { container: `draft:${sectionId ?? ""}`, index: index++, beforeSections, sectionId });
+    }
   }
   for (const bundle of document.stash ?? []) {
-    bundle.rows.forEach((row, rowIndex) => result.set(row.id, { key: JSON.stringify(["stash", bundle.id, rowIndex]) }));
+    bundle.rows.forEach((row, index) => result.set(row.id, { container: `stash:${bundle.id}`, index, beforeSections: [] }));
   }
   return result;
+}
+
+function atOriginalPosition(id: string, baseline: Map<string, Position>, current: Map<string, Position>): boolean {
+  const original = baseline.get(id), now = current.get(id);
+  return !!original && !!now && original.container === now.container && sameJson(original.beforeSections, now.beforeSections)
+    && [...baseline].every(([otherId, other]) => other.container !== original.container || current.get(otherId)?.container !== now.container
+      || (other.index < original.index) === (current.get(otherId)!.index < now.index));
 }
 
 function commandAllowed(command: unknown): command is RowEditCommandV2 {
@@ -100,7 +102,7 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
     apply(command: RowEditCommandV2, expectedRevision = session.revision): RowEditResultV2 {
       if (phase !== "sorting") return failure("SORTING_READ_ONLY", "Return to Sorting before changing trial order.");
       if (!commandAllowed(command)) return failure("SORTING_CONTENT_READ_ONLY", "Only row move, Stash and restore commands are available during a trial.");
-      if (actions.length >= MAX_ACTIONS) return failure("SORTING_TRIAL_LIMIT", "Finish this bounded trial before adding more operations.");
+      if (actions.filter((action) => action.kind !== "undo").length >= MAX_EDITS) return failure("SORTING_TRIAL_LIMIT", "Finish this bounded trial before adding more operations.");
       const beforeDocument = session.document;
       const before = positions(beforeDocument);
       const selected = command.kind === "move_rows" || command.kind === "stash_rows" ? command.rowIds
@@ -112,13 +114,12 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
         markHistory.push(movedRows);
         const current = positions(result.document);
         // Only deliberately selected rows get marks; rows displaced by them do not.
-        movedRows = new Set([...movedRows, ...selected].filter((id) => originalPositions.get(id)?.key !== current.get(id)?.key));
+        movedRows = new Set([...movedRows, ...selected].filter((id) => !atOriginalPosition(id, originalPositions, current)));
       }
       return result;
     },
     undo(): RowEditResultV2 {
       if (phase !== "sorting") return failure("SORTING_READ_ONLY", "Return to Sorting before undoing a trial operation.");
-      if (actions.length >= MAX_ACTIONS) return failure("SORTING_TRIAL_LIMIT", "Finish this bounded trial before adding more operations.");
       const result = session.undo();
       if (result.ok) { actions.push({ kind: "undo" }); movedRows = markHistory.pop()!; }
       return result;
@@ -160,7 +161,7 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
 export function resumeSortingTrialV2(json: string): ReturnType<typeof createSortingTrialV2> {
   if (json.length > MAX_SAVED_CHARACTERS) throw new Error("The saved Sorting trial exceeds the bounded local size limit.");
   const saved = JSON.parse(json) as { format: string; baseline: ScriptDocumentV2; actions: Action[]; phase: Phase };
-  if (!saved || saved.format !== "sorting-trial/v1" || !Array.isArray(saved.actions) || saved.actions.length > MAX_ACTIONS || !["sorting", "preview"].includes(saved.phase)) throw new Error("Invalid saved Sorting trial.");
+  if (!saved || saved.format !== "sorting-trial/v1" || !Array.isArray(saved.actions) || saved.actions.length > MAX_EDITS * 2 || !["sorting", "preview"].includes(saved.phase)) throw new Error("Invalid saved Sorting trial.");
   const loaded = deserializeAuthoringDocumentV2(JSON.stringify(saved.baseline));
   if (!loaded.ok) throw new Error("Invalid Sorting baseline.");
   const trial = createSortingTrialV2(loaded.document);

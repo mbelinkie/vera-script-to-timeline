@@ -32,7 +32,8 @@ row session. Script and Stash content are read-only in the trial: only
 `trial.serialize()` and `resumeSortingTrialV2(json)` provide a bounded local
 round trip: complete baseline plus successful public row commands/Undo,
 replayed through the same operations. Preview state, intended result, marks
-and local Undo history survive. Limit: 1,000 successful actions, 5,000,000
+and local Undo history survive. Limit: 1,000 successful edits plus their Undos
+(at most 2,000 saved actions), 5,000,000
 serialized JavaScript string characters. No storage service, checkpoint
 system, version migration or multi-client Undo is implied.
 

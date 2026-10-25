@@ -2,6 +2,7 @@ import type { RowStashBundleV2, ScriptDocumentV2 } from "./generated/contracts-v
 import type { AuthoringDiagnosticV2 } from "./authoring-v2.js";
 import { serializeAuthoringDocumentV2, type RowEditResultV2 } from "./authoring-v2-rows.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
+import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 
 export type StashedRowV2 = RowStashBundleV2["rows"][number];
 
@@ -62,15 +63,7 @@ export function applyStashRowEditV2(
     return refused(document, "STASH_ROW_IDENTITY_INVALID", "A saved row edit must preserve the row's existing ID and type.");
   }
 
-  let currentJson: string;
-  let replacementJson: string;
-  try {
-    currentJson = JSON.stringify(current);
-    replacementJson = JSON.stringify(command.row);
-  } catch {
-    return refused(document, "STASH_ROW_JSON_INVALID", "The edited row must be losslessly representable as saved JSON.");
-  }
-  if (currentJson === replacementJson) {
+  if (sameAuthoringJsonV2(current, command.row)) {
     return refused(document, "STASH_ROW_EDIT_NO_CHANGE", "The saved row already has this content.");
   }
 
