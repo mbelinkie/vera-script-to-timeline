@@ -35,6 +35,36 @@ function freshTiming(row: Parameters<typeof timing>[0], frames: number) {
 }
 
 describe("#278 omitted-word visual boundary choice", () => {
+  it("lets the authenticated A boundary move resolve the C omission anchor", () => {
+    const input = boundaryChoiceCase(true);
+    const inference = inferQualificationOutputV2(input.document, input.dependencies, input.evidence);
+    const originalRow = input.document.activeDraft.blocks.find((block) => block.type === "narration");
+    if (originalRow?.type !== "narration") throw new Error("baseline narration row missing");
+    expect(inference.caseKinds).toEqual(["A", "C"]);
+    expect(inference.commands.boundary).toMatchObject({
+      kind: "move_word_boundary",
+      blockId: originalRow.id,
+      boundaryOwnerId: input.boundaryOwnerId,
+      tokenId: originalRow.tokens[7]!.id,
+      affinity: "before",
+    });
+    expect(inference.omission?.tokenIds).toContain(input.tokenId);
+    expect(inference.boundaryConflicts).toEqual([]);
+
+    const stage = stageQualificationOutputV2(input.document, input.dependencies, input.evidence, accept(inference.inferenceHash), []);
+    expect(stage.outcome).toBe("accept");
+    expect(stage.decision.boundaryChoice).toBeUndefined();
+    const row = stage.document.activeDraft.blocks.find((block) => block.type === "narration");
+    if (row?.type !== "narration") throw new Error("staged narration row missing");
+    const movedOwner = row.primaryVisualSequence?.slots.find((slot) => slot.id === input.boundaryOwnerId);
+    expect(movedOwner?.kind === "content" && "anchor" in movedOwner.boundaryBefore ? movedOwner.boundaryBefore.anchor : null).toMatchObject({
+      tokenId: row.tokens[7]!.id,
+      affinity: "before",
+    });
+    expect(row.tokens.some((token) => token.id === input.tokenId)).toBe(false);
+    expect(stage.regeneration?.blockRevision).toBe(row.version);
+  });
+
   it("requires one exact surviving choice and applies it before the omission", () => {
     const input = boundaryChoiceCase();
     const inference = inferQualificationOutputV2(input.document, input.dependencies, input.evidence);

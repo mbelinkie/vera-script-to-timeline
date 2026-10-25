@@ -1019,7 +1019,11 @@ function inferCase(document: ScriptDocumentV2, dependencies: CompilerDependencie
 }
 
 function visualBoundaryConflicts(document: ScriptDocumentV2, omission: NonNullable<QualificationOutputInferenceV1["omission"]>,
-  existingBoundary: RevisionCommandsV2["boundary"]): QualificationOutputBoundaryConflictV1[] {
+  dependencies: CompilerDependenciesV2, existingBoundary: RevisionCommandsV2["boundary"]): QualificationOutputBoundaryConflictV1[] {
+  // An inferred A move can already resolve C's removed-word anchor.
+  if (existingBoundary !== null) {
+    document = prepareRevisionInputsV2(document, dependencies, { boundary: existingBoundary, trim: null, omission: null }, []).document;
+  }
   const row = document.activeDraft.blocks.find((block) => block.type === "narration" && block.id === omission.blockId);
   const sequence = row?.type === "narration" ? row.primaryVisualSequence : undefined;
   if (row?.type !== "narration" || !sequence) return [];
@@ -1087,7 +1091,7 @@ export function inferQualificationOutputV2(document: ScriptDocumentV2, dependenc
   const omissions = cases.flatMap(({ inference }) => inference.omission ? [inference.omission] : []);
   fact(boundaries.length <= 1 && trims.length <= 1 && omissions.length <= 1, "duplicate semantic revision command");
   const commands: RevisionCommandsV2 = { boundary: boundaries[0] ?? null, trim: trims[0] ?? null, omission: null };
-  const boundaryConflicts = omissions.length === 0 ? [] : visualBoundaryConflicts(document, omissions[0]!, commands.boundary);
+  const boundaryConflicts = omissions.length === 0 ? [] : visualBoundaryConflicts(document, omissions[0]!, dependencies, commands.boundary);
   const body = {
     schemaVersion: "qualification-output-inference/v1" as const, lane: LANE,
     documentHash: checked.documentHash, dependenciesHash: checked.dependenciesHash,

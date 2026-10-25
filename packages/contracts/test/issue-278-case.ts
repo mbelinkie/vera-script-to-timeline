@@ -37,7 +37,7 @@ function pythonSorted(value: unknown): unknown {
 
 const pythonHash = (value: unknown) => rawHash(JSON.stringify(pythonSorted(value)));
 
-function geometryEnvelope(input: ReturnType<typeof specimen>, raw: ReturnType<typeof observations>, phase: "pristine" | "edited") {
+function geometryEnvelope(input: ReturnType<typeof specimen>, raw: ReturnType<typeof observations>, phase: "pristine" | "edited", caseId: string) {
   const compiled = compileTimelineV2(input.document, input.dependencies);
   if (!compiled.ok || compiled.report.status !== "ready") throw new Error("sanitized baseline compile failed");
   const manifest = compiled.manifest;
@@ -74,8 +74,8 @@ function geometryEnvelope(input: ReturnType<typeof specimen>, raw: ReturnType<ty
   const hashFields = ["originalDocumentSha256", "originalDependenciesSha256", "executionDocumentSha256", "executionDependenciesSha256", "packageSha256", "preflightSha256",
     "manifestSha256", "reportSha256", "preparationSha256", "hostSourceGraphSha256", "nativeSourceGraphSha256", "installedReleaseSha256", "runtimeSha256", "profileSha256"];
   const context: Record<string, unknown> = {
-    lane: LANE, invocationId: `invocation-278-${phase}`, caseId: "anchored-C", phase, target,
-    ...Object.fromEntries(hashFields.map((key) => [key, bare(hash(`anchored-C:${key}`))])), binding: { kind: "baseline" },
+    lane: LANE, invocationId: `invocation-278-${caseId}-${phase}`, caseId, phase, target,
+    ...Object.fromEntries(hashFields.map((key) => [key, bare(hash(`${caseId}:${key}`))])), binding: { kind: "baseline" },
   };
   const documentHash = bare(sha256CanonicalJson(input.document));
   const dependenciesHash = bare(sha256CanonicalJson(input.dependencies));
@@ -99,30 +99,30 @@ function geometryEnvelope(input: ReturnType<typeof specimen>, raw: ReturnType<ty
   };
   const envelope = {
     schemaVersion: "qualification-output-geometry/v1", lane: LANE, geometry, inputBindingSha256: rawHash(inputBindingJson), capturePhase: "pre_render",
-    capturedAt: "2026-10-18T12:00:00Z", expiresAt: "2026-10-18T12:05:00Z", receiptSha256: bare(hash(`anchored-C:${phase}:receipt`)),
+    capturedAt: "2026-10-18T12:00:00Z", expiresAt: "2026-10-18T12:05:00Z", receiptSha256: bare(hash(`${caseId}:${phase}:receipt`)),
   };
   return { envelope, geometry, context, inputBindingJson };
 }
 
-function comparison(geometry: ReturnType<typeof geometryEnvelope>, phase: "pristine" | "edited") {
+function comparison(geometry: ReturnType<typeof geometryEnvelope>, phase: "pristine" | "edited", caseId: string) {
   const context = geometry.context;
   const lineage = {
     schemaVersion: "qualification-output-lineage/v1", lane: LANE, context,
-    commitmentRawSha256: bare(hash(`anchored-C:${phase}:commitment`)), reservationRawSha256: bare(hash(`anchored-C:${phase}:reservation`)),
-    renderIntentSha256: bare(hash(`anchored-C:${phase}:intent`)), effectReceiptSha256: bare(hash(`anchored-C:${phase}:effect`)),
-    startReceiptSha256: bare(hash(`anchored-C:${phase}:start`)), completionReceiptSha256: bare(hash(`anchored-C:${phase}:completion`)),
-    jobId: `job-anchored-C-${phase}`, sourceOutputRawSha256: bare(hash(`anchored-C:${phase}:mov`)),
+    commitmentRawSha256: bare(hash(`${caseId}:${phase}:commitment`)), reservationRawSha256: bare(hash(`${caseId}:${phase}:reservation`)),
+    renderIntentSha256: bare(hash(`${caseId}:${phase}:intent`)), effectReceiptSha256: bare(hash(`${caseId}:${phase}:effect`)),
+    startReceiptSha256: bare(hash(`${caseId}:${phase}:start`)), completionReceiptSha256: bare(hash(`${caseId}:${phase}:completion`)),
+    jobId: `job-${caseId}-${phase}`, sourceOutputRawSha256: bare(hash(`${caseId}:${phase}:mov`)),
   };
   const metric = (rms: number, sliding: number) => ({ residualRms: rms, maximumSliding20msResidualRms: sliding, consistent: rms <= 0.0004 && sliding <= 0.006 });
   return {
     schemaVersion: "qualification-output-comparison/v1", lane: LANE, context, status: "compared_consistent",
-    commitmentRawSha256: lineage.commitmentRawSha256, commitmentPayloadSha256: bare(hash(`anchored-C:${phase}:payload`)), reservationRawSha256: lineage.reservationRawSha256,
-    renderLineage: lineage, decodeRecordRawSha256: bare(hash(`anchored-C:${phase}:decode`)),
-    preGeometryRawSha256: bare(hash(`anchored-C:${phase}:pre-geometry`)), postGeometryRawSha256: bare(hash(`anchored-C:${phase}:post-geometry`)),
+    commitmentRawSha256: lineage.commitmentRawSha256, commitmentPayloadSha256: bare(hash(`${caseId}:${phase}:payload`)), reservationRawSha256: lineage.reservationRawSha256,
+    renderLineage: lineage, decodeRecordRawSha256: bare(hash(`${caseId}:${phase}:decode`)),
+    preGeometryRawSha256: bare(hash(`${caseId}:${phase}:pre-geometry`)), postGeometryRawSha256: bare(hash(`${caseId}:${phase}:post-geometry`)),
     geometrySha256: pythonHash(geometry.geometry), algorithmSha256: bare(hash("214 algorithm")),
     metrics: [metric(0.0001, 0.0002), metric(0.0001, 0.0002)], signalMetrics: [metric(0.1, 0.2), metric(0.1, 0.2)],
-    priorLedgerHeadSha256: bare(hash(`anchored-C:${phase}:prior-head`)), internalControls: "unverified", geometryStability: "not_claimed",
-    controlStability: "not_claimed", futureAuthority: false, comparisonReceiptSha256: bare(hash(`anchored-C:${phase}:comparison-receipt`)),
+    priorLedgerHeadSha256: bare(hash(`${caseId}:${phase}:prior-head`)), internalControls: "unverified", geometryStability: "not_claimed",
+    controlStability: "not_claimed", futureAuthority: false, comparisonReceiptSha256: bare(hash(`${caseId}:${phase}:comparison-receipt`)),
   };
 }
 
@@ -159,7 +159,7 @@ function boundaryEvidence(input: ReturnType<typeof specimen>): QualificationOutp
   return support as unknown as QualificationOutputObservationCaseV1["omissionSupport"];
 }
 
-export function boundaryChoiceCase() {
+export function boundaryChoiceCase(withResolvingA = false) {
   const input = specimen();
   const row = input.document.activeDraft.blocks.find((block): block is NarrationBlockV2 => block.type === "narration" && block.id === id(10))!;
   const measured = JSON.parse(readFileSync(new URL("./data/issue182-baseline.boundary-evidence.json", import.meta.url), "utf8")) as NarrationBoundaryEvidenceV1;
@@ -205,9 +205,10 @@ export function boundaryChoiceCase() {
   right.itemUid += ":right"; right.recordStart = 72; right.sourceStart += 72;
   editedRaw.items.splice(editedRaw.items.indexOf(narrationItem), 1, left, right);
 
-  const pristine = geometryEnvelope(input, pristineRaw, "pristine"); const edited = geometryEnvelope(input, editedRaw, "edited");
-  const pristineComparisonJson = JSON.stringify(comparison(pristine, "pristine"));
-  const editedComparisonJson = JSON.stringify(comparison(edited, "edited"));
+  const caseId = "anchored-C";
+  const pristine = geometryEnvelope(input, pristineRaw, "pristine", caseId); const edited = geometryEnvelope(input, editedRaw, "edited", caseId);
+  const pristineComparisonJson = JSON.stringify(comparison(pristine, "pristine", caseId));
+  const editedComparisonJson = JSON.stringify(comparison(edited, "edited", caseId));
   const pairJson = pairRecord(pristineComparisonJson, editedComparisonJson, pristine.geometry.extentFrames, edited.geometry.extentFrames);
   const omissionSupport = boundaryEvidence(input)! as unknown as Record<string, unknown>;
   omissionSupport.pristineGeometryRawSha256 = rawHash(JSON.stringify(pristine.envelope));
@@ -215,16 +216,47 @@ export function boundaryChoiceCase() {
   omissionSupport.pristineComparisonRawSha256 = rawHash(pristineComparisonJson);
   omissionSupport.editedComparisonRawSha256 = rawHash(editedComparisonJson);
   omissionSupport.pairRawSha256 = rawHash(pairJson);
+  const cases: QualificationOutputObservationCaseV1[] = [];
+  if (withResolvingA) {
+    const sequence = boundRow.primaryVisualSequence!;
+    const leftNeighbor = boundRow.tokens[7]!;
+    const moved = applyVisualSequenceEditV2(input.document, sequence.version, {
+      kind: "move_word_boundary", blockId: boundRow.id, boundaryOwnerId: id(278), tokenId: leftNeighbor.id, affinity: "before",
+    });
+    if (!moved.ok) throw new Error(`could not move synthetic A boundary: ${canonicalJson(moved.diagnostics)}`);
+    const editedAInput = { ...input, document: moved.document };
+    const editedARaw = observations(editedAInput);
+    const aCaseId = "resolving-A";
+    const pristineA = geometryEnvelope(input, pristineRaw, "pristine", aCaseId);
+    const editedA = geometryEnvelope(input, editedARaw, "edited", aCaseId);
+    const pristineAComparisonJson = JSON.stringify(comparison(pristineA, "pristine", aCaseId));
+    const editedAComparisonJson = JSON.stringify(comparison(editedA, "edited", aCaseId));
+    const sampleCount = pristineA.geometry.extentFrames * 2002;
+    cases.push({
+      schemaVersion: "qualification-output-observation/v1", lane: LANE, caseId: aCaseId,
+      pristineGeometryJson: JSON.stringify(pristineA.envelope), editedGeometryJson: JSON.stringify(editedA.envelope),
+      pristineInputBindingJson: pristineA.inputBindingJson, editedInputBindingJson: editedA.inputBindingJson,
+      pristineComparisonJson: pristineAComparisonJson, editedComparisonJson: editedAComparisonJson, pairJson: null,
+      audioEquality: {
+        schemaVersion: "qualification-output-audio-equality/v1", lane: LANE, caseId: aCaseId,
+        pristinePredictionSha256: bare(hash(`${aCaseId}:same-prediction`)), editedPredictionSha256: bare(hash(`${aCaseId}:same-prediction`)),
+        pristineDecodedSamplesSha256: bare(hash(`${aCaseId}:same-decoded`)), editedDecodedSamplesSha256: bare(hash(`${aCaseId}:same-decoded`)),
+        predictionByteLength: sampleCount * 16, decodedSampleByteLength: sampleCount * 8, sampleCount,
+      },
+      omissionSupport: null,
+    });
+  }
+  cases.push({
+    schemaVersion: "qualification-output-observation/v1", lane: LANE, caseId,
+    pristineGeometryJson: JSON.stringify(pristine.envelope), editedGeometryJson: JSON.stringify(edited.envelope),
+    pristineInputBindingJson: pristine.inputBindingJson, editedInputBindingJson: edited.inputBindingJson,
+    pristineComparisonJson, editedComparisonJson, pairJson, audioEquality: null,
+    omissionSupport: omissionSupport as unknown as QualificationOutputObservationCaseV1["omissionSupport"],
+  });
   const evidence: QualificationOutputObservationBatchV1 = {
     schemaVersion: "qualification-output-observation-batch/v1", lane: LANE,
     documentHash: sha256CanonicalJson(input.document), dependenciesHash: sha256CanonicalJson(input.dependencies),
-    cases: [{
-      schemaVersion: "qualification-output-observation/v1", lane: LANE, caseId: "anchored-C",
-      pristineGeometryJson: JSON.stringify(pristine.envelope), editedGeometryJson: JSON.stringify(edited.envelope),
-      pristineInputBindingJson: pristine.inputBindingJson, editedInputBindingJson: edited.inputBindingJson,
-      pristineComparisonJson, editedComparisonJson, pairJson, audioEquality: null,
-      omissionSupport: omissionSupport as unknown as QualificationOutputObservationCaseV1["omissionSupport"],
-    }],
+    cases,
   };
   return { document: input.document, dependencies: input.dependencies, evidence, boundaryOwnerId: id(278), tokenId: boundRow.tokens[8]!.id };
 }
