@@ -239,6 +239,7 @@ def _geometry_observations(
     return observations
 
 
+@pytest.mark.fast
 def test_geometry_requires_unique_units_exact_edges_and_reopen_identity() -> None:
     observations = _geometry_observations()
 
@@ -285,6 +286,7 @@ def test_geometry_requires_unique_units_exact_edges_and_reopen_identity() -> Non
         (101, "inclusive_frame", -1),
     ],
 )
+@pytest.mark.fast
 def test_geometry_calibrates_baseline_control_and_source_end_semantics(
     baseline_frames: int, source_endpoint: str, append_adjustment: int
 ) -> None:
@@ -301,6 +303,7 @@ def test_geometry_calibrates_baseline_control_and_source_end_semantics(
     assert append_adjustment == (0 if baseline_frames == 100 else -1)
 
 
+@pytest.mark.fast
 def test_geometry_reports_measured_native_rounding_errors_and_source_edges() -> None:
     observations = _geometry_observations()
     for snapshot in observations[:2]:
@@ -354,6 +357,7 @@ def test_geometry_reports_measured_native_rounding_errors_and_source_edges() -> 
     assert result["baselineControlFrames"] == 100
 
 
+@pytest.mark.fast
 def test_incomplete_probe_observations_are_ambiguous_lifecycle_evidence() -> None:
     observations = _geometry_observations()[:3]
 
@@ -367,6 +371,7 @@ def test_incomplete_probe_observations_are_ambiguous_lifecycle_evidence() -> Non
 
 
 @pytest.mark.parametrize(("baseline_frames", "adjustment"), [(100, 0), (101, -1)])
+@pytest.mark.fast
 def test_construction_uses_calibrated_baseline_append_endpoint(
     baseline_frames: int, adjustment: int
 ) -> None:
@@ -421,6 +426,7 @@ def test_construction_uses_calibrated_baseline_append_endpoint(
     compare_module._verify_construction(result)
 
 
+@pytest.mark.fast
 def test_baseline_getter_support_is_reported_separately_from_pcm() -> None:
     observations = _geometry_observations()
     observations[0]["items"][0]["rawGetters"]["GetSourceEndTime"]["status"] = (
@@ -707,6 +713,7 @@ def test_result_binding_uses_host_request_and_does_not_reopen_installed_copy(
         ),
     ],
 )
+@pytest.mark.fast
 def test_verdict_preserves_measured_mismatch_and_geometry_ambiguity(
     native_status: str,
     geometry_status: str,
