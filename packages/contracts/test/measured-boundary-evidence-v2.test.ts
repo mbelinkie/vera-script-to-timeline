@@ -74,7 +74,7 @@ const omit = (value: object, keys: string[]) => Object.fromEntries(Object.entrie
 const measuredParameters = { windowMs: 5, hopMs: 5, relativeDb: -30 };
 const measuredVerification = (): NarrationBoundaryEvidenceV1["verification"] => ({
   method: "measured_audio_boundaries/v1",
-  algorithm: { id: "vera-polly-marks-energy-ends", version: "1", parametersHash: sha256CanonicalJson(measuredParameters), parameters: { ...measuredParameters } },
+  algorithm: { id: "vera-polly-marks-energy-ends", version: "3", parametersHash: sha256CanonicalJson(measuredParameters), parameters: { ...measuredParameters } },
   measurementArtifactLocator: "Measurements/synthetic-182.json", measurementArtifactHash: hash("measurement artifact"),
   onsetBasis: "provider_word_marks_lag_verified", onsetUncertainty: time(1, 100), audibleEndUncertainty: time(1, 200),
 });
@@ -176,7 +176,8 @@ test("algorithm parametersHash matches the Python measure.parameters_hash vector
   // Same vectors as tests/test_issue182_measure.py::test_parameters_hash_cross_language_vectors.
   expect(sha256CanonicalJson({ b: [1, { z: "é", a: 0 }], a: "x" })).toBe("sha256:3a92e85a00e73199bcec8c5f6f98aaed74efcfb435a8e785198c59742e3610c1");
   expect(sha256CanonicalJson({
+    lagSampleAnchorMs: 20, lagSampleProbeStride: 8, lagSamplePeakMarginPpm: 1000, lagSampleCheckMs: 5,
     sampleRateHz: 48000, lagEnvelopeWindowMs: 5, lagEnvelopeHopMs: 1, lagSearchMs: 20, lagToleranceMs: 2, minLagCorrelationPermille: 900,
     endWindowMs: 5, endRelativeDropDb: 18, endQuietDbfs: -42, endQuietRunMs: 30, onsetUncertaintyMs: 25, audibleEndUncertaintyMs: 30,
-  })).toBe("sha256:628c4c9e17822d9ed812b9cdbf31062eb71e1768d6946cc333f522a2b878ded4");
+  })).toBe("sha256:f296db5363cd8b43ec89419d42ca0f68571c85bf819cd3c5778d45b028dee406");
 });

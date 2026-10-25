@@ -180,7 +180,12 @@ class HoldNormalizer(Normalizer):
         )
 
     def normalize_pcm(
-        self, audio_bytes: bytes, *, sample_rate: int, channels: int
+        self,
+        audio_bytes: bytes,
+        *,
+        sample_rate: int,
+        channels: int,
+        audit_clock: bool = False,
     ) -> NormalizationResult:
         raw = [value for (value,) in struct.iter_unpack("<h", audio_bytes)]
         return self._result(hold_normalize(raw))

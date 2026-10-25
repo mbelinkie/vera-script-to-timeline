@@ -16,11 +16,12 @@ import stat
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
+from fractions import Fraction
 from itertools import pairwise
 from pathlib import Path, PurePosixPath
 from typing import Any, TypeGuard, cast
 
-from .studio_spike import _project_settings
+from .studio_spike import _project_settings, _still_source_frame_duration
 from .workflow_delivery import (
     SUPPORTED_IDENTITIES,
 )
@@ -88,6 +89,8 @@ _CONTENT_HASH = re.compile(r"sha256:[0-9a-f]{64}\Z")
 _UUID = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z")
 _TARGET_SUFFIX = re.compile(r"[0-9a-f]{12}\Z")
 _SUPPORTED_INTEGER_RATES = {(24, 1), (25, 1), (30, 1)}
+_QUALIFIED_FRACTIONAL_RATE = (24000, 1001)
+_SUPPORTED_PACKAGE_RATES = {*_SUPPORTED_INTEGER_RATES, _QUALIFIED_FRACTIONAL_RATE}
 _MARKER_COLORS = {
     "BLUE": "Blue",
     "CYAN": "Cyan",
@@ -974,6 +977,28 @@ def _native_treatment_supported(
     return False
 
 
+def _fractional_multiframe_still(
+    event: Mapping[str, Any], manifest_source: object
+) -> bool:
+    picture = event.get("pictureTreatment")
+    source_frame_map = (
+        manifest_source.get("sourceFrameMap")
+        if isinstance(manifest_source, Mapping)
+        else None
+    )
+    decoded_frame_count = (
+        source_frame_map.get("decodedPackageFrameCount")
+        if isinstance(source_frame_map, Mapping)
+        else None
+    )
+    return (
+        isinstance(picture, Mapping)
+        and picture.get("kind") in {"still", "still_frame"}
+        and type(decoded_frame_count) is int
+        and decoded_frame_count > 1
+    )
+
+
 def _uses_still_composition(event: Mapping[str, Any], source_kind: str) -> bool:
     picture = event.get("pictureTreatment")
     return source_kind == "still" or (
@@ -1090,9 +1115,9 @@ def _validate_semantics(manifest: Mapping[str, Any], view: Mapping[str, Any]) ->
         raise WorkflowV2Error("timeline dimensions are invalid")
     if not _positive_int(timeline.get("audioSampleRate")):
         raise WorkflowV2Error("timeline sample rate is invalid")
-    # Fractional rates remain package/preflight evidence only; no native
-    # approximation is ever derived from the float used by the v1 helper.
-    if rate not in _SUPPORTED_INTEGER_RATES and rate != (24000, 1001):
+    # Keep the exact fractional rate available for read-only preflight even when
+    # this caller has not qualified native creation for it.
+    if rate not in _SUPPORTED_PACKAGE_RATES:
         raise WorkflowV2Error(
             "native delivery does not support this rational frame rate"
         )
@@ -1100,13 +1125,25 @@ def _validate_semantics(manifest: Mapping[str, Any], view: Mapping[str, Any]) ->
         raise WorkflowV2Error("native view timeline differs from the manifest")
 
 
-def _native_rate_supported(timeline: Mapping[str, Any]) -> bool:
-    return _frame_rate(timeline) in _SUPPORTED_INTEGER_RATES
+def _native_rate_supported(
+    timeline: Mapping[str, Any], *, allow_fractional_native: bool = False
+) -> bool:
+    rate = _frame_rate(timeline)
+    return rate in _SUPPORTED_INTEGER_RATES or (
+        allow_fractional_native is True and rate == _QUALIFIED_FRACTIONAL_RATE
+    )
 
 
-def _native_settings(timeline: Mapping[str, Any], *, preflight: bool) -> dict[str, str]:
+def _native_settings(
+    timeline: Mapping[str, Any],
+    *,
+    preflight: bool,
+    allow_fractional_native: bool = False,
+) -> dict[str, str]:
     settings = _project_settings(timeline)
-    if preflight and not _native_rate_supported(timeline):
+    if preflight and not _native_rate_supported(
+        timeline, allow_fractional_native=allow_fractional_native
+    ):
         settings.pop("timelineFrameRate", None)
     return settings
 
@@ -1135,9 +1172,12 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
         self._v2_timeline: Mapping[str, Any] = {}
         self._v2_tracks: tuple[dict[str, Any], ...] = ()
         self._v2_sources: dict[str, Mapping[str, Any]] = {}
+        self._v2_manifest_sources: dict[str, Mapping[str, Any]] = {}
+        self._v2_preparation_bindings: dict[str, Mapping[str, Any]] = {}
         self.expected_events: dict[str, Mapping[str, Any]] = {}
         self.expected_stamps: dict[str, str] = {}
         self.expected_properties: dict[str, dict[str, Any]] = {}
+        self.expected_source_ranges: dict[str, tuple[int, int]] = {}
         self.timeline_marker_stamps: dict[int, str] = {}
         self.expected_markers: dict[int, dict[str, Any]] = {}
 
@@ -1168,6 +1208,11 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
         marked = False
         try:
             if still_media:
+                source_duration = _still_source_frame_duration(
+                    source_duration,
+                    media.GetClipProperty("FPS"),
+                    self._v2_timeline["frameRate"],
+                )
                 if not media.SetMarkInOut(
                     source_start, source_start + source_duration, "video"
                 ):
@@ -1214,8 +1259,6 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                 raise WorkflowV2Error(
                     "Resolve does not expose required still-composition constants"
                 )
-            width = cast(int, self._v2_timeline["width"])
-            height = cast(int, self._v2_timeline["height"])
             expected_properties = {
                 "Scaling": scale_fit,
                 "CompositeEnabled": True,
@@ -1227,14 +1270,30 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                 "ZoomX": 1.0,
                 "ZoomY": 1.0,
                 "RotationAngle": 0.0,
-                "AnchorPointX": width / 2,
-                "AnchorPointY": height / 2,
+                # Resolve expresses the neutral anchor as an offset from centre.
+                "AnchorPointX": 0.0,
+                "AnchorPointY": 0.0,
                 "FlipX": False,
                 "FlipY": False,
             }
         if expected_properties:
-            if not item.SetProperties(expected_properties):
-                raise WorkflowV2Error("Resolve rejected v2 event properties")
+            if "Scaling" in expected_properties:
+                self.assert_current_target()
+                if not item.SetProperties({"Scaling": expected_properties["Scaling"]}):
+                    raise WorkflowV2Error("Resolve rejected v2 event scaling")
+                remaining_properties = {
+                    key: value
+                    for key, value in expected_properties.items()
+                    if key != "Scaling"
+                }
+                if remaining_properties:
+                    self.assert_current_target()
+                    if not item.SetProperties(remaining_properties):
+                        raise WorkflowV2Error("Resolve rejected v2 event properties")
+            else:
+                self.assert_current_target()
+                if not item.SetProperties(expected_properties):
+                    raise WorkflowV2Error("Resolve rejected v2 event properties")
             actual = item.GetProperties()
             if not isinstance(actual, Mapping) or any(
                 not _property_equal(actual.get(key), value)
@@ -1245,6 +1304,10 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
         self.expected_events[event_id] = event
         self.expected_stamps[event_id] = custom_data
         self.expected_properties[event_id] = expected_properties
+        self.expected_source_ranges[event_id] = (
+            source_start,
+            source_start + source_duration - 1,
+        )
 
     def add_v2_marker(self, marker: Mapping[str, Any]) -> None:
         self.assert_current_target()
@@ -1345,17 +1408,88 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                         ):
                             discrepancies.append("event-record-range")
                         source_range = event.get("sourceRange")
-                        if source_range is not None:
-                            if item.GetSourceStartFrame() != source_range["startFrame"]:
-                                discrepancies.append("event-source-start")
-                            if (
-                                item.GetSourceEndFrame()
-                                != source_range["startFrame"]
-                                + source_range["durationFrames"]
-                                - 1
-                            ):
-                                discrepancies.append("event-source-end")
-                        media_item = item.GetMediaPoolItem()
+                        source_record = self._v2_sources.get(
+                            cast(str, event["sourceId"]), {}
+                        )
+                        try:
+                            is_qualified_fractional = (
+                                _frame_rate(timeline) == _QUALIFIED_FRACTIONAL_RATE
+                            )
+                        except WorkflowV2Error:
+                            is_qualified_fractional = False
+                        fractional_source_clock = (
+                            is_qualified_fractional
+                            and isinstance(source_record, Mapping)
+                            and (
+                                source_record.get("kind") in {"video", "still"}
+                                or (
+                                    source_record.get("kind") == "audio"
+                                    and event.get("kind") == "narration"
+                                    and isinstance(event.get("v2Event"), Mapping)
+                                    and event["v2Event"].get("sourceRange") is None
+                                )
+                            )
+                        )
+                        if fractional_source_clock:
+                            media_item = item.GetMediaPoolItem()
+                            manifest_source = self._v2_manifest_sources.get(
+                                cast(str, event["sourceId"]), {}
+                            )
+                            if media_item is None:
+                                discrepancies.append("event-source-range")
+                            else:
+                                source_times = {
+                                    method_name: getattr(item, method_name)()
+                                    for method_name in (
+                                        "GetSourceStartTime",
+                                        "GetSourceEndTime",
+                                    )
+                                    if callable(getattr(item, method_name, None))
+                                }
+                                speed_method = getattr(item, "GetSpeed", None)
+                                properties_method = getattr(
+                                    media_item, "GetClipProperty", None
+                                )
+                                source_range_matches = (
+                                    callable(speed_method)
+                                    and callable(properties_method)
+                                    and _fractional_source_range_matches(
+                                        event=event,
+                                        source=source_record,
+                                        manifest_source=manifest_source,
+                                        preparation_bindings=self._v2_preparation_bindings,
+                                        timeline=timeline,
+                                        actual_start=item.GetSourceStartFrame(),
+                                        actual_end=item.GetSourceEndFrame(),
+                                        source_times=source_times,
+                                        speed=speed_method(),
+                                        media_properties=properties_method(),
+                                        record_duration=cast(
+                                            int, record["durationFrames"]
+                                        ),
+                                    )
+                                )
+                                if not source_range_matches:
+                                    discrepancies.append("event-source-range")
+                        else:
+                            if source_range is not None:
+                                expected_source_range = self.expected_source_ranges.get(
+                                    event_id,
+                                    (
+                                        source_range["startFrame"],
+                                        source_range["startFrame"]
+                                        + source_range["durationFrames"]
+                                        - 1,
+                                    ),
+                                )
+                                if (
+                                    item.GetSourceStartFrame()
+                                    != expected_source_range[0]
+                                ):
+                                    discrepancies.append("event-source-start")
+                                if item.GetSourceEndFrame() != expected_source_range[1]:
+                                    discrepancies.append("event-source-end")
+                            media_item = item.GetMediaPoolItem()
                         actual_media_id = (
                             media_item.GetMediaId() if media_item is not None else None
                         )
@@ -1472,6 +1606,355 @@ def _property_equal(actual: object, expected: object) -> bool:
     return actual == expected
 
 
+def _source_time_error_samples(
+    value: object, expected_seconds: Fraction, sample_rate: int = 48_000
+) -> Fraction | None:
+    if type(value) is int:
+        seconds = Fraction(value)
+    elif type(value) is float and math.isfinite(value):
+        seconds = Fraction(str(value))
+    else:
+        return None
+    return (seconds - expected_seconds) * sample_rate
+
+
+def _native_speed_matches(speed: object, expected_percent: int) -> bool:
+    allowed = {
+        "Percentage",
+        "PitchCorrection",
+        "StretchKeyframesToFit",
+        "RippleTimeline",
+    }
+    return (
+        type(speed) is dict
+        and "Percentage" in speed
+        and speed.keys() <= allowed
+        and type(speed["Percentage"]) in {int, float}
+        and math.isfinite(speed["Percentage"])
+        and speed["Percentage"] == expected_percent
+        and ("PitchCorrection" not in speed or type(speed["PitchCorrection"]) is bool)
+        and all(
+            option not in speed
+            or (type(speed[option]) is bool and speed[option] is False)
+            for option in ("StretchKeyframesToFit", "RippleTimeline")
+        )
+    )
+
+
+def _event_source_provenance_matches(
+    event: Mapping[str, Any],
+    source: Mapping[str, Any],
+    manifest_source: Mapping[str, Any],
+    *,
+    require_hash_binding: bool = True,
+) -> bool:
+    source_id = event.get("sourceId")
+    content_hash = source.get("contentHash")
+    manifest_event = event.get("v2Event")
+    if (
+        not isinstance(source_id, str)
+        or source.get("id") != source_id
+        or not isinstance(content_hash, str)
+        or _CONTENT_HASH.fullmatch(content_hash) is None
+        or not isinstance(manifest_event, Mapping)
+        or manifest_event.get("eventId") != event.get("id")
+    ):
+        return False
+    if event.get("kind") == "placeholder":
+        treatment = manifest_event.get("pictureTreatment")
+        provenance = manifest_event.get("provenance")
+        if (
+            source_id != event.get("id")
+            or source.get("kind") != "still"
+            or not isinstance(provenance, Mapping)
+            or provenance.get("sourceId") is not None
+            or not isinstance(treatment, Mapping)
+            or treatment.get("kind") not in {"still", "slate"}
+        ):
+            return False
+        if treatment.get("kind") == "still":
+            reference = treatment.get("reference")
+            return (
+                isinstance(reference, Mapping)
+                and reference.get("contentHash") == content_hash
+            )
+        # The verified package binds generated slate bytes to the authored text.
+        return True
+    if manifest_source.get("id") != source_id:
+        return False
+    if require_hash_binding and manifest_source.get("deliveredHash") != content_hash:
+        return False
+    direct_source_id = manifest_event.get("sourceId")
+    if direct_source_id is not None and direct_source_id != source_id:
+        return False
+    provenance = manifest_event.get("provenance")
+    if provenance is not None:
+        return (
+            isinstance(provenance, Mapping) and provenance.get("sourceId") == source_id
+        )
+    return direct_source_id == source_id
+
+
+def _fractional_source_range_matches(
+    *,
+    event: Mapping[str, Any],
+    source: Mapping[str, Any],
+    manifest_source: Mapping[str, Any],
+    preparation_bindings: Mapping[str, Any],
+    timeline: Mapping[str, Any],
+    actual_start: object,
+    actual_end: object,
+    source_times: Mapping[str, Any],
+    speed: object,
+    media_properties: object,
+    record_duration: int,
+) -> bool:
+    """Accept only the already qualified 23.976 Resolve source-clock shapes."""
+    try:
+        rate = _frame_rate(timeline)
+        if rate != _QUALIFIED_FRACTIONAL_RATE:
+            return False
+        rate_seconds = Fraction(rate[1], rate[0])
+        source_id = event.get("sourceId")
+        manifest_event = event.get("v2Event")
+        if (
+            not isinstance(source_id, str)
+            or not isinstance(manifest_event, Mapping)
+            or not _event_source_provenance_matches(
+                event,
+                source,
+                manifest_source,
+                require_hash_binding=not (
+                    source.get("kind") == "audio" and event.get("kind") == "narration"
+                ),
+            )
+            or not _positive_int(record_duration)
+            or type(actual_start) is not int
+            or type(actual_end) is not int
+            or not isinstance(source_times, Mapping)
+        ):
+            return False
+
+        if source.get("kind") == "still":
+            try:
+                source_start, _source_duration = _frame_range(
+                    event.get("sourceRange"), "still event source range"
+                )
+                if event.get("kind") == "placeholder":
+                    manifest_start = 0
+                    manifest_duration = record_duration
+                    if manifest_event.get("sourceRange") is not None:
+                        return False
+                else:
+                    manifest_start, manifest_duration = _manifest_range(
+                        manifest_event.get("sourceRange"),
+                        "still manifest source range",
+                    )
+            except WorkflowV2Error:
+                return False
+            if (
+                event.get("kind")
+                not in {"primary_visual", "overlay_visual", "placeholder"}
+                or source_start != 0
+                or manifest_start != 0
+                or manifest_duration <= 0
+                or actual_start < 0
+                or actual_start != actual_end
+                or not isinstance(media_properties, Mapping)
+                or media_properties.get("Frames") != "1"
+                or not (
+                    _native_speed_matches(speed, 0) or _native_speed_matches(speed, 100)
+                )
+            ):
+                return False
+            imported_fps = media_properties.get("FPS")
+            if type(imported_fps) not in {str, int, float}:
+                return False
+            if type(imported_fps) is float and not math.isfinite(imported_fps):
+                return False
+            try:
+                fps = Fraction(str(imported_fps))
+                if fps <= 0:
+                    return False
+            except (ValueError, ZeroDivisionError):
+                return False
+            start_error = _source_time_error_samples(
+                source_times.get("GetSourceStartTime"), Fraction(0)
+            )
+            end_time = source_times.get("GetSourceEndTime")
+            end_errors = (
+                _source_time_error_samples(end_time, Fraction(1, 1) / fps),
+                _source_time_error_samples(end_time, rate_seconds),
+            )
+            return (
+                start_error is not None
+                and abs(start_error) <= 1
+                and any(error is not None and abs(error) <= 1 for error in end_errors)
+            )
+
+        if source.get("kind") == "audio" and event.get("kind") == "narration":
+            narration_audio = manifest_source.get("narrationAudio")
+            try:
+                view_source_start, view_source_duration = _frame_range(
+                    event.get("sourceRange"), "narration view source range"
+                )
+            except WorkflowV2Error:
+                return False
+            record_start, authored_duration = _frame_range(
+                event.get("recordRange"), "narration record range"
+            )
+            if (
+                manifest_event.get("sourceRange", "missing") is not None
+                or view_source_start != 0
+                or view_source_duration != record_duration
+                or record_start < 0
+                or not isinstance(narration_audio, Mapping)
+                or narration_audio.get("audioHash") != source.get("contentHash")
+                or narration_audio.get("sampleRate") != timeline.get("audioSampleRate")
+                or narration_audio.get("sampleRate") != 48_000
+                or not _positive_int(narration_audio.get("durationSamples"))
+                or not _native_speed_matches(speed, 100)
+            ):
+                return False
+            sample_count = cast(int, narration_audio["durationSamples"])
+            sample_rate = cast(int, narration_audio["sampleRate"])
+            exact_frames = Fraction(sample_count * rate[0], sample_rate * rate[1])
+            expected_duration = math.ceil(exact_frames)
+            if (
+                authored_duration != record_duration
+                or expected_duration < record_duration
+                or actual_start != 0
+            ):
+                return False
+            start_error = _source_time_error_samples(
+                source_times.get("GetSourceStartTime"), Fraction(0), sample_rate
+            )
+            eof_error = _source_time_error_samples(
+                source_times.get("GetSourceEndTime"),
+                Fraction(sample_count, sample_rate),
+                sample_rate,
+            )
+            record_end_error = _source_time_error_samples(
+                source_times.get("GetSourceEndTime"),
+                record_duration * rate_seconds,
+                sample_rate,
+            )
+            return (
+                start_error is not None
+                and abs(start_error) <= 1
+                and (
+                    (
+                        exact_frames.denominator != 1
+                        and expected_duration == record_duration
+                        and actual_end == record_duration - 2
+                        and eof_error is not None
+                        and abs(eof_error) <= 1
+                    )
+                    or (
+                        actual_end == record_duration - 1
+                        and record_end_error is not None
+                        and abs(record_end_error) <= 1
+                    )
+                )
+            )
+
+        if source.get("kind") != "video" or event.get("kind") not in {
+            "primary_visual",
+            "overlay_visual",
+        }:
+            return False
+        try:
+            expected_start, expected_duration = _frame_range(
+                event.get("sourceRange"), "video event source range"
+            )
+            manifest_start, manifest_duration = _manifest_range(
+                manifest_event.get("sourceRange"), "video manifest source range"
+            )
+        except WorkflowV2Error:
+            return False
+        expected_end = expected_start + expected_duration
+        manifest_end = manifest_start + manifest_duration
+        expected_rate = {"numerator": rate[0], "denominator": rate[1]}
+        expected_range = {"startFrame": expected_start, "endFrame": expected_end}
+        source_frame_map = manifest_source.get("sourceFrameMap")
+        source_mapping = manifest_source.get("sourceTimeMapping")
+        event_mapping = manifest_event.get("sourceTimeMapping")
+        source_requirement = manifest_source.get("preparationRequirementKey")
+        binding = (
+            preparation_bindings.get(source_requirement)
+            if isinstance(source_requirement, str)
+            else None
+        )
+        verification = (
+            binding.get("verification") if isinstance(binding, Mapping) else None
+        )
+        provenance = manifest_event.get("provenance")
+        if (
+            manifest_start != expected_start
+            or manifest_end != expected_end
+            or manifest_event.get("sourceRange") != expected_range
+            or not isinstance(source_frame_map, Mapping)
+            or not isinstance(source_mapping, Mapping)
+            or not isinstance(event_mapping, Mapping)
+            or not isinstance(binding, Mapping)
+            or binding.get("requirementKey") != source_requirement
+            or binding.get("timeMapping") != source_mapping
+            or event_mapping != source_mapping
+            or event_mapping.get("sourceFrameMap") != source_frame_map
+            or event_mapping.get("sourceOrigin") != {"numerator": 0, "denominator": 1}
+            or event_mapping.get("deliveredOrigin")
+            != {"numerator": 0, "denominator": 1}
+            or event_mapping.get("sourceRate") != expected_rate
+            or event_mapping.get("deliveredRate") != expected_rate
+            or not isinstance(verification, Mapping)
+            or not isinstance(provenance, Mapping)
+            or provenance.get("sourceId") != source_id
+            or manifest_source.get("deliveredHash") != source.get("contentHash")
+            or verification.get("deliveredHash") != source.get("contentHash")
+            or verification.get("decodedFrameRate") != expected_rate
+            or source_frame_map.get("decodedPackageFrameRate") != expected_rate
+            or type(verification.get("decodedFrameCount")) is not int
+            or verification.get("decodedFrameCount")
+            != source_frame_map.get("decodedPackageFrameCount")
+            or type(verification.get("probeHash")) is not str
+            or verification.get("probeHash") != source_frame_map.get("probeHash")
+            or verification.get("probeHash") != source_frame_map.get("descriptorHash")
+            or verification.get("probeHash")
+            != manifest_source.get("deliveredProbeHash")
+            or not isinstance(media_properties, Mapping)
+            or media_properties.get("Frames")
+            != str(verification.get("decodedFrameCount"))
+            or not _positive_int(verification.get("decodedFrameCount"))
+            or expected_start < 0
+            or expected_start >= verification["decodedFrameCount"]
+            or expected_end > verification["decodedFrameCount"]
+            or source_frame_map.get("packageFrameZeroLogicalFrame") != 0
+            or source_frame_map.get("packageVideoPtsOrigin")
+            != {"numerator": 0, "denominator": 1}
+            or source_frame_map.get("loggedTimeAtPackageFrameZero")
+            != {"numerator": 0, "denominator": 1}
+            or actual_start not in {expected_start, expected_start - 1}
+            or actual_start < 0
+            or actual_end not in {expected_end, expected_end - 1}
+            or not _native_speed_matches(speed, 100)
+        ):
+            return False
+        start_error = _source_time_error_samples(
+            source_times.get("GetSourceStartTime"), expected_start * rate_seconds
+        )
+        end_error = _source_time_error_samples(
+            source_times.get("GetSourceEndTime"), expected_end * rate_seconds
+        )
+        return (
+            start_error is not None
+            and abs(start_error) <= 1
+            and end_error is not None
+            and abs(end_error) <= 1
+        )
+    except (KeyError, TypeError, ValueError, OverflowError, WorkflowV2Error):
+        return False
+
+
 def run_workflow_delivery_v2(
     resolve: Any,
     attestation_path: Path,
@@ -1481,6 +1964,7 @@ def run_workflow_delivery_v2(
     authorize_new_nonproduction: bool = False,
     external_scripting: str | None = None,
     adapter_factory: Callable[[Any], Any] | None = None,
+    allow_fractional_native: bool = False,
 ) -> dict[str, Any]:
     """Preflight or create one authorized new nonproduction Resolve project."""
     result: dict[str, Any] = {
@@ -1519,10 +2003,12 @@ def run_workflow_delivery_v2(
                 "timelineName": attestation["timelineName"],
                 "verification": attestation["verification"],
                 "packageVerifiedAt": attestation["verifiedAt"],
-                "nativeRateQualified": _native_rate_supported(timeline),
+                "nativeRateQualified": _native_rate_supported(
+                    timeline, allow_fractional_native=allow_fractional_native
+                ),
             }
         )
-        if not _native_rate_supported(timeline) and action == "build":
+        if not result["nativeRateQualified"] and action == "build":
             raise WorkflowV2Error(
                 "fractional-rate native creation awaits separate qualification"
             )
@@ -1542,6 +2028,12 @@ def run_workflow_delivery_v2(
             raise WorkflowV2Error(
                 "native subtitle-track creation awaits separate qualification"
             )
+        manifest_source_by_id = {
+            source["id"]: source
+            for source in cast(list[Mapping[str, Any]], manifest["sources"])
+            if isinstance(source.get("id"), str)
+        }
+        fractional_rate = _frame_rate(timeline) == _QUALIFIED_FRACTIONAL_RATE
         unsupported_treatments = [
             event
             for event in view["events"]
@@ -1553,6 +2045,12 @@ def run_workflow_delivery_v2(
                     if source["id"] == event["sourceId"]
                 ),
             )
+            or (
+                fractional_rate
+                and _fractional_multiframe_still(
+                    event, manifest_source_by_id.get(event.get("sourceId"))
+                )
+            )
         ]
         result["nativePictureTreatmentsQualified"] = not unsupported_treatments
         if unsupported_treatments and action == "build":
@@ -1561,7 +2059,11 @@ def run_workflow_delivery_v2(
             )
         if resolve is None:
             raise WorkflowV2Error("Resolve did not inject an API object")
-        settings = _native_settings(timeline, preflight=(action == "preflight"))
+        settings = _native_settings(
+            timeline,
+            preflight=(action == "preflight"),
+            allow_fractional_native=allow_fractional_native,
+        )
         factory = adapter_factory or PublicResolveAdapter
         stage = "Resolve connection preflight"
         adapter = factory(resolve)
@@ -1587,7 +2089,7 @@ def run_workflow_delivery_v2(
         if action == "preflight":
             result["status"] = "preflight_passed"
             result["message"] = "The immutable v2 package passed read-only preflight."
-            if not _native_rate_supported(timeline):
+            if not result["nativeRateQualified"]:
                 result["nativeRateLimitation"] = "24000/1001 is not natively qualified."
             return result
 
@@ -1596,6 +2098,13 @@ def run_workflow_delivery_v2(
         cast(Any, adapter)._v2_tracks = tuple(dict(track) for track in view["tracks"])
         cast(Any, adapter)._v2_sources = {
             source["id"]: source for source in view["sources"]
+        }
+        cast(Any, adapter)._v2_manifest_sources = {
+            source["id"]: source for source in manifest["sources"]
+        }
+        cast(Any, adapter)._v2_preparation_bindings = {
+            binding["requirementKey"]: binding
+            for binding in manifest["preparationBindings"]
         }
 
         def mutate(method: Callable[..., Any], *arguments: Any, label: str) -> Any:

@@ -1168,7 +1168,7 @@ export interface ReviewedBoundaryVerificationV1 {
 }
 export interface MeasuredBoundaryAlgorithmV1 {
   id: "vera-polly-marks-energy-ends" | "vera-local-acoustic-recovery";
-  version: "1";
+  version: "1" | "2" | "3";
   parametersHash: string;
   parameters: {
     [k: string]: unknown;

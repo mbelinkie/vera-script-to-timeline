@@ -137,6 +137,7 @@ def run_installed_request_v2(
             action=request["action"],
             authorize_new_nonproduction=request["authorizeNewNonproduction"],
             external_scripting=request["externalScripting"],
+            allow_fractional_native=True,
         )
     except Exception as error:
         result = {

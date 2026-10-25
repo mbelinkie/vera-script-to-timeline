@@ -22,6 +22,10 @@ class MediaToolError(RuntimeError):
     pass
 
 
+class ClockQualificationError(MediaToolError):
+    pass
+
+
 @dataclass(frozen=True)
 class NormalizationResult:
     wav_bytes: bytes
@@ -37,6 +41,7 @@ class NormalizationResult:
     integrated_lufs: float
     true_peak_dbtp: float
     loudness_range_lu: float
+    clock: dict[str, Any] | None = None
 
 
 class Normalizer:
@@ -51,6 +56,7 @@ class Normalizer:
         self.ffprobe = ffprobe
         self.profile_id = profile_id
         self._fingerprint: str | None = None
+        self._version: str | None = None
 
     @property
     def tool_fingerprint(self) -> str:
@@ -64,6 +70,9 @@ class Normalizer:
             ):
                 result = self._run(command)
                 outputs.append(result.stdout + result.stderr)
+                if command == [self.ffmpeg, "-version"]:
+                    match = re.match(r"ffmpeg version (\d+\.\d+\.\d+)\s", result.stdout)
+                    self._version = match[1] if match else None
             needed = ("acompressor", "loudnorm", "aresample", "pcm_s24le")
             combined = "\n".join(outputs)
             missing = [name for name in needed if name not in combined]
@@ -78,6 +87,11 @@ class Normalizer:
                 }
             )
         return self._fingerprint
+
+    @property
+    def ffmpeg_version(self) -> str | None:
+        _ = self.tool_fingerprint
+        return self._version
 
     def _run(self, command: list[str]) -> subprocess.CompletedProcess[str]:
         try:
@@ -141,8 +155,86 @@ class Normalizer:
             self._finite_number(measured.get("input_lra"), "loudness range"),
         )
 
+    def _verify_clock(
+        self, stderr: str, *, source_samples: int, padding_samples: int
+    ) -> dict[str, Any]:
+        """Qualify the fixed same-rate graph, independently of output replay.
+
+        acompressor changes gain at the current sample (no lookahead); loudnorm
+        LINEAR_MODE multiplies each current sample. Format-only swresample has
+        no resampling delay. See docs/investigations/issue-300-normalization.md.
+        Frame clocks alone would not prove these filter semantics.
+        """
+        if self.ffmpeg_version != "8.1.2":
+            raise ClockQualificationError("unqualified FFmpeg version")
+        if padding_samples:
+            raise ClockQualificationError("clock qualification does not admit padding")
+        if self.profile_id != DEFAULT_PROFILE_ID:
+            raise ClockQualificationError("unqualified normalization profile")
+        if self._loudnorm_json(stderr).get("normalization_type") != "linear":
+            raise ClockQualificationError(
+                "normalization clock requires actual linear mode"
+            )
+        conversions = re.findall(
+            r"ch:1 chl:mono fmt:\w+ r:(\d+)Hz -> "
+            r"ch:1 chl:mono fmt:\w+ r:(\d+)Hz",
+            stderr,
+        )
+        if not conversions or any(a != "48000" or b != "48000" for a, b in conversions):
+            raise ClockQualificationError(
+                "normalization clock contains unqualified resampling"
+            )
+        clocks: list[list[tuple[int, int]]] = []
+        for label in ("input", "output"):
+            frames = re.findall(
+                rf"\[ashowinfo@clock_{label} @ [^\]]+\] n:(\d+) pts:(-?\d+) "
+                r"pts_time:\S+ fmt:\w+ channels:1 chlayout:mono "
+                r"rate:48000 nb_samples:(\d+)",
+                stderr,
+            )
+            cursor = 0
+            trace = []
+            for expected_index, (index, pts, count) in enumerate(frames):
+                if (
+                    int(index) != expected_index
+                    or int(pts) != cursor
+                    or int(count) <= 0
+                ):
+                    raise ClockQualificationError(
+                        "normalization clock is delayed or discontinuous"
+                    )
+                trace.append((int(pts), int(count)))
+                cursor += int(count)
+            expected = source_samples + (padding_samples if label == "output" else 0)
+            if not frames or cursor != expected:
+                raise ClockQualificationError(
+                    "normalization clock sample count differs"
+                )
+            clocks.append(trace)
+        if clocks[1][: len(clocks[0])] != clocks[0]:
+            raise ClockQualificationError(
+                "normalization changed source frame coordinates"
+            )
+        return {
+            "method": "same_rate_linear_filter_clock/v1",
+            "actualMode": "linear",
+            "ffmpegVersion": self.ffmpeg_version,
+            "sampleRate": OUTPUT_SAMPLE_RATE,
+            "sourceSamples": source_samples,
+            "outputSamples": source_samples + padding_samples,
+            "tailPaddingSamples": padding_samples,
+            "originSamples": 0,
+            "delaySamples": 0,
+            "framesVerified": len(clocks[0]),
+        }
+
     def normalize_pcm(
-        self, audio: bytes, *, sample_rate: int, channels: int
+        self,
+        audio: bytes,
+        *,
+        sample_rate: int,
+        channels: int,
+        audit_clock: bool = False,
     ) -> NormalizationResult:
         if sample_rate <= 0:
             raise MediaToolError("provider sample rate must be positive")
@@ -208,40 +300,53 @@ class Normalizer:
                 "loudnorm=I=-16:TP=-1.5:LRA=7:linear=true:print_format=json:"
                 + ":".join(measurement_parts)
             )
-            self._run(
-                [
-                    self.ffmpeg,
-                    "-hide_banner",
-                    "-nostdin",
-                    "-f",
-                    "s16le",
-                    "-ar",
-                    str(sample_rate),
-                    "-ac",
-                    "1",
-                    "-i",
-                    str(source),
-                    "-af",
-                    base_filter + "," + loudnorm,
-                    "-map_metadata",
-                    "-1",
-                    "-map_chapters",
-                    "-1",
-                    "-fflags",
-                    "+bitexact",
-                    "-flags:a",
-                    "+bitexact",
-                    "-c:a",
-                    "pcm_s24le",
-                    "-ar",
-                    str(OUTPUT_SAMPLE_RATE),
-                    "-ac",
-                    "1",
-                    "-rf64",
-                    "never",
-                    str(output),
-                ]
-            )
+            second_filter = base_filter + "," + loudnorm
+            if audit_clock:
+                if sample_rate != OUTPUT_SAMPLE_RATE:
+                    raise MediaToolError("clock qualification requires same-rate PCM")
+                second_filter = (
+                    "ashowinfo@clock_input," + second_filter + ",ashowinfo@clock_output"
+                )
+            try:
+                second = self._run(
+                    [
+                        self.ffmpeg,
+                        *(["-loglevel", "verbose"] if audit_clock else []),
+                        "-hide_banner",
+                        "-nostdin",
+                        "-f",
+                        "s16le",
+                        "-ar",
+                        str(sample_rate),
+                        "-ac",
+                        "1",
+                        "-i",
+                        str(source),
+                        "-af",
+                        second_filter,
+                        "-map_metadata",
+                        "-1",
+                        "-map_chapters",
+                        "-1",
+                        "-fflags",
+                        "+bitexact",
+                        "-flags:a",
+                        "+bitexact",
+                        "-c:a",
+                        "pcm_s24le",
+                        "-ar",
+                        str(OUTPUT_SAMPLE_RATE),
+                        "-ac",
+                        "1",
+                        "-rf64",
+                        "never",
+                        str(output),
+                    ]
+                )
+            except MediaToolError as error:
+                if audit_clock:
+                    raise ClockQualificationError("clock audit unavailable") from error
+                raise
             verified = self.verify_wav(output, analyze=False)
             integrated, true_peak, loudness_range = self._analyze(output)
             expected_samples = max(resampled_samples, MINIMUM_DURATION_SAMPLES)
@@ -256,6 +361,15 @@ class Normalizer:
                     "normalized loudness is outside tolerance: "
                     f"{integrated} LUFS, {true_peak} dBTP"
                 )
+            clock = (
+                self._verify_clock(
+                    second.stderr,
+                    source_samples=source_samples,
+                    padding_samples=padding_samples,
+                )
+                if audit_clock
+                else None
+            )
             return NormalizationResult(
                 wav_bytes=output.read_bytes(),
                 profile_id=self.profile_id,
@@ -272,6 +386,7 @@ class Normalizer:
                 integrated_lufs=integrated,
                 true_peak_dbtp=true_peak,
                 loudness_range_lu=loudness_range,
+                clock=clock,
             )
 
     def verify_wav(self, path: Path, *, analyze: bool = True) -> NormalizationResult:

@@ -504,7 +504,7 @@ class ReviewedBoundaryVerificationV1(TypedDict):
 
 class MeasuredBoundaryAlgorithmV1(TypedDict):
     id: Literal["vera-polly-marks-energy-ends", "vera-local-acoustic-recovery"]
-    version: Literal["1"]
+    version: Literal["1", "2", "3"]
     parametersHash: ContentHash
     parameters: dict[str, Any]
 
