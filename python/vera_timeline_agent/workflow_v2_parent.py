@@ -12,6 +12,7 @@ import runpy
 import subprocess
 import sys
 import time
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -53,6 +54,8 @@ def start(request_path: Path, expected: str, python: Path) -> dict[str, Any]:
 
     request_path = request_path.absolute()
     request = _request(request_path, expected)
+    if request.get("externalScripting") != "Local":
+        raise ValueError("parent dispatch requires explicit Local scripting authority")
     release = request_path.parent.parent
     if request_path != release / "vera-delivery-v2/request.json":
         raise ValueError("parent requires the installed request slot")
@@ -87,6 +90,7 @@ def start(request_path: Path, expected: str, python: Path) -> dict[str, Any]:
             "requestSha256": expected,
             "startedAt": datetime.now(UTC).isoformat(),
             "monotonicStarted": time.monotonic(),
+            "invocationId": uuid.uuid4().hex,
         }
         _write(session, record)
         try:
@@ -165,6 +169,7 @@ def status(
             "attestationSha256": request["attestationSha256"],
             "requestedProjectName": request["projectName"],
             "requestedTimelineName": request["timelineName"],
+            "parentInvocationId": session["invocationId"],
         }
         if any(
             any(v.get(k) != value for k, value in context.items())
@@ -222,6 +227,7 @@ def _worker(session_path: Path, lock_fd: int, launcher: Path) -> None:
             raise RuntimeError("Resolve is not reachable")
         if _digest(Path(record["requestPath"])) != record["requestSha256"]:
             raise ValueError("request changed before worker launch")
+        os.environ["VERA_DELIVERY_PARENT_ID"] = record["invocationId"]
         runpy.run_path(
             str(launcher), run_name="__main__", init_globals={"resolve": resolve}
         )

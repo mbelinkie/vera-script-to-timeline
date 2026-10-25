@@ -14,9 +14,16 @@ from typing import Any
 
 import pytest
 from vera_timeline_agent import (
+    workflow_v2,
     workflow_v2_cli,
     workflow_v2_launcher,
     workflow_v2_parent,
+)
+from vera_timeline_agent.studio_spike import (
+    PublicResolveAdapter as BasePublicResolveAdapter,
+)
+from vera_timeline_agent.studio_spike import (
+    StudioSpikeError,
 )
 
 
@@ -41,7 +48,7 @@ def _case(tmp_path: Path) -> tuple[Path, str, Path, Path, dict[str, Any]]:
         "timelineName": "Synthetic Timeline",
         "action": "preflight",
         "authorizeNewNonproduction": False,
-        "externalScripting": "None",
+        "externalScripting": "Local",
         "evidenceDir": str(evidence),
     }
     request_path = installed / "request.json"
@@ -75,6 +82,9 @@ def _close_fds(fds: list[int]) -> None:
         os.close(fd)
 
 
+_PARENT_INVOCATION_ID = "1" * 32
+
+
 def _context(expected: str, request: dict[str, Any]) -> dict[str, str]:
     return {
         "requestSha256": expected,
@@ -82,6 +92,7 @@ def _context(expected: str, request: dict[str, Any]) -> dict[str, str]:
         "attestationSha256": request["attestationSha256"],
         "requestedProjectName": request["projectName"],
         "requestedTimelineName": request["timelineName"],
+        "parentInvocationId": _PARENT_INVOCATION_ID,
     }
 
 
@@ -96,6 +107,7 @@ def _session(evidence: Path, request_path: Path, expected: str) -> None:
             "requestSha256": expected,
             "startedAt": "2026-10-25T00:00:00+00:00",
             "monotonicStarted": 10.0,
+            "invocationId": _PARENT_INVOCATION_ID,
         },
     )
 
@@ -111,8 +123,11 @@ def _completed_operation(
     corrupt_result: bool = False,
     missing_result: bool = False,
     mismatch_context: bool = False,
+    parent_invocation_id: str | None = None,
 ) -> None:
     context = _context(expected, request)
+    if parent_invocation_id is not None:
+        context["parentInvocationId"] = parent_invocation_id
     workflow_v2_parent._write(evidence / f"started-{expected}.json", context)
     report_path = evidence / f"result-{expected}.json"
     report = {
@@ -223,6 +238,71 @@ def test_start_is_idempotent_and_unknown_after_worker_lock_releases(
         _close_fds(held_fds)
 
 
+def test_start_requires_local_scripting_authority_before_dispatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request_path, _expected, _manifest, evidence, request = _case(tmp_path)
+    request["externalScripting"] = "None"
+    request_path.write_text(json.dumps(request, sort_keys=True))
+    expected = hashlib.sha256(request_path.read_bytes()).hexdigest()
+    commands, held_fds = _patch_popen(monkeypatch)
+    try:
+        with pytest.raises(ValueError, match="Local"):
+            workflow_v2_parent.start(request_path, expected, Path("ResolvePython"))
+
+        assert commands == []
+        assert not (evidence / "parent.json").exists()
+    finally:
+        _close_fds(held_fds)
+
+
+def test_v2_probe_allows_missing_timeline_but_checks_present_timeline_surface() -> None:
+    def resolve_with_timeline(timeline: object | None) -> SimpleNamespace:
+        root = SimpleNamespace(
+            GetSubFolderList=lambda: [],
+            GetClipList=lambda: [],
+        )
+        pool = SimpleNamespace(
+            ImportMedia=lambda *_args: [],
+            CreateEmptyTimeline=lambda *_args: None,
+            AddSubFolder=lambda *_args: None,
+            GetRootFolder=lambda: root,
+            GetCurrentFolder=lambda: None,
+            SetCurrentFolder=lambda *_args: True,
+            ImportFolderFromFile=lambda *_args: True,
+            AppendToTimeline=lambda *_args: [],
+        )
+        project = SimpleNamespace(
+            GetSetting=lambda _key: "24",
+            GetMediaPool=lambda: pool,
+            GetCurrentTimeline=lambda: timeline,
+        )
+        manager = SimpleNamespace(
+            GetProjectListInCurrentFolder=lambda: [],
+            GetCurrentProject=lambda: project,
+            CreateProject=lambda *_args: project,
+            SaveProject=lambda *_args: True,
+            CloseProject=lambda *_args: True,
+            LoadProject=lambda *_args: project,
+        )
+        return SimpleNamespace(
+            GetCurrentPage=lambda: "edit",
+            GetProjectManager=lambda: manager,
+        )
+
+    settings = {"timelineFrameRate": "24"}
+    empty_resolve = resolve_with_timeline(None)
+    limitations = workflow_v2.PublicResolveAdapter(empty_resolve).probe(settings)
+    assert "Timeline APIs will be checked on the new target." in limitations[-1]
+    with pytest.raises(StudioSpikeError, match="no timeline"):
+        BasePublicResolveAdapter(empty_resolve).probe(settings)
+
+    for adapter_type in (BasePublicResolveAdapter, workflow_v2.PublicResolveAdapter):
+        with pytest.raises(StudioSpikeError, match="GetTrackCount"):
+            adapter_type(resolve_with_timeline(SimpleNamespace())).probe(settings)
+
+
 def test_wait_timeout_after_sixty_seconds_stays_live_without_redispatch(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -331,6 +411,7 @@ def test_workflow_failure_is_still_a_terminal_result(
         "corrupt-hash",
         "corrupt-result-json",
         "context-mismatch",
+        "foreign-parent-invocation",
     ],
 )
 def test_worker_exit_with_missing_or_bad_final_is_failed_and_never_replayed(
@@ -354,6 +435,13 @@ def test_worker_exit_with_missing_or_bad_final_is_failed_and_never_replayed(
         _completed_operation(evidence, expected, request, missing_result=True)
     elif damage == "corrupt-result-json":
         _completed_operation(evidence, expected, request, corrupt_result=True)
+    elif damage == "foreign-parent-invocation":
+        _completed_operation(
+            evidence,
+            expected,
+            request,
+            parent_invocation_id="2" * 32,
+        )
     else:
         _completed_operation(evidence, expected, request, mismatch_context=True)
 

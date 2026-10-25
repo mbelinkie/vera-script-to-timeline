@@ -469,7 +469,9 @@ class PublicResolveAdapter:
         self.observed_connected = facts
         return facts
 
-    def probe(self, settings: Mapping[str, str]) -> tuple[str, ...]:
+    def probe(
+        self, settings: Mapping[str, str], *, require_timeline: bool = True
+    ) -> tuple[str, ...]:
         if not callable(getattr(self.resolve, "GetCurrentPage", None)):
             raise StudioSpikeError("Resolve has no callable GetCurrentPage")
         current_page = self.resolve.GetCurrentPage()
@@ -535,6 +537,8 @@ class PublicResolveAdapter:
             raise StudioSpikeError("current project has no callable GetCurrentTimeline")
         current_timeline = current.GetCurrentTimeline()
         if current_timeline is None:
+            if not require_timeline:
+                return (*gaps, "Timeline APIs will be checked on the new target.")
             raise StudioSpikeError("current project has no timeline for API preflight")
         for method in ("GetTrackCount", "GetItemListInTrack"):
             if not callable(getattr(current_timeline, method, None)):

@@ -1337,6 +1337,11 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
     def import_media(self, sources: Sequence[tuple[str, Path]]) -> None:
         super().import_media(sources)
 
+    def probe(
+        self, settings: Mapping[str, str], *, require_timeline: bool = False
+    ) -> tuple[str, ...]:
+        return super().probe(settings, require_timeline=require_timeline)
+
     def verify(self, view: Mapping[str, Any]) -> tuple[str, ...]:
         discrepancies: list[str] = []
         try:
@@ -1986,7 +1991,8 @@ def run_workflow_delivery_v2(
         if action not in {"preflight", "build"}:
             raise WorkflowV2Error("action must be preflight or build")
         if action == "build" and (
-            authorize_new_nonproduction is not True or external_scripting != "None"
+            authorize_new_nonproduction is not True
+            or external_scripting not in {"None", "Local"}
         ):
             raise WorkflowV2Error("build requires both operator authorizations")
         package = load_verified_package_v2(attestation_path, attestation_sha256)

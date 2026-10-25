@@ -3,13 +3,18 @@
 The normal `VERA Delivery v2.py` build can take longer than an agent tool's
 60-second call window. Use the parent below instead of executing the whole
 build inside that call. It runs the same guarded installed script in Resolve's
-bundled Python, on the worker's main thread. Resolve must already be running.
+bundled Python, on the worker's main thread. Resolve must already be running
+with External Scripting set to **Local**. The parent does not change preferences.
+Open the Edit page with a current project; an empty project is sufficient.
 No providers, network uploads or rendering are added.
 
 First use the existing `workflow_v2_cli attest`, `release` and `request` flow
 with a fresh attestation, fresh release directory and fresh evidence directory.
 The request must occupy `vera-delivery-v2/request.json` in that release. A build
-still requires `--authorize-new-nonproduction --external-scripting-none`.
+requires `--authorize-new-nonproduction --external-scripting-local`. This
+explicitly records the external connection actually used by the child. The
+existing injected Workflow Integration route still supports
+`--external-scripting-none`; that request cannot be dispatched by this parent.
 Check that no other operator, render or unresolved delivery owns Resolve before
 starting. Preserve previous targets and evidence; a new attestation creates a
 new disposable target, never permission to reuse a previous one.
@@ -47,7 +52,9 @@ preparation. Keep these records private: the normal reports contain local paths
 and target identities.
 
 Retain `parent.json`, `parent-exit.json`, `parent-console.log`, `parent.lock` and
-the normal `started-*`, `result-*`, `hashes-*` records together. Missing, corrupt
+the normal `started-*`, `result-*`, `hashes-*` records together. The start and
+final records must name this parent's invocation; a concurrent menu launch of
+the same request cannot be credited as this worker's completion. Missing, corrupt
 or mismatched records remain non-retriable under the same reservation. Legacy
 start-only evidence has no liveness proof and is not resumable execution. This
 parent resumes waiting, not partially executed Resolve mutations. It requires
