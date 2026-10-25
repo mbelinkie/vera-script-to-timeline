@@ -34,6 +34,7 @@ TI_RUNTIME_FILES = (
     "workflow_delivery.py",
     "workflow_launcher.py",
     "workflow_v2.py",
+    "performance_v2.py",
     "workflow_v2_launcher.py",
     "native_qualification_v2.py",
     "target_identity_v2.py",

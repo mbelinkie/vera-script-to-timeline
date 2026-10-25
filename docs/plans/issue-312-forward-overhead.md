@@ -191,3 +191,29 @@ installed Resolve behavior still needs the forthcoming rehearsal. The package
 fixture observes tool dispatches through a MediaTools subclass, leaving the
 qualified #174 adapter source and tool fingerprint unchanged. Fifteen focused
 unit/fake-delivery checks passed; lint and the five-file type check passed.
+
+## Runtime closure repair and first native dispatch
+
+The first full CI reported `incomplete declared preflight runtime`: the release
+shipped the recorder, but five independently strict runtime/source declarations
+still described the old inventory. Added the recorder to the preflight,
+identity bootstrap/module, output-native and sample-precision declarations.
+No inventory, source-currentness or authority check was relaxed. A new test
+compares the declarations; tampering with the recorder is also refused before
+operator use. Focused affected runs passed: 117 preflight/release/probe tests,
+224 target-identity/native tests, and seven final release checks. Changed-file
+lint/format/type checks passed. Full CI must run again; no red result is waived.
+
+The old process session 91490 was no longer addressable on resume. Its completed
+fixture record and package were present, and an independent `verify_v2_package`
+pass confirmed 21 events, 21 media and zero markers. This is actual new
+verification, not an invented exit code for the lost process session.
+
+After checking that the previous parent was terminal and Resolve had no active
+render, dispatched the fresh rehearsal build using #302's guarded parent.
+Request: `out/issue312/rehearsal-release-v1/vera-delivery-v2/request.json`;
+SHA256 `91767b9b8d1bb50ad3cdd2f9b7f4c5fb8e8caf771113eecf0ffaab674e260e89`.
+Evidence: `out/issue312/rehearsal-native-v1/`. At this checkpoint the operation
+was **live**, not verified, and must not be redispatched/replaced. Collect its
+existing terminal state once when work resumes. No installed #254 files or old
+target were overwritten. This is rehearsal, not a baseline/candidate timing.
