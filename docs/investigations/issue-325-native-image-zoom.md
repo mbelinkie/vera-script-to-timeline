@@ -51,14 +51,14 @@ installed release, prior issue target, provider or UI automation was used.
 | `BackgroundColor=#204080` | False; properties unchanged | Custom background not qualified through item properties |
 | Project default fit → `scaleToCrop` | Earlier use-project clip changed from complete square to crop | Never leave frozen builds dependent on live defaults |
 | Earlier explicit fit/fill timeline after default change | All **432 decoded frames identical** | Explicit occurrence settings preserve this earlier frozen output |
-| Custom-motion timeline after save/reopen | All **192 decoded frames identical** to pre-close output under same project default | Persistence qualified for retained raw parameters |
+| Custom-motion timeline after save/reopen | All **192 decoded frames identical**: two explicit-fit custom occurrences (144 frames), plus a 48-frame None/use-project control | Persistence under the same project default; the None control is not frozen framing |
 
 `scaleToFill` is not an accepted project-setting value (False); the installed
 documentation names `scaleToCrop`, which returned True and read back correctly.
 There is no qualified project-wide Dynamic Zoom default API here: the adapter
 must resolve the chosen default to explicit per-occurrence settings when it
-creates a new build. A new use-project occurrence still reads `Scaling=0` and
-inherits the changed default. No production freezing implementation is claimed.
+creates a new build. A new use-project occurrence still reads `Scaling=0`;
+its separate output was not rendered. No production freezing implementation is claimed.
 
 The first queued render reported Complete but produced no file after the
 experiment switched timelines immediately. The log recorded zero frames.
@@ -112,7 +112,8 @@ were black. This demonstrates why accepting an import/readback is insufficient.
 
 The small [probe preflight](../../scripts/issue325_zoom_probe.py) is an
 investigation-only boundary, not a shipping adapter. It checks source bytes,
-exact runtime/profile, tested durations, explicit motion/None, linear ease,
+the qualified grid hash, exact runtime/profile, existing occurrence duration,
+the rendered duration/motion/framing combinations, explicit motion/None, linear ease,
 fit/fill and black background **before returning properties**. It rejects
 unknown fields/custom focus, unsupported ease/framing/background, stale source,
 stale profile, and an attempted Free-edition substitution. It never modifies a
