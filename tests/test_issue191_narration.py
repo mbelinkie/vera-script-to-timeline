@@ -137,7 +137,12 @@ class FakeNormalizer(Normalizer):
         )
 
     def normalize_pcm(
-        self, audio_bytes: bytes, *, sample_rate: int, channels: int
+        self,
+        audio_bytes: bytes,
+        *,
+        sample_rate: int,
+        channels: int,
+        audit_clock: bool = False,
     ) -> NormalizationResult:
         assert sample_rate == 16000 and channels == 1
         samples = b"".join(

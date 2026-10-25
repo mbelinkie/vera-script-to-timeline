@@ -2448,7 +2448,7 @@
           ]
         },
         "version": {
-          "enum": ["1", "2"]
+          "enum": ["1", "2", "3"]
         },
         "parametersHash": {
           "$ref": "#/$defs/ContentHash"

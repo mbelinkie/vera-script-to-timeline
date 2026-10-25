@@ -267,6 +267,72 @@ def verify_measured_narration_evidence(
     fact(isinstance(asset, dict) and isinstance(audio, dict), "asset binding shape")
     lag = parsed["lag"]
     raw_rate = lag.get("rawSampleRate")
+    transform = lag.get("transformVerification")
+    clock = transform.get("clock") if isinstance(transform, dict) else None
+    clock_verified = False
+    if isinstance(clock, dict):
+        from vera_timeline_agent.narration.models import identity_hash
+        from vera_timeline_agent.narration.normalize import (
+            DEFAULT_PROFILE_ID,
+            MINIMUM_DURATION_SAMPLES,
+        )
+
+        source, output, padding = (
+            clock.get("sourceSamples"),
+            clock.get("outputSamples"),
+            clock.get("tailPaddingSamples"),
+        )
+        clock_verified = (
+            type(source) is int
+            and type(output) is int
+            and type(padding) is int
+            and source > 0
+            and source >= MINIMUM_DURATION_SAMPLES
+            and padding == 0
+            and output == source + padding == asset.get("durationSamples")
+            and raw_rate == 48_000
+            and lag.get("method") == "qualified_linear_transform"
+            and lag.get("samples") == 0
+            and lag.get("milliseconds") == 0
+            and lag.get("integerMilliseconds") == 0
+            and lag.get("uncertaintySamples") == 0
+            and type(lag.get("windowsVerified")) is int
+            and lag["windowsVerified"] > 0
+            and clock
+            == {
+                "method": "same_rate_linear_filter_clock/v1",
+                "actualMode": "linear",
+                "ffmpegVersion": "8.1.2",
+                "sampleRate": 48_000,
+                "sourceSamples": source,
+                "outputSamples": output,
+                "tailPaddingSamples": padding,
+                "originSamples": 0,
+                "delaySamples": 0,
+                "framesVerified": lag["windowsVerified"],
+            }
+            and asset.get("normalizationProfile") == DEFAULT_PROFILE_ID
+            and asset.get("normalizationHash")
+            == identity_hash(
+                {
+                    "recordVersion": "normalization-key/v1",
+                    "rawAudioHash": asset.get("rawAudioHash"),
+                    "rawTimingHash": asset.get("timingHash"),
+                    "profileId": DEFAULT_PROFILE_ID,
+                    "toolFingerprint": asset.get("toolFingerprint"),
+                    "normalizerVersion": NORMALIZER_VERSION,
+                }
+            )
+            and isinstance(asset.get("toolFingerprint"), str)
+            and _SHA256.fullmatch(asset["toolFingerprint"]) is not None
+            and transform
+            == {
+                "method": "reproduced_pcm",
+                "normalizerVersion": NORMALIZER_VERSION,
+                "toolFingerprint": asset.get("toolFingerprint"),
+                "clock": clock,
+            }
+        )
     sample_verified = (
         type(raw_rate) is int
         and raw_rate == 48_000
@@ -292,7 +358,7 @@ def verify_measured_narration_evidence(
         and lag.get("transformVerification") == {"method": "rms_envelope"}
     )
     fact(
-        sample_verified or envelope_verified,
+        clock_verified or sample_verified or envelope_verified,
         "measurement lag is missing supported transform verification",
     )
     try:

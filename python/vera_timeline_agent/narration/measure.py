@@ -33,16 +33,18 @@ from vera_timeline_agent.narration.cache import CacheError, NarrationCache
 from vera_timeline_agent.narration.models import (
     NarrationAudioAsset,
     canonical_json_bytes,
+    identity_hash,
     sha256_bytes,
 )
 from vera_timeline_agent.narration.normalize import (
     NORMALIZER_VERSION,
+    ClockQualificationError,
     MediaToolError,
     Normalizer,
 )
 
 ALGORITHM_ID = "vera-polly-marks-energy-ends"
-ALGORITHM_VERSION = "2"
+ALGORITHM_VERSION = "3"
 METHOD = "measured_audio_boundaries/v1"
 ONSET_BASIS = "provider_word_marks_lag_verified"
 EVIDENCE_VERSION = "narration-boundary-evidence/v1"
@@ -89,6 +91,7 @@ class Lag:
     method: str = "rms_envelope"
     uncertainty_samples: int = 48
     windows_verified: int = 0
+    clock: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -460,7 +463,11 @@ def estimate_lag(
     return lag
 
 
-def _verify_normalization_transform(loaded: LoadedAsset, lag: Lag) -> None:
+def _verify_normalization_transform(
+    loaded: LoadedAsset,
+    lag: Lag | None,
+    parameters: Mapping[str, Any] = DEFAULT_PARAMETERS,
+) -> Lag:
     """Require sample-identical output from the supported local transform.
 
     A correlation score cannot distinguish arbitrary short edits from gain
@@ -476,9 +483,19 @@ def _verify_normalization_transform(loaded: LoadedAsset, lag: Lag) -> None:
                     "normalization; re-normalize the cached PCM"
                 ]
             )
-        expected = normalizer.normalize_pcm(
-            loaded.raw_pcm, sample_rate=SAMPLE_RATE, channels=1
-        )
+        try:
+            expected = normalizer.normalize_pcm(
+                loaded.raw_pcm,
+                sample_rate=SAMPLE_RATE,
+                channels=1,
+                **({"audit_clock": True} if lag is None else {}),
+            )
+        except ClockQualificationError:
+            expected = normalizer.normalize_pcm(
+                loaded.raw_pcm,
+                sample_rate=SAMPLE_RATE,
+                channels=1,
+            )
     except MediaToolError as error:
         raise MeasurementError(
             [
@@ -486,6 +503,39 @@ def _verify_normalization_transform(loaded: LoadedAsset, lag: Lag) -> None:
                 "current transform cannot be reproduced"
             ]
         ) from error
+    if lag is None:
+        clock = getattr(expected, "clock", None)
+        if clock is None:
+            # Alternate normalizers still need the original independent lag
+            # qualification as well as exact replay.
+            samples, _rate, _channels, _frames = read_wav(loaded.wav_bytes)
+            lag = estimate_lag(loaded.raw_pcm, SAMPLE_RATE, samples, parameters)
+        else:
+            identity = {
+                "recordVersion": "normalization-key/v1",
+                "rawAudioHash": loaded.asset.raw_audio_hash,
+                "rawTimingHash": loaded.asset.raw_timing_hash,
+                "profileId": loaded.asset.normalization_profile,
+                "toolFingerprint": loaded.asset.tool_fingerprint,
+                "normalizerVersion": NORMALIZER_VERSION,
+            }
+            if identity_hash(identity) != loaded.asset.normalization_hash:
+                raise MeasurementError(
+                    [
+                        "normalization timing not verified: "
+                        "normalization identity differs"
+                    ]
+                )
+            lag = Lag(
+                0,
+                0.0,
+                1.0,
+                0,
+                method="qualified_linear_transform",
+                uncertainty_samples=0,
+                windows_verified=clock["framesVerified"],
+                clock=clock,
+            )
     with (
         wave.open(io.BytesIO(expected.wav_bytes)) as source,
         wave.open(io.BytesIO(loaded.wav_bytes)) as target,
@@ -525,6 +575,19 @@ def _verify_normalization_transform(loaded: LoadedAsset, lag: Lag) -> None:
                 "normalization transform (local edits or unsupported transform)"
             ]
         )
+    if lag.clock is not None:
+        # This route proves the raw clock and replay clock separately. No
+        # offset search or matching prefix/suffix may hide a delivered edit.
+        if source_frames != target_frames or original != observed:
+            raise MeasurementError(
+                ["normalization timing not verified: PCM differs from exact replay"]
+            )
+        padding = lag.clock["tailPaddingSamples"]
+        if padding and any(observed[-padding * width :]):
+            raise MeasurementError(
+                ["normalization timing not verified: non-silent tail padding"]
+            )
+    return lag
 
 
 # ------------------------------------------------------------------- end rule
@@ -833,9 +896,10 @@ def measure_asset(
     if reasons:
         raise MeasurementError(reasons)
 
-    lag = estimate_lag(loaded.raw_pcm, loaded.raw_sample_rate, samples, params)
     if loaded.raw_sample_rate == SAMPLE_RATE:
-        _verify_normalization_transform(loaded, lag)
+        lag = _verify_normalization_transform(loaded, None, params)
+    else:
+        lag = estimate_lag(loaded.raw_pcm, loaded.raw_sample_rate, samples, params)
 
     raw_rate = loaded.raw_sample_rate
     if raw_rate <= 0 or (
@@ -965,6 +1029,8 @@ def measure_asset(
             "sampleRate": asset.sample_rate,
             "channels": asset.channels,
             "toolFingerprint": asset.tool_fingerprint,
+            "normalizationProfile": asset.normalization_profile,
+            "normalizationHash": asset.normalization_hash,
         },
         "lag": {
             "rawSampleRate": loaded.raw_sample_rate,
@@ -976,6 +1042,7 @@ def measure_asset(
                     "method": "reproduced_pcm",
                     "normalizerVersion": NORMALIZER_VERSION,
                     "toolFingerprint": asset.tool_fingerprint,
+                    **({"clock": dict(lag.clock)} if lag.clock is not None else {}),
                 }
                 if loaded.raw_sample_rate == SAMPLE_RATE
                 else {"method": "rms_envelope"}
@@ -983,7 +1050,7 @@ def measure_asset(
             "samples": lag.samples,
             "milliseconds": round(lag.milliseconds, 4),
             "integerMilliseconds": lag.integer_ms,
-            "correlation": round(lag.correlation, 6),
+            "correlation": None if lag.clock is not None else round(lag.correlation, 6),
             "toleranceMs": params["lagToleranceMs"],
             "verified": True,
         },
