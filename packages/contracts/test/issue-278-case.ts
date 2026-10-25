@@ -139,16 +139,6 @@ function pairRecord(pristineJson: string, editedJson: string, pristineFrames: nu
   });
 }
 
-function equality(extentFrames: number) {
-  const sampleCount = extentFrames * 2002;
-  return {
-    schemaVersion: "qualification-output-audio-equality/v1" as const, lane: LANE, caseId: "anchored-C",
-    pristinePredictionSha256: bare(hash("anchored-C:same-prediction")), editedPredictionSha256: bare(hash("anchored-C:same-prediction")),
-    pristineDecodedSamplesSha256: bare(hash("anchored-C:same-decoded")), editedDecodedSamplesSha256: bare(hash("anchored-C:same-decoded")),
-    predictionByteLength: sampleCount * 16, decodedSampleByteLength: sampleCount * 8, sampleCount,
-  };
-}
-
 function boundaryEvidence(input: ReturnType<typeof specimen>): QualificationOutputObservationCaseV1["omissionSupport"] {
   const row = input.document.activeDraft.blocks.find((block): block is NarrationBlockV2 => block.type === "narration" && block.id === id(10))!;
   const measured = input.dependencies.narrationBoundaryEvidence!.find((record) => record.blockId === row.id)!;
@@ -180,7 +170,7 @@ export function boundaryChoiceCase() {
     const startOffset = campaignText.indexOf(mark.quotedText, cursor); cursor = startOffset + mark.quotedText.length;
     return { id: id(1000 + index), value: mark.quotedText, startOffset, endOffset: cursor };
   });
-  row.text = campaignText; row.tokens = tokens;
+  row.text = campaignText; row.tokens = [tokens[0]!, ...tokens.slice(1)];
   const narrationEvidence = structuredClone(measured);
   narrationEvidence.blockId = row.id; narrationEvidence.blockRevision = row.version; narrationEvidence.textHash = hash(campaignText);
   narrationEvidence.tokens = measured.tokens.map((mark, index) => ({ ...structuredClone(mark), tokenId: tokens[index]!.id, startOffset: tokens[index]!.startOffset, endOffset: tokens[index]!.endOffset }));
