@@ -21,6 +21,7 @@ import time
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
+from contextvars import ContextVar
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -89,6 +90,10 @@ FINALIZE_CLOCK_SCHEMA = "qualification-output-finalize-clock/v1"
 # Largest backward OS wall step a controller operation may recheck across. The
 # measured backward steps were 57-189 ms; expiry windows are minutes long.
 FINALIZE_CLOCK_STEP_ALLOWANCE_SECONDS = 1.0
+# One mutable sample slot shared only by nested clocks in this request's checks.
+_REQUEST_CLOCK_SAMPLE: ContextVar[list[tuple[datetime, float]] | None] = ContextVar(
+    "request_clock_sample", default=None
+)
 HOST_STATE_ROOT = (
     Path.home()
     / "Library/Application Support/VERA/qualification-output-host/v1/attempts"
@@ -1201,6 +1206,15 @@ class HostClockRegression(OutputConsistencyError):
         )
 
 
+@contextmanager
+def _request_clock_scope() -> Iterator[None]:
+    token = _REQUEST_CLOCK_SAMPLE.set([])
+    try:
+        yield
+    finally:
+        _REQUEST_CLOCK_SAMPLE.reset(token)
+
+
 class _ControllerTrust:
     """Statically bound provenance and clock; never selected by request JSON."""
 
@@ -1214,34 +1228,41 @@ class _ControllerTrust:
         before = time.monotonic()
         now = datetime.now(UTC)
         after = time.monotonic()
-        elapsed = before - self.monotonic
-        wall_elapsed = (now - self.wall).total_seconds()
-        if not (
-            elapsed >= 0
-            and now >= self.wall
-            and wall_elapsed + 0.000002 + elapsed * 0.0005 >= elapsed
-        ):
-            raise HostClockRegression(
-                {
-                    "classification": (
-                        "monotonic_regression" if elapsed < 0 else "wall_lag"
-                    ),
-                    "priorWall": _iso(self.wall),
-                    "observedWall": _iso(now),
-                    "monotonicElapsedSeconds": elapsed,
-                    "wallElapsedSeconds": wall_elapsed,
-                    "lagSeconds": elapsed - wall_elapsed,
-                    "lagPartsPerMillion": (
-                        (elapsed - wall_elapsed) / elapsed * 1_000_000
-                        if elapsed > 0
-                        else None
-                    ),
-                    "toleranceSeconds": 0.000002 + max(elapsed, 0) * 0.0005,
-                    "samplingWindowSeconds": after - before,
-                    "wallBeforePriorSample": now < self.wall,
-                }
-            )
+        sample = _REQUEST_CLOCK_SAMPLE.get()
+        anchors = [(self.wall, self.monotonic)]
+        if sample is not None:
+            anchors.extend(sample)
+        for wall, monotonic in anchors:
+            elapsed = before - monotonic
+            wall_elapsed = (now - wall).total_seconds()
+            if not (
+                elapsed >= 0
+                and now >= wall
+                and wall_elapsed + 0.000002 + elapsed * 0.0005 >= elapsed
+            ):
+                raise HostClockRegression(
+                    {
+                        "classification": (
+                            "monotonic_regression" if elapsed < 0 else "wall_lag"
+                        ),
+                        "priorWall": _iso(wall),
+                        "observedWall": _iso(now),
+                        "monotonicElapsedSeconds": elapsed,
+                        "wallElapsedSeconds": wall_elapsed,
+                        "lagSeconds": elapsed - wall_elapsed,
+                        "lagPartsPerMillion": (
+                            (elapsed - wall_elapsed) / elapsed * 1_000_000
+                            if elapsed > 0
+                            else None
+                        ),
+                        "toleranceSeconds": 0.000002 + max(elapsed, 0) * 0.0005,
+                        "samplingWindowSeconds": after - before,
+                        "wallBeforePriorSample": now < wall,
+                    }
+                )
         self.wall, self.monotonic = now, after
+        if sample is not None:
+            sample[:] = [(now, after)]
         return now
 
     def authenticate(self, kind: str, receipt: bytes, expected: Json) -> None:
@@ -1488,6 +1509,7 @@ class QualificationOutputController:
             )
         return approval_raw, approval, sequence, prior_head, now
 
+    @_request_clock_scope()
     def prepare_native_request(
         self,
         action: str,
@@ -2352,6 +2374,9 @@ class QualificationOutputController:
         high_water = max(
             datetime.fromisoformat(diagnostics["priorWall"]), self.trust.wall
         )
+        sample = _REQUEST_CLOCK_SAMPLE.get()
+        if sample:
+            high_water = max(high_water, sample[0][0])
         permitted = error.recheckable
         wall, monotonic = self.trust.wall, self.trust.monotonic
         if permitted:
@@ -2370,6 +2395,7 @@ class QualificationOutputController:
             permitted = (
                 wall >= high_water
                 and monotonic >= self.trust.monotonic
+                and (not sample or monotonic >= sample[0][1])
                 and controller_lag <= FINALIZE_CLOCK_STEP_ALLOWANCE_SECONDS
             )
         outcome = "recheck" if permitted else "terminal"
@@ -2389,6 +2415,8 @@ class QualificationOutputController:
             trust = _ControllerTrust(self.vault, self.admission)
             trust.wall, trust.monotonic = wall, monotonic
             self.trust = trust
+            if sample is not None:
+                sample[:] = [(wall, monotonic)]
         return permitted
 
     def finalize_output(self, result_path: Path, result_sha256: str) -> Path:

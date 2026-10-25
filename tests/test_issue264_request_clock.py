@@ -48,6 +48,8 @@ class RequestHarness:
         self.tmp_path = tmp_path
         self.checks = 0
         self.steps: list[float] = []
+        self.after_terminal_steps: list[float] = []
+        self.accepted_walls: list[datetime] = []
         self.elapsed = 1.5
         self.mutation: str | None = None
         self.empty_terminal = False
@@ -111,6 +113,9 @@ class RequestHarness:
             self.replay.advance(self.elapsed)
             self.replay.step_wall(self.steps.pop(0))
         proof.load_terminal_output(terminal)
+        self.accepted_walls.append(terminal.trust.wall)
+        if self.after_terminal_steps:
+            self.replay.step_wall(self.after_terminal_steps.pop(0))
 
     def prepare(self) -> Path:
         return self.controller.prepare_native_request(
@@ -124,6 +129,7 @@ class RequestHarness:
         ]
 
     def assert_no_slot(self) -> None:
+        assert controllers._REQUEST_CLOCK_SAMPLE.get() is None
         assert not native.native_request_paths(self.context, self.sequence)[
             -1
         ].parent.exists()
@@ -153,6 +159,7 @@ def test_measured_step_rechecks_full_terminal_chain_before_request(
     assert request["sequence"] == harness.sequence
     assert request["action"] == action
     assert harness.controller.journal.history() == history
+    assert controllers._REQUEST_CLOCK_SAMPLE.get() is None
     assert harness.checks == 2
     assert harness.controller.trust.wall >= max(harness.high_waters)
     (record,) = harness.records()
@@ -189,6 +196,30 @@ def test_request_waits_for_previously_trusted_wall_time(
     assert harness.checks == 2
 
 
+@pytest.mark.parametrize("expire", [False, True])
+def test_outer_recheck_keeps_nested_proofs_later_trusted_time(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, clock: ReplayClock, expire: bool
+) -> None:
+    harness = RequestHarness(tmp_path, monkeypatch, clock)
+    if expire:
+        approval = _parse(harness.approval.read_bytes())
+        approval["expiresAt"] = (clock.wall_value + timedelta(seconds=1)).isoformat()
+        harness.approval.chmod(0o600)
+        harness.approval.write_bytes(_canonical(approval))
+        harness.approval.chmod(0o400)
+    harness.steps = [0.0]  # nested proof accepts T+1.5s, after the outer anchor
+    harness.after_terminal_steps = [-0.9]
+    if expire:
+        with pytest.raises(OutputConsistencyError, match="approval expired"):
+            harness.prepare()
+        harness.assert_no_slot()
+    else:
+        harness.prepare()
+        assert harness.controller.trust.wall >= max(harness.accepted_walls)
+    assert harness.checks == 2
+    assert clock.wall_value >= harness.accepted_walls[0]
+
+
 def test_fresh_proof_step_cannot_hide_main_monotonic_regression(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, clock: ReplayClock
 ) -> None:
@@ -202,6 +233,21 @@ def test_fresh_proof_step_cannot_hide_main_monotonic_regression(
     assert harness.checks == 1
     assert harness.records()[0]["outcome"] == "terminal"
     harness.assert_no_slot()
+
+
+def test_new_clock_inside_request_cannot_accept_time_below_nested_high_water(
+    clock: ReplayClock,
+) -> None:
+    with controllers._request_clock_scope():
+        first = controllers._ControllerTrust(None, None)  # type: ignore[arg-type]
+        clock.advance(1)
+        accepted = first.checked_now()
+        clock.step_wall(-0.0309)
+        fresh = controllers._ControllerTrust(None, None)  # type: ignore[arg-type]
+        with pytest.raises(controllers.HostClockRegression) as caught:
+            fresh.checked_now()
+        assert caught.value.diagnostics["priorWall"] == controllers._iso(accepted)
+    assert controllers._REQUEST_CLOCK_SAMPLE.get() is None
 
 
 @pytest.mark.parametrize(
