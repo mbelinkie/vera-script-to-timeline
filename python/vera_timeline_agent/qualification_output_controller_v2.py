@@ -86,7 +86,7 @@ FINALIZE_REFUSAL_FIELDS = frozenset(
     }
 )
 FINALIZE_CLOCK_SCHEMA = "qualification-output-finalize-clock/v1"
-# Largest backward OS wall step a completed render may recheck across. The
+# Largest backward OS wall step a controller operation may recheck across. The
 # measured backward steps were 57-189 ms; expiry windows are minutes long.
 FINALIZE_CLOCK_STEP_ALLOWANCE_SECONDS = 1.0
 HOST_STATE_ROOT = (
@@ -1186,7 +1186,7 @@ class HostClockRegression(OutputConsistencyError):
 
     macOS ``timed`` steps the wall clock with settimeofday, measured on the
     qualification Mac at -189 ms to +971 ms roughly hourly; A11's refusal
-    followed a -63.8 ms step. Only finalization may recheck a bounded lag.
+    followed a -63.8 ms step. Selected pre-write operations may recheck once.
     """
 
     def __init__(self, diagnostics: Json) -> None:
@@ -1436,25 +1436,13 @@ class QualificationOutputController:
         for field, raw in inputs.blobs.items():
             _require(_hash(raw) == self.context[field], "input bytes differ")
 
-    def prepare_native_request(
-        self,
-        action: str,
-        payload: Json,
-        *,
-        approval_path: Path,
-        reservation: bytes | None = None,
-        reservation_receipt: bytes | None = None,
-        render_intent: bytes | None = None,
-    ) -> Path:
-        """Prepare one static action under genuine existing operator authority."""
+    def _native_request_preflight(
+        self, action: str, approval_path: Path
+    ) -> tuple[bytes, Json, int, str | None, datetime]:
+        """Repeatable checks only; never create or consume a native slot."""
         from .qualification_output_native_v2 import (
-            AUTHORITY_SCHEMA,
-            INTENT_SCHEMA,
-            REQUEST_SCHEMA,
             native_action,
-            native_request_paths,
             next_native_operation,
-            verify_native_request,
             verify_operator_approval,
         )
         from .workflow_v2_cli import _verify_output_release
@@ -1490,12 +1478,50 @@ class QualificationOutputController:
             action == native_action(self.context, sequence),
             "native action must follow the fixed reviewed stage order",
         )
+        now = self.trust.checked_now()
+        return approval_raw, approval, sequence, prior_head, now
+
+    def prepare_native_request(
+        self,
+        action: str,
+        payload: Json,
+        *,
+        approval_path: Path,
+        reservation: bytes | None = None,
+        reservation_receipt: bytes | None = None,
+        render_intent: bytes | None = None,
+    ) -> Path:
+        """Prepare one static action under genuine existing operator authority."""
+        from .qualification_output_native_v2 import (
+            AUTHORITY_SCHEMA,
+            INTENT_SCHEMA,
+            REQUEST_SCHEMA,
+            native_request_paths,
+            verify_native_request,
+        )
+
+        for recheck in (False, True):
+            try:
+                approval_raw, approval, sequence, prior_head, checked = (
+                    self._native_request_preflight(action, approval_path)
+                )
+                break
+            except HostClockRegression as error:
+                if recheck:
+                    self._retain_request_clock_record(
+                        action, error.diagnostics, "terminal"
+                    )
+                elif self._prepare_clock_recheck(
+                    error, stage="request_preparation", action=action
+                ):
+                    continue
+                raise
         result_path, authority_path, intent_path, request_path = native_request_paths(
             self.context, sequence
         )
         _safe(request_path)
         operation_id = str(uuid.uuid4())
-        now = self.trust.checked_now().isoformat().replace("+00:00", "Z")
+        now = _iso(checked)
         request_path.parent.mkdir(mode=0o700, parents=True, exist_ok=False)
         authority: Json = {
             "schemaVersion": AUTHORITY_SCHEMA,
@@ -2283,8 +2309,31 @@ class QualificationOutputController:
         if not marker.exists():
             _publish(marker, raw)
 
-    def _prepare_finalize_clock_recheck(
-        self, error: HostClockRegression, *, result_sha256: str, stage: str
+    def _retain_request_clock_record(
+        self, action: str, diagnostics: Json, outcome: str
+    ) -> None:
+        raw = _canonical(
+            {
+                "schemaVersion": "qualification-output-request-clock/v1",
+                "lane": LANE,
+                "context": self.context,
+                "action": action,
+                "outcome": outcome,
+                "diagnostics": diagnostics,
+            }
+        )
+        digest = self.journal._retain(raw)
+        marker = self.journal.directory / f"request-clock-{digest}.json"
+        if not marker.exists():
+            _publish(marker, raw)
+
+    def _prepare_clock_recheck(
+        self,
+        error: HostClockRegression,
+        *,
+        stage: str,
+        result_sha256: str | None = None,
+        action: str | None = None,
     ) -> bool:
         """Permit one full recheck after a bounded measured OS wall step.
 
@@ -2316,12 +2365,17 @@ class QualificationOutputController:
                 and monotonic >= self.trust.monotonic
                 and controller_lag <= FINALIZE_CLOCK_STEP_ALLOWANCE_SECONDS
             )
-        self._retain_finalize_clock_record(
-            result_sha256=result_sha256,
-            stage=stage,
-            diagnostics=diagnostics,
-            outcome="recheck" if permitted else "terminal",
-        )
+        outcome = "recheck" if permitted else "terminal"
+        if action is not None:
+            self._retain_request_clock_record(action, diagnostics, outcome)
+        else:
+            assert result_sha256 is not None
+            self._retain_finalize_clock_record(
+                result_sha256=result_sha256,
+                stage=stage,
+                diagnostics=diagnostics,
+                outcome=outcome,
+            )
         if permitted:
             # Anchor to the validated readings, so a rollback during the
             # bookkeeping above is still caught by the next checked_now.
@@ -2425,7 +2479,7 @@ class QualificationOutputController:
                             diagnostics=error.diagnostics,
                             outcome="terminal",
                         )
-                    elif self._prepare_finalize_clock_recheck(
+                    elif self._prepare_clock_recheck(
                         error, result_sha256=result_sha256, stage=stage
                     ):
                         return None
