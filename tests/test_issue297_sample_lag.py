@@ -41,9 +41,7 @@ def _speech_like(
         filtered.append(
             sum(
                 weight * white[j]
-                for weight, j in zip(
-                    weights, range(i - 4, i + 5), strict=True
-                )
+                for weight, j in zip(weights, range(i - 4, i + 5), strict=True)
                 if 0 <= j < core_count
             )
             / weight_sum
@@ -199,9 +197,7 @@ def test_polarity_inversion_and_time_reversal_are_refused(
 @pytest.mark.slow
 def test_real_normalizer_pcm24_output_verifies_zero_sample_lag() -> None:
     raw = _speech_like(sample_count=RATE * 3 // 2, pad_silence=False)
-    normalized = Normalizer().normalize_pcm(
-        _pcm(raw), sample_rate=RATE, channels=1
-    )
+    normalized = Normalizer().normalize_pcm(_pcm(raw), sample_rate=RATE, channels=1)
     samples, sample_rate, channels, frames = read_wav(normalized.wav_bytes)
 
     assert normalized.sample_format == "s32 (24 bit)"
