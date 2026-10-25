@@ -5,6 +5,7 @@ import json
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from fractions import Fraction
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -1257,6 +1258,462 @@ def test_still_source_frame_duration_refuses_unknown_fps() -> None:
         _still_source_frame_duration(
             142, None, {"numerator": 24000, "denominator": 1001}
         )
+
+
+def _fractional_still_proof() -> tuple[dict[str, Any], ...]:
+    content_hash = "sha256:" + "a" * 64
+    manifest_event = {
+        "eventId": "still-event",
+        "kind": "primary_visual",
+        "sourceRange": {"startFrame": 0, "endFrame": 1},
+        "provenance": {
+            "sourceId": "still-source",
+            "deliveredSourceHash": content_hash,
+        },
+    }
+    event = {
+        "id": "still-event",
+        "kind": "primary_visual",
+        "sourceId": "still-source",
+        "recordRange": {"startFrame": 0, "durationFrames": 142},
+        "sourceRange": {"startFrame": 0, "durationFrames": 1},
+        "v2Event": manifest_event,
+    }
+    source = {"id": "still-source", "kind": "still", "contentHash": content_hash}
+    manifest_source = {
+        "id": "still-source",
+        "deliveredHash": content_hash,
+    }
+    timeline = {
+        "frameRate": {"numerator": 24000, "denominator": 1001},
+        "audioSampleRate": 48000,
+    }
+    observations = {
+        "actual_start": 91,
+        "actual_end": 91,
+        "source_times": {"GetSourceStartTime": 0.0, "GetSourceEndTime": 1 / 24},
+        "speed": {"Percentage": 0},
+        "media_properties": {"Frames": "1", "FPS": "24"},
+        "record_duration": 142,
+    }
+    return event, source, manifest_source, timeline, observations
+
+
+def _fractional_video_proof() -> tuple[dict[str, Any], ...]:
+    content_hash = "sha256:" + "b" * 64
+    rate = {"numerator": 24000, "denominator": 1001}
+    source_frame_map = {
+        "decodedPackageFrameCount": 1000,
+        "decodedPackageFrameRate": rate,
+        "probeHash": "probe-hash",
+        "descriptorHash": "probe-hash",
+        "packageFrameZeroLogicalFrame": 0,
+        "packageVideoPtsOrigin": {"numerator": 0, "denominator": 1},
+        "loggedTimeAtPackageFrameZero": {"numerator": 0, "denominator": 1},
+    }
+    mapping = {
+        "sourceFrameMap": source_frame_map,
+        "sourceOrigin": {"numerator": 0, "denominator": 1},
+        "deliveredOrigin": {"numerator": 0, "denominator": 1},
+        "sourceRate": rate,
+        "deliveredRate": rate,
+    }
+    verification = {
+        "deliveredHash": content_hash,
+        "decodedFrameCount": 1000,
+        "decodedFrameRate": rate,
+        "probeHash": "probe-hash",
+    }
+    binding = {
+        "requirementKey": "video-prep",
+        "timeMapping": mapping,
+        "verification": verification,
+    }
+    manifest_event = {
+        "eventId": "video-event",
+        "kind": "primary_visual",
+        "sourceRange": {"startFrame": 396, "endFrame": 466},
+        "sourceTimeMapping": mapping,
+        "provenance": {
+            "sourceId": "video-source",
+            "deliveredSourceHash": content_hash,
+        },
+    }
+    event = {
+        "id": "video-event",
+        "kind": "primary_visual",
+        "sourceId": "video-source",
+        "recordRange": {"startFrame": 0, "durationFrames": 70},
+        "sourceRange": {"startFrame": 396, "durationFrames": 70},
+        "v2Event": manifest_event,
+    }
+    source = {"id": "video-source", "kind": "video", "contentHash": content_hash}
+    manifest_source = {
+        "id": "video-source",
+        "deliveredHash": content_hash,
+        "deliveredProbeHash": "probe-hash",
+        "sourceFrameMap": source_frame_map,
+        "sourceTimeMapping": mapping,
+        "preparationRequirementKey": "video-prep",
+    }
+    timeline = {"frameRate": rate, "audioSampleRate": 48000}
+    observations = {
+        "actual_start": 395,
+        "actual_end": 465,
+        "source_times": {
+            "GetSourceStartTime": 396 * 1001 / 24000,
+            "GetSourceEndTime": 466 * 1001 / 24000,
+        },
+        "speed": {"Percentage": 100},
+        "media_properties": {"Frames": "1000"},
+        "record_duration": 70,
+    }
+    return (
+        event,
+        source,
+        manifest_source,
+        timeline,
+        observations,
+        {"video-prep": binding},
+    )
+
+
+def _fractional_narration_proof(
+    *, sample_count: int = 367_000, duration_frames: int = 184
+) -> tuple[dict[str, Any], ...]:
+    content_hash = "sha256:" + "c" * 64
+    sample_rate = 48_000
+    manifest_event = {
+        "eventId": "narration-event",
+        "kind": "narration",
+        "sourceRange": None,
+        "provenance": {"sourceId": "narration-source"},
+    }
+    event = {
+        "id": "narration-event",
+        "kind": "narration",
+        "sourceId": "narration-source",
+        "recordRange": {"startFrame": 0, "durationFrames": duration_frames},
+        "sourceRange": {"startFrame": 0, "durationFrames": duration_frames},
+        "v2Event": manifest_event,
+    }
+    source = {
+        "id": "narration-source",
+        "kind": "audio",
+        "contentHash": content_hash,
+    }
+    manifest_source = {
+        "id": "narration-source",
+        "narrationAudio": {
+            "audioHash": content_hash,
+            "durationSamples": sample_count,
+            "sampleRate": sample_rate,
+        },
+    }
+    timeline = {
+        "frameRate": {"numerator": 24000, "denominator": 1001},
+        "audioSampleRate": sample_rate,
+    }
+    observations = {
+        "actual_start": 0,
+        "actual_end": duration_frames - 2,
+        "source_times": {
+            "GetSourceStartTime": 0.0,
+            "GetSourceEndTime": sample_count / sample_rate,
+        },
+        "speed": {"Percentage": 100},
+        "media_properties": {},
+        "record_duration": duration_frames,
+    }
+    return event, source, manifest_source, timeline, observations
+
+
+def _fractional_source_range_matches(
+    proof: tuple[dict[str, Any], ...],
+) -> bool:
+    event, source, manifest_source, timeline, observations, *binding_value = proof
+    return workflow_v2._fractional_source_range_matches(
+        event=event,
+        source=source,
+        manifest_source=manifest_source,
+        preparation_bindings=binding_value[0] if binding_value else {},
+        timeline=timeline,
+        **observations,
+    )
+
+
+def test_fractional_still_source_clock_requires_single_held_frame_and_exact_times() -> (
+    None
+):
+    proof = _fractional_still_proof()
+    assert _fractional_source_range_matches(proof)
+
+    event, source, manifest_source, timeline, observations = proof
+    bad_times = {
+        **observations,
+        "source_times": {"GetSourceStartTime": 0.0, "GetSourceEndTime": 2 / 24},
+    }
+    assert not workflow_v2._fractional_source_range_matches(
+        event=event,
+        source=source,
+        manifest_source=manifest_source,
+        preparation_bindings={},
+        timeline=timeline,
+        **bad_times,
+    )
+    bad_frames = {**observations, "media_properties": {"Frames": "2", "FPS": "24"}}
+    assert not workflow_v2._fractional_source_range_matches(
+        event=event,
+        source=source,
+        manifest_source=manifest_source,
+        preparation_bindings={},
+        timeline=timeline,
+        **bad_frames,
+    )
+
+    static_image_speed = {**observations, "speed": {"Percentage": 100}}
+    assert workflow_v2._fractional_source_range_matches(
+        event=event,
+        source=source,
+        manifest_source=manifest_source,
+        preparation_bindings={},
+        timeline=timeline,
+        **static_image_speed,
+    )
+
+
+def test_fractional_placeholder_still_binds_its_reference_hash_to_view_source() -> None:
+    content_hash = "sha256:" + "e" * 64
+    manifest_event: dict[str, Any] = {
+        "eventId": "placeholder-event",
+        "kind": "placeholder",
+        "sourceRange": None,
+        "provenance": {"sourceId": None},
+        "pictureTreatment": {
+            "kind": "still",
+            "reference": {"contentHash": content_hash},
+        },
+    }
+    event = {
+        "id": "placeholder-event",
+        "kind": "placeholder",
+        "sourceId": "placeholder-event",
+        "recordRange": {"startFrame": 0, "durationFrames": 142},
+        "sourceRange": {"startFrame": 0, "durationFrames": 142},
+        "v2Event": manifest_event,
+    }
+    source = {
+        "id": "placeholder-event",
+        "kind": "still",
+        "contentHash": content_hash,
+    }
+    timeline = {
+        "frameRate": {"numerator": 24000, "denominator": 1001},
+        "audioSampleRate": 48000,
+    }
+    observations = {
+        "actual_start": 12,
+        "actual_end": 12,
+        "source_times": {"GetSourceStartTime": 0.0, "GetSourceEndTime": 1 / 24},
+        "speed": {"Percentage": 0},
+        "media_properties": {"Frames": "1", "FPS": "24"},
+        "record_duration": 142,
+    }
+    kwargs: dict[str, Any] = {
+        "event": event,
+        "source": source,
+        "manifest_source": {},
+        "preparation_bindings": {},
+        "timeline": timeline,
+        **observations,
+    }
+    assert workflow_v2._fractional_source_range_matches(**kwargs)
+
+    manifest_event["pictureTreatment"]["reference"]["contentHash"] = (
+        "sha256:" + "f" * 64
+    )
+    assert not workflow_v2._fractional_source_range_matches(**kwargs)
+
+
+def test_fractional_video_source_clock_requires_hash_bound_rate_and_source_times() -> (
+    None
+):
+    proof = _fractional_video_proof()
+    assert _fractional_source_range_matches(proof)
+
+    event, source, manifest_source, timeline, observations, bindings = proof
+    for changed in ("time", "frame", "end_frame", "source", "hash", "rate"):
+        bad_event = json.loads(json.dumps(event))
+        bad_source = dict(source)
+        bad_manifest_source = json.loads(json.dumps(manifest_source))
+        bad_timeline = json.loads(json.dumps(timeline))
+        bad_observations = json.loads(json.dumps(observations))
+        if changed == "time":
+            bad_observations["source_times"]["GetSourceEndTime"] += 1 / 24_000
+        elif changed == "frame":
+            bad_observations["actual_start"] -= 1
+        elif changed == "end_frame":
+            bad_observations["actual_end"] -= 1
+        elif changed == "source":
+            bad_event["v2Event"]["provenance"]["sourceId"] = "other-source"
+        elif changed == "hash":
+            bad_observations["source_times"] = dict(observations["source_times"])
+            bad_source["contentHash"] = "sha256:" + "d" * 64
+        else:
+            bad_timeline["frameRate"] = {"numerator": 30000, "denominator": 1001}
+        assert not workflow_v2._fractional_source_range_matches(
+            event=bad_event,
+            source=bad_source,
+            manifest_source=bad_manifest_source,
+            preparation_bindings=bindings,
+            timeline=bad_timeline,
+            **bad_observations,
+        ), changed
+
+
+def test_fractional_narration_source_clock_requires_sample_bound_eof() -> None:
+    proof = _fractional_narration_proof()
+    assert _fractional_source_range_matches(proof)
+
+    event, source, manifest_source, timeline, observations = proof
+    for changed in ("time", "frame", "source", "hash", "rate"):
+        bad_event = json.loads(json.dumps(event))
+        bad_source = dict(source)
+        bad_manifest_source = json.loads(json.dumps(manifest_source))
+        bad_timeline = json.loads(json.dumps(timeline))
+        bad_observations = json.loads(json.dumps(observations))
+        if changed == "time":
+            bad_observations["source_times"]["GetSourceEndTime"] += 2 / 48_000
+        elif changed == "frame":
+            bad_observations["actual_end"] += 1
+        elif changed == "source":
+            bad_event["v2Event"]["provenance"]["sourceId"] = "other-source"
+        elif changed == "hash":
+            bad_manifest_source["narrationAudio"]["audioHash"] = "sha256:" + "d" * 64
+        else:
+            bad_timeline["frameRate"] = {"numerator": 30000, "denominator": 1001}
+        assert not workflow_v2._fractional_source_range_matches(
+            event=bad_event,
+            source=bad_source,
+            manifest_source=bad_manifest_source,
+            preparation_bindings={},
+            timeline=bad_timeline,
+            **bad_observations,
+        ), changed
+
+
+def test_fractional_narration_accepts_authored_record_end_within_audio_extent() -> None:
+    for sample_count in (400_000, 368_368):
+        proof = _fractional_narration_proof(sample_count=sample_count)
+        event, source, manifest_source, timeline, observations = proof
+        record_end = Fraction(184 * 1001, 24000)
+        authored_end = {
+            **observations,
+            "actual_end": 183,
+            "source_times": {
+                "GetSourceStartTime": 0.0,
+                "GetSourceEndTime": float(record_end),
+            },
+        }
+        assert _fractional_source_range_matches(
+            (event, source, manifest_source, timeline, authored_end)
+        ), sample_count
+
+    proof = _fractional_narration_proof(sample_count=367_000, duration_frames=185)
+    event, source, manifest_source, timeline, observations = proof
+    assert not _fractional_source_range_matches(
+        (
+            event,
+            source,
+            manifest_source,
+            timeline,
+            {
+                **observations,
+                "actual_end": 184,
+                "source_times": {
+                    "GetSourceStartTime": 0.0,
+                    "GetSourceEndTime": float(Fraction(185 * 1001, 24000)),
+                },
+            },
+        )
+    )
+
+
+def test_fractional_multiframe_video_still_refuses_before_adapter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    treatment = {
+        "kind": "still",
+        "composition": {
+            "framingPolicy": "contain",
+            "horizontalAlignment": "center",
+            "verticalAlignment": "center",
+            "backgroundColor": "#000000",
+            "motionPreset": "none",
+        },
+    }
+    attestation, digest, _ = _make_package(
+        tmp_path, fractional=True, picture_treatment=treatment
+    )
+    verified_package = workflow_v2.load_verified_package_v2(attestation, digest)
+
+    def package_with_frame_count(frame_count: int) -> Any:
+        manifest = json.loads(json.dumps(verified_package.manifest))
+        manifest["sources"][0]["sourceFrameMap"] = {
+            "decodedPackageFrameCount": frame_count
+        }
+        return SimpleNamespace(
+            root=verified_package.root,
+            manifest=manifest,
+            view=verified_package.view,
+            attestation=verified_package.attestation,
+        )
+
+    single_frame_package = package_with_frame_count(1)
+    monkeypatch.setattr(
+        workflow_v2, "load_verified_package_v2", lambda *_args: single_frame_package
+    )
+    admitted = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        allow_fractional_native=True,
+        adapter_factory=lambda _resolve: _FakeAdapter(),
+    )
+    assert admitted["status"] == "verified", (
+        admitted.get("failureStage"),
+        admitted.get("failureType"),
+        admitted.get("nativePictureTreatmentsQualified"),
+    )
+    assert admitted["nativePictureTreatmentsQualified"] is True
+
+    adapter_called = False
+
+    def forbidden(_resolve: Any) -> Any:
+        nonlocal adapter_called
+        adapter_called = True
+        raise AssertionError("multi-frame still reached Resolve")
+
+    multiframe_package = package_with_frame_count(2)
+    monkeypatch.setattr(
+        workflow_v2, "load_verified_package_v2", lambda *_args: multiframe_package
+    )
+    refused = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        allow_fractional_native=True,
+        adapter_factory=forbidden,
+    )
+    assert refused["status"] == "stopped_safely"
+    assert refused["nativePictureTreatmentsQualified"] is False
+    assert adapter_called is False
 
 
 def test_still_media_placement_converts_duration_but_preserves_start() -> None:

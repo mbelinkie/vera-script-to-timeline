@@ -78,6 +78,24 @@ The exact timeline rate is 24000/1001. The ordinary installed delivery route
 admits that rate, while historical proof callers retain their default refusal.
 Still media uses its actual source frame rate when calculating Resolve's source
 duration; scaling is applied before anchor properties because changing scaling
-can reset those properties in Resolve.
+can reset those properties in Resolve. Neutral anchor offsets are zero, matching
+the existing Studio still-image observations and centered-contain contract.
+
+Fractional delivery checks precise source times as well as record placement and
+source identity. Stills must be authenticated one-frame media with a frozen
+clock; narration EOF must match its hash-bound sample count and whole-row frame
+extent. Video requires matching preparation/frame-map provenance, the exact
+rational rate, and authored start/exclusive-end times within the existing
+one-audio-sample precision rule. Only observed integer getter rounding shapes
+are admitted. Integer-rate delivery retains its prior exact getter checks.
+Fractional video-backed held frames with multiple decoded source frames remain
+unqualified and refuse before adapter creation; this change qualifies one-frame
+images and the retained narration/video mapping, not general video freezing.
+
+The retained case passed the normal guarded release/request/bootstrap route in
+Studio 21.1.1: eleven events and eleven media entries, save/reopen, source identity
+and source/record placement checks, with `verified=true` and zero discrepancies.
+Both narration rows remain whole. This is one untimed positive readiness check;
+#275 retains ownership of the three benchmark timing cases.
 
 Private inputs, identifiers and artifact locations are excluded from this file.
