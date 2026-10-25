@@ -23,6 +23,7 @@ from typing import Any
 from . import qualification_output_v2 as output
 from .narration.campaign import CAP_MICRO_USD, Ledger
 from .narration.service import NarrationService
+from .performance_v2 import increment, measured, span
 from .qualification_output_controller_v2 import (
     HOST_STATE_ROOT,
     QualificationOutputController,
@@ -76,6 +77,7 @@ class _PairTrust:
     def checked_now(self) -> datetime:
         return self.baseline.trust.checked_now()
 
+    @measured("reverse.receipt_authentication")
     def authenticate(self, kind: str, receipt: bytes, expected: Json) -> None:
         context = expected.get("context")
         if context is None and isinstance(expected.get("geometry"), dict):
@@ -118,6 +120,7 @@ def _retain(path: Path, raw: bytes) -> Json:
 
 
 @_refusal
+@measured("reverse.output_authentication")
 def _load_terminal_output_with_comparison(
     controller: QualificationOutputController,
 ) -> tuple[output.TerminalOutput, Json]:
@@ -235,6 +238,7 @@ class QualificationOutputProofV2:
         )
         self._current()
 
+    @measured("reverse.currentness_authentication")
     def _current(self) -> None:
         _pinned(self.session_pin)
         _require(
@@ -281,6 +285,7 @@ class QualificationOutputProofV2:
             finally:
                 fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
 
+    @measured("reverse.bridge_wrapper")
     def _pure(self, request: Json) -> Json:
         self._current()
         request = {
@@ -306,18 +311,22 @@ class QualificationOutputProofV2:
             request["inferenceDecision"] = None
             request["preparedMedia"] = request["candidate"]["request"]["preparedMedia"]
             request["handoff"] = request["candidate"]["request"]["handoff"]
-        raw = _canonical(request)
+        with span("reverse.serialization"):
+            raw = _canonical(request)
         path = self.root / "pure" / _hash(raw) / "request.json"
         _retain(path, raw)
         node = shutil.which("node")
         _require(node is not None, "locked Node unavailable")
         assert node is not None
-        result = subprocess.run(
-            [node, str(BRIDGE), str(path)],
-            capture_output=True,
-            check=False,
-            timeout=120,
-        )
+        # This wait includes process startup and TypeScript computation.
+        increment("subprocess.calls")
+        with span("reverse.bridge_process"):
+            result = subprocess.run(
+                [node, str(BRIDGE), str(path)],
+                capture_output=True,
+                check=False,
+                timeout=120,
+            )
         _require(
             result.returncode == 0,
             "output proposal refused: "
@@ -339,6 +348,7 @@ class QualificationOutputProofV2:
         self._current()
         return copy.deepcopy(envelope["result"])
 
+    @measured("reverse.observation_wrapper")
     def evidence(self, case_id: str) -> Json:
         """Derive a new-domain transport only from reauthenticated native outputs.
 
@@ -411,6 +421,7 @@ class QualificationOutputProofV2:
         """Support v2 for evidence whose omissionSupport is null (TS bridge)."""
         return self._pure({"mode": "derive_omission", "evidence": evidence})
 
+    @measured("reverse.observe")
     def observe(self, case_id: str) -> Path:
         evidence = self.evidence(case_id)
         pin = _retain(self.root / "evidence.json", _canonical(evidence))
@@ -520,6 +531,7 @@ class QualificationOutputProofV2:
         )
         return evidence
 
+    @measured("reverse.inference")
     def infer(self) -> Json:
         """Expose machine inference and any legal, still-undecided C boundaries."""
         return self._pure({"mode": "infer", "evidence": self._evidence()})
@@ -558,6 +570,7 @@ class QualificationOutputProofV2:
             "retained native-chain decision differs",
         )
 
+    @measured("reverse.inference_decision")
     def decide_inference(self, decision: Json) -> Json:
         """Seal explicit semantics and any C boundary choice before media work.
 
@@ -852,6 +865,7 @@ class QualificationOutputProofV2:
         )
         return handoff
 
+    @measured("reverse.revision_proposal")
     def proposal(
         self, *, prepared_media: list[Json] | None = None, handoff: Json | None = None
     ) -> Json:
@@ -879,6 +893,7 @@ class QualificationOutputProofV2:
         _retain(self.root / "comparison.md", revision["comparisonText"].encode())
         return candidate
 
+    @measured("reverse.revision_decision")
     def decide(self, decision: Json) -> Json:
         with self._decision_lock():
             _require(

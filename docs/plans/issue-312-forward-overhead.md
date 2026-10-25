@@ -292,3 +292,58 @@ terminal result. On resume, collect its existing status once; do not start it
 again or replace an unknown/live operation. Old targets and installed releases
 remain retained. No monitoring loop or timer was created. All original scope
 listed above remains required before delivery.
+
+## Verified forward rehearsal and bounded reverse companion
+
+The v3 guarded parent is terminal **verified**, with zero discrepancies after
+actual save/reopen: 21 events, 21 media, zero markers; elapsed 77.684730 seconds.
+Target: `VERA Delivery 57362c0a-2e1d-45a5-ab4a-01435a36af3e 417404e48159`.
+This is a successful six-row forward capability rehearsal, not a benchmark
+observation or improvement claim. Full Validate passed at checkpoint commit
+`e5dee126e1e2f1242bcd6f2073a35bbf0cdd1938` (run `40240344661`). Later
+fixture/instrumentation changes still require their own CI.
+
+Real existing proof limits require two disclosed fixture choices before freeze:
+
+- The supported A inference only accepts an adjacent held-picture boundary
+  transfer. The first two picture placements therefore use generated intentional
+  still slates through the existing compiler/package renderer. The full plan
+  retains 60 picture placements (58 primary visual clips and two still slates),
+  12 video overlays, 30 narration events and all 24 video sources placed later.
+  No video capability or native acceptance rule was added or loosened.
+- The existing output-proof native/package/decode path caps extent at 1498
+  frames. `reverse_window_plan()` uses the first three measured public rows,
+  1407 frames, six primary picture placements and two overlays (11 events).
+  Actual video placements still cover every resolution/rate class. The full
+  30-row density remains the forward benchmark; reverse results must explicitly
+  identify this bounded companion, never imply a ten-minute reverse proof.
+
+The original token-22 boundary has no legal word anchor exactly 24 frames later.
+The genuine measured first-row token-30/token-32 onsets quantize to frames
+327/351. The held boundary now starts at token 30 so the planned +24-frame edit
+can select token 32 without altering audio, onsets or timing authority.
+
+The first six-row held-slate package attempt retained its real preparations but
+failed before packaging because the fixture composer omitted the required
+explicit `event:` media files for the two slates. Added those files using the
+existing `_render_slate` renderer. The corrected three-row package preparation
+is separate; no native output proof has been dispatched yet. A fresh saved
+empty target exists as `VERA312 Held Boundary Rehearsal 20261025 A`; its UIDs
+are retained in `out/issue312/rehearsal-held-target-v1.json`. The initially
+refused playback-setting call did not create a timeline; the subsequent setup
+read back the actual rate, created one empty timeline and saved it.
+
+Added invocation-scoped reverse observation/authentication/serialization,
+bridge-process and inference/decision spans. The process span explicitly
+includes both Node startup and TypeScript computation; it does not claim pure
+startup attribution. No authenticated result bytes gain timing fields. Further
+native capture/counter and continuous-clock work remains before baseline.
+Thirty-three focused proof/fixture checks, changed-file lint/format and type
+checks passed. No optimization commit or numeric target has been made yet.
+
+Only 7.7 GiB was free at the storage check. Asked Matthew for additional free
+local storage before the repeated retained render/measurement campaign;
+no existing media, cache, target or evidence was deleted. Resolve's observed
+Local/Allow-safe settings were changed through its UI to None/Allow-safe for
+the required injected-only output proof, and Resolve was cleanly quit before
+any installed-source update. The prior installed release is still untouched.

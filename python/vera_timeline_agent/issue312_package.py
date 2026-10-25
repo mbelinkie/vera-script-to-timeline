@@ -29,7 +29,7 @@ from .media_preparation import (
 from .narration.models import canonical_json_bytes, identity_hash
 from .performance_v2 import increment, recording_context, span
 from .qualification_output_package_v2 import MATRIX_PREPARATION_ROOT
-from .v2_package import _compiler_hash, _file_hash, build_v2_package
+from .v2_package import _compiler_hash, _file_hash, _render_slate, build_v2_package
 
 ROOT = Path(__file__).resolve().parents[2]
 NODE = Path(
@@ -170,6 +170,19 @@ def prepare_package(
                 )
 
         def visual(item: Json, owner: Json) -> Json:
+            if item.get("pictureKind") == "intentional_placeholder":
+                return {
+                    "kind": "visual",
+                    "payloadId": _id(item["id"] + ":payload"),
+                    "pictureKind": "intentional_placeholder",
+                    "source": {
+                        "kind": "intentional_placeholder",
+                        "text": "Public synthetic held picture " + item["id"],
+                    },
+                    "sourceUsage": None,
+                    "audioPolicy": "mute",
+                    "framingPolicy": "contain",
+                }
             sid = item["source"]
             inspection = inspected[sid]
             payload_id = _id(item["id"] + ":payload")
@@ -374,10 +387,24 @@ def prepare_package(
                 media["source:" + sid] = prepared.video_path
                 media["original:" + sid] = occurrence_paths[descriptor["payloadId"]]
         actual_events = compiled["manifest"]["events"]
+        for event in actual_events:
+            if event["kind"] == "placeholder":
+                slate_path = root / (event["eventId"] + ".png")
+                slate_path.write_bytes(
+                    _render_slate(
+                        event["pictureTreatment"]["text"],
+                        deps["timeline"]["width"],
+                        deps["timeline"]["height"],
+                    )
+                )
+                media["event:" + event["eventId"]] = slate_path
         if (
             len(actual_events) != plan["expectedEvents"]
             or sum(event["kind"] == "narration" for event in actual_events) != len(rows)
-            or sum(event["kind"] == "primary_visual" for event in actual_events)
+            or sum(
+                event["kind"] in {"primary_visual", "placeholder"}
+                for event in actual_events
+            )
             != len(plan["pictures"])
             or sum(event["kind"] == "overlay_visual" for event in actual_events)
             != len(plan["overlays"])
@@ -405,6 +432,7 @@ def prepare_package(
             },
             "performance": recorder.snapshot(),
             "expectedEvents": plan["expectedEvents"],
+            "placementPlan": plan,
         },
     )
     return result_path

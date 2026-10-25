@@ -49,8 +49,9 @@ def placement_plan(*, rehearsal: bool = False) -> dict[str, Any]:
             "source": sources[index % len(sources)]["id"],
             "start": {"kind": "row_start"}
             if index % 2 == 0
-            else {"kind": "spoken_word", "tokenIndex": 22},
+            else {"kind": "spoken_word", "tokenIndex": 30 if index == 1 else 22},
             "sourceInFrame": 24,
+            "pictureKind": "intentional_placeholder" if index < 2 else "clip",
             "framingPolicy": "contain",
             "audioPolicy": "mute",
         }
@@ -86,7 +87,28 @@ def placement_plan(*, rehearsal: bool = False) -> dict[str, Any]:
         "overlays": overlays,
         "expectedEvents": row_count + len(pictures) + len(overlays),
         "edit": {"pictureId": "picture-01", "boundaryDeltaFrames": 24},
+        "boundaryEquivalent": (
+            "Two generated still slates use the existing held-picture proof; "
+            "all video sources remain placed by subsequent pictures."
+        ),
+        "boundaryWordAnchors": {"beforeTokenIndex": 30, "afterTokenIndex": 32},
     }
+
+
+def reverse_window_plan() -> dict[str, Any]:
+    """Keep the authenticated reverse route below its existing 1498-frame cap."""
+    plan = placement_plan(rehearsal=True)
+    plan["mode"] = "reverse-window"
+    plan["narrationRows"] = 3
+    plan["pictures"] = [p for p in plan["pictures"] if p["row"] < 3]
+    plan["overlays"] = [p for p in plan["overlays"] if p["row"] < 3]
+    plan["expectedEvents"] = 3 + len(plan["pictures"]) + len(plan["overlays"])
+    plan["scopeLimit"] = (
+        "The existing authenticated output proof caps native extent at 1498 "
+        "frames. Reverse measurements use the first three public rows; "
+        "forward measurements retain the full 30-row representative fixture."
+    )
+    return plan
 
 
 def source_command(
