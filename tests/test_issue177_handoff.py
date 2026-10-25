@@ -166,10 +166,14 @@ def test_stdlib_bootstrap_retains_unique_refusals(tmp_path: Path) -> None:
         release / RELEASE_NAME / "request.json",
         request_value(release, evidence, package),
     )
-    first, second = launch(release), launch(release)
-    assert first.stdout != second.stdout
+    first, second, third = launch(release), launch(release), launch(release)
+    assert first.stdout != second.stdout != third.stdout
+    assert len(list(evidence.glob("started-*.json"))) == 1
+    assert len(list(evidence.glob("bootstrap-refusal-*.json"))) == 2
+    for replay in (second, third):
+        assert json.loads(replay.stdout)["status"] == "workflow_v2_launcher_failed"
     reports = list(evidence.glob("result-*.json"))
-    assert len(reports) == 2
+    assert len(reports) == 1
     for report in reports:
         value = read_object(report)
         assert value["schemaVersion"] == "vera-injected-delivery-result/v2"

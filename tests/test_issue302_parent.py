@@ -1,0 +1,351 @@
+"""Synthetic coverage for the durable v2 parent dispatcher."""
+
+from __future__ import annotations
+
+import fcntl
+import hashlib
+import json
+import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
+
+import pytest
+from vera_timeline_agent import (
+    workflow_v2_cli,
+    workflow_v2_launcher,
+    workflow_v2_parent,
+)
+
+
+def _case(tmp_path: Path) -> tuple[Path, str, Path, Path, dict[str, Any]]:
+    release = tmp_path / "release"
+    installed = release / "vera-delivery-v2"
+    installed.mkdir(parents=True)
+    manifest = installed / "release.json"
+    manifest.write_bytes(b"synthetic release manifest")
+    package = tmp_path / "package"
+    package.mkdir()
+    attestation = tmp_path / "attestation.json"
+    attestation.write_text(json.dumps({"packageDir": str(package)}))
+    evidence = tmp_path / "evidence"
+    request = {
+        "schemaVersion": "vera-injected-delivery-request/v2",
+        "releaseSha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
+        "attestationPath": str(attestation),
+        "attestationSha256": "a" * 64,
+        "packageDir": str(package),
+        "projectName": "Synthetic Project",
+        "timelineName": "Synthetic Timeline",
+        "action": "preflight",
+        "authorizeNewNonproduction": False,
+        "externalScripting": "None",
+        "evidenceDir": str(evidence),
+    }
+    request_path = installed / "request.json"
+    request_path.write_text(json.dumps(request, sort_keys=True))
+    expected = hashlib.sha256(request_path.read_bytes()).hexdigest()
+    return request_path, expected, manifest, evidence, request
+
+
+def _patch_release_checks(monkeypatch: pytest.MonkeyPatch, manifest: Path) -> None:
+    monkeypatch.setattr(workflow_v2_cli, "_no_symlinks", lambda _path: None)
+    monkeypatch.setattr(workflow_v2_cli, "_verify_release", lambda _release: manifest)
+
+
+def _patch_popen(
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[list[list[str]], list[int]]:
+    commands: list[list[str]] = []
+    held_fds: list[int] = []
+
+    def fake_popen(command: list[str], **kwargs: Any) -> object:
+        commands.append(command)
+        held_fds.append(os.dup(kwargs["pass_fds"][0]))
+        return object()
+
+    monkeypatch.setattr(workflow_v2_parent.subprocess, "Popen", fake_popen)
+    return commands, held_fds
+
+
+def _close_fds(fds: list[int]) -> None:
+    for fd in fds:
+        os.close(fd)
+
+
+def _context(expected: str, request: dict[str, Any]) -> dict[str, str]:
+    return {
+        "requestSha256": expected,
+        "releaseSha256": request["releaseSha256"],
+        "attestationSha256": request["attestationSha256"],
+        "requestedProjectName": request["projectName"],
+        "requestedTimelineName": request["timelineName"],
+    }
+
+
+def _session(evidence: Path, request_path: Path, expected: str) -> None:
+    evidence.mkdir(parents=True, exist_ok=True)
+    (evidence / "parent.lock").touch()
+    workflow_v2_parent._write(
+        evidence / "parent.json",
+        {
+            "schemaVersion": "vera-delivery-parent/v1",
+            "requestPath": str(request_path.absolute()),
+            "requestSha256": expected,
+            "startedAt": "2026-10-25T00:00:00+00:00",
+            "monotonicStarted": 10.0,
+        },
+    )
+
+
+def _completed_operation(
+    evidence: Path,
+    expected: str,
+    request: dict[str, Any],
+    *,
+    status: str = "verified",
+    returncode: int = 0,
+    bad_hash: bool = False,
+) -> None:
+    context = _context(expected, request)
+    workflow_v2_parent._write(evidence / f"started-{expected}.json", context)
+    report_path = evidence / f"result-{expected}.json"
+    workflow_v2_parent._write(
+        report_path,
+        {
+            "schemaVersion": "vera-injected-delivery-result/v2",
+            "status": status,
+            "verified": status == "verified",
+            "discrepancies": [] if status == "verified" else ["synthetic-failure"],
+            **context,
+        },
+    )
+    workflow_v2_parent._write(
+        evidence / f"hashes-{expected}.json",
+        {
+            "resultPath": str(report_path),
+            "resultSha256": (
+                "0" * 64 if bad_hash else workflow_v2_parent._digest(report_path)
+            ),
+            **context,
+        },
+    )
+    workflow_v2_parent._write(
+        evidence / "parent-exit.json",
+        {
+            "returncode": returncode,
+            "monotonicFinished": 11.0,
+            "requestSha256": expected,
+        },
+    )
+
+
+def test_launcher_names_attempt_evidence_with_request_digest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request_path, expected, _manifest, evidence, request = _case(tmp_path)
+    package = Path(request["packageDir"])
+    monkeypatch.setattr(
+        workflow_v2_launcher,
+        "load_verified_package_v2",
+        lambda *_args: SimpleNamespace(
+            root=package,
+            attestation={
+                "projectName": request["projectName"],
+                "timelineName": request["timelineName"],
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        workflow_v2_launcher,
+        "run_workflow_delivery_v2",
+        lambda *_args, **_kwargs: {
+            "schemaVersion": "vera-injected-delivery-result/v2",
+            "status": "preflight_passed",
+            "verified": False,
+            "discrepancies": [],
+        },
+    )
+
+    report_path = workflow_v2_launcher.run_installed_request_v2(
+        object(), request_path, expected_request_sha256=expected
+    )
+
+    assert report_path == evidence / f"result-{expected}.json"
+    assert (evidence / f"started-{expected}.json").exists()
+    assert (evidence / f"hashes-{expected}.json").exists()
+
+
+def test_start_is_idempotent_and_unknown_after_worker_lock_releases(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request_path, expected, manifest, evidence, _request_value = _case(tmp_path)
+    _patch_release_checks(monkeypatch, manifest)
+    commands, held_fds = _patch_popen(monkeypatch)
+    try:
+        first = workflow_v2_parent.start(request_path, expected, Path("ResolvePython"))
+        second = workflow_v2_parent.start(request_path, expected, Path("ResolvePython"))
+
+        assert first["state"] == second["state"] == "live"
+        assert len(commands) == 1
+        assert commands[0][1].endswith("workflow_v2_parent.py")
+
+        _close_fds(held_fds)
+        held_fds.clear()
+        after_exit_without_receipt = workflow_v2_parent.start(
+            request_path, expected, Path("ResolvePython")
+        )
+        assert after_exit_without_receipt["state"] == "unknown"
+        assert len(commands) == 1
+        assert (evidence / "parent.json").exists()
+    finally:
+        _close_fds(held_fds)
+
+
+def test_wait_timeout_after_sixty_seconds_stays_live_without_redispatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    request_path, expected, manifest, evidence, _request_value = _case(tmp_path)
+    _patch_release_checks(monkeypatch, manifest)
+    commands, held_fds = _patch_popen(monkeypatch)
+    try:
+        workflow_v2_parent.start(request_path, expected, Path("ResolvePython"))
+        started = workflow_v2_parent._read(evidence / "parent.json")["monotonicStarted"]
+        clock = {"now": started + 61.0}
+        monkeypatch.setattr(workflow_v2_parent.time, "monotonic", lambda: clock["now"])
+        monkeypatch.setattr(
+            workflow_v2_parent.time,
+            "sleep",
+            lambda seconds: clock.__setitem__("now", clock["now"] + seconds),
+        )
+
+        report = workflow_v2_parent.wait(request_path, expected, 1.0)
+
+        assert report["state"] == "live"
+        assert clock["now"] >= started + 62.0
+
+        monkeypatch.setattr(
+            workflow_v2_parent.sys,
+            "argv",
+            [
+                "workflow_v2_parent.py",
+                "resume",
+                "--request",
+                str(request_path),
+                "--request-sha256",
+                expected,
+                "--wait-seconds",
+                "0",
+            ],
+        )
+        assert workflow_v2_parent.main() == 0
+        assert json.loads(capsys.readouterr().out)["state"] == "live"
+        assert len(commands) == 1
+    finally:
+        _close_fds(held_fds)
+
+
+def test_only_one_concurrent_start_reserves_dispatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request_path, expected, manifest, _evidence, _request_value = _case(tmp_path)
+    _patch_release_checks(monkeypatch, manifest)
+    commands, held_fds = _patch_popen(monkeypatch)
+    barrier = threading.Barrier(2)
+
+    def start_together() -> dict[str, Any]:
+        barrier.wait()
+        return workflow_v2_parent.start(request_path, expected, Path("ResolvePython"))
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            reports = list(pool.map(lambda _index: start_together(), range(2)))
+        assert [report["state"] for report in reports] == ["live", "live"]
+        assert len(commands) == 1
+    finally:
+        _close_fds(held_fds)
+
+
+def test_status_distinguishes_live_unknown_and_terminal_results(
+    tmp_path: Path,
+) -> None:
+    request_path, expected, _manifest, evidence, request = _case(tmp_path)
+    _session(evidence, request_path, expected)
+
+    with (evidence / "parent.lock").open("r") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        assert workflow_v2_parent.status(request_path, expected)["state"] == "live"
+    assert workflow_v2_parent.status(request_path, expected)["state"] == "unknown"
+
+    _completed_operation(evidence, expected, request, status="verified")
+    success = workflow_v2_parent.status(request_path, expected)
+    assert success["state"] == "terminal"
+    assert success["verified"] is True
+
+
+@pytest.mark.parametrize("status", ["mutation_failed", "verification_failed"])
+def test_workflow_failure_is_still_a_terminal_result(
+    tmp_path: Path,
+    status: str,
+) -> None:
+    request_path, expected, _manifest, evidence, request = _case(tmp_path)
+    _session(evidence, request_path, expected)
+    _completed_operation(evidence, expected, request, status=status)
+
+    report = workflow_v2_parent.status(request_path, expected)
+
+    assert report["state"] == "terminal"
+    assert report["verified"] is False
+    assert report["result"]["status"] == status
+
+
+@pytest.mark.parametrize("damage", ["missing-final", "corrupt-hash"])
+def test_worker_exit_with_missing_or_bad_final_is_failed_and_never_replayed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    damage: str,
+) -> None:
+    request_path, expected, manifest, evidence, request = _case(tmp_path)
+    _session(evidence, request_path, expected)
+    if damage == "missing-final":
+        workflow_v2_parent._write(
+            evidence / f"started-{expected}.json", _context(expected, request)
+        )
+        workflow_v2_parent._write(
+            evidence / "parent-exit.json",
+            {"returncode": 0, "monotonicFinished": 11.0, "requestSha256": expected},
+        )
+    else:
+        _completed_operation(evidence, expected, request, bad_hash=True)
+
+    report = workflow_v2_parent.status(request_path, expected)
+    _patch_release_checks(monkeypatch, manifest)
+    commands, held_fds = _patch_popen(monkeypatch)
+    try:
+        repeated_start = workflow_v2_parent.start(
+            request_path, expected, Path("ResolvePython")
+        )
+        assert report["state"] == repeated_start["state"] == "failed"
+        assert len(commands) == 0
+    finally:
+        _close_fds(held_fds)
+
+
+def test_nonzero_worker_exit_is_failed_even_with_a_valid_workflow_report(
+    tmp_path: Path,
+) -> None:
+    request_path, expected, _manifest, evidence, request = _case(tmp_path)
+    _session(evidence, request_path, expected)
+    _completed_operation(evidence, expected, request, returncode=1)
+
+    report = workflow_v2_parent.status(request_path, expected)
+
+    assert report["state"] == "failed"
+    assert report["verified"] is False
