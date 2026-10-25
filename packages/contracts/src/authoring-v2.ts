@@ -273,6 +273,11 @@ export interface VisualSequenceEditResultV2 {
 }
 
 export { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
+export {
+  createCommentStateV2, applyCommentOperationV2, serializeCommentStateV2, deserializeCommentStateV2,
+  type CommentAnchorV2, type CommentAttachmentV2, type CommentMessageV2, type CommentThreadV2,
+  type CommentOperationV2, type CommentStateV2, type CommentResultV2,
+} from "./authoring-v2-comments.js";
 export { projectPrimarySequenceV2 } from "./authoring-v2-projection.js";
 export { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
 export { createSortingTrialV2, resumeSortingTrialV2 } from "./authoring-v2-sorting.js";
