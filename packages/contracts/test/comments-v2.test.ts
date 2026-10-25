@@ -72,8 +72,13 @@ describe("bounded sequential S03 comments", () => {
     anchors.forEach((anchor, n) => { state = apply(state, create(anchor, n)); });
     const edited = structuredClone(state.document);
     const row = edited.activeDraft.blocks[0] as NarrationBlockV2;
-    row.text = "Hello blue world";
-    row.tokens[0].value = "Hello";
+    row.text = "Greetings blue world";
+    row.tokens[0].value = "Greetings";
+    row.tokens[0].endOffset = 9;
+    row.tokens[1]!.startOffset += 4;
+    row.tokens[1]!.endOffset += 4;
+    row.tokens[2]!.startOffset += 4;
+    row.tokens[2]!.endOffset += 4;
     row.version++;
     state = apply(state, { id: "text-edit", actorId, kind: "replace_document", document: edited });
     expect(state.threads[0]!.attachment.quotedText).toBe("blue world");
@@ -109,6 +114,8 @@ describe("bounded sequential S03 comments", () => {
     expect(state.threads[0]!.attachment.status).toBe("stale");
     expect(state.threads[0]!.attachment.quotedText).toBe("blue world");
     state = deserializeCommentStateV2(serializeCommentStateV2(state));
+    state = apply(state, { id: "restore-identities", actorId, kind: "replace_document", document });
+    expect(state.threads[0]!.attachment.status).toBe("stale");
     const restored = structuredClone(document);
     const restoredRow = restored.activeDraft.blocks[0] as NarrationBlockV2;
     restoredRow.tokens[1]!.id = id(999);
