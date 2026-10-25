@@ -106,9 +106,14 @@ export async function registerMaster(
 ): Promise<RegisterMasterResult> {
   const session = requireSession(project, sessionId);
   assertUuid(input.id, "source ID");
+  if (project.sessions.some((candidate) => candidate !== session && candidate.sources.some(({ id }) => id === input.id))) {
+    throw new Error("Source ID is already registered in another shoot session.");
+  }
   const file = await stat(input.path);
   if (!file.isFile() || file.size < 1) throw new Error("A master must be a non-empty regular file.");
   const mediaHash = await hashFile(input.path);
+  const sourceWithId = session.sources.find(({ id }) => id === input.id);
+  if (sourceWithId !== undefined && sourceWithId.mediaHash !== mediaHash) throw new Error("Source ID is already registered for different media.");
   const duplicate = session.sources.find((source) => source.mediaHash === mediaHash);
   if (duplicate !== undefined) return { project, source: structuredClone(duplicate), duplicate: true };
 
@@ -140,26 +145,32 @@ export async function relinkFromLibrary(
   assertUuid(library.libraryId, "library ID");
   if (Number.isNaN(Date.parse(observedAt)) || !/T.*Z$/u.test(observedAt)) throw new Error("Relink evidence needs an ISO UTC observation time.");
   if (project.mediaLibrary.kind !== "project_local" || project.mediaLibrary.libraryId !== library.libraryId) throw new Error("Relink requires the configured project-local library.");
-  const known = new Map<string, ShootSource>();
-  for (const session of project.sessions) for (const source of session.sources) known.set(source.mediaHash, source);
   const next = structuredClone(project);
-  const nextKnown = new Map<string, ShootSource>();
-  for (const session of next.sessions) for (const source of session.sources) nextKnown.set(source.mediaHash, source);
+  const known = new Map<string, ShootSource[]>();
+  for (const session of next.sessions) {
+    for (const source of session.sources) {
+      const matches = known.get(source.mediaHash) ?? [];
+      matches.push(source);
+      known.set(source.mediaHash, matches);
+    }
+  }
   const relinked = new Set<string>();
   let unmatched = 0;
   for (const path of await filesIn(library.rootPath)) {
     const mediaHash = await hashFile(path);
-    if (!known.has(mediaHash)) {
+    const matches = known.get(mediaHash);
+    if (matches === undefined) {
       unmatched += 1;
       continue;
     }
-    const source = nextKnown.get(mediaHash)!;
     const locator = locatorFor(path, library);
-    const alreadyKnown = [source.locator, ...source.relinkHistory.map(({ locator: item }) => item)]
-      .some((item) => item?.libraryId === locator.libraryId && item.relativePath === locator.relativePath);
-    if (!alreadyKnown) {
-      source.relinkHistory.push({ locator, mediaHash, observedAt });
-      relinked.add(source.id);
+    for (const source of matches) {
+      const alreadyKnown = [source.locator, ...source.relinkHistory.map(({ locator: item }) => item)]
+        .some((item) => item?.libraryId === locator.libraryId && item.relativePath === locator.relativePath);
+      if (!alreadyKnown) {
+        source.relinkHistory.push({ locator, mediaHash, observedAt });
+        relinked.add(source.id);
+      }
     }
   }
   return { project: next, relinked: [...relinked], unmatched };
@@ -185,8 +196,10 @@ export async function resolveMasterForJob(
   libraries: LibraryRoot[],
 ): Promise<{ sourceId: string; path: string; inspection: SourceInspection }> {
   if (job.projectId !== project.projectId) throw new Error("Job does not authorize this project.");
-  const source = project.sessions.flatMap(({ sources }) => sources).find(({ id }) => id === job.sourceId);
-  if (source === undefined) throw new Error("Job does not authorize this source.");
+  const matchingSources = project.sessions.flatMap(({ sources }) => sources).filter(({ id }) => id === job.sourceId);
+  if (matchingSources.length === 0) throw new Error("Job does not authorize this source.");
+  if (matchingSources.length > 1) throw new Error("Job does not authorize an ambiguous source ID.");
+  const source = matchingSources[0]!;
   if (project.mediaLibrary.kind !== "project_local") throw new Error("Project has no configured local library and source has no verified locator for job access.");
   const configuredLibraryId = project.mediaLibrary.libraryId;
   const locators = [...source.relinkHistory.map(({ locator }) => locator).reverse(), ...(source.locator === undefined ? [] : [source.locator])]
