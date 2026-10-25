@@ -9,6 +9,7 @@ from vera_timeline_agent.performance_v2 import (
     delivery_record,
     increment,
     measured,
+    native_handle,
     recording_context,
     span,
 )
@@ -89,3 +90,30 @@ def test_measured_preserves_result_and_signature() -> None:
         assert compile_value(3, extra=4) == 7
     assert recorder.snapshot()["spans"][0]["name"] == "compile"
     assert compile_value.__name__ == "compile_value"
+
+
+def test_native_forwarding_preserves_handles_containers_and_failures() -> None:
+    class Handle:
+        def Name(self) -> str:
+            return "original"
+
+        def Child(self) -> dict[str, object]:
+            return {"children": [self], "flag": True}
+
+        def Accept(self, handles: list[object]) -> bool:
+            assert handles == [self]
+            return True
+
+        def Fail(self) -> None:
+            raise ValueError("native refusal")
+
+    raw = Handle()
+    assert native_handle(raw) is raw
+    with recording_context() as recorder:
+        handle = native_handle(raw)
+        assert handle.Name() == "original"
+        child = handle.Child()["children"][0]
+        assert handle.Accept([child]) is True
+        with pytest.raises(ValueError, match="native refusal"):
+            child.Fail()
+    assert recorder.snapshot()["counters"]["native.apiCalls"] == 4

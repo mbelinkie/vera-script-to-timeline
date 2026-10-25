@@ -21,7 +21,14 @@ from itertools import pairwise
 from pathlib import Path, PurePosixPath
 from typing import Any, TypeGuard, cast
 
-from .performance_v2 import OPAQUE_NATIVE, delivery_record, increment, measured, span
+from .performance_v2 import (
+    OPAQUE_NATIVE,
+    delivery_record,
+    increment,
+    measured,
+    native_handle,
+    span,
+)
 from .studio_spike import _project_settings, _still_source_frame_duration
 from .workflow_delivery import (
     SUPPORTED_IDENTITIES,
@@ -2075,7 +2082,7 @@ def run_workflow_delivery_v2(
         )
         factory = adapter_factory or PublicResolveAdapter
         stage = "Resolve connection preflight"
-        adapter = factory(resolve)
+        adapter = factory(native_handle(resolve))
         with span("delivery.connection", OPAQUE_NATIVE):
             increment("native.adapterCalls")
             connected = adapter.connected_facts()

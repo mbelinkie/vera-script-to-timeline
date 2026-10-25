@@ -145,3 +145,57 @@ def delivery_record(  # noqa: UP047 - shipped into Resolve's older Python runtim
         return result
 
     return call
+
+
+class _NativeHandle:
+    """Transparent handle forwarding; only the recorder observes these calls."""
+
+    def __init__(self, handle: Any) -> None:
+        self._handle = handle
+
+    def __getattr__(self, name: str) -> Any:
+        value = getattr(self._handle, name)
+        if not callable(value):
+            return _native_value(value)
+
+        def call(*args: Any, **kwargs: Any) -> Any:
+            increment("native.apiCalls")
+            with span("native.api." + name, OPAQUE_NATIVE):
+                result = value(
+                    *(_native_argument(arg) for arg in args),
+                    **{key: _native_argument(arg) for key, arg in kwargs.items()},
+                )
+            return _native_value(result)
+
+        return call
+
+
+def _native_argument(value: Any) -> Any:
+    if isinstance(value, _NativeHandle):
+        return value._handle
+    if isinstance(value, list):
+        return [_native_argument(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_native_argument(item) for item in value)
+    if isinstance(value, dict):
+        return {key: _native_argument(item) for key, item in value.items()}
+    return value
+
+
+def _native_value(value: Any) -> Any:
+    if isinstance(value, list):
+        return [_native_value(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_native_value(item) for item in value)
+    if isinstance(value, dict):
+        return {key: _native_value(item) for key, item in value.items()}
+    if value is None or isinstance(
+        value, (str, bool, int, float, bytes, _NativeHandle)
+    ):
+        return value
+    return _NativeHandle(value)
+
+
+def native_handle(value: Any) -> Any:
+    """Count actual forwarded API calls only while recording an invocation."""
+    return _native_value(value) if _RECORDERS.get() else value

@@ -38,6 +38,18 @@ NODE = Path(
 Json = dict[str, Any]
 
 
+class CountingMediaTools(MediaTools):
+    """Observe existing tool dispatches without changing the qualified adapter."""
+
+    def run(self, command: list[str], *, timeout: float = 600) -> bytes:
+        increment("subprocess.calls")
+        probe = Path(command[0]).name == "ffprobe"
+        if probe:
+            increment("probe.calls")
+        with span("preparation.probe" if probe else "preparation.process"):
+            return super().run(command, timeout=timeout)
+
+
 def _write(path: Path, value: object) -> None:
     path.write_bytes(canonical_json_bytes(value))
 
@@ -143,7 +155,7 @@ def prepare_package(
     deps["narrationBoundaryEvidence"] = [row["evidence"] for row in rows]
     deps["occurrenceResolutions"] = []
     source_by_id = {source["id"]: source for source in sources["sources"]}
-    tools = MediaTools()
+    tools = CountingMediaTools()
     inspected: dict[str, Any] = {}
     occurrence_paths: dict[str, Path] = {}
 

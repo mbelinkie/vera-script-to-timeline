@@ -178,3 +178,16 @@ its source is retained. The corrected generator explicitly pins H.264 color
 parameters. The small mathematical pattern is scaled to native 1080/4K source
 dimensions to keep the complete public fixture under its size limit. The
 six-source corrected run is fixture setup, outside the four-hour timed budget.
+
+The corrected six-source run passed all stream/profile/frame-count assertions:
+three 720-frame sources and three 900-frame sources, 106,765,474 bytes total.
+The subsequent real preparation/package command uses those sources and the
+seven measured speech assets; it is not a baseline observation.
+
+Native forwarding instrumentation now counts actual API calls beneath the
+opaque adapter calls, preserving returned primitive/container values and
+unwrapping native-handle arguments. Its forwarding/refusal tests pass; actual
+installed Resolve behavior still needs the forthcoming rehearsal. The package
+fixture observes tool dispatches through a MediaTools subclass, leaving the
+qualified #174 adapter source and tool fingerprint unchanged. Fifteen focused
+unit/fake-delivery checks passed; lint and the five-file type check passed.
