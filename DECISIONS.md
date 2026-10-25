@@ -33,6 +33,27 @@ into an implementation assumption.
 | D-0015 | Accepted | Insert the bounded Fusion semantic-input capability spike as Slice 1.5, after package writer Slice 1.4 and before production Studio assembly; renumber the former unstarted Slices 1.5–1.7 as 1.6–1.8. Keep the spike contract-free and keep the curated graphics product in its later phase. | Approved explicitly by the producer on 2026-08-26. The accepted Text+ work proves pinned-template import, V4 placement, duration, and graph fingerprinting, but not typed Fusion-control mutation and persistence. Proving that boundary before Studio assembly reduces adapter rework without expanding Slice 1.4. Detailed scope and later productization are recorded in the [curated Fusion graphics plan](docs/plans/curated-fusion-graphics.md). |
 | D-0016 | Accepted | Adopt the lightweight solo-project workflow in `AGENTS.md` and `docs/VERIFICATION_POLICY.md`. Agents decide all technical matters, including contract, schema, fixture, golden, sidecar, dependency and test changes, explaining them in the PR without Producer approval. The Producer is asked only about product behaviour, taste, money, his data and steps he must do in person. Local work runs focused checks and `npm run validate:fast`. The GitHub Actions `Validate` run is the full regression gate, and the full suite is no longer run on the Mac. One Claude CLI review is required per code issue, with no waiver when it is unavailable. Merge when CI is green; Automated issues close on the merged PR; bugs are fixed forward. Evidence receipts, equivalence proofs, the expensive-check queue and the #196 qualification procedure are retired. All work, including process docs, lands on `main` through short-lived, pushed branches. No issue closes until its work is merged, and the main project folder stays on `main`. | Directed by the Producer on 2026-10-16 after a cycle-time audit. In #218's final run, about 50 heavy end-to-end tests accounted for 44 of 69 Python minutes, and duplicated local full runs plus the evidence process dominated implementation time. The cloud suite already passed for recent issues in about 35–50 minutes at no cost. Supersedes D-0008's evidence standard, the frozen-boundary approval rule in spec §12, and the 2026-10-12 verification policy. |
 
+### D-0017 — Automatic image zoom and native Resolve first
+
+- Status: Accepted
+- Date: 2026-10-25
+- Owner: Producer
+- Decision: Automatic zoom is standard behavior for every image occurrence,
+  customizable in settings. Prefer Resolve's native features rather than
+  recreating them; Dynamic Zoom is the first candidate for duration-relative
+  image motion. Use a custom fallback only for a demonstrated capability gap.
+- Evidence: Matthew explicitly set the image default, identified Resolve's
+  duration-adjusting motion feature and directed native-first engineering.
+  Installed scripting declarations expose `DynamicZoomEnabled` and
+  `DynamicZoomEase`; this is API evidence, not a completed runtime proof of
+  framing customization, duration changes or edition-specific delivery.
+- Compatibility / acceptance impact: Supersedes the no-animation image default
+  and webpage-only default drift in specification section 8.4 / Phase 5. Resolve
+  exact zoom/framing/focus and fit/crop behavior in #164 with real runtime tests.
+  Settings changes apply to new/resolved occurrences, not silent changes to old
+  immutable builds. Existing per-occurrence overrides, including None, remain.
+  This records product direction, not implementation, dispatch or design resume.
+
 ## Pending producer decisions
 
 | ID | Status | Decision needed | Known constraint / evidence required |

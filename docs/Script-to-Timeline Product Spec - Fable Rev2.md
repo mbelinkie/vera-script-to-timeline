@@ -1126,16 +1126,26 @@ checksum-tracked artifacts before placement.
 | Input | Resolution behavior | Default composition |
 | ----- | ------------------- | ------------------- |
 | Logged research clip | Resolve the stable clip/version; reuse its verified export or request the durable export pipeline | Full-frame B-roll with chosen source-audio policy; no invented retiming |
-| Webpage URL | Capture via a versioned adapter recording viewport, device scale, final URL, capture time, and profile; persist an immutable image artifact | Full-frame capture with a slow top-left-anchored drift over the event duration |
-| Direct image URL | Download the original full-resolution asset once when added; verify type/dimensions, hash, preserve provenance; no recurring acquisition | Contain (largest size keeping the whole image visible); preserve aspect; no animation by default |
-| Local image file | Import via the selected clone/copy/move/reference policy; decode, hash, verify; no capture provider involved | Contain; preserve aspect; no animation by default |
+| Webpage URL | Capture via a versioned adapter recording viewport, device scale, final URL, capture time, and profile; persist an immutable image artifact | Automatic zoom over the event duration; customizable in settings and per occurrence |
+| Direct image URL | Download the original full-resolution asset once when added; verify type/dimensions, hash, preserve provenance; no recurring acquisition | Contain-based framing; preserve aspect; automatic zoom by default, customizable in settings |
+| Local image file | Import via the selected clone/copy/move/reference policy; decode, hash, verify; no capture provider involved | Contain-based framing; preserve aspect; automatic zoom by default, customizable in settings |
 | Local video file | Import via the selected policy; inspect streams/duration, hash, verify; never transcode merely to complete import | Selected in/out, audio, framing, speed, and placement policy |
 
 "Fill without cutting anything off" means **contain**, not crop: the complete
 image is visible, letterbox/pillarbox space filled by a project background
 preset. Stretching and silent cropping are prohibited; crop-to-fill and motion
-presets are explicit overrides. Stills receive a motion preset only when the
-author chooses one.
+presets remain configurable. Per Producer decision D-0017 (2026-10-25), every
+image occurrence receives automatic zoom by default, with settings customization
+and per-occurrence override (including None). This supersedes the former static
+image default and capture-only top-left drift default. Freeze the resolved motion
+in each build; changing defaults never silently rewrites earlier builds. Exact
+zoom extent, direction/focus and fit/crop interaction are settled in #164, not
+implied by this default. Do not stretch or silently crop sources.
+
+Use Resolve's native Dynamic Zoom first where the installed edition and delivery
+route can demonstrably preserve the required behavior. Prove duration changes,
+customization and save/reopen rather than treating API availability as runtime
+success; use a custom fallback only for a demonstrated native-route limitation.
 
 Webpage capture uses a local headless-browser worker for public pages — no
 browser extension. Authenticated, paywalled, or session-dependent pages are
@@ -1839,19 +1849,20 @@ retained with the effective-copy warning and a retryable cleanup.
 
 **Slice 5.2 — Direct image URLs.** One-time full-resolution acquisition,
 type/dimension verification, hashing, provenance; contain composition with
-project background preset; no animation and no recurring acquisition.
+project background preset; automatic zoom by default with settings customization
+(D-0017), and no recurring acquisition.
 *Done when:* the producer pastes an image URL, and a mismatched-aspect image
-appears complete (letterboxed, not cropped or stretched) for exactly its
-covered words.
+appears with the accepted fit/crop policy, without stretching or silent cropping,
+and its configured automatic zoom spans exactly its covered words.
 
 **Slice 5.3 — Webpage capture.** Local headless-browser worker for public
 pages: previewed viewport/region, capture-on-add, immutable artifact with full
 provenance (final URL, timestamp, viewport, scale, adapter version, warnings),
-manual recapture creating a new revision, default top-left drift preset,
+manual recapture creating a new revision, configurable default automatic zoom,
 SSRF protections, and visible failure states for consent overlays and blocked
 automation. No scheduled monitoring (deferred).
 *Done when:* the producer captures a previewed region of a public page and the
-build shows the still drifting for exactly the event's duration; a recapture
+build shows its configured motion for exactly the event's duration; a recapture
 appears as a new selectable revision without changing any existing build.
 
 **Slice 5.4 — Transitions.** Section 8.5: three independent project defaults,
