@@ -239,6 +239,28 @@ def test_real_approval_expiry_during_recheck_refuses(
     harness.assert_no_slot()
 
 
+def test_approval_expiry_during_stage_checks_refuses_before_publication(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, clock: ReplayClock
+) -> None:
+    harness = RequestHarness(tmp_path, monkeypatch, clock)
+    approval = _parse(harness.approval.read_bytes())
+    approval["expiresAt"] = (clock.wall_value + timedelta(seconds=1)).isoformat()
+    harness.approval.chmod(0o600)
+    harness.approval.write_bytes(_canonical(approval))
+    harness.approval.chmod(0o400)
+    next_operation = native.next_native_operation
+
+    def delayed_stage_check(context: dict[str, Any]) -> tuple[int, str]:
+        result = next_operation(context)
+        clock.advance(2)
+        return result
+
+    monkeypatch.setattr(native, "next_native_operation", delayed_stage_check)
+    with pytest.raises(OutputConsistencyError, match="approval expired"):
+        harness.prepare()
+    harness.assert_no_slot()
+
+
 @pytest.mark.parametrize("steps", [[-2.0], [-0.0309, -0.0512]])
 def test_large_or_repeated_step_stays_terminal(
     tmp_path: Path,

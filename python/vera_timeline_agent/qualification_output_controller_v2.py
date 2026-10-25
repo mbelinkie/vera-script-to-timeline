@@ -1479,6 +1479,13 @@ class QualificationOutputController:
             "native action must follow the fixed reviewed stage order",
         )
         now = self.trust.checked_now()
+        if not read_only_action:
+            _require(
+                datetime.fromisoformat(approval["issuedAt"])
+                <= now
+                < datetime.fromisoformat(approval["expiresAt"]),
+                "operator approval expired or not yet live",
+            )
         return approval_raw, approval, sequence, prior_head, now
 
     def prepare_native_request(
