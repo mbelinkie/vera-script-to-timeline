@@ -16,6 +16,8 @@ from vera_timeline_agent.roundtrip_build import (
     load_operator_json,
 )
 
+pytestmark = pytest.mark.slow
+
 N = 80
 FRAME = 1920
 TARGET = {"projectUid": "test-project", "timelineUid": "test-timeline"}
