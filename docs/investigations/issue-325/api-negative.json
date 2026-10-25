@@ -1,0 +1,62 @@
+[
+  {
+    "request": {
+      "DynamicZoomStart": [
+        0.75,
+        0.3,
+        1.0
+      ]
+    },
+    "return": false,
+    "error": null,
+    "unchanged": true,
+    "duration": 48
+  },
+  {
+    "request": {
+      "DynamicZoomEnd": [
+        0.25,
+        0.7,
+        1.2
+      ]
+    },
+    "return": false,
+    "error": null,
+    "unchanged": true,
+    "duration": 48
+  },
+  {
+    "request": {
+      "DynamicZoomEase": 99
+    },
+    "return": false,
+    "error": null,
+    "unchanged": true,
+    "duration": 48
+  },
+  {
+    "request": {
+      "Scaling": 99
+    },
+    "return": false,
+    "error": null,
+    "unchanged": true,
+    "duration": 48
+  },
+  {
+    "request": {
+      "Duration": 24
+    },
+    "return": false,
+    "error": null,
+    "unchanged": true,
+    "duration": 48
+  },
+  {
+    "SetSpeed": 200,
+    "return": false,
+    "error": null,
+    "beforeDuration": 48,
+    "afterDuration": 48
+  }
+]
