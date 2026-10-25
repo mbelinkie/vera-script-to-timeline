@@ -99,7 +99,13 @@ class Measured:
                 "sampleRate": 48_000,
                 "channels": 1,
             },
-            "lag": {"verified": True, "samples": 0},
+            "lag": {
+                "verified": True,
+                "samples": 0,
+                "rawSampleRate": 16_000,
+                "method": "rms_envelope",
+                "transformVerification": {"method": "rms_envelope"},
+            },
             "tokens": [
                 {
                     "tokenId": "t0",
@@ -314,6 +320,22 @@ def test_unverified_lag_or_refusals_are_refused() -> None:
     fixture = Measured()
     fixture.retarget(lambda value: value["lag"].update(verified=False))
     with pytest.raises(ProofBuildError, match="not a verified measurement"):
+        verify_measured_narration_evidence(
+            fixture.row, timing=fixture.timing, artifact=fixture.artifact
+        )
+
+
+def test_same_rate_measurement_requires_reproduced_transform() -> None:
+    fixture = Measured()
+    fixture.retarget(
+        lambda value: value["lag"].update(
+            rawSampleRate=48_000,
+            method="sample_correlation",
+            uncertaintySamples=0,
+            windowsVerified=3,
+        )
+    )
+    with pytest.raises(ProofBuildError, match="supported transform verification"):
         verify_measured_narration_evidence(
             fixture.row, timing=fixture.timing, artifact=fixture.artifact
         )

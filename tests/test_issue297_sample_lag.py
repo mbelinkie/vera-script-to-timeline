@@ -6,15 +6,23 @@ import math
 import random
 import struct
 from collections.abc import Callable
+from dataclasses import replace
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+import vera_timeline_agent.narration.measure as measure_module
+from issue182_fixture import build_cache, wav_bytes
 from vera_timeline_agent.narration.measure import (
     DEFAULT_PARAMETERS,
     Lag,
+    LoadedAsset,
     MeasurementError,
     estimate_lag,
+    load_asset,
     read_wav,
 )
+from vera_timeline_agent.narration.models import sha256_bytes
 from vera_timeline_agent.narration.normalize import Normalizer
 
 RATE = 48_000
@@ -85,8 +93,70 @@ def _shift(samples: list[int], lag_samples: int) -> list[int]:
     return samples.copy()
 
 
+def _insert_then_delete(samples: list[int], insert_at: int, gap: int) -> list[int]:
+    edited = samples.copy()
+    edited.insert(insert_at, edited[insert_at])
+    del edited[insert_at + gap]
+    return edited
+
+
 def _estimate(raw: list[int], normalized: list[int]) -> Lag:
     return estimate_lag(_pcm(raw), RATE, normalized, DEFAULT_PARAMETERS)
+
+
+def _loaded_asset_48k(
+    root: Path,
+    raw: list[int],
+    wav: bytes,
+    *,
+    normalization_profile: str = "test",
+    sample_format: str = "s16",
+) -> LoadedAsset:
+    cache, _asset, asset_key = build_cache(root, raw_sample_rate=RATE)
+    loaded = load_asset(cache, asset_key)
+    _samples, rate, channels, frames = read_wav(wav)
+    raw_pcm = _pcm(raw)
+    asset = replace(
+        loaded.asset,
+        normalization_profile=normalization_profile,
+        raw_audio_hash=sha256_bytes(raw_pcm),
+        normalized_audio_hash=sha256_bytes(wav),
+        duration_samples=frames,
+        duration_ms=frames * 1000 // rate,
+        sample_rate=rate,
+        channels=channels,
+        sample_format=sample_format,
+    )
+    return replace(
+        loaded,
+        asset=asset,
+        wav_bytes=wav,
+        raw_pcm=raw_pcm,
+        raw_sample_rate=rate,
+    )
+
+
+def _mock_normalizer(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    raw_pcm: bytes,
+    expected_wav: bytes,
+    profile_id: str = "test",
+) -> None:
+    class DeterministicNormalizer:
+        def __init__(self, *, profile_id: str) -> None:
+            assert profile_id == expected_profile
+
+        def normalize_pcm(
+            self, audio: bytes, *, sample_rate: int, channels: int
+        ) -> SimpleNamespace:
+            assert audio == raw_pcm
+            assert sample_rate == RATE
+            assert channels == 1
+            return SimpleNamespace(wav_bytes=expected_wav)
+
+    expected_profile = profile_id
+    monkeypatch.setattr(measure_module, "Normalizer", DeterministicNormalizer)
 
 
 @pytest.mark.parametrize(
@@ -153,9 +223,7 @@ def test_local_insert_then_delete_inside_one_check_window_is_refused() -> None:
     window_start = (SAMPLE_COUNT // 2 // check_samples) * check_samples
     insert_at = window_start + check_samples // 8
     delete_at = window_start + check_samples * 7 // 8
-    normalized = raw.copy()
-    normalized.insert(insert_at, normalized[insert_at])
-    del normalized[delete_at]
+    normalized = _insert_then_delete(raw, insert_at, delete_at - insert_at)
 
     assert len(normalized) == len(raw)
     assert insert_at // check_samples == (delete_at - 1) // check_samples
@@ -165,23 +233,77 @@ def test_local_insert_then_delete_inside_one_check_window_is_refused() -> None:
         _estimate(raw, normalized)
 
 
-def test_local_insert_then_delete_across_check_boundary_is_refused() -> None:
+def test_transform_gate_refuses_insert_delete_across_check_boundary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     raw = _speech_like()
     check_samples = RATE * 5 // 1000
     boundary = (SAMPLE_COUNT // 2 // check_samples) * check_samples
     insert_at = boundary - 20
     delete_at = boundary + 20
-    normalized = raw.copy()
-    normalized.insert(insert_at, normalized[insert_at])
-    del normalized[delete_at]
+    expected_samples = [round(sample * 0.63) for sample in raw]
+    normalized = _insert_then_delete(expected_samples, insert_at, delete_at - insert_at)
 
-    assert len(normalized) == len(raw)
+    assert len(normalized) == len(expected_samples)
     assert insert_at // check_samples == boundary // check_samples - 1
     assert delete_at // check_samples == boundary // check_samples
-    assert normalized[:insert_at] == raw[:insert_at]
-    assert normalized[delete_at:] == raw[delete_at:]
-    with pytest.raises(MeasurementError):
-        _estimate(raw, normalized)
+    assert normalized[:insert_at] == expected_samples[:insert_at]
+    assert normalized[delete_at:] == expected_samples[delete_at:]
+    lag = estimate_lag(_pcm(raw), RATE, normalized, DEFAULT_PARAMETERS)
+    assert lag.samples == 0
+    expected_wav = wav_bytes(expected_samples)
+    loaded = _loaded_asset_48k(tmp_path, raw, wav_bytes(normalized))
+    _mock_normalizer(monkeypatch, raw_pcm=_pcm(raw), expected_wav=expected_wav)
+
+    with pytest.raises(MeasurementError, match="PCM differs"):
+        measure_module._verify_normalization_transform(loaded, lag)
+
+
+@pytest.mark.parametrize("gap", [2, 4, 8, 12, 20])
+def test_transform_gate_refuses_short_edits_accepted_by_correlation(
+    gap: int, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    raw = _speech_like()
+    expected_samples = [round(sample * 0.63) for sample in raw]
+    boundary = RATE * 675 // 1000
+    insert_at = boundary - gap // 2
+    normalized = _insert_then_delete(expected_samples, insert_at, gap)
+    lag = estimate_lag(_pcm(raw), RATE, normalized, DEFAULT_PARAMETERS)
+    assert lag.samples == 0
+
+    expected_wav = wav_bytes(expected_samples)
+    loaded = _loaded_asset_48k(tmp_path, raw, wav_bytes(normalized))
+    _mock_normalizer(monkeypatch, raw_pcm=_pcm(raw), expected_wav=expected_wav)
+
+    with pytest.raises(MeasurementError, match="PCM differs"):
+        measure_module._verify_normalization_transform(loaded, lag)
+
+
+@pytest.mark.parametrize("lag_samples", [0, 47, -71])
+@pytest.mark.parametrize(
+    "normalizer",
+    [
+        lambda sample: round(sample * 0.63),
+        lambda sample: round(math.copysign(abs(sample) ** 0.88, sample)),
+    ],
+)
+def test_transform_gate_accepts_reproduced_gain_or_compression(
+    lag_samples: int,
+    normalizer: Callable[[int], int],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw = _speech_like()
+    expected_samples = [normalizer(sample) for sample in raw]
+    normalized = _shift(expected_samples, lag_samples)
+    lag = estimate_lag(_pcm(raw), RATE, normalized, DEFAULT_PARAMETERS)
+    assert lag.samples == lag_samples
+
+    expected_wav = wav_bytes(expected_samples)
+    loaded = _loaded_asset_48k(tmp_path, raw, wav_bytes(normalized))
+    _mock_normalizer(monkeypatch, raw_pcm=_pcm(raw), expected_wav=expected_wav)
+
+    measure_module._verify_normalization_transform(loaded, lag)
 
 
 @pytest.mark.parametrize("sample_count", [RATE * 9 // 10 + 1, RATE * 9 // 10 + 2])
@@ -234,7 +356,9 @@ def test_polarity_inversion_and_time_reversal_are_refused(
 
 
 @pytest.mark.slow
-def test_real_normalizer_pcm24_output_verifies_zero_sample_lag() -> None:
+def test_real_normalizer_pcm24_output_verifies_zero_sample_lag(
+    tmp_path: Path,
+) -> None:
     raw = _speech_like(sample_count=RATE * 3 // 2, pad_silence=False)
     normalized = Normalizer().normalize_pcm(_pcm(raw), sample_rate=RATE, channels=1)
     samples, sample_rate, channels, frames = read_wav(normalized.wav_bytes)
@@ -244,8 +368,16 @@ def test_real_normalizer_pcm24_output_verifies_zero_sample_lag() -> None:
     assert channels == 1
     assert frames == len(raw)
     lag = estimate_lag(_pcm(raw), RATE, samples, DEFAULT_PARAMETERS)
+    loaded = _loaded_asset_48k(
+        tmp_path,
+        raw,
+        normalized.wav_bytes,
+        normalization_profile=normalized.profile_id,
+        sample_format=normalized.sample_format,
+    )
 
     assert lag.samples == 0
     assert lag.method == "sample_correlation"
     assert lag.uncertainty_samples == 0
     assert lag.windows_verified >= 3
+    measure_module._verify_normalization_transform(loaded, lag)

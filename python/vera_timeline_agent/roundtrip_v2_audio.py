@@ -37,6 +37,7 @@ from vera_timeline_agent.narration.measure import (
     ONSET_BASIS as MEASURE_ONSET_BASIS,
 )
 from vera_timeline_agent.narration.models import canonical_json_bytes, sha256_bytes
+from vera_timeline_agent.narration.normalize import NORMALIZER_VERSION
 from vera_timeline_agent.roundtrip_audio import _Files, _metrics, _pcm
 from vera_timeline_agent.roundtrip_build import (
     JsonObject,
@@ -260,6 +261,29 @@ def verify_measured_narration_evidence(
         and isinstance(parsed.get("lag"), dict)
         and parsed["lag"].get("verified") is True,
         "measurement artifact is not a verified measurement of this algorithm",
+    )
+    lag = parsed["lag"]
+    raw_rate = lag.get("rawSampleRate")
+    sample_verified = (
+        raw_rate == 48_000
+        and lag.get("method") == "sample_correlation"
+        and lag.get("uncertaintySamples") == 0
+        and type(lag.get("windowsVerified")) is int
+        and lag["windowsVerified"] >= 3
+        and lag.get("transformVerification")
+        == {"method": "reproduced_pcm", "normalizerVersion": NORMALIZER_VERSION}
+    )
+    envelope_verified = (
+        type(raw_rate) is int
+        and raw_rate > 0
+        and raw_rate != 48_000
+        and (raw_rate == 44_100 or (48_000 % raw_rate == 0 and raw_rate % 1000 == 0))
+        and lag.get("method") == "rms_envelope"
+        and lag.get("transformVerification") == {"method": "rms_envelope"}
+    )
+    fact(
+        sample_verified or envelope_verified,
+        "measurement lag is missing supported transform verification",
     )
     asset = parsed.get("asset")
     audio = row.get("audio")

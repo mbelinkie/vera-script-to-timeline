@@ -6,6 +6,7 @@ import struct
 from dataclasses import replace
 from fractions import Fraction
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -461,13 +462,18 @@ def test_parameters_hash_refuses_integer_like_keys(parameters: dict[str, Any]) -
 
 @pytest.mark.parametrize("lag", [0, 1, -1])
 def test_same_rate_native_sample_onsets_are_never_nudged(
-    tmp_path: Path, lag: int
+    tmp_path: Path, lag: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     cache, _, key = build_cache(tmp_path / "cache")
     loaded = load_asset(cache, key)
     rng = random.Random(297)
     raw = [0] * 96 + [rng.randrange(-8000, 8001) for _ in range(79_968)] + [0] * 96
     normalized = [round(sample * 0.5) for sample in raw]
+    reference_wav = wav_bytes(normalized)
+    monkeypatch.setattr(
+        "vera_timeline_agent.narration.measure.Normalizer.normalize_pcm",
+        lambda *args, **kwargs: SimpleNamespace(wav_bytes=reference_wav),
+    )
     if lag > 0:
         normalized = [0] * lag + normalized[:-lag]
     elif lag < 0:
