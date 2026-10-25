@@ -1,0 +1,13 @@
+{
+  "Bframes": 432,
+  "BidenticalAfterDefaultChange": true,
+  "Eframes": 192,
+  "EidenticalAfterReopen": true,
+  "gridSha256": "c52450d978e472ddc4d9835308f38c5d1c1be15c3c99ff3e5d8e2027fcfed36b",
+  "easeImportsIdenticalToLinearAll48Frames": {
+    "1": true,
+    "2": true,
+    "3": true
+  },
+  "NoneAll48FramesIdentical": true
+}
