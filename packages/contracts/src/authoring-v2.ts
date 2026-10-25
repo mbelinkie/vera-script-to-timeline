@@ -275,6 +275,7 @@ export interface VisualSequenceEditResultV2 {
 export { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 export { projectPrimarySequenceV2 } from "./authoring-v2-projection.js";
 export { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
+export { createSortingTrialV2, resumeSortingTrialV2 } from "./authoring-v2-sorting.js";
 export {
   applyRowEditV2,
   selectRowRangeV2,

@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   applyRowEditV2,
   createRowEditSessionV2,
+  createSortingTrialV2,
+  resumeSortingTrialV2,
   deserializeAuthoringDocumentV2,
   serializeAuthoringDocumentV2,
   selectRowRangeV2,
@@ -219,6 +221,148 @@ function rows(document: ScriptDocumentV2): string[] {
 function gap(sectionId: string | null, afterRowId: string | null, beforeRowId: string | null) {
   return { sectionId, afterRowId, beforeRowId };
 }
+
+describe("provisional Sorting trials", () => {
+  it("keeps script and saved Stash canonical until one complete acceptance", () => {
+    const [a, b, c] = [richNarration(610), row(611), row(612)];
+    const initial = documentWith([a, b, c], { supportingItems: [citation(a)] });
+    const saved = applyRowEditV2(initial, 0, { kind: "stash_rows", rowIds: [c.id], bundleId: id(620) }).document;
+    const before = structuredClone(saved);
+    const trial = createSortingTrialV2(saved);
+    expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, b.id, null) }).ok).toBe(true);
+    expect(trial.apply({ kind: "stash_rows", rowIds: [a.id], bundleId: id(621) }).ok).toBe(true);
+    expect(trial.apply({ kind: "restore_stash", bundleId: id(620), destination: gap(null, b.id, null) }).ok).toBe(true);
+    const intended = trial.document;
+    const preview = trial.preview();
+    expect(preview).toEqual(intended);
+    preview.title = "Mutating a read-only snapshot cannot edit the trial";
+    expect(trial.document).toEqual(intended);
+    expect(trial.apply({ kind: "stash_rows", rowIds: [b.id], bundleId: id(622) }).diagnostics[0]?.code).toBe("SORTING_READ_ONLY");
+    expect(trial.returnToSorting()).toBe(true);
+    expect(trial.document).toEqual(intended);
+    expect(saved).toEqual(before);
+    const accepted = trial.accept(saved);
+    expect(accepted).toMatchObject({ ok: true, changed: true });
+    expect(accepted.document).toEqual({ ...intended, rowEditRevision: 2 });
+    expect(accepted.document.stash?.[0]?.rows).toEqual([a]);
+    expect(accepted.document.stash?.[0]?.supportingItems).toEqual([citation(a)]);
+    expect(rows(accepted.document)).toEqual([b.id, c.id]);
+    expect(trial.accept(accepted.document)).toMatchObject({ ok: false, changed: false, diagnostics: [{ code: "SORTING_TRIAL_CLOSED" }] });
+    expect(saved).toEqual(before);
+  });
+
+  it("discards both trial surfaces and leaves even a changed canonical document untouched", () => {
+    const [a, b] = [row(630), row(631)];
+    const baseline = documentWith([a, b]);
+    const trial = createSortingTrialV2(baseline);
+    expect(trial.apply({ kind: "stash_rows", rowIds: [a.id], bundleId: id(632) }).ok).toBe(true);
+    trial.preview();
+    const discard = trial.discard(baseline);
+    expect(discard).toMatchObject({ ok: true, document: baseline });
+    expect(discard.document).toBe(baseline);
+    expect(trial.returnToSorting()).toBe(false);
+    expect(trial.accept(baseline).ok).toBe(false);
+    const other = createSortingTrialV2(baseline);
+    const changed = { ...baseline, title: "An intervening author edit" };
+    expect(other.discard(changed).document).toBe(changed);
+  });
+
+  it("round-trips a pending preview and Undo history by replaying real row operations", () => {
+    const [a, b, c] = [row(640), row(641), row(642)];
+    const baseline = documentWith([a, b, c]);
+    const trial = createSortingTrialV2(baseline);
+    expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, c.id, null) }).ok).toBe(true);
+    expect(trial.apply({ kind: "stash_rows", rowIds: [b.id], bundleId: id(643) }).ok).toBe(true);
+    expect(trial.undo().ok).toBe(true);
+    trial.preview();
+    const resumed = resumeSortingTrialV2(trial.serialize());
+    expect(resumed.phase).toBe("preview");
+    expect(resumed.document).toEqual(trial.document);
+    expect(resumed.movedRowIds).toEqual([a.id]);
+    expect(resumed.undoDepth).toBe(1);
+    expect(resumed.accept(baseline).document).toEqual(trial.accept(baseline).document);
+    const undone = resumeSortingTrialV2(trial.phase === "accepted" ? JSON.stringify({ format: "sorting-trial/v1", baseline, actions: [], phase: "sorting" }) : trial.serialize());
+    expect(undone.accept(baseline)).toMatchObject({ ok: true, changed: false, document: baseline });
+  });
+
+  it.each(["script", "stash", "revision", "live head"])("refuses acceptance after a changed %s baseline, including after resume", (surface) => {
+    const [a, b, c] = [row(650), row(651), row(652)];
+    const baseline = applyRowEditV2(documentWith([a, b, c]), 0, { kind: "stash_rows", rowIds: [c.id], bundleId: id(653) }).document;
+    const trial = createSortingTrialV2(baseline);
+    expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, b.id, null) }).ok).toBe(true);
+    const resumed = resumeSortingTrialV2(trial.serialize());
+    const changed = structuredClone(baseline);
+    if (surface === "script") changed.title = "changed";
+    if (surface === "stash") changed.stash![0]!.rows[0]!.orderKey = "changed";
+    if (surface === "revision") changed.rowEditRevision = 17;
+    if (surface === "live head") changed.liveHeadSequence = 1;
+    const before = structuredClone(changed);
+    const intended = resumed.document;
+    const result = resumed.accept(changed);
+    expect(result).toMatchObject({ ok: false, changed: false, diagnostics: [{ code: "SORTING_BASELINE_CHANGED" }] });
+    expect(result.document).toBe(changed);
+    expect(changed).toEqual(before);
+    expect(resumed.document).toEqual(intended);
+    expect(resumed.phase).toBe("sorting");
+  });
+
+  it("clears net deliberate moved marks at the original position, after Undo and Stash/restore", () => {
+    const [a, b, c] = [row(660), row(661), row(662)];
+    const baseline = documentWith([a, b, c]);
+    const trial = createSortingTrialV2(baseline);
+    expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, c.id, null) }).ok).toBe(true);
+    expect(trial.movedRowIds).toEqual([a.id]);
+    expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, null, b.id) }).ok).toBe(true);
+    expect(trial.movedRowIds).toEqual([]);
+    expect(trial.apply({ kind: "stash_rows", rowIds: [b.id], bundleId: id(663) }).ok).toBe(true);
+    expect(trial.movedRowIds).toEqual([b.id]);
+    expect(trial.apply({ kind: "restore_stash", bundleId: id(663), destination: gap(null, a.id, c.id) }).ok).toBe(true);
+    expect(trial.movedRowIds).toEqual([]);
+    expect(trial.undo().ok).toBe(true);
+    expect(trial.movedRowIds).toEqual([b.id]);
+    expect(trial.undo().ok).toBe(true);
+    expect(trial.movedRowIds).toEqual([]);
+    expect(trial.accept(baseline)).toMatchObject({ ok: true, changed: false });
+  });
+
+  it("keeps trial content read-only and refuses corrupt or oversized saved trials", () => {
+    const [a, b] = [row(670), row(671)];
+    const baseline = documentWith([a, b]);
+    const trial = createSortingTrialV2(baseline);
+    const contentEdit = { kind: "edit_stash_row", row: a } as unknown as RowEditCommandV2;
+    expect(trial.apply(contentEdit).diagnostics[0]?.code).toBe("SORTING_CONTENT_READ_ONLY");
+    expect(trial.undoDepth).toBe(0);
+    expect(trial.document).toEqual(baseline);
+    const saved = JSON.parse(trial.serialize());
+    saved.actions = [contentEdit];
+    expect(() => resumeSortingTrialV2(JSON.stringify(saved))).toThrow(/SORTING_CONTENT_READ_ONLY/);
+    saved.actions = [{ kind: "undo" }];
+    expect(() => resumeSortingTrialV2(JSON.stringify(saved))).toThrow(/ROW_UNDO_EMPTY/);
+    expect(() => resumeSortingTrialV2("x".repeat(5_000_001))).toThrow(/size limit/);
+    expect(() => resumeSortingTrialV2("null")).toThrow(/Invalid saved/);
+    saved.actions = Array.from({ length: 1001 }, () => ({ kind: "undo" }));
+    expect(() => resumeSortingTrialV2(JSON.stringify(saved))).toThrow(/Invalid saved/);
+  });
+
+  it("reuses transition/audio rules and refuses unsupported trial moves without adding history", () => {
+    const [a, b, c] = [row(680), row(681), row(682)];
+    const baseline = documentWith([a, b, c], {
+      rowAudioSpans: [audioSpan(683, a.id, b.id)],
+      rowTransitions: [{ id: id(684), fromRowId: a.id, toRowId: b.id, effect: "crossfade", settings: { frames: 5 }, state: "active" }],
+    });
+    const trial = createSortingTrialV2(baseline);
+    expect(trial.apply({ kind: "stash_rows", rowIds: [a.id], bundleId: id(685) }).diagnostics[0]?.code).toBe("AUDIO_REVIEW_REQUIRED");
+    expect(trial.undoDepth).toBe(0);
+    expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, c.id, null) }).ok).toBe(true);
+    expect(trial.document.rowAudioSpans?.[0]?.review?.alert).toBe("Music now ends with this row. Review");
+    expect(trial.document.rowTransitions?.[0]).toMatchObject({ state: "needs_review", settings: { frames: 5 } });
+    expect(baseline.rowAudioSpans?.[0]?.review).toBeUndefined();
+    expect(trial.undo().ok).toBe(true);
+    expect(trial.document.rowAudioSpans).toEqual(baseline.rowAudioSpans);
+    expect(trial.document.rowTransitions).toEqual(baseline.rowTransitions);
+    expect(trial.accept(baseline)).toMatchObject({ ok: true, changed: false });
+  });
+});
 
 describe("authoring v2 whole-row edits", () => {
   it("moves one row within its section and marks separated pair intents for review", () => {
