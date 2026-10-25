@@ -390,6 +390,117 @@ def test_same_rate_transform_fingerprint_must_match_asset() -> None:
         )
 
 
+def clock_fixture() -> Measured:
+    from vera_timeline_agent.narration.models import identity_hash
+    from vera_timeline_agent.narration.normalize import (
+        DEFAULT_PROFILE_ID,
+        NORMALIZER_VERSION,
+    )
+
+    fixture = Measured()
+    fixture.row["audio"]["durationSamples"] = 48_000
+
+    def qualify(value: dict[str, Any]) -> None:
+        asset = value["asset"]
+        asset["durationSamples"] = 48_000
+        asset.update(
+            rawAudioHash="sha256:" + "6" * 64,
+            toolFingerprint="sha256:" + "7" * 64,
+            normalizationProfile=DEFAULT_PROFILE_ID,
+        )
+        asset["normalizationHash"] = identity_hash(
+            {
+                "recordVersion": "normalization-key/v1",
+                "rawAudioHash": asset["rawAudioHash"],
+                "rawTimingHash": asset["timingHash"],
+                "profileId": DEFAULT_PROFILE_ID,
+                "toolFingerprint": asset["toolFingerprint"],
+                "normalizerVersion": NORMALIZER_VERSION,
+            }
+        )
+        clock = {
+            "method": "same_rate_linear_filter_clock/v1",
+            "actualMode": "linear",
+            "ffmpegVersion": "8.1.2",
+            "sampleRate": 48_000,
+            "sourceSamples": 48_000,
+            "outputSamples": 48_000,
+            "tailPaddingSamples": 0,
+            "originSamples": 0,
+            "delaySamples": 0,
+            "framesVerified": 2,
+        }
+        value["lag"].update(
+            rawSampleRate=48_000,
+            method="qualified_linear_transform",
+            uncertaintySamples=0,
+            windowsVerified=2,
+            milliseconds=0,
+            integerMilliseconds=0,
+            correlation=None,
+            transformVerification={
+                "method": "reproduced_pcm",
+                "normalizerVersion": NORMALIZER_VERSION,
+                "toolFingerprint": asset["toolFingerprint"],
+                "clock": clock,
+            },
+        )
+
+    fixture.retarget(qualify)
+    return fixture
+
+
+def test_independent_clock_and_replay_proof_is_admitted() -> None:
+    fixture = clock_fixture()
+    verify_measured_narration_evidence(
+        fixture.row, timing=fixture.timing, artifact=fixture.artifact
+    )
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("actualMode", "dynamic"),
+        ("delaySamples", 1),
+        ("originSamples", 1),
+        ("sourceSamples", 1),
+        ("outputSamples", SAMPLES + 1),
+        ("tailPaddingSamples", 1),
+        ("ffmpegVersion", "future"),
+        ("framesVerified", 0),
+        ("sampleRate", 192_000),
+    ],
+)
+def test_incomplete_or_unsupported_clock_proof_refuses(field: str, value: Any) -> None:
+    fixture = clock_fixture()
+    fixture.retarget(
+        lambda obj: obj["lag"]["transformVerification"]["clock"].update({field: value})
+    )
+    with pytest.raises(ProofBuildError, match="supported transform verification"):
+        verify_measured_narration_evidence(
+            fixture.row, timing=fixture.timing, artifact=fixture.artifact
+        )
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "rawAudioHash",
+        "timingHash",
+        "normalizationProfile",
+        "normalizationHash",
+        "toolFingerprint",
+    ],
+)
+def test_clock_proof_requires_exact_normalization_identity(field: str) -> None:
+    fixture = clock_fixture()
+    fixture.retarget(lambda obj: obj["asset"].update({field: "wrong"}))
+    with pytest.raises(ProofBuildError, match="supported transform verification"):
+        verify_measured_narration_evidence(
+            fixture.row, timing=fixture.timing, artifact=fixture.artifact
+        )
+
+
 def test_unclean_locators_are_refused() -> None:
     for locator in ("../escape.json", "/abs/path.json", "a//b.json", ""):
         fixture = Measured()
