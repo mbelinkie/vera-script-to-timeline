@@ -428,6 +428,8 @@ def load_resolve_adapter(local: LocalFacts) -> ResolveAdapter:
 class PublicResolveAdapter:
     """Thin checked wrapper around APIs documented by the installed SDK."""
 
+    _require_existing_timeline: bool = True
+
     def __init__(self, resolve: Any) -> None:
         self.resolve = resolve
         self.manager: Any = None
@@ -535,6 +537,8 @@ class PublicResolveAdapter:
             raise StudioSpikeError("current project has no callable GetCurrentTimeline")
         current_timeline = current.GetCurrentTimeline()
         if current_timeline is None:
+            if not self._require_existing_timeline:
+                return (*gaps, "Timeline APIs will be checked on the new target.")
             raise StudioSpikeError("current project has no timeline for API preflight")
         for method in ("GetTrackCount", "GetItemListInTrack"):
             if not callable(getattr(current_timeline, method, None)):

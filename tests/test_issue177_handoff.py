@@ -84,7 +84,9 @@ def test_v2_handoff_does_not_accept_v1_attestation(tmp_path: Path) -> None:
         load_verified_package_v2(attestation, sha256(attestation))
 
 
-@pytest.mark.parametrize("attack", [None, "tampered", "rehashed", "unauthorized-build"])
+@pytest.mark.parametrize(
+    "attack", [None, "local-scripting", "tampered", "rehashed", "unauthorized-build"]
+)
 def test_cli_request_binds_verified_package_and_owned_release(
     tmp_path: Path, attack: str | None
 ) -> None:
@@ -118,8 +120,10 @@ def test_cli_request_binds_verified_package_and_owned_release(
     ]
     if attack == "unauthorized-build":
         arguments += ["--action", "build"]
+    elif attack == "local-scripting":
+        arguments += ["--external-scripting-local"]
     result = main(arguments)
-    if attack is not None:
+    if attack in {"tampered", "rehashed", "unauthorized-build"}:
         assert result == 2
         assert not output.exists()
     else:
@@ -129,6 +133,9 @@ def test_cli_request_binds_verified_package_and_owned_release(
         assert request["attestationSha256"] == sha256(attestation)
         assert request["packageDir"] == str(case.project_root)
         assert request["action"] == "preflight"
+        assert request["externalScripting"] == (
+            "Local" if attack == "local-scripting" else None
+        )
 
 
 def test_release_reproducible_and_refuses_overwrite(tmp_path: Path) -> None:
@@ -166,10 +173,14 @@ def test_stdlib_bootstrap_retains_unique_refusals(tmp_path: Path) -> None:
         release / RELEASE_NAME / "request.json",
         request_value(release, evidence, package),
     )
-    first, second = launch(release), launch(release)
-    assert first.stdout != second.stdout
+    first, second, third = launch(release), launch(release), launch(release)
+    assert first.stdout != second.stdout != third.stdout
+    assert len(list(evidence.glob("started-*.json"))) == 1
+    assert len(list(evidence.glob("bootstrap-refusal-*.json"))) == 2
+    for replay in (second, third):
+        assert json.loads(replay.stdout)["status"] == "workflow_v2_launcher_failed"
     reports = list(evidence.glob("result-*.json"))
-    assert len(reports) == 2
+    assert len(reports) == 1
     for report in reports:
         value = read_object(report)
         assert value["schemaVersion"] == "vera-injected-delivery-result/v2"
@@ -250,7 +261,7 @@ def test_operator_request_refuses_before_native_or_package_mutation(
     elif attack == "digest":
         value["releaseSha256"] = "invalid"
     elif attack == "scripting":
-        value["externalScripting"] = "Local"
+        value["externalScripting"] = "Network"
     request = write_immutable_json(release / RELEASE_NAME / "request.json", value)
     with pytest.raises(ValueError):
         run_installed_request_v2(

@@ -434,7 +434,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--action", choices=("preflight", "build"), default="preflight"
     )
     request.add_argument("--authorize-new-nonproduction", action="store_true")
-    request.add_argument("--external-scripting-none", action="store_true")
+    scripting = request.add_mutually_exclusive_group()
+    scripting.add_argument("--external-scripting-none", action="store_true")
+    scripting.add_argument("--external-scripting-local", action="store_true")
     authorize = commands.add_parser("capability-authorize")
     authorize.add_argument("--release", type=Path, required=True)
     authorize.add_argument("--approval", type=Path, required=True)
@@ -889,7 +891,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise ValueError("request/evidence must be outside package")
             if arguments.action == "build" and not (
                 arguments.authorize_new_nonproduction
-                and arguments.external_scripting_none
+                and (
+                    arguments.external_scripting_none
+                    or arguments.external_scripting_local
+                )
             ):
                 raise ValueError("build requires both operator authorizations")
             release_manifest = _verify_release(arguments.release)
@@ -906,7 +911,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "action": arguments.action,
                     "authorizeNewNonproduction": arguments.authorize_new_nonproduction,
                     "externalScripting": (
-                        "None" if arguments.external_scripting_none else None
+                        "Local"
+                        if arguments.external_scripting_local
+                        else "None"
+                        if arguments.external_scripting_none
+                        else None
                     ),
                     "evidenceDir": str(arguments.evidence_dir.absolute()),
                 },

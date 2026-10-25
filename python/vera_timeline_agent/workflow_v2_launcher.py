@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
-import uuid
 from pathlib import Path
 from typing import Any
 
@@ -91,7 +91,7 @@ def run_installed_request_v2(
     if any(
         re.fullmatch(r"[0-9a-f]{64}", request[key]) is None
         for key in ("releaseSha256", "attestationSha256")
-    ) or request["externalScripting"] not in (None, "None"):
+    ) or request["externalScripting"] not in (None, "None", "Local"):
         raise ValueError("invalid operator request digest or scripting setting")
     if (
         request["action"] not in {"preflight", "build"}
@@ -111,13 +111,15 @@ def run_installed_request_v2(
     ):
         raise ValueError("evidence must be outside the package with no symbolic links")
     evidence.mkdir(mode=0o700, parents=True, exist_ok=True)
-    run_id = uuid.uuid4().hex
+    # Reserve this exact request once, including when a caller loses its reply.
+    run_id = request_sha256
     context = {
         "requestSha256": request_sha256,
         "releaseSha256": request["releaseSha256"],
         "attestationSha256": request["attestationSha256"],
         "requestedProjectName": request["projectName"],
         "requestedTimelineName": request["timelineName"],
+        "parentInvocationId": os.environ.get("VERA_DELIVERY_PARENT_ID"),
     }
     write_immutable_json(evidence / f"started-{run_id}.json", context)
     try:
