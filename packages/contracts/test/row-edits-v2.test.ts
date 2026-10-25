@@ -762,6 +762,12 @@ describe("authoring v2 whole-row edits", () => {
       expect(result.document).toBe(document);
     }
     document.rowAudioSpans = [audioSpan(550, b.id, a.id)];
-    expect(applyRowEditV2(document, 0, commands[0]!).diagnostics[0]?.code).toBe("AUDIO_REVIEW_REQUIRED");
+    expect(applyRowEditV2(document, 0, { kind: "move_rows", rowIds: [a.id], destination: gap(second, null, b.id) }).diagnostics[0]?.code).toBe("AUDIO_REVIEW_REQUIRED");
+    expect(applyRowEditV2(document, 0, { kind: "move_rows", rowIds: [x.id], destination: gap(null, null, null) }).ok).toBe(true);
+    const acrossBoundary = documentWith([section(540, "First"), a, x, section(541, "Second"), b], { rowAudioSpans: [audioSpan(550, a.id, b.id)] });
+    const result = applyRowEditV2(acrossBoundary, 0, { kind: "move_rows", rowIds: [x.id], destination: gap(second, null, b.id) });
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics[0]?.code).toBe("AUDIO_REVIEW_REQUIRED");
+    expect(result.document).toBe(acrossBoundary);
   });
 });

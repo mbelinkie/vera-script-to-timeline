@@ -99,7 +99,8 @@ function updateRelationships(before: ScriptDocumentV2, after: ScriptDocumentV2, 
     const rows = document.activeDraft.blocks.filter((row) => row.type !== "section");
     const from = rows.findIndex((row) => row.id === start);
     const to = rows.findIndex((row) => row.id === end);
-    return from >= 0 && to >= from ? rows.slice(from, to + 1).map((row) => row.id) : null;
+    // Even reversed endpoints bound a safety fence, never an inferred audible span.
+    return from >= 0 && to >= 0 ? rows.slice(Math.min(from, to), Math.max(from, to) + 1).map((row) => row.id) : null;
   };
   const covered = (parts: Section[], start: string, end: string): string[] | null => {
     const part = parts.find((part) => part.rows.some((row) => row.id === start));
@@ -112,8 +113,7 @@ function updateRelationships(before: ScriptDocumentV2, after: ScriptDocumentV2, 
     const nextRows = covered(nextLocations, span.startRowId, span.endRowId);
     const oldFlat = flattenedCoverage(before, span.startRowId, span.endRowId);
     const nextFlat = flattenedCoverage(after, span.startRowId, span.endRowId);
-    if (!oldRows && !oldFlat) return diagnostic("AUDIO_REVIEW_REQUIRED", "This audio span has no ordered row coverage. Review it before editing rows.");
-    const touches = moved.has(span.startRowId) || moved.has(span.endRowId) || oldRows?.some((id) => moved.has(id)) || JSON.stringify(oldRows) !== JSON.stringify(nextRows) || JSON.stringify(oldFlat) !== JSON.stringify(nextFlat);
+    const touches = moved.has(span.startRowId) || moved.has(span.endRowId) || oldRows?.some((id) => moved.has(id)) || oldFlat?.some((id) => moved.has(id)) || JSON.stringify(oldRows) !== JSON.stringify(nextRows) || JSON.stringify(oldFlat) !== JSON.stringify(nextFlat);
     if (!touches) continue;
     const problem = () => diagnostic("AUDIO_REVIEW_REQUIRED", "This audio-span edit has no adopted audible policy. Review it explicitly before moving these rows.");
     if (!oldRows || command.kind === "stash_rows" || command.kind === "restore_stash") return problem();
