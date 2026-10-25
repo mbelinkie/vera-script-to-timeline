@@ -888,6 +888,16 @@ class QualificationOutputProofV2:
             inference_decision = self._accepted_inference()
             candidate_raw = _read(self.root / "proposal.json")
             candidate = _parse(candidate_raw)
+            _require(
+                candidate["inferenceDecision"] == inference_decision
+                and candidate["inferenceHistory"] == [],
+                "proposal differs from the retained inference decision",
+            )
+            _require(
+                candidate["request"]["handoff"]
+                == self._regenerated_handoff(self._stage()),
+                "candidate bypasses verified whole-row regeneration",
+            )
             result = self._pure(
                 {
                     "mode": "decide",
