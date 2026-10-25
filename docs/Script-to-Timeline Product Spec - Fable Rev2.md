@@ -1883,7 +1883,8 @@ only that boundary changed; the paragraph text and anchors are untouched.
 
 **Phase 5 gate:** one continuous narration passage resolves a logged clip, a
 webpage capture, a direct image URL, a local image, and a local video; keeps
-full images visible; applies the drift for exactly its range; and produces the
+the accepted fit/crop policy; applies configured image motion for exactly its
+range; and produces the
 independently selected transition at each boundary without shifting narration
 timing — in both delivery modes.
 
