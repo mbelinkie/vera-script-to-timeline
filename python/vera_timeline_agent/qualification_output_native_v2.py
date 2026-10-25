@@ -8,6 +8,7 @@ against the already-open, already-saved disposable target.
 
 from __future__ import annotations
 
+import dataclasses
 import getpass
 import hashlib
 import hmac
@@ -19,6 +20,9 @@ import stat
 import struct
 import sys
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from fractions import Fraction
@@ -43,6 +47,34 @@ from .qualification_output_records_v2 import (
     _shape,
     validate_temporary_presenter_report,
 )
+
+
+@dataclasses.dataclass
+class _VerificationTraversal:
+    results: dict[tuple[Path, str], dict[str, Any]] = dataclasses.field(
+        default_factory=dict
+    )
+    histories: dict[str, list[dict[str, Any]]] = dataclasses.field(default_factory=dict)
+
+
+_VERIFICATION: ContextVar[_VerificationTraversal | None] = ContextVar(
+    "native_result_verification", default=None
+)
+
+
+@contextmanager
+def _verification_scope() -> Iterator[_VerificationTraversal]:
+    traversal = _VERIFICATION.get()
+    if traversal is not None:
+        yield traversal
+        return
+    traversal = _VerificationTraversal()
+    token = _VERIFICATION.set(traversal)
+    try:
+        yield traversal
+    finally:
+        _VERIFICATION.reset(token)
+
 
 REQUEST_SCHEMA = "qualification-output-native-request/v1"
 AUTHORITY_SCHEMA = "qualification-output-native-authority/v1"
@@ -1916,6 +1948,17 @@ def _verify_intent(
 
 def _host_attempt_history(context: dict[str, Any]) -> list[dict[str, Any]]:
     """Authenticate the fixed complete host attempt chain for this UID case."""
+    traversal = _VERIFICATION.get()
+    key = _chain_key(context)
+    if traversal is not None and key in traversal.histories:
+        return traversal.histories[key]
+    rows = _verify_host_attempt_history(context)
+    if traversal is not None:
+        traversal.histories[key] = rows
+    return rows
+
+
+def _verify_host_attempt_history(context: dict[str, Any]) -> list[dict[str, Any]]:
     chain = {
         "projectUid": context["target"]["projectUid"],
         "timelineUid": context["target"]["timelineUid"],
@@ -1951,6 +1994,7 @@ def _host_attempt_history(context: dict[str, Any]) -> list[dict[str, Any]]:
         }
     )
     rows: list[dict[str, Any]] = []
+    verified_artifacts: set[str] = set()
     previous = EMPTY_HEAD
     last: dict[str, dict[str, Any]] = {}
     for sequence, (entry_path, pending_path, head_path) in enumerate(
@@ -2144,13 +2188,14 @@ def _host_attempt_history(context: dict[str, Any]) -> list[dict[str, Any]]:
             "resultRawSha256",
         ):
             digest = row[field]
-            if digest is not None:
+            if digest is not None and digest not in verified_artifacts:
                 artifact = _read(
                     artifact_root / digest,
                     "host retained attempt artifact",
                     maximum=48_000_000,
                 )
                 _require(_hash(artifact) == digest, "host retained artifact changed")
+                verified_artifacts.add(digest)
         rows.append(row)
     return rows
 
@@ -5420,8 +5465,9 @@ def _verify_render_lineage(
     queue_raw = _read(queue_path, "native queue receipt")
     start_raw = _read(start_path, "native start receipt")
     queue_sha, start_sha = _hash(queue_raw), _hash(start_raw)
-    queue = verify_native_result(queue_path, queue_sha)
-    start = verify_native_result(start_path, start_sha)
+    with _verification_scope():
+        queue = verify_native_result(queue_path, queue_sha)
+        start = verify_native_result(start_path, start_sha)
     _require(
         all(
             result["status"] == "complete"
@@ -6321,6 +6367,15 @@ def _verify_effect_ledger(result: dict[str, Any]) -> None:
 
 def verify_native_result(result_path: Path, expected_sha256: str) -> dict[str, Any]:
     """Verify historical native evidence through its retained request/effect chain."""
+    # Only completed checks are shared; every later operation starts fresh.
+    with _verification_scope() as traversal:
+        key = (_path(str(result_path), "native result"), _digest(expected_sha256))
+        if key not in traversal.results:
+            traversal.results[key] = _verify_native_result(*key)
+        return traversal.results[key]
+
+
+def _verify_native_result(result_path: Path, expected_sha256: str) -> dict[str, Any]:
     path = _path(str(result_path), "native result")
     raw = _read(path, "native result")
     _require(_hash(raw) == _digest(expected_sha256), "native result digest differs")
@@ -6636,6 +6691,13 @@ def verified_render_failure(
     context: dict[str, Any],
 ) -> tuple[Path, str, dict[str, Any]]:
     """Authenticate the one original terminal failure and its queue/start lineage."""
+    with _verification_scope():
+        return _verified_render_failure(context)
+
+
+def _verified_render_failure(
+    context: dict[str, Any],
+) -> tuple[Path, str, dict[str, Any]]:
     path, digest, result = _native_result_at(context, len(APPROVAL_ACTION_PLAN) - 2)
     _require(
         result["sequence"] == len(APPROVAL_ACTION_PLAN) - 2
@@ -6737,6 +6799,18 @@ def native_action(context: dict[str, Any], sequence: int) -> str:
 
 
 def _native_operation_tail(
+    context: dict[str, Any],
+    *,
+    prepared_sequence: int | None = None,
+    allow_retry: bool = False,
+) -> tuple[int, str]:
+    with _verification_scope():
+        return _verify_native_operation_tail(
+            context, prepared_sequence=prepared_sequence, allow_retry=allow_retry
+        )
+
+
+def _verify_native_operation_tail(
     context: dict[str, Any],
     *,
     prepared_sequence: int | None = None,

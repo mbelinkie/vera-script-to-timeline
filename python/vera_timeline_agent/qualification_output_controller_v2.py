@@ -2913,12 +2913,16 @@ class QualificationOutputController:
         completed: tuple[Path, str],
     ) -> bytes:
         """Bind the exact job and the authenticated complete native attempt chain."""
-        from .qualification_output_native_v2 import verify_native_result
+        from .qualification_output_native_v2 import (
+            _verification_scope,
+            verify_native_result,
+        )
 
-        queue, start, completion = [
-            verify_native_result(path, digest)
-            for path, digest in (queued, started, completed)
-        ]
+        with _verification_scope():
+            queue, start, completion = [
+                verify_native_result(path, digest)
+                for path, digest in (queued, started, completed)
+            ]
         for result, action in (
             (queue, "queue_render"),
             (start, "start_render"),
