@@ -14,7 +14,8 @@
     "acceptance": "vitest run test/acceptance.test.ts --testTimeout=120000 --reporter=verbose",
     "lint": "eslint src test --max-warnings=0",
     "typecheck": "tsc --project tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:fast": "vitest run test/integrity.test.ts test/policy.test.ts"
   },
   "dependencies": {
     "@vera/contracts": "0.0.0",

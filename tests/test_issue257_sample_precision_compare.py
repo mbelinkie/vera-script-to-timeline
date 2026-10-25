@@ -22,6 +22,8 @@ from vera_timeline_agent.sample_precision_compare_v2 import (
     compare_pcm,
 )
 
+pytestmark = pytest.mark.slow
+
 
 def _source_wav(samples: list[int]) -> tuple[bytes, bytes]:
     pcm = b"".join(sample.to_bytes(3, "little", signed=True) for sample in samples)

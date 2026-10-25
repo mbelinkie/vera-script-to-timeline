@@ -18,6 +18,8 @@ from vera_timeline_agent import sample_precision_compare_v2 as compare_module
 from vera_timeline_agent import sample_precision_probe_v2 as probe
 from vera_timeline_agent import workflow_v2_cli
 
+pytestmark = pytest.mark.slow
+
 _probe_fixtures: Any = importlib.import_module("test_issue257_sample_precision_probe")
 _environment = _probe_fixtures._environment
 _NativeState = _probe_fixtures._NativeState

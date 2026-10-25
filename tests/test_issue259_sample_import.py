@@ -24,6 +24,8 @@ from vera_timeline_agent import workflow_v2_cli
 from vera_timeline_agent.workflow_package import sha256
 from vera_timeline_agent.workflow_v2_launcher import run_installed_request_v2
 
+pytestmark = pytest.mark.slow
+
 _fixtures: Any = importlib.import_module("test_issue257_sample_precision_probe")
 _environment = _fixtures._environment
 _NativeState = _fixtures._NativeState

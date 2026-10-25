@@ -9,6 +9,7 @@
   "scripts": {
     "lint": "eslint src test --max-warnings=0",
     "typecheck": "tsc --project tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:fast": "vitest run"
   }
 }
