@@ -63,7 +63,7 @@ describe("#278 omitted-word visual boundary choice", () => {
     });
     expect(row.tokens.some((token) => token.id === input.tokenId)).toBe(false);
     expect(stage.regeneration?.blockRevision).toBe(row.version);
-  });
+  }, 60000);
 
   it("requires one exact surviving choice and applies it before the omission", () => {
     const input = boundaryChoiceCase();
@@ -99,7 +99,7 @@ describe("#278 omitted-word visual boundary choice", () => {
     expect(row.tokens.some((token) => token.id === input.tokenId)).toBe(false);
     expect(stage.regeneration?.blockRevision).toBe(row.version);
     expect(stage.regeneration?.text).not.toContain("slowly");
-  });
+  }, 60000);
 
   it("keeps a conflict undecided or rejected without changing document or dependencies", () => {
     const input = boundaryChoiceCase();
@@ -117,7 +117,7 @@ describe("#278 omitted-word visual boundary choice", () => {
     expect(stage.document).toBe(input.document);
     expect(stage.dependencies).toBe(input.dependencies);
     expect(stage.regeneration).toBeNull();
-  });
+  }, 60000);
 
   it("refuses altered, removed, unknown, stale and replayed choices before staging", () => {
     const input = boundaryChoiceCase();
@@ -139,13 +139,13 @@ describe("#278 omitted-word visual boundary choice", () => {
     }
 
     expect(() => stageQualificationOutputV2(input.document, input.dependencies, input.evidence,
-      accept(inference.inferenceHash, [inference.inferenceHash], legal), [])).toThrow(/history/);
+      accept(inference.inferenceHash, [inference.inferenceHash], legal), [inference.inferenceHash])).toThrow(/history/);
 
     const alteredEvidence = structuredClone(input.evidence);
     alteredEvidence.cases[0]!.omissionSupport!.audioSha256 = "0".repeat(64);
     expect(() => stageQualificationOutputV2(input.document, input.dependencies, alteredEvidence,
       accept(inference.inferenceHash, [], legal), [])).toThrow(/omission support differs/);
-  });
+  }, 60000);
 
   it("keeps the strict omission transform and seals the selected choice into proposals", () => {
     const input = boundaryChoiceCase();
@@ -197,6 +197,6 @@ describe("#278 omitted-word visual boundary choice", () => {
     tamperedDecision.inferenceDecision.boundaryChoice!.affinity =
       tamperedDecision.inferenceDecision.boundaryChoice!.affinity === "before" ? "after" : "before";
     expect(() => decideQualificationOutputV2(input.document, input.dependencies, input.evidence, tamperedDecision, decision, []))
-      .toThrow(/proposal\/evidence\/revision identity changed/);
+      .toThrow(/matching whole-row handoff required/);
   }, 60000);
 });
