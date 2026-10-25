@@ -1166,6 +1166,8 @@ def _marker_stamp(marker: Mapping[str, Any]) -> str:
 class PublicResolveAdapter(AcceptedDeliveryAdapter):
     """The accepted #109 target guard with v2-only placement and readback."""
 
+    _require_existing_timeline = False
+
     def __init__(self, resolve: Any) -> None:
         super().__init__(resolve)
         self._v2_root: Path = Path(".")
@@ -1986,7 +1988,8 @@ def run_workflow_delivery_v2(
         if action not in {"preflight", "build"}:
             raise WorkflowV2Error("action must be preflight or build")
         if action == "build" and (
-            authorize_new_nonproduction is not True or external_scripting != "None"
+            authorize_new_nonproduction is not True
+            or external_scripting not in {"None", "Local"}
         ):
             raise WorkflowV2Error("build requires both operator authorizations")
         package = load_verified_package_v2(attestation_path, attestation_sha256)
