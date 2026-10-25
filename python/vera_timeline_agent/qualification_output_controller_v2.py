@@ -21,6 +21,7 @@ import time
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
+from contextvars import ContextVar
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -86,9 +87,13 @@ FINALIZE_REFUSAL_FIELDS = frozenset(
     }
 )
 FINALIZE_CLOCK_SCHEMA = "qualification-output-finalize-clock/v1"
-# Largest backward OS wall step a completed render may recheck across. The
+# Largest backward OS wall step a controller operation may recheck across. The
 # measured backward steps were 57-189 ms; expiry windows are minutes long.
 FINALIZE_CLOCK_STEP_ALLOWANCE_SECONDS = 1.0
+# One mutable sample slot shared only by nested clocks in this request's checks.
+_REQUEST_CLOCK_SAMPLE: ContextVar[list[tuple[datetime, float]] | None] = ContextVar(
+    "request_clock_sample", default=None
+)
 HOST_STATE_ROOT = (
     Path.home()
     / "Library/Application Support/VERA/qualification-output-host/v1/attempts"
@@ -1186,7 +1191,7 @@ class HostClockRegression(OutputConsistencyError):
 
     macOS ``timed`` steps the wall clock with settimeofday, measured on the
     qualification Mac at -189 ms to +971 ms roughly hourly; A11's refusal
-    followed a -63.8 ms step. Only finalization may recheck a bounded lag.
+    followed a -63.8 ms step. Selected pre-write operations may recheck once.
     """
 
     def __init__(self, diagnostics: Json) -> None:
@@ -1199,6 +1204,15 @@ class HostClockRegression(OutputConsistencyError):
             self.diagnostics["classification"] == "wall_lag"
             and self.diagnostics["lagSeconds"] <= FINALIZE_CLOCK_STEP_ALLOWANCE_SECONDS
         )
+
+
+@contextmanager
+def _request_clock_scope() -> Iterator[None]:
+    token = _REQUEST_CLOCK_SAMPLE.set([])
+    try:
+        yield
+    finally:
+        _REQUEST_CLOCK_SAMPLE.reset(token)
 
 
 class _ControllerTrust:
@@ -1214,34 +1228,41 @@ class _ControllerTrust:
         before = time.monotonic()
         now = datetime.now(UTC)
         after = time.monotonic()
-        elapsed = before - self.monotonic
-        wall_elapsed = (now - self.wall).total_seconds()
-        if not (
-            elapsed >= 0
-            and now >= self.wall
-            and wall_elapsed + 0.000002 + elapsed * 0.0005 >= elapsed
-        ):
-            raise HostClockRegression(
-                {
-                    "classification": (
-                        "monotonic_regression" if elapsed < 0 else "wall_lag"
-                    ),
-                    "priorWall": _iso(self.wall),
-                    "observedWall": _iso(now),
-                    "monotonicElapsedSeconds": elapsed,
-                    "wallElapsedSeconds": wall_elapsed,
-                    "lagSeconds": elapsed - wall_elapsed,
-                    "lagPartsPerMillion": (
-                        (elapsed - wall_elapsed) / elapsed * 1_000_000
-                        if elapsed > 0
-                        else None
-                    ),
-                    "toleranceSeconds": 0.000002 + max(elapsed, 0) * 0.0005,
-                    "samplingWindowSeconds": after - before,
-                    "wallBeforePriorSample": now < self.wall,
-                }
-            )
+        sample = _REQUEST_CLOCK_SAMPLE.get()
+        anchors = [(self.wall, self.monotonic)]
+        if sample is not None:
+            anchors.extend(sample)
+        for wall, monotonic in anchors:
+            elapsed = before - monotonic
+            wall_elapsed = (now - wall).total_seconds()
+            if not (
+                elapsed >= 0
+                and now >= wall
+                and wall_elapsed + 0.000002 + elapsed * 0.0005 >= elapsed
+            ):
+                raise HostClockRegression(
+                    {
+                        "classification": (
+                            "monotonic_regression" if elapsed < 0 else "wall_lag"
+                        ),
+                        "priorWall": _iso(wall),
+                        "observedWall": _iso(now),
+                        "monotonicElapsedSeconds": elapsed,
+                        "wallElapsedSeconds": wall_elapsed,
+                        "lagSeconds": elapsed - wall_elapsed,
+                        "lagPartsPerMillion": (
+                            (elapsed - wall_elapsed) / elapsed * 1_000_000
+                            if elapsed > 0
+                            else None
+                        ),
+                        "toleranceSeconds": 0.000002 + max(elapsed, 0) * 0.0005,
+                        "samplingWindowSeconds": after - before,
+                        "wallBeforePriorSample": now < wall,
+                    }
+                )
         self.wall, self.monotonic = now, after
+        if sample is not None:
+            sample[:] = [(now, after)]
         return now
 
     def authenticate(self, kind: str, receipt: bytes, expected: Json) -> None:
@@ -1436,25 +1457,13 @@ class QualificationOutputController:
         for field, raw in inputs.blobs.items():
             _require(_hash(raw) == self.context[field], "input bytes differ")
 
-    def prepare_native_request(
-        self,
-        action: str,
-        payload: Json,
-        *,
-        approval_path: Path,
-        reservation: bytes | None = None,
-        reservation_receipt: bytes | None = None,
-        render_intent: bytes | None = None,
-    ) -> Path:
-        """Prepare one static action under genuine existing operator authority."""
+    def _native_request_preflight(
+        self, action: str, approval_path: Path
+    ) -> tuple[bytes, Json, int, str | None, datetime]:
+        """Repeatable checks only; never create or consume a native slot."""
         from .qualification_output_native_v2 import (
-            AUTHORITY_SCHEMA,
-            INTENT_SCHEMA,
-            REQUEST_SCHEMA,
             native_action,
-            native_request_paths,
             next_native_operation,
-            verify_native_request,
             verify_operator_approval,
         )
         from .workflow_v2_cli import _verify_output_release
@@ -1490,12 +1499,58 @@ class QualificationOutputController:
             action == native_action(self.context, sequence),
             "native action must follow the fixed reviewed stage order",
         )
+        now = self.trust.checked_now()
+        if not read_only_action:
+            _require(
+                datetime.fromisoformat(approval["issuedAt"])
+                <= now
+                < datetime.fromisoformat(approval["expiresAt"]),
+                "operator approval expired or not yet live",
+            )
+        return approval_raw, approval, sequence, prior_head, now
+
+    @_request_clock_scope()
+    def prepare_native_request(
+        self,
+        action: str,
+        payload: Json,
+        *,
+        approval_path: Path,
+        reservation: bytes | None = None,
+        reservation_receipt: bytes | None = None,
+        render_intent: bytes | None = None,
+    ) -> Path:
+        """Prepare one static action under genuine existing operator authority."""
+        from .qualification_output_native_v2 import (
+            AUTHORITY_SCHEMA,
+            INTENT_SCHEMA,
+            REQUEST_SCHEMA,
+            native_request_paths,
+            verify_native_request,
+        )
+
+        for recheck in (False, True):
+            try:
+                approval_raw, approval, sequence, prior_head, checked = (
+                    self._native_request_preflight(action, approval_path)
+                )
+                break
+            except HostClockRegression as error:
+                if recheck:
+                    self._retain_request_clock_record(
+                        action, error.diagnostics, "terminal"
+                    )
+                elif self._prepare_clock_recheck(
+                    error, stage="request_preparation", action=action
+                ):
+                    continue
+                raise
         result_path, authority_path, intent_path, request_path = native_request_paths(
             self.context, sequence
         )
         _safe(request_path)
         operation_id = str(uuid.uuid4())
-        now = self.trust.checked_now().isoformat().replace("+00:00", "Z")
+        now = _iso(checked)
         request_path.parent.mkdir(mode=0o700, parents=True, exist_ok=False)
         authority: Json = {
             "schemaVersion": AUTHORITY_SCHEMA,
@@ -2283,8 +2338,31 @@ class QualificationOutputController:
         if not marker.exists():
             _publish(marker, raw)
 
-    def _prepare_finalize_clock_recheck(
-        self, error: HostClockRegression, *, result_sha256: str, stage: str
+    def _retain_request_clock_record(
+        self, action: str, diagnostics: Json, outcome: str
+    ) -> None:
+        raw = _canonical(
+            {
+                "schemaVersion": "qualification-output-request-clock/v1",
+                "lane": LANE,
+                "context": self.context,
+                "action": action,
+                "outcome": outcome,
+                "diagnostics": diagnostics,
+            }
+        )
+        digest = self.journal._retain(raw)
+        marker = self.journal.directory / f"request-clock-{digest}.json"
+        if not marker.exists():
+            _publish(marker, raw)
+
+    def _prepare_clock_recheck(
+        self,
+        error: HostClockRegression,
+        *,
+        stage: str,
+        result_sha256: str | None = None,
+        action: str | None = None,
     ) -> bool:
         """Permit one full recheck after a bounded measured OS wall step.
 
@@ -2296,6 +2374,9 @@ class QualificationOutputController:
         high_water = max(
             datetime.fromisoformat(diagnostics["priorWall"]), self.trust.wall
         )
+        sample = _REQUEST_CLOCK_SAMPLE.get()
+        if sample:
+            high_water = max(high_water, sample[0][0])
         permitted = error.recheckable
         wall, monotonic = self.trust.wall, self.trust.monotonic
         if permitted:
@@ -2314,20 +2395,28 @@ class QualificationOutputController:
             permitted = (
                 wall >= high_water
                 and monotonic >= self.trust.monotonic
+                and (not sample or monotonic >= sample[0][1])
                 and controller_lag <= FINALIZE_CLOCK_STEP_ALLOWANCE_SECONDS
             )
-        self._retain_finalize_clock_record(
-            result_sha256=result_sha256,
-            stage=stage,
-            diagnostics=diagnostics,
-            outcome="recheck" if permitted else "terminal",
-        )
+        outcome = "recheck" if permitted else "terminal"
+        if action is not None:
+            self._retain_request_clock_record(action, diagnostics, outcome)
+        else:
+            assert result_sha256 is not None
+            self._retain_finalize_clock_record(
+                result_sha256=result_sha256,
+                stage=stage,
+                diagnostics=diagnostics,
+                outcome=outcome,
+            )
         if permitted:
             # Anchor to the validated readings, so a rollback during the
             # bookkeeping above is still caught by the next checked_now.
             trust = _ControllerTrust(self.vault, self.admission)
             trust.wall, trust.monotonic = wall, monotonic
             self.trust = trust
+            if sample is not None:
+                sample[:] = [(wall, monotonic)]
         return permitted
 
     def finalize_output(self, result_path: Path, result_sha256: str) -> Path:
@@ -2425,7 +2514,7 @@ class QualificationOutputController:
                             diagnostics=error.diagnostics,
                             outcome="terminal",
                         )
-                    elif self._prepare_finalize_clock_recheck(
+                    elif self._prepare_clock_recheck(
                         error, result_sha256=result_sha256, stage=stage
                     ):
                         return None

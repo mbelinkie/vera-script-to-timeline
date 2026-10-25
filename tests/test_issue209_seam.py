@@ -17,6 +17,7 @@ from vera_timeline_agent.qualification_output_controller_v2 import (
     HostClockRegression,
     OutputAttemptJournal,
     QualificationOutputController,
+    _ControllerTrust,
     _hash,
 )
 from vera_timeline_agent.qualification_output_records_v2 import _canonical, _parse
@@ -524,12 +525,19 @@ def test_clock_refusal_leaves_no_native_slot_and_can_retry(
     operation_root = request_path.parent
     operations_root = operation_root.parent
     calls = 0
+    controller.trust = _ControllerTrust(None, None)  # type: ignore[arg-type]
 
     def fail_first_clock_sample() -> datetime:
         nonlocal calls
         calls += 1
         if calls == 1:
-            raise HostClockRegression({"classification": "wall_lag", "lagSeconds": 0.1})
+            raise HostClockRegression(
+                {
+                    "classification": "wall_lag",
+                    "lagSeconds": 2.0,
+                    "priorWall": controller.trust.wall.isoformat(),
+                }
+            )
         return datetime.now(UTC)
 
     monkeypatch.setattr(controller.trust, "checked_now", fail_first_clock_sample)
