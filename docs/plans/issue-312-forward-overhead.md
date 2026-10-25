@@ -244,3 +244,27 @@ This fixes a concrete native verification failure; it is not a performance
 optimization commit. No baseline or target is frozen yet. The failed target
 stays retained; a separately attested fresh target/release must verify with
 the correction before any successful native rehearsal claim.
+
+## Parked at Matthew's direction
+
+Matthew selected #324/#325 as the next active pair and parked #312. The
+converted-clock fix and 55 passing focused tests were pushed as `be6116c7`.
+No further tests/media/native/review work is running. Resolve and the media CPU
+slot are released. The first parent is terminal `verification_failed`; its
+partial target and read-only diagnostic are retained.
+
+The corrected fresh request was **prepared but never dispatched**:
+`out/issue312/rehearsal-release-v2/vera-delivery-v2/request.json`, SHA256
+`8af519ce1bd34969233c682182c1e6bdbe639accc2d6ca008b93dc1b3c80411e`.
+There is no second native operation to resume. On a future explicit resume,
+recheck resources/current source and rebuild any stale request/release into a
+new directory before dispatch. Never replay the first consumed request or
+reuse/overwrite its retained target.
+
+Remaining: real fresh save/reopen verification with the correction, supported
+reverse-edit rehearsal, full-density fixture freeze, continuous forward/reverse
+baseline, recorded numeric overhead target before optimization, successful
+paired optimization measurements, fast gate, completed final Claude review,
+exact-head full green CI and protected merge/External closure. Neither a replay
+passing nor this checkpoint satisfies the actual native acceptance criteria.
+No timers, monitors, successor dispatch or automatic resume are authorized.
