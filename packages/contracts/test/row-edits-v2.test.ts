@@ -508,6 +508,21 @@ describe("authoring v2 whole-row edits", () => {
     expect(refused.document).toEqual(duplicateBundle);
   });
 
+  it("distinguishes a standalone row identity from its payload without rejecting shared media references", () => {
+    const standalone: VisualOnlyBlockV2 = {
+      type: "visual_only", id: id(600), orderKey: "a0", version: 1,
+      payload: { kind: "visual", payloadId: id(600), pictureKind: "image", source: { kind: "media_reference", mediaReferenceId: id(600) }, audioPolicy: "mute", framingPolicy: "contain" },
+      visualOnlyTiming: { kind: "visual_only" },
+    };
+    const document = documentWith([standalone]);
+    expect(validateScriptDocumentV2(document).diagnostics).toContainEqual(expect.objectContaining({ code: "ENTITY_ID_DUPLICATE", jsonPath: "/activeDraft/blocks/0/payload/payloadId" }));
+    standalone.id = id(601);
+    expect(validateScriptDocumentV2(document)).toEqual({ valid: true, diagnostics: [] });
+    const stashed = applyRowEditV2(document, 0, { kind: "stash_rows", rowIds: [standalone.id], bundleId: id(602) });
+    expect(stashed.ok).toBe(true);
+    expect(validateScriptDocumentV2(stashed.document)).toEqual({ valid: true, diagnostics: [] });
+  });
+
   it("keeps stale parked timing as a serialized warning", () => {
     const active = row(100000);
     const parked = richNarration(360);
