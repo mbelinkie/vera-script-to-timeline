@@ -6,8 +6,10 @@ import fcntl
 import hashlib
 import json
 import os
+import subprocess
 import sys
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -93,7 +95,7 @@ def _patch_popen(
         held_fds.append(os.dup(kwargs["pass_fds"][0]))
         return object()
 
-    monkeypatch.setattr(workflow_v2_parent.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
     return commands, held_fds
 
 
@@ -349,9 +351,9 @@ def test_wait_timeout_after_sixty_seconds_stays_live_without_redispatch(
         workflow_v2_parent.start(request_path, expected, Path("ResolvePython"))
         started = workflow_v2_parent._read(evidence / "parent.json")["monotonicStarted"]
         clock = {"now": started + 61.0}
-        monkeypatch.setattr(workflow_v2_parent.time, "monotonic", lambda: clock["now"])
+        monkeypatch.setattr(time, "monotonic", lambda: clock["now"])
         monkeypatch.setattr(
-            workflow_v2_parent.time,
+            time,
             "sleep",
             lambda seconds: clock.__setitem__("now", clock["now"] + seconds),
         )
@@ -362,7 +364,7 @@ def test_wait_timeout_after_sixty_seconds_stays_live_without_redispatch(
         assert clock["now"] >= started + 62.0
 
         monkeypatch.setattr(
-            workflow_v2_parent.sys,
+            sys,
             "argv",
             [
                 "workflow_v2_parent.py",
@@ -605,7 +607,7 @@ def test_corrupt_active_host_pointer_fails_closed_before_dispatch(
     commands, held_fds = _patch_popen(monkeypatch)
     try:
         monkeypatch.setattr(
-            workflow_v2_parent.sys,
+            sys,
             "argv",
             [
                 "workflow_v2_parent.py",

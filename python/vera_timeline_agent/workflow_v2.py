@@ -1166,6 +1166,8 @@ def _marker_stamp(marker: Mapping[str, Any]) -> str:
 class PublicResolveAdapter(AcceptedDeliveryAdapter):
     """The accepted #109 target guard with v2-only placement and readback."""
 
+    _require_existing_timeline = False
+
     def __init__(self, resolve: Any) -> None:
         super().__init__(resolve)
         self._v2_root: Path = Path(".")
@@ -1336,11 +1338,6 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
 
     def import_media(self, sources: Sequence[tuple[str, Path]]) -> None:
         super().import_media(sources)
-
-    def probe(
-        self, settings: Mapping[str, str], *, require_timeline: bool = False
-    ) -> tuple[str, ...]:
-        return super().probe(settings, require_timeline=require_timeline)
 
     def verify(self, view: Mapping[str, Any]) -> tuple[str, ...]:
         discrepancies: list[str] = []
