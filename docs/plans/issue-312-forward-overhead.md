@@ -347,3 +347,58 @@ no existing media, cache, target or evidence was deleted. Resolve's observed
 Local/Allow-safe settings were changed through its UI to None/Allow-safe for
 the required injected-only output proof, and Resolve was cleanly quit before
 any installed-source update. The prior installed release is still untouched.
+
+## External storage and output-proof correction
+
+Matthew selected `/Volumes/Family 1A/CodexRulz`. Its HFS+ volume has ownership
+enabled and about 126 GiB free. Created a private `vera-issue312` child and
+verified exclusive writing and mode-0400 files. The full 24-video set finished
+there: 311,967,348 bytes, all generated stream/count/profile checks passed.
+The full 30-row plus alternate measured speech setup also uses that volume.
+Old local assets, caches, evidence and targets were not moved or removed.
+
+The corrected 1407-frame reverse companion package passed real admission.
+The injected output constructor on target A stopped **partial**, because its
+separate geometry verifier reproduced the converted-video EOF issue: integer
+end 212 for a 214-frame prepared file, exact source end time 8.925583333333332.
+The result hash is
+`9a63f2b65107f441722f16c42c6318f3997d302638ebdc3a817c63bcbf701cdf`;
+native chain `8056feaeb4d15770ef935f71d6efe70c4f6a18b8ac9468efed295a90e17b0080`,
+sequence 0. The partial project was saved and retained, not replayed or erased.
+The output geometry verifier now reuses the same byte/rate/derivation-bound
+converted clock check as ordinary delivery, retaining raw getters. Focused
+native/clock coverage passed (209 tests), including rejection of changed exact
+time, count, mapping, derivation and integer range. It still needs fresh actual
+native proof with the correction.
+
+The existing output lane fixes renders on the internal disk. Added an optional
+`output-prepare --render-root` with a private immutable per-target location
+record. Approval and every native validation still bind the exact output path;
+changing the location after approval is refused. Older targets keep their
+original paths. Same-target edited and fresh revised sessions inherit the
+chosen root. This is storage support for the required retained outputs, not an
+optimization or an expansion of render capability. Three focused root tests
+cover private permissions, symlinks, collisions, existing operations, isolated
+targets and approval-path drift. Related controller/CLI/release/parent checks
+passed (87 tests); additional native/release checks passed (92 tests). Changed
+source lint/type checks pass; full CI and final review remain outstanding.
+
+Installed bundles were archived outside the plugin root before each update:
+`~/.local/state/vera/issue312-installed-archive-v1` preserves the original bundle;
+`issue312-installed-archive-v2` preserves the failed output bundle. The currently
+installed bundle is the existing read-only target-identity reader for fresh
+target B, with request SHA256
+`b7341f29e8c3863dba6a9f16a75e6050f66ec3a521fd6d9d6ce17b0a32dcd0b7`.
+Its host artifacts are on the external volume under `target-b-identity-v1`.
+The accepted #207 design approval is reused from the checked-in acceptance
+record; no approval quote or identity receipt was fabricated. Resolve remains
+None/Allow-safe. Target B has one saved empty 23.976 1080 timeline. A UI focus
+mistake created another empty project named `VolumesFamily 1ACodexRulzvera-issue312`;
+it is retained and unused. B is correctly named
+`VERA312 Held Boundary Rehearsal 20261025 B`.
+
+Automated menu attempts produced no identity started/result record. Asked
+Matthew for the one actual menu click and a `launched` reply; do not claim a
+captured UID or native retry until the existing request produces real evidence.
+No output constructor is currently live. Fixture setup and this capability
+debugging are outside the still-unstarted four-hour benchmark budget.

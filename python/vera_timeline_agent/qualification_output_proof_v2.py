@@ -1402,7 +1402,22 @@ def prepare_edited_output_session(
         phase="edited",
         invocation_id=str(uuid.uuid4()),
     )
+    _inherit_render_root(baseline, controller)
     return _write_controller_session(root, controller)
+
+
+def _inherit_render_root(
+    baseline: QualificationOutputController, controller: QualificationOutputController
+) -> None:
+    from .qualification_output_native_v2 import (
+        NATIVE_STATE_ROOT,
+        register_render_root,
+        render_parent,
+    )
+
+    root = render_parent(baseline.context).parent
+    if root != NATIVE_STATE_ROOT / "renders":
+        register_render_root(controller.context, root)
 
 
 def prepare_revised_output_session(
@@ -1476,6 +1491,7 @@ def prepare_revised_output_session(
         revised_preflight_path=preflight_path,
         revised_preflight_sha256=preflight_sha256,
     )
+    _inherit_render_root(proof.baseline, controller)
     return _write_controller_session(root, controller)
 
 

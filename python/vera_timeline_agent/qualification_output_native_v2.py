@@ -697,6 +697,60 @@ def _read_ref(value: Any, label: str) -> tuple[bytes, str, Path]:
     return raw, expected, path
 
 
+def render_parent(context: dict[str, Any]) -> Path:
+    """Resolve a private per-target output location; old targets keep their root."""
+    key = _chain_key(_context(context))
+    location = NATIVE_STATE_ROOT / "targets" / key / "render-location.json"
+    root = NATIVE_STATE_ROOT / "renders"
+    if location.exists() or location.is_symlink():
+        value = _shape(
+            _parse(_read(location, "render location", maximum=8192)),
+            frozenset({"schemaVersion", "chainKey", "root"}),
+            "render location",
+        )
+        info = location.stat()
+        _require(
+            info.st_uid == os.getuid()
+            and info.st_nlink == 1
+            and stat.S_IMODE(info.st_mode) == 0o400
+            and value["schemaVersion"] == "qualification-output-render-location/v1"
+            and value["chainKey"] == key,
+            "immutable owned per-target render location required",
+        )
+        root = _path(value["root"], "render root")
+        _require(
+            root.is_dir()
+            and root.stat().st_uid == os.getuid()
+            and stat.S_IMODE(root.stat().st_mode) == 0o700,
+            "private owned render root required",
+        )
+    return root / key
+
+
+def register_render_root(context: dict[str, Any], root: Path) -> None:
+    """Pin a new target's explicitly selected local volume before approval."""
+    key = _chain_key(_context(context))
+    _path(str(root), "render root")
+    _require(
+        root.is_dir()
+        and root.stat().st_uid == os.getuid()
+        and stat.S_IMODE(root.stat().st_mode) == 0o700,
+        "private owned render root required",
+    )
+    directory = NATIVE_STATE_ROOT / "targets" / key
+    _path(str(directory), "native target")
+    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    _require(not (directory / "operations").exists(), "native operation already exists")
+    _publish(
+        directory / "render-location.json",
+        {
+            "schemaVersion": "qualification-output-render-location/v1",
+            "chainKey": key,
+            "root": str(root),
+        },
+    )
+
+
 def _time(value: Any, label: str) -> datetime:
     _identity(value)
     try:
@@ -982,13 +1036,7 @@ def verify_operator_approval(
         "approved settings differ from admitted timeline",
     )
     output = _path(approval["outputPath"], "approved MOV output")
-    target_key = {
-        "projectUid": approved_context["target"]["projectUid"],
-        "timelineUid": approved_context["target"]["timelineUid"],
-        "caseId": approved_context["caseId"],
-        "phase": approved_context["phase"],
-    }
-    expected_parent = NATIVE_STATE_ROOT / "renders" / _hash(_canonical(target_key))
+    expected_parent = render_parent(approved_context)
     _require(
         output.parent == expected_parent and output.suffix.lower() == ".mov",
         "output must use the private per-case MOV location",
@@ -4202,6 +4250,7 @@ def _capture_geometry(
                 expected_source_end = expected_source_start + expected_source_duration
                 verified_video_frames = None
                 verified_video_verification = None
+                verified_video_binding = None
                 manifest_source = manifest_sources.get(source_id)
                 if kind == "video":
                     for manifest_source_row in manifest.get("sources", []):
@@ -4219,6 +4268,7 @@ def _capture_geometry(
                                         "decodedFrameCount"
                                     ]
                                     verified_video_verification = verification
+                                    verified_video_binding = binding
                 video_end_saturated_at_eof = (
                     kind == "video"
                     and type(verified_video_frames) is int
@@ -4255,6 +4305,37 @@ def _capture_geometry(
                         method = getattr(item, method_name, None)
                         if callable(method):
                             range_times[method_name] = method()
+                if (
+                    request.get("profile") == MATRIX_PROFILE
+                    and kind == "video"
+                    and source.get("kind") == "video"
+                    and not static_picture
+                    and verified_video_binding is not None
+                    and verified_video_binding.get("mode") == "derived_cfr"
+                ):
+                    from .workflow_v2 import _fractional_source_range_matches
+
+                    if _fractional_source_range_matches(
+                        event=event,
+                        source=source,
+                        manifest_source=manifest_source or {},
+                        preparation_bindings={
+                            verified_video_binding[
+                                "requirementKey"
+                            ]: verified_video_binding
+                        },
+                        timeline=expected_timeline,
+                        actual_start=source_start,
+                        actual_end=source_end,
+                        source_times=range_times,
+                        speed=speed,
+                        media_properties=props,
+                        record_duration=duration,
+                    ):
+                        # Reuse the byte/rate/derivation-bound delivered-clock
+                        # check; retain the raw integer getters in the capture.
+                        source_start = expected_source_start
+                        source_duration = expected_source_duration
                 if (
                     request.get("profile") in {MATRIX_PROFILE, PRESENTER_PROFILE}
                     and request["context"].get("phase")

@@ -320,6 +320,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         required=True,
     )
     output_prepare.add_argument("--package", type=Path)
+    output_prepare.add_argument("--render-root", type=Path)
     output_prepare.add_argument(
         "--narration-evidence",
         nargs=3,
@@ -585,6 +586,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 preparation_paths=preparation_paths or None,
                 narration_evidence_paths=_narration_evidence_paths(
                     arguments.narration_evidence
+                ),
+                render_root=(
+                    None
+                    if arguments.render_root is None
+                    else arguments.render_root.absolute()
                 ),
                 target={
                     "projectUid": arguments.project_uid,
