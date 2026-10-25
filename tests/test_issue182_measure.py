@@ -474,6 +474,10 @@ def test_same_rate_native_sample_onsets_are_never_nudged(
         "vera_timeline_agent.narration.measure.Normalizer.normalize_pcm",
         lambda *args, **kwargs: SimpleNamespace(wav_bytes=reference_wav),
     )
+    monkeypatch.setattr(
+        "vera_timeline_agent.narration.measure.Normalizer.tool_fingerprint",
+        property(lambda self: loaded.asset.tool_fingerprint),
+    )
     if lag > 0:
         normalized = [0] * lag + normalized[:-lag]
     elif lag < 0:

@@ -468,9 +468,17 @@ def _verify_normalization_transform(loaded: LoadedAsset, lag: Lag) -> None:
     as proof of continuity. Only the already verified global offset is applied.
     """
     try:
-        expected = Normalizer(
-            profile_id=loaded.asset.normalization_profile
-        ).normalize_pcm(loaded.raw_pcm, sample_rate=SAMPLE_RATE, channels=1)
+        normalizer = Normalizer(profile_id=loaded.asset.normalization_profile)
+        if normalizer.tool_fingerprint != loaded.asset.tool_fingerprint:
+            raise MeasurementError(
+                [
+                    "normalization timing not verified: media tool changed since "
+                    "normalization; re-normalize the cached PCM"
+                ]
+            )
+        expected = normalizer.normalize_pcm(
+            loaded.raw_pcm, sample_rate=SAMPLE_RATE, channels=1
+        )
     except MediaToolError as error:
         raise MeasurementError(
             [
@@ -956,6 +964,7 @@ def measure_asset(
             "durationSamples": asset.duration_samples,
             "sampleRate": asset.sample_rate,
             "channels": asset.channels,
+            "toolFingerprint": asset.tool_fingerprint,
         },
         "lag": {
             "rawSampleRate": loaded.raw_sample_rate,
@@ -963,7 +972,11 @@ def measure_asset(
             "uncertaintySamples": lag.uncertainty_samples,
             "windowsVerified": lag.windows_verified,
             "transformVerification": (
-                {"method": "reproduced_pcm", "normalizerVersion": NORMALIZER_VERSION}
+                {
+                    "method": "reproduced_pcm",
+                    "normalizerVersion": NORMALIZER_VERSION,
+                    "toolFingerprint": asset.tool_fingerprint,
+                }
                 if loaded.raw_sample_rate == SAMPLE_RATE
                 else {"method": "rms_envelope"}
             ),

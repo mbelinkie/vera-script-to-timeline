@@ -341,6 +341,55 @@ def test_same_rate_measurement_requires_reproduced_transform() -> None:
         )
 
 
+def test_measurement_rate_cannot_override_native_provider_rate() -> None:
+    fixture = Measured()
+    fixture.timing = canonical_json_bytes(
+        {"marks": [{"kind": "word", "time_sample": 0, "sample_rate": 48_000}]}
+    )
+    timing_hash = sha256_bytes(fixture.timing)
+    fixture.row["timingHash"] = fixture.row["audio"]["timingHash"] = timing_hash
+    fixture.retarget(lambda value: value["asset"].update(timingHash=timing_hash))
+    with pytest.raises(ProofBuildError, match="raw rate differs from native"):
+        verify_measured_narration_evidence(
+            fixture.row, timing=fixture.timing, artifact=fixture.artifact
+        )
+
+
+def test_same_rate_transform_fingerprint_must_match_asset() -> None:
+    from vera_timeline_agent.narration.normalize import NORMALIZER_VERSION
+
+    fixture = Measured()
+    fingerprint = "sha256:" + "7" * 64
+
+    def sample_proof(value: dict[str, Any]) -> None:
+        value["asset"]["toolFingerprint"] = fingerprint
+        value["lag"].update(
+            rawSampleRate=48_000,
+            method="sample_correlation",
+            uncertaintySamples=0,
+            windowsVerified=3,
+            transformVerification={
+                "method": "reproduced_pcm",
+                "normalizerVersion": NORMALIZER_VERSION,
+                "toolFingerprint": fingerprint,
+            },
+        )
+
+    fixture.retarget(sample_proof)
+    verify_measured_narration_evidence(
+        fixture.row, timing=fixture.timing, artifact=fixture.artifact
+    )
+    fixture.retarget(
+        lambda value: value["lag"]["transformVerification"].update(
+            toolFingerprint="sha256:" + "8" * 64
+        )
+    )
+    with pytest.raises(ProofBuildError, match="supported transform verification"):
+        verify_measured_narration_evidence(
+            fixture.row, timing=fixture.timing, artifact=fixture.artifact
+        )
+
+
 def test_unclean_locators_are_refused() -> None:
     for locator in ("../escape.json", "/abs/path.json", "a//b.json", ""):
         fixture = Measured()

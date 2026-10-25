@@ -144,6 +144,8 @@ def _mock_normalizer(
     profile_id: str = "test",
 ) -> None:
     class DeterministicNormalizer:
+        tool_fingerprint = "sha256:" + "5" * 64
+
         def __init__(self, *, profile_id: str) -> None:
             assert profile_id == expected_profile
 
@@ -375,9 +377,28 @@ def test_real_normalizer_pcm24_output_verifies_zero_sample_lag(
         normalization_profile=normalized.profile_id,
         sample_format=normalized.sample_format,
     )
+    loaded = replace(
+        loaded,
+        asset=replace(loaded.asset, tool_fingerprint=normalized.tool_fingerprint),
+    )
 
     assert lag.samples == 0
     assert lag.method == "sample_correlation"
     assert lag.uncertainty_samples == 0
     assert lag.windows_verified >= 3
     measure_module._verify_normalization_transform(loaded, lag)
+
+
+def test_changed_media_tool_requires_cached_pcm_renormalization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    raw = _speech_like()
+    wav = wav_bytes(raw)
+    loaded = _loaded_asset_48k(tmp_path, raw, wav)
+    _mock_normalizer(monkeypatch, raw_pcm=_pcm(raw), expected_wav=wav)
+    monkeypatch.setattr(
+        "vera_timeline_agent.narration.measure.Normalizer.tool_fingerprint",
+        "sha256:" + "6" * 64,
+    )
+    with pytest.raises(MeasurementError, match=r"media tool changed.*re-normalize"):
+        measure_module._verify_normalization_transform(loaded, Lag(0, 0.0, 1.0, 0))
