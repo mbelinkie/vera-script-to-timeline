@@ -4,6 +4,7 @@ import copy
 from pathlib import Path
 from typing import Any
 
+import pytest
 from test_issue144_audio_evidence import (
     TARGET,
     _program,
@@ -11,11 +12,12 @@ from test_issue144_audio_evidence import (
     _wav,
     _write,
 )
-from test_issue144_audio_evidence import (
-    case as case,
-)
+from test_issue144_audio_evidence import case as case
+from test_issue144_audio_evidence import case_template as case_template
 from vera_timeline_agent.roundtrip_audio import verify_omission_evidence
 from vera_timeline_agent.roundtrip_build import load_operator_json
+
+pytestmark = pytest.mark.slow
 
 
 def test_compiled_auxiliary_geometry_is_separate_from_primary_supports_and_mix(

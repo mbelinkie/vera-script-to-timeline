@@ -19,6 +19,7 @@
   "scripts": {
     "lint": "eslint src test --max-warnings=0",
     "typecheck": "tsc --project tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:fast": "vitest run --exclude test/authoring-v2-schema.test.ts --exclude test/issue-144-compile-cli.test.ts --exclude test/issue-144-composition.test.ts --exclude test/issue-144-omission-bridge.test.ts --exclude test/issue-144-proof-cli.test.ts --exclude test/issue-192-v2-integration.test.ts --exclude test/prompter-export-cli.test.ts --exclude test/script-validator-cli.test.ts --exclude test/shoot-registration.test.ts"
   }
 }
