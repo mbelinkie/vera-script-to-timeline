@@ -90,3 +90,29 @@ timings. Only this parent operates Resolve for #312.
 Matthew's resumed instruction requires Claude review even if unavailable or
 quota exhausted: save/push progress and leave review/merge/closure pending;
 do not waive or replace it. Do not watch CI or start timers/successor chats.
+
+## First implementation checkpoint
+
+`issue312_fixture.py` now defines the complete 30/60/12/24 topology and a
+six-row rehearsal containing every size/rate class. Its opt-in video generator
+uses mathematical patterns, refuses existing outputs, retains failed attempts,
+checks actual stream properties/frame counts and records source digests. It has
+not generated media yet; source-size accounting is not the eventual whole
+fixture/package 2 GiB acceptance check.
+
+Invocation-scoped instrumentation now exposes exclusive package and delivery
+spans, bytes/files hashed, inventories and opaque adapter-call counts. The new
+runtime module ships with the guarded release. All package loads and native
+guards remain in their original order. Adapter calls are not low-level API
+call counts; probe/subprocess/capture counters, reverse spans, the continuous
+outer request clock and timing reconciliation remain to be completed before
+baseline. No performance reduction is claimed or implemented yet.
+
+Pinned Node/npm and frozen Python bootstrap completed. Focused pure checks are
+permitted during #254's native slot; media generation, native operation and
+timed work require its explicit release. Public speech still needs actual
+download, pinned rights/bytes and accepted offline timing. Use the concrete
+#215 output observation/revision bridge for the eventual reverse proof; the
+older injected #190 proof consumer restricts preparation profiles and is not a
+shortcut around #174 or receipt authentication. No fabricated timing, fake
+authority or manually authored inference may stand in for that real path.

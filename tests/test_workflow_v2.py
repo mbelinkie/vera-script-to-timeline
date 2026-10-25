@@ -794,6 +794,18 @@ def test_23976_build_runs_guarded_save_reopen_and_readback(tmp_path: Path) -> No
         "target",
     ]
     assert adapter.calls[-2:] == ["save_close_reopen", "verify"]
+    performance = result["performance"]
+    # create_project also checks its target internally, inside its opaque span.
+    assert performance["counters"]["native.adapterCalls"] == len(adapter.calls) - 1
+    assert performance["counters"]["hash.bytes"] > 0
+    validations = next(
+        item
+        for item in performance["spans"]
+        if item["name"] == "delivery.package_validation"
+    )
+    # Initial/preflight/final loads plus every native mutation remain observable.
+    mutations = len(adapter.calls) - adapter.calls.count("target") - 4
+    assert validations["calls"] == mutations + 3
 
 
 def test_23976_native_rate_is_opt_in_and_defaults_to_refusal(

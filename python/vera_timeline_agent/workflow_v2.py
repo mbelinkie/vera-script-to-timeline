@@ -21,6 +21,7 @@ from itertools import pairwise
 from pathlib import Path, PurePosixPath
 from typing import Any, TypeGuard, cast
 
+from .performance_v2 import OPAQUE_NATIVE, delivery_record, increment, measured, span
 from .studio_spike import _project_settings, _still_source_frame_duration
 from .workflow_delivery import (
     SUPPORTED_IDENTITIES,
@@ -224,6 +225,7 @@ def _hash_regular(path: Path, label: str) -> tuple[str, int]:
                 break
             digest.update(chunk)
             total += len(chunk)
+            increment("hash.bytes", len(chunk))
         after = os.fstat(descriptor)
         if (before.st_dev, before.st_ino, before.st_size) != (
             after.st_dev,
@@ -231,12 +233,14 @@ def _hash_regular(path: Path, label: str) -> tuple[str, int]:
             after.st_size,
         ) or total != before.st_size:
             raise WorkflowV2Error(f"{label} changed while it was hashed")
+        increment("hash.files")
         return digest.hexdigest(), total
     finally:
         os.close(descriptor)
 
 
 def _inventory(root: Path) -> list[dict[str, Any]]:
+    increment("package.inventories")
     _regular_absolute(root, "package", directory=True)
     entries: list[dict[str, Any]] = []
     try:
@@ -428,6 +432,7 @@ def _load_attestation(path: Path, expected_sha256: str) -> tuple[dict[str, Any],
     return value, root
 
 
+@measured("delivery.package_validation")
 def load_verified_package_v2(path: Path, expected_sha256: str) -> VerifiedPackageV2:
     """Load a closed v2 handoff after independently rehashing all package bytes."""
     attestation_path = Path(path)
@@ -1957,6 +1962,7 @@ def _fractional_source_range_matches(
         return False
 
 
+@delivery_record
 def run_workflow_delivery_v2(
     resolve: Any,
     attestation_path: Path,
@@ -2070,7 +2076,9 @@ def run_workflow_delivery_v2(
         factory = adapter_factory or PublicResolveAdapter
         stage = "Resolve connection preflight"
         adapter = factory(resolve)
-        connected = adapter.connected_facts()
+        with span("delivery.connection", OPAQUE_NATIVE):
+            increment("native.adapterCalls")
+            connected = adapter.connected_facts()
         result["connected"] = (
             asdict(connected)
             if hasattr(connected, "__dataclass_fields__")
@@ -2084,9 +2092,13 @@ def run_workflow_delivery_v2(
             not in SUPPORTED_IDENTITIES
         ):
             raise WorkflowV2Error("unsupported connected Resolve edition or build")
-        result["manualCompletion"] = list(adapter.probe(settings))
+        with span("delivery.probe", OPAQUE_NATIVE):
+            increment("native.adapterCalls")
+            result["manualCompletion"] = list(adapter.probe(settings))
         stage = "new target collision check"
-        adapter.check_project_name_available(attestation["projectName"])
+        with span("delivery.collision_check", OPAQUE_NATIVE):
+            increment("native.adapterCalls")
+            adapter.check_project_name_available(attestation["projectName"])
         if load_verified_package_v2(attestation_path, attestation_sha256) != package:
             raise WorkflowV2Error("package changed during preflight")
         if action == "preflight":
@@ -2117,9 +2129,13 @@ def run_workflow_delivery_v2(
             if current != package:
                 raise WorkflowV2Error("package changed before a native operation")
             if mutation_started:
-                adapter.assert_current_target()
+                with span("delivery.target_guard", OPAQUE_NATIVE):
+                    increment("native.adapterCalls")
+                    adapter.assert_current_target()
             mutation_started = True
-            return method(*arguments)
+            with span(f"delivery.native.{label}", OPAQUE_NATIVE):
+                increment("native.adapterCalls")
+                return method(*arguments)
 
         mutate(
             adapter.create_project, attestation["projectName"], label="create project"
@@ -2152,7 +2168,9 @@ def run_workflow_delivery_v2(
         )
         if load_verified_package_v2(attestation_path, attestation_sha256) != package:
             raise WorkflowV2Error("package changed after native save and reopen")
-        discrepancies = tuple(adapter.verify(view))
+        with span("delivery.readback", OPAQUE_NATIVE):
+            increment("native.adapterCalls")
+            discrepancies = tuple(adapter.verify(view))
         result["discrepancies"] = list(discrepancies)
         result["verified"] = not discrepancies
         result["status"] = "verified" if not discrepancies else "verification_failed"
