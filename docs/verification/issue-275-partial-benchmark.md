@@ -1,28 +1,32 @@
-# Issue 275: partial benchmark results
+# Issue 275: script-to-Resolve turnaround results
 
-**Status: blocked at the Resolve delivery step.** Timing, compilation and package verification succeeded for the retained fresh assets, the unchanged cache and the one-row edit. No case completed a successful Resolve save/reopen, so these results do not establish end-to-end turnaround.
+**Status: all three guarded Resolve runs passed.** Cold media preparation and optional rendering remain unmeasured, so the stage sums below are partial workflow estimates rather than complete cold-build wall times.
 
-## Current Inworld benchmark (2026-10-24–25)
+## Inworld benchmark (2026-10-24–25)
 
-The run used the selected Inworld TTS-2 / Arthur route on a MacBookPro16,1 (Intel) with DaVinci Resolve Studio 21.1.1. The unchanged compiled sample is 1,143 frames at 24,000/1,001 fps (about 47.7 seconds), with two narration rows and 102 words, 11 timeline events and 17 package media artifacts. The one-row edit produces a 1,149-frame timeline (about 47.9 seconds).
+The selected Inworld TTS-2 / Arthur route ran on a MacBookPro16,1 (Intel) with DaVinci Resolve Studio 21.1.1. The unchanged sample is 1,143 frames at 24,000/1,001 fps (about 47.7 seconds), with two narration rows, 102 words, 11 timeline events and 17 package media artifacts. The one-row edit is 1,149 frames (about 47.9 seconds).
 
-The six existing media-preparation receipts were reused from #300. Media preparation therefore remains unmeasured, and these are not fully cold media-preparation cases. No competing media task ran during the guarded Resolve attempts. Optional review rendering was not run.
+Each case used a fresh attestation, release, request, evidence directory and disposable Resolve target. All three normal v2 deliveries saved and reopened their project, verified 11 events and 11 imported media items, and reported zero discrepancies. No provider call was made during these final Resolve runs. Two earlier attempts through the 60-second caller were retained and excluded; the recoverable parent added by #302 completed these runs. No competing media workload ran during the timed Resolve stages.
 
-Package build and verification was the longest completed stage, at 74–83 seconds. This roughly 48-second segment cannot support a reliable 5–10-minute turnaround estimate, so none is offered. These are single observations per case, with two failed Resolve attempts for the fresh case; they are not production percentiles.
+Six existing media-preparation receipts were reused from #300; no cold media-preparation duration was recorded for this benchmark. Resolve startup, attestation/release/request preparation, manual authoring and optional review rendering are also excluded.
 
-| Case | Narration generation/cache | Automatic timing | Compile and media-needs | Package build and verification | Resolve |
-| --- | --- | --- | --- | --- | --- |
-| Fresh narration assets, resumed after the earlier compiler refusal | The two prior fresh-miss generation/normalization observations were 2.805 s and 6.782 s; no new provider call was made for this resume. | Retained audio remeasured with networking disabled: 2.976 s and 7.130 s. Both rows produced verified `qualified_linear_transform` evidence with zero sample correction. | 0.353 s / 0.046 s | 74.051 s; verified, 17 media artifacts and 6 preparation receipts | Two guarded attempts each hit the script tool's 60-second ceiling after creating a disposable project. Neither produced a timeline or final result record. |
-| Unchanged rebuild | Both rows were cache hits: 0.961 s and 0.277 s; no provider calls. | Reused the verified timing evidence from the fresh case. | 0.385 s / 0.038 s | 83.222 s; verified, 17 media artifacts and 6 preparation receipts | Not run after the fresh Resolve timeout established the runner blocker. |
-| One-row change | One approved row generated and normalized in 15.252 s; the unchanged row was reused. | Edited row measured in 10.935 s; evidence verified with zero sample correction. Reserved estimate: $0.011575; actual billing is unconfirmed. | 0.334 s / 0.026 s, including one recompile to align the longer timeline duration | 75.183 s; verified, 17 media artifacts and 6 preparation receipts | Not run after the fresh Resolve timeout established the runner blocker. |
+| Case | Narration generation/cache | Automatic timing | Compile / media-needs | Package build and verification | Resolve delivery (reserve to verified exit) | Sum of measured stages* |
+| --- | --- | --- | --- | --- | --- | --- |
+| Fresh narration assets | 2.805 s and 6.782 s on the prior fresh-miss run; no new provider calls for this completion. | Retained audio remeasured with networking disabled: 2.976 s and 7.130 s. Both rows passed `qualified_linear_transform` verification with zero sample correction. | 0.353 s / 0.046 s | 74.051 s; verified | 76.667 s; verified, zero discrepancies | About 2 min 51 s |
+| Unchanged rebuild | Cache hits: 0.961 s and 0.277 s; no provider calls. | Reused verified timing evidence from the fresh case. | 0.385 s / 0.038 s | 83.222 s; verified | 74.235 s; verified, zero discrepancies | About 2 min 39 s |
+| One-row change | Changed row generated and normalized in 15.252 s; unchanged row reused. Reserved estimate: $0.011575; actual billing is unconfirmed. | Changed row measured in 10.935 s and passed verification with zero sample correction. | 0.334 s / 0.026 s, including one recompile to align timeline duration | 75.183 s; verified | 69.033 s; verified, zero discrepancies | About 2 min 51 s |
+
+\* These are sums of recorded stage observations, not continuous stopwatch runs. Narration, timing, compile, package and Resolve stages were captured in separate executions. The sums omit media preparation, so a fully cold end-to-end time is still unknown. These are single observations, not production percentiles, and the roughly 48-second segment does not establish a 5–10-minute estimate for a longer video.
+
+The longest measured stages were package build and verification (74–83 seconds) and the Resolve delivery path (69–77 seconds, including connection, guarded bootstrap, package rechecks, assembly and save/reopen verification). Compilation plus media-needs checks took about 0.36–0.42 seconds. The compiler itself is not the source of the multi-minute sample turnaround. A separate successful #302 run took 250.95 seconds; it is not averaged into these three #275 cases, and no cause for the difference is established.
+
+The retained Inworld spend ledgers reconcile to $0.162960 reserved across #289, #293 and #275, against the existing $5 allowance; actual account billing is unconfirmed. This completion made no provider calls.
 
 The first Inworld attempt used the older verifier: row 1 was refused at 0.895 correlation (below the 0.900 threshold), row 2 was refused because its estimated correction was -7 samples, and compilation then reported STALE_ANCHOR for five events. No marks were shifted or clamped. The retained assets were remeasured after #301; the accepted evidence now uses the qualified 48 kHz transform with zero sample correction.
 
-The timing verifier now accepts both retained fresh rows and the edited row. That clears the earlier alignment refusal. The remaining blocker is the Studio invocation: both fresh attempts returned at the 60-second call limit with only start evidence. A previous successful #300 Studio proof took 72.93 seconds end to end, longer than that call limit. The failed disposable targets are retained; no result claims they passed.
+The timing verifier accepts both retained fresh rows and the edited row. The earlier guarded attempts returned at the 60-second call limit and are excluded from the successful run count. A prior #300 Studio proof took 72.93 seconds; the recoverable parent lets the caller wait for longer operations without retrying or replacing a live target. Failed disposable targets remain retained.
 
-The provider-stage observations came from the earlier fresh-miss attempt; the accepted timing evidence and compile/package stages were measured after the #301 repair. This is a resumed measurement, not one continuous stopwatch run. Across prior current Inworld reservations and the authorized edited-row call, the cumulative reservation is estimated at $0.174535 against the existing $5 allowance; actual account billing is unconfirmed.
-
-Follow-up #302 tracks a supported way to wait for or resume the guarded Resolve workflow beyond the 60-second call limit. #275 remains open and Blocked until a fresh disposable target completes save/reopen verification.
+The provider-stage observations came from earlier fresh-miss and edited-row runs; accepted timing evidence and compile/package stages were measured after the #301 repair. This is a resumed measurement, not one continuous stopwatch run.
 
 ## Historical Fish attempt (2026-10-23): input and machine
 
@@ -58,4 +62,4 @@ Credential setup, adapter debugging, review and this report are one-off work and
 
 ## Follow-up
 
-The Fish sample-rate and distinct-native-start repair is complete in [#285](https://github.com/mbelinkie/vera-script-to-timeline/issues/285). The Inworld sample-alignment repair is complete in [#297](https://github.com/mbelinkie/vera-script-to-timeline/issues/297). The Resolve long-running invocation blocker is tracked in [#302](https://github.com/mbelinkie/vera-script-to-timeline/issues/302); #275 remains open until the actual Studio save/reopen path succeeds.
+The Fish sample-rate and distinct-native-start repair is complete in [#285](https://github.com/mbelinkie/vera-script-to-timeline/issues/285). The Inworld sample-alignment repair is complete in [#297](https://github.com/mbelinkie/vera-script-to-timeline/issues/297). The recoverable Resolve invocation is implemented in merged [#302](https://github.com/mbelinkie/vera-script-to-timeline/issues/302). #275 can close after this sanitized report merges and its External evidence is recorded.
