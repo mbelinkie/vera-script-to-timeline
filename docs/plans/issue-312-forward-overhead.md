@@ -145,3 +145,36 @@ first short exclusive Resolve/media slot under Matthew's latest instruction;
 #312 waits for one explicit release without polling. The guarded #254 project
 and installed release are untouched. Current main (#315) was merged cleanly
 into this branch; current repository rules remain unchanged.
+
+## Measured rehearsal speech
+
+After #283 released the resource slot, the existing MFA 3.4.3 English engine
+aligned all 81 words. Its first attempt failed before alignment because the
+environment's helper binaries were absent from PATH; the corrected-path run
+passed with the same preinstalled models. Both result files are retained.
+The engine uses an issue-owned work/cache directory and a read-only locator to
+the existing model set; no existing media/cache was purged or engine installed.
+
+The accepted split has 41 and 40 words, with a cut inside a measured sentence
+gap. Six rehearsal rows plus a complete alternate were replayed from public
+PCM through the normal NarrationService cache, normalizer and measurement.
+All seven measured artifacts passed. Actual row extents are 478 and 451 frames
+at 24000/1001, with a disclosed 100 ms row-specific quiet tail for independent
+PCM identities. The 16 kHz normalization verifier measured -7 samples of lag
+for each row; this is retained in the artifacts, not shifted to a target length.
+MFA supplies onsets because native TTS marks are absent. This limitation is
+explicit in each replay input and aggregate provenance; those onsets are not
+claimed to be original engine marks or human-reviewed word boundaries.
+
+`issue312_package.py` now composes source inspection, actual media-needs,
+qualified #174 preparation, compiler output and verified package building.
+Its preparations are created under a fresh #312 child of the approved matrix
+root so the real output-proof admission can authenticate them normally. The
+builder checks the declared event density before packaging; it does not forge
+receipts or output evidence. Actual package assembly remains to be exercised.
+
+The first video attempt stopped on missing stream transfer/primaries metadata;
+its source is retained. The corrected generator explicitly pins H.264 color
+parameters. The small mathematical pattern is scaled to native 1080/4K source
+dimensions to keep the complete public fixture under its size limit. The
+six-source corrected run is fixture setup, outside the four-hour timed budget.
