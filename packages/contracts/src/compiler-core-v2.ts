@@ -197,6 +197,17 @@ function diagnostic(code: BuildDiagnosticV2["code"], message: string, target: En
 
 function textHashForRow(block: NarrationBlockV2): string { return shaText(block.text); }
 
+function unsupportedRowIntent(document: ScriptDocumentV2): CompileDiagnosticV2 | null {
+  const active = new Set(document.activeDraft.blocks.map((row) => row.id));
+  if (document.rowAudioSpans?.some((span) => active.has(span.startRowId))) return {
+    code: "ROW_AUDIO_RUNTIME_UNAVAILABLE", message: "Saved row audio intent has no qualified timing or delivery adapter. Review it before building.", jsonPath: "/rowAudioSpans",
+  };
+  if (document.rowTransitions?.some((pair) => pair.state === "active" && pair.effect !== "cut" && active.has(pair.fromRowId))) return {
+    code: "ROW_TRANSITION_RUNTIME_UNAVAILABLE", message: "Saved row transition intent has no qualified delivery adapter. Review it before building.", jsonPath: "/rowTransitions",
+  };
+  return null;
+}
+
 function malformedFrozenText(document: ScriptDocumentV2): CompileDiagnosticV2 | null {
   const wellFormed = (text: string): boolean => Buffer.from(text, "utf8").toString("utf8") === text;
   for (const block of document.activeDraft.blocks) {
@@ -1352,6 +1363,8 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
   if (!validateDependencies(dependenciesInput)) return fail(...schemaDiagnostics(validateDependencies.errors, "DEPENDENCIES"));
   const document = documentInput as ScriptDocumentV2;
   const dependencies = dependenciesInput;
+  const rowIntentProblem = unsupportedRowIntent(document);
+  if (rowIntentProblem) return fail(rowIntentProblem);
   const audioBindingProblem = conflictingNarrationAudioBinding([...dependencies.narrationTimingMaps, ...dependencies.narrationBoundaryEvidence ?? []]);
   if (audioBindingProblem) return fail(audioBindingProblem);
   const seenTrackIds = new Set<string>();
@@ -1471,6 +1484,8 @@ export function resolveMediaRequirementsV2(documentInput: unknown, input: MediaR
   if (!validation.valid) return { ok: false, diagnostics: validation.diagnostics.map((item) => ({ code: item.code, message: item.message, jsonPath: item.jsonPath, ...(item.entityId ? { entityId: item.entityId } : {}) })) };
   try {
     const document = documentInput as ScriptDocumentV2;
+    const rowIntentProblem = unsupportedRowIntent(document);
+    if (rowIntentProblem) return { ok: false, diagnostics: [rowIntentProblem] };
     const malformedText = malformedFrozenText(document);
     if (malformedText) return { ok: false, diagnostics: [malformedText] };
     const audioBindingProblem = conflictingNarrationAudioBinding([...input.timing, ...input.boundaryEvidence ?? []]);
