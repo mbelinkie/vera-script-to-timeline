@@ -37,6 +37,7 @@ from vera_timeline_agent.narration.measure import (
     ONSET_BASIS as MEASURE_ONSET_BASIS,
 )
 from vera_timeline_agent.narration.models import canonical_json_bytes, sha256_bytes
+from vera_timeline_agent.narration.normalize import NORMALIZER_VERSION
 from vera_timeline_agent.roundtrip_audio import _Files, _metrics, _pcm
 from vera_timeline_agent.roundtrip_build import (
     JsonObject,
@@ -264,6 +265,51 @@ def verify_measured_narration_evidence(
     asset = parsed.get("asset")
     audio = row.get("audio")
     fact(isinstance(asset, dict) and isinstance(audio, dict), "asset binding shape")
+    lag = parsed["lag"]
+    raw_rate = lag.get("rawSampleRate")
+    sample_verified = (
+        type(raw_rate) is int
+        and raw_rate == 48_000
+        and lag.get("method") == "sample_correlation"
+        and lag.get("uncertaintySamples") == 0
+        and type(lag.get("windowsVerified")) is int
+        and lag["windowsVerified"] >= 3
+        and lag.get("transformVerification")
+        == {
+            "method": "reproduced_pcm",
+            "normalizerVersion": NORMALIZER_VERSION,
+            "toolFingerprint": asset.get("toolFingerprint"),
+        }
+        and isinstance(asset.get("toolFingerprint"), str)
+        and _SHA256.fullmatch(asset["toolFingerprint"]) is not None
+    )
+    envelope_verified = (
+        type(raw_rate) is int
+        and raw_rate > 0
+        and raw_rate != 48_000
+        and (raw_rate == 44_100 or (48_000 % raw_rate == 0 and raw_rate % 1000 == 0))
+        and lag.get("method") == "rms_envelope"
+        and lag.get("transformVerification") == {"method": "rms_envelope"}
+    )
+    fact(
+        sample_verified or envelope_verified,
+        "measurement lag is missing supported transform verification",
+    )
+    try:
+        provider_timing = json.loads(timing)
+    except ValueError as error:
+        raise ProofBuildError("provider timing is not JSON") from error
+    if isinstance(provider_timing, dict):
+        marks = provider_timing.get("marks", [])
+        fact(isinstance(marks, list), "provider timing marks shape")
+        for mark in marks:
+            if isinstance(mark, dict) and mark.get("kind") == "word":
+                native_rate = mark.get("sample_rate")
+                if native_rate is not None:
+                    fact(
+                        type(native_rate) is int and native_rate == raw_rate,
+                        "measurement raw rate differs from native provider timing",
+                    )
     timing_hash = sha256_bytes(timing)
     fact(
         row.get("timingHash") == audio.get("timingHash") == timing_hash

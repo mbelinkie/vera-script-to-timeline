@@ -99,7 +99,13 @@ class Measured:
                 "sampleRate": 48_000,
                 "channels": 1,
             },
-            "lag": {"verified": True, "samples": 0},
+            "lag": {
+                "verified": True,
+                "samples": 0,
+                "rawSampleRate": 16_000,
+                "method": "rms_envelope",
+                "transformVerification": {"method": "rms_envelope"},
+            },
             "tokens": [
                 {
                     "tokenId": "t0",
@@ -314,6 +320,71 @@ def test_unverified_lag_or_refusals_are_refused() -> None:
     fixture = Measured()
     fixture.retarget(lambda value: value["lag"].update(verified=False))
     with pytest.raises(ProofBuildError, match="not a verified measurement"):
+        verify_measured_narration_evidence(
+            fixture.row, timing=fixture.timing, artifact=fixture.artifact
+        )
+
+
+def test_same_rate_measurement_requires_reproduced_transform() -> None:
+    fixture = Measured()
+    fixture.retarget(
+        lambda value: value["lag"].update(
+            rawSampleRate=48_000,
+            method="sample_correlation",
+            uncertaintySamples=0,
+            windowsVerified=3,
+        )
+    )
+    with pytest.raises(ProofBuildError, match="supported transform verification"):
+        verify_measured_narration_evidence(
+            fixture.row, timing=fixture.timing, artifact=fixture.artifact
+        )
+
+
+def test_measurement_rate_cannot_override_native_provider_rate() -> None:
+    fixture = Measured()
+    fixture.timing = canonical_json_bytes(
+        {"marks": [{"kind": "word", "time_sample": 0, "sample_rate": 48_000}]}
+    )
+    timing_hash = sha256_bytes(fixture.timing)
+    fixture.row["timingHash"] = fixture.row["audio"]["timingHash"] = timing_hash
+    fixture.retarget(lambda value: value["asset"].update(timingHash=timing_hash))
+    with pytest.raises(ProofBuildError, match="raw rate differs from native"):
+        verify_measured_narration_evidence(
+            fixture.row, timing=fixture.timing, artifact=fixture.artifact
+        )
+
+
+def test_same_rate_transform_fingerprint_must_match_asset() -> None:
+    from vera_timeline_agent.narration.normalize import NORMALIZER_VERSION
+
+    fixture = Measured()
+    fingerprint = "sha256:" + "7" * 64
+
+    def sample_proof(value: dict[str, Any]) -> None:
+        value["asset"]["toolFingerprint"] = fingerprint
+        value["lag"].update(
+            rawSampleRate=48_000,
+            method="sample_correlation",
+            uncertaintySamples=0,
+            windowsVerified=3,
+            transformVerification={
+                "method": "reproduced_pcm",
+                "normalizerVersion": NORMALIZER_VERSION,
+                "toolFingerprint": fingerprint,
+            },
+        )
+
+    fixture.retarget(sample_proof)
+    verify_measured_narration_evidence(
+        fixture.row, timing=fixture.timing, artifact=fixture.artifact
+    )
+    fixture.retarget(
+        lambda value: value["lag"]["transformVerification"].update(
+            toolFingerprint="sha256:" + "8" * 64
+        )
+    )
+    with pytest.raises(ProofBuildError, match="supported transform verification"):
         verify_measured_narration_evidence(
             fixture.row, timing=fixture.timing, artifact=fixture.artifact
         )
@@ -636,13 +707,23 @@ def test_package_admission_entry_points_accept_evidence_paths_only_for_matrix() 
 
 # ------------------------------------------------------- real campaign evidence
 
+
+def test_prior_measurement_algorithm_version_requires_remeasurement() -> None:
+    fixture = Measured()
+    fixture.row["verification"]["algorithm"]["version"] = "1"
+    with pytest.raises(ProofBuildError, match="algorithm identity differs"):
+        verify_measured_narration_evidence(
+            fixture.row, timing=fixture.timing, artifact=fixture.artifact
+        )
+
+
 CAMPAIGN = (
     Path.home() / "Library/Application Support/VERA/polly-campaign/issue182-20261020"
 )
 
 
 @pytest.mark.skipif(not CAMPAIGN.is_dir(), reason="#182 campaign evidence absent")
-def test_real_campaign_evidence_verifies() -> None:
+def test_old_real_campaign_evidence_requires_remeasurement() -> None:
     for run in ("baseline", "revised"):
         folder = CAMPAIGN / "out" / run / "narration-measurements"
         for evidence_path in sorted(folder.glob("*.boundary-evidence.json")):
@@ -657,12 +738,10 @@ def test_real_campaign_evidence_verifies() -> None:
                 / "timing.json"
             ).read_bytes()
             wav = (CAMPAIGN / "cache" / row["audio"]["locator"]).read_bytes()
-            assert (
+            with pytest.raises(ProofBuildError, match="algorithm identity differs"):
                 verify_measured_narration_evidence(
                     row,
                     timing=timing,
                     artifact=artifact,
                     audio_sha256=sha256_bytes(wav),
                 )
-                == row["verification"]["measurementArtifactHash"]
-            )
